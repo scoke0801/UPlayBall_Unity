@@ -1,0 +1,13 @@
+{
+  "name": "Baseball.Presentation.PlayModeTests",
+  "rootNamespace": "Baseball.Tests.PlayMode.Presentation",
+  "references": [
+    "Baseball.Game",
+    "Baseball.Presentation",
+    "Unity.InputSystem"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Baseball.Simulation",
+  "rootNamespace": "Baseball.Simulation",
+  "references": [
+    "Baseball.Core"
+  ],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Baseball.Core",
+  "rootNamespace": "Baseball.Core",
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

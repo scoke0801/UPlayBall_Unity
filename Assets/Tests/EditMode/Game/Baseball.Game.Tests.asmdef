@@ -1,0 +1,14 @@
+{
+  "name": "Baseball.Game.Tests",
+  "rootNamespace": "Baseball.Tests.EditMode.Game",
+  "references": [
+    "Baseball.Game"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}

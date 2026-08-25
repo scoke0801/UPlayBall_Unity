@@ -1,0 +1,10 @@
+{
+  "name": "Baseball.Game",
+  "rootNamespace": "Baseball.Game",
+  "references": [
+    "Baseball.Core",
+    "Baseball.Simulation",
+    "Unity.InputSystem"
+  ],
+  "autoReferenced": true
+}
