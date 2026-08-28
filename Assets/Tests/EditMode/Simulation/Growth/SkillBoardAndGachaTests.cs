@@ -48,6 +48,85 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
+        public void PullSingle_고급구매는같은난수에서일반보다높은등급을지급한다()
+        {
+            SkillGachaBalanceTable balance = GrowthBalanceTable.CreateDefault().SkillGacha;
+            var service = new SkillGachaService(balance, CreateGachaDefinitions());
+            var standardEconomy = new CareerEconomyState(5000L);
+            var premiumEconomy = new CareerEconomyState(5000L);
+
+            SkillBlockInstance standard = service.PullSingle(
+                standardEconomy,
+                new SkillBoardState("standard_4x4"),
+                SkillBlockCategory.Contact,
+                SkillGachaPurchaseTier.Standard,
+                2028,
+                new FixedRandom(0.20d));
+            SkillBlockInstance premium = service.PullSingle(
+                premiumEconomy,
+                new SkillBoardState("standard_4x4"),
+                SkillBlockCategory.Contact,
+                SkillGachaPurchaseTier.Premium,
+                2028,
+                new FixedRandom(0.20d));
+
+            Assert.That(standard.DefinitionId, Is.EqualTo("contact_common"));
+            Assert.That(premium.DefinitionId, Is.EqualTo("contact_uncommon"));
+            Assert.That(standardEconomy.Money, Is.EqualTo(4400L));
+            Assert.That(premiumEconomy.Money, Is.EqualTo(3500L));
+        }
+
+        [Test]
+        [Timeout(30000)]
+        public void PullSingle_십만회에서고급구매의Rare이상비율이유의미하게높다()
+        {
+            const int PullCount = 100_000;
+            SkillGachaBalanceTable balance = GrowthBalanceTable.CreateDefault().SkillGacha;
+            var service = new SkillGachaService(balance, CreateGachaDefinitions());
+            var standardEconomy = new CareerEconomyState(500_000_000L);
+            var premiumEconomy = new CareerEconomyState(500_000_000L);
+            var standardBoard = new SkillBoardState("standard_4x4");
+            var premiumBoard = new SkillBoardState("standard_4x4");
+            var standardRandom = new Pcg32Random(20280828UL);
+            var premiumRandom = new Pcg32Random(20280828UL);
+            int standardRareOrBetter = 0;
+            int premiumRareOrBetter = 0;
+            int standardEpic = 0;
+            int premiumEpic = 0;
+
+            for (int index = 0; index < PullCount; index++)
+            {
+                SkillBlockInstance standard = service.PullSingle(
+                    standardEconomy,
+                    standardBoard,
+                    SkillBlockCategory.Contact,
+                    SkillGachaPurchaseTier.Standard,
+                    2028,
+                    standardRandom);
+                SkillBlockInstance premium = service.PullSingle(
+                    premiumEconomy,
+                    premiumBoard,
+                    SkillBlockCategory.Contact,
+                    SkillGachaPurchaseTier.Premium,
+                    2028,
+                    premiumRandom);
+                CountHighRarity(standard.DefinitionId, ref standardRareOrBetter, ref standardEpic);
+                CountHighRarity(premium.DefinitionId, ref premiumRareOrBetter, ref premiumEpic);
+            }
+
+            double standardRareRate = standardRareOrBetter / (double)PullCount;
+            double premiumRareRate = premiumRareOrBetter / (double)PullCount;
+            double standardEpicRate = standardEpic / (double)PullCount;
+            double premiumEpicRate = premiumEpic / (double)PullCount;
+            TestContext.WriteLine(
+                $"일반 R+ {standardRareRate:P2}, E {standardEpicRate:P2} · " +
+                $"고급 R+ {premiumRareRate:P2}, E {premiumEpicRate:P2}");
+
+            Assert.That(premiumRareRate, Is.GreaterThan(standardRareRate + 0.18d));
+            Assert.That(premiumEpicRate, Is.GreaterThan(standardEpicRate + 0.03d));
+        }
+
+        [Test]
         public void PlaceBlock_회전과겹침을검증하고Socket위Trait만활성화한다()
         {
             var trait = new SkillBlockDefinition(
@@ -81,6 +160,53 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 service.PlaceBlock(state, fillerInstance.InstanceId, 0, 0, 0));
             Assert.That(service.GetAbilityBonus(state, PlayerAbility.Contact), Is.EqualTo(2));
             Assert.That(service.GetActiveTraitIds(state), Does.Contain("clutch_contact"));
+        }
+
+        [Test]
+        public void GetPlacementPreview_상태변경없이모양과배치가능여부를반환한다()
+        {
+            SkillBlockDefinition block = CreateDefinition(
+                "contact_common",
+                SkillBlockRarity.Common,
+                1,
+                60L);
+            var state = new SkillBoardState("standard_4x4");
+            SkillBlockInstance instance = state.AddOwnedBlock(block.BlockId);
+            var service = new SkillBoardService(
+                SkillBoardDefinition.CreateDefault(),
+                new[] { block });
+
+            SkillBlockPlacementPreview valid = service.GetPlacementPreview(
+                state,
+                instance.InstanceId,
+                1,
+                1,
+                0);
+            SkillBlockPlacementPreview outOfBounds = service.GetPlacementPreview(
+                state,
+                instance.InstanceId,
+                3,
+                3,
+                0);
+
+            Assert.That(valid.Cells, Has.Length.EqualTo(4));
+            Assert.That(valid.CanPlace, Is.True);
+            Assert.That(outOfBounds.CanPlace, Is.False);
+            Assert.That(state.PlacedBlocks, Is.Empty);
+            Assert.That(state.OwnedBlocks, Has.Count.EqualTo(1));
+
+            SkillBlockInstance second = state.AddOwnedBlock(block.BlockId);
+            service.PlaceBlock(state, instance.InstanceId, 0, 0, 0);
+            SkillBlockPlacementPreview overlap = service.GetPlacementPreview(
+                state,
+                second.InstanceId,
+                0,
+                0,
+                0);
+
+            Assert.That(overlap.CanPlace, Is.False);
+            Assert.That(state.PlacedBlocks, Has.Count.EqualTo(1));
+            Assert.That(state.OwnedBlocks, Has.Count.EqualTo(1));
         }
 
         [Test]
@@ -153,6 +279,22 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 false,
                 new[] { new AbilityChange(PlayerAbility.Contact, bonus) },
                 sellValue);
+        }
+
+        private static void CountHighRarity(
+            string definitionId,
+            ref int rareOrBetter,
+            ref int epic)
+        {
+            if (definitionId.EndsWith("_rare", StringComparison.Ordinal))
+            {
+                rareOrBetter++;
+                return;
+            }
+            if (!definitionId.EndsWith("_epic", StringComparison.Ordinal))
+                return;
+            rareOrBetter++;
+            epic++;
         }
 
         private static bool HasSameCells(BoardCell[] left, BoardCell[] right)

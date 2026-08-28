@@ -290,39 +290,99 @@ namespace Baseball.Core.Balance
     {
         public SkillGachaBalanceTable(
             long singlePrice,
+            long premiumPrice,
             long bundlePrice,
             double commonProbability,
             double uncommonProbability,
             double rareProbability,
             double epicProbability,
+            double premiumCommonProbability,
+            double premiumUncommonProbability,
+            double premiumRareProbability,
+            double premiumEpicProbability,
             int rarePity,
             int epicPity)
         {
-            if (singlePrice <= 0L || bundlePrice <= 0L)
+            if (singlePrice <= 0L || premiumPrice <= singlePrice || bundlePrice <= 0L)
                 throw new ArgumentOutOfRangeException(nameof(singlePrice));
-            double probabilitySum = commonProbability + uncommonProbability + rareProbability + epicProbability;
-            if (Math.Abs(probabilitySum - 1d) > 0.000001d)
-                throw new ArgumentException("등급 확률 합은 1이어야 합니다.");
+            ValidateProbabilitySum(
+                commonProbability,
+                uncommonProbability,
+                rareProbability,
+                epicProbability);
+            ValidateProbabilitySum(
+                premiumCommonProbability,
+                premiumUncommonProbability,
+                premiumRareProbability,
+                premiumEpicProbability);
             if (rarePity <= 0 || epicPity <= rarePity)
                 throw new ArgumentOutOfRangeException(nameof(rarePity));
             SinglePrice = singlePrice;
+            PremiumPrice = premiumPrice;
             BundlePrice = bundlePrice;
             CommonProbability = commonProbability;
             UncommonProbability = uncommonProbability;
             RareProbability = rareProbability;
             EpicProbability = epicProbability;
+            PremiumCommonProbability = premiumCommonProbability;
+            PremiumUncommonProbability = premiumUncommonProbability;
+            PremiumRareProbability = premiumRareProbability;
+            PremiumEpicProbability = premiumEpicProbability;
             RarePity = rarePity;
             EpicPity = epicPity;
         }
 
         public long SinglePrice { get; }
+        public long PremiumPrice { get; }
         public long BundlePrice { get; }
         public double CommonProbability { get; }
         public double UncommonProbability { get; }
         public double RareProbability { get; }
         public double EpicProbability { get; }
+        public double PremiumCommonProbability { get; }
+        public double PremiumUncommonProbability { get; }
+        public double PremiumRareProbability { get; }
+        public double PremiumEpicProbability { get; }
         public int RarePity { get; }
         public int EpicPity { get; }
+
+        public long GetPrice(SkillGachaPurchaseTier tier)
+        {
+            return tier switch
+            {
+                SkillGachaPurchaseTier.Standard => SinglePrice,
+                SkillGachaPurchaseTier.Premium => PremiumPrice,
+                _ => throw new ArgumentOutOfRangeException(nameof(tier))
+            };
+        }
+
+        public double GetProbability(SkillGachaPurchaseTier tier, SkillBlockRarity rarity)
+        {
+            return (tier, rarity) switch
+            {
+                (SkillGachaPurchaseTier.Standard, SkillBlockRarity.Common) => CommonProbability,
+                (SkillGachaPurchaseTier.Standard, SkillBlockRarity.Uncommon) => UncommonProbability,
+                (SkillGachaPurchaseTier.Standard, SkillBlockRarity.Rare) => RareProbability,
+                (SkillGachaPurchaseTier.Standard, SkillBlockRarity.Epic) => EpicProbability,
+                (SkillGachaPurchaseTier.Premium, SkillBlockRarity.Common) => PremiumCommonProbability,
+                (SkillGachaPurchaseTier.Premium, SkillBlockRarity.Uncommon) => PremiumUncommonProbability,
+                (SkillGachaPurchaseTier.Premium, SkillBlockRarity.Rare) => PremiumRareProbability,
+                (SkillGachaPurchaseTier.Premium, SkillBlockRarity.Epic) => PremiumEpicProbability,
+                _ => throw new ArgumentOutOfRangeException(nameof(rarity))
+            };
+        }
+
+        private static void ValidateProbabilitySum(
+            double common,
+            double uncommon,
+            double rare,
+            double epic)
+        {
+            if (common < 0d || uncommon < 0d || rare < 0d || epic < 0d)
+                throw new ArgumentOutOfRangeException(nameof(common));
+            if (Math.Abs(common + uncommon + rare + epic - 1d) > 0.000001d)
+                throw new ArgumentException("등급 확률 합은 1이어야 합니다.");
+        }
     }
 
     /// <summary>
@@ -425,7 +485,20 @@ namespace Baseball.Core.Balance
                 new RepetitionMultiplierTable(1.00d, 0.85d, 0.70d, 0.90d, 0.80d),
                 new NaturalGrowthBalanceTable(0.80d, 0.40d, 0.15d, 0.55d, 0.75d, 1.00d, 0.95d),
                 new AgingDeclineBalanceTable(0.35d, 0.90d, 0.20d, 1.50d, 0.60d, 0.15d),
-                new SkillGachaBalanceTable(600L, 2700L, 0.55d, 0.28d, 0.13d, 0.04d, 10, 30),
+                new SkillGachaBalanceTable(
+                    600L,
+                    1500L,
+                    2700L,
+                    0.55d,
+                    0.28d,
+                    0.13d,
+                    0.04d,
+                    0.15d,
+                    0.45d,
+                    0.30d,
+                    0.10d,
+                    10,
+                    30),
                 0.90d,
                 1.10d,
                 0.02d,

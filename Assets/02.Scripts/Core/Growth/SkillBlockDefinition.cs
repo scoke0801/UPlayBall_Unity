@@ -10,6 +10,12 @@ namespace Baseball.Core.Growth
         Epic
     }
 
+    public enum SkillGachaPurchaseTier
+    {
+        Standard,
+        Premium
+    }
+
     public enum SkillBlockCategory
     {
         Contact,

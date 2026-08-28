@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Simulation.Growth;
@@ -130,6 +131,16 @@ namespace Baseball.Game.Career
         /// </summary>
         public bool PurchaseSkillBlock(SkillBlockCategory category)
         {
+            return PurchaseSkillBlock(category, SkillGachaPurchaseTier.Standard);
+        }
+
+        /// <summary>
+        /// 선택한 가격 등급의 공개 확률로 스킬 블록 하나를 구매한다.
+        /// </summary>
+        public bool PurchaseSkillBlock(
+            SkillBlockCategory category,
+            SkillGachaPurchaseTier tier)
+        {
             if (!TryGetGrowthRuntime(out PlayerGrowthState growth))
                 return false;
             if (!IsCategoryAvailable(growth.PlayerType, category))
@@ -146,6 +157,7 @@ namespace Baseball.Game.Career
                     CurrentCareer.Economy,
                     board,
                     category,
+                    tier,
                     CurrentCareer.League.CurrentSeason.Year,
                     new Pcg32Random(seed));
                 _lastPulledBlocks = new[] { result };
@@ -179,6 +191,27 @@ namespace Baseball.Game.Career
             {
                 return FailGrowth(exception.Message);
             }
+        }
+
+        /// <summary>
+        /// 성장판을 변경하지 않고 선택 블록의 배치 미리보기를 만든다.
+        /// </summary>
+        public GrowthBlockPlacementPreviewView GetSkillBlockPlacementPreview(
+            int instanceId,
+            int x,
+            int y,
+            int rotationQuarterTurns)
+        {
+            if (!TryGetGrowthRuntime(out _) || !IsOffseason())
+                return new GrowthBlockPlacementPreviewView(Array.Empty<BoardCell>(), false);
+
+            SkillBlockPlacementPreview preview = _skillBoardService.GetPlacementPreview(
+                CurrentCareer.MyPlayer.SkillBoardState,
+                instanceId,
+                x,
+                y,
+                rotationQuarterTurns);
+            return new GrowthBlockPlacementPreviewView(preview.Cells, preview.CanPlace);
         }
 
         public bool RemoveSkillBlock(int instanceId)
@@ -279,6 +312,7 @@ namespace Baseball.Game.Career
                 PlacedBlocks = BuildPlacedSkillBlockViews(board.PlacedBlocks),
                 LastPulledBlocks = BuildSkillBlockViews(_lastPulledBlocks),
                 ShopCategories = BuildShopCategories(growth.PlayerType, board),
+                GachaOffers = BuildGachaOffers(),
                 Programs = BuildPrograms(growth, remainingWeeks),
                 RecentGrowth = BuildRecentGrowth(growth),
                 IsOffseason = IsOffseason(),
@@ -407,6 +441,31 @@ namespace Baseball.Game.Career
                     canPurchase);
             }
             return result;
+        }
+
+        private GrowthGachaOfferView[] BuildGachaOffers()
+        {
+            SkillGachaBalanceTable balance = _balance.Growth.SkillGacha;
+            return new[]
+            {
+                BuildGachaOffer(balance, SkillGachaPurchaseTier.Standard),
+                BuildGachaOffer(balance, SkillGachaPurchaseTier.Premium)
+            };
+        }
+
+        private GrowthGachaOfferView BuildGachaOffer(
+            SkillGachaBalanceTable balance,
+            SkillGachaPurchaseTier tier)
+        {
+            long price = balance.GetPrice(tier);
+            return new GrowthGachaOfferView(
+                tier,
+                price,
+                balance.GetProbability(tier, SkillBlockRarity.Common),
+                balance.GetProbability(tier, SkillBlockRarity.Uncommon),
+                balance.GetProbability(tier, SkillBlockRarity.Rare),
+                balance.GetProbability(tier, SkillBlockRarity.Epic),
+                CurrentCareer.AvailableMoney >= price);
         }
 
         private GrowthProgramView[] BuildPrograms(PlayerGrowthState growth, int remainingWeeks)

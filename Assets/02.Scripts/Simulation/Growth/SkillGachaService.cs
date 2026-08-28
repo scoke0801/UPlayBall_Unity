@@ -29,9 +29,33 @@ namespace Baseball.Simulation.Growth
             int seasonYear,
             IRandomSource random)
         {
+            return PullSingle(
+                economy,
+                board,
+                category,
+                SkillGachaPurchaseTier.Standard,
+                seasonYear,
+                random);
+        }
+
+        public SkillBlockInstance PullSingle(
+            CareerEconomyState economy,
+            SkillBoardState board,
+            SkillBlockCategory category,
+            SkillGachaPurchaseTier tier,
+            int seasonYear,
+            IRandomSource random)
+        {
             ValidateArguments(economy, board, random);
-            economy.Spend(seasonYear, MoneyTransactionType.SkillBlockPurchase, "skill_gacha_single", _balance.SinglePrice);
-            return PullOne(board, category, random, null);
+            string sourceId = tier == SkillGachaPurchaseTier.Premium
+                ? "skill_gacha_premium"
+                : "skill_gacha_single";
+            economy.Spend(
+                seasonYear,
+                MoneyTransactionType.SkillBlockPurchase,
+                sourceId,
+                _balance.GetPrice(tier));
+            return PullOne(board, category, tier, random, null);
         }
 
         public SkillBlockInstance[] PullBundle(
@@ -50,7 +74,12 @@ namespace Baseball.Simulation.Growth
                 SkillBlockRarity? minimum = index == results.Length - 1 && !hasUncommonOrBetter
                     ? SkillBlockRarity.Uncommon
                     : (SkillBlockRarity?)null;
-                results[index] = PullOne(board, category, random, minimum);
+                results[index] = PullOne(
+                    board,
+                    category,
+                    SkillGachaPurchaseTier.Standard,
+                    random,
+                    minimum);
                 SkillBlockDefinition definition = FindDefinition(results[index].DefinitionId);
                 if (definition.Rarity >= SkillBlockRarity.Uncommon)
                     hasUncommonOrBetter = true;
@@ -79,10 +108,11 @@ namespace Baseball.Simulation.Growth
         private SkillBlockInstance PullOne(
             SkillBoardState board,
             SkillBlockCategory category,
+            SkillGachaPurchaseTier tier,
             IRandomSource random,
             SkillBlockRarity? minimumRarity)
         {
-            SkillBlockRarity rarity = RollRarity(board, random);
+            SkillBlockRarity rarity = RollRarity(board, tier, random);
             if (minimumRarity.HasValue && rarity < minimumRarity.Value)
                 rarity = minimumRarity.Value;
             SkillBlockDefinition definition = SelectDefinition(category, rarity, random);
@@ -90,7 +120,10 @@ namespace Baseball.Simulation.Growth
             return board.AddOwnedBlock(definition.BlockId);
         }
 
-        private SkillBlockRarity RollRarity(SkillBoardState board, IRandomSource random)
+        private SkillBlockRarity RollRarity(
+            SkillBoardState board,
+            SkillGachaPurchaseTier tier,
+            IRandomSource random)
         {
             if (board.PityEpicCount >= _balance.EpicPity)
                 return SkillBlockRarity.Epic;
@@ -98,11 +131,15 @@ namespace Baseball.Simulation.Growth
                 return SkillBlockRarity.Rare;
 
             double roll = random.NextDouble();
-            if (roll < _balance.CommonProbability) return SkillBlockRarity.Common;
-            roll -= _balance.CommonProbability;
-            if (roll < _balance.UncommonProbability) return SkillBlockRarity.Uncommon;
-            roll -= _balance.UncommonProbability;
-            return roll < _balance.RareProbability ? SkillBlockRarity.Rare : SkillBlockRarity.Epic;
+            double common = _balance.GetProbability(tier, SkillBlockRarity.Common);
+            if (roll < common) return SkillBlockRarity.Common;
+            roll -= common;
+            double uncommon = _balance.GetProbability(tier, SkillBlockRarity.Uncommon);
+            if (roll < uncommon) return SkillBlockRarity.Uncommon;
+            roll -= uncommon;
+            return roll < _balance.GetProbability(tier, SkillBlockRarity.Rare)
+                ? SkillBlockRarity.Rare
+                : SkillBlockRarity.Epic;
         }
 
         private SkillBlockDefinition SelectDefinition(

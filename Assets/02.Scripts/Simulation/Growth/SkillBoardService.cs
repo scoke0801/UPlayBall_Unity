@@ -5,6 +5,21 @@ using Baseball.Core.Growth;
 namespace Baseball.Simulation.Growth
 {
     /// <summary>
+    /// 선택 블록이 차지할 실제 보드 좌표와 배치 가능 여부를 함께 반환한다.
+    /// </summary>
+    public readonly struct SkillBlockPlacementPreview
+    {
+        public SkillBlockPlacementPreview(BoardCell[] cells, bool canPlace)
+        {
+            Cells = cells ?? Array.Empty<BoardCell>();
+            CanPlace = canPlace;
+        }
+
+        public BoardCell[] Cells { get; }
+        public bool CanPlace { get; }
+    }
+
+    /// <summary>
     /// 블록의 회전·경계·겹침·Trait Socket 조건을 검증하고 보드 상태를 변경한다.
     /// </summary>
     public sealed class SkillBoardService
@@ -45,15 +60,43 @@ namespace Baseball.Simulation.Growth
         public BoardCell[] GetOccupiedCells(PlacedSkillBlock placement)
         {
             SkillBlockDefinition definition = FindDefinition(placement.Instance.DefinitionId);
-            BoardCell[] normalized = GetNormalizedCells(definition, placement.RotationQuarterTurns);
-            var result = new BoardCell[normalized.Length];
-            for (int index = 0; index < normalized.Length; index++)
+            return BuildOccupiedCells(
+                definition,
+                placement.OriginX,
+                placement.OriginY,
+                placement.RotationQuarterTurns);
+        }
+
+        /// <summary>
+        /// 상태를 바꾸지 않고 선택 블록의 실제 보드 좌표와 배치 가능 여부를 계산한다.
+        /// </summary>
+        public SkillBlockPlacementPreview GetPlacementPreview(
+            SkillBoardState state,
+            int instanceId,
+            int originX,
+            int originY,
+            int rotationQuarterTurns)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            SkillBlockInstance instance = state.FindOwnedBlock(instanceId);
+            if (instance.InstanceId == 0)
+                return new SkillBlockPlacementPreview(Array.Empty<BoardCell>(), false);
+
+            SkillBlockDefinition definition = FindDefinition(instance.DefinitionId);
+            if (rotationQuarterTurns < 0 || rotationQuarterTurns > 3 ||
+                !definition.CanRotate && rotationQuarterTurns != 0)
             {
-                result[index] = new BoardCell(
-                    placement.OriginX + normalized[index].X,
-                    placement.OriginY + normalized[index].Y);
+                return new SkillBlockPlacementPreview(Array.Empty<BoardCell>(), false);
             }
-            return result;
+
+            BoardCell[] cells = BuildOccupiedCells(
+                definition,
+                originX,
+                originY,
+                rotationQuarterTurns);
+            return new SkillBlockPlacementPreview(
+                cells,
+                GetPlacementFailure(state, cells) == SkillBlockPlacementFailure.None);
         }
 
         public void Redesign(
@@ -122,16 +165,32 @@ namespace Baseball.Simulation.Growth
             if (!definition.CanRotate && rotationQuarterTurns != 0)
                 throw new InvalidOperationException("회전할 수 없는 블록입니다.");
 
-            BoardCell[] cells = GetNormalizedCells(definition, rotationQuarterTurns);
+            BoardCell[] cells = BuildOccupiedCells(
+                definition,
+                originX,
+                originY,
+                rotationQuarterTurns);
+            SkillBlockPlacementFailure failure = GetPlacementFailure(state, cells);
+            if (failure == SkillBlockPlacementFailure.OutOfBounds)
+                throw new InvalidOperationException("블록이 성장판 경계를 벗어납니다.");
+            if (failure == SkillBlockPlacementFailure.Occupied)
+                throw new InvalidOperationException("이미 다른 블록이 놓인 칸입니다.");
+        }
+
+        private SkillBlockPlacementFailure GetPlacementFailure(
+            SkillBoardState state,
+            BoardCell[] cells)
+        {
             for (int index = 0; index < cells.Length; index++)
             {
-                int x = originX + cells[index].X;
-                int y = originY + cells[index].Y;
+                int x = cells[index].X;
+                int y = cells[index].Y;
                 if (x < 0 || x >= _boardDefinition.Width || y < 0 || y >= _boardDefinition.Height)
-                    throw new InvalidOperationException("블록이 성장판 경계를 벗어납니다.");
+                    return SkillBlockPlacementFailure.OutOfBounds;
                 if (IsOccupied(state, x, y))
-                    throw new InvalidOperationException("이미 다른 블록이 놓인 칸입니다.");
+                    return SkillBlockPlacementFailure.Occupied;
             }
+            return SkillBlockPlacementFailure.None;
         }
 
         private bool IsOccupied(SkillBoardState state, int x, int y)
@@ -191,6 +250,30 @@ namespace Baseball.Simulation.Growth
             for (int index = 0; index < cells.Length; index++)
                 cells[index] = new BoardCell(cells[index].X - minimumX, cells[index].Y - minimumY);
             return cells;
+        }
+
+        private static BoardCell[] BuildOccupiedCells(
+            SkillBlockDefinition definition,
+            int originX,
+            int originY,
+            int rotationQuarterTurns)
+        {
+            BoardCell[] normalized = GetNormalizedCells(definition, rotationQuarterTurns);
+            var result = new BoardCell[normalized.Length];
+            for (int index = 0; index < normalized.Length; index++)
+            {
+                result[index] = new BoardCell(
+                    originX + normalized[index].X,
+                    originY + normalized[index].Y);
+            }
+            return result;
+        }
+
+        private enum SkillBlockPlacementFailure
+        {
+            None,
+            OutOfBounds,
+            Occupied
         }
 
         private SkillBlockDefinition FindDefinition(string definitionId)

@@ -1,3 +1,4 @@
+using System;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 
@@ -66,6 +67,21 @@ namespace Baseball.Game.Career
     }
 
     /// <summary>
+    /// 선택 블록을 특정 칸에 놓을 때 차지할 칸과 배치 가능 여부다.
+    /// </summary>
+    public readonly struct GrowthBlockPlacementPreviewView
+    {
+        public GrowthBlockPlacementPreviewView(BoardCell[] cells, bool canPlace)
+        {
+            Cells = cells ?? Array.Empty<BoardCell>();
+            CanPlace = canPlace;
+        }
+
+        public BoardCell[] Cells { get; }
+        public bool CanPlace { get; }
+    }
+
+    /// <summary>
     /// 스킬 상점의 계통별 보유량과 구매 가능 여부다.
     /// </summary>
     public readonly struct GrowthBlockShopView
@@ -85,6 +101,38 @@ namespace Baseball.Game.Career
         public SkillBlockCategory Category { get; }
         public BoardCell[] PreviewShapeCells { get; }
         public int OwnedCount { get; }
+        public bool CanPurchase { get; }
+    }
+
+    /// <summary>
+    /// 한 스킬 블록 구매 등급의 가격·공개 확률·구매 가능 여부다.
+    /// </summary>
+    public readonly struct GrowthGachaOfferView
+    {
+        public GrowthGachaOfferView(
+            SkillGachaPurchaseTier tier,
+            long price,
+            double commonProbability,
+            double uncommonProbability,
+            double rareProbability,
+            double epicProbability,
+            bool canPurchase)
+        {
+            Tier = tier;
+            Price = price;
+            CommonProbability = commonProbability;
+            UncommonProbability = uncommonProbability;
+            RareProbability = rareProbability;
+            EpicProbability = epicProbability;
+            CanPurchase = canPurchase;
+        }
+
+        public SkillGachaPurchaseTier Tier { get; }
+        public long Price { get; }
+        public double CommonProbability { get; }
+        public double UncommonProbability { get; }
+        public double RareProbability { get; }
+        public double EpicProbability { get; }
         public bool CanPurchase { get; }
     }
 
@@ -155,6 +203,7 @@ namespace Baseball.Game.Career
         public GrowthSkillBlockView[] PlacedBlocks { get; internal set; }
         public GrowthSkillBlockView[] LastPulledBlocks { get; internal set; }
         public GrowthBlockShopView[] ShopCategories { get; internal set; }
+        public GrowthGachaOfferView[] GachaOffers { get; internal set; }
         public GrowthProgramView[] Programs { get; internal set; }
         public GrowthResultRecord[] RecentGrowth { get; internal set; }
         public bool IsOffseason { get; internal set; }

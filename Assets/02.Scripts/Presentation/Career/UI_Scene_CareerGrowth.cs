@@ -1,3 +1,5 @@
+using System;
+using Baseball.Core.Growth;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
 using Baseball.Presentation.UI;
@@ -10,6 +12,8 @@ namespace Baseball.Presentation.Career
     /// </summary>
     public sealed partial class UI_Scene_CareerGrowth : UISceneBase, ICareerTabScreen
     {
+        private const int InventoryPageSize = 5;
+
         private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
         private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.99f);
@@ -33,6 +37,7 @@ namespace Baseball.Presentation.Career
         private int _selectedOwnedBlockId;
         private int _selectedPlacedBlockId;
         private int _selectedRotation;
+        private int _inventoryPage;
         private bool _confirmPlacedBlockRemoval;
         private bool _confirmBoardRedesign;
 
@@ -100,16 +105,36 @@ namespace Baseball.Presentation.Career
                 return;
 
             ValidateSelection(growth);
-            ClearChildren(_content);
-            RenderBackgroundAccents();
-            RenderTopBar(dashboard, growth);
-            RenderPlayerPanel(dashboard, growth);
-            RenderGrowthLog(growth);
-            RenderSkillBoard(growth);
-            RenderSelectedBlockPanel(growth);
-            RenderBlockShop(growth);
-            RenderOffseasonActions(growth);
-            CareerTabBar.Create(_content, CareerMainTab.Growth);
+            RectTransform previousContent = _content;
+            RectTransform nextContent = CreateRect(
+                "Content",
+                transform,
+                new Vector2(1920f, 1080f),
+                Vector2.zero);
+            nextContent.gameObject.SetActive(false);
+            _content = nextContent;
+            try
+            {
+                RenderBackgroundAccents();
+                RenderTopBar(dashboard, growth);
+                RenderPlayerPanel(dashboard, growth);
+                RenderGrowthLog(growth);
+                RenderSkillBoard(growth);
+                RenderSelectedBlockPanel(growth);
+                RenderBlockShop(growth);
+                RenderOffseasonActions(growth);
+                CareerTabBar.Create(_content, CareerMainTab.Growth);
+            }
+            catch
+            {
+                _content = previousContent;
+                DestroyRenderedContent(nextContent.gameObject);
+                throw;
+            }
+
+            previousContent.gameObject.SetActive(false);
+            nextContent.gameObject.SetActive(true);
+            DestroyRenderedContent(previousContent.gameObject);
         }
 
         private void SelectOwnedBlock(int instanceId)
@@ -169,6 +194,28 @@ namespace Baseball.Presentation.Career
                 _selectedOwnedBlockId = 0;
         }
 
+        private void PurchaseSkillBlock(
+            SkillBlockCategory category,
+            SkillGachaPurchaseTier tier)
+        {
+            _inventoryPage = 0;
+            _manager.PurchaseSkillBlock(category, tier);
+        }
+
+        private void ShowNewerInventoryPage()
+        {
+            if (_inventoryPage <= 0)
+                return;
+            _inventoryPage--;
+            Render();
+        }
+
+        private void ShowOlderInventoryPage()
+        {
+            _inventoryPage++;
+            Render();
+        }
+
         private void RedesignBoard()
         {
             if (!_confirmBoardRedesign)
@@ -192,6 +239,21 @@ namespace Baseball.Presentation.Career
                 _selectedOwnedBlockId = 0;
             if (_selectedPlacedBlockId > 0 && !ContainsPlacedBlock(growth, _selectedPlacedBlockId))
                 _selectedPlacedBlockId = 0;
+            int pageCount = Math.Max(
+                1,
+                (growth.OwnedBlocks.Length + InventoryPageSize - 1) / InventoryPageSize);
+            if (_inventoryPage >= pageCount)
+                _inventoryPage = pageCount - 1;
+        }
+
+        private static void DestroyRenderedContent(GameObject content)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+                DestroyImmediate(content);
+            else
+#endif
+                Destroy(content);
         }
     }
 }

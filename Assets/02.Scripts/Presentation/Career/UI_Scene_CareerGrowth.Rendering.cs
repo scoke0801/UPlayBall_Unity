@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Presentation.UI;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Baseball.Presentation.Career
@@ -13,6 +15,8 @@ namespace Baseball.Presentation.Career
     {
         private const float ProgramCardStripWidth = 610f;
         private const float ProgramCardGap = 10f;
+
+        private Image[] _placementPreviewImages = Array.Empty<Image>();
 
         private void RenderBackgroundAccents()
         {
@@ -168,9 +172,11 @@ namespace Baseball.Presentation.Career
 
         private void RenderSkillBoard(CareerGrowthView growth)
         {
-            string editGuide = growth.CanEditBoard
-                ? "보유 블록을 선택한 뒤 빈 칸을 누르세요."
-                : "정규 시즌 중에는 열람만 가능합니다.";
+            string editGuide = !growth.CanEditBoard
+                ? "정규 시즌 중에는 열람만 가능합니다."
+                : _selectedOwnedBlockId > 0
+                    ? "보드에 올려 미리보기 · 초록 가능 / 빨강 불가"
+                    : "보유 블록을 선택한 뒤 빈 칸을 누르세요.";
             RectTransform panel = CreatePanel(
                 "SkillBoard", "GROWTH BOARD", "4×4 성장 보드",
                 new Vector2(700f, 735f), new Vector2(-95f, 80f));
@@ -200,6 +206,7 @@ namespace Baseball.Presentation.Career
             const float cellSize = 96f;
             const float gap = 6f;
             float boardSpan = growth.BoardWidth * cellSize + (growth.BoardWidth - 1) * gap;
+            _placementPreviewImages = new Image[growth.BoardWidth * growth.BoardHeight];
             for (int index = 0; index < growth.BoardCells.Length; index++)
             {
                 GrowthBoardCellView cell = growth.BoardCells[index];
@@ -238,11 +245,30 @@ namespace Baseball.Presentation.Career
                         TextAnchor.MiddleCenter, new Vector2(60f, 60f), Vector2.zero,
                         new Color(0.35f, 0.55f, 0.7f, 0.8f));
                 }
-                if (cell.IsTraitSocket)
+
+                RectTransform preview = CreateImage(
+                    "PlacementPreview",
+                    button.transform,
+                    Color.clear,
+                    Vector2.zero,
+                    Vector2.zero,
+                    stretch: true);
+                Image previewImage = preview.GetComponent<Image>();
+                previewImage.enabled = false;
+                _placementPreviewImages[cell.Y * growth.BoardWidth + cell.X] = previewImage;
+
+                if (growth.CanEditBoard && _selectedOwnedBlockId > 0)
                 {
-                    CreateText(
-                        "Socket", button.transform, "◆", 13, FontStyle.Bold,
-                        TextAnchor.UpperRight, new Vector2(80f, 80f), Vector2.zero, GoldColor);
+                    int hoverX = cell.X;
+                    int hoverY = cell.Y;
+                    AddPointerListener(
+                        button.gameObject,
+                        EventTriggerType.PointerEnter,
+                        () => ShowPlacementPreview(growth, hoverX, hoverY));
+                    AddPointerListener(
+                        button.gameObject,
+                        EventTriggerType.PointerExit,
+                        ClearPlacementPreview);
                 }
             }
 
@@ -257,8 +283,9 @@ namespace Baseball.Presentation.Career
                 GetDominantBonusColor(growth));
 
             CreateText(
-                "InventoryTitle", panel, $"보유 블록  {growth.OwnedBlocks.Length}", 13, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Vector2(170f, 24f), new Vector2(-238f, -220f),
+                "InventoryTitle", panel, $"보유 블록  {growth.OwnedBlocks.Length} · 최신순", 13,
+                FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(230f, 24f),
+                new Vector2(-208f, -220f),
                 SecondaryTextColor);
             if (growth.OwnedBlocks.Length == 0)
             {
@@ -269,9 +296,71 @@ namespace Baseball.Presentation.Career
             }
             else
             {
-                int visibleCount = Math.Min(5, growth.OwnedBlocks.Length);
+                int pageCount = (growth.OwnedBlocks.Length + InventoryPageSize - 1) / InventoryPageSize;
+                Button newer = CreateButton(
+                    "InventoryNewer", panel, "‹", new Vector2(34f, 28f), new Vector2(218f, -220f),
+                    new Color(0.03f, 0.24f, 0.42f, 1f), out _);
+                newer.interactable = _inventoryPage > 0;
+                newer.onClick.AddListener(ShowNewerInventoryPage);
+                CreateText(
+                    "InventoryPage", panel, $"{_inventoryPage + 1} / {pageCount}", 12,
+                    FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(62f, 28f),
+                    new Vector2(268f, -220f), SecondaryTextColor);
+                Button older = CreateButton(
+                    "InventoryOlder", panel, "›", new Vector2(34f, 28f), new Vector2(318f, -220f),
+                    new Color(0.03f, 0.24f, 0.42f, 1f), out _);
+                older.interactable = _inventoryPage < pageCount - 1;
+                older.onClick.AddListener(ShowOlderInventoryPage);
+
+                int pageStart = _inventoryPage * InventoryPageSize;
+                int visibleCount = Math.Min(
+                    InventoryPageSize,
+                    growth.OwnedBlocks.Length - pageStart);
                 for (int index = 0; index < visibleCount; index++)
-                    RenderInventoryBlock(panel, growth.OwnedBlocks[index], index);
+                {
+                    int sourceIndex = growth.OwnedBlocks.Length - 1 - pageStart - index;
+                    RenderInventoryBlock(panel, growth.OwnedBlocks[sourceIndex], index);
+                }
+            }
+        }
+
+        private void ShowPlacementPreview(CareerGrowthView growth, int originX, int originY)
+        {
+            ClearPlacementPreview();
+            if (_selectedOwnedBlockId <= 0)
+                return;
+
+            GrowthBlockPlacementPreviewView preview = _manager.GetSkillBlockPlacementPreview(
+                _selectedOwnedBlockId,
+                originX,
+                originY,
+                _selectedRotation);
+            Color color = preview.CanPlace
+                ? new Color(0.16f, 0.82f, 0.34f, 0.48f)
+                : new Color(0.94f, 0.20f, 0.18f, 0.52f);
+            for (int index = 0; index < preview.Cells.Length; index++)
+            {
+                BoardCell cell = preview.Cells[index];
+                if (cell.X < 0 || cell.X >= growth.BoardWidth ||
+                    cell.Y < 0 || cell.Y >= growth.BoardHeight)
+                {
+                    continue;
+                }
+
+                Image image = _placementPreviewImages[cell.Y * growth.BoardWidth + cell.X];
+                if (image == null)
+                    continue;
+                image.color = color;
+                image.enabled = true;
+            }
+        }
+
+        private void ClearPlacementPreview()
+        {
+            for (int index = 0; index < _placementPreviewImages.Length; index++)
+            {
+                if (_placementPreviewImages[index] != null)
+                    _placementPreviewImages[index].enabled = false;
             }
         }
 
@@ -402,6 +491,12 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreatePanel(
                 "BlockShop", "SKILL SHOP", "블록 상점",
                 new Vector2(650f, 430f), new Vector2(613f, 232f));
+            GrowthGachaOfferView standard = FindGachaOffer(
+                growth,
+                SkillGachaPurchaseTier.Standard);
+            GrowthGachaOfferView premium = FindGachaOffer(
+                growth,
+                SkillGachaPurchaseTier.Premium);
             for (int index = 0; index < growth.ShopCategories.Length; index++)
             {
                 GrowthBlockShopView item = growth.ShopCategories[index];
@@ -429,26 +524,32 @@ namespace Baseball.Presentation.Career
                     SecondaryTextColor);
                 CreateText(
                     "Owned", row, $"보유 {item.OwnedCount}", 12, FontStyle.Normal,
-                    TextAnchor.MiddleCenter, new Vector2(80f, 26f), new Vector2(75f, 10f),
+                    TextAnchor.MiddleCenter, new Vector2(70f, 26f), new Vector2(12f, 0f),
                     SecondaryTextColor);
-                CreateText(
-                    "Price", row, $"{growth.SinglePullPrice:N0}만원", 13, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(100f, 26f), new Vector2(75f, -16f),
-                    PrimaryTextColor);
                 SkillBlockCategory category = item.Category;
-                Button buy = CreateButton(
-                    "Buy", row, "구매", new Vector2(116f, 42f), new Vector2(235f, 0f),
+                Button standardBuy = CreateButton(
+                    "BuyStandard", row, $"일반\n{standard.Price:N0}만원",
+                    new Vector2(104f, 48f), new Vector2(122f, 0f),
                     new Color(0.025f, 0.31f, 0.61f, 1f), out _);
-                buy.interactable = item.CanPurchase;
-                buy.onClick.AddListener(() => _manager.PurchaseSkillBlock(category));
+                standardBuy.interactable = standard.CanPurchase;
+                standardBuy.onClick.AddListener(() => PurchaseSkillBlock(
+                    category,
+                    SkillGachaPurchaseTier.Standard));
+                Button premiumBuy = CreateButton(
+                    "BuyPremium", row, $"고급\n{premium.Price:N0}만원",
+                    new Vector2(104f, 48f), new Vector2(244f, 0f),
+                    new Color(0.38f, 0.20f, 0.57f, 1f), out _);
+                premiumBuy.interactable = premium.CanPurchase;
+                premiumBuy.onClick.AddListener(() => PurchaseSkillBlock(
+                    category,
+                    SkillGachaPurchaseTier.Premium));
             }
 
-            string probability =
-                $"확률  C {growth.CommonProbability:P0}  ·  U {growth.UncommonProbability:P0}  ·  " +
-                $"R {growth.RareProbability:P0}  ·  E {growth.EpicProbability:P0}";
             CreateText(
-                "Probability", panel, probability, 11, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(390f, 24f), new Vector2(-92f, -174f), MutedColor);
+                "Probability", panel,
+                $"일반  {FormatGachaProbability(standard)}\n고급  {FormatGachaProbability(premium)}",
+                11, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(390f, 42f), new Vector2(-92f, -174f), MutedColor);
             CreateText(
                 "Pity", panel,
                 $"보장  Rare {growth.RarePityCount}/{growth.RarePityTarget}  ·  " +
@@ -899,18 +1000,20 @@ namespace Baseball.Presentation.Career
             rect.offsetMax = Vector2.zero;
         }
 
-        private static void ClearChildren(Transform parent)
+        private static void AddPointerListener(
+            GameObject target,
+            EventTriggerType eventType,
+            Action action)
         {
-            for (int index = parent.childCount - 1; index >= 0; index--)
-            {
-                GameObject child = parent.GetChild(index).gameObject;
-#if UNITY_EDITOR
-                if (!Application.isPlaying)
-                    DestroyImmediate(child);
-                else
-#endif
-                    Destroy(child);
-            }
+            EventTrigger trigger = target.GetComponent<EventTrigger>();
+            if (trigger == null)
+                trigger = target.AddComponent<EventTrigger>();
+            if (trigger.triggers == null)
+                trigger.triggers = new List<EventTrigger.Entry>();
+
+            var entry = new EventTrigger.Entry { eventID = eventType };
+            entry.callback.AddListener(_ => action());
+            trigger.triggers.Add(entry);
         }
     }
 }

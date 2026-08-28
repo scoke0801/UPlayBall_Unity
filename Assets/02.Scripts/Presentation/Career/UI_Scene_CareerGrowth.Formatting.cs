@@ -71,7 +71,11 @@ namespace Baseball.Presentation.Career
         {
             if (!view.NextGame.HasValue)
                 return view.SeasonPhase == SeasonPhase.Offseason ? "오프시즌" : "시즌 일정 종료";
-            return view.NextGame.Value.PlannedRole switch
+            PlayerGameRole role = view.NextGame.Value.PlannedRole;
+            if (CareerGameRoleFormatter.IsPitcherRest(role, view.Position))
+                return CareerGameRoleFormatter.GetPitcherRestLabel(view.Position);
+
+            return role switch
             {
                 PlayerGameRole.StartingBatter => "선발 " + GetPositionCode(view.Position),
                 PlayerGameRole.StartingPitcher => "선발 투수",
@@ -308,6 +312,24 @@ namespace Baseball.Presentation.Career
                 SkillBlockRarity.Epic => "E",
                 _ => "?"
             };
+        }
+
+        private static GrowthGachaOfferView FindGachaOffer(
+            CareerGrowthView growth,
+            SkillGachaPurchaseTier tier)
+        {
+            for (int index = 0; index < growth.GachaOffers.Length; index++)
+            {
+                if (growth.GachaOffers[index].Tier == tier)
+                    return growth.GachaOffers[index];
+            }
+            return default;
+        }
+
+        private static string FormatGachaProbability(GrowthGachaOfferView offer)
+        {
+            return $"C {offer.CommonProbability:P0} · U {offer.UncommonProbability:P0} · " +
+                   $"R {offer.RareProbability:P0} · E {offer.EpicProbability:P0}";
         }
 
         private static string GetRarityLabel(SkillBlockRarity rarity)

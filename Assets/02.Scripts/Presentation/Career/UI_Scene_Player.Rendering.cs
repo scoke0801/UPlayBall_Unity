@@ -298,9 +298,9 @@ namespace Baseball.Presentation.Career
                     RectTransform fill = CreateImage("Fill", slot, color, new Vector2(116f, 104f), Vector2.zero);
                     string cellText = found && cell.IsOccupied
                         ? $"{GetRarityCode(cell.Rarity)}\n#{cell.InstanceId}"
-                        : found && cell.IsTraitSocket ? "TRAIT" : string.Empty;
+                        : string.Empty;
                     CreateText("Value", fill, cellText, 15, FontStyle.Bold, TextAnchor.MiddleCenter,
-                        Vector2.zero, Vector2.zero, found && cell.IsTraitSocket ? GoldColor : PrimaryTextColor,
+                        Vector2.zero, Vector2.zero, PrimaryTextColor,
                         stretch: true);
                 }
             }
