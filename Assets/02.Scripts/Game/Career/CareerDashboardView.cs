@@ -118,6 +118,44 @@ namespace Baseball.Game.Career
     }
 
     /// <summary>
+    /// 정규시즌 뒤 포스트시즌·결산·오프시즌 CTA가 소비할 진행 요약이다.
+    /// </summary>
+    public readonly struct CareerSeasonProgressView
+    {
+        public CareerSeasonProgressView(
+            bool isPlayerTeamPostseasonQualified,
+            string championTeamName,
+            PlayerTeamPostseasonResult playerTeamPostseasonResult,
+            int postseasonGamesPlayed,
+            int playerAwardCount,
+            long salaryIncome,
+            long bonusIncome,
+            int offseasonRemainingWeeks,
+            bool requiresContractDecision)
+        {
+            IsPlayerTeamPostseasonQualified = isPlayerTeamPostseasonQualified;
+            ChampionTeamName = championTeamName ?? string.Empty;
+            PlayerTeamPostseasonResult = playerTeamPostseasonResult;
+            PostseasonGamesPlayed = postseasonGamesPlayed;
+            PlayerAwardCount = playerAwardCount;
+            SalaryIncome = salaryIncome;
+            BonusIncome = bonusIncome;
+            OffseasonRemainingWeeks = offseasonRemainingWeeks;
+            RequiresContractDecision = requiresContractDecision;
+        }
+
+        public bool IsPlayerTeamPostseasonQualified { get; }
+        public string ChampionTeamName { get; }
+        public PlayerTeamPostseasonResult PlayerTeamPostseasonResult { get; }
+        public int PostseasonGamesPlayed { get; }
+        public int PlayerAwardCount { get; }
+        public long SalaryIncome { get; }
+        public long BonusIncome { get; }
+        public int OffseasonRemainingWeeks { get; }
+        public bool RequiresContractDecision { get; }
+    }
+
+    /// <summary>
     /// 선수 중심 메인 화면이 한 번의 Render에서 소비할 읽기 전용 값 모음이다.
     /// </summary>
     public sealed class CareerDashboardView
@@ -132,6 +170,7 @@ namespace Baseball.Game.Career
         public int Overall { get; internal set; }
         public int Condition { get; internal set; }
         public int ManagerEvaluation { get; internal set; }
+        public ExpectedRole ExpectedRole { get; internal set; }
         public string TeamName { get; internal set; }
         public int SeasonYear { get; internal set; }
         public LeagueLevel LeagueLevel { get; internal set; }
@@ -147,5 +186,8 @@ namespace Baseball.Game.Career
         public UpcomingGameView[] UpcomingGames { get; internal set; }
         public PlayerGameLogState[] RecentGames { get; internal set; }
         public CareerGameAdvanceResult? LastGame { get; internal set; }
+        public int RemainingRegularSeasonGames { get; internal set; }
+        public CareerSeasonAutoCompletionResult? LastSeasonAutoCompletion { get; internal set; }
+        public CareerSeasonProgressView SeasonProgress { get; internal set; }
     }
 }
