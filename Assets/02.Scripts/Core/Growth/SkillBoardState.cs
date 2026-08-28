@@ -94,6 +94,7 @@ namespace Baseball.Core.Growth
         public IReadOnlyList<PlacedSkillBlock> PlacedBlocks => _placedBlocks;
         public int PityRareCount { get; private set; }
         public int PityEpicCount { get; private set; }
+        public int TotalPullCount { get; private set; }
         public int LastRedesignSeason { get; private set; }
 
         public SkillBlockInstance AddOwnedBlock(string definitionId)
@@ -105,6 +106,7 @@ namespace Baseball.Core.Growth
 
         public void RecordPull(SkillBlockRarity rarity)
         {
+            TotalPullCount++;
             if (rarity >= SkillBlockRarity.Rare)
                 PityRareCount = 0;
             else

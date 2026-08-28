@@ -62,15 +62,30 @@ namespace Baseball.Simulation.Growth
         public void StartActivity(
             OffseasonState offseason,
             CareerEconomyState economy,
+            PlayerGrowthState player,
+            PlayerStudyState studyState,
             int activityId,
             ulong randomSeed)
         {
+            if (player == null) throw new ArgumentNullException(nameof(player));
             PlannedOffseasonActivity activity = FindActivity(offseason, activityId);
             TrainingProgramDefinition program = _balance.FindProgram(activity.ProgramId);
+            if (activity.Status != OffseasonActivityStatus.Planned)
+                throw new InvalidOperationException("계획된 활동만 시작할 수 있습니다.");
             if (activity.StartWeek < offseason.CurrentWeek)
                 throw new InvalidOperationException("시작 시점을 지난 활동입니다.");
+            if (!program.CanUse(player.PlayerType))
+                throw new InvalidOperationException("선수 유형에 맞지 않는 프로그램입니다.");
+            if (player.Condition < program.MinimumCondition)
+                throw new InvalidOperationException("현재 컨디션으로 시작할 수 없는 프로그램입니다.");
+            if (program.IsStudy && studyState == null)
+                throw new InvalidOperationException("유학 시작에는 PlayerStudyState가 필요합니다.");
             if (program.IsStudy && offseason.StudyUsed)
                 throw new InvalidOperationException("유학은 오프시즌당 한 번만 가능합니다.");
+            if (program.IsStudy && studyState.StudyUsedThisOffseason)
+                throw new InvalidOperationException("유학은 오프시즌당 한 번만 가능합니다.");
+            if (economy.Money < program.MoneyCost)
+                throw new InvalidOperationException("Money가 부족합니다.");
 
             economy.Spend(
                 offseason.SeasonYear,
@@ -96,6 +111,8 @@ namespace Baseball.Simulation.Growth
             TrainingProgramDefinition program = _balance.FindProgram(activity.ProgramId);
             if (program.IsStudy && studyState == null)
                 throw new InvalidOperationException("유학 완료에는 PlayerStudyState가 필요합니다.");
+            if (program.IsStudy && studyState.StudyUsedThisOffseason)
+                throw new InvalidOperationException("이미 완료한 유학을 다시 반영할 수 없습니다.");
             int priorSelections = program.IsStudy && studyState != null
                 ? studyState.GetConsecutiveVisits(program.ProgramId)
                 : CountCompletedCategory(offseason, program.Category);

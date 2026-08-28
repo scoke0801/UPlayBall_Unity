@@ -1,11 +1,149 @@
 using System;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
+using Baseball.Core.Players;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Career
 {
+    /// <summary>
+    /// 실제 시즌 출장량과 포지션 평가 가중치로 자연 성장용 활용 요약을 만든다.
+    /// </summary>
+    public sealed class CareerSeasonUsageSummaryBuilder
+    {
+        private readonly PlayerEvaluationBalance _playerEvaluation;
+        private readonly int _startingRotationSize;
+
+        public CareerSeasonUsageSummaryBuilder(
+            PlayerEvaluationBalance playerEvaluation,
+            int startingRotationSize)
+        {
+            if (startingRotationSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(startingRotationSize));
+            _playerEvaluation = playerEvaluation;
+            _startingRotationSize = startingRotationSize;
+        }
+
+        /// <summary>
+        /// 타자는 출장 경기, 선발은 로테이션 기회, 구원은 등판 경기를 기준으로 활용량을 정규화한다.
+        /// </summary>
+        public SeasonUsageSummary Build(
+            PlayerPosition position,
+            PlayerSeasonStatisticsState statistics)
+        {
+            if (statistics == null)
+                throw new ArgumentNullException(nameof(statistics));
+
+            double usageRatio = CalculateUsageRatio(position, statistics);
+            AbilityWeight[] weights = position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher
+                ? BuildPitcherWeights(position)
+                : BuildBatterWeights(position);
+            return new SeasonUsageSummary(usageRatio, weights);
+        }
+
+        private double CalculateUsageRatio(
+            PlayerPosition position,
+            PlayerSeasonStatisticsState statistics)
+        {
+            if (statistics.TeamGames <= 0)
+                return 0d;
+            return position switch
+            {
+                PlayerPosition.StartingPitcher =>
+                    statistics.PitchingStarts * _startingRotationSize / (double)statistics.TeamGames,
+                PlayerPosition.ReliefPitcher =>
+                    statistics.PitchingAppearances / (double)statistics.TeamGames,
+                _ => statistics.GamesPlayed / (double)statistics.TeamGames
+            };
+        }
+
+        private AbilityWeight[] BuildBatterWeights(PlayerPosition position)
+        {
+            double contact = _playerEvaluation.GeneralAttributeWeight;
+            double power = _playerEvaluation.GeneralAttributeWeight;
+            double speed = _playerEvaluation.GeneralAttributeWeight;
+            double bunt = _playerEvaluation.GeneralAttributeWeight;
+            double defense = _playerEvaluation.GeneralAttributeWeight;
+            double mental = _playerEvaluation.GeneralAttributeWeight;
+            switch (position)
+            {
+                case PlayerPosition.Catcher:
+                    contact = _playerEvaluation.SupportingAttributeWeight;
+                    defense = _playerEvaluation.KeyAttributeWeight;
+                    mental = _playerEvaluation.KeyAttributeWeight;
+                    break;
+                case PlayerPosition.FirstBase:
+                case PlayerPosition.DesignatedHitter:
+                    contact = _playerEvaluation.SupportingAttributeWeight;
+                    power = _playerEvaluation.KeyAttributeWeight;
+                    mental = _playerEvaluation.SupportingAttributeWeight;
+                    break;
+                case PlayerPosition.SecondBase:
+                    contact = _playerEvaluation.SupportingAttributeWeight;
+                    speed = _playerEvaluation.SupportingAttributeWeight;
+                    defense = _playerEvaluation.KeyAttributeWeight;
+                    mental = _playerEvaluation.SupportingAttributeWeight;
+                    break;
+                case PlayerPosition.Shortstop:
+                    contact = _playerEvaluation.SupportingAttributeWeight;
+                    speed = _playerEvaluation.SupportingAttributeWeight;
+                    defense = _playerEvaluation.KeyAttributeWeight;
+                    mental = _playerEvaluation.KeyAttributeWeight;
+                    break;
+                case PlayerPosition.CenterField:
+                    contact = _playerEvaluation.SupportingAttributeWeight;
+                    speed = _playerEvaluation.KeyAttributeWeight;
+                    defense = _playerEvaluation.KeyAttributeWeight;
+                    break;
+                default:
+                    contact = _playerEvaluation.SupportingAttributeWeight;
+                    power = _playerEvaluation.KeyAttributeWeight;
+                    defense = _playerEvaluation.SupportingAttributeWeight;
+                    break;
+            }
+
+            double total = contact + power + speed + bunt + defense + mental;
+            return new[]
+            {
+                new AbilityWeight(PlayerAbility.Contact, contact / total),
+                new AbilityWeight(PlayerAbility.Power, power / total),
+                new AbilityWeight(PlayerAbility.Speed, speed / total),
+                new AbilityWeight(PlayerAbility.Bunt, bunt / total),
+                new AbilityWeight(PlayerAbility.Defense, defense / total),
+                new AbilityWeight(PlayerAbility.BatterMental, mental / total)
+            };
+        }
+
+        private AbilityWeight[] BuildPitcherWeights(PlayerPosition position)
+        {
+            double stamina = position == PlayerPosition.StartingPitcher
+                ? _playerEvaluation.KeyAttributeWeight
+                : _playerEvaluation.GeneralAttributeWeight;
+            double velocity = position == PlayerPosition.ReliefPitcher
+                ? _playerEvaluation.KeyAttributeWeight
+                : _playerEvaluation.SupportingAttributeWeight;
+            double stuff = position == PlayerPosition.ReliefPitcher
+                ? _playerEvaluation.KeyAttributeWeight
+                : _playerEvaluation.SupportingAttributeWeight;
+            double breaking = _playerEvaluation.SupportingAttributeWeight;
+            double control = position == PlayerPosition.StartingPitcher
+                ? _playerEvaluation.KeyAttributeWeight
+                : _playerEvaluation.SupportingAttributeWeight;
+            double mental = _playerEvaluation.SupportingAttributeWeight;
+            double total = stamina + velocity + stuff + breaking + control + mental;
+            return new[]
+            {
+                new AbilityWeight(PlayerAbility.Stamina, stamina / total),
+                new AbilityWeight(PlayerAbility.Velocity, velocity / total),
+                new AbilityWeight(PlayerAbility.Stuff, stuff / total),
+                new AbilityWeight(PlayerAbility.Breaking, breaking / total),
+                new AbilityWeight(PlayerAbility.Control, control / total),
+                new AbilityWeight(PlayerAbility.PitcherMental, mental / total)
+            };
+        }
+    }
+
     /// <summary>
     /// 시즌 결산에서 분리해 보여 줄 자연 성장·노쇠·수입 결과를 묶는다.
     /// </summary>
@@ -100,23 +238,12 @@ namespace Baseball.Game.Career
                 agingSeed,
                 new Pcg32Random(agingSeed));
 
-            long salaryIncome = _career.CurrentContract.AnnualSalary;
-            if (salaryIncome > 0L)
-            {
-                _career.Economy.Earn(
-                    season.Year,
-                    MoneyTransactionType.SalaryIncome,
-                    "current_contract",
-                    salaryIncome);
-            }
-            if (bonusIncome > 0L)
-            {
-                _career.Economy.Earn(
-                    season.Year,
-                    MoneyTransactionType.BonusIncome,
-                    "season_bonus",
-                    bonusIncome);
-            }
+            SeasonSettlementState settlement = new SeasonSettlementService(
+                    _career,
+                    _balance.SeasonSettlement,
+                    _balance.ContractBonus)
+                .ApplyOnce(bonusIncome);
+            long salaryIncome = settlement.SalaryIncome;
 
             var offseason = new OffseasonState(
                 season.Year,
@@ -130,7 +257,7 @@ namespace Baseball.Game.Career
                 naturalDevelopment,
                 aging,
                 salaryIncome,
-                bonusIncome,
+                settlement.BonusIncome,
                 offseason);
         }
 
@@ -163,6 +290,8 @@ namespace Baseball.Game.Career
             _offseasonScheduler.StartActivity(
                 offseason,
                 _career.Economy,
+                _career.MyPlayer.GrowthState,
+                _career.MyPlayer.StudyState,
                 activityId,
                 activitySeed);
         }
@@ -182,6 +311,26 @@ namespace Baseball.Game.Career
                 new Pcg32Random(activity.RandomSeed));
             _career.MyPlayer.SynchronizeFromGrowthState();
             return result;
+        }
+
+        /// <summary>
+        /// 현재 주에 선택한 활동을 계획·시작·완료해 활동 기간 전체를 한 번에 진행한다.
+        /// </summary>
+        public GrowthResultRecord ExecuteActivity(string programId)
+        {
+            OffseasonState offseason = RequireOffseason();
+            PlannedOffseasonActivity activity = PlanActivity(programId, offseason.CurrentWeek);
+            try
+            {
+                StartActivity(activity.ActivityId);
+                return CompleteActivity(activity.ActivityId);
+            }
+            catch
+            {
+                if (activity.Status == OffseasonActivityStatus.Planned)
+                    CancelActivity(activity.ActivityId);
+                throw;
+            }
         }
 
         private OffseasonState RequireOffseason()

@@ -54,7 +54,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 "trait_l",
                 SkillBlockRarity.Rare,
                 SkillBlockCategory.Contact,
-                new[] { new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(0, 1) },
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.L),
                 true,
                 new[] { new AbilityChange(PlayerAbility.Contact, 2) },
                 120L,
@@ -64,7 +64,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 "filler",
                 SkillBlockRarity.Common,
                 SkillBlockCategory.Contact,
-                new[] { new BoardCell(0, 0) },
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O),
                 false,
                 new[] { new AbilityChange(PlayerAbility.Contact, 1) },
                 60L);
@@ -81,6 +81,51 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 service.PlaceBlock(state, fillerInstance.InstanceId, 0, 0, 0));
             Assert.That(service.GetAbilityBonus(state, PlayerAbility.Contact), Is.EqualTo(2));
             Assert.That(service.GetActiveTraitIds(state), Does.Contain("clutch_contact"));
+        }
+
+        [Test]
+        public void DefaultBlocks_모두4칸표준테트로미노이며7종모양을포함한다()
+        {
+            SkillBlockDefinition[] definitions = GrowthSkillContent.CreateDefaultBlocks();
+            var foundShapes = new bool[7];
+
+            for (int index = 0; index < definitions.Length; index++)
+            {
+                Assert.That(definitions[index].ShapeCells, Has.Length.EqualTo(4));
+                for (int shapeIndex = 0; shapeIndex < foundShapes.Length; shapeIndex++)
+                {
+                    BoardCell[] standard = TetrominoShapeCatalog.CreateCells((TetrominoShape)shapeIndex);
+                    if (HasSameCells(definitions[index].ShapeCells, standard))
+                        foundShapes[shapeIndex] = true;
+                }
+            }
+
+            Assert.That(foundShapes, Has.All.True);
+        }
+
+        [Test]
+        public void SkillBlockDefinition_4칸연결조건을위반하면거부한다()
+        {
+            Assert.Throws<ArgumentException>(() => new SkillBlockDefinition(
+                "triomino",
+                SkillBlockRarity.Common,
+                SkillBlockCategory.Contact,
+                new[] { new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(0, 1) },
+                true,
+                Array.Empty<AbilityChange>(),
+                0L));
+            Assert.Throws<ArgumentException>(() => new SkillBlockDefinition(
+                "disconnected",
+                SkillBlockRarity.Common,
+                SkillBlockCategory.Contact,
+                new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(1, 0),
+                    new BoardCell(3, 0), new BoardCell(4, 0)
+                },
+                true,
+                Array.Empty<AbilityChange>(),
+                0L));
         }
 
         private static SkillBlockDefinition[] CreateGachaDefinitions()
@@ -104,10 +149,32 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 id,
                 rarity,
                 SkillBlockCategory.Contact,
-                new[] { new BoardCell(0, 0) },
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O),
                 false,
                 new[] { new AbilityChange(PlayerAbility.Contact, bonus) },
                 sellValue);
+        }
+
+        private static bool HasSameCells(BoardCell[] left, BoardCell[] right)
+        {
+            if (left.Length != right.Length)
+                return false;
+            for (int leftIndex = 0; leftIndex < left.Length; leftIndex++)
+            {
+                bool found = false;
+                for (int rightIndex = 0; rightIndex < right.Length; rightIndex++)
+                {
+                    if (left[leftIndex].X == right[rightIndex].X &&
+                        left[leftIndex].Y == right[rightIndex].Y)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    return false;
+            }
+            return true;
         }
 
         private sealed class FixedRandom : IRandomSource

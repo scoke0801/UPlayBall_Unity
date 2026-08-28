@@ -346,7 +346,10 @@ namespace Baseball.Core.Balance
             int trainingInjuryConditionPenalty,
             int defaultPotentialGap,
             int offseasonWeeks,
-            TrainingProgramDefinition[] programs)
+            TrainingProgramDefinition[] programs,
+            SkillBoardDefinition skillBoard = null,
+            SkillBlockDefinition[] skillBlocks = null,
+            long skillBoardRedesignCost = 1500L)
         {
             if (minimumQualityRoll <= 0d || maximumQualityRoll < minimumQualityRoll)
                 throw new ArgumentOutOfRangeException(nameof(minimumQualityRoll));
@@ -358,6 +361,8 @@ namespace Baseball.Core.Balance
                 throw new ArgumentOutOfRangeException(nameof(trainingInjuryConditionPenalty));
             if (defaultPotentialGap <= 0)
                 throw new ArgumentOutOfRangeException(nameof(defaultPotentialGap));
+            if (skillBoardRedesignCost < 0L)
+                throw new ArgumentOutOfRangeException(nameof(skillBoardRedesignCost));
             AgeGrowth = ageGrowth;
             PotentialGap = potentialGap;
             WorkEthic = workEthic;
@@ -374,6 +379,9 @@ namespace Baseball.Core.Balance
             DefaultPotentialGap = defaultPotentialGap;
             OffseasonWeeks = offseasonWeeks;
             Programs = programs ?? throw new ArgumentNullException(nameof(programs));
+            SkillBoard = skillBoard ?? GrowthSkillContent.CreateDefaultBoard();
+            SkillBlocks = skillBlocks ?? GrowthSkillContent.CreateDefaultBlocks();
+            SkillBoardRedesignCost = skillBoardRedesignCost;
         }
 
         public AgeGrowthCurveTable AgeGrowth { get; }
@@ -392,6 +400,9 @@ namespace Baseball.Core.Balance
         public int DefaultPotentialGap { get; }
         public int OffseasonWeeks { get; }
         public TrainingProgramDefinition[] Programs { get; }
+        public SkillBoardDefinition SkillBoard { get; }
+        public SkillBlockDefinition[] SkillBlocks { get; }
+        public long SkillBoardRedesignCost { get; }
 
         public TrainingProgramDefinition FindProgram(string programId)
         {

@@ -3,6 +3,7 @@ using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
 using Baseball.Simulation.Growth;
+using Baseball.Simulation.Match;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game
@@ -32,7 +33,7 @@ namespace Baseball.Tests.EditMode.Game
                 "contact_bonus",
                 SkillBlockRarity.Common,
                 SkillBlockCategory.Contact,
-                new[] { new BoardCell(0, 0) },
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O),
                 false,
                 new[] { new AbilityChange(PlayerAbility.Contact, 2) },
                 60L);
@@ -48,6 +49,41 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(growth.Age, Is.EqualTo(19));
         }
 
+        [Test]
+        public void CareerGameRunner_장착블록보너스를감독판단과경기입력에사용한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            NewGameFlow flow = CreateRegularSeasonCareer(configuration, 8181UL);
+            PlayerGrowthState growth = flow.Career.MyPlayer.GrowthState;
+            int baseContact = growth.BaseAbilities.Get(PlayerAbility.Contact);
+            SkillBlockDefinition block = FindBlock(
+                configuration.Balance.Growth.SkillBlocks,
+                SkillBlockCategory.Contact,
+                SkillBlockRarity.Epic);
+            SkillBlockInstance instance = flow.Career.MyPlayer.SkillBoardState.AddOwnedBlock(block.BlockId);
+            var boardService = new SkillBoardService(
+                configuration.Balance.Growth.SkillBoard,
+                configuration.Balance.Growth.SkillBlocks);
+            boardService.PlaceBlock(flow.Career.MyPlayer.SkillBoardState, instance.InstanceId, 0, 0, 0);
+
+            ScheduledGameState game = flow.Career.League.CurrentSeason.Schedule.GetNextGameForTeam(
+                flow.Career.MyPlayer.CurrentTeamId);
+            var runner = new CareerGameRunner(flow.Career, configuration.Balance);
+            MatchInput input = runner.CreateMatchInput(
+                game,
+                Baseball.Core.Teams.PlayerGameRole.StartingBatter,
+                flow.Career.League.CurrentSeason.SeasonId);
+            Baseball.Core.Teams.Team playerTeam = input.AwayTeam.TeamId == flow.Career.MyPlayer.CurrentTeamId
+                ? input.AwayTeam
+                : input.HomeTeam;
+            Player lockedPlayer = FindLineupPlayer(playerTeam, flow.Career.MyPlayer.PlayerId);
+
+            Assert.That(lockedPlayer, Is.Not.Null);
+            Assert.That(lockedPlayer.BatterAttributes.Contact, Is.EqualTo(baseContact + 4));
+            Assert.That(growth.BaseAbilities.Get(PlayerAbility.Contact), Is.EqualTo(baseContact),
+                "성장판 보너스가 영구 Base Ability를 바꾸면 안 됩니다.");
+        }
+
         private static Player CreatePlayer()
         {
             return new Player(
@@ -58,6 +94,46 @@ namespace Baseball.Tests.EditMode.Game
                 Handedness.Right,
                 new BatterAttributes(60, 55, 65, 40, 60, 55),
                 new PitcherAttributes(40, 40, 40, 40, 40, 40));
+        }
+
+        private static NewGameFlow CreateRegularSeasonCareer(
+            NewGameConfiguration configuration,
+            ulong seed)
+        {
+            var flow = new NewGameFlow(configuration, seed);
+            flow.SubmitIdentity("성장판 테스트", "대한민국");
+            flow.SelectPlayerType(PlayerType.Batter);
+            flow.SelectPosition(PlayerPosition.Shortstop);
+            flow.SelectHandedness(Handedness.Right, Handedness.Right);
+            flow.SubmitBatterAttributes(new BatterAttributes(55, 50, 52, 43, 60, 52));
+            flow.GenerateOffers();
+            flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
+            flow.SignSelectedOffer();
+            flow.StartRookieSeason();
+            return flow;
+        }
+
+        private static SkillBlockDefinition FindBlock(
+            SkillBlockDefinition[] blocks,
+            SkillBlockCategory category,
+            SkillBlockRarity rarity)
+        {
+            for (int index = 0; index < blocks.Length; index++)
+            {
+                if (blocks[index].Category == category && blocks[index].Rarity == rarity)
+                    return blocks[index];
+            }
+            throw new System.InvalidOperationException("테스트할 기본 블록을 찾지 못했습니다.");
+        }
+
+        private static Player FindLineupPlayer(Baseball.Core.Teams.Team team, int playerId)
+        {
+            for (int index = 0; index < team.Lineup.Count; index++)
+            {
+                if (team.Lineup[index].Player.PlayerId == playerId)
+                    return team.Lineup[index].Player;
+            }
+            return null;
         }
     }
 }

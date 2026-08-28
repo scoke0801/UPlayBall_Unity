@@ -42,7 +42,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             PlannedOffseasonActivity activity = scheduler.PlanActivity(
                 offseason, economy, player, "japan_batting_camp", 1);
 
-            scheduler.StartActivity(offseason, economy, activity.ActivityId, 777UL);
+            scheduler.StartActivity(offseason, economy, player, study, activity.ActivityId, 777UL);
             GrowthResultRecord result = scheduler.CompleteActivity(
                 offseason, player, study, activity.ActivityId, new Pcg32Random(777UL));
 
@@ -53,6 +53,52 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             Assert.That(activity.Status, Is.EqualTo(OffseasonActivityStatus.Completed));
             Assert.That(offseason.CurrentWeek, Is.EqualTo(7));
             Assert.That(study.StudyUsedThisOffseason, Is.True);
+        }
+
+        [Test]
+        public void StartActivity_컨디션미달은상태와Money를변경하지않는다()
+        {
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+            var scheduler = new OffseasonScheduler(balance);
+            var offseason = new OffseasonState(2028, 12, 30);
+            var economy = new CareerEconomyState(5400L);
+            var study = new PlayerStudyState();
+            PlayerGrowthState player = CreateBatter();
+            player.ChangeCondition(-60);
+            PlannedOffseasonActivity activity = scheduler.PlanActivity(
+                offseason, economy, player, "japan_batting_camp", 1);
+
+            Assert.Throws<InvalidOperationException>(() =>
+                scheduler.StartActivity(offseason, economy, player, study, activity.ActivityId, 778UL));
+
+            Assert.That(activity.Status, Is.EqualTo(OffseasonActivityStatus.Planned));
+            Assert.That(offseason.CurrentWeek, Is.EqualTo(1));
+            Assert.That(offseason.StudyUsed, Is.False);
+            Assert.That(study.StudyUsedThisOffseason, Is.False);
+            Assert.That(economy.Money, Is.EqualTo(5400L));
+        }
+
+        [Test]
+        public void StartActivity_이전유학사용상태는비용차감전에거부한다()
+        {
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+            var scheduler = new OffseasonScheduler(balance);
+            var offseason = new OffseasonState(2028, 12, 90);
+            var economy = new CareerEconomyState(5400L);
+            var study = new PlayerStudyState();
+            study.RecordVisit("japan_batting_camp", 2027);
+            PlayerGrowthState player = CreateBatter();
+            PlannedOffseasonActivity activity = scheduler.PlanActivity(
+                offseason, economy, player, "japan_batting_camp", 1);
+
+            Assert.Throws<InvalidOperationException>(() =>
+                scheduler.StartActivity(offseason, economy, player, study, activity.ActivityId, 779UL));
+
+            Assert.That(activity.Status, Is.EqualTo(OffseasonActivityStatus.Planned));
+            Assert.That(offseason.CurrentWeek, Is.EqualTo(1));
+            Assert.That(offseason.StudyUsed, Is.False);
+            Assert.That(economy.Money, Is.EqualTo(5400L));
+            Assert.That(player.GrowthHistory, Is.Empty);
         }
 
         private static PlayerGrowthState CreateBatter()

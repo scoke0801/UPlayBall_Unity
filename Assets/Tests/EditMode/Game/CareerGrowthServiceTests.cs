@@ -1,3 +1,4 @@
+using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
@@ -23,7 +24,7 @@ namespace Baseball.Tests.EditMode.Game
                 CreateBatterUsage(),
                 bonusIncome: 300L);
 
-            Assert.That(flow.Career.SaveVersion, Is.EqualTo(5));
+            Assert.That(flow.Career.SaveVersion, Is.EqualTo(6));
             Assert.That(flow.Career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
             Assert.That(flow.Career.CurrentOffseason, Is.SameAs(settlement.Offseason));
             Assert.That(settlement.Offseason.TotalWeeks, Is.EqualTo(12));
@@ -57,6 +58,42 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
+        public void ExecuteActivity_한번호출로선택기간전체를진행한다()
+        {
+            NewGameFlow flow = CreateRegularSeasonCareer(778UL);
+            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            var service = new CareerGrowthService(flow.Career, NewGameConfiguration.CreateDefault().Balance);
+            service.SettleSeasonAndBeginOffseason(CreateBatterUsage());
+
+            GrowthResultRecord result = service.ExecuteActivity("personal_batting");
+
+            PlannedOffseasonActivity activity = flow.Career.CurrentOffseason.Activities[0];
+            Assert.That(activity.Status, Is.EqualTo(OffseasonActivityStatus.Completed));
+            Assert.That(activity.DurationWeeks, Is.EqualTo(3));
+            Assert.That(flow.Career.CurrentOffseason.CurrentWeek, Is.EqualTo(4));
+            Assert.That(result.SourceType, Is.EqualTo(GrowthSourceType.PersonalTraining));
+        }
+
+        [Test]
+        public void SettleSeason_새오프시즌은이전시즌유학사용상태를초기화한다()
+        {
+            NewGameFlow flow = CreateRegularSeasonCareer(778UL);
+            flow.Career.MyPlayer.StudyState.RecordVisit("japan_batting_camp", 2027);
+            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            var service = new CareerGrowthService(flow.Career, NewGameConfiguration.CreateDefault().Balance);
+
+            service.SettleSeasonAndBeginOffseason(CreateBatterUsage());
+            PlannedOffseasonActivity activity = service.PlanActivity("japan_batting_camp", startWeek: 1);
+            service.StartActivity(activity.ActivityId);
+            GrowthResultRecord result = service.CompleteActivity(activity.ActivityId);
+
+            Assert.That(activity.Status, Is.EqualTo(OffseasonActivityStatus.Completed));
+            Assert.That(result.SourceId, Is.EqualTo("japan_batting_camp"));
+            Assert.That(flow.Career.CurrentOffseason.CurrentWeek, Is.EqualTo(7));
+            Assert.That(flow.Career.MyPlayer.StudyState.StudyUsedThisOffseason, Is.True);
+        }
+
+        [Test]
         public void SettleSeason_같은입력과Seed면완전히같은결과를낸다()
         {
             NewGameFlow first = CreateRegularSeasonCareer(991UL);
@@ -75,6 +112,109 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(second.Career.MyPlayer.GrowthState.BaseAbilities.ToArray(),
                 Is.EqualTo(first.Career.MyPlayer.GrowthState.BaseAbilities.ToArray()));
             Assert.That(second.Career.AvailableMoney, Is.EqualTo(first.Career.AvailableMoney));
+        }
+
+        [Test]
+        public void UsageSummary_타자는실제출장경기비율과포지션가중치를사용한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            var statistics = new PlayerSeasonStatisticsState();
+            for (int game = 0; game < 80; game++)
+                statistics.RecordTeamGame();
+            for (int game = 0; game < 40; game++)
+            {
+                statistics.RecordBatting(
+                    started: true,
+                    plateAppearances: 4,
+                    atBats: 4,
+                    runs: 0,
+                    hits: 1,
+                    doubles: 0,
+                    triples: 0,
+                    homeRuns: 0,
+                    runsBattedIn: 0,
+                    walks: 0,
+                    strikeouts: 1);
+            }
+
+            var builder = new CareerSeasonUsageSummaryBuilder(
+                configuration.Balance.PlayerEvaluation,
+                configuration.Balance.CareerSeason.StartingRotationSize);
+            SeasonUsageSummary usage = builder.Build(PlayerPosition.Shortstop, statistics);
+
+            Assert.That(usage.UsageRatio, Is.EqualTo(0.5d).Within(0.000001d));
+            Assert.That(SumWeights(usage), Is.EqualTo(1d).Within(0.000001d));
+            Assert.That(GetWeight(usage, PlayerAbility.Defense),
+                Is.GreaterThan(GetWeight(usage, PlayerAbility.Power)));
+        }
+
+        [Test]
+        public void UsageSummary_선발투수는5인로테이션기회를기준으로정상활용량을계산한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            var statistics = new PlayerSeasonStatisticsState();
+            for (int game = 0; game < 80; game++)
+                statistics.RecordTeamGame();
+            for (int game = 0; game < 16; game++)
+            {
+                statistics.RecordPitching(
+                    started: true,
+                    outsRecorded: 18,
+                    hitsAllowed: 5,
+                    earnedRuns: 2,
+                    walksAllowed: 2,
+                    strikeouts: 6);
+            }
+
+            var builder = new CareerSeasonUsageSummaryBuilder(
+                configuration.Balance.PlayerEvaluation,
+                configuration.Balance.CareerSeason.StartingRotationSize);
+            SeasonUsageSummary usage = builder.Build(PlayerPosition.StartingPitcher, statistics);
+
+            Assert.That(usage.UsageRatio, Is.EqualTo(1d).Within(0.000001d));
+            Assert.That(SumWeights(usage), Is.EqualTo(1d).Within(0.000001d));
+            Assert.That(GetWeight(usage, PlayerAbility.Stamina),
+                Is.GreaterThan(GetWeight(usage, PlayerAbility.Velocity)));
+        }
+
+        [Test]
+        public void ExecuteActivity_자금이없어도휴식으로남은주를모두소화할수있다()
+        {
+            NewGameFlow flow = CreateRegularSeasonCareer(1234UL);
+            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            var service = new CareerGrowthService(flow.Career, NewGameConfiguration.CreateDefault().Balance);
+            service.SettleSeasonAndBeginOffseason(CreateBatterUsage());
+            flow.Career.Economy.Spend(
+                flow.Career.League.CurrentSeason.Year,
+                MoneyTransactionType.TrainingExpense,
+                "테스트 소진",
+                flow.Career.AvailableMoney);
+
+            OffseasonState offseason = flow.Career.CurrentOffseason;
+            while (!offseason.IsCompleted)
+                service.ExecuteActivity("rest");
+
+            Assert.That(flow.Career.AvailableMoney, Is.EqualTo(0L));
+            Assert.That(offseason.CurrentWeek, Is.EqualTo(offseason.TotalWeeks + 1));
+            Assert.That(offseason.Activities.Count, Is.EqualTo(offseason.TotalWeeks));
+        }
+
+        [Test]
+        public void AdvanceToNextSeason_남은주가있어도다음시즌으로넘어간다()
+        {
+            NewGameFlow flow = CreateRegularSeasonCareer(4321UL);
+            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            BalanceTable balance = NewGameConfiguration.CreateDefault().Balance;
+            var growthService = new CareerGrowthService(flow.Career, balance);
+            growthService.SettleSeasonAndBeginOffseason(CreateBatterUsage());
+            growthService.ExecuteActivity("rest");
+            int completedYear = flow.Career.League.CurrentSeason.Year;
+
+            Assert.That(flow.Career.CurrentOffseason.CurrentWeek, Is.EqualTo(2));
+            new CareerSeasonTransitionService(flow.Career, balance).AdvanceToNextSeason();
+
+            Assert.That(flow.Career.League.CurrentSeason.Year, Is.EqualTo(completedYear + 1));
+            Assert.That(flow.Career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
         }
 
         private static NewGameFlow CreateRegularSeasonCareer(ulong seed)
@@ -103,6 +243,24 @@ namespace Baseball.Tests.EditMode.Game
                     new AbilityWeight(PlayerAbility.Defense, 0.3d),
                     new AbilityWeight(PlayerAbility.BatterMental, 0.2d)
                 });
+        }
+
+        private static double SumWeights(SeasonUsageSummary usage)
+        {
+            double total = 0d;
+            for (int index = 0; index < usage.DevelopmentWeights.Length; index++)
+                total += usage.DevelopmentWeights[index].Weight;
+            return total;
+        }
+
+        private static double GetWeight(SeasonUsageSummary usage, PlayerAbility ability)
+        {
+            for (int index = 0; index < usage.DevelopmentWeights.Length; index++)
+            {
+                if (usage.DevelopmentWeights[index].Ability == ability)
+                    return usage.DevelopmentWeights[index].Weight;
+            }
+            return 0d;
         }
     }
 }

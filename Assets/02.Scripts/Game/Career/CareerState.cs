@@ -46,6 +46,8 @@ namespace Baseball.Game.Career
                 throw new ArgumentNullException(nameof(offseason));
             if (CurrentOffseason != null)
                 throw new InvalidOperationException("이미 진행 중인 오프시즌이 있습니다.");
+
+            MyPlayer.StudyState.BeginOffseason();
             CurrentOffseason = offseason;
         }
 

@@ -3,6 +3,7 @@ using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Growth;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
 
@@ -17,12 +18,16 @@ namespace Baseball.Game.Career
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
         private readonly ManagerUsageAi _managerUsageAi;
+        private readonly SkillBoardService _skillBoardService;
 
         public CareerGameRunner(CareerState career, BalanceTable balance)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _managerUsageAi = new ManagerUsageAi(balance.CareerSeason, balance.PlayerEvaluation);
+            _skillBoardService = new SkillBoardService(
+                balance.Growth.SkillBoard,
+                balance.Growth.SkillBlocks);
         }
 
         /// <summary>
@@ -42,7 +47,7 @@ namespace Baseball.Game.Career
                 return;
 
             TeamState team = GetTeam(_career.MyPlayer.CurrentTeamId);
-            Player player = _career.MyPlayer.ToPlayer();
+            Player player = _career.MyPlayer.ToPlayer(_skillBoardService);
             ulong decisionSeed = DeterministicSeed.Derive(game.RandomSeed, (ulong)player.PlayerId);
             PlayerGameRole role = _managerUsageAi.DecideRole(
                 player,
@@ -65,17 +70,32 @@ namespace Baseball.Game.Career
             int seasonId,
             bool requiresWinner = false)
         {
+            MatchInput input = CreateMatchInput(game, playerRole, seasonId, requiresWinner);
+            return new MatchSimulator(_balance, new Pcg32Random(game.RandomSeed))
+                .Simulate(input, NullMatchEventSink.Instance);
+        }
+
+        /// <summary>
+        /// 화면 진행과 즉시 시뮬레이션이 동일한 잠금 입력을 사용하도록 경기 입력을 만든다.
+        /// </summary>
+        public MatchInput CreateMatchInput(
+            ScheduledGameState game,
+            PlayerGameRole playerRole,
+            int seasonId,
+            bool requiresWinner = false)
+        {
+            if (game == null)
+                throw new ArgumentNullException(nameof(game));
+
             Team awayTeam = BuildMatchTeam(game.AwayTeamId, game.Round, playerRole);
             Team homeTeam = BuildMatchTeam(game.HomeTeamId, game.Round, playerRole);
-            var input = new MatchInput(
+            return new MatchInput(
                 seasonId,
                 game.GameId,
                 game.RandomSeed,
                 awayTeam,
                 homeTeam,
                 requiresWinner);
-            return new MatchSimulator(_balance, new Pcg32Random(game.RandomSeed))
-                .Simulate(input, NullMatchEventSink.Instance);
         }
 
         /// <summary>
@@ -145,7 +165,7 @@ namespace Baseball.Game.Career
         {
             TeamState team = GetTeam(teamId);
             bool isPlayerTeam = teamId == _career.MyPlayer.CurrentTeamId;
-            Player myPlayer = isPlayerTeam ? _career.MyPlayer.ToPlayer() : null;
+            Player myPlayer = isPlayerTeam ? _career.MyPlayer.ToPlayer(_skillBoardService) : null;
             var slots = new LineupSlot[9];
             for (int index = 0; index < slots.Length; index++)
             {

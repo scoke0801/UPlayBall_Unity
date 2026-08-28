@@ -39,6 +39,23 @@ namespace Baseball.Simulation.Growth
             state.RemovePlacedBlock(instanceId, returnToInventory: false);
         }
 
+        /// <summary>
+        /// 배치 상태의 회전을 적용한 실제 보드 좌표를 반환한다.
+        /// </summary>
+        public BoardCell[] GetOccupiedCells(PlacedSkillBlock placement)
+        {
+            SkillBlockDefinition definition = FindDefinition(placement.Instance.DefinitionId);
+            BoardCell[] normalized = GetNormalizedCells(definition, placement.RotationQuarterTurns);
+            var result = new BoardCell[normalized.Length];
+            for (int index = 0; index < normalized.Length; index++)
+            {
+                result[index] = new BoardCell(
+                    placement.OriginX + normalized[index].X,
+                    placement.OriginY + normalized[index].Y);
+            }
+            return result;
+        }
+
         public void Redesign(
             SkillBoardState state,
             CareerEconomyState economy,

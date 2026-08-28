@@ -30,6 +30,17 @@ namespace Baseball.Core.Growth
         CoversSocket
     }
 
+    public enum TetrominoShape
+    {
+        I,
+        O,
+        T,
+        S,
+        Z,
+        J,
+        L
+    }
+
     public readonly struct BoardCell
     {
         public BoardCell(int x, int y)
@@ -40,6 +51,57 @@ namespace Baseball.Core.Growth
 
         public int X { get; }
         public int Y { get; }
+    }
+
+    /// <summary>
+    /// 표준 테트리스 7종 모양을 같은 크기의 정사각형 네 칸 좌표로 제공한다.
+    /// </summary>
+    public static class TetrominoShapeCatalog
+    {
+        public const int CellCount = 4;
+
+        public static BoardCell[] CreateCells(TetrominoShape shape)
+        {
+            return shape switch
+            {
+                TetrominoShape.I => new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(1, 0),
+                    new BoardCell(2, 0), new BoardCell(3, 0)
+                },
+                TetrominoShape.O => new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(1, 0),
+                    new BoardCell(0, 1), new BoardCell(1, 1)
+                },
+                TetrominoShape.T => new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(2, 0),
+                    new BoardCell(1, 1)
+                },
+                TetrominoShape.S => new[]
+                {
+                    new BoardCell(1, 0), new BoardCell(2, 0),
+                    new BoardCell(0, 1), new BoardCell(1, 1)
+                },
+                TetrominoShape.Z => new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(1, 0),
+                    new BoardCell(1, 1), new BoardCell(2, 1)
+                },
+                TetrominoShape.J => new[]
+                {
+                    new BoardCell(0, 0),
+                    new BoardCell(0, 1), new BoardCell(1, 1), new BoardCell(2, 1)
+                },
+                TetrominoShape.L => new[]
+                {
+                    new BoardCell(2, 0),
+                    new BoardCell(0, 1), new BoardCell(1, 1), new BoardCell(2, 1)
+                },
+                _ => throw new ArgumentOutOfRangeException(nameof(shape))
+            };
+        }
     }
 
     /// <summary>
@@ -61,8 +123,8 @@ namespace Baseball.Core.Growth
         {
             if (string.IsNullOrWhiteSpace(blockId))
                 throw new ArgumentException("BlockId는 비어 있을 수 없습니다.", nameof(blockId));
-            if (shapeCells == null || shapeCells.Length == 0 || shapeCells.Length > 4)
-                throw new ArgumentException("블록은 1~4칸이어야 합니다.", nameof(shapeCells));
+            if (shapeCells == null || shapeCells.Length != TetrominoShapeCatalog.CellCount)
+                throw new ArgumentException("블록은 정사각형 네 칸으로 구성된 테트로미노여야 합니다.", nameof(shapeCells));
             if (sellValue < 0L)
                 throw new ArgumentOutOfRangeException(nameof(sellValue));
             if (traitSocketRule != TraitSocketRule.None && string.IsNullOrWhiteSpace(traitId))
@@ -94,16 +156,54 @@ namespace Baseball.Core.Growth
 
         private static void ValidateShape(BoardCell[] cells)
         {
+            int minimumX = int.MaxValue;
+            int minimumY = int.MaxValue;
             for (int index = 0; index < cells.Length; index++)
             {
                 if (cells[index].X < 0 || cells[index].Y < 0)
                     throw new ArgumentException("기본 모양 좌표는 음수일 수 없습니다.", nameof(cells));
+                minimumX = Math.Min(minimumX, cells[index].X);
+                minimumY = Math.Min(minimumY, cells[index].Y);
                 for (int previous = 0; previous < index; previous++)
                 {
                     if (cells[index].X == cells[previous].X && cells[index].Y == cells[previous].Y)
                         throw new ArgumentException("블록 모양 셀은 중복될 수 없습니다.", nameof(cells));
                 }
             }
+
+            if (minimumX != 0 || minimumY != 0)
+                throw new ArgumentException("블록 모양 좌표는 좌상단 (0, 0)에서 시작해야 합니다.", nameof(cells));
+            if (!IsConnected(cells))
+                throw new ArgumentException("블록의 네 칸은 상하좌우로 연결된 테트로미노여야 합니다.", nameof(cells));
+        }
+
+        private static bool IsConnected(BoardCell[] cells)
+        {
+            var visited = new bool[cells.Length];
+            var queue = new int[cells.Length];
+            int readIndex = 0;
+            int writeIndex = 1;
+            int visitedCount = 1;
+            visited[0] = true;
+            queue[0] = 0;
+
+            while (readIndex < writeIndex)
+            {
+                BoardCell current = cells[queue[readIndex++]];
+                for (int index = 0; index < cells.Length; index++)
+                {
+                    if (visited[index])
+                        continue;
+                    int distance = Math.Abs(cells[index].X - current.X) +
+                                   Math.Abs(cells[index].Y - current.Y);
+                    if (distance != 1)
+                        continue;
+                    visited[index] = true;
+                    queue[writeIndex++] = index;
+                    visitedCount++;
+                }
+            }
+            return visitedCount == cells.Length;
         }
 
         private static BoardCell[] CopyCells(BoardCell[] source)
