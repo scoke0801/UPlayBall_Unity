@@ -28,7 +28,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             InjuryBalanceTable balance = InjuryBalanceTable.CreateDefault();
             var resolver = new InjuryResolver(balance);
             PlayerGrowthState player = CreatePlayer();
-            var economy = new CareerEconomyState(1000L);
+            var economy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(1_000L));
             var input = new InjuryRiskInput(36, 100, 2d, 1d, true, 0);
 
             InjuryRecord injury = resolver.Resolve(
@@ -39,7 +39,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             Assert.That(injury, Is.Not.Null);
             Assert.That(injury.RandomSeed, Is.EqualTo(99UL));
             Assert.That(injury.TreatmentChoice, Is.EqualTo(InjuryTreatmentChoice.SpecialistTreatment));
-            Assert.That(economy.Money, Is.EqualTo(500L));
+            Assert.That(economy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(500L)));
             Assert.That(player.InjuryHistory.Count, Is.EqualTo(1));
         }
 

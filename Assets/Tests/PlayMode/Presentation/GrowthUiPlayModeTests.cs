@@ -1,4 +1,5 @@
 using System.Collections;
+using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
@@ -40,32 +41,55 @@ namespace Baseball.Tests.PlayMode.Presentation
 
             Assert.That(growth.IsVisible, Is.True);
             Assert.That(home.IsVisible, Is.False);
-            Assert.That(growth.transform.Find("Content/PlayerPanel"), Is.Not.Null);
-            Assert.That(growth.transform.Find("Content/SkillBoard"), Is.Not.Null);
-            Assert.That(growth.transform.Find("Content/SelectedBlock"), Is.Not.Null);
-            Assert.That(growth.transform.Find("Content/BlockShop"), Is.Not.Null);
-            Assert.That(growth.transform.Find("Content/OffseasonActions"), Is.Not.Null);
+            Assert.That(growth.transform.Find("Content/PlayerSummary"), Is.Not.Null);
+            Assert.That(growth.transform.Find("Content/DraftBoard"), Is.Not.Null);
+            Assert.That(growth.transform.Find("Content/BlockInventory"), Is.Not.Null);
+            Assert.That(growth.transform.Find("Content/GrowthSubNavigation/OpenGachaOverlay"), Is.Not.Null);
+            Assert.That(growth.transform.Find("Content/OffseasonActionWorkspace"), Is.Null,
+                "오프시즌 액션은 성장 보드와 동시에 노출되면 안 됩니다.");
             Assert.That(growth.transform.Find("Content/Tabs/Tab_성장/ActiveGlow"), Is.Not.Null);
-            Transform portrait = growth.transform.Find("Content/PlayerPanel/PlayerCard/PlayerPortrait");
-            Assert.That(portrait, Is.Not.Null);
-            Assert.That(portrait.GetComponent<UnityEngine.UI.Image>().sprite, Is.Not.Null);
-            AssertGrowthPlayerCardLayout(growth.transform);
-            AssertGrowthBoardHeaderLayout(growth.transform);
-            AssertTetrominoCells(
-                growth.transform.Find("Content/BlockShop/Shop_Contact"),
-                "ShopShapeCell_");
+            growth.transform.Find("Content/GrowthSubNavigation/OpenGachaOverlay")
+                .GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+
+            Transform overlay = growth.transform.Find("Content/GrowthGachaOverlay");
+            Assert.That(overlay, Is.Not.Null);
+            Assert.That(overlay.Find("GachaTier_Normal"), Is.Not.Null);
+            Assert.That(overlay.Find("GachaTier_Rare"), Is.Not.Null);
+            Assert.That(overlay.Find("GachaTier_Elite"), Is.Not.Null);
+            Assert.That(overlay.Find("GachaTier_Unique"), Is.Not.Null);
+            Assert.That(overlay.Find("GachaTier_Legendary"), Is.Not.Null);
+            Assert.That(careerManager.GrowthDashboard.GachaOffers, Has.Length.EqualTo(5));
 
             long moneyBefore = career.AvailableMoney;
-            Assert.That(careerManager.PurchaseSkillBlock(Baseball.Core.Growth.SkillBlockCategory.Contact),
-                Is.True, careerManager.LastError);
+            UnityEngine.UI.Button buyStandard = overlay
+                .Find("GachaPayment/GachaBuyOne")
+                .GetComponent<UnityEngine.UI.Button>();
+            buyStandard.onClick.Invoke();
             yield return null;
             Assert.That(careerManager.GrowthDashboard.OwnedBlocks, Has.Length.EqualTo(1));
             Assert.That(career.AvailableMoney,
                 Is.EqualTo(moneyBefore - configuration.Balance.Growth.SkillGacha.SinglePrice));
-            int instanceId = careerManager.GrowthDashboard.OwnedBlocks[0].InstanceId;
-            AssertTetrominoCells(
-                growth.transform.Find("Content/SkillBoard/Owned_" + instanceId),
-                "ShapeCell_");
+            Assert.That(career.Economy.Transactions[^1].Amount,
+                Is.EqualTo(-configuration.Balance.Growth.SkillGacha.SinglePrice));
+            Assert.That(
+                growth.transform.Find("Content/TopBar/MONEYSegment/Value")
+                    .GetComponent<UnityEngine.UI.Text>().text,
+                Is.EqualTo(FormatMoney(career.AvailableMoney)));
+            Assert.That(growth.transform.Find("Content/GrowthGachaOverlay"), Is.Null);
+            Assert.That(growth.transform.Find("Content/BlockInventory/SelectedBlockDetail/Name"), Is.Not.Null,
+                "구매 직후 새 블록이 편집 대상으로 선택되어야 합니다.");
+            Assert.That(
+                growth.transform.Find("Content/BlockInventory/SelectedBlockDetail/RotateSelectedBlock")
+                    .GetComponent<UnityEngine.UI.Button>().interactable,
+                Is.EqualTo(careerManager.GrowthDashboard.OwnedBlocks[0].CanRotate),
+                "구매한 블록은 즉시 선택되어 상세 패널에서 회전할 수 있어야 합니다.");
+
+            growth.transform.Find("Content/GrowthSubNavigation/OffseasonActionsTab")
+                .GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            Assert.That(growth.transform.Find("Content/OffseasonActionWorkspace"), Is.Not.Null);
+            Assert.That(growth.transform.Find("Content/DraftBoard"), Is.Null);
 
             Assert.That(CareerTabNavigation.Show(CareerMainTab.Home), Is.True);
             yield return null;
@@ -81,7 +105,7 @@ namespace Baseball.Tests.PlayMode.Presentation
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateStartedCareer(configuration, 93_002UL);
             var seasonService = new CareerSeasonService(career, configuration.Balance);
-            while (career.League.CurrentSeason.Phase == SeasonPhase.RegularSeason)
+            while (career.CurrentLeague.CurrentSeason.Phase == SeasonPhase.RegularSeason)
                 seasonService.AdvanceNextRound();
 
             CareerManager careerManager = GameManager.EnsureExists()
@@ -101,7 +125,7 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(CareerTabNavigation.Show(CareerMainTab.Home), Is.True);
             yield return null;
 
-            Assert.That(career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Postseason));
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Postseason));
             Transform playerCard = home.transform.Find("Content/PlayerPanel/PlayerCard");
             Transform nameStrip = playerCard.Find("NameStrip");
             Transform position = playerCard.Find("Position");
@@ -125,14 +149,14 @@ namespace Baseball.Tests.PlayMode.Presentation
             postseasonButton.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return null;
 
-            Assert.That(career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.SeasonReview));
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.SeasonReview));
             Transform settlementButton = home.transform.Find("Content/NextGamePanel/BeginOffseason");
             Assert.That(settlementButton, Is.Not.Null);
             long moneyBeforeSettlement = career.AvailableMoney;
             settlementButton.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return null;
 
-            Assert.That(career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
             Assert.That(career.AvailableMoney, Is.GreaterThan(moneyBeforeSettlement));
             Transform growthButton = home.transform.Find("Content/NextGamePanel/OpenGrowth");
             Assert.That(growthButton, Is.Not.Null);
@@ -142,24 +166,93 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(growth.IsVisible, Is.True);
             Assert.That(home.IsVisible, Is.False);
 
+            growth.transform.Find("Content/GrowthSubNavigation/OpenGachaOverlay")
+                .GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            growth.transform.Find("Content/GrowthGachaOverlay/GachaPayment/GachaBuyOne")
+                .GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            Transform draftCell = growth.transform.Find("Content/DraftBoard/BoardGrid/DraftCell_0_0");
+            Assert.That(draftCell, Is.Not.Null);
+            draftCell.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            Assert.That(careerManager.GrowthDashboard.PlacedBlocks, Is.Empty,
+                "임시 배치는 변경 적용 전까지 실제 보드를 바꾸면 안 됩니다.");
+            Transform applyBoard = growth.transform.Find("Content/DraftBoard/ApplyBoardDraft");
+            applyBoard.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            applyBoard = growth.transform.Find("Content/DraftBoard/ApplyBoardDraft");
+            applyBoard.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            Assert.That(careerManager.GrowthDashboard.PlacedBlocks, Has.Length.EqualTo(1));
+
+            growth.transform.Find("Content/GrowthSubNavigation/OffseasonActionsTab")
+                .GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+
             int weekBefore = career.CurrentOffseason.CurrentWeek;
             Transform program = growth.transform.Find(
-                "Content/OffseasonActions/Program_personal_batting");
+                "Content/OffseasonActionWorkspace/WorkspaceProgram_personal_batting");
             Assert.That(program, Is.Not.Null);
+            program = growth.transform.Find(
+                "Content/OffseasonActionWorkspace/WorkspaceProgram_personal_batting");
             program.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return null;
 
-            Transform execute = growth.transform.Find("Content/OffseasonActions/ExecuteActivity");
-            Assert.That(execute, Is.Not.Null);
-            execute.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            UI_Popup_GrowthActivityConfirmation popup =
+                Object.FindFirstObjectByType<UI_Popup_GrowthActivityConfirmation>(
+                    FindObjectsInactive.Include);
+            Assert.That(popup, Is.Not.Null);
+            Assert.That(popup.IsVisible, Is.True);
+            Assert.That(popup.transform.Find("Content/Summary_Time"), Is.Not.Null);
+            Assert.That(popup.transform.Find("Content/Summary_Cost"), Is.Not.Null);
+            Assert.That(popup.transform.Find("Content/Summary_Condition"), Is.Not.Null);
+            Assert.That(popup.transform.Find("Content/Summary_Completion"), Is.Not.Null);
+            Assert.That(popup.transform.Find("Content/ProgramList/Program_bat_power_camp"), Is.Not.Null);
+            Assert.That(popup.transform.Find("Content/Details/Intensity_Standard"), Is.Not.Null);
+            Assert.That(popup.transform.Find("Content/Timeline/Week_12"), Is.Not.Null);
+
+            Transform confirm = popup.transform.Find("Content/Footer/Confirm");
+            Assert.That(confirm, Is.Not.Null);
+            confirm.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return null;
 
             Assert.That(career.CurrentOffseason.CurrentWeek, Is.EqualTo(weekBefore + 3));
             Assert.That(careerManager.GrowthDashboard.IsActivityInProgress, Is.False);
-            RectTransform growthLogHeader = GetRect(growth.transform, "Content/GrowthLog/Header");
-            RectTransform firstGrowthLogRow = GetRect(growth.transform, "Content/GrowthLog/Date_0");
-            Assert.That(GetTop(firstGrowthLogRow), Is.LessThan(GetBottom(growthLogHeader)),
-                "성장 로그의 첫 행은 패널 헤더를 침범하면 안 된다.");
+            Assert.That(popup.IsVisible, Is.False);
+
+            program.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            Transform addToPlan = popup.transform.Find("Content/Footer/Plan");
+            Assert.That(addToPlan, Is.Not.Null);
+            addToPlan.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+
+            Assert.That(careerManager.GrowthDashboard.PlannedActivities, Has.Length.EqualTo(1));
+            Assert.That(career.CurrentOffseason.CurrentWeek, Is.EqualTo(weekBefore + 3));
+
+            Transform studyProgram = growth.transform.Find(
+                "Content/OffseasonActionWorkspace/WorkspaceProgram_japan_batting_camp");
+            Assert.That(studyProgram, Is.Not.Null);
+            studyProgram.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+
+            Transform executePlan = popup.transform.Find("Content/Footer/Confirm");
+            Assert.That(executePlan, Is.Not.Null);
+            executePlan.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+
+            Assert.That(career.CurrentOffseason.CurrentWeek, Is.EqualTo(13));
+            Assert.That(careerManager.GrowthDashboard.PlannedActivities, Is.Empty);
+            Assert.That(career.MyPlayer.StudyState.StudyUsedThisOffseason, Is.True);
+            Assert.That(career.CurrentOffseason.Activities[1].Status,
+                Is.EqualTo(OffseasonActivityStatus.Completed));
+            Assert.That(career.CurrentOffseason.Activities[2].Status,
+                Is.EqualTo(OffseasonActivityStatus.Completed));
+            Assert.That(
+                growth.transform.Find("Content/PlayerSummary/LatestGrowth/Value"),
+                Is.Not.Null,
+                "보드 편집 중에는 최근 성장 한 건만 선수 요약에 노출합니다.");
         }
 
         [UnityTearDown]
@@ -228,6 +321,13 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(GetTop(redesign), Is.LessThanOrEqualTo(GetTop(header)));
             Assert.That(GetBottom(redesign), Is.GreaterThanOrEqualTo(GetBottom(header)),
                 "안전 회수 버튼은 성장판 헤더의 상하 경계를 넘어가면 안 된다.");
+        }
+
+        private static string FormatMoney(long amount)
+        {
+            return amount >= 100_000_000L
+                ? $"{amount / 100_000_000d:0.##}억원"
+                : $"{amount / 10_000d:N0}만원";
         }
 
         private static RectTransform GetRect(Transform root, string path)

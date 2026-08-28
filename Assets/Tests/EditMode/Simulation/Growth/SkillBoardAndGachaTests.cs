@@ -13,12 +13,39 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
     public sealed class SkillBoardAndGachaTests
     {
         [Test]
+        public void DefaultMoneyValues_성장치료수상은계약과같은원단위를사용한다()
+        {
+            GrowthBalanceTable growth = GrowthBalanceTable.CreateDefault();
+
+            Assert.That(growth.SkillGacha.SinglePrice,
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(600L)));
+            Assert.That(growth.SkillGacha.RarePrice,
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(1_500L)));
+            Assert.That(growth.SkillGacha.ElitePrice,
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(4_000L)));
+            Assert.That(growth.SkillGacha.UniquePrice,
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(10_000L)));
+            Assert.That(growth.SkillGacha.LegendaryPrice,
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(25_000L)));
+            Assert.That(growth.SkillGacha.GetFivePullPrice(SkillGachaPurchaseTier.Normal),
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(2_850L)));
+            Assert.That(growth.FindProgram("personal_batting").MoneyCost,
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(300L)));
+            Assert.That(growth.SkillBoardRedesignCost,
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(1_500L)));
+            Assert.That(InjuryBalanceTable.CreateDefault().SpecialistTreatmentCost,
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(500L)));
+            Assert.That(SeasonSettlementBalance.CreateDefault().MinimumAwardMoney,
+                Is.EqualTo(MoneyAmount.FromTenThousandWon(100L)));
+        }
+
+        [Test]
         public void PullSingle_Rare10회보장카운트다음뽑기에서Rare를지급한다()
         {
             SkillBlockDefinition[] definitions = CreateGachaDefinitions();
             SkillGachaBalanceTable balance = GrowthBalanceTable.CreateDefault().SkillGacha;
             var service = new SkillGachaService(balance, definitions);
-            var economy = new CareerEconomyState(10000L);
+            var economy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(10_000L));
             var board = new SkillBoardState("standard_4x4");
             var random = new FixedRandom(0d);
 
@@ -27,8 +54,39 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             SkillBlockInstance guaranteed = service.PullSingle(
                 economy, board, SkillBlockCategory.Contact, 2028, random);
 
-            Assert.That(guaranteed.DefinitionId, Is.EqualTo("contact_rare"));
-            Assert.That(board.PityRareCount, Is.EqualTo(0));
+            Assert.That(guaranteed.DefinitionId, Is.EqualTo("contact_elite"));
+            Assert.That(board.PityEliteCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void PullSingle_Legendary60회보장카운트다음뽑기에서Legendary를지급한다()
+        {
+            SkillGachaBalanceTable balance = GrowthBalanceTable.CreateDefault().SkillGacha;
+            var service = new SkillGachaService(balance, CreateGachaDefinitions());
+            var economy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(40_000L));
+            var board = new SkillBoardState("standard_4x4");
+            var random = new FixedRandom(0d);
+
+            for (int index = 0; index < balance.LegendaryPity; index++)
+            {
+                service.PullSingle(
+                    economy,
+                    board,
+                    SkillBlockCategory.Contact,
+                    SkillGachaPurchaseTier.Normal,
+                    2028,
+                    random);
+            }
+            SkillBlockInstance guaranteed = service.PullSingle(
+                economy,
+                board,
+                SkillBlockCategory.Contact,
+                SkillGachaPurchaseTier.Normal,
+                2028,
+                random);
+
+            Assert.That(guaranteed.DefinitionId, Is.EqualTo("contact_legendary"));
+            Assert.That(board.PityLegendaryCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -37,14 +95,14 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             var service = new SkillGachaService(
                 GrowthBalanceTable.CreateDefault().SkillGacha,
                 CreateGachaDefinitions());
-            var economy = new CareerEconomyState(5000L);
+            var economy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(5_000L));
             var board = new SkillBoardState("standard_4x4");
 
             SkillBlockInstance[] result = service.PullBundle(
                 economy, board, SkillBlockCategory.Contact, 2028, new FixedRandom(0d));
 
-            Assert.That(result[4].DefinitionId, Is.EqualTo("contact_uncommon"));
-            Assert.That(economy.Money, Is.EqualTo(2300L));
+            Assert.That(result, Has.Length.EqualTo(5));
+            Assert.That(economy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(2_150L)));
         }
 
         [Test]
@@ -52,28 +110,38 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         {
             SkillGachaBalanceTable balance = GrowthBalanceTable.CreateDefault().SkillGacha;
             var service = new SkillGachaService(balance, CreateGachaDefinitions());
-            var standardEconomy = new CareerEconomyState(5000L);
-            var premiumEconomy = new CareerEconomyState(5000L);
+            var standardEconomy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(5_000L));
+            var premiumEconomy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(5_000L));
+            var eliteEconomy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(5_000L));
 
             SkillBlockInstance standard = service.PullSingle(
                 standardEconomy,
                 new SkillBoardState("standard_4x4"),
                 SkillBlockCategory.Contact,
-                SkillGachaPurchaseTier.Standard,
+                SkillGachaPurchaseTier.Normal,
                 2028,
                 new FixedRandom(0.20d));
             SkillBlockInstance premium = service.PullSingle(
                 premiumEconomy,
                 new SkillBoardState("standard_4x4"),
                 SkillBlockCategory.Contact,
-                SkillGachaPurchaseTier.Premium,
+                SkillGachaPurchaseTier.Rare,
+                2028,
+                new FixedRandom(0.20d));
+            SkillBlockInstance elite = service.PullSingle(
+                eliteEconomy,
+                new SkillBoardState("standard_4x4"),
+                SkillBlockCategory.Contact,
+                SkillGachaPurchaseTier.Elite,
                 2028,
                 new FixedRandom(0.20d));
 
-            Assert.That(standard.DefinitionId, Is.EqualTo("contact_common"));
-            Assert.That(premium.DefinitionId, Is.EqualTo("contact_uncommon"));
-            Assert.That(standardEconomy.Money, Is.EqualTo(4400L));
-            Assert.That(premiumEconomy.Money, Is.EqualTo(3500L));
+            Assert.That(standard.DefinitionId, Is.EqualTo("contact_normal"));
+            Assert.That(premium.DefinitionId, Is.EqualTo("contact_rare"));
+            Assert.That(elite.DefinitionId, Is.EqualTo("contact_elite"));
+            Assert.That(standardEconomy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(4_400L)));
+            Assert.That(premiumEconomy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(3_500L)));
+            Assert.That(eliteEconomy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(1_000L)));
         }
 
         [Test]
@@ -83,8 +151,8 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             const int PullCount = 100_000;
             SkillGachaBalanceTable balance = GrowthBalanceTable.CreateDefault().SkillGacha;
             var service = new SkillGachaService(balance, CreateGachaDefinitions());
-            var standardEconomy = new CareerEconomyState(500_000_000L);
-            var premiumEconomy = new CareerEconomyState(500_000_000L);
+            var standardEconomy = new CareerEconomyState(2_000_000_000_000L);
+            var premiumEconomy = new CareerEconomyState(2_000_000_000_000L);
             var standardBoard = new SkillBoardState("standard_4x4");
             var premiumBoard = new SkillBoardState("standard_4x4");
             var standardRandom = new Pcg32Random(20280828UL);
@@ -100,14 +168,14 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                     standardEconomy,
                     standardBoard,
                     SkillBlockCategory.Contact,
-                    SkillGachaPurchaseTier.Standard,
+                    SkillGachaPurchaseTier.Normal,
                     2028,
                     standardRandom);
                 SkillBlockInstance premium = service.PullSingle(
                     premiumEconomy,
                     premiumBoard,
                     SkillBlockCategory.Contact,
-                    SkillGachaPurchaseTier.Premium,
+                    SkillGachaPurchaseTier.Rare,
                     2028,
                     premiumRandom);
                 CountHighRarity(standard.DefinitionId, ref standardRareOrBetter, ref standardEpic);
@@ -122,8 +190,49 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 $"일반 R+ {standardRareRate:P2}, E {standardEpicRate:P2} · " +
                 $"고급 R+ {premiumRareRate:P2}, E {premiumEpicRate:P2}");
 
-            Assert.That(premiumRareRate, Is.GreaterThan(standardRareRate + 0.18d));
-            Assert.That(premiumEpicRate, Is.GreaterThan(standardEpicRate + 0.03d));
+            Assert.That(premiumRareRate, Is.GreaterThan(standardRareRate + 0.40d));
+            Assert.That(premiumEpicRate, Is.GreaterThan(standardEpicRate + 0.10d));
+        }
+
+        [Test]
+        [Timeout(30000)]
+        public void PullSingle_십만회에서특급구매는Rare이상과Legendary비율을유지한다()
+        {
+            const int PullCount = 100_000;
+            SkillGachaBalanceTable balance = GrowthBalanceTable.CreateDefault().SkillGacha;
+            var service = new SkillGachaService(balance, CreateGachaDefinitions());
+            var economy = new CareerEconomyState(4_000_000_000_000L);
+            var board = new SkillBoardState("standard_4x4");
+            var random = new Pcg32Random(20280829UL);
+            int rareOrBetter = 0;
+            int legendary = 0;
+
+            for (int index = 0; index < PullCount; index++)
+            {
+                SkillBlockInstance result = service.PullSingle(
+                    economy,
+                    board,
+                    SkillBlockCategory.Contact,
+                    SkillGachaPurchaseTier.Elite,
+                    2028,
+                    random);
+                if (result.DefinitionId.EndsWith("_elite", StringComparison.Ordinal) ||
+                    result.DefinitionId.EndsWith("_unique", StringComparison.Ordinal) ||
+                    result.DefinitionId.EndsWith("_legendary", StringComparison.Ordinal))
+                {
+                    rareOrBetter++;
+                }
+                if (result.DefinitionId.EndsWith("_legendary", StringComparison.Ordinal))
+                    legendary++;
+            }
+
+            double rareOrBetterRate = rareOrBetter / (double)PullCount;
+            double legendaryRate = legendary / (double)PullCount;
+            TestContext.WriteLine(
+                $"특급 R+ {rareOrBetterRate:P2}, L {legendaryRate:P2}");
+
+            Assert.That(rareOrBetterRate, Is.EqualTo(1d));
+            Assert.That(legendaryRate, Is.InRange(0.045d, 0.065d));
         }
 
         [Test]
@@ -141,7 +250,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 TraitSocketRule.CoversSocket);
             var filler = new SkillBlockDefinition(
                 "filler",
-                SkillBlockRarity.Common,
+                SkillBlockRarity.Normal,
                 SkillBlockCategory.Contact,
                 TetrominoShapeCatalog.CreateCells(TetrominoShape.O),
                 false,
@@ -166,8 +275,8 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         public void GetPlacementPreview_상태변경없이모양과배치가능여부를반환한다()
         {
             SkillBlockDefinition block = CreateDefinition(
-                "contact_common",
-                SkillBlockRarity.Common,
+                "contact_normal",
+                SkillBlockRarity.Normal,
                 1,
                 60L);
             var state = new SkillBoardState("standard_4x4");
@@ -210,31 +319,24 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
-        public void DefaultBlocks_모두4칸표준테트로미노이며7종모양을포함한다()
+        public void DefaultBlocks_등급이높을수록1칸에서5칸까지역할이달라진다()
         {
             SkillBlockDefinition[] definitions = GrowthSkillContent.CreateDefaultBlocks();
-            var foundShapes = new bool[7];
 
             for (int index = 0; index < definitions.Length; index++)
             {
-                Assert.That(definitions[index].ShapeCells, Has.Length.EqualTo(4));
-                for (int shapeIndex = 0; shapeIndex < foundShapes.Length; shapeIndex++)
-                {
-                    BoardCell[] standard = TetrominoShapeCatalog.CreateCells((TetrominoShape)shapeIndex);
-                    if (HasSameCells(definitions[index].ShapeCells, standard))
-                        foundShapes[shapeIndex] = true;
-                }
+                Assert.That(
+                    definitions[index].ShapeCells,
+                    Has.Length.EqualTo((int)definitions[index].Rarity + 1));
             }
-
-            Assert.That(foundShapes, Has.All.True);
         }
 
         [Test]
-        public void SkillBlockDefinition_4칸연결조건을위반하면거부한다()
+        public void SkillBlockDefinition_1에서5칸연결모양만허용한다()
         {
-            Assert.Throws<ArgumentException>(() => new SkillBlockDefinition(
+            Assert.DoesNotThrow(() => new SkillBlockDefinition(
                 "triomino",
-                SkillBlockRarity.Common,
+                SkillBlockRarity.Elite,
                 SkillBlockCategory.Contact,
                 new[] { new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(0, 1) },
                 true,
@@ -242,12 +344,24 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 0L));
             Assert.Throws<ArgumentException>(() => new SkillBlockDefinition(
                 "disconnected",
-                SkillBlockRarity.Common,
+                SkillBlockRarity.Normal,
                 SkillBlockCategory.Contact,
                 new[]
                 {
                     new BoardCell(0, 0), new BoardCell(1, 0),
                     new BoardCell(3, 0), new BoardCell(4, 0)
+                },
+                true,
+                Array.Empty<AbilityChange>(),
+                0L));
+            Assert.Throws<ArgumentException>(() => new SkillBlockDefinition(
+                "six_cells",
+                SkillBlockRarity.Legendary,
+                SkillBlockCategory.Contact,
+                new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(2, 0),
+                    new BoardCell(0, 1), new BoardCell(1, 1), new BoardCell(2, 1)
                 },
                 true,
                 Array.Empty<AbilityChange>(),
@@ -258,10 +372,11 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         {
             return new[]
             {
-                CreateDefinition("contact_common", SkillBlockRarity.Common, 1, 60L),
-                CreateDefinition("contact_uncommon", SkillBlockRarity.Uncommon, 2, 90L),
-                CreateDefinition("contact_rare", SkillBlockRarity.Rare, 4, 120L),
-                CreateDefinition("contact_epic", SkillBlockRarity.Epic, 6, 150L)
+                CreateDefinition("contact_normal", SkillBlockRarity.Normal, 1, 60L),
+                CreateDefinition("contact_rare", SkillBlockRarity.Rare, 2, 90L),
+                CreateDefinition("contact_elite", SkillBlockRarity.Elite, 4, 120L),
+                CreateDefinition("contact_unique", SkillBlockRarity.Unique, 6, 150L),
+                CreateDefinition("contact_legendary", SkillBlockRarity.Legendary, 8, 220L)
             };
         }
 
@@ -286,15 +401,15 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             ref int rareOrBetter,
             ref int epic)
         {
-            if (definitionId.EndsWith("_rare", StringComparison.Ordinal))
-            {
-                rareOrBetter++;
-                return;
-            }
-            if (!definitionId.EndsWith("_epic", StringComparison.Ordinal))
+            if (definitionId.EndsWith("_normal", StringComparison.Ordinal))
                 return;
             rareOrBetter++;
-            epic++;
+            if (definitionId.EndsWith("_elite", StringComparison.Ordinal) ||
+                definitionId.EndsWith("_unique", StringComparison.Ordinal) ||
+                definitionId.EndsWith("_legendary", StringComparison.Ordinal))
+            {
+                epic++;
+            }
         }
 
         private static bool HasSameCells(BoardCell[] left, BoardCell[] right)

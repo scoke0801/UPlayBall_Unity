@@ -3,6 +3,21 @@ using System.Collections.Generic;
 
 namespace Baseball.Core.Growth
 {
+    /// <summary>
+    /// 계약·상여·성장 비용이 공유하는 원화 단위를 명시적으로 변환한다.
+    /// </summary>
+    public static class MoneyAmount
+    {
+        public const long WonPerTenThousand = 10_000L;
+
+        public static long FromTenThousandWon(long amount)
+        {
+            if (amount < 0L)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            return checked(amount * WonPerTenThousand);
+        }
+    }
+
     public enum MoneyTransactionType
     {
         ContractIncome,
@@ -31,7 +46,7 @@ namespace Baseball.Core.Growth
     }
 
     /// <summary>
-    /// 만원 단위 정수 Money와 수입·지출 이력을 소유한다.
+    /// 원 단위 정수 Money와 수입·지출 이력을 소유한다.
     /// </summary>
     public sealed class CareerEconomyState
     {

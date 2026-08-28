@@ -15,20 +15,21 @@ namespace Baseball.Tests.EditMode.Game
         public void SettleSeason_성장노쇠수입과12주오프시즌을연결한다()
         {
             NewGameFlow flow = CreateRegularSeasonCareer(424242UL);
-            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             long moneyBefore = flow.Career.AvailableMoney;
             long salary = flow.Career.CurrentContract.AnnualSalary;
             var service = new CareerGrowthService(flow.Career, NewGameConfiguration.CreateDefault().Balance);
 
             SeasonGrowthSettlementResult settlement = service.SettleSeasonAndBeginOffseason(
                 CreateBatterUsage(),
-                bonusIncome: 300L);
+                bonusIncome: MoneyAmount.FromTenThousandWon(300L));
 
             Assert.That(flow.Career.SaveVersion, Is.EqualTo(NewGameFlow.CurrentSaveVersion));
-            Assert.That(flow.Career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
+            Assert.That(flow.Career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
             Assert.That(flow.Career.CurrentOffseason, Is.SameAs(settlement.Offseason));
             Assert.That(settlement.Offseason.TotalWeeks, Is.EqualTo(12));
-            Assert.That(flow.Career.AvailableMoney, Is.EqualTo(moneyBefore + salary + 300L));
+            Assert.That(flow.Career.AvailableMoney,
+                Is.EqualTo(moneyBefore + salary + MoneyAmount.FromTenThousandWon(300L)));
             Assert.That(settlement.NaturalDevelopment.SourceType, Is.EqualTo(GrowthSourceType.NaturalDevelopment));
             Assert.That(settlement.Aging.SourceType, Is.EqualTo(GrowthSourceType.Aging));
             Assert.That(flow.Career.MyPlayer.GrowthState.GrowthHistory.Count, Is.EqualTo(2));
@@ -40,7 +41,7 @@ namespace Baseball.Tests.EditMode.Game
         public void OffseasonActivity_커리어Seed로결과를확정하고상태를동기화한다()
         {
             NewGameFlow flow = CreateRegularSeasonCareer(777UL);
-            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             var service = new CareerGrowthService(flow.Career, NewGameConfiguration.CreateDefault().Balance);
             service.SettleSeasonAndBeginOffseason(CreateBatterUsage());
             long moneyBefore = flow.Career.AvailableMoney;
@@ -52,7 +53,8 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(activity.Status, Is.EqualTo(OffseasonActivityStatus.Completed));
             Assert.That(activity.RandomSeed, Is.Not.EqualTo(0UL));
             Assert.That(result.RandomSeed, Is.EqualTo(activity.RandomSeed));
-            Assert.That(flow.Career.AvailableMoney, Is.EqualTo(moneyBefore - 300L));
+            Assert.That(flow.Career.AvailableMoney,
+                Is.EqualTo(moneyBefore - MoneyAmount.FromTenThousandWon(300L)));
             Assert.That(flow.Career.CurrentOffseason.CurrentWeek, Is.EqualTo(4));
             Assert.That(flow.Career.MyPlayer.Condition, Is.EqualTo(flow.Career.MyPlayer.GrowthState.Condition));
         }
@@ -61,7 +63,7 @@ namespace Baseball.Tests.EditMode.Game
         public void ExecuteActivity_한번호출로선택기간전체를진행한다()
         {
             NewGameFlow flow = CreateRegularSeasonCareer(778UL);
-            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             var service = new CareerGrowthService(flow.Career, NewGameConfiguration.CreateDefault().Balance);
             service.SettleSeasonAndBeginOffseason(CreateBatterUsage());
 
@@ -75,11 +77,41 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
+        public void ExecutePlannedActivities_훈련회복유학을담은순서대로모두실행한다()
+        {
+            NewGameFlow flow = CreateRegularSeasonCareer(779UL);
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
+            var service = new CareerGrowthService(
+                flow.Career,
+                NewGameConfiguration.CreateDefault().Balance);
+            service.SettleSeasonAndBeginOffseason(CreateBatterUsage());
+            long moneyBefore = flow.Career.AvailableMoney;
+
+            service.PlanActivity("personal_batting", startWeek: 1);
+            service.PlanActivity("rehab_general", startWeek: 4);
+            service.PlanActivity("japan_batting_camp", startWeek: 6);
+
+            GrowthResultRecord[] results = service.ExecutePlannedActivities();
+
+            Assert.That(results, Has.Length.EqualTo(3));
+            Assert.That(results[0].SourceId, Is.EqualTo("personal_batting"));
+            Assert.That(results[1].SourceId, Is.EqualTo("rehab_general"));
+            Assert.That(results[2].SourceId, Is.EqualTo("japan_batting_camp"));
+            Assert.That(flow.Career.CurrentOffseason.CurrentWeek, Is.EqualTo(12));
+            Assert.That(flow.Career.AvailableMoney,
+                Is.EqualTo(moneyBefore - MoneyAmount.FromTenThousandWon(3700L)));
+            Assert.That(flow.Career.MyPlayer.StudyState.StudyUsedThisOffseason, Is.True);
+            Assert.That(flow.Career.CurrentOffseason.Activities,
+                Has.All.Matches<PlannedOffseasonActivity>(
+                    activity => activity.Status == OffseasonActivityStatus.Completed));
+        }
+
+        [Test]
         public void SettleSeason_새오프시즌은이전시즌유학사용상태를초기화한다()
         {
             NewGameFlow flow = CreateRegularSeasonCareer(778UL);
             flow.Career.MyPlayer.StudyState.RecordVisit("japan_batting_camp", 2027);
-            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             var service = new CareerGrowthService(flow.Career, NewGameConfiguration.CreateDefault().Balance);
 
             service.SettleSeasonAndBeginOffseason(CreateBatterUsage());
@@ -98,8 +130,8 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameFlow first = CreateRegularSeasonCareer(991UL);
             NewGameFlow second = CreateRegularSeasonCareer(991UL);
-            first.Career.League.CurrentSeason.CompleteRegularSeason();
-            second.Career.League.CurrentSeason.CompleteRegularSeason();
+            first.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
+            second.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
 
             var firstService = new CareerGrowthService(first.Career, NewGameConfiguration.CreateDefault().Balance);
             var secondService = new CareerGrowthService(second.Career, NewGameConfiguration.CreateDefault().Balance);
@@ -181,11 +213,11 @@ namespace Baseball.Tests.EditMode.Game
         public void ExecuteActivity_자금이없어도휴식으로남은주를모두소화할수있다()
         {
             NewGameFlow flow = CreateRegularSeasonCareer(1234UL);
-            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             var service = new CareerGrowthService(flow.Career, NewGameConfiguration.CreateDefault().Balance);
             service.SettleSeasonAndBeginOffseason(CreateBatterUsage());
             flow.Career.Economy.Spend(
-                flow.Career.League.CurrentSeason.Year,
+                flow.Career.CurrentLeague.CurrentSeason.Year,
                 MoneyTransactionType.TrainingExpense,
                 "테스트 소진",
                 flow.Career.AvailableMoney);
@@ -203,18 +235,18 @@ namespace Baseball.Tests.EditMode.Game
         public void AdvanceToNextSeason_남은주가있어도다음시즌으로넘어간다()
         {
             NewGameFlow flow = CreateRegularSeasonCareer(4321UL);
-            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             BalanceTable balance = NewGameConfiguration.CreateDefault().Balance;
             var growthService = new CareerGrowthService(flow.Career, balance);
             growthService.SettleSeasonAndBeginOffseason(CreateBatterUsage());
             growthService.ExecuteActivity("rest");
-            int completedYear = flow.Career.League.CurrentSeason.Year;
+            int completedYear = flow.Career.CurrentLeague.CurrentSeason.Year;
 
             Assert.That(flow.Career.CurrentOffseason.CurrentWeek, Is.EqualTo(2));
             new CareerSeasonTransitionService(flow.Career, balance).AdvanceToNextSeason();
 
-            Assert.That(flow.Career.League.CurrentSeason.Year, Is.EqualTo(completedYear + 1));
-            Assert.That(flow.Career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
+            Assert.That(flow.Career.CurrentLeague.CurrentSeason.Year, Is.EqualTo(completedYear + 1));
+            Assert.That(flow.Career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
         }
 
         private static NewGameFlow CreateRegularSeasonCareer(ulong seed)

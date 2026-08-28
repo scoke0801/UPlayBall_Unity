@@ -1,4 +1,5 @@
 using System;
+using Baseball.Core.Growth;
 
 namespace Baseball.Core.Balance
 {
@@ -19,7 +20,7 @@ namespace Baseball.Core.Balance
             double discomfortShare,
             double minorShare,
             double seriousShare,
-            int specialistTreatmentCost)
+            long specialistTreatmentCost)
         {
             double severitySum = discomfortShare + minorShare + seriousShare;
             if (baseRisk < 0d || severitySum < 0d || severitySum > 1d)
@@ -51,7 +52,7 @@ namespace Baseball.Core.Balance
         public double DiscomfortShare { get; }
         public double MinorShare { get; }
         public double SeriousShare { get; }
-        public int SpecialistTreatmentCost { get; }
+        public long SpecialistTreatmentCost { get; }
 
         public static InjuryBalanceTable CreateDefault()
         {
@@ -68,7 +69,7 @@ namespace Baseball.Core.Balance
                 discomfortShare: 0.55d,
                 minorShare: 0.30d,
                 seriousShare: 0.13d,
-                specialistTreatmentCost: 500);
+                specialistTreatmentCost: MoneyAmount.FromTenThousandWon(500L));
         }
     }
 }

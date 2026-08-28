@@ -62,6 +62,61 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
+        public void TrainingIntensity_안정과집중은표준의시간비용부담을서로다르게교환한다()
+        {
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+
+            TrainingProgramDefinition safe = balance.GetProgram(
+                "pitch_velocity_camp",
+                TrainingIntensity.Safe);
+            TrainingProgramDefinition standard = balance.GetProgram(
+                "pitch_velocity_camp",
+                TrainingIntensity.Standard);
+            TrainingProgramDefinition intensive = balance.GetProgram(
+                "pitch_velocity_camp",
+                TrainingIntensity.Intensive);
+
+            Assert.That(safe.DurationWeeks, Is.EqualTo(4));
+            Assert.That(standard.DurationWeeks, Is.EqualTo(3));
+            Assert.That(intensive.DurationWeeks, Is.EqualTo(2));
+            Assert.That(safe.MoneyCost, Is.EqualTo(MoneyAmount.FromTenThousandWon(500L)));
+            Assert.That(standard.MoneyCost, Is.EqualTo(MoneyAmount.FromTenThousandWon(650L)));
+            Assert.That(intensive.MoneyCost, Is.EqualTo(MoneyAmount.FromTenThousandWon(900L)));
+            Assert.That(safe.ConditionChange, Is.EqualTo(-10));
+            Assert.That(standard.ConditionChange, Is.EqualTo(-18));
+            Assert.That(intensive.ConditionChange, Is.EqualTo(-28));
+            Assert.That(intensive.ProgramPower, Is.GreaterThan(standard.ProgramPower));
+            Assert.That(intensive.InjuryRisk, Is.GreaterThan(standard.InjuryRisk));
+        }
+
+        [Test]
+        public void GrowthPreview_현재능력치와Potential상한안에서보장과예상범위를설명한다()
+        {
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+            PlayerGrowthState player = CreateBatter(age: 20, baseRating: 58, potential: 72);
+            TrainingProgramDefinition program = balance.FindProgram("bat_power_camp");
+
+            GrowthProgramPreview preview = new GrowthPreviewCalculator(balance).Build(
+                player,
+                program,
+                TrainingIntensity.Standard,
+                priorSelections: 0,
+                TrainingFitGrade.High);
+
+            Assert.That(preview.Program.DurationWeeks, Is.EqualTo(3));
+            Assert.That(preview.ConditionBefore, Is.EqualTo(90));
+            Assert.That(preview.ConditionAfter, Is.EqualTo(72));
+            Assert.That(preview.AbilityRanges, Is.Not.Empty);
+            Assert.That(preview.Program.MinimumGuaranteedGain, Is.EqualTo(1));
+            for (int index = 0; index < preview.AbilityRanges.Length; index++)
+            {
+                AbilityGrowthRange range = preview.AbilityRanges[index];
+                Assert.That(range.MaximumGain, Is.GreaterThanOrEqualTo(range.MinimumGain));
+                Assert.That(range.MaximumValue, Is.LessThanOrEqualTo(75));
+            }
+        }
+
+        [Test]
         public void NaturalDevelopment와Aging은한결산에서원인을분리해기록한다()
         {
             GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
@@ -99,5 +154,6 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 0,
                 70);
         }
+
     }
 }

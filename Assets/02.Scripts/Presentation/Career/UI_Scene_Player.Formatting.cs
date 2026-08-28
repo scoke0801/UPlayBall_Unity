@@ -47,10 +47,11 @@ namespace Baseball.Presentation.Career
         {
             return rarity switch
             {
-                SkillBlockRarity.Epic => "E",
+                SkillBlockRarity.Legendary => "L",
+                SkillBlockRarity.Unique => "U",
+                SkillBlockRarity.Elite => "E",
                 SkillBlockRarity.Rare => "R",
-                SkillBlockRarity.Uncommon => "U",
-                _ => "C"
+                _ => "N"
             };
         }
 
@@ -58,10 +59,11 @@ namespace Baseball.Presentation.Career
         {
             return rarity switch
             {
-                SkillBlockRarity.Epic => "에픽",
+                SkillBlockRarity.Legendary => "레전더리",
+                SkillBlockRarity.Unique => "유니크",
+                SkillBlockRarity.Elite => "엘리트",
                 SkillBlockRarity.Rare => "레어",
-                SkillBlockRarity.Uncommon => "언커먼",
-                _ => "커먼"
+                _ => "노멀"
             };
         }
 
@@ -69,9 +71,10 @@ namespace Baseball.Presentation.Career
         {
             return rarity switch
             {
-                SkillBlockRarity.Epic => new Color(0.77f, 0.39f, 0.95f, 1f),
-                SkillBlockRarity.Rare => GoldColor,
-                SkillBlockRarity.Uncommon => RoleColor,
+                SkillBlockRarity.Legendary => new Color(1f, 0.58f, 0.12f, 1f),
+                SkillBlockRarity.Unique => new Color(0.77f, 0.39f, 0.95f, 1f),
+                SkillBlockRarity.Elite => GoldColor,
+                SkillBlockRarity.Rare => RoleColor,
                 _ => SecondaryTextColor
             };
         }
@@ -185,8 +188,10 @@ namespace Baseball.Presentation.Career
         private static string FormatGameLine(PlayerGameLogState game, PlayerType playerType)
         {
             return playerType == PlayerType.Pitcher
-                ? $"{FormatInnings(game.OutsRecorded)} IP  ·  {game.EarnedRuns} ER  ·  {game.Strikeouts} SO"
-                : $"{game.AtBats}타수 {game.Hits}안타  ·  {game.HomeRuns}홈런  ·  {game.RunsBattedIn}타점";
+                ? $"{FormatInnings(game.OutsRecorded)} IP  ·  {game.EarnedRuns} ER  ·  {game.Strikeouts} SO" +
+                  $"  ·  {game.WalksAllowed} BB"
+                : $"{game.AtBats}타수 {game.Hits}안타  ·  {game.HomeRuns}홈런  ·  {game.RunsBattedIn}타점" +
+                  $"  ·  {game.Walks}볼넷";
         }
 
         private static string FormatInnings(int outs)

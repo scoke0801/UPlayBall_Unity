@@ -22,9 +22,13 @@ namespace Baseball.Presentation.Career
         {
             UI_Scene_CareerGrowth screen = Object.FindFirstObjectByType<UI_Scene_CareerGrowth>(
                 FindObjectsInactive.Include);
+            UI_Popup_GrowthActivityConfirmation popup =
+                Object.FindFirstObjectByType<UI_Popup_GrowthActivityConfirmation>(
+                    FindObjectsInactive.Include);
             if (scene.name != SceneCatalog.ManagementSceneName)
             {
                 screen?.Hide();
+                popup?.Hide();
                 return;
             }
 
@@ -35,6 +39,12 @@ namespace Baseball.Presentation.Career
                     uiManager.Root.GetLayerRoot(UILayer.Scene));
             }
             screen.Hide();
+            if (popup == null)
+            {
+                popup = UI_Popup_GrowthActivityConfirmation.CreateRuntime(
+                    uiManager.Root.GetLayerRoot(UILayer.Popup));
+            }
+            popup.Hide();
         }
     }
 }

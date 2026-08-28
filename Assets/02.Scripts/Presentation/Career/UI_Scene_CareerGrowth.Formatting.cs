@@ -133,7 +133,12 @@ namespace Baseball.Presentation.Career
             return record.SourceType switch
             {
                 GrowthSourceType.NaturalDevelopment => "자연 성장",
-                GrowthSourceType.PersonalTraining => "개인 훈련",
+                GrowthSourceType.PersonalTraining => record.Intensity switch
+                {
+                    TrainingIntensity.Safe => "안정 훈련",
+                    TrainingIntensity.Intensive => "집중 훈련",
+                    _ => "표준 훈련"
+                },
                 GrowthSourceType.TrainingPartner => "훈련 파트너",
                 GrowthSourceType.Study => "유학",
                 GrowthSourceType.Aging => "노쇠",
@@ -306,10 +311,11 @@ namespace Baseball.Presentation.Career
         {
             return rarity switch
             {
-                SkillBlockRarity.Common => "C",
-                SkillBlockRarity.Uncommon => "U",
+                SkillBlockRarity.Normal => "N",
                 SkillBlockRarity.Rare => "R",
-                SkillBlockRarity.Epic => "E",
+                SkillBlockRarity.Elite => "E",
+                SkillBlockRarity.Unique => "U",
+                SkillBlockRarity.Legendary => "L",
                 _ => "?"
             };
         }
@@ -328,18 +334,20 @@ namespace Baseball.Presentation.Career
 
         private static string FormatGachaProbability(GrowthGachaOfferView offer)
         {
-            return $"C {offer.CommonProbability:P0} · U {offer.UncommonProbability:P0} · " +
-                   $"R {offer.RareProbability:P0} · E {offer.EpicProbability:P0}";
+            return $"N {offer.NormalProbability:P0} · R {offer.RareProbability:P0} · " +
+                   $"E {offer.EliteProbability:P0} · U {offer.UniqueProbability:P0} · " +
+                   $"L {offer.LegendaryProbability:P0}";
         }
 
         private static string GetRarityLabel(SkillBlockRarity rarity)
         {
             return rarity switch
             {
-                SkillBlockRarity.Common => "Common",
-                SkillBlockRarity.Uncommon => "Uncommon",
+                SkillBlockRarity.Normal => "Normal",
                 SkillBlockRarity.Rare => "Rare",
-                SkillBlockRarity.Epic => "Epic",
+                SkillBlockRarity.Elite => "Elite",
+                SkillBlockRarity.Unique => "Unique",
+                SkillBlockRarity.Legendary => "Legendary",
                 _ => rarity.ToString()
             };
         }
@@ -417,11 +425,13 @@ namespace Baseball.Presentation.Career
         private static string BuildProgramPreview(GrowthProgramView program)
         {
             string growthRange = program.MaxTotalGain > 0
-                ? $"예상 총 성장 +{Math.Max(1, program.MinimumGuaranteedGain)}~{program.MaxTotalGain}"
+                ? $"예상 총 성장 +{program.MinimumGuaranteedGain}~{program.MaxTotalGain}"
                 : program.ConditionChange > 0 ? $"컨디션 +{program.ConditionChange}" : "회복 활동";
             string risk = program.InjuryRisk <= 0d ? "부상 위험 없음" : $"불편감 위험 {program.InjuryRisk:P1}";
             return $"{GetProgramLabel(program.ProgramId)} · {program.DurationWeeks}주 · " +
-                   $"{program.MoneyCost:N0}만원 · {growthRange} · {risk}";
+                $"{FormatMoney(program.MoneyCost)} · 남은 {program.RemainingWeeksBefore}→" +
+                   $"{program.RemainingWeeksAfter}주 · 컨디션 {program.ConditionBefore}→" +
+                   $"{program.ConditionAfter} · {growthRange} · {risk}";
         }
 
         private static Color GetProgramColor(OffseasonActivityType type)
@@ -453,13 +463,34 @@ namespace Baseball.Presentation.Career
         {
             return programId switch
             {
-                "personal_batting" => "개인 타격 훈련",
-                "personal_pitching" => "개인 투구 훈련",
-                "partner_batter_default" => "타격 훈련 파트너",
-                "partner_pitcher_default" => "투구 훈련 파트너",
-                "japan_batting_camp" => "일본 타격 유학",
-                "japan_pitch_design" => "일본 투구 유학",
+                "personal_batting" => "기초 타격 훈련",
+                "personal_pitching" => "기초 투구 밸런스",
+                "bat_balance_training" => "기초 밸런스 훈련",
+                "bat_power_camp" => "파워 집중 캠프",
+                "bat_contact_training" => "컨택 안정화 훈련",
+                "bat_speed_defense_camp" => "주루·수비 강화 캠프",
+                "bat_elite_hitting_lab" => "엘리트 타격 랩",
+                "pitch_velocity_camp" => "구속 집중 캠프",
+                "pitch_control_training" => "제구 안정화 훈련",
+                "pitch_stamina_camp" => "체력 강화 캠프",
+                "pitch_breaking_training" => "변화구 집중 훈련",
+                "pitch_elite_biomechanics" => "엘리트 바이오메카닉스 랩",
+                "partner_batter_default" => "베테랑 타자 합동 훈련",
+                "partner_pitcher_default" => "베테랑 투수 합동 훈련",
+                "private_batting_coach" => "전담 타격 코치",
+                "private_pitching_coach" => "전담 피칭 코치",
+                "japan_batting_camp" => "동아시아 컨택 캠프",
+                "japan_pitch_design" => "동아시아 제구 캠프",
+                "usa_power_center" => "북미 파워 아카데미",
+                "usa_velocity_center" => "북미 파워 아카데미",
+                "usa_elite_batting_academy" => "북미 엘리트 타격 아카데미",
+                "usa_elite_pitching_academy" => "북미 엘리트 피칭 아카데미",
+                "caribbean_batting_league" => "카리브 실전 리그",
+                "caribbean_pitch_league" => "카리브 실전 리그",
+                "europe_batting_balance" => "유럽 밸런스 프로그램",
+                "europe_pitch_balance" => "유럽 밸런스 프로그램",
                 "rehab_general" => "재활·회복",
+                "sports_science_recovery" => "스포츠 사이언스 회복",
                 "rest" => "휴식",
                 _ => programId
             };

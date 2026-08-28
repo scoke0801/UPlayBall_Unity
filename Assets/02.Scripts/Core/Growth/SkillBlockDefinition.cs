@@ -4,16 +4,20 @@ namespace Baseball.Core.Growth
 {
     public enum SkillBlockRarity
     {
-        Common,
-        Uncommon,
+        Normal,
         Rare,
-        Epic
+        Elite,
+        Unique,
+        Legendary
     }
 
     public enum SkillGachaPurchaseTier
     {
-        Standard,
-        Premium
+        Normal,
+        Rare,
+        Elite,
+        Unique,
+        Legendary
     }
 
     public enum SkillBlockCategory
@@ -111,7 +115,7 @@ namespace Baseball.Core.Growth
     }
 
     /// <summary>
-    /// 모양·능력치 보너스·Trait 활성 조건을 가진 읽기 전용 스킬 블록 정의다.
+    /// 1~5칸 모양·능력치 보너스·Trait 활성 조건을 가진 읽기 전용 스킬 블록 정의다.
     /// </summary>
     public sealed class SkillBlockDefinition
     {
@@ -129,8 +133,8 @@ namespace Baseball.Core.Growth
         {
             if (string.IsNullOrWhiteSpace(blockId))
                 throw new ArgumentException("BlockId는 비어 있을 수 없습니다.", nameof(blockId));
-            if (shapeCells == null || shapeCells.Length != TetrominoShapeCatalog.CellCount)
-                throw new ArgumentException("블록은 정사각형 네 칸으로 구성된 테트로미노여야 합니다.", nameof(shapeCells));
+            if (shapeCells == null || shapeCells.Length < 1 || shapeCells.Length > 5)
+                throw new ArgumentException("블록은 서로 연결된 1~5칸 폴리오미노여야 합니다.", nameof(shapeCells));
             if (sellValue < 0L)
                 throw new ArgumentOutOfRangeException(nameof(sellValue));
             if (traitSocketRule != TraitSocketRule.None && string.IsNullOrWhiteSpace(traitId))

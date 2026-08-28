@@ -16,7 +16,12 @@ namespace Baseball.Core.Growth
     /// </summary>
     public sealed class PlannedOffseasonActivity
     {
-        public PlannedOffseasonActivity(int activityId, string programId, int startWeek, int durationWeeks)
+        public PlannedOffseasonActivity(
+            int activityId,
+            string programId,
+            int startWeek,
+            int durationWeeks,
+            TrainingIntensity intensity = TrainingIntensity.Standard)
         {
             if (activityId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(activityId));
@@ -24,17 +29,21 @@ namespace Baseball.Core.Growth
                 throw new ArgumentException("ProgramId는 비어 있을 수 없습니다.", nameof(programId));
             if (startWeek <= 0 || durationWeeks <= 0)
                 throw new ArgumentOutOfRangeException(nameof(startWeek));
+            if (intensity < TrainingIntensity.Safe || intensity > TrainingIntensity.Intensive)
+                throw new ArgumentOutOfRangeException(nameof(intensity));
             ActivityId = activityId;
             ProgramId = programId;
             StartWeek = startWeek;
             DurationWeeks = durationWeeks;
+            Intensity = intensity;
             Status = OffseasonActivityStatus.Planned;
         }
 
         public int ActivityId { get; }
         public string ProgramId { get; }
-        public int StartWeek { get; }
+        public int StartWeek { get; private set; }
         public int DurationWeeks { get; }
+        public TrainingIntensity Intensity { get; }
         public int EndWeek => StartWeek + DurationWeeks - 1;
         public OffseasonActivityStatus Status { get; private set; }
         public ulong RandomSeed { get; private set; }
@@ -59,6 +68,18 @@ namespace Baseball.Core.Growth
             if (Status != OffseasonActivityStatus.Planned)
                 throw new InvalidOperationException("시작하지 않은 활동만 취소할 수 있습니다.");
             Status = OffseasonActivityStatus.Cancelled;
+        }
+
+        /// <summary>
+        /// 아직 시작하지 않은 계획을 앞 활동 삭제 후 빈 주차가 없도록 다시 배치한다.
+        /// </summary>
+        public void Reschedule(int startWeek)
+        {
+            if (Status != OffseasonActivityStatus.Planned)
+                throw new InvalidOperationException("계획된 활동만 다시 배치할 수 있습니다.");
+            if (startWeek <= 0)
+                throw new ArgumentOutOfRangeException(nameof(startWeek));
+            StartWeek = startWeek;
         }
     }
 

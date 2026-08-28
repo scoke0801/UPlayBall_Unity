@@ -1,18 +1,20 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Growth;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
 using Baseball.Presentation.UI;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Baseball.Presentation.Career
 {
     /// <summary>
-    /// 4×4 성장판, 블록 상점, 오프시즌 주차 액션을 한 화면에서 관리한다.
+    /// 성장 보드 편집·블록 보관함·뽑기 오버레이·오프시즌 액션을 분리해 관리한다.
     /// </summary>
     public sealed partial class UI_Scene_CareerGrowth : UISceneBase, ICareerTabScreen
     {
-        private const int InventoryPageSize = 5;
+        private const int InventoryPageSize = 12;
 
         private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
@@ -40,6 +42,26 @@ namespace Baseball.Presentation.Career
         private int _inventoryPage;
         private bool _confirmPlacedBlockRemoval;
         private bool _confirmBoardRedesign;
+        private GrowthSection _growthSection;
+        private bool _isGachaOpen;
+        private bool _isProbabilityOpen;
+        private SkillGachaPurchaseTier _selectedGachaTier = SkillGachaPurchaseTier.Normal;
+        private SkillBlockCategory? _selectedGachaCategory;
+        private SkillBlockCategory? _inventoryCategory;
+        private SkillBlockRarity? _inventoryRarity;
+        private bool _inventoryPlaceableOnly;
+        private bool _inventoryNewOnly;
+        private bool _isBoardDraftInitialized;
+        private bool _isBoardDraftDirty;
+        private bool _confirmBoardApply;
+        private readonly List<GrowthBoardLayoutPlacement> _draftLayout =
+            new List<GrowthBoardLayoutPlacement>();
+
+        private enum GrowthSection
+        {
+            Board,
+            OffseasonActions
+        }
 
         public CareerMainTab MainTab => CareerMainTab.Growth;
         public override bool BlocksLowerInput => true;
@@ -65,6 +87,7 @@ namespace Baseball.Presentation.Career
 
         protected override void OnShow()
         {
+            _isBoardDraftInitialized = false;
             Render();
         }
 
@@ -73,6 +96,40 @@ namespace Baseball.Presentation.Career
             if (_manager != null)
                 _manager.CareerChanged -= HandleCareerChanged;
             base.OnDestroy();
+        }
+
+        private void Update()
+        {
+            if (!IsVisible || Keyboard.current == null || _manager?.HasActiveCareer != true)
+                return;
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard.escapeKey.wasPressedThisFrame)
+            {
+                if (_isGachaOpen)
+                {
+                    CloseGachaOverlay();
+                    return;
+                }
+                if (_selectedOwnedBlockId > 0 || _selectedPlacedBlockId > 0)
+                {
+                    _selectedOwnedBlockId = 0;
+                    _selectedPlacedBlockId = 0;
+                    _selectedRotation = 0;
+                    Render();
+                }
+                return;
+            }
+            if (!keyboard.rKey.wasPressedThisFrame ||
+                _isGachaOpen ||
+                _growthSection != GrowthSection.Board ||
+                _selectedOwnedBlockId <= 0)
+            {
+                return;
+            }
+            CareerGrowthView growth = _manager.GrowthDashboard;
+            GrowthSkillBlockView block = FindAnyBlock(growth, _selectedOwnedBlockId);
+            if (growth.CanEditBoard && block.CanRotate)
+                RotateSelectedBlock();
         }
 
         private void BuildHierarchy()
@@ -90,6 +147,8 @@ namespace Baseball.Presentation.Career
                 Hide();
                 return;
             }
+            if (!_isBoardDraftDirty)
+                _isBoardDraftInitialized = false;
             if (IsVisible)
                 Render();
         }
@@ -104,7 +163,8 @@ namespace Baseball.Presentation.Career
             if (dashboard == null || growth == null)
                 return;
 
-            ValidateSelection(growth);
+            EnsureBoardDraft(growth);
+            ValidateWorkspaceSelection(growth);
             RectTransform previousContent = _content;
             RectTransform nextContent = CreateRect(
                 "Content",
@@ -117,13 +177,14 @@ namespace Baseball.Presentation.Career
             {
                 RenderBackgroundAccents();
                 RenderTopBar(dashboard, growth);
-                RenderPlayerPanel(dashboard, growth);
-                RenderGrowthLog(growth);
-                RenderSkillBoard(growth);
-                RenderSelectedBlockPanel(growth);
-                RenderBlockShop(growth);
-                RenderOffseasonActions(growth);
+                RenderGrowthSubNavigation(growth);
+                if (_growthSection == GrowthSection.Board)
+                    RenderGrowthBoardWorkspace(dashboard, growth);
+                else
+                    RenderOffseasonActionWorkspace(dashboard, growth);
                 CareerTabBar.Create(_content, CareerMainTab.Growth);
+                if (_isGachaOpen)
+                    RenderGachaOverlay(dashboard, growth);
             }
             catch
             {
@@ -194,12 +255,42 @@ namespace Baseball.Presentation.Career
                 _selectedOwnedBlockId = 0;
         }
 
+        private void OpenActivityConfirmation(string programId)
+        {
+            GrowthProgramView preview = _manager.BuildGrowthProgramPreview(
+                programId,
+                TrainingIntensity.Standard);
+            if (preview.CanSelect)
+                _manager.SelectGrowthProgram(programId, TrainingIntensity.Standard);
+
+            UI_Popup_GrowthActivityConfirmation popup =
+                FindFirstObjectByType<UI_Popup_GrowthActivityConfirmation>(FindObjectsInactive.Include);
+            if (popup == null)
+            {
+                UIManager uiManager = GameManager.EnsureExists().EnsureManager<UIManager>("UIManager");
+                popup = UI_Popup_GrowthActivityConfirmation.CreateRuntime(
+                    uiManager.Root.GetLayerRoot(UILayer.Popup));
+            }
+            popup.ShowProgram(programId);
+        }
+
         private void PurchaseSkillBlock(
             SkillBlockCategory category,
             SkillGachaPurchaseTier tier)
         {
             _inventoryPage = 0;
-            _manager.PurchaseSkillBlock(category, tier);
+            if (!_manager.PurchaseSkillBlock(category, tier))
+                return;
+
+            CareerGrowthView growth = _manager.GrowthDashboard;
+            if (growth.LastPulledBlocks.Length == 0)
+                return;
+            _selectedOwnedBlockId = growth.LastPulledBlocks[0].InstanceId;
+            _selectedPlacedBlockId = 0;
+            _selectedRotation = 0;
+            _confirmPlacedBlockRemoval = false;
+            _confirmBoardRedesign = false;
+            Render();
         }
 
         private void ShowNewerInventoryPage()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
@@ -36,6 +37,32 @@ namespace Baseball.Game.Career
                 throw new ArgumentNullException(nameof(statistics));
 
             double usageRatio = CalculateUsageRatio(position, statistics);
+            AbilityWeight[] weights = position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher
+                ? BuildPitcherWeights(position)
+                : BuildBatterWeights(position);
+            return new SeasonUsageSummary(usageRatio, weights);
+        }
+
+        /// <summary>리그 전역 원본 기록에서 AI 선수의 실제 출장량과 성장 가중치를 계산한다.</summary>
+        public SeasonUsageSummary Build(
+            PlayerPosition position,
+            PlayerCompetitionStatisticsState statistics)
+        {
+            if (statistics == null)
+                throw new ArgumentNullException(nameof(statistics));
+
+            double usageRatio = 0d;
+            if (statistics.TeamGames > 0)
+            {
+                usageRatio = position switch
+                {
+                    PlayerPosition.StartingPitcher =>
+                        statistics.Pitching.Starts * _startingRotationSize / (double)statistics.TeamGames,
+                    PlayerPosition.ReliefPitcher =>
+                        statistics.Pitching.Appearances / (double)statistics.TeamGames,
+                    _ => statistics.Batting.Games / (double)statistics.TeamGames
+                };
+            }
             AbilityWeight[] weights = position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher
                 ? BuildPitcherWeights(position)
                 : BuildBatterWeights(position);
@@ -210,7 +237,7 @@ namespace Baseball.Game.Career
             if (bonusIncome < 0L)
                 throw new ArgumentOutOfRangeException(nameof(bonusIncome));
 
-            SeasonState season = _career.League.CurrentSeason ??
+            SeasonState season = _career.CurrentLeague.CurrentSeason ??
                                  throw new InvalidOperationException("현재 시즌이 없습니다.");
             if (season.Phase != SeasonPhase.SeasonReview)
                 throw new InvalidOperationException("시즌 결산 단계에서만 성장 결산할 수 있습니다.");
@@ -220,10 +247,10 @@ namespace Baseball.Game.Career
             PlayerGrowthState growth = _career.MyPlayer.GrowthState;
             ulong seasonStream = ((ulong)(uint)season.SeasonId << 32) | (uint)growth.PlayerId;
             ulong naturalSeed = DeterministicSeed.Derive(
-                _career.League.RandomSeed,
+                _career.CurrentLeague.RandomSeed,
                 seasonStream ^ NaturalDevelopmentStream);
             ulong agingSeed = DeterministicSeed.Derive(
-                _career.League.RandomSeed,
+                _career.CurrentLeague.RandomSeed,
                 seasonStream ^ AgingStream);
 
             GrowthResultRecord naturalDevelopment = _naturalDevelopmentResolver.Resolve(
@@ -237,6 +264,8 @@ namespace Baseball.Game.Career
                 season.Year,
                 agingSeed,
                 new Pcg32Random(agingSeed));
+            new WorldAiPlayerDevelopmentService(_career, _balance)
+                .SettleCompletedSeasonPlayers();
 
             SeasonSettlementState settlement = new SeasonSettlementService(
                     _career,
@@ -253,6 +282,8 @@ namespace Baseball.Game.Career
             _career.BeginOffseason(offseason);
             _career.MyPlayer.SynchronizeFromGrowthState();
             season.BeginOffseason();
+            new WorldSeasonLifecycleService(_career, _balance)
+                .BeginBackgroundOffseasons(_career.CurrentLeague.LeagueId);
             return new SeasonGrowthSettlementResult(
                 naturalDevelopment,
                 aging,
@@ -261,7 +292,10 @@ namespace Baseball.Game.Career
                 offseason);
         }
 
-        public PlannedOffseasonActivity PlanActivity(string programId, int startWeek)
+        public PlannedOffseasonActivity PlanActivity(
+            string programId,
+            int startWeek,
+            TrainingIntensity intensity = TrainingIntensity.Standard)
         {
             OffseasonState offseason = RequireOffseason();
             return _offseasonScheduler.PlanActivity(
@@ -269,7 +303,8 @@ namespace Baseball.Game.Career
                 _career.Economy,
                 _career.MyPlayer.GrowthState,
                 programId,
-                startWeek);
+                startWeek,
+                intensity);
         }
 
         public void CancelActivity(int activityId)
@@ -284,9 +319,9 @@ namespace Baseball.Game.Career
         {
             OffseasonState offseason = RequireOffseason();
             ulong stream = OffseasonActivityStream ^
-                           ((ulong)(uint)_career.League.CurrentSeason.SeasonId << 32) ^
+                           ((ulong)(uint)_career.CurrentLeague.CurrentSeason.SeasonId << 32) ^
                            (uint)activityId;
-            ulong activitySeed = DeterministicSeed.Derive(_career.League.RandomSeed, stream);
+            ulong activitySeed = DeterministicSeed.Derive(_career.CurrentLeague.RandomSeed, stream);
             _offseasonScheduler.StartActivity(
                 offseason,
                 _career.Economy,
@@ -316,10 +351,15 @@ namespace Baseball.Game.Career
         /// <summary>
         /// 현재 주에 선택한 활동을 계획·시작·완료해 활동 기간 전체를 한 번에 진행한다.
         /// </summary>
-        public GrowthResultRecord ExecuteActivity(string programId)
+        public GrowthResultRecord ExecuteActivity(
+            string programId,
+            TrainingIntensity intensity = TrainingIntensity.Standard)
         {
             OffseasonState offseason = RequireOffseason();
-            PlannedOffseasonActivity activity = PlanActivity(programId, offseason.CurrentWeek);
+            PlannedOffseasonActivity activity = PlanActivity(
+                programId,
+                offseason.CurrentWeek,
+                intensity);
             try
             {
                 StartActivity(activity.ActivityId);
@@ -333,9 +373,26 @@ namespace Baseball.Game.Career
             }
         }
 
+        /// <summary>
+        /// 계획된 활동을 주차·활동 ID 순서로 시작하고 완료해 하나의 오프시즌 계획으로 실행한다.
+        /// </summary>
+        public GrowthResultRecord[] ExecutePlannedActivities()
+        {
+            OffseasonState offseason = RequireOffseason();
+            var results = new List<GrowthResultRecord>();
+            PlannedOffseasonActivity activity = FindNextPlannedActivity(offseason);
+            while (activity != null)
+            {
+                StartActivity(activity.ActivityId);
+                results.Add(CompleteActivity(activity.ActivityId));
+                activity = FindNextPlannedActivity(offseason);
+            }
+            return results.ToArray();
+        }
+
         private OffseasonState RequireOffseason()
         {
-            if (_career.League.CurrentSeason?.Phase != SeasonPhase.Offseason ||
+            if (_career.CurrentLeague.CurrentSeason?.Phase != SeasonPhase.Offseason ||
                 _career.CurrentOffseason == null)
             {
                 throw new InvalidOperationException("진행 중인 오프시즌이 없습니다.");
@@ -351,6 +408,24 @@ namespace Baseball.Game.Career
                     return offseason.Activities[index];
             }
             throw new ArgumentException("존재하지 않는 오프시즌 활동입니다.", nameof(activityId));
+        }
+
+        private static PlannedOffseasonActivity FindNextPlannedActivity(OffseasonState offseason)
+        {
+            PlannedOffseasonActivity result = null;
+            for (int index = 0; index < offseason.Activities.Count; index++)
+            {
+                PlannedOffseasonActivity candidate = offseason.Activities[index];
+                if (candidate.Status != OffseasonActivityStatus.Planned)
+                    continue;
+                if (result == null ||
+                    candidate.StartWeek < result.StartWeek ||
+                    candidate.StartWeek == result.StartWeek && candidate.ActivityId < result.ActivityId)
+                {
+                    result = candidate;
+                }
+            }
+            return result;
         }
     }
 }

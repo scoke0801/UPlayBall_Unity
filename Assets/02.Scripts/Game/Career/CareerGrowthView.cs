@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
+using Baseball.Simulation.Growth;
 
 namespace Baseball.Game.Career
 {
@@ -42,7 +43,8 @@ namespace Baseball.Game.Career
         public GrowthSkillBlockView(
             SkillBlockInstance instance,
             SkillBlockDefinition definition,
-            int rotationQuarterTurns = 0)
+            int rotationQuarterTurns = 0,
+            bool isLocked = false)
         {
             InstanceId = instance.InstanceId;
             DefinitionId = definition.BlockId;
@@ -53,6 +55,7 @@ namespace Baseball.Game.Career
             CanRotate = definition.CanRotate;
             AbilityBonuses = definition.AbilityBonuses;
             SellValue = definition.SellValue;
+            IsLocked = isLocked;
         }
 
         public int InstanceId { get; }
@@ -64,6 +67,27 @@ namespace Baseball.Game.Career
         public bool CanRotate { get; }
         public AbilityChange[] AbilityBonuses { get; }
         public long SellValue { get; }
+        public bool IsLocked { get; }
+        public int CellCount => ShapeCells?.Length ?? 0;
+    }
+
+    /// <summary>
+    /// Presentation에서 확정 요청한 한 블록의 보드 배치다.
+    /// </summary>
+    public readonly struct GrowthBoardLayoutPlacement
+    {
+        public GrowthBoardLayoutPlacement(int instanceId, int originX, int originY, int rotationQuarterTurns)
+        {
+            InstanceId = instanceId;
+            OriginX = originX;
+            OriginY = originY;
+            RotationQuarterTurns = rotationQuarterTurns;
+        }
+
+        public int InstanceId { get; }
+        public int OriginX { get; }
+        public int OriginY { get; }
+        public int RotationQuarterTurns { get; }
     }
 
     /// <summary>
@@ -105,35 +129,118 @@ namespace Baseball.Game.Career
     }
 
     /// <summary>
+    /// 뽑기 오버레이가 선택 등급·계통별 획득 가능 블록을 미리 보여주는 항목이다.
+    /// </summary>
+    public readonly struct GrowthGachaPoolItemView
+    {
+        public GrowthGachaPoolItemView(SkillBlockDefinition definition)
+        {
+            DefinitionId = definition.BlockId;
+            Rarity = definition.Rarity;
+            Category = definition.Category;
+            ShapeCells = definition.ShapeCells;
+            AbilityBonuses = definition.AbilityBonuses;
+        }
+
+        public string DefinitionId { get; }
+        public SkillBlockRarity Rarity { get; }
+        public SkillBlockCategory Category { get; }
+        public BoardCell[] ShapeCells { get; }
+        public AbilityChange[] AbilityBonuses { get; }
+    }
+
+    /// <summary>
     /// 한 스킬 블록 구매 등급의 가격·공개 확률·구매 가능 여부다.
     /// </summary>
     public readonly struct GrowthGachaOfferView
     {
         public GrowthGachaOfferView(
             SkillGachaPurchaseTier tier,
+            SkillBlockRarity minimumRarity,
             long price,
-            double commonProbability,
-            double uncommonProbability,
+            long fivePullPrice,
+            double fivePullDiscountRate,
+            double normalProbability,
             double rareProbability,
-            double epicProbability,
-            bool canPurchase)
+            double eliteProbability,
+            double uniqueProbability,
+            double legendaryProbability,
+            int maxPurchasesPerOffseason,
+            int purchasesUsed,
+            bool isUnlocked,
+            string unavailableReason,
+            bool canPurchaseOne,
+            bool canPurchaseFive)
         {
             Tier = tier;
+            MinimumRarity = minimumRarity;
             Price = price;
-            CommonProbability = commonProbability;
-            UncommonProbability = uncommonProbability;
+            FivePullPrice = fivePullPrice;
+            FivePullDiscountRate = fivePullDiscountRate;
+            NormalProbability = normalProbability;
             RareProbability = rareProbability;
-            EpicProbability = epicProbability;
-            CanPurchase = canPurchase;
+            EliteProbability = eliteProbability;
+            UniqueProbability = uniqueProbability;
+            LegendaryProbability = legendaryProbability;
+            MaxPurchasesPerOffseason = maxPurchasesPerOffseason;
+            PurchasesUsed = purchasesUsed;
+            IsUnlocked = isUnlocked;
+            UnavailableReason = unavailableReason ?? string.Empty;
+            CanPurchaseOne = canPurchaseOne;
+            CanPurchaseFive = canPurchaseFive;
         }
 
         public SkillGachaPurchaseTier Tier { get; }
+        public SkillBlockRarity MinimumRarity { get; }
         public long Price { get; }
-        public double CommonProbability { get; }
-        public double UncommonProbability { get; }
+        public long FivePullPrice { get; }
+        public double FivePullDiscountRate { get; }
+        public double NormalProbability { get; }
         public double RareProbability { get; }
-        public double EpicProbability { get; }
-        public bool CanPurchase { get; }
+        public double EliteProbability { get; }
+        public double UniqueProbability { get; }
+        public double LegendaryProbability { get; }
+        public int MaxPurchasesPerOffseason { get; }
+        public int PurchasesUsed { get; }
+        public int RemainingPurchases => MaxPurchasesPerOffseason == 0
+            ? int.MaxValue
+            : Math.Max(0, MaxPurchasesPerOffseason - PurchasesUsed);
+        public bool IsUnlocked { get; }
+        public string UnavailableReason { get; }
+        public bool CanPurchaseOne { get; }
+        public bool CanPurchaseFive { get; }
+        public bool CanPurchase => CanPurchaseOne;
+    }
+
+    /// <summary>
+    /// 오프시즌 타임라인에 확정 대기 중인 한 성장 활동이다.
+    /// </summary>
+    public readonly struct GrowthPlanItemView
+    {
+        public GrowthPlanItemView(
+            PlannedOffseasonActivity activity,
+            TrainingProgramDefinition program)
+        {
+            ActivityId = activity.ActivityId;
+            ProgramId = activity.ProgramId;
+            ActivityType = program.ActivityType;
+            Intensity = activity.Intensity;
+            StartWeek = activity.StartWeek;
+            EndWeek = activity.EndWeek;
+            DurationWeeks = activity.DurationWeeks;
+            MoneyCost = program.MoneyCost;
+            ConditionChange = program.ConditionChange;
+        }
+
+        public int ActivityId { get; }
+        public string ProgramId { get; }
+        public OffseasonActivityType ActivityType { get; }
+        public TrainingIntensity Intensity { get; }
+        public int StartWeek { get; }
+        public int EndWeek { get; }
+        public int DurationWeeks { get; }
+        public long MoneyCost { get; }
+        public int ConditionChange { get; }
     }
 
     /// <summary>
@@ -142,48 +249,106 @@ namespace Baseball.Game.Career
     public readonly struct GrowthProgramView
     {
         public GrowthProgramView(
-            TrainingProgramDefinition definition,
+            GrowthProgramPreview preview,
             TrainingFitGrade fit,
+            long moneyBefore,
+            long plannedCost,
+            int remainingWeeks,
+            int plannedWeeks,
+            int startWeek,
+            int currentCondition,
             bool canAfford,
             bool canFitSchedule,
             bool canMeetCondition,
             bool canUseThisOffseason,
-            bool isSelected)
+            bool isSelected,
+            int conditionWarningMinimum,
+            int conditionDangerMinimum)
         {
+            TrainingProgramDefinition definition = preview.Program;
             ProgramId = definition.ProgramId;
             ActivityType = definition.ActivityType;
             Category = definition.Category;
+            Intensity = definition.Intensity;
+            SupportsIntensity = definition.SupportsIntensity;
             DurationWeeks = definition.DurationWeeks;
             MoneyCost = definition.MoneyCost;
             AbilityWeights = definition.TargetAbilityWeights;
+            AbilityRanges = preview.AbilityRanges;
             ConditionChange = definition.ConditionChange;
+            ConditionBefore = preview.ConditionBefore;
+            ConditionAfter = preview.ConditionAfter;
+            ConditionAfterWithDiscomfort = preview.ConditionAfterWithDiscomfort;
             InjuryRisk = definition.InjuryRisk;
             MinimumGuaranteedGain = definition.MinimumGuaranteedGain;
             MaxTotalGain = definition.MaxTotalGain;
+            MinimumCondition = definition.MinimumCondition;
+            CanRaisePotential = definition.CanRaisePotential;
             Fit = fit;
+            MoneyBefore = moneyBefore;
+            PlannedCost = plannedCost;
+            MoneyAfter = Math.Max(0L, moneyBefore - plannedCost - definition.MoneyCost);
+            MoneyShortfall = Math.Max(0L, plannedCost + definition.MoneyCost - moneyBefore);
+            RemainingWeeksBefore = remainingWeeks;
+            PlannedWeeks = plannedWeeks;
+            RemainingWeeksAfter = Math.Max(0, remainingWeeks - plannedWeeks - definition.DurationWeeks);
+            WeeksShortfall = Math.Max(0, plannedWeeks + definition.DurationWeeks - remainingWeeks);
+            StartWeek = startWeek;
+            EndWeek = startWeek + definition.DurationWeeks - 1;
+            CurrentCondition = currentCondition;
+            PriorSelections = preview.PriorSelections;
+            RepetitionMultiplier = preview.RepetitionMultiplier;
             CanAfford = canAfford;
             CanFitSchedule = canFitSchedule;
             CanMeetCondition = canMeetCondition;
             CanUseThisOffseason = canUseThisOffseason;
             IsSelected = isSelected;
+            UsesMajorityOfRemainingTime = remainingWeeks > 0 &&
+                                          definition.DurationWeeks * 2 >= remainingWeeks;
+            IsConditionWarning = preview.ConditionAfter < conditionWarningMinimum;
+            IsConditionDanger = preview.ConditionAfter < conditionDangerMinimum;
         }
 
         public string ProgramId { get; }
         public OffseasonActivityType ActivityType { get; }
         public TrainingCategory Category { get; }
+        public TrainingIntensity Intensity { get; }
+        public bool SupportsIntensity { get; }
         public int DurationWeeks { get; }
         public long MoneyCost { get; }
         public AbilityWeight[] AbilityWeights { get; }
+        public AbilityGrowthRange[] AbilityRanges { get; }
         public int ConditionChange { get; }
+        public int ConditionBefore { get; }
+        public int ConditionAfter { get; }
+        public int ConditionAfterWithDiscomfort { get; }
         public double InjuryRisk { get; }
         public int MinimumGuaranteedGain { get; }
         public int MaxTotalGain { get; }
+        public int MinimumCondition { get; }
+        public bool CanRaisePotential { get; }
         public TrainingFitGrade Fit { get; }
+        public long MoneyBefore { get; }
+        public long PlannedCost { get; }
+        public long MoneyAfter { get; }
+        public long MoneyShortfall { get; }
+        public int RemainingWeeksBefore { get; }
+        public int PlannedWeeks { get; }
+        public int RemainingWeeksAfter { get; }
+        public int WeeksShortfall { get; }
+        public int StartWeek { get; }
+        public int EndWeek { get; }
+        public int CurrentCondition { get; }
+        public int PriorSelections { get; }
+        public double RepetitionMultiplier { get; }
         public bool CanAfford { get; }
         public bool CanFitSchedule { get; }
         public bool CanMeetCondition { get; }
         public bool CanUseThisOffseason { get; }
         public bool IsSelected { get; }
+        public bool UsesMajorityOfRemainingTime { get; }
+        public bool IsConditionWarning { get; }
+        public bool IsConditionDanger { get; }
         public bool CanSelect => CanAfford && CanFitSchedule && CanMeetCondition && CanUseThisOffseason;
     }
 
@@ -201,10 +366,13 @@ namespace Baseball.Game.Career
         public GrowthBoardCellView[] BoardCells { get; internal set; }
         public GrowthSkillBlockView[] OwnedBlocks { get; internal set; }
         public GrowthSkillBlockView[] PlacedBlocks { get; internal set; }
+        public GrowthBoardLayoutPlacement[] AppliedLayout { get; internal set; }
         public GrowthSkillBlockView[] LastPulledBlocks { get; internal set; }
         public GrowthBlockShopView[] ShopCategories { get; internal set; }
         public GrowthGachaOfferView[] GachaOffers { get; internal set; }
+        public GrowthGachaPoolItemView[] GachaPool { get; internal set; }
         public GrowthProgramView[] Programs { get; internal set; }
+        public GrowthPlanItemView[] PlannedActivities { get; internal set; }
         public GrowthResultRecord[] RecentGrowth { get; internal set; }
         public bool IsOffseason { get; internal set; }
         public bool CanEditBoard { get; internal set; }
@@ -214,20 +382,22 @@ namespace Baseball.Game.Career
         public bool CanCompleteOffseason { get; internal set; }
         public string ActiveProgramId { get; internal set; }
         public string SelectedProgramId { get; internal set; }
+        public TrainingIntensity SelectedTrainingIntensity { get; internal set; }
         public int CurrentWeek { get; internal set; }
         public int TotalWeeks { get; internal set; }
         public int RemainingWeeks { get; internal set; }
+        public int PlannedWeeks { get; internal set; }
+        public long PlannedCost { get; internal set; }
+        public int ProjectedConditionAfterPlan { get; internal set; }
         public int ActiveActivityEndWeek { get; internal set; }
         public long SinglePullPrice { get; internal set; }
         public long BundlePullPrice { get; internal set; }
         public long BoardRedesignCost { get; internal set; }
-        public int RarePityCount { get; internal set; }
-        public int EpicPityCount { get; internal set; }
-        public int RarePityTarget { get; internal set; }
-        public int EpicPityTarget { get; internal set; }
-        public double CommonProbability { get; internal set; }
-        public double UncommonProbability { get; internal set; }
-        public double RareProbability { get; internal set; }
-        public double EpicProbability { get; internal set; }
+        public int ElitePityCount { get; internal set; }
+        public int UniquePityCount { get; internal set; }
+        public int LegendaryPityCount { get; internal set; }
+        public int ElitePityTarget { get; internal set; }
+        public int UniquePityTarget { get; internal set; }
+        public int LegendaryPityTarget { get; internal set; }
     }
 }

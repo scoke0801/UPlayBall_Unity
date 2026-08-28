@@ -86,7 +86,8 @@ namespace Baseball.Simulation.Growth
                 appliedConditionChange,
                 program.MoneyCost,
                 program.DurationWeeks,
-                injuryResult);
+                injuryResult,
+                program.Intensity);
             player.RecordGrowth(record);
             return record;
         }
@@ -217,6 +218,198 @@ namespace Baseball.Simulation.Growth
                 OffseasonActivityType.Rehabilitation => GrowthSourceType.Injury,
                 _ => GrowthSourceType.PersonalTraining
             };
+        }
+    }
+
+    /// <summary>
+    /// 확정 전에 표시할 한 능력치의 보수적 최소·최대 성장 범위다.
+    /// </summary>
+    public readonly struct AbilityGrowthRange
+    {
+        public AbilityGrowthRange(PlayerAbility ability, int currentValue, int minimumGain, int maximumGain)
+        {
+            Ability = ability;
+            CurrentValue = currentValue;
+            MinimumGain = minimumGain;
+            MaximumGain = maximumGain;
+        }
+
+        public PlayerAbility Ability { get; }
+        public int CurrentValue { get; }
+        public int MinimumGain { get; }
+        public int MaximumGain { get; }
+        public int MinimumValue => CurrentValue + MinimumGain;
+        public int MaximumValue => CurrentValue + MaximumGain;
+    }
+
+    /// <summary>
+    /// 현재 선수 상태에서 프로그램을 실행했을 때 UI가 설명할 기간·비용·성장·부담의 스냅샷이다.
+    /// </summary>
+    public readonly struct GrowthProgramPreview
+    {
+        public GrowthProgramPreview(
+            TrainingProgramDefinition program,
+            AbilityGrowthRange[] abilityRanges,
+            int conditionBefore,
+            int conditionAfter,
+            int conditionAfterWithDiscomfort,
+            int priorSelections,
+            double repetitionMultiplier)
+        {
+            Program = program;
+            AbilityRanges = abilityRanges ?? Array.Empty<AbilityGrowthRange>();
+            ConditionBefore = conditionBefore;
+            ConditionAfter = conditionAfter;
+            ConditionAfterWithDiscomfort = conditionAfterWithDiscomfort;
+            PriorSelections = priorSelections;
+            RepetitionMultiplier = repetitionMultiplier;
+        }
+
+        public TrainingProgramDefinition Program { get; }
+        public AbilityGrowthRange[] AbilityRanges { get; }
+        public int ConditionBefore { get; }
+        public int ConditionAfter { get; }
+        public int ConditionAfterWithDiscomfort { get; }
+        public int PriorSelections { get; }
+        public double RepetitionMultiplier { get; }
+    }
+
+    /// <summary>
+    /// 실제 성장 공식의 최솟값·최댓값으로 확정 전 예상 범위를 계산한다.
+    /// </summary>
+    public sealed class GrowthPreviewCalculator
+    {
+        private readonly GrowthBalanceTable _balance;
+
+        public GrowthPreviewCalculator(GrowthBalanceTable balance)
+        {
+            _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+        }
+
+        public GrowthProgramPreview Build(
+            PlayerGrowthState player,
+            TrainingProgramDefinition baseProgram,
+            TrainingIntensity intensity,
+            int priorSelections,
+            TrainingFitGrade trainingFit)
+        {
+            if (player == null) throw new ArgumentNullException(nameof(player));
+            return Build(
+                player,
+                baseProgram,
+                intensity,
+                priorSelections,
+                trainingFit,
+                player.Condition);
+        }
+
+        /// <summary>
+        /// 앞선 계획 활동의 예상 컨디션을 반영해 다음 활동의 성장 범위를 계산한다.
+        /// </summary>
+        public GrowthProgramPreview Build(
+            PlayerGrowthState player,
+            TrainingProgramDefinition baseProgram,
+            TrainingIntensity intensity,
+            int priorSelections,
+            TrainingFitGrade trainingFit,
+            int conditionBefore)
+        {
+            if (player == null) throw new ArgumentNullException(nameof(player));
+            if (baseProgram == null) throw new ArgumentNullException(nameof(baseProgram));
+            if (priorSelections < 0) throw new ArgumentOutOfRangeException(nameof(priorSelections));
+            if (conditionBefore < 0 || conditionBefore > 100)
+                throw new ArgumentOutOfRangeException(nameof(conditionBefore));
+
+            TrainingProgramDefinition program = _balance.TrainingIntensities.Apply(
+                baseProgram,
+                intensity);
+            AbilityGrowthRange[] ranges = BuildAbilityRanges(
+                player,
+                program,
+                priorSelections,
+                trainingFit,
+                conditionBefore);
+            int conditionAfter = Clamp(conditionBefore + program.ConditionChange, 0, 100);
+            int conditionAfterWithDiscomfort = program.InjuryRisk > 0d
+                ? Clamp(
+                    conditionBefore + program.ConditionChange -
+                    _balance.TrainingInjuryConditionPenalty,
+                    0,
+                    100)
+                : conditionAfter;
+            return new GrowthProgramPreview(
+                program,
+                ranges,
+                conditionBefore,
+                conditionAfter,
+                conditionAfterWithDiscomfort,
+                priorSelections,
+                _balance.Repetition.GetMultiplier(priorSelections, program.IsStudy));
+        }
+
+        private AbilityGrowthRange[] BuildAbilityRanges(
+            PlayerGrowthState player,
+            TrainingProgramDefinition program,
+            int priorSelections,
+            TrainingFitGrade trainingFit,
+            int condition)
+        {
+            int count = program.TargetAbilityWeights.Length;
+            var minimumGains = new int[count];
+            var maximumGains = new int[count];
+            double commonMultiplier = _balance.AgeGrowth.GetMultiplier(player.Age) *
+                                      _balance.WorkEthic.GetMultiplier(player.WorkEthic) *
+                                      _balance.TrainingFit.GetMultiplier(trainingFit) *
+                                      _balance.Condition.GetMultiplier(condition) *
+                                      _balance.Repetition.GetMultiplier(priorSelections, program.IsStudy);
+            int minimumTotal = 0;
+
+            for (int index = 0; index < count; index++)
+            {
+                AbilityWeight target = program.TargetAbilityWeights[index];
+                int current = player.BaseAbilities.Get(target.Ability);
+                int maximumValue = Math.Min(
+                    AbilityRatings.Maximum,
+                    player.PotentialByAbility.Get(target.Ability) + 3);
+                int capacity = Math.Max(0, maximumValue - current);
+                double potentialMultiplier = _balance.PotentialGap.GetMultiplier(
+                    current,
+                    player.PotentialByAbility.Get(target.Ability));
+                double expected = program.ProgramPower * target.Weight *
+                                  commonMultiplier * potentialMultiplier;
+
+                int minimum = (int)Math.Floor(expected * _balance.MinimumQualityRoll);
+                int maximum = (int)Math.Ceiling(expected * _balance.MaximumQualityRoll);
+                minimum = Math.Min(minimum, program.MaxGainPerAbility);
+                maximum = Math.Min(maximum, program.MaxGainPerAbility);
+                minimum = Math.Min(minimum, capacity);
+                maximum = Math.Min(maximum, capacity);
+                minimum = Math.Min(minimum, Math.Max(0, program.MaxTotalGain - minimumTotal));
+                // 능력치별 최대치는 서로 동시에 달성된다는 뜻이 아니라, 해당 능력치가 얻을 수 있는
+                // 개별 범위다. 앞 능력치가 낮게 굴러가면 뒤 능력치가 MaxTotalGain 여유를 쓸 수 있다.
+                maximum = Math.Min(maximum, program.MaxTotalGain);
+                minimumGains[index] = Math.Max(0, minimum);
+                maximumGains[index] = Math.Max(minimumGains[index], maximum);
+                minimumTotal += minimumGains[index];
+            }
+
+            var result = new AbilityGrowthRange[count];
+            for (int index = 0; index < count; index++)
+            {
+                PlayerAbility ability = program.TargetAbilityWeights[index].Ability;
+                result[index] = new AbilityGrowthRange(
+                    ability,
+                    player.BaseAbilities.Get(ability),
+                    minimumGains[index],
+                    maximumGains[index]);
+            }
+            return result;
+        }
+
+        private static int Clamp(int value, int minimum, int maximum)
+        {
+            if (value < minimum) return minimum;
+            return value > maximum ? maximum : value;
         }
     }
 }

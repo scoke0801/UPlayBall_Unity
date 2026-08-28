@@ -55,6 +55,63 @@ namespace Baseball.Simulation.Growth
         }
 
         /// <summary>
+        /// 임시 편집 배치를 전부 검증한 뒤 한 번에 적용하며 기존 장착을 바꾸면 안전 회수를 사용한다.
+        /// </summary>
+        public bool ApplyLayout(
+            SkillBoardState state,
+            PlacedSkillBlock[] layout,
+            CareerEconomyState economy,
+            OffseasonState offseason,
+            int seasonYear,
+            long safeRecoveryCost)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (layout == null) throw new ArgumentNullException(nameof(layout));
+            ValidateLayout(state, layout);
+
+            bool requiresSafeRecovery = RequiresSafeRecovery(state, layout);
+            if (requiresSafeRecovery)
+            {
+                Redesign(state, economy, offseason, seasonYear, safeRecoveryCost);
+            }
+
+            for (int index = 0; index < layout.Length; index++)
+            {
+                if (IsSamePlacement(state, layout[index]))
+                    continue;
+                PlaceBlock(
+                    state,
+                    layout[index].Instance.InstanceId,
+                    layout[index].OriginX,
+                    layout[index].OriginY,
+                    layout[index].RotationQuarterTurns);
+            }
+            return requiresSafeRecovery;
+        }
+
+        public bool RequiresSafeRecovery(SkillBoardState state, PlacedSkillBlock[] layout)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (layout == null) throw new ArgumentNullException(nameof(layout));
+            for (int index = 0; index < state.PlacedBlocks.Count; index++)
+            {
+                PlacedSkillBlock current = state.PlacedBlocks[index];
+                bool found = false;
+                for (int layoutIndex = 0; layoutIndex < layout.Length; layoutIndex++)
+                {
+                    if (HasSamePlacement(current, layout[layoutIndex]))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 배치 상태의 회전을 적용한 실제 보드 좌표를 반환한다.
         /// </summary>
         public BoardCell[] GetOccupiedCells(PlacedSkillBlock placement)
@@ -175,6 +232,43 @@ namespace Baseball.Simulation.Growth
                 throw new InvalidOperationException("블록이 성장판 경계를 벗어납니다.");
             if (failure == SkillBlockPlacementFailure.Occupied)
                 throw new InvalidOperationException("이미 다른 블록이 놓인 칸입니다.");
+        }
+
+        private void ValidateLayout(SkillBoardState state, PlacedSkillBlock[] layout)
+        {
+            var validation = new SkillBoardState(state.BoardDefinitionId);
+            for (int index = 0; index < state.OwnedBlocks.Count; index++)
+                validation.AddOwnedBlock(state.OwnedBlocks[index]);
+            for (int index = 0; index < state.PlacedBlocks.Count; index++)
+                validation.AddOwnedBlock(state.PlacedBlocks[index].Instance);
+
+            for (int index = 0; index < layout.Length; index++)
+            {
+                PlaceBlock(
+                    validation,
+                    layout[index].Instance.InstanceId,
+                    layout[index].OriginX,
+                    layout[index].OriginY,
+                    layout[index].RotationQuarterTurns);
+            }
+        }
+
+        private static bool HasSamePlacement(PlacedSkillBlock left, PlacedSkillBlock right)
+        {
+            return left.Instance.InstanceId == right.Instance.InstanceId &&
+                   left.OriginX == right.OriginX &&
+                   left.OriginY == right.OriginY &&
+                   left.RotationQuarterTurns == right.RotationQuarterTurns;
+        }
+
+        private static bool IsSamePlacement(SkillBoardState state, PlacedSkillBlock target)
+        {
+            for (int index = 0; index < state.PlacedBlocks.Count; index++)
+            {
+                if (HasSamePlacement(state.PlacedBlocks[index], target))
+                    return true;
+            }
+            return false;
         }
 
         private SkillBlockPlacementFailure GetPlacementFailure(

@@ -8,7 +8,7 @@ namespace Baseball.Core.Balance
     /// </summary>
     public static class GrowthSkillContent
     {
-        private static readonly TetrominoShape[] StandardShapes =
+        private static readonly TetrominoShape[] UniqueShapes =
         {
             TetrominoShape.I,
             TetrominoShape.O,
@@ -28,38 +28,46 @@ namespace Baseball.Core.Balance
         {
             return new[]
             {
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Common),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Uncommon),
+                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Normal),
                 CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Rare),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Epic),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Common),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Uncommon),
+                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Elite),
+                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Unique),
+                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Legendary),
+                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Normal),
                 CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Rare),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Epic),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Common),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Uncommon),
+                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Elite),
+                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Unique),
+                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Legendary),
+                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Normal),
                 CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Rare),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Epic),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Common),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Uncommon),
+                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Elite),
+                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Unique),
+                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Legendary),
+                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Normal),
                 CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Rare),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Epic),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Common),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Uncommon),
+                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Elite),
+                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Unique),
+                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Legendary),
+                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Normal),
                 CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Rare),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Epic),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Common),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Uncommon),
+                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Elite),
+                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Unique),
+                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Legendary),
+                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Normal),
                 CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Rare),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Epic),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Common),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Uncommon),
+                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Elite),
+                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Unique),
+                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Legendary),
+                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Normal),
                 CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Rare),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Epic),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Common),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Uncommon),
+                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Elite),
+                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Unique),
+                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Legendary),
+                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Normal),
                 CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Rare),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Epic)
+                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Elite),
+                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Unique),
+                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Legendary)
             };
         }
 
@@ -69,32 +77,89 @@ namespace Baseball.Core.Balance
             PlayerAbility ability,
             SkillBlockRarity rarity)
         {
-            TetrominoShape shape = GetShape(category, rarity);
-            int bonus = (int)rarity + 1;
+            BoardCell[] shapeCells = GetShapeCells(category, rarity);
+            int bonus = rarity switch
+            {
+                SkillBlockRarity.Normal => 1,
+                SkillBlockRarity.Rare => 2,
+                SkillBlockRarity.Elite => 4,
+                SkillBlockRarity.Unique => 5,
+                SkillBlockRarity.Legendary => 7,
+                _ => throw new ArgumentOutOfRangeException(nameof(rarity))
+            };
             long sellValue = rarity switch
             {
-                SkillBlockRarity.Common => 120L,
-                SkillBlockRarity.Uncommon => 260L,
-                SkillBlockRarity.Rare => 520L,
-                SkillBlockRarity.Epic => 900L,
+                SkillBlockRarity.Normal => MoneyAmount.FromTenThousandWon(120L),
+                SkillBlockRarity.Rare => MoneyAmount.FromTenThousandWon(260L),
+                SkillBlockRarity.Elite => MoneyAmount.FromTenThousandWon(520L),
+                SkillBlockRarity.Unique => MoneyAmount.FromTenThousandWon(900L),
+                SkillBlockRarity.Legendary => MoneyAmount.FromTenThousandWon(1_500L),
                 _ => throw new ArgumentOutOfRangeException(nameof(rarity))
             };
             return new SkillBlockDefinition(
                 idPrefix + "_" + rarity.ToString().ToLowerInvariant(),
                 rarity,
                 category,
-                TetrominoShapeCatalog.CreateCells(shape),
-                canRotate: shape != TetrominoShape.O,
+                shapeCells,
+                canRotate: shapeCells.Length > 1 && !IsSquare(shapeCells),
                 new[] { new AbilityChange(ability, bonus) },
                 sellValue);
         }
 
-        private static TetrominoShape GetShape(
+        private static BoardCell[] GetShapeCells(
             SkillBlockCategory category,
             SkillBlockRarity rarity)
         {
-            int shapeIndex = ((int)category * 4 + (int)rarity) % StandardShapes.Length;
-            return StandardShapes[shapeIndex];
+            int variant = (int)category % 4;
+            return rarity switch
+            {
+                SkillBlockRarity.Normal => new[] { new BoardCell(0, 0) },
+                SkillBlockRarity.Rare => variant % 2 == 0
+                    ? new[] { new BoardCell(0, 0), new BoardCell(1, 0) }
+                    : new[] { new BoardCell(0, 0), new BoardCell(0, 1) },
+                SkillBlockRarity.Elite => variant % 2 == 0
+                    ? new[] { new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(0, 1) }
+                    : new[] { new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(2, 0) },
+                SkillBlockRarity.Unique => TetrominoShapeCatalog.CreateCells(
+                    UniqueShapes[(int)category % UniqueShapes.Length]),
+                SkillBlockRarity.Legendary => CreatePentomino(variant),
+                _ => throw new ArgumentOutOfRangeException(nameof(rarity))
+            };
+        }
+
+        private static BoardCell[] CreatePentomino(int variant)
+        {
+            return variant switch
+            {
+                0 => new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(1, 0),
+                    new BoardCell(0, 1), new BoardCell(1, 1), new BoardCell(0, 2)
+                },
+                1 => new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(2, 0),
+                    new BoardCell(0, 1), new BoardCell(1, 1), new BoardCell(2, 1)
+                },
+                2 => new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(2, 0),
+                    new BoardCell(1, 1), new BoardCell(1, 2)
+                },
+                _ => new[]
+                {
+                    new BoardCell(0, 0), new BoardCell(0, 1),
+                    new BoardCell(0, 2), new BoardCell(1, 2), new BoardCell(2, 2)
+                }
+            };
+        }
+
+        private static bool IsSquare(BoardCell[] cells)
+        {
+            if (cells.Length != 4)
+                return false;
+            return cells[0].X + cells[1].X + cells[2].X + cells[3].X == 2 &&
+                   cells[0].Y + cells[1].Y + cells[2].Y + cells[3].Y == 2;
         }
     }
 }

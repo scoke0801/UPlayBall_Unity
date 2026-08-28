@@ -36,6 +36,38 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             Assert.That(studyAge36, Is.LessThanOrEqualTo(73d));
         }
 
+        [Test]
+        public void Simulate_일만오천표본에서훈련강도는시간과돈과컨디션의서로다른효율을만든다()
+        {
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+            IntensityTotals safe = SimulateIntensity(
+                balance,
+                TrainingIntensity.Safe,
+                100000UL);
+            IntensityTotals standard = SimulateIntensity(
+                balance,
+                TrainingIntensity.Standard,
+                200000UL);
+            IntensityTotals intensive = SimulateIntensity(
+                balance,
+                TrainingIntensity.Intensive,
+                300000UL);
+
+            TestContext.WriteLine(
+                $"Safe {safe.AverageGain:F3}/{safe.AverageCondition:F2}, " +
+                $"Standard {standard.AverageGain:F3}/{standard.AverageCondition:F2}, " +
+                $"Intensive {intensive.AverageGain:F3}/{intensive.AverageCondition:F2}");
+
+            Assert.That(safe.AverageGain, Is.LessThan(standard.AverageGain));
+            Assert.That(standard.AverageGain, Is.LessThan(intensive.AverageGain));
+            Assert.That(safe.GainPerWeek, Is.LessThan(standard.GainPerWeek));
+            Assert.That(standard.GainPerWeek, Is.LessThan(intensive.GainPerWeek));
+            Assert.That(safe.GainPerMoney, Is.GreaterThan(standard.GainPerMoney));
+            Assert.That(standard.GainPerMoney, Is.GreaterThan(intensive.GainPerMoney));
+            Assert.That(safe.AverageCondition, Is.GreaterThan(standard.AverageCondition));
+            Assert.That(standard.AverageCondition, Is.GreaterThan(intensive.AverageCondition));
+        }
+
         private static CareerTotals SimulateStrategy(
             GrowthBalanceTable balance,
             bool useStudy,
@@ -103,11 +135,76 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             return sum / 6d;
         }
 
+        private static IntensityTotals SimulateIntensity(
+            GrowthBalanceTable balance,
+            TrainingIntensity intensity,
+            ulong seedOffset)
+        {
+            TrainingProgramDefinition program = balance.GetProgram(
+                "pitch_velocity_camp",
+                intensity);
+            var resolver = new GrowthResolver(balance);
+            double totalGain = 0d;
+            double totalCondition = 0d;
+            for (int sample = 0; sample < CareersPerStrategy; sample++)
+            {
+                var player = new PlayerGrowthState(
+                    sample + 1,
+                    20,
+                    PlayerType.Pitcher,
+                    new AbilityRatings(58),
+                    new AbilityRatings(72),
+                    WorkEthicGrade.Normal,
+                    90,
+                    0,
+                    70);
+                ulong seed = seedOffset + (ulong)sample;
+                GrowthResultRecord result = resolver.Resolve(
+                    player,
+                    program,
+                    2028,
+                    0,
+                    TrainingFitGrade.Normal,
+                    seed,
+                    new Pcg32Random(seed));
+                for (int index = 0; index < result.AbilityChanges.Length; index++)
+                    totalGain += result.AbilityChanges[index].Amount;
+                totalCondition += player.Condition;
+            }
+
+            double averageGain = totalGain / CareersPerStrategy;
+            return new IntensityTotals(
+                averageGain,
+                totalCondition / CareersPerStrategy,
+                averageGain / program.DurationWeeks,
+                averageGain / program.MoneyCost);
+        }
+
         private sealed class CareerTotals
         {
             public double Age22;
             public double Age32;
             public double Age36;
+        }
+
+        private readonly struct IntensityTotals
+        {
+            public IntensityTotals(
+                double averageGain,
+                double averageCondition,
+                double gainPerWeek,
+                double gainPerMoney)
+            {
+                AverageGain = averageGain;
+                AverageCondition = averageCondition;
+                GainPerWeek = gainPerWeek;
+                GainPerMoney = gainPerMoney;
+            }
+
+            public double AverageGain { get; }
+            public double AverageCondition { get; }
+            public double GainPerWeek { get; }
+            public double GainPerMoney { get; }
         }
     }
 }

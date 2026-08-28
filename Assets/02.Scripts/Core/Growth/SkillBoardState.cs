@@ -82,6 +82,7 @@ namespace Baseball.Core.Growth
     {
         private readonly List<SkillBlockInstance> _ownedBlocks = new List<SkillBlockInstance>();
         private readonly List<PlacedSkillBlock> _placedBlocks = new List<PlacedSkillBlock>();
+        private readonly HashSet<int> _lockedBlockIds = new HashSet<int>();
         private int _nextInstanceId = 1;
 
         public SkillBoardState(string boardDefinitionId)
@@ -92,10 +93,14 @@ namespace Baseball.Core.Growth
         public string BoardDefinitionId { get; }
         public IReadOnlyList<SkillBlockInstance> OwnedBlocks => _ownedBlocks;
         public IReadOnlyList<PlacedSkillBlock> PlacedBlocks => _placedBlocks;
-        public int PityRareCount { get; private set; }
-        public int PityEpicCount { get; private set; }
+        public int PityEliteCount { get; private set; }
+        public int PityUniqueCount { get; private set; }
+        public int PityLegendaryCount { get; private set; }
         public int TotalPullCount { get; private set; }
         public int LastRedesignSeason { get; private set; }
+        public int LimitedPurchaseSeason { get; private set; }
+        public int UniquePurchasesThisOffseason { get; private set; }
+        public int LegendaryPurchasesThisOffseason { get; private set; }
 
         public SkillBlockInstance AddOwnedBlock(string definitionId)
         {
@@ -104,18 +109,76 @@ namespace Baseball.Core.Growth
             return instance;
         }
 
+        public void AddOwnedBlock(SkillBlockInstance instance)
+        {
+            if (instance.InstanceId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(instance));
+            if (ContainsInstance(instance.InstanceId))
+                throw new InvalidOperationException("같은 InstanceId의 블록을 중복으로 추가할 수 없습니다.");
+            _ownedBlocks.Add(instance);
+            _nextInstanceId = Math.Max(_nextInstanceId, instance.InstanceId + 1);
+        }
+
         public void RecordPull(SkillBlockRarity rarity)
         {
             TotalPullCount++;
-            if (rarity >= SkillBlockRarity.Rare)
-                PityRareCount = 0;
+            if (rarity >= SkillBlockRarity.Elite)
+                PityEliteCount = 0;
             else
-                PityRareCount++;
+                PityEliteCount++;
 
-            if (rarity == SkillBlockRarity.Epic)
-                PityEpicCount = 0;
+            if (rarity >= SkillBlockRarity.Unique)
+                PityUniqueCount = 0;
             else
-                PityEpicCount++;
+                PityUniqueCount++;
+
+            if (rarity == SkillBlockRarity.Legendary)
+                PityLegendaryCount = 0;
+            else
+                PityLegendaryCount++;
+        }
+
+        public int GetLimitedPurchaseCount(SkillGachaPurchaseTier tier, int seasonYear)
+        {
+            if (LimitedPurchaseSeason != seasonYear)
+                return 0;
+            return tier switch
+            {
+                SkillGachaPurchaseTier.Unique => UniquePurchasesThisOffseason,
+                SkillGachaPurchaseTier.Legendary => LegendaryPurchasesThisOffseason,
+                _ => 0
+            };
+        }
+
+        public void RecordTierPurchases(SkillGachaPurchaseTier tier, int seasonYear, int count)
+        {
+            if (count <= 0)
+                throw new ArgumentOutOfRangeException(nameof(count));
+            if (LimitedPurchaseSeason != seasonYear)
+            {
+                LimitedPurchaseSeason = seasonYear;
+                UniquePurchasesThisOffseason = 0;
+                LegendaryPurchasesThisOffseason = 0;
+            }
+            if (tier == SkillGachaPurchaseTier.Unique)
+                UniquePurchasesThisOffseason += count;
+            else if (tier == SkillGachaPurchaseTier.Legendary)
+                LegendaryPurchasesThisOffseason += count;
+        }
+
+        public bool IsBlockLocked(int instanceId)
+        {
+            return _lockedBlockIds.Contains(instanceId);
+        }
+
+        public void SetBlockLocked(int instanceId, bool isLocked)
+        {
+            if (!ContainsInstance(instanceId))
+                throw new ArgumentException("보유하거나 장착한 블록을 찾을 수 없습니다.", nameof(instanceId));
+            if (isLocked)
+                _lockedBlockIds.Add(instanceId);
+            else
+                _lockedBlockIds.Remove(instanceId);
         }
 
         public SkillBlockInstance FindOwnedBlock(int instanceId)
@@ -147,6 +210,8 @@ namespace Baseball.Core.Growth
                 _placedBlocks.RemoveAt(index);
                 if (returnToInventory)
                     _ownedBlocks.Add(instance);
+                else
+                    _lockedBlockIds.Remove(instanceId);
                 return instance;
             }
             throw new ArgumentException("장착된 블록을 찾을 수 없습니다.", nameof(instanceId));
@@ -159,6 +224,7 @@ namespace Baseball.Core.Growth
                 throw new ArgumentException("보유 블록을 찾을 수 없습니다.", nameof(instanceId));
             SkillBlockInstance instance = _ownedBlocks[index];
             _ownedBlocks.RemoveAt(index);
+            _lockedBlockIds.Remove(instanceId);
             return instance;
         }
 
@@ -180,6 +246,18 @@ namespace Baseball.Core.Growth
                     return index;
             }
             return -1;
+        }
+
+        private bool ContainsInstance(int instanceId)
+        {
+            if (FindOwnedIndex(instanceId) >= 0)
+                return true;
+            for (int index = 0; index < _placedBlocks.Count; index++)
+            {
+                if (_placedBlocks[index].Instance.InstanceId == instanceId)
+                    return true;
+            }
+            return false;
         }
     }
 }

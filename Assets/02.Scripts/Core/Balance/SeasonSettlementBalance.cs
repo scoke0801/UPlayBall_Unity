@@ -1,3 +1,5 @@
+using Baseball.Core.Growth;
+
 namespace Baseball.Core.Balance
 {
     /// <summary>시즌 수상·포스트시즌 Money 배율과 계약 평가 가산점을 보관한다.</summary>
@@ -59,7 +61,7 @@ namespace Baseball.Core.Balance
         public static SeasonSettlementBalance CreateDefault()
         {
             return new SeasonSettlementBalance(
-                100L,
+                MoneyAmount.FromTenThousandWon(100L),
                 0.20d, 0.12d, 0.08d, 0.06d, 0.04d, 0.02d, 0.08d,
                 20, 12, 10, 8, 5, 8, 4, 30);
         }

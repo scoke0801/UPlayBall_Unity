@@ -33,7 +33,7 @@ namespace Baseball.Simulation.Growth
                 economy,
                 board,
                 category,
-                SkillGachaPurchaseTier.Standard,
+                SkillGachaPurchaseTier.Normal,
                 seasonYear,
                 random);
         }
@@ -47,15 +47,14 @@ namespace Baseball.Simulation.Growth
             IRandomSource random)
         {
             ValidateArguments(economy, board, random);
-            string sourceId = tier == SkillGachaPurchaseTier.Premium
-                ? "skill_gacha_premium"
-                : "skill_gacha_single";
+            ValidatePurchaseLimit(board, tier, seasonYear, 1);
             economy.Spend(
                 seasonYear,
                 MoneyTransactionType.SkillBlockPurchase,
-                sourceId,
+                GetSourceId(tier, 1),
                 _balance.GetPrice(tier));
-            return PullOne(board, category, tier, random, null);
+            RecordLimitedPurchase(board, tier, seasonYear, 1);
+            return PullOne(board, category, tier, random);
         }
 
         public SkillBlockInstance[] PullBundle(
@@ -65,24 +64,45 @@ namespace Baseball.Simulation.Growth
             int seasonYear,
             IRandomSource random)
         {
+            return PullBundle(
+                economy,
+                board,
+                new[] { category },
+                SkillGachaPurchaseTier.Normal,
+                seasonYear,
+                random);
+        }
+
+        /// <summary>
+        /// 할인 금액을 한 번 결제하고 선택 등급과 허용 계통 안에서 다섯 결과를 즉시 확정·저장한다.
+        /// </summary>
+        public SkillBlockInstance[] PullBundle(
+            CareerEconomyState economy,
+            SkillBoardState board,
+            SkillBlockCategory[] categories,
+            SkillGachaPurchaseTier tier,
+            int seasonYear,
+            IRandomSource random)
+        {
             ValidateArguments(economy, board, random);
-            economy.Spend(seasonYear, MoneyTransactionType.SkillBlockPurchase, "skill_gacha_bundle", _balance.BundlePrice);
+            if (categories == null || categories.Length == 0)
+                throw new ArgumentException("뽑기 계통은 하나 이상 필요합니다.", nameof(categories));
+            if (!_balance.GetOffer(tier).SupportsFivePull)
+                throw new InvalidOperationException("이 등급은 오프시즌 구매 제한 때문에 5회 뽑기를 지원하지 않습니다.");
+            ValidatePurchaseLimit(board, tier, seasonYear, 5);
+            economy.Spend(
+                seasonYear,
+                MoneyTransactionType.SkillBlockPurchase,
+                GetSourceId(tier, 5),
+                _balance.GetFivePullPrice(tier));
+            RecordLimitedPurchase(board, tier, seasonYear, 5);
             var results = new SkillBlockInstance[5];
-            bool hasUncommonOrBetter = false;
             for (int index = 0; index < results.Length; index++)
             {
-                SkillBlockRarity? minimum = index == results.Length - 1 && !hasUncommonOrBetter
-                    ? SkillBlockRarity.Uncommon
-                    : (SkillBlockRarity?)null;
-                results[index] = PullOne(
-                    board,
-                    category,
-                    SkillGachaPurchaseTier.Standard,
-                    random,
-                    minimum);
-                SkillBlockDefinition definition = FindDefinition(results[index].DefinitionId);
-                if (definition.Rarity >= SkillBlockRarity.Uncommon)
-                    hasUncommonOrBetter = true;
+                int categoryIndex = categories.Length == 1
+                    ? 0
+                    : Math.Min((int)(random.NextDouble() * categories.Length), categories.Length - 1);
+                results[index] = PullOne(board, categories[categoryIndex], tier, random);
             }
             return results;
         }
@@ -99,6 +119,8 @@ namespace Baseball.Simulation.Growth
             SkillBlockDefinition definition = FindDefinition(instance.DefinitionId);
             if (definition.IsUniqueReward)
                 throw new InvalidOperationException("고유 보상 블록은 판매할 수 없습니다.");
+            if (board.IsBlockLocked(instanceId))
+                throw new InvalidOperationException("잠긴 블록은 판매할 수 없습니다.");
             board.RemoveOwnedBlock(instanceId);
             if (definition.SellValue > 0L)
                 economy.Earn(seasonYear, MoneyTransactionType.SkillBlockSale, definition.BlockId, definition.SellValue);
@@ -109,15 +131,18 @@ namespace Baseball.Simulation.Growth
             SkillBoardState board,
             SkillBlockCategory category,
             SkillGachaPurchaseTier tier,
-            IRandomSource random,
-            SkillBlockRarity? minimumRarity)
+            IRandomSource random)
         {
             SkillBlockRarity rarity = RollRarity(board, tier, random);
-            if (minimumRarity.HasValue && rarity < minimumRarity.Value)
-                rarity = minimumRarity.Value;
+            SkillBlockRarity minimumRarity = _balance.GetOffer(tier).MinimumRarity;
+            if (rarity < minimumRarity)
+                rarity = minimumRarity;
             SkillBlockDefinition definition = SelectDefinition(category, rarity, random);
             board.RecordPull(definition.Rarity);
-            return board.AddOwnedBlock(definition.BlockId);
+            SkillBlockInstance result = board.AddOwnedBlock(definition.BlockId);
+            if (definition.Rarity >= SkillBlockRarity.Unique)
+                board.SetBlockLocked(result.InstanceId, true);
+            return result;
         }
 
         private SkillBlockRarity RollRarity(
@@ -125,21 +150,26 @@ namespace Baseball.Simulation.Growth
             SkillGachaPurchaseTier tier,
             IRandomSource random)
         {
-            if (board.PityEpicCount >= _balance.EpicPity)
-                return SkillBlockRarity.Epic;
-            if (board.PityRareCount >= _balance.RarePity)
-                return SkillBlockRarity.Rare;
+            if (board.PityLegendaryCount >= _balance.LegendaryPity)
+                return SkillBlockRarity.Legendary;
+            if (board.PityUniqueCount >= _balance.UniquePity)
+                return SkillBlockRarity.Unique;
+            if (board.PityEliteCount >= _balance.ElitePity)
+                return SkillBlockRarity.Elite;
 
             double roll = random.NextDouble();
-            double common = _balance.GetProbability(tier, SkillBlockRarity.Common);
-            if (roll < common) return SkillBlockRarity.Common;
-            roll -= common;
-            double uncommon = _balance.GetProbability(tier, SkillBlockRarity.Uncommon);
-            if (roll < uncommon) return SkillBlockRarity.Uncommon;
-            roll -= uncommon;
-            return roll < _balance.GetProbability(tier, SkillBlockRarity.Rare)
-                ? SkillBlockRarity.Rare
-                : SkillBlockRarity.Epic;
+            double normal = _balance.GetProbability(tier, SkillBlockRarity.Normal);
+            if (roll < normal) return SkillBlockRarity.Normal;
+            roll -= normal;
+            double rare = _balance.GetProbability(tier, SkillBlockRarity.Rare);
+            if (roll < rare) return SkillBlockRarity.Rare;
+            roll -= rare;
+            double elite = _balance.GetProbability(tier, SkillBlockRarity.Elite);
+            if (roll < elite) return SkillBlockRarity.Elite;
+            roll -= elite;
+            return roll < _balance.GetProbability(tier, SkillBlockRarity.Unique)
+                ? SkillBlockRarity.Unique
+                : SkillBlockRarity.Legendary;
         }
 
         private SkillBlockDefinition SelectDefinition(
@@ -193,7 +223,7 @@ namespace Baseball.Simulation.Growth
                 if (!categoryExists)
                     continue;
 
-                for (int rarity = 0; rarity <= (int)SkillBlockRarity.Epic; rarity++)
+                for (int rarity = 0; rarity <= (int)SkillBlockRarity.Legendary; rarity++)
                 {
                     bool found = false;
                     for (int index = 0; index < _definitions.Length; index++)
@@ -216,6 +246,55 @@ namespace Baseball.Simulation.Growth
             if (economy == null) throw new ArgumentNullException(nameof(economy));
             if (board == null) throw new ArgumentNullException(nameof(board));
             if (random == null) throw new ArgumentNullException(nameof(random));
+        }
+
+        private void ValidatePurchaseLimit(
+            SkillBoardState board,
+            SkillGachaPurchaseTier tier,
+            int seasonYear,
+            int count)
+        {
+            SkillGachaOfferBalance offer = _balance.GetOffer(tier);
+            if (offer.MaxPurchasesPerOffseason == 0)
+                return;
+            int used = board.GetLimitedPurchaseCount(tier, seasonYear);
+            if (used + count > offer.MaxPurchasesPerOffseason)
+                throw new InvalidOperationException("이 등급의 오프시즌 구매 가능 횟수를 모두 사용했습니다.");
+        }
+
+        private void RecordLimitedPurchase(
+            SkillBoardState board,
+            SkillGachaPurchaseTier tier,
+            int seasonYear,
+            int count)
+        {
+            if (_balance.GetOffer(tier).MaxPurchasesPerOffseason > 0)
+                board.RecordTierPurchases(tier, seasonYear, count);
+        }
+
+        private static string GetSourceId(SkillGachaPurchaseTier tier, int count)
+        {
+            if (count == 1)
+            {
+                return tier switch
+                {
+                    SkillGachaPurchaseTier.Normal => "skill_gacha_normal_1",
+                    SkillGachaPurchaseTier.Rare => "skill_gacha_rare_1",
+                    SkillGachaPurchaseTier.Elite => "skill_gacha_elite_1",
+                    SkillGachaPurchaseTier.Unique => "skill_gacha_unique_1",
+                    SkillGachaPurchaseTier.Legendary => "skill_gacha_legendary_1",
+                    _ => throw new ArgumentOutOfRangeException(nameof(tier))
+                };
+            }
+            return tier switch
+            {
+                SkillGachaPurchaseTier.Normal => "skill_gacha_normal_5",
+                SkillGachaPurchaseTier.Rare => "skill_gacha_rare_5",
+                SkillGachaPurchaseTier.Elite => "skill_gacha_elite_5",
+                SkillGachaPurchaseTier.Unique => "skill_gacha_unique_5",
+                SkillGachaPurchaseTier.Legendary => "skill_gacha_legendary_5",
+                _ => throw new ArgumentOutOfRangeException(nameof(tier))
+            };
         }
     }
 }

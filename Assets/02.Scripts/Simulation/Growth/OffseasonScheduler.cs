@@ -24,19 +24,29 @@ namespace Baseball.Simulation.Growth
             CareerEconomyState economy,
             PlayerGrowthState player,
             string programId,
-            int startWeek)
+            int startWeek,
+            TrainingIntensity intensity = TrainingIntensity.Standard)
         {
             if (offseason == null) throw new ArgumentNullException(nameof(offseason));
             if (economy == null) throw new ArgumentNullException(nameof(economy));
             if (player == null) throw new ArgumentNullException(nameof(player));
-            TrainingProgramDefinition program = _balance.FindProgram(programId) ??
-                                                throw new ArgumentException("존재하지 않는 프로그램입니다.", nameof(programId));
+            TrainingProgramDefinition program = _balance.GetProgram(programId, intensity);
             if (!program.CanUse(player.PlayerType))
                 throw new InvalidOperationException("선수 유형에 맞지 않는 프로그램입니다.");
             if (startWeek < offseason.CurrentWeek || startWeek + program.DurationWeeks - 1 > offseason.TotalWeeks)
                 throw new InvalidOperationException("남은 오프시즌 주 수에 배치할 수 없습니다.");
             ValidateNoOverlap(offseason, startWeek, program.DurationWeeks);
             ValidateUniqueActivity(offseason, program);
+            int projectedCondition = GetProjectedConditionBefore(
+                offseason,
+                player.Condition,
+                startWeek);
+            if (projectedCondition < program.MinimumCondition)
+            {
+                throw new InvalidOperationException(
+                    $"계획 순서상 시작 컨디션이 {projectedCondition}으로 예상됩니다. " +
+                    $"컨디션 {program.MinimumCondition} 이상이 되도록 회복 활동을 먼저 배치해 주세요.");
+            }
             if (GetPlannedCost(offseason) + program.MoneyCost > economy.Money)
                 throw new InvalidOperationException("계획한 활동을 모두 실행할 Money가 부족합니다.");
 
@@ -45,7 +55,8 @@ namespace Baseball.Simulation.Growth
                 activityId,
                 program.ProgramId,
                 startWeek,
-                program.DurationWeeks);
+                program.DurationWeeks,
+                intensity);
             offseason.AddActivity(activity);
             return activity;
         }
@@ -54,6 +65,38 @@ namespace Baseball.Simulation.Growth
         {
             PlannedOffseasonActivity activity = FindActivity(offseason, activityId);
             activity.Cancel();
+            CompactPlannedActivities(offseason);
+        }
+
+        private static void CompactPlannedActivities(OffseasonState offseason)
+        {
+            int count = 0;
+            for (int index = 0; index < offseason.Activities.Count; index++)
+            {
+                if (offseason.Activities[index].Status == OffseasonActivityStatus.Planned)
+                    count++;
+            }
+            var planned = new PlannedOffseasonActivity[count];
+            int writeIndex = 0;
+            for (int index = 0; index < offseason.Activities.Count; index++)
+            {
+                PlannedOffseasonActivity activity = offseason.Activities[index];
+                if (activity.Status == OffseasonActivityStatus.Planned)
+                    planned[writeIndex++] = activity;
+            }
+            Array.Sort(planned, (left, right) =>
+            {
+                int weekComparison = left.StartWeek.CompareTo(right.StartWeek);
+                return weekComparison != 0
+                    ? weekComparison
+                    : left.ActivityId.CompareTo(right.ActivityId);
+            });
+            int startWeek = offseason.CurrentWeek;
+            for (int index = 0; index < planned.Length; index++)
+            {
+                planned[index].Reschedule(startWeek);
+                startWeek = planned[index].EndWeek + 1;
+            }
         }
 
         /// <summary>
@@ -69,7 +112,9 @@ namespace Baseball.Simulation.Growth
         {
             if (player == null) throw new ArgumentNullException(nameof(player));
             PlannedOffseasonActivity activity = FindActivity(offseason, activityId);
-            TrainingProgramDefinition program = _balance.FindProgram(activity.ProgramId);
+            TrainingProgramDefinition program = _balance.GetProgram(
+                activity.ProgramId,
+                activity.Intensity);
             if (activity.Status != OffseasonActivityStatus.Planned)
                 throw new InvalidOperationException("계획된 활동만 시작할 수 있습니다.");
             if (activity.StartWeek < offseason.CurrentWeek)
@@ -108,7 +153,9 @@ namespace Baseball.Simulation.Growth
             PlannedOffseasonActivity activity = FindActivity(offseason, activityId);
             if (activity.Status != OffseasonActivityStatus.InProgress)
                 throw new InvalidOperationException("진행 중인 활동만 완료할 수 있습니다.");
-            TrainingProgramDefinition program = _balance.FindProgram(activity.ProgramId);
+            TrainingProgramDefinition program = _balance.GetProgram(
+                activity.ProgramId,
+                activity.Intensity);
             if (program.IsStudy && studyState == null)
                 throw new InvalidOperationException("유학 완료에는 PlayerStudyState가 필요합니다.");
             if (program.IsStudy && studyState.StudyUsedThisOffseason)
@@ -144,9 +191,37 @@ namespace Baseball.Simulation.Growth
                 PlannedOffseasonActivity activity = offseason.Activities[index];
                 if (activity.Status != OffseasonActivityStatus.Planned)
                     continue;
-                total = checked(total + _balance.FindProgram(activity.ProgramId).MoneyCost);
+                total = checked(total + _balance.GetProgram(
+                    activity.ProgramId,
+                    activity.Intensity).MoneyCost);
             }
             return total;
+        }
+
+        private int GetProjectedConditionBefore(
+            OffseasonState offseason,
+            int currentCondition,
+            int startWeek)
+        {
+            int condition = currentCondition;
+            for (int week = offseason.CurrentWeek; week < startWeek; week++)
+            {
+                for (int index = 0; index < offseason.Activities.Count; index++)
+                {
+                    PlannedOffseasonActivity activity = offseason.Activities[index];
+                    if (activity.Status != OffseasonActivityStatus.Planned ||
+                        activity.StartWeek != week)
+                    {
+                        continue;
+                    }
+                    TrainingProgramDefinition planned = _balance.GetProgram(
+                        activity.ProgramId,
+                        activity.Intensity);
+                    condition = Math.Max(0, Math.Min(100, condition + planned.ConditionChange));
+                    break;
+                }
+            }
+            return condition;
         }
 
         private static int GetNextActivityId(OffseasonState offseason)
@@ -177,7 +252,9 @@ namespace Baseball.Simulation.Growth
                 PlannedOffseasonActivity existing = offseason.Activities[index];
                 if (existing.Status == OffseasonActivityStatus.Cancelled)
                     continue;
-                TrainingProgramDefinition existingProgram = _balance.FindProgram(existing.ProgramId);
+                TrainingProgramDefinition existingProgram = _balance.GetProgram(
+                    existing.ProgramId,
+                    existing.Intensity);
                 if (program.IsStudy && existingProgram.IsStudy)
                     throw new InvalidOperationException("유학은 오프시즌당 한 번만 계획할 수 있습니다.");
                 if (program.ActivityType == OffseasonActivityType.TrainingPartner &&
@@ -196,7 +273,7 @@ namespace Baseball.Simulation.Growth
             {
                 PlannedOffseasonActivity activity = offseason.Activities[index];
                 if (activity.Status == OffseasonActivityStatus.Completed &&
-                    _balance.FindProgram(activity.ProgramId).Category == category)
+                    _balance.GetProgram(activity.ProgramId, activity.Intensity).Category == category)
                     count++;
             }
             return count;

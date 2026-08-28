@@ -62,7 +62,8 @@ namespace Baseball.Core.Growth
             int conditionChange,
             long moneySpent,
             int weeksSpent,
-            GrowthInjuryResult injuryResult = GrowthInjuryResult.None)
+            GrowthInjuryResult injuryResult = GrowthInjuryResult.None,
+            TrainingIntensity intensity = TrainingIntensity.Standard)
         {
             if (playerId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(playerId));
@@ -78,6 +79,7 @@ namespace Baseball.Core.Growth
             MoneySpent = moneySpent;
             WeeksSpent = weeksSpent;
             InjuryResult = injuryResult;
+            Intensity = intensity;
         }
 
         public int PlayerId { get; }
@@ -92,5 +94,6 @@ namespace Baseball.Core.Growth
         public long MoneySpent { get; }
         public int WeeksSpent { get; }
         public GrowthInjuryResult InjuryResult { get; }
+        public TrainingIntensity Intensity { get; }
     }
 }

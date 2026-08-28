@@ -12,6 +12,13 @@ namespace Baseball.Core.Growth
         Study
     }
 
+    public enum TrainingIntensity
+    {
+        Safe,
+        Standard,
+        Intensive
+    }
+
     /// <summary>
     /// 한 프로그램의 성장력을 능력치별로 나누는 고정 가중치다.
     /// </summary>
@@ -52,7 +59,8 @@ namespace Baseball.Core.Growth
             int conditionChange,
             int minimumGuaranteedGain = 0,
             string partnerId = "",
-            bool canRaisePotential = false)
+            bool canRaisePotential = false,
+            TrainingIntensity intensity = TrainingIntensity.Standard)
         {
             if (string.IsNullOrWhiteSpace(programId))
                 throw new ArgumentException("ProgramId는 비어 있을 수 없습니다.", nameof(programId));
@@ -72,6 +80,8 @@ namespace Baseball.Core.Growth
                 throw new ArgumentOutOfRangeException(nameof(minimumGuaranteedGain));
             if (activityType == OffseasonActivityType.TrainingPartner && string.IsNullOrWhiteSpace(partnerId))
                 throw new ArgumentException("훈련 파트너 활동에는 PartnerId가 필요합니다.", nameof(partnerId));
+            if (intensity < TrainingIntensity.Safe || intensity > TrainingIntensity.Intensive)
+                throw new ArgumentOutOfRangeException(nameof(intensity));
 
             ProgramId = programId.Trim();
             ActivityType = activityType;
@@ -89,6 +99,7 @@ namespace Baseball.Core.Growth
             MinimumGuaranteedGain = minimumGuaranteedGain;
             PartnerId = partnerId?.Trim() ?? string.Empty;
             CanRaisePotential = canRaisePotential;
+            Intensity = intensity;
         }
 
         public string ProgramId { get; }
@@ -107,7 +118,9 @@ namespace Baseball.Core.Growth
         public int MinimumGuaranteedGain { get; }
         public string PartnerId { get; }
         public bool CanRaisePotential { get; }
+        public TrainingIntensity Intensity { get; }
         public bool IsStudy => ActivityType == OffseasonActivityType.Study;
+        public bool SupportsIntensity => ActivityType == OffseasonActivityType.PersonalTraining;
 
         public bool CanUse(PlayerType playerType)
         {

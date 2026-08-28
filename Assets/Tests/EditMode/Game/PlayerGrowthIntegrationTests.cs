@@ -31,7 +31,7 @@ namespace Baseball.Tests.EditMode.Game
 
             var block = new SkillBlockDefinition(
                 "contact_bonus",
-                SkillBlockRarity.Common,
+                SkillBlockRarity.Normal,
                 SkillBlockCategory.Contact,
                 TetrominoShapeCatalog.CreateCells(TetrominoShape.O),
                 false,
@@ -59,20 +59,20 @@ namespace Baseball.Tests.EditMode.Game
             SkillBlockDefinition block = FindBlock(
                 configuration.Balance.Growth.SkillBlocks,
                 SkillBlockCategory.Contact,
-                SkillBlockRarity.Epic);
+                SkillBlockRarity.Unique);
             SkillBlockInstance instance = flow.Career.MyPlayer.SkillBoardState.AddOwnedBlock(block.BlockId);
             var boardService = new SkillBoardService(
                 configuration.Balance.Growth.SkillBoard,
                 configuration.Balance.Growth.SkillBlocks);
             boardService.PlaceBlock(flow.Career.MyPlayer.SkillBoardState, instance.InstanceId, 0, 0, 0);
 
-            ScheduledGameState game = flow.Career.League.CurrentSeason.Schedule.GetNextGameForTeam(
+            ScheduledGameState game = flow.Career.CurrentLeague.CurrentSeason.Schedule.GetNextGameForTeam(
                 flow.Career.MyPlayer.CurrentTeamId);
             var runner = new CareerGameRunner(flow.Career, configuration.Balance);
             MatchInput input = runner.CreateMatchInput(
                 game,
                 Baseball.Core.Teams.PlayerGameRole.StartingBatter,
-                flow.Career.League.CurrentSeason.SeasonId);
+                flow.Career.CurrentLeague.CurrentSeason.SeasonId);
             Baseball.Core.Teams.Team playerTeam = input.AwayTeam.TeamId == flow.Career.MyPlayer.CurrentTeamId
                 ? input.AwayTeam
                 : input.HomeTeam;
