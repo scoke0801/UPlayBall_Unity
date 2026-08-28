@@ -2,7 +2,7 @@
 
 - 문서 성격: `BaseballManager_CAREER_ECONOMY.md` 확정 규칙을 실제 플레이 가능한 커리어 루프로 완성하기 위한 실행 체크리스트
 - 기준일: 2026-08-28
-- 현재 상태: 순수 C# 성장 백엔드와 Game 연결의 첫 단계 완료 / 콘텐츠·전체 시즌 루프·UI 미완료
+- 현재 상태: 순수 C# 성장 백엔드, Stable Ability 경기 연결, 성장 UI 수직 슬라이스 완료 / Trait·SO 콘텐츠·전체 시즌 루프 미완료
 - 규칙 정본: `BaseballManager_CAREER_ECONOMY.md`
 - 프로젝트 정본: `BaseballManager_PROJECT.md`
 - UI 정본: `BaseballManager_UI_FLOW.md`
@@ -44,11 +44,14 @@ Seed로 같은 결과가 나오며, EditMode 테스트 또는 대량 시뮬레�
 - [x] 성장 상태 추가를 반영해 신규 세이브 버전을 3으로 올렸다.
 - [x] Core, Simulation, Game 어셈블리가 경고와 오류 없이 컴파일된다.
 - [x] 2026-08-28 기준 Unity EditMode 전체 테스트 73/73을 통과했다.
+- [x] 성장판 Stable Ability를 감독 판단과 실제 경기 입력에 동일하게 적용했다.
+- [x] 기본 4×4 보드와 타자·투수 계통별 Common/Uncommon/Rare/Epic 블록 풀을 작성했다.
+- [x] 블록 구매·판매·배치·제거·안전 재설계와 오프시즌 주차 진행을 `CareerManager` 진입점으로 연결했다.
+- [x] 성장 화면에서 선수 상태, 4×4 보드, 보유 블록, 실제 확률·보장 카운트, 오프시즌 액션을 표시한다.
+- [x] Epic Contact +4를 장착한 선수와 기본 선수를 10,000경기에서 비교해 타율 0.263 대 0.259의 방향성을 확인했다.
 
 ### 2.2 부분 구현
 
-- [~] `PlayerState.ToPlayer(SkillBoardService)`는 성장판의 고정 능력치 보너스를 계산하지만,
-  실제 `CareerSeasonService`의 감독 판단과 경기 입력은 아직 기본 `ToPlayer()`를 호출한다.
 - [~] 활성 Trait ID는 계산할 수 있지만 Trait별 발동 조건과 경기 효과는 아직 없다.
 - [~] 훈련·유학·블록 기본 정의는 순수 C# 기본값으로 존재하지만 실제 SO 저작·검증 파이프라인은 없다.
 - [~] `InjuryResolver`는 존재하지만 경기 결장, 치료 기간, 오프시즌 의무 재활과 시즌 진행에 연결되지 않았다.
@@ -62,9 +65,9 @@ Seed로 같은 결과가 나오며, EditMode 테스트 또는 대량 시뮬레�
 
 ### P0 — 성장 결과의 경기 적용
 
-- [!] `CareerSeasonService`가 `SkillBoardService`를 주입받아 내 선수 경기 입력을 Stable Ability로 생성한다.
-- [!] 감독의 현재 전력 평가도 같은 Stable Ability를 사용한다.
-- [!] Skill Board Bonus가 Potential과 영구 성장 계산에는 들어가지 않는지 회귀 테스트한다.
+- [x] `CareerGameRunner`가 `SkillBoardService`를 사용해 내 선수 경기 입력을 Stable Ability로 생성한다.
+- [x] 감독의 현재 전력 평가도 같은 Stable Ability를 사용한다.
+- [x] Skill Board Bonus가 Potential과 영구 성장 계산에는 들어가지 않는지 회귀 테스트한다.
 - [!] Trait 효과 계약을 순수 C# 데이터로 정의한다.
 - [!] 타석·주루·수비·투수 상황 중 실제로 지원할 Trait 발동 지점을 명시한다.
 - [!] 동일 Seed에서 Trait 발동을 포함한 `MatchEvent` 스트림이 완전히 일치하는지 검증한다.
@@ -97,7 +100,7 @@ Seed로 같은 결과가 나오며, EditMode 테스트 또는 대량 시뮬레�
 
 - [ ] `TrainingProgramDefinition`, `SkillBlockDefinition`, `SkillBoardDefinition`을 SO에서 순수 C# 정의로 변환한다.
 - [ ] 가격·확률·성장량·부상률·나이 곡선을 각 BalanceTable 데이터 Asset으로 분리한다.
-- [ ] 타자·투수 계통별 Common/Uncommon/Rare/Epic 기본 블록 풀을 작성한다.
+- [x] 타자·투수 계통별 Common/Uncommon/Rare/Epic 기본 블록 풀을 작성한다.
 - [ ] 유학과 훈련 파트너의 고유 Trait 블록을 작성한다.
 - [ ] 모든 등급·계통에 뽑기 가능한 블록이 존재하는지 정적 검증한다.
 - [ ] 중복 BlockId, 잘못된 모양, 보드 밖 좌표, 빈 보상 풀을 에디터 검증에서 차단한다.
@@ -118,7 +121,7 @@ Seed로 같은 결과가 나오며, EditMode 테스트 또는 대량 시뮬레�
 - [ ] 고강도 활동 연속 배치가 뒤 활동의 Condition과 부상 위험에 영향을 주게 한다.
 - [ ] 시작하지 않은 미래 활동의 취소·교체와 시작한 활동의 환불 금지를 완성한다.
 - [ ] 고유 Trait 블록과 Potential 돌파 보상을 실제 인벤토리에 지급한다.
-- [ ] 스킬 블록 구매·판매·장착·제거·재설계를 `CareerState` 진입점으로 연결한다.
+- [x] 스킬 블록 구매·판매·장착·제거·재설계를 `CareerManager` 진입점으로 연결한다.
 - [ ] 시즌 중에는 휴식일에만 블록 장착·제거가 가능하도록 일정 상태를 검증한다.
 
 완료 조건:
@@ -180,10 +183,10 @@ Seed로 같은 결과가 나오며, EditMode 테스트 또는 대량 시뮬레�
 
 - [ ] 시즌 결산 화면에서 성적·수입·자연 성장·노쇠·부상 후유증을 원인별로 보여준다.
 - [ ] 계약 화면에서 Money와 예상 Opportunity의 트레이드오프를 보여준다.
-- [ ] 12주 오프시즌 플래너에 기간·비용·예상 성장 범위·적합도·부상 위험을 표시한다.
+- [x] 12주 오프시즌 플래너에 기간·비용·예상 성장 범위·적합도·부상 위험을 표시한다.
 - [ ] 활동 시작 전 확정 내용을 보여주고 시작 후에는 결과 Seed를 바꿀 수 없게 한다.
-- [ ] 스킬 상점에 실제 확률과 Rare/Epic 보장 카운트를 공개한다.
-- [ ] 성장판 미리보기와 확정을 분리하고 제거 소멸 경고를 제공한다.
+- [x] 스킬 상점에 실제 확률과 Rare/Epic 보장 카운트를 공개한다.
+- [~] 성장판 배치 미리보기와 확정 분리는 남았고, 제거 소멸 경고와 안전 재설계 확인은 제공한다.
 - [ ] 스프링캠프 화면에 경쟁자와 역할 결정 원인을 보여준다.
 - [ ] 감독 코멘트가 실제 평가 결과와 모순되지 않는지 테스트한다.
 
