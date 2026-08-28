@@ -24,10 +24,13 @@ namespace Baseball.Presentation.Career
             UI_Scene_NewGame screen = Object.FindFirstObjectByType<UI_Scene_NewGame>(FindObjectsInactive.Include);
             UI_Scene_CareerDashboard dashboard =
                 Object.FindFirstObjectByType<UI_Scene_CareerDashboard>(FindObjectsInactive.Include);
+            UI_Scene_CareerMatch match =
+                Object.FindFirstObjectByType<UI_Scene_CareerMatch>(FindObjectsInactive.Include);
             if (scene.name != SceneCatalog.ManagementSceneName)
             {
                 screen?.Hide();
                 dashboard?.Hide();
+                match?.Hide();
                 return;
             }
 
@@ -36,15 +39,22 @@ namespace Baseball.Presentation.Career
                 screen = UI_Scene_NewGame.CreateRuntime(uiManager.Root.GetLayerRoot(UILayer.Scene));
             if (dashboard == null)
                 dashboard = UI_Scene_CareerDashboard.CreateRuntime(uiManager.Root.GetLayerRoot(UILayer.Scene));
+            if (match == null)
+                match = UI_Scene_CareerMatch.CreateRuntime(uiManager.Root.GetLayerRoot(UILayer.Scene));
 
             if (CareerManager.Instance != null && CareerManager.Instance.HasActiveCareer)
             {
                 screen.Hide();
                 dashboard.Show();
+                if (CareerManager.Instance.HasActiveMatch)
+                    match.Show();
+                else
+                    match.Hide();
             }
             else
             {
                 dashboard.Hide();
+                match.Hide();
                 screen.Show();
             }
         }

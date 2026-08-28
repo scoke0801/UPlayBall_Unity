@@ -5,6 +5,7 @@ using Baseball.Game.Career;
 using Baseball.Game.Manager;
 using Baseball.Presentation.UI;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Baseball.Presentation.Career
@@ -12,13 +13,14 @@ namespace Baseball.Presentation.Career
     /// <summary>
     /// 다음 경기와 내 선수의 역할·기록을 중심으로 정규 시즌을 진행하는 메인 화면이다.
     /// </summary>
-    public sealed class UI_Scene_CareerDashboard : UISceneBase
+    public sealed class UI_Scene_CareerDashboard : UISceneBase, ICareerTabScreen
     {
         private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
         private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.99f);
         private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.061f, 0.99f);
         private static readonly Color CardColor = new(0.024f, 0.086f, 0.139f, 0.97f);
+        private static readonly Color PortraitBackdropColor = new(0.78f, 0.86f, 0.94f, 1f);
         private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
         private static readonly Color DividerColor = new(0.14f, 0.31f, 0.45f, 1f);
         private static readonly Color AccentColor = new(0.13f, 0.55f, 0.92f, 1f);
@@ -34,8 +36,10 @@ namespace Baseball.Presentation.Career
 
         private CareerManager _manager;
         private RectTransform _content;
+        private bool _isSeasonAutoCompletionConfirmationVisible;
 
         public override bool BlocksLowerInput => true;
+        public CareerMainTab MainTab => CareerMainTab.Home;
 
         /// <summary>
         /// 프리팹이 없는 프로토타입 환경에서 대시보드를 런타임 생성한다.
@@ -61,7 +65,61 @@ namespace Baseball.Presentation.Career
 
         protected override void OnShow()
         {
+            _isSeasonAutoCompletionConfirmationVisible = false;
             Render();
+        }
+
+        private void Update()
+        {
+            if (!IsVisible || _manager == null || !_manager.HasActiveCareer || Keyboard.current == null)
+                return;
+
+            Keyboard keyboard = Keyboard.current;
+            if (_isSeasonAutoCompletionConfirmationVisible)
+            {
+                if (keyboard.escapeKey.wasPressedThisFrame)
+                {
+                    _isSeasonAutoCompletionConfirmationVisible = false;
+                    Render();
+                }
+                else if (IsConfirmKeyPressed(keyboard))
+                {
+                    ConfirmSeasonAutoCompletion();
+                }
+                return;
+            }
+
+            if (_manager.HasActiveMatch)
+                return;
+            if (keyboard.sKey.wasPressedThisFrame && _manager.Dashboard.RemainingRegularSeasonGames > 0)
+                ShowSeasonAutoCompletionConfirmation();
+            else if (IsConfirmKeyPressed(keyboard))
+                AdvancePrimaryAction(_manager.Dashboard);
+        }
+
+        private void AdvancePrimaryAction(CareerDashboardView view)
+        {
+            if (view.NextGame.HasValue)
+            {
+                _manager.PrepareNextGame();
+                return;
+            }
+
+            switch (view.SeasonPhase)
+            {
+                case SeasonPhase.Postseason:
+                    _manager.AutoCompleteCurrentSeason();
+                    break;
+                case SeasonPhase.SeasonReview:
+                    _manager.SettleSeasonAndBeginOffseason();
+                    break;
+                case SeasonPhase.Offseason:
+                    CareerTabNavigation.Show(
+                        view.SeasonProgress.RequiresContractDecision
+                            ? CareerMainTab.Contract
+                            : CareerMainTab.Growth);
+                    break;
+            }
         }
 
         protected override void OnDestroy()
@@ -88,9 +146,15 @@ namespace Baseball.Presentation.Career
             }
 
             UI_Scene_NewGame newGameScreen = FindFirstObjectByType<UI_Scene_NewGame>(FindObjectsInactive.Include);
-            newGameScreen?.Hide();
-            Show();
-            Render();
+            if (newGameScreen != null && newGameScreen.IsVisible)
+            {
+                newGameScreen.Hide();
+                CareerTabNavigation.Show(CareerMainTab.Home);
+                return;
+            }
+
+            if (IsVisible)
+                Render();
         }
 
         private void Render()
@@ -109,6 +173,8 @@ namespace Baseball.Presentation.Career
             RenderEventFeed(view);
             RenderUpcoming(view);
             RenderTabs();
+            if (_isSeasonAutoCompletionConfirmationVisible)
+                RenderSeasonAutoCompletionConfirmation(view);
         }
 
         private void RenderBackgroundAccents()
@@ -136,9 +202,7 @@ namespace Baseball.Presentation.Career
             CreateTopBarSegment(
                 bar, "LEAGUE", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} LEAGUE",
                 new Vector2(-365f, 0f), new Vector2(420f, 64f));
-            string dateText = view.NextGame.HasValue
-                ? $"{view.NextGame.Value.Date:M월 d일} ({GetKoreanDayOfWeek(view.NextGame.Value.Date.DayOfWeek)})"
-                : "정규 시즌 종료";
+            string dateText = GetSeasonDateText(view);
             CreateTopBarSegment(bar, "DATE", dateText, new Vector2(25f, 0f), new Vector2(300f, 64f));
             CreateTopBarSegment(
                 bar, "MONEY", FormatMoney(view.AvailableMoney), new Vector2(390f, 0f), new Vector2(370f, 64f));
@@ -187,30 +251,31 @@ namespace Baseball.Presentation.Career
             CreateImage("CardStripe", card, AccentColor, new Vector2(8f, 224f), new Vector2(-215f, 0f));
             CreateImage(
                 "CardGlow", card, new Color(0.08f, 0.34f, 0.58f, 0.42f),
-                new Vector2(188f, 224f), new Vector2(-115f, 0f));
+                new Vector2(76f, 142f), new Vector2(-174f, 25f));
             CreateText(
                 "OverallLabel", card, "OVR", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(70f, 22f), new Vector2(-176f, 86f), SecondaryTextColor);
+                new Vector2(64f, 22f), new Vector2(-174f, 86f), SecondaryTextColor);
             Text overall = CreateText(
                 "Overall", card, view.Overall.ToString(), 46, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(90f, 58f), new Vector2(-176f, 52f), PrimaryTextColor);
+                new Vector2(74f, 58f), new Vector2(-174f, 52f), PrimaryTextColor);
             AddTextOutline(overall, AccentColor, 1.2f);
 
-            CreateText(
-                "PlayerSilhouette", card, GetInitial(view.PlayerName), 94, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(210f, 142f), new Vector2(-30f, 25f),
-                new Color(0.75f, 0.9f, 1f, 0.86f));
-            CreateText(
-                "UniformNumber", card, "01", 20, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(72f, 32f), new Vector2(-30f, -66f), AccentColor);
+            CreateImage(
+                "PortraitBackdrop", card, PortraitBackdropColor,
+                new Vector2(210f, 142f), new Vector2(-30f, 25f));
+            RectTransform portrait = CreateImage(
+                "PlayerPortrait", card, Color.white, new Vector2(210f, 142f), new Vector2(-30f, 25f));
+            Image portraitImage = portrait.GetComponent<Image>();
+            portraitImage.sprite = PlayerPortraitSprites.GetDefault(view.Position);
+            portraitImage.preserveAspect = true;
             CreateTeamBadge(card, view.TeamName, new Vector2(150f, 65f));
-            CreateText(
-                "Position", card, GetPositionCode(view.Position), 20, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(66f, 38f), new Vector2(-175f, -80f), PrimaryTextColor);
 
             CreateImage(
                 "NameStrip", card, new Color(0.004f, 0.025f, 0.048f, 0.94f),
                 new Vector2(434f, 53f), new Vector2(0f, -89f));
+            CreateText(
+                "Position", card, GetPositionCode(view.Position), 20, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(66f, 38f), new Vector2(-175f, -89f), PrimaryTextColor);
             CreateText(
                 "PlayerName", card, view.PlayerName, 26, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(250f, 42f), new Vector2(15f, -89f), PrimaryTextColor);
@@ -307,7 +372,7 @@ namespace Baseball.Presentation.Career
                 "NextGamePanel", "NEXT GAME", "다음 경기", new Vector2(760f, 560f), new Vector2(-64f, 168f));
             if (!view.NextGame.HasValue)
             {
-                RenderSeasonComplete(panel);
+                RenderSeasonTransition(panel, view);
                 return;
             }
 
@@ -347,15 +412,26 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleRight, new Vector2(180f, 30f), new Vector2(218f, 0f), SecondaryTextColor);
 
             RectTransform buttonFrame = CreateImage(
-                "AdvanceFrame", panel, BorderColor, new Vector2(622f, 86f), new Vector2(0f, -205f));
+                "AdvanceFrame", panel, BorderColor, new Vector2(442f, 86f), new Vector2(-105f, -205f));
             Button advance = CreateButton(
-                "AdvanceGame", buttonFrame, GetAdvanceButtonLabel(game.PlannedRole),
-                new Vector2(612f, 76f), Vector2.zero, new Color(0.025f, 0.31f, 0.61f, 1f), out Text label);
-            label.fontSize = 30;
+                "AdvanceGame", buttonFrame, $"{GetAdvanceButtonLabel(game.PlannedRole)}   SPACE",
+                new Vector2(432f, 76f), Vector2.zero, new Color(0.025f, 0.31f, 0.61f, 1f), out Text label);
+            label.fontSize = 27;
             AddTextOutline(label, new Color(0.02f, 0.16f, 0.34f, 1f), 1.5f);
             CreateImage(
-                "ButtonGlow", buttonFrame, BrightAccentColor, new Vector2(440f, 3f), new Vector2(0f, -38f));
-            advance.onClick.AddListener(() => _manager.AdvanceNextGame());
+                "ButtonGlow", buttonFrame, BrightAccentColor, new Vector2(330f, 3f), new Vector2(0f, -38f));
+            advance.onClick.AddListener(() =>
+            {
+                advance.interactable = false;
+                _manager.PrepareNextGame();
+            });
+            Button autoSeason = CreateButton(
+                "AutoCompleteSeason", panel, "시즌 자동 완료\nS",
+                new Vector2(190f, 82f), new Vector2(235f, -205f),
+                new Color(0.12f, 0.16f, 0.2f, 1f), out Text autoSeasonLabel);
+            autoSeasonLabel.fontSize = 17;
+            autoSeasonLabel.color = GoldColor;
+            autoSeason.onClick.AddListener(ShowSeasonAutoCompletionConfirmation);
             if (!string.IsNullOrEmpty(_manager.LastError))
             {
                 CreateText(
@@ -364,26 +440,212 @@ namespace Baseball.Presentation.Career
             }
         }
 
-        private static void RenderSeasonComplete(RectTransform panel)
+        private void RenderSeasonTransition(RectTransform panel, CareerDashboardView view)
+        {
+            switch (view.SeasonPhase)
+            {
+                case SeasonPhase.Postseason:
+                    RenderPostseasonTransition(panel, view);
+                    return;
+                case SeasonPhase.SeasonReview:
+                    RenderSeasonReviewTransition(panel, view);
+                    return;
+                case SeasonPhase.Offseason:
+                    RenderOffseasonTransition(panel, view);
+                    return;
+                default:
+                    RenderUnavailableSeasonTransition(panel);
+                    return;
+            }
+        }
+
+        private void RenderPostseasonTransition(RectTransform panel, CareerDashboardView view)
+        {
+            bool qualified = view.SeasonProgress.IsPlayerTeamPostseasonQualified;
+            RenderSeasonTransitionHeading(
+                panel,
+                "POST-SEASON",
+                qualified ? "포스트시즌 진출" : "포스트시즌 관전",
+                qualified
+                    ? $"{view.TeamName}의 우승 도전이 시작됩니다.\n경기 결과와 내 선수의 포스트시즌 기록이 별도로 집계됩니다."
+                    : $"{view.TeamName}은 진출하지 못했습니다.\n상위 4개 구단의 우승 경쟁 결과를 확인하세요.",
+                qualified ? GoldColor : SecondaryTextColor);
+
+            Button advance = CreateSeasonTransitionButton(
+                panel,
+                "AdvancePostseason",
+                "포스트시즌 결과 진행",
+                new Color(0.42f, 0.25f, 0.04f, 1f));
+            advance.onClick.AddListener(() =>
+            {
+                advance.interactable = false;
+                _manager.AutoCompleteCurrentSeason();
+            });
+        }
+
+        private void RenderSeasonReviewTransition(RectTransform panel, CareerDashboardView view)
+        {
+            string champion = string.IsNullOrEmpty(view.SeasonProgress.ChampionTeamName)
+                ? "우승 구단 집계 완료"
+                : $"우승 · {view.SeasonProgress.ChampionTeamName}";
+            string result = GetPostseasonResultLabel(view.SeasonProgress.PlayerTeamPostseasonResult);
+            string autoSummary = view.LastSeasonAutoCompletion.HasValue
+                ? $"포스트시즌 {view.LastSeasonAutoCompletion.Value.PostseasonGames}경기 자동 진행 · "
+                : string.Empty;
+            RenderSeasonTransitionHeading(
+                panel,
+                "SEASON REVIEW",
+                "시즌 결산",
+                $"{champion}\n{autoSummary}{result} · 개인 수상 {view.SeasonProgress.PlayerAwardCount}개",
+                GoldColor);
+
+            Button settle = CreateSeasonTransitionButton(
+                panel,
+                "BeginOffseason",
+                "성장·수입 결산",
+                new Color(0.08f, 0.34f, 0.28f, 1f));
+            settle.onClick.AddListener(() =>
+            {
+                settle.interactable = false;
+                _manager.SettleSeasonAndBeginOffseason();
+            });
+        }
+
+        private void RenderOffseasonTransition(RectTransform panel, CareerDashboardView view)
+        {
+            CareerSeasonProgressView progress = view.SeasonProgress;
+            string income = $"연봉 +{FormatMoney(progress.SalaryIncome)} · 상여 +{FormatMoney(progress.BonusIncome)}";
+            string description = progress.RequiresContractDecision
+                ? $"{income}\n다음 시즌을 시작하려면 새 계약을 선택해야 합니다."
+                : $"{income}\n남은 {progress.OffseasonRemainingWeeks}주 동안 성장 방향을 결정하세요.";
+            RenderSeasonTransitionHeading(
+                panel,
+                "OFF-SEASON",
+                progress.RequiresContractDecision ? "계약 결정 필요" : "오프시즌 시작",
+                description,
+                progress.RequiresContractDecision ? WarningColor : RoleColor);
+
+            string buttonName = progress.RequiresContractDecision ? "OpenContract" : "OpenGrowth";
+            string buttonLabel = progress.RequiresContractDecision ? "계약 오퍼 확인" : "성장 계획 열기";
+            Button open = CreateSeasonTransitionButton(
+                panel,
+                buttonName,
+                buttonLabel,
+                new Color(0.025f, 0.31f, 0.61f, 1f));
+            open.onClick.AddListener(() => CareerTabNavigation.Show(
+                progress.RequiresContractDecision ? CareerMainTab.Contract : CareerMainTab.Growth));
+        }
+
+        private static void RenderUnavailableSeasonTransition(RectTransform panel)
+        {
+            RenderSeasonTransitionHeading(
+                panel,
+                "SEASON COMPLETE",
+                "시즌 일정 완료",
+                "현재 시즌 상태를 확인하고 다시 시도하세요.",
+                SecondaryTextColor);
+        }
+
+        private static void RenderSeasonTransitionHeading(
+            Transform panel,
+            string eyebrow,
+            string title,
+            string description,
+            Color accent)
         {
             CreateText(
-                "SeasonCompleteLabel", panel, "REGULAR SEASON COMPLETE", 15, FontStyle.Bold,
+                "SeasonTransitionLabel", panel, eyebrow, 15, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(440f, 30f), new Vector2(0f, 128f), AccentColor);
             Text complete = CreateText(
-                "SeasonComplete", panel, "정규 시즌 완료", 38, FontStyle.Bold,
+                "SeasonTransitionTitle", panel, title, 38, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(620f, 62f), new Vector2(0f, 70f), PrimaryTextColor);
-            AddTextOutline(complete, AccentColor, 1.4f);
+            AddTextOutline(complete, accent, 1.4f);
             CreateText(
-                "SeasonCompleteDescription", panel,
-                "80경기 일정을 모두 마쳤습니다.\n시즌 기록과 팀 순위를 확인하세요.",
+                "SeasonTransitionDescription", panel, description,
                 19, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(600f, 90f), new Vector2(0f, -20f), SecondaryTextColor);
-            RectTransform badge = CreateSection(
-                "SeasonCompleteBadge", panel, new Vector2(360f, 66f), new Vector2(0f, -116f),
-                new Color(0.08f, 0.27f, 0.23f, 1f));
+        }
+
+        private static Button CreateSeasonTransitionButton(
+            Transform panel,
+            string name,
+            string label,
+            Color color)
+        {
+            Button button = CreateButton(
+                name, panel, label, new Vector2(430f, 68f), new Vector2(0f, -122f),
+                color, out Text buttonLabel);
+            buttonLabel.fontSize = 23;
+            return button;
+        }
+
+        private void ShowSeasonAutoCompletionConfirmation()
+        {
+            if (_manager?.Dashboard?.RemainingRegularSeasonGames <= 0)
+                return;
+            _isSeasonAutoCompletionConfirmationVisible = true;
+            Render();
+        }
+
+        private void ConfirmSeasonAutoCompletion()
+        {
+            _isSeasonAutoCompletionConfirmationVisible = false;
+            if (!_manager.AutoCompleteCurrentSeason())
+            {
+                _isSeasonAutoCompletionConfirmationVisible = true;
+                Render();
+            }
+        }
+
+        private void RenderSeasonAutoCompletionConfirmation(CareerDashboardView view)
+        {
+            RectTransform blocker = CreateImage(
+                "SeasonAutoCompletionBlocker", _content, new Color(0f, 0.01f, 0.02f, 0.82f),
+                Vector2.zero, Vector2.zero, stretch: true);
+            blocker.GetComponent<Image>().raycastTarget = true;
+            RectTransform modal = CreatePanel(
+                "SeasonAutoCompletionModal", "FAST FORWARD", "시즌 자동 완료",
+                new Vector2(790f, 440f), Vector2.zero);
             CreateText(
-                "Label", badge, "시즌 결산 준비 중", 21, FontStyle.Bold, TextAnchor.MiddleCenter,
-                Vector2.zero, Vector2.zero, RoleColor, stretch: true);
+                "Warning", modal, $"남은 정규시즌 {view.RemainingRegularSeasonGames}경기와 포스트시즌을\n결과만 보기로 자동 진행합니다.",
+                25, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(700f, 80f), new Vector2(0f, 74f), PrimaryTextColor);
+            CreateText(
+                "Guide", modal,
+                "개별 경기 개입은 건너뛰지만 계약·성장 선택은 건너뛰지 않습니다.\n시즌 결산 화면에서 자동 진행이 멈춥니다.",
+                17, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(680f, 70f), new Vector2(0f, -8f), SecondaryTextColor);
+            Button cancel = CreateButton(
+                "Cancel", modal, "취소   ESC", new Vector2(260f, 62f), new Vector2(-155f, -132f),
+                PanelDarkColor, out Text cancelLabel);
+            cancelLabel.color = SecondaryTextColor;
+            cancel.onClick.AddListener(() =>
+            {
+                _isSeasonAutoCompletionConfirmationVisible = false;
+                Render();
+            });
+            Button confirm = CreateButton(
+                "Confirm", modal, "자동 완료   ENTER", new Vector2(300f, 62f), new Vector2(155f, -132f),
+                new Color(0.42f, 0.25f, 0.04f, 1f), out _);
+            confirm.onClick.AddListener(ConfirmSeasonAutoCompletion);
+        }
+
+        private static bool IsConfirmKeyPressed(Keyboard keyboard)
+        {
+            return keyboard.spaceKey.wasPressedThisFrame ||
+                   keyboard.enterKey.wasPressedThisFrame ||
+                   keyboard.numpadEnterKey.wasPressedThisFrame;
+        }
+
+        private static string GetPostseasonResultLabel(PlayerTeamPostseasonResult result)
+        {
+            return result switch
+            {
+                PlayerTeamPostseasonResult.Champion => "내 구단 우승",
+                PlayerTeamPostseasonResult.RunnerUp => "내 구단 준우승",
+                PlayerTeamPostseasonResult.SemifinalElimination => "내 구단 준결승 탈락",
+                _ => "내 구단 포스트시즌 미진출"
+            };
         }
 
         private static void CreateInfoChip(Transform parent, string label, string value, Vector2 position)
@@ -527,9 +789,7 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreatePanel(
                 "CompetitionPanel", "POSITION DEPTH", $"{GetPositionCode(view.Position)} 포지션 경쟁",
                 new Vector2(480f, 264f), new Vector2(-700f, -302f));
-            string role = view.NextGame.HasValue
-                ? GetRoleLabel(view.NextGame.Value.PlannedRole, view.Position)
-                : "시즌 완료";
+            string role = GetExpectedRoleLabel(view.ExpectedRole);
             RectTransform roleBadge = CreateSection(
                 "RoleBadge", panel, new Vector2(430f, 55f), new Vector2(0f, 65f),
                 new Color(0.18f, 0.14f, 0.055f, 1f));
@@ -591,9 +851,9 @@ namespace Baseball.Presentation.Career
 
             string roleText = view.NextGame.HasValue
                 ? $"감독 기용 계획 · {GetRoleLabel(view.NextGame.Value.PlannedRole, view.Position)}"
-                : "정규 시즌 일정을 모두 마쳤습니다.";
+                : GetSeasonPhaseFeedText(view);
             RenderFeedRow(
-                panel, "ROLE", roleText, view.NextGame.HasValue ? "다음 경기" : "시즌 종료", 8f,
+                panel, "ROLE", roleText, view.NextGame.HasValue ? "다음 경기" : GetSeasonPhaseMeta(view), 8f,
                 view.NextGame.HasValue ? RoleColor : GoldColor);
             RenderFeedRow(
                 panel, "TEAM",
@@ -632,7 +892,7 @@ namespace Baseball.Presentation.Career
             if (view.UpcomingGames.Length == 0)
             {
                 CreateText(
-                    "Schedule", panel, "남은 정규 시즌 경기가 없습니다.", 17, FontStyle.Normal,
+                    "Schedule", panel, GetEmptyScheduleText(view), 17, FontStyle.Normal,
                     TextAnchor.MiddleCenter, new Vector2(520f, 90f), Vector2.zero, SecondaryTextColor);
                 return;
             }
@@ -673,36 +933,7 @@ namespace Baseball.Presentation.Career
 
         private void RenderTabs()
         {
-            RectTransform bar = CreateImage(
-                "Tabs", _content, TopBarColor, new Vector2(1920f, 94f), new Vector2(0f, -493f));
-            CreateImage("TabsTop", bar, BorderColor, new Vector2(1920f, 2f), new Vector2(0f, 46f));
-            string[] labels = { "홈", "선수", "성장", "일정", "리그", "구단", "기록", "계약" };
-            string[] icons = { "HOME", "PLAYER", "GROW", "DATE", "LEAGUE", "TEAM", "RECORD", "DEAL" };
-            const float tabWidth = 240f;
-            for (int index = 0; index < labels.Length; index++)
-            {
-                float x = -840f + index * tabWidth;
-                Color background = index == 0
-                    ? new Color(0.025f, 0.25f, 0.49f, 1f)
-                    : new Color(0.014f, 0.055f, 0.09f, 1f);
-                RectTransform tab = CreateImage(
-                    "Tab_" + labels[index], bar, background,
-                    new Vector2(tabWidth - 2f, 86f), new Vector2(x, -2f));
-                if (index == 0)
-                {
-                    CreateImage(
-                        "ActiveGlow", tab, BrightAccentColor, new Vector2(tabWidth - 18f, 4f),
-                        new Vector2(0f, 41f));
-                }
-                CreateText(
-                    "Icon", tab, icons[index], 10, FontStyle.Bold, TextAnchor.MiddleCenter,
-                    new Vector2(110f, 20f), new Vector2(0f, 16f),
-                    index == 0 ? BrightAccentColor : MutedColor);
-                CreateText(
-                    "Label", tab, labels[index], 18, FontStyle.Bold, TextAnchor.MiddleCenter,
-                    new Vector2(150f, 32f), new Vector2(0f, -15f),
-                    index == 0 ? PrimaryTextColor : SecondaryTextColor);
-            }
+            CareerTabBar.Create(_content, CareerMainTab.Home);
         }
 
         private RectTransform CreatePanel(
@@ -867,6 +1098,16 @@ namespace Baseball.Presentation.Career
             };
         }
 
+        private static string GetExpectedRoleLabel(ExpectedRole role)
+        {
+            return role switch
+            {
+                ExpectedRole.StartingCompetition => "주전 경쟁",
+                ExpectedRole.RosterCompetition => "로스터 경쟁",
+                _ => "벤치 경쟁"
+            };
+        }
+
         private static string GetPositionCode(PlayerPosition position)
         {
             return position switch
@@ -906,6 +1147,62 @@ namespace Baseball.Presentation.Career
                 LeagueLevel.Minor => "MINOR",
                 LeagueLevel.Major => "MAJOR",
                 _ => "ROOKIE"
+            };
+        }
+
+        private static string GetSeasonDateText(CareerDashboardView view)
+        {
+            if (view.NextGame.HasValue)
+            {
+                return $"{view.NextGame.Value.Date:M월 d일} " +
+                       $"({GetKoreanDayOfWeek(view.NextGame.Value.Date.DayOfWeek)})";
+            }
+
+            return view.SeasonPhase switch
+            {
+                SeasonPhase.Postseason => "포스트시즌",
+                SeasonPhase.SeasonReview => "시즌 결산",
+                SeasonPhase.Offseason => $"오프시즌 {view.SeasonProgress.OffseasonRemainingWeeks}주",
+                SeasonPhase.Completed => "시즌 종료",
+                _ => "정규 시즌 종료"
+            };
+        }
+
+        private static string GetSeasonPhaseFeedText(CareerDashboardView view)
+        {
+            return view.SeasonPhase switch
+            {
+                SeasonPhase.Postseason => view.SeasonProgress.IsPlayerTeamPostseasonQualified
+                    ? "포스트시즌 진출 · 우승 경쟁을 진행하세요."
+                    : "포스트시즌 미진출 · 리그 우승 결과를 확인하세요.",
+                SeasonPhase.SeasonReview =>
+                    $"{view.SeasonProgress.ChampionTeamName} 우승 · 시즌 결산을 진행하세요.",
+                SeasonPhase.Offseason =>
+                    $"오프시즌 {view.SeasonProgress.OffseasonRemainingWeeks}주 · 성장 방향을 선택하세요.",
+                _ => "정규 시즌 일정을 모두 마쳤습니다."
+            };
+        }
+
+        private static string GetSeasonPhaseMeta(CareerDashboardView view)
+        {
+            return view.SeasonPhase switch
+            {
+                SeasonPhase.Postseason => "포스트시즌",
+                SeasonPhase.SeasonReview => "시즌 결산",
+                SeasonPhase.Offseason => "오프시즌",
+                _ => "시즌 종료"
+            };
+        }
+
+        private static string GetEmptyScheduleText(CareerDashboardView view)
+        {
+            return view.SeasonPhase switch
+            {
+                SeasonPhase.Postseason => "포스트시즌은 중앙 진행 카드에서 결과를 확인할 수 있습니다.",
+                SeasonPhase.SeasonReview => "시즌 결산 후 오프시즌 일정이 시작됩니다.",
+                SeasonPhase.Offseason =>
+                    $"다음 시즌 전까지 성장에 사용할 수 있는 시간이 {view.SeasonProgress.OffseasonRemainingWeeks}주 남았습니다.",
+                _ => "남은 정규 시즌 경기가 없습니다."
             };
         }
 
@@ -965,8 +1262,6 @@ namespace Baseball.Presentation.Career
             int decisions = view.TeamWins + view.TeamLosses;
             return decisions == 0 ? 0d : view.TeamWins / (double)decisions;
         }
-
-        private static string GetInitial(string name) => string.IsNullOrEmpty(name) ? "P" : name.Substring(0, 1);
 
         private static string FormatMoney(long amount)
         {

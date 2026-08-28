@@ -334,7 +334,7 @@ namespace Baseball.Presentation.Career
             {
                 ContractOfferView offer = offers[index];
                 hasSelection |= offer.IsSelected;
-                float y = 260f - index * 122f;
+                float y = 220f - index * 122f;
                 Button button = CreateButton(
                     "Offer_" + offer.TeamId, _body, string.Empty,
                     new Vector2(1110f, 105f), new Vector2(0f, y),

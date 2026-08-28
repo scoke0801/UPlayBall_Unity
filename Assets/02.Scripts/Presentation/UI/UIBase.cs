@@ -20,7 +20,7 @@ namespace Baseball.Presentation.UI
         public virtual UILayer Layer => _layer;
         public bool IsInitialized { get; private set; }
         public bool IsVisible { get; private set; }
-        public bool CanCloseWithCancel => _canCloseWithCancel;
+        public virtual bool CanCloseWithCancel => _canCloseWithCancel;
         public virtual bool BlocksLowerInput => _blocksLowerInput;
         public bool DestroyOnClose => _destroyOnClose;
 

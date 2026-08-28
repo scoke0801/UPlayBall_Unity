@@ -5,6 +5,7 @@
     "Baseball.Core",
     "Baseball.Game",
     "Baseball.Presentation",
+    "Baseball.Simulation",
     "Unity.InputSystem"
   ],
   "optionalUnityReferences": [
