@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Balance;
 using Baseball.Core.Teams;
+using Baseball.Game.Career.News;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Match;
 
@@ -67,6 +68,7 @@ namespace Baseball.Game.Career
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
         private readonly CareerGameRunner _gameRunner;
+        private readonly CareerNewsService _newsService;
 
         public CareerSeasonService(CareerState career, BalanceTable balance)
         {
@@ -75,6 +77,7 @@ namespace Baseball.Game.Career
             if (career.League.CurrentSeason?.Phase != SeasonPhase.RegularSeason)
                 throw new InvalidOperationException("정규 시즌 상태의 커리어가 필요합니다.");
             _gameRunner = new CareerGameRunner(career, balance);
+            _newsService = new CareerNewsService(career);
         }
 
         public ScheduledGameState NextPlayerGame =>
@@ -212,6 +215,9 @@ namespace Baseball.Game.Career
             if (!hasPlayerResult)
                 throw new InvalidOperationException("내 선수 경기 결과를 찾지 못했습니다.");
 
+            _newsService.PublishRegularSeasonRound(
+                playerResult,
+                GetGameDate(season.Year, playerGame.Round));
             if (NextPlayerGame == null)
                 BeginPostseason(season);
             else

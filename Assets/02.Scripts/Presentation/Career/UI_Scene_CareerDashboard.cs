@@ -2,6 +2,7 @@ using System;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Game.Career.News;
 using Baseball.Game.Manager;
 using Baseball.Presentation.UI;
 using UnityEngine;
@@ -838,37 +839,73 @@ namespace Baseball.Presentation.Career
         private void RenderEventFeed(CareerDashboardView view)
         {
             RectTransform panel = CreatePanel(
-                "EventPanel", "NEWS / EVENT", "최근 흐름",
+                "EventPanel", "NEWS", "커리어 뉴스",
                 new Vector2(760f, 310f), new Vector2(-64f, -279f));
-            if (view.LastGame.HasValue)
+            Button more = CreateButton(
+                "MoreNews",
+                panel,
+                "전체 뉴스",
+                new Vector2(116f, 30f),
+                new Vector2(287f, 112f),
+                PanelDarkColor,
+                out Text moreLabel);
+            moreLabel.fontSize = 12;
+            moreLabel.color = AccentColor;
+            more.onClick.AddListener(() => UIManager.Instance?.Show<UI_Popup_CareerNews>());
+
+            CareerNewsFeedView feed = _manager.BuildNewsFeed(NewsFeedCategory.Latest, 3);
+            if (feed.Articles.Length == 0)
             {
-                CareerGameAdvanceResult result = view.LastGame.Value;
-                string outcome = result.TeamRuns > result.OpponentRuns
-                    ? "승리"
-                    : result.TeamRuns < result.OpponentRuns ? "패배" : "무승부";
                 RenderFeedRow(
-                    panel, "GAME",
-                    $"{outcome}  {result.TeamRuns} : {result.OpponentRuns}  ·  " +
-                    GetPersonalGameSummary(result, view.Position),
-                    "최근 경기", 68f, GetResultColor(result));
-            }
-            else
-            {
-                RenderFeedRow(
-                    panel, "OPEN", "Rookie League 정규 시즌이 시작되었습니다.",
+                    panel, "OPEN", "정규 시즌 첫 뉴스가 아직 발행되지 않았습니다.",
                     "시즌 개막", 68f, AccentColor);
+                return;
             }
 
-            string roleText = view.NextGame.HasValue
-                ? $"감독 기용 계획 · {GetRoleLabel(view.NextGame.Value.PlannedRole, view.Position)}"
-                : GetSeasonPhaseFeedText(view);
-            RenderFeedRow(
-                panel, "ROLE", roleText, view.NextGame.HasValue ? "다음 경기" : GetSeasonPhaseMeta(view), 8f,
-                view.NextGame.HasValue ? RoleColor : GoldColor);
-            RenderFeedRow(
-                panel, "TEAM",
-                $"{view.TeamName}  {view.TeamRank}위 · {view.TeamWins}승 {view.TeamLosses}패 {view.TeamTies}무",
-                $"{view.Statistics.TeamGames} / 80 경기", -52f, SecondaryTextColor);
+            for (int index = 0; index < feed.Articles.Length; index++)
+            {
+                NewsArticleView article = feed.Articles[index];
+                RenderFeedRow(
+                    panel,
+                    index == 0 ? "TOP" : GetNewsCategoryTag(article.Category),
+                    article.Headline,
+                    index == 0 && view.LastGame.HasValue
+                        ? $"최근 경기 · {article.PublishedAt:M.d}"
+                        : article.PublishedAt.ToString("M.d"),
+                    68f - index * 60f,
+                    GetNewsColor(article));
+            }
+        }
+
+        private static string GetNewsCategoryTag(NewsCategory category)
+        {
+            return category switch
+            {
+                NewsCategory.MyPlayer => "PLAYER",
+                NewsCategory.Club => "CLUB",
+                NewsCategory.League => "LEAGUE",
+                NewsCategory.Injury => "INJURY",
+                NewsCategory.TransferContract => "DEAL",
+                NewsCategory.Postseason => "POST",
+                NewsCategory.RecordsAwards => "RECORD",
+                NewsCategory.Offseason => "OFF",
+                _ => "GAME"
+            };
+        }
+
+        private static Color GetNewsColor(NewsArticleView article)
+        {
+            if (article.Importance is NewsImportance.S or NewsImportance.A)
+                return GoldColor;
+            return article.Category switch
+            {
+                NewsCategory.MyPlayer => BrightAccentColor,
+                NewsCategory.Injury => WarningColor,
+                NewsCategory.TransferContract => RoleColor,
+                NewsCategory.Postseason => GoldColor,
+                NewsCategory.RecordsAwards => GoldColor,
+                _ => AccentColor
+            };
         }
 
         private static void RenderFeedRow(

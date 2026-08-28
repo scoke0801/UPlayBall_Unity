@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Teams;
+using Baseball.Game.Career.News;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
@@ -69,6 +71,7 @@ namespace Baseball.Game.Career
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
         private readonly CareerGameRunner _gameRunner;
+        private readonly CareerNewsService _newsService;
 
         public CareerPostseasonService(CareerState career, BalanceTable balance)
         {
@@ -77,6 +80,7 @@ namespace Baseball.Game.Career
             if (career.League.CurrentSeason?.Phase != SeasonPhase.Postseason)
                 throw new InvalidOperationException("포스트시즌 상태의 커리어가 필요합니다.");
             _gameRunner = new CareerGameRunner(career, balance);
+            _newsService = new CareerNewsService(career);
         }
 
         private SeasonState Season => _career.League.CurrentSeason;
@@ -275,7 +279,7 @@ namespace Baseball.Game.Career
 
             series.RecordGameResult(winnerTeamId);
             bool isPostseasonCompleted = CompletePostseasonIfNeeded(series);
-            return new CareerPostseasonGameResult(
+            var completedResult = new CareerPostseasonGameResult(
                 series.Round,
                 game.Round,
                 series.HigherSeedTeamId,
@@ -287,6 +291,48 @@ namespace Baseball.Game.Career
                 isPostseasonCompleted,
                 Postseason.ChampionTeamId,
                 playerResult);
+            PublishNews(series, game, matchResult, completedResult);
+            return completedResult;
+        }
+
+        private void PublishNews(
+            PostseasonSeriesState series,
+            ScheduledGameState game,
+            MatchResult matchResult,
+            CareerPostseasonGameResult result)
+        {
+            int cycleIndex = game.GameId - PostseasonGameIdBase;
+            var cycle = new NewsCycleKey(Season.SeasonId, SeasonPhase.Postseason, cycleIndex);
+            var occurredAt = new CareerDate(cycle, GetGameDate(series));
+            IReadOnlyList<NewsEvent> events = new PostseasonNewsEvaluator().Evaluate(
+                _career,
+                result,
+                game.GameId,
+                matchResult,
+                occurredAt);
+            for (int index = 0; index < events.Count; index++)
+                _newsService.Collect(events[index]);
+
+            if (result.IsPostseasonCompleted)
+            {
+                _newsService.PublishCycle(
+                    occurredAt,
+                    NewsReleaseGate.AfterGameResult,
+                    NewsReleaseGate.AfterSeriesResult,
+                    NewsReleaseGate.AfterPostseasonReveal,
+                    NewsReleaseGate.AfterAwardReveal);
+            }
+            else if (result.IsSeriesCompleted)
+            {
+                _newsService.PublishCycle(
+                    occurredAt,
+                    NewsReleaseGate.AfterGameResult,
+                    NewsReleaseGate.AfterSeriesResult);
+            }
+            else
+            {
+                _newsService.PublishCycle(occurredAt, NewsReleaseGate.AfterGameResult);
+            }
         }
 
         private bool CompletePostseasonIfNeeded(PostseasonSeriesState series)

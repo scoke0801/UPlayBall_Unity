@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Growth;
+using Baseball.Game.Career.News;
 
 namespace Baseball.Game.Career
 {
@@ -26,6 +27,7 @@ namespace Baseball.Game.Career
             CurrentContract = currentContract ?? throw new ArgumentNullException(nameof(currentContract));
             Economy = new CareerEconomyState(availableMoney);
             TradeState = new PlayerTradeState();
+            News = new CareerNewsState(saveVersion);
             _contractHistory.Add(CurrentContract);
         }
 
@@ -35,6 +37,7 @@ namespace Baseball.Game.Career
         public PlayerContractState CurrentContract { get; private set; }
         public CareerEconomyState Economy { get; }
         public PlayerTradeState TradeState { get; }
+        public CareerNewsState News { get; }
         public OffseasonState CurrentOffseason { get; private set; }
         public long AvailableMoney => Economy.Money;
         public Baseball.Core.Teams.ExpectedRole CurrentExpectedRole =>
@@ -73,6 +76,7 @@ namespace Baseball.Game.Career
             if (CurrentOffseason == null)
                 throw new InvalidOperationException("마감할 오프시즌이 없습니다.");
 
+            News.CompactCompletedSeason(League.CurrentSeason.SeasonId);
             _seasonHistory.Add(completedSeason);
             League = nextLeague;
             CurrentOffseason = null;
