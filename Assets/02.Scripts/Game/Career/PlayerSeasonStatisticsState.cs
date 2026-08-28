@@ -22,9 +22,13 @@ namespace Baseball.Game.Career
             int hits,
             int homeRuns,
             int runsBattedIn,
+            int walks,
+            int hitByPitches,
             int outsRecorded,
             int earnedRuns,
-            int strikeouts)
+            int strikeouts,
+            int walksAllowed,
+            int hitBatters)
         {
             GameId = gameId;
             OpponentTeamId = opponentTeamId;
@@ -37,9 +41,13 @@ namespace Baseball.Game.Career
             Hits = hits;
             HomeRuns = homeRuns;
             RunsBattedIn = runsBattedIn;
+            Walks = walks;
+            HitByPitches = hitByPitches;
             OutsRecorded = outsRecorded;
             EarnedRuns = earnedRuns;
             Strikeouts = strikeouts;
+            WalksAllowed = walksAllowed;
+            HitBatters = hitBatters;
         }
 
         public int GameId { get; }
@@ -53,9 +61,17 @@ namespace Baseball.Game.Career
         public int Hits { get; }
         public int HomeRuns { get; }
         public int RunsBattedIn { get; }
+        /// <summary>타자로서 얻은 볼넷이다.</summary>
+        public int Walks { get; }
+        /// <summary>타자로서 맞은 사구다.</summary>
+        public int HitByPitches { get; }
         public int OutsRecorded { get; }
         public int EarnedRuns { get; }
         public int Strikeouts { get; }
+        /// <summary>투수로서 허용한 볼넷이다.</summary>
+        public int WalksAllowed { get; }
+        /// <summary>투수로서 맞힌 사구다.</summary>
+        public int HitBatters { get; }
     }
 
     /// <summary>
@@ -83,6 +99,7 @@ namespace Baseball.Game.Career
         public int AtBats => _statistics.Batting.AtBats;
         public int Runs => _statistics.Batting.Runs;
         public int Hits => _statistics.Batting.Hits;
+        public int Singles => _statistics.Batting.Singles;
         public int Doubles => _statistics.Batting.Doubles;
         public int Triples => _statistics.Batting.Triples;
         public int HomeRuns => _statistics.Batting.HomeRuns;
@@ -90,9 +107,11 @@ namespace Baseball.Game.Career
         public int Walks => _statistics.Batting.Walks;
         public int HitByPitches => _statistics.Batting.HitByPitches;
         public int BattingStrikeouts => _statistics.Batting.Strikeouts;
+        public int SacrificeFlies => _statistics.Batting.SacrificeFlies;
+        public int GroundedIntoDoublePlays => _statistics.Batting.GroundedIntoDoublePlays;
+        public int TotalBases => _statistics.Batting.TotalBases;
         public int StolenBases => _statistics.Batting.StolenBases;
         public int CaughtStealing => _statistics.Batting.CaughtStealing;
-        public int SacrificeFlies => _statistics.Batting.SacrificeFlies;
         public int PitchingAppearances => _statistics.Pitching.Appearances;
         public int PitchingStarts => _statistics.Pitching.Starts;
         public int OutsRecorded => _statistics.Pitching.OutsRecorded;
@@ -100,10 +119,16 @@ namespace Baseball.Game.Career
         public int Losses => _statistics.Pitching.Losses;
         public int Saves => _statistics.Pitching.Saves;
         public int Holds => _statistics.Pitching.Holds;
+        public int BlownSaves => _statistics.Pitching.BlownSaves;
         public int HitsAllowed => _statistics.Pitching.HitsAllowed;
+        public int HomeRunsAllowed => _statistics.Pitching.HomeRunsAllowed;
+        public int RunsAllowed => _statistics.Pitching.RunsAllowed;
         public int EarnedRuns => _statistics.Pitching.EarnedRuns;
         public int WalksAllowed => _statistics.Pitching.WalksAllowed;
+        public int HitBatters => _statistics.Pitching.HitBatters;
         public int PitchingStrikeouts => _statistics.Pitching.Strikeouts;
+        public int BattersFaced => _statistics.Pitching.BattersFaced;
+        public int QualityStarts => _statistics.Pitching.QualityStarts;
         public IReadOnlyList<PlayerGameLogState> RecentGames => _recentGames;
         public IReadOnlyDictionary<int, PlayerTeamStatisticsSplitState> TeamSplits => _statistics.TeamSplits;
 
@@ -111,8 +136,11 @@ namespace Baseball.Game.Career
         public double OnBasePercentage => _statistics.Batting.OnBasePercentage;
         public double SluggingPercentage => _statistics.Batting.SluggingPercentage;
         public double OnBasePlusSlugging => _statistics.Batting.OnBasePlusSlugging;
+        public double WalkStrikeoutRatio => _statistics.Batting.WalkStrikeoutRatio;
         public double EarnedRunAverage => _statistics.Pitching.EarnedRunAverage;
         public double WalksHitsPerInningPitched => _statistics.Pitching.WalksHitsPerInningPitched;
+        public double StrikeoutWalkRatio => _statistics.Pitching.StrikeoutWalkRatio;
+        public double HomeRunsPerNineInnings => _statistics.Pitching.HomeRunsPerNineInnings;
         public double StolenBasePercentage => _statistics.Batting.StolenBasePercentage;
 
         /// <summary>시즌 이력에서도 포지션별 수비 원본을 동일하게 조회한다.</summary>

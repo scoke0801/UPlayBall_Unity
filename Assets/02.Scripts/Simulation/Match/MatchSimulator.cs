@@ -296,6 +296,7 @@ namespace Baseball.Simulation.Match
                         if (strikes < BaseballRules.StrikesForStrikeout - 1)
                             strikes++;
                         break;
+                    case PitchResult.HitByPitch:
                     case PitchResult.InPlay:
                         break;
                     default:
@@ -318,6 +319,8 @@ namespace Baseball.Simulation.Match
                     strikes,
                     outs);
 
+                if (pitchResult == PitchResult.HitByPitch)
+                    return PlateAppearanceResult.HitByPitch;
                 if (balls >= BaseballRules.BallsForWalk)
                     return PlateAppearanceResult.Walk;
                 if (strikes >= BaseballRules.StrikesForStrikeout)

@@ -61,7 +61,7 @@ namespace Baseball.Tests.EditMode.Simulation
             double battingAverage = totals.AtBats == 0 ? 0d : (double)totals.Hits / totals.AtBats;
             double onBasePercentage = totals.OnBaseDenominator == 0
                 ? 0d
-                : (double)(totals.Hits + totals.Walks) / totals.OnBaseDenominator;
+                : (double)(totals.Hits + totals.Walks + totals.HitByPitches) / totals.OnBaseDenominator;
             double sluggingPercentage = totals.AtBats == 0
                 ? 0d
                 : (double)totals.TotalBases / totals.AtBats;
@@ -72,12 +72,15 @@ namespace Baseball.Tests.EditMode.Simulation
             double strikeoutRate = totals.PlateAppearances == 0
                 ? 0d
                 : (double)totals.Strikeouts / totals.PlateAppearances;
+            double hitByPitchRate = totals.PlateAppearances == 0
+                ? 0d
+                : (double)totals.HitByPitches / totals.PlateAppearances;
             double strongWinRate = (double)strongWins / StrengthComparisonGames;
 
             TestContext.WriteLine(
                 $"AVG {battingAverage:F3} / OBP {onBasePercentage:F3} / SLG {sluggingPercentage:F3} / " +
                 $"R/G {runsPerTeamGame:F2} / BB% {walkRate:P1} / SO% {strikeoutRate:P1} / " +
-                $"Strong W% {strongWinRate:P1} / Ties {ties}");
+                $"HBP% {hitByPitchRate:P2} / Strong W% {strongWinRate:P1} / Ties {ties}");
 
             Assert.That(battingAverage, Is.InRange(0.220d, 0.300d));
             Assert.That(onBasePercentage, Is.InRange(0.290d, 0.380d));
@@ -85,6 +88,8 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(runsPerTeamGame, Is.InRange(3.2d, 5.8d));
             Assert.That(walkRate, Is.InRange(0.065d, 0.120d));
             Assert.That(strikeoutRate, Is.InRange(0.170d, 0.270d));
+            // 최근 MLB의 HBP/PA는 약 1.1%다. 사구가 아예 없거나 볼넷 수준으로 흔해지면 실패한다.
+            Assert.That(hitByPitchRate, Is.InRange(0.007d, 0.016d));
             Assert.That(strongWinRate, Is.GreaterThan(0.58d));
         }
 
@@ -97,7 +102,7 @@ namespace Baseball.Tests.EditMode.Simulation
             SkillBlockDefinition contactEpic = FindBlock(
                 balance.Growth.SkillBlocks,
                 SkillBlockCategory.Contact,
-                SkillBlockRarity.Epic);
+                SkillBlockRarity.Unique);
             var growth = new PlayerGrowthState(
                 1,
                 22,
@@ -225,10 +230,11 @@ namespace Baseball.Tests.EditMode.Simulation
             public int Runs { get; private set; }
             public int Hits { get; private set; }
             public int Walks { get; private set; }
+            public int HitByPitches { get; private set; }
             public int Strikeouts { get; private set; }
             public int SacrificeFlies { get; private set; }
             public int TotalBases { get; private set; }
-            public int OnBaseDenominator => AtBats + Walks + SacrificeFlies;
+            public int OnBaseDenominator => AtBats + Walks + HitByPitches + SacrificeFlies;
 
             public void Add(TeamBoxScore boxScore)
             {
@@ -240,6 +246,7 @@ namespace Baseball.Tests.EditMode.Simulation
                     AtBats += line.AtBats;
                     Hits += line.Hits;
                     Walks += line.Walks;
+                    HitByPitches += line.HitByPitches;
                     Strikeouts += line.Strikeouts;
                     SacrificeFlies += line.SacrificeFlies;
                     int singles = line.Hits - line.Doubles - line.Triples - line.HomeRuns;

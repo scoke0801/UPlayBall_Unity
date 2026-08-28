@@ -13,6 +13,7 @@ namespace Baseball.Simulation.PlateAppearance
         Single = 5,
         Double = 6,
         Triple = 7,
-        HomeRun = 8
+        HomeRun = 8,
+        HitByPitch = 9
     }
 }

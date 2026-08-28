@@ -59,6 +59,36 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void Simulate_사구는타수없이출루하고만루에서밀어내기득점을만든다()
+        {
+            MatchInput input = CreateInput();
+            var scriptedPlateAppearances = new ScriptedPlateAppearanceSimulator(
+                PlateAppearanceResult.Strikeout,
+                PlateAppearanceResult.HitByPitch,
+                PlateAppearanceResult.HitByPitch,
+                PlateAppearanceResult.HitByPitch,
+                PlateAppearanceResult.HitByPitch);
+            var simulator = new MatchSimulator(
+                BalanceTable.CreateDefault(),
+                new SequenceRandom(0.5d),
+                scriptedPlateAppearances);
+
+            MatchResult result = simulator.Simulate(input);
+            PlayerBattingLine pushedRunBatter = result.AwayBoxScore.BattingLines[3];
+
+            Assert.That(result.AwayBoxScore.Runs, Is.EqualTo(1));
+            Assert.That(result.AwayBoxScore.Hits, Is.EqualTo(0));
+            Assert.That(pushedRunBatter.HitByPitches, Is.EqualTo(1));
+            Assert.That(pushedRunBatter.RunsBattedIn, Is.EqualTo(1));
+            Assert.That(
+                pushedRunBatter.AtBats,
+                Is.EqualTo(pushedRunBatter.PlateAppearances - pushedRunBatter.HitByPitches),
+                "사구는 타석에는 포함되지만 타수로는 기록하지 않는다.");
+            Assert.That(result.HomeBoxScore.PitchingLine.HitBatters, Is.EqualTo(4));
+            Assert.That(result.HomeBoxScore.PitchingLine.WalksAllowed, Is.EqualTo(0));
+        }
+
+        [Test]
         public void Simulate_끝내기Double은승리에필요한득점까지만기록한다()
         {
             MatchInput input = CreateInput();

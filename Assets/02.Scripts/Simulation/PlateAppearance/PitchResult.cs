@@ -10,6 +10,7 @@ namespace Baseball.Simulation.PlateAppearance
         CalledStrike = 2,
         SwingingStrike = 3,
         Foul = 4,
-        InPlay = 5
+        InPlay = 5,
+        HitByPitch = 6
     }
 }

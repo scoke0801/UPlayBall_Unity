@@ -33,6 +33,7 @@ namespace Baseball.Presentation.Career
             ClearControlledResult();
             _isPlaybackInitialized = false;
             _nextAutomaticPlayAt = 0f;
+            SetPlaybackSpeedControlVisible(false);
         }
 
         private bool UpdateAutomaticPlayback(CareerMatchSession session)
@@ -151,8 +152,8 @@ namespace Baseball.Presentation.Career
             CreateStatusPill(
                 panel,
                 canStopForPlayer
-                    ? $"{GetPlaybackSpeedLabel(_playbackSpeed)} · 내 선수 출전 시 정지"
-                    : $"{GetPlaybackSpeedLabel(_playbackSpeed)} · 입력 대기 없음",
+                    ? $"{GetPlaybackSpeedLabel()} · 내 선수 출전 시 정지"
+                    : $"{GetPlaybackSpeedLabel()} · 입력 대기 없음",
                 new Vector2(410f, 46f),
                 new Vector2(0f, 382f));
             CreateText(
@@ -213,7 +214,6 @@ namespace Baseball.Presentation.Career
                 new Vector2(410f, 54f), new Vector2(0f, -302f),
                 new Color(0.07f, 0.16f, 0.21f, 1f), PrimaryTextColor);
             finishMatch.onClick.AddListener(AutoCompleteMatch);
-            RenderPlaybackSpeedControls(panel, -392f);
         }
 
         private void RenderControlledResultCommandPanel(
@@ -262,7 +262,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(410f, 30f), new Vector2(0f, -40f), AccentColor);
             CreateText(
                 "ContinueGuide", panel,
-                $"결과를 충분히 확인한 뒤 {GetPlaybackSpeedLabel(_playbackSpeed)} 속도로 자동 진행합니다.",
+                $"결과를 충분히 확인한 뒤 {GetPlaybackSpeedLabel()}으로 자동 진행합니다.",
                 15, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(410f, 46f), new Vector2(0f, -92f), SecondaryTextColor);
             Button finishMatch = CreateButton(
@@ -270,44 +270,85 @@ namespace Baseball.Presentation.Career
                 new Vector2(410f, 54f), new Vector2(0f, -166f),
                 new Color(0.07f, 0.16f, 0.21f, 1f), PrimaryTextColor);
             finishMatch.onClick.AddListener(AutoCompleteMatch);
-            RenderPlaybackSpeedControls(panel, -278f);
         }
 
-        private void RenderPlaybackSpeedControls(RectTransform panel, float buttonY)
+        /// <summary>
+        /// 진행 속도 슬라이더를 한 번만 만들어 Render()가 지우지 않는 오버레이에 붙인다.
+        /// </summary>
+        private void CreatePlaybackSpeedControl(RectTransform parent, Vector2 position)
         {
-            CreateText(
-                "PlaybackSpeedLabel", panel,
-                $"경기 진행 속도 · {GetPlaybackSpeedLabel(_playbackSpeed)}", 13,
+            _playbackSpeedControl = CreateRect(
+                "PlaybackSpeedControl", parent, new Vector2(410f, 68f), position);
+            _playbackSpeedValueLabel = CreateText(
+                "Value", _playbackSpeedControl, GetPlaybackSpeedCaption(), 13,
                 FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(410f, 26f), new Vector2(0f, buttonY + 38f), SecondaryTextColor);
-            CreatePlaybackSpeedButton(panel, MatchPlaybackSpeed.Slow, "느리게", -138f, buttonY);
-            CreatePlaybackSpeedButton(panel, MatchPlaybackSpeed.Normal, "보통", 0f, buttonY);
-            CreatePlaybackSpeedButton(panel, MatchPlaybackSpeed.Fast, "빠르게", 138f, buttonY);
+                new Vector2(410f, 24f), new Vector2(0f, 22f), SecondaryTextColor);
+
+            RectTransform track = CreateImage(
+                "Track", _playbackSpeedControl, new Color(0.06f, 0.13f, 0.17f, 1f),
+                new Vector2(410f, 12f), new Vector2(0f, -13f));
+            RectTransform fill = CreateImage("Fill", track, AccentColor, Vector2.zero, Vector2.zero);
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = Vector2.one;
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+
+            // 손잡이가 양 끝에서 트랙 밖으로 튀어나오지 않도록 반지름만큼 안쪽으로 좁힌 영역에서 움직인다.
+            RectTransform handleArea = CreateRect("HandleArea", track, Vector2.zero, Vector2.zero);
+            handleArea.anchorMin = Vector2.zero;
+            handleArea.anchorMax = Vector2.one;
+            handleArea.offsetMin = new Vector2(13f, 0f);
+            handleArea.offsetMax = new Vector2(-13f, 0f);
+            RectTransform handle = CreateImage(
+                "Handle", handleArea, PrimaryTextColor, new Vector2(26f, 30f), Vector2.zero);
+
+            var slider = track.gameObject.AddComponent<Slider>();
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handle.GetComponent<Image>();
+            slider.wholeNumbers = true;
+            slider.minValue = 0f;
+            slider.maxValue = PlaybackSpeedRates.Length - 1;
+            slider.SetValueWithoutNotify(_playbackSpeedStepIndex);
+            slider.onValueChanged.AddListener(HandlePlaybackSpeedSliderChanged);
+            _playbackSpeedSlider = slider;
+
+            CreateText(
+                "MinLabel", _playbackSpeedControl, FormatPlaybackSpeedRate(PlaybackSpeedRates[0]), 11,
+                FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(80f, 20f), new Vector2(-165f, -34f), MutedTextColor);
+            CreateText(
+                "MaxLabel", _playbackSpeedControl,
+                FormatPlaybackSpeedRate(PlaybackSpeedRates[PlaybackSpeedRates.Length - 1]), 11,
+                FontStyle.Normal, TextAnchor.MiddleRight,
+                new Vector2(80f, 20f), new Vector2(165f, -34f), MutedTextColor);
         }
 
-        private void CreatePlaybackSpeedButton(
-            RectTransform panel,
-            MatchPlaybackSpeed speed,
-            string label,
-            float x,
-            float y)
+        private void SetPlaybackSpeedControlVisible(bool isVisible)
         {
-            bool isSelected = _playbackSpeed == speed;
-            Color background = isSelected ? new Color(0.035f, 0.24f, 0.39f, 1f) : PanelDarkColor;
-            Button button = CreateButton(
-                "Speed_" + speed,
-                panel,
-                label,
-                new Vector2(126f, 38f),
-                new Vector2(x, y),
-                background,
-                isSelected ? AccentColor : SecondaryTextColor);
-            button.onClick.AddListener(() => SetPlaybackSpeed(speed));
+            if (_playbackSpeedControl != null && _playbackSpeedControl.gameObject.activeSelf != isVisible)
+                _playbackSpeedControl.gameObject.SetActive(isVisible);
         }
 
-        private void SetPlaybackSpeed(MatchPlaybackSpeed speed)
+        private bool IsPlaybackViewVisible(CareerMatchSession session)
         {
-            _playbackSpeed = speed;
+            return session != null &&
+                   session.Mode == CareerMatchMode.PlayerFocus &&
+                   (session.Phase == CareerMatchPhase.Playing || IsAutomaticPlaybackActive(session));
+        }
+
+        private void HandlePlaybackSpeedSliderChanged(float value)
+        {
+            int stepIndex = Mathf.Clamp(Mathf.RoundToInt(value), 0, PlaybackSpeedRates.Length - 1);
+            if (stepIndex == _playbackSpeedStepIndex)
+                return;
+
+            _playbackSpeedStepIndex = stepIndex;
+            if (_playbackSpeedValueLabel != null)
+                _playbackSpeedValueLabel.text = GetPlaybackSpeedCaption();
+
+            // 남은 대기 시간이 이전 배속으로 잡혀 있으므로 새 배속 기준으로 다시 잡는다.
             _nextAutomaticPlayAt = Time.unscaledTime + (_hasControlledResult
                 ? GetControlledResultHoldSeconds()
                 : GetAutomaticPlayIntervalSeconds());
@@ -316,22 +357,20 @@ namespace Baseball.Presentation.Career
 
         private float GetAutomaticPlayIntervalSeconds()
         {
-            return automaticPlayIntervalSeconds * GetPlaybackSpeedMultiplier();
+            return automaticPlayIntervalSeconds / GetPlaybackSpeedRate();
         }
 
         private float GetControlledResultHoldSeconds()
         {
-            return controlledResultHoldSeconds * GetPlaybackSpeedMultiplier();
+            return Mathf.Max(
+                minimumControlledResultHoldSeconds,
+                controlledResultHoldSeconds / GetPlaybackSpeedRate());
         }
 
-        private float GetPlaybackSpeedMultiplier()
+        private float GetPlaybackSpeedRate()
         {
-            return _playbackSpeed switch
-            {
-                MatchPlaybackSpeed.Slow => slowPlaybackMultiplier,
-                MatchPlaybackSpeed.Fast => fastPlaybackMultiplier,
-                _ => 1f
-            };
+            return PlaybackSpeedRates[
+                Mathf.Clamp(_playbackSpeedStepIndex, 0, PlaybackSpeedRates.Length - 1)];
         }
 
         private void ClearControlledResult()
@@ -435,14 +474,19 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetPlaybackSpeedLabel(MatchPlaybackSpeed speed)
+        private string GetPlaybackSpeedLabel()
         {
-            return speed switch
-            {
-                MatchPlaybackSpeed.Slow => "느리게",
-                MatchPlaybackSpeed.Fast => "빠르게",
-                _ => "보통"
-            };
+            return FormatPlaybackSpeedRate(GetPlaybackSpeedRate());
+        }
+
+        private string GetPlaybackSpeedCaption()
+        {
+            return $"경기 진행 속도 · {GetPlaybackSpeedLabel()}";
+        }
+
+        private static string FormatPlaybackSpeedRate(float rate)
+        {
+            return $"{rate:0.#}배속";
         }
 
         private static string GetControlledResultLabel(CareerPlateAppearanceSummary summary)
@@ -459,6 +503,7 @@ namespace Baseball.Presentation.Career
             string description = summary.Result switch
             {
                 PlateAppearanceResult.Walk => "볼넷으로 출루했습니다.",
+                PlateAppearanceResult.HitByPitch => "몸에 맞는 공으로 출루했습니다.",
                 PlateAppearanceResult.Strikeout => "삼진으로 타석이 끝났습니다.",
                 PlateAppearanceResult.GroundOut when summary.IsDoublePlay =>
                     "주자와 타자가 함께 아웃되었습니다.",
@@ -484,7 +529,7 @@ namespace Baseball.Presentation.Career
                 PlateAppearanceResult.Single or PlateAppearanceResult.Double or
                     PlateAppearanceResult.Triple => RoleColor,
                 PlateAppearanceResult.HomeRun => GoldColor,
-                PlateAppearanceResult.Walk => AccentColor,
+                PlateAppearanceResult.Walk or PlateAppearanceResult.HitByPitch => AccentColor,
                 _ => DangerColor
             };
         }

@@ -25,6 +25,7 @@ namespace Baseball.Simulation.Match
         public int HomeRuns { get; internal set; }
         public int RunsBattedIn { get; internal set; }
         public int Walks { get; internal set; }
+        public int HitByPitches { get; internal set; }
         public int Strikeouts { get; internal set; }
         public int SacrificeFlies { get; internal set; }
         public int GroundedIntoDoublePlays { get; internal set; }
@@ -48,6 +49,7 @@ namespace Baseball.Simulation.Match
         public int RunsAllowed { get; internal set; }
         public int EarnedRuns { get; internal set; }
         public int WalksAllowed { get; internal set; }
+        public int HitBatters { get; internal set; }
         public int Strikeouts { get; internal set; }
         public int HomeRunsAllowed { get; internal set; }
     }

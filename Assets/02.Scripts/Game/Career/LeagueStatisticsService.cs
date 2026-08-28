@@ -116,6 +116,7 @@ namespace Baseball.Game.Career
                     HomeRuns = line.HomeRuns,
                     RunsBattedIn = line.RunsBattedIn,
                     Walks = line.Walks,
+                    HitByPitches = line.HitByPitches,
                     BattingStrikeouts = line.Strikeouts,
                     SacrificeFlies = line.SacrificeFlies,
                     GroundedIntoDoublePlays = line.GroundedIntoDoublePlays
@@ -143,6 +144,7 @@ namespace Baseball.Game.Career
                     HitsAllowed = line.HitsAllowed,
                     HomeRunsAllowed = line.HomeRunsAllowed,
                     WalksAllowed = line.WalksAllowed,
+                    HitBatters = line.HitBatters,
                     PitchingStrikeouts = line.Strikeouts,
                     RunsAllowed = line.RunsAllowed,
                     EarnedRuns = line.EarnedRuns,
@@ -186,6 +188,7 @@ namespace Baseball.Game.Career
                 HomeRuns = line.HomeRuns,
                 RunsBattedIn = line.RunsBattedIn,
                 Walks = line.Walks,
+                HitByPitches = line.HitByPitches,
                 BattingStrikeouts = line.Strikeouts,
                 SacrificeFlies = line.SacrificeFlies,
                 GroundedIntoDoublePlays = line.GroundedIntoDoublePlays,

@@ -32,6 +32,12 @@ namespace Baseball.Tests.EditMode.Simulation
                 return PitchResult.Ball;
             }
 
+            if (result == PlateAppearanceResult.HitByPitch)
+            {
+                _resultIndex++;
+                return PitchResult.HitByPitch;
+            }
+
             if (result == PlateAppearanceResult.Strikeout)
             {
                 if (strikes == 2)

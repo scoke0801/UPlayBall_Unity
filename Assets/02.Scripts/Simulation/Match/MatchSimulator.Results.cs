@@ -27,7 +27,13 @@ namespace Baseball.Simulation.Match
                 case PlateAppearanceResult.Walk:
                     battingLine.Walks++;
                     pitchingLine.WalksAllowed++;
-                    runsBattedIn = ApplyWalk(state, inning, half, offense, defense, batter, bases, outs);
+                    runsBattedIn = ApplyForcedAdvance(state, inning, half, offense, defense, batter, bases, outs);
+                    break;
+
+                case PlateAppearanceResult.HitByPitch:
+                    battingLine.HitByPitches++;
+                    pitchingLine.HitBatters++;
+                    runsBattedIn = ApplyForcedAdvance(state, inning, half, offense, defense, batter, bases, outs);
                     break;
 
                 case PlateAppearanceResult.Strikeout:
@@ -96,7 +102,11 @@ namespace Baseball.Simulation.Match
                 outs);
         }
 
-        private int ApplyWalk(
+        /// <summary>
+        /// 타자를 1루에 세우고 채워진 앞 베이스의 주자만 밀어낸다.
+        /// 볼넷과 사구는 진루 규칙이 동일하므로 같은 경로를 쓴다.
+        /// </summary>
+        private int ApplyForcedAdvance(
             MatchSimulationState state,
             int inning,
             InningHalf half,

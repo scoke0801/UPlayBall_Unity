@@ -23,7 +23,9 @@ namespace Baseball.Core.Balance
             double velocityContactWeight,
             double fairContactProbability,
             double sameHandedContactPenalty,
-            double oppositeHandedContactBonus)
+            double oppositeHandedContactBonus,
+            double hitByPitchProbability,
+            double controlHitByPitchWeight)
         {
             StrikeZoneProbability = strikeZoneProbability;
             ControlStrikeZoneWeight = controlStrikeZoneWeight;
@@ -40,6 +42,8 @@ namespace Baseball.Core.Balance
             FairContactProbability = fairContactProbability;
             SameHandedContactPenalty = sameHandedContactPenalty;
             OppositeHandedContactBonus = oppositeHandedContactBonus;
+            HitByPitchProbability = hitByPitchProbability;
+            ControlHitByPitchWeight = controlHitByPitchWeight;
         }
 
         public double StrikeZoneProbability { get; }
@@ -57,5 +61,9 @@ namespace Baseball.Core.Balance
         public double FairContactProbability { get; }
         public double SameHandedContactPenalty { get; }
         public double OppositeHandedContactBonus { get; }
+        /// <summary>존을 벗어난 한 구가 몸에 맞을 기본 확률이다.</summary>
+        public double HitByPitchProbability { get; }
+        /// <summary>Control 1점당 사구 확률을 낮추는 폭이다.</summary>
+        public double ControlHitByPitchWeight { get; }
     }
 }

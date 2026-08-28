@@ -61,6 +61,13 @@ namespace Baseball.Simulation.PlateAppearance
                             strikes++;
                         break;
 
+                    case PitchResult.HitByPitch:
+                        return new PlateAppearanceOutcome(
+                            PlateAppearanceResult.HitByPitch,
+                            pitchCount,
+                            balls,
+                            strikes);
+
                     case PitchResult.InPlay:
                         return new PlateAppearanceOutcome(
                             ResolveBallInPlay(matchup, BattingApproach.Balanced),
@@ -105,6 +112,7 @@ namespace Baseball.Simulation.PlateAppearance
                 return ResolvePitchOutsideZone(
                     tuning,
                     batter,
+                    effectiveControl,
                     effectiveStuff,
                     effectiveVelocity,
                     matchup,
@@ -177,12 +185,22 @@ namespace Baseball.Simulation.PlateAppearance
         private PitchResult ResolvePitchOutsideZone(
             PlateDisciplineBalance tuning,
             BatterAttributes batter,
+            double effectiveControl,
             double effectiveStuff,
             double effectiveVelocity,
             in PlateAppearanceMatchup matchup,
             int pitchNumber,
             BattingApproachModifier approachModifier)
         {
+            // 사구는 타자가 피할 판단을 하기 전에 결정되므로 추격 판정보다 먼저 계산한다.
+            double hitByPitchProbability = Clamp(
+                tuning.HitByPitchProbability -
+                (effectiveControl - 50d) * tuning.ControlHitByPitchWeight,
+                0d,
+                0.02d);
+            if (_random.NextDouble() < hitByPitchProbability)
+                return PitchResult.HitByPitch;
+
             double chaseProbability = ClampProbability(
                 tuning.ChaseProbability -
                 (batter.Mental - 50d) * tuning.MentalChaseWeight +

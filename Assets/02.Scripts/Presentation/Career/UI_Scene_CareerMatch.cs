@@ -18,12 +18,11 @@ namespace Baseball.Presentation.Career
     /// </summary>
     public sealed partial class UI_Scene_CareerMatch : UISceneBase
     {
-        private enum MatchPlaybackSpeed
-        {
-            Slow,
-            Normal,
-            Fast
-        }
+        /// <summary>
+        /// 진행 속도 슬라이더의 눈금. 0.5배속 관전부터 3배속 속행까지 0.5배속 간격으로 고른다.
+        /// </summary>
+        private static readonly float[] PlaybackSpeedRates = { 0.5f, 1f, 1.5f, 2f, 2.5f, 3f };
+        private const int DefaultPlaybackSpeedStepIndex = 1;
 
         private static readonly Color BackgroundColor = new(0.004f, 0.018f, 0.032f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.038f, 0.065f, 1f);
@@ -44,12 +43,20 @@ namespace Baseball.Presentation.Career
         private BattingApproach _selectedApproach = BattingApproach.Balanced;
         [SerializeField, Min(0.1f)] private float automaticPlayIntervalSeconds = 0.42f;
         [SerializeField, Min(0.5f)] private float controlledResultHoldSeconds = 2f;
-        [SerializeField, Range(1f, 3f)] private float slowPlaybackMultiplier = 1.75f;
-        [SerializeField, Range(0.25f, 1f)] private float fastPlaybackMultiplier = 0.5f;
+
+        /// <summary>
+        /// 내 타석 결과는 배속을 올려도 이 시간보다 짧게 지나가지 않는다.
+        /// 커리어에서 가장 중요한 장면을 읽지 못한 채 넘기지 않기 위한 하한이다.
+        /// </summary>
+        [SerializeField, Min(0.2f)] private float minimumControlledResultHoldSeconds = 1.1f;
 
         private readonly CareerMatchPlayback _playback = new CareerMatchPlayback();
         private CareerMatchSession _playbackSession;
-        private MatchPlaybackSpeed _playbackSpeed = MatchPlaybackSpeed.Normal;
+        private RectTransform _overlay;
+        private RectTransform _playbackSpeedControl;
+        private Slider _playbackSpeedSlider;
+        private Text _playbackSpeedValueLabel;
+        private int _playbackSpeedStepIndex = DefaultPlaybackSpeedStepIndex;
         private CareerPlateAppearanceSummary _controlledResult;
         private bool _hasControlledResult;
         private bool _isPlaybackInitialized;
@@ -80,6 +87,12 @@ namespace Baseball.Presentation.Career
             Stretch(root);
             CreateImage("Background", root, BackgroundColor, Vector2.zero, Vector2.zero, true);
             _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
+
+            // 속도 슬라이더는 Render()가 매 진행마다 지우는 _content 밖에 둔다.
+            // 같은 곳에 있으면 드래그 도중 슬라이더가 파괴돼 조작이 끊긴다.
+            _overlay = CreateRect("Overlay", root, new Vector2(1920f, 1080f), Vector2.zero);
+            CreatePlaybackSpeedControl(_overlay, new Vector2(700f, -442f));
+            SetPlaybackSpeedControlVisible(false);
         }
 
         protected override void OnShow()
@@ -190,6 +203,7 @@ namespace Baseball.Presentation.Career
             CareerMatchSession session = _manager.ActiveMatch;
             if (session.Phase != CareerMatchPhase.Preparation)
                 EnsurePlayback(session);
+            SetPlaybackSpeedControlVisible(IsPlaybackViewVisible(session));
             switch (session.Phase)
             {
                 case CareerMatchPhase.Preparation:
@@ -353,7 +367,7 @@ namespace Baseball.Presentation.Career
                 ? $"내 타석 결과 — {GetControlledResultLabel(_controlledResult)}"
                 : isDecisionInputReady
                     ? $"입력 대기 — {_manager.CurrentCareer.MyPlayer.Name} 타석"
-                    : $"{playState} · {GetPlaybackSpeedLabel(_playbackSpeed)} 자동 중계";
+                    : $"{playState} · {GetPlaybackSpeedLabel()} 자동 중계";
             CreateText(
                 "WaitReason", bar, waitReason, 14,
                 FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -524,7 +538,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(270f, 30f), new Vector2(0f, -76f), GoldColor);
 
             string hint = _hasControlledResult
-                ? $"내 타석 결과를 확인 중입니다. 잠시 후 {GetPlaybackSpeedLabel(_playbackSpeed)} 속도로 이어집니다."
+                ? $"내 타석 결과를 확인 중입니다. 잠시 후 {GetPlaybackSpeedLabel()}으로 이어집니다."
                 : isDecisionInputReady
                     ? "타격 방식을 고르고 Space로 다음 투구를 진행합니다."
                     : session.CanReceiveBattingDecisions
@@ -625,13 +639,12 @@ namespace Baseball.Presentation.Career
                 new Vector2(410f, 48f), new Vector2(0f, -306f),
                 new Color(0.09f, 0.14f, 0.18f, 1f), MutedTextColor);
             autoMatch.onClick.AddListener(AutoCompleteMatch);
-            RenderPlaybackSpeedControls(panel, -393f);
 
             if (!string.IsNullOrEmpty(_manager.LastError))
             {
                 CreateText(
                     "Error", panel, _manager.LastError, 13, FontStyle.Normal, TextAnchor.MiddleCenter,
-                    new Vector2(420f, 22f), new Vector2(0f, -423f), DangerColor);
+                    new Vector2(420f, 22f), new Vector2(0f, -344f), DangerColor);
             }
         }
 
@@ -683,7 +696,8 @@ namespace Baseball.Presentation.Career
                 "Line", personal, personalLine, 26, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(630f, 44f), new Vector2(0f, 62f), PrimaryTextColor);
             CreateText(
-                "Strikeouts", personal, $"삼진 {careerResult.Strikeouts}  ·  최종 Score {playerRuns}:{opponentRuns}",
+                "Discipline", personal,
+                $"{BuildDisciplineSummary(careerResult, session.PlayerRole)}  ·  최종 Score {playerRuns}:{opponentRuns}",
                 16, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(630f, 32f), new Vector2(0f, 20f), SecondaryTextColor);
             CreateText(
@@ -996,6 +1010,18 @@ namespace Baseball.Presentation.Career
             };
         }
 
+        /// <summary>
+        /// 볼넷·사구·삼진을 역할에 맞는 주체(타자가 얻은 것 / 투수가 허용한 것)로 묶는다.
+        /// </summary>
+        private static string BuildDisciplineSummary(CareerGameAdvanceResult result, PlayerGameRole role)
+        {
+            bool isPitcher = role is PlayerGameRole.StartingPitcher or PlayerGameRole.ReliefPitcher;
+            int walks = isPitcher ? result.WalksAllowed : result.Walks;
+            int hitByPitches = isPitcher ? result.HitBatters : result.HitByPitches;
+            string summary = $"볼넷 {walks}  ·  삼진 {result.Strikeouts}";
+            return hitByPitches > 0 ? $"{summary}  ·  사구 {hitByPitches}" : summary;
+        }
+
         private static string BuildHighlightText(
             CareerGameAdvanceResult result,
             PlayerPosition position,
@@ -1007,6 +1033,8 @@ namespace Baseball.Presentation.Career
                 return $"핵심 장면 · 멀티히트 {result.Hits}안타";
             if (result.Hits == 1)
                 return "핵심 장면 · 안타로 출루에 성공";
+            if (result.Walks + result.HitByPitches > 0)
+                return $"핵심 장면 · 사사구 {result.Walks + result.HitByPitches}개로 출루";
             if (CareerGameRoleFormatter.IsPitcherRest(result.Role, position))
                 return $"감독 결정 · 오늘은 {CareerGameRoleFormatter.GetPitcherRestLabel(position)}";
             if (result.Role == PlayerGameRole.Bench && plateAppearances == 0)
@@ -1052,6 +1080,7 @@ namespace Baseball.Presentation.Career
                 PitchResult.SwingingStrike => "헛스윙",
                 PitchResult.Foul => "파울",
                 PitchResult.InPlay => "인플레이",
+                PitchResult.HitByPitch => "몸에 맞는 공",
                 _ => string.Empty
             };
         }
@@ -1068,6 +1097,7 @@ namespace Baseball.Presentation.Career
             return result switch
             {
                 PlateAppearanceResult.Walk => "볼넷",
+                PlateAppearanceResult.HitByPitch => "사구",
                 PlateAppearanceResult.Strikeout => "삼진",
                 PlateAppearanceResult.GroundOut => "땅볼 아웃",
                 PlateAppearanceResult.FlyOut => "뜬공 아웃",
