@@ -341,7 +341,7 @@ namespace Baseball.Simulation.Match
         {
             outs++;
             defense.ActivePitchingLine.OutsRecorded++;
-            defense.BoxScore.RecordDefensiveOut();
+            defense.BoxScore.RecordDefensiveOut(defense.ActivePitcher.PlayerId);
             Emit(
                 state,
                 MatchEventType.Out,

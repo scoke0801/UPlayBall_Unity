@@ -71,7 +71,9 @@ namespace Baseball.Core.Balance
             ManagerEvaluationWeightTable? managerRoleEvaluation = null,
             ContractMarketBalanceTable? contractMarket = null,
             RosterTurnoverBalance? rosterTurnover = null,
-            PostseasonBalance? postseason = null)
+            PostseasonBalance? postseason = null,
+            BattingApproachBalance? battingApproach = null,
+            ContractBonusBalance? contractBonus = null)
         {
             Version = version;
             PlateDiscipline = plateDiscipline;
@@ -88,6 +90,8 @@ namespace Baseball.Core.Balance
             ContractMarket = contractMarket ?? ContractMarketBalanceTable.CreateDefault();
             RosterTurnover = rosterTurnover ?? RosterTurnoverBalance.CreateDefault();
             Postseason = postseason ?? PostseasonBalance.CreateDefault();
+            BattingApproach = battingApproach ?? BattingApproachBalance.CreateDefault();
+            ContractBonus = contractBonus ?? ContractBonusBalance.CreateDefault();
             SeasonAwards = SeasonAwardBalance.CreateDefault();
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
         }
@@ -107,6 +111,8 @@ namespace Baseball.Core.Balance
         public ContractMarketBalanceTable ContractMarket { get; }
         public RosterTurnoverBalance RosterTurnover { get; }
         public PostseasonBalance Postseason { get; }
+        public BattingApproachBalance BattingApproach { get; }
+        public ContractBonusBalance ContractBonus { get; }
         public SeasonAwardBalance SeasonAwards { get; }
         public SeasonSettlementBalance SeasonSettlement { get; }
 

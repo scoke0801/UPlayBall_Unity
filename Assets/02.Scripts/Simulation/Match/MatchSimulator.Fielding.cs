@@ -60,12 +60,18 @@ namespace Baseball.Simulation.Match
                                   (uint)(inning * 31) ^
                                   (uint)(outs * 17) ^
                                   (uint)state.NextEventSequence);
-            PlayerPosition position = positionPool[hash % (uint)positionPool.Length];
-            PlayerFieldingLine line = defense.BoxScore.GetFieldingLine(position);
-            double difficulty = CalculateDifficulty(hash, isSuccessful);
-            double expectedSuccessRate = ClampExpectedSuccess(
-                0.92d - difficulty * 0.72d +
-                (GetFielderDefense(defense, position) - 50d) * 0.003d);
+            bool pitcherPlay = positionPool == GroundBallPositions && hash % 10U == 0U;
+            bool catcherPlay = positionPool == GroundBallPositions && !pitcherPlay && hash % 20U == 1U;
+            PlayerPosition position = pitcherPlay
+                ? defense.ActivePitcher.PrimaryPosition
+                : catcherPlay
+                    ? PlayerPosition.Catcher
+                    : SelectFielderPosition(defense, positionPool, hash, isSuccessful);
+            PlayerFieldingLine line = pitcherPlay
+                ? defense.BoxScore.GetFieldingLineByPlayer(defense.ActivePitcher.PlayerId)
+                : defense.BoxScore.GetFieldingLine(position);
+            double difficulty = CalculateDifficulty(hash);
+            double expectedSuccessRate = ClampExpectedSuccess(0.92d - difficulty * 0.72d);
             double runValue = GetFieldingRunValue(result);
 
             line.Opportunities++;
@@ -82,8 +88,46 @@ namespace Baseball.Simulation.Match
                 line.DifficultPlaysMade++;
         }
 
+        /// <summary>
+        /// 팀 단위 인플레이 결과를 개별 야수에게 귀속한다. 좋은 야수는 아웃 타구를,
+        /// 약한 야수는 안타 타구를 조금 더 자주 맡되 수상 점수에는 능력치를 직접 넣지 않는다.
+        /// </summary>
+        private static PlayerPosition SelectFielderPosition(
+            TeamMatchState defense,
+            PlayerPosition[] positionPool,
+            uint hash,
+            bool isSuccessful)
+        {
+            double totalWeight = 0d;
+            for (int index = 0; index < positionPool.Length; index++)
+                totalWeight += GetAttributionWeight(
+                    GetFielderDefense(defense, positionPool[index]),
+                    isSuccessful);
+
+            double unit = ((hash >> 12) & 65535U) / 65536d;
+            double selectedWeight = unit * totalWeight;
+            for (int index = 0; index < positionPool.Length; index++)
+            {
+                selectedWeight -= GetAttributionWeight(
+                    GetFielderDefense(defense, positionPool[index]),
+                    isSuccessful);
+                if (selectedWeight < 0d)
+                    return positionPool[index];
+            }
+            return positionPool[positionPool.Length - 1];
+        }
+
+        private static double GetAttributionWeight(int defenseRating, bool isSuccessful)
+        {
+            return isSuccessful
+                ? 0.75d + defenseRating * 0.005d
+                : 1.25d - defenseRating * 0.005d;
+        }
+
         private static int GetFielderDefense(TeamMatchState defense, PlayerPosition position)
         {
+            if (position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher)
+                return defense.ActivePitcher.BatterAttributes.Defense;
             for (int index = 0; index < defense.Team.Lineup.Count; index++)
             {
                 if (defense.Team.Lineup[index].FieldingPosition == position)
@@ -93,12 +137,10 @@ namespace Baseball.Simulation.Match
             return 50;
         }
 
-        private static double CalculateDifficulty(uint hash, bool isSuccessful)
+        private static double CalculateDifficulty(uint hash)
         {
             double variation = ((hash >> 8) & 1023U) / 1023d;
-            return isSuccessful
-                ? 0.12d + variation * 0.63d
-                : 0.38d + variation * 0.57d;
+            return 0.05d + variation * 0.90d;
         }
 
         private static double GetFieldingRunValue(PlateAppearanceResult result)

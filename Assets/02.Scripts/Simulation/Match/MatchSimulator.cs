@@ -1,5 +1,6 @@
 using System;
 using Baseball.Core.Balance;
+using Baseball.Core.Players;
 using Baseball.Core.Rules;
 using Baseball.Simulation.PlateAppearance;
 using Baseball.Simulation.Random;
@@ -14,12 +15,24 @@ namespace Baseball.Simulation.Match
         private readonly BalanceTable _balance;
         private readonly IRandomSource _random;
         private readonly IPlateAppearanceSimulator _plateAppearanceSimulator;
+        private readonly IMatchDecisionSource _decisionSource;
 
         /// <summary>
         /// 경기 시뮬레이터를 밸런스 데이터와 결정론적 RNG로 구성한다.
         /// </summary>
         public MatchSimulator(BalanceTable balance, IRandomSource random)
-            : this(balance, random, new PlateAppearanceSimulator(balance, random))
+            : this(balance, random, new PlateAppearanceSimulator(balance, random), null)
+        {
+        }
+
+        /// <summary>
+        /// 플레이어 타격 결정을 입력받아 중단 가능한 경기 시뮬레이터를 구성한다.
+        /// </summary>
+        public MatchSimulator(
+            BalanceTable balance,
+            IRandomSource random,
+            IMatchDecisionSource decisionSource)
+            : this(balance, random, new PlateAppearanceSimulator(balance, random), decisionSource)
         {
         }
 
@@ -30,11 +43,38 @@ namespace Baseball.Simulation.Match
             BalanceTable balance,
             IRandomSource random,
             IPlateAppearanceSimulator plateAppearanceSimulator)
+            : this(balance, random, plateAppearanceSimulator, null)
+        {
+        }
+
+        private MatchSimulator(
+            BalanceTable balance,
+            IRandomSource random,
+            IPlateAppearanceSimulator plateAppearanceSimulator,
+            IMatchDecisionSource decisionSource)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _random = random ?? throw new ArgumentNullException(nameof(random));
             _plateAppearanceSimulator = plateAppearanceSimulator ??
                                         throw new ArgumentNullException(nameof(plateAppearanceSimulator));
+            _decisionSource = decisionSource;
+        }
+
+        /// <summary>
+        /// 저장된 결정을 재생해 다음 입력 대기 지점 또는 경기 종료까지 진행한다.
+        /// </summary>
+        public MatchSimulationProgress SimulateUntilDecision(MatchInput input)
+        {
+            var eventBuffer = new MatchEventBuffer();
+            try
+            {
+                MatchResult result = SimulateInternal(input, eventBuffer, eventBuffer);
+                return new MatchSimulationProgress(result, null, result.Events as MatchEvent[] ?? eventBuffer.ToArray());
+            }
+            catch (MatchDecisionRequiredSignal signal)
+            {
+                return new MatchSimulationProgress(null, signal.Request, eventBuffer.ToArray());
+            }
         }
 
         /// <summary>
@@ -202,11 +242,23 @@ namespace Baseball.Simulation.Match
             while (true)
             {
                 pitchNumber++;
+                BattingApproach approach = GetBattingApproach(
+                    state,
+                    inning,
+                    half,
+                    batter,
+                    defense.ActivePitcher.PlayerId,
+                    pitchNumber,
+                    balls,
+                    strikes,
+                    outs,
+                    bases);
                 PitchResult pitchResult = _plateAppearanceSimulator.SimulatePitch(
                     matchup,
                     balls,
                     strikes,
-                    pitchNumber);
+                    pitchNumber,
+                    approach);
                 defense.ActivePitchingLine.PitchesThrown++;
 
                 switch (pitchResult)
@@ -266,8 +318,55 @@ namespace Baseball.Simulation.Match
                     balls,
                     strikes,
                     outs);
-                return _plateAppearanceSimulator.ResolveBallInPlay(matchup);
+                return _plateAppearanceSimulator.ResolveBallInPlay(matchup, approach);
             }
+        }
+
+        private BattingApproach GetBattingApproach(
+            MatchSimulationState state,
+            int inning,
+            InningHalf half,
+            LineupSlotReference batter,
+            int pitcherId,
+            int pitchNumber,
+            int balls,
+            int strikes,
+            int outs,
+            BaseState bases)
+        {
+            if (_decisionSource == null || !_decisionSource.RequiresBattingDecision(batter.Player.PlayerId))
+                return BattingApproach.Balanced;
+
+            var request = new MatchDecisionRequest(
+                state.NextDecisionIndex,
+                inning,
+                half,
+                batter.Player.PlayerId,
+                pitcherId,
+                pitchNumber,
+                balls,
+                strikes,
+                outs,
+                state.Away.BoxScore.Runs,
+                state.Home.BoxScore.Runs,
+                bases.First.IsOccupied,
+                bases.Second.IsOccupied,
+                bases.Third.IsOccupied);
+            if (!_decisionSource.TryGetBattingApproach(request, out BattingApproach approach))
+                throw new MatchDecisionRequiredSignal(request);
+
+            state.NextDecisionIndex++;
+            return approach;
+        }
+
+        private sealed class MatchDecisionRequiredSignal : Exception
+        {
+            public MatchDecisionRequiredSignal(MatchDecisionRequest request)
+            {
+                Request = request;
+            }
+
+            public MatchDecisionRequest Request { get; }
         }
     }
 }

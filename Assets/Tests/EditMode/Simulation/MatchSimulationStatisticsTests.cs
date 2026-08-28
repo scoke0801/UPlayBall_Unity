@@ -1,5 +1,8 @@
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
+using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Simulation.Growth;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
 using NUnit.Framework;
@@ -83,6 +86,136 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(walkRate, Is.InRange(0.065d, 0.120d));
             Assert.That(strikeoutRate, Is.InRange(0.170d, 0.270d));
             Assert.That(strongWinRate, Is.GreaterThan(0.58d));
+        }
+
+        [Test]
+        [Timeout(120000)]
+        public void SkillBoard_만경기에서Epic교타블록의방향성이실제타격결과에나타난다()
+        {
+            const int PairedScenarios = 5_000;
+            BalanceTable balance = BalanceTable.CreateDefault();
+            SkillBlockDefinition contactEpic = FindBlock(
+                balance.Growth.SkillBlocks,
+                SkillBlockCategory.Contact,
+                SkillBlockRarity.Epic);
+            var growth = new PlayerGrowthState(
+                1,
+                22,
+                PlayerType.Batter,
+                new AbilityRatings(50),
+                new AbilityRatings(70),
+                WorkEthicGrade.Normal,
+                90,
+                0,
+                70);
+            var board = new SkillBoardState(balance.Growth.SkillBoard.BoardDefinitionId);
+            SkillBlockInstance block = board.AddOwnedBlock(contactEpic.BlockId);
+            var boardService = new SkillBoardService(
+                balance.Growth.SkillBoard,
+                balance.Growth.SkillBlocks);
+            boardService.PlaceBlock(board, block.InstanceId, 0, 0, 0);
+            int stableContact = boardService.GetStableAbility(board, growth, PlayerAbility.Contact);
+
+            Team enhanced = CreateTeamWithLeadoffContact(11, stableContact);
+            Team baseline = CreateTeamWithLeadoffContact(11, 50);
+            Team opponent = CreateTeamWithLeadoffContact(12, 50);
+            int enhancedAtBats = 0;
+            int enhancedHits = 0;
+            int baselineAtBats = 0;
+            int baselineHits = 0;
+            int enhancedWins = 0;
+            int baselineWins = 0;
+
+            for (int scenario = 0; scenario < PairedScenarios; scenario++)
+            {
+                bool playerTeamIsAway = scenario % 2 == 0;
+                ulong seed = (ulong)(700000 + scenario);
+                Team baselineAway = playerTeamIsAway ? baseline : opponent;
+                Team baselineHome = playerTeamIsAway ? opponent : baseline;
+                MatchResult baselineResult = new MatchSimulator(balance, new Pcg32Random(seed)).Simulate(
+                    new MatchInput(1, scenario * 2 + 1, seed, baselineAway, baselineHome),
+                    NullMatchEventSink.Instance);
+                Team enhancedAway = playerTeamIsAway ? enhanced : opponent;
+                Team enhancedHome = playerTeamIsAway ? opponent : enhanced;
+                MatchResult enhancedResult = new MatchSimulator(balance, new Pcg32Random(seed)).Simulate(
+                    new MatchInput(1, scenario * 2 + 2, seed, enhancedAway, enhancedHome),
+                    NullMatchEventSink.Instance);
+                TeamBoxScore enhancedBox = playerTeamIsAway
+                    ? enhancedResult.AwayBoxScore
+                    : enhancedResult.HomeBoxScore;
+                TeamBoxScore baselineBox = playerTeamIsAway
+                    ? baselineResult.AwayBoxScore
+                    : baselineResult.HomeBoxScore;
+                PlayerBattingLine enhancedLine = FindBattingLine(enhancedBox, 1101);
+                PlayerBattingLine baselineLine = FindBattingLine(baselineBox, 1101);
+                enhancedAtBats += enhancedLine.AtBats;
+                enhancedHits += enhancedLine.Hits;
+                baselineAtBats += baselineLine.AtBats;
+                baselineHits += baselineLine.Hits;
+                if (enhancedResult.WinnerTeamId == enhanced.TeamId) enhancedWins++;
+                if (baselineResult.WinnerTeamId == baseline.TeamId) baselineWins++;
+            }
+
+            double enhancedAverage = enhancedHits / (double)enhancedAtBats;
+            double baselineAverage = baselineHits / (double)baselineAtBats;
+            TestContext.WriteLine(
+                $"Epic Contact +4 / Enhanced AVG {enhancedAverage:F3} / " +
+                $"Baseline AVG {baselineAverage:F3} / W-L {enhancedWins}-{baselineWins}");
+
+            Assert.That(stableContact, Is.EqualTo(54));
+            Assert.That(enhancedAverage, Is.GreaterThan(baselineAverage));
+            Assert.That(growth.BaseAbilities.Get(PlayerAbility.Contact), Is.EqualTo(50));
+        }
+
+        private static SkillBlockDefinition FindBlock(
+            SkillBlockDefinition[] blocks,
+            SkillBlockCategory category,
+            SkillBlockRarity rarity)
+        {
+            for (int index = 0; index < blocks.Length; index++)
+            {
+                if (blocks[index].Category == category && blocks[index].Rarity == rarity)
+                    return blocks[index];
+            }
+            throw new System.InvalidOperationException("기본 스킬 블록 풀에 필요한 블록이 없습니다.");
+        }
+
+        private static Team CreateTeamWithLeadoffContact(int teamId, int leadoffContact)
+        {
+            var slots = new LineupSlot[9];
+            for (int index = 0; index < slots.Length; index++)
+            {
+                PlayerPosition position = (PlayerPosition)(index + 1);
+                int contact = index == 0 ? leadoffContact : 50;
+                var player = new Player(
+                    teamId * 100 + index + 1,
+                    $"{teamId}팀 타자 {index + 1}",
+                    position,
+                    Handedness.Right,
+                    Handedness.Right,
+                    new BatterAttributes(contact, 50, 50, 50, 50, 50),
+                    new PitcherAttributes(20, 20, 20, 20, 20, 20));
+                slots[index] = new LineupSlot(player, position);
+            }
+            var pitcher = new Player(
+                teamId * 100 + 99,
+                $"{teamId}팀 투수",
+                PlayerPosition.StartingPitcher,
+                Handedness.Right,
+                Handedness.Right,
+                new BatterAttributes(20, 20, 20, 20, 30, 20),
+                new PitcherAttributes(50, 50, 50, 50, 50, 50));
+            return new Team(teamId, $"테스트 {teamId}팀", new Lineup(slots), pitcher);
+        }
+
+        private static PlayerBattingLine FindBattingLine(TeamBoxScore boxScore, int playerId)
+        {
+            for (int index = 0; index < boxScore.BattingLines.Count; index++)
+            {
+                if (boxScore.BattingLines[index].PlayerId == playerId)
+                    return boxScore.BattingLines[index];
+            }
+            throw new System.InvalidOperationException("타격 기록을 찾지 못했습니다.");
         }
 
         private sealed class LeagueBattingTotals

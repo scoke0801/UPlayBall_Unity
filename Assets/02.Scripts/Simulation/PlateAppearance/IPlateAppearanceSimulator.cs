@@ -1,3 +1,5 @@
+using Baseball.Core.Players;
+
 namespace Baseball.Simulation.PlateAppearance
 {
     /// <summary>
@@ -12,11 +14,14 @@ namespace Baseball.Simulation.PlateAppearance
             in PlateAppearanceMatchup matchup,
             int balls,
             int strikes,
-            int pitchNumber);
+            int pitchNumber,
+            BattingApproach approach);
 
         /// <summary>
         /// 공정 타구가 된 Contact의 최종 결과를 계산한다.
         /// </summary>
-        PlateAppearanceResult ResolveBallInPlay(in PlateAppearanceMatchup matchup);
+        PlateAppearanceResult ResolveBallInPlay(
+            in PlateAppearanceMatchup matchup,
+            BattingApproach approach);
     }
 }

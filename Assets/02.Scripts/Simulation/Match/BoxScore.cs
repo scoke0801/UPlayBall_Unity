@@ -133,7 +133,7 @@ namespace Baseball.Simulation.Match
                     new PlayerPitchingLine(team.ReliefPitcher.PlayerId)
                 };
 
-            FieldingLines = new PlayerFieldingLine[team.Lineup.Count - 1];
+            FieldingLines = new PlayerFieldingLine[team.Lineup.Count - 1 + PitchingLines.Length];
             int fieldingIndex = 0;
             for (int index = 0; index < team.Lineup.Count; index++)
             {
@@ -143,6 +143,15 @@ namespace Baseball.Simulation.Match
                 FieldingLines[fieldingIndex++] = new PlayerFieldingLine(
                     slot.Player.PlayerId,
                     slot.FieldingPosition);
+            }
+            FieldingLines[fieldingIndex++] = new PlayerFieldingLine(
+                team.StartingPitcher.PlayerId,
+                PlayerPosition.StartingPitcher);
+            if (team.ReliefPitcher != null)
+            {
+                FieldingLines[fieldingIndex] = new PlayerFieldingLine(
+                    team.ReliefPitcher.PlayerId,
+                    PlayerPosition.ReliefPitcher);
             }
         }
 
@@ -174,10 +183,15 @@ namespace Baseball.Simulation.Match
                 FieldingLines);
         }
 
-        public void RecordDefensiveOut()
+        public void RecordDefensiveOut(int activePitcherId)
         {
             for (int index = 0; index < FieldingLines.Length; index++)
-                FieldingLines[index].DefensiveOuts++;
+            {
+                PlayerFieldingLine line = FieldingLines[index];
+                bool isPitcher = line.Position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
+                if (!isPitcher || line.PlayerId == activePitcherId)
+                    line.DefensiveOuts++;
+            }
         }
 
         public PlayerFieldingLine GetFieldingLine(PlayerPosition position)
@@ -189,6 +203,16 @@ namespace Baseball.Simulation.Match
             }
 
             throw new InvalidOperationException($"{position} 수비수를 찾을 수 없습니다.");
+        }
+
+        public PlayerFieldingLine GetFieldingLineByPlayer(int playerId)
+        {
+            for (int index = 0; index < FieldingLines.Length; index++)
+            {
+                if (FieldingLines[index].PlayerId == playerId)
+                    return FieldingLines[index];
+            }
+            throw new InvalidOperationException($"PlayerId {playerId} 수비수를 찾을 수 없습니다.");
         }
 
         /// <summary>

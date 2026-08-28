@@ -1,3 +1,4 @@
+using Baseball.Core.Players;
 using Baseball.Simulation.PlateAppearance;
 
 namespace Baseball.Tests.EditMode.Simulation
@@ -20,7 +21,8 @@ namespace Baseball.Tests.EditMode.Simulation
             in PlateAppearanceMatchup matchup,
             int balls,
             int strikes,
-            int pitchNumber)
+            int pitchNumber,
+            BattingApproach approach)
         {
             PlateAppearanceResult result = GetCurrentResult();
             if (result == PlateAppearanceResult.Walk)
@@ -40,7 +42,9 @@ namespace Baseball.Tests.EditMode.Simulation
             return PitchResult.InPlay;
         }
 
-        public PlateAppearanceResult ResolveBallInPlay(in PlateAppearanceMatchup matchup)
+        public PlateAppearanceResult ResolveBallInPlay(
+            in PlateAppearanceMatchup matchup,
+            BattingApproach approach)
         {
             PlateAppearanceResult result = GetCurrentResult();
             _resultIndex++;

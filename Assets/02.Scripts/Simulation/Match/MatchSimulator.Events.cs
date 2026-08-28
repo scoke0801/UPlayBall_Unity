@@ -56,6 +56,7 @@ namespace Baseball.Simulation.Match
             public TeamMatchState Home { get; }
             public IMatchEventSink EventSink { get; }
             public int NextEventSequence { get; set; }
+            public int NextDecisionIndex { get; set; }
         }
 
         private sealed class TeamMatchState

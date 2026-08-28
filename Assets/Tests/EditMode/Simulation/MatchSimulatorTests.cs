@@ -146,6 +146,45 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(result.HomeBoxScore.PitchingLines[1].OutsRecorded, Is.EqualTo(18));
         }
 
+        [Test]
+        public void Simulate_승자필수경기는최대연장뒤에도무승부를남기지않는다()
+        {
+            MatchInput source = CreateInput();
+            var input = new MatchInput(
+                source.SeasonId,
+                source.GameId,
+                source.RandomSeed,
+                source.AwayTeam,
+                source.HomeTeam,
+                requiresWinner: true);
+            var simulator = new MatchSimulator(
+                BalanceTable.CreateDefault(),
+                new SequenceRandom(0.25d),
+                new ScriptedPlateAppearanceSimulator(PlateAppearanceResult.Strikeout));
+
+            MatchResult result = simulator.Simulate(input);
+
+            Assert.That(result.IsTie, Is.False);
+            Assert.That(
+                new[] { source.AwayTeam.TeamId, source.HomeTeam.TeamId },
+                Does.Contain(result.WinnerTeamId));
+        }
+
+        [Test]
+        public void Simulate_수비이닝과실제수비기회를BoxScore에남긴다()
+        {
+            MatchInput input = CreateInput();
+            MatchResult result = new MatchSimulator(
+                    BalanceTable.CreateDefault(),
+                    new Pcg32Random(input.RandomSeed))
+                .Simulate(input);
+
+            Assert.That(result.AwayBoxScore.FieldingLines.Count, Is.EqualTo(9));
+            Assert.That(result.HomeBoxScore.FieldingLines.Count, Is.EqualTo(9));
+            Assert.That(result.AwayBoxScore.FieldingLines.Sum(line => line.DefensiveOuts), Is.GreaterThan(0));
+            Assert.That(result.HomeBoxScore.FieldingLines.Sum(line => line.Opportunities), Is.GreaterThan(0));
+        }
+
         private static MatchInput CreateInput()
         {
             Team away = SimulationTestFactory.CreateTeam(1, 50, 50);
