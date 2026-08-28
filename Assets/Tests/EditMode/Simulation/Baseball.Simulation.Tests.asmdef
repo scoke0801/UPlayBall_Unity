@@ -1,0 +1,15 @@
+{
+  "name": "Baseball.Simulation.Tests",
+  "rootNamespace": "Baseball.Tests.EditMode.Simulation",
+  "references": [
+    "Baseball.Core",
+    "Baseball.Simulation"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}

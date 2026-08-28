@@ -1,4 +1,6 @@
 using Baseball.Game.Input;
+using Baseball.Game.Career;
+using Baseball.Game.SceneFlow;
 using UnityEngine;
 
 namespace Baseball.Game.Manager
@@ -13,6 +15,9 @@ namespace Baseball.Game.Manager
         {
             GameManager gameManager = GameManager.EnsureExists();
             gameManager.EnsureManager<InputManager>("InputManager");
+            gameManager.EnsureManager<CareerManager>("CareerManager");
+            gameManager.EnsureManager<NewGameManager>("NewGameManager");
+            gameManager.EnsureManager<SceneLoadManager>("SceneLoadManager");
         }
     }
 }

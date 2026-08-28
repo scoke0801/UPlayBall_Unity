@@ -1,0 +1,188 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2fbd8cf90e688ac47a483da18f6aceb0, type: 3}
+  m_Name: NewGameDefinition
+  m_EditorClassIdentifier: Baseball.Game::Baseball.Game.Data.NewGameDefinition
+  _teamCount: 8
+  _firstSeasonYear: 2028
+  _startingAge: 18
+  _teamIdentities:
+  - _name: "\uC11C\uC6B8 \uBE14\uB8E8\uC719\uC2A4"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4291979565
+  - _name: "\uBD80\uC0B0 \uB9C8\uB9AC\uB108\uC2A4"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4287257625
+  - _name: "\uC778\uCC9C \uC6E8\uC774\uBE0C"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4289240096
+  - _name: "\uAD11\uC8FC \uB808\uB4DC\uD3ED\uC2A4"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4282859210
+  - _name: "\uC218\uC6D0 \uC2A4\uD0C0\uC988"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4289418097
+  - _name: "\uB300\uC804 \uD638\uD06C\uC2A4"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4281306080
+  - _name: "\uB300\uAD6C \uD06C\uB77C\uC6B4"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4281640643
+  - _name: "\uCC3D\uC6D0 \uBE14\uB808\uC774\uC988"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4281027800
+  - _name: "\uC6B8\uC0B0 \uAC00\uB514\uC5B8\uC988"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4284056884
+  - _name: "\uC804\uC8FC \uD314\uCF58\uC2A4"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4287264615
+  - _name: "\uC81C\uC8FC \uB3CC\uD540\uC2A4"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4291144486
+  - _name: "\uCD98\uCC9C \uC2A4\uD1B0"
+    _primaryColor:
+      serializedVersion: 2
+      rgba: 4287720544
+  _archetypes:
+  - _archetype: 0
+    _budget: 45
+    _development: 85
+    _rosterDepth: 40
+    _scouting: 70
+  - _archetype: 1
+    _budget: 85
+    _development: 55
+    _rosterDepth: 80
+    _scouting: 60
+  - _archetype: 2
+    _budget: 60
+    _development: 65
+    _rosterDepth: 55
+    _scouting: 55
+  - _archetype: 3
+    _budget: 60
+    _development: 65
+    _rosterDepth: 55
+    _scouting: 55
+  - _archetype: 4
+    _budget: 30
+    _development: 45
+    _rosterDepth: 35
+    _scouting: 40
+  _playerNamePool:
+  - "\uAE40\uB3C4\uC724"
+  - "\uC774\uC900\uC11C"
+  - "\uBC15\uC2DC\uC6B0"
+  - "\uCD5C\uBBFC\uC7AC"
+  - "\uC815\uC6B0\uC9C4"
+  - "\uAC15\uD604\uC6B0"
+  - "\uC870\uC131\uBBFC"
+  - "\uC724\uD0DC\uD638"
+  - "\uC7A5\uBBFC\uC900"
+  - "\uC784\uC7AC\uD604"
+  - "\uD55C\uC2B9\uC6B0"
+  - "\uC624\uC9C0\uD6C8"
+  - "\uC11C\uB3D9\uD604"
+  - "\uC2E0\uC608\uC900"
+  - "\uAD8C\uBBFC\uC131"
+  - "\uD669\uC900\uD601"
+  - "\uC548\uC9C0\uD658"
+  - "\uC1A1\uC7AC\uC6D0"
+  - "\uC804\uC131\uD6C8"
+  - "\uD64D\uBBFC\uAE30"
+  - "\uC720\uAC74\uC6B0"
+  - "\uACE0\uC740\uCC2C"
+  - "\uBB38\uD0DC\uC724"
+  - "\uC591\uC2DC\uD604"
+  - "\uBC30\uC900\uC601"
+  - "\uBC31\uC2B9\uD604"
+  - "\uD5C8\uB3C4\uD604"
+  - "\uB0A8\uC2DC\uC6B0"
+  - "\uC2EC\uAC74\uD638"
+  - "\uB178\uC7AC\uBBFC"
+  - "\uD558\uC724\uC131"
+  - "\uACFD\uC900\uD638"
+  _baseAttributeValue: 40
+  _bonusPoints: 72
+  _maximumAttributeValue: 65
+  _offerScoreThreshold: 1
+  _scoutVarianceMinimum: 0.85
+  _scoutVarianceMaximum: 1.15
+  _preferredPositionBonus: 0.15
+  _baseSigningBonus: 20000000
+  _baseAnnualSalary: 30000000
+  _minimumOfferCount: 3
+  _maximumOfferCount: 5
+  _startingCompetitionNeed: 55
+  _rosterCompetitionNeed: 40
+  _ratingBaseline: 50
+  _contractYears: 3
+  _archetypeVariation: 8
+  _positionNeedBase: 70
+  _rosterDepthNeedWeight: 0.5
+  _positionNeedVariance: 30
+  _minimumPositionNeed: 5
+  _maximumPositionNeed: 95
+  _competitorsPerPosition: 2
+  _competitorOverallBase: 70
+  _positionNeedCompetitorWeight: 0.22
+  _competitorOverallVariance: 10
+  _minimumCompetitorOverall: 38
+  _maximumCompetitorOverall: 72
+  _keyAttributeWeight: 2
+  _supportingAttributeWeight: 1.35
+  _generalAttributeWeight: 1
+  _teamPreferenceInfluence: 0.15
+  _regularSeasonGamesPerTeam: 80
+  _startingRotationSize: 5
+  _reliefStartInning: 7
+  _managerDecisionVariance: 7
+  _startingCompetitionBonus: 9
+  _rosterCompetitionBonus: 4
+  _benchCompetitionBonus: -1
+  _reliefOpportunityMargin: 4
+  _startingCompetitionEvaluationInterval: 1
+  _rosterCompetitionEvaluationInterval: 2
+  _benchCompetitionEvaluationInterval: 3
+  _evaluationOpportunityMinimumCondition: 70
+  _initialCondition: 90
+  _initialManagerEvaluation: 50
+  _playingConditionCost: 2
+  _restingConditionRecovery: 1
+  _minimumCondition: 55
+  _maximumManagerEvaluationChange: 3
+  _conditionDecisionWeight: 0.12
+  _managerEvaluationDecisionWeight: 0.1
+  _productiveBattingHits: 2
+  _excellentBattingHits: 3
+  _poorBattingAtBats: 4
+  _qualityPitchingMaximumEarnedRuns: 1
+  _poorPitchingMinimumEarnedRuns: 4
+  _positiveEvaluationChange: 1
+  _excellentEvaluationChange: 2
+  _poorEvaluationChange: -1
+  _veryPoorEvaluationChange: -2
+  _seasonOpeningMonth: 4
+  _seasonOpeningDay: 1
+  _gamesBetweenRestDays: 6

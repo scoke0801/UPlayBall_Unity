@@ -2,7 +2,9 @@
   "name": "Baseball.Game.Tests",
   "rootNamespace": "Baseball.Tests.EditMode.Game",
   "references": [
-    "Baseball.Game"
+    "Baseball.Core",
+    "Baseball.Game",
+    "Baseball.Simulation"
   ],
   "includePlatforms": [
     "Editor"

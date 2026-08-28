@@ -1,0 +1,8 @@
+# 지침 목차
+
+이 폴더는 `BaseballManager_PROJECT.md`(기획 문서)에서 분리한 **개발/작업 지침**과, UI 제작 전용 지침을 모아둔다. 기획·게임 시스템 세부 내용은 계속 `BaseballManager_PROJECT.md`가 기준 문서다.
+
+- [Simulation_Architecture_Guidelines_UPlayBall.md](Simulation_Architecture_Guidelines_UPlayBall.md) — 어셈블리 레이어 분리, 시뮬레이션/표현 분리, 결정론적 시뮬레이션
+- [Balance_Testing_Guidelines_UPlayBall.md](Balance_Testing_Guidelines_UPlayBall.md) — 대량 시뮬레이션 밸런스 테스트 도구 지침
+- [Project_Principles_UPlayBall.md](Project_Principles_UPlayBall.md) — 프로젝트 7대 원칙
+- [Unity_UI_Production_Guidelines_UPlayBall.md](Unity_UI_Production_Guidelines_UPlayBall.md) — Unity UI 제작 지침

@@ -520,7 +520,6 @@ $RECYCLE.BIN/
 **/com.rlabrecque.steamworks.net
 steam_appid.txt
 
-Assets/01.Scenes/
 Packages/
 Assets/02.Scripts/.claude/settings.local.json
 Assets/Resources/PerformanceTestRunInfo.json

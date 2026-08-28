@@ -1,0 +1,457 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using Baseball.Core.Players;
+using Baseball.Core.Teams;
+using Baseball.Game.Data;
+using Baseball.Game.Manager;
+using Baseball.Simulation.Career;
+
+namespace Baseball.Game.Career
+{
+    /// <summary>
+    /// Presentation이 한 번의 입력으로 적용할 초기 능력치 배분안이다.
+    /// </summary>
+    public readonly struct AttributeAllocationPresetView
+    {
+        private readonly int[] _values;
+
+        public AttributeAllocationPresetView(string label, bool isRecommended, int[] values)
+        {
+            Label = label;
+            IsRecommended = isRecommended;
+            _values = values ?? throw new ArgumentNullException(nameof(values));
+        }
+
+        public string Label { get; }
+        public bool IsRecommended { get; }
+
+        public int GetValue(int index)
+        {
+            if ((uint)index >= (uint)_values.Length)
+                throw new ArgumentOutOfRangeException(nameof(index));
+            return _values[index];
+        }
+    }
+
+    /// <summary>
+    /// Presentation이 Simulation 타입을 직접 참조하지 않고 표시할 계약 오퍼 정보다.
+    /// </summary>
+    public readonly struct ContractOfferView
+    {
+        public ContractOfferView(
+            int teamId,
+            string teamName,
+            TeamColor primaryColor,
+            TeamArchetype archetype,
+            int developmentRating,
+            int positionNeed,
+            long signingBonus,
+            long annualSalary,
+            int contractYears,
+            ExpectedRole expectedRole,
+            double offerScore,
+            string evaluationOpportunitySummary,
+            string competitorSummary,
+            bool isSelected)
+        {
+            TeamId = teamId;
+            TeamName = teamName;
+            PrimaryColor = primaryColor;
+            Archetype = archetype;
+            DevelopmentRating = developmentRating;
+            PositionNeed = positionNeed;
+            SigningBonus = signingBonus;
+            AnnualSalary = annualSalary;
+            ContractYears = contractYears;
+            ExpectedRole = expectedRole;
+            OfferScore = offerScore;
+            EvaluationOpportunitySummary = evaluationOpportunitySummary;
+            CompetitorSummary = competitorSummary;
+            IsSelected = isSelected;
+        }
+
+        public int TeamId { get; }
+        public string TeamName { get; }
+        public TeamColor PrimaryColor { get; }
+        public TeamArchetype Archetype { get; }
+        public int DevelopmentRating { get; }
+        public int PositionNeed { get; }
+        public long SigningBonus { get; }
+        public long AnnualSalary { get; }
+        public int ContractYears { get; }
+        public ExpectedRole ExpectedRole { get; }
+        public double OfferScore { get; }
+        public string EvaluationOpportunitySummary { get; }
+        public string CompetitorSummary { get; }
+        public bool IsSelected { get; }
+    }
+
+    /// <summary>
+    /// 계약 완료 화면과 첫 대시보드에 필요한 커리어 요약이다.
+    /// </summary>
+    public readonly struct CareerSummaryView
+    {
+        public CareerSummaryView(
+            string playerName,
+            string nationality,
+            PlayerPosition position,
+            string teamName,
+            int seasonYear,
+            LeagueLevel leagueLevel,
+            SeasonPhase seasonPhase,
+            long availableMoney,
+            long annualSalary,
+            ExpectedRole expectedRole)
+        {
+            PlayerName = playerName;
+            Nationality = nationality;
+            Position = position;
+            TeamName = teamName;
+            SeasonYear = seasonYear;
+            LeagueLevel = leagueLevel;
+            SeasonPhase = seasonPhase;
+            AvailableMoney = availableMoney;
+            AnnualSalary = annualSalary;
+            ExpectedRole = expectedRole;
+        }
+
+        public string PlayerName { get; }
+        public string Nationality { get; }
+        public PlayerPosition Position { get; }
+        public string TeamName { get; }
+        public int SeasonYear { get; }
+        public LeagueLevel LeagueLevel { get; }
+        public SeasonPhase SeasonPhase { get; }
+        public long AvailableMoney { get; }
+        public long AnnualSalary { get; }
+        public ExpectedRole ExpectedRole { get; }
+    }
+
+    /// <summary>
+    /// 새 게임 상태 머신을 영속 GameRoot에서 소유하고 UI용 읽기 모델을 제공한다.
+    /// </summary>
+    public sealed class NewGameManager : ManagerBehaviour<NewGameManager>
+    {
+        private NewGameConfiguration _configuration;
+        private NewGameFlow _flow;
+        private ContractOfferView[] _offerViews = Array.Empty<ContractOfferView>();
+
+        public override int InitializationOrder => -25;
+        public NewGameStep CurrentStep => _flow?.State.Step ?? NewGameStep.Identity;
+        public string PlayerName => _flow?.State.PlayerName ?? string.Empty;
+        public string Nationality => _flow?.State.Nationality ?? string.Empty;
+        public PlayerType? PlayerType => _flow?.State.PlayerType;
+        public PlayerPosition PrimaryPosition => _flow?.State.PrimaryPosition ?? PlayerPosition.Unknown;
+        public Handedness BattingHand => _flow?.State.BattingHand ?? Handedness.Right;
+        public Handedness ThrowingHand => _flow?.State.ThrowingHand ?? Handedness.Right;
+        public BatterAttributes? BatterAttributes => _flow?.State.BatterAttributes;
+        public PitcherAttributes? PitcherAttributes => _flow?.State.PitcherAttributes;
+        public ulong RandomSeed => _flow?.State.RandomSeed ?? 0UL;
+        public CharacterCreationBalance CharacterCreationBalance => _configuration.Balance.CharacterCreation;
+        public IReadOnlyList<AttributeAllocationPresetView> AttributeAllocationPresets =>
+            CreateAttributeAllocationPresets();
+        public IReadOnlyList<ContractOfferView> Offers => _offerViews;
+        public string BuildWarning => _flow?.BuildWarning ?? string.Empty;
+        public string LastError { get; private set; } = string.Empty;
+        public CareerState CurrentCareer => _flow?.Career;
+        public CareerSummaryView? CareerSummary => BuildCareerSummary();
+
+        public event Action FlowChanged;
+
+        protected override void OnInitialize()
+        {
+            _configuration = NewGameDefinition.LoadConfiguration();
+            RestartNewGame(CreateRuntimeSeed());
+        }
+
+        protected override void OnShutdown()
+        {
+            FlowChanged = null;
+            _offerViews = Array.Empty<ContractOfferView>();
+            _flow = null;
+        }
+
+        /// <summary>
+        /// 테스트·재시작에서 지정한 Seed로 draft를 초기화한다.
+        /// </summary>
+        public void RestartNewGame(ulong randomSeed)
+        {
+            _flow = new NewGameFlow(_configuration, randomSeed);
+            LastError = string.Empty;
+            RebuildOfferViews();
+            FlowChanged?.Invoke();
+        }
+
+        public bool SubmitIdentity(string playerName, string nationality)
+        {
+            return TryAdvance(() => _flow.SubmitIdentity(playerName, nationality));
+        }
+
+        public bool SelectPlayerType(PlayerType playerType)
+        {
+            return TryAdvance(() => _flow.SelectPlayerType(playerType));
+        }
+
+        public bool SelectPosition(PlayerPosition position)
+        {
+            return TryAdvance(() => _flow.SelectPosition(position));
+        }
+
+        public bool SelectHandedness(Handedness battingHand, Handedness throwingHand)
+        {
+            return TryAdvance(() => _flow.SelectHandedness(battingHand, throwingHand));
+        }
+
+        /// <summary>
+        /// 현재 선수 유형에 맞춰 순서가 고정된 능력치 6개를 제출한다.
+        /// </summary>
+        public bool SubmitAttributes(int[] values)
+        {
+            if (values == null || values.Length != CharacterCreationBalance.AttributeCount)
+                return Fail("능력치 6개가 필요합니다.");
+
+            return TryAdvance(() =>
+            {
+                if (_flow.State.PlayerType == Baseball.Core.Players.PlayerType.Batter)
+                {
+                    _flow.SubmitBatterAttributes(new BatterAttributes(
+                        values[0], values[1], values[2], values[3], values[4], values[5]));
+                    return;
+                }
+
+                _flow.SubmitPitcherAttributes(new PitcherAttributes(
+                    values[0], values[1], values[2], values[3], values[4], values[5]));
+            });
+        }
+
+        public bool GenerateOffers()
+        {
+            return TryAdvance(_flow.GenerateOffers);
+        }
+
+        public bool SelectOffer(int teamId)
+        {
+            return TryAdvance(() => _flow.SelectOffer(teamId));
+        }
+
+        public bool SignSelectedOffer()
+        {
+            return TryAdvance(_flow.SignSelectedOffer);
+        }
+
+        public bool StartRookieSeason()
+        {
+            try
+            {
+                _flow.StartRookieSeason();
+                GameManager.EnsureExists()
+                    .EnsureManager<CareerManager>("CareerManager")
+                    .BeginCareer(_flow.Career, _configuration.Balance);
+                LastError = string.Empty;
+                RebuildOfferViews();
+                FlowChanged?.Invoke();
+                return true;
+            }
+            catch (ArgumentException exception)
+            {
+                return Fail(exception.Message);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
+        public bool GoBack()
+        {
+            if (!_flow.GoBack())
+                return false;
+
+            LastError = string.Empty;
+            RebuildOfferViews();
+            FlowChanged?.Invoke();
+            return true;
+        }
+
+        private bool TryAdvance(Action action)
+        {
+            try
+            {
+                action();
+                LastError = string.Empty;
+                RebuildOfferViews();
+                FlowChanged?.Invoke();
+                return true;
+            }
+            catch (ArgumentException exception)
+            {
+                return Fail(exception.Message);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
+        private AttributeAllocationPresetView[] CreateAttributeAllocationPresets()
+        {
+            CharacterCreationBalance balance = CharacterCreationBalance;
+            if (PlayerType == Baseball.Core.Players.PlayerType.Pitcher)
+            {
+                return new[]
+                {
+                    CreatePreset("균형형", false, balance, 1, 1, 1, 1, 1, 1),
+                    CreatePreset("선발형", PrimaryPosition == PlayerPosition.StartingPitcher,
+                        balance, 5, 2, 2, 2, 4, 3),
+                    CreatePreset("강속구형", PrimaryPosition == PlayerPosition.ReliefPitcher,
+                        balance, 1, 5, 5, 2, 1, 2),
+                    CreatePreset("변화구형", false, balance, 2, 2, 3, 5, 3, 2),
+                    CreatePreset("제구형", false, balance, 3, 1, 2, 3, 5, 4)
+                };
+            }
+
+            return new[]
+            {
+                CreatePreset("균형형", false, balance, 1, 1, 1, 1, 1, 1),
+                CreatePreset("교타형", false, balance, 5, 2, 3, 1, 2, 3),
+                CreatePreset("장타형", IsPowerPosition(PrimaryPosition), balance, 3, 5, 1, 1, 1, 2),
+                CreatePreset("준족형", PrimaryPosition == PlayerPosition.CenterField,
+                    balance, 3, 1, 5, 2, 3, 2),
+                CreatePreset("수비형", IsDefensePosition(PrimaryPosition), balance, 2, 1, 3, 2, 5, 3)
+            };
+        }
+
+        private static AttributeAllocationPresetView CreatePreset(
+            string label,
+            bool isRecommended,
+            CharacterCreationBalance balance,
+            params int[] weights)
+        {
+            return new AttributeAllocationPresetView(
+                label,
+                isRecommended,
+                AttributeAllocation.CreateWeightedValues(balance, weights));
+        }
+
+        private static bool IsPowerPosition(PlayerPosition position)
+        {
+            return position is PlayerPosition.FirstBase or PlayerPosition.ThirdBase or
+                PlayerPosition.LeftField or PlayerPosition.RightField or PlayerPosition.DesignatedHitter;
+        }
+
+        private static bool IsDefensePosition(PlayerPosition position)
+        {
+            return position is PlayerPosition.Catcher or PlayerPosition.SecondBase or PlayerPosition.Shortstop;
+        }
+
+        private bool Fail(string message)
+        {
+            LastError = message;
+            FlowChanged?.Invoke();
+            return false;
+        }
+
+        private void RebuildOfferViews()
+        {
+            NewGameSetupResult result = _flow?.State.SetupResult;
+            if (result == null)
+            {
+                _offerViews = Array.Empty<ContractOfferView>();
+                return;
+            }
+
+            ContractOffer? selected = _flow.State.SelectedOffer;
+            _offerViews = new ContractOfferView[result.Offers.Length];
+            for (int index = 0; index < result.Offers.Length; index++)
+            {
+                ContractOffer offer = result.Offers[index];
+                IReadOnlyList<RosterCompetitor> competitors = offer.Team.GetPositionCompetitors(
+                    _flow.State.PrimaryPosition);
+                _offerViews[index] = new ContractOfferView(
+                    offer.Team.TeamId,
+                    offer.Team.Name,
+                    offer.Team.PrimaryColor,
+                    offer.Team.Archetype.Archetype,
+                    offer.Team.Archetype.Development,
+                    offer.Team.GetPositionNeed(_flow.State.PrimaryPosition),
+                    offer.SigningBonus,
+                    offer.AnnualSalary,
+                    offer.ContractYears,
+                    offer.ExpectedRole,
+                    offer.OfferScore,
+                    BuildEvaluationOpportunitySummary(offer.ExpectedRole),
+                    BuildCompetitorSummary(competitors),
+                    selected.HasValue && selected.Value.Team.TeamId == offer.Team.TeamId);
+            }
+        }
+
+        private CareerSummaryView? BuildCareerSummary()
+        {
+            CareerState career = _flow?.Career;
+            if (career == null)
+                return null;
+
+            string teamName = string.Empty;
+            for (int index = 0; index < career.League.Teams.Count; index++)
+            {
+                TeamState team = career.League.Teams[index];
+                if (team.TeamId == career.MyPlayer.CurrentTeamId)
+                {
+                    teamName = team.Name;
+                    break;
+                }
+            }
+
+            SeasonState season = career.League.CurrentSeason;
+            return new CareerSummaryView(
+                career.MyPlayer.Name,
+                career.MyPlayer.Nationality,
+                career.MyPlayer.PrimaryPosition,
+                teamName,
+                season.Year,
+                season.LeagueLevel,
+                season.Phase,
+                career.AvailableMoney,
+                career.CurrentContract.AnnualSalary,
+                career.CurrentContract.ExpectedRole);
+        }
+
+        private static string BuildCompetitorSummary(IReadOnlyList<RosterCompetitor> competitors)
+        {
+            if (competitors == null || competitors.Count == 0)
+                return "동일 포지션 경쟁자 없음";
+
+            var builder = new StringBuilder(64);
+            for (int index = 0; index < competitors.Count; index++)
+            {
+                if (index > 0)
+                    builder.Append(" · ");
+                builder.Append(competitors[index].Name);
+                builder.Append(" OVR ");
+                builder.Append(competitors[index].Overall);
+            }
+
+            return builder.ToString();
+        }
+
+        private string BuildEvaluationOpportunitySummary(ExpectedRole expectedRole)
+        {
+            var balance = _configuration.Balance.CareerSeason;
+            int interval = expectedRole switch
+            {
+                ExpectedRole.StartingCompetition => balance.StartingCompetitionEvaluationInterval,
+                ExpectedRole.RosterCompetition => balance.RosterCompetitionEvaluationInterval,
+                _ => balance.BenchCompetitionEvaluationInterval
+            };
+            int gameInterval = interval * balance.StartingRotationSize;
+            return $"컨디션 {balance.EvaluationOpportunityMinimumCondition}+ · 약 {gameInterval}경기마다 평가";
+        }
+
+        private static ulong CreateRuntimeSeed()
+        {
+            // 시스템 시간은 Seed를 고르는 Game 레이어 경계에서만 사용하며, 선택된 값은 즉시 상태에 저장한다.
+            return unchecked((ulong)DateTime.UtcNow.Ticks);
+        }
+    }
+}

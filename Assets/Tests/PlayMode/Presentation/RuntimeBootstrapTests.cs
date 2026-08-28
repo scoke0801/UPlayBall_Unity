@@ -1,6 +1,8 @@
 using System.Collections;
 using Baseball.Game.Input;
+using Baseball.Game.Career;
 using Baseball.Game.Manager;
+using Baseball.Game.SceneFlow;
 using Baseball.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -24,6 +26,17 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(InputManager.Instance, Is.Not.Null);
             Assert.That(InputManager.Instance.IsInitialized, Is.True);
             Assert.That(InputManager.Instance.Actions, Is.Not.Null);
+
+            Assert.That(SceneLoadManager.Instance, Is.Not.Null);
+            Assert.That(SceneLoadManager.Instance.IsInitialized, Is.True);
+
+            Assert.That(NewGameManager.Instance, Is.Not.Null);
+            Assert.That(NewGameManager.Instance.IsInitialized, Is.True);
+            Assert.That(NewGameManager.Instance.CurrentStep, Is.EqualTo(NewGameStep.Identity));
+
+            Assert.That(CareerManager.Instance, Is.Not.Null);
+            Assert.That(CareerManager.Instance.IsInitialized, Is.True);
+            Assert.That(CareerManager.Instance.HasActiveCareer, Is.False);
 
             Assert.That(UIManager.Instance, Is.Not.Null);
             Assert.That(UIManager.Instance.IsInitialized, Is.True);

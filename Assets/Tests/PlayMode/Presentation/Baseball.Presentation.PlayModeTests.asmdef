@@ -2,6 +2,7 @@
   "name": "Baseball.Presentation.PlayModeTests",
   "rootNamespace": "Baseball.Tests.PlayMode.Presentation",
   "references": [
+    "Baseball.Core",
     "Baseball.Game",
     "Baseball.Presentation",
     "Unity.InputSystem"
