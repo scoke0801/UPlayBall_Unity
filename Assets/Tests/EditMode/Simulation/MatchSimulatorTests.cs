@@ -1,5 +1,6 @@
 using System.Linq;
 using Baseball.Core.Balance;
+using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.PlateAppearance;
@@ -185,6 +186,52 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(result.HomeBoxScore.FieldingLines.Sum(line => line.Opportunities), Is.GreaterThan(0));
         }
 
+        [Test]
+        public void SimulateUntilDecision_벤치선수가대타출전하면교체이벤트후입력을기다린다()
+        {
+            Team source = SimulationTestFactory.CreateTeam(1, 50, 50);
+            LineupSlot targetSlot = source.Lineup[0];
+            var substitute = new Player(
+                999,
+                "테스트 대타",
+                targetSlot.FieldingPosition,
+                Handedness.Left,
+                Handedness.Right,
+                new BatterAttributes(55, 50, 52, 40, 50, 50),
+                new PitcherAttributes(20, 20, 20, 20, 20, 20));
+            var substitution = new PositionPlayerSubstitutionPlan(
+                substitute,
+                battingOrderIndex: 0,
+                earliestInning: 1,
+                maximumScoreDifference: 99);
+            var away = new Team(
+                source.TeamId,
+                source.Name,
+                source.Lineup,
+                source.StartingPitcher,
+                source.ReliefPitcher,
+                source.ReliefStartInning,
+                substitution);
+            Team home = SimulationTestFactory.CreateTeam(2, 50, 50);
+            var input = new MatchInput(1, 1, 778899UL, away, home);
+            var simulator = new MatchSimulator(
+                BalanceTable.CreateDefault(),
+                new SequenceRandom(0.5d),
+                new WaitingDecisionSource(substitute.PlayerId));
+
+            MatchSimulationProgress progress = simulator.SimulateUntilDecision(input);
+
+            Assert.That(progress.IsComplete, Is.False);
+            Assert.That(progress.PendingDecision.HasValue, Is.True);
+            Assert.That(progress.PendingDecision.Value.BatterId, Is.EqualTo(substitute.PlayerId));
+            Assert.That(
+                progress.Events.Any(matchEvent =>
+                    matchEvent.EventType == MatchEventType.PlayerSubstitution &&
+                    matchEvent.BatterId == substitute.PlayerId &&
+                    matchEvent.PlayerId == targetSlot.Player.PlayerId),
+                Is.True);
+        }
+
         private static MatchInput CreateInput()
         {
             Team away = SimulationTestFactory.CreateTeam(1, 50, 50);
@@ -214,6 +261,29 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(playerRuns, Is.EqualTo(boxScore.Runs));
             Assert.That(playerHits, Is.EqualTo(boxScore.Hits));
             Assert.That(inningRuns, Is.EqualTo(boxScore.Runs));
+        }
+
+        private sealed class WaitingDecisionSource : IMatchDecisionSource
+        {
+            private readonly int _controlledPlayerId;
+
+            public WaitingDecisionSource(int controlledPlayerId)
+            {
+                _controlledPlayerId = controlledPlayerId;
+            }
+
+            public bool RequiresBattingDecision(int batterId)
+            {
+                return batterId == _controlledPlayerId;
+            }
+
+            public bool TryGetBattingApproach(
+                in MatchDecisionRequest request,
+                out BattingApproach approach)
+            {
+                approach = BattingApproach.Balanced;
+                return false;
+            }
         }
     }
 }

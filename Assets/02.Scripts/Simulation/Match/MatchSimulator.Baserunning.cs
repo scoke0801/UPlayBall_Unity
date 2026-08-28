@@ -66,7 +66,7 @@ namespace Baseball.Simulation.Match
                 }
             }
 
-            BaseRunner batterRunner = new BaseRunner(batter.Player, batter.BattingOrderIndex);
+            BaseRunner batterRunner = new BaseRunner(batter.Player, batter.BattingLineIndex);
             MoveRunner(state, inning, half, defense, batter.Player.PlayerId, batterRunner, 0, 1, outs);
             bases.First = batterRunner;
             return runs;
@@ -122,7 +122,7 @@ namespace Baseball.Simulation.Match
                 }
             }
 
-            BaseRunner batterRunner = new BaseRunner(batter.Player, batter.BattingOrderIndex);
+            BaseRunner batterRunner = new BaseRunner(batter.Player, batter.BattingLineIndex);
             MoveRunner(state, inning, half, defense, batter.Player.PlayerId, batterRunner, 0, 2, outs);
             bases.Second = batterRunner;
             return runs;
@@ -148,7 +148,7 @@ namespace Baseball.Simulation.Match
                 bases,
                 outs,
                 stopOnWalkOff: true);
-            BaseRunner batterRunner = new BaseRunner(batter.Player, batter.BattingOrderIndex);
+            BaseRunner batterRunner = new BaseRunner(batter.Player, batter.BattingLineIndex);
             MoveRunner(state, inning, half, defense, batter.Player.PlayerId, batterRunner, 0, 3, outs);
             bases.Third = batterRunner;
             return runs;
@@ -174,7 +174,7 @@ namespace Baseball.Simulation.Match
                 bases,
                 outs,
                 stopOnWalkOff: false);
-            var batterRunner = new BaseRunner(batter.Player, batter.BattingOrderIndex);
+            var batterRunner = new BaseRunner(batter.Player, batter.BattingLineIndex);
             ScoreRunner(state, inning, half, offense, defense, batter.Player.PlayerId, batterRunner, 0, outs);
             return runs + 1;
         }
@@ -241,7 +241,7 @@ namespace Baseball.Simulation.Match
             int outsBeforePlay = outs;
             if (bases.First.IsOccupied && outsBeforePlay <= 1 && IsDoublePlay(defense, bases.First))
             {
-                offense.BoxScore.BattingLines[batter.BattingOrderIndex].GroundedIntoDoublePlays++;
+                offense.BoxScore.BattingLines[batter.BattingLineIndex].GroundedIntoDoublePlays++;
                 BaseRunner forcedRunner = bases.First;
                 bases.First = default;
                 RecordOut(state, inning, half, defense, forcedRunner.Player.PlayerId, PlateAppearanceResult.GroundOut, ref outs);
@@ -341,7 +341,7 @@ namespace Baseball.Simulation.Match
         {
             outs++;
             defense.ActivePitchingLine.OutsRecorded++;
-            defense.BoxScore.RecordDefensiveOut(defense.ActivePitcher.PlayerId);
+            defense.RecordDefensiveOut();
             Emit(
                 state,
                 MatchEventType.Out,
@@ -371,7 +371,7 @@ namespace Baseball.Simulation.Match
             int outs)
         {
             offense.BoxScore.AddRun(inning);
-            offense.BoxScore.BattingLines[runner.BattingOrderIndex].Runs++;
+            offense.BoxScore.BattingLines[runner.BattingLineIndex].Runs++;
             defense.ActivePitchingLine.RunsAllowed++;
             defense.ActivePitchingLine.EarnedRuns++;
 

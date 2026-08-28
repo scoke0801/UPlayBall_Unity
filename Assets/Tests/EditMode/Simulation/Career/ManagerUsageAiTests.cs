@@ -89,6 +89,46 @@ namespace Baseball.Tests.EditMode.Simulation.Career
         }
 
         [Test]
+        public void DecideRole_SP로테이션차례가아니면투수휴식을반환한다()
+        {
+            Player pitcher = CreatePlayer(PlayerPosition.StartingPitcher, 90);
+            var ai = new ManagerUsageAi(
+                CareerSeasonBalance.CreateDefault(),
+                PlayerEvaluationBalance.CreateDefault());
+
+            PlayerGameRole role = ai.DecideRole(
+                pitcher,
+                ExpectedRole.StartingCompetition,
+                strongestCompetitorOverall: 20,
+                condition: 90,
+                managerEvaluation: 90,
+                teamGameNumber: 1,
+                new Pcg32Random(1UL));
+
+            Assert.That(role, Is.EqualTo(PlayerGameRole.PitcherRest));
+        }
+
+        [Test]
+        public void DecideRole_RP등판계획이없으면투수휴식을반환한다()
+        {
+            Player pitcher = CreatePlayer(PlayerPosition.ReliefPitcher, 20);
+            var ai = new ManagerUsageAi(
+                CareerSeasonBalance.CreateDefault(),
+                PlayerEvaluationBalance.CreateDefault());
+
+            PlayerGameRole role = ai.DecideRole(
+                pitcher,
+                ExpectedRole.BenchCompetition,
+                strongestCompetitorOverall: 100,
+                condition: 69,
+                managerEvaluation: 50,
+                teamGameNumber: 1,
+                new Pcg32Random(1UL));
+
+            Assert.That(role, Is.EqualTo(PlayerGameRole.PitcherRest));
+        }
+
+        [Test]
         public void DecideRole_평가기회라도낮은컨디션이면강행하지않는다()
         {
             Player player = CreatePlayer(PlayerPosition.Shortstop, 20);

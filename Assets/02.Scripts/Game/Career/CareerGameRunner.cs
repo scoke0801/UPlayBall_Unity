@@ -87,8 +87,8 @@ namespace Baseball.Game.Career
             if (game == null)
                 throw new ArgumentNullException(nameof(game));
 
-            Team awayTeam = BuildMatchTeam(game.AwayTeamId, game.Round, playerRole);
-            Team homeTeam = BuildMatchTeam(game.HomeTeamId, game.Round, playerRole);
+            Team awayTeam = BuildMatchTeam(game.AwayTeamId, game.Round, playerRole, game.RandomSeed);
+            Team homeTeam = BuildMatchTeam(game.HomeTeamId, game.Round, playerRole, game.RandomSeed);
             return new MatchInput(
                 seasonId,
                 game.GameId,
@@ -126,7 +126,7 @@ namespace Baseball.Game.Career
             int outsRecorded = pitchingLine?.OutsRecorded ?? 0;
             int earnedRuns = pitchingLine?.EarnedRuns ?? 0;
             int strikeouts = pitchingLine?.Strikeouts ?? battingLine?.Strikeouts ?? 0;
-            bool didAppear = battingLine != null || pitchingLine != null;
+            bool didAppear = battingLine?.PlateAppearances > 0 || pitchingLine?.BattersFaced > 0;
             ApplyPlayerFeedback(didAppear, battingLine, pitchingLine);
 
             statistics.AddGameLog(new PlayerGameLogState(
@@ -161,7 +161,7 @@ namespace Baseball.Game.Career
                 strikeouts);
         }
 
-        private Team BuildMatchTeam(int teamId, int round, PlayerGameRole playerRole)
+        private Team BuildMatchTeam(int teamId, int round, PlayerGameRole playerRole, ulong gameSeed)
         {
             TeamState team = GetTeam(teamId);
             bool isPlayerTeam = teamId == _career.MyPlayer.CurrentTeamId;
@@ -184,13 +184,42 @@ namespace Baseball.Game.Career
             Player reliefPitcher = isPlayerTeam && playerRole == PlayerGameRole.ReliefPitcher
                 ? myPlayer
                 : CreateRosterPlayer(team.GetCompetitor(PlayerPosition.ReliefPitcher, (round + 1) % 2));
+            PositionPlayerSubstitutionPlan substitution = isPlayerTeam
+                ? CreateBenchSubstitutionPlan(myPlayer, playerRole, gameSeed)
+                : null;
             return new Team(
                 team.TeamId,
                 team.Name,
                 new Lineup(slots),
                 startingPitcher,
                 reliefPitcher,
-                _balance.CareerSeason.ReliefStartInning);
+                _balance.CareerSeason.ReliefStartInning,
+                substitution);
+        }
+
+        private PositionPlayerSubstitutionPlan CreateBenchSubstitutionPlan(
+            Player player,
+            PlayerGameRole playerRole,
+            ulong gameSeed)
+        {
+            if (playerRole != PlayerGameRole.Bench ||
+                player.PrimaryPosition < PlayerPosition.Catcher ||
+                player.PrimaryPosition > PlayerPosition.DesignatedHitter)
+            {
+                return null;
+            }
+
+            ulong decisionSeed = DeterministicSeed.Derive(gameSeed, unchecked((ulong)player.PlayerId) ^ 0x50484D47UL);
+            var random = new Pcg32Random(decisionSeed);
+            CareerSeasonBalance balance = _balance.CareerSeason;
+            if (random.NextDouble() >= balance.BenchSubstitutionOpportunityProbability)
+                return null;
+
+            return new PositionPlayerSubstitutionPlan(
+                player,
+                (int)player.PrimaryPosition - 1,
+                balance.BenchSubstitutionEarliestInning,
+                balance.BenchSubstitutionMaximumScoreDifference);
         }
 
         private static Player CreateRosterPlayer(RosterCompetitorState competitor)

@@ -172,8 +172,11 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetRoleLabel(PlayerGameRole role)
+        private static string GetRoleLabel(PlayerGameRole role, PlayerPosition position)
         {
+            if (CareerGameRoleFormatter.IsPitcherRest(role, position))
+                return CareerGameRoleFormatter.GetPitcherRestLabel(position);
+
             return role switch
             {
                 PlayerGameRole.StartingBatter => "선발 타자",

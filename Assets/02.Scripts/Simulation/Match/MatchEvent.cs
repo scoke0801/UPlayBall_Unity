@@ -25,7 +25,8 @@ namespace Baseball.Simulation.Match
         Out = 5,
         PlateAppearanceEnded = 6,
         HalfInningEnded = 7,
-        MatchEnded = 8
+        MatchEnded = 8,
+        PlayerSubstitution = 9
     }
 
     /// <summary>

@@ -16,7 +16,7 @@ namespace Baseball.Simulation.Match
             BaseState bases,
             ref int outs)
         {
-            PlayerBattingLine battingLine = offense.BoxScore.BattingLines[batter.BattingOrderIndex];
+            PlayerBattingLine battingLine = offense.BoxScore.BattingLines[batter.BattingLineIndex];
             PlayerPitchingLine pitchingLine = defense.ActivePitchingLine;
             battingLine.PlateAppearances++;
             pitchingLine.BattersFaced++;
@@ -125,7 +125,7 @@ namespace Baseball.Simulation.Match
                 bases.Second = bases.First;
             }
 
-            BaseRunner batterRunner = new BaseRunner(batter.Player, batter.BattingOrderIndex);
+            BaseRunner batterRunner = new BaseRunner(batter.Player, batter.BattingLineIndex);
             MoveRunner(state, inning, half, defense, batter.Player.PlayerId, batterRunner, 0, 1, outs);
             bases.First = batterRunner;
             return runs;
@@ -141,7 +141,7 @@ namespace Baseball.Simulation.Match
             PlateAppearanceResult result,
             int outs)
         {
-            PlayerBattingLine battingLine = offense.BoxScore.BattingLines[batter.BattingOrderIndex];
+            PlayerBattingLine battingLine = offense.BoxScore.BattingLines[batter.BattingLineIndex];
             battingLine.Hits++;
             offense.BoxScore.Hits++;
             defense.ActivePitchingLine.HitsAllowed++;

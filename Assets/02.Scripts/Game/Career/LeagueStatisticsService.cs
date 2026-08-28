@@ -124,6 +124,8 @@ namespace Baseball.Game.Career
                 target.Add(player);
             }
 
+            AppendPositionPlayerSubstitute(target, team, box);
+
             for (int index = 0; index < box.PitchingLines.Count; index++)
             {
                 PlayerPitchingLine line = box.PitchingLines[index];
@@ -150,6 +152,46 @@ namespace Baseball.Game.Career
                 player.FieldingLine = FindFieldingLine(box, player.PlayerId);
                 target.Add(player);
             }
+        }
+
+        private static void AppendPositionPlayerSubstitute(
+            List<PlayerGameStatistics> target,
+            Team team,
+            TeamBoxScore box)
+        {
+            PositionPlayerSubstitutionPlan substitution = team.PositionPlayerSubstitution;
+            if (substitution == null)
+                return;
+
+            PlayerBattingLine line = box.BattingLines[team.Lineup.Count];
+            PlayerFieldingLine fieldingLine = FindFieldingLine(box, line.PlayerId);
+            bool didAppear = line.PlateAppearances > 0 || fieldingLine?.DefensiveOuts > 0;
+            if (!didAppear)
+                return;
+
+            var player = new PlayerGameStatistics(
+                line.PlayerId,
+                substitution.Player.Name,
+                team.TeamId,
+                substitution.Player.PrimaryPosition)
+            {
+                HasBattingLine = line.PlateAppearances > 0,
+                StartedBatting = false,
+                PlateAppearances = line.PlateAppearances,
+                AtBats = line.AtBats,
+                Runs = line.Runs,
+                Hits = line.Hits,
+                Doubles = line.Doubles,
+                Triples = line.Triples,
+                HomeRuns = line.HomeRuns,
+                RunsBattedIn = line.RunsBattedIn,
+                Walks = line.Walks,
+                BattingStrikeouts = line.Strikeouts,
+                SacrificeFlies = line.SacrificeFlies,
+                GroundedIntoDoublePlays = line.GroundedIntoDoublePlays,
+                FieldingLine = fieldingLine
+            };
+            target.Add(player);
         }
 
         private static PlayerFieldingLine FindFieldingLine(TeamBoxScore box, int playerId)

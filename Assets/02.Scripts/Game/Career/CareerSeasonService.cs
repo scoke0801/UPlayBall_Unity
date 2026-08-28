@@ -109,6 +109,7 @@ namespace Baseball.Game.Career
                 GetGameDate(season.Year, game.Round),
                 _career.MyPlayer.PlayerId,
                 game.PlannedPlayerRole,
+                CompetitionScope.RegularSeason,
                 _balance,
                 _career.MyPlayer.Condition,
                 _career.MyPlayer.ManagerEvaluation);

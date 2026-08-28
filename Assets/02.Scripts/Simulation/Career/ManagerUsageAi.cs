@@ -87,7 +87,7 @@ namespace Baseball.Simulation.Career
                        (isEvaluationOpportunity ||
                         decisionScore >= strongestCompetitorOverall - _balance.ReliefOpportunityMargin)
                     ? PlayerGameRole.StartingPitcher
-                    : PlayerGameRole.Bench;
+                    : PlayerGameRole.PitcherRest;
             }
 
             if (player.PrimaryPosition == PlayerPosition.ReliefPitcher)
@@ -95,7 +95,7 @@ namespace Baseball.Simulation.Career
                 return isEvaluationOpportunity ||
                        decisionScore >= strongestCompetitorOverall - _balance.ReliefOpportunityMargin
                     ? PlayerGameRole.ReliefPitcher
-                    : PlayerGameRole.Bench;
+                    : PlayerGameRole.PitcherRest;
             }
 
             return isEvaluationOpportunity || decisionScore >= strongestCompetitorOverall

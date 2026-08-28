@@ -16,6 +16,9 @@ namespace Baseball.Core.Balance
             int rosterCompetitionBonus,
             int benchCompetitionBonus,
             int reliefOpportunityMargin,
+            double benchSubstitutionOpportunityProbability,
+            int benchSubstitutionEarliestInning,
+            int benchSubstitutionMaximumScoreDifference,
             int startingCompetitionEvaluationInterval,
             int rosterCompetitionEvaluationInterval,
             int benchCompetitionEvaluationInterval,
@@ -49,6 +52,12 @@ namespace Baseball.Core.Balance
                 throw new ArgumentOutOfRangeException(nameof(reliefStartInning));
             if (managerDecisionVariance < 0d)
                 throw new ArgumentOutOfRangeException(nameof(managerDecisionVariance));
+            if (benchSubstitutionOpportunityProbability < 0d || benchSubstitutionOpportunityProbability > 1d)
+                throw new ArgumentOutOfRangeException(nameof(benchSubstitutionOpportunityProbability));
+            if (benchSubstitutionEarliestInning <= 0 || benchSubstitutionEarliestInning > 9)
+                throw new ArgumentOutOfRangeException(nameof(benchSubstitutionEarliestInning));
+            if (benchSubstitutionMaximumScoreDifference < 0)
+                throw new ArgumentOutOfRangeException(nameof(benchSubstitutionMaximumScoreDifference));
             if (startingCompetitionEvaluationInterval <= 0 ||
                 rosterCompetitionEvaluationInterval < startingCompetitionEvaluationInterval ||
                 benchCompetitionEvaluationInterval < rosterCompetitionEvaluationInterval)
@@ -101,6 +110,9 @@ namespace Baseball.Core.Balance
             RosterCompetitionBonus = rosterCompetitionBonus;
             BenchCompetitionBonus = benchCompetitionBonus;
             ReliefOpportunityMargin = reliefOpportunityMargin;
+            BenchSubstitutionOpportunityProbability = benchSubstitutionOpportunityProbability;
+            BenchSubstitutionEarliestInning = benchSubstitutionEarliestInning;
+            BenchSubstitutionMaximumScoreDifference = benchSubstitutionMaximumScoreDifference;
             StartingCompetitionEvaluationInterval = startingCompetitionEvaluationInterval;
             RosterCompetitionEvaluationInterval = rosterCompetitionEvaluationInterval;
             BenchCompetitionEvaluationInterval = benchCompetitionEvaluationInterval;
@@ -135,6 +147,9 @@ namespace Baseball.Core.Balance
         public int RosterCompetitionBonus { get; }
         public int BenchCompetitionBonus { get; }
         public int ReliefOpportunityMargin { get; }
+        public double BenchSubstitutionOpportunityProbability { get; }
+        public int BenchSubstitutionEarliestInning { get; }
+        public int BenchSubstitutionMaximumScoreDifference { get; }
         public int StartingCompetitionEvaluationInterval { get; }
         public int RosterCompetitionEvaluationInterval { get; }
         public int BenchCompetitionEvaluationInterval { get; }
@@ -176,6 +191,9 @@ namespace Baseball.Core.Balance
                 rosterCompetitionBonus: 4,
                 benchCompetitionBonus: -1,
                 reliefOpportunityMargin: 4,
+                benchSubstitutionOpportunityProbability: 0.35d,
+                benchSubstitutionEarliestInning: 7,
+                benchSubstitutionMaximumScoreDifference: 3,
                 startingCompetitionEvaluationInterval: 1,
                 rosterCompetitionEvaluationInterval: 2,
                 benchCompetitionEvaluationInterval: 3,

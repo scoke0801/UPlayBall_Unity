@@ -44,6 +44,7 @@ namespace Baseball.Game.Career
             DateTime gameDate,
             int controlledPlayerId,
             PlayerGameRole playerRole,
+            CompetitionScope competitionScope,
             BalanceTable balance,
             int conditionBefore,
             int managerEvaluationBefore)
@@ -55,6 +56,7 @@ namespace Baseball.Game.Career
                 throw new ArgumentOutOfRangeException(nameof(controlledPlayerId));
             ControlledPlayerId = controlledPlayerId;
             PlayerRole = playerRole;
+            CompetitionScope = competitionScope;
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             ConditionBefore = conditionBefore;
             ManagerEvaluationBefore = managerEvaluationBefore;
@@ -66,6 +68,7 @@ namespace Baseball.Game.Career
         public DateTime GameDate { get; }
         public int ControlledPlayerId { get; }
         public PlayerGameRole PlayerRole { get; }
+        public CompetitionScope CompetitionScope { get; }
         public CareerMatchPhase Phase { get; private set; }
         public CareerMatchMode Mode { get; private set; }
         public MatchDecisionRequest? PendingDecision => _progress?.PendingDecision;
@@ -73,6 +76,8 @@ namespace Baseball.Game.Career
         public MatchResult MatchResult => _progress?.Result;
         public bool IsComplete => Phase == CareerMatchPhase.Completed;
         public bool IsCommitted { get; private set; }
+        public bool CanReceiveBattingDecisions =>
+            PlayerRole == PlayerGameRole.StartingBatter || HasControlledBenchSubstitution();
         public int ConditionBefore { get; }
         public int ConditionAfter { get; private set; }
         public int ManagerEvaluationBefore { get; }
@@ -89,7 +94,7 @@ namespace Baseball.Game.Career
 
             Mode = mode;
             Phase = CareerMatchPhase.Playing;
-            if (mode == CareerMatchMode.ResultsOnly || PlayerRole != PlayerGameRole.StartingBatter)
+            if (mode == CareerMatchMode.ResultsOnly || !CanReceiveBattingDecisions)
             {
                 _progress = new MatchSimulator(
                         _balance,
@@ -181,6 +186,17 @@ namespace Baseball.Game.Career
                 .SimulateUntilDecision(Input);
             if (_progress.IsComplete)
                 Phase = CareerMatchPhase.Completed;
+        }
+
+        private bool HasControlledBenchSubstitution()
+        {
+            return HasControlledBenchSubstitution(Input.AwayTeam) ||
+                   HasControlledBenchSubstitution(Input.HomeTeam);
+        }
+
+        private bool HasControlledBenchSubstitution(Team team)
+        {
+            return team.PositionPlayerSubstitution?.Player.PlayerId == ControlledPlayerId;
         }
     }
 }

@@ -168,9 +168,31 @@ namespace Baseball.Simulation.Match
 
             while (outs < BaseballRules.OutsPerHalfInning)
             {
-                LineupSlotReference batter = new LineupSlotReference(
-                    offense.Team.Lineup[battingOrderIndex].Player,
-                    battingOrderIndex);
+                if (offense.TryApplyPositionPlayerSubstitution(
+                        battingOrderIndex,
+                        inning,
+                        defense.BoxScore.Runs,
+                        out Player replacedPlayer))
+                {
+                    LineupSlotReference substitute = offense.GetBatter(battingOrderIndex);
+                    Emit(
+                        state,
+                        MatchEventType.PlayerSubstitution,
+                        inning,
+                        half,
+                        substitute.Player.PlayerId,
+                        defense.ActivePitcher.PlayerId,
+                        replacedPlayer.PlayerId,
+                        PitchResult.None,
+                        PlateAppearanceResult.None,
+                        0,
+                        0,
+                        0,
+                        0,
+                        outs);
+                }
+
+                LineupSlotReference batter = offense.GetBatter(battingOrderIndex);
                 PlateAppearanceResult result = SimulatePlateAppearance(
                     state,
                     inning,

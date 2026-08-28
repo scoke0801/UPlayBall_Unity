@@ -69,7 +69,7 @@ namespace Baseball.Simulation.Match
                     : SelectFielderPosition(defense, positionPool, hash, isSuccessful);
             PlayerFieldingLine line = pitcherPlay
                 ? defense.BoxScore.GetFieldingLineByPlayer(defense.ActivePitcher.PlayerId)
-                : defense.BoxScore.GetFieldingLine(position);
+                : defense.BoxScore.GetFieldingLineByPlayer(defense.GetActiveFielder(position).PlayerId);
             double difficulty = CalculateDifficulty(hash);
             double expectedSuccessRate = ClampExpectedSuccess(0.92d - difficulty * 0.72d);
             double runValue = GetFieldingRunValue(result);
@@ -128,13 +128,8 @@ namespace Baseball.Simulation.Match
         {
             if (position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher)
                 return defense.ActivePitcher.BatterAttributes.Defense;
-            for (int index = 0; index < defense.Team.Lineup.Count; index++)
-            {
-                if (defense.Team.Lineup[index].FieldingPosition == position)
-                    return defense.Team.Lineup[index].Player.BatterAttributes.Defense;
-            }
-
-            return 50;
+            Player fielder = defense.GetActiveFielder(position);
+            return fielder?.BatterAttributes.Defense ?? 50;
         }
 
         private static double CalculateDifficulty(uint hash)

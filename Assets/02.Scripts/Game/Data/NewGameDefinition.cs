@@ -152,6 +152,9 @@ namespace Baseball.Game.Data
         [SerializeField] private int _rosterCompetitionBonus = 4;
         [SerializeField] private int _benchCompetitionBonus = -1;
         [SerializeField, Min(0)] private int _reliefOpportunityMargin = 4;
+        [SerializeField, Range(0f, 1f)] private double _benchSubstitutionOpportunityProbability = 0.35d;
+        [SerializeField, Range(1, 9)] private int _benchSubstitutionEarliestInning = 7;
+        [SerializeField, Min(0)] private int _benchSubstitutionMaximumScoreDifference = 3;
         [SerializeField, Min(1)] private int _startingCompetitionEvaluationInterval = 1;
         [SerializeField, Min(1)] private int _rosterCompetitionEvaluationInterval = 2;
         [SerializeField, Min(1)] private int _benchCompetitionEvaluationInterval = 3;
@@ -248,6 +251,9 @@ namespace Baseball.Game.Data
                     _rosterCompetitionBonus,
                     _benchCompetitionBonus,
                     _reliefOpportunityMargin,
+                    _benchSubstitutionOpportunityProbability,
+                    _benchSubstitutionEarliestInning,
+                    _benchSubstitutionMaximumScoreDifference,
                     _startingCompetitionEvaluationInterval,
                     _rosterCompetitionEvaluationInterval,
                     _benchCompetitionEvaluationInterval,

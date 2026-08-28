@@ -162,6 +162,9 @@ MonoBehaviour:
   _rosterCompetitionBonus: 4
   _benchCompetitionBonus: -1
   _reliefOpportunityMargin: 4
+  _benchSubstitutionOpportunityProbability: 0.35
+  _benchSubstitutionEarliestInning: 7
+  _benchSubstitutionMaximumScoreDifference: 3
   _startingCompetitionEvaluationInterval: 1
   _rosterCompetitionEvaluationInterval: 2
   _benchCompetitionEvaluationInterval: 3

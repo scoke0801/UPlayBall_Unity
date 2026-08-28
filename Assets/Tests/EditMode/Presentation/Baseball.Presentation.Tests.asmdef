@@ -2,6 +2,7 @@
   "name": "Baseball.Presentation.Tests",
   "rootNamespace": "Baseball.Tests.EditMode.Presentation",
   "references": [
+    "Baseball.Core",
     "Baseball.Game",
     "Baseball.Presentation",
     "UnityEngine.UI"

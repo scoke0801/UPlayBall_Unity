@@ -121,9 +121,15 @@ namespace Baseball.Simulation.Match
         {
             Team = team;
             _runsByInning = new int[maximumInnings];
-            BattingLines = new PlayerBattingLine[team.Lineup.Count];
-            for (int index = 0; index < BattingLines.Length; index++)
+            int substituteCount = team.PositionPlayerSubstitution == null ? 0 : 1;
+            BattingLines = new PlayerBattingLine[team.Lineup.Count + substituteCount];
+            for (int index = 0; index < team.Lineup.Count; index++)
                 BattingLines[index] = new PlayerBattingLine(team.Lineup[index].Player.PlayerId);
+            if (team.PositionPlayerSubstitution != null)
+            {
+                BattingLines[team.Lineup.Count] = new PlayerBattingLine(
+                    team.PositionPlayerSubstitution.Player.PlayerId);
+            }
 
             PitchingLines = team.ReliefPitcher == null
                 ? new[] { new PlayerPitchingLine(team.StartingPitcher.PlayerId) }
@@ -133,7 +139,11 @@ namespace Baseball.Simulation.Match
                     new PlayerPitchingLine(team.ReliefPitcher.PlayerId)
                 };
 
-            FieldingLines = new PlayerFieldingLine[team.Lineup.Count - 1 + PitchingLines.Length];
+            bool hasSubstituteFielder = team.PositionPlayerSubstitution != null &&
+                                        team.PositionPlayerSubstitution.Player.PrimaryPosition !=
+                                        PlayerPosition.DesignatedHitter;
+            FieldingLines = new PlayerFieldingLine[
+                team.Lineup.Count - 1 + PitchingLines.Length + (hasSubstituteFielder ? 1 : 0)];
             int fieldingIndex = 0;
             for (int index = 0; index < team.Lineup.Count; index++)
             {
@@ -149,9 +159,15 @@ namespace Baseball.Simulation.Match
                 PlayerPosition.StartingPitcher);
             if (team.ReliefPitcher != null)
             {
-                FieldingLines[fieldingIndex] = new PlayerFieldingLine(
+                FieldingLines[fieldingIndex++] = new PlayerFieldingLine(
                     team.ReliefPitcher.PlayerId,
                     PlayerPosition.ReliefPitcher);
+            }
+            if (hasSubstituteFielder)
+            {
+                FieldingLines[fieldingIndex] = new PlayerFieldingLine(
+                    team.PositionPlayerSubstitution.Player.PlayerId,
+                    team.PositionPlayerSubstitution.Player.PrimaryPosition);
             }
         }
 
@@ -181,17 +197,6 @@ namespace Baseball.Simulation.Match
                 BattingLines,
                 PitchingLines,
                 FieldingLines);
-        }
-
-        public void RecordDefensiveOut(int activePitcherId)
-        {
-            for (int index = 0; index < FieldingLines.Length; index++)
-            {
-                PlayerFieldingLine line = FieldingLines[index];
-                bool isPitcher = line.Position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
-                if (!isPitcher || line.PlayerId == activePitcherId)
-                    line.DefensiveOuts++;
-            }
         }
 
         public PlayerFieldingLine GetFieldingLine(PlayerPosition position)

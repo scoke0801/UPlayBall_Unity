@@ -655,14 +655,20 @@ namespace Baseball.Presentation.Career
             }
             else
             {
-                RenderHighlightRows(panel, view.Highlights);
+                RenderHighlightRows(
+                    panel,
+                    view.Highlights,
+                    _manager.CurrentCareer.MyPlayer.PrimaryPosition);
             }
             RenderMyRecord(view.MyRecordMetrics, view.PlayerName, view.IsMyPlayerQualified);
             RenderTrend(view);
             RenderSummary(view.MyRecordMetrics, "현재 시즌 기록", includeRank: true);
         }
 
-        private static void RenderHighlightRows(Transform panel, CareerRecordHighlightView[] highlights)
+        private static void RenderHighlightRows(
+            Transform panel,
+            CareerRecordHighlightView[] highlights,
+            PlayerPosition position)
         {
             string[] headers = { "결과", "상대", "역할", "스코어", "AB", "H", "HR", "RBI", "IP", "ER", "SO" };
             float[] positions = { -485f, -395f, -280f, -150f, -45f, 25f, 95f, 170f, 250f, 325f, 405f };
@@ -686,7 +692,7 @@ namespace Baseball.Presentation.Career
                 {
                     game.TeamRuns == game.OpponentRuns ? "무" : game.DidWin ? "승" : "패",
                     GetTeamShortName(highlight.OpponentName),
-                    GetRoleLabel(game.Role),
+                    GetRoleLabel(game.Role, position),
                     $"{game.TeamRuns}:{game.OpponentRuns}",
                     game.AtBats.ToString(),
                     game.Hits.ToString(),

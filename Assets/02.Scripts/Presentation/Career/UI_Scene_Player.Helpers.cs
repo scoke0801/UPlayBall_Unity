@@ -171,6 +171,9 @@ namespace Baseball.Presentation.Career
 
         private static string GetRoleLabel(PlayerProfileView view)
         {
+            if (CareerGameRoleFormatter.IsPitcherRest(view.PlannedRole, view.Position))
+                return "다음 경기 " + CareerGameRoleFormatter.GetPitcherRestLabel(view.Position);
+
             return view.PlannedRole switch
             {
                 PlayerGameRole.StartingBatter => "다음 경기 선발",

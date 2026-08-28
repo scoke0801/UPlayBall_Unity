@@ -9,6 +9,7 @@ namespace Baseball.Core.Teams
         Bench,
         StartingBatter,
         StartingPitcher,
-        ReliefPitcher
+        ReliefPitcher,
+        PitcherRest
     }
 }

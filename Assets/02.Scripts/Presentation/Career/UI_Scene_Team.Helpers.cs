@@ -30,6 +30,9 @@ namespace Baseball.Presentation.Career
 
         private static string GetPlannedRoleLabel(PlayerGameRole role, PlayerPosition position)
         {
+            if (CareerGameRoleFormatter.IsPitcherRest(role, position))
+                return "내 선수 · " + CareerGameRoleFormatter.GetPitcherRestLabel(position);
+
             return role switch
             {
                 PlayerGameRole.StartingBatter => $"내 선수 · 선발 {GetPositionCode(position)}",

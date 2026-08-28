@@ -56,6 +56,9 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             int completedSeasons = 0;
+            int totalGamesPlayed = 0;
+            int totalGamesStarted = 0;
+            int totalAtBats = 0;
 
             for (ulong seed = 1_000UL; seed < 20_000UL && completedSeasons < 20; seed++)
             {
@@ -74,10 +77,18 @@ namespace Baseball.Tests.EditMode.Game
                 PlayerSeasonStatisticsState statistics = career.League.CurrentSeason.PlayerStatistics;
                 Assert.That(statistics.GamesStarted, Is.GreaterThanOrEqualTo(5), $"Seed {seed}");
                 Assert.That(statistics.AtBats, Is.GreaterThanOrEqualTo(12), $"Seed {seed}");
+                totalGamesPlayed += statistics.GamesPlayed;
+                totalGamesStarted += statistics.GamesStarted;
+                totalAtBats += statistics.AtBats;
                 completedSeasons++;
             }
 
             Assert.That(completedSeasons, Is.EqualTo(20));
+            int substituteAppearances = totalGamesPlayed - totalGamesStarted;
+            TestContext.WriteLine(
+                $"BenchCompetition 20 seasons / GS {totalGamesStarted} / " +
+                $"Sub appearances {substituteAppearances} / AB {totalAtBats}");
+            Assert.That(substituteAppearances, Is.GreaterThan(0));
         }
 
         private static void SimulateSeason(
