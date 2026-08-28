@@ -12,6 +12,31 @@ namespace Baseball.Game.Career
             string teamName,
             TeamSeasonRecordState teamRecord,
             PlayerSeasonStatisticsState statistics)
+            : this(
+                year,
+                leagueLevel,
+                teamId,
+                teamName,
+                teamRecord,
+                statistics,
+                postseasonStatistics: null,
+                postseason: null,
+                awards: null,
+                settlement: null)
+        {
+        }
+
+        public CareerSeasonHistoryRecord(
+            int year,
+            LeagueLevel leagueLevel,
+            int teamId,
+            string teamName,
+            TeamSeasonRecordState teamRecord,
+            PlayerSeasonStatisticsState statistics,
+            PlayerSeasonStatisticsState postseasonStatistics,
+            PostseasonState postseason,
+            SeasonAwardsState awards,
+            SeasonSettlementState settlement)
         {
             Year = year;
             LeagueLevel = leagueLevel;
@@ -19,6 +44,10 @@ namespace Baseball.Game.Career
             TeamName = teamName;
             TeamRecord = teamRecord;
             Statistics = statistics;
+            PostseasonStatistics = postseasonStatistics;
+            Postseason = postseason;
+            Awards = awards;
+            Settlement = settlement;
         }
 
         public int Year { get; }
@@ -27,5 +56,9 @@ namespace Baseball.Game.Career
         public string TeamName { get; }
         public TeamSeasonRecordState TeamRecord { get; }
         public PlayerSeasonStatisticsState Statistics { get; }
+        public PlayerSeasonStatisticsState PostseasonStatistics { get; }
+        public PostseasonState Postseason { get; }
+        public SeasonAwardsState Awards { get; }
+        public SeasonSettlementState Settlement { get; }
     }
 }

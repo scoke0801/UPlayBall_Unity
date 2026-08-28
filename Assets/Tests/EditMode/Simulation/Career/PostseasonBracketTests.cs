@@ -60,13 +60,22 @@ namespace Baseball.Tests.EditMode.Simulation.Career
         }
 
         [Test]
-        public void GetHigherSeedIndex_계단식대진에서기다리던시드를반환한다()
+        public void GetSeedIndex_준결승은1대4와2대3으로구성한다()
         {
-            Assert.That(PostseasonBracket.GetHigherSeedIndex(PostseasonRound.WildCard), Is.EqualTo(2));
-            Assert.That(PostseasonBracket.GetHigherSeedIndex(PostseasonRound.Playoff), Is.EqualTo(1));
-            Assert.That(
-                PostseasonBracket.GetHigherSeedIndex(PostseasonRound.ChampionshipSeries),
-                Is.EqualTo(0));
+            Assert.That(PostseasonBracket.GetHigherSeedIndex(PostseasonSeriesId.SemifinalA), Is.EqualTo(0));
+            Assert.That(PostseasonBracket.GetLowerSeedIndex(PostseasonSeriesId.SemifinalA), Is.EqualTo(3));
+            Assert.That(PostseasonBracket.GetHigherSeedIndex(PostseasonSeriesId.SemifinalB), Is.EqualTo(1));
+            Assert.That(PostseasonBracket.GetLowerSeedIndex(PostseasonSeriesId.SemifinalB), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void IsHigherSeedHome_결승은2대2대1순서를사용한다()
+        {
+            Assert.That(PostseasonBracket.IsHigherSeedHome(PostseasonRound.ChampionshipSeries, 1), Is.True);
+            Assert.That(PostseasonBracket.IsHigherSeedHome(PostseasonRound.ChampionshipSeries, 2), Is.True);
+            Assert.That(PostseasonBracket.IsHigherSeedHome(PostseasonRound.ChampionshipSeries, 3), Is.False);
+            Assert.That(PostseasonBracket.IsHigherSeedHome(PostseasonRound.ChampionshipSeries, 4), Is.False);
+            Assert.That(PostseasonBracket.IsHigherSeedHome(PostseasonRound.ChampionshipSeries, 5), Is.True);
         }
     }
 }

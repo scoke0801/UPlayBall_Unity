@@ -13,36 +13,11 @@ namespace Baseball.Game.Career
     }
 
     /// <summary>
-    /// 계단식 포스트시즌 한 시리즈의 대진과 진행 상태를 세이브 가능한 형태로 보관한다.
+    /// 4강 토너먼트 한 시리즈의 대진과 진행 상태를 세이브 가능한 형태로 보관한다.
     /// </summary>
     public sealed class PostseasonSeriesState
     {
         private readonly List<ScheduledGameState> _games = new();
-
-        public PostseasonSeriesState(
-            PostseasonRound round,
-            int higherSeedTeamId,
-            int lowerSeedTeamId,
-            int seriesGames,
-            int maximumTieReplays)
-        {
-            if (higherSeedTeamId <= 0 || lowerSeedTeamId <= 0 || higherSeedTeamId == lowerSeedTeamId)
-                throw new ArgumentException("서로 다른 두 구단의 TeamId가 필요합니다.");
-            if (seriesGames <= 0 || seriesGames % 2 == 0)
-                throw new ArgumentOutOfRangeException(nameof(seriesGames));
-            if (maximumTieReplays < 0)
-                throw new ArgumentOutOfRangeException(nameof(maximumTieReplays));
-
-            Round = round;
-            SeriesId = round == PostseasonRound.ChampionshipSeries
-                ? PostseasonSeriesId.Championship
-                : PostseasonSeriesId.SemifinalA;
-            HigherSeedTeamId = higherSeedTeamId;
-            LowerSeedTeamId = lowerSeedTeamId;
-            SeriesGames = seriesGames;
-            MaximumGames = seriesGames + maximumTieReplays;
-            WinsRequired = PostseasonBracket.GetWinsRequired(seriesGames);
-        }
 
         public PostseasonSeriesState(
             PostseasonSeriesId seriesId,
@@ -50,9 +25,18 @@ namespace Baseball.Game.Career
             int higherSeedTeamId,
             int lowerSeedTeamId,
             int seriesGames)
-            : this(round, higherSeedTeamId, lowerSeedTeamId, seriesGames, maximumTieReplays: 0)
         {
+            if (higherSeedTeamId <= 0 || lowerSeedTeamId <= 0 || higherSeedTeamId == lowerSeedTeamId)
+                throw new ArgumentException("서로 다른 두 구단의 TeamId가 필요합니다.");
+            if (seriesGames <= 0 || seriesGames % 2 == 0)
+                throw new ArgumentOutOfRangeException(nameof(seriesGames));
+
             SeriesId = seriesId;
+            Round = round;
+            HigherSeedTeamId = higherSeedTeamId;
+            LowerSeedTeamId = lowerSeedTeamId;
+            SeriesGames = seriesGames;
+            WinsRequired = PostseasonBracket.GetWinsRequired(seriesGames);
         }
 
         public PostseasonSeriesId SeriesId { get; }
@@ -61,15 +45,9 @@ namespace Baseball.Game.Career
         public int LowerSeedTeamId { get; }
         public int SeriesGames { get; }
 
-        /// <summary>
-        /// 무승부 재경기까지 포함해 이 시리즈에서 치를 수 있는 최대 경기 수다.
-        /// </summary>
-        public int MaximumGames { get; }
-
         public int WinsRequired { get; }
         public int HigherSeedWins { get; private set; }
         public int LowerSeedWins { get; private set; }
-        public int Ties { get; private set; }
         public int WinnerTeamId { get; private set; }
         public bool IsCompleted => WinnerTeamId != 0;
         public IReadOnlyList<ScheduledGameState> Games => _games;

@@ -62,11 +62,16 @@ namespace Baseball.Game.Career
     {
         private readonly CareerState _career;
         private readonly SeasonSettlementBalance _balance;
+        private readonly ContractBonusBalance? _contractBonusBalance;
 
-        public SeasonSettlementService(CareerState career, SeasonSettlementBalance balance)
+        public SeasonSettlementService(
+            CareerState career,
+            SeasonSettlementBalance balance,
+            ContractBonusBalance? contractBonusBalance = null)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance;
+            _contractBonusBalance = contractBonusBalance;
         }
 
         public SeasonSettlementState ApplyOnce(long performanceBonus = 0L)
@@ -83,6 +88,7 @@ namespace Baseball.Game.Career
             AddIncome(settlement, $"season_{season.SeasonId}_salary", SettlementEntryType.Salary, salary);
             AddIncome(settlement, $"season_{season.SeasonId}_performance_bonus",
                 SettlementEntryType.PerformanceBonus, performanceBonus);
+            AddContractBonuses(settlement, season);
 
             int playerId = _career.MyPlayer.PlayerId;
             int contractBonus = 0;
@@ -128,6 +134,43 @@ namespace Baseball.Game.Career
                 contractBonus = _balance.MaximumAwardContractBonus;
             settlement.Complete(contractBonus);
             return settlement;
+        }
+
+        private void AddContractBonuses(SeasonSettlementState settlement, SeasonState season)
+        {
+            if (!_contractBonusBalance.HasValue)
+                return;
+
+            var service = new ContractBonusService(_contractBonusBalance.Value);
+            int regularSeasonGames = _career.League.CurrentSeason.PlayerStatistics.TeamGames;
+            if (regularSeasonGames <= 0 && _career.League.CurrentSeason.Schedule != null)
+                regularSeasonGames = CountTeamGamesPerSeason(_career.League.CurrentSeason);
+            ContractBonusProgress[] progress = service.Evaluate(
+                _career,
+                regularSeasonGames);
+            for (int index = 0; index < progress.Length; index++)
+            {
+                ContractBonusProgress item = progress[index];
+                if (!item.IsCompleted)
+                    continue;
+                AddIncome(
+                    settlement,
+                    $"season_{season.SeasonId}_contract_{item.Clause.ClauseId}",
+                    SettlementEntryType.PerformanceBonus,
+                    item.Clause.Reward);
+            }
+        }
+
+        private int CountTeamGamesPerSeason(SeasonState season)
+        {
+            int teamId = _career.MyPlayer.CurrentTeamId;
+            int count = 0;
+            for (int index = 0; index < season.Schedule.Games.Count; index++)
+            {
+                if (season.Schedule.Games[index].IncludesTeam(teamId))
+                    count++;
+            }
+            return count;
         }
 
         private void AddIncome(

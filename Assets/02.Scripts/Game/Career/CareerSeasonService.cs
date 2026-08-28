@@ -89,6 +89,43 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
+        /// 다음 경기의 역할과 입력을 잠그고 아직 기록에는 반영하지 않은 진행 세션을 만든다.
+        /// </summary>
+        public CareerMatchSession PrepareNextGame()
+        {
+            EnsureNextGamePlan();
+            ScheduledGameState game = NextPlayerGame;
+            if (game == null)
+                throw new InvalidOperationException("준비할 정규 시즌 경기가 없습니다.");
+
+            SeasonState season = _career.League.CurrentSeason;
+            MatchInput input = _gameRunner.CreateMatchInput(
+                game,
+                game.PlannedPlayerRole,
+                season.SeasonId);
+            return new CareerMatchSession(
+                game,
+                input,
+                GetGameDate(season.Year, game.Round),
+                _career.MyPlayer.PlayerId,
+                game.PlannedPlayerRole,
+                _balance,
+                _career.MyPlayer.Condition,
+                _career.MyPlayer.ManagerEvaluation);
+        }
+
+        private DateTime GetGameDate(int year, int round)
+        {
+            int playedDays = round - 1;
+            int restDays = playedDays / _balance.CareerSeason.GamesBetweenRestDays;
+            return new DateTime(
+                    year,
+                    _balance.CareerSeason.SeasonOpeningMonth,
+                    _balance.CareerSeason.SeasonOpeningDay)
+                .AddDays(playedDays + restDays);
+        }
+
+        /// <summary>
         /// 내 선수의 다음 경기가 속한 라운드 전체를 진행해 순위와 개인 기록을 함께 갱신한다.
         /// 마지막 라운드가 끝나면 정규 시즌 순위로 포스트시즌 대진을 만들어 단계를 넘긴다.
         /// </summary>
@@ -98,6 +135,41 @@ namespace Baseball.Game.Career
             ScheduledGameState playerGame = NextPlayerGame;
             if (playerGame == null)
                 throw new InvalidOperationException("진행할 정규 시즌 경기가 없습니다.");
+
+            MatchResult playerMatchResult = _gameRunner.SimulateGame(
+                playerGame,
+                playerGame.PlannedPlayerRole,
+                _career.League.CurrentSeason.SeasonId);
+            return CompleteNextRound(playerGame, playerMatchResult);
+        }
+
+        /// <summary>
+        /// 화면에서 완료한 내 선수 경기와 같은 라운드의 나머지 경기를 한 번만 기록한다.
+        /// </summary>
+        public CareerGameAdvanceResult CompletePreparedGame(CareerMatchSession session)
+        {
+            if (session == null)
+                throw new ArgumentNullException(nameof(session));
+            if (!session.IsComplete || session.MatchResult == null)
+                throw new InvalidOperationException("완료된 경기 세션이 필요합니다.");
+
+            ScheduledGameState playerGame = NextPlayerGame;
+            if (playerGame == null ||
+                playerGame.GameId != session.ScheduledGame.GameId ||
+                session.MatchResult.Input.RandomSeed != playerGame.RandomSeed)
+            {
+                throw new InvalidOperationException("현재 일정과 일치하지 않는 경기 결과입니다.");
+            }
+
+            return CompleteNextRound(playerGame, session.MatchResult);
+        }
+
+        private CareerGameAdvanceResult CompleteNextRound(
+            ScheduledGameState playerGame,
+            MatchResult preparedPlayerResult)
+        {
+            if (playerGame.IsCompleted)
+                throw new InvalidOperationException("이미 기록한 경기입니다.");
 
             SeasonState season = _career.League.CurrentSeason;
             CareerGameAdvanceResult playerResult = default;
@@ -113,7 +185,9 @@ namespace Baseball.Game.Career
                 PlayerGameRole role = game.GameId == playerGame.GameId
                     ? playerGame.PlannedPlayerRole
                     : PlayerGameRole.Inactive;
-                MatchResult matchResult = _gameRunner.SimulateGame(game, role, season.SeasonId);
+                MatchResult matchResult = game.GameId == playerGame.GameId
+                    ? preparedPlayerResult
+                    : _gameRunner.SimulateGame(game, role, season.SeasonId);
                 game.Complete(matchResult.AwayBoxScore.Runs, matchResult.HomeBoxScore.Runs);
                 statisticsService.RecordMatch(
                     matchResult,
@@ -168,6 +242,10 @@ namespace Baseball.Game.Career
                 new PostseasonState(_career.SaveVersion, seeds),
                 new PlayerSeasonStatisticsState(),
                 _career.MyPlayer);
+            _career.MyPlayer.ApplyGameFeedback(
+                _balance.CareerSeason.RestingConditionRecovery,
+                managerEvaluationDelta: 0,
+                _balance.CareerSeason.MinimumCondition);
         }
 
         private void RecordTeamResults(MatchResult result)

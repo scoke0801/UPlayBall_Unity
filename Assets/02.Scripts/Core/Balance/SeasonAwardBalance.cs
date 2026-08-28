@@ -9,6 +9,9 @@ namespace Baseball.Core.Balance
             double starterMinimumInningsPerTeamGame,
             double relieverMinimumAppearanceRate,
             double rookieEligibilityFactor,
+            int rookieCareerPlateAppearanceLimit,
+            int rookieCareerPitchingOutLimit,
+            int rookieMaximumRegisteredSeasons,
             double reliefPitcherScoreAdjustment,
             double hitterOpsWeight,
             double hitterTotalBasesWeight,
@@ -46,6 +49,9 @@ namespace Baseball.Core.Balance
             StarterMinimumInningsPerTeamGame = starterMinimumInningsPerTeamGame;
             RelieverMinimumAppearanceRate = relieverMinimumAppearanceRate;
             RookieEligibilityFactor = rookieEligibilityFactor;
+            RookieCareerPlateAppearanceLimit = rookieCareerPlateAppearanceLimit;
+            RookieCareerPitchingOutLimit = rookieCareerPitchingOutLimit;
+            RookieMaximumRegisteredSeasons = rookieMaximumRegisteredSeasons;
             ReliefPitcherScoreAdjustment = reliefPitcherScoreAdjustment;
             HitterOpsWeight = hitterOpsWeight;
             HitterTotalBasesWeight = hitterTotalBasesWeight;
@@ -84,6 +90,9 @@ namespace Baseball.Core.Balance
         public double StarterMinimumInningsPerTeamGame { get; }
         public double RelieverMinimumAppearanceRate { get; }
         public double RookieEligibilityFactor { get; }
+        public int RookieCareerPlateAppearanceLimit { get; }
+        public int RookieCareerPitchingOutLimit { get; }
+        public int RookieMaximumRegisteredSeasons { get; }
         public double ReliefPitcherScoreAdjustment { get; }
         public double HitterOpsWeight { get; }
         public double HitterTotalBasesWeight { get; }
@@ -119,7 +128,7 @@ namespace Baseball.Core.Balance
         public static SeasonAwardBalance CreateDefault()
         {
             return new SeasonAwardBalance(
-                2d, 0.5d, 0.5d, 0.25d, 0.7d, 0.96d,
+                2d, 0.5d, 0.5d, 0.25d, 0.7d, 120, 135, 1, 0.96d,
                 0.30d, 0.15d, 0.10d, 0.10d, 0.05d, 0.05d, 0.10d, 0.10d, 0.05d,
                 0.25d, 0.15d, 0.15d, 0.10d, 0.20d, 0.10d, 0.05d,
                 0.25d, 0.15d, 0.20d, 0.20d, 0.15d, 0.05d,

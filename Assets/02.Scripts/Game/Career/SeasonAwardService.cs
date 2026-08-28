@@ -10,6 +10,7 @@ namespace Baseball.Game.Career
     {
         private static readonly PlayerPosition[] GoldGlovePositions =
         {
+            PlayerPosition.StartingPitcher,
             PlayerPosition.Catcher,
             PlayerPosition.FirstBase,
             PlayerPosition.SecondBase,
@@ -220,6 +221,7 @@ namespace Baseball.Game.Career
                 return value != 0 ? value : left.PlayerId.CompareTo(right.PlayerId);
             });
             double winningValue = selector(eligible[0]);
+            if (!lowerIsBetter && winningValue <= 0d) return;
             var coWinners = new List<int>();
             var top = new List<AwardCandidateResult>();
             for (int index = 0; index < eligible.Count; index++)
@@ -252,11 +254,16 @@ namespace Baseball.Game.Career
                 for (int index = 0; index < players.Length; index++)
                 {
                     PlayerCompetitionStatisticsState player = players[index];
-                    FieldingStatisticsState fielding = player.GetFielding(position);
+                    if (position == PlayerPosition.StartingPitcher &&
+                        player.PrimaryPosition is not (PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher))
+                        continue;
+                    FieldingStatisticsState fielding = GetAwardFielding(player, position);
                     if (fielding == null || fielding.Opportunities == 0) continue;
-                    double minimum = position == PlayerPosition.Catcher
-                        ? _balance.CatcherGoldGloveMinimumInningsPerTeamGame
-                        : _balance.GoldGloveMinimumInningsPerTeamGame;
+                    double minimum = position == PlayerPosition.StartingPitcher
+                        ? _balance.StarterMinimumInningsPerTeamGame
+                        : position == PlayerPosition.Catcher
+                            ? _balance.CatcherGoldGloveMinimumInningsPerTeamGame
+                            : _balance.GoldGloveMinimumInningsPerTeamGame;
                     if (fielding.DefensiveOuts >= GetTeamGames(season, player.TeamId) * minimum * 3d)
                         eligible.Add(player);
                 }
@@ -266,7 +273,7 @@ namespace Baseball.Game.Career
                 for (int index = 0; index < eligible.Count; index++)
                 {
                     PlayerCompetitionStatisticsState player = eligible[index];
-                    FieldingStatisticsState fielding = player.GetFielding(position);
+                    FieldingStatisticsState fielding = GetAwardFielding(player, position);
                     var breakdown = new List<AwardScoreBreakdown>(4);
                     AddMetric(breakdown, "EstimatedRunsSaved",
                         PercentileFielding(eligible, player, position, f => f.EstimatedRunsSaved),
@@ -419,12 +426,12 @@ namespace Baseball.Game.Career
             Func<FieldingStatisticsState, double> selector)
         {
             if (pool.Count <= 1) return 100d;
-            double value = selector(target.GetFielding(position));
+            double value = selector(GetAwardFielding(target, position));
             int worse = 0;
             int equal = 0;
             for (int index = 0; index < pool.Count; index++)
             {
-                double other = selector(pool[index].GetFielding(position));
+                double other = selector(GetAwardFielding(pool[index], position));
                 int comparison = other.CompareTo(value);
                 if (comparison == 0) equal++;
                 else if (comparison < 0) worse++;
@@ -497,7 +504,7 @@ namespace Baseball.Game.Career
             int opportunities = 0;
             for (int index = 0; index < pool.Count; index++)
             {
-                FieldingStatisticsState fielding = pool[index].GetFielding(position);
+                FieldingStatisticsState fielding = GetAwardFielding(pool[index], position);
                 successes += fielding.SuccessfulPlays;
                 opportunities += fielding.Opportunities;
             }
@@ -586,6 +593,15 @@ namespace Baseball.Game.Career
         private static double GetWinningPercentage(SeasonState season, int teamId)
         {
             return season.GetTeamRecord(teamId)?.WinningPercentage ?? 0d;
+        }
+
+        private static FieldingStatisticsState GetAwardFielding(
+            PlayerCompetitionStatisticsState player,
+            PlayerPosition awardPosition)
+        {
+            return awardPosition == PlayerPosition.StartingPitcher
+                ? player.GetFielding(player.PrimaryPosition)
+                : player.GetFielding(awardPosition);
         }
     }
 }

@@ -146,16 +146,44 @@ namespace Baseball.Game.Career
     public readonly struct RosterCompetitorState
     {
         public RosterCompetitorState(int playerId, string name, PlayerPosition position, int overall)
+            : this(
+                playerId,
+                name,
+                position,
+                overall,
+                careerPlateAppearances: 0,
+                careerPitchingOuts: 0,
+                registeredSeasons: 0)
         {
+        }
+
+        public RosterCompetitorState(
+            int playerId,
+            string name,
+            PlayerPosition position,
+            int overall,
+            int careerPlateAppearances,
+            int careerPitchingOuts,
+            int registeredSeasons)
+        {
+            if (careerPlateAppearances < 0) throw new ArgumentOutOfRangeException(nameof(careerPlateAppearances));
+            if (careerPitchingOuts < 0) throw new ArgumentOutOfRangeException(nameof(careerPitchingOuts));
+            if (registeredSeasons < 0) throw new ArgumentOutOfRangeException(nameof(registeredSeasons));
             PlayerId = playerId;
             Name = name;
             Position = position;
             Overall = overall;
+            CareerPlateAppearances = careerPlateAppearances;
+            CareerPitchingOuts = careerPitchingOuts;
+            RegisteredSeasons = registeredSeasons;
         }
 
         public int PlayerId { get; }
         public string Name { get; }
         public PlayerPosition Position { get; }
         public int Overall { get; }
+        public int CareerPlateAppearances { get; }
+        public int CareerPitchingOuts { get; }
+        public int RegisteredSeasons { get; }
     }
 }

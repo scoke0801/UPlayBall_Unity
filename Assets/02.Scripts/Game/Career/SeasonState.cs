@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Balance;
 
 namespace Baseball.Game.Career
 {
@@ -170,7 +171,10 @@ namespace Baseball.Game.Career
         public void SnapshotRookieEligibility(
             IReadOnlyList<TeamState> teams,
             PlayerState myPlayer,
-            bool isEligible)
+            SeasonAwardBalance balance,
+            int myCareerPlateAppearances,
+            int myCareerPitchingOuts,
+            int myRegisteredSeasons)
         {
             if (teams == null) throw new ArgumentNullException(nameof(teams));
             if (myPlayer == null) throw new ArgumentNullException(nameof(myPlayer));
@@ -179,14 +183,36 @@ namespace Baseball.Game.Career
             {
                 IReadOnlyList<RosterCompetitorState> roster = teams[teamIndex].RosterCompetitors;
                 for (int playerIndex = 0; playerIndex < roster.Count; playerIndex++)
-                    _rookieEligibilitySnapshot[roster[playerIndex].PlayerId] = isEligible;
+                {
+                    RosterCompetitorState player = roster[playerIndex];
+                    _rookieEligibilitySnapshot[player.PlayerId] = IsRookieEligible(
+                        player.CareerPlateAppearances,
+                        player.CareerPitchingOuts,
+                        player.RegisteredSeasons,
+                        balance);
+                }
             }
-            _rookieEligibilitySnapshot[myPlayer.PlayerId] = isEligible;
+            _rookieEligibilitySnapshot[myPlayer.PlayerId] = IsRookieEligible(
+                myCareerPlateAppearances,
+                myCareerPitchingOuts,
+                myRegisteredSeasons,
+                balance);
         }
 
         public bool IsRookieEligible(int playerId)
         {
             return _rookieEligibilitySnapshot.TryGetValue(playerId, out bool value) && value;
+        }
+
+        private static bool IsRookieEligible(
+            int careerPlateAppearances,
+            int careerPitchingOuts,
+            int registeredSeasons,
+            SeasonAwardBalance balance)
+        {
+            return careerPlateAppearances < balance.RookieCareerPlateAppearanceLimit &&
+                   careerPitchingOuts < balance.RookieCareerPitchingOutLimit &&
+                   registeredSeasons <= balance.RookieMaximumRegisteredSeasons;
         }
 
         public TeamSeasonRecordState GetTeamRecord(int teamId)

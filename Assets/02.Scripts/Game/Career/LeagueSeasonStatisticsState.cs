@@ -293,12 +293,16 @@ namespace Baseball.Game.Career
     /// <summary>현재 시즌 리그 전체 선수 기록을 경쟁 범위별로 분리해 소유한다.</summary>
     public sealed class LeagueSeasonStatisticsState
     {
+        public const int CurrentSchemaVersion = 2;
+
         public LeagueSeasonStatisticsState()
         {
+            StatisticsSchemaVersion = CurrentSchemaVersion;
             RegularSeason = new CompetitionStatisticsState();
             Postseason = new CompetitionStatisticsState();
         }
 
+        public int StatisticsSchemaVersion { get; }
         public CompetitionStatisticsState RegularSeason { get; }
         public CompetitionStatisticsState Postseason { get; }
         public CompetitionStatisticsState Get(CompetitionScope scope) =>

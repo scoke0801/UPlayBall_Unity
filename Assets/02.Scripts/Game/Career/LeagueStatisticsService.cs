@@ -50,6 +50,15 @@ namespace Baseball.Game.Career
                 players);
 
             CompetitionStatisticsState competition = _state.Get(scope);
+            for (int index = 0; index < players.Count; index++)
+            {
+                PlayerGameStatistics player = players[index];
+                competition.GetOrCreate(
+                    player.PlayerId,
+                    player.PlayerName,
+                    player.TeamId,
+                    player.PrimaryPosition);
+            }
             competition.RecordTeamGame(game.HomeTeamId);
             competition.RecordTeamGame(game.AwayTeamId);
             for (int index = 0; index < players.Count; index++)
@@ -138,6 +147,7 @@ namespace Baseball.Game.Career
                     BattersFaced = line.BattersFaced,
                     QualityStarts = index == 0 && line.OutsRecorded >= 18 && line.EarnedRuns <= 3 ? 1 : 0
                 };
+                player.FieldingLine = FindFieldingLine(box, player.PlayerId);
                 target.Add(player);
             }
         }

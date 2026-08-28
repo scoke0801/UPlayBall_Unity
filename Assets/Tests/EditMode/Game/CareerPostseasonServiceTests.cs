@@ -8,7 +8,7 @@ using NUnit.Framework;
 namespace Baseball.Tests.EditMode.Game
 {
     /// <summary>
-    /// 정규 시즌 종료가 계단식 포스트시즌으로 이어지고, 우승 확정 뒤 성장 결산까지
+    /// 정규 시즌 종료가 4강 토너먼트로 이어지고, 우승 확정 뒤 성장 결산까지
     /// 흐름이 끊기지 않는지 검증한다.
     /// </summary>
     public sealed class CareerPostseasonServiceTests
@@ -41,7 +41,9 @@ namespace Baseball.Tests.EditMode.Game
                     record.Wins,
                     record.Losses,
                     record.RunsScored,
-                    record.RunsAllowed);
+                    record.RunsAllowed,
+                    record.FixedTiebreaker,
+                    record.GetHeadToHeadEntries());
             }
             int[] expected = PostseasonBracket.SelectSeeds(standings, 4);
 
@@ -49,7 +51,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void AdvanceToChampion_계단식3개시리즈를거쳐우승구단을확정한다()
+        public void AdvanceToChampion_두준결승과결승을거쳐우승구단을확정한다()
         {
             CareerState career = CreateCareerAtPostseason(3456UL);
             SeasonState season = career.League.CurrentSeason;
@@ -59,18 +61,18 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(final.IsPostseasonCompleted, Is.True);
             Assert.That(season.Postseason.Series.Count, Is.EqualTo(3));
-            Assert.That(season.Postseason.Series[0].Round, Is.EqualTo(PostseasonRound.WildCard));
-            Assert.That(season.Postseason.Series[1].Round, Is.EqualTo(PostseasonRound.Playoff));
+            Assert.That(season.Postseason.Series[0].Round, Is.EqualTo(PostseasonRound.Semifinal));
+            Assert.That(season.Postseason.Series[1].Round, Is.EqualTo(PostseasonRound.Semifinal));
             Assert.That(
                 season.Postseason.Series[2].Round,
                 Is.EqualTo(PostseasonRound.ChampionshipSeries));
-            Assert.That(season.Phase, Is.EqualTo(SeasonPhase.Completed));
+            Assert.That(season.Phase, Is.EqualTo(SeasonPhase.SeasonReview));
             Assert.That(season.Postseason.ChampionTeamId, Is.EqualTo(final.ChampionTeamId));
             Assert.That(season.Postseason.SeedTeamIds, Does.Contain(final.ChampionTeamId));
         }
 
         [Test]
-        public void 계단식대진의상대는직전시리즈승자다()
+        public void 준결승은1대4와2대3이고결승은두승자대결이다()
         {
             CareerState career = CreateCareerAtPostseason(4567UL);
             SeasonState season = career.League.CurrentSeason;
@@ -79,16 +81,18 @@ namespace Baseball.Tests.EditMode.Game
             service.AdvanceToChampion();
 
             PostseasonState postseason = season.Postseason;
-            PostseasonSeriesState wildCard = postseason.Series[0];
-            PostseasonSeriesState playoff = postseason.Series[1];
+            PostseasonSeriesState semifinalA = postseason.Series[0];
+            PostseasonSeriesState semifinalB = postseason.Series[1];
             PostseasonSeriesState championship = postseason.Series[2];
 
-            Assert.That(wildCard.HigherSeedTeamId, Is.EqualTo(postseason.GetSeedTeamId(2)));
-            Assert.That(wildCard.LowerSeedTeamId, Is.EqualTo(postseason.GetSeedTeamId(3)));
-            Assert.That(playoff.HigherSeedTeamId, Is.EqualTo(postseason.GetSeedTeamId(1)));
-            Assert.That(playoff.LowerSeedTeamId, Is.EqualTo(wildCard.WinnerTeamId));
-            Assert.That(championship.HigherSeedTeamId, Is.EqualTo(postseason.GetSeedTeamId(0)));
-            Assert.That(championship.LowerSeedTeamId, Is.EqualTo(playoff.WinnerTeamId));
+            Assert.That(semifinalA.HigherSeedTeamId, Is.EqualTo(postseason.GetSeedTeamId(0)));
+            Assert.That(semifinalA.LowerSeedTeamId, Is.EqualTo(postseason.GetSeedTeamId(3)));
+            Assert.That(semifinalB.HigherSeedTeamId, Is.EqualTo(postseason.GetSeedTeamId(1)));
+            Assert.That(semifinalB.LowerSeedTeamId, Is.EqualTo(postseason.GetSeedTeamId(2)));
+            Assert.That(new[] { semifinalA.WinnerTeamId, semifinalB.WinnerTeamId },
+                Does.Contain(championship.HigherSeedTeamId));
+            Assert.That(new[] { semifinalA.WinnerTeamId, semifinalB.WinnerTeamId },
+                Does.Contain(championship.LowerSeedTeamId));
         }
 
         [Test]
@@ -142,7 +146,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void 상위시드가홀수경기를홈에서치른다()
+        public void 라운드별홈배정규칙을따른다()
         {
             CareerState career = CreateCareerAtPostseason(7890UL);
             var service = new CareerPostseasonService(career, NewGameConfiguration.CreateDefault().Balance);
@@ -155,7 +159,7 @@ namespace Baseball.Tests.EditMode.Game
                 for (int gameIndex = 0; gameIndex < series.Games.Count; gameIndex++)
                 {
                     ScheduledGameState game = series.Games[gameIndex];
-                    int expectedHome = game.Round % 2 == 1
+                    int expectedHome = PostseasonBracket.IsHigherSeedHome(series.Round, game.Round)
                         ? series.HigherSeedTeamId
                         : series.LowerSeedTeamId;
                     Assert.That(game.HomeTeamId, Is.EqualTo(expectedHome));
@@ -186,6 +190,48 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.Throws<InvalidOperationException>(
                 () => new CareerPostseasonService(career, configuration.Balance));
+        }
+
+        [Test]
+        public void 우승확정시리그전체통계와수상근거가함께고정된다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateCareerAtPostseason(9123UL);
+            SeasonState season = career.League.CurrentSeason;
+
+            new CareerPostseasonService(career, configuration.Balance).AdvanceToChampion();
+
+            Assert.That(season.LeagueStatistics.RegularSeason.IsFrozen, Is.True);
+            Assert.That(season.LeagueStatistics.Postseason.IsFrozen, Is.True);
+            Assert.That(season.LeagueStatistics.RegularSeason.Players.Count, Is.GreaterThan(80));
+            Assert.That(season.Awards.Find(AwardCategory.RegularSeasonMvp), Is.Not.Null);
+            Assert.That(season.Awards.Find(AwardCategory.RookieOfYear), Is.Not.Null);
+            SeasonAwardResultState postseasonMvp = season.Awards.Find(AwardCategory.PostseasonMvp);
+            Assert.That(postseasonMvp, Is.Not.Null);
+            Assert.That(
+                season.LeagueStatistics.Postseason.GetPlayer(postseasonMvp.WinnerPlayerId).TeamId,
+                Is.EqualTo(season.Postseason.ChampionTeamId));
+            Assert.That(postseasonMvp.TopCandidates.Count, Is.InRange(1, 3));
+        }
+
+        [Test]
+        public void 시즌정산은화면재진입에도Money를한번만지급한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateCareerAtPostseason(9234UL);
+            new CareerPostseasonService(career, configuration.Balance).AdvanceToChampion();
+            var service = new SeasonSettlementService(career, configuration.Balance.SeasonSettlement);
+            long moneyBefore = career.AvailableMoney;
+
+            SeasonSettlementState first = service.ApplyOnce(performanceBonus: 300L);
+            long moneyAfterFirst = career.AvailableMoney;
+            SeasonSettlementState second = service.ApplyOnce(performanceBonus: 300L);
+
+            Assert.That(first.IsApplied, Is.True);
+            Assert.That(second, Is.SameAs(first));
+            Assert.That(moneyAfterFirst, Is.GreaterThan(moneyBefore));
+            Assert.That(career.AvailableMoney, Is.EqualTo(moneyAfterFirst));
+            Assert.That(first.ContractEvaluationBonus, Is.InRange(0, 30));
         }
 
         private static int CountPlayerPostseasonGames(SeasonState season, int playerTeamId)

@@ -13,7 +13,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 5;
+        public const int CurrentSaveVersion = 6;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
@@ -296,7 +296,10 @@ namespace Baseball.Game.Career
             Career.League.CurrentSeason.SnapshotRookieEligibility(
                 Career.League.Teams,
                 Career.MyPlayer,
-                isEligible: true);
+                _configuration.Balance.SeasonAwards,
+                myCareerPlateAppearances: 0,
+                myCareerPitchingOuts: 0,
+                myRegisteredSeasons: 0);
             State.Step = NewGameStep.Completed;
         }
 

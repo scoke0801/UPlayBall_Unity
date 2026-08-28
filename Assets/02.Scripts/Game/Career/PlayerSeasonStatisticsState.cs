@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Players;
 using Baseball.Core.Teams;
 
 namespace Baseball.Game.Career
@@ -87,10 +88,18 @@ namespace Baseball.Game.Career
         public int HomeRuns => _statistics.Batting.HomeRuns;
         public int RunsBattedIn => _statistics.Batting.RunsBattedIn;
         public int Walks => _statistics.Batting.Walks;
+        public int HitByPitches => _statistics.Batting.HitByPitches;
         public int BattingStrikeouts => _statistics.Batting.Strikeouts;
+        public int StolenBases => _statistics.Batting.StolenBases;
+        public int CaughtStealing => _statistics.Batting.CaughtStealing;
+        public int SacrificeFlies => _statistics.Batting.SacrificeFlies;
         public int PitchingAppearances => _statistics.Pitching.Appearances;
         public int PitchingStarts => _statistics.Pitching.Starts;
         public int OutsRecorded => _statistics.Pitching.OutsRecorded;
+        public int Wins => _statistics.Pitching.Wins;
+        public int Losses => _statistics.Pitching.Losses;
+        public int Saves => _statistics.Pitching.Saves;
+        public int Holds => _statistics.Pitching.Holds;
         public int HitsAllowed => _statistics.Pitching.HitsAllowed;
         public int EarnedRuns => _statistics.Pitching.EarnedRuns;
         public int WalksAllowed => _statistics.Pitching.WalksAllowed;
@@ -103,6 +112,10 @@ namespace Baseball.Game.Career
         public double OnBasePlusSlugging => _statistics.Batting.OnBasePlusSlugging;
         public double EarnedRunAverage => _statistics.Pitching.EarnedRunAverage;
         public double WalksHitsPerInningPitched => _statistics.Pitching.WalksHitsPerInningPitched;
+        public double StolenBasePercentage => _statistics.Batting.StolenBasePercentage;
+
+        /// <summary>시즌 이력에서도 포지션별 수비 원본을 동일하게 조회한다.</summary>
+        public FieldingStatisticsState GetFielding(PlayerPosition position) => _statistics.GetFielding(position);
 
         /// <summary>리그 전체 통계의 내 선수 원본을 조회 대상으로 연결한다.</summary>
         public void BindTo(PlayerCompetitionStatisticsState statistics)

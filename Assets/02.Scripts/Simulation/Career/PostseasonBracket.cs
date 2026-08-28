@@ -3,15 +3,11 @@ using System.Collections.Generic;
 
 namespace Baseball.Simulation.Career
 {
-    /// <summary>
-    /// 계단식 포스트시즌의 각 단계를 구분한다. 값이 클수록 나중 라운드다.
-    /// </summary>
+    /// <summary>4강 토너먼트의 라운드를 구분한다.</summary>
     public enum PostseasonRound
     {
-        WildCard,
-        Playoff,
-        ChampionshipSeries,
-        Semifinal
+        Semifinal,
+        ChampionshipSeries
     }
 
     public enum PostseasonSeriesId
@@ -92,13 +88,13 @@ namespace Baseball.Simulation.Career
     }
 
     /// <summary>
-    /// 정규 시즌 순위에서 포스트시즌 시드를 정하고, 계단식 대진의 라운드 구성을 알려준다.
+    /// 정규 시즌 순위에서 포스트시즌 시드를 정하고, 4강 토너먼트 대진 규칙을 제공한다.
     /// </summary>
     public static class PostseasonBracket
     {
         /// <summary>
-        /// 승률 → 승수 → 득실차 → TeamId 순으로 완전 순서를 만들어 상위 playoffTeamCount팀을 반환한다.
-        /// 마지막에 TeamId로 끊어 같은 성적이어도 항상 같은 시드가 나오게 한다(결정론).
+        /// 승률 → 상대 전적 → 득실차 → 득점 → 최소 실점 → 고정 타이브레이커 순으로
+        /// 완전 순서를 만들어 상위 playoffTeamCount팀을 반환한다.
         /// </summary>
         public static int[] SelectSeeds(IReadOnlyList<TeamStandingEntry> standings, int playoffTeamCount)
         {
@@ -119,46 +115,12 @@ namespace Baseball.Simulation.Career
         }
 
         /// <summary>
-        /// 라운드에 맞는 시리즈 경기 수를 반환한다.
-        /// </summary>
-        public static int GetSeriesGames(
-            PostseasonRound round,
-            int wildCardSeriesGames,
-            int playoffSeriesGames,
-            int championshipSeriesGames)
-        {
-            return round switch
-            {
-                PostseasonRound.WildCard => wildCardSeriesGames,
-                PostseasonRound.Playoff => playoffSeriesGames,
-                PostseasonRound.ChampionshipSeries => championshipSeriesGames,
-                _ => throw new ArgumentOutOfRangeException(nameof(round))
-            };
-        }
-
-        /// <summary>
-        /// 계단식 대진에서 해당 라운드에 기다리고 있던 상위 시드를 반환한다.
-        /// WildCard는 3위(seedIndex 2)와 4위(seedIndex 3)가 맞붙으므로 상위 시드가 3위다.
-        /// </summary>
-        public static int GetHigherSeedIndex(PostseasonRound round)
-        {
-            return round switch
-            {
-                PostseasonRound.WildCard => 2,
-                PostseasonRound.Playoff => 1,
-                PostseasonRound.ChampionshipSeries => 0,
-                _ => throw new ArgumentOutOfRangeException(nameof(round))
-            };
-        }
-
-        /// <summary>
         /// 시리즈를 이기는 데 필요한 승수를 반환한다. 무승부는 승수로 세지 않는다.
         /// </summary>
         public static int GetWinsRequired(int seriesGames) => seriesGames / 2 + 1;
 
         /// <summary>
-        /// 상위 시드가 홀수 번째 경기를 홈에서 치른다. 어떤 홀수 시리즈 길이에서도
-        /// 상위 시드의 홈 경기 수가 과반이 되는 가장 단순한 규칙이다.
+        /// 상위 시드가 홀수 번째 경기를 홈에서 치른다.
         /// </summary>
         public static bool IsHigherSeedHome(int gameNumber) => gameNumber % 2 == 1;
 
