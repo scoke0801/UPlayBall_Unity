@@ -92,7 +92,7 @@ namespace Baseball.Presentation.Career
 
             if (_manager.HasActiveMatch)
                 return;
-            if (keyboard.sKey.wasPressedThisFrame && _manager.Dashboard.RemainingRegularSeasonGames > 0)
+            if (keyboard.sKey.wasPressedThisFrame && CanAutoCompleteCurrentPhase(_manager.Dashboard))
                 ShowSeasonAutoCompletionConfirmation();
             else if (IsConfirmKeyPressed(keyboard))
                 AdvancePrimaryAction(_manager.Dashboard);
@@ -112,7 +112,7 @@ namespace Baseball.Presentation.Career
                     if (view.SeasonProgress.CanPlayNextPostseasonGame)
                         _manager.PrepareNextGame();
                     else
-                        _manager.AutoCompleteCurrentSeason();
+                        ShowSeasonAutoCompletionConfirmation();
                     break;
                 case SeasonPhase.SeasonReview:
                     _manager.SettleSeasonAndBeginOffseason();
@@ -430,7 +430,7 @@ namespace Baseball.Presentation.Career
                 _manager.PrepareNextGame();
             });
             Button autoSeason = CreateButton(
-                "AutoCompleteSeason", panel, "시즌 자동 완료\nS",
+                "AutoCompleteRegularSeason", panel, "정규시즌 자동 완료\nS",
                 new Vector2(190f, 82f), new Vector2(235f, -205f),
                 new Color(0.12f, 0.16f, 0.2f, 1f), out Text autoSeasonLabel);
             autoSeasonLabel.fontSize = 17;
@@ -478,19 +478,35 @@ namespace Baseball.Presentation.Career
                         : $"{view.TeamName}은 진출하지 못했습니다.\n상위 4개 구단의 우승 경쟁 결과를 확인하세요.",
                 canPlay ? GoldColor : SecondaryTextColor);
 
-            Button advance = CreateSeasonTransitionButton(
-                panel,
-                "AdvancePostseason",
-                canPlay ? "다음 포스트시즌 경기" : "남은 포스트시즌 결과 보기",
-                new Color(0.42f, 0.25f, 0.04f, 1f));
+            if (!canPlay)
+            {
+                Button complete = CreateSeasonTransitionButton(
+                    panel,
+                    "AutoCompletePostseason",
+                    "포스트시즌 자동 완료",
+                    new Color(0.42f, 0.25f, 0.04f, 1f));
+                complete.onClick.AddListener(ShowSeasonAutoCompletionConfirmation);
+                return;
+            }
+
+            Button advance = CreateButton(
+                "AdvancePostseason", panel, "다음 포스트시즌 경기   ENTER",
+                new Vector2(430f, 68f), new Vector2(-105f, -122f),
+                new Color(0.42f, 0.25f, 0.04f, 1f), out Text advanceLabel);
+            advanceLabel.fontSize = 21;
             advance.onClick.AddListener(() =>
             {
                 advance.interactable = false;
-                if (canPlay)
-                    _manager.PrepareNextGame();
-                else
-                    _manager.AutoCompleteCurrentSeason();
+                _manager.PrepareNextGame();
             });
+
+            Button autoComplete = CreateButton(
+                "AutoCompletePostseason", panel, "포스트시즌\n자동 완료   S",
+                new Vector2(190f, 68f), new Vector2(235f, -122f),
+                new Color(0.12f, 0.16f, 0.2f, 1f), out Text autoCompleteLabel);
+            autoCompleteLabel.fontSize = 16;
+            autoCompleteLabel.color = GoldColor;
+            autoComplete.onClick.AddListener(ShowSeasonAutoCompletionConfirmation);
         }
 
         private void RenderSeasonReviewTransition(RectTransform panel, CareerDashboardView view)
@@ -499,7 +515,8 @@ namespace Baseball.Presentation.Career
                 ? "우승 구단 집계 완료"
                 : $"우승 · {view.SeasonProgress.ChampionTeamName}";
             string result = GetPostseasonResultLabel(view.SeasonProgress.PlayerTeamPostseasonResult);
-            string autoSummary = view.LastSeasonAutoCompletion.HasValue
+            string autoSummary = view.LastSeasonAutoCompletion.HasValue &&
+                                 view.LastSeasonAutoCompletion.Value.CompletedPhase == SeasonPhase.Postseason
                 ? $"포스트시즌 {view.LastSeasonAutoCompletion.Value.PostseasonGames}경기 자동 진행 · "
                 : string.Empty;
             RenderSeasonTransitionHeading(
@@ -591,7 +608,7 @@ namespace Baseball.Presentation.Career
 
         private void ShowSeasonAutoCompletionConfirmation()
         {
-            if (_manager?.Dashboard?.RemainingRegularSeasonGames <= 0)
+            if (!CanAutoCompleteCurrentPhase(_manager?.Dashboard))
                 return;
             _isSeasonAutoCompletionConfirmationVisible = true;
             Render();
@@ -600,7 +617,7 @@ namespace Baseball.Presentation.Career
         private void ConfirmSeasonAutoCompletion()
         {
             _isSeasonAutoCompletionConfirmationVisible = false;
-            if (!_manager.AutoCompleteCurrentSeason())
+            if (!_manager.AutoCompleteCurrentSeasonPhase())
             {
                 _isSeasonAutoCompletionConfirmationVisible = true;
                 Render();
@@ -609,20 +626,27 @@ namespace Baseball.Presentation.Career
 
         private void RenderSeasonAutoCompletionConfirmation(CareerDashboardView view)
         {
+            bool isRegularSeason = view.SeasonPhase == SeasonPhase.RegularSeason;
+            string title = isRegularSeason ? "정규시즌 자동 완료" : "포스트시즌 자동 완료";
+            string warning = isRegularSeason
+                ? $"남은 정규시즌 {view.RemainingRegularSeasonGames}경기를\n결과만 보기로 자동 진행합니다."
+                : "남은 포스트시즌 경기를\n결과만 보기로 자동 진행합니다.";
+            string guide = isRegularSeason
+                ? "개별 경기 개입은 건너뜁니다.\n포스트시즌 진입 화면에서 멈추며, 포스트시즌은 별도로 진행합니다."
+                : "개별 경기 개입은 건너뜁니다.\n우승 구단이 확정된 뒤 시즌 결산 화면에서 멈춥니다.";
             RectTransform blocker = CreateImage(
                 "SeasonAutoCompletionBlocker", _content, new Color(0f, 0.01f, 0.02f, 0.82f),
                 Vector2.zero, Vector2.zero, stretch: true);
             blocker.GetComponent<Image>().raycastTarget = true;
             RectTransform modal = CreatePanel(
-                "SeasonAutoCompletionModal", "FAST FORWARD", "시즌 자동 완료",
+                "SeasonAutoCompletionModal", "FAST FORWARD", title,
                 new Vector2(790f, 440f), Vector2.zero);
             CreateText(
-                "Warning", modal, $"남은 정규시즌 {view.RemainingRegularSeasonGames}경기와 포스트시즌을\n결과만 보기로 자동 진행합니다.",
+                "Warning", modal, warning,
                 25, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(700f, 80f), new Vector2(0f, 74f), PrimaryTextColor);
             CreateText(
-                "Guide", modal,
-                "개별 경기 개입은 건너뛰지만 계약·성장 선택은 건너뛰지 않습니다.\n시즌 결산 화면에서 자동 진행이 멈춥니다.",
+                "Guide", modal, guide,
                 17, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(680f, 70f), new Vector2(0f, -8f), SecondaryTextColor);
             Button cancel = CreateButton(
@@ -638,6 +662,15 @@ namespace Baseball.Presentation.Career
                 "Confirm", modal, "자동 완료   ENTER", new Vector2(300f, 62f), new Vector2(155f, -132f),
                 new Color(0.42f, 0.25f, 0.04f, 1f), out _);
             confirm.onClick.AddListener(ConfirmSeasonAutoCompletion);
+        }
+
+        private static bool CanAutoCompleteCurrentPhase(CareerDashboardView view)
+        {
+            if (view == null)
+                return false;
+            return view.SeasonPhase == SeasonPhase.RegularSeason
+                ? view.RemainingRegularSeasonGames > 0
+                : view.SeasonPhase == SeasonPhase.Postseason;
         }
 
         private static bool IsConfirmKeyPressed(Keyboard keyboard)
@@ -1078,9 +1111,11 @@ namespace Baseball.Presentation.Career
             return result.Role switch
             {
                 PlayerGameRole.StartingBatter =>
-                    $"{result.AtBats}타수 {result.Hits}안타 · HR {result.HomeRuns} · RBI {result.RunsBattedIn}",
+                    $"{result.AtBats}타수 {result.Hits}안타 · HR {result.HomeRuns} · RBI {result.RunsBattedIn}" +
+                    $" · BB {result.Walks}",
                 PlayerGameRole.StartingPitcher or PlayerGameRole.ReliefPitcher =>
-                    $"{FormatInnings(result.OutsRecorded)}이닝 · ER {result.EarnedRuns} · SO {result.Strikeouts}",
+                    $"{FormatInnings(result.OutsRecorded)}이닝 · ER {result.EarnedRuns} · SO {result.Strikeouts}" +
+                    $" · BB {result.WalksAllowed}",
                 _ => "벤치 대기 · 출장 없음"
             };
         }
@@ -1095,20 +1130,23 @@ namespace Baseball.Presentation.Career
                 int outs = 0;
                 int earnedRuns = 0;
                 int strikeouts = 0;
+                int walksAllowed = 0;
                 for (int index = 0; index < view.RecentGames.Length; index++)
                 {
                     PlayerGameLogState game = view.RecentGames[index];
                     outs += game.OutsRecorded;
                     earnedRuns += game.EarnedRuns;
                     strikeouts += game.Strikeouts;
+                    walksAllowed += game.WalksAllowed;
                 }
-                return $"{FormatInnings(outs)} IP / {earnedRuns} ER / {strikeouts} SO";
+                return $"{FormatInnings(outs)} IP / {earnedRuns} ER / {strikeouts} SO / {walksAllowed} BB";
             }
 
             int atBats = 0;
             int hits = 0;
             int homeRuns = 0;
             int runsBattedIn = 0;
+            int walks = 0;
             for (int index = 0; index < view.RecentGames.Length; index++)
             {
                 PlayerGameLogState game = view.RecentGames[index];
@@ -1116,9 +1154,10 @@ namespace Baseball.Presentation.Career
                 hits += game.Hits;
                 homeRuns += game.HomeRuns;
                 runsBattedIn += game.RunsBattedIn;
+                walks += game.Walks;
             }
             double average = atBats == 0 ? 0d : hits / (double)atBats;
-            return $"{average:.000} / {homeRuns} HR / {runsBattedIn} RBI";
+            return $"{average:.000} / {homeRuns} HR / {runsBattedIn} RBI / {walks} BB";
         }
 
         private static string GetAdvanceButtonLabel(PlayerGameRole role)

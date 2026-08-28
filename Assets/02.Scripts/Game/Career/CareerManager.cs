@@ -77,9 +77,9 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
-        /// 남은 정규시즌과 포스트시즌을 자동 진행하고 선택이 필요한 시즌 결산에서 멈춘다.
+        /// 현재 정규시즌 또는 포스트시즌 단계만 자동 진행하고 다음 단계에서 멈춘다.
         /// </summary>
-        public bool AutoCompleteCurrentSeason()
+        public bool AutoCompleteCurrentSeasonPhase()
         {
             if (CurrentCareer == null || _balance == null)
                 return Fail("진행 중인 커리어가 없습니다.");
@@ -89,7 +89,7 @@ namespace Baseball.Game.Career
             try
             {
                 _lastSeasonAutoCompletion = new CareerSeasonAutoCompletionService(CurrentCareer, _balance)
-                    .CompleteToSeasonReview();
+                    .CompleteCurrentPhase();
                 RefreshSeasonServices();
                 _lastGame = null;
                 LastError = string.Empty;
@@ -114,7 +114,7 @@ namespace Baseball.Game.Career
 
             try
             {
-                SeasonPhase phase = CurrentCareer.League.CurrentSeason.Phase;
+                SeasonPhase phase = CurrentCareer.CurrentLeague.CurrentSeason.Phase;
                 if (phase == SeasonPhase.RegularSeason)
                 {
                     _seasonService ??= new CareerSeasonService(CurrentCareer, _balance);
@@ -247,7 +247,7 @@ namespace Baseball.Game.Career
             if (CurrentCareer == null || _balance == null)
                 return Fail("진행 중인 커리어가 없습니다.");
 
-            SeasonState season = CurrentCareer.League.CurrentSeason;
+            SeasonState season = CurrentCareer.CurrentLeague.CurrentSeason;
             if (season.Phase != SeasonPhase.Offseason)
                 return Fail("시즌 결산과 오프시즌이 시작된 뒤 계약 오퍼를 확인할 수 있습니다.");
             if (CurrentCareer.CurrentContract.EndYear > season.Year)
@@ -337,7 +337,7 @@ namespace Baseball.Game.Career
         /// </summary>
         public bool SetTradePreference(TradePreference preference)
         {
-            if (CurrentCareer?.League?.CurrentSeason?.Phase != SeasonPhase.RegularSeason)
+            if (CurrentCareer?.CurrentLeague?.CurrentSeason?.Phase != SeasonPhase.RegularSeason)
                 return Fail("트레이드 태도는 정규 시즌 중에만 바꿀 수 있습니다.");
 
             TradePreference previous = CurrentCareer.TradeState.Preference;
@@ -480,7 +480,7 @@ namespace Baseball.Game.Career
 
         private void RefreshSeasonServices()
         {
-            SeasonPhase phase = CurrentCareer.League.CurrentSeason.Phase;
+            SeasonPhase phase = CurrentCareer.CurrentLeague.CurrentSeason.Phase;
             if (phase == SeasonPhase.RegularSeason)
             {
                 _seasonService ??= new CareerSeasonService(CurrentCareer, _balance);
@@ -501,7 +501,7 @@ namespace Baseball.Game.Career
                 return null;
 
             PlayerState player = CurrentCareer.MyPlayer;
-            SeasonState season = CurrentCareer.League.CurrentSeason;
+            SeasonState season = CurrentCareer.CurrentLeague.CurrentSeason;
             TeamState playerTeam = GetTeam(player.CurrentTeamId);
             TeamSeasonRecordState teamRecord = season.GetTeamRecord(player.CurrentTeamId);
             var evaluator = new PlayerValueEvaluator(_balance.PlayerEvaluation);
@@ -613,7 +613,7 @@ namespace Baseball.Game.Career
             int opponentTeamId = isHome ? game.AwayTeamId : game.HomeTeamId;
             return new NextCareerGameView(
                 game.GameId,
-                GetGameDate(CurrentCareer.League.CurrentSeason.Year, game.Round),
+                GetGameDate(CurrentCareer.CurrentLeague.CurrentSeason.Year, game.Round),
                 GetTeam(game.AwayTeamId).Name,
                 GetTeam(game.HomeTeamId).Name,
                 GetTeam(opponentTeamId).Name,
@@ -654,7 +654,7 @@ namespace Baseball.Game.Career
 
         private UpcomingGameView[] BuildUpcomingGames(int playerTeamId)
         {
-            var games = CurrentCareer.League.CurrentSeason.Schedule.Games;
+            var games = CurrentCareer.CurrentLeague.CurrentSeason.Schedule.Games;
             int count = 0;
             for (int index = 0; index < games.Count && count < 5; index++)
             {
@@ -672,7 +672,7 @@ namespace Baseball.Game.Career
                 bool isHome = game.HomeTeamId == playerTeamId;
                 int opponentTeamId = isHome ? game.AwayTeamId : game.HomeTeamId;
                 result[resultIndex] = new UpcomingGameView(
-                    GetGameDate(CurrentCareer.League.CurrentSeason.Year, game.Round),
+                    GetGameDate(CurrentCareer.CurrentLeague.CurrentSeason.Year, game.Round),
                     GetTeam(opponentTeamId).Name,
                     isHome,
                     resultIndex == 0);
@@ -683,7 +683,7 @@ namespace Baseball.Game.Career
 
         private int CountRemainingRegularSeasonGames(int playerTeamId)
         {
-            IReadOnlyList<ScheduledGameState> games = CurrentCareer.League.CurrentSeason.Schedule?.Games;
+            IReadOnlyList<ScheduledGameState> games = CurrentCareer.CurrentLeague.CurrentSeason.Schedule?.Games;
             if (games == null)
                 return 0;
 
@@ -709,7 +709,7 @@ namespace Baseball.Game.Career
             if (playerRecord == null)
                 return 1;
             int rank = 1;
-            var records = CurrentCareer.League.CurrentSeason.TeamRecords;
+            var records = CurrentCareer.CurrentLeague.CurrentSeason.TeamRecords;
             for (int index = 0; index < records.Count; index++)
             {
                 TeamSeasonRecordState other = records[index];
@@ -727,9 +727,9 @@ namespace Baseball.Game.Career
 
         private TeamState GetTeam(int teamId)
         {
-            for (int index = 0; index < CurrentCareer.League.Teams.Count; index++)
+            for (int index = 0; index < CurrentCareer.CurrentLeague.Teams.Count; index++)
             {
-                TeamState team = CurrentCareer.League.Teams[index];
+                TeamState team = CurrentCareer.CurrentLeague.Teams[index];
                 if (team.TeamId == teamId)
                     return team;
             }

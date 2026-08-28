@@ -22,18 +22,18 @@ namespace Baseball.Tests.EditMode.Game
             CareerGameAdvanceResult result = service.AdvanceNextRound();
 
             int completedInRound = 0;
-            var games = career.League.CurrentSeason.Schedule.Games;
+            var games = career.CurrentLeague.CurrentSeason.Schedule.Games;
             for (int index = 0; index < games.Count; index++)
             {
                 if (games[index].Round == round && games[index].IsCompleted)
                     completedInRound++;
             }
             Assert.That(completedInRound, Is.EqualTo(4));
-            Assert.That(career.League.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(1));
-            Assert.That(career.League.CurrentSeason.PlayerStatistics.RecentGames.Count, Is.EqualTo(1));
+            Assert.That(career.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(1));
+            Assert.That(career.CurrentLeague.CurrentSeason.PlayerStatistics.RecentGames.Count, Is.EqualTo(1));
             Assert.That(result.Round, Is.EqualTo(round));
-            for (int index = 0; index < career.League.CurrentSeason.TeamRecords.Count; index++)
-                Assert.That(career.League.CurrentSeason.TeamRecords[index].GamesPlayed, Is.EqualTo(1));
+            for (int index = 0; index < career.CurrentLeague.CurrentSeason.TeamRecords.Count; index++)
+                Assert.That(career.CurrentLeague.CurrentSeason.TeamRecords[index].GamesPlayed, Is.EqualTo(1));
         }
 
         [Test]
@@ -69,11 +69,11 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(session.IsComplete, Is.True);
             Assert.That(result.GameId, Is.EqualTo(session.ScheduledGame.GameId));
-            Assert.That(career.League.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(1));
+            Assert.That(career.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(1));
             int completedInRound = 0;
-            for (int index = 0; index < career.League.CurrentSeason.Schedule.Games.Count; index++)
+            for (int index = 0; index < career.CurrentLeague.CurrentSeason.Schedule.Games.Count; index++)
             {
-                ScheduledGameState game = career.League.CurrentSeason.Schedule.Games[index];
+                ScheduledGameState game = career.CurrentLeague.CurrentSeason.Schedule.Games[index];
                 if (game.Round == round && game.IsCompleted)
                     completedInRound++;
             }
@@ -82,30 +82,49 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void CompleteToSeasonReview_남은일정과포스트시즌을완료하고결산에서멈춘다()
+        public void CompleteCurrentPhase_정규시즌에서는포스트시즌진입에서멈춘다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateStartedCareer(configuration, 9191UL);
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             int scheduledPlayerGames = CountScheduledPlayerGames(season, career.MyPlayer.CurrentTeamId);
 
             CareerSeasonAutoCompletionResult result = new CareerSeasonAutoCompletionService(
                     career,
                     configuration.Balance)
-                .CompleteToSeasonReview();
+                .CompleteCurrentPhase();
 
-            Assert.That(season.Phase, Is.EqualTo(SeasonPhase.SeasonReview));
-            Assert.That(season.Postseason.IsCompleted, Is.True);
+            Assert.That(season.Phase, Is.EqualTo(SeasonPhase.Postseason));
+            Assert.That(season.Postseason.IsCompleted, Is.False);
             Assert.That(season.PlayerStatistics.TeamGames, Is.EqualTo(scheduledPlayerGames));
+            Assert.That(result.CompletedPhase, Is.EqualTo(SeasonPhase.RegularSeason));
             Assert.That(result.RegularSeasonGames, Is.EqualTo(scheduledPlayerGames));
-            Assert.That(result.PostseasonGames, Is.GreaterThan(0));
-            Assert.That(result.ChampionTeamId, Is.Not.EqualTo(0));
+            Assert.That(result.PostseasonGames, Is.Zero);
+            Assert.That(result.ChampionTeamId, Is.Zero);
             for (int index = 0; index < season.Schedule.Games.Count; index++)
                 Assert.That(season.Schedule.Games[index].IsCompleted, Is.True);
         }
 
         [Test]
-        public void CompleteToSeasonReview_경기단위진행과같은시즌결과를만든다()
+        public void CompleteCurrentPhase_포스트시즌에서는결산에서멈춘다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 9192UL);
+            var service = new CareerSeasonAutoCompletionService(career, configuration.Balance);
+            service.CompleteCurrentPhase();
+
+            CareerSeasonAutoCompletionResult result = service.CompleteCurrentPhase();
+
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.SeasonReview));
+            Assert.That(career.CurrentLeague.CurrentSeason.Postseason.IsCompleted, Is.True);
+            Assert.That(result.CompletedPhase, Is.EqualTo(SeasonPhase.Postseason));
+            Assert.That(result.RegularSeasonGames, Is.Zero);
+            Assert.That(result.PostseasonGames, Is.GreaterThan(0));
+            Assert.That(result.ChampionTeamId, Is.Not.Zero);
+        }
+
+        [Test]
+        public void CompleteCurrentPhase_단계별자동진행이경기단위진행과같은시즌결과를만든다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState automaticCareer = CreateStartedCareer(configuration, 9292UL);
@@ -114,7 +133,9 @@ namespace Baseball.Tests.EditMode.Game
             CareerSeasonAutoCompletionResult automatic = new CareerSeasonAutoCompletionService(
                     automaticCareer,
                     configuration.Balance)
-                .CompleteToSeasonReview();
+                .CompleteCurrentPhase();
+            automatic = new CareerSeasonAutoCompletionService(automaticCareer, configuration.Balance)
+                .CompleteCurrentPhase();
 
             var regularSeason = new CareerSeasonService(manualCareer, configuration.Balance);
             while (regularSeason.NextPlayerGame != null)
@@ -122,8 +143,8 @@ namespace Baseball.Tests.EditMode.Game
             CareerPostseasonGameResult manual = new CareerPostseasonService(manualCareer, configuration.Balance)
                 .AdvanceToChampion();
 
-            SeasonState automaticSeason = automaticCareer.League.CurrentSeason;
-            SeasonState manualSeason = manualCareer.League.CurrentSeason;
+            SeasonState automaticSeason = automaticCareer.CurrentLeague.CurrentSeason;
+            SeasonState manualSeason = manualCareer.CurrentLeague.CurrentSeason;
             Assert.That(automatic.ChampionTeamId, Is.EqualTo(manual.ChampionTeamId));
             Assert.That(automaticSeason.PlayerStatistics.Hits, Is.EqualTo(manualSeason.PlayerStatistics.Hits));
             Assert.That(automaticSeason.PlayerStatistics.HomeRuns, Is.EqualTo(manualSeason.PlayerStatistics.HomeRuns));
