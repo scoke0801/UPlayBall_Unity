@@ -38,6 +38,9 @@ namespace Baseball.Game.Input
         public event Action<InputContext> ContextChanged;
         public event Action<InputDeviceKind> InputDeviceChanged;
 
+        /// <summary>포인터 클릭이 눌린 순간의 화면 좌표를 전달한다.</summary>
+        public event Action<Vector2> PointerClicked;
+
         /// <summary>
         /// 화면 수명 동안 우선 적용할 입력 context를 스택에 추가한다.
         /// </summary>
@@ -117,7 +120,7 @@ namespace Baseball.Game.Input
             Subscribe(UiMapName, "Submit", HandleSubmit);
             Subscribe(UiMapName, "Navigate", HandleDeviceOnly);
             Subscribe(UiMapName, "Point", HandleDeviceOnly);
-            Subscribe(UiMapName, "Click", HandleDeviceOnly);
+            Subscribe(UiMapName, "Click", HandleClick);
             Subscribe(UiMapName, "ScrollWheel", HandleDeviceOnly);
             Subscribe(UiMapName, "PreviousTab", HandlePreviousTab);
             Subscribe(UiMapName, "NextTab", HandleNextTab);
@@ -175,6 +178,16 @@ namespace Baseball.Game.Input
         private void HandleDeviceOnly(InputAction.CallbackContext context)
         {
             UpdateInputDevice(context.control?.device);
+        }
+
+        private void HandleClick(InputAction.CallbackContext context)
+        {
+            InputDevice device = context.control?.device;
+            UpdateInputDevice(device);
+
+            // 클릭 좌표는 Click action(버튼)에 실려 오지 않으므로 입력을 발생시킨 포인터에서 직접 읽는다.
+            if (device is Pointer pointer)
+                PointerClicked?.Invoke(pointer.position.ReadValue());
         }
 
         private void HandleSubmit(InputAction.CallbackContext context)

@@ -21,6 +21,7 @@ namespace Baseball.Presentation.UI
         private readonly List<UIBase> _visibleStack = new();
         private readonly List<InputActionReference> _inputActionReferences = new();
         private UIRoot _uiRoot;
+        private UIClickFeedback _clickFeedback;
         private EventSystem _eventSystem;
         private GameObject _ownedEventSystemObject;
         private InputContextLease _modalInputLease;
@@ -41,6 +42,7 @@ namespace Baseball.Presentation.UI
                 .EnsureManager<InputManager>("InputManager");
             inputManager.CancelPerformed += HandleCancelPerformed;
             EnsureEventSystem();
+            EnsureClickFeedback();
         }
 
         protected override void OnShutdown()
@@ -66,6 +68,7 @@ namespace Baseball.Presentation.UI
 
             _eventSystem = null;
             _ownedEventSystemObject = null;
+            _clickFeedback = null;
             _uiRoot = null;
             _visibleStack.Clear();
             _uiByName.Clear();
@@ -185,6 +188,21 @@ namespace Baseball.Presentation.UI
                 : UIRoot.CreateRuntime(transform);
             _uiRoot.name = "UI_System_Root";
             _uiRoot.BuildMissingLayers();
+        }
+
+        /// <summary>
+        /// 클릭 연출 오버레이를 System 레이어 최상단에 한 번만 생성한다.
+        /// </summary>
+        private void EnsureClickFeedback()
+        {
+            if (_clickFeedback != null || _uiRoot == null)
+                return;
+
+            RectTransform systemLayer = _uiRoot.GetLayerRoot(UILayer.System);
+            if (systemLayer == null)
+                return;
+
+            _clickFeedback = UIClickFeedback.CreateRuntime(systemLayer);
         }
 
         private void EnsureEventSystem()
