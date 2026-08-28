@@ -51,6 +51,32 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
+        public void 진출한내구단경기는준비와관전후에한경기만반영된다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateQualifiedCareerAtPostseason();
+            SeasonState season = career.League.CurrentSeason;
+            var service = new CareerPostseasonService(career, configuration.Balance);
+
+            CareerMatchSession firstSession = service.PrepareNextPlayerGame();
+            CareerMatchSession reopenedSession = service.PrepareNextPlayerGame();
+
+            Assert.That(firstSession.CompetitionScope, Is.EqualTo(CompetitionScope.Postseason));
+            Assert.That(firstSession.Input.RequiresWinner, Is.True);
+            Assert.That(firstSession.ScheduledGame.IncludesTeam(career.MyPlayer.CurrentTeamId), Is.True);
+            Assert.That(reopenedSession.ScheduledGame.GameId, Is.EqualTo(firstSession.ScheduledGame.GameId));
+            Assert.That(reopenedSession.Input.RandomSeed, Is.EqualTo(firstSession.Input.RandomSeed));
+
+            firstSession.Start(CareerMatchMode.ResultsOnly);
+            CareerGameAdvanceResult result = service.CompletePreparedGame(firstSession);
+
+            Assert.That(result.GameId, Is.EqualTo(firstSession.ScheduledGame.GameId));
+            Assert.That(firstSession.ScheduledGame.IsCompleted, Is.True);
+            Assert.That(season.PostseasonPlayerStatistics.TeamGames, Is.EqualTo(1));
+            Assert.Throws<InvalidOperationException>(() => service.CompletePreparedGame(firstSession));
+        }
+
+        [Test]
         public void AdvanceToChampion_두준결승과결승을거쳐우승구단을확정한다()
         {
             CareerState career = CreateCareerAtPostseason(3456UL);
@@ -264,6 +290,22 @@ namespace Baseball.Tests.EditMode.Game
                     Assert.Fail("정규 시즌이 예상 라운드 안에 끝나지 않았습니다.");
             }
             return career;
+        }
+
+        private static CareerState CreateQualifiedCareerAtPostseason()
+        {
+            for (ulong seed = 10_000UL; seed < 10_012UL; seed++)
+            {
+                CareerState career = CreateCareerAtPostseason(seed);
+                if (career.League.CurrentSeason.Postseason.CanTeamPlayNextGame(
+                        career.MyPlayer.CurrentTeamId))
+                {
+                    return career;
+                }
+            }
+
+            Assert.Fail("테스트 Seed 범위에서 포스트시즌 진출 커리어를 만들지 못했습니다.");
+            return null;
         }
 
         private static CareerState CreateStartedCareer(NewGameConfiguration configuration, ulong seed)

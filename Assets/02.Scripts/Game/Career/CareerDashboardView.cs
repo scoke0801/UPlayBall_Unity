@@ -124,6 +124,7 @@ namespace Baseball.Game.Career
     {
         public CareerSeasonProgressView(
             bool isPlayerTeamPostseasonQualified,
+            bool canPlayNextPostseasonGame,
             string championTeamName,
             PlayerTeamPostseasonResult playerTeamPostseasonResult,
             int postseasonGamesPlayed,
@@ -134,6 +135,7 @@ namespace Baseball.Game.Career
             bool requiresContractDecision)
         {
             IsPlayerTeamPostseasonQualified = isPlayerTeamPostseasonQualified;
+            CanPlayNextPostseasonGame = canPlayNextPostseasonGame;
             ChampionTeamName = championTeamName ?? string.Empty;
             PlayerTeamPostseasonResult = playerTeamPostseasonResult;
             PostseasonGamesPlayed = postseasonGamesPlayed;
@@ -145,6 +147,7 @@ namespace Baseball.Game.Career
         }
 
         public bool IsPlayerTeamPostseasonQualified { get; }
+        public bool CanPlayNextPostseasonGame { get; }
         public string ChampionTeamName { get; }
         public PlayerTeamPostseasonResult PlayerTeamPostseasonResult { get; }
         public int PostseasonGamesPlayed { get; }

@@ -13,6 +13,7 @@ namespace Baseball.Game.Career
     public sealed partial class CareerManager : ManagerBehaviour<CareerManager>
     {
         private CareerSeasonService _seasonService;
+        private CareerPostseasonService _postseasonService;
         private CareerSeasonTransitionService _seasonTransitionService;
         private BalanceTable _balance;
         private CareerGameAdvanceResult? _lastGame;
@@ -39,10 +40,10 @@ namespace Baseball.Game.Career
         {
             CurrentCareer = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
-            _seasonService = career.League.CurrentSeason.Phase == SeasonPhase.RegularSeason
-                ? new CareerSeasonService(career, balance)
-                : null;
+            _seasonService = null;
+            _postseasonService = null;
             _seasonTransitionService = null;
+            RefreshSeasonServices();
             _seasonService?.EnsureNextGamePlan();
             _lastGame = null;
             _activeMatch = null;
@@ -64,6 +65,7 @@ namespace Baseball.Game.Career
             try
             {
                 _lastGame = _seasonService.AdvanceNextRound();
+                RefreshSeasonServices();
                 LastError = string.Empty;
                 CareerChanged?.Invoke();
                 return true;
@@ -88,7 +90,7 @@ namespace Baseball.Game.Career
             {
                 _lastSeasonAutoCompletion = new CareerSeasonAutoCompletionService(CurrentCareer, _balance)
                     .CompleteToSeasonReview();
-                _seasonService = null;
+                RefreshSeasonServices();
                 _lastGame = null;
                 LastError = string.Empty;
                 CareerChanged?.Invoke();
@@ -101,18 +103,33 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
-        /// 다음 경기를 기록 변경 없이 준비 화면 상태로 연다.
+        /// 정규시즌 또는 내 구단 포스트시즌 경기를 기록 변경 없이 준비 화면 상태로 연다.
         /// </summary>
         public bool PrepareNextGame()
         {
-            if (_seasonService == null)
-                return Fail("진행 중인 정규 시즌이 없습니다.");
+            if (CurrentCareer == null || _balance == null)
+                return Fail("진행 중인 커리어가 없습니다.");
             if (_activeMatch != null)
                 return Fail("이미 준비하거나 진행 중인 경기가 있습니다.");
 
             try
             {
-                _activeMatch = _seasonService.PrepareNextGame();
+                SeasonPhase phase = CurrentCareer.League.CurrentSeason.Phase;
+                if (phase == SeasonPhase.RegularSeason)
+                {
+                    _seasonService ??= new CareerSeasonService(CurrentCareer, _balance);
+                    _activeMatch = _seasonService.PrepareNextGame();
+                }
+                else if (phase == SeasonPhase.Postseason)
+                {
+                    _postseasonService ??= new CareerPostseasonService(CurrentCareer, _balance);
+                    _activeMatch = _postseasonService.PrepareNextPlayerGame();
+                }
+                else
+                {
+                    return Fail("진행할 정규시즌 또는 포스트시즌 경기가 없습니다.");
+                }
+
                 LastError = string.Empty;
                 CareerChanged?.Invoke();
                 return true;
@@ -297,6 +314,7 @@ namespace Baseball.Game.Career
             CareerChanged = null;
             CurrentCareer = null;
             _seasonService = null;
+            _postseasonService = null;
             _seasonTransitionService = null;
             _balance = null;
             _lastGame = null;
@@ -313,7 +331,7 @@ namespace Baseball.Game.Career
 
         private void CompleteSeasonTransition()
         {
-            _seasonService = new CareerSeasonService(CurrentCareer, _balance);
+            RefreshSeasonServices();
             _seasonService.EnsureNextGamePlan();
             _seasonTransitionService = null;
             _lastGame = null;
@@ -340,11 +358,20 @@ namespace Baseball.Game.Career
                 mutation(_activeMatch);
                 if (_activeMatch.IsComplete && !_activeMatch.IsCommitted)
                 {
-                    _lastGame = _seasonService.CompletePreparedGame(_activeMatch);
+                    if (_activeMatch.CompetitionScope == CompetitionScope.Postseason)
+                    {
+                        _postseasonService ??= new CareerPostseasonService(CurrentCareer, _balance);
+                        _lastGame = _postseasonService.CompletePreparedGame(_activeMatch);
+                    }
+                    else
+                    {
+                        _lastGame = _seasonService.CompletePreparedGame(_activeMatch);
+                    }
                     _activeMatch.MarkCommitted(
                         _lastGame.Value,
                         CurrentCareer.MyPlayer.Condition,
                         CurrentCareer.MyPlayer.ManagerEvaluation);
+                    RefreshSeasonServices();
                 }
 
                 LastError = string.Empty;
@@ -355,6 +382,23 @@ namespace Baseball.Game.Career
             {
                 return Fail(exception.Message);
             }
+        }
+
+        private void RefreshSeasonServices()
+        {
+            SeasonPhase phase = CurrentCareer.League.CurrentSeason.Phase;
+            if (phase == SeasonPhase.RegularSeason)
+            {
+                _seasonService ??= new CareerSeasonService(CurrentCareer, _balance);
+                _postseasonService = null;
+                return;
+            }
+
+            _seasonService = null;
+            if (phase == SeasonPhase.Postseason)
+                _postseasonService ??= new CareerPostseasonService(CurrentCareer, _balance);
+            else
+                _postseasonService = null;
         }
 
         private CareerDashboardView BuildDashboard()
@@ -439,6 +483,7 @@ namespace Baseball.Game.Career
 
             return new CareerSeasonProgressView(
                 isQualified,
+                postseason?.CanTeamPlayNextGame(CurrentCareer.MyPlayer.CurrentTeamId) == true,
                 championTeamName,
                 postseason?.PlayerTeamResult ?? PlayerTeamPostseasonResult.DidNotQualify,
                 postseasonGames,

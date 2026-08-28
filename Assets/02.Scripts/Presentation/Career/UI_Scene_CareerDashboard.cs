@@ -108,7 +108,10 @@ namespace Baseball.Presentation.Career
             switch (view.SeasonPhase)
             {
                 case SeasonPhase.Postseason:
-                    _manager.AutoCompleteCurrentSeason();
+                    if (view.SeasonProgress.CanPlayNextPostseasonGame)
+                        _manager.PrepareNextGame();
+                    else
+                        _manager.AutoCompleteCurrentSeason();
                     break;
                 case SeasonPhase.SeasonReview:
                     _manager.SettleSeasonAndBeginOffseason();
@@ -408,7 +411,7 @@ namespace Baseball.Presentation.Career
                 "PlannedRole", role, GetRoleLabel(game.PlannedRole, view.Position), 25,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(285f, 42f), Vector2.zero, RoleColor);
             CreateText(
-                "RoleGuide", role, GetRoleGuide(game.PlannedRole), 13, FontStyle.Normal,
+                "RoleGuide", role, GetRoleGuide(game.PlannedRole, view.Position), 13, FontStyle.Normal,
                 TextAnchor.MiddleRight, new Vector2(180f, 30f), new Vector2(218f, 0f), SecondaryTextColor);
 
             RectTransform buttonFrame = CreateImage(
@@ -462,24 +465,30 @@ namespace Baseball.Presentation.Career
         private void RenderPostseasonTransition(RectTransform panel, CareerDashboardView view)
         {
             bool qualified = view.SeasonProgress.IsPlayerTeamPostseasonQualified;
+            bool canPlay = view.SeasonProgress.CanPlayNextPostseasonGame;
             RenderSeasonTransitionHeading(
                 panel,
                 "POST-SEASON",
-                qualified ? "포스트시즌 진출" : "포스트시즌 관전",
-                qualified
-                    ? $"{view.TeamName}의 우승 도전이 시작됩니다.\n경기 결과와 내 선수의 포스트시즌 기록이 별도로 집계됩니다."
-                    : $"{view.TeamName}은 진출하지 못했습니다.\n상위 4개 구단의 우승 경쟁 결과를 확인하세요.",
-                qualified ? GoldColor : SecondaryTextColor);
+                canPlay ? "포스트시즌 진출" : qualified ? "포스트시즌 탈락" : "포스트시즌 관전",
+                canPlay
+                    ? $"{view.TeamName}의 우승 도전이 진행 중입니다.\n내 구단 경기는 직접 진행하며 포스트시즌 기록으로 별도 집계됩니다."
+                    : qualified
+                        ? $"{view.TeamName}의 도전은 끝났습니다.\n남은 대진을 진행해 우승 구단을 확인하세요."
+                        : $"{view.TeamName}은 진출하지 못했습니다.\n상위 4개 구단의 우승 경쟁 결과를 확인하세요.",
+                canPlay ? GoldColor : SecondaryTextColor);
 
             Button advance = CreateSeasonTransitionButton(
                 panel,
                 "AdvancePostseason",
-                "포스트시즌 결과 진행",
+                canPlay ? "다음 포스트시즌 경기" : "남은 포스트시즌 결과 보기",
                 new Color(0.42f, 0.25f, 0.04f, 1f));
             advance.onClick.AddListener(() =>
             {
                 advance.interactable = false;
-                _manager.AutoCompleteCurrentSeason();
+                if (canPlay)
+                    _manager.PrepareNextGame();
+                else
+                    _manager.AutoCompleteCurrentSeason();
             });
         }
 
@@ -839,7 +848,8 @@ namespace Baseball.Presentation.Career
                     : result.TeamRuns < result.OpponentRuns ? "패배" : "무승부";
                 RenderFeedRow(
                     panel, "GAME",
-                    $"{outcome}  {result.TeamRuns} : {result.OpponentRuns}  ·  {GetPersonalGameSummary(result)}",
+                    $"{outcome}  {result.TeamRuns} : {result.OpponentRuns}  ·  " +
+                    GetPersonalGameSummary(result, view.Position),
                     "최근 경기", 68f, GetResultColor(result));
             }
             else
@@ -1021,8 +1031,13 @@ namespace Baseball.Presentation.Career
             fill.anchoredPosition = new Vector2(2f, 0f);
         }
 
-        private static string GetPersonalGameSummary(CareerGameAdvanceResult result)
+        private static string GetPersonalGameSummary(
+            CareerGameAdvanceResult result,
+            PlayerPosition position)
         {
+            if (CareerGameRoleFormatter.IsPitcherRest(result.Role, position))
+                return $"{CareerGameRoleFormatter.GetPitcherRestLabel(position)} · 등판 없음";
+
             return result.Role switch
             {
                 PlayerGameRole.StartingBatter =>
@@ -1071,11 +1086,14 @@ namespace Baseball.Presentation.Career
 
         private static string GetAdvanceButtonLabel(PlayerGameRole role)
         {
-            return role == PlayerGameRole.Bench ? "경기 관전" : "경기 진행";
+            return role is PlayerGameRole.Bench or PlayerGameRole.PitcherRest ? "경기 관전" : "경기 진행";
         }
 
-        private static string GetRoleGuide(PlayerGameRole role)
+        private static string GetRoleGuide(PlayerGameRole role, PlayerPosition position)
         {
+            if (CareerGameRoleFormatter.IsPitcherRest(role, position))
+                return "오늘 등판 없음";
+
             return role switch
             {
                 PlayerGameRole.StartingBatter => "선발 라인업 확정",
@@ -1088,6 +1106,9 @@ namespace Baseball.Presentation.Career
 
         private static string GetRoleLabel(PlayerGameRole role, PlayerPosition position)
         {
+            if (CareerGameRoleFormatter.IsPitcherRest(role, position))
+                return CareerGameRoleFormatter.GetPitcherRestLabel(position);
+
             return role switch
             {
                 PlayerGameRole.StartingBatter => $"선발 {GetPositionCode(position)}",
@@ -1173,7 +1194,9 @@ namespace Baseball.Presentation.Career
             return view.SeasonPhase switch
             {
                 SeasonPhase.Postseason => view.SeasonProgress.IsPlayerTeamPostseasonQualified
-                    ? "포스트시즌 진출 · 우승 경쟁을 진행하세요."
+                    ? view.SeasonProgress.CanPlayNextPostseasonGame
+                        ? "포스트시즌 진출 · 다음 내 구단 경기를 진행하세요."
+                        : "포스트시즌 탈락 · 남은 우승 경쟁 결과를 확인하세요."
                     : "포스트시즌 미진출 · 리그 우승 결과를 확인하세요.",
                 SeasonPhase.SeasonReview =>
                     $"{view.SeasonProgress.ChampionTeamName} 우승 · 시즌 결산을 진행하세요.",
@@ -1198,7 +1221,9 @@ namespace Baseball.Presentation.Career
         {
             return view.SeasonPhase switch
             {
-                SeasonPhase.Postseason => "포스트시즌은 중앙 진행 카드에서 결과를 확인할 수 있습니다.",
+                SeasonPhase.Postseason => view.SeasonProgress.CanPlayNextPostseasonGame
+                    ? "내 구단 포스트시즌 경기는 중앙 진행 카드에서 시작할 수 있습니다."
+                    : "남은 포스트시즌 결과는 중앙 진행 카드에서 확인할 수 있습니다.",
                 SeasonPhase.SeasonReview => "시즌 결산 후 오프시즌 일정이 시작됩니다.",
                 SeasonPhase.Offseason =>
                     $"다음 시즌 전까지 성장에 사용할 수 있는 시간이 {view.SeasonProgress.OffseasonRemainingWeeks}주 남았습니다.",

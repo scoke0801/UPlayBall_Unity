@@ -168,6 +168,35 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
+        /// 진출 구단이 아직 탈락하지 않아 직접 진행할 다음 경기가 남아 있는지 반환한다.
+        /// </summary>
+        public bool CanTeamPlayNextGame(int teamId)
+        {
+            if (IsCompleted)
+                return false;
+
+            bool qualified = false;
+            for (int index = 0; index < _seedTeamIds.Length; index++)
+                qualified |= _seedTeamIds[index] == teamId;
+            if (!qualified)
+                return false;
+
+            for (int index = 0; index < _series.Count; index++)
+            {
+                PostseasonSeriesState series = _series[index];
+                if (!series.IncludesTeam(teamId))
+                    continue;
+                if (!series.IsCompleted)
+                    return true;
+                if (series.WinnerTeamId != teamId)
+                    return false;
+            }
+
+            // 대진 생성 전이거나 준결승 승리 후 상대 시리즈가 진행 중인 상태다.
+            return true;
+        }
+
+        /// <summary>
         /// 한국시리즈 승자를 우승 구단으로 확정한다.
         /// </summary>
         public void CompleteWithChampion(int championTeamId)
