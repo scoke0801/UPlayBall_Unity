@@ -122,6 +122,7 @@ namespace Baseball.Game.Career
         public RenewalContractOfferView(
             int teamId,
             string teamName,
+            LeagueLevel leagueLevel,
             TeamColor teamColor,
             int positionNeed,
             int developmentRating,
@@ -135,6 +136,7 @@ namespace Baseball.Game.Career
         {
             TeamId = teamId;
             TeamName = teamName;
+            LeagueLevel = leagueLevel;
             TeamColor = teamColor;
             PositionNeed = positionNeed;
             DevelopmentRating = developmentRating;
@@ -149,6 +151,7 @@ namespace Baseball.Game.Career
 
         public int TeamId { get; }
         public string TeamName { get; }
+        public LeagueLevel LeagueLevel { get; }
         public TeamColor TeamColor { get; }
         public int PositionNeed { get; }
         public int DevelopmentRating { get; }

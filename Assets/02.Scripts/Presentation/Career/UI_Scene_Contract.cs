@@ -553,7 +553,8 @@ namespace Baseball.Presentation.Career
             Button button = row.gameObject.AddComponent<Button>();
             button.onClick.AddListener(() => _manager.SelectContractOffer(offer.TeamId));
             CreateImage("TeamColor", row, teamColor, new Vector2(7f, 76f), new Vector2(-671f, 0f));
-            CreateText("Team", row, $"{GetOfferChannelLabel(offer.Channel)}  {offer.TeamName}", 18,
+            CreateText("Team", row,
+                $"{GetOfferChannelLabel(offer.Channel)} [{GetLeagueLevelLabel(offer.LeagueLevel)}]  {offer.TeamName}", 18,
                 FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(260f, 38f), new Vector2(-520f, 13f), PrimaryTextColor);
             CreateText("Term", row, $"{offer.ContractYears}년 / 보장 {FormatMoney(offer.GuaranteedValue)}",
@@ -752,8 +753,20 @@ namespace Baseball.Presentation.Career
                 ContractOfferChannel.CurrentTeamRenewal => "[기존 구단]",
                 ContractOfferChannel.CurrentTeamExtension => "[연장 계약]",
                 ContractOfferChannel.Promotion => "[상위 리그]",
+                ContractOfferChannel.Rehabilitation => "[재기 계약]",
                 ContractOfferChannel.DevelopmentFallback => "[육성 계약]",
                 _ => "[공개 시장]"
+            };
+        }
+
+        private static string GetLeagueLevelLabel(LeagueLevel level)
+        {
+            return level switch
+            {
+                LeagueLevel.Rookie => "루키",
+                LeagueLevel.Minor => "마이너",
+                LeagueLevel.Major => "메이저",
+                _ => level.ToString()
             };
         }
 

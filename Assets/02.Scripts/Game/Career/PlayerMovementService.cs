@@ -45,7 +45,7 @@ namespace Baseball.Game.Career
             ExpectedRole projectedRole,
             int gameIndex)
         {
-            SeasonState season = _career.League.CurrentSeason;
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
             if (season?.Phase != SeasonPhase.RegularSeason)
                 throw new InvalidOperationException("정규 시즌 중에만 트레이드를 처리할 수 있습니다.");
 
@@ -58,16 +58,30 @@ namespace Baseball.Game.Career
             int playerOverall = new PlayerValueEvaluator(_balance.PlayerEvaluation)
                 .CalculatePositionValue(_career.MyPlayer.ToPlayer());
             RosterCompetitorState exchangedPlayer = SelectExchangedPlayer(targetTeam, playerOverall);
-            TeamState updatedPreviousTeam = previousTeam.WithRoster(
-                Append(previousTeam.RosterCompetitors, exchangedPlayer));
-            TeamState updatedTargetTeam = targetTeam.WithRoster(
-                Remove(targetTeam.RosterCompetitors, exchangedPlayer.PlayerId));
+            TeamState updatedPreviousTeam = previousTeam.WithRosterAndPlayerIds(
+                Append(previousTeam.RosterCompetitors, exchangedPlayer),
+                ReplaceRosterPlayer(
+                    previousTeam.RosterPlayerIds,
+                    _career.MyPlayer.PlayerId,
+                    exchangedPlayer.PlayerId));
+            TeamState updatedTargetTeam = targetTeam.WithRosterAndPlayerIds(
+                Remove(targetTeam.RosterCompetitors, exchangedPlayer.PlayerId),
+                ReplaceRosterPlayer(
+                    targetTeam.RosterPlayerIds,
+                    exchangedPlayer.PlayerId,
+                    _career.MyPlayer.PlayerId));
 
             ExpectedRole previousRole = _career.CurrentExpectedRole;
-            _career.League.ReplaceTeams(updatedPreviousTeam, updatedTargetTeam);
-            _career.MyPlayer.TransferTo(targetTeamId);
+            LeagueId leagueId = _career.CurrentLeague.LeagueId;
+            _career.MyPlayer.TransferTo(targetTeamId, leagueId);
+            _career.World.GetPlayer(exchangedPlayer.PlayerId).TransferTo(previousTeamId, leagueId);
             _career.MyPlayer.ResetManagerEvaluation(_balance.TradeMarket.ArrivalManagerEvaluation);
-            _career.CurrentContract.TransferTo(targetTeamId);
+            _career.CurrentContract.TransferTo(targetTeamId, leagueId);
+            PlayerContractState exchangedContract = _career.World.TransferActiveContract(
+                exchangedPlayer.PlayerId,
+                previousTeamId,
+                leagueId);
+            _career.World.ReplaceTeams(updatedPreviousTeam, updatedTargetTeam);
             season.LeagueStatistics.RegularSeason.GetOrCreate(
                 _career.MyPlayer.PlayerId,
                 _career.MyPlayer.Name,
@@ -89,6 +103,40 @@ namespace Baseball.Game.Career
                 projectedRole,
                 exchangedPlayer.PlayerId);
             _career.TradeState.RecordTrade(history);
+            _career.World.MovementLedger.Record(new PlayerMovementRecord(
+                _career.World.Calendar.CurrentDate,
+                season.SeasonId,
+                _career.MyPlayer.PlayerId,
+                PlayerMovementType.Trade,
+                leagueId,
+                previousTeamId,
+                leagueId,
+                targetTeamId,
+                previousRole,
+                _career.CurrentContract.PromisedRole,
+                projectedRole,
+                _career.CurrentContract.ContractId,
+                "동일 리그 트레이드"));
+            _career.World.MovementLedger.Record(new PlayerMovementRecord(
+                _career.World.Calendar.CurrentDate,
+                season.SeasonId,
+                exchangedPlayer.PlayerId,
+                PlayerMovementType.Trade,
+                leagueId,
+                targetTeamId,
+                leagueId,
+                previousTeamId,
+                exchangedContract?.PromisedRole ?? ExpectedRole.RosterCompetition,
+                exchangedContract?.PromisedRole ?? ExpectedRole.RosterCompetition,
+                ExpectedRole.RosterCompetition,
+                exchangedContract?.ContractId ?? 0,
+                "동일 리그 트레이드 맞교환"));
+            _career.World.DomainEvents.Append(new WorldDomainEvent(
+                $"trade:{season.SeasonId}:{_career.MyPlayer.PlayerId}:{gameIndex}",
+                "PlayerTraded",
+                _career.World.Calendar.CurrentDate,
+                _career.MyPlayer.PlayerId,
+                targetTeamId));
             return new TradeExecutionResult(
                 previousTeamId,
                 targetTeamId,
@@ -151,12 +199,37 @@ namespace Baseball.Game.Career
             return result;
         }
 
+        private static int[] ReplaceRosterPlayer(
+            IReadOnlyList<int> source,
+            int removedPlayerId,
+            int addedPlayerId)
+        {
+            var result = new int[source.Count];
+            bool replaced = false;
+            for (int index = 0; index < source.Count; index++)
+            {
+                if (source[index] == removedPlayerId)
+                {
+                    result[index] = addedPlayerId;
+                    replaced = true;
+                }
+                else
+                {
+                    result[index] = source[index];
+                }
+            }
+            if (!replaced)
+                throw new InvalidOperationException($"PlayerId {removedPlayerId}를 로스터에서 찾지 못했습니다.");
+            Array.Sort(result);
+            return result;
+        }
+
         private TeamState GetTeam(int teamId)
         {
-            for (int index = 0; index < _career.League.Teams.Count; index++)
+            for (int index = 0; index < _career.CurrentLeague.Teams.Count; index++)
             {
-                if (_career.League.Teams[index].TeamId == teamId)
-                    return _career.League.Teams[index];
+                if (_career.CurrentLeague.Teams[index].TeamId == teamId)
+                    return _career.CurrentLeague.Teams[index];
             }
             throw new InvalidOperationException($"TeamId {teamId}를 찾을 수 없습니다.");
         }

@@ -30,7 +30,7 @@ namespace Baseball.Game.Career
             CareerSeasonTransitionService transitionService,
             string lastError)
         {
-            SeasonState season = _career.League.CurrentSeason;
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
             PlayerState player = _career.MyPlayer;
             PlayerContractState contract = _career.CurrentContract;
             TeamState currentTeam = GetTeam(contract.TeamId);
@@ -147,7 +147,9 @@ namespace Baseball.Game.Career
                 for (int index = 0; index < transitionService.RenewalOffers.Count; index++)
                 {
                     ContractOfferChannel channel = transitionService.RenewalOffers[index].Channel;
-                    if (channel is ContractOfferChannel.OpenMarket or ContractOfferChannel.Promotion)
+                    if (channel is ContractOfferChannel.OpenMarket or
+                        ContractOfferChannel.Promotion or
+                        ContractOfferChannel.Rehabilitation)
                         count++;
                 }
                 var actual = new ContractOffer[count];
@@ -155,24 +157,26 @@ namespace Baseball.Game.Career
                 for (int index = 0; index < transitionService.RenewalOffers.Count; index++)
                 {
                     ContractOffer offer = transitionService.RenewalOffers[index];
-                    if (offer.Channel is ContractOfferChannel.OpenMarket or ContractOfferChannel.Promotion)
+                    if (offer.Channel is ContractOfferChannel.OpenMarket or
+                        ContractOfferChannel.Promotion or
+                        ContractOfferChannel.Rehabilitation)
                         actual[resultIndex++] = offer;
                 }
                 return actual;
             }
 
-            int seasonId = _career.League.CurrentSeason.SeasonId;
+            int seasonId = _career.CurrentLeague.CurrentSeason.SeasonId;
             ulong previewSeed = DeterministicSeed.Derive(
-                _career.League.RandomSeed,
+                _career.CurrentLeague.RandomSeed,
                 MarketPreviewStream ^ (uint)seasonId);
             var evaluator = new ContractOfferEvaluator(
                 _balance.ContractOffer,
                 _balance.PlayerEvaluation,
                 new Pcg32Random(previewSeed));
-            var teams = new GeneratedTeam[_career.League.Teams.Count];
+            var teams = new GeneratedTeam[_career.CurrentLeague.Teams.Count];
             for (int index = 0; index < teams.Length; index++)
-                teams[index] = ToGeneratedTeam(_career.League.Teams[index]);
-            int evaluationBonus = _career.League.CurrentSeason.Settlement.ContractEvaluationBonus;
+                teams[index] = ToGeneratedTeam(_career.CurrentLeague.Teams[index]);
+            int evaluationBonus = _career.CurrentLeague.CurrentSeason.Settlement.ContractEvaluationBonus;
             return ContractOfferBoard.SelectOpenMarketOffers(
                 _balance.ContractOffer,
                 evaluator,
@@ -206,6 +210,7 @@ namespace Baseball.Game.Career
             return new RenewalContractOfferView(
                 offer.Team.TeamId,
                 offer.Team.Name,
+                _career.World.GetLeagueForTeam(offer.Team.TeamId).LeagueLevel,
                 offer.Team.PrimaryColor,
                 offer.Team.GetPositionNeed(_career.MyPlayer.PrimaryPosition),
                 offer.Team.Archetype.Development,
@@ -239,7 +244,7 @@ namespace Baseball.Game.Career
 
         private int CountRegularSeasonGames(int playerTeamId)
         {
-            SeasonScheduleState schedule = _career.League.CurrentSeason.Schedule;
+            SeasonScheduleState schedule = _career.CurrentLeague.CurrentSeason.Schedule;
             if (schedule == null)
                 return _balance.CareerSeason.RegularSeasonGamesPerTeam;
 
@@ -254,13 +259,7 @@ namespace Baseball.Game.Career
 
         private TeamState GetTeam(int teamId)
         {
-            for (int index = 0; index < _career.League.Teams.Count; index++)
-            {
-                TeamState team = _career.League.Teams[index];
-                if (team.TeamId == teamId)
-                    return team;
-            }
-            throw new InvalidOperationException($"TeamId {teamId}를 찾을 수 없습니다.");
+            return _career.World.GetTeam(teamId);
         }
 
         private static GeneratedTeam ToGeneratedTeam(TeamState team)

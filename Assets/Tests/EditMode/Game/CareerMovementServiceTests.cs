@@ -35,8 +35,22 @@ namespace Baseball.Tests.EditMode.Game
                 Is.EqualTo(targetRosterCount - 1));
             Assert.That(career.TradeState.History.Count, Is.EqualTo(1));
             Assert.That(result.ExchangedPlayerId, Is.GreaterThan(0));
-            Assert.That(career.League.CurrentSeason.LeagueStatistics.RegularSeason
+            PlayerContractState exchangedContract = FindActiveContract(career, result.ExchangedPlayerId);
+            Assert.That(exchangedContract, Is.Not.Null);
+            Assert.That(exchangedContract.TeamId, Is.EqualTo(previousTeamId));
+            Assert.That(career.CurrentLeague.CurrentSeason.LeagueStatistics.RegularSeason
                 .GetPlayer(result.ExchangedPlayerId).TeamId, Is.EqualTo(previousTeamId));
+        }
+
+        private static PlayerContractState FindActiveContract(CareerState career, int playerId)
+        {
+            for (int index = 0; index < career.World.Contracts.Count; index++)
+            {
+                PlayerContractState contract = career.World.Contracts[index];
+                if (contract.PlayerId == playerId && contract.IsActive)
+                    return contract;
+            }
+            return null;
         }
 
         [Test]
@@ -52,7 +66,7 @@ namespace Baseball.Tests.EditMode.Game
                 .ExecuteTrade(targetTeamId, ExpectedRole.StartingCompetition, gameIndex: 1);
             new CareerSeasonService(career, configuration.Balance).AdvanceNextRound();
 
-            PlayerCompetitionStatisticsState statistics = career.League.CurrentSeason
+            PlayerCompetitionStatisticsState statistics = career.CurrentLeague.CurrentSeason
                 .LeagueStatistics.RegularSeason.GetPlayer(career.MyPlayer.PlayerId);
 
             Assert.That(statistics.GetTeamSplit(previousTeamId), Is.Not.Null);
@@ -89,7 +103,7 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState generated = CreateCareer(configuration, 92876UL);
-            int seasonYear = generated.League.CurrentSeason.Year;
+            int seasonYear = generated.CurrentLeague.CurrentSeason.Year;
             var expiringContract = new PlayerContractState(
                 NewGameFlow.CurrentSaveVersion,
                 generated.MyPlayer.CurrentTeamId,
@@ -101,7 +115,7 @@ namespace Baseball.Tests.EditMode.Game
             var career = new CareerState(
                 NewGameFlow.CurrentSaveVersion,
                 generated.MyPlayer,
-                generated.League,
+                generated.CurrentLeague,
                 expiringContract,
                 generated.AvailableMoney);
             var seasonService = new CareerSeasonService(career, configuration.Balance);
@@ -156,9 +170,9 @@ namespace Baseball.Tests.EditMode.Game
 
         private static TeamState FindOtherTeam(CareerState career, int currentTeamId)
         {
-            for (int index = 0; index < career.League.Teams.Count; index++)
+            for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
-                TeamState team = career.League.Teams[index];
+                TeamState team = career.CurrentLeague.Teams[index];
                 if (team.TeamId != currentTeamId)
                     return team;
             }
@@ -167,10 +181,10 @@ namespace Baseball.Tests.EditMode.Game
 
         private static TeamState GetTeam(CareerState career, int teamId)
         {
-            for (int index = 0; index < career.League.Teams.Count; index++)
+            for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
-                if (career.League.Teams[index].TeamId == teamId)
-                    return career.League.Teams[index];
+                if (career.CurrentLeague.Teams[index].TeamId == teamId)
+                    return career.CurrentLeague.Teams[index];
             }
             throw new System.InvalidOperationException("구단이 없습니다.");
         }

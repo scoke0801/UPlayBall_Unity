@@ -27,7 +27,7 @@ namespace Baseball.Game.Career.News
             CareerGameAdvanceResult result,
             DateTime calendarDate)
         {
-            SeasonState season = _career.League.CurrentSeason;
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
             var cycle = new NewsCycleKey(season.SeasonId, SeasonPhase.RegularSeason, result.Round);
             var occurredAt = new CareerDate(cycle, calendarDate);
             var evaluator = new GameNewsEvaluator(_configuration.Triggers);

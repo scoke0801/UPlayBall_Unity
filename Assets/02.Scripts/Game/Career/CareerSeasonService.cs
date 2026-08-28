@@ -24,9 +24,13 @@ namespace Baseball.Game.Career
             int hits,
             int homeRuns,
             int runsBattedIn,
+            int walks,
+            int hitByPitches,
             int outsRecorded,
             int earnedRuns,
-            int strikeouts)
+            int strikeouts,
+            int walksAllowed,
+            int hitBatters)
         {
             GameId = gameId;
             Round = round;
@@ -39,9 +43,13 @@ namespace Baseball.Game.Career
             Hits = hits;
             HomeRuns = homeRuns;
             RunsBattedIn = runsBattedIn;
+            Walks = walks;
+            HitByPitches = hitByPitches;
             OutsRecorded = outsRecorded;
             EarnedRuns = earnedRuns;
             Strikeouts = strikeouts;
+            WalksAllowed = walksAllowed;
+            HitBatters = hitBatters;
         }
 
         public int GameId { get; }
@@ -55,9 +63,17 @@ namespace Baseball.Game.Career
         public int Hits { get; }
         public int HomeRuns { get; }
         public int RunsBattedIn { get; }
+        /// <summary>타자로서 얻은 볼넷이다.</summary>
+        public int Walks { get; }
+        /// <summary>타자로서 맞은 사구다.</summary>
+        public int HitByPitches { get; }
         public int OutsRecorded { get; }
         public int EarnedRuns { get; }
         public int Strikeouts { get; }
+        /// <summary>투수로서 허용한 볼넷이다.</summary>
+        public int WalksAllowed { get; }
+        /// <summary>투수로서 맞힌 사구다.</summary>
+        public int HitBatters { get; }
     }
 
     /// <summary>
@@ -71,17 +87,28 @@ namespace Baseball.Game.Career
         private readonly CareerNewsService _newsService;
 
         public CareerSeasonService(CareerState career, BalanceTable balance)
+            : this(career, balance, null)
+        {
+        }
+
+        /// <summary>
+        /// Unity Resources 없이도 동일한 시즌 진행을 검증할 수 있도록 뉴스 설정을 주입받는다.
+        /// </summary>
+        public CareerSeasonService(
+            CareerState career,
+            BalanceTable balance,
+            CareerNewsConfiguration newsConfiguration)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
-            if (career.League.CurrentSeason?.Phase != SeasonPhase.RegularSeason)
+            if (career.CurrentLeague.CurrentSeason?.Phase != SeasonPhase.RegularSeason)
                 throw new InvalidOperationException("정규 시즌 상태의 커리어가 필요합니다.");
             _gameRunner = new CareerGameRunner(career, balance);
-            _newsService = new CareerNewsService(career);
+            _newsService = new CareerNewsService(career, newsConfiguration);
         }
 
         public ScheduledGameState NextPlayerGame =>
-            _career.League.CurrentSeason.Schedule.GetNextGameForTeam(_career.MyPlayer.CurrentTeamId);
+            _career.CurrentLeague.CurrentSeason.Schedule.GetNextGameForTeam(_career.MyPlayer.CurrentTeamId);
 
         /// <summary>
         /// 대시보드에서 보일 다음 경기 역할을 실제 시뮬레이션 전에 한 번만 확정한다.
@@ -101,7 +128,7 @@ namespace Baseball.Game.Career
             if (game == null)
                 throw new InvalidOperationException("준비할 정규 시즌 경기가 없습니다.");
 
-            SeasonState season = _career.League.CurrentSeason;
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
             MatchInput input = _gameRunner.CreateMatchInput(
                 game,
                 game.PlannedPlayerRole,
@@ -143,7 +170,7 @@ namespace Baseball.Game.Career
             MatchResult playerMatchResult = _gameRunner.SimulateGame(
                 playerGame,
                 playerGame.PlannedPlayerRole,
-                _career.League.CurrentSeason.SeasonId);
+                _career.CurrentLeague.CurrentSeason.SeasonId);
             return CompleteNextRound(playerGame, playerMatchResult);
         }
 
@@ -175,7 +202,11 @@ namespace Baseball.Game.Career
             if (playerGame.IsCompleted)
                 throw new InvalidOperationException("이미 기록한 경기입니다.");
 
-            SeasonState season = _career.League.CurrentSeason;
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
+            var worldSeasonService = new WorldSeasonService(_career, _balance);
+            worldSeasonService.AdvanceBackgroundLeaguesBefore(
+                _career.CurrentLeague.LeagueId,
+                playerGame.Round);
             CareerGameAdvanceResult playerResult = default;
             bool hasPlayerResult = false;
             var statisticsService = new LeagueStatisticsService(season.LeagueStatistics);
@@ -214,6 +245,11 @@ namespace Baseball.Game.Career
 
             if (!hasPlayerResult)
                 throw new InvalidOperationException("내 선수 경기 결과를 찾지 못했습니다.");
+
+            worldSeasonService.AdvanceBackgroundLeaguesAfter(
+                _career.CurrentLeague.LeagueId,
+                playerGame.Round);
+            _career.World.Calendar.AdvanceTo(GetGameDate(season.Year, playerGame.Round));
 
             _newsService.PublishRegularSeasonRound(
                 playerResult,
@@ -260,7 +296,7 @@ namespace Baseball.Game.Career
 
         private void RecordTeamResults(MatchResult result)
         {
-            SeasonState season = _career.League.CurrentSeason;
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
             TeamSeasonRecordState away = season.GetTeamRecord(result.AwayBoxScore.TeamId);
             TeamSeasonRecordState home = season.GetTeamRecord(result.HomeBoxScore.TeamId);
             away.RecordGame(home.TeamId, result.AwayBoxScore.Runs, result.HomeBoxScore.Runs);

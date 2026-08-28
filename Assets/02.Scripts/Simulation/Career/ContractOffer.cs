@@ -12,6 +12,7 @@ namespace Baseball.Simulation.Career
         CurrentTeamExtension,
         OpenMarket,
         Promotion,
+        Rehabilitation,
         DevelopmentFallback
     }
 

@@ -31,16 +31,27 @@ namespace Baseball.Simulation.Career
         /// </summary>
         public RosterCompetitor[] AdvanceSeason(RosterCompetitor[] currentRoster, int[] positionNeedRatings)
         {
+            return AdvanceSeason(currentRoster, positionNeedRatings, overallAdjustment: 0);
+        }
+
+        /// <summary>리그 고유 전력 보정을 기준선과 허용 범위에 함께 적용해 단계 차이를 보존한다.</summary>
+        public RosterCompetitor[] AdvanceSeason(
+            RosterCompetitor[] currentRoster,
+            int[] positionNeedRatings,
+            int overallAdjustment)
+        {
             if (currentRoster == null)
                 throw new ArgumentNullException(nameof(currentRoster));
             if (positionNeedRatings == null)
                 throw new ArgumentNullException(nameof(positionNeedRatings));
+            if (overallAdjustment < 0)
+                throw new ArgumentOutOfRangeException(nameof(overallAdjustment));
 
             var result = new RosterCompetitor[currentRoster.Length];
             for (int index = 0; index < currentRoster.Length; index++)
             {
                 RosterCompetitor competitor = currentRoster[index];
-                double baseline = _teamGenerationBalance.CompetitorOverallBase -
+                double baseline = _teamGenerationBalance.CompetitorOverallBase + overallAdjustment -
                                   positionNeedRatings[(int)competitor.Position] *
                                   _teamGenerationBalance.PositionNeedCompetitorWeight;
                 double reverted = competitor.Overall +
@@ -48,8 +59,8 @@ namespace Baseball.Simulation.Career
                 double drift = (_random.NextDouble() - 0.5d) * _turnoverBalance.SeasonDriftVariance;
                 int overall = (int)Clamp(
                     reverted + drift,
-                    _teamGenerationBalance.MinimumCompetitorOverall,
-                    _teamGenerationBalance.MaximumCompetitorOverall);
+                    Math.Min(100, _teamGenerationBalance.MinimumCompetitorOverall + overallAdjustment),
+                    Math.Min(100, _teamGenerationBalance.MaximumCompetitorOverall + overallAdjustment));
                 result[index] = new RosterCompetitor(
                     competitor.PlayerId,
                     competitor.Name,

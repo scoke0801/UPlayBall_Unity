@@ -393,9 +393,9 @@ namespace Baseball.Game.Career
                 return null;
 
             string teamName = string.Empty;
-            for (int index = 0; index < career.League.Teams.Count; index++)
+            for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
-                TeamState team = career.League.Teams[index];
+                TeamState team = career.CurrentLeague.Teams[index];
                 if (team.TeamId == career.MyPlayer.CurrentTeamId)
                 {
                     teamName = team.Name;
@@ -403,7 +403,7 @@ namespace Baseball.Game.Career
                 }
             }
 
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             return new CareerSummaryView(
                 career.MyPlayer.Name,
                 career.MyPlayer.Nationality,

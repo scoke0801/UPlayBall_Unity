@@ -168,7 +168,7 @@ namespace Baseball.Game.Career
 
         private ContractBonusProgress EvaluateClause(CareerState career, ContractBonusClause clause)
         {
-            PlayerSeasonStatisticsState statistics = career.League.CurrentSeason.PlayerStatistics;
+            PlayerSeasonStatisticsState statistics = career.CurrentLeague.CurrentSeason.PlayerStatistics;
             bool hasSample = true;
             double currentValue = clause.Metric switch
             {
@@ -211,7 +211,7 @@ namespace Baseball.Game.Career
 
         private static bool HasIndividualAward(CareerState career)
         {
-            SeasonAwardsState awards = career.League.CurrentSeason.Awards;
+            SeasonAwardsState awards = career.CurrentLeague.CurrentSeason.Awards;
             if (awards == null)
                 return false;
 
@@ -226,7 +226,7 @@ namespace Baseball.Game.Career
 
         private static bool IsChampion(CareerState career)
         {
-            return career.League.CurrentSeason.Postseason?.PlayerTeamResult ==
+            return career.CurrentLeague.CurrentSeason.Postseason?.PlayerTeamResult ==
                    PlayerTeamPostseasonResult.Champion;
         }
 

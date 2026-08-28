@@ -37,12 +37,12 @@ namespace Baseball.Game.Career
         {
             if (career == null)
                 throw new ArgumentNullException(nameof(career));
-            if (career.League?.CurrentSeason == null)
+            if (career.CurrentLeague?.CurrentSeason == null)
                 throw new InvalidOperationException("진행 중인 시즌이 없습니다.");
 
             PlayerState player = career.MyPlayer;
             PlayerGrowthState growthState = player.GrowthState;
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             PlayerType playerType = IsPitcher(player.PrimaryPosition)
                 ? PlayerType.Pitcher
                 : PlayerType.Batter;
@@ -157,9 +157,9 @@ namespace Baseball.Game.Career
 
         private static TeamState FindTeam(CareerState career, int teamId)
         {
-            for (int index = 0; index < career.League.Teams.Count; index++)
+            for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
-                TeamState team = career.League.Teams[index];
+                TeamState team = career.CurrentLeague.Teams[index];
                 if (team.TeamId == teamId)
                     return team;
             }

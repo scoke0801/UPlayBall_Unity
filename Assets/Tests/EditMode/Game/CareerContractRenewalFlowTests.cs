@@ -25,7 +25,7 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(step, Is.EqualTo(SeasonTransitionStep.Completed));
             Assert.That(service.RenewalOffers.Count, Is.Zero);
-            Assert.That(career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
         }
 
         [Test]
@@ -36,7 +36,7 @@ namespace Baseball.Tests.EditMode.Game
             CareerSeasonTransitionService service = AdvanceToRenewalSeason(career, configuration.Balance);
 
             int ageBefore = career.MyPlayer.Age;
-            int yearBefore = career.League.CurrentSeason.Year;
+            int yearBefore = career.CurrentLeague.CurrentSeason.Year;
 
             Assert.That(
                 service.Step is SeasonTransitionStep.CurrentTeamNegotiation or SeasonTransitionStep.ContractOffers,
@@ -47,8 +47,8 @@ namespace Baseball.Tests.EditMode.Game
 
             // 오퍼 화면에서 멈춘 동안에는 커리어가 반쯤 전환된 상태로 남지 않아야 한다.
             Assert.That(career.MyPlayer.Age, Is.EqualTo(ageBefore));
-            Assert.That(career.League.CurrentSeason.Year, Is.EqualTo(yearBefore));
-            Assert.That(career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
+            Assert.That(career.CurrentLeague.CurrentSeason.Year, Is.EqualTo(yearBefore));
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
             Assert.That(career.CurrentOffseason, Is.Not.Null);
         }
 
@@ -59,7 +59,7 @@ namespace Baseball.Tests.EditMode.Game
             CareerState career = CreateOffseasonCareer(configuration, 3333UL);
             CareerSeasonTransitionService service = AdvanceToRenewalSeason(career, configuration.Balance);
             int contractCountBefore = career.ContractHistory.Count;
-            int expectedYear = career.League.CurrentSeason.Year + 1;
+            int expectedYear = career.CurrentLeague.CurrentSeason.Year + 1;
             ContractOffer chosen = service.RenewalOffers[service.RenewalOffers.Count - 1];
 
             service.SelectRenewalOffer(chosen.Team.TeamId);
@@ -72,8 +72,8 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(career.ContractHistory.Count, Is.EqualTo(contractCountBefore + 1));
             Assert.That(career.MyPlayer.CurrentTeamId, Is.EqualTo(chosen.Team.TeamId));
             Assert.That(result.TeamId, Is.EqualTo(chosen.Team.TeamId));
-            Assert.That(career.League.CurrentSeason.Year, Is.EqualTo(expectedYear));
-            Assert.That(career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
+            Assert.That(career.CurrentLeague.CurrentSeason.Year, Is.EqualTo(expectedYear));
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
             Assert.That(career.CurrentOffseason, Is.Null);
         }
 
@@ -189,12 +189,12 @@ namespace Baseball.Tests.EditMode.Game
         {
             for (int guard = 0; guard < 10; guard++)
             {
-                int nextYear = career.League.CurrentSeason.Year + 1;
+                int nextYear = career.CurrentLeague.CurrentSeason.Year + 1;
                 if (career.CurrentContract.EndYear < nextYear)
                     return;
 
                 new CareerSeasonTransitionService(career, balance).AdvanceToNextSeason();
-                career.League.CurrentSeason.CompleteRegularSeason();
+                career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
                 new CareerGrowthService(career, balance)
                     .SettleSeasonAndBeginOffseason(CreateBatterUsage());
             }
@@ -216,7 +216,7 @@ namespace Baseball.Tests.EditMode.Game
                 if (step is SeasonTransitionStep.CurrentTeamNegotiation or SeasonTransitionStep.ContractOffers)
                     return service;
 
-                career.League.CurrentSeason.CompleteRegularSeason();
+                career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
                 new CareerGrowthService(career, balance)
                     .SettleSeasonAndBeginOffseason(CreateBatterUsage());
             }
@@ -236,7 +236,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();
             flow.StartRookieSeason();
-            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             new CareerGrowthService(flow.Career, configuration.Balance)
                 .SettleSeasonAndBeginOffseason(CreateBatterUsage());
             return flow.Career;

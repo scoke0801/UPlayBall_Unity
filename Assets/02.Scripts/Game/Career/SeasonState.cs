@@ -176,8 +176,21 @@ namespace Baseball.Game.Career
             int myCareerPitchingOuts,
             int myRegisteredSeasons)
         {
-            if (teams == null) throw new ArgumentNullException(nameof(teams));
             if (myPlayer == null) throw new ArgumentNullException(nameof(myPlayer));
+            SnapshotRookieEligibility(teams, balance);
+            _rookieEligibilitySnapshot[myPlayer.PlayerId] = IsRookieEligible(
+                myCareerPlateAppearances,
+                myCareerPitchingOuts,
+                myRegisteredSeasons,
+                balance);
+        }
+
+        /// <summary>배경 리그 로스터 선수의 시즌 시작 시점 신인 자격을 고정한다.</summary>
+        public void SnapshotRookieEligibility(
+            IReadOnlyList<TeamState> teams,
+            SeasonAwardBalance balance)
+        {
+            if (teams == null) throw new ArgumentNullException(nameof(teams));
             _rookieEligibilitySnapshot.Clear();
             for (int teamIndex = 0; teamIndex < teams.Count; teamIndex++)
             {
@@ -192,11 +205,6 @@ namespace Baseball.Game.Career
                         balance);
                 }
             }
-            _rookieEligibilitySnapshot[myPlayer.PlayerId] = IsRookieEligible(
-                myCareerPlateAppearances,
-                myCareerPitchingOuts,
-                myRegisteredSeasons,
-                balance);
         }
 
         public bool IsRookieEligible(int playerId)

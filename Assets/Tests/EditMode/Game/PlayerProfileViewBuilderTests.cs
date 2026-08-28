@@ -67,9 +67,9 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(view.RecentGames.Length, Is.EqualTo(2));
             Assert.That(view.RecentGames[0].GameId,
-                Is.EqualTo(career.League.CurrentSeason.PlayerStatistics.RecentGames[1].GameId));
+                Is.EqualTo(career.CurrentLeague.CurrentSeason.PlayerStatistics.RecentGames[1].GameId));
             Assert.That(view.RecentGames[1].GameId,
-                Is.EqualTo(career.League.CurrentSeason.PlayerStatistics.RecentGames[0].GameId));
+                Is.EqualTo(career.CurrentLeague.CurrentSeason.PlayerStatistics.RecentGames[0].GameId));
         }
 
         private static CareerState CreateStartedCareer(

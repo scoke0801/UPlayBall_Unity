@@ -27,16 +27,19 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(flow.Career.MyPlayer.Name, Is.EqualTo("최민석"));
             Assert.That(flow.Career.MyPlayer.Nationality, Is.EqualTo("대한민국"));
             Assert.That(flow.Career.MyPlayer.CurrentTeamId, Is.EqualTo(selectedTeamId));
-            Assert.That(flow.Career.League.RandomSeed, Is.EqualTo(424242UL));
-            Assert.That(flow.Career.League.Teams.Count, Is.EqualTo(8));
-            Assert.That(flow.Career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Preseason));
+            Assert.That(flow.Career.World.WorldSeed, Is.EqualTo(424242UL));
+            Assert.That(
+                flow.Career.CurrentLeague.RandomSeed,
+                Is.Not.EqualTo(flow.Career.World.GetLeague(LeagueId.MinorMain).RandomSeed));
+            Assert.That(flow.Career.CurrentLeague.Teams.Count, Is.EqualTo(8));
+            Assert.That(flow.Career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Preseason));
             Assert.That(flow.Career.AvailableMoney, Is.EqualTo(flow.Career.CurrentContract.SigningBonus));
 
             flow.StartRookieSeason();
 
             Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.Completed));
-            Assert.That(flow.Career.League.CurrentSeason.LeagueLevel, Is.EqualTo(LeagueLevel.Rookie));
-            Assert.That(flow.Career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
+            Assert.That(flow.Career.CurrentLeague.CurrentSeason.LeagueLevel, Is.EqualTo(LeagueLevel.Rookie));
+            Assert.That(flow.Career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
         }
 
         [Test]

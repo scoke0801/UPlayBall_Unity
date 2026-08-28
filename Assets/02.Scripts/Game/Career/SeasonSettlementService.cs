@@ -77,7 +77,7 @@ namespace Baseball.Game.Career
         public SeasonSettlementState ApplyOnce(long performanceBonus = 0L)
         {
             if (performanceBonus < 0L) throw new ArgumentOutOfRangeException(nameof(performanceBonus));
-            SeasonState season = _career.League.CurrentSeason ??
+            SeasonState season = _career.CurrentLeague.CurrentSeason ??
                                  throw new InvalidOperationException("현재 시즌이 없습니다.");
             if (season.Phase != SeasonPhase.SeasonReview)
                 throw new InvalidOperationException("시즌 결산 단계에서만 정산할 수 있습니다.");
@@ -142,9 +142,9 @@ namespace Baseball.Game.Career
                 return;
 
             var service = new ContractBonusService(_contractBonusBalance.Value);
-            int regularSeasonGames = _career.League.CurrentSeason.PlayerStatistics.TeamGames;
-            if (regularSeasonGames <= 0 && _career.League.CurrentSeason.Schedule != null)
-                regularSeasonGames = CountTeamGamesPerSeason(_career.League.CurrentSeason);
+            int regularSeasonGames = _career.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames;
+            if (regularSeasonGames <= 0 && _career.CurrentLeague.CurrentSeason.Schedule != null)
+                regularSeasonGames = CountTeamGamesPerSeason(_career.CurrentLeague.CurrentSeason);
             ContractBonusProgress[] progress = service.Evaluate(
                 _career,
                 regularSeasonGames);
@@ -185,7 +185,7 @@ namespace Baseball.Game.Career
                 ? MoneyTransactionType.SalaryIncome
                 : MoneyTransactionType.BonusIncome;
             _career.Economy.Earn(
-                _career.League.CurrentSeason.Year,
+                _career.CurrentLeague.CurrentSeason.Year,
                 transactionType,
                 rewardId,
                 amount);

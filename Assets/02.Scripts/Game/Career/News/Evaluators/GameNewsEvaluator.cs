@@ -21,7 +21,7 @@ namespace Baseball.Game.Career.News
             CareerDate occurredAt)
         {
             if (career == null) throw new ArgumentNullException(nameof(career));
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             TeamState team = FindTeam(career, career.MyPlayer.CurrentTeamId);
             TeamState opponent = FindTeam(career, result.OpponentTeamId);
             TeamSeasonRecordState teamRecord = season.GetTeamRecord(team.TeamId);
@@ -92,7 +92,7 @@ namespace Baseball.Game.Career.News
             bool didAppear,
             NewsFactSet commonFacts)
         {
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             var newsEvent = new NewsEvent(
                 $"season_{season.SeasonId}_game_{result.GameId}_completed",
                 NewsEventType.GameCompleted,
@@ -179,7 +179,7 @@ namespace Baseball.Game.Career.News
             bool didAppear,
             NewsFactSet commonFacts)
         {
-            PlayerSeasonStatisticsState statistics = career.League.CurrentSeason.PlayerStatistics;
+            PlayerSeasonStatisticsState statistics = career.CurrentLeague.CurrentSeason.PlayerStatistics;
             var milestones = new List<string>();
             if (didAppear && statistics.GamesPlayed == 1)
                 milestones.Add("1군 데뷔");
@@ -218,7 +218,7 @@ namespace Baseball.Game.Career.News
             int round,
             CareerDate occurredAt)
         {
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             TeamSeasonRecordState leader = FindLeader(season.TeamRecords);
             TeamState leaderTeam = FindTeam(career, leader.TeamId);
             int roundGames = 0;
@@ -256,7 +256,7 @@ namespace Baseball.Game.Career.News
             int winningStreak,
             int losingStreak)
         {
-            PlayerSeasonStatisticsState season = career.League.CurrentSeason.PlayerStatistics;
+            PlayerSeasonStatisticsState season = career.CurrentLeague.CurrentSeason.PlayerStatistics;
             var facts = new NewsFactSet();
             facts.SetText(NewsFactKey.PlayerName, career.MyPlayer.Name);
             facts.SetText(NewsFactKey.TeamName, team.Name);
@@ -286,7 +286,7 @@ namespace Baseball.Game.Career.News
             facts.SetInteger(NewsFactKey.SeasonStrikeouts, season.PitchingStrikeouts);
             facts.SetInteger(NewsFactKey.TeamWinningStreak, winningStreak);
             facts.SetInteger(NewsFactKey.TeamLosingStreak, losingStreak);
-            facts.SetInteger(NewsFactKey.TeamRank, CalculateRank(career.League.CurrentSeason, teamRecord));
+            facts.SetInteger(NewsFactKey.TeamRank, CalculateRank(career.CurrentLeague.CurrentSeason, teamRecord));
             facts.SetInteger(NewsFactKey.TeamWins, teamRecord.Wins);
             facts.SetInteger(NewsFactKey.TeamLosses, teamRecord.Losses);
             facts.SetText(
@@ -408,10 +408,10 @@ namespace Baseball.Game.Career.News
 
         private static TeamState FindTeam(CareerState career, int teamId)
         {
-            for (int index = 0; index < career.League.Teams.Count; index++)
+            for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
-                if (career.League.Teams[index].TeamId == teamId)
-                    return career.League.Teams[index];
+                if (career.CurrentLeague.Teams[index].TeamId == teamId)
+                    return career.CurrentLeague.Teams[index];
             }
             throw new InvalidOperationException($"TeamId {teamId}를 찾을 수 없습니다.");
         }

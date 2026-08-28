@@ -16,22 +16,22 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameFlow flow = CreateOffseasonCareer(101UL);
             CareerState career = flow.Career;
-            int previousYear = career.League.CurrentSeason.Year;
+            int previousYear = career.CurrentLeague.CurrentSeason.Year;
             int previousGamesPlayed = career.SeasonHistory.Count;
             var service = new CareerSeasonTransitionService(career, NewGameConfiguration.CreateDefault().Balance);
 
             CareerSeasonTransitionResult result = service.AdvanceToNextSeason();
 
-            Assert.That(career.League.CurrentSeason.Year, Is.EqualTo(previousYear + 1));
-            Assert.That(career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
+            Assert.That(career.CurrentLeague.CurrentSeason.Year, Is.EqualTo(previousYear + 1));
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
             Assert.That(career.CurrentOffseason, Is.Null);
             Assert.That(career.SeasonHistory.Count, Is.EqualTo(previousGamesPlayed + 1));
             Assert.That(career.SeasonHistory[0].Year, Is.EqualTo(previousYear));
             Assert.That(result.Year, Is.EqualTo(previousYear + 1));
-            Assert.That(career.League.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(0));
+            Assert.That(career.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(0));
             Assert.That(
-                career.League.CurrentSeason.Schedule.Games.Count,
-                Is.EqualTo(career.League.Teams.Count / 2 *
+                career.CurrentLeague.CurrentSeason.Schedule.Games.Count,
+                Is.EqualTo(career.CurrentLeague.Teams.Count / 2 *
                     NewGameConfiguration.CreateDefault().Balance.CareerSeason.RegularSeasonGamesPerTeam));
         }
 
@@ -77,8 +77,8 @@ namespace Baseball.Tests.EditMode.Game
             firstService.AdvanceToNextSeason();
             secondService.AdvanceToNextSeason();
 
-            var firstGames = first.Career.League.CurrentSeason.Schedule.Games;
-            var secondGames = second.Career.League.CurrentSeason.Schedule.Games;
+            var firstGames = first.Career.CurrentLeague.CurrentSeason.Schedule.Games;
+            var secondGames = second.Career.CurrentLeague.CurrentSeason.Schedule.Games;
             Assert.That(secondGames.Count, Is.EqualTo(firstGames.Count));
             for (int index = 0; index < firstGames.Count; index++)
             {
@@ -87,10 +87,10 @@ namespace Baseball.Tests.EditMode.Game
                 Assert.That(secondGames[index].RandomSeed, Is.EqualTo(firstGames[index].RandomSeed));
             }
 
-            for (int index = 0; index < first.Career.League.Teams.Count; index++)
+            for (int index = 0; index < first.Career.CurrentLeague.Teams.Count; index++)
             {
-                var firstTeam = first.Career.League.Teams[index];
-                var secondTeam = second.Career.League.Teams[index];
+                var firstTeam = first.Career.CurrentLeague.Teams[index];
+                var secondTeam = second.Career.CurrentLeague.Teams[index];
                 Assert.That(secondTeam.RosterCompetitors.Count, Is.EqualTo(firstTeam.RosterCompetitors.Count));
                 for (int competitorIndex = 0; competitorIndex < firstTeam.RosterCompetitors.Count; competitorIndex++)
                 {
@@ -125,7 +125,7 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             NewGameFlow flow = CreateOffseasonCareer(606UL);
-            TeamState sourceTeam = flow.Career.League.Teams[0];
+            TeamState sourceTeam = flow.Career.CurrentLeague.Teams[0];
             var roster = new[]
             {
                 new RosterCompetitorState(901, "자격 타자", PlayerPosition.Shortstop, 50, 119, 0, 1),
@@ -161,16 +161,16 @@ namespace Baseball.Tests.EditMode.Game
 
             new CareerSeasonTransitionService(career, configuration.Balance).AdvanceToNextSeason();
             Assert.That(
-                career.League.CurrentSeason.IsRookieEligible(career.MyPlayer.PlayerId),
+                career.CurrentLeague.CurrentSeason.IsRookieEligible(career.MyPlayer.PlayerId),
                 Is.True);
 
-            career.League.CurrentSeason.CompleteRegularSeason();
+            career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             new CareerGrowthService(career, configuration.Balance)
                 .SettleSeasonAndBeginOffseason(CreateBatterUsage());
             new CareerSeasonTransitionService(career, configuration.Balance).AdvanceToNextSeason();
 
             Assert.That(
-                career.League.CurrentSeason.IsRookieEligible(career.MyPlayer.PlayerId),
+                career.CurrentLeague.CurrentSeason.IsRookieEligible(career.MyPlayer.PlayerId),
                 Is.False);
         }
 
@@ -187,7 +187,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();
             flow.StartRookieSeason();
-            flow.Career.League.CurrentSeason.CompleteRegularSeason();
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
 
             var growthService = new CareerGrowthService(flow.Career, configuration.Balance);
             growthService.SettleSeasonAndBeginOffseason(CreateBatterUsage());

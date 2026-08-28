@@ -16,14 +16,24 @@ namespace Baseball.Game.Career
     public sealed class CareerGameRunner
     {
         private readonly CareerState _career;
+        private readonly LeagueState _league;
         private readonly BalanceTable _balance;
         private readonly ManagerUsageAi _managerUsageAi;
         private readonly SkillBoardService _skillBoardService;
 
         public CareerGameRunner(CareerState career, BalanceTable balance)
+            : this(career, balance, career?.CurrentLeague)
+        {
+        }
+
+        /// <summary>
+        /// 배경 리그도 같은 경기 생성 경로를 사용하도록 대상 리그를 명시한다.
+        /// </summary>
+        public CareerGameRunner(CareerState career, BalanceTable balance, LeagueState league)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _league = league ?? throw new ArgumentNullException(nameof(league));
             _managerUsageAi = new ManagerUsageAi(balance.CareerSeason, balance.PlayerEvaluation);
             _skillBoardService = new SkillBoardService(
                 balance.Growth.SkillBoard,
@@ -45,6 +55,8 @@ namespace Baseball.Game.Career
         {
             if (game == null || game.HasPlayerRolePlan)
                 return;
+            if (_league.LeagueId != _career.MyPlayer.CurrentLeagueId)
+                throw new InvalidOperationException("배경 리그에는 내 선수 기용 계획을 만들 수 없습니다.");
 
             TeamState team = GetTeam(_career.MyPlayer.CurrentTeamId);
             Player player = _career.MyPlayer.ToPlayer(_skillBoardService);
@@ -123,9 +135,13 @@ namespace Baseball.Game.Career
             int hits = battingLine?.Hits ?? 0;
             int homeRuns = battingLine?.HomeRuns ?? 0;
             int runsBattedIn = battingLine?.RunsBattedIn ?? 0;
+            int walks = battingLine?.Walks ?? 0;
+            int hitByPitches = battingLine?.HitByPitches ?? 0;
             int outsRecorded = pitchingLine?.OutsRecorded ?? 0;
             int earnedRuns = pitchingLine?.EarnedRuns ?? 0;
             int strikeouts = pitchingLine?.Strikeouts ?? battingLine?.Strikeouts ?? 0;
+            int walksAllowed = pitchingLine?.WalksAllowed ?? 0;
+            int hitBatters = pitchingLine?.HitBatters ?? 0;
             bool didAppear = battingLine?.PlateAppearances > 0 || pitchingLine?.BattersFaced > 0;
             ApplyPlayerFeedback(didAppear, battingLine, pitchingLine);
 
@@ -141,9 +157,13 @@ namespace Baseball.Game.Career
                 hits,
                 homeRuns,
                 runsBattedIn,
+                walks,
+                hitByPitches,
                 outsRecorded,
                 earnedRuns,
-                strikeouts));
+                strikeouts,
+                walksAllowed,
+                hitBatters));
             return new CareerGameAdvanceResult(
                 game.GameId,
                 game.Round,
@@ -156,15 +176,20 @@ namespace Baseball.Game.Career
                 hits,
                 homeRuns,
                 runsBattedIn,
+                walks,
+                hitByPitches,
                 outsRecorded,
                 earnedRuns,
-                strikeouts);
+                strikeouts,
+                walksAllowed,
+                hitBatters);
         }
 
         private Team BuildMatchTeam(int teamId, int round, PlayerGameRole playerRole, ulong gameSeed)
         {
             TeamState team = GetTeam(teamId);
-            bool isPlayerTeam = teamId == _career.MyPlayer.CurrentTeamId;
+            bool isPlayerTeam = _league.LeagueId == _career.MyPlayer.CurrentLeagueId &&
+                                teamId == _career.MyPlayer.CurrentTeamId;
             Player myPlayer = isPlayerTeam ? _career.MyPlayer.ToPlayer(_skillBoardService) : null;
             var slots = new LineupSlot[9];
             for (int index = 0; index < slots.Length; index++)
@@ -296,9 +321,9 @@ namespace Baseball.Game.Career
 
         private TeamState GetTeam(int teamId)
         {
-            for (int index = 0; index < _career.League.Teams.Count; index++)
+            for (int index = 0; index < _league.Teams.Count; index++)
             {
-                TeamState team = _career.League.Teams[index];
+                TeamState team = _league.Teams[index];
                 if (team.TeamId == teamId)
                     return team;
             }

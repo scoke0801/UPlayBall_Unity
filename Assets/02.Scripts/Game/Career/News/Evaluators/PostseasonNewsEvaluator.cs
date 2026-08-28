@@ -152,7 +152,7 @@ namespace Baseball.Game.Career.News
             CareerDate occurredAt,
             List<NewsEvent> events)
         {
-            SeasonAwardsState awards = career.League.CurrentSeason.Awards;
+            SeasonAwardsState awards = career.CurrentLeague.CurrentSeason.Awards;
             if (awards == null)
                 return;
             for (int index = 0; index < awards.Results.Count; index++)
@@ -278,10 +278,10 @@ namespace Baseball.Game.Career.News
 
         private static TeamState FindTeam(CareerState career, int teamId)
         {
-            for (int index = 0; index < career.League.Teams.Count; index++)
+            for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
-                if (career.League.Teams[index].TeamId == teamId)
-                    return career.League.Teams[index];
+                if (career.CurrentLeague.Teams[index].TeamId == teamId)
+                    return career.CurrentLeague.Teams[index];
             }
             throw new InvalidOperationException($"TeamId {teamId}를 찾을 수 없습니다.");
         }

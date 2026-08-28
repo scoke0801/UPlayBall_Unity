@@ -75,7 +75,9 @@ namespace Baseball.Core.Balance
             BattingApproachBalance? battingApproach = null,
             ContractBonusBalance? contractBonus = null,
             ContractRenewalBalance? contractRenewal = null,
-            TradeMarketBalance? tradeMarket = null)
+            TradeMarketBalance? tradeMarket = null,
+            PlayerLifecycleBalance? playerLifecycle = null,
+            LeagueMovementBalance? leagueMovement = null)
         {
             Version = version;
             PlateDiscipline = plateDiscipline;
@@ -96,6 +98,8 @@ namespace Baseball.Core.Balance
             ContractBonus = contractBonus ?? ContractBonusBalance.CreateDefault();
             ContractRenewal = contractRenewal ?? ContractRenewalBalance.CreateDefault();
             TradeMarket = tradeMarket ?? TradeMarketBalance.CreateDefault();
+            PlayerLifecycle = playerLifecycle ?? PlayerLifecycleBalance.CreateDefault();
+            LeagueMovement = leagueMovement ?? LeagueMovementBalance.CreateDefault();
             SeasonAwards = SeasonAwardBalance.CreateDefault();
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
         }
@@ -119,6 +123,8 @@ namespace Baseball.Core.Balance
         public ContractBonusBalance ContractBonus { get; }
         public ContractRenewalBalance ContractRenewal { get; }
         public TradeMarketBalance TradeMarket { get; }
+        public PlayerLifecycleBalance PlayerLifecycle { get; }
+        public LeagueMovementBalance LeagueMovement { get; }
         public SeasonAwardBalance SeasonAwards { get; }
         public SeasonSettlementBalance SeasonSettlement { get; }
 
@@ -146,7 +152,11 @@ namespace Baseball.Core.Balance
                 velocityContactWeight: 0.0015d,
                 fairContactProbability: 0.72d,
                 sameHandedContactPenalty: 2.0d,
-                oppositeHandedContactBonus: 1.0d);
+                oppositeHandedContactBonus: 1.0d,
+                // 최근 MLB의 HBP/PA는 약 1.1%다. 존을 벗어난 투구가 타석당 약 1.5구이므로
+                // 그 한 구당 0.70%로 두면 평균 제구(Control 50)에서 5,000경기 기준 HBP% 1.06%가 나온다.
+                hitByPitchProbability: 0.0070d,
+                controlHitByPitchWeight: 0.00006d);
 
             // HR/PA 약 3%, 2B/Hit 약 20%, BABIP 약 .300을 초기 목표로 둔다.
             // Movement는 Breaking으로 개명만 되었을 뿐 역할은 그대로다 (인플레이 타구 품질 억제).

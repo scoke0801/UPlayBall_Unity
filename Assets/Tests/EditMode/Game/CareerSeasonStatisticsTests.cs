@@ -74,7 +74,7 @@ namespace Baseball.Tests.EditMode.Game
                 while (service.NextPlayerGame != null)
                     service.AdvanceNextRound();
 
-                PlayerSeasonStatisticsState statistics = career.League.CurrentSeason.PlayerStatistics;
+                PlayerSeasonStatisticsState statistics = career.CurrentLeague.CurrentSeason.PlayerStatistics;
                 Assert.That(statistics.GamesStarted, Is.GreaterThanOrEqualTo(5), $"Seed {seed}");
                 Assert.That(statistics.AtBats, Is.GreaterThanOrEqualTo(12), $"Seed {seed}");
                 totalGamesPlayed += statistics.GamesPlayed;
@@ -104,15 +104,15 @@ namespace Baseball.Tests.EditMode.Game
             while (service.NextPlayerGame != null)
                 service.AdvanceNextRound();
 
-            Assert.That(career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Postseason));
-            for (int index = 0; index < career.League.CurrentSeason.TeamRecords.Count; index++)
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Postseason));
+            for (int index = 0; index < career.CurrentLeague.CurrentSeason.TeamRecords.Count; index++)
             {
-                TeamSeasonRecordState record = career.League.CurrentSeason.TeamRecords[index];
+                TeamSeasonRecordState record = career.CurrentLeague.CurrentSeason.TeamRecords[index];
                 Assert.That(record.GamesPlayed, Is.EqualTo(80));
                 leagueRuns += record.RunsScored;
                 leagueTeamGames += record.GamesPlayed;
             }
-            totals.Add(career.League.CurrentSeason.PlayerStatistics);
+            totals.Add(career.CurrentLeague.CurrentSeason.PlayerStatistics);
         }
 
         private static CareerState CreateStartedCareer(

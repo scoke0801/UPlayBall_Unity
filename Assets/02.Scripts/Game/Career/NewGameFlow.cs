@@ -13,7 +13,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 7;
+        public const int CurrentSaveVersion = 8;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
@@ -200,18 +200,6 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("먼저 계약할 구단을 선택해 주세요.");
 
             ContractOffer offer = State.SelectedOffer.Value;
-            TeamState[] teams = CreateTeamStates(State.SetupResult.Teams);
-            var season = new SeasonState(
-                CurrentSaveVersion,
-                seasonId: 1,
-                _configuration.FirstSeasonYear,
-                LeagueLevel.Rookie);
-            var league = new LeagueState(
-                CurrentSaveVersion,
-                _configuration.FirstSeasonYear,
-                State.RandomSeed,
-                teams,
-                season);
             Player player = CreatePlayer();
             var playerState = new PlayerState(
                 CurrentSaveVersion,
@@ -224,7 +212,8 @@ namespace Baseball.Game.Career
                 player.ThrowingHand,
                 player.BatterAttributes,
                 player.PitcherAttributes,
-                offer.Team.TeamId);
+                offer.Team.TeamId,
+                LeagueId.RookieMain);
             playerState.AttachGrowthState(
                 new PlayerGrowthFactory(_configuration.Balance.Growth).Create(
                     player,
@@ -232,17 +221,25 @@ namespace Baseball.Game.Career
                     _configuration.Balance.CareerSeason.InitialCondition));
             var contract = new PlayerContractState(
                 CurrentSaveVersion,
+                contractId: 1,
+                player.PlayerId,
                 offer.Team.TeamId,
+                LeagueId.RookieMain,
                 _configuration.FirstSeasonYear,
                 offer.ContractYears,
                 offer.SigningBonus,
                 offer.AnnualSalary,
                 offer.ExpectedRole);
+            WorldState world = new CareerWorldFactory(_configuration).CreateNewWorld(
+                State.RandomSeed,
+                State.SetupResult.Teams,
+                playerState,
+                contract);
 
             Career = new CareerState(
                 CurrentSaveVersion,
                 playerState,
-                league,
+                world,
                 contract,
                 availableMoney: offer.SigningBonus);
             State.Step = NewGameStep.ContractComplete;
@@ -254,19 +251,44 @@ namespace Baseball.Game.Career
         public void StartRookieSeason()
         {
             RequireStep(NewGameStep.ContractComplete);
-            int teamCount = Career.League.Teams.Count;
+            for (int leagueIndex = 0; leagueIndex < Career.World.Leagues.Count; leagueIndex++)
+                StartLeagueSeason(Career.World.Leagues[leagueIndex]);
+
+            Career.MyPlayer.InitializeSeasonStatus(
+                _configuration.Balance.CareerSeason.InitialCondition,
+                _configuration.Balance.CareerSeason.InitialManagerEvaluation);
+            Career.CurrentLeague.CurrentSeason.SnapshotRookieEligibility(
+                Career.CurrentLeague.Teams,
+                Career.MyPlayer,
+                _configuration.Balance.SeasonAwards,
+                myCareerPlateAppearances: 0,
+                myCareerPitchingOuts: 0,
+                myRegisteredSeasons: 0);
+            Career.TradeState.BeginSeason(
+                Career.CurrentLeague.CurrentSeason.SeasonId,
+                _configuration.Balance.TradeMarket.TradeDeadlineGame);
+            Career.World.Calendar.AdvanceTo(new DateTime(
+                _configuration.FirstSeasonYear,
+                _configuration.Balance.CareerSeason.SeasonOpeningMonth,
+                _configuration.Balance.CareerSeason.SeasonOpeningDay));
+            State.Step = NewGameStep.Completed;
+        }
+
+        private void StartLeagueSeason(LeagueState league)
+        {
+            int teamCount = league.Teams.Count;
             var teamIds = new int[teamCount];
             var teamRecords = new TeamSeasonRecordState[teamCount];
             for (int index = 0; index < teamCount; index++)
             {
-                int teamId = Career.League.Teams[index].TeamId;
+                int teamId = league.Teams[index].TeamId;
                 teamIds[index] = teamId;
                 teamRecords[index] = new TeamSeasonRecordState(
                     teamId,
-                    DeterministicSeed.Derive(State.RandomSeed, 0x544945425245414BUL ^ (uint)teamId));
+                    DeterministicSeed.Derive(league.RandomSeed, 0x544945425245414BUL ^ (uint)teamId));
             }
 
-            ulong scheduleSeed = DeterministicSeed.Derive(State.RandomSeed, 0x5343484544554C45UL);
+            ulong scheduleSeed = DeterministicSeed.Derive(league.RandomSeed, 0x5343484544554C45UL);
             var scheduleGenerator = new SeasonScheduleGenerator(new Pcg32Random(scheduleSeed));
             ScheduledGameDefinition[] definitions = scheduleGenerator.Generate(
                 teamIds,
@@ -275,35 +297,30 @@ namespace Baseball.Game.Career
             for (int index = 0; index < definitions.Length; index++)
             {
                 ScheduledGameDefinition definition = definitions[index];
-                ulong streamId = ((ulong)Career.League.CurrentSeason.SeasonId << 32) |
+                ulong streamId = ((ulong)league.CurrentSeason.SeasonId << 32) |
                                  (uint)definition.GameId;
                 games[index] = new ScheduledGameState(
                     definition.GameId,
                     definition.Round,
-                    DeterministicSeed.Derive(State.RandomSeed, streamId),
+                    DeterministicSeed.Derive(league.RandomSeed, streamId),
                     definition.AwayTeamId,
                     definition.HomeTeamId);
             }
 
-            Career.MyPlayer.InitializeSeasonStatus(
-                _configuration.Balance.CareerSeason.InitialCondition,
-                _configuration.Balance.CareerSeason.InitialManagerEvaluation);
-            Career.League.CurrentSeason.StartRegularSeason(
+            PlayerState player = league.LeagueId == Career.MyPlayer.CurrentLeagueId
+                ? Career.MyPlayer
+                : null;
+            league.CurrentSeason.StartRegularSeason(
                 new SeasonScheduleState(games),
                 teamRecords,
                 new PlayerSeasonStatisticsState(),
-                Career.MyPlayer);
-            Career.League.CurrentSeason.SnapshotRookieEligibility(
-                Career.League.Teams,
-                Career.MyPlayer,
-                _configuration.Balance.SeasonAwards,
-                myCareerPlateAppearances: 0,
-                myCareerPitchingOuts: 0,
-                myRegisteredSeasons: 0);
-            Career.TradeState.BeginSeason(
-                Career.League.CurrentSeason.SeasonId,
-                _configuration.Balance.TradeMarket.TradeDeadlineGame);
-            State.Step = NewGameStep.Completed;
+                player);
+            if (player == null)
+            {
+                league.CurrentSeason.SnapshotRookieEligibility(
+                    league.Teams,
+                    _configuration.Balance.SeasonAwards);
+            }
         }
 
         /// <summary>

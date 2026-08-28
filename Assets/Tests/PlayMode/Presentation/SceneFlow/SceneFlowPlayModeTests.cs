@@ -110,7 +110,7 @@ namespace Baseball.Tests.PlayMode.Presentation.SceneFlow
             yield return null;
 
             Assert.That(
-                CareerManager.Instance.CurrentCareer.League.CurrentSeason.PlayerStatistics.TeamGames,
+                CareerManager.Instance.CurrentCareer.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames,
                 Is.EqualTo(1));
             Assert.That(
                 dashboard.GetComponentsInChildren<Text>(true)

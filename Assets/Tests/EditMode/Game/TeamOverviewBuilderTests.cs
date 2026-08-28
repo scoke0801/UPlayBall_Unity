@@ -117,9 +117,9 @@ namespace Baseball.Tests.EditMode.Game
 
         private static TeamState GetPlayerTeam(CareerState career)
         {
-            for (int index = 0; index < career.League.Teams.Count; index++)
+            for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
-                TeamState team = career.League.Teams[index];
+                TeamState team = career.CurrentLeague.Teams[index];
                 if (team.TeamId == career.MyPlayer.CurrentTeamId)
                     return team;
             }

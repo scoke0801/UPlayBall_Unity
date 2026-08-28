@@ -17,7 +17,7 @@ namespace Baseball.Tests.EditMode.Game
         public void 정규시즌을끝내면포스트시즌단계로넘어간다()
         {
             CareerState career = CreateCareerAtPostseason(1234UL);
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
 
             Assert.That(season.Phase, Is.EqualTo(SeasonPhase.Postseason));
             Assert.That(season.Postseason, Is.Not.Null);
@@ -30,7 +30,7 @@ namespace Baseball.Tests.EditMode.Game
         public void 시드는정규시즌승률상위4팀과일치한다()
         {
             CareerState career = CreateCareerAtPostseason(2345UL);
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
 
             var standings = new TeamStandingEntry[season.TeamRecords.Count];
             for (int index = 0; index < standings.Length; index++)
@@ -55,7 +55,7 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateQualifiedCareerAtPostseason();
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             var service = new CareerPostseasonService(career, configuration.Balance);
 
             CareerMatchSession firstSession = service.PrepareNextPlayerGame();
@@ -80,7 +80,7 @@ namespace Baseball.Tests.EditMode.Game
         public void AdvanceToChampion_두준결승과결승을거쳐우승구단을확정한다()
         {
             CareerState career = CreateCareerAtPostseason(3456UL);
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             var service = new CareerPostseasonService(career, NewGameConfiguration.CreateDefault().Balance);
 
             CareerPostseasonGameResult final = service.AdvanceToChampion();
@@ -101,7 +101,7 @@ namespace Baseball.Tests.EditMode.Game
         public void 준결승은1대4와2대3이고결승은두승자대결이다()
         {
             CareerState career = CreateCareerAtPostseason(4567UL);
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             var service = new CareerPostseasonService(career, NewGameConfiguration.CreateDefault().Balance);
 
             service.AdvanceToChampion();
@@ -125,7 +125,7 @@ namespace Baseball.Tests.EditMode.Game
         public void 포스트시즌기록은정규시즌기록과합산되지않는다()
         {
             CareerState career = CreateCareerAtPostseason(5678UL);
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             PlayerSeasonStatisticsState regular = season.PlayerStatistics;
             int regularTeamGamesBefore = regular.TeamGames;
             int regularAtBatsBefore = regular.AtBats;
@@ -154,8 +154,8 @@ namespace Baseball.Tests.EditMode.Game
             firstService.AdvanceToChampion();
             secondService.AdvanceToChampion();
 
-            PostseasonState firstPostseason = first.League.CurrentSeason.Postseason;
-            PostseasonState secondPostseason = second.League.CurrentSeason.Postseason;
+            PostseasonState firstPostseason = first.CurrentLeague.CurrentSeason.Postseason;
+            PostseasonState secondPostseason = second.CurrentLeague.CurrentSeason.Postseason;
 
             Assert.That(secondPostseason.SeedTeamIds, Is.EqualTo(firstPostseason.SeedTeamIds));
             Assert.That(secondPostseason.ChampionTeamId, Is.EqualTo(firstPostseason.ChampionTeamId));
@@ -178,7 +178,7 @@ namespace Baseball.Tests.EditMode.Game
             var service = new CareerPostseasonService(career, NewGameConfiguration.CreateDefault().Balance);
             service.AdvanceToChampion();
 
-            PostseasonState postseason = career.League.CurrentSeason.Postseason;
+            PostseasonState postseason = career.CurrentLeague.CurrentSeason.Postseason;
             for (int seriesIndex = 0; seriesIndex < postseason.Series.Count; seriesIndex++)
             {
                 PostseasonSeriesState series = postseason.Series[seriesIndex];
@@ -204,7 +204,7 @@ namespace Baseball.Tests.EditMode.Game
             SeasonGrowthSettlementResult settlement = growthService.SettleSeasonAndBeginOffseason(
                 CreateBatterUsage());
 
-            Assert.That(career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
             Assert.That(career.CurrentOffseason, Is.SameAs(settlement.Offseason));
         }
 
@@ -223,7 +223,7 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateCareerAtPostseason(9123UL);
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
 
             new CareerPostseasonService(career, configuration.Balance).AdvanceToChampion();
 
@@ -283,7 +283,7 @@ namespace Baseball.Tests.EditMode.Game
             var seasonService = new CareerSeasonService(career, configuration.Balance);
 
             int guard = configuration.Balance.CareerSeason.RegularSeasonGamesPerTeam + 5;
-            while (career.League.CurrentSeason.Phase == SeasonPhase.RegularSeason)
+            while (career.CurrentLeague.CurrentSeason.Phase == SeasonPhase.RegularSeason)
             {
                 seasonService.AdvanceNextRound();
                 if (--guard < 0)
@@ -297,7 +297,7 @@ namespace Baseball.Tests.EditMode.Game
             for (ulong seed = 10_000UL; seed < 10_012UL; seed++)
             {
                 CareerState career = CreateCareerAtPostseason(seed);
-                if (career.League.CurrentSeason.Postseason.CanTeamPlayNextGame(
+                if (career.CurrentLeague.CurrentSeason.Postseason.CanTeamPlayNextGame(
                         career.MyPlayer.CurrentTeamId))
                 {
                     return career;

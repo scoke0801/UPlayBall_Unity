@@ -104,6 +104,52 @@ namespace Baseball.Game.Data
             "배준영", "백승현", "허도현", "남시우", "심건호", "노재민", "하윤성", "곽준호"
         };
 
+        [Header("World Generation")]
+        [SerializeField, Range(0, 30)] private int _minorOverallBonus = 10;
+        [SerializeField, Range(1, 40)] private int _majorOverallBonus = 20;
+        [SerializeField] private string _minorTeamNamePrefix = "마이너 ";
+        [SerializeField] private string _majorTeamNamePrefix = "메이저 ";
+        [SerializeField, Range(16, 40)] private int _rookieMinimumAge = 18;
+        [SerializeField, Range(16, 40)] private int _rookieMaximumAge = 24;
+        [SerializeField, Range(16, 45)] private int _minorMinimumAge = 20;
+        [SerializeField, Range(16, 45)] private int _minorMaximumAge = 29;
+        [SerializeField, Range(16, 50)] private int _majorMinimumAge = 23;
+        [SerializeField, Range(16, 50)] private int _majorMaximumAge = 35;
+
+        [Header("World Player Lifecycle")]
+        [SerializeField, Range(18, 50)] private int _retirementMinimumAge = 34;
+        [SerializeField, Range(19, 55)] private int _guaranteedRetirementAge = 43;
+        [SerializeField, Range(0f, 1f)] private double _retirementBaseProbability = 0.04d;
+        [SerializeField, Range(0f, 0.25f)] private double _retirementAgeWeight = 0.08d;
+        [SerializeField, Range(0, 100)] private int _retirementLowAbilityThreshold = 55;
+        [SerializeField, Range(0f, 0.1f)] private double _retirementLowAbilityWeight = 0.01d;
+        [SerializeField, Range(16, 25)] private int _rookieEntryMinimumAge = 18;
+        [SerializeField, Range(16, 25)] private int _rookieEntryMaximumAge = 22;
+        [SerializeField, Range(0, 100)] private int _rookieEntryMinimumOverall = 38;
+        [SerializeField, Range(0, 100)] private int _rookieEntryMaximumOverall = 58;
+        [SerializeField, Min(1)] private long _rookieBaseSalary = 30_000_000L;
+        [SerializeField, Min(1)] private long _minorBaseSalary = 90_000_000L;
+        [SerializeField, Min(1)] private long _majorBaseSalary = 300_000_000L;
+        [SerializeField, Min(1)] private int _rookieAiContractYears = 1;
+        [SerializeField, Min(1)] private int _minorAiContractYears = 1;
+        [SerializeField, Min(1)] private int _majorAiContractYears = 1;
+
+        [Header("Player League Movement")]
+        [SerializeField, Range(0, 20)] private int _upperLeagueOverallPenalty = 2;
+        [SerializeField, Range(0f, 1f)] private double _leaguePerformanceWeight = 0.20d;
+        [SerializeField, Range(0f, 1f)] private double _leaguePotentialWeight = 0.08d;
+        [SerializeField, Min(1)] private int _reliablePromotionPlateAppearances = 300;
+        [SerializeField, Min(1)] private int _reliablePromotionPitchingOuts = 300;
+        [SerializeField, Range(0f, 100f)] private double _minorMinimumProjectedOverall = 47d;
+        [SerializeField, Range(0f, 100f)] private double _majorMinimumProjectedOverall = 60d;
+        [SerializeField, Range(0f, 20f)] private double _promotionCompetitorMargin = 15d;
+        [SerializeField, Range(0, 100)] private int _promotionMinimumTeamBudget = 35;
+        [SerializeField, Min(0.1f)] private double _promotionInterestScoreThreshold = 0.95d;
+        [SerializeField, Range(1, 5)] private int _maximumPromotionOffers = 2;
+        [SerializeField, Range(1, 5)] private int _maximumRehabilitationOffers = 2;
+        [SerializeField, Range(1, 5)] private int _minorPlayerContractYears = 2;
+        [SerializeField, Range(1, 5)] private int _majorPlayerContractYears = 3;
+
         [Header("Character Creation")]
         [SerializeField, Range(0, 100)] private int _baseAttributeValue = 40;
         [SerializeField, Min(0)] private int _bonusPoints = 72;
@@ -277,7 +323,39 @@ namespace Baseball.Game.Data
                     _veryPoorEvaluationChange,
                     _seasonOpeningMonth,
                     _seasonOpeningDay,
-                    _gamesBetweenRestDays));
+                    _gamesBetweenRestDays),
+                playerLifecycle: new PlayerLifecycleBalance(
+                    _retirementMinimumAge,
+                    _guaranteedRetirementAge,
+                    _retirementBaseProbability,
+                    _retirementAgeWeight,
+                    _retirementLowAbilityThreshold,
+                    _retirementLowAbilityWeight,
+                    _rookieEntryMinimumAge,
+                    _rookieEntryMaximumAge,
+                    _rookieEntryMinimumOverall,
+                    _rookieEntryMaximumOverall,
+                    _rookieBaseSalary,
+                    _minorBaseSalary,
+                    _majorBaseSalary,
+                    _rookieAiContractYears,
+                    _minorAiContractYears,
+                    _majorAiContractYears),
+                leagueMovement: new LeagueMovementBalance(
+                    _upperLeagueOverallPenalty,
+                    _leaguePerformanceWeight,
+                    _leaguePotentialWeight,
+                    _reliablePromotionPlateAppearances,
+                    _reliablePromotionPitchingOuts,
+                    _minorMinimumProjectedOverall,
+                    _majorMinimumProjectedOverall,
+                    _promotionCompetitorMargin,
+                    _promotionMinimumTeamBudget,
+                    _promotionInterestScoreThreshold,
+                    _maximumPromotionOffers,
+                    _maximumRehabilitationOffers,
+                    _minorPlayerContractYears,
+                    _majorPlayerContractYears));
 
             return new NewGameConfiguration(
                 balance,
@@ -286,7 +364,18 @@ namespace Baseball.Game.Data
                 _startingAge,
                 archetypes,
                 identities,
-                _playerNamePool);
+                _playerNamePool,
+                new WorldGenerationConfiguration(
+                    _minorOverallBonus,
+                    _majorOverallBonus,
+                    _minorTeamNamePrefix,
+                    _majorTeamNamePrefix,
+                    _rookieMinimumAge,
+                    _rookieMaximumAge,
+                    _minorMinimumAge,
+                    _minorMaximumAge,
+                    _majorMinimumAge,
+                    _majorMaximumAge));
         }
     }
 }

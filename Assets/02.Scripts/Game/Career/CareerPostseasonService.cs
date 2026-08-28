@@ -69,21 +69,46 @@ namespace Baseball.Game.Career
         private const int PostseasonGameIdBase = 900_000;
 
         private readonly CareerState _career;
+        private readonly LeagueState _league;
         private readonly BalanceTable _balance;
         private readonly CareerGameRunner _gameRunner;
         private readonly CareerNewsService _newsService;
+        private readonly bool _synchronizeWorld;
 
         public CareerPostseasonService(CareerState career, BalanceTable balance)
+            : this(career, balance, career?.CurrentLeague, null, synchronizeWorld: true)
+        {
+        }
+
+        /// <summary>Unity Resources 없이 현재 리그 포스트시즌을 검증하도록 뉴스 설정을 주입받는다.</summary>
+        public CareerPostseasonService(
+            CareerState career,
+            BalanceTable balance,
+            CareerNewsConfiguration newsConfiguration)
+            : this(career, balance, career?.CurrentLeague, newsConfiguration, synchronizeWorld: true)
+        {
+        }
+
+        internal CareerPostseasonService(
+            CareerState career,
+            BalanceTable balance,
+            LeagueState league,
+            CareerNewsConfiguration newsConfiguration,
+            bool synchronizeWorld)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
-            if (career.League.CurrentSeason?.Phase != SeasonPhase.Postseason)
+            _league = league ?? throw new ArgumentNullException(nameof(league));
+            if (league.CurrentSeason?.Phase != SeasonPhase.Postseason)
                 throw new InvalidOperationException("포스트시즌 상태의 커리어가 필요합니다.");
-            _gameRunner = new CareerGameRunner(career, balance);
-            _newsService = new CareerNewsService(career);
+            _synchronizeWorld = synchronizeWorld;
+            _gameRunner = new CareerGameRunner(career, balance, league);
+            _newsService = synchronizeWorld
+                ? new CareerNewsService(career, newsConfiguration)
+                : null;
         }
 
-        private SeasonState Season => _career.League.CurrentSeason;
+        private SeasonState Season => _league.CurrentSeason;
         private PostseasonState Postseason => Season.Postseason;
 
         public bool IsCompleted => Postseason.IsCompleted;
@@ -96,6 +121,8 @@ namespace Baseball.Game.Career
         {
             get
             {
+                if (_league.LeagueId != _career.MyPlayer.CurrentLeagueId)
+                    return false;
                 int playerTeamId = _career.MyPlayer.CurrentTeamId;
                 for (int index = 0; index < Postseason.SeedTeamIds.Count; index++)
                 {
@@ -177,12 +204,15 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("현재 포스트시즌 일정과 일치하지 않는 경기 결과입니다.");
             }
 
+            int targetCompletedGameCount = CountCompletedGames() + 1;
+            SynchronizeBackgroundLeaguesBefore(targetCompletedGameCount);
             CareerPostseasonGameResult result = CompleteGame(
                 series,
                 game,
                 session.PlayerRole,
                 session.MatchResult,
                 isPlayerGame: true);
+            SynchronizeBackgroundLeaguesAfter(targetCompletedGameCount, result.IsPostseasonCompleted);
             return result.PlayerResult ??
                    throw new InvalidOperationException("내 선수의 포스트시즌 경기 결과가 없습니다.");
         }
@@ -194,10 +224,13 @@ namespace Baseball.Game.Career
         {
             PostseasonSeriesState series = EnsureCurrentSeries() ??
                                            throw new InvalidOperationException("이미 끝난 포스트시즌입니다.");
+            int targetCompletedGameCount = CountCompletedGames() + 1;
+            SynchronizeBackgroundLeaguesBefore(targetCompletedGameCount);
 
             ScheduledGameState game = GetOrAppendNextGame(series);
 
-            bool isPlayerGame = game.IncludesTeam(_career.MyPlayer.CurrentTeamId);
+            bool isPlayerGame = _league.LeagueId == _career.MyPlayer.CurrentLeagueId &&
+                                game.IncludesTeam(_career.MyPlayer.CurrentTeamId);
             PlayerGameRole role = PlayerGameRole.Inactive;
             if (isPlayerGame)
             {
@@ -210,7 +243,14 @@ namespace Baseball.Game.Career
                 role,
                 Season.SeasonId,
                 requiresWinner: true);
-            return CompleteGame(series, game, role, matchResult, isPlayerGame);
+            CareerPostseasonGameResult result = CompleteGame(
+                series,
+                game,
+                role,
+                matchResult,
+                isPlayerGame);
+            SynchronizeBackgroundLeaguesAfter(targetCompletedGameCount, result.IsPostseasonCompleted);
+            return result;
         }
 
         /// <summary>
@@ -301,6 +341,8 @@ namespace Baseball.Game.Career
             MatchResult matchResult,
             CareerPostseasonGameResult result)
         {
+            if (_newsService == null)
+                return;
             int cycleIndex = game.GameId - PostseasonGameIdBase;
             var cycle = new NewsCycleKey(Season.SeasonId, SeasonPhase.Postseason, cycleIndex);
             var occurredAt = new CareerDate(cycle, GetGameDate(series));
@@ -346,7 +388,9 @@ namespace Baseball.Game.Career
             Postseason.CompleteWithChampion(
                 series.WinnerTeamId,
                 runnerUpTeamId,
-                _career.MyPlayer.CurrentTeamId);
+                _league.LeagueId == _career.MyPlayer.CurrentLeagueId
+                    ? _career.MyPlayer.CurrentTeamId
+                    : 0);
             SeasonAwardsState awards = new SeasonAwardService(_balance.SeasonAwards)
                 .Evaluate(Season, series.WinnerTeamId);
             Season.CompletePostseason(awards);
@@ -427,10 +471,13 @@ namespace Baseball.Game.Career
                 lowerSeedTeamId,
                 _balance.Postseason.ChampionshipSeriesGames);
             Postseason.AddSeries(championship);
-            _career.MyPlayer.ApplyGameFeedback(
-                _balance.CareerSeason.RestingConditionRecovery,
-                managerEvaluationDelta: 0,
-                _balance.CareerSeason.MinimumCondition);
+            if (_league.LeagueId == _career.MyPlayer.CurrentLeagueId)
+            {
+                _career.MyPlayer.ApplyGameFeedback(
+                    _balance.CareerSeason.RestingConditionRecovery,
+                    managerEvaluationDelta: 0,
+                    _balance.CareerSeason.MinimumCondition);
+            }
             return championship;
         }
 
@@ -450,6 +497,44 @@ namespace Baseball.Game.Career
             for (int index = 0; index < Postseason.Series.Count; index++)
                 total += Postseason.Series[index].Games.Count;
             return total;
+        }
+
+        internal int CountCompletedGames()
+        {
+            int total = 0;
+            for (int seriesIndex = 0; seriesIndex < Postseason.Series.Count; seriesIndex++)
+            {
+                IReadOnlyList<ScheduledGameState> games = Postseason.Series[seriesIndex].Games;
+                for (int gameIndex = 0; gameIndex < games.Count; gameIndex++)
+                {
+                    if (games[gameIndex].IsCompleted)
+                        total++;
+                }
+            }
+            return total;
+        }
+
+        private void SynchronizeBackgroundLeaguesBefore(int targetCompletedGameCount)
+        {
+            if (!_synchronizeWorld)
+                return;
+            new WorldPostseasonService(_career, _balance).AdvanceBackgroundLeaguesBefore(
+                _league.LeagueId,
+                targetCompletedGameCount);
+        }
+
+        private void SynchronizeBackgroundLeaguesAfter(
+            int targetCompletedGameCount,
+            bool isActiveLeagueCompleted)
+        {
+            if (!_synchronizeWorld)
+                return;
+            var worldPostseason = new WorldPostseasonService(_career, _balance);
+            worldPostseason.AdvanceBackgroundLeaguesAfter(
+                _league.LeagueId,
+                targetCompletedGameCount);
+            if (isActiveLeagueCompleted)
+                worldPostseason.CompleteAllBackgroundLeagues(_league.LeagueId);
         }
 
         private DateTime GetGameDate(PostseasonSeriesState series)
@@ -481,7 +566,7 @@ namespace Baseball.Game.Career
         private ulong DeriveGameSeed(int gameId)
         {
             ulong stream = PostseasonStream ^ ((ulong)(uint)Season.SeasonId << 32) ^ (uint)gameId;
-            return DeterministicSeed.Derive(_career.League.RandomSeed, stream);
+            return DeterministicSeed.Derive(_league.RandomSeed, stream);
         }
     }
 }

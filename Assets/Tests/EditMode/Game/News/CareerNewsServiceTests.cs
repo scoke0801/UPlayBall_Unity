@@ -133,19 +133,20 @@ namespace Baseball.Tests.EditMode.Game.News
             Assert.That(gameArticle.FactSet.GetInteger(NewsFactKey.TeamRuns), Is.EqualTo(result.TeamRuns));
             Assert.That(gameArticle.FactSet.GetInteger(NewsFactKey.OpponentRuns), Is.EqualTo(result.OpponentRuns));
             Assert.That(
-                career.League.CurrentSeason.Schedule.GetNextGameForTeam(career.MyPlayer.CurrentTeamId)?.Round,
+                career.CurrentLeague.CurrentSeason.Schedule.GetNextGameForTeam(career.MyPlayer.CurrentTeamId)?.Round,
                 Is.Not.EqualTo(result.Round),
                 "뉴스는 같은 날짜의 라운드 처리가 끝난 뒤에만 발행되어야 합니다.");
         }
 
         [Test]
-        public void CompleteToSeasonReview_우승공개뒤포스트시즌과수상기사를발행한다()
+        public void CompleteCurrentPhase_포스트시즌완료뒤우승과수상기사를발행한다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateStartedCareer(configuration, 24521UL);
 
-            new CareerSeasonAutoCompletionService(career, configuration.Balance)
-                .CompleteToSeasonReview();
+            var service = new CareerSeasonAutoCompletionService(career, configuration.Balance);
+            service.CompleteCurrentPhase();
+            service.CompleteCurrentPhase();
 
             bool hasChampionshipArticle = false;
             bool hasAwardArticle = false;

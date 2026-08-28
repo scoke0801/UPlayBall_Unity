@@ -13,6 +13,7 @@ namespace Baseball.Game.Career
     {
         private readonly int[] _positionNeedRatings;
         private readonly RosterCompetitorState[] _rosterCompetitors;
+        private readonly int[] _rosterPlayerIds;
 
         /// <summary>
         /// 새 게임에서 확정된 구단 상태를 생성한다.
@@ -21,6 +22,7 @@ namespace Baseball.Game.Career
             : this(
                 saveVersion,
                 teamId,
+                LeagueId.Unassigned,
                 name,
                 archetype,
                 new TeamColor(128, 128, 128),
@@ -40,22 +42,75 @@ namespace Baseball.Game.Career
             TeamColor primaryColor,
             int[] positionNeedRatings,
             RosterCompetitorState[] rosterCompetitors)
+            : this(
+                saveVersion,
+                teamId,
+                LeagueId.Unassigned,
+                name,
+                archetype,
+                primaryColor,
+                positionNeedRatings,
+                rosterCompetitors)
+        {
+        }
+
+        /// <summary>
+        /// 월드에서 영구 소속 리그까지 확정된 구단 상태를 생성한다.
+        /// </summary>
+        public TeamState(
+            int saveVersion,
+            int teamId,
+            LeagueId leagueId,
+            string name,
+            TeamArchetypeProfile archetype,
+            TeamColor primaryColor,
+            int[] positionNeedRatings,
+            RosterCompetitorState[] rosterCompetitors)
+            : this(
+                saveVersion,
+                teamId,
+                leagueId,
+                name,
+                archetype,
+                primaryColor,
+                positionNeedRatings,
+                rosterCompetitors,
+                rosterPlayerIds: null)
+        {
+        }
+
+        private TeamState(
+            int saveVersion,
+            int teamId,
+            LeagueId leagueId,
+            string name,
+            TeamArchetypeProfile archetype,
+            TeamColor primaryColor,
+            int[] positionNeedRatings,
+            RosterCompetitorState[] rosterCompetitors,
+            int[] rosterPlayerIds)
         {
             SaveVersion = saveVersion;
             TeamId = teamId;
+            LeagueId = leagueId;
             Name = name;
             Archetype = archetype;
             PrimaryColor = primaryColor;
             _positionNeedRatings = (int[])positionNeedRatings.Clone();
             _rosterCompetitors = (RosterCompetitorState[])rosterCompetitors.Clone();
+            _rosterPlayerIds = rosterPlayerIds == null
+                ? BuildRosterPlayerIds(_rosterCompetitors)
+                : (int[])rosterPlayerIds.Clone();
         }
 
         public int SaveVersion { get; }
         public int TeamId { get; }
+        public LeagueId LeagueId { get; }
         public string Name { get; }
         public TeamArchetypeProfile Archetype { get; }
         public TeamColor PrimaryColor { get; }
         public IReadOnlyList<RosterCompetitorState> RosterCompetitors => _rosterCompetitors;
+        public IReadOnlyList<int> RosterPlayerIds => _rosterPlayerIds;
 
         /// <summary>
         /// 저장 시점에 고정된 포지션 필요도를 반환한다.
@@ -112,11 +167,115 @@ namespace Baseball.Game.Career
             return new TeamState(
                 SaveVersion,
                 TeamId,
+                LeagueId,
                 Name,
                 Archetype,
                 PrimaryColor,
                 _positionNeedRatings,
-                rosterCompetitors);
+                rosterCompetitors,
+                MergePersistentRosterIds(rosterCompetitors));
+        }
+
+        public TeamState WithRosterAndPlayerIds(
+            RosterCompetitorState[] rosterCompetitors,
+            int[] rosterPlayerIds)
+        {
+            return new TeamState(
+                SaveVersion,
+                TeamId,
+                LeagueId,
+                Name,
+                Archetype,
+                PrimaryColor,
+                _positionNeedRatings,
+                rosterCompetitors,
+                rosterPlayerIds);
+        }
+
+        public TeamState WithRosteredPlayer(int playerId)
+        {
+            if (playerId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(playerId));
+            for (int index = 0; index < _rosterPlayerIds.Length; index++)
+            {
+                if (_rosterPlayerIds[index] == playerId)
+                    return this;
+            }
+            var rosterPlayerIds = new int[_rosterPlayerIds.Length + 1];
+            Array.Copy(_rosterPlayerIds, rosterPlayerIds, _rosterPlayerIds.Length);
+            rosterPlayerIds[^1] = playerId;
+            Array.Sort(rosterPlayerIds);
+            return new TeamState(
+                SaveVersion,
+                TeamId,
+                LeagueId,
+                Name,
+                Archetype,
+                PrimaryColor,
+                _positionNeedRatings,
+                _rosterCompetitors,
+                rosterPlayerIds);
+        }
+
+        /// <summary>
+        /// v7 단일 리그 구단에 마이그레이션으로 영구 리그 ID를 부여한다.
+        /// </summary>
+        public TeamState WithLeague(LeagueId leagueId)
+        {
+            if (!leagueId.IsAssigned)
+                throw new ArgumentException("구단에는 유효한 LeagueId가 필요합니다.", nameof(leagueId));
+            return new TeamState(
+                SaveVersion,
+                TeamId,
+                leagueId,
+                Name,
+                Archetype,
+                PrimaryColor,
+                _positionNeedRatings,
+                _rosterCompetitors,
+                _rosterPlayerIds);
+        }
+
+        private int[] MergePersistentRosterIds(RosterCompetitorState[] rosterCompetitors)
+        {
+            int persistentCount = 0;
+            for (int rosterIndex = 0; rosterIndex < _rosterPlayerIds.Length; rosterIndex++)
+            {
+                if (!ContainsCompetitor(_rosterCompetitors, _rosterPlayerIds[rosterIndex]))
+                    persistentCount++;
+            }
+
+            var result = new int[rosterCompetitors.Length + persistentCount];
+            int resultIndex = 0;
+            for (int index = 0; index < rosterCompetitors.Length; index++)
+                result[resultIndex++] = rosterCompetitors[index].PlayerId;
+            for (int index = 0; index < _rosterPlayerIds.Length; index++)
+            {
+                int playerId = _rosterPlayerIds[index];
+                if (!ContainsCompetitor(_rosterCompetitors, playerId))
+                    result[resultIndex++] = playerId;
+            }
+            Array.Sort(result);
+            return result;
+        }
+
+        private static int[] BuildRosterPlayerIds(RosterCompetitorState[] rosterCompetitors)
+        {
+            var result = new int[rosterCompetitors.Length];
+            for (int index = 0; index < rosterCompetitors.Length; index++)
+                result[index] = rosterCompetitors[index].PlayerId;
+            Array.Sort(result);
+            return result;
+        }
+
+        private static bool ContainsCompetitor(RosterCompetitorState[] competitors, int playerId)
+        {
+            for (int index = 0; index < competitors.Length; index++)
+            {
+                if (competitors[index].PlayerId == playerId)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>

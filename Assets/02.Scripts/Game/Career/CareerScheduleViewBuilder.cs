@@ -23,7 +23,7 @@ namespace Baseball.Game.Career
 
         public CareerScheduleView Build()
         {
-            SeasonState season = _career.League.CurrentSeason ??
+            SeasonState season = _career.CurrentLeague.CurrentSeason ??
                                  throw new InvalidOperationException("현재 시즌이 없습니다.");
             IReadOnlyList<ScheduledGameState> sourceGames = season.Schedule?.Games ??
                                                             throw new InvalidOperationException("시즌 일정이 없습니다.");
@@ -98,7 +98,7 @@ namespace Baseball.Game.Career
 
         private TeamState GetTeam(int teamId)
         {
-            IReadOnlyList<TeamState> teams = _career.League.Teams;
+            IReadOnlyList<TeamState> teams = _career.CurrentLeague.Teams;
             for (int index = 0; index < teams.Count; index++)
             {
                 if (teams[index].TeamId == teamId)

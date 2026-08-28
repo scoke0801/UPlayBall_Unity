@@ -30,7 +30,7 @@ namespace Baseball.Game.Career
 
             PlayerState myPlayer = career.MyPlayer;
             TeamState team = GetTeam(career, myPlayer.CurrentTeamId);
-            SeasonState season = career.League.CurrentSeason;
+            SeasonState season = career.CurrentLeague.CurrentSeason;
             if (season == null)
                 throw new InvalidOperationException("진행 중인 시즌이 없습니다.");
 
@@ -325,9 +325,9 @@ namespace Baseball.Game.Career
 
         private static TeamState GetTeam(CareerState career, int teamId)
         {
-            for (int index = 0; index < career.League.Teams.Count; index++)
+            for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
-                TeamState team = career.League.Teams[index];
+                TeamState team = career.CurrentLeague.Teams[index];
                 if (team.TeamId == teamId)
                     return team;
             }

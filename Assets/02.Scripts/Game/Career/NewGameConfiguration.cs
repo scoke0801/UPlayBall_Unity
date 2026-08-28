@@ -16,7 +16,8 @@ namespace Baseball.Game.Career
             int startingAge,
             TeamArchetypeProfile[] archetypes,
             TeamIdentityDefinition[] teamIdentities,
-            string[] playerNamePool)
+            string[] playerNamePool,
+            WorldGenerationConfiguration worldGeneration = null)
         {
             if (balance == null)
                 throw new ArgumentNullException(nameof(balance));
@@ -32,6 +33,7 @@ namespace Baseball.Game.Career
             Archetypes = (TeamArchetypeProfile[])archetypes.Clone();
             TeamIdentities = (TeamIdentityDefinition[])teamIdentities.Clone();
             PlayerNamePool = (string[])playerNamePool.Clone();
+            WorldGeneration = worldGeneration ?? WorldGenerationConfiguration.CreateDefault();
         }
 
         public BalanceTable Balance { get; }
@@ -41,6 +43,7 @@ namespace Baseball.Game.Career
         public TeamArchetypeProfile[] Archetypes { get; }
         public TeamIdentityDefinition[] TeamIdentities { get; }
         public string[] PlayerNamePool { get; }
+        public WorldGenerationConfiguration WorldGeneration { get; }
 
         /// <summary>
         /// 데이터 Asset을 읽지 못한 개발·테스트 환경에서도 같은 계약으로 동작하는 기본값을 만든다.

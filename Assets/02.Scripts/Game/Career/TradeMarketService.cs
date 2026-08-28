@@ -29,7 +29,7 @@ namespace Baseball.Game.Career
         /// </summary>
         public TradeExecutionResult? ProcessAfterScheduleDate()
         {
-            SeasonState season = _career.League.CurrentSeason;
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
             if (season?.Phase != SeasonPhase.RegularSeason)
                 return null;
 
@@ -52,9 +52,9 @@ namespace Baseball.Game.Career
             int currentRank = CalculateRank(currentTeamId);
             TradeCandidate? bestCandidate = null;
             bool hasSellerInterest = false;
-            for (int index = 0; index < _career.League.Teams.Count; index++)
+            for (int index = 0; index < _career.CurrentLeague.Teams.Count; index++)
             {
-                TeamState targetTeam = _career.League.Teams[index];
+                TeamState targetTeam = _career.CurrentLeague.Teams[index];
                 if (targetTeam.TeamId == currentTeamId)
                     continue;
 
@@ -141,7 +141,7 @@ namespace Baseball.Game.Career
             int playerValue,
             int currentRank)
         {
-            int teamCount = _career.League.Teams.Count;
+            int teamCount = _career.CurrentLeague.Teams.Count;
             int targetRank = CalculateRank(targetTeam.TeamId);
             int currentCompetitor = currentTeam.GetStrongestCompetitorOverall(_career.MyPlayer.PrimaryPosition);
             int targetCompetitor = targetTeam.GetStrongestCompetitorOverall(_career.MyPlayer.PrimaryPosition);
@@ -151,7 +151,7 @@ namespace Baseball.Game.Career
             double currentContention = currentRank <= 4 ? 100d - (currentRank - 1d) * 15d : 20d;
             double targetUrgency = targetRank <= 4 ? 95d - (targetRank - 1d) * 12d : 35d;
             int remainingSeasons = _career.CurrentContract.GetRemainingSeasonsAfter(
-                _career.League.CurrentSeason.Year);
+                _career.CurrentLeague.CurrentSeason.Year);
             double expiryRisk = remainingSeasons <= 0 ? 100d : remainingSeasons == 1 ? 60d : 20d;
             double salaryRatio = _career.CurrentContract.AnnualSalary /
                                  (double)Math.Max(1L, _balance.ContractOffer.BaseSalary);
@@ -182,10 +182,10 @@ namespace Baseball.Game.Career
         private bool DoesTradeComplete(int teamId, int gameIndex, double probability)
         {
             ulong stream = TradeEvaluationStream ^
-                           ((ulong)(uint)_career.League.CurrentSeason.SeasonId << 32) ^
+                           ((ulong)(uint)_career.CurrentLeague.CurrentSeason.SeasonId << 32) ^
                            ((ulong)(uint)gameIndex << 16) ^
                            (uint)teamId;
-            ulong seed = DeterministicSeed.Derive(_career.League.RandomSeed, stream);
+            ulong seed = DeterministicSeed.Derive(_career.CurrentLeague.RandomSeed, stream);
             return new Pcg32Random(seed).NextDouble() < probability;
         }
 
@@ -208,18 +208,18 @@ namespace Baseball.Game.Career
 
         private int GetCurrentGameIndex()
         {
-            TeamSeasonRecordState record = _career.League.CurrentSeason.GetTeamRecord(
+            TeamSeasonRecordState record = _career.CurrentLeague.CurrentSeason.GetTeamRecord(
                 _career.MyPlayer.CurrentTeamId);
             return record?.GamesPlayed ?? 0;
         }
 
         private int CalculateRank(int teamId)
         {
-            TeamSeasonRecordState record = _career.League.CurrentSeason.GetTeamRecord(teamId);
+            TeamSeasonRecordState record = _career.CurrentLeague.CurrentSeason.GetTeamRecord(teamId);
             int rank = 1;
-            for (int index = 0; index < _career.League.CurrentSeason.TeamRecords.Count; index++)
+            for (int index = 0; index < _career.CurrentLeague.CurrentSeason.TeamRecords.Count; index++)
             {
-                TeamSeasonRecordState other = _career.League.CurrentSeason.TeamRecords[index];
+                TeamSeasonRecordState other = _career.CurrentLeague.CurrentSeason.TeamRecords[index];
                 if (other.TeamId == teamId)
                     continue;
                 if (other.WinningPercentage > record.WinningPercentage ||
@@ -234,10 +234,10 @@ namespace Baseball.Game.Career
 
         private TeamState GetTeam(int teamId)
         {
-            for (int index = 0; index < _career.League.Teams.Count; index++)
+            for (int index = 0; index < _career.CurrentLeague.Teams.Count; index++)
             {
-                if (_career.League.Teams[index].TeamId == teamId)
-                    return _career.League.Teams[index];
+                if (_career.CurrentLeague.Teams[index].TeamId == teamId)
+                    return _career.CurrentLeague.Teams[index];
             }
             throw new InvalidOperationException($"TeamId {teamId}를 찾을 수 없습니다.");
         }

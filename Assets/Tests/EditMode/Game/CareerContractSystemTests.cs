@@ -32,7 +32,7 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateBatterCareer(configuration, 20202UL);
-            RecordQualifiedBatterSeason(career.League.CurrentSeason.PlayerStatistics);
+            RecordQualifiedBatterSeason(career.CurrentLeague.CurrentSeason.PlayerStatistics);
             var bonusService = new ContractBonusService(configuration.Balance.ContractBonus);
             ContractBonusProgress[] beforeSettlement = bonusService.Evaluate(
                 career,
@@ -48,7 +48,7 @@ namespace Baseball.Tests.EditMode.Game
             }
             Assert.That(completedCount, Is.EqualTo(4));
 
-            career.League.CurrentSeason.CompleteRegularSeason();
+            career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             long moneyBefore = career.AvailableMoney;
             long salary = career.CurrentContract.AnnualSalary;
             SeasonGrowthSettlementResult result = new CareerGrowthService(career, configuration.Balance)
@@ -56,7 +56,7 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(result.BonusIncome, Is.EqualTo(expectedBonus));
             Assert.That(career.AvailableMoney, Is.EqualTo(moneyBefore + salary + expectedBonus));
-            Assert.That(career.League.CurrentSeason.Settlement.IsApplied, Is.True);
+            Assert.That(career.CurrentLeague.CurrentSeason.Settlement.IsApplied, Is.True);
         }
 
         [Test]
@@ -83,7 +83,7 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreatePitcherCareer(configuration, 31313UL);
-            career.League.CurrentSeason.PlayerStatistics.RecordPitching(
+            career.CurrentLeague.CurrentSeason.PlayerStatistics.RecordPitching(
                 started: true,
                 outsRecorded: 3,
                 hitsAllowed: 0,
@@ -110,7 +110,7 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateBatterCareer(configuration, 40404UL);
-            RecordQualifiedBatterSeason(career.League.CurrentSeason.PlayerStatistics);
+            RecordQualifiedBatterSeason(career.CurrentLeague.CurrentSeason.PlayerStatistics);
             var builder = new CareerContractViewBuilder(career, configuration.Balance);
 
             CareerContractView first = builder.Build(null, string.Empty);
@@ -132,7 +132,7 @@ namespace Baseball.Tests.EditMode.Game
             var expiringContract = new PlayerContractState(
                 NewGameFlow.CurrentSaveVersion,
                 generated.CurrentContract.TeamId,
-                generated.League.CurrentSeason.Year,
+                generated.CurrentLeague.CurrentSeason.Year,
                 contractYears: 1,
                 generated.CurrentContract.SigningBonus,
                 generated.CurrentContract.AnnualSalary,
@@ -140,10 +140,10 @@ namespace Baseball.Tests.EditMode.Game
             var career = new CareerState(
                 NewGameFlow.CurrentSaveVersion,
                 generated.MyPlayer,
-                generated.League,
+                generated.CurrentLeague,
                 expiringContract,
                 generated.AvailableMoney);
-            career.League.CurrentSeason.CompleteRegularSeason();
+            career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
             new CareerGrowthService(career, configuration.Balance)
                 .SettleSeasonAndBeginOffseason(CreateBatterUsage());
 

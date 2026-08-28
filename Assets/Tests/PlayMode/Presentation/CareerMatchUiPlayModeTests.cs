@@ -61,7 +61,7 @@ namespace Baseball.Tests.PlayMode.Presentation
 
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateStartedCareer(configuration, 94_101UL);
-            ScheduledGameState nextGame = career.League.CurrentSeason.Schedule.GetNextGameForTeam(
+            ScheduledGameState nextGame = career.CurrentLeague.CurrentSeason.Schedule.GetNextGameForTeam(
                 career.MyPlayer.CurrentTeamId);
             nextGame.PlanPlayerRole(PlayerGameRole.Bench);
             CareerManager careerManager = GameManager.EnsureExists()

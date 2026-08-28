@@ -25,7 +25,7 @@ namespace Baseball.Game.Career
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
-            _season = career.League.CurrentSeason ??
+            _season = career.CurrentLeague.CurrentSeason ??
                       throw new InvalidOperationException("현재 시즌이 시작되지 않았습니다.");
         }
 
@@ -311,10 +311,10 @@ namespace Baseball.Game.Career
 
         private LeagueTeamMetricView[] BuildTeamMetrics(int myTeamId)
         {
-            var aggregates = new TeamAggregate[_career.League.Teams.Count];
+            var aggregates = new TeamAggregate[_career.CurrentLeague.Teams.Count];
             for (int index = 0; index < aggregates.Length; index++)
             {
-                TeamState team = _career.League.Teams[index];
+                TeamState team = _career.CurrentLeague.Teams[index];
                 aggregates[index] = new TeamAggregate(team.TeamId, team.Name);
             }
 
@@ -545,9 +545,9 @@ namespace Baseball.Game.Career
 
         private TeamState GetTeam(int teamId)
         {
-            for (int index = 0; index < _career.League.Teams.Count; index++)
+            for (int index = 0; index < _career.CurrentLeague.Teams.Count; index++)
             {
-                TeamState team = _career.League.Teams[index];
+                TeamState team = _career.CurrentLeague.Teams[index];
                 if (team.TeamId == teamId)
                     return team;
             }

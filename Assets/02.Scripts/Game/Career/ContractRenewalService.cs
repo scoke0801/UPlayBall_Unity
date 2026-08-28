@@ -22,7 +22,7 @@ namespace Baseball.Game.Career
 
         public ContractOffer? BuildExtensionOffer()
         {
-            SeasonState season = _career.League.CurrentSeason;
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
             if (season?.Phase != SeasonPhase.RegularSeason ||
                 _career.HasResolvedExtension(season.SeasonId))
             {
@@ -67,7 +67,7 @@ namespace Baseball.Game.Career
         {
             ContractOffer offer = BuildExtensionOffer() ??
                                   throw new InvalidOperationException("수락할 수 있는 연장 계약이 없습니다.");
-            SeasonState season = _career.League.CurrentSeason;
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
             int preservedSeasons = 1 + _career.CurrentContract.GetRemainingSeasonsAfter(season.Year);
             var contract = new PlayerContractState(
                 NewGameFlow.CurrentSaveVersion,
@@ -92,7 +92,7 @@ namespace Baseball.Game.Career
 
         public void DeclineExtension()
         {
-            SeasonState season = _career.League.CurrentSeason ??
+            SeasonState season = _career.CurrentLeague.CurrentSeason ??
                                  throw new InvalidOperationException("현재 시즌이 없습니다.");
             if (!BuildExtensionOffer().HasValue)
                 throw new InvalidOperationException("거절할 수 있는 연장 계약이 없습니다.");
@@ -101,7 +101,7 @@ namespace Baseball.Game.Career
 
         private double CalculateRecentPerformance()
         {
-            PlayerSeasonStatisticsState statistics = _career.League.CurrentSeason.PlayerStatistics;
+            PlayerSeasonStatisticsState statistics = _career.CurrentLeague.CurrentSeason.PlayerStatistics;
             double score = _career.MyPlayer.ManagerEvaluation;
             if (_career.MyPlayer.PrimaryPosition is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher)
             {
@@ -128,10 +128,10 @@ namespace Baseball.Game.Career
 
         private TeamState GetCurrentTeam()
         {
-            for (int index = 0; index < _career.League.Teams.Count; index++)
+            for (int index = 0; index < _career.CurrentLeague.Teams.Count; index++)
             {
-                if (_career.League.Teams[index].TeamId == _career.MyPlayer.CurrentTeamId)
-                    return _career.League.Teams[index];
+                if (_career.CurrentLeague.Teams[index].TeamId == _career.MyPlayer.CurrentTeamId)
+                    return _career.CurrentLeague.Teams[index];
             }
             throw new InvalidOperationException("현재 소속 구단을 찾을 수 없습니다.");
         }
