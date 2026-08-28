@@ -18,6 +18,13 @@ namespace Baseball.Presentation.Career
     /// </summary>
     public sealed partial class UI_Scene_CareerMatch : UISceneBase
     {
+        private enum MatchPlaybackSpeed
+        {
+            Slow,
+            Normal,
+            Fast
+        }
+
         private static readonly Color BackgroundColor = new(0.004f, 0.018f, 0.032f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.038f, 0.065f, 1f);
         private static readonly Color PanelColor = new(0.018f, 0.068f, 0.108f, 0.99f);
@@ -36,9 +43,15 @@ namespace Baseball.Presentation.Career
         private RectTransform _content;
         private BattingApproach _selectedApproach = BattingApproach.Balanced;
         [SerializeField, Min(0.1f)] private float automaticPlayIntervalSeconds = 0.42f;
+        [SerializeField, Min(0.5f)] private float controlledResultHoldSeconds = 2f;
+        [SerializeField, Range(1f, 3f)] private float slowPlaybackMultiplier = 1.75f;
+        [SerializeField, Range(0.25f, 1f)] private float fastPlaybackMultiplier = 0.5f;
 
         private readonly CareerMatchPlayback _playback = new CareerMatchPlayback();
         private CareerMatchSession _playbackSession;
+        private MatchPlaybackSpeed _playbackSpeed = MatchPlaybackSpeed.Normal;
+        private CareerPlateAppearanceSummary _controlledResult;
+        private bool _hasControlledResult;
         private bool _isPlaybackInitialized;
         private float _nextAutomaticPlayAt;
 
@@ -98,6 +111,7 @@ namespace Baseball.Presentation.Career
             else if (IsAutomaticPlaybackActive(session))
             {
                 _playback.RevealAll(session.Events);
+                ClearControlledResult();
                 Render();
             }
             else if (session.Phase == CareerMatchPhase.Completed)
@@ -226,9 +240,17 @@ namespace Baseball.Presentation.Career
                 17, FontStyle.Bold, TextAnchor.MiddleRight,
                 new Vector2(360f, 34f), new Vector2(282f, 0f), SecondaryTextColor);
 
-            string roleGuide = session.PlayerRole == PlayerGameRole.StartingBatter
-                ? "1회부터 타자 결과가 자동으로 흐르고, 내 타석에서는 직접 눌러 다음 투구를 진행합니다."
-                : "1회부터 공격·수비와 주자 움직임을 자동 관전하고, 기용 결과를 경기 후 확인합니다.";
+            PlayerPosition playerPosition = _manager.CurrentCareer.MyPlayer.PrimaryPosition;
+            string roleGuide = CareerGameRoleFormatter.IsPitcherRest(session.PlayerRole, playerPosition)
+                ? "오늘은 등판 없이 회복하며 경기를 관전합니다."
+                : session.PlayerRole switch
+                {
+                    PlayerGameRole.StartingBatter =>
+                        "1회부터 타자 결과가 자동으로 흐르고, 내 타석에서는 직접 눌러 다음 투구를 진행합니다.",
+                    PlayerGameRole.Bench =>
+                        "벤치에서 경기를 지켜보다 대타로 투입되면 자동 진행이 멈추고 내 타석 입력이 열립니다.",
+                    _ => "1회부터 공격·수비와 주자 움직임을 자동 관전하고, 기용 결과를 경기 후 확인합니다."
+                };
             CreateText(
                 "Guide", card, roleGuide, 17, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(980f, 48f), new Vector2(0f, -22f), SecondaryTextColor);
@@ -241,11 +263,18 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "ModeValue", mode, "내 선수 중심", 24, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(320f, 38f), new Vector2(-300f, -6f), PrimaryTextColor);
+            string modeGuide = session.CanReceiveBattingDecisions
+                ? "모든 타석은 빠르게 자동 중계하고, 선발 또는 교체 출전한 내 선수의 타석에서 입력을 기다립니다."
+                : "모든 타석을 빠르게 자동 중계하며 경기 중 언제든 결과 화면으로 바로 진행할 수 있습니다.";
             CreateText(
-                "ModeGuide", mode, "모든 타석은 빠르게 자동 중계하고 내 선수의 타석에서만 입력을 기다립니다.",
+                "ModeGuide", mode, modeGuide,
                 15, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(650f, 30f), new Vector2(-42f, -39f), SecondaryTextColor);
-            CreateStatusPill(mode, "기본 정지 조건 · 내 타석", new Vector2(305f, 42f), new Vector2(310f, 15f));
+            CreateStatusPill(
+                mode,
+                session.CanReceiveBattingDecisions ? "정지 조건 · 내 선수 타석" : "입력 대기 없음",
+                new Vector2(305f, 42f),
+                new Vector2(310f, 15f));
 
             Button cancel = CreateButton(
                 "Cancel", card, "돌아가기", new Vector2(210f, 62f), new Vector2(-380f, -242f),
@@ -319,14 +348,19 @@ namespace Baseball.Presentation.Career
                 "Inning", bar, $"{snapshot.Inning}회{GetHalfLabel(snapshot.Half)}", 24, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(180f, 40f), new Vector2(0f, 13f), AccentColor);
             string playState = GetPlayerSideLabel(session, snapshot.Half);
-            string waitReason = isDecisionInputReady
-                ? $"입력 대기 — {_manager.CurrentCareer.MyPlayer.Name} 타석"
-                : $"{playState} · 빠른 자동 중계";
+            bool isShowingControlledResult = _hasControlledResult;
+            string waitReason = isShowingControlledResult
+                ? $"내 타석 결과 — {GetControlledResultLabel(_controlledResult)}"
+                : isDecisionInputReady
+                    ? $"입력 대기 — {_manager.CurrentCareer.MyPlayer.Name} 타석"
+                    : $"{playState} · {GetPlaybackSpeedLabel(_playbackSpeed)} 자동 중계";
             CreateText(
                 "WaitReason", bar, waitReason, 14,
                 FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(390f, 28f), new Vector2(0f, -24f),
-                isDecisionInputReady ? RoleColor : GoldColor);
+                isShowingControlledResult
+                    ? GetControlledResultColor(_controlledResult)
+                    : isDecisionInputReady ? RoleColor : GoldColor);
             CreateText(
                 "HomeScore", bar, snapshot.HomeScore.ToString(), 42, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(90f, 60f), new Vector2(285f, 0f), PrimaryTextColor);
@@ -382,22 +416,30 @@ namespace Baseball.Presentation.Career
                 GetEvaluationGrade(session.ManagerEvaluationBefore),
                 new Vector2(0f, -5f));
 
-            bool hasBattingInput = session.PlayerRole == PlayerGameRole.StartingBatter;
+            bool hasBattingInput = session.CanReceiveBattingDecisions;
             RectTransform instruction = CreateImage(
                 "Instruction", panel, PanelDarkColor, new Vector2(360f, 145f), new Vector2(0f, -148f));
             CreateText(
-                "Label", instruction, hasBattingInput ? "타격 포커스" : "경기 포커스", 13,
+                "Label", instruction,
+                session.PlayerRole == PlayerGameRole.Bench && hasBattingInput
+                    ? "대타 대기"
+                    : hasBattingInput ? "타격 포커스" : "경기 포커스",
+                13,
                 FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(150f, 26f), new Vector2(-83f, 48f), GoldColor);
             CreateText(
                 "Value", instruction,
-                hasBattingInput ? "현재 상황에 맞춰 타격 방식을 선택" : "공격·수비 흐름과 주자 상황 관전",
+                session.PlayerRole == PlayerGameRole.Bench && hasBattingInput
+                    ? "교체 출전 시 내 타석에서 자동 정지"
+                    : hasBattingInput ? "현재 상황에 맞춰 타격 방식을 선택" : "공격·수비 흐름과 주자 상황 관전",
                 17, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(320f, 32f), new Vector2(0f, 10f), PrimaryTextColor);
             CreateText(
                 "Guide", instruction,
                 hasBattingInput
-                    ? "선택의 장단점은 실제 투구·타구 확률에 반영됩니다."
+                    ? session.PlayerRole == PlayerGameRole.Bench
+                        ? "감독이 대타로 호출하면 선발 타자와 같은 방식으로 타격을 선택합니다."
+                        : "선택의 장단점은 실제 투구·타구 확률에 반영됩니다."
                     : "감독 AI의 기용과 경기 결과는 같은 이벤트 흐름으로 표시됩니다.",
                 13,
                 FontStyle.Normal, TextAnchor.UpperLeft,
@@ -471,17 +513,23 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "Pitcher", matchup, pitcherName, 21, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(290f, 35f), new Vector2(0f, -28f), PrimaryTextColor);
-            string momentLabel = isDecisionInputReady && session.PendingDecision.HasValue
-                ? $"{session.PendingDecision.Value.PitchNumber}구 예정  ·  {snapshot.Balls}-{snapshot.Strikes}"
-                : GetPlaybackMomentLabel(snapshot);
+            string momentLabel = _hasControlledResult
+                ? GetControlledResultLabel(_controlledResult)
+                : isDecisionInputReady && session.PendingDecision.HasValue
+                    ? $"{session.PendingDecision.Value.PitchNumber}구 예정  ·  {snapshot.Balls}-{snapshot.Strikes}"
+                    : GetPlaybackMomentLabel(snapshot);
             CreateText(
                 "Count", matchup, momentLabel, 15,
                 FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(270f, 30f), new Vector2(0f, -76f), GoldColor);
 
-            string hint = isDecisionInputReady
-                ? "타격 방식을 고르고 Space로 다음 투구를 진행합니다."
-                : "각 타자의 결과를 자동 중계 중입니다. 내 타석이 오면 자동으로 멈춥니다.";
+            string hint = _hasControlledResult
+                ? $"내 타석 결과를 확인 중입니다. 잠시 후 {GetPlaybackSpeedLabel(_playbackSpeed)} 속도로 이어집니다."
+                : isDecisionInputReady
+                    ? "타격 방식을 고르고 Space로 다음 투구를 진행합니다."
+                    : session.CanReceiveBattingDecisions
+                        ? "각 타자의 결과를 자동 중계 중입니다. 내 선수가 출전하면 자동으로 멈춥니다."
+                        : "각 타자의 결과를 자동 중계 중입니다. 경기 종료까지 바로 진행할 수도 있습니다.";
             CreateText(
                 "Hint", panel, hint,
                 14, FontStyle.Normal, TextAnchor.MiddleCenter,
@@ -504,7 +552,7 @@ namespace Baseball.Presentation.Career
                 if (!IsVisibleLogEvent(events[index], controlledPlayerId))
                     continue;
 
-                string description = DescribeEvent(input, events[index]);
+                string description = DescribeEvent(input, events, index);
                 if (string.IsNullOrEmpty(description))
                     continue;
 
@@ -534,7 +582,10 @@ namespace Baseball.Presentation.Career
         {
             if (!isDecisionInputReady)
             {
-                RenderAutomaticCommandPanel(panel, session, snapshot);
+                if (_hasControlledResult)
+                    RenderControlledResultCommandPanel(panel, session, snapshot);
+                else
+                    RenderAutomaticCommandPanel(panel, session, snapshot);
                 return;
             }
 
@@ -571,18 +622,16 @@ namespace Baseball.Presentation.Career
             autoPlateAppearance.onClick.AddListener(AutoCompleteCurrentPlateAppearance);
             Button autoMatch = CreateButton(
                 "AutoMatch", panel, "경기 종료까지 진행",
-                new Vector2(410f, 52f), new Vector2(0f, -308f),
+                new Vector2(410f, 48f), new Vector2(0f, -306f),
                 new Color(0.09f, 0.14f, 0.18f, 1f), MutedTextColor);
             autoMatch.onClick.AddListener(AutoCompleteMatch);
-            CreateText(
-                "AutoState", panel, "정지 조건 · 내 선수 타석", 12, FontStyle.Normal,
-                TextAnchor.MiddleCenter, new Vector2(410f, 25f), new Vector2(0f, -355f), MutedTextColor);
+            RenderPlaybackSpeedControls(panel, -393f);
 
             if (!string.IsNullOrEmpty(_manager.LastError))
             {
                 CreateText(
                     "Error", panel, _manager.LastError, 13, FontStyle.Normal, TextAnchor.MiddleCenter,
-                    new Vector2(420f, 38f), new Vector2(0f, -396f), DangerColor);
+                    new Vector2(420f, 22f), new Vector2(0f, -423f), DangerColor);
             }
         }
 
@@ -625,7 +674,11 @@ namespace Baseball.Presentation.Career
 
             string personalLine = session.PlayerRole == PlayerGameRole.StartingBatter
                 ? $"{careerResult.AtBats}타수  {careerResult.Hits}안타  {careerResult.HomeRuns}홈런  {careerResult.RunsBattedIn}타점"
-                : GetRoleResultLabel(session.PlayerRole, careerResult);
+                : GetRoleResultLabel(
+                    session.PlayerRole,
+                    _manager.CurrentCareer.MyPlayer.PrimaryPosition,
+                    careerResult,
+                    CountPlayerPlateAppearances(session.Events, session.ControlledPlayerId));
             CreateText(
                 "Line", personal, personalLine, 26, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(630f, 44f), new Vector2(0f, 62f), PrimaryTextColor);
@@ -634,7 +687,12 @@ namespace Baseball.Presentation.Career
                 16, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(630f, 32f), new Vector2(0f, 20f), SecondaryTextColor);
             CreateText(
-                "Highlight", personal, BuildHighlightText(careerResult), 16, FontStyle.Normal,
+                "Highlight", personal,
+                BuildHighlightText(
+                    careerResult,
+                    _manager.CurrentCareer.MyPlayer.PrimaryPosition,
+                    CountPlayerPlateAppearances(session.Events, session.ControlledPlayerId)),
+                16, FontStyle.Normal,
                 TextAnchor.UpperLeft, new Vector2(630f, 94f), new Vector2(0f, -56f), GoldColor);
             CreateText(
                 "LogGuide", personal, "전체 경기 로그는 결과 화면이 닫히기 전까지 현재 세션에 보존됩니다.",
@@ -651,7 +709,12 @@ namespace Baseball.Presentation.Career
                 GetEvaluationGrade(session.ManagerEvaluationAfter), 102f);
             RenderChangeRow(
                 change, "컨디션", session.ConditionBefore.ToString(), session.ConditionAfter.ToString(), 35f);
-            RenderChangeRow(change, "현재 역할", GetShortRoleLabel(session.PlayerRole), "반영 완료", -32f);
+            RenderChangeRow(
+                change,
+                "현재 역할",
+                GetShortRoleLabel(session.PlayerRole, _manager.CurrentCareer.MyPlayer.PrimaryPosition),
+                "반영 완료",
+                -32f);
             RenderChangeRow(
                 change, "시즌 기록",
                 "경기 전",
@@ -816,8 +879,12 @@ namespace Baseball.Presentation.Career
             return result;
         }
 
-        private static string DescribeEvent(MatchInput input, MatchEvent matchEvent)
+        private static string DescribeEvent(
+            MatchInput input,
+            IReadOnlyList<MatchEvent> events,
+            int eventIndex)
         {
+            MatchEvent matchEvent = events[eventIndex];
             string prefix = $"{matchEvent.Inning}회{GetHalfLabel(matchEvent.Half)}";
             string batterName = FindPlayerName(input, matchEvent.BatterId);
             string playerName = FindPlayerName(input, matchEvent.PlayerId);
@@ -832,7 +899,12 @@ namespace Baseball.Presentation.Career
                 MatchEventType.Score =>
                     $"{prefix} · {playerName} 홈인 · {matchEvent.AwayScore}:{matchEvent.HomeScore}",
                 MatchEventType.PlateAppearanceEnded =>
-                    $"{prefix} · {batterName} · {GetPlateAppearanceResultLabel(matchEvent.PlateAppearanceResult)}",
+                    $"{prefix} · {batterName} · " +
+                    GetPlateAppearanceResultLabel(
+                        matchEvent.PlateAppearanceResult,
+                        CountOutsInPlateAppearance(events, eventIndex)),
+                MatchEventType.PlayerSubstitution =>
+                    $"{prefix} · {batterName} 대타 출전 · {playerName} 교체",
                 MatchEventType.HalfInningEnded => $"{prefix} 종료 · {matchEvent.AwayScore}:{matchEvent.HomeScore}",
                 _ => string.Empty
             };
@@ -855,6 +927,8 @@ namespace Baseball.Presentation.Career
                 return team.StartingPitcher.Name;
             if (team.ReliefPitcher != null && team.ReliefPitcher.PlayerId == playerId)
                 return team.ReliefPitcher.Name;
+            if (team.PositionPlayerSubstitution?.Player.PlayerId == playerId)
+                return team.PositionPlayerSubstitution.Player.Name;
             return string.Empty;
         }
 
@@ -874,6 +948,9 @@ namespace Baseball.Presentation.Career
 
         private static string GetRoleLabel(PlayerGameRole role, PlayerPosition position)
         {
+            if (CareerGameRoleFormatter.IsPitcherRest(role, position))
+                return CareerGameRoleFormatter.GetPitcherRestLabel(position);
+
             return role switch
             {
                 PlayerGameRole.StartingBatter => $"선발 · {GetPositionCode(position)}",
@@ -884,8 +961,11 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetShortRoleLabel(PlayerGameRole role)
+        private static string GetShortRoleLabel(PlayerGameRole role, PlayerPosition position)
         {
+            if (CareerGameRoleFormatter.IsPitcherRest(role, position))
+                return CareerGameRoleFormatter.GetPitcherRestLabel(position);
+
             return role switch
             {
                 PlayerGameRole.StartingBatter => "선발",
@@ -896,18 +976,30 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetRoleResultLabel(PlayerGameRole role, CareerGameAdvanceResult result)
+        private static string GetRoleResultLabel(
+            PlayerGameRole role,
+            PlayerPosition position,
+            CareerGameAdvanceResult result,
+            int plateAppearances)
         {
+            if (CareerGameRoleFormatter.IsPitcherRest(role, position))
+                return $"{CareerGameRoleFormatter.GetPitcherRestLabel(position)} · 등판 없음";
+
             return role switch
             {
                 PlayerGameRole.StartingPitcher or PlayerGameRole.ReliefPitcher =>
                     $"{result.OutsRecorded / 3}.{result.OutsRecorded % 3}이닝  {result.EarnedRuns}자책  {result.Strikeouts}삼진",
+                PlayerGameRole.Bench when plateAppearances > 0 =>
+                    $"대타 출전 · {result.AtBats}타수  {result.Hits}안타  {result.RunsBattedIn}타점",
                 PlayerGameRole.Bench => "벤치 대기 · 출전 없음",
                 _ => "오늘 경기 출전 없음"
             };
         }
 
-        private static string BuildHighlightText(CareerGameAdvanceResult result)
+        private static string BuildHighlightText(
+            CareerGameAdvanceResult result,
+            PlayerPosition position,
+            int plateAppearances)
         {
             if (result.HomeRuns > 0)
                 return $"핵심 장면 · 홈런 {result.HomeRuns}개로 {result.RunsBattedIn}타점 기록";
@@ -915,7 +1007,13 @@ namespace Baseball.Presentation.Career
                 return $"핵심 장면 · 멀티히트 {result.Hits}안타";
             if (result.Hits == 1)
                 return "핵심 장면 · 안타로 출루에 성공";
-            return result.Role == PlayerGameRole.Bench ? "감독 결정 · 오늘은 벤치에서 대기" : "다음 경기에서 반등을 노립니다.";
+            if (CareerGameRoleFormatter.IsPitcherRest(result.Role, position))
+                return $"감독 결정 · 오늘은 {CareerGameRoleFormatter.GetPitcherRestLabel(position)}";
+            if (result.Role == PlayerGameRole.Bench && plateAppearances == 0)
+                return "감독 결정 · 오늘은 벤치에서 대기";
+            if (result.Role == PlayerGameRole.Bench)
+                return "대타 기회를 얻었지만 출루에는 실패했습니다.";
+            return "다음 경기에서 반등을 노립니다.";
         }
 
         private static string GetApproachLabel(BattingApproach approach)
@@ -927,6 +1025,22 @@ namespace Baseball.Presentation.Career
                 BattingApproach.Patient => "신중한 타격",
                 _ => "균형 타격"
             };
+        }
+
+        private static int CountPlayerPlateAppearances(
+            IReadOnlyList<MatchEvent> events,
+            int playerId)
+        {
+            int count = 0;
+            for (int index = 0; index < events.Count; index++)
+            {
+                if (events[index].EventType == MatchEventType.PlateAppearanceEnded &&
+                    events[index].BatterId == playerId)
+                {
+                    count++;
+                }
+            }
+            return count;
         }
 
         private static string GetPitchResultLabel(PitchResult result)
@@ -944,6 +1058,13 @@ namespace Baseball.Presentation.Career
 
         private static string GetPlateAppearanceResultLabel(PlateAppearanceResult result)
         {
+            return GetPlateAppearanceResultLabel(result, 0);
+        }
+
+        private static string GetPlateAppearanceResultLabel(PlateAppearanceResult result, int outsOnPlay)
+        {
+            if (result == PlateAppearanceResult.GroundOut && outsOnPlay >= 2)
+                return "병살타";
             return result switch
             {
                 PlateAppearanceResult.Walk => "볼넷",

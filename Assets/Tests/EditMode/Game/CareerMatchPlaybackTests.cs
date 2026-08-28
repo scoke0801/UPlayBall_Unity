@@ -151,6 +151,65 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(snapshot.ThirdRunnerId, Is.Zero);
         }
 
+        [Test]
+        public void RevealControlledPlay_병살의주자아웃까지같은타석결과로공개한다()
+        {
+            MatchEvent[] events =
+            {
+                CreateEvent(0, MatchEventType.Pitch, 99, 99, 0, PitchResult.InPlay),
+                CreateEvent(
+                    1,
+                    MatchEventType.Out,
+                    31,
+                    31,
+                    1,
+                    PitchResult.None,
+                    PlateAppearanceResult.GroundOut),
+                CreateEvent(
+                    2,
+                    MatchEventType.Out,
+                    99,
+                    99,
+                    2,
+                    PitchResult.None,
+                    PlateAppearanceResult.GroundOut),
+                CreateEvent(
+                    3,
+                    MatchEventType.PlateAppearanceEnded,
+                    99,
+                    99,
+                    2,
+                    PitchResult.None,
+                    PlateAppearanceResult.GroundOut)
+            };
+            var playback = new CareerMatchPlayback();
+
+            Assert.That(playback.RevealControlledPlay(events, controlledPlayerId: 99), Is.True);
+            Assert.That(playback.VisibleEventCount, Is.EqualTo(events.Length));
+            Assert.That(
+                playback.TryGetControlledPlateAppearanceSummary(
+                    events,
+                    firstEventIndex: 0,
+                    controlledPlayerId: 99,
+                    out CareerPlateAppearanceSummary summary),
+                Is.True);
+            Assert.That(summary.IsDoublePlay, Is.True);
+            Assert.That(summary.OutsOnPlay, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void AdvanceAutomatic_내선수교체출전이벤트를공개한뒤입력대기로넘긴다()
+        {
+            MatchEvent[] events =
+            {
+                CreateEvent(0, MatchEventType.PlayerSubstitution, 99, 31, 1, PitchResult.None)
+            };
+            var playback = new CareerMatchPlayback();
+
+            Assert.That(playback.AdvanceAutomatic(events, controlledPlayerId: 99), Is.True);
+            Assert.That(playback.VisibleEventCount, Is.EqualTo(1));
+        }
+
         private static MatchEvent CreateEvent(
             int sequence,
             MatchEventType eventType,

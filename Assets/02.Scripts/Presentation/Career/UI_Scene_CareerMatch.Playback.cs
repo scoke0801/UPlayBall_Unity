@@ -21,14 +21,16 @@ namespace Baseball.Presentation.Career
                 return;
 
             _playback.Reset();
+            ClearControlledResult();
             _isPlaybackInitialized = true;
-            _nextAutomaticPlayAt = Time.unscaledTime + automaticPlayIntervalSeconds;
+            _nextAutomaticPlayAt = Time.unscaledTime + GetAutomaticPlayIntervalSeconds();
         }
 
         private void ResetPlayback()
         {
             _playback.Reset();
             _playbackSession = null;
+            ClearControlledResult();
             _isPlaybackInitialized = false;
             _nextAutomaticPlayAt = 0f;
         }
@@ -40,9 +42,19 @@ namespace Baseball.Presentation.Career
             if (Time.unscaledTime < _nextAutomaticPlayAt)
                 return true;
 
+            if (_hasControlledResult)
+            {
+                ClearControlledResult();
+                if (!_playback.HasPendingEvents(session.Events))
+                {
+                    Render();
+                    return true;
+                }
+            }
+
             if (_playback.AdvanceAutomatic(session.Events, session.ControlledPlayerId))
             {
-                _nextAutomaticPlayAt = Time.unscaledTime + automaticPlayIntervalSeconds;
+                _nextAutomaticPlayAt = Time.unscaledTime + GetAutomaticPlayIntervalSeconds();
                 Render();
             }
 
@@ -56,7 +68,7 @@ namespace Baseball.Presentation.Career
                    session.Mode == CareerMatchMode.PlayerFocus &&
                    ReferenceEquals(_playbackSession, session) &&
                    _isPlaybackInitialized &&
-                   _playback.HasPendingEvents(session.Events);
+                   (_hasControlledResult || _playback.HasPendingEvents(session.Events));
         }
 
         private bool IsDecisionInputReady(CareerMatchSession session)
@@ -64,6 +76,7 @@ namespace Baseball.Presentation.Career
             return session != null &&
                    session.Phase == CareerMatchPhase.Playing &&
                    session.PendingDecision.HasValue &&
+                   !_hasControlledResult &&
                    !_playback.HasPendingEvents(session.Events);
         }
 
@@ -92,14 +105,15 @@ namespace Baseball.Presentation.Career
         private void AutoCompleteMatch()
         {
             CareerMatchSession session = _manager?.ActiveMatch;
-            if (!IsDecisionInputReady(session))
+            if (session == null || session.Phase == CareerMatchPhase.Preparation)
                 return;
-            if (!_manager.AutoCompleteActiveMatch())
+            if (session.Phase == CareerMatchPhase.Playing && !_manager.AutoCompleteActiveMatch())
                 return;
 
             session = _manager.ActiveMatch;
             EnsurePlayback(session);
             _playback.RevealAll(session.Events);
+            ClearControlledResult();
             Render();
         }
 
@@ -107,8 +121,22 @@ namespace Baseball.Presentation.Career
         {
             CareerMatchSession session = _manager.ActiveMatch;
             EnsurePlayback(session);
+            int firstRevealedEventIndex = _playback.VisibleEventCount;
             _playback.RevealControlledPlay(session.Events, session.ControlledPlayerId);
-            _nextAutomaticPlayAt = Time.unscaledTime + automaticPlayIntervalSeconds;
+            if (_playback.TryGetControlledPlateAppearanceSummary(
+                    session.Events,
+                    firstRevealedEventIndex,
+                    session.ControlledPlayerId,
+                    out CareerPlateAppearanceSummary summary))
+            {
+                _controlledResult = summary;
+                _hasControlledResult = true;
+                _nextAutomaticPlayAt = Time.unscaledTime + GetControlledResultHoldSeconds();
+            }
+            else
+            {
+                _nextAutomaticPlayAt = Time.unscaledTime + GetAutomaticPlayIntervalSeconds();
+            }
             Render();
         }
 
@@ -119,9 +147,12 @@ namespace Baseball.Presentation.Career
         {
             string playerSide = GetPlayerSideLabel(session, snapshot.Half);
             Color sideColor = playerSide == "공격 중" ? GoldColor : AccentColor;
+            bool canStopForPlayer = session.CanReceiveBattingDecisions;
             CreateStatusPill(
                 panel,
-                "자동 진행 · 내 타석에서 정지",
+                canStopForPlayer
+                    ? $"{GetPlaybackSpeedLabel(_playbackSpeed)} · 내 선수 출전 시 정지"
+                    : $"{GetPlaybackSpeedLabel(_playbackSpeed)} · 입력 대기 없음",
                 new Vector2(410f, 46f),
                 new Vector2(0f, 382f));
             CreateText(
@@ -172,18 +203,141 @@ namespace Baseball.Presentation.Career
 
             CreateText(
                 "StopGuide", panel,
-                "내 타석이 오면 자동 진행이 멈추고\n타격 접근 선택과 다음 투구 버튼이 열립니다.",
+                canStopForPlayer
+                    ? "선발 또는 교체 출전한 내 선수의 타석에서 멈추고\n타격 접근 선택과 다음 투구 버튼이 열립니다."
+                    : "현재 역할에는 경기 중 입력이 없습니다.\n원하면 아래 버튼으로 결과를 바로 확인할 수 있습니다.",
                 17, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(410f, 78f), new Vector2(0f, -220f), PrimaryTextColor);
+            Button finishMatch = CreateButton(
+                "FinishMatch", panel, "경기 종료까지 진행",
+                new Vector2(410f, 54f), new Vector2(0f, -302f),
+                new Color(0.07f, 0.16f, 0.21f, 1f), PrimaryTextColor);
+            finishMatch.onClick.AddListener(AutoCompleteMatch);
+            RenderPlaybackSpeedControls(panel, -392f);
+        }
+
+        private void RenderControlledResultCommandPanel(
+            RectTransform panel,
+            CareerMatchSession session,
+            CareerMatchPlaybackSnapshot snapshot)
+        {
+            string resultLabel = GetControlledResultLabel(_controlledResult);
+            Color resultColor = GetControlledResultColor(_controlledResult);
+            CreateStatusPill(
+                panel,
+                "내 타석 결과 확인",
+                new Vector2(410f, 46f),
+                new Vector2(0f, 382f));
             CreateText(
-                "RunnerGuide", panel,
-                "안타와 아웃뿐 아니라 주자의 진루와 득점도\n왼쪽 구장과 실시간 로그에 함께 표시됩니다.",
-                14, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(410f, 70f), new Vector2(0f, -302f), SecondaryTextColor);
+                "Eyebrow", panel, "MY AT-BAT RESULT", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(410f, 26f), new Vector2(0f, 326f), AccentColor);
             CreateText(
-                "Speed", panel, $"자동 중계 간격  {automaticPlayIntervalSeconds:0.00}초 / 타석", 12,
-                FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(410f, 25f), new Vector2(0f, -370f), MutedTextColor);
+                "Result", panel, resultLabel, 38, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(410f, 58f), new Vector2(0f, 278f), resultColor);
+            CreateText(
+                "Description", panel, GetControlledResultDescription(_controlledResult), 16,
+                FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(410f, 40f), new Vector2(0f, 232f), SecondaryTextColor);
+
+            RenderPlaybackCard(
+                panel,
+                "결과 반영",
+                $"{snapshot.Outs}사 · {GetRunnerSituation(snapshot)}",
+                150f,
+                PrimaryTextColor);
+            PlayerTodayLine today = CalculateTodayLine(
+                session.Events,
+                _playback.VisibleEventCount,
+                session.ControlledPlayerId);
+            RenderPlaybackCard(
+                panel,
+                "오늘 기록",
+                $"{today.PlateAppearances}타석  {today.Hits}안타  {today.RunsBattedIn}타점",
+                44f,
+                resultColor);
+
+            CreateText(
+                "Approach", panel, $"마지막 선택 · {GetApproachLabel(_selectedApproach)}", 15,
+                FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(410f, 30f), new Vector2(0f, -40f), AccentColor);
+            CreateText(
+                "ContinueGuide", panel,
+                $"결과를 충분히 확인한 뒤 {GetPlaybackSpeedLabel(_playbackSpeed)} 속도로 자동 진행합니다.",
+                15, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(410f, 46f), new Vector2(0f, -92f), SecondaryTextColor);
+            Button finishMatch = CreateButton(
+                "FinishMatch", panel, "경기 종료까지 진행",
+                new Vector2(410f, 54f), new Vector2(0f, -166f),
+                new Color(0.07f, 0.16f, 0.21f, 1f), PrimaryTextColor);
+            finishMatch.onClick.AddListener(AutoCompleteMatch);
+            RenderPlaybackSpeedControls(panel, -278f);
+        }
+
+        private void RenderPlaybackSpeedControls(RectTransform panel, float buttonY)
+        {
+            CreateText(
+                "PlaybackSpeedLabel", panel,
+                $"경기 진행 속도 · {GetPlaybackSpeedLabel(_playbackSpeed)}", 13,
+                FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(410f, 26f), new Vector2(0f, buttonY + 38f), SecondaryTextColor);
+            CreatePlaybackSpeedButton(panel, MatchPlaybackSpeed.Slow, "느리게", -138f, buttonY);
+            CreatePlaybackSpeedButton(panel, MatchPlaybackSpeed.Normal, "보통", 0f, buttonY);
+            CreatePlaybackSpeedButton(panel, MatchPlaybackSpeed.Fast, "빠르게", 138f, buttonY);
+        }
+
+        private void CreatePlaybackSpeedButton(
+            RectTransform panel,
+            MatchPlaybackSpeed speed,
+            string label,
+            float x,
+            float y)
+        {
+            bool isSelected = _playbackSpeed == speed;
+            Color background = isSelected ? new Color(0.035f, 0.24f, 0.39f, 1f) : PanelDarkColor;
+            Button button = CreateButton(
+                "Speed_" + speed,
+                panel,
+                label,
+                new Vector2(126f, 38f),
+                new Vector2(x, y),
+                background,
+                isSelected ? AccentColor : SecondaryTextColor);
+            button.onClick.AddListener(() => SetPlaybackSpeed(speed));
+        }
+
+        private void SetPlaybackSpeed(MatchPlaybackSpeed speed)
+        {
+            _playbackSpeed = speed;
+            _nextAutomaticPlayAt = Time.unscaledTime + (_hasControlledResult
+                ? GetControlledResultHoldSeconds()
+                : GetAutomaticPlayIntervalSeconds());
+            Render();
+        }
+
+        private float GetAutomaticPlayIntervalSeconds()
+        {
+            return automaticPlayIntervalSeconds * GetPlaybackSpeedMultiplier();
+        }
+
+        private float GetControlledResultHoldSeconds()
+        {
+            return controlledResultHoldSeconds * GetPlaybackSpeedMultiplier();
+        }
+
+        private float GetPlaybackSpeedMultiplier()
+        {
+            return _playbackSpeed switch
+            {
+                MatchPlaybackSpeed.Slow => slowPlaybackMultiplier,
+                MatchPlaybackSpeed.Fast => fastPlaybackMultiplier,
+                _ => 1f
+            };
+        }
+
+        private void ClearControlledResult()
+        {
+            _controlledResult = default;
+            _hasControlledResult = false;
         }
 
         private static void RenderPlaybackCard(
@@ -235,7 +389,8 @@ namespace Baseball.Presentation.Career
                 return "득점";
             if (snapshot.LatestEventType == MatchEventType.RunnerAdvance)
                 return "주자 진루";
-            if (snapshot.LatestPlateAppearanceResult != PlateAppearanceResult.None)
+            if (snapshot.LatestEventType == MatchEventType.PlateAppearanceEnded &&
+                snapshot.LatestPlateAppearanceResult != PlateAppearanceResult.None)
                 return GetPlateAppearanceResultLabel(snapshot.LatestPlateAppearanceResult);
             return $"Count {snapshot.Balls}-{snapshot.Strikes}";
         }
@@ -248,6 +403,7 @@ namespace Baseball.Presentation.Career
                 MatchEventType.RunnerAdvance => matchEvent.ToBase is >= 1 and <= 3,
                 MatchEventType.Score => true,
                 MatchEventType.PlateAppearanceEnded => true,
+                MatchEventType.PlayerSubstitution => true,
                 MatchEventType.HalfInningEnded => true,
                 _ => false
             };
@@ -277,6 +433,79 @@ namespace Baseball.Presentation.Career
                 4 => "홈",
                 _ => string.Empty
             };
+        }
+
+        private static string GetPlaybackSpeedLabel(MatchPlaybackSpeed speed)
+        {
+            return speed switch
+            {
+                MatchPlaybackSpeed.Slow => "느리게",
+                MatchPlaybackSpeed.Fast => "빠르게",
+                _ => "보통"
+            };
+        }
+
+        private static string GetControlledResultLabel(CareerPlateAppearanceSummary summary)
+        {
+            if (summary.IsDoublePlay)
+                return "병살타";
+            if (summary.IsSacrificeFly)
+                return "희생플라이";
+            return GetPlateAppearanceResultLabel(summary.Result);
+        }
+
+        private static string GetControlledResultDescription(CareerPlateAppearanceSummary summary)
+        {
+            string description = summary.Result switch
+            {
+                PlateAppearanceResult.Walk => "볼넷으로 출루했습니다.",
+                PlateAppearanceResult.Strikeout => "삼진으로 타석이 끝났습니다.",
+                PlateAppearanceResult.GroundOut when summary.IsDoublePlay =>
+                    "주자와 타자가 함께 아웃되었습니다.",
+                PlateAppearanceResult.GroundOut => "땅볼로 아웃되었습니다.",
+                PlateAppearanceResult.FlyOut when summary.IsSacrificeFly =>
+                    "뜬공으로 주자를 홈에 불러들였습니다.",
+                PlateAppearanceResult.FlyOut => "뜬공으로 아웃되었습니다.",
+                PlateAppearanceResult.Single => "안타로 1루에 출루했습니다.",
+                PlateAppearanceResult.Double => "2루타로 득점 기회를 만들었습니다.",
+                PlateAppearanceResult.Triple => "3루타로 단숨에 득점권에 도달했습니다.",
+                PlateAppearanceResult.HomeRun => "홈런으로 모든 주자를 불러들였습니다.",
+                _ => "타석 결과가 확정되었습니다."
+            };
+            return summary.RunsBattedIn > 0
+                ? $"{description}  {summary.RunsBattedIn}타점"
+                : description;
+        }
+
+        private static Color GetControlledResultColor(CareerPlateAppearanceSummary summary)
+        {
+            return summary.Result switch
+            {
+                PlateAppearanceResult.Single or PlateAppearanceResult.Double or
+                    PlateAppearanceResult.Triple => RoleColor,
+                PlateAppearanceResult.HomeRun => GoldColor,
+                PlateAppearanceResult.Walk => AccentColor,
+                _ => DangerColor
+            };
+        }
+
+        private static int CountOutsInPlateAppearance(
+            IReadOnlyList<MatchEvent> events,
+            int plateAppearanceEndIndex)
+        {
+            int outs = 0;
+            for (int index = plateAppearanceEndIndex - 1; index >= 0; index--)
+            {
+                MatchEvent matchEvent = events[index];
+                if (matchEvent.EventType is MatchEventType.PlateAppearanceEnded or
+                    MatchEventType.HalfInningEnded)
+                {
+                    break;
+                }
+                if (matchEvent.EventType == MatchEventType.Out)
+                    outs++;
+            }
+            return outs;
         }
     }
 }

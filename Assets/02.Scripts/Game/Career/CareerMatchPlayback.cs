@@ -35,7 +35,8 @@ namespace Baseball.Game.Career
                 return false;
 
             MatchEvent nextEvent = events[VisibleEventCount];
-            if (nextEvent.BatterId == controlledPlayerId)
+            if (nextEvent.BatterId == controlledPlayerId &&
+                nextEvent.EventType != MatchEventType.PlayerSubstitution)
                 return false;
 
             while (VisibleEventCount < events.Count)
@@ -65,25 +66,69 @@ namespace Baseball.Game.Career
             if (controlledPlayerId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(controlledPlayerId));
 
+            if (VisibleEventCount >= events.Count || events[VisibleEventCount].BatterId != controlledPlayerId)
+                return false;
+
             bool didReveal = false;
             while (VisibleEventCount < events.Count)
             {
-                MatchEvent matchEvent = events[VisibleEventCount];
-                bool isControlledPlay = matchEvent.BatterId == controlledPlayerId;
-                bool isFollowingBoundary = didReveal &&
-                                           matchEvent.BatterId == 0 &&
-                                           (matchEvent.EventType is
-                                               MatchEventType.HalfInningEnded or MatchEventType.MatchEnded);
-                if (!isControlledPlay && !isFollowingBoundary)
-                    break;
-
-                VisibleEventCount++;
+                MatchEvent matchEvent = events[VisibleEventCount++];
                 didReveal = true;
-                if (matchEvent.EventType == MatchEventType.MatchEnded)
-                    break;
+                if (matchEvent.EventType == MatchEventType.PlateAppearanceEnded &&
+                    matchEvent.BatterId == controlledPlayerId)
+                {
+                    RevealFollowingHalfInningEnd(events);
+                    return true;
+                }
+
+                if (matchEvent.EventType is MatchEventType.HalfInningEnded or MatchEventType.MatchEnded)
+                    return true;
             }
 
             return didReveal;
+        }
+
+        /// <summary>
+        /// 방금 공개한 구간에서 내 선수의 타석 종료 결과와 플레이 아웃·타점을 요약한다.
+        /// </summary>
+        public bool TryGetControlledPlateAppearanceSummary(
+            IReadOnlyList<MatchEvent> events,
+            int firstEventIndex,
+            int controlledPlayerId,
+            out CareerPlateAppearanceSummary summary)
+        {
+            ValidateEvents(events);
+            if (firstEventIndex < 0 || firstEventIndex > VisibleEventCount)
+                throw new ArgumentOutOfRangeException(nameof(firstEventIndex));
+            if (controlledPlayerId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(controlledPlayerId));
+
+            int outsOnPlay = 0;
+            int runsBattedIn = 0;
+            for (int index = firstEventIndex; index < VisibleEventCount; index++)
+            {
+                MatchEvent matchEvent = events[index];
+                if (matchEvent.EventType == MatchEventType.Out)
+                    outsOnPlay++;
+                else if (matchEvent.EventType == MatchEventType.Score &&
+                         matchEvent.BatterId == controlledPlayerId)
+                    runsBattedIn++;
+
+                if (matchEvent.EventType != MatchEventType.PlateAppearanceEnded ||
+                    matchEvent.BatterId != controlledPlayerId)
+                {
+                    continue;
+                }
+
+                summary = new CareerPlateAppearanceSummary(
+                    matchEvent.PlateAppearanceResult,
+                    outsOnPlay,
+                    runsBattedIn);
+                return true;
+            }
+
+            summary = default;
+            return false;
         }
 
         /// <summary>
@@ -129,6 +174,28 @@ namespace Baseball.Game.Career
             if (VisibleEventCount > events.Count)
                 throw new InvalidOperationException("경기 이벤트가 이미 공개한 위치보다 짧아졌습니다.");
         }
+    }
+
+    /// <summary>
+    /// 한 타석 결과를 병살·타점까지 구분해 Presentation에 전달한다.
+    /// </summary>
+    public readonly struct CareerPlateAppearanceSummary
+    {
+        public CareerPlateAppearanceSummary(
+            PlateAppearanceResult result,
+            int outsOnPlay,
+            int runsBattedIn)
+        {
+            Result = result;
+            OutsOnPlay = outsOnPlay;
+            RunsBattedIn = runsBattedIn;
+        }
+
+        public PlateAppearanceResult Result { get; }
+        public int OutsOnPlay { get; }
+        public int RunsBattedIn { get; }
+        public bool IsDoublePlay => Result == PlateAppearanceResult.GroundOut && OutsOnPlay >= 2;
+        public bool IsSacrificeFly => Result == PlateAppearanceResult.FlyOut && RunsBattedIn > 0;
     }
 
     /// <summary>

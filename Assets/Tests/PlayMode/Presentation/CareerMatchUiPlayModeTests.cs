@@ -1,5 +1,6 @@
 using System.Collections;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
 using Baseball.Presentation.Career;
@@ -51,6 +52,52 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(firstLog, Is.Not.Null);
             Assert.That(firstLog.GetComponent<Text>().text, Does.StartWith("1회"));
             Assert.That(careerManager.ActiveMatch.Mode, Is.EqualTo(CareerMatchMode.PlayerFocus));
+        }
+
+        [UnityTest]
+        public IEnumerator Bench_PlayerFocus에서속도를바꾸고경기결과로즉시진행한다()
+        {
+            yield return null;
+
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 94_101UL);
+            ScheduledGameState nextGame = career.League.CurrentSeason.Schedule.GetNextGameForTeam(
+                career.MyPlayer.CurrentTeamId);
+            nextGame.PlanPlayerRole(PlayerGameRole.Bench);
+            CareerManager careerManager = GameManager.EnsureExists()
+                .EnsureManager<CareerManager>("CareerManager");
+            careerManager.BeginCareer(career, configuration.Balance);
+            UIManager uiManager = GameManager.EnsureExists().EnsureManager<UIManager>("UIManager");
+            Transform sceneLayer = uiManager.Root.GetLayerRoot(UILayer.Scene);
+            UI_Scene_CareerMatch screen = Object.FindFirstObjectByType<UI_Scene_CareerMatch>(
+                FindObjectsInactive.Include);
+            if (screen == null)
+                screen = UI_Scene_CareerMatch.CreateRuntime(sceneLayer);
+
+            Assert.That(careerManager.PrepareNextGame(), Is.True, careerManager.LastError);
+            Assert.That(careerManager.ActiveMatch.PlayerRole, Is.EqualTo(PlayerGameRole.Bench));
+            screen.Show();
+            yield return null;
+
+            Button start = screen.transform.Find("Content/PreparationCard/Start").GetComponent<Button>();
+            start.onClick.Invoke();
+            yield return null;
+
+            Button slow = screen.transform.Find("Content/CommandPanel/Speed_Slow").GetComponent<Button>();
+            Assert.That(slow, Is.Not.Null);
+            slow.onClick.Invoke();
+            yield return null;
+
+            Text speedLabel = screen.transform.Find("Content/CommandPanel/PlaybackSpeedLabel")
+                .GetComponent<Text>();
+            Assert.That(speedLabel.text, Does.Contain("느리게"));
+            Button finish = screen.transform.Find("Content/CommandPanel/FinishMatch").GetComponent<Button>();
+            Assert.That(finish, Is.Not.Null);
+            finish.onClick.Invoke();
+            yield return null;
+
+            Assert.That(screen.transform.Find("Content/NextDay"), Is.Not.Null);
+            Assert.That(careerManager.ActiveMatch.IsCommitted, Is.True);
         }
 
         [UnityTearDown]
