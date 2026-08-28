@@ -214,9 +214,9 @@ namespace Baseball.Presentation.Career
                 Render();
             });
             CreateTableHeader(panel,
-                new[] { "순위", "선수", "팀", "경기", "타율", "홈런", "타점", "OPS" },
-                new[] { -268f, -198f, -82f, 16f, 79f, 139f, 194f, 256f },
-                new[] { 45f, 120f, 88f, 50f, 58f, 50f, 50f, 58f },
+                new[] { "순위", "선수", "팀", "경기", "타율", "홈런", "타점", "도루", "OPS" },
+                new[] { -268f, -198f, -82f, 16f, 65f, 109f, 147f, 185f, 247f },
+                new[] { 45f, 120f, 88f, 38f, 50f, 34f, 36f, 36f, 58f },
                 119f);
 
             LeagueBattingLeaderboardView leaderboard = view.GetBattingLeaderboard(_battingCategory);
@@ -255,15 +255,27 @@ namespace Baseball.Presentation.Career
             CreateText("Team", line, GetTeamMonogram(row.TeamName), 11, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(55f, 30f), new Vector2(-69f, 0f), SecondaryTextColor);
             CreateText("Games", line, row.Games.ToString(), 13, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(46f, 38f), new Vector2(16f, 0f), SecondaryTextColor);
+                new Vector2(38f, 38f), new Vector2(16f, 0f), SecondaryTextColor);
             CreateText("Average", line, FormatRate(row.BattingAverage), 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(58f, 38f), new Vector2(79f, 0f), color);
+                TextAnchor.MiddleCenter, new Vector2(50f, 38f), new Vector2(65f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _battingCategory == LeagueBattingCategory.BattingAverage));
             CreateText("HomeRuns", line, row.HomeRuns.ToString(), 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(48f, 38f), new Vector2(139f, 0f), color);
+                TextAnchor.MiddleCenter, new Vector2(34f, 38f), new Vector2(109f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _battingCategory == LeagueBattingCategory.HomeRuns));
             CreateText("Rbi", line, row.RunsBattedIn.ToString(), 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(48f, 38f), new Vector2(194f, 0f), color);
+                TextAnchor.MiddleCenter, new Vector2(36f, 38f), new Vector2(147f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _battingCategory == LeagueBattingCategory.RunsBattedIn));
+            CreateText("StolenBases", line, row.StolenBases.ToString(), 14, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(36f, 38f), new Vector2(185f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _battingCategory == LeagueBattingCategory.StolenBases));
             CreateText("Ops", line, FormatRate(row.OnBasePlusSlugging), 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(58f, 38f), new Vector2(255f, 0f), color);
+                TextAnchor.MiddleCenter, new Vector2(58f, 38f), new Vector2(247f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _battingCategory == LeagueBattingCategory.OnBasePlusSlugging));
         }
 
         private void RenderPitchingLeaders(LeagueHubView view)
@@ -278,9 +290,9 @@ namespace Baseball.Presentation.Career
                 Render();
             });
             CreateTableHeader(panel,
-                new[] { "순위", "선수", "팀", "승-패", "이닝", "ERA", "SO", "WHIP" },
-                new[] { -292f, -216f, -91f, 19f, 86f, 151f, 211f, 276f },
-                new[] { 45f, 126f, 86f, 58f, 62f, 58f, 48f, 58f },
+                new[] { "순위", "선수", "팀", "승-패", "세이브", "이닝", "ERA", "SO", "WHIP" },
+                new[] { -292f, -216f, -91f, -5f, 40f, 87f, 139f, 188f, 259f },
+                new[] { 45f, 126f, 86f, 46f, 42f, 48f, 48f, 38f, 54f },
                 119f);
 
             LeaguePitchingLeaderboardView leaderboard = view.GetPitchingLeaderboard(_pitchingCategory);
@@ -319,15 +331,34 @@ namespace Baseball.Presentation.Career
             CreateText("Team", line, GetTeamMonogram(row.TeamName), 11, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(55f, 30f), new Vector2(-79f, 0f), SecondaryTextColor);
             CreateText("Record", line, $"{row.Wins}-{row.Losses}", 13, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(58f, 38f), new Vector2(19f, 0f), color);
+                TextAnchor.MiddleCenter, new Vector2(46f, 38f), new Vector2(-5f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _pitchingCategory == LeaguePitchingCategory.Wins));
+            CreateText("Saves", line, row.Saves.ToString(), 14, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(42f, 38f), new Vector2(40f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _pitchingCategory == LeaguePitchingCategory.Saves));
             CreateText("Innings", line, FormatInnings(row.OutsRecorded), 13, FontStyle.Normal,
-                TextAnchor.MiddleCenter, new Vector2(60f, 38f), new Vector2(86f, 0f), SecondaryTextColor);
+                TextAnchor.MiddleCenter, new Vector2(48f, 38f), new Vector2(87f, 0f), SecondaryTextColor);
             CreateText("Era", line, row.EarnedRunAverage.ToString("0.00"), 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(58f, 38f), new Vector2(151f, 0f), color);
+                TextAnchor.MiddleCenter, new Vector2(48f, 38f), new Vector2(139f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _pitchingCategory == LeaguePitchingCategory.EarnedRunAverage));
             CreateText("Strikeouts", line, row.Strikeouts.ToString(), 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(46f, 38f), new Vector2(211f, 0f), color);
+                TextAnchor.MiddleCenter, new Vector2(38f, 38f), new Vector2(188f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _pitchingCategory == LeaguePitchingCategory.Strikeouts));
             CreateText("Whip", line, row.WalksHitsPerInningPitched.ToString("0.00"), 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(58f, 38f), new Vector2(276f, 0f), color);
+                TextAnchor.MiddleCenter, new Vector2(54f, 38f), new Vector2(259f, 0f),
+                GetLeaderboardValueColor(row.IsMyPlayer,
+                    _pitchingCategory == LeaguePitchingCategory.WalksHitsPerInningPitched));
+        }
+
+        private static Color GetLeaderboardValueColor(bool isMyPlayer, bool isSelectedCategory)
+        {
+            if (isMyPlayer)
+                return GoldColor;
+            return isSelectedCategory ? BrightAccentColor : PrimaryTextColor;
         }
 
         private void RenderTeamMetrics(LeagueHubView view)

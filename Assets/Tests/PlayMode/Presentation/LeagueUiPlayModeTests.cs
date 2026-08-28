@@ -7,6 +7,7 @@ using Baseball.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace Baseball.Tests.PlayMode.Presentation
 {
@@ -24,9 +25,9 @@ namespace Baseball.Tests.PlayMode.Presentation
             for (int index = 0; index < 8; index++)
                 seasonService.AdvanceNextRound();
 
-            GameManager.EnsureExists()
-                .EnsureManager<CareerManager>("CareerManager")
-                .BeginCareer(career, configuration.Balance);
+            CareerManager careerManager = GameManager.EnsureExists()
+                .EnsureManager<CareerManager>("CareerManager");
+            careerManager.BeginCareer(career, configuration.Balance);
             UIManager uiManager = GameManager.EnsureExists().EnsureManager<UIManager>("UIManager");
             Transform sceneLayer = uiManager.Root.GetLayerRoot(UILayer.Scene);
 
@@ -50,6 +51,34 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(league.transform.Find("Content/LeagueFocus"), Is.Not.Null);
             Assert.That(league.transform.Find("Content/Schedule"), Is.Not.Null);
             Assert.That(league.transform.Find("Content/Tabs/Tab_리그/ActiveGlow"), Is.Not.Null);
+
+            Button stolenBasesTab = league.transform
+                .Find("Content/BattingLeaders/Category_도루")
+                .GetComponent<Button>();
+            stolenBasesTab.onClick.Invoke();
+            yield return null;
+
+            LeagueBattingLeaderView stolenBasesLeader = careerManager.LeagueHub
+                .GetBattingLeaderboard(LeagueBattingCategory.StolenBases)
+                .Leaders[0];
+            Text stolenBasesValue = league.transform
+                .Find($"Content/BattingLeaders/Batter_{stolenBasesLeader.PlayerId}/StolenBases")
+                .GetComponent<Text>();
+            Assert.That(stolenBasesValue.text, Is.EqualTo(stolenBasesLeader.StolenBases.ToString()));
+
+            Button savesTab = league.transform
+                .Find("Content/PitchingLeaders/Category_세이브")
+                .GetComponent<Button>();
+            savesTab.onClick.Invoke();
+            yield return null;
+
+            LeaguePitchingLeaderView savesLeader = careerManager.LeagueHub
+                .GetPitchingLeaderboard(LeaguePitchingCategory.Saves)
+                .Leaders[0];
+            Text savesValue = league.transform
+                .Find($"Content/PitchingLeaders/Pitcher_{savesLeader.PlayerId}/Saves")
+                .GetComponent<Text>();
+            Assert.That(savesValue.text, Is.EqualTo(savesLeader.Saves.ToString()));
 
             Assert.That(CareerTabNavigation.Show(CareerMainTab.Home), Is.True);
             yield return null;
