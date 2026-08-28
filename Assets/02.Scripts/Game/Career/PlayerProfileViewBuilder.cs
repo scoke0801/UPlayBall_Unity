@@ -79,7 +79,7 @@ namespace Baseball.Game.Career
                 ProfessionalYears = Math.Max(1, season.Year - contract.SignedYear + 1),
                 ContractEndYear = contract.EndYear,
                 AnnualSalary = contract.AnnualSalary,
-                ExpectedRole = contract.ExpectedRole,
+                ExpectedRole = career.CurrentExpectedRole,
                 PlannedRole = plannedRole,
                 Abilities = BuildAbilities(player, playerType, growth),
                 BoardCells = growth?.BoardCells ?? Array.Empty<GrowthBoardCellView>(),

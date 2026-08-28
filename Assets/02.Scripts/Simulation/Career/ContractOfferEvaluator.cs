@@ -102,6 +102,9 @@ namespace Baseball.Simulation.Career
             long signingBonus = (long)(_balance.BaseSigningBonus * score);
             long annualSalary = (long)(_balance.BaseSalary * score);
             ExpectedRole expectedRole = ResolveExpectedRole(team.GetPositionNeed(position));
+            double estimatedPlayingTime = EstimatePlayingTime(
+                expectedRole,
+                team.GetPositionNeed(position));
 
             return new ContractOffer(
                 team,
@@ -109,7 +112,10 @@ namespace Baseball.Simulation.Career
                 annualSalary,
                 expectedRole,
                 score,
-                _balance.ContractYears);
+                _balance.ContractYears,
+                ContractOfferChannel.RookieEntry,
+                estimatedPlayingTime,
+                hasTradeProtection: false);
         }
 
         private ExpectedRole ResolveExpectedRole(int positionNeed)
@@ -119,6 +125,21 @@ namespace Baseball.Simulation.Career
             if (positionNeed >= _balance.RosterCompetitionNeed)
                 return ExpectedRole.RosterCompetition;
             return ExpectedRole.BenchCompetition;
+        }
+
+        private double EstimatePlayingTime(ExpectedRole role, int positionNeed)
+        {
+            double baseline = role switch
+            {
+                ExpectedRole.StartingCompetition => 0.62d,
+                ExpectedRole.RosterCompetition => 0.40d,
+                _ => 0.18d
+            };
+            double needAdjustment = (positionNeed - _balance.RatingBaseline) / 250d;
+            double estimate = baseline + needAdjustment;
+            if (estimate < 0.08d) return 0.08d;
+            if (estimate > 0.82d) return 0.82d;
+            return estimate;
         }
 
         private static bool IsPreferredPosition(TeamArchetype archetype, PlayerPosition position)

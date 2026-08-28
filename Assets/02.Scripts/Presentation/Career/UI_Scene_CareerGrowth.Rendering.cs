@@ -654,7 +654,8 @@ namespace Baseball.Presentation.Career
 
             CareerContractView contract = _manager.Contract;
             CareerTabNavigation.Show(
-                contract.NegotiationStatus == ContractNegotiationStatus.OffersAvailable
+                contract.NegotiationStatus is ContractNegotiationStatus.CurrentTeamOfferAvailable or
+                    ContractNegotiationStatus.OffersAvailable
                     ? CareerMainTab.Contract
                     : CareerMainTab.Home);
         }

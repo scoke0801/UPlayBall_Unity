@@ -105,6 +105,7 @@ namespace Baseball.Game.Career
         public int WalksAllowed => _statistics.Pitching.WalksAllowed;
         public int PitchingStrikeouts => _statistics.Pitching.Strikeouts;
         public IReadOnlyList<PlayerGameLogState> RecentGames => _recentGames;
+        public IReadOnlyDictionary<int, PlayerTeamStatisticsSplitState> TeamSplits => _statistics.TeamSplits;
 
         public double BattingAverage => _statistics.Batting.BattingAverage;
         public double OnBasePercentage => _statistics.Batting.OnBasePercentage;
@@ -116,6 +117,9 @@ namespace Baseball.Game.Career
 
         /// <summary>시즌 이력에서도 포지션별 수비 원본을 동일하게 조회한다.</summary>
         public FieldingStatisticsState GetFielding(PlayerPosition position) => _statistics.GetFielding(position);
+
+        /// <summary>트레이드 전후 특정 구단에서 누적한 시즌 분할 기록을 조회한다.</summary>
+        public PlayerTeamStatisticsSplitState GetTeamSplit(int teamId) => _statistics.GetTeamSplit(teamId);
 
         /// <summary>리그 전체 통계의 내 선수 원본을 조회 대상으로 연결한다.</summary>
         public void BindTo(PlayerCompetitionStatisticsState statistics)

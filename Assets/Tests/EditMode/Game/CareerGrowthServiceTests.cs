@@ -24,7 +24,7 @@ namespace Baseball.Tests.EditMode.Game
                 CreateBatterUsage(),
                 bonusIncome: 300L);
 
-            Assert.That(flow.Career.SaveVersion, Is.EqualTo(6));
+            Assert.That(flow.Career.SaveVersion, Is.EqualTo(NewGameFlow.CurrentSaveVersion));
             Assert.That(flow.Career.League.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
             Assert.That(flow.Career.CurrentOffseason, Is.SameAs(settlement.Offseason));
             Assert.That(settlement.Offseason.TotalWeeks, Is.EqualTo(12));

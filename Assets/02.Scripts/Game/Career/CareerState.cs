@@ -11,6 +11,7 @@ namespace Baseball.Game.Career
     {
         private readonly List<PlayerContractState> _contractHistory = new List<PlayerContractState>();
         private readonly List<CareerSeasonHistoryRecord> _seasonHistory = new List<CareerSeasonHistoryRecord>();
+        private readonly HashSet<int> _resolvedExtensionSeasonIds = new HashSet<int>();
 
         public CareerState(
             int saveVersion,
@@ -24,6 +25,7 @@ namespace Baseball.Game.Career
             League = league ?? throw new ArgumentNullException(nameof(league));
             CurrentContract = currentContract ?? throw new ArgumentNullException(nameof(currentContract));
             Economy = new CareerEconomyState(availableMoney);
+            TradeState = new PlayerTradeState();
             _contractHistory.Add(CurrentContract);
         }
 
@@ -32,10 +34,20 @@ namespace Baseball.Game.Career
         public LeagueState League { get; private set; }
         public PlayerContractState CurrentContract { get; private set; }
         public CareerEconomyState Economy { get; }
+        public PlayerTradeState TradeState { get; }
         public OffseasonState CurrentOffseason { get; private set; }
         public long AvailableMoney => Economy.Money;
+        public Baseball.Core.Teams.ExpectedRole CurrentExpectedRole =>
+            TradeState.CurrentTeamRole ?? CurrentContract.ExpectedRole;
         public IReadOnlyList<PlayerContractState> ContractHistory => _contractHistory;
         public IReadOnlyList<CareerSeasonHistoryRecord> SeasonHistory => _seasonHistory;
+
+        public bool HasResolvedExtension(int seasonId) => _resolvedExtensionSeasonIds.Contains(seasonId);
+
+        public void ResolveExtension(int seasonId)
+        {
+            _resolvedExtensionSeasonIds.Add(seasonId);
+        }
 
         /// <summary>
         /// 시즌 결산이 끝난 뒤 생성된 오프시즌 상태를 세이브 루트에 연결한다.

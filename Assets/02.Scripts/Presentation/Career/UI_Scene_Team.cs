@@ -4,6 +4,7 @@ using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
 using Baseball.Presentation.UI;
+using Baseball.Simulation.Career;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -157,7 +158,7 @@ namespace Baseball.Presentation.Career
             CreateTopBarSegment(bar, "DATE", dateText, new Vector2(25f, 0f), new Vector2(300f, 64f));
             CreateTopBarSegment(
                 bar, "MONEY", FormatMoney(dashboard.AvailableMoney), new Vector2(390f, 0f), new Vector2(370f, 64f));
-            CreateText("ReadOnly", bar, "구단 정보 · 열람 전용", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
+            CreateText("ReadOnly", bar, "구단 정보 · 커리어 이동", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(220f, 44f), new Vector2(810f, 0f), SecondaryTextColor);
         }
 
@@ -371,14 +372,76 @@ namespace Baseball.Presentation.Career
 
         private void RenderPolicy(TeamOverviewView view)
         {
-            RectTransform panel = CreatePanel("Policy", "CLUB POLICY", "구단 운영 정책",
+            RectTransform panel = CreatePanel("Policy", "CAREER MOVEMENT", "트레이드 시장",
                 new Vector2(680f, 300f), new Vector2(550f, -288f));
-            CreatePolicySummary(panel, "구단 성향", GetArchetypeLabel(view.Archetype.Archetype), 82f);
-            CreatePolicySummary(panel, "육성 방향", GetDevelopmentLabel(view.Archetype.Archetype), 39f);
-            CreatePolicyBar(panel, "재정", view.Archetype.Budget, -16f);
-            CreatePolicyBar(panel, "육성 시설", view.Archetype.Development, -55f);
-            CreatePolicyBar(panel, "선수층", view.Archetype.RosterDepth, -94f);
-            CreatePolicyBar(panel, "스카우팅", view.Archetype.Scouting, -133f);
+            string interestText = view.TradeInterests.Length == 0
+                ? "관심 구단 없음"
+                : $"{view.TopTradeInterestTeamName} 외 {view.TradeInterests.Length - 1}개 구단";
+            if (view.TradeInterests.Length == 1)
+                interestText = view.TopTradeInterestTeamName;
+            CreatePolicySummary(panel, "현재 태도", GetTradePreferenceLabel(view.TradePreference), 82f);
+            CreatePolicySummary(panel, "시장 상태", interestText, 39f);
+            CreateText(
+                "Deadline", panel,
+                $"마감 {view.TradeDeadlineGameIndex}경기 · 현재 {view.CurrentTeamGameIndex}경기" +
+                (view.IsOnTradeBlock ? " · 트레이드 블록" : string.Empty),
+                12, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(620f, 25f), new Vector2(0f, 1f),
+                view.IsOnTradeBlock ? WarningColor : SecondaryTextColor);
+            RenderTradePreferenceButton(panel, view, TradePreference.PreferToStay, "잔류 선호", -240f, -51f);
+            RenderTradePreferenceButton(panel, view, TradePreference.Neutral, "중립", -80f, -51f);
+            RenderTradePreferenceButton(panel, view, TradePreference.OpenToTrade, "이적 가능", 80f, -51f);
+            RenderTradePreferenceButton(panel, view, TradePreference.RequestTrade, "이적 요청", 240f, -51f);
+            string guide = view.TradeInterests.Length > 0
+                ? $"관심 단계: {GetTradeStageLabel(view.TradeInterests[0].Stage)} · 예상 출장 {view.TradeInterests[0].ProjectedPlayingTime:P0}"
+                : "태도는 거래 가능성에 영향을 주지만 일반 계약에는 트레이드 거부권이 없습니다.";
+            CreateText("TradeGuide", panel, guide, 11, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(620f, 38f), new Vector2(0f, -112f), MutedColor);
+        }
+
+        private void RenderTradePreferenceButton(
+            Transform parent,
+            TeamOverviewView view,
+            TradePreference preference,
+            string label,
+            float x,
+            float y)
+        {
+            bool selected = view.TradePreference == preference;
+            Button button = CreateButton(
+                "TradePreference_" + preference,
+                parent,
+                label,
+                new Vector2(145f, 42f),
+                new Vector2(x, y),
+                selected ? new Color(0.03f, 0.28f, 0.52f, 1f) : PanelDarkColor,
+                out Text text);
+            text.fontSize = 13;
+            button.interactable = view.CanChangeTradePreference;
+            button.onClick.AddListener(() => _manager.SetTradePreference(preference));
+        }
+
+        private static string GetTradePreferenceLabel(TradePreference preference)
+        {
+            return preference switch
+            {
+                TradePreference.PreferToStay => "잔류 선호",
+                TradePreference.OpenToTrade => "트레이드 가능",
+                TradePreference.RequestTrade => "트레이드 요청",
+                _ => "중립"
+            };
+        }
+
+        private static string GetTradeStageLabel(TradeInterestStage stage)
+        {
+            return stage switch
+            {
+                TradeInterestStage.Interest => "관심",
+                TradeInterestStage.Rumor => "루머",
+                TradeInterestStage.Negotiating => "구단 간 협상",
+                TradeInterestStage.Completed => "성사",
+                _ => "무산"
+            };
         }
 
         private static void CreatePolicySummary(Transform parent, string label, string value, float y)

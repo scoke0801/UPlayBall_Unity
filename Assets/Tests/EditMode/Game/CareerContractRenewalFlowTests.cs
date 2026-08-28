@@ -38,9 +38,10 @@ namespace Baseball.Tests.EditMode.Game
             int ageBefore = career.MyPlayer.Age;
             int yearBefore = career.League.CurrentSeason.Year;
 
-            Assert.That(service.Step, Is.EqualTo(SeasonTransitionStep.ContractOffers));
-            Assert.That(service.RenewalOffers.Count,
-                Is.GreaterThanOrEqualTo(configuration.Balance.ContractOffer.MinimumOfferCount));
+            Assert.That(
+                service.Step is SeasonTransitionStep.CurrentTeamNegotiation or SeasonTransitionStep.ContractOffers,
+                Is.True);
+            Assert.That(service.RenewalOffers.Count, Is.GreaterThanOrEqualTo(1));
             Assert.That(service.RenewalOffers.Count,
                 Is.LessThanOrEqualTo(configuration.Balance.ContractOffer.MaximumOfferCount));
 
@@ -123,11 +124,31 @@ namespace Baseball.Tests.EditMode.Game
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateOffseasonCareer(configuration, 7777UL);
             CareerSeasonTransitionService service = AdvanceToRenewalSeason(career, configuration.Balance);
+            if (service.Step == SeasonTransitionStep.CurrentTeamNegotiation)
+                service.OpenMarket(holdCurrentTeamOffer: false);
 
             for (int index = 1; index < service.RenewalOffers.Count; index++)
             {
                 Assert.That(service.RenewalOffers[index].OfferScore,
                     Is.LessThanOrEqualTo(service.RenewalOffers[index - 1].OfferScore));
+            }
+        }
+
+        [Test]
+        public void OpenMarket_현재구단을외부오퍼에중복포함하지않는다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateOffseasonCareer(configuration, 7878UL);
+            CareerSeasonTransitionService service = AdvanceToRenewalSeason(career, configuration.Balance);
+            int currentTeamId = career.MyPlayer.CurrentTeamId;
+            if (service.Step == SeasonTransitionStep.CurrentTeamNegotiation)
+                service.OpenMarket(holdCurrentTeamOffer: false);
+
+            for (int index = 0; index < service.RenewalOffers.Count; index++)
+            {
+                Assert.That(service.RenewalOffers[index].Team.TeamId, Is.Not.EqualTo(currentTeamId));
+                Assert.That(service.RenewalOffers[index].Channel,
+                    Is.Not.EqualTo(ContractOfferChannel.CurrentTeamRenewal));
             }
         }
 
@@ -139,17 +160,46 @@ namespace Baseball.Tests.EditMode.Game
             CareerState autoCareer = CreateOffseasonCareer(configuration, 8888UL);
 
             CareerSeasonTransitionService manual = AdvanceToRenewalSeason(manualCareer, configuration.Balance);
-            int topTeamId = manual.RenewalOffers[0].Team.TeamId;
+            if (manual.Step == SeasonTransitionStep.CurrentTeamNegotiation)
+                manual.OpenMarket(holdCurrentTeamOffer: true);
+            ContractOffer best = manual.RenewalOffers[0];
+            for (int index = 1; index < manual.RenewalOffers.Count; index++)
+            {
+                ContractOffer candidate = manual.RenewalOffers[index];
+                if (candidate.OfferScore > best.OfferScore ||
+                    Math.Abs(candidate.OfferScore - best.OfferScore) < 0.000001d &&
+                    candidate.Team.TeamId < best.Team.TeamId)
+                {
+                    best = candidate;
+                }
+            }
 
-            // 자동 경로도 같은 지점까지 진행한 뒤 한 번에 확정한다.
-            CareerSeasonTransitionService inspector = AdvanceToRenewalSeason(autoCareer, configuration.Balance);
-            Assert.That(inspector.RenewalOffers[0].Team.TeamId, Is.EqualTo(topTeamId));
+            AdvanceUntilContractExpiryOffseason(autoCareer, configuration.Balance);
+            CareerSeasonTransitionResult autoResult = new CareerSeasonTransitionService(
+                autoCareer,
+                configuration.Balance).AdvanceToNextSeason();
 
-            manual.SelectRenewalOffer(topTeamId);
-            CareerSeasonTransitionResult manualResult = manual.SignSelectedOffer();
+            Assert.That(autoResult.TeamId, Is.EqualTo(best.Team.TeamId));
+            Assert.That(autoCareer.CurrentContract.AnnualSalary, Is.EqualTo(best.AnnualSalary));
+        }
 
-            Assert.That(manualResult.TeamId, Is.EqualTo(topTeamId));
-            Assert.That(manualCareer.CurrentContract.TeamId, Is.EqualTo(topTeamId));
+        private static void AdvanceUntilContractExpiryOffseason(
+            CareerState career,
+            BalanceTable balance)
+        {
+            for (int guard = 0; guard < 10; guard++)
+            {
+                int nextYear = career.League.CurrentSeason.Year + 1;
+                if (career.CurrentContract.EndYear < nextYear)
+                    return;
+
+                new CareerSeasonTransitionService(career, balance).AdvanceToNextSeason();
+                career.League.CurrentSeason.CompleteRegularSeason();
+                new CareerGrowthService(career, balance)
+                    .SettleSeasonAndBeginOffseason(CreateBatterUsage());
+            }
+
+            throw new InvalidOperationException("계약 만료 오프시즌에 도달하지 못했습니다.");
         }
 
         /// <summary>
@@ -162,7 +212,8 @@ namespace Baseball.Tests.EditMode.Game
             for (int guard = 0; guard < 10; guard++)
             {
                 var service = new CareerSeasonTransitionService(career, balance);
-                if (service.BeginTransition() == SeasonTransitionStep.ContractOffers)
+                SeasonTransitionStep step = service.BeginTransition();
+                if (step is SeasonTransitionStep.CurrentTeamNegotiation or SeasonTransitionStep.ContractOffers)
                     return service;
 
                 career.League.CurrentSeason.CompleteRegularSeason();

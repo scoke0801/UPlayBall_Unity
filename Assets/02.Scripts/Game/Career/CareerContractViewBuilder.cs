@@ -39,10 +39,14 @@ namespace Baseball.Game.Career
                 .Evaluate(_career, regularSeasonGames);
             ContractOffer[] marketOffers = BuildMarketOffers(transitionService);
             RenewalContractOfferView[] renewalOffers = BuildRenewalOfferViews(transitionService);
+            ContractOffer? extensionOffer = transitionService == null
+                ? new ContractRenewalService(_career, _balance).BuildExtensionOffer()
+                : null;
             ContractNegotiationStatus negotiationStatus = ResolveNegotiationStatus(
                 transitionService,
                 season,
-                contract);
+                contract,
+                extensionOffer.HasValue);
 
             long achievedBonus = 0L;
             long maximumBonus = 0L;
@@ -102,8 +106,14 @@ namespace Baseball.Game.Career
                 CurrentTeamPositionNeed = currentTeam.GetPositionNeed(player.PrimaryPosition),
                 NegotiationStatus = negotiationStatus,
                 RenewalOffers = renewalOffers,
+                ExtensionOffer = extensionOffer.HasValue
+                    ? BuildOfferView(extensionOffer.Value, isSelected: false)
+                    : null,
                 CanBeginNegotiation = negotiationStatus == ContractNegotiationStatus.NegotiationAvailable,
+                CanAcceptExtension = extensionOffer.HasValue,
                 CanSignSelectedOffer = transitionService?.SelectedOffer.HasValue == true,
+                CanOpenMarket = transitionService?.Step == SeasonTransitionStep.CurrentTeamNegotiation,
+                IsCurrentTeamOfferHeld = transitionService?.IsCurrentTeamOfferHeld == true,
                 LastError = lastError ?? string.Empty
             };
         }
@@ -116,7 +126,7 @@ namespace Baseball.Game.Career
             {
                 PlayerContractState contract = source[source.Count - 1 - index];
                 result[index] = new ContractHistoryView(
-                    GetTeam(contract.TeamId).Name,
+                    GetTeam(contract.SigningTeamId).Name,
                     contract.SignedYear,
                     contract.EndYear,
                     contract.ContractYears,
@@ -130,11 +140,24 @@ namespace Baseball.Game.Career
 
         private ContractOffer[] BuildMarketOffers(CareerSeasonTransitionService transitionService)
         {
-            if (transitionService?.Step == SeasonTransitionStep.ContractOffers)
+            if (transitionService?.Step is SeasonTransitionStep.CurrentTeamNegotiation or
+                SeasonTransitionStep.ContractOffers)
             {
-                var actual = new ContractOffer[transitionService.RenewalOffers.Count];
-                for (int index = 0; index < actual.Length; index++)
-                    actual[index] = transitionService.RenewalOffers[index];
+                int count = 0;
+                for (int index = 0; index < transitionService.RenewalOffers.Count; index++)
+                {
+                    ContractOfferChannel channel = transitionService.RenewalOffers[index].Channel;
+                    if (channel is ContractOfferChannel.OpenMarket or ContractOfferChannel.Promotion)
+                        count++;
+                }
+                var actual = new ContractOffer[count];
+                int resultIndex = 0;
+                for (int index = 0; index < transitionService.RenewalOffers.Count; index++)
+                {
+                    ContractOffer offer = transitionService.RenewalOffers[index];
+                    if (offer.Channel is ContractOfferChannel.OpenMarket or ContractOfferChannel.Promotion)
+                        actual[resultIndex++] = offer;
+                }
                 return actual;
             }
 
@@ -150,18 +173,20 @@ namespace Baseball.Game.Career
             for (int index = 0; index < teams.Length; index++)
                 teams[index] = ToGeneratedTeam(_career.League.Teams[index]);
             int evaluationBonus = _career.League.CurrentSeason.Settlement.ContractEvaluationBonus;
-            return ContractOfferBoard.SelectOffers(
+            return ContractOfferBoard.SelectOpenMarketOffers(
                 _balance.ContractOffer,
                 evaluator,
                 _career.MyPlayer.ToPlayer(),
                 teams,
+                _career.CurrentContract.TeamId,
                 evaluationBonus);
         }
 
         private RenewalContractOfferView[] BuildRenewalOfferViews(
             CareerSeasonTransitionService transitionService)
         {
-            if (transitionService?.Step != SeasonTransitionStep.ContractOffers)
+            if (transitionService?.Step is not SeasonTransitionStep.CurrentTeamNegotiation and
+                not SeasonTransitionStep.ContractOffers)
                 return Array.Empty<RenewalContractOfferView>();
 
             ContractOffer? selected = transitionService.SelectedOffer;
@@ -169,28 +194,42 @@ namespace Baseball.Game.Career
             for (int index = 0; index < result.Length; index++)
             {
                 ContractOffer offer = transitionService.RenewalOffers[index];
-                result[index] = new RenewalContractOfferView(
-                    offer.Team.TeamId,
-                    offer.Team.Name,
-                    offer.Team.PrimaryColor,
-                    offer.Team.GetPositionNeed(_career.MyPlayer.PrimaryPosition),
-                    offer.Team.Archetype.Development,
-                    offer.SigningBonus,
-                    offer.AnnualSalary,
-                    offer.ContractYears,
-                    offer.ExpectedRole,
+                result[index] = BuildOfferView(
+                    offer,
                     selected.HasValue && selected.Value.Team.TeamId == offer.Team.TeamId);
             }
             return result;
         }
 
+        private RenewalContractOfferView BuildOfferView(ContractOffer offer, bool isSelected)
+        {
+            return new RenewalContractOfferView(
+                offer.Team.TeamId,
+                offer.Team.Name,
+                offer.Team.PrimaryColor,
+                offer.Team.GetPositionNeed(_career.MyPlayer.PrimaryPosition),
+                offer.Team.Archetype.Development,
+                offer.SigningBonus,
+                offer.AnnualSalary,
+                offer.ContractYears,
+                offer.ExpectedRole,
+                offer.Channel,
+                offer.EstimatedPlayingTime,
+                isSelected);
+        }
+
         private static ContractNegotiationStatus ResolveNegotiationStatus(
             CareerSeasonTransitionService transitionService,
             SeasonState season,
-            PlayerContractState contract)
+            PlayerContractState contract,
+            bool hasExtensionOffer)
         {
+            if (transitionService?.Step == SeasonTransitionStep.CurrentTeamNegotiation)
+                return ContractNegotiationStatus.CurrentTeamOfferAvailable;
             if (transitionService?.Step == SeasonTransitionStep.ContractOffers)
                 return ContractNegotiationStatus.OffersAvailable;
+            if (hasExtensionOffer)
+                return ContractNegotiationStatus.ExtensionOfferAvailable;
             if (contract.EndYear > season.Year)
                 return ContractNegotiationStatus.Active;
             return season.Phase == SeasonPhase.Offseason

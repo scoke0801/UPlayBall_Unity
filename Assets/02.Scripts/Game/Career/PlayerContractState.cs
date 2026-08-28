@@ -24,6 +24,7 @@ namespace Baseball.Game.Career
 
             SaveVersion = saveVersion;
             TeamId = teamId;
+            SigningTeamId = teamId;
             SignedYear = signedYear;
             ContractYears = contractYears;
             SigningBonus = signingBonus;
@@ -32,7 +33,8 @@ namespace Baseball.Game.Career
         }
 
         public int SaveVersion { get; }
-        public int TeamId { get; }
+        public int TeamId { get; private set; }
+        public int SigningTeamId { get; }
         public int SignedYear { get; }
         public int ContractYears { get; }
         public long SigningBonus { get; }
@@ -48,5 +50,16 @@ namespace Baseball.Game.Career
         {
             return Math.Max(0, EndYear - currentYear);
         }
+
+        /// <summary>
+        /// 트레이드에서 계약 기간·연봉·상여 조건은 유지하고 계약을 승계한 구단만 바꾼다.
+        /// </summary>
+        public void TransferTo(int teamId)
+        {
+            if (teamId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(teamId));
+            TeamId = teamId;
+        }
+
     }
 }

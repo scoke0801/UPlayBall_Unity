@@ -128,6 +128,14 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
+        /// 새 구단 감독이 기존 평가를 그대로 승계하지 않도록 이적 직후 신뢰 기준을 다시 잡는다.
+        /// </summary>
+        public void ResetManagerEvaluation(int managerEvaluation)
+        {
+            ManagerEvaluation = ClampRating(managerEvaluation);
+        }
+
+        /// <summary>
         /// 시즌이 끝나 선수 나이가 한 살 증가할 때 호출한다.
         /// </summary>
         public void AdvanceAge()

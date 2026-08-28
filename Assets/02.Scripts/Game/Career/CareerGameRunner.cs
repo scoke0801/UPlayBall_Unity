@@ -51,7 +51,7 @@ namespace Baseball.Game.Career
             ulong decisionSeed = DeterministicSeed.Derive(game.RandomSeed, (ulong)player.PlayerId);
             PlayerGameRole role = _managerUsageAi.DecideRole(
                 player,
-                _career.CurrentContract.ExpectedRole,
+                _career.CurrentExpectedRole,
                 team.GetStrongestCompetitorOverall(player.PrimaryPosition),
                 _career.MyPlayer.Condition,
                 _career.MyPlayer.ManagerEvaluation,

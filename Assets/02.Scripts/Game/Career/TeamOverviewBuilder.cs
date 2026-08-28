@@ -87,8 +87,27 @@ namespace Baseball.Game.Career
                 Roster = roster,
                 StartingLineup = BuildStartingLineup(team, myPlayer, plannedRole, roster),
                 StartingRotation = FilterPitchers(roster, PlayerPosition.StartingPitcher),
-                Bullpen = FilterPitchers(roster, PlayerPosition.ReliefPitcher)
+                Bullpen = FilterPitchers(roster, PlayerPosition.ReliefPitcher),
+                TradePreference = career.TradeState.Preference,
+                IsOnTradeBlock = career.TradeState.IsOnTradeBlock,
+                TradeDeadlineGameIndex = career.TradeState.TradeDeadlineGameIndex,
+                CurrentTeamGameIndex = record?.GamesPlayed ?? 0,
+                TradeInterests = CopyTradeInterests(career.TradeState.Interests),
+                TopTradeInterestTeamName = career.TradeState.Interests.Count > 0
+                    ? GetTeam(career, career.TradeState.Interests[0].InterestedTeamId).Name
+                    : string.Empty,
+                CanChangeTradePreference = season.Phase == SeasonPhase.RegularSeason &&
+                    (record?.GamesPlayed ?? 0) <= career.TradeState.TradeDeadlineGameIndex
             };
+        }
+
+        private static TradeInterestRecord[] CopyTradeInterests(
+            System.Collections.Generic.IReadOnlyList<TradeInterestRecord> source)
+        {
+            var result = new TradeInterestRecord[source.Count];
+            for (int index = 0; index < source.Count; index++)
+                result[index] = source[index];
+            return result;
         }
 
         private TeamRosterPlayerView[] BuildRoster(
@@ -109,7 +128,7 @@ namespace Baseball.Game.Career
                 myPlayer.Name,
                 myPlayer.PrimaryPosition,
                 myOverall,
-                GetMyPlayerRosterRole(career.CurrentContract.ExpectedRole, plannedRole),
+                GetMyPlayerRosterRole(career.CurrentExpectedRole, plannedRole),
                 isMyPlayer: true,
                 isInNextGamePlan: isMyPlayerPlanned,
                 hasCondition: true,

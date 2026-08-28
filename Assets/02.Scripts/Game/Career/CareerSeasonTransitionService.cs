@@ -14,6 +14,7 @@ namespace Baseball.Game.Career
     public enum SeasonTransitionStep
     {
         NotStarted,
+        CurrentTeamNegotiation,
         ContractOffers,
         Completed
     }
@@ -27,12 +28,15 @@ namespace Baseball.Game.Career
         private const ulong RosterTurnoverStream = 0x524F535445525455UL;
         private const ulong ScheduleStream = 0x5343484544554C45UL;
         private const ulong ContractRenewalStream = 0x52454E4557414C31UL;
+        private const ulong HeldOfferStream = 0x484F4C444F464652UL;
 
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
 
         private TeamState[] _nextTeams;
         private ContractOffer[] _renewalOffers = Array.Empty<ContractOffer>();
+        private ContractOffer? _currentTeamOffer;
+        private bool _isCurrentTeamOfferHeld;
         private ContractOffer? _selectedOffer;
         private CareerSeasonTransitionResult? _result;
         private int _nextYear;
@@ -46,6 +50,8 @@ namespace Baseball.Game.Career
 
         public SeasonTransitionStep Step { get; private set; }
         public IReadOnlyList<ContractOffer> RenewalOffers => _renewalOffers;
+        public ContractOffer? CurrentTeamOffer => _currentTeamOffer;
+        public bool IsCurrentTeamOfferHeld => _isCurrentTeamOfferHeld;
         public ContractOffer? SelectedOffer => _selectedOffer;
         public CareerSeasonTransitionResult? Result => _result;
 
@@ -74,9 +80,55 @@ namespace Baseball.Game.Career
                 return Step;
             }
 
-            _renewalOffers = BuildRenewalOffers();
-            Step = SeasonTransitionStep.ContractOffers;
+            _currentTeamOffer = BuildCurrentTeamRenewalOffer();
+            if (_currentTeamOffer.HasValue)
+            {
+                _renewalOffers = new[] { _currentTeamOffer.Value };
+                Step = SeasonTransitionStep.CurrentTeamNegotiation;
+                return Step;
+            }
+
+            OpenMarket(holdCurrentTeamOffer: false);
             return Step;
+        }
+
+        /// <summary>
+        /// 기존 구단 제안을 보류하거나 거절하고 외부 구단 공개 시장을 연다.
+        /// </summary>
+        public void OpenMarket(bool holdCurrentTeamOffer)
+        {
+            if (Step != SeasonTransitionStep.CurrentTeamNegotiation &&
+                Step != SeasonTransitionStep.NotStarted)
+            {
+                throw new InvalidOperationException("현재 단계에서는 공개 시장을 열 수 없습니다.");
+            }
+
+            ContractOffer? heldOffer = null;
+            if (holdCurrentTeamOffer && _currentTeamOffer.HasValue && !ShouldWithdrawHeldOffer())
+                heldOffer = _currentTeamOffer;
+            _isCurrentTeamOfferHeld = heldOffer.HasValue;
+
+            ContractOffer[] externalOffers = BuildOpenMarketOffers();
+            int heldCount = heldOffer.HasValue ? 1 : 0;
+            int externalCount = Math.Min(
+                externalOffers.Length,
+                Math.Max(0, _balance.ContractOffer.MaximumOfferCount - heldCount));
+            int totalCount = externalCount + heldCount;
+            if (totalCount == 0)
+            {
+                _renewalOffers = new[] { BuildDevelopmentFallback() };
+            }
+            else
+            {
+                _renewalOffers = new ContractOffer[totalCount];
+                int offset = 0;
+                if (heldOffer.HasValue)
+                    _renewalOffers[offset++] = heldOffer.Value;
+                Array.Copy(externalOffers, 0, _renewalOffers, offset, externalCount);
+            }
+
+            _selectedOffer = null;
+            Step = SeasonTransitionStep.ContractOffers;
         }
 
         /// <summary>
@@ -84,7 +136,7 @@ namespace Baseball.Game.Career
         /// </summary>
         public void SelectRenewalOffer(int teamId)
         {
-            RequireStep(SeasonTransitionStep.ContractOffers);
+            RequireContractSelectionStep();
             for (int index = 0; index < _renewalOffers.Length; index++)
             {
                 if (_renewalOffers[index].Team.TeamId != teamId)
@@ -102,7 +154,7 @@ namespace Baseball.Game.Career
         /// </summary>
         public CareerSeasonTransitionResult SignSelectedOffer()
         {
-            RequireStep(SeasonTransitionStep.ContractOffers);
+            RequireContractSelectionStep();
             if (!_selectedOffer.HasValue)
                 throw new InvalidOperationException("먼저 계약할 구단을 선택해 주세요.");
             return CommitNextSeason(_selectedOffer.Value);
@@ -117,9 +169,26 @@ namespace Baseball.Game.Career
         /// </remarks>
         public CareerSeasonTransitionResult AdvanceToNextSeason()
         {
-            if (BeginTransition() == SeasonTransitionStep.ContractOffers)
+            SeasonTransitionStep step = BeginTransition();
+            if (step == SeasonTransitionStep.CurrentTeamNegotiation)
             {
-                SelectRenewalOffer(_renewalOffers[0].Team.TeamId);
+                OpenMarket(holdCurrentTeamOffer: true);
+                step = Step;
+            }
+            if (step == SeasonTransitionStep.ContractOffers)
+            {
+                ContractOffer best = _renewalOffers[0];
+                for (int index = 1; index < _renewalOffers.Length; index++)
+                {
+                    ContractOffer candidate = _renewalOffers[index];
+                    if (candidate.OfferScore > best.OfferScore ||
+                        Math.Abs(candidate.OfferScore - best.OfferScore) < 0.000001d &&
+                        candidate.Team.TeamId < best.Team.TeamId)
+                    {
+                        best = candidate;
+                    }
+                }
+                SelectRenewalOffer(best.Team.TeamId);
                 return SignSelectedOffer();
             }
 
@@ -190,6 +259,9 @@ namespace Baseball.Game.Career
                 nextSeason);
 
             _career.AdvanceToNextSeason(nextLeague, archivedRecord);
+            _career.TradeState.BeginSeason(
+                _nextSeasonId,
+                _balance.TradeMarket.TradeDeadlineGame);
             _career.MyPlayer.InitializeSeasonStatus(
                 _balance.CareerSeason.InitialCondition,
                 _balance.CareerSeason.InitialManagerEvaluation);
@@ -203,9 +275,48 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
-        /// 새 게임 입단과 같은 규칙으로 다음 시즌 로스터 기준의 재계약 오퍼 목록을 만든다.
+        /// 현재 구단만 별도 공식으로 평가해 우선 협상 오퍼를 만든다. 기준 미달이면 null이다.
         /// </summary>
-        private ContractOffer[] BuildRenewalOffers()
+        private ContractOffer? BuildCurrentTeamRenewalOffer()
+        {
+            TeamState currentTeam = GetTeam(_nextTeams, _career.MyPlayer.CurrentTeamId);
+            Player player = _career.MyPlayer.ToPlayer();
+            var playerValueEvaluator = new PlayerValueEvaluator(_balance.PlayerEvaluation);
+            int playerValue = playerValueEvaluator.CalculatePositionValue(player);
+            int evaluationBonus = _career.League.CurrentSeason.Settlement.ContractEvaluationBonus;
+            double marketValue = Math.Min(100d, playerValue + evaluationBonus);
+            double currentRoleValue = _career.CurrentExpectedRole switch
+            {
+                Baseball.Core.Teams.ExpectedRole.StartingCompetition => 90d,
+                Baseball.Core.Teams.ExpectedRole.RosterCompetition => 65d,
+                _ => 40d
+            };
+            double recentPerformance = CalculateRecentPerformance();
+            double ageAndPotential = CalculateAgeAndPotential();
+            double expectedSalary = _balance.ContractOffer.BaseSalary * Math.Max(0.5d, marketValue / 50d);
+            double costEfficiency = _career.CurrentContract.AnnualSalary <= 0L
+                ? 100d
+                : Math.Min(100d, expectedSalary / _career.CurrentContract.AnnualSalary * 50d);
+            var input = new ContractRenewalEvaluationInput(
+                ToGeneratedTeam(currentTeam),
+                marketValue,
+                currentRoleValue,
+                recentPerformance,
+                ageAndPotential,
+                costEfficiency,
+                _career.MyPlayer.ManagerEvaluation,
+                currentTeam.GetStrongestCompetitorOverall(_career.MyPlayer.PrimaryPosition));
+            return new ContractRenewalEvaluator(_balance.ContractRenewal, _balance.ContractOffer)
+                .Evaluate(
+                    input,
+                    _career.MyPlayer.PrimaryPosition,
+                    ContractOfferChannel.CurrentTeamRenewal);
+        }
+
+        /// <summary>
+        /// 현재 구단을 제외하고 정식 기준을 넘은 외부 구단 오퍼만 만든다.
+        /// </summary>
+        private ContractOffer[] BuildOpenMarketOffers()
         {
             ulong offerSeed = DeterministicSeed.Derive(
                 _career.League.RandomSeed,
@@ -215,16 +326,75 @@ namespace Baseball.Game.Career
                 _balance.PlayerEvaluation,
                 new Pcg32Random(offerSeed));
 
-            var generatedTeams = new GeneratedTeam[_nextTeams.Length];
-            for (int index = 0; index < _nextTeams.Length; index++)
-                generatedTeams[index] = ToGeneratedTeam(_nextTeams[index]);
-
-            return ContractOfferBoard.SelectOffers(
+            GeneratedTeam[] generatedTeams = BuildGeneratedTeams();
+            return ContractOfferBoard.SelectOpenMarketOffers(
                 _balance.ContractOffer,
                 evaluator,
                 _career.MyPlayer.ToPlayer(),
                 generatedTeams,
+                _career.MyPlayer.CurrentTeamId,
                 _career.League.CurrentSeason.Settlement.ContractEvaluationBonus);
+        }
+
+        private ContractOffer BuildDevelopmentFallback()
+        {
+            ulong fallbackSeed = DeterministicSeed.Derive(
+                _career.League.RandomSeed,
+                ContractRenewalStream ^ 0x46414C4C4241434BUL ^ (uint)_nextSeasonId);
+            var evaluator = new ContractOfferEvaluator(
+                _balance.ContractOffer,
+                _balance.PlayerEvaluation,
+                new Pcg32Random(fallbackSeed));
+            return ContractOfferBoard.SelectDevelopmentFallback(
+                evaluator,
+                _career.MyPlayer.ToPlayer(),
+                BuildGeneratedTeams(),
+                _career.MyPlayer.CurrentTeamId,
+                _career.League.CurrentSeason.Settlement.ContractEvaluationBonus);
+        }
+
+        private GeneratedTeam[] BuildGeneratedTeams()
+        {
+            var result = new GeneratedTeam[_nextTeams.Length];
+            for (int index = 0; index < _nextTeams.Length; index++)
+                result[index] = ToGeneratedTeam(_nextTeams[index]);
+            return result;
+        }
+
+        private bool ShouldWithdrawHeldOffer()
+        {
+            ulong seed = DeterministicSeed.Derive(
+                _career.League.RandomSeed,
+                HeldOfferStream ^ (uint)_nextSeasonId);
+            return new Pcg32Random(seed).NextDouble() < _balance.ContractRenewal.HoldWithdrawalProbability;
+        }
+
+        private double CalculateRecentPerformance()
+        {
+            PlayerSeasonStatisticsState statistics = _career.League.CurrentSeason.PlayerStatistics;
+            double result = _career.MyPlayer.ManagerEvaluation;
+            if (_career.MyPlayer.PrimaryPosition is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher)
+            {
+                if (statistics.OutsRecorded >= 9)
+                    result = 100d - (statistics.EarnedRunAverage - 2d) * (100d / 6d);
+            }
+            else if (statistics.PlateAppearances >= 15)
+            {
+                result = (statistics.OnBasePlusSlugging - 0.45d) * (100d / 0.65d);
+            }
+            return Clamp(result, 0d, 100d);
+        }
+
+        private double CalculateAgeAndPotential()
+        {
+            if (_career.MyPlayer.GrowthState == null)
+                return Clamp(100d - Math.Max(0, _career.MyPlayer.Age - 18) * 3d, 25d, 100d);
+
+            int[] potential = _career.MyPlayer.GrowthState.PotentialByAbility.ToArray();
+            int total = 0;
+            for (int index = 0; index < potential.Length; index++)
+                total += potential[index];
+            return potential.Length == 0 ? 50d : total / (double)potential.Length;
         }
 
         private SeasonState RequireOffseasonSeason()
@@ -244,6 +414,21 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException(
                     $"현재 단계({Step})에서는 {expected} 작업을 수행할 수 없습니다.");
             }
+        }
+
+        private void RequireContractSelectionStep()
+        {
+            if (Step is not SeasonTransitionStep.CurrentTeamNegotiation and
+                not SeasonTransitionStep.ContractOffers)
+            {
+                throw new InvalidOperationException("현재 단계에는 선택할 계약 오퍼가 없습니다.");
+            }
+        }
+
+        private static double Clamp(double value, double minimum, double maximum)
+        {
+            if (value < minimum) return minimum;
+            return value > maximum ? maximum : value;
         }
 
         private TeamState[] AdvanceRosters(int nextSeasonId, ulong rootSeed)

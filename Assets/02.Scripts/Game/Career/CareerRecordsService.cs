@@ -44,6 +44,8 @@ namespace Baseball.Game.Career
                 Trend = BuildTrend(career, primaryMetric),
                 Awards = BuildAwards(career),
                 Highlights = BuildHighlights(career),
+                TeamSplits = BuildTeamSplits(career, columns),
+                TradeHistory = BuildTradeHistory(career),
                 IsMyPlayerQualified = myStatistics != null && IsQualified(
                     myStatistics,
                     category,
@@ -222,6 +224,82 @@ namespace Baseball.Game.Career
             return highlights;
         }
 
+        private static CareerTeamStatisticsSplitView[] BuildTeamSplits(
+            CareerState career,
+            CareerRecordMetric[] columns)
+        {
+            var splits = new List<CareerTeamStatisticsSplitView>();
+            SeasonState current = career.League.CurrentSeason;
+            AddTeamSplits(
+                splits,
+                career,
+                current.Year,
+                current.PlayerStatistics,
+                columns,
+                isCurrentSeason: true);
+
+            for (int index = career.SeasonHistory.Count - 1; index >= 0; index--)
+            {
+                CareerSeasonHistoryRecord history = career.SeasonHistory[index];
+                AddTeamSplits(
+                    splits,
+                    career,
+                    history.Year,
+                    history.Statistics,
+                    columns,
+                    isCurrentSeason: false);
+            }
+
+            splits.Sort((left, right) =>
+            {
+                int year = right.Year.CompareTo(left.Year);
+                return year != 0 ? year : left.TeamId.CompareTo(right.TeamId);
+            });
+            return splits.ToArray();
+        }
+
+        private static void AddTeamSplits(
+            List<CareerTeamStatisticsSplitView> destination,
+            CareerState career,
+            int year,
+            PlayerSeasonStatisticsState statistics,
+            CareerRecordMetric[] columns,
+            bool isCurrentSeason)
+        {
+            if (statistics == null || statistics.TeamSplits.Count < 2)
+                return;
+
+            foreach (KeyValuePair<int, PlayerTeamStatisticsSplitState> pair in statistics.TeamSplits)
+            {
+                PlayerTeamStatisticsSplitState split = pair.Value;
+                destination.Add(new CareerTeamStatisticsSplitView(
+                    year,
+                    split.TeamId,
+                    GetTeamName(career, split.TeamId),
+                    split.TeamGames,
+                    isCurrentSeason,
+                    BuildMetricValues(split, columns)));
+            }
+        }
+
+        private static CareerTradeHistoryView[] BuildTradeHistory(CareerState career)
+        {
+            IReadOnlyList<TradeHistoryRecord> history = career.TradeState.History;
+            var rows = new CareerTradeHistoryView[history.Count];
+            for (int index = 0; index < history.Count; index++)
+            {
+                TradeHistoryRecord trade = history[history.Count - 1 - index];
+                rows[index] = new CareerTradeHistoryView(
+                    trade.Year,
+                    trade.GameIndex,
+                    GetTeamName(career, trade.PreviousTeamId),
+                    GetTeamName(career, trade.NewTeamId),
+                    trade.PreviousRole,
+                    trade.ProjectedRole);
+            }
+            return rows;
+        }
+
         private static List<PlayerCompetitionStatisticsState> CollectQualifiedPlayers(
             CompetitionStatisticsState competition,
             SeasonState season,
@@ -327,6 +405,81 @@ namespace Baseball.Game.Career
             for (int index = 0; index < metrics.Length; index++)
                 values[index] = new CareerRecordMetricValue(metrics[index], GetValue(statistics, metrics[index]));
             return values;
+        }
+
+        private static CareerRecordMetricValue[] BuildMetricValues(
+            PlayerTeamStatisticsSplitState statistics,
+            CareerRecordMetric[] metrics)
+        {
+            var values = new CareerRecordMetricValue[metrics.Length];
+            for (int index = 0; index < metrics.Length; index++)
+                values[index] = new CareerRecordMetricValue(metrics[index], GetValue(statistics, metrics[index]));
+            return values;
+        }
+
+        private static double GetValue(
+            PlayerTeamStatisticsSplitState statistics,
+            CareerRecordMetric metric)
+        {
+            BattingStatisticsState batting = statistics.Batting;
+            PitchingStatisticsState pitching = statistics.Pitching;
+            FieldingTotals fielding = GetFieldingTotals(statistics);
+            return metric switch
+            {
+                CareerRecordMetric.Games => batting.Games + pitching.Appearances,
+                CareerRecordMetric.AtBats => batting.AtBats,
+                CareerRecordMetric.Runs => batting.Runs,
+                CareerRecordMetric.Hits => batting.Hits,
+                CareerRecordMetric.Doubles => batting.Doubles,
+                CareerRecordMetric.Triples => batting.Triples,
+                CareerRecordMetric.HomeRuns => batting.HomeRuns,
+                CareerRecordMetric.RunsBattedIn => batting.RunsBattedIn,
+                CareerRecordMetric.Walks => batting.Walks,
+                CareerRecordMetric.BattingStrikeouts => batting.Strikeouts,
+                CareerRecordMetric.BattingAverage => batting.BattingAverage,
+                CareerRecordMetric.OnBasePercentage => batting.OnBasePercentage,
+                CareerRecordMetric.SluggingPercentage => batting.SluggingPercentage,
+                CareerRecordMetric.OnBasePlusSlugging => batting.OnBasePlusSlugging,
+                CareerRecordMetric.PitchingAppearances => pitching.Appearances,
+                CareerRecordMetric.PitchingStarts => pitching.Starts,
+                CareerRecordMetric.OutsRecorded => pitching.OutsRecorded,
+                CareerRecordMetric.Wins => pitching.Wins,
+                CareerRecordMetric.Losses => pitching.Losses,
+                CareerRecordMetric.Saves => pitching.Saves,
+                CareerRecordMetric.Holds => pitching.Holds,
+                CareerRecordMetric.HitsAllowed => pitching.HitsAllowed,
+                CareerRecordMetric.EarnedRuns => pitching.EarnedRuns,
+                CareerRecordMetric.WalksAllowed => pitching.WalksAllowed,
+                CareerRecordMetric.PitchingStrikeouts => pitching.Strikeouts,
+                CareerRecordMetric.EarnedRunAverage => pitching.EarnedRunAverage,
+                CareerRecordMetric.WalksHitsPerInningPitched => pitching.WalksHitsPerInningPitched,
+                CareerRecordMetric.FieldingOpportunities => fielding.Opportunities,
+                CareerRecordMetric.SuccessfulFieldingPlays => fielding.SuccessfulPlays,
+                CareerRecordMetric.Putouts => fielding.Putouts,
+                CareerRecordMetric.Assists => fielding.Assists,
+                CareerRecordMetric.Errors => fielding.Errors,
+                CareerRecordMetric.DoublePlays => fielding.DoublePlays,
+                CareerRecordMetric.EstimatedRunsSaved => fielding.EstimatedRunsSaved,
+                CareerRecordMetric.FieldingSuccessRate => fielding.SuccessRate,
+                CareerRecordMetric.StolenBases => batting.StolenBases,
+                CareerRecordMetric.CaughtStealing => batting.CaughtStealing,
+                CareerRecordMetric.StolenBasePercentage => batting.StolenBasePercentage,
+                _ => 0d
+            };
+        }
+
+        private static FieldingTotals GetFieldingTotals(PlayerTeamStatisticsSplitState statistics)
+        {
+            var totals = new FieldingTotals();
+            for (int positionIndex = (int)PlayerPosition.Catcher;
+                 positionIndex <= (int)PlayerPosition.ReliefPitcher;
+                 positionIndex++)
+            {
+                FieldingStatisticsState fielding = statistics.GetFielding((PlayerPosition)positionIndex);
+                if (fielding != null)
+                    totals.Add(fielding);
+            }
+            return totals;
         }
 
         private static double GetValue(PlayerCompetitionStatisticsState player, CareerRecordMetric metric)

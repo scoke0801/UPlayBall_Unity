@@ -148,7 +148,10 @@ namespace Baseball.Tests.EditMode.Game
                 .SettleSeasonAndBeginOffseason(CreateBatterUsage());
 
             var transition = new CareerSeasonTransitionService(career, configuration.Balance);
-            Assert.That(transition.BeginTransition(), Is.EqualTo(SeasonTransitionStep.ContractOffers));
+            SeasonTransitionStep step = transition.BeginTransition();
+            Assert.That(
+                step is SeasonTransitionStep.CurrentTeamNegotiation or SeasonTransitionStep.ContractOffers,
+                Is.True);
             transition.SelectRenewalOffer(transition.RenewalOffers[0].Team.TeamId);
             long signingBonus = transition.SelectedOffer.Value.SigningBonus;
             long moneyBefore = career.AvailableMoney;

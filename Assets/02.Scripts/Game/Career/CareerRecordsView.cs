@@ -183,6 +183,60 @@ namespace Baseball.Game.Career
         public string OpponentName { get; }
     }
 
+    /// <summary>한 시즌 안에서 특정 구단 소속으로 쌓은 분할 기록 한 줄이다.</summary>
+    public readonly struct CareerTeamStatisticsSplitView
+    {
+        public CareerTeamStatisticsSplitView(
+            int year,
+            int teamId,
+            string teamName,
+            int teamGames,
+            bool isCurrentSeason,
+            CareerRecordMetricValue[] metrics)
+        {
+            Year = year;
+            TeamId = teamId;
+            TeamName = teamName ?? string.Empty;
+            TeamGames = teamGames;
+            IsCurrentSeason = isCurrentSeason;
+            Metrics = metrics ?? Array.Empty<CareerRecordMetricValue>();
+        }
+
+        public int Year { get; }
+        public int TeamId { get; }
+        public string TeamName { get; }
+        public int TeamGames { get; }
+        public bool IsCurrentSeason { get; }
+        public CareerRecordMetricValue[] Metrics { get; }
+    }
+
+    /// <summary>선수 커리어 기록 화면에 표시할 확정 트레이드 이력 한 줄이다.</summary>
+    public readonly struct CareerTradeHistoryView
+    {
+        public CareerTradeHistoryView(
+            int year,
+            int gameIndex,
+            string previousTeamName,
+            string newTeamName,
+            Baseball.Core.Teams.ExpectedRole previousRole,
+            Baseball.Core.Teams.ExpectedRole projectedRole)
+        {
+            Year = year;
+            GameIndex = gameIndex;
+            PreviousTeamName = previousTeamName ?? string.Empty;
+            NewTeamName = newTeamName ?? string.Empty;
+            PreviousRole = previousRole;
+            ProjectedRole = projectedRole;
+        }
+
+        public int Year { get; }
+        public int GameIndex { get; }
+        public string PreviousTeamName { get; }
+        public string NewTeamName { get; }
+        public Baseball.Core.Teams.ExpectedRole PreviousRole { get; }
+        public Baseball.Core.Teams.ExpectedRole ProjectedRole { get; }
+    }
+
     /// <summary>기록 화면 전체가 한 번의 Render에서 소비할 읽기 전용 값 모음이다.</summary>
     public sealed class CareerRecordsView
     {
@@ -199,6 +253,8 @@ namespace Baseball.Game.Career
         public CareerRecordTrendPoint[] Trend { get; internal set; }
         public CareerAwardRecordView[] Awards { get; internal set; }
         public CareerRecordHighlightView[] Highlights { get; internal set; }
+        public CareerTeamStatisticsSplitView[] TeamSplits { get; internal set; }
+        public CareerTradeHistoryView[] TradeHistory { get; internal set; }
         public bool IsMyPlayerQualified { get; internal set; }
         public int QualifiedPlayerCount { get; internal set; }
     }

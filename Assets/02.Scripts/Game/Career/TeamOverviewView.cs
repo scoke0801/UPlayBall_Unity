@@ -1,5 +1,6 @@
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Simulation.Career;
 
 namespace Baseball.Game.Career
 {
@@ -111,5 +112,12 @@ namespace Baseball.Game.Career
         public TeamLineupSlotView[] StartingLineup { get; internal set; }
         public TeamRosterPlayerView[] StartingRotation { get; internal set; }
         public TeamRosterPlayerView[] Bullpen { get; internal set; }
+        public TradePreference TradePreference { get; internal set; }
+        public bool IsOnTradeBlock { get; internal set; }
+        public int TradeDeadlineGameIndex { get; internal set; }
+        public int CurrentTeamGameIndex { get; internal set; }
+        public TradeInterestRecord[] TradeInterests { get; internal set; }
+        public string TopTradeInterestTeamName { get; internal set; }
+        public bool CanChangeTradePreference { get; internal set; }
     }
 }

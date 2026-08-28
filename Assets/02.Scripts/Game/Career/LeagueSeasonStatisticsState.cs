@@ -182,6 +182,7 @@ namespace Baseball.Game.Career
     {
         private readonly Dictionary<PlayerPosition, FieldingStatisticsState> _fieldingByPosition = new();
         private readonly List<PlayerGameContributionState> _gameContributions = new();
+        private readonly Dictionary<int, PlayerTeamStatisticsSplitState> _teamSplits = new();
 
         public PlayerCompetitionStatisticsState(
             int playerId,
@@ -206,6 +207,7 @@ namespace Baseball.Game.Career
         public PitchingStatisticsState Pitching { get; }
         public IReadOnlyDictionary<PlayerPosition, FieldingStatisticsState> FieldingByPosition => _fieldingByPosition;
         public IReadOnlyList<PlayerGameContributionState> GameContributions => _gameContributions;
+        public IReadOnlyDictionary<int, PlayerTeamStatisticsSplitState> TeamSplits => _teamSplits;
         public int GamesPlayed => Batting.Games + Pitching.Appearances;
 
         internal void UpdateIdentity(int teamId, PlayerPosition primaryPosition)
@@ -215,13 +217,18 @@ namespace Baseball.Game.Career
                 PrimaryPosition = primaryPosition;
         }
 
-        internal void RecordTeamGame() => TeamGames++;
+        internal void RecordTeamGame()
+        {
+            TeamGames++;
+            GetOrCreateTeamSplit(TeamId).RecordTeamGame();
+        }
 
         internal void Add(PlayerGameStatistics game)
         {
             UpdateIdentity(game.TeamId, game.PrimaryPosition);
             Batting.Add(game);
             Pitching.Add(game);
+            GetOrCreateTeamSplit(game.TeamId).Add(game);
             if (game.FieldingLine != null)
             {
                 PlayerPosition position = game.FieldingLine.Position;
@@ -233,6 +240,65 @@ namespace Baseball.Game.Career
                 fielding.Add(game.FieldingLine);
             }
             _gameContributions.Add(game.Contribution);
+        }
+
+        public FieldingStatisticsState GetFielding(PlayerPosition position)
+        {
+            return _fieldingByPosition.TryGetValue(position, out FieldingStatisticsState value) ? value : null;
+        }
+
+        public PlayerTeamStatisticsSplitState GetTeamSplit(int teamId)
+        {
+            return _teamSplits.TryGetValue(teamId, out PlayerTeamStatisticsSplitState value) ? value : null;
+        }
+
+        private PlayerTeamStatisticsSplitState GetOrCreateTeamSplit(int teamId)
+        {
+            if (!_teamSplits.TryGetValue(teamId, out PlayerTeamStatisticsSplitState value))
+            {
+                value = new PlayerTeamStatisticsSplitState(teamId);
+                _teamSplits.Add(teamId, value);
+            }
+            return value;
+        }
+    }
+
+    /// <summary>
+    /// 한 시즌 합계는 유지하면서 트레이드 전후 구단별 타격·투구·수비 성적을 별도로 누적한다.
+    /// </summary>
+    public sealed class PlayerTeamStatisticsSplitState
+    {
+        private readonly Dictionary<PlayerPosition, FieldingStatisticsState> _fieldingByPosition = new();
+
+        internal PlayerTeamStatisticsSplitState(int teamId)
+        {
+            TeamId = teamId;
+            Batting = new BattingStatisticsState();
+            Pitching = new PitchingStatisticsState();
+        }
+
+        public int TeamId { get; }
+        public int TeamGames { get; private set; }
+        public BattingStatisticsState Batting { get; }
+        public PitchingStatisticsState Pitching { get; }
+        public IReadOnlyDictionary<PlayerPosition, FieldingStatisticsState> FieldingByPosition => _fieldingByPosition;
+
+        internal void RecordTeamGame() => TeamGames++;
+
+        internal void Add(PlayerGameStatistics game)
+        {
+            Batting.Add(game);
+            Pitching.Add(game);
+            if (game.FieldingLine == null)
+                return;
+
+            PlayerPosition position = game.FieldingLine.Position;
+            if (!_fieldingByPosition.TryGetValue(position, out FieldingStatisticsState fielding))
+            {
+                fielding = new FieldingStatisticsState();
+                _fieldingByPosition.Add(position, fielding);
+            }
+            fielding.Add(game.FieldingLine);
         }
 
         public FieldingStatisticsState GetFielding(PlayerPosition position)
@@ -293,7 +359,7 @@ namespace Baseball.Game.Career
     /// <summary>현재 시즌 리그 전체 선수 기록을 경쟁 범위별로 분리해 소유한다.</summary>
     public sealed class LeagueSeasonStatisticsState
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         public LeagueSeasonStatisticsState()
         {

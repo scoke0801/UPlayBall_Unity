@@ -4,6 +4,7 @@ using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
 using Baseball.Presentation.UI;
+using Baseball.Simulation.Career;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -102,7 +103,8 @@ namespace Baseball.Presentation.Career
             RenderTopBar(view);
             RenderTitle(view);
             RenderPlayerPanel(view);
-            if (view.NegotiationStatus == ContractNegotiationStatus.OffersAvailable)
+            if (view.NegotiationStatus is ContractNegotiationStatus.CurrentTeamOfferAvailable or
+                ContractNegotiationStatus.OffersAvailable)
                 RenderOfferMode(view);
             else
                 RenderContractOverview(view);
@@ -163,10 +165,12 @@ namespace Baseball.Presentation.Career
 
         private void RenderTitle(CareerContractView view)
         {
-            string subtitle = view.NegotiationStatus == ContractNegotiationStatus.OffersAvailable
+            bool isOfferMode = view.NegotiationStatus is ContractNegotiationStatus.CurrentTeamOfferAvailable or
+                ContractNegotiationStatus.OffersAvailable;
+            string subtitle = isOfferMode
                 ? "제안 금액뿐 아니라 예상 역할과 육성 환경을 비교해 다음 커리어를 결정하세요."
                 : "현재 보장 조건과 상여 진행, 계약 만료 뒤의 시장 가치를 확인합니다.";
-            float subtitleWidth = view.NegotiationStatus == ContractNegotiationStatus.OffersAvailable
+            float subtitleWidth = isOfferMode
                 ? 900f
                 : 640f;
             CreateText(
@@ -227,7 +231,7 @@ namespace Baseball.Presentation.Career
         {
             string buttonLabel;
             string guide;
-            bool interactable = view.CanBeginNegotiation;
+            bool interactable = view.CanBeginNegotiation || view.CanAcceptExtension;
             switch (view.NegotiationStatus)
             {
                 case ContractNegotiationStatus.NegotiationAvailable:
@@ -241,6 +245,16 @@ namespace Baseball.Presentation.Career
                 case ContractNegotiationStatus.OffersAvailable:
                     buttonLabel = "오퍼 비교 중";
                     guide = "금액과 예상 출장 기회를 함께 비교하세요.";
+                    break;
+                case ContractNegotiationStatus.CurrentTeamOfferAvailable:
+                    buttonLabel = "기존 구단 우선 협상";
+                    guide = "수락하거나 보류·거절한 뒤 공개 시장을 확인할 수 있습니다.";
+                    break;
+                case ContractNegotiationStatus.ExtensionOfferAvailable:
+                    RenewalContractOfferView extension = view.ExtensionOffer.Value;
+                    buttonLabel = "연장 계약 수락";
+                    guide = $"{extension.ContractYears}년 연장 · 연봉 {FormatMoney(extension.AnnualSalary)} · " +
+                            $"{GetExpectedRoleLabel(extension.ExpectedRole)}";
                     break;
                 default:
                     buttonLabel = "현재 계약 유지";
@@ -256,10 +270,24 @@ namespace Baseball.Presentation.Career
             label.fontSize = 22;
             button.interactable = interactable;
             if (interactable)
-                button.onClick.AddListener(() => _manager.BeginContractNegotiation());
+            {
+                if (view.CanAcceptExtension)
+                    button.onClick.AddListener(() => _manager.AcceptCurrentTeamExtension());
+                else
+                    button.onClick.AddListener(() => _manager.BeginContractNegotiation());
+            }
+            if (view.CanAcceptExtension)
+            {
+                Button decline = CreateButton(
+                    "DeclineExtension", panel, "이번 연장 제안 거절",
+                    new Vector2(200f, 34f), new Vector2(0f, -292f),
+                    new Color(0.16f, 0.10f, 0.10f, 1f), out Text declineLabel);
+                declineLabel.fontSize = 12;
+                decline.onClick.AddListener(() => _manager.DeclineCurrentTeamExtension());
+            }
             CreateText(
                 "NegotiationGuide", panel, guide, 12, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(340f, 44f), new Vector2(0f, -305f),
+                new Vector2(340f, 44f), new Vector2(0f, view.CanAcceptExtension ? -326f : -305f),
                 interactable ? SecondaryTextColor : MutedColor);
         }
 
@@ -454,11 +482,14 @@ namespace Baseball.Presentation.Career
         private void RenderOfferMode(CareerContractView view)
         {
             RectTransform panel = CreatePanel(
-                "Offers", "FREE AGENCY", "계약 오퍼 비교",
+                "Offers", "CAREER MARKET",
+                view.CanOpenMarket ? "기존 구단 우선 협상" : "계약 오퍼 비교",
                 new Vector2(1410f, 700f), new Vector2(260f, 10f));
             CreateText(
                 "Guide", panel,
-                "높은 연봉보다 실제 출장 기회가 더 좋은 계약일 수 있습니다. 예상 역할과 포지션 필요도를 함께 비교하세요.",
+                view.CanOpenMarket
+                    ? "기존 구단의 제안을 먼저 검토하세요. 보류하면 오퍼가 철회될 위험을 감수하고 외부 시장을 확인합니다."
+                    : "높은 연봉보다 실제 출장 기회가 더 좋은 계약일 수 있습니다. 예상 역할과 출장 비율을 함께 비교하세요.",
                 14, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(1320f, 38f), new Vector2(0f, 285f), SecondaryTextColor);
 
@@ -466,10 +497,11 @@ namespace Baseball.Presentation.Career
             for (int index = 0; index < visibleCount; index++)
                 RenderOfferRow(panel, view.RenewalOffers[index], index);
 
+            float signX = view.CanOpenMarket ? -350f : 0f;
             Button signButton = CreateButton(
                 "SignOffer", panel,
                 view.CanSignSelectedOffer ? "선택한 구단과 계약" : "계약할 구단을 선택하세요",
-                new Vector2(520f, 68f), new Vector2(0f, -302f),
+                new Vector2(520f, 68f), new Vector2(signX, -302f),
                 view.CanSignSelectedOffer
                     ? new Color(0.025f, 0.31f, 0.61f, 1f)
                     : new Color(0.05f, 0.10f, 0.15f, 1f),
@@ -478,6 +510,21 @@ namespace Baseball.Presentation.Career
             signButton.interactable = view.CanSignSelectedOffer;
             if (view.CanSignSelectedOffer)
                 signButton.onClick.AddListener(SignSelectedOffer);
+            if (view.CanOpenMarket)
+            {
+                Button holdButton = CreateButton(
+                    "HoldAndOpenMarket", panel, "보류하고 시장 보기",
+                    new Vector2(330f, 68f), new Vector2(185f, -302f),
+                    new Color(0.08f, 0.24f, 0.37f, 1f), out Text holdLabel);
+                holdLabel.fontSize = 18;
+                holdButton.onClick.AddListener(() => _manager.OpenContractMarket(true));
+                Button declineButton = CreateButton(
+                    "DeclineAndOpenMarket", panel, "거절하고 시장 보기",
+                    new Vector2(330f, 68f), new Vector2(535f, -302f),
+                    new Color(0.18f, 0.12f, 0.12f, 1f), out Text declineLabel);
+                declineLabel.fontSize = 18;
+                declineButton.onClick.AddListener(() => _manager.OpenContractMarket(false));
+            }
             if (!string.IsNullOrEmpty(view.LastError))
             {
                 CreateText("Error", panel, view.LastError, 12, FontStyle.Normal, TextAnchor.MiddleCenter,
@@ -506,7 +553,8 @@ namespace Baseball.Presentation.Career
             Button button = row.gameObject.AddComponent<Button>();
             button.onClick.AddListener(() => _manager.SelectContractOffer(offer.TeamId));
             CreateImage("TeamColor", row, teamColor, new Vector2(7f, 76f), new Vector2(-671f, 0f));
-            CreateText("Team", row, offer.TeamName, 18, FontStyle.Bold, TextAnchor.MiddleLeft,
+            CreateText("Team", row, $"{GetOfferChannelLabel(offer.Channel)}  {offer.TeamName}", 18,
+                FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(260f, 38f), new Vector2(-520f, 13f), PrimaryTextColor);
             CreateText("Term", row, $"{offer.ContractYears}년 / 보장 {FormatMoney(offer.GuaranteedValue)}",
                 11, FontStyle.Normal, TextAnchor.MiddleLeft,
@@ -514,8 +562,9 @@ namespace Baseball.Presentation.Career
             CreateOfferMetric(row, "연봉", FormatMoney(offer.AnnualSalary), -230f, GoldColor);
             CreateOfferMetric(row, "계약금", FormatMoney(offer.SigningBonus), 5f, PrimaryTextColor);
             CreateOfferMetric(row, "예상 역할", GetExpectedRoleLabel(offer.ExpectedRole), 240f, SuccessColor);
-            CreateOfferMetric(row, "포지션 필요", $"{offer.PositionNeed} / 100", 445f, PrimaryTextColor);
-            CreateOfferMetric(row, "육성 환경", $"{offer.DevelopmentRating} / 100", 600f, PrimaryTextColor);
+            CreateOfferMetric(row, "예상 출장", $"{offer.EstimatedPlayingTime:P0}", 445f, PrimaryTextColor);
+            CreateOfferMetric(row, "필요 / 육성", $"{offer.PositionNeed} / {offer.DevelopmentRating}", 600f,
+                PrimaryTextColor);
             if (offer.IsSelected)
             {
                 CreateImage("Selected", row, BrightAccentColor, new Vector2(4f, 76f), new Vector2(671f, 0f));
@@ -668,6 +717,16 @@ namespace Baseball.Presentation.Career
                     description = "남은 경기의 성적과 수상 결과가 다음 오퍼에 반영됩니다.";
                     color = WarningColor;
                     return;
+                case ContractNegotiationStatus.CurrentTeamOfferAvailable:
+                    title = "기존 구단이 우선 재계약을 제안했습니다.";
+                    description = "안정성을 택하거나 오퍼 철회 위험을 감수하고 공개 시장을 확인할 수 있습니다.";
+                    color = SuccessColor;
+                    return;
+                case ContractNegotiationStatus.ExtensionOfferAvailable:
+                    title = "기존 구단이 시즌 중 연장 계약을 제안했습니다.";
+                    description = "현재 역할의 안정성을 택하거나 시즌 종료 후 시장 가치 상승을 노릴 수 있습니다.";
+                    color = SuccessColor;
+                    return;
                 default:
                     title = "현재 계약이 유효합니다.";
                     description = $"다음 협상은 {view.CurrentContract.EndYear} 시즌 결산 뒤 시작됩니다.";
@@ -683,6 +742,18 @@ namespace Baseball.Presentation.Career
                 ExpectedRole.StartingCompetition => "주전 경쟁",
                 ExpectedRole.RosterCompetition => "로스터 경쟁",
                 _ => "백업 경쟁"
+            };
+        }
+
+        private static string GetOfferChannelLabel(ContractOfferChannel channel)
+        {
+            return channel switch
+            {
+                ContractOfferChannel.CurrentTeamRenewal => "[기존 구단]",
+                ContractOfferChannel.CurrentTeamExtension => "[연장 계약]",
+                ContractOfferChannel.Promotion => "[상위 리그]",
+                ContractOfferChannel.DevelopmentFallback => "[육성 계약]",
+                _ => "[공개 시장]"
             };
         }
 

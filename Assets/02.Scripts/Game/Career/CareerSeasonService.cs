@@ -215,7 +215,10 @@ namespace Baseball.Game.Career
             if (NextPlayerGame == null)
                 BeginPostseason(season);
             else
+            {
+                new TradeMarketService(_career, _balance).ProcessAfterScheduleDate();
                 EnsureNextGamePlan();
+            }
             return playerResult;
         }
 

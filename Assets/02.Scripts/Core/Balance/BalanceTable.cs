@@ -73,7 +73,9 @@ namespace Baseball.Core.Balance
             RosterTurnoverBalance? rosterTurnover = null,
             PostseasonBalance? postseason = null,
             BattingApproachBalance? battingApproach = null,
-            ContractBonusBalance? contractBonus = null)
+            ContractBonusBalance? contractBonus = null,
+            ContractRenewalBalance? contractRenewal = null,
+            TradeMarketBalance? tradeMarket = null)
         {
             Version = version;
             PlateDiscipline = plateDiscipline;
@@ -92,6 +94,8 @@ namespace Baseball.Core.Balance
             Postseason = postseason ?? PostseasonBalance.CreateDefault();
             BattingApproach = battingApproach ?? BattingApproachBalance.CreateDefault();
             ContractBonus = contractBonus ?? ContractBonusBalance.CreateDefault();
+            ContractRenewal = contractRenewal ?? ContractRenewalBalance.CreateDefault();
+            TradeMarket = tradeMarket ?? TradeMarketBalance.CreateDefault();
             SeasonAwards = SeasonAwardBalance.CreateDefault();
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
         }
@@ -113,6 +117,8 @@ namespace Baseball.Core.Balance
         public PostseasonBalance Postseason { get; }
         public BattingApproachBalance BattingApproach { get; }
         public ContractBonusBalance ContractBonus { get; }
+        public ContractRenewalBalance ContractRenewal { get; }
+        public TradeMarketBalance TradeMarket { get; }
         public SeasonAwardBalance SeasonAwards { get; }
         public SeasonSettlementBalance SeasonSettlement { get; }
 

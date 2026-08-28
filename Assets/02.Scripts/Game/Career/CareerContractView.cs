@@ -1,5 +1,6 @@
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Simulation.Career;
 
 namespace Baseball.Game.Career
 {
@@ -8,6 +9,8 @@ namespace Baseball.Game.Career
         Active,
         ExpiringThisSeason,
         NegotiationAvailable,
+        ExtensionOfferAvailable,
+        CurrentTeamOfferAvailable,
         OffersAvailable
     }
 
@@ -126,6 +129,8 @@ namespace Baseball.Game.Career
             long annualSalary,
             int contractYears,
             ExpectedRole expectedRole,
+            ContractOfferChannel channel,
+            double estimatedPlayingTime,
             bool isSelected)
         {
             TeamId = teamId;
@@ -137,6 +142,8 @@ namespace Baseball.Game.Career
             AnnualSalary = annualSalary;
             ContractYears = contractYears;
             ExpectedRole = expectedRole;
+            Channel = channel;
+            EstimatedPlayingTime = estimatedPlayingTime;
             IsSelected = isSelected;
         }
 
@@ -149,6 +156,8 @@ namespace Baseball.Game.Career
         public long AnnualSalary { get; }
         public int ContractYears { get; }
         public ExpectedRole ExpectedRole { get; }
+        public ContractOfferChannel Channel { get; }
+        public double EstimatedPlayingTime { get; }
         public bool IsSelected { get; }
         public long GuaranteedValue => SigningBonus + AnnualSalary * ContractYears;
     }
@@ -178,8 +187,12 @@ namespace Baseball.Game.Career
         public int CurrentTeamPositionNeed { get; internal set; }
         public ContractNegotiationStatus NegotiationStatus { get; internal set; }
         public RenewalContractOfferView[] RenewalOffers { get; internal set; }
+        public RenewalContractOfferView? ExtensionOffer { get; internal set; }
         public bool CanBeginNegotiation { get; internal set; }
+        public bool CanAcceptExtension { get; internal set; }
         public bool CanSignSelectedOffer { get; internal set; }
+        public bool CanOpenMarket { get; internal set; }
+        public bool IsCurrentTeamOfferHeld { get; internal set; }
         public string LastError { get; internal set; }
     }
 }

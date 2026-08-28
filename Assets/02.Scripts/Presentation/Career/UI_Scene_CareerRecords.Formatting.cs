@@ -187,6 +187,16 @@ namespace Baseball.Presentation.Career
             };
         }
 
+        private static string GetExpectedRoleLabel(ExpectedRole role)
+        {
+            return role switch
+            {
+                ExpectedRole.StartingCompetition => "주전 경쟁",
+                ExpectedRole.RosterCompetition => "로스터 경쟁",
+                _ => "벤치 경쟁"
+            };
+        }
+
         private static string GetLeagueLabel(LeagueLevel level)
         {
             return level switch

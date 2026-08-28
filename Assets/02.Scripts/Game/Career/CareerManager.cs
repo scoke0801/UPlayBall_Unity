@@ -213,7 +213,8 @@ namespace Baseball.Game.Career
                 if (_seasonTransitionService.Step == SeasonTransitionStep.NotStarted)
                 {
                     SeasonTransitionStep step = _seasonTransitionService.BeginTransition();
-                    if (step == SeasonTransitionStep.ContractOffers)
+                    if (step is SeasonTransitionStep.CurrentTeamNegotiation or
+                        SeasonTransitionStep.ContractOffers)
                     {
                         LastError = string.Empty;
                         CareerChanged?.Invoke();
@@ -221,7 +222,8 @@ namespace Baseball.Game.Career
                     }
                 }
 
-                if (_seasonTransitionService.Step == SeasonTransitionStep.ContractOffers)
+                if (_seasonTransitionService.Step is SeasonTransitionStep.CurrentTeamNegotiation or
+                    SeasonTransitionStep.ContractOffers)
                 {
                     LastError = string.Empty;
                     CareerChanged?.Invoke();
@@ -270,7 +272,8 @@ namespace Baseball.Game.Career
         /// </summary>
         public bool SelectContractOffer(int teamId)
         {
-            if (_seasonTransitionService?.Step != SeasonTransitionStep.ContractOffers)
+            if (_seasonTransitionService?.Step is not SeasonTransitionStep.CurrentTeamNegotiation and
+                not SeasonTransitionStep.ContractOffers)
                 return Fail("선택할 수 있는 계약 오퍼가 없습니다.");
             try
             {
@@ -294,12 +297,103 @@ namespace Baseball.Game.Career
         /// </summary>
         public bool SignSelectedContractOffer()
         {
-            if (_seasonTransitionService?.Step != SeasonTransitionStep.ContractOffers)
+            if (_seasonTransitionService?.Step is not SeasonTransitionStep.CurrentTeamNegotiation and
+                not SeasonTransitionStep.ContractOffers)
                 return Fail("서명할 계약 오퍼가 없습니다.");
             try
             {
                 _seasonTransitionService.SignSelectedOffer();
                 CompleteSeasonTransition();
+                return true;
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
+        /// <summary>
+        /// 기존 구단 제안을 보류하거나 거절하고 외부 구단 공개 시장을 연다.
+        /// </summary>
+        public bool OpenContractMarket(bool holdCurrentTeamOffer)
+        {
+            if (_seasonTransitionService?.Step != SeasonTransitionStep.CurrentTeamNegotiation)
+                return Fail("먼저 기존 구단의 우선 협상 제안을 확인해 주세요.");
+            try
+            {
+                _seasonTransitionService.OpenMarket(holdCurrentTeamOffer);
+                LastError = string.Empty;
+                CareerChanged?.Invoke();
+                return true;
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
+        /// <summary>
+        /// 에이전트에게 전달할 트레이드 태도를 바꾸고 적극 요청의 관계 비용을 반영한다.
+        /// </summary>
+        public bool SetTradePreference(TradePreference preference)
+        {
+            if (CurrentCareer?.League?.CurrentSeason?.Phase != SeasonPhase.RegularSeason)
+                return Fail("트레이드 태도는 정규 시즌 중에만 바꿀 수 있습니다.");
+
+            TradePreference previous = CurrentCareer.TradeState.Preference;
+            if (previous == preference)
+                return true;
+            CurrentCareer.TradeState.SetPreference(preference);
+            int evaluationDelta = GetTradePreferenceTrustModifier(preference) -
+                                  GetTradePreferenceTrustModifier(previous);
+            if (evaluationDelta != 0)
+            {
+                CurrentCareer.MyPlayer.ApplyGameFeedback(
+                    conditionDelta: 0,
+                    managerEvaluationDelta: evaluationDelta,
+                    _balance.CareerSeason.MinimumCondition);
+            }
+            LastError = string.Empty;
+            CareerChanged?.Invoke();
+            return true;
+        }
+
+        private static int GetTradePreferenceTrustModifier(TradePreference preference)
+        {
+            return preference switch
+            {
+                TradePreference.RequestTrade => -5,
+                TradePreference.PreferToStay => 2,
+                _ => 0
+            };
+        }
+
+        public bool AcceptCurrentTeamExtension()
+        {
+            if (CurrentCareer == null || _balance == null)
+                return Fail("진행 중인 커리어가 없습니다.");
+            try
+            {
+                new ContractRenewalService(CurrentCareer, _balance).AcceptExtension();
+                LastError = string.Empty;
+                CareerChanged?.Invoke();
+                return true;
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
+        public bool DeclineCurrentTeamExtension()
+        {
+            if (CurrentCareer == null || _balance == null)
+                return Fail("진행 중인 커리어가 없습니다.");
+            try
+            {
+                new ContractRenewalService(CurrentCareer, _balance).DeclineExtension();
+                LastError = string.Empty;
+                CareerChanged?.Invoke();
                 return true;
             }
             catch (InvalidOperationException exception)
@@ -424,7 +518,7 @@ namespace Baseball.Game.Career
                 Overall = evaluator.CalculatePositionValue(currentPlayer),
                 Condition = player.Condition,
                 ManagerEvaluation = player.ManagerEvaluation,
-                ExpectedRole = CurrentCareer.CurrentContract.ExpectedRole,
+                ExpectedRole = CurrentCareer.CurrentExpectedRole,
                 TeamName = playerTeam.Name,
                 SeasonYear = season.Year,
                 LeagueLevel = season.LeagueLevel,

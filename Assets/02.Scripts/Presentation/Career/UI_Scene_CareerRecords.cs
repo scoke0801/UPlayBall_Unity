@@ -499,8 +499,81 @@ namespace Baseball.Presentation.Career
                 RenderSeasonRow(panel, seasons[index], index, sortByRecord);
 
             RenderCareerTotals(view);
-            RenderTrend(view);
+            if (view.TradeHistory.Length > 0 || view.TeamSplits.Length > 0)
+                RenderMovementHistory(view);
+            else
+                RenderTrend(view);
             RenderBestSeasons(view, seasons);
+        }
+
+        private void RenderMovementHistory(CareerRecordsView view)
+        {
+            RectTransform panel = CreateContentPanel(
+                "MovementHistory", "소속 이동 · 팀별 성적",
+                new Vector2(520f, 415f), new Vector2(665f, -185f));
+
+            int rowIndex = 0;
+            int tradeCount = Math.Min(2, view.TradeHistory.Length);
+            for (int index = 0; index < tradeCount; index++)
+            {
+                CareerTradeHistoryView trade = view.TradeHistory[index];
+                float y = 140f - rowIndex * 54f;
+                RectTransform row = CreateImage(
+                    "Trade_" + index,
+                    panel,
+                    new Color(0.025f, 0.15f, 0.27f, 1f),
+                    new Vector2(484f, 49f),
+                    new Vector2(0f, y));
+                CreateText("TradeDate", row, $"{trade.Year} · {trade.GameIndex}경기 후", 12,
+                    FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(150f, 20f),
+                    new Vector2(-155f, 10f), BrightAccentColor);
+                CreateText("TradeTeams", row,
+                    $"{GetTeamShortName(trade.PreviousTeamName)} → {GetTeamShortName(trade.NewTeamName)}", 15,
+                    FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(290f, 23f),
+                    new Vector2(60f, 10f), PrimaryTextColor);
+                CreateText("TradeRole", row,
+                    $"{GetExpectedRoleLabel(trade.PreviousRole)} → {GetExpectedRoleLabel(trade.ProjectedRole)}", 12,
+                    FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(440f, 19f),
+                    new Vector2(0f, -12f), SecondaryTextColor);
+                rowIndex++;
+            }
+
+            int splitCount = Math.Min(5 - rowIndex, view.TeamSplits.Length);
+            for (int index = 0; index < splitCount; index++)
+            {
+                CareerTeamStatisticsSplitView split = view.TeamSplits[index];
+                float y = 140f - rowIndex * 54f;
+                RectTransform row = CreateImage(
+                    "Split_" + split.Year + "_" + split.TeamId,
+                    panel,
+                    rowIndex % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
+                    new Vector2(484f, 49f),
+                    new Vector2(0f, y));
+                CreateText("Season", row, $"{split.Year} {GetTeamShortName(split.TeamName)}", 14,
+                    FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(200f, 23f),
+                    new Vector2(-130f, 10f), split.IsCurrentSeason ? BrightAccentColor : PrimaryTextColor);
+                CreateText("TeamGames", row, $"팀 {split.TeamGames}G", 12,
+                    FontStyle.Normal, TextAnchor.MiddleRight, new Vector2(95f, 20f),
+                    new Vector2(180f, 10f), MutedTextColor);
+                CreateText("Metrics", row, FormatSplitSummary(split.Metrics), 12,
+                    FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(440f, 20f),
+                    new Vector2(0f, -12f), SecondaryTextColor);
+                rowIndex++;
+            }
+        }
+
+        private static string FormatSplitSummary(CareerRecordMetricValue[] metrics)
+        {
+            int count = Math.Min(4, metrics.Length);
+            string result = string.Empty;
+            for (int index = 0; index < count; index++)
+            {
+                CareerRecordMetricValue metric = metrics[index];
+                if (index > 0)
+                    result += "  ·  ";
+                result += $"{GetMetricLabel(metric.Metric, false)} {FormatMetric(metric.Metric, metric.Value)}";
+            }
+            return result;
         }
 
         private static void RenderSeasonRow(

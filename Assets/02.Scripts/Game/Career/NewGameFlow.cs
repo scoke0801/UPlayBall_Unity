@@ -13,7 +13,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 6;
+        public const int CurrentSaveVersion = 7;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
@@ -300,6 +300,9 @@ namespace Baseball.Game.Career
                 myCareerPlateAppearances: 0,
                 myCareerPitchingOuts: 0,
                 myRegisteredSeasons: 0);
+            Career.TradeState.BeginSeason(
+                Career.League.CurrentSeason.SeasonId,
+                _configuration.Balance.TradeMarket.TradeDeadlineGame);
             State.Step = NewGameStep.Completed;
         }
 
