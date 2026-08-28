@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Random;
@@ -142,7 +143,11 @@ namespace Baseball.Game.Career
                 previousPlayerTeam.TeamId,
                 previousPlayerTeam.Name,
                 completedSeason.GetTeamRecord(previousPlayerTeam.TeamId),
-                completedSeason.PlayerStatistics);
+                completedSeason.PlayerStatistics,
+                completedSeason.PostseasonPlayerStatistics,
+                completedSeason.Postseason,
+                completedSeason.Awards,
+                completedSeason.Settlement);
 
             _career.MyPlayer.AdvanceAge();
 
@@ -158,6 +163,14 @@ namespace Baseball.Game.Career
                     offer.SigningBonus,
                     offer.AnnualSalary,
                     offer.ExpectedRole));
+                if (offer.SigningBonus > 0L)
+                {
+                    _career.Economy.Earn(
+                        _nextYear,
+                        MoneyTransactionType.ContractIncome,
+                        $"contract_{_nextSeasonId}_signing_bonus",
+                        offer.SigningBonus);
+                }
                 signedTeamId = offer.Team.TeamId;
                 if (signedTeamId != _career.MyPlayer.CurrentTeamId)
                     _career.MyPlayer.TransferTo(signedTeamId);
@@ -210,7 +223,8 @@ namespace Baseball.Game.Career
                 _balance.ContractOffer,
                 evaluator,
                 _career.MyPlayer.ToPlayer(),
-                generatedTeams);
+                generatedTeams,
+                _career.League.CurrentSeason.Settlement.ContractEvaluationBonus);
         }
 
         private SeasonState RequireOffseasonSeason()
@@ -235,6 +249,8 @@ namespace Baseball.Game.Career
         private TeamState[] AdvanceRosters(int nextSeasonId, ulong rootSeed)
         {
             IReadOnlyList<TeamState> teams = _career.League.Teams;
+            CompetitionStatisticsState completedStatistics =
+                _career.League.CurrentSeason.LeagueStatistics.RegularSeason;
             var result = new TeamState[teams.Count];
             for (int index = 0; index < teams.Count; index++)
             {
@@ -250,7 +266,10 @@ namespace Baseball.Game.Career
                 RosterCompetitor[] currentRoster = ToRosterCompetitors(team.RosterCompetitors);
                 int[] positionNeeds = BuildPositionNeeds(team);
                 RosterCompetitor[] nextRoster = resolver.AdvanceSeason(currentRoster, positionNeeds);
-                result[index] = team.WithRoster(ToRosterCompetitorStates(nextRoster));
+                result[index] = team.WithRoster(ToRosterCompetitorStates(
+                    nextRoster,
+                    team.RosterCompetitors,
+                    completedStatistics));
             }
             return result;
         }
@@ -298,7 +317,17 @@ namespace Baseball.Game.Career
                 teamRecords,
                 new PlayerSeasonStatisticsState(),
                 _career.MyPlayer);
-            season.SnapshotRookieEligibility(teams, _career.MyPlayer, isEligible: false);
+            GetMyPlayerCareerUsage(
+                out int careerPlateAppearances,
+                out int careerPitchingOuts,
+                out int registeredSeasons);
+            season.SnapshotRookieEligibility(
+                teams,
+                _career.MyPlayer,
+                _balance.SeasonAwards,
+                careerPlateAppearances,
+                careerPitchingOuts,
+                registeredSeasons);
             return season;
         }
 
@@ -313,19 +342,79 @@ namespace Baseball.Game.Career
             return result;
         }
 
-        private static RosterCompetitorState[] ToRosterCompetitorStates(RosterCompetitor[] source)
+        private static RosterCompetitorState[] ToRosterCompetitorStates(
+            RosterCompetitor[] source,
+            IReadOnlyList<RosterCompetitorState> previousRoster,
+            CompetitionStatisticsState completedStatistics)
         {
             var result = new RosterCompetitorState[source.Length];
             for (int index = 0; index < source.Length; index++)
             {
                 RosterCompetitor competitor = source[index];
+                RosterCompetitorState? previous = FindPreviousRosterPlayer(
+                    previousRoster,
+                    competitor.PlayerId);
+                int careerPlateAppearances = 0;
+                int careerPitchingOuts = 0;
+                int registeredSeasons = 0;
+                if (previous.HasValue)
+                {
+                    RosterCompetitorState previousValue = previous.Value;
+                    PlayerCompetitionStatisticsState seasonStatistics =
+                        completedStatistics.GetPlayer(competitor.PlayerId);
+                    careerPlateAppearances = previousValue.CareerPlateAppearances +
+                                             (seasonStatistics?.Batting.PlateAppearances ?? 0);
+                    careerPitchingOuts = previousValue.CareerPitchingOuts +
+                                         (seasonStatistics?.Pitching.OutsRecorded ?? 0);
+                    registeredSeasons = previousValue.RegisteredSeasons + 1;
+                }
                 result[index] = new RosterCompetitorState(
                     competitor.PlayerId,
                     competitor.Name,
                     competitor.Position,
-                    competitor.Overall);
+                    competitor.Overall,
+                    careerPlateAppearances,
+                    careerPitchingOuts,
+                    registeredSeasons);
             }
             return result;
+        }
+
+        private static RosterCompetitorState? FindPreviousRosterPlayer(
+            IReadOnlyList<RosterCompetitorState> previousRoster,
+            int playerId)
+        {
+            for (int index = 0; index < previousRoster.Count; index++)
+            {
+                if (previousRoster[index].PlayerId == playerId)
+                    return previousRoster[index];
+            }
+            return null;
+        }
+
+        private void GetMyPlayerCareerUsage(
+            out int careerPlateAppearances,
+            out int careerPitchingOuts,
+            out int registeredSeasons)
+        {
+            careerPlateAppearances = 0;
+            careerPitchingOuts = 0;
+            IReadOnlyList<CareerSeasonHistoryRecord> history = _career.SeasonHistory;
+            for (int index = 0; index < history.Count; index++)
+            {
+                PlayerSeasonStatisticsState statistics = history[index].Statistics;
+                if (statistics == null) continue;
+                careerPlateAppearances += statistics.PlateAppearances;
+                careerPitchingOuts += statistics.OutsRecorded;
+            }
+
+            PlayerSeasonStatisticsState current = _career.League.CurrentSeason.PlayerStatistics;
+            if (current != null)
+            {
+                careerPlateAppearances += current.PlateAppearances;
+                careerPitchingOuts += current.OutsRecorded;
+            }
+            registeredSeasons = history.Count + 1;
         }
 
         private static int[] BuildPositionNeeds(TeamState team)

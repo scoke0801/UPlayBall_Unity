@@ -38,5 +38,15 @@ namespace Baseball.Game.Career
         public long SigningBonus { get; }
         public long AnnualSalary { get; }
         public ExpectedRole ExpectedRole { get; }
+        public int EndYear => SignedYear + ContractYears - 1;
+        public long GuaranteedValue => SigningBonus + AnnualSalary * ContractYears;
+
+        /// <summary>
+        /// 현재 시즌을 마친 뒤 보장된 시즌 수를 반환한다.
+        /// </summary>
+        public int GetRemainingSeasonsAfter(int currentYear)
+        {
+            return Math.Max(0, EndYear - currentYear);
+        }
     }
 }

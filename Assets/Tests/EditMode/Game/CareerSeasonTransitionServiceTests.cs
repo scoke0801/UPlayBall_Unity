@@ -120,6 +120,60 @@ namespace Baseball.Tests.EditMode.Game
             Assert.Throws<InvalidOperationException>(() => service.AdvanceToNextSeason());
         }
 
+        [Test]
+        public void 신인자격은시즌시작시통산기준으로고정한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            NewGameFlow flow = CreateOffseasonCareer(606UL);
+            TeamState sourceTeam = flow.Career.League.Teams[0];
+            var roster = new[]
+            {
+                new RosterCompetitorState(901, "자격 타자", PlayerPosition.Shortstop, 50, 119, 0, 1),
+                new RosterCompetitorState(902, "타석 초과", PlayerPosition.Shortstop, 50, 120, 0, 1),
+                new RosterCompetitorState(903, "자격 투수", PlayerPosition.StartingPitcher, 50, 0, 134, 1),
+                new RosterCompetitorState(904, "이닝 초과", PlayerPosition.StartingPitcher, 50, 0, 135, 1),
+                new RosterCompetitorState(905, "등록 초과", PlayerPosition.CenterField, 50, 0, 0, 2)
+            };
+            var season = new SeasonState(NewGameFlow.CurrentSaveVersion, 99, 2099, LeagueLevel.Rookie);
+
+            season.SnapshotRookieEligibility(
+                new[] { sourceTeam.WithRoster(roster) },
+                flow.Career.MyPlayer,
+                configuration.Balance.SeasonAwards,
+                myCareerPlateAppearances: 119,
+                myCareerPitchingOuts: 134,
+                myRegisteredSeasons: 1);
+
+            Assert.That(season.IsRookieEligible(901), Is.True);
+            Assert.That(season.IsRookieEligible(902), Is.False);
+            Assert.That(season.IsRookieEligible(903), Is.True);
+            Assert.That(season.IsRookieEligible(904), Is.False);
+            Assert.That(season.IsRookieEligible(905), Is.False);
+            Assert.That(season.IsRookieEligible(flow.Career.MyPlayer.PlayerId), Is.True);
+        }
+
+        [Test]
+        public void 저출장선수도2년차까지자격을유지하고3년차에는상실한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            NewGameFlow flow = CreateOffseasonCareer(707UL);
+            CareerState career = flow.Career;
+
+            new CareerSeasonTransitionService(career, configuration.Balance).AdvanceToNextSeason();
+            Assert.That(
+                career.League.CurrentSeason.IsRookieEligible(career.MyPlayer.PlayerId),
+                Is.True);
+
+            career.League.CurrentSeason.CompleteRegularSeason();
+            new CareerGrowthService(career, configuration.Balance)
+                .SettleSeasonAndBeginOffseason(CreateBatterUsage());
+            new CareerSeasonTransitionService(career, configuration.Balance).AdvanceToNextSeason();
+
+            Assert.That(
+                career.League.CurrentSeason.IsRookieEligible(career.MyPlayer.PlayerId),
+                Is.False);
+        }
+
         private static NewGameFlow CreateOffseasonCareer(ulong seed)
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();

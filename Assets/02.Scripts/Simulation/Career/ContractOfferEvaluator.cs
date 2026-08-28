@@ -60,10 +60,19 @@ namespace Baseball.Simulation.Career
         /// </summary>
         public ContractOffer CreateCandidate(GeneratedTeam team, Player player)
         {
+            return CreateCandidate(team, player, contractEvaluationBonus: 0);
+        }
+
+        /// <summary>지난 시즌 수상·우승 가산점을 현재 능력 평가에 제한적으로 더해 오퍼를 계산한다.</summary>
+        public ContractOffer CreateCandidate(GeneratedTeam team, Player player, int contractEvaluationBonus)
+        {
             if (player == null)
                 throw new ArgumentNullException(nameof(player));
+            if (contractEvaluationBonus < 0)
+                throw new ArgumentOutOfRangeException(nameof(contractEvaluationBonus));
 
-            int playerValue = _playerValueEvaluator.CalculatePositionValue(player);
+            int playerValue = _playerValueEvaluator.CalculatePositionValue(player) + contractEvaluationBonus;
+            if (playerValue > 100) playerValue = 100;
             double buildPreference = _playerValueEvaluator.CalculateTeamPreferenceFactor(
                 player,
                 team.Archetype.Archetype);

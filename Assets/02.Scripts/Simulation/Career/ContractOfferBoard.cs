@@ -22,7 +22,8 @@ namespace Baseball.Simulation.Career
             ContractOfferBalance balance,
             ContractOfferEvaluator evaluator,
             Player player,
-            GeneratedTeam[] teams)
+            GeneratedTeam[] teams,
+            int contractEvaluationBonus = 0)
         {
             if (evaluator == null)
                 throw new ArgumentNullException(nameof(evaluator));
@@ -35,7 +36,10 @@ namespace Baseball.Simulation.Career
             int eligibleCount = 0;
             for (int index = 0; index < teams.Length; index++)
             {
-                ContractOffer candidate = evaluator.CreateCandidate(teams[index], player);
+                ContractOffer candidate = evaluator.CreateCandidate(
+                    teams[index],
+                    player,
+                    contractEvaluationBonus);
                 candidates[index] = candidate;
                 if (candidate.OfferScore >= balance.OfferScoreThreshold)
                     eligibleCount++;
