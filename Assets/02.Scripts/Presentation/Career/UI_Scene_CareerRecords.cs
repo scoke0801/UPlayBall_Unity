@@ -34,6 +34,8 @@ namespace Baseball.Presentation.Career
         private RectTransform _content;
         private CareerRecordsPage _page = CareerRecordsPage.Personal;
         private CareerRecordCategory _category = CareerRecordCategory.Batting;
+        private CareerRecordViewMode _viewMode = CareerRecordViewMode.Expanded;
+        private CompetitionScope _scope = CompetitionScope.RegularSeason;
         private bool _hasSelectedInitialCategory;
 
         public override bool BlocksLowerInput => true;
@@ -108,7 +110,11 @@ namespace Baseball.Presentation.Career
                 return;
 
             ClearChildren(_content);
-            CareerRecordsView view = _recordsService.Build(_manager.CurrentCareer, _category);
+            CareerRecordsView view = _recordsService.Build(
+                _manager.CurrentCareer,
+                _category,
+                _viewMode,
+                _scope);
             RenderBackgroundAccents();
             RenderTopBar(_manager.Dashboard);
             RenderTitle();
@@ -198,7 +204,8 @@ namespace Baseball.Presentation.Career
 
         private void RenderTitle()
         {
-            CreateText("PageTitle", _content, "기록", 32, FontStyle.Bold, TextAnchor.MiddleCenter,
+            string scope = _scope == CompetitionScope.Postseason ? "포스트시즌" : "정규시즌";
+            CreateText("PageTitle", _content, $"기록  ·  {scope}", 32, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(400f, 50f), new Vector2(0f, 430f), PrimaryTextColor);
         }
 
@@ -265,6 +272,13 @@ namespace Baseball.Presentation.Career
                 }
                 button.onClick.AddListener(() => SelectCategory(category));
             }
+
+            CreateText("ScopeHeader", panel, "경기 범위", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(190f, 24f), new Vector2(0f, -126f), MutedTextColor);
+            RenderScopeButtons(panel);
+            CreateText("DensityHeader", panel, "표시 정보", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(190f, 24f), new Vector2(0f, -222f), MutedTextColor);
+            RenderViewModeButtons(panel);
         }
 
         private void SelectCategory(CareerRecordCategory category)
@@ -272,6 +286,66 @@ namespace Baseball.Presentation.Career
             if (_category == category)
                 return;
             _category = category;
+            Render();
+        }
+
+        private void RenderScopeButtons(Transform panel)
+        {
+            CompetitionScope[] scopes = { CompetitionScope.RegularSeason, CompetitionScope.Postseason };
+            string[] labels = { "정규시즌", "포스트" };
+            for (int index = 0; index < scopes.Length; index++)
+            {
+                CompetitionScope scope = scopes[index];
+                bool isActive = scope == _scope;
+                Button button = CreateButton(
+                    "Scope_" + scope,
+                    panel,
+                    labels[index],
+                    new Vector2(100f, 42f),
+                    new Vector2(-52f + index * 104f, -165f),
+                    isActive ? new Color(0.025f, 0.22f, 0.43f, 1f) : PanelDarkColor,
+                    out Text label);
+                label.fontSize = 14;
+                label.color = isActive ? PrimaryTextColor : SecondaryTextColor;
+                button.onClick.AddListener(() => SelectScope(scope));
+            }
+        }
+
+        private void RenderViewModeButtons(Transform panel)
+        {
+            CareerRecordViewMode[] modes = { CareerRecordViewMode.Basic, CareerRecordViewMode.Expanded };
+            string[] labels = { "핵심", "전체 지표" };
+            for (int index = 0; index < modes.Length; index++)
+            {
+                CareerRecordViewMode mode = modes[index];
+                bool isActive = mode == _viewMode;
+                Button button = CreateButton(
+                    "ViewMode_" + mode,
+                    panel,
+                    labels[index],
+                    new Vector2(100f, 42f),
+                    new Vector2(-52f + index * 104f, -261f),
+                    isActive ? new Color(0.025f, 0.22f, 0.43f, 1f) : PanelDarkColor,
+                    out Text label);
+                label.fontSize = 14;
+                label.color = isActive ? PrimaryTextColor : SecondaryTextColor;
+                button.onClick.AddListener(() => SelectViewMode(mode));
+            }
+        }
+
+        private void SelectScope(CompetitionScope scope)
+        {
+            if (_scope == scope)
+                return;
+            _scope = scope;
+            Render();
+        }
+
+        private void SelectViewMode(CareerRecordViewMode viewMode)
+        {
+            if (_viewMode == viewMode)
+                return;
+            _viewMode = viewMode;
             Render();
         }
 
@@ -290,20 +364,19 @@ namespace Baseball.Presentation.Career
                 $"주요 {GetCategoryLabel(view.Category)} 기록 (TOP 10)",
                 new Vector2(1070f, 510f),
                 new Vector2(-150f, 75f));
-            CareerRecordMetric[] columns = view.LeaderboardColumns;
-            CreateTableHeader(panel, columns, includeRank: true);
             if (view.Leaderboard.Length == 0)
             {
                 RenderEmptyState(
                     panel,
-                    view.Category == CareerRecordCategory.Baserunning
+                    !view.HasScopeData
+                        ? "선택한 경기 범위에 아직 기록이 없습니다."
+                        : view.Category == CareerRecordCategory.Baserunning
                         ? "아직 도루 시도가 없어 주루 순위가 생성되지 않았습니다."
                         : "현재 규정 자격을 충족한 선수가 없습니다.");
             }
             else
             {
-                for (int index = 0; index < view.Leaderboard.Length; index++)
-                    RenderLeaderboardRow(panel, view.Leaderboard[index], index);
+                RenderScrollableLeaderboardTable(panel, view);
             }
 
             string qualification = view.Category switch
@@ -313,66 +386,14 @@ namespace Baseball.Presentation.Career
                 CareerRecordCategory.Fielding => "수비 기회가 발생한 선수",
                 _ => "도루 시도가 발생한 선수"
             };
+            string scopeLabel = view.Scope == CompetitionScope.Postseason
+                ? "포스트시즌 참가 선수"
+                : qualification;
             CreateText("Qualification", panel,
-                $"ⓘ {qualification} · 자격 선수 {view.QualifiedPlayerCount}명",
+                $"ⓘ {scopeLabel} · 대상 선수 {view.QualifiedPlayerCount}명" +
+                (view.ViewMode == CareerRecordViewMode.Expanded ? " · 하단 바를 드래그해 전체 지표 확인" : string.Empty),
                 13, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(1000f, 28f), new Vector2(0f, -230f), MutedTextColor);
-        }
-
-        private static void CreateTableHeader(
-            Transform panel,
-            CareerRecordMetric[] columns,
-            bool includeRank,
-            bool showSeasonRank = false)
-        {
-            RectTransform header = CreateImage(
-                "TableHeader", panel, new Color(0.006f, 0.028f, 0.05f, 1f),
-                new Vector2(1034f, 34f), new Vector2(0f, 173f));
-            CreateText("Rank", header, includeRank || showSeasonRank ? "순위" : "연도", 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(60f, 30f), new Vector2(-480f, 0f), SecondaryTextColor);
-            CreateText("Name", header, includeRank ? "선수명" : "소속 구단", 14, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Vector2(190f, 30f), new Vector2(-350f, 0f), SecondaryTextColor);
-            CreateText("Team", header, includeRank ? "팀" : "리그", 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(90f, 30f), new Vector2(-220f, 0f), SecondaryTextColor);
-            for (int index = 0; index < columns.Length; index++)
-            {
-                CreateText("Metric_" + index, header, GetMetricLabel(columns[index], false), 13,
-                    FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(105f, 30f),
-                    new Vector2(-105f + index * 112f, 0f), SecondaryTextColor);
-            }
-        }
-
-        private static void RenderLeaderboardRow(
-            Transform panel,
-            CareerRecordLeaderboardRow row,
-            int index)
-        {
-            float y = 137f - index * 35f;
-            RectTransform rowRoot = CreateImage(
-                "Player_" + row.PlayerId,
-                panel,
-                row.IsMyPlayer ? new Color(0.025f, 0.18f, 0.34f, 1f) :
-                index % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
-                new Vector2(1034f, 33f),
-                new Vector2(0f, y));
-            if (row.IsMyPlayer)
-                CreateImage("Selection", rowRoot, BrightAccentColor, new Vector2(4f, 29f), new Vector2(-514f, 0f));
-            CreateText("Rank", rowRoot, row.Rank.ToString(), 15, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(60f, 30f), new Vector2(-480f, 0f),
-                row.IsMyPlayer ? BrightAccentColor : PrimaryTextColor);
-            CreateText("Name", rowRoot, row.PlayerName, 15, row.IsMyPlayer ? FontStyle.Bold : FontStyle.Normal,
-                TextAnchor.MiddleLeft, new Vector2(190f, 30f), new Vector2(-350f, 0f),
-                row.IsMyPlayer ? BrightAccentColor : PrimaryTextColor);
-            CreateText("Team", rowRoot, GetTeamShortName(row.TeamName), 14, FontStyle.Normal,
-                TextAnchor.MiddleCenter, new Vector2(90f, 30f), new Vector2(-220f, 0f), SecondaryTextColor);
-            for (int metricIndex = 0; metricIndex < row.Metrics.Length; metricIndex++)
-            {
-                CareerRecordMetricValue metric = row.Metrics[metricIndex];
-                CreateText("Value_" + metricIndex, rowRoot, FormatMetric(metric.Metric, metric.Value),
-                    14, FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(105f, 30f),
-                    new Vector2(-105f + metricIndex * 112f, 0f),
-                    row.IsMyPlayer ? BrightAccentColor : PrimaryTextColor);
-            }
         }
 
         private void RenderMyRecord(
@@ -381,25 +402,15 @@ namespace Baseball.Presentation.Career
             bool isQualified)
         {
             RectTransform panel = CreateContentPanel(
-                "MyRecord", $"내 기록 ({playerName})", new Vector2(520f, 300f), new Vector2(665f, 180f));
-            for (int index = 0; index < metrics.Length; index++)
-            {
-                float y = 88f - index * 31f;
-                CareerRecordMetricValue metric = metrics[index];
-                CreateText("Label_" + index, panel, GetMetricLabel(metric.Metric, true), 15,
-                    FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(185f, 28f),
-                    new Vector2(-145f, y), SecondaryTextColor);
-                CreateText("Value_" + index, panel, FormatMetric(metric.Metric, metric.Value), 16,
-                    FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(115f, 28f),
-                    new Vector2(40f, y), PrimaryTextColor);
-                string rank = metric.HasRank ? $"{metric.Rank}위" : "-";
-                CreateText("Rank_" + index, panel, rank, 15, FontStyle.Bold, TextAnchor.MiddleRight,
-                    new Vector2(85f, 28f), new Vector2(190f, y),
-                    metric.HasRank ? RankColor : MutedTextColor);
-            }
+                "MyRecord", $"내 기록 ({playerName}) · {metrics.Length}개 지표",
+                new Vector2(520f, 300f), new Vector2(665f, 180f));
+            RenderScrollableMetricGrid(panel, metrics);
             if (!isQualified)
             {
-                CreateText("Unqualified", panel, "규정 자격 전 · 기록은 정상 누적 중", 12,
+                string message = _scope == CompetitionScope.Postseason
+                    ? "이번 포스트시즌 출장 기록 없음"
+                    : "규정 자격 전 · 기록은 정상 누적 중";
+                CreateText("Unqualified", panel, message, 12,
                     FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(430f, 24f),
                     new Vector2(0f, -128f), MutedTextColor);
             }
@@ -493,10 +504,10 @@ namespace Baseball.Presentation.Career
                 sortByRecord ? $"역대 {GetMetricLabel(view.PrimaryMetric, true)} 시즌 TOP" : "시즌별 기록",
                 new Vector2(1070f, 510f),
                 new Vector2(-150f, 75f));
-            CreateTableHeader(panel, view.LeaderboardColumns, includeRank: false, showSeasonRank: sortByRecord);
-            int count = Math.Min(10, seasons.Length);
-            for (int index = 0; index < count; index++)
-                RenderSeasonRow(panel, seasons[index], index, sortByRecord);
+            if (seasons.Length == 0)
+                RenderEmptyState(panel, "선택한 경기 범위의 시즌 기록이 아직 없습니다.");
+            else
+                RenderScrollableSeasonTable(panel, view.LeaderboardColumns, seasons, sortByRecord);
 
             RenderCareerTotals(view);
             if (view.TradeHistory.Length > 0 || view.TeamSplits.Length > 0)
@@ -511,55 +522,7 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreateContentPanel(
                 "MovementHistory", "소속 이동 · 팀별 성적",
                 new Vector2(520f, 415f), new Vector2(665f, -185f));
-
-            int rowIndex = 0;
-            int tradeCount = Math.Min(2, view.TradeHistory.Length);
-            for (int index = 0; index < tradeCount; index++)
-            {
-                CareerTradeHistoryView trade = view.TradeHistory[index];
-                float y = 140f - rowIndex * 54f;
-                RectTransform row = CreateImage(
-                    "Trade_" + index,
-                    panel,
-                    new Color(0.025f, 0.15f, 0.27f, 1f),
-                    new Vector2(484f, 49f),
-                    new Vector2(0f, y));
-                CreateText("TradeDate", row, $"{trade.Year} · {trade.GameIndex}경기 후", 12,
-                    FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(150f, 20f),
-                    new Vector2(-155f, 10f), BrightAccentColor);
-                CreateText("TradeTeams", row,
-                    $"{GetTeamShortName(trade.PreviousTeamName)} → {GetTeamShortName(trade.NewTeamName)}", 15,
-                    FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(290f, 23f),
-                    new Vector2(60f, 10f), PrimaryTextColor);
-                CreateText("TradeRole", row,
-                    $"{GetExpectedRoleLabel(trade.PreviousRole)} → {GetExpectedRoleLabel(trade.ProjectedRole)}", 12,
-                    FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(440f, 19f),
-                    new Vector2(0f, -12f), SecondaryTextColor);
-                rowIndex++;
-            }
-
-            int splitCount = Math.Min(5 - rowIndex, view.TeamSplits.Length);
-            for (int index = 0; index < splitCount; index++)
-            {
-                CareerTeamStatisticsSplitView split = view.TeamSplits[index];
-                float y = 140f - rowIndex * 54f;
-                RectTransform row = CreateImage(
-                    "Split_" + split.Year + "_" + split.TeamId,
-                    panel,
-                    rowIndex % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
-                    new Vector2(484f, 49f),
-                    new Vector2(0f, y));
-                CreateText("Season", row, $"{split.Year} {GetTeamShortName(split.TeamName)}", 14,
-                    FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(200f, 23f),
-                    new Vector2(-130f, 10f), split.IsCurrentSeason ? BrightAccentColor : PrimaryTextColor);
-                CreateText("TeamGames", row, $"팀 {split.TeamGames}G", 12,
-                    FontStyle.Normal, TextAnchor.MiddleRight, new Vector2(95f, 20f),
-                    new Vector2(180f, 10f), MutedTextColor);
-                CreateText("Metrics", row, FormatSplitSummary(split.Metrics), 12,
-                    FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(440f, 20f),
-                    new Vector2(0f, -12f), SecondaryTextColor);
-                rowIndex++;
-            }
+            RenderScrollableMovementRows(panel, view);
         }
 
         private static string FormatSplitSummary(CareerRecordMetricValue[] metrics)
@@ -574,38 +537,6 @@ namespace Baseball.Presentation.Career
                 result += $"{GetMetricLabel(metric.Metric, false)} {FormatMetric(metric.Metric, metric.Value)}";
             }
             return result;
-        }
-
-        private static void RenderSeasonRow(
-            Transform panel,
-            CareerRecordSeasonRow row,
-            int index,
-            bool showRank)
-        {
-            float y = 137f - index * 35f;
-            RectTransform rowRoot = CreateImage(
-                "Season_" + row.Year,
-                panel,
-                row.IsCurrent ? new Color(0.025f, 0.18f, 0.34f, 1f) :
-                index % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
-                new Vector2(1034f, 33f),
-                new Vector2(0f, y));
-            CreateText("Year", rowRoot, showRank ? (index + 1).ToString() : row.Year.ToString(), 15,
-                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(60f, 30f),
-                new Vector2(-480f, 0f), row.IsCurrent ? BrightAccentColor : PrimaryTextColor);
-            string team = row.IsCurrent ? row.TeamName + "  (진행 중)" : row.TeamName;
-            CreateText("Team", rowRoot, team, 14, row.IsCurrent ? FontStyle.Bold : FontStyle.Normal,
-                TextAnchor.MiddleLeft, new Vector2(190f, 30f), new Vector2(-350f, 0f),
-                row.IsCurrent ? BrightAccentColor : PrimaryTextColor);
-            CreateText("League", rowRoot, GetLeagueLabel(row.LeagueLevel), 13, FontStyle.Normal,
-                TextAnchor.MiddleCenter, new Vector2(90f, 30f), new Vector2(-220f, 0f), SecondaryTextColor);
-            for (int metricIndex = 0; metricIndex < row.Metrics.Length; metricIndex++)
-            {
-                CareerRecordMetricValue metric = row.Metrics[metricIndex];
-                CreateText("Value_" + metricIndex, rowRoot, FormatMetric(metric.Metric, metric.Value), 14,
-                    FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(105f, 30f),
-                    new Vector2(-105f + metricIndex * 112f, 0f), PrimaryTextColor);
-            }
         }
 
         private void RenderCareerTotals(CareerRecordsView view)
@@ -641,41 +572,11 @@ namespace Baseball.Presentation.Career
             }
             else
             {
-                RenderAwardRows(panel, view.Awards);
+                RenderScrollableAwardRows(panel, view.Awards);
             }
             RenderAwardSummary(view);
             RenderAwardTimeline(view);
             RenderSummary(view.CareerTotals, "수상 당시 커리어 기반 기록", includeRank: false);
-        }
-
-        private static void RenderAwardRows(Transform panel, CareerAwardRecordView[] awards)
-        {
-            CreateText("YearHeader", panel, "연도", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(100f, 32f), new Vector2(-450f, 173f), SecondaryTextColor);
-            CreateText("AwardHeader", panel, "수상", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(430f, 32f), new Vector2(-160f, 173f), SecondaryTextColor);
-            CreateText("LeagueHeader", panel, "리그", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(160f, 32f), new Vector2(240f, 173f), SecondaryTextColor);
-            CreateText("PositionHeader", panel, "포지션", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(150f, 32f), new Vector2(430f, 173f), SecondaryTextColor);
-            int count = Math.Min(10, awards.Length);
-            for (int index = 0; index < count; index++)
-            {
-                CareerAwardRecordView award = awards[index];
-                float y = 137f - index * 35f;
-                RectTransform row = CreateImage("Award_" + index, panel,
-                    index % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
-                    new Vector2(1034f, 33f), new Vector2(0f, y));
-                CreateText("Year", row, award.Year.ToString(), 15, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(100f, 30f), new Vector2(-450f, 0f),
-                    award.IsCurrent ? BrightAccentColor : PrimaryTextColor);
-                CreateText("Award", row, GetAwardLabel(award.Category), 15, FontStyle.Bold,
-                    TextAnchor.MiddleLeft, new Vector2(430f, 30f), new Vector2(-160f, 0f), GoldColor);
-                CreateText("League", row, GetLeagueLabel(award.LeagueLevel), 14, FontStyle.Normal,
-                    TextAnchor.MiddleCenter, new Vector2(160f, 30f), new Vector2(240f, 0f), SecondaryTextColor);
-                CreateText("Position", row, GetPositionLabel(award.Position), 14, FontStyle.Normal,
-                    TextAnchor.MiddleCenter, new Vector2(150f, 30f), new Vector2(430f, 0f), SecondaryTextColor);
-            }
         }
 
         private void RenderAwardSummary(CareerRecordsView view)
@@ -728,7 +629,7 @@ namespace Baseball.Presentation.Career
             }
             else
             {
-                RenderHighlightRows(
+                RenderScrollableHighlightRows(
                     panel,
                     view.Highlights,
                     _manager.CurrentCareer.MyPlayer.PrimaryPosition);
@@ -736,56 +637,6 @@ namespace Baseball.Presentation.Career
             RenderMyRecord(view.MyRecordMetrics, view.PlayerName, view.IsMyPlayerQualified);
             RenderTrend(view);
             RenderSummary(view.MyRecordMetrics, "현재 시즌 기록", includeRank: true);
-        }
-
-        private static void RenderHighlightRows(
-            Transform panel,
-            CareerRecordHighlightView[] highlights,
-            PlayerPosition position)
-        {
-            string[] headers = { "결과", "상대", "역할", "스코어", "AB", "H", "HR", "RBI", "IP", "ER", "SO" };
-            float[] positions = { -485f, -395f, -280f, -150f, -45f, 25f, 95f, 170f, 250f, 325f, 405f };
-            float[] widths = { 60f, 130f, 100f, 100f, 55f, 55f, 55f, 60f, 65f, 55f, 55f };
-            for (int index = 0; index < headers.Length; index++)
-            {
-                CreateText("Header_" + index, panel, headers[index], 13, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(widths[index], 32f),
-                    new Vector2(positions[index], 173f), SecondaryTextColor);
-            }
-            int count = Math.Min(8, highlights.Length);
-            for (int index = 0; index < count; index++)
-            {
-                CareerRecordHighlightView highlight = highlights[index];
-                PlayerGameLogState game = highlight.Game;
-                float y = 132f - index * 43f;
-                RectTransform row = CreateImage("Game_" + game.GameId, panel,
-                    index % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
-                    new Vector2(1034f, 39f), new Vector2(0f, y));
-                string[] values =
-                {
-                    game.TeamRuns == game.OpponentRuns ? "무" : game.DidWin ? "승" : "패",
-                    GetTeamShortName(highlight.OpponentName),
-                    GetRoleLabel(game.Role, position),
-                    $"{game.TeamRuns}:{game.OpponentRuns}",
-                    game.AtBats.ToString(),
-                    game.Hits.ToString(),
-                    game.HomeRuns.ToString(),
-                    game.RunsBattedIn.ToString(),
-                    FormatInnings(game.OutsRecorded),
-                    game.EarnedRuns.ToString(),
-                    game.Strikeouts.ToString()
-                };
-                for (int valueIndex = 0; valueIndex < values.Length; valueIndex++)
-                {
-                    Color color = valueIndex == 0
-                        ? game.TeamRuns == game.OpponentRuns ? GoldColor : game.DidWin ? WinColor : LossColor
-                        : PrimaryTextColor;
-                    CreateText("Value_" + valueIndex, row, values[valueIndex], 14,
-                        valueIndex == 0 ? FontStyle.Bold : FontStyle.Normal,
-                        TextAnchor.MiddleCenter, new Vector2(widths[valueIndex], 34f),
-                        new Vector2(positions[valueIndex], 0f), color);
-                }
-            }
         }
 
         private static int CompareSeasonRows(
@@ -820,6 +671,7 @@ namespace Baseball.Presentation.Career
         {
             return metric is CareerRecordMetric.EarnedRunAverage or
                 CareerRecordMetric.WalksHitsPerInningPitched or
+                CareerRecordMetric.HomeRunsPerNineInnings or
                 CareerRecordMetric.Errors;
         }
 

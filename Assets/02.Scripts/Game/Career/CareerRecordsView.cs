@@ -19,22 +19,36 @@ namespace Baseball.Game.Career
         Baserunning
     }
 
+    public enum CareerRecordViewMode
+    {
+        Basic,
+        Expanded
+    }
+
     public enum CareerRecordMetric
     {
         Games,
+        GamesStarted,
+        PlateAppearances,
         AtBats,
         Runs,
         Hits,
+        Singles,
         Doubles,
         Triples,
         HomeRuns,
         RunsBattedIn,
         Walks,
+        HitByPitches,
         BattingStrikeouts,
+        SacrificeFlies,
+        GroundedIntoDoublePlays,
+        TotalBases,
         BattingAverage,
         OnBasePercentage,
         SluggingPercentage,
         OnBasePlusSlugging,
+        WalkStrikeoutRatio,
         PitchingAppearances,
         PitchingStarts,
         OutsRecorded,
@@ -42,18 +56,30 @@ namespace Baseball.Game.Career
         Losses,
         Saves,
         Holds,
+        BlownSaves,
         HitsAllowed,
+        HomeRunsAllowed,
+        RunsAllowed,
         EarnedRuns,
         WalksAllowed,
+        HitBatters,
         PitchingStrikeouts,
+        BattersFaced,
+        QualityStarts,
         EarnedRunAverage,
         WalksHitsPerInningPitched,
+        StrikeoutWalkRatio,
+        HomeRunsPerNineInnings,
+        DefensiveOuts,
         FieldingOpportunities,
         SuccessfulFieldingPlays,
         Putouts,
         Assists,
         Errors,
         DoublePlays,
+        DifficultPlayAttempts,
+        DifficultPlaysMade,
+        ExpectedOuts,
         EstimatedRunsSaved,
         FieldingSuccessRate,
         StolenBases,
@@ -244,6 +270,8 @@ namespace Baseball.Game.Career
         public LeagueLevel LeagueLevel { get; internal set; }
         public string PlayerName { get; internal set; }
         public CareerRecordCategory Category { get; internal set; }
+        public CareerRecordViewMode ViewMode { get; internal set; }
+        public CompetitionScope Scope { get; internal set; }
         public CareerRecordMetric PrimaryMetric { get; internal set; }
         public CareerRecordMetric[] LeaderboardColumns { get; internal set; }
         public CareerRecordLeaderboardRow[] Leaderboard { get; internal set; }
@@ -257,5 +285,6 @@ namespace Baseball.Game.Career
         public CareerTradeHistoryView[] TradeHistory { get; internal set; }
         public bool IsMyPlayerQualified { get; internal set; }
         public int QualifiedPlayerCount { get; internal set; }
+        public bool HasScopeData { get; internal set; }
     }
 }

@@ -13,7 +13,7 @@ namespace Baseball.Tests.EditMode.Game
             CareerState career = CreateCareer(PlayerPosition.Shortstop, 7_701UL);
             AdvanceRounds(career, 12);
             var service = new CareerRecordsService();
-            int playerCountBefore = career.League.CurrentSeason.LeagueStatistics.RegularSeason.Players.Count;
+            int playerCountBefore = career.CurrentLeague.CurrentSeason.LeagueStatistics.RegularSeason.Players.Count;
 
             CareerRecordsView first = service.Build(career, CareerRecordCategory.Batting);
             CareerRecordsView second = service.Build(career, CareerRecordCategory.Batting);
@@ -23,7 +23,7 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(first.Seasons, Has.Length.EqualTo(1));
             Assert.That(first.Trend, Has.Length.EqualTo(1));
             Assert.That(first.Highlights.Length, Is.InRange(1, 5));
-            Assert.That(career.League.CurrentSeason.LeagueStatistics.RegularSeason.Players.Count,
+            Assert.That(career.CurrentLeague.CurrentSeason.LeagueStatistics.RegularSeason.Players.Count,
                 Is.EqualTo(playerCountBefore));
             Assert.That(second.Leaderboard.Length, Is.EqualTo(first.Leaderboard.Length));
 
@@ -53,6 +53,39 @@ namespace Baseball.Tests.EditMode.Game
                     Is.LessThanOrEqualTo(view.Leaderboard[index].Metrics[0].Value));
             }
             Assert.That(view.MyRecordMetrics[0].Metric, Is.EqualTo(CareerRecordMetric.EarnedRunAverage));
+        }
+
+        [Test]
+        public void Build_전체지표는실제기록원본을확장하고경기범위를분리한다()
+        {
+            CareerState career = CreateCareer(PlayerPosition.Shortstop, 9_903UL);
+            AdvanceRounds(career, 12);
+            var service = new CareerRecordsService();
+
+            CareerRecordsView basic = service.Build(career, CareerRecordCategory.Batting);
+            CareerRecordsView expanded = service.Build(
+                career,
+                CareerRecordCategory.Batting,
+                CareerRecordViewMode.Expanded,
+                CompetitionScope.RegularSeason);
+            CareerRecordsView postseason = service.Build(
+                career,
+                CareerRecordCategory.Batting,
+                CareerRecordViewMode.Expanded,
+                CompetitionScope.Postseason);
+
+            Assert.That(expanded.LeaderboardColumns.Length, Is.GreaterThan(basic.LeaderboardColumns.Length));
+            Assert.That(expanded.LeaderboardColumns, Does.Contain(CareerRecordMetric.PlateAppearances));
+            Assert.That(expanded.LeaderboardColumns, Does.Contain(CareerRecordMetric.HitByPitches));
+            Assert.That(expanded.LeaderboardColumns, Does.Contain(CareerRecordMetric.WalkStrikeoutRatio));
+            Assert.That(expanded.MyRecordMetrics.Length, Is.EqualTo(expanded.LeaderboardColumns.Length));
+            Assert.That(expanded.Scope, Is.EqualTo(CompetitionScope.RegularSeason));
+            Assert.That(expanded.HasScopeData, Is.True);
+
+            Assert.That(postseason.HasScopeData, Is.False);
+            Assert.That(postseason.Leaderboard, Is.Empty);
+            Assert.That(postseason.Seasons, Is.Empty);
+            Assert.That(postseason.CareerTotals, Has.Length.EqualTo(expanded.CareerTotals.Length));
         }
 
         private static CareerState CreateCareer(PlayerPosition position, ulong seed)
