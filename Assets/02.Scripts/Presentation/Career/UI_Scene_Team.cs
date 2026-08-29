@@ -127,7 +127,7 @@ namespace Baseball.Presentation.Career
             RenderCompetition(view);
             RenderClubBriefing(view);
             RenderPolicy(view);
-            CareerTabBar.Create(_content, CareerMainTab.Team);
+            CareerNavigationChrome.Create(_content, CareerMainTab.Team);
         }
 
         private void RenderBackgroundAccents()
@@ -159,7 +159,7 @@ namespace Baseball.Presentation.Career
             CreateTopBarSegment(
                 bar, "MONEY", FormatMoney(dashboard.AvailableMoney), new Vector2(390f, 0f), new Vector2(370f, 64f));
             CreateText("ReadOnly", bar, "구단 정보 · 커리어 이동", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(220f, 44f), new Vector2(810f, 0f), SecondaryTextColor);
+                new Vector2(190f, 44f), new Vector2(700f, 0f), SecondaryTextColor);
         }
 
         private static void CreateTopBarSegment(

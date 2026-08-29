@@ -140,7 +140,7 @@ namespace Baseball.Presentation.Career
                     break;
             }
 
-            CareerTabBar.Create(_content, CareerMainTab.Records);
+            CareerNavigationChrome.Create(_content, CareerMainTab.Records);
         }
 
         private void RenderBackgroundAccents()
@@ -183,8 +183,6 @@ namespace Baseball.Presentation.Career
                 new Vector2(330f, 64f));
             CreateText("Mail", bar, "MAIL", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(74f, 44f), new Vector2(775f, 0f), SecondaryTextColor);
-            CreateText("Settings", bar, "설정", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(74f, 44f), new Vector2(860f, 0f), SecondaryTextColor);
         }
 
         private static void CreateTopBarSegment(

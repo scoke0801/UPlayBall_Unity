@@ -138,7 +138,7 @@ namespace Baseball.Presentation.Career
                 RenderSplit(month);
             RenderTeamSummary(view, month);
             RenderScopeAndLegend(view);
-            CareerTabBar.Create(_content, CareerMainTab.Schedule);
+            CareerNavigationChrome.Create(_content, CareerMainTab.Schedule);
         }
 
         private void EnsureVisibleMonth(CareerScheduleView view)

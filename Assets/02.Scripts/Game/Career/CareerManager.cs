@@ -24,15 +24,15 @@ namespace Baseball.Game.Career
         private CareerSeasonAutoCompletionResult? _lastSeasonAutoCompletion;
 
         public override int InitializationOrder => -20;
-        public bool HasActiveCareer => CurrentCareer != null;
+        public bool HasActiveCareer => CurrentCareer != null && CurrentCareer.Retirement.IsRetired == false;
         public CareerState CurrentCareer { get; private set; }
         public string LastError { get; private set; } = string.Empty;
-        public CareerDashboardView Dashboard => BuildDashboard();
-        public CareerContractView Contract => BuildContractView();
+        public CareerDashboardView Dashboard => HasRetirementRecap ? null : BuildDashboard();
+        public CareerContractView Contract => HasRetirementRecap ? null : BuildContractView();
         public CareerMatchSession ActiveMatch => _activeMatch;
         public bool HasActiveMatch => _activeMatch != null;
-        public LeagueHubView LeagueHub => BuildLeagueHub();
-        public TeamOverviewView TeamOverview => BuildTeamOverview();
+        public LeagueHubView LeagueHub => HasRetirementRecap ? null : BuildLeagueHub();
+        public TeamOverviewView TeamOverview => HasRetirementRecap ? null : BuildTeamOverview();
 
         public event Action CareerChanged;
 
@@ -70,7 +70,10 @@ namespace Baseball.Game.Career
             try
             {
                 _lastGame = _seasonService.AdvanceNextRound();
+                new RetirementRecapService(_balance)
+                    .RecordCompletedGame(CurrentCareer, _lastGame.Value);
                 RefreshSeasonServices();
+                TryCompleteDeclaredRetirement();
                 LastError = string.Empty;
                 CareerChanged?.Invoke();
                 return true;
@@ -98,6 +101,7 @@ namespace Baseball.Game.Career
                 _lastSeasonAutoCompletion = new CareerSeasonAutoCompletionService(CurrentCareer, _balance)
                     .CompleteCurrentPhase();
                 RefreshSeasonServices();
+                TryCompleteDeclaredRetirement();
                 _lastGame = null;
                 LastError = string.Empty;
                 CareerChanged?.Invoke();
@@ -502,6 +506,14 @@ namespace Baseball.Game.Career
                 return Fail("서명할 계약 오퍼가 없습니다.");
             try
             {
+                ContractOffer offer = _seasonTransitionService.SelectedOffer ??
+                                      throw new InvalidOperationException("먼저 계약할 구단을 선택해 주세요.");
+                new RetirementRecapService(_balance)
+                    .RecordContractChoice(
+                        CurrentCareer,
+                        offer,
+                        isAccepted: true,
+                        offer.Team.TeamId == CurrentCareer.MyPlayer.CurrentTeamId);
                 _seasonTransitionService.SignSelectedOffer();
                 CompleteSeasonTransition();
                 return true;
@@ -521,6 +533,16 @@ namespace Baseball.Game.Career
                 return Fail("먼저 기존 구단의 우선 협상 제안을 확인해 주세요.");
             try
             {
+                ContractOffer? currentTeamOffer = _seasonTransitionService.CurrentTeamOffer;
+                if (!holdCurrentTeamOffer && currentTeamOffer.HasValue)
+                {
+                    new RetirementRecapService(_balance)
+                        .RecordContractChoice(
+                            CurrentCareer,
+                            currentTeamOffer.Value,
+                            isAccepted: false,
+                            isCurrentTeamOffer: true);
+                }
                 _seasonTransitionService.OpenMarket(holdCurrentTeamOffer);
                 LastError = string.Empty;
                 CareerChanged?.Invoke();
@@ -544,6 +566,8 @@ namespace Baseball.Game.Career
             if (previous == preference)
                 return true;
             CurrentCareer.TradeState.SetPreference(preference);
+            new RetirementRecapService(_balance)
+                .RecordTradePreference(CurrentCareer, preference);
             int evaluationDelta = GetTradePreferenceTrustModifier(preference) -
                                   GetTradePreferenceTrustModifier(previous);
             if (evaluationDelta != 0)
@@ -578,6 +602,8 @@ namespace Baseball.Game.Career
                 ContractOffer offer = renewal.BuildExtensionOffer() ??
                                       throw new InvalidOperationException("수락할 수 있는 연장 계약이 없습니다.");
                 TeamState team = GetTeam(CurrentCareer.MyPlayer.CurrentTeamId);
+                new RetirementRecapService(_balance)
+                    .RecordContractChoice(CurrentCareer, offer, isAccepted: true, isCurrentTeamOffer: true);
                 renewal.AcceptExtension();
                 PublishSignedExtension(team, offer);
                 LastError = string.Empty;
@@ -597,7 +623,12 @@ namespace Baseball.Game.Career
             try
             {
                 TeamState team = GetTeam(CurrentCareer.MyPlayer.CurrentTeamId);
-                new ContractRenewalService(CurrentCareer, _balance).DeclineExtension();
+                var renewal = new ContractRenewalService(CurrentCareer, _balance);
+                ContractOffer offer = renewal.BuildExtensionOffer() ??
+                                      throw new InvalidOperationException("거절할 수 있는 연장 계약이 없습니다.");
+                new RetirementRecapService(_balance)
+                    .RecordContractChoice(CurrentCareer, offer, isAccepted: false, isCurrentTeamOffer: true);
+                renewal.DeclineExtension();
                 PublishDeclinedExtension(team);
                 LastError = string.Empty;
                 CareerChanged?.Invoke();
@@ -612,6 +643,7 @@ namespace Baseball.Game.Career
         protected override void OnShutdown()
         {
             CareerChanged = null;
+            RetirementRecapReady = null;
             ResetCareerRuntime();
         }
 
@@ -694,7 +726,10 @@ namespace Baseball.Game.Career
                         _lastGame.Value.ConditionAfter,
                         _lastGame.Value.ManagerEvaluationAfter,
                         narrative);
+                    new RetirementRecapService(_balance)
+                        .RecordCompletedGame(CurrentCareer, _activeMatch);
                     RefreshSeasonServices();
+                    TryCompleteDeclaredRetirement();
                 }
 
                 LastError = string.Empty;
@@ -709,6 +744,12 @@ namespace Baseball.Game.Career
 
         private void RefreshSeasonServices()
         {
+            if (CurrentCareer?.Retirement?.IsRetired == true)
+            {
+                _seasonService = null;
+                _postseasonService = null;
+                return;
+            }
             SeasonPhase phase = CurrentCareer.CurrentLeague.CurrentSeason.Phase;
             if (phase == SeasonPhase.RegularSeason)
             {
@@ -726,7 +767,7 @@ namespace Baseball.Game.Career
 
         private CareerDashboardView BuildDashboard()
         {
-            if (CurrentCareer == null || _balance == null)
+            if (CurrentCareer == null || _balance == null || CurrentCareer.Retirement.IsRetired)
                 return null;
 
             PlayerState player = CurrentCareer.MyPlayer;

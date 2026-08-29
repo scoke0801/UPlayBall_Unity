@@ -37,8 +37,6 @@ namespace Baseball.Presentation.Career
                 new Vector2(590f, 0f), new Vector2(330f, 64f));
             CreateText("Mail", bar, "MAIL", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(70f, 44f), new Vector2(805f, 0f), SecondaryTextColor);
-            CreateText("Settings", bar, "설정", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(70f, 44f), new Vector2(880f, 0f), SecondaryTextColor);
         }
 
         private void RenderScreenHeader()

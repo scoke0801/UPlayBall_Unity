@@ -101,7 +101,7 @@ namespace Baseball.Presentation.Career
             RenderTeamMetrics(view);
             RenderLeagueFocus(view);
             RenderSchedule(view);
-            CareerTabBar.Create(_content, CareerMainTab.League);
+            CareerNavigationChrome.Create(_content, CareerMainTab.League);
         }
 
         private void RenderBackgroundAccents()
@@ -136,10 +136,10 @@ namespace Baseball.Presentation.Career
                 bar, "SEASON PROGRESS",
                 $"{view.GamesPlayedPerTeam}/{view.RegularSeasonGamesPerTeam} 경기",
                 new Vector2(395f, 0f), new Vector2(320f, 64f));
-            CreateTeamBadge(bar, view.MyTeamName, GetTeamColor(view, view.MyTeamId), new Vector2(780f, 0f), 52f);
+            CreateTeamBadge(bar, view.MyTeamName, GetTeamColor(view, view.MyTeamId), new Vector2(680f, 0f), 52f);
             CreateText(
                 "MyTeam", bar, view.MyTeamName, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(145f, 42f), new Vector2(885f, 0f), GoldColor);
+                new Vector2(120f, 42f), new Vector2(770f, 0f), GoldColor);
         }
 
         private void RenderStandings(LeagueHubView view)

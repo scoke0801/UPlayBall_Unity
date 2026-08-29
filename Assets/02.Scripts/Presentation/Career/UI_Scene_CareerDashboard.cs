@@ -269,12 +269,6 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "Mail", bar, "MAIL", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(80f, 44f), new Vector2(755f, 0f), SecondaryTextColor);
-            Button settings = CreateButton(
-                "Settings", bar, "설정", new Vector2(86f, 44f), new Vector2(855f, 0f),
-                new Color(0.025f, 0.08f, 0.13f, 1f), out Text settingsLabel);
-            settingsLabel.fontSize = 14;
-            settingsLabel.color = SecondaryTextColor;
-            settings.onClick.AddListener(() => UI_Popup_CareerSettings.ShowRuntime());
         }
 
         private static void CreateTopBarSegment(
@@ -1114,7 +1108,7 @@ namespace Baseball.Presentation.Career
 
         private void RenderTabs()
         {
-            CareerTabBar.Create(_content, CareerMainTab.Home);
+            CareerNavigationChrome.Create(_content, CareerMainTab.Home);
         }
 
         private RectTransform CreatePanel(

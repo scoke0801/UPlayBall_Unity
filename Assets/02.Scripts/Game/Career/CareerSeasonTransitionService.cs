@@ -209,6 +209,8 @@ namespace Baseball.Game.Career
             completedSeason.CompleteArchive();
 
             TeamState previousPlayerTeam = GetTeam(_career.CurrentLeague.Teams, _career.MyPlayer.CurrentTeamId);
+            new RetirementRecapService(_balance)
+                .ArchiveCompletedSeason(_career, previousPlayerTeam);
             var archivedRecord = new CareerSeasonHistoryRecord(
                 completedSeason.Year,
                 completedSeason.LeagueLevel,

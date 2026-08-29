@@ -217,6 +217,53 @@ namespace Baseball.Game.Career
                 rosterPlayerIds);
         }
 
+        /// <summary>은퇴·방출된 선수를 경쟁자 스냅샷과 영구 로스터 ID에서 함께 제거한다.</summary>
+        public TeamState WithoutRosteredPlayer(int playerId)
+        {
+            if (playerId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(playerId));
+
+            int competitorCount = 0;
+            for (int index = 0; index < _rosterCompetitors.Length; index++)
+            {
+                if (_rosterCompetitors[index].PlayerId != playerId)
+                    competitorCount++;
+            }
+            int rosterCount = 0;
+            for (int index = 0; index < _rosterPlayerIds.Length; index++)
+            {
+                if (_rosterPlayerIds[index] != playerId)
+                    rosterCount++;
+            }
+            if (rosterCount == _rosterPlayerIds.Length)
+                throw new InvalidOperationException($"PlayerId {playerId}가 구단 로스터에 없습니다.");
+
+            var competitors = new RosterCompetitorState[competitorCount];
+            var rosterPlayerIds = new int[rosterCount];
+            int competitorIndex = 0;
+            int rosterIndex = 0;
+            for (int index = 0; index < _rosterCompetitors.Length; index++)
+            {
+                if (_rosterCompetitors[index].PlayerId != playerId)
+                    competitors[competitorIndex++] = _rosterCompetitors[index];
+            }
+            for (int index = 0; index < _rosterPlayerIds.Length; index++)
+            {
+                if (_rosterPlayerIds[index] != playerId)
+                    rosterPlayerIds[rosterIndex++] = _rosterPlayerIds[index];
+            }
+            return new TeamState(
+                SaveVersion,
+                TeamId,
+                LeagueId,
+                Name,
+                Archetype,
+                PrimaryColor,
+                _positionNeedRatings,
+                competitors,
+                rosterPlayerIds);
+        }
+
         /// <summary>
         /// v7 단일 리그 구단에 마이그레이션으로 영구 리그 ID를 부여한다.
         /// </summary>

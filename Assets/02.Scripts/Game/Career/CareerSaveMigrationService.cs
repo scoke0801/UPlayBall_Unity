@@ -85,6 +85,19 @@ namespace Baseball.Game.Career
             career.UpgradeSaveVersion(11);
         }
 
+        /// <summary>v11의 실제 기록은 보존하고 이후 선택만 누적하는 은퇴 회고 상태를 v12로 승격한다.</summary>
+        public void MigrateV11ToV12(CareerState career)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (career.SaveVersion != 11)
+                throw new InvalidOperationException("SaveVersion 11 커리어만 v12로 마이그레이션할 수 있습니다.");
+            if (career.Retirement == null)
+                throw new InvalidOperationException("v12 승격에 필요한 은퇴 회고 상태를 만들 수 없습니다.");
+
+            career.Retirement.UpgradeSaveVersion(12);
+            career.UpgradeSaveVersion(12);
+        }
+
         private static bool CanCaptureSeasonReview(SeasonState season)
         {
             return season?.TeamRecords != null && season.Phase is

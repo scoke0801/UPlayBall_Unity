@@ -100,6 +100,30 @@ namespace Baseball.Game.Career
         public MatchNarrativeBaseline NarrativeBaseline { get; }
         public MatchNarrativeSnapshot NarrativeSnapshot { get; private set; }
 
+        /// <summary>이 경기에서 플레이어가 실제 제출한 타격 방침 횟수를 반환한다.</summary>
+        public int GetBattingApproachCount(BattingApproach approach)
+        {
+            int count = 0;
+            for (int index = 0; index < _decisions.Count; index++)
+            {
+                if (_decisions[index] == approach)
+                    count++;
+            }
+            return count;
+        }
+
+        /// <summary>이 경기에서 플레이어가 실제 제출한 투구 방침 횟수를 반환한다.</summary>
+        public int GetPitchingApproachCount(PitchingApproach approach)
+        {
+            int count = 0;
+            for (int index = 0; index < _pitchingDecisions.Count; index++)
+            {
+                if (_pitchingDecisions[index] == approach)
+                    count++;
+            }
+            return count;
+        }
+
         /// <summary>
         /// 준비 화면에서 고른 방식으로 경기를 시작한다.
         /// </summary>

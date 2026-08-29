@@ -154,6 +154,16 @@ namespace Baseball.Game.Career
             _teams[secondIndex] = second;
         }
 
+        /// <summary>은퇴·방출처럼 한 구단만 바뀌는 월드 커밋을 TeamId 위치에 반영한다.</summary>
+        public void ReplaceTeam(TeamState team)
+        {
+            if (team == null)
+                throw new System.ArgumentNullException(nameof(team));
+            if (team.LeagueId != LeagueId)
+                throw new System.InvalidOperationException("다른 리그의 구단으로 현재 리그를 바꿀 수 없습니다.");
+            _teams[FindTeamIndex(team.TeamId)] = team;
+        }
+
         private int FindTeamIndex(int teamId)
         {
             for (int index = 0; index < _teams.Length; index++)

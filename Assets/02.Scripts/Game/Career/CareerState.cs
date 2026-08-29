@@ -55,6 +55,7 @@ namespace Baseball.Game.Career
             TradeState = new PlayerTradeState();
             News = new CareerNewsState(saveVersion);
             Narrative = new CareerNarrativeState(saveVersion);
+            Retirement = new CareerRetirementState(saveVersion);
             CreationProfile = creationProfile ?? new CareerCreationProfile(
                 GameMode.PlayerCareer,
                 myPlayer.PrimaryPosition is Baseball.Core.Players.PlayerPosition.StartingPitcher or
@@ -76,12 +77,16 @@ namespace Baseball.Game.Career
         public int MyPlayerId => MyPlayer.PlayerId;
         public PlayerState MyPlayer { get; }
         public WorldState World { get; private set; }
-        public LeagueState CurrentLeague => World.GetLeague(MyPlayer.CurrentLeagueId);
+        public LeagueState CurrentLeague => World.GetLeague(
+            MyPlayer.CurrentLeagueId.IsAssigned
+                ? MyPlayer.CurrentLeagueId
+                : Retirement.LastLeagueId);
         public PlayerContractState CurrentContract { get; private set; }
         public CareerEconomyState Economy { get; }
         public PlayerTradeState TradeState { get; }
         public CareerNewsState News { get; }
         public CareerNarrativeState Narrative { get; }
+        public CareerRetirementState Retirement { get; }
         public CareerCreationProfile CreationProfile { get; }
         public CareerGameSettings GameSettings => CreationProfile.GameSettings;
         public OffseasonState CurrentOffseason { get; private set; }

@@ -54,9 +54,6 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "Mail", bar, "MAIL", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(80f, 44f), new Vector2(760f, 0f), SecondaryTextColor);
-            CreateText(
-                "Settings", bar, "설정", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(80f, 44f), new Vector2(855f, 0f), SecondaryTextColor);
         }
 
         private void RenderPlayerPanel(CareerDashboardView dashboard, CareerGrowthView growth)

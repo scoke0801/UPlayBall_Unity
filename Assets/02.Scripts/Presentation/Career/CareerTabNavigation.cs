@@ -24,6 +24,72 @@ namespace Baseball.Presentation.Career
         CareerMainTab MainTab { get; }
     }
 
+    /// <summary>모든 커리어 메뉴에 하단 탭과 공통 설정 진입점을 같은 위치로 배치한다.</summary>
+    public static class CareerNavigationChrome
+    {
+        /// <summary>현재 메뉴 탭바와 전역 설정 버튼을 함께 생성한다.</summary>
+        public static void Create(Transform parent, CareerMainTab activeTab)
+        {
+            CareerTabBar.Create(parent, activeTab);
+            CreateSettingsButton(parent);
+        }
+
+        private static void CreateSettingsButton(Transform parent)
+        {
+            var buttonObject = new GameObject("CareerSettings", typeof(RectTransform), typeof(Image), typeof(Button));
+            RectTransform rect = buttonObject.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(100f, 44f);
+            rect.anchoredPosition = new Vector2(890f, 500f);
+
+            Image image = buttonObject.GetComponent<Image>();
+            image.color = new Color(0.025f, 0.08f, 0.13f, 1f);
+            var button = buttonObject.GetComponent<Button>();
+            button.targetGraphic = image;
+            ColorBlock colors = button.colors;
+            colors.highlightedColor = new Color(0.055f, 0.18f, 0.28f, 1f);
+            colors.pressedColor = new Color(0.016f, 0.052f, 0.085f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            button.colors = colors;
+            button.onClick.AddListener(() => UI_Popup_CareerSettings.ShowRuntime());
+
+            Text label = CreateText(
+                "Label", rect, "설정", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(90f, 36f), Vector2.zero, new Color(0.72f, 0.80f, 0.88f, 1f));
+            label.raycastTarget = false;
+        }
+
+        private static Text CreateText(
+            string name,
+            Transform parent,
+            string value,
+            int fontSize,
+            FontStyle style,
+            TextAnchor alignment,
+            Vector2 size,
+            Vector2 position,
+            Color color)
+        {
+            var textObject = new GameObject(name, typeof(RectTransform), typeof(Text));
+            RectTransform rect = textObject.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            rect.anchoredPosition = position;
+
+            Text text = textObject.GetComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.text = value;
+            text.fontSize = fontSize;
+            text.fontStyle = style;
+            text.alignment = alignment;
+            text.color = color;
+            text.raycastTarget = false;
+            return text;
+        }
+    }
+
     /// <summary>등록된 커리어 화면을 찾아 현재 탭만 보이게 전환한다.</summary>
     public static class CareerTabNavigation
     {

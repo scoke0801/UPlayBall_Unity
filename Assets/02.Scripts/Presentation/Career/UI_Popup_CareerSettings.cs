@@ -15,7 +15,7 @@ namespace Baseball.Presentation.Career
     public sealed class UI_Popup_CareerSettings : UIPopupBase
     {
         private static readonly int[] GameSpeeds = { 1, 2, 3, 5 };
-        private static readonly Color BackdropColor = new(0.002f, 0.008f, 0.016f, 0.84f);
+        private static readonly Color BackdropColor = new(0.002f, 0.008f, 0.016f, 1f);
         private static readonly Color PanelColor = new(0.018f, 0.046f, 0.075f, 1f);
         private static readonly Color CardColor = new(0.035f, 0.075f, 0.11f, 1f);
         private static readonly Color SelectedColor = new(0.025f, 0.32f, 0.52f, 1f);
@@ -32,6 +32,9 @@ namespace Baseball.Presentation.Career
         private bool _showTitleConfirmation;
         private bool _showInstantResultConfirmation;
         private MatchProgressMode _pendingProgressMode;
+
+        /// <summary>설정 Popup이 경기 입력과 자동 중계를 차단하고 있는지 나타낸다.</summary>
+        public static bool IsOpen { get; private set; }
 
         /// <summary>현재 UI Root에 설정 Popup을 생성하거나 기존 인스턴스를 표시한다.</summary>
         public static UI_Popup_CareerSettings ShowRuntime()
@@ -59,14 +62,27 @@ namespace Baseball.Presentation.Career
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
+            Stretch(_content);
         }
 
         protected override void OnShow()
         {
+            IsOpen = true;
             _selectedTab = 0;
             _showTitleConfirmation = false;
             _showInstantResultConfirmation = false;
             Render();
+        }
+
+        protected override void OnHide()
+        {
+            IsOpen = false;
+        }
+
+        protected override void OnDestroy()
+        {
+            IsOpen = false;
+            base.OnDestroy();
         }
 
         private void Render()
@@ -74,6 +90,7 @@ namespace Baseball.Presentation.Career
             ClearChildren(_content);
             RectTransform backdrop = CreateImage(
                 "Backdrop", _content, BackdropColor, new Vector2(1920f, 1080f), Vector2.zero);
+            Stretch(backdrop);
             backdrop.GetComponent<Image>().raycastTarget = true;
             RectTransform panel = CreateImage(
                 "SettingsPanel", _content, PanelColor, new Vector2(1260f, 900f), Vector2.zero);
@@ -123,7 +140,7 @@ namespace Baseball.Presentation.Career
             CareerGameSettings settings = _careerManager.CurrentCareer.GameSettings;
             bool isPitcher = _careerManager.CurrentCareer.MyPlayer.PrimaryPosition is
                 PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
-            CreateHeading(body, "경기 진행 방식", new Vector2(-320f, 300f));
+            CreateHeading(body, "경기 진행 방식", 300f);
             MatchProgressMode[] modes =
             {
                 MatchProgressMode.FullGameWatch,
@@ -145,7 +162,7 @@ namespace Baseball.Presentation.Career
                 button.onClick.AddListener(() => SelectProgressMode(mode));
             }
 
-            CreateHeading(body, "경기 속도", new Vector2(-350f, 170f));
+            CreateHeading(body, "경기 속도", 170f);
             for (int index = 0; index < GameSpeeds.Length; index++)
             {
                 int speed = GameSpeeds[index];
@@ -153,8 +170,8 @@ namespace Baseball.Presentation.Career
                     "Speed_" + speed,
                     body,
                     speed + "×",
-                    new Vector2(110f, 48f),
-                    new Vector2(-310f + index * 122f, 120f),
+                    new Vector2(96f, 48f),
+                    new Vector2(-330f + index * 108f, 120f),
                     settings.GameSpeed == speed ? SelectedColor : CardColor,
                     out _);
                 button.interactable = settings.MatchProgressMode != MatchProgressMode.InstantResult;
@@ -165,12 +182,12 @@ namespace Baseball.Presentation.Career
                 settings.AutoSlowOnPlayerEvent
                     ? "ON  내 선수 장면에서는 1×"
                     : "OFF  내 선수 장면 자동 감속",
-                new Vector2(360f, 48f), new Vector2(185f, 120f),
+                new Vector2(330f, 48f), new Vector2(230f, 120f),
                 settings.AutoSlowOnPlayerEvent ? SelectedColor : CardColor, out _);
             autoSlow.interactable = settings.MatchProgressMode != MatchProgressMode.InstantResult;
             autoSlow.onClick.AddListener(() => ApplySettings(autoSlow: !settings.AutoSlowOnPlayerEvent));
 
-            CreateHeading(body, isPitcher ? "투구 방침" : "타격 방침", new Vector2(-350f, 40f));
+            CreateHeading(body, isPitcher ? "투구 방침" : "타격 방침", 40f);
             if (isPitcher)
                 RenderPitchingApproaches(body, settings);
             else
@@ -224,14 +241,21 @@ namespace Baseball.Presentation.Career
 
         private void RenderExitSettings(RectTransform body)
         {
-            CreateText("Title", body, "현재 커리어 종료", 28, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(600f, 50f), new Vector2(0f, 190f), PrimaryTextColor);
+            CreateText("Title", body, "선수 커리어 마무리", 28, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(600f, 50f), new Vector2(0f, 235f), PrimaryTextColor);
+            CreateText("RetirementGuide", body,
+                "마지막 시즌을 선언하거나 시즌 결산에서 은퇴를 확정하면\n한 선수의 기록 회고와 커리어 기록관이 생성됩니다.",
+                18, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(720f, 80f), new Vector2(0f, 155f), SecondaryTextColor);
+            Button retirement = CreateButton("Retirement", body, "은퇴 계획 열기",
+                new Vector2(360f, 62f), new Vector2(0f, 70f), SelectedColor, out _);
+            retirement.onClick.AddListener(() => UI_Popup_RetirementDecision.ShowRuntime());
             CreateText("Guide", body,
                 "현재 버전은 저장을 지원하지 않습니다.\n타이틀 화면으로 돌아가면 이번 커리어의 모든 진행이 사라집니다.",
                 18, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(720f, 90f), new Vector2(0f, 90f), SecondaryTextColor);
+                new Vector2(720f, 70f), new Vector2(0f, -35f), SecondaryTextColor);
             Button title = CreateButton("ReturnToTitle", body, "타이틀 화면으로",
-                new Vector2(360f, 66f), new Vector2(0f, -55f), DangerColor, out _);
+                new Vector2(360f, 62f), new Vector2(0f, -125f), DangerColor, out _);
             title.onClick.AddListener(() =>
             {
                 _showTitleConfirmation = true;
@@ -372,10 +396,10 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static void CreateHeading(Transform parent, string text, Vector2 position)
+        private static void CreateHeading(Transform parent, string text, float y)
         {
             CreateText("Heading_" + text, parent, text, 17, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(760f, 30f), position, AccentColor);
+                new Vector2(800f, 30f), new Vector2(0f, y), AccentColor);
         }
 
         private static RectTransform CreateModal(Transform parent, string name)

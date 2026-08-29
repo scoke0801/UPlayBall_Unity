@@ -364,6 +364,7 @@ namespace Baseball.Game.Career
                 activityId,
                 new Pcg32Random(activity.RandomSeed));
             _career.MyPlayer.SynchronizeFromGrowthState();
+            new RetirementRecapService(_balance).RecordGrowthResult(_career, result);
             return result;
         }
 

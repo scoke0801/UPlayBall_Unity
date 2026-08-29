@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 
 namespace Baseball.Game.Career
 {
@@ -102,6 +103,51 @@ namespace Baseball.Game.Career
             league.ReplaceTeams(first, second);
             ReplaceTeamInRegistry(first);
             ReplaceTeamInRegistry(second);
+            ValidateInvariants();
+        }
+
+        /// <summary>현역 선수의 마지막 소속·계약을 정리하고 월드 역사에 은퇴를 한 번 기록한다.</summary>
+        public void RetirePlayer(
+            int playerId,
+            int seasonId,
+            ExpectedRole previousRole,
+            string reason)
+        {
+            PlayerState player = GetPlayer(playerId);
+            if (player.CareerStatus != PlayerCareerStatus.ActiveRoster)
+                throw new InvalidOperationException("현역 로스터 선수만 이 경로로 은퇴할 수 있습니다.");
+            if (seasonId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(seasonId));
+
+            int previousTeamId = player.CurrentTeamId;
+            LeagueId previousLeagueId = player.CurrentLeagueId;
+            TeamState team = GetTeam(previousTeamId).WithoutRosteredPlayer(playerId);
+            LeagueState league = GetLeague(previousLeagueId);
+            league.ReplaceTeam(team);
+            ReplaceTeamInRegistry(team);
+            DeactivateActiveContract(player);
+            player.Retire();
+
+            MovementLedger.Record(new PlayerMovementRecord(
+                Calendar.CurrentDate,
+                seasonId,
+                playerId,
+                PlayerMovementType.Retirement,
+                previousLeagueId,
+                previousTeamId,
+                LeagueId.Unassigned,
+                0,
+                previousRole,
+                previousRole,
+                previousRole,
+                0,
+                reason));
+            DomainEvents.Append(new WorldDomainEvent(
+                $"retirement:{seasonId}:{playerId}",
+                "player_retirement",
+                Calendar.CurrentDate,
+                playerId,
+                previousTeamId));
             ValidateInvariants();
         }
 

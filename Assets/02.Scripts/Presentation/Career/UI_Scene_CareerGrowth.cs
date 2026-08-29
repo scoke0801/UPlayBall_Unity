@@ -187,7 +187,7 @@ namespace Baseball.Presentation.Career
                     RenderGrowthBoardWorkspace(dashboard, growth);
                 else
                     RenderOffseasonActionWorkspace(dashboard, growth);
-                CareerTabBar.Create(_content, CareerMainTab.Growth);
+            CareerNavigationChrome.Create(_content, CareerMainTab.Growth);
                 if (_isGachaOpen)
                     RenderGachaOverlay(dashboard, growth);
             }

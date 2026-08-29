@@ -108,7 +108,7 @@ namespace Baseball.Presentation.Career
                 RenderOfferMode(view);
             else
                 RenderContractOverview(view);
-            CareerTabBar.Create(_content, CareerMainTab.Contract);
+            CareerNavigationChrome.Create(_content, CareerMainTab.Contract);
         }
 
         private void RenderBackgroundAccents()
@@ -140,9 +140,6 @@ namespace Baseball.Presentation.Career
             CreateTopBarSegment(
                 bar, "MONEY", FormatMoney(view.AvailableMoney),
                 new Vector2(390f, 0f), new Vector2(370f, 64f), GoldColor);
-            CreateText(
-                "Settings", bar, "설정", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(100f, 44f), new Vector2(835f, 0f), SecondaryTextColor);
         }
 
         private static void CreateTopBarSegment(

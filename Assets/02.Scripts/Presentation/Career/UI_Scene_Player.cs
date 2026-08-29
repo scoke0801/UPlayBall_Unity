@@ -105,7 +105,7 @@ namespace Baseball.Presentation.Career
             RenderPlayerCard(view);
             RenderSubTabs();
             RenderSelectedTab(view);
-            CareerTabBar.Create(_content, CareerMainTab.Player);
+            CareerNavigationChrome.Create(_content, CareerMainTab.Player);
         }
 
         private void RenderBackgroundAccents()
@@ -144,7 +144,7 @@ namespace Baseball.Presentation.Career
             CreateTopBarSegment(bar, "MONEY", FormatMoney(view.AvailableMoney),
                 new Vector2(405f, 0f), new Vector2(360f, 64f));
             CreateText("Status", bar, GetSeasonPhaseLabel(view.SeasonPhase), 15, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(190f, 42f), new Vector2(820f, 0f), RoleColor);
+                TextAnchor.MiddleCenter, new Vector2(170f, 42f), new Vector2(720f, 0f), RoleColor);
         }
 
         private static void CreateTopBarSegment(
