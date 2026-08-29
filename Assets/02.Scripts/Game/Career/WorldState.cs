@@ -21,14 +21,19 @@ namespace Baseball.Game.Career
             IReadOnlyList<LeagueState> leagues,
             IReadOnlyList<PlayerState> players,
             IReadOnlyList<PlayerContractState> contracts,
-            int historyStartYear)
+            int historyStartYear,
+            PlayerMovementLedger movementLedger = null,
+            TeamLeagueMovementLedger teamMovementLedger = null,
+            WorldRecordState records = null,
+            DomainEventJournal domainEvents = null)
         {
             WorldSeed = worldSeed;
             Calendar = calendar ?? throw new ArgumentNullException(nameof(calendar));
             HistoryStartYear = historyStartYear;
-            MovementLedger = new PlayerMovementLedger();
-            Records = new WorldRecordState(historyStartYear);
-            DomainEvents = new DomainEventJournal();
+            MovementLedger = movementLedger ?? new PlayerMovementLedger();
+            TeamMovementLedger = teamMovementLedger ?? new TeamLeagueMovementLedger();
+            Records = records ?? new WorldRecordState(historyStartYear);
+            DomainEvents = domainEvents ?? new DomainEventJournal();
             _leagues = CopyAndSortLeagues(leagues);
             _players = CopyAndSortPlayers(players);
             _contracts = CopyAndSortContracts(contracts);
@@ -40,6 +45,7 @@ namespace Baseball.Game.Career
         public GlobalCalendarState Calendar { get; }
         public int HistoryStartYear { get; }
         public PlayerMovementLedger MovementLedger { get; }
+        public TeamLeagueMovementLedger TeamMovementLedger { get; }
         public WorldRecordState Records { get; }
         public DomainEventJournal DomainEvents { get; }
         public IReadOnlyList<LeagueState> Leagues => _leagues;
@@ -151,13 +157,17 @@ namespace Baseball.Game.Career
             ValidateInvariants();
         }
 
-        public void RegisterContract(PlayerContractState contract, int playerId)
+        public void RegisterContract(
+            PlayerContractState contract,
+            int playerId,
+            LeagueId targetLeagueId = default)
         {
             if (contract == null)
                 throw new ArgumentNullException(nameof(contract));
             TeamState team = GetTeam(contract.TeamId);
+            LeagueId contractLeagueId = targetLeagueId.IsAssigned ? targetLeagueId : team.LeagueId;
             if (contract.ContractId <= 0)
-                contract.AttachIdentity(GetNextContractId(), playerId, team.LeagueId);
+                contract.AttachIdentity(GetNextContractId(), playerId, contractLeagueId);
             if (FindContractIndex(contract.ContractId) >= 0)
                 throw new InvalidOperationException($"ContractId {contract.ContractId}가 중복되었습니다.");
             for (int index = 0; index < _contracts.Count; index++)
@@ -167,7 +177,7 @@ namespace Baseball.Game.Career
             }
             _contracts.Add(contract);
             _contracts.Sort((left, right) => left.ContractId.CompareTo(right.ContractId));
-            GetPlayer(playerId).ReplaceActiveContract(contract.ContractId, team.LeagueId);
+            GetPlayer(playerId).ReplaceActiveContract(contract.ContractId, contractLeagueId);
         }
 
         /// <summary>트레이드에서 계약 조건은 유지하고 활성 계약의 승계 구단만 바꾼다.</summary>
@@ -187,7 +197,7 @@ namespace Baseball.Game.Career
             return null;
         }
 
-        /// <summary>세 리그의 다음 시즌 로스터와 AI 계약·은퇴를 중간 검증 없이 한 월드 경계에서 커밋한다.</summary>
+        /// <summary>모든 리그의 다음 시즌 로스터·구단 승강·AI 계약을 한 월드 경계에서 커밋한다.</summary>
         public void CommitOffseasonMarket(
             IReadOnlyList<LeagueState> nextLeagues,
             WorldOffseasonMarketPlan marketPlan,
@@ -219,26 +229,65 @@ namespace Baseball.Game.Career
             for (int index = 0; index < marketPlan.Decisions.Count; index++)
             {
                 AiMarketDecision decision = marketPlan.Decisions[index];
+                if (decision.PlayerId == myPlayerId)
+                    continue;
                 PlayerState player = GetPlayer(decision.PlayerId);
-                DeactivateActiveContract(player);
+                if (!decision.PreservesContract)
+                    DeactivateActiveContract(player);
                 if (decision.IsRetirement)
                     player.Retire();
                 else
+                {
                     player.TransferTo(decision.TargetTeamId, decision.TargetLeagueId);
+                    if (decision.PreservesContract)
+                        RelocateActiveContract(player, decision.TargetTeamId, decision.TargetLeagueId);
+                }
             }
 
             _leagues.Clear();
             for (int index = 0; index < nextLeagues.Count; index++)
                 _leagues.Add(nextLeagues[index] ?? throw new ArgumentException("null 리그가 있습니다.", nameof(nextLeagues)));
-            _leagues.Sort((left, right) => left.LeagueId.CompareTo(right.LeagueId));
+            _leagues.Sort(CompareLeagues);
             _teams.Clear();
             _teams.AddRange(BuildTeamRegistry(_leagues));
+
+            for (int index = 0; index < marketPlan.LeagueMovementPlan.Records.Count; index++)
+            {
+                TeamLeagueMovementRecord movement = marketPlan.LeagueMovementPlan.Records[index];
+                TeamMovementLedger.Record(movement);
+                DomainEvents.Append(new WorldDomainEvent(
+                    $"team-league-result:{movement.Year}:{movement.TeamId}:{(int)movement.MovementType}",
+                    movement.MovementType == TeamLeagueMovementType.Promotion
+                        ? "PromotionClinched"
+                        : "RelegationConfirmed",
+                    Calendar.CurrentDate,
+                    movement.TeamId,
+                    (int)movement.TargetTier));
+                DomainEvents.Append(new WorldDomainEvent(
+                    $"team-league-move:{movement.Year}:{movement.TeamId}:{(int)movement.MovementType}",
+                    "TeamLeagueChanged",
+                    Calendar.CurrentDate,
+                    movement.TeamId,
+                    (int)movement.TargetTier));
+            }
+            for (int index = 0; index < marketPlan.LeagueMovementPlan.TiebreakGames.Count; index++)
+            {
+                LeagueTiebreakGameState game = marketPlan.LeagueMovementPlan.TiebreakGames[index];
+                DomainEvents.Append(new WorldDomainEvent(
+                    $"league-tiebreak:{game.SeasonId}:{game.LeagueId}:{game.BoundaryRank}",
+                    "LeagueTiebreakerPlayed",
+                    Calendar.CurrentDate,
+                    game.WinnerTeamId,
+                    game.LoserTeamId));
+            }
 
             for (int index = 0; index < marketPlan.Decisions.Count; index++)
             {
                 AiMarketDecision decision = marketPlan.Decisions[index];
+                if (decision.PlayerId == myPlayerId)
+                    continue;
                 int contractId = 0;
-                if (!decision.IsRetirement)
+                if (!decision.IsRetirement && !decision.PreservesContract)
                 {
                     var contract = new PlayerContractState(
                         NewGameFlow.CurrentSaveVersion,
@@ -250,6 +299,10 @@ namespace Baseball.Game.Career
                         decision.ExpectedRole);
                     RegisterContract(contract, decision.PlayerId);
                     contractId = contract.ContractId;
+                }
+                else if (decision.PreservesContract)
+                {
+                    contractId = GetPlayer(decision.PlayerId).ActiveContractId;
                 }
                 MovementLedger.Record(new PlayerMovementRecord(
                     Calendar.CurrentDate,
@@ -285,6 +338,7 @@ namespace Baseball.Game.Career
         public void ValidateInvariants()
         {
             EnsureUniqueLeagueIds();
+            EnsureCompleteLeaguePyramid();
             EnsureUniqueTeamIds();
             EnsureUniquePlayerIds();
             EnsureUniqueContractIds();
@@ -379,11 +433,9 @@ namespace Baseball.Game.Career
                 if (contract.ContractId <= 0)
                     throw new InvalidOperationException("계약 레지스트리에 할당되지 않은 ContractId가 있습니다.");
                 TeamState team = GetTeam(contract.TeamId);
-                if (contract.CurrentLeagueId != team.LeagueId)
+                if (contract.IsActive && contract.CurrentLeagueId != team.LeagueId)
                     throw new InvalidOperationException($"ContractId {contract.ContractId}의 리그 참조가 잘못되었습니다.");
-                TeamState signingTeam = GetTeam(contract.SigningTeamId);
-                if (contract.SigningLeagueId != signingTeam.LeagueId)
-                    throw new InvalidOperationException($"ContractId {contract.ContractId}의 체결 리그 참조가 잘못되었습니다.");
+                GetTeam(contract.SigningTeamId);
                 PlayerState contractPlayer = GetPlayer(contract.PlayerId);
                 if (contract.IsActive && contractPlayer.CurrentTeamId != contract.TeamId)
                     throw new InvalidOperationException($"ContractId {contract.ContractId}의 활성 계약 구단이 선수 소속과 다릅니다.");
@@ -508,11 +560,27 @@ namespace Baseball.Game.Career
             {
                 PlayerMovementType.Retirement => "PlayerRetired",
                 PlayerMovementType.Promotion => "PlayerPromoted",
+                PlayerMovementType.TeamPromotion => "PlayerPromotedWithTeam",
+                PlayerMovementType.TeamRelegation => "PlayerRelegatedWithTeam",
                 PlayerMovementType.SameLeagueTransfer => "PlayerTransferred",
                 PlayerMovementType.Rehabilitation => "PlayerRehabilitationSigned",
                 PlayerMovementType.InitialSigning => "RookiePlayerSigned",
                 _ => "PlayerContractSigned"
             };
+        }
+
+        private void RelocateActiveContract(PlayerState player, int teamId, LeagueId leagueId)
+        {
+            for (int index = 0; index < _contracts.Count; index++)
+            {
+                PlayerContractState contract = _contracts[index];
+                if (contract.ContractId == player.ActiveContractId && contract.IsActive)
+                {
+                    contract.TransferTo(teamId, leagueId);
+                    return;
+                }
+            }
+            throw new InvalidOperationException($"PlayerId {player.PlayerId}의 승계할 활성 계약이 없습니다.");
         }
 
         private void RebuildTeamsForLeague(LeagueState league)
@@ -580,6 +648,27 @@ namespace Baseball.Game.Career
             {
                 if (_leagues[index - 1].LeagueId == _leagues[index].LeagueId)
                     throw new InvalidOperationException($"LeagueId {_leagues[index].LeagueId}가 중복되었습니다.");
+            }
+        }
+
+        private void EnsureCompleteLeaguePyramid()
+        {
+            if (_leagues.Count != LeagueLevelRules.Count)
+                return;
+            var tierCounts = new int[LeagueLevelRules.Count];
+            for (int index = 0; index < _leagues.Count; index++)
+            {
+                LeagueState league = _leagues[index];
+                if (!LeagueLevelRules.IsValid(league.LeagueLevel))
+                    throw new InvalidOperationException($"{league.LeagueId}의 LeagueTier가 유효하지 않습니다.");
+                tierCounts[(int)league.LeagueLevel]++;
+                if (league.Teams.Count != 8)
+                    throw new InvalidOperationException($"{league.LeagueId}의 구단 수가 {league.Teams.Count}개입니다.");
+            }
+            for (int tier = 0; tier < tierCounts.Length; tier++)
+            {
+                if (tierCounts[tier] != 1)
+                    throw new InvalidOperationException($"{(LeagueLevel)tier} 단계 리그 수가 {tierCounts[tier]}개입니다.");
             }
         }
 
@@ -653,19 +742,16 @@ namespace Baseball.Game.Career
                     for (int standingIndex = 0; standingIndex < summary.Standings.Count; standingIndex++)
                     {
                         TeamSeasonSummaryState standing = summary.Standings[standingIndex];
-                        if (standing.Rank != standingIndex + 1 ||
-                            GetTeam(standing.TeamId).LeagueId != league.LeagueId)
+                        if (standing.Rank != standingIndex + 1 || FindTeamIndex(standing.TeamId) < 0)
                         {
                             throw new InvalidOperationException($"{league.LeagueId}의 완료 시즌 순위표가 잘못되었습니다.");
                         }
                     }
-                    if (summary.ChampionTeamId > 0 &&
-                        GetTeam(summary.ChampionTeamId).LeagueId != league.LeagueId)
+                    if (summary.ChampionTeamId > 0 && FindTeamIndex(summary.ChampionTeamId) < 0)
                     {
                         throw new InvalidOperationException("우승 구단이 시즌 요약 리그에 속하지 않습니다.");
                     }
-                    if (summary.RunnerUpTeamId > 0 &&
-                        GetTeam(summary.RunnerUpTeamId).LeagueId != league.LeagueId)
+                    if (summary.RunnerUpTeamId > 0 && FindTeamIndex(summary.RunnerUpTeamId) < 0)
                     {
                         throw new InvalidOperationException("준우승 구단이 시즌 요약 리그에 속하지 않습니다.");
                     }
@@ -680,8 +766,14 @@ namespace Baseball.Game.Career
             var result = new List<LeagueState>(source.Count);
             for (int index = 0; index < source.Count; index++)
                 result.Add(source[index] ?? throw new ArgumentException("null 리그가 있습니다.", nameof(source)));
-            result.Sort((left, right) => left.LeagueId.CompareTo(right.LeagueId));
+            result.Sort(CompareLeagues);
             return result;
+        }
+
+        private static int CompareLeagues(LeagueState left, LeagueState right)
+        {
+            int tier = left.LeagueLevel.CompareTo(right.LeagueLevel);
+            return tier != 0 ? tier : left.LeagueId.CompareTo(right.LeagueId);
         }
 
         private static List<TeamState> BuildTeamRegistry(IReadOnlyList<LeagueState> leagues)

@@ -10,13 +10,13 @@ namespace Baseball.Game.Career
     {
         public static TrainingAccessTier GetAccessTier(LeagueLevel leagueLevel)
         {
-            return leagueLevel switch
-            {
-                LeagueLevel.Rookie => TrainingAccessTier.Foundation,
-                LeagueLevel.Minor => TrainingAccessTier.Advanced,
-                LeagueLevel.Major => TrainingAccessTier.Elite,
-                _ => throw new ArgumentOutOfRangeException(nameof(leagueLevel))
-            };
+            if (!LeagueLevelRules.IsValid(leagueLevel))
+                throw new ArgumentOutOfRangeException(nameof(leagueLevel));
+            if (leagueLevel == LeagueLevel.Rookie)
+                return TrainingAccessTier.Foundation;
+            return leagueLevel == LeagueLevel.Minor
+                ? TrainingAccessTier.Advanced
+                : TrainingAccessTier.Elite;
         }
 
         public static bool CanAccess(

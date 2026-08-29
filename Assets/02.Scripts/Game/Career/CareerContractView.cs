@@ -132,6 +132,10 @@ namespace Baseball.Game.Career
             ExpectedRole expectedRole,
             ContractOfferChannel channel,
             double estimatedPlayingTime,
+            string competitorSummary,
+            bool hasUpperLeagueReleaseClause,
+            long upperLeagueReleaseCompensation,
+            bool hasRelegationTransferRequestClause,
             bool isSelected)
         {
             TeamId = teamId;
@@ -146,6 +150,10 @@ namespace Baseball.Game.Career
             ExpectedRole = expectedRole;
             Channel = channel;
             EstimatedPlayingTime = estimatedPlayingTime;
+            CompetitorSummary = competitorSummary ?? string.Empty;
+            HasUpperLeagueReleaseClause = hasUpperLeagueReleaseClause;
+            UpperLeagueReleaseCompensation = upperLeagueReleaseCompensation;
+            HasRelegationTransferRequestClause = hasRelegationTransferRequestClause;
             IsSelected = isSelected;
         }
 
@@ -161,6 +169,10 @@ namespace Baseball.Game.Career
         public ExpectedRole ExpectedRole { get; }
         public ContractOfferChannel Channel { get; }
         public double EstimatedPlayingTime { get; }
+        public string CompetitorSummary { get; }
+        public bool HasUpperLeagueReleaseClause { get; }
+        public long UpperLeagueReleaseCompensation { get; }
+        public bool HasRelegationTransferRequestClause { get; }
         public bool IsSelected { get; }
         public long GuaranteedValue => SigningBonus + AnnualSalary * ContractYears;
     }
@@ -196,6 +208,16 @@ namespace Baseball.Game.Career
         public bool CanSignSelectedOffer { get; internal set; }
         public bool CanOpenMarket { get; internal set; }
         public bool IsCurrentTeamOfferHeld { get; internal set; }
+        public bool IsUnsignedRetirementRequired { get; internal set; }
+
+        /// <summary>계약 오퍼를 비교하는 자리에서 곧바로 현역 은퇴를 고를 수 있는지다.</summary>
+        public bool CanRetireInsteadOfSigning { get; internal set; }
+
+        /// <summary>이 계약에 서명하면 보장 은퇴 나이에 걸려 다음 시즌이 마지막 시즌이 되는지다.</summary>
+        public bool IsNextSeasonForcedFinal { get; internal set; }
+
+        public int RetirementEligibleAge { get; internal set; }
+        public int GuaranteedRetirementAge { get; internal set; }
         public string LastError { get; internal set; }
     }
 }

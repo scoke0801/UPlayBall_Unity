@@ -13,6 +13,8 @@ namespace Baseball.Game.Career
         Trade,
         Promotion,
         Rehabilitation,
+        TeamPromotion,
+        TeamRelegation,
         Release,
         Retirement
     }
@@ -35,8 +37,12 @@ namespace Baseball.Game.Career
             ExpectedRole promisedRole,
             ExpectedRole projectedRole,
             int contractId,
-            string reason)
+            string reason,
+            long transferCompensation = 0L)
         {
+            if (transferCompensation < 0L)
+                throw new ArgumentOutOfRangeException(nameof(transferCompensation));
+
             WorldDate = worldDate.Date;
             SeasonId = seasonId;
             PlayerId = playerId;
@@ -50,6 +56,7 @@ namespace Baseball.Game.Career
             ProjectedRole = projectedRole;
             ContractId = contractId;
             Reason = reason ?? string.Empty;
+            TransferCompensation = transferCompensation;
         }
 
         public DateTime WorldDate { get; }
@@ -65,6 +72,7 @@ namespace Baseball.Game.Career
         public ExpectedRole ProjectedRole { get; }
         public int ContractId { get; }
         public string Reason { get; }
+        public long TransferCompensation { get; }
     }
 
     /// <summary>

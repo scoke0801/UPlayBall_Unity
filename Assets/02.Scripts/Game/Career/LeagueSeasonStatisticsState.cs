@@ -388,6 +388,179 @@ namespace Baseball.Game.Career
         public void FreezeRegularSeasonStatistics() => RegularSeason.Freeze();
     }
 
+    /// <summary>한 선수의 원시 기록을 같은 시즌 리그 분포에 놓은 조정 성과다.</summary>
+    public readonly struct PlayerAdjustedPerformanceState
+    {
+        public PlayerAdjustedPerformanceState(
+            int playerId,
+            double battingPercentile,
+            double pitchingPercentile,
+            double adjustedPerformance)
+        {
+            PlayerId = playerId;
+            BattingPercentile = battingPercentile;
+            PitchingPercentile = pitchingPercentile;
+            AdjustedPerformance = adjustedPerformance;
+        }
+
+        public int PlayerId { get; }
+        public double BattingPercentile { get; }
+        public double PitchingPercentile { get; }
+        public double AdjustedPerformance { get; }
+    }
+
+    /// <summary>과거 리그 이동과 무관하게 당시 리그 강도와 백분위를 고정한다.</summary>
+    public sealed class LeagueAdjustedStatisticsSnapshot
+    {
+        private readonly PlayerAdjustedPerformanceState[] _players;
+
+        public LeagueAdjustedStatisticsSnapshot(
+            LeagueId leagueId,
+            LeagueLevel leagueTier,
+            double leagueStrengthIndex,
+            double leagueAverageOps,
+            double leagueAverageEra,
+            PlayerAdjustedPerformanceState[] players)
+        {
+            LeagueId = leagueId;
+            LeagueTier = leagueTier;
+            LeagueStrengthIndex = leagueStrengthIndex;
+            LeagueAverageOps = leagueAverageOps;
+            LeagueAverageEra = leagueAverageEra;
+            _players = players ?? throw new ArgumentNullException(nameof(players));
+            Array.Sort(_players, (left, right) => left.PlayerId.CompareTo(right.PlayerId));
+        }
+
+        public LeagueId LeagueId { get; }
+        public LeagueLevel LeagueTier { get; }
+        public double LeagueStrengthIndex { get; }
+        public double LeagueAverageOps { get; }
+        public double LeagueAverageEra { get; }
+        public IReadOnlyList<PlayerAdjustedPerformanceState> Players => _players;
+
+        public PlayerAdjustedPerformanceState GetPlayer(int playerId)
+        {
+            for (int index = 0; index < _players.Length; index++)
+            {
+                if (_players[index].PlayerId == playerId)
+                    return _players[index];
+            }
+            return new PlayerAdjustedPerformanceState(playerId, 50d, 50d, 50d);
+        }
+    }
+
+    /// <summary>계약 평가가 Rookie 원시 기록과 Galaxy 원시 기록을 직접 비교하지 않게 백분위를 만든다.</summary>
+    public sealed class LeagueAdjustedStatisticsService
+    {
+        public LeagueAdjustedStatisticsSnapshot Build(LeagueState league)
+        {
+            if (league == null) throw new ArgumentNullException(nameof(league));
+            CompetitionStatisticsState source = league.CurrentSeason.LeagueStatistics.RegularSeason;
+            var players = new List<PlayerCompetitionStatisticsState>(source.Players.Count);
+            foreach (KeyValuePair<int, PlayerCompetitionStatisticsState> pair in source.Players)
+                players.Add(pair.Value);
+            players.Sort((left, right) => left.PlayerId.CompareTo(right.PlayerId));
+
+            double opsTotal = 0d;
+            int opsCount = 0;
+            double eraTotal = 0d;
+            int eraCount = 0;
+            for (int index = 0; index < players.Count; index++)
+            {
+                if (players[index].Batting.PlateAppearances > 0)
+                {
+                    opsTotal += players[index].Batting.OnBasePlusSlugging;
+                    opsCount++;
+                }
+                if (players[index].Pitching.OutsRecorded > 0)
+                {
+                    eraTotal += players[index].Pitching.EarnedRunAverage;
+                    eraCount++;
+                }
+            }
+
+            var adjusted = new PlayerAdjustedPerformanceState[players.Count];
+            for (int index = 0; index < players.Count; index++)
+            {
+                PlayerCompetitionStatisticsState player = players[index];
+                double batting = CalculateBattingPercentile(players, player);
+                double pitching = CalculatePitchingPercentile(players, player);
+                bool isPitcher = player.PrimaryPosition is
+                    PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
+                adjusted[index] = new PlayerAdjustedPerformanceState(
+                    player.PlayerId,
+                    batting,
+                    pitching,
+                    isPitcher ? pitching : batting);
+            }
+
+            LeagueDefinition definition = WorldGenerationConfiguration.GetDefaultDefinition(league.LeagueLevel);
+            double strengthIndex = definition.TargetRosterOverall * 100d /
+                                   WorldGenerationConfiguration.RookieTargetOverall;
+            return new LeagueAdjustedStatisticsSnapshot(
+                league.LeagueId,
+                league.LeagueLevel,
+                strengthIndex,
+                opsCount == 0 ? 0d : opsTotal / opsCount,
+                eraCount == 0 ? 0d : eraTotal / eraCount,
+                adjusted);
+        }
+
+        private static double CalculateBattingPercentile(
+            List<PlayerCompetitionStatisticsState> players,
+            PlayerCompetitionStatisticsState target)
+        {
+            if (target.Batting.PlateAppearances <= 0)
+                return 50d;
+            int below = 0;
+            int tied = 0;
+            int eligible = 0;
+            for (int index = 0; index < players.Count; index++)
+            {
+                PlayerCompetitionStatisticsState candidate = players[index];
+                if (candidate.Batting.PlateAppearances <= 0)
+                    continue;
+                eligible++;
+                double difference = candidate.Batting.OnBasePlusSlugging -
+                                    target.Batting.OnBasePlusSlugging;
+                if (difference < -0.0000001d)
+                    below++;
+                else if (Math.Abs(difference) < 0.0000001d)
+                    tied++;
+            }
+            return eligible <= 1
+                ? 100d
+                : (below + Math.Max(0, tied - 1) * 0.5d) * 100d / (eligible - 1d);
+        }
+
+        private static double CalculatePitchingPercentile(
+            List<PlayerCompetitionStatisticsState> players,
+            PlayerCompetitionStatisticsState target)
+        {
+            if (target.Pitching.OutsRecorded <= 0)
+                return 50d;
+            int below = 0;
+            int tied = 0;
+            int eligible = 0;
+            for (int index = 0; index < players.Count; index++)
+            {
+                PlayerCompetitionStatisticsState candidate = players[index];
+                if (candidate.Pitching.OutsRecorded <= 0)
+                    continue;
+                eligible++;
+                double difference = candidate.Pitching.EarnedRunAverage -
+                                    target.Pitching.EarnedRunAverage;
+                if (difference > 0.0000001d)
+                    below++;
+                else if (Math.Abs(difference) < 0.0000001d)
+                    tied++;
+            }
+            return eligible <= 1
+                ? 100d
+                : (below + Math.Max(0, tied - 1) * 0.5d) * 100d / (eligible - 1d);
+        }
+    }
+
     /// <summary>직접 진행과 즉시 시뮬레이션이 함께 사용하는 선수 한 경기 통계 DTO다.</summary>
     public sealed class PlayerGameStatistics
     {

@@ -127,8 +127,8 @@ namespace Baseball.Game.Data
         };
 
         [Header("World Generation")]
-        [SerializeField, Range(0, 30)] private int _minorOverallBonus = 10;
-        [SerializeField, Range(1, 40)] private int _majorOverallBonus = 20;
+        [SerializeField, Range(0, 30)] private int _minorOverallBonus = 4;
+        [SerializeField, Range(1, 40)] private int _majorOverallBonus = 8;
         [SerializeField] private string _minorTeamNamePrefix = "마이너 ";
         [SerializeField] private string _majorTeamNamePrefix = "메이저 ";
         [SerializeField, Range(16, 40)] private int _rookieMinimumAge = 18;

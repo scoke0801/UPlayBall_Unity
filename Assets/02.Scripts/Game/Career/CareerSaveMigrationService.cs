@@ -98,6 +98,92 @@ namespace Baseball.Game.Career
             career.UpgradeSaveVersion(12);
         }
 
+        /// <summary>v12의 세 리그 월드를 역사 손실 없이 10단계 영속 월드로 확장한다.</summary>
+        public void MigrateV12ToV13(CareerState career, ulong migrationSeed)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (career.SaveVersion != 12)
+                throw new InvalidOperationException("SaveVersion 12 커리어만 v13으로 마이그레이션할 수 있습니다.");
+
+            SeasonPhase targetPhase = career.CurrentLeague.CurrentSeason.Phase;
+            LeagueId activeLeagueId = career.CurrentLeague.LeagueId;
+            WorldState expanded = new CareerWorldFactory(_configuration)
+                .ExpandV12World(career.World, migrationSeed);
+            career.UpgradeToWorld(13, expanded);
+            for (int index = 0; index < career.SeasonHistory.Count; index++)
+                career.Reputation.RecordLeagueReach(career.SeasonHistory[index].LeagueLevel);
+            career.Reputation.RecordLeagueReach(career.CurrentLeague.LeagueLevel);
+            SynchronizeExpandedLeagues(career, activeLeagueId, targetPhase);
+            career.World.ValidateInvariants();
+        }
+
+        private void SynchronizeExpandedLeagues(
+            CareerState career,
+            LeagueId activeLeagueId,
+            SeasonPhase targetPhase)
+        {
+            if (targetPhase == SeasonPhase.Preseason)
+                return;
+
+            SeasonState activeSeason = career.World.GetLeague(activeLeagueId).CurrentSeason;
+            int targetRound = targetPhase == SeasonPhase.RegularSeason
+                ? GetLastCompletedRound(activeSeason)
+                : int.MaxValue;
+            var regularSeason = new WorldSeasonService(career, _configuration.Balance);
+            regularSeason.AdvanceBackgroundLeaguesBefore(activeLeagueId, targetRound);
+            regularSeason.AdvanceBackgroundLeaguesAfter(activeLeagueId, targetRound);
+            if (targetPhase == SeasonPhase.RegularSeason)
+                return;
+
+            var postseason = new WorldPostseasonService(career, _configuration.Balance);
+            if (targetPhase == SeasonPhase.Postseason)
+            {
+                int completedGames = CountCompletedPostseasonGames(activeSeason.Postseason);
+                postseason.AdvanceBackgroundLeaguesBefore(activeLeagueId, completedGames);
+                postseason.AdvanceBackgroundLeaguesAfter(activeLeagueId, completedGames);
+                return;
+            }
+
+            postseason.CompleteAllBackgroundLeagues(activeLeagueId);
+            for (int leagueIndex = 0; leagueIndex < career.World.Leagues.Count; leagueIndex++)
+            {
+                LeagueState league = career.World.Leagues[leagueIndex];
+                if ((int)league.LeagueLevel < (int)LeagueLevel.World)
+                    continue;
+                SeasonState season = league.CurrentSeason;
+                if (targetPhase is SeasonPhase.Offseason or SeasonPhase.Completed)
+                    season.BeginOffseason();
+                if (targetPhase == SeasonPhase.Completed)
+                    season.CompleteArchive();
+            }
+        }
+
+        private static int GetLastCompletedRound(SeasonState season)
+        {
+            int result = 0;
+            for (int index = 0; index < season.Schedule.Games.Count; index++)
+            {
+                ScheduledGameState game = season.Schedule.Games[index];
+                if (game.IsCompleted && game.Round > result)
+                    result = game.Round;
+            }
+            return result;
+        }
+
+        private static int CountCompletedPostseasonGames(PostseasonState postseason)
+        {
+            int result = 0;
+            if (postseason == null)
+                return result;
+            for (int seriesIndex = 0; seriesIndex < postseason.Series.Count; seriesIndex++)
+            {
+                IReadOnlyList<ScheduledGameState> games = postseason.Series[seriesIndex].Games;
+                for (int gameIndex = 0; gameIndex < games.Count; gameIndex++)
+                    if (games[gameIndex].IsCompleted) result++;
+            }
+            return result;
+        }
+
         private static bool CanCaptureSeasonReview(SeasonState season)
         {
             return season?.TeamRecords != null && season.Phase is

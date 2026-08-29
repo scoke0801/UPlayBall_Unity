@@ -42,6 +42,14 @@ namespace Baseball.Game.Career
         Tie
     }
 
+    public enum LeagueStandingZone
+    {
+        Promotion,
+        PostseasonRetention,
+        Retention,
+        Relegation
+    }
+
     /// <summary>리그 순위표 한 구단의 확정된 표시 값이다.</summary>
     public readonly struct LeagueStandingView
     {
@@ -60,7 +68,8 @@ namespace Baseball.Game.Career
             int streakLength,
             TeamGameOutcome[] recentForm,
             bool isPostseasonPosition,
-            bool isMyTeam)
+            bool isMyTeam,
+            LeagueStandingZone zone = LeagueStandingZone.Retention)
         {
             Rank = rank;
             TeamId = teamId;
@@ -77,6 +86,7 @@ namespace Baseball.Game.Career
             RecentForm = recentForm ?? Array.Empty<TeamGameOutcome>();
             IsPostseasonPosition = isPostseasonPosition;
             IsMyTeam = isMyTeam;
+            Zone = zone;
         }
 
         public int Rank { get; }
@@ -94,6 +104,7 @@ namespace Baseball.Game.Career
         public IReadOnlyList<TeamGameOutcome> RecentForm { get; }
         public bool IsPostseasonPosition { get; }
         public bool IsMyTeam { get; }
+        public LeagueStandingZone Zone { get; }
     }
 
     /// <summary>타자 리더보드 한 줄에 필요한 전체 시즌 기록이다.</summary>
@@ -331,7 +342,11 @@ namespace Baseball.Game.Career
             LeaguePitchingLeaderboardView[] pitchingLeaderboards,
             LeagueTeamMetricView[] teamMetrics,
             LeagueScheduleGameView[] recentResults,
-            LeagueScheduleGameView[] nextRoundGames)
+            LeagueScheduleGameView[] nextRoundGames,
+            LeagueDefinition currentDefinition = null,
+            LeagueDefinition previousDefinition = null,
+            LeagueDefinition nextDefinition = null,
+            LeagueLevel highestReachedTier = LeagueLevel.Rookie)
         {
             SeasonYear = seasonYear;
             LeagueLevel = leagueLevel;
@@ -349,6 +364,11 @@ namespace Baseball.Game.Career
             TeamMetrics = teamMetrics ?? Array.Empty<LeagueTeamMetricView>();
             RecentResults = recentResults ?? Array.Empty<LeagueScheduleGameView>();
             NextRoundGames = nextRoundGames ?? Array.Empty<LeagueScheduleGameView>();
+            CurrentDefinition = currentDefinition ??
+                WorldGenerationConfiguration.GetDefaultDefinition(leagueLevel);
+            PreviousDefinition = previousDefinition;
+            NextDefinition = nextDefinition;
+            HighestReachedTier = highestReachedTier;
         }
 
         public int SeasonYear { get; }
@@ -365,6 +385,10 @@ namespace Baseball.Game.Career
         public IReadOnlyList<LeagueTeamMetricView> TeamMetrics { get; }
         public IReadOnlyList<LeagueScheduleGameView> RecentResults { get; }
         public IReadOnlyList<LeagueScheduleGameView> NextRoundGames { get; }
+        public LeagueDefinition CurrentDefinition { get; }
+        public LeagueDefinition PreviousDefinition { get; }
+        public LeagueDefinition NextDefinition { get; }
+        public LeagueLevel HighestReachedTier { get; }
 
         public LeagueBattingLeaderboardView GetBattingLeaderboard(LeagueBattingCategory category)
         {

@@ -59,14 +59,24 @@ namespace Baseball.Game.Career
                 costEfficiency: 100d,
                 managerRelationship: _career.MyPlayer.ManagerEvaluation,
                 strongestCompetitorOverall: team.GetStrongestCompetitorOverall(player.PrimaryPosition));
-            return new ContractRenewalEvaluator(renewal, _balance.ContractOffer)
+            ContractOffer? offer = new ContractRenewalEvaluator(renewal, _balance.ContractOffer)
                 .Evaluate(input, player.PrimaryPosition, ContractOfferChannel.CurrentTeamExtension);
+            return offer.HasValue
+                ? offer.Value.WithMovementClauses(
+                    _career.CurrentContract.HasUpperLeagueReleaseClause,
+                    _career.CurrentContract.UpperLeagueReleaseCompensation,
+                    _career.CurrentContract.HasRelegationTransferRequestClause)
+                : null;
         }
 
         public PlayerContractState AcceptExtension()
         {
             ContractOffer offer = BuildExtensionOffer() ??
                                   throw new InvalidOperationException("수락할 수 있는 연장 계약이 없습니다.");
+            offer = offer.WithMovementClauses(
+                _career.CurrentContract.HasUpperLeagueReleaseClause,
+                _career.CurrentContract.UpperLeagueReleaseCompensation,
+                _career.CurrentContract.HasRelegationTransferRequestClause);
             SeasonState season = _career.CurrentLeague.CurrentSeason;
             int preservedSeasons = 1 + _career.CurrentContract.GetRemainingSeasonsAfter(season.Year);
             var contract = new PlayerContractState(
@@ -76,7 +86,10 @@ namespace Baseball.Game.Career
                 preservedSeasons + offer.ContractYears,
                 offer.SigningBonus,
                 offer.AnnualSalary,
-                offer.ExpectedRole);
+                offer.ExpectedRole,
+                offer.HasUpperLeagueReleaseClause,
+                offer.UpperLeagueReleaseCompensation,
+                offer.HasRelegationTransferRequestClause);
             _career.RenewContract(contract);
             _career.ResolveExtension(season.SeasonId);
             if (offer.SigningBonus > 0L)

@@ -23,7 +23,8 @@ namespace Baseball.Game.Career
             string eventType,
             DateTime worldDate,
             int primaryEntityId,
-            int secondaryEntityId)
+            int secondaryEntityId,
+            int tertiaryEntityId = 0)
         {
             if (string.IsNullOrWhiteSpace(eventId))
                 throw new ArgumentException("EventId는 비어 있을 수 없습니다.", nameof(eventId));
@@ -32,6 +33,7 @@ namespace Baseball.Game.Career
             WorldDate = worldDate.Date;
             PrimaryEntityId = primaryEntityId;
             SecondaryEntityId = secondaryEntityId;
+            TertiaryEntityId = tertiaryEntityId;
         }
 
         public string EventId { get; }
@@ -39,6 +41,7 @@ namespace Baseball.Game.Career
         public DateTime WorldDate { get; }
         public int PrimaryEntityId { get; }
         public int SecondaryEntityId { get; }
+        public int TertiaryEntityId { get; }
     }
 
     /// <summary>

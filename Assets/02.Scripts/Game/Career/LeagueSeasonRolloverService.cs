@@ -108,7 +108,8 @@ namespace Baseball.Game.Career
                 new SeasonScheduleState(games),
                 teamRecords,
                 new PlayerSeasonStatisticsState(),
-                myPlayer);
+                myPlayer,
+                teams);
             if (myPlayer == null)
             {
                 season.SnapshotRookieEligibility(teams, _balance.SeasonAwards);

@@ -15,7 +15,10 @@ namespace Baseball.Game.Career
             int contractYears,
             long signingBonus,
             long annualSalary,
-            ExpectedRole expectedRole)
+            ExpectedRole expectedRole,
+            bool hasUpperLeagueReleaseClause = false,
+            long upperLeagueReleaseCompensation = 0L,
+            bool hasRelegationTransferRequestClause = false)
             : this(
                 saveVersion,
                 contractId: 0,
@@ -26,7 +29,10 @@ namespace Baseball.Game.Career
                 contractYears,
                 signingBonus,
                 annualSalary,
-                expectedRole)
+                expectedRole,
+                hasUpperLeagueReleaseClause,
+                upperLeagueReleaseCompensation,
+                hasRelegationTransferRequestClause)
         {
         }
 
@@ -43,12 +49,19 @@ namespace Baseball.Game.Career
             int contractYears,
             long signingBonus,
             long annualSalary,
-            ExpectedRole expectedRole)
+            ExpectedRole expectedRole,
+            bool hasUpperLeagueReleaseClause = false,
+            long upperLeagueReleaseCompensation = 0L,
+            bool hasRelegationTransferRequestClause = false)
         {
             if (teamId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(teamId));
             if (contractYears <= 0)
                 throw new ArgumentOutOfRangeException(nameof(contractYears));
+            if (upperLeagueReleaseCompensation < 0L)
+                throw new ArgumentOutOfRangeException(nameof(upperLeagueReleaseCompensation));
+            if (!hasUpperLeagueReleaseClause && upperLeagueReleaseCompensation > 0L)
+                throw new ArgumentException("상위 리그 이적 조항 없이 보상금을 지정할 수 없습니다.");
 
             SaveVersion = saveVersion;
             ContractId = contractId;
@@ -62,6 +75,9 @@ namespace Baseball.Game.Career
             SigningBonus = signingBonus;
             AnnualSalary = annualSalary;
             ExpectedRole = expectedRole;
+            HasUpperLeagueReleaseClause = hasUpperLeagueReleaseClause;
+            UpperLeagueReleaseCompensation = upperLeagueReleaseCompensation;
+            HasRelegationTransferRequestClause = hasRelegationTransferRequestClause;
             IsActive = true;
         }
 
@@ -79,6 +95,9 @@ namespace Baseball.Game.Career
         public long AnnualSalary { get; }
         public ExpectedRole ExpectedRole { get; }
         public ExpectedRole PromisedRole => ExpectedRole;
+        public bool HasUpperLeagueReleaseClause { get; }
+        public long UpperLeagueReleaseCompensation { get; }
+        public bool HasRelegationTransferRequestClause { get; }
         public bool IsActive { get; private set; }
         public int EndYear => SignedYear + ContractYears - 1;
         public long GuaranteedValue => SigningBonus + AnnualSalary * ContractYears;

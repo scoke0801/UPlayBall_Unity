@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
@@ -8,7 +9,7 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Career
 {
-    /// <summary>세 리그의 은퇴·승격 충원·Rookie 신인 유입을 하나의 결정론적 시장 계획으로 계산한다.</summary>
+    /// <summary>모든 리그의 승강 이후 은퇴·수요 충원·Rookie 신인 유입을 하나의 계획으로 계산한다.</summary>
     public sealed class WorldOffseasonMarketService
     {
         private const ulong RetirementStream = 0x5245544952454D54UL;
@@ -24,7 +25,11 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>현재 월드를 변경하지 않고 다음 시즌의 전체 AI 시장 결과를 만든다.</summary>
-        public WorldOffseasonMarketPlan CreatePlan(WorldState world, int myPlayerId, int nextYear)
+        public WorldOffseasonMarketPlan CreatePlan(
+            WorldState world,
+            int myPlayerId,
+            int nextYear,
+            LeagueMovementPlan leagueMovementPlan = null)
         {
             if (world == null) throw new ArgumentNullException(nameof(world));
             if (myPlayerId <= 0) throw new ArgumentOutOfRangeException(nameof(myPlayerId));
@@ -33,68 +38,105 @@ namespace Baseball.Game.Career
             var rollover = new LeagueSeasonRolloverService(_balance);
             if (world.Leagues.Count == 1)
                 return CreateSingleLeagueCompatibilityPlan(world, rollover);
-            if (world.Leagues.Count != 3)
-                throw new InvalidOperationException("기본 월드 시장에는 Rookie, Minor, Major 세 리그가 모두 필요합니다.");
+            if (world.Leagues.Count != LeagueLevelRules.Count)
+                throw new InvalidOperationException($"기본 월드 시장에는 {LeagueLevelRules.Count}개 리그가 모두 필요합니다.");
 
-            LeagueState rookieLeague = world.GetLeague(LeagueId.RookieMain);
-            LeagueState minorLeague = world.GetLeague(LeagueId.MinorMain);
-            LeagueState majorLeague = world.GetLeague(LeagueId.MajorMain);
-            TeamRosterBuilder[] rookie = CreateBuilders(
-                rollover.AdvanceRosters(rookieLeague, world, rookieLeague.CurrentSeason.SeasonId + 1));
-            TeamRosterBuilder[] minor = CreateBuilders(
-                rollover.AdvanceRosters(minorLeague, world, minorLeague.CurrentSeason.SeasonId + 1));
-            TeamRosterBuilder[] major = CreateBuilders(
-                rollover.AdvanceRosters(majorLeague, world, majorLeague.CurrentSeason.SeasonId + 1));
-
-            RebalanceLeagueDepth(rookie);
-            RebalanceLeagueDepth(minor);
-            RebalanceLeagueDepth(major);
+            leagueMovementPlan ??= new LeagueMovementPlanner().CreatePlan(world);
+            TeamRosterBuilder[][] leagueBuilders = CreateLeagueBuilders(
+                world,
+                rollover,
+                leagueMovementPlan);
+            PlayerState myPlayer = world.GetPlayer(myPlayerId);
+            for (int index = 0; index < leagueBuilders.Length; index++)
+            {
+                RebalanceLeagueDepth(
+                    leagueBuilders[index],
+                    myPlayerId,
+                    myPlayer.PrimaryPosition);
+            }
 
             var retiredPlayerIds = new List<int>();
-            List<RosterVacancy> majorVacancies = RetirePlayers(
+            int topIndex = leagueBuilders.Length - 1;
+            List<RosterVacancy> rookieVacancies = RetirePlayers(
                 world,
-                major,
-                LeagueId.MajorMain,
+                leagueBuilders[topIndex],
+                world.Leagues[topIndex].LeagueId,
                 nextYear,
                 retiredPlayerIds);
-            List<RosterVacancy> minorVacancies = FillVacancies(majorVacancies, major, minor);
-            minorVacancies.AddRange(RetirePlayers(
-                world,
-                minor,
-                LeagueId.MinorMain,
-                nextYear,
-                retiredPlayerIds));
-            List<RosterVacancy> rookieVacancies = FillVacancies(minorVacancies, minor, rookie);
-            rookieVacancies.AddRange(RetirePlayers(
-                world,
-                rookie,
-                LeagueId.RookieMain,
-                nextYear,
-                retiredPlayerIds));
+            for (int targetIndex = topIndex; targetIndex > 0; targetIndex--)
+            {
+                rookieVacancies = FillVacancies(
+                    rookieVacancies,
+                    leagueBuilders[targetIndex],
+                    leagueBuilders[targetIndex - 1]);
+                rookieVacancies.AddRange(RetirePlayers(
+                    world,
+                    leagueBuilders[targetIndex - 1],
+                    world.Leagues[targetIndex - 1].LeagueId,
+                    nextYear,
+                    retiredPlayerIds));
+            }
 
             int nextPlayerId = GetNextPlayerId(world);
             var newPlayers = new List<PlayerState>(rookieVacancies.Count);
             RecruitRookies(
                 world,
-                rookie,
+                leagueBuilders[0],
                 rookieVacancies,
                 nextYear,
                 ref nextPlayerId,
                 newPlayers);
 
-            LeagueRosterPlan[] rosters =
-            {
-                new LeagueRosterPlan(LeagueId.RookieMain, BuildTeams(rookie)),
-                new LeagueRosterPlan(LeagueId.MinorMain, BuildTeams(minor)),
-                new LeagueRosterPlan(LeagueId.MajorMain, BuildTeams(major))
-            };
+            var rosters = new LeagueRosterPlan[world.Leagues.Count];
+            for (int index = 0; index < rosters.Length; index++)
+                rosters[index] = new LeagueRosterPlan(world.Leagues[index].LeagueId, BuildTeams(leagueBuilders[index]));
             AiMarketDecision[] decisions = BuildDecisions(
                 world,
                 rosters,
                 retiredPlayerIds,
                 newPlayers,
-                nextYear);
-            return new WorldOffseasonMarketPlan(rosters, decisions, newPlayers.ToArray());
+                nextYear,
+                myPlayerId);
+            return new WorldOffseasonMarketPlan(
+                rosters,
+                decisions,
+                newPlayers.ToArray(),
+                leagueMovementPlan);
+        }
+
+        private static TeamRosterBuilder[][] CreateLeagueBuilders(
+            WorldState world,
+            LeagueSeasonRolloverService rollover,
+            LeagueMovementPlan movementPlan)
+        {
+            var teamsByLeague = new List<TeamState>[world.Leagues.Count];
+            for (int index = 0; index < teamsByLeague.Length; index++)
+                teamsByLeague[index] = new List<TeamState>(world.Leagues[index].Teams.Count);
+
+            for (int leagueIndex = 0; leagueIndex < world.Leagues.Count; leagueIndex++)
+            {
+                LeagueState league = world.Leagues[leagueIndex];
+                TeamState[] advanced = rollover.AdvanceRosters(
+                    league,
+                    world,
+                    league.CurrentSeason.SeasonId + 1);
+                for (int teamIndex = 0; teamIndex < advanced.Length; teamIndex++)
+                {
+                    TeamState team = advanced[teamIndex];
+                    LeagueId targetLeagueId = movementPlan.GetTargetLeagueId(team.TeamId, team.LeagueId);
+                    LeagueState targetLeague = world.GetLeague(targetLeagueId);
+                    teamsByLeague[(int)targetLeague.LeagueLevel].Add(team.WithLeague(targetLeagueId));
+                }
+            }
+
+            var result = new TeamRosterBuilder[teamsByLeague.Length][];
+            for (int index = 0; index < result.Length; index++)
+            {
+                if (teamsByLeague[index].Count != world.Leagues[index].Teams.Count)
+                    throw new InvalidOperationException($"{world.Leagues[index].LeagueId}의 승강 후 구단 수가 달라졌습니다.");
+                result[index] = CreateBuilders(teamsByLeague[index].ToArray());
+            }
+            return result;
         }
 
         /// <summary>v7 마이그레이션 전 상태와 단일 리그 테스트 픽스처는 기존 로스터 전환 경로를 보존한다.</summary>
@@ -136,7 +178,12 @@ namespace Baseball.Game.Career
                     bool shouldRetire = new PlayerRetirementResolver(
                             _balance.PlayerLifecycle,
                             new Pcg32Random(eventSeed))
-                        .ShouldRetire(player.Age + 1, competitor.Overall);
+                        .ShouldRetire(BuildRetirementInput(
+                            world,
+                            player,
+                            competitor,
+                            leagueId,
+                            nextYear));
                     if (!shouldRetire)
                         continue;
 
@@ -146,6 +193,99 @@ namespace Baseball.Game.Career
                 }
             }
             return vacancies;
+        }
+
+        private RetirementEvaluationInput BuildRetirementInput(
+            WorldState world,
+            PlayerState player,
+            RosterCompetitorState competitor,
+            LeagueId leagueId,
+            int nextYear)
+        {
+            LeagueState league = world.GetLeague(leagueId);
+            SeasonState season = league.CurrentSeason;
+            PlayerCompetitionStatisticsState statistics =
+                season.LeagueStatistics.RegularSeason.GetPlayer(player.PlayerId);
+            double appearanceRate = statistics == null
+                ? 0d
+                : statistics.GamesPlayed / (double)Math.Max(1, _balance.CareerSeason.RegularSeasonGamesPerTeam);
+            PlayerContractState contract = FindActiveContract(world, player.ActiveContractId);
+            bool hasContractRemaining = contract != null && contract.EndYear >= nextYear;
+            bool isFranchiseTeam = contract != null && contract.SigningTeamId == player.CurrentTeamId;
+            bool isChampionshipContender = GetFinalRank(season, player.CurrentTeamId) <= 2;
+            LeagueDefinition definition = WorldGenerationConfiguration.GetDefaultDefinition(league.LeagueLevel);
+            bool hasVeteranDemand = competitor.Overall >=
+                                    definition.TargetRosterOverall - definition.OverallSpread;
+            return new RetirementEvaluationInput(
+                player.Age + 1,
+                competitor.Overall,
+                player.RetirementPersonality,
+                CalculateRecentAbilityDecline(player, nextYear - 1),
+                appearanceRate,
+                HasRecentLongTermInjury(player, nextYear - 1),
+                hasContractRemaining,
+                IsNearCareerMilestone(player),
+                isChampionshipContender,
+                isFranchiseTeam,
+                hasVeteranDemand);
+        }
+
+        private static int GetFinalRank(SeasonState season, int teamId)
+        {
+            for (int index = 0; index < season.FinalStandingTeamIds.Count; index++)
+            {
+                if (season.FinalStandingTeamIds[index] == teamId)
+                    return index + 1;
+            }
+            return int.MaxValue;
+        }
+
+        private static int CalculateRecentAbilityDecline(PlayerState player, int seasonYear)
+        {
+            if (player.GrowthState == null)
+                return 0;
+            int decline = 0;
+            for (int recordIndex = 0; recordIndex < player.GrowthState.GrowthHistory.Count; recordIndex++)
+            {
+                GrowthResultRecord record = player.GrowthState.GrowthHistory[recordIndex];
+                if (record.SeasonYear != seasonYear)
+                    continue;
+                for (int changeIndex = 0; changeIndex < record.AbilityChanges.Length; changeIndex++)
+                {
+                    if (record.AbilityChanges[changeIndex].Amount < 0)
+                        decline -= record.AbilityChanges[changeIndex].Amount;
+                }
+            }
+            return decline;
+        }
+
+        private static bool HasRecentLongTermInjury(PlayerState player, int seasonYear)
+        {
+            if (player.GrowthState == null)
+                return false;
+            for (int index = player.GrowthState.InjuryHistory.Count - 1; index >= 0; index--)
+            {
+                InjuryRecord injury = player.GrowthState.InjuryHistory[index];
+                if (injury.SeasonYear < seasonYear)
+                    break;
+                if (injury.SeasonYear == seasonYear && injury.Severity >= InjurySeverity.Serious)
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool IsNearCareerMilestone(PlayerState player)
+        {
+            int careerWorkload = player.PrimaryPosition is
+                PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher
+                    ? player.CareerPitchingOuts
+                    : player.CareerPlateAppearances;
+            int interval = player.PrimaryPosition is
+                PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher
+                    ? 1500
+                    : 1000;
+            int remainder = careerWorkload % interval;
+            return careerWorkload >= interval && remainder >= interval * 85 / 100;
         }
 
         private static List<RosterVacancy> FillVacancies(
@@ -227,7 +367,8 @@ namespace Baseball.Game.Career
             LeagueRosterPlan[] rosters,
             List<int> retiredPlayerIds,
             List<PlayerState> newPlayers,
-            int nextYear)
+            int nextYear,
+            int myPlayerId)
         {
             var decisions = new List<AiMarketDecision>(retiredPlayerIds.Count + newPlayers.Count + 64);
             retiredPlayerIds.Sort();
@@ -257,13 +398,19 @@ namespace Baseball.Game.Career
                     for (int playerIndex = 0; playerIndex < team.RosterCompetitors.Count; playerIndex++)
                     {
                         RosterCompetitorState competitor = team.RosterCompetitors[playerIndex];
+                        // 플레이어 계약은 CareerSeasonTransitionService가 선택 결과까지 소유한다.
+                        if (competitor.PlayerId == myPlayerId)
+                            continue;
                         PlayerState player = FindNewPlayer(newPlayers, competitor.PlayerId) ?? world.GetPlayer(competitor.PlayerId);
                         bool isNew = player.RegisteredSeasons == 0 && FindNewPlayer(newPlayers, player.PlayerId) != null;
                         bool moved = !isNew &&
                             (player.CurrentTeamId != team.TeamId || player.CurrentLeagueId != roster.LeagueId);
                         PlayerContractState activeContract = isNew ? null : FindActiveContract(world, player.ActiveContractId);
-                        bool needsContract = isNew || moved || activeContract == null || activeContract.EndYear < nextYear;
-                        if (!needsContract)
+                        bool followedTeam = moved && player.CurrentTeamId == team.TeamId;
+                        bool preservesContract = followedTeam && activeContract != null && activeContract.EndYear >= nextYear;
+                        bool needsContract = isNew || moved && !preservesContract ||
+                                             activeContract == null || activeContract.EndYear < nextYear;
+                        if (!needsContract && !preservesContract)
                             continue;
 
                         ExpectedRole role = GetExpectedRole(team, competitor);
@@ -275,7 +422,13 @@ namespace Baseball.Game.Career
                         else if (player.CurrentLeagueId == roster.LeagueId)
                             movementType = PlayerMovementType.SameLeagueTransfer;
                         else
-                            movementType = PlayerMovementType.Promotion;
+                            movementType = level > world.GetLeague(player.CurrentLeagueId).LeagueLevel
+                                ? followedTeam
+                                    ? PlayerMovementType.TeamPromotion
+                                    : PlayerMovementType.Promotion
+                                : followedTeam
+                                    ? PlayerMovementType.TeamRelegation
+                                    : PlayerMovementType.Rehabilitation;
                         long salary = CalculateSalary(level, competitor.Overall);
                         decisions.Add(new AiMarketDecision(
                             player.PlayerId,
@@ -285,15 +438,18 @@ namespace Baseball.Game.Career
                             roster.LeagueId,
                             team.TeamId,
                             role,
-                            GetContractYears(level),
-                            salary,
-                            movementType == PlayerMovementType.Promotion
+                            preservesContract ? 0 : GetContractYears(level),
+                            preservesContract ? 0L : salary,
+                            movementType is PlayerMovementType.Promotion or PlayerMovementType.TeamPromotion
                                 ? "상위 리그 로스터 수요에 따른 승격 계약"
+                                : movementType == PlayerMovementType.TeamRelegation
+                                    ? "구단 강등에 따른 계약 승계"
                                 : movementType == PlayerMovementType.SameLeagueTransfer
                                     ? "포지션 로스터 깊이 보충 계약"
                                 : movementType == PlayerMovementType.InitialSigning
                                     ? "Rookie 신규 선수 계약"
-                                    : "기존 구단 재계약"));
+                                    : "기존 구단 재계약",
+                            preservesContract));
                     }
                 }
             }
@@ -303,26 +459,20 @@ namespace Baseball.Game.Career
         private long CalculateSalary(LeagueLevel level, int overall)
         {
             PlayerLifecycleBalance lifecycle = _balance.PlayerLifecycle;
-            long baseSalary = level switch
-            {
-                LeagueLevel.Rookie => lifecycle.RookieBaseSalary,
-                LeagueLevel.Minor => lifecycle.MinorBaseSalary,
-                LeagueLevel.Major => lifecycle.MajorBaseSalary,
-                _ => throw new ArgumentOutOfRangeException(nameof(level))
-            };
+            LeagueDefinition definition = WorldGenerationConfiguration.GetDefaultDefinition(level);
+            long baseSalary = checked((long)Math.Round(
+                lifecycle.RookieBaseSalary * definition.SalaryMultiplier));
             return checked(baseSalary * (75L + overall) / 125L);
         }
 
         private int GetContractYears(LeagueLevel level)
         {
             PlayerLifecycleBalance lifecycle = _balance.PlayerLifecycle;
-            return level switch
-            {
-                LeagueLevel.Rookie => lifecycle.RookieContractYears,
-                LeagueLevel.Minor => lifecycle.MinorContractYears,
-                LeagueLevel.Major => lifecycle.MajorContractYears,
-                _ => throw new ArgumentOutOfRangeException(nameof(level))
-            };
+            if (level == LeagueLevel.Rookie)
+                return lifecycle.RookieContractYears;
+            if (level == LeagueLevel.Minor)
+                return lifecycle.MinorContractYears;
+            return lifecycle.MajorContractYears;
         }
 
         private static ExpectedRole GetExpectedRole(TeamState team, RosterCompetitorState player)
@@ -398,7 +548,10 @@ namespace Baseball.Game.Career
             return result;
         }
 
-        private void RebalanceLeagueDepth(TeamRosterBuilder[] league)
+        private void RebalanceLeagueDepth(
+            TeamRosterBuilder[] league,
+            int myPlayerId,
+            PlayerPosition myPlayerPosition)
         {
             int requiredDepth = _balance.TeamGeneration.CompetitorsPerPosition;
             for (int rawPosition = (int)PlayerPosition.Catcher;
@@ -408,13 +561,19 @@ namespace Baseball.Game.Career
                 var position = (PlayerPosition)rawPosition;
                 for (int targetIndex = 0; targetIndex < league.Length; targetIndex++)
                 {
-                    while (league[targetIndex].CountPosition(position) < requiredDepth)
+                    while (league[targetIndex].CountPosition(
+                               position,
+                               myPlayerId,
+                               myPlayerPosition) < requiredDepth)
                     {
                         int sourceIndex = -1;
                         RosterCompetitorState selected = default;
                         for (int candidateIndex = 0; candidateIndex < league.Length; candidateIndex++)
                         {
-                            if (league[candidateIndex].CountPosition(position) <= requiredDepth)
+                            if (league[candidateIndex].CountPosition(
+                                    position,
+                                    myPlayerId,
+                                    myPlayerPosition) <= requiredDepth)
                                 continue;
                             RosterCompetitorState candidate;
                             if (!league[candidateIndex].TryGetWeakest(position, out candidate))
@@ -524,7 +683,10 @@ namespace Baseball.Game.Career
                 return found;
             }
 
-            public int CountPosition(PlayerPosition position)
+            public int CountPosition(
+                PlayerPosition position,
+                int myPlayerId,
+                PlayerPosition myPlayerPosition)
             {
                 int count = 0;
                 for (int index = 0; index < _competitors.Count; index++)
@@ -532,6 +694,8 @@ namespace Baseball.Game.Career
                     if (_competitors[index].Position == position)
                         count++;
                 }
+                if (position == myPlayerPosition && _playerIds.Contains(myPlayerId))
+                    count++;
                 return count;
             }
 

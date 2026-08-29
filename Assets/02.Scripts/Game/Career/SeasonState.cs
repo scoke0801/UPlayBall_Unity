@@ -10,9 +10,58 @@ namespace Baseball.Game.Career
     /// </summary>
     public enum LeagueLevel
     {
-        Rookie,
-        Minor,
-        Major
+        Rookie = 0,
+        Minor = 1,
+        Major = 2,
+        World = 3,
+        AllStar = 4,
+        Classic = 5,
+        Winners = 6,
+        Champion = 7,
+        Master = 8,
+        Galaxy = 9
+    }
+
+    /// <summary>리그 단계의 순서와 경계 탐색을 이름 분기 없이 제공한다.</summary>
+    public static class LeagueLevelRules
+    {
+        public const int Count = 10;
+
+        public static bool IsValid(LeagueLevel level) =>
+            (int)level >= (int)LeagueLevel.Rookie && (int)level <= (int)LeagueLevel.Galaxy;
+
+        public static bool TryGetHigher(LeagueLevel level, out LeagueLevel higher)
+        {
+            if (!IsValid(level))
+                throw new ArgumentOutOfRangeException(nameof(level));
+            if (level == LeagueLevel.Galaxy)
+            {
+                higher = level;
+                return false;
+            }
+            higher = level + 1;
+            return true;
+        }
+
+        public static bool TryGetLower(LeagueLevel level, out LeagueLevel lower)
+        {
+            if (!IsValid(level))
+                throw new ArgumentOutOfRangeException(nameof(level));
+            if (level == LeagueLevel.Rookie)
+            {
+                lower = level;
+                return false;
+            }
+            lower = level - 1;
+            return true;
+        }
+
+        public static int GetDistance(LeagueLevel from, LeagueLevel to)
+        {
+            if (!IsValid(from)) throw new ArgumentOutOfRangeException(nameof(from));
+            if (!IsValid(to)) throw new ArgumentOutOfRangeException(nameof(to));
+            return Math.Abs((int)to - (int)from);
+        }
     }
 
     /// <summary>
@@ -34,7 +83,10 @@ namespace Baseball.Game.Career
     public sealed class SeasonState
     {
         private readonly Dictionary<int, bool> _rookieEligibilitySnapshot = new();
+        private readonly Dictionary<int, int> _expectedTeamRanks = new();
         private readonly List<MatchNarrativeSnapshot> _matchNarrativeSnapshots = new();
+        private int[] _finalStandingTeamIds = Array.Empty<int>();
+        private LeagueTiebreakGameState[] _tiebreakGames = Array.Empty<LeagueTiebreakGameState>();
 
         public SeasonState(int saveVersion, int seasonId, int year, LeagueLevel leagueLevel)
         {
@@ -63,8 +115,11 @@ namespace Baseball.Game.Career
         public SeasonAwardsState Awards { get; private set; }
         public SeasonReviewState Review { get; private set; }
         public SeasonReviewSnapshot ReviewSnapshot { get; private set; }
+        public LeagueAdjustedStatisticsSnapshot AdjustedStatistics { get; private set; }
         public SeasonSettlementState Settlement { get; }
         public IReadOnlyList<MatchNarrativeSnapshot> MatchNarrativeSnapshots => _matchNarrativeSnapshots;
+        public IReadOnlyList<int> FinalStandingTeamIds => _finalStandingTeamIds;
+        public IReadOnlyList<LeagueTiebreakGameState> TiebreakGames => _tiebreakGames;
 
         /// <summary>
         /// 포스트시즌 기록은 정규 시즌 기록과 절대 합산하지 않으므로 별도 누적기로 보관한다.
@@ -101,7 +156,8 @@ namespace Baseball.Game.Career
             SeasonScheduleState schedule,
             TeamSeasonRecordState[] teamRecords,
             PlayerSeasonStatisticsState playerStatistics,
-            PlayerState myPlayer = null)
+            PlayerState myPlayer = null,
+            IReadOnlyList<TeamState> teams = null)
         {
             if (Phase != SeasonPhase.Preseason)
                 throw new InvalidOperationException("정규 시즌은 Preseason에서만 시작할 수 있습니다.");
@@ -118,7 +174,88 @@ namespace Baseball.Game.Career
                 PlayerStatistics.BindTo(source);
             }
 
+            SnapshotExpectedTeamRanks(teamRecords, teams);
+
             Phase = SeasonPhase.RegularSeason;
+        }
+
+        public int GetExpectedTeamRank(int teamId) =>
+            _expectedTeamRanks.TryGetValue(teamId, out int rank) ? rank : 0;
+
+        /// <summary>승격·포스트시즌·잔류 경계 결정전을 반영한 정규시즌 최종 순서를 고정한다.</summary>
+        public void FinalizeStandings(
+            int[] orderedTeamIds,
+            LeagueTiebreakGameState[] tiebreakGames)
+        {
+            if (Phase != SeasonPhase.RegularSeason)
+                throw new InvalidOperationException("정규시즌 진행 중에만 최종 순위를 확정할 수 있습니다.");
+            if (orderedTeamIds == null || TeamRecords == null || orderedTeamIds.Length != TeamRecords.Count)
+                throw new ArgumentException("최종 순위에는 모든 구단이 한 번씩 포함되어야 합니다.", nameof(orderedTeamIds));
+            if (_finalStandingTeamIds.Length > 0)
+                throw new InvalidOperationException("정규시즌 최종 순위는 한 번만 확정할 수 있습니다.");
+            for (int index = 0; index < orderedTeamIds.Length; index++)
+            {
+                bool exists = false;
+                for (int recordIndex = 0; recordIndex < TeamRecords.Count; recordIndex++)
+                {
+                    if (TeamRecords[recordIndex].TeamId == orderedTeamIds[index])
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists)
+                    throw new ArgumentException("현재 리그에 없는 구단이 최종 순위에 포함됐습니다.", nameof(orderedTeamIds));
+                for (int previous = 0; previous < index; previous++)
+                {
+                    if (orderedTeamIds[previous] == orderedTeamIds[index])
+                        throw new ArgumentException("최종 순위에 같은 구단이 중복됐습니다.", nameof(orderedTeamIds));
+                }
+            }
+            _finalStandingTeamIds = (int[])orderedTeamIds.Clone();
+            _tiebreakGames = tiebreakGames == null
+                ? Array.Empty<LeagueTiebreakGameState>()
+                : (LeagueTiebreakGameState[])tiebreakGames.Clone();
+        }
+
+        private void SnapshotExpectedTeamRanks(
+            IReadOnlyList<TeamSeasonRecordState> teamRecords,
+            IReadOnlyList<TeamState> teams)
+        {
+            _expectedTeamRanks.Clear();
+            var ordered = new TeamSeasonRecordState[teamRecords.Count];
+            for (int index = 0; index < teamRecords.Count; index++)
+                ordered[index] = teamRecords[index];
+            Array.Sort(ordered, (left, right) =>
+            {
+                int strength = GetTeamStrength(teams, right.TeamId)
+                    .CompareTo(GetTeamStrength(teams, left.TeamId));
+                if (strength != 0)
+                    return strength;
+                int tiebreaker = right.FixedTiebreaker.CompareTo(left.FixedTiebreaker);
+                return tiebreaker != 0 ? tiebreaker : left.TeamId.CompareTo(right.TeamId);
+            });
+            for (int index = 0; index < ordered.Length; index++)
+                _expectedTeamRanks[ordered[index].TeamId] = index + 1;
+        }
+
+        private static double GetTeamStrength(IReadOnlyList<TeamState> teams, int teamId)
+        {
+            if (teams == null)
+                return 0d;
+            for (int teamIndex = 0; teamIndex < teams.Count; teamIndex++)
+            {
+                TeamState team = teams[teamIndex];
+                if (team.TeamId != teamId)
+                    continue;
+                int total = 0;
+                for (int playerIndex = 0; playerIndex < team.RosterCompetitors.Count; playerIndex++)
+                    total += team.RosterCompetitors[playerIndex].Overall;
+                return team.RosterCompetitors.Count == 0
+                    ? 0d
+                    : total / (double)team.RosterCompetitors.Count;
+            }
+            return 0d;
         }
 
         /// <summary>
@@ -292,6 +429,15 @@ namespace Baseball.Game.Career
                     return TeamRecords[index];
             }
             return null;
+        }
+
+        /// <summary>계약·커리어 평가가 소비할 당시 리그 강도와 선수 백분위를 한 번 고정한다.</summary>
+        public void FinalizeAdjustedStatistics(LeagueState league)
+        {
+            if (league == null) throw new ArgumentNullException(nameof(league));
+            if (league.CurrentSeason != this)
+                throw new InvalidOperationException("다른 시즌의 리그 조정 기록을 연결할 수 없습니다.");
+            AdjustedStatistics ??= new LeagueAdjustedStatisticsService().Build(league);
         }
     }
 }

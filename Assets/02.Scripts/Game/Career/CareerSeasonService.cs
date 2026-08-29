@@ -328,6 +328,8 @@ namespace Baseball.Game.Career
                 _career.CurrentLeague.LeagueId,
                 playerGame.Round);
             _career.World.Calendar.AdvanceTo(gameDate);
+            worldSeasonService.RecordLeagueRaceEvents(_career.CurrentLeague, gameDate);
+            RecordGalaxyLeagueDebut(playerResult, gameDate, season.SeasonId);
 
             MatchNarrativeSnapshot narrative = MatchNarrativeService.CreateSnapshot(
                 _career,
@@ -395,6 +397,30 @@ namespace Baseball.Game.Career
             return playerResult;
         }
 
+        private void RecordGalaxyLeagueDebut(
+            CareerGameAdvanceResult playerResult,
+            DateTime gameDate,
+            int seasonId)
+        {
+            if (_career.CurrentLeague.LeagueLevel != LeagueLevel.Galaxy)
+                return;
+            bool didAppear = playerResult.PlateAppearances > 0 ||
+                             playerResult.OutsRecorded > 0 ||
+                             playerResult.PitchesThrown > 0;
+            if (!didAppear)
+                return;
+
+            string eventId = $"galaxy-debut:{_career.MyPlayerId}";
+            if (_career.World.DomainEvents.Contains(eventId))
+                return;
+            _career.World.DomainEvents.Append(new WorldDomainEvent(
+                eventId,
+                "GalaxyLeagueDebut",
+                gameDate,
+                _career.MyPlayerId,
+                seasonId));
+        }
+
         private static TradeInterestRecord[] CopyTradeInterests(
             System.Collections.Generic.IReadOnlyList<TradeInterestRecord> source)
         {
@@ -409,21 +435,11 @@ namespace Baseball.Game.Career
         /// </summary>
         private void BeginPostseason(SeasonState season)
         {
-            var standings = new TeamStandingEntry[season.TeamRecords.Count];
-            for (int index = 0; index < standings.Length; index++)
-            {
-                TeamSeasonRecordState record = season.TeamRecords[index];
-                standings[index] = new TeamStandingEntry(
-                    record.TeamId,
-                    record.Wins,
-                    record.Losses,
-                    record.RunsScored,
-                    record.RunsAllowed,
-                    record.FixedTiebreaker,
-                    record.GetHeadToHeadEntries());
-            }
-
-            int[] seeds = PostseasonBracket.SelectSeeds(standings, _balance.Postseason.PlayoffTeamCount);
+            int[] finalStandings = new LeagueMovementPlanner(_career, _balance)
+                .ResolveFinalStandings(_career.CurrentLeague, out LeagueTiebreakGameState[] tiebreakGames);
+            season.FinalizeStandings(finalStandings, tiebreakGames);
+            var seeds = new int[_balance.Postseason.PlayoffTeamCount];
+            Array.Copy(finalStandings, seeds, seeds.Length);
             season.BeginPostseason(
                 new PostseasonState(_career.SaveVersion, seeds),
                 new PlayerSeasonStatisticsState(),

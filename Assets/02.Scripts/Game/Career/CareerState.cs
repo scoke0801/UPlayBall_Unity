@@ -56,6 +56,7 @@ namespace Baseball.Game.Career
             News = new CareerNewsState(saveVersion);
             Narrative = new CareerNarrativeState(saveVersion);
             Retirement = new CareerRetirementState(saveVersion);
+            Reputation = new CareerReputationState(World.GetLeague(MyPlayer.CurrentLeagueId).LeagueLevel);
             CreationProfile = creationProfile ?? new CareerCreationProfile(
                 GameMode.PlayerCareer,
                 myPlayer.PrimaryPosition is Baseball.Core.Players.PlayerPosition.StartingPitcher or
@@ -87,6 +88,7 @@ namespace Baseball.Game.Career
         public CareerNewsState News { get; }
         public CareerNarrativeState Narrative { get; }
         public CareerRetirementState Retirement { get; }
+        public CareerReputationState Reputation { get; }
         public CareerCreationProfile CreationProfile { get; }
         public CareerGameSettings GameSettings => CreationProfile.GameSettings;
         public OffseasonState CurrentOffseason { get; private set; }
@@ -156,15 +158,21 @@ namespace Baseball.Game.Career
         /// <summary>
         /// 계약 만료로 새 계약이 체결되면 현재 계약을 교체하고 이전 계약을 이력에 남긴다.
         /// </summary>
-        public void RenewContract(PlayerContractState newContract, int movementSeasonId = 0)
+        public void RenewContract(
+            PlayerContractState newContract,
+            int movementSeasonId = 0,
+            LeagueId targetLeagueId = default,
+            long transferCompensation = 0L)
         {
             if (newContract == null)
                 throw new ArgumentNullException(nameof(newContract));
+            if (transferCompensation < 0L)
+                throw new ArgumentOutOfRangeException(nameof(transferCompensation));
             int previousTeamId = CurrentContract.TeamId;
             LeagueId previousLeagueId = CurrentContract.CurrentLeagueId;
             Baseball.Core.Teams.ExpectedRole previousRole = CurrentExpectedRole;
             CurrentContract = newContract ?? throw new ArgumentNullException(nameof(newContract));
-            World.RegisterContract(CurrentContract, MyPlayer.PlayerId);
+            World.RegisterContract(CurrentContract, MyPlayer.PlayerId, targetLeagueId);
             _contractHistory.Add(CurrentContract);
             PlayerMovementType movementType;
             if (previousLeagueId == CurrentContract.CurrentLeagueId)
@@ -194,15 +202,33 @@ namespace Baseball.Game.Career
                 CurrentContract.PromisedRole,
                 CurrentContract.ExpectedRole,
                 CurrentContract.ContractId,
-                movementType switch
+                transferCompensation > 0L
+                    ? "상위 리그 이적 허용 조항 발동"
+                    : movementType switch
                 {
                     PlayerMovementType.CurrentTeamRenewal => "기존 구단 재계약",
                     PlayerMovementType.Promotion => "상위 리그 승격 계약",
                     PlayerMovementType.Rehabilitation => "하위 리그 재기 계약",
                     _ => "공개 시장 이적"
-                }));
+                },
+                transferCompensation));
+            if (transferCompensation > 0L)
+            {
+                World.DomainEvents.Append(new WorldDomainEvent(
+                    $"upper-release-clause:{CurrentContract.SignedYear}:{MyPlayer.PlayerId}:{CurrentContract.TeamId}",
+                    "UpperLeagueReleaseClauseActivated",
+                    World.Calendar.CurrentDate,
+                    MyPlayer.PlayerId,
+                    CurrentContract.TeamId));
+            }
             if (movementType is PlayerMovementType.Promotion or PlayerMovementType.Rehabilitation)
             {
+                World.DomainEvents.Append(new WorldDomainEvent(
+                    $"cross-league-contract:{CurrentContract.SignedYear}:{MyPlayer.PlayerId}:{CurrentContract.TeamId}",
+                    "CrossLeagueContractSigned",
+                    World.Calendar.CurrentDate,
+                    MyPlayer.PlayerId,
+                    CurrentContract.TeamId));
                 World.DomainEvents.Append(new WorldDomainEvent(
                     $"player-league-move:{CurrentContract.SignedYear}:{MyPlayer.PlayerId}:{(int)movementType}",
                     movementType == PlayerMovementType.Promotion

@@ -14,6 +14,7 @@ namespace Baseball.Game.Career
     {
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
+        private const int RaceEventMinimumGames = 60;
 
         public WorldSeasonService(CareerState career, BalanceTable balance)
         {
@@ -34,11 +35,21 @@ namespace Baseball.Game.Career
         private void AdvanceBackgroundLeagues(LeagueId leagueId, int round, bool processBefore)
         {
             IReadOnlyList<LeagueState> leagues = _career.World.Leagues;
+            int activeIndex = -1;
+            for (int index = 0; index < leagues.Count; index++)
+            {
+                if (leagues[index].LeagueId == leagueId)
+                {
+                    activeIndex = index;
+                    break;
+                }
+            }
+            if (activeIndex < 0)
+                throw new InvalidOperationException($"{leagueId}를 월드에서 찾을 수 없습니다.");
             for (int index = 0; index < leagues.Count; index++)
             {
                 LeagueState league = leagues[index];
-                int comparison = league.LeagueId.CompareTo(leagueId);
-                if (comparison == 0 || processBefore != (comparison < 0))
+                if (index == activeIndex || processBefore != (index < activeIndex))
                     continue;
                 AdvanceLeagueThroughRound(league, round);
             }
@@ -80,15 +91,30 @@ namespace Baseball.Game.Career
 
             if (!HasIncompleteGame(season.Schedule))
                 BeginPostseason(season);
+            else
+                RecordLeagueRaceEvents(league, SeasonDateCalculator.GetGameDate(
+                    season.Year,
+                    targetRound,
+                    _balance.CareerSeason));
         }
 
-        private void BeginPostseason(SeasonState season)
+        /// <summary>
+        /// 시즌 막판 순위가 실제 경쟁 구역에 들어온 순간을 팀·시즌별 한 번만 확정한다.
+        /// </summary>
+        public void RecordLeagueRaceEvents(LeagueState league, DateTime worldDate)
         {
-            var standings = new TeamStandingEntry[season.TeamRecords.Count];
-            for (int index = 0; index < standings.Length; index++)
+            if (league == null) throw new ArgumentNullException(nameof(league));
+            SeasonState season = league.CurrentSeason;
+            if (season?.Phase != SeasonPhase.RegularSeason || season.TeamRecords.Count == 0)
+                return;
+            if (season.TeamRecords[0].GamesPlayed < RaceEventMinimumGames)
+                return;
+
+            var entries = new TeamStandingEntry[season.TeamRecords.Count];
+            for (int index = 0; index < entries.Length; index++)
             {
                 TeamSeasonRecordState record = season.TeamRecords[index];
-                standings[index] = new TeamStandingEntry(
+                entries[index] = new TeamStandingEntry(
                     record.TeamId,
                     record.Wins,
                     record.Losses,
@@ -97,10 +123,80 @@ namespace Baseball.Game.Career
                     record.FixedTiebreaker,
                     record.GetHeadToHeadEntries());
             }
-            int[] seeds = PostseasonBracket.SelectSeeds(standings, _balance.Postseason.PlayoffTeamCount);
+
+            int[] orderedTeamIds = PostseasonBracket.SelectSeeds(entries, entries.Length);
+            LeagueDefinition definition = WorldGenerationConfiguration.GetDefaultDefinition(league.LeagueLevel);
+            for (int index = 0; index < orderedTeamIds.Length; index++)
+            {
+                int rank = index + 1;
+                if (definition.PromotionSlots > 0 && rank <= definition.PromotionSlots)
+                {
+                    AppendRaceEvent(
+                        season,
+                        orderedTeamIds[index],
+                        rank,
+                        "PromotionRaceEntered",
+                        worldDate);
+                }
+                else if (definition.RelegationSlots > 0 &&
+                         rank > orderedTeamIds.Length - definition.RelegationSlots)
+                {
+                    AppendRaceEvent(
+                        season,
+                        orderedTeamIds[index],
+                        rank,
+                        "RelegationRiskEntered",
+                        worldDate);
+                }
+            }
+        }
+
+        private void AppendRaceEvent(
+            SeasonState season,
+            int teamId,
+            int rank,
+            string eventType,
+            DateTime worldDate)
+        {
+            string eventId = $"league-race:{season.SeasonId}:{teamId}:{eventType}";
+            if (_career.World.DomainEvents.Contains(eventId))
+                return;
+            _career.World.DomainEvents.Append(new WorldDomainEvent(
+                eventId,
+                eventType,
+                worldDate,
+                teamId,
+                rank));
+        }
+
+        private void BeginPostseason(SeasonState season)
+        {
+            LeagueState league = FindLeague(season);
+            int[] finalStandings = new LeagueMovementPlanner(_career, _balance)
+                .ResolveFinalStandings(league, out LeagueTiebreakGameState[] tiebreakGames);
+            season.FinalizeStandings(finalStandings, tiebreakGames);
+            int[] seeds = CopyPostseasonSeeds(finalStandings);
             season.BeginPostseason(
                 new PostseasonState(_career.SaveVersion, seeds),
                 new PlayerSeasonStatisticsState());
+        }
+
+        private LeagueState FindLeague(SeasonState season)
+        {
+            for (int index = 0; index < _career.World.Leagues.Count; index++)
+            {
+                if (ReferenceEquals(_career.World.Leagues[index].CurrentSeason, season))
+                    return _career.World.Leagues[index];
+            }
+            throw new InvalidOperationException("현재 시즌을 소유한 리그를 찾을 수 없습니다.");
+        }
+
+        private int[] CopyPostseasonSeeds(int[] finalStandings)
+        {
+            int count = _balance.Postseason.PlayoffTeamCount;
+            var result = new int[count];
+            Array.Copy(finalStandings, result, count);
+            return result;
         }
 
         private static bool HasIncompleteGame(SeasonScheduleState schedule)

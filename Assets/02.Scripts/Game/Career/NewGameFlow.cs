@@ -13,7 +13,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 12;
+        public const int CurrentSaveVersion = 13;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
@@ -369,6 +369,14 @@ namespace Baseball.Game.Career
                 _configuration.Archetypes,
                 _configuration.TeamIdentities,
                 _configuration.PlayerNamePool);
+            for (int index = 0; index < State.SetupResult.Offers.Length; index++)
+            {
+                ContractOffer offer = State.SetupResult.Offers[index];
+                State.SetupResult.Offers[index] = offer.WithMovementClauses(
+                    hasUpperLeagueReleaseClause: true,
+                    upperLeagueReleaseCompensation: offer.AnnualSalary,
+                    hasRelegationTransferRequestClause: false);
+            }
             State.SelectedOffer = null;
             State.Step = NewGameStep.ContractOffers;
         }
@@ -431,7 +439,10 @@ namespace Baseball.Game.Career
                 offer.ContractYears,
                 offer.SigningBonus,
                 offer.AnnualSalary,
-                offer.ExpectedRole);
+                offer.ExpectedRole,
+                offer.HasUpperLeagueReleaseClause,
+                offer.UpperLeagueReleaseCompensation,
+                offer.HasRelegationTransferRequestClause);
             WorldState world = new CareerWorldFactory(_configuration).CreateNewWorld(
                 State.RandomSeed,
                 State.SetupResult.Teams,
@@ -517,7 +528,8 @@ namespace Baseball.Game.Career
                 new SeasonScheduleState(games),
                 teamRecords,
                 new PlayerSeasonStatisticsState(),
-                player);
+                player,
+                league.Teams);
             if (player == null)
             {
                 league.CurrentSeason.SnapshotRookieEligibility(

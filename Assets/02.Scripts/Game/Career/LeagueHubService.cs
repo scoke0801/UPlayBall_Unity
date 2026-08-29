@@ -59,7 +59,15 @@ namespace Baseball.Game.Career
                 BuildPitchingLeaderboards(),
                 BuildTeamMetrics(myTeamId),
                 recentResults,
-                nextRoundGames);
+                nextRoundGames,
+                WorldGenerationConfiguration.GetDefaultDefinition(_season.LeagueLevel),
+                LeagueLevelRules.TryGetLower(_season.LeagueLevel, out LeagueLevel lower)
+                    ? WorldGenerationConfiguration.GetDefaultDefinition(lower)
+                    : null,
+                LeagueLevelRules.TryGetHigher(_season.LeagueLevel, out LeagueLevel higher)
+                    ? WorldGenerationConfiguration.GetDefaultDefinition(higher)
+                    : null,
+                _career.Reputation.HighestReachedTier);
         }
 
         private LeagueStandingView[] BuildStandings(int myTeamId)
@@ -103,9 +111,21 @@ namespace Baseball.Game.Career
                     streakLength,
                     GetRecentForm(teamId),
                     index < _balance.Postseason.PlayoffTeamCount,
-                    teamId == myTeamId);
+                    teamId == myTeamId,
+                    GetStandingZone(_season.LeagueLevel, index + 1));
             }
             return views;
+        }
+
+        private static LeagueStandingZone GetStandingZone(LeagueLevel tier, int rank)
+        {
+            if (rank <= 2 && tier != LeagueLevel.Galaxy)
+                return LeagueStandingZone.Promotion;
+            if (rank <= 4)
+                return LeagueStandingZone.PostseasonRetention;
+            if (rank >= 7 && tier != LeagueLevel.Rookie)
+                return LeagueStandingZone.Relegation;
+            return LeagueStandingZone.Retention;
         }
 
         private LeagueBattingLeaderboardView[] BuildBattingLeaderboards()

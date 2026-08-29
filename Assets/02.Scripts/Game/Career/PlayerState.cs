@@ -114,6 +114,8 @@ namespace Baseball.Game.Career
 
         public int SaveVersion { get; }
         public int PlayerId { get; }
+        public RetirementPersonality RetirementPersonality =>
+            (RetirementPersonality)((PlayerId - 1) % 4);
         public string Name { get; }
         public string Nationality { get; }
         public int Age { get; private set; }

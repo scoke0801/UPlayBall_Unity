@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Random;
 
@@ -72,6 +73,9 @@ namespace Baseball.Game.Career
                 }
             }
 
+            PlayerLifecycleBalance lifecycle = _balance.PlayerLifecycle;
+            bool isOfferStep = negotiationStatus is ContractNegotiationStatus.CurrentTeamOfferAvailable or
+                ContractNegotiationStatus.OffersAvailable;
             var evaluator = new PlayerValueEvaluator(_balance.PlayerEvaluation);
             return new CareerContractView
             {
@@ -107,13 +111,21 @@ namespace Baseball.Game.Career
                 NegotiationStatus = negotiationStatus,
                 RenewalOffers = renewalOffers,
                 ExtensionOffer = extensionOffer.HasValue
-                    ? BuildOfferView(extensionOffer.Value, isSelected: false)
+                    ? BuildOfferView(extensionOffer.Value, isSelected: false, transitionService: null)
                     : null,
                 CanBeginNegotiation = negotiationStatus == ContractNegotiationStatus.NegotiationAvailable,
                 CanAcceptExtension = extensionOffer.HasValue,
                 CanSignSelectedOffer = transitionService?.SelectedOffer.HasValue == true,
                 CanOpenMarket = transitionService?.Step == SeasonTransitionStep.CurrentTeamNegotiation,
                 IsCurrentTeamOfferHeld = transitionService?.IsCurrentTeamOfferHeld == true,
+                IsUnsignedRetirementRequired = transitionService?.IsUnsignedRetirementRequired == true,
+                CanRetireInsteadOfSigning = isOfferStep &&
+                    (player.Age >= lifecycle.RetirementMinimumAge ||
+                     transitionService?.IsUnsignedRetirementRequired == true),
+                // 오퍼 단계에서는 아직 나이를 올리지 않았으므로 서명 후 시즌의 나이는 Age + 1이다.
+                IsNextSeasonForcedFinal = player.Age + 1 >= lifecycle.GuaranteedRetirementAge,
+                RetirementEligibleAge = lifecycle.RetirementMinimumAge,
+                GuaranteedRetirementAge = lifecycle.GuaranteedRetirementAge,
                 LastError = lastError ?? string.Empty
             };
         }
@@ -149,7 +161,8 @@ namespace Baseball.Game.Career
                     ContractOfferChannel channel = transitionService.RenewalOffers[index].Channel;
                     if (channel is ContractOfferChannel.OpenMarket or
                         ContractOfferChannel.Promotion or
-                        ContractOfferChannel.Rehabilitation)
+                        ContractOfferChannel.Rehabilitation or
+                        ContractOfferChannel.TryoutContract)
                         count++;
                 }
                 var actual = new ContractOffer[count];
@@ -159,7 +172,8 @@ namespace Baseball.Game.Career
                     ContractOffer offer = transitionService.RenewalOffers[index];
                     if (offer.Channel is ContractOfferChannel.OpenMarket or
                         ContractOfferChannel.Promotion or
-                        ContractOfferChannel.Rehabilitation)
+                        ContractOfferChannel.Rehabilitation or
+                        ContractOfferChannel.TryoutContract)
                         actual[resultIndex++] = offer;
                 }
                 return actual;
@@ -200,17 +214,24 @@ namespace Baseball.Game.Career
                 ContractOffer offer = transitionService.RenewalOffers[index];
                 result[index] = BuildOfferView(
                     offer,
-                    selected.HasValue && selected.Value.Team.TeamId == offer.Team.TeamId);
+                    selected.HasValue && selected.Value.Team.TeamId == offer.Team.TeamId,
+                    transitionService);
             }
             return result;
         }
 
-        private RenewalContractOfferView BuildOfferView(ContractOffer offer, bool isSelected)
+        private RenewalContractOfferView BuildOfferView(
+            ContractOffer offer,
+            bool isSelected,
+            CareerSeasonTransitionService transitionService)
         {
+            LeagueLevel targetLeagueLevel = transitionService == null
+                ? _career.World.GetLeagueForTeam(offer.Team.TeamId).LeagueLevel
+                : transitionService.GetPlannedLeagueLevel(offer.Team.TeamId);
             return new RenewalContractOfferView(
                 offer.Team.TeamId,
                 offer.Team.Name,
-                _career.World.GetLeagueForTeam(offer.Team.TeamId).LeagueLevel,
+                targetLeagueLevel,
                 offer.Team.PrimaryColor,
                 offer.Team.GetPositionNeed(_career.MyPlayer.PrimaryPosition),
                 offer.Team.Archetype.Development,
@@ -220,7 +241,26 @@ namespace Baseball.Game.Career
                 offer.ExpectedRole,
                 offer.Channel,
                 offer.EstimatedPlayingTime,
+                BuildCompetitorSummary(offer.Team.GetPositionCompetitors(
+                    _career.MyPlayer.PrimaryPosition)),
+                offer.HasUpperLeagueReleaseClause,
+                offer.UpperLeagueReleaseCompensation,
+                offer.HasRelegationTransferRequestClause,
                 isSelected);
+        }
+
+        private static string BuildCompetitorSummary(IReadOnlyList<RosterCompetitor> competitors)
+        {
+            if (competitors == null || competitors.Count == 0)
+                return "없음";
+            int count = Math.Min(2, competitors.Count);
+            string result = string.Empty;
+            for (int index = 0; index < count; index++)
+            {
+                if (index > 0) result += ", ";
+                result += $"{competitors[index].Name} OVR {competitors[index].Overall}";
+            }
+            return result;
         }
 
         private static ContractNegotiationStatus ResolveNegotiationStatus(

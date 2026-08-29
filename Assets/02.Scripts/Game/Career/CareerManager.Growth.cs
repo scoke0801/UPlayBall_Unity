@@ -1191,6 +1191,20 @@ namespace Baseball.Game.Career
         private string GetGachaUnavailableReason(SkillGachaPurchaseTier tier)
         {
             SkillGachaBalanceTable balance = _balance.Growth.SkillGacha;
+            LeagueLevel requiredLeague = tier switch
+            {
+                SkillGachaPurchaseTier.Elite => LeagueLevel.Major,
+                SkillGachaPurchaseTier.Unique => LeagueLevel.Classic,
+                SkillGachaPurchaseTier.Legendary => LeagueLevel.Champion,
+                _ => LeagueLevel.Rookie
+            };
+            if (CurrentCareer.Reputation.HighestReachedTier < requiredLeague)
+            {
+                string leagueName = WorldGenerationConfiguration
+                    .GetDefaultDefinition(requiredLeague)
+                    .UiDisplayName;
+                return $"{tier} 전용 뽑기는 {leagueName} 최초 진출 후 해금됩니다.";
+            }
             if (balance.HighTierPurchasesRequireOffseason &&
                 tier >= SkillGachaPurchaseTier.Unique &&
                 !IsOffseason())
