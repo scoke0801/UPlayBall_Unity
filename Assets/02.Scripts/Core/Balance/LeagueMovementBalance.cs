@@ -19,7 +19,14 @@ namespace Baseball.Core.Balance
             int maximumPromotionOffers,
             int maximumRehabilitationOffers,
             int minorContractYears,
-            int majorContractYears)
+            int majorContractYears,
+            double seasonPerformanceFitWeight = 0.30d,
+            double targetAbilityFitWeight = 0.25d,
+            double positionNeedFitWeight = 0.20d,
+            double agePotentialFitWeight = 0.10d,
+            double recentGrowthFitWeight = 0.05d,
+            double durabilityFitWeight = 0.05d,
+            double reputationFitWeight = 0.05d)
         {
             if (upperLeagueOverallPenalty < 0) throw new ArgumentOutOfRangeException(nameof(upperLeagueOverallPenalty));
             if (performanceWeight < 0d || potentialWeight < 0d)
@@ -34,6 +41,15 @@ namespace Baseball.Core.Balance
                 throw new ArgumentOutOfRangeException(nameof(interestScoreThreshold));
             if (minorContractYears <= 0 || majorContractYears <= 0)
                 throw new ArgumentOutOfRangeException(nameof(minorContractYears));
+            double fitWeightSum = seasonPerformanceFitWeight + targetAbilityFitWeight +
+                                  positionNeedFitWeight + agePotentialFitWeight +
+                                  recentGrowthFitWeight + durabilityFitWeight + reputationFitWeight;
+            if (seasonPerformanceFitWeight < 0d || targetAbilityFitWeight < 0d ||
+                positionNeedFitWeight < 0d || agePotentialFitWeight < 0d ||
+                recentGrowthFitWeight < 0d || durabilityFitWeight < 0d || reputationFitWeight < 0d ||
+                Math.Abs(fitWeightSum - 1d) > 0.000001d)
+                throw new ArgumentOutOfRangeException(nameof(seasonPerformanceFitWeight),
+                    "상위 리그 적합도 가중치 합은 1이어야 합니다.");
 
             UpperLeagueOverallPenalty = upperLeagueOverallPenalty;
             PerformanceWeight = performanceWeight;
@@ -49,6 +65,13 @@ namespace Baseball.Core.Balance
             MaximumRehabilitationOffers = maximumRehabilitationOffers;
             MinorContractYears = minorContractYears;
             MajorContractYears = majorContractYears;
+            SeasonPerformanceFitWeight = seasonPerformanceFitWeight;
+            TargetAbilityFitWeight = targetAbilityFitWeight;
+            PositionNeedFitWeight = positionNeedFitWeight;
+            AgePotentialFitWeight = agePotentialFitWeight;
+            RecentGrowthFitWeight = recentGrowthFitWeight;
+            DurabilityFitWeight = durabilityFitWeight;
+            ReputationFitWeight = reputationFitWeight;
         }
 
         public int UpperLeagueOverallPenalty { get; }
@@ -65,6 +88,13 @@ namespace Baseball.Core.Balance
         public int MaximumRehabilitationOffers { get; }
         public int MinorContractYears { get; }
         public int MajorContractYears { get; }
+        public double SeasonPerformanceFitWeight { get; }
+        public double TargetAbilityFitWeight { get; }
+        public double PositionNeedFitWeight { get; }
+        public double AgePotentialFitWeight { get; }
+        public double RecentGrowthFitWeight { get; }
+        public double DurabilityFitWeight { get; }
+        public double ReputationFitWeight { get; }
 
         public static LeagueMovementBalance CreateDefault()
         {

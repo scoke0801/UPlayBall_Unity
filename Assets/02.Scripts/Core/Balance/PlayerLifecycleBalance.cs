@@ -21,7 +21,8 @@ namespace Baseball.Core.Balance
             long majorBaseSalary,
             int rookieContractYears,
             int minorContractYears,
-            int majorContractYears)
+            int majorContractYears,
+            double rookieTryoutPassingScore = 55d)
         {
             if (retirementMinimumAge < 18 || guaranteedRetirementAge <= retirementMinimumAge)
                 throw new ArgumentOutOfRangeException(nameof(retirementMinimumAge));
@@ -40,6 +41,8 @@ namespace Baseball.Core.Balance
                 throw new ArgumentOutOfRangeException(nameof(rookieBaseSalary));
             if (rookieContractYears <= 0 || minorContractYears <= 0 || majorContractYears <= 0)
                 throw new ArgumentOutOfRangeException(nameof(rookieContractYears));
+            if (rookieTryoutPassingScore < 0d || rookieTryoutPassingScore > 100d)
+                throw new ArgumentOutOfRangeException(nameof(rookieTryoutPassingScore));
 
             RetirementMinimumAge = retirementMinimumAge;
             GuaranteedRetirementAge = guaranteedRetirementAge;
@@ -57,6 +60,7 @@ namespace Baseball.Core.Balance
             RookieContractYears = rookieContractYears;
             MinorContractYears = minorContractYears;
             MajorContractYears = majorContractYears;
+            RookieTryoutPassingScore = rookieTryoutPassingScore;
         }
 
         public int RetirementMinimumAge { get; }
@@ -75,6 +79,7 @@ namespace Baseball.Core.Balance
         public int RookieContractYears { get; }
         public int MinorContractYears { get; }
         public int MajorContractYears { get; }
+        public double RookieTryoutPassingScore { get; }
 
         /// <summary>장기 월드에서 평균 은퇴 나이 36~39세를 목표로 한 초기값을 만든다.</summary>
         public static PlayerLifecycleBalance CreateDefault()
@@ -95,7 +100,8 @@ namespace Baseball.Core.Balance
                 majorBaseSalary: 300_000_000L,
                 rookieContractYears: 1,
                 minorContractYears: 1,
-                majorContractYears: 1);
+                majorContractYears: 1,
+                rookieTryoutPassingScore: 55d);
         }
     }
 }

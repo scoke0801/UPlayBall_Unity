@@ -37,4 +37,13 @@ namespace Baseball.Core.Players
         Left = 1,
         Switch = 2
     }
+
+    /// <summary>AI 선수가 말년의 계약·구단 상황을 받아들이는 방식을 구분한다.</summary>
+    public enum RetirementPersonality
+    {
+        Ambitious,
+        PlayingObsessed,
+        FranchiseLoyal,
+        ChampionshipSeeker
+    }
 }
