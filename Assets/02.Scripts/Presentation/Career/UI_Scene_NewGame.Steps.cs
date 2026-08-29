@@ -239,26 +239,46 @@ namespace Baseball.Presentation.Career
 
             RectTransform allocation = CreateImage("Allocation", _body,
                 new Color(0.014f, 0.036f, 0.06f, 1f), new Vector2(750f, 610f), new Vector2(-40f, -5f));
-            CreateText("Remaining", allocation,
-                $"남은 포인트  {remaining} / {rule.BonusPoints}     ·     생성 상한 {rule.MaxValue}",
-                17, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(650f, 38f), new Vector2(0f, 260f), remaining == 0 ? AccentColor : PrimaryTextColor);
+            RectTransform pointSummary = CreateImage("PointSummary", allocation,
+                new Color(0.025f, 0.065f, 0.095f, 1f), new Vector2(690f, 58f), new Vector2(0f, 258f));
+            CreateText("PointLabel", pointSummary, remaining == 0 ? "배분 완료" : "남은 포인트",
+                15, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(120f, 32f), new Vector2(-278f, 0f),
+                remaining == 0 ? AccentColor : SecondaryTextColor);
+            CreateText("Remaining", pointSummary, $"{remaining} P", 23, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(88f, 36f), new Vector2(-170f, 0f),
+                remaining == 0 ? AccentColor : GoldColor);
+            CreateText("Rule", pointSummary,
+                $"총 {rule.BonusPoints} P  ·  기본 {rule.BaseValue}  ·  상한 {rule.MaxValue}",
+                13, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(255f, 32f), new Vector2(10f, 0f), SecondaryTextColor);
+            Button reset = CreateButton("Reset", pointSummary, "초기화", new Vector2(92f, 36f),
+                new Vector2(288f, 0f), CardColor, out Text resetLabel);
+            resetLabel.fontSize = 14;
+            reset.interactable = remaining < rule.BonusPoints;
+            reset.onClick.AddListener(ResetCreationAttributes);
+
             for (int index = 0; index < names.Length; index++)
             {
                 int captured = index;
-                float y = 175f - index * (names.Length == 4 ? 100f : 72f);
-                CreateText("Name_" + index, allocation, names[index], 18, FontStyle.Bold,
-                    TextAnchor.MiddleLeft, new Vector2(120f, 40f), new Vector2(-260f, y), PrimaryTextColor);
+                float y = names.Length == 4 ? 158f - index * 96f : 178f - index * 70f;
+                CreateImage("Row_" + index, allocation,
+                    index % 2 == 0
+                        ? new Color(0.018f, 0.048f, 0.073f, 0.95f)
+                        : new Color(0.012f, 0.036f, 0.058f, 0.95f),
+                    new Vector2(690f, names.Length == 4 ? 66f : 58f), new Vector2(0f, y));
                 CreateAttributeBar(allocation, "Bar_" + index, _attributeDraft[index], rule.MaxValue,
-                    new Vector2(-65f, y));
+                    new Vector2(-80f, y));
+                CreateText("Name_" + index, allocation, names[index], 18, FontStyle.Bold,
+                    TextAnchor.MiddleLeft, new Vector2(90f, 40f), new Vector2(-292f, y), PrimaryTextColor);
                 CreateText("Value_" + index, allocation, _attributeDraft[index].ToString(), 20, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(60f, 42f), new Vector2(145f, y), AccentColor);
+                    TextAnchor.MiddleCenter, new Vector2(60f, 42f), new Vector2(112f, y), AccentColor);
                 Button minus = CreateButton("Minus_" + index, allocation, "−", new Vector2(46f, 42f),
-                    new Vector2(205f, y), CardColor, out _);
+                    new Vector2(196f, y), CardColor, out _);
                 minus.interactable = _attributeDraft[index] > rule.BaseValue;
                 minus.onClick.AddListener(() => ChangeCreationAttribute(captured, -1));
                 Button plus = CreateButton("Plus_" + index, allocation, "+", new Vector2(46f, 42f),
-                    new Vector2(260f, y), CardColor, out _);
+                    new Vector2(258f, y), CardColor, out _);
                 plus.interactable = remaining > 0 && _attributeDraft[index] < rule.MaxValue;
                 plus.onClick.AddListener(() => ChangeCreationAttribute(captured, 1));
             }

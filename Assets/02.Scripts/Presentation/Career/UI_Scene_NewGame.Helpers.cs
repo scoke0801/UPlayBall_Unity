@@ -110,17 +110,25 @@ namespace Baseball.Presentation.Career
             Render();
         }
 
+        private void ResetCreationAttributes()
+        {
+            CareerAttributeAllocationRule rule = _manager.CurrentCreationAttributeRule;
+            for (int index = 0; index < _attributeDraft.Length; index++)
+                _attributeDraft[index] = rule.BaseValue;
+            Render();
+        }
+
         private void CreateAttributeBar(Transform parent, string name, int value, int maximum, Vector2 position)
         {
             RectTransform track = CreateImage(name, parent, new Color(0.07f, 0.12f, 0.16f, 1f),
-                new Vector2(280f, 16f), position);
+                new Vector2(300f, 14f), position);
             float ratio = maximum <= 0 ? 0f : Mathf.Clamp01(value / (float)maximum);
             RectTransform fill = CreateImage("Fill", track, AccentColor,
-                new Vector2(280f * ratio, 12f), Vector2.zero);
+                new Vector2(300f * ratio, 10f), Vector2.zero);
             fill.anchorMin = new Vector2(0f, 0.5f);
             fill.anchorMax = new Vector2(0f, 0.5f);
             fill.pivot = new Vector2(0f, 0.5f);
-            fill.anchoredPosition = new Vector2(-140f, 0f);
+            fill.anchoredPosition = Vector2.zero;
         }
 
         private bool IsPresetSelected(AttributeAllocationPresetView preset)
