@@ -25,6 +25,24 @@ namespace Baseball.Presentation.UI
         public RectTransform Content { get; }
         public ScrollRect ScrollRect { get; }
 
+        /// <summary>세로 스크롤에는 고정되고 가로 스크롤에만 따라 움직이는 헤더 행을 만든다.</summary>
+        public RectTransform CreateStickyHeader(float width, float height, Color backgroundColor)
+        {
+            RectTransform header = CreateRect("HeaderRow", Viewport, new Vector2(width, height), Vector2.zero);
+            header.anchorMin = new Vector2(0f, 1f);
+            header.anchorMax = new Vector2(0f, 1f);
+            header.pivot = new Vector2(0f, 1f);
+            header.anchoredPosition = Vector2.zero;
+            Image image = header.gameObject.AddComponent<Image>();
+            image.color = backgroundColor;
+            header.SetAsLastSibling();
+
+            RectTransform content = Content;
+            ScrollRect.onValueChanged.AddListener(_ =>
+                header.anchoredPosition = new Vector2(content.anchoredPosition.x, 0f));
+            return header;
+        }
+
         /// <summary>지정 크기의 양방향 또는 단방향 스크롤 영역을 생성한다.</summary>
         public static UIXScrollView Create(
             Transform parent,

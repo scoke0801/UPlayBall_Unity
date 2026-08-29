@@ -25,7 +25,7 @@ namespace Baseball.Presentation.Career
                 view.LeaderboardColumns,
                 view.Leaderboard.Length);
             RenderRecordTableHeader(
-                table.Content,
+                CreateStickyTableHeader(table),
                 view.LeaderboardColumns,
                 includeRank: true,
                 showSeasonRank: false);
@@ -76,7 +76,8 @@ namespace Baseball.Presentation.Career
             bool showRank)
         {
             UIXScrollView table = CreateRecordTable(panel, "SeasonTable", columns, seasons.Length);
-            RenderRecordTableHeader(table.Content, columns, includeRank: false, showSeasonRank: showRank);
+            RenderRecordTableHeader(
+                CreateStickyTableHeader(table), columns, includeRank: false, showSeasonRank: showRank);
 
             for (int index = 0; index < seasons.Length; index++)
             {
@@ -134,20 +135,20 @@ namespace Baseball.Presentation.Career
                 new Color(0.18f, 0.52f, 0.76f, 1f));
         }
 
+        private static RectTransform CreateStickyTableHeader(UIXScrollView table)
+        {
+            return table.CreateStickyHeader(
+                table.Content.sizeDelta.x,
+                RecordTableHeaderHeight,
+                new Color(0.006f, 0.028f, 0.05f, 1f));
+        }
+
         private static void RenderRecordTableHeader(
-            Transform content,
+            Transform header,
             CareerRecordMetric[] columns,
             bool includeRank,
             bool showSeasonRank)
         {
-            float width = ((RectTransform)content).sizeDelta.x;
-            RectTransform header = CreateTopLeftImage(
-                "TableHeader",
-                content,
-                new Color(0.006f, 0.028f, 0.05f, 1f),
-                new Vector2(width, RecordTableHeaderHeight),
-                0f,
-                0f);
             CreateTopLeftText("Rank", header, includeRank || showSeasonRank ? "순위" : "연도",
                 14, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(64f, 30f),
                 0f, 2f, SecondaryTextColor);
@@ -322,8 +323,8 @@ namespace Baseball.Presentation.Career
                 new Color(0.006f, 0.028f, 0.05f, 0.82f),
                 new Color(0.025f, 0.09f, 0.14f, 1f),
                 new Color(0.18f, 0.52f, 0.76f, 1f));
-            RectTransform header = CreateTopLeftImage("TableHeader", scroll.Content,
-                new Color(0.006f, 0.028f, 0.05f, 1f), new Vector2(1021f, headerHeight), 0f, 0f);
+            RectTransform header = scroll.CreateStickyHeader(
+                1021f, headerHeight, new Color(0.006f, 0.028f, 0.05f, 1f));
             string[] labels = { "연도", "수상", "리그", "포지션" };
             float[] starts = { 0f, 100f, 620f, 820f };
             float[] widths = { 100f, 520f, 200f, 190f };
@@ -380,8 +381,8 @@ namespace Baseball.Presentation.Career
                 new Color(0.006f, 0.028f, 0.05f, 0.82f),
                 new Color(0.025f, 0.09f, 0.14f, 1f),
                 new Color(0.18f, 0.52f, 0.76f, 1f));
-            RectTransform header = CreateTopLeftImage("TableHeader", scroll.Content,
-                new Color(0.006f, 0.028f, 0.05f, 1f), new Vector2(contentWidth, 34f), 0f, 0f);
+            RectTransform header = scroll.CreateStickyHeader(
+                contentWidth, 34f, new Color(0.006f, 0.028f, 0.05f, 1f));
             float start = 0f;
             for (int index = 0; index < headers.Length; index++)
             {

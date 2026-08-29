@@ -354,7 +354,7 @@ namespace Baseball.Presentation.Career
             RenderLeaderboard(view);
             RenderMyRecord(view.MyRecordMetrics, view.PlayerName, view.IsMyPlayerQualified);
             RenderTrend(view);
-            RenderSummary(view.MyRecordMetrics, "기록 요약", includeRank: true);
+            RenderSummary(view.MyRecordMetrics, "기록 요약", includeRank: true, unrankedLabel: "이번 시즌");
         }
 
         private void RenderLeaderboard(CareerRecordsView view)
@@ -467,7 +467,8 @@ namespace Baseball.Presentation.Career
         private void RenderSummary(
             CareerRecordMetricValue[] metrics,
             string title,
-            bool includeRank)
+            bool includeRank,
+            string unrankedLabel = "커리어 누적")
         {
             RectTransform panel = CreateContentPanel(
                 "Summary", title, new Vector2(1070f, 215f), new Vector2(-150f, -297f));
@@ -485,7 +486,7 @@ namespace Baseball.Presentation.Career
                 CreateText("Value_" + index, panel, FormatMetric(metric.Metric, metric.Value), 22,
                     FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(145f, 32f),
                     new Vector2(x, 3f), PrimaryTextColor);
-                string sub = includeRank && metric.HasRank ? $"리그 {metric.Rank}위" : "커리어 누적";
+                string sub = includeRank && metric.HasRank ? $"리그 {metric.Rank}위" : unrankedLabel;
                 CreateText("Sub_" + index, panel, sub, 13, FontStyle.Bold, TextAnchor.MiddleCenter,
                     new Vector2(145f, 24f), new Vector2(x, -34f),
                     includeRank && metric.HasRank ? RankColor : MutedTextColor);
@@ -559,7 +560,7 @@ namespace Baseball.Presentation.Career
                 }
                 best[metricIndex] = new CareerRecordMetricValue(metric, value);
             }
-            RenderSummary(best, "커리어 최고 기록", includeRank: false);
+            RenderSummary(best, "커리어 최고 기록", includeRank: false, unrankedLabel: "역대 최고 시즌");
         }
 
         private void RenderAwardsPage(CareerRecordsView view)
@@ -636,7 +637,7 @@ namespace Baseball.Presentation.Career
             }
             RenderMyRecord(view.MyRecordMetrics, view.PlayerName, view.IsMyPlayerQualified);
             RenderTrend(view);
-            RenderSummary(view.MyRecordMetrics, "현재 시즌 기록", includeRank: true);
+            RenderSummary(view.MyRecordMetrics, "현재 시즌 기록", includeRank: true, unrankedLabel: "이번 시즌");
         }
 
         private static int CompareSeasonRows(
