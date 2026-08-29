@@ -168,15 +168,17 @@ namespace Baseball.Game.Career
             PostseasonSeriesState series = AdvanceUntilPlayerSeries(playerTeamId);
             ScheduledGameState game = GetOrAppendNextGame(series);
             _gameRunner.EnsurePlayerRolePlan(game, allowEvaluationOpportunity: false);
+            DateTime gameDate = GetGameDate(series);
             MatchInput input = _gameRunner.CreateMatchInput(
                 game,
                 game.PlannedPlayerRole,
                 Season.SeasonId,
-                requiresWinner: true);
+                requiresWinner: true,
+                gameDate: gameDate);
             return new CareerMatchSession(
                 game,
                 input,
-                GetGameDate(series),
+                gameDate,
                 _career.MyPlayer.PlayerId,
                 game.PlannedPlayerRole,
                 CompetitionScope.Postseason,
@@ -187,7 +189,8 @@ namespace Baseball.Game.Career
                     _career,
                     game,
                     game.PlannedPlayerRole,
-                    CompetitionScope.Postseason));
+                    CompetitionScope.Postseason),
+                _career.GameSettings);
         }
 
         /// <summary>
@@ -256,7 +259,8 @@ namespace Baseball.Game.Career
                 game,
                 role,
                 Season.SeasonId,
-                requiresWinner: true);
+                requiresWinner: true,
+                gameDate: GetGameDate(series));
             CareerPostseasonGameResult result = CompleteGame(
                 series,
                 game,
@@ -310,6 +314,7 @@ namespace Baseball.Game.Career
             }
 
             game.Complete(matchResult.AwayBoxScore.Runs, matchResult.HomeBoxScore.Runs);
+            _gameRunner.RecordPitcherUsage(matchResult, GetGameDate(series));
             int winnerTeamId = matchResult.WinnerTeamId;
             bool isSeriesClinching = winnerTeamId == series.HigherSeedTeamId
                 ? series.HigherSeedWins + 1 >= series.WinsRequired

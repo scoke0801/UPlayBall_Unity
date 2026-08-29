@@ -108,6 +108,9 @@ namespace Baseball.Game.Career
         public int HitByPitches => _statistics.Batting.HitByPitches;
         public int BattingStrikeouts => _statistics.Batting.Strikeouts;
         public int SacrificeFlies => _statistics.Batting.SacrificeFlies;
+        public int SacrificeBunts => _statistics.Batting.SacrificeBunts;
+        public int IntentionalWalks => _statistics.Batting.IntentionalWalks;
+        public int ReachedOnErrors => _statistics.Batting.ReachedOnErrors;
         public int GroundedIntoDoublePlays => _statistics.Batting.GroundedIntoDoublePlays;
         public int TotalBases => _statistics.Batting.TotalBases;
         public int StolenBases => _statistics.Batting.StolenBases;
@@ -125,6 +128,7 @@ namespace Baseball.Game.Career
         public int PitchingAppearances => _statistics.Pitching.Appearances;
         public int PitchingStarts => _statistics.Pitching.Starts;
         public int OutsRecorded => _statistics.Pitching.OutsRecorded;
+        public int PitchesThrown => _statistics.Pitching.PitchesThrown;
         public int Wins => _statistics.Pitching.Wins;
         public int Losses => _statistics.Pitching.Losses;
         public int Saves => _statistics.Pitching.Saves;
@@ -138,6 +142,8 @@ namespace Baseball.Game.Career
         public int HitBatters => _statistics.Pitching.HitBatters;
         public int PitchingStrikeouts => _statistics.Pitching.Strikeouts;
         public int BattersFaced => _statistics.Pitching.BattersFaced;
+        public int InheritedRunners => _statistics.Pitching.InheritedRunners;
+        public int InheritedRunnersScored => _statistics.Pitching.InheritedRunnersScored;
         public int QualityStarts => _statistics.Pitching.QualityStarts;
         public IReadOnlyList<PlayerGameLogState> RecentGames => _recentGames;
         public IReadOnlyDictionary<int, PlayerTeamStatisticsSplitState> TeamSplits => _statistics.TeamSplits;

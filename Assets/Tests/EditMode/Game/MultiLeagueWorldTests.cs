@@ -206,6 +206,26 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
+        public void MigrateV10ToV11_기본경기운영설정을보존하며세이브버전을승격한다()
+        {
+            CareerState generated = CreateCareer(90425UL, startSeason: false);
+            var legacy = new CareerState(
+                10,
+                generated.MyPlayer,
+                generated.World,
+                generated.CurrentContract,
+                generated.AvailableMoney);
+
+            new CareerSaveMigrationService(NewGameConfiguration.CreateDefault())
+                .MigrateV10ToV11(legacy);
+
+            Assert.That(legacy.SaveVersion, Is.EqualTo(11));
+            Assert.That(legacy.CreationProfile, Is.Not.Null);
+            Assert.That(legacy.GameSettings.MatchProgressMode, Is.EqualTo(MatchProgressMode.InterveneOnPlayer));
+            Assert.That(legacy.GameSettings.GameSpeed, Is.EqualTo(2));
+        }
+
+        [Test]
         public void MigrateV7ToV8_만료계약을포함한계약이력을보존한다()
         {
             CareerState generated = CreateCareer(91403UL, startSeason: false);

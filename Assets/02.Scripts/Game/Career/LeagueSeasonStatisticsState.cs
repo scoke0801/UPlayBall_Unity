@@ -30,7 +30,10 @@ namespace Baseball.Game.Career
         public int Strikeouts { get; private set; }
         public int StolenBases { get; private set; }
         public int CaughtStealing { get; private set; }
+        public int SacrificeBunts { get; private set; }
         public int SacrificeFlies { get; private set; }
+        public int IntentionalWalks { get; private set; }
+        public int ReachedOnErrors { get; private set; }
         public int GroundedIntoDoublePlays { get; private set; }
         public int Singles => Hits - Doubles - Triples - HomeRuns;
         public int TotalBases => Hits + Doubles + Triples * 2 + HomeRuns * 3;
@@ -63,7 +66,10 @@ namespace Baseball.Game.Career
             Strikeouts += game.BattingStrikeouts;
             StolenBases += game.StolenBases;
             CaughtStealing += game.CaughtStealing;
+            SacrificeBunts += game.SacrificeBunts;
             SacrificeFlies += game.SacrificeFlies;
+            IntentionalWalks += game.IntentionalWalks;
+            ReachedOnErrors += game.ReachedOnErrors;
             GroundedIntoDoublePlays += game.GroundedIntoDoublePlays;
         }
     }
@@ -74,6 +80,7 @@ namespace Baseball.Game.Career
         public int Appearances { get; private set; }
         public int Starts { get; private set; }
         public int OutsRecorded { get; private set; }
+        public int PitchesThrown { get; private set; }
         public int Wins { get; private set; }
         public int Losses { get; private set; }
         public int Saves { get; private set; }
@@ -87,6 +94,8 @@ namespace Baseball.Game.Career
         public int RunsAllowed { get; private set; }
         public int EarnedRuns { get; private set; }
         public int BattersFaced { get; private set; }
+        public int InheritedRunners { get; private set; }
+        public int InheritedRunnersScored { get; private set; }
         public int QualityStarts { get; private set; }
         public double EarnedRunAverage => OutsRecorded == 0 ? 0d : EarnedRuns * 27d / OutsRecorded;
         public double WalksHitsPerInningPitched => OutsRecorded == 0
@@ -101,6 +110,7 @@ namespace Baseball.Game.Career
             Appearances++;
             if (game.StartedPitching) Starts++;
             OutsRecorded += game.OutsRecorded;
+            PitchesThrown += game.PitchesThrown;
             Wins += game.Wins;
             Losses += game.Losses;
             Saves += game.Saves;
@@ -114,6 +124,8 @@ namespace Baseball.Game.Career
             RunsAllowed += game.RunsAllowed;
             EarnedRuns += game.EarnedRuns;
             BattersFaced += game.BattersFaced;
+            InheritedRunners += game.InheritedRunners;
+            InheritedRunnersScored += game.InheritedRunnersScored;
             QualityStarts += game.QualityStarts;
         }
     }
@@ -359,7 +371,7 @@ namespace Baseball.Game.Career
     /// <summary>현재 시즌 리그 전체 선수 기록을 경쟁 범위별로 분리해 소유한다.</summary>
     public sealed class LeagueSeasonStatisticsState
     {
-        public const int CurrentSchemaVersion = 3;
+        public const int CurrentSchemaVersion = 4;
 
         public LeagueSeasonStatisticsState()
         {
@@ -406,11 +418,17 @@ namespace Baseball.Game.Career
         public int BattingStrikeouts { get; internal set; }
         public int StolenBases { get; internal set; }
         public int CaughtStealing { get; internal set; }
+        public int SacrificeBunts { get; internal set; }
         public int SacrificeFlies { get; internal set; }
+        public int IntentionalWalks { get; internal set; }
+        public int ReachedOnErrors { get; internal set; }
         public int GroundedIntoDoublePlays { get; internal set; }
+        public bool AppearedAsPinchHitter { get; internal set; }
+        public bool AppearedAsPinchRunner { get; internal set; }
         public bool HasPitchingLine { get; internal set; }
         public bool StartedPitching { get; internal set; }
         public int OutsRecorded { get; internal set; }
+        public int PitchesThrown { get; internal set; }
         public int Wins { get; internal set; }
         public int Losses { get; internal set; }
         public int Saves { get; internal set; }
@@ -424,6 +442,8 @@ namespace Baseball.Game.Career
         public int RunsAllowed { get; internal set; }
         public int EarnedRuns { get; internal set; }
         public int BattersFaced { get; internal set; }
+        public int InheritedRunners { get; internal set; }
+        public int InheritedRunnersScored { get; internal set; }
         public int QualityStarts { get; internal set; }
         public PlayerFieldingLine FieldingLine { get; internal set; }
         public PlayerGameContributionState Contribution { get; internal set; }

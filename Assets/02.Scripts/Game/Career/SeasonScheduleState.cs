@@ -122,6 +122,7 @@ namespace Baseball.Game.Career
         public int Wins { get; private set; }
         public int Losses { get; private set; }
         public int Ties { get; private set; }
+        public int Draws => Ties;
         public int RunsScored { get; private set; }
         public int RunsAllowed { get; private set; }
         public int GamesPlayed => Wins + Losses + Ties;

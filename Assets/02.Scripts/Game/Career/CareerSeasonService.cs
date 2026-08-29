@@ -41,7 +41,15 @@ namespace Baseball.Game.Career
             int conditionBefore,
             int conditionAfter,
             int managerEvaluationBefore,
-            int managerEvaluationAfter)
+            int managerEvaluationAfter,
+            int stolenBases = 0,
+            int caughtStealing = 0,
+            int sacrificeBunts = 0,
+            int intentionalWalks = 0,
+            int reachedOnErrors = 0,
+            int pitchesThrown = 0,
+            int inheritedRunners = 0,
+            int inheritedRunnersScored = 0)
         {
             GameId = gameId;
             Round = round;
@@ -71,6 +79,14 @@ namespace Baseball.Game.Career
             ConditionAfter = conditionAfter;
             ManagerEvaluationBefore = managerEvaluationBefore;
             ManagerEvaluationAfter = managerEvaluationAfter;
+            StolenBases = stolenBases;
+            CaughtStealing = caughtStealing;
+            SacrificeBunts = sacrificeBunts;
+            IntentionalWalks = intentionalWalks;
+            ReachedOnErrors = reachedOnErrors;
+            PitchesThrown = pitchesThrown;
+            InheritedRunners = inheritedRunners;
+            InheritedRunnersScored = inheritedRunnersScored;
         }
 
         public int GameId { get; }
@@ -105,6 +121,14 @@ namespace Baseball.Game.Career
         public int ConditionAfter { get; }
         public int ManagerEvaluationBefore { get; }
         public int ManagerEvaluationAfter { get; }
+        public int StolenBases { get; }
+        public int CaughtStealing { get; }
+        public int SacrificeBunts { get; }
+        public int IntentionalWalks { get; }
+        public int ReachedOnErrors { get; }
+        public int PitchesThrown { get; }
+        public int InheritedRunners { get; }
+        public int InheritedRunnersScored { get; }
     }
 
     /// <summary>
@@ -160,14 +184,16 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("준비할 정규 시즌 경기가 없습니다.");
 
             SeasonState season = _career.CurrentLeague.CurrentSeason;
+            DateTime gameDate = GetGameDate(season.Year, game.Round);
             MatchInput input = _gameRunner.CreateMatchInput(
                 game,
                 game.PlannedPlayerRole,
-                season.SeasonId);
+                season.SeasonId,
+                gameDate: gameDate);
             return new CareerMatchSession(
                 game,
                 input,
-                GetGameDate(season.Year, game.Round),
+                gameDate,
                 _career.MyPlayer.PlayerId,
                 game.PlannedPlayerRole,
                 CompetitionScope.RegularSeason,
@@ -178,7 +204,8 @@ namespace Baseball.Game.Career
                     _career,
                     game,
                     game.PlannedPlayerRole,
-                    CompetitionScope.RegularSeason));
+                    CompetitionScope.RegularSeason),
+                _career.GameSettings);
         }
 
         private DateTime GetGameDate(int year, int round)
@@ -211,7 +238,10 @@ namespace Baseball.Game.Career
             MatchResult playerMatchResult = _gameRunner.SimulateGame(
                 playerGame,
                 playerGame.PlannedPlayerRole,
-                _career.CurrentLeague.CurrentSeason.SeasonId);
+                _career.CurrentLeague.CurrentSeason.SeasonId,
+                gameDate: GetGameDate(
+                    _career.CurrentLeague.CurrentSeason.Year,
+                    playerGame.Round));
             return CompleteNextRound(playerGame, playerMatchResult, narrativeBaseline);
         }
 
@@ -252,6 +282,7 @@ namespace Baseball.Game.Career
             CareerGameAdvanceResult playerResult = default;
             bool hasPlayerResult = false;
             var statisticsService = new LeagueStatisticsService(season.LeagueStatistics);
+            DateTime gameDate = GetGameDate(season.Year, playerGame.Round);
             var games = season.Schedule.Games;
             for (int index = 0; index < games.Count; index++)
             {
@@ -264,7 +295,11 @@ namespace Baseball.Game.Career
                     : PlayerGameRole.Inactive;
                 MatchResult matchResult = game.GameId == playerGame.GameId
                     ? preparedPlayerResult
-                    : _gameRunner.SimulateGame(game, role, season.SeasonId);
+                    : _gameRunner.SimulateGame(
+                        game,
+                        role,
+                        season.SeasonId,
+                        gameDate: gameDate);
                 game.Complete(matchResult.AwayBoxScore.Runs, matchResult.HomeBoxScore.Runs);
                 statisticsService.RecordMatch(
                     matchResult,
@@ -273,6 +308,7 @@ namespace Baseball.Game.Career
                     isChampionship: false,
                     isSeriesClinching: false);
                 RecordTeamResults(matchResult);
+                _gameRunner.RecordPitcherUsage(matchResult, gameDate);
 
                 if (game.GameId == playerGame.GameId)
                 {
@@ -291,7 +327,7 @@ namespace Baseball.Game.Career
             worldSeasonService.AdvanceBackgroundLeaguesAfter(
                 _career.CurrentLeague.LeagueId,
                 playerGame.Round);
-            _career.World.Calendar.AdvanceTo(GetGameDate(season.Year, playerGame.Round));
+            _career.World.Calendar.AdvanceTo(gameDate);
 
             MatchNarrativeSnapshot narrative = MatchNarrativeService.CreateSnapshot(
                 _career,
@@ -299,7 +335,6 @@ namespace Baseball.Game.Career
                 playerResult);
             season.RecordMatchNarrative(narrative);
             var reactionService = new CareerReactionService(_career);
-            DateTime gameDate = GetGameDate(season.Year, playerGame.Round);
             bool hasNextGame = NextPlayerGame != null;
             if (hasNextGame)
             {

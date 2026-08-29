@@ -73,8 +73,8 @@ namespace Baseball.Game.Career
             bool isSeriesClinching)
         {
             var players = new List<PlayerGameStatistics>(24);
-            AppendTeam(players, result.Input.AwayTeam, result.AwayBoxScore);
-            AppendTeam(players, result.Input.HomeTeam, result.HomeBoxScore);
+            AppendTeam(players, result.Input.AwayRoster, result.AwayBoxScore);
+            AppendTeam(players, result.Input.HomeRoster, result.HomeBoxScore);
             ApplyPitchingDecisions(players, result);
             for (int index = 0; index < players.Count; index++)
             {
@@ -93,20 +93,29 @@ namespace Baseball.Game.Career
             return players;
         }
 
-        private static void AppendTeam(List<PlayerGameStatistics> target, Team team, TeamBoxScore box)
+        private static void AppendTeam(
+            List<PlayerGameStatistics> target,
+            MatchRosterSnapshot roster,
+            TeamBoxScore box)
         {
-            for (int index = 0; index < team.Lineup.Count; index++)
+            for (int index = 0; index < box.BattingLines.Count; index++)
             {
-                LineupSlot slot = team.Lineup[index];
                 PlayerBattingLine line = box.BattingLines[index];
+                Player playerDefinition = FindPositionPlayer(roster, line.PlayerId, out bool started);
+                if (playerDefinition == null)
+                    continue;
+                PlayerFieldingLine fieldingLine = FindFieldingLine(box, line.PlayerId);
+                bool appeared = line.PlateAppearances > 0 || fieldingLine?.DefensiveOuts > 0 || started;
+                if (!appeared)
+                    continue;
                 var player = new PlayerGameStatistics(
                     line.PlayerId,
-                    slot.Player.Name,
-                    team.TeamId,
-                    slot.FieldingPosition)
+                    playerDefinition.Name,
+                    roster.TeamId,
+                    playerDefinition.PrimaryPosition)
                 {
-                    HasBattingLine = true,
-                    StartedBatting = true,
+                    HasBattingLine = line.PlateAppearances > 0,
+                    StartedBatting = started,
                     PlateAppearances = line.PlateAppearances,
                     AtBats = line.AtBats,
                     Runs = line.Runs,
@@ -118,29 +127,35 @@ namespace Baseball.Game.Career
                     Walks = line.Walks,
                     HitByPitches = line.HitByPitches,
                     BattingStrikeouts = line.Strikeouts,
+                    StolenBases = line.StolenBases,
+                    CaughtStealing = line.CaughtStealing,
+                    SacrificeBunts = line.SacrificeBunts,
                     SacrificeFlies = line.SacrificeFlies,
-                    GroundedIntoDoublePlays = line.GroundedIntoDoublePlays
+                    IntentionalWalks = line.IntentionalWalks,
+                    ReachedOnErrors = line.ReachedOnErrors,
+                    GroundedIntoDoublePlays = line.GroundedIntoDoublePlays,
+                    AppearedAsPinchHitter = line.AppearedAsPinchHitter,
+                    AppearedAsPinchRunner = line.AppearedAsPinchRunner
                 };
-                player.FieldingLine = FindFieldingLine(box, player.PlayerId);
+                player.FieldingLine = fieldingLine;
                 target.Add(player);
             }
-
-            AppendPositionPlayerSubstitute(target, team, box);
 
             for (int index = 0; index < box.PitchingLines.Count; index++)
             {
                 PlayerPitchingLine line = box.PitchingLines[index];
-                Player source = index == 0 ? team.StartingPitcher : team.ReliefPitcher;
+                Player source = FindPitcher(roster, line.PlayerId, out bool started);
                 if (source == null) continue;
                 var player = new PlayerGameStatistics(
                     line.PlayerId,
                     source.Name,
-                    team.TeamId,
+                    roster.TeamId,
                     source.PrimaryPosition)
                 {
                     HasPitchingLine = line.BattersFaced > 0,
-                    StartedPitching = index == 0,
+                    StartedPitching = started,
                     OutsRecorded = line.OutsRecorded,
+                    PitchesThrown = line.PitchesThrown,
                     HitsAllowed = line.HitsAllowed,
                     HomeRunsAllowed = line.HomeRunsAllowed,
                     WalksAllowed = line.WalksAllowed,
@@ -149,52 +164,60 @@ namespace Baseball.Game.Career
                     RunsAllowed = line.RunsAllowed,
                     EarnedRuns = line.EarnedRuns,
                     BattersFaced = line.BattersFaced,
-                    QualityStarts = index == 0 && line.OutsRecorded >= 18 && line.EarnedRuns <= 3 ? 1 : 0
+                    InheritedRunners = line.InheritedRunners,
+                    InheritedRunnersScored = line.InheritedRunnersScored,
+                    Saves = line.HasSave ? 1 : 0,
+                    Holds = line.HasHold ? 1 : 0,
+                    BlownSaves = line.HasBlownSave ? 1 : 0,
+                    QualityStarts = started && line.OutsRecorded >= 18 && line.EarnedRuns <= 3 ? 1 : 0
                 };
                 player.FieldingLine = FindFieldingLine(box, player.PlayerId);
                 target.Add(player);
             }
         }
 
-        private static void AppendPositionPlayerSubstitute(
-            List<PlayerGameStatistics> target,
-            Team team,
-            TeamBoxScore box)
+        private static Player FindPositionPlayer(
+            MatchRosterSnapshot roster,
+            int playerId,
+            out bool started)
         {
-            PositionPlayerSubstitutionPlan substitution = team.PositionPlayerSubstitution;
-            if (substitution == null)
-                return;
-
-            PlayerBattingLine line = box.BattingLines[team.Lineup.Count];
-            PlayerFieldingLine fieldingLine = FindFieldingLine(box, line.PlayerId);
-            bool didAppear = line.PlateAppearances > 0 || fieldingLine?.DefensiveOuts > 0;
-            if (!didAppear)
-                return;
-
-            var player = new PlayerGameStatistics(
-                line.PlayerId,
-                substitution.Player.Name,
-                team.TeamId,
-                substitution.Player.PrimaryPosition)
+            for (int index = 0; index < roster.StartingLineup.Count; index++)
             {
-                HasBattingLine = line.PlateAppearances > 0,
-                StartedBatting = false,
-                PlateAppearances = line.PlateAppearances,
-                AtBats = line.AtBats,
-                Runs = line.Runs,
-                Hits = line.Hits,
-                Doubles = line.Doubles,
-                Triples = line.Triples,
-                HomeRuns = line.HomeRuns,
-                RunsBattedIn = line.RunsBattedIn,
-                Walks = line.Walks,
-                HitByPitches = line.HitByPitches,
-                BattingStrikeouts = line.Strikeouts,
-                SacrificeFlies = line.SacrificeFlies,
-                GroundedIntoDoublePlays = line.GroundedIntoDoublePlays,
-                FieldingLine = fieldingLine
-            };
-            target.Add(player);
+                if (roster.StartingLineup[index].Player.PlayerId != playerId)
+                    continue;
+                started = true;
+                return roster.StartingLineup[index].Player;
+            }
+            for (int index = 0; index < roster.Bench.Count; index++)
+            {
+                if (roster.Bench[index].PlayerId != playerId)
+                    continue;
+                started = false;
+                return roster.Bench[index];
+            }
+            started = false;
+            return null;
+        }
+
+        private static Player FindPitcher(
+            MatchRosterSnapshot roster,
+            int playerId,
+            out bool started)
+        {
+            if (roster.StartingPitcher.Player.PlayerId == playerId)
+            {
+                started = true;
+                return roster.StartingPitcher.Player;
+            }
+            for (int index = 0; index < roster.Bullpen.Count; index++)
+            {
+                if (roster.Bullpen[index].Player.PlayerId != playerId)
+                    continue;
+                started = false;
+                return roster.Bullpen[index].Player;
+            }
+            started = false;
+            return null;
         }
 
         private static PlayerFieldingLine FindFieldingLine(TeamBoxScore box, int playerId)
@@ -219,11 +242,6 @@ namespace Baseball.Game.Career
             PlayerGameStatistics losingPitcher = SelectDecisionPitcher(players, loserTeamId);
             if (winningPitcher != null) winningPitcher.Wins = 1;
             if (losingPitcher != null) losingPitcher.Losses = 1;
-
-            int runMargin = Math.Abs(result.HomeBoxScore.Runs - result.AwayBoxScore.Runs);
-            PlayerGameStatistics reliever = FindReliever(players, winnerTeamId);
-            if (reliever != null && reliever.OutsRecorded >= 3 && runMargin <= 3)
-                reliever.Saves = 1;
         }
 
         private static PlayerGameStatistics SelectDecisionPitcher(
@@ -240,17 +258,6 @@ namespace Baseball.Game.Career
                 else reliever = player;
             }
             return starter != null && starter.OutsRecorded >= 15 ? starter : reliever ?? starter;
-        }
-
-        private static PlayerGameStatistics FindReliever(List<PlayerGameStatistics> players, int teamId)
-        {
-            for (int index = 0; index < players.Count; index++)
-            {
-                PlayerGameStatistics player = players[index];
-                if (player.TeamId == teamId && player.HasPitchingLine && !player.StartedPitching)
-                    return player;
-            }
-            return null;
         }
 
         private static double CalculateContribution(PlayerGameStatistics player)

@@ -73,6 +73,18 @@ namespace Baseball.Game.Career
             career.UpgradeSaveVersion(10);
         }
 
+        /// <summary>v10 커리어에 기본 생성 프로필과 경기 운영 설정을 부여해 v11로 승격한다.</summary>
+        public void MigrateV10ToV11(CareerState career)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (career.SaveVersion != 10)
+                throw new InvalidOperationException("SaveVersion 10 커리어만 v11로 마이그레이션할 수 있습니다.");
+            if (career.CreationProfile == null || career.GameSettings == null)
+                throw new InvalidOperationException("v11 승격에 필요한 기본 생성 프로필을 만들 수 없습니다.");
+
+            career.UpgradeSaveVersion(11);
+        }
+
         private static bool CanCaptureSeasonReview(SeasonState season)
         {
             return season?.TeamRecords != null && season.Phase is
