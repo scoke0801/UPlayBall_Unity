@@ -42,6 +42,17 @@ namespace Baseball.Presentation.Career
         private int _beatIndex;
         private float _nextBeatTime;
         private Tween _fadeTween;
+        private bool _hasRenderedBeat;
+        private RetirementRecapAct _renderedAct;
+        private string _renderedBackdropResourceName = string.Empty;
+        private CanvasGroup _beatCardGroup;
+        private Text _beatEyebrow;
+        private Text _beatTitle;
+        private Text _beatBody;
+        private Text _beatStats;
+        private Text _beatProgress;
+        private Button _beatNextButton;
+        private Image _beatBackdropLight;
 
         public override bool CanCloseWithCancel => false;
         public static bool IsOpen { get; private set; }
@@ -134,42 +145,82 @@ namespace Baseball.Presentation.Career
 
         private void RenderBeat()
         {
-            StopFade();
-            ClearChildren(_root);
             RetirementRecapBeat beat = _beats[_beatIndex];
+            if (TryUpdateContinuousSeasonBeat(beat))
+                return;
+
+            StopFade();
+            ResetBeatView();
+            ClearChildren(_root);
             RenderBackdrop(beat.AssetKey, beat.IsHighlight);
 
             RectTransform card = CreateImage(
                 "MemoryCard", _root, PanelColor,
                 new Vector2(1160f, 690f), new Vector2(0f, -15f));
-            var cardGroup = card.gameObject.AddComponent<CanvasGroup>();
-            cardGroup.alpha = 0f;
-            CreateText("Eyebrow", card, beat.Eyebrow, 18, FontStyle.Bold, TextAnchor.MiddleCenter,
+            _beatCardGroup = card.gameObject.AddComponent<CanvasGroup>();
+            _beatCardGroup.alpha = 0f;
+            _beatEyebrow = CreateText("Eyebrow", card, beat.Eyebrow, 18, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(900f, 36f), new Vector2(0f, 275f), AccentColor);
-            CreateText("Title", card, beat.Title, 48, FontStyle.Bold, TextAnchor.MiddleCenter,
+            _beatTitle = CreateText("Title", card, beat.Title, 48, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(960f, 75f), new Vector2(0f, 210f), PrimaryTextColor);
-            CreateText("Body", card, beat.Body, 22, FontStyle.Normal, TextAnchor.MiddleCenter,
+            _beatBody = CreateText("Body", card, beat.Body, 22, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(900f, 205f), new Vector2(0f, 65f), SecondaryTextColor);
-            CreateText("Stats", card, JoinLines(beat.StatLines), 25, FontStyle.Bold, TextAnchor.MiddleCenter,
+            _beatStats = CreateText("Stats", card, JoinLines(beat.StatLines), 25, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(920f, 160f), new Vector2(0f, -120f), PrimaryTextColor);
 
-            CreateText("Progress", _root, $"{_beatIndex + 1} / {_beats.Length}", 14,
+            _beatProgress = CreateText("Progress", _root, $"{_beatIndex + 1} / {_beats.Length}", 14,
                 FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(140f, 30f), new Vector2(0f, -472f), MutedTextColor);
-            Button next = CreateButton("Next", _root, "다음", new Vector2(170f, 52f),
+            _beatNextButton = CreateButton("Next", _root, "다음", new Vector2(170f, 52f),
                 new Vector2(600f, -455f), CardColor, out _);
-            next.onClick.AddListener(AdvanceBeat);
+            _beatNextButton.onClick.AddListener(AdvanceBeat);
             CreateHoldSkip(_root, new Vector2(-585f, -455f));
 
             _fadeTween = DOTween.To(
-                    () => cardGroup.alpha,
-                    value => cardGroup.alpha = value,
+                    () => _beatCardGroup.alpha,
+                    value => _beatCardGroup.alpha = value,
                     1f,
                     0.65f)
                 .SetUpdate(true)
                 .SetEase(Ease.OutSine);
+            _hasRenderedBeat = true;
+            _renderedAct = beat.Act;
+            _renderedBackdropResourceName = ResolveBackdropResourceName(beat.AssetKey);
             _nextBeatTime = Time.unscaledTime + beat.Duration;
-            EventSystem.current?.SetSelectedGameObject(next.gameObject);
+            EventSystem.current?.SetSelectedGameObject(_beatNextButton.gameObject);
+        }
+
+        private bool TryUpdateContinuousSeasonBeat(RetirementRecapBeat beat)
+        {
+            if (!_hasRenderedBeat ||
+                _renderedAct != RetirementRecapAct.SeasonTimeline ||
+                beat.Act != RetirementRecapAct.SeasonTimeline ||
+                _renderedBackdropResourceName != ResolveBackdropResourceName(beat.AssetKey) ||
+                _beatCardGroup == null ||
+                _beatEyebrow == null ||
+                _beatTitle == null ||
+                _beatBody == null ||
+                _beatStats == null ||
+                _beatProgress == null ||
+                _beatNextButton == null)
+            {
+                return false;
+            }
+
+            // 시즌 타임라인은 하나의 연속 장면이다. 카드와 배경을 다시 만들거나 alpha를 0으로
+            // 내리면 시즌마다 화면이 점멸하므로, 같은 뷰의 사실 텍스트만 교체한다.
+            StopFade();
+            _beatCardGroup.alpha = 1f;
+            _beatEyebrow.text = beat.Eyebrow;
+            _beatTitle.text = beat.Title;
+            _beatBody.text = beat.Body;
+            _beatStats.text = JoinLines(beat.StatLines);
+            _beatProgress.text = $"{_beatIndex + 1} / {_beats.Length}";
+            if (_beatBackdropLight != null)
+                _beatBackdropLight.color = GetBackdropLightColor(beat.AssetKey, beat.IsHighlight);
+            _nextBeatTime = Time.unscaledTime + beat.Duration;
+            EventSystem.current?.SetSelectedGameObject(_beatNextButton.gameObject);
+            return true;
         }
 
         private void RenderBackdrop(string assetKey, bool isHighlight)
@@ -188,41 +239,52 @@ namespace Baseball.Presentation.Career
                 Vector2.zero, Vector2.zero, stretch: true);
             CreateImage("LockerLeft", backdrop, LockerColor, new Vector2(330f, 1080f), new Vector2(-795f, 0f));
             CreateImage("LockerRight", backdrop, LockerColor, new Vector2(330f, 1080f), new Vector2(795f, 0f));
-            Color light = assetKey.Contains("injury")
+            Color light = GetBackdropLightColor(assetKey, isHighlight);
+            _beatBackdropLight = CreateImage(
+                    "LockerLight", backdrop, light, new Vector2(620f, 1080f), Vector2.zero)
+                .GetComponent<Image>();
+        }
+
+        private static Color GetBackdropLightColor(string assetKey, bool isHighlight)
+        {
+            return assetKey.Contains("injury")
                 ? new Color(0.34f, 0.38f, 0.41f, 0.10f)
                 : assetKey.Contains("transfer") || assetKey.Contains("contract")
                     ? new Color(0.20f, 0.34f, 0.46f, 0.11f)
                     : isHighlight
                         ? new Color(0.78f, 0.57f, 0.24f, 0.12f)
                         : new Color(0.20f, 0.32f, 0.40f, 0.08f);
-            CreateImage("LockerLight", backdrop, light, new Vector2(620f, 1080f), Vector2.zero);
         }
 
         private static Sprite LoadBackdropSprite(string assetKey)
         {
-            string resourceName;
-            if (assetKey.Contains("injury") || assetKey.Contains("rehab") || assetKey.Contains("recovery"))
-                resourceName = "rehab";
-            else if (assetKey.Contains("contract") || assetKey.Contains("transfer") || assetKey.Contains("trade"))
-                resourceName = "contract";
-            else if (assetKey.Contains("lineup") || assetKey.Contains("starter") || assetKey.Contains("role"))
-                resourceName = "lineup";
-            else if (assetKey.Contains("debut"))
-                resourceName = "stadium";
-            else if (assetKey.Contains("first_record") || assetKey.Contains("career_high") ||
-                     assetKey.Contains("award") || assetKey.Contains("postseason") ||
-                     assetKey.Contains("legacy"))
-                resourceName = "scoreboard";
-            else
-                resourceName = "locker";
+            return Resources.Load<Sprite>($"RetirementRecap/{ResolveBackdropResourceName(assetKey)}");
+        }
 
-            return Resources.Load<Sprite>($"RetirementRecap/{resourceName}");
+        private static string ResolveBackdropResourceName(string assetKey)
+        {
+            if (assetKey.Contains("injury") || assetKey.Contains("rehab") || assetKey.Contains("recovery"))
+                return "rehab";
+            if (assetKey.Contains("contract") || assetKey.Contains("transfer") || assetKey.Contains("trade"))
+                return "contract";
+            if (assetKey.Contains("lineup") || assetKey.Contains("starter") || assetKey.Contains("role"))
+                return "lineup";
+            if (assetKey.Contains("debut"))
+                return "stadium";
+            if (assetKey.Contains("first_record") || assetKey.Contains("career_high") ||
+                assetKey.Contains("award") || assetKey.Contains("postseason") ||
+                assetKey.Contains("legacy"))
+            {
+                return "scoreboard";
+            }
+            return "locker";
         }
 
         private void ShowCompletion()
         {
             _mode = ViewMode.Completion;
             StopFade();
+            ResetBeatView();
             ClearChildren(_root);
             RenderBackdrop("career_archive_complete", isHighlight: true);
             RectTransform panel = CreateImage(
@@ -258,6 +320,7 @@ namespace Baseball.Presentation.Career
             _mode = ViewMode.Archive;
             _archiveTab = tab;
             StopFade();
+            ResetBeatView();
             ClearChildren(_root);
             RenderBackdrop("career_archive", isHighlight: false);
             RectTransform panel = CreateImage(
@@ -346,6 +409,20 @@ namespace Baseball.Presentation.Career
         {
             _fadeTween?.Kill();
             _fadeTween = null;
+        }
+
+        private void ResetBeatView()
+        {
+            _hasRenderedBeat = false;
+            _renderedBackdropResourceName = string.Empty;
+            _beatCardGroup = null;
+            _beatEyebrow = null;
+            _beatTitle = null;
+            _beatBody = null;
+            _beatStats = null;
+            _beatProgress = null;
+            _beatNextButton = null;
+            _beatBackdropLight = null;
         }
 
         private static string JoinLines(System.Collections.Generic.IReadOnlyList<string> lines)

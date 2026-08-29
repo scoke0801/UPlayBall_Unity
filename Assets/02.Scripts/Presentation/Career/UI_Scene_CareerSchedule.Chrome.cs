@@ -340,13 +340,7 @@ namespace Baseball.Presentation.Career
 
         private static string GetLeagueLabel(LeagueLevel level)
         {
-            return level switch
-            {
-                LeagueLevel.Rookie => "ROOKIE",
-                LeagueLevel.Minor => "MINOR",
-                LeagueLevel.Major => "MAJOR",
-                _ => "ROOKIE"
-            };
+            return WorldGenerationConfiguration.GetDefaultDefinition(level).UiDisplayName;
         }
 
         private static string GetSeasonPhaseLabel(SeasonPhase phase)

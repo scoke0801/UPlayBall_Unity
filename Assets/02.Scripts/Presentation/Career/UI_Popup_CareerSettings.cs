@@ -244,7 +244,7 @@ namespace Baseball.Presentation.Career
             CreateText("Title", body, "선수 커리어 마무리", 28, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(600f, 50f), new Vector2(0f, 235f), PrimaryTextColor);
             CreateText("RetirementGuide", body,
-                "마지막 시즌을 선언하거나 시즌 결산에서 은퇴를 확정하면\n한 선수의 기록 회고와 커리어 기록관이 생성됩니다.",
+                "계약이 만료되면 계약 화면의 오퍼 비교에서 바로 은퇴를 고를 수 있습니다.\n여기서는 시즌 도중 마지막 시즌을 미리 선언할 수 있습니다.",
                 18, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(720f, 80f), new Vector2(0f, 155f), SecondaryTextColor);
             Button retirement = CreateButton("Retirement", body, "은퇴 계획 열기",

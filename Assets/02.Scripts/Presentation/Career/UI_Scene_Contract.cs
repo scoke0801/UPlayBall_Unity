@@ -35,6 +35,7 @@ namespace Baseball.Presentation.Career
 
         private CareerManager _manager;
         private RectTransform _content;
+        private bool _isRetirementConfirming;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Contract;
@@ -63,6 +64,7 @@ namespace Baseball.Presentation.Career
 
         protected override void OnShow()
         {
+            _isRetirementConfirming = false;
             Render();
         }
 
@@ -109,6 +111,8 @@ namespace Baseball.Presentation.Career
             else
                 RenderContractOverview(view);
             CareerNavigationChrome.Create(_content, CareerMainTab.Contract);
+            if (_isRetirementConfirming && view.CanRetireInsteadOfSigning)
+                RenderRetirementConfirm(view);
         }
 
         private void RenderBackgroundAccents()
@@ -490,15 +494,34 @@ namespace Baseball.Presentation.Career
                 14, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(1320f, 38f), new Vector2(0f, 285f), SecondaryTextColor);
 
+            if (view.IsNextSeasonForcedFinal)
+            {
+                CreateText(
+                    "ForcedFinalNotice", panel,
+                    $"{view.GuaranteedRetirementAge}세 규정에 따라, 어떤 계약을 택하든 다음 시즌이 마지막 시즌으로 선언됩니다.",
+                    14, FontStyle.Bold, TextAnchor.MiddleLeft,
+                    new Vector2(1320f, 30f), new Vector2(0f, 258f), WarningColor);
+            }
+
             int visibleCount = Math.Min(view.RenewalOffers.Length, 5);
             for (int index = 0; index < visibleCount; index++)
                 RenderOfferRow(panel, view.RenewalOffers[index], index);
 
-            float signX = view.CanOpenMarket ? -350f : 0f;
+            RenderOfferActions(panel, view);
+        }
+
+        /// <summary>계약 확정·시장 확인·현역 은퇴를 한 줄에 배치한다. 은퇴는 계약 버튼과 색으로 구분한다.</summary>
+        private void RenderOfferActions(RectTransform panel, CareerContractView view)
+        {
+            bool canRetire = view.CanRetireInsteadOfSigning;
+            float signX = view.CanOpenMarket ? canRetire ? -450f : -350f : canRetire ? -200f : 0f;
+            float signWidth = view.CanOpenMarket && canRetire ? 440f : 520f;
             Button signButton = CreateButton(
                 "SignOffer", panel,
-                view.CanSignSelectedOffer ? "선택한 구단과 계약" : "계약할 구단을 선택하세요",
-                new Vector2(520f, 68f), new Vector2(signX, -302f),
+                view.IsUnsignedRetirementRequired
+                    ? "Rookie 테스트 입단 연속 실패"
+                    : view.CanSignSelectedOffer ? "선택한 구단과 계약" : "계약할 구단을 선택하세요",
+                new Vector2(signWidth, 68f), new Vector2(signX, -302f),
                 view.CanSignSelectedOffer
                     ? new Color(0.025f, 0.31f, 0.61f, 1f)
                     : new Color(0.05f, 0.10f, 0.15f, 1f),
@@ -507,26 +530,116 @@ namespace Baseball.Presentation.Career
             signButton.interactable = view.CanSignSelectedOffer;
             if (view.CanSignSelectedOffer)
                 signButton.onClick.AddListener(SignSelectedOffer);
+
             if (view.CanOpenMarket)
             {
+                float holdX = canRetire ? -60f : 185f;
+                float declineX = canRetire ? 250f : 535f;
                 Button holdButton = CreateButton(
                     "HoldAndOpenMarket", panel, "보류하고 시장 보기",
-                    new Vector2(330f, 68f), new Vector2(185f, -302f),
+                    new Vector2(300f, 68f), new Vector2(holdX, -302f),
                     new Color(0.08f, 0.24f, 0.37f, 1f), out Text holdLabel);
                 holdLabel.fontSize = 18;
                 holdButton.onClick.AddListener(() => _manager.OpenContractMarket(true));
                 Button declineButton = CreateButton(
                     "DeclineAndOpenMarket", panel, "거절하고 시장 보기",
-                    new Vector2(330f, 68f), new Vector2(535f, -302f),
+                    new Vector2(300f, 68f), new Vector2(declineX, -302f),
                     new Color(0.18f, 0.12f, 0.12f, 1f), out Text declineLabel);
                 declineLabel.fontSize = 18;
                 declineButton.onClick.AddListener(() => _manager.OpenContractMarket(false));
             }
+
+            if (canRetire)
+            {
+                float retireX = view.CanOpenMarket ? 570f : 330f;
+                float retireWidth = view.CanOpenMarket ? 260f : 300f;
+                Button retireButton = CreateButton(
+                    "RetireInstead", panel,
+                    view.IsUnsignedRetirementRequired ? "커리어 종료 확인" : "여기서 은퇴하기",
+                    new Vector2(retireWidth, 68f), new Vector2(retireX, -302f),
+                    new Color(0.10f, 0.09f, 0.07f, 1f), out Text retireLabel);
+                retireLabel.fontSize = 18;
+                retireLabel.color = GoldColor;
+                retireButton.onClick.AddListener(() =>
+                {
+                    _isRetirementConfirming = true;
+                    Render();
+                });
+            }
+
             if (!string.IsNullOrEmpty(view.LastError))
             {
                 CreateText("Error", panel, view.LastError, 12, FontStyle.Normal, TextAnchor.MiddleCenter,
                     new Vector2(900f, 24f), new Vector2(0f, -338f), ErrorColor);
             }
+        }
+
+        /// <summary>제안을 눈앞에 두고 은퇴를 확정하기 전 되돌릴 수 없음을 한 번 더 확인시킨다.</summary>
+        private void RenderRetirementConfirm(CareerContractView view)
+        {
+            RectTransform backdrop = CreateImage(
+                "RetirementBackdrop", _content, new Color(0.002f, 0.006f, 0.011f, 0.88f),
+                Vector2.zero, Vector2.zero, stretch: true);
+            backdrop.GetComponent<Image>().raycastTarget = true;
+
+            RectTransform panel = CreateSection(
+                "RetirementConfirm", backdrop, new Vector2(880f, 420f), Vector2.zero, CardColor);
+            CreateText("Eyebrow", panel, "한 선수의 기록", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(600f, 26f), new Vector2(0f, 160f), GoldColor);
+            string retirementTitle = view.IsUnsignedRetirementRequired
+                ? "모든 계약과 Rookie 테스트 입단이 끝났습니다."
+                : $"{view.Age}세, 여기서 선수 생활을 마칩니까?";
+            CreateText("Title", panel, retirementTitle, 30, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(800f, 50f), new Vector2(0f, 105f), PrimaryTextColor);
+
+            string offerSummary = view.RenewalOffers.Length > 0
+                ? $"테이블 위에는 {view.RenewalOffers.Length}개의 제안이 남아 있습니다. " +
+                  $"최고 연봉 {FormatMoney(GetBestOfferSalary(view.RenewalOffers))}."
+                : "지금 테이블 위에 남은 제안은 없습니다.";
+            CreateText("Summary", panel, offerSummary, 17, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(800f, 30f), new Vector2(0f, 45f), SecondaryTextColor);
+            string retirementMessage = view.IsUnsignedRetirementRequired
+                ? "두 구단의 테스트 입단에도 실패해 현역 등록 경로가 없습니다.\n" +
+                  "이 시점의 커리어로 회고가 만들어집니다."
+                : "은퇴를 확정하면 남은 제안은 모두 거절한 것으로 기록되고,\n" +
+                  "이 시점의 커리어로 회고가 만들어집니다. 되돌릴 수 없습니다.";
+            CreateText("Message", panel, retirementMessage,
+                17, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(800f, 70f), new Vector2(0f, -15f), SecondaryTextColor);
+
+            Button cancel = CreateButton("KeepPlaying", panel,
+                view.IsUnsignedRetirementRequired ? "회고 전 화면으로" : "한 시즌 더 뛴다",
+                new Vector2(330f, 66f), new Vector2(-180f, -125f),
+                new Color(0.025f, 0.31f, 0.61f, 1f), out Text cancelLabel);
+            cancelLabel.fontSize = 19;
+            cancel.onClick.AddListener(() =>
+            {
+                _isRetirementConfirming = false;
+                Render();
+            });
+            Button confirm = CreateButton("ConfirmRetirement", panel,
+                view.IsUnsignedRetirementRequired ? "커리어 종료" : "은퇴 확정",
+                new Vector2(330f, 66f), new Vector2(180f, -125f),
+                new Color(0.22f, 0.16f, 0.05f, 1f), out Text confirmLabel);
+            confirmLabel.fontSize = 19;
+            confirmLabel.color = GoldColor;
+            confirm.onClick.AddListener(() =>
+            {
+                _isRetirementConfirming = false;
+                if (!_manager.RetireFromContractOffers())
+                    Render();
+            });
+        }
+
+        private static long GetBestOfferSalary(RenewalContractOfferView[] offers)
+        {
+            long best = 0L;
+            for (int index = 0; index < offers.Length; index++)
+            {
+                if (offers[index].AnnualSalary > best)
+                    best = offers[index].AnnualSalary;
+            }
+            return best;
         }
 
         private void SignSelectedOffer()
@@ -554,7 +667,8 @@ namespace Baseball.Presentation.Career
                 $"{GetOfferChannelLabel(offer.Channel)} [{GetLeagueLevelLabel(offer.LeagueLevel)}]  {offer.TeamName}", 18,
                 FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(260f, 38f), new Vector2(-520f, 13f), PrimaryTextColor);
-            CreateText("Term", row, $"{offer.ContractYears}년 / 보장 {FormatMoney(offer.GuaranteedValue)}",
+            CreateText("Term", row,
+                $"{offer.ContractYears}년 · 경쟁 {offer.CompetitorSummary} · {GetMovementClauseLabel(offer)}",
                 11, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(280f, 30f), new Vector2(-510f, -20f), SecondaryTextColor);
             CreateOfferMetric(row, "연봉", FormatMoney(offer.AnnualSalary), -230f, GoldColor);
@@ -749,6 +863,8 @@ namespace Baseball.Presentation.Career
             {
                 ContractOfferChannel.CurrentTeamRenewal => "[기존 구단]",
                 ContractOfferChannel.CurrentTeamExtension => "[연장 계약]",
+                ContractOfferChannel.ContractContinuation => "[현 계약 유지]",
+                ContractOfferChannel.TryoutContract => "[테스트 입단]",
                 ContractOfferChannel.Promotion => "[상위 리그]",
                 ContractOfferChannel.Rehabilitation => "[재기 계약]",
                 ContractOfferChannel.DevelopmentFallback => "[육성 계약]",
@@ -756,15 +872,20 @@ namespace Baseball.Presentation.Career
             };
         }
 
+        private static string GetMovementClauseLabel(RenewalContractOfferView offer)
+        {
+            if (offer.HasUpperLeagueReleaseClause && offer.HasRelegationTransferRequestClause)
+                return "상위 이적·강등 요청권";
+            if (offer.HasUpperLeagueReleaseClause)
+                return "상위 리그 이적 조항";
+            if (offer.HasRelegationTransferRequestClause)
+                return "강등 시 이적 요청권";
+            return "이동 조항 없음";
+        }
+
         private static string GetLeagueLevelLabel(LeagueLevel level)
         {
-            return level switch
-            {
-                LeagueLevel.Rookie => "루키",
-                LeagueLevel.Minor => "마이너",
-                LeagueLevel.Major => "메이저",
-                _ => level.ToString()
-            };
+            return WorldGenerationConfiguration.GetDefaultDefinition(level).UiDisplayName;
         }
 
         private static string GetPositionCode(PlayerPosition position)
@@ -788,13 +909,7 @@ namespace Baseball.Presentation.Career
 
         private static string GetLeagueLabel(LeagueLevel level)
         {
-            return level switch
-            {
-                LeagueLevel.Rookie => "ROOKIE",
-                LeagueLevel.Minor => "MINOR",
-                LeagueLevel.Major => "MAJOR",
-                _ => "ROOKIE"
-            };
+            return WorldGenerationConfiguration.GetDefaultDefinition(level).UiDisplayName;
         }
 
         private static string GetSeasonPhaseLabel(SeasonPhase phase)

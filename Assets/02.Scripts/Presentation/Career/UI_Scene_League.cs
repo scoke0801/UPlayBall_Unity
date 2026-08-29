@@ -95,6 +95,7 @@ namespace Baseball.Presentation.Career
             LeagueHubView view = _manager.LeagueHub;
             RenderBackgroundAccents();
             RenderTopBar(view);
+            RenderLeagueLadder(view);
             RenderStandings(view);
             RenderBattingLeaders(view);
             RenderPitchingLeaders(view);
@@ -160,7 +161,7 @@ namespace Baseball.Presentation.Career
                 "PostseasonLegend", panel, PanelDarkColor, new Vector2(620f, 32f), new Vector2(0f, -213f));
             CreateImage("PostseasonColor", legend, AccentColor, new Vector2(24f, 6f), new Vector2(-268f, 0f));
             CreateText(
-                "Legend", legend, $"1~{view.PlayoffTeamCount}위 포스트시즌 진출권",
+                "Legend", legend, "1~2위 승격 · 3~4위 PS · 7~8위 강등",
                 12, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(230f, 26f), new Vector2(-130f, 0f), SecondaryTextColor);
             CreateText(
@@ -175,8 +176,15 @@ namespace Baseball.Presentation.Career
                 : RowColor;
             RectTransform line = CreateImage(
                 "Standing_" + row.TeamId, panel, background, new Vector2(620f, 36f), new Vector2(0f, y));
-            if (row.IsPostseasonPosition)
-                CreateImage("PostseasonBand", line, AccentColor, new Vector2(4f, 32f), new Vector2(-307f, 0f));
+            Color zoneColor = row.Zone switch
+            {
+                LeagueStandingZone.Promotion => WinColor,
+                LeagueStandingZone.PostseasonRetention => AccentColor,
+                LeagueStandingZone.Relegation => LossColor,
+                _ => Color.clear
+            };
+            if (zoneColor.a > 0f)
+                CreateImage("StandingZone", line, zoneColor, new Vector2(4f, 32f), new Vector2(-307f, 0f));
             if (row.IsMyTeam)
                 CreateImage("MyTeamBand", line, GoldColor, new Vector2(4f, 32f), new Vector2(307f, 0f));
 
@@ -200,6 +208,31 @@ namespace Baseball.Presentation.Career
             CreateText("Streak", line, FormatStreak(row.StreakOutcome, row.StreakLength), 13,
                 FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(54f, 32f), new Vector2(292f, 0f), GetStreakColor(row.StreakOutcome));
+        }
+
+        private void RenderLeagueLadder(LeagueHubView view)
+        {
+            RectTransform ladder = CreateImage(
+                "LeagueLadder", _content, PanelDarkColor, new Vector2(1460f, 22f), new Vector2(0f, 449f));
+            float cellWidth = 142f;
+            for (int tier = 0; tier < LeagueLevelRules.Count; tier++)
+            {
+                LeagueLevel level = (LeagueLevel)tier;
+                LeagueDefinition definition = WorldGenerationConfiguration.GetDefaultDefinition(level);
+                bool isCurrent = level == view.LeagueLevel;
+                bool isReached = level <= view.HighestReachedTier;
+                Color color = isCurrent ? BrightAccentColor : isReached ? GoldColor : MutedColor;
+                CreateText(
+                    "Tier_" + tier,
+                    ladder,
+                    definition.UiDisplayName,
+                    isCurrent ? 12 : 10,
+                    FontStyle.Bold,
+                    TextAnchor.MiddleCenter,
+                    new Vector2(cellWidth, 20f),
+                    new Vector2((tier - 4.5f) * cellWidth, 0f),
+                    color);
+            }
         }
 
         private void RenderBattingLeaders(LeagueHubView view)
@@ -740,13 +773,7 @@ namespace Baseball.Presentation.Career
 
         private static string GetLeagueLabel(LeagueLevel level)
         {
-            return level switch
-            {
-                LeagueLevel.Rookie => "ROOKIE",
-                LeagueLevel.Minor => "MINOR",
-                LeagueLevel.Major => "MAJOR",
-                _ => "ROOKIE"
-            };
+            return WorldGenerationConfiguration.GetDefaultDefinition(level).UiDisplayName;
         }
 
         private static string GetDayLabel(DayOfWeek day)
