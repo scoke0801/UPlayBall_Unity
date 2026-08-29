@@ -37,6 +37,8 @@ namespace Baseball.Game.Career
             SeasonState season = CurrentCareer.CurrentLeague.CurrentSeason;
             if (season.Phase != SeasonPhase.SeasonReview)
                 return FailGrowth("시즌 결산 단계에서만 오프시즌을 시작할 수 있습니다.");
+            if (season.Review?.Step != SeasonReviewStep.SeasonSummary)
+                return FailGrowth("최종 시즌 요약을 확인한 뒤 성장·수입을 결산해 주세요.");
 
             try
             {
@@ -82,6 +84,12 @@ namespace Baseball.Game.Career
             TrainingProgramDefinition baseProgram = _balance.Growth.FindProgram(programId);
             if (baseProgram == null || !baseProgram.CanUse(growth.PlayerType))
                 return FailGrowth("선택할 수 없는 성장 프로그램입니다.");
+            if (!CareerTrainingAccess.CanAccess(
+                    baseProgram,
+                    CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel))
+            {
+                return FailGrowth("현재 리그에서 해금되지 않은 성장 프로그램입니다.");
+            }
             if (!baseProgram.SupportsIntensity && intensity != TrainingIntensity.Standard)
                 return FailGrowth("개인 훈련만 강도를 조절할 수 있습니다.");
             TrainingProgramDefinition program = _balance.Growth.GetProgram(programId, intensity);
@@ -852,7 +860,7 @@ namespace Baseball.Game.Career
             string[] preferredIds = growth.PlayerType == PlayerType.Batter
                 ? new[]
                 {
-                    "personal_batting", "bat_balance_training", "bat_power_camp",
+                    "weight_batter", "personal_batting", "bat_balance_training", "bat_power_camp",
                     "bat_contact_training", "bat_speed_defense_camp", "bat_elite_hitting_lab",
                     "partner_batter_default", "private_batting_coach",
                     "japan_batting_camp", "usa_power_center", "usa_elite_batting_academy",
@@ -861,29 +869,42 @@ namespace Baseball.Game.Career
                 }
                 : new[]
                 {
-                    "personal_pitching", "pitch_velocity_camp", "pitch_control_training",
+                    "weight_pitcher", "personal_pitching", "pitch_velocity_camp", "pitch_control_training",
                     "pitch_stamina_camp", "pitch_breaking_training", "pitch_elite_biomechanics",
                     "partner_pitcher_default", "private_pitching_coach",
                     "japan_pitch_design", "usa_velocity_center", "usa_elite_pitching_academy",
                     "caribbean_pitch_league", "europe_pitch_balance",
                     "rehab_general", "sports_science_recovery", "rest"
                 };
-            var result = new GrowthProgramView[preferredIds.Length];
-            for (int index = 0; index < preferredIds.Length; index++)
+            TrainingAccessTier accessTier = CareerTrainingAccess.GetAccessTier(
+                CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel);
+            var result = new List<GrowthProgramView>(preferredIds.Length);
+            // 승격 직후 새 선택지가 첫 페이지에 보이도록 현재 리그에서 새로 열린 등급부터 정렬한다.
+            for (int tier = (int)accessTier; tier >= (int)TrainingAccessTier.Foundation; tier--)
             {
-                TrainingIntensity intensity = string.Equals(
-                    _selectedGrowthProgramId,
-                    preferredIds[index],
-                    StringComparison.Ordinal)
-                    ? _selectedTrainingIntensity
-                    : TrainingIntensity.Standard;
-                result[index] = BuildProgramView(
-                    growth,
-                    preferredIds[index],
-                    intensity,
-                    remainingWeeks);
+                for (int index = 0; index < preferredIds.Length; index++)
+                {
+                    TrainingProgramDefinition program = _balance.Growth.FindProgram(preferredIds[index]);
+                    if (program == null ||
+                        !program.CanUse(growth.PlayerType) ||
+                        (int)program.MinimumAccessTier != tier)
+                    {
+                        continue;
+                    }
+                    TrainingIntensity intensity = string.Equals(
+                        _selectedGrowthProgramId,
+                        preferredIds[index],
+                        StringComparison.Ordinal)
+                        ? _selectedTrainingIntensity
+                        : TrainingIntensity.Standard;
+                    result.Add(BuildProgramView(
+                        growth,
+                        preferredIds[index],
+                        intensity,
+                        remainingWeeks));
+                }
             }
-            return result;
+            return result.ToArray();
         }
 
         /// <summary>
@@ -935,11 +956,15 @@ namespace Baseball.Game.Career
                 preview,
                 CurrentCareer.MyPlayer.SkillBoardState);
             TrainingProgramDefinition program = preview.Program;
-            bool canUseThisOffseason = !program.IsStudy ||
-                                       offseason != null &&
-                                       !offseason.StudyUsed &&
-                                       !CurrentCareer.MyPlayer.StudyState.StudyUsedThisOffseason &&
-                                       !HasPlannedStudy(offseason);
+            bool canAccessProgram = CareerTrainingAccess.CanAccess(
+                baseProgram,
+                CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel);
+            bool canUseThisOffseason = canAccessProgram &&
+                                       (!program.IsStudy ||
+                                        offseason != null &&
+                                        !offseason.StudyUsed &&
+                                        !CurrentCareer.MyPlayer.StudyState.StudyUsedThisOffseason &&
+                                        !HasPlannedStudy(offseason));
             bool isSelected = string.Equals(
                                   _selectedGrowthProgramId,
                                   program.ProgramId,
@@ -960,7 +985,11 @@ namespace Baseball.Game.Career
                 canUseThisOffseason,
                 isSelected,
                 _balance.Growth.Condition.ReducedMinimum,
-                _balance.Growth.Condition.WarningMinimum);
+                _balance.Growth.Condition.WarningMinimum,
+                Math.Min(
+                    1d,
+                    _balance.Growth.PotentialBreakthroughProbability *
+                    program.PotentialBreakthroughChanceMultiplier));
         }
 
         private GrowthProgramPreview BuildDisplayedGrowthPreview(
@@ -1206,6 +1235,8 @@ namespace Baseball.Game.Career
                 {
                     SkillBlockCategory.Contact,
                     SkillBlockCategory.Power,
+                    SkillBlockCategory.Baserunning,
+                    SkillBlockCategory.Bunt,
                     SkillBlockCategory.Defense,
                     SkillBlockCategory.BatterMental
                 }
@@ -1214,6 +1245,8 @@ namespace Baseball.Game.Career
                     SkillBlockCategory.Velocity,
                     SkillBlockCategory.Control,
                     SkillBlockCategory.Breaking,
+                    SkillBlockCategory.PitcherPhysical,
+                    SkillBlockCategory.Stuff,
                     SkillBlockCategory.PitcherMental
                 };
         }

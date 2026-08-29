@@ -20,6 +20,16 @@ namespace Baseball.Core.Growth
     }
 
     /// <summary>
+    /// 커리어 진행 단계에 따라 해금되는 훈련 프로그램의 접근 등급이다.
+    /// </summary>
+    public enum TrainingAccessTier
+    {
+        Foundation,
+        Advanced,
+        Elite
+    }
+
+    /// <summary>
     /// 한 프로그램의 성장력을 능력치별로 나누는 고정 가중치다.
     /// </summary>
     public readonly struct AbilityWeight
@@ -60,7 +70,10 @@ namespace Baseball.Core.Growth
             int minimumGuaranteedGain = 0,
             string partnerId = "",
             bool canRaisePotential = false,
-            TrainingIntensity intensity = TrainingIntensity.Standard)
+            TrainingIntensity intensity = TrainingIntensity.Standard,
+            TrainingAccessTier minimumAccessTier = TrainingAccessTier.Foundation,
+            double potentialBreakthroughChanceMultiplier = 1d,
+            int minimumPotentialBreakthroughsWhenCapped = 0)
         {
             if (string.IsNullOrWhiteSpace(programId))
                 throw new ArgumentException("ProgramId는 비어 있을 수 없습니다.", nameof(programId));
@@ -82,6 +95,21 @@ namespace Baseball.Core.Growth
                 throw new ArgumentException("훈련 파트너 활동에는 PartnerId가 필요합니다.", nameof(partnerId));
             if (intensity < TrainingIntensity.Safe || intensity > TrainingIntensity.Intensive)
                 throw new ArgumentOutOfRangeException(nameof(intensity));
+            if (minimumAccessTier < TrainingAccessTier.Foundation ||
+                minimumAccessTier > TrainingAccessTier.Elite)
+            {
+                throw new ArgumentOutOfRangeException(nameof(minimumAccessTier));
+            }
+            if (potentialBreakthroughChanceMultiplier < 0d)
+                throw new ArgumentOutOfRangeException(nameof(potentialBreakthroughChanceMultiplier));
+            if (minimumPotentialBreakthroughsWhenCapped < 0)
+                throw new ArgumentOutOfRangeException(nameof(minimumPotentialBreakthroughsWhenCapped));
+            if (!canRaisePotential && minimumPotentialBreakthroughsWhenCapped > 0)
+            {
+                throw new ArgumentException(
+                    "Potential 돌파를 보장하는 프로그램은 CanRaisePotential이어야 합니다.",
+                    nameof(minimumPotentialBreakthroughsWhenCapped));
+            }
 
             ProgramId = programId.Trim();
             ActivityType = activityType;
@@ -100,6 +128,9 @@ namespace Baseball.Core.Growth
             PartnerId = partnerId?.Trim() ?? string.Empty;
             CanRaisePotential = canRaisePotential;
             Intensity = intensity;
+            MinimumAccessTier = minimumAccessTier;
+            PotentialBreakthroughChanceMultiplier = potentialBreakthroughChanceMultiplier;
+            MinimumPotentialBreakthroughsWhenCapped = minimumPotentialBreakthroughsWhenCapped;
         }
 
         public string ProgramId { get; }
@@ -119,12 +150,20 @@ namespace Baseball.Core.Growth
         public string PartnerId { get; }
         public bool CanRaisePotential { get; }
         public TrainingIntensity Intensity { get; }
+        public TrainingAccessTier MinimumAccessTier { get; }
+        public double PotentialBreakthroughChanceMultiplier { get; }
+        public int MinimumPotentialBreakthroughsWhenCapped { get; }
         public bool IsStudy => ActivityType == OffseasonActivityType.Study;
         public bool SupportsIntensity => ActivityType == OffseasonActivityType.PersonalTraining;
 
         public bool CanUse(PlayerType playerType)
         {
             return !TargetPlayerType.HasValue || TargetPlayerType.Value == playerType;
+        }
+
+        public bool CanAccess(TrainingAccessTier accessTier)
+        {
+            return accessTier >= MinimumAccessTier;
         }
 
         private static AbilityWeight[] CopyWeights(AbilityWeight[] source, double programPower)

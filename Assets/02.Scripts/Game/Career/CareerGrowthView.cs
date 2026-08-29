@@ -263,7 +263,8 @@ namespace Baseball.Game.Career
             bool canUseThisOffseason,
             bool isSelected,
             int conditionWarningMinimum,
-            int conditionDangerMinimum)
+            int conditionDangerMinimum,
+            double potentialBreakthroughProbability)
         {
             TrainingProgramDefinition definition = preview.Program;
             ProgramId = definition.ProgramId;
@@ -284,6 +285,9 @@ namespace Baseball.Game.Career
             MaxTotalGain = definition.MaxTotalGain;
             MinimumCondition = definition.MinimumCondition;
             CanRaisePotential = definition.CanRaisePotential;
+            PotentialBreakthroughProbability = potentialBreakthroughProbability;
+            MinimumPotentialBreakthroughsWhenCapped =
+                definition.MinimumPotentialBreakthroughsWhenCapped;
             Fit = fit;
             MoneyBefore = moneyBefore;
             PlannedCost = plannedCost;
@@ -327,6 +331,8 @@ namespace Baseball.Game.Career
         public int MaxTotalGain { get; }
         public int MinimumCondition { get; }
         public bool CanRaisePotential { get; }
+        public double PotentialBreakthroughProbability { get; }
+        public int MinimumPotentialBreakthroughsWhenCapped { get; }
         public TrainingFitGrade Fit { get; }
         public long MoneyBefore { get; }
         public long PlannedCost { get; }

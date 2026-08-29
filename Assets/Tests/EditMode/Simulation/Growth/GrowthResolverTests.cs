@@ -117,6 +117,47 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
+        public void Resolve_엘리트유학은모든대상능력치가개발한계여도돌파후성장을보장한다()
+        {
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+            PlayerGrowthState player = CreateBatter(age: 22, baseRating: 73, potential: 70);
+            TrainingProgramDefinition program = balance.FindProgram("usa_elite_batting_academy");
+
+            GrowthResultRecord result = new GrowthResolver(balance).Resolve(
+                player,
+                program,
+                2028,
+                0,
+                TrainingFitGrade.Normal,
+                9911UL,
+                new Pcg32Random(9911UL));
+
+            Assert.That(result.PotentialChanges, Is.Not.Empty);
+            Assert.That(SumAbilityChanges(result), Is.GreaterThanOrEqualTo(1));
+            Assert.That(player.BaseAbilities.Get(PlayerAbility.Power), Is.GreaterThan(73));
+        }
+
+        [Test]
+        public void GrowthPreview_엘리트유학의개발한계돌파와최소성장을미리반영한다()
+        {
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+            PlayerGrowthState player = CreateBatter(age: 22, baseRating: 73, potential: 70);
+            TrainingProgramDefinition program = balance.FindProgram("usa_elite_batting_academy");
+
+            GrowthProgramPreview preview = new GrowthPreviewCalculator(balance).Build(
+                player,
+                program,
+                TrainingIntensity.Standard,
+                0,
+                TrainingFitGrade.Normal);
+
+            int minimumGain = 0;
+            for (int index = 0; index < preview.AbilityRanges.Length; index++)
+                minimumGain += preview.AbilityRanges[index].MinimumGain;
+            Assert.That(minimumGain, Is.GreaterThanOrEqualTo(1));
+        }
+
+        [Test]
         public void NaturalDevelopment와Aging은한결산에서원인을분리해기록한다()
         {
             GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
@@ -153,6 +194,14 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 90,
                 0,
                 70);
+        }
+
+        private static int SumAbilityChanges(GrowthResultRecord result)
+        {
+            int total = 0;
+            for (int index = 0; index < result.AbilityChanges.Length; index++)
+                total += result.AbilityChanges[index].Amount;
+            return total;
         }
 
     }

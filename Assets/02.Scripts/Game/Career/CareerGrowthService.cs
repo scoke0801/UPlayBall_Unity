@@ -245,6 +245,7 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("이미 진행 중인 오프시즌이 있습니다.");
 
             PlayerGrowthState growth = _career.MyPlayer.GrowthState;
+            int[] abilitiesBefore = growth.BaseAbilities.ToArray();
             ulong seasonStream = ((ulong)(uint)season.SeasonId << 32) | (uint)growth.PlayerId;
             ulong naturalSeed = DeterministicSeed.Derive(
                 _career.CurrentLeague.RandomSeed,
@@ -272,6 +273,10 @@ namespace Baseball.Game.Career
                     _balance.SeasonSettlement,
                     _balance.ContractBonus)
                 .ApplyOnce(bonusIncome);
+            season.ReviewSnapshot?.CompleteSettlement(
+                settlement,
+                abilitiesBefore,
+                growth.BaseAbilities.ToArray());
             long salaryIncome = settlement.SalaryIncome;
 
             var offseason = new OffseasonState(
@@ -279,6 +284,10 @@ namespace Baseball.Game.Career
                 _balance.Growth.OffseasonWeeks,
                 growth.Condition,
                 mandatoryRehabWeeks);
+            if (season.Review?.Step == SeasonReviewStep.SeasonSummary)
+                season.Review.MarkIncomeSettlementReady();
+            else
+                season.Review?.Complete();
             _career.BeginOffseason(offseason);
             _career.MyPlayer.SynchronizeFromGrowthState();
             season.BeginOffseason();
@@ -298,6 +307,16 @@ namespace Baseball.Game.Career
             TrainingIntensity intensity = TrainingIntensity.Standard)
         {
             OffseasonState offseason = RequireOffseason();
+            TrainingProgramDefinition program = _balance.Growth.FindProgram(programId) ??
+                                                throw new ArgumentException(
+                                                    "존재하지 않는 성장 프로그램입니다.",
+                                                    nameof(programId));
+            if (!CareerTrainingAccess.CanAccess(
+                    program,
+                    _career.CurrentLeague.CurrentSeason.LeagueLevel))
+            {
+                throw new InvalidOperationException("현재 리그에서 해금되지 않은 성장 프로그램입니다.");
+            }
             return _offseasonScheduler.PlanActivity(
                 offseason,
                 _career.Economy,

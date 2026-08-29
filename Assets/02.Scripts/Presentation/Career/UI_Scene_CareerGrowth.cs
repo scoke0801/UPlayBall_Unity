@@ -15,6 +15,7 @@ namespace Baseball.Presentation.Career
     public sealed partial class UI_Scene_CareerGrowth : UISceneBase, ICareerTabScreen
     {
         private const int InventoryPageSize = 12;
+        private const int ProgramPageSize = 5;
 
         private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
@@ -40,6 +41,7 @@ namespace Baseball.Presentation.Career
         private int _selectedPlacedBlockId;
         private int _selectedRotation;
         private int _inventoryPage;
+        private int _programPage;
         private bool _confirmPlacedBlockRemoval;
         private bool _confirmBoardRedesign;
         private GrowthSection _growthSection;
@@ -88,6 +90,7 @@ namespace Baseball.Presentation.Career
         protected override void OnShow()
         {
             _isBoardDraftInitialized = false;
+            _programPage = 0;
             Render();
         }
 
@@ -100,6 +103,8 @@ namespace Baseball.Presentation.Career
 
         private void Update()
         {
+            if (UI_CareerPresentation.IsPlaying)
+                return;
             if (!IsVisible || Keyboard.current == null || _manager?.HasActiveCareer != true)
                 return;
             Keyboard keyboard = Keyboard.current;

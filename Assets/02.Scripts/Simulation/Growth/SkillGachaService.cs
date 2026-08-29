@@ -209,7 +209,8 @@ namespace Baseball.Simulation.Growth
 
         private void ValidateDefinitionPools()
         {
-            for (int category = 0; category <= (int)SkillBlockCategory.PitcherMental; category++)
+            int categoryCount = Enum.GetValues(typeof(SkillBlockCategory)).Length;
+            for (int category = 0; category < categoryCount; category++)
             {
                 bool categoryExists = false;
                 for (int index = 0; index < _definitions.Length; index++)

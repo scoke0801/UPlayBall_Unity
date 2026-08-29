@@ -31,7 +31,9 @@ namespace Baseball.Core.Growth
         Control,
         Breaking,
         PitcherPhysical,
-        PitcherMental
+        PitcherMental,
+        Bunt,
+        Stuff
     }
 
     public enum TraitSocketRule

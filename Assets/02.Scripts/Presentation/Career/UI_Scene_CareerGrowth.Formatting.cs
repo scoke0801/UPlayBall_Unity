@@ -242,6 +242,8 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.Breaking => "변화구",
                 SkillBlockCategory.PitcherPhysical => "투수 체력",
                 SkillBlockCategory.PitcherMental => "투수 정신",
+                SkillBlockCategory.Bunt => "번트",
+                SkillBlockCategory.Stuff => "구위",
                 _ => category.ToString()
             };
         }
@@ -271,6 +273,10 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.Control => "제구력 보너스",
                 SkillBlockCategory.Breaking => "변화구 보너스",
                 SkillBlockCategory.PitcherMental => "위기관리 보너스",
+                SkillBlockCategory.Baserunning => "주루 보너스",
+                SkillBlockCategory.Bunt => "번트 보너스",
+                SkillBlockCategory.PitcherPhysical => "투수 체력 보너스",
+                SkillBlockCategory.Stuff => "구위 보너스",
                 _ => "능력치 보너스"
             };
         }
@@ -287,6 +293,10 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.Control => new Color(0.08f, 0.47f, 0.73f, 1f),
                 SkillBlockCategory.Breaking => new Color(0.48f, 0.22f, 0.72f, 1f),
                 SkillBlockCategory.PitcherMental => new Color(0.76f, 0.52f, 0.08f, 1f),
+                SkillBlockCategory.Baserunning => new Color(0.13f, 0.62f, 0.55f, 1f),
+                SkillBlockCategory.Bunt => new Color(0.70f, 0.42f, 0.16f, 1f),
+                SkillBlockCategory.PitcherPhysical => new Color(0.64f, 0.45f, 0.16f, 1f),
+                SkillBlockCategory.Stuff => new Color(0.60f, 0.24f, 0.24f, 1f),
                 _ => AccentColor
             };
         }
@@ -297,12 +307,16 @@ namespace Baseball.Presentation.Career
             {
                 PlayerAbility.Contact => GetCategoryColor(SkillBlockCategory.Contact),
                 PlayerAbility.Power => GetCategoryColor(SkillBlockCategory.Power),
+                PlayerAbility.Speed => GetCategoryColor(SkillBlockCategory.Baserunning),
+                PlayerAbility.Bunt => GetCategoryColor(SkillBlockCategory.Bunt),
                 PlayerAbility.Defense => GetCategoryColor(SkillBlockCategory.Defense),
                 PlayerAbility.BatterMental => GetCategoryColor(SkillBlockCategory.BatterMental),
                 PlayerAbility.Velocity => GetCategoryColor(SkillBlockCategory.Velocity),
                 PlayerAbility.Control => GetCategoryColor(SkillBlockCategory.Control),
                 PlayerAbility.Breaking => GetCategoryColor(SkillBlockCategory.Breaking),
                 PlayerAbility.PitcherMental => GetCategoryColor(SkillBlockCategory.PitcherMental),
+                PlayerAbility.Stamina => GetCategoryColor(SkillBlockCategory.PitcherPhysical),
+                PlayerAbility.Stuff => GetCategoryColor(SkillBlockCategory.Stuff),
                 _ => GreenColor
             };
         }
@@ -428,10 +442,15 @@ namespace Baseball.Presentation.Career
                 ? $"예상 총 성장 +{program.MinimumGuaranteedGain}~{program.MaxTotalGain}"
                 : program.ConditionChange > 0 ? $"컨디션 +{program.ConditionChange}" : "회복 활동";
             string risk = program.InjuryRisk <= 0d ? "부상 위험 없음" : $"불편감 위험 {program.InjuryRisk:P1}";
+            string breakthrough = program.CanRaisePotential
+                ? program.MinimumPotentialBreakthroughsWhenCapped > 0
+                    ? $" · Potential {program.PotentialBreakthroughProbability:P0} · 정체 시 돌파 보장"
+                    : $" · Potential {program.PotentialBreakthroughProbability:P0}"
+                : string.Empty;
             return $"{GetProgramLabel(program.ProgramId)} · {program.DurationWeeks}주 · " +
                 $"{FormatMoney(program.MoneyCost)} · 남은 {program.RemainingWeeksBefore}→" +
                    $"{program.RemainingWeeksAfter}주 · 컨디션 {program.ConditionBefore}→" +
-                   $"{program.ConditionAfter} · {growthRange} · {risk}";
+                   $"{program.ConditionAfter} · {growthRange} · {risk}{breakthrough}";
         }
 
         private static Color GetProgramColor(OffseasonActivityType type)
@@ -461,39 +480,7 @@ namespace Baseball.Presentation.Career
 
         private static string GetProgramLabel(string programId)
         {
-            return programId switch
-            {
-                "personal_batting" => "기초 타격 훈련",
-                "personal_pitching" => "기초 투구 밸런스",
-                "bat_balance_training" => "기초 밸런스 훈련",
-                "bat_power_camp" => "파워 집중 캠프",
-                "bat_contact_training" => "컨택 안정화 훈련",
-                "bat_speed_defense_camp" => "주루·수비 강화 캠프",
-                "bat_elite_hitting_lab" => "엘리트 타격 랩",
-                "pitch_velocity_camp" => "구속 집중 캠프",
-                "pitch_control_training" => "제구 안정화 훈련",
-                "pitch_stamina_camp" => "체력 강화 캠프",
-                "pitch_breaking_training" => "변화구 집중 훈련",
-                "pitch_elite_biomechanics" => "엘리트 바이오메카닉스 랩",
-                "partner_batter_default" => "베테랑 타자 합동 훈련",
-                "partner_pitcher_default" => "베테랑 투수 합동 훈련",
-                "private_batting_coach" => "전담 타격 코치",
-                "private_pitching_coach" => "전담 피칭 코치",
-                "japan_batting_camp" => "동아시아 컨택 캠프",
-                "japan_pitch_design" => "동아시아 제구 캠프",
-                "usa_power_center" => "북미 파워 아카데미",
-                "usa_velocity_center" => "북미 파워 아카데미",
-                "usa_elite_batting_academy" => "북미 엘리트 타격 아카데미",
-                "usa_elite_pitching_academy" => "북미 엘리트 피칭 아카데미",
-                "caribbean_batting_league" => "카리브 실전 리그",
-                "caribbean_pitch_league" => "카리브 실전 리그",
-                "europe_batting_balance" => "유럽 밸런스 프로그램",
-                "europe_pitch_balance" => "유럽 밸런스 프로그램",
-                "rehab_general" => "재활·회복",
-                "sports_science_recovery" => "스포츠 사이언스 회복",
-                "rest" => "휴식",
-                _ => programId
-            };
+            return GrowthProgramNameFormatter.GetLabel(programId);
         }
 
         private static string FormatProgramAbilities(GrowthProgramView program)

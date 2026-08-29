@@ -68,6 +68,51 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             Assert.That(standard.AverageCondition, Is.GreaterThan(intensive.AverageCondition));
         }
 
+        [Test]
+        public void Simulate_일만번엘리트유학은개발한계구간에서무성장결과를만들지않는다()
+        {
+            const int SampleCount = 10000;
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+            TrainingProgramDefinition program = balance.FindProgram("usa_elite_batting_academy");
+            var resolver = new GrowthResolver(balance);
+            int zeroGrowthCount = 0;
+            int totalGrowth = 0;
+
+            for (int sample = 0; sample < SampleCount; sample++)
+            {
+                var player = new PlayerGrowthState(
+                    sample + 1,
+                    22,
+                    PlayerType.Batter,
+                    new AbilityRatings(73),
+                    new AbilityRatings(70),
+                    WorkEthicGrade.Normal,
+                    90,
+                    0,
+                    70);
+                ulong seed = 1_700_000UL + (ulong)sample;
+                GrowthResultRecord result = resolver.Resolve(
+                    player,
+                    program,
+                    2028,
+                    0,
+                    TrainingFitGrade.Normal,
+                    seed,
+                    new Pcg32Random(seed));
+                int gain = SumAbilityChanges(result);
+                totalGrowth += gain;
+                if (gain == 0)
+                    zeroGrowthCount++;
+            }
+
+            double averageGrowth = totalGrowth / (double)SampleCount;
+            TestContext.WriteLine(
+                $"Elite plateau growth {averageGrowth:F3} / zero {zeroGrowthCount}/{SampleCount}");
+
+            Assert.That(zeroGrowthCount, Is.EqualTo(0));
+            Assert.That(averageGrowth, Is.InRange(1.00d, 1.25d));
+        }
+
         private static CareerTotals SimulateStrategy(
             GrowthBalanceTable balance,
             bool useStudy,
@@ -178,6 +223,14 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 totalCondition / CareersPerStrategy,
                 averageGain / program.DurationWeeks,
                 averageGain / program.MoneyCost);
+        }
+
+        private static int SumAbilityChanges(GrowthResultRecord result)
+        {
+            int total = 0;
+            for (int index = 0; index < result.AbilityChanges.Length; index++)
+                total += result.AbilityChanges[index].Amount;
+            return total;
         }
 
         private sealed class CareerTotals

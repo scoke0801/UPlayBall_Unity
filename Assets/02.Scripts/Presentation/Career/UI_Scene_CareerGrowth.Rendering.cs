@@ -768,34 +768,28 @@ namespace Baseball.Presentation.Career
 
         private static GrowthProgramView[] GetFeaturedPrograms(CareerGrowthView growth)
         {
-            string[] programIds = growth.PlayerType == PlayerType.Batter
-                ? new[]
-                {
-                    "personal_batting", "partner_batter_default", "japan_batting_camp",
-                    "rehab_general", "rest"
-                }
-                : new[]
-                {
-                    "personal_pitching", "partner_pitcher_default", "japan_pitch_design",
-                    "rehab_general", "rest"
-                };
-            var result = new GrowthProgramView[programIds.Length];
-            for (int idIndex = 0; idIndex < programIds.Length; idIndex++)
-            {
-                for (int programIndex = 0; programIndex < growth.Programs.Length; programIndex++)
-                {
-                    if (!string.Equals(
-                            growth.Programs[programIndex].ProgramId,
-                            programIds[idIndex],
-                            StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-                    result[idIndex] = growth.Programs[programIndex];
-                    break;
-                }
-            }
+            return GetFeaturedPrograms(growth, 0);
+        }
+
+        private static GrowthProgramView[] GetFeaturedPrograms(
+            CareerGrowthView growth,
+            int page)
+        {
+            if (growth?.Programs == null || growth.Programs.Length == 0)
+                return Array.Empty<GrowthProgramView>();
+            int pageCount = GetProgramPageCount(growth);
+            int safePage = Math.Max(0, Math.Min(page, pageCount - 1));
+            int start = safePage * ProgramPageSize;
+            int count = Math.Min(ProgramPageSize, growth.Programs.Length - start);
+            var result = new GrowthProgramView[count];
+            Array.Copy(growth.Programs, start, result, 0, count);
             return result;
+        }
+
+        private static int GetProgramPageCount(CareerGrowthView growth)
+        {
+            int count = growth?.Programs?.Length ?? 0;
+            return Math.Max(1, (count + ProgramPageSize - 1) / ProgramPageSize);
         }
 
         private static void RenderAttributeRow(

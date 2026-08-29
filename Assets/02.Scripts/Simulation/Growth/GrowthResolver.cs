@@ -40,6 +40,9 @@ namespace Baseball.Simulation.Growth
 
             var abilityChanges = new List<AbilityChange>(program.TargetAbilityWeights.Length);
             var potentialChanges = new List<AbilityChange>(1);
+            // 고가 프로그램의 개발 한계 돌파가 같은 활동의 성장에도 영향을 주어야 한다.
+            // 성장 계산 뒤 Potential을 올리면 큰돈을 쓰고도 그해 결과가 전부 +0인 공백이 생긴다.
+            ResolvePotentialBreakthrough(player, program, random, potentialChanges);
             int totalGain = ResolveAbilityGrowth(
                 player,
                 program,
@@ -56,8 +59,6 @@ namespace Baseball.Simulation.Growth
                     program.MinimumGuaranteedGain - totalGain,
                     abilityChanges);
             }
-
-            ResolvePotentialBreakthrough(player, program, random, potentialChanges);
 
             GrowthInjuryResult injuryResult = GrowthInjuryResult.None;
             int conditionChange = program.ConditionChange;
@@ -170,7 +171,21 @@ namespace Baseball.Simulation.Growth
         {
             if (!program.CanRaisePotential || program.TargetAbilityWeights.Length == 0)
                 return;
-            if (random.NextDouble() >= _balance.PotentialBreakthroughProbability)
+
+            if (IsAtDevelopmentLimit(player, program))
+            {
+                ApplyGuaranteedPotentialBreakthroughs(
+                    player,
+                    program,
+                    program.MinimumPotentialBreakthroughsWhenCapped,
+                    changes);
+            }
+
+            double probability = Math.Min(
+                1d,
+                _balance.PotentialBreakthroughProbability *
+                program.PotentialBreakthroughChanceMultiplier);
+            if (probability <= 0d || random.NextDouble() >= probability)
                 return;
 
             double selection = random.NextDouble();
@@ -185,6 +200,47 @@ namespace Baseball.Simulation.Growth
                 if (applied > 0)
                     changes.Add(new AbilityChange(target.Ability, applied));
                 return;
+            }
+        }
+
+        private static bool IsAtDevelopmentLimit(
+            PlayerGrowthState player,
+            TrainingProgramDefinition program)
+        {
+            bool hasBreakthroughTarget = false;
+            for (int index = 0; index < program.TargetAbilityWeights.Length; index++)
+            {
+                PlayerAbility ability = program.TargetAbilityWeights[index].Ability;
+                int current = player.BaseAbilities.Get(ability);
+                int potential = player.PotentialByAbility.Get(ability);
+                int maximum = Math.Min(AbilityRatings.Maximum, potential + 3);
+                if (current < maximum)
+                    return false;
+                if (current < AbilityRatings.Maximum && potential < AbilityRatings.Maximum)
+                    hasBreakthroughTarget = true;
+            }
+            return hasBreakthroughTarget;
+        }
+
+        private static void ApplyGuaranteedPotentialBreakthroughs(
+            PlayerGrowthState player,
+            TrainingProgramDefinition program,
+            int requested,
+            List<AbilityChange> changes)
+        {
+            for (int pass = 0; pass < requested; pass++)
+            {
+                for (int index = 0; index < program.TargetAbilityWeights.Length; index++)
+                {
+                    PlayerAbility ability = program.TargetAbilityWeights[index].Ability;
+                    if (player.BaseAbilities.Get(ability) >= AbilityRatings.Maximum)
+                        continue;
+                    int applied = player.ApplyPotentialChange(ability, 1);
+                    if (applied <= 0)
+                        continue;
+                    AddOrAccumulate(changes, ability, applied);
+                    break;
+                }
             }
         }
 
@@ -357,6 +413,8 @@ namespace Baseball.Simulation.Growth
             int count = program.TargetAbilityWeights.Length;
             var minimumGains = new int[count];
             var maximumGains = new int[count];
+            var capacities = new int[count];
+            int[] guaranteedPotentialGains = BuildGuaranteedPotentialGains(player, program);
             double commonMultiplier = _balance.AgeGrowth.GetMultiplier(player.Age) *
                                       _balance.WorkEthic.GetMultiplier(player.WorkEthic) *
                                       _balance.TrainingFit.GetMultiplier(trainingFit) *
@@ -368,13 +426,17 @@ namespace Baseball.Simulation.Growth
             {
                 AbilityWeight target = program.TargetAbilityWeights[index];
                 int current = player.BaseAbilities.Get(target.Ability);
+                int potential = Math.Min(
+                    AbilityRatings.Maximum,
+                    player.PotentialByAbility.Get(target.Ability) +
+                    guaranteedPotentialGains[index]);
                 int maximumValue = Math.Min(
                     AbilityRatings.Maximum,
-                    player.PotentialByAbility.Get(target.Ability) + 3);
+                    potential + 3);
                 int capacity = Math.Max(0, maximumValue - current);
                 double potentialMultiplier = _balance.PotentialGap.GetMultiplier(
                     current,
-                    player.PotentialByAbility.Get(target.Ability));
+                    potential);
                 double expected = program.ProgramPower * target.Weight *
                                   commonMultiplier * potentialMultiplier;
 
@@ -390,8 +452,16 @@ namespace Baseball.Simulation.Growth
                 maximum = Math.Min(maximum, program.MaxTotalGain);
                 minimumGains[index] = Math.Max(0, minimum);
                 maximumGains[index] = Math.Max(minimumGains[index], maximum);
+                capacities[index] = capacity;
                 minimumTotal += minimumGains[index];
             }
+
+            ApplyMinimumGuarantee(
+                program,
+                capacities,
+                minimumGains,
+                maximumGains,
+                minimumTotal);
 
             var result = new AbilityGrowthRange[count];
             for (int index = 0; index < count; index++)
@@ -404,6 +474,70 @@ namespace Baseball.Simulation.Growth
                     maximumGains[index]);
             }
             return result;
+        }
+
+        private static int[] BuildGuaranteedPotentialGains(
+            PlayerGrowthState player,
+            TrainingProgramDefinition program)
+        {
+            int count = program.TargetAbilityWeights.Length;
+            var result = new int[count];
+            if (program.MinimumPotentialBreakthroughsWhenCapped <= 0)
+                return result;
+
+            bool hasBreakthroughTarget = false;
+            for (int index = 0; index < count; index++)
+            {
+                PlayerAbility ability = program.TargetAbilityWeights[index].Ability;
+                int current = player.BaseAbilities.Get(ability);
+                int potential = player.PotentialByAbility.Get(ability);
+                int maximum = Math.Min(AbilityRatings.Maximum, potential + 3);
+                if (current < maximum)
+                    return result;
+                if (current < AbilityRatings.Maximum && potential < AbilityRatings.Maximum)
+                    hasBreakthroughTarget = true;
+            }
+            if (!hasBreakthroughTarget)
+                return result;
+
+            for (int pass = 0; pass < program.MinimumPotentialBreakthroughsWhenCapped; pass++)
+            {
+                for (int index = 0; index < count; index++)
+                {
+                    PlayerAbility ability = program.TargetAbilityWeights[index].Ability;
+                    int current = player.BaseAbilities.Get(ability);
+                    int potential = player.PotentialByAbility.Get(ability) + result[index];
+                    if (current >= AbilityRatings.Maximum || potential >= AbilityRatings.Maximum)
+                        continue;
+                    result[index]++;
+                    break;
+                }
+            }
+            return result;
+        }
+
+        private static void ApplyMinimumGuarantee(
+            TrainingProgramDefinition program,
+            int[] capacities,
+            int[] minimumGains,
+            int[] maximumGains,
+            int currentMinimumTotal)
+        {
+            int required = Math.Min(
+                program.MinimumGuaranteedGain,
+                program.MaxTotalGain) - currentMinimumTotal;
+            for (int pass = 0; pass < required; pass++)
+            {
+                for (int index = 0; index < minimumGains.Length; index++)
+                {
+                    if (minimumGains[index] >= capacities[index])
+                        continue;
+                    minimumGains[index]++;
+                    if (maximumGains[index] < minimumGains[index])
+                        maximumGains[index] = minimumGains[index];
+                    break;
+                }
+            }
         }
 
         private static int Clamp(int value, int minimum, int maximum)

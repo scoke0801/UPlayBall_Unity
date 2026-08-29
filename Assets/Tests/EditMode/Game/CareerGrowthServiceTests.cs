@@ -232,6 +232,35 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
+        public void TrainingAccess_상위리그진출에따라고가프로그램이단계적으로해금된다()
+        {
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+            TrainingProgramDefinition foundation = balance.FindProgram("bat_power_camp");
+            TrainingProgramDefinition advanced = balance.FindProgram("bat_elite_hitting_lab");
+            TrainingProgramDefinition elite = balance.FindProgram("usa_elite_batting_academy");
+
+            Assert.That(CareerTrainingAccess.CanAccess(foundation, LeagueLevel.Rookie), Is.True);
+            Assert.That(CareerTrainingAccess.CanAccess(advanced, LeagueLevel.Rookie), Is.False);
+            Assert.That(CareerTrainingAccess.CanAccess(advanced, LeagueLevel.Minor), Is.True);
+            Assert.That(CareerTrainingAccess.CanAccess(elite, LeagueLevel.Minor), Is.False);
+            Assert.That(CareerTrainingAccess.CanAccess(elite, LeagueLevel.Major), Is.True);
+        }
+
+        [Test]
+        public void PlanActivity_루키리그에서는상위리그프로그램을직접요청해도거부한다()
+        {
+            NewGameFlow flow = CreateRegularSeasonCareer(9922UL);
+            flow.Career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
+            var service = new CareerGrowthService(
+                flow.Career,
+                NewGameConfiguration.CreateDefault().Balance);
+            service.SettleSeasonAndBeginOffseason(CreateBatterUsage());
+
+            Assert.Throws<System.InvalidOperationException>(() =>
+                service.PlanActivity("bat_elite_hitting_lab", startWeek: 1));
+        }
+
+        [Test]
         public void AdvanceToNextSeason_남은주가있어도다음시즌으로넘어간다()
         {
             NewGameFlow flow = CreateRegularSeasonCareer(4321UL);

@@ -326,13 +326,78 @@ namespace Baseball.Presentation.Career
                 selected.ActivityType == OffseasonActivityType.Study ? "유학 프로그램" : "훈련 프로그램",
                 new Vector2(440f, 366f),
                 new Vector2(-512f, 32f));
+
+            const float viewportHeight = 276f;
+            const float cardHeight = 48f;
+            const float cardPitch = 50f;
+            int programCount = 0;
+            int selectedIndex = 0;
+            for (int index = 0; index < growth.Programs.Length; index++)
+            {
+                GrowthProgramView program = growth.Programs[index];
+                if (!BelongsToPopup(program, selected.ActivityType))
+                    continue;
+                if (string.Equals(program.ProgramId, selected.ProgramId, StringComparison.Ordinal))
+                    selectedIndex = programCount;
+                programCount++;
+            }
+
+            RectTransform viewport = CreateImage(
+                "Viewport",
+                panel,
+                new Color(0f, 0f, 0f, 0.001f),
+                new Vector2(396f, viewportHeight),
+                new Vector2(-6f, -24f));
+            viewport.GetComponent<Image>().raycastTarget = true;
+            viewport.gameObject.AddComponent<RectMask2D>();
+
+            float contentHeight = Mathf.Max(viewportHeight, programCount * cardPitch - (cardPitch - cardHeight));
+            RectTransform content = CreateRect(
+                "Content", viewport, new Vector2(396f, contentHeight), Vector2.zero);
+            content.anchorMin = content.anchorMax = new Vector2(0.5f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+
+            ScrollRect scrollRect = viewport.gameObject.AddComponent<ScrollRect>();
+            scrollRect.content = content;
+            scrollRect.viewport = viewport;
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+            scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            scrollRect.inertia = true;
+            scrollRect.scrollSensitivity = cardPitch;
+
             int visibleIndex = 0;
             for (int index = 0; index < growth.Programs.Length; index++)
             {
                 GrowthProgramView program = growth.Programs[index];
                 if (!BelongsToPopup(program, selected.ActivityType))
                     continue;
-                RenderProgramCard(panel, program, selected, visibleIndex++);
+                RenderProgramCard(content, program, selected, visibleIndex++);
+            }
+
+            float maximumScroll = Mathf.Max(0f, contentHeight - viewportHeight);
+            float selectedBottom = selectedIndex * cardPitch + cardHeight;
+            float selectedScroll = Mathf.Clamp(selectedBottom - viewportHeight, 0f, maximumScroll);
+            content.anchoredPosition = new Vector2(0f, selectedScroll);
+
+            if (maximumScroll > 0f)
+            {
+                RectTransform track = CreateImage(
+                    "Scrollbar", panel, new Color(0.06f, 0.12f, 0.17f, 1f),
+                    new Vector2(6f, viewportHeight), new Vector2(207f, -24f));
+                track.GetComponent<Image>().raycastTarget = true;
+                Scrollbar scrollbar = track.gameObject.AddComponent<Scrollbar>();
+                RectTransform handle = CreateImage(
+                    "Handle", track, BorderColor, Vector2.zero, Vector2.zero, stretch: true);
+                handle.offsetMin = new Vector2(1f, 1f);
+                handle.offsetMax = new Vector2(-1f, -1f);
+                handle.GetComponent<Image>().raycastTarget = true;
+                scrollbar.handleRect = handle;
+                scrollbar.targetGraphic = handle.GetComponent<Image>();
+                scrollbar.direction = Scrollbar.Direction.BottomToTop;
+                scrollRect.verticalScrollbar = scrollbar;
+                scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
             }
         }
 
@@ -347,15 +412,17 @@ namespace Baseball.Presentation.Career
                 "Program_" + program.ProgramId,
                 panel,
                 string.Empty,
-                new Vector2(404f, 48f),
-                new Vector2(0f, 98f - index * 50f),
+                new Vector2(388f, 48f),
+                new Vector2(0f, -24f - index * 50f),
                 isSelected ? SelectedColor : CardColor,
                 out _);
+            RectTransform buttonRect = (RectTransform)button.transform;
+            buttonRect.anchorMin = buttonRect.anchorMax = new Vector2(0.5f, 1f);
             button.interactable = program.CanUseThisOffseason && program.CanMeetCondition;
             string programId = program.ProgramId;
             button.onClick.AddListener(() => SelectProgram(programId));
             if (isSelected)
-                CreateImage("SelectedBar", button.transform, AccentColor, new Vector2(5f, 44f), new Vector2(-198f, 0f));
+                CreateImage("SelectedBar", button.transform, AccentColor, new Vector2(5f, 44f), new Vector2(-190f, 0f));
             CreateText(
                 "Name", button.transform, GetProgramLabel(program.ProgramId), 16, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(240f, 24f), new Vector2(-63f, 8f), PrimaryTextColor);
@@ -509,7 +576,11 @@ namespace Baseball.Presentation.Career
                 ? $"총 +{selected.MinimumGuaranteedGain}"
                 : "없음";
             if (selected.CanRaisePotential)
-                guarantee += " · Potential";
+            {
+                guarantee += $" · 돌파 {selected.PotentialBreakthroughProbability:P0}";
+                if (selected.MinimumPotentialBreakthroughsWhenCapped > 0)
+                    guarantee += " · 정체 시 보장";
+            }
             RenderFact(panel, "보장·특별", guarantee, -42f,
                 selected.MinimumGuaranteedGain > 0 ? CyanColor : SecondaryTextColor);
             RenderConditionFlow(panel, selected);

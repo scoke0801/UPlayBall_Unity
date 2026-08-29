@@ -41,6 +41,9 @@ namespace Baseball.Presentation.Career
             }
             if (_selectedPlacedBlockId > 0 && !IsDraftPlaced(_selectedPlacedBlockId))
                 _selectedPlacedBlockId = 0;
+            int programPageCount = GetProgramPageCount(growth);
+            if (_programPage >= programPageCount)
+                _programPage = programPageCount - 1;
         }
 
         private void RenderGrowthSubNavigation(CareerGrowthView growth)
@@ -292,14 +295,19 @@ namespace Baseball.Presentation.Career
                     GrowthSkillBlockView block = instanceId > 0
                         ? FindAnyBlock(growth, instanceId)
                         : default;
-                    bool canPlace = growth.CanEditBoard &&
+                    int originXAtCursor = x;
+                    int originYAtCursor = y;
+                    bool canPlace = instanceId == 0 &&
+                                    growth.CanEditBoard &&
                                     _selectedOwnedBlockId > 0 &&
-                                    GetDraftPlacementPreview(
+                                    TryResolvePlacementOrigin(
                                         growth,
                                         _selectedOwnedBlockId,
+                                        _selectedRotation,
                                         x,
                                         y,
-                                        _selectedRotation).CanPlace;
+                                        out originXAtCursor,
+                                        out originYAtCursor);
                     Color cellColor = instanceId > 0
                         ? GetCategoryColor(block.Category)
                         : canPlace
@@ -339,8 +347,8 @@ namespace Baseball.Presentation.Career
                     }
                     else if (canPlace)
                     {
-                        int targetX = x;
-                        int targetY = y;
+                        int targetX = originXAtCursor;
+                        int targetY = originYAtCursor;
                         cell.onClick.AddListener(() => StageSelectedBlock(targetX, targetY, growth));
                         CreateText(
                             "Place",
@@ -846,9 +854,16 @@ namespace Baseball.Presentation.Career
                 new Vector2(380f, summaryRowY),
                 SecondaryTextColor);
 
-            GrowthProgramView[] programs = GetFeaturedPrograms(growth);
+            int programPageCount = GetProgramPageCount(growth);
+            RenderProgramPageNavigation(panel, programPageCount);
+            GrowthProgramView[] programs = GetFeaturedPrograms(growth, _programPage);
             for (int index = 0; index < programs.Length; index++)
-                RenderWorkspaceProgramCard(panel, growth, programs[index], index);
+                RenderWorkspaceProgramCard(
+                    panel,
+                    growth,
+                    programs[index],
+                    index,
+                    programs.Length);
 
             GrowthProgramView selected = FindSelectedProgram(growth);
             RectTransform plan = CreateSection(
@@ -893,9 +908,10 @@ namespace Baseball.Presentation.Career
             RectTransform panel,
             CareerGrowthView growth,
             GrowthProgramView program,
-            int index)
+            int index,
+            int programCount)
         {
-            float x = -560f + index * 280f;
+            float x = (index - (programCount - 1) * 0.5f) * 280f;
             bool selected = string.Equals(growth.SelectedProgramId, program.ProgramId, StringComparison.Ordinal);
             Button card = CreateButton(
                 "WorkspaceProgram_" + program.ProgramId,
@@ -936,6 +952,50 @@ namespace Baseball.Presentation.Career
                 "Fit", card.transform, "적합도 " + GetFitLabel(program.Fit), 12,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(220f, 26f),
                 new Vector2(0f, -145f), GetFitColor(program.Fit));
+        }
+
+        private void RenderProgramPageNavigation(RectTransform panel, int pageCount)
+        {
+            Button previous = CreateButton(
+                "PreviousProgramPage",
+                panel,
+                "‹",
+                new Vector2(42f, 30f),
+                new Vector2(-75f, 263f),
+                PanelDarkColor,
+                out Text previousLabel);
+            previousLabel.fontSize = 20;
+            previous.interactable = _programPage > 0;
+            previous.onClick.AddListener(() =>
+            {
+                _programPage--;
+                Render();
+            });
+            CreateText(
+                "ProgramPage",
+                panel,
+                $"훈련 메뉴 {_programPage + 1} / {pageCount}",
+                11,
+                FontStyle.Bold,
+                TextAnchor.MiddleCenter,
+                new Vector2(100f, 30f),
+                new Vector2(0f, 263f),
+                SecondaryTextColor);
+            Button next = CreateButton(
+                "NextProgramPage",
+                panel,
+                "›",
+                new Vector2(42f, 30f),
+                new Vector2(75f, 263f),
+                PanelDarkColor,
+                out Text nextLabel);
+            nextLabel.fontSize = 20;
+            next.interactable = _programPage + 1 < pageCount;
+            next.onClick.AddListener(() =>
+            {
+                _programPage++;
+                Render();
+            });
         }
 
         private void RenderWorkspaceActionButtons(
@@ -1677,9 +1737,57 @@ namespace Baseball.Presentation.Career
             return new GrowthBlockPlacementPreviewView(cells, canPlace);
         }
 
-        private void ShowDraftPlacementPreview(CareerGrowthView growth, int originX, int originY)
+        /// <summary>
+        /// 마우스가 올라간 칸이 블록의 회전된 모양 중 어느 칸이든 걸치기만 하면
+        /// 배치 가능하도록, 실제로 유효한 원점(originX, originY)을 역산한다.
+        /// 바운딩 박스 좌상단(originX, originY)이 S/Z 등 일부 회전에서는
+        /// 블록이 실제로 차지하는 칸이 아니라서, 원점 칸만 클릭 가능하게 두면
+        /// 빈 칸을 가리키고 있어도 "다른 블록이 있다"고 잘못 판정되는 것처럼 보인다.
+        /// </summary>
+        private bool TryResolvePlacementOrigin(
+            CareerGrowthView growth,
+            int instanceId,
+            int rotation,
+            int hoverX,
+            int hoverY,
+            out int originX,
+            out int originY)
+        {
+            if (instanceId > 0)
+            {
+                GrowthSkillBlockView block = FindAnyBlock(growth, instanceId);
+                if (block.InstanceId > 0)
+                {
+                    BoardCell[] localCells = BuildOccupiedCells(block.ShapeCells, 0, 0, rotation);
+                    for (int index = 0; index < localCells.Length; index++)
+                    {
+                        int candidateX = hoverX - localCells[index].X;
+                        int candidateY = hoverY - localCells[index].Y;
+                        if (GetDraftPlacementPreview(
+                                growth, instanceId, candidateX, candidateY, rotation).CanPlace)
+                        {
+                            originX = candidateX;
+                            originY = candidateY;
+                            return true;
+                        }
+                    }
+                }
+            }
+            originX = hoverX;
+            originY = hoverY;
+            return false;
+        }
+
+        private void ShowDraftPlacementPreview(CareerGrowthView growth, int hoverX, int hoverY)
         {
             ClearPlacementPreview();
+            if (!TryResolvePlacementOrigin(
+                    growth, _selectedOwnedBlockId, _selectedRotation, hoverX, hoverY,
+                    out int originX, out int originY))
+            {
+                originX = hoverX;
+                originY = hoverY;
+            }
             GrowthBlockPlacementPreviewView preview = GetDraftPlacementPreview(
                 growth,
                 _selectedOwnedBlockId,
@@ -1928,6 +2036,8 @@ namespace Baseball.Presentation.Career
                 {
                     SkillBlockCategory.Contact,
                     SkillBlockCategory.Power,
+                    SkillBlockCategory.Baserunning,
+                    SkillBlockCategory.Bunt,
                     SkillBlockCategory.Defense,
                     SkillBlockCategory.BatterMental
                 }
@@ -1936,6 +2046,8 @@ namespace Baseball.Presentation.Career
                     SkillBlockCategory.Velocity,
                     SkillBlockCategory.Control,
                     SkillBlockCategory.Breaking,
+                    SkillBlockCategory.PitcherPhysical,
+                    SkillBlockCategory.Stuff,
                     SkillBlockCategory.PitcherMental
                 };
         }
