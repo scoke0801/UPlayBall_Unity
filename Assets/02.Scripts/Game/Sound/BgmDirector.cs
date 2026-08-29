@@ -44,9 +44,22 @@ namespace Baseball.Game.Sound
             if (_soundManager == null)
                 return;
 
-            // 준비·진행·결과는 한 경기의 세 단계일 뿐이므로 한 경기 안에서 BGM을 바꾸지 않는다.
-            bool isInMatch = _careerManager != null && _careerManager.HasActiveMatch;
-            _soundManager.PlaySituation(isInMatch ? BgmSituation.MatchPlay : BgmSituation.Lobby);
+            bool isBroadcasting = IsMatchBroadcasting(_careerManager?.ActiveMatch);
+            _soundManager.PlaySituation(isBroadcasting ? BgmSituation.MatchPlay : BgmSituation.Lobby);
+        }
+
+        /// <summary>
+        /// 경기 중계 화면이 실제로 돌아가는 중인지 판정한다.
+        /// 준비 화면은 아직 로비의 연장이고, 결과만 보기는 중계 없이 결과로 건너뛰므로 둘 다 제외한다.
+        /// 판정 기준은 UI_Scene_CareerMatch가 자동 중계를 판단하는 조건과 일부러 같게 맞췄다.
+        /// Phase는 중계가 화면에 다 풀리기 전에 Completed로 앞서갈 수 있어, 진행 중 BGM이 끊기지 않도록
+        /// Playing이 아니라 "준비가 끝났는가"로 본다.
+        /// </summary>
+        private static bool IsMatchBroadcasting(CareerMatchSession session)
+        {
+            return session != null &&
+                   session.Phase != CareerMatchPhase.Preparation &&
+                   session.Mode != CareerMatchMode.ResultsOnly;
         }
     }
 }

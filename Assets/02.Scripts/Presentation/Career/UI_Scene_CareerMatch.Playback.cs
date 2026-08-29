@@ -101,6 +101,7 @@ namespace Baseball.Presentation.Career
                                               firstRevealedEventIndex,
                                               _playback.VisibleEventCount,
                                               session.ControlledPlayerId);
+            _isControlledPlayerPlaybackStep = isControlledPlayerStep;
 
             _isCallUpAcknowledged = false;
             _nextAutomaticPlayAt = Time.unscaledTime + (isControlledPlayerStep
@@ -306,6 +307,7 @@ namespace Baseball.Presentation.Career
             {
                 _controlledResult = summary;
                 _hasControlledResult = true;
+                _isControlledPlayerPlaybackStep = true;
                 _nextAutomaticPlayAt = Time.unscaledTime + GetControlledResultHoldSeconds();
             }
             else
@@ -756,17 +758,12 @@ namespace Baseball.Presentation.Career
 
         private float GetAutomaticPlayIntervalSeconds()
         {
-            float speedRate = GetPlaybackSpeedRate();
-            if (_playbackSession?.Mode == CareerMatchMode.PlayerFocusAutomatic)
-                speedRate = Mathf.Max(speedRate, 5f);
-            return automaticPlayIntervalSeconds / speedRate;
+            return automaticPlayIntervalSeconds / GetEffectivePlaybackSpeedRate(false);
         }
 
         private float GetControlledResultHoldSeconds()
         {
-            float speedRate = _manager?.CurrentCareer?.GameSettings.AutoSlowOnPlayerEvent == true
-                ? 1f
-                : GetPlaybackSpeedRate();
+            float speedRate = GetEffectivePlaybackSpeedRate(true);
             return Mathf.Max(
                 minimumControlledResultHoldSeconds,
                 controlledResultHoldSeconds / speedRate);
@@ -783,10 +780,24 @@ namespace Baseball.Presentation.Career
                 Mathf.Clamp(_playbackSpeedStepIndex, 0, PlaybackSpeedRates.Length - 1)];
         }
 
+        private float GetEffectivePlaybackSpeedRate(bool isControlledPlayerEvent)
+        {
+            CareerGameSettings settings = _manager?.CurrentCareer?.GameSettings;
+            CareerMatchMode mode = _playbackSession?.Mode ?? CareerMatchMode.FullGameWatch;
+            if (settings == null)
+                return GetPlaybackSpeedRate();
+            return CareerMatchPlaybackSpeedPolicy.Resolve(
+                (int)GetPlaybackSpeedRate(),
+                mode,
+                settings.AutoSlowOnPlayerEvent,
+                isControlledPlayerEvent);
+        }
+
         private void ClearControlledResult()
         {
             _controlledResult = default;
             _hasControlledResult = false;
+            _isControlledPlayerPlaybackStep = false;
         }
 
         private static bool ContainsControlledPitcherEvent(
@@ -847,6 +858,12 @@ namespace Baseball.Presentation.Career
         }
 
         private string GetPlaybackSpeedLabel()
+        {
+            return FormatPlaybackSpeedRate(
+                GetEffectivePlaybackSpeedRate(_isControlledPlayerPlaybackStep));
+        }
+
+        private string GetConfiguredPlaybackSpeedLabel()
         {
             return FormatPlaybackSpeedRate(GetPlaybackSpeedRate());
         }

@@ -236,6 +236,37 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(playback.VisibleEventCount, Is.EqualTo(events.Length));
         }
 
+        [Test]
+        public void PlaybackSpeedPolicy_내선수자동감속이켜지면선택배속과무관하게1배속이다()
+        {
+            Assert.That(
+                CareerMatchPlaybackSpeedPolicy.Resolve(
+                    5,
+                    CareerMatchMode.PlayerFocusAutomatic,
+                    autoSlowOnPlayerEvent: true,
+                    isControlledPlayerEvent: true),
+                Is.EqualTo(1));
+            Assert.That(
+                CareerMatchPlaybackSpeedPolicy.Resolve(
+                    3,
+                    CareerMatchMode.FullGameWatch,
+                    autoSlowOnPlayerEvent: true,
+                    isControlledPlayerEvent: true),
+                Is.EqualTo(1));
+        }
+
+        [Test]
+        public void PlaybackSpeedPolicy_내선수중심자동은다른선수장면을5배속으로진행한다()
+        {
+            Assert.That(
+                CareerMatchPlaybackSpeedPolicy.Resolve(
+                    2,
+                    CareerMatchMode.PlayerFocusAutomatic,
+                    autoSlowOnPlayerEvent: true,
+                    isControlledPlayerEvent: false),
+                Is.EqualTo(5));
+        }
+
         private static MatchEvent CreateEvent(
             int sequence,
             MatchEventType eventType,

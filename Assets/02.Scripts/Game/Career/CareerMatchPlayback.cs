@@ -178,6 +178,27 @@ namespace Baseball.Game.Career
         }
     }
 
+    /// <summary>선택 배속과 내 선수 자동 감속을 실제 중계 배속으로 해석한다.</summary>
+    public static class CareerMatchPlaybackSpeedPolicy
+    {
+        /// <summary>현재 장면 소유자와 진행 방식에 맞는 실제 중계 배속을 반환한다.</summary>
+        public static int Resolve(
+            int configuredGameSpeed,
+            CareerMatchMode mode,
+            bool autoSlowOnPlayerEvent,
+            bool isControlledPlayerEvent)
+        {
+            if (configuredGameSpeed is not (1 or 2 or 3 or 5))
+                throw new ArgumentOutOfRangeException(nameof(configuredGameSpeed));
+
+            if (isControlledPlayerEvent && autoSlowOnPlayerEvent)
+                return 1;
+            if (!isControlledPlayerEvent && mode == CareerMatchMode.PlayerFocusAutomatic)
+                return 5;
+            return configuredGameSpeed;
+        }
+    }
+
     /// <summary>
     /// 한 타석 결과를 병살·타점까지 구분해 Presentation에 전달한다.
     /// </summary>

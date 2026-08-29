@@ -54,6 +54,7 @@ namespace Baseball.Presentation.Career
         private CareerManager _manager;
         private RectTransform _content;
         private RectTransform _controlHost;
+        private RectTransform _settingsHost;
         private BattingApproach _selectedApproach = BattingApproach.Balanced;
         private PitchingApproach _selectedPitchingApproach = PitchingApproach.Balanced;
         [SerializeField, Min(0.1f)] private float automaticPlayIntervalSeconds = 0.42f;
@@ -73,6 +74,7 @@ namespace Baseball.Presentation.Career
         private int _playbackSpeedStepIndex = DefaultPlaybackSpeedStepIndex;
         private CareerPlateAppearanceSummary _controlledResult;
         private bool _hasControlledResult;
+        private bool _isControlledPlayerPlaybackStep;
         private bool _isPlaybackInitialized;
         private bool _isPaused;
         private bool _isCallUpAcknowledged;
@@ -107,6 +109,11 @@ namespace Baseball.Presentation.Career
             // 조작 버튼은 그 바깥의 계층에 남아 있어야 한다.
             RectTransform controlLayer = CreateRect("ControlLayer", root, new Vector2(1920f, 1080f), Vector2.zero);
             _controlHost = CreateRect("ControlHost", controlLayer, ControlPanelSize, ControlPanelPosition);
+            _settingsHost = CreateRect("SettingsHost", controlLayer, new Vector2(100f, 44f), new Vector2(890f, 512f));
+            Button settings = CreateButton(
+                "Settings", _settingsHost, "설정", new Vector2(100f, 44f), Vector2.zero,
+                new Color(0.025f, 0.08f, 0.13f, 1f), SecondaryTextColor);
+            settings.onClick.AddListener(() => UI_Popup_CareerSettings.ShowRuntime());
         }
 
         protected override void OnShow()
@@ -148,6 +155,8 @@ namespace Baseball.Presentation.Career
         private void Update()
         {
             if (!IsVisible || _manager?.ActiveMatch == null)
+                return;
+            if (UI_Popup_CareerSettings.IsOpen)
                 return;
 
             Keyboard keyboard = Keyboard.current;
@@ -425,10 +434,6 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "FlowStatus", bar, GetFlowStatusLine(view), 15, FontStyle.Bold, TextAnchor.MiddleRight,
                 new Vector2(340f, 28f), new Vector2(790f, -32f), GetFlowStatusColor(view));
-            Button settings = CreateButton(
-                "Settings", bar, "설정", new Vector2(92f, 40f), new Vector2(860f, 30f),
-                new Color(0.025f, 0.08f, 0.13f, 1f), SecondaryTextColor);
-            settings.onClick.AddListener(() => UI_Popup_CareerSettings.ShowRuntime());
         }
 
         private static void RenderScoreboardTeam(
@@ -881,9 +886,13 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(700f, 26f), new Vector2(0f, -134f), AccentColor);
             CreateText(
-                "Continue", panel, $"잠시 후 {GetPlaybackSpeedLabel()} 자동 중계로 돌아갑니다.", 15,
+                "Continue", panel,
+                _manager.CurrentCareer.GameSettings.AutoSlowOnPlayerEvent
+                    ? $"내 선수 장면 1배속 적용 중 · 잠시 후 {GetConfiguredPlaybackSpeedLabel()} 자동 중계로 돌아갑니다."
+                    : $"잠시 후 {GetConfiguredPlaybackSpeedLabel()} 자동 중계로 돌아갑니다.",
+                15,
                 FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(700f, 26f), new Vector2(0f, -172f), SecondaryTextColor);
+                new Vector2(820f, 26f), new Vector2(0f, -172f), SecondaryTextColor);
         }
 
         /// <summary>
