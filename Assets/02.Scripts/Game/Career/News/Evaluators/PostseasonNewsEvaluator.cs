@@ -252,23 +252,7 @@ namespace Baseball.Game.Career.News
 
         private static string GetAwardLabel(SeasonAwardResultState award)
         {
-            if (award.Category == AwardCategory.GoldGlove)
-                return $"{award.Position} 골든글러브";
-            return award.Category switch
-            {
-                AwardCategory.RegularSeasonMvp => "정규시즌 MVP",
-                AwardCategory.PostseasonMvp => "포스트시즌 MVP",
-                AwardCategory.RookieOfYear => "신인왕",
-                AwardCategory.BattingAverage => "타격왕",
-                AwardCategory.HomeRun => "홈런왕",
-                AwardCategory.RunsBattedIn => "타점왕",
-                AwardCategory.StolenBase => "도루왕",
-                AwardCategory.EarnedRunAverage => "평균자책점 1위",
-                AwardCategory.Win => "다승왕",
-                AwardCategory.Strikeout => "탈삼진왕",
-                AwardCategory.Save => "세이브왕",
-                _ => award.AwardId
-            };
+            return SeasonAwardNameFormatter.GetLabel(award.Category, award.Position);
         }
 
         private static string GetRoundLabel(PostseasonRound round)

@@ -354,10 +354,15 @@ namespace Baseball.Presentation.Career
             }
 
             NewsArticleView article = selected.Value;
+            Sprite illustration = CareerPresentationAssetLibrary.GetIllustration(article.Illustration);
+            bool hasIllustration = illustration != null;
+            string publicationState = article.Category == NewsCategory.League
+                ? "  ·  오늘 경기 종료 · 순위 반영 완료"
+                : string.Empty;
             CreateText(
                 "Source",
                 panel,
-                $"{GetSourceLabel(article.SourceType)}  ·  {article.PublishedAt:yyyy년 M월 d일}",
+                $"{GetSourceLabel(article.SourceType)}  ·  {article.PublishedAt:yyyy년 M월 d일}{publicationState}",
                 13,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft,
@@ -371,10 +376,28 @@ namespace Baseball.Presentation.Career
                 27,
                 FontStyle.Bold,
                 TextAnchor.UpperLeft,
-                new Vector2(620f, 110f),
-                new Vector2(0f, 246f),
+                hasIllustration ? new Vector2(410f, 110f) : new Vector2(620f, 110f),
+                hasIllustration ? new Vector2(-105f, 246f) : new Vector2(0f, 246f),
                 PrimaryTextColor);
             CreateImage("Divider", panel, BorderColor, new Vector2(620f, 1f), new Vector2(0f, 174f));
+            if (hasIllustration)
+            {
+                RectTransform frame = CreateImage(
+                    "CareerIllustrationFrame",
+                    panel,
+                    GoldColor,
+                    new Vector2(184f, 246f),
+                    new Vector2(215f, 36f));
+                RectTransform imageRoot = CreateImage(
+                    "CareerIllustration",
+                    frame,
+                    Color.white,
+                    new Vector2(176f, 238f),
+                    Vector2.zero);
+                Image image = imageRoot.GetComponent<Image>();
+                image.sprite = illustration;
+                image.preserveAspect = true;
+            }
             CreateText(
                 "Lead",
                 panel,
@@ -382,8 +405,8 @@ namespace Baseball.Presentation.Career
                 18,
                 FontStyle.Bold,
                 TextAnchor.UpperLeft,
-                new Vector2(620f, 92f),
-                new Vector2(0f, 112f),
+                hasIllustration ? new Vector2(400f, 92f) : new Vector2(620f, 92f),
+                hasIllustration ? new Vector2(-110f, 112f) : new Vector2(0f, 112f),
                 SecondaryTextColor);
             CreateText(
                 "Body",
@@ -392,8 +415,8 @@ namespace Baseball.Presentation.Career
                 17,
                 FontStyle.Normal,
                 TextAnchor.UpperLeft,
-                new Vector2(620f, 300f),
-                new Vector2(0f, -105f),
+                hasIllustration ? new Vector2(400f, 300f) : new Vector2(620f, 300f),
+                hasIllustration ? new Vector2(-110f, -105f) : new Vector2(0f, -105f),
                 PrimaryTextColor);
             if (article.IsCareerArchive)
             {
@@ -447,6 +470,8 @@ namespace Baseball.Presentation.Career
             {
                 NewsSourceType.LeagueOfficial => "리그 공식",
                 NewsSourceType.LeagueSportsMedia => "리그 스포츠 미디어",
+                NewsSourceType.RegionalSports => "지역 스포츠",
+                NewsSourceType.NationalSports => "전국 스포츠",
                 _ => "구단 소식"
             };
         }

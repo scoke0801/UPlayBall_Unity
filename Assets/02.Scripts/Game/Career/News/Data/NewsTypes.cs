@@ -49,7 +49,17 @@ namespace Baseball.Game.Career.News
         ChampionshipWon,
         SeasonAwardGranted,
         OffseasonActivityCompleted,
-        PlayerFormChanged
+        PlayerFormChanged,
+        WeeklyReport,
+        MonthlyReport,
+        RoleCompetitionChanged,
+        CareerMilestoneApproaching,
+        ContractNegotiationReported,
+        ContractNegotiationDeclined,
+        TradeInterestReported,
+        TradeRumorReported,
+        TradeNegotiationReported,
+        PlayerTraded
     }
 
     /// <summary>점수에서 파생되는 기사 노출 등급이다.</summary>
@@ -67,7 +77,19 @@ namespace Baseball.Game.Career.News
     {
         LeagueOfficial,
         LeagueSportsMedia,
-        ClubNews
+        ClubNews,
+        RegionalSports,
+        NationalSports
+    }
+
+    /// <summary>한 기사 묶음 안에서 제목·리드·본문이 공유하는 서술 태도다.</summary>
+    public enum NewsTone
+    {
+        Neutral,
+        Positive,
+        Analytical,
+        Dramatic,
+        Critical
     }
 
     /// <summary>결과 화면보다 기사가 먼저 공개되지 않도록 막는 공개 관문이다.</summary>
@@ -104,7 +126,8 @@ namespace Baseball.Game.Career.News
         ContractSeason,
         RecordChase,
         PostseasonRun,
-        RoleChange
+        RoleChange,
+        TradeRumor
     }
 
     /// <summary>종료된 스토리라인이 어떤 결말에 도달했는지 기록한다.</summary>
@@ -118,7 +141,8 @@ namespace Baseball.Game.Career.News
         Recovered,
         Eliminated,
         Champion,
-        SeasonEnded
+        SeasonEnded,
+        Declined
     }
 
     /// <summary>단신·일반·주요 기사의 본문 밀도를 구분한다.</summary>
@@ -179,7 +203,54 @@ namespace Baseball.Game.Career.News
         PostseasonSeriesScore,
         AwardName,
         OffseasonActivityName,
-        CoverageReason
+        CoverageReason,
+        GamePlateAppearances,
+        GameDoubles,
+        GameTriples,
+        GameWalks,
+        GameHitByPitches,
+        IsOneRunGame,
+        ScoreMargin,
+        HitStreak,
+        HitlessStreak,
+        PreviousHitlessStreak,
+        GamesSinceLastHit,
+        RecentFiveGames,
+        RecentFiveAtBats,
+        RecentFiveHits,
+        ManagerTrustBefore,
+        ManagerTrustAfter,
+        ManagerTrustChange,
+        PlayerRole,
+        FormSlump,
+        FormRebound,
+        PreviousTeamRank,
+        RoundScoreSummary,
+        StandingChangeSummary,
+        PlayerGameSummary,
+        LeaderChanged,
+        ReportLabel,
+        ReportGames,
+        ReportAtBats,
+        ReportHits,
+        ReportHomeRuns,
+        ReportRbi,
+        ReportTeamWins,
+        ReportTeamLosses,
+        ReportTrend,
+        FormHot,
+        FormCooled,
+        RoleCompetitionStarted,
+        RoleCompetitionResolved,
+        MilestoneTarget,
+        MilestoneName,
+        InterestedTeamName,
+        PreviousTeamName,
+        NewTeamName,
+        TradeStage,
+        ProjectedRole,
+        ManagerComment,
+        ManagerStyle
     }
 
     /// <summary>숫자와 텍스트를 손실 없이 보관하는 Fact 값 종류다.</summary>

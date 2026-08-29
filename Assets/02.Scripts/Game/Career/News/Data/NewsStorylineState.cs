@@ -10,7 +10,8 @@ namespace Baseball.Game.Career.News
             NewsStorylineType type,
             string primaryPlayerId,
             string relatedTeamId,
-            CareerDate startedAt)
+            CareerDate startedAt,
+            string topicKey = "")
         {
             if (string.IsNullOrWhiteSpace(storylineId))
                 throw new ArgumentException("StorylineId가 비어 있습니다.", nameof(storylineId));
@@ -18,6 +19,7 @@ namespace Baseball.Game.Career.News
             Type = type;
             PrimaryPlayerId = primaryPlayerId ?? string.Empty;
             RelatedTeamId = relatedTeamId ?? string.Empty;
+            TopicKey = topicKey ?? string.Empty;
             StartedAt = startedAt;
             LastUpdatedAt = startedAt;
             Stage = 1;
@@ -27,6 +29,7 @@ namespace Baseball.Game.Career.News
         public NewsStorylineType Type { get; }
         public string PrimaryPlayerId { get; }
         public string RelatedTeamId { get; }
+        public string TopicKey { get; }
         public int Stage { get; private set; }
         public CareerDate StartedAt { get; }
         public CareerDate LastUpdatedAt { get; private set; }

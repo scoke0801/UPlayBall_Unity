@@ -21,6 +21,51 @@ namespace Baseball.Game.Data
         }
 
         [Serializable]
+        private sealed class ArticleVariantData
+        {
+            [SerializeField] private string _variantId;
+            [SerializeField] private NewsSourceType _voice;
+            [SerializeField] private NewsTone _tone;
+            [SerializeField] private TemplateConditionData[] _requiredConditions =
+                Array.Empty<TemplateConditionData>();
+            [SerializeField] private TemplateConditionData[] _forbiddenConditions =
+                Array.Empty<TemplateConditionData>();
+            [SerializeField] private string _headline;
+            [SerializeField] private string _lead;
+            [SerializeField] private string[] _bodyBlocks = Array.Empty<string>();
+            [SerializeField] private string _quote;
+            [SerializeField, Min(1)] private int _weight = 1;
+            [SerializeField] private string _cooldownGroup;
+            [SerializeField, Min(0)] private int _cooldownCycles = 5;
+
+            public NewsArticleVariant ToDefinition()
+            {
+                return new NewsArticleVariant(
+                    _variantId,
+                    _voice,
+                    _tone,
+                    Convert(_requiredConditions),
+                    Convert(_forbiddenConditions),
+                    _headline,
+                    _lead,
+                    _bodyBlocks,
+                    _quote,
+                    _weight,
+                    _cooldownGroup,
+                    _cooldownCycles);
+            }
+
+            private static NewsTemplateCondition[] Convert(TemplateConditionData[] source)
+            {
+                source ??= Array.Empty<TemplateConditionData>();
+                var result = new NewsTemplateCondition[source.Length];
+                for (int index = 0; index < result.Length; index++)
+                    result[index] = source[index].ToDefinition();
+                return result;
+            }
+        }
+
+        [Serializable]
         private sealed class TemplateData
         {
             [SerializeField] private string _templateId;
@@ -32,6 +77,7 @@ namespace Baseball.Game.Data
             [SerializeField] private string[] _headlineVariants = Array.Empty<string>();
             [SerializeField] private string[] _leadVariants = Array.Empty<string>();
             [SerializeField] private string[] _bodyVariants = Array.Empty<string>();
+            [SerializeField] private ArticleVariantData[] _variants = Array.Empty<ArticleVariantData>();
             [SerializeField] private string _cooldownGroup;
             [SerializeField, Min(0)] private int _cooldownCycles;
 
@@ -40,6 +86,21 @@ namespace Baseball.Game.Data
                 var conditions = new NewsTemplateCondition[_conditions.Length];
                 for (int index = 0; index < conditions.Length; index++)
                     conditions[index] = _conditions[index].ToDefinition();
+                if (_variants != null && _variants.Length > 0)
+                {
+                    var variants = new NewsArticleVariant[_variants.Length];
+                    for (int index = 0; index < variants.Length; index++)
+                        variants[index] = _variants[index].ToDefinition();
+                    return new NewsTemplateDefinition(
+                        _templateId,
+                        _eventType,
+                        _category,
+                        _length,
+                        conditions,
+                        variants,
+                        _cooldownGroup,
+                        _cooldownCycles);
+                }
                 return new NewsTemplateDefinition(
                     _templateId,
                     _eventType,
@@ -56,7 +117,7 @@ namespace Baseball.Game.Data
         }
 
         [Header("Generation")]
-        [SerializeField, Min(1)] private int _generationVersion = 1;
+        [SerializeField, Min(1)] private int _generationVersion = 2;
 
         [Header("Priority")]
         [SerializeField] private int _playerRelevance = 40;
@@ -83,6 +144,14 @@ namespace Baseball.Game.Data
         [SerializeField] private int[] _hittingStreakMilestones = { 5, 10, 15, 20 };
         [SerializeField] private int[] _homeRunMilestones = { 10, 20, 30 };
         [SerializeField] private int[] _teamStreakMilestones = { 3, 5, 8 };
+        [SerializeField, Min(2)] private int _hotStreakStart = 4;
+        [SerializeField, Range(0, 100)] private int _roleCompetitionStartTrust = 60;
+        [SerializeField, Range(0, 100)] private int _roleCompetitionResolveTrust = 70;
+        [SerializeField, Min(2)] private int _weeklyReportInterval = 7;
+        [SerializeField, Min(4)] private int _monthlyReportInterval = 20;
+        [SerializeField] private int[] _careerHitMilestones = { 50, 100, 200, 500, 1000 };
+        [SerializeField] private int[] _careerHomeRunMilestones = { 10, 20, 50, 100, 200 };
+        [SerializeField, Min(1)] private int _milestoneApproachRange = 3;
 
         [Header("Templates")]
         [SerializeField] private TemplateData[] _templates = Array.Empty<TemplateData>();
@@ -135,7 +204,15 @@ namespace Baseball.Game.Data
                     _notableStrikeouts,
                     _hittingStreakMilestones,
                     _homeRunMilestones,
-                    _teamStreakMilestones),
+                    _teamStreakMilestones,
+                    _hotStreakStart,
+                    _roleCompetitionStartTrust,
+                    _roleCompetitionResolveTrust,
+                    _weeklyReportInterval,
+                    _monthlyReportInterval,
+                    _careerHitMilestones,
+                    _careerHomeRunMilestones,
+                    _milestoneApproachRange),
                 templates);
         }
     }

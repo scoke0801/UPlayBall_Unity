@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Baseball.Game.Career.News
 {
@@ -36,25 +37,36 @@ namespace Baseball.Game.Career.News
             NewsTemplateDefinition template,
             NewsPublicationContext context)
         {
-            int variant = SelectVariant(candidate, template, context.Cycle.SeasonId);
+            int variant = SelectVariant(state, candidate, template, context);
+            NewsArticleVariant articleVariant = template.Variants[variant];
             string headline = NewsTemplateTextFormatter.Format(
-                SelectText(template.HeadlineVariants, variant),
+                articleVariant.Headline,
                 candidate.Facts);
             string lead = NewsTemplateTextFormatter.Format(
-                SelectText(template.LeadVariants, variant),
+                articleVariant.Lead,
                 candidate.Facts);
             string body = NewsTemplateTextFormatter.Format(
-                SelectText(template.BodyVariants, variant),
+                articleVariant.Body,
                 candidate.Facts);
+            if (!string.IsNullOrEmpty(articleVariant.Quote))
+            {
+                string quote = NewsTemplateTextFormatter.Format(articleVariant.Quote, candidate.Facts);
+                body = string.IsNullOrEmpty(body) ? quote : $"{body}\n\n{quote}";
+            }
+            state.RecordTopicPublished(
+                GetVariantCooldownGroup(template, articleVariant),
+                context.Cycle.ToOrdinal());
             return new NewsArticleState(
                 state.AllocateArticleId(context.Cycle.SeasonId),
                 context.PublishedAt,
                 template.Category,
                 candidate.Importance,
                 template.Length,
-                template.DefaultSource,
+                articleVariant.Voice,
+                articleVariant.Tone,
                 template.TemplateId,
                 variant,
+                articleVariant.VariantId,
                 _configuration.GenerationVersion,
                 headline,
                 lead,
@@ -68,21 +80,69 @@ namespace Baseball.Game.Career.News
         }
 
         private static int SelectVariant(
+            CareerNewsState state,
             NewsCandidate candidate,
             NewsTemplateDefinition template,
-            int seasonId)
+            NewsPublicationContext context)
         {
+            var eligible = new List<int>(template.Variants.Length);
+            CollectEligibleVariants(state, candidate, template, context, enforceCooldown: true, eligible);
+            if (eligible.Count == 0)
+                CollectEligibleVariants(state, candidate, template, context, enforceCooldown: false, eligible);
+            if (eligible.Count == 0)
+                throw new InvalidOperationException($"템플릿 {template.TemplateId}에 적용 가능한 기사 묶음이 없습니다.");
+
             ulong hash = 14695981039346656037UL;
-            AddToHash(ref hash, seasonId.ToString());
+            AddToHash(ref hash, context.Cycle.SeasonId.ToString());
             AddToHash(ref hash, template.TemplateId);
             for (int index = 0; index < candidate.SourceEventIds.Count; index++)
                 AddToHash(ref hash, candidate.SourceEventIds[index]);
-            return (int)(hash % (ulong)template.HeadlineVariants.Length);
+            int totalWeight = 0;
+            for (int index = 0; index < eligible.Count; index++)
+                totalWeight += template.Variants[eligible[index]].Weight;
+            int ticket = (int)(hash % (ulong)totalWeight);
+            for (int index = 0; index < eligible.Count; index++)
+            {
+                int variantIndex = eligible[index];
+                int weight = template.Variants[variantIndex].Weight;
+                if (ticket < weight)
+                    return variantIndex;
+                ticket -= weight;
+            }
+            return eligible[eligible.Count - 1];
         }
 
-        private static string SelectText(string[] values, int variant)
+        private static void CollectEligibleVariants(
+            CareerNewsState state,
+            NewsCandidate candidate,
+            NewsTemplateDefinition template,
+            NewsPublicationContext context,
+            bool enforceCooldown,
+            List<int> result)
         {
-            return values.Length == 0 ? string.Empty : values[variant % values.Length];
+            for (int index = 0; index < template.Variants.Length; index++)
+            {
+                NewsArticleVariant variant = template.Variants[index];
+                if (!variant.Matches(candidate.Facts))
+                    continue;
+                if (enforceCooldown && state.IsTopicOnCooldown(
+                        GetVariantCooldownGroup(template, variant),
+                        context.Cycle.ToOrdinal(),
+                        variant.CooldownCycles))
+                {
+                    continue;
+                }
+                result.Add(index);
+            }
+        }
+
+        private static string GetVariantCooldownGroup(
+            NewsTemplateDefinition template,
+            NewsArticleVariant variant)
+        {
+            return string.IsNullOrEmpty(variant.CooldownGroup)
+                ? string.Empty
+                : $"{template.TemplateId}:{variant.CooldownGroup}";
         }
 
         private static void AddToHash(ref ulong hash, string value)

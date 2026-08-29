@@ -16,8 +16,10 @@ namespace Baseball.Game.Career.News
             NewsImportance importance,
             NewsArticleLength length,
             NewsSourceType sourceType,
+            NewsTone tone,
             string templateId,
             int templateVariantIndex,
+            string templateVariantId,
             int generationVersion,
             string headline,
             string lead,
@@ -37,8 +39,10 @@ namespace Baseball.Game.Career.News
             Importance = importance;
             Length = length;
             SourceType = sourceType;
+            Tone = tone;
             TemplateId = templateId ?? string.Empty;
             TemplateVariantIndex = templateVariantIndex;
+            TemplateVariantId = templateVariantId ?? string.Empty;
             GenerationVersion = generationVersion;
             Headline = headline ?? string.Empty;
             Lead = lead ?? string.Empty;
@@ -57,8 +61,10 @@ namespace Baseball.Game.Career.News
         public NewsImportance Importance { get; }
         public NewsArticleLength Length { get; }
         public NewsSourceType SourceType { get; }
+        public NewsTone Tone { get; }
         public string TemplateId { get; }
         public int TemplateVariantIndex { get; }
+        public string TemplateVariantId { get; }
         public int GenerationVersion { get; }
         public string Headline { get; }
         public string Lead { get; }

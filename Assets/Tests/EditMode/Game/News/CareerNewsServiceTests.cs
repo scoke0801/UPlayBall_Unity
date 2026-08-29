@@ -40,9 +40,17 @@ namespace Baseball.Tests.EditMode.Game.News
 
             Assert.That(second.TemplateId, Is.EqualTo(first.TemplateId));
             Assert.That(second.TemplateVariantIndex, Is.EqualTo(first.TemplateVariantIndex));
+            Assert.That(second.TemplateVariantId, Is.EqualTo(first.TemplateVariantId));
             Assert.That(second.Headline, Is.EqualTo(first.Headline));
             Assert.That(second.Lead, Is.EqualTo(first.Lead));
             Assert.That(second.Body, Is.EqualTo(first.Body));
+        }
+
+        [Test]
+        public void NewsFactKey_새키는기존직렬화값뒤에만추가한다()
+        {
+            Assert.That((int)NewsFactKey.CoverageReason, Is.EqualTo(47));
+            Assert.That((int)NewsFactKey.GamePlateAppearances, Is.GreaterThan(47));
         }
 
         [Test]
@@ -136,6 +144,34 @@ namespace Baseball.Tests.EditMode.Game.News
                 career.CurrentLeague.CurrentSeason.Schedule.GetNextGameForTeam(career.MyPlayer.CurrentTeamId)?.Round,
                 Is.Not.EqualTo(result.Round),
                 "뉴스는 같은 날짜의 라운드 처리가 끝난 뒤에만 발행되어야 합니다.");
+        }
+
+        [Test]
+        public void AdvanceNextRound_리그브리핑은스코어순위변동내팀모듈을고정한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 14522UL);
+
+            new CareerSeasonService(
+                    career,
+                    configuration.Balance,
+                    CareerNewsConfiguration.CreateDefault())
+                .AdvanceNextRound();
+
+            NewsArticleState briefing = FindArticle(career.News, "league.daily.briefing");
+            Assert.That(briefing, Is.Not.Null);
+            Assert.That(briefing.Body, Does.Contain("오늘의 경기").Or.Contain("스코어"));
+            Assert.That(briefing.Body, Does.Contain("순위"));
+            Assert.That(briefing.Body, Does.Contain("내 팀").Or.Contain("내 선수").Or.Contain("내 팀 경기"));
+            Assert.That(briefing.Body, Does.Not.Contain("같은 일정일의 모든 경기가 끝난 뒤"));
+            Assert.That(briefing.FactSet.GetText(NewsFactKey.RoundScoreSummary), Is.Not.Empty);
+            Assert.That(briefing.FactSet.GetText(NewsFactKey.StandingChangeSummary), Is.Not.Empty);
+            Assert.That(briefing.FactSet.GetText(NewsFactKey.PlayerGameSummary), Is.Not.Empty);
+            Assert.That(
+                briefing.Headline,
+                briefing.FactSet.GetBoolean(NewsFactKey.LeaderChanged)
+                    ? Does.Contain("선두 바뀌었다")
+                    : Does.Contain("유지"));
         }
 
         [Test]
@@ -287,6 +323,16 @@ namespace Baseball.Tests.EditMode.Game.News
                 NewsArticleState article = state.CurrentSeasonArticles[index];
                 if (article.FactSet.GetInteger(NewsFactKey.GameId, -1) == gameId)
                     return article;
+            }
+            return null;
+        }
+
+        private static NewsArticleState FindArticle(CareerNewsState state, string templateId)
+        {
+            for (int index = 0; index < state.CurrentSeasonArticles.Count; index++)
+            {
+                if (state.CurrentSeasonArticles[index].TemplateId == templateId)
+                    return state.CurrentSeasonArticles[index];
             }
             return null;
         }

@@ -108,7 +108,10 @@ namespace Baseball.Game.Career.News
                         "{TeamName|이|가} 지킨 리드…{OpponentName} 제압"
                     },
                     new[] { "{TeamRecordSummary}." },
-                    new[] { "내 선수의 출전 여부와 별개로 구단의 확정 경기 결과를 전한다." }),
+                    new[]
+                    {
+                        "{TeamName|은|는} {OpponentName|을|를} {TeamRuns}대 {OpponentRuns}로 꺾고 승리를 추가했다."
+                    }),
                 Template(
                     "game.team.loss",
                     NewsEventType.GameCompleted,
@@ -122,7 +125,11 @@ namespace Baseball.Game.Career.News
                         "{TeamName|은|는} 추격했지만 {OpponentName} 넘지 못해"
                     },
                     new[] { "{TeamRecordSummary}." },
-                    new[] { "{TeamName|은|는} 이날 승리를 추가하지 못했다." }),
+                    new[]
+                    {
+                        "{TeamName|은|는} {OpponentName}에 {TeamRuns}대 {OpponentRuns}로 패했다. " +
+                        "다음 경기에서 분위기 반전을 준비한다."
+                    }),
                 Template(
                     "game.team.tie",
                     NewsEventType.GameCompleted,
@@ -133,22 +140,274 @@ namespace Baseball.Game.Career.News
                     new[] { "{TeamName|과|와} {OpponentName}, {TeamRuns}대 {OpponentRuns} 무승부" },
                     new[] { "두 팀이 승부를 가리지 못했다." },
                     new[] { "{TeamRecordSummary}." }),
-                Template(
+                new NewsTemplateDefinition(
                     "league.daily.briefing",
                     NewsEventType.LeagueBriefing,
                     NewsCategory.League,
                     NewsArticleLength.Brief,
-                    NewsSourceType.LeagueOfficial,
                     System.Array.Empty<NewsTemplateCondition>(),
                     new[]
                     {
-                        "리그 브리핑: {TeamName} 선두, 순위 경쟁 계속",
-                        "오늘의 리그: {RoundGames}경기 종료…{TeamName} {TeamRank}위"
+                        new NewsArticleVariant(
+                            "leader_changed",
+                            NewsSourceType.LeagueOfficial,
+                            NewsTone.Neutral,
+                            new[] { Equal(NewsFactKey.LeaderChanged, 1) },
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            "선두 바뀌었다…{TeamName}, 리그 1위 도약",
+                            "오늘 열린 {RoundGames}경기가 모두 끝난 가운데 {TeamName|이|가} " +
+                            "{PreviousTeamRank}위에서 1위로 올라섰다.",
+                            new[]
+                            {
+                                "오늘의 경기\n{RoundScoreSummary}",
+                                "순위 변동\n{StandingChangeSummary}",
+                                "내 팀\n{PlayerGameSummary}"
+                            },
+                            cooldownGroup: "leader_changed"),
+                        new NewsArticleVariant(
+                            "leader_held_daily",
+                            NewsSourceType.LeagueOfficial,
+                            NewsTone.Neutral,
+                            new[] { Equal(NewsFactKey.LeaderChanged, 0) },
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            "오늘의 리그: {RoundGames}경기 종료…{TeamName}, 선두 유지",
+                            "오늘 열린 {RoundGames}경기가 모두 끝난 가운데 {TeamName|은|는} " +
+                            "{TeamRecordSummary}로 1위를 지켰다.",
+                            new[]
+                            {
+                                "오늘의 경기\n{RoundScoreSummary}",
+                                "순위 변동\n{StandingChangeSummary}",
+                                "내 팀\n{PlayerGameSummary}"
+                            },
+                            cooldownGroup: "leader_held_daily"),
+                        new NewsArticleVariant(
+                            "leader_held_standings",
+                            NewsSourceType.LeagueOfficial,
+                            NewsTone.Analytical,
+                            new[] { Equal(NewsFactKey.LeaderChanged, 0) },
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            "{RoundGames}경기 모두 종료…{TeamName} 1위 유지",
+                            "{TeamName|이|가} {TeamRecordSummary}로 선두를 지킨 가운데 순위 경쟁이 이어졌다.",
+                            new[]
+                            {
+                                "스코어\n{RoundScoreSummary}",
+                                "오늘의 흐름\n{StandingChangeSummary}",
+                                "내 선수\n{PlayerGameSummary}"
+                            },
+                            cooldownGroup: "leader_held_standings")
                     },
-                    new[] { "{TeamName} {TeamRecordSummary}." },
-                    new[] { "같은 일정일의 모든 경기가 끝난 뒤 확정된 순위를 반영했다." },
                     cooldownGroup: "league_briefing",
                     cooldownCycles: 1),
+                Template(
+                    "form.slump",
+                    NewsEventType.PlayerFormChanged,
+                    NewsCategory.MyPlayer,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.RegionalSports,
+                    new[] { Equal(NewsFactKey.FormSlump, 1) },
+                    new[]
+                    {
+                        "길어지는 침묵…{PlayerName} {HitlessStreak}경기 연속 무안타",
+                        "{PlayerName}, 최근 타석에서 돌파구 필요",
+                        "{PlayerName} 무안타 흐름 {HitlessStreak}경기째"
+                    },
+                    new[]
+                    {
+                        "{PlayerName|은|는} {GameStatLine}에 그치며 최근 흐름을 바꾸지 못했다.",
+                        "무안타 경기가 이어지며 다음 출전의 의미가 커졌다."
+                    },
+                    new[]
+                    {
+                        "최근 {RecentFiveGames}경기 {RecentFiveAtBats}타수 {RecentFiveHits}안타. " +
+                        "감독 신뢰는 {ManagerTrustBefore}에서 {ManagerTrustAfter}로 변했다.",
+                        "현재 역할은 유지됐지만 다음 경기에서 반전의 계기가 필요해졌다."
+                    },
+                    cooldownGroup: "player_form_slump",
+                    cooldownCycles: 2),
+                Template(
+                    "form.rebound",
+                    NewsEventType.PlayerFormChanged,
+                    NewsCategory.MyPlayer,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.RegionalSports,
+                    new[] { Equal(NewsFactKey.FormRebound, 1) },
+                    new[]
+                    {
+                        "{PlayerName}, {GamesSinceLastHit}경기 만에 안타…침묵 깼다",
+                        "길었던 무안타 끝낸 {PlayerName}",
+                        "{PlayerName}, 기다렸던 안타와 함께 다시 출발"
+                    },
+                    new[]
+                    {
+                        "{PlayerName|이|가} 안타를 기록하며 길었던 무안타 흐름을 끝냈다.",
+                        "최근 결과가 좋지 않았던 {PlayerName|이|가} 반등의 출발점을 만들었다."
+                    },
+                    new[]
+                    {
+                        "{GameStatLine}. 이번 결과가 다음 경기까지 이어질지 주목된다.",
+                        "최근 {RecentFiveGames}경기 기록은 {RecentFiveAtBats}타수 {RecentFiveHits}안타가 됐다."
+                    },
+                    cooldownGroup: "player_form_rebound",
+                    cooldownCycles: 2),
+                Template(
+                    "form.hot",
+                    NewsEventType.PlayerFormChanged,
+                    NewsCategory.MyPlayer,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.RegionalSports,
+                    new[] { Equal(NewsFactKey.FormHot, 1) },
+                    new[]
+                    {
+                        "{PlayerName}, {HitStreak}경기 연속 안타…상승세 뚜렷",
+                        "꾸준한 출루 이어가는 {PlayerName}"
+                    },
+                    new[] { "최근 경기의 결과가 한 번의 활약을 넘어 흐름으로 이어지고 있다." },
+                    new[]
+                    {
+                        "최근 {RecentFiveGames}경기 {RecentFiveAtBats}타수 {RecentFiveHits}안타. " +
+                        "{ManagerStyle} 감독은 \"{ManagerComment}\"라고 평가했다."
+                    },
+                    cooldownGroup: "player_form_hot",
+                    cooldownCycles: 3),
+                Template(
+                    "form.cooled",
+                    NewsEventType.PlayerFormChanged,
+                    NewsCategory.MyPlayer,
+                    NewsArticleLength.Brief,
+                    NewsSourceType.RegionalSports,
+                    new[] { Equal(NewsFactKey.FormCooled, 1) },
+                    new[] { "{PlayerName} 연속 안타 마감…다음 흐름 준비" },
+                    new[] { "상승세는 멈췄지만 한 경기만으로 타격 흐름 전체를 판단하기는 이르다." },
+                    new[] { "{GameStatLine}. 최근 기록은 다음 경기부터 새 구간으로 이어진다." },
+                    cooldownGroup: "player_form_cooled",
+                    cooldownCycles: 2),
+                new NewsTemplateDefinition(
+                    "report.weekly",
+                    NewsEventType.WeeklyReport,
+                    NewsCategory.MyPlayer,
+                    NewsArticleLength.Brief,
+                    System.Array.Empty<NewsTemplateCondition>(),
+                    new[]
+                    {
+                        new NewsArticleVariant(
+                            "weekly_regional",
+                            NewsSourceType.RegionalSports,
+                            NewsTone.Analytical,
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            "{ReportLabel}: {PlayerName}, {ReportAtBats}타수 {ReportHits}안타",
+                            "최근 {ReportGames}경기에서 {PlayerName|은|는} {ReportHomeRuns}홈런 {ReportRbi}타점을 기록했다.",
+                            new[]
+                            {
+                                "개인 흐름: {ReportTrend}",
+                                "팀 결과: {ReportTeamWins}승 {ReportTeamLosses}패"
+                            },
+                            cooldownGroup: "weekly_regional"),
+                        new NewsArticleVariant(
+                            "weekly_club",
+                            NewsSourceType.ClubNews,
+                            NewsTone.Positive,
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            "{TeamName} 주간 결산…{PlayerName} 최근 흐름",
+                            "최근 {ReportGames}경기의 선수 기록과 팀 결과를 함께 정리했다.",
+                            new[]
+                            {
+                                "{PlayerName}: {ReportAtBats}타수 {ReportHits}안타 · {ReportHomeRuns}홈런 · {ReportRbi}타점",
+                                "{TeamName}: {ReportTeamWins}승 {ReportTeamLosses}패"
+                            },
+                            cooldownGroup: "weekly_club")
+                    },
+                    cooldownGroup: "weekly_report",
+                    cooldownCycles: 3),
+                new NewsTemplateDefinition(
+                    "report.monthly",
+                    NewsEventType.MonthlyReport,
+                    NewsCategory.MyPlayer,
+                    NewsArticleLength.Standard,
+                    System.Array.Empty<NewsTemplateCondition>(),
+                    new[]
+                    {
+                        new NewsArticleVariant(
+                            "monthly_league",
+                            NewsSourceType.LeagueSportsMedia,
+                            NewsTone.Analytical,
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            "{ReportLabel}: {PlayerName}의 최근 {ReportGames}경기",
+                            "긴 구간의 기록으로 현재 시즌 흐름을 점검했다.",
+                            new[]
+                            {
+                                "개인 기록\n{ReportAtBats}타수 {ReportHits}안타 · {ReportHomeRuns}홈런 · {ReportRbi}타점",
+                                "팀 성적\n{ReportTeamWins}승 {ReportTeamLosses}패",
+                                "평가\n{ReportTrend}"
+                            },
+                            cooldownGroup: "monthly_league"),
+                        new NewsArticleVariant(
+                            "monthly_national",
+                            NewsSourceType.NationalSports,
+                            NewsTone.Dramatic,
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            System.Array.Empty<NewsTemplateCondition>(),
+                            "한 달의 기록이 말하는 {PlayerName}의 현재",
+                            "{PlayerName|이|가} 최근 {ReportGames}경기에서 남긴 결과가 시즌의 다음 장면을 예고한다.",
+                            new[]
+                            {
+                                "{ReportAtBats}타수 {ReportHits}안타, {ReportHomeRuns}홈런 {ReportRbi}타점.",
+                                "소속팀은 이 구간 {ReportTeamWins}승 {ReportTeamLosses}패를 기록했다."
+                            },
+                            cooldownGroup: "monthly_national")
+                    },
+                    cooldownGroup: "monthly_report",
+                    cooldownCycles: 8),
+                Template(
+                    "role.competition.started",
+                    NewsEventType.RoleCompetitionChanged,
+                    NewsCategory.MyPlayer,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.RegionalSports,
+                    new[] { Equal(NewsFactKey.RoleCompetitionStarted, 1) },
+                    new[]
+                    {
+                        "{PlayerName}, 주전 경쟁의 갈림길",
+                        "감독 신뢰 {ManagerTrustAfter}…{PlayerName} 다음 경기 중요"
+                    },
+                    new[] { "최근 결과가 기용 판단의 기준선에 닿으며 선발 경쟁이 다시 열렸다." },
+                    new[]
+                    {
+                        "감독 신뢰는 {ManagerTrustBefore}에서 {ManagerTrustAfter}로 변했다. " +
+                        "감독은 \"{ManagerComment}\"라고 말했다."
+                    },
+                    cooldownGroup: "role_competition",
+                    cooldownCycles: 4),
+                Template(
+                    "role.competition.resolved",
+                    NewsEventType.RoleCompetitionChanged,
+                    NewsCategory.MyPlayer,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.ClubNews,
+                    new[] { Equal(NewsFactKey.RoleCompetitionResolved, 1) },
+                    new[] { "{PlayerName}, 결과로 주전 경쟁 안정시켜" },
+                    new[] { "최근 경기의 누적 평가가 기용 기준선을 다시 넘어섰다." },
+                    new[] { "감독 신뢰는 {ManagerTrustBefore}에서 {ManagerTrustAfter}로 상승했다." },
+                    cooldownGroup: "role_competition_resolved",
+                    cooldownCycles: 4),
+                Template(
+                    "career.milestone.approaching",
+                    NewsEventType.CareerMilestoneApproaching,
+                    NewsCategory.RecordsAwards,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.NationalSports,
+                    System.Array.Empty<NewsTemplateCondition>(),
+                    new[]
+                    {
+                        "{PlayerName}, {MilestoneName} {MilestoneTarget} 고지 눈앞",
+                        "다가오는 기록…{PlayerName} {MilestoneName} 도전"
+                    },
+                    new[] { "통산 기록이 다음 이정표까지 세 개 이하로 다가왔다." },
+                    new[] { "기록 달성 여부는 이후 공식 경기 결과에서 확정된다." },
+                    cooldownGroup: "milestone_approach",
+                    cooldownCycles: 8),
                 Template(
                     "career.milestone",
                     NewsEventType.CareerMilestoneReached,
@@ -208,6 +467,34 @@ namespace Baseball.Game.Career.News
                     new[] { "구단이 선수의 복귀를 공식 확정했다." },
                     new[] { "복귀전 결과는 실제 경기가 끝난 뒤 별도 기사에 반영된다." }),
                 Template(
+                    "contract.negotiation",
+                    NewsEventType.ContractNegotiationReported,
+                    NewsCategory.TransferContract,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.RegionalSports,
+                    System.Array.Empty<NewsTemplateCondition>(),
+                    new[]
+                    {
+                        "{TeamName}, {PlayerName|과|와} 연장 계약 논의",
+                        "{PlayerName} 잔류 가능성…구단 제안 도착"
+                    },
+                    new[] { "현재 구단이 확정 제안을 전달하며 계약 시즌이 시작됐다." },
+                    new[] { "제안 조건은 {ContractYears}년, 연봉 {ContractSalary}원이다." },
+                    cooldownGroup: "contract_negotiation",
+                    cooldownCycles: 10),
+                Template(
+                    "contract.declined",
+                    NewsEventType.ContractNegotiationDeclined,
+                    NewsCategory.TransferContract,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.RegionalSports,
+                    System.Array.Empty<NewsTemplateCondition>(),
+                    new[] { "{PlayerName}, {TeamName} 연장 제안 거절" },
+                    new[] { "선수는 시즌 중 제안을 받아들이지 않고 다음 선택지를 열어두기로 했다." },
+                    new[] { "현재 계약은 기존 조건대로 유지된다." },
+                    cooldownGroup: "contract_declined",
+                    cooldownCycles: 10),
+                Template(
                     "contract.signed",
                     NewsEventType.ContractSigned,
                     NewsCategory.TransferContract,
@@ -218,6 +505,58 @@ namespace Baseball.Game.Career.News
                     new[] { "계약 제안 단계가 아니라 서명이 끝난 확정 계약이다." },
                     new[] { "공개 연봉은 {ContractSalary}원이다." },
                     cooldownGroup: "contract",
+                    cooldownCycles: 1),
+                Template(
+                    "trade.interest",
+                    NewsEventType.TradeInterestReported,
+                    NewsCategory.TransferContract,
+                    NewsArticleLength.Brief,
+                    NewsSourceType.RegionalSports,
+                    System.Array.Empty<NewsTemplateCondition>(),
+                    new[] { "{InterestedTeamName}, {PlayerName} 영입 관심" },
+                    new[] { "구단 전력 평가에서 실제 관심 단계가 확인됐다." },
+                    new[] { "예상 역할은 {ProjectedRole}이다. 아직 협상이나 이동이 확정된 단계는 아니다." },
+                    cooldownGroup: "trade_interest",
+                    cooldownCycles: 6),
+                Template(
+                    "trade.rumor",
+                    NewsEventType.TradeRumorReported,
+                    NewsCategory.TransferContract,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.RegionalSports,
+                    System.Array.Empty<NewsTemplateCondition>(),
+                    new[]
+                    {
+                        "{PlayerName} 이적설…{InterestedTeamName} 관심 구체화",
+                        "{InterestedTeamName}, {PlayerName} 영입 검토"
+                    },
+                    new[] { "관심 단계가 루머 단계로 진전되며 시즌 중 이동 가능성이 수면 위로 올라왔다." },
+                    new[] { "현재 예상 역할은 {ProjectedRole}이며 실제 협상 결과는 아직 확정되지 않았다." },
+                    cooldownGroup: "trade_rumor",
+                    cooldownCycles: 5),
+                Template(
+                    "trade.negotiating",
+                    NewsEventType.TradeNegotiationReported,
+                    NewsCategory.TransferContract,
+                    NewsArticleLength.Standard,
+                    NewsSourceType.NationalSports,
+                    System.Array.Empty<NewsTemplateCondition>(),
+                    new[] { "{PlayerName} 트레이드 협상 단계…{InterestedTeamName} 행선지 후보" },
+                    new[] { "관심 구단과 현재 구단의 평가가 협상 단계에 도달했다." },
+                    new[] { "예상 역할은 {ProjectedRole}이다. 확정 발표 전까지 소속은 바뀌지 않는다." },
+                    cooldownGroup: "trade_negotiating",
+                    cooldownCycles: 4),
+                Template(
+                    "trade.completed",
+                    NewsEventType.PlayerTraded,
+                    NewsCategory.TransferContract,
+                    NewsArticleLength.Feature,
+                    NewsSourceType.LeagueOfficial,
+                    System.Array.Empty<NewsTemplateCondition>(),
+                    new[] { "{PlayerName}, {PreviousTeamName} 떠나 {NewTeamName} 이적" },
+                    new[] { "리그 등록이 완료되며 시즌 중 트레이드가 공식 확정됐다." },
+                    new[] { "새 구단에서 예상되는 역할은 {ProjectedRole}이다." },
+                    cooldownGroup: "trade_completed",
                     cooldownCycles: 1),
                 Template(
                     "postseason.game.win",
