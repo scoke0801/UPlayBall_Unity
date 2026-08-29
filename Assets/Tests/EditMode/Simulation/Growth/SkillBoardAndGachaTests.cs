@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Simulation.Growth;
@@ -186,7 +187,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             double premiumRareRate = premiumRareOrBetter / (double)PullCount;
             double standardEpicRate = standardEpic / (double)PullCount;
             double premiumEpicRate = premiumEpic / (double)PullCount;
-            TestContext.WriteLine(
+            System.Console.WriteLine(
                 $"일반 R+ {standardRareRate:P2}, E {standardEpicRate:P2} · " +
                 $"고급 R+ {premiumRareRate:P2}, E {premiumEpicRate:P2}");
 
@@ -228,7 +229,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
 
             double rareOrBetterRate = rareOrBetter / (double)PullCount;
             double legendaryRate = legendary / (double)PullCount;
-            TestContext.WriteLine(
+            System.Console.WriteLine(
                 $"특급 R+ {rareOrBetterRate:P2}, L {legendaryRate:P2}");
 
             Assert.That(rareOrBetterRate, Is.EqualTo(1d));
@@ -341,6 +342,56 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             }
 
             Assert.That(foundShapes, Has.All.True);
+        }
+
+        [Test]
+        public void DefaultBlocks_모든계통과등급에서7종모양이모두나온다()
+        {
+            SkillBlockDefinition[] definitions = GrowthSkillContent.CreateDefaultBlocks();
+            var shapes = (TetrominoShape[])Enum.GetValues(typeof(TetrominoShape));
+            var categories = (SkillBlockCategory[])Enum.GetValues(typeof(SkillBlockCategory));
+            var rarities = (SkillBlockRarity[])Enum.GetValues(typeof(SkillBlockRarity));
+
+            for (int categoryIndex = 0; categoryIndex < categories.Length; categoryIndex++)
+            {
+                for (int rarityIndex = 0; rarityIndex < rarities.Length; rarityIndex++)
+                {
+                    var foundShapes = new bool[shapes.Length];
+                    for (int index = 0; index < definitions.Length; index++)
+                    {
+                        SkillBlockDefinition definition = definitions[index];
+                        if (definition.Category != categories[categoryIndex] ||
+                            definition.Rarity != rarities[rarityIndex])
+                        {
+                            continue;
+                        }
+                        for (int shapeIndex = 0; shapeIndex < shapes.Length; shapeIndex++)
+                        {
+                            if (HasSameCells(
+                                definition.ShapeCells,
+                                TetrominoShapeCatalog.CreateCells(shapes[shapeIndex])))
+                            {
+                                foundShapes[shapeIndex] = true;
+                            }
+                        }
+                    }
+
+                    Assert.That(
+                        foundShapes,
+                        Has.All.True,
+                        $"{categories[categoryIndex]} {rarities[rarityIndex]} 풀에 빠진 모양이 있습니다.");
+                }
+            }
+        }
+
+        [Test]
+        public void DefaultBlocks_블록ID는중복되지않는다()
+        {
+            SkillBlockDefinition[] definitions = GrowthSkillContent.CreateDefaultBlocks();
+            var seenIds = new HashSet<string>(StringComparer.Ordinal);
+
+            for (int index = 0; index < definitions.Length; index++)
+                Assert.That(seenIds.Add(definitions[index].BlockId), Is.True, definitions[index].BlockId);
         }
 
         [Test]

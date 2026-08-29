@@ -173,13 +173,13 @@ namespace Baseball.Game.Data
         [SerializeField, Range(1, 5)] private int _majorPlayerContractYears = 3;
 
         [Header("Character Creation")]
-        [SerializeField, Range(0, 100)] private int _baseAttributeValue = 40;
-        [SerializeField, Min(0)] private int _bonusPoints = 72;
-        [SerializeField, Range(0, 100)] private int _maximumAttributeValue = 65;
-        [SerializeField, Range(0, 100)] private int _careerBaseAttributeValue = 35;
+        [SerializeField, Range(0, 100)] private int _baseAttributeValue = 50;
+        [SerializeField, Min(0)] private int _bonusPoints = 60;
+        [SerializeField, Range(0, 100)] private int _maximumAttributeValue = 75;
+        [SerializeField, Range(0, 100)] private int _careerBaseAttributeValue = 50;
         [SerializeField, Min(0)] private int _careerBatterBonusPoints = 60;
         [SerializeField, Min(0)] private int _careerPitcherBonusPoints = 40;
-        [SerializeField, Range(0, 100)] private int _careerMaximumAttributeValue = 60;
+        [SerializeField, Range(0, 100)] private int _careerMaximumAttributeValue = 75;
 
         [Header("Contract Offers")]
         [SerializeField, Min(0f)] private double _offerScoreThreshold = 1d;

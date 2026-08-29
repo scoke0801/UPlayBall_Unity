@@ -29,12 +29,12 @@ namespace Baseball.Core.Players
         public int MaxValue { get; }
 
         /// <summary>
-        /// 전 능력치 40에서 시작해 72포인트를 분배하고 항목당 65를 넘지 못하게 한
-        /// 최초 검증용 기본값을 만든다. 생성 시점부터 극단적인 신인이 나오지 않게 하려는 목적이다.
+        /// 전 능력치 50에서 시작해 60포인트를 분배하고 항목당 75를 넘지 못하게 한다.
+        /// 균형형의 평균을 Rookie 기준 60에 맞추면서 특화와 약점의 교환 폭은 25로 유지한다.
         /// </summary>
         public static CharacterCreationBalance CreateDefault()
         {
-            return new CharacterCreationBalance(baseValue: 40, bonusPoints: 72, maxValue: 65);
+            return new CharacterCreationBalance(baseValue: 50, bonusPoints: 60, maxValue: 75);
         }
     }
 }

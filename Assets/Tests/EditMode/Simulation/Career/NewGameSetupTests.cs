@@ -73,7 +73,7 @@ namespace Baseball.Tests.EditMode.Simulation.Career
                 PlayerPosition.Shortstop,
                 Handedness.Right,
                 Handedness.Right,
-                new BatterAttributes(54, 40, 54, 40, 64, 60),
+                new BatterAttributes(60, 50, 60, 50, 75, 65),
                 default);
             var mismatched = new Player(
                 2,
@@ -81,12 +81,20 @@ namespace Baseball.Tests.EditMode.Simulation.Career
                 PlayerPosition.Shortstop,
                 Handedness.Right,
                 Handedness.Right,
-                new BatterAttributes(54, 64, 54, 60, 40, 40),
+                new BatterAttributes(60, 75, 60, 65, 50, 50),
                 default);
 
             Assert.That(
                 evaluator.CalculatePositionValue(suited),
                 Is.GreaterThan(evaluator.CalculatePositionValue(mismatched)));
+        }
+
+        [Test]
+        public void CareerCreationRules_균형형은Rookie평균평가60을만든다()
+        {
+            var evaluator = new PlayerValueEvaluator(PlayerEvaluationBalance.CreateDefault());
+
+            Assert.That(evaluator.CalculatePositionValue(CreateBalancedShortstop()), Is.EqualTo(60));
         }
 
         [Test]
@@ -98,42 +106,54 @@ namespace Baseball.Tests.EditMode.Simulation.Career
             TeamArchetypeProfile[] archetypes = TeamArchetypeLibrary.CreateDefaultPool();
             var offerCounts = new int[6];
             var roleCounts = new int[3];
-            long signingBonusTotal = 0L;
             int totalOffers = 0;
+            long competitorOverallTotal = 0L;
+            long strongestCompetitorTotal = 0L;
+            int competitorCount = 0;
+            int strongestCompetitorCount = 0;
 
             for (ulong seed = 1UL; seed <= SimulationCount; seed++)
             {
                 NewGameSetupResult result = CreateSetup(seed)
                     .GenerateLeagueAndOffers(player, 8, archetypes, TeamNames);
+                for (int teamIndex = 0; teamIndex < result.Teams.Length; teamIndex++)
+                {
+                    System.Collections.Generic.IReadOnlyList<RosterCompetitor> competitors =
+                        result.Teams[teamIndex].GetPositionCompetitors(PlayerPosition.Shortstop);
+                    int strongest = 0;
+                    for (int competitorIndex = 0; competitorIndex < competitors.Count; competitorIndex++)
+                    {
+                        int overall = competitors[competitorIndex].Overall;
+                        competitorOverallTotal += overall;
+                        competitorCount++;
+                        if (overall > strongest) strongest = overall;
+                    }
+                    strongestCompetitorTotal += strongest;
+                    strongestCompetitorCount++;
+                }
                 offerCounts[result.Offers.Length]++;
                 totalOffers += result.Offers.Length;
                 for (int offerIndex = 0; offerIndex < result.Offers.Length; offerIndex++)
                 {
                     ContractOffer offer = result.Offers[offerIndex];
                     roleCounts[(int)offer.ExpectedRole]++;
-                    signingBonusTotal += offer.SigningBonus;
                 }
             }
 
             double averageOfferCount = totalOffers / (double)SimulationCount;
-            long averageSigningBonus = signingBonusTotal / totalOffers;
             double benchShare = roleCounts[(int)ExpectedRole.BenchCompetition] / (double)totalOffers;
             double rosterShare = roleCounts[(int)ExpectedRole.RosterCompetition] / (double)totalOffers;
             double startingShare = roleCounts[(int)ExpectedRole.StartingCompetition] / (double)totalOffers;
-            TestContext.WriteLine(
-                $"10,000회: 3오퍼={offerCounts[3]}, 4오퍼={offerCounts[4]}, 5오퍼={offerCounts[5]}, " +
-                $"평균={averageOfferCount:F2}");
-            TestContext.WriteLine(
-                $"예상 역할: 백업={roleCounts[(int)ExpectedRole.BenchCompetition]}, " +
-                $"로스터={roleCounts[(int)ExpectedRole.RosterCompetition]}, " +
-                $"주전={roleCounts[(int)ExpectedRole.StartingCompetition]}, " +
-                $"평균 계약금={averageSigningBonus:N0}원");
+            double competitorAverage = competitorOverallTotal / (double)competitorCount;
+            double strongestCompetitorAverage = strongestCompetitorTotal / (double)strongestCompetitorCount;
 
             Assert.That(offerCounts[3] + offerCounts[4] + offerCounts[5], Is.EqualTo(SimulationCount));
             Assert.That(averageOfferCount, Is.InRange(3d, 5d));
             Assert.That(benchShare, Is.InRange(0.15d, 0.40d));
             Assert.That(rosterShare, Is.InRange(0.40d, 0.65d));
             Assert.That(startingShare, Is.InRange(0.10d, 0.35d));
+            Assert.That(competitorAverage, Is.InRange(59d, 61d));
+            Assert.That(strongestCompetitorAverage, Is.InRange(60d, 64d));
         }
 
         private static NewGameSetup CreateSetup(ulong seed)
@@ -154,7 +174,20 @@ namespace Baseball.Tests.EditMode.Simulation.Career
                 PlayerPosition.Shortstop,
                 Handedness.Left,
                 Handedness.Right,
-                new BatterAttributes(55, 52, 54, 43, 62, 54),
+                new BatterAttributes(60, 50, 60, 50, 75, 65),
+                default,
+                nationality: "대한민국");
+        }
+
+        private static Player CreateBalancedShortstop()
+        {
+            return new Player(
+                2,
+                "균형형 선수",
+                PlayerPosition.Shortstop,
+                Handedness.Right,
+                Handedness.Right,
+                new BatterAttributes(60, 60, 60, 60, 60, 60),
                 default,
                 nationality: "대한민국");
         }

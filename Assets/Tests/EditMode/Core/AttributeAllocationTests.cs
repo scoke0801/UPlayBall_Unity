@@ -10,12 +10,25 @@ namespace Baseball.Tests.EditMode.Core
     public sealed class AttributeAllocationTests
     {
         [Test]
+        public void CareerCreationRules_균형배분은Rookie평균60을만든다()
+        {
+            CareerCreationRules rules = CareerCreationRules.CreateDefault();
+
+            Assert.That(
+                rules.Batter.CreateWeightedValues(1, 1, 1, 1, 1, 1),
+                Is.All.EqualTo(60));
+            Assert.That(
+                rules.Pitcher.CreateWeightedValues(1, 1, 1, 1),
+                Is.All.EqualTo(60));
+        }
+
+        [Test]
         public void Validate_기준값과추가포인트를지키면예외가없다()
         {
             CharacterCreationBalance balance = CharacterCreationBalance.CreateDefault();
 
             Assert.DoesNotThrow(() =>
-                AttributeAllocation.Validate(balance, 55, 62, 48, 40, 55, 52));
+                AttributeAllocation.Validate(balance, 65, 72, 58, 50, 60, 55));
         }
 
         [Test]
@@ -24,7 +37,7 @@ namespace Baseball.Tests.EditMode.Core
             CharacterCreationBalance balance = CharacterCreationBalance.CreateDefault();
 
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                AttributeAllocation.Validate(balance, 39, 40, 40, 40, 40, 40));
+                AttributeAllocation.Validate(balance, 49, 50, 50, 50, 50, 50));
         }
 
         [Test]
@@ -33,7 +46,7 @@ namespace Baseball.Tests.EditMode.Core
             CharacterCreationBalance balance = CharacterCreationBalance.CreateDefault();
 
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                AttributeAllocation.Validate(balance, 66, 40, 40, 40, 40, 40));
+                AttributeAllocation.Validate(balance, 76, 50, 50, 50, 50, 50));
         }
 
         [Test]
@@ -41,9 +54,9 @@ namespace Baseball.Tests.EditMode.Core
         {
             CharacterCreationBalance balance = CharacterCreationBalance.CreateDefault();
 
-            // 각 항목에서 기준값(40) 대비 25씩, 6개 합계 150은 BonusPoints(72)를 초과한다.
+            // 각 항목에서 기준값(50) 대비 25씩, 6개 합계 150은 BonusPoints(60)를 초과한다.
             Assert.Throws<ArgumentException>(() =>
-                AttributeAllocation.Validate(balance, 65, 65, 65, 65, 65, 65));
+                AttributeAllocation.Validate(balance, 75, 75, 75, 75, 75, 75));
         }
 
         [Test]

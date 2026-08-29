@@ -123,9 +123,13 @@ MonoBehaviour:
   - "\uB178\uC7AC\uBBFC"
   - "\uD558\uC724\uC131"
   - "\uACFD\uC900\uD638"
-  _baseAttributeValue: 40
-  _bonusPoints: 72
-  _maximumAttributeValue: 65
+  _baseAttributeValue: 50
+  _bonusPoints: 60
+  _maximumAttributeValue: 75
+  _careerBaseAttributeValue: 50
+  _careerBatterBonusPoints: 60
+  _careerPitcherBonusPoints: 40
+  _careerMaximumAttributeValue: 75
   _offerScoreThreshold: 1
   _scoutVarianceMinimum: 0.85
   _scoutVarianceMaximum: 1.15

@@ -19,12 +19,53 @@ namespace Baseball.Core.Balance
             TetrominoShape.L
         };
 
+        private static readonly SkillBlockRarity[] Rarities =
+        {
+            SkillBlockRarity.Normal,
+            SkillBlockRarity.Rare,
+            SkillBlockRarity.Elite,
+            SkillBlockRarity.Unique,
+            SkillBlockRarity.Legendary
+        };
+
         /// <summary>
-        /// 같은 카테고리·등급이라도 모양이 하나로 고정되지 않도록, 등급별로 서로 다른
-        /// 모양을 배정할 변종 오프셋이다. 7종 모양에 대해 나머지가 겹치지 않도록
-        /// 3칸씩 어긋나게 잡는다.
+        /// 계통·등급이 모양을 제한하지 않도록, 같은 계통·등급 안에 7종 모양을 모두 만든다.
+        /// 오프셋 순열은 0~6을 한 번씩 쓰므로 어떤 계통·등급을 뽑아도 표준 테트로미노 전부가
+        /// 후보가 된다. 앞 두 값을 0, 3으로 둔 것은 기존 세이브에 남은 변종 0·1번 블록의
+        /// 모양을 그대로 유지하기 위해서다.
         /// </summary>
-        private static readonly int[] ShapeVariantOffsets = { 0, 3 };
+        private static readonly int[] ShapeVariantOffsets = { 0, 3, 1, 4, 2, 5, 6 };
+
+        /// <summary>계통 하나가 어떤 능력치를 올리는지와 블록 ID 접두사를 묶은 정의다.</summary>
+        private readonly struct SkillBlockLine
+        {
+            public SkillBlockLine(string idPrefix, SkillBlockCategory category, PlayerAbility ability)
+            {
+                IdPrefix = idPrefix;
+                Category = category;
+                Ability = ability;
+            }
+
+            public string IdPrefix { get; }
+            public SkillBlockCategory Category { get; }
+            public PlayerAbility Ability { get; }
+        }
+
+        private static readonly SkillBlockLine[] BlockLines =
+        {
+            new SkillBlockLine("contact", SkillBlockCategory.Contact, PlayerAbility.Contact),
+            new SkillBlockLine("power", SkillBlockCategory.Power, PlayerAbility.Power),
+            new SkillBlockLine("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed),
+            new SkillBlockLine("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt),
+            new SkillBlockLine("defense", SkillBlockCategory.Defense, PlayerAbility.Defense),
+            new SkillBlockLine("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental),
+            new SkillBlockLine("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity),
+            new SkillBlockLine("control", SkillBlockCategory.Control, PlayerAbility.Control),
+            new SkillBlockLine("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking),
+            new SkillBlockLine("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina),
+            new SkillBlockLine("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff),
+            new SkillBlockLine("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental)
+        };
 
         public static SkillBoardDefinition CreateDefaultBoard()
         {
@@ -33,140 +74,26 @@ namespace Baseball.Core.Balance
 
         public static SkillBlockDefinition[] CreateDefaultBlocks()
         {
-            return new[]
+            var result = new SkillBlockDefinition[
+                BlockLines.Length * Rarities.Length * ShapeVariantOffsets.Length];
+            int writeIndex = 0;
+            for (int lineIndex = 0; lineIndex < BlockLines.Length; lineIndex++)
             {
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Normal, 0),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Normal, 1),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Rare, 0),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Rare, 1),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Elite, 0),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Elite, 1),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Unique, 0),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Unique, 1),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Legendary, 0),
-                CreateBlock("contact", SkillBlockCategory.Contact, PlayerAbility.Contact, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Normal, 0),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Normal, 1),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Rare, 0),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Rare, 1),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Elite, 0),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Elite, 1),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Unique, 0),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Unique, 1),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Legendary, 0),
-                CreateBlock("power", SkillBlockCategory.Power, PlayerAbility.Power, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Normal, 0),
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Normal, 1),
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Rare, 0),
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Rare, 1),
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Elite, 0),
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Elite, 1),
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Unique, 0),
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Unique, 1),
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Legendary, 0),
-                CreateBlock("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Normal, 0),
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Normal, 1),
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Rare, 0),
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Rare, 1),
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Elite, 0),
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Elite, 1),
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Unique, 0),
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Unique, 1),
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Legendary, 0),
-                CreateBlock("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Normal, 0),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Normal, 1),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Rare, 0),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Rare, 1),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Elite, 0),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Elite, 1),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Unique, 0),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Unique, 1),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Legendary, 0),
-                CreateBlock("defense", SkillBlockCategory.Defense, PlayerAbility.Defense, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Normal, 0),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Normal, 1),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Rare, 0),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Rare, 1),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Elite, 0),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Elite, 1),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Unique, 0),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Unique, 1),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Legendary, 0),
-                CreateBlock("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Normal, 0),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Normal, 1),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Rare, 0),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Rare, 1),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Elite, 0),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Elite, 1),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Unique, 0),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Unique, 1),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Legendary, 0),
-                CreateBlock("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Normal, 0),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Normal, 1),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Rare, 0),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Rare, 1),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Elite, 0),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Elite, 1),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Unique, 0),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Unique, 1),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Legendary, 0),
-                CreateBlock("control", SkillBlockCategory.Control, PlayerAbility.Control, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Normal, 0),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Normal, 1),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Rare, 0),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Rare, 1),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Elite, 0),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Elite, 1),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Unique, 0),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Unique, 1),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Legendary, 0),
-                CreateBlock("breaking", SkillBlockCategory.Breaking, PlayerAbility.Breaking, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Normal, 0),
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Normal, 1),
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Rare, 0),
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Rare, 1),
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Elite, 0),
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Elite, 1),
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Unique, 0),
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Unique, 1),
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Legendary, 0),
-                CreateBlock("pitcher_physical", SkillBlockCategory.PitcherPhysical, PlayerAbility.Stamina, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Normal, 0),
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Normal, 1),
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Rare, 0),
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Rare, 1),
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Elite, 0),
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Elite, 1),
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Unique, 0),
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Unique, 1),
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Legendary, 0),
-                CreateBlock("stuff", SkillBlockCategory.Stuff, PlayerAbility.Stuff, SkillBlockRarity.Legendary, 1),
-
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Normal, 0),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Normal, 1),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Rare, 0),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Rare, 1),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Elite, 0),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Elite, 1),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Unique, 0),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Unique, 1),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Legendary, 0),
-                CreateBlock("pitcher_mental", SkillBlockCategory.PitcherMental, PlayerAbility.PitcherMental, SkillBlockRarity.Legendary, 1)
-            };
+                SkillBlockLine line = BlockLines[lineIndex];
+                for (int rarityIndex = 0; rarityIndex < Rarities.Length; rarityIndex++)
+                {
+                    for (int variant = 0; variant < ShapeVariantOffsets.Length; variant++)
+                    {
+                        result[writeIndex++] = CreateBlock(
+                            line.IdPrefix,
+                            line.Category,
+                            line.Ability,
+                            Rarities[rarityIndex],
+                            variant);
+                    }
+                }
+            }
+            return result;
         }
 
         private static SkillBlockDefinition CreateBlock(
@@ -210,9 +137,8 @@ namespace Baseball.Core.Balance
         }
 
         /// <summary>
-        /// 같은 카테고리·등급이라도 <paramref name="shapeVariant"/>가 다르면 서로 다른
-        /// 모양이 나오도록 오프셋을 더해 뽑는다. 오프셋 3은 7종 모양에 대해
-        /// 나머지가 겹치지 않도록 고른 값이다.
+        /// 계통·등급으로 시작점을 흩고 변종 오프셋을 더해 모양을 고른다. 시작점이 달라도
+        /// 오프셋이 0~6을 모두 쓰므로 어떤 계통·등급이든 7종 모양이 한 번씩 나온다.
         /// </summary>
         private static TetrominoShape GetShape(
             SkillBlockCategory category,

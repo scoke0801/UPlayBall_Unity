@@ -11,6 +11,15 @@ namespace Baseball.Presentation.Career
 {
     public sealed partial class UI_Scene_CareerGrowth
     {
+        /// <summary>
+        /// 뽑기 풀 미리보기는 계통·등급마다 나올 수 있는 표준 테트로미노 7종을 모두 보여준다.
+        /// 카드 폭 132에 간격 13을 더한 145 간격으로 1160 폭 패널 안에 가운데 정렬한다.
+        /// </summary>
+        private const int GachaPoolPreviewCount = 7;
+        private const float GachaPoolPreviewStepX = 145f;
+        private const float GachaPoolPreviewFirstX =
+            -GachaPoolPreviewStepX * (GachaPoolPreviewCount - 1) * 0.5f;
+
         private sealed class InventoryStack
         {
             public GrowthSkillBlockView Block;
@@ -1401,7 +1410,7 @@ namespace Baseball.Presentation.Career
             GrowthGachaOfferView offer)
         {
             int shown = 0;
-            for (int index = 0; index < growth.GachaPool.Length && shown < 4; index++)
+            for (int index = 0; index < growth.GachaPool.Length && shown < GachaPoolPreviewCount; index++)
             {
                 GrowthGachaPoolItemView item = growth.GachaPool[index];
                 if (item.Rarity != offer.MinimumRarity ||
@@ -1409,7 +1418,7 @@ namespace Baseball.Presentation.Career
                 {
                     continue;
                 }
-                float x = -355f + shown * 145f;
+                float x = GachaPoolPreviewFirstX + shown * GachaPoolPreviewStepX;
                 RectTransform card = CreateImage(
                     "GachaPoolPreview_" + shown,
                     detail,

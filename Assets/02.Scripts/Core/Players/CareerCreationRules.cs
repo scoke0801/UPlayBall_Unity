@@ -117,12 +117,12 @@ namespace Baseball.Core.Players
             return playerType == PlayerType.Pitcher ? Pitcher : Batter;
         }
 
-        /// <summary>기획안의 35 기본값, 타자 60·투수 40포인트 규칙을 만든다.</summary>
+        /// <summary>Rookie 평균 60을 출발선으로 삼고 특화 선택 폭을 유지하는 기본 규칙을 만든다.</summary>
         public static CareerCreationRules CreateDefault()
         {
             return new CareerCreationRules(
-                new CareerAttributeAllocationRule(attributeCount: 6, baseValue: 35, bonusPoints: 60, maxValue: 60),
-                new CareerAttributeAllocationRule(attributeCount: 4, baseValue: 35, bonusPoints: 40, maxValue: 60));
+                new CareerAttributeAllocationRule(attributeCount: 6, baseValue: 50, bonusPoints: 60, maxValue: 75),
+                new CareerAttributeAllocationRule(attributeCount: 4, baseValue: 50, bonusPoints: 40, maxValue: 75));
         }
     }
 }

@@ -64,7 +64,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Right, Handedness.Right);
 
-            flow.SubmitBatterAttributes(new BatterAttributes(50, 65, 50, 55, 40, 40));
+            flow.SubmitBatterAttributes(new BatterAttributes(60, 75, 60, 65, 50, 50));
 
             Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.PlayerCard));
             Assert.That(flow.BuildWarning, Is.Not.Empty);
@@ -99,7 +99,7 @@ namespace Baseball.Tests.EditMode.Game
 
             flow.SubmitBasicInformation("  김민우  ", PlayerType.Pitcher, Handedness.Left, Handedness.Left);
             flow.SubmitCreationPosition(PlayerPosition.Unknown, PitcherRole.Starter);
-            flow.SubmitCreationAttributes(new[] { 49, 46, 45, 40 });
+            flow.SubmitCreationAttributes(new[] { 64, 61, 60, 55 });
             flow.SubmitPitcherDetails(
                 new[] { PitchType.FourSeamFastball, PitchType.Slider, PitchType.Changeup },
                 PitchType.Slider);
@@ -123,7 +123,7 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(flow.Career.CreationProfile.PlayerType, Is.EqualTo(PlayerType.Pitcher));
             Assert.That(flow.Career.CreationProfile.PreferredPitcherRole, Is.EqualTo(PitcherRole.Starter));
-            Assert.That(flow.Career.CreationProfile.InitialAttributes, Is.EqualTo(new[] { 49, 46, 45, 40 }));
+            Assert.That(flow.Career.CreationProfile.InitialAttributes, Is.EqualTo(new[] { 64, 61, 60, 55 }));
             Assert.That(flow.Career.GameSettings.PitchingApproach, Is.EqualTo(PitchingApproach.ControlFirst));
             Assert.That(flow.Career.GameSettings.MatchProgressMode, Is.EqualTo(MatchProgressMode.InterveneOnPlayer));
             Assert.That(flow.Career.GameSettings.GameSpeed, Is.EqualTo(2));
@@ -138,13 +138,13 @@ namespace Baseball.Tests.EditMode.Game
             flow.SubmitCreationPosition(PlayerPosition.Shortstop, PitcherRole.Starter);
 
             Assert.Throws<System.ArgumentException>(() =>
-                flow.SubmitCreationAttributes(new[] { 44, 44, 44, 44, 44, 44 }));
-            Assert.Throws<System.ArgumentException>(() =>
-                flow.SubmitCreationAttributes(new[] { 61, 49, 45, 45, 35, 35 }));
+                flow.SubmitCreationAttributes(new[] { 59, 59, 59, 59, 59, 59 }));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() =>
+                flow.SubmitCreationAttributes(new[] { 76, 64, 60, 60, 50, 50 }));
             Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.AttributeAllocation));
 
             Assert.DoesNotThrow(() =>
-                flow.SubmitCreationAttributes(new[] { 45, 45, 45, 45, 45, 45 }));
+                flow.SubmitCreationAttributes(new[] { 60, 60, 60, 60, 60, 60 }));
             Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.PlayerDetails));
         }
 
@@ -155,7 +155,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPlayerType(PlayerType.Batter);
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Left, Handedness.Right);
-            flow.SubmitBatterAttributes(new BatterAttributes(55, 50, 52, 43, 60, 52));
+            flow.SubmitBatterAttributes(new BatterAttributes(65, 60, 62, 53, 65, 55));
             return flow;
         }
     }
