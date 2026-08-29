@@ -6,6 +6,12 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Baseball.Core.Tests">
+      <HintPath>..\..\Temp\Bin\Debug\Baseball.Core.Tests\Baseball.Core.Tests.dll</HintPath>
+    </Reference>
+    <Reference Include="Baseball.Game.Tests">
+      <HintPath>..\..\Temp\Bin\Debug\Baseball.Game.Tests\Baseball.Game.Tests.dll</HintPath>
+    </Reference>
     <Reference Include="Baseball.Simulation.Tests">
       <HintPath>..\..\Temp\Bin\Debug\Baseball.Simulation.Tests\Baseball.Simulation.Tests.dll</HintPath>
     </Reference>
@@ -14,6 +20,9 @@
     </Reference>
     <Reference Include="Baseball.Simulation">
       <HintPath>..\..\Temp\Bin\Debug\Baseball.Simulation\Baseball.Simulation.dll</HintPath>
+    </Reference>
+    <Reference Include="Baseball.Game">
+      <HintPath>..\..\Temp\Bin\Debug\Baseball.Game\Baseball.Game.dll</HintPath>
     </Reference>
     <Reference Include="nunit.framework">
       <HintPath>..\..\Library\PackageCache\com.unity.ext.nunit@d8c07649098d\net40\unity-custom\nunit.framework.dll</HintPath>

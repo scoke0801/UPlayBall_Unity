@@ -4,6 +4,7 @@ using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Rules;
 using Baseball.Core.Teams;
+using Baseball.Simulation.Career;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
 
@@ -11,6 +12,12 @@ namespace Baseball.Tools.SimulationDiagnostics
 {
     internal static class Program
     {
+        private static readonly string[] DiagnosticTeamNames =
+        {
+            "진단 서울", "진단 부산", "진단 인천", "진단 광주",
+            "진단 수원", "진단 대전", "진단 대구", "진단 창원"
+        };
+
         private static int Main(string[] args)
         {
             try
@@ -33,6 +40,7 @@ namespace Baseball.Tools.SimulationDiagnostics
                 return 2;
 
             BalanceTable balance = BalanceTable.CreateDefault();
+            CareerCreationStatistics creationStatistics = MeasureCareerCreation(balance, gameCount);
             MatchRosterSnapshot away = CreateRoster(1, 50, 50, 50);
             MatchRosterSnapshot home = CreateRoster(2, 50, 50, 50);
             var statistics = new AggregateStatistics();
@@ -53,9 +61,69 @@ namespace Baseball.Tools.SimulationDiagnostics
 
             VerifyDeterminism(balance, away, home);
             VerifyCoreRules(balance, away, home);
+            creationStatistics.Validate(balance);
             statistics.Validate(gameCount);
+            Console.WriteLine(creationStatistics.Format(gameCount));
+            Console.WriteLine();
             Console.WriteLine(statistics.Format(gameCount));
             return 0;
+        }
+
+        private static CareerCreationStatistics MeasureCareerCreation(BalanceTable balance, int sampleCount)
+        {
+            CareerCreationRules rules = CareerCreationRules.CreateDefault();
+            int[] batterValues = rules.Batter.CreateWeightedValues(1, 1, 1, 1, 1, 1);
+            int[] pitcherValues = rules.Pitcher.CreateWeightedValues(1, 1, 1, 1);
+            var batter = new Player(
+                9000001,
+                "균형형 타자",
+                PlayerPosition.Shortstop,
+                Handedness.Right,
+                Handedness.Right,
+                new BatterAttributes(
+                    batterValues[0], batterValues[1], batterValues[3],
+                    batterValues[5], batterValues[4], batterValues[2]),
+                default);
+            var pitcher = new Player(
+                9000002,
+                "균형형 투수",
+                PlayerPosition.StartingPitcher,
+                Handedness.Right,
+                Handedness.Right,
+                default,
+                new PitcherAttributes(
+                    pitcherValues[3], pitcherValues[0], pitcherValues[0],
+                    pitcherValues[2], pitcherValues[1], pitcherValues[1]));
+            var evaluator = new PlayerValueEvaluator(balance.PlayerEvaluation);
+            var result = new CareerCreationStatistics(
+                evaluator.CalculatePositionValue(batter),
+                evaluator.CalculatePositionValue(pitcher));
+
+            for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
+            {
+                ulong seed = DeterministicSeed.Derive(0x4352454154494F4EUL, (ulong)sampleIndex);
+                GeneratedTeam[] teams = new TeamGenerator(
+                        balance.TeamGeneration,
+                        new Pcg32Random(seed))
+                    .GenerateLeague(
+                        8,
+                        TeamArchetypeLibrary.CreateDefaultPool(),
+                        DiagnosticTeamNames);
+                for (int teamIndex = 0; teamIndex < teams.Length; teamIndex++)
+                {
+                    IReadOnlyList<RosterCompetitor> competitors = teams[teamIndex]
+                        .GetPositionCompetitors(PlayerPosition.Shortstop);
+                    int strongest = 0;
+                    for (int competitorIndex = 0; competitorIndex < competitors.Count; competitorIndex++)
+                    {
+                        int overall = competitors[competitorIndex].Overall;
+                        result.AddCompetitor(overall);
+                        if (overall > strongest) strongest = overall;
+                    }
+                    result.AddStrongestCompetitor(strongest);
+                }
+            }
+            return result;
         }
 
         private static void VerifyDeterminism(
@@ -404,6 +472,67 @@ namespace Baseball.Tools.SimulationDiagnostics
                     $"IBB/Team={Ratio(_intentionalWalks, games * 2L):F3}",
                     $"GIDP/Team={Ratio(_doublePlays, games * 2L):F3}",
                     $"Draw%={Ratio(_draws, games) * 100d:F2}"
+                });
+            }
+
+            private static double Ratio(double numerator, double denominator)
+            {
+                return denominator <= 0d ? 0d : numerator / denominator;
+            }
+        }
+
+        private sealed class CareerCreationStatistics
+        {
+            private long _competitorOverallTotal;
+            private long _strongestOverallTotal;
+            private long _competitorCount;
+            private long _strongestCount;
+
+            public CareerCreationStatistics(int batterValue, int pitcherValue)
+            {
+                BatterValue = batterValue;
+                PitcherValue = pitcherValue;
+            }
+
+            public int BatterValue { get; }
+            public int PitcherValue { get; }
+
+            public void AddCompetitor(int overall)
+            {
+                _competitorOverallTotal += overall;
+                _competitorCount++;
+            }
+
+            public void AddStrongestCompetitor(int overall)
+            {
+                _strongestOverallTotal += overall;
+                _strongestCount++;
+            }
+
+            public void Validate(BalanceTable balance)
+            {
+                double competitorAverage = Ratio(_competitorOverallTotal, _competitorCount);
+                double strongestAverage = Ratio(_strongestOverallTotal, _strongestCount);
+                if (BatterValue != 60 || PitcherValue != 60)
+                    throw new InvalidOperationException("생성 밸런스 실패: 균형형의 포지션 평가가 60이 아닙니다.");
+                if (Math.Abs(competitorAverage - BatterValue) > 2d)
+                    throw new InvalidOperationException("생성 밸런스 실패: 플레이어와 Rookie 평균의 차이가 너무 큽니다.");
+                if (BatterValue + balance.CareerSeason.StartingCompetitionBonus < strongestAverage)
+                {
+                    throw new InvalidOperationException(
+                        "생성 밸런스 실패: 주전 경쟁 계약 보정으로도 평균 최고 경쟁자에게 도달하지 못합니다.");
+                }
+            }
+
+            public string Format(int samples)
+            {
+                return string.Join(Environment.NewLine, new[]
+                {
+                    $"CareerCreationSamples={samples:N0}",
+                    $"BalancedBatterValue={BatterValue}",
+                    $"BalancedPitcherValue={PitcherValue}",
+                    $"RookieCompetitorAverage={Ratio(_competitorOverallTotal, _competitorCount):F2}",
+                    $"RookieStrongestAtPosition={Ratio(_strongestOverallTotal, _strongestCount):F2}"
                 });
             }
 
