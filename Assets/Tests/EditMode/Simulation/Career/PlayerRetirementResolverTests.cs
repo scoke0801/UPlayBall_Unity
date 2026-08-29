@@ -1,4 +1,5 @@
 using Baseball.Core.Balance;
+using Baseball.Core.Players;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Random;
 using NUnit.Framework;
@@ -39,6 +40,48 @@ namespace Baseball.Tests.EditMode.Simulation.Career
                 .ShouldRetire(36, overall: 50);
 
             Assert.That(second, Is.EqualTo(first));
+        }
+
+        [Test]
+        public void ShouldRetire_현역집착형은같은상황의야망형보다현역을연장한다()
+        {
+            PlayerLifecycleBalance balance = PlayerLifecycleBalance.CreateDefault();
+            var ambitious = new RetirementEvaluationInput(
+                nextSeasonAge: 36,
+                overall: 60,
+                RetirementPersonality.Ambitious);
+            var playingObsessed = new RetirementEvaluationInput(
+                nextSeasonAge: 36,
+                overall: 60,
+                RetirementPersonality.PlayingObsessed);
+
+            Assert.That(
+                new PlayerRetirementResolver(balance, new FixedRandom(0.15d)).ShouldRetire(ambitious),
+                Is.True);
+            Assert.That(
+                new PlayerRetirementResolver(balance, new FixedRandom(0.15d)).ShouldRetire(playingObsessed),
+                Is.False);
+        }
+
+        [Test]
+        public void ShouldRetire_남은계약과마일스톤과프랜차이즈관계는은퇴압박을낮춘다()
+        {
+            var input = new RetirementEvaluationInput(
+                nextSeasonAge: 36,
+                overall: 60,
+                RetirementPersonality.FranchiseLoyal,
+                hasContractRemaining: true,
+                isMilestonePursuit: true,
+                isChampionshipContender: true,
+                isFranchiseTeam: true,
+                hasVeteranDemand: true);
+
+            bool shouldRetire = new PlayerRetirementResolver(
+                    PlayerLifecycleBalance.CreateDefault(),
+                    new FixedRandom(0d))
+                .ShouldRetire(input);
+
+            Assert.That(shouldRetire, Is.False);
         }
 
         private sealed class FixedRandom : IRandomSource
