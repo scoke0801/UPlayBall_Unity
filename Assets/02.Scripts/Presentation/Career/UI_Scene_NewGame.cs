@@ -13,7 +13,7 @@ namespace Baseball.Presentation.Career
     /// <summary>
     /// 선수 생성부터 구단 계약과 Rookie League 시작까지를 한 화면 마법사로 표시한다.
     /// </summary>
-    public sealed class UI_Scene_NewGame : UISceneBase
+    internal sealed class UI_Scene_NewGame_Legacy : UISceneBase
     {
         private static readonly Color BackgroundColor = new(0.018f, 0.027f, 0.045f, 1f);
         private static readonly Color PanelColor = new(0.035f, 0.055f, 0.085f, 0.98f);
@@ -43,14 +43,14 @@ namespace Baseball.Presentation.Career
         /// <summary>
         /// 프리팹이 없는 프로토타입 환경에서 같은 화면을 런타임 생성한다.
         /// </summary>
-        public static UI_Scene_NewGame CreateRuntime(Transform parent)
+        public static UI_Scene_NewGame_Legacy CreateRuntime(Transform parent)
         {
             var screenObject = new GameObject(
-                nameof(UI_Scene_NewGame),
+                nameof(UI_Scene_NewGame_Legacy),
                 typeof(RectTransform),
                 typeof(CanvasGroup));
             screenObject.transform.SetParent(parent, false);
-            UI_Scene_NewGame screen = screenObject.AddComponent<UI_Scene_NewGame>();
+            UI_Scene_NewGame_Legacy screen = screenObject.AddComponent<UI_Scene_NewGame_Legacy>();
             Stretch(screenObject.GetComponent<RectTransform>());
             return screen;
         }

@@ -38,7 +38,8 @@ namespace Baseball.Game.Career
             PlayerState myPlayer,
             WorldState world,
             PlayerContractState currentContract,
-            long availableMoney)
+            long availableMoney,
+            CareerCreationProfile creationProfile = null)
         {
             SaveVersion = saveVersion;
             MyPlayer = myPlayer ?? throw new ArgumentNullException(nameof(myPlayer));
@@ -54,6 +55,20 @@ namespace Baseball.Game.Career
             TradeState = new PlayerTradeState();
             News = new CareerNewsState(saveVersion);
             Narrative = new CareerNarrativeState(saveVersion);
+            CreationProfile = creationProfile ?? new CareerCreationProfile(
+                GameMode.PlayerCareer,
+                myPlayer.PrimaryPosition is Baseball.Core.Players.PlayerPosition.StartingPitcher or
+                    Baseball.Core.Players.PlayerPosition.ReliefPitcher
+                    ? Baseball.Core.Players.PlayerType.Pitcher
+                    : Baseball.Core.Players.PlayerType.Batter,
+                myPlayer.PrimaryPosition,
+                myPlayer.PrimaryPosition == Baseball.Core.Players.PlayerPosition.ReliefPitcher
+                    ? Baseball.Core.Teams.PitcherRole.MiddleRelief
+                    : Baseball.Core.Teams.PitcherRole.Starter,
+                BatterStyle.Balanced,
+                Array.Empty<int>(),
+                Array.Empty<Baseball.Core.Players.PitchRepertoireEntry>(),
+                CareerGameSettings.CreateDefault());
             _contractHistory.Add(CurrentContract);
         }
 
@@ -67,6 +82,8 @@ namespace Baseball.Game.Career
         public PlayerTradeState TradeState { get; }
         public CareerNewsState News { get; }
         public CareerNarrativeState Narrative { get; }
+        public CareerCreationProfile CreationProfile { get; }
+        public CareerGameSettings GameSettings => CreationProfile.GameSettings;
         public OffseasonState CurrentOffseason { get; private set; }
         public long AvailableMoney => Economy.Money;
         public Baseball.Core.Teams.ExpectedRole CurrentExpectedRole =>

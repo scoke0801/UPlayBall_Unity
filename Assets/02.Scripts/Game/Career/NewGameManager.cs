@@ -136,9 +136,12 @@ namespace Baseball.Game.Career
         private NewGameConfiguration _configuration;
         private NewGameFlow _flow;
         private ContractOfferView[] _offerViews = Array.Empty<ContractOfferView>();
+        private bool _isAtTitle;
 
         public override int InitializationOrder => -25;
         public NewGameStep CurrentStep => _flow?.State.Step ?? NewGameStep.Identity;
+        public bool IsAtTitle => _isAtTitle;
+        public CareerCreationDraft Draft => _flow?.State.Draft;
         public string PlayerName => _flow?.State.PlayerName ?? string.Empty;
         public string Nationality => _flow?.State.Nationality ?? string.Empty;
         public PlayerType? PlayerType => _flow?.State.PlayerType;
@@ -149,6 +152,11 @@ namespace Baseball.Game.Career
         public PitcherAttributes? PitcherAttributes => _flow?.State.PitcherAttributes;
         public ulong RandomSeed => _flow?.State.RandomSeed ?? 0UL;
         public CharacterCreationBalance CharacterCreationBalance => _configuration.Balance.CharacterCreation;
+        public CareerCreationRules CareerCreationRules => _configuration.CareerCreationRules;
+        public CareerAttributeAllocationRule CurrentCreationAttributeRule =>
+            CareerCreationRules.GetRule(PlayerType ?? Baseball.Core.Players.PlayerType.Batter);
+        public IReadOnlyList<AttributeAllocationPresetView> CreationAttributeAllocationPresets =>
+            CreateCreationAttributeAllocationPresets();
         public IReadOnlyList<AttributeAllocationPresetView> AttributeAllocationPresets =>
             CreateAttributeAllocationPresets();
         public IReadOnlyList<ContractOfferView> Offers => _offerViews;
@@ -178,9 +186,88 @@ namespace Baseball.Game.Career
         public void RestartNewGame(ulong randomSeed)
         {
             _flow = new NewGameFlow(_configuration, randomSeed);
+            _isAtTitle = true;
             LastError = string.Empty;
             RebuildOfferViews();
             FlowChanged?.Invoke();
+        }
+
+        /// <summary>타이틀에서 선수 커리어 생성을 시작한다.</summary>
+        public void StartPlayerCareerCreation()
+        {
+            if (_flow == null || _flow.State.Step != NewGameStep.Identity)
+                _flow = new NewGameFlow(_configuration, CreateRuntimeSeed());
+            _isAtTitle = false;
+            LastError = string.Empty;
+            RebuildOfferViews();
+            FlowChanged?.Invoke();
+        }
+
+        /// <summary>확정 전 draft를 버리고 타이틀로 돌아간다.</summary>
+        public void DiscardDraftAndShowTitle()
+        {
+            _flow = new NewGameFlow(_configuration, CreateRuntimeSeed());
+            _isAtTitle = true;
+            LastError = string.Empty;
+            RebuildOfferViews();
+            FlowChanged?.Invoke();
+        }
+
+        public bool SubmitBasicInformation(
+            string playerName,
+            PlayerType playerType,
+            Handedness battingHand,
+            Handedness throwingHand)
+        {
+            return TryAdvance(() => _flow.SubmitBasicInformation(
+                playerName,
+                playerType,
+                battingHand,
+                throwingHand));
+        }
+
+        public bool SubmitCreationPosition(PlayerPosition batterPosition, PitcherRole preferredPitcherRole)
+        {
+            return TryAdvance(() => _flow.SubmitCreationPosition(batterPosition, preferredPitcherRole));
+        }
+
+        public bool SubmitCreationAttributes(int[] values)
+        {
+            return TryAdvance(() => _flow.SubmitCreationAttributes(values));
+        }
+
+        public bool SubmitBatterDetails(BatterStyle style)
+        {
+            return TryAdvance(() => _flow.SubmitBatterDetails(style));
+        }
+
+        public bool SubmitPitcherDetails(PitchType[] pitchTypes, PitchType primaryPitch)
+        {
+            return TryAdvance(() => _flow.SubmitPitcherDetails(pitchTypes, primaryPitch));
+        }
+
+        public bool SubmitMatchSettings(
+            BattingApproach battingApproach,
+            PitchingApproach pitchingApproach,
+            MatchProgressMode matchProgressMode,
+            int gameSpeed,
+            bool autoSlowOnPlayerEvent)
+        {
+            return TryAdvance(() => _flow.SubmitMatchSettings(
+                battingApproach,
+                pitchingApproach,
+                matchProgressMode,
+                gameSpeed,
+                autoSlowOnPlayerEvent));
+        }
+
+        public bool ConfirmCreationAndGenerateOffers()
+        {
+            return TryAdvance(() =>
+            {
+                _flow.ConfirmCreation();
+                _flow.GenerateOffers();
+            });
         }
 
         public bool SubmitIdentity(string playerName, string nationality)
@@ -265,6 +352,11 @@ namespace Baseball.Game.Career
 
         public bool GoBack()
         {
+            if (!_isAtTitle && _flow.State.Step == NewGameStep.Identity)
+            {
+                DiscardDraftAndShowTitle();
+                return true;
+            }
             if (!_flow.GoBack())
                 return false;
 
@@ -279,6 +371,7 @@ namespace Baseball.Game.Career
             try
             {
                 action();
+                _isAtTitle = false;
                 LastError = string.Empty;
                 RebuildOfferViews();
                 FlowChanged?.Invoke();
@@ -320,6 +413,45 @@ namespace Baseball.Game.Career
                     balance, 3, 1, 5, 2, 3, 2),
                 CreatePreset("수비형", IsDefensePosition(PrimaryPosition), balance, 2, 1, 3, 2, 5, 3)
             };
+        }
+
+        private AttributeAllocationPresetView[] CreateCreationAttributeAllocationPresets()
+        {
+            CareerAttributeAllocationRule rule = CurrentCreationAttributeRule;
+            if (PlayerType == Baseball.Core.Players.PlayerType.Pitcher)
+            {
+                return new[]
+                {
+                    CreateCreationPreset("선발 균형형", PrimaryPosition == PlayerPosition.StartingPitcher, rule, 3, 3, 3, 4),
+                    CreateCreationPreset("이닝이터형", false, rule, 2, 3, 2, 6),
+                    CreateCreationPreset("제구형", false, rule, 2, 6, 3, 3),
+                    CreateCreationPreset("파워 피처형", false, rule, 6, 2, 3, 2),
+                    CreateCreationPreset("변화구형", false, rule, 3, 2, 6, 2),
+                    CreateCreationPreset("불펜 특화형", PrimaryPosition == PlayerPosition.ReliefPitcher, rule, 6, 4, 4, 1)
+                };
+            }
+
+            return new[]
+            {
+                CreateCreationPreset("균형형", false, rule, 1, 1, 1, 1, 1, 1),
+                CreateCreationPreset("교타자", false, rule, 6, 2, 3, 3, 2, 2),
+                CreateCreationPreset("장타자", IsPowerPosition(PrimaryPosition), rule, 3, 6, 2, 2, 2, 3),
+                CreateCreationPreset("선구안형", false, rule, 3, 2, 6, 2, 2, 2),
+                CreateCreationPreset("호타준족형", PrimaryPosition == PlayerPosition.CenterField, rule, 4, 2, 2, 6, 3, 2),
+                CreateCreationPreset("수비형", IsDefensePosition(PrimaryPosition), rule, 2, 1, 2, 3, 6, 5)
+            };
+        }
+
+        private static AttributeAllocationPresetView CreateCreationPreset(
+            string label,
+            bool isRecommended,
+            CareerAttributeAllocationRule rule,
+            params int[] weights)
+        {
+            return new AttributeAllocationPresetView(
+                label,
+                isRecommended,
+                rule.CreateWeightedValues(weights));
         }
 
         private static AttributeAllocationPresetView CreatePreset(

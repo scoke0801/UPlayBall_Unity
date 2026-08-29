@@ -16,7 +16,10 @@ namespace Baseball.Game.Career
         PlayerCard,
         ContractOffers,
         ContractComplete,
-        Completed
+        Completed,
+        PlayerDetails,
+        MatchSettings,
+        FinalConfirmation
     }
 
     /// <summary>
@@ -37,6 +40,8 @@ namespace Baseball.Game.Career
         public ulong RandomSeed { get; set; }
         public NewGameSetupResult SetupResult { get; set; }
         public ContractOffer? SelectedOffer { get; set; }
+        public CareerCreationDraft Draft { get; set; }
+        public bool UsesGuidedCreation { get; set; }
 
         /// <summary>
         /// 이름·포지션·능력치까지 채워져 구단 생성 단계로 넘어갈 수 있는지 확인한다.

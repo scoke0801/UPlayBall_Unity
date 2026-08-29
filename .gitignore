@@ -432,6 +432,7 @@ FodyWeavers.xsd
 ExportedObj/
 .consulo/
 *.csproj
+!Tools/**/*.csproj
 *.unityproj
 *.sln
 *.booproj
@@ -501,6 +502,13 @@ $RECYCLE.BIN/
 **/unsave
 **/03.Prefabs
 **/04.Images
+!Assets/04.Images/
+Assets/04.Images/*
+!Assets/04.Images/UI/
+!Assets/04.Images/UI.meta
+Assets/04.Images/UI/*
+!Assets/04.Images/UI/img_title.png
+!Assets/04.Images/UI/img_title.png.meta
 **/05.Models
 **/06.Sounds
 **/07.Animations

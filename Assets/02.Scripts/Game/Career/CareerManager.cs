@@ -269,12 +269,63 @@ namespace Baseball.Game.Career
             return MutateActiveMatch(match => match.Start(mode));
         }
 
+        /// <summary>커리어 생성 또는 설정 화면에서 고른 기본 진행 방식으로 준비된 경기를 시작한다.</summary>
+        public bool StartPreparedGameFromSettings()
+        {
+            if (CurrentCareer == null)
+                return Fail("진행 중인 커리어가 없습니다.");
+            return StartPreparedGame(ToCareerMatchMode(CurrentCareer.GameSettings.MatchProgressMode));
+        }
+
+        /// <summary>경기 관전과 선수 방침 설정을 커리어 런타임 상태에 반영한다.</summary>
+        public bool UpdateGameSettings(
+            BattingApproach battingApproach,
+            PitchingApproach pitchingApproach,
+            MatchProgressMode progressMode,
+            int gameSpeed,
+            bool autoSlowOnPlayerEvent)
+        {
+            if (CurrentCareer == null)
+                return Fail("진행 중인 커리어가 없습니다.");
+
+            try
+            {
+                CareerGameSettings settings = CurrentCareer.GameSettings;
+                settings.SetBattingApproach(battingApproach);
+                settings.SetPitchingApproach(pitchingApproach);
+                settings.SetMatchProgressMode(progressMode);
+                settings.SetGameSpeed(gameSpeed);
+                settings.SetAutoSlowOnPlayerEvent(autoSlowOnPlayerEvent);
+                _activeMatch?.UpdateApproaches(battingApproach, pitchingApproach);
+                LastError = string.Empty;
+                CareerChanged?.Invoke();
+                return true;
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
+        /// <summary>저장되지 않은 경기와 커리어 런타임 상태를 버리고 타이틀 복귀가 가능한 상태로 만든다.</summary>
+        public void EndCareer()
+        {
+            ResetCareerRuntime();
+            CareerChanged?.Invoke();
+        }
+
         /// <summary>
         /// 현재 투구에 선택한 타격 방식을 적용한다.
         /// </summary>
         public bool SubmitBattingApproach(BattingApproach approach)
         {
             return MutateActiveMatch(match => match.SubmitBattingApproach(approach));
+        }
+
+        /// <summary>플레이어 투수의 현재 이닝을 선택한 방침으로 진행한다.</summary>
+        public bool AutoCompleteCurrentPitchingInning(PitchingApproach approach)
+        {
+            return MutateActiveMatch(match => match.AutoCompleteCurrentPitchingInning(approach));
         }
 
         /// <summary>
@@ -291,6 +342,12 @@ namespace Baseball.Game.Career
         public bool AutoCompleteActiveMatch()
         {
             return MutateActiveMatch(match => match.AutoCompleteMatch());
+        }
+
+        /// <summary>확인된 요청에 따라 준비 중이거나 진행 중인 경기의 남은 부분을 즉시 계산한다.</summary>
+        public bool CompleteActiveMatchInstantly()
+        {
+            return MutateActiveMatch(match => match.CompleteInstantly());
         }
 
         /// <summary>
@@ -554,8 +611,13 @@ namespace Baseball.Game.Career
 
         protected override void OnShutdown()
         {
-            ResetGrowthRuntime();
             CareerChanged = null;
+            ResetCareerRuntime();
+        }
+
+        private void ResetCareerRuntime()
+        {
+            ResetGrowthRuntime();
             CurrentCareer = null;
             _seasonService = null;
             _postseasonService = null;
@@ -564,6 +626,19 @@ namespace Baseball.Game.Career
             _lastGame = null;
             _activeMatch = null;
             _lastSeasonAutoCompletion = null;
+            LastError = string.Empty;
+        }
+
+        private static CareerMatchMode ToCareerMatchMode(MatchProgressMode mode)
+        {
+            return mode switch
+            {
+                MatchProgressMode.FullGameWatch => CareerMatchMode.FullGameWatch,
+                MatchProgressMode.InterveneOnPlayer => CareerMatchMode.InterveneOnPlayer,
+                MatchProgressMode.PlayerFocusAutomatic => CareerMatchMode.PlayerFocusAutomatic,
+                MatchProgressMode.InstantResult => CareerMatchMode.ResultsOnly,
+                _ => throw new ArgumentOutOfRangeException(nameof(mode))
+            };
         }
 
         private bool Fail(string message)

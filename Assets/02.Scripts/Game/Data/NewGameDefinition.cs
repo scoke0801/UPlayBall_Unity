@@ -176,6 +176,10 @@ namespace Baseball.Game.Data
         [SerializeField, Range(0, 100)] private int _baseAttributeValue = 40;
         [SerializeField, Min(0)] private int _bonusPoints = 72;
         [SerializeField, Range(0, 100)] private int _maximumAttributeValue = 65;
+        [SerializeField, Range(0, 100)] private int _careerBaseAttributeValue = 35;
+        [SerializeField, Min(0)] private int _careerBatterBonusPoints = 60;
+        [SerializeField, Min(0)] private int _careerPitcherBonusPoints = 40;
+        [SerializeField, Range(0, 100)] private int _careerMaximumAttributeValue = 60;
 
         [Header("Contract Offers")]
         [SerializeField, Min(0f)] private double _offerScoreThreshold = 1d;
@@ -415,7 +419,18 @@ namespace Baseball.Game.Data
                     _minorMinimumAge,
                     _minorMaximumAge,
                     _majorMinimumAge,
-                    _majorMaximumAge));
+                    _majorMaximumAge),
+                new CareerCreationRules(
+                    new CareerAttributeAllocationRule(
+                        attributeCount: 6,
+                        _careerBaseAttributeValue,
+                        _careerBatterBonusPoints,
+                        _careerMaximumAttributeValue),
+                    new CareerAttributeAllocationRule(
+                        attributeCount: 4,
+                        _careerBaseAttributeValue,
+                        _careerPitcherBonusPoints,
+                        _careerMaximumAttributeValue)));
         }
     }
 }

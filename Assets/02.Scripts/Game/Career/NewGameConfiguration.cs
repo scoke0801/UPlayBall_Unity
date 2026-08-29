@@ -1,5 +1,6 @@
 using System;
 using Baseball.Core.Balance;
+using Baseball.Core.Players;
 using Baseball.Core.Teams;
 
 namespace Baseball.Game.Career
@@ -17,7 +18,8 @@ namespace Baseball.Game.Career
             TeamArchetypeProfile[] archetypes,
             TeamIdentityDefinition[] teamIdentities,
             string[] playerNamePool,
-            WorldGenerationConfiguration worldGeneration = null)
+            WorldGenerationConfiguration worldGeneration = null,
+            CareerCreationRules? careerCreationRules = null)
         {
             if (balance == null)
                 throw new ArgumentNullException(nameof(balance));
@@ -34,6 +36,7 @@ namespace Baseball.Game.Career
             TeamIdentities = (TeamIdentityDefinition[])teamIdentities.Clone();
             PlayerNamePool = (string[])playerNamePool.Clone();
             WorldGeneration = worldGeneration ?? WorldGenerationConfiguration.CreateDefault();
+            CareerCreationRules = careerCreationRules ?? Baseball.Core.Players.CareerCreationRules.CreateDefault();
         }
 
         public BalanceTable Balance { get; }
@@ -44,6 +47,7 @@ namespace Baseball.Game.Career
         public TeamIdentityDefinition[] TeamIdentities { get; }
         public string[] PlayerNamePool { get; }
         public WorldGenerationConfiguration WorldGeneration { get; }
+        public CareerCreationRules CareerCreationRules { get; }
 
         /// <summary>
         /// 데이터 Asset을 읽지 못한 개발·테스트 환경에서도 같은 계약으로 동작하는 기본값을 만든다.

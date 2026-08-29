@@ -13,7 +13,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 10;
+        public const int CurrentSaveVersion = 11;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
@@ -28,6 +28,8 @@ namespace Baseball.Game.Career
         public CareerState Career { get; private set; }
         public string BuildWarning { get; private set; } = string.Empty;
 
+        public CareerCreationRules CareerCreationRules => _configuration.CareerCreationRules;
+
         /// <summary>
         /// 기존 draft와 확정 커리어를 버리고 지정 Seed로 새 흐름을 시작한다.
         /// </summary>
@@ -39,10 +41,190 @@ namespace Baseball.Game.Career
                 PrimaryPosition = PlayerPosition.Unknown,
                 BattingHand = Handedness.Right,
                 ThrowingHand = Handedness.Right,
-                RandomSeed = randomSeed
+                RandomSeed = randomSeed,
+                Draft = new CareerCreationDraft()
             };
             Career = null;
             BuildWarning = string.Empty;
+        }
+
+        /// <summary>
+        /// 1단계의 이름·선수 유형·투타를 한 번에 검증하고 draft에 보관한다.
+        /// </summary>
+        public void SubmitBasicInformation(
+            string playerName,
+            PlayerType playerType,
+            Handedness battingHand,
+            Handedness throwingHand)
+        {
+            RequireStep(NewGameStep.Identity);
+            string trimmedName = ValidatePlayerName(playerName);
+            if (!Enum.IsDefined(typeof(PlayerType), playerType))
+                throw new ArgumentOutOfRangeException(nameof(playerType));
+            if (!Enum.IsDefined(typeof(Handedness), battingHand))
+                throw new ArgumentOutOfRangeException(nameof(battingHand));
+            if (!Enum.IsDefined(typeof(Handedness), throwingHand))
+                throw new ArgumentOutOfRangeException(nameof(throwingHand));
+            if (throwingHand == Handedness.Switch)
+                throw new ArgumentException("투구 손은 Switch일 수 없습니다.", nameof(throwingHand));
+
+            State.PlayerName = trimmedName;
+            State.Nationality = "대한민국";
+            State.PlayerType = playerType;
+            State.BattingHand = battingHand;
+            State.ThrowingHand = throwingHand;
+            State.PrimaryPosition = PlayerPosition.Unknown;
+            State.BatterAttributes = null;
+            State.PitcherAttributes = null;
+            State.Draft.PlayerName = trimmedName;
+            State.Draft.PlayerType = playerType;
+            State.Draft.BatHand = battingHand;
+            State.Draft.ThrowHand = throwingHand;
+            State.Draft.FieldPosition = PlayerPosition.Unknown;
+            State.Draft.SetInitialAttributes(Array.Empty<int>());
+            State.Draft.SetPitchRepertoire(Array.Empty<PitchRepertoireEntry>());
+            State.UsesGuidedCreation = true;
+            State.Step = NewGameStep.Position;
+        }
+
+        /// <summary>
+        /// 2단계의 타자 포지션 또는 투수 희망 보직을 확정한다.
+        /// </summary>
+        public void SubmitCreationPosition(PlayerPosition batterPosition, PitcherRole preferredPitcherRole)
+        {
+            RequireStep(NewGameStep.Position);
+            if (State.PlayerType == PlayerType.Pitcher)
+            {
+                if (preferredPitcherRole is PitcherRole.Swingman ||
+                    !Enum.IsDefined(typeof(PitcherRole), preferredPitcherRole))
+                {
+                    throw new ArgumentException("선택할 수 없는 희망 보직입니다.", nameof(preferredPitcherRole));
+                }
+
+                State.Draft.PreferredPitcherRole = preferredPitcherRole;
+                State.PrimaryPosition = preferredPitcherRole == PitcherRole.Starter
+                    ? PlayerPosition.StartingPitcher
+                    : PlayerPosition.ReliefPitcher;
+                State.Draft.FieldPosition = State.PrimaryPosition;
+            }
+            else
+            {
+                bool isBatterPosition = batterPosition is >= PlayerPosition.Catcher and <= PlayerPosition.DesignatedHitter;
+                if (!isBatterPosition)
+                    throw new ArgumentException("타자의 수비 포지션을 선택해 주세요.", nameof(batterPosition));
+
+                State.PrimaryPosition = batterPosition;
+                State.Draft.FieldPosition = batterPosition;
+            }
+
+            State.Step = NewGameStep.AttributeAllocation;
+        }
+
+        /// <summary>
+        /// 3단계 능력치를 전부 사용했는지 확인하고 현재 시뮬레이션 능력치로 변환한다.
+        /// </summary>
+        public void SubmitCreationAttributes(int[] values)
+        {
+            RequireStep(NewGameStep.AttributeAllocation);
+            if (!State.PlayerType.HasValue)
+                throw new InvalidOperationException("선수 유형이 선택되지 않았습니다.");
+
+            CareerAttributeAllocationRule rule = _configuration.CareerCreationRules.GetRule(State.PlayerType.Value);
+            rule.ValidateComplete(values);
+            State.Draft.SetInitialAttributes(values);
+
+            if (State.PlayerType == PlayerType.Batter)
+            {
+                // 현재 시뮬레이션의 Mental은 Eye, Bunt 슬롯은 Arm 값을 받는다. 확정 원본은 draft에 그대로 남긴다.
+                State.BatterAttributes = new BatterAttributes(
+                    values[0], values[1], values[3], values[5], values[4], values[2]);
+                State.PitcherAttributes = null;
+            }
+            else
+            {
+                // 4축 모델을 기존 6축 입력에 연결하되 구위→구속, 제구→위기관리 대체값을 사용한다.
+                State.PitcherAttributes = new PitcherAttributes(
+                    values[3], values[0], values[0], values[2], values[1], values[1]);
+                State.BatterAttributes = null;
+            }
+
+            State.Step = NewGameStep.PlayerDetails;
+        }
+
+        /// <summary>4단계에서 타자의 기본 스타일을 확정한다.</summary>
+        public void SubmitBatterDetails(BatterStyle style)
+        {
+            RequireStep(NewGameStep.PlayerDetails);
+            if (State.PlayerType != PlayerType.Batter)
+                throw new InvalidOperationException("타자 생성에서만 타격 스타일을 선택할 수 있습니다.");
+            if (!Enum.IsDefined(typeof(BatterStyle), style))
+                throw new ArgumentOutOfRangeException(nameof(style));
+            State.Draft.BatterStyle = style;
+            State.Draft.SetPitchRepertoire(Array.Empty<PitchRepertoireEntry>());
+            State.Step = NewGameStep.MatchSettings;
+        }
+
+        /// <summary>4단계에서 포심을 포함한 3개 구종과 주무기를 확정한다.</summary>
+        public void SubmitPitcherDetails(PitchType[] pitchTypes, PitchType primaryPitch)
+        {
+            RequireStep(NewGameStep.PlayerDetails);
+            if (State.PlayerType != PlayerType.Pitcher)
+                throw new InvalidOperationException("투수 생성에서만 구종을 선택할 수 있습니다.");
+            if (pitchTypes == null || pitchTypes.Length != 3)
+                throw new ArgumentException("포심을 포함해 정확히 3개 구종을 선택해 주세요.", nameof(pitchTypes));
+
+            bool hasFourSeam = false;
+            bool hasPrimary = false;
+            for (int index = 0; index < pitchTypes.Length; index++)
+            {
+                if (!Enum.IsDefined(typeof(PitchType), pitchTypes[index]))
+                    throw new ArgumentException("선택할 수 없는 구종입니다.", nameof(pitchTypes));
+                for (int previous = 0; previous < index; previous++)
+                {
+                    if (pitchTypes[previous] == pitchTypes[index])
+                        throw new ArgumentException("같은 구종을 두 번 선택할 수 없습니다.", nameof(pitchTypes));
+                }
+                hasFourSeam |= pitchTypes[index] == PitchType.FourSeamFastball;
+                hasPrimary |= pitchTypes[index] == primaryPitch;
+            }
+            if (!hasFourSeam)
+                throw new ArgumentException("모든 투수는 포심 패스트볼을 기본 보유해야 합니다.", nameof(pitchTypes));
+            if (!hasPrimary)
+                throw new ArgumentException("선택한 구종 중 하나를 주무기로 지정해 주세요.", nameof(primaryPitch));
+
+            var entries = new PitchRepertoireEntry[pitchTypes.Length];
+            for (int index = 0; index < entries.Length; index++)
+            {
+                bool isPrimary = pitchTypes[index] == primaryPitch;
+                entries[index] = new PitchRepertoireEntry(pitchTypes[index], isPrimary ? 55 : 45, isPrimary);
+            }
+            State.Draft.SetPitchRepertoire(entries);
+            State.Step = NewGameStep.MatchSettings;
+        }
+
+        /// <summary>5단계 경기 운영 설정을 확정하고 최종 확인으로 이동한다.</summary>
+        public void SubmitMatchSettings(
+            BattingApproach battingApproach,
+            PitchingApproach pitchingApproach,
+            MatchProgressMode matchProgressMode,
+            int gameSpeed,
+            bool autoSlowOnPlayerEvent)
+        {
+            RequireStep(NewGameStep.MatchSettings);
+            State.Draft.GameSettings = new CareerGameSettings(
+                battingApproach,
+                pitchingApproach,
+                matchProgressMode,
+                gameSpeed,
+                autoSlowOnPlayerEvent);
+            State.Step = NewGameStep.FinalConfirmation;
+        }
+
+        /// <summary>최종 확인을 완료해 기존 구단 오퍼 생성 단계로 연결한다.</summary>
+        public void ConfirmCreation()
+        {
+            RequireStep(NewGameStep.FinalConfirmation);
+            CompletePlayerCard();
         }
 
         /// <summary>
@@ -58,6 +240,7 @@ namespace Baseball.Game.Career
 
             State.PlayerName = playerName.Trim();
             State.Nationality = nationality.Trim();
+            State.Draft.PlayerName = State.PlayerName;
             State.Step = NewGameStep.PlayerType;
         }
 
@@ -68,6 +251,7 @@ namespace Baseball.Game.Career
         {
             RequireStep(NewGameStep.PlayerType);
             State.PlayerType = playerType;
+            State.Draft.PlayerType = playerType;
             State.PrimaryPosition = PlayerPosition.Unknown;
             State.BatterAttributes = null;
             State.PitcherAttributes = null;
@@ -88,6 +272,13 @@ namespace Baseball.Game.Career
                 throw new ArgumentException("선수 유형과 포지션이 일치하지 않습니다.", nameof(position));
 
             State.PrimaryPosition = position;
+            State.Draft.FieldPosition = position;
+            if (isPitcherPosition)
+            {
+                State.Draft.PreferredPitcherRole = position == PlayerPosition.StartingPitcher
+                    ? PitcherRole.Starter
+                    : PitcherRole.MiddleRelief;
+            }
             State.Step = NewGameStep.Handedness;
         }
 
@@ -102,6 +293,8 @@ namespace Baseball.Game.Career
 
             State.BattingHand = battingHand;
             State.ThrowingHand = throwingHand;
+            State.Draft.BatHand = battingHand;
+            State.Draft.ThrowHand = throwingHand;
             State.Step = NewGameStep.AttributeAllocation;
         }
 
@@ -124,6 +317,11 @@ namespace Baseball.Game.Career
                 attributes.Mental);
             State.BatterAttributes = attributes;
             State.PitcherAttributes = null;
+            State.Draft.SetInitialAttributes(new[]
+            {
+                attributes.Contact, attributes.Power, attributes.Mental,
+                attributes.Speed, attributes.Defense, attributes.Bunt
+            });
             CompletePlayerCard();
         }
 
@@ -146,6 +344,10 @@ namespace Baseball.Game.Career
                 attributes.Mental);
             State.PitcherAttributes = attributes;
             State.BatterAttributes = null;
+            State.Draft.SetInitialAttributes(new[]
+            {
+                attributes.Stuff, attributes.Control, attributes.Breaking, attributes.Stamina
+            });
             CompletePlayerCard();
         }
 
@@ -241,7 +443,8 @@ namespace Baseball.Game.Career
                 playerState,
                 world,
                 contract,
-                availableMoney: offer.SigningBonus);
+                availableMoney: offer.SigningBonus,
+                creationProfile: State.Draft.CreateProfile());
             State.Step = NewGameStep.ContractComplete;
         }
 
@@ -334,21 +537,34 @@ namespace Baseball.Game.Career
                     State.Step = NewGameStep.Identity;
                     break;
                 case NewGameStep.Position:
-                    State.Step = NewGameStep.PlayerType;
+                    State.Step = State.UsesGuidedCreation ? NewGameStep.Identity : NewGameStep.PlayerType;
                     break;
                 case NewGameStep.Handedness:
                     State.Step = NewGameStep.Position;
                     break;
                 case NewGameStep.AttributeAllocation:
-                    State.Step = NewGameStep.Handedness;
+                    State.Step = State.UsesGuidedCreation ? NewGameStep.Position : NewGameStep.Handedness;
+                    break;
+                case NewGameStep.PlayerDetails:
+                    State.Step = NewGameStep.AttributeAllocation;
+                    break;
+                case NewGameStep.MatchSettings:
+                    State.Step = NewGameStep.PlayerDetails;
+                    break;
+                case NewGameStep.FinalConfirmation:
+                    State.Step = NewGameStep.MatchSettings;
                     break;
                 case NewGameStep.PlayerCard:
-                    State.Step = NewGameStep.AttributeAllocation;
+                    State.Step = State.UsesGuidedCreation
+                        ? NewGameStep.FinalConfirmation
+                        : NewGameStep.AttributeAllocation;
                     break;
                 case NewGameStep.ContractOffers:
                     State.SetupResult = null;
                     State.SelectedOffer = null;
-                    State.Step = NewGameStep.PlayerCard;
+                    State.Step = State.UsesGuidedCreation
+                        ? NewGameStep.FinalConfirmation
+                        : NewGameStep.PlayerCard;
                     break;
                 default:
                     return false;
@@ -427,6 +643,23 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException(
                     $"현재 단계({State.Step})에서는 {expected} 작업을 수행할 수 없습니다.");
             }
+        }
+
+        private static string ValidatePlayerName(string playerName)
+        {
+            string trimmed = playerName?.Trim() ?? string.Empty;
+            if (trimmed.Length < 2 || trimmed.Length > 12)
+                throw new ArgumentException("선수 이름은 2~12자로 입력해 주세요.", nameof(playerName));
+
+            for (int index = 0; index < trimmed.Length; index++)
+            {
+                char value = trimmed[index];
+                bool isAllowed = value is >= '가' and <= '힣' or >= 'ㄱ' and <= 'ㅎ' or >= 'ㅏ' and <= 'ㅣ' or
+                    >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or ' ';
+                if (!isAllowed)
+                    throw new ArgumentException("선수 이름에는 한글, 영문, 숫자와 공백만 사용할 수 있습니다.", nameof(playerName));
+            }
+            return trimmed;
         }
     }
 }

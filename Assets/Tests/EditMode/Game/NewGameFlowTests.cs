@@ -1,4 +1,5 @@
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using NUnit.Framework;
 
@@ -89,6 +90,62 @@ namespace Baseball.Tests.EditMode.Game
                     second.State.SetupResult.Offers[index].AnnualSalary,
                     Is.EqualTo(first.State.SetupResult.Offers[index].AnnualSalary));
             }
+        }
+
+        [Test]
+        public void GuidedPitcherFlow_5단계선택을계약후커리어프로필에보존한다()
+        {
+            var flow = new NewGameFlow(NewGameConfiguration.CreateDefault(), 20260829UL);
+
+            flow.SubmitBasicInformation("  김민우  ", PlayerType.Pitcher, Handedness.Left, Handedness.Left);
+            flow.SubmitCreationPosition(PlayerPosition.Unknown, PitcherRole.Starter);
+            flow.SubmitCreationAttributes(new[] { 49, 46, 45, 40 });
+            flow.SubmitPitcherDetails(
+                new[] { PitchType.FourSeamFastball, PitchType.Slider, PitchType.Changeup },
+                PitchType.Slider);
+            flow.SubmitMatchSettings(
+                BattingApproach.Balanced,
+                PitchingApproach.ControlFirst,
+                MatchProgressMode.InterveneOnPlayer,
+                gameSpeed: 2,
+                autoSlowOnPlayerEvent: true);
+
+            Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.FinalConfirmation));
+            Assert.That(flow.State.Draft.PlayerName, Is.EqualTo("김민우"));
+            Assert.That(flow.State.Draft.PitchRepertoire.Length, Is.EqualTo(3));
+            Assert.That(flow.State.Draft.PitchRepertoire[1].IsPrimary, Is.True);
+            Assert.That(flow.State.Draft.PitchRepertoire[1].Proficiency, Is.EqualTo(55));
+
+            flow.ConfirmCreation();
+            flow.GenerateOffers();
+            flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
+            flow.SignSelectedOffer();
+
+            Assert.That(flow.Career.CreationProfile.PlayerType, Is.EqualTo(PlayerType.Pitcher));
+            Assert.That(flow.Career.CreationProfile.PreferredPitcherRole, Is.EqualTo(PitcherRole.Starter));
+            Assert.That(flow.Career.CreationProfile.InitialAttributes, Is.EqualTo(new[] { 49, 46, 45, 40 }));
+            Assert.That(flow.Career.GameSettings.PitchingApproach, Is.EqualTo(PitchingApproach.ControlFirst));
+            Assert.That(flow.Career.GameSettings.MatchProgressMode, Is.EqualTo(MatchProgressMode.InterveneOnPlayer));
+            Assert.That(flow.Career.GameSettings.GameSpeed, Is.EqualTo(2));
+            Assert.That(flow.Career.GameSettings.AutoSlowOnPlayerEvent, Is.True);
+        }
+
+        [Test]
+        public void GuidedAttributeAllocation_포인트를덜쓰거나상한을넘으면거부한다()
+        {
+            var flow = new NewGameFlow(NewGameConfiguration.CreateDefault(), 33UL);
+            flow.SubmitBasicInformation("테스트 타자", PlayerType.Batter, Handedness.Right, Handedness.Right);
+            flow.SubmitCreationPosition(PlayerPosition.Shortstop, PitcherRole.Starter);
+
+            Assert.Throws<System.ArgumentException>(() =>
+                flow.SubmitCreationAttributes(new[] { 44, 44, 44, 44, 44, 44 }));
+            Assert.Throws<System.ArgumentException>(() =>
+                flow.SubmitCreationAttributes(new[] { 61, 49, 45, 45, 35, 35 }));
+            Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.AttributeAllocation));
+
+            Assert.DoesNotThrow(() =>
+                flow.SubmitCreationAttributes(new[] { 45, 45, 45, 45, 45, 45 }));
+            Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.PlayerDetails));
         }
 
         private static NewGameFlow CreatePlayerCard(ulong seed)
