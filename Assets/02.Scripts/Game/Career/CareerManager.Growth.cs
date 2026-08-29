@@ -1068,6 +1068,8 @@ namespace Baseball.Game.Career
             _skillBoardService = new SkillBoardService(
                 _balance.Growth.SkillBoard,
                 _balance.Growth.SkillBlocks);
+            _skillBoardService.RecoverInvalidPlacements(
+                CurrentCareer.MyPlayer.SkillBoardState);
             _skillGachaService = new SkillGachaService(
                 _balance.Growth.SkillGacha,
                 _balance.Growth.SkillBlocks);

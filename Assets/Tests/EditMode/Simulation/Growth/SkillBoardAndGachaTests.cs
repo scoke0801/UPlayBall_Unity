@@ -319,22 +319,34 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
-        public void DefaultBlocks_등급이높을수록1칸에서5칸까지역할이달라진다()
+        public void DefaultBlocks_모두4칸표준테트로미노이며7종모양을포함한다()
         {
             SkillBlockDefinition[] definitions = GrowthSkillContent.CreateDefaultBlocks();
+            TetrominoShape[] shapes = (TetrominoShape[])Enum.GetValues(typeof(TetrominoShape));
+            var foundShapes = new bool[shapes.Length];
 
             for (int index = 0; index < definitions.Length; index++)
             {
-                Assert.That(
-                    definitions[index].ShapeCells,
-                    Has.Length.EqualTo((int)definitions[index].Rarity + 1));
+                Assert.That(definitions[index].ShapeCells,
+                    Has.Length.EqualTo(TetrominoShapeCatalog.CellCount));
+                for (int shapeIndex = 0; shapeIndex < shapes.Length; shapeIndex++)
+                {
+                    if (HasSameCells(
+                        definitions[index].ShapeCells,
+                        TetrominoShapeCatalog.CreateCells(shapes[shapeIndex])))
+                    {
+                        foundShapes[shapeIndex] = true;
+                    }
+                }
             }
+
+            Assert.That(foundShapes, Has.All.True);
         }
 
         [Test]
-        public void SkillBlockDefinition_1에서5칸연결모양만허용한다()
+        public void SkillBlockDefinition_4칸연결조건을위반하면거부한다()
         {
-            Assert.DoesNotThrow(() => new SkillBlockDefinition(
+            Assert.Throws<ArgumentException>(() => new SkillBlockDefinition(
                 "triomino",
                 SkillBlockRarity.Elite,
                 SkillBlockCategory.Contact,

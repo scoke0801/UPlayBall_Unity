@@ -871,9 +871,12 @@ namespace Baseball.Presentation.Career
             RectTransform header = CreateImage(
                 "Header", panel, new Color(0.024f, 0.11f, 0.19f, 1f),
                 new Vector2(size.x - 8f, 50f), new Vector2(0f, size.y * 0.5f - 29f));
+            // 넓은 워크스페이스에서 선이 중앙 제목과 안내 행까지 침범하지 않도록 장식 폭을 제한한다.
+            float headerLineWidth = Mathf.Min(size.x * 0.34f, 280f);
+            float headerLineX = -size.x * 0.46f + headerLineWidth * 0.5f;
             CreateImage(
-                "HeaderLine", header, AccentColor, new Vector2(size.x * 0.34f, 2f),
-                new Vector2(-size.x * 0.29f, -23f));
+                "HeaderLine", header, AccentColor, new Vector2(headerLineWidth, 2f),
+                new Vector2(headerLineX, -23f));
             CreateText(
                 "Eyebrow", header, eyebrow, 10, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(size.x * 0.3f, 18f), new Vector2(-size.x * 0.33f, 11f), AccentColor);

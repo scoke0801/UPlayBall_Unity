@@ -698,8 +698,8 @@ namespace Baseball.Presentation.Career
             if (stack.IsNew)
             {
                 CreateText(
-                    "New", card.transform, "NEW", 8, FontStyle.Bold, TextAnchor.MiddleRight,
-                    new Vector2(42f, 18f), new Vector2(60f, 39f), GreenColor);
+                    "New", card.transform, "NEW", 8, FontStyle.Bold, TextAnchor.MiddleCenter,
+                    new Vector2(30f, 14f), new Vector2(15f, 39f), GreenColor);
             }
         }
 
@@ -744,8 +744,8 @@ namespace Baseball.Presentation.Career
                 16,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft,
-                new Vector2(330f, 28f),
-                new Vector2(-160f, 48f),
+                new Vector2(310f, 28f),
+                new Vector2(-65f, 48f),
                 GetRarityFrameColor(block.Rarity));
             int placementCount = CountDraftPlacements(growth, block);
             CreateText(
@@ -757,8 +757,8 @@ namespace Baseball.Presentation.Career
                 12,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft,
-                new Vector2(370f, 58f),
-                new Vector2(-140f, 6f),
+                new Vector2(400f, 58f),
+                new Vector2(-20f, 6f),
                 SecondaryTextColor);
             Button lockButton = CreateButton(
                 "ToggleBlockLock",
@@ -824,6 +824,7 @@ namespace Baseball.Presentation.Career
             string phase = growth.IsOffseason
                 ? $"남은 기간 {growth.RemainingWeeks}주 · 현재 {growth.CurrentWeek}주차"
                 : "정규 시즌 중 · 다음 오프시즌 계획을 미리 확인할 수 있습니다.";
+            const float summaryRowY = 300f;
             CreateText(
                 "Phase",
                 panel,
@@ -832,7 +833,7 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft,
                 new Vector2(620f, 28f),
-                new Vector2(-380f, 320f),
+                new Vector2(-380f, summaryRowY),
                 growth.IsOffseason ? GoldColor : WarningColor);
             CreateText(
                 "EconomyGuide",
@@ -842,7 +843,7 @@ namespace Baseball.Presentation.Career
                 FontStyle.Normal,
                 TextAnchor.MiddleRight,
                 new Vector2(650f, 28f),
-                new Vector2(380f, 320f),
+                new Vector2(380f, summaryRowY),
                 SecondaryTextColor);
 
             GrowthProgramView[] programs = GetFeaturedPrograms(growth);
@@ -1059,7 +1060,7 @@ namespace Baseball.Presentation.Career
                 "GachaSelection",
                 panel,
                 new Vector2(1160f, 250f),
-                new Vector2(0f, 8f),
+                new Vector2(0f, -30f),
                 PanelDarkColor);
             CreateText(
                 "Selection",
@@ -1118,7 +1119,7 @@ namespace Baseball.Presentation.Career
                 "GachaPayment",
                 panel,
                 new Vector2(1160f, 150f),
-                new Vector2(0f, -225f),
+                new Vector2(0f, -250f),
                 new Color(0.008f, 0.035f, 0.055f, 1f));
             long afterOne = Math.Max(0L, dashboard.AvailableMoney - offer.Price);
             int affordableCount = offer.Price <= 0L
@@ -1157,8 +1158,8 @@ namespace Baseball.Presentation.Career
                 "GachaBuyOne",
                 payment,
                 $"1회 뽑기\n{FormatMoney(offer.Price)}",
-                new Vector2(190f, 70f),
-                new Vector2(335f, 0f),
+                new Vector2(180f, 70f),
+                new Vector2(325f, 0f),
                 new Color(0.02f, 0.38f, 0.72f, 1f),
                 out Text oneLabel);
             oneLabel.fontSize = 14;
@@ -1170,11 +1171,11 @@ namespace Baseball.Presentation.Career
                 offer.MaxPurchasesPerOffseason > 0
                     ? "5회 뽑기\n구매 제한 상품"
                     : $"5회 뽑기  {offer.FivePullDiscountRate:P0} 할인\n{FormatMoney(offer.FivePullPrice)}",
-                new Vector2(220f, 70f),
-                new Vector2(545f, 0f),
+                new Vector2(155f, 70f),
+                new Vector2(497f, 0f),
                 new Color(0.22f, 0.18f, 0.42f, 1f),
                 out Text fiveLabel);
-            fiveLabel.fontSize = 13;
+            fiveLabel.fontSize = 11;
             five.interactable = offer.CanPurchaseFive;
             five.onClick.AddListener(() => PurchaseFromGacha(5));
         }

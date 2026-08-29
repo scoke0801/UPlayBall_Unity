@@ -71,10 +71,10 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         {
             SkillBlockDefinition normal = CreateDefinition(
                 "contact_normal", SkillBlockRarity.Normal,
-                new[] { new BoardCell(0, 0) }, 1);
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O), 1);
             SkillBlockDefinition rare = CreateDefinition(
                 "contact_rare", SkillBlockRarity.Rare,
-                new[] { new BoardCell(0, 0), new BoardCell(1, 0) }, 2);
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.I), 2);
             var service = new SkillBoardService(
                 SkillBoardDefinition.CreateDefault(),
                 new[] { normal, rare });
@@ -91,7 +91,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 new[]
                 {
                     new PlacedSkillBlock(first, 0, 0, 0),
-                    new PlacedSkillBlock(second, 1, 1, 0)
+                    new PlacedSkillBlock(second, 0, 2, 0)
                 },
                 economy,
                 offseason,
@@ -105,8 +105,8 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 board,
                 new[]
                 {
-                    new PlacedSkillBlock(first, 3, 3, 0),
-                    new PlacedSkillBlock(second, 0, 1, 0)
+                    new PlacedSkillBlock(first, 2, 0, 0),
+                    new PlacedSkillBlock(second, 0, 2, 0)
                 },
                 economy,
                 offseason,
@@ -124,7 +124,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         {
             SkillBlockDefinition definition = CreateDefinition(
                 "contact_normal", SkillBlockRarity.Normal,
-                new[] { new BoardCell(0, 0) }, 1);
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O), 1);
             var service = new SkillBoardService(
                 SkillBoardDefinition.CreateDefault(),
                 new[] { definition });
@@ -151,23 +151,47 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             Assert.That(economy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(5_000L)));
         }
 
+        [Test]
+        public void RecoverInvalidPlacements_모양변경으로겹친기존장착을무료로보관함에돌린다()
+        {
+            SkillBlockDefinition definition = CreateDefinition(
+                "contact_normal",
+                SkillBlockRarity.Normal,
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O),
+                1);
+            var service = new SkillBoardService(
+                SkillBoardDefinition.CreateDefault(),
+                new[] { definition });
+            var board = new SkillBoardState("standard_4x4");
+            SkillBlockInstance first = board.AddOwnedBlock(definition.BlockId);
+            SkillBlockInstance second = board.AddOwnedBlock(definition.BlockId);
+            SkillBlockInstance third = board.AddOwnedBlock(definition.BlockId);
+            board.PlaceOwnedBlock(new PlacedSkillBlock(first, 0, 0, 0));
+            board.PlaceOwnedBlock(new PlacedSkillBlock(second, 1, 0, 0));
+            board.PlaceOwnedBlock(new PlacedSkillBlock(third, 3, 3, 0));
+
+            int recoveredCount = service.RecoverInvalidPlacements(board);
+
+            Assert.That(recoveredCount, Is.EqualTo(2));
+            Assert.That(board.PlacedBlocks, Has.Count.EqualTo(1));
+            Assert.That(board.PlacedBlocks[0].Instance.InstanceId, Is.EqualTo(first.InstanceId));
+            Assert.That(board.OwnedBlocks, Has.Count.EqualTo(2));
+        }
+
         private static SkillBlockDefinition[] CreateDefinitions()
         {
             return new[]
             {
-                CreateDefinition("contact_normal", SkillBlockRarity.Normal, new[] { new BoardCell(0, 0) }, 1),
+                CreateDefinition("contact_normal", SkillBlockRarity.Normal,
+                    TetrominoShapeCatalog.CreateCells(TetrominoShape.O), 1),
                 CreateDefinition("contact_rare", SkillBlockRarity.Rare,
-                    new[] { new BoardCell(0, 0), new BoardCell(1, 0) }, 2),
+                    TetrominoShapeCatalog.CreateCells(TetrominoShape.I), 2),
                 CreateDefinition("contact_elite", SkillBlockRarity.Elite,
-                    new[] { new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(0, 1) }, 4),
+                    TetrominoShapeCatalog.CreateCells(TetrominoShape.T), 4),
                 CreateDefinition("contact_unique", SkillBlockRarity.Unique,
-                    TetrominoShapeCatalog.CreateCells(TetrominoShape.T), 5),
+                    TetrominoShapeCatalog.CreateCells(TetrominoShape.S), 5),
                 CreateDefinition("contact_legendary", SkillBlockRarity.Legendary,
-                    new[]
-                    {
-                        new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(2, 0),
-                        new BoardCell(1, 1), new BoardCell(1, 2)
-                    }, 7)
+                    TetrominoShapeCatalog.CreateCells(TetrominoShape.L), 7)
             };
         }
 

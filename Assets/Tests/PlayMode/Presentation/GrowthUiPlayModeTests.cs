@@ -60,6 +60,7 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(overlay.Find("GachaTier_Unique"), Is.Not.Null);
             Assert.That(overlay.Find("GachaTier_Legendary"), Is.Not.Null);
             Assert.That(careerManager.GrowthDashboard.GachaOffers, Has.Length.EqualTo(5));
+            AssertGachaOverlayLayout(overlay);
 
             long moneyBefore = career.AvailableMoney;
             UnityEngine.UI.Button buyStandard = overlay
@@ -79,6 +80,10 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(growth.transform.Find("Content/GrowthGachaOverlay"), Is.Null);
             Assert.That(growth.transform.Find("Content/BlockInventory/SelectedBlockDetail/Name"), Is.Not.Null,
                 "구매 직후 새 블록이 편집 대상으로 선택되어야 합니다.");
+            Transform selectedDetail = growth.transform.Find(
+                "Content/BlockInventory/SelectedBlockDetail");
+            AssertTetrominoCells(selectedDetail, "SelectedShapeCell_");
+            AssertSelectedBlockDetailLayout(selectedDetail);
             Assert.That(
                 growth.transform.Find("Content/BlockInventory/SelectedBlockDetail/RotateSelectedBlock")
                     .GetComponent<UnityEngine.UI.Button>().interactable,
@@ -88,7 +93,9 @@ namespace Baseball.Tests.PlayMode.Presentation
             growth.transform.Find("Content/GrowthSubNavigation/OffseasonActionsTab")
                 .GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return null;
-            Assert.That(growth.transform.Find("Content/OffseasonActionWorkspace"), Is.Not.Null);
+            Transform offseasonActions = growth.transform.Find("Content/OffseasonActionWorkspace");
+            Assert.That(offseasonActions, Is.Not.Null);
+            AssertOffseasonActionHeaderLayout(offseasonActions);
             Assert.That(growth.transform.Find("Content/DraftBoard"), Is.Null);
 
             Assert.That(CareerTabNavigation.Show(CareerMainTab.Home), Is.True);
@@ -298,6 +305,73 @@ namespace Baseball.Tests.PlayMode.Presentation
                     count++;
             }
             Assert.That(count, Is.EqualTo(4));
+        }
+
+        private static void AssertGachaOverlayLayout(Transform overlay)
+        {
+            RectTransform selection = GetRect(overlay, "GachaSelection");
+            RectTransform payment = GetRect(overlay, "GachaPayment");
+            string[] tierNames =
+            {
+                "GachaTier_Normal",
+                "GachaTier_Rare",
+                "GachaTier_Elite",
+                "GachaTier_Unique",
+                "GachaTier_Legendary"
+            };
+
+            for (int index = 0; index < tierNames.Length; index++)
+            {
+                RectTransform tier = GetRect(overlay, tierNames[index]);
+                Assert.That(GetBottom(tier), Is.GreaterThan(GetTop(selection)),
+                    tierNames[index] + " 카드와 선택 정보 패널은 겹치면 안 된다.");
+            }
+
+            Assert.That(GetBottom(selection), Is.GreaterThan(GetTop(payment)),
+                "선택 정보와 결제 패널은 겹치면 안 된다.");
+            RectTransform one = GetRect(payment, "GachaBuyOne");
+            RectTransform five = GetRect(payment, "GachaBuyFive");
+            Assert.That(GetRight(one), Is.LessThan(GetLeft(five)),
+                "1회와 5회 구매 버튼은 겹치면 안 된다.");
+            Assert.That(GetRight(five), Is.LessThanOrEqualTo(payment.rect.xMax),
+                "5회 구매 버튼은 결제 패널 오른쪽 경계를 넘으면 안 된다.");
+        }
+
+        private static void AssertSelectedBlockDetailLayout(Transform detail)
+        {
+            RectTransform name = GetRect(detail, "Name");
+            RectTransform info = GetRect(detail, "Info");
+            float shapeRight = float.MinValue;
+            for (int index = 0; index < detail.childCount; index++)
+            {
+                Transform child = detail.GetChild(index);
+                if (!child.name.StartsWith("SelectedShapeCell_", System.StringComparison.Ordinal))
+                    continue;
+                shapeRight = Mathf.Max(shapeRight, GetRight((RectTransform)child));
+            }
+
+            Assert.That(shapeRight, Is.LessThan(GetLeft(name)),
+                "선택 블록 형태와 이름은 겹치면 안 된다.");
+            Assert.That(shapeRight, Is.LessThan(GetLeft(info)),
+                "선택 블록 형태와 상세 설명은 겹치면 안 된다.");
+        }
+
+        private static void AssertOffseasonActionHeaderLayout(Transform panel)
+        {
+            RectTransform header = GetRect(panel, "Header");
+            RectTransform headerLine = GetRect(header, "HeaderLine");
+            RectTransform phase = GetRect(panel, "Phase");
+            RectTransform economyGuide = GetRect(panel, "EconomyGuide");
+            float headerLineBottom = header.anchoredPosition.y + GetBottom(headerLine);
+
+            Assert.That(headerLine.rect.width, Is.LessThanOrEqualTo(280f),
+                "넓은 오프시즌 패널의 헤더 장식선은 중앙 제목 영역을 침범하면 안 된다.");
+            Assert.That(GetTop(phase), Is.LessThan(headerLineBottom),
+                "오프시즌 상태 문구는 패널 헤더 구분선과 겹치면 안 된다.");
+            Assert.That(GetTop(economyGuide), Is.LessThan(headerLineBottom),
+                "오프시즌 비용 안내는 패널 헤더 구분선과 겹치면 안 된다.");
+            Assert.That(GetRight(phase), Is.LessThan(GetLeft(economyGuide)),
+                "오프시즌 상태와 비용 안내 영역은 서로 겹치면 안 된다.");
         }
 
         private static void AssertGrowthPlayerCardLayout(Transform growth)

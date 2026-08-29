@@ -156,6 +156,45 @@ namespace Baseball.Simulation.Growth
                 GetPlacementFailure(state, cells) == SkillBlockPlacementFailure.None);
         }
 
+        /// <summary>
+        /// 정의 변경 뒤 경계나 겹침 조건을 위반한 기존 장착만 무료로 보관함에 되돌린다.
+        /// </summary>
+        public int RecoverInvalidPlacements(SkillBoardState state)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            var placements = new PlacedSkillBlock[state.PlacedBlocks.Count];
+            for (int index = 0; index < placements.Length; index++)
+                placements[index] = state.PlacedBlocks[index];
+
+            var validation = new SkillBoardState(state.BoardDefinitionId);
+            int recoveredCount = 0;
+            for (int index = 0; index < placements.Length; index++)
+            {
+                PlacedSkillBlock placement = placements[index];
+                validation.AddOwnedBlock(placement.Instance);
+                SkillBlockPlacementPreview preview = GetPlacementPreview(
+                    validation,
+                    placement.Instance.InstanceId,
+                    placement.OriginX,
+                    placement.OriginY,
+                    placement.RotationQuarterTurns);
+                if (preview.CanPlace)
+                {
+                    PlaceBlock(
+                        validation,
+                        placement.Instance.InstanceId,
+                        placement.OriginX,
+                        placement.OriginY,
+                        placement.RotationQuarterTurns);
+                    continue;
+                }
+
+                state.RemovePlacedBlock(placement.Instance.InstanceId, returnToInventory: true);
+                recoveredCount++;
+            }
+            return recoveredCount;
+        }
+
         public void Redesign(
             SkillBoardState state,
             CareerEconomyState economy,

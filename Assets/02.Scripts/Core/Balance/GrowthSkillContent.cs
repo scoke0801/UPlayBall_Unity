@@ -8,7 +8,7 @@ namespace Baseball.Core.Balance
     /// </summary>
     public static class GrowthSkillContent
     {
-        private static readonly TetrominoShape[] UniqueShapes =
+        private static readonly TetrominoShape[] StandardShapes =
         {
             TetrominoShape.I,
             TetrominoShape.O,
@@ -77,7 +77,8 @@ namespace Baseball.Core.Balance
             PlayerAbility ability,
             SkillBlockRarity rarity)
         {
-            BoardCell[] shapeCells = GetShapeCells(category, rarity);
+            TetrominoShape shape = GetShape(category, rarity);
+            BoardCell[] shapeCells = TetrominoShapeCatalog.CreateCells(shape);
             int bonus = rarity switch
             {
                 SkillBlockRarity.Normal => 1,
@@ -101,65 +102,17 @@ namespace Baseball.Core.Balance
                 rarity,
                 category,
                 shapeCells,
-                canRotate: shapeCells.Length > 1 && !IsSquare(shapeCells),
+                canRotate: shape != TetrominoShape.O,
                 new[] { new AbilityChange(ability, bonus) },
                 sellValue);
         }
 
-        private static BoardCell[] GetShapeCells(
+        private static TetrominoShape GetShape(
             SkillBlockCategory category,
             SkillBlockRarity rarity)
         {
-            int variant = (int)category % 4;
-            return rarity switch
-            {
-                SkillBlockRarity.Normal => new[] { new BoardCell(0, 0) },
-                SkillBlockRarity.Rare => variant % 2 == 0
-                    ? new[] { new BoardCell(0, 0), new BoardCell(1, 0) }
-                    : new[] { new BoardCell(0, 0), new BoardCell(0, 1) },
-                SkillBlockRarity.Elite => variant % 2 == 0
-                    ? new[] { new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(0, 1) }
-                    : new[] { new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(2, 0) },
-                SkillBlockRarity.Unique => TetrominoShapeCatalog.CreateCells(
-                    UniqueShapes[(int)category % UniqueShapes.Length]),
-                SkillBlockRarity.Legendary => CreatePentomino(variant),
-                _ => throw new ArgumentOutOfRangeException(nameof(rarity))
-            };
-        }
-
-        private static BoardCell[] CreatePentomino(int variant)
-        {
-            return variant switch
-            {
-                0 => new[]
-                {
-                    new BoardCell(0, 0), new BoardCell(1, 0),
-                    new BoardCell(0, 1), new BoardCell(1, 1), new BoardCell(0, 2)
-                },
-                1 => new[]
-                {
-                    new BoardCell(0, 0), new BoardCell(2, 0),
-                    new BoardCell(0, 1), new BoardCell(1, 1), new BoardCell(2, 1)
-                },
-                2 => new[]
-                {
-                    new BoardCell(0, 0), new BoardCell(1, 0), new BoardCell(2, 0),
-                    new BoardCell(1, 1), new BoardCell(1, 2)
-                },
-                _ => new[]
-                {
-                    new BoardCell(0, 0), new BoardCell(0, 1),
-                    new BoardCell(0, 2), new BoardCell(1, 2), new BoardCell(2, 2)
-                }
-            };
-        }
-
-        private static bool IsSquare(BoardCell[] cells)
-        {
-            if (cells.Length != 4)
-                return false;
-            return cells[0].X + cells[1].X + cells[2].X + cells[3].X == 2 &&
-                   cells[0].Y + cells[1].Y + cells[2].Y + cells[3].Y == 2;
+            int shapeIndex = ((int)category * 5 + (int)rarity) % StandardShapes.Length;
+            return StandardShapes[shapeIndex];
         }
     }
 }
