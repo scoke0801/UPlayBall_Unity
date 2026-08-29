@@ -1,6 +1,7 @@
 using Baseball.Game.Input;
 using Baseball.Game.Career;
 using Baseball.Game.SceneFlow;
+using Baseball.Game.Sound;
 using UnityEngine;
 
 namespace Baseball.Game.Manager
@@ -18,6 +19,8 @@ namespace Baseball.Game.Manager
             gameManager.EnsureManager<CareerManager>("CareerManager");
             gameManager.EnsureManager<NewGameManager>("NewGameManager");
             gameManager.EnsureManager<SceneLoadManager>("SceneLoadManager");
+            gameManager.EnsureManager<SoundManager>("SoundManager");
+            gameManager.EnsureManager<BgmDirector>("BgmDirector");
         }
     }
 }
