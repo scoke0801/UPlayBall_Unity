@@ -147,7 +147,7 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
-        /// 현재 입력 대기 타석에 타격 방식을 적용하고 다음 입력까지 진행한다.
+        /// 현재 입력 대기 투구에 타격 방식을 적용하고 다음 입력까지 진행한다.
         /// </summary>
         public void SubmitBattingApproach(BattingApproach approach)
         {

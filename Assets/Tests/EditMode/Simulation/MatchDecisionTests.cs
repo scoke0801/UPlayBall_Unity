@@ -75,6 +75,50 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void SimulateUntilDecision_선택하나는투구하나만계산한다()
+        {
+            bool foundNonTerminalPitch = false;
+            for (ulong seed = 1; seed <= 64 && !foundNonTerminalPitch; seed++)
+            {
+                MatchInput input = CreateInput(seed);
+                int controlledPlayerId = input.AwayTeam.Lineup[0].Player.PlayerId;
+                var decisions = new List<BattingApproach>();
+                MatchSimulationProgress beforePitch = new MatchSimulator(
+                        BalanceTable.CreateDefault(),
+                        new Pcg32Random(input.RandomSeed),
+                        new RecordedMatchDecisionSource(controlledPlayerId, decisions))
+                    .SimulateUntilDecision(input);
+
+                decisions.Add(BattingApproach.Contact);
+                MatchSimulationProgress afterPitch = new MatchSimulator(
+                        BalanceTable.CreateDefault(),
+                        new Pcg32Random(input.RandomSeed),
+                        new RecordedMatchDecisionSource(controlledPlayerId, decisions))
+                    .SimulateUntilDecision(input);
+
+                if (!afterPitch.PendingDecision.HasValue ||
+                    afterPitch.PendingDecision.Value.BatterId != controlledPlayerId ||
+                    afterPitch.PendingDecision.Value.PitchNumber != 2)
+                {
+                    continue;
+                }
+
+                MatchDecisionRequest nextPitch = afterPitch.PendingDecision.Value;
+                Assert.That(nextPitch.DecisionIndex, Is.EqualTo(1));
+                Assert.That(nextPitch.Balls + nextPitch.Strikes, Is.EqualTo(1));
+                Assert.That(
+                    CountEvents(
+                        afterPitch.Events,
+                        beforePitch.Events.Count,
+                        MatchEventType.Pitch),
+                    Is.EqualTo(1));
+                foundNonTerminalPitch = true;
+            }
+
+            Assert.That(foundNonTerminalPitch, Is.True, "64개 Seed 안에서 비종료 첫 투구를 찾지 못했습니다.");
+        }
+
+        [Test]
         public void SimulateUntilDecision_플레이어투수는첫상대타석전에투구방침을기다린다()
         {
             MatchInput input = CreateInput(778UL);
@@ -193,6 +237,20 @@ namespace Baseball.Tests.EditMode.Simulation
                 new BatterAttributes(20, 20, 20, 20, 20, 20),
                 new PitcherAttributes(55, 55, 55, 55, 55, 55));
             return new PlateAppearanceMatchup(batter, pitcher, 50d, false);
+        }
+
+        private static int CountEvents(
+            IReadOnlyList<MatchEvent> events,
+            int startIndex,
+            MatchEventType eventType)
+        {
+            int count = 0;
+            for (int index = startIndex; index < events.Count; index++)
+            {
+                if (events[index].EventType == eventType)
+                    count++;
+            }
+            return count;
         }
 
         private struct ApproachStatistics

@@ -22,23 +22,12 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
-        /// 다음 타자의 타석 결과까지 이벤트를 공개한다. 내 선수 타격 이벤트 앞에서는 멈춘다.
+        /// 다음 타자의 타석 결과까지 이미 계산된 이벤트를 공개한다.
         /// </summary>
-        public bool AdvanceAutomatic(
-            IReadOnlyList<MatchEvent> events,
-            int controlledPlayerId,
-            bool pauseBeforeControlledPlayer = true)
+        public bool AdvanceAutomatic(IReadOnlyList<MatchEvent> events)
         {
             ValidateEvents(events);
-            if (controlledPlayerId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(controlledPlayerId));
             if (VisibleEventCount >= events.Count)
-                return false;
-
-            MatchEvent nextEvent = events[VisibleEventCount];
-            if (pauseBeforeControlledPlayer &&
-                nextEvent.BatterId == controlledPlayerId &&
-                nextEvent.EventType != MatchEventType.PlayerSubstitution)
                 return false;
 
             while (VisibleEventCount < events.Count)

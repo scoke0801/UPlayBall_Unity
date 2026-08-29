@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace Baseball.Tests.EditMode.Game
 {
     /// <summary>
-    /// 경기 이벤트 자동 중계가 타석 단위 진행과 내 선수 입력 정지를 지키는지 검증한다.
+    /// 이미 계산된 경기 이벤트를 타석 단위로 빠짐없이 공개하는지 검증한다.
     /// </summary>
     public sealed class CareerMatchPlaybackTests
     {
@@ -39,7 +39,7 @@ namespace Baseball.Tests.EditMode.Game
             };
             var playback = new CareerMatchPlayback();
 
-            bool didAdvance = playback.AdvanceAutomatic(events, controlledPlayerId: 99);
+            bool didAdvance = playback.AdvanceAutomatic(events);
             CareerMatchPlaybackSnapshot snapshot = playback.BuildSnapshot(events);
 
             Assert.That(didAdvance, Is.True);
@@ -50,7 +50,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void AdvanceAutomatic_내선수타격이벤트앞에서멈추고버튼결과만공개한다()
+        public void AdvanceAutomatic_이미계산된내선수타석도교착없이공개한다()
         {
             MatchEvent[] events =
             {
@@ -75,12 +75,9 @@ namespace Baseball.Tests.EditMode.Game
             };
             var playback = new CareerMatchPlayback();
 
-            Assert.That(playback.AdvanceAutomatic(events, controlledPlayerId: 99), Is.False);
-            Assert.That(playback.VisibleEventCount, Is.Zero);
-
-            Assert.That(playback.RevealControlledPlay(events, controlledPlayerId: 99), Is.True);
+            Assert.That(playback.AdvanceAutomatic(events), Is.True);
             Assert.That(playback.VisibleEventCount, Is.EqualTo(2));
-            Assert.That(playback.AdvanceAutomatic(events, controlledPlayerId: 99), Is.True);
+            Assert.That(playback.AdvanceAutomatic(events), Is.True);
             Assert.That(playback.VisibleEventCount, Is.EqualTo(events.Length));
         }
 
@@ -198,7 +195,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void AdvanceAutomatic_내선수교체출전이벤트를공개한뒤입력대기로넘긴다()
+        public void AdvanceAutomatic_내선수교체출전이벤트를공개한다()
         {
             MatchEvent[] events =
             {
@@ -206,31 +203,26 @@ namespace Baseball.Tests.EditMode.Game
             };
             var playback = new CareerMatchPlayback();
 
-            Assert.That(playback.AdvanceAutomatic(events, controlledPlayerId: 99), Is.True);
+            Assert.That(playback.AdvanceAutomatic(events), Is.True);
             Assert.That(playback.VisibleEventCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void AdvanceAutomatic_자동모드는내선수타석도멈추지않고공개한다()
+        public void AdvanceAutomatic_내타석직전준비이벤트도공개위치를끝까지옮긴다()
         {
             MatchEvent[] events =
             {
-                CreateEvent(0, MatchEventType.Pitch, 99, 0, 0, PitchResult.InPlay),
                 CreateEvent(
-                    1,
-                    MatchEventType.PlateAppearanceEnded,
+                    0,
+                    MatchEventType.DefensiveAlignmentChanged,
                     99,
-                    99,
+                    0,
                     1,
-                    PitchResult.None,
-                    PlateAppearanceResult.GroundOut)
+                    PitchResult.None)
             };
             var playback = new CareerMatchPlayback();
 
-            bool didAdvance = playback.AdvanceAutomatic(
-                events,
-                controlledPlayerId: 99,
-                pauseBeforeControlledPlayer: false);
+            bool didAdvance = playback.AdvanceAutomatic(events);
 
             Assert.That(didAdvance, Is.True);
             Assert.That(playback.VisibleEventCount, Is.EqualTo(events.Length));

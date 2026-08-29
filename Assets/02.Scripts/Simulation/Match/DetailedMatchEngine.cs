@@ -355,15 +355,6 @@ namespace Baseball.Simulation.Match
             int outs,
             DetailedBaseState bases)
         {
-            strategicApproach = ResolveRecordedBattingApproach(
-                state,
-                inning,
-                half,
-                batter.Player,
-                defense.ActivePitcher.PlayerId,
-                strategicApproach,
-                outs,
-                bases);
             int timesFaced = defense.ActivePitcherState.BeginPlateAppearance(batter.Player.PlayerId);
             double contactBonus;
             double hardHitBonus;
@@ -371,24 +362,33 @@ namespace Baseball.Simulation.Match
             int balls = 0;
             int strikes = 0;
             int pitchNumber = 0;
-            Emit(
-                state,
-                MatchEventType.BattingApproachSelected,
-                inning,
-                half,
-                batter.Player.PlayerId,
-                defense.ActivePitcher.PlayerId,
-                batter.Player.PlayerId,
-                toBase: (int)strategicApproach);
-            Emit(
-                state,
-                MatchEventType.PitchingApproachSelected,
-                inning,
-                half,
-                batter.Player.PlayerId,
-                defense.ActivePitcher.PlayerId,
-                defense.ActivePitcher.PlayerId,
-                toBase: (int)pitchingApproach);
+            bool requiresRecordedBattingDecision = strategicApproach != BattingApproach.Bunt &&
+                                                   _recordedDecisionSource != null &&
+                                                   _recordedDecisionSource.RequiresBattingDecision(
+                                                       batter.Player.PlayerId);
+            BattingApproach lastEmittedBattingApproach = strategicApproach;
+            bool hasEmittedBattingApproach = false;
+            if (!requiresRecordedBattingDecision)
+            {
+                Emit(
+                    state,
+                    MatchEventType.BattingApproachSelected,
+                    inning,
+                    half,
+                    batter.Player.PlayerId,
+                    defense.ActivePitcher.PlayerId,
+                    batter.Player.PlayerId,
+                    toBase: (int)strategicApproach);
+                Emit(
+                    state,
+                    MatchEventType.PitchingApproachSelected,
+                    inning,
+                    half,
+                    batter.Player.PlayerId,
+                    defense.ActivePitcher.PlayerId,
+                    defense.ActivePitcher.PlayerId,
+                    toBase: (int)pitchingApproach);
+            }
             if (strategicApproach == BattingApproach.Bunt)
             {
                 Emit(state, MatchEventType.BuntAttempted, inning, half,
@@ -398,6 +398,47 @@ namespace Baseball.Simulation.Match
             while (true)
             {
                 pitchNumber++;
+                BattingApproach selectedApproach = requiresRecordedBattingDecision
+                    ? ResolveRecordedBattingApproach(
+                        state,
+                        inning,
+                        half,
+                        batter.Player,
+                        defense.ActivePitcher.PlayerId,
+                        strategicApproach,
+                        pitchNumber,
+                        balls,
+                        strikes,
+                        outs,
+                        bases)
+                    : strategicApproach;
+                if (requiresRecordedBattingDecision &&
+                    (!hasEmittedBattingApproach || selectedApproach != lastEmittedBattingApproach))
+                {
+                    Emit(
+                        state,
+                        MatchEventType.BattingApproachSelected,
+                        inning,
+                        half,
+                        batter.Player.PlayerId,
+                        defense.ActivePitcher.PlayerId,
+                        batter.Player.PlayerId,
+                        toBase: (int)selectedApproach);
+                    lastEmittedBattingApproach = selectedApproach;
+                    hasEmittedBattingApproach = true;
+                }
+                if (requiresRecordedBattingDecision && pitchNumber == 1)
+                {
+                    Emit(
+                        state,
+                        MatchEventType.PitchingApproachSelected,
+                        inning,
+                        half,
+                        batter.Player.PlayerId,
+                        defense.ActivePitcher.PlayerId,
+                        defense.ActivePitcher.PlayerId,
+                        toBase: (int)pitchingApproach);
+                }
                 EffectivePitcherRatings effective = _fatigueResolver.Resolve(
                     defense.ActivePitcherState,
                     pitchingApproach);
@@ -415,7 +456,7 @@ namespace Baseball.Simulation.Match
                     hardHitBonus,
                     pitchingApproach);
                 BattingApproach pitchApproach = GetPitchBattingApproach(
-                    strategicApproach,
+                    selectedApproach,
                     balls,
                     strikes);
                 PitcherFatigueBand bandBefore = _fatigueResolver.GetBand(defense.ActivePitcherState.FatigueRatio);
@@ -492,7 +533,7 @@ namespace Baseball.Simulation.Match
                     PlateAppearanceResult scripted = preResolved.ResolveBallInPlay(matchup, pitchApproach);
                     return new DetailedPlateAppearanceOutcome(scripted, default, default);
                 }
-                BattedBallDescriptor ball = _battedBallResolver.Resolve(matchup, strategicApproach);
+                BattedBallDescriptor ball = _battedBallResolver.Resolve(matchup, pitchApproach);
                 if (ball.IsHomeRun)
                     return new DetailedPlateAppearanceOutcome(PlateAppearanceResult.HomeRun, ball, default);
 
@@ -519,6 +560,9 @@ namespace Baseball.Simulation.Match
             Player batter,
             int pitcherId,
             BattingApproach strategicApproach,
+            int pitchNumber,
+            int balls,
+            int strikes,
             int outs,
             DetailedBaseState bases)
         {
@@ -534,9 +578,9 @@ namespace Baseball.Simulation.Match
                     half,
                     batter.PlayerId,
                     pitcherId,
-                    1,
-                    0,
-                    0,
+                    pitchNumber,
+                    balls,
+                    strikes,
                     outs,
                     state.Away.BoxScore.Runs,
                     state.Home.BoxScore.Runs,

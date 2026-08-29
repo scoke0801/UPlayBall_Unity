@@ -113,7 +113,7 @@ namespace Baseball.Simulation.Match
                 _progress.Result);
         }
 
-        /// <summary>대기 중인 타석 단위 타격 접근법을 제출한다.</summary>
+        /// <summary>대기 중인 현재 투구의 타격 접근법을 제출한다.</summary>
         public void SubmitBattingApproach(BattingApproach approach)
         {
             if (_progress?.PendingDecision.HasValue != true)

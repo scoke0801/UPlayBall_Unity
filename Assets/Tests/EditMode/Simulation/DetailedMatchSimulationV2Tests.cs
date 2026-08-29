@@ -205,7 +205,7 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void MatchSession_타격선택은타석당한번만요청한다()
+        public void MatchSession_타격선택은다음투구전까지진행한다()
         {
             MatchInput input = CreateDetailedInput(77551UL, MatchRules.CreateDefault(requiresWinner: false));
             int controlledId = input.AwayRoster.StartingLineup[0].Player.PlayerId;
@@ -224,7 +224,11 @@ namespace Baseball.Tests.EditMode.Simulation
             MatchSessionStep second = AdvanceToDecision(session);
             Assert.That(second.BattingDecision.HasValue, Is.True);
             Assert.That(second.BattingDecision.Value.DecisionIndex, Is.EqualTo(1));
-            Assert.That(second.BattingDecision.Value.PitchNumber, Is.EqualTo(1));
+            Assert.That(second.BattingDecision.Value.BatterId, Is.EqualTo(controlledId));
+            Assert.That(second.BattingDecision.Value.PitchNumber, Is.EqualTo(2));
+            Assert.That(
+                second.BattingDecision.Value.Balls + second.BattingDecision.Value.Strikes,
+                Is.EqualTo(1));
         }
 
         [Test]

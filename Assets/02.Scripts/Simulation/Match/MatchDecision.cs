@@ -5,7 +5,7 @@ using Baseball.Core.Players;
 namespace Baseball.Simulation.Match
 {
     /// <summary>
-    /// 한 타석을 시작하기 전에 플레이어에게 필요한 전략적 타격 결정을 설명한다.
+    /// 현재 투구 전에 플레이어에게 필요한 전략적 타격 결정을 설명한다.
     /// </summary>
     public readonly struct MatchDecisionRequest
     {
@@ -59,7 +59,7 @@ namespace Baseball.Simulation.Match
     }
 
     /// <summary>
-    /// 시뮬레이터가 타석 단위 타격 결정을 읽는 순수 C# 입력 계약이다.
+    /// 시뮬레이터가 투구 단위 타격 결정을 읽는 순수 C# 입력 계약이다.
     /// </summary>
     public interface IMatchDecisionSource
     {

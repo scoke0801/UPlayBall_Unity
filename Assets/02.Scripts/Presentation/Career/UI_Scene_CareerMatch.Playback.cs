@@ -75,16 +75,15 @@ namespace Baseball.Presentation.Career
         private bool AdvanceOneStep(CareerMatchSession session)
         {
             int firstRevealedEventIndex = _playback.VisibleEventCount;
-            bool pauseBeforeControlledPlayer = session.Mode == CareerMatchMode.InterveneOnPlayer;
-            if (!_playback.AdvanceAutomatic(
-                    session.Events,
-                    session.ControlledPlayerId,
-                    pauseBeforeControlledPlayer))
+            bool isPlayerInputMode = session.Mode == CareerMatchMode.InterveneOnPlayer;
+            // 입력 모드의 이벤트 스트림은 시뮬레이터가 미결정 투구 직전에 끊는다.
+            // BatterId로 다시 정지점을 추측하면 투수 교체·수비 전술 이벤트 앞에서 교착된다.
+            if (!_playback.AdvanceAutomatic(session.Events))
             {
                 return false;
             }
 
-            if (!pauseBeforeControlledPlayer &&
+            if (!isPlayerInputMode &&
                 _playback.TryGetControlledPlateAppearanceSummary(
                     session.Events,
                     firstRevealedEventIndex,
