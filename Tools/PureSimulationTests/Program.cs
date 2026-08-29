@@ -13,6 +13,9 @@ namespace Baseball.Tools.PureSimulationTests
             {
                 typeof(Baseball.Tests.EditMode.Core.AttributeAllocationTests),
                 typeof(Baseball.Tests.EditMode.Game.NewGameFlowTests),
+                typeof(Baseball.Tests.EditMode.Game.MultiLeagueWorldTests),
+                typeof(Baseball.Tests.EditMode.Game.CareerLeagueMovementTests),
+                typeof(Baseball.Tests.EditMode.Game.News.CareerNewsServiceTests),
                 typeof(Baseball.Tests.EditMode.Simulation.MatchSimulatorTests),
                 typeof(Baseball.Tests.EditMode.Simulation.DetailedMatchSimulationV2Tests),
                 typeof(Baseball.Tests.EditMode.Simulation.MatchDecisionTests),
@@ -20,7 +23,8 @@ namespace Baseball.Tools.PureSimulationTests
                 typeof(Baseball.Tests.EditMode.Simulation.PlateAppearanceSimulatorTests),
                 typeof(Baseball.Tests.EditMode.Simulation.Growth.SkillBoardAndGachaTests),
                 typeof(Baseball.Tests.EditMode.Simulation.Growth.GrowthBoardWorkspaceRulesTests),
-                typeof(Baseball.Tests.EditMode.Simulation.Career.NewGameSetupTests)
+                typeof(Baseball.Tests.EditMode.Simulation.Career.NewGameSetupTests),
+                typeof(Baseball.Tests.EditMode.Simulation.Career.PlayerRetirementResolverTests)
             };
             // TestContext.WriteLine은 실행 컨텍스트의 OutWriter가 없으면 NullReference로 죽는다.
             // Unity 테스트 러너 밖에서도 통계 테스트가 로그를 남길 수 있도록 콘솔로 연결한다.
@@ -44,6 +48,13 @@ namespace Baseball.Tools.PureSimulationTests
                 {
                     if (method.GetCustomAttribute<TestAttribute>() == null || method.GetParameters().Length != 0)
                         continue;
+                    if (method.GetCustomAttribute<ExplicitAttribute>() != null && args.Length <= 1)
+                        continue;
+                    if (args.Length > 1 &&
+                        !string.Equals(method.Name, args[1], StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
                     object instance = Activator.CreateInstance(type);
                     try
                     {
@@ -55,7 +66,7 @@ namespace Baseball.Tools.PureSimulationTests
                     catch (TargetInvocationException exception)
                     {
                         Exception cause = exception.InnerException ?? exception;
-                        Console.Error.WriteLine($"FAIL {type.Name}.{method.Name}: {cause.Message}");
+                        Console.Error.WriteLine($"FAIL {type.Name}.{method.Name}: {cause}");
                         failed++;
                     }
                     finally
