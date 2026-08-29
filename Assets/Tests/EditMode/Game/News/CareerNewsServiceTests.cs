@@ -29,6 +29,32 @@ namespace Baseball.Tests.EditMode.Game.News
         }
 
         [Test]
+        public void PublishCycle_월드승강사건을확정기사로변환한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 290829UL);
+            int teamId = career.MyPlayer.CurrentTeamId;
+            var date = new CareerDate(
+                new NewsCycleKey(career.CurrentLeague.CurrentSeason.SeasonId, SeasonPhase.RegularSeason, 60),
+                new System.DateTime(career.CurrentLeague.CurrentSeason.Year, 7, 1));
+            career.World.DomainEvents.Append(new WorldDomainEvent(
+                "test-promotion-race",
+                "PromotionRaceEntered",
+                date.CalendarDate,
+                teamId,
+                2));
+
+            IReadOnlyList<NewsArticleState> articles = new CareerNewsService(
+                    career,
+                    CareerNewsConfiguration.CreateDefault())
+                .PublishCycle(date, NewsReleaseGate.EndOfScheduleDate);
+
+            Assert.That(articles.Count, Is.GreaterThan(0));
+            Assert.That(FindArticle(career.News, "league.promotion_race"), Is.Not.Null);
+            Assert.That(career.News.ProcessedEventIds, Does.Contain("test-promotion-race"));
+        }
+
+        [Test]
         public void Publish_같은입력은같은템플릿변형과문장을만든다()
         {
             CareerDate date = CreateDate();
@@ -131,7 +157,10 @@ namespace Baseball.Tests.EditMode.Game.News
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateStartedCareer(configuration, 14521UL);
-            var seasonService = new CareerSeasonService(career, configuration.Balance);
+            var seasonService = new CareerSeasonService(
+                career,
+                configuration.Balance,
+                CareerNewsConfiguration.CreateDefault());
 
             CareerGameAdvanceResult result = seasonService.AdvanceNextRound();
 
@@ -175,14 +204,19 @@ namespace Baseball.Tests.EditMode.Game.News
         }
 
         [Test]
-        public void CompleteCurrentPhase_포스트시즌완료뒤우승과수상기사를발행한다()
+        public void PublishCycle_포스트시즌결과공개뒤우승과수상기사를발행한다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateStartedCareer(configuration, 24521UL);
 
-            var service = new CareerSeasonAutoCompletionService(career, configuration.Balance);
+            var service = new CareerSeasonAutoCompletionService(
+                career,
+                configuration.Balance,
+                CareerNewsConfiguration.CreateDefault());
             service.CompleteCurrentPhase();
             service.CompleteCurrentPhase();
+            PublishPendingReviewNews(career, NewsReleaseGate.AfterPostseasonReveal);
+            PublishPendingReviewNews(career, NewsReleaseGate.AfterAwardReveal);
 
             bool hasChampionshipArticle = false;
             bool hasAwardArticle = false;
@@ -289,7 +323,32 @@ namespace Baseball.Tests.EditMode.Game.News
                     date,
                     42,
                     5,
-                    NewsReleaseGate.EndOfScheduleDate));
+                NewsReleaseGate.EndOfScheduleDate));
+        }
+
+        private static void PublishPendingReviewNews(
+            CareerState career,
+            NewsReleaseGate gate)
+        {
+            var dates = new List<CareerDate>();
+            IReadOnlyList<NewsEvent> pending = career.News.PendingEvents;
+            for (int index = 0; index < pending.Count; index++)
+            {
+                NewsEvent newsEvent = pending[index];
+                if (newsEvent.ReleaseGate != gate)
+                    continue;
+                bool exists = false;
+                for (int dateIndex = 0; dateIndex < dates.Count; dateIndex++)
+                    exists |= dates[dateIndex].Equals(newsEvent.OccurredAt);
+                if (!exists)
+                    dates.Add(newsEvent.OccurredAt);
+            }
+
+            var service = new CareerNewsService(
+                career,
+                CareerNewsConfiguration.CreateDefault());
+            for (int index = 0; index < dates.Count; index++)
+                service.PublishCycle(dates[index], gate);
         }
 
         private static CareerDate CreateDate()
@@ -308,7 +367,7 @@ namespace Baseball.Tests.EditMode.Game.News
             flow.SelectPlayerType(PlayerType.Batter);
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Left, Handedness.Right);
-            flow.SubmitBatterAttributes(new Baseball.Core.Players.BatterAttributes(55, 50, 52, 43, 60, 52));
+            flow.SubmitBatterAttributes(new Baseball.Core.Players.BatterAttributes(55, 50, 52, 50, 60, 52));
             flow.GenerateOffers();
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();

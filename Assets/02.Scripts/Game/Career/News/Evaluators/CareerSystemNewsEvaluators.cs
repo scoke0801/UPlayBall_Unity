@@ -162,4 +162,172 @@ namespace Baseball.Game.Career.News
             return newsEvent;
         }
     }
+
+    /// <summary>월드 저널의 승강·계약·은퇴 확정 사실을 뉴스 입력으로 변환한다.</summary>
+    public sealed class WorldDomainNewsEvaluator
+    {
+        public NewsEvent Evaluate(CareerState career, WorldDomainEvent domainEvent, CareerDate publicationDate)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (!TryGetNewsType(domainEvent.EventType, out NewsEventType newsType))
+                return null;
+
+            CareerDate occurredAt = new CareerDate(publicationDate.Cycle, domainEvent.WorldDate);
+            bool isTeamEvent = newsType is
+                NewsEventType.PromotionRaceEntered or
+                NewsEventType.PromotionClinched or
+                NewsEventType.RelegationRiskEntered or
+                NewsEventType.RelegationConfirmed or
+                NewsEventType.TeamLeagueChanged;
+            NewsSubject primary;
+            TeamState team = null;
+            PlayerState player = null;
+            if (isTeamEvent)
+            {
+                team = career.World.GetTeam(domainEvent.PrimaryEntityId);
+                primary = NewsSubject.Team(team.TeamId, team.Name);
+            }
+            else
+            {
+                player = career.World.GetPlayer(domainEvent.PrimaryEntityId);
+                primary = NewsSubject.Player(player.PlayerId, player.Name);
+                int teamId = ResolveRelatedTeamId(newsType, domainEvent, player);
+                if (teamId > 0)
+                    team = career.World.GetTeam(teamId);
+            }
+
+            bool isMyCareer = player?.PlayerId == career.MyPlayerId;
+            var newsEvent = new NewsEvent(
+                domainEvent.EventId,
+                newsType,
+                occurredAt,
+                ResolveGate(newsType),
+                primary,
+                domainEvent.EventId,
+                ResolveImportance(newsType, isMyCareer))
+            {
+                CareerImpact = isMyCareer ? 35 : 0,
+                IsCareerArchive = isMyCareer || newsType is
+                    NewsEventType.PromotionClinched or NewsEventType.RelegationConfirmed
+            };
+            if (player != null)
+                newsEvent.FactSet.SetText(NewsFactKey.PlayerName, player.Name);
+            if (team != null)
+            {
+                newsEvent.AddRelatedSubject(NewsSubject.Team(team.TeamId, team.Name));
+                newsEvent.FactSet.SetText(NewsFactKey.TeamName, team.Name);
+            }
+            if (newsType is NewsEventType.PromotionRaceEntered or NewsEventType.RelegationRiskEntered)
+                newsEvent.FactSet.SetInteger(NewsFactKey.TeamRank, domainEvent.SecondaryEntityId);
+            string leagueName = ResolveLeagueName(career, domainEvent, newsType, team);
+            if (!string.IsNullOrEmpty(leagueName))
+                newsEvent.FactSet.SetText(NewsFactKey.LeagueName, leagueName);
+            return newsEvent;
+        }
+
+        private static int ResolveRelatedTeamId(
+            NewsEventType newsType,
+            WorldDomainEvent domainEvent,
+            PlayerState player)
+        {
+            if (newsType is NewsEventType.UpperLeagueInterestConfirmed or
+                NewsEventType.CrossLeagueContractSigned or
+                NewsEventType.PlayerRetired)
+                return domainEvent.SecondaryEntityId;
+            return player.CurrentTeamId;
+        }
+
+        private static string ResolveLeagueName(
+            CareerState career,
+            WorldDomainEvent domainEvent,
+            NewsEventType newsType,
+            TeamState team)
+        {
+            if (newsType is NewsEventType.PromotionClinched or
+                NewsEventType.RelegationConfirmed or
+                NewsEventType.TeamLeagueChanged)
+            {
+                LeagueLevel tier = (LeagueLevel)domainEvent.SecondaryEntityId;
+                return LeagueLevelRules.IsValid(tier)
+                    ? WorldGenerationConfiguration.GetDefaultDefinition(tier).DisplayName
+                    : string.Empty;
+            }
+            if (newsType == NewsEventType.UpperLeagueInterestConfirmed)
+            {
+                LeagueLevel tier = (LeagueLevel)domainEvent.TertiaryEntityId;
+                return LeagueLevelRules.IsValid(tier)
+                    ? WorldGenerationConfiguration.GetDefaultDefinition(tier).DisplayName
+                    : string.Empty;
+            }
+            if (newsType == NewsEventType.GalaxyLeagueDebut)
+                return WorldGenerationConfiguration.GetDefaultDefinition(LeagueLevel.Galaxy).DisplayName;
+            if (newsType == NewsEventType.FirstLeagueReached)
+            {
+                LeagueLevel tier = (LeagueLevel)domainEvent.SecondaryEntityId;
+                return LeagueLevelRules.IsValid(tier)
+                    ? WorldGenerationConfiguration.GetDefaultDefinition(tier).DisplayName
+                    : string.Empty;
+            }
+            return team == null
+                ? string.Empty
+                : WorldGenerationConfiguration
+                    .GetDefaultDefinition(career.World.GetLeague(team.LeagueId).LeagueLevel)
+                    .DisplayName;
+        }
+
+        private static NewsReleaseGate ResolveGate(NewsEventType newsType)
+        {
+            return newsType is NewsEventType.CrossLeagueContractSigned or
+                NewsEventType.UpperLeagueInterestConfirmed
+                ? NewsReleaseGate.AfterContractConfirmation
+                : NewsReleaseGate.EndOfScheduleDate;
+        }
+
+        private static int ResolveImportance(NewsEventType newsType, bool isMyCareer)
+        {
+            int result = newsType switch
+            {
+                NewsEventType.PromotionClinched => 55,
+                NewsEventType.RelegationConfirmed => 55,
+                NewsEventType.CrossLeagueContractSigned => 50,
+                NewsEventType.FirstLeagueReached => 55,
+                NewsEventType.GalaxyLeagueDebut => 65,
+                NewsEventType.FinalSeasonAnnounced => 65,
+                NewsEventType.PlayerRetired => 55,
+                _ => 30
+            };
+            return isMyCareer ? result + 20 : result;
+        }
+
+        private static bool TryGetNewsType(string eventType, out NewsEventType newsType)
+        {
+            newsType = eventType switch
+            {
+                "PromotionRaceEntered" => NewsEventType.PromotionRaceEntered,
+                "PromotionClinched" => NewsEventType.PromotionClinched,
+                "RelegationRiskEntered" => NewsEventType.RelegationRiskEntered,
+                "RelegationConfirmed" => NewsEventType.RelegationConfirmed,
+                "TeamLeagueChanged" => NewsEventType.TeamLeagueChanged,
+                "UpperLeagueInterestConfirmed" => NewsEventType.UpperLeagueInterestConfirmed,
+                "CrossLeagueContractSigned" => NewsEventType.CrossLeagueContractSigned,
+                "FirstLeagueReached" => NewsEventType.FirstLeagueReached,
+                "GalaxyLeagueDebut" => NewsEventType.GalaxyLeagueDebut,
+                "FinalSeasonAnnounced" => NewsEventType.FinalSeasonAnnounced,
+                "PlayerRetired" => NewsEventType.PlayerRetired,
+                _ => default
+            };
+            return eventType is
+                "PromotionRaceEntered" or
+                "PromotionClinched" or
+                "RelegationRiskEntered" or
+                "RelegationConfirmed" or
+                "TeamLeagueChanged" or
+                "UpperLeagueInterestConfirmed" or
+                "CrossLeagueContractSigned" or
+                "FirstLeagueReached" or
+                "GalaxyLeagueDebut" or
+                "FinalSeasonAnnounced" or
+                "PlayerRetired";
+        }
+    }
 }

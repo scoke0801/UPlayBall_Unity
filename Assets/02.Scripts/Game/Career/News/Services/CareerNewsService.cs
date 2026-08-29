@@ -40,6 +40,7 @@ namespace Baseball.Game.Career.News
                 narrative);
             for (int index = 0; index < events.Count; index++)
                 _collector.Collect(events[index]);
+            CollectWorldDomainEvents(occurredAt);
             return _cycleService.Publish(new NewsPublicationContext(
                 occurredAt,
                 _career.MyPlayer.PlayerId,
@@ -52,11 +53,24 @@ namespace Baseball.Game.Career.News
             CareerDate publishedAt,
             params NewsReleaseGate[] releasedGates)
         {
+            CollectWorldDomainEvents(publishedAt);
             return _cycleService.Publish(new NewsPublicationContext(
                 publishedAt,
                 _career.MyPlayer.PlayerId,
                 _career.MyPlayer.CurrentTeamId,
                 releasedGates));
+        }
+
+        private void CollectWorldDomainEvents(CareerDate publicationDate)
+        {
+            var evaluator = new WorldDomainNewsEvaluator();
+            IReadOnlyList<WorldDomainEvent> events = _career.World.DomainEvents.Events;
+            for (int index = 0; index < events.Count; index++)
+            {
+                NewsEvent newsEvent = evaluator.Evaluate(_career, events[index], publicationDate);
+                if (newsEvent != null)
+                    _collector.Collect(newsEvent);
+            }
         }
     }
 }

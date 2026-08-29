@@ -59,7 +59,18 @@ namespace Baseball.Game.Career.News
         TradeInterestReported,
         TradeRumorReported,
         TradeNegotiationReported,
-        PlayerTraded
+        PlayerTraded,
+        PromotionRaceEntered,
+        PromotionClinched,
+        RelegationRiskEntered,
+        RelegationConfirmed,
+        TeamLeagueChanged,
+        UpperLeagueInterestConfirmed,
+        CrossLeagueContractSigned,
+        FirstLeagueReached,
+        GalaxyLeagueDebut,
+        FinalSeasonAnnounced,
+        PlayerRetired
     }
 
     /// <summary>점수에서 파생되는 기사 노출 등급이다.</summary>
