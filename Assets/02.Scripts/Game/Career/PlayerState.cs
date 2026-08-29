@@ -1,6 +1,7 @@
 using Baseball.Core.Players;
 using Baseball.Core.Growth;
 using Baseball.Simulation.Growth;
+using Baseball.Simulation.Match;
 
 namespace Baseball.Game.Career
 {
@@ -131,6 +132,12 @@ namespace Baseball.Game.Career
         public int CareerPitchingOuts { get; private set; }
         public int RegisteredSeasons { get; private set; }
         public int LastCareerStatisticsYear { get; private set; }
+        public System.DateTime LatestPitchingAppearanceDate { get; private set; }
+        public int LatestPitchCount { get; private set; }
+        public System.DateTime PreviousPitchingAppearanceDate { get; private set; }
+        public int PreviousPitchCount { get; private set; }
+        public System.DateTime ThirdPitchingAppearanceDate { get; private set; }
+        public int ThirdPitchCount { get; private set; }
         public PlayerGrowthState GrowthState { get; private set; }
         public PlayerStudyState StudyState { get; }
         public SkillBoardState SkillBoardState { get; }
@@ -208,6 +215,59 @@ namespace Baseball.Game.Career
             Condition = Clamp(Condition + conditionDelta, minimumCondition, 100);
             ManagerEvaluation = ClampRating(ManagerEvaluation + managerEvaluationDelta);
             SynchronizeGrowthCondition();
+        }
+
+        /// <summary>경기 날짜를 기준으로 직전 3일의 투구 부하 스냅샷을 만든다.</summary>
+        public RecentPitchingWorkload GetRecentPitchingWorkload(System.DateTime gameDate)
+        {
+            int previousDay = 0;
+            int twoDaysAgo = 0;
+            int threeDaysAgo = 0;
+            AddWorkload(gameDate, LatestPitchingAppearanceDate, LatestPitchCount,
+                ref previousDay, ref twoDaysAgo, ref threeDaysAgo);
+            AddWorkload(gameDate, PreviousPitchingAppearanceDate, PreviousPitchCount,
+                ref previousDay, ref twoDaysAgo, ref threeDaysAgo);
+            AddWorkload(gameDate, ThirdPitchingAppearanceDate, ThirdPitchCount,
+                ref previousDay, ref twoDaysAgo, ref threeDaysAgo);
+            return new RecentPitchingWorkload(previousDay, twoDaysAgo, threeDaysAgo);
+        }
+
+        /// <summary>확정된 경기의 투구 수를 최근 등판 부하에 한 번 기록한다.</summary>
+        public void RecordPitchingUsage(System.DateTime gameDate, int pitchCount)
+        {
+            if (pitchCount <= 0)
+                throw new System.ArgumentOutOfRangeException(nameof(pitchCount));
+            gameDate = gameDate.Date;
+            if (LatestPitchingAppearanceDate.Date == gameDate)
+            {
+                LatestPitchCount += pitchCount;
+                return;
+            }
+            if (LatestPitchingAppearanceDate != default && gameDate < LatestPitchingAppearanceDate.Date)
+                throw new System.InvalidOperationException("투수 부하는 경기 날짜 순서대로 기록해야 합니다.");
+
+            ThirdPitchingAppearanceDate = PreviousPitchingAppearanceDate;
+            ThirdPitchCount = PreviousPitchCount;
+            PreviousPitchingAppearanceDate = LatestPitchingAppearanceDate;
+            PreviousPitchCount = LatestPitchCount;
+            LatestPitchingAppearanceDate = gameDate;
+            LatestPitchCount = pitchCount;
+        }
+
+        private static void AddWorkload(
+            System.DateTime gameDate,
+            System.DateTime appearanceDate,
+            int pitchCount,
+            ref int previousDay,
+            ref int twoDaysAgo,
+            ref int threeDaysAgo)
+        {
+            if (appearanceDate == default || pitchCount <= 0)
+                return;
+            int daysAgo = (gameDate.Date - appearanceDate.Date).Days;
+            if (daysAgo == 1) previousDay += pitchCount;
+            else if (daysAgo == 2) twoDaysAgo += pitchCount;
+            else if (daysAgo == 3) threeDaysAgo += pitchCount;
         }
 
         /// <summary>

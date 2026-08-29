@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
@@ -82,10 +83,11 @@ namespace Baseball.Game.Career
             ScheduledGameState game,
             PlayerGameRole playerRole,
             int seasonId,
-            bool requiresWinner = false)
+            bool requiresWinner = false,
+            DateTime? gameDate = null)
         {
-            MatchInput input = CreateMatchInput(game, playerRole, seasonId, requiresWinner);
-            return new MatchSimulator(_balance, new Pcg32Random(game.RandomSeed))
+            MatchInput input = CreateMatchInput(game, playerRole, seasonId, requiresWinner, gameDate);
+            return new MatchSimulator(_balance, MatchRandomStreams.Create(game.RandomSeed))
                 .Simulate(input, NullMatchEventSink.Instance);
         }
 
@@ -96,20 +98,215 @@ namespace Baseball.Game.Career
             ScheduledGameState game,
             PlayerGameRole playerRole,
             int seasonId,
-            bool requiresWinner = false)
+            bool requiresWinner = false,
+            DateTime? gameDate = null)
         {
             if (game == null)
                 throw new ArgumentNullException(nameof(game));
 
-            Team awayTeam = BuildMatchTeam(game.AwayTeamId, game.Round, playerRole, game.RandomSeed);
-            Team homeTeam = BuildMatchTeam(game.HomeTeamId, game.Round, playerRole, game.RandomSeed);
+            MatchRosterSnapshot awayRoster = BuildMatchRoster(
+                game.AwayTeamId,
+                game.Round,
+                playerRole,
+                game.RandomSeed,
+                gameDate ?? ResolveGameDate(game.Round));
+            MatchRosterSnapshot homeRoster = BuildMatchRoster(
+                game.HomeTeamId,
+                game.Round,
+                playerRole,
+                game.RandomSeed,
+                gameDate ?? ResolveGameDate(game.Round));
             return new MatchInput(
                 seasonId,
                 game.GameId,
                 game.RandomSeed,
-                awayTeam,
-                homeTeam,
-                requiresWinner);
+                awayRoster,
+                homeRoster,
+                Baseball.Core.Rules.MatchRules.CreateDefault(requiresWinner));
+        }
+
+        private MatchRosterSnapshot BuildMatchRoster(
+            int teamId,
+            int round,
+            PlayerGameRole playerRole,
+            ulong gameSeed,
+            DateTime gameDate)
+        {
+            Team compatibility = BuildMatchTeam(teamId, round, playerRole, gameSeed);
+            TeamState team = GetTeam(teamId);
+            bool isPlayerTeam = _league.LeagueId == _career.MyPlayer.CurrentLeagueId &&
+                                teamId == _career.MyPlayer.CurrentTeamId;
+            Player myPlayer = isPlayerTeam ? _career.MyPlayer.ToPlayer(_skillBoardService) : null;
+            var bullpen = new List<PitcherRosterEntry>(5);
+            int startingSelection = round % 2;
+            if (!(isPlayerTeam && playerRole == PlayerGameRole.StartingPitcher))
+            {
+                AddPitcherIfUnique(
+                    bullpen,
+                    CareerLineupPlan.CreateRosterPlayer(
+                        team.GetCompetitor(PlayerPosition.StartingPitcher, 1 - startingSelection)),
+                    PitcherRole.Swingman,
+                    myPlayer,
+                    gameDate);
+            }
+            else
+            {
+                AddPitcherIfUnique(
+                    bullpen,
+                    CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(PlayerPosition.StartingPitcher, 0)),
+                    PitcherRole.LongRelief,
+                    myPlayer,
+                    gameDate);
+                AddPitcherIfUnique(
+                    bullpen,
+                    CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(PlayerPosition.StartingPitcher, 1)),
+                    PitcherRole.Swingman,
+                    myPlayer,
+                    gameDate);
+            }
+
+            AddPitcherIfUnique(
+                bullpen,
+                CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(PlayerPosition.ReliefPitcher, 0)),
+                PitcherRole.Setup,
+                myPlayer,
+                gameDate);
+            AddPitcherIfUnique(
+                bullpen,
+                CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(PlayerPosition.ReliefPitcher, 1)),
+                PitcherRole.Closer,
+                myPlayer,
+                gameDate);
+            if (isPlayerTeam && playerRole == PlayerGameRole.ReliefPitcher)
+                AddPitcherIfUnique(bullpen, myPlayer, PitcherRole.MiddleRelief, null, gameDate);
+
+            var bench = new List<Player>(10);
+            if (isPlayerTeam && playerRole == PlayerGameRole.Bench)
+                bench.Add(myPlayer);
+            for (PlayerPosition position = PlayerPosition.Catcher;
+                 position <= PlayerPosition.DesignatedHitter;
+                 position++)
+            {
+                Player candidate = CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(position, 1));
+                if (!ContainsPlayer(compatibility.Lineup, candidate.PlayerId) &&
+                    !ContainsPlayer(bench, candidate.PlayerId))
+                {
+                    bench.Add(candidate);
+                }
+            }
+
+            PitcherRole starterRole = PitcherRole.Starter;
+            int starterCondition = compatibility.StartingPitcher.PlayerId == _career.MyPlayer.PlayerId
+                ? _career.MyPlayer.Condition
+                : 100;
+            return new MatchRosterSnapshot(
+                team.TeamId,
+                team.Name,
+                compatibility.Lineup,
+                CreatePitcherEntry(compatibility.StartingPitcher, starterRole, gameDate, starterCondition),
+                bullpen,
+                bench,
+                CreateManagerTacticalProfile(team),
+                RunningApproach.Balanced,
+                isPlayerTeam ? _career.MyPlayer.PlayerId : 0);
+        }
+
+        private void AddPitcherIfUnique(
+            List<PitcherRosterEntry> bullpen,
+            Player pitcher,
+            PitcherRole role,
+            Player excluded,
+            DateTime gameDate)
+        {
+            if (pitcher == null || pitcher.PlayerId == excluded?.PlayerId)
+                return;
+            for (int index = 0; index < bullpen.Count; index++)
+            {
+                if (bullpen[index].Player.PlayerId == pitcher.PlayerId)
+                    return;
+            }
+            bullpen.Add(CreatePitcherEntry(pitcher, role, gameDate));
+        }
+
+        /// <summary>경기 종료 후 모든 등판 투수의 당일 부하를 월드 상태에 반영한다.</summary>
+        public void RecordPitcherUsage(MatchResult result, DateTime gameDate)
+        {
+            if (result == null) throw new ArgumentNullException(nameof(result));
+            for (int index = 0; index < result.PitcherUsage.Count; index++)
+            {
+                PitcherUsageReport usage = result.PitcherUsage[index];
+                if (usage.PitchCount <= 0)
+                    continue;
+                _career.World.GetPlayer(usage.PlayerId)
+                    .RecordPitchingUsage(gameDate, usage.PitchCount);
+            }
+        }
+
+        private PitcherRosterEntry CreatePitcherEntry(
+            Player pitcher,
+            PitcherRole role,
+            DateTime gameDate,
+            int conditionOverride = -1)
+        {
+            PlayerState state = _career.World.GetPlayer(pitcher.PlayerId);
+            int condition = conditionOverride >= 0
+                ? conditionOverride
+                : state.Condition > 0 ? state.Condition : 100;
+            return new PitcherRosterEntry(
+                pitcher,
+                role,
+                condition,
+                state.GetRecentPitchingWorkload(gameDate));
+        }
+
+        private DateTime ResolveGameDate(int round)
+        {
+            SeasonState season = _league.CurrentSeason;
+            if (season != null && season.Phase == SeasonPhase.RegularSeason)
+            {
+                int playedDays = round - 1;
+                int restDays = playedDays / _balance.CareerSeason.GamesBetweenRestDays;
+                return new DateTime(
+                        season.Year,
+                        _balance.CareerSeason.SeasonOpeningMonth,
+                        _balance.CareerSeason.SeasonOpeningDay)
+                    .AddDays(playedDays + restDays);
+            }
+            return _career.World.Calendar.CurrentDate.Date.AddDays(1);
+        }
+
+        private static bool ContainsPlayer(Lineup lineup, int playerId)
+        {
+            for (int index = 0; index < lineup.Count; index++)
+            {
+                if (lineup[index].Player.PlayerId == playerId)
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool ContainsPlayer(List<Player> players, int playerId)
+        {
+            for (int index = 0; index < players.Count; index++)
+            {
+                if (players[index].PlayerId == playerId)
+                    return true;
+            }
+            return false;
+        }
+
+        private static ManagerTacticalProfile CreateManagerTacticalProfile(TeamState team)
+        {
+            TeamArchetypeProfile profile = team.Archetype;
+            return new ManagerTacticalProfile(
+                hookSpeed: profile.Scouting,
+                bullpenAggression: (profile.RosterDepth + profile.Scouting) / 2,
+                bullpenRoleRigidity: 45 + profile.RosterDepth / 5,
+                smallBallPreference: 100 - profile.Budget,
+                runningAggression: (profile.Development + profile.Scouting) / 2,
+                matchupPreference: profile.Scouting,
+                defensiveAggression: profile.RosterDepth,
+                starTrust: profile.Budget);
         }
 
         /// <summary>
@@ -202,7 +399,15 @@ namespace Baseball.Game.Career
                 conditionBefore,
                 _career.MyPlayer.Condition,
                 managerEvaluationBefore,
-                _career.MyPlayer.ManagerEvaluation);
+                _career.MyPlayer.ManagerEvaluation,
+                battingLine?.StolenBases ?? 0,
+                battingLine?.CaughtStealing ?? 0,
+                battingLine?.SacrificeBunts ?? 0,
+                battingLine?.IntentionalWalks ?? 0,
+                battingLine?.ReachedOnErrors ?? 0,
+                pitchingLine?.PitchesThrown ?? 0,
+                pitchingLine?.InheritedRunners ?? 0,
+                pitchingLine?.InheritedRunnersScored ?? 0);
         }
 
         private Team BuildMatchTeam(int teamId, int round, PlayerGameRole playerRole, ulong gameSeed)

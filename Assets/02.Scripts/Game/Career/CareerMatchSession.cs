@@ -20,16 +20,19 @@ namespace Baseball.Game.Career
     }
 
     /// <summary>
-    /// 선수 중심 진행 또는 즉시 결과 확인 방식을 정의한다.
+    /// 같은 경기 이벤트를 어떤 관전 흐름으로 소비할지 정의한다.
     /// </summary>
     public enum CareerMatchMode
     {
-        PlayerFocus = 0,
-        ResultsOnly = 1
+        InterveneOnPlayer = 0,
+        PlayerFocus = InterveneOnPlayer,
+        ResultsOnly = 1,
+        FullGameWatch = 2,
+        PlayerFocusAutomatic = 3
     }
 
     /// <summary>
-    /// 선택 기록을 같은 Seed 경기 위에 재생해 투구별 중단과 복구를 제공한다.
+    /// 선택 기록을 같은 Seed 경기 위에 재생해 타석별 중단과 복구를 제공한다.
     /// </summary>
     public sealed class CareerMatchSession
     {
@@ -37,6 +40,8 @@ namespace Baseball.Game.Career
 
         private readonly BalanceTable _balance;
         private readonly List<BattingApproach> _decisions = new List<BattingApproach>(32);
+        private readonly List<PitchingApproach> _pitchingDecisions = new List<PitchingApproach>(32);
+        private readonly CareerGameSettings _gameSettings;
         private MatchSimulationProgress _progress;
 
         public CareerMatchSession(
@@ -49,7 +54,8 @@ namespace Baseball.Game.Career
             BalanceTable balance,
             int conditionBefore,
             int managerEvaluationBefore,
-            MatchNarrativeBaseline narrativeBaseline)
+            MatchNarrativeBaseline narrativeBaseline,
+            CareerGameSettings gameSettings = null)
         {
             ScheduledGame = scheduledGame ?? throw new ArgumentNullException(nameof(scheduledGame));
             Input = input ?? throw new ArgumentNullException(nameof(input));
@@ -64,6 +70,7 @@ namespace Baseball.Game.Career
             ManagerEvaluationBefore = managerEvaluationBefore;
             NarrativeBaseline = narrativeBaseline ??
                                 throw new ArgumentNullException(nameof(narrativeBaseline));
+            _gameSettings = gameSettings?.Clone() ?? CareerGameSettings.CreateDefault();
             Phase = CareerMatchPhase.Preparation;
         }
 
@@ -76,12 +83,15 @@ namespace Baseball.Game.Career
         public CareerMatchPhase Phase { get; private set; }
         public CareerMatchMode Mode { get; private set; }
         public MatchDecisionRequest? PendingDecision => _progress?.PendingDecision;
+        public MatchPitchingDecisionRequest? PendingPitchingDecision => _progress?.PendingPitchingDecision;
         public IReadOnlyList<MatchEvent> Events => _progress?.Events ?? Array.Empty<MatchEvent>();
         public MatchResult MatchResult => _progress?.Result;
         public bool IsComplete => Phase == CareerMatchPhase.Completed;
         public bool IsCommitted { get; private set; }
         public bool CanReceiveBattingDecisions =>
             PlayerRole == PlayerGameRole.StartingBatter || HasControlledBenchSubstitution();
+        public bool CanReceivePitchingDecisions =>
+            PlayerRole is PlayerGameRole.StartingPitcher or PlayerGameRole.ReliefPitcher;
         public int ConditionBefore { get; }
         public int ConditionAfter { get; private set; }
         public int ManagerEvaluationBefore { get; }
@@ -100,11 +110,10 @@ namespace Baseball.Game.Career
 
             Mode = mode;
             Phase = CareerMatchPhase.Playing;
-            if (mode == CareerMatchMode.ResultsOnly || !CanReceiveBattingDecisions)
+            if (mode != CareerMatchMode.InterveneOnPlayer ||
+                (!CanReceiveBattingDecisions && !CanReceivePitchingDecisions))
             {
-                _progress = new MatchSimulator(
-                        _balance,
-                        new Pcg32Random(Input.RandomSeed))
+                _progress = CreateSimulator(decisionSource: null)
                     .SimulateUntilDecision(Input);
                 Phase = CareerMatchPhase.Completed;
                 return;
@@ -114,7 +123,7 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
-        /// 현재 입력 대기 투구에 타격 방식을 적용하고 다음 입력까지 진행한다.
+        /// 현재 입력 대기 타석에 타격 방식을 적용하고 다음 입력까지 진행한다.
         /// </summary>
         public void SubmitBattingApproach(BattingApproach approach)
         {
@@ -125,8 +134,48 @@ namespace Baseball.Game.Career
             ReplayToNextDecision();
         }
 
+        /// <summary>현재 입력 대기 타석에 투구 방침을 적용하고 다음 결정 지점까지 진행한다.</summary>
+        public void SubmitPitchingApproach(PitchingApproach approach)
+        {
+            if (Phase != CareerMatchPhase.Playing || !PendingPitchingDecision.HasValue)
+                throw new InvalidOperationException("투구 방침 입력을 기다리는 상태가 아닙니다.");
+
+            _pitchingDecisions.Add(approach);
+            ReplayToNextDecision();
+        }
+
+        /// <summary>아직 계산하지 않은 다음 선수 결정부터 사용할 기본 방침을 갱신한다.</summary>
+        public void UpdateApproaches(BattingApproach battingApproach, PitchingApproach pitchingApproach)
+        {
+            _gameSettings.SetBattingApproach(battingApproach);
+            _gameSettings.SetPitchingApproach(pitchingApproach);
+        }
+
+        /// <summary>현재 이닝의 남은 상대 타자를 같은 투구 방침으로 진행하고 다음 이닝에서 멈춘다.</summary>
+        public void AutoCompleteCurrentPitchingInning(PitchingApproach approach)
+        {
+            if (Phase != CareerMatchPhase.Playing || !PendingPitchingDecision.HasValue)
+                throw new InvalidOperationException("자동 진행할 투수 이닝이 없습니다.");
+
+            MatchPitchingDecisionRequest startingRequest = PendingPitchingDecision.Value;
+            int safety = MaximumAutomaticDecisions;
+            while (Phase == CareerMatchPhase.Playing && PendingPitchingDecision.HasValue && safety-- > 0)
+            {
+                MatchPitchingDecisionRequest current = PendingPitchingDecision.Value;
+                if (current.DecisionIndex > startingRequest.DecisionIndex &&
+                    (current.Inning != startingRequest.Inning || current.Half != startingRequest.Half))
+                {
+                    return;
+                }
+                SubmitPitchingApproach(approach);
+            }
+
+            if (safety <= 0)
+                throw new InvalidOperationException("투수 이닝 자동 진행 안전 한도를 초과했습니다.");
+        }
+
         /// <summary>
-        /// 현재 타석의 남은 투구를 균형 타격으로 진행한다.
+        /// 현재 타석에 경기 전 기본 타격 방침을 적용한다.
         /// </summary>
         public void AutoCompleteCurrentPlateAppearance()
         {
@@ -140,7 +189,7 @@ namespace Baseball.Game.Career
                 MatchDecisionRequest current = PendingDecision.Value;
                 if (current.DecisionIndex > startingRequest.DecisionIndex && current.PitchNumber == 1)
                     return;
-                SubmitBattingApproach(BattingApproach.Balanced);
+                SubmitBattingApproach(_gameSettings.BattingApproach);
             }
 
             if (safety <= 0)
@@ -157,10 +206,31 @@ namespace Baseball.Game.Career
 
             int safety = MaximumAutomaticDecisions;
             while (Phase == CareerMatchPhase.Playing && safety-- > 0)
-                SubmitBattingApproach(BattingApproach.Balanced);
+            {
+                if (PendingDecision.HasValue)
+                    SubmitBattingApproach(_gameSettings.BattingApproach);
+                else if (PendingPitchingDecision.HasValue)
+                    SubmitPitchingApproach(_gameSettings.PitchingApproach);
+                else
+                    throw new InvalidOperationException("자동 진행할 선수 결정 지점이 없습니다.");
+            }
 
             if (safety <= 0)
                 throw new InvalidOperationException("경기 자동 진행 안전 한도를 초과했습니다.");
+        }
+
+        /// <summary>현재 경계를 보존한 채 남은 이벤트를 계산하고 즉시 결과 모드로 전환한다.</summary>
+        public void CompleteInstantly()
+        {
+            if (Phase == CareerMatchPhase.Preparation)
+            {
+                Start(CareerMatchMode.ResultsOnly);
+                return;
+            }
+
+            if (Phase == CareerMatchPhase.Playing)
+                AutoCompleteMatch();
+            Mode = CareerMatchMode.ResultsOnly;
         }
 
         /// <summary>
@@ -187,25 +257,91 @@ namespace Baseball.Game.Career
 
         private void ReplayToNextDecision()
         {
-            var decisionSource = new RecordedMatchDecisionSource(ControlledPlayerId, _decisions);
-            _progress = new MatchSimulator(
-                    _balance,
-                    new Pcg32Random(Input.RandomSeed),
-                    decisionSource)
+            IMatchDecisionSource battingSource = CanReceiveBattingDecisions
+                ? new RecordedMatchDecisionSource(ControlledPlayerId, _decisions)
+                : null;
+            IMatchPitchingDecisionSource pitchingSource = CanReceivePitchingDecisions
+                ? new RecordedMatchPitchingDecisionSource(ControlledPlayerId, _pitchingDecisions)
+                : null;
+            _progress = CreateSimulator(battingSource, pitchingSource)
                 .SimulateUntilDecision(Input);
             if (_progress.IsComplete)
                 Phase = CareerMatchPhase.Completed;
         }
 
-        private bool HasControlledBenchSubstitution()
+        private MatchSimulator CreateSimulator(
+            IMatchDecisionSource decisionSource,
+            IMatchPitchingDecisionSource pitchingDecisionSource = null)
         {
-            return HasControlledBenchSubstitution(Input.AwayTeam) ||
-                   HasControlledBenchSubstitution(Input.HomeTeam);
+            var decisionCoordinator = new MatchDecisionCoordinator(
+                new CareerBattingDecisionProvider(
+                    ControlledPlayerId,
+                    _gameSettings.BattingApproach),
+                new CareerPitchingDecisionProvider(
+                    ControlledPlayerId,
+                    _gameSettings.PitchingApproach));
+            return new MatchSimulator(
+                _balance,
+                MatchRandomStreams.Create(Input.RandomSeed),
+                decisionSource,
+                pitchingDecisionSource,
+                decisionCoordinator);
         }
 
-        private bool HasControlledBenchSubstitution(Team team)
+        private bool HasControlledBenchSubstitution()
         {
-            return team.PositionPlayerSubstitution?.Player.PlayerId == ControlledPlayerId;
+            return HasControlledBenchSubstitution(Input.AwayRoster) ||
+                   HasControlledBenchSubstitution(Input.HomeRoster);
+        }
+
+        private bool HasControlledBenchSubstitution(MatchRosterSnapshot roster)
+        {
+            for (int index = 0; index < roster.Bench.Count; index++)
+            {
+                if (roster.Bench[index].PlayerId == ControlledPlayerId)
+                    return true;
+            }
+            return false;
+        }
+
+        private sealed class CareerBattingDecisionProvider : IBattingDecisionProvider
+        {
+            private readonly int _controlledPlayerId;
+            private readonly BattingApproach _controlledApproach;
+            private readonly SituationalBattingDecisionProvider _automatic = new();
+
+            public CareerBattingDecisionProvider(int controlledPlayerId, BattingApproach controlledApproach)
+            {
+                _controlledPlayerId = controlledPlayerId;
+                _controlledApproach = controlledApproach;
+            }
+
+            public BattingApproach GetApproach(DecisionContext context)
+            {
+                return context.Batter.PlayerId == _controlledPlayerId
+                    ? _controlledApproach
+                    : _automatic.GetApproach(context);
+            }
+        }
+
+        private sealed class CareerPitchingDecisionProvider : IPitchingDecisionProvider
+        {
+            private readonly int _controlledPlayerId;
+            private readonly PitchingApproach _controlledApproach;
+            private readonly SituationalPitchingDecisionProvider _automatic = new();
+
+            public CareerPitchingDecisionProvider(int controlledPlayerId, PitchingApproach controlledApproach)
+            {
+                _controlledPlayerId = controlledPlayerId;
+                _controlledApproach = controlledApproach;
+            }
+
+            public PitchingApproach GetApproach(DecisionContext context)
+            {
+                return context.Pitcher.PlayerId == _controlledPlayerId
+                    ? _controlledApproach
+                    : _automatic.GetApproach(context);
+            }
         }
     }
 }

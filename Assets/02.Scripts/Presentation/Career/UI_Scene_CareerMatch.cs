@@ -23,7 +23,7 @@ namespace Baseball.Presentation.Career
         /// 진행 속도 선택지. 슬라이더 대신 버튼으로 고르므로 실제로 쓰이는 배속만 남긴다.
         /// </summary>
         private static readonly float[] PlaybackSpeedRates = { 1f, 2f, 3f, 5f };
-        private const int DefaultPlaybackSpeedStepIndex = 0;
+        private const int DefaultPlaybackSpeedStepIndex = 1;
 
         private const int TimelineRowCapacity = 8;
 
@@ -55,6 +55,7 @@ namespace Baseball.Presentation.Career
         private RectTransform _content;
         private RectTransform _controlHost;
         private BattingApproach _selectedApproach = BattingApproach.Balanced;
+        private PitchingApproach _selectedPitchingApproach = PitchingApproach.Balanced;
         [SerializeField, Min(0.1f)] private float automaticPlayIntervalSeconds = 0.42f;
         [SerializeField, Min(0.5f)] private float controlledResultHoldSeconds = 2f;
 
@@ -158,7 +159,7 @@ namespace Baseball.Presentation.Career
                 if (keyboard.rKey.wasPressedThisFrame)
                     _manager.StartPreparedGame(CareerMatchMode.ResultsOnly);
                 else if (IsConfirmKeyPressed(keyboard))
-                    _manager.StartPreparedGame(CareerMatchMode.PlayerFocus);
+                    _manager.StartPreparedGameFromSettings();
                 return;
             }
 
@@ -184,20 +185,28 @@ namespace Baseball.Presentation.Career
                 return;
             }
 
-            if (keyboard == null || !IsDecisionInputReady(session))
+            if (keyboard == null)
                 return;
-            if (keyboard.digit1Key.wasPressedThisFrame)
-                SelectApproach(BattingApproach.Patient);
-            else if (keyboard.digit2Key.wasPressedThisFrame)
-                SelectApproach(BattingApproach.Balanced);
-            else if (keyboard.digit3Key.wasPressedThisFrame)
-                SelectApproach(BattingApproach.Contact);
-            else if (keyboard.digit4Key.wasPressedThisFrame)
-                SelectApproach(BattingApproach.Power);
-            else if (keyboard.spaceKey.wasPressedThisFrame)
-                SubmitSelectedApproach();
-            else if (keyboard.aKey.wasPressedThisFrame)
-                AutoCompleteCurrentPlateAppearance();
+            if (IsPitchingDecisionInputReady(session))
+            {
+                if (keyboard.digit1Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.Balanced);
+                else if (keyboard.digit2Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.FullPower);
+                else if (keyboard.digit3Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.ControlFirst);
+                else if (keyboard.digit4Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.InduceChase);
+                else if (keyboard.digit5Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.QuickAttack);
+                else if (keyboard.spaceKey.wasPressedThisFrame) StartSelectedPitchingInning();
+                return;
+            }
+
+            if (IsDecisionInputReady(session))
+            {
+                if (keyboard.digit1Key.wasPressedThisFrame) SelectApproach(BattingApproach.Patient);
+                else if (keyboard.digit2Key.wasPressedThisFrame) SelectApproach(BattingApproach.Balanced);
+                else if (keyboard.digit3Key.wasPressedThisFrame) SelectApproach(BattingApproach.Contact);
+                else if (keyboard.digit4Key.wasPressedThisFrame) SelectApproach(BattingApproach.Power);
+                else if (keyboard.spaceKey.wasPressedThisFrame) SubmitSelectedApproach();
+                else if (keyboard.aKey.wasPressedThisFrame) AutoCompleteCurrentPlateAppearance();
+            }
         }
 
         private void HandleCareerChanged()
@@ -208,6 +217,8 @@ namespace Baseball.Presentation.Career
                 Hide();
                 return;
             }
+
+            SyncCareerGameSettings();
 
             if (!IsVisible)
             {
@@ -247,6 +258,7 @@ namespace Baseball.Presentation.Career
         private void RenderPreparation(CareerMatchSession session)
         {
             ClearPersistentControls();
+            SyncCareerGameSettings();
             CreateText(
                 "Eyebrow", _content, "GAME DAY", 15, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(400f, 28f), new Vector2(0f, 465f), AccentColor);
@@ -287,6 +299,8 @@ namespace Baseball.Presentation.Career
                         "1회부터 타자 결과가 자동으로 흐르고, 내 타석에서는 직접 눌러 다음 투구를 진행합니다.",
                     PlayerGameRole.Bench =>
                         "벤치에서 경기를 지켜보다 대타로 투입되면 자동 진행이 멈추고 내 타석 입력이 열립니다.",
+                    PlayerGameRole.StartingPitcher or PlayerGameRole.ReliefPitcher =>
+                        "내 선수 때만 개입에서는 등판·새 이닝 시작에 투구 방침을 확인하고 이닝 단위로 진행합니다.",
                     _ => "1회부터 공격·수비와 주자 움직임을 자동 관전하고, 기용 결과를 경기 후 확인합니다."
                 };
             CreateText(
@@ -298,19 +312,26 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "ModeLabel", mode, "진행 방식", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(160f, 26f), new Vector2(-380f, 32f), AccentColor);
+            MatchProgressMode progressMode = _manager.CurrentCareer.GameSettings.MatchProgressMode;
+            bool canReceivePlayerDecision = session.CanReceiveBattingDecisions ||
+                                            session.CanReceivePitchingDecisions;
             CreateText(
-                "ModeValue", mode, "내 선수 중심", 24, FontStyle.Bold, TextAnchor.MiddleLeft,
+                "ModeValue", mode, GetMatchProgressModeLabel(progressMode), 24, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(320f, 38f), new Vector2(-300f, -6f), PrimaryTextColor);
-            string modeGuide = session.CanReceiveBattingDecisions
-                ? "모든 타석은 빠르게 자동 중계하고, 선발 또는 교체 출전한 내 선수의 타석에서 입력을 기다립니다."
-                : "모든 타석을 빠르게 자동 중계하며 경기 중 언제든 결과 화면으로 바로 진행할 수 있습니다.";
+            string modeGuide = GetMatchProgressModeGuide(
+                progressMode,
+                canReceivePlayerDecision,
+                session.CanReceivePitchingDecisions);
             CreateText(
                 "ModeGuide", mode, modeGuide,
                 15, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(650f, 30f), new Vector2(-42f, -39f), SecondaryTextColor);
             CreateStatusPill(
                 mode,
-                session.CanReceiveBattingDecisions ? "정지 조건 · 내 선수 타석" : "입력 대기 없음",
+                GetMatchProgressModeStatus(
+                    progressMode,
+                    canReceivePlayerDecision,
+                    session.CanReceivePitchingDecisions),
                 new Vector2(305f, 42f),
                 new Vector2(310f, 15f));
 
@@ -332,7 +353,7 @@ namespace Baseball.Presentation.Career
             start.onClick.AddListener(() =>
             {
                 start.interactable = false;
-                _manager.StartPreparedGame(CareerMatchMode.PlayerFocus);
+                _manager.StartPreparedGameFromSettings();
             });
         }
 
@@ -404,6 +425,10 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "FlowStatus", bar, GetFlowStatusLine(view), 15, FontStyle.Bold, TextAnchor.MiddleRight,
                 new Vector2(340f, 28f), new Vector2(790f, -32f), GetFlowStatusColor(view));
+            Button settings = CreateButton(
+                "Settings", bar, "설정", new Vector2(92f, 40f), new Vector2(860f, 30f),
+                new Color(0.025f, 0.08f, 0.13f, 1f), SecondaryTextColor);
+            settings.onClick.AddListener(() => UI_Popup_CareerSettings.ShowRuntime());
         }
 
         private static void RenderScoreboardTeam(
@@ -968,6 +993,10 @@ namespace Baseball.Presentation.Career
             {
                 MatchEventType.Score => GoldColor,
                 MatchEventType.PlayerSubstitution => AccentColor,
+                MatchEventType.PitcherEntered or MatchEventType.PitcherRemoved => AccentColor,
+                MatchEventType.PinchHitterEntered or MatchEventType.PinchRunnerEntered => AccentColor,
+                MatchEventType.FieldingError or MatchEventType.ThrowingError => DangerColor,
+                MatchEventType.StealSucceeded or MatchEventType.DoublePlay => RoleColor,
                 MatchEventType.RunnerAdvance => new Color(0.4f, 0.6f, 0.7f, 1f),
                 _ => new Color(0.2f, 0.32f, 0.4f, 1f)
             };
@@ -1127,7 +1156,89 @@ namespace Baseball.Presentation.Career
         private void SelectApproach(BattingApproach approach)
         {
             _selectedApproach = approach;
-            Render();
+            CareerGameSettings settings = _manager.CurrentCareer.GameSettings;
+            _manager.UpdateGameSettings(
+                approach,
+                settings.PitchingApproach,
+                settings.MatchProgressMode,
+                settings.GameSpeed,
+                settings.AutoSlowOnPlayerEvent);
+        }
+
+        private void SyncCareerGameSettings()
+        {
+            CareerGameSettings settings = _manager?.CurrentCareer?.GameSettings;
+            if (settings == null)
+                return;
+            _selectedApproach = settings.BattingApproach;
+            _selectedPitchingApproach = settings.PitchingApproach;
+            for (int index = 0; index < PlaybackSpeedRates.Length; index++)
+            {
+                if (Mathf.Approximately(PlaybackSpeedRates[index], settings.GameSpeed))
+                {
+                    _playbackSpeedStepIndex = index;
+                    break;
+                }
+            }
+        }
+
+        private static string GetMatchProgressModeLabel(MatchProgressMode mode)
+        {
+            return mode switch
+            {
+                MatchProgressMode.FullGameWatch => "전체 경기 관전",
+                MatchProgressMode.InterveneOnPlayer => "내 선수 때만 개입",
+                MatchProgressMode.PlayerFocusAutomatic => "내 선수 중심 자동",
+                MatchProgressMode.InstantResult => "즉시 결과",
+                _ => "내 선수 때만 개입"
+            };
+        }
+
+        private static string GetMatchProgressModeGuide(
+            MatchProgressMode mode,
+            bool canReceiveDecision,
+            bool isPitchingDecision)
+        {
+            return mode switch
+            {
+                MatchProgressMode.FullGameWatch => "경기 시작부터 종료까지 모든 타석을 선택한 배속으로 관전합니다.",
+                MatchProgressMode.InterveneOnPlayer when canReceiveDecision =>
+                    isPitchingDecision
+                        ? "다른 장면은 빠르게 진행하고 등판·새 이닝 시작에서 투구 방침 입력을 기다립니다."
+                        : "다른 선수는 빠르게 진행하고 내 선수 타석 직전에 멈춰 방침 입력을 기다립니다.",
+                MatchProgressMode.InterveneOnPlayer =>
+                    "현재 역할은 직접 입력 지점이 없어 모든 타석을 자동으로 진행합니다.",
+                MatchProgressMode.PlayerFocusAutomatic =>
+                    "다른 선수는 빠르게 진행하고 내 선수 장면은 멈추지 않고 강조해 보여줍니다.",
+                MatchProgressMode.InstantResult => "연출을 생략하고 전체 경기를 한 번에 계산합니다.",
+                _ => string.Empty
+            };
+        }
+
+        private static string GetMatchProgressModeStatus(
+            MatchProgressMode mode,
+            bool canReceiveDecision,
+            bool isPitchingDecision)
+        {
+            return mode switch
+            {
+                MatchProgressMode.InterveneOnPlayer when canReceiveDecision =>
+                    isPitchingDecision ? "자동 정지 · 새 투구 이닝" : "자동 정지 · 내 선수 타석",
+                MatchProgressMode.InstantResult => "배속 사용 안 함",
+                _ => "자동 정지 없음"
+            };
+        }
+
+        private void SelectPitchingApproach(PitchingApproach approach)
+        {
+            _selectedPitchingApproach = approach;
+            CareerGameSettings settings = _manager.CurrentCareer.GameSettings;
+            _manager.UpdateGameSettings(
+                settings.BattingApproach,
+                approach,
+                settings.MatchProgressMode,
+                settings.GameSpeed,
+                settings.AutoSlowOnPlayerEvent);
         }
 
         private static void RenderVersusHeader(RectTransform parent, string away, string home, float y)
@@ -1269,23 +1380,29 @@ namespace Baseball.Presentation.Career
 
         private static string FindPlayerName(MatchInput input, int playerId)
         {
-            string name = FindPlayerName(input.AwayTeam, playerId);
-            return string.IsNullOrEmpty(name) ? FindPlayerName(input.HomeTeam, playerId) : name;
+            string name = FindPlayerName(input.AwayRoster, playerId);
+            return string.IsNullOrEmpty(name) ? FindPlayerName(input.HomeRoster, playerId) : name;
         }
 
-        private static string FindPlayerName(Team team, int playerId)
+        private static string FindPlayerName(MatchRosterSnapshot roster, int playerId)
         {
-            for (int index = 0; index < team.Lineup.Count; index++)
+            for (int index = 0; index < roster.StartingLineup.Count; index++)
             {
-                if (team.Lineup[index].Player.PlayerId == playerId)
-                    return team.Lineup[index].Player.Name;
+                if (roster.StartingLineup[index].Player.PlayerId == playerId)
+                    return roster.StartingLineup[index].Player.Name;
             }
-            if (team.StartingPitcher.PlayerId == playerId)
-                return team.StartingPitcher.Name;
-            if (team.ReliefPitcher != null && team.ReliefPitcher.PlayerId == playerId)
-                return team.ReliefPitcher.Name;
-            if (team.PositionPlayerSubstitution?.Player.PlayerId == playerId)
-                return team.PositionPlayerSubstitution.Player.Name;
+            if (roster.StartingPitcher.Player.PlayerId == playerId)
+                return roster.StartingPitcher.Player.Name;
+            for (int index = 0; index < roster.Bullpen.Count; index++)
+            {
+                if (roster.Bullpen[index].Player.PlayerId == playerId)
+                    return roster.Bullpen[index].Player.Name;
+            }
+            for (int index = 0; index < roster.Bench.Count; index++)
+            {
+                if (roster.Bench[index].PlayerId == playerId)
+                    return roster.Bench[index].Name;
+            }
             return string.Empty;
         }
 
@@ -1467,6 +1584,12 @@ namespace Baseball.Presentation.Career
                 PlateAppearanceResult.Double => "2루타",
                 PlateAppearanceResult.Triple => "3루타",
                 PlateAppearanceResult.HomeRun => "홈런",
+                PlateAppearanceResult.ReachedOnError => "실책 출루",
+                PlateAppearanceResult.FieldersChoice => "야수선택",
+                PlateAppearanceResult.SacrificeBunt => "희생번트",
+                PlateAppearanceResult.BuntSingle => "번트 안타",
+                PlateAppearanceResult.BuntPopOut => "번트 뜬공",
+                PlateAppearanceResult.IntentionalWalk => "고의사구",
                 _ => string.Empty
             };
         }

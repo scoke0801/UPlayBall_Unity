@@ -210,6 +210,32 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(playback.VisibleEventCount, Is.EqualTo(1));
         }
 
+        [Test]
+        public void AdvanceAutomatic_자동모드는내선수타석도멈추지않고공개한다()
+        {
+            MatchEvent[] events =
+            {
+                CreateEvent(0, MatchEventType.Pitch, 99, 0, 0, PitchResult.InPlay),
+                CreateEvent(
+                    1,
+                    MatchEventType.PlateAppearanceEnded,
+                    99,
+                    99,
+                    1,
+                    PitchResult.None,
+                    PlateAppearanceResult.GroundOut)
+            };
+            var playback = new CareerMatchPlayback();
+
+            bool didAdvance = playback.AdvanceAutomatic(
+                events,
+                controlledPlayerId: 99,
+                pauseBeforeControlledPlayer: false);
+
+            Assert.That(didAdvance, Is.True);
+            Assert.That(playback.VisibleEventCount, Is.EqualTo(events.Length));
+        }
+
         private static MatchEvent CreateEvent(
             int sequence,
             MatchEventType eventType,

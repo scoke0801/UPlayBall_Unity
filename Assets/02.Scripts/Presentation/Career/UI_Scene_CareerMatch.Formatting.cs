@@ -292,6 +292,22 @@ namespace Baseball.Presentation.Career
                         matchEvent.PlateAppearanceResult,
                         CountOutsInPlateAppearance(events, eventIndex)),
                 MatchEventType.PlayerSubstitution => $"{batterName} IN  ·  {playerName} OUT",
+                MatchEventType.PitcherRemoved =>
+                    $"{playerName} 강판 · {GetDecisionReasonLabel(matchEvent.ReasonCode)}",
+                MatchEventType.PitcherEntered =>
+                    $"{playerName} 등판 · {GetDecisionReasonLabel(matchEvent.ReasonCode)}",
+                MatchEventType.PinchHitterEntered => $"대타 {batterName} · {playerName} 교체",
+                MatchEventType.PinchRunnerEntered => $"대주자 {playerName} 투입",
+                MatchEventType.DefensiveReplacement => $"수비 강화 · {batterName} 투입",
+                MatchEventType.StealSucceeded => $"{playerName} 도루 성공",
+                MatchEventType.CaughtStealing => $"{playerName} 도루 실패",
+                MatchEventType.IntentionalWalk => $"{batterName} 고의사구",
+                MatchEventType.BuntResolved =>
+                    $"{batterName} · {GetPlateAppearanceResultLabel(matchEvent.PlateAppearanceResult)}",
+                MatchEventType.FieldingError => $"{playerName} 포구 실책",
+                MatchEventType.ThrowingError => $"{playerName} 송구 실책",
+                MatchEventType.DoublePlay => "병살 플레이",
+                MatchEventType.FieldersChoice => "야수선택",
                 MatchEventType.HalfInningEnded => "이닝 종료",
                 _ => string.Empty
             };
@@ -305,9 +321,35 @@ namespace Baseball.Presentation.Career
                     $"{matchEvent.AwayScore} : {matchEvent.HomeScore}",
                 MatchEventType.PlateAppearanceEnded => $"{matchEvent.Outs}아웃",
                 MatchEventType.PlayerSubstitution => "선수 교체",
+                MatchEventType.PitcherEntered or MatchEventType.PitcherRemoved => "투수 교체",
+                MatchEventType.PinchHitterEntered => "대타",
+                MatchEventType.PinchRunnerEntered => "대주자",
+                MatchEventType.FieldingError or MatchEventType.ThrowingError => "실책",
+                MatchEventType.StealSucceeded => "도루",
+                MatchEventType.CaughtStealing => "도루자",
                 MatchEventType.RunnerAdvance => GetBaseLabel(matchEvent.ToBase),
                 MatchEventType.Pitch => $"{matchEvent.Balls}-{matchEvent.Strikes}",
                 _ => string.Empty
+            };
+        }
+
+        private static string GetDecisionReasonLabel(DecisionReasonCode reason)
+        {
+            return reason switch
+            {
+                DecisionReasonCode.Fatigue => "피로 누적",
+                DecisionReasonCode.PitchLimit => "투구 제한",
+                DecisionReasonCode.TimesThroughOrder => "타순 세 번째 대면",
+                DecisionReasonCode.Performance => "연속 출루와 실점",
+                DecisionReasonCode.HighLeverage => "승부처 대응",
+                DecisionReasonCode.Matchup => "상성 대응",
+                DecisionReasonCode.Injury => "부상",
+                DecisionReasonCode.ScheduledUsage => "예정된 기용",
+                DecisionReasonCode.DefensiveStrategy => "수비 전략",
+                DecisionReasonCode.Emergency => "비상 등판",
+                DecisionReasonCode.ExpectedValue => "기대값 우위",
+                DecisionReasonCode.PlayerPolicy => "선수 방침",
+                _ => "감독 판단"
             };
         }
 

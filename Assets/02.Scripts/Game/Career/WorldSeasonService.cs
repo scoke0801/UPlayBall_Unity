@@ -58,10 +58,15 @@ namespace Baseball.Game.Career
                 ScheduledGameState game = games[index];
                 if (game.IsCompleted || game.Round > targetRound)
                     continue;
+                DateTime gameDate = SeasonDateCalculator.GetGameDate(
+                    season.Year,
+                    game.Round,
+                    _balance.CareerSeason);
                 MatchResult result = gameRunner.SimulateGame(
                     game,
                     PlayerGameRole.Inactive,
-                    season.SeasonId);
+                    season.SeasonId,
+                    gameDate: gameDate);
                 game.Complete(result.AwayBoxScore.Runs, result.HomeBoxScore.Runs);
                 statisticsService.RecordMatch(
                     result,
@@ -70,6 +75,7 @@ namespace Baseball.Game.Career
                     isChampionship: false,
                     isSeriesClinching: false);
                 RecordTeamResults(season, result);
+                gameRunner.RecordPitcherUsage(result, gameDate);
             }
 
             if (!HasIncompleteGame(season.Schedule))

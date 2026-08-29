@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Simulation.Match;
@@ -73,13 +74,40 @@ namespace Baseball.Presentation.Career
         /// </summary>
         private bool AdvanceOneStep(CareerMatchSession session)
         {
-            if (!_playback.AdvanceAutomatic(session.Events, session.ControlledPlayerId))
+            int firstRevealedEventIndex = _playback.VisibleEventCount;
+            bool pauseBeforeControlledPlayer = session.Mode == CareerMatchMode.InterveneOnPlayer;
+            if (!_playback.AdvanceAutomatic(
+                    session.Events,
+                    session.ControlledPlayerId,
+                    pauseBeforeControlledPlayer))
+            {
                 return false;
+            }
+
+            if (!pauseBeforeControlledPlayer &&
+                _playback.TryGetControlledPlateAppearanceSummary(
+                    session.Events,
+                    firstRevealedEventIndex,
+                    session.ControlledPlayerId,
+                    out CareerPlateAppearanceSummary summary))
+            {
+                _controlledResult = summary;
+                _hasControlledResult = true;
+            }
+
+            bool isControlledPlayerStep = _hasControlledResult ||
+                                          ContainsControlledPitcherEvent(
+                                              session.Events,
+                                              firstRevealedEventIndex,
+                                              _playback.VisibleEventCount,
+                                              session.ControlledPlayerId);
 
             _isCallUpAcknowledged = false;
-            _nextAutomaticPlayAt = Time.unscaledTime + (IsLatestVisibleEventHalfInningEnd(session)
-                ? GetSideChangeHoldSeconds()
-                : GetAutomaticPlayIntervalSeconds());
+            _nextAutomaticPlayAt = Time.unscaledTime + (isControlledPlayerStep
+                ? GetControlledResultHoldSeconds()
+                : IsLatestVisibleEventHalfInningEnd(session)
+                    ? GetSideChangeHoldSeconds()
+                    : GetAutomaticPlayIntervalSeconds());
             return true;
         }
 
@@ -94,7 +122,7 @@ namespace Baseball.Presentation.Career
         {
             return session != null &&
                    session.Phase != CareerMatchPhase.Preparation &&
-                   session.Mode == CareerMatchMode.PlayerFocus &&
+                   session.Mode != CareerMatchMode.ResultsOnly &&
                    ReferenceEquals(_playbackSession, session) &&
                    _isPlaybackInitialized &&
                    (_hasControlledResult || _playback.HasPendingEvents(session.Events));
@@ -103,8 +131,19 @@ namespace Baseball.Presentation.Career
         private bool IsDecisionInputReady(CareerMatchSession session)
         {
             return session != null &&
+                   session.Mode == CareerMatchMode.InterveneOnPlayer &&
                    session.Phase == CareerMatchPhase.Playing &&
                    session.PendingDecision.HasValue &&
+                   !_hasControlledResult &&
+                   !_playback.HasPendingEvents(session.Events);
+        }
+
+        private bool IsPitchingDecisionInputReady(CareerMatchSession session)
+        {
+            return session != null &&
+                   session.Mode == CareerMatchMode.InterveneOnPlayer &&
+                   session.Phase == CareerMatchPhase.Playing &&
+                   session.PendingPitchingDecision.HasValue &&
                    !_hasControlledResult &&
                    !_playback.HasPendingEvents(session.Events);
         }
@@ -145,7 +184,9 @@ namespace Baseball.Presentation.Career
 
         private bool IsPendingCallUpAcknowledgement(CareerMatchSession session)
         {
-            if (session.Phase == CareerMatchPhase.Preparation || _isCallUpAcknowledged)
+            if (session.Phase == CareerMatchPhase.Preparation ||
+                session.Mode != CareerMatchMode.InterveneOnPlayer ||
+                _isCallUpAcknowledged)
                 return false;
 
             bool isDecisionInputReady = IsDecisionInputReady(session);
@@ -283,6 +324,13 @@ namespace Baseball.Presentation.Career
             CareerMatchPlaybackSnapshot snapshot,
             MatchProgressViewState view)
         {
+            if (IsPitchingDecisionInputReady(session))
+            {
+                ClearPersistentControls();
+                RenderPitchingDecisionPanel(panel, session);
+                return;
+            }
+
             RenderPersistentControls(session, view);
 
             if (view.IsPlaybackControlHidden)
@@ -310,6 +358,83 @@ namespace Baseball.Presentation.Career
                     "Error", panel, _manager.LastError, 13, FontStyle.Normal, TextAnchor.MiddleCenter,
                     new Vector2(460f, 22f), new Vector2(0f, -440f), DangerColor);
             }
+        }
+
+        private void RenderPitchingDecisionPanel(RectTransform panel, CareerMatchSession session)
+        {
+            MatchPitchingDecisionRequest request = session.PendingPitchingDecision.Value;
+            CreateStatusPill(panel, $"{request.Inning}회 · 투구 방침 확인",
+                new Vector2(450f, 50f), new Vector2(0f, 396f));
+            CreateText("PitchingTitle", panel, "이번 이닝 투구 방침", 25, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(440f, 42f), new Vector2(0f, 330f), PrimaryTextColor);
+            CreateText("PitchingSituation", panel,
+                $"아웃 {request.Outs} · 주자 {GetPitchingRunnerLabel(request)} · " +
+                $"스코어 {request.AwayScore}:{request.HomeScore}",
+                15, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(440f, 30f), new Vector2(0f, 290f), SecondaryTextColor);
+
+            PitchingApproach[] approaches =
+            {
+                PitchingApproach.Balanced,
+                PitchingApproach.FullPower,
+                PitchingApproach.ControlFirst,
+                PitchingApproach.InduceChase,
+                PitchingApproach.QuickAttack
+            };
+            for (int index = 0; index < approaches.Length; index++)
+            {
+                PitchingApproach approach = approaches[index];
+                bool selected = approach == _selectedPitchingApproach;
+                Button button = CreateButton(
+                    "PitchingApproach_" + approach,
+                    panel,
+                    $"{index + 1}  {GetPitchingApproachLabel(approach)}",
+                    new Vector2(410f, 52f),
+                    new Vector2(0f, 220f - index * 61f),
+                    selected ? new Color(0.025f, 0.32f, 0.52f, 1f) : PanelDarkColor,
+                    selected ? PrimaryTextColor : SecondaryTextColor);
+                button.onClick.AddListener(() => SelectPitchingApproach(approach));
+            }
+
+            Button start = CreateButton(
+                "StartPitchingInning", panel, "이닝 투구 시작   SPACE",
+                new Vector2(430f, 64f), new Vector2(0f, -140f),
+                new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
+            start.onClick.AddListener(StartSelectedPitchingInning);
+            CreateText("PitchingGuide", panel,
+                "현재 방침으로 이닝 종료까지 진행하고 다음 이닝 시작 전에 다시 멈춥니다.",
+                14, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(430f, 48f), new Vector2(0f, -208f), SecondaryTextColor);
+        }
+
+        private void StartSelectedPitchingInning()
+        {
+            CareerMatchSession session = _manager?.ActiveMatch;
+            if (!IsPitchingDecisionInputReady(session))
+                return;
+            _manager.AutoCompleteCurrentPitchingInning(_selectedPitchingApproach);
+        }
+
+        private static string GetPitchingApproachLabel(PitchingApproach approach)
+        {
+            return approach switch
+            {
+                PitchingApproach.FullPower => "전력 투구",
+                PitchingApproach.ControlFirst => "제구 우선",
+                PitchingApproach.InduceChase => "유인구 승부",
+                PitchingApproach.QuickAttack => "빠른 승부",
+                _ => "균형 투구"
+            };
+        }
+
+        private static string GetPitchingRunnerLabel(MatchPitchingDecisionRequest request)
+        {
+            if (!request.HasRunnerOnFirst && !request.HasRunnerOnSecond && !request.HasRunnerOnThird)
+                return "없음";
+            string result = request.HasRunnerOnFirst ? "1루" : string.Empty;
+            if (request.HasRunnerOnSecond) result += string.IsNullOrEmpty(result) ? "2루" : "·2루";
+            if (request.HasRunnerOnThird) result += string.IsNullOrEmpty(result) ? "3루" : "·3루";
+            return result;
         }
 
         /// <summary>
@@ -614,6 +739,14 @@ namespace Baseball.Presentation.Career
 
             _playbackSpeedStepIndex = clamped;
 
+            CareerGameSettings settings = _manager.CurrentCareer.GameSettings;
+            _manager.UpdateGameSettings(
+                settings.BattingApproach,
+                settings.PitchingApproach,
+                settings.MatchProgressMode,
+                (int)PlaybackSpeedRates[clamped],
+                settings.AutoSlowOnPlayerEvent);
+
             // 남은 대기 시간이 이전 배속으로 잡혀 있으므로 새 배속 기준으로 다시 잡는다.
             _nextAutomaticPlayAt = Time.unscaledTime + (_hasControlledResult
                 ? GetControlledResultHoldSeconds()
@@ -623,14 +756,20 @@ namespace Baseball.Presentation.Career
 
         private float GetAutomaticPlayIntervalSeconds()
         {
-            return automaticPlayIntervalSeconds / GetPlaybackSpeedRate();
+            float speedRate = GetPlaybackSpeedRate();
+            if (_playbackSession?.Mode == CareerMatchMode.PlayerFocusAutomatic)
+                speedRate = Mathf.Max(speedRate, 5f);
+            return automaticPlayIntervalSeconds / speedRate;
         }
 
         private float GetControlledResultHoldSeconds()
         {
+            float speedRate = _manager?.CurrentCareer?.GameSettings.AutoSlowOnPlayerEvent == true
+                ? 1f
+                : GetPlaybackSpeedRate();
             return Mathf.Max(
                 minimumControlledResultHoldSeconds,
-                controlledResultHoldSeconds / GetPlaybackSpeedRate());
+                controlledResultHoldSeconds / speedRate);
         }
 
         private float GetSideChangeHoldSeconds()
@@ -648,6 +787,20 @@ namespace Baseball.Presentation.Career
         {
             _controlledResult = default;
             _hasControlledResult = false;
+        }
+
+        private static bool ContainsControlledPitcherEvent(
+            IReadOnlyList<MatchEvent> events,
+            int firstEventIndex,
+            int visibleEventCount,
+            int controlledPlayerId)
+        {
+            for (int index = firstEventIndex; index < visibleEventCount; index++)
+            {
+                if (events[index].PitcherId == controlledPlayerId)
+                    return true;
+            }
+            return false;
         }
 
         private static bool IsControlledPlayerOnBase(
@@ -668,6 +821,13 @@ namespace Baseball.Presentation.Career
                 MatchEventType.Score => true,
                 MatchEventType.PlateAppearanceEnded => true,
                 MatchEventType.PlayerSubstitution => true,
+                MatchEventType.PitcherEntered or MatchEventType.PitcherRemoved => true,
+                MatchEventType.PinchHitterEntered or MatchEventType.PinchRunnerEntered => true,
+                MatchEventType.DefensiveReplacement => true,
+                MatchEventType.StealSucceeded or MatchEventType.CaughtStealing => true,
+                MatchEventType.IntentionalWalk or MatchEventType.BuntResolved => true,
+                MatchEventType.FieldingError or MatchEventType.ThrowingError => true,
+                MatchEventType.DoublePlay or MatchEventType.FieldersChoice => true,
                 MatchEventType.HalfInningEnded => true,
                 _ => false
             };

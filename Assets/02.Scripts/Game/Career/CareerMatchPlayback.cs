@@ -26,7 +26,8 @@ namespace Baseball.Game.Career
         /// </summary>
         public bool AdvanceAutomatic(
             IReadOnlyList<MatchEvent> events,
-            int controlledPlayerId)
+            int controlledPlayerId,
+            bool pauseBeforeControlledPlayer = true)
         {
             ValidateEvents(events);
             if (controlledPlayerId <= 0)
@@ -35,7 +36,8 @@ namespace Baseball.Game.Career
                 return false;
 
             MatchEvent nextEvent = events[VisibleEventCount];
-            if (nextEvent.BatterId == controlledPlayerId &&
+            if (pauseBeforeControlledPlayer &&
+                nextEvent.BatterId == controlledPlayerId &&
                 nextEvent.EventType != MatchEventType.PlayerSubstitution)
                 return false;
 
