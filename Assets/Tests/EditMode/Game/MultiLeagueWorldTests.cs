@@ -165,6 +165,47 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
+        public void MigrateV8ToV9_월드상태를유지하고세이브버전을승격한다()
+        {
+            CareerState generated = CreateCareer(90225UL, startSeason: false);
+            var legacy = new CareerState(
+                8,
+                generated.MyPlayer,
+                generated.World,
+                generated.CurrentContract,
+                generated.AvailableMoney);
+
+            new CareerSaveMigrationService(NewGameConfiguration.CreateDefault())
+                .MigrateV8ToV9(legacy);
+
+            Assert.That(legacy.SaveVersion, Is.EqualTo(9));
+            Assert.That(legacy.World, Is.SameAs(generated.World));
+            Assert.That(legacy.MyPlayer, Is.SameAs(generated.MyPlayer));
+            Assert.That(legacy.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Preseason));
+        }
+
+        [Test]
+        public void MigrateV9ToV10_월드상태를유지하고내러티브상태를활성화한다()
+        {
+            CareerState generated = CreateCareer(90325UL, startSeason: false);
+            var legacy = new CareerState(
+                9,
+                generated.MyPlayer,
+                generated.World,
+                generated.CurrentContract,
+                generated.AvailableMoney);
+
+            new CareerSaveMigrationService(NewGameConfiguration.CreateDefault())
+                .MigrateV9ToV10(legacy);
+
+            Assert.That(legacy.SaveVersion, Is.EqualTo(10));
+            Assert.That(legacy.World, Is.SameAs(generated.World));
+            Assert.That(legacy.Narrative, Is.Not.Null);
+            Assert.That(legacy.Narrative.SaveVersion, Is.EqualTo(10));
+            Assert.That(legacy.Narrative.Confidence, Is.EqualTo(50));
+        }
+
+        [Test]
         public void MigrateV7ToV8_만료계약을포함한계약이력을보존한다()
         {
             CareerState generated = CreateCareer(91403UL, startSeason: false);

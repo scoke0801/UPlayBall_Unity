@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa000000000000000000000000000003, type: 3}
+  m_Name: CareerPresentation_Rest
+  m_EditorClassIdentifier: Baseball.Presentation::Baseball.Presentation.Career.CareerPresentationData
+  _type: 7
+  _illustration: {fileID: 7132636998026676235, guid: 738727d2895ec904bbbf228b214832f6, type: 3}
+  _motionPreset: 5
+  _categoryLocalizationKey: career.rest.category
+  _titleLocalizationKey: career.rest.title
+  _descriptionLocalizationKey: career.rest.description
+  _stinger: {fileID: 0}
+  _particlePrefab: {fileID: 0}
+  _minimumViewTime: 1
+  _defaultDuration: 2.8
+  _allowSkip: 1
+  _replayOncePerSeason: 0

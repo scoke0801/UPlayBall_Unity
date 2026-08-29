@@ -92,7 +92,24 @@ namespace Baseball.Game.Career
 
             int playerId = _career.MyPlayer.PlayerId;
             int contractBonus = 0;
-            if (season.Awards != null)
+            if (season.ReviewSnapshot?.IsPostseasonFinalized == true)
+            {
+                IReadOnlyList<SeasonAwardReviewSnapshot> awards = season.ReviewSnapshot.PlayerAwards;
+                for (int index = 0; index < awards.Count; index++)
+                {
+                    AwardCategory category = awards[index].Category;
+                    double rate = GetAwardMoneyRate(category);
+                    int evaluation = GetAwardContractBonus(category);
+                    if (rate <= 0d && evaluation <= 0) continue;
+                    AddIncome(
+                        settlement,
+                        $"season_{season.SeasonId}_{awards[index].AwardId}_reward",
+                        SettlementEntryType.AwardBonus,
+                        CalculateBonus(salary, rate));
+                    contractBonus += evaluation;
+                }
+            }
+            else if (season.Awards != null)
             {
                 for (int index = 0; index < season.Awards.Results.Count; index++)
                 {
@@ -110,8 +127,9 @@ namespace Baseball.Game.Career
                 }
             }
 
-            PlayerTeamPostseasonResult teamResult = season.Postseason?.PlayerTeamResult ??
-                                                    PlayerTeamPostseasonResult.DidNotQualify;
+            PlayerTeamPostseasonResult teamResult = season.ReviewSnapshot?.IsPostseasonFinalized == true
+                ? season.ReviewSnapshot.PlayerTeamPostseasonResult
+                : season.Postseason?.PlayerTeamResult ?? PlayerTeamPostseasonResult.DidNotQualify;
             if (teamResult != PlayerTeamPostseasonResult.DidNotQualify)
             {
                 AddIncome(settlement, $"season_{season.SeasonId}_postseason_reward",

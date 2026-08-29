@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa000000000000000000000000000003, type: 3}
+  m_Name: CareerPresentation_PostseasonChampion
+  m_EditorClassIdentifier: Baseball.Presentation::Baseball.Presentation.Career.CareerPresentationData
+  _type: 3
+  _illustration: {fileID: 8222511888678302623, guid: d71944e5fbd5d5c46b5d7ded50bacd4a, type: 3}
+  _motionPreset: 2
+  _categoryLocalizationKey: career.postseason_champion.category
+  _titleLocalizationKey: career.postseason_champion.title
+  _descriptionLocalizationKey: career.postseason_champion.description
+  _stinger: {fileID: 0}
+  _particlePrefab: {fileID: 0}
+  _minimumViewTime: 1
+  _defaultDuration: 6
+  _allowSkip: 1
+  _replayOncePerSeason: 1

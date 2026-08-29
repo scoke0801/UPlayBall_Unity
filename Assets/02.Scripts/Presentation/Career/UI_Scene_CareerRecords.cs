@@ -566,7 +566,8 @@ namespace Baseball.Presentation.Career
         private void RenderAwardsPage(CareerRecordsView view)
         {
             RectTransform panel = CreateContentPanel(
-                "Awards", "수상 내역", new Vector2(1070f, 510f), new Vector2(-150f, 75f));
+                "Awards", "수상 내역 · 행을 선택하면 챕터 컷 다시 보기",
+                new Vector2(1070f, 510f), new Vector2(-150f, 75f));
             if (view.Awards.Length == 0)
             {
                 RenderEmptyState(panel, "아직 수상 기록이 없습니다. 시즌을 완주해 첫 트로피에 도전하세요.");

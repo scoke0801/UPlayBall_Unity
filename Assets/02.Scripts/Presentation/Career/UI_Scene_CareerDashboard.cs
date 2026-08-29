@@ -14,7 +14,7 @@ namespace Baseball.Presentation.Career
     /// <summary>
     /// 다음 경기와 내 선수의 역할·기록을 중심으로 정규 시즌을 진행하는 메인 화면이다.
     /// </summary>
-    public sealed class UI_Scene_CareerDashboard : UISceneBase, ICareerTabScreen
+    public sealed partial class UI_Scene_CareerDashboard : UISceneBase, ICareerTabScreen
     {
         private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
@@ -38,6 +38,7 @@ namespace Baseball.Presentation.Career
         private CareerManager _manager;
         private RectTransform _content;
         private bool _isSeasonAutoCompletionConfirmationVisible;
+        private bool _isSeasonReviewSkipConfirmationVisible;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Home;
@@ -67,6 +68,7 @@ namespace Baseball.Presentation.Career
         protected override void OnShow()
         {
             _isSeasonAutoCompletionConfirmationVisible = false;
+            _isSeasonReviewSkipConfirmationVisible = false;
             Render();
         }
 
@@ -74,8 +76,50 @@ namespace Baseball.Presentation.Career
         {
             if (!IsVisible || _manager == null || !_manager.HasActiveCareer || Keyboard.current == null)
                 return;
+            if (UI_CareerPresentation.IsPlaying)
+                return;
 
             Keyboard keyboard = Keyboard.current;
+            CareerDashboardView dashboard = _manager.Dashboard;
+            if (dashboard.PendingReaction != null)
+            {
+                if (keyboard.digit1Key.wasPressedThisFrame)
+                    ResolveCareerReaction(0);
+                else if (keyboard.digit2Key.wasPressedThisFrame)
+                    ResolveCareerReaction(1);
+                else if (keyboard.digit3Key.wasPressedThisFrame)
+                    ResolveCareerReaction(2);
+                return;
+            }
+            if (IsSeasonReviewOverlayVisible(dashboard))
+            {
+                if (_isSeasonReviewSkipConfirmationVisible)
+                {
+                    if (keyboard.escapeKey.wasPressedThisFrame)
+                    {
+                        _isSeasonReviewSkipConfirmationVisible = false;
+                        Render();
+                    }
+                    else if (IsConfirmKeyPressed(keyboard))
+                    {
+                        _isSeasonReviewSkipConfirmationVisible = false;
+                        _manager.SkipSeasonReview();
+                    }
+                    return;
+                }
+
+                if (keyboard.escapeKey.wasPressedThisFrame && CanSkipSeasonReview(dashboard))
+                {
+                    _isSeasonReviewSkipConfirmationVisible = true;
+                    Render();
+                }
+                else if (IsConfirmKeyPressed(keyboard))
+                {
+                    _manager.AdvanceSeasonReview();
+                }
+                return;
+            }
+
             if (_isSeasonAutoCompletionConfirmationVisible)
             {
                 if (keyboard.escapeKey.wasPressedThisFrame)
@@ -115,7 +159,7 @@ namespace Baseball.Presentation.Career
                         ShowSeasonAutoCompletionConfirmation();
                     break;
                 case SeasonPhase.SeasonReview:
-                    _manager.SettleSeasonAndBeginOffseason();
+                    _manager.AdvanceSeasonReview();
                     break;
                 case SeasonPhase.Offseason:
                     CareerTabNavigation.Show(
@@ -170,6 +214,18 @@ namespace Baseball.Presentation.Career
             CareerDashboardView view = _manager.Dashboard;
             RenderBackgroundAccents();
             RenderTopBar(view);
+            if (view.PendingReaction != null)
+            {
+                RenderCareerReactionOverlay(view);
+                return;
+            }
+            if (IsSeasonReviewOverlayVisible(view))
+            {
+                RenderSeasonReviewOverlay(view);
+                if (_isSeasonReviewSkipConfirmationVisible)
+                    RenderSeasonReviewSkipConfirmation(view);
+                return;
+            }
             RenderPlayerPanel(view);
             RenderNextGame(view);
             RenderSeasonPanel(view);
@@ -409,7 +465,7 @@ namespace Baseball.Presentation.Career
                 "RoleLabel", role, "예상 역할", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(130f, 30f), new Vector2(-225f, 0f), SecondaryTextColor);
             CreateText(
-                "PlannedRole", role, GetRoleLabel(game.PlannedRole, view.Position), 25,
+                "PlannedRole", role, GetRoleLabel(game.PlannedRole, view.Position, game.BattingOrder), 25,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(285f, 42f), Vector2.zero, RoleColor);
             CreateText(
                 "RoleGuide", role, GetRoleGuide(game.PlannedRole, view.Position), 13, FontStyle.Normal,
@@ -1119,7 +1175,7 @@ namespace Baseball.Presentation.Career
                 "Inset", middle, AccentColor, new Vector2(size - 20f, 3f),
                 new Vector2(0f, size * 0.5f - 10f));
             CreateText(
-                "Monogram", middle, GetTeamMonogram(teamName), Math.Max(24, (int)(size * 0.34f)),
+                "Monogram", middle, CareerTeamNameFormatter.GetMonogram(teamName), Math.Max(24, (int)(size * 0.34f)),
                 FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero,
                 PrimaryTextColor, stretch: true);
             return outer;
@@ -1222,13 +1278,15 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetRoleLabel(PlayerGameRole role, PlayerPosition position)
+        private static string GetRoleLabel(PlayerGameRole role, PlayerPosition position, int battingOrder)
         {
             if (CareerGameRoleFormatter.IsPitcherRest(role, position))
                 return CareerGameRoleFormatter.GetPitcherRestLabel(position);
 
             return role switch
             {
+                PlayerGameRole.StartingBatter when battingOrder > 0 =>
+                    $"선발 {GetPositionCode(position)} · {battingOrder}번 타자",
                 PlayerGameRole.StartingBatter => $"선발 {GetPositionCode(position)}",
                 PlayerGameRole.StartingPitcher => "선발 등판",
                 PlayerGameRole.ReliefPitcher => "구원 등판 예정",
@@ -1291,6 +1349,12 @@ namespace Baseball.Presentation.Career
 
         private static string GetSeasonDateText(CareerDashboardView view)
         {
+            if (view.SeasonReviewStep is SeasonReviewStep.RegularSeasonIntro or
+                SeasonReviewStep.RegularSeasonResult or
+                SeasonReviewStep.PostseasonEntry)
+            {
+                return "정규시즌 종료";
+            }
             if (view.NextGame.HasValue)
             {
                 return $"{view.NextGame.Value.Date:M월 d일} " +
@@ -1361,14 +1425,6 @@ namespace Baseball.Presentation.Career
                 DayOfWeek.Saturday => "토",
                 _ => "일"
             };
-        }
-
-        private static string GetTeamMonogram(string teamName)
-        {
-            if (string.IsNullOrWhiteSpace(teamName))
-                return "UP";
-            string compact = teamName.Replace(" ", string.Empty);
-            return compact.Length == 1 ? compact : compact.Substring(0, 2);
         }
 
         private static string GetOutcomeLabel(PlayerGameLogState game)

@@ -1,4 +1,5 @@
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using UnityEngine;
 using UnityEngine.UI;
@@ -50,7 +51,7 @@ namespace Baseball.Presentation.Career
                 TeamRosterPlayerView player = view.Roster[index];
                 if (!MatchesRosterFilter(player))
                     continue;
-                RenderRosterRow(content, player, rowIndex++);
+                RenderRosterRow(content, player, view.MyPlayerExpectedRole, rowIndex++);
             }
             CreateText("RosterGuide", panel, "선수 선택 시 아래 포지션 경쟁 현황으로 이동 · 편성은 감독 AI 소유",
                 12, FontStyle.Normal, TextAnchor.MiddleCenter,
@@ -80,7 +81,11 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleRight, new Vector2(90f, 30f), new Vector2(266f, 197f), SecondaryTextColor);
         }
 
-        private void RenderRosterRow(Transform content, TeamRosterPlayerView player, int rowIndex)
+        private void RenderRosterRow(
+            Transform content,
+            TeamRosterPlayerView player,
+            ExpectedRole myPlayerExpectedRole,
+            int rowIndex)
         {
             Color background = player.IsMyPlayer
                 ? new Color(0.025f, 0.22f, 0.42f, 0.96f)
@@ -110,9 +115,9 @@ namespace Baseball.Presentation.Career
                 player.IsMyPlayer ? GoldColor : RoleColor);
             CreateText("Name", row, player.Name, 15, player.IsMyPlayer ? FontStyle.Bold : FontStyle.Normal,
                 TextAnchor.MiddleLeft, new Vector2(136f, 30f), new Vector2(-155f, 0f), PrimaryTextColor);
-            CreateText("Role", row, GetRosterRoleLabel(player.RosterRole), 13, FontStyle.Bold,
+            CreateText("Role", row, GetRosterRoleLabel(player, myPlayerExpectedRole), 13, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(96f, 30f), new Vector2(-47f, 0f),
-                player.IsInNextGamePlan ? RoleColor : SecondaryTextColor);
+                player.IsMyPlayer ? GoldColor : player.IsInNextGamePlan ? RoleColor : SecondaryTextColor);
             CreateText("Overall", row, player.Overall.ToString(), 15, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(62f, 30f), new Vector2(45f, 0f), GetRatingColor(player.Overall));
             CreateText("Record", row, GetSeasonRecord(player), 13, FontStyle.Normal,

@@ -252,7 +252,7 @@ namespace Baseball.Presentation.Career
             CreateText("Name", line, row.PlayerName, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(115f, 38f), new Vector2(-168f, 0f), color);
             CreateTeamBadge(line, row.TeamName, GetTeamColor(view, row.TeamId), new Vector2(-108f, 0f), 25f);
-            CreateText("Team", line, GetTeamMonogram(row.TeamName), 11, FontStyle.Bold,
+            CreateText("Team", line, CareerTeamNameFormatter.GetMonogram(row.TeamName), 11, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(55f, 30f), new Vector2(-69f, 0f), SecondaryTextColor);
             CreateText("Games", line, row.Games.ToString(), 13, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(38f, 38f), new Vector2(16f, 0f), SecondaryTextColor);
@@ -328,7 +328,7 @@ namespace Baseball.Presentation.Career
             CreateText("Name", line, row.PlayerName, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(122f, 38f), new Vector2(-186f, 0f), color);
             CreateTeamBadge(line, row.TeamName, GetTeamColor(view, row.TeamId), new Vector2(-117f, 0f), 25f);
-            CreateText("Team", line, GetTeamMonogram(row.TeamName), 11, FontStyle.Bold,
+            CreateText("Team", line, CareerTeamNameFormatter.GetMonogram(row.TeamName), 11, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(55f, 30f), new Vector2(-79f, 0f), SecondaryTextColor);
             CreateText("Record", line, $"{row.Wins}-{row.Losses}", 13, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(46f, 38f), new Vector2(-5f, 0f),
@@ -690,7 +690,7 @@ namespace Baseball.Presentation.Career
             RectTransform inner = CreateImage(
                 "Inner", outer, Color.Lerp(primary, BackgroundColor, 0.28f),
                 new Vector2(size - 4f, size - 4f), Vector2.zero);
-            CreateText("Monogram", inner, GetTeamMonogram(teamName), Math.Max(9, (int)(size * 0.31f)),
+            CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName), Math.Max(9, (int)(size * 0.31f)),
                 FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero,
                 PrimaryTextColor, true);
             return outer;
@@ -886,14 +886,6 @@ namespace Baseball.Presentation.Career
                 TeamGameOutcome.Tie => TieColor,
                 _ => MutedColor
             };
-        }
-
-        private static string GetTeamMonogram(string teamName)
-        {
-            if (string.IsNullOrWhiteSpace(teamName))
-                return "UP";
-            string compact = teamName.Replace(" ", string.Empty);
-            return compact.Length == 1 ? compact : compact.Substring(0, 2);
         }
 
         private static string GetShortTeamName(string teamName)

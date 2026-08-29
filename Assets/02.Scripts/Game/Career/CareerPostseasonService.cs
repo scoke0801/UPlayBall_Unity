@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Teams;
 using Baseball.Game.Career.News;
+using Baseball.Game.Career.Narrative;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
@@ -181,7 +182,12 @@ namespace Baseball.Game.Career
                 CompetitionScope.Postseason,
                 _balance,
                 _career.MyPlayer.Condition,
-                _career.MyPlayer.ManagerEvaluation);
+                _career.MyPlayer.ManagerEvaluation,
+                MatchNarrativeService.CaptureBaseline(
+                    _career,
+                    game,
+                    game.PlannedPlayerRole,
+                    CompetitionScope.Postseason));
         }
 
         /// <summary>
@@ -212,9 +218,17 @@ namespace Baseball.Game.Career
                 session.PlayerRole,
                 session.MatchResult,
                 isPlayerGame: true);
+            CareerGameAdvanceResult playerResult = result.PlayerResult ??
+                                                   throw new InvalidOperationException(
+                                                       "내 선수의 포스트시즌 경기 결과가 없습니다.");
+            MatchNarrativeSnapshot narrative = MatchNarrativeService.CreateSnapshot(
+                _career,
+                session.NarrativeBaseline,
+                playerResult);
+            Season.RecordMatchNarrative(narrative);
+            new CareerReactionService(_career).TryCreateAfterMatch(narrative);
             SynchronizeBackgroundLeaguesAfter(targetCompletedGameCount, result.IsPostseasonCompleted);
-            return result.PlayerResult ??
-                   throw new InvalidOperationException("내 선수의 포스트시즌 경기 결과가 없습니다.");
+            return playerResult;
         }
 
         /// <summary>
@@ -357,12 +371,11 @@ namespace Baseball.Game.Career
 
             if (result.IsPostseasonCompleted)
             {
+                // 우승·수상 기사는 결산 장면보다 먼저 노출되면 결과를 스포일러한다.
                 _newsService.PublishCycle(
                     occurredAt,
                     NewsReleaseGate.AfterGameResult,
-                    NewsReleaseGate.AfterSeriesResult,
-                    NewsReleaseGate.AfterPostseasonReveal,
-                    NewsReleaseGate.AfterAwardReveal);
+                    NewsReleaseGate.AfterSeriesResult);
             }
             else if (result.IsSeriesCompleted)
             {
@@ -394,6 +407,14 @@ namespace Baseball.Game.Career
             SeasonAwardsState awards = new SeasonAwardService(_balance.SeasonAwards)
                 .Evaluate(Season, series.WinnerTeamId);
             Season.CompletePostseason(awards);
+            SeasonReviewSnapshot snapshot = Season.ReviewSnapshot;
+            if (snapshot == null && _league.LeagueId == _career.MyPlayer.CurrentLeagueId)
+            {
+                snapshot = SeasonReviewSnapshot.CaptureRegularSeason(_career);
+                Season.AttachReviewSnapshot(snapshot);
+            }
+            if (_league.LeagueId == _career.MyPlayer.CurrentLeagueId)
+                snapshot?.CompletePostseason(_career);
             return true;
         }
 

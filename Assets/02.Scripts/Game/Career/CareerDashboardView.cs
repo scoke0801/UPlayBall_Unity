@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Game.Career.Narrative;
 
 namespace Baseball.Game.Career
 {
@@ -52,7 +53,8 @@ namespace Baseball.Game.Career
             string homeTeamName,
             string opponentName,
             bool isHome,
-            PlayerGameRole plannedRole)
+            PlayerGameRole plannedRole,
+            int battingOrder)
         {
             GameId = gameId;
             Date = date;
@@ -61,6 +63,7 @@ namespace Baseball.Game.Career
             OpponentName = opponentName;
             IsHome = isHome;
             PlannedRole = plannedRole;
+            BattingOrder = battingOrder;
         }
 
         public int GameId { get; }
@@ -70,6 +73,7 @@ namespace Baseball.Game.Career
         public string OpponentName { get; }
         public bool IsHome { get; }
         public PlayerGameRole PlannedRole { get; }
+        public int BattingOrder { get; }
     }
 
     /// <summary>
@@ -214,5 +218,14 @@ namespace Baseball.Game.Career
         public int RemainingRegularSeasonGames { get; internal set; }
         public CareerSeasonAutoCompletionResult? LastSeasonAutoCompletion { get; internal set; }
         public CareerSeasonProgressView SeasonProgress { get; internal set; }
+        public SeasonReviewSnapshot SeasonReview { get; internal set; }
+        public SeasonReviewStep SeasonReviewStep { get; internal set; }
+        public int RevealedPostseasonGameCount { get; internal set; }
+        public int RevealedAwardCount { get; internal set; }
+        public CareerReactionEventState PendingReaction { get; internal set; }
+        public int NarrativeConfidence { get; internal set; }
+        public int MediaStanding { get; internal set; }
+        public int FanSupport { get; internal set; }
+        public int TeamChemistry { get; internal set; }
     }
 }

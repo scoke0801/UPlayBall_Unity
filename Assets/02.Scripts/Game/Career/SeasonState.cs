@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
+using Baseball.Game.Career.Narrative;
 
 namespace Baseball.Game.Career
 {
@@ -33,6 +34,7 @@ namespace Baseball.Game.Career
     public sealed class SeasonState
     {
         private readonly Dictionary<int, bool> _rookieEligibilitySnapshot = new();
+        private readonly List<MatchNarrativeSnapshot> _matchNarrativeSnapshots = new();
 
         public SeasonState(int saveVersion, int seasonId, int year, LeagueLevel leagueLevel)
         {
@@ -60,13 +62,37 @@ namespace Baseball.Game.Career
         public PostseasonState Postseason { get; private set; }
         public SeasonAwardsState Awards { get; private set; }
         public SeasonReviewState Review { get; private set; }
+        public SeasonReviewSnapshot ReviewSnapshot { get; private set; }
         public SeasonSettlementState Settlement { get; }
+        public IReadOnlyList<MatchNarrativeSnapshot> MatchNarrativeSnapshots => _matchNarrativeSnapshots;
 
         /// <summary>
         /// 포스트시즌 기록은 정규 시즌 기록과 절대 합산하지 않으므로 별도 누적기로 보관한다.
         /// 포스트시즌에 진입하기 전에는 null이다.
         /// </summary>
         public PlayerSeasonStatisticsState PostseasonPlayerStatistics { get; private set; }
+
+        /// <summary>경기 종료 당시의 사실과 선택 문장을 GameId별로 한 번만 보관한다.</summary>
+        public void RecordMatchNarrative(MatchNarrativeSnapshot snapshot)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            if (snapshot.SeasonId != SeasonId)
+                throw new InvalidOperationException("현재 시즌과 경기 내러티브의 SeasonId가 다릅니다.");
+            if (FindMatchNarrative(snapshot.GameId) != null)
+                throw new InvalidOperationException($"GameId {snapshot.GameId}의 내러티브가 이미 저장됐습니다.");
+            _matchNarrativeSnapshots.Add(snapshot);
+        }
+
+        /// <summary>과거 경기 화면과 뉴스가 라이브 기록 대신 고정 스냅샷을 조회하게 한다.</summary>
+        public MatchNarrativeSnapshot FindMatchNarrative(int gameId)
+        {
+            for (int index = 0; index < _matchNarrativeSnapshots.Count; index++)
+            {
+                if (_matchNarrativeSnapshots[index].GameId == gameId)
+                    return _matchNarrativeSnapshots[index];
+            }
+            return null;
+        }
 
         /// <summary>
         /// 계약 완료 후 Rookie League 정규 시즌을 시작한다.
@@ -105,6 +131,7 @@ namespace Baseball.Game.Career
             LeagueStatistics.FreezeRegularSeasonStatistics();
             Awards = new SeasonAwardsState();
             Review = new SeasonReviewState();
+            Review.SkipToSeasonSummary();
             Phase = SeasonPhase.SeasonReview;
         }
 
@@ -131,7 +158,39 @@ namespace Baseball.Game.Career
                     myPlayer.PrimaryPosition);
                 PostseasonPlayerStatistics.BindTo(source);
             }
+            Review = new SeasonReviewState();
             Phase = SeasonPhase.Postseason;
+        }
+
+        /// <summary>정규시즌 동결 직후 만든 결산 스냅샷을 현재 시즌에 한 번만 연결한다.</summary>
+        public void AttachReviewSnapshot(SeasonReviewSnapshot snapshot)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            if (ReviewSnapshot != null && !ReferenceEquals(ReviewSnapshot, snapshot))
+                throw new InvalidOperationException("시즌 결산 스냅샷은 교체할 수 없습니다.");
+            if (snapshot.SeasonId != SeasonId)
+                throw new InvalidOperationException("현재 시즌과 결산 스냅샷의 SeasonId가 다릅니다.");
+            ReviewSnapshot = snapshot;
+        }
+
+        /// <summary>v8 시즌의 현재 단계는 유지하면서 누락된 리뷰 진행 상태와 스냅샷을 v9 형식으로 채운다.</summary>
+        public void MigrateSeasonReview(SeasonReviewSnapshot snapshot)
+        {
+            AttachReviewSnapshot(snapshot);
+            Review ??= new SeasonReviewState();
+            switch (Phase)
+            {
+                case SeasonPhase.SeasonReview:
+                    if (Postseason?.IsCompleted == true)
+                        Review.PreparePostseasonRecap();
+                    else
+                        Review.SkipToSeasonSummary();
+                    break;
+                case SeasonPhase.Offseason:
+                case SeasonPhase.Completed:
+                    Review.Complete();
+                    break;
+            }
         }
 
         /// <summary>
@@ -144,7 +203,8 @@ namespace Baseball.Game.Career
             if (Postseason?.IsCompleted != true)
                 throw new InvalidOperationException("우승 구단이 확정되지 않았습니다.");
             Awards = awards ?? throw new ArgumentNullException(nameof(awards));
-            Review = new SeasonReviewState();
+            Review ??= new SeasonReviewState();
+            Review.PreparePostseasonRecap();
             Phase = SeasonPhase.SeasonReview;
         }
 
@@ -155,7 +215,6 @@ namespace Baseball.Game.Career
         {
             if (Phase != SeasonPhase.SeasonReview)
                 throw new InvalidOperationException("결산 중인 시즌만 오프시즌으로 전환할 수 있습니다.");
-            Review?.Complete();
             Phase = SeasonPhase.Offseason;
         }
 

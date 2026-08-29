@@ -28,13 +28,33 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetPlannedRoleLabel(PlayerGameRole role, PlayerPosition position)
+        private static string GetRosterRoleLabel(
+            TeamRosterPlayerView player,
+            ExpectedRole myPlayerExpectedRole)
+        {
+            if (!player.IsMyPlayer)
+                return GetRosterRoleLabel(player.RosterRole);
+
+            return myPlayerExpectedRole switch
+            {
+                ExpectedRole.StartingCompetition => "주전 경쟁",
+                ExpectedRole.RosterCompetition => "로스터 경쟁",
+                _ => "벤치 경쟁"
+            };
+        }
+
+        private static string GetPlannedRoleLabel(
+            PlayerGameRole role,
+            PlayerPosition position,
+            int battingOrder)
         {
             if (CareerGameRoleFormatter.IsPitcherRest(role, position))
                 return "내 선수 · " + CareerGameRoleFormatter.GetPitcherRestLabel(position);
 
             return role switch
             {
+                PlayerGameRole.StartingBatter when battingOrder > 0 =>
+                    $"내 선수 · 선발 {GetPositionCode(position)} · {battingOrder}번 타자",
                 PlayerGameRole.StartingBatter => $"내 선수 · 선발 {GetPositionCode(position)}",
                 PlayerGameRole.StartingPitcher => "내 선수 · 선발 등판",
                 PlayerGameRole.ReliefPitcher => "내 선수 · 구원 등판 예정",
@@ -117,14 +137,6 @@ namespace Baseball.Presentation.Career
         }
 
         private static Color ToColor(TeamColor color) => new Color32(color.Red, color.Green, color.Blue, 255);
-
-        private static string GetTeamMonogram(string teamName)
-        {
-            if (string.IsNullOrWhiteSpace(teamName))
-                return "UP";
-            string compact = teamName.Replace(" ", string.Empty);
-            return compact.Length == 1 ? compact : compact.Substring(0, 2);
-        }
 
         private static string GetLeagueLabel(LeagueLevel level)
         {

@@ -17,6 +17,7 @@ namespace Baseball.Game.Career.News
             Body = article.Body;
             IsRead = article.IsRead;
             IsCareerArchive = article.IsCareerArchive;
+            Illustration = NewsIllustrationResolver.Resolve(article.SourceEventIds);
         }
 
         public string ArticleId { get; }
@@ -29,6 +30,7 @@ namespace Baseball.Game.Career.News
         public string Body { get; }
         public bool IsRead { get; }
         public bool IsCareerArchive { get; }
+        public NewsIllustrationKind Illustration { get; }
     }
 
     /// <summary>필터와 읽지 않은 수를 포함한 뉴스 화면의 읽기 전용 모델이다.</summary>

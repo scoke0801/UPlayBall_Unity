@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
+using Baseball.Game.Career.Narrative;
+using Baseball.Game.Career.News;
 using Baseball.Game.Manager;
 using Baseball.Simulation.Career;
 
@@ -61,6 +64,8 @@ namespace Baseball.Game.Career
                 return Fail("진행 중인 정규 시즌이 없습니다.");
             if (_activeMatch != null)
                 return Fail("준비하거나 진행 중인 경기를 먼저 마쳐야 합니다.");
+            if (CurrentCareer?.Narrative.PendingReaction != null)
+                return Fail("먼저 경기 후 질문에 답해 주세요.");
 
             try
             {
@@ -85,6 +90,8 @@ namespace Baseball.Game.Career
                 return Fail("진행 중인 커리어가 없습니다.");
             if (_activeMatch != null)
                 return Fail("준비하거나 진행 중인 경기를 먼저 마쳐야 합니다.");
+            if (CurrentCareer.Narrative.PendingReaction != null)
+                return Fail("먼저 경기 후 질문에 답해 주세요.");
 
             try
             {
@@ -102,6 +109,118 @@ namespace Baseball.Game.Career
             }
         }
 
+        /// <summary>정규시즌 공개부터 시상식·정산까지 저장된 결산 장면을 한 단계 진행한다.</summary>
+        public bool AdvanceSeasonReview()
+        {
+            if (CurrentCareer == null)
+                return Fail("진행 중인 커리어가 없습니다.");
+            SeasonState season = CurrentCareer.CurrentLeague.CurrentSeason;
+            SeasonReviewState review = season.Review;
+            if (review == null)
+                return Fail("진행할 시즌 리뷰가 없습니다.");
+
+            try
+            {
+                if (season.Phase == SeasonPhase.Postseason)
+                {
+                    if (review.Step == SeasonReviewStep.PostseasonInProgress)
+                        return Fail("포스트시즌 경기를 먼저 진행해 주세요.");
+                    review.Advance(season.ReviewSnapshot);
+                }
+                else if (season.Phase == SeasonPhase.SeasonReview)
+                {
+                    if (review.Step == SeasonReviewStep.SeasonSummary)
+                        return SettleSeasonAndBeginOffseason();
+
+                    SeasonReviewStep previous = review.Step;
+                    review.Advance(season.ReviewSnapshot);
+                    if (previous == SeasonReviewStep.PostseasonResult)
+                        PublishPendingReviewNews(NewsReleaseGate.AfterPostseasonReveal);
+                    if (previous == SeasonReviewStep.Awards &&
+                        review.Step == SeasonReviewStep.SeasonSummary)
+                    {
+                        PublishPendingReviewNews(NewsReleaseGate.AfterAwardReveal);
+                    }
+                }
+                else if (season.Phase == SeasonPhase.Offseason &&
+                         review.Step == SeasonReviewStep.IncomeSettlement)
+                {
+                    review.Complete();
+                }
+                else
+                {
+                    return Fail("현재 시즌 단계에서는 리뷰를 진행할 수 없습니다.");
+                }
+
+                LastError = string.Empty;
+                CareerChanged?.Invoke();
+                return true;
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
+        /// <summary>보상은 건너뛰지 않고 현재 시즌 단계의 연출만 안전한 도착 화면까지 생략한다.</summary>
+        public bool SkipSeasonReview()
+        {
+            if (CurrentCareer == null)
+                return Fail("진행 중인 커리어가 없습니다.");
+            SeasonState season = CurrentCareer.CurrentLeague.CurrentSeason;
+            SeasonReviewState review = season.Review;
+            if (review == null)
+                return Fail("건너뛸 시즌 리뷰가 없습니다.");
+
+            try
+            {
+                if (season.Phase == SeasonPhase.Postseason)
+                {
+                    review.SkipToPostseasonInProgress();
+                }
+                else if (season.Phase == SeasonPhase.SeasonReview)
+                {
+                    PublishPendingReviewNews(NewsReleaseGate.AfterPostseasonReveal);
+                    PublishPendingReviewNews(NewsReleaseGate.AfterAwardReveal);
+                    review.SkipToSeasonSummary();
+                }
+                else
+                {
+                    return Fail("현재 화면에서는 시즌 리뷰를 건너뛸 수 없습니다.");
+                }
+
+                LastError = string.Empty;
+                CareerChanged?.Invoke();
+                return true;
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
+        private void PublishPendingReviewNews(NewsReleaseGate gate)
+        {
+            int seasonId = CurrentCareer.CurrentLeague.CurrentSeason.SeasonId;
+            IReadOnlyList<NewsEvent> pending = CurrentCareer.News.PendingEvents;
+            var dates = new List<CareerDate>();
+            for (int index = 0; index < pending.Count; index++)
+            {
+                NewsEvent newsEvent = pending[index];
+                if (newsEvent.OccurredAt.Cycle.SeasonId != seasonId || newsEvent.ReleaseGate != gate)
+                    continue;
+                bool alreadyAdded = false;
+                for (int dateIndex = 0; dateIndex < dates.Count; dateIndex++)
+                    alreadyAdded |= dates[dateIndex].Equals(newsEvent.OccurredAt);
+                if (!alreadyAdded)
+                    dates.Add(newsEvent.OccurredAt);
+            }
+
+            var service = new CareerNewsService(CurrentCareer);
+            for (int index = 0; index < dates.Count; index++)
+                service.PublishCycle(dates[index], gate);
+        }
+
         /// <summary>
         /// 정규시즌 또는 내 구단 포스트시즌 경기를 기록 변경 없이 준비 화면 상태로 연다.
         /// </summary>
@@ -111,6 +230,8 @@ namespace Baseball.Game.Career
                 return Fail("진행 중인 커리어가 없습니다.");
             if (_activeMatch != null)
                 return Fail("이미 준비하거나 진행 중인 경기가 있습니다.");
+            if (CurrentCareer.Narrative.PendingReaction != null)
+                return Fail("먼저 경기 후 질문에 답해 주세요.");
 
             try
             {
@@ -198,6 +319,28 @@ namespace Baseball.Game.Career
             LastError = string.Empty;
             CareerChanged?.Invoke();
             return true;
+        }
+
+        /// <summary>중요 경기 뒤 선택한 인터뷰 답변의 작은 관계 효과를 한 번만 반영한다.</summary>
+        public bool ResolveCareerReaction(int optionIndex)
+        {
+            if (CurrentCareer?.Narrative.PendingReaction == null)
+                return Fail("답변할 경기 후 질문이 없습니다.");
+            try
+            {
+                new CareerReactionService(CurrentCareer).Resolve(optionIndex);
+                LastError = string.Empty;
+                CareerChanged?.Invoke();
+                return true;
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Fail(exception.Message);
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                return Fail(exception.Message);
+            }
         }
 
         /// <summary>
@@ -374,7 +517,12 @@ namespace Baseball.Game.Career
                 return Fail("진행 중인 커리어가 없습니다.");
             try
             {
-                new ContractRenewalService(CurrentCareer, _balance).AcceptExtension();
+                var renewal = new ContractRenewalService(CurrentCareer, _balance);
+                ContractOffer offer = renewal.BuildExtensionOffer() ??
+                                      throw new InvalidOperationException("수락할 수 있는 연장 계약이 없습니다.");
+                TeamState team = GetTeam(CurrentCareer.MyPlayer.CurrentTeamId);
+                renewal.AcceptExtension();
+                PublishSignedExtension(team, offer);
                 LastError = string.Empty;
                 CareerChanged?.Invoke();
                 return true;
@@ -391,7 +539,9 @@ namespace Baseball.Game.Career
                 return Fail("진행 중인 커리어가 없습니다.");
             try
             {
+                TeamState team = GetTeam(CurrentCareer.MyPlayer.CurrentTeamId);
                 new ContractRenewalService(CurrentCareer, _balance).DeclineExtension();
+                PublishDeclinedExtension(team);
                 LastError = string.Empty;
                 CareerChanged?.Invoke();
                 return true;
@@ -461,10 +611,14 @@ namespace Baseball.Game.Career
                     {
                         _lastGame = _seasonService.CompletePreparedGame(_activeMatch);
                     }
+                    MatchNarrativeSnapshot narrative = CurrentCareer.CurrentLeague.CurrentSeason
+                        .FindMatchNarrative(_lastGame.Value.GameId) ??
+                        throw new InvalidOperationException("완료 경기의 내러티브 스냅샷을 찾지 못했습니다.");
                     _activeMatch.MarkCommitted(
                         _lastGame.Value,
-                        CurrentCareer.MyPlayer.Condition,
-                        CurrentCareer.MyPlayer.ManagerEvaluation);
+                        _lastGame.Value.ConditionAfter,
+                        _lastGame.Value.ManagerEvaluationAfter,
+                        narrative);
                     RefreshSeasonServices();
                 }
 
@@ -528,7 +682,7 @@ namespace Baseball.Game.Career
                 TeamWins = teamRecord?.Wins ?? 0,
                 TeamLosses = teamRecord?.Losses ?? 0,
                 TeamTies = teamRecord?.Ties ?? 0,
-                NextGame = BuildNextGameView(),
+                NextGame = BuildNextGameView(currentPlayer),
                 Statistics = new PlayerSeasonStatisticsView(
                     season.PlayerStatistics,
                     player.PrimaryPosition is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher),
@@ -538,28 +692,47 @@ namespace Baseball.Game.Career
                 LastGame = _lastGame,
                 RemainingRegularSeasonGames = CountRemainingRegularSeasonGames(player.CurrentTeamId),
                 LastSeasonAutoCompletion = _lastSeasonAutoCompletion,
-                SeasonProgress = BuildSeasonProgressView(season)
+                SeasonProgress = BuildSeasonProgressView(season),
+                SeasonReview = season.ReviewSnapshot,
+                SeasonReviewStep = season.Review?.Step ?? SeasonReviewStep.Finished,
+                RevealedPostseasonGameCount = season.Review?.RevealedPostseasonGameCount ?? 0,
+                RevealedAwardCount = season.Review?.RevealedAwardCount ?? 0,
+                PendingReaction = CurrentCareer.Narrative.PendingReaction,
+                NarrativeConfidence = CurrentCareer.Narrative.Confidence,
+                MediaStanding = CurrentCareer.Narrative.MediaStanding,
+                FanSupport = CurrentCareer.Narrative.FanSupport,
+                TeamChemistry = CurrentCareer.Narrative.TeamChemistry
             };
         }
 
         private CareerSeasonProgressView BuildSeasonProgressView(SeasonState season)
         {
             PostseasonState postseason = season.Postseason;
-            bool isQualified = false;
+            SeasonReviewSnapshot review = season.ReviewSnapshot;
+            bool isQualified = review?.PostseasonSeed > 0;
             int postseasonGames = 0;
             if (postseason != null)
             {
-                for (int index = 0; index < postseason.SeedTeamIds.Count; index++)
-                    isQualified |= postseason.SeedTeamIds[index] == CurrentCareer.MyPlayer.CurrentTeamId;
+                if (review == null)
+                {
+                    for (int index = 0; index < postseason.SeedTeamIds.Count; index++)
+                        isQualified |= postseason.SeedTeamIds[index] == CurrentCareer.MyPlayer.CurrentTeamId;
+                }
                 for (int index = 0; index < postseason.Series.Count; index++)
                     postseasonGames += postseason.Series[index].Games.Count;
             }
 
-            string championTeamName = postseason?.ChampionTeamId > 0
-                ? GetTeam(postseason.ChampionTeamId).Name
-                : string.Empty;
+            string championTeamName = review?.IsPostseasonFinalized == true
+                ? review.ChampionTeamName
+                : postseason?.ChampionTeamId > 0
+                    ? GetTeam(postseason.ChampionTeamId).Name
+                    : string.Empty;
             int playerAwardCount = 0;
-            if (season.Awards != null)
+            if (review?.IsPostseasonFinalized == true)
+            {
+                playerAwardCount = review.PlayerAwards.Count;
+            }
+            else if (season.Awards != null)
             {
                 for (int index = 0; index < season.Awards.Results.Count; index++)
                 {
@@ -579,7 +752,9 @@ namespace Baseball.Game.Career
                 isQualified,
                 postseason?.CanTeamPlayNextGame(CurrentCareer.MyPlayer.CurrentTeamId) == true,
                 championTeamName,
-                postseason?.PlayerTeamResult ?? PlayerTeamPostseasonResult.DidNotQualify,
+                review?.IsPostseasonFinalized == true
+                    ? review.PlayerTeamPostseasonResult
+                    : postseason?.PlayerTeamResult ?? PlayerTeamPostseasonResult.DidNotQualify,
                 postseasonGames,
                 playerAwardCount,
                 season.Settlement.SalaryIncome,
@@ -600,10 +775,10 @@ namespace Baseball.Game.Career
         {
             if (CurrentCareer == null || _balance == null)
                 return null;
-            return new TeamOverviewBuilder(_balance.PlayerEvaluation).Build(CurrentCareer);
+            return new TeamOverviewBuilder(_balance).Build(CurrentCareer);
         }
 
-        private NextCareerGameView? BuildNextGameView()
+        private NextCareerGameView? BuildNextGameView(Player currentPlayer)
         {
             ScheduledGameState game = _seasonService?.NextPlayerGame;
             if (game == null)
@@ -618,7 +793,23 @@ namespace Baseball.Game.Career
                 GetTeam(game.HomeTeamId).Name,
                 GetTeam(opponentTeamId).Name,
                 isHome,
-                game.PlannedPlayerRole);
+                game.PlannedPlayerRole,
+                GetPlayerBattingOrder(game, currentPlayer));
+        }
+
+        private int GetPlayerBattingOrder(ScheduledGameState game, Player currentPlayer)
+        {
+            if (game.PlannedPlayerRole != PlayerGameRole.StartingBatter)
+                return 0;
+
+            TeamState team = GetTeam(CurrentCareer.MyPlayer.CurrentTeamId);
+            var lineupAi = new ManagerLineupAi(_balance.ManagerLineup);
+            Lineup lineup = CareerLineupPlan.BuildStartingLineup(
+                team,
+                currentPlayer,
+                game.PlannedPlayerRole,
+                lineupAi);
+            return CareerLineupPlan.GetPlayerBattingOrder(lineup, currentPlayer.PlayerId);
         }
 
         private PositionCompetitionView[] BuildCompetition(

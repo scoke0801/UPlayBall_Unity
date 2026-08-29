@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Game.Data;
+using Baseball.Game.Career.Narrative;
 
 namespace Baseball.Game.Career.News
 {
@@ -25,7 +26,8 @@ namespace Baseball.Game.Career.News
         /// <summary>당일 리그 경기·기록·순위가 모두 확정된 뒤 정규시즌 기사를 발행한다.</summary>
         public IReadOnlyList<NewsArticleState> PublishRegularSeasonRound(
             CareerGameAdvanceResult result,
-            DateTime calendarDate)
+            DateTime calendarDate,
+            MatchNarrativeSnapshot narrative = null)
         {
             SeasonState season = _career.CurrentLeague.CurrentSeason;
             var cycle = new NewsCycleKey(season.SeasonId, SeasonPhase.RegularSeason, result.Round);
@@ -34,7 +36,8 @@ namespace Baseball.Game.Career.News
             IReadOnlyList<NewsEvent> events = evaluator.EvaluateRegularSeasonRound(
                 _career,
                 result,
-                occurredAt);
+                occurredAt,
+                narrative);
             for (int index = 0; index < events.Count; index++)
                 _collector.Collect(events[index]);
             return _cycleService.Publish(new NewsPublicationContext(

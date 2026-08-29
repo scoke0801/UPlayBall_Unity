@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Growth;
+using Baseball.Game.Career.Narrative;
 using Baseball.Game.Career.News;
 
 namespace Baseball.Game.Career
@@ -52,6 +53,7 @@ namespace Baseball.Game.Career
             Economy = new CareerEconomyState(availableMoney);
             TradeState = new PlayerTradeState();
             News = new CareerNewsState(saveVersion);
+            Narrative = new CareerNarrativeState(saveVersion);
             _contractHistory.Add(CurrentContract);
         }
 
@@ -64,6 +66,7 @@ namespace Baseball.Game.Career
         public CareerEconomyState Economy { get; }
         public PlayerTradeState TradeState { get; }
         public CareerNewsState News { get; }
+        public CareerNarrativeState Narrative { get; }
         public OffseasonState CurrentOffseason { get; private set; }
         public long AvailableMoney => Economy.Money;
         public Baseball.Core.Teams.ExpectedRole CurrentExpectedRole =>
@@ -201,6 +204,14 @@ namespace Baseball.Game.Career
             if (!ReferenceEquals(world.GetPlayer(MyPlayer.PlayerId), MyPlayer))
                 throw new InvalidOperationException("마이그레이션 월드는 기존 내 선수 인스턴스를 보존해야 합니다.");
             World = world;
+            SaveVersion = saveVersion;
+        }
+
+        /// <summary>월드 소유 구조를 유지한 채 선택 필드가 추가된 다음 세이브 스키마로 승격한다.</summary>
+        public void UpgradeSaveVersion(int saveVersion)
+        {
+            if (saveVersion <= SaveVersion)
+                throw new ArgumentOutOfRangeException(nameof(saveVersion));
             SaveVersion = saveVersion;
         }
 

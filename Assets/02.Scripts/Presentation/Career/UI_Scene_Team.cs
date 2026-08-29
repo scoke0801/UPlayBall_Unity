@@ -185,7 +185,8 @@ namespace Baseball.Presentation.Career
             RectTransform badgeInner = CreateImage("BadgeInner", badge, new Color(0.012f, 0.08f, 0.13f, 1f),
                 new Vector2(142f, 142f), Vector2.zero);
             CreateImage("TeamColor", badgeInner, teamColor, new Vector2(126f, 5f), new Vector2(0f, 64f));
-            Text monogram = CreateText("Monogram", badgeInner, GetTeamMonogram(view.TeamName), 43, FontStyle.Bold,
+            Text monogram = CreateText(
+                "Monogram", badgeInner, CareerTeamNameFormatter.GetMonogram(view.TeamName), 43, FontStyle.Bold,
                 TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
             AddTextOutline(monogram, teamColor, 1.4f);
             CreateText("TeamName", panel, view.TeamName, 28, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -295,7 +296,7 @@ namespace Baseball.Presentation.Career
                 TeamRosterPlayerView player = view.Roster[index];
                 if (player.Position != _selectedPosition)
                     continue;
-                RenderCompetitionRow(panel, player, rowIndex++);
+                RenderCompetitionRow(panel, player, view.MyPlayerExpectedRole, rowIndex++);
             }
             CreateText("Guide", panel, "OVR만이 아니라 계약 역할·컨디션·감독 평가가 실제 기용에 반영됩니다.",
                 11, FontStyle.Normal, TextAnchor.MiddleCenter,
@@ -321,7 +322,11 @@ namespace Baseball.Presentation.Career
             }
         }
 
-        private static void RenderCompetitionRow(Transform parent, TeamRosterPlayerView player, int index)
+        private static void RenderCompetitionRow(
+            Transform parent,
+            TeamRosterPlayerView player,
+            ExpectedRole myPlayerExpectedRole,
+            int index)
         {
             float y = 38f - index * 48f;
             Color background = player.IsMyPlayer ? new Color(0.025f, 0.22f, 0.42f, 1f) : PanelDarkColor;
@@ -334,9 +339,9 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleLeft, new Vector2(190f, 32f), new Vector2(-85f, 0f), PrimaryTextColor);
             CreateText("Overall", row, $"OVR {player.Overall}", 14, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(82f, 32f), new Vector2(68f, 0f), GetRatingColor(player.Overall));
-            CreateText("Role", row, GetRosterRoleLabel(player.RosterRole), 13, FontStyle.Bold,
+            CreateText("Role", row, GetRosterRoleLabel(player, myPlayerExpectedRole), 13, FontStyle.Bold,
                 TextAnchor.MiddleRight, new Vector2(105f, 32f), new Vector2(170f, 0f),
-                player.IsInNextGamePlan ? RoleColor : SecondaryTextColor);
+                player.IsMyPlayer ? GoldColor : player.IsInNextGamePlan ? RoleColor : SecondaryTextColor);
         }
 
         private void RenderClubBriefing(TeamOverviewView view)
@@ -347,11 +352,12 @@ namespace Baseball.Presentation.Career
             TeamRosterPlayerView myPlayer = FindPlayer(view, view.MyPlayerId);
             RenderBriefingRow(panel, "TEAM", $"{view.TeamRank}위 · {view.Wins}승 {view.Losses}패 {view.Ties}무",
                 $"득실차 {FormatSigned(view.RunsScored - view.RunsAllowed)}", 73f, AccentColor);
-            RenderBriefingRow(panel, "ROLE", GetPlannedRoleLabel(view.PlannedPlayerRole, view.MyPlayerPosition),
+            RenderBriefingRow(panel, "ROLE", GetPlannedRoleLabel(
+                    view.PlannedPlayerRole, view.MyPlayerPosition, view.MyPlayerBattingOrder),
                 view.HasNextGamePlan ? $"다음 경기 {view.NextGameRound}R" : "일정 종료", 17f,
                 view.HasNextGamePlan ? RoleColor : GoldColor);
             RenderBriefingRow(panel, "DEPTH", $"{GetPositionCode(view.MyPlayerPosition)} 경쟁 {positionCount}명 · 내 OVR {myPlayer.Overall}",
-                GetRosterRoleLabel(myPlayer.RosterRole), -39f, GoldColor);
+                GetRosterRoleLabel(myPlayer, view.MyPlayerExpectedRole), -39f, GoldColor);
             RenderBriefingRow(panel, "ROSTER", $"등록 선수 {view.Roster.Length}명 · 야수층 OVR {view.FieldPlayerOverall}",
                 "열람 전용", -95f, SecondaryTextColor);
         }

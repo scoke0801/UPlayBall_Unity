@@ -253,7 +253,10 @@ namespace Baseball.Game.Career
         public bool HasRunnerOnSecond => SecondRunnerId != 0;
         public bool HasRunnerOnThird => ThirdRunnerId != 0;
 
-        internal static CareerMatchPlaybackSnapshot Create(
+        /// <summary>
+        /// 이벤트 스트림의 임의 공개 지점에서 표시 상태를 복원한다.
+        /// </summary>
+        public static CareerMatchPlaybackSnapshot Create(
             IReadOnlyList<MatchEvent> events,
             int visibleEventCount,
             MatchDecisionRequest? pendingDecision)

@@ -29,9 +29,57 @@ namespace Baseball.Game.Career
                 legacyLeague,
                 career.MyPlayer,
                 career.ContractHistory);
-            career.UpgradeToWorld(NewGameFlow.CurrentSaveVersion, world);
+            career.UpgradeToWorld(8, world);
             ImportLegacyMovementHistory(career);
             career.World.ValidateInvariants();
+        }
+
+        /// <summary>v8 커리어의 월드·기록은 보존하고 현재 시즌에 v9 결산 스냅샷을 복원한다.</summary>
+        public void MigrateV8ToV9(CareerState career)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (career.SaveVersion != 8)
+                throw new InvalidOperationException("SaveVersion 8 커리어만 v9로 마이그레이션할 수 있습니다.");
+
+            SeasonState season = career.CurrentLeague.CurrentSeason;
+            if (CanCaptureSeasonReview(season))
+            {
+                SeasonReviewSnapshot snapshot = season.ReviewSnapshot ??
+                                                SeasonReviewSnapshot.CaptureRegularSeason(career);
+                if (season.Postseason?.IsCompleted == true)
+                    snapshot.CompletePostseason(career);
+                if (season.Settlement.IsApplied && !snapshot.IsSettlementApplied)
+                {
+                    // v8에는 성장 전 값이 없으므로 현재 값을 양쪽에 넣어 허위 성장량을 만들지 않는다.
+                    int[] abilities = career.MyPlayer.GrowthState.BaseAbilities.ToArray();
+                    snapshot.CompleteSettlement(season.Settlement, abilities, abilities);
+                }
+                season.MigrateSeasonReview(snapshot);
+            }
+
+            career.UpgradeSaveVersion(9);
+        }
+
+        /// <summary>v9 월드·시즌 상태를 보존하고 커리어 내러티브 상태가 포함된 v10으로 승격한다.</summary>
+        public void MigrateV9ToV10(CareerState career)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (career.SaveVersion != 9)
+                throw new InvalidOperationException("SaveVersion 9 커리어만 v10으로 마이그레이션할 수 있습니다.");
+            if (career.Narrative == null)
+                throw new InvalidOperationException("v10 승격에 필요한 커리어 내러티브 상태가 없습니다.");
+
+            career.Narrative.UpgradeSaveVersion(10);
+            career.UpgradeSaveVersion(10);
+        }
+
+        private static bool CanCaptureSeasonReview(SeasonState season)
+        {
+            return season?.TeamRecords != null && season.Phase is
+                SeasonPhase.Postseason or
+                SeasonPhase.SeasonReview or
+                SeasonPhase.Offseason or
+                SeasonPhase.Completed;
         }
 
         private static void NormalizeLegacyContracts(CareerState career, LeagueId leagueId)

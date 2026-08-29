@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Game.Career.Narrative;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
 
@@ -47,7 +48,8 @@ namespace Baseball.Game.Career
             CompetitionScope competitionScope,
             BalanceTable balance,
             int conditionBefore,
-            int managerEvaluationBefore)
+            int managerEvaluationBefore,
+            MatchNarrativeBaseline narrativeBaseline)
         {
             ScheduledGame = scheduledGame ?? throw new ArgumentNullException(nameof(scheduledGame));
             Input = input ?? throw new ArgumentNullException(nameof(input));
@@ -60,6 +62,8 @@ namespace Baseball.Game.Career
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             ConditionBefore = conditionBefore;
             ManagerEvaluationBefore = managerEvaluationBefore;
+            NarrativeBaseline = narrativeBaseline ??
+                                throw new ArgumentNullException(nameof(narrativeBaseline));
             Phase = CareerMatchPhase.Preparation;
         }
 
@@ -83,6 +87,8 @@ namespace Baseball.Game.Career
         public int ManagerEvaluationBefore { get; }
         public int ManagerEvaluationAfter { get; private set; }
         public CareerGameAdvanceResult? CareerResult { get; private set; }
+        public MatchNarrativeBaseline NarrativeBaseline { get; }
+        public MatchNarrativeSnapshot NarrativeSnapshot { get; private set; }
 
         /// <summary>
         /// 준비 화면에서 고른 방식으로 경기를 시작한다.
@@ -163,7 +169,8 @@ namespace Baseball.Game.Career
         public void MarkCommitted(
             CareerGameAdvanceResult result,
             int conditionAfter,
-            int managerEvaluationAfter)
+            int managerEvaluationAfter,
+            MatchNarrativeSnapshot narrativeSnapshot)
         {
             if (!IsComplete || MatchResult == null)
                 throw new InvalidOperationException("완료되지 않은 경기는 기록할 수 없습니다.");
@@ -173,6 +180,8 @@ namespace Baseball.Game.Career
             CareerResult = result;
             ConditionAfter = conditionAfter;
             ManagerEvaluationAfter = managerEvaluationAfter;
+            NarrativeSnapshot = narrativeSnapshot ??
+                                throw new ArgumentNullException(nameof(narrativeSnapshot));
             IsCommitted = true;
         }
 

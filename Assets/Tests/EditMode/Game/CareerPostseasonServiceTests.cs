@@ -2,6 +2,7 @@ using System;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
+using Baseball.Game.Career.News;
 using Baseball.Simulation.Career;
 using NUnit.Framework;
 
@@ -24,6 +25,10 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(season.Postseason.SeedTeamIds.Count, Is.EqualTo(4));
             Assert.That(season.PostseasonPlayerStatistics, Is.Not.Null);
             Assert.That(season.PostseasonPlayerStatistics.TeamGames, Is.EqualTo(0));
+            Assert.That(season.Review.Step, Is.EqualTo(SeasonReviewStep.RegularSeasonIntro));
+            Assert.That(season.ReviewSnapshot, Is.Not.Null);
+            Assert.That(season.ReviewSnapshot.Standings.Count, Is.EqualTo(season.TeamRecords.Count));
+            Assert.That(season.ReviewSnapshot.PlayerTeamRank, Is.InRange(1, season.TeamRecords.Count));
         }
 
         [Test]
@@ -95,6 +100,21 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(season.Phase, Is.EqualTo(SeasonPhase.SeasonReview));
             Assert.That(season.Postseason.ChampionTeamId, Is.EqualTo(final.ChampionTeamId));
             Assert.That(season.Postseason.SeedTeamIds, Does.Contain(final.ChampionTeamId));
+            Assert.That(season.Review.Step, Is.EqualTo(SeasonReviewStep.PostseasonRecap));
+            Assert.That(season.ReviewSnapshot.IsPostseasonFinalized, Is.True);
+            Assert.That(season.ReviewSnapshot.ChampionTeamId, Is.EqualTo(final.ChampionTeamId));
+            Assert.That(season.ReviewSnapshot.ChampionTeamName, Is.Not.Empty);
+
+            bool hasDeferredChampionNews = false;
+            bool hasDeferredAwardNews = false;
+            for (int index = 0; index < career.News.PendingEvents.Count; index++)
+            {
+                NewsReleaseGate gate = career.News.PendingEvents[index].ReleaseGate;
+                hasDeferredChampionNews |= gate == NewsReleaseGate.AfterPostseasonReveal;
+                hasDeferredAwardNews |= gate == NewsReleaseGate.AfterAwardReveal;
+            }
+            Assert.That(hasDeferredChampionNews, Is.True);
+            Assert.That(hasDeferredAwardNews, Is.True);
         }
 
         [Test]
@@ -258,6 +278,51 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(moneyAfterFirst, Is.GreaterThan(moneyBefore));
             Assert.That(career.AvailableMoney, Is.EqualTo(moneyAfterFirst));
             Assert.That(first.ContractEvaluationBonus, Is.InRange(0, 30));
+        }
+
+        [Test]
+        public void 시즌리뷰는정규시즌공개뒤포스트시즌진행에서멈춘다()
+        {
+            var review = new SeasonReviewState();
+
+            review.Advance(snapshot: null);
+            Assert.That(review.Step, Is.EqualTo(SeasonReviewStep.RegularSeasonResult));
+            review.Advance(snapshot: null);
+            Assert.That(review.Step, Is.EqualTo(SeasonReviewStep.PostseasonEntry));
+            review.Advance(snapshot: null);
+
+            Assert.That(review.Step, Is.EqualTo(SeasonReviewStep.PostseasonInProgress));
+            Assert.Throws<InvalidOperationException>(() => review.Advance(snapshot: null));
+        }
+
+        [Test]
+        public void 포스트시즌완료뒤수상과요약과정산순서를지킨다()
+        {
+            var review = new SeasonReviewState();
+            review.PreparePostseasonRecap();
+
+            review.Advance(snapshot: null);
+            Assert.That(review.Step, Is.EqualTo(SeasonReviewStep.PostseasonResult));
+            review.Advance(snapshot: null);
+            Assert.That(review.Step, Is.EqualTo(SeasonReviewStep.Awards));
+            review.Advance(snapshot: null);
+            Assert.That(review.Step, Is.EqualTo(SeasonReviewStep.SeasonSummary));
+            review.MarkIncomeSettlementReady();
+            Assert.That(review.Step, Is.EqualTo(SeasonReviewStep.IncomeSettlement));
+            review.Complete();
+
+            Assert.That(review.Step, Is.EqualTo(SeasonReviewStep.Finished));
+        }
+
+        [Test]
+        public void 건너뛰어도최종요약을생략하지않는다()
+        {
+            var review = new SeasonReviewState();
+            review.PreparePostseasonRecap();
+
+            review.SkipToSeasonSummary();
+
+            Assert.That(review.Step, Is.EqualTo(SeasonReviewStep.SeasonSummary));
         }
 
         private static int CountPlayerPostseasonGames(SeasonState season, int playerTeamId)

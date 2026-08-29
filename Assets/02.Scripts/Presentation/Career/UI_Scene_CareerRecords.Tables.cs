@@ -3,6 +3,7 @@ using Baseball.Core.Players;
 using Baseball.Game.Career;
 using Baseball.Presentation.UI;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Baseball.Presentation.Career
 {
@@ -305,7 +306,7 @@ namespace Baseball.Presentation.Career
             }
         }
 
-        private static void RenderScrollableAwardRows(
+        private void RenderScrollableAwardRows(
             Transform panel,
             CareerAwardRecordView[] awards)
         {
@@ -341,6 +342,21 @@ namespace Baseball.Presentation.Career
                 RectTransform row = CreateTopLeftImage("Award_" + index, scroll.Content,
                     index % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
                     new Vector2(1021f, rowHeight - 2f), 0f, headerHeight + index * rowHeight + 1f);
+                if (CareerPresentationRequestFactory.TryCreateAwardReplay(
+                        award,
+                        _manager.CurrentCareer.MyPlayer.Name,
+                        out CareerPresentationRequest replayRequest))
+                {
+                    Image rowImage = row.GetComponent<Image>();
+                    var replayButton = row.gameObject.AddComponent<Button>();
+                    replayButton.targetGraphic = rowImage;
+                    ColorBlock colors = replayButton.colors;
+                    colors.highlightedColor = new Color(0.025f, 0.13f, 0.20f, 1f);
+                    colors.pressedColor = new Color(0.02f, 0.09f, 0.15f, 1f);
+                    replayButton.colors = colors;
+                    replayButton.onClick.AddListener(() =>
+                        UI_CareerPresentation.Instance?.Replay(replayRequest));
+                }
                 CreateTopLeftText("Year", row, award.Year.ToString(), 14, FontStyle.Bold,
                     TextAnchor.MiddleCenter, new Vector2(widths[0], 31f), starts[0], 1f,
                     award.IsCurrent ? BrightAccentColor : PrimaryTextColor);
