@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Game.Career.Narrative;
 using Baseball.Game.Manager;
 using Baseball.Presentation.UI;
 using Baseball.Simulation.Match;
@@ -19,10 +20,17 @@ namespace Baseball.Presentation.Career
     public sealed partial class UI_Scene_CareerMatch : UISceneBase
     {
         /// <summary>
-        /// 진행 속도 슬라이더의 눈금. 0.5배속 관전부터 3배속 속행까지 0.5배속 간격으로 고른다.
+        /// 진행 속도 선택지. 슬라이더 대신 버튼으로 고르므로 실제로 쓰이는 배속만 남긴다.
         /// </summary>
-        private static readonly float[] PlaybackSpeedRates = { 0.5f, 1f, 1.5f, 2f, 2.5f, 3f };
-        private const int DefaultPlaybackSpeedStepIndex = 1;
+        private static readonly float[] PlaybackSpeedRates = { 1f, 2f, 3f, 5f };
+        private const int DefaultPlaybackSpeedStepIndex = 0;
+
+        private const int TimelineRowCapacity = 8;
+
+        /// <summary>이닝 머리글을 포함해 타임라인 패널에 들어가는 최대 줄 수다.</summary>
+        private const int TimelineLineCapacity = 8;
+        private const float TimelineRowHeight = 29f;
+        private const int BattingOrderPreviewCount = 4;
 
         private static readonly Color BackgroundColor = new(0.004f, 0.018f, 0.032f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.038f, 0.065f, 1f);
@@ -37,9 +45,15 @@ namespace Baseball.Presentation.Career
         private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
         private static readonly Color SecondaryTextColor = new(0.63f, 0.72f, 0.8f, 1f);
         private static readonly Color MutedTextColor = new(0.38f, 0.47f, 0.55f, 1f);
+        private static readonly Color EmptyDotColor = new(0.13f, 0.22f, 0.28f, 1f);
+
+        /// <summary>오른쪽 조작 패널의 크기와 위치. 재생성되지 않는 조작 계층이 같은 자리를 덮어야 하므로 상수로 둔다.</summary>
+        private static readonly Vector2 ControlPanelSize = new(500f, 900f);
+        private static readonly Vector2 ControlPanelPosition = new(700f, -32f);
 
         private CareerManager _manager;
         private RectTransform _content;
+        private RectTransform _controlHost;
         private BattingApproach _selectedApproach = BattingApproach.Balanced;
         [SerializeField, Min(0.1f)] private float automaticPlayIntervalSeconds = 0.42f;
         [SerializeField, Min(0.5f)] private float controlledResultHoldSeconds = 2f;
@@ -50,16 +64,17 @@ namespace Baseball.Presentation.Career
         /// </summary>
         [SerializeField, Min(0.2f)] private float minimumControlledResultHoldSeconds = 1.1f;
 
+        [SerializeField, Min(0.2f)] private float sideChangeHoldSeconds = 0.8f;
+
         private readonly CareerMatchPlayback _playback = new CareerMatchPlayback();
+        private readonly List<int> _timelineRows = new List<int>(TimelineRowCapacity);
         private CareerMatchSession _playbackSession;
-        private RectTransform _overlay;
-        private RectTransform _playbackSpeedControl;
-        private Slider _playbackSpeedSlider;
-        private Text _playbackSpeedValueLabel;
         private int _playbackSpeedStepIndex = DefaultPlaybackSpeedStepIndex;
         private CareerPlateAppearanceSummary _controlledResult;
         private bool _hasControlledResult;
         private bool _isPlaybackInitialized;
+        private bool _isPaused;
+        private bool _isCallUpAcknowledged;
         private float _nextAutomaticPlayAt;
 
         public override bool BlocksLowerInput => true;
@@ -87,12 +102,10 @@ namespace Baseball.Presentation.Career
             Stretch(root);
             CreateImage("Background", root, BackgroundColor, Vector2.zero, Vector2.zero, true);
             _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
-
-            // 속도 슬라이더는 Render()가 매 진행마다 지우는 _content 밖에 둔다.
-            // 같은 곳에 있으면 드래그 도중 슬라이더가 파괴돼 조작이 끊긴다.
-            _overlay = CreateRect("Overlay", root, new Vector2(1920f, 1080f), Vector2.zero);
-            CreatePlaybackSpeedControl(_overlay, new Vector2(700f, -442f));
-            SetPlaybackSpeedControlVisible(false);
+            // 자동 진행 중에는 _content가 매 스텝 통째로 재생성되므로, 클릭이 성립하려면
+            // 조작 버튼은 그 바깥의 계층에 남아 있어야 한다.
+            RectTransform controlLayer = CreateRect("ControlLayer", root, new Vector2(1920f, 1080f), Vector2.zero);
+            _controlHost = CreateRect("ControlHost", controlLayer, ControlPanelSize, ControlPanelPosition);
         }
 
         protected override void OnShow()
@@ -150,8 +163,19 @@ namespace Baseball.Presentation.Career
             }
 
             EnsurePlayback(session);
-            if (UpdateAutomaticPlayback(session))
+            if (keyboard != null && IsPendingCallUpAcknowledgement(session))
+            {
+                if (IsConfirmKeyPressed(keyboard))
+                    AcknowledgeCallUp();
                 return;
+            }
+
+            if (UpdateAutomaticPlayback(session))
+            {
+                if (keyboard != null && keyboard.pKey.wasPressedThisFrame)
+                    TogglePause();
+                return;
+            }
 
             if (session.Phase == CareerMatchPhase.Completed)
             {
@@ -163,13 +187,13 @@ namespace Baseball.Presentation.Career
             if (keyboard == null || !IsDecisionInputReady(session))
                 return;
             if (keyboard.digit1Key.wasPressedThisFrame)
-                SelectApproach(BattingApproach.Balanced);
-            else if (keyboard.digit2Key.wasPressedThisFrame)
-                SelectApproach(BattingApproach.Contact);
-            else if (keyboard.digit3Key.wasPressedThisFrame)
-                SelectApproach(BattingApproach.Power);
-            else if (keyboard.digit4Key.wasPressedThisFrame)
                 SelectApproach(BattingApproach.Patient);
+            else if (keyboard.digit2Key.wasPressedThisFrame)
+                SelectApproach(BattingApproach.Balanced);
+            else if (keyboard.digit3Key.wasPressedThisFrame)
+                SelectApproach(BattingApproach.Contact);
+            else if (keyboard.digit4Key.wasPressedThisFrame)
+                SelectApproach(BattingApproach.Power);
             else if (keyboard.spaceKey.wasPressedThisFrame)
                 SubmitSelectedApproach();
             else if (keyboard.aKey.wasPressedThisFrame)
@@ -203,7 +227,6 @@ namespace Baseball.Presentation.Career
             CareerMatchSession session = _manager.ActiveMatch;
             if (session.Phase != CareerMatchPhase.Preparation)
                 EnsurePlayback(session);
-            SetPlaybackSpeedControlVisible(IsPlaybackViewVisible(session));
             switch (session.Phase)
             {
                 case CareerMatchPhase.Preparation:
@@ -223,6 +246,7 @@ namespace Baseball.Presentation.Career
 
         private void RenderPreparation(CareerMatchSession session)
         {
+            ClearPersistentControls();
             CreateText(
                 "Eyebrow", _content, "GAME DAY", 15, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(400f, 28f), new Vector2(0f, 465f), AccentColor);
@@ -321,310 +345,460 @@ namespace Baseball.Presentation.Career
             CareerMatchPlaybackSnapshot snapshot = _playback.BuildSnapshot(
                 session.Events,
                 visibleDecision);
-            RenderScoreboard(session, snapshot, isDecisionInputReady);
+            MatchProgressViewState view = BuildViewState(session, snapshot, isDecisionInputReady);
+
+            RenderScoreboard(session, snapshot, view);
 
             RectTransform playerPanel = CreatePanel(
-                "PlayerPanel", _content, new Vector2(420f, 860f), new Vector2(-735f, -45f));
-            RenderPlayerPanel(playerPanel, session, _playback.VisibleEventCount);
+                "PlayerPanel", _content, new Vector2(360f, 900f), new Vector2(-770f, -32f));
+            RenderPlayerPanel(playerPanel, session, snapshot, view);
 
-            RectTransform fieldPanel = CreatePanel(
-                "FieldPanel", _content, new Vector2(830f, 530f), new Vector2(-95f, 120f));
-            RenderField(fieldPanel, session, snapshot, isDecisionInputReady);
+            RectTransform stagePanel = CreatePanel(
+                "StagePanel", _content, new Vector2(1000f, 566f), new Vector2(-70f, 135f));
+            RenderStage(stagePanel, session, snapshot, view);
 
-            RectTransform logPanel = CreatePanel(
-                "LogPanel", _content, new Vector2(830f, 310f), new Vector2(-95f, -315f));
-            RenderRecentEvents(
-                logPanel,
-                session.Input,
-                session.Events,
-                _playback.VisibleEventCount,
-                session.ControlledPlayerId);
+            RectTransform timelinePanel = CreatePanel(
+                "TimelinePanel", _content, new Vector2(1000f, 324f), new Vector2(-70f, -320f));
+            RenderTimeline(timelinePanel, session);
 
-            RectTransform commandPanel = CreatePanel(
-                "CommandPanel", _content, new Vector2(500f, 860f), new Vector2(700f, -45f));
-            RenderCommandPanel(commandPanel, session, snapshot, isDecisionInputReady);
+            RectTransform controlPanel = CreatePanel(
+                "ControlPanel", _content, ControlPanelSize, ControlPanelPosition);
+            RenderControlPanel(controlPanel, session, snapshot, view);
         }
 
+        /// <summary>
+        /// 상단 스코어를 공격 팀 강조와 B/S/O 인디케이터 중심으로 그린다.
+        /// </summary>
         private void RenderScoreboard(
             CareerMatchSession session,
             CareerMatchPlaybackSnapshot snapshot,
-            bool isDecisionInputReady)
+            MatchProgressViewState view)
         {
             RectTransform bar = CreateImage(
-                "Scoreboard", _content, TopBarColor, new Vector2(1920f, 100f), new Vector2(0f, 490f));
+                "Scoreboard", _content, TopBarColor, new Vector2(1920f, 116f), new Vector2(0f, 482f));
+
+            RenderScoreboardTeam(
+                bar, session.Input.AwayTeam.Name, snapshot.AwayScore, -1f, view.IsAwayTeamBatting);
+            RenderScoreboardTeam(
+                bar, session.Input.HomeTeam.Name, snapshot.HomeScore, 1f, !view.IsAwayTeamBatting);
+
             CreateText(
-                "Away", bar, session.Input.AwayTeam.Name, 19, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(330f, 38f), new Vector2(-510f, 14f), SecondaryTextColor);
+                "Inning", bar, $"{snapshot.Inning}회{GetHalfLabel(snapshot.Half)}", 23, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(240f, 32f), new Vector2(0f, 30f), AccentColor);
+            string battingTeamName = view.IsAwayTeamBatting
+                ? session.Input.AwayTeam.Name
+                : session.Input.HomeTeam.Name;
             CreateText(
-                "AwayScore", bar, snapshot.AwayScore.ToString(), 42, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(90f, 60f), new Vector2(-285f, 0f), PrimaryTextColor);
+                "Attacking", bar, $"{battingTeamName} 공격", 15, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(320f, 26f), new Vector2(0f, 4f), SecondaryTextColor);
+
+            bool isSideChange = view.Flow == MatchFlowState.SideChange;
+            CreateCountDots(bar, "B", isSideChange ? 0 : snapshot.Balls, 3, new Vector2(-118f, -30f), AccentColor);
+            CreateCountDots(bar, "S", isSideChange ? 0 : snapshot.Strikes, 2, new Vector2(0f, -30f), GoldColor);
+            CreateCountDots(bar, "O", isSideChange ? 0 : snapshot.Outs, 2, new Vector2(112f, -30f), DangerColor);
+
             CreateText(
-                "Inning", bar, $"{snapshot.Inning}회{GetHalfLabel(snapshot.Half)}", 24, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(180f, 40f), new Vector2(0f, 13f), AccentColor);
-            string playState = GetPlayerSideLabel(session, snapshot.Half);
-            bool isShowingControlledResult = _hasControlledResult;
-            string waitReason = isShowingControlledResult
-                ? $"내 타석 결과 — {GetControlledResultLabel(_controlledResult)}"
-                : isDecisionInputReady
-                    ? $"입력 대기 — {_manager.CurrentCareer.MyPlayer.Name} 타석"
-                    : $"{playState} · {GetPlaybackSpeedLabel()} 자동 중계";
+                "Runners", bar, isSideChange ? "주자 없음" : GetRunnerSituation(snapshot), 15,
+                FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(260f, 28f), new Vector2(-800f, -32f), SecondaryTextColor);
             CreateText(
-                "WaitReason", bar, waitReason, 14,
-                FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(390f, 28f), new Vector2(0f, -24f),
-                isShowingControlledResult
-                    ? GetControlledResultColor(_controlledResult)
-                    : isDecisionInputReady ? RoleColor : GoldColor);
-            CreateText(
-                "HomeScore", bar, snapshot.HomeScore.ToString(), 42, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(90f, 60f), new Vector2(285f, 0f), PrimaryTextColor);
-            CreateText(
-                "Home", bar, session.Input.HomeTeam.Name, 19, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(330f, 38f), new Vector2(510f, 14f), SecondaryTextColor);
-            CreateText(
-                "Count", bar, $"B {snapshot.Balls}  /  S {snapshot.Strikes}  /  O {snapshot.Outs}",
-                18, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(300f, 38f), new Vector2(780f, 0f), PrimaryTextColor);
+                "FlowStatus", bar, GetFlowStatusLine(view), 15, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2(340f, 28f), new Vector2(790f, -32f), GetFlowStatusColor(view));
         }
 
+        private static void RenderScoreboardTeam(
+            RectTransform bar,
+            string teamName,
+            int score,
+            float direction,
+            bool isBatting)
+        {
+            CreateText(
+                "Team", bar, teamName, 20, FontStyle.Bold,
+                direction < 0f ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft,
+                new Vector2(340f, 34f), new Vector2(330f * direction, 20f),
+                isBatting ? PrimaryTextColor : SecondaryTextColor);
+            if (isBatting)
+            {
+                CreateImage(
+                    "AttackingUnderline", bar, GoldColor,
+                    new Vector2(180f, 3f), new Vector2(330f * direction, -6f));
+            }
+            CreateText(
+                "Score", bar, score.ToString(), 46, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(110f, 62f), new Vector2(140f * direction, 8f), PrimaryTextColor);
+        }
+
+        /// <summary>
+        /// 볼·스트라이크·아웃을 채워지는 점으로 표시한다. 숫자보다 남은 여유가 한눈에 들어온다.
+        /// </summary>
+        private static void CreateCountDots(
+            RectTransform parent,
+            string label,
+            int filled,
+            int total,
+            Vector2 position,
+            Color filledColor)
+        {
+            CreateText(
+                "CountLabel_" + label, parent, label, 14, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(22f, 24f), position, SecondaryTextColor);
+            for (int index = 0; index < total; index++)
+            {
+                Color color = index < filled ? filledColor : EmptyDotColor;
+                CreateImage(
+                    $"Dot_{label}_{index}", parent, color, new Vector2(12f, 12f),
+                    new Vector2(position.x + 22f + index * 18f, position.y));
+            }
+        }
+
+        /// <summary>
+        /// 왼쪽 패널을 커리어 정보창이 아니라 경기 참여 상태창으로 그린다.
+        /// </summary>
         private void RenderPlayerPanel(
             RectTransform panel,
             CareerMatchSession session,
-            int visibleEventCount)
+            CareerMatchPlaybackSnapshot snapshot,
+            MatchProgressViewState view)
         {
             PlayerState player = _manager.CurrentCareer.MyPlayer;
             CreateText(
-                "Eyebrow", panel, "MY PLAYER", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(180f, 24f), new Vector2(-100f, 386f), AccentColor);
+                "Eyebrow", panel, "내 선수", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(300f, 24f), new Vector2(0f, 412f), AccentColor);
+            CreatePlayerPortrait(panel, player.Name, player.PrimaryPosition, new Vector2(0f, 326f));
             CreateText(
-                "Name", panel, $"{player.Name} · {GetPositionCode(player.PrimaryPosition)}", 27,
-                FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(360f, 42f), new Vector2(0f, 346f), PrimaryTextColor);
+                "Name", panel, player.Name, 27, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(320f, 42f), new Vector2(0f, 244f), PrimaryTextColor);
             CreateText(
                 "Role", panel, GetRoleLabel(session.PlayerRole, player.PrimaryPosition), 15,
-                FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(350f, 30f), new Vector2(0f, 312f), RoleColor);
+                FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(320f, 26f), new Vector2(0f, 214f), SecondaryTextColor);
+
+            Color stateColor = GetPlayerStateColor(view.PlayerState);
+            RectTransform stateBadge = CreateImage(
+                "StateBadge", panel, PanelDarkColor, new Vector2(320f, 58f), new Vector2(0f, 152f));
+            CreateImage("StateBar", stateBadge, stateColor, new Vector2(5f, 46f), new Vector2(-157f, 0f));
+            CreateText(
+                "StateLabel", stateBadge, GetPlayerStateLabel(view.PlayerState), 20, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(300f, 30f), Vector2.zero, stateColor);
+            CreateText(
+                "StateDetail", panel, GetPlayerStateDetail(session, view), 14, FontStyle.Normal,
+                TextAnchor.MiddleCenter, new Vector2(320f, 26f), new Vector2(0f, 108f), SecondaryTextColor);
 
             PlayerTodayLine today = CalculateTodayLine(
                 session.Events,
-                visibleEventCount,
+                _playback.VisibleEventCount,
                 session.ControlledPlayerId);
             RectTransform todayCard = CreateImage(
-                "Today", panel, CardColor, new Vector2(360f, 126f), new Vector2(0f, 212f));
+                "Today", panel, CardColor, new Vector2(320f, 96f), new Vector2(0f, 32f));
             CreateText(
-                "Label", todayCard, "오늘 경기", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(150f, 25f), new Vector2(-82f, 38f), SecondaryTextColor);
+                "Label", todayCard, "오늘", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(150f, 24f), new Vector2(-77f, 28f), SecondaryTextColor);
             CreateText(
                 "Value", todayCard, $"{today.PlateAppearances}타석  {today.Hits}안타  {today.RunsBattedIn}타점",
-                25, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(320f, 40f), new Vector2(0f, 1f), PrimaryTextColor);
+                22, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(290f, 34f), new Vector2(0f, 0f), PrimaryTextColor);
             CreateText(
-                "Detail", todayCard, BuildTodayDetailLine(today), 14,
+                "Detail", todayCard, BuildTodayDetailLine(today), 13,
                 FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(320f, 26f), new Vector2(0f, -39f), SecondaryTextColor);
+                new Vector2(290f, 22f), new Vector2(0f, -30f), MutedTextColor);
 
-            CreateMetricCard(panel, "컨디션", session.ConditionBefore.ToString(), new Vector2(0f, 95f));
-            CreateMetricCard(
-                panel,
-                "감독평가",
-                GetEvaluationGrade(session.ManagerEvaluationBefore),
-                new Vector2(0f, -5f));
+            RenderConditionCard(panel, session.ConditionBefore, new Vector2(0f, -66f));
 
-            bool hasBattingInput = session.CanReceiveBattingDecisions;
-            RectTransform instruction = CreateImage(
-                "Instruction", panel, PanelDarkColor, new Vector2(360f, 145f), new Vector2(0f, -148f));
+            RectTransform nextEvent = CreateImage(
+                "NextEvent", panel, PanelDarkColor, new Vector2(320f, 132f), new Vector2(0f, -198f));
             CreateText(
-                "Label", instruction,
-                session.PlayerRole == PlayerGameRole.Bench && hasBattingInput
-                    ? "대타 대기"
-                    : hasBattingInput ? "타격 포커스" : "경기 포커스",
-                13,
-                FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(150f, 26f), new Vector2(-83f, 48f), GoldColor);
+                "Label", nextEvent, "다음 이벤트", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(150f, 24f), new Vector2(-77f, 46f), GoldColor);
             CreateText(
-                "Value", instruction,
-                session.PlayerRole == PlayerGameRole.Bench && hasBattingInput
-                    ? "교체 출전 시 내 타석에서 자동 정지"
-                    : hasBattingInput ? "현재 상황에 맞춰 타격 방식을 선택" : "공격·수비 흐름과 주자 상황 관전",
-                17, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Vector2(320f, 32f), new Vector2(0f, 10f), PrimaryTextColor);
-            CreateText(
-                "Guide", instruction,
-                hasBattingInput
-                    ? session.PlayerRole == PlayerGameRole.Bench
-                        ? "감독이 대타로 호출하면 선발 타자와 같은 방식으로 타격을 선택합니다."
-                        : "선택의 장단점은 실제 투구·타구 확률에 반영됩니다."
-                    : "감독 AI의 기용과 경기 결과는 같은 이벤트 흐름으로 표시됩니다.",
-                13,
-                FontStyle.Normal, TextAnchor.UpperLeft,
-                new Vector2(320f, 48f), new Vector2(0f, -39f), SecondaryTextColor);
+                "Value", nextEvent, GetNextEventGuide(session, view), 15, FontStyle.Normal,
+                TextAnchor.UpperLeft, new Vector2(290f, 88f), new Vector2(0f, -16f), PrimaryTextColor);
 
+            CreateText(
+                "ManagerTrust", panel,
+                $"감독 신뢰 {GetEvaluationGrade(session.ManagerEvaluationBefore)}  ·  " +
+                GetSubstitutionPriorityLabel(session),
+                13, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(320f, 24f), new Vector2(0f, -300f), MutedTextColor);
             CreateText(
                 "Season", panel,
-                $"시즌  타율 {FormatAverage(_manager.Dashboard.Statistics.BattingAverage)}  ·  " +
-                $"홈런 {_manager.Dashboard.Statistics.HomeRuns}  ·  타점 {_manager.Dashboard.Statistics.RunsBattedIn}" +
-                $"  ·  볼넷 {_manager.Dashboard.Statistics.Walks}",
-                14, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(360f, 32f), new Vector2(0f, -300f), MutedTextColor);
+                $"시즌  {FormatAverage(_manager.Dashboard.Statistics.BattingAverage)}  /  " +
+                $"{_manager.Dashboard.Statistics.HomeRuns}홈런  /  " +
+                $"{_manager.Dashboard.Statistics.RunsBattedIn}타점",
+                14, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(320f, 26f), new Vector2(0f, -354f), SecondaryTextColor);
+
+            if (IsControlledPlayerOnBase(snapshot, session.ControlledPlayerId))
+            {
+                CreateText(
+                    "RunnerFlag", panel, "지금 주루 중", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
+                    new Vector2(320f, 24f), new Vector2(0f, -400f), RoleColor);
+            }
         }
 
-        private void RenderField(
+        private static void RenderConditionCard(RectTransform panel, int condition, Vector2 position)
+        {
+            RectTransform card = CreateImage(
+                "Condition", panel, PanelDarkColor, new Vector2(320f, 84f), position);
+            CreateText(
+                "Label", card, "컨디션", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(150f, 24f), new Vector2(-77f, 24f), SecondaryTextColor);
+            CreateText(
+                "Value", card, $"{condition} · {GetConditionLabel(condition)}", 18, FontStyle.Bold,
+                TextAnchor.MiddleRight, new Vector2(200f, 26f), new Vector2(52f, 24f), GetConditionColor(condition));
+            RectTransform track = CreateImage(
+                "Track", card, new Color(0.06f, 0.13f, 0.17f, 1f), new Vector2(280f, 8f), new Vector2(0f, -18f));
+            RectTransform fill = CreateImage(
+                "Fill", track, GetConditionColor(condition),
+                new Vector2(280f * Mathf.Clamp01(condition / 100f), 8f), Vector2.zero);
+            fill.anchorMin = new Vector2(0f, 0.5f);
+            fill.anchorMax = new Vector2(0f, 0.5f);
+            fill.pivot = new Vector2(0f, 0.5f);
+            fill.anchoredPosition = Vector2.zero;
+        }
+
+        /// <summary>
+        /// 중앙 무대를 흐름 상태에 따라 완전히 다른 화면으로 전환한다.
+        /// </summary>
+        private void RenderStage(
             RectTransform panel,
             CareerMatchSession session,
             CareerMatchPlaybackSnapshot snapshot,
-            bool isDecisionInputReady)
+            MatchProgressViewState view)
+        {
+            switch (view.Flow)
+            {
+                case MatchFlowState.SideChange:
+                    RenderSideChangeStage(panel, session, snapshot);
+                    return;
+                case MatchFlowState.PlayerCallUp:
+                    RenderCallUpStage(panel, session, snapshot);
+                    return;
+                case MatchFlowState.PlayerAtBat:
+                    RenderPlateAppearanceStage(panel, session, snapshot);
+                    return;
+                case MatchFlowState.PlayerAtBatResult:
+                    RenderPlateAppearanceResultStage(panel, session, snapshot);
+                    return;
+                default:
+                    RenderBroadcastStage(panel, session, snapshot, view);
+                    return;
+            }
+        }
+
+        private void RenderBroadcastStage(
+            RectTransform panel,
+            CareerMatchSession session,
+            CareerMatchPlaybackSnapshot snapshot,
+            MatchProgressViewState view)
         {
             CreateText(
                 "Situation", panel,
                 $"{snapshot.Inning}회{GetHalfLabel(snapshot.Half)} · {snapshot.Outs}사 · " +
                 GetRunnerSituation(snapshot),
-                17, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(650f, 34f), new Vector2(0f, 220f), SecondaryTextColor);
+                18, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(700f, 32f), new Vector2(0f, 246f), SecondaryTextColor);
 
-            RectTransform diamond = CreateImage(
-                "Diamond", panel, new Color(0.03f, 0.19f, 0.13f, 1f),
-                new Vector2(410f, 250f), new Vector2(-165f, 42f));
-            CreateBase(
-                diamond,
-                "Second",
-                snapshot.HasRunnerOnSecond,
-                new Vector2(0f, 75f),
-                isControlledRunner: snapshot.SecondRunnerId == session.ControlledPlayerId);
-            CreateBase(
-                diamond,
-                "First",
-                snapshot.HasRunnerOnFirst,
-                new Vector2(90f, 0f),
-                isControlledRunner: snapshot.FirstRunnerId == session.ControlledPlayerId);
-            CreateBase(
-                diamond,
-                "Third",
-                snapshot.HasRunnerOnThird,
-                new Vector2(-90f, 0f),
-                isControlledRunner: snapshot.ThirdRunnerId == session.ControlledPlayerId);
-            CreateBase(diamond, "Home", true, new Vector2(0f, -75f), isHome: true);
-            if (IsControlledPlayerOnBase(snapshot, session.ControlledPlayerId))
-            {
-                CreateText(
-                    "ControlledRunner", diamond, "내 선수 주루 중", 13, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(200f, 26f), new Vector2(0f, -106f), RoleColor);
-            }
+            RenderDiamond(panel, session, snapshot, new Vector2(-300f, 22f));
+            RenderMatchupCard(panel, session, snapshot, new Vector2(148f, 26f));
 
-            string batterName = snapshot.BatterId == 0
-                ? "공수 교대"
-                : FindPlayerName(session.Input, snapshot.BatterId);
-            string pitcherName = FindPlayerName(session.Input, snapshot.PitcherId);
-            RectTransform matchup = CreateImage(
-                "Matchup", panel, PanelDarkColor, new Vector2(330f, 250f), new Vector2(205f, 42f));
+            RectTransform moment = CreateImage(
+                "Moment", panel, PanelDarkColor, new Vector2(940f, 74f), new Vector2(0f, -218f));
             CreateText(
-                "Label", matchup, "CURRENT MATCHUP", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(280f, 24f), new Vector2(0f, 88f), AccentColor);
+                "Label", moment, "최근 플레이", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(160f, 22f), new Vector2(-380f, 20f), MutedTextColor);
             CreateText(
-                "Batter", matchup, batterName, 24, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(290f, 38f), new Vector2(0f, 42f), PrimaryTextColor);
-            CreateText(
-                "Vs", matchup, "VS", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(80f, 26f), new Vector2(0f, 7f), SecondaryTextColor);
-            CreateText(
-                "Pitcher", matchup, pitcherName, 21, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(290f, 35f), new Vector2(0f, -28f), PrimaryTextColor);
-            string momentLabel = _hasControlledResult
-                ? GetControlledResultLabel(_controlledResult)
-                : isDecisionInputReady && session.PendingDecision.HasValue
-                    ? $"{session.PendingDecision.Value.PitchNumber}구 예정  ·  {snapshot.Balls}-{snapshot.Strikes}"
-                    : GetPlaybackMomentLabel(snapshot);
-            CreateText(
-                "Count", matchup, momentLabel, 15,
-                FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(270f, 30f), new Vector2(0f, -76f), GoldColor);
-
-            string hint = _hasControlledResult
-                ? $"내 타석 결과를 확인 중입니다. 잠시 후 {GetPlaybackSpeedLabel()}으로 이어집니다."
-                : isDecisionInputReady
-                    ? "타격 방식을 고르고 Space로 다음 투구를 진행합니다."
-                    : session.CanReceiveBattingDecisions
-                        ? "각 타자의 결과를 자동 중계 중입니다. 내 선수가 출전하면 자동으로 멈춥니다."
-                        : "각 타자의 결과를 자동 중계 중입니다. 경기 종료까지 바로 진행할 수도 있습니다.";
-            CreateText(
-                "Hint", panel, hint,
-                14, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(730f, 30f), new Vector2(0f, -205f), SecondaryTextColor);
+                "Value", moment, GetLatestPlayDescription(session), 19, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(880f, 30f), new Vector2(0f, -10f),
+                view.Flow == MatchFlowState.Paused ? SecondaryTextColor : GoldColor);
         }
 
-        private void RenderRecentEvents(
-            RectTransform panel,
-            MatchInput input,
-            IReadOnlyList<MatchEvent> events,
-            int visibleEventCount,
-            int controlledPlayerId)
-        {
-            CreateText(
-                "Title", panel, "실시간 경기 흐름", 16, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(260f, 30f), new Vector2(-255f, 122f), PrimaryTextColor);
-            int shown = 0;
-            for (int index = visibleEventCount - 1; index >= 0 && shown < 5; index--)
-            {
-                if (!IsVisibleLogEvent(events[index], controlledPlayerId))
-                    continue;
-
-                string description = DescribeEvent(input, events, index);
-                if (string.IsNullOrEmpty(description))
-                    continue;
-
-                Color color = events[index].EventType is MatchEventType.Score or MatchEventType.PlateAppearanceEnded
-                    ? GoldColor
-                    : SecondaryTextColor;
-                CreateText(
-                    "Log" + shown, panel, description, 15, FontStyle.Normal, TextAnchor.MiddleLeft,
-                    new Vector2(750f, 34f), new Vector2(0f, 78f - shown * 42f), color);
-                shown++;
-            }
-
-            if (shown == 0)
-            {
-                CreateText(
-                    "Empty", panel, "1회초 첫 타자의 결과부터 자동으로 중계합니다.", 15,
-                    FontStyle.Normal, TextAnchor.MiddleCenter,
-                    new Vector2(700f, 40f), Vector2.zero, SecondaryTextColor);
-            }
-        }
-
-        private void RenderCommandPanel(
+        private void RenderDiamond(
             RectTransform panel,
             CareerMatchSession session,
             CareerMatchPlaybackSnapshot snapshot,
-            bool isDecisionInputReady)
+            Vector2 position)
         {
-            if (!isDecisionInputReady)
-            {
-                if (_hasControlledResult)
-                    RenderControlledResultCommandPanel(panel, session, snapshot);
-                else
-                    RenderAutomaticCommandPanel(panel, session, snapshot);
+            RectTransform diamond = CreateImage(
+                "Diamond", panel, new Color(0.03f, 0.19f, 0.13f, 1f),
+                new Vector2(360f, 250f), position);
+            CreateBase(
+                diamond, "Second", snapshot.HasRunnerOnSecond, new Vector2(0f, 78f),
+                isControlledRunner: snapshot.SecondRunnerId == session.ControlledPlayerId);
+            CreateBase(
+                diamond, "First", snapshot.HasRunnerOnFirst, new Vector2(94f, 0f),
+                isControlledRunner: snapshot.FirstRunnerId == session.ControlledPlayerId);
+            CreateBase(
+                diamond, "Third", snapshot.HasRunnerOnThird, new Vector2(-94f, 0f),
+                isControlledRunner: snapshot.ThirdRunnerId == session.ControlledPlayerId);
+            CreateBase(diamond, "Home", true, new Vector2(0f, -78f), isHome: true);
+
+            RenderRunnerName(diamond, session, snapshot.SecondRunnerId, new Vector2(0f, 106f));
+            RenderRunnerName(diamond, session, snapshot.FirstRunnerId, new Vector2(94f, -32f));
+            RenderRunnerName(diamond, session, snapshot.ThirdRunnerId, new Vector2(-94f, -32f));
+        }
+
+        private void RenderRunnerName(
+            RectTransform diamond,
+            CareerMatchSession session,
+            int runnerId,
+            Vector2 position)
+        {
+            if (runnerId == 0)
                 return;
+
+            CreateText(
+                "Runner" + runnerId, diamond, FindPlayerName(session.Input, runnerId), 12,
+                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(140f, 20f), position,
+                runnerId == session.ControlledPlayerId ? RoleColor : GoldColor);
+        }
+
+        private void RenderMatchupCard(
+            RectTransform panel,
+            CareerMatchSession session,
+            CareerMatchPlaybackSnapshot snapshot,
+            Vector2 position)
+        {
+            RectTransform card = CreateImage(
+                "Matchup", panel, PanelDarkColor, new Vector2(560f, 300f), position);
+            CreateText(
+                "Label", card, "현재 승부", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(280f, 22f), new Vector2(0f, 124f), AccentColor);
+
+            bool hasBatter = snapshot.BatterId != 0;
+            CreateText(
+                "Batter", card, hasBatter ? FindPlayerName(session.Input, snapshot.BatterId) : "타자 준비",
+                27, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(520f, 40f), new Vector2(0f, 76f),
+                snapshot.BatterId == session.ControlledPlayerId ? RoleColor : PrimaryTextColor);
+            if (hasBatter)
+            {
+                CreateText(
+                    "BatterDetail", card, BuildBatterContextLine(session, snapshot.Half, snapshot.BatterId), 14,
+                    FontStyle.Normal, TextAnchor.MiddleCenter,
+                    new Vector2(520f, 24f), new Vector2(0f, 44f), SecondaryTextColor);
             }
 
+            CreateText(
+                "Vs", card, "VS", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(80f, 24f), new Vector2(0f, 12f), MutedTextColor);
+            CreateText(
+                "Pitcher", card, FindPlayerName(session.Input, snapshot.PitcherId), 23, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(520f, 34f), new Vector2(0f, -22f), PrimaryTextColor);
+            CreateText(
+                "PitcherDetail", card, "상대 투수", 14, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(520f, 24f), new Vector2(0f, -50f), SecondaryTextColor);
+
+            CreateImage("Divider", card, BorderColor, new Vector2(500f, 1f), new Vector2(0f, -80f));
+            CreateText(
+                "Count", card, $"볼 {snapshot.Balls}  ·  스트라이크 {snapshot.Strikes}", 18, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(520f, 30f), new Vector2(0f, -110f), GoldColor);
+        }
+
+        private void RenderSideChangeStage(
+            RectTransform panel,
+            CareerMatchSession session,
+            CareerMatchPlaybackSnapshot snapshot)
+        {
+            CreateText(
+                "Title", panel, $"{snapshot.Inning}회{GetHalfLabel(snapshot.Half)} 종료", 44, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(800f, 62f), new Vector2(0f, 132f), PrimaryTextColor);
+            CreateText(
+                "Score", panel,
+                $"{session.Input.AwayTeam.Name} {snapshot.AwayScore}   ·   " +
+                $"{snapshot.HomeScore} {session.Input.HomeTeam.Name}",
+                24, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(880f, 40f), new Vector2(0f, 62f), SecondaryTextColor);
+            CreateStatusPill(panel, "공수 교대", new Vector2(260f, 48f), new Vector2(0f, -14f));
+
+            bool isNextHalfBottom = snapshot.Half == InningHalf.Top;
+            string nextTeamName = isNextHalfBottom
+                ? session.Input.HomeTeam.Name
+                : session.Input.AwayTeam.Name;
+            CreateText(
+                "NextLabel", panel, "다음 공격", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(400f, 24f), new Vector2(0f, -90f), MutedTextColor);
+            CreateText(
+                "NextTeam", panel, nextTeamName, 28, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(700f, 42f), new Vector2(0f, -128f), AccentColor);
+        }
+
+        private void RenderCallUpStage(
+            RectTransform panel,
+            CareerMatchSession session,
+            CareerMatchPlaybackSnapshot snapshot)
+        {
+            PlayerState player = _manager.CurrentCareer.MyPlayer;
+            CreateStatusPill(panel, "감독 호출", new Vector2(240f, 48f), new Vector2(0f, 208f));
+            CreateText(
+                "Situation", panel,
+                $"{snapshot.Inning}회{GetHalfLabel(snapshot.Half)} · {snapshot.Outs}사 · " +
+                GetRunnerSituation(snapshot),
+                19, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(760f, 32f), new Vector2(0f, 152f), SecondaryTextColor);
+            CreateText(
+                "Name", panel, player.Name, 40, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(700f, 58f), new Vector2(0f, 92f), RoleColor);
+            CreateText(
+                "Reason", panel, BuildCallUpDescription(session), 19, FontStyle.Normal,
+                TextAnchor.MiddleCenter, new Vector2(860f, 34f), new Vector2(0f, 40f), PrimaryTextColor);
+            CreateText(
+                "Pitcher", panel,
+                $"상대 투수 {FindPlayerName(session.Input, snapshot.PitcherId)}",
+                17, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(700f, 30f), new Vector2(0f, -8f), SecondaryTextColor);
+            CreateText(
+                "Guide", panel, "감독 결정으로 이미 확정된 출전입니다.", 14, FontStyle.Normal,
+                TextAnchor.MiddleCenter, new Vector2(700f, 26f), new Vector2(0f, -48f), MutedTextColor);
+
+            Button enter = CreateButton(
+                "EnterPlateAppearance", panel, "타석으로 이동   SPACE",
+                new Vector2(460f, 68f), new Vector2(0f, -150f),
+                new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
+            enter.onClick.AddListener(AcknowledgeCallUp);
+        }
+
+        private void RenderPlateAppearanceStage(
+            RectTransform panel,
+            CareerMatchSession session,
+            CareerMatchPlaybackSnapshot snapshot)
+        {
             MatchDecisionRequest request = session.PendingDecision.Value;
-            CreateStatusPill(panel, "입력 대기 · 내 타석", new Vector2(410f, 46f), new Vector2(0f, 382f));
+            PlayerState player = _manager.CurrentCareer.MyPlayer;
             CreateText(
-                "Title", panel, "타격 접근 선택", 25, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(410f, 42f), new Vector2(0f, 330f), PrimaryTextColor);
+                "Title", panel, $"{player.Name}의 타석", 30, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(700f, 44f), new Vector2(0f, 244f), RoleColor);
             CreateText(
-                "Count", panel, $"현재 Count  {request.Balls}-{request.Strikes}", 15,
-                FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(410f, 30f), new Vector2(0f, 296f), SecondaryTextColor);
+                "Situation", panel,
+                $"{request.Inning}회{GetHalfLabel(request.Half)} · {request.Outs}사 · " +
+                $"{GetRunnerSituation(snapshot)}  ·  볼 {request.Balls} · 스트라이크 {request.Strikes}",
+                16, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(860f, 28f), new Vector2(0f, 208f), SecondaryTextColor);
+            CreateText(
+                "Pitcher", panel,
+                $"상대 투수 {FindPlayerName(session.Input, request.PitcherId)}  ·  {request.PitchNumber}구 예정",
+                15, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(860f, 26f), new Vector2(0f, 178f), MutedTextColor);
 
-            CreateApproachButton(panel, BattingApproach.Balanced, "1  균형 타격", "기본값 · 특별한 보정 없음", 222f);
-            CreateApproachButton(panel, BattingApproach.Contact, "2  컨택 타격", "접촉 높음 · 장타 낮음", 130f);
-            CreateApproachButton(panel, BattingApproach.Power, "3  장타 타격", "장타 높음 · 헛스윙 위험", 38f);
-            CreateApproachButton(panel, BattingApproach.Patient, "4  신중한 타격", "볼 고르기 · 좋은 공을 놓칠 수 있음", -54f);
+            CreateApproachButton(
+                panel, BattingApproach.Patient, "1  신중하게", "볼을 골라 출루를 노립니다.",
+                new Vector2(-242f, 108f));
+            CreateApproachButton(
+                panel, BattingApproach.Balanced, "2  균형 있게", "컨택과 장타를 균형 있게 노립니다.",
+                new Vector2(242f, 108f));
+            CreateApproachButton(
+                panel, BattingApproach.Contact, "3  컨택 중심", "접촉 확률이 높고 장타는 줄어듭니다.",
+                new Vector2(-242f, 6f));
+            CreateApproachButton(
+                panel, BattingApproach.Power, "4  적극적으로", "장타 가능성이 높지만 헛스윙이 늘어납니다.",
+                new Vector2(242f, 6f));
 
             CreateText(
-                "Current", panel, $"현재 선택 · {GetApproachLabel(_selectedApproach)}", 16,
-                FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(410f, 34f), new Vector2(0f, -119f), AccentColor);
+                "LastPitch", panel, GetLatestPitchDescription(session), 15, FontStyle.Normal,
+                TextAnchor.MiddleCenter, new Vector2(860f, 26f), new Vector2(0f, -78f), SecondaryTextColor);
+
             Button nextPitch = CreateButton(
-                "NextPitch", panel, "다음 투구   SPACE", new Vector2(410f, 68f), new Vector2(0f, -172f),
+                "NextPitch", panel, "다음 투구   SPACE", new Vector2(460f, 68f), new Vector2(0f, -152f),
                 new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
             nextPitch.onClick.AddListener(() =>
             {
@@ -633,27 +807,180 @@ namespace Baseball.Presentation.Career
             });
             Button autoPlateAppearance = CreateButton(
                 "AutoPlateAppearance", panel, "현재 타석 자동 진행   A",
-                new Vector2(410f, 56f), new Vector2(0f, -242f), PanelDarkColor, SecondaryTextColor);
+                new Vector2(340f, 44f), new Vector2(0f, -226f), PanelDarkColor, SecondaryTextColor);
             autoPlateAppearance.onClick.AddListener(AutoCompleteCurrentPlateAppearance);
-            Button autoMatch = CreateButton(
-                "AutoMatch", panel, "경기 종료까지 진행",
-                new Vector2(410f, 48f), new Vector2(0f, -306f),
-                new Color(0.09f, 0.14f, 0.18f, 1f), MutedTextColor);
-            autoMatch.onClick.AddListener(AutoCompleteMatch);
 
             if (!string.IsNullOrEmpty(_manager.LastError))
             {
                 CreateText(
                     "Error", panel, _manager.LastError, 13, FontStyle.Normal, TextAnchor.MiddleCenter,
-                    new Vector2(420f, 22f), new Vector2(0f, -344f), DangerColor);
+                    new Vector2(860f, 22f), new Vector2(0f, -262f), DangerColor);
             }
         }
 
+        private void RenderPlateAppearanceResultStage(
+            RectTransform panel,
+            CareerMatchSession session,
+            CareerMatchPlaybackSnapshot snapshot)
+        {
+            Color resultColor = GetControlledResultColor(_controlledResult);
+            CreateText(
+                "Result", panel, GetControlledResultLabel(_controlledResult), 52, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(880f, 72f), new Vector2(0f, 150f), resultColor);
+            CreateText(
+                "Description", panel, GetControlledResultDescription(_controlledResult), 20,
+                FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(880f, 34f), new Vector2(0f, 82f), PrimaryTextColor);
+            CreateText(
+                "Situation", panel,
+                $"{snapshot.Outs}사 · {GetRunnerSituation(snapshot)}", 20, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(700f, 32f), new Vector2(0f, 22f), SecondaryTextColor);
+
+            PlayerTodayLine today = CalculateTodayLine(
+                session.Events,
+                _playback.VisibleEventCount,
+                session.ControlledPlayerId);
+            RectTransform todayCard = CreateImage(
+                "TodayCard", panel, PanelDarkColor, new Vector2(560f, 82f), new Vector2(0f, -60f));
+            CreateText(
+                "Label", todayCard, "오늘 기록", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(160f, 24f), new Vector2(-190f, 22f), MutedTextColor);
+            CreateText(
+                "Value", todayCard,
+                $"{today.PlateAppearances}타석  {today.Hits}안타  {today.RunsBattedIn}타점",
+                24, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(520f, 34f), new Vector2(0f, -12f), resultColor);
+
+            CreateText(
+                "Approach", panel, $"선택한 접근 · {GetApproachLabel(_selectedApproach)}", 15,
+                FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(700f, 26f), new Vector2(0f, -134f), AccentColor);
+            CreateText(
+                "Continue", panel, $"잠시 후 {GetPlaybackSpeedLabel()} 자동 중계로 돌아갑니다.", 15,
+                FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(700f, 26f), new Vector2(0f, -172f), SecondaryTextColor);
+        }
+
+        /// <summary>
+        /// 경기 로그를 이닝 단위로 묶고 이벤트 종류에 따라 강조를 다르게 준다.
+        /// </summary>
+        private void RenderTimeline(RectTransform panel, CareerMatchSession session)
+        {
+            CreateText(
+                "Title", panel, "실시간 경기", 16, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(260f, 28f), new Vector2(-355f, 130f), PrimaryTextColor);
+
+            IReadOnlyList<MatchEvent> events = session.Events;
+            _timelineRows.Clear();
+            for (int index = _playback.VisibleEventCount - 1;
+                 index >= 0 && _timelineRows.Count < TimelineRowCapacity;
+                 index--)
+            {
+                if (!IsVisibleLogEvent(events[index], session.ControlledPlayerId))
+                    continue;
+                if (string.IsNullOrEmpty(DescribeTimelineEvent(session.Input, events, index)))
+                    continue;
+
+                _timelineRows.Add(index);
+            }
+
+            if (_timelineRows.Count == 0)
+            {
+                CreateText(
+                    "Empty", panel, "1회초 첫 타자의 결과부터 자동으로 중계합니다.", 15,
+                    FontStyle.Normal, TextAnchor.MiddleCenter,
+                    new Vector2(700f, 40f), new Vector2(0f, 20f), SecondaryTextColor);
+                return;
+            }
+
+            // 최신 이벤트가 위에 오므로 이닝 머리글은 각 그룹의 첫 줄 바로 위에 놓는다.
+            int line = 0;
+            float top = 88f;
+            for (int row = 0; row < _timelineRows.Count && line < TimelineLineCapacity; row++)
+            {
+                MatchEvent matchEvent = events[_timelineRows[row]];
+                bool isGroupStart = row == 0 ||
+                                    events[_timelineRows[row - 1]].Inning != matchEvent.Inning ||
+                                    events[_timelineRows[row - 1]].Half != matchEvent.Half;
+                if (isGroupStart)
+                {
+                    CreateInningHeader(panel, matchEvent, line, top - line * TimelineRowHeight);
+                    line++;
+                }
+
+                CreateTimelineRow(
+                    panel,
+                    session,
+                    matchEvent,
+                    DescribeTimelineEvent(session.Input, events, _timelineRows[row]),
+                    top - line * TimelineRowHeight);
+                line++;
+            }
+        }
+
+        private static void CreateInningHeader(RectTransform panel, MatchEvent matchEvent, int line, float y)
+        {
+            CreateText(
+                $"InningHeader{line}", panel, $"{matchEvent.Inning}회{GetHalfLabel(matchEvent.Half)}", 14,
+                FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(200f, 24f), new Vector2(-395f, y), AccentColor);
+            CreateImage(
+                $"InningRule{line}", panel, new Color(0.1f, 0.24f, 0.34f, 1f),
+                new Vector2(830f, 1f), new Vector2(80f, y));
+        }
+
+        private void CreateTimelineRow(
+            RectTransform panel,
+            CareerMatchSession session,
+            MatchEvent matchEvent,
+            string description,
+            float y)
+        {
+            bool isControlledEvent = matchEvent.BatterId == session.ControlledPlayerId ||
+                                     matchEvent.PlayerId == session.ControlledPlayerId;
+            bool isScore = matchEvent.EventType == MatchEventType.Score;
+            if (isScore || isControlledEvent)
+            {
+                CreateImage(
+                    $"RowHighlight_{matchEvent.Sequence}", panel,
+                    isScore ? new Color(0.14f, 0.1f, 0.02f, 1f) : new Color(0.03f, 0.14f, 0.1f, 1f),
+                    new Vector2(940f, TimelineRowHeight - 2f), new Vector2(0f, y));
+            }
+
+            CreateImage(
+                $"RowMarker_{matchEvent.Sequence}", panel, GetTimelineMarkerColor(matchEvent, isControlledEvent),
+                new Vector2(4f, 18f), new Vector2(-458f, y));
+            CreateText(
+                $"Row_{matchEvent.Sequence}", panel, description, 15, FontStyle.Normal,
+                TextAnchor.MiddleLeft, new Vector2(700f, 26f), new Vector2(-90f, y),
+                isControlledEvent ? RoleColor : PrimaryTextColor);
+            CreateText(
+                $"RowTrail_{matchEvent.Sequence}", panel, GetTimelineTrailingLabel(matchEvent), 14,
+                FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(240f, 26f), new Vector2(455f, y),
+                isScore ? GoldColor : MutedTextColor);
+        }
+
+        private static Color GetTimelineMarkerColor(MatchEvent matchEvent, bool isControlledEvent)
+        {
+            if (isControlledEvent)
+                return RoleColor;
+            return matchEvent.EventType switch
+            {
+                MatchEventType.Score => GoldColor,
+                MatchEventType.PlayerSubstitution => AccentColor,
+                MatchEventType.RunnerAdvance => new Color(0.4f, 0.6f, 0.7f, 1f),
+                _ => new Color(0.2f, 0.32f, 0.4f, 1f)
+            };
+        }
         private void RenderCompleted(CareerMatchSession session)
         {
+            ClearPersistentControls();
             MatchResult result = session.MatchResult;
             CareerGameAdvanceResult careerResult = session.CareerResult ?? default;
-            bool isHome = session.Input.HomeTeam.TeamId == _manager.CurrentCareer.MyPlayer.CurrentTeamId;
+            MatchNarrativeSnapshot narrative = session.NarrativeSnapshot ??
+                                                 throw new InvalidOperationException(
+                                                     "완료 경기의 내러티브 스냅샷이 없습니다.");
+            bool isHome = session.ScheduledGame.HomeTeamId == narrative.TeamId;
             int playerRuns = isHome ? result.HomeBoxScore.Runs : result.AwayBoxScore.Runs;
             int opponentRuns = isHome ? result.AwayBoxScore.Runs : result.HomeBoxScore.Runs;
             string outcome = playerRuns > opponentRuns ? "WIN" : playerRuns < opponentRuns ? "LOSS" : "DRAW";
@@ -668,9 +995,12 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "Outcome", _content, outcome, 28, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(220f, 42f), new Vector2(0f, 358f), outcomeColor);
+            CreateText(
+                "NarrativeHeadline", _content, narrative.Headline, 18, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(1080f, 36f), new Vector2(0f, 318f), PrimaryTextColor);
 
             RectTransform scoreCard = CreatePanel(
-                "ScoreCard", _content, new Vector2(1180f, 210f), new Vector2(0f, 205f));
+                "ScoreCard", _content, new Vector2(1180f, 195f), new Vector2(0f, 190f));
             RenderFinalTeam(scoreCard, session.Input.AwayTeam.Name, result.AwayBoxScore.Runs, new Vector2(-300f, 0f));
             CreateText(
                 "Colon", scoreCard, ":", 44, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -687,7 +1017,7 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleLeft, new Vector2(450f, 48f), new Vector2(-110f, 125f), PrimaryTextColor);
 
             string personalLine = session.PlayerRole == PlayerGameRole.StartingBatter
-                ? $"{careerResult.AtBats}타수  {careerResult.Hits}안타  {careerResult.HomeRuns}홈런  {careerResult.RunsBattedIn}타점"
+                ? BuildBatterGameLine(careerResult)
                 : GetRoleResultLabel(
                     session.PlayerRole,
                     _manager.CurrentCareer.MyPlayer.PrimaryPosition,
@@ -695,24 +1025,30 @@ namespace Baseball.Presentation.Career
                     CountPlayerPlateAppearances(session.Events, session.ControlledPlayerId));
             CreateText(
                 "Line", personal, personalLine, 26, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(630f, 44f), new Vector2(0f, 62f), PrimaryTextColor);
+                new Vector2(630f, 44f), new Vector2(0f, 72f), PrimaryTextColor);
             CreateText(
                 "Discipline", personal,
-                $"{BuildDisciplineSummary(careerResult, session.PlayerRole)}  ·  최종 점수 {playerRuns}:{opponentRuns}",
+                BuildDisciplineSummary(careerResult, session.PlayerRole),
                 16, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(630f, 32f), new Vector2(0f, 20f), SecondaryTextColor);
+                new Vector2(630f, 32f), new Vector2(0f, 36f), SecondaryTextColor);
             CreateText(
-                "Highlight", personal,
-                BuildHighlightText(
-                    careerResult,
-                    _manager.CurrentCareer.MyPlayer.PrimaryPosition,
-                    CountPlayerPlateAppearances(session.Events, session.ControlledPlayerId)),
-                16, FontStyle.Normal,
-                TextAnchor.UpperLeft, new Vector2(630f, 94f), new Vector2(0f, -56f), GoldColor);
+                "SeasonRecord", personal, BuildSeasonRecordChange(narrative), 14, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(630f, 26f), new Vector2(0f, 8f), MutedTextColor);
             CreateText(
-                "LogGuide", personal, "전체 경기 로그는 결과 화면이 닫히기 전까지 현재 세션에 보존됩니다.",
-                13, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(630f, 28f), new Vector2(0f, -155f), MutedTextColor);
+                "Performance", personal, narrative.PerformanceEvaluation, 17, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(630f, 32f), new Vector2(0f, -28f), GoldColor);
+            CreateText(
+                "PerformanceDetail", personal, narrative.PerformanceDetail, 15, FontStyle.Normal,
+                TextAnchor.MiddleLeft, new Vector2(630f, 30f), new Vector2(0f, -65f), SecondaryTextColor);
+            CreateText(
+                "GameImpact", personal, narrative.GameImpact, 15, FontStyle.Normal,
+                TextAnchor.MiddleLeft, new Vector2(630f, 42f), new Vector2(0f, -105f), PrimaryTextColor);
+            if (!string.IsNullOrEmpty(narrative.RecentForm))
+            {
+                CreateText(
+                    "RecentForm", personal, narrative.RecentForm, 14, FontStyle.Bold,
+                    TextAnchor.MiddleLeft, new Vector2(630f, 28f), new Vector2(0f, -149f), AccentColor);
+            }
 
             RectTransform change = CreatePanel(
                 "Changes", _content, new Vector2(470f, 410f), new Vector2(370f, -145f));
@@ -720,26 +1056,40 @@ namespace Baseball.Presentation.Career
                 "Label", change, "경기 후 변화", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(200f, 28f), new Vector2(-120f, 168f), AccentColor);
             RenderChangeRow(
-                change, "감독평가", GetEvaluationGrade(session.ManagerEvaluationBefore),
-                GetEvaluationGrade(session.ManagerEvaluationAfter), 102f);
-            RenderChangeRow(
-                change, "컨디션", session.ConditionBefore.ToString(), session.ConditionAfter.ToString(), 35f);
+                change,
+                "감독 신뢰",
+                $"{GetEvaluationGrade(narrative.ManagerTrustBefore)} {narrative.ManagerTrustBefore}",
+                $"{GetEvaluationGrade(narrative.ManagerTrustAfter)} {narrative.ManagerTrustAfter}",
+                narrative.ManagerTrustAfter - narrative.ManagerTrustBefore,
+                narrative.ManagerTrustReason,
+                100f);
             RenderChangeRow(
                 change,
+                "컨디션",
+                narrative.ConditionBefore.ToString(),
+                narrative.ConditionAfter.ToString(),
+                narrative.ConditionAfter - narrative.ConditionBefore,
+                narrative.ConditionReason,
+                24f);
+            RenderStatusRow(
+                change,
                 "현재 역할",
-                GetShortRoleLabel(session.PlayerRole, _manager.CurrentCareer.MyPlayer.PrimaryPosition),
-                "반영 완료",
-                -32f);
-            RenderChangeRow(
-                change, "시즌 기록",
-                "경기 전",
-                session.PlayerRole == PlayerGameRole.StartingBatter
-                    ? $"타율 {FormatAverage(_manager.Dashboard.Statistics.BattingAverage)}"
-                    : "기록 갱신",
-                -99f);
+                $"{GetShortRoleLabel(narrative.RoleAfter, narrative.PlayerPosition)} 유지",
+                narrative.RoleReason,
+                -52f);
+            CreateText(
+                "ManagerCommentLabel", change, $"감독 코멘트 · {GetManagerStyleLabel(narrative.ManagerStyle)}", 13, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(405f, 24f), new Vector2(0f, -112f), AccentColor);
+            CreateText(
+                "ManagerComment", change, narrative.ManagerComment, 14, FontStyle.Normal,
+                TextAnchor.UpperLeft, new Vector2(405f, 60f), new Vector2(0f, -151f), PrimaryTextColor);
 
             Button nextDay = CreateButton(
-                "NextDay", _content, "다음 날로   SPACE / ENTER", new Vector2(520f, 72f), new Vector2(0f, -448f),
+                "NextDay", _content,
+                _manager.CurrentCareer.Narrative.PendingReaction == null
+                    ? "다음 날로   SPACE / ENTER"
+                    : "경기 후 인터뷰로   SPACE / ENTER",
+                new Vector2(520f, 72f), new Vector2(0f, -448f),
                 new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
             nextDay.onClick.AddListener(() => _manager.ReturnHomeFromCompletedMatch());
         }
@@ -756,21 +1106,21 @@ namespace Baseball.Presentation.Career
             BattingApproach approach,
             string title,
             string description,
-            float y)
+            Vector2 position)
         {
             bool isSelected = _selectedApproach == approach;
             Color background = isSelected ? new Color(0.035f, 0.24f, 0.39f, 1f) : PanelDarkColor;
             Button button = CreateButton(
                 "Approach_" + approach, parent, string.Empty,
-                new Vector2(410f, 78f), new Vector2(0f, y), background, PrimaryTextColor);
+                new Vector2(468f, 92f), position, background, PrimaryTextColor);
             if (isSelected)
-                CreateImage("Selected", button.transform, AccentColor, new Vector2(5f, 70f), new Vector2(-202f, 0f));
+                CreateImage("Selected", button.transform, AccentColor, new Vector2(5f, 84f), new Vector2(-231f, 0f));
             CreateText(
-                "Title", button.transform, title, 18, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(350f, 30f), new Vector2(8f, 15f), PrimaryTextColor);
+                "Title", button.transform, title, 19, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(400f, 30f), new Vector2(14f, 17f), PrimaryTextColor);
             CreateText(
                 "Description", button.transform, description, 13, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(350f, 25f), new Vector2(8f, -17f), isSelected ? AccentColor : SecondaryTextColor);
+                new Vector2(400f, 25f), new Vector2(14f, -17f), isSelected ? AccentColor : SecondaryTextColor);
             button.onClick.AddListener(() => SelectApproach(approach));
         }
 
@@ -810,32 +1160,42 @@ namespace Baseball.Presentation.Career
             string label,
             string before,
             string after,
+            int delta,
+            string reason,
+            float y)
+        {
+            bool isStable = delta == 0;
+            Color valueColor = isStable ? MutedTextColor : delta > 0 ? RoleColor : DangerColor;
+            string value = isStable
+                ? $"{after} 유지"
+                : $"{before}  →  {after}   {(delta > 0 ? "+" : string.Empty)}{delta}";
+            CreateText(
+                label, parent, label, 14, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(120f, 26f), new Vector2(-145f, y + 10f), SecondaryTextColor);
+            CreateText(
+                label + "Value", parent, value, 16, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(275f, 28f), new Vector2(72f, y + 10f), valueColor);
+            CreateText(
+                label + "Reason", parent, reason, 12, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(275f, 22f), new Vector2(72f, y - 16f), MutedTextColor);
+        }
+
+        private static void RenderStatusRow(
+            RectTransform parent,
+            string label,
+            string value,
+            string reason,
             float y)
         {
             CreateText(
                 label, parent, label, 14, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(120f, 30f), new Vector2(-145f, y), SecondaryTextColor);
+                new Vector2(120f, 26f), new Vector2(-145f, y + 10f), SecondaryTextColor);
             CreateText(
-                label + "Before", parent, before, 17, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(100f, 32f), new Vector2(-35f, y), MutedTextColor);
+                label + "Value", parent, value, 16, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(275f, 28f), new Vector2(72f, y + 10f), MutedTextColor);
             CreateText(
-                label + "Arrow", parent, "→", 17, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(40f, 32f), new Vector2(38f, y), SecondaryTextColor);
-            CreateText(
-                label + "After", parent, after, 18, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(150f, 32f), new Vector2(135f, y), RoleColor);
-        }
-
-        private static void CreateMetricCard(RectTransform parent, string label, string value, Vector2 position)
-        {
-            RectTransform card = CreateImage(
-                label, parent, PanelDarkColor, new Vector2(360f, 82f), position);
-            CreateText(
-                "Label", card, label, 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(150f, 28f), new Vector2(-82f, 18f), SecondaryTextColor);
-            CreateText(
-                "Value", card, value, 25, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(130f, 38f), new Vector2(92f, -2f), RoleColor);
+                label + "Reason", parent, reason, 12, FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(275f, 22f), new Vector2(72f, y - 16f), MutedTextColor);
         }
 
         private static void CreateBase(
@@ -905,37 +1265,6 @@ namespace Baseball.Presentation.Career
         {
             string summary = $"볼넷 {today.Walks}  ·  삼진 {today.Strikeouts}  ·  홈런 {today.HomeRuns}";
             return today.HitByPitches > 0 ? $"{summary}  ·  사구 {today.HitByPitches}" : summary;
-        }
-
-        private static string DescribeEvent(
-            MatchInput input,
-            IReadOnlyList<MatchEvent> events,
-            int eventIndex)
-        {
-            MatchEvent matchEvent = events[eventIndex];
-            string prefix = $"{matchEvent.Inning}회{GetHalfLabel(matchEvent.Half)}";
-            string batterName = FindPlayerName(input, matchEvent.BatterId);
-            string playerName = FindPlayerName(input, matchEvent.PlayerId);
-            return matchEvent.EventType switch
-            {
-                MatchEventType.Pitch =>
-                    $"{prefix} · {batterName} · {matchEvent.Balls}-{matchEvent.Strikes} " +
-                    GetPitchResultLabel(matchEvent.PitchResult),
-                MatchEventType.RunnerAdvance =>
-                    $"{prefix} · {playerName} · {GetBaseLabel(matchEvent.FromBase)} → " +
-                    GetBaseLabel(matchEvent.ToBase),
-                MatchEventType.Score =>
-                    $"{prefix} · {playerName} 홈인 · {matchEvent.AwayScore}:{matchEvent.HomeScore}",
-                MatchEventType.PlateAppearanceEnded =>
-                    $"{prefix} · {batterName} · " +
-                    GetPlateAppearanceResultLabel(
-                        matchEvent.PlateAppearanceResult,
-                        CountOutsInPlateAppearance(events, eventIndex)),
-                MatchEventType.PlayerSubstitution =>
-                    $"{prefix} · {batterName} 대타 출전 · {playerName} 교체",
-                MatchEventType.HalfInningEnded => $"{prefix} 종료 · {matchEvent.AwayScore}:{matchEvent.HomeScore}",
-                _ => string.Empty
-            };
         }
 
         private static string FindPlayerName(MatchInput input, int playerId)
@@ -1036,26 +1365,45 @@ namespace Baseball.Presentation.Career
             return hitByPitches > 0 ? $"{summary}  ·  사구 {hitByPitches}" : summary;
         }
 
-        private static string BuildHighlightText(
-            CareerGameAdvanceResult result,
-            PlayerPosition position,
-            int plateAppearances)
+        private static string BuildBatterGameLine(CareerGameAdvanceResult result)
         {
-            if (result.HomeRuns > 0)
-                return $"핵심 장면 · 홈런 {result.HomeRuns}개로 {result.RunsBattedIn}타점 기록";
-            if (result.Hits >= 2)
-                return $"핵심 장면 · 멀티히트 {result.Hits}안타";
-            if (result.Hits == 1)
-                return "핵심 장면 · 안타로 출루에 성공";
-            if (result.Walks + result.HitByPitches > 0)
-                return $"핵심 장면 · 사사구 {result.Walks + result.HitByPitches}개로 출루";
-            if (CareerGameRoleFormatter.IsPitcherRest(result.Role, position))
-                return $"감독 결정 · 오늘은 {CareerGameRoleFormatter.GetPitcherRestLabel(position)}";
-            if (result.Role == PlayerGameRole.Bench && plateAppearances == 0)
-                return "감독 결정 · 오늘은 벤치에서 대기";
-            if (result.Role == PlayerGameRole.Bench)
-                return "대타 기회를 얻었지만 출루에는 실패했습니다.";
-            return "다음 경기에서 반등을 노립니다.";
+            string line = $"{result.AtBats}타수  {result.Hits}안타";
+            if (result.HomeRuns > 0) line += $"  ·  {result.HomeRuns}홈런";
+            if (result.RunsBattedIn > 0) line += $"  ·  {result.RunsBattedIn}타점";
+            if (result.Walks > 0) line += $"  ·  {result.Walks}볼넷";
+            if (result.HitByPitches > 0) line += $"  ·  {result.HitByPitches}사구";
+            return line;
+        }
+
+        private static string BuildSeasonRecordChange(MatchNarrativeSnapshot narrative)
+        {
+            bool isPitcher = narrative.PlayerPosition is
+                PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
+            if (isPitcher)
+            {
+                string before = narrative.SeasonEarnedRunAverageBefore.ToString("0.00");
+                string after = narrative.SeasonEarnedRunAverageAfter.ToString("0.00");
+                return before == after
+                    ? $"시즌 평균자책점 {after} 유지"
+                    : $"시즌 평균자책점 {before} → {after}";
+            }
+
+            string battingBefore = FormatAverage(narrative.SeasonBattingAverageBefore);
+            string battingAfter = FormatAverage(narrative.SeasonBattingAverageAfter);
+            return battingBefore == battingAfter
+                ? $"시즌 타율 {battingAfter} 유지"
+                : $"시즌 타율 {battingBefore} → {battingAfter}";
+        }
+
+        private static string GetManagerStyleLabel(ManagerNarrativeStyle style)
+        {
+            return style switch
+            {
+                ManagerNarrativeStyle.Results => "성과 중시형",
+                ManagerNarrativeStyle.Development => "육성형",
+                ManagerNarrativeStyle.Conservative => "보수형",
+                _ => "분석형"
+            };
         }
 
         private static string GetApproachLabel(BattingApproach approach)

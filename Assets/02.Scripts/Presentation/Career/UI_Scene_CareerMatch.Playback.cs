@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.PlateAppearance;
@@ -9,6 +10,11 @@ namespace Baseball.Presentation.Career
 {
     public sealed partial class UI_Scene_CareerMatch
     {
+        private const int MaximumStepAdvances = 64;
+
+        private Text _stopConditionText;
+        private string _controlSignature;
+
         private void EnsurePlayback(CareerMatchSession session)
         {
             if (!ReferenceEquals(_playbackSession, session))
@@ -23,6 +29,8 @@ namespace Baseball.Presentation.Career
             _playback.Reset();
             ClearControlledResult();
             _isPlaybackInitialized = true;
+            _isPaused = false;
+            _isCallUpAcknowledged = false;
             _nextAutomaticPlayAt = Time.unscaledTime + GetAutomaticPlayIntervalSeconds();
         }
 
@@ -32,15 +40,16 @@ namespace Baseball.Presentation.Career
             _playbackSession = null;
             ClearControlledResult();
             _isPlaybackInitialized = false;
+            _isPaused = false;
+            _isCallUpAcknowledged = false;
             _nextAutomaticPlayAt = 0f;
-            SetPlaybackSpeedControlVisible(false);
         }
 
         private bool UpdateAutomaticPlayback(CareerMatchSession session)
         {
             if (!IsAutomaticPlaybackActive(session))
                 return false;
-            if (Time.unscaledTime < _nextAutomaticPlayAt)
+            if (_isPaused || Time.unscaledTime < _nextAutomaticPlayAt)
                 return true;
 
             if (_hasControlledResult)
@@ -53,13 +62,32 @@ namespace Baseball.Presentation.Career
                 }
             }
 
-            if (_playback.AdvanceAutomatic(session.Events, session.ControlledPlayerId))
-            {
-                _nextAutomaticPlayAt = Time.unscaledTime + GetAutomaticPlayIntervalSeconds();
+            if (AdvanceOneStep(session))
                 Render();
-            }
 
             return true;
+        }
+
+        /// <summary>
+        /// 다음 타석 결과까지 공개하고, 공수 교대는 조금 더 오래 머무르게 대기 시간을 잡는다.
+        /// </summary>
+        private bool AdvanceOneStep(CareerMatchSession session)
+        {
+            if (!_playback.AdvanceAutomatic(session.Events, session.ControlledPlayerId))
+                return false;
+
+            _isCallUpAcknowledged = false;
+            _nextAutomaticPlayAt = Time.unscaledTime + (IsLatestVisibleEventHalfInningEnd(session)
+                ? GetSideChangeHoldSeconds()
+                : GetAutomaticPlayIntervalSeconds());
+            return true;
+        }
+
+        private bool IsLatestVisibleEventHalfInningEnd(CareerMatchSession session)
+        {
+            int visibleEventCount = _playback.VisibleEventCount;
+            return visibleEventCount > 0 &&
+                   session.Events[visibleEventCount - 1].EventType == MatchEventType.HalfInningEnded;
         }
 
         private bool IsAutomaticPlaybackActive(CareerMatchSession session)
@@ -79,6 +107,108 @@ namespace Baseball.Presentation.Career
                    session.PendingDecision.HasValue &&
                    !_hasControlledResult &&
                    !_playback.HasPendingEvents(session.Events);
+        }
+
+        /// <summary>
+        /// 화면 전체가 함께 쓰는 표시 상태를 만든다. 각 패널이 이닝·아웃을 따로 계산하지 않게 한다.
+        /// </summary>
+        private MatchProgressViewState BuildViewState(
+            CareerMatchSession session,
+            CareerMatchPlaybackSnapshot snapshot,
+            bool isDecisionInputReady)
+        {
+            var player = new MatchProgressPlayerContext
+            {
+                ControlledPlayerId = session.ControlledPlayerId,
+                Role = session.PlayerRole,
+                Position = _manager.CurrentCareer.MyPlayer.PrimaryPosition,
+                IsPlayerTeamHome =
+                    session.Input.HomeTeam.TeamId == _manager.CurrentCareer.MyPlayer.CurrentTeamId,
+                CanReceiveBattingDecisions = session.CanReceiveBattingDecisions
+            };
+            var flow = new MatchProgressFlowContext
+            {
+                Phase = session.Phase,
+                IsDecisionInputReady = isDecisionInputReady,
+                HasControlledResult = _hasControlledResult,
+                IsAutomaticPlaybackActive = IsAutomaticPlaybackActive(session),
+                IsPaused = _isPaused,
+                IsCallUpAcknowledged = _isCallUpAcknowledged
+            };
+            return MatchProgressViewState.Create(
+                session.Events,
+                _playback.VisibleEventCount,
+                snapshot,
+                player,
+                flow);
+        }
+
+        private bool IsPendingCallUpAcknowledgement(CareerMatchSession session)
+        {
+            if (session.Phase == CareerMatchPhase.Preparation || _isCallUpAcknowledged)
+                return false;
+
+            bool isDecisionInputReady = IsDecisionInputReady(session);
+            CareerMatchPlaybackSnapshot snapshot = _playback.BuildSnapshot(
+                session.Events,
+                isDecisionInputReady ? session.PendingDecision : null);
+            return BuildViewState(session, snapshot, isDecisionInputReady).Flow ==
+                   MatchFlowState.PlayerCallUp;
+        }
+
+        private void AcknowledgeCallUp()
+        {
+            _isCallUpAcknowledged = true;
+            Render();
+        }
+
+        private void TogglePause()
+        {
+            _isPaused = !_isPaused;
+            if (!_isPaused)
+                _nextAutomaticPlayAt = Time.unscaledTime + GetAutomaticPlayIntervalSeconds();
+            Render();
+        }
+
+        private void ResumePlayback()
+        {
+            if (!_isPaused)
+                return;
+            TogglePause();
+        }
+
+        /// <summary>
+        /// 일시 정지 상태에서 다음 타석 하나만 공개한다.
+        /// </summary>
+        private void StepOnePlateAppearance()
+        {
+            CareerMatchSession session = _manager?.ActiveMatch;
+            if (session == null || !IsAutomaticPlaybackActive(session))
+                return;
+
+            _isPaused = true;
+            AdvanceOneStep(session);
+            Render();
+        }
+
+        /// <summary>
+        /// 일시 정지 상태에서 현재 이닝이 끝날 때까지만 공개한다.
+        /// </summary>
+        private void StepToInningEnd()
+        {
+            CareerMatchSession session = _manager?.ActiveMatch;
+            if (session == null || !IsAutomaticPlaybackActive(session))
+                return;
+
+            _isPaused = true;
+            for (int step = 0; step < MaximumStepAdvances; step++)
+            {
+                if (!AdvanceOneStep(session))
+                    break;
+                if (IsLatestVisibleEventHalfInningEnd(session))
+                    break;
+            }
+            Render();
         }
 
         private void SubmitSelectedApproach()
@@ -115,6 +245,7 @@ namespace Baseball.Presentation.Career
             EnsurePlayback(session);
             _playback.RevealAll(session.Events);
             ClearControlledResult();
+            _isPaused = false;
             Render();
         }
 
@@ -124,6 +255,8 @@ namespace Baseball.Presentation.Career
             EnsurePlayback(session);
             int firstRevealedEventIndex = _playback.VisibleEventCount;
             _playback.RevealControlledPlay(session.Events, session.ControlledPlayerId);
+            _isCallUpAcknowledged = false;
+            _isPaused = false;
             if (_playback.TryGetControlledPlateAppearanceSummary(
                     session.Events,
                     firstRevealedEventIndex,
@@ -141,212 +274,345 @@ namespace Baseball.Presentation.Career
             Render();
         }
 
-        private void RenderAutomaticCommandPanel(
+        /// <summary>
+        /// 오른쪽 패널을 자동 진행 제어와 라인 스코어, 다음 타순 세 가지로만 정리한다.
+        /// </summary>
+        private void RenderControlPanel(
             RectTransform panel,
             CareerMatchSession session,
-            CareerMatchPlaybackSnapshot snapshot)
+            CareerMatchPlaybackSnapshot snapshot,
+            MatchProgressViewState view)
         {
-            string playerSide = GetPlayerSideLabel(session, snapshot.Half);
-            Color sideColor = playerSide == "공격 중" ? GoldColor : AccentColor;
-            bool canStopForPlayer = session.CanReceiveBattingDecisions;
-            CreateStatusPill(
-                panel,
-                canStopForPlayer
-                    ? $"{GetPlaybackSpeedLabel()} · 내 선수 출전 시 정지"
-                    : $"{GetPlaybackSpeedLabel()} · 입력 대기 없음",
-                new Vector2(410f, 46f),
-                new Vector2(0f, 382f));
-            CreateText(
-                "Title", panel, playerSide, 30, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(410f, 46f), new Vector2(0f, 326f), sideColor);
-            CreateText(
-                "Guide", panel, "1회부터 모든 타자의 결과를 빠르게 따라갑니다.", 15,
-                FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(410f, 30f), new Vector2(0f, 286f), SecondaryTextColor);
+            RenderPersistentControls(session, view);
 
-            string batterName = snapshot.BatterId == 0
-                ? "다음 타자 준비"
-                : FindPlayerName(session.Input, snapshot.BatterId);
-            RenderPlaybackCard(panel, "현재 타자", batterName, 184f, PrimaryTextColor);
-            RenderPlaybackCard(
-                panel,
-                "주자 상황",
-                GetRunnerSituation(snapshot),
-                76f,
-                IsControlledPlayerOnBase(snapshot, session.ControlledPlayerId) ? RoleColor : PrimaryTextColor);
-            RenderPlaybackCard(
-                panel,
-                "방금 전 플레이",
-                GetPlaybackMomentLabel(snapshot),
-                -32f,
-                GoldColor);
+            if (view.IsPlaybackControlHidden)
+            {
+                CreateStatusPill(
+                    panel,
+                    view.Flow == MatchFlowState.PlayerAtBat ? "내 타석 진행 중" : "감독 호출",
+                    new Vector2(460f, 52f),
+                    new Vector2(0f, 412f));
+                CreateText(
+                    "HiddenGuide", panel, "타석이 끝나면 자동 진행 제어가 다시 열립니다.", 14,
+                    FontStyle.Normal, TextAnchor.MiddleCenter,
+                    new Vector2(460f, 26f), new Vector2(0f, 372f), SecondaryTextColor);
+                RenderLineScore(panel, session, new Vector2(0f, 236f));
+                RenderBattingOrder(panel, session, snapshot, new Vector2(0f, -110f));
+                return;
+            }
 
-            int completedPlateAppearances = CountCompletedPlateAppearances(
-                session.Events,
-                _playback.VisibleEventCount);
-            CreateText(
-                "ProgressLabel", panel, $"진행된 타석  {completedPlateAppearances}", 14,
-                FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(410f, 28f), new Vector2(0f, -122f), SecondaryTextColor);
-            RectTransform track = CreateImage(
-                "ProgressTrack", panel, new Color(0.06f, 0.13f, 0.17f, 1f),
-                new Vector2(410f, 8f), new Vector2(0f, -151f));
-            float progress = session.Events.Count == 0
-                ? 0f
-                : (float)_playback.VisibleEventCount / session.Events.Count;
-            RectTransform fill = CreateImage(
-                "ProgressFill", track, sideColor,
-                new Vector2(410f * progress, 8f), Vector2.zero);
-            fill.anchorMin = new Vector2(0f, 0.5f);
-            fill.anchorMax = new Vector2(0f, 0.5f);
-            fill.pivot = new Vector2(0f, 0.5f);
-            fill.anchoredPosition = Vector2.zero;
+            RenderLineScore(panel, session, new Vector2(0f, 10f));
+            RenderBattingOrder(panel, session, snapshot, new Vector2(0f, -262f));
 
-            CreateText(
-                "StopGuide", panel,
-                canStopForPlayer
-                    ? "선발 또는 교체 출전한 내 선수의 타석에서 멈추고\n타격 접근 선택과 다음 투구 버튼이 열립니다."
-                    : "현재 역할에는 경기 중 입력이 없습니다.\n원하면 아래 버튼으로 결과를 바로 확인할 수 있습니다.",
-                17, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(410f, 78f), new Vector2(0f, -220f), PrimaryTextColor);
-            Button finishMatch = CreateButton(
-                "FinishMatch", panel, "경기 종료까지 진행",
-                new Vector2(410f, 54f), new Vector2(0f, -302f),
-                new Color(0.07f, 0.16f, 0.21f, 1f), PrimaryTextColor);
-            finishMatch.onClick.AddListener(AutoCompleteMatch);
-        }
-
-        private void RenderControlledResultCommandPanel(
-            RectTransform panel,
-            CareerMatchSession session,
-            CareerMatchPlaybackSnapshot snapshot)
-        {
-            string resultLabel = GetControlledResultLabel(_controlledResult);
-            Color resultColor = GetControlledResultColor(_controlledResult);
-            CreateStatusPill(
-                panel,
-                "내 타석 결과 확인",
-                new Vector2(410f, 46f),
-                new Vector2(0f, 382f));
-            CreateText(
-                "Eyebrow", panel, "MY AT-BAT RESULT", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(410f, 26f), new Vector2(0f, 326f), AccentColor);
-            CreateText(
-                "Result", panel, resultLabel, 38, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(410f, 58f), new Vector2(0f, 278f), resultColor);
-            CreateText(
-                "Description", panel, GetControlledResultDescription(_controlledResult), 16,
-                FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(410f, 40f), new Vector2(0f, 232f), SecondaryTextColor);
-
-            RenderPlaybackCard(
-                panel,
-                "결과 반영",
-                $"{snapshot.Outs}사 · {GetRunnerSituation(snapshot)}",
-                150f,
-                PrimaryTextColor);
-            PlayerTodayLine today = CalculateTodayLine(
-                session.Events,
-                _playback.VisibleEventCount,
-                session.ControlledPlayerId);
-            RenderPlaybackCard(
-                panel,
-                "오늘 기록",
-                $"{today.PlateAppearances}타석  {today.Hits}안타  {today.RunsBattedIn}타점",
-                44f,
-                resultColor);
-
-            CreateText(
-                "Approach", panel, $"마지막 선택 · {GetApproachLabel(_selectedApproach)}", 15,
-                FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(410f, 30f), new Vector2(0f, -40f), AccentColor);
-            CreateText(
-                "ContinueGuide", panel,
-                $"결과를 충분히 확인한 뒤 {GetPlaybackSpeedLabel()}으로 자동 진행합니다.",
-                15, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(410f, 46f), new Vector2(0f, -92f), SecondaryTextColor);
-            Button finishMatch = CreateButton(
-                "FinishMatch", panel, "경기 종료까지 진행",
-                new Vector2(410f, 54f), new Vector2(0f, -166f),
-                new Color(0.07f, 0.16f, 0.21f, 1f), PrimaryTextColor);
-            finishMatch.onClick.AddListener(AutoCompleteMatch);
+            if (!string.IsNullOrEmpty(_manager.LastError))
+            {
+                CreateText(
+                    "Error", panel, _manager.LastError, 13, FontStyle.Normal, TextAnchor.MiddleCenter,
+                    new Vector2(460f, 22f), new Vector2(0f, -440f), DangerColor);
+            }
         }
 
         /// <summary>
-        /// 진행 속도 슬라이더를 한 번만 만들어 Render()가 지우지 않는 오버레이에 붙인다.
+        /// 자동 진행 중에는 화면이 매 스텝 다시 그려지므로, 버튼을 그때마다 파괴하면
+        /// 누르는 도중에 대상이 사라져 클릭이 성립하지 않는다. 그래서 조작부는 별도 계층에 두고
+        /// 표시 내용이 실제로 달라졌을 때만 다시 만든다.
         /// </summary>
-        private void CreatePlaybackSpeedControl(RectTransform parent, Vector2 position)
+        private void RenderPersistentControls(CareerMatchSession session, MatchProgressViewState view)
         {
-            _playbackSpeedControl = CreateRect(
-                "PlaybackSpeedControl", parent, new Vector2(410f, 68f), position);
-            _playbackSpeedValueLabel = CreateText(
-                "Value", _playbackSpeedControl, GetPlaybackSpeedCaption(), 13,
-                FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(410f, 24f), new Vector2(0f, 22f), SecondaryTextColor);
+            string signature = BuildControlSignature(view);
+            if (signature != _controlSignature)
+            {
+                ClearChildren(_controlHost);
+                _stopConditionText = null;
+                _controlSignature = signature;
+                if (!view.IsPlaybackControlHidden)
+                {
+                    RenderAutomaticProgressCard(_controlHost, session, view, new Vector2(0f, 349f));
 
-            RectTransform track = CreateImage(
-                "Track", _playbackSpeedControl, new Color(0.06f, 0.13f, 0.17f, 1f),
-                new Vector2(410f, 12f), new Vector2(0f, -13f));
-            RectTransform fill = CreateImage("Fill", track, AccentColor, Vector2.zero, Vector2.zero);
-            fill.anchorMin = Vector2.zero;
-            fill.anchorMax = Vector2.one;
-            fill.offsetMin = Vector2.zero;
-            fill.offsetMax = Vector2.zero;
+                    Button primary = CreateButton(
+                        "PrimaryAction", _controlHost, GetPrimaryActionLabel(view.PrimaryAction),
+                        new Vector2(460f, 66f), new Vector2(0f, 200f),
+                        new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
+                    primary.onClick.AddListener(() => InvokePrimaryAction(view.PrimaryAction));
 
-            // 손잡이가 양 끝에서 트랙 밖으로 튀어나오지 않도록 반지름만큼 안쪽으로 좁힌 영역에서 움직인다.
-            RectTransform handleArea = CreateRect("HandleArea", track, Vector2.zero, Vector2.zero);
-            handleArea.anchorMin = Vector2.zero;
-            handleArea.anchorMax = Vector2.one;
-            handleArea.offsetMin = new Vector2(13f, 0f);
-            handleArea.offsetMax = new Vector2(-13f, 0f);
-            RectTransform handle = CreateImage(
-                "Handle", handleArea, PrimaryTextColor, new Vector2(26f, 30f), Vector2.zero);
+                    RenderSecondaryActions(_controlHost, session, view, 136f);
+                }
+            }
 
-            var slider = track.gameObject.AddComponent<Slider>();
-            slider.direction = Slider.Direction.LeftToRight;
-            slider.fillRect = fill;
-            slider.handleRect = handle;
-            slider.targetGraphic = handle.GetComponent<Image>();
-            slider.wholeNumbers = true;
-            slider.minValue = 0f;
-            slider.maxValue = PlaybackSpeedRates.Length - 1;
-            slider.SetValueWithoutNotify(_playbackSpeedStepIndex);
-            slider.onValueChanged.AddListener(HandlePlaybackSpeedSliderChanged);
-            _playbackSpeedSlider = slider;
+            if (_stopConditionText != null)
+                _stopConditionText.text = GetStopConditionLabel(session, view);
+        }
+
+        /// <summary>
+        /// 조작부의 구성을 결정하는 값만 모은다. 여기 없는 값(다음 정지 문구 등)은
+        /// 다시 만들지 않고 기존 오브젝트의 내용만 갱신한다.
+        /// </summary>
+        private string BuildControlSignature(MatchProgressViewState view)
+        {
+            if (view.IsPlaybackControlHidden)
+                return "hidden";
+            return string.Concat(
+                ((int)view.Flow).ToString(),
+                "/",
+                ((int)view.PrimaryAction).ToString(),
+                "/",
+                _playbackSpeedStepIndex.ToString());
+        }
+
+        private void ClearPersistentControls()
+        {
+            if (_controlHost == null)
+                return;
+            ClearChildren(_controlHost);
+            _stopConditionText = null;
+            _controlSignature = null;
+        }
+
+        private void RenderAutomaticProgressCard(
+            RectTransform panel,
+            CareerMatchSession session,
+            MatchProgressViewState view,
+            Vector2 position)
+        {
+            RectTransform card = CreateImage(
+                "AutoProgress", panel, PanelDarkColor, new Vector2(460f, 186f), position);
+            bool isRunning = view.Flow is MatchFlowState.AutoRunning or MatchFlowState.SideChange;
+            CreateText(
+                "Title", card, isRunning ? "자동 진행 중" : "경기 일시 정지", 21, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(360f, 30f), new Vector2(-32f, 58f),
+                isRunning ? PrimaryTextColor : SecondaryTextColor);
+            CreateImage(
+                "RunningDot", card, isRunning ? RoleColor : MutedTextColor,
+                new Vector2(14f, 14f), new Vector2(208f, 58f));
+            CreateImage("Divider", card, new Color(0.1f, 0.24f, 0.34f, 1f),
+                new Vector2(420f, 1f), new Vector2(0f, 34f));
 
             CreateText(
-                "MinLabel", _playbackSpeedControl, FormatPlaybackSpeedRate(PlaybackSpeedRates[0]), 11,
-                FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(80f, 20f), new Vector2(-165f, -34f), MutedTextColor);
+                "StopLabel", card, "다음 정지", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(200f, 22f), new Vector2(-112f, 12f), MutedTextColor);
+            _stopConditionText = CreateText(
+                "StopValue", card, GetStopConditionLabel(session, view), 16, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(420f, 26f), new Vector2(-12f, -14f), GoldColor);
+
+            for (int index = 0; index < PlaybackSpeedRates.Length; index++)
+                CreateSpeedButton(card, index, new Vector2(-168f + index * 112f, -58f));
+        }
+
+        private void CreateSpeedButton(RectTransform parent, int stepIndex, Vector2 position)
+        {
+            bool isSelected = stepIndex == _playbackSpeedStepIndex;
+            Button button = CreateButton(
+                "Speed_" + stepIndex, parent, FormatPlaybackSpeedRate(PlaybackSpeedRates[stepIndex]),
+                new Vector2(104f, 44f), position,
+                isSelected ? new Color(0.035f, 0.24f, 0.39f, 1f) : new Color(0.06f, 0.13f, 0.17f, 1f),
+                isSelected ? PrimaryTextColor : SecondaryTextColor);
+            button.onClick.AddListener(() => SelectPlaybackSpeed(stepIndex));
+        }
+
+        private void RenderSecondaryActions(
+            RectTransform panel,
+            CareerMatchSession session,
+            MatchProgressViewState view,
+            float y)
+        {
+            // 타석 결과를 확인하는 동안 부분 진행 버튼을 열어 두면 결과 화면과 진행 상태가 어긋난다.
+            bool isRunning = view.Flow is MatchFlowState.AutoRunning or MatchFlowState.SideChange or
+                MatchFlowState.PlayerAtBatResult;
+            if (isRunning || view.PrimaryAction == MatchPrimaryAction.FinishMatch)
+            {
+                Button finish = CreateButton(
+                    "FinishMatch", panel, "경기 종료까지 진행", new Vector2(460f, 44f), new Vector2(0f, y),
+                    new Color(0.07f, 0.16f, 0.21f, 1f), SecondaryTextColor);
+                finish.onClick.AddListener(AutoCompleteMatch);
+                return;
+            }
+
+            Button nextBatter = CreateButton(
+                "StepPlateAppearance", panel, "다음 타자 진행", new Vector2(224f, 44f), new Vector2(-118f, y),
+                new Color(0.07f, 0.16f, 0.21f, 1f), SecondaryTextColor);
+            nextBatter.onClick.AddListener(StepOnePlateAppearance);
+            Button inningEnd = CreateButton(
+                "StepInningEnd", panel, "이닝 종료까지", new Vector2(224f, 44f), new Vector2(118f, y),
+                new Color(0.07f, 0.16f, 0.21f, 1f), SecondaryTextColor);
+            inningEnd.onClick.AddListener(StepToInningEnd);
+        }
+
+        private void InvokePrimaryAction(MatchPrimaryAction action)
+        {
+            switch (action)
+            {
+                case MatchPrimaryAction.Pause:
+                    TogglePause();
+                    return;
+                case MatchPrimaryAction.AdvanceToPlayerEntry:
+                case MatchPrimaryAction.AdvanceToPlayerAtBat:
+                case MatchPrimaryAction.ContinueMatch:
+                    ResumePlayback();
+                    return;
+                case MatchPrimaryAction.EnterPlateAppearance:
+                    AcknowledgeCallUp();
+                    return;
+                case MatchPrimaryAction.NextPitch:
+                    SubmitSelectedApproach();
+                    return;
+                case MatchPrimaryAction.FinishMatch:
+                    AutoCompleteMatch();
+                    return;
+                default:
+                    _manager.ReturnHomeFromCompletedMatch();
+                    return;
+            }
+        }
+
+        /// <summary>
+        /// 총 타석 수가 정해져 있지 않은 야구 경기에서는 진행률 막대 대신 라인 스코어가 진행 정도를 알려 준다.
+        /// </summary>
+        private void RenderLineScore(RectTransform panel, CareerMatchSession session, Vector2 position)
+        {
+            RectTransform card = CreateImage(
+                "LineScore", panel, PanelDarkColor, new Vector2(460f, 176f), position);
             CreateText(
-                "MaxLabel", _playbackSpeedControl,
-                FormatPlaybackSpeedRate(PlaybackSpeedRates[PlaybackSpeedRates.Length - 1]), 11,
-                FontStyle.Normal, TextAnchor.MiddleRight,
-                new Vector2(80f, 20f), new Vector2(165f, -34f), MutedTextColor);
+                "Label", card, "라인 스코어", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(200f, 22f), new Vector2(-112f, 66f), MutedTextColor);
+
+            MatchLineScore lineScore = MatchLineScore.Create(session.Events, _playback.VisibleEventCount);
+            float cellWidth = Mathf.Min(34f, 310f / lineScore.InningCount);
+            float firstCellX = -140f;
+
+            for (int inning = 1; inning <= lineScore.InningCount; inning++)
+            {
+                float x = firstCellX + (inning - 1) * cellWidth;
+                bool isCurrentInning = inning == lineScore.CurrentInning;
+                CreateText(
+                    "Header" + inning, card, inning.ToString(), 13, FontStyle.Bold, TextAnchor.MiddleCenter,
+                    new Vector2(cellWidth, 22f), new Vector2(x, 34f),
+                    isCurrentInning ? GoldColor : MutedTextColor);
+                CreateLineScoreCell(card, "Away" + inning, lineScore.GetAwayRuns(inning), x, 0f, cellWidth);
+                CreateLineScoreCell(card, "Home" + inning, lineScore.GetHomeRuns(inning), x, -34f, cellWidth);
+            }
+
+            CreateText(
+                "AwayName", card, session.Input.AwayTeam.Name, 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(130f, 22f), new Vector2(-160f, 0f), SecondaryTextColor);
+            CreateText(
+                "HomeName", card, session.Input.HomeTeam.Name, 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(130f, 22f), new Vector2(-160f, -34f), SecondaryTextColor);
+            CreateText(
+                "RunHeader", card, "R", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(34f, 22f), new Vector2(200f, 34f), MutedTextColor);
+            CreateText(
+                "AwayTotal", card, lineScore.AwayTotal.ToString(), 17, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(34f, 24f), new Vector2(200f, 0f), PrimaryTextColor);
+            CreateText(
+                "HomeTotal", card, lineScore.HomeTotal.ToString(), 17, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(34f, 24f), new Vector2(200f, -34f), PrimaryTextColor);
+            CreateText(
+                "Progress", card, $"{lineScore.CurrentInning}회 진행 중", 13, FontStyle.Normal,
+                TextAnchor.MiddleCenter, new Vector2(440f, 22f), new Vector2(0f, -66f), MutedTextColor);
         }
 
-        private void SetPlaybackSpeedControlVisible(bool isVisible)
+        private static void CreateLineScoreCell(
+            RectTransform card,
+            string name,
+            int runs,
+            float x,
+            float y,
+            float cellWidth)
         {
-            if (_playbackSpeedControl != null && _playbackSpeedControl.gameObject.activeSelf != isVisible)
-                _playbackSpeedControl.gameObject.SetActive(isVisible);
+            bool isPlayed = runs != MatchLineScore.NotPlayed;
+            CreateText(
+                name, card, isPlayed ? runs.ToString() : "·", 15, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(cellWidth, 24f), new Vector2(x, y),
+                !isPlayed ? MutedTextColor : runs > 0 ? GoldColor : PrimaryTextColor);
         }
 
-        private bool IsPlaybackViewVisible(CareerMatchSession session)
+        /// <summary>
+        /// 현재 타순과 뒤따르는 타순을 보여 준다. 내 선수가 타순에 있으면 몇 번째 뒤인지 함께 표시한다.
+        /// </summary>
+        private void RenderBattingOrder(
+            RectTransform panel,
+            CareerMatchSession session,
+            CareerMatchPlaybackSnapshot snapshot,
+            Vector2 position)
         {
-            return session != null &&
-                   session.Mode == CareerMatchMode.PlayerFocus &&
-                   (session.Phase == CareerMatchPhase.Playing || IsAutomaticPlaybackActive(session));
+            RectTransform card = CreateImage(
+                "BattingOrder", panel, PanelDarkColor, new Vector2(460f, 340f), position);
+            CreateText(
+                "Label", card, "현재 및 다음 타순", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(220f, 22f), new Vector2(-112f, 148f), MutedTextColor);
+
+            Team battingTeam = GetBattingTeam(session, snapshot.Half);
+            int currentIndex = FindBattingOrderIndex(battingTeam, snapshot.BatterId);
+            if (currentIndex < 0)
+                currentIndex = 0;
+
+            for (int offset = 0; offset < BattingOrderPreviewCount; offset++)
+            {
+                int slotIndex = (currentIndex + offset) % battingTeam.Lineup.Count;
+                RenderBattingOrderRow(card, session, battingTeam, slotIndex, offset, 106f - offset * 40f);
+            }
+
+            CreateImage("Divider", card, new Color(0.1f, 0.24f, 0.34f, 1f),
+                new Vector2(420f, 1f), new Vector2(0f, -76f));
+            CreateText(
+                "Pitcher", card,
+                $"상대 투수 · {FindPlayerName(session.Input, snapshot.PitcherId)}",
+                15, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(440f, 26f), new Vector2(0f, -104f), SecondaryTextColor);
+
+            if (FindBattingOrderIndex(battingTeam, session.ControlledPlayerId) < 0)
+            {
+                CreateText(
+                    "BenchNotice", card,
+                    $"내 선수 · 벤치 대기 · {GetSubstitutionPriorityLabel(session)}",
+                    14, FontStyle.Bold, TextAnchor.MiddleCenter,
+                    new Vector2(440f, 24f), new Vector2(0f, -138f), RoleColor);
+            }
         }
 
-        private void HandlePlaybackSpeedSliderChanged(float value)
+        private void RenderBattingOrderRow(
+            RectTransform card,
+            CareerMatchSession session,
+            Team battingTeam,
+            int slotIndex,
+            int offset,
+            float y)
         {
-            int stepIndex = Mathf.Clamp(Mathf.RoundToInt(value), 0, PlaybackSpeedRates.Length - 1);
-            if (stepIndex == _playbackSpeedStepIndex)
+            int playerId = battingTeam.Lineup[slotIndex].Player.PlayerId;
+            bool isControlled = playerId == session.ControlledPlayerId;
+            if (isControlled)
+            {
+                CreateImage(
+                    "ControlledRow", card, new Color(0.03f, 0.14f, 0.1f, 1f),
+                    new Vector2(420f, 34f), new Vector2(0f, y));
+            }
+
+            CreateText(
+                $"Order{slotIndex}", card, (slotIndex + 1).ToString(), 14, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(32f, 24f), new Vector2(-194f, y),
+                offset == 0 ? GoldColor : MutedTextColor);
+            CreateText(
+                $"Name{slotIndex}", card, battingTeam.Lineup[slotIndex].Player.Name, 16,
+                offset == 0 ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleLeft,
+                new Vector2(220f, 26f), new Vector2(-56f, y),
+                isControlled ? RoleColor : offset == 0 ? PrimaryTextColor : SecondaryTextColor);
+            CreateText(
+                $"Status{slotIndex}", card,
+                isControlled
+                    ? offset == 0 ? "내 선수 · 타석 중" : $"내 선수 · {offset}명 뒤"
+                    : offset == 0 ? "타석 진행 중" : offset == 1 ? "대기" : string.Empty,
+                13, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2(148f, 24f), new Vector2(128f, y),
+                isControlled ? RoleColor : MutedTextColor);
+        }
+
+        private void SelectPlaybackSpeed(int stepIndex)
+        {
+            int clamped = Mathf.Clamp(stepIndex, 0, PlaybackSpeedRates.Length - 1);
+            if (clamped == _playbackSpeedStepIndex)
                 return;
 
-            _playbackSpeedStepIndex = stepIndex;
-            if (_playbackSpeedValueLabel != null)
-                _playbackSpeedValueLabel.text = GetPlaybackSpeedCaption();
+            _playbackSpeedStepIndex = clamped;
 
             // 남은 대기 시간이 이전 배속으로 잡혀 있으므로 새 배속 기준으로 다시 잡는다.
             _nextAutomaticPlayAt = Time.unscaledTime + (_hasControlledResult
@@ -367,6 +633,11 @@ namespace Baseball.Presentation.Career
                 controlledResultHoldSeconds / GetPlaybackSpeedRate());
         }
 
+        private float GetSideChangeHoldSeconds()
+        {
+            return Mathf.Max(GetAutomaticPlayIntervalSeconds(), sideChangeHoldSeconds / GetPlaybackSpeedRate());
+        }
+
         private float GetPlaybackSpeedRate()
         {
             return PlaybackSpeedRates[
@@ -379,36 +650,6 @@ namespace Baseball.Presentation.Career
             _hasControlledResult = false;
         }
 
-        private static void RenderPlaybackCard(
-            RectTransform parent,
-            string label,
-            string value,
-            float y,
-            Color valueColor)
-        {
-            RectTransform card = CreateImage(
-                "Playback_" + label,
-                parent,
-                PanelDarkColor,
-                new Vector2(410f, 92f),
-                new Vector2(0f, y));
-            CreateText(
-                "Label", card, label, 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(150f, 26f), new Vector2(-105f, 23f), SecondaryTextColor);
-            CreateText(
-                "Value", card, value, 21, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(360f, 36f), new Vector2(0f, -12f), valueColor);
-        }
-
-        private string GetPlayerSideLabel(CareerMatchSession session, InningHalf half)
-        {
-            int playerTeamId = _manager.CurrentCareer.MyPlayer.CurrentTeamId;
-            bool isPlayerTeamBatting = half == InningHalf.Top
-                ? session.Input.AwayTeam.TeamId == playerTeamId
-                : session.Input.HomeTeam.TeamId == playerTeamId;
-            return isPlayerTeamBatting ? "공격 중" : "수비 중";
-        }
-
         private static bool IsControlledPlayerOnBase(
             CareerMatchPlaybackSnapshot snapshot,
             int controlledPlayerId)
@@ -416,22 +657,6 @@ namespace Baseball.Presentation.Career
             return snapshot.FirstRunnerId == controlledPlayerId ||
                    snapshot.SecondRunnerId == controlledPlayerId ||
                    snapshot.ThirdRunnerId == controlledPlayerId;
-        }
-
-        private static string GetPlaybackMomentLabel(CareerMatchPlaybackSnapshot snapshot)
-        {
-            if (snapshot.LatestEventType == MatchEventType.HalfInningEnded)
-                return "공수 교대";
-            if (snapshot.LatestEventType == MatchEventType.MatchEnded)
-                return "경기 종료";
-            if (snapshot.LatestEventType == MatchEventType.Score)
-                return "득점";
-            if (snapshot.LatestEventType == MatchEventType.RunnerAdvance)
-                return "주자 진루";
-            if (snapshot.LatestEventType == MatchEventType.PlateAppearanceEnded &&
-                snapshot.LatestPlateAppearanceResult != PlateAppearanceResult.None)
-                return GetPlateAppearanceResultLabel(snapshot.LatestPlateAppearanceResult);
-            return $"Count {snapshot.Balls}-{snapshot.Strikes}";
         }
 
         private static bool IsVisibleLogEvent(MatchEvent matchEvent, int controlledPlayerId)
@@ -446,19 +671,6 @@ namespace Baseball.Presentation.Career
                 MatchEventType.HalfInningEnded => true,
                 _ => false
             };
-        }
-
-        private static int CountCompletedPlateAppearances(
-            IReadOnlyList<MatchEvent> events,
-            int visibleEventCount)
-        {
-            int count = 0;
-            for (int index = 0; index < visibleEventCount; index++)
-            {
-                if (events[index].EventType == MatchEventType.PlateAppearanceEnded)
-                    count++;
-            }
-            return count;
         }
 
         private static string GetBaseLabel(int baseNumber)
@@ -477,11 +689,6 @@ namespace Baseball.Presentation.Career
         private string GetPlaybackSpeedLabel()
         {
             return FormatPlaybackSpeedRate(GetPlaybackSpeedRate());
-        }
-
-        private string GetPlaybackSpeedCaption()
-        {
-            return $"경기 진행 속도 · {GetPlaybackSpeedLabel()}";
         }
 
         private static string FormatPlaybackSpeedRate(float rate)

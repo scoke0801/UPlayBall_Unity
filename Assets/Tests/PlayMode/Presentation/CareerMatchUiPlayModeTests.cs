@@ -83,15 +83,14 @@ namespace Baseball.Tests.PlayMode.Presentation
             start.onClick.Invoke();
             yield return null;
 
-            Button slow = screen.transform.Find("Content/CommandPanel/Speed_Slow").GetComponent<Button>();
+            Button slow = screen.transform
+                .Find("ControlLayer/ControlHost/AutoProgress/Speed_0").GetComponent<Button>();
             Assert.That(slow, Is.Not.Null);
             slow.onClick.Invoke();
             yield return null;
 
-            Text speedLabel = screen.transform.Find("Content/CommandPanel/PlaybackSpeedLabel")
-                .GetComponent<Text>();
-            Assert.That(speedLabel.text, Does.Contain("느리게"));
-            Button finish = screen.transform.Find("Content/CommandPanel/FinishMatch").GetComponent<Button>();
+            Button finish = screen.transform
+                .Find("ControlLayer/ControlHost/FinishMatch").GetComponent<Button>();
             Assert.That(finish, Is.Not.Null);
             finish.onClick.Invoke();
             yield return null;
