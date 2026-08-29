@@ -1,6 +1,7 @@
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Simulation.Match;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game
@@ -18,7 +19,7 @@ namespace Baseball.Tests.EditMode.Game
             new CareerSeasonService(career, configuration.Balance).EnsureNextGamePlan();
             TeamState team = GetPlayerTeam(career);
 
-            TeamOverviewView view = new TeamOverviewBuilder(configuration.Balance.PlayerEvaluation).Build(career);
+            TeamOverviewView view = new TeamOverviewBuilder(configuration.Balance).Build(career);
 
             Assert.That(view.Roster.Length, Is.EqualTo(team.RosterCompetitors.Count + 1));
             int myPlayerCount = 0;
@@ -43,9 +44,14 @@ namespace Baseball.Tests.EditMode.Game
             var service = new CareerSeasonService(career, configuration.Balance);
             service.EnsureNextGamePlan();
             ScheduledGameState nextGame = service.NextPlayerGame;
-            TeamState team = GetPlayerTeam(career);
-
-            TeamOverviewView view = new TeamOverviewBuilder(configuration.Balance.PlayerEvaluation).Build(career);
+            TeamOverviewView view = new TeamOverviewBuilder(configuration.Balance).Build(career);
+            MatchInput input = new CareerGameRunner(career, configuration.Balance).CreateMatchInput(
+                nextGame,
+                nextGame.PlannedPlayerRole,
+                career.CurrentLeague.CurrentSeason.SeasonId);
+            Team matchTeam = input.AwayTeam.TeamId == career.MyPlayer.CurrentTeamId
+                ? input.AwayTeam
+                : input.HomeTeam;
 
             Assert.That(view.HasNextGamePlan, Is.True);
             Assert.That(view.PlannedPlayerRole, Is.EqualTo(nextGame.PlannedPlayerRole));
@@ -53,12 +59,8 @@ namespace Baseball.Tests.EditMode.Game
             for (int index = 0; index < view.StartingLineup.Length; index++)
             {
                 TeamLineupSlotView slot = view.StartingLineup[index];
-                Assert.That(slot.Position, Is.EqualTo((PlayerPosition)(index + 1)));
-                int expectedPlayerId = nextGame.PlannedPlayerRole == PlayerGameRole.StartingBatter &&
-                                       career.MyPlayer.PrimaryPosition == slot.Position
-                    ? career.MyPlayer.PlayerId
-                    : team.GetStrongestCompetitor(slot.Position).PlayerId;
-                Assert.That(slot.Player.PlayerId, Is.EqualTo(expectedPlayerId));
+                Assert.That(slot.Position, Is.EqualTo(matchTeam.Lineup[index].FieldingPosition));
+                Assert.That(slot.Player.PlayerId, Is.EqualTo(matchTeam.Lineup[index].Player.PlayerId));
                 if (slot.Player.PlayerId == career.MyPlayer.PlayerId)
                     myLineupCount++;
             }
@@ -66,14 +68,45 @@ namespace Baseball.Tests.EditMode.Game
                 myLineupCount,
                 Is.EqualTo(nextGame.PlannedPlayerRole == PlayerGameRole.StartingBatter ? 1 : 0));
 
-            int expectedStartingPitcherId = nextGame.PlannedPlayerRole == PlayerGameRole.StartingPitcher
-                ? career.MyPlayer.PlayerId
-                : team.GetCompetitor(PlayerPosition.StartingPitcher, nextGame.Round % 2).PlayerId;
-            int expectedReliefPitcherId = nextGame.PlannedPlayerRole == PlayerGameRole.ReliefPitcher
-                ? career.MyPlayer.PlayerId
-                : team.GetCompetitor(PlayerPosition.ReliefPitcher, (nextGame.Round + 1) % 2).PlayerId;
-            Assert.That(GetPlannedPitcherId(view.StartingRotation), Is.EqualTo(expectedStartingPitcherId));
-            Assert.That(GetPlannedPitcherId(view.Bullpen), Is.EqualTo(expectedReliefPitcherId));
+            Assert.That(GetPlannedPitcherId(view.StartingRotation), Is.EqualTo(matchTeam.StartingPitcher.PlayerId));
+            Assert.That(GetPlannedPitcherId(view.Bullpen), Is.EqualTo(matchTeam.ReliefPitcher.PlayerId));
+        }
+
+        [Test]
+        public void Build_한경기선발이현재경쟁역할을주전으로덮어쓰지않는다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 7301UL);
+            ScheduledGameState nextGame = career.CurrentLeague.CurrentSeason.Schedule
+                .GetNextGameForTeam(career.MyPlayer.CurrentTeamId);
+            nextGame.PlanPlayerRole(PlayerGameRole.StartingBatter);
+
+            TeamOverviewView view = new TeamOverviewBuilder(configuration.Balance).Build(career);
+            TeamRosterPlayerView myPlayer = FindPlayer(view, career.MyPlayer.PlayerId);
+            TeamRosterRole expectedRosterRole = career.CurrentExpectedRole == ExpectedRole.BenchCompetition
+                ? TeamRosterRole.Backup
+                : TeamRosterRole.Competition;
+
+            Assert.That(view.MyPlayerExpectedRole, Is.EqualTo(career.CurrentExpectedRole));
+            Assert.That(myPlayer.RosterRole, Is.EqualTo(expectedRosterRole));
+            Assert.That(myPlayer.RosterRole, Is.Not.EqualTo(TeamRosterRole.Starting));
+            Assert.That(myPlayer.IsInNextGamePlan, Is.True);
+        }
+
+        [Test]
+        public void Build_선발타자의실제타순을다음경기정보에포함한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 7302UL);
+            ScheduledGameState nextGame = career.CurrentLeague.CurrentSeason.Schedule
+                .GetNextGameForTeam(career.MyPlayer.CurrentTeamId);
+            nextGame.PlanPlayerRole(PlayerGameRole.StartingBatter);
+
+            TeamOverviewView view = new TeamOverviewBuilder(configuration.Balance).Build(career);
+
+            Assert.That(view.MyPlayerBattingOrder, Is.InRange(1, 9));
+            TeamLineupSlotView slot = view.StartingLineup[view.MyPlayerBattingOrder - 1];
+            Assert.That(slot.Player.PlayerId, Is.EqualTo(career.MyPlayer.PlayerId));
         }
 
         [Test]
@@ -86,7 +119,7 @@ namespace Baseball.Tests.EditMode.Game
             service.AdvanceNextRound();
             int catcherId = team.GetStrongestCompetitor(PlayerPosition.Catcher).PlayerId;
 
-            TeamOverviewView view = new TeamOverviewBuilder(configuration.Balance.PlayerEvaluation).Build(career);
+            TeamOverviewView view = new TeamOverviewBuilder(configuration.Balance).Build(career);
             TeamRosterPlayerView catcher = FindPlayer(view, catcherId);
 
             Assert.That(catcher.HasBattingRecord, Is.True);

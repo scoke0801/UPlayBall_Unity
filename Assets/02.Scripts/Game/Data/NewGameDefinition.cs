@@ -69,6 +69,28 @@ namespace Baseball.Game.Data
             }
         }
 
+        [Serializable]
+        private struct LineupScoreWeightData
+        {
+            [SerializeField, Range(0f, 1f)] private double _contact;
+            [SerializeField, Range(0f, 1f)] private double _power;
+            [SerializeField, Range(0f, 1f)] private double _speed;
+            [SerializeField, Range(0f, 1f)] private double _mental;
+
+            public LineupScoreWeightData(double contact, double power, double speed, double mental)
+            {
+                _contact = contact;
+                _power = power;
+                _speed = speed;
+                _mental = mental;
+            }
+
+            public BattingOrderScoreWeights ToBalance()
+            {
+                return new BattingOrderScoreWeights(_contact, _power, _speed, _mental);
+            }
+        }
+
         [Header("League")]
         [SerializeField, Min(1)] private int _teamCount = 8;
         [SerializeField, Min(1)] private int _firstSeasonYear = 2028;
@@ -188,6 +210,18 @@ namespace Baseball.Game.Data
         [SerializeField, Min(0.1f)] private double _supportingAttributeWeight = 1.35d;
         [SerializeField, Min(0.1f)] private double _generalAttributeWeight = 1d;
         [SerializeField, Range(0f, 1f)] private double _teamPreferenceInfluence = 0.15d;
+
+        [Header("Manager Lineup")]
+        [SerializeField] private LineupScoreWeightData _leadoffLineupWeights =
+            new(0.45d, 0d, 0.30d, 0.25d);
+        [SerializeField] private LineupScoreWeightData _tableSetterLineupWeights =
+            new(0.50d, 0.10d, 0.15d, 0.25d);
+        [SerializeField] private LineupScoreWeightData _runProducerLineupWeights =
+            new(0.35d, 0.45d, 0d, 0.20d);
+        [SerializeField] private LineupScoreWeightData _cleanupLineupWeights =
+            new(0.25d, 0.60d, 0d, 0.15d);
+        [SerializeField] private LineupScoreWeightData _lowerOrderLineupWeights =
+            new(0.35d, 0.35d, 0.15d, 0.15d);
 
         [Header("Career Season")]
         [SerializeField, Min(1)] private int _regularSeasonGamesPerTeam = 80;
@@ -355,7 +389,13 @@ namespace Baseball.Game.Data
                     _maximumPromotionOffers,
                     _maximumRehabilitationOffers,
                     _minorPlayerContractYears,
-                    _majorPlayerContractYears));
+                    _majorPlayerContractYears),
+                managerLineup: new ManagerLineupBalance(
+                    _leadoffLineupWeights.ToBalance(),
+                    _tableSetterLineupWeights.ToBalance(),
+                    _runProducerLineupWeights.ToBalance(),
+                    _cleanupLineupWeights.ToBalance(),
+                    _lowerOrderLineupWeights.ToBalance()));
 
             return new NewGameConfiguration(
                 balance,

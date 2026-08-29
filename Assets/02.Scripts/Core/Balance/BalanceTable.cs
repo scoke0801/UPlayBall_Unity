@@ -77,7 +77,8 @@ namespace Baseball.Core.Balance
             ContractRenewalBalance? contractRenewal = null,
             TradeMarketBalance? tradeMarket = null,
             PlayerLifecycleBalance? playerLifecycle = null,
-            LeagueMovementBalance? leagueMovement = null)
+            LeagueMovementBalance? leagueMovement = null,
+            ManagerLineupBalance? managerLineup = null)
         {
             Version = version;
             PlateDiscipline = plateDiscipline;
@@ -100,6 +101,7 @@ namespace Baseball.Core.Balance
             TradeMarket = tradeMarket ?? TradeMarketBalance.CreateDefault();
             PlayerLifecycle = playerLifecycle ?? PlayerLifecycleBalance.CreateDefault();
             LeagueMovement = leagueMovement ?? LeagueMovementBalance.CreateDefault();
+            ManagerLineup = managerLineup ?? ManagerLineupBalance.CreateDefault();
             SeasonAwards = SeasonAwardBalance.CreateDefault();
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
         }
@@ -125,6 +127,7 @@ namespace Baseball.Core.Balance
         public TradeMarketBalance TradeMarket { get; }
         public PlayerLifecycleBalance PlayerLifecycle { get; }
         public LeagueMovementBalance LeagueMovement { get; }
+        public ManagerLineupBalance ManagerLineup { get; }
         public SeasonAwardBalance SeasonAwards { get; }
         public SeasonSettlementBalance SeasonSettlement { get; }
 

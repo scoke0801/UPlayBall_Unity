@@ -102,9 +102,11 @@ namespace Baseball.Game.Career
         public int RunsAllowed { get; internal set; }
         public int MyPlayerId { get; internal set; }
         public PlayerPosition MyPlayerPosition { get; internal set; }
+        public ExpectedRole MyPlayerExpectedRole { get; internal set; }
         public bool HasNextGamePlan { get; internal set; }
         public int NextGameRound { get; internal set; }
         public PlayerGameRole PlannedPlayerRole { get; internal set; }
+        public int MyPlayerBattingOrder { get; internal set; }
         public int FieldPlayerOverall { get; internal set; }
         public int StartingPitcherOverall { get; internal set; }
         public int ReliefPitcherOverall { get; internal set; }

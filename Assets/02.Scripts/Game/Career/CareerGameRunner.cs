@@ -19,6 +19,7 @@ namespace Baseball.Game.Career
         private readonly LeagueState _league;
         private readonly BalanceTable _balance;
         private readonly ManagerUsageAi _managerUsageAi;
+        private readonly ManagerLineupAi _managerLineupAi;
         private readonly SkillBoardService _skillBoardService;
 
         public CareerGameRunner(CareerState career, BalanceTable balance)
@@ -35,6 +36,7 @@ namespace Baseball.Game.Career
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _league = league ?? throw new ArgumentNullException(nameof(league));
             _managerUsageAi = new ManagerUsageAi(balance.CareerSeason, balance.PlayerEvaluation);
+            _managerLineupAi = new ManagerLineupAi(balance.ManagerLineup);
             _skillBoardService = new SkillBoardService(
                 balance.Growth.SkillBoard,
                 balance.Growth.SkillBlocks);
@@ -131,12 +133,20 @@ namespace Baseball.Game.Career
             int opponentTeamId = isHome ? game.AwayTeamId : game.HomeTeamId;
             PlayerBattingLine battingLine = FindBattingLine(playerBox, _career.MyPlayer.PlayerId);
             PlayerPitchingLine pitchingLine = FindPitchingLine(playerBox, _career.MyPlayer.PlayerId);
+            int conditionBefore = _career.MyPlayer.Condition;
+            int managerEvaluationBefore = _career.MyPlayer.ManagerEvaluation;
+            int plateAppearances = battingLine?.PlateAppearances ?? 0;
             int atBats = battingLine?.AtBats ?? 0;
+            int runs = battingLine?.Runs ?? 0;
             int hits = battingLine?.Hits ?? 0;
+            int doubles = battingLine?.Doubles ?? 0;
+            int triples = battingLine?.Triples ?? 0;
             int homeRuns = battingLine?.HomeRuns ?? 0;
             int runsBattedIn = battingLine?.RunsBattedIn ?? 0;
             int walks = battingLine?.Walks ?? 0;
             int hitByPitches = battingLine?.HitByPitches ?? 0;
+            int sacrificeFlies = battingLine?.SacrificeFlies ?? 0;
+            int groundedIntoDoublePlays = battingLine?.GroundedIntoDoublePlays ?? 0;
             int outsRecorded = pitchingLine?.OutsRecorded ?? 0;
             int earnedRuns = pitchingLine?.EarnedRuns ?? 0;
             int strikeouts = pitchingLine?.Strikeouts ?? battingLine?.Strikeouts ?? 0;
@@ -172,17 +182,27 @@ namespace Baseball.Game.Career
                 teamRuns,
                 opponentRuns,
                 role,
+                plateAppearances,
                 atBats,
+                runs,
                 hits,
+                doubles,
+                triples,
                 homeRuns,
                 runsBattedIn,
                 walks,
                 hitByPitches,
+                sacrificeFlies,
+                groundedIntoDoublePlays,
                 outsRecorded,
                 earnedRuns,
                 strikeouts,
                 walksAllowed,
-                hitBatters);
+                hitBatters,
+                conditionBefore,
+                _career.MyPlayer.Condition,
+                managerEvaluationBefore,
+                _career.MyPlayer.ManagerEvaluation);
         }
 
         private Team BuildMatchTeam(int teamId, int round, PlayerGameRole playerRole, ulong gameSeed)
@@ -191,31 +211,27 @@ namespace Baseball.Game.Career
             bool isPlayerTeam = _league.LeagueId == _career.MyPlayer.CurrentLeagueId &&
                                 teamId == _career.MyPlayer.CurrentTeamId;
             Player myPlayer = isPlayerTeam ? _career.MyPlayer.ToPlayer(_skillBoardService) : null;
-            var slots = new LineupSlot[9];
-            for (int index = 0; index < slots.Length; index++)
-            {
-                var position = (PlayerPosition)(index + 1);
-                Player batter = isPlayerTeam &&
-                                playerRole == PlayerGameRole.StartingBatter &&
-                                myPlayer.PrimaryPosition == position
-                    ? myPlayer
-                    : CreateRosterPlayer(team.GetStrongestCompetitor(position));
-                slots[index] = new LineupSlot(batter, position);
-            }
+            Lineup lineup = CareerLineupPlan.BuildStartingLineup(
+                team,
+                myPlayer,
+                playerRole,
+                _managerLineupAi);
 
             Player startingPitcher = isPlayerTeam && playerRole == PlayerGameRole.StartingPitcher
                 ? myPlayer
-                : CreateRosterPlayer(team.GetCompetitor(PlayerPosition.StartingPitcher, round % 2));
+                : CareerLineupPlan.CreateRosterPlayer(
+                    team.GetCompetitor(PlayerPosition.StartingPitcher, round % 2));
             Player reliefPitcher = isPlayerTeam && playerRole == PlayerGameRole.ReliefPitcher
                 ? myPlayer
-                : CreateRosterPlayer(team.GetCompetitor(PlayerPosition.ReliefPitcher, (round + 1) % 2));
+                : CareerLineupPlan.CreateRosterPlayer(
+                    team.GetCompetitor(PlayerPosition.ReliefPitcher, (round + 1) % 2));
             PositionPlayerSubstitutionPlan substitution = isPlayerTeam
-                ? CreateBenchSubstitutionPlan(myPlayer, playerRole, gameSeed)
+                ? CreateBenchSubstitutionPlan(myPlayer, playerRole, gameSeed, lineup)
                 : null;
             return new Team(
                 team.TeamId,
                 team.Name,
-                new Lineup(slots),
+                lineup,
                 startingPitcher,
                 reliefPitcher,
                 _balance.CareerSeason.ReliefStartInning,
@@ -225,7 +241,8 @@ namespace Baseball.Game.Career
         private PositionPlayerSubstitutionPlan CreateBenchSubstitutionPlan(
             Player player,
             PlayerGameRole playerRole,
-            ulong gameSeed)
+            ulong gameSeed,
+            Lineup lineup)
         {
             if (playerRole != PlayerGameRole.Bench ||
                 player.PrimaryPosition < PlayerPosition.Catcher ||
@@ -242,40 +259,9 @@ namespace Baseball.Game.Career
 
             return new PositionPlayerSubstitutionPlan(
                 player,
-                (int)player.PrimaryPosition - 1,
+                CareerLineupPlan.GetBattingOrderIndex(lineup, player.PrimaryPosition),
                 balance.BenchSubstitutionEarliestInning,
                 balance.BenchSubstitutionMaximumScoreDifference);
-        }
-
-        private static Player CreateRosterPlayer(RosterCompetitorState competitor)
-        {
-            bool isPitcher = competitor.Position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
-            int batterRating = isPitcher ? 20 : competitor.Overall;
-            int pitcherRating = isPitcher ? competitor.Overall : 20;
-            Handedness battingHand = competitor.PlayerId % 3 == 0
-                ? Handedness.Switch
-                : competitor.PlayerId % 2 == 0 ? Handedness.Left : Handedness.Right;
-            Handedness throwingHand = competitor.PlayerId % 4 == 0 ? Handedness.Left : Handedness.Right;
-            return new Player(
-                competitor.PlayerId,
-                competitor.Name,
-                competitor.Position,
-                battingHand,
-                throwingHand,
-                new BatterAttributes(
-                    batterRating,
-                    batterRating,
-                    batterRating,
-                    batterRating,
-                    batterRating,
-                    batterRating),
-                new PitcherAttributes(
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating));
         }
 
         private void ApplyPlayerFeedback(

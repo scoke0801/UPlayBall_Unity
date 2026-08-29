@@ -3,6 +3,7 @@ using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Growth;
 
 namespace Baseball.Game.Career
 {
@@ -11,13 +12,17 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class TeamOverviewBuilder
     {
-        private const int FieldPositionCount = 9;
-
         private readonly PlayerValueEvaluator _playerValueEvaluator;
+        private readonly ManagerLineupAi _managerLineupAi;
+        private readonly SkillBoardService _skillBoardService;
 
-        public TeamOverviewBuilder(PlayerEvaluationBalance playerEvaluationBalance)
+        public TeamOverviewBuilder(BalanceTable balance)
         {
-            _playerValueEvaluator = new PlayerValueEvaluator(playerEvaluationBalance);
+            _playerValueEvaluator = new PlayerValueEvaluator(balance.PlayerEvaluation);
+            _managerLineupAi = new ManagerLineupAi(balance.ManagerLineup);
+            _skillBoardService = new SkillBoardService(
+                balance.Growth.SkillBoard,
+                balance.Growth.SkillBlocks);
         }
 
         /// <summary>
@@ -33,6 +38,7 @@ namespace Baseball.Game.Career
             SeasonState season = career.CurrentLeague.CurrentSeason;
             if (season == null)
                 throw new InvalidOperationException("진행 중인 시즌이 없습니다.");
+            Player stableMyPlayer = myPlayer.ToPlayer(_skillBoardService);
 
             ScheduledGameState nextGame = season.Schedule?.GetNextGameForTeam(team.TeamId);
             PlayerGameRole plannedRole = nextGame?.HasPlayerRolePlan == true
@@ -55,11 +61,18 @@ namespace Baseball.Game.Career
                 career,
                 team,
                 myPlayer,
+                stableMyPlayer,
                 season,
                 hasNextGamePlan,
                 plannedRole,
                 nextStartingPitcherId,
                 nextReliefPitcherId);
+            Lineup lineup = CareerLineupPlan.BuildStartingLineup(
+                team,
+                stableMyPlayer,
+                plannedRole,
+                _managerLineupAi);
+            TeamLineupSlotView[] startingLineup = BuildStartingLineup(lineup, roster);
             TeamSeasonRecordState record = season.GetTeamRecord(team.TeamId);
 
             return new TeamOverviewView
@@ -78,14 +91,16 @@ namespace Baseball.Game.Career
                 RunsAllowed = record?.RunsAllowed ?? 0,
                 MyPlayerId = myPlayer.PlayerId,
                 MyPlayerPosition = myPlayer.PrimaryPosition,
+                MyPlayerExpectedRole = career.CurrentExpectedRole,
                 HasNextGamePlan = hasNextGamePlan,
                 NextGameRound = nextGame?.Round ?? 0,
                 PlannedPlayerRole = plannedRole,
+                MyPlayerBattingOrder = CareerLineupPlan.GetPlayerBattingOrder(lineup, myPlayer.PlayerId),
                 FieldPlayerOverall = CalculateAverage(roster, PlayerGroup.FieldPlayer),
                 StartingPitcherOverall = CalculateAverage(roster, PlayerGroup.StartingPitcher),
                 ReliefPitcherOverall = CalculateAverage(roster, PlayerGroup.ReliefPitcher),
                 Roster = roster,
-                StartingLineup = BuildStartingLineup(team, myPlayer, plannedRole, roster),
+                StartingLineup = startingLineup,
                 StartingRotation = FilterPitchers(roster, PlayerPosition.StartingPitcher),
                 Bullpen = FilterPitchers(roster, PlayerPosition.ReliefPitcher),
                 TradePreference = career.TradeState.Preference,
@@ -114,6 +129,7 @@ namespace Baseball.Game.Career
             CareerState career,
             TeamState team,
             PlayerState myPlayer,
+            Player stableMyPlayer,
             SeasonState season,
             bool hasNextGamePlan,
             PlayerGameRole plannedRole,
@@ -121,14 +137,14 @@ namespace Baseball.Game.Career
             int nextReliefPitcherId)
         {
             var result = new TeamRosterPlayerView[team.RosterCompetitors.Count + 1];
-            int myOverall = _playerValueEvaluator.CalculatePositionValue(myPlayer.ToPlayer());
+            int myOverall = _playerValueEvaluator.CalculatePositionValue(stableMyPlayer);
             bool isMyPlayerPlanned = hasNextGamePlan && IsMyPlayerInPlan(plannedRole);
             result[0] = CreateRosterView(
                 myPlayer.PlayerId,
                 myPlayer.Name,
                 myPlayer.PrimaryPosition,
                 myOverall,
-                GetMyPlayerRosterRole(career.CurrentExpectedRole, plannedRole),
+                GetMyPlayerRosterRole(career.CurrentExpectedRole),
                 isMyPlayer: true,
                 isInNextGamePlan: isMyPlayerPlanned,
                 hasCondition: true,
@@ -193,20 +209,17 @@ namespace Baseball.Game.Career
         }
 
         private static TeamLineupSlotView[] BuildStartingLineup(
-            TeamState team,
-            PlayerState myPlayer,
-            PlayerGameRole plannedRole,
+            Lineup lineup,
             TeamRosterPlayerView[] roster)
         {
-            var result = new TeamLineupSlotView[FieldPositionCount];
-            for (int index = 0; index < FieldPositionCount; index++)
+            var result = new TeamLineupSlotView[lineup.Count];
+            for (int index = 0; index < lineup.Count; index++)
             {
-                var position = (PlayerPosition)(index + 1);
-                int playerId = plannedRole == PlayerGameRole.StartingBatter &&
-                               myPlayer.PrimaryPosition == position
-                    ? myPlayer.PlayerId
-                    : team.GetStrongestCompetitor(position).PlayerId;
-                result[index] = new TeamLineupSlotView(index + 1, position, FindRosterPlayer(roster, playerId));
+                LineupSlot slot = lineup[index];
+                result[index] = new TeamLineupSlotView(
+                    index + 1,
+                    slot.FieldingPosition,
+                    FindRosterPlayer(roster, slot.Player.PlayerId));
             }
             return result;
         }
@@ -236,16 +249,12 @@ namespace Baseball.Game.Career
             return team.GetCompetitor(pitcherPosition, selectionIndex).PlayerId;
         }
 
-        private static TeamRosterRole GetMyPlayerRosterRole(ExpectedRole expectedRole, PlayerGameRole plannedRole)
+        private static TeamRosterRole GetMyPlayerRosterRole(ExpectedRole expectedRole)
         {
-            return plannedRole switch
+            return expectedRole switch
             {
-                PlayerGameRole.StartingBatter => TeamRosterRole.Starting,
-                PlayerGameRole.StartingPitcher => TeamRosterRole.Rotation,
-                PlayerGameRole.ReliefPitcher => TeamRosterRole.Bullpen,
-                _ => expectedRole == ExpectedRole.BenchCompetition
-                    ? TeamRosterRole.Backup
-                    : TeamRosterRole.Competition
+                ExpectedRole.BenchCompetition => TeamRosterRole.Backup,
+                _ => TeamRosterRole.Competition
             };
         }
 
