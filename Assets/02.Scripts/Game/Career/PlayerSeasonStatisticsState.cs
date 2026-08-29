@@ -112,6 +112,16 @@ namespace Baseball.Game.Career
         public int TotalBases => _statistics.Batting.TotalBases;
         public int StolenBases => _statistics.Batting.StolenBases;
         public int CaughtStealing => _statistics.Batting.CaughtStealing;
+        public int FieldingErrors
+        {
+            get
+            {
+                int errors = 0;
+                foreach (FieldingStatisticsState fielding in _statistics.FieldingByPosition.Values)
+                    errors += fielding.Errors;
+                return errors;
+            }
+        }
         public int PitchingAppearances => _statistics.Pitching.Appearances;
         public int PitchingStarts => _statistics.Pitching.Starts;
         public int OutsRecorded => _statistics.Pitching.OutsRecorded;

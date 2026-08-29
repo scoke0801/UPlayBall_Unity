@@ -83,16 +83,27 @@ namespace Baseball.Game.Career
             TeamGames = state.TeamGames;
             GamesPlayed = state.GamesPlayed;
             GamesStarted = state.GamesStarted;
+            PlateAppearances = state.PlateAppearances;
             AtBats = state.AtBats;
             Hits = state.Hits;
             HomeRuns = state.HomeRuns;
             RunsBattedIn = state.RunsBattedIn;
+            Walks = state.Walks;
+            BattingStrikeouts = state.BattingStrikeouts;
+            StolenBases = state.StolenBases;
+            CaughtStealing = state.CaughtStealing;
+            FieldingErrors = state.FieldingErrors;
             BattingAverage = state.BattingAverage;
             OnBasePlusSlugging = state.OnBasePlusSlugging;
             PitchingAppearances = state.PitchingAppearances;
             PitchingStarts = state.PitchingStarts;
             OutsRecorded = state.OutsRecorded;
+            Wins = state.Wins;
+            Losses = state.Losses;
+            HitsAllowed = state.HitsAllowed;
+            HomeRunsAllowed = state.HomeRunsAllowed;
             EarnedRuns = state.EarnedRuns;
+            WalksAllowed = state.WalksAllowed;
             PitchingStrikeouts = state.PitchingStrikeouts;
             EarnedRunAverage = state.EarnedRunAverage;
             WalksHitsPerInningPitched = state.WalksHitsPerInningPitched;
@@ -102,16 +113,27 @@ namespace Baseball.Game.Career
         public int TeamGames { get; }
         public int GamesPlayed { get; }
         public int GamesStarted { get; }
+        public int PlateAppearances { get; }
         public int AtBats { get; }
         public int Hits { get; }
         public int HomeRuns { get; }
         public int RunsBattedIn { get; }
+        public int Walks { get; }
+        public int BattingStrikeouts { get; }
+        public int StolenBases { get; }
+        public int CaughtStealing { get; }
+        public int FieldingErrors { get; }
         public double BattingAverage { get; }
         public double OnBasePlusSlugging { get; }
         public int PitchingAppearances { get; }
         public int PitchingStarts { get; }
         public int OutsRecorded { get; }
+        public int Wins { get; }
+        public int Losses { get; }
+        public int HitsAllowed { get; }
+        public int HomeRunsAllowed { get; }
         public int EarnedRuns { get; }
+        public int WalksAllowed { get; }
         public int PitchingStrikeouts { get; }
         public double EarnedRunAverage { get; }
         public double WalksHitsPerInningPitched { get; }

@@ -105,6 +105,16 @@ namespace Baseball.Tests.PlayMode.Presentation.SceneFlow
             Assert.That(
                 dashboard.GetComponentsInChildren<Text>(true).Any(text => text.text == "NEXT GAME"),
                 Is.True);
+            Text[] dashboardTexts = dashboard.GetComponentsInChildren<Text>(true);
+            Assert.That(
+                dashboardTexts.Any(text => text.name == "SampleSize" &&
+                                           text.text.Contains("타석") &&
+                                           text.text.Contains("타수")),
+                Is.True);
+            Assert.That(dashboardTexts.Any(text => text.text == "볼넷"), Is.True);
+            Assert.That(dashboardTexts.Any(text => text.text == "삼진"), Is.True);
+            Assert.That(dashboardTexts.Any(text => text.text == "도루 / 실패"), Is.True);
+            Assert.That(dashboardTexts.Any(text => text.text == "실책"), Is.True);
 
             Assert.That(CareerManager.Instance.AdvanceNextGame(), Is.True);
             yield return null;
@@ -112,6 +122,22 @@ namespace Baseball.Tests.PlayMode.Presentation.SceneFlow
             Assert.That(
                 CareerManager.Instance.CurrentCareer.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames,
                 Is.EqualTo(1));
+            PlayerSeasonStatisticsState statistics =
+                CareerManager.Instance.CurrentCareer.CurrentLeague.CurrentSeason.PlayerStatistics;
+            Text[] updatedDashboardTexts = dashboard.GetComponentsInChildren<Text>(true);
+            Assert.That(
+                updatedDashboardTexts.Single(text => text.name == "SampleSize").text,
+                Does.Contain($"{statistics.PlateAppearances}타석").And
+                    .Contain($"{statistics.AtBats}타수"));
+            Assert.That(
+                updatedDashboardTexts.Single(text => text.name == "DetailValue_0").text,
+                Is.EqualTo(statistics.Walks.ToString()));
+            Assert.That(
+                updatedDashboardTexts.Single(text => text.name == "DetailValue_2").text,
+                Is.EqualTo($"{statistics.StolenBases} / {statistics.CaughtStealing}"));
+            Assert.That(
+                updatedDashboardTexts.Single(text => text.name == "DetailValue_3").text,
+                Is.EqualTo(statistics.FieldingErrors.ToString()));
             Assert.That(
                 dashboard.GetComponentsInChildren<Text>(true)
                     .Any(text => text.text.Contains("최근 경기")),

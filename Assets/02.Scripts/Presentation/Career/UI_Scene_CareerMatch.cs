@@ -419,7 +419,7 @@ namespace Baseball.Presentation.Career
                 25, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(320f, 40f), new Vector2(0f, 1f), PrimaryTextColor);
             CreateText(
-                "Detail", todayCard, $"삼진 {today.Strikeouts}  ·  홈런 {today.HomeRuns}", 14,
+                "Detail", todayCard, BuildTodayDetailLine(today), 14,
                 FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(320f, 26f), new Vector2(0f, -39f), SecondaryTextColor);
 
@@ -461,8 +461,9 @@ namespace Baseball.Presentation.Career
 
             CreateText(
                 "Season", panel,
-                $"시즌  AVG {FormatAverage(_manager.Dashboard.Statistics.BattingAverage)}  ·  " +
-                $"HR {_manager.Dashboard.Statistics.HomeRuns}  ·  RBI {_manager.Dashboard.Statistics.RunsBattedIn}",
+                $"시즌  타율 {FormatAverage(_manager.Dashboard.Statistics.BattingAverage)}  ·  " +
+                $"홈런 {_manager.Dashboard.Statistics.HomeRuns}  ·  타점 {_manager.Dashboard.Statistics.RunsBattedIn}" +
+                $"  ·  볼넷 {_manager.Dashboard.Statistics.Walks}",
                 14, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(360f, 32f), new Vector2(0f, -300f), MutedTextColor);
         }
@@ -697,7 +698,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(630f, 44f), new Vector2(0f, 62f), PrimaryTextColor);
             CreateText(
                 "Discipline", personal,
-                $"{BuildDisciplineSummary(careerResult, session.PlayerRole)}  ·  최종 Score {playerRuns}:{opponentRuns}",
+                $"{BuildDisciplineSummary(careerResult, session.PlayerRole)}  ·  최종 점수 {playerRuns}:{opponentRuns}",
                 16, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(630f, 32f), new Vector2(0f, 20f), SecondaryTextColor);
             CreateText(
@@ -733,7 +734,7 @@ namespace Baseball.Presentation.Career
                 change, "시즌 기록",
                 "경기 전",
                 session.PlayerRole == PlayerGameRole.StartingBatter
-                    ? $"AVG {FormatAverage(_manager.Dashboard.Statistics.BattingAverage)}"
+                    ? $"타율 {FormatAverage(_manager.Dashboard.Statistics.BattingAverage)}"
                     : "기록 갱신",
                 -99f);
 
@@ -884,6 +885,10 @@ namespace Baseball.Presentation.Career
                         result.HomeRuns++;
                     if (matchEvent.PlateAppearanceResult == PlateAppearanceResult.Strikeout)
                         result.Strikeouts++;
+                    if (matchEvent.PlateAppearanceResult == PlateAppearanceResult.Walk)
+                        result.Walks++;
+                    if (matchEvent.PlateAppearanceResult == PlateAppearanceResult.HitByPitch)
+                        result.HitByPitches++;
                 }
                 else if (matchEvent.EventType == MatchEventType.Score && matchEvent.BatterId == playerId)
                 {
@@ -891,6 +896,15 @@ namespace Baseball.Presentation.Career
                 }
             }
             return result;
+        }
+
+        /// <summary>
+        /// 오늘 경기 카드의 보조 지표 줄을 만든다. 사구는 발생한 경기에서만 붙여 줄이 길어지지 않게 한다.
+        /// </summary>
+        private static string BuildTodayDetailLine(PlayerTodayLine today)
+        {
+            string summary = $"볼넷 {today.Walks}  ·  삼진 {today.Strikeouts}  ·  홈런 {today.HomeRuns}";
+            return today.HitByPitches > 0 ? $"{summary}  ·  사구 {today.HitByPitches}" : summary;
         }
 
         private static string DescribeEvent(
@@ -1278,6 +1292,8 @@ namespace Baseball.Presentation.Career
             public int HomeRuns;
             public int RunsBattedIn;
             public int Strikeouts;
+            public int Walks;
+            public int HitByPitches;
         }
     }
 }

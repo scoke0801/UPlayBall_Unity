@@ -710,7 +710,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(628f, 560f), new Vector2(646f, 168f));
 
             RectTransform rank = CreateSection(
-                "RankTile", panel, new Vector2(286f, 116f), new Vector2(-151f, 145f), PanelDarkColor);
+                "RankTile", panel, new Vector2(286f, 116f), new Vector2(-151f, 153f), PanelDarkColor);
             CreateText(
                 "Label", rank, "팀 순위", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(104f, 28f), new Vector2(-78f, 34f), SecondaryTextColor);
@@ -726,7 +726,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(92f, 24f), new Vector2(86f, 34f), MutedColor);
 
             RectTransform record = CreateSection(
-                "RecordTile", panel, new Vector2(286f, 116f), new Vector2(151f, 145f), PanelDarkColor);
+                "RecordTile", panel, new Vector2(286f, 116f), new Vector2(151f, 153f), PanelDarkColor);
             CreateText(
                 "Label", record, "팀 성적", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(104f, 28f), new Vector2(-78f, 34f), SecondaryTextColor);
@@ -741,18 +741,22 @@ namespace Baseball.Presentation.Career
                 record, (float)winningPercentage, new Vector2(132f, 10f), new Vector2(60f, -37f), AccentColor);
 
             RectTransform statistics = CreateSection(
-                "StatisticsSection", panel, new Vector2(588f, 160f), Vector2.zero, CardColor);
+                "StatisticsSection", panel, new Vector2(588f, 190f), new Vector2(0f, -4f), CardColor);
             CreateText(
                 "Heading", statistics,
                 view.Statistics.IsPitcher ? "선수 시즌 성적 · 투수" : "선수 시즌 성적 · 타자",
                 15, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(530f, 28f), new Vector2(0f, 55f), PrimaryTextColor);
+                new Vector2(300f, 28f), new Vector2(-124f, 72f), PrimaryTextColor);
+            CreateText(
+                "SampleSize", statistics, BuildSeasonSampleSize(view.Statistics),
+                12, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2(250f, 26f), new Vector2(144f, 72f), SecondaryTextColor);
             CreateImage(
-                "HeadingLine", statistics, DividerColor, new Vector2(548f, 1f), new Vector2(0f, 38f));
+                "HeadingLine", statistics, DividerColor, new Vector2(548f, 1f), new Vector2(0f, 53f));
             RenderSeasonStatistics(statistics, view.Statistics);
 
             RectTransform recent = CreateSection(
-                "RecentSection", panel, new Vector2(588f, 120f), new Vector2(0f, -151f), PanelDarkColor);
+                "RecentSection", panel, new Vector2(588f, 112f), new Vector2(0f, -165f), PanelDarkColor);
             CreateText(
                 "Heading", recent, "최근 5경기", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(160f, 26f), new Vector2(-191f, 36f), PrimaryTextColor);
@@ -764,47 +768,85 @@ namespace Baseball.Presentation.Career
 
         private static void RenderSeasonStatistics(Transform parent, PlayerSeasonStatisticsView statistics)
         {
-            string[] labels;
-            string[] values;
+            string[] primaryLabels;
+            string[] primaryValues;
+            string[] detailLabels;
+            string[] detailValues;
             if (statistics.IsPitcher)
             {
-                labels = new[] { "ERA", "APP", "SO", "WHIP" };
-                values = new[]
+                primaryLabels = new[] { "평균자책", "WHIP", "승-패", "탈삼진" };
+                primaryValues = new[]
                 {
                     statistics.EarnedRunAverage.ToString("0.00"),
-                    statistics.PitchingAppearances.ToString(),
-                    statistics.PitchingStrikeouts.ToString(),
-                    statistics.WalksHitsPerInningPitched.ToString("0.00")
+                    statistics.WalksHitsPerInningPitched.ToString("0.00"),
+                    $"{statistics.Wins}-{statistics.Losses}",
+                    statistics.PitchingStrikeouts.ToString()
+                };
+                detailLabels = new[] { "이닝", "피안타", "볼넷", "피홈런" };
+                detailValues = new[]
+                {
+                    FormatInnings(statistics.OutsRecorded),
+                    statistics.HitsAllowed.ToString(),
+                    statistics.WalksAllowed.ToString(),
+                    statistics.HomeRunsAllowed.ToString()
                 };
             }
             else
             {
-                labels = new[] { "AVG", "HR", "RBI", "OPS" };
-                values = new[]
+                primaryLabels = new[] { "타율", "OPS", "홈런", "타점" };
+                primaryValues = new[]
                 {
                     statistics.BattingAverage.ToString(".000"),
+                    statistics.OnBasePlusSlugging.ToString("0.000"),
                     statistics.HomeRuns.ToString(),
-                    statistics.RunsBattedIn.ToString(),
-                    statistics.OnBasePlusSlugging.ToString("0.000")
+                    statistics.RunsBattedIn.ToString()
+                };
+                detailLabels = new[] { "볼넷", "삼진", "도루 / 실패", "실책" };
+                detailValues = new[]
+                {
+                    statistics.Walks.ToString(),
+                    statistics.BattingStrikeouts.ToString(),
+                    $"{statistics.StolenBases} / {statistics.CaughtStealing}",
+                    statistics.FieldingErrors.ToString()
                 };
             }
 
+            RenderSeasonStatisticsRow(parent, "Primary", primaryLabels, primaryValues, 25f, 1f, 23);
+            RenderSeasonStatisticsRow(parent, "Detail", detailLabels, detailValues, -42f, -66f, 21);
+        }
+
+        private static void RenderSeasonStatisticsRow(
+            Transform parent,
+            string rowName,
+            string[] labels,
+            string[] values,
+            float labelY,
+            float valueY,
+            int valueFontSize)
+        {
             for (int index = 0; index < labels.Length; index++)
             {
                 float x = -207f + index * 138f;
                 if (index > 0)
                 {
                     CreateImage(
-                        "Divider_" + index, parent, DividerColor, new Vector2(1f, 70f),
-                        new Vector2(x - 69f, -10f));
+                        $"{rowName}Divider_{index}", parent, DividerColor, new Vector2(1f, 48f),
+                        new Vector2(x - 69f, valueY + 11f));
                 }
                 CreateText(
-                    "Label_" + index, parent, labels[index], 13, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(110f, 24f), new Vector2(x, 16f), SecondaryTextColor);
+                    $"{rowName}Label_{index}", parent, labels[index], 12, FontStyle.Bold,
+                    TextAnchor.MiddleCenter, new Vector2(110f, 20f), new Vector2(x, labelY), SecondaryTextColor);
                 CreateText(
-                    "Value_" + index, parent, values[index], 27, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(125f, 39f), new Vector2(x, -21f), PrimaryTextColor);
+                    $"{rowName}Value_{index}", parent, values[index], valueFontSize, FontStyle.Bold,
+                    TextAnchor.MiddleCenter, new Vector2(125f, 31f), new Vector2(x, valueY), PrimaryTextColor);
             }
+        }
+
+        private static string BuildSeasonSampleSize(PlayerSeasonStatisticsView statistics)
+        {
+            return statistics.IsPitcher
+                ? $"{statistics.PitchingAppearances}경기  ·  선발 {statistics.PitchingStarts}  ·  {FormatInnings(statistics.OutsRecorded)}이닝"
+                : $"{statistics.GamesPlayed}경기  ·  {statistics.PlateAppearances}타석  ·  {statistics.AtBats}타수";
         }
 
         private static void RenderRecentFormChips(Transform parent, CareerDashboardView view)
@@ -1111,11 +1153,11 @@ namespace Baseball.Presentation.Career
             return result.Role switch
             {
                 PlayerGameRole.StartingBatter =>
-                    $"{result.AtBats}타수 {result.Hits}안타 · HR {result.HomeRuns} · RBI {result.RunsBattedIn}" +
-                    $" · BB {result.Walks}",
+                    $"{result.AtBats}타수 {result.Hits}안타 · 홈런 {result.HomeRuns} · 타점 {result.RunsBattedIn}" +
+                    $" · 볼넷 {result.Walks}",
                 PlayerGameRole.StartingPitcher or PlayerGameRole.ReliefPitcher =>
-                    $"{FormatInnings(result.OutsRecorded)}이닝 · ER {result.EarnedRuns} · SO {result.Strikeouts}" +
-                    $" · BB {result.WalksAllowed}",
+                    $"{FormatInnings(result.OutsRecorded)}이닝 · 자책 {result.EarnedRuns} · 탈삼진 {result.Strikeouts}" +
+                    $" · 볼넷 {result.WalksAllowed}",
                 _ => "벤치 대기 · 출장 없음"
             };
         }
@@ -1139,7 +1181,7 @@ namespace Baseball.Presentation.Career
                     strikeouts += game.Strikeouts;
                     walksAllowed += game.WalksAllowed;
                 }
-                return $"{FormatInnings(outs)} IP / {earnedRuns} ER / {strikeouts} SO / {walksAllowed} BB";
+                return $"{FormatInnings(outs)}이닝 / 자책 {earnedRuns} / 탈삼진 {strikeouts} / 볼넷 {walksAllowed}";
             }
 
             int atBats = 0;
@@ -1157,7 +1199,7 @@ namespace Baseball.Presentation.Career
                 walks += game.Walks;
             }
             double average = atBats == 0 ? 0d : hits / (double)atBats;
-            return $"{average:.000} / {homeRuns} HR / {runsBattedIn} RBI / {walks} BB";
+            return $"타율 {average:.000} / 홈런 {homeRuns} / 타점 {runsBattedIn} / 볼넷 {walks}";
         }
 
         private static string GetAdvanceButtonLabel(PlayerGameRole role)
