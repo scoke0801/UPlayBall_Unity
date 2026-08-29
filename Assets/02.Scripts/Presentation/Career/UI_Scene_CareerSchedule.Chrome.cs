@@ -320,7 +320,7 @@ namespace Baseball.Presentation.Career
             RectTransform inner = CreateImage(
                 "Inner", outer, Color.Lerp(primary, BackgroundColor, 0.28f),
                 new Vector2(size - 4f, size - 4f), Vector2.zero);
-            CreateText("Monogram", inner, GetTeamMonogram(teamName), Math.Max(9, (int)(size * 0.30f)),
+            CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName), Math.Max(9, (int)(size * 0.30f)),
                 FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, PrimaryTextColor, true);
             return outer;
         }
@@ -328,14 +328,6 @@ namespace Baseball.Presentation.Career
         private static Color ToUnityColor(TeamColor color)
         {
             return new Color(color.Red / 255f, color.Green / 255f, color.Blue / 255f, 1f);
-        }
-
-        private static string GetTeamMonogram(string teamName)
-        {
-            if (string.IsNullOrWhiteSpace(teamName))
-                return "UP";
-            string compact = teamName.Replace(" ", string.Empty);
-            return compact.Length == 1 ? compact : compact.Substring(0, 2);
         }
 
         private static string GetShortTeamName(string teamName)
