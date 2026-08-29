@@ -158,4 +158,65 @@ namespace Baseball.Simulation.Career
             public int Compare(ContractOffer left, ContractOffer right) => CompareOffers(left, right);
         }
     }
+
+    /// <summary>Rookie 테스트 입단이 선수 경쟁력과 실제 구단 수요를 평가할 입력이다.</summary>
+    public readonly struct RookieTryoutEvaluationInput
+    {
+        public RookieTryoutEvaluationInput(
+            int playerOverall,
+            int positionNeed,
+            int strongestCompetitorOverall,
+            double ageAndPotential,
+            double durability,
+            double recentPerformance,
+            double scoutAdjustment)
+        {
+            PlayerOverall = playerOverall;
+            PositionNeed = positionNeed;
+            StrongestCompetitorOverall = strongestCompetitorOverall;
+            AgeAndPotential = ageAndPotential;
+            Durability = durability;
+            RecentPerformance = recentPerformance;
+            ScoutAdjustment = scoutAdjustment;
+        }
+
+        public int PlayerOverall { get; }
+        public int PositionNeed { get; }
+        public int StrongestCompetitorOverall { get; }
+        public double AgeAndPotential { get; }
+        public double Durability { get; }
+        public double RecentPerformance { get; }
+        public double ScoutAdjustment { get; }
+    }
+
+    /// <summary>정식 계약이 끊긴 선수가 Rookie 로스터 한 자리를 얻을 수 있는지 설명 가능한 점수로 판정한다.</summary>
+    public sealed class RookieTryoutEvaluator
+    {
+        private readonly double _passingScore;
+
+        public RookieTryoutEvaluator(double passingScore)
+        {
+            if (passingScore < 0d || passingScore > 100d)
+                throw new ArgumentOutOfRangeException(nameof(passingScore));
+            _passingScore = passingScore;
+        }
+
+        public double CalculateScore(RookieTryoutEvaluationInput input)
+        {
+            double competitionPenalty = Math.Max(
+                0d,
+                input.StrongestCompetitorOverall - input.PlayerOverall) * 0.35d;
+            double score = input.PlayerOverall * 0.50d +
+                           input.PositionNeed * 0.15d +
+                           input.AgeAndPotential * 0.15d +
+                           input.Durability * 0.10d +
+                           input.RecentPerformance * 0.10d -
+                           competitionPenalty +
+                           input.ScoutAdjustment;
+            if (score < 0d) return 0d;
+            return score > 100d ? 100d : score;
+        }
+
+        public bool IsPassed(double score) => score >= _passingScore;
+    }
 }

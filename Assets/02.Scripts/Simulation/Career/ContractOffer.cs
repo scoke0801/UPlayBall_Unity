@@ -13,7 +13,9 @@ namespace Baseball.Simulation.Career
         OpenMarket,
         Promotion,
         Rehabilitation,
-        DevelopmentFallback
+        DevelopmentFallback,
+        ContractContinuation,
+        TryoutContract
     }
 
     /// <summary>
@@ -39,7 +41,9 @@ namespace Baseball.Simulation.Career
                 contractYears: 3,
                 ContractOfferChannel.RookieEntry,
                 estimatedPlayingTime: 0d,
-                hasTradeProtection: false)
+                hasTradeProtection: false,
+                hasUpperLeagueReleaseClause: true,
+                upperLeagueReleaseCompensation: annualSalary)
         {
         }
 
@@ -62,7 +66,9 @@ namespace Baseball.Simulation.Career
                 contractYears,
                 ContractOfferChannel.RookieEntry,
                 estimatedPlayingTime: 0d,
-                hasTradeProtection: false)
+                hasTradeProtection: false,
+                hasUpperLeagueReleaseClause: true,
+                upperLeagueReleaseCompensation: annualSalary)
         {
         }
 
@@ -78,7 +84,10 @@ namespace Baseball.Simulation.Career
             int contractYears,
             ContractOfferChannel channel,
             double estimatedPlayingTime,
-            bool hasTradeProtection)
+            bool hasTradeProtection,
+            bool hasUpperLeagueReleaseClause = false,
+            long upperLeagueReleaseCompensation = 0L,
+            bool hasRelegationTransferRequestClause = false)
         {
             if (team == null)
                 throw new System.ArgumentNullException(nameof(team));
@@ -86,6 +95,10 @@ namespace Baseball.Simulation.Career
                 throw new System.ArgumentOutOfRangeException(nameof(contractYears));
             if (estimatedPlayingTime < 0d || estimatedPlayingTime > 1d)
                 throw new System.ArgumentOutOfRangeException(nameof(estimatedPlayingTime));
+            if (upperLeagueReleaseCompensation < 0L)
+                throw new System.ArgumentOutOfRangeException(nameof(upperLeagueReleaseCompensation));
+            if (!hasUpperLeagueReleaseClause && upperLeagueReleaseCompensation > 0L)
+                throw new System.ArgumentException("상위 리그 이적 조항 없이 보상금을 지정할 수 없습니다.");
 
             Team = team;
             SigningBonus = signingBonus;
@@ -96,6 +109,9 @@ namespace Baseball.Simulation.Career
             Channel = channel;
             EstimatedPlayingTime = estimatedPlayingTime;
             HasTradeProtection = hasTradeProtection;
+            HasUpperLeagueReleaseClause = hasUpperLeagueReleaseClause;
+            UpperLeagueReleaseCompensation = upperLeagueReleaseCompensation;
+            HasRelegationTransferRequestClause = hasRelegationTransferRequestClause;
         }
 
         public GeneratedTeam Team { get; }
@@ -107,6 +123,9 @@ namespace Baseball.Simulation.Career
         public ContractOfferChannel Channel { get; }
         public double EstimatedPlayingTime { get; }
         public bool HasTradeProtection { get; }
+        public bool HasUpperLeagueReleaseClause { get; }
+        public long UpperLeagueReleaseCompensation { get; }
+        public bool HasRelegationTransferRequestClause { get; }
 
         /// <summary>
         /// 같은 조건을 유지한 채 계약 시장 경로만 명시적으로 바꾼다.
@@ -122,7 +141,31 @@ namespace Baseball.Simulation.Career
                 ContractYears,
                 channel,
                 EstimatedPlayingTime,
-                HasTradeProtection);
+                HasTradeProtection,
+                HasUpperLeagueReleaseClause,
+                UpperLeagueReleaseCompensation,
+                HasRelegationTransferRequestClause);
+        }
+
+        /// <summary>금액·역할을 유지한 채 리그 이동 관련 계약 조항만 바꾼다.</summary>
+        public ContractOffer WithMovementClauses(
+            bool hasUpperLeagueReleaseClause,
+            long upperLeagueReleaseCompensation,
+            bool hasRelegationTransferRequestClause)
+        {
+            return new ContractOffer(
+                Team,
+                SigningBonus,
+                AnnualSalary,
+                ExpectedRole,
+                OfferScore,
+                ContractYears,
+                Channel,
+                EstimatedPlayingTime,
+                HasTradeProtection,
+                hasUpperLeagueReleaseClause,
+                upperLeagueReleaseCompensation,
+                hasRelegationTransferRequestClause);
         }
     }
 }
