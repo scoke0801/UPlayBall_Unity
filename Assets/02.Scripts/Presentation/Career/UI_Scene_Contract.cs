@@ -676,7 +676,7 @@ namespace Baseball.Presentation.Career
                 ContractBonusMetric.PitchingAppearances => $"{bonus.TargetValue:0}경기 등판",
                 ContractBonusMetric.PitchingOuts => $"{FormatInnings((int)bonus.TargetValue)}이닝",
                 ContractBonusMetric.PitchingStrikeouts => $"탈삼진 {bonus.TargetValue:0}개",
-                ContractBonusMetric.EarnedRunAverage => $"ERA {bonus.TargetValue:0.00} 이하",
+                ContractBonusMetric.EarnedRunAverage => $"평균자책 {bonus.TargetValue:0.00} 이하",
                 ContractBonusMetric.IndividualAward => "개인상 수상",
                 ContractBonusMetric.Championship => "리그 우승",
                 _ => bonus.ClauseId

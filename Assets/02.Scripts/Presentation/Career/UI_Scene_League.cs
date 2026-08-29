@@ -283,14 +283,14 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreatePanel(
                 "PitchingLeaders", "PITCHING LEADERS", "투수 순위", new Vector2(650f, 480f),
                 new Vector2(635f, 210f));
-            string[] labels = { "ERA", "승", "세이브", "탈삼진", "WHIP" };
+            string[] labels = { "평균자책", "승", "세이브", "탈삼진", "WHIP" };
             RenderCategoryTabs(panel, labels, (int)_pitchingCategory, 650f, index =>
             {
                 _pitchingCategory = (LeaguePitchingCategory)index;
                 Render();
             });
             CreateTableHeader(panel,
-                new[] { "순위", "선수", "팀", "승-패", "세이브", "이닝", "ERA", "SO", "WHIP" },
+                new[] { "순위", "선수", "팀", "승-패", "세이브", "이닝", "평균자책", "탈삼진", "WHIP" },
                 new[] { -292f, -216f, -91f, -5f, 40f, 87f, 139f, 188f, 259f },
                 new[] { 45f, 126f, 86f, 46f, 42f, 48f, 48f, 38f, 54f },
                 119f);
@@ -836,7 +836,7 @@ namespace Baseball.Presentation.Career
         {
             return category switch
             {
-                LeaguePitchingCategory.EarnedRunAverage => "ERA",
+                LeaguePitchingCategory.EarnedRunAverage => "평균자책",
                 LeaguePitchingCategory.Wins => "승",
                 LeaguePitchingCategory.Saves => "세이브",
                 LeaguePitchingCategory.Strikeouts => "탈삼진",

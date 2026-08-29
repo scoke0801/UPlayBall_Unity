@@ -116,7 +116,7 @@ namespace Baseball.Presentation.Career
                     strikeouts += view.RecentGames[index].Strikeouts;
                 }
                 double era = outs == 0 ? 0d : earnedRuns * 27d / outs;
-                return $"최근 {games}경기  ERA {era:0.00}  ·  {FormatInnings(outs)} IP  ·  {strikeouts} SO";
+                return $"최근 {games}경기  평균자책 {era:0.00}  ·  {FormatInnings(outs)}이닝  ·  탈삼진 {strikeouts}";
             }
 
             int atBats = 0;
@@ -131,7 +131,7 @@ namespace Baseball.Presentation.Career
                 runsBattedIn += view.RecentGames[index].RunsBattedIn;
             }
             double average = atBats == 0 ? 0d : hits / (double)atBats;
-            return $"최근 {games}경기  AVG {average:.000}  ·  {homeRuns} HR  ·  {runsBattedIn} RBI";
+            return $"최근 {games}경기  타율 {average:.000}  ·  홈런 {homeRuns}  ·  타점 {runsBattedIn}";
         }
 
         private static string BuildPlayerNote(PlayerProfileView view)
@@ -164,7 +164,7 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.Wins => "승",
                 CareerRecordMetric.Saves => "세이브",
                 CareerRecordMetric.PitchingStrikeouts => "탈삼진",
-                CareerRecordMetric.EarnedRunAverage => "ERA",
+                CareerRecordMetric.EarnedRunAverage => "평균자책",
                 CareerRecordMetric.WalksHitsPerInningPitched => "WHIP",
                 _ => metric.ToString()
             };

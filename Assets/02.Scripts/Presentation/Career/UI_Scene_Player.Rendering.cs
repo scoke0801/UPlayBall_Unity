@@ -143,7 +143,7 @@ namespace Baseball.Presentation.Career
             if (view.PlayerType == Baseball.Core.Players.PlayerType.Pitcher)
             {
                 RenderStatCells(panel,
-                    new[] { "경기", "선발", "승-패", "세이브", "ERA", "WHIP", "탈삼진" },
+                    new[] { "경기", "선발", "승-패", "세이브", "평균자책", "WHIP", "탈삼진" },
                     new[]
                     {
                         stats.PitchingAppearances.ToString(), stats.PitchingStarts.ToString(),

@@ -294,7 +294,7 @@ namespace Baseball.Presentation.Career
                 CreateTopLeftText("Season", row, $"{split.Year} {GetTeamShortName(split.TeamName)}", 13,
                     FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(230f, 22f),
                     12f, 4f, split.IsCurrentSeason ? BrightAccentColor : PrimaryTextColor);
-                CreateTopLeftText("TeamGames", row, $"팀 {split.TeamGames}G", 11,
+                CreateTopLeftText("TeamGames", row, $"팀 {split.TeamGames}경기", 11,
                     FontStyle.Normal, TextAnchor.MiddleRight, new Vector2(105f, 20f),
                     345f, 5f, MutedTextColor);
                 CreateTopLeftText("Metrics", row, FormatSplitSummary(split.Metrics), 11,
@@ -359,8 +359,8 @@ namespace Baseball.Presentation.Career
         {
             bool isPitcher = position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
             string[] headers = isPitcher
-                ? new[] { "경기", "결과", "상대", "구분", "역할", "스코어", "IP", "ER", "SO", "BB", "HBP" }
-                : new[] { "경기", "결과", "상대", "구분", "역할", "스코어", "AB", "H", "HR", "RBI", "BB", "HBP" };
+                ? new[] { "경기", "결과", "상대", "구분", "역할", "스코어", "이닝", "자책", "탈삼진", "볼넷", "사구" }
+                : new[] { "경기", "결과", "상대", "구분", "역할", "스코어", "타수", "안타", "홈런", "타점", "볼넷", "사구" };
             float[] widths = isPitcher
                 ? new[] { 72f, 58f, 125f, 70f, 105f, 90f, 70f, 65f, 65f, 65f, 70f }
                 : new[] { 72f, 58f, 125f, 70f, 105f, 90f, 65f, 65f, 65f, 65f, 65f, 70f };

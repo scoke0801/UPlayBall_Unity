@@ -18,72 +18,17 @@ namespace Baseball.Presentation.Career
             };
         }
 
+        /// <summary>
+        /// 지표 이름을 한국어 야구 기록 표기로 돌려준다.
+        /// longLabel이 false면 좁은 표 헤더용 축약형을 우선 쓴다.
+        /// </summary>
         private static string GetMetricLabel(CareerRecordMetric metric, bool longLabel)
         {
             if (!longLabel)
             {
-                return metric switch
-                {
-                    CareerRecordMetric.Games => "G",
-                    CareerRecordMetric.GamesStarted => "GS",
-                    CareerRecordMetric.PlateAppearances => "PA",
-                    CareerRecordMetric.AtBats => "AB",
-                    CareerRecordMetric.Runs => "R",
-                    CareerRecordMetric.Hits => "H",
-                    CareerRecordMetric.Singles => "1B",
-                    CareerRecordMetric.Doubles => "2B",
-                    CareerRecordMetric.Triples => "3B",
-                    CareerRecordMetric.HomeRuns => "HR",
-                    CareerRecordMetric.RunsBattedIn => "RBI",
-                    CareerRecordMetric.Walks => "BB",
-                    CareerRecordMetric.HitByPitches => "HBP",
-                    CareerRecordMetric.BattingStrikeouts => "SO",
-                    CareerRecordMetric.SacrificeFlies => "SF",
-                    CareerRecordMetric.GroundedIntoDoublePlays => "GIDP",
-                    CareerRecordMetric.TotalBases => "TB",
-                    CareerRecordMetric.BattingAverage => "AVG",
-                    CareerRecordMetric.OnBasePercentage => "OBP",
-                    CareerRecordMetric.SluggingPercentage => "SLG",
-                    CareerRecordMetric.OnBasePlusSlugging => "OPS",
-                    CareerRecordMetric.WalkStrikeoutRatio => "BB/K",
-                    CareerRecordMetric.PitchingAppearances => "G",
-                    CareerRecordMetric.PitchingStarts => "GS",
-                    CareerRecordMetric.OutsRecorded => "IP",
-                    CareerRecordMetric.Wins => "W",
-                    CareerRecordMetric.Losses => "L",
-                    CareerRecordMetric.Saves => "SV",
-                    CareerRecordMetric.Holds => "HLD",
-                    CareerRecordMetric.BlownSaves => "BS",
-                    CareerRecordMetric.HitsAllowed => "H",
-                    CareerRecordMetric.HomeRunsAllowed => "HR",
-                    CareerRecordMetric.RunsAllowed => "R",
-                    CareerRecordMetric.EarnedRuns => "ER",
-                    CareerRecordMetric.WalksAllowed => "BB",
-                    CareerRecordMetric.HitBatters => "HBP",
-                    CareerRecordMetric.PitchingStrikeouts => "SO",
-                    CareerRecordMetric.BattersFaced => "BF",
-                    CareerRecordMetric.QualityStarts => "QS",
-                    CareerRecordMetric.EarnedRunAverage => "ERA",
-                    CareerRecordMetric.WalksHitsPerInningPitched => "WHIP",
-                    CareerRecordMetric.StrikeoutWalkRatio => "K/BB",
-                    CareerRecordMetric.HomeRunsPerNineInnings => "HR/9",
-                    CareerRecordMetric.DefensiveOuts => "INN",
-                    CareerRecordMetric.FieldingOpportunities => "TC",
-                    CareerRecordMetric.SuccessfulFieldingPlays => "PLAY",
-                    CareerRecordMetric.Putouts => "PO",
-                    CareerRecordMetric.Assists => "A",
-                    CareerRecordMetric.Errors => "E",
-                    CareerRecordMetric.DoublePlays => "DP",
-                    CareerRecordMetric.DifficultPlayAttempts => "DPA",
-                    CareerRecordMetric.DifficultPlaysMade => "DPM",
-                    CareerRecordMetric.ExpectedOuts => "xOUT",
-                    CareerRecordMetric.EstimatedRunsSaved => "ERS",
-                    CareerRecordMetric.FieldingSuccessRate => "FLD%",
-                    CareerRecordMetric.StolenBases => "SB",
-                    CareerRecordMetric.CaughtStealing => "CS",
-                    CareerRecordMetric.StolenBasePercentage => "SB%",
-                    _ => "-"
-                };
+                string compact = GetCompactMetricLabel(metric);
+                if (compact.Length > 0)
+                    return compact;
             }
             return metric switch
             {
@@ -103,7 +48,7 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.BattingStrikeouts => "삼진",
                 CareerRecordMetric.SacrificeFlies => "희생플라이",
                 CareerRecordMetric.GroundedIntoDoublePlays => "병살타",
-                CareerRecordMetric.TotalBases => "총 루타",
+                CareerRecordMetric.TotalBases => "루타",
                 CareerRecordMetric.BattingAverage => "타율",
                 CareerRecordMetric.OnBasePercentage => "출루율",
                 CareerRecordMetric.SluggingPercentage => "장타율",
@@ -124,7 +69,7 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.WalksAllowed => "볼넷 허용",
                 CareerRecordMetric.HitBatters => "사구 허용",
                 CareerRecordMetric.PitchingStrikeouts => "탈삼진",
-                CareerRecordMetric.BattersFaced => "상대한 타자",
+                CareerRecordMetric.BattersFaced => "상대 타자",
                 CareerRecordMetric.QualityStarts => "퀄리티스타트",
                 CareerRecordMetric.EarnedRunAverage => "평균자책점",
                 CareerRecordMetric.WalksHitsPerInningPitched => "WHIP",
@@ -138,7 +83,7 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.Errors => "실책",
                 CareerRecordMetric.DoublePlays => "병살",
                 CareerRecordMetric.DifficultPlayAttempts => "어려운 타구",
-                CareerRecordMetric.DifficultPlaysMade => "어려운 타구 처리",
+                CareerRecordMetric.DifficultPlaysMade => "호수비",
                 CareerRecordMetric.ExpectedOuts => "기대 아웃",
                 CareerRecordMetric.EstimatedRunsSaved => "실점 억제",
                 CareerRecordMetric.FieldingSuccessRate => "수비 성공률",
@@ -146,6 +91,38 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.CaughtStealing => "도루 실패",
                 CareerRecordMetric.StolenBasePercentage => "도루 성공률",
                 _ => "-"
+            };
+        }
+
+        /// <summary>
+        /// 표 헤더 한 칸(92px)에 들어가지 않는 지표만 축약형을 가진다.
+        /// 축약형이 없으면 빈 문자열을 돌려주고 호출부가 정식 이름을 그대로 쓴다.
+        /// </summary>
+        private static string GetCompactMetricLabel(CareerRecordMetric metric)
+        {
+            return metric switch
+            {
+                CareerRecordMetric.WalkStrikeoutRatio => "볼넷/삼진",
+                CareerRecordMetric.StrikeoutWalkRatio => "삼진/볼넷",
+                CareerRecordMetric.HomeRunsPerNineInnings => "피홈런/9",
+                // 퀄리티스타트는 국내 중계에서도 QS로 더 자주 쓰인다.
+                CareerRecordMetric.QualityStarts => "QS",
+                CareerRecordMetric.BattersFaced => "상대타자",
+                CareerRecordMetric.DefensiveOuts => "수비이닝",
+                CareerRecordMetric.FieldingOpportunities => "수비기회",
+                CareerRecordMetric.SuccessfulFieldingPlays => "처리성공",
+                CareerRecordMetric.DifficultPlayAttempts => "어려운타구",
+                CareerRecordMetric.ExpectedOuts => "기대아웃",
+                CareerRecordMetric.EstimatedRunsSaved => "실점억제",
+                CareerRecordMetric.FieldingSuccessRate => "수비율",
+                CareerRecordMetric.WalksAllowed => "볼넷",
+                CareerRecordMetric.HitBatters => "사구",
+                CareerRecordMetric.EarnedRuns => "자책",
+                CareerRecordMetric.EarnedRunAverage => "평균자책",
+                CareerRecordMetric.SacrificeFlies => "희생플라이",
+                CareerRecordMetric.StolenBasePercentage => "도루성공률",
+                CareerRecordMetric.CaughtStealing => "도루실패",
+                _ => string.Empty
             };
         }
 

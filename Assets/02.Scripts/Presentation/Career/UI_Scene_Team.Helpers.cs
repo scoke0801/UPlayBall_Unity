@@ -12,8 +12,8 @@ namespace Baseball.Presentation.Career
         private static string GetSeasonRecord(TeamRosterPlayerView player)
         {
             if (player.Position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher)
-                return player.HasPitchingRecord ? $"ERA {player.EarnedRunAverage:0.00}" : "기록 없음";
-            return player.HasBattingRecord ? $"AVG {player.BattingAverage:.000}" : "기록 없음";
+                return player.HasPitchingRecord ? $"평균자책 {player.EarnedRunAverage:0.00}" : "기록 없음";
+            return player.HasBattingRecord ? $"타율 {player.BattingAverage:.000}" : "기록 없음";
         }
 
         private static string GetRosterRoleLabel(TeamRosterRole role)

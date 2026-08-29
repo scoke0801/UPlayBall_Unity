@@ -381,8 +381,8 @@ namespace Baseball.Presentation.Career
 
             string qualification = view.Category switch
             {
-                CareerRecordCategory.Batting => "규정 타석: 팀 경기 × 3.1 PA",
-                CareerRecordCategory.Pitching => "규정 이닝: 팀 경기 × 1.0 IP",
+                CareerRecordCategory.Batting => "규정 타석: 팀 경기 × 3.1타석",
+                CareerRecordCategory.Pitching => "규정 이닝: 팀 경기 × 1.0이닝",
                 CareerRecordCategory.Fielding => "수비 기회가 발생한 선수",
                 _ => "도루 시도가 발생한 선수"
             };

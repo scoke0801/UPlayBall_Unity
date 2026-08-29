@@ -224,7 +224,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(-145f, -19f), PanelDarkColor);
             CreateText("Title", lineup, "선발 라인업", 16, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(210f, 30f), new Vector2(-70f, 199f), PrimaryTextColor);
-            CreateText("Stat", lineup, "AVG", 11, FontStyle.Bold, TextAnchor.MiddleRight,
+            CreateText("Stat", lineup, "타율", 11, FontStyle.Bold, TextAnchor.MiddleRight,
                 new Vector2(60f, 25f), new Vector2(145f, 199f), MutedColor);
             for (int index = 0; index < view.StartingLineup.Length; index++)
                 RenderLineupRow(lineup, view.StartingLineup[index], index);
@@ -260,7 +260,7 @@ namespace Baseball.Presentation.Career
         {
             CreateText("Title", parent, title, 16, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(172f, 29f), new Vector2(-38f, 83f), PrimaryTextColor);
-            CreateText("Stat", parent, "ERA", 11, FontStyle.Bold, TextAnchor.MiddleRight,
+            CreateText("Stat", parent, "평균자책", 11, FontStyle.Bold, TextAnchor.MiddleRight,
                 new Vector2(48f, 25f), new Vector2(103f, 83f), MutedColor);
             int visibleCount = Math.Min(players.Length, 4);
             for (int index = 0; index < visibleCount; index++)
