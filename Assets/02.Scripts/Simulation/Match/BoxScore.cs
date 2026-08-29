@@ -29,6 +29,13 @@ namespace Baseball.Simulation.Match
         public int Strikeouts { get; internal set; }
         public int SacrificeFlies { get; internal set; }
         public int GroundedIntoDoublePlays { get; internal set; }
+        public int StolenBases { get; internal set; }
+        public int CaughtStealing { get; internal set; }
+        public int SacrificeBunts { get; internal set; }
+        public int IntentionalWalks { get; internal set; }
+        public int ReachedOnErrors { get; internal set; }
+        public bool AppearedAsPinchHitter { get; internal set; }
+        public bool AppearedAsPinchRunner { get; internal set; }
     }
 
     /// <summary>
@@ -52,6 +59,12 @@ namespace Baseball.Simulation.Match
         public int HitBatters { get; internal set; }
         public int Strikeouts { get; internal set; }
         public int HomeRunsAllowed { get; internal set; }
+        public int InheritedRunners { get; internal set; }
+        public int InheritedRunnersScored { get; internal set; }
+        public bool IsReliefAppearance { get; internal set; }
+        public bool HasSave { get; internal set; }
+        public bool HasHold { get; internal set; }
+        public bool HasBlownSave { get; internal set; }
     }
 
     /// <summary>
@@ -89,6 +102,7 @@ namespace Baseball.Simulation.Match
             int teamId,
             int runs,
             int hits,
+            int errors,
             int[] runsByInning,
             PlayerBattingLine[] battingLines,
             PlayerPitchingLine[] pitchingLines,
@@ -97,6 +111,7 @@ namespace Baseball.Simulation.Match
             TeamId = teamId;
             Runs = runs;
             Hits = hits;
+            Errors = errors;
             RunsByInning = runsByInning;
             BattingLines = battingLines;
             PitchingLines = pitchingLines;
@@ -107,6 +122,7 @@ namespace Baseball.Simulation.Match
         public int TeamId { get; }
         public int Runs { get; }
         public int Hits { get; }
+        public int Errors { get; }
         public IReadOnlyList<int> RunsByInning { get; }
         public IReadOnlyList<PlayerBattingLine> BattingLines { get; }
         public IReadOnlyList<PlayerPitchingLine> PitchingLines { get; }
@@ -117,7 +133,7 @@ namespace Baseball.Simulation.Match
 
     internal sealed class TeamBoxScoreBuilder
     {
-        private readonly int[] _runsByInning;
+        private int[] _runsByInning;
 
         public TeamBoxScoreBuilder(Team team, int maximumInnings)
         {
@@ -173,6 +189,57 @@ namespace Baseball.Simulation.Match
             }
         }
 
+        /// <summary>
+        /// V2 경기 스냅샷의 모든 벤치 선수와 불펜 투수를 미리 기록 슬롯으로 고정한다.
+        /// </summary>
+        public TeamBoxScoreBuilder(MatchRosterSnapshot roster, int maximumInnings)
+        {
+            Team = roster.ToCompatibilityTeam();
+            _runsByInning = new int[maximumInnings];
+            BattingLines = new PlayerBattingLine[roster.StartingLineup.Count + roster.Bench.Count];
+            for (int index = 0; index < roster.StartingLineup.Count; index++)
+                BattingLines[index] = new PlayerBattingLine(roster.StartingLineup[index].Player.PlayerId);
+            for (int index = 0; index < roster.Bench.Count; index++)
+                BattingLines[roster.StartingLineup.Count + index] = new PlayerBattingLine(roster.Bench[index].PlayerId);
+
+            PitchingLines = new PlayerPitchingLine[1 + roster.Bullpen.Count];
+            PitchingLines[0] = new PlayerPitchingLine(roster.StartingPitcher.Player.PlayerId);
+            for (int index = 0; index < roster.Bullpen.Count; index++)
+                PitchingLines[index + 1] = new PlayerPitchingLine(roster.Bullpen[index].Player.PlayerId);
+
+            int startingFielderCount = 0;
+            for (int index = 0; index < roster.StartingLineup.Count; index++)
+            {
+                if (roster.StartingLineup[index].FieldingPosition != PlayerPosition.DesignatedHitter)
+                    startingFielderCount++;
+            }
+            FieldingLines = new PlayerFieldingLine[
+                startingFielderCount + PitchingLines.Length + roster.Bench.Count];
+            int fieldingIndex = 0;
+            for (int index = 0; index < roster.StartingLineup.Count; index++)
+            {
+                LineupSlot slot = roster.StartingLineup[index];
+                if (slot.FieldingPosition == PlayerPosition.DesignatedHitter)
+                    continue;
+                FieldingLines[fieldingIndex++] = new PlayerFieldingLine(slot.Player.PlayerId, slot.FieldingPosition);
+            }
+            FieldingLines[fieldingIndex++] = new PlayerFieldingLine(
+                roster.StartingPitcher.Player.PlayerId,
+                PlayerPosition.StartingPitcher);
+            for (int index = 0; index < roster.Bullpen.Count; index++)
+            {
+                FieldingLines[fieldingIndex++] = new PlayerFieldingLine(
+                    roster.Bullpen[index].Player.PlayerId,
+                    PlayerPosition.ReliefPitcher);
+            }
+            for (int index = 0; index < roster.Bench.Count; index++)
+            {
+                FieldingLines[fieldingIndex++] = new PlayerFieldingLine(
+                    roster.Bench[index].PlayerId,
+                    roster.Bench[index].PrimaryPosition);
+            }
+        }
+
         public Team Team { get; }
         public PlayerBattingLine[] BattingLines { get; }
         public PlayerPitchingLine PitchingLine => PitchingLines[0];
@@ -180,25 +247,39 @@ namespace Baseball.Simulation.Match
         public PlayerFieldingLine[] FieldingLines { get; }
         public int Runs { get; private set; }
         public int Hits { get; set; }
+        public int Errors { get; set; }
 
         public void AddRun(int inning)
         {
+            EnsureInningCapacity(inning);
             Runs++;
             _runsByInning[inning - 1]++;
         }
 
         public TeamBoxScore Build(int inningsPlayed)
         {
+            EnsureInningCapacity(inningsPlayed);
             var finalRunsByInning = new int[inningsPlayed];
             Array.Copy(_runsByInning, finalRunsByInning, inningsPlayed);
             return new TeamBoxScore(
                 Team.TeamId,
                 Runs,
                 Hits,
+                Errors,
                 finalRunsByInning,
                 BattingLines,
                 PitchingLines,
                 FieldingLines);
+        }
+
+        private void EnsureInningCapacity(int inning)
+        {
+            if (inning <= _runsByInning.Length)
+                return;
+            int capacity = _runsByInning.Length;
+            while (capacity < inning)
+                capacity *= 2;
+            Array.Resize(ref _runsByInning, capacity);
         }
 
         public PlayerFieldingLine GetFieldingLine(PlayerPosition position)
@@ -234,6 +315,16 @@ namespace Baseball.Simulation.Match
             }
 
             throw new InvalidOperationException("등록되지 않은 투수의 기록을 요청했습니다.");
+        }
+
+        public PlayerBattingLine GetBattingLine(int playerId)
+        {
+            for (int index = 0; index < BattingLines.Length; index++)
+            {
+                if (BattingLines[index].PlayerId == playerId)
+                    return BattingLines[index];
+            }
+            throw new InvalidOperationException("등록되지 않은 타자의 기록을 요청했습니다.");
         }
     }
 }

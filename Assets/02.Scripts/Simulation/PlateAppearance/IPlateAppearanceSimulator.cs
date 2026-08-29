@@ -24,4 +24,11 @@ namespace Baseball.Simulation.PlateAppearance
             in PlateAppearanceMatchup matchup,
             BattingApproach approach);
     }
+
+    /// <summary>
+    /// 베이스·득점 규칙 테스트가 수비 RNG를 건너뛰고 미리 정한 인플레이 결과를 공급하는 계약이다.
+    /// </summary>
+    public interface IPreResolvedBallInPlaySimulator : IPlateAppearanceSimulator
+    {
+    }
 }

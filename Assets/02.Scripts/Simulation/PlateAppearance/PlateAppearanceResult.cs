@@ -14,6 +14,12 @@ namespace Baseball.Simulation.PlateAppearance
         Double = 6,
         Triple = 7,
         HomeRun = 8,
-        HitByPitch = 9
+        HitByPitch = 9,
+        ReachedOnError = 10,
+        FieldersChoice = 11,
+        SacrificeBunt = 12,
+        BuntSingle = 13,
+        BuntPopOut = 14,
+        IntentionalWalk = 15
     }
 }

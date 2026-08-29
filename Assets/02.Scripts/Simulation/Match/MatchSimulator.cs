@@ -14,14 +14,24 @@ namespace Baseball.Simulation.Match
     {
         private readonly BalanceTable _balance;
         private readonly IRandomSource _random;
+        private readonly MatchRandomStreams _randomStreams;
         private readonly IPlateAppearanceSimulator _plateAppearanceSimulator;
         private readonly IMatchDecisionSource _decisionSource;
+        private readonly IMatchPitchingDecisionSource _pitchingDecisionSource;
+        private readonly MatchDecisionCoordinator _decisionCoordinator;
 
         /// <summary>
         /// 경기 시뮬레이터를 밸런스 데이터와 결정론적 RNG로 구성한다.
         /// </summary>
         public MatchSimulator(BalanceTable balance, IRandomSource random)
-            : this(balance, random, new PlateAppearanceSimulator(balance, random), null)
+            : this(
+                balance,
+                random,
+                MatchRandomStreams.Shared(random),
+                new PlateAppearanceSimulator(balance, random),
+                null,
+                null,
+                null)
         {
         }
 
@@ -32,7 +42,14 @@ namespace Baseball.Simulation.Match
             BalanceTable balance,
             IRandomSource random,
             IMatchDecisionSource decisionSource)
-            : this(balance, random, new PlateAppearanceSimulator(balance, random), decisionSource)
+            : this(
+                balance,
+                random,
+                MatchRandomStreams.Shared(random),
+                new PlateAppearanceSimulator(balance, random),
+                decisionSource,
+                null,
+                null)
         {
         }
 
@@ -43,21 +60,109 @@ namespace Baseball.Simulation.Match
             BalanceTable balance,
             IRandomSource random,
             IPlateAppearanceSimulator plateAppearanceSimulator)
-            : this(balance, random, plateAppearanceSimulator, null)
+            : this(
+                balance,
+                random,
+                MatchRandomStreams.Shared(random),
+                plateAppearanceSimulator,
+                null,
+                null,
+                null)
+        {
+        }
+
+        /// <summary>
+        /// V2 도메인 RNG와 자동/사용자 판단 공급자를 주입해 경기 시뮬레이터를 구성한다.
+        /// </summary>
+        public MatchSimulator(
+            BalanceTable balance,
+            MatchRandomStreams randomStreams,
+            MatchDecisionCoordinator decisionCoordinator = null)
+            : this(
+                balance,
+                randomStreams?.PitchOutcome,
+                randomStreams,
+                new PlateAppearanceSimulator(balance, randomStreams),
+                null,
+                null,
+                decisionCoordinator)
+        {
+        }
+
+        /// <summary>
+        /// 도메인 RNG와 저장된 타자 결정을 함께 재생하는 V2 시뮬레이터를 구성한다.
+        /// </summary>
+        public MatchSimulator(
+            BalanceTable balance,
+            MatchRandomStreams randomStreams,
+            IMatchDecisionSource decisionSource)
+            : this(
+                balance,
+                randomStreams?.PitchOutcome,
+                randomStreams,
+                new PlateAppearanceSimulator(balance, randomStreams),
+                decisionSource,
+                null,
+                null)
+        {
+        }
+
+        /// <summary>
+        /// 타자·투수의 저장된 선택을 함께 재생하는 V2 시뮬레이터를 구성한다.
+        /// </summary>
+        public MatchSimulator(
+            BalanceTable balance,
+            MatchRandomStreams randomStreams,
+            IMatchDecisionSource decisionSource,
+            IMatchPitchingDecisionSource pitchingDecisionSource,
+            MatchDecisionCoordinator decisionCoordinator = null)
+            : this(
+                balance,
+                randomStreams?.PitchOutcome,
+                randomStreams,
+                new PlateAppearanceSimulator(balance, randomStreams),
+                decisionSource,
+                pitchingDecisionSource,
+                decisionCoordinator)
+        {
+        }
+
+        /// <summary>
+        /// 같은 결정론적 RNG 위에서 선수 입력 중단과 자동 방침을 함께 사용한다.
+        /// </summary>
+        public MatchSimulator(
+            BalanceTable balance,
+            MatchRandomStreams randomStreams,
+            IMatchDecisionSource decisionSource,
+            MatchDecisionCoordinator decisionCoordinator)
+            : this(
+                balance,
+                randomStreams?.PitchOutcome,
+                randomStreams,
+                new PlateAppearanceSimulator(balance, randomStreams),
+                decisionSource,
+                null,
+                decisionCoordinator)
         {
         }
 
         private MatchSimulator(
             BalanceTable balance,
             IRandomSource random,
+            MatchRandomStreams randomStreams,
             IPlateAppearanceSimulator plateAppearanceSimulator,
-            IMatchDecisionSource decisionSource)
+            IMatchDecisionSource decisionSource,
+            IMatchPitchingDecisionSource pitchingDecisionSource,
+            MatchDecisionCoordinator decisionCoordinator)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _random = random ?? throw new ArgumentNullException(nameof(random));
+            _randomStreams = randomStreams ?? throw new ArgumentNullException(nameof(randomStreams));
             _plateAppearanceSimulator = plateAppearanceSimulator ??
                                         throw new ArgumentNullException(nameof(plateAppearanceSimulator));
             _decisionSource = decisionSource;
+            _pitchingDecisionSource = pitchingDecisionSource;
+            _decisionCoordinator = decisionCoordinator;
         }
 
         /// <summary>
@@ -69,11 +174,19 @@ namespace Baseball.Simulation.Match
             try
             {
                 MatchResult result = SimulateInternal(input, eventBuffer, eventBuffer);
-                return new MatchSimulationProgress(result, null, result.Events as MatchEvent[] ?? eventBuffer.ToArray());
+                return new MatchSimulationProgress(
+                    result,
+                    null,
+                    null,
+                    result.Events as MatchEvent[] ?? eventBuffer.ToArray());
             }
             catch (MatchDecisionRequiredSignal signal)
             {
-                return new MatchSimulationProgress(null, signal.Request, eventBuffer.ToArray());
+                return new MatchSimulationProgress(null, signal.Request, null, eventBuffer.ToArray());
+            }
+            catch (MatchPitchingDecisionRequiredSignal signal)
+            {
+                return new MatchSimulationProgress(null, null, signal.Request, eventBuffer.ToArray());
             }
         }
 
@@ -104,57 +217,14 @@ namespace Baseball.Simulation.Match
         {
             if (input == null)
                 throw new ArgumentNullException(nameof(input));
-
-            var state = new MatchSimulationState(input, eventSink);
-            int inningsPlayed = BaseballRules.RegulationInnings;
-
-            for (int inning = 1; inning <= BaseballRules.MaximumInnings; inning++)
-            {
-                SimulateHalfInning(state, inning, InningHalf.Top);
-                inningsPlayed = inning;
-
-                if (inning >= BaseballRules.RegulationInnings && state.Home.BoxScore.Runs > state.Away.BoxScore.Runs)
-                    break;
-
-                SimulateHalfInning(state, inning, InningHalf.Bottom);
-
-                if (inning >= BaseballRules.RegulationInnings && state.Home.BoxScore.Runs != state.Away.BoxScore.Runs)
-                    break;
-            }
-
-            if (input.RequiresWinner && state.Home.BoxScore.Runs == state.Away.BoxScore.Runs)
-            {
-                // 최대 연장까지 동점인 극희귀 상황은 저장된 경기 RNG로 한 점을 부여한다.
-                // 포스트시즌에 무승부를 남기지 않으면서 무한 이닝을 막기 위한 안전장치다.
-                if (_random.NextDouble() < 0.5d)
-                    state.Away.BoxScore.AddRun(inningsPlayed);
-                else
-                    state.Home.BoxScore.AddRun(inningsPlayed);
-            }
-
-            Emit(
-                state,
-                MatchEventType.MatchEnded,
-                inningsPlayed,
-                InningHalf.Bottom,
-                0,
-                0,
-                0,
-                PitchResult.None,
-                PlateAppearanceResult.None,
-                0,
-                0,
-                0,
-                0,
-                0);
-
-            MatchEvent[] events = capturedEvents == null ? Array.Empty<MatchEvent>() : capturedEvents.ToArray();
-            return new MatchResult(
-                input,
-                inningsPlayed,
-                state.Away.BoxScore.Build(inningsPlayed),
-                state.Home.BoxScore.Build(inningsPlayed),
-                events);
+            return new DetailedMatchEngine(
+                    _balance,
+                    _randomStreams,
+                    _plateAppearanceSimulator,
+                    _decisionSource,
+                    _pitchingDecisionSource,
+                    _decisionCoordinator)
+                .Simulate(input, eventSink, capturedEvents);
         }
 
         private void SimulateHalfInning(MatchSimulationState state, int inning, InningHalf half)
@@ -384,14 +454,5 @@ namespace Baseball.Simulation.Match
             return approach;
         }
 
-        private sealed class MatchDecisionRequiredSignal : Exception
-        {
-            public MatchDecisionRequiredSignal(MatchDecisionRequest request)
-            {
-                Request = request;
-            }
-
-            public MatchDecisionRequest Request { get; }
-        }
     }
 }

@@ -3,7 +3,7 @@ using Baseball.Simulation.PlateAppearance;
 
 namespace Baseball.Tests.EditMode.Simulation
 {
-    internal sealed class ScriptedPlateAppearanceSimulator : IPlateAppearanceSimulator
+    internal sealed class ScriptedPlateAppearanceSimulator : IPreResolvedBallInPlaySimulator
     {
         private readonly PlateAppearanceResult[] _results;
         private readonly PlateAppearanceResult _defaultResult;

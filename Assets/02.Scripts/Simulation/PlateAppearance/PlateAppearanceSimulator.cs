@@ -12,7 +12,10 @@ namespace Baseball.Simulation.PlateAppearance
     public sealed class PlateAppearanceSimulator : IPlateAppearanceSimulator
     {
         private readonly BalanceTable _balance;
-        private readonly IRandomSource _random;
+        private readonly IRandomSource _pitchOutcomeRandom;
+        private readonly IRandomSource _swingDecisionRandom;
+        private readonly IRandomSource _contactRandom;
+        private readonly IRandomSource _battedBallRandom;
 
         /// <summary>
         /// 타석 시뮬레이터를 순수 데이터와 결정론적 RNG로 구성한다.
@@ -20,7 +23,24 @@ namespace Baseball.Simulation.PlateAppearance
         public PlateAppearanceSimulator(BalanceTable balance, IRandomSource random)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
-            _random = random ?? throw new ArgumentNullException(nameof(random));
+            if (random == null) throw new ArgumentNullException(nameof(random));
+            _pitchOutcomeRandom = random;
+            _swingDecisionRandom = random;
+            _contactRandom = random;
+            _battedBallRandom = random;
+        }
+
+        /// <summary>
+        /// 투구·스윙·컨택·타구 수열을 분리한 V2 타석 시뮬레이터를 구성한다.
+        /// </summary>
+        public PlateAppearanceSimulator(BalanceTable balance, MatchRandomStreams randomStreams)
+        {
+            _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            if (randomStreams == null) throw new ArgumentNullException(nameof(randomStreams));
+            _pitchOutcomeRandom = randomStreams.PitchOutcome;
+            _swingDecisionRandom = randomStreams.SwingDecision;
+            _contactRandom = randomStreams.Contact;
+            _battedBallRandom = randomStreams.BattedBall;
         }
 
         /// <summary>
@@ -94,19 +114,18 @@ namespace Baseball.Simulation.PlateAppearance
             PlateDisciplineBalance tuning = _balance.PlateDiscipline;
             BattingApproachModifier approachModifier = _balance.BattingApproach.GetModifier(approach);
             BatterAttributes batter = matchup.Batter.BatterAttributes;
-            PitcherAttributes pitcher = matchup.Pitcher.PitcherAttributes;
-
             double mentalAdjustment = matchup.HasRunnerInScoringPosition
-                ? (pitcher.Mental - 50d) * 0.15d
+                ? (matchup.EffectiveMental - 50d) * 0.15d
                 : 0d;
-            double effectiveControl = pitcher.Control + mentalAdjustment;
-            double effectiveStuff = pitcher.Stuff + mentalAdjustment;
-            double effectiveVelocity = pitcher.Velocity + mentalAdjustment;
+            double effectiveControl = matchup.EffectiveControl + mentalAdjustment;
+            double effectiveStuff = matchup.EffectiveStuff + mentalAdjustment;
+            double effectiveVelocity = matchup.EffectiveVelocity + mentalAdjustment;
             double strikeZoneProbability = ClampProbability(
                 tuning.StrikeZoneProbability +
-                (effectiveControl - 50d) * tuning.ControlStrikeZoneWeight);
+                (effectiveControl - 50d) * tuning.ControlStrikeZoneWeight +
+                GetStrikeZoneAdjustment(matchup.PitchingApproach));
 
-            bool isStrike = _random.NextDouble() < strikeZoneProbability;
+            bool isStrike = _pitchOutcomeRandom.NextDouble() < strikeZoneProbability;
             if (!isStrike)
             {
                 return ResolvePitchOutsideZone(
@@ -124,7 +143,7 @@ namespace Baseball.Simulation.PlateAppearance
                 tuning.StrikeSwingProbability +
                 (batter.Mental - 50d) * tuning.MentalStrikeSwingWeight +
                 approachModifier.StrikeSwingAdjustment);
-            if (_random.NextDouble() >= swingProbability)
+            if (_swingDecisionRandom.NextDouble() >= swingProbability)
                 return PitchResult.CalledStrike;
 
             double contactProbability = CalculateContactProbability(
@@ -150,34 +169,37 @@ namespace Baseball.Simulation.PlateAppearance
             BattedBallBalance tuning = _balance.BattedBall;
             BattingApproachModifier approachModifier = _balance.BattingApproach.GetModifier(approach);
             BatterAttributes batter = matchup.Batter.BatterAttributes;
-            PitcherAttributes pitcher = matchup.Pitcher.PitcherAttributes;
+            double effectiveBreaking = matchup.EffectiveBreaking;
 
             double homeRunProbability = Clamp(
                 tuning.HomeRunProbability +
                 (batter.Power - 50d) * tuning.PowerHomeRunWeight -
-                (pitcher.Breaking - 50d) * tuning.BreakingHomeRunWeight +
-                approachModifier.HomeRunAdjustment,
+                (effectiveBreaking - 50d) * tuning.BreakingHomeRunWeight +
+                approachModifier.HomeRunAdjustment +
+                matchup.HardHitAdjustment,
                 0.005d,
                 0.16d);
-            if (_random.NextDouble() < homeRunProbability)
+            if (_battedBallRandom.NextDouble() < homeRunProbability)
                 return PlateAppearanceResult.HomeRun;
 
             double hitProbability = Clamp(
                 tuning.NonHomeRunHitProbability +
-                (batter.Contact - 50d) * tuning.ContactHitWeight -
-                (pitcher.Breaking - 50d) * tuning.BreakingHitWeight -
+                (batter.Contact + matchup.BatterContactAdjustment - 50d) * tuning.ContactHitWeight -
+                (effectiveBreaking - 50d) * tuning.BreakingHitWeight -
                 (matchup.DefenseRating - 50d) * tuning.DefenseHitWeight +
-                approachModifier.NonHomeRunHitAdjustment,
+                approachModifier.NonHomeRunHitAdjustment +
+                matchup.HardHitAdjustment * 0.5d,
                 0.12d,
                 0.48d);
-            if (_random.NextDouble() < hitProbability)
-                return ResolveHitType(tuning, batter, pitcher, approachModifier);
+            if (_battedBallRandom.NextDouble() < hitProbability)
+                return ResolveHitType(tuning, batter, effectiveBreaking, approachModifier);
 
             double groundOutProbability = ClampProbability(
                 tuning.GroundOutShare +
-                (pitcher.Breaking - 50d) * tuning.BreakingGroundOutWeight -
-                (batter.Power - 50d) * tuning.PowerGroundOutWeight);
-            return _random.NextDouble() < groundOutProbability
+                (effectiveBreaking - 50d) * tuning.BreakingGroundOutWeight -
+                (batter.Power - 50d) * tuning.PowerGroundOutWeight +
+                GetGroundBallAdjustment(matchup.PitchingApproach));
+            return _battedBallRandom.NextDouble() < groundOutProbability
                 ? PlateAppearanceResult.GroundOut
                 : PlateAppearanceResult.FlyOut;
         }
@@ -198,7 +220,7 @@ namespace Baseball.Simulation.PlateAppearance
                 (effectiveControl - 50d) * tuning.ControlHitByPitchWeight,
                 0d,
                 0.02d);
-            if (_random.NextDouble() < hitByPitchProbability)
+            if (_pitchOutcomeRandom.NextDouble() < hitByPitchProbability)
                 return PitchResult.HitByPitch;
 
             double chaseProbability = ClampProbability(
@@ -207,7 +229,7 @@ namespace Baseball.Simulation.PlateAppearance
                 (effectiveStuff - 50d) * tuning.StuffChaseWeight +
                 (effectiveVelocity - 50d) * tuning.VelocityChaseWeight +
                 approachModifier.ChaseAdjustment);
-            if (_random.NextDouble() >= chaseProbability)
+            if (_swingDecisionRandom.NextDouble() >= chaseProbability)
                 return PitchResult.Ball;
 
             double contactProbability = CalculateContactProbability(
@@ -228,10 +250,10 @@ namespace Baseball.Simulation.PlateAppearance
             double fairContactProbability,
             int pitchNumber)
         {
-            if (_random.NextDouble() >= contactProbability)
+            if (_contactRandom.NextDouble() >= contactProbability)
                 return PitchResult.SwingingStrike;
 
-            bool isFair = _random.NextDouble() < fairContactProbability;
+            bool isFair = _contactRandom.NextDouble() < fairContactProbability;
             if (isFair || pitchNumber >= BaseballRules.MaximumPitchesPerPlateAppearance)
                 return PitchResult.InPlay;
 
@@ -242,7 +264,7 @@ namespace Baseball.Simulation.PlateAppearance
         private PlateAppearanceResult ResolveHitType(
             BattedBallBalance tuning,
             BatterAttributes batter,
-            PitcherAttributes pitcher,
+            double effectiveBreaking,
             BattingApproachModifier approachModifier)
         {
             double tripleShare = Clamp(
@@ -252,11 +274,11 @@ namespace Baseball.Simulation.PlateAppearance
             double doubleShare = Clamp(
                 tuning.DoubleShare +
                 (batter.Power - 50d) * tuning.PowerDoubleWeight -
-                (pitcher.Breaking - 50d) * tuning.BreakingDoubleWeight +
+                (effectiveBreaking - 50d) * tuning.BreakingDoubleWeight +
                 approachModifier.DoubleShareAdjustment,
                 0.08d,
                 0.38d);
-            double hitTypeRoll = _random.NextDouble();
+            double hitTypeRoll = _battedBallRandom.NextDouble();
 
             if (hitTypeRoll < tripleShare)
                 return PlateAppearanceResult.Triple;
@@ -274,7 +296,10 @@ namespace Baseball.Simulation.PlateAppearance
             double approachContactAdjustment)
         {
             double platoonAdjustment = GetPlatoonContactAdjustment(tuning, matchup);
-            double contactDifference = matchup.Batter.BatterAttributes.Contact + platoonAdjustment - effectiveStuff;
+            double contactDifference = matchup.Batter.BatterAttributes.Contact +
+                                       matchup.BatterContactAdjustment +
+                                       platoonAdjustment -
+                                       effectiveStuff;
             double velocityPenalty = (effectiveVelocity - 50d) * tuning.VelocityContactWeight;
             return ClampProbability(
                 baseProbability +
@@ -293,6 +318,24 @@ namespace Baseball.Simulation.PlateAppearance
                 return tuning.OppositeHandedContactBonus;
 
             return -tuning.SameHandedContactPenalty;
+        }
+
+        private static double GetStrikeZoneAdjustment(PitchingApproach approach)
+        {
+            return approach switch
+            {
+                PitchingApproach.AttackZone => 0.06d,
+                PitchingApproach.Nibble => -0.05d,
+                PitchingApproach.Strikeout => -0.03d,
+                PitchingApproach.PitchAround => -0.12d,
+                PitchingApproach.GroundBall => 0.01d,
+                _ => 0d
+            };
+        }
+
+        private static double GetGroundBallAdjustment(PitchingApproach approach)
+        {
+            return approach == PitchingApproach.GroundBall ? 0.10d : 0d;
         }
 
         private static double ClampProbability(double value)

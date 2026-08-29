@@ -45,17 +45,32 @@ namespace Baseball.Core.Balance
             BattingApproachModifier contact,
             BattingApproachModifier power,
             BattingApproachModifier patient)
+            : this(balanced, contact, power, patient, balanced, balanced)
+        {
+        }
+
+        public BattingApproachBalance(
+            BattingApproachModifier balanced,
+            BattingApproachModifier contact,
+            BattingApproachModifier power,
+            BattingApproachModifier patient,
+            BattingApproachModifier aggressive,
+            BattingApproachModifier bunt)
         {
             Balanced = balanced;
             Contact = contact;
             Power = power;
             Patient = patient;
+            Aggressive = aggressive;
+            Bunt = bunt;
         }
 
         public BattingApproachModifier Balanced { get; }
         public BattingApproachModifier Contact { get; }
         public BattingApproachModifier Power { get; }
         public BattingApproachModifier Patient { get; }
+        public BattingApproachModifier Aggressive { get; }
+        public BattingApproachModifier Bunt { get; }
 
         /// <summary>
         /// 선택한 타격 방식에 대응하는 보정값을 반환한다.
@@ -68,6 +83,8 @@ namespace Baseball.Core.Balance
                 BattingApproach.Contact => Contact,
                 BattingApproach.Power => Power,
                 BattingApproach.Patient => Patient,
+                BattingApproach.Aggressive => Aggressive,
+                BattingApproach.Bunt => Bunt,
                 _ => throw new ArgumentOutOfRangeException(nameof(approach))
             };
         }
@@ -81,7 +98,9 @@ namespace Baseball.Core.Balance
                 balanced: new BattingApproachModifier(0d, 0d, 0d, 0d, 0d, 0d, 0d),
                 contact: new BattingApproachModifier(0.03d, -0.02d, 0.10d, -0.02d, -0.025d, 0.015d, -0.06d),
                 power: new BattingApproachModifier(0.05d, 0.05d, -0.12d, 0.02d, 0.035d, -0.015d, 0.06d),
-                patient: new BattingApproachModifier(-0.18d, -0.12d, 0.02d, 0d, -0.005d, 0d, -0.01d));
+                patient: new BattingApproachModifier(-0.18d, -0.12d, 0.02d, 0d, -0.005d, 0d, -0.01d),
+                aggressive: new BattingApproachModifier(0.08d, 0.04d, -0.04d, 0.01d, 0.010d, 0d, 0.01d),
+                bunt: new BattingApproachModifier(-0.22d, -0.18d, 0.04d, -0.08d, -0.04d, -0.03d, -0.08d));
         }
     }
 }

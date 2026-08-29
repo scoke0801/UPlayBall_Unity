@@ -26,7 +26,32 @@ namespace Baseball.Simulation.Match
         PlateAppearanceEnded = 6,
         HalfInningEnded = 7,
         MatchEnded = 8,
-        PlayerSubstitution = 9
+        PlayerSubstitution = 9,
+        PitcherEntered = 10,
+        PitcherRemoved = 11,
+        PinchHitterEntered = 12,
+        PinchRunnerEntered = 13,
+        DefensiveReplacement = 14,
+        PositionChanged = 15,
+        BattingApproachSelected = 16,
+        PitchingApproachSelected = 17,
+        StealAttempted = 18,
+        StealSucceeded = 19,
+        CaughtStealing = 20,
+        BuntAttempted = 21,
+        BuntResolved = 22,
+        IntentionalWalk = 23,
+        DefensiveAlignmentChanged = 24,
+        FieldingPlayStarted = 25,
+        FieldingError = 26,
+        ThrowingError = 27,
+        DoublePlay = 28,
+        FieldersChoice = 29,
+        RunnerThrownOut = 30,
+        PitcherFatigueBandChanged = 31,
+        HighLeverageSituationStarted = 32,
+        GameTiedAtRegulationLimit = 33,
+        MatchEndedAsDraw = 34
     }
 
     /// <summary>
@@ -53,7 +78,8 @@ namespace Baseball.Simulation.Match
             int strikes,
             int outs,
             int awayScore,
-            int homeScore)
+            int homeScore,
+            DecisionReasonCode reasonCode = DecisionReasonCode.None)
         {
             Sequence = sequence;
             EventType = eventType;
@@ -71,6 +97,7 @@ namespace Baseball.Simulation.Match
             Outs = outs;
             AwayScore = awayScore;
             HomeScore = homeScore;
+            ReasonCode = reasonCode;
         }
 
         public int Sequence { get; }
@@ -89,6 +116,7 @@ namespace Baseball.Simulation.Match
         public int Outs { get; }
         public int AwayScore { get; }
         public int HomeScore { get; }
+        public DecisionReasonCode ReasonCode { get; }
 
         /// <summary>
         /// 결정론 테스트를 위해 모든 이벤트 필드가 같은지 비교한다.
@@ -110,7 +138,8 @@ namespace Baseball.Simulation.Match
                    Strikes == other.Strikes &&
                    Outs == other.Outs &&
                    AwayScore == other.AwayScore &&
-                   HomeScore == other.HomeScore;
+                   HomeScore == other.HomeScore &&
+                   ReasonCode == other.ReasonCode;
         }
 
         /// <summary>
@@ -144,6 +173,7 @@ namespace Baseball.Simulation.Match
                 hash = hash * 397 ^ Outs;
                 hash = hash * 397 ^ AwayScore;
                 hash = hash * 397 ^ HomeScore;
+                hash = hash * 397 ^ (int)ReasonCode;
                 return hash;
             }
         }

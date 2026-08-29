@@ -21,13 +21,18 @@ namespace Baseball.Tests.EditMode.Simulation
             int controlledPlayerId = input.AwayTeam.Lineup[0].Player.PlayerId;
             var decisions = new List<BattingApproach>();
             MatchSimulationProgress progress = null;
+            var fixedCoordinator = new MatchDecisionCoordinator(
+                new FixedBalancedDecisionProvider(),
+                new FixedBalancedDecisionProvider());
 
             for (int index = 0; index < 128; index++)
             {
                 progress = new MatchSimulator(
                         BalanceTable.CreateDefault(),
-                        new Pcg32Random(input.RandomSeed),
-                        new RecordedMatchDecisionSource(controlledPlayerId, decisions))
+                        MatchRandomStreams.Create(input.RandomSeed),
+                        new RecordedMatchDecisionSource(controlledPlayerId, decisions),
+                        pitchingDecisionSource: null,
+                        decisionCoordinator: fixedCoordinator)
                     .SimulateUntilDecision(input);
                 if (progress.IsComplete)
                     break;
@@ -36,7 +41,8 @@ namespace Baseball.Tests.EditMode.Simulation
 
             MatchResult expected = new MatchSimulator(
                     BalanceTable.CreateDefault(),
-                    new Pcg32Random(input.RandomSeed))
+                    MatchRandomStreams.Create(input.RandomSeed),
+                    fixedCoordinator)
                 .Simulate(input);
 
             Assert.That(progress, Is.Not.Null);
@@ -49,7 +55,7 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void SimulateUntilDecision_선택이없으면내선수첫투구전에멈춘다()
+        public void SimulateUntilDecision_선택이없으면내선수첫타석전에멈춘다()
         {
             MatchInput input = CreateInput(777UL);
             int controlledPlayerId = input.AwayTeam.Lineup[0].Player.PlayerId;
@@ -66,6 +72,45 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(progress.PendingDecision.Value.PitchNumber, Is.EqualTo(1));
             Assert.That(progress.PendingDecision.Value.Balls, Is.EqualTo(0));
             Assert.That(progress.PendingDecision.Value.Strikes, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SimulateUntilDecision_플레이어투수는첫상대타석전에투구방침을기다린다()
+        {
+            MatchInput input = CreateInput(778UL);
+            int controlledPitcherId = input.HomeRoster.StartingPitcher.Player.PlayerId;
+            var pitchingDecisions = new List<PitchingApproach>();
+            var coordinator = new MatchDecisionCoordinator(
+                new FixedBalancedDecisionProvider(),
+                new FixedBalancedDecisionProvider());
+
+            MatchSimulationProgress first = new MatchSimulator(
+                    BalanceTable.CreateDefault(),
+                    MatchRandomStreams.Create(input.RandomSeed),
+                    decisionSource: null,
+                    new RecordedMatchPitchingDecisionSource(controlledPitcherId, pitchingDecisions),
+                    coordinator)
+                .SimulateUntilDecision(input);
+
+            Assert.That(first.IsComplete, Is.False);
+            Assert.That(first.PendingDecision.HasValue, Is.False);
+            Assert.That(first.PendingPitchingDecision.HasValue, Is.True);
+            Assert.That(first.PendingPitchingDecision.Value.PitcherId, Is.EqualTo(controlledPitcherId));
+            Assert.That(first.PendingPitchingDecision.Value.Inning, Is.EqualTo(1));
+            Assert.That(first.PendingPitchingDecision.Value.Outs, Is.Zero);
+
+            pitchingDecisions.Add(PitchingApproach.ControlFirst);
+            MatchSimulationProgress second = new MatchSimulator(
+                    BalanceTable.CreateDefault(),
+                    MatchRandomStreams.Create(input.RandomSeed),
+                    decisionSource: null,
+                    new RecordedMatchPitchingDecisionSource(controlledPitcherId, pitchingDecisions),
+                    coordinator)
+                .SimulateUntilDecision(input);
+
+            Assert.That(second.PendingPitchingDecision.HasValue, Is.True);
+            Assert.That(second.PendingPitchingDecision.Value.DecisionIndex, Is.EqualTo(1));
+            Assert.That(second.Events.Count, Is.GreaterThan(first.Events.Count));
         }
 
         [Test]

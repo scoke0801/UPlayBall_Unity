@@ -156,7 +156,7 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void Simulate_7회부터구원투수기록을별도로누적한다()
+        public void Simulate_피로기반교체후구원투수기록을별도로누적한다()
         {
             Team awayBase = SimulationTestFactory.CreateTeam(1, 50, 50);
             Team homeBase = SimulationTestFactory.CreateTeam(2, 50, 50);
@@ -171,10 +171,12 @@ namespace Baseball.Tests.EditMode.Simulation
             MatchResult result = simulator.Simulate(input);
 
             Assert.That(result.AwayBoxScore.PitchingLines.Count, Is.EqualTo(2));
-            Assert.That(result.AwayBoxScore.PitchingLines[0].OutsRecorded, Is.EqualTo(18));
-            Assert.That(result.AwayBoxScore.PitchingLines[1].OutsRecorded, Is.EqualTo(18));
-            Assert.That(result.HomeBoxScore.PitchingLines[0].OutsRecorded, Is.EqualTo(18));
-            Assert.That(result.HomeBoxScore.PitchingLines[1].OutsRecorded, Is.EqualTo(18));
+            Assert.That(result.AwayBoxScore.PitchingLines[0].OutsRecorded, Is.GreaterThan(0));
+            Assert.That(result.AwayBoxScore.PitchingLines[1].OutsRecorded, Is.GreaterThan(0));
+            Assert.That(result.HomeBoxScore.PitchingLines[0].OutsRecorded, Is.GreaterThan(0));
+            Assert.That(result.HomeBoxScore.PitchingLines[1].OutsRecorded, Is.GreaterThan(0));
+            Assert.That(result.AwayBoxScore.PitchingLines.Sum(line => line.OutsRecorded), Is.EqualTo(36));
+            Assert.That(result.HomeBoxScore.PitchingLines.Sum(line => line.OutsRecorded), Is.EqualTo(36));
         }
 
         [Test]
@@ -191,7 +193,9 @@ namespace Baseball.Tests.EditMode.Simulation
             var simulator = new MatchSimulator(
                 BalanceTable.CreateDefault(),
                 new SequenceRandom(0.25d),
-                new ScriptedPlateAppearanceSimulator(PlateAppearanceResult.Strikeout));
+                new ScriptedPlateAppearanceSimulator(
+                    PlateAppearanceResult.Strikeout,
+                    PlateAppearanceResult.HomeRun));
 
             MatchResult result = simulator.Simulate(input);
 
@@ -227,7 +231,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 targetSlot.FieldingPosition,
                 Handedness.Left,
                 Handedness.Right,
-                new BatterAttributes(55, 50, 52, 40, 50, 50),
+                    new BatterAttributes(100, 100, 75, 70, 50, 80),
                 new PitcherAttributes(20, 20, 20, 20, 20, 20));
             var substitution = new PositionPlayerSubstitutionPlan(
                 substitute,
@@ -256,7 +260,7 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(progress.PendingDecision.Value.BatterId, Is.EqualTo(substitute.PlayerId));
             Assert.That(
                 progress.Events.Any(matchEvent =>
-                    matchEvent.EventType == MatchEventType.PlayerSubstitution &&
+                    matchEvent.EventType == MatchEventType.PinchHitterEntered &&
                     matchEvent.BatterId == substitute.PlayerId &&
                     matchEvent.PlayerId == targetSlot.Player.PlayerId),
                 Is.True);

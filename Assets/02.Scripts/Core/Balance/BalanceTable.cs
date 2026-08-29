@@ -78,7 +78,8 @@ namespace Baseball.Core.Balance
             TradeMarketBalance? tradeMarket = null,
             PlayerLifecycleBalance? playerLifecycle = null,
             LeagueMovementBalance? leagueMovement = null,
-            ManagerLineupBalance? managerLineup = null)
+            ManagerLineupBalance? managerLineup = null,
+            MatchBalanceTable match = null)
         {
             Version = version;
             PlateDiscipline = plateDiscipline;
@@ -102,6 +103,7 @@ namespace Baseball.Core.Balance
             PlayerLifecycle = playerLifecycle ?? PlayerLifecycleBalance.CreateDefault();
             LeagueMovement = leagueMovement ?? LeagueMovementBalance.CreateDefault();
             ManagerLineup = managerLineup ?? ManagerLineupBalance.CreateDefault();
+            Match = match ?? MatchBalanceTable.CreateDefault();
             SeasonAwards = SeasonAwardBalance.CreateDefault();
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
         }
@@ -128,6 +130,7 @@ namespace Baseball.Core.Balance
         public PlayerLifecycleBalance PlayerLifecycle { get; }
         public LeagueMovementBalance LeagueMovement { get; }
         public ManagerLineupBalance ManagerLineup { get; }
+        public MatchBalanceTable Match { get; }
         public SeasonAwardBalance SeasonAwards { get; }
         public SeasonSettlementBalance SeasonSettlement { get; }
 
@@ -141,7 +144,7 @@ namespace Baseball.Core.Balance
             // Velocity는 Stuff와 대칭인 헛스윙 유발 축으로 신설했고, 계수는 Stuff의 절반으로 시작해
             // 급격한 밸런스 이동 없이 "구속만 높고 구위가 낮으면 삼진은 늘어도 맞으면 크게 맞는다"를 재현한다.
             var plateDiscipline = new PlateDisciplineBalance(
-                strikeZoneProbability: 0.50d,
+                strikeZoneProbability: 0.522d,
                 controlStrikeZoneWeight: 0.0020d,
                 strikeSwingProbability: 0.67d,
                 mentalStrikeSwingWeight: 0.0010d,
@@ -149,8 +152,8 @@ namespace Baseball.Core.Balance
                 mentalChaseWeight: 0.0020d,
                 stuffChaseWeight: 0.0007d,
                 velocityChaseWeight: 0.00035d,
-                strikeContactProbability: 0.76d,
-                chaseContactProbability: 0.58d,
+                strikeContactProbability: 0.715d,
+                chaseContactProbability: 0.55d,
                 contactMatchupWeight: 0.0030d,
                 velocityContactWeight: 0.0015d,
                 fairContactProbability: 0.72d,
@@ -195,7 +198,7 @@ namespace Baseball.Core.Balance
                 doublePlayDefenseWeight: 0.0020d);
 
             return new BalanceTable(
-                1,
+                2,
                 plateDiscipline,
                 battedBall,
                 baseRunning,

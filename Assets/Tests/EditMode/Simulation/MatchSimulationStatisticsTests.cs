@@ -23,15 +23,19 @@ namespace Baseball.Tests.EditMode.Simulation
             BalanceTable balance = BalanceTable.CreateDefault();
             Team averageA = SimulationTestFactory.CreateTeam(1, 50, 50);
             Team averageB = SimulationTestFactory.CreateTeam(2, 50, 50);
+            MatchRosterSnapshot averageRosterA = SimulationTestFactory.CreateDetailedRoster(averageA);
+            MatchRosterSnapshot averageRosterB = SimulationTestFactory.CreateDetailedRoster(averageB);
             var totals = new LeagueBattingTotals();
 
             for (int game = 0; game < EqualTeamGames; game++)
             {
-                Team away = game % 2 == 0 ? averageA : averageB;
-                Team home = game % 2 == 0 ? averageB : averageA;
+                MatchRosterSnapshot away = game % 2 == 0 ? averageRosterA : averageRosterB;
+                MatchRosterSnapshot home = game % 2 == 0 ? averageRosterB : averageRosterA;
                 ulong seed = (ulong)(100000 + game);
-                var input = new MatchInput(1, game + 1, seed, away, home);
-                MatchResult result = new MatchSimulator(balance, new Pcg32Random(seed))
+                var input = new MatchInput(
+                    1, game + 1, seed, away, home,
+                    Baseball.Core.Rules.MatchRules.CreateDefault(requiresWinner: false));
+                MatchResult result = new MatchSimulator(balance, MatchRandomStreams.Create(seed))
                     .Simulate(input, NullMatchEventSink.Instance);
                 totals.Add(result.AwayBoxScore);
                 totals.Add(result.HomeBoxScore);
@@ -39,17 +43,21 @@ namespace Baseball.Tests.EditMode.Simulation
 
             Team strongTeam = SimulationTestFactory.CreateTeam(3, 56, 56, 56);
             Team weakTeam = SimulationTestFactory.CreateTeam(4, 48, 48, 48);
+            MatchRosterSnapshot strongRoster = SimulationTestFactory.CreateDetailedRoster(strongTeam);
+            MatchRosterSnapshot weakRoster = SimulationTestFactory.CreateDetailedRoster(weakTeam);
             int strongWins = 0;
             int ties = 0;
 
             for (int game = 0; game < StrengthComparisonGames; game++)
             {
                 bool strongIsAway = game % 2 == 0;
-                Team away = strongIsAway ? strongTeam : weakTeam;
-                Team home = strongIsAway ? weakTeam : strongTeam;
+                MatchRosterSnapshot away = strongIsAway ? strongRoster : weakRoster;
+                MatchRosterSnapshot home = strongIsAway ? weakRoster : strongRoster;
                 ulong seed = (ulong)(200000 + game);
-                var input = new MatchInput(1, EqualTeamGames + game + 1, seed, away, home);
-                MatchResult result = new MatchSimulator(balance, new Pcg32Random(seed))
+                var input = new MatchInput(
+                    1, EqualTeamGames + game + 1, seed, away, home,
+                    Baseball.Core.Rules.MatchRules.CreateDefault(requiresWinner: false));
+                MatchResult result = new MatchSimulator(balance, MatchRandomStreams.Create(seed))
                     .Simulate(input, NullMatchEventSink.Instance);
 
                 if (result.IsTie)
@@ -77,7 +85,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 : (double)totals.HitByPitches / totals.PlateAppearances;
             double strongWinRate = (double)strongWins / StrengthComparisonGames;
 
-            TestContext.WriteLine(
+            System.Console.WriteLine(
                 $"AVG {battingAverage:F3} / OBP {onBasePercentage:F3} / SLG {sluggingPercentage:F3} / " +
                 $"R/G {runsPerTeamGame:F2} / BB% {walkRate:P1} / SO% {strikeoutRate:P1} / " +
                 $"HBP% {hitByPitchRate:P2} / Strong W% {strongWinRate:P1} / Ties {ties}");
@@ -124,6 +132,9 @@ namespace Baseball.Tests.EditMode.Simulation
             Team enhanced = CreateTeamWithLeadoffContact(11, stableContact);
             Team baseline = CreateTeamWithLeadoffContact(11, 50);
             Team opponent = CreateTeamWithLeadoffContact(12, 50);
+            MatchRosterSnapshot enhancedRoster = SimulationTestFactory.CreateDetailedRoster(enhanced);
+            MatchRosterSnapshot baselineRoster = SimulationTestFactory.CreateDetailedRoster(baseline);
+            MatchRosterSnapshot opponentRoster = SimulationTestFactory.CreateDetailedRoster(opponent);
             int enhancedAtBats = 0;
             int enhancedHits = 0;
             int baselineAtBats = 0;
@@ -135,15 +146,19 @@ namespace Baseball.Tests.EditMode.Simulation
             {
                 bool playerTeamIsAway = scenario % 2 == 0;
                 ulong seed = (ulong)(700000 + scenario);
-                Team baselineAway = playerTeamIsAway ? baseline : opponent;
-                Team baselineHome = playerTeamIsAway ? opponent : baseline;
-                MatchResult baselineResult = new MatchSimulator(balance, new Pcg32Random(seed)).Simulate(
-                    new MatchInput(1, scenario * 2 + 1, seed, baselineAway, baselineHome),
+                MatchRosterSnapshot baselineAway = playerTeamIsAway ? baselineRoster : opponentRoster;
+                MatchRosterSnapshot baselineHome = playerTeamIsAway ? opponentRoster : baselineRoster;
+                MatchResult baselineResult = new MatchSimulator(balance, MatchRandomStreams.Create(seed)).Simulate(
+                    new MatchInput(
+                        1, scenario * 2 + 1, seed, baselineAway, baselineHome,
+                        Baseball.Core.Rules.MatchRules.CreateDefault(requiresWinner: false)),
                     NullMatchEventSink.Instance);
-                Team enhancedAway = playerTeamIsAway ? enhanced : opponent;
-                Team enhancedHome = playerTeamIsAway ? opponent : enhanced;
-                MatchResult enhancedResult = new MatchSimulator(balance, new Pcg32Random(seed)).Simulate(
-                    new MatchInput(1, scenario * 2 + 2, seed, enhancedAway, enhancedHome),
+                MatchRosterSnapshot enhancedAway = playerTeamIsAway ? enhancedRoster : opponentRoster;
+                MatchRosterSnapshot enhancedHome = playerTeamIsAway ? opponentRoster : enhancedRoster;
+                MatchResult enhancedResult = new MatchSimulator(balance, MatchRandomStreams.Create(seed)).Simulate(
+                    new MatchInput(
+                        1, scenario * 2 + 2, seed, enhancedAway, enhancedHome,
+                        Baseball.Core.Rules.MatchRules.CreateDefault(requiresWinner: false)),
                     NullMatchEventSink.Instance);
                 TeamBoxScore enhancedBox = playerTeamIsAway
                     ? enhancedResult.AwayBoxScore
@@ -163,11 +178,11 @@ namespace Baseball.Tests.EditMode.Simulation
 
             double enhancedAverage = enhancedHits / (double)enhancedAtBats;
             double baselineAverage = baselineHits / (double)baselineAtBats;
-            TestContext.WriteLine(
-                $"Epic Contact +4 / Enhanced AVG {enhancedAverage:F3} / " +
+            System.Console.WriteLine(
+                $"Unique Contact +5 / Enhanced AVG {enhancedAverage:F3} / " +
                 $"Baseline AVG {baselineAverage:F3} / W-L {enhancedWins}-{baselineWins}");
 
-            Assert.That(stableContact, Is.EqualTo(54));
+            Assert.That(stableContact, Is.EqualTo(55));
             Assert.That(enhancedAverage, Is.GreaterThan(baselineAverage));
             Assert.That(growth.BaseAbilities.Get(PlayerAbility.Contact), Is.EqualTo(50));
         }

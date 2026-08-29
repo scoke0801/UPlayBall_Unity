@@ -1,5 +1,6 @@
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Tests.EditMode.Simulation
@@ -53,6 +54,40 @@ namespace Baseball.Tests.EditMode.Simulation
                     pitcherRating,
                     pitcherRating));
             return new Team(teamId, $"테스트 {teamId}팀", new Lineup(slots), pitcher);
+        }
+
+        public static MatchRosterSnapshot CreateDetailedRoster(Team team)
+        {
+            PitcherAttributes ratings = team.StartingPitcher.PitcherAttributes;
+            var bullpen = new PitcherRosterEntry[4];
+            for (int index = 0; index < bullpen.Length; index++)
+            {
+                var pitcher = new Player(
+                    team.TeamId * 10000 + index + 1,
+                    $"{team.Name} 구원 {index + 1}",
+                    PlayerPosition.ReliefPitcher,
+                    Handedness.Right,
+                    index % 2 == 0 ? Handedness.Left : Handedness.Right,
+                    new BatterAttributes(20, 20, 30, 20, 45, 40),
+                    ratings);
+                PitcherRole role = index switch
+                {
+                    0 => PitcherRole.LongRelief,
+                    2 => PitcherRole.Setup,
+                    3 => PitcherRole.Closer,
+                    _ => PitcherRole.MiddleRelief
+                };
+                bullpen[index] = new PitcherRosterEntry(pitcher, role);
+            }
+            return new MatchRosterSnapshot(
+                team.TeamId,
+                team.Name,
+                team.Lineup,
+                new PitcherRosterEntry(team.StartingPitcher, PitcherRole.Starter),
+                bullpen,
+                System.Array.Empty<Player>(),
+                ManagerTacticalProfile.Balanced,
+                RunningApproach.Balanced);
         }
     }
 

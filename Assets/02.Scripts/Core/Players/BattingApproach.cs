@@ -8,6 +8,8 @@ namespace Baseball.Core.Players
         Balanced = 0,
         Contact = 1,
         Power = 2,
-        Patient = 3
+        Patient = 3,
+        Aggressive = 4,
+        Bunt = 5
     }
 }
