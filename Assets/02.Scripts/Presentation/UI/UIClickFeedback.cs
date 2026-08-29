@@ -14,17 +14,17 @@ namespace Baseball.Presentation.UI
         /// <summary>모든 UI 위에 그리기 위해 System 레이어보다 높은 정렬 순서를 사용한다.</summary>
         private const int SortingOrder = 500;
 
-        /// <summary>UI 지침 5.2의 포커스 링 토큰(#8CC2FF).</summary>
-        [SerializeField] private Color _ringColor = new(0.549f, 0.761f, 1f, 0.85f);
+        /// <summary>UI 지침 5.2의 포커스 링 토큰(#8CC2FF). 화면을 가리지 않도록 알파를 낮게 잡는다.</summary>
+        [SerializeField] private Color _ringColor = new(0.549f, 0.761f, 1f, 0.38f);
 
         /// <summary>UI 지침 5.2의 주요 블루 토큰(#438FF5).</summary>
-        [SerializeField] private Color _coreColor = new(0.263f, 0.561f, 0.961f, 0.55f);
+        [SerializeField] private Color _coreColor = new(0.263f, 0.561f, 0.961f, 0.22f);
 
-        /// <summary>UI 지침 10.1의 Hover·Pressed 대역보다 약간 길게 잡아 확산이 눈에 보이도록 한다.</summary>
-        [SerializeField] private float _duration = 0.28f;
-        [SerializeField] private float _startDiameter = 24f;
-        [SerializeField] private float _endDiameter = 96f;
-        [SerializeField] private float _coreDiameter = 18f;
+        /// <summary>UI 지침 10.1의 Hover·Pressed 대역(80–120ms) 상단. 눈에 남지 않고 스쳐 지나가는 길이.</summary>
+        [SerializeField] private float _duration = 0.16f;
+        [SerializeField] private float _startDiameter = 14f;
+        [SerializeField] private float _endDiameter = 42f;
+        [SerializeField] private float _coreDiameter = 8f;
         [SerializeField] private int _maxConcurrentRipples = 8;
 
         private readonly List<Ripple> _ripples = new();
@@ -58,7 +58,8 @@ namespace Baseball.Presentation.UI
         {
             _rect = (RectTransform)transform;
             _canvas = GetComponent<Canvas>();
-            _ringSprite = CreateRadialSprite(0.72f, 0.98f);
+            // 얇은 테두리로 만들어 클릭 지점을 가리지 않고 윤곽만 스치게 한다.
+            _ringSprite = CreateRadialSprite(0.86f, 0.99f);
             _discSprite = CreateRadialSprite(-1f, 0.94f);
         }
 
@@ -144,7 +145,7 @@ namespace Baseball.Presentation.UI
 
             // 중심 점은 링보다 먼저 사라져 "눌린 지점"만 짧게 찍히도록 한다.
             float coreProgress = Mathf.Clamp01(progress / 0.45f);
-            float coreDiameter = _coreDiameter * Mathf.Lerp(1f, 1.6f, coreProgress);
+            float coreDiameter = _coreDiameter * Mathf.Lerp(1f, 1.2f, coreProgress);
             ripple.Core.rectTransform.sizeDelta = new Vector2(coreDiameter, coreDiameter);
             SetAlpha(ripple.Core, _coreColor, 1f - coreProgress);
         }
