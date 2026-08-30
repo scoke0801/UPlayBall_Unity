@@ -83,12 +83,16 @@ namespace Baseball.Tests.EditMode.Simulation
             double hitByPitchRate = totals.PlateAppearances == 0
                 ? 0d
                 : (double)totals.HitByPitches / totals.PlateAppearances;
+            double homeRunRate = totals.PlateAppearances == 0
+                ? 0d
+                : (double)totals.HomeRuns / totals.PlateAppearances;
             double strongWinRate = (double)strongWins / StrengthComparisonGames;
 
             System.Console.WriteLine(
                 $"AVG {battingAverage:F3} / OBP {onBasePercentage:F3} / SLG {sluggingPercentage:F3} / " +
                 $"R/G {runsPerTeamGame:F2} / BB% {walkRate:P1} / SO% {strikeoutRate:P1} / " +
-                $"HBP% {hitByPitchRate:P2} / Strong W% {strongWinRate:P1} / Ties {ties}");
+                $"HR% {homeRunRate:P2} / HBP% {hitByPitchRate:P2} / " +
+                $"Strong W% {strongWinRate:P1} / Ties {ties}");
 
             Assert.That(battingAverage, Is.InRange(0.220d, 0.300d));
             Assert.That(onBasePercentage, Is.InRange(0.290d, 0.380d));
@@ -247,6 +251,7 @@ namespace Baseball.Tests.EditMode.Simulation
             public int Walks { get; private set; }
             public int HitByPitches { get; private set; }
             public int Strikeouts { get; private set; }
+            public int HomeRuns { get; private set; }
             public int SacrificeFlies { get; private set; }
             public int TotalBases { get; private set; }
             public int OnBaseDenominator => AtBats + Walks + HitByPitches + SacrificeFlies;
@@ -263,6 +268,7 @@ namespace Baseball.Tests.EditMode.Simulation
                     Walks += line.Walks;
                     HitByPitches += line.HitByPitches;
                     Strikeouts += line.Strikeouts;
+                    HomeRuns += line.HomeRuns;
                     SacrificeFlies += line.SacrificeFlies;
                     int singles = line.Hits - line.Doubles - line.Triples - line.HomeRuns;
                     TotalBases += singles + line.Doubles * 2 + line.Triples * 3 + line.HomeRuns * 4;

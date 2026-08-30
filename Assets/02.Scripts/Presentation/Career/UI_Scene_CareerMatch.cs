@@ -195,6 +195,11 @@ namespace Baseball.Presentation.Career
             }
 
             if (keyboard == null)
+            {
+                UpdateMiniGameInput(session, null);
+                return;
+            }
+            if (UpdateMiniGameInput(session, keyboard))
                 return;
             if (IsPitchingDecisionInputReady(session))
             {
@@ -304,12 +309,12 @@ namespace Baseball.Presentation.Career
                 ? "오늘은 등판 없이 회복하며 경기를 관전합니다."
                 : session.PlayerRole switch
                 {
-                    PlayerGameRole.StartingBatter =>
-                        "1회부터 타자 결과가 자동으로 흐르고, 내 타석에서는 직접 눌러 다음 투구를 진행합니다.",
+                PlayerGameRole.StartingBatter =>
+                        "내 타석에서 방망이 위치와 스윙 시점을 직접 결정할 수 있습니다.",
                     PlayerGameRole.Bench =>
                         "벤치에서 경기를 지켜보다 대타로 투입되면 자동 진행이 멈추고 내 타석 입력이 열립니다.",
                     PlayerGameRole.StartingPitcher or PlayerGameRole.ReliefPitcher =>
-                        "내 선수 때만 개입에서는 등판·새 이닝 시작에 투구 방침을 확인하고 이닝 단위로 진행합니다.",
+                        "직접 플레이에서는 구종 배합과 홈플레이트 목표 위치를 투구마다 결정합니다.",
                     _ => "1회부터 공격·수비와 주자 움직임을 자동 관전하고, 기용 결과를 경기 후 확인합니다."
                 };
             CreateText(
@@ -596,6 +601,11 @@ namespace Baseball.Presentation.Career
             CareerMatchPlaybackSnapshot snapshot,
             MatchProgressViewState view)
         {
+            if (IsMiniGameInputReady(session))
+            {
+                RenderMiniGameStage(panel, session);
+                return;
+            }
             switch (view.Flow)
             {
                 case MatchFlowState.SideChange:
@@ -1199,6 +1209,7 @@ namespace Baseball.Presentation.Career
                 MatchProgressMode.InterveneOnPlayer => "내 선수 때만 개입",
                 MatchProgressMode.PlayerFocusAutomatic => "내 선수 중심 자동",
                 MatchProgressMode.InstantResult => "즉시 결과",
+                MatchProgressMode.MiniGame => "직접 플레이",
                 _ => "내 선수 때만 개입"
             };
         }
@@ -1220,6 +1231,11 @@ namespace Baseball.Presentation.Career
                 MatchProgressMode.PlayerFocusAutomatic =>
                     "다른 선수는 빠르게 진행하고 내 선수 장면은 멈추지 않고 강조해 보여줍니다.",
                 MatchProgressMode.InstantResult => "연출을 생략하고 전체 경기를 한 번에 계산합니다.",
+                MatchProgressMode.MiniGame when canReceiveDecision =>
+                    isPitchingDecision
+                        ? "내 등판에서 구종과 목표 위치를 직접 선택하고 결과 판정은 시뮬레이션에 맡깁니다."
+                        : "내 타석에서 배트 위치와 스윙 시점을 직접 입력하고 타석 전체를 진행합니다.",
+                MatchProgressMode.MiniGame => "오늘 역할에는 직접 플레이할 선수 관여 상황이 없습니다.",
                 _ => string.Empty
             };
         }
@@ -1234,6 +1250,8 @@ namespace Baseball.Presentation.Career
                 MatchProgressMode.InterveneOnPlayer when canReceiveDecision =>
                     isPitchingDecision ? "자동 정지 · 새 투구 이닝" : "자동 정지 · 내 선수 타석",
                 MatchProgressMode.InstantResult => "배속 사용 안 함",
+                MatchProgressMode.MiniGame when canReceiveDecision =>
+                    isPitchingDecision ? "직접 입력 · 내 투구" : "직접 입력 · 내 타석",
                 _ => "자동 정지 없음"
             };
         }

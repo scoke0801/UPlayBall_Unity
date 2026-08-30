@@ -79,7 +79,8 @@ namespace Baseball.Simulation.Match
             int outs,
             int awayScore,
             int homeScore,
-            DecisionReasonCode reasonCode = DecisionReasonCode.None)
+            DecisionReasonCode reasonCode = DecisionReasonCode.None,
+            PitchPlayData pitchPlayData = default)
         {
             Sequence = sequence;
             EventType = eventType;
@@ -98,6 +99,7 @@ namespace Baseball.Simulation.Match
             AwayScore = awayScore;
             HomeScore = homeScore;
             ReasonCode = reasonCode;
+            PitchPlayData = pitchPlayData;
         }
 
         public int Sequence { get; }
@@ -117,6 +119,7 @@ namespace Baseball.Simulation.Match
         public int AwayScore { get; }
         public int HomeScore { get; }
         public DecisionReasonCode ReasonCode { get; }
+        public PitchPlayData PitchPlayData { get; }
 
         /// <summary>
         /// 결정론 테스트를 위해 모든 이벤트 필드가 같은지 비교한다.
@@ -139,7 +142,8 @@ namespace Baseball.Simulation.Match
                    Outs == other.Outs &&
                    AwayScore == other.AwayScore &&
                    HomeScore == other.HomeScore &&
-                   ReasonCode == other.ReasonCode;
+                   ReasonCode == other.ReasonCode &&
+                   PitchPlayData.Equals(other.PitchPlayData);
         }
 
         /// <summary>
@@ -174,6 +178,7 @@ namespace Baseball.Simulation.Match
                 hash = hash * 397 ^ AwayScore;
                 hash = hash * 397 ^ HomeScore;
                 hash = hash * 397 ^ (int)ReasonCode;
+                hash = hash * 397 ^ PitchPlayData.GetHashCode();
                 return hash;
             }
         }

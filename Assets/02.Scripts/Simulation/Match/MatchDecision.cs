@@ -205,16 +205,37 @@ namespace Baseball.Simulation.Match
             MatchDecisionRequest? pendingDecision,
             MatchPitchingDecisionRequest? pendingPitchingDecision,
             MatchEvent[] events)
+            : this(
+                result,
+                pendingDecision,
+                pendingPitchingDecision,
+                null,
+                null,
+                events)
+        {
+        }
+
+        internal MatchSimulationProgress(
+            MatchResult result,
+            MatchDecisionRequest? pendingDecision,
+            MatchPitchingDecisionRequest? pendingPitchingDecision,
+            PitchSelectionRequest? pendingPitchSelection,
+            BatterMiniGameRequest? pendingSwingExecution,
+            MatchEvent[] events)
         {
             Result = result;
             PendingDecision = pendingDecision;
             PendingPitchingDecision = pendingPitchingDecision;
+            PendingPitchSelection = pendingPitchSelection;
+            PendingSwingExecution = pendingSwingExecution;
             Events = events ?? Array.Empty<MatchEvent>();
         }
 
         public MatchResult Result { get; }
         public MatchDecisionRequest? PendingDecision { get; }
         public MatchPitchingDecisionRequest? PendingPitchingDecision { get; }
+        public PitchSelectionRequest? PendingPitchSelection { get; }
+        public BatterMiniGameRequest? PendingSwingExecution { get; }
         public IReadOnlyList<MatchEvent> Events { get; }
         public bool IsComplete => Result != null;
     }

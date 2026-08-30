@@ -24,7 +24,29 @@ namespace Baseball.Game.Career
         FullGameWatch = 0,
         InterveneOnPlayer = 1,
         PlayerFocusAutomatic = 2,
-        InstantResult = 3
+        InstantResult = 3,
+        MiniGame = 4
+    }
+
+    public enum PlayModeType
+    {
+        Simulation = 0,
+        MiniGame = 1
+    }
+
+    public enum MiniGameScope
+    {
+        AllInvolvement = 0,
+        KeyMoments = 1,
+        ManualIntervention = 2,
+        RecommendedByRole = 3
+    }
+
+    public enum MiniGameDifficulty
+    {
+        Beginner = 0,
+        Standard = 1,
+        Professional = 2
     }
 
     /// <summary>
@@ -44,6 +66,8 @@ namespace Baseball.Game.Career
             SetMatchProgressMode(matchProgressMode);
             SetGameSpeed(gameSpeed);
             AutoSlowOnPlayerEvent = autoSlowOnPlayerEvent;
+            MiniGameScope = MiniGameScope.RecommendedByRole;
+            MiniGameDifficulty = MiniGameDifficulty.Standard;
         }
 
         public BattingApproach BattingApproach { get; private set; }
@@ -51,6 +75,11 @@ namespace Baseball.Game.Career
         public MatchProgressMode MatchProgressMode { get; private set; }
         public int GameSpeed { get; private set; }
         public bool AutoSlowOnPlayerEvent { get; private set; }
+        public PlayModeType PlayMode => MatchProgressMode == MatchProgressMode.MiniGame
+            ? PlayModeType.MiniGame
+            : PlayModeType.Simulation;
+        public MiniGameScope MiniGameScope { get; private set; }
+        public MiniGameDifficulty MiniGameDifficulty { get; private set; }
 
         public void SetBattingApproach(BattingApproach approach)
         {
@@ -82,14 +111,31 @@ namespace Baseball.Game.Career
 
         public void SetAutoSlowOnPlayerEvent(bool enabled) => AutoSlowOnPlayerEvent = enabled;
 
+        public void SetMiniGameScope(MiniGameScope scope)
+        {
+            if (!Enum.IsDefined(typeof(MiniGameScope), scope))
+                throw new ArgumentOutOfRangeException(nameof(scope));
+            MiniGameScope = scope;
+        }
+
+        public void SetMiniGameDifficulty(MiniGameDifficulty difficulty)
+        {
+            if (!Enum.IsDefined(typeof(MiniGameDifficulty), difficulty))
+                throw new ArgumentOutOfRangeException(nameof(difficulty));
+            MiniGameDifficulty = difficulty;
+        }
+
         public CareerGameSettings Clone()
         {
-            return new CareerGameSettings(
+            var clone = new CareerGameSettings(
                 BattingApproach,
                 PitchingApproach,
                 MatchProgressMode,
                 GameSpeed,
                 AutoSlowOnPlayerEvent);
+            clone.SetMiniGameScope(MiniGameScope);
+            clone.SetMiniGameDifficulty(MiniGameDifficulty);
+            return clone;
         }
 
         public static CareerGameSettings CreateDefault()

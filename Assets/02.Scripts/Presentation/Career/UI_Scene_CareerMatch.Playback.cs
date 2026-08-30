@@ -75,7 +75,7 @@ namespace Baseball.Presentation.Career
         private bool AdvanceOneStep(CareerMatchSession session)
         {
             int firstRevealedEventIndex = _playback.VisibleEventCount;
-            bool isPlayerInputMode = session.Mode == CareerMatchMode.InterveneOnPlayer;
+            bool isPlayerInputMode = session.Mode is CareerMatchMode.InterveneOnPlayer or CareerMatchMode.MiniGame;
             // 입력 모드의 이벤트 스트림은 시뮬레이터가 미결정 투구 직전에 끊는다.
             // BatterId로 다시 정지점을 추측하면 투수 교체·수비 전술 이벤트 앞에서 교착된다.
             if (!_playback.AdvanceAutomatic(session.Events))
@@ -185,7 +185,7 @@ namespace Baseball.Presentation.Career
         private bool IsPendingCallUpAcknowledgement(CareerMatchSession session)
         {
             if (session.Phase == CareerMatchPhase.Preparation ||
-                session.Mode != CareerMatchMode.InterveneOnPlayer ||
+                session.Mode is not (CareerMatchMode.InterveneOnPlayer or CareerMatchMode.MiniGame) ||
                 _isCallUpAcknowledged)
                 return false;
 
@@ -325,6 +325,12 @@ namespace Baseball.Presentation.Career
             CareerMatchPlaybackSnapshot snapshot,
             MatchProgressViewState view)
         {
+            if (IsMiniGameInputReady(session))
+            {
+                ClearPersistentControls();
+                RenderMiniGameControlPanel(panel, session);
+                return;
+            }
             if (IsPitchingDecisionInputReady(session))
             {
                 ClearPersistentControls();

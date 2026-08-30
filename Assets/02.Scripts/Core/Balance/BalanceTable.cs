@@ -79,7 +79,8 @@ namespace Baseball.Core.Balance
             PlayerLifecycleBalance? playerLifecycle = null,
             LeagueMovementBalance? leagueMovement = null,
             ManagerLineupBalance? managerLineup = null,
-            MatchBalanceTable match = null)
+            MatchBalanceTable match = null,
+            MiniGameBalance miniGame = null)
         {
             Version = version;
             PlateDiscipline = plateDiscipline;
@@ -104,6 +105,7 @@ namespace Baseball.Core.Balance
             LeagueMovement = leagueMovement ?? LeagueMovementBalance.CreateDefault();
             ManagerLineup = managerLineup ?? ManagerLineupBalance.CreateDefault();
             Match = match ?? MatchBalanceTable.CreateDefault();
+            MiniGame = miniGame ?? MiniGameBalance.CreateDefault();
             SeasonAwards = SeasonAwardBalance.CreateDefault();
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
         }
@@ -131,6 +133,7 @@ namespace Baseball.Core.Balance
         public LeagueMovementBalance LeagueMovement { get; }
         public ManagerLineupBalance ManagerLineup { get; }
         public MatchBalanceTable Match { get; }
+        public MiniGameBalance MiniGame { get; }
         public SeasonAwardBalance SeasonAwards { get; }
         public SeasonSettlementBalance SeasonSettlement { get; }
 
@@ -183,7 +186,8 @@ namespace Baseball.Core.Balance
                 breakingGroundOutWeight: 0.0010d,
                 powerGroundOutWeight: 0.0005d);
 
-            // Arm이 별도 능력치에서 사라지고 Defense로 흡수되었으므로(2026-08-26) 송구 억제도 Defense로 계산한다.
+            // 구형 단순 경기 경로는 야수 개인을 특정하지 못하므로 팀 Defense를 송구 억제 대체값으로 쓴다.
+            // 현재 커리어의 V2 경기 경로는 FieldingProfile의 실제 Arm을 사용한다.
             var baseRunning = new BaseRunningBalance(
                 singleFromSecondScoreProbability: 0.58d,
                 singleFromFirstToThirdProbability: 0.28d,

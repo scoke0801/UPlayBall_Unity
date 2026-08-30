@@ -27,6 +27,9 @@ namespace Baseball.Simulation.Match
         public int NextEventSequence { get; set; }
         public int NextDecisionIndex { get; set; }
         public int NextPitchingDecisionIndex { get; set; }
+        public int NextPlateAppearanceIndex { get; set; }
+        public int NextPitchSelectionIndex { get; set; }
+        public int NextSwingExecutionIndex { get; set; }
         public bool IsHighLeverageActive { get; set; }
     }
 

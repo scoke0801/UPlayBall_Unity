@@ -7,6 +7,7 @@ using Baseball.Game.Career.Narrative;
 using Baseball.Game.Career.News;
 using Baseball.Game.Manager;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Match;
 
 namespace Baseball.Game.Career
 {
@@ -311,6 +312,25 @@ namespace Baseball.Game.Career
             }
         }
 
+        /// <summary>직접 플레이 범위와 입력 보조 난이도를 커리어 설정에 반영한다.</summary>
+        public bool UpdateMiniGameSettings(MiniGameScope scope, MiniGameDifficulty difficulty)
+        {
+            if (CurrentCareer == null)
+                return Fail("진행 중인 커리어가 없습니다.");
+            try
+            {
+                CurrentCareer.GameSettings.SetMiniGameScope(scope);
+                CurrentCareer.GameSettings.SetMiniGameDifficulty(difficulty);
+                LastError = string.Empty;
+                CareerChanged?.Invoke();
+                return true;
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
         /// <summary>저장되지 않은 경기와 커리어 런타임 상태를 버리고 타이틀 복귀가 가능한 상태로 만든다.</summary>
         public void EndCareer()
         {
@@ -324,6 +344,18 @@ namespace Baseball.Game.Career
         public bool SubmitBattingApproach(BattingApproach approach)
         {
             return MutateActiveMatch(match => match.SubmitBattingApproach(approach));
+        }
+
+        /// <summary>직접 투구 미니게임의 구종과 목표 위치를 제출한다.</summary>
+        public bool SubmitPitchSelection(PitchSelectionCommand command)
+        {
+            return MutateActiveMatch(match => match.SubmitPitchSelection(command));
+        }
+
+        /// <summary>직접 타격 미니게임의 스윙 실행 데이터를 제출한다.</summary>
+        public bool SubmitSwingExecution(SwingCommand command)
+        {
+            return MutateActiveMatch(match => match.SubmitSwingExecution(command));
         }
 
         /// <summary>플레이어 투수의 현재 이닝을 선택한 방침으로 진행한다.</summary>
@@ -669,6 +701,7 @@ namespace Baseball.Game.Career
                 MatchProgressMode.InterveneOnPlayer => CareerMatchMode.InterveneOnPlayer,
                 MatchProgressMode.PlayerFocusAutomatic => CareerMatchMode.PlayerFocusAutomatic,
                 MatchProgressMode.InstantResult => CareerMatchMode.ResultsOnly,
+                MatchProgressMode.MiniGame => CareerMatchMode.MiniGame,
                 _ => throw new ArgumentOutOfRangeException(nameof(mode))
             };
         }
@@ -922,6 +955,7 @@ namespace Baseball.Game.Career
             var lineupAi = new ManagerLineupAi(_balance.ManagerLineup);
             Lineup lineup = CareerLineupPlan.BuildStartingLineup(
                 team,
+                CurrentCareer.World,
                 currentPlayer,
                 game.PlannedPlayerRole,
                 lineupAi);

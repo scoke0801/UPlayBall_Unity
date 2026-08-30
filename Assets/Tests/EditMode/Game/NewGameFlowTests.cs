@@ -1,6 +1,9 @@
+using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Simulation.Career;
+using Baseball.Simulation.Match;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game
@@ -64,7 +67,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Right, Handedness.Right);
 
-            flow.SubmitBatterAttributes(new BatterAttributes(60, 75, 60, 65, 50, 50));
+            flow.SubmitBatterAttributes(new BatterAttributes(70, 75, 50, 50, 50, 65));
 
             Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.PlayerCard));
             Assert.That(flow.BuildWarning, Is.Not.Empty);
@@ -146,6 +149,122 @@ namespace Baseball.Tests.EditMode.Game
             Assert.DoesNotThrow(() =>
                 flow.SubmitCreationAttributes(new[] { 60, 60, 60, 60, 60, 60 }));
             Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.PlayerDetails));
+        }
+
+        [Test]
+        public void GuidedBatterAttributes_송구와선구안을각각Arm과Mental에연결한다()
+        {
+            var flow = new NewGameFlow(NewGameConfiguration.CreateDefault(), 441UL);
+            flow.SubmitBasicInformation("송구 테스트", PlayerType.Batter, Handedness.Right, Handedness.Right);
+            flow.SubmitCreationPosition(PlayerPosition.ThirdBase, PitcherRole.Starter);
+
+            flow.SubmitCreationAttributes(new[] { 55, 55, 55, 55, 65, 75 });
+
+            BatterAttributes attributes = flow.State.BatterAttributes.Value;
+            Assert.That(attributes.Mental, Is.EqualTo(55));
+            Assert.That(attributes.Arm, Is.EqualTo(75));
+            Assert.That(attributes.Bunt, Is.EqualTo(55), "송구가 번트 능력으로 재사용되면 안 됩니다.");
+        }
+
+        [Test]
+        public void WorldRoster_포지션별능력치를보존한선수원본을실제경기입력에사용한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            NewGameFlow flow = CreatePlayerCard(8877UL);
+            flow.GenerateOffers();
+            flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
+            flow.SignSelectedOffer();
+            flow.StartRookieSeason();
+
+            CareerState career = flow.Career;
+            ScheduledGameState game = career.CurrentLeague.CurrentSeason.Schedule
+                .GetNextGameForTeam(career.MyPlayer.CurrentTeamId);
+            MatchInput input = new CareerGameRunner(career, configuration.Balance).CreateMatchInput(
+                game,
+                PlayerGameRole.Bench,
+                career.CurrentLeague.CurrentSeason.SeasonId);
+            Player matchPlayer = input.AwayRoster.StartingLineup[0].Player.PlayerId == career.MyPlayer.PlayerId
+                ? input.HomeRoster.StartingLineup[0].Player
+                : input.AwayRoster.StartingLineup[0].Player;
+            Player worldPlayer = career.World.GetPlayer(matchPlayer.PlayerId).ToPlayer();
+            BatterAttributes value = matchPlayer.BatterAttributes;
+
+            Assert.That(value.Contact, Is.EqualTo(worldPlayer.BatterAttributes.Contact));
+            Assert.That(value.Power, Is.EqualTo(worldPlayer.BatterAttributes.Power));
+            Assert.That(value.Arm, Is.EqualTo(worldPlayer.BatterAttributes.Arm));
+            Assert.That(value.Defense, Is.EqualTo(worldPlayer.BatterAttributes.Defense));
+            Assert.That(
+                value.Contact == value.Power &&
+                value.Power == value.Speed &&
+                value.Speed == value.Arm &&
+                value.Arm == value.Defense &&
+                value.Defense == value.Mental,
+                Is.False,
+                "NPC 능력치가 단일 OVR로 평탄화되면 안 됩니다.");
+            int expectedOverall = FindCompetitorOverall(career, matchPlayer.PlayerId);
+            Assert.That(
+                new PlayerValueEvaluator(configuration.Balance.PlayerEvaluation)
+                    .CalculatePositionValue(matchPlayer),
+                Is.EqualTo(expectedOverall));
+        }
+
+        [Test]
+        public void PreferredPitcherRole_Closer희망을경기불펜역할에전달한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            var flow = new NewGameFlow(configuration, 9901UL);
+            flow.SubmitBasicInformation("마무리 테스트", PlayerType.Pitcher, Handedness.Right, Handedness.Right);
+            flow.SubmitCreationPosition(PlayerPosition.Unknown, PitcherRole.Closer);
+            flow.SubmitCreationAttributes(new[] { 60, 60, 60, 60 });
+            flow.SubmitPitcherDetails(
+                new[] { PitchType.FourSeamFastball, PitchType.Slider, PitchType.Changeup },
+                PitchType.FourSeamFastball);
+            flow.SubmitMatchSettings(
+                BattingApproach.Balanced,
+                PitchingApproach.Balanced,
+                MatchProgressMode.InstantResult,
+                gameSpeed: 2,
+                autoSlowOnPlayerEvent: true);
+            flow.ConfirmCreation();
+            flow.GenerateOffers();
+            flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
+            flow.SignSelectedOffer();
+            flow.StartRookieSeason();
+
+            CareerState career = flow.Career;
+            ScheduledGameState game = career.CurrentLeague.CurrentSeason.Schedule
+                .GetNextGameForTeam(career.MyPlayer.CurrentTeamId);
+            MatchInput input = new CareerGameRunner(career, configuration.Balance).CreateMatchInput(
+                game,
+                PlayerGameRole.ReliefPitcher,
+                career.CurrentLeague.CurrentSeason.SeasonId);
+            MatchRosterSnapshot roster = input.AwayRoster.TeamId == career.MyPlayer.CurrentTeamId
+                ? input.AwayRoster
+                : input.HomeRoster;
+            PitcherRosterEntry playerEntry = null;
+            for (int index = 0; index < roster.Bullpen.Count; index++)
+            {
+                if (roster.Bullpen[index].Player.PlayerId == career.MyPlayer.PlayerId)
+                    playerEntry = roster.Bullpen[index];
+            }
+
+            Assert.That(playerEntry, Is.Not.Null);
+            Assert.That(playerEntry.Role, Is.EqualTo(PitcherRole.Closer));
+        }
+
+        private static int FindCompetitorOverall(CareerState career, int playerId)
+        {
+            for (int teamIndex = 0; teamIndex < career.CurrentLeague.Teams.Count; teamIndex++)
+            {
+                TeamState team = career.CurrentLeague.Teams[teamIndex];
+                for (int playerIndex = 0; playerIndex < team.RosterCompetitors.Count; playerIndex++)
+                {
+                    RosterCompetitorState competitor = team.RosterCompetitors[playerIndex];
+                    if (competitor.PlayerId == playerId)
+                        return competitor.Overall;
+                }
+            }
+            throw new System.InvalidOperationException($"PlayerId {playerId}의 경쟁자 요약을 찾을 수 없습니다.");
         }
 
         private static NewGameFlow CreatePlayerCard(ulong seed)

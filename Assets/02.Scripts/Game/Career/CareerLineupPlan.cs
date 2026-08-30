@@ -16,12 +16,15 @@ namespace Baseball.Game.Career
         /// </summary>
         public static Lineup BuildStartingLineup(
             TeamState team,
+            WorldState world,
             Player myPlayer,
             PlayerGameRole playerRole,
             ManagerLineupAi lineupAi)
         {
             if (team == null)
                 throw new ArgumentNullException(nameof(team));
+            if (world == null)
+                throw new ArgumentNullException(nameof(world));
             if (lineupAi == null)
                 throw new ArgumentNullException(nameof(lineupAi));
 
@@ -31,7 +34,7 @@ namespace Baseball.Game.Career
                 var position = (PlayerPosition)(index + 1);
                 Player batter = IsPlayerStartingAt(myPlayer, playerRole, position)
                     ? myPlayer
-                    : CreateRosterPlayer(team.GetStrongestCompetitor(position));
+                    : CreateRosterPlayer(world, team.GetStrongestCompetitor(position));
                 fieldingAssignments[index] = new LineupSlot(batter, position);
             }
 
@@ -71,37 +74,16 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
-        /// 저장된 경쟁자 요약을 경기 시뮬레이션용 선수로 변환한다.
+        /// 경쟁자 요약의 ID로 성장 가능한 월드 선수 원본을 찾아 경기 입력으로 변환한다.
         /// </summary>
-        public static Player CreateRosterPlayer(RosterCompetitorState competitor)
+        public static Player CreateRosterPlayer(WorldState world, RosterCompetitorState competitor)
         {
-            bool isPitcher = competitor.Position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
-            int batterRating = isPitcher ? 20 : competitor.Overall;
-            int pitcherRating = isPitcher ? competitor.Overall : 20;
-            Handedness battingHand = competitor.PlayerId % 3 == 0
-                ? Handedness.Switch
-                : competitor.PlayerId % 2 == 0 ? Handedness.Left : Handedness.Right;
-            Handedness throwingHand = competitor.PlayerId % 4 == 0 ? Handedness.Left : Handedness.Right;
-            return new Player(
-                competitor.PlayerId,
-                competitor.Name,
-                competitor.Position,
-                battingHand,
-                throwingHand,
-                new BatterAttributes(
-                    batterRating,
-                    batterRating,
-                    batterRating,
-                    batterRating,
-                    batterRating,
-                    batterRating),
-                new PitcherAttributes(
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating));
+            if (world == null)
+                throw new ArgumentNullException(nameof(world));
+            PlayerState state = world.GetPlayer(competitor.PlayerId);
+            if (state.PrimaryPosition != competitor.Position)
+                throw new InvalidOperationException($"PlayerId {competitor.PlayerId}의 로스터 포지션과 선수 원본이 다릅니다.");
+            return state.ToPlayer();
         }
 
         private static bool IsPlayerStartingAt(

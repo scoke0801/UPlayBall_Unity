@@ -19,7 +19,8 @@ namespace Baseball.Simulation.Match
             int balls = 0,
             int strikes = 0,
             int outs = 0,
-            DecisionReasonCode reasonCode = DecisionReasonCode.None)
+            DecisionReasonCode reasonCode = DecisionReasonCode.None,
+            PitchPlayData pitchPlayData = default)
         {
             state.EventSink.Record(new MatchEvent(
                 state.NextEventSequence++,
@@ -38,7 +39,8 @@ namespace Baseball.Simulation.Match
                 outs,
                 state.Away.BoxScore.Runs,
                 state.Home.BoxScore.Runs,
-                reasonCode));
+                reasonCode,
+                pitchPlayData));
         }
     }
 }

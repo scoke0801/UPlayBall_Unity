@@ -15,6 +15,13 @@ namespace Baseball.Simulation.Match
         MatchEnded = 3
     }
 
+    /// <summary>선수 입력이 전략 방침인지 투구·스윙 실행인지 구분한다.</summary>
+    public enum MatchInteractionMode
+    {
+        StrategicDecision = 0,
+        MiniGame = 1
+    }
+
     /// <summary>경기 이벤트 한 건, 선수 결정 요청 또는 최종 결과를 전달한다.</summary>
     public readonly struct MatchSessionStep
     {
@@ -23,12 +30,16 @@ namespace Baseball.Simulation.Match
             MatchEvent matchEvent,
             MatchDecisionRequest? battingDecision,
             MatchPitchingDecisionRequest? pitchingDecision,
+            PitchSelectionRequest? pitchSelection,
+            BatterMiniGameRequest? swingExecution,
             MatchResult result)
         {
             Kind = kind;
             Event = matchEvent;
             BattingDecision = battingDecision;
             PitchingDecision = pitchingDecision;
+            PitchSelection = pitchSelection;
+            SwingExecution = swingExecution;
             Result = result;
         }
 
@@ -36,6 +47,8 @@ namespace Baseball.Simulation.Match
         public MatchEvent Event { get; }
         public MatchDecisionRequest? BattingDecision { get; }
         public MatchPitchingDecisionRequest? PitchingDecision { get; }
+        public PitchSelectionRequest? PitchSelection { get; }
+        public BatterMiniGameRequest? SwingExecution { get; }
         public MatchResult Result { get; }
     }
 
@@ -50,9 +63,13 @@ namespace Baseball.Simulation.Match
         private readonly bool _controlsBatting;
         private readonly bool _controlsPitching;
         private readonly InterventionLevel _interventionLevel;
+        private readonly MatchInteractionMode _interactionMode;
+        private readonly MiniGameInterventionScope _miniGameScope;
         private readonly MatchDecisionCoordinator _decisionCoordinator;
         private readonly List<BattingApproach> _battingDecisions = new List<BattingApproach>(8);
         private readonly List<PitchingApproach> _pitchingDecisions = new List<PitchingApproach>(32);
+        private readonly List<PitchSelectionCommand> _pitchSelections = new List<PitchSelectionCommand>(128);
+        private readonly List<SwingCommand> _swingExecutions = new List<SwingCommand>(32);
         private MatchSimulationProgress _progress;
         private int _deliveredEventCount;
 
@@ -63,7 +80,9 @@ namespace Baseball.Simulation.Match
             bool controlsBatting,
             bool controlsPitching,
             InterventionLevel interventionLevel = InterventionLevel.KeyMoments,
-            MatchDecisionCoordinator decisionCoordinator = null)
+            MatchDecisionCoordinator decisionCoordinator = null,
+            MatchInteractionMode interactionMode = MatchInteractionMode.StrategicDecision,
+            MiniGameInterventionScope miniGameScope = MiniGameInterventionScope.AllInvolvement)
         {
             _input = input ?? throw new ArgumentNullException(nameof(input));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
@@ -73,6 +92,8 @@ namespace Baseball.Simulation.Match
             _controlsBatting = controlsBatting;
             _controlsPitching = controlsPitching;
             _interventionLevel = interventionLevel;
+            _interactionMode = interactionMode;
+            _miniGameScope = miniGameScope;
             _decisionCoordinator = decisionCoordinator ?? MatchDecisionCoordinator.CreateAutomatic();
         }
 
@@ -92,22 +113,29 @@ namespace Baseball.Simulation.Match
                 MatchSessionStepKind kind = current.EventType == MatchEventType.HalfInningEnded
                     ? MatchSessionStepKind.HalfInningEnded
                     : MatchSessionStepKind.EventProduced;
-                return new MatchSessionStep(kind, current, null, null, null);
+                return new MatchSessionStep(kind, current, null, null, null, null, null);
             }
 
-            if (_progress.PendingDecision.HasValue || _progress.PendingPitchingDecision.HasValue)
+            if (_progress.PendingDecision.HasValue ||
+                _progress.PendingPitchingDecision.HasValue ||
+                _progress.PendingPitchSelection.HasValue ||
+                _progress.PendingSwingExecution.HasValue)
             {
                 return new MatchSessionStep(
                     MatchSessionStepKind.DecisionRequired,
                     default,
                     _progress.PendingDecision,
                     _progress.PendingPitchingDecision,
+                    _progress.PendingPitchSelection,
+                    _progress.PendingSwingExecution,
                     null);
             }
 
             return new MatchSessionStep(
                 MatchSessionStepKind.MatchEnded,
                 default,
+                null,
+                null,
                 null,
                 null,
                 _progress.Result);
@@ -131,21 +159,59 @@ namespace Baseball.Simulation.Match
             ReplayToBoundary();
         }
 
+        /// <summary>대기 중인 직접 투구의 구종과 목표 위치를 제출한다.</summary>
+        public void SubmitPitchSelection(PitchSelectionCommand command)
+        {
+            if (_progress?.PendingPitchSelection.HasValue != true)
+                throw new InvalidOperationException("투구 선택을 기다리는 상태가 아닙니다.");
+            if (command.RequestId != _progress.PendingPitchSelection.Value.RequestId)
+                throw new InvalidOperationException("투구 선택 RequestId가 현재 요청과 일치하지 않습니다.");
+            _pitchSelections.Add(command);
+            ReplayToBoundary();
+        }
+
+        /// <summary>대기 중인 직접 타격의 스윙 여부·위치·시점을 제출한다.</summary>
+        public void SubmitSwingExecution(SwingCommand command)
+        {
+            if (_progress?.PendingSwingExecution.HasValue != true)
+                throw new InvalidOperationException("스윙 실행을 기다리는 상태가 아닙니다.");
+            if (command.RequestId != _progress.PendingSwingExecution.Value.RequestId)
+                throw new InvalidOperationException("스윙 실행 RequestId가 현재 요청과 일치하지 않습니다.");
+            _swingExecutions.Add(command);
+            ReplayToBoundary();
+        }
+
         private void ReplayToBoundary()
         {
             bool acceptsInput = _interventionLevel != InterventionLevel.Auto;
-            IMatchDecisionSource battingSource = acceptsInput && _controlsBatting
+            bool usesStrategicInput = _interactionMode == MatchInteractionMode.StrategicDecision;
+            bool usesMiniGameInput = _interactionMode == MatchInteractionMode.MiniGame;
+            IMatchDecisionSource battingSource = acceptsInput && usesStrategicInput && _controlsBatting
                 ? new RecordedMatchDecisionSource(_controlledPlayerId, _battingDecisions)
                 : null;
-            IMatchPitchingDecisionSource pitchingSource = acceptsInput && _controlsPitching
+            IMatchPitchingDecisionSource pitchingSource = acceptsInput && usesStrategicInput && _controlsPitching
                 ? new RecordedMatchPitchingDecisionSource(_controlledPlayerId, _pitchingDecisions)
+                : null;
+            IPitchSelectionDecisionSource pitchSelectionSource = acceptsInput && usesMiniGameInput && _controlsPitching
+                ? new RecordedPitchSelectionDecisionSource(
+                    _controlledPlayerId,
+                    _pitchSelections,
+                    _miniGameScope)
+                : null;
+            ISwingExecutionDecisionSource swingExecutionSource = acceptsInput && usesMiniGameInput && _controlsBatting
+                ? new RecordedSwingExecutionDecisionSource(
+                    _controlledPlayerId,
+                    _swingExecutions,
+                    _miniGameScope)
                 : null;
             var simulator = new MatchSimulator(
                 _balance,
                 MatchRandomStreams.Create(_input.RandomSeed),
                 battingSource,
                 pitchingSource,
-                _decisionCoordinator);
+                _decisionCoordinator,
+                pitchSelectionSource,
+                swingExecutionSource);
             _progress = simulator.SimulateUntilDecision(_input);
         }
     }

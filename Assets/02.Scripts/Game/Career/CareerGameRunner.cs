@@ -62,7 +62,7 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("배경 리그에는 내 선수 기용 계획을 만들 수 없습니다.");
 
             TeamState team = GetTeam(_career.MyPlayer.CurrentTeamId);
-            Player player = _career.MyPlayer.ToPlayer(_skillBoardService);
+            Player player = CreateMyPlayer();
             ulong decisionSeed = DeterministicSeed.Derive(game.RandomSeed, (ulong)player.PlayerId);
             PlayerGameRole role = _managerUsageAi.DecideRole(
                 player,
@@ -136,7 +136,7 @@ namespace Baseball.Game.Career
             TeamState team = GetTeam(teamId);
             bool isPlayerTeam = _league.LeagueId == _career.MyPlayer.CurrentLeagueId &&
                                 teamId == _career.MyPlayer.CurrentTeamId;
-            Player myPlayer = isPlayerTeam ? _career.MyPlayer.ToPlayer(_skillBoardService) : null;
+            Player myPlayer = isPlayerTeam ? CreateMyPlayer() : null;
             var bullpen = new List<PitcherRosterEntry>(5);
             int startingSelection = round % 2;
             if (!(isPlayerTeam && playerRole == PlayerGameRole.StartingPitcher))
@@ -144,6 +144,7 @@ namespace Baseball.Game.Career
                 AddPitcherIfUnique(
                     bullpen,
                     CareerLineupPlan.CreateRosterPlayer(
+                        _career.World,
                         team.GetCompetitor(PlayerPosition.StartingPitcher, 1 - startingSelection)),
                     PitcherRole.Swingman,
                     myPlayer,
@@ -153,13 +154,17 @@ namespace Baseball.Game.Career
             {
                 AddPitcherIfUnique(
                     bullpen,
-                    CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(PlayerPosition.StartingPitcher, 0)),
+                    CareerLineupPlan.CreateRosterPlayer(
+                        _career.World,
+                        team.GetCompetitor(PlayerPosition.StartingPitcher, 0)),
                     PitcherRole.LongRelief,
                     myPlayer,
                     gameDate);
                 AddPitcherIfUnique(
                     bullpen,
-                    CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(PlayerPosition.StartingPitcher, 1)),
+                    CareerLineupPlan.CreateRosterPlayer(
+                        _career.World,
+                        team.GetCompetitor(PlayerPosition.StartingPitcher, 1)),
                     PitcherRole.Swingman,
                     myPlayer,
                     gameDate);
@@ -167,18 +172,22 @@ namespace Baseball.Game.Career
 
             AddPitcherIfUnique(
                 bullpen,
-                CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(PlayerPosition.ReliefPitcher, 0)),
+                CareerLineupPlan.CreateRosterPlayer(
+                    _career.World,
+                    team.GetCompetitor(PlayerPosition.ReliefPitcher, 0)),
                 PitcherRole.Setup,
                 myPlayer,
                 gameDate);
             AddPitcherIfUnique(
                 bullpen,
-                CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(PlayerPosition.ReliefPitcher, 1)),
+                CareerLineupPlan.CreateRosterPlayer(
+                    _career.World,
+                    team.GetCompetitor(PlayerPosition.ReliefPitcher, 1)),
                 PitcherRole.Closer,
                 myPlayer,
                 gameDate);
             if (isPlayerTeam && playerRole == PlayerGameRole.ReliefPitcher)
-                AddPitcherIfUnique(bullpen, myPlayer, PitcherRole.MiddleRelief, null, gameDate);
+                AddPitcherIfUnique(bullpen, myPlayer, GetMyPlayerReliefRole(), null, gameDate);
 
             var bench = new List<Player>(10);
             if (isPlayerTeam && playerRole == PlayerGameRole.Bench)
@@ -187,7 +196,9 @@ namespace Baseball.Game.Career
                  position <= PlayerPosition.DesignatedHitter;
                  position++)
             {
-                Player candidate = CareerLineupPlan.CreateRosterPlayer(team.GetCompetitor(position, 1));
+                Player candidate = CareerLineupPlan.CreateRosterPlayer(
+                    _career.World,
+                    team.GetCompetitor(position, 1));
                 if (!ContainsPlayer(compatibility.Lineup, candidate.PlayerId) &&
                     !ContainsPlayer(bench, candidate.PlayerId))
                 {
@@ -226,6 +237,17 @@ namespace Baseball.Game.Career
                     return;
             }
             bullpen.Add(CreatePitcherEntry(pitcher, role, gameDate));
+        }
+
+        private PitcherRole GetMyPlayerReliefRole()
+        {
+            PitcherRole preferredRole = _career.CreationProfile.PreferredPitcherRole;
+            return preferredRole is PitcherRole.LongRelief or
+                PitcherRole.MiddleRelief or
+                PitcherRole.Setup or
+                PitcherRole.Closer
+                ? preferredRole
+                : PitcherRole.MiddleRelief;
         }
 
         /// <summary>경기 종료 후 모든 등판 투수의 당일 부하를 월드 상태에 반영한다.</summary>
@@ -293,6 +315,15 @@ namespace Baseball.Game.Career
                     return true;
             }
             return false;
+        }
+
+        private Player CreateMyPlayer()
+        {
+            Player player = _career.MyPlayer.ToPlayer(_skillBoardService);
+            PitchRepertoireEntry[] repertoire = _career.CreationProfile?.PitchRepertoire;
+            return repertoire == null || repertoire.Length == 0
+                ? player
+                : player.WithPitchRepertoire(repertoire);
         }
 
         private static ManagerTacticalProfile CreateManagerTacticalProfile(TeamState team)
@@ -415,9 +446,10 @@ namespace Baseball.Game.Career
             TeamState team = GetTeam(teamId);
             bool isPlayerTeam = _league.LeagueId == _career.MyPlayer.CurrentLeagueId &&
                                 teamId == _career.MyPlayer.CurrentTeamId;
-            Player myPlayer = isPlayerTeam ? _career.MyPlayer.ToPlayer(_skillBoardService) : null;
+            Player myPlayer = isPlayerTeam ? CreateMyPlayer() : null;
             Lineup lineup = CareerLineupPlan.BuildStartingLineup(
                 team,
+                _career.World,
                 myPlayer,
                 playerRole,
                 _managerLineupAi);
@@ -425,10 +457,12 @@ namespace Baseball.Game.Career
             Player startingPitcher = isPlayerTeam && playerRole == PlayerGameRole.StartingPitcher
                 ? myPlayer
                 : CareerLineupPlan.CreateRosterPlayer(
+                    _career.World,
                     team.GetCompetitor(PlayerPosition.StartingPitcher, round % 2));
             Player reliefPitcher = isPlayerTeam && playerRole == PlayerGameRole.ReliefPitcher
                 ? myPlayer
                 : CareerLineupPlan.CreateRosterPlayer(
+                    _career.World,
                     team.GetCompetitor(PlayerPosition.ReliefPitcher, (round + 1) % 2));
             PositionPlayerSubstitutionPlan substitution = isPlayerTeam
                 ? CreateBenchSubstitutionPlan(myPlayer, playerRole, gameSeed, lineup)

@@ -60,6 +60,33 @@ namespace Baseball.Simulation.Match
             BallFlightBand hangTime,
             BallPaceBand pace,
             bool isHomeRun)
+            : this(
+                type,
+                direction,
+                fieldZone,
+                quality,
+                hangTime,
+                pace,
+                isHomeRun,
+                0d,
+                0d,
+                0d,
+                0d)
+        {
+        }
+
+        public BattedBallDescriptor(
+            BattedBallType type,
+            BattedBallDirection direction,
+            FieldZone fieldZone,
+            double quality,
+            BallFlightBand hangTime,
+            BallPaceBand pace,
+            bool isHomeRun,
+            double exitVelocityMph,
+            double launchAngleDegrees,
+            double sprayAngleDegrees,
+            double spinRateRpm)
         {
             Type = type;
             Direction = direction;
@@ -68,6 +95,10 @@ namespace Baseball.Simulation.Match
             HangTime = hangTime;
             Pace = pace;
             IsHomeRun = isHomeRun;
+            ExitVelocityMph = exitVelocityMph;
+            LaunchAngleDegrees = launchAngleDegrees;
+            SprayAngleDegrees = sprayAngleDegrees;
+            SpinRateRpm = spinRateRpm;
         }
 
         public BattedBallType Type { get; }
@@ -77,6 +108,10 @@ namespace Baseball.Simulation.Match
         public BallFlightBand HangTime { get; }
         public BallPaceBand Pace { get; }
         public bool IsHomeRun { get; }
+        public double ExitVelocityMph { get; }
+        public double LaunchAngleDegrees { get; }
+        public double SprayAngleDegrees { get; }
+        public double SpinRateRpm { get; }
     }
 
     /// <summary>

@@ -12,6 +12,7 @@ namespace Baseball.Simulation.Match
     public sealed class BattedBallResolver
     {
         private readonly BattedBallBalance _balance;
+        private readonly MiniGameBalance _miniGame;
         private readonly TacticalMatchBalance _tactical;
         private readonly IRandomSource _random;
 
@@ -19,6 +20,7 @@ namespace Baseball.Simulation.Match
         {
             if (balance == null) throw new ArgumentNullException(nameof(balance));
             _balance = balance.BattedBall;
+            _miniGame = balance.MiniGame;
             _tactical = balance.Match.Tactical;
             _random = random ?? throw new ArgumentNullException(nameof(random));
         }
@@ -56,6 +58,70 @@ namespace Baseball.Simulation.Match
                 ResolveHangTime(type, quality),
                 ResolvePace(type, quality),
                 isHomeRun);
+        }
+
+        /// <summary>직접/AI 스윙이 만든 공통 컨택 데이터를 기존 수비 판정용 타구로 변환한다.</summary>
+        public BattedBallDescriptor Resolve(
+            in PlateAppearanceMatchup matchup,
+            BattingApproach battingApproach,
+            in ContactProfile contact)
+        {
+            if (!contact.IsBallInPlay)
+                throw new ArgumentException("인플레이 컨택만 타구로 변환할 수 있습니다.", nameof(contact));
+
+            if (battingApproach == BattingApproach.Bunt)
+            {
+                BattedBallDirection buntDirection = contact.SprayAngleDegrees < 0d
+                    ? BattedBallDirection.Pull
+                    : BattedBallDirection.Opposite;
+                FieldZone buntZone = ResolveZone(matchup.Batter, BattedBallType.Bunt, buntDirection);
+                return new BattedBallDescriptor(
+                    BattedBallType.Bunt,
+                    buntDirection,
+                    buntZone,
+                    contact.Quality,
+                    BallFlightBand.Short,
+                    BallPaceBand.Slow,
+                    false,
+                    contact.ExitVelocityMph,
+                    contact.LaunchAngleDegrees,
+                    contact.SprayAngleDegrees,
+                    contact.SpinRateRpm);
+            }
+
+            BatterAttributes batter = matchup.Batter.BatterAttributes;
+            double quality = Clamp(
+                contact.Quality + matchup.HardHitAdjustment * 170d +
+                (_random.NextDouble() - 0.5d) * 10d,
+                0d,
+                100d);
+            bool hasHomeRunLaunch =
+                contact.LaunchAngleDegrees >= _miniGame.HomeRunMinimumLaunchAngle &&
+                contact.LaunchAngleDegrees <= _miniGame.HomeRunMaximumLaunchAngle &&
+                contact.ExitVelocityMph >= _miniGame.HomeRunMinimumExitVelocity;
+            double homeRunProbability = Clamp(
+                (_balance.HomeRunProbability +
+                 (batter.Power - 50d) * _balance.PowerHomeRunWeight -
+                 (matchup.EffectiveBreaking - 50d) * _balance.BreakingHomeRunWeight +
+                 (quality - 50d) * 0.0012d) * _miniGame.HomeRunProbabilityMultiplier,
+                0.002d,
+                0.32d);
+            bool isHomeRun = hasHomeRunLaunch && _random.NextDouble() < homeRunProbability;
+            BattedBallType type = ResolveType(contact.LaunchAngleDegrees, quality);
+            BattedBallDirection direction = ResolveDirection(contact.SprayAngleDegrees);
+            FieldZone zone = ResolveZone(matchup.Batter, type, direction);
+            return new BattedBallDescriptor(
+                type,
+                direction,
+                zone,
+                quality,
+                ResolveHangTime(type, quality),
+                ResolvePace(type, quality),
+                isHomeRun,
+                contact.ExitVelocityMph,
+                contact.LaunchAngleDegrees,
+                contact.SprayAngleDegrees,
+                contact.SpinRateRpm);
         }
 
         private BattedBallDescriptor ResolveBunt(Player batter)
@@ -99,6 +165,17 @@ namespace Baseball.Simulation.Match
             return BattedBallType.PopUp;
         }
 
+        private static BattedBallType ResolveType(double launchAngleDegrees, double quality)
+        {
+            if (launchAngleDegrees < 8d)
+                return BattedBallType.GroundBall;
+            if (launchAngleDegrees <= 18d || quality >= 76d && launchAngleDegrees <= 24d)
+                return BattedBallType.LineDrive;
+            if (launchAngleDegrees <= 42d)
+                return BattedBallType.FlyBall;
+            return BattedBallType.PopUp;
+        }
+
         private BattedBallDirection ResolveDirection(Player batter)
         {
             BattingTendencyProfile tendency = BattingTendencyProfile.Derive(batter);
@@ -108,6 +185,13 @@ namespace Baseball.Simulation.Match
             if (roll < tendency.PullTendency + 0.34d)
                 return BattedBallDirection.Center;
             return BattedBallDirection.Opposite;
+        }
+
+        private static BattedBallDirection ResolveDirection(double sprayAngleDegrees)
+        {
+            if (sprayAngleDegrees < -10d) return BattedBallDirection.Pull;
+            if (sprayAngleDegrees > 10d) return BattedBallDirection.Opposite;
+            return BattedBallDirection.Center;
         }
 
         private FieldZone ResolveZone(Player batter, BattedBallType type, BattedBallDirection direction)

@@ -28,7 +28,8 @@ namespace Baseball.Game.Career
         PlayerFocus = InterveneOnPlayer,
         ResultsOnly = 1,
         FullGameWatch = 2,
-        PlayerFocusAutomatic = 3
+        PlayerFocusAutomatic = 3,
+        MiniGame = 4
     }
 
     /// <summary>
@@ -36,11 +37,13 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class CareerMatchSession
     {
-        private const int MaximumAutomaticDecisions = 256;
+        private const int MaximumAutomaticDecisions = 1024;
 
         private readonly BalanceTable _balance;
         private readonly List<BattingApproach> _decisions = new List<BattingApproach>(32);
         private readonly List<PitchingApproach> _pitchingDecisions = new List<PitchingApproach>(32);
+        private readonly List<PitchSelectionCommand> _pitchSelections = new List<PitchSelectionCommand>(128);
+        private readonly List<SwingCommand> _swingExecutions = new List<SwingCommand>(64);
         private readonly CareerGameSettings _gameSettings;
         private MatchSimulationProgress _progress;
 
@@ -84,6 +87,8 @@ namespace Baseball.Game.Career
         public CareerMatchMode Mode { get; private set; }
         public MatchDecisionRequest? PendingDecision => _progress?.PendingDecision;
         public MatchPitchingDecisionRequest? PendingPitchingDecision => _progress?.PendingPitchingDecision;
+        public PitchSelectionRequest? PendingPitchSelection => _progress?.PendingPitchSelection;
+        public BatterMiniGameRequest? PendingSwingExecution => _progress?.PendingSwingExecution;
         public IReadOnlyList<MatchEvent> Events => _progress?.Events ?? Array.Empty<MatchEvent>();
         public MatchResult MatchResult => _progress?.Result;
         public bool IsComplete => Phase == CareerMatchPhase.Completed;
@@ -134,7 +139,7 @@ namespace Baseball.Game.Career
 
             Mode = mode;
             Phase = CareerMatchPhase.Playing;
-            if (mode != CareerMatchMode.InterveneOnPlayer ||
+            if (mode != CareerMatchMode.InterveneOnPlayer && mode != CareerMatchMode.MiniGame ||
                 (!CanReceiveBattingDecisions && !CanReceivePitchingDecisions))
             {
                 _progress = CreateSimulator(decisionSource: null)
@@ -168,6 +173,28 @@ namespace Baseball.Game.Career
             ReplayToNextDecision();
         }
 
+        /// <summary>현재 투구 선택 요청에 구종과 목표 위치를 제출한다.</summary>
+        public void SubmitPitchSelection(PitchSelectionCommand command)
+        {
+            if (Phase != CareerMatchPhase.Playing || !PendingPitchSelection.HasValue)
+                throw new InvalidOperationException("투구 선택을 기다리는 상태가 아닙니다.");
+            if (command.RequestId != PendingPitchSelection.Value.RequestId)
+                throw new InvalidOperationException("현재 투구 선택 RequestId와 일치하지 않습니다.");
+            _pitchSelections.Add(command);
+            ReplayToNextDecision();
+        }
+
+        /// <summary>현재 타자의 스윙 여부·위치·시점을 제출한다.</summary>
+        public void SubmitSwingExecution(SwingCommand command)
+        {
+            if (Phase != CareerMatchPhase.Playing || !PendingSwingExecution.HasValue)
+                throw new InvalidOperationException("스윙 실행을 기다리는 상태가 아닙니다.");
+            if (command.RequestId != PendingSwingExecution.Value.RequestId)
+                throw new InvalidOperationException("현재 스윙 RequestId와 일치하지 않습니다.");
+            _swingExecutions.Add(command);
+            ReplayToNextDecision();
+        }
+
         /// <summary>아직 계산하지 않은 다음 선수 결정부터 사용할 기본 방침을 갱신한다.</summary>
         public void UpdateApproaches(BattingApproach battingApproach, PitchingApproach pitchingApproach)
         {
@@ -178,20 +205,36 @@ namespace Baseball.Game.Career
         /// <summary>현재 이닝의 남은 상대 타자를 같은 투구 방침으로 진행하고 다음 이닝에서 멈춘다.</summary>
         public void AutoCompleteCurrentPitchingInning(PitchingApproach approach)
         {
-            if (Phase != CareerMatchPhase.Playing || !PendingPitchingDecision.HasValue)
+            if (Phase != CareerMatchPhase.Playing ||
+                !PendingPitchingDecision.HasValue && !PendingPitchSelection.HasValue)
                 throw new InvalidOperationException("자동 진행할 투수 이닝이 없습니다.");
 
-            MatchPitchingDecisionRequest startingRequest = PendingPitchingDecision.Value;
+            int startingInning = PendingPitchingDecision?.Inning ?? PendingPitchSelection.Value.Inning;
+            InningHalf startingHalf = PendingPitchingDecision?.Half ?? PendingPitchSelection.Value.Half;
             int safety = MaximumAutomaticDecisions;
-            while (Phase == CareerMatchPhase.Playing && PendingPitchingDecision.HasValue && safety-- > 0)
+            while (Phase == CareerMatchPhase.Playing && safety-- > 0)
             {
-                MatchPitchingDecisionRequest current = PendingPitchingDecision.Value;
-                if (current.DecisionIndex > startingRequest.DecisionIndex &&
-                    (current.Inning != startingRequest.Inning || current.Half != startingRequest.Half))
+                int currentInning;
+                InningHalf currentHalf;
+                if (PendingPitchingDecision.HasValue)
                 {
-                    return;
+                    currentInning = PendingPitchingDecision.Value.Inning;
+                    currentHalf = PendingPitchingDecision.Value.Half;
                 }
-                SubmitPitchingApproach(approach);
+                else if (PendingPitchSelection.HasValue)
+                {
+                    currentInning = PendingPitchSelection.Value.Inning;
+                    currentHalf = PendingPitchSelection.Value.Half;
+                }
+                else
+                    return;
+
+                if (currentInning != startingInning || currentHalf != startingHalf)
+                    return;
+                if (PendingPitchingDecision.HasValue)
+                    SubmitPitchingApproach(approach);
+                else
+                    SubmitPitchSelection(PendingPitchSelection.Value.SuggestedPitch);
             }
 
             if (safety <= 0)
@@ -203,17 +246,30 @@ namespace Baseball.Game.Career
         /// </summary>
         public void AutoCompleteCurrentPlateAppearance()
         {
-            if (Phase != CareerMatchPhase.Playing || !PendingDecision.HasValue)
+            if (Phase != CareerMatchPhase.Playing ||
+                !PendingDecision.HasValue && !PendingPitchSelection.HasValue && !PendingSwingExecution.HasValue)
                 throw new InvalidOperationException("자동 진행할 타석이 없습니다.");
 
-            MatchDecisionRequest startingRequest = PendingDecision.Value;
+            int plateAppearanceIndex = GetPendingPlateAppearanceIndex();
+            int legacyDecisionIndex = PendingDecision?.DecisionIndex ?? -1;
             int safety = MaximumAutomaticDecisions;
-            while (Phase == CareerMatchPhase.Playing && PendingDecision.HasValue && safety-- > 0)
+            while (Phase == CareerMatchPhase.Playing && safety-- > 0)
             {
-                MatchDecisionRequest current = PendingDecision.Value;
-                if (current.DecisionIndex > startingRequest.DecisionIndex && current.PitchNumber == 1)
+                if (GetPendingPlateAppearanceIndex() != plateAppearanceIndex && plateAppearanceIndex >= 0)
                     return;
-                SubmitBattingApproach(_gameSettings.BattingApproach);
+                if (PendingDecision.HasValue)
+                {
+                    MatchDecisionRequest current = PendingDecision.Value;
+                    if (legacyDecisionIndex >= 0 && current.DecisionIndex > legacyDecisionIndex && current.PitchNumber == 1)
+                        return;
+                    SubmitBattingApproach(_gameSettings.BattingApproach);
+                }
+                else if (PendingPitchSelection.HasValue)
+                    SubmitPitchSelection(PendingPitchSelection.Value.SuggestedPitch);
+                else if (PendingSwingExecution.HasValue)
+                    SubmitSwingExecution(PendingSwingExecution.Value.SuggestedSwing);
+                else
+                    return;
             }
 
             if (safety <= 0)
@@ -235,6 +291,10 @@ namespace Baseball.Game.Career
                     SubmitBattingApproach(_gameSettings.BattingApproach);
                 else if (PendingPitchingDecision.HasValue)
                     SubmitPitchingApproach(_gameSettings.PitchingApproach);
+                else if (PendingPitchSelection.HasValue)
+                    SubmitPitchSelection(PendingPitchSelection.Value.SuggestedPitch);
+                else if (PendingSwingExecution.HasValue)
+                    SubmitSwingExecution(PendingSwingExecution.Value.SuggestedSwing);
                 else
                     throw new InvalidOperationException("자동 진행할 선수 결정 지점이 없습니다.");
             }
@@ -282,12 +342,33 @@ namespace Baseball.Game.Career
         private void ReplayToNextDecision()
         {
             IMatchDecisionSource battingSource = CanReceiveBattingDecisions
+                                                  && Mode == CareerMatchMode.InterveneOnPlayer
                 ? new RecordedMatchDecisionSource(ControlledPlayerId, _decisions)
                 : null;
             IMatchPitchingDecisionSource pitchingSource = CanReceivePitchingDecisions
+                                                           && Mode == CareerMatchMode.InterveneOnPlayer
                 ? new RecordedMatchPitchingDecisionSource(ControlledPlayerId, _pitchingDecisions)
                 : null;
-            _progress = CreateSimulator(battingSource, pitchingSource)
+            MiniGameInterventionScope scope = GetSimulationMiniGameScope();
+            IPitchSelectionDecisionSource pitchSelectionSource =
+                CanReceivePitchingDecisions && Mode == CareerMatchMode.MiniGame
+                    ? new RecordedPitchSelectionDecisionSource(
+                        ControlledPlayerId,
+                        _pitchSelections,
+                        scope)
+                    : null;
+            ISwingExecutionDecisionSource swingExecutionSource =
+                CanReceiveBattingDecisions && Mode == CareerMatchMode.MiniGame
+                    ? new RecordedSwingExecutionDecisionSource(
+                        ControlledPlayerId,
+                        _swingExecutions,
+                        scope)
+                    : null;
+            _progress = CreateSimulator(
+                    battingSource,
+                    pitchingSource,
+                    pitchSelectionSource,
+                    swingExecutionSource)
                 .SimulateUntilDecision(Input);
             if (_progress.IsComplete)
                 Phase = CareerMatchPhase.Completed;
@@ -295,7 +376,9 @@ namespace Baseball.Game.Career
 
         private MatchSimulator CreateSimulator(
             IMatchDecisionSource decisionSource,
-            IMatchPitchingDecisionSource pitchingDecisionSource = null)
+            IMatchPitchingDecisionSource pitchingDecisionSource = null,
+            IPitchSelectionDecisionSource pitchSelectionDecisionSource = null,
+            ISwingExecutionDecisionSource swingExecutionDecisionSource = null)
         {
             var decisionCoordinator = new MatchDecisionCoordinator(
                 new CareerBattingDecisionProvider(
@@ -309,7 +392,32 @@ namespace Baseball.Game.Career
                 MatchRandomStreams.Create(Input.RandomSeed),
                 decisionSource,
                 pitchingDecisionSource,
-                decisionCoordinator);
+                decisionCoordinator,
+                pitchSelectionDecisionSource,
+                swingExecutionDecisionSource);
+        }
+
+        private int GetPendingPlateAppearanceIndex()
+        {
+            if (PendingPitchSelection.HasValue)
+                return PendingPitchSelection.Value.PlateAppearanceIndex;
+            if (PendingSwingExecution.HasValue)
+                return PendingSwingExecution.Value.PlateAppearanceIndex;
+            return PendingDecision.HasValue ? PendingDecision.Value.DecisionIndex : -1;
+        }
+
+        private MiniGameInterventionScope GetSimulationMiniGameScope()
+        {
+            return _gameSettings.MiniGameScope switch
+            {
+                MiniGameScope.AllInvolvement => MiniGameInterventionScope.AllInvolvement,
+                MiniGameScope.KeyMoments => MiniGameInterventionScope.KeyMoments,
+                MiniGameScope.ManualIntervention => MiniGameInterventionScope.ManualIntervention,
+                MiniGameScope.RecommendedByRole => PlayerRole == PlayerGameRole.StartingPitcher
+                    ? MiniGameInterventionScope.ManualIntervention
+                    : MiniGameInterventionScope.AllInvolvement,
+                _ => MiniGameInterventionScope.AllInvolvement
+            };
         }
 
         private bool HasControlledBenchSubstitution()

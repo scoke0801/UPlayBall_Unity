@@ -69,6 +69,7 @@ namespace Baseball.Game.Career
                 nextReliefPitcherId);
             Lineup lineup = CareerLineupPlan.BuildStartingLineup(
                 team,
+                career.World,
                 stableMyPlayer,
                 plannedRole,
                 _managerLineupAi);

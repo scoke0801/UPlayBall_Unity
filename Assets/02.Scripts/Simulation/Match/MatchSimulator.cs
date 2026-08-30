@@ -18,6 +18,8 @@ namespace Baseball.Simulation.Match
         private readonly IPlateAppearanceSimulator _plateAppearanceSimulator;
         private readonly IMatchDecisionSource _decisionSource;
         private readonly IMatchPitchingDecisionSource _pitchingDecisionSource;
+        private readonly IPitchSelectionDecisionSource _pitchSelectionDecisionSource;
+        private readonly ISwingExecutionDecisionSource _swingExecutionDecisionSource;
         private readonly MatchDecisionCoordinator _decisionCoordinator;
 
         /// <summary>
@@ -29,6 +31,8 @@ namespace Baseball.Simulation.Match
                 random,
                 MatchRandomStreams.Shared(random),
                 new PlateAppearanceSimulator(balance, random),
+                null,
+                null,
                 null,
                 null,
                 null)
@@ -49,6 +53,8 @@ namespace Baseball.Simulation.Match
                 new PlateAppearanceSimulator(balance, random),
                 decisionSource,
                 null,
+                null,
+                null,
                 null)
         {
         }
@@ -65,6 +71,8 @@ namespace Baseball.Simulation.Match
                 random,
                 MatchRandomStreams.Shared(random),
                 plateAppearanceSimulator,
+                null,
+                null,
                 null,
                 null,
                 null)
@@ -85,6 +93,8 @@ namespace Baseball.Simulation.Match
                 new PlateAppearanceSimulator(balance, randomStreams),
                 null,
                 null,
+                null,
+                null,
                 decisionCoordinator)
         {
         }
@@ -103,6 +113,8 @@ namespace Baseball.Simulation.Match
                 new PlateAppearanceSimulator(balance, randomStreams),
                 decisionSource,
                 null,
+                null,
+                null,
                 null)
         {
         }
@@ -115,7 +127,9 @@ namespace Baseball.Simulation.Match
             MatchRandomStreams randomStreams,
             IMatchDecisionSource decisionSource,
             IMatchPitchingDecisionSource pitchingDecisionSource,
-            MatchDecisionCoordinator decisionCoordinator = null)
+            MatchDecisionCoordinator decisionCoordinator = null,
+            IPitchSelectionDecisionSource pitchSelectionDecisionSource = null,
+            ISwingExecutionDecisionSource swingExecutionDecisionSource = null)
             : this(
                 balance,
                 randomStreams?.PitchOutcome,
@@ -123,6 +137,8 @@ namespace Baseball.Simulation.Match
                 new PlateAppearanceSimulator(balance, randomStreams),
                 decisionSource,
                 pitchingDecisionSource,
+                pitchSelectionDecisionSource,
+                swingExecutionDecisionSource,
                 decisionCoordinator)
         {
         }
@@ -142,6 +158,8 @@ namespace Baseball.Simulation.Match
                 new PlateAppearanceSimulator(balance, randomStreams),
                 decisionSource,
                 null,
+                null,
+                null,
                 decisionCoordinator)
         {
         }
@@ -153,6 +171,8 @@ namespace Baseball.Simulation.Match
             IPlateAppearanceSimulator plateAppearanceSimulator,
             IMatchDecisionSource decisionSource,
             IMatchPitchingDecisionSource pitchingDecisionSource,
+            IPitchSelectionDecisionSource pitchSelectionDecisionSource,
+            ISwingExecutionDecisionSource swingExecutionDecisionSource,
             MatchDecisionCoordinator decisionCoordinator)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
@@ -162,6 +182,8 @@ namespace Baseball.Simulation.Match
                                         throw new ArgumentNullException(nameof(plateAppearanceSimulator));
             _decisionSource = decisionSource;
             _pitchingDecisionSource = pitchingDecisionSource;
+            _pitchSelectionDecisionSource = pitchSelectionDecisionSource;
+            _swingExecutionDecisionSource = swingExecutionDecisionSource;
             _decisionCoordinator = decisionCoordinator;
         }
 
@@ -178,15 +200,25 @@ namespace Baseball.Simulation.Match
                     result,
                     null,
                     null,
+                    null,
+                    null,
                     result.Events as MatchEvent[] ?? eventBuffer.ToArray());
             }
             catch (MatchDecisionRequiredSignal signal)
             {
-                return new MatchSimulationProgress(null, signal.Request, null, eventBuffer.ToArray());
+                return new MatchSimulationProgress(null, signal.Request, null, null, null, eventBuffer.ToArray());
             }
             catch (MatchPitchingDecisionRequiredSignal signal)
             {
-                return new MatchSimulationProgress(null, null, signal.Request, eventBuffer.ToArray());
+                return new MatchSimulationProgress(null, null, signal.Request, null, null, eventBuffer.ToArray());
+            }
+            catch (PitchSelectionRequiredSignal signal)
+            {
+                return new MatchSimulationProgress(null, null, null, signal.Request, null, eventBuffer.ToArray());
+            }
+            catch (SwingExecutionRequiredSignal signal)
+            {
+                return new MatchSimulationProgress(null, null, null, null, signal.Request, eventBuffer.ToArray());
             }
         }
 
@@ -223,6 +255,8 @@ namespace Baseball.Simulation.Match
                     _plateAppearanceSimulator,
                     _decisionSource,
                     _pitchingDecisionSource,
+                    _pitchSelectionDecisionSource,
+                    _swingExecutionDecisionSource,
                     _decisionCoordinator)
                 .Simulate(input, eventSink, capturedEvents);
         }

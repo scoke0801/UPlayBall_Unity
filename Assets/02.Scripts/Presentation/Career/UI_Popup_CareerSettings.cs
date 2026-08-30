@@ -146,7 +146,8 @@ namespace Baseball.Presentation.Career
                 MatchProgressMode.FullGameWatch,
                 MatchProgressMode.InterveneOnPlayer,
                 MatchProgressMode.PlayerFocusAutomatic,
-                MatchProgressMode.InstantResult
+                MatchProgressMode.InstantResult,
+                MatchProgressMode.MiniGame
             };
             for (int index = 0; index < modes.Length; index++)
             {
@@ -155,8 +156,8 @@ namespace Baseball.Presentation.Career
                     "Mode_" + mode,
                     body,
                     GetProgressModeLabel(mode),
-                    new Vector2(195f, 50f),
-                    new Vector2(-310f + index * 205f, 245f),
+                    new Vector2(160f, 50f),
+                    new Vector2(-330f + index * 165f, 245f),
                     settings.MatchProgressMode == mode ? SelectedColor : CardColor,
                     out _);
                 button.onClick.AddListener(() => SelectProgressMode(mode));
@@ -192,6 +193,9 @@ namespace Baseball.Presentation.Career
                 RenderPitchingApproaches(body, settings);
             else
                 RenderBattingApproaches(body, settings);
+
+            if (settings.MatchProgressMode == MatchProgressMode.MiniGame)
+                RenderMiniGameOptions(body, settings);
 
             CreateText("ApplyGuide", body,
                 _careerManager.HasActiveMatch
@@ -237,6 +241,62 @@ namespace Baseball.Presentation.Career
                     settings.PitchingApproach == approach ? SelectedColor : CardColor, out _);
                 button.onClick.AddListener(() => ApplySettings(pitchingApproach: approach));
             }
+        }
+
+        private void RenderMiniGameOptions(RectTransform body, CareerGameSettings settings)
+        {
+            CreateText("MiniGameScopeLabel", body, "직접 플레이 범위", 14, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(180f, 28f), new Vector2(-310f, -104f), AccentColor);
+            MiniGameScope[] scopes =
+            {
+                MiniGameScope.RecommendedByRole,
+                MiniGameScope.AllInvolvement,
+                MiniGameScope.KeyMoments,
+                MiniGameScope.ManualIntervention
+            };
+            string[] labels = { "역할별 권장", "모든 관여", "중요 상황", "타석 선택" };
+            for (int index = 0; index < scopes.Length; index++)
+            {
+                MiniGameScope scope = scopes[index];
+                Button button = CreateButton(
+                    "MiniGameScope_" + scope,
+                    body,
+                    labels[index],
+                    new Vector2(126f, 44f),
+                    new Vector2(-195f + index * 132f, -105f),
+                    settings.MiniGameScope == scope ? SelectedColor : CardColor,
+                    out _);
+                button.onClick.AddListener(() => ApplyMiniGameSettings(scope, settings.MiniGameDifficulty));
+            }
+
+            CreateText("MiniGameDifficultyLabel", body, "조작 보조", 14, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(180f, 28f), new Vector2(-310f, -164f), AccentColor);
+            MiniGameDifficulty[] difficulties =
+            {
+                MiniGameDifficulty.Beginner,
+                MiniGameDifficulty.Standard,
+                MiniGameDifficulty.Professional
+            };
+            string[] difficultyLabels = { "입문", "표준", "프로" };
+            for (int index = 0; index < difficulties.Length; index++)
+            {
+                MiniGameDifficulty difficulty = difficulties[index];
+                Button button = CreateButton(
+                    "MiniGameDifficulty_" + difficulty,
+                    body,
+                    difficultyLabels[index],
+                    new Vector2(110f, 42f),
+                    new Vector2(-120f + index * 120f, -166f),
+                    settings.MiniGameDifficulty == difficulty ? SelectedColor : CardColor,
+                    out _);
+                button.onClick.AddListener(() => ApplyMiniGameSettings(settings.MiniGameScope, difficulty));
+            }
+        }
+
+        private void ApplyMiniGameSettings(MiniGameScope scope, MiniGameDifficulty difficulty)
+        {
+            _careerManager.UpdateMiniGameSettings(scope, difficulty);
+            Render();
         }
 
         private void RenderExitSettings(RectTransform body)
@@ -392,6 +452,7 @@ namespace Baseball.Presentation.Career
                 MatchProgressMode.InterveneOnPlayer => "내 선수 때만 개입",
                 MatchProgressMode.PlayerFocusAutomatic => "내 선수 중심 자동",
                 MatchProgressMode.InstantResult => "즉시 결과",
+                MatchProgressMode.MiniGame => "직접 플레이",
                 _ => string.Empty
             };
         }
