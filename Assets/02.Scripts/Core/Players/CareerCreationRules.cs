@@ -99,6 +99,9 @@ namespace Baseball.Core.Players
     /// </summary>
     public readonly struct CareerCreationRules
     {
+        public const int CurrentVersion = 2;
+        public const int MaximumAttributeCount = 6;
+
         public CareerCreationRules(
             CareerAttributeAllocationRule batter,
             CareerAttributeAllocationRule pitcher)
@@ -109,6 +112,7 @@ namespace Baseball.Core.Players
 
         public CareerAttributeAllocationRule Batter { get; }
         public CareerAttributeAllocationRule Pitcher { get; }
+        public int Version => CurrentVersion;
 
         public CareerAttributeAllocationRule GetRule(PlayerType playerType)
         {
