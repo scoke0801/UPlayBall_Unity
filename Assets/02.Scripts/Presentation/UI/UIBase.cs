@@ -44,6 +44,7 @@ namespace Baseball.Presentation.UI
                 return;
 
             OnInitialize();
+            CareerUiSkin.Apply(transform);
             IsInitialized = true;
         }
 
@@ -60,6 +61,7 @@ namespace Baseball.Presentation.UI
             ApplyVisibleState(true);
             transform.SetAsLastSibling();
             OnShow();
+            CareerUiSkin.Apply(transform);
             _owner?.NotifyShown(this);
         }
 

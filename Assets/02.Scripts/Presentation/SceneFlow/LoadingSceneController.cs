@@ -1,6 +1,7 @@
 using System.Collections;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -28,6 +29,7 @@ namespace Baseball.Presentation.SceneFlow
             _progressBar.minValue = 0f;
             _progressBar.maxValue = 1f;
             _progressBar.SetValueWithoutNotify(0f);
+            CareerUiSkin.ApplySlider(_progressBar);
         }
 
         private void Start()
