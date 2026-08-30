@@ -108,7 +108,7 @@ namespace Baseball.Presentation.Career
         private void RenderBackgroundAccents()
         {
             CreateImage("TopGlow", _content, new Color(0.02f, 0.19f, 0.33f, 0.26f),
-                new Vector2(1920f, 5f), new Vector2(0f, 456f));
+                new Vector2(1920f, 4f), new Vector2(0f, 458f));
             CreateImage("BottomGlow", _content, new Color(0.02f, 0.16f, 0.28f, 0.20f),
                 new Vector2(1920f, 4f), new Vector2(0f, -443f));
         }
@@ -147,7 +147,7 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreatePanel(
                 "Standings", "LEAGUE STANDINGS", "리그 순위", new Vector2(650f, 480f),
-                new Vector2(-635f, 210f));
+                new Vector2(-635f, 188f));
             CreateTableHeader(panel,
                 new[] { "순위", "팀", "경기", "승", "패", "승률", "게임차", "최근" },
                 new[] { -292f, -207f, 17f, 74f, 121f, 179f, 244f, 297f },
@@ -212,8 +212,10 @@ namespace Baseball.Presentation.Career
 
         private void RenderLeagueLadder(LeagueHubView view)
         {
+            // 래더는 상단바 아래(y 456)와 1행 패널 위(y 428) 사이의 전용 밴드에만 놓는다.
+            // 패널이 래더보다 나중에 그려지므로 밴드를 침범하면 등급 라벨이 패널 뒤로 가려진다.
             RectTransform ladder = CreateImage(
-                "LeagueLadder", _content, PanelDarkColor, new Vector2(1460f, 22f), new Vector2(0f, 449f));
+                "LeagueLadder", _content, PanelDarkColor, new Vector2(1460f, 24f), new Vector2(0f, 443f));
             float cellWidth = 142f;
             for (int tier = 0; tier < LeagueLevelRules.Count; tier++)
             {
@@ -239,7 +241,7 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreatePanel(
                 "BattingLeaders", "BATTING LEADERS", "타자 순위", new Vector2(600f, 480f),
-                new Vector2(0f, 210f));
+                new Vector2(0f, 188f));
             string[] labels = { "타율", "홈런", "타점", "도루", "OPS" };
             RenderCategoryTabs(panel, labels, (int)_battingCategory, 600f, index =>
             {
@@ -315,7 +317,7 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreatePanel(
                 "PitchingLeaders", "PITCHING LEADERS", "투수 순위", new Vector2(650f, 480f),
-                new Vector2(635f, 210f));
+                new Vector2(635f, 188f));
             string[] labels = { "평균자책", "승", "세이브", "탈삼진", "WHIP" };
             RenderCategoryTabs(panel, labels, (int)_pitchingCategory, 650f, index =>
             {
@@ -398,7 +400,7 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreatePanel(
                 "TeamMetrics", "TEAM COMPARISON", "팀 지표 비교", new Vector2(620f, 340f),
-                new Vector2(-650f, -220f));
+                new Vector2(-650f, -242f));
             CreateText("BestHeader", panel, "리그 1위", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(110f, 24f), new Vector2(-150f, 112f), SecondaryTextColor);
             CreateText("AverageHeader", panel, "리그 평균", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -443,7 +445,7 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreatePanel(
                 "LeagueFocus", "LEAGUE FOCUS", "리그 포커스 / 타이틀 레이스",
-                new Vector2(610f, 340f), new Vector2(0f, -220f));
+                new Vector2(610f, 340f), new Vector2(0f, -242f));
 
             LeagueStandingView leader = view.Standings.Count > 0 ? view.Standings[0] : default;
             RenderFocusCard(panel, "STANDINGS", "선두 경쟁",
@@ -515,7 +517,7 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreatePanel(
                 "Schedule", "LEAGUE SCHEDULE", "최근 결과 / 다음 라운드",
-                new Vector2(620f, 340f), new Vector2(650f, -220f));
+                new Vector2(620f, 340f), new Vector2(650f, -242f));
             CreateText("RecentTitle", panel, "최근 결과", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(250f, 27f), new Vector2(-155f, 108f), PrimaryTextColor);
             CreateText("NextTitle", panel,
