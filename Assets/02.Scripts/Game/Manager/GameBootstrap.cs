@@ -11,8 +11,12 @@ namespace Baseball.Game.Manager
     /// </summary>
     public static class GameBootstrap
     {
+        /// <summary>
+        /// 필수 Game 매니저를 모두 준비한다. 진입점은 씬 로드 전 자동 호출이지만,
+        /// GameManager를 파괴하는 테스트가 같은 계약을 다시 만들 수 있도록 공개한다.
+        /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void Initialize()
+        public static void EnsureRuntimeManagers()
         {
             GameManager gameManager = GameManager.EnsureExists();
             gameManager.EnsureManager<InputManager>("InputManager");

@@ -20,6 +20,9 @@ namespace Baseball.Tests.PlayMode.Presentation
         [UnityTest]
         public IEnumerator Bootstrap_필수런타임기반을자동생성한다()
         {
+            // 앞선 테스트가 GameManager를 파괴하므로 씬 로드 전 자동 호출을 다시 재현한다.
+            GameBootstrap.EnsureRuntimeManagers();
+            PresentationBootstrap.EnsureUiRoot();
             yield return null;
 
             Assert.That(GameManager.HasInstance, Is.True);
