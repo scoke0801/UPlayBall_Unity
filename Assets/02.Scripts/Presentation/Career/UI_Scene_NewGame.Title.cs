@@ -158,13 +158,13 @@ namespace Baseball.Presentation.Career
                 "PlayerCareer", right, string.Empty, new Vector2(580f, 220f), new Vector2(0f, 220f),
                 new Color(0.025f, 0.20f, 0.34f, 0.98f), out _);
             CreateText("Mode", playerCareer.transform, "선수 커리어", 30, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Vector2(490f, 45f), new Vector2(0f, 58f), PrimaryTextColor);
+                TextAnchor.MiddleLeft, new Vector2(420f, 45f), new Vector2(55f, 58f), PrimaryTextColor);
             CreateText("Description", playerCareer.transform,
                 "한 명의 선수를 만들고 경기·성장·계약을 통해\n여러 시즌의 커리어를 이어갑니다.",
                 17, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(490f, 72f), new Vector2(0f, 0f), SecondaryTextColor);
+                new Vector2(420f, 72f), new Vector2(55f, 0f), SecondaryTextColor);
             CreateText("Action", playerCareer.transform, "새 선수 만들기  →", 16, FontStyle.Bold,
-                TextAnchor.MiddleRight, new Vector2(490f, 32f), new Vector2(0f, -73f), AccentColor);
+                TextAnchor.MiddleRight, new Vector2(420f, 32f), new Vector2(55f, -73f), AccentColor);
             playerCareer.onClick.AddListener(() =>
             {
                 ResetLocalDraft();
