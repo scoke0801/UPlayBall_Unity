@@ -47,7 +47,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Contact => "컨택",
                 PlayerAbility.Power => "파워",
                 PlayerAbility.Speed => "주루",
-                PlayerAbility.Bunt => "번트",
+                PlayerAbility.Arm => "송구",
                 PlayerAbility.Defense => "수비",
                 PlayerAbility.BatterMental => "선구",
                 PlayerAbility.Stamina => "체력",

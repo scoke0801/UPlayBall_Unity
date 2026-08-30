@@ -64,7 +64,7 @@ namespace Baseball.Game.Career
             result[(int)PlayerAbility.Contact] = batter.Contact;
             result[(int)PlayerAbility.Power] = batter.Power;
             result[(int)PlayerAbility.Speed] = batter.Speed;
-            result[(int)PlayerAbility.Bunt] = batter.Bunt;
+            result[(int)PlayerAbility.Arm] = batter.Arm;
             result[(int)PlayerAbility.Defense] = batter.Defense;
             result[(int)PlayerAbility.BatterMental] = batter.Mental;
             result[(int)PlayerAbility.Stamina] = pitcher.Stamina;
@@ -217,4 +217,3 @@ namespace Baseball.Game.Career
         }
     }
 }
-

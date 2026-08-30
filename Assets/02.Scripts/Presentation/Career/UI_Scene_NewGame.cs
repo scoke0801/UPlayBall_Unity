@@ -229,7 +229,7 @@ namespace Baseball.Presentation.Career
             CharacterCreationBalance balance = _manager.CharacterCreationBalance;
             string[] names = _manager.PlayerType == PlayerType.Pitcher
                 ? new[] { "Stamina", "Velocity", "Stuff", "Breaking", "Control", "Mental" }
-                : new[] { "Contact", "Power", "Speed", "Bunt", "Fielding", "Mental" };
+                : new[] { "Contact", "Power", "Speed", "Arm", "Defense", "Mental" };
             int remaining = balance.BonusPoints - GetSpentPoints(balance);
             CreateText(
                 "Remaining", _body,
@@ -456,7 +456,7 @@ namespace Baseball.Presentation.Career
             if (_manager.BatterAttributes.HasValue)
             {
                 BatterAttributes value = _manager.BatterAttributes.Value;
-                CopyValues(value.Contact, value.Power, value.Speed, value.Bunt, value.Defense, value.Mental);
+                CopyValues(value.Contact, value.Power, value.Speed, value.Arm, value.Defense, value.Mental);
             }
             else if (_manager.PitcherAttributes.HasValue)
             {
@@ -536,7 +536,7 @@ namespace Baseball.Presentation.Career
             {
                 BatterAttributes value = _manager.BatterAttributes.Value;
                 return $"Contact {value.Contact}     Power {value.Power}     Speed {value.Speed}\n\n" +
-                       $"Bunt {value.Bunt}     Fielding {value.Defense}     Mental {value.Mental}";
+                       $"Arm {value.Arm}     Fielding {value.Defense}     Mental {value.Mental}";
             }
             PitcherAttributes pitcher = _manager.PitcherAttributes.Value;
             return $"Stamina {pitcher.Stamina}     Velocity {pitcher.Velocity}     Stuff {pitcher.Stuff}\n\n" +

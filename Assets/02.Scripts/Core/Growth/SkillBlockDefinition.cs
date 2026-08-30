@@ -32,7 +32,7 @@ namespace Baseball.Core.Growth
         Breaking,
         PitcherPhysical,
         PitcherMental,
-        Bunt,
+        Arm,
         Stuff
     }
 

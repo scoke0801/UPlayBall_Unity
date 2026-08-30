@@ -22,7 +22,7 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.Control => new Color(0.16f, 0.46f, 0.76f, 1f),
                 SkillBlockCategory.Breaking => new Color(0.45f, 0.34f, 0.73f, 1f),
                 SkillBlockCategory.PitcherPhysical => new Color(0.64f, 0.45f, 0.16f, 1f),
-                SkillBlockCategory.Bunt => new Color(0.70f, 0.42f, 0.16f, 1f),
+                SkillBlockCategory.Arm => new Color(0.70f, 0.42f, 0.16f, 1f),
                 SkillBlockCategory.Stuff => new Color(0.60f, 0.24f, 0.24f, 1f),
                 _ => new Color(0.24f, 0.58f, 0.52f, 1f)
             };
@@ -41,7 +41,7 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.Control => "제구",
                 SkillBlockCategory.Breaking => "변화구",
                 SkillBlockCategory.PitcherPhysical => "투수 체력",
-                SkillBlockCategory.Bunt => "번트",
+                SkillBlockCategory.Arm => "송구",
                 SkillBlockCategory.Stuff => "구위",
                 _ => "투수 정신력"
             };

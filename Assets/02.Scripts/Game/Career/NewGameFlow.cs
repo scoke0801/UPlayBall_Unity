@@ -135,7 +135,7 @@ namespace Baseball.Game.Career
 
             if (State.PlayerType == PlayerType.Batter)
             {
-                // 현재 시뮬레이션의 Mental은 Eye, Bunt 슬롯은 Arm 값을 받는다. 확정 원본은 draft에 그대로 남긴다.
+                // 생성 화면의 Eye는 경기 모델의 Mental로, Arm은 같은 이름의 수비 능력으로 연결한다.
                 State.BatterAttributes = new BatterAttributes(
                     values[0], values[1], values[3], values[5], values[4], values[2]);
                 State.PitcherAttributes = null;
@@ -312,7 +312,7 @@ namespace Baseball.Game.Career
                 attributes.Contact,
                 attributes.Power,
                 attributes.Speed,
-                attributes.Bunt,
+                attributes.Arm,
                 attributes.Defense,
                 attributes.Mental);
             State.BatterAttributes = attributes;
@@ -320,7 +320,7 @@ namespace Baseball.Game.Career
             State.Draft.SetInitialAttributes(new[]
             {
                 attributes.Contact, attributes.Power, attributes.Mental,
-                attributes.Speed, attributes.Defense, attributes.Bunt
+                attributes.Speed, attributes.Defense, attributes.Arm
             });
             CompletePlayerCard();
         }

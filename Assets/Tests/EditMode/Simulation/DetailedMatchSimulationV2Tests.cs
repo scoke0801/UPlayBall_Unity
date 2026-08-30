@@ -142,6 +142,20 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void Fielding_송구능력은Defense와독립적으로Arm프로필에반영된다()
+        {
+            Player weakArm = CreateBatter(99, 50, 60, 50, arm: 20);
+            Player strongArm = CreateBatter(99, 50, 60, 50, arm: 90);
+
+            FieldingProfile weakProfile = FieldingProfile.Derive(weakArm, PlayerPosition.Shortstop);
+            FieldingProfile strongProfile = FieldingProfile.Derive(strongArm, PlayerPosition.Shortstop);
+
+            Assert.That(strongProfile.Range, Is.EqualTo(weakProfile.Range));
+            Assert.That(strongProfile.Hands, Is.EqualTo(weakProfile.Hands));
+            Assert.That(strongProfile.Arm, Is.GreaterThan(weakProfile.Arm));
+        }
+
+        [Test]
         public void SubstitutionLedger_퇴장선수는재출전할수없다()
         {
             var ledger = new SubstitutionLedger();
@@ -388,7 +402,8 @@ namespace Baseball.Tests.EditMode.Simulation
             int speed,
             int defense,
             int mental,
-            PlayerPosition position = PlayerPosition.Shortstop)
+            PlayerPosition position = PlayerPosition.Shortstop,
+            int arm = 40)
         {
             return new Player(
                 id,
@@ -396,7 +411,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 position,
                 Handedness.Right,
                 Handedness.Right,
-                new BatterAttributes(50, 50, speed, 40, defense, mental),
+                new BatterAttributes(50, 50, speed, arm, defense, mental),
                 new PitcherAttributes(20, 20, 20, 20, 20, 20));
         }
 

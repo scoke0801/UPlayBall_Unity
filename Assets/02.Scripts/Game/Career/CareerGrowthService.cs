@@ -90,13 +90,14 @@ namespace Baseball.Game.Career
             double contact = _playerEvaluation.GeneralAttributeWeight;
             double power = _playerEvaluation.GeneralAttributeWeight;
             double speed = _playerEvaluation.GeneralAttributeWeight;
-            double bunt = _playerEvaluation.GeneralAttributeWeight;
+            double arm = _playerEvaluation.GeneralAttributeWeight;
             double defense = _playerEvaluation.GeneralAttributeWeight;
             double mental = _playerEvaluation.GeneralAttributeWeight;
             switch (position)
             {
                 case PlayerPosition.Catcher:
                     contact = _playerEvaluation.SupportingAttributeWeight;
+                    arm = _playerEvaluation.KeyAttributeWeight;
                     defense = _playerEvaluation.KeyAttributeWeight;
                     mental = _playerEvaluation.KeyAttributeWeight;
                     break;
@@ -112,31 +113,41 @@ namespace Baseball.Game.Career
                     defense = _playerEvaluation.KeyAttributeWeight;
                     mental = _playerEvaluation.SupportingAttributeWeight;
                     break;
+                case PlayerPosition.ThirdBase:
+                    contact = _playerEvaluation.SupportingAttributeWeight;
+                    power = _playerEvaluation.KeyAttributeWeight;
+                    arm = _playerEvaluation.KeyAttributeWeight;
+                    defense = _playerEvaluation.SupportingAttributeWeight;
+                    break;
                 case PlayerPosition.Shortstop:
                     contact = _playerEvaluation.SupportingAttributeWeight;
                     speed = _playerEvaluation.SupportingAttributeWeight;
+                    arm = _playerEvaluation.KeyAttributeWeight;
                     defense = _playerEvaluation.KeyAttributeWeight;
-                    mental = _playerEvaluation.KeyAttributeWeight;
+                    mental = _playerEvaluation.SupportingAttributeWeight;
+                    break;
+                case PlayerPosition.LeftField:
+                case PlayerPosition.RightField:
+                    contact = _playerEvaluation.SupportingAttributeWeight;
+                    power = _playerEvaluation.KeyAttributeWeight;
+                    arm = _playerEvaluation.KeyAttributeWeight;
+                    defense = _playerEvaluation.SupportingAttributeWeight;
                     break;
                 case PlayerPosition.CenterField:
                     contact = _playerEvaluation.SupportingAttributeWeight;
                     speed = _playerEvaluation.KeyAttributeWeight;
+                    arm = _playerEvaluation.SupportingAttributeWeight;
                     defense = _playerEvaluation.KeyAttributeWeight;
-                    break;
-                default:
-                    contact = _playerEvaluation.SupportingAttributeWeight;
-                    power = _playerEvaluation.KeyAttributeWeight;
-                    defense = _playerEvaluation.SupportingAttributeWeight;
                     break;
             }
 
-            double total = contact + power + speed + bunt + defense + mental;
+            double total = contact + power + speed + arm + defense + mental;
             return new[]
             {
                 new AbilityWeight(PlayerAbility.Contact, contact / total),
                 new AbilityWeight(PlayerAbility.Power, power / total),
                 new AbilityWeight(PlayerAbility.Speed, speed / total),
-                new AbilityWeight(PlayerAbility.Bunt, bunt / total),
+                new AbilityWeight(PlayerAbility.Arm, arm / total),
                 new AbilityWeight(PlayerAbility.Defense, defense / total),
                 new AbilityWeight(PlayerAbility.BatterMental, mental / total)
             };

@@ -56,7 +56,8 @@ namespace Baseball.Core.Balance
             new SkillBlockLine("contact", SkillBlockCategory.Contact, PlayerAbility.Contact),
             new SkillBlockLine("power", SkillBlockCategory.Power, PlayerAbility.Power),
             new SkillBlockLine("baserunning", SkillBlockCategory.Baserunning, PlayerAbility.Speed),
-            new SkillBlockLine("bunt", SkillBlockCategory.Bunt, PlayerAbility.Bunt),
+            // BlockId는 기존 세이브의 배치 블록을 찾을 수 있도록 유지한다.
+            new SkillBlockLine("bunt", SkillBlockCategory.Arm, PlayerAbility.Arm),
             new SkillBlockLine("defense", SkillBlockCategory.Defense, PlayerAbility.Defense),
             new SkillBlockLine("batter_mental", SkillBlockCategory.BatterMental, PlayerAbility.BatterMental),
             new SkillBlockLine("velocity", SkillBlockCategory.Velocity, PlayerAbility.Velocity),

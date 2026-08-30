@@ -48,7 +48,7 @@ namespace Baseball.Simulation.Growth
                 Clamp(player.BatterAttributes.Contact),
                 Clamp(player.BatterAttributes.Power),
                 Clamp(player.BatterAttributes.Speed),
-                Clamp(player.BatterAttributes.Bunt),
+                Clamp(player.BatterAttributes.Arm),
                 Clamp(player.BatterAttributes.Defense),
                 Clamp(player.BatterAttributes.Mental),
                 Clamp(player.PitcherAttributes.Stamina),

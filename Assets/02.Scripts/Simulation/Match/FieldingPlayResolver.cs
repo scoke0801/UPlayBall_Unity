@@ -15,7 +15,7 @@ namespace Baseball.Simulation.Match
     }
 
     /// <summary>
-    /// Defense에서 RNG를 소비하지 않는 소폭 편차를 파생해 Range·Hands·Arm 역할을 분리한다.
+    /// Defense에서 Range·Hands를, Arm에서 송구 강점을 파생해 각 수비 역할을 분리한다.
     /// </summary>
     public readonly struct FieldingProfile
     {
@@ -38,7 +38,7 @@ namespace Baseball.Simulation.Match
             int defense = player.BatterAttributes.Defense;
             int range = ClampRating(defense + (int)(hash % 7U) - 3);
             int hands = ClampRating(defense + (int)((hash >> 5) % 7U) - 3);
-            int arm = ClampRating(defense + (int)((hash >> 11) % 7U) - 3);
+            int arm = ClampRating(player.BatterAttributes.Arm + (int)((hash >> 11) % 7U) - 3);
             return new FieldingProfile(range, hands, arm, player.GetPositionProficiency(position));
         }
 

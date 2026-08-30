@@ -79,7 +79,9 @@ namespace Baseball.Tests.EditMode.Game
             Player lockedPlayer = FindLineupPlayer(playerTeam, flow.Career.MyPlayer.PlayerId);
 
             Assert.That(lockedPlayer, Is.Not.Null);
-            Assert.That(lockedPlayer.BatterAttributes.Contact, Is.EqualTo(baseContact + 4));
+            Assert.That(
+                lockedPlayer.BatterAttributes.Contact,
+                Is.EqualTo(baseContact + GetAbilityBonus(block, PlayerAbility.Contact)));
             Assert.That(growth.BaseAbilities.Get(PlayerAbility.Contact), Is.EqualTo(baseContact),
                 "성장판 보너스가 영구 Base Ability를 바꾸면 안 됩니다.");
         }
@@ -105,12 +107,24 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPlayerType(PlayerType.Batter);
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Right, Handedness.Right);
-            flow.SubmitBatterAttributes(new BatterAttributes(55, 50, 52, 43, 60, 52));
+            flow.SubmitBatterAttributes(new BatterAttributes(63, 58, 60, 53, 66, 60));
             flow.GenerateOffers();
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();
             flow.StartRookieSeason();
             return flow;
+        }
+
+        /// <summary>블록 보너스 수치는 밸런스 데이터라 테스트에 상수로 박지 않고 정의에서 읽는다.</summary>
+        private static int GetAbilityBonus(SkillBlockDefinition block, PlayerAbility ability)
+        {
+            int amount = 0;
+            for (int index = 0; index < block.AbilityBonuses.Length; index++)
+            {
+                if (block.AbilityBonuses[index].Ability == ability)
+                    amount += block.AbilityBonuses[index].Amount;
+            }
+            return amount;
         }
 
         private static SkillBlockDefinition FindBlock(

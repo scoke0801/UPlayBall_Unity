@@ -366,13 +366,13 @@ namespace Baseball.Presentation.Career
             }
             else
             {
-                labels = new[] { "교타력", "장타력", "주력", "번트", "수비력", "정신력" };
+                labels = new[] { "교타력", "장타력", "주력", "송구력", "수비력", "정신력" };
                 values = new[]
                 {
                     view.BatterAttributes.Contact,
                     view.BatterAttributes.Power,
                     view.BatterAttributes.Speed,
-                    view.BatterAttributes.Bunt,
+                    view.BatterAttributes.Arm,
                     view.BatterAttributes.Defense,
                     view.BatterAttributes.Mental
                 };

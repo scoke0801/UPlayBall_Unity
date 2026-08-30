@@ -790,9 +790,9 @@ namespace Baseball.Core.Balance
                 new TrainingProgramDefinition("bat_power_camp", OffseasonActivityType.PersonalTraining, TrainingCategory.Strength, PlayerType.Batter,
                     3, MoneyAmount.FromTenThousandWon(650L), 1.15d, new[] { new AbilityWeight(PlayerAbility.Power, 0.65d), new AbilityWeight(PlayerAbility.Contact, 0.20d), new AbilityWeight(PlayerAbility.BatterMental, 0.15d) }, 45, 0.015d, 3, 2, -18, 1),
                 new TrainingProgramDefinition("bat_contact_training", OffseasonActivityType.PersonalTraining, TrainingCategory.Batting, PlayerType.Batter,
-                    2, MoneyAmount.FromTenThousandWon(420L), 0.90d, new[] { new AbilityWeight(PlayerAbility.Contact, 0.65d), new AbilityWeight(PlayerAbility.BatterMental, 0.25d), new AbilityWeight(PlayerAbility.Bunt, 0.10d) }, 40, 0.0075d, 2, 2, -10, 1),
+                    2, MoneyAmount.FromTenThousandWon(420L), 0.90d, new[] { new AbilityWeight(PlayerAbility.Contact, 0.70d), new AbilityWeight(PlayerAbility.BatterMental, 0.30d) }, 40, 0.0075d, 2, 2, -10, 1),
                 new TrainingProgramDefinition("bat_speed_defense_camp", OffseasonActivityType.PersonalTraining, TrainingCategory.Strength, PlayerType.Batter,
-                    4, MoneyAmount.FromTenThousandWon(780L), 1.10d, new[] { new AbilityWeight(PlayerAbility.Speed, 0.50d), new AbilityWeight(PlayerAbility.Defense, 0.35d), new AbilityWeight(PlayerAbility.BatterMental, 0.15d) }, 45, 0.01d, 3, 2, -14, 1),
+                    4, MoneyAmount.FromTenThousandWon(780L), 1.10d, new[] { new AbilityWeight(PlayerAbility.Speed, 0.45d), new AbilityWeight(PlayerAbility.Defense, 0.30d), new AbilityWeight(PlayerAbility.Arm, 0.15d), new AbilityWeight(PlayerAbility.BatterMental, 0.10d) }, 45, 0.01d, 3, 2, -14, 1),
                 // 엘리트 랩은 일반 캠프보다 짧지만 비용·컨디션·부상 부담이 커서 자금으로 시간을 사는 선택이다.
                 new TrainingProgramDefinition("bat_elite_hitting_lab", OffseasonActivityType.PersonalTraining, TrainingCategory.Batting, PlayerType.Batter,
                     2, MoneyAmount.FromTenThousandWon(1_400L), 1.45d, new[] { new AbilityWeight(PlayerAbility.Contact, 0.45d), new AbilityWeight(PlayerAbility.Power, 0.35d), new AbilityWeight(PlayerAbility.BatterMental, 0.20d) }, 50, 0.025d, 4, 3, -22, 1,

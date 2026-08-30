@@ -75,7 +75,7 @@ namespace Baseball.Core.Growth
                 Get(PlayerAbility.Contact),
                 Get(PlayerAbility.Power),
                 Get(PlayerAbility.Speed),
-                Get(PlayerAbility.Bunt),
+                Get(PlayerAbility.Arm),
                 Get(PlayerAbility.Defense),
                 Get(PlayerAbility.BatterMental));
         }

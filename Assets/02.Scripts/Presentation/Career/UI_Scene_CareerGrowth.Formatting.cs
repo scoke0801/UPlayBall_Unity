@@ -93,7 +93,7 @@ namespace Baseball.Presentation.Career
                     PlayerAbility.Contact,
                     PlayerAbility.Power,
                     PlayerAbility.Speed,
-                    PlayerAbility.Bunt,
+                PlayerAbility.Arm,
                     PlayerAbility.Defense,
                     PlayerAbility.BatterMental
                 }
@@ -115,7 +115,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Contact => "교타력",
                 PlayerAbility.Power => "장타력",
                 PlayerAbility.Speed => "주력",
-                PlayerAbility.Bunt => "번트",
+                PlayerAbility.Arm => "송구",
                 PlayerAbility.Defense => "수비력",
                 PlayerAbility.BatterMental => "정신력",
                 PlayerAbility.Stamina => "체력",
@@ -242,7 +242,7 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.Breaking => "변화구",
                 SkillBlockCategory.PitcherPhysical => "투수 체력",
                 SkillBlockCategory.PitcherMental => "투수 정신",
-                SkillBlockCategory.Bunt => "번트",
+                SkillBlockCategory.Arm => "송구",
                 SkillBlockCategory.Stuff => "구위",
                 _ => category.ToString()
             };
@@ -274,7 +274,7 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.Breaking => "변화구 보너스",
                 SkillBlockCategory.PitcherMental => "위기관리 보너스",
                 SkillBlockCategory.Baserunning => "주루 보너스",
-                SkillBlockCategory.Bunt => "번트 보너스",
+                SkillBlockCategory.Arm => "송구 보너스",
                 SkillBlockCategory.PitcherPhysical => "투수 체력 보너스",
                 SkillBlockCategory.Stuff => "구위 보너스",
                 _ => "능력치 보너스"
@@ -294,7 +294,7 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.Breaking => new Color(0.48f, 0.22f, 0.72f, 1f),
                 SkillBlockCategory.PitcherMental => new Color(0.76f, 0.52f, 0.08f, 1f),
                 SkillBlockCategory.Baserunning => new Color(0.13f, 0.62f, 0.55f, 1f),
-                SkillBlockCategory.Bunt => new Color(0.70f, 0.42f, 0.16f, 1f),
+                SkillBlockCategory.Arm => new Color(0.70f, 0.42f, 0.16f, 1f),
                 SkillBlockCategory.PitcherPhysical => new Color(0.64f, 0.45f, 0.16f, 1f),
                 SkillBlockCategory.Stuff => new Color(0.60f, 0.24f, 0.24f, 1f),
                 _ => AccentColor
@@ -308,7 +308,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Contact => GetCategoryColor(SkillBlockCategory.Contact),
                 PlayerAbility.Power => GetCategoryColor(SkillBlockCategory.Power),
                 PlayerAbility.Speed => GetCategoryColor(SkillBlockCategory.Baserunning),
-                PlayerAbility.Bunt => GetCategoryColor(SkillBlockCategory.Bunt),
+                PlayerAbility.Arm => GetCategoryColor(SkillBlockCategory.Arm),
                 PlayerAbility.Defense => GetCategoryColor(SkillBlockCategory.Defense),
                 PlayerAbility.BatterMental => GetCategoryColor(SkillBlockCategory.BatterMental),
                 PlayerAbility.Velocity => GetCategoryColor(SkillBlockCategory.Velocity),

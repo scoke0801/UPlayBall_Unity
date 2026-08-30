@@ -23,17 +23,17 @@ namespace Baseball.Simulation.Career
 
         private static string GetBatterWarning(BatterAttributes value, PlayerPosition position)
         {
-            int average = (value.Contact + value.Power + value.Speed + value.Bunt + value.Defense + value.Mental) / 6;
+            int average = (value.Contact + value.Power + value.Speed + value.Arm + value.Defense + value.Mental) / 6;
             int keyValue = position switch
             {
-                PlayerPosition.Catcher => (value.Defense + value.Mental) / 2,
+                PlayerPosition.Catcher => (value.Defense + value.Arm + value.Mental) / 3,
                 PlayerPosition.FirstBase => value.Power,
                 PlayerPosition.SecondBase => value.Defense,
-                PlayerPosition.ThirdBase => value.Power,
-                PlayerPosition.Shortstop => (value.Defense + value.Mental) / 2,
+                PlayerPosition.ThirdBase => (value.Power + value.Arm) / 2,
+                PlayerPosition.Shortstop => (value.Speed + value.Arm + value.Defense) / 3,
                 PlayerPosition.CenterField => (value.Speed + value.Defense) / 2,
                 PlayerPosition.DesignatedHitter => (value.Contact + value.Power) / 2,
-                _ => (value.Power + value.Defense) / 2
+                _ => (value.Power + value.Arm) / 2
             };
 
             return keyValue + 5 < average

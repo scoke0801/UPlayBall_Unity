@@ -2046,7 +2046,7 @@ namespace Baseball.Presentation.Career
                     SkillBlockCategory.Contact,
                     SkillBlockCategory.Power,
                     SkillBlockCategory.Baserunning,
-                    SkillBlockCategory.Bunt,
+                SkillBlockCategory.Arm,
                     SkillBlockCategory.Defense,
                     SkillBlockCategory.BatterMental
                 }
