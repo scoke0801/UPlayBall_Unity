@@ -16,14 +16,23 @@ namespace Baseball.Tools.PureSimulationTests
                 typeof(Baseball.Tests.EditMode.Game.MultiLeagueWorldTests),
                 typeof(Baseball.Tests.EditMode.Game.CareerLeagueMovementTests),
                 typeof(Baseball.Tests.EditMode.Game.News.CareerNewsServiceTests),
+                // 아래 Game 스위트는 UnityEngine API를 쓰지 않아 콘솔 러너에서도 그대로 돈다.
+                // 나머지 Career*Service 계열은 UnityEngine에 의존하므로 Unity EditMode 러너에서만 검증한다.
+                typeof(Baseball.Tests.EditMode.Game.CareerGrowthServiceTests),
+                typeof(Baseball.Tests.EditMode.Game.CareerNarrativeContinuationTests),
+                typeof(Baseball.Tests.EditMode.Game.CareerSeasonTransitionServiceTests),
+                typeof(Baseball.Tests.EditMode.Game.MatchNarrativeServiceTests),
+                typeof(Baseball.Tests.EditMode.Game.PlayerGrowthIntegrationTests),
                 typeof(Baseball.Tests.EditMode.Simulation.MatchSimulatorTests),
                 typeof(Baseball.Tests.EditMode.Simulation.DetailedMatchSimulationV2Tests),
                 typeof(Baseball.Tests.EditMode.Simulation.MatchDecisionTests),
+                typeof(Baseball.Tests.EditMode.Simulation.MiniGameSimulationTests),
                 typeof(Baseball.Tests.EditMode.Simulation.MatchSimulationStatisticsTests),
                 typeof(Baseball.Tests.EditMode.Simulation.PlateAppearanceSimulatorTests),
                 typeof(Baseball.Tests.EditMode.Simulation.Growth.SkillBoardAndGachaTests),
                 typeof(Baseball.Tests.EditMode.Simulation.Growth.GrowthBoardWorkspaceRulesTests),
                 typeof(Baseball.Tests.EditMode.Simulation.Career.NewGameSetupTests),
+                typeof(Baseball.Tests.EditMode.Simulation.Career.TeamGeneratorTests),
                 typeof(Baseball.Tests.EditMode.Simulation.Career.PlayerRetirementResolverTests)
             };
             // TestContext.WriteLine은 실행 컨텍스트의 OutWriter가 없으면 NullReference로 죽는다.
