@@ -126,7 +126,7 @@ Elite 10회·Unique 30회·Legendary 60회 미획득 뒤 다음 뽑기를 각 �
 
 - 등급별 확률과 가격은 `BalanceTable`에 둔다. 코드에 하드코딩하지 않는다.
 - 모든 등급의 블록은 `I/O/T/S/Z/J/L` 7종 중 하나인 4칸 표준 테트로미노다. 등급은 칸 수가 아니라
-  능력치 효율과 희귀도 프레임으로 구분한다. 기본 보너스는 각각 +1/+2/+4/+5/+7이다.
+  능력치 효율과 희귀도 프레임으로 구분한다. 기본 보너스는 각각 +1/+2/+3/+4/+5다.
 - 계통과 등급은 모양을 제한하지 않는다. 계통·등급 조합마다 7종 모양을 모두 풀에 두고 균등하게
   뽑으므로, 원하는 계통을 골라도 어떤 모양이 나올지는 뽑기 운에 달려 있다.
 - 뽑기 결과는 항상 배치 가능한 블록 하나를 준다 — 빈손(꽝)은 만들지 않는다.
@@ -139,7 +139,8 @@ Elite 10회·Unique 30회·Legendary 60회 미획득 뒤 다음 뽑기를 각 �
   (`BaseballManager_PROJECT.md` 39.11 유지 항목).
 - 뽑기 오버레이는 시즌 중/오프시즌 어디서나 열 수 있고 기간을 소모하지 않는다. 다만 Unique와
   Legendary 구매는 오프시즌에만 가능하다. Unique는 오프시즌 2회, Legendary는 1회로 제한한다.
-  Legendary는 1군 주전 경쟁 등급과 개인 수상 1회 이후 해금한다.
+  상품 최소 리그는 Normal/Rookie, Rare/Minor, Elite/Major, Unique/Classic,
+  Legendary/Champion이며 Legendary는 개인 수상 1회도 요구한다.
 - Unique와 Legendary는 획득 즉시 자동 잠금하여 실수로 판매되지 않게 한다. 잠긴 블록은 명시적으로
   잠금을 해제하기 전에는 판매할 수 없다.
 
@@ -478,9 +479,13 @@ Condition이 예상보다 더 낮아진 경우에는 그 지점에서 남은 계
 
 | 리그 | 접근 등급 | 새로 열리는 대표 선택 |
 |---|---|---|
-| Rookie | `Foundation` | 기초·능력치 집중 훈련, 기본 파트너, 동아시아 유학, 일반 회복 |
-| Minor | `Advanced` | 엘리트 랩, 전담 코치, 북미·카리브·유럽 프로그램, 스포츠 사이언스 |
-| Major | `Elite` | 북미 엘리트 아카데미 |
+| Rookie | `Foundation` | 기초·약점 보완, 일반 회복 |
+| Minor | `Advanced` | 전담 코치, 기술 세분화 |
+| Major | `Professional` | 주전 경쟁용 집중 육성 |
+| World·AllStar | `International` | 해외 프로그램, 플레이 스타일 발견 |
+| Classic·Winners | `Elite` | 고비용·고효율·고위험 육성 |
+| Champion·Master | `Championship` | 정밀 조정, 노쇠·Peak 관리 |
+| Galaxy | `Legacy` | 고유 Trait과 커리어 정체성 |
 
 상위 리그 프로그램은 시간 효율과 성장 상한, Potential 돌파 기회를 사는 선택이다. 하위 리그
 프로그램을 숨기거나 폐기하지 않으므로, 고소득 선수도 자금 효율이나 남은 주차에 따라 기초 훈련을
@@ -558,19 +563,22 @@ SS 경쟁
 ```text
 Base Ability
 → Skill Board Bonus
+→ Peak Bonus
 → Active Trait Modifier
-→ Condition / Fatigue / Injury
+→ Condition / Fatigue / Injury / Tactics
 → PlateAppearanceSimulator / MatchSimulator
 ```
 
-- 훈련·자연 성장·노쇠·중대 부상은 `Base Ability`만 바꾼다.
+- 훈련·자연 성장·노쇠·중대 부상은 `Base Ability`를 바꾸되 `Potential`을 넘지 않는다.
 - 성장판 보너스는 장착 중에만 적용하며 `Potential` 여유 계산에는 포함하지 않는다.
+- Potential을 일시적으로 넘는 기량은 영구 Base가 아니라 능력치별 0~3 `Peak Bonus`로 저장한다.
 - 훈련 파트너와 유학의 고유 노하우는 가능하면 영구 패시브가 아니라 Trait 블록으로 지급한다.
 - `OVR`은 저장 자원이 아니라 포지션별 가중치로 매번 계산한 결과다.
 
 ```text
-StableAbility = BaseAbility + SkillBoardBonus + ActiveTraitBonus
-SimulationAbility = clamp(StableAbility × ConditionModifier × InjuryModifier, 1, 99)
+RosterAbility = clamp(BaseAbility + EffectiveSkillBonus, 1, 99)
+CurrentAbility = clamp(RosterAbility + PeakBonus, 1, 99)
+MatchAbility = clamp(CurrentAbility + ConditionModifier + InjuryModifier + TacticalModifier, 1, 99)
 ```
 
 ## 22. 영구 성장 공식
@@ -591,25 +599,26 @@ ExpectedGrowth(attribute)
 1차 기본값:
 
 - 나이: 18~22 `1.20`, 23~27 `1.00`, 28~31 `0.80`, 32~34 `0.60`, 35+ `0.40`
-- Potential Gap: 15+ `1.20`, 8~14 `1.00`, 3~7 `0.65`, 0~2 `0.30`, 초과 `0.10`, +3 이상 `0`
+- Potential Gap: 15+ `1.20`, 8~14 `1.00`, 3~7 `0.65`, 0~2 `0.30`, 상한 도달 후 Base 성장 `0`
 - WorkEthic: 기복 `0.90`, 보통 `1.00`, 성실 `1.10`, 매우 성실 `1.15`
 - TrainingFit: 낮음 `0.85`, 보통 `1.00`, 높음 `1.10`, 매우 높음 `1.15`
 - Condition: 80+ `1.00`, 60~79 `0.90`, 40~59 `0.75`, 40 미만 선택 불가 또는 재활 우선
-- 동일 계통 반복: 첫 번째 `1.00`, 두 번째 `0.85`, 세 번째 이상 `0.70`
+- 동일 계통 반복: 첫 번째 `1.00`, 두 번째 `0.90`, 세 번째 `0.75`, 네 번째 이상 `0.60`
 - QualityRoll: `0.90~1.10`
 
 확률적 반올림을 사용한다. 예상값 `0.72`는 72% 확률로 +1, `1.35`는 +1 확정 후 35% 확률로
-추가 +1이다. 일반 훈련은 `Potential +3`을 넘지 않는다. 결과 Seed는 활동 시작 시 저장한다.
+추가 +1이다. 일반 훈련은 `Potential`을 넘지 않는다. 결과 Seed와 `SimulationVersionStamp`는 활동
+시작 시 저장한다.
 
-Potential은 장기 한계로 유지하되, Major의 엘리트 유학처럼 오프시즌 대부분과 큰 Money를 쓰는
-최상위 프로그램은 모든 대상 능력치가 `Potential +3` 개발 한계에 막힌 경우 최소 Potential 돌파
+Potential은 장기 한계로 유지하되, 오프시즌 대부분과 큰 Money를 쓰는 최상위 프로그램은 모든 대상
+능력치가 `Potential` 개발 한계에 막힌 경우 최소 Potential 돌파
 1회를 먼저 적용한다. 그 뒤 같은 활동의 능력치 성장을 계산해 절대 상한 99가 아닌 선수가 고가
 프로그램에서 전부 `+0`을 받는 구간을 없앤다. 일반·Advanced 프로그램은 보장 돌파가 없고 각
 프로그램의 공개된 배율을 전역 돌파 확률에 곱하므로 Potential의 역할과 희소성은 유지한다.
 
-2026-08-29 정체 상태(Base 73 / Potential 70) 엘리트 타격 아카데미 10,000회 검증에서 평균 성장
+2026-08-30 정체 상태(Base 70 / Potential 70) 엘리트 타격 아카데미 10,000회 검증에서 평균 성장
 `+1.100`, 무성장 `0/10,000`을 확인했다. 같은 밸런스의 5,000커리어 표본에서 22세 평균은
-개인훈련 `51.846`, 유학 `53.144`, 유학 전략의 32세 `55.801`, 36세 `55.434`로 장기 상한과
+개인훈련 `51.73`, 유학 `52.83`, 유학 전략의 32세 `54.96`, 36세 `54.57`로 장기 상한과
 노쇠 방향을 유지했다.
 
 ## 23. Potential, 자연 성장과 노쇠
@@ -617,15 +626,31 @@ Potential은 장기 한계로 유지하되, Major의 엘리트 유학처럼 오�
 `Potential`은 능력치별 장기 한계이며 정확한 숫자는 숨기고 성장 여지 큼/있음/완성도 높음/한계에
 가까움으로 표시한다. 플레이어 캐릭터는 아키타입이 분배를 결정하며 총량의 완전 무작위 차이는 두지 않는다.
 
+신규 선수의 초기 Potential은 숨은 RNG 없이 다음 부분 분리 공식을 사용한다.
+
+```text
+Potential = min(88, max(BaseAbility + 5,
+                66 + round((BaseAbility - 50) × 0.6) + PositionBonus))
+```
+
+`PositionBonus`는 핵심 능력 +3, 보조 능력 +1, 일반 능력 +0이다. 현재 능력 투자와 장기 상한의
+중복 보상을 줄이되 포지션 정체성은 유지한다.
+
 시즌 자연 성장:
 
 ```text
-NaturalGrowth = AgeStageBase × ExperienceFactor × WorkEthic × PotentialMultiplier × QualityRoll
+NaturalGrowth = AgeStageBase × ExposureMultiplier × WorkEthic × PotentialMultiplier × QualityRoll
+
+ExposureMultiplier = 0.55 + 0.45 × sqrt(clamp(UsageRatio, 0, 1))
 ```
 
 - 시즌 전체 성장 예산: 18~22 `0.80`, 23~27 `0.40`, 28~31 `0.15`, 32+ `0`
-- 활용량 보정: 거의 없음 `0.55`, 제한적 `0.75`, 정상 `1.00`, 과도 `0.95`
+- 출장 0에도 팀 훈련 성장 55%를 보장하고 높은 출장 구간에는 체감 감소를 적용한다.
 - 성적이 아니라 실제 역할과 사용 패턴에 따라 능력치에 배분한다.
+- 자연 성장은 능력치별 `DevelopmentProgress` 0~999에 정수 고정소수점으로 누적한다. 1,000마다
+  Base +1로 전환하고 잔여 진행도는 다음 시즌에 이월한다.
+- 30세 이하 비주전이 같은 역할군 경쟁자와 8점 이내이고 Potential이 남아 있으면 핵심·보조 능력에
+  최대 20%의 따라잡기 보정을 적용한다. 자동 역전이 아니라 경쟁 복귀까지 걸리는 시간을 줄이는 장치다.
 
 노쇠는 별도 결산으로 처리한다.
 
@@ -647,6 +672,8 @@ NaturalGrowth = AgeStageBase × ExperienceFactor × WorkEthic × PotentialMultip
 - 보장 카운트와 확률을 공개하고 시즌이 바뀌어도 유지한다.
 - 중복은 강화 재료로 만들지 않고 등급별 소액 `Money`로 판매한다.
 - 4×4 보드는 4칸 표준 테트로미노의 회전·경계·겹침·Trait Socket을 검증한다. 좌우 반전은 기본 불가다.
+- 같은 능력치 블록은 100%/60%/30%/0%로 체감하며 능력치 하나 +9, 보드 전체 +18을 상한으로 둔다.
+- Unique·Legendary는 Trait 중심으로 차별화한다. 개막일의 `ActiveSkillBoardSnapshot`을 시즌 동안 고정한다.
 - 정의 변경으로 유효하지 않게 된 기존 장착은 블록 손실이나 안전 회수 비용 없이 보관함으로 복구한다.
 - 임시 보드에서 편집한 뒤 일괄 적용한다. 기존 장착 이동·회수는 오프시즌 안전 회수 1,500만원을
   시즌당 한 번 사용한다.

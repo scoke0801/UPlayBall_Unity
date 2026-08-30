@@ -1475,17 +1475,26 @@ HR
 
 ## 38. 현재 우선순위
 
-가장 먼저 구현할 세 가지:
+2026-08-30 기준 최초 프로토타입 목표와 커리어 전체 루프는 구현되어 있다. 현재 단계는
+**Career Stabilization**이며, 신규 기능 확장보다 다음 네 가지를 우선한다.
 
-1. `Player / Team / Lineup` 데이터 모델
-2. `PlateAppearanceSimulator`
-3. `MatchSimulator`
+1. 실제 커리어 경기 경로의 대량 통계와 능력치 민감도 검증
+2. 백업·부상 선수의 성장 진행도 보존과 역할 복귀 가능성 검증
+3. Rookie~Galaxy 전 구간의 성장 선택 지속성 확보
+4. 스킬 블록·자금력이 일반 훈련과 역할 평가를 독점하지 않도록 통합 검증
 
-이 세 가지가 정상 동작한 이후에만 UI와 장기 운영 시스템을 확장한다.
+`MatchSimulator`의 공개 실행 경로는 `DetailedMatchEngine`을 사용한다. 따라서 두 개의 활성 경기
+공식을 따로 밸런싱하지 않고, 같은 실제 엔진을 빠른 고정 매치업 진단과 커리어 통합 진단에서 각각
+검증한다. 과거의 경량 구현은 공개 실행 경로가 아니며 새 기능을 추가하지 않는다.
 
-현재 프로젝트의 첫 번째 성공 기준은 다음과 같다.
+시즌 자동완료 성능 개선은 `docs/진단/SEASON_FAST_FORWARD_BASELINE.md`를 따른다. 먼저 canonical
+상태 checksum, 재개 가능한 동기 세션, 무관전자 Detailed 출력 프로필을 마련하고, Unity Player
+실측이 목표를 만족하지 못할 때만 작업 스레드나 별도 Fast 엔진을 검토한다.
 
-> **서로 다른 선수 능력치를 가진 두 팀이 9이닝 경기를 치르고, 충분히 많은 경기에서 능력치 차이가 통계적으로 의미 있는 결과 차이로 나타나는 것.**
+이 단계의 성공 기준은 다음과 같다.
+
+> **같은 Seed·입력·규칙 버전에서 결과가 재현되고, 20시즌 동안 역할·성장·계약·리그 이동이 한쪽으로
+> 고착되지 않으며, 플레이어가 결과의 주요 원인을 확인할 수 있는 것.**
 
 ---
 
@@ -1531,10 +1540,15 @@ HR
 부상 위험 변환 규칙으로 계산한다. `Standard`는 프로그램 원본값을 그대로 사용하며, 강도와 변환된
 실행값은 활동 계획과 `GrowthResultRecord`에 함께 저장한다.
 
-훈련 프로그램은 `Foundation / Advanced / Elite` 접근 등급을 가지며 Rookie / Minor / Major
-리그에 각각 대응한다. 성장 화면은 현재 리그에서 열린 전체 카탈로그를 페이지로 보여 주고, 승격으로
-새로 열린 고가 프로그램을 먼저 배치한다. Game 레이어는 리그와 접근 등급을 매핑하고 Core의 프로그램
-정의는 Game의 `LeagueLevel`을 참조하지 않는다.
+훈련 프로그램은 `Foundation / Advanced / Professional / International / Elite /
+Championship / Legacy` 접근 등급을 가진다. Rookie부터 Galaxy까지 리그 진행에 맞춰 새 선택이
+열리되, 상위 등급은 성장 총량의 단순 상위호환이 아니라 Potential·Peak·노쇠·반복 페널티·Trait처럼
+서로 다른 병목을 해결한다. Game 레이어는 리그와 접근 등급을 매핑하고 Core의 프로그램 정의는
+Game의 `LeagueLevel`을 참조하지 않는다.
+
+접근 권한은 커리어 최고 도달 리그의 `TrainingKnowledgeTier`와 현재 소속 리그의
+`FacilitySupportTier`로 나눈다. 강등 후에도 배운 프로그램은 유지하지만 시설 지원이 부족하면 비용,
+최소 보장 성장과 Potential 돌파에 불이익을 받는다.
 
 `성장 계획에 담기`는 마지막 선택을 교체하는 임시 선택이 아니라 `OffseasonState.Activities`에
 복수 활동을 순서대로 배치하는 명시적 계획 명령이다. 계획 실행은 주차·활동 ID 순서로 모든 활동을
@@ -1549,25 +1563,28 @@ HR
 ```text
 Base Ability
 → Skill Board Bonus
-→ Active Trait Modifier
-→ Condition / Fatigue / Injury
+→ Peak Bonus
+→ Condition / Fatigue / Injury / Tactics
 → PlateAppearanceSimulator / MatchSimulator
 ```
 
-성장판 보너스는 장착 중에만 적용하며 Potential 여유 계산에는 포함하지 않는다. `OVR`은 저장된
-자원이 아니라 현재 능력치에서 포지션별로 다시 계산한다.
+`Base Ability ≤ Potential`을 항상 지킨다. Potential 초과 기량은 영구 Base가 아니라 능력치별
+0~3의 시즌형 `Peak Bonus`로 저장한다. 성장판 보너스는 장착 중에만 적용하며 Potential 여유 계산에는
+포함하지 않는다. 경기·감독 평가·계약·UI는 `EffectiveAbilityResolver`가 반환하는 동일한
+`AbilityBreakdown`을 사용하고, `OVR`은 저장 자원이 아니라 해당 시점 능력치에서 다시 계산한다.
 
 ### 39.4 유학
 
 - 오프시즌 전용, 오프시즌당 한 번, 6~8주와 Money를 소비한다.
 - 시즌 중 경기 이탈과 빠지는 경기 수는 사용하지 않는다.
 - `DevelopmentCapacity`를 소비하지 않는다.
-- 같은 프로그램 연속 방문은 100% → 90% → 80%로 효율을 낮출 수 있다.
+- 같은 계통 연속 선택은 100% → 90% → 75% → 60%로 효율을 낮춘다.
 - 결과 Seed는 활동 시작 시 저장한다.
 - Base Ability 감소 결과는 없고 성장 여유가 있으면 최소 성장을 보장한다.
 - 프로그램에 따라 고유 Trait 블록이나 드문 Potential +1 사건을 제공할 수 있다.
-- Major 엘리트 유학은 모든 대상 능력치가 `Potential +3` 개발 한계에 막혔을 때 최소 Potential
-  돌파 1회를 성장 계산 전에 보장해, 절대 상한 99 이전의 고가 유학 무성장 결과를 막는다.
+- 최상위 성장 프로그램은 대상 능력이 Potential에 막혔을 때 공개된 규칙에 따라 Potential 돌파를
+  먼저 적용해, 절대 상한 99 이전의 고가 프로그램 무성장 결과를 막는다. 일반 훈련은 Potential을
+  넘는 Base를 만들지 않는다.
 
 ### 39.5 스킬 블록과 4×4 성장판
 
@@ -1579,8 +1596,17 @@ Base Ability
 - Normal~Elite 5회 구매는 5% 할인한다. Elite 10회·Unique 30회·Legendary 60회 미획득 후
   다음 뽑기에 각각 보장을 둔다.
 - 뽑기 전 전체 또는 계통을 선택하고 모든 결과는 블록 하나를 지급한다.
-- Unique는 오프시즌 2회, Legendary는 오프시즌 1회로 제한한다. Legendary는 1군 주전 경쟁 등급과
+- Unique는 오프시즌 2회, Legendary는 오프시즌 1회로 제한한다. Legendary는 Champion 이상과
   개인 수상 1회 이후 해금한다.
+- 블록 기본 보너스는 Normal/Rare/Elite/Unique/Legendary 순서로 +1/+2/+3/+4/+5다.
+- 같은 능력치의 첫 번째/두 번째/세 번째/네 번째 블록은 100%/60%/30%/0%로 적용한다.
+  능력치 하나의 유효 Skill Bonus는 +9, 보드 전체는 +18을 넘지 않는다.
+- 상품의 최소 리그는 Normal/Rookie, Rare/Minor, Elite/Major, Unique/Classic,
+  Legendary/Champion이다. Legendary는 개인 수상 1회 조건도 함께 요구한다.
+- Unique·Legendary는 단순 수치보다 Trait을 제공한다. Trait은 실제 경기 상황에서 발동하고
+  계약 안정 전력에 직접 중복 합산하지 않는다.
+- 개막일에 `ActiveSkillBoardSnapshot`을 고정한다. 시즌 중 보드 편집은 허용하지 않고 경기·역할·계약은
+  같은 스냅샷을 사용한다.
 - 보장 카운트와 확률을 공개한다. 중복은 강화 재료가 아니라 소액 Money 판매만 허용한다.
 - 보드는 4×4이며 모든 등급의 블록은 `I/O/T/S/Z/J/L` 7종 중 하나인 4칸 표준 테트로미노다.
   등급은 칸 수가 아니라 보너스와 프레임으로 구분하며, 회전·경계·겹침·Trait Socket을 검증한다.
@@ -1635,13 +1661,15 @@ Phase 1의 `Player / Team / Lineup`, `PlateAppearanceSimulator`, `MatchSimulator
 ### 39.8 필수 테스트
 
 - 같은 입력과 Seed의 성장 기록 완전 일치
-- Potential +3 상한, 나이·컨디션·반복 보정 경계
+- Base≤Potential, Peak 0~3, 나이·컨디션·반복 보정 경계
 - 12주 초과·활동 겹침·두 번째 유학·같은 파트너 반복 거부
 - 스킬 블록 회전·겹침·경계·Socket·제거·재설계
 - 뽑기 최소 등급·5회 할인·Elite/Unique/Legendary 보장 카운트·구매 제한·판매 잠금
 - 부상 위험 요인의 방향성과 치료 비용
 - 나이·소득·Opportunity·전략별 수천~수만 커리어 성장 분포
 - 플레이어와 AI 리그의 장기 OVR 분포 및 32세 이후 노쇠 속도
+- 같은 Seed·입력·`SimulationVersionStamp`의 경기·성장·역할 판정 완전 일치
+- 출장 0의 성장 진행도 보존, 백업의 역할 복귀율, 프로그램 선택 집중도
 
 ### 39.9 만들지 않을 것
 
@@ -2318,6 +2346,35 @@ OBP, SLG, 득점, BB, SO, HBP가 모두 약 ±5% 안이며 통계 범위 테스�
 현재 정식 1차 범위 밖은 체크 스윙, 낫아웃, 폭투/포일의 주자 진루, 고급 릴리스 게이지, 수비·주루
 직접 조작, 장면 리플레이와 전용 오디오다. Unity BatchMode는 라이선스 초기화 단계에서 진행되지 않아
 에디터 Play Mode의 16:9/16:10 레이아웃과 실제 입력 장치 포커스는 별도 시각 검증이 남아 있다.
+
+### 40.25 구현 상태 — 투수 미니게임 2D 궤적·제구 피드백
+
+투수 직접 플레이는 기존 확률 판정과 `PitchSelectionCommand` 입력 계약을 유지하면서, 선택 결과가
+포수 미트까지 도달하는 과정을 읽을 수 있도록 표현 단계를 분리했다. 타석 시작 즉시 투구하지 않고
+`PrePitchReady → PitchSelection/TargetAiming/StrategySelection → PitchConfirmed → Windup →`
+`BallInFlight → PlateArrival/BatterReaction → PitchResult → NextPitchReady` 순서로 진행한다.
+
+- `PitchTypeProfileCatalog`는 `PitchExecutionResolver` 내부 구종 상수를 값 변경 없이 순수 C#으로
+  분리한다. Resolver와 대표 궤적이 같은 변화 방향·시작 시점을 사용하지만, 실제 제구 난수는 미리보기로
+  공개하지 않는다.
+- `PitchFlightDescriptor.Evaluate(t)`는 포인트 배열이나 Unity 타입 없이 정규화 시간의
+  `PitchTrajectoryPoint`를 계산한다. `Evaluate(0)`은 릴리스, `Evaluate(1)`은 실제 `PlatePoint`이며,
+  투수·타자 표현 모두 이 평가기를 실제 궤적의 단일 원천으로 사용한다.
+- Presentation은 공의 2D 크기 증가, 늦은 변화, 고정 5~8개 잔상으로 원근과 구종 차이를 표현한다.
+  화면상 변화 강조는 도착점을 보존하는 Presentation 설정이고 판정 좌표·구속·컨택 결과를 바꾸지 않는다.
+- 사람 투수는 구종 대표 궤적, 목표 십자, 기존 Resolver가 제공한 예상 제구 타원을 투구 전 확인한다.
+  도착 뒤에는 목표점과 실제 통과점, 연결선, 제구 오차와 기존 `ContactProfile` 결과를 확인한다.
+- 사람 타자와 CPU 관전에는 투수 목표점·예상 제구 타원·대표 궤적을 사전 노출하지 않는다. 실제로
+  확정된 Descriptor의 공 이동만 공유하며 Instant Simulation에는 Presentation 객체를 만들지 않는다.
+- 투구 확정 뒤 입력과 중복 제출을 잠그고, 실제 `PitchEvent` 공개를 궤적 재생 완료까지 보류한다.
+  `CareerMatchPlayback.RevealThroughEvent`가 해당 투구까지만 공개하므로 뒤의 타구·주자·타석 종료 이벤트는
+  기존 중계 흐름으로 계속 소비된다.
+- 공·잔상·대표 궤적·목표/실제 마커는 화면 초기화 때 한 번 생성해 재사용한다. 투구마다 경로 배열을
+  만들지 않고 현재 `t`에서 직접 평가하며, 설정 팝업으로 Update가 정지하면 전용 누적 시계도 멈춘다.
+
+Simulation 경계·구종 방향·이벤트 부분 공개와 PlayMode 흐름 테스트를 추가했다. 2026-08-30 이번
+수정에서는 사용자 요청에 따라 빌드, 결정론 회귀 실행, 10,000경기 통계 회귀 실행은 보류했으므로
+실행 통과를 완료 조건으로 보고하지 않는다.
 
 ---
 

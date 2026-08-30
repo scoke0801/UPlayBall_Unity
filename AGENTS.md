@@ -38,13 +38,12 @@ Unity 6 (6000.3.21f1) 기반 **싱글 플레이 야구 선수 커리어 시뮬�
 2. **UI보다 시뮬레이션을 먼저 만든다.** 경기 시뮬레이션이 통계적으로 납득 가능해지기 전에는 UI 작업을 확장하지 않는다.
 3. **초기 범위를 지킨다.** Football Manager 수준을 목표로 하지 않는다. `BaseballManager_PROJECT.md` 31절(MVP에서 제외할 기능)에 있는 항목은 요청이 없는 한 만들지 않는다. **플레이어가 자기 팀의 라인업·로테이션·전술을 직접 편성하는 기능도 만들지 않는다** — 그건 감독 AI의 일이다.
 
-**현재 단계:** Phase 1 — Simulation Prototype. 프로젝트는 사실상 빈 Unity 2D URP 템플릿 상태이며, 아직 구현된 게임 코드가 없다. 최우선 구현 대상은 `BaseballManager_PROJECT.md` 38절의 세 가지다.
+**현재 단계:** Career Stabilization. 최초 프로토타입과 커리어 전체 루프는 구현되어 있으며,
+신규 기능 확장보다 실제 커리어 경기 경로의 대량 통계·결정론·성장·계약·리그 이동 회귀 검증을
+우선한다. 세부 우선순위와 완료 조건은 `BaseballManager_PROJECT.md` 38절을 따른다.
 
-1. `Player` / `Team` / `Lineup` 데이터 모델
-2. `PlateAppearanceSimulator`
-3. `MatchSimulator`
-
-**첫 번째 성공 기준:** 서로 다른 능력치를 가진 두 팀이 9이닝 경기를 치르고, 충분히 많은 경기에서 능력치 차이가 통계적으로 의미 있는 결과 차이로 나타나는 것.
+`MatchSimulator`의 공개 실행 경로는 `DetailedMatchEngine` 하나다. 과거 경량 구현은 공개 경로가
+아니며, 성능 실측과 별도 승인 없이 두 번째 경기 공식을 활성화하거나 밸런싱하지 않는다.
 
 ## 언어
 

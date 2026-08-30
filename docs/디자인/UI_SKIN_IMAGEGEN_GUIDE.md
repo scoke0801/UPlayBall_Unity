@@ -22,7 +22,7 @@
 | `ui_panel_universal_v2.png` | 최상위 주요 정보 패널 | 투명 배경 9-slice |
 | `ui_panel_hero_v2.png` | 다음 경기·중요 결과·대형 선택 카드 | 투명 배경 9-slice |
 | `ui_button_states.png` | Normal / Focused / Pressed | 런타임 Sprite 분할 + SpriteSwap |
-| `ui_selected_point.png` | 선택 상태 포인트 | 독립 Sprite + ColorTint |
+| `ui_selected_point.png` | 레거시 선택 포인트 | 신규 UI에서는 사용하지 않음 |
 | `ui_slider_parts.png` | Track / Fill / Handle | 런타임 Sprite 분할 |
 | `ui_fx_atlas.png` | CTA light sweep 등 | 저빈도 unscaled-time 연출 |
 
@@ -36,10 +36,9 @@ PNG는 UI 번짐을 막기 위해 mipmap을 끄고, PC 메모리 점유를 줄�
 - 장식 패널은 화면의 최상위 `*Panel`/`*Modal` 한 단계에만 적용한다. 그 안의 카드·표·섹션에는 같은 프레임을 반복하지 않는다.
 - 기존 `Panel > Surface` 구조는 `Surface`에만 투명 9-slice를 적용하고 바깥 cyan backplate는 투명화한다.
 - 내부 `Card`/`Frame`/`Surface`는 짙은 navy 평면과 1px steel 경계로 통일해 정보 밀도를 유지한다.
-- 높이 200px 이상의 대형 선택지만 짧은 버튼 아틀라스를 늘리지 않고 패널 규격을 사용한다. 170~180px의 선수 유형·스타일 선택지는 표준 버튼 아틀라스를 사용해 패널 장식이 갈라지지 않게 한다.
+- 높이 260px 이상의 대형 선택지만 짧은 버튼 아틀라스를 늘리지 않고 패널 규격을 사용한다. 220px 이하의 커리어·선수 유형·스타일 선택지는 표준 버튼 아틀라스를 사용해 패널 장식이 갈라지지 않게 한다.
 - 너비 180px 이하이면서 높이도 46px 이하인 실제 필터·증감 버튼만 red stitch 엔드캡을 반복하지 않는 평면형 compact 규격을 사용한다. `이전`, 투타 선택, 게임 속도처럼 높이가 확보된 버튼은 너비가 좁아도 표준 프레임을 유지한다.
-- 선택된 항목은 Focused 프레임과 독립 홈플레이트 포인트 이미지를 조합하고, hover에는 SpriteSwap 대신 ColorTint를 사용한다.
-- 선택 포인트는 compact 14~18px, 일반 24~36px로 제한하고 hover 중에도 제거하지 않는다. 대형 카드는 Hero 프레임 자체로 선택 위계를 표현해 좌상단 장식 위에 별도 포인트를 겹치지 않는다.
+- 선택된 항목은 금색 Focused 프레임과 ColorTint로 구분한다. 별도 홈플레이트 Point는 프레임의 red stitch 및 화면 코드의 `✓` 텍스트와 중복되므로 사용하지 않는다.
 - 버튼 라벨은 좌우 안전 여백, 자동 축소, 줄바꿈과 RectMask2D 클리핑을 공통 적용한다.
 - Danger/Success 등 화면별 의미 색은 원래 tint를 약하게 보존한다.
 - 반복 표시 시 tint가 누적되지 않도록 적용을 멱등 처리한다.
@@ -59,7 +58,7 @@ ImageGen은 분위기·재질·큰 프레임·컷 이미지·저빈도 연출에
 |---|---|---|
 | Primary panel | 최상위 `*Panel`/`*Modal`, 260×140 이상 | transparent universal/hero 9-slice |
 | Nested surface | Primary panel 내부 `Card`/`Frame`/`Surface` | flat navy + 1px steel |
-| Card button | 높이 200px 이상 | universal/hero panel, 별도 선택 포인트 없음 |
+| Card button | 높이 260px 이상 | universal/hero panel, 별도 선택 포인트 없음 |
 | Standard button | 위 두 범위 사이 | 3-state button atlas |
 | Compact control | 너비 180px 이하이면서 높이 46px 이하 | flat navy + 상태별 outline |
 
