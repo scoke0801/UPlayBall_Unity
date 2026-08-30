@@ -80,6 +80,8 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(growth.transform.Find("Content/GrowthGachaOverlay"), Is.Null);
             Assert.That(growth.transform.Find("Content/BlockInventory/SelectedBlockDetail/Name"), Is.Not.Null,
                 "구매 직후 새 블록이 편집 대상으로 선택되어야 합니다.");
+            Assert.That(careerManager.GrowthDashboard.CanEditBoard, Is.False,
+                "정규 시즌에는 성장판을 열람할 수 있지만 배치와 회전은 잠겨야 합니다.");
             Transform selectedDetail = growth.transform.Find(
                 "Content/BlockInventory/SelectedBlockDetail");
             AssertTetrominoCells(selectedDetail, "SelectedShapeCell_");
@@ -87,8 +89,10 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(
                 growth.transform.Find("Content/BlockInventory/SelectedBlockDetail/RotateSelectedBlock")
                     .GetComponent<UnityEngine.UI.Button>().interactable,
-                Is.EqualTo(careerManager.GrowthDashboard.OwnedBlocks[0].CanRotate),
-                "구매한 블록은 즉시 선택되어 상세 패널에서 회전할 수 있어야 합니다.");
+                Is.EqualTo(
+                    careerManager.GrowthDashboard.CanEditBoard &&
+                    careerManager.GrowthDashboard.OwnedBlocks[0].CanRotate),
+                "회전 가능 형태라도 정규 시즌 열람 모드에서는 회전 입력이 잠겨야 합니다.");
 
             growth.transform.Find("Content/GrowthSubNavigation/OffseasonActionsTab")
                 .GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
@@ -131,9 +135,41 @@ namespace Baseball.Tests.PlayMode.Presentation
 
             Assert.That(CareerTabNavigation.Show(CareerMainTab.Home), Is.True);
             yield return null;
+            home = FindVisibleDashboard();
+            Assert.That(home, Is.Not.Null);
 
-            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Postseason));
+            if (careerManager.Dashboard.PendingReaction != null)
+            {
+                Transform reactionPanel = FindDescendant(home.transform, "ReactionPanel");
+                Assert.That(reactionPanel, Is.Not.Null,
+                    "시즌 종료 경기에서 발생한 커리어 반응은 시즌 리뷰보다 먼저 해결해야 합니다.");
+                Transform reactionOption = FindDescendant(reactionPanel, "ReactionOption_0");
+                Assert.That(reactionOption, Is.Not.Null);
+                reactionOption.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                yield return null;
+            }
+
+            SeasonState season = career.CurrentLeague.CurrentSeason;
+            Assert.That(season.Phase, Is.EqualTo(SeasonPhase.Postseason));
+            Assert.That(season.Review.Step, Is.EqualTo(SeasonReviewStep.RegularSeasonIntro));
+            Transform seasonReviewRoot = FindDescendant(home.transform, "SeasonReviewRoot");
+            Assert.That(
+                seasonReviewRoot, Is.Not.Null,
+                "정규시즌 종료 직후에는 홈 패널보다 시즌 리뷰가 먼저 표시되어야 합니다.");
+
+            for (int step = 0; step < 3; step++)
+            {
+                Transform advanceReview = FindDescendant(home.transform, "AdvanceSeasonReview");
+                Assert.That(advanceReview, Is.Not.Null,
+                    $"포스트시즌 진입 전 시즌 리뷰 {step + 1}단계 진행 버튼이 필요합니다.");
+                advanceReview.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                yield return null;
+            }
+
+            Assert.That(season.Review.Step, Is.EqualTo(SeasonReviewStep.PostseasonInProgress));
             Transform playerCard = home.transform.Find("Content/PlayerPanel/PlayerCard");
+            Assert.That(playerCard, Is.Not.Null,
+                "시즌 리뷰를 확인한 뒤 포스트시즌 진행 화면으로 돌아와야 합니다.");
             Transform nameStrip = playerCard.Find("NameStrip");
             Transform position = playerCard.Find("Position");
             Transform playerName = playerCard.Find("PlayerName");
@@ -151,19 +187,34 @@ namespace Baseball.Tests.PlayMode.Presentation
                 .GetComponent<UnityEngine.UI.Text>();
             Assert.That(roleText.text, Is.EqualTo(GetExpectedRoleLabel(career.CurrentContract.ExpectedRole)));
 
-            Transform postseasonButton = home.transform.Find("Content/NextGamePanel/AdvancePostseason");
+            Transform postseasonButton = FindDescendant(home.transform, "AutoCompletePostseason");
             Assert.That(postseasonButton, Is.Not.Null);
             postseasonButton.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return null;
 
-            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.SeasonReview));
-            Transform settlementButton = home.transform.Find("Content/NextGamePanel/BeginOffseason");
-            Assert.That(settlementButton, Is.Not.Null);
-            long moneyBeforeSettlement = career.AvailableMoney;
-            settlementButton.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Transform confirmPostseason = FindDescendant(home.transform, "Confirm");
+            Assert.That(confirmPostseason, Is.Not.Null);
+            confirmPostseason.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return null;
 
-            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
+            Assert.That(season.Phase, Is.EqualTo(SeasonPhase.SeasonReview));
+            Assert.That(season.Review.Step, Is.EqualTo(SeasonReviewStep.PostseasonRecap));
+            long moneyBeforeSettlement = career.AvailableMoney;
+
+            int reviewAdvanceCount = 0;
+            while (season.Review.Step != SeasonReviewStep.Finished && reviewAdvanceCount < 64)
+            {
+                Transform advanceReview = FindDescendant(home.transform, "AdvanceSeasonReview");
+                Assert.That(advanceReview, Is.Not.Null,
+                    $"시즌 리뷰 {season.Review.Step} 단계 진행 버튼이 필요합니다.");
+                advanceReview.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                reviewAdvanceCount++;
+                yield return null;
+            }
+
+            Assert.That(reviewAdvanceCount, Is.LessThan(64), "시즌 리뷰 진행이 완료되지 않았습니다.");
+            Assert.That(season.Phase, Is.EqualTo(SeasonPhase.Offseason));
+            Assert.That(season.Review.Step, Is.EqualTo(SeasonReviewStep.Finished));
             Assert.That(career.AvailableMoney, Is.GreaterThan(moneyBeforeSettlement));
             Transform growthButton = home.transform.Find("Content/NextGamePanel/OpenGrowth");
             Assert.That(growthButton, Is.Not.Null);
@@ -215,7 +266,8 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(popup.transform.Find("Content/Summary_Cost"), Is.Not.Null);
             Assert.That(popup.transform.Find("Content/Summary_Condition"), Is.Not.Null);
             Assert.That(popup.transform.Find("Content/Summary_Completion"), Is.Not.Null);
-            Assert.That(popup.transform.Find("Content/ProgramList/Program_bat_power_camp"), Is.Not.Null);
+            Assert.That(FindDescendant(popup.transform, "Program_bat_power_camp"), Is.Not.Null,
+                "스크롤 Viewport 내부에도 같은 프로그램 선택 항목이 유지되어야 합니다.");
             Assert.That(popup.transform.Find("Content/Details/Intensity_Standard"), Is.Not.Null);
             Assert.That(popup.transform.Find("Content/Timeline/Week_12"), Is.Not.Null);
 
@@ -228,6 +280,10 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(careerManager.GrowthDashboard.IsActivityInProgress, Is.False);
             Assert.That(popup.IsVisible, Is.False);
 
+            program = growth.transform.Find(
+                "Content/OffseasonActionWorkspace/WorkspaceProgram_personal_batting");
+            Assert.That(program, Is.Not.Null,
+                "활동 실행으로 성장 화면이 다시 그려진 뒤 현재 프로그램 버튼을 다시 찾아야 합니다.");
             program.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             yield return null;
             Transform addToPlan = popup.transform.Find("Content/Footer/Plan");
@@ -238,23 +294,20 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(careerManager.GrowthDashboard.PlannedActivities, Has.Length.EqualTo(1));
             Assert.That(career.CurrentOffseason.CurrentWeek, Is.EqualTo(weekBefore + 3));
 
-            Transform studyProgram = growth.transform.Find(
-                "Content/OffseasonActionWorkspace/WorkspaceProgram_japan_batting_camp");
-            Assert.That(studyProgram, Is.Not.Null);
-            studyProgram.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
-            yield return null;
-
-            Transform executePlan = popup.transform.Find("Content/Footer/Confirm");
+            Transform executePlan = FindDescendant(growth.transform, "ExecuteWorkspaceActivity");
             Assert.That(executePlan, Is.Not.Null);
-            executePlan.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            var executePlanButton = executePlan.GetComponent<UnityEngine.UI.Button>();
+            Assert.That(executePlanButton.interactable, Is.True,
+                "유효한 성장 계획은 오프시즌 액션 화면에서 실행할 수 있어야 합니다.");
+            executePlanButton.onClick.Invoke();
             yield return null;
 
-            Assert.That(career.CurrentOffseason.CurrentWeek, Is.EqualTo(13));
+            Assert.That(career.CurrentOffseason.CurrentWeek, Is.EqualTo(weekBefore + 6));
             Assert.That(careerManager.GrowthDashboard.PlannedActivities, Is.Empty);
-            Assert.That(career.MyPlayer.StudyState.StudyUsedThisOffseason, Is.True);
-            Assert.That(career.CurrentOffseason.Activities[1].Status,
+            Assert.That(career.MyPlayer.StudyState.StudyUsedThisOffseason, Is.False);
+            Assert.That(career.CurrentOffseason.Activities[0].Status,
                 Is.EqualTo(OffseasonActivityStatus.Completed));
-            Assert.That(career.CurrentOffseason.Activities[2].Status,
+            Assert.That(career.CurrentOffseason.Activities[1].Status,
                 Is.EqualTo(OffseasonActivityStatus.Completed));
             Assert.That(
                 growth.transform.Find("Content/PlayerSummary/LatestGrowth/Value"),
@@ -277,7 +330,7 @@ namespace Baseball.Tests.PlayMode.Presentation
             flow.SelectPlayerType(PlayerType.Batter);
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Left, Handedness.Right);
-            flow.SubmitBatterAttributes(new BatterAttributes(55, 50, 52, 43, 60, 52));
+            flow.SubmitBatterAttributes(new BatterAttributes(63, 58, 60, 53, 66, 60));
             flow.GenerateOffers();
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();
@@ -293,6 +346,32 @@ namespace Baseball.Tests.PlayMode.Presentation
                 Baseball.Core.Teams.ExpectedRole.RosterCompetition => "로스터 경쟁",
                 _ => "벤치 경쟁"
             };
+        }
+
+        private static UI_Scene_CareerDashboard FindVisibleDashboard()
+        {
+            UI_Scene_CareerDashboard[] screens = Object.FindObjectsByType<UI_Scene_CareerDashboard>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < screens.Length; index++)
+            {
+                if (screens[index].IsVisible)
+                    return screens[index];
+            }
+
+            return null;
+        }
+
+        private static Transform FindDescendant(Transform root, string name)
+        {
+            Transform[] descendants = root.GetComponentsInChildren<Transform>(true);
+            for (int index = 0; index < descendants.Length; index++)
+            {
+                if (descendants[index].name == name)
+                    return descendants[index];
+            }
+
+            return null;
         }
 
         private static void AssertTetrominoCells(Transform parent, string childPrefix)
