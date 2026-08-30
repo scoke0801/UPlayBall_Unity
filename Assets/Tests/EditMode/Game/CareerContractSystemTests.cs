@@ -199,7 +199,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPlayerType(PlayerType.Batter);
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Left, Handedness.Right);
-            flow.SubmitBatterAttributes(new BatterAttributes(55, 50, 52, 43, 60, 52));
+            flow.SubmitBatterAttributes(new BatterAttributes(63, 58, 60, 53, 66, 60));
             CompleteNewGame(flow);
             return flow.Career;
         }
@@ -211,7 +211,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPlayerType(PlayerType.Pitcher);
             flow.SelectPosition(PlayerPosition.StartingPitcher);
             flow.SelectHandedness(Handedness.Right, Handedness.Right);
-            flow.SubmitPitcherAttributes(new PitcherAttributes(55, 52, 50, 50, 52, 48));
+            flow.SubmitPitcherAttributes(new PitcherAttributes(63, 61, 59, 59, 61, 57));
             CompleteNewGame(flow);
             return flow.Career;
         }
@@ -261,7 +261,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPlayerType(PlayerType.Pitcher);
             flow.SelectPosition(position);
             flow.SelectHandedness(Handedness.Right, Handedness.Right);
-            flow.SubmitPitcherAttributes(new PitcherAttributes(55, 52, 50, 50, 52, 48));
+            flow.SubmitPitcherAttributes(new PitcherAttributes(63, 61, 59, 59, 61, 57));
             CompleteNewGame(flow);
             return flow.Career;
         }

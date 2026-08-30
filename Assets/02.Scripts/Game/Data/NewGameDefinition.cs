@@ -208,6 +208,8 @@ namespace Baseball.Game.Data
         [SerializeField, Min(0f)] private double _competitorOverallVariance = 10d;
         [SerializeField, Range(0, 100)] private int _minimumCompetitorOverall = 38;
         [SerializeField, Range(0, 100)] private int _maximumCompetitorOverall = 72;
+        [SerializeField, Range(0, 30)] private int _competitorAttributeProfileSpread = 10;
+        [SerializeField, Range(0, 30)] private int _competitorAttributeVariance = 8;
 
         [Header("Player Evaluation")]
         [SerializeField, Min(0.1f)] private double _keyAttributeWeight = 2d;
@@ -320,7 +322,9 @@ namespace Baseball.Game.Data
                     _positionNeedCompetitorWeight,
                     _competitorOverallVariance,
                     _minimumCompetitorOverall,
-                    _maximumCompetitorOverall),
+                    _maximumCompetitorOverall,
+                    _competitorAttributeProfileSpread,
+                    _competitorAttributeVariance),
                 new PlayerEvaluationBalance(
                     _keyAttributeWeight,
                     _supportingAttributeWeight,

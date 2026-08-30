@@ -355,6 +355,8 @@ namespace Baseball.Game.Career
                     seed,
                     _balance.Growth,
                     worldGeneration: null,
+                    teamGenerationBalance: _balance.TeamGeneration,
+                    playerEvaluationBalance: _balance.PlayerEvaluation,
                     minimumAgeOverride: lifecycle.RookieEntryMinimumAge,
                     maximumAgeOverride: lifecycle.RookieEntryMaximumAge);
                 newPlayers.Add(player);

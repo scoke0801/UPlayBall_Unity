@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Linq;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
@@ -43,35 +44,54 @@ namespace Baseball.Tests.PlayMode.Presentation.SceneFlow
             Assert.That(newGameScreen, Is.Not.Null);
             Assert.That(newGameScreen.IsVisible, Is.True);
             Assert.That(
-                newGameScreen.GetComponentsInChildren<Text>(true).Any(text => text.text == "선수 기본 정보"),
-                Is.True);
+                newGameScreen.GetComponentsInChildren<Text>(true).Any(text => text.text == "커리어를 선택하세요"),
+                Is.True,
+                "Management 진입 직후에는 타이틀 화면이 보여야 한다.");
 
             NewGameManager newGameManager = NewGameManager.Instance;
-            Assert.That(newGameManager.SubmitIdentity("테스트 선수", "대한민국"), Is.True);
-            Assert.That(newGameManager.SelectPlayerType(PlayerType.Batter), Is.True);
-            Assert.That(newGameManager.SelectPosition(PlayerPosition.Shortstop), Is.True);
-            Assert.That(
-                newGameManager.SelectHandedness(Handedness.Right, Handedness.Right),
-                Is.True);
+            newGameManager.StartPlayerCareerCreation();
+            yield return null;
 
+            Assert.That(
+                newGameScreen.GetComponentsInChildren<Text>(true).Any(text => text.text == "1단계 · 기본 정보"),
+                Is.True);
+            Assert.That(
+                newGameManager.SubmitBasicInformation(
+                    "테스트 선수", PlayerType.Batter, Handedness.Right, Handedness.Right),
+                Is.True);
+            Assert.That(
+                newGameManager.SubmitCreationPosition(PlayerPosition.Shortstop, PitcherRole.Starter),
+                Is.True);
+            yield return null;
+
+            CareerAttributeAllocationRule rule = newGameManager.CurrentCreationAttributeRule;
             Button[] allocationButtons = newGameScreen.GetComponentsInChildren<Button>(true);
             Assert.That(
                 allocationButtons.Count(button => button.name.StartsWith("Preset_")),
-                Is.EqualTo(5));
+                Is.EqualTo(newGameManager.CreationAttributeAllocationPresets.Count));
             Assert.That(
-                allocationButtons.Count(button => button.name.StartsWith("PlusFive_")),
-                Is.EqualTo(CharacterCreationBalance.AttributeCount));
+                allocationButtons.Count(button => button.name.StartsWith("Plus_")),
+                Is.EqualTo(rule.AttributeCount));
+            Assert.That(
+                allocationButtons.Count(button => button.name.StartsWith("Minus_")),
+                Is.EqualTo(rule.AttributeCount));
             Assert.That(
                 newGameScreen.GetComponentsInChildren<Text>(true)
                     .Any(text => text.text == "추천 · 수비형"),
-                Is.True);
+                Is.True,
+                "유격수는 수비형 배분을 추천받아야 한다.");
 
             allocationButtons.Single(button => button.name == "Preset_0").onClick.Invoke();
             yield return null;
 
-            Text remaining = newGameScreen.GetComponentsInChildren<Text>(true)
-                .Single(text => text.name == "Remaining");
-            Assert.That(remaining.text, Does.StartWith("남은 포인트  0 / 72"));
+            Text[] allocationTexts = newGameScreen.GetComponentsInChildren<Text>(true);
+            Assert.That(
+                allocationTexts.Single(text => text.name == "Remaining").text,
+                Is.EqualTo("0 P"),
+                "추천 배분은 배분 포인트를 전부 사용해야 한다.");
+            Assert.That(
+                allocationTexts.Single(text => text.name == "Rule").text,
+                Does.StartWith($"총 {rule.BonusPoints} P"));
         }
 
         [UnityTest]
@@ -88,7 +108,7 @@ namespace Baseball.Tests.PlayMode.Presentation.SceneFlow
             newGame.SelectPlayerType(PlayerType.Batter);
             newGame.SelectPosition(PlayerPosition.Shortstop);
             newGame.SelectHandedness(Handedness.Left, Handedness.Right);
-            newGame.SubmitAttributes(new[] { 55, 50, 52, 43, 60, 52 });
+            newGame.SubmitAttributes(new[] { 63, 58, 60, 53, 66, 60 });
             newGame.GenerateOffers();
             newGame.SelectOffer(newGame.Offers[0].TeamId);
             newGame.SignSelectedOffer();
@@ -122,6 +142,14 @@ namespace Baseball.Tests.PlayMode.Presentation.SceneFlow
             Assert.That(
                 CareerManager.Instance.CurrentCareer.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames,
                 Is.EqualTo(1));
+            Transform reactionPanel = dashboard.transform.Find("Content/ReactionPanel");
+            Assert.That(reactionPanel, Is.Not.Null,
+                "중요 경기 뒤에는 시즌 현황을 다시 그리기 전에 커리어 반응을 선택해야 합니다.");
+            Transform reactionOption = reactionPanel.Find("ReactionOption_0");
+            Assert.That(reactionOption, Is.Not.Null);
+            reactionOption.GetComponent<Button>().onClick.Invoke();
+            yield return null;
+
             PlayerSeasonStatisticsState statistics =
                 CareerManager.Instance.CurrentCareer.CurrentLeague.CurrentSeason.PlayerStatistics;
             Text[] updatedDashboardTexts = dashboard.GetComponentsInChildren<Text>(true);

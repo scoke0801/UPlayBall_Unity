@@ -98,9 +98,9 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPosition(position);
             flow.SelectHandedness(Handedness.Right, Handedness.Right);
             if (isPitcher)
-                flow.SubmitPitcherAttributes(new PitcherAttributes(55, 55, 55, 50, 52, 45));
+                flow.SubmitPitcherAttributes(new PitcherAttributes(63, 62, 62, 58, 60, 55));
             else
-                flow.SubmitBatterAttributes(new BatterAttributes(55, 50, 52, 43, 60, 52));
+                flow.SubmitBatterAttributes(new BatterAttributes(63, 58, 60, 53, 66, 60));
             flow.GenerateOffers();
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();

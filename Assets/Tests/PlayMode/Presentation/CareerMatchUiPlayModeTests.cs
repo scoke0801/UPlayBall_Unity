@@ -40,17 +40,20 @@ namespace Baseball.Tests.PlayMode.Presentation
             start.onClick.Invoke();
             yield return null;
 
-            Text waitReason = screen.transform.Find("Content/Scoreboard/WaitReason").GetComponent<Text>();
-            Assert.That(waitReason.text, Does.Contain("자동 중계"));
-            Assert.That(screen.transform.Find("Content/FieldPanel/Diamond/First"), Is.Not.Null);
-            Assert.That(screen.transform.Find("Content/FieldPanel/Diamond/Second"), Is.Not.Null);
-            Assert.That(screen.transform.Find("Content/FieldPanel/Diamond/Third"), Is.Not.Null);
+            Transform flowStatusTransform = screen.transform.Find("Content/Scoreboard/FlowStatus");
+            Assert.That(flowStatusTransform, Is.Not.Null,
+                "경기 흐름은 제거된 WaitReason 대신 스코어보드의 FlowStatus로 표시해야 합니다.");
+            Text flowStatus = flowStatusTransform.GetComponent<Text>();
+            Assert.That(flowStatus.text, Does.StartWith("AUTO"));
+            Assert.That(screen.transform.Find("Content/StagePanel/Diamond/First"), Is.Not.Null);
+            Assert.That(screen.transform.Find("Content/StagePanel/Diamond/Second"), Is.Not.Null);
+            Assert.That(screen.transform.Find("Content/StagePanel/Diamond/Third"), Is.Not.Null);
 
             yield return new WaitForSecondsRealtime(0.55f);
 
-            Transform firstLog = screen.transform.Find("Content/LogPanel/Log0");
-            Assert.That(firstLog, Is.Not.Null);
-            Assert.That(firstLog.GetComponent<Text>().text, Does.StartWith("1회"));
+            Transform firstInningHeader = screen.transform.Find("Content/TimelinePanel/InningHeader0");
+            Assert.That(firstInningHeader, Is.Not.Null);
+            Assert.That(firstInningHeader.GetComponent<Text>().text, Does.StartWith("1회"));
             Assert.That(careerManager.ActiveMatch.Mode, Is.EqualTo(CareerMatchMode.PlayerFocus));
         }
 
@@ -114,7 +117,7 @@ namespace Baseball.Tests.PlayMode.Presentation
             flow.SelectPlayerType(PlayerType.Batter);
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Left, Handedness.Right);
-            flow.SubmitBatterAttributes(new BatterAttributes(55, 50, 52, 43, 60, 52));
+            flow.SubmitBatterAttributes(new BatterAttributes(63, 58, 60, 53, 66, 60));
             flow.GenerateOffers();
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();

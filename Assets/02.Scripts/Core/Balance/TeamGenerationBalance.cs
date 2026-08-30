@@ -22,7 +22,9 @@ namespace Baseball.Core.Balance
             double positionNeedCompetitorWeight,
             double competitorOverallVariance,
             int minimumCompetitorOverall,
-            int maximumCompetitorOverall)
+            int maximumCompetitorOverall,
+            int competitorAttributeProfileSpread = 10,
+            int competitorAttributeVariance = 8)
         {
             if (archetypeVariation < 0)
                 throw new ArgumentOutOfRangeException(nameof(archetypeVariation));
@@ -32,6 +34,10 @@ namespace Baseball.Core.Balance
                 throw new ArgumentOutOfRangeException(nameof(competitorsPerPosition));
             if (minimumCompetitorOverall < 0 || maximumCompetitorOverall > 100 || maximumCompetitorOverall < minimumCompetitorOverall)
                 throw new ArgumentOutOfRangeException(nameof(minimumCompetitorOverall));
+            if (competitorAttributeProfileSpread < 0 || competitorAttributeProfileSpread > 30)
+                throw new ArgumentOutOfRangeException(nameof(competitorAttributeProfileSpread));
+            if (competitorAttributeVariance < 0 || competitorAttributeVariance > 30)
+                throw new ArgumentOutOfRangeException(nameof(competitorAttributeVariance));
 
             ArchetypeVariation = archetypeVariation;
             PositionNeedBase = positionNeedBase;
@@ -45,6 +51,8 @@ namespace Baseball.Core.Balance
             CompetitorOverallVariance = competitorOverallVariance;
             MinimumCompetitorOverall = minimumCompetitorOverall;
             MaximumCompetitorOverall = maximumCompetitorOverall;
+            CompetitorAttributeProfileSpread = competitorAttributeProfileSpread;
+            CompetitorAttributeVariance = competitorAttributeVariance;
         }
 
         public int ArchetypeVariation { get; }
@@ -59,6 +67,8 @@ namespace Baseball.Core.Balance
         public double CompetitorOverallVariance { get; }
         public int MinimumCompetitorOverall { get; }
         public int MaximumCompetitorOverall { get; }
+        public int CompetitorAttributeProfileSpread { get; }
+        public int CompetitorAttributeVariance { get; }
 
         /// <summary>
         /// 특징은 유지하면서 새 게임마다 체감 차이를 주는 최초 검증용 값을 만든다.
@@ -77,7 +87,9 @@ namespace Baseball.Core.Balance
                 positionNeedCompetitorWeight: 0.22d,
                 competitorOverallVariance: 10d,
                 minimumCompetitorOverall: 38,
-                maximumCompetitorOverall: 72);
+                maximumCompetitorOverall: 72,
+                competitorAttributeProfileSpread: 10,
+                competitorAttributeVariance: 8);
         }
     }
 }

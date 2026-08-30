@@ -1,3 +1,5 @@
+using Baseball.Core.Balance;
+using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Random;
@@ -58,6 +60,72 @@ namespace Baseball.Tests.EditMode.Simulation.Career
             var seenNames = new System.Collections.Generic.HashSet<string>();
             foreach (GeneratedTeam team in teams)
                 Assert.That(seenNames.Add(team.Name), Is.True, $"{team.Name}이 중복되었습니다.");
+        }
+
+        [Test]
+        public void GenerateBatter_포지션프로필을만들고가중OVR을보존한다()
+        {
+            TeamGenerationBalance source = TeamGenerationBalance.CreateDefault();
+            var generationBalance = new TeamGenerationBalance(
+                source.ArchetypeVariation,
+                source.PositionNeedBase,
+                source.RosterDepthNeedWeight,
+                source.PositionNeedVariance,
+                source.MinimumPositionNeed,
+                source.MaximumPositionNeed,
+                source.CompetitorsPerPosition,
+                source.CompetitorOverallBase,
+                source.PositionNeedCompetitorWeight,
+                source.CompetitorOverallVariance,
+                source.MinimumCompetitorOverall,
+                source.MaximumCompetitorOverall,
+                competitorAttributeProfileSpread: 12,
+                competitorAttributeVariance: 0);
+            PlayerEvaluationBalance evaluationBalance = PlayerEvaluationBalance.CreateDefault();
+            var generator = new RosterPlayerAttributeGenerator(
+                generationBalance,
+                evaluationBalance,
+                new Pcg32Random(91UL));
+
+            BatterAttributes shortstop = generator.GenerateBatter(PlayerPosition.Shortstop, 60);
+            var player = new Player(
+                91,
+                "프로필 유격수",
+                PlayerPosition.Shortstop,
+                Handedness.Right,
+                Handedness.Right,
+                shortstop,
+                new PitcherAttributes(20, 20, 20, 20, 20, 20));
+
+            Assert.That(shortstop.Arm, Is.GreaterThan(shortstop.Power));
+            Assert.That(shortstop.Defense, Is.GreaterThan(shortstop.Power));
+            Assert.That(
+                new PlayerValueEvaluator(evaluationBalance).CalculatePositionValue(player),
+                Is.EqualTo(60));
+        }
+
+        [Test]
+        public void GeneratePitcher_같은Seed와입력은같은능력치를만든다()
+        {
+            TeamGenerationBalance generationBalance = TeamGenerationBalance.CreateDefault();
+            PlayerEvaluationBalance evaluationBalance = PlayerEvaluationBalance.CreateDefault();
+            PitcherAttributes first = new RosterPlayerAttributeGenerator(
+                    generationBalance,
+                    evaluationBalance,
+                    new Pcg32Random(333UL))
+                .GeneratePitcher(PlayerPosition.ReliefPitcher, 58);
+            PitcherAttributes second = new RosterPlayerAttributeGenerator(
+                    generationBalance,
+                    evaluationBalance,
+                    new Pcg32Random(333UL))
+                .GeneratePitcher(PlayerPosition.ReliefPitcher, 58);
+
+            Assert.That(second.Stamina, Is.EqualTo(first.Stamina));
+            Assert.That(second.Velocity, Is.EqualTo(first.Velocity));
+            Assert.That(second.Stuff, Is.EqualTo(first.Stuff));
+            Assert.That(second.Breaking, Is.EqualTo(first.Breaking));
+            Assert.That(second.Control, Is.EqualTo(first.Control));
+            Assert.That(second.Mental, Is.EqualTo(first.Mental));
         }
 
         private const Baseball.Core.Players.PlayerPosition PlayerPositionForAssertion =

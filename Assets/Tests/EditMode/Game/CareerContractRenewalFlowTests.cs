@@ -174,7 +174,7 @@ namespace Baseball.Tests.EditMode.Game
                 }
             }
 
-            AdvanceUntilContractExpiryOffseason(autoCareer, configuration.Balance);
+            AdvanceToRenewalOffseason(autoCareer, configuration.Balance);
             CareerSeasonTransitionResult autoResult = new CareerSeasonTransitionService(
                 autoCareer,
                 configuration.Balance).AdvanceToNextSeason();
@@ -183,23 +183,26 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(autoCareer.CurrentContract.AnnualSalary, Is.EqualTo(best.AnnualSalary));
         }
 
-        private static void AdvanceUntilContractExpiryOffseason(
-            CareerState career,
-            BalanceTable balance)
+        /// <summary>
+        /// 오퍼가 제시되는 오프시즌까지 커리어만 진행시킨다. 자동 진행과 수동 선택을 비교하려면
+        /// 두 커리어가 같은 오프시즌에서 출발해야 하므로 <see cref="AdvanceToRenewalSeason"/>과
+        /// 같은 정지 조건을 쓴다.
+        /// </summary>
+        private static void AdvanceToRenewalOffseason(CareerState career, BalanceTable balance)
         {
             for (int guard = 0; guard < 10; guard++)
             {
-                int nextYear = career.CurrentLeague.CurrentSeason.Year + 1;
-                if (career.CurrentContract.EndYear < nextYear)
+                SeasonTransitionStep step =
+                    new CareerSeasonTransitionService(career, balance).BeginTransition();
+                if (step is SeasonTransitionStep.CurrentTeamNegotiation or SeasonTransitionStep.ContractOffers)
                     return;
 
-                new CareerSeasonTransitionService(career, balance).AdvanceToNextSeason();
                 career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
                 new CareerGrowthService(career, balance)
                     .SettleSeasonAndBeginOffseason(CreateBatterUsage());
             }
 
-            throw new InvalidOperationException("계약 만료 오프시즌에 도달하지 못했습니다.");
+            throw new InvalidOperationException("재계약 오퍼가 제시되는 오프시즌에 도달하지 못했습니다.");
         }
 
         /// <summary>
@@ -231,7 +234,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPlayerType(PlayerType.Batter);
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Left, Handedness.Right);
-            flow.SubmitBatterAttributes(new BatterAttributes(55, 50, 52, 43, 60, 52));
+            flow.SubmitBatterAttributes(new BatterAttributes(63, 58, 60, 53, 66, 60));
             flow.GenerateOffers();
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();

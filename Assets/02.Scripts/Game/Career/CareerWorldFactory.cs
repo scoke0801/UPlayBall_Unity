@@ -19,6 +19,7 @@ namespace Baseball.Game.Career
         private const ulong MajorLeagueStream = 0x4D414A4F524C4721UL;
         private const ulong UpperLeagueStream = 0x55505045524C4721UL;
         private const ulong PlayerAgeStream = 0x504C415945524147UL;
+        private const ulong PlayerAttributeStream = 0x504C415941545452UL;
 
         private readonly NewGameConfiguration _configuration;
 
@@ -619,7 +620,9 @@ namespace Baseball.Game.Career
                             competitor,
                             playerSeed,
                             _configuration.Balance.Growth,
-                            _configuration.WorldGeneration));
+                            _configuration.WorldGeneration,
+                            _configuration.Balance.TeamGeneration,
+                            _configuration.Balance.PlayerEvaluation));
                     }
                 }
             }
@@ -635,15 +638,32 @@ namespace Baseball.Game.Career
             ulong playerSeed,
             GrowthBalanceTable growthBalance = null,
             WorldGenerationConfiguration worldGeneration = null,
+            TeamGenerationBalance? teamGenerationBalance = null,
+            PlayerEvaluationBalance? playerEvaluationBalance = null,
             int? minimumAgeOverride = null,
             int? maximumAgeOverride = null)
         {
             growthBalance ??= GrowthBalanceTable.CreateDefault();
             worldGeneration ??= WorldGenerationConfiguration.CreateDefault();
+            TeamGenerationBalance generationBalance =
+                teamGenerationBalance ?? TeamGenerationBalance.CreateDefault();
+            PlayerEvaluationBalance evaluationBalance =
+                playerEvaluationBalance ?? PlayerEvaluationBalance.CreateDefault();
             bool isPitcher = competitor.Position is
                 PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
-            int batterRating = isPitcher ? 20 : competitor.Overall;
-            int pitcherRating = isPitcher ? competitor.Overall : 20;
+            ulong attributeSeed = DeterministicSeed.Derive(
+                playerSeed,
+                PlayerAttributeStream ^ (uint)competitor.PlayerId);
+            var attributeGenerator = new RosterPlayerAttributeGenerator(
+                generationBalance,
+                evaluationBalance,
+                new Pcg32Random(attributeSeed));
+            BatterAttributes batterAttributes = isPitcher
+                ? new BatterAttributes(20, 20, 20, 20, 20, 20)
+                : attributeGenerator.GenerateBatter(competitor.Position, competitor.Overall);
+            PitcherAttributes pitcherAttributes = isPitcher
+                ? attributeGenerator.GeneratePitcher(competitor.Position, competitor.Overall)
+                : new PitcherAttributes(20, 20, 20, 20, 20, 20);
             Handedness battingHand = competitor.PlayerId % 3 == 0
                 ? Handedness.Switch
                 : competitor.PlayerId % 2 == 0 ? Handedness.Left : Handedness.Right;
@@ -669,20 +689,8 @@ namespace Baseball.Game.Career
                 competitor.Position,
                 battingHand,
                 throwingHand,
-                new BatterAttributes(
-                    batterRating,
-                    batterRating,
-                    batterRating,
-                    batterRating,
-                    batterRating,
-                    batterRating),
-                new PitcherAttributes(
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating,
-                    pitcherRating),
+                batterAttributes,
+                pitcherAttributes,
                 teamId,
                 leagueId);
             player.AttachGrowthState(new PlayerGrowthFactory(growthBalance).Create(

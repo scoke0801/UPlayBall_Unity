@@ -201,4 +201,109 @@ namespace Baseball.Simulation.Career
             return value;
         }
     }
+
+    /// <summary>
+    /// 경쟁자 OVR을 유지하면서 포지션 평가 가중치에 맞는 개별 능력치 프로필을 만든다.
+    /// </summary>
+    public sealed class RosterPlayerAttributeGenerator
+    {
+        private const int AttributeCount = 6;
+        private const int MinimumAttribute = 0;
+        private const int MaximumAttribute = 100;
+        private readonly TeamGenerationBalance _generationBalance;
+        private readonly PlayerEvaluationBalance _evaluationBalance;
+        private readonly IRandomSource _random;
+
+        public RosterPlayerAttributeGenerator(
+            TeamGenerationBalance generationBalance,
+            PlayerEvaluationBalance evaluationBalance,
+            IRandomSource random)
+        {
+            _generationBalance = generationBalance;
+            _evaluationBalance = evaluationBalance;
+            _random = random ?? throw new ArgumentNullException(nameof(random));
+        }
+
+        /// <summary>야수 포지션의 핵심 능력은 높이고 OVR은 기준값에 맞춘다.</summary>
+        public BatterAttributes GenerateBatter(PlayerPosition position, int overall)
+        {
+            if (position < PlayerPosition.Catcher || position > PlayerPosition.DesignatedHitter)
+                throw new ArgumentOutOfRangeException(nameof(position));
+            int[] values = Generate(
+                overall,
+                PlayerValueEvaluator.GetBatterWeights(_evaluationBalance, position));
+            return new BatterAttributes(
+                values[0], values[1], values[2], values[3], values[4], values[5]);
+        }
+
+        /// <summary>선발과 구원의 역할 차이에 맞춰 투수 능력치를 분산한다.</summary>
+        public PitcherAttributes GeneratePitcher(PlayerPosition position, int overall)
+        {
+            if (position is not (PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher))
+                throw new ArgumentOutOfRangeException(nameof(position));
+            int[] values = Generate(
+                overall,
+                PlayerValueEvaluator.GetPitcherWeights(_evaluationBalance, position));
+            return new PitcherAttributes(
+                values[0], values[1], values[2], values[3], values[4], values[5]);
+        }
+
+        private int[] Generate(
+            int overall,
+            PlayerValueEvaluator.AttributeWeightProfile weights)
+        {
+            if (overall < MinimumAttribute || overall > MaximumAttribute)
+                throw new ArgumentOutOfRangeException(nameof(overall));
+
+            var values = new int[AttributeCount];
+            double weightedMean = CalculateWeightedMean(weights);
+            double weightRange = Math.Max(
+                0.0001d,
+                _evaluationBalance.KeyAttributeWeight - _evaluationBalance.GeneralAttributeWeight);
+            for (int index = 0; index < values.Length; index++)
+            {
+                double profileOffset = (weights.Get(index) - weightedMean) / weightRange *
+                                       _generationBalance.CompetitorAttributeProfileSpread;
+                double variance = (_random.NextDouble() * 2d - 1d) *
+                                  _generationBalance.CompetitorAttributeVariance;
+                values[index] = ClampRating((int)Math.Round(
+                    overall + profileOffset + variance,
+                    MidpointRounding.AwayFromZero));
+            }
+
+            // 모든 능력치를 같은 폭으로 옮기면 프로필의 모양은 보존하면서 가중 OVR만 보정된다.
+            int correction = overall - CalculateWeightedOverall(values, weights);
+            for (int index = 0; index < values.Length; index++)
+                values[index] = ClampRating(values[index] + correction);
+            return values;
+        }
+
+        private static double CalculateWeightedMean(
+            PlayerValueEvaluator.AttributeWeightProfile weights)
+        {
+            double squareSum = 0d;
+            for (int index = 0; index < AttributeCount; index++)
+            {
+                double weight = weights.Get(index);
+                squareSum += weight * weight;
+            }
+            return squareSum / weights.Total;
+        }
+
+        private static int CalculateWeightedOverall(
+            int[] values,
+            PlayerValueEvaluator.AttributeWeightProfile weights)
+        {
+            double total = 0d;
+            for (int index = 0; index < AttributeCount; index++)
+                total += values[index] * weights.Get(index);
+            return (int)Math.Round(total / weights.Total, MidpointRounding.AwayFromZero);
+        }
+
+        private static int ClampRating(int value)
+        {
+            if (value < MinimumAttribute) return MinimumAttribute;
+            return value > MaximumAttribute ? MaximumAttribute : value;
+        }
+    }
 }

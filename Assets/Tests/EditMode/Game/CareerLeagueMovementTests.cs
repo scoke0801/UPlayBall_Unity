@@ -52,12 +52,13 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void SignSelectedOffer_적격Minor오퍼를체결하면리그와로스터를원자적으로이동한다()
+        public void SignSelectedOffer_적격상위리그오퍼를체결하면리그와로스터를원자적으로이동한다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateCareer(seed: 927006UL, strongPlayer: true, initialOfferIndex: 1);
             CareerSeasonTransitionService transition = OpenThirdOffseasonMarket(career, configuration);
             ContractOffer promotion = FindOffer(transition, ContractOfferChannel.Promotion);
+            LeagueLevel targetLeagueLevel = transition.GetPlannedLeagueLevel(promotion.Team.TeamId);
             int previousTeamId = career.MyPlayer.CurrentTeamId;
             LeagueId previousLeagueId = career.MyPlayer.CurrentLeagueId;
             Assert.That(career.CurrentContract.CurrentLeagueId, Is.EqualTo(previousLeagueId));
@@ -65,10 +66,12 @@ namespace Baseball.Tests.EditMode.Game
             transition.SelectRenewalOffer(promotion.Team.TeamId);
             transition.SignSelectedOffer();
 
-            Assert.That(career.CurrentLeague.LeagueLevel, Is.EqualTo(LeagueLevel.Minor));
-            Assert.That(career.MyPlayer.CurrentLeagueId, Is.EqualTo(LeagueId.MinorMain));
-            Assert.That(career.CurrentContract.CurrentLeagueId, Is.EqualTo(LeagueId.MinorMain));
-            Assert.That(career.CurrentContract.HasUpperLeagueReleaseClause, Is.True);
+            Assert.That(career.CurrentLeague.LeagueLevel, Is.EqualTo(targetLeagueLevel));
+            Assert.That(career.MyPlayer.CurrentLeagueId, Is.EqualTo(career.CurrentLeague.LeagueId));
+            Assert.That(career.CurrentContract.CurrentLeagueId, Is.EqualTo(career.CurrentLeague.LeagueId));
+            Assert.That(
+                career.CurrentContract.HasUpperLeagueReleaseClause,
+                Is.EqualTo(targetLeagueLevel <= LeagueLevel.Minor));
             Assert.That(career.CurrentContract.HasRelegationTransferRequestClause, Is.True);
             Assert.That(Contains(career.World.GetTeam(previousTeamId), career.MyPlayerId), Is.False);
             Assert.That(Contains(career.World.GetTeam(career.MyPlayer.CurrentTeamId), career.MyPlayerId), Is.True);
@@ -79,12 +82,12 @@ namespace Baseball.Tests.EditMode.Game
                 movement.MovementType,
                 Is.EqualTo(PlayerMovementType.Promotion),
                 BuildMovementFingerprint(career));
-            Assert.That(movement.PreviousLeagueId, Is.EqualTo(LeagueId.RookieMain));
-            Assert.That(movement.TargetLeagueId, Is.EqualTo(LeagueId.MinorMain));
+            Assert.That(movement.PreviousLeagueId, Is.EqualTo(previousLeagueId));
+            Assert.That(movement.TargetLeagueId, Is.EqualTo(career.CurrentLeague.LeagueId));
             Assert.That(HasDomainEvent(career, "PlayerPromoted"), Is.True);
             Assert.That(HasDomainEvent(career, "UpperLeagueInterestConfirmed"), Is.True);
             Assert.That(HasDomainEvent(career, "CrossLeagueContractSigned"), Is.True);
-            Assert.That(HasTransaction(career, "first_league_reach_1"), Is.True);
+            Assert.That(HasTransaction(career, $"first_league_reach_{(int)targetLeagueLevel}"), Is.True);
             Assert.DoesNotThrow(career.World.ValidateInvariants);
         }
 
@@ -170,7 +173,7 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectPosition(PlayerPosition.Shortstop);
             flow.SelectHandedness(Handedness.Left, Handedness.Right);
             flow.SubmitBatterAttributes(strongPlayer
-                ? new BatterAttributes(65, 50, 50, 65, 62, 50)
+                ? new BatterAttributes(65, 60, 50, 70, 65, 50)
                 : new BatterAttributes(50, 50, 50, 50, 50, 50));
             flow.GenerateOffers();
             flow.SelectOffer(flow.State.SetupResult.Offers[initialOfferIndex].Team.TeamId);

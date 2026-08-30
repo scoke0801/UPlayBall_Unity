@@ -154,6 +154,8 @@ MonoBehaviour:
   _competitorOverallVariance: 10
   _minimumCompetitorOverall: 38
   _maximumCompetitorOverall: 72
+  _competitorAttributeProfileSpread: 10
+  _competitorAttributeVariance: 8
   _keyAttributeWeight: 2
   _supportingAttributeWeight: 1.35
   _generalAttributeWeight: 1

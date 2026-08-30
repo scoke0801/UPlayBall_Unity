@@ -48,83 +48,111 @@ namespace Baseball.Simulation.Career
 
         private int CalculateBatterValue(BatterAttributes value, PlayerPosition position)
         {
-            double contact = _balance.GeneralAttributeWeight;
-            double power = _balance.GeneralAttributeWeight;
-            double speed = _balance.GeneralAttributeWeight;
-            double bunt = _balance.GeneralAttributeWeight;
-            double defense = _balance.GeneralAttributeWeight;
-            double mental = _balance.GeneralAttributeWeight;
-
-            switch (position)
-            {
-                case PlayerPosition.Catcher:
-                    contact = _balance.SupportingAttributeWeight;
-                    defense = _balance.KeyAttributeWeight;
-                    mental = _balance.KeyAttributeWeight;
-                    break;
-                case PlayerPosition.FirstBase:
-                case PlayerPosition.DesignatedHitter:
-                    contact = _balance.SupportingAttributeWeight;
-                    power = _balance.KeyAttributeWeight;
-                    mental = _balance.SupportingAttributeWeight;
-                    break;
-                case PlayerPosition.SecondBase:
-                    contact = _balance.SupportingAttributeWeight;
-                    speed = _balance.SupportingAttributeWeight;
-                    defense = _balance.KeyAttributeWeight;
-                    mental = _balance.SupportingAttributeWeight;
-                    break;
-                case PlayerPosition.Shortstop:
-                    contact = _balance.SupportingAttributeWeight;
-                    speed = _balance.SupportingAttributeWeight;
-                    defense = _balance.KeyAttributeWeight;
-                    mental = _balance.KeyAttributeWeight;
-                    break;
-                case PlayerPosition.CenterField:
-                    contact = _balance.SupportingAttributeWeight;
-                    speed = _balance.KeyAttributeWeight;
-                    defense = _balance.KeyAttributeWeight;
-                    break;
-                default:
-                    contact = _balance.SupportingAttributeWeight;
-                    power = _balance.KeyAttributeWeight;
-                    defense = _balance.SupportingAttributeWeight;
-                    break;
-            }
+            AttributeWeightProfile weights = GetBatterWeights(_balance, position);
 
             return WeightedAverage(
-                value.Contact, contact,
-                value.Power, power,
-                value.Speed, speed,
-                value.Bunt, bunt,
-                value.Defense, defense,
-                value.Mental, mental);
+                value.Contact, weights.First,
+                value.Power, weights.Second,
+                value.Speed, weights.Third,
+                value.Arm, weights.Fourth,
+                value.Defense, weights.Fifth,
+                value.Mental, weights.Sixth);
         }
 
         private int CalculatePitcherValue(PitcherAttributes value, PlayerPosition position)
         {
-            double stamina = position == PlayerPosition.StartingPitcher
-                ? _balance.KeyAttributeWeight
-                : _balance.GeneralAttributeWeight;
-            double velocity = position == PlayerPosition.ReliefPitcher
-                ? _balance.KeyAttributeWeight
-                : _balance.SupportingAttributeWeight;
-            double stuff = position == PlayerPosition.ReliefPitcher
-                ? _balance.KeyAttributeWeight
-                : _balance.SupportingAttributeWeight;
-            double breaking = _balance.SupportingAttributeWeight;
-            double control = position == PlayerPosition.StartingPitcher
-                ? _balance.KeyAttributeWeight
-                : _balance.SupportingAttributeWeight;
-            double mental = _balance.SupportingAttributeWeight;
+            AttributeWeightProfile weights = GetPitcherWeights(_balance, position);
 
             return WeightedAverage(
-                value.Stamina, stamina,
-                value.Velocity, velocity,
-                value.Stuff, stuff,
-                value.Breaking, breaking,
-                value.Control, control,
-                value.Mental, mental);
+                value.Stamina, weights.First,
+                value.Velocity, weights.Second,
+                value.Stuff, weights.Third,
+                value.Breaking, weights.Fourth,
+                value.Control, weights.Fifth,
+                value.Mental, weights.Sixth);
+        }
+
+        internal static AttributeWeightProfile GetBatterWeights(
+            PlayerEvaluationBalance balance,
+            PlayerPosition position)
+        {
+            double contact = balance.GeneralAttributeWeight;
+            double power = balance.GeneralAttributeWeight;
+            double speed = balance.GeneralAttributeWeight;
+            double arm = balance.GeneralAttributeWeight;
+            double defense = balance.GeneralAttributeWeight;
+            double mental = balance.GeneralAttributeWeight;
+
+            switch (position)
+            {
+                case PlayerPosition.Catcher:
+                    contact = balance.SupportingAttributeWeight;
+                    arm = balance.KeyAttributeWeight;
+                    defense = balance.KeyAttributeWeight;
+                    mental = balance.KeyAttributeWeight;
+                    break;
+                case PlayerPosition.FirstBase:
+                case PlayerPosition.DesignatedHitter:
+                    contact = balance.SupportingAttributeWeight;
+                    power = balance.KeyAttributeWeight;
+                    mental = balance.SupportingAttributeWeight;
+                    break;
+                case PlayerPosition.SecondBase:
+                    contact = balance.SupportingAttributeWeight;
+                    speed = balance.SupportingAttributeWeight;
+                    defense = balance.KeyAttributeWeight;
+                    mental = balance.SupportingAttributeWeight;
+                    break;
+                case PlayerPosition.ThirdBase:
+                    contact = balance.SupportingAttributeWeight;
+                    power = balance.KeyAttributeWeight;
+                    arm = balance.KeyAttributeWeight;
+                    defense = balance.SupportingAttributeWeight;
+                    break;
+                case PlayerPosition.Shortstop:
+                    contact = balance.SupportingAttributeWeight;
+                    speed = balance.SupportingAttributeWeight;
+                    arm = balance.KeyAttributeWeight;
+                    defense = balance.KeyAttributeWeight;
+                    mental = balance.SupportingAttributeWeight;
+                    break;
+                case PlayerPosition.LeftField:
+                case PlayerPosition.RightField:
+                    contact = balance.SupportingAttributeWeight;
+                    power = balance.KeyAttributeWeight;
+                    arm = balance.KeyAttributeWeight;
+                    defense = balance.SupportingAttributeWeight;
+                    break;
+                case PlayerPosition.CenterField:
+                    contact = balance.SupportingAttributeWeight;
+                    speed = balance.KeyAttributeWeight;
+                    arm = balance.SupportingAttributeWeight;
+                    defense = balance.KeyAttributeWeight;
+                    break;
+            }
+
+            return new AttributeWeightProfile(contact, power, speed, arm, defense, mental);
+        }
+
+        internal static AttributeWeightProfile GetPitcherWeights(
+            PlayerEvaluationBalance balance,
+            PlayerPosition position)
+        {
+            double stamina = position == PlayerPosition.StartingPitcher
+                ? balance.KeyAttributeWeight
+                : balance.GeneralAttributeWeight;
+            double velocity = position == PlayerPosition.ReliefPitcher
+                ? balance.KeyAttributeWeight
+                : balance.SupportingAttributeWeight;
+            double stuff = position == PlayerPosition.ReliefPitcher
+                ? balance.KeyAttributeWeight
+                : balance.SupportingAttributeWeight;
+            double breaking = balance.SupportingAttributeWeight;
+            double control = position == PlayerPosition.StartingPitcher
+                ? balance.KeyAttributeWeight
+                : balance.SupportingAttributeWeight;
+            double mental = balance.SupportingAttributeWeight;
+            return new AttributeWeightProfile(stamina, velocity, stuff, breaking, control, mental);
         }
 
         private static int WeightedAverage(
@@ -165,6 +193,47 @@ namespace Baseball.Simulation.Career
 
             PitcherAttributes value = player.PitcherAttributes;
             return (value.Velocity + value.Stuff + value.Breaking + value.Control) / 4d;
+        }
+
+        internal readonly struct AttributeWeightProfile
+        {
+            public AttributeWeightProfile(
+                double first,
+                double second,
+                double third,
+                double fourth,
+                double fifth,
+                double sixth)
+            {
+                First = first;
+                Second = second;
+                Third = third;
+                Fourth = fourth;
+                Fifth = fifth;
+                Sixth = sixth;
+            }
+
+            public double First { get; }
+            public double Second { get; }
+            public double Third { get; }
+            public double Fourth { get; }
+            public double Fifth { get; }
+            public double Sixth { get; }
+            public double Total => First + Second + Third + Fourth + Fifth + Sixth;
+
+            public double Get(int index)
+            {
+                return index switch
+                {
+                    0 => First,
+                    1 => Second,
+                    2 => Third,
+                    3 => Fourth,
+                    4 => Fifth,
+                    5 => Sixth,
+                    _ => throw new ArgumentOutOfRangeException(nameof(index))
+                };
+            }
         }
     }
 }

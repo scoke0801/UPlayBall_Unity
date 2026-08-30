@@ -27,7 +27,7 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(manager.SelectPlayerType(PlayerType.Batter), Is.True);
             Assert.That(manager.SelectPosition(PlayerPosition.Shortstop), Is.True);
             Assert.That(manager.SelectHandedness(Handedness.Left, Handedness.Right), Is.True);
-            Assert.That(manager.SubmitAttributes(new[] { 55, 50, 52, 43, 60, 52 }), Is.True);
+            Assert.That(manager.SubmitAttributes(new[] { 63, 58, 60, 53, 66, 60 }), Is.True);
             Assert.That(manager.GenerateOffers(), Is.True);
 
             UIManager uiManager = GameManager.EnsureExists().EnsureManager<UIManager>("UIManager");
@@ -42,14 +42,14 @@ namespace Baseball.Tests.PlayMode.Presentation
             screen.Show();
             yield return null;
 
-            RectTransform body = GetRect(screen.transform, "NewGamePanel/Body");
-            RectTransform subtitle = GetRect(screen.transform, "NewGamePanel/Body/Subtitle");
+            RectTransform body = GetRect(screen.transform, "Content/NewGamePanel/Body");
+            RectTransform subtitle = GetRect(screen.transform, "Content/NewGamePanel/Body/Subtitle");
             RectTransform firstOffer = GetRect(
                 screen.transform,
-                "NewGamePanel/Body/Offer_" + manager.Offers[0].TeamId);
+                "Content/NewGamePanel/Body/Offer_" + manager.Offers[0].TeamId);
             RectTransform lastOffer = GetRect(
                 screen.transform,
-                "NewGamePanel/Body/Offer_" + manager.Offers[manager.Offers.Count - 1].TeamId);
+                "Content/NewGamePanel/Body/Offer_" + manager.Offers[manager.Offers.Count - 1].TeamId);
 
             Assert.That(GetBottom(subtitle), Is.GreaterThan(GetTop(firstOffer)),
                 "안내 문구와 첫 오퍼 카드가 겹치면 문구 하단이 카드에 가려진다.");
