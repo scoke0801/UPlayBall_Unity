@@ -1,5 +1,6 @@
 using System;
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Simulation.Random;
 
@@ -23,12 +24,17 @@ namespace Baseball.Simulation.Match
     public sealed class BaserunningResolver
     {
         private readonly BaseRunningBalance _balance;
+        private readonly SkillTraitBalance _skillTraits;
         private readonly IRandomSource _random;
 
-        public BaserunningResolver(BaseRunningBalance balance, IRandomSource random)
+        public BaserunningResolver(
+            BaseRunningBalance balance,
+            IRandomSource random,
+            SkillTraitBalance? skillTraits = null)
         {
             _balance = balance;
             _random = random ?? throw new ArgumentNullException(nameof(random));
+            _skillTraits = skillTraits ?? SkillTraitBalance.CreateDefault();
         }
 
         public BaserunningDecision DecideExtraBase(
@@ -55,6 +61,8 @@ namespace Baseball.Simulation.Match
             };
             if (outs == 2) threshold -= 0.05d;
             if (inning >= 8 && scoreDifference == 0) threshold -= 0.03d;
+            if (runner.HasTrait(SkillTraitIds.AggressiveBaserunning))
+                threshold -= _skillTraits.AggressiveRunningThresholdReduction;
             return new BaserunningDecision(successChance >= threshold, successChance);
         }
 

@@ -183,10 +183,10 @@ namespace Baseball.Tests.EditMode.Simulation
             double enhancedAverage = enhancedHits / (double)enhancedAtBats;
             double baselineAverage = baselineHits / (double)baselineAtBats;
             System.Console.WriteLine(
-                $"Unique Contact +5 / Enhanced AVG {enhancedAverage:F3} / " +
+                $"Unique Contact +4 / Enhanced AVG {enhancedAverage:F3} / " +
                 $"Baseline AVG {baselineAverage:F3} / W-L {enhancedWins}-{baselineWins}");
 
-            Assert.That(stableContact, Is.EqualTo(55));
+            Assert.That(stableContact, Is.EqualTo(54));
             Assert.That(enhancedAverage, Is.GreaterThan(baselineAverage));
             Assert.That(growth.BaseAbilities.Get(PlayerAbility.Contact), Is.EqualTo(50));
         }

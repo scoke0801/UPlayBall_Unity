@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Simulation.PlateAppearance;
@@ -6,6 +7,63 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Match
 {
+    internal readonly struct PitchSelectionAiContext
+    {
+        public PitchSelectionAiContext(
+            int requestId,
+            int batterId,
+            int pitchNumber,
+            int balls,
+            int strikes,
+            IReadOnlyList<PitchOption> availablePitches,
+            IReadOnlyList<PitchType> recentPitches,
+            int recentPitchCount)
+        {
+            RequestId = requestId;
+            BatterId = batterId;
+            PitchNumber = pitchNumber;
+            Balls = balls;
+            Strikes = strikes;
+            AvailablePitches = availablePitches ?? throw new ArgumentNullException(nameof(availablePitches));
+            RecentPitches = recentPitches ?? throw new ArgumentNullException(nameof(recentPitches));
+            if (recentPitchCount < 0 || recentPitchCount > recentPitches.Count)
+                throw new ArgumentOutOfRangeException(nameof(recentPitchCount));
+            RecentPitchCount = recentPitchCount;
+        }
+
+        public int RequestId { get; }
+        public int BatterId { get; }
+        public int PitchNumber { get; }
+        public int Balls { get; }
+        public int Strikes { get; }
+        public IReadOnlyList<PitchOption> AvailablePitches { get; }
+        public IReadOnlyList<PitchType> RecentPitches { get; }
+        public int RecentPitchCount { get; }
+    }
+
+    internal readonly struct SwingExecutionAiContext
+    {
+        public SwingExecutionAiContext(
+            int requestId,
+            PitchFlightDescriptor pitch,
+            int consecutivePitchTypeUses,
+            double idealSwingTime01,
+            BattingApproach defaultIntent)
+        {
+            RequestId = requestId;
+            Pitch = pitch;
+            ConsecutivePitchTypeUses = consecutivePitchTypeUses;
+            IdealSwingTime01 = idealSwingTime01;
+            DefaultIntent = defaultIntent;
+        }
+
+        public int RequestId { get; }
+        public PitchFlightDescriptor Pitch { get; }
+        public int ConsecutivePitchTypeUses { get; }
+        public double IdealSwingTime01 { get; }
+        public BattingApproach DefaultIntent { get; }
+    }
+
     /// <summary>AI 투수도 플레이어와 같은 구종·목표 위치 명령을 생성한다.</summary>
     public sealed class PitchSelectionAi
     {
@@ -22,6 +80,22 @@ namespace Baseball.Simulation.Match
             in PitchSelectionRequest request,
             PitchingApproach approach)
         {
+            var context = new PitchSelectionAiContext(
+                request.RequestId,
+                request.BatterId,
+                request.PitchNumber,
+                request.Balls,
+                request.Strikes,
+                request.AvailablePitches,
+                request.RecentPitchSequence,
+                request.RecentPitchSequence.Count);
+            return Select(context, approach);
+        }
+
+        internal PitchSelectionCommand Select(
+            in PitchSelectionAiContext request,
+            PitchingApproach approach)
+        {
             if (request.AvailablePitches.Count == 0)
                 throw new InvalidOperationException("선택 가능한 구종이 없습니다.");
 
@@ -32,7 +106,7 @@ namespace Baseball.Simulation.Match
         }
 
         private static int SelectPitchIndex(
-            in PitchSelectionRequest request,
+            in PitchSelectionAiContext request,
             PitchingApproach approach)
         {
             int count = request.AvailablePitches.Count;
@@ -62,7 +136,7 @@ namespace Baseball.Simulation.Match
         }
 
         private PlatePoint SelectTarget(
-            in PitchSelectionRequest request,
+            in PitchSelectionAiContext request,
             PitchType pitchType,
             PitchingApproach approach)
         {
@@ -104,12 +178,12 @@ namespace Baseball.Simulation.Match
             return new PlatePoint(side * 0.56d, _balance.AiWastePitchDistance);
         }
 
-        private static bool WasRepeatedTooOften(in PitchSelectionRequest request, PitchType pitchType)
+        private static bool WasRepeatedTooOften(in PitchSelectionAiContext request, PitchType pitchType)
         {
-            int count = request.RecentPitchSequence.Count;
+            int count = request.RecentPitchCount;
             return count >= 2 &&
-                   request.RecentPitchSequence[count - 1] == pitchType &&
-                   request.RecentPitchSequence[count - 2] == pitchType;
+                   request.RecentPitches[count - 1] == pitchType &&
+                   request.RecentPitches[count - 2] == pitchType;
         }
     }
 
@@ -127,6 +201,19 @@ namespace Baseball.Simulation.Match
 
         public SwingCommand Select(
             in BatterMiniGameRequest request,
+            in PlateAppearanceMatchup matchup)
+        {
+            var context = new SwingExecutionAiContext(
+                request.RequestId,
+                request.Pitch,
+                request.ConsecutivePitchTypeUses,
+                request.IdealSwingTime01,
+                request.DefaultIntent);
+            return Select(context, matchup);
+        }
+
+        internal SwingCommand Select(
+            in SwingExecutionAiContext request,
             in PlateAppearanceMatchup matchup)
         {
             BatterAttributes batter = matchup.Batter.BatterAttributes;
@@ -199,7 +286,7 @@ namespace Baseball.Simulation.Match
         }
 
         private double CalculateRepeatRecognition(
-            in BatterMiniGameRequest request,
+            in SwingExecutionAiContext request,
             int mental)
         {
             int repeatedUses = Math.Max(0, request.ConsecutivePitchTypeUses - 1);

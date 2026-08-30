@@ -162,6 +162,9 @@ namespace Baseball.Simulation.Match
         public double Quality { get; }
         public bool IsHitByPitch { get; }
         public bool IsStrike => Math.Abs(PlatePoint.X) <= 1d && Math.Abs(PlatePoint.Y) <= 1d;
+
+        /// <summary>정규화 시간에서 배열 할당 없이 실제 투구 궤적을 평가한다.</summary>
+        public PitchTrajectoryPoint Evaluate(double time01) => PitchTrajectoryEvaluator.Evaluate(this, time01);
     }
 
     /// <summary>한 투구의 구종과 목표 지점을 요청하는 순수 시뮬레이션 데이터다.</summary>

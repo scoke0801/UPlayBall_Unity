@@ -40,6 +40,7 @@ namespace Baseball.Simulation.Match
             HomeTeam = homeTeam ?? throw new ArgumentNullException(nameof(homeTeam));
             RequiresWinner = requiresWinner;
             RulesVersion = SimulationRulesVersion.DetailedV2;
+            VersionStamp = SimulationVersionStamp.CreateCurrent(balanceVersion: 0);
             Rules = MatchRules.CreateDefault(requiresWinner);
             AwayRoster = MatchRosterSnapshot.FromTeam(AwayTeam);
             HomeRoster = MatchRosterSnapshot.FromTeam(HomeTeam);
@@ -58,7 +59,8 @@ namespace Baseball.Simulation.Match
             MatchRosterSnapshot awayRoster,
             MatchRosterSnapshot homeRoster,
             MatchRules rules,
-            SimulationRulesVersion rulesVersion = SimulationRulesVersion.DetailedV2)
+            SimulationRulesVersion rulesVersion = SimulationRulesVersion.DetailedV2,
+            SimulationVersionStamp? versionStamp = null)
         {
             if (seasonId <= 0) throw new ArgumentOutOfRangeException(nameof(seasonId));
             if (gameId <= 0) throw new ArgumentOutOfRangeException(nameof(gameId));
@@ -69,6 +71,9 @@ namespace Baseball.Simulation.Match
             HomeRoster = homeRoster ?? throw new ArgumentNullException(nameof(homeRoster));
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
             RulesVersion = rulesVersion;
+            VersionStamp = versionStamp ?? SimulationVersionStamp.CreateCurrent(
+                balanceVersion: 0,
+                rulesVersion: (int)rulesVersion);
             RequiresWinner = rules.ExtraInningPolicy != ExtraInningPolicy.DrawAtLimit;
             AwayTeam = AwayRoster.ToCompatibilityTeam();
             HomeTeam = HomeRoster.ToCompatibilityTeam();
@@ -86,5 +91,6 @@ namespace Baseball.Simulation.Match
         public MatchRosterSnapshot HomeRoster { get; }
         public MatchRules Rules { get; }
         public SimulationRulesVersion RulesVersion { get; }
+        public SimulationVersionStamp VersionStamp { get; }
     }
 }

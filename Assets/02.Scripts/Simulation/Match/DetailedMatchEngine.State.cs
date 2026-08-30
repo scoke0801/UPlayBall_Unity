@@ -10,13 +10,17 @@ namespace Baseball.Simulation.Match
         public DetailedMatchState(
             MatchInput input,
             IMatchEventSink eventSink,
-            PitcherFatigueResolver fatigueResolver)
+            PitcherFatigueResolver fatigueResolver,
+            MatchExecutionProfile executionProfile)
         {
             Input = input;
             Away = new DetailedTeamGameState(input.AwayRoster, fatigueResolver);
             Home = new DetailedTeamGameState(input.HomeRoster, fatigueResolver);
             EventSink = eventSink;
-            Trace = new DecisionTrace();
+            RecordsEvents = executionProfile.EventMode == MatchEventMode.Full;
+            Trace = executionProfile.DecisionTraceMode == MatchDecisionTraceMode.Full
+                ? new DecisionTrace()
+                : null;
         }
 
         public MatchInput Input { get; }
@@ -24,6 +28,7 @@ namespace Baseball.Simulation.Match
         public DetailedTeamGameState Home { get; }
         public IMatchEventSink EventSink { get; }
         public DecisionTrace Trace { get; }
+        public bool RecordsEvents { get; }
         public int NextEventSequence { get; set; }
         public int NextDecisionIndex { get; set; }
         public int NextPitchingDecisionIndex { get; set; }

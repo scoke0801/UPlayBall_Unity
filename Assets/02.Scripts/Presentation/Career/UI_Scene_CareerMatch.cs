@@ -78,6 +78,7 @@ namespace Baseball.Presentation.Career
         private bool _isPlaybackInitialized;
         private bool _isPaused;
         private bool _isCallUpAcknowledged;
+        private bool _wasSettingsPopupOpen;
         private float _nextAutomaticPlayAt;
 
         public override bool BlocksLowerInput => true;
@@ -108,6 +109,7 @@ namespace Baseball.Presentation.Career
             // 자동 진행 중에는 _content가 매 스텝 통째로 재생성되므로, 클릭이 성립하려면
             // 조작 버튼은 그 바깥의 계층에 남아 있어야 한다.
             RectTransform controlLayer = CreateRect("ControlLayer", root, new Vector2(1920f, 1080f), Vector2.zero);
+            InitializePitchMiniGamePresentation(controlLayer);
             _controlHost = CreateRect("ControlHost", controlLayer, ControlPanelSize, ControlPanelPosition);
             _settingsHost = CreateRect("SettingsHost", controlLayer, new Vector2(100f, 44f), new Vector2(890f, 512f));
             Button settings = CreateButton(
@@ -144,6 +146,8 @@ namespace Baseball.Presentation.Career
                 _manager.CancelPreparedGame();
             else if (IsAutomaticPlaybackActive(session))
             {
+                _pitchMiniGame.Complete();
+                HidePitchMiniGamePresentation();
                 _playback.RevealAll(session.Events);
                 ClearControlledResult();
                 Render();
@@ -157,7 +161,16 @@ namespace Baseball.Presentation.Career
             if (!IsVisible || _manager?.ActiveMatch == null)
                 return;
             if (UI_Popup_CareerSettings.IsOpen)
+            {
+                _wasSettingsPopupOpen = true;
                 return;
+            }
+
+            if (_wasSettingsPopupOpen)
+            {
+                _wasSettingsPopupOpen = false;
+                RestorePitchMiniGameFocus();
+            }
 
             Keyboard keyboard = Keyboard.current;
             CareerMatchSession session = _manager.ActiveMatch;
@@ -179,6 +192,9 @@ namespace Baseball.Presentation.Career
                     AcknowledgeCallUp();
                 return;
             }
+
+            if (UpdatePitchMiniGamePresentation(session))
+                return;
 
             if (UpdateAutomaticPlayback(session))
             {
@@ -227,6 +243,8 @@ namespace Baseball.Presentation.Career
         {
             if (_manager == null || !_manager.HasActiveMatch)
             {
+                _pitchMiniGame.Complete();
+                HidePitchMiniGamePresentation();
                 ResetPlayback();
                 Hide();
                 return;
@@ -388,12 +406,19 @@ namespace Baseball.Presentation.Career
                 "PlayerPanel", _content, new Vector2(360f, 900f), new Vector2(-770f, -32f));
             RenderPlayerPanel(playerPanel, session, snapshot, view);
 
+            bool isMiniGameInputReady = IsMiniGameStageVisible(session);
             RectTransform stagePanel = CreatePanel(
-                "StagePanel", _content, new Vector2(1000f, 566f), new Vector2(-70f, 135f));
+                "StagePanel",
+                _content,
+                isMiniGameInputReady ? new Vector2(1000f, 650f) : new Vector2(1000f, 566f),
+                isMiniGameInputReady ? new Vector2(-70f, 93f) : new Vector2(-70f, 135f));
             RenderStage(stagePanel, session, snapshot, view);
 
             RectTransform timelinePanel = CreatePanel(
-                "TimelinePanel", _content, new Vector2(1000f, 324f), new Vector2(-70f, -320f));
+                "TimelinePanel",
+                _content,
+                isMiniGameInputReady ? new Vector2(1000f, 240f) : new Vector2(1000f, 324f),
+                isMiniGameInputReady ? new Vector2(-70f, -362f) : new Vector2(-70f, -320f));
             RenderTimeline(timelinePanel, session);
 
             RectTransform controlPanel = CreatePanel(
@@ -520,21 +545,41 @@ namespace Baseball.Presentation.Career
                 "StateDetail", panel, GetPlayerStateDetail(session, view), 14, FontStyle.Normal,
                 TextAnchor.MiddleCenter, new Vector2(320f, 26f), new Vector2(0f, 108f), SecondaryTextColor);
 
-            PlayerTodayLine today = CalculateTodayLine(
-                session.Events,
-                _playback.VisibleEventCount,
-                session.ControlledPlayerId);
+            bool isPitcher = player.PrimaryPosition is
+                PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
+            string todayValue;
+            string todayDetail;
+            if (isPitcher)
+            {
+                PlayerTodayPitchingLine today = CalculateTodayPitchingLine(
+                    session.Events,
+                    _playback.VisibleEventCount,
+                    session.ControlledPlayerId,
+                    session.Input.Rules.IntentionalWalkPitchCount);
+                todayValue =
+                    $"{FormatOutsAsInnings(today.OutsRecorded)}이닝  {today.HitsAllowed}피안타  {today.Strikeouts}삼진";
+                todayDetail = BuildTodayPitchingDetailLine(today);
+            }
+            else
+            {
+                PlayerTodayLine today = CalculateTodayLine(
+                    session.Events,
+                    _playback.VisibleEventCount,
+                    session.ControlledPlayerId);
+                todayValue = $"{today.PlateAppearances}타석  {today.Hits}안타  {today.RunsBattedIn}타점";
+                todayDetail = BuildTodayDetailLine(today);
+            }
             RectTransform todayCard = CreateImage(
                 "Today", panel, CardColor, new Vector2(320f, 96f), new Vector2(0f, 32f));
             CreateText(
                 "Label", todayCard, "오늘", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(150f, 24f), new Vector2(-77f, 28f), SecondaryTextColor);
             CreateText(
-                "Value", todayCard, $"{today.PlateAppearances}타석  {today.Hits}안타  {today.RunsBattedIn}타점",
+                "Value", todayCard, todayValue,
                 22, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(290f, 34f), new Vector2(0f, 0f), PrimaryTextColor);
             CreateText(
-                "Detail", todayCard, BuildTodayDetailLine(today), 13,
+                "Detail", todayCard, todayDetail, 13,
                 FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(290f, 22f), new Vector2(0f, -30f), MutedTextColor);
 
@@ -555,11 +600,14 @@ namespace Baseball.Presentation.Career
                 GetSubstitutionPriorityLabel(session),
                 13, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(320f, 24f), new Vector2(0f, -300f), MutedTextColor);
+            PlayerSeasonStatisticsView season = _manager.Dashboard.Statistics;
+            string seasonLine = isPitcher
+                ? $"시즌  평균자책 {season.EarnedRunAverage:0.00}  /  " +
+                  $"{season.Wins}승 {season.Losses}패  /  {season.PitchingStrikeouts}삼진"
+                : $"시즌  {FormatAverage(season.BattingAverage)}  /  " +
+                  $"{season.HomeRuns}홈런  /  {season.RunsBattedIn}타점";
             CreateText(
-                "Season", panel,
-                $"시즌  {FormatAverage(_manager.Dashboard.Statistics.BattingAverage)}  /  " +
-                $"{_manager.Dashboard.Statistics.HomeRuns}홈런  /  " +
-                $"{_manager.Dashboard.Statistics.RunsBattedIn}타점",
+                "Season", panel, seasonLine,
                 14, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(320f, 26f), new Vector2(0f, -354f), SecondaryTextColor);
 
@@ -601,7 +649,7 @@ namespace Baseball.Presentation.Career
             CareerMatchPlaybackSnapshot snapshot,
             MatchProgressViewState view)
         {
-            if (IsMiniGameInputReady(session))
+            if (IsMiniGameStageVisible(session))
             {
                 RenderMiniGameStage(panel, session);
                 return;
@@ -910,9 +958,13 @@ namespace Baseball.Presentation.Career
         /// </summary>
         private void RenderTimeline(RectTransform panel, CareerMatchSession session)
         {
+            float halfHeight = panel.sizeDelta.y * 0.5f;
+            float titleY = halfHeight - 32f;
+            float top = halfHeight - 74f;
+            int lineCapacity = panel.sizeDelta.y < 300f ? 5 : TimelineLineCapacity;
             CreateText(
                 "Title", panel, "실시간 경기", 16, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(260f, 28f), new Vector2(-355f, 130f), PrimaryTextColor);
+                new Vector2(260f, 28f), new Vector2(-355f, titleY), PrimaryTextColor);
 
             IReadOnlyList<MatchEvent> events = session.Events;
             _timelineRows.Clear();
@@ -939,8 +991,7 @@ namespace Baseball.Presentation.Career
 
             // 최신 이벤트가 위에 오므로 이닝 머리글은 각 그룹의 첫 줄 바로 위에 놓는다.
             int line = 0;
-            float top = 88f;
-            for (int row = 0; row < _timelineRows.Count && line < TimelineLineCapacity; row++)
+            for (int row = 0; row < _timelineRows.Count && line < lineCapacity; row++)
             {
                 MatchEvent matchEvent = events[_timelineRows[row]];
                 bool isGroupStart = row == 0 ||
@@ -1405,6 +1456,80 @@ namespace Baseball.Presentation.Career
             return today.HitByPitches > 0 ? $"{summary}  ·  사구 {today.HitByPitches}" : summary;
         }
 
+        /// <summary>
+        /// 공개된 이벤트만 집계해 아직 보지 않은 결과를 노출하지 않는 투수의 오늘 기록을 만든다.
+        /// </summary>
+        private static PlayerTodayPitchingLine CalculateTodayPitchingLine(
+            IReadOnlyList<MatchEvent> events,
+            int visibleEventCount,
+            int playerId,
+            int intentionalWalkPitchCount)
+        {
+            var result = new PlayerTodayPitchingLine();
+            for (int index = 0; index < visibleEventCount; index++)
+            {
+                MatchEvent matchEvent = events[index];
+                if (matchEvent.PitcherId != playerId)
+                    continue;
+
+                if (matchEvent.EventType == MatchEventType.Pitch)
+                {
+                    result.PitchesThrown++;
+                    continue;
+                }
+                if (matchEvent.EventType == MatchEventType.IntentionalWalk)
+                {
+                    result.PitchesThrown += intentionalWalkPitchCount;
+                    continue;
+                }
+                if (matchEvent.EventType == MatchEventType.Out)
+                {
+                    result.OutsRecorded++;
+                    continue;
+                }
+                if (matchEvent.EventType != MatchEventType.PlateAppearanceEnded)
+                    continue;
+
+                result.BattersFaced++;
+                switch (matchEvent.PlateAppearanceResult)
+                {
+                    case PlateAppearanceResult.Single:
+                    case PlateAppearanceResult.Double:
+                    case PlateAppearanceResult.Triple:
+                    case PlateAppearanceResult.HomeRun:
+                    case PlateAppearanceResult.BuntSingle:
+                        result.HitsAllowed++;
+                        break;
+                    case PlateAppearanceResult.Walk:
+                    case PlateAppearanceResult.IntentionalWalk:
+                        result.WalksAllowed++;
+                        break;
+                    case PlateAppearanceResult.HitByPitch:
+                        result.HitBatters++;
+                        break;
+                    case PlateAppearanceResult.Strikeout:
+                        result.Strikeouts++;
+                        break;
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 투수의 오늘 기록 보조 줄에 투구 부담과 출루 허용을 함께 표시한다.
+        /// </summary>
+        private static string BuildTodayPitchingDetailLine(PlayerTodayPitchingLine today)
+        {
+            string summary =
+                $"투구 {today.PitchesThrown}  ·  상대 {today.BattersFaced}명  ·  볼넷 {today.WalksAllowed}";
+            return today.HitBatters > 0 ? $"{summary}  ·  사구 {today.HitBatters}" : summary;
+        }
+
+        private static string FormatOutsAsInnings(int outsRecorded)
+        {
+            return $"{outsRecorded / 3}.{outsRecorded % 3}";
+        }
+
         private static string FindPlayerName(MatchInput input, int playerId)
         {
             string name = FindPlayerName(input.AwayRoster, playerId);
@@ -1792,6 +1917,17 @@ namespace Baseball.Presentation.Career
             public int Strikeouts;
             public int Walks;
             public int HitByPitches;
+        }
+
+        private struct PlayerTodayPitchingLine
+        {
+            public int BattersFaced;
+            public int OutsRecorded;
+            public int PitchesThrown;
+            public int HitsAllowed;
+            public int WalksAllowed;
+            public int HitBatters;
+            public int Strikeouts;
         }
     }
 }

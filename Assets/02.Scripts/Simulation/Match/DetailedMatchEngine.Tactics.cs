@@ -45,7 +45,7 @@ namespace Baseball.Simulation.Match
                 -context.ScoreDifference);
             defense.ActivePitcherState.StartInning();
             DecisionReasonCode reasonCode = MapPitcherReason(decision.Reason);
-            state.Trace.Add(new DecisionTraceEntry(
+            state.Trace?.Add(new DecisionTraceEntry(
                 inning,
                 half,
                 removed.Player.PlayerId,

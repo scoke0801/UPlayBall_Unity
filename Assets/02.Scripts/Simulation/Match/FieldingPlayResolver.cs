@@ -1,5 +1,6 @@
 using System;
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Simulation.PlateAppearance;
 using Baseball.Simulation.Random;
@@ -32,10 +33,10 @@ namespace Baseball.Simulation.Match
         public int Arm { get; }
         public int PositionProficiency { get; }
 
-        public static FieldingProfile Derive(Player player, PlayerPosition position)
+        public static FieldingProfile Derive(Player player, PlayerPosition position, int abilityBonus = 0)
         {
             uint hash = StableHash(player.PlayerId);
-            int defense = player.BatterAttributes.Defense;
+            int defense = ClampRating(player.BatterAttributes.Defense + abilityBonus);
             int range = ClampRating(defense + (int)(hash % 7U) - 3);
             int hands = ClampRating(defense + (int)((hash >> 5) % 7U) - 3);
             int arm = ClampRating(player.BatterAttributes.Arm + (int)((hash >> 11) % 7U) - 3);
@@ -97,12 +98,17 @@ namespace Baseball.Simulation.Match
     public sealed class FieldingPlayResolver
     {
         private readonly DetailedFieldingBalance _balance;
+        private readonly SkillTraitBalance _skillTraits;
         private readonly IRandomSource _random;
 
-        public FieldingPlayResolver(DetailedFieldingBalance balance, IRandomSource random)
+        public FieldingPlayResolver(
+            DetailedFieldingBalance balance,
+            IRandomSource random,
+            SkillTraitBalance? skillTraits = null)
         {
             _balance = balance;
             _random = random ?? throw new ArgumentNullException(nameof(random));
+            _skillTraits = skillTraits ?? SkillTraitBalance.CreateDefault();
         }
 
         public FieldingPlayOutcome Resolve(
@@ -115,7 +121,10 @@ namespace Baseball.Simulation.Match
             bool canAttemptDoublePlay)
         {
             if (fielder == null) throw new ArgumentNullException(nameof(fielder));
-            FieldingProfile profile = FieldingProfile.Derive(fielder, position);
+            int traitBonus = fielder.HasTrait(SkillTraitIds.DefensiveFocus)
+                ? _skillTraits.DefensiveFocusAbilityBonus
+                : 0;
+            FieldingProfile profile = FieldingProfile.Derive(fielder, position, traitBonus);
             double reachChance = CalculateReachChance(ball, profile, alignment);
             bool routine = reachChance >= 0.68d && ball.Quality <= 62d;
             if (_random.NextDouble() >= reachChance)

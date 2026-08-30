@@ -37,6 +37,8 @@ namespace Baseball.Presentation.Career
 
         private void ResetPlayback()
         {
+            _pitchMiniGame.Complete();
+            HidePitchMiniGamePresentation();
             _playback.Reset();
             _playbackSession = null;
             ClearControlledResult();
@@ -325,7 +327,7 @@ namespace Baseball.Presentation.Career
             CareerMatchPlaybackSnapshot snapshot,
             MatchProgressViewState view)
         {
-            if (IsMiniGameInputReady(session))
+            if (IsMiniGameStageVisible(session))
             {
                 ClearPersistentControls();
                 RenderMiniGameControlPanel(panel, session);

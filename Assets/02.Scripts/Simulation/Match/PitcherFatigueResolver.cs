@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
+using Baseball.Core.Growth;
 using Baseball.Core.Teams;
 
 namespace Baseball.Simulation.Match
@@ -13,13 +14,17 @@ namespace Baseball.Simulation.Match
         private readonly PitcherFatigueBalance _fatigue;
         private readonly PitcherStressBalance _stress;
         private readonly BullpenManagementBalance _bullpen;
+        private readonly SkillTraitBalance _skillTraits;
 
-        public PitcherFatigueResolver(MatchBalanceTable balance)
+        public PitcherFatigueResolver(
+            MatchBalanceTable balance,
+            SkillTraitBalance? skillTraits = null)
         {
             if (balance == null) throw new ArgumentNullException(nameof(balance));
             _fatigue = balance.PitcherFatigue;
             _stress = balance.PitcherStress;
             _bullpen = balance.BullpenManagement;
+            _skillTraits = skillTraits ?? SkillTraitBalance.CreateDefault();
         }
 
         public PitcherGameState CreateState(PitcherRosterEntry entry)
@@ -58,12 +63,15 @@ namespace Baseball.Simulation.Match
             PitcherAttributes source = state.Player.PitcherAttributes;
             double overload = CalculateOverload(state.FatigueRatio);
             double stressPenalty = CalculateStressPenalty(state);
-            double velocity = source.Velocity - _fatigue.MaximumVelocityPenalty * Math.Pow(overload, 1.40d);
-            double stuff = source.Stuff - _fatigue.MaximumStuffPenalty * Math.Pow(overload, 1.25d);
-            double breaking = source.Breaking - _fatigue.MaximumBreakingPenalty * Math.Pow(overload, 1.25d);
+            double fatiguePenaltyMultiplier = state.Player.HasTrait(SkillTraitIds.LongOutingAdaptation)
+                ? 1d - _skillTraits.FatiguePenaltyMitigation
+                : 1d;
+            double velocity = source.Velocity - _fatigue.MaximumVelocityPenalty * Math.Pow(overload, 1.40d) * fatiguePenaltyMultiplier;
+            double stuff = source.Stuff - _fatigue.MaximumStuffPenalty * Math.Pow(overload, 1.25d) * fatiguePenaltyMultiplier;
+            double breaking = source.Breaking - _fatigue.MaximumBreakingPenalty * Math.Pow(overload, 1.25d) * fatiguePenaltyMultiplier;
             double control = source.Control -
-                             _fatigue.MaximumControlPenalty * Math.Pow(overload, 1.35d) -
-                             stressPenalty;
+                             _fatigue.MaximumControlPenalty * Math.Pow(overload, 1.35d) * fatiguePenaltyMultiplier -
+                             stressPenalty * fatiguePenaltyMultiplier;
             ApplyApproach(approach, source, ref velocity, ref stuff, ref breaking, ref control);
             return new EffectivePitcherRatings(
                 ClampRating(velocity),

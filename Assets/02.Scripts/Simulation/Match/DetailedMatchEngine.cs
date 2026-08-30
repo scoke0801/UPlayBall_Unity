@@ -31,6 +31,7 @@ namespace Baseball.Simulation.Match
         private readonly SwingContactResolver _swingContactResolver;
         private readonly PitchSelectionAi _pitchSelectionAi;
         private readonly SwingExecutionAi _swingExecutionAi;
+        private readonly MatchExecutionProfile _executionProfile;
 
         public DetailedMatchEngine(
             BalanceTable balance,
@@ -40,7 +41,8 @@ namespace Baseball.Simulation.Match
             IMatchPitchingDecisionSource recordedPitchingDecisionSource,
             IPitchSelectionDecisionSource pitchSelectionDecisionSource,
             ISwingExecutionDecisionSource swingExecutionDecisionSource,
-            MatchDecisionCoordinator decisionCoordinator)
+            MatchDecisionCoordinator decisionCoordinator,
+            MatchExecutionProfile executionProfile)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _random = random ?? throw new ArgumentNullException(nameof(random));
@@ -51,11 +53,27 @@ namespace Baseball.Simulation.Match
             _pitchSelectionDecisionSource = pitchSelectionDecisionSource;
             _swingExecutionDecisionSource = swingExecutionDecisionSource;
             _decisionCoordinator = decisionCoordinator ?? MatchDecisionCoordinator.CreateAutomatic();
-            _fatigueResolver = new PitcherFatigueResolver(balance.Match);
+            _executionProfile = executionProfile;
+            if (executionProfile.DecisionMode == MatchDecisionMode.InternalAiOnly &&
+                (recordedDecisionSource != null ||
+                 recordedPitchingDecisionSource != null ||
+                 pitchSelectionDecisionSource != null ||
+                 swingExecutionDecisionSource != null))
+            {
+                throw new InvalidOperationException(
+                    "InternalAiOnly 경기에는 외부 판단 공급자를 연결할 수 없습니다.");
+            }
+            _fatigueResolver = new PitcherFatigueResolver(balance.Match, balance.Growth.SkillTraits);
             _pitcherManagementAi = new PitcherManagementAi(balance.Match.BullpenManagement);
             _battedBallResolver = new BattedBallResolver(balance, random.BattedBall);
-            _fieldingResolver = new FieldingPlayResolver(balance.Match.Fielding, random.Fielding);
-            _baserunningResolver = new BaserunningResolver(balance.BaseRunning, random.Baserunning);
+            _fieldingResolver = new FieldingPlayResolver(
+                balance.Match.Fielding,
+                random.Fielding,
+                balance.Growth.SkillTraits);
+            _baserunningResolver = new BaserunningResolver(
+                balance.BaseRunning,
+                random.Baserunning,
+                balance.Growth.SkillTraits);
             RunExpectancy24 runExpectancy = RunExpectancy24.CreateDefault();
             _tacticalAi = new TacticalAiResolver(balance.Match.Tactical, runExpectancy);
             _winExpectancy = new WinExpectancyModel(runExpectancy);
@@ -71,7 +89,11 @@ namespace Baseball.Simulation.Match
             MatchEventBuffer capturedEvents)
         {
             if (input == null) throw new ArgumentNullException(nameof(input));
-            var state = new DetailedMatchState(input, eventSink, _fatigueResolver);
+            var state = new DetailedMatchState(
+                input,
+                eventSink,
+                _fatigueResolver,
+                _executionProfile);
             int inning = 1;
             while (true)
             {
@@ -113,7 +135,10 @@ namespace Baseball.Simulation.Match
             state.Home.FinalizeReliefDecisions(
                 state.Home.BoxScore.Runs > state.Away.BoxScore.Runs,
                 runMargin);
-            MatchEvent[] events = capturedEvents == null ? Array.Empty<MatchEvent>() : capturedEvents.ToArray();
+            MatchEvent[] events = capturedEvents == null ||
+                                  _executionProfile.EventMode == MatchEventMode.None
+                ? Array.Empty<MatchEvent>()
+                : capturedEvents.ToArray();
             PitcherUsageReport[] usage = CombineUsage(
                 state.Away.BuildUsageReports(),
                 state.Home.BuildUsageReports());
@@ -124,7 +149,7 @@ namespace Baseball.Simulation.Match
                 state.Home.BoxScore.Build(inning),
                 events,
                 usage,
-                state.Trace.ToArray());
+                state.Trace?.ToArray() ?? Array.Empty<DecisionTraceEntry>());
         }
 
         private void SimulateHalfInning(DetailedMatchState state, int inning, InningHalf half)
@@ -473,7 +498,8 @@ namespace Baseball.Simulation.Match
                     effective.Mental,
                     contactBonus,
                     hardHitBonus,
-                    pitchingApproach);
+                    pitchingApproach,
+                    inning);
                 BattingApproach pitchApproach = GetPitchBattingApproach(
                     selectedApproach,
                     balls,
@@ -629,129 +655,100 @@ namespace Baseball.Simulation.Match
             out ContactProfile contactProfile)
         {
             PitchOption[] options = _pitchExecutionResolver.BuildPitchOptions(matchup);
-            PitchType[] recentSequence = CopyRecentPitches(recentPitches, recentPitchCount);
-            var placeholderPitch = new PitchSelectionCommand(
+            var pitchAiContext = new PitchSelectionAiContext(
                 state.NextPitchSelectionIndex,
-                options[0].PitchType,
-                default,
-                pitchingApproach);
-            var request = new PitchSelectionRequest(
-                state.NextPitchSelectionIndex,
-                plateAppearanceIndex,
-                state.Input.GameId,
-                inning,
-                half,
                 batter.PlayerId,
-                defense.ActivePitcher.PlayerId,
                 pitchNumber,
                 balls,
                 strikes,
-                outs,
-                state.Away.BoxScore.Runs,
-                state.Home.BoxScore.Runs,
-                bases.Snapshot,
-                defense.ActivePitcherState.FatigueRatio,
-                leverage,
                 options,
-                recentSequence,
-                placeholderPitch);
-            PitchSelectionCommand suggestedPitch = _pitchSelectionAi.Select(request, pitchingApproach);
-            request = new PitchSelectionRequest(
-                request.RequestId,
-                request.PlateAppearanceIndex,
-                request.MatchId,
-                request.Inning,
-                request.Half,
-                request.BatterId,
-                request.PitcherId,
-                request.PitchNumber,
-                request.Balls,
-                request.Strikes,
-                request.Outs,
-                request.AwayScore,
-                request.HomeScore,
-                request.Bases,
-                request.CurrentFatigue,
-                request.Leverage,
-                options,
-                recentSequence,
-                suggestedPitch);
+                recentPitches,
+                recentPitchCount);
+            PitchSelectionCommand suggestedPitch = _pitchSelectionAi.Select(
+                pitchAiContext,
+                pitchingApproach);
 
             PitchSelectionCommand pitchSelection = suggestedPitch;
             if (_pitchSelectionDecisionSource != null &&
-                _pitchSelectionDecisionSource.RequiresPitchSelection(request))
+                _executionProfile.DecisionMode == MatchDecisionMode.ExternalInputAllowed)
             {
-                if (!_pitchSelectionDecisionSource.TryGetPitchSelection(request, out pitchSelection))
-                    throw new PitchSelectionRequiredSignal(request);
-                if (!ContainsPitch(options, pitchSelection.PitchType))
-                    throw new InvalidOperationException("보유하지 않은 구종은 선택할 수 없습니다.");
-                state.NextPitchSelectionIndex++;
+                PitchType[] recentSequence = CopyRecentPitches(recentPitches, recentPitchCount);
+                var request = new PitchSelectionRequest(
+                    state.NextPitchSelectionIndex,
+                    plateAppearanceIndex,
+                    state.Input.GameId,
+                    inning,
+                    half,
+                    batter.PlayerId,
+                    defense.ActivePitcher.PlayerId,
+                    pitchNumber,
+                    balls,
+                    strikes,
+                    outs,
+                    state.Away.BoxScore.Runs,
+                    state.Home.BoxScore.Runs,
+                    bases.Snapshot,
+                    defense.ActivePitcherState.FatigueRatio,
+                    leverage,
+                    options,
+                    recentSequence,
+                    suggestedPitch);
+                if (_pitchSelectionDecisionSource.RequiresPitchSelection(request))
+                {
+                    if (!_pitchSelectionDecisionSource.TryGetPitchSelection(request, out pitchSelection))
+                        throw new PitchSelectionRequiredSignal(request);
+                    if (!ContainsPitch(options, pitchSelection.PitchType))
+                        throw new InvalidOperationException("보유하지 않은 구종은 선택할 수 없습니다.");
+                    state.NextPitchSelectionIndex++;
+                }
             }
 
             PitchFlightDescriptor pitch = _pitchExecutionResolver.Resolve(matchup, pitchSelection);
             int consecutivePitchTypeUses = CountConsecutivePitchTypeUses(
-                recentSequence,
+                recentPitches,
+                recentPitchCount,
                 pitchSelection.PitchType);
             AddRecentPitch(recentPitches, ref recentPitchCount, pitchSelection.PitchType);
             double idealSwingTime = _swingContactResolver.GetIdealSwingTime01(pitch);
-            var placeholderSwing = new SwingCommand(
+            var swingAiContext = new SwingExecutionAiContext(
                 state.NextSwingExecutionIndex,
-                false,
-                default,
-                idealSwingTime,
-                battingApproach,
-                battingApproach == BattingApproach.Bunt);
-            var swingRequest = new BatterMiniGameRequest(
-                state.NextSwingExecutionIndex,
-                plateAppearanceIndex,
-                state.Input.GameId,
-                inning,
-                half,
-                batter.PlayerId,
-                defense.ActivePitcher.PlayerId,
-                pitchNumber,
-                balls,
-                strikes,
-                outs,
-                state.Away.BoxScore.Runs,
-                state.Home.BoxScore.Runs,
-                bases.Snapshot,
                 pitch,
                 consecutivePitchTypeUses,
                 idealSwingTime,
-                battingApproach,
-                MiniGameAssistRule.Standard,
-                placeholderSwing);
-            SwingCommand suggestedSwing = _swingExecutionAi.Select(swingRequest, matchup);
-            swingRequest = new BatterMiniGameRequest(
-                swingRequest.RequestId,
-                swingRequest.PlateAppearanceIndex,
-                swingRequest.MatchId,
-                swingRequest.Inning,
-                swingRequest.Half,
-                swingRequest.BatterId,
-                swingRequest.PitcherId,
-                swingRequest.PitchNumber,
-                swingRequest.Balls,
-                swingRequest.Strikes,
-                swingRequest.Outs,
-                swingRequest.AwayScore,
-                swingRequest.HomeScore,
-                swingRequest.Bases,
-                pitch,
-                consecutivePitchTypeUses,
-                idealSwingTime,
-                battingApproach,
-                MiniGameAssistRule.Standard,
-                suggestedSwing);
+                battingApproach);
+            SwingCommand suggestedSwing = _swingExecutionAi.Select(swingAiContext, matchup);
 
             SwingCommand swing = suggestedSwing;
             if (_swingExecutionDecisionSource != null &&
-                _swingExecutionDecisionSource.RequiresSwingExecution(swingRequest))
+                _executionProfile.DecisionMode == MatchDecisionMode.ExternalInputAllowed)
             {
-                if (!_swingExecutionDecisionSource.TryGetSwingExecution(swingRequest, out swing))
-                    throw new SwingExecutionRequiredSignal(swingRequest);
-                state.NextSwingExecutionIndex++;
+                var swingRequest = new BatterMiniGameRequest(
+                    state.NextSwingExecutionIndex,
+                    plateAppearanceIndex,
+                    state.Input.GameId,
+                    inning,
+                    half,
+                    batter.PlayerId,
+                    defense.ActivePitcher.PlayerId,
+                    pitchNumber,
+                    balls,
+                    strikes,
+                    outs,
+                    state.Away.BoxScore.Runs,
+                    state.Home.BoxScore.Runs,
+                    bases.Snapshot,
+                    pitch,
+                    consecutivePitchTypeUses,
+                    idealSwingTime,
+                    battingApproach,
+                    MiniGameAssistRule.Standard,
+                    suggestedSwing);
+                if (_swingExecutionDecisionSource.RequiresSwingExecution(swingRequest))
+                {
+                    if (!_swingExecutionDecisionSource.TryGetSwingExecution(swingRequest, out swing))
+                        throw new SwingExecutionRequiredSignal(swingRequest);
+                    state.NextSwingExecutionIndex++;
+                }
             }
 
             contactProfile = _swingContactResolver.Resolve(matchup, pitch, swing, pitchNumber);
@@ -760,13 +757,14 @@ namespace Baseball.Simulation.Match
         }
 
         private static int CountConsecutivePitchTypeUses(
-            PitchType[] recentSequence,
+            PitchType[] recentPitches,
+            int recentPitchCount,
             PitchType current)
         {
             int count = 1;
-            for (int index = recentSequence.Length - 1; index >= 0; index--)
+            for (int index = recentPitchCount - 1; index >= 0; index--)
             {
-                if (recentSequence[index] != current)
+                if (recentPitches[index] != current)
                     break;
                 count++;
             }

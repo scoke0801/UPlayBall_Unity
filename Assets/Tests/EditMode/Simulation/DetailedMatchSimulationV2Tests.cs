@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Rules;
@@ -8,6 +9,7 @@ using Baseball.Simulation.Match;
 using Baseball.Simulation.PlateAppearance;
 using Baseball.Simulation.Random;
 using NUnit.Framework;
+using GrowthSkillTraitIds = Baseball.Core.Growth.SkillTraitIds;
 
 namespace Baseball.Tests.EditMode.Simulation
 {
@@ -156,6 +158,66 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void SkillTrait_공격적주루는경계상황에서추가진루선택을연다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            var resolver = new BaserunningResolver(
+                balance.BaseRunning,
+                new SequenceRandom(0d),
+                balance.Growth.SkillTraits);
+            Player normal = CreateBatter(901, 50, 50, 50);
+            Player aggressive = CreateBatter(
+                902,
+                50,
+                50,
+                50,
+                traitIds: new[] { GrowthSkillTraitIds.AggressiveBaserunning });
+
+            BaserunningDecision normalDecision = resolver.DecideExtraBase(
+                0.65d, normal, 50, 1, 5, 0, RunningApproach.Balanced);
+            BaserunningDecision traitDecision = resolver.DecideExtraBase(
+                0.65d, aggressive, 50, 1, 5, 0, RunningApproach.Balanced);
+
+            Assert.That(normalDecision.ShouldAttempt, Is.False);
+            Assert.That(traitDecision.ShouldAttempt, Is.True);
+            Assert.That(traitDecision.SuccessChance, Is.EqualTo(normalDecision.SuccessChance));
+        }
+
+        [Test]
+        public void SkillTrait_수비집중은같은타구의도달확률을높인다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            var ball = new BattedBallDescriptor(
+                BattedBallType.GroundBall,
+                BattedBallDirection.Center,
+                FieldZone.Shortstop,
+                quality: 55d,
+                BallFlightBand.Short,
+                BallPaceBand.Medium,
+                isHomeRun: false);
+            Player normal = CreateBatter(903, 50, 60, 50);
+            Player focused = CreateBatter(
+                903,
+                50,
+                60,
+                50,
+                traitIds: new[] { GrowthSkillTraitIds.DefensiveFocus });
+
+            FieldingPlayOutcome normalOutcome = new FieldingPlayResolver(
+                balance.Match.Fielding,
+                new SequenceRandom(0d, 0.5d, 0.5d),
+                balance.Growth.SkillTraits).Resolve(
+                ball, normal, PlayerPosition.Shortstop, DefensiveAlignment.Standard, 50, 50, false);
+            FieldingPlayOutcome focusedOutcome = new FieldingPlayResolver(
+                balance.Match.Fielding,
+                new SequenceRandom(0d, 0.5d, 0.5d),
+                balance.Growth.SkillTraits).Resolve(
+                ball, focused, PlayerPosition.Shortstop, DefensiveAlignment.Standard, 50, 50, false);
+
+            Assert.That(focusedOutcome.ReachChance, Is.GreaterThan(normalOutcome.ReachChance));
+        }
+
+        [Test]
         public void SubstitutionLedger_퇴장선수는재출전할수없다()
         {
             var ledger = new SubstitutionLedger();
@@ -200,6 +262,29 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(second.Events.Count, Is.EqualTo(first.Events.Count));
             for (int index = 0; index < first.Events.Count; index++)
                 Assert.That(second.Events[index], Is.EqualTo(first.Events[index]), $"Event {index}");
+        }
+
+        [Test]
+        public void Match_무관전자Profile은표현출력없이같은BoxScore를만든다()
+        {
+            MatchInput input = CreateDetailedInput(19032UL, MatchRules.CreateDefault(requiresWinner: false));
+            BalanceTable balance = BalanceTable.CreateDefault();
+            MatchResult full = new MatchSimulator(balance, MatchRandomStreams.Create(input.RandomSeed))
+                .Simulate(input);
+            MatchResult background = new MatchSimulator(balance, MatchRandomStreams.Create(input.RandomSeed))
+                .Simulate(
+                    input,
+                    NullMatchEventSink.Instance,
+                    MatchExecutionProfile.DetailedBackground);
+
+            Assert.That(background.Events, Is.Empty);
+            Assert.That(background.DecisionTrace, Is.Empty);
+            Assert.That(background.InningsPlayed, Is.EqualTo(full.InningsPlayed));
+            AssertBoxScoreEqual(full.AwayBoxScore, background.AwayBoxScore);
+            AssertBoxScoreEqual(full.HomeBoxScore, background.HomeBoxScore);
+            Assert.That(background.PitcherUsage.Count, Is.EqualTo(full.PitcherUsage.Count));
+            for (int index = 0; index < full.PitcherUsage.Count; index++)
+                AssertPublicScalarPropertiesEqual(full.PitcherUsage[index], background.PitcherUsage[index]);
         }
 
         [Test]
@@ -333,6 +418,39 @@ namespace Baseball.Tests.EditMode.Simulation
             return count;
         }
 
+        private static void AssertBoxScoreEqual(TeamBoxScore expected, TeamBoxScore actual)
+        {
+            Assert.That(actual.TeamId, Is.EqualTo(expected.TeamId));
+            Assert.That(actual.Runs, Is.EqualTo(expected.Runs));
+            Assert.That(actual.Hits, Is.EqualTo(expected.Hits));
+            Assert.That(actual.Errors, Is.EqualTo(expected.Errors));
+            Assert.That(actual.RunsByInning, Is.EqualTo(expected.RunsByInning));
+            Assert.That(actual.BattingLines.Count, Is.EqualTo(expected.BattingLines.Count));
+            for (int index = 0; index < expected.BattingLines.Count; index++)
+                AssertPublicScalarPropertiesEqual(expected.BattingLines[index], actual.BattingLines[index]);
+            Assert.That(actual.PitchingLines.Count, Is.EqualTo(expected.PitchingLines.Count));
+            for (int index = 0; index < expected.PitchingLines.Count; index++)
+                AssertPublicScalarPropertiesEqual(expected.PitchingLines[index], actual.PitchingLines[index]);
+            Assert.That(actual.FieldingLines.Count, Is.EqualTo(expected.FieldingLines.Count));
+            for (int index = 0; index < expected.FieldingLines.Count; index++)
+                AssertPublicScalarPropertiesEqual(expected.FieldingLines[index], actual.FieldingLines[index]);
+        }
+
+        private static void AssertPublicScalarPropertiesEqual<T>(T expected, T actual)
+        {
+            PropertyInfo[] properties = typeof(T).GetProperties(BindingFlags.Instance | BindingFlags.Public);
+            for (int index = 0; index < properties.Length; index++)
+            {
+                PropertyInfo property = properties[index];
+                if (property.GetIndexParameters().Length != 0)
+                    continue;
+                Assert.That(
+                    property.GetValue(actual),
+                    Is.EqualTo(property.GetValue(expected)),
+                    property.Name);
+            }
+        }
+
         private static MatchInput CreateDetailedInput(ulong seed, MatchRules rules)
         {
             return new MatchInput(
@@ -403,7 +521,8 @@ namespace Baseball.Tests.EditMode.Simulation
             int defense,
             int mental,
             PlayerPosition position = PlayerPosition.Shortstop,
-            int arm = 40)
+            int arm = 40,
+            string[] traitIds = null)
         {
             return new Player(
                 id,
@@ -412,7 +531,8 @@ namespace Baseball.Tests.EditMode.Simulation
                 Handedness.Right,
                 Handedness.Right,
                 new BatterAttributes(50, 50, speed, arm, defense, mental),
-                new PitcherAttributes(20, 20, 20, 20, 20, 20));
+                new PitcherAttributes(20, 20, 20, 20, 20, 20),
+                traitIds: traitIds);
         }
 
         private static Player CreateThreatBatter(int id, int contact, int power)

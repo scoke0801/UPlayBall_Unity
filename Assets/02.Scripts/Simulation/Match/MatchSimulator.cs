@@ -195,7 +195,11 @@ namespace Baseball.Simulation.Match
             var eventBuffer = new MatchEventBuffer();
             try
             {
-                MatchResult result = SimulateInternal(input, eventBuffer, eventBuffer);
+                MatchResult result = SimulateInternal(
+                    input,
+                    eventBuffer,
+                    eventBuffer,
+                    MatchExecutionProfile.DetailedInteractive);
                 return new MatchSimulationProgress(
                     result,
                     null,
@@ -228,7 +232,11 @@ namespace Baseball.Simulation.Match
         public MatchResult Simulate(MatchInput input)
         {
             var eventBuffer = new MatchEventBuffer();
-            return SimulateInternal(input, eventBuffer, eventBuffer);
+            return SimulateInternal(
+                input,
+                eventBuffer,
+                eventBuffer,
+                MatchExecutionProfile.DetailedInteractive);
         }
 
         /// <summary>
@@ -239,16 +247,37 @@ namespace Baseball.Simulation.Match
             if (eventSink == null)
                 throw new ArgumentNullException(nameof(eventSink));
 
-            return SimulateInternal(input, eventSink, null);
+            return SimulateInternal(
+                input,
+                eventSink,
+                null,
+                MatchExecutionProfile.DetailedInteractive);
+        }
+
+        /// <summary>
+        /// 한 경기를 명시한 입력·이벤트·통계 출력 프로필로 실행한다.
+        /// </summary>
+        public MatchResult Simulate(
+            MatchInput input,
+            IMatchEventSink eventSink,
+            MatchExecutionProfile executionProfile)
+        {
+            if (eventSink == null)
+                throw new ArgumentNullException(nameof(eventSink));
+
+            return SimulateInternal(input, eventSink, null, executionProfile);
         }
 
         private MatchResult SimulateInternal(
             MatchInput input,
             IMatchEventSink eventSink,
-            MatchEventBuffer capturedEvents)
+            MatchEventBuffer capturedEvents,
+            MatchExecutionProfile executionProfile)
         {
             if (input == null)
                 throw new ArgumentNullException(nameof(input));
+            if (executionProfile.EngineKind != SimulationEngineKind.Detailed)
+                throw new InvalidOperationException("지원하지 않는 경기 엔진입니다.");
             return new DetailedMatchEngine(
                     _balance,
                     _randomStreams,
@@ -257,7 +286,8 @@ namespace Baseball.Simulation.Match
                     _pitchingDecisionSource,
                     _pitchSelectionDecisionSource,
                     _swingExecutionDecisionSource,
-                    _decisionCoordinator)
+                    _decisionCoordinator,
+                    executionProfile)
                 .Simulate(input, eventSink, capturedEvents);
         }
 
@@ -360,7 +390,8 @@ namespace Baseball.Simulation.Match
                 batter.Player,
                 defense.ActivePitcher,
                 defense.DefenseRating,
-                bases.Second.IsOccupied || bases.Third.IsOccupied);
+                bases.Second.IsOccupied || bases.Third.IsOccupied,
+                inning);
             int balls = 0;
             int strikes = 0;
             int pitchNumber = 0;

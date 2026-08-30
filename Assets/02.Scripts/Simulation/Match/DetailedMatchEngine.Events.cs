@@ -22,6 +22,12 @@ namespace Baseball.Simulation.Match
             DecisionReasonCode reasonCode = DecisionReasonCode.None,
             PitchPlayData pitchPlayData = default)
         {
+            if (!state.RecordsEvents)
+            {
+                state.NextEventSequence++;
+                return;
+            }
+
             state.EventSink.Record(new MatchEvent(
                 state.NextEventSequence++,
                 eventType,

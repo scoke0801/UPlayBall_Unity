@@ -15,7 +15,8 @@ namespace Baseball.Simulation.PlateAppearance
             Player batter,
             Player pitcher,
             double defenseRating,
-            bool hasRunnerInScoringPosition)
+            bool hasRunnerInScoringPosition,
+            int inning = 1)
             : this(
                 batter,
                 pitcher,
@@ -28,7 +29,8 @@ namespace Baseball.Simulation.PlateAppearance
                 pitcher?.PitcherAttributes.Mental ?? 0d,
                 0d,
                 0d,
-                PitchingApproach.Balanced)
+                PitchingApproach.Balanced,
+                inning)
         {
         }
 
@@ -47,7 +49,8 @@ namespace Baseball.Simulation.PlateAppearance
             double effectiveMental,
             double batterContactAdjustment,
             double hardHitAdjustment,
-            PitchingApproach pitchingApproach)
+            PitchingApproach pitchingApproach,
+            int inning = 1)
         {
             Batter = batter ?? throw new ArgumentNullException(nameof(batter));
             Pitcher = pitcher ?? throw new ArgumentNullException(nameof(pitcher));
@@ -61,6 +64,7 @@ namespace Baseball.Simulation.PlateAppearance
             BatterContactAdjustment = batterContactAdjustment;
             HardHitAdjustment = hardHitAdjustment;
             PitchingApproach = pitchingApproach;
+            Inning = Math.Max(1, inning);
         }
 
         public Player Batter { get; }
@@ -75,5 +79,6 @@ namespace Baseball.Simulation.PlateAppearance
         public double BatterContactAdjustment { get; }
         public double HardHitAdjustment { get; }
         public PitchingApproach PitchingApproach { get; }
+        public int Inning { get; }
     }
 }

@@ -56,6 +56,53 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void PitchTrajectory_Evaluate경계는릴리스와실제PlatePoint에정확히도착한다()
+        {
+            var pitch = new PitchFlightDescriptor(
+                PitchType.Slider,
+                new PlatePoint(0.42d, 1.22d),
+                new PlatePoint(0.72d, -0.64d),
+                new PlatePoint(0.51d, -0.48d),
+                83d,
+                -0.31d,
+                -0.15d,
+                0.60d,
+                497d,
+                64d,
+                false);
+
+            PitchTrajectoryPoint release = pitch.Evaluate(0d);
+            PitchTrajectoryPoint arrival = pitch.Evaluate(1d);
+
+            Assert.That(release.X, Is.EqualTo(pitch.ReleasePoint.X));
+            Assert.That(release.Y, Is.EqualTo(pitch.ReleasePoint.Y));
+            Assert.That(release.Depth01, Is.Zero);
+            Assert.That(arrival.X, Is.EqualTo(pitch.PlatePoint.X).Within(0.0000000001d));
+            Assert.That(arrival.Y, Is.EqualTo(pitch.PlatePoint.Y).Within(0.0000000001d));
+            Assert.That(arrival.Depth01, Is.EqualTo(1d));
+        }
+
+        [TestCase(PitchType.FourSeamFastball, 1, 1)]
+        [TestCase(PitchType.TwoSeamFastball, 1, -1)]
+        [TestCase(PitchType.Cutter, -1, 1)]
+        [TestCase(PitchType.Slider, -1, -1)]
+        [TestCase(PitchType.Curveball, -1, -1)]
+        [TestCase(PitchType.Changeup, 1, -1)]
+        [TestCase(PitchType.Splitter, 1, -1)]
+        [TestCase(PitchType.Sinker, 1, -1)]
+        public void PitchTypeProfileCatalog_지원구종의대표변화방향을보존한다(
+            PitchType pitchType,
+            int expectedHorizontalSign,
+            int expectedVerticalSign)
+        {
+            PitchTypeProfile profile = PitchTypeProfileCatalog.Get(pitchType);
+
+            Assert.That(System.Math.Sign(profile.HorizontalBreak), Is.EqualTo(expectedHorizontalSign));
+            Assert.That(System.Math.Sign(profile.VerticalBreak), Is.EqualTo(expectedVerticalSign));
+            Assert.That(profile.BreakStartTime01, Is.InRange(0d, 1d));
+        }
+
+        [Test]
         public void SwingContact_정확한위치와시점은안타가아닌인플레이프로필을만든다()
         {
             BalanceTable balance = BalanceTable.CreateDefault();

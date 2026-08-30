@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using Baseball.Simulation.Match;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -10,23 +11,46 @@ namespace Baseball.Presentation.Career
 {
     public sealed partial class UI_Scene_CareerMatch
     {
-        private const float MiniGamePlateScaleX = 130f;
-        private const float MiniGamePlateScaleY = 120f;
         private const float MiniGameAimSpeed = 1.75f;
+        private const float BattingZoneScaleX = 112f;
+        private const float BattingZoneScaleY = 88f;
+        private const float BattingZoneCenterY = -36f;
+        private const int PitchTrailCount = 5;
+
+        [SerializeField, Min(0.2f)] private float battingPitcherWindupSeconds = 0.72f;
+        [SerializeField, Min(0.4f)] private float beginnerBattingPitchFlightSeconds = 1.28f;
+        [SerializeField, Min(0.4f)] private float standardBattingPitchFlightSeconds = 1.02f;
+        [SerializeField, Min(0.4f)] private float professionalBattingPitchFlightSeconds = 0.84f;
 
         private int _miniGameStateKey = int.MinValue;
-        private float _miniGamePitchStartedAt;
+        private float _miniGamePitchElapsedSeconds;
+        private BattingMiniGamePhase _battingMiniGamePhase;
+        private bool _miniGameIsTakingPitch;
         private PlatePoint _miniGameBatPoint;
-        private PlatePoint _miniGamePitchTarget;
-        private PitchType _miniGameSelectedPitch;
         private RectTransform _miniGamePlateRect;
         private RectTransform _miniGameBall;
         private RectTransform _miniGameBatCursor;
+        private RectTransform _miniGameBatTimingRing;
+        private RectTransform _miniGameTrajectoryTunnel;
+        private RectTransform _miniGamePitcherBody;
+        private RectTransform _miniGamePitcherThrowingArm;
+        private RectTransform _miniGamePitcherLeadLeg;
+        private RectTransform _miniGameTimingMarker;
+        private readonly RectTransform[] _miniGamePitchTrail = new RectTransform[PitchTrailCount];
         private RectTransform _miniGameArrivalGuide;
-        private RectTransform _miniGamePitchAim;
-        private RectTransform _miniGameCommandEllipse;
         private Text _miniGameProgressText;
-        private Text _miniGameTargetText;
+        private Text _miniGamePitchReadText;
+        private Text _miniGameTrackingStatusText;
+
+        private static Sprite _miniGameSolidCircleSprite;
+        private static Sprite _miniGameRingSprite;
+
+        private enum BattingMiniGamePhase
+        {
+            AwaitingReady,
+            Windup,
+            Tracking
+        }
 
         private bool IsMiniGameInputReady(CareerMatchSession session)
         {
@@ -38,6 +62,11 @@ namespace Baseball.Presentation.Career
                    !_playback.HasPendingEvents(session.Events);
         }
 
+        private bool IsMiniGameStageVisible(CareerMatchSession session)
+        {
+            return IsMiniGameInputReady(session) || IsPitchMiniGameStageVisible(session);
+        }
+
         private bool UpdateMiniGameInput(CareerMatchSession session, Keyboard keyboard)
         {
             if (!IsMiniGameInputReady(session))
@@ -46,33 +75,47 @@ namespace Baseball.Presentation.Career
             EnsureMiniGameState(session);
             if (session.PendingPitchSelection.HasValue)
             {
-                UpdatePitchAimInput(keyboard);
+                return UpdatePitchMiniGameInput(session, keyboard);
+            }
+
+            BatterMiniGameRequest request = session.PendingSwingExecution.Value;
+            if (_battingMiniGamePhase == BattingMiniGamePhase.AwaitingReady)
+            {
+                UpdateBattingMiniGameVisuals(request, 0f, 0f);
                 if (keyboard != null)
                 {
-                    if (keyboard.digit1Key.wasPressedThisFrame) SelectMiniGamePitchByIndex(0);
-                    else if (keyboard.digit2Key.wasPressedThisFrame) SelectMiniGamePitchByIndex(1);
-                    else if (keyboard.digit3Key.wasPressedThisFrame) SelectMiniGamePitchByIndex(2);
-                    else if (keyboard.digit4Key.wasPressedThisFrame) SelectMiniGamePitchByIndex(3);
-                    else if (keyboard.digit5Key.wasPressedThisFrame) SelectMiniGamePitchByIndex(4);
-                    else if (keyboard.spaceKey.wasPressedThisFrame) SubmitMiniGamePitch();
-                    else if (keyboard.aKey.wasPressedThisFrame) AutoCompleteMiniGamePlateAppearance();
+                    if (keyboard.digit1Key.wasPressedThisFrame) SelectMiniGameSwingIntent(BattingApproach.Contact);
+                    else if (keyboard.digit2Key.wasPressedThisFrame) SelectMiniGameSwingIntent(BattingApproach.Balanced);
+                    else if (keyboard.digit3Key.wasPressedThisFrame) SelectMiniGameSwingIntent(BattingApproach.Power);
+                    else if (keyboard.digit4Key.wasPressedThisFrame) SelectMiniGameSwingIntent(BattingApproach.Patient);
+                    else if (keyboard.digit5Key.wasPressedThisFrame) SelectMiniGameSwingIntent(BattingApproach.Bunt);
+                    else if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame)
+                        BeginMiniGamePitchTracking();
+                    else if (keyboard.aKey.wasPressedThisFrame)
+                        AutoCompleteMiniGamePlateAppearance();
                 }
                 return true;
             }
 
             UpdateBattingCursorInput(keyboard);
-            BatterMiniGameRequest request = session.PendingSwingExecution.Value;
-            float flightSeconds = Mathf.Max(0.18f, (float)request.Pitch.PlateArrivalMilliseconds / 1000f);
-            float progress = Mathf.Clamp01((Time.unscaledTime - _miniGamePitchStartedAt) / flightSeconds);
-            UpdateBattingMiniGameVisuals(request, progress);
-            Mouse mouse = Mouse.current;
-            bool swung = keyboard != null && keyboard.spaceKey.wasPressedThisFrame ||
-                         mouse != null && mouse.leftButton.wasPressedThisFrame;
+            _miniGamePitchElapsedSeconds += Time.unscaledDeltaTime;
+            float elapsed = _miniGamePitchElapsedSeconds;
+            float windupProgress = Mathf.Clamp01(elapsed / Mathf.Max(0.2f, battingPitcherWindupSeconds));
+            float flightProgress = Mathf.Clamp01(
+                (elapsed - battingPitcherWindupSeconds) / GetBattingPitchFlightSeconds());
+            if (_battingMiniGamePhase == BattingMiniGamePhase.Windup && windupProgress >= 1f)
+                _battingMiniGamePhase = BattingMiniGamePhase.Tracking;
+
+            UpdateBattingMiniGameVisuals(request, flightProgress, windupProgress);
+            bool canSwing = _battingMiniGamePhase == BattingMiniGamePhase.Tracking;
+            bool swung = canSwing && !_miniGameIsTakingPitch &&
+                         (keyboard != null && keyboard.spaceKey.wasPressedThisFrame ||
+                          WasBattingPlaneClicked());
             if (swung)
-                SubmitMiniGameSwing(progress);
+                SubmitMiniGameSwing(flightProgress);
             else if (keyboard != null && keyboard.aKey.wasPressedThisFrame)
                 AutoCompleteMiniGamePlateAppearance();
-            else if (progress >= 1f)
+            else if (canSwing && flightProgress >= 1f)
                 SubmitMiniGameTake();
             return true;
         }
@@ -91,14 +134,15 @@ namespace Baseball.Presentation.Career
             if (session.PendingPitchSelection.HasValue)
             {
                 PitchSelectionRequest request = session.PendingPitchSelection.Value;
-                _miniGameSelectedPitch = request.SuggestedPitch.PitchType;
-                _miniGamePitchTarget = request.SuggestedPitch.TargetPoint;
+                EnsurePitchMiniGameRequest(request);
             }
             else
             {
                 BatterMiniGameRequest request = session.PendingSwingExecution.Value;
                 _miniGameBatPoint = new PlatePoint(0d, 0d);
-                _miniGamePitchStartedAt = Time.unscaledTime;
+                _miniGamePitchElapsedSeconds = 0f;
+                _battingMiniGamePhase = BattingMiniGamePhase.AwaitingReady;
+                _miniGameIsTakingPitch = false;
                 if (_manager.CurrentCareer.GameSettings.MiniGameDifficulty == MiniGameDifficulty.Beginner)
                 {
                     _miniGameBatPoint = new PlatePoint(
@@ -110,11 +154,17 @@ namespace Baseball.Presentation.Career
 
         private void RenderMiniGameStage(RectTransform panel, CareerMatchSession session)
         {
-            EnsureMiniGameState(session);
-            if (session.PendingPitchSelection.HasValue)
-                RenderPitchingMiniGameStage(panel, session.PendingPitchSelection.Value);
+            if (IsPitchMiniGameStageVisible(session))
+            {
+                if (session.PendingPitchSelection.HasValue)
+                    EnsurePitchMiniGameRequest(session.PendingPitchSelection.Value);
+                RenderPitchMiniGameStage(panel);
+            }
             else
+            {
+                EnsureMiniGameState(session);
                 RenderBattingMiniGameStage(panel, session.PendingSwingExecution.Value);
+            }
         }
 
         private void RenderBattingMiniGameStage(
@@ -122,151 +172,216 @@ namespace Baseball.Presentation.Career
             BatterMiniGameRequest request)
         {
             CreateText("MiniGameTitle", panel, "직접 타격", 25, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(360f, 38f), new Vector2(0f, 248f), RoleColor);
-            CreateText("MiniGameSituation", panel,
-                $"{request.Inning}회{GetHalfLabel(request.Half)} · {request.Outs}사 · " +
-                $"볼 {request.Balls} · 스트라이크 {request.Strikes} · {GetPitchTypeLabel(request.Pitch.PitchType)}",
-                15, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(820f, 28f), new Vector2(0f, 216f), SecondaryTextColor);
-
-            _miniGamePlateRect = CreateImage(
-                "BattingPlane", panel, new Color(0.015f, 0.045f, 0.07f, 1f),
-                new Vector2(430f, 350f), new Vector2(0f, 2f));
-            RectTransform strikeZone = CreateImage(
-                "StrikeZone", _miniGamePlateRect, new Color(0.10f, 0.27f, 0.38f, 0.24f),
-                new Vector2(MiniGamePlateScaleX * 2f, MiniGamePlateScaleY * 2f), Vector2.zero);
-            Image strikeImage = strikeZone.GetComponent<Image>();
-            strikeImage.raycastTarget = false;
-            CreateZoneGrid(strikeZone);
-
-            _miniGameArrivalGuide = CreateImage(
-                "ArrivalGuide", _miniGamePlateRect, new Color(0.20f, 0.76f, 1f, 0.25f),
-                new Vector2(38f, 38f), ToPlatePosition(request.Pitch.PlatePoint));
-            _miniGameArrivalGuide.gameObject.SetActive(false);
-            _miniGameBall = CreateImage(
-                "Ball", _miniGamePlateRect, new Color(0.98f, 0.98f, 0.92f, 1f),
-                new Vector2(22f, 22f), new Vector2(0f, 145f));
-            _miniGameBatCursor = CreateImage(
-                "BatCursor", _miniGamePlateRect, new Color(0.98f, 0.68f, 0.18f, 0.72f),
-                new Vector2(86f, 36f), ToPlatePosition(_miniGameBatPoint));
-            _miniGameProgressText = CreateText(
-                "FlightGuide", panel, "공의 궤적을 읽고 SPACE 또는 클릭으로 스윙",
-                14, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(760f, 26f), new Vector2(0f, -205f), SecondaryTextColor);
-            CreateText("PitchMetrics", panel,
-                $"{request.Pitch.VelocityMph:0.0} mph · 변화량 " +
-                $"{Math.Abs(request.Pitch.HorizontalBreak) + Math.Abs(request.Pitch.VerticalBreak):0.00}",
-                13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(480f, 24f), new Vector2(0f, -234f), MutedTextColor);
-            UpdateBattingMiniGameVisuals(request, 0f);
-        }
-
-        private void RenderPitchingMiniGameStage(
-            RectTransform panel,
-            PitchSelectionRequest request)
-        {
-            CreateText("MiniGameTitle", panel, "직접 투구", 25, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(360f, 38f), new Vector2(0f, 248f), RoleColor);
+                TextAnchor.MiddleCenter, new Vector2(360f, 36f), new Vector2(0f, 294f), PrimaryTextColor);
+            RenderBattingProgressSteps(panel);
             CreateText("MiniGameSituation", panel,
                 $"{request.Inning}회{GetHalfLabel(request.Half)} · {request.Outs}사 · " +
                 $"볼 {request.Balls} · 스트라이크 {request.Strikes}",
                 15, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(820f, 28f), new Vector2(0f, 216f), SecondaryTextColor);
+                new Vector2(820f, 26f), new Vector2(0f, 220f), SecondaryTextColor);
 
             _miniGamePlateRect = CreateImage(
-                "PitchTargetPlane", panel, new Color(0.015f, 0.045f, 0.07f, 1f),
-                new Vector2(430f, 350f), new Vector2(0f, 2f));
-            Image targetImage = _miniGamePlateRect.GetComponent<Image>();
-            targetImage.raycastTarget = true;
-            Button targetButton = _miniGamePlateRect.gameObject.AddComponent<Button>();
-            targetButton.transition = Selectable.Transition.None;
-            targetButton.onClick.AddListener(UpdatePitchTargetFromPointer);
+                "BattingPlane", panel, new Color(0.008f, 0.027f, 0.045f, 1f),
+                new Vector2(900f, 370f), new Vector2(0f, -2f));
+            _miniGamePlateRect.gameObject.AddComponent<RectMask2D>();
+            RenderBattingField(_miniGamePlateRect);
 
             RectTransform strikeZone = CreateImage(
-                "StrikeZone", _miniGamePlateRect, new Color(0.10f, 0.27f, 0.38f, 0.28f),
-                new Vector2(MiniGamePlateScaleX * 2f, MiniGamePlateScaleY * 2f), Vector2.zero);
+                "StrikeZone", _miniGamePlateRect, new Color(0.07f, 0.34f, 0.45f, 0.10f),
+                new Vector2(BattingZoneScaleX * 2f, BattingZoneScaleY * 2f),
+                new Vector2(0f, BattingZoneCenterY));
+            Image strikeImage = strikeZone.GetComponent<Image>();
+            strikeImage.raycastTarget = false;
+            Outline strikeOutline = strikeZone.gameObject.AddComponent<Outline>();
+            strikeOutline.effectColor = new Color(0.26f, 0.72f, 0.82f, 0.52f);
+            strikeOutline.effectDistance = new Vector2(1f, -1f);
             CreateZoneGrid(strikeZone);
-            PitchOption option = FindSelectedPitchOption(request);
-            _miniGameCommandEllipse = CreateImage(
-                "CommandEllipse", _miniGamePlateRect, new Color(0.12f, 0.64f, 1f, 0.18f),
-                new Vector2(
-                    Mathf.Max(20f, (float)option.CommandEllipse.RadiusX * MiniGamePlateScaleX * 4f),
-                    Mathf.Max(20f, (float)option.CommandEllipse.RadiusY * MiniGamePlateScaleY * 4f)),
-                ToPlatePosition(_miniGamePitchTarget));
-            _miniGameCommandEllipse.localRotation = Quaternion.Euler(
-                0f, 0f, (float)option.CommandEllipse.RotationDegrees);
-            _miniGamePitchAim = CreateImage(
-                "PitchAim", _miniGamePlateRect, new Color(0.98f, 0.70f, 0.18f, 0.92f),
-                new Vector2(18f, 18f), ToPlatePosition(_miniGamePitchTarget));
-            _miniGameTargetText = CreateText(
-                "TargetGuide", panel,
-                $"목표 X {_miniGamePitchTarget.X:+0.00;-0.00;0.00} · Y {_miniGamePitchTarget.Y:+0.00;-0.00;0.00}",
-                14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(620f, 26f), new Vector2(0f, -205f), GoldColor);
-            CreateText("CommandGuide", panel,
-                "타원은 현재 피로·Control·구종 숙련도를 반영한 예상 제구 범위입니다.",
-                13, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(760f, 24f), new Vector2(0f, -235f), SecondaryTextColor);
+
+            _miniGameTrajectoryTunnel = CreateMiniGameSpriteImage(
+                "TrajectoryTunnel", _miniGamePlateRect, GetMiniGameSolidCircleSprite(),
+                new Color(0.12f, 0.78f, 0.78f, 0.12f),
+                new Vector2(128f, 58f), new Vector2(0f, 104f));
+            _miniGameArrivalGuide = CreateMiniGameSpriteImage(
+                "ArrivalGuide", _miniGamePlateRect, GetMiniGameRingSprite(),
+                new Color(0.20f, 0.76f, 1f, 0.25f), new Vector2(42f, 42f),
+                ToBattingScenePosition(request.Pitch.PlatePoint));
+            _miniGameArrivalGuide.gameObject.SetActive(false);
+
+            for (int index = PitchTrailCount - 1; index >= 0; index--)
+            {
+                float alpha = Mathf.Lerp(0.06f, 0.26f, 1f - index / (float)PitchTrailCount);
+                _miniGamePitchTrail[index] = CreateMiniGameSpriteImage(
+                    "PitchTrail_" + index, _miniGamePlateRect, GetMiniGameSolidCircleSprite(),
+                    new Color(0.86f, 0.95f, 1f, alpha), new Vector2(16f, 16f),
+                    new Vector2(0f, 112f));
+                _miniGamePitchTrail[index].gameObject.SetActive(false);
+            }
+
+            _miniGameBall = CreateMiniGameSpriteImage(
+                "Ball", _miniGamePlateRect, GetMiniGameSolidCircleSprite(),
+                new Color(0.98f, 0.98f, 0.92f, 1f),
+                new Vector2(23f, 23f), new Vector2(0f, 112f));
+            CreateImage("StitchLeft", _miniGameBall, new Color(0.72f, 0.18f, 0.16f, 0.9f),
+                new Vector2(2f, 10f), new Vector2(-4f, 0f)).localRotation = Quaternion.Euler(0f, 0f, -18f);
+            CreateImage("StitchRight", _miniGameBall, new Color(0.72f, 0.18f, 0.16f, 0.9f),
+                new Vector2(2f, 10f), new Vector2(4f, 0f)).localRotation = Quaternion.Euler(0f, 0f, 18f);
+            RenderBattingCursor(_miniGamePlateRect);
+
+            _miniGameProgressText = CreateText(
+                "FlightGuide", panel, "타격 의도를 고른 뒤 준비하세요",
+                14, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(760f, 24f), new Vector2(0f, -205f), SecondaryTextColor);
+            _miniGamePitchReadText = CreateText(
+                "PitchRead", panel, "준비 전에는 투구가 시작되지 않습니다",
+                12, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(620f, 22f), new Vector2(0f, -226f), MutedTextColor);
+            RenderSwingTimingGauge(panel);
+            UpdateBattingMiniGameVisuals(request, 0f, 0f);
+        }
+
+        private void RenderBattingProgressSteps(RectTransform panel)
+        {
+            bool isReady = _battingMiniGamePhase == BattingMiniGamePhase.AwaitingReady;
+            Color readyColor = isReady ? GoldColor : RoleColor;
+            Color trackingColor = isReady ? MutedTextColor : RoleColor;
+            string readyLabel = isReady ? "1  타격 준비" : "✓  타격 준비";
+            CreateText("ReadyStep", panel, readyLabel, 15, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(190f, 28f), new Vector2(-245f, 255f), readyColor);
+            CreateText("ReadyArrow", panel, "→", 18, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(38f, 28f), new Vector2(-108f, 255f), MutedTextColor);
+            CreateText("TrackingStep", panel, "2  투구 추적", 15, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(190f, 28f), new Vector2(0f, 255f), trackingColor);
+            CreateText("SwingArrow", panel, "→", 18, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(38f, 28f), new Vector2(108f, 255f), MutedTextColor);
+            CreateText("SwingStep", panel, "3  스윙", 15, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(190f, 28f), new Vector2(245f, 255f), MutedTextColor);
+        }
+
+        private void RenderBattingField(RectTransform field)
+        {
+            CreateImage("NightSky", field, new Color(0.015f, 0.055f, 0.085f, 1f),
+                new Vector2(900f, 190f), new Vector2(0f, 90f));
+            CreateImage("Outfield", field, new Color(0.025f, 0.16f, 0.12f, 1f),
+                new Vector2(900f, 118f), new Vector2(0f, -48f));
+            CreateImage("InfieldDirt", field, new Color(0.17f, 0.12f, 0.08f, 1f),
+                new Vector2(900f, 80f), new Vector2(0f, -144f));
+            CreateImage("Mound", field, new Color(0.35f, 0.25f, 0.15f, 0.95f),
+                new Vector2(116f, 9f), new Vector2(0f, 70f));
+
+            RectTransform leftFoulLine = CreateImage(
+                "LeftFoulLine", field, new Color(0.75f, 0.78f, 0.72f, 0.35f),
+                new Vector2(330f, 2f), new Vector2(-154f, -104f));
+            leftFoulLine.localRotation = Quaternion.Euler(0f, 0f, 18f);
+            RectTransform rightFoulLine = CreateImage(
+                "RightFoulLine", field, new Color(0.75f, 0.78f, 0.72f, 0.35f),
+                new Vector2(330f, 2f), new Vector2(154f, -104f));
+            rightFoulLine.localRotation = Quaternion.Euler(0f, 0f, -18f);
+
+            for (int side = -1; side <= 1; side += 2)
+            {
+                float x = side * 365f;
+                CreateImage("LightPole_" + side, field, new Color(0.18f, 0.24f, 0.28f, 0.65f),
+                    new Vector2(5f, 88f), new Vector2(x, 100f));
+                for (int index = 0; index < 4; index++)
+                {
+                    CreateMiniGameSpriteImage(
+                        $"StadiumLight_{side}_{index}", field, GetMiniGameSolidCircleSprite(),
+                        new Color(0.87f, 0.94f, 1f, 0.58f), new Vector2(11f, 11f),
+                        new Vector2(x + (index - 1.5f) * 14f, 146f));
+                }
+            }
+
+            RectTransform pitcherRoot = CreateRect(
+                "Pitcher", field, new Vector2(82f, 112f), new Vector2(0f, 112f));
+            _miniGamePitcherBody = CreateImage(
+                "Body", pitcherRoot, new Color(0.13f, 0.17f, 0.19f, 1f),
+                new Vector2(19f, 48f), new Vector2(0f, 4f));
+            CreateMiniGameSpriteImage(
+                "Head", pitcherRoot, GetMiniGameSolidCircleSprite(),
+                new Color(0.16f, 0.20f, 0.22f, 1f), new Vector2(22f, 22f), new Vector2(0f, 37f));
+            _miniGamePitcherThrowingArm = CreateImage(
+                "ThrowingArm", pitcherRoot, new Color(0.14f, 0.18f, 0.20f, 1f),
+                new Vector2(45f, 8f), new Vector2(20f, 14f));
+            CreateImage("GloveArm", pitcherRoot, new Color(0.11f, 0.14f, 0.16f, 1f),
+                new Vector2(37f, 9f), new Vector2(-20f, 9f)).localRotation = Quaternion.Euler(0f, 0f, -26f);
+            CreateImage("BackLeg", pitcherRoot, new Color(0.10f, 0.14f, 0.16f, 1f),
+                new Vector2(9f, 44f), new Vector2(-8f, -35f)).localRotation = Quaternion.Euler(0f, 0f, -8f);
+            _miniGamePitcherLeadLeg = CreateImage(
+                "LeadLeg", pitcherRoot, new Color(0.10f, 0.14f, 0.16f, 1f),
+                new Vector2(10f, 47f), new Vector2(11f, -33f));
+            CreateImage("HomePlate", field, new Color(0.90f, 0.90f, 0.82f, 0.9f),
+                new Vector2(58f, 10f), new Vector2(0f, -174f));
+        }
+
+        private void RenderBattingCursor(RectTransform field)
+        {
+            Vector2 contactSize = GetBattingCursorSize(_selectedApproach);
+            _miniGameBatCursor = CreateRect(
+                "BatCursor", field, new Vector2(140f, 100f), ToBattingScenePosition(_miniGameBatPoint));
+            _miniGameBatTimingRing = CreateMiniGameSpriteImage(
+                "TimingRing", _miniGameBatCursor, GetMiniGameRingSprite(),
+                new Color(0.96f, 0.70f, 0.22f, 0.72f), contactSize + new Vector2(36f, 38f), Vector2.zero);
+            CreateMiniGameSpriteImage(
+                "ContactArea", _miniGameBatCursor, GetMiniGameRingSprite(),
+                new Color(0.16f, 0.88f, 0.84f, 0.86f), contactSize, Vector2.zero);
+            CreateMiniGameSpriteImage(
+                "SweetSpot", _miniGameBatCursor, GetMiniGameSolidCircleSprite(),
+                new Color(1f, 0.78f, 0.24f, 1f), new Vector2(12f, 12f), Vector2.zero);
+            CreateImage("CrossHorizontal", _miniGameBatCursor, new Color(0.9f, 0.98f, 1f, 0.82f),
+                new Vector2(28f, 2f), Vector2.zero);
+            CreateImage("CrossVertical", _miniGameBatCursor, new Color(0.9f, 0.98f, 1f, 0.82f),
+                new Vector2(2f, 28f), Vector2.zero);
+        }
+
+        private void RenderSwingTimingGauge(RectTransform panel)
+        {
+            const float trackWidth = 700f;
+            CreateText("TimingVeryEarly", panel, "너무 빠름", 12, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(130f, 20f), new Vector2(-280f, -248f), MutedTextColor);
+            CreateText("TimingEarly", panel, "빠름", 12, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(120f, 20f), new Vector2(-140f, -248f), SecondaryTextColor);
+            CreateText("TimingPerfect", panel, "정타", 13, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(100f, 20f), new Vector2(0f, -248f), GoldColor);
+            CreateText("TimingLate", panel, "늦음", 12, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(120f, 20f), new Vector2(140f, -248f), SecondaryTextColor);
+            CreateText("TimingVeryLate", panel, "너무 늦음", 12, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(130f, 20f), new Vector2(280f, -248f), MutedTextColor);
+
+            RectTransform track = CreateImage(
+                "TimingTrack", panel, new Color(0.06f, 0.18f, 0.22f, 1f),
+                new Vector2(trackWidth, 14f), new Vector2(0f, -270f));
+            CreateImage("TimingEarlyZone", track, new Color(0.10f, 0.48f, 0.48f, 0.65f),
+                new Vector2(210f, 14f), new Vector2(-140f, 0f));
+            CreateImage("TimingPerfectZone", track, GoldColor,
+                new Vector2(52f, 14f), Vector2.zero);
+            CreateImage("TimingLateZone", track, new Color(0.10f, 0.48f, 0.48f, 0.65f),
+                new Vector2(210f, 14f), new Vector2(140f, 0f));
+            _miniGameTimingMarker = CreateImage(
+                "TimingMarker", track, PrimaryTextColor, new Vector2(4f, 28f), new Vector2(-350f, 0f));
+            CreateText("BatPositionInput", panel, "마우스 또는 방향키 · 배트 위치", 12,
+                FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(330f, 22f), new Vector2(-205f, -300f), SecondaryTextColor);
+            CreateText("SwingInput", panel, "SPACE 또는 클릭 · 스윙", 12,
+                FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(300f, 22f), new Vector2(220f, -300f), PrimaryTextColor);
         }
 
         private void RenderMiniGameControlPanel(RectTransform panel, CareerMatchSession session)
         {
-            if (session.PendingPitchSelection.HasValue)
-                RenderPitchSelectionControls(panel, session.PendingPitchSelection.Value);
+            if (IsPitchMiniGameStageVisible(session))
+                RenderPitchMiniGameControlPanel(panel);
             else
                 RenderSwingControls(panel, session.PendingSwingExecution.Value);
         }
 
-        private void RenderPitchSelectionControls(RectTransform panel, PitchSelectionRequest request)
-        {
-            CreateStatusPill(panel, "구종 + 목표 위치", new Vector2(450f, 50f), new Vector2(0f, 396f));
-            CreateText("PitchTitle", panel, "보유 구종", 24, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(420f, 36f), new Vector2(0f, 340f), PrimaryTextColor);
-            int count = Mathf.Min(5, request.AvailablePitches.Count);
-            for (int index = 0; index < count; index++)
-            {
-                PitchOption option = request.AvailablePitches[index];
-                bool selected = option.PitchType == _miniGameSelectedPitch;
-                Button button = CreateButton(
-                    "PitchType_" + option.PitchType,
-                    panel,
-                    $"{index + 1}  {GetPitchTypeLabel(option.PitchType)}   " +
-                    $"{option.MinimumVelocityMph:0}-{option.MaximumVelocityMph:0} mph",
-                    new Vector2(420f, 54f),
-                    new Vector2(0f, 278f - index * 61f),
-                    selected ? new Color(0.025f, 0.32f, 0.52f, 1f) : PanelDarkColor,
-                    selected ? PrimaryTextColor : SecondaryTextColor);
-                PitchType selectedType = option.PitchType;
-                button.onClick.AddListener(() => SelectMiniGamePitch(selectedType));
-            }
-
-            Button throwPitch = CreateButton(
-                "ThrowPitch", panel, "이 위치로 투구   SPACE",
-                new Vector2(430f, 64f), new Vector2(0f, -92f),
-                new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
-            throwPitch.onClick.AddListener(SubmitMiniGamePitch);
-            Button autoBatter = CreateButton(
-                "AutoBatter", panel, "이번 타자 자동   A",
-                new Vector2(205f, 48f), new Vector2(-110f, -160f),
-                PanelDarkColor, SecondaryTextColor);
-            autoBatter.onClick.AddListener(AutoCompleteMiniGamePlateAppearance);
-            Button autoInning = CreateButton(
-                "AutoInning", panel, "이번 이닝 자동",
-                new Vector2(205f, 48f), new Vector2(110f, -160f),
-                PanelDarkColor, SecondaryTextColor);
-            autoInning.onClick.AddListener(() =>
-                _manager.AutoCompleteCurrentPitchingInning(_selectedPitchingApproach));
-            CreateText("Pattern", panel, BuildPitchPatternGuide(request),
-                14, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(430f, 72f), new Vector2(0f, -240f), SecondaryTextColor);
-            RenderLatestMiniGameFeedback(panel, new Vector2(0f, -338f));
-        }
-
         private void RenderSwingControls(RectTransform panel, BatterMiniGameRequest request)
         {
+            bool isAwaitingReady = _battingMiniGamePhase == BattingMiniGamePhase.AwaitingReady;
             CreateStatusPill(panel, "위치 + 타이밍", new Vector2(450f, 50f), new Vector2(0f, 396f));
-            CreateText("SwingTitle", panel, "타격 의도", 24, FontStyle.Bold, TextAnchor.MiddleCenter,
+            CreateText("SwingTitle", panel, "타격 조작", 24, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(420f, 36f), new Vector2(0f, 340f), PrimaryTextColor);
+            CreateText("SwingIntentLabel", panel, "타격 의도", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(410f, 24f), new Vector2(-145f, 306f), MutedTextColor);
             BattingApproach[] approaches =
             {
                 BattingApproach.Contact,
@@ -285,33 +400,60 @@ namespace Baseball.Presentation.Career
                     panel,
                     $"{index + 1}  {GetMiniGameSwingIntentLabel(approach)}",
                     new Vector2(410f, 52f),
-                    new Vector2(0f, 278f - index * 59f),
+                    new Vector2(0f, 260f - index * 57f),
                     selected ? new Color(0.025f, 0.32f, 0.52f, 1f) : PanelDarkColor,
                     selected ? PrimaryTextColor : SecondaryTextColor);
+                button.interactable = isAwaitingReady;
                 button.onClick.AddListener(() => SelectMiniGameSwingIntent(approach));
             }
 
             CreateText("SwingGuide", panel,
-                "커서를 공의 도착 위치에 맞추고 임팩트 직전에 스윙하세요.\n스윙하지 않으면 실제 위치로 볼·스트라이크가 판정됩니다.",
-                14, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(430f, 62f), new Vector2(0f, -70f), SecondaryTextColor);
+                isAwaitingReady
+                    ? "의도를 선택한 뒤 준비하면 투수가 와인드업을 시작합니다."
+                    : "공의 움직임을 읽고 배트 위치와 스윙 시점을 맞추세요.",
+                13, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(430f, 44f), new Vector2(0f, -48f), SecondaryTextColor);
+
+            Button primaryAction = CreateButton(
+                isAwaitingReady ? "BattingReady" : "PitchTrackingState",
+                panel,
+                isAwaitingReady ? "타격 준비   SPACE / ENTER" : "투구 추적 중",
+                new Vector2(430f, 64f), new Vector2(0f, -104f),
+                isAwaitingReady
+                    ? new Color(0.02f, 0.38f, 0.7f, 1f)
+                    : new Color(0.08f, 0.16f, 0.20f, 1f),
+                isAwaitingReady ? PrimaryTextColor : MutedTextColor);
+            if (isAwaitingReady)
+                primaryAction.onClick.AddListener(BeginMiniGamePitchTracking);
+            else
+                primaryAction.interactable = false;
+            _miniGameTrackingStatusText = primaryAction.transform.Find("Label")?.GetComponent<Text>();
+
             Button take = CreateButton(
-                "TakePitch", panel, "이번 공 지켜보기",
-                new Vector2(205f, 48f), new Vector2(-110f, -145f),
+                "TakePitch", panel, _miniGameIsTakingPitch ? "지켜보는 중" : "이번 공 지켜보기",
+                new Vector2(205f, 48f), new Vector2(-110f, -178f),
                 PanelDarkColor, SecondaryTextColor);
-            take.onClick.AddListener(SubmitMiniGameTake);
+            take.interactable = !_miniGameIsTakingPitch;
+            take.onClick.AddListener(WatchMiniGamePitch);
             Button auto = CreateButton(
                 "AutoPlateAppearance", panel, "이번 타석 자동   A",
-                new Vector2(205f, 48f), new Vector2(110f, -145f),
+                new Vector2(205f, 48f), new Vector2(110f, -178f),
                 PanelDarkColor, SecondaryTextColor);
             auto.onClick.AddListener(AutoCompleteMiniGamePlateAppearance);
-            RenderLatestMiniGameFeedback(panel, new Vector2(0f, -260f));
+            CreateText("TakeGuide", panel,
+                "스윙하지 않으면 실제 공 위치로 볼·스트라이크가 판정됩니다.",
+                12, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(430f, 30f), new Vector2(0f, -224f), MutedTextColor);
+            RenderLatestMiniGameFeedback(panel, new Vector2(0f, -310f));
         }
 
         private void UpdateBattingCursorInput(Keyboard keyboard)
         {
             Mouse mouse = Mouse.current;
             if (mouse != null && _miniGamePlateRect != null &&
+                RectTransformUtility.RectangleContainsScreenPoint(
+                    _miniGamePlateRect,
+                    mouse.position.ReadValue()) &&
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     _miniGamePlateRect,
                     mouse.position.ReadValue(),
@@ -319,8 +461,8 @@ namespace Baseball.Presentation.Career
                     out Vector2 local))
             {
                 _miniGameBatPoint = ClampPlatePoint(new PlatePoint(
-                    local.x / MiniGamePlateScaleX,
-                    local.y / MiniGamePlateScaleY));
+                    local.x / BattingZoneScaleX,
+                    (local.y - BattingZoneCenterY) / BattingZoneScaleY));
             }
             else if (keyboard != null)
             {
@@ -338,85 +480,236 @@ namespace Baseball.Presentation.Career
             }
 
             if (_miniGameBatCursor != null)
-                _miniGameBatCursor.anchoredPosition = ToPlatePosition(_miniGameBatPoint);
+                _miniGameBatCursor.anchoredPosition = ToBattingScenePosition(_miniGameBatPoint);
         }
 
-        private void UpdatePitchAimInput(Keyboard keyboard)
+        private void UpdateBattingMiniGameVisuals(
+            BatterMiniGameRequest request,
+            float flightProgress,
+            float windupProgress)
         {
-            if (keyboard != null)
-            {
-                double horizontal = (keyboard.rightArrowKey.isPressed ? 1d : 0d) -
-                                    (keyboard.leftArrowKey.isPressed ? 1d : 0d);
-                double vertical = (keyboard.upArrowKey.isPressed ? 1d : 0d) -
-                                  (keyboard.downArrowKey.isPressed ? 1d : 0d);
-                if (horizontal != 0d || vertical != 0d)
-                {
-                    double delta = MiniGameAimSpeed * Time.unscaledDeltaTime;
-                    _miniGamePitchTarget = ClampPlatePoint(new PlatePoint(
-                        _miniGamePitchTarget.X + horizontal * delta,
-                        _miniGamePitchTarget.Y + vertical * delta));
-                }
-            }
-            UpdatePitchAimVisuals();
-        }
+            UpdatePitcherPose(windupProgress, flightProgress);
 
-        private void UpdatePitchTargetFromPointer()
-        {
-            Mouse mouse = Mouse.current;
-            if (mouse == null || _miniGamePlateRect == null)
-                return;
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    _miniGamePlateRect,
-                    mouse.position.ReadValue(),
-                    null,
-                    out Vector2 local))
-                return;
-            _miniGamePitchTarget = ClampPlatePoint(new PlatePoint(
-                local.x / MiniGamePlateScaleX,
-                local.y / MiniGamePlateScaleY));
-            UpdatePitchAimVisuals();
-        }
-
-        private void UpdatePitchAimVisuals()
-        {
-            Vector2 position = ToPlatePosition(_miniGamePitchTarget);
-            if (_miniGamePitchAim != null) _miniGamePitchAim.anchoredPosition = position;
-            if (_miniGameCommandEllipse != null) _miniGameCommandEllipse.anchoredPosition = position;
-            if (_miniGameTargetText != null)
-            {
-                _miniGameTargetText.text =
-                    $"목표 X {_miniGamePitchTarget.X:+0.00;-0.00;0.00} · " +
-                    $"Y {_miniGamePitchTarget.Y:+0.00;-0.00;0.00}";
-            }
-        }
-
-        private void UpdateBattingMiniGameVisuals(BatterMiniGameRequest request, float progress)
-        {
+            bool isPitchInFlight = _battingMiniGamePhase == BattingMiniGamePhase.Tracking;
+            Vector2 ballPosition = CalculateBattingPitchPosition(request, flightProgress);
             if (_miniGameBall != null)
             {
-                float eased = progress * progress * (3f - 2f * progress);
-                float curve = Mathf.Sin(progress * Mathf.PI);
-                float x = Mathf.Lerp((float)request.Pitch.ReleasePoint.X * 70f,
-                              (float)request.Pitch.PlatePoint.X * MiniGamePlateScaleX,
-                              eased) +
-                          (float)request.Pitch.HorizontalBreak * curve * 55f;
-                float y = Mathf.Lerp(145f,
-                              (float)request.Pitch.PlatePoint.Y * MiniGamePlateScaleY,
-                              eased) +
-                          (float)request.Pitch.VerticalBreak * curve * 45f;
-                _miniGameBall.anchoredPosition = new Vector2(x, y);
-                float scale = Mathf.Lerp(0.52f, 1.2f, eased);
-                _miniGameBall.localScale = new Vector3(scale, scale, 1f);
+                _miniGameBall.gameObject.SetActive(isPitchInFlight);
+                _miniGameBall.anchoredPosition = ballPosition;
+                float ballScale = Mathf.Lerp(0.48f, 1.28f, flightProgress);
+                _miniGameBall.localScale = new Vector3(ballScale, ballScale, 1f);
+            }
+
+            if (_miniGameTrajectoryTunnel != null)
+            {
+                _miniGameTrajectoryTunnel.gameObject.SetActive(isPitchInFlight);
+                _miniGameTrajectoryTunnel.anchoredPosition = ballPosition;
+                _miniGameTrajectoryTunnel.sizeDelta = new Vector2(
+                    Mathf.Lerp(138f, 48f, flightProgress),
+                    Mathf.Lerp(62f, 28f, flightProgress));
+                _miniGameTrajectoryTunnel.localRotation = Quaternion.Euler(
+                    0f,
+                    0f,
+                    Mathf.Lerp(-10f, 8f, (float)request.Pitch.HorizontalBreak * 0.5f + 0.5f));
+            }
+
+            UpdatePitchTrail(request, flightProgress, isPitchInFlight);
+            UpdateSwingTimingMarker(request, flightProgress);
+
+            if (_miniGameBatTimingRing != null)
+            {
+                float pressureScale = isPitchInFlight
+                    ? Mathf.Lerp(1.16f, 0.82f, flightProgress)
+                    : 1.16f;
+                _miniGameBatTimingRing.localScale = new Vector3(pressureScale, pressureScale, 1f);
             }
 
             MiniGameDifficulty difficulty = _manager.CurrentCareer.GameSettings.MiniGameDifficulty;
             if (_miniGameArrivalGuide != null)
-                _miniGameArrivalGuide.gameObject.SetActive(
-                    difficulty == MiniGameDifficulty.Beginner && progress >= 0.68f);
-            if (_miniGameProgressText != null)
-                _miniGameProgressText.text = progress < 0.82f
-                    ? "공의 궤적을 읽으세요"
-                    : "지금!  SPACE 또는 클릭";
+            {
+                bool showArrivalAssist = difficulty == MiniGameDifficulty.Beginner &&
+                                         isPitchInFlight &&
+                                         flightProgress >= 0.72f;
+                _miniGameArrivalGuide.gameObject.SetActive(showArrivalAssist);
+            }
+
+            UpdateBattingInstructionText(request, flightProgress, windupProgress);
+        }
+
+        private void BeginMiniGamePitchTracking()
+        {
+            CareerMatchSession session = _manager?.ActiveMatch;
+            if (!IsMiniGameInputReady(session) ||
+                !session.PendingSwingExecution.HasValue ||
+                _battingMiniGamePhase != BattingMiniGamePhase.AwaitingReady)
+                return;
+
+            _battingMiniGamePhase = BattingMiniGamePhase.Windup;
+            _miniGamePitchElapsedSeconds = 0f;
+            Render();
+        }
+
+        private void WatchMiniGamePitch()
+        {
+            CareerMatchSession session = _manager?.ActiveMatch;
+            if (!IsMiniGameInputReady(session) || !session.PendingSwingExecution.HasValue)
+                return;
+
+            _miniGameIsTakingPitch = true;
+            if (_battingMiniGamePhase == BattingMiniGamePhase.AwaitingReady)
+            {
+                BeginMiniGamePitchTracking();
+                return;
+            }
+            Render();
+        }
+
+        private float GetBattingPitchFlightSeconds()
+        {
+            return _manager.CurrentCareer.GameSettings.MiniGameDifficulty switch
+            {
+                MiniGameDifficulty.Beginner => beginnerBattingPitchFlightSeconds,
+                MiniGameDifficulty.Professional => professionalBattingPitchFlightSeconds,
+                _ => standardBattingPitchFlightSeconds
+            };
+        }
+
+        private bool WasBattingPlaneClicked()
+        {
+            Mouse mouse = Mouse.current;
+            return mouse != null &&
+                   mouse.leftButton.wasPressedThisFrame &&
+                   _miniGamePlateRect != null &&
+                   RectTransformUtility.RectangleContainsScreenPoint(
+                       _miniGamePlateRect,
+                       mouse.position.ReadValue());
+        }
+
+        private void UpdatePitcherPose(float windupProgress, float flightProgress)
+        {
+            if (_miniGamePitcherBody == null)
+                return;
+
+            bool hasReleased = _battingMiniGamePhase == BattingMiniGamePhase.Tracking;
+            float legLift = hasReleased ? 0f : Mathf.Sin(windupProgress * Mathf.PI);
+            float followThrough = hasReleased ? Mathf.Clamp01(flightProgress * 3f) : 0f;
+            _miniGamePitcherBody.localRotation = Quaternion.Euler(
+                0f, 0f, Mathf.Lerp(0f, -16f, followThrough));
+            if (_miniGamePitcherThrowingArm != null)
+            {
+                float armAngle = hasReleased
+                    ? Mathf.Lerp(-32f, -8f, followThrough)
+                    : Mathf.Lerp(66f, -32f, windupProgress);
+                _miniGamePitcherThrowingArm.localRotation = Quaternion.Euler(0f, 0f, armAngle);
+            }
+            if (_miniGamePitcherLeadLeg != null)
+            {
+                _miniGamePitcherLeadLeg.anchoredPosition = new Vector2(
+                    Mathf.Lerp(11f, 28f, followThrough),
+                    -33f + legLift * 27f);
+                _miniGamePitcherLeadLeg.localRotation = Quaternion.Euler(
+                    0f, 0f, Mathf.Lerp(-42f, 24f, followThrough));
+            }
+        }
+
+        private Vector2 CalculateBattingPitchPosition(
+            BatterMiniGameRequest request,
+            float progress)
+        {
+            float time = Mathf.Clamp01(progress);
+            PitchTrajectoryPoint point = request.Pitch.Evaluate(time);
+            double linearX = request.Pitch.ReleasePoint.X +
+                             (request.Pitch.PlatePoint.X - request.Pitch.ReleasePoint.X) * time;
+            double linearY = request.Pitch.ReleasePoint.Y +
+                             (request.Pitch.PlatePoint.Y - request.Pitch.ReleasePoint.Y) * time;
+            double breakEmphasis = pitchTrajectoryPresentation.BreakEmphasis;
+            double emphasizedX = linearX + (point.X - linearX) * breakEmphasis;
+            double emphasizedY = linearY + (point.Y - linearY) * breakEmphasis;
+            return new Vector2(
+                (float)emphasizedX * BattingZoneScaleX,
+                BattingZoneCenterY + (float)emphasizedY * BattingZoneScaleY +
+                Mathf.Lerp(66f, 0f, time));
+        }
+
+        private void UpdatePitchTrail(
+            BatterMiniGameRequest request,
+            float progress,
+            bool isPitchInFlight)
+        {
+            for (int index = 0; index < _miniGamePitchTrail.Length; index++)
+            {
+                RectTransform trail = _miniGamePitchTrail[index];
+                if (trail == null)
+                    continue;
+
+                float trailProgress = progress - (index + 1) * 0.045f;
+                bool isVisible = isPitchInFlight && trailProgress > 0f;
+                trail.gameObject.SetActive(isVisible);
+                if (!isVisible)
+                    continue;
+
+                trail.anchoredPosition = CalculateBattingPitchPosition(request, trailProgress);
+                float scale = Mathf.Lerp(0.34f, 0.92f, trailProgress) *
+                              Mathf.Lerp(1f, 0.48f, index / (float)PitchTrailCount);
+                trail.localScale = new Vector3(scale, scale, 1f);
+            }
+        }
+
+        private void UpdateSwingTimingMarker(BatterMiniGameRequest request, float progress)
+        {
+            if (_miniGameTimingMarker == null)
+                return;
+
+            float ideal = Mathf.Clamp((float)request.IdealSwingTime01, 0.01f, 0.99f);
+            float normalizedOffset = progress <= ideal
+                ? Mathf.Lerp(-1f, 0f, progress / ideal)
+                : Mathf.Lerp(0f, 1f, (progress - ideal) / (1f - ideal));
+            _miniGameTimingMarker.anchoredPosition = new Vector2(normalizedOffset * 350f, 0f);
+            _miniGameTimingMarker.gameObject.SetActive(
+                _battingMiniGamePhase != BattingMiniGamePhase.AwaitingReady);
+        }
+
+        private void UpdateBattingInstructionText(
+            BatterMiniGameRequest request,
+            float flightProgress,
+            float windupProgress)
+        {
+            if (_miniGameProgressText == null)
+                return;
+
+            switch (_battingMiniGamePhase)
+            {
+                case BattingMiniGamePhase.AwaitingReady:
+                    _miniGameProgressText.text = "타격 의도를 고른 뒤 준비하세요";
+                    if (_miniGamePitchReadText != null)
+                        _miniGamePitchReadText.text = "준비 전에는 투구가 시작되지 않습니다";
+                    break;
+                case BattingMiniGamePhase.Windup:
+                    _miniGameProgressText.text = windupProgress < 0.55f
+                        ? "투수의 와인드업을 읽으세요"
+                        : "릴리스 순간에 집중하세요";
+                    if (_miniGamePitchReadText != null)
+                        _miniGamePitchReadText.text = "공은 릴리스 뒤에 나타납니다";
+                    if (_miniGameTrackingStatusText != null)
+                        _miniGameTrackingStatusText.text = "투구 동작 중";
+                    break;
+                default:
+                    _miniGameProgressText.text = _miniGameIsTakingPitch
+                        ? "스윙하지 않고 공을 끝까지 지켜보는 중"
+                        : flightProgress < 0.78f
+                            ? "공의 움직임을 따라 배트 위치를 맞추세요"
+                            : "지금!  SPACE 또는 클릭";
+                    if (_miniGamePitchReadText != null)
+                    {
+                        _miniGamePitchReadText.text = flightProgress < 0.55f
+                            ? "구종 판독 중"
+                            : $"{GetPitchTypeLabel(request.Pitch.PitchType)} · " +
+                              $"{request.Pitch.VelocityMph:0} mph 추정";
+                    }
+                    if (_miniGameTrackingStatusText != null)
+                        _miniGameTrackingStatusText.text = "투구 추적 중";
+                    break;
+            }
         }
 
         private void SubmitMiniGameSwing(float progress)
@@ -451,39 +744,9 @@ namespace Baseball.Presentation.Career
                 _selectedApproach == BattingApproach.Bunt));
         }
 
-        private void SubmitMiniGamePitch()
-        {
-            CareerMatchSession session = _manager.ActiveMatch;
-            if (!IsMiniGameInputReady(session) || !session.PendingPitchSelection.HasValue)
-                return;
-            PitchSelectionRequest request = session.PendingPitchSelection.Value;
-            _manager.SubmitPitchSelection(new PitchSelectionCommand(
-                request.RequestId,
-                _miniGameSelectedPitch,
-                _miniGamePitchTarget,
-                _selectedPitchingApproach));
-        }
-
         private void AutoCompleteMiniGamePlateAppearance()
         {
             _manager.AutoCompleteCurrentPlateAppearance();
-        }
-
-        private void SelectMiniGamePitch(PitchType pitchType)
-        {
-            _miniGameSelectedPitch = pitchType;
-            Render();
-        }
-
-        private void SelectMiniGamePitchByIndex(int index)
-        {
-            CareerMatchSession session = _manager.ActiveMatch;
-            if (!session.PendingPitchSelection.HasValue)
-                return;
-            PitchSelectionRequest request = session.PendingPitchSelection.Value;
-            if (index < 0 || index >= request.AvailablePitches.Count)
-                return;
-            SelectMiniGamePitch(request.AvailablePitches[index].PitchType);
         }
 
         private void SelectMiniGameSwingIntent(BattingApproach approach)
@@ -503,16 +766,6 @@ namespace Baseball.Presentation.Career
             return new PlatePoint(
                 input.X + (request.Pitch.PlatePoint.X - input.X) * assist,
                 input.Y + (request.Pitch.PlatePoint.Y - input.Y) * assist);
-        }
-
-        private PitchOption FindSelectedPitchOption(PitchSelectionRequest request)
-        {
-            for (int index = 0; index < request.AvailablePitches.Count; index++)
-            {
-                if (request.AvailablePitches[index].PitchType == _miniGameSelectedPitch)
-                    return request.AvailablePitches[index];
-            }
-            return request.AvailablePitches[0];
         }
 
         private void RenderLatestMiniGameFeedback(RectTransform panel, Vector2 position)
@@ -616,6 +869,92 @@ namespace Baseball.Presentation.Career
             };
         }
 
+        private static Vector2 GetBattingCursorSize(BattingApproach approach)
+        {
+            return approach switch
+            {
+                BattingApproach.Contact => new Vector2(118f, 52f),
+                BattingApproach.Power => new Vector2(82f, 38f),
+                BattingApproach.Bunt => new Vector2(132f, 30f),
+                _ => new Vector2(100f, 44f)
+            };
+        }
+
+        private static RectTransform CreateMiniGameSpriteImage(
+            string name,
+            Transform parent,
+            Sprite sprite,
+            Color color,
+            Vector2 size,
+            Vector2 position)
+        {
+            RectTransform rect = CreateImage(name, parent, color, size, position);
+            Image image = rect.GetComponent<Image>();
+            image.sprite = sprite;
+            image.type = Image.Type.Simple;
+            image.raycastTarget = false;
+            rect.gameObject.AddComponent<CareerUiVisualElement>()
+                .Initialize(CareerUiVisualRole.DataImage);
+            return rect;
+        }
+
+        private static Sprite GetMiniGameSolidCircleSprite()
+        {
+            if (_miniGameSolidCircleSprite == null)
+                _miniGameSolidCircleSprite = CreateMiniGameCircleSprite(false);
+            return _miniGameSolidCircleSprite;
+        }
+
+        private static Sprite GetMiniGameRingSprite()
+        {
+            if (_miniGameRingSprite == null)
+                _miniGameRingSprite = CreateMiniGameCircleSprite(true);
+            return _miniGameRingSprite;
+        }
+
+        private static Sprite CreateMiniGameCircleSprite(bool isRing)
+        {
+            const int textureSize = 64;
+            var texture = new Texture2D(textureSize, textureSize, TextureFormat.RGBA32, false)
+            {
+                name = isRing ? "MiniGameRingTexture" : "MiniGameCircleTexture",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            var pixels = new Color32[textureSize * textureSize];
+            Vector2 center = new Vector2((textureSize - 1) * 0.5f, (textureSize - 1) * 0.5f);
+            float radius = textureSize * 0.48f;
+            for (int y = 0; y < textureSize; y++)
+            {
+                for (int x = 0; x < textureSize; x++)
+                {
+                    float normalizedDistance = Vector2.Distance(new Vector2(x, y), center) / radius;
+                    float alpha;
+                    if (isRing)
+                    {
+                        float ringDistance = Mathf.Abs(normalizedDistance - 0.86f);
+                        alpha = 1f - Mathf.SmoothStep(0.045f, 0.11f, ringDistance);
+                    }
+                    else
+                    {
+                        alpha = 1f - Mathf.SmoothStep(0.88f, 1f, normalizedDistance);
+                    }
+                    pixels[y * textureSize + x] = new Color32(255, 255, 255, (byte)(255f * alpha));
+                }
+            }
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, textureSize, textureSize),
+                new Vector2(0.5f, 0.5f),
+                textureSize);
+            sprite.name = isRing ? "MiniGameRing" : "MiniGameCircle";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+
         private static void CreateZoneGrid(RectTransform strikeZone)
         {
             for (int index = 1; index <= 2; index++)
@@ -629,11 +968,11 @@ namespace Baseball.Presentation.Career
             }
         }
 
-        private static Vector2 ToPlatePosition(PlatePoint point)
+        private static Vector2 ToBattingScenePosition(PlatePoint point)
         {
             return new Vector2(
-                (float)point.X * MiniGamePlateScaleX,
-                (float)point.Y * MiniGamePlateScaleY);
+                (float)point.X * BattingZoneScaleX,
+                BattingZoneCenterY + (float)point.Y * BattingZoneScaleY);
         }
 
         private static PlatePoint ClampPlatePoint(PlatePoint point)

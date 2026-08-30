@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
+using Baseball.Core.Growth;
 using Baseball.Core.Rules;
 using Baseball.Simulation.Random;
 
@@ -120,6 +121,24 @@ namespace Baseball.Simulation.PlateAppearance
             double effectiveControl = matchup.EffectiveControl + mentalAdjustment;
             double effectiveStuff = matchup.EffectiveStuff + mentalAdjustment;
             double effectiveVelocity = matchup.EffectiveVelocity + mentalAdjustment;
+            SkillTraitBalance traitBalance = _balance.Growth.SkillTraits;
+            if (strikes >= BaseballRules.StrikesForStrikeout - 1 &&
+                matchup.Batter.HasTrait(SkillTraitIds.TwoStrikeContact))
+            {
+                effectiveStuff -= traitBalance.TwoStrikeContactBonus;
+            }
+            if (matchup.HasRunnerInScoringPosition &&
+                matchup.Batter.HasTrait(SkillTraitIds.ScoringPositionFocus))
+            {
+                effectiveStuff -= traitBalance.ScoringPositionContactBonus;
+            }
+            if (matchup.Inning >= 7 && matchup.Pitcher.HasTrait(SkillTraitIds.LateInningStuff))
+                effectiveStuff += traitBalance.LateInningStuffBonus;
+            if (matchup.HasRunnerInScoringPosition && matchup.Pitcher.HasTrait(SkillTraitIds.CrisisManagement))
+            {
+                effectiveControl += traitBalance.CrisisPitchingBonus;
+                effectiveStuff += traitBalance.CrisisPitchingBonus;
+            }
             double strikeZoneProbability = ClampProbability(
                 tuning.StrikeZoneProbability +
                 (effectiveControl - 50d) * tuning.ControlStrikeZoneWeight +
@@ -171,12 +190,16 @@ namespace Baseball.Simulation.PlateAppearance
             BatterAttributes batter = matchup.Batter.BatterAttributes;
             double effectiveBreaking = matchup.EffectiveBreaking;
 
+            double traitHardHitAdjustment = matchup.HasRunnerInScoringPosition &&
+                                            matchup.Batter.HasTrait(SkillTraitIds.ScoringPositionPower)
+                ? _balance.Growth.SkillTraits.ScoringPositionHardHitBonus
+                : 0d;
             double homeRunProbability = Clamp(
                 tuning.HomeRunProbability +
                 (batter.Power - 50d) * tuning.PowerHomeRunWeight -
                 (effectiveBreaking - 50d) * tuning.BreakingHomeRunWeight +
                 approachModifier.HomeRunAdjustment +
-                matchup.HardHitAdjustment,
+                matchup.HardHitAdjustment + traitHardHitAdjustment,
                 0.005d,
                 0.16d);
             if (_battedBallRandom.NextDouble() < homeRunProbability)
@@ -188,7 +211,7 @@ namespace Baseball.Simulation.PlateAppearance
                 (effectiveBreaking - 50d) * tuning.BreakingHitWeight -
                 (matchup.DefenseRating - 50d) * tuning.DefenseHitWeight +
                 approachModifier.NonHomeRunHitAdjustment +
-                matchup.HardHitAdjustment * 0.5d,
+                (matchup.HardHitAdjustment + traitHardHitAdjustment) * 0.5d,
                 0.12d,
                 0.48d);
             if (_battedBallRandom.NextDouble() < hitProbability)
