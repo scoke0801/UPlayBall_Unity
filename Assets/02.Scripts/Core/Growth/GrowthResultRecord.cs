@@ -1,4 +1,5 @@
 using System;
+using Baseball.Core.Rules;
 
 namespace Baseball.Core.Growth
 {
@@ -63,7 +64,10 @@ namespace Baseball.Core.Growth
             long moneySpent,
             int weeksSpent,
             GrowthInjuryResult injuryResult = GrowthInjuryResult.None,
-            TrainingIntensity intensity = TrainingIntensity.Standard)
+            TrainingIntensity intensity = TrainingIntensity.Standard,
+            AbilityChange[] peakChanges = null,
+            SimulationVersionStamp? versionStamp = null,
+            DecisionExplanation explanation = null)
         {
             if (playerId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(playerId));
@@ -80,6 +84,9 @@ namespace Baseball.Core.Growth
             WeeksSpent = weeksSpent;
             InjuryResult = injuryResult;
             Intensity = intensity;
+            PeakChanges = peakChanges ?? Array.Empty<AbilityChange>();
+            VersionStamp = versionStamp ?? SimulationVersionStamp.CreateCurrent(balanceVersion: 0);
+            Explanation = explanation;
         }
 
         public int PlayerId { get; }
@@ -95,5 +102,8 @@ namespace Baseball.Core.Growth
         public int WeeksSpent { get; }
         public GrowthInjuryResult InjuryResult { get; }
         public TrainingIntensity Intensity { get; }
+        public AbilityChange[] PeakChanges { get; }
+        public SimulationVersionStamp VersionStamp { get; }
+        public DecisionExplanation Explanation { get; }
     }
 }

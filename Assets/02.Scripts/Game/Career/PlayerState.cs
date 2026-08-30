@@ -390,6 +390,9 @@ namespace Baseball.Game.Career
             PitcherAttributes currentPitcherAttributes = GrowthState == null
                 ? PitcherAttributes
                 : GrowthState.BaseAbilities.ToPitcherAttributes();
+            string[] traitIds = MergeTraitIds(
+                System.Array.Empty<string>(),
+                GrowthState?.LegacyTraitIds);
             return new Player(
                 PlayerId,
                 Name,
@@ -398,7 +401,8 @@ namespace Baseball.Game.Career
                 ThrowingHand,
                 currentBatterAttributes,
                 currentPitcherAttributes,
-                nationality: Nationality);
+                nationality: Nationality,
+                traitIds: traitIds);
         }
 
         /// <summary>
@@ -406,29 +410,64 @@ namespace Baseball.Game.Career
         /// </summary>
         public Player ToPlayer(SkillBoardService skillBoardService)
         {
+            return ToResolvedPlayer(skillBoardService, includePeak: true);
+        }
+
+        /// <summary>계약·시장 평가용으로 Peak를 제외한 안정 전력 선수 입력을 만든다.</summary>
+        public Player ToRosterPlayer(SkillBoardService skillBoardService)
+        {
+            return ToResolvedPlayer(skillBoardService, includePeak: false);
+        }
+
+        private Player ToResolvedPlayer(SkillBoardService skillBoardService, bool includePeak)
+        {
             if (skillBoardService == null)
                 throw new System.ArgumentNullException(nameof(skillBoardService));
             if (GrowthState == null)
                 return ToPlayer();
 
             int[] values = GrowthState.BaseAbilities.ToArray();
+            var resolver = new EffectiveAbilityResolver(skillBoardService);
             for (int index = 0; index < values.Length; index++)
             {
-                values[index] = skillBoardService.GetStableAbility(
-                    SkillBoardState,
+                AbilityBreakdown breakdown = resolver.Resolve(
                     GrowthState,
-                    (PlayerAbility)index);
+                    SkillBoardState,
+                    (PlayerAbility)index,
+                    EffectiveAbilityContext.Neutral);
+                values[index] = includePeak
+                    ? breakdown.CurrentAbility
+                    : breakdown.RosterAbility;
             }
-            var stableAbilities = new AbilityRatings(values);
+            var currentAbilities = new AbilityRatings(values);
+            string[] traitIds = MergeTraitIds(
+                skillBoardService.GetActiveTraitIds(SkillBoardState),
+                GrowthState.LegacyTraitIds);
             return new Player(
                 PlayerId,
                 Name,
                 PrimaryPosition,
                 BattingHand,
                 ThrowingHand,
-                stableAbilities.ToBatterAttributes(),
-                stableAbilities.ToPitcherAttributes(),
-                nationality: Nationality);
+                currentAbilities.ToBatterAttributes(),
+                currentAbilities.ToPitcherAttributes(),
+                nationality: Nationality,
+                traitIds: traitIds);
+        }
+
+        private static string[] MergeTraitIds(
+            string[] boardTraits,
+            System.Collections.Generic.IReadOnlyList<string> legacyTraits)
+        {
+            int boardCount = boardTraits?.Length ?? 0;
+            int legacyCount = legacyTraits?.Count ?? 0;
+            var result = new System.Collections.Generic.List<string>(boardCount + legacyCount);
+            for (int index = 0; index < boardCount; index++)
+                if (!result.Contains(boardTraits[index])) result.Add(boardTraits[index]);
+            for (int index = 0; index < legacyCount; index++)
+                if (!result.Contains(legacyTraits[index])) result.Add(legacyTraits[index]);
+            result.Sort(System.StringComparer.Ordinal);
+            return result.ToArray();
         }
 
         private static int ClampRating(int value) => Clamp(value, 0, 100);

@@ -2,6 +2,19 @@ using System;
 
 namespace Baseball.Core.Growth
 {
+    /// <summary>Simulation이 해석하는 기본 스킬 Trait 식별자다.</summary>
+    public static class SkillTraitIds
+    {
+        public const string TwoStrikeContact = "two_strike_contact";
+        public const string ScoringPositionPower = "scoring_position_power";
+        public const string AggressiveBaserunning = "aggressive_baserunning";
+        public const string DefensiveFocus = "defensive_focus";
+        public const string ScoringPositionFocus = "scoring_position_focus";
+        public const string LateInningStuff = "late_inning_stuff";
+        public const string CrisisManagement = "crisis_management";
+        public const string LongOutingAdaptation = "long_outing_adaptation";
+    }
+
     public enum SkillBlockRarity
     {
         Normal,

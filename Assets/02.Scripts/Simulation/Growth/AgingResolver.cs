@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
+using Baseball.Core.Rules;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Growth
@@ -12,10 +13,12 @@ namespace Baseball.Simulation.Growth
     public sealed class AgingResolver
     {
         private readonly GrowthBalanceTable _balance;
+        private readonly SimulationVersionStamp _versionStamp;
 
-        public AgingResolver(GrowthBalanceTable balance)
+        public AgingResolver(GrowthBalanceTable balance, SimulationVersionStamp? versionStamp = null)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _versionStamp = versionStamp ?? SimulationVersionStamp.CreateCurrent(balanceVersion: 0);
         }
 
         public GrowthResultRecord Resolve(
@@ -50,7 +53,8 @@ namespace Baseball.Simulation.Growth
                 Array.Empty<AbilityChange>(),
                 0,
                 0L,
-                0);
+                0,
+                versionStamp: _versionStamp);
             player.RecordGrowth(record);
             return record;
         }
@@ -65,6 +69,8 @@ namespace Baseball.Simulation.Growth
             int declinePoints = (int)Math.Floor(budget);
             if (random.NextDouble() < budget - declinePoints)
                 declinePoints++;
+            if (family == AbilityFamily.Physical && declinePoints > 0)
+                declinePoints -= player.ConsumePhysicalDeclineProtection(declinePoints);
             if (declinePoints == 0)
                 return;
 

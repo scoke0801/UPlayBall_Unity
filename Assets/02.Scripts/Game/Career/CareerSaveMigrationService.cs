@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Rules;
 
 namespace Baseball.Game.Career
 {
@@ -13,6 +14,45 @@ namespace Baseball.Game.Career
         public CareerSaveMigrationService(NewGameConfiguration configuration)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        }
+
+        /// <summary>지원하는 과거 세이브를 중간 버전을 건너뛰지 않고 현재 버전까지 순서대로 올린다.</summary>
+        public void MigrateToCurrent(CareerState career, ulong migrationSeed)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            while (career.SaveVersion < NewGameFlow.CurrentSaveVersion)
+            {
+                switch (career.SaveVersion)
+                {
+                    case 7:
+                        MigrateV7ToV8(career, migrationSeed);
+                        break;
+                    case 8:
+                        MigrateV8ToV9(career);
+                        break;
+                    case 9:
+                        MigrateV9ToV10(career);
+                        break;
+                    case 10:
+                        MigrateV10ToV11(career);
+                        break;
+                    case 11:
+                        MigrateV11ToV12(career);
+                        break;
+                    case 12:
+                        MigrateV12ToV13(career, migrationSeed);
+                        break;
+                    case 13:
+                        MigrateV13ToV14(career);
+                        break;
+                    case 14:
+                        MigrateV14ToV15(career);
+                        break;
+                    default:
+                        throw new InvalidOperationException(
+                            $"SaveVersion {career.SaveVersion}의 마이그레이션 경로가 없습니다.");
+                }
+            }
         }
 
         public void MigrateV7ToV8(CareerState career, ulong migrationSeed)
@@ -115,6 +155,55 @@ namespace Baseball.Game.Career
             career.Reputation.RecordLeagueReach(career.CurrentLeague.LeagueLevel);
             SynchronizeExpandedLeagues(career, activeLeagueId, targetPhase);
             career.World.ValidateInvariants();
+        }
+
+        /// <summary>v13 기록은 보존하고 Peak·성장 진행도·시즌 규칙 버전을 v14로 채운다.</summary>
+        public void MigrateV13ToV14(CareerState career)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (career.SaveVersion != 13)
+                throw new InvalidOperationException("SaveVersion 13 커리어만 v14로 마이그레이션할 수 있습니다.");
+
+            SimulationVersionStamp stamp = SimulationVersionStamp.CreateCurrent(
+                _configuration.Balance.Version,
+                _configuration.Balance.ContentHash);
+            for (int leagueIndex = 0; leagueIndex < career.World.Leagues.Count; leagueIndex++)
+                career.World.Leagues[leagueIndex].CurrentSeason.MigrateVersionStamp(stamp);
+            for (int playerIndex = 0; playerIndex < career.World.Players.Count; playerIndex++)
+            {
+                PlayerState player = career.World.Players[playerIndex];
+                player.GrowthState?.MigrateVersion14State();
+                if (player.CareerStatus != PlayerCareerStatus.ActiveRoster ||
+                    player.CurrentLeagueId == LeagueId.Unassigned)
+                {
+                    player.SkillBoardState.UnlockForOffseason();
+                    continue;
+                }
+                SeasonPhase phase = career.World.GetLeague(player.CurrentLeagueId).CurrentSeason.Phase;
+                if (phase is SeasonPhase.RegularSeason or SeasonPhase.Postseason)
+                    player.SkillBoardState.LockForSeason();
+                else
+                    player.SkillBoardState.UnlockForOffseason();
+            }
+            career.UpgradeSaveVersion(14);
+        }
+
+        /// <summary>v14의 진행 상태를 보존하고 역할·승격 보상 상태를 v15로 채운다.</summary>
+        public void MigrateV14ToV15(CareerState career)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (career.SaveVersion != 14)
+                throw new InvalidOperationException("SaveVersion 14 커리어만 v15로 마이그레이션할 수 있습니다.");
+
+            career.EnsureVersion15State();
+            SeasonState currentSeason = career.CurrentLeague.CurrentSeason;
+            career.RoleState.MigrateLegacySeason(
+                currentSeason.SeasonId,
+                career.TradeState.CurrentTeamRole ?? career.CurrentContract.ExpectedRole);
+            career.GrowthMilestones.MigrateFromHighestReachedLeague(
+                career.Reputation.HighestReachedTier,
+                _configuration.Balance.Growth.Progression);
+            career.UpgradeSaveVersion(15);
         }
 
         private void SynchronizeExpandedLeagues(

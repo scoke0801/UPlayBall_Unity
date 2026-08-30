@@ -10,8 +10,11 @@ namespace Baseball.Core.Growth
     public sealed class PlayerGrowthState
     {
         private readonly TrainingFitGrade[] _trainingAffinities;
+        private int[] _peakBonuses;
+        private int[] _developmentProgress;
         private readonly List<GrowthResultRecord> _growthHistory;
         private readonly List<InjuryRecord> _injuryHistory;
+        private List<string> _legacyTraitIds;
 
         public PlayerGrowthState(
             int playerId,
@@ -39,10 +42,14 @@ namespace Baseball.Core.Growth
             Fatigue = ValidatePercentage(fatigue, nameof(fatigue));
             Durability = ValidatePercentage(durability, nameof(durability));
             _trainingAffinities = new TrainingFitGrade[(int)TrainingCategory.Count];
+            _peakBonuses = new int[PlayerAbilityCatalog.AbilityCount];
+            _developmentProgress = new int[PlayerAbilityCatalog.AbilityCount];
             for (int index = 0; index < _trainingAffinities.Length; index++)
                 _trainingAffinities[index] = TrainingFitGrade.Normal;
+            MigratePotentialOverflowToPeakWithoutAbilityLoss();
             _growthHistory = new List<GrowthResultRecord>();
             _injuryHistory = new List<InjuryRecord>();
+            _legacyTraitIds = new List<string>();
         }
 
         public int PlayerId { get; }
@@ -57,6 +64,30 @@ namespace Baseball.Core.Growth
         public int Durability { get; private set; }
         public IReadOnlyList<GrowthResultRecord> GrowthHistory => _growthHistory;
         public IReadOnlyList<InjuryRecord> InjuryHistory => _injuryHistory;
+        public IReadOnlyList<string> LegacyTraitIds
+        {
+            get
+            {
+                _legacyTraitIds ??= new List<string>();
+                return _legacyTraitIds;
+            }
+        }
+        public double SeasonInjuryRiskReduction { get; private set; }
+        public int PhysicalDeclineProtectionPoints { get; private set; }
+
+        public int GetPeakBonus(PlayerAbility ability)
+        {
+            EnsureVersion14State();
+            ValidateAbility(ability);
+            return _peakBonuses[(int)ability];
+        }
+
+        public int GetDevelopmentProgress(PlayerAbility ability)
+        {
+            EnsureVersion14State();
+            ValidateAbility(ability);
+            return _developmentProgress[(int)ability];
+        }
 
         public TrainingFitGrade GetTrainingFit(TrainingCategory category)
         {
@@ -72,10 +103,46 @@ namespace Baseball.Core.Growth
 
         public int ApplyBaseAbilityChange(PlayerAbility ability, int delta)
         {
-            int maximum = Math.Min(
-                AbilityRatings.Maximum,
-                PotentialByAbility.Get(ability) + 3);
+            int maximum = PotentialByAbility.Get(ability);
             return BaseAbilities.AddClamped(ability, delta, AbilityRatings.Minimum, maximum);
+        }
+
+        /// <summary>영구 Base와 분리된 시즌형 Peak를 능력치별 0~3 범위에서 변경한다.</summary>
+        public int ApplyPeakBonusChange(PlayerAbility ability, int delta)
+        {
+            EnsureVersion14State();
+            ValidateAbility(ability);
+            int index = (int)ability;
+            int before = _peakBonuses[index];
+            _peakBonuses[index] = Clamp(before + delta, 0, 3);
+            return _peakBonuses[index] - before;
+        }
+
+        /// <summary>1,000 단위 고정소수점 진행도를 영구 성장으로 전환하고 나머지를 이월한다.</summary>
+        public int AddDevelopmentProgress(PlayerAbility ability, int progress)
+        {
+            EnsureVersion14State();
+            ValidateAbility(ability);
+            if (progress < 0)
+                throw new ArgumentOutOfRangeException(nameof(progress));
+
+            int index = (int)ability;
+            if (BaseAbilities.Get(ability) >= PotentialByAbility.Get(ability))
+            {
+                _developmentProgress[index] = 0;
+                return 0;
+            }
+
+            _developmentProgress[index] += progress;
+            int requestedGain = _developmentProgress[index] / 1_000;
+            if (requestedGain <= 0)
+                return 0;
+
+            int applied = ApplyBaseAbilityChange(ability, requestedGain);
+            _developmentProgress[index] -= applied * 1_000;
+            if (BaseAbilities.Get(ability) >= PotentialByAbility.Get(ability))
+                _developmentProgress[index] = 0;
+            return applied;
         }
 
         public int ApplyPotentialChange(PlayerAbility ability, int delta)
@@ -97,7 +164,16 @@ namespace Baseball.Core.Growth
 
         public void AdvanceAge()
         {
+            DecayPeakBonuses(Age >= 35 ? 2 : 1);
             Age++;
+        }
+
+        public void DecayPeakBonuses(int amount)
+        {
+            EnsureVersion14State();
+            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount));
+            for (int index = 0; index < _peakBonuses.Length; index++)
+                _peakBonuses[index] = Math.Max(0, _peakBonuses[index] - amount);
         }
 
         public void RecordGrowth(GrowthResultRecord record)
@@ -112,6 +188,33 @@ namespace Baseball.Core.Growth
         public void RecordInjury(InjuryRecord record)
         {
             _injuryHistory.Add(record ?? throw new ArgumentNullException(nameof(record)));
+        }
+
+        public void ApplyOffseasonRecoveryBenefits(
+            double injuryRiskReduction,
+            int physicalDeclineProtectionPoints)
+        {
+            SeasonInjuryRiskReduction = Math.Max(0d, Math.Min(0.50d, injuryRiskReduction));
+            PhysicalDeclineProtectionPoints = Math.Max(0, physicalDeclineProtectionPoints);
+        }
+
+        public int ConsumePhysicalDeclineProtection(int requested)
+        {
+            int applied = Math.Min(Math.Max(0, requested), PhysicalDeclineProtectionPoints);
+            PhysicalDeclineProtectionPoints -= applied;
+            return applied;
+        }
+
+        public bool UnlockLegacyTrait(string traitId)
+        {
+            if (string.IsNullOrWhiteSpace(traitId))
+                throw new ArgumentException("Legacy Trait ID는 비어 있을 수 없습니다.", nameof(traitId));
+            _legacyTraitIds ??= new List<string>();
+            for (int index = 0; index < _legacyTraitIds.Count; index++)
+                if (string.Equals(_legacyTraitIds[index], traitId, StringComparison.Ordinal)) return false;
+            _legacyTraitIds.Add(traitId);
+            _legacyTraitIds.Sort(StringComparer.Ordinal);
+            return true;
         }
 
         public static CareerPhase GetCareerPhase(int age)
@@ -134,6 +237,46 @@ namespace Baseball.Core.Growth
         {
             if (category < 0 || category >= TrainingCategory.Count)
                 throw new ArgumentOutOfRangeException(nameof(category));
+        }
+
+        private static void ValidateAbility(PlayerAbility ability)
+        {
+            if (ability < 0 || ability >= PlayerAbility.Count)
+                throw new ArgumentOutOfRangeException(nameof(ability));
+        }
+
+        private void MigratePotentialOverflowToPeakWithoutAbilityLoss()
+        {
+            EnsureVersion14State();
+            for (int index = 0; index < PlayerAbilityCatalog.AbilityCount; index++)
+            {
+                var ability = (PlayerAbility)index;
+                int current = BaseAbilities.Get(ability);
+                int potential = PotentialByAbility.Get(ability);
+                if (current <= potential)
+                    continue;
+
+                int requiredPotential = Math.Max(potential, current - 3);
+                if (requiredPotential > potential)
+                    PotentialByAbility.AddClamped(ability, requiredPotential - potential);
+                potential = PotentialByAbility.Get(ability);
+                _peakBonuses[index] = current - potential;
+                BaseAbilities.AddClamped(ability, potential - current);
+            }
+        }
+
+        /// <summary>v13의 Potential 초과분을 능력 손실 없이 Peak로 옮기고 신규 진행도 저장소를 복원한다.</summary>
+        public void MigrateVersion14State()
+        {
+            EnsureVersion14State();
+            MigratePotentialOverflowToPeakWithoutAbilityLoss();
+        }
+
+        private void EnsureVersion14State()
+        {
+            _peakBonuses ??= new int[PlayerAbilityCatalog.AbilityCount];
+            _developmentProgress ??= new int[PlayerAbilityCatalog.AbilityCount];
+            _legacyTraitIds ??= new List<string>();
         }
 
         private static int Clamp(int value, int minimum, int maximum)

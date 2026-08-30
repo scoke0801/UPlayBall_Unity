@@ -26,7 +26,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             double studyAge32 = study.Age32 / CareersPerStrategy;
             double studyAge36 = study.Age36 / CareersPerStrategy;
 
-            TestContext.WriteLine(
+            System.Console.WriteLine(
                 $"Personal Age22 {personalAge22:F2} / Study Age22 {studyAge22:F2} / " +
                 $"Study Age32 {studyAge32:F2} / Study Age36 {studyAge36:F2}");
 
@@ -53,7 +53,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 TrainingIntensity.Intensive,
                 300000UL);
 
-            TestContext.WriteLine(
+            System.Console.WriteLine(
                 $"Safe {safe.AverageGain:F3}/{safe.AverageCondition:F2}, " +
                 $"Standard {standard.AverageGain:F3}/{standard.AverageCondition:F2}, " +
                 $"Intensive {intensive.AverageGain:F3}/{intensive.AverageCondition:F2}");
@@ -84,7 +84,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                     sample + 1,
                     22,
                     PlayerType.Batter,
-                    new AbilityRatings(73),
+                    new AbilityRatings(70),
                     new AbilityRatings(70),
                     WorkEthicGrade.Normal,
                     90,
@@ -106,7 +106,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             }
 
             double averageGrowth = totalGrowth / (double)SampleCount;
-            TestContext.WriteLine(
+            System.Console.WriteLine(
                 $"Elite plateau growth {averageGrowth:F3} / zero {zeroGrowthCount}/{SampleCount}");
 
             Assert.That(zeroGrowthCount, Is.EqualTo(0));

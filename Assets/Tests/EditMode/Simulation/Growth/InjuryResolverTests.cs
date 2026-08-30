@@ -41,6 +41,21 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             Assert.That(injury.TreatmentChoice, Is.EqualTo(InjuryTreatmentChoice.SpecialistTreatment));
             Assert.That(economy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(500L)));
             Assert.That(player.InjuryHistory.Count, Is.EqualTo(1));
+            Assert.That(injury.Explanation.DecisionType, Is.EqualTo(DecisionType.Injury));
+            Assert.That(injury.Explanation.Factors, Has.Length.GreaterThanOrEqualTo(3));
+        }
+
+        [Test]
+        public void EvaluateRisk_위험값과감소행동을같은설명에담는다()
+        {
+            var resolver = new InjuryResolver(InjuryBalanceTable.CreateDefault());
+
+            InjuryRiskEvaluationResult result = resolver.EvaluateRisk(
+                new InjuryRiskInput(34, 85, 1.5d, 0.9d, false, 45));
+
+            Assert.That(result.Risk, Is.GreaterThan(0d));
+            Assert.That(result.Explanation.SummaryReasonCode, Is.Not.EqualTo(DecisionReasonCode.None));
+            Assert.That(result.Explanation.RecommendedActions, Is.Not.Empty);
         }
 
         private static PlayerGrowthState CreatePlayer()

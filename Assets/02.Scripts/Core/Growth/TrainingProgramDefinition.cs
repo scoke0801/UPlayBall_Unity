@@ -26,7 +26,11 @@ namespace Baseball.Core.Growth
     {
         Foundation,
         Advanced,
-        Elite
+        Professional,
+        International,
+        Elite,
+        Championship,
+        Legacy
     }
 
     /// <summary>
@@ -96,7 +100,7 @@ namespace Baseball.Core.Growth
             if (intensity < TrainingIntensity.Safe || intensity > TrainingIntensity.Intensive)
                 throw new ArgumentOutOfRangeException(nameof(intensity));
             if (minimumAccessTier < TrainingAccessTier.Foundation ||
-                minimumAccessTier > TrainingAccessTier.Elite)
+                minimumAccessTier > TrainingAccessTier.Legacy)
             {
                 throw new ArgumentOutOfRangeException(nameof(minimumAccessTier));
             }
@@ -164,6 +168,32 @@ namespace Baseball.Core.Growth
         public bool CanAccess(TrainingAccessTier accessTier)
         {
             return accessTier >= MinimumAccessTier;
+        }
+
+        /// <summary>도달 지식은 유지하되 현재 리그 시설이 부족할 때 비용·보장·돌파 효율을 낮춘다.</summary>
+        public TrainingProgramDefinition ApplyFacilityPenalty()
+        {
+            return new TrainingProgramDefinition(
+                ProgramId,
+                ActivityType,
+                Category,
+                TargetPlayerType,
+                DurationWeeks,
+                checked((long)Math.Ceiling(MoneyCost * 1.25d)),
+                ProgramPower,
+                TargetAbilityWeights,
+                MinimumCondition,
+                InjuryRisk,
+                MaxTotalGain,
+                MaxGainPerAbility,
+                ConditionChange,
+                Math.Max(0, MinimumGuaranteedGain - 1),
+                PartnerId,
+                CanRaisePotential,
+                Intensity,
+                MinimumAccessTier,
+                PotentialBreakthroughChanceMultiplier * 0.75d,
+                minimumPotentialBreakthroughsWhenCapped: 0);
         }
 
         private static AbilityWeight[] CopyWeights(AbilityWeight[] source, double programPower)

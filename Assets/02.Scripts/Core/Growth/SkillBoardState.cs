@@ -82,6 +82,7 @@ namespace Baseball.Core.Growth
     {
         private readonly List<SkillBlockInstance> _ownedBlocks = new List<SkillBlockInstance>();
         private readonly List<PlacedSkillBlock> _placedBlocks = new List<PlacedSkillBlock>();
+        private readonly List<PlacedSkillBlock> _activePlacements = new List<PlacedSkillBlock>();
         private readonly HashSet<int> _lockedBlockIds = new HashSet<int>();
         private int _nextInstanceId = 1;
 
@@ -93,6 +94,8 @@ namespace Baseball.Core.Growth
         public string BoardDefinitionId { get; }
         public IReadOnlyList<SkillBlockInstance> OwnedBlocks => _ownedBlocks;
         public IReadOnlyList<PlacedSkillBlock> PlacedBlocks => _placedBlocks;
+        public IReadOnlyList<PlacedSkillBlock> AppliedBlocks => IsSeasonLocked ? _activePlacements : _placedBlocks;
+        public bool IsSeasonLocked { get; private set; }
         public int PityEliteCount { get; private set; }
         public int PityUniqueCount { get; private set; }
         public int PityLegendaryCount { get; private set; }
@@ -193,6 +196,7 @@ namespace Baseball.Core.Growth
 
         public void PlaceOwnedBlock(PlacedSkillBlock placement)
         {
+            EnsureEditable();
             int ownedIndex = FindOwnedIndex(placement.Instance.InstanceId);
             if (ownedIndex < 0)
                 throw new InvalidOperationException("보유 중인 블록만 장착할 수 있습니다.");
@@ -202,6 +206,7 @@ namespace Baseball.Core.Growth
 
         public SkillBlockInstance RemovePlacedBlock(int instanceId, bool returnToInventory)
         {
+            EnsureEditable();
             for (int index = 0; index < _placedBlocks.Count; index++)
             {
                 if (_placedBlocks[index].Instance.InstanceId != instanceId)
@@ -230,12 +235,34 @@ namespace Baseball.Core.Growth
 
         public void Redesign(int seasonYear)
         {
+            EnsureEditable();
             if (LastRedesignSeason == seasonYear)
                 throw new InvalidOperationException("전문 재설계는 오프시즌당 한 번만 가능합니다.");
             for (int index = 0; index < _placedBlocks.Count; index++)
                 _ownedBlocks.Add(_placedBlocks[index].Instance);
             _placedBlocks.Clear();
             LastRedesignSeason = seasonYear;
+        }
+
+        /// <summary>개막 시점 배치를 복사해 역할 평가와 경기에서 같은 성장판을 사용하게 한다.</summary>
+        public void LockForSeason()
+        {
+            _activePlacements.Clear();
+            for (int index = 0; index < _placedBlocks.Count; index++)
+                _activePlacements.Add(_placedBlocks[index]);
+            IsSeasonLocked = true;
+        }
+
+        public void UnlockForOffseason()
+        {
+            IsSeasonLocked = false;
+            _activePlacements.Clear();
+        }
+
+        private void EnsureEditable()
+        {
+            if (IsSeasonLocked)
+                throw new InvalidOperationException("정규시즌에는 확정된 성장판을 변경할 수 없습니다.");
         }
 
         private int FindOwnedIndex(int instanceId)

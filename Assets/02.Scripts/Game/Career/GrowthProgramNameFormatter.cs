@@ -7,6 +7,7 @@ namespace Baseball.Game.Career
         {
             return programId switch
             {
+                "mandatory_rehab" => "필수 재활",
                 "weight_batter" => "타격 웨이트 트레이닝",
                 "weight_pitcher" => "투수 웨이트 트레이닝",
                 "personal_batting" => "기초 타격 훈련",
@@ -37,6 +38,7 @@ namespace Baseball.Game.Career
                 "europe_pitch_balance" => "유럽 밸런스 프로그램",
                 "rehab_general" => "재활·컨디션 관리",
                 "sports_science_recovery" => "스포츠 사이언스 회복",
+                "recovery_break" => "회복 휴식",
                 "rest" => "휴식",
                 _ => string.IsNullOrWhiteSpace(programId) ? "오프시즌 활동" : programId
             };

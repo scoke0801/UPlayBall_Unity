@@ -1,4 +1,5 @@
 using System;
+using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 
 namespace Baseball.Game.Career
@@ -8,24 +9,57 @@ namespace Baseball.Game.Career
     /// </summary>
     public static class CareerTrainingAccess
     {
-        public static TrainingAccessTier GetAccessTier(LeagueLevel leagueLevel)
+        public static TrainingAccessTier GetAccessTier(
+            LeagueLevel leagueLevel,
+            GrowthProgressionBalance progression = null)
         {
             if (!LeagueLevelRules.IsValid(leagueLevel))
                 throw new ArgumentOutOfRangeException(nameof(leagueLevel));
-            if (leagueLevel == LeagueLevel.Rookie)
-                return TrainingAccessTier.Foundation;
-            return leagueLevel == LeagueLevel.Minor
-                ? TrainingAccessTier.Advanced
-                : TrainingAccessTier.Elite;
+            return (progression ?? GrowthProgressionBalance.CreateDefault())
+                .GetAccessTier((int)leagueLevel);
         }
 
         public static bool CanAccess(
             TrainingProgramDefinition program,
-            LeagueLevel leagueLevel)
+            LeagueLevel currentLeagueLevel,
+            LeagueLevel? highestReachedLeagueLevel = null,
+            GrowthProgressionBalance progression = null)
         {
             if (program == null)
                 throw new ArgumentNullException(nameof(program));
-            return program.CanAccess(GetAccessTier(leagueLevel));
+            LeagueLevel knowledgeLevel = highestReachedLeagueLevel ?? currentLeagueLevel;
+            return program.CanAccess(GetAccessTier(knowledgeLevel, progression));
+        }
+
+        public static TrainingProgramDefinition ApplyFacilitySupport(
+            TrainingProgramDefinition program,
+            LeagueLevel currentLeagueLevel,
+            LeagueLevel highestReachedLeagueLevel,
+            GrowthProgressionBalance progression = null)
+        {
+            if (!CanAccess(program, currentLeagueLevel, highestReachedLeagueLevel, progression))
+                throw new InvalidOperationException("커리어에서 아직 습득하지 못한 성장 프로그램입니다.");
+            return GetAccessTier(currentLeagueLevel, progression) < program.MinimumAccessTier
+                ? program.ApplyFacilityPenalty()
+                : program;
+        }
+
+        public static LeagueLevel GetMinimumGachaLeague(
+            SkillGachaPurchaseTier tier,
+            GrowthProgressionBalance progression = null)
+        {
+            return (LeagueLevel)(progression ?? GrowthProgressionBalance.CreateDefault())
+                .GetMinimumGachaLevel(tier);
+        }
+
+        public static bool CanAccessGacha(
+            SkillGachaPurchaseTier tier,
+            LeagueLevel currentLeagueLevel,
+            GrowthProgressionBalance progression = null)
+        {
+            if (!LeagueLevelRules.IsValid(currentLeagueLevel))
+                throw new ArgumentOutOfRangeException(nameof(currentLeagueLevel));
+            return currentLeagueLevel >= GetMinimumGachaLeague(tier, progression);
         }
     }
 }

@@ -45,6 +45,9 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(state.ToPlayer().BatterAttributes.Contact, Is.EqualTo(62));
             Assert.That(state.ToPlayer(boardService).BatterAttributes.Contact, Is.EqualTo(64));
+            growth.ApplyPeakBonusChange(PlayerAbility.Contact, 2);
+            Assert.That(state.ToRosterPlayer(boardService).BatterAttributes.Contact, Is.EqualTo(64));
+            Assert.That(state.ToPlayer(boardService).BatterAttributes.Contact, Is.EqualTo(66));
             Assert.That(growth.Condition, Is.EqualTo(80));
             Assert.That(growth.Age, Is.EqualTo(19));
         }
@@ -53,7 +56,7 @@ namespace Baseball.Tests.EditMode.Game
         public void CareerGameRunner_장착블록보너스를감독판단과경기입력에사용한다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
-            NewGameFlow flow = CreateRegularSeasonCareer(configuration, 8181UL);
+            NewGameFlow flow = CreateSignedCareer(configuration, 8181UL);
             PlayerGrowthState growth = flow.Career.MyPlayer.GrowthState;
             int baseContact = growth.BaseAbilities.Get(PlayerAbility.Contact);
             SkillBlockDefinition block = FindBlock(
@@ -65,6 +68,7 @@ namespace Baseball.Tests.EditMode.Game
                 configuration.Balance.Growth.SkillBoard,
                 configuration.Balance.Growth.SkillBlocks);
             boardService.PlaceBlock(flow.Career.MyPlayer.SkillBoardState, instance.InstanceId, 0, 0, 0);
+            flow.StartRookieSeason();
 
             ScheduledGameState game = flow.Career.CurrentLeague.CurrentSeason.Schedule.GetNextGameForTeam(
                 flow.Career.MyPlayer.CurrentTeamId);
@@ -98,7 +102,7 @@ namespace Baseball.Tests.EditMode.Game
                 new PitcherAttributes(40, 40, 40, 40, 40, 40));
         }
 
-        private static NewGameFlow CreateRegularSeasonCareer(
+        private static NewGameFlow CreateSignedCareer(
             NewGameConfiguration configuration,
             ulong seed)
         {
@@ -111,7 +115,6 @@ namespace Baseball.Tests.EditMode.Game
             flow.GenerateOffers();
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();
-            flow.StartRookieSeason();
             return flow;
         }
 

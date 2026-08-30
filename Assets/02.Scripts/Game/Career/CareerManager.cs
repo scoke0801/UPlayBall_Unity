@@ -958,7 +958,8 @@ namespace Baseball.Game.Career
                 CurrentCareer.World,
                 currentPlayer,
                 game.PlannedPlayerRole,
-                lineupAi);
+                lineupAi,
+                _skillBoardService);
             return CareerLineupPlan.GetPlayerBattingOrder(lineup, currentPlayer.PlayerId);
         }
 

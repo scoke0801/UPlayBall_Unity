@@ -24,6 +24,9 @@ namespace Baseball.Simulation.Growth
     /// </summary>
     public sealed class SkillBoardService
     {
+        public const int MaximumBonusPerAbility = 9;
+        public const int MaximumTotalAbilityBonus = 18;
+
         private readonly SkillBoardDefinition _boardDefinition;
         private readonly SkillBlockDefinition[] _blockDefinitions;
 
@@ -214,10 +217,20 @@ namespace Baseball.Simulation.Growth
 
         public int GetAbilityBonus(SkillBoardState state, PlayerAbility ability)
         {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            int[] bonuses = BuildEffectiveBonusArray(state);
+            return bonuses[(int)ability];
+        }
+
+        /// <summary>중첩 체감과 성장판 상한을 적용하기 전 표시용 원시 합계를 반환한다.</summary>
+        public int GetRawAbilityBonus(SkillBoardState state, PlayerAbility ability)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
             int total = 0;
-            for (int index = 0; index < state.PlacedBlocks.Count; index++)
+            IReadOnlyList<PlacedSkillBlock> applied = state.AppliedBlocks;
+            for (int index = 0; index < applied.Count; index++)
             {
-                SkillBlockDefinition definition = FindDefinition(state.PlacedBlocks[index].Instance.DefinitionId);
+                SkillBlockDefinition definition = FindDefinition(applied[index].Instance.DefinitionId);
                 for (int bonusIndex = 0; bonusIndex < definition.AbilityBonuses.Length; bonusIndex++)
                 {
                     if (definition.AbilityBonuses[bonusIndex].Ability == ability)
@@ -234,17 +247,89 @@ namespace Baseball.Simulation.Growth
             return value > AbilityRatings.Maximum ? AbilityRatings.Maximum : value;
         }
 
+        private int[] BuildEffectiveBonusArray(SkillBoardState state)
+        {
+            int abilityCount = PlayerAbilityCatalog.AbilityCount;
+            var result = new int[abilityCount];
+            var stackCounts = new int[abilityCount];
+            IReadOnlyList<PlacedSkillBlock> applied = state.AppliedBlocks;
+            for (int blockIndex = 0; blockIndex < applied.Count; blockIndex++)
+            {
+                SkillBlockDefinition definition = FindDefinition(
+                    applied[blockIndex].Instance.DefinitionId);
+                for (int bonusIndex = 0; bonusIndex < definition.AbilityBonuses.Length; bonusIndex++)
+                {
+                    AbilityChange bonus = definition.AbilityBonuses[bonusIndex];
+                    int abilityIndex = (int)bonus.Ability;
+                    double multiplier = stackCounts[abilityIndex] switch
+                    {
+                        0 => 1d,
+                        1 => 0.6d,
+                        2 => 0.3d,
+                        _ => 0d
+                    };
+                    stackCounts[abilityIndex]++;
+                    int effective = (int)Math.Round(
+                        bonus.Amount * multiplier,
+                        MidpointRounding.AwayFromZero);
+                    result[abilityIndex] = Math.Min(
+                        MaximumBonusPerAbility,
+                        result[abilityIndex] + effective);
+                }
+            }
+
+            ApplyTotalBonusCap(result);
+            return result;
+        }
+
+        private static void ApplyTotalBonusCap(int[] bonuses)
+        {
+            int total = 0;
+            for (int index = 0; index < bonuses.Length; index++)
+                total += bonuses[index];
+            if (total <= MaximumTotalAbilityBonus)
+                return;
+
+            var remainders = new double[bonuses.Length];
+            int allocated = 0;
+            for (int index = 0; index < bonuses.Length; index++)
+            {
+                double scaled = bonuses[index] * MaximumTotalAbilityBonus / (double)total;
+                int floor = (int)Math.Floor(scaled);
+                bonuses[index] = floor;
+                remainders[index] = scaled - floor;
+                allocated += floor;
+            }
+
+            while (allocated < MaximumTotalAbilityBonus)
+            {
+                int selected = 0;
+                for (int index = 1; index < remainders.Length; index++)
+                {
+                    if (remainders[index] > remainders[selected])
+                        selected = index;
+                }
+                bonuses[selected]++;
+                remainders[selected] = -1d;
+                allocated++;
+            }
+        }
+
         public string[] GetActiveTraitIds(SkillBoardState state)
         {
             var traits = new List<string>();
-            for (int index = 0; index < state.PlacedBlocks.Count; index++)
+            IReadOnlyList<PlacedSkillBlock> applied = state.AppliedBlocks;
+            for (int index = 0; index < applied.Count; index++)
             {
-                PlacedSkillBlock placement = state.PlacedBlocks[index];
+                PlacedSkillBlock placement = applied[index];
                 SkillBlockDefinition definition = FindDefinition(placement.Instance.DefinitionId);
                 if (string.IsNullOrEmpty(definition.TraitId))
                     continue;
-                if (definition.TraitSocketRule == TraitSocketRule.None || CoversTraitSocket(definition, placement))
+                if ((definition.TraitSocketRule == TraitSocketRule.None || CoversTraitSocket(definition, placement)) &&
+                    !traits.Contains(definition.TraitId))
+                {
                     traits.Add(definition.TraitId);
+                }
             }
             return traits.ToArray();
         }
@@ -417,6 +502,97 @@ namespace Baseball.Simulation.Growth
                     return _blockDefinitions[index];
             }
             throw new InvalidOperationException("스킬 블록 정의를 찾을 수 없습니다.");
+        }
+    }
+
+    /// <summary>한 능력치의 Base부터 경기 적용값까지 단계별 계산 결과다.</summary>
+    public readonly struct AbilityBreakdown
+    {
+        public AbilityBreakdown(
+            int baseAbility,
+            int potential,
+            int skillBonusRaw,
+            int skillBonusEffective,
+            int peakBonus,
+            int conditionModifier,
+            int injuryModifier,
+            int tacticalModifier)
+        {
+            BaseAbility = baseAbility;
+            Potential = potential;
+            SkillBonusRaw = skillBonusRaw;
+            SkillBonusEffective = skillBonusEffective;
+            PeakBonus = peakBonus;
+            ConditionModifier = conditionModifier;
+            InjuryModifier = injuryModifier;
+            TacticalModifier = tacticalModifier;
+            RosterAbility = Clamp(baseAbility + skillBonusEffective);
+            CurrentAbility = Clamp(RosterAbility + peakBonus);
+            MatchAbility = Clamp(CurrentAbility + conditionModifier + injuryModifier + tacticalModifier);
+        }
+
+        public int BaseAbility { get; }
+        public int Potential { get; }
+        public int SkillBonusRaw { get; }
+        public int SkillBonusEffective { get; }
+        public int PeakBonus { get; }
+        public int ConditionModifier { get; }
+        public int InjuryModifier { get; }
+        public int TacticalModifier { get; }
+        public int RosterAbility { get; }
+        public int CurrentAbility { get; }
+        public int MatchAbility { get; }
+
+        private static int Clamp(int value)
+        {
+            if (value < AbilityRatings.Minimum) return AbilityRatings.Minimum;
+            return value > AbilityRatings.Maximum ? AbilityRatings.Maximum : value;
+        }
+    }
+
+    /// <summary>경기 한정 보정을 명시적으로 전달해 안정 전력과 현재 기량의 혼용을 막는다.</summary>
+    public readonly struct EffectiveAbilityContext
+    {
+        public EffectiveAbilityContext(int conditionModifier, int injuryModifier, int tacticalModifier)
+        {
+            ConditionModifier = conditionModifier;
+            InjuryModifier = injuryModifier;
+            TacticalModifier = tacticalModifier;
+        }
+
+        public int ConditionModifier { get; }
+        public int InjuryModifier { get; }
+        public int TacticalModifier { get; }
+        public static EffectiveAbilityContext Neutral => new EffectiveAbilityContext(0, 0, 0);
+    }
+
+    /// <summary>경기·역할·계약·UI가 공유하는 최종 능력치 단일 계산 진입점이다.</summary>
+    public sealed class EffectiveAbilityResolver
+    {
+        private readonly SkillBoardService _skillBoardService;
+
+        public EffectiveAbilityResolver(SkillBoardService skillBoardService)
+        {
+            _skillBoardService = skillBoardService ?? throw new ArgumentNullException(nameof(skillBoardService));
+        }
+
+        public AbilityBreakdown Resolve(
+            PlayerGrowthState growth,
+            SkillBoardState board,
+            PlayerAbility ability,
+            EffectiveAbilityContext context)
+        {
+            if (growth == null) throw new ArgumentNullException(nameof(growth));
+            if (board == null) throw new ArgumentNullException(nameof(board));
+            return new AbilityBreakdown(
+                growth.BaseAbilities.Get(ability),
+                growth.PotentialByAbility.Get(ability),
+                _skillBoardService.GetRawAbilityBonus(board, ability),
+                _skillBoardService.GetAbilityBonus(board, ability),
+                growth.GetPeakBonus(ability),
+                context.ConditionModifier,
+                context.InjuryModifier,
+                context.TacticalModifier);
         }
     }
 }

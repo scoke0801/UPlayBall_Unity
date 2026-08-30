@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
+using Baseball.Core.Rules;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Growth
@@ -13,10 +14,12 @@ namespace Baseball.Simulation.Growth
         private readonly GrowthBalanceTable _balance;
         private readonly GrowthResolver _growthResolver;
 
-        public OffseasonScheduler(GrowthBalanceTable balance)
+        public OffseasonScheduler(
+            GrowthBalanceTable balance,
+            SimulationVersionStamp? versionStamp = null)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
-            _growthResolver = new GrowthResolver(balance);
+            _growthResolver = new GrowthResolver(balance, versionStamp);
         }
 
         public PlannedOffseasonActivity PlanActivity(
@@ -30,7 +33,7 @@ namespace Baseball.Simulation.Growth
             if (offseason == null) throw new ArgumentNullException(nameof(offseason));
             if (economy == null) throw new ArgumentNullException(nameof(economy));
             if (player == null) throw new ArgumentNullException(nameof(player));
-            TrainingProgramDefinition program = _balance.GetProgram(programId, intensity);
+            TrainingProgramDefinition program = GetProgram(offseason, programId, intensity);
             if (!program.CanUse(player.PlayerType))
                 throw new InvalidOperationException("선수 유형에 맞지 않는 프로그램입니다.");
             if (startWeek < offseason.CurrentWeek || startWeek + program.DurationWeeks - 1 > offseason.TotalWeeks)
@@ -112,7 +115,8 @@ namespace Baseball.Simulation.Growth
         {
             if (player == null) throw new ArgumentNullException(nameof(player));
             PlannedOffseasonActivity activity = FindActivity(offseason, activityId);
-            TrainingProgramDefinition program = _balance.GetProgram(
+            TrainingProgramDefinition program = GetProgram(
+                offseason,
                 activity.ProgramId,
                 activity.Intensity);
             if (activity.Status != OffseasonActivityStatus.Planned)
@@ -153,16 +157,26 @@ namespace Baseball.Simulation.Growth
             PlannedOffseasonActivity activity = FindActivity(offseason, activityId);
             if (activity.Status != OffseasonActivityStatus.InProgress)
                 throw new InvalidOperationException("진행 중인 활동만 완료할 수 있습니다.");
-            TrainingProgramDefinition program = _balance.GetProgram(
+            TrainingProgramDefinition program = GetProgram(
+                offseason,
                 activity.ProgramId,
                 activity.Intensity);
             if (program.IsStudy && studyState == null)
                 throw new InvalidOperationException("유학 완료에는 PlayerStudyState가 필요합니다.");
             if (program.IsStudy && studyState.StudyUsedThisOffseason)
                 throw new InvalidOperationException("이미 완료한 유학을 다시 반영할 수 없습니다.");
-            int priorSelections = program.IsStudy && studyState != null
-                ? studyState.GetConsecutiveVisits(program.ProgramId)
-                : CountCompletedCategory(offseason, program.Category);
+            int priorSelections = CountPreviousConsecutivePrograms(
+                player,
+                offseason.SeasonYear,
+                program.ProgramId);
+            priorSelections += CountCompletedProgram(offseason, program.ProgramId);
+            if (HasCompletedProgram(offseason, "recovery_break"))
+                priorSelections = Math.Max(0, priorSelections - 1);
+            if (priorSelections > 0 &&
+                program.ActivityType is not (OffseasonActivityType.Rest or
+                    OffseasonActivityType.Rehabilitation) &&
+                offseason.TryUseRepetitionPenaltyWaiver())
+                priorSelections = 0;
             TrainingFitGrade fit = player.GetTrainingFit(program.Category);
             GrowthResultRecord result = _growthResolver.Resolve(
                 player,
@@ -171,13 +185,15 @@ namespace Baseball.Simulation.Growth
                 priorSelections,
                 fit,
                 activity.RandomSeed,
-                random);
+                random,
+                offseason.MasterFocusAbility);
 
             if (program.IsStudy)
             {
                 studyState.RecordVisit(program.ProgramId, offseason.SeasonYear);
             }
             activity.Complete();
+            offseason.RecordCompletedRecovery(program.ActivityType, activity.DurationWeeks);
             offseason.SetCurrentCondition(player.Condition);
             offseason.AdvanceToWeek(activity.EndWeek + 1);
             return result;
@@ -191,7 +207,8 @@ namespace Baseball.Simulation.Growth
                 PlannedOffseasonActivity activity = offseason.Activities[index];
                 if (activity.Status != OffseasonActivityStatus.Planned)
                     continue;
-                total = checked(total + _balance.GetProgram(
+                total = checked(total + GetProgram(
+                    offseason,
                     activity.ProgramId,
                     activity.Intensity).MoneyCost);
             }
@@ -214,7 +231,8 @@ namespace Baseball.Simulation.Growth
                     {
                         continue;
                     }
-                    TrainingProgramDefinition planned = _balance.GetProgram(
+                    TrainingProgramDefinition planned = GetProgram(
+                        offseason,
                         activity.ProgramId,
                         activity.Intensity);
                     condition = Math.Max(0, Math.Min(100, condition + planned.ConditionChange));
@@ -252,7 +270,8 @@ namespace Baseball.Simulation.Growth
                 PlannedOffseasonActivity existing = offseason.Activities[index];
                 if (existing.Status == OffseasonActivityStatus.Cancelled)
                     continue;
-                TrainingProgramDefinition existingProgram = _balance.GetProgram(
+                TrainingProgramDefinition existingProgram = GetProgram(
+                    offseason,
                     existing.ProgramId,
                     existing.Intensity);
                 if (program.IsStudy && existingProgram.IsStudy)
@@ -273,10 +292,72 @@ namespace Baseball.Simulation.Growth
             {
                 PlannedOffseasonActivity activity = offseason.Activities[index];
                 if (activity.Status == OffseasonActivityStatus.Completed &&
-                    _balance.GetProgram(activity.ProgramId, activity.Intensity).Category == category)
+                    GetProgram(offseason, activity.ProgramId, activity.Intensity).Category == category)
                     count++;
             }
             return count;
+        }
+
+        private static int CountCompletedProgram(OffseasonState offseason, string programId)
+        {
+            int count = 0;
+            for (int index = 0; index < offseason.Activities.Count; index++)
+            {
+                PlannedOffseasonActivity activity = offseason.Activities[index];
+                if (activity.Status == OffseasonActivityStatus.Completed &&
+                    string.Equals(activity.ProgramId, programId, StringComparison.Ordinal))
+                {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        private static bool HasCompletedProgram(OffseasonState offseason, string programId)
+        {
+            return CountCompletedProgram(offseason, programId) > 0;
+        }
+
+        private static int CountPreviousConsecutivePrograms(
+            PlayerGrowthState player,
+            int currentSeasonYear,
+            string programId)
+        {
+            int consecutive = 0;
+            for (int year = currentSeasonYear - 1; year >= currentSeasonYear - 20; year--)
+            {
+                bool foundTraining = false;
+                bool foundSameProgram = false;
+                for (int index = player.GrowthHistory.Count - 1; index >= 0; index--)
+                {
+                    GrowthResultRecord record = player.GrowthHistory[index];
+                    if (record.SeasonYear != year ||
+                        record.SourceType is GrowthSourceType.NaturalDevelopment or GrowthSourceType.Aging or GrowthSourceType.Injury)
+                    {
+                        continue;
+                    }
+                    foundTraining = true;
+                    if (string.Equals(record.SourceId, programId, StringComparison.Ordinal))
+                        foundSameProgram = true;
+                }
+                if (!foundTraining || !foundSameProgram)
+                    break;
+                consecutive++;
+            }
+            return consecutive;
+        }
+
+        private TrainingProgramDefinition GetProgram(
+            OffseasonState offseason,
+            string programId,
+            TrainingIntensity intensity)
+        {
+            TrainingProgramDefinition program = _balance.GetProgram(programId, intensity);
+            if (!program.CanAccess(offseason.KnowledgeTier))
+                throw new InvalidOperationException("커리어에서 아직 습득하지 못한 성장 프로그램입니다.");
+            return offseason.FacilityTier < program.MinimumAccessTier
+                ? program.ApplyFacilityPenalty()
+                : program;
         }
 
         private static PlannedOffseasonActivity FindActivity(OffseasonState offseason, int activityId)

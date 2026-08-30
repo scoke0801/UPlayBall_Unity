@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
+using Baseball.Core.Rules;
 using Baseball.Game.Career.Narrative;
 
 namespace Baseball.Game.Career
@@ -88,7 +89,12 @@ namespace Baseball.Game.Career
         private int[] _finalStandingTeamIds = Array.Empty<int>();
         private LeagueTiebreakGameState[] _tiebreakGames = Array.Empty<LeagueTiebreakGameState>();
 
-        public SeasonState(int saveVersion, int seasonId, int year, LeagueLevel leagueLevel)
+        public SeasonState(
+            int saveVersion,
+            int seasonId,
+            int year,
+            LeagueLevel leagueLevel,
+            SimulationVersionStamp? versionStamp = null)
         {
             if (seasonId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(seasonId));
@@ -97,6 +103,7 @@ namespace Baseball.Game.Career
             SeasonId = seasonId;
             Year = year;
             LeagueLevel = leagueLevel;
+            VersionStamp = versionStamp ?? SimulationVersionStamp.CreateCurrent(balanceVersion: 0);
             Phase = SeasonPhase.Preseason;
             LeagueStatistics = new LeagueSeasonStatisticsState();
             Settlement = new SeasonSettlementState();
@@ -106,6 +113,7 @@ namespace Baseball.Game.Career
         public int SeasonId { get; }
         public int Year { get; }
         public LeagueLevel LeagueLevel { get; }
+        public SimulationVersionStamp VersionStamp { get; private set; }
         public SeasonPhase Phase { get; private set; }
         public SeasonScheduleState Schedule { get; private set; }
         public IReadOnlyList<TeamSeasonRecordState> TeamRecords { get; private set; }
@@ -120,6 +128,20 @@ namespace Baseball.Game.Career
         public IReadOnlyList<MatchNarrativeSnapshot> MatchNarrativeSnapshots => _matchNarrativeSnapshots;
         public IReadOnlyList<int> FinalStandingTeamIds => _finalStandingTeamIds;
         public IReadOnlyList<LeagueTiebreakGameState> TiebreakGames => _tiebreakGames;
+
+        /// <summary>시즌 첫 경기 전에 최신 규칙을 고정하며 진행 중에는 변경을 거부한다.</summary>
+        public void PinVersionStamp(SimulationVersionStamp versionStamp)
+        {
+            if (Phase != SeasonPhase.Preseason)
+                throw new InvalidOperationException("시즌 규칙 버전은 Preseason에서만 고정할 수 있습니다.");
+            VersionStamp = versionStamp;
+        }
+
+        /// <summary>구버전 세이브의 진행 단계는 유지하고 이후 판정에 사용할 버전만 채운다.</summary>
+        public void MigrateVersionStamp(SimulationVersionStamp versionStamp)
+        {
+            VersionStamp = versionStamp;
+        }
 
         /// <summary>
         /// 포스트시즌 기록은 정규 시즌 기록과 절대 합산하지 않으므로 별도 누적기로 보관한다.
@@ -166,6 +188,7 @@ namespace Baseball.Game.Career
             PlayerStatistics = playerStatistics ?? throw new ArgumentNullException(nameof(playerStatistics));
             if (myPlayer != null)
             {
+                myPlayer.SkillBoardState.LockForSeason();
                 PlayerCompetitionStatisticsState source = LeagueStatistics.RegularSeason.GetOrCreate(
                     myPlayer.PlayerId,
                     myPlayer.Name,

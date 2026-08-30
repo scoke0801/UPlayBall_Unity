@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
+using Baseball.Simulation.Career;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
 
@@ -45,9 +47,16 @@ namespace Baseball.Game.Career
                 var usageBuilder = new CareerSeasonUsageSummaryBuilder(
                     _balance.PlayerEvaluation,
                     _balance.CareerSeason.StartingRotationSize);
+                TeamState currentTeam = GetTeam(CurrentCareer.MyPlayer.CurrentTeamId);
+                var playerValueEvaluator = new PlayerValueEvaluator(_balance.PlayerEvaluation);
+                int playerValue = playerValueEvaluator.CalculatePositionValue(BuildStablePlayer());
+                int competitorValue = currentTeam.GetStrongestCompetitorOverall(
+                    CurrentCareer.MyPlayer.PrimaryPosition);
                 SeasonUsageSummary usage = usageBuilder.Build(
                     CurrentCareer.MyPlayer.PrimaryPosition,
-                    season.PlayerStatistics);
+                    season.PlayerStatistics,
+                    CurrentCareer.CurrentExpectedRole == ExpectedRole.StartingCompetition,
+                    Math.Max(0d, competitorValue - playerValue));
                 _careerGrowthService.SettleSeasonAndBeginOffseason(usage);
                 _selectedGrowthProgramId = string.Empty;
                 _selectedTrainingIntensity = TrainingIntensity.Standard;
@@ -86,7 +95,9 @@ namespace Baseball.Game.Career
                 return FailGrowth("선택할 수 없는 성장 프로그램입니다.");
             if (!CareerTrainingAccess.CanAccess(
                     baseProgram,
-                    CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel))
+                    CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel,
+                    CurrentCareer.Reputation.HighestReachedTier,
+                    _balance.Growth.Progression))
             {
                 return FailGrowth("현재 리그에서 해금되지 않은 성장 프로그램입니다.");
             }
@@ -548,13 +559,19 @@ namespace Baseball.Game.Career
             int projectedConditionAfterPlan = GetProjectedConditionAfterPlan(
                 offseason,
                 growth.Condition);
+            CareerRoleEvaluationRecord roleEvaluation = CurrentCareer.RoleState.LatestEvaluation;
 
             var view = new CareerGrowthView
             {
                 PlayerType = growth.PlayerType,
                 BaseAbilities = growth.BaseAbilities.ToArray(),
+                PotentialAbilities = growth.PotentialByAbility.ToArray(),
                 StableAbilities = BuildStableAbilityValues(growth, board),
+                CurrentAbilities = BuildCurrentAbilityValues(growth, board),
+                PeakBonuses = BuildPeakBonuses(growth),
+                RawBoardBonuses = BuildRawBoardBonuses(board),
                 BoardBonuses = BuildBoardBonuses(board),
+                ActiveTraitIds = BuildActiveTraitIds(growth, board),
                 BoardWidth = boardDefinition.Width,
                 BoardHeight = boardDefinition.Height,
                 BoardCells = BuildBoardCells(board, boardDefinition),
@@ -568,8 +585,22 @@ namespace Baseball.Game.Career
                 Programs = BuildPrograms(growth, remainingWeeks),
                 PlannedActivities = plannedActivities,
                 RecentGrowth = BuildRecentGrowth(growth),
+                AdditionalProgramCandidates = offseason?.AdditionalProgramCandidates ??
+                                              CurrentCareer.GrowthMilestones.AdditionalProgramCandidates,
+                RepetitionPenaltyWaivers = offseason?.RepetitionPenaltyWaivers ?? 0,
+                MasterFocusAbility = offseason?.MasterFocusAbility,
+                NextSeasonInjuryRiskReduction = offseason?.NextSeasonInjuryRiskReduction ?? 0d,
+                PhysicalDeclineProtectionPoints = offseason?.PhysicalDeclineProtectionPoints ?? 0,
+                CurrentRole = CurrentCareer.CurrentExpectedRole,
+                RoleScore = roleEvaluation?.PlayerScore ?? 0d,
+                CompetitorRoleScore = roleEvaluation?.CompetitorScore ?? 0d,
+                LatestRoleTrigger = roleEvaluation?.Trigger,
+                WasRoleCooldownProtected = roleEvaluation?.WasCooldownProtected ?? false,
+                WasInjuryReturnProtected = roleEvaluation?.WasInjuryReturnProtected ?? false,
+                RoleExplanation = roleEvaluation?.Explanation,
                 IsOffseason = IsOffseason(),
                 CanEditBoard = IsOffseason(),
+                IsBoardSeasonLocked = board.IsSeasonLocked,
                 CanRedesignBoard = IsOffseason() &&
                                    !offseason.BoardRedesignUsed &&
                                    board.PlacedBlocks.Count > 0 &&
@@ -603,6 +634,37 @@ namespace Baseball.Game.Career
             return view;
         }
 
+        public bool SetMasterTrainingFocus(PlayerAbility ability)
+        {
+            if (!TryGetGrowthRuntime(out _))
+                return false;
+            try
+            {
+                _careerGrowthService.SetMasterFocusAbility(ability);
+                return CompleteGrowthCommand();
+            }
+            catch (InvalidOperationException exception)
+            {
+                return FailGrowth(exception.Message);
+            }
+            catch (ArgumentException exception)
+            {
+                return FailGrowth(exception.Message);
+            }
+        }
+
+        private string[] BuildActiveTraitIds(PlayerGrowthState growth, SkillBoardState board)
+        {
+            string[] boardTraits = _skillBoardService.GetActiveTraitIds(board);
+            var result = new List<string>(boardTraits.Length + growth.LegacyTraitIds.Count);
+            for (int index = 0; index < boardTraits.Length; index++)
+                if (!result.Contains(boardTraits[index])) result.Add(boardTraits[index]);
+            for (int index = 0; index < growth.LegacyTraitIds.Count; index++)
+                if (!result.Contains(growth.LegacyTraitIds[index])) result.Add(growth.LegacyTraitIds[index]);
+            result.Sort(StringComparer.Ordinal);
+            return result.ToArray();
+        }
+
         private int[] BuildStableAbilityValues(PlayerGrowthState growth, SkillBoardState board)
         {
             var values = new int[PlayerAbilityCatalog.AbilityCount];
@@ -621,6 +683,37 @@ namespace Baseball.Game.Career
             var values = new int[PlayerAbilityCatalog.AbilityCount];
             for (int index = 0; index < values.Length; index++)
                 values[index] = _skillBoardService.GetAbilityBonus(board, (PlayerAbility)index);
+            return values;
+        }
+
+        private int[] BuildRawBoardBonuses(SkillBoardState board)
+        {
+            var values = new int[PlayerAbilityCatalog.AbilityCount];
+            for (int index = 0; index < values.Length; index++)
+                values[index] = _skillBoardService.GetRawAbilityBonus(board, (PlayerAbility)index);
+            return values;
+        }
+
+        private static int[] BuildPeakBonuses(PlayerGrowthState growth)
+        {
+            var values = new int[PlayerAbilityCatalog.AbilityCount];
+            for (int index = 0; index < values.Length; index++)
+                values[index] = growth.GetPeakBonus((PlayerAbility)index);
+            return values;
+        }
+
+        private int[] BuildCurrentAbilityValues(PlayerGrowthState growth, SkillBoardState board)
+        {
+            var values = new int[PlayerAbilityCatalog.AbilityCount];
+            var resolver = new EffectiveAbilityResolver(_skillBoardService);
+            for (int index = 0; index < values.Length; index++)
+            {
+                values[index] = resolver.Resolve(
+                    growth,
+                    board,
+                    (PlayerAbility)index,
+                    EffectiveAbilityContext.Neutral).CurrentAbility;
+            }
             return values;
         }
 
@@ -862,22 +955,27 @@ namespace Baseball.Game.Career
                 {
                     "weight_batter", "personal_batting", "bat_balance_training", "bat_power_camp",
                     "bat_contact_training", "bat_speed_defense_camp", "bat_elite_hitting_lab",
+                    "professional_batter_competition", "international_batter_specialist",
+                    "championship_batter_precision", "legacy_batter_mastery",
                     "partner_batter_default", "private_batting_coach",
                     "japan_batting_camp", "usa_power_center", "usa_elite_batting_academy",
                     "caribbean_batting_league", "europe_batting_balance",
-                    "rehab_general", "sports_science_recovery", "rest"
+                    "mandatory_rehab", "rehab_general", "sports_science_recovery", "recovery_break", "rest"
                 }
                 : new[]
                 {
                     "weight_pitcher", "personal_pitching", "pitch_velocity_camp", "pitch_control_training",
                     "pitch_stamina_camp", "pitch_breaking_training", "pitch_elite_biomechanics",
+                    "professional_pitcher_competition", "international_pitcher_specialist",
+                    "championship_pitcher_precision", "legacy_pitcher_mastery",
                     "partner_pitcher_default", "private_pitching_coach",
                     "japan_pitch_design", "usa_velocity_center", "usa_elite_pitching_academy",
                     "caribbean_pitch_league", "europe_pitch_balance",
-                    "rehab_general", "sports_science_recovery", "rest"
+                    "mandatory_rehab", "rehab_general", "sports_science_recovery", "recovery_break", "rest"
                 };
             TrainingAccessTier accessTier = CareerTrainingAccess.GetAccessTier(
-                CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel);
+                CurrentCareer.Reputation.HighestReachedTier,
+                _balance.Growth.Progression);
             var result = new List<GrowthProgramView>(preferredIds.Length);
             // 승격 직후 새 선택지가 첫 페이지에 보이도록 현재 리그에서 새로 열린 등급부터 정렬한다.
             for (int tier = (int)accessTier; tier >= (int)TrainingAccessTier.Foundation; tier--)
@@ -936,6 +1034,18 @@ namespace Baseball.Game.Career
                                                         nameof(programId));
             if (!baseProgram.SupportsIntensity)
                 intensity = TrainingIntensity.Standard;
+            bool canAccessProgram = CareerTrainingAccess.CanAccess(
+                baseProgram,
+                CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel,
+                CurrentCareer.Reputation.HighestReachedTier,
+                _balance.Growth.Progression);
+            TrainingProgramDefinition availableProgram = canAccessProgram
+                ? CareerTrainingAccess.ApplyFacilitySupport(
+                    baseProgram,
+                    CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel,
+                    CurrentCareer.Reputation.HighestReachedTier,
+                    _balance.Growth.Progression)
+                : baseProgram;
             OffseasonState offseason = CurrentCareer.CurrentOffseason;
             int plannedWeeks = GetPlannedScheduleWeeks(offseason);
             long plannedCost = GetPlannedActivityCost(offseason);
@@ -943,11 +1053,18 @@ namespace Baseball.Game.Career
                 offseason,
                 growth.Condition);
             int startWeek = offseason == null ? 0 : GetNextPlanStartWeek(offseason);
-            int priorSelections = GetPriorProgramSelections(offseason, baseProgram);
-            TrainingFitGrade fit = growth.GetTrainingFit(baseProgram.Category);
+            int priorSelections = GetPriorProgramSelections(offseason, availableProgram);
+            if (priorSelections > 0 &&
+                offseason?.RepetitionPenaltyWaivers > 0 &&
+                availableProgram.ActivityType is not (OffseasonActivityType.Rest or
+                    OffseasonActivityType.Rehabilitation))
+            {
+                priorSelections = 0;
+            }
+            TrainingFitGrade fit = growth.GetTrainingFit(availableProgram.Category);
             GrowthProgramPreview preview = _growthPreviewCalculator.Build(
                 growth,
-                baseProgram,
+                availableProgram,
                 intensity,
                 priorSelections,
                 fit,
@@ -956,9 +1073,6 @@ namespace Baseball.Game.Career
                 preview,
                 CurrentCareer.MyPlayer.SkillBoardState);
             TrainingProgramDefinition program = preview.Program;
-            bool canAccessProgram = CareerTrainingAccess.CanAccess(
-                baseProgram,
-                CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel);
             bool canUseThisOffseason = canAccessProgram &&
                                        (!program.IsStudy ||
                                         offseason != null &&
@@ -970,6 +1084,21 @@ namespace Baseball.Game.Career
                                   program.ProgramId,
                                   StringComparison.Ordinal) &&
                               _selectedTrainingIntensity == intensity;
+            bool canAfford = CurrentCareer.AvailableMoney >= plannedCost + program.MoneyCost;
+            bool canFitSchedule = IsOffseason() &&
+                                  remainingWeeks >= plannedWeeks + program.DurationWeeks;
+            bool canMeetCondition = projectedCondition >= program.MinimumCondition;
+            string unavailableReason = BuildProgramUnavailableReason(
+                program,
+                canAccessProgram,
+                canAfford,
+                canFitSchedule,
+                canMeetCondition,
+                canUseThisOffseason,
+                plannedCost,
+                remainingWeeks,
+                plannedWeeks,
+                projectedCondition);
             return new GrowthProgramView(
                 preview,
                 fit,
@@ -979,9 +1108,9 @@ namespace Baseball.Game.Career
                 plannedWeeks,
                 startWeek,
                 growth.Condition,
-                CurrentCareer.AvailableMoney >= plannedCost + program.MoneyCost,
-                IsOffseason() && remainingWeeks >= plannedWeeks + program.DurationWeeks,
-                projectedCondition >= program.MinimumCondition,
+                canAfford,
+                canFitSchedule,
+                canMeetCondition,
                 canUseThisOffseason,
                 isSelected,
                 _balance.Growth.Condition.ReducedMinimum,
@@ -989,7 +1118,53 @@ namespace Baseball.Game.Career
                 Math.Min(
                     1d,
                     _balance.Growth.PotentialBreakthroughProbability *
-                    program.PotentialBreakthroughChanceMultiplier));
+                    program.PotentialBreakthroughChanceMultiplier),
+                unavailableReason,
+                EstimateRoleScoreGain(preview));
+        }
+
+        private string BuildProgramUnavailableReason(
+            TrainingProgramDefinition program,
+            bool canAccessProgram,
+            bool canAfford,
+            bool canFitSchedule,
+            bool canMeetCondition,
+            bool canUseThisOffseason,
+            long plannedCost,
+            int remainingWeeks,
+            int plannedWeeks,
+            int projectedCondition)
+        {
+            if (!IsOffseason())
+                return "오프시즌 전용 기능입니다.";
+            if (!canAccessProgram)
+                return $"{program.MinimumAccessTier} 성장 티어부터 이용할 수 있습니다.";
+            if (!canUseThisOffseason)
+                return program.IsStudy
+                    ? "이번 오프시즌의 유학 기회를 이미 사용했습니다."
+                    : "이번 오프시즌에는 다시 선택할 수 없습니다.";
+            if (!canAfford)
+            {
+                long shortfall = plannedCost + program.MoneyCost - CurrentCareer.AvailableMoney;
+                return $"Money가 {shortfall:N0} 부족합니다.";
+            }
+            if (!canFitSchedule)
+            {
+                int shortfall = plannedWeeks + program.DurationWeeks - remainingWeeks;
+                return $"남은 기간이 {Math.Max(1, shortfall)}주 부족합니다.";
+            }
+            if (!canMeetCondition)
+                return $"예상 컨디션 {projectedCondition} / 요구 {program.MinimumCondition}";
+            return string.Empty;
+        }
+
+        private static double EstimateRoleScoreGain(GrowthProgramPreview preview)
+        {
+            int maximumAbilityGain = 0;
+            for (int index = 0; index < preview.AbilityRanges.Length; index++)
+                maximumAbilityGain += preview.AbilityRanges[index].MaximumGain;
+            // 역할 점수의 현재 기량 비중 55%를 사용하되 실제 포지션 가중치 차이는 확정 결과에 맡긴다.
+            return maximumAbilityGain * 0.55d;
         }
 
         private GrowthProgramPreview BuildDisplayedGrowthPreview(
@@ -1191,19 +1366,18 @@ namespace Baseball.Game.Career
         private string GetGachaUnavailableReason(SkillGachaPurchaseTier tier)
         {
             SkillGachaBalanceTable balance = _balance.Growth.SkillGacha;
-            LeagueLevel requiredLeague = tier switch
-            {
-                SkillGachaPurchaseTier.Elite => LeagueLevel.Major,
-                SkillGachaPurchaseTier.Unique => LeagueLevel.Classic,
-                SkillGachaPurchaseTier.Legendary => LeagueLevel.Champion,
-                _ => LeagueLevel.Rookie
-            };
-            if (CurrentCareer.Reputation.HighestReachedTier < requiredLeague)
+            LeagueLevel requiredLeague = CareerTrainingAccess.GetMinimumGachaLeague(
+                tier,
+                _balance.Growth.Progression);
+            if (!CareerTrainingAccess.CanAccessGacha(
+                    tier,
+                    CurrentCareer.CurrentLeague.CurrentSeason.LeagueLevel,
+                    _balance.Growth.Progression))
             {
                 string leagueName = WorldGenerationConfiguration
                     .GetDefaultDefinition(requiredLeague)
                     .UiDisplayName;
-                return $"{tier} 전용 뽑기는 {leagueName} 최초 진출 후 해금됩니다.";
+                return $"{tier} 전용 뽑기는 현재 {leagueName} 이상 리그에서만 구매할 수 있습니다.";
             }
             if (balance.HighTierPurchasesRequireOffseason &&
                 tier >= SkillGachaPurchaseTier.Unique &&
@@ -1213,8 +1387,6 @@ namespace Baseball.Game.Career
             }
             if (tier != SkillGachaPurchaseTier.Legendary)
                 return string.Empty;
-            if (CurrentCareer.CurrentExpectedRole != Baseball.Core.Teams.ExpectedRole.StartingCompetition)
-                return "Legendary 해금에는 1군 주전 등급이 필요합니다.";
             int awardCount = CountCareerAwards();
             if (awardCount < balance.LegendaryMinimumCareerAwards)
                 return $"Legendary 해금에는 개인 수상 {balance.LegendaryMinimumCareerAwards}회가 필요합니다.";

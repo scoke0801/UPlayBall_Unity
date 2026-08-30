@@ -240,6 +240,24 @@ namespace Baseball.Presentation.Career
             Render();
         }
 
+        private void CycleMasterTrainingFocus(CareerGrowthView growth)
+        {
+            if (!growth.MasterFocusAbility.HasValue)
+                return;
+            PlayerAbility[] abilities = GetVisibleAbilities(growth.PlayerType);
+            int currentIndex = 0;
+            for (int index = 0; index < abilities.Length; index++)
+            {
+                if (abilities[index] == growth.MasterFocusAbility.Value)
+                {
+                    currentIndex = index;
+                    break;
+                }
+            }
+            PlayerAbility next = abilities[(currentIndex + 1) % abilities.Length];
+            _manager.SetMasterTrainingFocus(next);
+        }
+
         private void RemoveSelectedPlacedBlock()
         {
             if (!_confirmPlacedBlockRemoval)

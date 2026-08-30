@@ -23,12 +23,9 @@ namespace Baseball.Simulation.Growth
                 throw new ArgumentNullException(nameof(player));
             PlayerType playerType = IsPitcher(player.PrimaryPosition) ? PlayerType.Pitcher : PlayerType.Batter;
             AbilityRatings baseAbilities = CreateBaseAbilities(player);
-            int[] potentials = baseAbilities.ToArray();
-            for (int index = 0; index < potentials.Length; index++)
-                potentials[index] = Math.Min(AbilityRatings.Maximum, potentials[index] + _balance.DefaultPotentialGap);
+            int[] potentials = CreatePotentials(baseAbilities, player.PrimaryPosition, playerType);
 
-            // 첫 구현은 동일 난이도 캐릭터의 총 Potential 공정성을 위해 무작위 총량 차이를 두지 않는다.
-            // 아키타입별 시작 능력치 배분이 그대로 Potential 분포의 주된 차이가 된다.
+            // 생성 단계에는 숨은 RNG를 쓰지 않는다. 같은 포지션과 배분은 언제나 같은 Potential이다.
             return new PlayerGrowthState(
                 player.PlayerId,
                 age,
@@ -39,6 +36,63 @@ namespace Baseball.Simulation.Growth
                 initialCondition,
                 fatigue: 0,
                 durability: 70);
+        }
+
+        private static int[] CreatePotentials(
+            AbilityRatings baseAbilities,
+            PlayerPosition position,
+            PlayerType playerType)
+        {
+            int[] result = baseAbilities.ToArray();
+            for (int index = 0; index < result.Length; index++)
+            {
+                var ability = (PlayerAbility)index;
+                int baseAbility = result[index];
+                bool isRelevant = playerType == PlayerType.Pitcher
+                    ? PlayerAbilityCatalog.IsPitcherAbility(ability)
+                    : PlayerAbilityCatalog.IsBatterAbility(ability);
+                if (!isRelevant)
+                {
+                    result[index] = Math.Min(AbilityRatings.Maximum, baseAbility + 5);
+                    continue;
+                }
+
+                int importanceBonus = GetPositionImportanceBonus(position, ability);
+                int partiallySeparated = 66 +
+                    (int)Math.Round((baseAbility - 50) * 0.6d, MidpointRounding.AwayFromZero) +
+                    importanceBonus;
+                result[index] = Math.Min(88, Math.Max(baseAbility + 5, partiallySeparated));
+            }
+            return result;
+        }
+
+        private static int GetPositionImportanceBonus(PlayerPosition position, PlayerAbility ability)
+        {
+            if (position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher)
+            {
+                if (ability is PlayerAbility.Stuff or PlayerAbility.Control ||
+                    position == PlayerPosition.StartingPitcher && ability == PlayerAbility.Stamina)
+                    return 3;
+                return ability is PlayerAbility.Velocity or PlayerAbility.Breaking or PlayerAbility.PitcherMental
+                    ? 1
+                    : 0;
+            }
+
+            if (ability == PlayerAbility.Contact)
+                return 3;
+            if (ability == PlayerAbility.BatterMental)
+                return 1;
+            bool powerPosition = position is PlayerPosition.FirstBase or PlayerPosition.ThirdBase or
+                PlayerPosition.LeftField or PlayerPosition.RightField or PlayerPosition.DesignatedHitter;
+            if (powerPosition && ability == PlayerAbility.Power)
+                return 3;
+            bool defensePosition = position is PlayerPosition.Catcher or PlayerPosition.SecondBase or
+                PlayerPosition.Shortstop or PlayerPosition.CenterField;
+            if (defensePosition && ability == PlayerAbility.Defense)
+                return 3;
+            return ability is PlayerAbility.Power or PlayerAbility.Speed or PlayerAbility.Arm or PlayerAbility.Defense
+                ? 1
+                : 0;
         }
 
         private static AbilityRatings CreateBaseAbilities(Player player)

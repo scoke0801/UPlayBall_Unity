@@ -273,6 +273,52 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
+        public void AbilityBonus_동일능력치중첩은체감하고9를넘지않는다()
+        {
+            SkillBlockDefinition block = CreateDefinition(
+                "contact_legendary",
+                SkillBlockRarity.Legendary,
+                5,
+                60L);
+            var state = new SkillBoardState("standard_4x4");
+            var service = new SkillBoardService(
+                SkillBoardDefinition.CreateDefault(),
+                new[] { block });
+            int[] origins = { 0, 0, 2, 0, 0, 2, 2, 2 };
+            for (int index = 0; index < 4; index++)
+            {
+                SkillBlockInstance instance = state.AddOwnedBlock(block.BlockId);
+                service.PlaceBlock(state, instance.InstanceId, origins[index * 2], origins[index * 2 + 1], 0);
+            }
+
+            Assert.That(service.GetRawAbilityBonus(state, PlayerAbility.Contact), Is.EqualTo(20));
+            Assert.That(service.GetAbilityBonus(state, PlayerAbility.Contact),
+                Is.EqualTo(SkillBoardService.MaximumBonusPerAbility));
+        }
+
+        [Test]
+        public void LockForSeason_개막스냅샷을고정하고배치변경을거부한다()
+        {
+            SkillBlockDefinition block = CreateDefinition(
+                "contact_normal",
+                SkillBlockRarity.Normal,
+                1,
+                60L);
+            var state = new SkillBoardState("standard_4x4");
+            SkillBlockInstance instance = state.AddOwnedBlock(block.BlockId);
+            var service = new SkillBoardService(
+                SkillBoardDefinition.CreateDefault(),
+                new[] { block });
+            service.PlaceBlock(state, instance.InstanceId, 0, 0, 0);
+
+            state.LockForSeason();
+
+            Assert.That(state.AppliedBlocks, Has.Count.EqualTo(1));
+            Assert.Throws<InvalidOperationException>(() => service.RemoveBlock(state, instance.InstanceId));
+            Assert.That(service.GetAbilityBonus(state, PlayerAbility.Contact), Is.EqualTo(1));
+        }
+
+        [Test]
         public void GetPlacementPreview_상태변경없이모양과배치가능여부를반환한다()
         {
             SkillBlockDefinition block = CreateDefinition(

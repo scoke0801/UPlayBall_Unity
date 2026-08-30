@@ -29,7 +29,8 @@ namespace Baseball.Core.Growth
             int minimumAbsenceDays,
             int maximumAbsenceDays,
             double calculatedRisk,
-            ulong randomSeed)
+            ulong randomSeed,
+            DecisionExplanation explanation = null)
         {
             if (minimumAbsenceDays < 0 || maximumAbsenceDays < minimumAbsenceDays)
                 throw new ArgumentOutOfRangeException(nameof(minimumAbsenceDays));
@@ -40,6 +41,7 @@ namespace Baseball.Core.Growth
             MaximumAbsenceDays = maximumAbsenceDays;
             CalculatedRisk = calculatedRisk;
             RandomSeed = randomSeed;
+            Explanation = explanation;
         }
 
         public int SeasonYear { get; }
@@ -49,6 +51,7 @@ namespace Baseball.Core.Growth
         public int MaximumAbsenceDays { get; }
         public double CalculatedRisk { get; }
         public ulong RandomSeed { get; }
+        public DecisionExplanation Explanation { get; }
         public InjuryTreatmentChoice? TreatmentChoice { get; private set; }
 
         public void ChooseTreatment(InjuryTreatmentChoice choice)

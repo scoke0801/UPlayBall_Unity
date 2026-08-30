@@ -138,6 +138,8 @@ namespace Baseball.Simulation.Growth
             if (rarity < minimumRarity)
                 rarity = minimumRarity;
             SkillBlockDefinition definition = SelectDefinition(category, rarity, random);
+            if (rarity >= SkillBlockRarity.Unique && HasExcessUnplacedDuplicate(board, definition))
+                definition = SelectDefinition(category, rarity, random, definition.BlockId);
             board.RecordPull(definition.Rarity);
             SkillBlockInstance result = board.AddOwnedBlock(definition.BlockId);
             if (definition.Rarity >= SkillBlockRarity.Unique)
@@ -175,26 +177,51 @@ namespace Baseball.Simulation.Growth
         private SkillBlockDefinition SelectDefinition(
             SkillBlockCategory category,
             SkillBlockRarity rarity,
-            IRandomSource random)
+            IRandomSource random,
+            string excludedBlockId = "")
         {
             int count = 0;
             for (int index = 0; index < _definitions.Length; index++)
             {
-                if (_definitions[index].Category == category && _definitions[index].Rarity == rarity)
+                if (_definitions[index].Category == category &&
+                    _definitions[index].Rarity == rarity &&
+                    !string.Equals(_definitions[index].BlockId, excludedBlockId, StringComparison.Ordinal))
                     count++;
             }
+            if (count == 0 && !string.IsNullOrEmpty(excludedBlockId))
+                return SelectDefinition(category, rarity, random);
             if (count == 0)
                 throw new InvalidOperationException($"{category} 계통의 {rarity} 블록 풀이 비어 있습니다.");
 
             int selected = Math.Min((int)(random.NextDouble() * count), count - 1);
             for (int index = 0; index < _definitions.Length; index++)
             {
-                if (_definitions[index].Category != category || _definitions[index].Rarity != rarity)
+                if (_definitions[index].Category != category ||
+                    _definitions[index].Rarity != rarity ||
+                    string.Equals(_definitions[index].BlockId, excludedBlockId, StringComparison.Ordinal))
                     continue;
                 if (selected-- == 0)
                     return _definitions[index];
             }
             throw new InvalidOperationException("스킬 블록 선택에 실패했습니다.");
+        }
+
+        private bool HasExcessUnplacedDuplicate(
+            SkillBoardState board,
+            SkillBlockDefinition candidate)
+        {
+            int duplicateCount = 0;
+            for (int index = 0; index < board.OwnedBlocks.Count; index++)
+            {
+                SkillBlockDefinition owned = FindDefinition(board.OwnedBlocks[index].DefinitionId);
+                if (owned.Rarity == candidate.Rarity && owned.Category == candidate.Category)
+                {
+                    duplicateCount++;
+                    if (duplicateCount >= 2)
+                        return true;
+                }
+            }
+            return false;
         }
 
         private SkillBlockDefinition FindDefinition(string definitionId)

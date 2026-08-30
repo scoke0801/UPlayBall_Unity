@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
+using Baseball.Core.Rules;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
 
@@ -31,7 +32,9 @@ namespace Baseball.Game.Career
         /// </summary>
         public SeasonUsageSummary Build(
             PlayerPosition position,
-            PlayerSeasonStatisticsState statistics)
+            PlayerSeasonStatisticsState statistics,
+            bool isStarter = true,
+            double competitorGap = 0d)
         {
             if (statistics == null)
                 throw new ArgumentNullException(nameof(statistics));
@@ -40,13 +43,15 @@ namespace Baseball.Game.Career
             AbilityWeight[] weights = position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher
                 ? BuildPitcherWeights(position)
                 : BuildBatterWeights(position);
-            return new SeasonUsageSummary(usageRatio, weights);
+            return new SeasonUsageSummary(usageRatio, weights, isStarter, competitorGap);
         }
 
         /// <summary>리그 전역 원본 기록에서 AI 선수의 실제 출장량과 성장 가중치를 계산한다.</summary>
         public SeasonUsageSummary Build(
             PlayerPosition position,
-            PlayerCompetitionStatisticsState statistics)
+            PlayerCompetitionStatisticsState statistics,
+            bool isStarter = true,
+            double competitorGap = 0d)
         {
             if (statistics == null)
                 throw new ArgumentNullException(nameof(statistics));
@@ -66,7 +71,7 @@ namespace Baseball.Game.Career
             AbilityWeight[] weights = position is PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher
                 ? BuildPitcherWeights(position)
                 : BuildBatterWeights(position);
-            return new SeasonUsageSummary(usageRatio, weights);
+            return new SeasonUsageSummary(usageRatio, weights, isStarter, competitorGap);
         }
 
         private double CalculateUsageRatio(
@@ -230,9 +235,10 @@ namespace Baseball.Game.Career
             if (_career.MyPlayer.GrowthState == null)
                 throw new InvalidOperationException("커리어 선수의 성장 상태가 필요합니다.");
 
-            _naturalDevelopmentResolver = new NaturalDevelopmentResolver(balance.Growth);
-            _agingResolver = new AgingResolver(balance.Growth);
-            _offseasonScheduler = new OffseasonScheduler(balance.Growth);
+            SimulationVersionStamp stamp = _career.CurrentLeague.CurrentSeason.VersionStamp;
+            _naturalDevelopmentResolver = new NaturalDevelopmentResolver(balance.Growth, stamp);
+            _agingResolver = new AgingResolver(balance.Growth, stamp);
+            _offseasonScheduler = new OffseasonScheduler(balance.Growth, stamp);
         }
 
         /// <summary>
@@ -256,6 +262,9 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("이미 진행 중인 오프시즌이 있습니다.");
 
             PlayerGrowthState growth = _career.MyPlayer.GrowthState;
+            mandatoryRehabWeeks = Math.Max(
+                mandatoryRehabWeeks,
+                CalculateMandatoryRehabilitationWeeks(growth, season.Year));
             int[] abilitiesBefore = growth.BaseAbilities.ToArray();
             ulong seasonStream = ((ulong)(uint)season.SeasonId << 32) | (uint)growth.PlayerId;
             ulong naturalSeed = DeterministicSeed.Derive(
@@ -294,7 +303,23 @@ namespace Baseball.Game.Career
                 season.Year,
                 _balance.Growth.OffseasonWeeks,
                 growth.Condition,
-                mandatoryRehabWeeks);
+                mandatoryRehabWeeks,
+                CareerTrainingAccess.GetAccessTier(
+                    _career.Reputation.HighestReachedTier,
+                    _balance.Growth.Progression),
+                CareerTrainingAccess.GetAccessTier(
+                    season.LeagueLevel,
+                    _balance.Growth.Progression),
+                _career.GrowthMilestones.AdditionalProgramCandidates,
+                _career.GrowthMilestones.HasSeasonalRepetitionWaiver
+                    ? _balance.Growth.Progression.RepetitionPenaltyWaivers
+                    : 0,
+                _career.GrowthMilestones.CanRedirectTrainingGrowth
+                    ? FindDefaultMasterFocusAbility(growth)
+                    : null,
+                _career.GrowthMilestones.IsLegacyTraitConversionUnlocked);
+            PlanMandatoryRehabilitation(offseason, growth, mandatoryRehabWeeks);
+            _career.MyPlayer.SkillBoardState.UnlockForOffseason();
             if (season.Review?.Step == SeasonReviewStep.SeasonSummary)
                 season.Review.MarkIncomeSettlementReady();
             else
@@ -324,7 +349,9 @@ namespace Baseball.Game.Career
                                                     nameof(programId));
             if (!CareerTrainingAccess.CanAccess(
                     program,
-                    _career.CurrentLeague.CurrentSeason.LeagueLevel))
+                    _career.CurrentLeague.CurrentSeason.LeagueLevel,
+                    _career.Reputation.HighestReachedTier,
+                    _balance.Growth.Progression))
             {
                 throw new InvalidOperationException("현재 리그에서 해금되지 않은 성장 프로그램입니다.");
             }
@@ -374,9 +401,23 @@ namespace Baseball.Game.Career
                 _career.MyPlayer.StudyState,
                 activityId,
                 new Pcg32Random(activity.RandomSeed));
+            UnlockLegacyTrait(activity.ProgramId, offseason, _career.MyPlayer.GrowthState);
             _career.MyPlayer.SynchronizeFromGrowthState();
             new RetirementRecapService(_balance).RecordGrowthResult(_career, result);
             return result;
+        }
+
+        public void SetMasterFocusAbility(PlayerAbility ability)
+        {
+            OffseasonState offseason = RequireOffseason();
+            if (!_career.GrowthMilestones.CanRedirectTrainingGrowth)
+                throw new InvalidOperationException("Master 리그 최초 진출 후 사용할 수 있습니다.");
+            bool matchesPlayerType = _career.MyPlayer.GrowthState.PlayerType == PlayerType.Batter
+                ? PlayerAbilityCatalog.IsBatterAbility(ability)
+                : PlayerAbilityCatalog.IsPitcherAbility(ability);
+            if (!matchesPlayerType)
+                throw new InvalidOperationException("현재 선수 유형에 맞지 않는 집중 능력입니다.");
+            offseason.SetMasterFocusAbility(ability);
         }
 
         /// <summary>
@@ -429,6 +470,77 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("진행 중인 오프시즌이 없습니다.");
             }
             return _career.CurrentOffseason;
+        }
+
+        private void PlanMandatoryRehabilitation(
+            OffseasonState offseason,
+            PlayerGrowthState growth,
+            int mandatoryWeeks)
+        {
+            for (int week = 1; week <= mandatoryWeeks; week++)
+            {
+                _offseasonScheduler.PlanActivity(
+                    offseason,
+                    _career.Economy,
+                    growth,
+                    "mandatory_rehab",
+                    week,
+                    TrainingIntensity.Standard);
+            }
+        }
+
+        private static int CalculateMandatoryRehabilitationWeeks(
+            PlayerGrowthState growth,
+            int seasonYear)
+        {
+            int maximumAbsenceDays = 0;
+            for (int index = growth.InjuryHistory.Count - 1; index >= 0; index--)
+            {
+                InjuryRecord injury = growth.InjuryHistory[index];
+                if (injury.SeasonYear < seasonYear)
+                    break;
+                if (injury.SeasonYear == seasonYear)
+                    maximumAbsenceDays = Math.Max(maximumAbsenceDays, injury.MaximumAbsenceDays);
+            }
+            if (maximumAbsenceDays < 21)
+                return 0;
+            return Math.Min(12, Math.Max(1, (int)Math.Ceiling(maximumAbsenceDays / 30d)));
+        }
+
+        private static PlayerAbility FindDefaultMasterFocusAbility(PlayerGrowthState growth)
+        {
+            PlayerAbility selected = growth.PlayerType == PlayerType.Batter
+                ? PlayerAbility.Contact
+                : PlayerAbility.Control;
+            int selectedGap = -1;
+            for (int index = 0; index < PlayerAbilityCatalog.AbilityCount; index++)
+            {
+                PlayerAbility ability = (PlayerAbility)index;
+                bool valid = growth.PlayerType == PlayerType.Batter
+                    ? PlayerAbilityCatalog.IsBatterAbility(ability)
+                    : PlayerAbilityCatalog.IsPitcherAbility(ability);
+                if (!valid)
+                    continue;
+                int gap = growth.PotentialByAbility.Get(ability) - growth.BaseAbilities.Get(ability);
+                if (gap <= selectedGap)
+                    continue;
+                selected = ability;
+                selectedGap = gap;
+            }
+            return selected;
+        }
+
+        private static void UnlockLegacyTrait(
+            string programId,
+            OffseasonState offseason,
+            PlayerGrowthState growth)
+        {
+            if (!offseason.IsLegacyTraitConversionUnlocked)
+                return;
+            if (string.Equals(programId, "legacy_batter_mastery", StringComparison.Ordinal))
+                growth.UnlockLegacyTrait(SkillTraitIds.ScoringPositionFocus);
+            else if (string.Equals(programId, "legacy_pitcher_mastery", StringComparison.Ordinal))
+                growth.UnlockLegacyTrait(SkillTraitIds.CrisisManagement);
         }
 
         private static PlannedOffseasonActivity FindActivity(OffseasonState offseason, int activityId)

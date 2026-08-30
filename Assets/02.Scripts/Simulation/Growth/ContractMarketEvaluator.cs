@@ -1,3 +1,4 @@
+using System;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 
@@ -17,12 +18,53 @@ namespace Baseball.Simulation.Growth
 
         public double Evaluate(ContractMarketInput input)
         {
-            return input.RecentPerformance * _balance.RecentPerformance +
-                   input.StableAbility * _balance.StableAbility +
-                   input.AgeAndGrowthOutlook * _balance.AgeAndOutlook +
-                   input.Durability * _balance.Durability +
-                   input.PositionScarcity * _balance.PositionScarcity +
-                   input.TeamNeed * _balance.TeamNeed;
+            return EvaluateDetailed(input).Score;
+        }
+
+        public ContractMarketEvaluationResult EvaluateDetailed(ContractMarketInput input)
+        {
+            var factors = new[]
+            {
+                CreateFactor(DecisionReasonCode.RecentPerformance, input.RecentPerformance, _balance.RecentPerformance, 1),
+                CreateFactor(DecisionReasonCode.StableAbility, input.StableAbility, _balance.StableAbility, 2),
+                CreateFactor(DecisionReasonCode.GrowthOutlook, input.AgeAndGrowthOutlook, _balance.AgeAndOutlook, 3),
+                CreateFactor(DecisionReasonCode.Durability, input.Durability, _balance.Durability, 4),
+                CreateFactor(DecisionReasonCode.PositionScarcity, input.PositionScarcity, _balance.PositionScarcity, 5),
+                CreateFactor(DecisionReasonCode.TeamNeed, input.TeamNeed, _balance.TeamNeed, 6)
+            };
+            double score = 0d;
+            int strongest = 0;
+            for (int index = 0; index < factors.Length; index++)
+            {
+                score += factors[index].Contribution;
+                if (factors[index].Contribution > factors[strongest].Contribution)
+                    strongest = index;
+            }
+            return new ContractMarketEvaluationResult(
+                score,
+                new DecisionExplanation(
+                    DecisionType.Contract,
+                    factors[strongest].ReasonCode,
+                    factors,
+                    Array.Empty<double>(),
+                    new[] { RecommendedActionCode.ImproveCoreAbility },
+                    rulesVersion: 1));
+        }
+
+        private static DecisionFactor CreateFactor(
+            DecisionReasonCode code,
+            double value,
+            double weight,
+            int priority)
+        {
+            return new DecisionFactor(
+                code,
+                value,
+                value,
+                weight,
+                value * weight,
+                DecisionDirection.Positive,
+                priority);
         }
     }
 }

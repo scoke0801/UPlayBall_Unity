@@ -11,6 +11,7 @@ namespace Baseball.Core.Players
         private const int EmergencyPositionProficiency = 35;
         private readonly PositionProficiency[] _secondaryPositions;
         private readonly PitchRepertoireEntry[] _pitchRepertoire;
+        private readonly string[] _traitIds;
 
         /// <summary>
         /// 경기에서 사용할 선수 정보를 생성한다.
@@ -25,7 +26,8 @@ namespace Baseball.Core.Players
             PitcherAttributes pitcherAttributes,
             IReadOnlyList<PositionProficiency> secondaryPositions = null,
             string nationality = "",
-            IReadOnlyList<PitchRepertoireEntry> pitchRepertoire = null)
+            IReadOnlyList<PitchRepertoireEntry> pitchRepertoire = null,
+            IReadOnlyList<string> traitIds = null)
         {
             if (playerId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(playerId), "PlayerId는 양수여야 합니다.");
@@ -46,6 +48,7 @@ namespace Baseball.Core.Players
             PitcherAttributes = pitcherAttributes;
             _secondaryPositions = CopySecondaryPositions(secondaryPositions, primaryPosition);
             _pitchRepertoire = CopyPitchRepertoire(pitchRepertoire);
+            _traitIds = CopyTraitIds(traitIds);
         }
 
         public int PlayerId { get; }
@@ -58,6 +61,18 @@ namespace Baseball.Core.Players
         public PitcherAttributes PitcherAttributes { get; }
         public IReadOnlyList<PositionProficiency> SecondaryPositions => _secondaryPositions;
         public IReadOnlyList<PitchRepertoireEntry> PitchRepertoire => _pitchRepertoire;
+        public IReadOnlyList<string> TraitIds => _traitIds;
+
+        public bool HasTrait(string traitId)
+        {
+            if (string.IsNullOrEmpty(traitId)) return false;
+            for (int index = 0; index < _traitIds.Length; index++)
+            {
+                if (string.Equals(_traitIds[index], traitId, StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
 
         /// <summary>같은 경기 능력치에 커리어에서 확정한 구종 목록을 결합한다.</summary>
         public Player WithPitchRepertoire(IReadOnlyList<PitchRepertoireEntry> pitchRepertoire)
@@ -72,7 +87,28 @@ namespace Baseball.Core.Players
                 PitcherAttributes,
                 _secondaryPositions,
                 Nationality,
-                pitchRepertoire);
+                pitchRepertoire,
+                _traitIds);
+        }
+
+        private static string[] CopyTraitIds(IReadOnlyList<string> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<string>();
+            var result = new string[source.Count];
+            for (int index = 0; index < source.Count; index++)
+            {
+                string value = source[index]?.Trim() ?? string.Empty;
+                if (value.Length == 0)
+                    throw new ArgumentException("TraitId는 비어 있을 수 없습니다.", nameof(source));
+                for (int previous = 0; previous < index; previous++)
+                {
+                    if (string.Equals(result[previous], value, StringComparison.Ordinal))
+                        throw new ArgumentException("TraitId는 중복될 수 없습니다.", nameof(source));
+                }
+                result[index] = value;
+            }
+            return result;
         }
 
         /// <summary>

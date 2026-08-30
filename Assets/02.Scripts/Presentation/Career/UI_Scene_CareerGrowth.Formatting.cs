@@ -4,6 +4,7 @@ using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Simulation.Growth;
 using UnityEngine;
 
 namespace Baseball.Presentation.Career
@@ -162,6 +163,16 @@ namespace Baseball.Presentation.Career
             var builder = new StringBuilder();
             AppendAbilityChanges(builder, record.AbilityChanges, potential: false);
             AppendAbilityChanges(builder, record.PotentialChanges, potential: true);
+            if (record.PeakChanges != null)
+            {
+                for (int index = 0; index < record.PeakChanges.Length; index++)
+                {
+                    AppendSeparator(builder);
+                    builder.Append(GetAbilityLabel(record.PeakChanges[index].Ability));
+                    builder.Append(" Peak ");
+                    AppendSigned(builder, record.PeakChanges[index].Amount);
+                }
+            }
             if (record.ConditionChange != 0)
             {
                 AppendSeparator(builder);
@@ -207,14 +218,54 @@ namespace Baseball.Presentation.Career
             for (int index = 0; index < visible.Length; index++)
             {
                 int bonus = growth.BoardBonuses[(int)visible[index]];
+                int rawBonus = growth.RawBoardBonuses[(int)visible[index]];
                 if (bonus <= 0)
                     continue;
                 AppendSeparator(builder);
                 builder.Append(GetAbilityLabel(visible[index]));
                 builder.Append(" +");
+                if (rawBonus > bonus)
+                {
+                    builder.Append(rawBonus);
+                    builder.Append('→');
+                }
                 builder.Append(bonus);
             }
-            return builder.Length == 0 ? "장착 보너스 없음" : builder.ToString();
+            if (builder.Length == 0)
+                return "장착 보너스 없음";
+            int total = 0;
+            for (int index = 0; index < growth.BoardBonuses.Length; index++)
+                total += growth.BoardBonuses[index];
+            builder.Append(" · 전체 ");
+            builder.Append(total);
+            builder.Append('/');
+            builder.Append(SkillBoardService.MaximumTotalAbilityBonus);
+            if (growth.ActiveTraitIds != null && growth.ActiveTraitIds.Length > 0)
+            {
+                builder.Append("\nTrait ");
+                for (int index = 0; index < growth.ActiveTraitIds.Length; index++)
+                {
+                    if (index > 0) builder.Append(" · ");
+                    builder.Append(GetTraitLabel(growth.ActiveTraitIds[index]));
+                }
+            }
+            return builder.ToString();
+        }
+
+        private static string GetTraitLabel(string traitId)
+        {
+            return traitId switch
+            {
+                SkillTraitIds.TwoStrikeContact => "2스트라이크 대응",
+                SkillTraitIds.ScoringPositionPower => "득점권 장타",
+                SkillTraitIds.AggressiveBaserunning => "공격 주루",
+                SkillTraitIds.DefensiveFocus => "수비 집중",
+                SkillTraitIds.ScoringPositionFocus => "득점권 집중",
+                SkillTraitIds.LateInningStuff => "후반 구위",
+                SkillTraitIds.CrisisManagement => "위기 관리",
+                SkillTraitIds.LongOutingAdaptation => "긴 이닝 적응",
+                _ => traitId
+            };
         }
 
         private static Color GetDominantBonusColor(CareerGrowthView growth)
@@ -447,10 +498,98 @@ namespace Baseball.Presentation.Career
                     ? $" · Potential {program.PotentialBreakthroughProbability:P0} · 정체 시 돌파 보장"
                     : $" · Potential {program.PotentialBreakthroughProbability:P0}"
                 : string.Empty;
+            string repetition = program.RepetitionMultiplier < 0.999d
+                ? $" · 반복 페널티 ×{program.RepetitionMultiplier:0.00}"
+                : string.Empty;
+            string roleImpact = program.EstimatedRoleScoreGain > 0d
+                ? $" · 역할 점수 최대 +{program.EstimatedRoleScoreGain:0.0} 예상"
+                : string.Empty;
+            string locked = string.IsNullOrEmpty(program.UnavailableReason)
+                ? string.Empty
+                : $"\n잠금: {program.UnavailableReason}";
             return $"{GetProgramLabel(program.ProgramId)} · {program.DurationWeeks}주 · " +
                 $"{FormatMoney(program.MoneyCost)} · 남은 {program.RemainingWeeksBefore}→" +
                    $"{program.RemainingWeeksAfter}주 · 컨디션 {program.ConditionBefore}→" +
-                   $"{program.ConditionAfter} · {growthRange} · {risk}{breakthrough}";
+                   $"{program.ConditionAfter} · {growthRange} · {risk}{breakthrough}" +
+                   $"{repetition}{roleImpact}{locked}";
+        }
+
+        private static string GetExpectedRoleLabel(ExpectedRole role)
+        {
+            return role switch
+            {
+                ExpectedRole.StartingCompetition => "주전",
+                ExpectedRole.RosterCompetition => "로테이션",
+                _ => "백업"
+            };
+        }
+
+        private static string FormatDecisionExplanation(DecisionExplanation explanation, int maximumFactors = 3)
+        {
+            if (explanation == null || explanation.Factors.Length == 0)
+                return "아직 역할 평가 근거가 없습니다.";
+            var factors = (DecisionFactor[])explanation.Factors.Clone();
+            Array.Sort(factors, (left, right) =>
+            {
+                int priority = left.Priority.CompareTo(right.Priority);
+                return priority != 0
+                    ? priority
+                    : Math.Abs(right.Contribution).CompareTo(Math.Abs(left.Contribution));
+            });
+            var builder = new StringBuilder();
+            int count = Math.Min(maximumFactors, factors.Length);
+            for (int index = 0; index < count; index++)
+            {
+                if (index > 0) builder.Append(" · ");
+                builder.Append(GetDecisionReasonLabel(factors[index].ReasonCode));
+                builder.Append(' ');
+                builder.Append(factors[index].Contribution >= 0d ? '+' : '-');
+                builder.Append(Math.Abs(factors[index].Contribution).ToString("0.0"));
+            }
+            if (explanation.RecommendedActions.Length > 0)
+            {
+                builder.Append("\n추천: ");
+                builder.Append(GetRecommendedActionLabel(explanation.RecommendedActions[0]));
+            }
+            return builder.ToString();
+        }
+
+        private static string GetDecisionReasonLabel(DecisionReasonCode reason)
+        {
+            return reason switch
+            {
+                DecisionReasonCode.CurrentAbility => "현재 기량",
+                DecisionReasonCode.PositionFit => "포지션 적합도",
+                DecisionReasonCode.RecentPerformance => "최근 성과",
+                DecisionReasonCode.Condition => "컨디션",
+                DecisionReasonCode.ManagerTrust => "감독 신뢰",
+                DecisionReasonCode.GrowthOutlook => "성장 전망",
+                DecisionReasonCode.IncumbentBonus => "기존 주전 보정",
+                DecisionReasonCode.CompetitorScore => "경쟁자 전력",
+                DecisionReasonCode.AgeCurve => "나이 곡선",
+                DecisionReasonCode.PotentialGap => "Potential 여유",
+                DecisionReasonCode.WorkEthic => "Work Ethic",
+                DecisionReasonCode.TrainingFit => "훈련 적합도",
+                DecisionReasonCode.RepetitionPenalty => "반복 페널티",
+                DecisionReasonCode.UsageExposure => "출장 경험",
+                DecisionReasonCode.CatchUpSupport => "따라잡기 보정",
+                DecisionReasonCode.RecoveryProtection => "휴식·재활 보호",
+                _ => reason.ToString()
+            };
+        }
+
+        private static string GetRecommendedActionLabel(RecommendedActionCode action)
+        {
+            return action switch
+            {
+                RecommendedActionCode.ImproveCoreAbility => "핵심 능력 보완",
+                RecommendedActionCode.ImprovePositionFit => "포지션 적합도 강화",
+                RecommendedActionCode.RestoreCondition => "컨디션 회복",
+                RecommendedActionCode.EarnPlayingTime => "출장 기회 확보",
+                RecommendedActionCode.ReduceTrainingRepetition => "훈련 종류 변경",
+                RecommendedActionCode.ChooseRecovery => "휴식·재활 선택",
+                _ => action.ToString()
+            };
         }
 
         private static Color GetProgramColor(OffseasonActivityType type)

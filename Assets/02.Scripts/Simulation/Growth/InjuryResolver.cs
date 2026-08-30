@@ -19,14 +19,61 @@ namespace Baseball.Simulation.Growth
 
         public double CalculateRisk(InjuryRiskInput input)
         {
+            return EvaluateRisk(input).Risk;
+        }
+
+        public InjuryRiskEvaluationResult EvaluateRisk(InjuryRiskInput input)
+        {
             double fatigueRisk = input.Fatigue / 100d * _balance.FatigueRiskAtMaximum;
             double ageRisk = Math.Max(0, input.Age - _balance.AgeRiskStart) * _balance.AgeRiskPerYear;
             double workloadRisk = Math.Max(0d, input.RecentWorkloadRatio - 1d) * _balance.WorkloadRiskAtDouble;
             double trainingRisk = input.TrainingIntensity * _balance.TrainingRiskAtMaximum;
             double existingRisk = input.HasExistingInjury ? _balance.ExistingInjuryRisk : 0d;
             double durabilityReduction = input.Durability / 100d * _balance.DurabilityReductionAtMaximum;
-            return ClampProbability(
+            double risk = ClampProbability(
                 _balance.BaseRisk + fatigueRisk + ageRisk + workloadRisk + trainingRisk + existingRisk - durabilityReduction);
+            var factors = new[]
+            {
+                CreateFactor(DecisionReasonCode.BaseRisk, _balance.BaseRisk, _balance.BaseRisk, 1),
+                CreateFactor(DecisionReasonCode.Fatigue, input.Fatigue, fatigueRisk, 2),
+                CreateFactor(DecisionReasonCode.AgeCurve, input.Age, ageRisk, 3),
+                CreateFactor(DecisionReasonCode.Workload, input.RecentWorkloadRatio, workloadRisk, 4),
+                CreateFactor(DecisionReasonCode.TrainingIntensity, input.TrainingIntensity, trainingRisk, 5),
+                CreateFactor(DecisionReasonCode.ExistingInjury, input.HasExistingInjury ? 1d : 0d, existingRisk, 6),
+                new DecisionFactor(
+                    DecisionReasonCode.Durability,
+                    input.Durability,
+                    input.Durability,
+                    _balance.DurabilityReductionAtMaximum,
+                    -durabilityReduction,
+                    durabilityReduction > 0d ? DecisionDirection.Negative : DecisionDirection.Neutral,
+                    7)
+            };
+            DecisionReasonCode summary = DecisionReasonCode.BaseRisk;
+            double strongest = _balance.BaseRisk;
+            for (int index = 1; index < factors.Length - 1; index++)
+            {
+                if (factors[index].Contribution <= strongest)
+                    continue;
+                strongest = factors[index].Contribution;
+                summary = factors[index].ReasonCode;
+            }
+            var actions = input.HasExistingInjury
+                ? new[] { RecommendedActionCode.SeekTreatment, RecommendedActionCode.ChooseRecovery }
+                : input.Fatigue >= 70 || input.RecentWorkloadRatio > 1.2d
+                    ? new[] { RecommendedActionCode.ReduceWorkload, RecommendedActionCode.ChooseRecovery }
+                    : input.TrainingIntensity >= 0.7d
+                        ? new[] { RecommendedActionCode.ChooseRecovery }
+                        : Array.Empty<RecommendedActionCode>();
+            return new InjuryRiskEvaluationResult(
+                risk,
+                new DecisionExplanation(
+                    DecisionType.Injury,
+                    summary,
+                    factors,
+                    new[] { risk },
+                    actions,
+                    rulesVersion: 1));
         }
 
         public InjuryRecord Resolve(
@@ -39,7 +86,14 @@ namespace Baseball.Simulation.Growth
         {
             if (player == null) throw new ArgumentNullException(nameof(player));
             if (random == null) throw new ArgumentNullException(nameof(random));
-            double risk = CalculateRisk(input);
+            InjuryRiskEvaluationResult evaluation = EvaluateRisk(input);
+            double recoveryReduction = player.SeasonInjuryRiskReduction;
+            double risk = evaluation.Risk * (1d - recoveryReduction);
+            DecisionExplanation explanation = ApplyRecoveryProtection(
+                evaluation.Explanation,
+                evaluation.Risk,
+                risk,
+                recoveryReduction);
             if (random.NextDouble() >= risk)
                 return null;
 
@@ -52,9 +106,37 @@ namespace Baseball.Simulation.Growth
                 minimumDays,
                 maximumDays,
                 risk,
-                randomSeed);
+                randomSeed,
+                explanation);
             player.RecordInjury(record);
             return record;
+        }
+
+        private static DecisionExplanation ApplyRecoveryProtection(
+            DecisionExplanation source,
+            double originalRisk,
+            double adjustedRisk,
+            double reduction)
+        {
+            if (reduction <= 0d)
+                return source;
+            var factors = new DecisionFactor[source.Factors.Length + 1];
+            Array.Copy(source.Factors, factors, source.Factors.Length);
+            factors[^1] = new DecisionFactor(
+                DecisionReasonCode.RecoveryProtection,
+                reduction,
+                reduction,
+                1d,
+                adjustedRisk - originalRisk,
+                DecisionDirection.Negative,
+                source.Factors.Length + 1);
+            return new DecisionExplanation(
+                source.DecisionType,
+                source.SummaryReasonCode,
+                factors,
+                new[] { adjustedRisk },
+                source.RecommendedActions,
+                source.RulesVersion);
         }
 
         public void ChooseTreatment(
@@ -100,6 +182,22 @@ namespace Baseball.Simulation.Growth
         {
             if (value < 0d) return 0d;
             return value > 0.50d ? 0.50d : value;
+        }
+
+        private static DecisionFactor CreateFactor(
+            DecisionReasonCode code,
+            double rawValue,
+            double contribution,
+            int priority)
+        {
+            return new DecisionFactor(
+                code,
+                rawValue,
+                rawValue,
+                1d,
+                contribution,
+                contribution > 0d ? DecisionDirection.Positive : DecisionDirection.Neutral,
+                priority);
         }
     }
 }

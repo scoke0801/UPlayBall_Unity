@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Players;
 
 namespace Baseball.Core.Growth
 {
@@ -90,7 +91,17 @@ namespace Baseball.Core.Growth
     {
         private readonly List<PlannedOffseasonActivity> _activities;
 
-        public OffseasonState(int seasonYear, int totalWeeks, int currentCondition, int mandatoryRehabWeeks = 0)
+        public OffseasonState(
+            int seasonYear,
+            int totalWeeks,
+            int currentCondition,
+            int mandatoryRehabWeeks = 0,
+            TrainingAccessTier knowledgeTier = TrainingAccessTier.Legacy,
+            TrainingAccessTier facilityTier = TrainingAccessTier.Legacy,
+            int additionalProgramCandidates = 0,
+            int repetitionPenaltyWaivers = 0,
+            PlayerAbility? masterFocusAbility = null,
+            bool isLegacyTraitConversionUnlocked = false)
         {
             if (totalWeeks <= 0)
                 throw new ArgumentOutOfRangeException(nameof(totalWeeks));
@@ -103,6 +114,12 @@ namespace Baseball.Core.Growth
             CurrentWeek = 1;
             CurrentCondition = currentCondition;
             MandatoryRehabWeeks = mandatoryRehabWeeks;
+            KnowledgeTier = knowledgeTier;
+            FacilityTier = facilityTier;
+            AdditionalProgramCandidates = Math.Max(0, additionalProgramCandidates);
+            RepetitionPenaltyWaivers = Math.Max(0, repetitionPenaltyWaivers);
+            MasterFocusAbility = masterFocusAbility;
+            IsLegacyTraitConversionUnlocked = isLegacyTraitConversionUnlocked;
             _activities = new List<PlannedOffseasonActivity>();
         }
 
@@ -111,6 +128,18 @@ namespace Baseball.Core.Growth
         public int CurrentWeek { get; private set; }
         public int CurrentCondition { get; private set; }
         public int MandatoryRehabWeeks { get; }
+        public TrainingAccessTier KnowledgeTier { get; }
+        public TrainingAccessTier FacilityTier { get; }
+        public int AdditionalProgramCandidates { get; }
+        public int RepetitionPenaltyWaivers { get; private set; }
+        public PlayerAbility? MasterFocusAbility { get; private set; }
+        public bool IsLegacyTraitConversionUnlocked { get; }
+        public int CompletedRestWeeks { get; private set; }
+        public int CompletedRehabilitationWeeks { get; private set; }
+        public double NextSeasonInjuryRiskReduction => Math.Min(
+            0.30d,
+            (CompletedRestWeeks >= 3 ? 0.08d : 0d) + CompletedRehabilitationWeeks * 0.04d);
+        public int PhysicalDeclineProtectionPoints => CompletedRehabilitationWeeks >= 2 ? 1 : 0;
         public bool StudyUsed { get; private set; }
         public bool BoardRedesignUsed { get; private set; }
         public bool IsCompleted => CurrentWeek > TotalWeeks;
@@ -133,6 +162,33 @@ namespace Baseball.Core.Growth
             if (BoardRedesignUsed)
                 throw new InvalidOperationException("전문 재설계는 오프시즌당 한 번만 가능합니다.");
             BoardRedesignUsed = true;
+        }
+
+        public bool TryUseRepetitionPenaltyWaiver()
+        {
+            if (RepetitionPenaltyWaivers <= 0)
+                return false;
+            RepetitionPenaltyWaivers--;
+            return true;
+        }
+
+        public void SetMasterFocusAbility(PlayerAbility ability)
+        {
+            if (MasterFocusAbility == null)
+                throw new InvalidOperationException("Master 성장 집중 권한이 없습니다.");
+            if (ability < 0 || ability >= PlayerAbility.Count)
+                throw new ArgumentOutOfRangeException(nameof(ability));
+            MasterFocusAbility = ability;
+        }
+
+        public void RecordCompletedRecovery(OffseasonActivityType activityType, int durationWeeks)
+        {
+            if (durationWeeks <= 0)
+                return;
+            if (activityType == OffseasonActivityType.Rest)
+                CompletedRestWeeks += durationWeeks;
+            else if (activityType == OffseasonActivityType.Rehabilitation)
+                CompletedRehabilitationWeeks += durationWeeks;
         }
 
         public void AdvanceToWeek(int week)
@@ -159,6 +215,11 @@ namespace Baseball.Core.Growth
             {
                 if (_activities[index].Status == OffseasonActivityStatus.InProgress)
                     throw new InvalidOperationException("진행 중인 활동이 있으면 오프시즌을 마감할 수 없습니다.");
+            }
+            if (CompletedRehabilitationWeeks < MandatoryRehabWeeks)
+            {
+                throw new InvalidOperationException(
+                    $"필수 재활 {MandatoryRehabWeeks - CompletedRehabilitationWeeks}주를 먼저 완료해야 합니다.");
             }
             AdvanceToWeek(TotalWeeks + 1);
         }

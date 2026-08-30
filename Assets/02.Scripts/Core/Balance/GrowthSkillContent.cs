@@ -110,9 +110,9 @@ namespace Baseball.Core.Balance
             {
                 SkillBlockRarity.Normal => 1,
                 SkillBlockRarity.Rare => 2,
-                SkillBlockRarity.Elite => 4,
-                SkillBlockRarity.Unique => 5,
-                SkillBlockRarity.Legendary => 7,
+                SkillBlockRarity.Elite => 3,
+                SkillBlockRarity.Unique => 4,
+                SkillBlockRarity.Legendary => 5,
                 _ => throw new ArgumentOutOfRangeException(nameof(rarity))
             };
             long sellValue = rarity switch
@@ -127,6 +127,7 @@ namespace Baseball.Core.Balance
             string blockId = shapeVariant == 0
                 ? idPrefix + "_" + rarity.ToString().ToLowerInvariant()
                 : idPrefix + "_" + rarity.ToString().ToLowerInvariant() + "_v" + shapeVariant;
+            bool hasTrait = rarity >= SkillBlockRarity.Unique;
             return new SkillBlockDefinition(
                 blockId,
                 rarity,
@@ -134,7 +135,27 @@ namespace Baseball.Core.Balance
                 shapeCells,
                 canRotate: shape != TetrominoShape.O,
                 new[] { new AbilityChange(ability, bonus) },
-                sellValue);
+                sellValue,
+                hasTrait ? GetTraitId(category) : string.Empty,
+                hasTrait ? TraitSocketRule.CoversSocket : TraitSocketRule.None);
+        }
+
+        private static string GetTraitId(SkillBlockCategory category)
+        {
+            return category switch
+            {
+                SkillBlockCategory.Contact => SkillTraitIds.TwoStrikeContact,
+                SkillBlockCategory.Power => SkillTraitIds.ScoringPositionPower,
+                SkillBlockCategory.Baserunning => SkillTraitIds.AggressiveBaserunning,
+                SkillBlockCategory.Defense or SkillBlockCategory.Arm => SkillTraitIds.DefensiveFocus,
+                SkillBlockCategory.BatterMental => SkillTraitIds.ScoringPositionFocus,
+                SkillBlockCategory.Velocity or SkillBlockCategory.Breaking or SkillBlockCategory.Stuff =>
+                    SkillTraitIds.LateInningStuff,
+                SkillBlockCategory.Control or SkillBlockCategory.PitcherMental =>
+                    SkillTraitIds.CrisisManagement,
+                SkillBlockCategory.PitcherPhysical => SkillTraitIds.LongOutingAdaptation,
+                _ => throw new ArgumentOutOfRangeException(nameof(category))
+            };
         }
 
         /// <summary>

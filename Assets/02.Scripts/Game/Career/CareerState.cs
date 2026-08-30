@@ -53,6 +53,8 @@ namespace Baseball.Game.Career
                 MyPlayer.ReplaceActiveContract(currentContract.ContractId, currentContract.CurrentLeagueId);
             Economy = new CareerEconomyState(availableMoney);
             TradeState = new PlayerTradeState();
+            RoleState = new CareerRoleState();
+            GrowthMilestones = new CareerGrowthMilestoneState();
             News = new CareerNewsState(saveVersion);
             Narrative = new CareerNarrativeState(saveVersion);
             Retirement = new CareerRetirementState(saveVersion);
@@ -85,6 +87,8 @@ namespace Baseball.Game.Career
         public PlayerContractState CurrentContract { get; private set; }
         public CareerEconomyState Economy { get; }
         public PlayerTradeState TradeState { get; }
+        public CareerRoleState RoleState { get; private set; }
+        public CareerGrowthMilestoneState GrowthMilestones { get; private set; }
         public CareerNewsState News { get; }
         public CareerNarrativeState Narrative { get; }
         public CareerRetirementState Retirement { get; }
@@ -94,11 +98,18 @@ namespace Baseball.Game.Career
         public OffseasonState CurrentOffseason { get; private set; }
         public long AvailableMoney => Economy.Money;
         public Baseball.Core.Teams.ExpectedRole CurrentExpectedRole =>
-            TradeState.CurrentTeamRole ?? CurrentContract.ExpectedRole;
+            RoleState.ActiveRole ?? TradeState.CurrentTeamRole ?? CurrentContract.ExpectedRole;
         public IReadOnlyList<PlayerContractState> ContractHistory => _contractHistory;
         public IReadOnlyList<CareerSeasonHistoryRecord> SeasonHistory => _seasonHistory;
 
         public bool HasResolvedExtension(int seasonId) => _resolvedExtensionSeasonIds.Contains(seasonId);
+
+        /// <summary>v15 이전 세이브에 존재하지 않던 역할·승격 성장 상태를 생성한다.</summary>
+        public void EnsureVersion15State()
+        {
+            RoleState ??= new CareerRoleState();
+            GrowthMilestones ??= new CareerGrowthMilestoneState();
+        }
 
         public void ResolveExtension(int seasonId)
         {

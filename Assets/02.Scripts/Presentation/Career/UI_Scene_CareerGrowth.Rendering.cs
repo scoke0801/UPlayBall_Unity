@@ -115,8 +115,11 @@ namespace Baseball.Presentation.Career
                 RenderAttributeRow(
                     panel,
                     ability,
-                    growth.StableAbilities[(int)ability],
+                    growth.BaseAbilities[(int)ability],
+                    growth.PotentialAbilities[(int)ability],
                     growth.BoardBonuses[(int)ability],
+                    growth.PeakBonuses[(int)ability],
+                    growth.CurrentAbilities[(int)ability],
                     new Vector2(0f, 25f - index * 31f));
             }
 
@@ -293,7 +296,7 @@ namespace Baseball.Presentation.Career
                 "Title", bonusBand, "적용 중 보너스", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(120f, 28f), new Vector2(-245f, 0f), SecondaryTextColor);
             CreateText(
-                "Values", bonusBand, FormatBoardBonuses(growth), 16, FontStyle.Bold,
+                "Values", bonusBand, FormatBoardBonuses(growth), 13, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(455f, 36f), new Vector2(65f, 0f),
                 GetDominantBonusColor(growth));
 
@@ -776,8 +779,9 @@ namespace Baseball.Presentation.Career
                 return Array.Empty<GrowthProgramView>();
             int pageCount = GetProgramPageCount(growth);
             int safePage = Math.Max(0, Math.Min(page, pageCount - 1));
-            int start = safePage * ProgramPageSize;
-            int count = Math.Min(ProgramPageSize, growth.Programs.Length - start);
+            int pageSize = ProgramPageSize + Math.Max(0, growth.AdditionalProgramCandidates);
+            int start = safePage * pageSize;
+            int count = Math.Min(pageSize, growth.Programs.Length - start);
             var result = new GrowthProgramView[count];
             Array.Copy(growth.Programs, start, result, 0, count);
             return result;
@@ -786,14 +790,18 @@ namespace Baseball.Presentation.Career
         private static int GetProgramPageCount(CareerGrowthView growth)
         {
             int count = growth?.Programs?.Length ?? 0;
-            return Math.Max(1, (count + ProgramPageSize - 1) / ProgramPageSize);
+            int pageSize = ProgramPageSize + Math.Max(0, growth?.AdditionalProgramCandidates ?? 0);
+            return Math.Max(1, (count + pageSize - 1) / pageSize);
         }
 
         private static void RenderAttributeRow(
             Transform parent,
             PlayerAbility ability,
-            int value,
-            int bonus,
+            int baseValue,
+            int potential,
+            int skillBonus,
+            int peakBonus,
+            int currentValue,
             Vector2 position)
         {
             CreateText(
@@ -801,13 +809,15 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleLeft, new Vector2(74f, 24f), new Vector2(-185f, position.y),
                 SecondaryTextColor);
             CreateProgressBar(
-                parent, value / 100f, new Vector2(245f, 10f), new Vector2(7f, position.y),
-                GetRatingColor(value));
-            string valueText = bonus > 0 ? $"{value}  (+{bonus})" : value.ToString();
+                parent, currentValue / 100f, new Vector2(190f, 10f), new Vector2(-25f, position.y),
+                GetRatingColor(currentValue));
+            string valueText = $"{currentValue}  B{baseValue}/P{potential}";
+            if (skillBonus > 0 || peakBonus > 0)
+                valueText += $" +{skillBonus}|{peakBonus}";
             CreateText(
                 ability + "Value", parent, valueText, 13, FontStyle.Bold,
-                TextAnchor.MiddleRight, new Vector2(86f, 24f), new Vector2(179f, position.y),
-                bonus > 0 ? GreenColor : GetRatingColor(value));
+                TextAnchor.MiddleRight, new Vector2(145f, 24f), new Vector2(150f, position.y),
+                skillBonus > 0 || peakBonus > 0 ? GreenColor : GetRatingColor(currentValue));
         }
 
         private static void CreateStatusValue(Transform parent, string label, int value)
@@ -830,8 +840,7 @@ namespace Baseball.Presentation.Career
             Vector2 position,
             Vector2 size)
         {
-            RectTransform segment = CreateImage(
-                eyebrow + "Segment", parent, new Color(0.02f, 0.07f, 0.12f, 0.76f), size, position);
+            RectTransform segment = CreateRect(eyebrow + "Segment", parent, size, position);
             CreateImage(
                 "LeftDivider", segment, DividerColor, new Vector2(2f, size.y - 10f),
                 new Vector2(-size.x * 0.5f + 1f, 0f));
@@ -850,31 +859,32 @@ namespace Baseball.Presentation.Career
             Vector2 size,
             Vector2 position)
         {
-            CreateImage(
-                name + "Shadow", _content, new Color(0f, 0f, 0f, 0.68f),
-                size + new Vector2(8f, 8f), position + new Vector2(4f, -5f));
-            RectTransform panel = CreateImage(name, _content, BorderColor, size, position);
-            RectTransform surface = CreateImage(
-                "Surface", panel, PanelColor, Vector2.zero, Vector2.zero, stretch: true);
-            surface.offsetMin = new Vector2(3f, 3f);
-            surface.offsetMax = new Vector2(-3f, -3f);
-
-            RectTransform header = CreateImage(
-                "Header", panel, new Color(0.024f, 0.11f, 0.19f, 1f),
-                new Vector2(size.x - 8f, 50f), new Vector2(0f, size.y * 0.5f - 29f));
+            RectTransform panel = CreateRect(name, _content, size, position);
+            RectTransform decorativeFrame = CreateImage(
+                "DecorativeFrame", panel, Color.white, Vector2.zero, Vector2.zero, stretch: true);
+            MarkVisual(decorativeFrame, CareerUiVisualRole.DecorativeFrame);
+            RectTransform content = CreateRect("ContentSafeArea", panel, size, Vector2.zero);
+            RectTransform interaction = CreateRect("InteractionRoot", panel, size, Vector2.zero);
+            RectTransform header = CreateRect(
+                "HeaderRoot", panel, new Vector2(size.x - 72f, 48f),
+                new Vector2(0f, size.y * 0.5f - 54f));
             // 넓은 워크스페이스에서 선이 중앙 제목과 안내 행까지 침범하지 않도록 장식 폭을 제한한다.
             float headerLineWidth = Mathf.Min(size.x * 0.34f, 280f);
             float headerLineX = -size.x * 0.46f + headerLineWidth * 0.5f;
             CreateImage(
                 "HeaderLine", header, AccentColor, new Vector2(headerLineWidth, 2f),
-                new Vector2(headerLineX, -23f));
+                new Vector2(headerLineX, -21f));
             CreateText(
                 "Eyebrow", header, eyebrow, 10, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(size.x * 0.3f, 18f), new Vector2(-size.x * 0.33f, 11f), AccentColor);
+                new Vector2(size.x * 0.3f, 18f), new Vector2(-size.x * 0.33f, 9f), AccentColor);
             CreateText(
                 "Heading", header, title, 20, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(size.x * 0.62f, 36f), new Vector2(0f, -1f), PrimaryTextColor);
-            return panel;
+                new Vector2(size.x * 0.62f, 32f), new Vector2(0f, -7f), PrimaryTextColor);
+            CareerUiFrame frame = panel.gameObject.AddComponent<CareerUiFrame>();
+            frame.Initialize(
+                decorativeFrame.GetComponent<Image>(), header, content, interaction,
+                CareerUiTheme.UniversalFramePadding, false);
+            return content;
         }
 
         private static RectTransform CreateSection(
@@ -884,12 +894,22 @@ namespace Baseball.Presentation.Career
             Vector2 position,
             Color color)
         {
-            RectTransform frame = CreateImage(name, parent, DividerColor, size, position);
+            RectTransform section = CreateRect(name, parent, size, position);
             RectTransform surface = CreateImage(
-                "Surface", frame, color, Vector2.zero, Vector2.zero, stretch: true);
-            surface.offsetMin = new Vector2(2f, 2f);
-            surface.offsetMax = new Vector2(-2f, -2f);
-            return frame;
+                "FlatSurface", section, color, Vector2.zero, Vector2.zero, stretch: true);
+            MarkVisual(surface, CareerUiVisualRole.FlatSurface);
+            return section;
+        }
+
+        private static void MarkVisual(
+            RectTransform target,
+            CareerUiVisualRole role,
+            bool isHeroFrame = false)
+        {
+            CareerUiVisualElement visual = target.GetComponent<CareerUiVisualElement>();
+            if (visual == null)
+                visual = target.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(role, isHeroFrame);
         }
 
         private static void RenderTetromino(

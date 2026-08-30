@@ -36,7 +36,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
-        public void Resolve_일반성장은Potential보다3을초과하지않는다()
+        public void Resolve_일반성장은Base가Potential을초과하지않는다()
         {
             GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
             PlayerGrowthState player = CreateBatter(age: 18, baseRating: 70, potential: 70);
@@ -58,7 +58,8 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             new GrowthResolver(balance).Resolve(
                 player, program, 2028, 0, TrainingFitGrade.VeryHigh, 1UL, new Pcg32Random(1UL));
 
-            Assert.That(player.BaseAbilities.Get(PlayerAbility.Contact), Is.EqualTo(73));
+            Assert.That(player.BaseAbilities.Get(PlayerAbility.Contact), Is.EqualTo(70));
+            Assert.That(player.GetPeakBonus(PlayerAbility.Contact), Is.EqualTo(0));
         }
 
         [Test]
@@ -120,7 +121,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         public void Resolve_엘리트유학은모든대상능력치가개발한계여도돌파후성장을보장한다()
         {
             GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
-            PlayerGrowthState player = CreateBatter(age: 22, baseRating: 73, potential: 70);
+            PlayerGrowthState player = CreateBatter(age: 22, baseRating: 70, potential: 70);
             TrainingProgramDefinition program = balance.FindProgram("usa_elite_batting_academy");
 
             GrowthResultRecord result = new GrowthResolver(balance).Resolve(
@@ -134,7 +135,9 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
 
             Assert.That(result.PotentialChanges, Is.Not.Empty);
             Assert.That(SumAbilityChanges(result), Is.GreaterThanOrEqualTo(1));
-            Assert.That(player.BaseAbilities.Get(PlayerAbility.Power), Is.GreaterThan(73));
+            Assert.That(result.AbilityChanges, Is.Not.Empty);
+            Assert.That(player.BaseAbilities.Get(PlayerAbility.Power),
+                Is.LessThanOrEqualTo(player.PotentialByAbility.Get(PlayerAbility.Power)));
         }
 
         [Test]
@@ -180,6 +183,63 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             Assert.That(aging.SourceType, Is.EqualTo(GrowthSourceType.Aging));
             Assert.That(aging.AbilityChanges.Length, Is.GreaterThan(0));
             Assert.That(player.GrowthHistory.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void PlayerGrowthState_구세이브초과능력은현재기량손실없이Potential과Peak로이관한다()
+        {
+            PlayerGrowthState player = CreateBatter(age: 24, baseRating: 75, potential: 70);
+
+            int baseAbility = player.BaseAbilities.Get(PlayerAbility.Contact);
+            int potential = player.PotentialByAbility.Get(PlayerAbility.Contact);
+            int peak = player.GetPeakBonus(PlayerAbility.Contact);
+
+            Assert.That(baseAbility, Is.EqualTo(potential));
+            Assert.That(peak, Is.InRange(0, 3));
+            Assert.That(baseAbility + peak, Is.EqualTo(75));
+        }
+
+        [Test]
+        public void DevelopmentProgress_작은성장도이월해천포인트에서Base를올린다()
+        {
+            PlayerGrowthState player = CreateBatter(age: 20, baseRating: 60, potential: 70);
+
+            Assert.That(player.AddDevelopmentProgress(PlayerAbility.Contact, 550), Is.EqualTo(0));
+            Assert.That(player.GetDevelopmentProgress(PlayerAbility.Contact), Is.EqualTo(550));
+            Assert.That(player.AddDevelopmentProgress(PlayerAbility.Contact, 550), Is.EqualTo(1));
+            Assert.That(player.BaseAbilities.Get(PlayerAbility.Contact), Is.EqualTo(61));
+            Assert.That(player.GetDevelopmentProgress(PlayerAbility.Contact), Is.EqualTo(100));
+        }
+
+        [Test]
+        public void NaturalDevelopment_출장0도진행도를남기고출장량은체감증가한다()
+        {
+            GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
+            var weights = new[] { new AbilityWeight(PlayerAbility.Contact, 1d) };
+            PlayerGrowthState bench = CreateBatter(age: 20, baseRating: 60, potential: 80);
+            PlayerGrowthState starter = CreateBatter(age: 20, baseRating: 60, potential: 80);
+
+            new NaturalDevelopmentResolver(balance).Resolve(
+                bench,
+                new SeasonUsageSummary(0d, weights),
+                2028,
+                101UL,
+                new Pcg32Random(101UL));
+            new NaturalDevelopmentResolver(balance).Resolve(
+                starter,
+                new SeasonUsageSummary(1d, weights),
+                2028,
+                101UL,
+                new Pcg32Random(101UL));
+
+            Assert.That(bench.GetDevelopmentProgress(PlayerAbility.Contact), Is.GreaterThan(0));
+            int benchTotalProgress =
+                (bench.BaseAbilities.Get(PlayerAbility.Contact) - 60) * 1000
+                + bench.GetDevelopmentProgress(PlayerAbility.Contact);
+            int starterTotalProgress =
+                (starter.BaseAbilities.Get(PlayerAbility.Contact) - 60) * 1000
+                + starter.GetDevelopmentProgress(PlayerAbility.Contact);
+            Assert.That(starterTotalProgress, Is.GreaterThan(benchTotalProgress));
         }
 
         private static PlayerGrowthState CreateBatter(int age, int baseRating, int potential)

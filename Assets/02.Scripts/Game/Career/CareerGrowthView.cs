@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Simulation.Growth;
 
 namespace Baseball.Game.Career
@@ -264,7 +265,9 @@ namespace Baseball.Game.Career
             bool isSelected,
             int conditionWarningMinimum,
             int conditionDangerMinimum,
-            double potentialBreakthroughProbability)
+            double potentialBreakthroughProbability,
+            string unavailableReason,
+            double estimatedRoleScoreGain)
         {
             TrainingProgramDefinition definition = preview.Program;
             ProgramId = definition.ProgramId;
@@ -311,6 +314,8 @@ namespace Baseball.Game.Career
                                           definition.DurationWeeks * 2 >= remainingWeeks;
             IsConditionWarning = preview.ConditionAfter < conditionWarningMinimum;
             IsConditionDanger = preview.ConditionAfter < conditionDangerMinimum;
+            UnavailableReason = unavailableReason ?? string.Empty;
+            EstimatedRoleScoreGain = Math.Max(0d, estimatedRoleScoreGain);
         }
 
         public string ProgramId { get; }
@@ -355,6 +360,8 @@ namespace Baseball.Game.Career
         public bool UsesMajorityOfRemainingTime { get; }
         public bool IsConditionWarning { get; }
         public bool IsConditionDanger { get; }
+        public string UnavailableReason { get; }
+        public double EstimatedRoleScoreGain { get; }
         public bool CanSelect => CanAfford && CanFitSchedule && CanMeetCondition && CanUseThisOffseason;
     }
 
@@ -365,8 +372,13 @@ namespace Baseball.Game.Career
     {
         public PlayerType PlayerType { get; internal set; }
         public int[] BaseAbilities { get; internal set; }
+        public int[] PotentialAbilities { get; internal set; }
         public int[] StableAbilities { get; internal set; }
+        public int[] CurrentAbilities { get; internal set; }
+        public int[] PeakBonuses { get; internal set; }
+        public int[] RawBoardBonuses { get; internal set; }
         public int[] BoardBonuses { get; internal set; }
+        public string[] ActiveTraitIds { get; internal set; }
         public int BoardWidth { get; internal set; }
         public int BoardHeight { get; internal set; }
         public GrowthBoardCellView[] BoardCells { get; internal set; }
@@ -380,8 +392,21 @@ namespace Baseball.Game.Career
         public GrowthProgramView[] Programs { get; internal set; }
         public GrowthPlanItemView[] PlannedActivities { get; internal set; }
         public GrowthResultRecord[] RecentGrowth { get; internal set; }
+        public int AdditionalProgramCandidates { get; internal set; }
+        public int RepetitionPenaltyWaivers { get; internal set; }
+        public PlayerAbility? MasterFocusAbility { get; internal set; }
+        public double NextSeasonInjuryRiskReduction { get; internal set; }
+        public int PhysicalDeclineProtectionPoints { get; internal set; }
+        public ExpectedRole CurrentRole { get; internal set; }
+        public double RoleScore { get; internal set; }
+        public double CompetitorRoleScore { get; internal set; }
+        public CareerRoleEvaluationTrigger? LatestRoleTrigger { get; internal set; }
+        public bool WasRoleCooldownProtected { get; internal set; }
+        public bool WasInjuryReturnProtected { get; internal set; }
+        public DecisionExplanation RoleExplanation { get; internal set; }
         public bool IsOffseason { get; internal set; }
         public bool CanEditBoard { get; internal set; }
+        public bool IsBoardSeasonLocked { get; internal set; }
         public bool CanRedesignBoard { get; internal set; }
         public bool IsBoardRedesignUsed { get; internal set; }
         public bool IsActivityInProgress { get; internal set; }

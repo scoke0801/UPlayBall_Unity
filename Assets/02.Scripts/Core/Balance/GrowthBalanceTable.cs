@@ -166,36 +166,28 @@ namespace Baseball.Core.Balance
         public RepetitionMultiplierTable(
             double first,
             double second,
-            double thirdOrMore,
-            double secondConsecutiveStudy,
-            double thirdConsecutiveStudy)
+            double third,
+            double fourthOrMore)
         {
             First = first;
             Second = second;
-            ThirdOrMore = thirdOrMore;
-            SecondConsecutiveStudy = secondConsecutiveStudy;
-            ThirdConsecutiveStudy = thirdConsecutiveStudy;
+            Third = third;
+            FourthOrMore = fourthOrMore;
         }
 
         public double First { get; }
         public double Second { get; }
-        public double ThirdOrMore { get; }
-        public double SecondConsecutiveStudy { get; }
-        public double ThirdConsecutiveStudy { get; }
+        public double Third { get; }
+        public double FourthOrMore { get; }
 
         public double GetMultiplier(int priorSelections, bool isStudy)
         {
             if (priorSelections < 0)
                 throw new ArgumentOutOfRangeException(nameof(priorSelections));
-            if (isStudy)
-            {
-                if (priorSelections == 0) return First;
-                if (priorSelections == 1) return SecondConsecutiveStudy;
-                return ThirdConsecutiveStudy;
-            }
             if (priorSelections == 0) return First;
             if (priorSelections == 1) return Second;
-            return ThirdOrMore;
+            if (priorSelections == 2) return Third;
+            return FourthOrMore;
         }
     }
 
@@ -239,10 +231,8 @@ namespace Baseball.Core.Balance
         {
             if (usageRatio < 0d)
                 throw new ArgumentOutOfRangeException(nameof(usageRatio));
-            if (usageRatio < 0.15d) return NoUsage;
-            if (usageRatio < 0.65d) return LimitedUsage;
-            if (usageRatio <= 1.20d) return NormalUsage;
-            return ExcessiveUsage;
+            // 출장 0에도 팀 훈련 성장 55%를 보장하고, 주전 구간은 체감 감소로 독점을 완화한다.
+            return 0.55d + 0.45d * Math.Sqrt(Math.Min(1d, usageRatio));
         }
     }
 
@@ -464,6 +454,115 @@ namespace Baseball.Core.Balance
     }
 
     /// <summary>
+    /// 리그 진행 순서를 성장 접근·뽑기 해금·최초 승격 보상에 연결하는 순수 데이터다.
+    /// Core는 Game의 LeagueLevel을 참조하지 않고 0부터 시작하는 진행 단계만 해석한다.
+    /// </summary>
+    public sealed class GrowthProgressionBalance
+    {
+        private readonly TrainingAccessTier[] _accessTiers;
+        private readonly int[] _minimumGachaLevels;
+
+        public GrowthProgressionBalance(
+            TrainingAccessTier[] accessTiers,
+            int[] minimumGachaLevels,
+            int additionalCandidateLevel,
+            int repetitionWaiverLevel,
+            int growthRedirectLevel,
+            int legacyTraitLevel,
+            int additionalProgramCandidates,
+            int repetitionPenaltyWaivers)
+        {
+            if (accessTiers == null || accessTiers.Length == 0)
+                throw new ArgumentException("성장 접근 단계가 비어 있습니다.", nameof(accessTiers));
+            if (minimumGachaLevels == null ||
+                minimumGachaLevels.Length != Enum.GetValues(typeof(SkillGachaPurchaseTier)).Length)
+            {
+                throw new ArgumentException("뽑기 등급별 최소 진행 단계가 필요합니다.", nameof(minimumGachaLevels));
+            }
+            if (additionalProgramCandidates < 0 || repetitionPenaltyWaivers < 0)
+                throw new ArgumentOutOfRangeException(nameof(additionalProgramCandidates));
+
+            for (int index = 0; index < minimumGachaLevels.Length; index++)
+            {
+                if (minimumGachaLevels[index] < 0 || minimumGachaLevels[index] >= accessTiers.Length)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(minimumGachaLevels),
+                        "뽑기 해금 단계는 성장 진행 단계 범위 안이어야 합니다.");
+                }
+            }
+
+            _accessTiers = (TrainingAccessTier[])accessTiers.Clone();
+            _minimumGachaLevels = (int[])minimumGachaLevels.Clone();
+            AdditionalCandidateLevel = ValidateLevel(additionalCandidateLevel, nameof(additionalCandidateLevel));
+            RepetitionWaiverLevel = ValidateLevel(repetitionWaiverLevel, nameof(repetitionWaiverLevel));
+            GrowthRedirectLevel = ValidateLevel(growthRedirectLevel, nameof(growthRedirectLevel));
+            LegacyTraitLevel = ValidateLevel(legacyTraitLevel, nameof(legacyTraitLevel));
+            AdditionalProgramCandidates = additionalProgramCandidates;
+            RepetitionPenaltyWaivers = repetitionPenaltyWaivers;
+        }
+
+        public int LevelCount => _accessTiers.Length;
+        public int AdditionalCandidateLevel { get; }
+        public int RepetitionWaiverLevel { get; }
+        public int GrowthRedirectLevel { get; }
+        public int LegacyTraitLevel { get; }
+        public int AdditionalProgramCandidates { get; }
+        public int RepetitionPenaltyWaivers { get; }
+
+        public TrainingAccessTier GetAccessTier(int progressionLevel)
+        {
+            ValidateProgressionLevel(progressionLevel);
+            return _accessTiers[progressionLevel];
+        }
+
+        public int GetMinimumGachaLevel(SkillGachaPurchaseTier tier)
+        {
+            if (tier < SkillGachaPurchaseTier.Normal || tier > SkillGachaPurchaseTier.Legendary)
+                throw new ArgumentOutOfRangeException(nameof(tier));
+            return _minimumGachaLevels[(int)tier];
+        }
+
+        private int ValidateLevel(int level, string parameterName)
+        {
+            if (level < 0 || level >= _accessTiers.Length)
+                throw new ArgumentOutOfRangeException(parameterName);
+            return level;
+        }
+
+        private void ValidateProgressionLevel(int progressionLevel)
+        {
+            if (progressionLevel < 0 || progressionLevel >= _accessTiers.Length)
+                throw new ArgumentOutOfRangeException(nameof(progressionLevel));
+        }
+
+        public static GrowthProgressionBalance CreateDefault()
+        {
+            return new GrowthProgressionBalance(
+                new[]
+                {
+                    TrainingAccessTier.Foundation,
+                    TrainingAccessTier.Advanced,
+                    TrainingAccessTier.Professional,
+                    TrainingAccessTier.International,
+                    TrainingAccessTier.International,
+                    TrainingAccessTier.Elite,
+                    TrainingAccessTier.Elite,
+                    TrainingAccessTier.Championship,
+                    TrainingAccessTier.Championship,
+                    TrainingAccessTier.Legacy
+                },
+                new[] { 0, 1, 2, 5, 7 },
+                additionalCandidateLevel: 4,
+                repetitionWaiverLevel: 6,
+                growthRedirectLevel: 8,
+                legacyTraitLevel: 9,
+                additionalProgramCandidates: 1,
+                repetitionPenaltyWaivers: 1);
+        }
+    }
+
+    /// <summary>
     /// 개인 훈련 강도가 기간·비용·성장력·컨디션·위험을 어떻게 교환하는지 정의한다.
     /// </summary>
     public readonly struct TrainingIntensityRule
@@ -605,6 +704,42 @@ namespace Baseball.Core.Balance
         }
     }
 
+    /// <summary>조건부 스킬 Trait이 경기 확률 모델에 주는 보정을 한곳에 보관한다.</summary>
+    public readonly struct SkillTraitBalance
+    {
+        public SkillTraitBalance(
+            double twoStrikeContactBonus,
+            double scoringPositionContactBonus,
+            double scoringPositionHardHitBonus,
+            double lateInningStuffBonus,
+            double crisisPitchingBonus,
+            double fatiguePenaltyMitigation,
+            double aggressiveRunningThresholdReduction,
+            int defensiveFocusAbilityBonus)
+        {
+            TwoStrikeContactBonus = twoStrikeContactBonus;
+            ScoringPositionContactBonus = scoringPositionContactBonus;
+            ScoringPositionHardHitBonus = scoringPositionHardHitBonus;
+            LateInningStuffBonus = lateInningStuffBonus;
+            CrisisPitchingBonus = crisisPitchingBonus;
+            FatiguePenaltyMitigation = fatiguePenaltyMitigation;
+            AggressiveRunningThresholdReduction = aggressiveRunningThresholdReduction;
+            DefensiveFocusAbilityBonus = defensiveFocusAbilityBonus;
+        }
+
+        public double TwoStrikeContactBonus { get; }
+        public double ScoringPositionContactBonus { get; }
+        public double ScoringPositionHardHitBonus { get; }
+        public double LateInningStuffBonus { get; }
+        public double CrisisPitchingBonus { get; }
+        public double FatiguePenaltyMitigation { get; }
+        public double AggressiveRunningThresholdReduction { get; }
+        public int DefensiveFocusAbilityBonus { get; }
+
+        public static SkillTraitBalance CreateDefault() =>
+            new SkillTraitBalance(3d, 2d, 0.008d, 3d, 2d, 0.20d, 0.04d, 3);
+    }
+
     /// <summary>
     /// 성장·자연 성장·노쇠·스킬 뽑기의 1차 밸런스값과 프로그램 정의를 묶는다.
     /// </summary>
@@ -630,7 +765,9 @@ namespace Baseball.Core.Balance
             SkillBoardDefinition skillBoard = null,
             SkillBlockDefinition[] skillBlocks = null,
             long skillBoardRedesignCost = MoneyAmount.WonPerTenThousand * 1_500L,
-            TrainingIntensityBalanceTable trainingIntensity = null)
+            TrainingIntensityBalanceTable trainingIntensity = null,
+            SkillTraitBalance? skillTraits = null,
+            GrowthProgressionBalance progression = null)
         {
             if (minimumQualityRoll <= 0d || maximumQualityRoll < minimumQualityRoll)
                 throw new ArgumentOutOfRangeException(nameof(minimumQualityRoll));
@@ -664,6 +801,8 @@ namespace Baseball.Core.Balance
             SkillBlocks = skillBlocks ?? GrowthSkillContent.CreateDefaultBlocks();
             SkillBoardRedesignCost = skillBoardRedesignCost;
             TrainingIntensities = trainingIntensity ?? TrainingIntensityBalanceTable.CreateDefault();
+            SkillTraits = skillTraits ?? SkillTraitBalance.CreateDefault();
+            Progression = progression ?? GrowthProgressionBalance.CreateDefault();
         }
 
         public AgeGrowthCurveTable AgeGrowth { get; }
@@ -686,6 +825,41 @@ namespace Baseball.Core.Balance
         public SkillBlockDefinition[] SkillBlocks { get; }
         public long SkillBoardRedesignCost { get; }
         public TrainingIntensityBalanceTable TrainingIntensities { get; }
+        public SkillTraitBalance SkillTraits { get; }
+        public GrowthProgressionBalance Progression { get; }
+
+        /// <summary>SO에서 변환한 콘텐츠만 교체하고 검증된 성장 곡선과 공식을 그대로 보존한다.</summary>
+        public GrowthBalanceTable WithAuthoredContent(
+            TrainingProgramDefinition[] programs,
+            SkillBlockDefinition[] skillBlocks,
+            SkillGachaBalanceTable? skillGacha,
+            SkillTraitBalance? skillTraits,
+            GrowthProgressionBalance progression)
+        {
+            return new GrowthBalanceTable(
+                AgeGrowth,
+                PotentialGap,
+                WorkEthic,
+                TrainingFit,
+                Condition,
+                Repetition,
+                NaturalGrowth,
+                AgingDecline,
+                skillGacha ?? SkillGacha,
+                MinimumQualityRoll,
+                MaximumQualityRoll,
+                PotentialBreakthroughProbability,
+                TrainingInjuryConditionPenalty,
+                DefaultPotentialGap,
+                OffseasonWeeks,
+                programs ?? Programs,
+                SkillBoard,
+                skillBlocks ?? SkillBlocks,
+                SkillBoardRedesignCost,
+                TrainingIntensities,
+                skillTraits ?? SkillTraits,
+                progression ?? Progression);
+        }
 
         public TrainingProgramDefinition FindProgram(string programId)
         {
@@ -716,7 +890,7 @@ namespace Baseball.Core.Balance
                 new WorkEthicMultiplierTable(0.90d, 1.00d, 1.10d, 1.15d),
                 new TrainingFitMultiplierTable(0.85d, 1.00d, 1.10d, 1.15d),
                 new ConditionMultiplierTable(80, 60, 40, 1.00d, 0.90d, 0.75d),
-                new RepetitionMultiplierTable(1.00d, 0.85d, 0.70d, 0.90d, 0.80d),
+                new RepetitionMultiplierTable(1.00d, 0.90d, 0.75d, 0.60d),
                 new NaturalGrowthBalanceTable(0.80d, 0.40d, 0.15d, 0.55d, 0.75d, 1.00d, 0.95d),
                 new AgingDeclineBalanceTable(0.35d, 0.90d, 0.20d, 1.50d, 0.60d, 0.15d),
                 new SkillGachaBalanceTable(
@@ -771,6 +945,10 @@ namespace Baseball.Core.Balance
             {
                 new TrainingProgramDefinition("rest", OffseasonActivityType.Rest, TrainingCategory.Rest, null,
                     1, 0L, 0d, Array.Empty<AbilityWeight>(), 0, 0d, 0, 0, 15),
+                new TrainingProgramDefinition("recovery_break", OffseasonActivityType.Rest, TrainingCategory.Rest, null,
+                    2, 0L, 0d, Array.Empty<AbilityWeight>(), 0, 0d, 0, 0, 30),
+                new TrainingProgramDefinition("mandatory_rehab", OffseasonActivityType.Rehabilitation, TrainingCategory.Rehabilitation, null,
+                    1, 0L, 0d, Array.Empty<AbilityWeight>(), 0, 0d, 0, 0, 12),
                 new TrainingProgramDefinition("rehab_general", OffseasonActivityType.Rehabilitation, TrainingCategory.Rehabilitation, null,
                     2, MoneyAmount.FromTenThousandWon(200L), 0d, Array.Empty<AbilityWeight>(), 0, 0d, 0, 0, 25),
                 // 스포츠 사이언스는 성장량이 아니라 1주라는 시간 절약에 높은 비용을 지불하는 회복 선택이다.
@@ -874,7 +1052,31 @@ namespace Baseball.Core.Balance
                     5, MoneyAmount.FromTenThousandWon(2_500L), 1.9d, new[] { new AbilityWeight(PlayerAbility.Control, 0.45d), new AbilityWeight(PlayerAbility.Stamina, 0.30d), new AbilityWeight(PlayerAbility.PitcherMental, 0.25d) }, 40, 0.015d, 3, 3, -16, 1,
                     canRaisePotential: true,
                     minimumAccessTier: TrainingAccessTier.Advanced,
-                    potentialBreakthroughChanceMultiplier: 2d)
+                    potentialBreakthroughChanceMultiplier: 2d),
+                new TrainingProgramDefinition("professional_batter_competition", OffseasonActivityType.PersonalTraining, TrainingCategory.Batting, PlayerType.Batter,
+                    4, MoneyAmount.FromTenThousandWon(1_100L), 1.35d, new[] { new AbilityWeight(PlayerAbility.Contact, 0.45d), new AbilityWeight(PlayerAbility.Defense, 0.35d), new AbilityWeight(PlayerAbility.BatterMental, 0.20d) }, 45, 0.015d, 4, 2, -15, 1,
+                    minimumAccessTier: TrainingAccessTier.Professional),
+                new TrainingProgramDefinition("professional_pitcher_competition", OffseasonActivityType.PersonalTraining, TrainingCategory.Pitching, PlayerType.Pitcher,
+                    4, MoneyAmount.FromTenThousandWon(1_100L), 1.35d, new[] { new AbilityWeight(PlayerAbility.Stuff, 0.40d), new AbilityWeight(PlayerAbility.Control, 0.40d), new AbilityWeight(PlayerAbility.PitcherMental, 0.20d) }, 45, 0.015d, 4, 2, -15, 1,
+                    minimumAccessTier: TrainingAccessTier.Professional),
+                new TrainingProgramDefinition("international_batter_specialist", OffseasonActivityType.Study, TrainingCategory.StudyTechnical, PlayerType.Batter,
+                    6, MoneyAmount.FromTenThousandWon(4_000L), 2.5d, new[] { new AbilityWeight(PlayerAbility.Contact, 0.40d), new AbilityWeight(PlayerAbility.Power, 0.30d), new AbilityWeight(PlayerAbility.BatterMental, 0.30d) }, 50, 0.025d, 5, 3, -20, 1,
+                    canRaisePotential: true, minimumAccessTier: TrainingAccessTier.International, potentialBreakthroughChanceMultiplier: 3d),
+                new TrainingProgramDefinition("international_pitcher_specialist", OffseasonActivityType.Study, TrainingCategory.StudyTechnical, PlayerType.Pitcher,
+                    6, MoneyAmount.FromTenThousandWon(4_000L), 2.5d, new[] { new AbilityWeight(PlayerAbility.Stuff, 0.40d), new AbilityWeight(PlayerAbility.Breaking, 0.30d), new AbilityWeight(PlayerAbility.Control, 0.30d) }, 50, 0.025d, 5, 3, -20, 1,
+                    canRaisePotential: true, minimumAccessTier: TrainingAccessTier.International, potentialBreakthroughChanceMultiplier: 3d),
+                new TrainingProgramDefinition("championship_batter_precision", OffseasonActivityType.PersonalTraining, TrainingCategory.Batting, PlayerType.Batter,
+                    3, MoneyAmount.FromTenThousandWon(2_800L), 1.5d, new[] { new AbilityWeight(PlayerAbility.Contact, 0.50d), new AbilityWeight(PlayerAbility.BatterMental, 0.30d), new AbilityWeight(PlayerAbility.Defense, 0.20d) }, 55, 0.008d, 3, 2, -8, 1,
+                    minimumAccessTier: TrainingAccessTier.Championship),
+                new TrainingProgramDefinition("championship_pitcher_precision", OffseasonActivityType.PersonalTraining, TrainingCategory.Pitching, PlayerType.Pitcher,
+                    3, MoneyAmount.FromTenThousandWon(2_800L), 1.5d, new[] { new AbilityWeight(PlayerAbility.Control, 0.50d), new AbilityWeight(PlayerAbility.PitcherMental, 0.30d), new AbilityWeight(PlayerAbility.Stamina, 0.20d) }, 55, 0.008d, 3, 2, -8, 1,
+                    minimumAccessTier: TrainingAccessTier.Championship),
+                new TrainingProgramDefinition("legacy_batter_mastery", OffseasonActivityType.TrainingPartner, TrainingCategory.Partner, PlayerType.Batter,
+                    4, MoneyAmount.FromTenThousandWon(4_500L), 1.5d, new[] { new AbilityWeight(PlayerAbility.BatterMental, 0.50d), new AbilityWeight(PlayerAbility.Contact, 0.30d), new AbilityWeight(PlayerAbility.Defense, 0.20d) }, 60, 0.005d, 2, 1, -5, 1, "legacy_batter_mastery", true,
+                    minimumAccessTier: TrainingAccessTier.Legacy, potentialBreakthroughChanceMultiplier: 2d),
+                new TrainingProgramDefinition("legacy_pitcher_mastery", OffseasonActivityType.TrainingPartner, TrainingCategory.Partner, PlayerType.Pitcher,
+                    4, MoneyAmount.FromTenThousandWon(4_500L), 1.5d, new[] { new AbilityWeight(PlayerAbility.PitcherMental, 0.50d), new AbilityWeight(PlayerAbility.Control, 0.30d), new AbilityWeight(PlayerAbility.Stamina, 0.20d) }, 60, 0.005d, 2, 1, -5, 1, "legacy_pitcher_mastery", true,
+                    minimumAccessTier: TrainingAccessTier.Legacy, potentialBreakthroughChanceMultiplier: 2d)
             };
         }
     }

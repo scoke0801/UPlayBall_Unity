@@ -1,5 +1,3 @@
-using Baseball.Core.Players;
-
 namespace Baseball.Core.Balance
 {
     /// <summary>
@@ -20,7 +18,6 @@ namespace Baseball.Core.Balance
                 plateDiscipline,
                 battedBall,
                 baseRunning,
-                CharacterCreationBalance.CreateDefault(),
                 ContractOfferBalance.CreateDefault(),
                 TeamGenerationBalance.CreateDefault(),
                 PlayerEvaluationBalance.CreateDefault(),
@@ -36,7 +33,6 @@ namespace Baseball.Core.Balance
             PlateDisciplineBalance plateDiscipline,
             BattedBallBalance battedBall,
             BaseRunningBalance baseRunning,
-            CharacterCreationBalance characterCreation,
             ContractOfferBalance contractOffer,
             TeamGenerationBalance teamGeneration,
             PlayerEvaluationBalance playerEvaluation)
@@ -45,7 +41,6 @@ namespace Baseball.Core.Balance
                 plateDiscipline,
                 battedBall,
                 baseRunning,
-                characterCreation,
                 contractOffer,
                 teamGeneration,
                 playerEvaluation,
@@ -61,7 +56,6 @@ namespace Baseball.Core.Balance
             PlateDisciplineBalance plateDiscipline,
             BattedBallBalance battedBall,
             BaseRunningBalance baseRunning,
-            CharacterCreationBalance characterCreation,
             ContractOfferBalance contractOffer,
             TeamGenerationBalance teamGeneration,
             PlayerEvaluationBalance playerEvaluation,
@@ -80,13 +74,16 @@ namespace Baseball.Core.Balance
             LeagueMovementBalance? leagueMovement = null,
             ManagerLineupBalance? managerLineup = null,
             MatchBalanceTable match = null,
-            MiniGameBalance miniGame = null)
+            MiniGameBalance miniGame = null,
+            string contentHash = "builtin-career-content-v3")
         {
+            if (string.IsNullOrWhiteSpace(contentHash))
+                throw new System.ArgumentException("ContentHash는 비어 있을 수 없습니다.", nameof(contentHash));
             Version = version;
+            ContentHash = contentHash.Trim();
             PlateDiscipline = plateDiscipline;
             BattedBall = battedBall;
             BaseRunning = baseRunning;
-            CharacterCreation = characterCreation;
             ContractOffer = contractOffer;
             TeamGeneration = teamGeneration;
             PlayerEvaluation = playerEvaluation;
@@ -111,10 +108,10 @@ namespace Baseball.Core.Balance
         }
 
         public int Version { get; }
+        public string ContentHash { get; }
         public PlateDisciplineBalance PlateDiscipline { get; }
         public BattedBallBalance BattedBall { get; }
         public BaseRunningBalance BaseRunning { get; }
-        public CharacterCreationBalance CharacterCreation { get; }
         public ContractOfferBalance ContractOffer { get; }
         public TeamGenerationBalance TeamGeneration { get; }
         public PlayerEvaluationBalance PlayerEvaluation { get; }
@@ -206,7 +203,6 @@ namespace Baseball.Core.Balance
                 plateDiscipline,
                 battedBall,
                 baseRunning,
-                CharacterCreationBalance.CreateDefault(),
                 ContractOfferBalance.CreateDefault(),
                 TeamGenerationBalance.CreateDefault(),
                 PlayerEvaluationBalance.CreateDefault(),

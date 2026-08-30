@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
+using Baseball.Core.Rules;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Growth
@@ -12,10 +13,12 @@ namespace Baseball.Simulation.Growth
     public sealed class GrowthResolver
     {
         private readonly GrowthBalanceTable _balance;
+        private readonly SimulationVersionStamp _versionStamp;
 
-        public GrowthResolver(GrowthBalanceTable balance)
+        public GrowthResolver(GrowthBalanceTable balance, SimulationVersionStamp? versionStamp = null)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _versionStamp = versionStamp ?? SimulationVersionStamp.CreateCurrent(balanceVersion: 0);
         }
 
         /// <summary>
@@ -28,7 +31,8 @@ namespace Baseball.Simulation.Growth
             int priorSelections,
             TrainingFitGrade trainingFit,
             ulong randomSeed,
-            IRandomSource random)
+            IRandomSource random,
+            PlayerAbility? focusAbility = null)
         {
             if (player == null) throw new ArgumentNullException(nameof(player));
             if (program == null) throw new ArgumentNullException(nameof(program));
@@ -38,8 +42,14 @@ namespace Baseball.Simulation.Growth
             if (player.Condition < program.MinimumCondition)
                 throw new InvalidOperationException("현재 컨디션으로 시작할 수 없는 프로그램입니다.");
 
+            DecisionExplanation explanation = BuildExplanation(
+                player,
+                program,
+                priorSelections,
+                trainingFit);
             var abilityChanges = new List<AbilityChange>(program.TargetAbilityWeights.Length);
             var potentialChanges = new List<AbilityChange>(1);
+            var peakChanges = new List<AbilityChange>(1);
             // 고가 프로그램의 개발 한계 돌파가 같은 활동의 성장에도 영향을 주어야 한다.
             // 성장 계산 뒤 Potential을 올리면 큰돈을 쓰고도 그해 결과가 전부 +0인 공백이 생긴다.
             ResolvePotentialBreakthrough(player, program, random, potentialChanges);
@@ -49,7 +59,8 @@ namespace Baseball.Simulation.Growth
                 priorSelections,
                 trainingFit,
                 random,
-                abilityChanges);
+                abilityChanges,
+                peakChanges);
 
             if (totalGain < program.MinimumGuaranteedGain)
             {
@@ -57,6 +68,14 @@ namespace Baseball.Simulation.Growth
                     player,
                     program,
                     program.MinimumGuaranteedGain - totalGain,
+                    abilityChanges);
+            }
+            if (focusAbility.HasValue && totalGain >= 4)
+            {
+                ApplyFocusRedistribution(
+                    player,
+                    focusAbility.Value,
+                    totalGain / 4,
                     abilityChanges);
             }
 
@@ -88,9 +107,138 @@ namespace Baseball.Simulation.Growth
                 program.MoneyCost,
                 program.DurationWeeks,
                 injuryResult,
-                program.Intensity);
+                program.Intensity,
+                peakChanges.ToArray(),
+                _versionStamp,
+                explanation);
             player.RecordGrowth(record);
             return record;
+        }
+
+        private DecisionExplanation BuildExplanation(
+            PlayerGrowthState player,
+            TrainingProgramDefinition program,
+            int priorSelections,
+            TrainingFitGrade trainingFit)
+        {
+            double age = _balance.AgeGrowth.GetMultiplier(player.Age);
+            double workEthic = _balance.WorkEthic.GetMultiplier(player.WorkEthic);
+            double fit = _balance.TrainingFit.GetMultiplier(trainingFit);
+            double condition = _balance.Condition.GetMultiplier(player.Condition);
+            double repetition = _balance.Repetition.GetMultiplier(priorSelections, program.IsStudy);
+            double potential = CalculatePotentialGapMultiplier(player, program);
+            DecisionReasonCode summary = DecisionReasonCode.PotentialGap;
+            double lowest = potential;
+            if (repetition < lowest)
+            {
+                lowest = repetition;
+                summary = DecisionReasonCode.RepetitionPenalty;
+            }
+            if (condition < lowest)
+            {
+                lowest = condition;
+                summary = DecisionReasonCode.Condition;
+            }
+            if (age < lowest)
+                summary = DecisionReasonCode.AgeCurve;
+
+            var actions = new List<RecommendedActionCode>(2);
+            if (priorSelections > 0)
+                actions.Add(RecommendedActionCode.ReduceTrainingRepetition);
+            if (player.Condition < _balance.Condition.NormalMinimum)
+                actions.Add(RecommendedActionCode.RestoreCondition);
+            return new DecisionExplanation(
+                DecisionType.Growth,
+                summary,
+                new[]
+                {
+                    CreateMultiplierFactor(DecisionReasonCode.AgeCurve, player.Age, age, 1),
+                    CreateMultiplierFactor(DecisionReasonCode.PotentialGap, potential, potential, 2),
+                    CreateMultiplierFactor(DecisionReasonCode.WorkEthic, (int)player.WorkEthic, workEthic, 3),
+                    CreateMultiplierFactor(DecisionReasonCode.TrainingFit, (int)trainingFit, fit, 4),
+                    CreateMultiplierFactor(DecisionReasonCode.RepetitionPenalty, priorSelections, repetition, 5),
+                    CreateMultiplierFactor(DecisionReasonCode.Condition, player.Condition, condition, 6)
+                },
+                new[] { 1d },
+                actions.ToArray(),
+                _versionStamp.RulesVersion);
+        }
+
+        private double CalculatePotentialGapMultiplier(
+            PlayerGrowthState player,
+            TrainingProgramDefinition program)
+        {
+            if (program.TargetAbilityWeights.Length == 0)
+                return 1d;
+            double result = 0d;
+            for (int index = 0; index < program.TargetAbilityWeights.Length; index++)
+            {
+                AbilityWeight target = program.TargetAbilityWeights[index];
+                result += _balance.PotentialGap.GetMultiplier(
+                    player.BaseAbilities.Get(target.Ability),
+                    player.PotentialByAbility.Get(target.Ability)) * target.Weight;
+            }
+            return result;
+        }
+
+        private static DecisionFactor CreateMultiplierFactor(
+            DecisionReasonCode reasonCode,
+            double rawValue,
+            double multiplier,
+            int priority)
+        {
+            return new DecisionFactor(
+                reasonCode,
+                rawValue,
+                multiplier,
+                1d,
+                multiplier - 1d,
+                multiplier >= 1d ? DecisionDirection.Positive : DecisionDirection.Negative,
+                priority);
+        }
+
+        private static void ApplyFocusRedistribution(
+            PlayerGrowthState player,
+            PlayerAbility focusAbility,
+            int requested,
+            List<AbilityChange> changes)
+        {
+            if (requested <= 0 ||
+                player.BaseAbilities.Get(focusAbility) >= player.PotentialByAbility.Get(focusAbility))
+            {
+                return;
+            }
+
+            for (int point = 0; point < requested; point++)
+            {
+                int donorIndex = -1;
+                for (int index = changes.Count - 1; index >= 0; index--)
+                {
+                    if (changes[index].Ability != focusAbility && changes[index].Amount > 0)
+                    {
+                        donorIndex = index;
+                        break;
+                    }
+                }
+                if (donorIndex < 0)
+                    return;
+
+                AbilityChange donor = changes[donorIndex];
+                int removed = player.ApplyBaseAbilityChange(donor.Ability, -1);
+                if (removed >= 0)
+                    return;
+                int applied = player.ApplyBaseAbilityChange(focusAbility, 1);
+                if (applied <= 0)
+                {
+                    player.ApplyBaseAbilityChange(donor.Ability, 1);
+                    return;
+                }
+                if (donor.Amount == 1)
+                    changes.RemoveAt(donorIndex);
+                else
+                    changes[donorIndex] = new AbilityChange(donor.Ability, donor.Amount - 1);
+                AddOrAccumulate(changes, focusAbility, applied);
+            }
         }
 
         private int ResolveAbilityGrowth(
@@ -99,7 +247,8 @@ namespace Baseball.Simulation.Growth
             int priorSelections,
             TrainingFitGrade trainingFit,
             IRandomSource random,
-            List<AbilityChange> changes)
+            List<AbilityChange> changes,
+            List<AbilityChange> peakChanges)
         {
             if (program.ProgramPower <= 0d || program.MaxTotalGain == 0)
                 return 0;
@@ -124,6 +273,15 @@ namespace Baseball.Simulation.Growth
                 int potential = player.PotentialByAbility.Get(target.Ability);
                 double expectedGrowth = program.ProgramPower * target.Weight * commonMultiplier *
                                         _balance.PotentialGap.GetMultiplier(baseAbility, potential);
+                if (baseAbility >= potential &&
+                    program.MinimumAccessTier >= TrainingAccessTier.Elite &&
+                    program.ProgramPower >= 1.4d &&
+                    qualityRoll >= 1.05d)
+                {
+                    int peakApplied = player.ApplyPeakBonusChange(target.Ability, 1);
+                    if (peakApplied > 0)
+                        peakChanges.Add(new AbilityChange(target.Ability, peakApplied));
+                }
                 int rolledGain = StochasticRound(expectedGrowth, random);
                 rolledGain = Math.Min(rolledGain, program.MaxGainPerAbility);
                 rolledGain = Math.Min(rolledGain, program.MaxTotalGain - totalGain);
@@ -213,8 +371,7 @@ namespace Baseball.Simulation.Growth
                 PlayerAbility ability = program.TargetAbilityWeights[index].Ability;
                 int current = player.BaseAbilities.Get(ability);
                 int potential = player.PotentialByAbility.Get(ability);
-                int maximum = Math.Min(AbilityRatings.Maximum, potential + 3);
-                if (current < maximum)
+                if (current < potential)
                     return false;
                 if (current < AbilityRatings.Maximum && potential < AbilityRatings.Maximum)
                     hasBreakthroughTarget = true;
@@ -430,10 +587,7 @@ namespace Baseball.Simulation.Growth
                     AbilityRatings.Maximum,
                     player.PotentialByAbility.Get(target.Ability) +
                     guaranteedPotentialGains[index]);
-                int maximumValue = Math.Min(
-                    AbilityRatings.Maximum,
-                    potential + 3);
-                int capacity = Math.Max(0, maximumValue - current);
+                int capacity = Math.Max(0, potential - current);
                 double potentialMultiplier = _balance.PotentialGap.GetMultiplier(
                     current,
                     potential);
@@ -491,8 +645,7 @@ namespace Baseball.Simulation.Growth
                 PlayerAbility ability = program.TargetAbilityWeights[index].Ability;
                 int current = player.BaseAbilities.Get(ability);
                 int potential = player.PotentialByAbility.Get(ability);
-                int maximum = Math.Min(AbilityRatings.Maximum, potential + 3);
-                if (current < maximum)
+                if (current < potential)
                     return result;
                 if (current < AbilityRatings.Maximum && potential < AbilityRatings.Maximum)
                     hasBreakthroughTarget = true;

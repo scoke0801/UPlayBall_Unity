@@ -45,10 +45,10 @@ namespace Baseball.Core.Balance
         public static ManagerEvaluationWeightTable CreateDefault()
         {
             return new ManagerEvaluationWeightTable(
-                0.45d, 0.20d, 0.10d, 0.10d, 0.10d, 0.05d,
-                starterMargin: 5d,
+                0.55d, 0.15d, 0.10d, 0.00d, 0.20d, 0.00d,
+                starterMargin: 4d,
                 competitionMargin: -3d,
-                backupMargin: -10d);
+                backupMargin: -9d);
         }
     }
 

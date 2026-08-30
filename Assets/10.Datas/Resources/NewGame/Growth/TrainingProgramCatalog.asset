@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1111111111111111111111111111111, type: 3}
+  m_Name: TrainingProgramCatalog
+  m_EditorClassIdentifier: Baseball.Game::Baseball.Game.Data.TrainingProgramCatalogAsset
+  _replaceBuiltInPrograms: 0
+  _programs:
+  - _programId: recovery_break
+    _activityType: 0
+    _category: 0
+    _appliesToAllPlayers: 1
+    _targetPlayerType: 0
+    _durationWeeks: 2
+    _moneyCost: 0
+    _programPower: 0
+    _targetAbilities: []
+    _minimumCondition: 0
+    _injuryRisk: 0
+    _maxTotalGain: 0
+    _maxGainPerAbility: 0
+    _conditionChange: 30
+    _minimumGuaranteedGain: 0
+    _partnerId:
+    _canRaisePotential: 0
+    _minimumAccessTier: 0
+    _potentialBreakthroughChanceMultiplier: 1
+    _minimumPotentialBreakthroughsWhenCapped: 0
+  - _programId: mandatory_rehab
+    _activityType: 1
+    _category: 1
+    _appliesToAllPlayers: 1
+    _targetPlayerType: 0
+    _durationWeeks: 1
+    _moneyCost: 0
+    _programPower: 0
+    _targetAbilities: []
+    _minimumCondition: 0
+    _injuryRisk: 0
+    _maxTotalGain: 0
+    _maxGainPerAbility: 0
+    _conditionChange: 12
+    _minimumGuaranteedGain: 0
+    _partnerId:
+    _canRaisePotential: 0
+    _minimumAccessTier: 0
+    _potentialBreakthroughChanceMultiplier: 1
+    _minimumPotentialBreakthroughsWhenCapped: 0

@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3333333333333333333333333333333, type: 3}
+  m_Name: SkillGachaOfferCatalog
+  m_EditorClassIdentifier: Baseball.Game::Baseball.Game.Data.SkillGachaOfferCatalogAsset
+  _replaceBuiltInOffers: 1
+  _offers:
+  - _tier: 0
+    _price: 6000000
+    _maxPurchasesPerOffseason: 0
+    _normal: 0.55
+    _rare: 0.28
+    _elite: 0.13
+    _unique: 0.04
+    _legendary: 0
+  - _tier: 1
+    _price: 15000000
+    _maxPurchasesPerOffseason: 0
+    _normal: 0
+    _rare: 0.7
+    _elite: 0.22
+    _unique: 0.07
+    _legendary: 0.01
+  - _tier: 2
+    _price: 40000000
+    _maxPurchasesPerOffseason: 0
+    _normal: 0
+    _rare: 0
+    _elite: 0.75
+    _unique: 0.2
+    _legendary: 0.05
+  - _tier: 3
+    _price: 100000000
+    _maxPurchasesPerOffseason: 2
+    _normal: 0
+    _rare: 0
+    _elite: 0
+    _unique: 0.85
+    _legendary: 0.15
+  - _tier: 4
+    _price: 250000000
+    _maxPurchasesPerOffseason: 1
+    _normal: 0
+    _rare: 0
+    _elite: 0
+    _unique: 0
+    _legendary: 1
+  _fivePullDiscountRate: 0.05
+  _elitePity: 10
+  _uniquePity: 30
+  _legendaryPity: 60
+  _legendaryMinimumCareerAwards: 1
+  _highTierPurchasesRequireOffseason: 1

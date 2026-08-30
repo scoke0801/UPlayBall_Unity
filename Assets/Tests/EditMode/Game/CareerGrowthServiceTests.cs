@@ -237,13 +237,39 @@ namespace Baseball.Tests.EditMode.Game
             GrowthBalanceTable balance = GrowthBalanceTable.CreateDefault();
             TrainingProgramDefinition foundation = balance.FindProgram("bat_power_camp");
             TrainingProgramDefinition advanced = balance.FindProgram("bat_elite_hitting_lab");
+            TrainingProgramDefinition professional = balance.FindProgram("professional_batter_competition");
+            TrainingProgramDefinition international = balance.FindProgram("international_batter_specialist");
             TrainingProgramDefinition elite = balance.FindProgram("usa_elite_batting_academy");
 
             Assert.That(CareerTrainingAccess.CanAccess(foundation, LeagueLevel.Rookie), Is.True);
             Assert.That(CareerTrainingAccess.CanAccess(advanced, LeagueLevel.Rookie), Is.False);
             Assert.That(CareerTrainingAccess.CanAccess(advanced, LeagueLevel.Minor), Is.True);
-            Assert.That(CareerTrainingAccess.CanAccess(elite, LeagueLevel.Minor), Is.False);
-            Assert.That(CareerTrainingAccess.CanAccess(elite, LeagueLevel.Major), Is.True);
+            Assert.That(CareerTrainingAccess.CanAccess(professional, LeagueLevel.Minor), Is.False);
+            Assert.That(CareerTrainingAccess.CanAccess(professional, LeagueLevel.Major), Is.True);
+            Assert.That(CareerTrainingAccess.CanAccess(international, LeagueLevel.Major), Is.False);
+            Assert.That(CareerTrainingAccess.CanAccess(international, LeagueLevel.World), Is.True);
+            Assert.That(CareerTrainingAccess.CanAccess(elite, LeagueLevel.Major), Is.False);
+            Assert.That(CareerTrainingAccess.CanAccess(elite, LeagueLevel.Classic), Is.True);
+        }
+
+        [Test]
+        public void GachaAccess_현재리그가각상품최소등급을충족해야한다()
+        {
+            Assert.That(
+                CareerTrainingAccess.CanAccessGacha(SkillGachaPurchaseTier.Elite, LeagueLevel.Minor),
+                Is.False);
+            Assert.That(
+                CareerTrainingAccess.CanAccessGacha(SkillGachaPurchaseTier.Elite, LeagueLevel.Major),
+                Is.True);
+            Assert.That(
+                CareerTrainingAccess.CanAccessGacha(SkillGachaPurchaseTier.Unique, LeagueLevel.Winners),
+                Is.True);
+            Assert.That(
+                CareerTrainingAccess.CanAccessGacha(SkillGachaPurchaseTier.Legendary, LeagueLevel.Classic),
+                Is.False);
+            Assert.That(
+                CareerTrainingAccess.GetMinimumGachaLeague(SkillGachaPurchaseTier.Legendary),
+                Is.EqualTo(LeagueLevel.Champion));
         }
 
         [Test]

@@ -216,7 +216,7 @@ namespace Baseball.Presentation.Career
                 "Condition",
                 panel,
                 new Vector2(286f, 62f),
-                new Vector2(0f, -150f),
+                new Vector2(0f, -126f),
                 PanelDarkColor);
             CreateText(
                 "ConditionValue",
@@ -232,15 +232,18 @@ namespace Baseball.Presentation.Career
             RectTransform latest = CreateSection(
                 "LatestGrowth",
                 panel,
-                new Vector2(286f, 126f),
-                new Vector2(0f, -258f),
+                new Vector2(286f, 72f),
+                new Vector2(0f, -196f),
                 PanelDarkColor);
             CreateText(
                 "Title", latest, "최근 성장", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(100f, 22f), new Vector2(-82f, 40f), AccentColor);
-            string latestText = growth.RecentGrowth.Length == 0
-                ? "아직 성장 기록이 없습니다."
-                : $"{GetGrowthSourceLabel(growth.RecentGrowth[0])}\n{FormatGrowthChanges(growth.RecentGrowth[0])}";
+                new Vector2(100f, 22f), new Vector2(-82f, 20f), AccentColor);
+            GrowthResultRecord latestExplainedGrowth = FindLatestExplainedGrowth(growth.RecentGrowth);
+            string latestText = latestExplainedGrowth == null
+                ? "아직 설명 가능한 성장 기록이 없습니다."
+                : $"{GetGrowthSourceLabel(latestExplainedGrowth)} · " +
+                  $"{FormatGrowthChanges(latestExplainedGrowth)}\n" +
+                  FormatDecisionExplanation(latestExplainedGrowth.Explanation, 1);
             CreateText(
                 "Value",
                 latest,
@@ -248,18 +251,45 @@ namespace Baseball.Presentation.Career
                 12,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft,
-                new Vector2(250f, 70f),
-                new Vector2(0f, -10f),
+                new Vector2(250f, 38f),
+                new Vector2(0f, -12f),
                 SecondaryTextColor);
-            Button history = CreateButton(
-                "OpenGrowthHistory",
+
+            RectTransform role = CreateSection(
+                "RoleCompetition",
                 panel,
-                "전체 성장 기록",
-                new Vector2(286f, 38f),
-                new Vector2(0f, -345f),
-                new Color(0.03f, 0.18f, 0.30f, 1f),
-                out _);
-            history.interactable = false;
+                new Vector2(286f, 112f),
+                new Vector2(0f, -296f),
+                new Color(0.035f, 0.10f, 0.16f, 1f));
+            CreateText(
+                "RoleTitle", role,
+                $"현재 역할  {GetExpectedRoleLabel(growth.CurrentRole)}",
+                13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(250f, 24f), new Vector2(0f, 35f), GoldColor);
+            string gap = growth.RoleScore == 0d && growth.CompetitorRoleScore == 0d
+                ? "경쟁 점수 산정 전"
+                : $"내 점수 {growth.RoleScore:0.0} · 경쟁자 {growth.CompetitorRoleScore:0.0} · " +
+                  $"격차 {growth.RoleScore - growth.CompetitorRoleScore:+0.0;-0.0;0.0}";
+            CreateText(
+                "RoleGap", role, gap, 11, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(250f, 22f), new Vector2(0f, 10f), SecondaryTextColor);
+            string protection = growth.WasInjuryReturnProtected
+                ? "\n부상 복귀 보호로 역할 하락 보류"
+                : growth.WasRoleCooldownProtected
+                    ? "\n역할 변경 쿨다운으로 현재 역할 유지"
+                    : string.Empty;
+            CreateText(
+                "RoleReasons", role,
+                FormatDecisionExplanation(growth.RoleExplanation, 2) + protection,
+                10, FontStyle.Normal, TextAnchor.UpperLeft,
+                new Vector2(250f, 52f), new Vector2(0f, -30f), SecondaryTextColor);
+        }
+
+        private static GrowthResultRecord FindLatestExplainedGrowth(GrowthResultRecord[] records)
+        {
+            for (int index = 0; index < (records?.Length ?? 0); index++)
+                if (records[index]?.Explanation != null) return records[index];
+            return null;
         }
 
         private void RenderDraftBoardPanel(CareerGrowthView growth)
@@ -852,16 +882,40 @@ namespace Baseball.Presentation.Career
                 new Vector2(620f, 28f),
                 new Vector2(-380f, summaryRowY),
                 growth.IsOffseason ? GoldColor : WarningColor);
+            string milestoneStatus = growth.MasterFocusAbility.HasValue
+                ? $"집중 {GetAbilityLabel(growth.MasterFocusAbility.Value)} · " +
+                  $"반복 면제 {growth.RepetitionPenaltyWaivers}회 · " +
+                  $"다음 시즌 부상 위험 -{growth.NextSeasonInjuryRiskReduction:P0}"
+                : growth.RepetitionPenaltyWaivers > 0
+                    ? $"반복 페널티 면제 {growth.RepetitionPenaltyWaivers}회 · " +
+                      $"다음 시즌 부상 위험 -{growth.NextSeasonInjuryRiskReduction:P0}"
+                    : $"다음 시즌 부상 위험 -{growth.NextSeasonInjuryRiskReduction:P0}";
             CreateText(
                 "EconomyGuide",
                 panel,
-                "훈련은 Money와 주차를 함께 사용합니다. 블록 뽑기는 기간을 소모하지 않습니다.",
+                $"현재 역할 {GetExpectedRoleLabel(growth.CurrentRole)} · " +
+                $"경쟁 격차 {growth.RoleScore - growth.CompetitorRoleScore:+0.0;-0.0;0.0} · " +
+                milestoneStatus,
                 12,
                 FontStyle.Normal,
                 TextAnchor.MiddleRight,
-                new Vector2(650f, 28f),
-                new Vector2(380f, summaryRowY),
+                new Vector2(430f, 28f),
+                new Vector2(245f, summaryRowY),
                 SecondaryTextColor);
+            if (growth.MasterFocusAbility.HasValue)
+            {
+                Button focus = CreateButton(
+                    "MasterFocus",
+                    panel,
+                    $"집중 능력 변경  {GetAbilityLabel(growth.MasterFocusAbility.Value)}",
+                    new Vector2(250f, 34f),
+                    new Vector2(590f, summaryRowY),
+                    new Color(0.19f, 0.16f, 0.34f, 1f),
+                    out Text focusLabel);
+                focusLabel.fontSize = 11;
+                focus.interactable = growth.IsOffseason && !growth.IsActivityInProgress;
+                focus.onClick.AddListener(() => CycleMasterTrainingFocus(growth));
+            }
 
             int programPageCount = GetProgramPageCount(growth);
             RenderProgramPageNavigation(panel, programPageCount);
@@ -920,13 +974,16 @@ namespace Baseball.Presentation.Career
             int index,
             int programCount)
         {
-            float x = (index - (programCount - 1) * 0.5f) * 280f;
+            float pitch = 1340f / Math.Max(1, programCount);
+            float cardWidth = Math.Min(255f, pitch - 16f);
+            float contentWidth = Math.Max(160f, cardWidth - 35f);
+            float x = (index - (programCount - 1) * 0.5f) * pitch;
             bool selected = string.Equals(growth.SelectedProgramId, program.ProgramId, StringComparison.Ordinal);
             Button card = CreateButton(
                 "WorkspaceProgram_" + program.ProgramId,
                 panel,
                 string.Empty,
-                new Vector2(255f, 360f),
+                new Vector2(cardWidth, 360f),
                 new Vector2(x, 60f),
                 selected
                     ? Color.Lerp(GetProgramColor(program.ActivityType), Color.white, 0.20f)
@@ -937,30 +994,37 @@ namespace Baseball.Presentation.Career
             card.onClick.AddListener(() => OpenActivityConfirmation(programId));
             CreateText(
                 "Type", card.transform, GetActivityShortLabel(program.ActivityType), 10,
-                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(220f, 22f),
+                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(contentWidth, 22f),
                 new Vector2(0f, 150f), AccentColor);
             CreateText(
                 "Name", card.transform, GetProgramLabel(program.ProgramId), 17,
-                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(220f, 55f),
+                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(contentWidth, 55f),
                 new Vector2(0f, 105f), PrimaryTextColor);
             CreateText(
                 "Cost", card.transform,
                 $"{program.DurationWeeks}주\n{FormatMoney(program.MoneyCost)}",
-                15, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(210f, 60f),
+                15, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(contentWidth, 60f),
                 new Vector2(0f, 35f), GoldColor);
             CreateText(
                 "Growth", card.transform, FormatProgramAbilities(program), 14,
-                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(220f, 70f),
+                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(contentWidth, 70f),
                 new Vector2(0f, -45f), GreenColor);
             CreateText(
                 "Condition", card.transform,
                 $"컨디션 {program.ConditionBefore} → {program.ConditionAfter}",
-                11, FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(220f, 26f),
+                11, FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(contentWidth, 26f),
                 new Vector2(0f, -110f), SecondaryTextColor);
             CreateText(
                 "Fit", card.transform, "적합도 " + GetFitLabel(program.Fit), 12,
-                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(220f, 26f),
+                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(contentWidth, 26f),
                 new Vector2(0f, -145f), GetFitColor(program.Fit));
+            string availability = program.CanSelect
+                ? $"역할 점수 최대 +{program.EstimatedRoleScoreGain:0.0}"
+                : program.UnavailableReason;
+            CreateText(
+                "Availability", card.transform, availability, 10,
+                FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(contentWidth, 28f),
+                new Vector2(0f, -168f), program.CanSelect ? AccentColor : WarningColor);
         }
 
         private void RenderProgramPageNavigation(RectTransform panel, int pageCount)
