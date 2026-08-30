@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Rules;
@@ -35,10 +36,38 @@ namespace Baseball.Tools.SimulationDiagnostics
 
         private static int Run(string[] args)
         {
-            int gameCount = args.Length > 0 && int.TryParse(args[0], out int parsed) ? parsed : 10000;
+            if (args.Length > 0 && string.Equals(args[0], "--growth-cohort", StringComparison.Ordinal))
+            {
+                int careerCount = args.Length > 1 && int.TryParse(args[1], out int parsedCareers)
+                    ? parsedCareers
+                    : 1000;
+                int maximumSeasons = args.Length > 2 && int.TryParse(args[2], out int parsedSeasons)
+                    ? parsedSeasons
+                    : 20;
+                GrowthRoleCohortReport report = GrowthRoleCohortDiagnostics.Run(careerCount, maximumSeasons);
+                report.Validate();
+                Console.WriteLine(report.Format());
+                return 0;
+            }
+
+            if (args.Length > 0 && string.Equals(args[0], "benchmark-match", StringComparison.Ordinal))
+            {
+                int benchmarkCount = ParseCount(args, 1, 10000);
+                bool usesBackgroundProfile = args.Length <= 2 ||
+                                             !string.Equals(args[2], "full", StringComparison.OrdinalIgnoreCase);
+                return RunMatchBenchmark(benchmarkCount, usesBackgroundProfile);
+            }
+
+            int countArgumentIndex = args.Length > 0 &&
+                                     string.Equals(args[0], "balance-match", StringComparison.Ordinal)
+                ? 1
+                : 0;
+            int gameCount = ParseCount(args, countArgumentIndex, 10000);
             if (gameCount <= 0)
                 return 2;
 
+            DiagnosticRunMetadata.Write("balance-match", gameCount, "FullResultWithNullEventSink");
+            Console.WriteLine();
             BalanceTable balance = BalanceTable.CreateDefault();
             CareerCreationStatistics creationStatistics = MeasureCareerCreation(balance, gameCount);
             MatchRosterSnapshot away = CreateRoster(1, 50, 50, 50);
@@ -67,6 +96,87 @@ namespace Baseball.Tools.SimulationDiagnostics
             Console.WriteLine();
             Console.WriteLine(statistics.Format(gameCount));
             return 0;
+        }
+
+        private static int RunMatchBenchmark(int gameCount, bool usesBackgroundProfile)
+        {
+            if (gameCount <= 0)
+                return 2;
+
+            const int WarmupGameCount = 128;
+            BalanceTable balance = BalanceTable.CreateDefault();
+            MatchRosterSnapshot away = CreateRoster(1, 50, 50, 50);
+            MatchRosterSnapshot home = CreateRoster(2, 50, 50, 50);
+            for (int index = 0; index < WarmupGameCount; index++)
+                SimulateBenchmarkMatch(balance, away, home, index, usesBackgroundProfile);
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            int gen0Before = GC.CollectionCount(0);
+            int gen1Before = GC.CollectionCount(1);
+            int gen2Before = GC.CollectionCount(2);
+            long scoreChecksum = 0;
+            var stopwatch = Stopwatch.StartNew();
+            for (int gameIndex = 0; gameIndex < gameCount; gameIndex++)
+            {
+                MatchResult result = SimulateBenchmarkMatch(
+                    balance,
+                    away,
+                    home,
+                    gameIndex,
+                    usesBackgroundProfile);
+                scoreChecksum += result.AwayBoxScore.Runs * 31L + result.HomeBoxScore.Runs;
+            }
+            stopwatch.Stop();
+            long allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+
+            DiagnosticRunMetadata.Write(
+                "benchmark-match",
+                gameCount,
+                usesBackgroundProfile ? "DetailedBackground" : "DetailedInteractiveWithNullSink");
+            Console.WriteLine();
+            Console.WriteLine($"ElapsedMilliseconds={stopwatch.Elapsed.TotalMilliseconds:F3}");
+            Console.WriteLine($"MicrosecondsPerGame={stopwatch.Elapsed.TotalMilliseconds * 1000d / gameCount:F3}");
+            Console.WriteLine($"AllocatedBytes={allocatedBytes:N0}");
+            Console.WriteLine($"AllocatedBytesPerGame={allocatedBytes / (double)gameCount:F1}");
+            Console.WriteLine($"Gen0Collections={GC.CollectionCount(0) - gen0Before}");
+            Console.WriteLine($"Gen1Collections={GC.CollectionCount(1) - gen1Before}");
+            Console.WriteLine($"Gen2Collections={GC.CollectionCount(2) - gen2Before}");
+            Console.WriteLine($"ScoreChecksum={scoreChecksum}");
+            return 0;
+        }
+
+        private static MatchResult SimulateBenchmarkMatch(
+            BalanceTable balance,
+            MatchRosterSnapshot away,
+            MatchRosterSnapshot home,
+            int gameIndex,
+            bool usesBackgroundProfile)
+        {
+            ulong seed = DeterministicSeed.Derive(0xD37A11EDUL, (ulong)gameIndex);
+            var input = new MatchInput(
+                1,
+                gameIndex + 1,
+                seed,
+                away,
+                home,
+                MatchRules.CreateDefault(requiresWinner: false));
+            var simulator = new MatchSimulator(balance, MatchRandomStreams.Create(seed));
+            return usesBackgroundProfile
+                ? simulator.Simulate(
+                    input,
+                    NullMatchEventSink.Instance,
+                    MatchExecutionProfile.DetailedBackground)
+                : simulator.Simulate(input, NullMatchEventSink.Instance);
+        }
+
+        private static int ParseCount(string[] args, int index, int defaultValue)
+        {
+            return args.Length > index && int.TryParse(args[index], out int parsed)
+                ? parsed
+                : defaultValue;
         }
 
         private static CareerCreationStatistics MeasureCareerCreation(BalanceTable balance, int sampleCount)

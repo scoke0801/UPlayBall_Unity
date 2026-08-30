@@ -54,65 +54,11 @@ namespace Baseball.Game.Career
         /// </summary>
         public CareerSeasonAutoCompletionResult CompleteCurrentPhase()
         {
-            SeasonState season = _career.CurrentLeague.CurrentSeason ??
-                                 throw new InvalidOperationException("현재 시즌이 없습니다.");
-            return season.Phase switch
-            {
-                SeasonPhase.RegularSeason => CompleteRegularSeason(season),
-                SeasonPhase.Postseason => CompletePostseason(season),
-                _ => throw new InvalidOperationException(
-                    "정규시즌 또는 포스트시즌에서만 현재 단계를 자동 완료할 수 있습니다.")
-            };
-        }
-
-        private CareerSeasonAutoCompletionResult CompleteRegularSeason(SeasonState season)
-        {
-            int regularSeasonGamesBefore = season.PlayerStatistics.TeamGames;
-            var regularSeason = new CareerSeasonService(
-                _career,
-                _balance,
-                _newsConfiguration);
-            while (regularSeason.NextPlayerGame != null)
-                regularSeason.AdvanceNextRound();
-
-            int regularSeasonGames = season.PlayerStatistics.TeamGames - regularSeasonGamesBefore;
-            if (season.Phase != SeasonPhase.Postseason || season.Postseason == null)
-                throw new InvalidOperationException("정규시즌 자동 완료가 포스트시즌 진입 단계에 도달하지 못했습니다.");
-
-            return new CareerSeasonAutoCompletionResult(
-                SeasonPhase.RegularSeason,
-                regularSeasonGames,
-                postseasonGames: 0,
-                championTeamId: 0,
-                isPlayerTeamChampion: false);
-        }
-
-        private CareerSeasonAutoCompletionResult CompletePostseason(SeasonState season)
-        {
-            int postseasonGamesBefore = CountPostseasonGames(season);
-            new CareerPostseasonService(_career, _balance, _newsConfiguration).AdvanceToChampion();
-
-            if (season.Phase != SeasonPhase.SeasonReview || season.Postseason?.IsCompleted != true)
-                throw new InvalidOperationException("포스트시즌 자동 완료가 시즌 결산 단계에 도달하지 못했습니다.");
-
-            int postseasonGames = CountPostseasonGames(season) - postseasonGamesBefore;
-            return new CareerSeasonAutoCompletionResult(
-                SeasonPhase.Postseason,
-                regularSeasonGames: 0,
-                postseasonGames,
-                season.Postseason.ChampionTeamId,
-                season.Postseason.ChampionTeamId == _career.MyPlayer.CurrentTeamId);
-        }
-
-        private static int CountPostseasonGames(SeasonState season)
-        {
-            if (season.Postseason == null)
-                return 0;
-
-            int count = 0;
-            for (int index = 0; index < season.Postseason.Series.Count; index++)
-                count += season.Postseason.Series[index].Games.Count;
-            return count;
+            return new SeasonFastForwardSession(
+                    _career,
+                    _balance,
+                    _newsConfiguration)
+                .Complete();
         }
     }
 }
