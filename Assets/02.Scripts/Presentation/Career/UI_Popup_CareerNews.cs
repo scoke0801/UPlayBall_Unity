@@ -70,6 +70,7 @@ namespace Baseball.Presentation.Career
                 BackgroundColor,
                 new Vector2(1720f, 900f),
                 Vector2.zero);
+            MarkVisual(_content, CareerUiVisualRole.DecorativeFrame);
         }
 
         protected override void OnShow()
@@ -122,7 +123,7 @@ namespace Baseball.Presentation.Career
 
         private void RenderHeader(CareerNewsFeedView feed)
         {
-            CreateImage("HeaderLine", _content, BorderColor, new Vector2(1680f, 2f), new Vector2(0f, 382f));
+            CreateImage("HeaderLine", _content, BorderColor, new Vector2(1640f, 2f), new Vector2(0f, 310f));
             CreateText(
                 "Title",
                 _content,
@@ -131,7 +132,7 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft,
                 new Vector2(500f, 54f),
-                new Vector2(-570f, 414f),
+                new Vector2(-570f, 340f),
                 PrimaryTextColor);
             CreateText(
                 "Unread",
@@ -141,14 +142,14 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.MiddleRight,
                 new Vector2(220f, 38f),
-                new Vector2(580f, 414f),
+                new Vector2(555f, 340f),
                 feed.UnreadCount > 0 ? AccentColor : MutedTextColor);
             Button close = CreateButton(
                 "Close",
                 _content,
                 "닫기  ESC",
                 new Vector2(130f, 42f),
-                new Vector2(770f, 414f),
+                new Vector2(750f, 340f),
                 PanelColor,
                 out Text closeLabel);
             closeLabel.fontSize = 14;
@@ -161,8 +162,9 @@ namespace Baseball.Presentation.Career
                 "Categories",
                 _content,
                 PanelColor,
-                new Vector2(240f, 724f),
-                new Vector2(-720f, -3f));
+                new Vector2(240f, 700f),
+                new Vector2(-720f, -58f));
+            MarkVisual(panel, CareerUiVisualRole.FlatSurface);
             CreateText(
                 "Label",
                 panel,
@@ -185,6 +187,7 @@ namespace Baseball.Presentation.Career
                     new Vector2(0f, 270f - index * 70f),
                     isSelected ? SelectedColor : BackgroundColor,
                     out Text label);
+                MarkVisual((RectTransform)button.transform, CareerUiVisualRole.FlatSurface);
                 label.alignment = TextAnchor.MiddleLeft;
                 label.rectTransform.offsetMin = new Vector2(20f, 0f);
                 label.fontSize = 16;
@@ -206,8 +209,9 @@ namespace Baseball.Presentation.Career
                 "Feed",
                 _content,
                 PanelColor,
-                new Vector2(650f, 724f),
-                new Vector2(-255f, -3f));
+                new Vector2(650f, 700f),
+                new Vector2(-255f, -58f));
+            MarkVisual(panel, CareerUiVisualRole.FlatSurface);
             if (feed.Articles.Length == 0)
             {
                 CreateText(
@@ -237,6 +241,7 @@ namespace Baseball.Presentation.Career
                     isSelected ? SelectedColor : CardColor,
                     new Vector2(606f, 88f),
                     new Vector2(0f, 294f - index * 96f));
+                MarkVisual(card, CareerUiVisualRole.FlatSurface);
                 if (!article.IsRead)
                     CreateImage("Unread", card, AccentColor, new Vector2(4f, 74f), new Vector2(-300f, 0f));
                 CreateText(
@@ -284,7 +289,7 @@ namespace Baseball.Presentation.Career
                 panel,
                 "이전",
                 new Vector2(90f, 34f),
-                new Vector2(-128f, -331f),
+                new Vector2(-128f, -318f),
                 BackgroundColor,
                 out Text previousLabel);
             previousLabel.fontSize = 12;
@@ -299,7 +304,7 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
                 new Vector2(100f, 34f),
-                new Vector2(0f, -331f),
+                new Vector2(0f, -318f),
                 SecondaryTextColor);
 
             Button next = CreateButton(
@@ -307,7 +312,7 @@ namespace Baseball.Presentation.Career
                 panel,
                 "다음",
                 new Vector2(90f, 34f),
-                new Vector2(128f, -331f),
+                new Vector2(128f, -318f),
                 BackgroundColor,
                 out Text nextLabel);
             nextLabel.fontSize = 12;
@@ -335,8 +340,9 @@ namespace Baseball.Presentation.Career
                 "Detail",
                 _content,
                 PanelColor,
-                new Vector2(710f, 724f),
-                new Vector2(440f, -3f));
+                new Vector2(710f, 700f),
+                new Vector2(440f, -58f));
+            MarkVisual(panel, CareerUiVisualRole.FlatSurface);
             NewsArticleView? selected = Find(feed, _selectedArticleId);
             if (!selected.HasValue)
             {
@@ -562,6 +568,17 @@ namespace Baseball.Presentation.Career
                 PrimaryTextColor);
             Stretch(text.rectTransform);
             return button;
+        }
+
+        private static void MarkVisual(
+            RectTransform target,
+            CareerUiVisualRole role,
+            bool isHeroFrame = false)
+        {
+            CareerUiVisualElement visual = target.GetComponent<CareerUiVisualElement>();
+            if (visual == null)
+                visual = target.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(role, isHeroFrame);
         }
 
         private static void ClearChildren(Transform parent)

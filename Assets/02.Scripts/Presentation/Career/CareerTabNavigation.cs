@@ -44,19 +44,20 @@ namespace Baseball.Presentation.Career
             rect.anchoredPosition = new Vector2(890f, 500f);
 
             Image image = buttonObject.GetComponent<Image>();
-            image.color = new Color(0.025f, 0.08f, 0.13f, 1f);
+            image.color = CareerUiTheme.PanelDark;
+            MarkVisual(rect, CareerUiVisualRole.InteractiveControl);
             var button = buttonObject.GetComponent<Button>();
             button.targetGraphic = image;
             ColorBlock colors = button.colors;
-            colors.highlightedColor = new Color(0.055f, 0.18f, 0.28f, 1f);
-            colors.pressedColor = new Color(0.016f, 0.052f, 0.085f, 1f);
+            colors.highlightedColor = CareerUiTheme.SurfaceSelected;
+            colors.pressedColor = CareerUiTheme.Background;
             colors.selectedColor = colors.highlightedColor;
             button.colors = colors;
             button.onClick.AddListener(() => UI_Popup_CareerSettings.ShowRuntime());
 
             Text label = CreateText(
                 "Label", rect, "설정", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(90f, 36f), Vector2.zero, new Color(0.72f, 0.80f, 0.88f, 1f));
+                new Vector2(90f, 36f), Vector2.zero, CareerUiTheme.TextSecondary);
             label.raycastTarget = false;
         }
 
@@ -87,6 +88,12 @@ namespace Baseball.Presentation.Career
             text.color = color;
             text.raycastTarget = false;
             return text;
+        }
+
+        private static void MarkVisual(RectTransform target, CareerUiVisualRole role)
+        {
+            CareerUiVisualElement visual = target.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(role);
         }
     }
 
@@ -123,14 +130,14 @@ namespace Baseball.Presentation.Career
     /// <summary>모든 커리어 메뉴가 재사용하는 하단 탭바를 런타임 생성한다.</summary>
     public static class CareerTabBar
     {
-        private static readonly Color BarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
-        private static readonly Color ActiveColor = new(0.025f, 0.25f, 0.49f, 1f);
-        private static readonly Color InactiveColor = new(0.014f, 0.055f, 0.09f, 1f);
-        private static readonly Color AccentColor = new(0.12f, 0.67f, 1f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.62f, 0.71f, 0.8f, 1f);
-        private static readonly Color MutedColor = new(0.34f, 0.40f, 0.49f, 1f);
+        private static readonly Color BarColor = CareerUiTheme.TopBar;
+        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color ActiveColor = CareerUiTheme.SurfaceSelected;
+        private static readonly Color InactiveColor = CareerUiTheme.PanelDark;
+        private static readonly Color AccentColor = CareerUiTheme.PrimaryBright;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedColor = CareerUiTheme.TextMuted;
 
         private static readonly string[] Labels =
             { "홈", "선수", "성장", "일정", "리그", "구단", "기록", "계약" };
@@ -142,7 +149,10 @@ namespace Baseball.Presentation.Career
         {
             RectTransform bar = CreateImage(
                 "Tabs", parent, BarColor, new Vector2(1920f, 94f), new Vector2(0f, -493f));
-            CreateImage("TabsTop", bar, BorderColor, new Vector2(1920f, 2f), new Vector2(0f, 46f));
+            MarkVisual(bar, CareerUiVisualRole.FlatSurface);
+            RectTransform topDivider = CreateImage(
+                "TabsTop", bar, BorderColor, new Vector2(1920f, 2f), new Vector2(0f, 46f));
+            MarkVisual(topDivider, CareerUiVisualRole.Divider);
             const float tabWidth = 240f;
             for (int index = 0; index < Labels.Length; index++)
             {
@@ -155,11 +165,13 @@ namespace Baseball.Presentation.Career
                     isActive ? ActiveColor : InactiveColor,
                     new Vector2(tabWidth - 2f, 86f),
                     new Vector2(x, -2f));
+                MarkVisual(tab, CareerUiVisualRole.InteractiveControl);
                 if (isActive)
                 {
-                    CreateImage(
+                    RectTransform activeIndicator = CreateImage(
                         "ActiveGlow", tab, AccentColor, new Vector2(tabWidth - 18f, 4f),
                         new Vector2(0f, 41f));
+                    MarkVisual(activeIndicator, CareerUiVisualRole.Divider);
                 }
 
                 Text icon = CreateText(
@@ -192,6 +204,12 @@ namespace Baseball.Presentation.Career
             rect.sizeDelta = size;
             rect.anchoredPosition = position;
             return rect;
+        }
+
+        private static void MarkVisual(RectTransform target, CareerUiVisualRole role)
+        {
+            CareerUiVisualElement visual = target.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(role);
         }
 
         private static RectTransform CreateImage(

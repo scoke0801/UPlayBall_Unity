@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -294,8 +295,7 @@ namespace Baseball.Presentation.Career
             Vector2 position,
             Vector2 size)
         {
-            RectTransform segment = CreateImage(
-                eyebrow + "Segment", parent, new Color(0.02f, 0.07f, 0.12f, 0.76f), size, position);
+            RectTransform segment = CreateRect(eyebrow + "Segment", parent, size, position);
             CreateImage("LeftDivider", segment, DividerColor, new Vector2(2f, size.y - 10f),
                 new Vector2(-size.x * 0.5f + 1f, 0f));
             CreateText("Eyebrow", segment, eyebrow, 9, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -315,9 +315,11 @@ namespace Baseball.Presentation.Career
             RectTransform outer = CreateImage(
                 "TeamBadge_" + teamName, parent, Color.Lerp(primary, Color.white, 0.30f),
                 new Vector2(size, size), position);
+            MarkVisual(outer, CareerUiVisualRole.DataImage);
             RectTransform inner = CreateImage(
                 "Inner", outer, Color.Lerp(primary, BackgroundColor, 0.28f),
                 new Vector2(size - 4f, size - 4f), Vector2.zero);
+            MarkVisual(inner, CareerUiVisualRole.DataImage);
             CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName), Math.Max(9, (int)(size * 0.30f)),
                 FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, PrimaryTextColor, true);
             return outer;

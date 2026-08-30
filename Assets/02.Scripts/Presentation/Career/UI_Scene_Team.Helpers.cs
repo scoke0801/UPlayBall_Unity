@@ -2,6 +2,7 @@ using System;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -169,11 +170,10 @@ namespace Baseball.Presentation.Career
         private static RectTransform CreateSection(
             string name, Transform parent, Vector2 size, Vector2 position, Color color)
         {
-            RectTransform frame = CreateImage(name, parent, DividerColor, size, position);
-            RectTransform surface = CreateImage("Surface", frame, color, Vector2.zero, Vector2.zero, stretch: true);
-            surface.offsetMin = new Vector2(2f, 2f);
-            surface.offsetMax = new Vector2(-2f, -2f);
-            return frame;
+            RectTransform section = CreateRect(name, parent, size, position);
+            RectTransform surface = CreateImage("FlatSurface", section, color, Vector2.zero, Vector2.zero, stretch: true);
+            MarkVisual(surface, CareerUiVisualRole.FlatSurface);
+            return section;
         }
 
         private static void CreateProgressBar(
@@ -236,6 +236,7 @@ namespace Baseball.Presentation.Career
             string name, Transform parent, string label, Vector2 size, Vector2 position, Color color, out Text text)
         {
             RectTransform rect = CreateImage(name, parent, color, size, position);
+            MarkVisual(rect, CareerUiVisualRole.InteractiveControl);
             Image image = rect.GetComponent<Image>();
             image.raycastTarget = true;
             Button button = rect.gameObject.AddComponent<Button>();
@@ -248,6 +249,17 @@ namespace Baseball.Presentation.Career
             text = CreateText("Label", rect, label, 19, FontStyle.Bold, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
             return button;
+        }
+
+        private static void MarkVisual(
+            RectTransform target,
+            CareerUiVisualRole role,
+            bool isHeroFrame = false)
+        {
+            CareerUiVisualElement visual = target.GetComponent<CareerUiVisualElement>();
+            if (visual == null)
+                visual = target.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(role, isHeroFrame);
         }
 
         private static void AddTextOutline(Text text, Color color, float distance)

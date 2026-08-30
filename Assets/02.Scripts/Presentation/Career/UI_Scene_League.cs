@@ -644,22 +644,26 @@ namespace Baseball.Presentation.Career
             Vector2 size,
             Vector2 position)
         {
-            CreateImage(name + "Shadow", _content, new Color(0f, 0f, 0f, 0.72f),
-                size + new Vector2(8f, 8f), position + new Vector2(4f, -5f));
-            RectTransform panel = CreateImage(name, _content, BorderColor, size, position);
-            RectTransform surface = CreateImage("Surface", panel, PanelColor, Vector2.zero, Vector2.zero, true);
-            surface.offsetMin = new Vector2(3f, 3f);
-            surface.offsetMax = new Vector2(-3f, -3f);
-            RectTransform header = CreateImage(
-                "Header", panel, new Color(0.022f, 0.11f, 0.19f, 1f),
-                new Vector2(size.x - 8f, 50f), new Vector2(0f, size.y * 0.5f - 29f));
+            RectTransform panel = CreateRect(name, _content, size, position);
+            RectTransform decorativeFrame = CreateImage(
+                "DecorativeFrame", panel, Color.white, Vector2.zero, Vector2.zero, true);
+            MarkVisual(decorativeFrame, CareerUiVisualRole.DecorativeFrame);
+            RectTransform content = CreateRect("ContentSafeArea", panel, size, Vector2.zero);
+            RectTransform interaction = CreateRect("InteractionRoot", panel, size, Vector2.zero);
+            RectTransform header = CreateRect(
+                "HeaderRoot", panel, new Vector2(size.x - 72f, 48f),
+                new Vector2(0f, size.y * 0.5f - 54f));
             CreateImage("HeaderLine", header, AccentColor, new Vector2(size.x * 0.32f, 2f),
-                new Vector2(-size.x * 0.3f, -23f));
+                new Vector2(-size.x * 0.3f, -21f));
             CreateText("Eyebrow", header, eyebrow, 9, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(size.x * 0.32f, 18f), new Vector2(-size.x * 0.32f, 11f), AccentColor);
+                new Vector2(size.x * 0.32f, 18f), new Vector2(-size.x * 0.32f, 9f), AccentColor);
             CreateText("Title", header, title, 20, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(size.x * 0.62f, 36f), new Vector2(0f, -1f), PrimaryTextColor);
-            return panel;
+                new Vector2(size.x * 0.62f, 32f), new Vector2(0f, -7f), PrimaryTextColor);
+            CareerUiFrame frame = panel.gameObject.AddComponent<CareerUiFrame>();
+            frame.Initialize(
+                decorativeFrame.GetComponent<Image>(), header, content, interaction,
+                CareerUiTheme.UniversalFramePadding, false);
+            return content;
         }
 
         private static void CreateTopBarSegment(
@@ -669,8 +673,7 @@ namespace Baseball.Presentation.Career
             Vector2 position,
             Vector2 size)
         {
-            RectTransform segment = CreateImage(
-                eyebrow + "Segment", parent, new Color(0.02f, 0.07f, 0.12f, 0.76f), size, position);
+            RectTransform segment = CreateRect(eyebrow + "Segment", parent, size, position);
             CreateImage("LeftDivider", segment, DividerColor, new Vector2(2f, size.y - 10f),
                 new Vector2(-size.x * 0.5f + 1f, 0f));
             CreateText("Eyebrow", segment, eyebrow, 9, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -704,11 +707,10 @@ namespace Baseball.Presentation.Career
             Vector2 position,
             Color color)
         {
-            RectTransform frame = CreateImage(name, parent, DividerColor, size, position);
-            RectTransform surface = CreateImage("Surface", frame, color, Vector2.zero, Vector2.zero, true);
-            surface.offsetMin = new Vector2(2f, 2f);
-            surface.offsetMax = new Vector2(-2f, -2f);
-            return frame;
+            RectTransform section = CreateRect(name, parent, size, position);
+            RectTransform surface = CreateImage("FlatSurface", section, color, Vector2.zero, Vector2.zero, true);
+            MarkVisual(surface, CareerUiVisualRole.FlatSurface);
+            return section;
         }
 
         private static RectTransform CreateTeamBadge(
@@ -722,9 +724,11 @@ namespace Baseball.Presentation.Career
             RectTransform outer = CreateImage(
                 "TeamBadge_" + teamName, parent, Color.Lerp(primary, Color.white, 0.30f),
                 new Vector2(size, size), position);
+            MarkVisual(outer, CareerUiVisualRole.DataImage);
             RectTransform inner = CreateImage(
                 "Inner", outer, Color.Lerp(primary, BackgroundColor, 0.28f),
                 new Vector2(size - 4f, size - 4f), Vector2.zero);
+            MarkVisual(inner, CareerUiVisualRole.DataImage);
             CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName), Math.Max(9, (int)(size * 0.31f)),
                 FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero,
                 PrimaryTextColor, true);
@@ -991,6 +995,7 @@ namespace Baseball.Presentation.Career
             out Text text)
         {
             RectTransform rect = CreateImage(name, parent, color, size, position);
+            MarkVisual(rect, CareerUiVisualRole.InteractiveControl);
             Button button = rect.gameObject.AddComponent<Button>();
             rect.GetComponent<Image>().raycastTarget = true;
             ColorBlock colors = button.colors;
@@ -1001,6 +1006,17 @@ namespace Baseball.Presentation.Career
             text = CreateText("Label", rect, label, 19, FontStyle.Bold, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.zero, PrimaryTextColor, true);
             return button;
+        }
+
+        private static void MarkVisual(
+            RectTransform target,
+            CareerUiVisualRole role,
+            bool isHeroFrame = false)
+        {
+            CareerUiVisualElement visual = target.GetComponent<CareerUiVisualElement>();
+            if (visual == null)
+                visual = target.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(role, isHeroFrame);
         }
 
         private static void AddTextOutline(Text text, Color color, float distance)

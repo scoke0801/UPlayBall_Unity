@@ -276,6 +276,7 @@ namespace Baseball.Presentation.Career
             out Text text)
         {
             RectTransform rect = CreateImage(name, parent, color, size, position);
+            MarkVisual(rect, CareerUiVisualRole.InteractiveControl);
             Button button = rect.gameObject.AddComponent<Button>();
             rect.GetComponent<Image>().raycastTarget = true;
             ColorBlock colors = button.colors;
@@ -296,11 +297,38 @@ namespace Baseball.Presentation.Career
             Vector2 position,
             Color surfaceColor)
         {
-            RectTransform frame = CreateImage(name, parent, BorderColor, size, position);
-            RectTransform surface = CreateImage("Surface", frame, surfaceColor, Vector2.zero, Vector2.zero, true);
-            surface.offsetMin = new Vector2(2f, 2f);
-            surface.offsetMax = new Vector2(-2f, -2f);
-            return frame;
+            RectTransform root = CreateRect(name, parent, size, position);
+            bool isTopLevelFrame = parent.name == "Content" && size.y >= 500f;
+            if (!isTopLevelFrame)
+            {
+                RectTransform surface = CreateImage(
+                    "FlatSurface", root, surfaceColor, Vector2.zero, Vector2.zero, true);
+                MarkVisual(surface, CareerUiVisualRole.FlatSurface);
+                return root;
+            }
+
+            RectTransform decorativeFrame = CreateImage(
+                "DecorativeFrame", root, Color.white, Vector2.zero, Vector2.zero, true);
+            MarkVisual(decorativeFrame, CareerUiVisualRole.DecorativeFrame);
+            RectTransform content = CreateRect("ContentSafeArea", root, size, Vector2.zero);
+            RectTransform header = CreateRect("HeaderRoot", root, size, Vector2.zero);
+            RectTransform interaction = CreateRect("InteractionRoot", root, size, Vector2.zero);
+            CareerUiFrame frame = root.gameObject.AddComponent<CareerUiFrame>();
+            frame.Initialize(
+                decorativeFrame.GetComponent<Image>(), header, content, interaction,
+                CareerUiTheme.UniversalFramePadding, false);
+            return content;
+        }
+
+        private static void MarkVisual(
+            RectTransform target,
+            CareerUiVisualRole role,
+            bool isHeroFrame = false)
+        {
+            CareerUiVisualElement visual = target.GetComponent<CareerUiVisualElement>();
+            if (visual == null)
+                visual = target.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(role, isHeroFrame);
         }
 
         private static void Stretch(RectTransform rect)

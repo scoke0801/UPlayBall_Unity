@@ -46,7 +46,7 @@ namespace Baseball.Tests.EditMode.Presentation
         }
 
         [Test]
-        public void ApplyButton_선택Tint를작은고정배지와ColorTint로구분한다()
+        public void ApplyButton_선택Tint를FocusedFrame과ColorTint로구분한다()
         {
             Button normal = CreateButton(
                 "NormalOption", new Vector2(420f, 86f), new Color(0.035f, 0.075f, 0.115f, 1f));
@@ -59,17 +59,14 @@ namespace Baseball.Tests.EditMode.Presentation
 
             Assert.That(selected.GetComponent<Image>().sprite, Is.Not.EqualTo(normal.GetComponent<Image>().sprite));
             Assert.That(selected.transition, Is.EqualTo(Selectable.Transition.ColorTint));
-            Transform badge = selected.transform.Find("SkinSelectedBadge");
-            Assert.That(badge, Is.Not.Null);
-            RectTransform badgeRect = (RectTransform)badge;
-            Assert.That(badgeRect.rect.width, Is.LessThan(43f));
+            Assert.That(selected.transform.Find("SkinSelectedBadge"), Is.Null);
             Assert.That(selectedLabel.rectTransform.offsetMin.x,
-                Is.GreaterThan(badgeRect.anchoredPosition.x + badgeRect.rect.width));
+                Is.EqualTo(Mathf.Abs(selectedLabel.rectTransform.offsetMax.x)));
 
             Sprite selectedSprite = selected.GetComponent<Image>().sprite;
             CareerUiSkin.ApplyButton(selected);
             Assert.That(selected.GetComponent<Image>().sprite, Is.EqualTo(selectedSprite));
-            Assert.That(selected.transform.Find("SkinSelectedBadge"), Is.EqualTo(badge));
+            Assert.That(selected.transform.Find("SkinSelectedBadge"), Is.Null);
         }
 
         [Test]
@@ -102,8 +99,8 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(normal.GetComponent<Image>().sprite, Is.Null);
             Assert.That(normal.GetComponent<Outline>(), Is.Not.Null);
             Assert.That(normal.transition, Is.EqualTo(Selectable.Transition.ColorTint));
-            Assert.That(selected.transform.Find("SkinSelectedBadge"), Is.Not.Null);
-            Assert.That(label.rectTransform.offsetMin.x, Is.GreaterThan(20f));
+            Assert.That(selected.transform.Find("SkinSelectedBadge"), Is.Null);
+            Assert.That(label.rectTransform.offsetMin.x, Is.EqualTo(10f));
         }
 
         [Test]
@@ -119,14 +116,17 @@ namespace Baseball.Tests.EditMode.Presentation
         }
 
         [Test]
-        public void ApplyButton_대형선택Card는PanelFrame만으로선택위계를표현한다()
+        public void ApplyButton_220px선택Card도ButtonFrame규격을유지한다()
         {
+            Button standard = CreateButton(
+                "StandardOption", new Vector2(420f, 86f), new Color(0.035f, 0.3f, 0.48f, 1f));
             Button card = CreateButton(
                 "CareerCard", new Vector2(580f, 220f), new Color(0.035f, 0.3f, 0.48f, 1f));
 
+            CareerUiSkin.ApplyButton(standard);
             CareerUiSkin.ApplyButton(card);
 
-            Assert.That(card.GetComponent<Image>().sprite, Is.Not.Null);
+            Assert.That(card.GetComponent<Image>().sprite, Is.EqualTo(standard.GetComponent<Image>().sprite));
             Assert.That(card.GetComponent<Image>().type, Is.EqualTo(Image.Type.Sliced));
             Assert.That(card.transition, Is.EqualTo(Selectable.Transition.ColorTint));
             Assert.That(card.transform.Find("SkinSelectedBadge"), Is.Null);

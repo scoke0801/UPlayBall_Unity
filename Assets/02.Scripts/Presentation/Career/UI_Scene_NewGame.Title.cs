@@ -257,12 +257,12 @@ namespace Baseball.Presentation.Career
             RenderStepHeader(_panel);
             _body = CreateRect("Body", _panel, new Vector2(1600f, 760f), new Vector2(0f, 5f));
             _error = CreateText("Error", _panel, _manager.LastError, 15, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(1000f, 34f), new Vector2(0f, -406f), ErrorColor);
+                TextAnchor.MiddleCenter, new Vector2(1000f, 34f), new Vector2(0f, -325f), ErrorColor);
             _backButton = CreateButton("Back", _panel, "이전", new Vector2(160f, 52f),
-                new Vector2(-700f, -450f), CardColor, out _);
+                new Vector2(-700f, -380f), CardColor, out _);
             _backButton.onClick.AddListener(() => _manager.GoBack());
             _nextButton = CreateButton("Next", _panel, "다음", new Vector2(250f, 54f),
-                new Vector2(650f, -450f), AccentColor, out _nextLabel);
+                new Vector2(650f, -380f), AccentColor, out _nextLabel);
         }
 
         private void RenderStepHeader(Transform parent)

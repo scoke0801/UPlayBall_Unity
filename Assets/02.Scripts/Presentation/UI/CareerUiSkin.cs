@@ -10,19 +10,18 @@ namespace Baseball.Presentation.UI
         private const string UniversalPanelPath = "UI/Skin/ui_panel_universal_v2";
         private const string HeroPanelPath = "UI/Skin/ui_panel_hero_v2";
         private const string ButtonStatesPath = "UI/Skin/ui_button_states";
-        private const string SelectedPointPath = "UI/Skin/ui_selected_point";
         private const string SliderPartsPath = "UI/Skin/ui_slider_parts";
         private const string EffectsPath = "UI/Skin/ui_fx_atlas";
-        private const string SelectedBadgeName = "SkinSelectedBadge";
+        private const string LegacySelectedBadgeName = "SkinSelectedBadge";
 
         private const float MinimumLabelPadding = 20f;
         private const float MaximumLabelPadding = 52f;
         private const float CompactButtonMaximumWidth = 180f;
         private const float CompactButtonMaximumHeight = 46f;
-        private const float CardButtonMinimumHeight = 200f;
+        private const float CardButtonMinimumHeight = 260f;
 
-        private static readonly Vector4 PanelBorder = new(72f, 62f, 72f, 62f);
-        private static readonly Vector4 HeroPanelBorder = new(64f, 64f, 64f, 64f);
+        private static readonly Vector4 PanelBorder = new(150f, 72f, 210f, 128f);
+        private static readonly Vector4 HeroPanelBorder = new(230f, 110f, 180f, 160f);
         private static readonly Vector4 ButtonBorder = new(96f, 44f, 54f, 44f);
         private static readonly Vector4 SliderBorder = new(68f, 46f, 68f, 46f);
         private static readonly Color FlatPanelColor = new(0.014f, 0.048f, 0.078f, 0.98f);
@@ -38,7 +37,6 @@ namespace Baseball.Presentation.UI
         private static Sprite _buttonNormal;
         private static Sprite _buttonFocused;
         private static Sprite _buttonPressed;
-        private static Sprite _buttonSelectedBadge;
         private static Sprite _sliderTrack;
         private static Sprite _sliderFill;
         private static Sprite _sliderHandle;
@@ -85,9 +83,15 @@ namespace Baseball.Presentation.UI
             if (image == null)
                 return;
 
-            bool hasSelectedBadge = button.transform.Find(SelectedBadgeName) != null;
-            bool isSemanticActive = hasSelectedBadge
-                || image.sprite == _buttonFocused
+            CareerUiVisualElement visual = image.GetComponent<CareerUiVisualElement>();
+            if (visual != null && visual.Role == CareerUiVisualRole.FlatSurface)
+            {
+                ApplyFlatInteractiveControl(button, image);
+                return;
+            }
+
+            RemoveLegacySelectedBadge(button);
+            bool isSemanticActive = image.sprite == _buttonFocused
                 || image.sprite == _heroPanel
                 || IsSemanticActive(image.color);
 
@@ -105,7 +109,7 @@ namespace Baseball.Presentation.UI
 
             if (IsButtonStyled(image))
             {
-                EnsureButtonLabelLayout(button, hasSelectedBadge);
+                EnsureButtonLabelLayout(button);
                 EnsurePrimaryActionShine(button);
                 return;
             }
@@ -118,7 +122,6 @@ namespace Baseball.Presentation.UI
 
             if (isSemanticActive)
             {
-                EnsureSelectedBadge(button);
                 ConfigurePersistentSelectedTransition(button);
             }
             else
@@ -129,7 +132,7 @@ namespace Baseball.Presentation.UI
             if (button.GetComponent<RectMask2D>() == null)
                 button.gameObject.AddComponent<RectMask2D>();
 
-            EnsureButtonLabelLayout(button, isSemanticActive);
+            EnsureButtonLabelLayout(button);
             EnsurePrimaryActionShine(button);
         }
 
@@ -188,7 +191,6 @@ namespace Baseball.Presentation.UI
             Texture2D universal = Resources.Load<Texture2D>(UniversalPanelPath);
             Texture2D hero = Resources.Load<Texture2D>(HeroPanelPath);
             Texture2D buttons = Resources.Load<Texture2D>(ButtonStatesPath);
-            Texture2D selectedPoint = Resources.Load<Texture2D>(SelectedPointPath);
             Texture2D sliders = Resources.Load<Texture2D>(SliderPartsPath);
             Texture2D effects = Resources.Load<Texture2D>(EffectsPath);
 
@@ -198,7 +200,6 @@ namespace Baseball.Presentation.UI
             _buttonNormal = CreateSprite(buttons, new Rect(35f, 1180f, 955f, 172f), ButtonBorder);
             _buttonFocused = CreateSprite(buttons, new Rect(35f, 867f, 955f, 174f), ButtonBorder);
             _buttonPressed = CreateSprite(buttons, new Rect(35f, 558f, 955f, 172f), ButtonBorder);
-            _buttonSelectedBadge = CreateSprite(selectedPoint, new Rect(177f, 138f, 900f, 904f), Vector4.zero);
             _sliderTrack = CreateSprite(sliders, new Rect(52f, 708f, 1432f, 124f), SliderBorder);
             _sliderFill = CreateSprite(sliders, new Rect(52f, 504f, 1432f, 120f), SliderBorder);
             _sliderHandle = CreateSprite(sliders, new Rect(632f, 159f, 270f, 267f), Vector4.zero);
@@ -227,6 +228,10 @@ namespace Baseball.Presentation.UI
             for (int i = 0; i < images.Length; i++)
             {
                 Image image = images[i];
+                if (TryApplyExplicitVisualRole(image))
+                    continue;
+                if (image != null && image.GetComponentInParent<CareerUiFrame>() != null)
+                    continue;
                 if (!IsPanelCandidate(image))
                     continue;
 
@@ -245,6 +250,49 @@ namespace Baseball.Presentation.UI
 
                 ApplyFlatPanel(image);
             }
+        }
+
+        private static bool TryApplyExplicitVisualRole(Image image)
+        {
+            if (image == null)
+                return false;
+
+            CareerUiVisualElement visual = image.GetComponent<CareerUiVisualElement>();
+            if (visual == null)
+                return false;
+
+            switch (visual.Role)
+            {
+                case CareerUiVisualRole.DecorativeFrame:
+                    ApplyPanel(image, visual.IsHeroFrame);
+                    image.raycastTarget = false;
+                    break;
+                case CareerUiVisualRole.FlatSurface:
+                    ApplyExplicitFlatSurface(image);
+                    break;
+            }
+
+            return true;
+        }
+
+        private static void ApplyExplicitFlatSurface(Image image)
+        {
+            image.sprite = null;
+            image.type = Image.Type.Simple;
+            Outline outline = image.GetComponent<Outline>();
+            if (outline != null)
+                outline.enabled = false;
+        }
+
+        private static void ApplyFlatInteractiveControl(Button button, Image image)
+        {
+            image.sprite = null;
+            image.type = Image.Type.Simple;
+            Outline outline = image.GetComponent<Outline>();
+            if (outline != null)
+                outline.enabled = false;
+            button.targetGraphic = image;
+            button.transition = Selectable.Transition.ColorTint;
         }
 
         private static bool IsPanelCandidate(Image image)
@@ -445,10 +493,8 @@ namespace Baseball.Presentation.UI
             outline.effectDistance = new Vector2(1f, -1f);
             outline.useGraphicAlpha = true;
 
-            if (isSemanticActive)
-                EnsureSelectedBadge(button);
             ConfigureCompactTransition(button);
-            EnsureButtonLabelLayout(button, isSemanticActive);
+            EnsureButtonLabelLayout(button);
         }
 
         private static void ApplyCardButton(Button button, Image image, bool isSemanticActive)
@@ -459,10 +505,8 @@ namespace Baseball.Presentation.UI
             image.pixelsPerUnitMultiplier = 1f;
             image.color = new Color(1f, 1f, 1f, sourceAlpha);
 
-            // 대형 카드 프레임 자체가 선택 위계를 표현한다. 작은 Point를 겹치면 프레임 장식과 충돌한다.
-            RemoveSelectedBadge(button);
             ConfigureCardTransition(button, isSemanticActive);
-            EnsureButtonLabelLayout(button, isSemanticActive);
+            EnsureButtonLabelLayout(button);
         }
 
         private static void ConfigureSpriteSwapTransition(Button button)
@@ -520,44 +564,9 @@ namespace Baseball.Presentation.UI
             button.transition = Selectable.Transition.ColorTint;
         }
 
-        private static void EnsureSelectedBadge(Button button)
+        private static void RemoveLegacySelectedBadge(Button button)
         {
-            if (_buttonSelectedBadge == null || button.transform.Find(SelectedBadgeName) != null)
-                return;
-
-            var badgeObject = new GameObject(
-                SelectedBadgeName,
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(Image));
-            RectTransform rect = (RectTransform)badgeObject.transform;
-            rect.SetParent(button.transform, false);
-            rect.anchorMin = new Vector2(0f, 0.5f);
-            rect.anchorMax = new Vector2(0f, 0.5f);
-            rect.pivot = new Vector2(0f, 0.5f);
-
-            float buttonHeight = GetButtonHeight(button);
-            float buttonWidth = GetButtonWidth(button);
-            bool isCompact = IsCompactButton(buttonWidth, buttonHeight);
-            float badgeHeight = isCompact
-                ? Mathf.Clamp(buttonHeight * 0.44f, 14f, 18f)
-                : Mathf.Clamp(buttonHeight * 0.42f, 24f, 36f);
-            rect.sizeDelta = new Vector2(badgeHeight * 0.85f, badgeHeight);
-            float badgeX = isCompact ? 8f : Mathf.Clamp(buttonHeight * 0.7f, 28f, 48f);
-            rect.anchoredPosition = new Vector2(badgeX, 0f);
-            rect.SetAsFirstSibling();
-
-            Image badge = badgeObject.GetComponent<Image>();
-            badge.sprite = _buttonSelectedBadge;
-            badge.type = Image.Type.Simple;
-            badge.preserveAspect = true;
-            badge.raycastTarget = false;
-            badge.color = Color.white;
-        }
-
-        private static void RemoveSelectedBadge(Button button)
-        {
-            Transform badge = button.transform.Find(SelectedBadgeName);
+            Transform badge = button.transform.Find(LegacySelectedBadgeName);
             if (badge == null)
                 return;
 
@@ -572,7 +581,7 @@ namespace Baseball.Presentation.UI
             }
         }
 
-        private static void EnsureButtonLabelLayout(Button button, bool hasSelectedBadge)
+        private static void EnsureButtonLabelLayout(Button button)
         {
             if (button.GetComponent<RectMask2D>() == null)
                 button.gameObject.AddComponent<RectMask2D>();
@@ -598,12 +607,6 @@ namespace Baseball.Presentation.UI
                 float horizontalPadding = isCompact
                     ? 10f
                     : Mathf.Clamp(buttonHeight * 0.5f, MinimumLabelPadding, MaximumLabelPadding);
-                if (hasSelectedBadge)
-                {
-                    RectTransform badge = button.transform.Find(SelectedBadgeName) as RectTransform;
-                    if (badge != null)
-                        horizontalPadding = Mathf.Max(horizontalPadding, badge.anchoredPosition.x + badge.rect.width + 8f);
-                }
                 Vector2 offsetMin = rect.offsetMin;
                 Vector2 offsetMax = rect.offsetMax;
                 offsetMin.x = Mathf.Max(offsetMin.x, horizontalPadding);

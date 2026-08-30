@@ -1,6 +1,7 @@
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -93,6 +94,7 @@ namespace Baseball.Presentation.Career
             RectTransform row = CreateImage("RosterPlayer_" + player.PlayerId, content, background,
                 new Vector2(606f, 34f), new Vector2(0f, -18f - rowIndex * 36f));
             row.anchorMin = row.anchorMax = new Vector2(0.5f, 1f);
+            MarkVisual(row, CareerUiVisualRole.FlatSurface);
             Image rowImage = row.GetComponent<Image>();
             rowImage.raycastTarget = true;
             Button button = row.gameObject.AddComponent<Button>();
