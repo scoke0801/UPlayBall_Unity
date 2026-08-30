@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
+using Baseball.Core.Rules;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Career
@@ -13,11 +15,13 @@ namespace Baseball.Game.Career
 
         private readonly BalanceTable _balance;
         private readonly PlayerValueEvaluator _playerValueEvaluator;
+        private readonly SkillBoardService _skillBoardService;
 
         public LeagueSeasonRolloverService(BalanceTable balance)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _playerValueEvaluator = new PlayerValueEvaluator(balance.PlayerEvaluation);
+            _skillBoardService = new SkillBoardService(balance.Growth.SkillBoard, balance.Growth.SkillBlocks);
         }
 
         /// <summary>글로벌 선수 성장 상태를 다음 시즌 구단 로스터 스냅샷으로 투영한다.</summary>
@@ -44,7 +48,7 @@ namespace Baseball.Game.Career
                         player.PlayerId,
                         player.Name,
                         player.PrimaryPosition,
-                        _playerValueEvaluator.CalculatePositionValue(player.ToPlayer()),
+                        _playerValueEvaluator.CalculatePositionValue(player.ToRosterPlayer(_skillBoardService)),
                         player.CareerPlateAppearances,
                         player.CareerPitchingOuts,
                         player.RegisteredSeasons);
@@ -70,7 +74,8 @@ namespace Baseball.Game.Career
                 NewGameFlow.CurrentSaveVersion,
                 nextSeasonId,
                 nextYear,
-                league.LeagueLevel);
+                league.LeagueLevel,
+                SimulationVersionStamp.CreateCurrent(_balance.Version, _balance.ContentHash));
             var teamIds = new int[teams.Count];
             var teamRecords = new TeamSeasonRecordState[teams.Count];
             for (int index = 0; index < teams.Count; index++)

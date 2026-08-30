@@ -1,5 +1,6 @@
 using System;
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Simulation.Random;
 
@@ -51,6 +52,26 @@ namespace Baseball.Simulation.Career
         public bool HasVeteranDemand { get; }
     }
 
+    public readonly struct RetirementEvaluationResult
+    {
+        public RetirementEvaluationResult(
+            bool shouldRetire,
+            double probability,
+            double randomRoll,
+            DecisionExplanation explanation)
+        {
+            ShouldRetire = shouldRetire;
+            Probability = probability;
+            RandomRoll = randomRoll;
+            Explanation = explanation;
+        }
+
+        public bool ShouldRetire { get; }
+        public double Probability { get; }
+        public double RandomRoll { get; }
+        public DecisionExplanation Explanation { get; }
+    }
+
     /// <summary>나이와 현재 경쟁력을 사용해 AI 선수의 은퇴 여부를 결정론적으로 판정한다.</summary>
     public sealed class PlayerRetirementResolver
     {
@@ -74,26 +95,32 @@ namespace Baseball.Simulation.Career
         /// <summary>나이 압박에 출전 감소·계약·마일스톤·구단 관계와 성향을 더해 은퇴를 판정한다.</summary>
         public bool ShouldRetire(RetirementEvaluationInput input)
         {
+            return Evaluate(input).ShouldRetire;
+        }
+
+        public RetirementEvaluationResult Evaluate(RetirementEvaluationInput input)
+        {
             if (input.NextSeasonAge >= _balance.GuaranteedRetirementAge)
-                return true;
+                return CreateBoundaryResult(input, true, 1d);
             if (input.NextSeasonAge < _balance.RetirementMinimumAge)
-                return false;
+                return CreateBoundaryResult(input, false, 0d);
 
-            double probability = _balance.RetirementBaseProbability +
-                (input.NextSeasonAge - _balance.RetirementMinimumAge) * _balance.RetirementAgeWeight;
-            if (input.Overall < _balance.LowAbilityThreshold)
-                probability += (_balance.LowAbilityThreshold - input.Overall) * _balance.LowAbilityWeight;
-            probability += Math.Min(0.15d, input.RecentAbilityDecline * 0.012d);
-            if (input.RecentAppearanceRate < 0.35d)
-                probability += (0.35d - input.RecentAppearanceRate) * 0.30d;
-            if (input.HasLongTermInjury) probability += 0.12d;
-            if (input.HasContractRemaining) probability -= 0.08d;
-            if (input.IsMilestonePursuit) probability -= 0.07d;
-            if (input.IsChampionshipContender) probability -= 0.05d;
-            if (input.IsFranchiseTeam) probability -= 0.04d;
-            if (input.HasVeteranDemand) probability -= 0.06d;
-
-            probability += input.Personality switch
+            double ageContribution = _balance.RetirementBaseProbability +
+                                     (input.NextSeasonAge - _balance.RetirementMinimumAge) * _balance.RetirementAgeWeight;
+            double abilityContribution = input.Overall < _balance.LowAbilityThreshold
+                ? (_balance.LowAbilityThreshold - input.Overall) * _balance.LowAbilityWeight
+                : 0d;
+            double declineContribution = Math.Min(0.15d, input.RecentAbilityDecline * 0.012d);
+            double playingTimeContribution = input.RecentAppearanceRate < 0.35d
+                ? (0.35d - input.RecentAppearanceRate) * 0.30d
+                : 0d;
+            double injuryContribution = input.HasLongTermInjury ? 0.12d : 0d;
+            double contractContribution = input.HasContractRemaining ? -0.08d : 0d;
+            double milestoneContribution = input.IsMilestonePursuit ? -0.07d : 0d;
+            double contenderContribution = input.IsChampionshipContender ? -0.05d : 0d;
+            double franchiseContribution = input.IsFranchiseTeam ? -0.04d : 0d;
+            double demandContribution = input.HasVeteranDemand ? -0.06d : 0d;
+            double personalityContribution = input.Personality switch
             {
                 RetirementPersonality.Ambitious => input.HasVeteranDemand ? 0d : 0.08d,
                 RetirementPersonality.PlayingObsessed => -0.16d,
@@ -101,9 +128,95 @@ namespace Baseball.Simulation.Career
                 RetirementPersonality.ChampionshipSeeker => input.IsChampionshipContender ? -0.09d : 0.05d,
                 _ => 0d
             };
+            double probability = ageContribution + abilityContribution + declineContribution +
+                playingTimeContribution + injuryContribution + contractContribution + milestoneContribution +
+                contenderContribution + franchiseContribution + demandContribution + personalityContribution;
             if (probability < 0d) probability = 0d;
             if (probability > 1d) probability = 1d;
-            return _random.NextDouble() < probability;
+            double roll = _random.NextDouble();
+            var factors = new[]
+            {
+                CreateFactor(DecisionReasonCode.AgeCurve, input.NextSeasonAge, ageContribution, 1),
+                CreateFactor(DecisionReasonCode.StableAbility, input.Overall, abilityContribution, 2),
+                CreateFactor(DecisionReasonCode.AbilityDecline, input.RecentAbilityDecline, declineContribution, 3),
+                CreateFactor(DecisionReasonCode.PlayingTime, input.RecentAppearanceRate, playingTimeContribution, 4),
+                CreateFactor(DecisionReasonCode.LongTermInjury, input.HasLongTermInjury ? 1d : 0d, injuryContribution, 5),
+                CreateFactor(DecisionReasonCode.ContractRemaining, input.HasContractRemaining ? 1d : 0d, contractContribution, 6),
+                CreateFactor(DecisionReasonCode.MilestonePursuit, input.IsMilestonePursuit ? 1d : 0d, milestoneContribution, 7),
+                CreateFactor(DecisionReasonCode.ChampionshipWindow, input.IsChampionshipContender ? 1d : 0d, contenderContribution, 8),
+                CreateFactor(DecisionReasonCode.FranchiseLoyalty, input.IsFranchiseTeam ? 1d : 0d, franchiseContribution, 9),
+                CreateFactor(DecisionReasonCode.VeteranDemand, input.HasVeteranDemand ? 1d : 0d, demandContribution, 10),
+                CreateFactor(DecisionReasonCode.Personality, (int)input.Personality, personalityContribution, 11)
+            };
+            DecisionReasonCode summary = DecisionReasonCode.AgeCurve;
+            double strongest = Math.Abs(ageContribution);
+            for (int index = 1; index < factors.Length; index++)
+            {
+                double strength = Math.Abs(factors[index].Contribution);
+                if (strength <= strongest)
+                    continue;
+                strongest = strength;
+                summary = factors[index].ReasonCode;
+            }
+            var actions = input.HasContractRemaining
+                ? Array.Empty<RecommendedActionCode>()
+                : input.IsMilestonePursuit
+                    ? new[] { RecommendedActionCode.PursueMilestone }
+                    : new[] { RecommendedActionCode.PursueContract };
+            return new RetirementEvaluationResult(
+                roll < probability,
+                probability,
+                roll,
+                new DecisionExplanation(
+                    DecisionType.Retirement,
+                    summary,
+                    factors,
+                    new[] { probability, roll },
+                    actions,
+                    rulesVersion: 1));
+        }
+
+        private RetirementEvaluationResult CreateBoundaryResult(
+            RetirementEvaluationInput input,
+            bool shouldRetire,
+            double probability)
+        {
+            DecisionFactor age = CreateFactor(
+                DecisionReasonCode.AgeCurve,
+                input.NextSeasonAge,
+                probability,
+                1);
+            return new RetirementEvaluationResult(
+                shouldRetire,
+                probability,
+                -1d,
+                new DecisionExplanation(
+                    DecisionType.Retirement,
+                    DecisionReasonCode.AgeCurve,
+                    new[] { age },
+                    new[] { (double)_balance.RetirementMinimumAge, _balance.GuaranteedRetirementAge },
+                    Array.Empty<RecommendedActionCode>(),
+                    rulesVersion: 1));
+        }
+
+        private static DecisionFactor CreateFactor(
+            DecisionReasonCode code,
+            double rawValue,
+            double contribution,
+            int priority)
+        {
+            return new DecisionFactor(
+                code,
+                rawValue,
+                rawValue,
+                1d,
+                contribution,
+                contribution > 0d
+                    ? DecisionDirection.Positive
+                    : contribution < 0d
+                        ? DecisionDirection.Negative
+                        : DecisionDirection.Neutral,
+                priority);
         }
     }
 }

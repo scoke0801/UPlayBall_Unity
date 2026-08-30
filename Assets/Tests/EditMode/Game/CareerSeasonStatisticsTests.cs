@@ -33,7 +33,7 @@ namespace Baseball.Tests.EditMode.Game
             }
 
             double runsPerTeamGame = leagueRuns / (double)leagueTeamGames;
-            TestContext.WriteLine(
+            System.Console.WriteLine(
                 $"45 seasons / {leagueTeamGames / 2:N0} league games / R/G {runsPerTeamGame:F2}\n" +
                 $"Batter Start% {batter.StartRate:P1} AVG {batter.BattingAverage:F3} OPS {batter.Ops:F3}\n" +
                 $"SP App% {starter.AppearanceRate:P1} IP/App {starter.InningsPerAppearance:F1} ERA {starter.Era:F2}\n" +
@@ -85,7 +85,7 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(completedSeasons, Is.EqualTo(20));
             int substituteAppearances = totalGamesPlayed - totalGamesStarted;
-            TestContext.WriteLine(
+            System.Console.WriteLine(
                 $"BenchCompetition 20 seasons / GS {totalGamesStarted} / " +
                 $"Sub appearances {substituteAppearances} / AB {totalAtBats}");
             Assert.That(substituteAppearances, Is.GreaterThan(0));

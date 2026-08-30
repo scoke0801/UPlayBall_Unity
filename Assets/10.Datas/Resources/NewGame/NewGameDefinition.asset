@@ -15,6 +15,7 @@ MonoBehaviour:
   _teamCount: 8
   _firstSeasonYear: 2028
   _startingAge: 18
+  _growthBalance: {fileID: 11400000, guid: b7777777777777777777777777777777, type: 2}
   _teamIdentities:
   - _name: "\uC11C\uC6B8 \uBE14\uB8E8\uC719\uC2A4"
     _primaryColor:

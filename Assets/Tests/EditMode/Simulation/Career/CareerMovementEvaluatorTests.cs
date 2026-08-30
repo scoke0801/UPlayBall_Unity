@@ -142,7 +142,7 @@ namespace Baseball.Tests.EditMode.Simulation.Career
             }
 
             double tradeRate = completedTrades / (double)seasonCount;
-            TestContext.WriteLine($"트레이드 성사: {completedTrades}/{seasonCount} ({tradeRate:P2})");
+            System.Console.WriteLine($"트레이드 성사: {completedTrades}/{seasonCount} ({tradeRate:P2})");
             Assert.That(tradeRate, Is.InRange(0.25d, 0.33d));
         }
 

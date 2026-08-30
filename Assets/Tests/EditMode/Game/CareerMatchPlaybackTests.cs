@@ -229,6 +229,31 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
+        public void RevealThroughEvent_투구연출이끝난이벤트까지만공개한다()
+        {
+            MatchEvent[] events =
+            {
+                CreateEvent(0, MatchEventType.Pitch, 10, 0, 0, PitchResult.InPlay),
+                CreateEvent(1, MatchEventType.Out, 10, 10, 1, PitchResult.None),
+                CreateEvent(
+                    2,
+                    MatchEventType.PlateAppearanceEnded,
+                    10,
+                    10,
+                    1,
+                    PitchResult.None,
+                    PlateAppearanceResult.GroundOut)
+            };
+            var playback = new CareerMatchPlayback();
+
+            playback.RevealThroughEvent(events, inclusiveEventIndex: 0);
+
+            Assert.That(playback.VisibleEventCount, Is.EqualTo(1));
+            Assert.That(playback.HasPendingEvents(events), Is.True);
+            Assert.That(playback.BuildSnapshot(events).LatestEventType, Is.EqualTo(MatchEventType.Pitch));
+        }
+
+        [Test]
         public void PlaybackSpeedPolicy_내선수자동감속이켜지면선택배속과무관하게1배속이다()
         {
             Assert.That(

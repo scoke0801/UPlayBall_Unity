@@ -2,6 +2,7 @@ using System;
 using Baseball.Core.Balance;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Career
@@ -16,12 +17,14 @@ namespace Baseball.Game.Career
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
         private readonly TradeValuationAi _valuationAi;
+        private readonly SkillBoardService _skillBoardService;
 
         public TradeMarketService(CareerState career, BalanceTable balance)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _valuationAi = new TradeValuationAi(balance.TradeMarket);
+            _skillBoardService = new SkillBoardService(balance.Growth.SkillBoard, balance.Growth.SkillBlocks);
         }
 
         /// <summary>
@@ -48,7 +51,7 @@ namespace Baseball.Game.Career
             int currentTeamId = _career.MyPlayer.CurrentTeamId;
             TeamState currentTeam = GetTeam(currentTeamId);
             int playerValue = new PlayerValueEvaluator(_balance.PlayerEvaluation)
-                .CalculatePositionValue(_career.MyPlayer.ToPlayer());
+                .CalculatePositionValue(_career.MyPlayer.ToRosterPlayer(_skillBoardService));
             int currentRank = CalculateRank(currentTeamId);
             TradeCandidate? bestCandidate = null;
             bool hasSellerInterest = false;

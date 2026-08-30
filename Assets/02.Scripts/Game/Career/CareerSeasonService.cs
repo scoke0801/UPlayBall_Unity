@@ -242,7 +242,10 @@ namespace Baseball.Game.Career
                 gameDate: GetGameDate(
                     _career.CurrentLeague.CurrentSeason.Year,
                     playerGame.Round));
-            return CompleteNextRound(playerGame, playerMatchResult, narrativeBaseline);
+            return CompleteNextRound(
+                playerGame,
+                playerMatchResult,
+                narrativeBaseline);
         }
 
         /// <summary>
@@ -263,7 +266,10 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("현재 일정과 일치하지 않는 경기 결과입니다.");
             }
 
-            return CompleteNextRound(playerGame, session.MatchResult, session.NarrativeBaseline);
+            return CompleteNextRound(
+                playerGame,
+                session.MatchResult,
+                session.NarrativeBaseline);
         }
 
         private CareerGameAdvanceResult CompleteNextRound(
@@ -343,6 +349,11 @@ namespace Baseball.Game.Career
                 TradeInterestRecord[] previousInterests = CopyTradeInterests(_career.TradeState.Interests);
                 TradeExecutionResult? trade = new TradeMarketService(_career, _balance)
                     .ProcessAfterScheduleDate();
+                if (!trade.HasValue)
+                {
+                    new CareerRoleEvaluationService(_career, _balance)
+                        .TryEvaluateAfterRound(playerResult.Round);
+                }
                 var occurredAt = new CareerDate(
                     new NewsCycleKey(season.SeasonId, SeasonPhase.RegularSeason, playerResult.Round),
                     gameDate);

@@ -1,5 +1,6 @@
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
+using Baseball.Core.Growth;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Random;
 using NUnit.Framework;
@@ -82,6 +83,28 @@ namespace Baseball.Tests.EditMode.Simulation.Career
                 .ShouldRetire(input);
 
             Assert.That(shouldRetire, Is.False);
+        }
+
+        [Test]
+        public void Evaluate_판정확률과ReasonCode를함께반환한다()
+        {
+            var input = new RetirementEvaluationInput(
+                nextSeasonAge: 38,
+                overall: 48,
+                RetirementPersonality.Ambitious,
+                recentAbilityDecline: 4,
+                recentAppearanceRate: 0.2d,
+                hasLongTermInjury: true);
+
+            RetirementEvaluationResult result = new PlayerRetirementResolver(
+                    PlayerLifecycleBalance.CreateDefault(),
+                    new FixedRandom(0.5d))
+                .Evaluate(input);
+
+            Assert.That(result.Probability, Is.InRange(0d, 1d));
+            Assert.That(result.RandomRoll, Is.EqualTo(0.5d));
+            Assert.That(result.Explanation.DecisionType, Is.EqualTo(DecisionType.Retirement));
+            Assert.That(result.Explanation.Factors, Has.Length.GreaterThanOrEqualTo(3));
         }
 
         private sealed class FixedRandom : IRandomSource

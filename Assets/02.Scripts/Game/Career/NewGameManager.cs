@@ -151,14 +151,13 @@ namespace Baseball.Game.Career
         public BatterAttributes? BatterAttributes => _flow?.State.BatterAttributes;
         public PitcherAttributes? PitcherAttributes => _flow?.State.PitcherAttributes;
         public ulong RandomSeed => _flow?.State.RandomSeed ?? 0UL;
-        public CharacterCreationBalance CharacterCreationBalance => _configuration.Balance.CharacterCreation;
         public CareerCreationRules CareerCreationRules => _configuration.CareerCreationRules;
         public CareerAttributeAllocationRule CurrentCreationAttributeRule =>
             CareerCreationRules.GetRule(PlayerType ?? Baseball.Core.Players.PlayerType.Batter);
         public IReadOnlyList<AttributeAllocationPresetView> CreationAttributeAllocationPresets =>
             CreateCreationAttributeAllocationPresets();
         public IReadOnlyList<AttributeAllocationPresetView> AttributeAllocationPresets =>
-            CreateAttributeAllocationPresets();
+            CreateCreationAttributeAllocationPresets();
         public IReadOnlyList<ContractOfferView> Offers => _offerViews;
         public string BuildWarning => _flow?.BuildWarning ?? string.Empty;
         public string LastError { get; private set; } = string.Empty;
@@ -295,21 +294,12 @@ namespace Baseball.Game.Career
         /// </summary>
         public bool SubmitAttributes(int[] values)
         {
-            if (values == null || values.Length != CharacterCreationBalance.AttributeCount)
-                return Fail("능력치 6개가 필요합니다.");
-
-            return TryAdvance(() =>
-            {
-                if (_flow.State.PlayerType == Baseball.Core.Players.PlayerType.Batter)
-                {
-                    _flow.SubmitBatterAttributes(new BatterAttributes(
-                        values[0], values[1], values[2], values[3], values[4], values[5]));
-                    return;
-                }
-
-                _flow.SubmitPitcherAttributes(new PitcherAttributes(
-                    values[0], values[1], values[2], values[3], values[4], values[5]));
-            });
+            int required = CurrentCreationAttributeRule.AttributeCount;
+            if (values == null || values.Length < required)
+                return Fail($"능력치 {required}개가 필요합니다.");
+            var submitted = new int[required];
+            Array.Copy(values, submitted, required);
+            return TryAdvance(() => _flow.SubmitCreationAttributes(submitted));
         }
 
         public bool GenerateOffers()
@@ -387,34 +377,6 @@ namespace Baseball.Game.Career
             }
         }
 
-        private AttributeAllocationPresetView[] CreateAttributeAllocationPresets()
-        {
-            CharacterCreationBalance balance = CharacterCreationBalance;
-            if (PlayerType == Baseball.Core.Players.PlayerType.Pitcher)
-            {
-                return new[]
-                {
-                    CreatePreset("균형형", false, balance, 1, 1, 1, 1, 1, 1),
-                    CreatePreset("선발형", PrimaryPosition == PlayerPosition.StartingPitcher,
-                        balance, 5, 2, 2, 2, 4, 3),
-                    CreatePreset("강속구형", PrimaryPosition == PlayerPosition.ReliefPitcher,
-                        balance, 1, 5, 5, 2, 1, 2),
-                    CreatePreset("변화구형", false, balance, 2, 2, 3, 5, 3, 2),
-                    CreatePreset("제구형", false, balance, 3, 1, 2, 3, 5, 4)
-                };
-            }
-
-            return new[]
-            {
-                CreatePreset("균형형", false, balance, 1, 1, 1, 1, 1, 1),
-                CreatePreset("교타형", false, balance, 5, 2, 3, 1, 2, 3),
-                CreatePreset("장타형", IsPowerPosition(PrimaryPosition), balance, 3, 5, 1, 1, 1, 2),
-                CreatePreset("준족형", PrimaryPosition == PlayerPosition.CenterField,
-                    balance, 3, 1, 5, 2, 3, 2),
-                CreatePreset("수비형", IsDefensePosition(PrimaryPosition), balance, 2, 1, 3, 2, 5, 3)
-            };
-        }
-
         private AttributeAllocationPresetView[] CreateCreationAttributeAllocationPresets()
         {
             CareerAttributeAllocationRule rule = CurrentCreationAttributeRule;
@@ -452,18 +414,6 @@ namespace Baseball.Game.Career
                 label,
                 isRecommended,
                 rule.CreateWeightedValues(weights));
-        }
-
-        private static AttributeAllocationPresetView CreatePreset(
-            string label,
-            bool isRecommended,
-            CharacterCreationBalance balance,
-            params int[] weights)
-        {
-            return new AttributeAllocationPresetView(
-                label,
-                isRecommended,
-                AttributeAllocation.CreateWeightedValues(balance, weights));
         }
 
         private static bool IsPowerPosition(PlayerPosition position)

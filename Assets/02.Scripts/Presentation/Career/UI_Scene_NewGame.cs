@@ -25,7 +25,7 @@ namespace Baseball.Presentation.Career
         private static readonly Color WarningColor = new(1f, 0.74f, 0.3f, 1f);
         private static readonly Color ErrorColor = new(1f, 0.42f, 0.42f, 1f);
 
-        private readonly int[] _attributeDraft = new int[CharacterCreationBalance.AttributeCount];
+        private readonly int[] _attributeDraft = new int[CareerCreationRules.MaximumAttributeCount];
         private NewGameManager _manager;
         private RectTransform _body;
         private Text _title;
@@ -226,14 +226,14 @@ namespace Baseball.Presentation.Career
         {
             SetTitle("초기 능력치 배분", "프리셋으로 빠르게 배분한 뒤 원하는 능력치만 조정하세요.");
             EnsureAttributeDraft();
-            CharacterCreationBalance balance = _manager.CharacterCreationBalance;
+            CareerAttributeAllocationRule rule = _manager.CurrentCreationAttributeRule;
             string[] names = _manager.PlayerType == PlayerType.Pitcher
-                ? new[] { "Stamina", "Velocity", "Stuff", "Breaking", "Control", "Mental" }
-                : new[] { "Contact", "Power", "Speed", "Arm", "Defense", "Mental" };
-            int remaining = balance.BonusPoints - GetSpentPoints(balance);
+                ? new[] { "Stuff", "Control", "Breaking", "Stamina" }
+                : new[] { "Contact", "Power", "Eye", "Speed", "Defense", "Arm" };
+            int remaining = rule.BonusPoints - GetSpentPoints(rule);
             CreateText(
                 "Remaining", _body,
-                $"남은 포인트  {remaining} / {balance.BonusPoints}    ·    상한 {balance.MaxValue}",
+                $"남은 포인트  {remaining} / {rule.BonusPoints}    ·    상한 {rule.MaxValue}",
                 20, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(700f, 44f), new Vector2(0f, 260f), remaining == 0 ? AccentColor : PrimaryTextColor);
 
@@ -249,12 +249,12 @@ namespace Baseball.Presentation.Career
                 Button minusFive = CreateButton(
                     "MinusFive_" + index, _body, "−5", new Vector2(58f, 44f), new Vector2(10f, y),
                     CardColor, out _);
-                minusFive.interactable = _attributeDraft[index] > balance.BaseValue;
+                minusFive.interactable = _attributeDraft[index] > rule.BaseValue;
                 minusFive.onClick.AddListener(() => ChangeAttribute(captured, -5));
                 Button minus = CreateButton(
                     "Minus_" + index, _body, "−", new Vector2(52f, 44f), new Vector2(72f, y),
                     CardColor, out _);
-                minus.interactable = _attributeDraft[index] > balance.BaseValue;
+                minus.interactable = _attributeDraft[index] > rule.BaseValue;
                 minus.onClick.AddListener(() => ChangeAttribute(captured, -1));
                 CreateText(
                     "Value_" + index, _body, _attributeDraft[index].ToString(), 22, FontStyle.Bold,
@@ -262,12 +262,12 @@ namespace Baseball.Presentation.Career
                 Button plus = CreateButton(
                     "Plus_" + index, _body, "+", new Vector2(52f, 44f), new Vector2(198f, y),
                     CardColor, out _);
-                plus.interactable = _attributeDraft[index] < balance.MaxValue && remaining > 0;
+                plus.interactable = _attributeDraft[index] < rule.MaxValue && remaining > 0;
                 plus.onClick.AddListener(() => ChangeAttribute(captured, 1));
                 Button plusFive = CreateButton(
                     "PlusFive_" + index, _body, "+5", new Vector2(58f, 44f), new Vector2(260f, y),
                     CardColor, out _);
-                plusFive.interactable = _attributeDraft[index] < balance.MaxValue && remaining > 0;
+                plusFive.interactable = _attributeDraft[index] < rule.MaxValue && remaining > 0;
                 plusFive.onClick.AddListener(() => ChangeAttribute(captured, 5));
             }
             SetNext("선수 카드 생성", () => _manager.SubmitAttributes(_attributeDraft));
@@ -295,7 +295,7 @@ namespace Baseball.Presentation.Career
                 "ResetAttributes", _body, "초기화", new Vector2(92f, 38f), new Vector2(485f, 260f),
                 CardColor, out Text resetText);
             resetText.fontSize = 15;
-            reset.interactable = GetSpentPoints(_manager.CharacterCreationBalance) > 0;
+            reset.interactable = GetSpentPoints(_manager.CurrentCreationAttributeRule) > 0;
             reset.onClick.AddListener(ResetAttributes);
         }
 
@@ -450,9 +450,9 @@ namespace Baseball.Presentation.Career
         {
             if (_hasAttributeDraft)
                 return;
-            CharacterCreationBalance balance = _manager.CharacterCreationBalance;
+            CareerAttributeAllocationRule rule = _manager.CurrentCreationAttributeRule;
             for (int index = 0; index < _attributeDraft.Length; index++)
-                _attributeDraft[index] = balance.BaseValue;
+                _attributeDraft[index] = rule.BaseValue;
             if (_manager.BatterAttributes.HasValue)
             {
                 BatterAttributes value = _manager.BatterAttributes.Value;
@@ -461,7 +461,7 @@ namespace Baseball.Presentation.Career
             else if (_manager.PitcherAttributes.HasValue)
             {
                 PitcherAttributes value = _manager.PitcherAttributes.Value;
-                CopyValues(value.Stamina, value.Velocity, value.Stuff, value.Breaking, value.Control, value.Mental);
+                CopyValues(value.Stuff, value.Control, value.Breaking, value.Stamina, rule.BaseValue, rule.BaseValue);
             }
             _hasAttributeDraft = true;
         }
@@ -478,16 +478,16 @@ namespace Baseball.Presentation.Career
 
         private void ChangeAttribute(int index, int delta)
         {
-            CharacterCreationBalance balance = _manager.CharacterCreationBalance;
+            CareerAttributeAllocationRule rule = _manager.CurrentCreationAttributeRule;
             int adjustedDelta = delta;
             if (delta > 0)
             {
-                int remaining = balance.BonusPoints - GetSpentPoints(balance);
-                adjustedDelta = Math.Min(delta, Math.Min(balance.MaxValue - _attributeDraft[index], remaining));
+                int remaining = rule.BonusPoints - GetSpentPoints(rule);
+                adjustedDelta = Math.Min(delta, Math.Min(rule.MaxValue - _attributeDraft[index], remaining));
             }
             else if (delta < 0)
             {
-                adjustedDelta = Math.Max(delta, balance.BaseValue - _attributeDraft[index]);
+                adjustedDelta = Math.Max(delta, rule.BaseValue - _attributeDraft[index]);
             }
 
             if (adjustedDelta == 0)
@@ -498,15 +498,15 @@ namespace Baseball.Presentation.Career
 
         private void ApplyPreset(AttributeAllocationPresetView preset)
         {
-            for (int index = 0; index < _attributeDraft.Length; index++)
+            for (int index = 0; index < _manager.CurrentCreationAttributeRule.AttributeCount; index++)
                 _attributeDraft[index] = preset.GetValue(index);
             Render();
         }
 
         private void ResetAttributes()
         {
-            int baseValue = _manager.CharacterCreationBalance.BaseValue;
-            for (int index = 0; index < _attributeDraft.Length; index++)
+            int baseValue = _manager.CurrentCreationAttributeRule.BaseValue;
+            for (int index = 0; index < _manager.CurrentCreationAttributeRule.AttributeCount; index++)
                 _attributeDraft[index] = baseValue;
             Render();
         }
@@ -522,11 +522,11 @@ namespace Baseball.Presentation.Career
             return true;
         }
 
-        private int GetSpentPoints(CharacterCreationBalance balance)
+        private int GetSpentPoints(CareerAttributeAllocationRule rule)
         {
             int spent = 0;
-            for (int index = 0; index < _attributeDraft.Length; index++)
-                spent += _attributeDraft[index] - balance.BaseValue;
+            for (int index = 0; index < rule.AttributeCount; index++)
+                spent += _attributeDraft[index] - rule.BaseValue;
             return spent;
         }
 

@@ -5,6 +5,7 @@ using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Career
@@ -32,6 +33,7 @@ namespace Baseball.Game.Career
 
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
+        private readonly SkillBoardService _skillBoardService;
 
         private TeamState[] _nextTeams;
         private WorldOffseasonMarketPlan _marketPlan;
@@ -49,6 +51,7 @@ namespace Baseball.Game.Career
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _skillBoardService = new SkillBoardService(balance.Growth.SkillBoard, balance.Growth.SkillBlocks);
         }
 
         public SeasonTransitionStep Step { get; private set; }
@@ -270,7 +273,11 @@ namespace Baseball.Game.Career
         {
             LeagueState completedLeague = _career.CurrentLeague;
             SeasonState completedSeason = completedLeague.CurrentSeason;
+            bool requiresInjuryReturnObservation = _career.CurrentOffseason.MandatoryRehabWeeks > 0;
             _career.CurrentOffseason.CompleteRemainingWeeks();
+            _career.MyPlayer.GrowthState.ApplyOffseasonRecoveryBenefits(
+                _career.CurrentOffseason.NextSeasonInjuryRiskReduction,
+                _career.CurrentOffseason.PhysicalDeclineProtectionPoints);
             completedSeason.CompleteArchive();
 
             TeamState previousPlayerTeam = GetTeam(_career.CurrentLeague.Teams, _career.MyPlayer.CurrentTeamId);
@@ -402,6 +409,9 @@ namespace Baseball.Game.Career
             LeagueLevel reachedTier = _career.World.GetLeague(targetLeagueId).LeagueLevel;
             if (_career.Reputation.RecordLeagueReach(reachedTier))
             {
+                _career.GrowthMilestones.RecordFirstReach(
+                    reachedTier,
+                    _balance.Growth.Progression);
                 LeagueDefinition reachedDefinition = WorldGenerationConfiguration
                     .GetDefaultDefinition(reachedTier);
                 if (reachedDefinition.FirstReachReward > 0L)
@@ -443,6 +453,8 @@ namespace Baseball.Game.Career
             _career.MyPlayer.InitializeSeasonStatus(
                 _balance.CareerSeason.InitialCondition,
                 _balance.CareerSeason.InitialManagerEvaluation);
+            new CareerRoleEvaluationService(_career, _balance)
+                .BeginSeason(requiresInjuryReturnObservation);
             if (_career.MyPlayer.Age >= _balance.PlayerLifecycle.GuaranteedRetirementAge &&
                 !_career.Retirement.IsFinalSeasonDeclared)
             {
@@ -710,7 +722,7 @@ namespace Baseball.Game.Career
         private ContractOffer? BuildCurrentTeamRenewalOffer()
         {
             TeamState currentTeam = GetTeam(_nextTeams, _career.MyPlayer.CurrentTeamId);
-            Player player = _career.MyPlayer.ToPlayer();
+            Player player = _career.MyPlayer.ToRosterPlayer(_skillBoardService);
             var playerValueEvaluator = new PlayerValueEvaluator(_balance.PlayerEvaluation);
             int playerValue = playerValueEvaluator.CalculatePositionValue(player);
             int evaluationBonus = _career.CurrentLeague.CurrentSeason.Settlement.ContractEvaluationBonus;
@@ -769,7 +781,7 @@ namespace Baseball.Game.Career
             ContractOffer[] sameLeagueOffers = ContractOfferBoard.SelectOpenMarketOffers(
                 _balance.ContractOffer,
                 evaluator,
-                _career.MyPlayer.ToPlayer(),
+                _career.MyPlayer.ToRosterPlayer(_skillBoardService),
                 generatedTeams,
                 _career.MyPlayer.CurrentTeamId,
                 _career.CurrentLeague.CurrentSeason.Settlement.ContractEvaluationBonus);
@@ -886,7 +898,7 @@ namespace Baseball.Game.Career
                 ? _balance.LeagueMovement.ReliablePitchingOuts
                 : _balance.LeagueMovement.ReliablePlateAppearances;
             int playerOverall = new PlayerValueEvaluator(_balance.PlayerEvaluation)
-                .CalculatePositionValue(_career.MyPlayer.ToPlayer());
+                .CalculatePositionValue(_career.MyPlayer.ToRosterPlayer(_skillBoardService));
             LeagueDefinition targetDefinition = WorldGenerationConfiguration.GetDefaultDefinition(targetLevel);
             double minimumProjected = targetLevel switch
             {
@@ -1040,7 +1052,7 @@ namespace Baseball.Game.Career
             var evaluator = new RookieTryoutEvaluator(_balance.PlayerLifecycle.RookieTryoutPassingScore);
             TeamState[] rookieTeams = _marketPlan.GetTeams(LeagueId.RookieMain);
             int playerOverall = new PlayerValueEvaluator(_balance.PlayerEvaluation)
-                .CalculatePositionValue(_career.MyPlayer.ToPlayer());
+                .CalculatePositionValue(_career.MyPlayer.ToRosterPlayer(_skillBoardService));
             int bestTeamIndex = -1;
             int secondTeamIndex = -1;
             int bestPositionNeed = 0;

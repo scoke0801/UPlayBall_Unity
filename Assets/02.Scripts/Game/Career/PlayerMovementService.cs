@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Growth;
 
 namespace Baseball.Game.Career
 {
@@ -33,11 +34,13 @@ namespace Baseball.Game.Career
     {
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
+        private readonly SkillBoardService _skillBoardService;
 
         public PlayerMovementService(CareerState career, BalanceTable balance)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance;
+            _skillBoardService = new SkillBoardService(balance.Growth.SkillBoard, balance.Growth.SkillBlocks);
         }
 
         public TradeExecutionResult ExecuteTrade(
@@ -56,7 +59,7 @@ namespace Baseball.Game.Career
             TeamState previousTeam = GetTeam(previousTeamId);
             TeamState targetTeam = GetTeam(targetTeamId);
             int playerOverall = new PlayerValueEvaluator(_balance.PlayerEvaluation)
-                .CalculatePositionValue(_career.MyPlayer.ToPlayer());
+                .CalculatePositionValue(_career.MyPlayer.ToRosterPlayer(_skillBoardService));
             RosterCompetitorState exchangedPlayer = SelectExchangedPlayer(targetTeam, playerOverall);
             TeamState updatedPreviousTeam = previousTeam.WithRosterAndPlayerIds(
                 Append(previousTeam.RosterCompetitors, exchangedPlayer),
@@ -103,6 +106,10 @@ namespace Baseball.Game.Career
                 projectedRole,
                 exchangedPlayer.PlayerId);
             _career.TradeState.RecordTrade(history);
+            _career.RoleState.ApplyTeamChange(
+                season.SeasonId,
+                gameIndex,
+                projectedRole);
             _career.World.MovementLedger.Record(new PlayerMovementRecord(
                 _career.World.Calendar.CurrentDate,
                 season.SeasonId,

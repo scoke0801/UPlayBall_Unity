@@ -95,6 +95,7 @@ namespace Baseball.Game.Data
         [SerializeField, Min(1)] private int _teamCount = 8;
         [SerializeField, Min(1)] private int _firstSeasonYear = 2028;
         [SerializeField, Range(16, 25)] private int _startingAge = 18;
+        [SerializeField] private GrowthBalanceAsset _growthBalance;
         [SerializeField] private TeamIdentityData[] _teamIdentities =
         {
             new("서울 블루윙스", 45, 105, 210),
@@ -173,9 +174,6 @@ namespace Baseball.Game.Data
         [SerializeField, Range(1, 5)] private int _majorPlayerContractYears = 3;
 
         [Header("Character Creation")]
-        [SerializeField, Range(0, 100)] private int _baseAttributeValue = 50;
-        [SerializeField, Min(0)] private int _bonusPoints = 60;
-        [SerializeField, Range(0, 100)] private int _maximumAttributeValue = 75;
         [SerializeField, Range(0, 100)] private int _careerBaseAttributeValue = 50;
         [SerializeField, Min(0)] private int _careerBatterBonusPoints = 60;
         [SerializeField, Min(0)] private int _careerPitcherBonusPoints = 40;
@@ -291,12 +289,17 @@ namespace Baseball.Game.Data
                 archetypes[index] = _archetypes[index].ToProfile();
 
             BalanceTable matchDefaults = BalanceTable.CreateDefault();
+            GrowthBalanceTable growthBalance = _growthBalance != null
+                ? _growthBalance.Build()
+                : matchDefaults.Growth;
+            string contentHash = _growthBalance != null
+                ? _growthBalance.CreateContentHash()
+                : matchDefaults.ContentHash;
             var balance = new BalanceTable(
                 version: 1,
                 matchDefaults.PlateDiscipline,
                 matchDefaults.BattedBall,
                 matchDefaults.BaseRunning,
-                new CharacterCreationBalance(_baseAttributeValue, _bonusPoints, _maximumAttributeValue),
                 new ContractOfferBalance(
                     _offerScoreThreshold,
                     _scoutVarianceMinimum,
@@ -403,7 +406,9 @@ namespace Baseball.Game.Data
                     _tableSetterLineupWeights.ToBalance(),
                     _runProducerLineupWeights.ToBalance(),
                     _cleanupLineupWeights.ToBalance(),
-                    _lowerOrderLineupWeights.ToBalance()));
+                    _lowerOrderLineupWeights.ToBalance()),
+                growth: growthBalance,
+                contentHash: contentHash);
 
             return new NewGameConfiguration(
                 balance,

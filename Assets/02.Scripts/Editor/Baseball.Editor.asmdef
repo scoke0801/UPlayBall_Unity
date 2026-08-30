@@ -2,6 +2,7 @@
   "name": "Baseball.Editor",
   "rootNamespace": "Baseball.Editor",
   "references": [
+    "Baseball.Core",
     "Baseball.Game",
     "Baseball.Presentation",
     "Unity.InputSystem",

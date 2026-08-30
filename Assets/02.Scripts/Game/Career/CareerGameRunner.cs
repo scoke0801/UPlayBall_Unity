@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Core.Rules;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Match;
@@ -87,8 +88,11 @@ namespace Baseball.Game.Career
             DateTime? gameDate = null)
         {
             MatchInput input = CreateMatchInput(game, playerRole, seasonId, requiresWinner, gameDate);
-            return new MatchSimulator(_balance, MatchRandomStreams.Create(game.RandomSeed))
-                .Simulate(input, NullMatchEventSink.Instance);
+            var simulator = new MatchSimulator(_balance, MatchRandomStreams.Create(game.RandomSeed));
+            return simulator.Simulate(
+                input,
+                NullMatchEventSink.Instance,
+                MatchExecutionProfile.DetailedBackground);
         }
 
         /// <summary>
@@ -122,7 +126,9 @@ namespace Baseball.Game.Career
                 game.RandomSeed,
                 awayRoster,
                 homeRoster,
-                Baseball.Core.Rules.MatchRules.CreateDefault(requiresWinner));
+                MatchRules.CreateDefault(requiresWinner),
+                SimulationRulesVersion.DetailedV2,
+                _league.CurrentSeason.VersionStamp);
         }
 
         private MatchRosterSnapshot BuildMatchRoster(
@@ -145,7 +151,8 @@ namespace Baseball.Game.Career
                     bullpen,
                     CareerLineupPlan.CreateRosterPlayer(
                         _career.World,
-                        team.GetCompetitor(PlayerPosition.StartingPitcher, 1 - startingSelection)),
+                        team.GetCompetitor(PlayerPosition.StartingPitcher, 1 - startingSelection),
+                        _skillBoardService),
                     PitcherRole.Swingman,
                     myPlayer,
                     gameDate);
@@ -156,7 +163,8 @@ namespace Baseball.Game.Career
                     bullpen,
                     CareerLineupPlan.CreateRosterPlayer(
                         _career.World,
-                        team.GetCompetitor(PlayerPosition.StartingPitcher, 0)),
+                        team.GetCompetitor(PlayerPosition.StartingPitcher, 0),
+                        _skillBoardService),
                     PitcherRole.LongRelief,
                     myPlayer,
                     gameDate);
@@ -164,7 +172,8 @@ namespace Baseball.Game.Career
                     bullpen,
                     CareerLineupPlan.CreateRosterPlayer(
                         _career.World,
-                        team.GetCompetitor(PlayerPosition.StartingPitcher, 1)),
+                        team.GetCompetitor(PlayerPosition.StartingPitcher, 1),
+                        _skillBoardService),
                     PitcherRole.Swingman,
                     myPlayer,
                     gameDate);
@@ -174,7 +183,8 @@ namespace Baseball.Game.Career
                 bullpen,
                 CareerLineupPlan.CreateRosterPlayer(
                     _career.World,
-                    team.GetCompetitor(PlayerPosition.ReliefPitcher, 0)),
+                    team.GetCompetitor(PlayerPosition.ReliefPitcher, 0),
+                    _skillBoardService),
                 PitcherRole.Setup,
                 myPlayer,
                 gameDate);
@@ -182,7 +192,8 @@ namespace Baseball.Game.Career
                 bullpen,
                 CareerLineupPlan.CreateRosterPlayer(
                     _career.World,
-                    team.GetCompetitor(PlayerPosition.ReliefPitcher, 1)),
+                    team.GetCompetitor(PlayerPosition.ReliefPitcher, 1),
+                    _skillBoardService),
                 PitcherRole.Closer,
                 myPlayer,
                 gameDate);
@@ -198,7 +209,8 @@ namespace Baseball.Game.Career
             {
                 Player candidate = CareerLineupPlan.CreateRosterPlayer(
                     _career.World,
-                    team.GetCompetitor(position, 1));
+                    team.GetCompetitor(position, 1),
+                    _skillBoardService);
                 if (!ContainsPlayer(compatibility.Lineup, candidate.PlayerId) &&
                     !ContainsPlayer(bench, candidate.PlayerId))
                 {
@@ -452,18 +464,21 @@ namespace Baseball.Game.Career
                 _career.World,
                 myPlayer,
                 playerRole,
-                _managerLineupAi);
+                _managerLineupAi,
+                _skillBoardService);
 
             Player startingPitcher = isPlayerTeam && playerRole == PlayerGameRole.StartingPitcher
                 ? myPlayer
                 : CareerLineupPlan.CreateRosterPlayer(
                     _career.World,
-                    team.GetCompetitor(PlayerPosition.StartingPitcher, round % 2));
+                    team.GetCompetitor(PlayerPosition.StartingPitcher, round % 2),
+                    _skillBoardService);
             Player reliefPitcher = isPlayerTeam && playerRole == PlayerGameRole.ReliefPitcher
                 ? myPlayer
                 : CareerLineupPlan.CreateRosterPlayer(
                     _career.World,
-                    team.GetCompetitor(PlayerPosition.ReliefPitcher, (round + 1) % 2));
+                    team.GetCompetitor(PlayerPosition.ReliefPitcher, (round + 1) % 2),
+                    _skillBoardService);
             PositionPlayerSubstitutionPlan substitution = isPlayerTeam
                 ? CreateBenchSubstitutionPlan(myPlayer, playerRole, gameSeed, lineup)
                 : null;

@@ -185,7 +185,7 @@ namespace Baseball.Tests.EditMode.Game
             }
 
             double rewardToSalary = totalRewards / (double)totalSalary;
-            TestContext.WriteLine(
+            System.Console.WriteLine(
                 $"45시즌 계약 상여: 타자 {batterCompleted}건 / SP {starterCompleted}건 / " +
                 $"RP {relieverCompleted}건 / 연봉 대비 달성액 {rewardToSalary:P1}");
             Assert.That(batterCompleted + starterCompleted + relieverCompleted, Is.GreaterThan(0));

@@ -3,6 +3,7 @@ using Baseball.Core.Players;
 using Baseball.Core.Rules;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Growth;
 
 namespace Baseball.Game.Career
 {
@@ -19,7 +20,8 @@ namespace Baseball.Game.Career
             WorldState world,
             Player myPlayer,
             PlayerGameRole playerRole,
-            ManagerLineupAi lineupAi)
+            ManagerLineupAi lineupAi,
+            SkillBoardService skillBoardService)
         {
             if (team == null)
                 throw new ArgumentNullException(nameof(team));
@@ -27,6 +29,8 @@ namespace Baseball.Game.Career
                 throw new ArgumentNullException(nameof(world));
             if (lineupAi == null)
                 throw new ArgumentNullException(nameof(lineupAi));
+            if (skillBoardService == null)
+                throw new ArgumentNullException(nameof(skillBoardService));
 
             var fieldingAssignments = new LineupSlot[BaseballRules.BattingOrderSize];
             for (int index = 0; index < fieldingAssignments.Length; index++)
@@ -34,7 +38,7 @@ namespace Baseball.Game.Career
                 var position = (PlayerPosition)(index + 1);
                 Player batter = IsPlayerStartingAt(myPlayer, playerRole, position)
                     ? myPlayer
-                    : CreateRosterPlayer(world, team.GetStrongestCompetitor(position));
+                    : CreateRosterPlayer(world, team.GetStrongestCompetitor(position), skillBoardService);
                 fieldingAssignments[index] = new LineupSlot(batter, position);
             }
 
@@ -76,14 +80,19 @@ namespace Baseball.Game.Career
         /// <summary>
         /// 경쟁자 요약의 ID로 성장 가능한 월드 선수 원본을 찾아 경기 입력으로 변환한다.
         /// </summary>
-        public static Player CreateRosterPlayer(WorldState world, RosterCompetitorState competitor)
+        public static Player CreateRosterPlayer(
+            WorldState world,
+            RosterCompetitorState competitor,
+            SkillBoardService skillBoardService)
         {
             if (world == null)
                 throw new ArgumentNullException(nameof(world));
+            if (skillBoardService == null)
+                throw new ArgumentNullException(nameof(skillBoardService));
             PlayerState state = world.GetPlayer(competitor.PlayerId);
             if (state.PrimaryPosition != competitor.Position)
                 throw new InvalidOperationException($"PlayerId {competitor.PlayerId}의 로스터 포지션과 선수 원본이 다릅니다.");
-            return state.ToPlayer();
+            return state.ToPlayer(skillBoardService);
         }
 
         private static bool IsPlayerStartingAt(

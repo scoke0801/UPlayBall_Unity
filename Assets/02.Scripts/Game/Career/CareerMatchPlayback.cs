@@ -131,6 +131,15 @@ namespace Baseball.Game.Career
             VisibleEventCount = events.Count;
         }
 
+        /// <summary>표현이 끝난 특정 이벤트까지만 공개하고 뒤의 결과 이벤트는 기존 중계에 남긴다.</summary>
+        public void RevealThroughEvent(IReadOnlyList<MatchEvent> events, int inclusiveEventIndex)
+        {
+            ValidateEvents(events);
+            if (inclusiveEventIndex < VisibleEventCount || inclusiveEventIndex >= events.Count)
+                throw new ArgumentOutOfRangeException(nameof(inclusiveEventIndex));
+            VisibleEventCount = inclusiveEventIndex + 1;
+        }
+
         /// <summary>
         /// 현재까지 공개된 이벤트로 스코어, Count, 주자 상태를 복원한다.
         /// </summary>

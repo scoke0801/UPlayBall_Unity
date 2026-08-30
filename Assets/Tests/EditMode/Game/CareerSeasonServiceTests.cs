@@ -1,6 +1,7 @@
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Game.Career.Diagnostics;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game
@@ -56,6 +57,30 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
+        public void CareerStateChecksum_같은공개상태와참조구조는같은값을만든다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState first = CreateStartedCareer(configuration, 7801UL);
+            CareerState second = CreateStartedCareer(configuration, 7801UL);
+
+            Assert.That(
+                CareerStateChecksum.Calculate(second),
+                Is.EqualTo(CareerStateChecksum.Calculate(first)));
+        }
+
+        [Test]
+        public void CareerStateChecksum_라운드가확정되면값이바뀐다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 7802UL);
+            string before = CareerStateChecksum.Calculate(career);
+
+            new CareerSeasonService(career, configuration.Balance).AdvanceNextRound();
+
+            Assert.That(CareerStateChecksum.Calculate(career), Is.Not.EqualTo(before));
+        }
+
+        [Test]
         public void CompletePreparedGame_화면에서완료한경기를라운드에한번만반영한다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
@@ -103,6 +128,39 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(result.ChampionTeamId, Is.Zero);
             for (int index = 0; index < season.Schedule.Games.Count; index++)
                 Assert.That(season.Schedule.Games[index].IsCompleted, Is.True);
+        }
+
+        [Test]
+        public void SeasonFastForwardSession_한Step은월드라운드하나를확정한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 9201UL);
+            var session = new SeasonFastForwardSession(career, configuration.Balance);
+
+            SeasonFastForwardStepResult step = session.AdvanceNextStep();
+
+            Assert.That(step.CompletedSteps, Is.EqualTo(1));
+            Assert.That(step.LastCompletedRound, Is.EqualTo(1));
+            Assert.That(step.ProcessedWorldGames, Is.EqualTo(40));
+            Assert.That(step.TotalWorldGames, Is.EqualTo(3200));
+            Assert.That(career.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SeasonFastForwardSession_기존라운드반복과같은상태Checksum을만든다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState sessionCareer = CreateStartedCareer(configuration, 9202UL);
+            CareerState manualCareer = CreateStartedCareer(configuration, 9202UL);
+
+            new SeasonFastForwardSession(sessionCareer, configuration.Balance).Complete();
+            var manual = new CareerSeasonService(manualCareer, configuration.Balance);
+            while (manual.NextPlayerGame != null)
+                manual.AdvanceNextRound();
+
+            Assert.That(
+                CareerStateChecksum.Calculate(sessionCareer),
+                Is.EqualTo(CareerStateChecksum.Calculate(manualCareer)));
         }
 
         [Test]

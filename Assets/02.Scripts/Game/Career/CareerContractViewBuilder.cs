@@ -4,6 +4,7 @@ using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Career
@@ -17,11 +18,13 @@ namespace Baseball.Game.Career
 
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
+        private readonly SkillBoardService _skillBoardService;
 
         public CareerContractViewBuilder(CareerState career, BalanceTable balance)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _skillBoardService = new SkillBoardService(balance.Growth.SkillBoard, balance.Growth.SkillBlocks);
         }
 
         /// <summary>
@@ -82,7 +85,7 @@ namespace Baseball.Game.Career
                 PlayerName = player.Name,
                 Age = player.Age,
                 Position = player.PrimaryPosition,
-                Overall = evaluator.CalculatePositionValue(player.ToPlayer()),
+                Overall = evaluator.CalculatePositionValue(player.ToRosterPlayer(_skillBoardService)),
                 SeasonYear = season.Year,
                 LeagueLevel = season.LeagueLevel,
                 SeasonPhase = season.Phase,
@@ -194,7 +197,7 @@ namespace Baseball.Game.Career
             return ContractOfferBoard.SelectOpenMarketOffers(
                 _balance.ContractOffer,
                 evaluator,
-                _career.MyPlayer.ToPlayer(),
+                _career.MyPlayer.ToRosterPlayer(_skillBoardService),
                 teams,
                 _career.CurrentContract.TeamId,
                 evaluationBonus);

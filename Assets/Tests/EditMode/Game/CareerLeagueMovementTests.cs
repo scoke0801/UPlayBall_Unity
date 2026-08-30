@@ -174,11 +174,20 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectHandedness(Handedness.Left, Handedness.Right);
             flow.SubmitBatterAttributes(strongPlayer
                 ? new BatterAttributes(65, 60, 50, 70, 65, 50)
-                : new BatterAttributes(50, 50, 50, 50, 50, 50));
+                : new BatterAttributes(60, 60, 60, 60, 60, 60));
             flow.GenerateOffers();
             flow.SelectOffer(flow.State.SetupResult.Offers[initialOfferIndex].Team.TeamId);
             flow.SignSelectedOffer();
             flow.StartRookieSeason();
+            if (!strongPlayer)
+            {
+                for (int index = (int)PlayerAbility.Contact;
+                    index <= (int)PlayerAbility.BatterMental;
+                     index++)
+                {
+                    flow.Career.MyPlayer.GrowthState.ApplyBaseAbilityChange((PlayerAbility)index, -100);
+                }
+            }
             return flow.Career;
         }
 

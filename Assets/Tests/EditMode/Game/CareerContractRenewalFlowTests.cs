@@ -15,7 +15,7 @@ namespace Baseball.Tests.EditMode.Game
     public sealed class CareerContractRenewalFlowTests
     {
         [Test]
-        public void BeginTransition_계약이남아있으면멈추지않고다음시즌을시작한다()
+        public void BeginTransition_잔여계약의상위리그조항이발동하면선택을보존한다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateOffseasonCareer(configuration, 1111UL);
@@ -23,9 +23,10 @@ namespace Baseball.Tests.EditMode.Game
 
             SeasonTransitionStep step = service.BeginTransition();
 
-            Assert.That(step, Is.EqualTo(SeasonTransitionStep.Completed));
-            Assert.That(service.RenewalOffers.Count, Is.Zero);
-            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
+            Assert.That(step, Is.EqualTo(SeasonTransitionStep.ContractOffers));
+            Assert.That(service.RenewalOffers.Count, Is.GreaterThan(1));
+            Assert.That(service.RenewalOffers[0].Channel, Is.EqualTo(ContractOfferChannel.ContractContinuation));
+            Assert.That(career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.Offseason));
         }
 
         [Test]

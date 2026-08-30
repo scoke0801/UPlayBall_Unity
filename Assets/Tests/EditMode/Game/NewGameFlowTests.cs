@@ -1,6 +1,7 @@
 using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Core.Rules;
 using Baseball.Game.Career;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Match;
@@ -44,6 +45,12 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(flow.State.Step, Is.EqualTo(NewGameStep.Completed));
             Assert.That(flow.Career.CurrentLeague.CurrentSeason.LeagueLevel, Is.EqualTo(LeagueLevel.Rookie));
             Assert.That(flow.Career.CurrentLeague.CurrentSeason.Phase, Is.EqualTo(SeasonPhase.RegularSeason));
+            Assert.That(
+                flow.Career.CurrentLeague.CurrentSeason.VersionStamp.BalanceVersion,
+                Is.EqualTo(NewGameConfiguration.CreateDefault().Balance.Version));
+            Assert.Throws<System.InvalidOperationException>(() =>
+                flow.Career.CurrentLeague.CurrentSeason.PinVersionStamp(
+                    SimulationVersionStamp.CreateCurrent(999, "changed-content")));
         }
 
         [Test]

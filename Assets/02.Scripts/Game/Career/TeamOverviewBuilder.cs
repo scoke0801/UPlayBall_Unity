@@ -72,7 +72,8 @@ namespace Baseball.Game.Career
                 career.World,
                 stableMyPlayer,
                 plannedRole,
-                _managerLineupAi);
+                _managerLineupAi,
+                _skillBoardService);
             TeamLineupSlotView[] startingLineup = BuildStartingLineup(lineup, roster);
             TeamSeasonRecordState record = season.GetTeamRecord(team.TeamId);
 

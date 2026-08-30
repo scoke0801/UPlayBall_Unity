@@ -3,6 +3,7 @@ using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
+using Baseball.Simulation.Growth;
 
 namespace Baseball.Game.Career
 {
@@ -13,11 +14,13 @@ namespace Baseball.Game.Career
     {
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
+        private readonly SkillBoardService _skillBoardService;
 
         public ContractRenewalService(CareerState career, BalanceTable balance)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _skillBoardService = new SkillBoardService(balance.Growth.SkillBoard, balance.Growth.SkillBlocks);
         }
 
         public ContractOffer? BuildExtensionOffer()
@@ -43,7 +46,7 @@ namespace Baseball.Game.Career
             }
 
             TeamState team = GetCurrentTeam();
-            Player player = _career.MyPlayer.ToPlayer();
+            Player player = _career.MyPlayer.ToRosterPlayer(_skillBoardService);
             int playerValue = new PlayerValueEvaluator(_balance.PlayerEvaluation)
                 .CalculatePositionValue(player);
             double marketSalary = _balance.ContractOffer.BaseSalary * Math.Max(0.5d, playerValue / 50d);

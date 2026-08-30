@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Core.Rules;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Random;
@@ -13,7 +14,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 13;
+        public const int CurrentSaveVersion = 15;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
@@ -299,7 +300,7 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
-        /// 타자 능력치 6개를 검증하고 무소속 선수 카드 단계로 이동한다.
+        /// 구 생성 호출을 단일 CareerCreationRules 입력으로 변환해 무소속 선수 카드 단계로 이동한다.
         /// </summary>
         public void SubmitBatterAttributes(BatterAttributes attributes)
         {
@@ -307,22 +308,40 @@ namespace Baseball.Game.Career
             if (State.PlayerType != PlayerType.Batter)
                 throw new InvalidOperationException("타자 생성에서만 타자 능력치를 배분할 수 있습니다.");
 
-            AttributeAllocation.Validate(
-                _configuration.Balance.CharacterCreation,
+            int[] values =
+            {
                 attributes.Contact,
                 attributes.Power,
+                attributes.Mental,
                 attributes.Speed,
-                attributes.Arm,
                 attributes.Defense,
-                attributes.Mental);
-            State.BatterAttributes = attributes;
-            State.PitcherAttributes = null;
-            State.Draft.SetInitialAttributes(new[]
+                attributes.Arm
+            };
+            CareerAttributeAllocationRule rule = _configuration.CareerCreationRules.Batter;
+            if (!IsCompleteAllocation(rule, values))
             {
-                attributes.Contact, attributes.Power, attributes.Mental,
-                attributes.Speed, attributes.Defense, attributes.Arm
-            });
+                values = rule.CreateWeightedValues(
+                    Math.Max(1, attributes.Contact - rule.BaseValue + 1),
+                    Math.Max(1, attributes.Power - rule.BaseValue + 1),
+                    Math.Max(1, attributes.Mental - rule.BaseValue + 1),
+                    Math.Max(1, attributes.Speed - rule.BaseValue + 1),
+                    Math.Max(1, attributes.Defense - rule.BaseValue + 1),
+                    Math.Max(1, attributes.Arm - rule.BaseValue + 1));
+            }
+            SubmitCreationAttributes(values);
             CompletePlayerCard();
+        }
+
+        private static bool IsCompleteAllocation(CareerAttributeAllocationRule rule, int[] values)
+        {
+            int spent = 0;
+            for (int index = 0; index < values.Length; index++)
+            {
+                if (values[index] < rule.BaseValue || values[index] > rule.MaxValue)
+                    return false;
+                spent += values[index] - rule.BaseValue;
+            }
+            return spent == rule.BonusPoints;
         }
 
         /// <summary>
@@ -334,20 +353,13 @@ namespace Baseball.Game.Career
             if (State.PlayerType != PlayerType.Pitcher)
                 throw new InvalidOperationException("투수 생성에서만 투수 능력치를 배분할 수 있습니다.");
 
-            AttributeAllocation.Validate(
-                _configuration.Balance.CharacterCreation,
-                attributes.Stamina,
-                attributes.Velocity,
-                attributes.Stuff,
-                attributes.Breaking,
-                attributes.Control,
-                attributes.Mental);
-            State.PitcherAttributes = attributes;
-            State.BatterAttributes = null;
-            State.Draft.SetInitialAttributes(new[]
-            {
-                attributes.Stuff, attributes.Control, attributes.Breaking, attributes.Stamina
-            });
+            CareerAttributeAllocationRule rule = _configuration.CareerCreationRules.Pitcher;
+            int[] values = rule.CreateWeightedValues(
+                Math.Max(1, attributes.Stuff - rule.BaseValue + 1),
+                Math.Max(1, attributes.Control - rule.BaseValue + 1),
+                Math.Max(1, attributes.Breaking - rule.BaseValue + 1),
+                Math.Max(1, attributes.Stamina - rule.BaseValue + 1));
+            SubmitCreationAttributes(values);
             CompletePlayerCard();
         }
 
@@ -471,6 +483,8 @@ namespace Baseball.Game.Career
             Career.MyPlayer.InitializeSeasonStatus(
                 _configuration.Balance.CareerSeason.InitialCondition,
                 _configuration.Balance.CareerSeason.InitialManagerEvaluation);
+            new CareerRoleEvaluationService(Career, _configuration.Balance)
+                .BeginSeason(requiresInjuryReturnObservation: false);
             Career.CurrentLeague.CurrentSeason.SnapshotRookieEligibility(
                 Career.CurrentLeague.Teams,
                 Career.MyPlayer,
@@ -524,6 +538,10 @@ namespace Baseball.Game.Career
             PlayerState player = league.LeagueId == Career.MyPlayer.CurrentLeagueId
                 ? Career.MyPlayer
                 : null;
+            league.CurrentSeason.PinVersionStamp(
+                SimulationVersionStamp.CreateCurrent(
+                    _configuration.Balance.Version,
+                    _configuration.Balance.ContentHash));
             league.CurrentSeason.StartRegularSeason(
                 new SeasonScheduleState(games),
                 teamRecords,
