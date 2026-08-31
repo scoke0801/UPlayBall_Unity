@@ -61,16 +61,19 @@ namespace Baseball.Game.Career
                 competitors,
                 ResolveManagerStyle(team.Archetype.Archetype));
             ExpectedRole recommendedRole = ToExpectedRole(result.Role);
+            SeasonState season = _career.CurrentLeague.CurrentSeason;
             CareerRoleEvaluationRecord record = _career.RoleState.ApplyEvaluation(
-                _career.CurrentLeague.CurrentSeason.SeasonId,
+                season.SeasonId,
                 round,
                 trigger,
                 recommendedRole,
                 result.Score,
                 result.StrongestCompetitorScore,
                 result.Explanation);
+            // SeasonId는 리그마다 독립적으로 증가해 승강 뒤 이전에 쓴 값이 다시 나온다.
+            // 커리어 안에서 유일한 키는 연도이므로 저널 EventId는 다른 커리어 이벤트와 같이 연도로 만든다.
             _career.World.DomainEvents.Append(new WorldDomainEvent(
-                $"role-evaluation:{record.SeasonId}:{_career.MyPlayerId}:{round}:{(int)trigger}",
+                $"role-evaluation:{season.Year}:{_career.MyPlayerId}:{round}:{(int)trigger}",
                 record.AppliedRole == record.PreviousRole
                     ? "PlayerRoleRetained"
                     : "PlayerRoleChanged",

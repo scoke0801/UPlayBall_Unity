@@ -11,7 +11,6 @@ namespace Baseball.Tools.PureSimulationTests
         {
             Type[] testTypes =
             {
-                typeof(Baseball.Tests.EditMode.Core.AttributeAllocationTests),
                 typeof(Baseball.Tests.EditMode.Game.NewGameFlowTests),
                 typeof(Baseball.Tests.EditMode.Game.MultiLeagueWorldTests),
                 typeof(Baseball.Tests.EditMode.Game.CareerLeagueMovementTests),

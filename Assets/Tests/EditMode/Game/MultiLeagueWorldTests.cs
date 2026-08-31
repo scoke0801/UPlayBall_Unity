@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Baseball.Core.Growth;
@@ -571,6 +572,48 @@ namespace Baseball.Tests.EditMode.Game
                     new AbilityWeight(PlayerAbility.Defense, 0.3d),
                     new AbilityWeight(PlayerAbility.BatterMental, 0.2d)
                 });
+        }
+
+        [Test]
+        public void AdvanceWorldSeasons_승강으로SeasonId가재사용돼도역할평가이벤트는연도로구분한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateCareer(8261021UL, startSeason: true);
+            var seenSeasonIds = new List<int>();
+            var springCampYears = new List<int>();
+
+            for (int season = 0; season < 6; season++)
+            {
+                seenSeasonIds.Add(career.CurrentLeague.CurrentSeason.SeasonId);
+                springCampYears.Add(career.CurrentLeague.CurrentSeason.Year);
+                AdvanceWorldToNextSeason(career, configuration);
+            }
+
+            // SeasonId는 리그마다 독립 증가하므로 승강 뒤 이전에 쓴 값이 다시 나올 수 있다.
+            // 이 전제가 깨지면 아래 검증이 의미를 잃으므로 함께 고정한다.
+            Assert.That(seenSeasonIds.Count, Is.GreaterThan(new HashSet<int>(seenSeasonIds).Count),
+                "승강 경로에서 SeasonId가 재사용되지 않으면 이 회귀 테스트의 전제가 사라진다.");
+            Assert.That(springCampYears, Is.Unique);
+
+            int springCampCount = 0;
+            for (int index = 0; index < career.World.DomainEvents.Events.Count; index++)
+            {
+                if (career.World.DomainEvents.Events[index].EventId.StartsWith(
+                        "role-evaluation:", StringComparison.Ordinal))
+                {
+                    springCampCount++;
+                }
+            }
+            Assert.That(springCampCount, Is.GreaterThanOrEqualTo(springCampYears.Count),
+                "시즌마다 스프링캠프 역할 평가가 저널에 남아야 한다.");
+            for (int index = 0; index < springCampYears.Count; index++)
+            {
+                Assert.That(
+                    career.World.DomainEvents.Contains(
+                        $"role-evaluation:{springCampYears[index]}:{career.MyPlayerId}:0:0"),
+                    Is.True,
+                    $"{springCampYears[index]}시즌 스프링캠프 평가 이벤트가 연도 키로 남아야 한다.");
+            }
         }
 
         private static void AdvanceWorldToNextSeason(

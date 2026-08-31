@@ -139,7 +139,7 @@ namespace Baseball.Game.Career
                 exchangedContract?.ContractId ?? 0,
                 "동일 리그 트레이드 맞교환"));
             _career.World.DomainEvents.Append(new WorldDomainEvent(
-                $"trade:{season.SeasonId}:{_career.MyPlayer.PlayerId}:{gameIndex}",
+                $"trade:{season.Year}:{_career.MyPlayer.PlayerId}:{gameIndex}",
                 "PlayerTraded",
                 _career.World.Calendar.CurrentDate,
                 _career.MyPlayer.PlayerId,
