@@ -32,9 +32,6 @@ namespace Baseball.Presentation.Career
         private RectTransform _miniGameBatCursor;
         private RectTransform _miniGameBatTimingRing;
         private RectTransform _miniGameTrajectoryTunnel;
-        private RectTransform _miniGamePitcherBody;
-        private RectTransform _miniGamePitcherThrowingArm;
-        private RectTransform _miniGamePitcherLeadLeg;
         private RectTransform _miniGameTimingMarker;
         private readonly RectTransform[] _miniGamePitchTrail = new RectTransform[PitchTrailCount];
         private RectTransform _miniGameArrivalGuide;
@@ -172,17 +169,17 @@ namespace Baseball.Presentation.Career
             BatterMiniGameRequest request)
         {
             CreateText("MiniGameTitle", panel, "직접 타격", 25, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(360f, 36f), new Vector2(0f, 294f), PrimaryTextColor);
+                TextAnchor.MiddleCenter, new Vector2(360f, 36f), new Vector2(0f, 275f), PrimaryTextColor);
             RenderBattingProgressSteps(panel);
             CreateText("MiniGameSituation", panel,
                 $"{request.Inning}회{GetHalfLabel(request.Half)} · {request.Outs}사 · " +
                 $"볼 {request.Balls} · 스트라이크 {request.Strikes}",
                 15, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(820f, 26f), new Vector2(0f, 220f), SecondaryTextColor);
+                new Vector2(820f, 26f), new Vector2(0f, 205f), SecondaryTextColor);
 
-            _miniGamePlateRect = CreateImage(
+            _miniGamePlateRect = CreateFramedSurface(
                 "BattingPlane", panel, new Color(0.008f, 0.027f, 0.045f, 1f),
-                new Vector2(900f, 370f), new Vector2(0f, -2f));
+                new Vector2(880f, 350f), new Vector2(0f, -4f));
             _miniGamePlateRect.gameObject.AddComponent<RectMask2D>();
             RenderBattingField(_miniGamePlateRect);
 
@@ -217,24 +214,18 @@ namespace Baseball.Presentation.Career
                 _miniGamePitchTrail[index].gameObject.SetActive(false);
             }
 
-            _miniGameBall = CreateMiniGameSpriteImage(
-                "Ball", _miniGamePlateRect, GetMiniGameSolidCircleSprite(),
-                new Color(0.98f, 0.98f, 0.92f, 1f),
-                new Vector2(23f, 23f), new Vector2(0f, 112f));
-            CreateImage("StitchLeft", _miniGameBall, new Color(0.72f, 0.18f, 0.16f, 0.9f),
-                new Vector2(2f, 10f), new Vector2(-4f, 0f)).localRotation = Quaternion.Euler(0f, 0f, -18f);
-            CreateImage("StitchRight", _miniGameBall, new Color(0.72f, 0.18f, 0.16f, 0.9f),
-                new Vector2(2f, 10f), new Vector2(4f, 0f)).localRotation = Quaternion.Euler(0f, 0f, 18f);
-            RenderBattingCursor(_miniGamePlateRect);
+            _miniGameBall = CreateBaseballIllustration(
+                "Ball", _miniGamePlateRect, new Vector2(27f, 27f), new Vector2(0f, 112f));
+            RenderBattingCursor(_miniGamePlateRect, request);
 
             _miniGameProgressText = CreateText(
                 "FlightGuide", panel, "타격 의도를 고른 뒤 준비하세요",
                 14, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(760f, 24f), new Vector2(0f, -205f), SecondaryTextColor);
+                new Vector2(760f, 24f), new Vector2(0f, -195f), SecondaryTextColor);
             _miniGamePitchReadText = CreateText(
                 "PitchRead", panel, "준비 전에는 투구가 시작되지 않습니다",
                 12, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(620f, 22f), new Vector2(0f, -226f), MutedTextColor);
+                new Vector2(620f, 22f), new Vector2(0f, -217f), MutedTextColor);
             RenderSwingTimingGauge(panel);
             UpdateBattingMiniGameVisuals(request, 0f, 0f);
         }
@@ -246,74 +237,23 @@ namespace Baseball.Presentation.Career
             Color trackingColor = isReady ? MutedTextColor : RoleColor;
             string readyLabel = isReady ? "1  타격 준비" : "✓  타격 준비";
             CreateText("ReadyStep", panel, readyLabel, 15, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(190f, 28f), new Vector2(-245f, 255f), readyColor);
+                TextAnchor.MiddleCenter, new Vector2(190f, 28f), new Vector2(-245f, 240f), readyColor);
             CreateText("ReadyArrow", panel, "→", 18, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(38f, 28f), new Vector2(-108f, 255f), MutedTextColor);
+                TextAnchor.MiddleCenter, new Vector2(38f, 28f), new Vector2(-108f, 240f), MutedTextColor);
             CreateText("TrackingStep", panel, "2  투구 추적", 15, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(190f, 28f), new Vector2(0f, 255f), trackingColor);
+                TextAnchor.MiddleCenter, new Vector2(190f, 28f), new Vector2(0f, 240f), trackingColor);
             CreateText("SwingArrow", panel, "→", 18, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(38f, 28f), new Vector2(108f, 255f), MutedTextColor);
+                TextAnchor.MiddleCenter, new Vector2(38f, 28f), new Vector2(108f, 240f), MutedTextColor);
             CreateText("SwingStep", panel, "3  스윙", 15, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(190f, 28f), new Vector2(245f, 255f), MutedTextColor);
+                TextAnchor.MiddleCenter, new Vector2(190f, 28f), new Vector2(245f, 240f), MutedTextColor);
         }
 
         private void RenderBattingField(RectTransform field)
         {
-            CreateImage("NightSky", field, new Color(0.015f, 0.055f, 0.085f, 1f),
-                new Vector2(900f, 190f), new Vector2(0f, 90f));
-            CreateImage("Outfield", field, new Color(0.025f, 0.16f, 0.12f, 1f),
-                new Vector2(900f, 118f), new Vector2(0f, -48f));
-            CreateImage("InfieldDirt", field, new Color(0.17f, 0.12f, 0.08f, 1f),
-                new Vector2(900f, 80f), new Vector2(0f, -144f));
-            CreateImage("Mound", field, new Color(0.35f, 0.25f, 0.15f, 0.95f),
-                new Vector2(116f, 9f), new Vector2(0f, 70f));
-
-            RectTransform leftFoulLine = CreateImage(
-                "LeftFoulLine", field, new Color(0.75f, 0.78f, 0.72f, 0.35f),
-                new Vector2(330f, 2f), new Vector2(-154f, -104f));
-            leftFoulLine.localRotation = Quaternion.Euler(0f, 0f, 18f);
-            RectTransform rightFoulLine = CreateImage(
-                "RightFoulLine", field, new Color(0.75f, 0.78f, 0.72f, 0.35f),
-                new Vector2(330f, 2f), new Vector2(154f, -104f));
-            rightFoulLine.localRotation = Quaternion.Euler(0f, 0f, -18f);
-
-            for (int side = -1; side <= 1; side += 2)
-            {
-                float x = side * 365f;
-                CreateImage("LightPole_" + side, field, new Color(0.18f, 0.24f, 0.28f, 0.65f),
-                    new Vector2(5f, 88f), new Vector2(x, 100f));
-                for (int index = 0; index < 4; index++)
-                {
-                    CreateMiniGameSpriteImage(
-                        $"StadiumLight_{side}_{index}", field, GetMiniGameSolidCircleSprite(),
-                        new Color(0.87f, 0.94f, 1f, 0.58f), new Vector2(11f, 11f),
-                        new Vector2(x + (index - 1.5f) * 14f, 146f));
-                }
-            }
-
-            RectTransform pitcherRoot = CreateRect(
-                "Pitcher", field, new Vector2(82f, 112f), new Vector2(0f, 112f));
-            _miniGamePitcherBody = CreateImage(
-                "Body", pitcherRoot, new Color(0.13f, 0.17f, 0.19f, 1f),
-                new Vector2(19f, 48f), new Vector2(0f, 4f));
-            CreateMiniGameSpriteImage(
-                "Head", pitcherRoot, GetMiniGameSolidCircleSprite(),
-                new Color(0.16f, 0.20f, 0.22f, 1f), new Vector2(22f, 22f), new Vector2(0f, 37f));
-            _miniGamePitcherThrowingArm = CreateImage(
-                "ThrowingArm", pitcherRoot, new Color(0.14f, 0.18f, 0.20f, 1f),
-                new Vector2(45f, 8f), new Vector2(20f, 14f));
-            CreateImage("GloveArm", pitcherRoot, new Color(0.11f, 0.14f, 0.16f, 1f),
-                new Vector2(37f, 9f), new Vector2(-20f, 9f)).localRotation = Quaternion.Euler(0f, 0f, -26f);
-            CreateImage("BackLeg", pitcherRoot, new Color(0.10f, 0.14f, 0.16f, 1f),
-                new Vector2(9f, 44f), new Vector2(-8f, -35f)).localRotation = Quaternion.Euler(0f, 0f, -8f);
-            _miniGamePitcherLeadLeg = CreateImage(
-                "LeadLeg", pitcherRoot, new Color(0.10f, 0.14f, 0.16f, 1f),
-                new Vector2(10f, 47f), new Vector2(11f, -33f));
-            CreateImage("HomePlate", field, new Color(0.90f, 0.90f, 0.82f, 0.9f),
-                new Vector2(58f, 10f), new Vector2(0f, -174f));
+            CreatePitchFieldIllustration(field, new Vector2(844f, 475f));
         }
 
-        private void RenderBattingCursor(RectTransform field)
+        private void RenderBattingCursor(RectTransform field, in BatterMiniGameRequest request)
         {
             Vector2 contactSize = GetBattingCursorSize(_selectedApproach);
             _miniGameBatCursor = CreateRect(
@@ -324,6 +264,21 @@ namespace Baseball.Presentation.Career
             CreateMiniGameSpriteImage(
                 "ContactArea", _miniGameBatCursor, GetMiniGameRingSprite(),
                 new Color(0.16f, 0.88f, 0.84f, 0.86f), contactSize, Vector2.zero);
+            Sprite batSprite = CareerMatchMiniGameSprites.GetBaseballBatCursorIllustration();
+            if (batSprite != null)
+            {
+                bool isLeftHanded = ResolveBattingSide(
+                    _manager?.ActiveMatch?.Input,
+                    request.BatterId,
+                    request.PitcherId) == Handedness.Left;
+                RectTransform bat = CreateMiniGameSpriteImage(
+                    "BatIllustration", _miniGameBatCursor, batSprite,
+                    Color.white, new Vector2(190f, 56f), Vector2.zero);
+                bat.pivot = new Vector2(0.5f, 0.5f);
+                bat.localScale = new Vector3(isLeftHanded ? 1f : -1f, 1f, 1f);
+                bat.localRotation = Quaternion.Euler(0f, 0f, isLeftHanded ? -14f : 14f);
+                bat.GetComponent<Image>().preserveAspect = true;
+            }
             CreateMiniGameSpriteImage(
                 "SweetSpot", _miniGameBatCursor, GetMiniGameSolidCircleSprite(),
                 new Color(1f, 0.78f, 0.24f, 1f), new Vector2(12f, 12f), Vector2.zero);
@@ -337,19 +292,19 @@ namespace Baseball.Presentation.Career
         {
             const float trackWidth = 700f;
             CreateText("TimingVeryEarly", panel, "너무 빠름", 12, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(130f, 20f), new Vector2(-280f, -248f), MutedTextColor);
+                TextAnchor.MiddleCenter, new Vector2(130f, 20f), new Vector2(-280f, -238f), MutedTextColor);
             CreateText("TimingEarly", panel, "빠름", 12, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(120f, 20f), new Vector2(-140f, -248f), SecondaryTextColor);
+                TextAnchor.MiddleCenter, new Vector2(120f, 20f), new Vector2(-140f, -238f), SecondaryTextColor);
             CreateText("TimingPerfect", panel, "정타", 13, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(100f, 20f), new Vector2(0f, -248f), GoldColor);
+                TextAnchor.MiddleCenter, new Vector2(100f, 20f), new Vector2(0f, -238f), GoldColor);
             CreateText("TimingLate", panel, "늦음", 12, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(120f, 20f), new Vector2(140f, -248f), SecondaryTextColor);
+                TextAnchor.MiddleCenter, new Vector2(120f, 20f), new Vector2(140f, -238f), SecondaryTextColor);
             CreateText("TimingVeryLate", panel, "너무 늦음", 12, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(130f, 20f), new Vector2(280f, -248f), MutedTextColor);
+                TextAnchor.MiddleCenter, new Vector2(130f, 20f), new Vector2(280f, -238f), MutedTextColor);
 
             RectTransform track = CreateImage(
                 "TimingTrack", panel, new Color(0.06f, 0.18f, 0.22f, 1f),
-                new Vector2(trackWidth, 14f), new Vector2(0f, -270f));
+                new Vector2(trackWidth, 14f), new Vector2(0f, -260f));
             CreateImage("TimingEarlyZone", track, new Color(0.10f, 0.48f, 0.48f, 0.65f),
                 new Vector2(210f, 14f), new Vector2(-140f, 0f));
             CreateImage("TimingPerfectZone", track, GoldColor,
@@ -360,10 +315,10 @@ namespace Baseball.Presentation.Career
                 "TimingMarker", track, PrimaryTextColor, new Vector2(4f, 28f), new Vector2(-350f, 0f));
             CreateText("BatPositionInput", panel, "마우스 또는 방향키 · 배트 위치", 12,
                 FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(330f, 22f), new Vector2(-205f, -300f), SecondaryTextColor);
+                new Vector2(330f, 22f), new Vector2(-205f, -286f), SecondaryTextColor);
             CreateText("SwingInput", panel, "SPACE 또는 클릭 · 스윙", 12,
                 FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(300f, 22f), new Vector2(220f, -300f), PrimaryTextColor);
+                new Vector2(300f, 22f), new Vector2(220f, -286f), PrimaryTextColor);
         }
 
         private void RenderMiniGameControlPanel(RectTransform panel, CareerMatchSession session)
@@ -377,7 +332,7 @@ namespace Baseball.Presentation.Career
         private void RenderSwingControls(RectTransform panel, BatterMiniGameRequest request)
         {
             bool isAwaitingReady = _battingMiniGamePhase == BattingMiniGamePhase.AwaitingReady;
-            CreateStatusPill(panel, "위치 + 타이밍", new Vector2(450f, 50f), new Vector2(0f, 396f));
+            CreateStatusPill(panel, "위치 + 타이밍", ControlStatusPillSize, ControlStatusPillPosition);
             CreateText("SwingTitle", panel, "타격 조작", 24, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(420f, 36f), new Vector2(0f, 340f), PrimaryTextColor);
             CreateText("SwingIntentLabel", panel, "타격 의도", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -488,8 +443,6 @@ namespace Baseball.Presentation.Career
             float flightProgress,
             float windupProgress)
         {
-            UpdatePitcherPose(windupProgress, flightProgress);
-
             bool isPitchInFlight = _battingMiniGamePhase == BattingMiniGamePhase.Tracking;
             Vector2 ballPosition = CalculateBattingPitchPosition(request, flightProgress);
             if (_miniGameBall != null)
@@ -583,33 +536,6 @@ namespace Baseball.Presentation.Career
                    RectTransformUtility.RectangleContainsScreenPoint(
                        _miniGamePlateRect,
                        mouse.position.ReadValue());
-        }
-
-        private void UpdatePitcherPose(float windupProgress, float flightProgress)
-        {
-            if (_miniGamePitcherBody == null)
-                return;
-
-            bool hasReleased = _battingMiniGamePhase == BattingMiniGamePhase.Tracking;
-            float legLift = hasReleased ? 0f : Mathf.Sin(windupProgress * Mathf.PI);
-            float followThrough = hasReleased ? Mathf.Clamp01(flightProgress * 3f) : 0f;
-            _miniGamePitcherBody.localRotation = Quaternion.Euler(
-                0f, 0f, Mathf.Lerp(0f, -16f, followThrough));
-            if (_miniGamePitcherThrowingArm != null)
-            {
-                float armAngle = hasReleased
-                    ? Mathf.Lerp(-32f, -8f, followThrough)
-                    : Mathf.Lerp(66f, -32f, windupProgress);
-                _miniGamePitcherThrowingArm.localRotation = Quaternion.Euler(0f, 0f, armAngle);
-            }
-            if (_miniGamePitcherLeadLeg != null)
-            {
-                _miniGamePitcherLeadLeg.anchoredPosition = new Vector2(
-                    Mathf.Lerp(11f, 28f, followThrough),
-                    -33f + legLift * 27f);
-                _miniGamePitcherLeadLeg.localRotation = Quaternion.Euler(
-                    0f, 0f, Mathf.Lerp(-42f, 24f, followThrough));
-            }
         }
 
         private Vector2 CalculateBattingPitchPosition(
@@ -726,7 +652,11 @@ namespace Baseball.Presentation.Career
                 Mathf.Clamp01(progress),
                 _selectedApproach,
                 _selectedApproach == BattingApproach.Bunt);
-            _manager.SubmitSwingExecution(command);
+            int firstNewEventIndex = session.Events.Count;
+            if (!_manager.SubmitSwingExecution(command))
+                return;
+            TryBeginPlayResolution(_manager.ActiveMatch, firstNewEventIndex);
+            Render();
         }
 
         private void SubmitMiniGameTake()
@@ -735,13 +665,19 @@ namespace Baseball.Presentation.Career
             if (!IsMiniGameInputReady(session) || !session.PendingSwingExecution.HasValue)
                 return;
             BatterMiniGameRequest request = session.PendingSwingExecution.Value;
-            _manager.SubmitSwingExecution(new SwingCommand(
+            int firstNewEventIndex = session.Events.Count;
+            if (!_manager.SubmitSwingExecution(new SwingCommand(
                 request.RequestId,
                 false,
                 _miniGameBatPoint,
                 request.IdealSwingTime01,
                 _selectedApproach,
-                _selectedApproach == BattingApproach.Bunt));
+                _selectedApproach == BattingApproach.Bunt)))
+            {
+                return;
+            }
+            TryBeginPlayResolution(_manager.ActiveMatch, firstNewEventIndex);
+            Render();
         }
 
         private void AutoCompleteMiniGamePlateAppearance()
@@ -895,6 +831,63 @@ namespace Baseball.Presentation.Career
             image.raycastTarget = false;
             rect.gameObject.AddComponent<CareerUiVisualElement>()
                 .Initialize(CareerUiVisualRole.DataImage);
+            return rect;
+        }
+
+        private static RectTransform CreatePitchFieldIllustration(Transform parent, Vector2 size)
+        {
+            Sprite sprite = CareerMatchMiniGameSprites.GetPitchFieldIllustration();
+            if (sprite == null)
+                return null;
+
+            RectTransform rect = CreateMiniGameSpriteImage(
+                "PitchFieldIllustration",
+                parent,
+                sprite,
+                Color.white,
+                size,
+                Vector2.zero);
+            rect.GetComponent<Image>().preserveAspect = true;
+            return rect;
+        }
+
+        private static RectTransform CreateBaseballIllustration(
+            string name,
+            Transform parent,
+            Vector2 size,
+            Vector2 position)
+        {
+            Sprite sprite = CareerMatchMiniGameSprites.GetBaseballBallIllustration() ??
+                            GetMiniGameSolidCircleSprite();
+            RectTransform rect = CreateMiniGameSpriteImage(
+                name,
+                parent,
+                sprite,
+                Color.white,
+                size,
+                position);
+            rect.GetComponent<Image>().preserveAspect = true;
+            return rect;
+        }
+
+        private static RectTransform CreateBroadcastFieldIllustration(
+            Transform parent,
+            Vector2 size,
+            Vector2 position,
+            bool preserveAspect = false)
+        {
+            Sprite sprite = CareerMatchMiniGameSprites.GetBroadcastFieldIllustration();
+            if (sprite == null)
+                return null;
+
+            RectTransform rect = CreateMiniGameSpriteImage(
+                "BroadcastFieldIllustration",
+                parent,
+                sprite,
+                Color.white,
+                size,
+                position);
+            rect.GetComponent<Image>().preserveAspect = preserveAspect;
             return rect;
         }
 

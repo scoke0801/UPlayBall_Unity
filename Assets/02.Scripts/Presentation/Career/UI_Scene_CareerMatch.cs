@@ -30,7 +30,11 @@ namespace Baseball.Presentation.Career
         /// <summary>이닝 머리글을 포함해 타임라인 패널에 들어가는 최대 줄 수다.</summary>
         private const int TimelineLineCapacity = 8;
         private const float TimelineRowHeight = 29f;
+        private const float TimelineTitleInset = 48f;
+        private const float TimelineTopInset = 84f;
+        private const float TimelineBottomInset = 48f;
         private const int BattingOrderPreviewCount = 4;
+        private const float PanelClipInset = 18f;
 
         private static readonly Color BackgroundColor = new(0.004f, 0.018f, 0.032f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.038f, 0.065f, 1f);
@@ -50,6 +54,8 @@ namespace Baseball.Presentation.Career
         /// <summary>오른쪽 조작 패널의 크기와 위치. 재생성되지 않는 조작 계층이 같은 자리를 덮어야 하므로 상수로 둔다.</summary>
         private static readonly Vector2 ControlPanelSize = new(500f, 900f);
         private static readonly Vector2 ControlPanelPosition = new(700f, -32f);
+        private static readonly Vector2 ControlStatusPillSize = new(420f, 36f);
+        private static readonly Vector2 ControlStatusPillPosition = new(0f, 378f);
 
         private CareerManager _manager;
         private RectTransform _content;
@@ -110,11 +116,19 @@ namespace Baseball.Presentation.Career
             // 조작 버튼은 그 바깥의 계층에 남아 있어야 한다.
             RectTransform controlLayer = CreateRect("ControlLayer", root, new Vector2(1920f, 1080f), Vector2.zero);
             InitializePitchMiniGamePresentation(controlLayer);
+            InitializePlayResolutionPresentation(controlLayer);
             _controlHost = CreateRect("ControlHost", controlLayer, ControlPanelSize, ControlPanelPosition);
-            _settingsHost = CreateRect("SettingsHost", controlLayer, new Vector2(100f, 44f), new Vector2(890f, 512f));
+            RectMask2D controlMask = _controlHost.gameObject.AddComponent<RectMask2D>();
+            controlMask.padding = new Vector4(
+                PanelClipInset,
+                PanelClipInset,
+                PanelClipInset,
+                PanelClipInset);
+            _settingsHost = CreateRect("SettingsHost", controlLayer, new Vector2(160f, 50f), new Vector2(860f, 512f));
             Button settings = CreateButton(
-                "Settings", _settingsHost, "설정", new Vector2(100f, 44f), Vector2.zero,
+                "Settings", _settingsHost, "설정", new Vector2(160f, 50f), Vector2.zero,
                 new Color(0.025f, 0.08f, 0.13f, 1f), SecondaryTextColor);
+            CareerUiSkin.ApplyButton(settings);
             settings.onClick.AddListener(() => UI_Popup_CareerSettings.ShowRuntime());
         }
 
@@ -148,6 +162,7 @@ namespace Baseball.Presentation.Career
             {
                 _pitchMiniGame.Complete();
                 HidePitchMiniGamePresentation();
+                ResetPlayResolutionPresentation();
                 _playback.RevealAll(session.Events);
                 ClearControlledResult();
                 Render();
@@ -192,6 +207,9 @@ namespace Baseball.Presentation.Career
                     AcknowledgeCallUp();
                 return;
             }
+
+            if (UpdatePlayResolutionPresentation(session, keyboard))
+                return;
 
             if (UpdatePitchMiniGamePresentation(session))
                 return;
@@ -304,7 +322,13 @@ namespace Baseball.Presentation.Career
 
             RectTransform card = CreatePanel(
                 "PreparationCard", _content, new Vector2(1240f, 680f), new Vector2(0f, -5f));
-            RenderVersusHeader(card, session.Input.AwayTeam.Name, session.Input.HomeTeam.Name, 205f);
+            RenderVersusHeader(
+                card,
+                session.Input.AwayTeam.Name,
+                _manager.CurrentCareer.World.GetTeam(session.Input.AwayTeam.TeamId).EmblemId,
+                session.Input.HomeTeam.Name,
+                _manager.CurrentCareer.World.GetTeam(session.Input.HomeTeam.TeamId).EmblemId,
+                205f);
 
             RectTransform role = CreateImage(
                 "ConfirmedRole", card, new Color(0.035f, 0.16f, 0.19f, 1f),
@@ -522,9 +546,6 @@ namespace Baseball.Presentation.Career
             MatchProgressViewState view)
         {
             PlayerState player = _manager.CurrentCareer.MyPlayer;
-            CreateText(
-                "Eyebrow", panel, "내 선수", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(300f, 24f), new Vector2(0f, 412f), AccentColor);
             CreatePlayerPortrait(panel, player.Name, player.PrimaryPosition, new Vector2(0f, 326f));
             CreateText(
                 "Name", panel, player.Name, 27, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -535,15 +556,15 @@ namespace Baseball.Presentation.Career
                 new Vector2(320f, 26f), new Vector2(0f, 214f), SecondaryTextColor);
 
             Color stateColor = GetPlayerStateColor(view.PlayerState);
-            RectTransform stateBadge = CreateImage(
-                "StateBadge", panel, PanelDarkColor, new Vector2(320f, 58f), new Vector2(0f, 152f));
-            CreateImage("StateBar", stateBadge, stateColor, new Vector2(5f, 46f), new Vector2(-157f, 0f));
+            RectTransform stateBadge = CreateFramedSurface(
+                "StateBadge", panel, PanelDarkColor, new Vector2(296f, 58f), new Vector2(0f, 152f));
+            CreateImage("StateBar", stateBadge, stateColor, new Vector2(5f, 46f), new Vector2(-145f, 0f));
             CreateText(
                 "StateLabel", stateBadge, GetPlayerStateLabel(view.PlayerState), 20, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(300f, 30f), Vector2.zero, stateColor);
+                TextAnchor.MiddleCenter, new Vector2(276f, 30f), Vector2.zero, stateColor);
             CreateText(
                 "StateDetail", panel, GetPlayerStateDetail(session, view), 14, FontStyle.Normal,
-                TextAnchor.MiddleCenter, new Vector2(320f, 26f), new Vector2(0f, 108f), SecondaryTextColor);
+                TextAnchor.MiddleCenter, new Vector2(296f, 26f), new Vector2(0f, 108f), SecondaryTextColor);
 
             bool isPitcher = player.PrimaryPosition is
                 PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
@@ -569,37 +590,37 @@ namespace Baseball.Presentation.Career
                 todayValue = $"{today.PlateAppearances}타석  {today.Hits}안타  {today.RunsBattedIn}타점";
                 todayDetail = BuildTodayDetailLine(today);
             }
-            RectTransform todayCard = CreateImage(
-                "Today", panel, CardColor, new Vector2(320f, 96f), new Vector2(0f, 32f));
+            RectTransform todayCard = CreateFramedSurface(
+                "Today", panel, CardColor, new Vector2(296f, 96f), new Vector2(0f, 32f));
             CreateText(
                 "Label", todayCard, "오늘", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(150f, 24f), new Vector2(-77f, 28f), SecondaryTextColor);
+                new Vector2(150f, 24f), new Vector2(-69f, 28f), SecondaryTextColor);
             CreateText(
                 "Value", todayCard, todayValue,
                 22, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(290f, 34f), new Vector2(0f, 0f), PrimaryTextColor);
+                new Vector2(266f, 34f), new Vector2(0f, 0f), PrimaryTextColor);
             CreateText(
                 "Detail", todayCard, todayDetail, 13,
                 FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(290f, 22f), new Vector2(0f, -30f), MutedTextColor);
+                new Vector2(266f, 22f), new Vector2(0f, -30f), MutedTextColor);
 
             RenderConditionCard(panel, session.ConditionBefore, new Vector2(0f, -66f));
 
-            RectTransform nextEvent = CreateImage(
-                "NextEvent", panel, PanelDarkColor, new Vector2(320f, 132f), new Vector2(0f, -198f));
+            RectTransform nextEvent = CreateFramedSurface(
+                "NextEvent", panel, PanelDarkColor, new Vector2(296f, 132f), new Vector2(0f, -198f));
             CreateText(
                 "Label", nextEvent, "다음 이벤트", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(150f, 24f), new Vector2(-77f, 46f), GoldColor);
+                new Vector2(150f, 24f), new Vector2(-69f, 46f), GoldColor);
             CreateText(
                 "Value", nextEvent, GetNextEventGuide(session, view), 15, FontStyle.Normal,
-                TextAnchor.UpperLeft, new Vector2(290f, 88f), new Vector2(0f, -16f), PrimaryTextColor);
+                TextAnchor.UpperLeft, new Vector2(266f, 88f), new Vector2(0f, -16f), PrimaryTextColor);
 
             CreateText(
                 "ManagerTrust", panel,
                 $"감독 신뢰 {GetEvaluationGrade(session.ManagerEvaluationBefore)}  ·  " +
                 GetSubstitutionPriorityLabel(session),
                 13, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(320f, 24f), new Vector2(0f, -300f), MutedTextColor);
+                new Vector2(296f, 24f), new Vector2(0f, -300f), MutedTextColor);
             PlayerSeasonStatisticsView season = _manager.Dashboard.Statistics;
             string seasonLine = isPitcher
                 ? $"시즌  평균자책 {season.EarnedRunAverage:0.00}  /  " +
@@ -609,7 +630,7 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "Season", panel, seasonLine,
                 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(320f, 26f), new Vector2(0f, -354f), SecondaryTextColor);
+                new Vector2(296f, 26f), new Vector2(0f, -354f), SecondaryTextColor);
 
             if (IsControlledPlayerOnBase(snapshot, session.ControlledPlayerId))
             {
@@ -621,23 +642,27 @@ namespace Baseball.Presentation.Career
 
         private static void RenderConditionCard(RectTransform panel, int condition, Vector2 position)
         {
-            RectTransform card = CreateImage(
-                "Condition", panel, PanelDarkColor, new Vector2(320f, 84f), position);
+            RectTransform card = CreateFramedSurface(
+                "Condition", panel, PanelDarkColor, new Vector2(296f, 84f), position);
             CreateText(
                 "Label", card, "컨디션", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(150f, 24f), new Vector2(-77f, 24f), SecondaryTextColor);
+                new Vector2(150f, 24f), new Vector2(-69f, 24f), SecondaryTextColor);
             CreateText(
                 "Value", card, $"{condition} · {GetConditionLabel(condition)}", 18, FontStyle.Bold,
-                TextAnchor.MiddleRight, new Vector2(200f, 26f), new Vector2(52f, 24f), GetConditionColor(condition));
+                TextAnchor.MiddleRight, new Vector2(184f, 26f), new Vector2(48f, 24f), GetConditionColor(condition));
             RectTransform track = CreateImage(
-                "Track", card, new Color(0.06f, 0.13f, 0.17f, 1f), new Vector2(280f, 8f), new Vector2(0f, -18f));
+                "Track", card, new Color(0.06f, 0.13f, 0.17f, 1f), new Vector2(256f, 8f), new Vector2(0f, -18f));
             RectTransform fill = CreateImage(
                 "Fill", track, GetConditionColor(condition),
-                new Vector2(280f * Mathf.Clamp01(condition / 100f), 8f), Vector2.zero);
+                new Vector2(256f * Mathf.Clamp01(condition / 100f), 8f), Vector2.zero);
             fill.anchorMin = new Vector2(0f, 0.5f);
             fill.anchorMax = new Vector2(0f, 0.5f);
             fill.pivot = new Vector2(0f, 0.5f);
             fill.anchoredPosition = Vector2.zero;
+            CareerUiSkin.ApplyProgressBar(
+                track.GetComponent<Image>(),
+                fill.GetComponent<Image>(),
+                Mathf.Clamp01(condition / 100f));
         }
 
         /// <summary>
@@ -685,12 +710,12 @@ namespace Baseball.Presentation.Career
                 $"{snapshot.Inning}회{GetHalfLabel(snapshot.Half)} · {snapshot.Outs}사 · " +
                 GetRunnerSituation(snapshot),
                 18, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(700f, 32f), new Vector2(0f, 246f), SecondaryTextColor);
+                new Vector2(700f, 32f), new Vector2(0f, 230f), SecondaryTextColor);
 
             RenderDiamond(panel, session, snapshot, new Vector2(-300f, 22f));
             RenderMatchupCard(panel, session, snapshot, new Vector2(148f, 26f));
 
-            RectTransform moment = CreateImage(
+            RectTransform moment = CreateFramedSurface(
                 "Moment", panel, PanelDarkColor, new Vector2(940f, 74f), new Vector2(0f, -218f));
             CreateText(
                 "Label", moment, "최근 플레이", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -710,20 +735,26 @@ namespace Baseball.Presentation.Career
             RectTransform diamond = CreateImage(
                 "Diamond", panel, new Color(0.03f, 0.19f, 0.13f, 1f),
                 new Vector2(360f, 250f), position);
+            diamond.gameObject.AddComponent<RectMask2D>();
+            CreateBroadcastFieldIllustration(
+                diamond,
+                new Vector2(446f, 370f),
+                new Vector2(0f, 44f),
+                true);
             CreateBase(
                 diamond, "Second", snapshot.HasRunnerOnSecond, new Vector2(0f, 78f),
                 isControlledRunner: snapshot.SecondRunnerId == session.ControlledPlayerId);
             CreateBase(
-                diamond, "First", snapshot.HasRunnerOnFirst, new Vector2(94f, 0f),
+                diamond, "First", snapshot.HasRunnerOnFirst, new Vector2(94f, 16f),
                 isControlledRunner: snapshot.FirstRunnerId == session.ControlledPlayerId);
             CreateBase(
-                diamond, "Third", snapshot.HasRunnerOnThird, new Vector2(-94f, 0f),
+                diamond, "Third", snapshot.HasRunnerOnThird, new Vector2(-94f, 16f),
                 isControlledRunner: snapshot.ThirdRunnerId == session.ControlledPlayerId);
             CreateBase(diamond, "Home", true, new Vector2(0f, -78f), isHome: true);
 
             RenderRunnerName(diamond, session, snapshot.SecondRunnerId, new Vector2(0f, 106f));
-            RenderRunnerName(diamond, session, snapshot.FirstRunnerId, new Vector2(94f, -32f));
-            RenderRunnerName(diamond, session, snapshot.ThirdRunnerId, new Vector2(-94f, -32f));
+            RenderRunnerName(diamond, session, snapshot.FirstRunnerId, new Vector2(94f, -16f));
+            RenderRunnerName(diamond, session, snapshot.ThirdRunnerId, new Vector2(-94f, -16f));
         }
 
         private void RenderRunnerName(
@@ -747,7 +778,7 @@ namespace Baseball.Presentation.Career
             CareerMatchPlaybackSnapshot snapshot,
             Vector2 position)
         {
-            RectTransform card = CreateImage(
+            RectTransform card = CreateFramedSurface(
                 "Matchup", panel, PanelDarkColor, new Vector2(560f, 300f), position);
             CreateText(
                 "Label", card, "현재 승부", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -959,12 +990,15 @@ namespace Baseball.Presentation.Career
         private void RenderTimeline(RectTransform panel, CareerMatchSession session)
         {
             float halfHeight = panel.sizeDelta.y * 0.5f;
-            float titleY = halfHeight - 32f;
-            float top = halfHeight - 74f;
-            int lineCapacity = panel.sizeDelta.y < 300f ? 5 : TimelineLineCapacity;
+            float titleY = halfHeight - TimelineTitleInset;
+            float top = halfHeight - TimelineTopInset;
+            float bottom = -halfHeight + TimelineBottomInset;
+            int lineCapacity = Mathf.Min(
+                TimelineLineCapacity,
+                Mathf.Max(2, Mathf.FloorToInt((top - bottom) / TimelineRowHeight) + 1));
             CreateText(
                 "Title", panel, "실시간 경기", 16, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(260f, 28f), new Vector2(-355f, titleY), PrimaryTextColor);
+                new Vector2(220f, 28f), new Vector2(-330f, titleY), PrimaryTextColor);
 
             IReadOnlyList<MatchEvent> events = session.Events;
             _timelineRows.Clear();
@@ -997,6 +1031,10 @@ namespace Baseball.Presentation.Career
                 bool isGroupStart = row == 0 ||
                                     events[_timelineRows[row - 1]].Inning != matchEvent.Inning ||
                                     events[_timelineRows[row - 1]].Half != matchEvent.Half;
+                int requiredLines = isGroupStart ? 2 : 1;
+                if (line + requiredLines > lineCapacity)
+                    break;
+
                 if (isGroupStart)
                 {
                     CreateInningHeader(panel, matchEvent, line, top - line * TimelineRowHeight);
@@ -1018,10 +1056,10 @@ namespace Baseball.Presentation.Career
             CreateText(
                 $"InningHeader{line}", panel, $"{matchEvent.Inning}회{GetHalfLabel(matchEvent.Half)}", 14,
                 FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(200f, 24f), new Vector2(-395f, y), AccentColor);
+                new Vector2(180f, 24f), new Vector2(-340f, y), AccentColor);
             CreateImage(
                 $"InningRule{line}", panel, new Color(0.1f, 0.24f, 0.34f, 1f),
-                new Vector2(830f, 1f), new Vector2(80f, y));
+                new Vector2(660f, 1f), new Vector2(110f, y));
         }
 
         private void CreateTimelineRow(
@@ -1039,19 +1077,19 @@ namespace Baseball.Presentation.Career
                 CreateImage(
                     $"RowHighlight_{matchEvent.Sequence}", panel,
                     isScore ? new Color(0.14f, 0.1f, 0.02f, 1f) : new Color(0.03f, 0.14f, 0.1f, 1f),
-                    new Vector2(940f, TimelineRowHeight - 2f), new Vector2(0f, y));
+                    new Vector2(880f, TimelineRowHeight - 2f), new Vector2(0f, y));
             }
 
             CreateImage(
                 $"RowMarker_{matchEvent.Sequence}", panel, GetTimelineMarkerColor(matchEvent, isControlledEvent),
-                new Vector2(4f, 18f), new Vector2(-458f, y));
+                new Vector2(4f, 18f), new Vector2(-430f, y));
             CreateText(
                 $"Row_{matchEvent.Sequence}", panel, description, 15, FontStyle.Normal,
-                TextAnchor.MiddleLeft, new Vector2(700f, 26f), new Vector2(-90f, y),
+                TextAnchor.MiddleLeft, new Vector2(680f, 26f), new Vector2(-80f, y),
                 isControlledEvent ? RoleColor : PrimaryTextColor);
             CreateText(
                 $"RowTrail_{matchEvent.Sequence}", panel, GetTimelineTrailingLabel(matchEvent), 14,
-                FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(240f, 26f), new Vector2(455f, y),
+                FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(160f, 26f), new Vector2(350f, y),
                 isScore ? GoldColor : MutedTextColor);
         }
 
@@ -1319,16 +1357,22 @@ namespace Baseball.Presentation.Career
                 settings.AutoSlowOnPlayerEvent);
         }
 
-        private static void RenderVersusHeader(RectTransform parent, string away, string home, float y)
+        private static void RenderVersusHeader(
+            RectTransform parent,
+            string away,
+            int awayEmblemId,
+            string home,
+            int homeEmblemId,
+            float y)
         {
-            CreateTeamBadge(parent, away, new Vector2(-305f, y));
+            CreateTeamBadge(parent, away, awayEmblemId, new Vector2(-305f, y));
             CreateText(
                 "AwayTeam", parent, away, 25, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(360f, 44f), new Vector2(-305f, y - 78f), PrimaryTextColor);
             CreateText(
                 "Vs", parent, "VS", 48, FontStyle.BoldAndItalic, TextAnchor.MiddleCenter,
                 new Vector2(120f, 70f), new Vector2(0f, y - 12f), PrimaryTextColor);
-            CreateTeamBadge(parent, home, new Vector2(305f, y));
+            CreateTeamBadge(parent, home, homeEmblemId, new Vector2(305f, y));
             CreateText(
                 "HomeTeam", parent, home, 25, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(360f, 44f), new Vector2(305f, y - 78f), PrimaryTextColor);
@@ -1406,7 +1450,7 @@ namespace Baseball.Presentation.Career
 
         private static void CreateStatusPill(Transform parent, string label, Vector2 size, Vector2 position)
         {
-            RectTransform pill = CreateImage(
+            RectTransform pill = CreateFramedSurface(
                 "StatusPill", parent, new Color(0.04f, 0.18f, 0.18f, 1f), size, position);
             CreateText(
                 "Label", pill, label, 14, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -1532,30 +1576,51 @@ namespace Baseball.Presentation.Career
 
         private static string FindPlayerName(MatchInput input, int playerId)
         {
-            string name = FindPlayerName(input.AwayRoster, playerId);
-            return string.IsNullOrEmpty(name) ? FindPlayerName(input.HomeRoster, playerId) : name;
+            return FindPlayer(input, playerId)?.Name ?? string.Empty;
         }
 
-        private static string FindPlayerName(MatchRosterSnapshot roster, int playerId)
+        private static Player FindPlayer(MatchInput input, int playerId)
         {
+            if (input == null || playerId <= 0)
+                return null;
+            return FindPlayer(input.AwayRoster, playerId) ?? FindPlayer(input.HomeRoster, playerId);
+        }
+
+        private static Player FindPlayer(MatchRosterSnapshot roster, int playerId)
+        {
+            if (roster == null)
+                return null;
             for (int index = 0; index < roster.StartingLineup.Count; index++)
             {
                 if (roster.StartingLineup[index].Player.PlayerId == playerId)
-                    return roster.StartingLineup[index].Player.Name;
+                    return roster.StartingLineup[index].Player;
             }
             if (roster.StartingPitcher.Player.PlayerId == playerId)
-                return roster.StartingPitcher.Player.Name;
+                return roster.StartingPitcher.Player;
             for (int index = 0; index < roster.Bullpen.Count; index++)
             {
                 if (roster.Bullpen[index].Player.PlayerId == playerId)
-                    return roster.Bullpen[index].Player.Name;
+                    return roster.Bullpen[index].Player;
             }
             for (int index = 0; index < roster.Bench.Count; index++)
             {
                 if (roster.Bench[index].PlayerId == playerId)
-                    return roster.Bench[index].Name;
+                    return roster.Bench[index];
             }
-            return string.Empty;
+            return null;
+        }
+
+        /// <summary>Switch Hitter는 상대 투수의 반대 타석을 선택해 실제 타석 방향을 확정한다.</summary>
+        private static Handedness ResolveBattingSide(MatchInput input, int batterId, int pitcherId)
+        {
+            Player batter = FindPlayer(input, batterId);
+            if (batter == null || batter.BattingHand != Handedness.Switch)
+                return batter?.BattingHand ?? Handedness.Right;
+
+            Player pitcher = FindPlayer(input, pitcherId);
+            return pitcher?.ThrowingHand == Handedness.Left
+                ? Handedness.Right
+                : Handedness.Left;
         }
 
         private static string GetRunnerSituation(CareerMatchPlaybackSnapshot snapshot)
@@ -1788,19 +1853,35 @@ namespace Baseball.Presentation.Career
         private static RectTransform CreatePanel(string name, Transform parent, Vector2 size, Vector2 position)
         {
             RectTransform panel = CreateImage(name, parent, PanelColor, size, position);
-            CreateImage("TopBorder", panel, BorderColor, new Vector2(size.x, 2f), new Vector2(0f, size.y * 0.5f - 1f));
+            Image panelImage = panel.GetComponent<Image>();
+            CareerUiSkin.ApplyPanel(panelImage, isHero: false);
+            RectMask2D mask = panel.gameObject.AddComponent<RectMask2D>();
+            mask.padding = new Vector4(
+                PanelClipInset,
+                PanelClipInset,
+                PanelClipInset,
+                PanelClipInset);
             return panel;
         }
 
-        private static void CreateTeamBadge(Transform parent, string teamName, Vector2 position)
+        private static void CreateTeamBadge(
+            Transform parent,
+            string teamName,
+            int emblemId,
+            Vector2 position)
         {
             RectTransform badge = CreateImage(
                 "Badge_" + teamName, parent, new Color(0.03f, 0.23f, 0.38f, 1f),
                 new Vector2(118f, 118f), position);
-            string initial = string.IsNullOrEmpty(teamName) ? "T" : teamName.Substring(0, 1);
-            CreateText(
-                "Initial", badge, initial, 48, FontStyle.Bold, TextAnchor.MiddleCenter,
-                Vector2.zero, Vector2.zero, PrimaryTextColor, true);
+            RectTransform emblem = CreateImage(
+                "Emblem", badge, Color.clear, new Vector2(108f, 108f), Vector2.zero);
+            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId))
+            {
+                string initial = string.IsNullOrEmpty(teamName) ? "T" : teamName.Substring(0, 1);
+                CreateText(
+                    "Initial", badge, initial, 48, FontStyle.Bold, TextAnchor.MiddleCenter,
+                    Vector2.zero, Vector2.zero, PrimaryTextColor, true);
+            }
         }
 
         private static RectTransform CreateRect(string name, Transform parent, Vector2 size, Vector2 position)
@@ -1833,6 +1914,21 @@ namespace Baseball.Presentation.Career
             }
             gameObject.GetComponent<Image>().color = color;
             return rect;
+        }
+
+        private static RectTransform CreateFramedSurface(
+            string name,
+            Transform parent,
+            Color color,
+            Vector2 size,
+            Vector2 position)
+        {
+            RectTransform surface = CreateImage(name, parent, color, size, position);
+            Image image = surface.GetComponent<Image>();
+            surface.gameObject.AddComponent<CareerUiVisualElement>()
+                .Initialize(CareerUiVisualRole.FramedSurface);
+            CareerUiSkin.ApplyVisualElement(image);
+            return surface;
         }
 
         private static Text CreateText(
@@ -1891,6 +1987,7 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "Label", rect, label, 18, FontStyle.Bold, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.zero, textColor, true);
+            CareerUiSkin.ApplyButton(button);
             return button;
         }
 

@@ -39,6 +39,7 @@ namespace Baseball.Presentation.Career
         {
             _pitchMiniGame.Complete();
             HidePitchMiniGamePresentation();
+            ResetPlayResolutionPresentation();
             _playback.Reset();
             _playbackSession = null;
             ClearControlledResult();
@@ -65,10 +66,28 @@ namespace Baseball.Presentation.Career
                 }
             }
 
+            if (ShouldSkipAutomaticPlateAppearances(session))
+            {
+                _playback.RevealAll(session.Events);
+                _isControlledPlayerPlaybackStep = false;
+                _isCallUpAcknowledged = false;
+                _nextAutomaticPlayAt = Time.unscaledTime + GetAutomaticPlayIntervalSeconds();
+                Render();
+                return true;
+            }
+
             if (AdvanceOneStep(session))
                 Render();
 
             return true;
+        }
+
+        /// <summary>타자 미니게임은 다른 타자의 플레이를 노출하지 않고 다음 내 타석까지 건너뛴다.</summary>
+        private static bool ShouldSkipAutomaticPlateAppearances(CareerMatchSession session)
+        {
+            return session.Mode == CareerMatchMode.MiniGame &&
+                   session.CanReceiveBattingDecisions &&
+                   !session.CanReceivePitchingDecisions;
         }
 
         /// <summary>
@@ -347,8 +366,8 @@ namespace Baseball.Presentation.Career
                 CreateStatusPill(
                     panel,
                     view.Flow == MatchFlowState.PlayerAtBat ? "내 타석 진행 중" : "감독 호출",
-                    new Vector2(460f, 52f),
-                    new Vector2(0f, 412f));
+                    ControlStatusPillSize,
+                    ControlStatusPillPosition);
                 CreateText(
                     "HiddenGuide", panel, "타석이 끝나면 자동 진행 제어가 다시 열립니다.", 14,
                     FontStyle.Normal, TextAnchor.MiddleCenter,
@@ -359,13 +378,13 @@ namespace Baseball.Presentation.Career
             }
 
             RenderLineScore(panel, session, new Vector2(0f, 10f));
-            RenderBattingOrder(panel, session, snapshot, new Vector2(0f, -262f));
+            RenderBattingOrder(panel, session, snapshot, new Vector2(0f, -250f));
 
             if (!string.IsNullOrEmpty(_manager.LastError))
             {
                 CreateText(
                     "Error", panel, _manager.LastError, 13, FontStyle.Normal, TextAnchor.MiddleCenter,
-                    new Vector2(460f, 22f), new Vector2(0f, -440f), DangerColor);
+                    new Vector2(460f, 22f), new Vector2(0f, -414f), DangerColor);
             }
         }
 
@@ -373,7 +392,7 @@ namespace Baseball.Presentation.Career
         {
             MatchPitchingDecisionRequest request = session.PendingPitchingDecision.Value;
             CreateStatusPill(panel, $"{request.Inning}회 · 투구 방침 확인",
-                new Vector2(450f, 50f), new Vector2(0f, 396f));
+                ControlStatusPillSize, ControlStatusPillPosition);
             CreateText("PitchingTitle", panel, "이번 이닝 투구 방침", 25, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(440f, 42f), new Vector2(0f, 330f), PrimaryTextColor);
             CreateText("PitchingSituation", panel,
@@ -461,7 +480,7 @@ namespace Baseball.Presentation.Career
                 _controlSignature = signature;
                 if (!view.IsPlaybackControlHidden)
                 {
-                    RenderAutomaticProgressCard(_controlHost, session, view, new Vector2(0f, 349f));
+                    RenderAutomaticProgressCard(_controlHost, session, view, new Vector2(0f, 320f));
 
                     Button primary = CreateButton(
                         "PrimaryAction", _controlHost, GetPrimaryActionLabel(view.PrimaryAction),
@@ -508,7 +527,7 @@ namespace Baseball.Presentation.Career
             MatchProgressViewState view,
             Vector2 position)
         {
-            RectTransform card = CreateImage(
+            RectTransform card = CreateFramedSurface(
                 "AutoProgress", panel, PanelDarkColor, new Vector2(460f, 186f), position);
             bool isRunning = view.Flow is MatchFlowState.AutoRunning or MatchFlowState.SideChange;
             CreateText(
@@ -603,7 +622,7 @@ namespace Baseball.Presentation.Career
         /// </summary>
         private void RenderLineScore(RectTransform panel, CareerMatchSession session, Vector2 position)
         {
-            RectTransform card = CreateImage(
+            RectTransform card = CreateFramedSurface(
                 "LineScore", panel, PanelDarkColor, new Vector2(460f, 176f), position);
             CreateText(
                 "Label", card, "라인 스코어", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -669,7 +688,7 @@ namespace Baseball.Presentation.Career
             CareerMatchPlaybackSnapshot snapshot,
             Vector2 position)
         {
-            RectTransform card = CreateImage(
+            RectTransform card = CreateFramedSurface(
                 "BattingOrder", panel, PanelDarkColor, new Vector2(460f, 340f), position);
             CreateText(
                 "Label", card, "현재 및 다음 타순", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
