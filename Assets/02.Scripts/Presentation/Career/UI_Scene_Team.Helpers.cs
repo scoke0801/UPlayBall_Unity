@@ -171,8 +171,10 @@ namespace Baseball.Presentation.Career
             string name, Transform parent, Vector2 size, Vector2 position, Color color)
         {
             RectTransform section = CreateRect(name, parent, size, position);
-            RectTransform surface = CreateImage("FlatSurface", section, color, Vector2.zero, Vector2.zero, stretch: true);
-            MarkVisual(surface, CareerUiVisualRole.FlatSurface);
+            RectTransform surface = CreateImage(
+                "FramedSurface", section, color, Vector2.zero, Vector2.zero, stretch: true);
+            MarkVisual(surface, CareerUiVisualRole.FramedSurface);
+            section.gameObject.AddComponent<RectMask2D>();
             return section;
         }
 
@@ -187,6 +189,7 @@ namespace Baseball.Presentation.Career
             fill.anchorMin = fill.anchorMax = new Vector2(0f, 0.5f);
             fill.pivot = new Vector2(0f, 0.5f);
             fill.anchoredPosition = new Vector2(2f, 0f);
+            CareerUiSkin.ApplyProgressBar(track.GetComponent<Image>(), fill.GetComponent<Image>(), clamped);
         }
 
         private static RectTransform CreateRect(string name, Transform parent, Vector2 size, Vector2 position)
@@ -248,6 +251,15 @@ namespace Baseball.Presentation.Career
             button.colors = colors;
             text = CreateText("Label", rect, label, 19, FontStyle.Bold, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
+            return button;
+        }
+
+        private static Button CreateFramedButton(
+            string name, Transform parent, string label, Vector2 size, Vector2 position, Color color, out Text text)
+        {
+            Button button = CreateButton(name, parent, label, size, position, color, out text);
+            MarkVisual((RectTransform)button.transform, CareerUiVisualRole.FramedControl);
+            CareerUiSkin.ApplyButton(button);
             return button;
         }
 

@@ -54,7 +54,9 @@ namespace Baseball.Game.Career
             string opponentName,
             bool isHome,
             PlayerGameRole plannedRole,
-            int battingOrder)
+            int battingOrder,
+            int awayTeamEmblemId = 0,
+            int homeTeamEmblemId = 0)
         {
             GameId = gameId;
             Date = date;
@@ -64,6 +66,8 @@ namespace Baseball.Game.Career
             IsHome = isHome;
             PlannedRole = plannedRole;
             BattingOrder = battingOrder;
+            AwayTeamEmblemId = awayTeamEmblemId;
+            HomeTeamEmblemId = homeTeamEmblemId;
         }
 
         public int GameId { get; }
@@ -74,6 +78,8 @@ namespace Baseball.Game.Career
         public bool IsHome { get; }
         public PlayerGameRole PlannedRole { get; }
         public int BattingOrder { get; }
+        public int AwayTeamEmblemId { get; }
+        public int HomeTeamEmblemId { get; }
     }
 
     /// <summary>
@@ -201,6 +207,7 @@ namespace Baseball.Game.Career
         public int ManagerEvaluation { get; internal set; }
         public ExpectedRole ExpectedRole { get; internal set; }
         public string TeamName { get; internal set; }
+        public int TeamEmblemId { get; internal set; }
         public int SeasonYear { get; internal set; }
         public LeagueLevel LeagueLevel { get; internal set; }
         public SeasonPhase SeasonPhase { get; internal set; }

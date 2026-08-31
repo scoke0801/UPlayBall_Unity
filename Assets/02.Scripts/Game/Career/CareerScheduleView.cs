@@ -36,7 +36,9 @@ namespace Baseball.Game.Career
             bool isCompleted,
             int awayRuns,
             int homeRuns,
-            int playerTeamId)
+            int playerTeamId,
+            int awayTeamEmblemId = 0,
+            int homeTeamEmblemId = 0)
         {
             GameId = gameId;
             Round = round;
@@ -47,6 +49,8 @@ namespace Baseball.Game.Career
             HomeTeamId = homeTeamId;
             HomeTeamName = homeTeamName;
             HomeTeamColor = homeTeamColor;
+            AwayTeamEmblemId = awayTeamEmblemId;
+            HomeTeamEmblemId = homeTeamEmblemId;
             IsCompleted = isCompleted;
             AwayRuns = awayRuns;
             HomeRuns = homeRuns;
@@ -57,6 +61,9 @@ namespace Baseball.Game.Career
             OpponentColor = !IsPlayerGame
                 ? new TeamColor(90, 110, 130)
                 : IsPlayerHome ? awayTeamColor : homeTeamColor;
+            OpponentEmblemId = !IsPlayerGame
+                ? 0
+                : IsPlayerHome ? awayTeamEmblemId : homeTeamEmblemId;
             PlayerTeamRuns = !IsPlayerGame ? 0 : IsPlayerHome ? homeRuns : awayRuns;
             OpponentRuns = !IsPlayerGame ? 0 : IsPlayerHome ? awayRuns : homeRuns;
             Outcome = GetOutcome(IsPlayerGame, isCompleted, PlayerTeamRuns, OpponentRuns);
@@ -68,9 +75,11 @@ namespace Baseball.Game.Career
         public int AwayTeamId { get; }
         public string AwayTeamName { get; }
         public TeamColor AwayTeamColor { get; }
+        public int AwayTeamEmblemId { get; }
         public int HomeTeamId { get; }
         public string HomeTeamName { get; }
         public TeamColor HomeTeamColor { get; }
+        public int HomeTeamEmblemId { get; }
         public bool IsCompleted { get; }
         public int AwayRuns { get; }
         public int HomeRuns { get; }
@@ -79,6 +88,7 @@ namespace Baseball.Game.Career
         public int OpponentTeamId { get; }
         public string OpponentName { get; }
         public TeamColor OpponentColor { get; }
+        public int OpponentEmblemId { get; }
         public int PlayerTeamRuns { get; }
         public int OpponentRuns { get; }
         public CareerScheduleOutcome Outcome { get; }
@@ -215,7 +225,8 @@ namespace Baseball.Game.Career
             DateTime currentDate,
             CareerScheduleGameView[] games,
             CareerScheduleGameView[] recentGames,
-            CareerScheduleGameView[] upcomingGames)
+            CareerScheduleGameView[] upcomingGames,
+            int playerTeamEmblemId = 0)
         {
             SeasonYear = seasonYear;
             LeagueLevel = leagueLevel;
@@ -224,6 +235,7 @@ namespace Baseball.Game.Career
             PlayerTeamId = playerTeamId;
             PlayerTeamName = playerTeamName;
             PlayerTeamColor = playerTeamColor;
+            PlayerTeamEmblemId = playerTeamEmblemId;
             TeamRank = teamRank;
             TeamWins = teamWins;
             TeamLosses = teamLosses;
@@ -243,6 +255,7 @@ namespace Baseball.Game.Career
         public int PlayerTeamId { get; }
         public string PlayerTeamName { get; }
         public TeamColor PlayerTeamColor { get; }
+        public int PlayerTeamEmblemId { get; }
         public int TeamRank { get; }
         public int TeamWins { get; }
         public int TeamLosses { get; }

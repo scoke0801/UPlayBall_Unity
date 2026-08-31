@@ -82,6 +82,7 @@ namespace Baseball.Game.Career
                 TeamId = team.TeamId,
                 TeamName = team.Name,
                 PrimaryColor = team.PrimaryColor,
+                EmblemId = team.EmblemId,
                 Archetype = team.Archetype,
                 SeasonYear = season.Year,
                 LeagueLevel = season.LeagueLevel,

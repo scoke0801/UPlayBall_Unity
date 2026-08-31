@@ -112,7 +112,8 @@ namespace Baseball.Game.Career
                     GetRecentForm(teamId),
                     index < _balance.Postseason.PlayoffTeamCount,
                     teamId == myTeamId,
-                    GetStandingZone(_season.LeagueLevel, index + 1));
+                    GetStandingZone(_season.LeagueLevel, index + 1),
+                    team.EmblemId);
             }
             return views;
         }

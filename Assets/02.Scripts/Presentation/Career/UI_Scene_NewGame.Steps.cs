@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
@@ -172,14 +173,14 @@ namespace Baseball.Presentation.Career
                 bool selected = _selectedPosition == position;
                 Button button = CreateButton(
                     "Position_" + position, _body,
-                    GetPositionLabel(position) + "\n" + GetPositionKeyAttributes(position),
+                    GetPositionLabel(position),
                     new Vector2(430f, 125f), new Vector2(-460f + column * 460f, 185f - row * 150f),
                     selected ? SelectedColor : CardColor, out Text text);
                 text.fontSize = 18;
                 button.onClick.AddListener(() => { _selectedPosition = position; Render(); });
             }
             CreateText("PositionNotice", _body,
-                "포지션 선택은 능력치 보너스를 주지 않습니다. 잘 키운 방식과 팀 내 경쟁이 실제 기회를 만듭니다.",
+                "포지션은 수비 위치와 팀 내 경쟁 상대를 정합니다. 능력치는 실제 타격·주루·수비 상황에서 각각 반영됩니다.",
                 14, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(1280f, 38f), new Vector2(0f, -290f), SecondaryTextColor);
         }
@@ -255,6 +256,7 @@ namespace Baseball.Presentation.Career
             Button reset = CreateButton("Reset", pointSummary, "초기화", new Vector2(92f, 36f),
                 new Vector2(288f, 0f), CardColor, out Text resetLabel);
             resetLabel.fontSize = 14;
+            ApplyFramedButtonSkin(reset);
             reset.interactable = remaining < rule.BonusPoints;
             reset.onClick.AddListener(ResetCreationAttributes);
 
@@ -275,10 +277,12 @@ namespace Baseball.Presentation.Career
                     TextAnchor.MiddleCenter, new Vector2(60f, 42f), new Vector2(112f, y), AccentColor);
                 Button minus = CreateButton("Minus_" + index, allocation, "−", new Vector2(46f, 42f),
                     new Vector2(196f, y), CardColor, out _);
+                ApplyFramedButtonSkin(minus);
                 minus.interactable = _attributeDraft[index] > rule.BaseValue;
                 minus.onClick.AddListener(() => ChangeCreationAttribute(captured, -1));
                 Button plus = CreateButton("Plus_" + index, allocation, "+", new Vector2(46f, 42f),
                     new Vector2(258f, y), CardColor, out _);
+                ApplyFramedButtonSkin(plus);
                 plus.interactable = remaining > 0 && _attributeDraft[index] < rule.MaxValue;
                 plus.onClick.AddListener(() => ChangeCreationAttribute(captured, 1));
             }
@@ -388,7 +392,7 @@ namespace Baseball.Presentation.Career
         private void RenderMatchSettings()
         {
             bool isPitcher = _manager.PlayerType == PlayerType.Pitcher;
-            SetTitle("5단계 · 경기 운영 설정", "관전·자동 진행·내 선수 개입 방식을 선택합니다. 실제 훈련은 커리어 성장 메뉴에서 진행합니다.");
+            SetTitle("5단계 · 경기 운영 설정", "직접 참여 여부와 자동 진행 방식을 선택합니다. 실제 훈련은 커리어 성장 메뉴에서 진행합니다.");
             RectTransform approachPanel = CreateImage("Approach", _body, CardColor,
                 new Vector2(510f, 610f), new Vector2(-530f, -5f));
             CreateText("Heading", approachPanel, isPitcher ? "투구 방침" : "타격 방침", 18,
@@ -400,8 +404,32 @@ namespace Baseball.Presentation.Career
 
             RectTransform modePanel = CreateImage("ProgressMode", _body,
                 new Color(0.014f, 0.038f, 0.064f, 1f), new Vector2(610f, 610f), new Vector2(50f, -5f));
-            CreateText("Heading", modePanel, "경기 진행 방식", 18, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(530f, 34f), new Vector2(0f, 260f), AccentColor);
+            CreateText("PlayModeHeading", modePanel, "플레이 모드", 18, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(530f, 34f), new Vector2(0f, 266f), AccentColor);
+            bool isDirectParticipation = _selectedProgressMode == MatchProgressMode.MiniGame;
+            Button directParticipation = CreateButton("PlayMode_Direct", modePanel,
+                "직접 참여\n내 선수의 투구·타격 조작",
+                new Vector2(250f, 64f), new Vector2(-135f, 218f),
+                isDirectParticipation ? SelectedColor : CardColor, out Text directLabel);
+            directLabel.fontSize = 14;
+            directParticipation.onClick.AddListener(() =>
+            {
+                _selectedProgressMode = MatchProgressMode.MiniGame;
+                Render();
+            });
+            Button automatic = CreateButton("PlayMode_Automatic", modePanel,
+                "자동\n관전·결과 확인",
+                new Vector2(250f, 64f), new Vector2(135f, 218f),
+                isDirectParticipation ? CardColor : SelectedColor, out Text automaticLabel);
+            automaticLabel.fontSize = 14;
+            automatic.onClick.AddListener(() =>
+            {
+                _selectedProgressMode = _selectedAutomaticProgressMode;
+                Render();
+            });
+
+            CreateText("ProgressModeHeading", modePanel, "자동 진행 방식", 15, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(530f, 28f), new Vector2(0f, 165f), SecondaryTextColor);
             MatchProgressMode[] modes =
             {
                 MatchProgressMode.FullGameWatch, MatchProgressMode.InterveneOnPlayer,
@@ -413,11 +441,22 @@ namespace Baseball.Presentation.Career
                 bool selected = _selectedProgressMode == mode;
                 Button button = CreateButton("Mode_" + mode, modePanel,
                     GetProgressModeLabel(mode) + "\n" + GetProgressModeGuide(mode),
-                    new Vector2(520f, 105f), new Vector2(0f, 185f - index * 120f),
+                    new Vector2(520f, 70f), new Vector2(0f, 120f - index * 78f),
                     selected ? SelectedColor : CardColor, out Text text);
-                text.fontSize = 15;
-                button.onClick.AddListener(() => { _selectedProgressMode = mode; Render(); });
+                text.fontSize = 14;
+                button.onClick.AddListener(() =>
+                {
+                    _selectedAutomaticProgressMode = mode;
+                    _selectedProgressMode = mode;
+                    Render();
+                });
             }
+            CreateText("PlayModeNotice", modePanel,
+                isDirectParticipation
+                    ? "내 선수 관여 장면에서 직접 참여하고, 나머지 장면은 자동 진행됩니다."
+                    : "선택한 방식으로 경기를 자동 진행합니다.",
+                13, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(520f, 42f), new Vector2(0f, -225f), SecondaryTextColor);
 
             RectTransform speedPanel = CreateImage("Speed", _body, CardColor,
                 new Vector2(400f, 610f), new Vector2(570f, -5f));
@@ -527,7 +566,8 @@ namespace Baseball.Presentation.Career
                 new Vector2(700f, 105f), new Vector2(185f, -60f), PrimaryTextColor);
             CreateText("Settings", card,
                 $"경기 방침  {GetSelectedApproachLabel()}\n" +
-                $"경기 진행  {GetProgressModeLabel(draft.GameSettings.MatchProgressMode)}\n" +
+                $"플레이 모드  {(draft.GameSettings.PlayMode == PlayModeType.MiniGame ? "직접 참여" : "자동")}\n" +
+                $"진행 방식  {(draft.GameSettings.PlayMode == PlayModeType.MiniGame ? "내 선수 관여 장면" : GetProgressModeLabel(draft.GameSettings.MatchProgressMode))}\n" +
                 $"경기 속도  {(draft.GameSettings.MatchProgressMode == MatchProgressMode.InstantResult ? "사용 안 함" : draft.GameSettings.GameSpeed + "×")}\n" +
                 $"내 선수 장면 1×  {(draft.GameSettings.AutoSlowOnPlayerEvent ? "ON" : "OFF")}",
                 16, FontStyle.Normal, TextAnchor.UpperLeft,
@@ -579,13 +619,21 @@ namespace Baseball.Presentation.Career
                     new Vector2(1420f, 105f), new Vector2(0f, y),
                     offer.IsSelected ? SelectedColor : CardColor, out Text text);
                 text.alignment = TextAnchor.MiddleLeft;
-                text.rectTransform.offsetMin = new Vector2(28f, 8f);
+                text.rectTransform.offsetMin = new Vector2(223f, 8f);
                 text.rectTransform.offsetMax = new Vector2(-24f, -8f);
                 text.text =
                     $"{(offer.IsSelected ? "✓  " : string.Empty)}{offer.TeamName}  ·  {GetArchetypeLabel(offer.Archetype)}\n" +
                     $"계약금 {FormatMoney(offer.SigningBonus)}  |  연봉 {FormatMoney(offer.AnnualSalary)}  |  " +
                     $"{offer.ContractYears}년  |  육성 {GetGrade(offer.DevelopmentRating)}  |  {GetRoleLabel(offer.ExpectedRole)}\n" +
                     $"{offer.EvaluationOpportunitySummary}  |  포지션 필요도 {offer.PositionNeed}  ·  경쟁자 {offer.CompetitorSummary}";
+                RectTransform emblem = CreateImage(
+                    "Emblem", button.transform, Color.clear, new Vector2(82f, 82f), new Vector2(-550f, 0f));
+                if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), offer.EmblemId))
+                {
+                    CreateText("EmblemFallback", emblem, CareerTeamNameFormatter.GetMonogram(offer.TeamName),
+                        24, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(82f, 82f), Vector2.zero,
+                        PrimaryTextColor);
+                }
                 int teamId = offer.TeamId;
                 button.onClick.AddListener(() => _manager.SelectOffer(teamId));
             }
@@ -600,8 +648,11 @@ namespace Baseball.Presentation.Career
                 new Vector2(900f, 470f), new Vector2(0f, 5f));
             CreateText("Signed", card, "SIGNED", 16, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(260f, 30f), new Vector2(0f, 190f), AccentColor);
+            RectTransform emblem = CreateImage(
+                "TeamEmblem", card, Color.clear, new Vector2(112f, 112f), new Vector2(-330f, 120f));
+            TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), summary.EmblemId);
             CreateText("Team", card, summary.TeamName, 34, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(760f, 62f), new Vector2(0f, 130f), PrimaryTextColor);
+                new Vector2(610f, 62f), new Vector2(65f, 130f), PrimaryTextColor);
             CreateText("Contract", card,
                 $"{summary.PlayerName}  ·  {GetPositionLabel(summary.Position)}\n\n" +
                 $"예상 역할  {GetRoleLabel(summary.ExpectedRole)}\n" +

@@ -71,6 +71,15 @@ namespace Baseball.Game.Career
             return _teams[index];
         }
 
+        /// <summary>마이그레이션이 바꾼 구단 정체성을 소속 리그와 전역 레지스트리에 함께 반영한다.</summary>
+        internal void ReplaceTeamIdentity(TeamState team)
+        {
+            if (team == null)
+                throw new ArgumentNullException(nameof(team));
+            GetLeague(team.LeagueId).ReplaceTeam(team);
+            ReplaceTeamInRegistry(team);
+        }
+
         public PlayerState GetPlayer(int playerId)
         {
             int index = FindPlayerIndex(playerId);
@@ -340,6 +349,7 @@ namespace Baseball.Game.Career
             EnsureUniqueLeagueIds();
             EnsureCompleteLeaguePyramid();
             EnsureUniqueTeamIds();
+            EnsureValidTeamEmblems();
             EnsureUniquePlayerIds();
             EnsureUniqueContractIds();
             EnsureScheduleReferencesStayInLeague();
@@ -678,6 +688,25 @@ namespace Baseball.Game.Career
             {
                 if (_teams[index - 1].TeamId == _teams[index].TeamId)
                     throw new InvalidOperationException($"TeamId {_teams[index].TeamId}가 중복되었습니다.");
+            }
+        }
+
+        private void EnsureValidTeamEmblems()
+        {
+            bool hasAssignedEmblem = false;
+            for (int index = 0; index < _teams.Count; index++)
+                hasAssignedEmblem |= _teams[index].EmblemId > 0;
+            if (!hasAssignedEmblem)
+                return;
+
+            var used = new HashSet<int>();
+            for (int index = 0; index < _teams.Count; index++)
+            {
+                TeamState team = _teams[index];
+                if (team.EmblemId <= 0)
+                    throw new InvalidOperationException($"TeamId {team.TeamId}에 엠블럼이 배정되지 않았습니다.");
+                if (!used.Add(team.EmblemId))
+                    throw new InvalidOperationException($"EmblemId {team.EmblemId}가 중복 배정되었습니다.");
             }
         }
 

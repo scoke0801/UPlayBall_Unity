@@ -19,7 +19,8 @@ namespace Baseball.Game.Career
             TeamIdentityDefinition[] teamIdentities,
             string[] playerNamePool,
             WorldGenerationConfiguration worldGeneration = null,
-            CareerCreationRules? careerCreationRules = null)
+            CareerCreationRules? careerCreationRules = null,
+            int teamEmblemCount = 128)
         {
             if (balance == null)
                 throw new ArgumentNullException(nameof(balance));
@@ -27,6 +28,8 @@ namespace Baseball.Game.Career
                 throw new ArgumentOutOfRangeException(nameof(teamCount));
             if (teamIdentities == null || teamIdentities.Length < teamCount)
                 throw new ArgumentException("구단 정체성 후보가 구단 수보다 적습니다.", nameof(teamIdentities));
+            if (teamEmblemCount <= 0)
+                throw new ArgumentOutOfRangeException(nameof(teamEmblemCount));
 
             Balance = balance;
             TeamCount = teamCount;
@@ -37,6 +40,7 @@ namespace Baseball.Game.Career
             PlayerNamePool = (string[])playerNamePool.Clone();
             WorldGeneration = worldGeneration ?? WorldGenerationConfiguration.CreateDefault();
             CareerCreationRules = careerCreationRules ?? Baseball.Core.Players.CareerCreationRules.CreateDefault();
+            TeamEmblemCount = teamEmblemCount;
         }
 
         public BalanceTable Balance { get; }
@@ -48,6 +52,7 @@ namespace Baseball.Game.Career
         public string[] PlayerNamePool { get; }
         public WorldGenerationConfiguration WorldGeneration { get; }
         public CareerCreationRules CareerCreationRules { get; }
+        public int TeamEmblemCount { get; }
 
         /// <summary>
         /// 데이터 Asset을 읽지 못한 개발·테스트 환경에서도 같은 계약으로 동작하는 기본값을 만든다.

@@ -332,7 +332,8 @@ namespace Baseball.Game.Career
                 team.Archetype,
                 team.PrimaryColor,
                 needs,
-                competitors);
+                competitors,
+                team.EmblemId);
         }
     }
 }

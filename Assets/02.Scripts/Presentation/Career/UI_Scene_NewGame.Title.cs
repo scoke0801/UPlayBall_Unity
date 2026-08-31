@@ -54,6 +54,7 @@ namespace Baseball.Presentation.Career
         private BattingApproach _selectedBattingApproach = BattingApproach.Balanced;
         private PitchingApproach _selectedPitchingApproach = PitchingApproach.Balanced;
         private MatchProgressMode _selectedProgressMode = MatchProgressMode.InterveneOnPlayer;
+        private MatchProgressMode _selectedAutomaticProgressMode = MatchProgressMode.InterveneOnPlayer;
         private int _selectedGameSpeed = 2;
         private bool _autoSlowOnPlayerEvent = true;
         private bool _showStartConfirmation;
@@ -184,8 +185,9 @@ namespace Baseball.Presentation.Career
                 "구단 운영과 라인업·영입을 담당하는 모드입니다.\n추후 업데이트에서 제공됩니다.",
                 16, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(490f, 65f), new Vector2(0f, -25f), MutedTextColor);
-            Button settings = CreateButton("TitleSettings", right, "설정", new Vector2(150f, 42f),
+            Button settings = CreateButton("TitleSettings", right, "설정", new Vector2(150f, 50f),
                 new Vector2(-180f, -445f), new Color(0.018f, 0.045f, 0.07f, 0.94f), out _);
+            CareerUiSkin.ApplyButton(settings);
             settings.onClick.AddListener(() =>
             {
                 _titleNotice = "화면·사운드·조작 설정은 후속 구현에서 제공됩니다.";

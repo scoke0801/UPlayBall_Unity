@@ -36,7 +36,8 @@ namespace Baseball.Simulation.Career
             TeamArchetypeProfile archetype,
             TeamColor primaryColor,
             int[] positionNeedRatings,
-            RosterCompetitor[] competitors)
+            RosterCompetitor[] competitors,
+            int emblemId = 0)
         {
             if (teamId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(teamId), "TeamId는 양수여야 합니다.");
@@ -47,6 +48,9 @@ namespace Baseball.Simulation.Career
             Name = name;
             Archetype = archetype;
             PrimaryColor = primaryColor;
+            if (emblemId < 0)
+                throw new ArgumentOutOfRangeException(nameof(emblemId));
+            EmblemId = emblemId;
             if (positionNeedRatings == null || positionNeedRatings.Length <= (int)PlayerPosition.ReliefPitcher)
                 throw new ArgumentException("모든 포지션 필요도가 필요합니다.", nameof(positionNeedRatings));
 
@@ -58,6 +62,7 @@ namespace Baseball.Simulation.Career
         public string Name { get; }
         public TeamArchetypeProfile Archetype { get; }
         public TeamColor PrimaryColor { get; }
+        public int EmblemId { get; }
 
         /// <summary>
         /// 0~100 범위의 포지션 필요도를 반환한다. 값이 높을수록 그 포지션 자원이 부족한 구단이다.

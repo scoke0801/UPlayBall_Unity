@@ -52,9 +52,12 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(league.transform.Find("Content/Schedule"), Is.Not.Null);
             Assert.That(league.transform.Find("Content/Tabs/Tab_리그/ActiveGlow"), Is.Not.Null);
 
+            AssertLeaguePanelsUseSkinWithinBounds(league.transform);
+
             Button stolenBasesTab = league.transform
-                .Find("Content/BattingLeaders/Category_도루")
+                .Find("Content/BattingLeaders/ContentSafeArea/Category_도루")
                 .GetComponent<Button>();
+            AssertCategoryButtonHasNoAccentLine(stolenBasesTab);
             stolenBasesTab.onClick.Invoke();
             yield return null;
 
@@ -62,13 +65,16 @@ namespace Baseball.Tests.PlayMode.Presentation
                 .GetBattingLeaderboard(LeagueBattingCategory.StolenBases)
                 .Leaders[0];
             Text stolenBasesValue = league.transform
-                .Find($"Content/BattingLeaders/Batter_{stolenBasesLeader.PlayerId}/StolenBases")
+                .Find(
+                    $"Content/BattingLeaders/ContentSafeArea/" +
+                    $"Batter_{stolenBasesLeader.PlayerId}/StolenBases")
                 .GetComponent<Text>();
             Assert.That(stolenBasesValue.text, Is.EqualTo(stolenBasesLeader.StolenBases.ToString()));
 
             Button savesTab = league.transform
-                .Find("Content/PitchingLeaders/Category_세이브")
+                .Find("Content/PitchingLeaders/ContentSafeArea/Category_세이브")
                 .GetComponent<Button>();
+            AssertCategoryButtonHasNoAccentLine(savesTab);
             savesTab.onClick.Invoke();
             yield return null;
 
@@ -76,7 +82,9 @@ namespace Baseball.Tests.PlayMode.Presentation
                 .GetPitchingLeaderboard(LeaguePitchingCategory.Saves)
                 .Leaders[0];
             Text savesValue = league.transform
-                .Find($"Content/PitchingLeaders/Pitcher_{savesLeader.PlayerId}/Saves")
+                .Find(
+                    $"Content/PitchingLeaders/ContentSafeArea/" +
+                    $"Pitcher_{savesLeader.PlayerId}/Saves")
                 .GetComponent<Text>();
             Assert.That(savesValue.text, Is.EqualTo(savesLeader.Saves.ToString()));
 
@@ -84,6 +92,72 @@ namespace Baseball.Tests.PlayMode.Presentation
             yield return null;
             Assert.That(league.IsVisible, Is.False);
             Assert.That(home.IsVisible, Is.True);
+        }
+
+        private static void AssertLeaguePanelsUseSkinWithinBounds(Transform league)
+        {
+            string[] panelNames =
+            {
+                "Standings",
+                "BattingLeaders",
+                "PitchingLeaders",
+                "TeamMetrics",
+                "LeagueFocus",
+                "Schedule"
+            };
+
+            for (int index = 0; index < panelNames.Length; index++)
+            {
+                Transform panel = league.Find("Content/" + panelNames[index]);
+                Assert.That(panel, Is.Not.Null, panelNames[index]);
+                CareerUiFrame frame = panel.GetComponent<CareerUiFrame>();
+                Assert.That(frame, Is.Not.Null, $"{panelNames[index]} 패널에 공통 Frame이 필요합니다.");
+                Assert.That(panel.GetComponent<RectMask2D>(), Is.Not.Null,
+                    $"{panelNames[index]} 패널은 시각 영역 밖을 그리면 안 됩니다.");
+                Assert.That(frame.DecorativeFrame.sprite, Is.Not.Null,
+                    $"{panelNames[index]} 패널에 공통 Skin Sprite가 필요합니다.");
+                Assert.That(frame.DecorativeFrame.GetComponent<CareerUiVisualElement>().Role,
+                    Is.EqualTo(CareerUiVisualRole.DecorativeFrame));
+                AssertContained((RectTransform)panel, frame.HeaderRoot, panelNames[index] + " Header");
+                AssertContained((RectTransform)panel, frame.ContentSafeArea, panelNames[index] + " Content");
+                AssertContained((RectTransform)panel, frame.InteractionRoot, panelNames[index] + " Interaction");
+                AssertDirectChildrenContained(frame.HeaderRoot, panelNames[index] + " Header");
+                AssertDirectChildrenContained(frame.ContentSafeArea, panelNames[index] + " Content");
+                Assert.That(frame.HeaderRoot.Find("HeaderLine"), Is.Null,
+                    $"{panelNames[index]} 패널 제목에 파란 강조선이 남으면 안 됩니다.");
+            }
+        }
+
+        private static void AssertDirectChildrenContained(RectTransform container, string label)
+        {
+            for (int index = 0; index < container.childCount; index++)
+            {
+                if (container.GetChild(index) is RectTransform child)
+                    AssertContained(container, child, $"{label}/{child.name}");
+            }
+        }
+
+        private static void AssertCategoryButtonHasNoAccentLine(Button button)
+        {
+            Assert.That(button, Is.Not.Null);
+            Assert.That(button.transform.Find("Selected"), Is.Null,
+                "선택 버튼에 파란 밑줄이 남으면 안 됩니다.");
+            Assert.That(button.GetComponent<Image>().sprite, Is.Not.Null,
+                "선택 상태는 공통 버튼 Skin으로 표현해야 합니다.");
+            Assert.That(button.GetComponent<CareerUiVisualElement>().Role,
+                Is.EqualTo(CareerUiVisualRole.FramedControl));
+        }
+
+        private static void AssertContained(RectTransform container, RectTransform child, string label)
+        {
+            var corners = new Vector3[4];
+            child.GetWorldCorners(corners);
+            for (int index = 0; index < corners.Length; index++)
+            {
+                Vector2 localPoint = container.InverseTransformPoint(corners[index]);
+                Assert.That(container.rect.Contains(localPoint), Is.True,
+                    $"{label}은(는) 패널 영역 안에 있어야 합니다.");
+            }
         }
 
         [UnityTearDown]

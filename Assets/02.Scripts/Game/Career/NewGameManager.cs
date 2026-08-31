@@ -53,7 +53,8 @@ namespace Baseball.Game.Career
             double offerScore,
             string evaluationOpportunitySummary,
             string competitorSummary,
-            bool isSelected)
+            bool isSelected,
+            int emblemId = 0)
         {
             TeamId = teamId;
             TeamName = teamName;
@@ -69,6 +70,7 @@ namespace Baseball.Game.Career
             EvaluationOpportunitySummary = evaluationOpportunitySummary;
             CompetitorSummary = competitorSummary;
             IsSelected = isSelected;
+            EmblemId = emblemId;
         }
 
         public int TeamId { get; }
@@ -85,6 +87,7 @@ namespace Baseball.Game.Career
         public string EvaluationOpportunitySummary { get; }
         public string CompetitorSummary { get; }
         public bool IsSelected { get; }
+        public int EmblemId { get; }
     }
 
     /// <summary>
@@ -102,7 +105,8 @@ namespace Baseball.Game.Career
             SeasonPhase seasonPhase,
             long availableMoney,
             long annualSalary,
-            ExpectedRole expectedRole)
+            ExpectedRole expectedRole,
+            int emblemId = 0)
         {
             PlayerName = playerName;
             Nationality = nationality;
@@ -114,6 +118,7 @@ namespace Baseball.Game.Career
             AvailableMoney = availableMoney;
             AnnualSalary = annualSalary;
             ExpectedRole = expectedRole;
+            EmblemId = emblemId;
         }
 
         public string PlayerName { get; }
@@ -126,6 +131,7 @@ namespace Baseball.Game.Career
         public long AvailableMoney { get; }
         public long AnnualSalary { get; }
         public ExpectedRole ExpectedRole { get; }
+        public int EmblemId { get; }
     }
 
     /// <summary>
@@ -464,7 +470,8 @@ namespace Baseball.Game.Career
                     offer.OfferScore,
                     BuildEvaluationOpportunitySummary(offer.ExpectedRole),
                     BuildCompetitorSummary(competitors),
-                    selected.HasValue && selected.Value.Team.TeamId == offer.Team.TeamId);
+                    selected.HasValue && selected.Value.Team.TeamId == offer.Team.TeamId,
+                    offer.Team.EmblemId);
             }
         }
 
@@ -474,29 +481,32 @@ namespace Baseball.Game.Career
             if (career == null)
                 return null;
 
-            string teamName = string.Empty;
+            TeamState selectedTeam = null;
             for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
                 TeamState team = career.CurrentLeague.Teams[index];
                 if (team.TeamId == career.MyPlayer.CurrentTeamId)
                 {
-                    teamName = team.Name;
+                    selectedTeam = team;
                     break;
                 }
             }
+            if (selectedTeam == null)
+                throw new InvalidOperationException("계약한 구단을 현재 리그에서 찾을 수 없습니다.");
 
             SeasonState season = career.CurrentLeague.CurrentSeason;
             return new CareerSummaryView(
                 career.MyPlayer.Name,
                 career.MyPlayer.Nationality,
                 career.MyPlayer.PrimaryPosition,
-                teamName,
+                selectedTeam.Name,
                 season.Year,
                 season.LeagueLevel,
                 season.Phase,
                 career.AvailableMoney,
                 career.CurrentContract.AnnualSalary,
-                career.CurrentContract.ExpectedRole);
+                career.CurrentContract.ExpectedRole,
+                selectedTeam.EmblemId);
         }
 
         private static string BuildCompetitorSummary(IReadOnlyList<RosterCompetitor> competitors)

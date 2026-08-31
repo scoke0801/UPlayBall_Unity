@@ -28,6 +28,7 @@ namespace Baseball.Presentation.Career
             _selectedBattingApproach = BattingApproach.Balanced;
             _selectedPitchingApproach = PitchingApproach.Balanced;
             _selectedProgressMode = MatchProgressMode.InterveneOnPlayer;
+            _selectedAutomaticProgressMode = MatchProgressMode.InterveneOnPlayer;
             _selectedGameSpeed = 2;
             _autoSlowOnPlayerEvent = true;
             _showStartConfirmation = false;
@@ -129,6 +130,7 @@ namespace Baseball.Presentation.Career
             fill.anchorMax = new Vector2(0f, 0.5f);
             fill.pivot = new Vector2(0f, 0.5f);
             fill.anchoredPosition = Vector2.zero;
+            CareerUiSkin.ApplyProgressBar(track.GetComponent<Image>(), fill.GetComponent<Image>(), ratio);
         }
 
         private bool IsPresetSelected(AttributeAllocationPresetView preset)
@@ -313,21 +315,6 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetPositionKeyAttributes(PlayerPosition position)
-        {
-            return position switch
-            {
-                PlayerPosition.Catcher => "수비 · 송구 · 선구안",
-                PlayerPosition.FirstBase => "파워 · 컨택",
-                PlayerPosition.SecondBase => "수비 · 컨택 · 주루",
-                PlayerPosition.ThirdBase => "파워 · 송구",
-                PlayerPosition.Shortstop => "수비 · 송구 · 주루",
-                PlayerPosition.LeftField or PlayerPosition.RightField => "파워 · 송구",
-                PlayerPosition.CenterField => "주루 · 수비",
-                _ => "컨택 · 파워 · 선구안"
-            };
-        }
-
         private static string GetPitcherRoleLabel(PitcherRole role)
         {
             return role switch
@@ -478,6 +465,7 @@ namespace Baseball.Presentation.Career
                 MatchProgressMode.InterveneOnPlayer => "내 선수 때만 개입",
                 MatchProgressMode.PlayerFocusAutomatic => "내 선수 중심 자동",
                 MatchProgressMode.InstantResult => "즉시 결과",
+                MatchProgressMode.MiniGame => "직접 참여",
                 _ => mode.ToString()
             };
         }
@@ -490,6 +478,7 @@ namespace Baseball.Presentation.Career
                 MatchProgressMode.InterveneOnPlayer => "내 선수 시작 직전 자동 정지",
                 MatchProgressMode.PlayerFocusAutomatic => "내 선수 장면만 일반 연출",
                 MatchProgressMode.InstantResult => "연출 없이 경기 결과로 이동",
+                MatchProgressMode.MiniGame => "내 선수의 투구·타격을 직접 진행",
                 _ => string.Empty
             };
         }
@@ -611,6 +600,15 @@ namespace Baseball.Presentation.Career
                 Vector2.zero, Vector2.zero, PrimaryTextColor);
             Stretch(text.rectTransform);
             return button;
+        }
+
+        private static void ApplyFramedButtonSkin(Button button)
+        {
+            CareerUiVisualElement visual = button.GetComponent<CareerUiVisualElement>();
+            if (visual == null)
+                visual = button.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(CareerUiVisualRole.FramedControl);
+            CareerUiSkin.ApplyButton(button);
         }
 
         private static InputField CreateInputField(

@@ -97,8 +97,6 @@ namespace Baseball.Presentation.Career
                 out Text text);
             text.fontSize = 16;
             text.color = selected ? PrimaryTextColor : SecondaryTextColor;
-            if (selected)
-                CreateImage("Selected", button.transform, BrightAccentColor, new Vector2(156f, 3f), new Vector2(0f, -19f));
             button.onClick.AddListener(() => SetLayout(layout));
         }
 
@@ -107,17 +105,19 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreateFrame(
                 "TeamSummary", _content, new Vector2(520f, 724f), new Vector2(690f, 45f), PanelDarkColor);
             Color teamColor = ToUnityColor(view.PlayerTeamColor);
-            CreateTeamBadge(panel, view.PlayerTeamName, view.PlayerTeamColor, new Vector2(-185f, 305f), 72f);
+            CreateTeamBadge(
+                panel, view.PlayerTeamName, view.PlayerTeamColor, view.PlayerTeamEmblemId,
+                new Vector2(-170f, 250f), 72f);
             CreateText("TeamName", panel, view.PlayerTeamName, 24, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(320f, 42f), new Vector2(35f, 326f), PrimaryTextColor);
+                new Vector2(300f, 42f), new Vector2(35f, 270f), PrimaryTextColor);
             CreateText("TeamEnglish", panel, GetShortTeamName(view.PlayerTeamName).ToUpperInvariant(), 12,
                 FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(320f, 26f), new Vector2(35f, 296f), SecondaryTextColor);
+                new Vector2(300f, 26f), new Vector2(35f, 240f), SecondaryTextColor);
             CreateText("TeamRecord", panel,
                 $"{view.TeamWins}승 {view.TeamLosses}패{(view.TeamTies > 0 ? $" {view.TeamTies}무" : string.Empty)}  /  {view.TeamRank}위",
                 18, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(320f, 34f), new Vector2(35f, 263f), teamColor);
-            CreateImage("HeaderDivider", panel, DividerColor, new Vector2(492f, 2f), new Vector2(0f, 244f));
+                new Vector2(300f, 34f), new Vector2(35f, 207f), teamColor);
+            CreateImage("HeaderDivider", panel, DividerColor, new Vector2(460f, 2f), new Vector2(0f, 185f));
 
             RenderNextGame(panel, view);
             RenderMonthSummary(panel, month.Summary);
@@ -128,9 +128,9 @@ namespace Baseball.Presentation.Career
         private static void RenderNextGame(Transform panel, CareerScheduleView view)
         {
             CreateText("NextLabel", panel, "다음 경기", 16, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(450f, 30f), new Vector2(0f, 218f), PrimaryTextColor);
-            RectTransform next = CreateFrame(
-                "NextGame", panel, new Vector2(492f, 160f), new Vector2(0f, 122f), CardColor);
+                new Vector2(430f, 30f), new Vector2(0f, 160f), PrimaryTextColor);
+            RectTransform next = CreateFramedSurface(
+                "NextGame", panel, new Vector2(460f, 136f), new Vector2(0f, 72f), CardColor);
             if (!view.NextGame.HasValue)
             {
                 CreateText("Empty", next, "정규 시즌 일정이 종료되었습니다.", 16, FontStyle.Bold,
@@ -139,29 +139,33 @@ namespace Baseball.Presentation.Career
             }
 
             CareerScheduleGameView game = view.NextGame.Value;
-            CreateTeamBadge(next, game.AwayTeamName, game.AwayTeamColor, new Vector2(-150f, 26f), 52f);
-            CreateTeamBadge(next, game.HomeTeamName, game.HomeTeamColor, new Vector2(150f, 26f), 52f);
+            CreateTeamBadge(
+                next, game.AwayTeamName, game.AwayTeamColor, game.AwayTeamEmblemId,
+                new Vector2(-140f, 26f), 52f);
+            CreateTeamBadge(
+                next, game.HomeTeamName, game.HomeTeamColor, game.HomeTeamEmblemId,
+                new Vector2(140f, 26f), 52f);
             CreateText("Away", next, GetShortTeamName(game.AwayTeamName), 13, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(165f, 30f), new Vector2(-150f, -27f), PrimaryTextColor);
+                TextAnchor.MiddleCenter, new Vector2(140f, 30f), new Vector2(-140f, -27f), PrimaryTextColor);
             CreateText("Versus", next, "VS", 26, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(90f, 44f), new Vector2(0f, 24f), PrimaryTextColor);
             CreateText("Home", next, GetShortTeamName(game.HomeTeamName), 13, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(165f, 30f), new Vector2(150f, -27f), PrimaryTextColor);
+                TextAnchor.MiddleCenter, new Vector2(140f, 30f), new Vector2(140f, -27f), PrimaryTextColor);
             CreateText("Date", next,
                 $"{game.Date:M월 d일} ({GetKoreanDay(game.Date.DayOfWeek)})  ·  {(game.IsPlayerHome ? "HOME" : "AWAY")}",
                 13, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(430f, 28f), new Vector2(0f, -61f), SecondaryTextColor);
+                new Vector2(390f, 26f), new Vector2(0f, -51f), SecondaryTextColor);
         }
 
         private static void RenderMonthSummary(Transform panel, CareerScheduleMonthSummaryView summary)
         {
             CreateText("MonthLabel", panel, "이번 달 요약", 15, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(450f, 28f), new Vector2(0f, 25f), PrimaryTextColor);
-            RectTransform card = CreateFrame(
-                "MonthSummary", panel, new Vector2(492f, 76f), new Vector2(0f, -28f), CardColor);
-            RenderSummaryMetric(card, "경기", summary.CompletedGames.ToString(), -160f, PrimaryTextColor);
+                new Vector2(430f, 28f), new Vector2(0f, -5f), PrimaryTextColor);
+            RectTransform card = CreateFramedSurface(
+                "MonthSummary", panel, new Vector2(460f, 64f), new Vector2(0f, -55f), CardColor);
+            RenderSummaryMetric(card, "경기", summary.CompletedGames.ToString(), -145f, PrimaryTextColor);
             RenderSummaryMetric(card, "승 / 패", $"{summary.Wins} / {summary.Losses}", 0f, PrimaryTextColor);
-            RenderSummaryMetric(card, "승률", summary.WinningPercentage.ToString(".000"), 160f, WinColor);
+            RenderSummaryMetric(card, "승률", summary.WinningPercentage.ToString(".000"), 145f, WinColor);
         }
 
         private static void RenderSummaryMetric(
@@ -172,70 +176,72 @@ namespace Baseball.Presentation.Career
             Color valueColor)
         {
             CreateText("Label_" + label, parent, label, 10, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(130f, 20f), new Vector2(x, 20f), SecondaryTextColor);
+                new Vector2(115f, 20f), new Vector2(x, 20f), SecondaryTextColor);
             CreateText("Value_" + label, parent, value, 20, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(145f, 34f), new Vector2(x, -13f), valueColor);
+                new Vector2(130f, 34f), new Vector2(x, -13f), valueColor);
         }
 
         private static void RenderImportantGames(Transform panel, CareerScheduleView view)
         {
             CreateText("ImportantLabel", panel, "중요 일정", 15, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(450f, 28f), new Vector2(0f, -83f), PrimaryTextColor);
-            RectTransform card = CreateFrame(
-                "ImportantGames", panel, new Vector2(492f, 104f), new Vector2(0f, -148f), CardColor);
+                new Vector2(430f, 28f), new Vector2(0f, -93f), PrimaryTextColor);
+            RectTransform card = CreateFramedSurface(
+                "ImportantGames", panel, new Vector2(460f, 72f), new Vector2(0f, -147f), CardColor);
             int count = Math.Min(view.UpcomingGames.Count, 3);
             if (count == 0)
             {
                 CreateText("Empty", card, "남은 정규 시즌 경기가 없습니다.", 13, FontStyle.Normal,
-                    TextAnchor.MiddleCenter, new Vector2(430f, 50f), Vector2.zero, MutedColor);
+                    TextAnchor.MiddleCenter, new Vector2(390f, 50f), Vector2.zero, MutedColor);
                 return;
             }
             for (int index = 0; index < count; index++)
             {
                 CareerScheduleGameView game = view.UpcomingGames[index];
-                float y = 31f - index * 31f;
+                float y = 22f - index * 22f;
                 CreateText("Date_" + index, card, game.Date.ToString("M.dd"), 12, FontStyle.Bold,
-                    TextAnchor.MiddleLeft, new Vector2(74f, 24f), new Vector2(-195f, y), SecondaryTextColor);
+                    TextAnchor.MiddleLeft, new Vector2(60f, 24f), new Vector2(-160f, y), SecondaryTextColor);
                 CreateText("Opponent_" + index,
                     card, $"{(game.IsPlayerHome ? "vs" : "@")} {game.OpponentName}", 12, FontStyle.Normal,
-                    TextAnchor.MiddleLeft, new Vector2(300f, 24f), new Vector2(25f, y), PrimaryTextColor);
+                    TextAnchor.MiddleLeft, new Vector2(270f, 24f), new Vector2(30f, y), PrimaryTextColor);
             }
         }
 
         private static void RenderRecentTimeline(Transform panel, CareerScheduleView view)
         {
             CreateText("TimelineLabel", panel, "최근 / 예정 일정", 15, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(450f, 28f), new Vector2(0f, -220f), PrimaryTextColor);
-            RectTransform card = CreateFrame(
-                "RecentTimeline", panel, new Vector2(492f, 118f), new Vector2(0f, -291f), CardColor);
+                new Vector2(430f, 28f), new Vector2(0f, -199f), PrimaryTextColor);
+            RectTransform card = CreateFramedSurface(
+                "RecentTimeline", panel, new Vector2(460f, 84f), new Vector2(0f, -259f), CardColor);
             int recentCount = Math.Min(view.RecentGames.Count, 3);
+            int timelineCount = recentCount + (view.NextGame.HasValue ? 1 : 0);
+            float firstRowY = (timelineCount - 1) * 10f;
             int row = 0;
             for (int index = 0; index < recentCount; index++)
             {
-                RenderTimelineRow(card, view.RecentGames[index], row++, true);
+                RenderTimelineRow(card, view.RecentGames[index], firstRowY - row++ * 20f, true);
             }
             if (view.NextGame.HasValue && row < 4)
-                RenderTimelineRow(card, view.NextGame.Value, row, false);
+                RenderTimelineRow(card, view.NextGame.Value, firstRowY - row * 20f, false);
         }
 
         private static void RenderTimelineRow(
             Transform parent,
             CareerScheduleGameView game,
-            int row,
+            float y,
             bool isRecent)
         {
-            float y = 42f - row * 28f;
-            CreateText("Date_" + row, parent, game.Date.ToString("M.dd"), 11, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Vector2(68f, 22f), new Vector2(-198f, y), SecondaryTextColor);
-            CreateText("Opponent_" + row,
+            string rowId = game.GameId.ToString();
+            CreateText("Date_" + rowId, parent, game.Date.ToString("M.dd"), 11, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(60f, 22f), new Vector2(-160f, y), SecondaryTextColor);
+            CreateText("Opponent_" + rowId,
                 parent, $"{(game.IsPlayerHome ? "vs" : "@")} {GetShortTeamName(game.OpponentName)}", 11,
                 FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(260f, 22f), new Vector2(-20f, y), PrimaryTextColor);
+                new Vector2(245f, 22f), new Vector2(5f, y), PrimaryTextColor);
             string result = isRecent
                 ? $"{GetOutcomeCode(game.Outcome)} {game.PlayerTeamRuns}:{game.OpponentRuns}"
                 : "예정";
-            CreateText("Result_" + row, parent, result, 11, FontStyle.Bold,
-                TextAnchor.MiddleRight, new Vector2(90f, 22f), new Vector2(185f, y),
+            CreateText("Result_" + rowId, parent, result, 11, FontStyle.Bold,
+                TextAnchor.MiddleRight, new Vector2(72f, 22f), new Vector2(175f, y),
                 isRecent ? GetOutcomeColor(game.Outcome) : SecondaryTextColor);
         }
 
@@ -308,6 +314,7 @@ namespace Baseball.Presentation.Career
             Transform parent,
             string teamName,
             TeamColor teamColor,
+            int emblemId,
             Vector2 position,
             float size)
         {
@@ -320,8 +327,14 @@ namespace Baseball.Presentation.Career
                 "Inner", outer, Color.Lerp(primary, BackgroundColor, 0.28f),
                 new Vector2(size - 4f, size - 4f), Vector2.zero);
             MarkVisual(inner, CareerUiVisualRole.DataImage);
-            CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName), Math.Max(9, (int)(size * 0.30f)),
-                FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, PrimaryTextColor, true);
+            RectTransform emblem = CreateImage(
+                "Emblem", inner, Color.clear, new Vector2(size - 8f, size - 8f), Vector2.zero);
+            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId))
+            {
+                CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName),
+                    Math.Max(9, (int)(size * 0.30f)), FontStyle.Bold, TextAnchor.MiddleCenter,
+                    Vector2.zero, Vector2.zero, PrimaryTextColor, true);
+            }
             return outer;
         }
 

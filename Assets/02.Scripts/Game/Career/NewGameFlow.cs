@@ -14,7 +14,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 15;
+        public const int CurrentSaveVersion = 16;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
@@ -375,12 +375,16 @@ namespace Baseball.Game.Career
                 _configuration.Balance.TeamGeneration,
                 _configuration.Balance.PlayerEvaluation,
                 new Pcg32Random(State.RandomSeed));
+            int[] emblemIds = TeamEmblemSelector.CreateShuffledIds(
+                _configuration.TeamEmblemCount,
+                State.RandomSeed);
             State.SetupResult = setup.GenerateLeagueAndOffers(
                 player,
                 _configuration.TeamCount,
                 _configuration.Archetypes,
                 _configuration.TeamIdentities,
-                _configuration.PlayerNamePool);
+                _configuration.PlayerNamePool,
+                emblemIds);
             for (int index = 0; index < State.SetupResult.Offers.Length; index++)
             {
                 ContractOffer offer = State.SetupResult.Offers[index];
@@ -660,7 +664,8 @@ namespace Baseball.Game.Career
                     team.Archetype,
                     team.PrimaryColor,
                     positionNeeds,
-                    competitors.ToArray());
+                    competitors.ToArray(),
+                    team.EmblemId);
             }
 
             return result;

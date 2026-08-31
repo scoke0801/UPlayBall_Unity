@@ -11,29 +11,30 @@ namespace Baseball.Presentation.Career
     {
         private void RenderRoster(TeamOverviewView view)
         {
-            RectTransform panel = CreatePanel("Roster", "ROSTER", $"로스터 명단  {view.Roster.Length}명",
+            RectTransform panel = CreatePanel("Roster", $"로스터 명단  {view.Roster.Length}명",
                 new Vector2(650f, 558f), new Vector2(-165f, 166f));
             RenderRosterFilters(panel, view);
             CreateText("HeaderPosition", panel, "포지션", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(60f, 24f), new Vector2(-272f, 147f), MutedColor);
+                new Vector2(60f, 24f), new Vector2(-272f, 127f), MutedColor);
             CreateText("HeaderName", panel, "이름", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(150f, 24f), new Vector2(-170f, 147f), MutedColor);
+                new Vector2(150f, 24f), new Vector2(-170f, 127f), MutedColor);
             CreateText("HeaderRole", panel, "역할", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(98f, 24f), new Vector2(-47f, 147f), MutedColor);
+                new Vector2(98f, 24f), new Vector2(-47f, 127f), MutedColor);
             CreateText("HeaderOverall", panel, "OVR", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(62f, 24f), new Vector2(45f, 147f), MutedColor);
+                new Vector2(62f, 24f), new Vector2(45f, 127f), MutedColor);
             CreateText("HeaderRecord", panel, "시즌", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(110f, 24f), new Vector2(137f, 147f), MutedColor);
+                new Vector2(110f, 24f), new Vector2(137f, 127f), MutedColor);
             CreateText("HeaderCondition", panel, "컨디션", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(82f, 24f), new Vector2(258f, 147f), MutedColor);
+                new Vector2(82f, 24f), new Vector2(258f, 127f), MutedColor);
 
             int visibleCount = CountFilteredRoster(view);
             RectTransform viewport = CreateImage("RosterViewport", panel, PanelDarkColor,
-                new Vector2(614f, 326f), new Vector2(0f, -30f));
+                new Vector2(600f, 286f), new Vector2(0f, -35f));
+            MarkVisual(viewport, CareerUiVisualRole.FlatSurface);
             Mask mask = viewport.gameObject.AddComponent<Mask>();
             mask.showMaskGraphic = false;
-            float contentHeight = Mathf.Max(326f, visibleCount * 36f);
-            RectTransform content = CreateRect("RosterContent", viewport, new Vector2(614f, contentHeight), Vector2.zero);
+            float contentHeight = Mathf.Max(286f, visibleCount * 36f);
+            RectTransform content = CreateRect("RosterContent", viewport, new Vector2(600f, contentHeight), Vector2.zero);
             content.anchorMin = new Vector2(0f, 1f);
             content.anchorMax = new Vector2(1f, 1f);
             content.pivot = new Vector2(0.5f, 1f);
@@ -56,7 +57,7 @@ namespace Baseball.Presentation.Career
             }
             CreateText("RosterGuide", panel, "선수 선택 시 아래 포지션 경쟁 현황으로 이동 · 편성은 감독 AI 소유",
                 12, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(590f, 25f), new Vector2(0f, -251f), MutedColor);
+                new Vector2(590f, 25f), new Vector2(0f, -190f), MutedColor);
         }
 
         private void RenderRosterFilters(Transform panel, TeamOverviewView view)
@@ -67,8 +68,9 @@ namespace Baseball.Presentation.Career
             {
                 RosterFilter filter = filters[index];
                 bool selected = filter == _rosterFilter;
-                Button button = CreateButton("Filter_" + labels[index], panel, labels[index], new Vector2(106f, 34f),
-                    new Vector2(-248f + index * 111f, 197f),
+                Button button = CreateFramedButton(
+                    "Filter_" + labels[index], panel, labels[index], new Vector2(106f, 34f),
+                    new Vector2(-248f + index * 111f, 177f),
                     selected ? new Color(0.025f, 0.25f, 0.49f, 1f) : PanelDarkColor, out Text label);
                 label.fontSize = 14;
                 label.color = selected ? PrimaryTextColor : SecondaryTextColor;
@@ -79,7 +81,7 @@ namespace Baseball.Presentation.Career
                 });
             }
             CreateText("FilteredCount", panel, $"{CountFilteredRoster(view)}명", 13, FontStyle.Bold,
-                TextAnchor.MiddleRight, new Vector2(90f, 30f), new Vector2(266f, 197f), SecondaryTextColor);
+                TextAnchor.MiddleRight, new Vector2(90f, 30f), new Vector2(230f, 177f), SecondaryTextColor);
         }
 
         private void RenderRosterRow(
@@ -92,7 +94,7 @@ namespace Baseball.Presentation.Career
                 ? new Color(0.025f, 0.22f, 0.42f, 0.96f)
                 : rowIndex % 2 == 0 ? new Color(0.013f, 0.055f, 0.09f, 0.96f) : PanelDarkColor;
             RectTransform row = CreateImage("RosterPlayer_" + player.PlayerId, content, background,
-                new Vector2(606f, 34f), new Vector2(0f, -18f - rowIndex * 36f));
+                new Vector2(590f, 34f), new Vector2(0f, -18f - rowIndex * 36f));
             row.anchorMin = row.anchorMax = new Vector2(0.5f, 1f);
             MarkVisual(row, CareerUiVisualRole.FlatSurface);
             Image rowImage = row.GetComponent<Image>();

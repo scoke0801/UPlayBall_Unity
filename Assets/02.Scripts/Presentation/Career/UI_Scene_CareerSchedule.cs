@@ -34,6 +34,7 @@ namespace Baseball.Presentation.Career
         private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
         private static readonly Color SecondaryTextColor = new(0.62f, 0.71f, 0.8f, 1f);
         private static readonly Color MutedColor = new(0.34f, 0.40f, 0.49f, 1f);
+        private static readonly Vector4 ScheduleFramePadding = new(24f, 52f, 24f, 72f);
 
         private CareerManager _manager;
         private RectTransform _content;
@@ -276,7 +277,7 @@ namespace Baseball.Presentation.Career
             out Text text)
         {
             RectTransform rect = CreateImage(name, parent, color, size, position);
-            MarkVisual(rect, CareerUiVisualRole.InteractiveControl);
+            MarkVisual(rect, CareerUiVisualRole.FramedControl);
             Button button = rect.gameObject.AddComponent<Button>();
             rect.GetComponent<Image>().raycastTarget = true;
             ColorBlock colors = button.colors;
@@ -287,6 +288,7 @@ namespace Baseball.Presentation.Career
             button.colors = colors;
             text = CreateText("Label", rect, label, 17, FontStyle.Bold, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.zero, PrimaryTextColor, true);
+            CareerUiSkin.ApplyButton(button);
             return button;
         }
 
@@ -313,11 +315,28 @@ namespace Baseball.Presentation.Career
             RectTransform content = CreateRect("ContentSafeArea", root, size, Vector2.zero);
             RectTransform header = CreateRect("HeaderRoot", root, size, Vector2.zero);
             RectTransform interaction = CreateRect("InteractionRoot", root, size, Vector2.zero);
+            CareerUiFrame.ApplyContentPadding(content, size, ScheduleFramePadding);
+            CareerUiFrame.ApplyContentPadding(interaction, size, ScheduleFramePadding);
+            content.gameObject.AddComponent<RectMask2D>();
             CareerUiFrame frame = root.gameObject.AddComponent<CareerUiFrame>();
             frame.Initialize(
                 decorativeFrame.GetComponent<Image>(), header, content, interaction,
-                CareerUiTheme.UniversalFramePadding, false);
+                ScheduleFramePadding, false);
             return content;
+        }
+
+        private static RectTransform CreateFramedSurface(
+            string name,
+            Transform parent,
+            Vector2 size,
+            Vector2 position,
+            Color surfaceColor)
+        {
+            RectTransform root = CreateRect(name, parent, size, position);
+            RectTransform surface = CreateImage(
+                "FramedSurface", root, surfaceColor, Vector2.zero, Vector2.zero, true);
+            MarkVisual(surface, CareerUiVisualRole.FramedSurface);
+            return root;
         }
 
         private static void MarkVisual(

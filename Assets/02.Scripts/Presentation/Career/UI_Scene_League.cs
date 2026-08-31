@@ -15,9 +15,9 @@ namespace Baseball.Presentation.Career
     {
         private static readonly Color BackgroundColor = new(0.004f, 0.015f, 0.028f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.012f, 0.047f, 0.079f, 0.99f);
-        private static readonly Color PanelDarkColor = new(0.006f, 0.028f, 0.049f, 1f);
-        private static readonly Color RowColor = new(0.015f, 0.055f, 0.088f, 0.96f);
+        private static readonly Color PanelColor = new(0.012f, 0.047f, 0.079f, 0.78f);
+        private static readonly Color PanelDarkColor = new(0.006f, 0.028f, 0.049f, 0.74f);
+        private static readonly Color RowColor = new(0.015f, 0.055f, 0.088f, 0.76f);
         private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
         private static readonly Color DividerColor = new(0.11f, 0.27f, 0.40f, 1f);
         private static readonly Color AccentColor = new(0.08f, 0.52f, 0.92f, 1f);
@@ -137,7 +137,9 @@ namespace Baseball.Presentation.Career
                 bar, "SEASON PROGRESS",
                 $"{view.GamesPlayedPerTeam}/{view.RegularSeasonGamesPerTeam} 경기",
                 new Vector2(395f, 0f), new Vector2(320f, 64f));
-            CreateTeamBadge(bar, view.MyTeamName, GetTeamColor(view, view.MyTeamId), new Vector2(680f, 0f), 52f);
+            CreateTeamBadge(
+                bar, view.MyTeamName, GetTeamColor(view, view.MyTeamId),
+                GetTeamEmblemId(view, view.MyTeamId), new Vector2(680f, 0f), 52f);
             CreateText(
                 "MyTeam", bar, view.MyTeamName, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(120f, 42f), new Vector2(770f, 0f), GoldColor);
@@ -146,27 +148,27 @@ namespace Baseball.Presentation.Career
         private void RenderStandings(LeagueHubView view)
         {
             RectTransform panel = CreatePanel(
-                "Standings", "LEAGUE STANDINGS", "리그 순위", new Vector2(650f, 480f),
+                "Standings", "리그 순위", new Vector2(650f, 480f),
                 new Vector2(-635f, 188f));
             CreateTableHeader(panel,
                 new[] { "순위", "팀", "경기", "승", "패", "승률", "게임차", "최근" },
-                new[] { -292f, -207f, 17f, 74f, 121f, 179f, 244f, 297f },
-                new[] { 45f, 180f, 54f, 42f, 42f, 60f, 60f, 54f },
+                new[] { -278f, -148f, 16f, 70f, 114f, 169f, 230f, 278f },
+                new[] { 40f, 150f, 50f, 40f, 40f, 56f, 54f, 46f },
                 166f);
 
             for (int index = 0; index < view.Standings.Count; index++)
-                RenderStandingRow(panel, view.Standings[index], 126f - index * 39f);
+                RenderStandingRow(panel, view.Standings[index], 122f - index * 34f);
 
             RectTransform legend = CreateImage(
-                "PostseasonLegend", panel, PanelDarkColor, new Vector2(620f, 32f), new Vector2(0f, -213f));
-            CreateImage("PostseasonColor", legend, AccentColor, new Vector2(24f, 6f), new Vector2(-268f, 0f));
+                "PostseasonLegend", panel, PanelDarkColor, new Vector2(596f, 28f), new Vector2(0f, -150f));
+            CreateImage("PostseasonColor", legend, AccentColor, new Vector2(24f, 6f), new Vector2(-263f, 0f));
             CreateText(
                 "Legend", legend, "1~2위 승격 · 3~4위 PS · 7~8위 강등",
                 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(230f, 26f), new Vector2(-130f, 0f), SecondaryTextColor);
+                new Vector2(230f, 26f), new Vector2(-125f, 0f), SecondaryTextColor);
             CreateText(
                 "MyTeamLegend", legend, "내 구단", 12, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(100f, 26f), new Vector2(256f, 0f), GoldColor);
+                new Vector2(100f, 26f), new Vector2(250f, 0f), GoldColor);
         }
 
         private void RenderStandingRow(RectTransform panel, LeagueStandingView row, float y)
@@ -175,7 +177,7 @@ namespace Baseball.Presentation.Career
                 ? new Color(0.025f, 0.18f, 0.30f, 1f)
                 : RowColor;
             RectTransform line = CreateImage(
-                "Standing_" + row.TeamId, panel, background, new Vector2(620f, 36f), new Vector2(0f, y));
+                "Standing_" + row.TeamId, panel, background, new Vector2(606f, 34f), new Vector2(0f, y));
             Color zoneColor = row.Zone switch
             {
                 LeagueStandingZone.Promotion => WinColor,
@@ -184,30 +186,31 @@ namespace Baseball.Presentation.Career
                 _ => Color.clear
             };
             if (zoneColor.a > 0f)
-                CreateImage("StandingZone", line, zoneColor, new Vector2(4f, 32f), new Vector2(-307f, 0f));
+                CreateImage("StandingZone", line, zoneColor, new Vector2(4f, 30f), new Vector2(-295f, 0f));
             if (row.IsMyTeam)
-                CreateImage("MyTeamBand", line, GoldColor, new Vector2(4f, 32f), new Vector2(307f, 0f));
+                CreateImage("MyTeamBand", line, GoldColor, new Vector2(4f, 30f), new Vector2(295f, 0f));
 
             Color valueColor = row.IsMyTeam ? GoldColor : PrimaryTextColor;
             CreateText("Rank", line, row.Rank.ToString(), 17, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(42f, 32f), new Vector2(-290f, 0f), valueColor);
-            CreateTeamBadge(line, row.TeamName, row.TeamColor, new Vector2(-252f, 0f), 27f);
+                new Vector2(38f, 32f), new Vector2(-277f, 0f), valueColor);
+            CreateTeamBadge(
+                line, row.TeamName, row.TeamColor, row.EmblemId, new Vector2(-242f, 0f), 27f);
             CreateText("Team", line, row.TeamName, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(160f, 32f), new Vector2(-155f, 0f), valueColor);
+                new Vector2(150f, 32f), new Vector2(-148f, 0f), valueColor);
             CreateText("Games", line, row.GamesPlayed.ToString(), 14, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(50f, 32f), new Vector2(18f, 0f), SecondaryTextColor);
+                new Vector2(48f, 32f), new Vector2(16f, 0f), SecondaryTextColor);
             CreateText("Wins", line, row.Wins.ToString(), 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(38f, 32f), new Vector2(75f, 0f), valueColor);
+                new Vector2(38f, 32f), new Vector2(70f, 0f), valueColor);
             CreateText("Losses", line, row.Losses.ToString(), 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(38f, 32f), new Vector2(121f, 0f), valueColor);
+                new Vector2(38f, 32f), new Vector2(114f, 0f), valueColor);
             CreateText("Pct", line, FormatRate(row.WinningPercentage), 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(62f, 32f), new Vector2(181f, 0f), valueColor);
+                new Vector2(56f, 32f), new Vector2(169f, 0f), valueColor);
             CreateText("Gb", line, row.Rank == 1 ? "-" : FormatGamesBehind(row.GamesBehind), 14,
                 FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(58f, 32f), new Vector2(244f, 0f), SecondaryTextColor);
+                new Vector2(54f, 32f), new Vector2(230f, 0f), SecondaryTextColor);
             CreateText("Streak", line, FormatStreak(row.StreakOutcome, row.StreakLength), 13,
                 FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(54f, 32f), new Vector2(292f, 0f), GetStreakColor(row.StreakOutcome));
+                new Vector2(46f, 32f), new Vector2(278f, 0f), GetStreakColor(row.StreakOutcome));
         }
 
         private void RenderLeagueLadder(LeagueHubView view)
@@ -240,10 +243,10 @@ namespace Baseball.Presentation.Career
         private void RenderBattingLeaders(LeagueHubView view)
         {
             RectTransform panel = CreatePanel(
-                "BattingLeaders", "BATTING LEADERS", "타자 순위", new Vector2(600f, 480f),
+                "BattingLeaders", "타자 순위", new Vector2(600f, 480f),
                 new Vector2(0f, 188f));
             string[] labels = { "타율", "홈런", "타점", "도루", "OPS" };
-            RenderCategoryTabs(panel, labels, (int)_battingCategory, 600f, index =>
+            RenderCategoryTabs(panel, labels, (int)_battingCategory, 560f, index =>
             {
                 _battingCategory = (LeagueBattingCategory)index;
                 Render();
@@ -262,7 +265,7 @@ namespace Baseball.Presentation.Career
             else
             {
                 for (int index = 0; index < leaderboard.Leaders.Count; index++)
-                    RenderBattingRow(panel, view, leaderboard.Leaders[index], 76f - index * 49f);
+                    RenderBattingRow(panel, view, leaderboard.Leaders[index], 70f - index * 38f);
             }
             RenderMyBattingRank(panel, leaderboard);
         }
@@ -277,7 +280,7 @@ namespace Baseball.Presentation.Career
                 "Batter_" + row.PlayerId,
                 panel,
                 row.IsMyPlayer ? new Color(0.12f, 0.12f, 0.04f, 1f) : RowColor,
-                new Vector2(570f, 44f),
+                new Vector2(556f, 40f),
                 new Vector2(0f, y));
             Color color = row.IsMyPlayer ? GoldColor : PrimaryTextColor;
             CreateText("Rank", line, row.Rank.ToString(), 17, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -286,7 +289,9 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleCenter, new Vector2(28f, 24f), new Vector2(-238f, 0f), SecondaryTextColor);
             CreateText("Name", line, row.PlayerName, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(115f, 38f), new Vector2(-168f, 0f), color);
-            CreateTeamBadge(line, row.TeamName, GetTeamColor(view, row.TeamId), new Vector2(-108f, 0f), 25f);
+            CreateTeamBadge(
+                line, row.TeamName, GetTeamColor(view, row.TeamId), GetTeamEmblemId(view, row.TeamId),
+                new Vector2(-108f, 0f), 25f);
             CreateText("Team", line, CareerTeamNameFormatter.GetMonogram(row.TeamName), 11, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(55f, 30f), new Vector2(-69f, 0f), SecondaryTextColor);
             CreateText("Games", line, row.Games.ToString(), 13, FontStyle.Normal, TextAnchor.MiddleCenter,
@@ -316,10 +321,10 @@ namespace Baseball.Presentation.Career
         private void RenderPitchingLeaders(LeagueHubView view)
         {
             RectTransform panel = CreatePanel(
-                "PitchingLeaders", "PITCHING LEADERS", "투수 순위", new Vector2(650f, 480f),
+                "PitchingLeaders", "투수 순위", new Vector2(650f, 480f),
                 new Vector2(635f, 188f));
             string[] labels = { "평균자책", "승", "세이브", "탈삼진", "WHIP" };
-            RenderCategoryTabs(panel, labels, (int)_pitchingCategory, 650f, index =>
+            RenderCategoryTabs(panel, labels, (int)_pitchingCategory, 610f, index =>
             {
                 _pitchingCategory = (LeaguePitchingCategory)index;
                 Render();
@@ -338,7 +343,7 @@ namespace Baseball.Presentation.Career
             else
             {
                 for (int index = 0; index < leaderboard.Leaders.Count; index++)
-                    RenderPitchingRow(panel, view, leaderboard.Leaders[index], 76f - index * 49f);
+                    RenderPitchingRow(panel, view, leaderboard.Leaders[index], 70f - index * 38f);
             }
             RenderMyPitchingRank(panel, leaderboard);
         }
@@ -353,7 +358,7 @@ namespace Baseball.Presentation.Career
                 "Pitcher_" + row.PlayerId,
                 panel,
                 row.IsMyPlayer ? new Color(0.12f, 0.12f, 0.04f, 1f) : RowColor,
-                new Vector2(620f, 44f),
+                new Vector2(606f, 40f),
                 new Vector2(0f, y));
             Color color = row.IsMyPlayer ? GoldColor : PrimaryTextColor;
             CreateText("Rank", line, row.Rank.ToString(), 17, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -362,7 +367,9 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleCenter, new Vector2(28f, 24f), new Vector2(-258f, 0f), SecondaryTextColor);
             CreateText("Name", line, row.PlayerName, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(122f, 38f), new Vector2(-186f, 0f), color);
-            CreateTeamBadge(line, row.TeamName, GetTeamColor(view, row.TeamId), new Vector2(-117f, 0f), 25f);
+            CreateTeamBadge(
+                line, row.TeamName, GetTeamColor(view, row.TeamId), GetTeamEmblemId(view, row.TeamId),
+                new Vector2(-117f, 0f), 25f);
             CreateText("Team", line, CareerTeamNameFormatter.GetMonogram(row.TeamName), 11, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(55f, 30f), new Vector2(-79f, 0f), SecondaryTextColor);
             CreateText("Record", line, $"{row.Wins}-{row.Losses}", 13, FontStyle.Bold,
@@ -399,52 +406,52 @@ namespace Baseball.Presentation.Career
         private void RenderTeamMetrics(LeagueHubView view)
         {
             RectTransform panel = CreatePanel(
-                "TeamMetrics", "TEAM COMPARISON", "팀 지표 비교", new Vector2(620f, 340f),
+                "TeamMetrics", "팀 지표 비교", new Vector2(620f, 340f),
                 new Vector2(-650f, -242f));
             CreateText("BestHeader", panel, "리그 1위", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(110f, 24f), new Vector2(-150f, 112f), SecondaryTextColor);
+                new Vector2(110f, 24f), new Vector2(-150f, 96f), SecondaryTextColor);
             CreateText("AverageHeader", panel, "리그 평균", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(90f, 24f), new Vector2(-22f, 112f), SecondaryTextColor);
+                new Vector2(90f, 24f), new Vector2(-22f, 96f), SecondaryTextColor);
             CreateText("MyHeader", panel, view.MyTeamName, 11, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(150f, 24f), new Vector2(127f, 112f), GoldColor);
+                new Vector2(150f, 24f), new Vector2(127f, 96f), GoldColor);
             CreateText("RankHeader", panel, "순위", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(54f, 24f), new Vector2(269f, 112f), SecondaryTextColor);
+                new Vector2(54f, 24f), new Vector2(262f, 96f), SecondaryTextColor);
 
             for (int index = 0; index < view.TeamMetrics.Count; index++)
-                RenderTeamMetricRow(panel, view.TeamMetrics[index], 71f - index * 61f);
+                RenderTeamMetricRow(panel, view.TeamMetrics[index], 58f - index * 42f);
         }
 
         private static void RenderTeamMetricRow(RectTransform panel, LeagueTeamMetricView metric, float y)
         {
             RectTransform row = CreateImage(
-                "Metric_" + metric.Metric, panel, RowColor, new Vector2(590f, 52f), new Vector2(0f, y));
+                "Metric_" + metric.Metric, panel, RowColor, new Vector2(576f, 42f), new Vector2(0f, y));
             CreateText("Label", row, GetTeamMetricLabel(metric.Metric), 14, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Vector2(90f, 44f), new Vector2(-246f, 0f), PrimaryTextColor);
+                TextAnchor.MiddleLeft, new Vector2(90f, 38f), new Vector2(-240f, 0f), PrimaryTextColor);
             if (!metric.HasData)
             {
                 CreateText("Empty", row, "시즌 기록 집계 전", 13, FontStyle.Normal,
-                    TextAnchor.MiddleCenter, new Vector2(400f, 42f), new Vector2(70f, 0f), MutedColor);
+                    TextAnchor.MiddleCenter, new Vector2(400f, 38f), new Vector2(70f, 0f), MutedColor);
                 return;
             }
 
             CreateText("Best", row, FormatTeamMetric(metric.Metric, metric.BestValue), 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(82f, 42f), new Vector2(-139f, 0f), BrightAccentColor);
+                TextAnchor.MiddleCenter, new Vector2(82f, 38f), new Vector2(-139f, 0f), BrightAccentColor);
             CreateText("Average", row, FormatTeamMetric(metric.Metric, metric.LeagueAverage), 14,
                 FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(82f, 42f), new Vector2(-23f, 0f), SecondaryTextColor);
+                new Vector2(82f, 38f), new Vector2(-23f, 0f), SecondaryTextColor);
             CreateProgressBar(row, GetTeamMetricRatio(metric), new Vector2(112f, 8f), new Vector2(102f, -13f),
                 GoldColor);
             CreateText("Mine", row, FormatTeamMetric(metric.Metric, metric.MyTeamValue), 15, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(100f, 30f), new Vector2(102f, 7f), GoldColor);
             CreateText("Rank", row, metric.MyTeamRank <= 0 ? "-" : $"{metric.MyTeamRank}위", 16,
                 FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(55f, 42f), new Vector2(265f, 0f), GoldColor);
+                new Vector2(55f, 38f), new Vector2(258f, 0f), GoldColor);
         }
 
         private void RenderLeagueFocus(LeagueHubView view)
         {
             RectTransform panel = CreatePanel(
-                "LeagueFocus", "LEAGUE FOCUS", "리그 포커스 / 타이틀 레이스",
+                "LeagueFocus", "리그 포커스 / 타이틀 레이스",
                 new Vector2(610f, 340f), new Vector2(0f, -242f));
 
             LeagueStandingView leader = view.Standings.Count > 0 ? view.Standings[0] : default;
@@ -452,7 +459,7 @@ namespace Baseball.Presentation.Career
                 view.Standings.Count == 0 ? "기록 없음" : leader.TeamName,
                 view.Standings.Count == 0 ? "시즌 시작 전" :
                     $"{leader.Wins}승 {leader.Losses}패  {FormatRate(leader.WinningPercentage)}",
-                new Vector2(0f, 79f), ToUnityColor(GetTeamColor(view, leader.TeamId)));
+                new Vector2(0f, 70f), ToUnityColor(GetTeamColor(view, leader.TeamId)), new Vector2(550f, 84f));
 
             LeagueBattingLeaderboardView batting = view.GetBattingLeaderboard(_battingCategory);
             string battingName = batting.Leaders.Count == 0 ? "기록 없음" : batting.Leaders[0].PlayerName;
@@ -461,7 +468,7 @@ namespace Baseball.Presentation.Career
                 : $"{GetBattingCategoryLabel(_battingCategory)}  " +
                   FormatBattingCategoryValue(batting.Leaders[0], _battingCategory);
             RenderFocusCard(panel, "BATTER", "타자 타이틀 선두", battingName, battingDetail,
-                new Vector2(-147f, -47f), AccentColor, new Vector2(286f, 102f));
+                new Vector2(-140f, -30f), AccentColor, new Vector2(270f, 82f));
 
             LeaguePitchingLeaderboardView pitching = view.GetPitchingLeaderboard(_pitchingCategory);
             string pitchingName = pitching.Leaders.Count == 0 ? "기록 없음" : pitching.Leaders[0].PlayerName;
@@ -470,7 +477,7 @@ namespace Baseball.Presentation.Career
                 : $"{GetPitchingCategoryLabel(_pitchingCategory)}  " +
                   FormatPitchingCategoryValue(pitching.Leaders[0], _pitchingCategory);
             RenderFocusCard(panel, "PITCHER", "투수 타이틀 선두", pitchingName, pitchingDetail,
-                new Vector2(147f, -47f), new Color(0.30f, 0.55f, 0.88f, 1f), new Vector2(286f, 102f));
+                new Vector2(140f, -30f), new Color(0.30f, 0.55f, 0.88f, 1f), new Vector2(270f, 82f));
 
             RenderMyPlayerRace(panel, batting, pitching);
         }
@@ -485,7 +492,7 @@ namespace Baseball.Presentation.Career
             Color accent,
             Vector2? size = null)
         {
-            Vector2 cardSize = size ?? new Vector2(580f, 92f);
+            Vector2 cardSize = size ?? new Vector2(550f, 92f);
             RectTransform card = CreateSection("Focus_" + eyebrow, parent, cardSize, position, PanelDarkColor);
             CreateImage("Accent", card, accent, new Vector2(5f, cardSize.y - 8f),
                 new Vector2(-cardSize.x * 0.5f + 5f, 0f));
@@ -510,42 +517,42 @@ namespace Baseball.Presentation.Career
             else if (pitching.MyPlayer.HasValue)
                 text = $"내 선수 · 투수 {GetPitchingCategoryLabel(pitching.Category)} {pitching.MyPlayer.Value.Rank}위";
             CreateText("MyPlayerRace", panel, text, 12, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(560f, 24f), new Vector2(0f, -128f), GoldColor);
+                new Vector2(550f, 24f), new Vector2(0f, -88f), GoldColor);
         }
 
         private void RenderSchedule(LeagueHubView view)
         {
             RectTransform panel = CreatePanel(
-                "Schedule", "LEAGUE SCHEDULE", "최근 결과 / 다음 라운드",
+                "Schedule", "최근 결과 / 다음 라운드",
                 new Vector2(620f, 340f), new Vector2(650f, -242f));
             CreateText("RecentTitle", panel, "최근 결과", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(250f, 27f), new Vector2(-155f, 108f), PrimaryTextColor);
+                new Vector2(240f, 27f), new Vector2(-146f, 100f), PrimaryTextColor);
             CreateText("NextTitle", panel,
                 view.NextRoundGames.Count == 0 ? "정규 시즌 종료" : $"{view.CurrentDate:M월 d일} 경기",
                 14, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(250f, 27f), new Vector2(155f, 108f), PrimaryTextColor);
-            CreateImage("ScheduleDivider", panel, DividerColor, new Vector2(2f, 234f), new Vector2(0f, -17f));
+                new Vector2(240f, 27f), new Vector2(146f, 100f), PrimaryTextColor);
+            CreateImage("ScheduleDivider", panel, DividerColor, new Vector2(2f, 190f), new Vector2(0f, 0f));
 
             if (view.RecentResults.Count == 0)
             {
                 CreateText("RecentEmpty", panel, "완료된 경기 없음", 13, FontStyle.Normal,
-                    TextAnchor.MiddleCenter, new Vector2(270f, 80f), new Vector2(-155f, 20f), MutedColor);
+                    TextAnchor.MiddleCenter, new Vector2(260f, 80f), new Vector2(-146f, 10f), MutedColor);
             }
             else
             {
                 for (int index = 0; index < view.RecentResults.Count; index++)
-                    RenderScheduleRow(panel, view.RecentResults[index], -155f, 69f - index * 44f, true);
+                    RenderScheduleRow(panel, view.RecentResults[index], -146f, 68f - index * 38f, true);
             }
 
             if (view.NextRoundGames.Count == 0)
             {
                 CreateText("NextEmpty", panel, "남은 정규 시즌 경기 없음", 13, FontStyle.Normal,
-                    TextAnchor.MiddleCenter, new Vector2(270f, 80f), new Vector2(155f, 20f), MutedColor);
+                    TextAnchor.MiddleCenter, new Vector2(260f, 80f), new Vector2(146f, 10f), MutedColor);
             }
             else
             {
                 for (int index = 0; index < view.NextRoundGames.Count; index++)
-                    RenderScheduleRow(panel, view.NextRoundGames[index], 155f, 69f - index * 50f, false);
+                    RenderScheduleRow(panel, view.NextRoundGames[index], 146f, 68f - index * 38f, false);
             }
         }
 
@@ -560,7 +567,7 @@ namespace Baseball.Presentation.Career
                 "Game_" + game.GameId,
                 panel,
                 game.IncludesMyTeam ? new Color(0.08f, 0.11f, 0.13f, 1f) : RowColor,
-                new Vector2(286f, 38f),
+                new Vector2(274f, 38f),
                 new Vector2(x, y));
             CreateText("Date", row, game.Date.ToString("MM/dd"), 11, FontStyle.Normal,
                 TextAnchor.MiddleCenter, new Vector2(47f, 32f), new Vector2(-116f, 0f), SecondaryTextColor);
@@ -584,7 +591,7 @@ namespace Baseball.Presentation.Career
                   FormatBattingCategoryValue(leaderboard.MyPlayer.Value, leaderboard.Category)
                 : "내 선수 · 현재 부문 규정 기록 없음";
             CreateText("MyPlayerRank", panel, value, 12, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(560f, 27f), new Vector2(0f, -207f),
+                new Vector2(550f, 27f), new Vector2(0f, -124f),
                 leaderboard.MyPlayer.HasValue ? GoldColor : MutedColor);
         }
 
@@ -597,7 +604,7 @@ namespace Baseball.Presentation.Career
                   FormatPitchingCategoryValue(leaderboard.MyPlayer.Value, leaderboard.Category)
                 : "내 선수 · 현재 부문 규정 기록 없음";
             CreateText("MyPlayerRank", panel, value, 12, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(610f, 27f), new Vector2(0f, -207f),
+                new Vector2(600f, 27f), new Vector2(0f, -124f),
                 leaderboard.MyPlayer.HasValue ? GoldColor : MutedColor);
         }
 
@@ -614,7 +621,8 @@ namespace Baseball.Presentation.Career
             float panelWidth,
             Action<int> onSelected)
         {
-            float width = (panelWidth - 30f) / labels.Count;
+            float availableWidth = Mathf.Min(panelWidth, panel.sizeDelta.x);
+            float width = (availableWidth - 12f) / labels.Count;
             float start = -(labels.Count - 1) * width * 0.5f;
             for (int index = 0; index < labels.Count; index++)
             {
@@ -630,39 +638,37 @@ namespace Baseball.Presentation.Career
                     out Text text);
                 text.fontSize = 14;
                 text.color = selected ? PrimaryTextColor : SecondaryTextColor;
-                if (selected)
-                    CreateImage("Selected", button.transform, BrightAccentColor,
-                        new Vector2(width - 14f, 3f), new Vector2(0f, -16f));
                 button.onClick.AddListener(() => onSelected(captured));
             }
         }
 
         private RectTransform CreatePanel(
             string name,
-            string eyebrow,
             string title,
             Vector2 size,
             Vector2 position)
         {
             RectTransform panel = CreateRect(name, _content, size, position);
+            panel.gameObject.AddComponent<RectMask2D>();
             RectTransform decorativeFrame = CreateImage(
                 "DecorativeFrame", panel, Color.white, Vector2.zero, Vector2.zero, true);
             MarkVisual(decorativeFrame, CareerUiVisualRole.DecorativeFrame);
             RectTransform content = CreateRect("ContentSafeArea", panel, size, Vector2.zero);
             RectTransform interaction = CreateRect("InteractionRoot", panel, size, Vector2.zero);
+            Vector4 padding = size.y <= 360f
+                ? new Vector4(20f, 20f, 20f, 60f)
+                : CareerUiTheme.DenseFramePadding;
+            CareerUiFrame.ApplyContentPadding(content, size, padding);
+            CareerUiFrame.ApplyContentPadding(interaction, size, padding);
             RectTransform header = CreateRect(
                 "HeaderRoot", panel, new Vector2(size.x - 72f, 48f),
                 new Vector2(0f, size.y * 0.5f - 54f));
-            CreateImage("HeaderLine", header, AccentColor, new Vector2(size.x * 0.32f, 2f),
-                new Vector2(-size.x * 0.3f, -21f));
-            CreateText("Eyebrow", header, eyebrow, 9, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(size.x * 0.32f, 18f), new Vector2(-size.x * 0.32f, 9f), AccentColor);
             CreateText("Title", header, title, 20, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(size.x * 0.62f, 32f), new Vector2(0f, -7f), PrimaryTextColor);
             CareerUiFrame frame = panel.gameObject.AddComponent<CareerUiFrame>();
             frame.Initialize(
                 decorativeFrame.GetComponent<Image>(), header, content, interaction,
-                CareerUiTheme.UniversalFramePadding, false);
+                padding, false);
             return content;
         }
 
@@ -690,7 +696,7 @@ namespace Baseball.Presentation.Career
             float y)
         {
             RectTransform header = CreateImage(
-                "TableHeader", parent, PanelDarkColor, new Vector2(((RectTransform)parent).sizeDelta.x - 30f, 31f),
+                "TableHeader", parent, PanelDarkColor, new Vector2(((RectTransform)parent).sizeDelta.x - 4f, 31f),
                 new Vector2(0f, y));
             for (int index = 0; index < labels.Count; index++)
             {
@@ -717,6 +723,7 @@ namespace Baseball.Presentation.Career
             Transform parent,
             string teamName,
             TeamColor teamColor,
+            int emblemId,
             Vector2 position,
             float size)
         {
@@ -729,9 +736,14 @@ namespace Baseball.Presentation.Career
                 "Inner", outer, Color.Lerp(primary, BackgroundColor, 0.28f),
                 new Vector2(size - 4f, size - 4f), Vector2.zero);
             MarkVisual(inner, CareerUiVisualRole.DataImage);
-            CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName), Math.Max(9, (int)(size * 0.31f)),
-                FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero,
-                PrimaryTextColor, true);
+            RectTransform emblem = CreateImage(
+                "Emblem", inner, Color.clear, new Vector2(size - 7f, size - 7f), Vector2.zero);
+            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId))
+            {
+                CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName),
+                    Math.Max(9, (int)(size * 0.31f)), FontStyle.Bold, TextAnchor.MiddleCenter,
+                    Vector2.zero, Vector2.zero, PrimaryTextColor, true);
+            }
             return outer;
         }
 
@@ -750,6 +762,7 @@ namespace Baseball.Presentation.Career
             fill.anchorMin = fill.anchorMax = new Vector2(0f, 0.5f);
             fill.pivot = new Vector2(0f, 0.5f);
             fill.anchoredPosition = new Vector2(2f, 0f);
+            CareerUiSkin.ApplyProgressBar(track.GetComponent<Image>(), fill.GetComponent<Image>(), clamped);
         }
 
         private static TeamColor GetTeamColor(LeagueHubView view, int teamId)
@@ -760,6 +773,16 @@ namespace Baseball.Presentation.Career
                     return view.Standings[index].TeamColor;
             }
             return new TeamColor(70, 115, 155);
+        }
+
+        private static int GetTeamEmblemId(LeagueHubView view, int teamId)
+        {
+            for (int index = 0; index < view.Standings.Count; index++)
+            {
+                if (view.Standings[index].TeamId == teamId)
+                    return view.Standings[index].EmblemId;
+            }
+            return 0;
         }
 
         private static Color ToUnityColor(TeamColor color)
@@ -995,7 +1018,7 @@ namespace Baseball.Presentation.Career
             out Text text)
         {
             RectTransform rect = CreateImage(name, parent, color, size, position);
-            MarkVisual(rect, CareerUiVisualRole.InteractiveControl);
+            MarkVisual(rect, CareerUiVisualRole.FramedControl);
             Button button = rect.gameObject.AddComponent<Button>();
             rect.GetComponent<Image>().raycastTarget = true;
             ColorBlock colors = button.colors;
@@ -1005,6 +1028,7 @@ namespace Baseball.Presentation.Career
             button.colors = colors;
             text = CreateText("Label", rect, label, 19, FontStyle.Bold, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.zero, PrimaryTextColor, true);
+            CareerUiSkin.ApplyButton(button);
             return button;
         }
 

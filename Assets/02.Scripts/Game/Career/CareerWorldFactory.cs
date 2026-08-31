@@ -76,6 +76,7 @@ namespace Baseball.Game.Career
                     teams,
                     world.GetCompetitionOverallBonus(definition.Tier));
             }
+            AssignTeamEmblems(leagues, worldSeed, _configuration.TeamEmblemCount);
 
             myPlayer.AssignLeague(LeagueId.RookieMain);
             if (currentContract.ContractId <= 0)
@@ -520,9 +521,83 @@ namespace Baseball.Game.Career
                     source.Archetype,
                     source.PrimaryColor,
                     positionNeeds,
-                    competitors.ToArray());
+                    competitors.ToArray(),
+                    source.EmblemId);
             }
             return result;
+        }
+
+        /// <summary>
+        /// 리그·구단 배열의 고정 순서에 독립 난수 덱을 매핑해 월드 전체 엠블럼 중복을 막는다.
+        /// </summary>
+        internal static void AssignTeamEmblems(
+            IReadOnlyList<LeagueState> leagues,
+            ulong worldSeed,
+            int emblemCount)
+        {
+            if (leagues == null)
+                throw new ArgumentNullException(nameof(leagues));
+
+            int teamCount = 0;
+            for (int leagueIndex = 0; leagueIndex < leagues.Count; leagueIndex++)
+                teamCount += leagues[leagueIndex].Teams.Count;
+            if (teamCount > emblemCount)
+            {
+                throw new InvalidOperationException(
+                    $"구단 {teamCount}개에 중복 없이 배정하려면 엠블럼이 {teamCount}개 이상 필요합니다.");
+            }
+
+            int[] emblemIds = TeamEmblemSelector.CreateShuffledIds(emblemCount, worldSeed);
+            int emblemIndex = 0;
+            for (int leagueIndex = 0; leagueIndex < leagues.Count; leagueIndex++)
+            {
+                LeagueState league = leagues[leagueIndex];
+                for (int teamIndex = 0; teamIndex < league.Teams.Count; teamIndex++)
+                {
+                    TeamState team = league.Teams[teamIndex];
+                    int emblemId = emblemIds[emblemIndex++];
+                    if (team.EmblemId > 0 && team.EmblemId != emblemId)
+                    {
+                        throw new InvalidOperationException(
+                            $"TeamId {team.TeamId}의 사전 배정 엠블럼이 월드 덱과 다릅니다.");
+                    }
+                    league.ReplaceTeam(team.WithEmblemId(emblemId));
+                }
+            }
+        }
+
+        /// <summary>기존 월드의 리그와 전역 구단 레지스트리를 함께 갱신하며 엠블럼을 배정한다.</summary>
+        internal static void AssignTeamEmblems(WorldState world, int emblemCount)
+        {
+            if (world == null)
+                throw new ArgumentNullException(nameof(world));
+
+            int teamCount = 0;
+            for (int leagueIndex = 0; leagueIndex < world.Leagues.Count; leagueIndex++)
+                teamCount += world.Leagues[leagueIndex].Teams.Count;
+            if (teamCount > emblemCount)
+            {
+                throw new InvalidOperationException(
+                    $"구단 {teamCount}개에 중복 없이 배정하려면 엠블럼이 {teamCount}개 이상 필요합니다.");
+            }
+
+            int[] emblemIds = TeamEmblemSelector.CreateShuffledIds(emblemCount, world.WorldSeed);
+            int emblemIndex = 0;
+            for (int leagueIndex = 0; leagueIndex < world.Leagues.Count; leagueIndex++)
+            {
+                LeagueState league = world.Leagues[leagueIndex];
+                for (int teamIndex = 0; teamIndex < league.Teams.Count; teamIndex++)
+                {
+                    TeamState team = league.Teams[teamIndex];
+                    int emblemId = emblemIds[emblemIndex++];
+                    if (team.EmblemId > 0 && team.EmblemId != emblemId)
+                    {
+                        throw new InvalidOperationException(
+                            $"TeamId {team.TeamId}의 기존 엠블럼이 월드 덱과 다릅니다.");
+                    }
+                    world.ReplaceTeamIdentity(team.WithEmblemId(emblemId));
+                }
+            }
         }
 
         private static int CalculateGeneratedRosterAverage(IReadOnlyList<GeneratedTeam> generatedTeams)

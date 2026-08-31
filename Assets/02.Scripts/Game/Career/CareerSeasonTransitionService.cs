@@ -1406,7 +1406,14 @@ namespace Baseball.Game.Career
                 RosterCompetitorState state = team.RosterCompetitors[index];
                 competitors[index] = new RosterCompetitor(state.PlayerId, state.Name, state.Position, state.Overall);
             }
-            return new GeneratedTeam(team.TeamId, team.Name, team.Archetype, team.PrimaryColor, positionNeeds, competitors);
+            return new GeneratedTeam(
+                team.TeamId,
+                team.Name,
+                team.Archetype,
+                team.PrimaryColor,
+                positionNeeds,
+                competitors,
+                team.EmblemId);
         }
 
         private static GeneratedTeam ToGeneratedTeam(
@@ -1422,7 +1429,14 @@ namespace Baseball.Game.Career
                 RosterCompetitorState state = team.RosterCompetitors[index];
                 competitors[index] = new RosterCompetitor(state.PlayerId, state.Name, state.Position, state.Overall);
             }
-            return new GeneratedTeam(team.TeamId, team.Name, team.Archetype, team.PrimaryColor, positionNeeds, competitors);
+            return new GeneratedTeam(
+                team.TeamId,
+                team.Name,
+                team.Archetype,
+                team.PrimaryColor,
+                positionNeeds,
+                competitors,
+                team.EmblemId);
         }
 
         private static TeamState GetTeam(IReadOnlyList<TeamState> teams, int teamId)

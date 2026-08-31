@@ -174,7 +174,8 @@ namespace Baseball.Game.Career
                 team.Archetype,
                 team.PrimaryColor,
                 needs,
-                competitors);
+                competitors,
+                team.EmblemId);
         }
 
         private static double Clamp(double value, double minimum, double maximum)

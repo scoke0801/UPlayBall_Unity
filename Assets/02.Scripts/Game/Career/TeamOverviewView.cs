@@ -91,6 +91,7 @@ namespace Baseball.Game.Career
         public int TeamId { get; internal set; }
         public string TeamName { get; internal set; }
         public TeamColor PrimaryColor { get; internal set; }
+        public int EmblemId { get; internal set; }
         public TeamArchetypeProfile Archetype { get; internal set; }
         public int SeasonYear { get; internal set; }
         public LeagueLevel LeagueLevel { get; internal set; }

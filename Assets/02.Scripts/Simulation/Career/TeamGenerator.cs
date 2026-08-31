@@ -79,7 +79,8 @@ namespace Baseball.Simulation.Career
             int teamCount,
             TeamArchetypeProfile[] archetypePool,
             TeamIdentityDefinition[] identityPool,
-            string[] playerNamePool)
+            string[] playerNamePool,
+            int[] emblemIds = null)
         {
             if (teamCount <= 0)
                 throw new ArgumentOutOfRangeException(nameof(teamCount));
@@ -89,6 +90,8 @@ namespace Baseball.Simulation.Career
                 throw new ArgumentException("구단 정체성 후보가 구단 수보다 적습니다.", nameof(identityPool));
             if (playerNamePool == null || playerNamePool.Length == 0)
                 throw new ArgumentException("선수 이름 후보가 비어 있습니다.", nameof(playerNamePool));
+            if (emblemIds != null && emblemIds.Length < teamCount)
+                throw new ArgumentException("엠블럼 후보가 구단 수보다 적습니다.", nameof(emblemIds));
 
             bool[] identityUsed = new bool[identityPool.Length];
             var teams = new GeneratedTeam[teamCount];
@@ -106,7 +109,8 @@ namespace Baseball.Simulation.Career
                     archetype,
                     identity.PrimaryColor,
                     positionNeeds,
-                    competitors);
+                    competitors,
+                    emblemIds?[index] ?? 0);
             }
 
             return teams;

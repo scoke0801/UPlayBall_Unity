@@ -73,7 +73,8 @@ namespace Baseball.Game.Career
                 currentDate,
                 games,
                 BuildRecentGames(games),
-                BuildUpcomingGames(games));
+                BuildUpcomingGames(games),
+                playerTeam.EmblemId);
         }
 
         private CareerScheduleGameView BuildGame(ScheduledGameState game, int year, int playerTeamId)
@@ -93,7 +94,9 @@ namespace Baseball.Game.Career
                 game.IsCompleted,
                 game.AwayRuns,
                 game.HomeRuns,
-                playerTeamId);
+                playerTeamId,
+                away.EmblemId,
+                home.EmblemId);
         }
 
         private TeamState GetTeam(int teamId)

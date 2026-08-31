@@ -69,7 +69,8 @@ namespace Baseball.Game.Career
             TeamGameOutcome[] recentForm,
             bool isPostseasonPosition,
             bool isMyTeam,
-            LeagueStandingZone zone = LeagueStandingZone.Retention)
+            LeagueStandingZone zone = LeagueStandingZone.Retention,
+            int emblemId = 0)
         {
             Rank = rank;
             TeamId = teamId;
@@ -87,6 +88,7 @@ namespace Baseball.Game.Career
             IsPostseasonPosition = isPostseasonPosition;
             IsMyTeam = isMyTeam;
             Zone = zone;
+            EmblemId = emblemId;
         }
 
         public int Rank { get; }
@@ -105,6 +107,7 @@ namespace Baseball.Game.Career
         public bool IsPostseasonPosition { get; }
         public bool IsMyTeam { get; }
         public LeagueStandingZone Zone { get; }
+        public int EmblemId { get; }
     }
 
     /// <summary>타자 리더보드 한 줄에 필요한 전체 시즌 기록이다.</summary>

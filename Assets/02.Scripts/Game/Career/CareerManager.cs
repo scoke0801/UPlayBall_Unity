@@ -823,6 +823,7 @@ namespace Baseball.Game.Career
                 ManagerEvaluation = player.ManagerEvaluation,
                 ExpectedRole = CurrentCareer.CurrentExpectedRole,
                 TeamName = playerTeam.Name,
+                TeamEmblemId = playerTeam.EmblemId,
                 SeasonYear = season.Year,
                 LeagueLevel = season.LeagueLevel,
                 SeasonPhase = season.Phase,
@@ -943,7 +944,9 @@ namespace Baseball.Game.Career
                 GetTeam(opponentTeamId).Name,
                 isHome,
                 game.PlannedPlayerRole,
-                GetPlayerBattingOrder(game, currentPlayer));
+                GetPlayerBattingOrder(game, currentPlayer),
+                GetTeam(game.AwayTeamId).EmblemId,
+                GetTeam(game.HomeTeamId).EmblemId);
         }
 
         private int GetPlayerBattingOrder(ScheduledGameState game, Player currentPlayer)

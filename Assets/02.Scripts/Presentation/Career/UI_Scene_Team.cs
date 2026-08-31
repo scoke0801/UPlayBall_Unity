@@ -17,8 +17,8 @@ namespace Baseball.Presentation.Career
     {
         private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.99f);
-        private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.061f, 0.99f);
+        private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.78f);
+        private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.061f, 0.74f);
         private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
         private static readonly Color DividerColor = new(0.14f, 0.31f, 0.45f, 1f);
         private static readonly Color AccentColor = new(0.13f, 0.55f, 0.92f, 1f);
@@ -28,6 +28,7 @@ namespace Baseball.Presentation.Career
         private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
         private static readonly Color SecondaryTextColor = new(0.62f, 0.71f, 0.8f, 1f);
         private static readonly Color MutedColor = new(0.34f, 0.40f, 0.49f, 1f);
+        private static readonly Vector4 TeamFramePadding = new(20f, 52f, 20f, 68f);
 
         private static readonly PlayerPosition[] CompetitionPositions =
         {
@@ -177,116 +178,122 @@ namespace Baseball.Presentation.Career
         private void RenderClubSummary(TeamOverviewView view)
         {
             RectTransform panel = CreatePanel(
-                "ClubSummary", "CLUB PROFILE", "구단 현황", new Vector2(440f, 558f), new Vector2(-720f, 166f));
+                "ClubSummary", "구단 현황", new Vector2(440f, 558f), new Vector2(-720f, 166f));
             Color teamColor = ToColor(view.PrimaryColor);
             RectTransform badge = CreateImage("TeamBadge", panel, Color.Lerp(teamColor, BorderColor, 0.34f),
                 new Vector2(154f, 154f), new Vector2(-112f, 118f));
             RectTransform badgeInner = CreateImage("BadgeInner", badge, new Color(0.012f, 0.08f, 0.13f, 1f),
                 new Vector2(142f, 142f), Vector2.zero);
+            RectTransform emblem = CreateImage(
+                "Emblem", badgeInner, Color.clear, new Vector2(132f, 132f), Vector2.zero);
+            bool hasEmblem = TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), view.EmblemId);
             CreateImage("TeamColor", badgeInner, teamColor, new Vector2(126f, 5f), new Vector2(0f, 64f));
-            Text monogram = CreateText(
-                "Monogram", badgeInner, CareerTeamNameFormatter.GetMonogram(view.TeamName), 43, FontStyle.Bold,
-                TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
-            AddTextOutline(monogram, teamColor, 1.4f);
+            if (!hasEmblem)
+            {
+                Text monogram = CreateText(
+                    "Monogram", badgeInner, CareerTeamNameFormatter.GetMonogram(view.TeamName), 43, FontStyle.Bold,
+                    TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
+                AddTextOutline(monogram, teamColor, 1.4f);
+            }
             CreateText("TeamName", panel, view.TeamName, 28, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(226f, 48f), new Vector2(95f, 146f), PrimaryTextColor);
+                new Vector2(210f, 48f), new Vector2(88f, 146f), PrimaryTextColor);
             CreateText("Season", panel, $"{view.SeasonYear} 시즌 성적", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(226f, 25f), new Vector2(95f, 108f), SecondaryTextColor);
+                new Vector2(210f, 25f), new Vector2(88f, 108f), SecondaryTextColor);
             CreateText("Record", panel, $"{view.Wins}승 {view.Losses}패 {view.Ties}무 / {view.TeamRank}위",
-                22, FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(226f, 39f), new Vector2(95f, 75f), GoldColor);
+                22, FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(210f, 39f), new Vector2(88f, 75f), GoldColor);
             CreateText("RunDiff", panel, $"득실차  {FormatSigned(view.RunsScored - view.RunsAllowed)}",
                 14, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(226f, 25f), new Vector2(95f, 45f), SecondaryTextColor);
+                new Vector2(210f, 25f), new Vector2(88f, 45f), SecondaryTextColor);
             CreateImage("SummaryDivider", panel, DividerColor, new Vector2(400f, 1f), new Vector2(0f, 22f));
-            RenderRatingRow(panel, "야수층", view.FieldPlayerOverall, 0f);
-            RenderRatingRow(panel, "선발진", view.StartingPitcherOverall, -55f);
-            RenderRatingRow(panel, "불펜층", view.ReliefPitcherOverall, -110f);
-            RenderRatingRow(panel, "육성", view.Archetype.Development, -165f);
-            RenderRatingRow(panel, "재정", view.Archetype.Budget, -220f);
+            RenderRatingRow(panel, "야수층", view.FieldPlayerOverall, 4f);
+            RenderRatingRow(panel, "선발진", view.StartingPitcherOverall, -40f);
+            RenderRatingRow(panel, "불펜층", view.ReliefPitcherOverall, -84f);
+            RenderRatingRow(panel, "육성", view.Archetype.Development, -128f);
+            RenderRatingRow(panel, "재정", view.Archetype.Budget, -172f);
         }
 
         private static void RenderRatingRow(Transform parent, string label, int rating, float y)
         {
             CreateText("Label_" + label, parent, label, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(72f, 28f), new Vector2(-170f, y), SecondaryTextColor);
-            CreateProgressBar(parent, rating / 100f, new Vector2(224f, 13f), new Vector2(-6f, y),
+                new Vector2(72f, 28f), new Vector2(-164f, y), SecondaryTextColor);
+            CreateProgressBar(parent, rating / 100f, new Vector2(210f, 13f), new Vector2(-4f, y),
                 GetRatingColor(rating));
             CreateText("Grade_" + label, parent, GetRatingGrade(rating), 19, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(55f, 30f), new Vector2(169f, y), GetRatingColor(rating));
+                TextAnchor.MiddleCenter, new Vector2(55f, 30f), new Vector2(160f, y), GetRatingColor(rating));
         }
 
         private void RenderUsagePlan(TeamOverviewView view)
         {
             string title = view.HasNextGamePlan ? $"다음 경기 기용 계획 · {view.NextGameRound}R" : "기용 현황";
-            RectTransform panel = CreatePanel("Usage", "MANAGER USAGE", title,
+            RectTransform panel = CreatePanel("Usage", title,
                 new Vector2(700f, 558f), new Vector2(525f, 166f));
-            RectTransform lineup = CreateSection("Lineup", panel, new Vector2(376f, 448f),
-                new Vector2(-145f, -19f), PanelDarkColor);
+            RectTransform lineup = CreateSection("Lineup", panel, new Vector2(376f, 400f),
+                new Vector2(-142f, -18f), PanelDarkColor);
             CreateText("Title", lineup, "선발 라인업", 16, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(210f, 30f), new Vector2(-70f, 199f), PrimaryTextColor);
+                new Vector2(190f, 30f), new Vector2(-55f, 170f), PrimaryTextColor);
             CreateText("Stat", lineup, "타율", 11, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(60f, 25f), new Vector2(145f, 199f), MutedColor);
+                new Vector2(46f, 25f), new Vector2(137f, 170f), MutedColor);
             for (int index = 0; index < view.StartingLineup.Length; index++)
                 RenderLineupRow(lineup, view.StartingLineup[index], index);
-            RectTransform rotation = CreateSection("Rotation", panel, new Vector2(270f, 214f),
-                new Vector2(195f, 98f), PanelDarkColor);
+            RectTransform rotation = CreateSection("Rotation", panel, new Vector2(260f, 196f),
+                new Vector2(195f, 91f), PanelDarkColor);
             RenderPitchingGroup(rotation, "선발 로테이션", view.StartingRotation);
-            RectTransform bullpen = CreateSection("Bullpen", panel, new Vector2(270f, 214f),
-                new Vector2(195f, -136f), PanelDarkColor);
+            RectTransform bullpen = CreateSection("Bullpen", panel, new Vector2(260f, 196f),
+                new Vector2(195f, -119f), PanelDarkColor);
             RenderPitchingGroup(bullpen, "불펜", view.Bullpen);
         }
 
         private static void RenderLineupRow(Transform parent, TeamLineupSlotView slot, int index)
         {
-            float y = 157f - index * 39f;
+            float y = 143f - index * 37f;
             Color rowColor = slot.Player.IsMyPlayer
                 ? new Color(0.025f, 0.22f, 0.42f, 1f)
                 : index % 2 == 0 ? new Color(0.018f, 0.075f, 0.12f, 1f) : new Color(0.012f, 0.052f, 0.086f, 1f);
             RectTransform row = CreateImage("Lineup_" + slot.BattingOrder, parent, rowColor,
-                new Vector2(354f, 35f), new Vector2(0f, y));
+                new Vector2(316f, 35f), new Vector2(0f, y));
             CreateText("Order", row, slot.BattingOrder.ToString(), 13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(30f, 30f), new Vector2(-157f, 0f), SecondaryTextColor);
+                new Vector2(28f, 30f), new Vector2(-142f, 0f), SecondaryTextColor);
             CreateText("Position", row, GetPositionCode(slot.Position), 13, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(45f, 30f), new Vector2(-119f, 0f), AccentColor);
+                TextAnchor.MiddleCenter, new Vector2(40f, 30f), new Vector2(-106f, 0f), AccentColor);
             CreateText("Player", row, (slot.Player.IsMyPlayer ? "★ " : string.Empty) + slot.Player.Name,
                 14, slot.Player.IsMyPlayer ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(166f, 30f), new Vector2(-5f, 0f), PrimaryTextColor);
+                new Vector2(154f, 30f), new Vector2(-5f, 0f), PrimaryTextColor);
             CreateText("Average", row, slot.Player.HasBattingRecord ? slot.Player.BattingAverage.ToString(".000") : "—",
-                13, FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(65f, 30f), new Vector2(139f, 0f),
+                13, FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(56f, 30f), new Vector2(130f, 0f),
                 slot.Player.HasBattingRecord ? SecondaryTextColor : MutedColor);
         }
 
         private static void RenderPitchingGroup(Transform parent, string title, TeamRosterPlayerView[] players)
         {
             CreateText("Title", parent, title, 16, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(172f, 29f), new Vector2(-38f, 83f), PrimaryTextColor);
+                new Vector2(144f, 29f), new Vector2(-23f, 68f), PrimaryTextColor);
             CreateText("Stat", parent, "평균자책", 11, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(48f, 25f), new Vector2(103f, 83f), MutedColor);
+                new Vector2(44f, 25f), new Vector2(91f, 68f), MutedColor);
             int visibleCount = Math.Min(players.Length, 4);
             for (int index = 0; index < visibleCount; index++)
             {
                 TeamRosterPlayerView player = players[index];
-                float y = 45f - index * 38f;
+                float y = 32f - index * 32f;
                 Color background = player.IsInNextGamePlan
                     ? new Color(0.03f, 0.19f, 0.28f, 1f)
                     : new Color(0.014f, 0.06f, 0.1f, 1f);
                 RectTransform row = CreateImage("Pitcher_" + player.PlayerId, parent, background,
-                    new Vector2(250f, 34f), new Vector2(0f, y));
+                    new Vector2(220f, 30f), new Vector2(0f, y));
                 CreateText("Marker", row, player.IsInNextGamePlan ? "●" : "○", 12, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(25f, 28f), new Vector2(-110f, 0f),
+                    TextAnchor.MiddleCenter, new Vector2(22f, 26f), new Vector2(-88f, 0f),
                     player.IsInNextGamePlan ? RoleColor : MutedColor);
                 CreateText("Name", row, (player.IsMyPlayer ? "★ " : string.Empty) + player.Name,
                     13, player.IsMyPlayer ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleLeft,
-                    new Vector2(132f, 28f), new Vector2(-33f, 0f), PrimaryTextColor);
+                    new Vector2(112f, 26f), new Vector2(-21f, 0f), PrimaryTextColor);
                 CreateText("Era", row, player.HasPitchingRecord ? player.EarnedRunAverage.ToString("0.00") : "—",
-                    13, FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(60f, 28f), new Vector2(93f, 0f),
+                    13, FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(48f, 26f), new Vector2(84f, 0f),
                     SecondaryTextColor);
             }
         }
 
         private void RenderCompetition(TeamOverviewView view)
         {
-            RectTransform panel = CreatePanel("Competition", "POSITION DEPTH", "포지션 경쟁 현황",
+            RectTransform panel = CreatePanel("Competition", "포지션 경쟁 현황",
                 new Vector2(500f, 300f), new Vector2(-690f, -288f));
             RenderPositionTabs(panel);
             int rowIndex = 0;
@@ -299,7 +306,7 @@ namespace Baseball.Presentation.Career
             }
             CreateText("Guide", panel, "OVR만이 아니라 계약 역할·컨디션·감독 평가가 실제 기용에 반영됩니다.",
                 11, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(456f, 31f), new Vector2(0f, -126f), MutedColor);
+                new Vector2(440f, 22f), new Vector2(0f, -78f), MutedColor);
         }
 
         private void RenderPositionTabs(Transform panel)
@@ -309,7 +316,7 @@ namespace Baseball.Presentation.Career
                 PlayerPosition position = CompetitionPositions[index];
                 bool selected = position == _selectedPosition;
                 Button button = CreateButton("Position_" + position, panel, GetPositionCode(position),
-                    new Vector2(39f, 30f), new Vector2(-210f + index * 42f, 83f),
+                    new Vector2(39f, 30f), new Vector2(-210f + index * 42f, 72f),
                     selected ? new Color(0.025f, 0.28f, 0.54f, 1f) : PanelDarkColor, out Text label);
                 label.fontSize = 12;
                 label.color = selected ? PrimaryTextColor : SecondaryTextColor;
@@ -327,10 +334,10 @@ namespace Baseball.Presentation.Career
             ExpectedRole myPlayerExpectedRole,
             int index)
         {
-            float y = 38f - index * 48f;
+            float y = 32f - index * 38f;
             Color background = player.IsMyPlayer ? new Color(0.025f, 0.22f, 0.42f, 1f) : PanelDarkColor;
             RectTransform row = CreateImage("Depth_" + player.PlayerId, parent, background,
-                new Vector2(456f, 42f), new Vector2(0f, y));
+                new Vector2(456f, 34f), new Vector2(0f, y));
             CreateText("Marker", row, player.IsMyPlayer ? "★" : player.IsInNextGamePlan ? "●" : "○",
                 14, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(28f, 32f), new Vector2(-207f, 0f),
                 player.IsMyPlayer ? GoldColor : player.IsInNextGamePlan ? RoleColor : MutedColor);
@@ -345,63 +352,63 @@ namespace Baseball.Presentation.Career
 
         private void RenderClubBriefing(TeamOverviewView view)
         {
-            RectTransform panel = CreatePanel("Briefing", "CLUB BRIEFING", "최근 구단 브리핑",
+            RectTransform panel = CreatePanel("Briefing", "최근 구단 브리핑",
                 new Vector2(620f, 300f), new Vector2(-115f, -288f));
             int positionCount = CountPlayersAtPosition(view, view.MyPlayerPosition);
             TeamRosterPlayerView myPlayer = FindPlayer(view, view.MyPlayerId);
             RenderBriefingRow(panel, "TEAM", $"{view.TeamRank}위 · {view.Wins}승 {view.Losses}패 {view.Ties}무",
-                $"득실차 {FormatSigned(view.RunsScored - view.RunsAllowed)}", 73f, AccentColor);
+                $"득실차 {FormatSigned(view.RunsScored - view.RunsAllowed)}", 56f, AccentColor);
             RenderBriefingRow(panel, "ROLE", GetPlannedRoleLabel(
                     view.PlannedPlayerRole, view.MyPlayerPosition, view.MyPlayerBattingOrder),
-                view.HasNextGamePlan ? $"다음 경기 {view.NextGameRound}R" : "일정 종료", 17f,
+                view.HasNextGamePlan ? $"다음 경기 {view.NextGameRound}R" : "일정 종료", 16f,
                 view.HasNextGamePlan ? RoleColor : GoldColor);
             RenderBriefingRow(panel, "DEPTH", $"{GetPositionCode(view.MyPlayerPosition)} 경쟁 {positionCount}명 · 내 OVR {myPlayer.Overall}",
-                GetRosterRoleLabel(myPlayer, view.MyPlayerExpectedRole), -39f, GoldColor);
+                GetRosterRoleLabel(myPlayer, view.MyPlayerExpectedRole), -24f, GoldColor);
             RenderBriefingRow(panel, "ROSTER", $"등록 선수 {view.Roster.Length}명 · 야수층 OVR {view.FieldPlayerOverall}",
-                "열람 전용", -95f, SecondaryTextColor);
+                "열람 전용", -64f, SecondaryTextColor);
         }
 
         private static void RenderBriefingRow(
             Transform parent, string tag, string message, string meta, float y, Color accent)
         {
             RectTransform row = CreateImage("Briefing_" + tag, parent, PanelDarkColor,
-                new Vector2(578f, 48f), new Vector2(0f, y));
-            CreateImage("Accent", row, accent, new Vector2(4f, 40f), new Vector2(-285f, 0f));
+                new Vector2(560f, 36f), new Vector2(0f, y));
+            CreateImage("Accent", row, accent, new Vector2(4f, 30f), new Vector2(-276f, 0f));
             CreateText("Tag", row, tag, 10, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(58f, 26f), new Vector2(-250f, 0f), accent);
+                new Vector2(56f, 26f), new Vector2(-240f, 0f), accent);
             CreateText("Message", row, message, 14, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(365f, 32f), new Vector2(-33f, 0f), PrimaryTextColor);
+                new Vector2(340f, 30f), new Vector2(-25f, 0f), PrimaryTextColor);
             CreateText("Meta", row, meta, 11, FontStyle.Normal, TextAnchor.MiddleRight,
-                new Vector2(110f, 28f), new Vector2(228f, 0f), MutedColor);
+                new Vector2(95f, 26f), new Vector2(220f, 0f), MutedColor);
         }
 
         private void RenderPolicy(TeamOverviewView view)
         {
-            RectTransform panel = CreatePanel("Policy", "CAREER MOVEMENT", "트레이드 시장",
+            RectTransform panel = CreatePanel("Policy", "트레이드 시장",
                 new Vector2(680f, 300f), new Vector2(550f, -288f));
             string interestText = view.TradeInterests.Length == 0
                 ? "관심 구단 없음"
                 : $"{view.TopTradeInterestTeamName} 외 {view.TradeInterests.Length - 1}개 구단";
             if (view.TradeInterests.Length == 1)
                 interestText = view.TopTradeInterestTeamName;
-            CreatePolicySummary(panel, "현재 태도", GetTradePreferenceLabel(view.TradePreference), 82f);
-            CreatePolicySummary(panel, "시장 상태", interestText, 39f);
+            CreatePolicySummary(panel, "현재 태도", GetTradePreferenceLabel(view.TradePreference), 72f);
+            CreatePolicySummary(panel, "시장 상태", interestText, 40f);
             CreateText(
                 "Deadline", panel,
                 $"마감 {view.TradeDeadlineGameIndex}경기 · 현재 {view.CurrentTeamGameIndex}경기" +
                 (view.IsOnTradeBlock ? " · 트레이드 블록" : string.Empty),
                 12, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(620f, 25f), new Vector2(0f, 1f),
+                new Vector2(600f, 22f), new Vector2(0f, 10f),
                 view.IsOnTradeBlock ? WarningColor : SecondaryTextColor);
-            RenderTradePreferenceButton(panel, view, TradePreference.PreferToStay, "잔류 선호", -240f, -51f);
-            RenderTradePreferenceButton(panel, view, TradePreference.Neutral, "중립", -80f, -51f);
-            RenderTradePreferenceButton(panel, view, TradePreference.OpenToTrade, "이적 가능", 80f, -51f);
-            RenderTradePreferenceButton(panel, view, TradePreference.RequestTrade, "이적 요청", 240f, -51f);
+            RenderTradePreferenceButton(panel, view, TradePreference.PreferToStay, "잔류 선호", -225f, -28f);
+            RenderTradePreferenceButton(panel, view, TradePreference.Neutral, "중립", -75f, -28f);
+            RenderTradePreferenceButton(panel, view, TradePreference.OpenToTrade, "이적 가능", 75f, -28f);
+            RenderTradePreferenceButton(panel, view, TradePreference.RequestTrade, "이적 요청", 225f, -28f);
             string guide = view.TradeInterests.Length > 0
                 ? $"관심 단계: {GetTradeStageLabel(view.TradeInterests[0].Stage)} · 예상 출장 {view.TradeInterests[0].ProjectedPlayingTime:P0}"
                 : "태도는 거래 가능성에 영향을 주지만 일반 계약에는 트레이드 거부권이 없습니다.";
             CreateText("TradeGuide", panel, guide, 11, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(620f, 38f), new Vector2(0f, -112f), MutedColor);
+                new Vector2(600f, 24f), new Vector2(0f, -70f), MutedColor);
         }
 
         private void RenderTradePreferenceButton(
@@ -413,11 +420,11 @@ namespace Baseball.Presentation.Career
             float y)
         {
             bool selected = view.TradePreference == preference;
-            Button button = CreateButton(
+            Button button = CreateFramedButton(
                 "TradePreference_" + preference,
                 parent,
                 label,
-                new Vector2(145f, 42f),
+                new Vector2(135f, 36f),
                 new Vector2(x, y),
                 selected ? new Color(0.03f, 0.28f, 0.52f, 1f) : PanelDarkColor,
                 out Text text);
@@ -454,7 +461,7 @@ namespace Baseball.Presentation.Career
             CreateText("Label_" + label, parent, label, 13, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(110f, 29f), new Vector2(-247f, y), SecondaryTextColor);
             RectTransform valueBox = CreateImage("Value_" + label, parent, PanelDarkColor,
-                new Vector2(475f, 32f), new Vector2(80f, y));
+                new Vector2(450f, 28f), new Vector2(72f, y));
             CreateText("Value", valueBox, value, 15, FontStyle.Bold, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
         }
@@ -469,7 +476,7 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleRight, new Vector2(82f, 28f), new Vector2(273f, y), GetRatingColor(rating));
         }
 
-        private RectTransform CreatePanel(string name, string eyebrow, string title, Vector2 size, Vector2 position)
+        private RectTransform CreatePanel(string name, string title, Vector2 size, Vector2 position)
         {
             RectTransform panel = CreateRect(name, _content, size, position);
             RectTransform decorativeFrame = CreateImage(
@@ -477,18 +484,17 @@ namespace Baseball.Presentation.Career
             MarkVisual(decorativeFrame, CareerUiVisualRole.DecorativeFrame);
             RectTransform content = CreateRect("ContentSafeArea", panel, size, Vector2.zero);
             RectTransform interaction = CreateRect("InteractionRoot", panel, size, Vector2.zero);
+            CareerUiFrame.ApplyContentPadding(content, size, TeamFramePadding);
+            CareerUiFrame.ApplyContentPadding(interaction, size, TeamFramePadding);
+            content.gameObject.AddComponent<RectMask2D>();
             RectTransform header = CreateRect("HeaderRoot", panel, new Vector2(size.x - 72f, 48f),
                 new Vector2(0f, size.y * 0.5f - 54f));
-            CreateImage("HeaderLine", header, AccentColor, new Vector2(size.x * 0.34f, 2f),
-                new Vector2(-size.x * 0.29f, -21f));
-            CreateText("Eyebrow", header, eyebrow, 10, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(size.x * 0.3f, 18f), new Vector2(-size.x * 0.33f, 9f), AccentColor);
             CreateText("Heading", header, title, 20, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(size.x * 0.68f, 32f), new Vector2(0f, -7f), PrimaryTextColor);
+                new Vector2(size.x * 0.68f, 32f), Vector2.zero, PrimaryTextColor);
             CareerUiFrame frame = panel.gameObject.AddComponent<CareerUiFrame>();
             frame.Initialize(
                 decorativeFrame.GetComponent<Image>(), header, content, interaction,
-                CareerUiTheme.UniversalFramePadding, false);
+                TeamFramePadding, false);
             return content;
         }
 

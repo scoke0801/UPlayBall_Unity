@@ -95,6 +95,7 @@ namespace Baseball.Game.Data
         [SerializeField, Min(1)] private int _teamCount = 8;
         [SerializeField, Min(1)] private int _firstSeasonYear = 2028;
         [SerializeField, Range(16, 25)] private int _startingAge = 18;
+        [SerializeField, Range(1, 128)] private int _teamEmblemCount = 128;
         [SerializeField] private GrowthBalanceAsset _growthBalance;
         [SerializeField] private TeamIdentityData[] _teamIdentities =
         {
@@ -439,7 +440,8 @@ namespace Baseball.Game.Data
                         attributeCount: 4,
                         _careerBaseAttributeValue,
                         _careerPitcherBonusPoints,
-                        _careerMaximumAttributeValue)));
+                        _careerMaximumAttributeValue)),
+                _teamEmblemCount);
         }
     }
 }

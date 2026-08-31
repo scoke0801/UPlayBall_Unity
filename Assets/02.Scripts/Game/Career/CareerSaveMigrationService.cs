@@ -48,6 +48,9 @@ namespace Baseball.Game.Career
                     case 14:
                         MigrateV14ToV15(career);
                         break;
+                    case 15:
+                        MigrateV15ToV16(career);
+                        break;
                     default:
                         throw new InvalidOperationException(
                             $"SaveVersion {career.SaveVersion}의 마이그레이션 경로가 없습니다.");
@@ -204,6 +207,18 @@ namespace Baseball.Game.Career
                 career.Reputation.HighestReachedTier,
                 _configuration.Balance.Growth.Progression);
             career.UpgradeSaveVersion(15);
+        }
+
+        /// <summary>v15 월드 상태를 보존하고 모든 구단에 결정론적 고유 엠블럼을 부여한다.</summary>
+        public void MigrateV15ToV16(CareerState career)
+        {
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (career.SaveVersion != 15)
+                throw new InvalidOperationException("SaveVersion 15 커리어만 v16으로 마이그레이션할 수 있습니다.");
+
+            CareerWorldFactory.AssignTeamEmblems(career.World, _configuration.TeamEmblemCount);
+            career.UpgradeSaveVersion(16);
+            career.World.ValidateInvariants();
         }
 
         private void SynchronizeExpandedLeagues(
