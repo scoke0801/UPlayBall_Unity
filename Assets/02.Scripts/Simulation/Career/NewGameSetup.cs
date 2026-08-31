@@ -70,7 +70,8 @@ namespace Baseball.Simulation.Career
             int teamCount,
             TeamArchetypeProfile[] archetypePool,
             TeamIdentityDefinition[] identityPool,
-            string[] playerNamePool)
+            string[] playerNamePool,
+            int[] emblemIds = null)
         {
             if (player == null)
                 throw new ArgumentNullException(nameof(player));
@@ -79,7 +80,8 @@ namespace Baseball.Simulation.Career
                 teamCount,
                 archetypePool,
                 identityPool,
-                playerNamePool);
+                playerNamePool,
+                emblemIds);
             return SelectOffers(player, teams);
         }
 
