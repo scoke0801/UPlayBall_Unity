@@ -56,6 +56,31 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void PitchExecution_재사용버퍼는기존옵션배열과같은값을만든다()
+        {
+            PlateAppearanceMatchup matchup = CreateMatchup(55, 62);
+            var resolver = new PitchExecutionResolver(
+                BalanceTable.CreateDefault(),
+                new Pcg32Random(7UL));
+            PitchOption[] expected = resolver.BuildPitchOptions(matchup);
+            var buffer = new PitchOption[
+                PitchExecutionResolver.GetRequiredPitchOptionCapacity(matchup.Pitcher)];
+
+            int count = resolver.FillPitchOptions(matchup, buffer);
+
+            Assert.That(count, Is.EqualTo(expected.Length));
+            for (int index = 0; index < count; index++)
+            {
+                Assert.That(buffer[index].PitchType, Is.EqualTo(expected[index].PitchType));
+                Assert.That(buffer[index].Proficiency, Is.EqualTo(expected[index].Proficiency));
+                Assert.That(buffer[index].IsPrimary, Is.EqualTo(expected[index].IsPrimary));
+                Assert.That(buffer[index].MinimumVelocityMph, Is.EqualTo(expected[index].MinimumVelocityMph));
+                Assert.That(buffer[index].MaximumVelocityMph, Is.EqualTo(expected[index].MaximumVelocityMph));
+                Assert.That(buffer[index].CommandEllipse, Is.EqualTo(expected[index].CommandEllipse));
+            }
+        }
+
+        [Test]
         public void PitchTrajectory_Evaluate경계는릴리스와실제PlatePoint에정확히도착한다()
         {
             var pitch = new PitchFlightDescriptor(

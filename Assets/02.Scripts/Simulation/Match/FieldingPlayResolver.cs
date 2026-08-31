@@ -63,7 +63,7 @@ namespace Baseball.Simulation.Match
     /// <summary>
     /// 수비 도달·포구·송구가 끝난 뒤 공식 기록기가 소비할 단일 플레이 결과다.
     /// </summary>
-    public readonly struct FieldingPlayOutcome
+    public readonly struct FieldingPlayOutcome : IEquatable<FieldingPlayOutcome>
     {
         public FieldingPlayOutcome(
             PlateAppearanceResult result,
@@ -74,6 +74,7 @@ namespace Baseball.Simulation.Match
             bool isDoublePlay,
             double reachChance)
         {
+            HasValue = true;
             Result = result;
             FielderPosition = fielderPosition;
             FielderId = fielderId;
@@ -83,6 +84,7 @@ namespace Baseball.Simulation.Match
             ReachChance = reachChance;
         }
 
+        public bool HasValue { get; }
         public PlateAppearanceResult Result { get; }
         public PlayerPosition FielderPosition { get; }
         public int FielderId { get; }
@@ -90,6 +92,39 @@ namespace Baseball.Simulation.Match
         public bool WasRoutine { get; }
         public bool IsDoublePlay { get; }
         public double ReachChance { get; }
+
+        public bool Equals(FieldingPlayOutcome other)
+        {
+            return HasValue == other.HasValue &&
+                   Result == other.Result &&
+                   FielderPosition == other.FielderPosition &&
+                   FielderId == other.FielderId &&
+                   FailureType == other.FailureType &&
+                   WasRoutine == other.WasRoutine &&
+                   IsDoublePlay == other.IsDoublePlay &&
+                   ReachChance.Equals(other.ReachChance);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is FieldingPlayOutcome other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = HasValue ? 1 : 0;
+                hash = hash * 397 ^ (int)Result;
+                hash = hash * 397 ^ (int)FielderPosition;
+                hash = hash * 397 ^ FielderId;
+                hash = hash * 397 ^ (int)FailureType;
+                hash = hash * 397 ^ (WasRoutine ? 1 : 0);
+                hash = hash * 397 ^ (IsDoublePlay ? 1 : 0);
+                hash = hash * 397 ^ ReachChance.GetHashCode();
+                return hash;
+            }
+        }
     }
 
     /// <summary>

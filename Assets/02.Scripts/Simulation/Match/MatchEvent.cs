@@ -54,6 +54,46 @@ namespace Baseball.Simulation.Match
         MatchEndedAsDraw = 34
     }
 
+    /// <summary>시뮬레이션이 확정한 타구와 수비 결과를 Presentation에 그대로 전달한다.</summary>
+    public readonly struct BallInPlayEventData : IEquatable<BallInPlayEventData>
+    {
+        public BallInPlayEventData(
+            in BattedBallDescriptor battedBall,
+            in FieldingPlayOutcome fielding)
+        {
+            HasValue = battedBall.HasValue;
+            BattedBall = battedBall;
+            Fielding = fielding;
+        }
+
+        public bool HasValue { get; }
+        public BattedBallDescriptor BattedBall { get; }
+        public FieldingPlayOutcome Fielding { get; }
+
+        public bool Equals(BallInPlayEventData other)
+        {
+            return HasValue == other.HasValue &&
+                   BattedBall.Equals(other.BattedBall) &&
+                   Fielding.Equals(other.Fielding);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is BallInPlayEventData other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = HasValue ? 1 : 0;
+                hash = hash * 397 ^ BattedBall.GetHashCode();
+                hash = hash * 397 ^ Fielding.GetHashCode();
+                return hash;
+            }
+        }
+    }
+
     /// <summary>
     /// 할당 없이 전달할 수 있는 단일 경기 이벤트 값이다.
     /// </summary>
@@ -80,7 +120,8 @@ namespace Baseball.Simulation.Match
             int awayScore,
             int homeScore,
             DecisionReasonCode reasonCode = DecisionReasonCode.None,
-            PitchPlayData pitchPlayData = default)
+            PitchPlayData pitchPlayData = default,
+            BallInPlayEventData ballInPlayData = default)
         {
             Sequence = sequence;
             EventType = eventType;
@@ -100,6 +141,7 @@ namespace Baseball.Simulation.Match
             HomeScore = homeScore;
             ReasonCode = reasonCode;
             PitchPlayData = pitchPlayData;
+            BallInPlayData = ballInPlayData;
         }
 
         public int Sequence { get; }
@@ -120,6 +162,7 @@ namespace Baseball.Simulation.Match
         public int HomeScore { get; }
         public DecisionReasonCode ReasonCode { get; }
         public PitchPlayData PitchPlayData { get; }
+        public BallInPlayEventData BallInPlayData { get; }
 
         /// <summary>
         /// 결정론 테스트를 위해 모든 이벤트 필드가 같은지 비교한다.
@@ -143,7 +186,8 @@ namespace Baseball.Simulation.Match
                    AwayScore == other.AwayScore &&
                    HomeScore == other.HomeScore &&
                    ReasonCode == other.ReasonCode &&
-                   PitchPlayData.Equals(other.PitchPlayData);
+                   PitchPlayData.Equals(other.PitchPlayData) &&
+                   BallInPlayData.Equals(other.BallInPlayData);
         }
 
         /// <summary>
@@ -179,6 +223,7 @@ namespace Baseball.Simulation.Match
                 hash = hash * 397 ^ HomeScore;
                 hash = hash * 397 ^ (int)ReasonCode;
                 hash = hash * 397 ^ PitchPlayData.GetHashCode();
+                hash = hash * 397 ^ BallInPlayData.GetHashCode();
                 return hash;
             }
         }

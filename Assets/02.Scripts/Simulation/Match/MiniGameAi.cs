@@ -16,6 +16,7 @@ namespace Baseball.Simulation.Match
             int balls,
             int strikes,
             IReadOnlyList<PitchOption> availablePitches,
+            int availablePitchCount,
             IReadOnlyList<PitchType> recentPitches,
             int recentPitchCount)
         {
@@ -25,6 +26,9 @@ namespace Baseball.Simulation.Match
             Balls = balls;
             Strikes = strikes;
             AvailablePitches = availablePitches ?? throw new ArgumentNullException(nameof(availablePitches));
+            if (availablePitchCount < 0 || availablePitchCount > availablePitches.Count)
+                throw new ArgumentOutOfRangeException(nameof(availablePitchCount));
+            AvailablePitchCount = availablePitchCount;
             RecentPitches = recentPitches ?? throw new ArgumentNullException(nameof(recentPitches));
             if (recentPitchCount < 0 || recentPitchCount > recentPitches.Count)
                 throw new ArgumentOutOfRangeException(nameof(recentPitchCount));
@@ -37,6 +41,7 @@ namespace Baseball.Simulation.Match
         public int Balls { get; }
         public int Strikes { get; }
         public IReadOnlyList<PitchOption> AvailablePitches { get; }
+        public int AvailablePitchCount { get; }
         public IReadOnlyList<PitchType> RecentPitches { get; }
         public int RecentPitchCount { get; }
     }
@@ -87,6 +92,7 @@ namespace Baseball.Simulation.Match
                 request.Balls,
                 request.Strikes,
                 request.AvailablePitches,
+                request.AvailablePitches.Count,
                 request.RecentPitchSequence,
                 request.RecentPitchSequence.Count);
             return Select(context, approach);
@@ -96,7 +102,7 @@ namespace Baseball.Simulation.Match
             in PitchSelectionAiContext request,
             PitchingApproach approach)
         {
-            if (request.AvailablePitches.Count == 0)
+            if (request.AvailablePitchCount == 0)
                 throw new InvalidOperationException("선택 가능한 구종이 없습니다.");
 
             int selectedIndex = SelectPitchIndex(request, approach);
@@ -109,7 +115,7 @@ namespace Baseball.Simulation.Match
             in PitchSelectionAiContext request,
             PitchingApproach approach)
         {
-            int count = request.AvailablePitches.Count;
+            int count = request.AvailablePitchCount;
             if (count == 1)
                 return 0;
 

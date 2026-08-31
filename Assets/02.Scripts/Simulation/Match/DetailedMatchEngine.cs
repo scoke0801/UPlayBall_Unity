@@ -404,7 +404,8 @@ namespace Baseball.Simulation.Match
             int balls = 0;
             int strikes = 0;
             int pitchNumber = 0;
-            var recentPitches = new PitchType[8];
+            PitchType[] recentPitches = state.RecentPitchBuffer;
+            PitchOption[] pitchOptions = state.GetPitchOptionBuffer(defense.ActivePitcher);
             int recentPitchCount = 0;
             bool requiresRecordedBattingDecision = strategicApproach != BattingApproach.Bunt &&
                                                    _recordedDecisionSource != null &&
@@ -527,6 +528,7 @@ namespace Baseball.Simulation.Match
                         outs,
                         bases,
                         recentPitches,
+                        pitchOptions,
                         ref recentPitchCount,
                         out pitchPlayData,
                         out contactProfile);
@@ -619,7 +621,9 @@ namespace Baseball.Simulation.Match
 
                 Player fielder = defense.GetFielderForZone(ball.FieldZone, out PlayerPosition position);
                 Emit(state, MatchEventType.FieldingPlayStarted, inning, half,
-                    batter.Player.PlayerId, defense.ActivePitcher.PlayerId, fielder.PlayerId, outs: outs);
+                    batter.Player.PlayerId, defense.ActivePitcher.PlayerId, fielder.PlayerId,
+                    outs: outs,
+                    ballInPlayData: new BallInPlayEventData(ball, default));
                 int leadRunnerSpeed = bases.First.IsOccupied ? bases.First.Player.BatterAttributes.Speed : 50;
                 FieldingPlayOutcome fielding = _fieldingResolver.Resolve(
                     ball,
@@ -650,18 +654,20 @@ namespace Baseball.Simulation.Match
             int outs,
             DetailedBaseState bases,
             PitchType[] recentPitches,
+            PitchOption[] pitchOptions,
             ref int recentPitchCount,
             out PitchPlayData pitchPlayData,
             out ContactProfile contactProfile)
         {
-            PitchOption[] options = _pitchExecutionResolver.BuildPitchOptions(matchup);
+            int pitchOptionCount = _pitchExecutionResolver.FillPitchOptions(matchup, pitchOptions);
             var pitchAiContext = new PitchSelectionAiContext(
                 state.NextPitchSelectionIndex,
                 batter.PlayerId,
                 pitchNumber,
                 balls,
                 strikes,
-                options,
+                pitchOptions,
+                pitchOptionCount,
                 recentPitches,
                 recentPitchCount);
             PitchSelectionCommand suggestedPitch = _pitchSelectionAi.Select(
@@ -672,6 +678,7 @@ namespace Baseball.Simulation.Match
             if (_pitchSelectionDecisionSource != null &&
                 _executionProfile.DecisionMode == MatchDecisionMode.ExternalInputAllowed)
             {
+                PitchOption[] requestOptions = CopyPitchOptions(pitchOptions, pitchOptionCount);
                 PitchType[] recentSequence = CopyRecentPitches(recentPitches, recentPitchCount);
                 var request = new PitchSelectionRequest(
                     state.NextPitchSelectionIndex,
@@ -690,14 +697,14 @@ namespace Baseball.Simulation.Match
                     bases.Snapshot,
                     defense.ActivePitcherState.FatigueRatio,
                     leverage,
-                    options,
+                    requestOptions,
                     recentSequence,
                     suggestedPitch);
                 if (_pitchSelectionDecisionSource.RequiresPitchSelection(request))
                 {
                     if (!_pitchSelectionDecisionSource.TryGetPitchSelection(request, out pitchSelection))
                         throw new PitchSelectionRequiredSignal(request);
-                    if (!ContainsPitch(options, pitchSelection.PitchType))
+                    if (!ContainsPitch(pitchOptions, pitchOptionCount, pitchSelection.PitchType))
                         throw new InvalidOperationException("보유하지 않은 구종은 선택할 수 없습니다.");
                     state.NextPitchSelectionIndex++;
                 }
@@ -771,14 +778,24 @@ namespace Baseball.Simulation.Match
             return count;
         }
 
-        private static bool ContainsPitch(PitchOption[] options, PitchType pitchType)
+        private static bool ContainsPitch(
+            PitchOption[] options,
+            int optionCount,
+            PitchType pitchType)
         {
-            for (int index = 0; index < options.Length; index++)
+            for (int index = 0; index < optionCount; index++)
             {
                 if (options[index].PitchType == pitchType)
                     return true;
             }
             return false;
+        }
+
+        private static PitchOption[] CopyPitchOptions(PitchOption[] options, int count)
+        {
+            var result = new PitchOption[count];
+            Array.Copy(options, result, count);
+            return result;
         }
 
         private static PitchType[] CopyRecentPitches(PitchType[] pitches, int count)

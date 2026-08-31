@@ -110,7 +110,10 @@ namespace Baseball.Simulation.Match
                 defense.ActivePitcher.PlayerId,
                 batter.Player.PlayerId,
                 plateAppearanceResult: outcome.Result,
-                outs: outs);
+                outs: outs,
+                ballInPlayData: outcome.BattedBall.HasValue
+                    ? new BallInPlayEventData(outcome.BattedBall, outcome.Fielding)
+                    : default);
         }
 
         private int ApplyForcedAdvance(

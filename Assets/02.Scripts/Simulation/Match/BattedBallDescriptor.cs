@@ -1,3 +1,4 @@
+using System;
 using Baseball.Core.Players;
 
 namespace Baseball.Simulation.Match
@@ -50,7 +51,7 @@ namespace Baseball.Simulation.Match
     /// <summary>
     /// 실제 좌표 물리 대신 수비·주루가 함께 소비할 범주형 타구 정보를 보관한다.
     /// </summary>
-    public readonly struct BattedBallDescriptor
+    public readonly struct BattedBallDescriptor : IEquatable<BattedBallDescriptor>
     {
         public BattedBallDescriptor(
             BattedBallType type,
@@ -88,6 +89,7 @@ namespace Baseball.Simulation.Match
             double sprayAngleDegrees,
             double spinRateRpm)
         {
+            HasValue = true;
             Type = type;
             Direction = direction;
             FieldZone = fieldZone;
@@ -101,6 +103,7 @@ namespace Baseball.Simulation.Match
             SpinRateRpm = spinRateRpm;
         }
 
+        public bool HasValue { get; }
         public BattedBallType Type { get; }
         public BattedBallDirection Direction { get; }
         public FieldZone FieldZone { get; }
@@ -112,6 +115,47 @@ namespace Baseball.Simulation.Match
         public double LaunchAngleDegrees { get; }
         public double SprayAngleDegrees { get; }
         public double SpinRateRpm { get; }
+
+        public bool Equals(BattedBallDescriptor other)
+        {
+            return HasValue == other.HasValue &&
+                   Type == other.Type &&
+                   Direction == other.Direction &&
+                   FieldZone == other.FieldZone &&
+                   Quality.Equals(other.Quality) &&
+                   HangTime == other.HangTime &&
+                   Pace == other.Pace &&
+                   IsHomeRun == other.IsHomeRun &&
+                   ExitVelocityMph.Equals(other.ExitVelocityMph) &&
+                   LaunchAngleDegrees.Equals(other.LaunchAngleDegrees) &&
+                   SprayAngleDegrees.Equals(other.SprayAngleDegrees) &&
+                   SpinRateRpm.Equals(other.SpinRateRpm);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is BattedBallDescriptor other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = HasValue ? 1 : 0;
+                hash = hash * 397 ^ (int)Type;
+                hash = hash * 397 ^ (int)Direction;
+                hash = hash * 397 ^ (int)FieldZone;
+                hash = hash * 397 ^ Quality.GetHashCode();
+                hash = hash * 397 ^ (int)HangTime;
+                hash = hash * 397 ^ (int)Pace;
+                hash = hash * 397 ^ (IsHomeRun ? 1 : 0);
+                hash = hash * 397 ^ ExitVelocityMph.GetHashCode();
+                hash = hash * 397 ^ LaunchAngleDegrees.GetHashCode();
+                hash = hash * 397 ^ SprayAngleDegrees.GetHashCode();
+                hash = hash * 397 ^ SpinRateRpm.GetHashCode();
+                return hash;
+            }
+        }
     }
 
     /// <summary>

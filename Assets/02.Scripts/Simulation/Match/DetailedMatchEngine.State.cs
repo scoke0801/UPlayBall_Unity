@@ -7,6 +7,8 @@ namespace Baseball.Simulation.Match
 {
     internal sealed class DetailedMatchState
     {
+        private PitchOption[] _pitchOptionBuffer = Array.Empty<PitchOption>();
+
         public DetailedMatchState(
             MatchInput input,
             IMatchEventSink eventSink,
@@ -21,6 +23,7 @@ namespace Baseball.Simulation.Match
             Trace = executionProfile.DecisionTraceMode == MatchDecisionTraceMode.Full
                 ? new DecisionTrace()
                 : null;
+            RecentPitchBuffer = new PitchType[8];
         }
 
         public MatchInput Input { get; }
@@ -29,6 +32,7 @@ namespace Baseball.Simulation.Match
         public IMatchEventSink EventSink { get; }
         public DecisionTrace Trace { get; }
         public bool RecordsEvents { get; }
+        public PitchType[] RecentPitchBuffer { get; }
         public int NextEventSequence { get; set; }
         public int NextDecisionIndex { get; set; }
         public int NextPitchingDecisionIndex { get; set; }
@@ -36,6 +40,15 @@ namespace Baseball.Simulation.Match
         public int NextPitchSelectionIndex { get; set; }
         public int NextSwingExecutionIndex { get; set; }
         public bool IsHighLeverageActive { get; set; }
+
+        /// <summary>한 경기 안에서 모든 타석이 순차 소비하는 투구 옵션 버퍼를 제공한다.</summary>
+        public PitchOption[] GetPitchOptionBuffer(Player pitcher)
+        {
+            int required = PitchExecutionResolver.GetRequiredPitchOptionCapacity(pitcher);
+            if (_pitchOptionBuffer.Length < required)
+                _pitchOptionBuffer = new PitchOption[required];
+            return _pitchOptionBuffer;
+        }
     }
 
     internal sealed class DetailedTeamGameState

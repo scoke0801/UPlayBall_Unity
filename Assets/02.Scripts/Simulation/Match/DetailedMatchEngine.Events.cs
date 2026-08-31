@@ -20,7 +20,8 @@ namespace Baseball.Simulation.Match
             int strikes = 0,
             int outs = 0,
             DecisionReasonCode reasonCode = DecisionReasonCode.None,
-            PitchPlayData pitchPlayData = default)
+            PitchPlayData pitchPlayData = default,
+            BallInPlayEventData ballInPlayData = default)
         {
             if (!state.RecordsEvents)
             {
@@ -46,7 +47,8 @@ namespace Baseball.Simulation.Match
                 state.Away.BoxScore.Runs,
                 state.Home.BoxScore.Runs,
                 reasonCode,
-                pitchPlayData));
+                pitchPlayData,
+                ballInPlayData));
         }
     }
 }

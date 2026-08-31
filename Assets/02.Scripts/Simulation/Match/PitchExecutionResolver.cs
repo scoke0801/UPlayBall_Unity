@@ -9,6 +9,7 @@ namespace Baseball.Simulation.Match
     /// <summary>투구 의도를 능력치와 결정론적 제구 오차가 반영된 실제 궤적으로 바꾼다.</summary>
     public sealed class PitchExecutionResolver
     {
+        private const int DerivedPitchOptionCount = 4;
         private readonly MiniGameBalance _balance;
         private readonly IRandomSource _random;
 
@@ -21,18 +22,44 @@ namespace Baseball.Simulation.Match
         /// <summary>현재 투수가 선택할 수 있는 구종과 예상 제구 범위를 만든다.</summary>
         public PitchOption[] BuildPitchOptions(in PlateAppearanceMatchup matchup)
         {
+            int repertoireCount = matchup.Pitcher.PitchRepertoire.Count;
+            var result = new PitchOption[
+                repertoireCount == 0 ? DerivedPitchOptionCount : repertoireCount];
+            FillPitchOptions(matchup, result);
+            return result;
+        }
+
+        /// <summary>투수 한 명의 반복 투구에 재사용할 옵션 버퍼의 최소 길이를 반환한다.</summary>
+        public static int GetRequiredPitchOptionCapacity(Player pitcher)
+        {
+            if (pitcher == null) throw new ArgumentNullException(nameof(pitcher));
+            return Math.Max(DerivedPitchOptionCount, pitcher.PitchRepertoire.Count);
+        }
+
+        /// <summary>호출자가 소유한 버퍼에 현재 피로가 반영된 옵션을 채우고 유효 개수를 반환한다.</summary>
+        public int FillPitchOptions(
+            in PlateAppearanceMatchup matchup,
+            PitchOption[] destination)
+        {
+            if (destination == null) throw new ArgumentNullException(nameof(destination));
             Player pitcher = matchup.Pitcher;
             int count = pitcher.PitchRepertoire.Count;
+            int required = count == 0 ? DerivedPitchOptionCount : count;
+            if (destination.Length < required)
+                throw new ArgumentException("투구 옵션 버퍼가 보유 구종 수보다 작습니다.", nameof(destination));
             if (count == 0)
-                return BuildDerivedPitchOptions(matchup);
+                return FillDerivedPitchOptions(matchup, destination);
 
-            var result = new PitchOption[count];
             for (int index = 0; index < count; index++)
             {
                 PitchRepertoireEntry entry = pitcher.PitchRepertoire[index];
-                result[index] = BuildPitchOption(matchup, entry.PitchType, entry.Proficiency, entry.IsPrimary);
+                destination[index] = BuildPitchOption(
+                    matchup,
+                    entry.PitchType,
+                    entry.Proficiency,
+                    entry.IsPrimary);
             }
-            return result;
+            return count;
         }
 
         /// <summary>선택한 목표점과 실제 홈플레이트 통과점을 분리해 고정한다.</summary>
@@ -106,7 +133,9 @@ namespace Baseball.Simulation.Match
                 GetProficiency(matchup.Pitcher, pitchType));
         }
 
-        private PitchOption[] BuildDerivedPitchOptions(in PlateAppearanceMatchup matchup)
+        private int FillDerivedPitchOptions(
+            in PlateAppearanceMatchup matchup,
+            PitchOption[] destination)
         {
             bool favorsBreaking = matchup.Pitcher.PitcherAttributes.Breaking >= 55;
             PitchType secondary = favorsBreaking ? PitchType.Slider : PitchType.TwoSeamFastball;
@@ -114,13 +143,11 @@ namespace Baseball.Simulation.Match
             PitchType fourth = matchup.Pitcher.PitcherAttributes.Stuff >= 60
                 ? PitchType.Splitter
                 : PitchType.Sinker;
-            return new[]
-            {
-                BuildPitchOption(matchup, PitchType.FourSeamFastball, 55, true),
-                BuildPitchOption(matchup, secondary, 50, false),
-                BuildPitchOption(matchup, third, 46, false),
-                BuildPitchOption(matchup, fourth, 42, false)
-            };
+            destination[0] = BuildPitchOption(matchup, PitchType.FourSeamFastball, 55, true);
+            destination[1] = BuildPitchOption(matchup, secondary, 50, false);
+            destination[2] = BuildPitchOption(matchup, third, 46, false);
+            destination[3] = BuildPitchOption(matchup, fourth, 42, false);
+            return DerivedPitchOptionCount;
         }
 
         private PitchOption BuildPitchOption(
