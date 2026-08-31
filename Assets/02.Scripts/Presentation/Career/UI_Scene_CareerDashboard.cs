@@ -40,6 +40,7 @@ namespace Baseball.Presentation.Career
         private RectTransform _topRow;
         private RectTransform _bottomRow;
         private bool _isSeasonAutoCompletionConfirmationVisible;
+        private bool _isSeasonFastForwardProgressVisible;
         private bool _isSeasonReviewSkipConfirmationVisible;
 
         public override bool BlocksLowerInput => true;
@@ -70,18 +71,38 @@ namespace Baseball.Presentation.Career
         protected override void OnShow()
         {
             _isSeasonAutoCompletionConfirmationVisible = false;
+            _isSeasonFastForwardProgressVisible = _manager.IsSeasonFastForwardRunning;
             _isSeasonReviewSkipConfirmationVisible = false;
             Render();
         }
 
+        protected override void OnHide()
+        {
+            if (_manager != null && _manager.IsSeasonFastForwardRunning)
+                _manager.AbortSeasonFastForwardForSceneUnload();
+            _isSeasonFastForwardProgressVisible = false;
+        }
+
         private void Update()
         {
-            if (!IsVisible || _manager == null || !_manager.HasActiveCareer || Keyboard.current == null)
+            if (!IsVisible || _manager == null || !_manager.HasActiveCareer)
                 return;
             if (UI_CareerPresentation.IsPlaying)
                 return;
 
             Keyboard keyboard = Keyboard.current;
+            if (_isSeasonFastForwardProgressVisible)
+            {
+                if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+                {
+                    StopSeasonFastForward();
+                    return;
+                }
+                AdvanceSeasonFastForwardFrame();
+                return;
+            }
+            if (keyboard == null)
+                return;
             CareerDashboardView dashboard = _manager.Dashboard;
             if (dashboard.PendingReaction != null)
             {
@@ -174,6 +195,8 @@ namespace Baseball.Presentation.Career
 
         protected override void OnDestroy()
         {
+            if (_manager != null && _manager.IsSeasonFastForwardRunning)
+                _manager.AbortSeasonFastForwardForSceneUnload();
             if (_manager != null)
                 _manager.CareerChanged -= HandleCareerChanged;
             base.OnDestroy();
@@ -238,6 +261,8 @@ namespace Baseball.Presentation.Career
             RenderTabs();
             if (_isSeasonAutoCompletionConfirmationVisible)
                 RenderSeasonAutoCompletionConfirmation(view);
+            if (_isSeasonFastForwardProgressVisible)
+                RenderSeasonFastForwardProgress(_manager.SeasonFastForwardProgress);
         }
 
         private void CreateDashboardLayout()
@@ -333,7 +358,7 @@ namespace Baseball.Presentation.Career
         private void RenderPlayerPanel(CareerDashboardView view)
         {
             DashboardPanel panel = CreateDashboardPanel(
-                "PlayerPanel", "MY PLAYER", "내 선수", _topRow, 26f, false);
+                "PlayerPanel", "내 선수", _topRow, 26f, false);
             RenderPlayerCard(panel.ContentSafeArea, view);
             RenderPlayerAttributes(panel.ContentSafeArea, view);
             RenderPlayerStatus(panel.ContentSafeArea, view);
@@ -344,7 +369,6 @@ namespace Baseball.Presentation.Career
             RectTransform card = CreateSection(
                 "PlayerCard", panel, new Vector2(400f, 144f), new Vector2(0f, 144f),
                 CareerUiTheme.SurfaceSubtle);
-            CreateDivider("CardStripe", card, AccentColor, new Vector2(4f, 128f), new Vector2(-192f, 0f));
             CreateText(
                 "OverallLabel", card, "OVR", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(60f, 20f), new Vector2(-160f, 32f), SecondaryTextColor);
@@ -353,16 +377,22 @@ namespace Baseball.Presentation.Career
                 new Vector2(68f, 52f), new Vector2(-160f, 0f), PrimaryTextColor);
             AddTextOutline(overall, AccentColor, 1.2f);
 
-            CreateImage(
-                "PortraitBackdrop", card, PortraitBackdropColor,
-                new Vector2(176f, 104f), new Vector2(-36f, 12f));
+            RectTransform portraitFrame = CreateFramedSurfaceSection(
+                "PortraitFrame", card, new Vector2(176f, 104f), new Vector2(-36f, 12f),
+                CareerUiTheme.SurfaceSubtle);
+            RectTransform portraitBackdrop = CreateImage(
+                "PortraitBackdrop", portraitFrame, PortraitBackdropColor,
+                new Vector2(124f, 74f), Vector2.zero);
+            MarkVisual(portraitBackdrop, CareerUiVisualRole.FlatSurface);
             RectTransform portrait = CreateImage(
-                "PlayerPortrait", card, Color.white, new Vector2(176f, 104f), new Vector2(-36f, 12f));
+                "PlayerPortrait", portraitFrame, Color.white, new Vector2(124f, 74f), Vector2.zero);
             Image portraitImage = portrait.GetComponent<Image>();
             portraitImage.sprite = PlayerPortraitSprites.GetDefault(view.Position);
             portraitImage.preserveAspect = true;
             MarkVisual(portrait, CareerUiVisualRole.DataImage);
-            CreateTeamBadge(card, view.TeamName, new Vector2(144f, 20f), 72f);
+            CreateTeamBadge(
+                card, view.TeamName, view.TeamEmblemId, new Vector2(144f, 20f), 72f,
+                hasAccentLine: false);
 
             CreateText(
                 "Position", card, GetPositionCode(view.Position), 20, FontStyle.Bold,
@@ -418,35 +448,32 @@ namespace Baseball.Presentation.Career
 
         private static void RenderPlayerStatus(RectTransform panel, CareerDashboardView view)
         {
-            RectTransform summary = CreateSection(
-                "PlayerStatusSummary", panel, new Vector2(400f, 52f), new Vector2(0f, -192f),
+            RectTransform summary = CreateRect(
+                "PlayerStatusSummary", panel, new Vector2(400f, 64f), new Vector2(0f, -160f));
+            RenderPlayerStatusMetric(summary, "Condition", "컨디션", view.Condition, -100f);
+            RenderPlayerStatusMetric(
+                summary, "Evaluation", "감독 평가", view.ManagerEvaluation, 100f);
+        }
+
+        private static void RenderPlayerStatusMetric(
+            Transform parent,
+            string name,
+            string label,
+            int value,
+            float positionX)
+        {
+            RectTransform metric = CreateFramedSurfaceSection(
+                name, parent, new Vector2(192f, 56f), new Vector2(positionX, 0f),
                 CareerUiTheme.SurfaceSubtle);
-            CreateDivider("StatusDivider", summary, DividerColor, new Vector2(1f, 36f), Vector2.zero);
-
-            RectTransform condition = CreateRect(
-                "Condition", summary, new Vector2(196f, 44f), new Vector2(-100f, 0f));
             CreateText(
-                "Label", condition, "컨디션", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(92f, 20f), new Vector2(-44f, 12f), SecondaryTextColor);
+                "Label", metric, label, 12, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(64f, 20f), new Vector2(-32f, 12f), SecondaryTextColor);
             CreateText(
-                "Value", condition, view.Condition.ToString(), 22, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(52f, 28f), new Vector2(68f, 12f), GetRatingColor(view.Condition));
+                "Value", metric, value.ToString(), 22, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2(40f, 28f), new Vector2(52f, 12f), GetRatingColor(value));
             CreateProgressBar(
-                condition, view.Condition / 100f, new Vector2(168f, 8f), new Vector2(0f, -16f),
-                GetRatingColor(view.Condition));
-
-            RectTransform evaluation = CreateRect(
-                "Evaluation", summary, new Vector2(196f, 44f), new Vector2(100f, 0f));
-            CreateText(
-                "Label", evaluation, "감독 평가", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(92f, 20f), new Vector2(-44f, 12f), SecondaryTextColor);
-            CreateText(
-                "Value", evaluation, view.ManagerEvaluation.ToString(), 22, FontStyle.Bold,
-                TextAnchor.MiddleRight, new Vector2(52f, 28f), new Vector2(68f, 12f),
-                GetRatingColor(view.ManagerEvaluation));
-            CreateProgressBar(
-                evaluation, view.ManagerEvaluation / 100f, new Vector2(168f, 8f),
-                new Vector2(0f, -16f), GetRatingColor(view.ManagerEvaluation));
+                metric, value / 100f, new Vector2(144f, 12f), new Vector2(8f, -16f),
+                GetRatingColor(value));
         }
 
         private static void CreateAttributeBar(Transform parent, string label, int value, Vector2 position)
@@ -465,7 +492,7 @@ namespace Baseball.Presentation.Career
         private void RenderNextGame(CareerDashboardView view)
         {
             DashboardPanel roots = CreateDashboardPanel(
-                "NextGamePanel", "NEXT GAME", "다음 경기", _topRow, 43f, true);
+                "NextGamePanel", "다음 경기", _topRow, 43f, true);
             RectTransform panel = roots.ContentSafeArea;
             if (!view.NextGame.HasValue)
             {
@@ -474,8 +501,10 @@ namespace Baseball.Presentation.Career
             }
 
             NextCareerGameView game = view.NextGame.Value;
-            CreateTeamBadge(panel, game.AwayTeamName, new Vector2(-220f, 140f), 96f);
-            CreateTeamBadge(panel, game.HomeTeamName, new Vector2(220f, 140f), 96f);
+            CreateTeamBadge(
+                panel, game.AwayTeamName, game.AwayTeamEmblemId, new Vector2(-220f, 140f), 96f);
+            CreateTeamBadge(
+                panel, game.HomeTeamName, game.HomeTeamEmblemId, new Vector2(220f, 140f), 96f);
             CreateText(
                 "AwayTeam", panel, game.AwayTeamName, 21, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(248f, 32f), new Vector2(-220f, 72f), PrimaryTextColor);
@@ -714,11 +743,14 @@ namespace Baseball.Presentation.Career
         private void ConfirmSeasonAutoCompletion()
         {
             _isSeasonAutoCompletionConfirmationVisible = false;
-            if (!_manager.AutoCompleteCurrentSeasonPhase())
+            if (!_manager.BeginSeasonFastForward())
             {
                 _isSeasonAutoCompletionConfirmationVisible = true;
                 Render();
+                return;
             }
+            _isSeasonFastForwardProgressVisible = true;
+            Render();
         }
 
         private void RenderSeasonAutoCompletionConfirmation(CareerDashboardView view)
@@ -796,7 +828,8 @@ namespace Baseball.Presentation.Career
             Vector2 size,
             Vector2 position)
         {
-            RectTransform row = CreateSection("MetadataRow", parent, size, position, CareerUiTheme.SurfaceSubtle);
+            RectTransform row = CreateFramedSurfaceSection(
+                "MetadataRow", parent, size, position, CareerUiTheme.SurfaceSubtle);
             float cellWidth = size.x / labels.Length;
             for (int index = 0; index < labels.Length; index++)
             {
@@ -821,7 +854,7 @@ namespace Baseball.Presentation.Career
         private void RenderSeasonPanel(CareerDashboardView view)
         {
             DashboardPanel roots = CreateDashboardPanel(
-                "SeasonPanel", "SEASON", $"{view.SeasonYear} 시즌 요약", _topRow, 31f, false);
+                "SeasonPanel", $"{view.SeasonYear} 시즌 요약", _topRow, 31f, false);
             RectTransform panel = roots.ContentSafeArea;
 
             RectTransform rank = CreateSection(
@@ -857,30 +890,34 @@ namespace Baseball.Presentation.Career
             CreateProgressBar(
                 record, (float)winningPercentage, new Vector2(112f, 8f), new Vector2(60f, -32f), AccentColor);
 
-            RectTransform statistics = CreateSection(
-                "StatisticsSection", panel, new Vector2(484f, 184f), new Vector2(0f, 40f), CardColor);
+            RectTransform statistics = CreateFramedSurfaceSection(
+                "StatisticsSection", panel, new Vector2(484f, 184f),
+                new Vector2(0f, CareerUiTheme.Space4), CardColor);
             CreateText(
                 "Heading", statistics,
                 view.Statistics.IsPitcher ? "선수 시즌 성적 · 투수" : "선수 시즌 성적 · 타자",
                 15, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(252f, 28f), new Vector2(-104f, 68f), PrimaryTextColor);
-            CreateText(
+                new Vector2(224f, 28f), new Vector2(-98f, 68f), PrimaryTextColor);
+            Text sampleSize = CreateText(
                 "SampleSize", statistics, BuildSeasonSampleSize(view.Statistics),
                 11, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(208f, 24f), new Vector2(128f, 68f), SecondaryTextColor);
+                new Vector2(168f, 24f), new Vector2(126f, 68f), SecondaryTextColor);
+            sampleSize.resizeTextForBestFit = true;
+            sampleSize.resizeTextMinSize = 9;
+            sampleSize.resizeTextMaxSize = 11;
             CreateDivider(
                 "HeadingLine", statistics, DividerColor, new Vector2(464f, 1f), new Vector2(0f, 51f));
             RenderSeasonStatistics(statistics, view.Statistics);
 
-            RectTransform recent = CreateSection(
-                "RecentSection", panel, new Vector2(484f, 88f), new Vector2(0f, -152f),
+            RectTransform recent = CreateFramedSurfaceSection(
+                "RecentSection", panel, new Vector2(484f, 96f), new Vector2(0f, -150f),
                 CareerUiTheme.SurfaceSubtle);
             CreateText(
                 "Heading", recent, "최근 5경기", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(128f, 24f), new Vector2(-168f, 28f), PrimaryTextColor);
+                new Vector2(128f, 24f), new Vector2(-148f, 27f), PrimaryTextColor);
             CreateText(
                 "Summary", recent, BuildRecentPerformance(view), 14, FontStyle.Bold,
-                TextAnchor.MiddleRight, new Vector2(320f, 24f), new Vector2(72f, 28f), SecondaryTextColor);
+                TextAnchor.MiddleRight, new Vector2(276f, 24f), new Vector2(76f, 27f), SecondaryTextColor);
             RenderRecentFormChips(recent, view);
         }
 
@@ -1004,12 +1041,12 @@ namespace Baseball.Presentation.Career
         private void RenderCompetition(CareerDashboardView view)
         {
             DashboardPanel roots = CreateDashboardPanel(
-                "CompetitionPanel", "POSITION DEPTH", $"{GetPositionCode(view.Position)} 포지션 경쟁",
+                "CompetitionPanel", $"{GetPositionCode(view.Position)} 포지션 경쟁",
                 _bottomRow, 26f, false);
             RectTransform panel = roots.ContentSafeArea;
             string role = GetExpectedRoleLabel(view.ExpectedRole);
-            RectTransform roleBadge = CreateSection(
-                "RoleBadge", panel, new Vector2(400f, 40f), new Vector2(0f, 76f),
+            RectTransform roleBadge = CreateFramedSurfaceSection(
+                "RoleBadge", panel, new Vector2(400f, 36f), new Vector2(0f, 68f),
                 CareerUiTheme.SurfaceSelected);
             CreateText(
                 "RoleLabel", roleBadge, "현재 역할", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -1018,61 +1055,59 @@ namespace Baseball.Presentation.Career
                 "Role", roleBadge, role, 19, FontStyle.Bold, TextAnchor.MiddleRight,
                 new Vector2(240f, 32f), new Vector2(72f, 0f), PrimaryTextColor);
 
-            float contentHeight = Math.Max(128f, view.Competition.Length * 40f);
+            const float rowHeight = 30f;
+            const float rowStride = 34f;
+            const float viewportHeight = 112f;
+            float contentHeight = Math.Max(viewportHeight, view.Competition.Length * rowStride);
             RectTransform list = CreateVerticalScrollArea(
-                "CompetitionList", panel, new Vector2(400f, 128f), new Vector2(0f, -24f), contentHeight);
+                "CompetitionList", panel, new Vector2(400f, viewportHeight), new Vector2(0f, -25f),
+                contentHeight);
             for (int index = 0; index < view.Competition.Length; index++)
             {
                 PositionCompetitionView competitor = view.Competition[index];
                 RectTransform row = CreateTopAnchoredRow(
-                    "Competitor_" + index, list, new Vector2(400f, 36f), index * 40f);
-                if (competitor.IsMyPlayer)
-                {
-                    RectTransform selected = CreateImage(
-                        "SelectedSurface", row, CareerUiTheme.SurfaceSelected,
-                        Vector2.zero, Vector2.zero, stretch: true);
-                    MarkVisual(selected, CareerUiVisualRole.FlatSurface);
-                    CreateDivider(
-                        "SelectedIndicator", row, AccentColor, new Vector2(4f, 28f),
-                        new Vector2(-196f, 0f));
-                }
+                    "Competitor_" + index, list, new Vector2(400f, rowHeight), index * rowStride);
+                RectTransform surface = CreateImage(
+                    "RowSurface", row,
+                    competitor.IsMyPlayer ? CareerUiTheme.SurfaceSelected : CareerUiTheme.SurfaceSubtle,
+                    Vector2.zero, Vector2.zero, stretch: true);
+                MarkVisual(surface, CareerUiVisualRole.FramedSurface);
                 Color color = competitor.IsMyPlayer ? AccentColor : SecondaryTextColor;
                 CreateText(
                     "Marker", row, competitor.IsMyPlayer ? "●" : "○", 15,
                     FontStyle.Bold, TextAnchor.MiddleCenter,
-                    new Vector2(28f, 28f), new Vector2(-172f, 0f), color);
+                    new Vector2(28f, 28f), new Vector2(-152f, 0f), color);
                 CreateText(
                     "Name", row, competitor.Name, 15,
                     competitor.IsMyPlayer ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleLeft,
-                    new Vector2(228f, 28f), new Vector2(-40f, 0f), PrimaryTextColor);
+                    new Vector2(220f, 28f), new Vector2(-20f, 0f), PrimaryTextColor);
                 CreateText(
                     "Overall", row, $"OVR  {competitor.Overall}", 14, FontStyle.Bold,
-                    TextAnchor.MiddleRight, new Vector2(96f, 28f), new Vector2(144f, 0f), color);
-                if (index < view.Competition.Length - 1)
-                    CreateDivider(
-                        "RowLine", row, DividerColor, new Vector2(384f, 1f),
-                        new Vector2(0f, -18f));
+                    TextAnchor.MiddleRight, new Vector2(96f, 28f), new Vector2(136f, 0f), color);
             }
         }
 
         private void RenderEventFeed(CareerDashboardView view)
         {
             DashboardPanel roots = CreateDashboardPanel(
-                "EventPanel", "NEWS", "커리어 뉴스", _bottomRow, 43f, false);
+                "EventPanel", "커리어 뉴스", _bottomRow, 43f, false);
             RectTransform panel = roots.ContentSafeArea;
             Button more = CreateButton(
                 "MoreNews",
                 roots.HeaderRoot,
                 "전체 뉴스",
-                new Vector2(108f, 28f),
+                new Vector2(120f, 32f),
                 Vector2.zero,
                 PanelDarkColor,
                 out Text moreLabel);
             RectTransform moreRect = (RectTransform)more.transform;
             moreRect.anchorMin = moreRect.anchorMax = new Vector2(1f, 0.5f);
-            moreRect.anchoredPosition = new Vector2(-56f, -12f);
+            moreRect.anchoredPosition = new Vector2(-84f, -12f);
+            MarkVisual(moreRect, CareerUiVisualRole.FramedControl);
             moreLabel.fontSize = 12;
             moreLabel.color = AccentColor;
+            moreLabel.rectTransform.offsetMin = new Vector2(36f, 0f);
+            moreLabel.rectTransform.offsetMax = new Vector2(-8f, 0f);
             more.onClick.AddListener(() => UIManager.Instance?.Show<UI_Popup_CareerNews>());
 
             CareerNewsFeedView feed = _manager.BuildNewsFeed(NewsFeedCategory.Latest, 3);
@@ -1162,7 +1197,7 @@ namespace Baseball.Presentation.Career
         private void RenderUpcoming(CareerDashboardView view)
         {
             DashboardPanel roots = CreateDashboardPanel(
-                "UpcomingPanel", "UPCOMING", "예정 경기", _bottomRow, 31f, false);
+                "UpcomingPanel", "예정 경기", _bottomRow, 31f, false);
             RectTransform panel = roots.ContentSafeArea;
             if (view.UpcomingGames.Length == 0)
             {
@@ -1172,41 +1207,44 @@ namespace Baseball.Presentation.Career
                 return;
             }
 
-            float contentHeight = Math.Max(148f, view.UpcomingGames.Length * 40f);
+            const float rowStride = 28f;
+            const float viewportHeight = 112f;
+            float contentHeight = Math.Max(viewportHeight, view.UpcomingGames.Length * rowStride);
             RectTransform list = CreateVerticalScrollArea(
-                "UpcomingList", panel, new Vector2(484f, 148f), new Vector2(0f, 12f), contentHeight);
+                "UpcomingList", panel, new Vector2(484f, viewportHeight), new Vector2(0f, 22f),
+                contentHeight);
             for (int index = 0; index < view.UpcomingGames.Length; index++)
                 RenderUpcomingRow(list, view.UpcomingGames[index], index);
             CreateText(
                 "More", panel, $"전체 일정 · 다음 {view.UpcomingGames.Length}경기", 12,
                 FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(430f, 22f), new Vector2(0f, -62f), MutedColor);
+                new Vector2(430f, 18f), new Vector2(0f, -63f), MutedColor);
         }
 
         private static void RenderUpcomingRow(Transform parent, UpcomingGameView game, int index)
         {
             Color accent = game.IsCurrent ? AccentColor : DividerColor;
             RectTransform row = CreateTopAnchoredRow(
-                "Upcoming_" + index, parent, new Vector2(484f, 36f), index * 40f);
+                "Upcoming_" + index, parent, new Vector2(484f, 28f), index * 28f);
             RectTransform surface = CreateImage(
                 "RowSurface", row,
-                game.IsCurrent ? CareerUiTheme.CurrentRow : CareerUiTheme.SurfaceSubtle,
+                game.IsCurrent ? CareerUiTheme.SurfaceSelected : CareerUiTheme.SurfaceSubtle,
                 Vector2.zero, Vector2.zero, stretch: true);
-            MarkVisual(surface, CareerUiVisualRole.FlatSurface);
-            CreateDivider("Accent", row, accent, new Vector2(4f, 28f), new Vector2(-236f, 0f));
+            MarkVisual(surface, CareerUiVisualRole.FramedSurface);
+            CreateDivider("Accent", row, accent, new Vector2(3f, 24f), new Vector2(-214f, 0f));
             CreateText(
                 "Date", row, game.Date.ToString("MM/dd"), 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(80f, 28f), new Vector2(-188f, 0f),
+                new Vector2(70f, 28f), new Vector2(-174f, 0f),
                 game.IsCurrent ? PrimaryTextColor : SecondaryTextColor);
             CreateText(
                 "Day", row, $"({GetKoreanDayOfWeek(game.Date.DayOfWeek)})", 11, FontStyle.Normal,
-                TextAnchor.MiddleCenter, new Vector2(40f, 24f), new Vector2(-132f, 0f), MutedColor);
+                TextAnchor.MiddleCenter, new Vector2(38f, 24f), new Vector2(-122f, 0f), MutedColor);
             CreateText(
                 "Opponent", row, game.OpponentName, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(220f, 28f), new Vector2(4f, 0f), PrimaryTextColor);
+                new Vector2(210f, 28f), new Vector2(16f, 0f), PrimaryTextColor);
             CreateText(
                 "Venue", row, game.IsHome ? "HOME" : "AWAY", 12, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(72f, 28f), new Vector2(200f, 0f),
+                TextAnchor.MiddleCenter, new Vector2(70f, 28f), new Vector2(192f, 0f),
                 game.IsHome ? AccentColor : WarningColor);
         }
 
@@ -1237,7 +1275,6 @@ namespace Baseball.Presentation.Career
 
         private static DashboardPanel CreateDashboardPanel(
             string name,
-            string eyebrow,
             string title,
             Transform row,
             float flexibleWidth,
@@ -1264,9 +1301,6 @@ namespace Baseball.Presentation.Career
             headerRoot.offsetMin = new Vector2(padding.x, -padding.w - CareerUiTheme.Space2);
             headerRoot.offsetMax = new Vector2(-padding.z, -CareerUiTheme.Space5 - CareerUiTheme.Space1);
 
-            CreateText(
-                "Eyebrow", headerRoot, eyebrow, 9, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(360f, 16f), new Vector2(0f, 14f), AccentColor);
             CreateText(
                 "Heading", headerRoot, title, 20, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(400f, 32f), new Vector2(0f, -10f), PrimaryTextColor);
@@ -1329,11 +1363,27 @@ namespace Baseball.Presentation.Career
             return section;
         }
 
+        private static RectTransform CreateFramedSurfaceSection(
+            string name,
+            Transform parent,
+            Vector2 size,
+            Vector2 position,
+            Color color)
+        {
+            RectTransform section = CreateRect(name, parent, size, position);
+            RectTransform frame = CreateImage(
+                "FramedSurface", section, color, Vector2.zero, Vector2.zero, stretch: true);
+            MarkVisual(frame, CareerUiVisualRole.FramedSurface);
+            return section;
+        }
+
         private static RectTransform CreateTeamBadge(
             Transform parent,
             string teamName,
+            int emblemId,
             Vector2 position,
-            float size = 100f)
+            float size = 100f,
+            bool hasAccentLine = true)
         {
             RectTransform outer = CreateRect(
                 "TeamBadge_" + teamName, parent, new Vector2(size, size), position);
@@ -1342,16 +1392,31 @@ namespace Baseball.Presentation.Career
                 Vector2.zero, Vector2.zero, stretch: true);
             CareerUiVisualElement surfaceVisual = middle.gameObject.AddComponent<CareerUiVisualElement>();
             surfaceVisual.Initialize(CareerUiVisualRole.FlatSurface);
-            RectTransform inset = CreateImage(
-                "Inset", middle, AccentColor, new Vector2(size - 20f, 3f),
-                new Vector2(0f, size * 0.5f - 10f));
-            CareerUiVisualElement insetVisual = inset.gameObject.AddComponent<CareerUiVisualElement>();
-            insetVisual.Initialize(CareerUiVisualRole.Divider);
-            CreateText(
-                "Monogram", middle, CareerTeamNameFormatter.GetMonogram(teamName), Math.Max(24, (int)(size * 0.34f)),
-                FontStyle.Bold, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero,
-                PrimaryTextColor, stretch: true);
+            if (hasAccentLine)
+            {
+                RectTransform inset = CreateImage(
+                    "Inset", middle, AccentColor, new Vector2(size - 20f, 3f),
+                    new Vector2(0f, size * 0.5f - 10f));
+                CareerUiVisualElement insetVisual = inset.gameObject.AddComponent<CareerUiVisualElement>();
+                insetVisual.Initialize(CareerUiVisualRole.Divider);
+            }
+            RectTransform emblem = CreateImage(
+                "Emblem", middle, Color.clear, new Vector2(size - 10f, size - 10f), Vector2.zero);
+            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId))
+            {
+                CreateText(
+                    "Monogram", middle, CareerTeamNameFormatter.GetMonogram(teamName),
+                    Math.Max(24, (int)(size * 0.34f)), FontStyle.Bold, TextAnchor.MiddleCenter,
+                    Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
+            }
             return outer;
+        }
+
+        private int GetTeamEmblemId(int teamId)
+        {
+            if (_manager?.CurrentCareer == null || teamId <= 0)
+                return 0;
+            return _manager.CurrentCareer.World.GetTeam(teamId).EmblemId;
         }
 
         private static void CreateProgressBar(
@@ -1370,6 +1435,7 @@ namespace Baseball.Presentation.Career
             fill.anchorMin = fill.anchorMax = new Vector2(0f, 0.5f);
             fill.pivot = new Vector2(0f, 0.5f);
             fill.anchoredPosition = new Vector2(2f, 0f);
+            CareerUiSkin.ApplyProgressBar(track.GetComponent<Image>(), fill.GetComponent<Image>(), clamped);
         }
 
         private static string GetPersonalGameSummary(

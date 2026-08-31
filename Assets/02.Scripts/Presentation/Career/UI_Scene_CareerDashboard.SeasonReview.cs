@@ -3,6 +3,7 @@ using System.Collections;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using Baseball.Simulation.Career;
 using UnityEngine;
 using UnityEngine.UI;
@@ -44,21 +45,11 @@ namespace Baseball.Presentation.Career
                 new Vector2(0f, -40f));
             blocker.GetComponent<Image>().raycastTarget = true;
 
-            RectTransform root = CreateImage(
+            RectTransform root = CreateReviewPanel(
                 "SeasonReviewRoot",
                 blocker,
-                BorderColor,
                 new Vector2(1740f, 830f),
                 new Vector2(0f, 5f));
-            RectTransform surface = CreateImage(
-                "Surface",
-                root,
-                new Color(0.01f, 0.047f, 0.08f, 1f),
-                Vector2.zero,
-                Vector2.zero,
-                stretch: true);
-            surface.offsetMin = new Vector2(3f, 3f);
-            surface.offsetMax = new Vector2(-3f, -3f);
             CanvasGroup canvasGroup = root.gameObject.AddComponent<CanvasGroup>();
             canvasGroup.alpha = 0f;
             StartCoroutine(FadeInSeasonReview(canvasGroup));
@@ -94,12 +85,13 @@ namespace Baseball.Presentation.Career
 
             if (CanSkipSeasonReview(view))
             {
+                float actionButtonY = GetReviewAdvanceButtonY(root);
                 Button skip = CreateButton(
                     "SkipSeasonReview",
                     root,
                     "연출 건너뛰기   ESC",
                     new Vector2(210f, 40f),
-                    new Vector2(720f, -370f),
+                    new Vector2(720f, actionButtonY),
                     PanelDarkColor,
                     out Text skipLabel);
                 skipLabel.fontSize = 13;
@@ -110,22 +102,20 @@ namespace Baseball.Presentation.Career
                     Render();
                 });
             }
+
+            CareerUiSkin.Apply(root);
+        }
+
+        private static float GetReviewAdvanceButtonY(Transform root)
+        {
+            Transform advanceButton = root.Find("AdvanceSeasonReview");
+            return advanceButton is RectTransform rect ? rect.anchoredPosition.y : -343f;
         }
 
         private static void RenderSeasonReviewProgress(Transform root, SeasonReviewStep step)
         {
             string[] labels = { "정규시즌", "포스트시즌", "시상식", "최종 결산" };
             int activeStage = GetReviewStage(step);
-            CreateText(
-                "ReviewEyebrow",
-                root,
-                "SEASON REVIEW",
-                11,
-                FontStyle.Bold,
-                TextAnchor.MiddleLeft,
-                new Vector2(250f, 20f),
-                new Vector2(-716f, 379f),
-                AccentColor);
             CreateText(
                 "ReviewProgressCount",
                 root,
@@ -260,9 +250,6 @@ namespace Baseball.Presentation.Career
                 snapshot.PostseasonSeed > 0 ? GoldColor : SecondaryTextColor);
 
             RectTransform standings = CreateReviewCard(root, "Standings", new Vector2(720f, 480f), new Vector2(360f, 15f));
-            CreateText(
-                "Title", standings, "FINAL STANDINGS", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(220f, 25f), new Vector2(-224f, 205f), AccentColor);
             int visible = Math.Min(snapshot.Standings.Count, 8);
             for (int index = 0; index < visible; index++)
             {
@@ -285,9 +272,9 @@ namespace Baseball.Presentation.Career
                     isPlayerTeam ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleLeft,
                     new Vector2(300f, 30f), new Vector2(-90f, y), PrimaryTextColor);
                 CreateText("Record_" + index, standings, $"{row.Wins}승 {row.Losses}패", 15, FontStyle.Bold,
-                    TextAnchor.MiddleRight, new Vector2(150f, 30f), new Vector2(193f, y), SecondaryTextColor);
+                    TextAnchor.MiddleRight, new Vector2(140f, 30f), new Vector2(175f, y), SecondaryTextColor);
                 CreateText("Pct_" + index, standings, row.WinningPercentage.ToString(".000"), 14, FontStyle.Normal,
-                    TextAnchor.MiddleRight, new Vector2(85f, 30f), new Vector2(292f, y), MutedColor);
+                    TextAnchor.MiddleRight, new Vector2(75f, 30f), new Vector2(265f, y), MutedColor);
             }
             CreatePlayerSeasonLine(root, snapshot, new Vector2(0f, -254f));
             CreateReviewAdvanceButton(
@@ -307,7 +294,9 @@ namespace Baseball.Presentation.Career
                 "SceneTitle", root, title, 50, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(900f, 72f), new Vector2(0f, 122f), PrimaryTextColor);
             AddTextOutline(titleText, accent, 1.8f);
-            CreateTeamBadge(root, snapshot.PlayerTeamName, new Vector2(0f, 5f), 132f);
+            CreateTeamBadge(
+                root, snapshot.PlayerTeamName, GetTeamEmblemId(snapshot.PlayerTeamId),
+                new Vector2(0f, 5f), 132f);
             CreateText(
                 "Team", root, snapshot.PlayerTeamName, 28, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(620f, 45f), new Vector2(0f, -85f), PrimaryTextColor);
@@ -458,7 +447,9 @@ namespace Baseball.Presentation.Career
                 "Title", root, title, 54, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(900f, 75f), new Vector2(0f, 128f), PrimaryTextColor);
             AddTextOutline(titleText, accent, 2f);
-            CreateTeamBadge(root, snapshot.PlayerTeamName, new Vector2(0f, 0f), 138f);
+            CreateTeamBadge(
+                root, snapshot.PlayerTeamName, GetTeamEmblemId(snapshot.PlayerTeamId),
+                new Vector2(0f, 0f), 138f);
             CreateText(
                 "Team", root, snapshot.PlayerTeamName, 29, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(650f, 45f), new Vector2(0f, -92f), PrimaryTextColor);
@@ -683,6 +674,7 @@ namespace Baseball.Presentation.Career
                 _isSeasonReviewSkipConfirmationVisible = false;
                 _manager.SkipSeasonReview();
             });
+            CareerUiSkin.Apply(modal);
         }
 
         private void CreateReviewAdvanceButton(Transform root, string label, Vector2 position)
@@ -700,11 +692,20 @@ namespace Baseball.Presentation.Career
 
         private static RectTransform CreateReviewCard(Transform parent, string name, Vector2 size, Vector2 position)
         {
-            RectTransform border = CreateImage(name, parent, BorderColor, size, position);
-            RectTransform surface = CreateImage("Surface", border, PanelColor, Vector2.zero, Vector2.zero, stretch: true);
-            surface.offsetMin = new Vector2(2f, 2f);
-            surface.offsetMax = new Vector2(-2f, -2f);
-            return border;
+            return CreateReviewPanel(name, parent, size, position);
+        }
+
+        private static RectTransform CreateReviewPanel(
+            string name,
+            Transform parent,
+            Vector2 size,
+            Vector2 position)
+        {
+            RectTransform panel = CreateRect(name, parent, size, position);
+            RectTransform frame = CreateImage(
+                "DecorativeFrame", panel, Color.white, Vector2.zero, Vector2.zero, stretch: true);
+            MarkVisual(frame, CareerUiVisualRole.DecorativeFrame);
+            return panel;
         }
 
         private static void RenderSummaryCard(

@@ -8,6 +8,7 @@ using Baseball.Simulation.Career;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
+using Baseball.Game.Diagnostics;
 
 namespace Baseball.Game.Career
 {
@@ -17,6 +18,11 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class CareerGameRunner
     {
+        private static readonly ProfilerSection MatchInputBuildMarker =
+            new("Career.MatchInput.Build");
+        private static readonly ProfilerSection MatchSimulationMarker =
+            new("Career.Match.Simulate");
+
         private readonly CareerState _career;
         private readonly LeagueState _league;
         private readonly BalanceTable _balance;
@@ -87,12 +93,17 @@ namespace Baseball.Game.Career
             bool requiresWinner = false,
             DateTime? gameDate = null)
         {
-            MatchInput input = CreateMatchInput(game, playerRole, seasonId, requiresWinner, gameDate);
+            MatchInput input;
+            using (MatchInputBuildMarker.Auto())
+                input = CreateMatchInput(game, playerRole, seasonId, requiresWinner, gameDate);
             var simulator = new MatchSimulator(_balance, MatchRandomStreams.Create(game.RandomSeed));
-            return simulator.Simulate(
-                input,
-                NullMatchEventSink.Instance,
-                MatchExecutionProfile.DetailedBackground);
+            using (MatchSimulationMarker.Auto())
+            {
+                return simulator.Simulate(
+                    input,
+                    NullMatchEventSink.Instance,
+                    MatchExecutionProfile.DetailedBackground);
+            }
         }
 
         /// <summary>

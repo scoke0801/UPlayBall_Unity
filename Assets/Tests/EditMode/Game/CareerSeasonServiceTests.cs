@@ -1,3 +1,4 @@
+using System;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
@@ -144,6 +145,22 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(step.ProcessedWorldGames, Is.EqualTo(40));
             Assert.That(step.TotalWorldGames, Is.EqualTo(3200));
             Assert.That(career.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SeasonFastForwardSession_중단은완료한라운드를유지하고재진입을막는다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 9203UL);
+            var session = new SeasonFastForwardSession(career, configuration.Balance);
+            session.AdvanceNextStep();
+
+            SeasonFastForwardStepResult stopped = session.StopByUser();
+
+            Assert.That(stopped.Status, Is.EqualTo(SeasonFastForwardStatus.StoppedByUser));
+            Assert.That(stopped.LastCompletedRound, Is.EqualTo(1));
+            Assert.That(career.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(1));
+            Assert.Throws<InvalidOperationException>(() => session.AdvanceNextStep());
         }
 
         [Test]

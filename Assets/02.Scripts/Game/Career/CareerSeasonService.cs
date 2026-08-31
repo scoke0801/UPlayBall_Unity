@@ -5,6 +5,7 @@ using Baseball.Game.Career.News;
 using Baseball.Game.Career.Narrative;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Match;
+using Baseball.Game.Diagnostics;
 
 namespace Baseball.Game.Career
 {
@@ -136,6 +137,15 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class CareerSeasonService
     {
+        private static readonly ProfilerSection WorldBeforeMarker =
+            new("Career.Round.World.Before");
+        private static readonly ProfilerSection ActiveLeagueCommitMarker =
+            new("Career.Round.ActiveLeague.Commit");
+        private static readonly ProfilerSection WorldAfterMarker =
+            new("Career.Round.World.After");
+        private static readonly ProfilerSection RoundServicesMarker =
+            new("Career.Round.Services");
+
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
         private readonly CareerGameRunner _gameRunner;
@@ -282,9 +292,12 @@ namespace Baseball.Game.Career
 
             SeasonState season = _career.CurrentLeague.CurrentSeason;
             var worldSeasonService = new WorldSeasonService(_career, _balance);
-            worldSeasonService.AdvanceBackgroundLeaguesBefore(
-                _career.CurrentLeague.LeagueId,
-                playerGame.Round);
+            using (WorldBeforeMarker.Auto())
+            {
+                worldSeasonService.AdvanceBackgroundLeaguesBefore(
+                    _career.CurrentLeague.LeagueId,
+                    playerGame.Round);
+            }
             CareerGameAdvanceResult playerResult = default;
             bool hasPlayerResult = false;
             var statisticsService = new LeagueStatisticsService(season.LeagueStatistics);
@@ -306,6 +319,7 @@ namespace Baseball.Game.Career
                         role,
                         season.SeasonId,
                         gameDate: gameDate);
+                using var activeLeagueCommit = ActiveLeagueCommitMarker.Auto();
                 game.Complete(matchResult.AwayBoxScore.Runs, matchResult.HomeBoxScore.Runs);
                 statisticsService.RecordMatch(
                     matchResult,
@@ -330,9 +344,13 @@ namespace Baseball.Game.Career
             if (!hasPlayerResult)
                 throw new InvalidOperationException("내 선수 경기 결과를 찾지 못했습니다.");
 
-            worldSeasonService.AdvanceBackgroundLeaguesAfter(
-                _career.CurrentLeague.LeagueId,
-                playerGame.Round);
+            using (WorldAfterMarker.Auto())
+            {
+                worldSeasonService.AdvanceBackgroundLeaguesAfter(
+                    _career.CurrentLeague.LeagueId,
+                    playerGame.Round);
+            }
+            using var roundServices = RoundServicesMarker.Auto();
             _career.World.Calendar.AdvanceTo(gameDate);
             worldSeasonService.RecordLeagueRaceEvents(_career.CurrentLeague, gameDate);
             RecordGalaxyLeagueDebut(playerResult, gameDate, season.SeasonId);

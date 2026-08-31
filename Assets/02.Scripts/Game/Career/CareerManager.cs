@@ -42,8 +42,11 @@ namespace Baseball.Game.Career
         /// </summary>
         public void BeginCareer(CareerState career, BalanceTable balance)
         {
-            CurrentCareer = career ?? throw new ArgumentNullException(nameof(career));
-            _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            if (career == null) throw new ArgumentNullException(nameof(career));
+            if (balance == null) throw new ArgumentNullException(nameof(balance));
+            ResetFastForwardRuntime();
+            CurrentCareer = career;
+            _balance = balance;
             _seasonService = null;
             _postseasonService = null;
             _seasonTransitionService = null;
@@ -96,6 +99,8 @@ namespace Baseball.Game.Career
                 return Fail("준비하거나 진행 중인 경기를 먼저 마쳐야 합니다.");
             if (CurrentCareer.Narrative.PendingReaction != null)
                 return Fail("먼저 경기 후 질문에 답해 주세요.");
+            if (_fastForwardSession != null)
+                return Fail("이미 시즌 자동 진행 중입니다.");
 
             try
             {
@@ -681,6 +686,7 @@ namespace Baseball.Game.Career
 
         private void ResetCareerRuntime()
         {
+            ResetFastForwardRuntime();
             ResetGrowthRuntime();
             CurrentCareer = null;
             _seasonService = null;

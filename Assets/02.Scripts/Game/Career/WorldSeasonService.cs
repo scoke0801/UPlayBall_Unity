@@ -4,6 +4,7 @@ using Baseball.Core.Balance;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Match;
+using Baseball.Game.Diagnostics;
 
 namespace Baseball.Game.Career
 {
@@ -12,6 +13,9 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class WorldSeasonService
     {
+        private static readonly ProfilerSection BackgroundLeagueCommitMarker =
+            new("Career.BackgroundLeague.Commit");
+
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
         private const int RaceEventMinimumGames = 60;
@@ -78,15 +82,18 @@ namespace Baseball.Game.Career
                     PlayerGameRole.Inactive,
                     season.SeasonId,
                     gameDate: gameDate);
-                game.Complete(result.AwayBoxScore.Runs, result.HomeBoxScore.Runs);
-                statisticsService.RecordMatch(
-                    result,
-                    CompetitionScope.RegularSeason,
-                    game.Round,
-                    isChampionship: false,
-                    isSeriesClinching: false);
-                RecordTeamResults(season, result);
-                gameRunner.RecordPitcherUsage(result, gameDate);
+                using (BackgroundLeagueCommitMarker.Auto())
+                {
+                    game.Complete(result.AwayBoxScore.Runs, result.HomeBoxScore.Runs);
+                    statisticsService.RecordMatch(
+                        result,
+                        CompetitionScope.RegularSeason,
+                        game.Round,
+                        isChampionship: false,
+                        isSeriesClinching: false);
+                    RecordTeamResults(season, result);
+                    gameRunner.RecordPitcherUsage(result, gameDate);
+                }
             }
 
             if (!HasIncompleteGame(season.Schedule))

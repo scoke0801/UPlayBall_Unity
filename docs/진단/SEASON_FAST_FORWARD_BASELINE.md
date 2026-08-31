@@ -9,9 +9,10 @@
 
 ```text
 UI_Scene_CareerDashboard.ConfirmSeasonAutoCompletion
-→ CareerManager.AutoCompleteCurrentSeasonPhase
-→ CareerSeasonAutoCompletionService.CompleteCurrentPhase
-→ CareerSeasonService.AdvanceNextRound 반복
+→ CareerManager.BeginSeasonFastForward
+→ UI Update 다음 프레임부터 AdvanceSeasonFastForwardFrame 반복
+→ SeasonFastForwardSession.AdvanceNextStep
+→ CareerSeasonService.AdvanceNextRound
 → CareerGameRunner.SimulateGame
 → MatchSimulator.Simulate(input, NullMatchEventSink.Instance)
 → DetailedMatchEngine.Simulate
@@ -71,3 +72,49 @@ SimulationDiagnostics benchmark-match 10000 background
 ```
 
 월드 시즌 benchmark와 Unity GC pause는 Player 진단이 추가될 때 별도 명령으로 기록한다.
+
+## Unity Player 계측
+
+자동 진행 뒤 `CareerManager.CreateLastFastForwardRuntimeReport()`를 호출하면 Unity 버전,
+Mono/IL2CPP, CPU, 버전 스탬프, 총 시간, 최대 라운드 시간, 관리 할당량, Gen0 횟수를 한 번에 얻는다.
+Profiler Timeline에서는 다음 마커를 함께 비교한다.
+
+```text
+Career.FastForward.Step
+Career.MatchInput.Build
+Career.Match.Simulate
+Career.BackgroundLeague.Commit
+Career.Round.World.Before
+Career.Round.ActiveLeague.Commit
+Career.Round.World.After
+Career.Round.Services
+Career.FastForward.Finalize
+```
+
+Editor Mono, Player Mono, Player IL2CPP 각각 시즌 20회 이상을 기록하고 중앙값·p95·최댓값을
+별도 집계한다. 이번 변경에서는 Player 빌드와 실행 측정을 수행하지 않았다.
+
+## 백그라운드 실행 활성화 게이트
+
+현재 실행 모드는 `CooperativeMainThread`다. `CareerState` 전체를 왕복하는 정식 저장 DTO 또는
+IL2CPP 호환 깊은 복사 계약이 아직 없으므로 라이브 상태를 `Task.Run`에서 변경하지 않는다.
+
+다음 조건을 모두 만족할 때만 `WorkingCopyBackground`를 추가한다.
+
+```text
+최소 사양 Player에서 최대 라운드 시간이 33 ms를 넘음
+CareerState Working Copy 생성과 원자적 교체 경로가 존재함
+Fault 시 Live State 유지와 마지막 안전 라운드 중단 정책을 검증할 수 있음
+Unity 객체·Resources 로딩을 작업 스레드 전에 순수 DTO로 변환함
+```
+
+리플렉션 기반 객체 복제는 IL2CPP/AOT와 저장 마이그레이션 계약을 우회하므로 사용하지 않는다.
+
+## C2 할당 최적화
+
+`DetailedMatchState`가 경기 동안 `PitchOption[]`과 최근 구종 버퍼를 독점 소유한다. 각 투구는
+피로가 반영된 옵션 값을 같은 버퍼에 다시 채우며, AI는 유효 개수까지만 읽는다. 외부 미니게임
+입력이 실제로 연결된 경우에만 요청이 버퍼 수명 밖으로 나갈 수 있으므로 독립 배열을 복사한다.
+
+정량 절감값은 `benchmark-match ... background`와 Unity Memory Profiler를 다시 실행한 뒤 기록한다.
+이번 변경에서는 요청에 따라 빌드, 결정론 회귀, 10,000경기 회귀를 실행하지 않았다.

@@ -1,15 +1,25 @@
 using System;
+using System.Diagnostics;
+using System.Reflection;
 using Baseball.Core.Balance;
 using Baseball.Game.Career.News;
 
 namespace Baseball.Game.Career
 {
+    public enum SeasonFastForwardExecutionMode
+    {
+        CooperativeMainThread = 0,
+        WorkingCopyBackground = 1
+    }
+
     public enum SeasonFastForwardStatus
     {
         Ready = 0,
         Running = 1,
         Completed = 2,
-        Faulted = 3
+        Faulted = 3,
+        StoppedByUser = 4,
+        AbortedBySceneUnload = 5
     }
 
     /// <summary>
@@ -23,7 +33,10 @@ namespace Baseball.Game.Career
             int completedSteps,
             int processedWorldGames,
             int totalWorldGames,
-            int lastCompletedRound)
+            int lastCompletedRound,
+            long lastStepElapsedTicks,
+            long elapsedTicks,
+            long allocatedBytes)
         {
             Status = status;
             TargetPhase = targetPhase;
@@ -31,6 +44,9 @@ namespace Baseball.Game.Career
             ProcessedWorldGames = processedWorldGames;
             TotalWorldGames = totalWorldGames;
             LastCompletedRound = lastCompletedRound;
+            LastStepElapsedTicks = lastStepElapsedTicks;
+            ElapsedTicks = elapsedTicks;
+            AllocatedBytes = allocatedBytes;
         }
 
         public SeasonFastForwardStatus Status { get; }
@@ -39,7 +55,12 @@ namespace Baseball.Game.Career
         public int ProcessedWorldGames { get; }
         public int TotalWorldGames { get; }
         public int LastCompletedRound { get; }
+        public long LastStepElapsedTicks { get; }
+        public long ElapsedTicks { get; }
+        public long AllocatedBytes { get; }
         public bool IsCompleted => Status == SeasonFastForwardStatus.Completed;
+        public bool IsStopped => Status is SeasonFastForwardStatus.StoppedByUser or
+            SeasonFastForwardStatus.AbortedBySceneUnload;
         public bool HasKnownTotal => TotalWorldGames > 0;
     }
 
@@ -48,6 +69,9 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class SeasonFastForwardSession
     {
+        private static bool _usesExactAllocationCounter;
+        private static readonly Func<long> ReadAllocatedBytes = CreateAllocationCounter();
+
         private readonly CareerState _career;
         private readonly SeasonState _season;
         private readonly SeasonPhase _targetPhase;
@@ -61,6 +85,11 @@ namespace Baseball.Game.Career
         private SeasonFastForwardStatus _status;
         private int _completedSteps;
         private int _lastCompletedRound;
+        private long _lastStepElapsedTicks;
+        private long _elapsedTicks;
+        private long _maximumStepElapsedTicks;
+        private long _allocatedBytes;
+        private int _generationZeroCollections;
         private Exception _fault;
 
         public SeasonFastForwardSession(
@@ -79,6 +108,7 @@ namespace Baseball.Game.Career
             _totalWorldGames = _targetPhase == SeasonPhase.RegularSeason
                 ? CountRemainingRegularSeasonGames(career)
                 : 0;
+            _generationZeroCollections = GC.CollectionCount(0);
             _status = SeasonFastForwardStatus.Ready;
 
             switch (_targetPhase)
@@ -100,10 +130,14 @@ namespace Baseball.Game.Career
         }
 
         public SeasonFastForwardStatus Status => _status;
+        public SeasonFastForwardExecutionMode ExecutionMode =>
+            SeasonFastForwardExecutionMode.CooperativeMainThread;
         public SeasonPhase TargetPhase => _targetPhase;
         public int CompletedSteps => _completedSteps;
         public Exception Fault => _fault;
         public bool IsCompleted => _status == SeasonFastForwardStatus.Completed;
+        public bool IsStopped => _status is SeasonFastForwardStatus.StoppedByUser or
+            SeasonFastForwardStatus.AbortedBySceneUnload;
 
         /// <summary>
         /// 정규시즌은 월드 라운드 하나, 포스트시즌은 동기화된 다음 경기 하나를 확정한다.
@@ -114,8 +148,12 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("이미 완료된 자동 진행 세션입니다.");
             if (_status == SeasonFastForwardStatus.Faulted)
                 throw new InvalidOperationException("실패한 자동 진행 세션은 다시 진행할 수 없습니다.", _fault);
+            if (IsStopped)
+                throw new InvalidOperationException("중단된 자동 진행 세션은 다시 진행할 수 없습니다.");
 
             _status = SeasonFastForwardStatus.Running;
+            long allocationBefore = ReadAllocatedBytes();
+            long startedAt = Stopwatch.GetTimestamp();
             try
             {
                 if (_targetPhase == SeasonPhase.RegularSeason)
@@ -131,10 +169,12 @@ namespace Baseball.Game.Career
                 _completedSteps++;
                 if (HasReachedTargetBoundary())
                     _status = SeasonFastForwardStatus.Completed;
+                RecordStepPerformance(startedAt, allocationBefore);
                 return CreateStepResult();
             }
             catch (Exception exception)
             {
+                RecordStepPerformance(startedAt, allocationBefore);
                 _fault = exception;
                 _status = SeasonFastForwardStatus.Faulted;
                 throw;
@@ -151,7 +191,7 @@ namespace Baseball.Game.Career
 
             SeasonFastForwardStepResult result = CreateStepResult();
             int advanced = 0;
-            while (!IsCompleted && advanced < maximumSteps)
+            while (!IsCompleted && !IsStopped && advanced < maximumSteps)
             {
                 result = AdvanceNextStep();
                 advanced++;
@@ -170,6 +210,38 @@ namespace Baseball.Game.Career
         }
 
         public SeasonFastForwardStepResult CreateProgressSnapshot() => CreateStepResult();
+
+        /// <summary>현재 안전 경계까지의 결과는 유지하고 사용자 요청으로 더 진행하지 않는다.</summary>
+        public SeasonFastForwardStepResult StopByUser()
+        {
+            Stop(SeasonFastForwardStatus.StoppedByUser);
+            return CreateStepResult();
+        }
+
+        /// <summary>화면이 사라진 안전 경계에서 세션을 폐기하고 더 진행하지 않는다.</summary>
+        public SeasonFastForwardStepResult AbortBySceneUnload()
+        {
+            Stop(SeasonFastForwardStatus.AbortedBySceneUnload);
+            return CreateStepResult();
+        }
+
+        /// <summary>Player·Editor 실행에서 수집한 세션 시간과 관리 할당 요약을 만든다.</summary>
+        public SeasonFastForwardPerformanceReport CreatePerformanceReport()
+        {
+            SeasonFastForwardStepResult progress = CreateStepResult();
+            return new SeasonFastForwardPerformanceReport(
+                _targetPhase,
+                _status,
+                _completedSteps,
+                progress.ProcessedWorldGames,
+                _elapsedTicks,
+                _maximumStepElapsedTicks,
+                _allocatedBytes,
+                GC.CollectionCount(0) - _generationZeroCollections,
+                _usesExactAllocationCounter);
+        }
+
+        public CareerSeasonAutoCompletionResult CreateCompletedResult() => CreateCompletionResult();
 
         private bool HasReachedTargetBoundary()
         {
@@ -192,7 +264,53 @@ namespace Baseball.Game.Career
                 _completedSteps,
                 processedWorldGames,
                 _totalWorldGames,
-                _lastCompletedRound);
+                _lastCompletedRound,
+                _lastStepElapsedTicks,
+                _elapsedTicks,
+                _allocatedBytes);
+        }
+
+        private void Stop(SeasonFastForwardStatus stopStatus)
+        {
+            if (_status == SeasonFastForwardStatus.Completed || _status == SeasonFastForwardStatus.Faulted)
+                return;
+            _status = stopStatus;
+        }
+
+        private void RecordStepPerformance(long startedAt, long allocationBefore)
+        {
+            _lastStepElapsedTicks = Stopwatch.GetTimestamp() - startedAt;
+            _elapsedTicks += _lastStepElapsedTicks;
+            if (_lastStepElapsedTicks > _maximumStepElapsedTicks)
+                _maximumStepElapsedTicks = _lastStepElapsedTicks;
+            long allocated = ReadAllocatedBytes() - allocationBefore;
+            if (allocated > 0)
+                _allocatedBytes += allocated;
+        }
+
+        private static Func<long> CreateAllocationCounter()
+        {
+            MethodInfo method = typeof(GC).GetMethod(
+                "GetAllocatedBytesForCurrentThread",
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                types: Type.EmptyTypes,
+                modifiers: null);
+            if (method != null && method.ReturnType == typeof(long))
+            {
+                try
+                {
+                    _usesExactAllocationCounter = true;
+                    return (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), method);
+                }
+                // 일부 IL2CPP 프로필은 메서드 메타데이터를 보여도 delegate 생성을 지원하지 않는다.
+                catch (Exception)
+                {
+                    _usesExactAllocationCounter = false;
+                }
+            }
+
+            return () => GC.GetTotalMemory(forceFullCollection: false);
         }
 
         private CareerSeasonAutoCompletionResult CreateCompletionResult()
