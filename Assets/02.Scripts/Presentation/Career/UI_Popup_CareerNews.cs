@@ -14,8 +14,8 @@ namespace Baseball.Presentation.Career
 
         private static readonly Color OverlayColor = new(0.002f, 0.009f, 0.016f, 0.94f);
         private static readonly Color BackgroundColor = new(0.007f, 0.025f, 0.043f, 1f);
-        private static readonly Color PanelColor = new(0.014f, 0.052f, 0.087f, 1f);
-        private static readonly Color CardColor = new(0.02f, 0.075f, 0.12f, 1f);
+        private static readonly Color PanelColor = new(0.014f, 0.052f, 0.087f, 0.78f);
+        private static readonly Color CardColor = new(0.02f, 0.075f, 0.12f, 0.80f);
         private static readonly Color SelectedColor = new(0.025f, 0.20f, 0.36f, 1f);
         private static readonly Color BorderColor = new(0.13f, 0.34f, 0.51f, 1f);
         private static readonly Color AccentColor = new(0.12f, 0.60f, 1f, 1f);
@@ -64,13 +64,20 @@ namespace Baseball.Presentation.Career
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             CreateImage("Overlay", root, OverlayColor, Vector2.zero, Vector2.zero, stretch: true);
-            _content = CreateImage(
-                "Content",
-                root,
-                BackgroundColor,
-                new Vector2(1720f, 900f),
-                Vector2.zero);
-            MarkVisual(_content, CareerUiVisualRole.DecorativeFrame);
+            Vector2 frameSize = new(1720f, 900f);
+            RectTransform frameRoot = CreateRect("NewsFrame", root, frameSize, Vector2.zero);
+            RectTransform decorativeFrame = CreateImage(
+                "DecorativeFrame", frameRoot, Color.white, Vector2.zero, Vector2.zero, stretch: true);
+            MarkVisual(decorativeFrame, CareerUiVisualRole.DecorativeFrame);
+            _content = CreateRect("ContentSafeArea", frameRoot, frameSize, Vector2.zero);
+            RectTransform interaction = CreateRect("InteractionRoot", frameRoot, frameSize, Vector2.zero);
+            RectTransform headerRoot = CreateRect("HeaderRoot", frameRoot, frameSize, Vector2.zero);
+            CareerUiFrame.ApplyContentPadding(_content, frameSize, CareerUiTheme.PopupFramePadding);
+            CareerUiFrame.ApplyContentPadding(interaction, frameSize, CareerUiTheme.PopupFramePadding);
+            CareerUiFrame frame = frameRoot.gameObject.AddComponent<CareerUiFrame>();
+            frame.Initialize(
+                decorativeFrame.GetComponent<Image>(), headerRoot, _content, interaction,
+                CareerUiTheme.PopupFramePadding, false);
         }
 
         protected override void OnShow()
@@ -119,6 +126,7 @@ namespace Baseball.Presentation.Career
             RenderCategories(feed);
             RenderFeed(feed);
             RenderDetail(feed);
+            CareerUiSkin.Apply(_content);
         }
 
         private void RenderHeader(CareerNewsFeedView feed)
@@ -148,7 +156,7 @@ namespace Baseball.Presentation.Career
                 "Close",
                 _content,
                 "닫기  ESC",
-                new Vector2(130f, 42f),
+                new Vector2(130f, 52f),
                 new Vector2(750f, 340f),
                 PanelColor,
                 out Text closeLabel);
@@ -162,8 +170,8 @@ namespace Baseball.Presentation.Career
                 "Categories",
                 _content,
                 PanelColor,
-                new Vector2(240f, 700f),
-                new Vector2(-720f, -58f));
+                new Vector2(240f, 650f),
+                new Vector2(-690f, -40f));
             MarkVisual(panel, CareerUiVisualRole.FlatSurface);
             CreateText(
                 "Label",
@@ -173,7 +181,7 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft,
                 new Vector2(190f, 32f),
-                new Vector2(0f, 326f),
+                new Vector2(0f, 292f),
                 SecondaryTextColor);
             for (int index = 0; index < Categories.Length; index++)
             {
@@ -184,12 +192,9 @@ namespace Baseball.Presentation.Career
                     panel,
                     CategoryLabels[index],
                     new Vector2(204f, 58f),
-                    new Vector2(0f, 270f - index * 70f),
+                    new Vector2(0f, 240f - index * 65f),
                     isSelected ? SelectedColor : BackgroundColor,
                     out Text label);
-                MarkVisual((RectTransform)button.transform, CareerUiVisualRole.FlatSurface);
-                label.alignment = TextAnchor.MiddleLeft;
-                label.rectTransform.offsetMin = new Vector2(20f, 0f);
                 label.fontSize = 16;
                 label.color = isSelected ? PrimaryTextColor : SecondaryTextColor;
                 button.onClick.AddListener(() =>
@@ -209,9 +214,9 @@ namespace Baseball.Presentation.Career
                 "Feed",
                 _content,
                 PanelColor,
-                new Vector2(650f, 700f),
-                new Vector2(-255f, -58f));
-            MarkVisual(panel, CareerUiVisualRole.FlatSurface);
+                new Vector2(650f, 650f),
+                new Vector2(-225f, -40f));
+            MarkVisual(panel, CareerUiVisualRole.DecorativeFrame);
             if (feed.Articles.Length == 0)
             {
                 CreateText(
@@ -239,11 +244,11 @@ namespace Baseball.Presentation.Career
                     "Article_" + index,
                     panel,
                     isSelected ? SelectedColor : CardColor,
-                    new Vector2(606f, 88f),
-                    new Vector2(0f, 294f - index * 96f));
-                MarkVisual(card, CareerUiVisualRole.FlatSurface);
+                    new Vector2(606f, 80f),
+                    new Vector2(0f, 246f - index * 88f));
+                MarkVisual(card, CareerUiVisualRole.FramedControl);
                 if (!article.IsRead)
-                    CreateImage("Unread", card, AccentColor, new Vector2(4f, 74f), new Vector2(-300f, 0f));
+                    CreateImage("Unread", card, AccentColor, new Vector2(4f, 58f), new Vector2(-214f, 0f));
                 CreateText(
                     "Meta",
                     card,
@@ -251,8 +256,8 @@ namespace Baseball.Presentation.Career
                     11,
                     FontStyle.Bold,
                     TextAnchor.MiddleLeft,
-                    new Vector2(520f, 20f),
-                    new Vector2(10f, 25f),
+                    new Vector2(472f, 20f),
+                    new Vector2(36f, 25f),
                     article.Importance is NewsImportance.S or NewsImportance.A ? GoldColor : AccentColor);
                 CreateText(
                     "Headline",
@@ -261,8 +266,8 @@ namespace Baseball.Presentation.Career
                     16,
                     article.IsRead ? FontStyle.Normal : FontStyle.Bold,
                     TextAnchor.MiddleLeft,
-                    new Vector2(540f, 46f),
-                    new Vector2(10f, -10f),
+                    new Vector2(472f, 46f),
+                    new Vector2(36f, -10f),
                     PrimaryTextColor);
                 Button button = card.gameObject.AddComponent<Button>();
                 card.GetComponent<Image>().raycastTarget = true;
@@ -289,7 +294,7 @@ namespace Baseball.Presentation.Career
                 panel,
                 "이전",
                 new Vector2(90f, 34f),
-                new Vector2(-128f, -318f),
+                new Vector2(-128f, -292f),
                 BackgroundColor,
                 out Text previousLabel);
             previousLabel.fontSize = 12;
@@ -304,7 +309,7 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
                 new Vector2(100f, 34f),
-                new Vector2(0f, -318f),
+                new Vector2(0f, -292f),
                 SecondaryTextColor);
 
             Button next = CreateButton(
@@ -312,7 +317,7 @@ namespace Baseball.Presentation.Career
                 panel,
                 "다음",
                 new Vector2(90f, 34f),
-                new Vector2(128f, -318f),
+                new Vector2(128f, -292f),
                 BackgroundColor,
                 out Text nextLabel);
             nextLabel.fontSize = 12;
@@ -340,9 +345,9 @@ namespace Baseball.Presentation.Career
                 "Detail",
                 _content,
                 PanelColor,
-                new Vector2(710f, 700f),
-                new Vector2(440f, -58f));
-            MarkVisual(panel, CareerUiVisualRole.FlatSurface);
+                new Vector2(690f, 650f),
+                new Vector2(455f, -40f));
+            MarkVisual(panel, CareerUiVisualRole.DecorativeFrame);
             NewsArticleView? selected = Find(feed, _selectedArticleId);
             if (!selected.HasValue)
             {
@@ -362,19 +367,6 @@ namespace Baseball.Presentation.Career
             NewsArticleView article = selected.Value;
             Sprite illustration = CareerPresentationAssetLibrary.GetIllustration(article.Illustration);
             bool hasIllustration = illustration != null;
-            string publicationState = article.Category == NewsCategory.League
-                ? "  ·  오늘 경기 종료 · 순위 반영 완료"
-                : string.Empty;
-            CreateText(
-                "Source",
-                panel,
-                $"{GetSourceLabel(article.SourceType)}  ·  {article.PublishedAt:yyyy년 M월 d일}{publicationState}",
-                13,
-                FontStyle.Bold,
-                TextAnchor.MiddleLeft,
-                new Vector2(620f, 26f),
-                new Vector2(0f, 320f),
-                AccentColor);
             CreateText(
                 "Headline",
                 panel,
@@ -383,9 +375,11 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.UpperLeft,
                 hasIllustration ? new Vector2(410f, 110f) : new Vector2(620f, 110f),
-                hasIllustration ? new Vector2(-105f, 246f) : new Vector2(0f, 246f),
+                hasIllustration ? new Vector2(-105f, 220f) : new Vector2(0f, 220f),
                 PrimaryTextColor);
-            CreateImage("Divider", panel, BorderColor, new Vector2(620f, 1f), new Vector2(0f, 174f));
+            RectTransform divider = CreateImage(
+                "Divider", panel, BorderColor, new Vector2(620f, 1f), new Vector2(0f, 150f));
+            MarkVisual(divider, CareerUiVisualRole.Divider);
             if (hasIllustration)
             {
                 RectTransform frame = CreateImage(
@@ -411,8 +405,8 @@ namespace Baseball.Presentation.Career
                 18,
                 FontStyle.Bold,
                 TextAnchor.UpperLeft,
-                hasIllustration ? new Vector2(400f, 92f) : new Vector2(620f, 92f),
-                hasIllustration ? new Vector2(-110f, 112f) : new Vector2(0f, 112f),
+                hasIllustration ? new Vector2(400f, 80f) : new Vector2(620f, 80f),
+                hasIllustration ? new Vector2(-110f, 96f) : new Vector2(0f, 96f),
                 SecondaryTextColor);
             CreateText(
                 "Body",
@@ -422,7 +416,7 @@ namespace Baseball.Presentation.Career
                 FontStyle.Normal,
                 TextAnchor.UpperLeft,
                 hasIllustration ? new Vector2(400f, 300f) : new Vector2(620f, 300f),
-                hasIllustration ? new Vector2(-110f, -105f) : new Vector2(0f, -105f),
+                hasIllustration ? new Vector2(-110f, -112f) : new Vector2(0f, -112f),
                 PrimaryTextColor);
             if (article.IsCareerArchive)
             {
@@ -434,7 +428,7 @@ namespace Baseball.Presentation.Career
                     FontStyle.Bold,
                     TextAnchor.MiddleLeft,
                     new Vector2(300f, 30f),
-                    new Vector2(-160f, -322f),
+                    new Vector2(-160f, -292f),
                     GoldColor);
             }
         }
@@ -467,18 +461,6 @@ namespace Baseball.Presentation.Career
                 NewsCategory.Postseason => "포스트시즌",
                 NewsCategory.RecordsAwards => "기록·수상",
                 _ => "오프시즌"
-            };
-        }
-
-        private static string GetSourceLabel(NewsSourceType source)
-        {
-            return source switch
-            {
-                NewsSourceType.LeagueOfficial => "리그 공식",
-                NewsSourceType.LeagueSportsMedia => "리그 스포츠 미디어",
-                NewsSourceType.RegionalSports => "지역 스포츠",
-                NewsSourceType.NationalSports => "전국 스포츠",
-                _ => "구단 소식"
             };
         }
 
@@ -549,6 +531,7 @@ namespace Baseball.Presentation.Career
             out Text text)
         {
             RectTransform rect = CreateImage(name, parent, color, size, position);
+            MarkVisual(rect, CareerUiVisualRole.InteractiveControl);
             Image image = rect.GetComponent<Image>();
             image.raycastTarget = true;
             Button button = rect.gameObject.AddComponent<Button>();

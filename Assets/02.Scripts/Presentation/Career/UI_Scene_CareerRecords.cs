@@ -225,11 +225,6 @@ namespace Baseball.Presentation.Career
                     out Text label);
                 label.fontSize = 20;
                 label.color = isActive ? PrimaryTextColor : SecondaryTextColor;
-                if (isActive)
-                {
-                    CreateImage("ActiveLine", button.transform, BrightAccentColor,
-                        new Vector2(width - 14f, 3f), new Vector2(0f, 26f));
-                }
                 button.onClick.AddListener(() => SelectPage(page));
             }
         }
@@ -263,11 +258,6 @@ namespace Baseball.Presentation.Career
                     out Text label);
                 label.fontSize = 19;
                 label.color = isActive ? PrimaryTextColor : SecondaryTextColor;
-                if (isActive)
-                {
-                    CreateImage("ActiveBorder", button.transform, BrightAccentColor,
-                        new Vector2(4f, 70f), new Vector2(-102f, 0f));
-                }
                 button.onClick.AddListener(() => SelectCategory(category));
             }
 

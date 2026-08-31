@@ -95,9 +95,10 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreateImage(
                 "SettingsPanel", _content, PanelColor, new Vector2(1260f, 900f), Vector2.zero);
             CreateText("Title", panel, "설정", 36, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(380f, 56f), new Vector2(-390f, 397f), PrimaryTextColor);
-            Button close = CreateButton("Close", panel, "닫기  ESC", new Vector2(160f, 46f),
-                new Vector2(510f, 398f), CardColor, out _);
+                new Vector2(380f, 56f), new Vector2(-310f, 352f), PrimaryTextColor);
+            Button close = CreateButton("Close", panel, "닫기  ESC", new Vector2(180f, 52f),
+                new Vector2(500f, 370f), CardColor, out _);
+            CareerUiSkin.ApplyButton(close);
             close.onClick.AddListener(Close);
 
             string[] tabs = { "경기", "화면", "사운드", "조작", "게임 종료" };

@@ -1,7 +1,7 @@
 # Unity UI 제작 지침 — UPlayBall
 
-> 문서 버전: 1.0  
-> 기준일: 2026-08-28  
+> 문서 버전: 1.1  
+> 기준일: 2026-08-30  
 > 대상: UI 기획자, UI 디자이너, Unity 클라이언트 개발자, AI 코딩 에이전트  
 > 엔진 기준: Unity 6
 
@@ -218,6 +218,92 @@ Reference Pixels Per Unit: 프로젝트 공통값 유지
 
 임의의 13px, 19px, 27px 같은 값은 특별한 시각 보정 사유가 없으면 사용하지 않는다.
 
+### 4.5 Layout Bounds / Content Safe Area — 필수
+
+"화면 밖으로 밀려나지 않는다"만으로는 패널끼리의 침범, 콘텐츠가 장식 프레임 위로 올라가는 문제를 잡지 못한다. 모든 주요 Panel은 다음 두 영역을 분리한다.
+
+```text
+PanelRoot
+│
+├─ Skin                     ← Visual Bounds
+│  ├─ Background
+│  ├─ Frame
+│  └─ Decoration
+│
+└─ ContentSafeRect          ← Content Safe Bounds
+   ├─ HeaderSlot
+   ├─ BodySlot
+   └─ FooterSlot
+```
+
+- **Visual Bounds**: 프레임, 배경, 장식을 포함하는 전체 시각 영역. Skin은 PanelRoot 밖으로 조금 튀어나올 수 있다.
+- **Content Safe Bounds**: 실제 텍스트, 버튼, 표, 카드가 배치되는 영역. 일반 UI 콘텐츠는 반드시 `ContentSafeRect`의 자식으로 배치하며, 이 영역을 절대 벗어나지 않는다.
+
+금지:
+
+- Panel 내부 콘텐츠가 ScreenRoot를 기준으로 Anchor를 잡는 것
+- 형제 Panel을 기준으로 위치를 계산하는 것
+- 음수 Margin을 사용해 다른 Panel 영역으로 콘텐츠를 밀어내는 것
+- 버튼이나 텍스트를 장식 프레임 위에 배치하는 것
+- Footer 버튼을 Panel 외곽선에 겹쳐 배치하는 것
+- Scroll Content가 Viewport 외부로 렌더링되는 것
+- 한 Panel의 Raycast 영역이 인접 Panel까지 침범하는 것
+
+허용되는 Overflow는 다음으로 제한한다: Skin Decoration, Tooltip, Dropdown, Popup, Drag Preview, 명시적으로 정의된 Overlay. 일반 Text, Button, Table Row, Card, Progress Bar에는 Overflow를 허용하지 않는다.
+
+동일 Layout Container에 속한 형제 Panel끼리 Visual Bounds 중첩은 원칙적으로 0px이어야 한다. 장식 프레임끼리 의도적으로 겹치는 디자인은 공통 Prefab에서만 정의하며, 화면 구현 코드에서 임의로 겹치게 만들지 않는다.
+
+### 4.6 Screen 영역 소유권 (Slot 구조) — 필수
+
+화면 전체에도 영역 소유권을 명시한다.
+
+```text
+Screen
+├─ HeaderSlot             ← Header만 사용
+│
+├─ PageContentSlot
+│  ├─ PageTitleSlot
+│  └─ MainContentSlot
+│
+├─ BottomNavigationSlot   ← Bottom Nav만 사용
+│
+└─ OverlayRoot            ← Popup / Tooltip / Dropdown
+```
+
+- 화면별 UI는 `MainContentSlot` 밖에 직접 생성하지 않는다.
+- 일반 화면 코드가 `HeaderSlot` 또는 `BottomNavigationSlot`의 RectTransform을 직접 변경하지 않는다.
+- Popup, Tooltip, Dropdown 이외의 일반 콘텐츠를 `OverlayRoot`에 생성하지 않는다.
+- Panel 내부 코드가 자신의 `PanelRoot`보다 상위 RectTransform을 기준으로 좌표를 계산하지 않는다.
+
+### 4.7 Responsive Layout 우선순위 — 필수
+
+공간이 부족할 때 해결 순서는 다음과 같다.
+
+1. 불필요한 여백 축소
+2. 보조 정보 접기 또는 상세 영역으로 이동
+3. Layout Column 재배치
+4. Scroll 적용
+5. 표시 열 축소
+6. 마지막 수단으로 컴포넌트 크기 조정
+
+금지:
+
+- 텍스트를 최소 가독성 이하로 축소하여 문제를 해결하는 것
+- Panel끼리 겹치게 하여 문제를 해결하는 것
+- Content Safe Bounds를 줄여 Skin 위에 콘텐츠를 배치하는 것
+
+패널·셸의 최소/여백 수치는 프로젝트에서 승인된 프리팹을 기준으로 다음과 같은 공통 Metric으로 관리한다. 화면마다 `23`, `37`, `51` 같은 임의 값을 직접 정하지 않는다.
+
+```text
+Panel.MinWidth
+Panel.MinHeight
+Panel.ContentInsetLeft / Right / Top / Bottom
+Shell.HeaderHeight
+Shell.BottomNavHeight
+Shell.PagePadding
+Shell.PanelGap
+```
+
 ---
 
 ## 5. 시각 디자인 시스템
@@ -289,6 +375,8 @@ UPlayBall의 공통 시각 방향은 다음과 같다.
 
 ### 5.4 패널과 카드
 
+아래 수치는 **Skin 자산이 없는 순수 색상 패널**(단색 Image 기반, 5.5의 예외 항목)에만 적용한다. 승인된 UPlayBall Skin(금속 프레임, 모서리 절삭, 스티치 장식 등)이 있는 패널은 원본 Skin의 형태를 그대로 유지하며 아래 수치로 대체하지 않는다.
+
 - 기본 패널 모서리 반경: 8–12px
 - 작은 버튼·태그: 6–8px
 - 팝업·대형 카드: 12–16px
@@ -296,6 +384,46 @@ UPlayBall의 공통 시각 방향은 다음과 같다.
 - 모든 패널에 그림자를 넣지 않는다.
 - 패널 계층은 배경 명도, 테두리, 간격으로 구분한다.
 - 같은 단계의 카드에는 같은 패딩과 제목 위치를 사용한다.
+
+### 5.5 UPlayBall UI Skin 적용 규칙 — 필수
+
+UPlayBall의 공통 UI Skin은 선택적인 장식 요소가 아니다. 공통 Skin은 게임의 시각적 아이덴티티를 구성하는 필수 UI 자산으로 취급한다.
+
+**Skin과 Theme의 구분**
+
+Theme: 색상, 폰트, 텍스트 크기, 간격, 상태 색상 — 5.2, 5.3에서 정의한 토큰.
+
+Skin: 패널 외곽 프레임, 패널 배경 Sprite, 버튼 프레임, 탭 프레임, Header/Footer 장식, 코너 장식, 선택 상태 Sprite, 야구 스티치 등 UPlayBall 고유 장식.
+
+Theme 토큰을 사용했다는 이유만으로 Skin 사용을 생략할 수 없다. 색상·간격이 토큰과 일치해도 패널을 `Image + Color`만으로 구성했다면 규칙 위반이다.
+
+**필수 규칙**
+
+- 기존 프로젝트에 동일 역할의 Skin Prefab 또는 Sprite가 존재하는 경우 반드시 해당 자산을 재사용한다.
+- Panel, Card, Button, Tab, Popup 등 시각적으로 Skin이 정의된 컴포넌트를 단순 `Image + Color` 조합으로 대체하지 않는다.
+- 화면별 필요에 따라 크기가 달라지는 경우 다음 중 하나만 사용한다.
+  1. 기존 Prefab의 RectTransform을 확장
+  2. 승인된 Prefab Variant 제작
+  3. 9-Slice가 허용된 Skin 사용
+- 기존 Skin과 비슷한 형태를 코드에서 다시 그리거나 새로운 단색 사각형으로 대체하지 않는다.
+
+**예외**
+
+다음 요소는 단색 Image를 사용할 수 있다.
+
+- 데이터 그래프
+- Progress Bar 내부 Fill
+- 구분선
+- 투명 Hit Area
+- Mask
+- 전체 화면 배경
+- Skin 내부의 기능성 강조 영역
+
+예외 요소가 Panel/Card/Button의 외관을 대신해서는 안 된다.
+
+**UPlayBall Skin 보호 규칙**
+
+"장식을 최소화한다"(1.3, 5.1)는 규칙은 승인된 UPlayBall Skin을 제거하라는 의미가 아니다. 기존 프레임, 코너 형태, 스티치, 금속 장식은 Brand Shell에 해당하며 임의로 제거하거나 단순화하지 않는다. 이 규칙이 금지하는 것은 **새로운 장식을 임의로 추가하는 것**이지, 기존 승인된 Skin을 사용하는 것이 아니다.
 
 ---
 
@@ -735,7 +863,7 @@ Dispose     : 필요 시 자원 정리
 - 로딩 인디케이터
 - 빈 상태 패널
 
-기존 컴포넌트가 요구사항의 80% 이상을 충족하면 새로 복제하지 말고 확장한다.
+기존 컴포넌트가 요구사항의 80% 이상을 충족하면 새로 복제하지 말고 확장한다. **Skin이 존재하는 컴포넌트는 새로운 시각 컴포넌트를 제작하지 않는다** — 5.5 Skin 적용 규칙을 따른다.
 
 ### 11.5 금지 구현
 
@@ -875,6 +1003,16 @@ AI가 UI를 생성하거나 수정할 때 반드시 다음을 따른다.
 - 기존 색상·폰트·간격 토큰을 확인한다.
 - 기존 화면의 포커스·뒤로 가기 처리 방식을 확인한다.
 
+작업 시작 전에 반드시 아래를 확인하고 결과에 기록한다.
+
+```text
+Skin Reference   : 사용할 기존 Panel/Button/Tab/Card/Popup Prefab 또는 Skin 자산
+Layout Reference : 가장 구조가 유사한 기존 화면
+Metrics          : Header / Bottom Navigation / Panel Gap / Content Inset 기준(4.7)
+```
+
+재사용할 Prefab을 찾지 못한 경우 즉시 새로운 스타일을 만들지 않는다. "적합한 기존 Skin을 찾지 못함"을 작업 결과에 명시하고 Placeholder 상태로 남긴다.
+
 ### 16.2 구현 원칙
 
 - 기존 구조를 확인하지 않은 상태에서 독립된 새 UI 시스템을 만들지 않는다.
@@ -883,7 +1021,17 @@ AI가 UI를 생성하거나 수정할 때 반드시 다음을 따른다.
 - 화면마다 새로운 스타일 클래스를 복제하지 않는다.
 - 공통 컴포넌트 수정 시 다른 화면에 미치는 영향을 확인한다.
 - 임시 Placeholder는 명확한 이름과 교체 지점을 남긴다.
-- 컴파일 성공만으로 완료 처리하지 않는다.
+- 컴파일 성공만으로 완료 처리하지 않는다. **Skin 재사용 여부와 Prefab을 실제로 사용했는지를 확인하지 않고 완료 처리하지 않는다** — Prefab을 "찾았다"는 것과 "적용했다"는 것은 다르다.
+
+구현 금지:
+
+- Raw Image를 일반 Panel의 최종 외관으로 사용하는 것
+- 기존 Skin이 있는데 새로운 Panel 디자인을 만드는 것
+- 화면 코드에서 Skin Sprite를 직접 교체하는 것
+- `ContentSafeRect`(4.5) 밖에 기능 UI를 배치하는 것
+- 음수 offset으로 Panel 간격 문제를 해결하는 것
+- 다른 Panel 위에 버튼/텍스트를 덮어서 배치하는 것
+- 해상도 문제를 fontSize 축소만으로 해결하는 것(4.7 우선순위를 따른다)
 
 ### 16.3 결과 보고 항목
 
@@ -892,9 +1040,11 @@ AI가 UI를 생성하거나 수정할 때 반드시 다음을 따른다.
 ```text
 - 생성·수정한 화면과 컴포넌트
 - 재사용한 공통 요소
+- 재사용한 Skin Prefab/Sprite와 미발견 시 대체 방식
 - 추가한 상태 처리
 - 입력·포커스 흐름
 - 해상도 대응 방식
+- Content Safe Bounds / 형제 Panel 침범 여부 확인 결과
 - 남은 Placeholder
 - 검증한 항목과 미검증 항목
 ```
@@ -910,6 +1060,9 @@ AI가 UI를 생성하거나 수정할 때 반드시 다음을 따른다.
 - 데이터가 없을 때 NullReference가 발생하는 구현
 - 장식 목적의 불필요한 애니메이션 추가
 - 기존 코드 스타일과 무관한 대규모 리팩터링 동시 수행
+- Skin이 존재하는 컴포넌트를 `Image + Color`만으로 대체하는 것
+- 승인된 UPlayBall Skin(프레임·코너·스티치 등)을 임의로 제거·단순화하는 것
+- Content를 `ContentSafeRect` 밖에 배치하거나 형제 Panel과 겹치게 만드는 것
 
 ---
 
@@ -941,11 +1094,32 @@ AI가 UI를 생성하거나 수정할 때 반드시 다음을 따른다.
 
 ### 해상도
 
+아래 각 해상도의 실제 실행 화면(스크린샷 또는 자동 검증)을 확인한다. 확인 없이 완료 처리하지 않는다.
+
 - [ ] 1280 × 720에서 잘림이 없다.
 - [ ] 1920 × 1080에서 가독성이 유지된다.
 - [ ] 2560 × 1440에서 과도한 빈 공간이 없다.
 - [ ] 3440 × 1440에서 핵심 정보가 지나치게 벌어지지 않는다.
 - [ ] 긴 한글과 최대 자릿수 데이터로 검증했다.
+- [ ] 각 해상도에서 Text Overflow, Panel 중첩, 버튼 중첩, Frame/Content 중첩, 화면 밖 Raycast 영역이 0건이다.
+
+### Skin 검증
+
+- [ ] 모든 주요 Panel이 승인된 Skin 또는 Prefab을 사용한다.
+- [ ] 모든 Button/Tab이 공통 Skin State를 사용한다.
+- [ ] Raw Image 기반 임시 Panel이 남아 있지 않다.
+- [ ] 승인되지 않은 신규 UI Sprite가 없다.
+- [ ] Skin의 비율과 Border가 비정상적으로 늘어나지 않았다(9-Slice 확인).
+
+### Layout Bounds 검증
+
+- [ ] Content가 `ContentSafeRect`를 벗어난 곳이 0건이다.
+- [ ] 형제 Panel끼리 침범한 곳이 0건이다.
+- [ ] `HeaderSlot` 영역 침범이 0건이다.
+- [ ] `BottomNavigationSlot` 영역 침범이 0건이다.
+- [ ] 일반 UI가 `OverlayRoot`에 배치된 곳이 0건이다.
+- [ ] ScrollView 콘텐츠가 Viewport 밖으로 노출되지 않는다.
+- [ ] Decoration 이외의 음수 Margin 사용이 없다.
 
 ### 구현 품질
 
@@ -983,12 +1157,18 @@ AI가 UI를 생성하거나 수정할 때 반드시 다음을 따른다.
 - 전체 목록의 반복 파괴·생성
 - 의미 없는 장식, 그래프, 애니메이션 추가
 - 기존 공통 컴포넌트 확인 없이 유사 Prefab 복제
+- Skin이 있는 Panel/Button/Tab/Card/Popup을 `Image + Color`로 대체
+- 승인된 UPlayBall Skin(프레임·코너·스티치·금속 장식)의 임의 제거·단순화
+- Content가 `ContentSafeRect`를 벗어나거나 형제 Panel/Header/BottomNav를 침범하는 배치
+- 컴파일 성공만으로, 또는 Skin Compliance·Layout Bounds 검증 없이 UI 작업을 완료 처리하는 것
 
 ---
 
 ## 19. 한 문장 기준
 
 > **새 화면은 새 디자인을 만드는 작업이 아니라, UPlayBall의 기존 공통 UI 문법 안에 새로운 정보를 배치하는 작업이다.**
+>
+> **새 화면의 시각 외관은 승인된 UPlayBall Skin을 조합하고, 기능 콘텐츠는 각 Skin이 정의한 Content Safe Bounds 안에서만 배치한다. Skin 미사용 또는 Bounds 침범이 하나라도 있으면 UI 작업은 미완료다.**
 
 ---
 
@@ -997,3 +1177,4 @@ AI가 UI를 생성하거나 수정할 때 반드시 다음을 따른다.
 | 버전 | 날짜 | 변경 내용 |
 |---|---|---|
 | 1.0 | 2026-08-28 | 최초 작성. 공통 셸, 메뉴 구조, 시각 토큰, 입력, 코드 구조, 완료 조건 정의 |
+| 1.1 | 2026-08-30 | Theme/Skin/Layout 개념 분리. Skin 적용 규칙(5.5), Content Safe Bounds(4.5), Screen Slot 구조(4.6), Responsive 우선순위(4.7) 추가. AI 작업 지침과 완료 조건에 Skin 검증·Layout Bounds 검증 추가 |

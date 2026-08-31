@@ -40,8 +40,8 @@ namespace Baseball.Presentation.Career
             RectTransform rect = buttonObject.GetComponent<RectTransform>();
             rect.SetParent(parent, false);
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(100f, 44f);
-            rect.anchoredPosition = new Vector2(890f, 500f);
+            rect.sizeDelta = new Vector2(160f, 50f);
+            rect.anchoredPosition = new Vector2(860f, 500f);
 
             Image image = buttonObject.GetComponent<Image>();
             image.color = CareerUiTheme.PanelDark;
@@ -57,8 +57,9 @@ namespace Baseball.Presentation.Career
 
             Text label = CreateText(
                 "Label", rect, "설정", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(90f, 36f), Vector2.zero, CareerUiTheme.TextSecondary);
+                new Vector2(150f, 42f), Vector2.zero, CareerUiTheme.TextSecondary);
             label.raycastTarget = false;
+            CareerUiSkin.ApplyButton(button);
         }
 
         private static Text CreateText(
@@ -134,16 +135,11 @@ namespace Baseball.Presentation.Career
         private static readonly Color BorderColor = CareerUiTheme.Border;
         private static readonly Color ActiveColor = CareerUiTheme.SurfaceSelected;
         private static readonly Color InactiveColor = CareerUiTheme.PanelDark;
-        private static readonly Color AccentColor = CareerUiTheme.PrimaryBright;
         private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
         private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
-        private static readonly Color MutedColor = CareerUiTheme.TextMuted;
 
         private static readonly string[] Labels =
             { "홈", "선수", "성장", "일정", "리그", "구단", "기록", "계약" };
-
-        private static readonly string[] Icons =
-            { "HOME", "PLAYER", "GROW", "DATE", "LEAGUE", "TEAM", "RECORD", "DEAL" };
 
         public static void Create(Transform parent, CareerMainTab activeTab)
         {
@@ -166,22 +162,11 @@ namespace Baseball.Presentation.Career
                     new Vector2(tabWidth - 2f, 86f),
                     new Vector2(x, -2f));
                 MarkVisual(tab, CareerUiVisualRole.InteractiveControl);
-                if (isActive)
-                {
-                    RectTransform activeIndicator = CreateImage(
-                        "ActiveGlow", tab, AccentColor, new Vector2(tabWidth - 18f, 4f),
-                        new Vector2(0f, 41f));
-                    MarkVisual(activeIndicator, CareerUiVisualRole.Divider);
-                }
 
-                Text icon = CreateText(
-                    "Icon", tab, Icons[index], 10, FontStyle.Bold, TextAnchor.MiddleCenter,
-                    new Vector2(110f, 20f), new Vector2(0f, 16f), isActive ? AccentColor : MutedColor);
                 Text label = CreateText(
                     "Label", tab, Labels[index], 18, FontStyle.Bold, TextAnchor.MiddleCenter,
-                    new Vector2(150f, 32f), new Vector2(0f, -15f),
+                    new Vector2(150f, 42f), Vector2.zero,
                     isActive ? PrimaryTextColor : SecondaryTextColor);
-                icon.raycastTarget = false;
                 label.raycastTarget = false;
 
                 Button button = tab.gameObject.AddComponent<Button>();

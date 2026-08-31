@@ -52,5 +52,8 @@ namespace Baseball.Presentation.UI
         // Vector4 순서는 left, bottom, right, top이다.
         public static readonly Vector4 UniversalFramePadding = new(32f, 28f, 32f, 76f);
         public static readonly Vector4 HeroFramePadding = new(40f, 32f, 40f, 80f);
+        public static readonly Vector4 DenseFramePadding = new(20f, 24f, 20f, 68f);
+        public static readonly Vector4 WideFramePadding = new(24f, 28f, 24f, 72f);
+        public static readonly Vector4 PopupFramePadding = new(40f, 36f, 40f, 88f);
     }
 }

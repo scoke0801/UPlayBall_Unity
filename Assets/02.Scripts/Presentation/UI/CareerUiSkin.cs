@@ -11,6 +11,7 @@ namespace Baseball.Presentation.UI
         private const string HeroPanelPath = "UI/Skin/ui_panel_hero_v2";
         private const string ButtonStatesPath = "UI/Skin/ui_button_states";
         private const string SliderPartsPath = "UI/Skin/ui_slider_parts";
+        private const string ProgressPartsPath = "UI/Skin/ui_progress_pairs_v3";
         private const string EffectsPath = "UI/Skin/ui_fx_atlas";
         private const string LegacySelectedBadgeName = "SkinSelectedBadge";
 
@@ -18,12 +19,20 @@ namespace Baseball.Presentation.UI
         private const float MaximumLabelPadding = 52f;
         private const float CompactButtonMaximumWidth = 180f;
         private const float CompactButtonMaximumHeight = 46f;
+        private const float CompactFramedPixelsPerUnitMultiplier = 3f;
         private const float CardButtonMinimumHeight = 260f;
+        private const float MaximumFlatSurfaceAlpha = 0.78f;
+        private const float LargeProgressMinimumWidth = 180f;
+        private const float LargeProgressMinimumHeight = 12f;
+        private const float LargeProgressFillHeightRatio = 0.68f;
+        private const float CompactProgressFillHeightRatio = 0.70f;
 
         private static readonly Vector4 PanelBorder = new(150f, 72f, 210f, 128f);
         private static readonly Vector4 HeroPanelBorder = new(230f, 110f, 180f, 160f);
         private static readonly Vector4 ButtonBorder = new(96f, 44f, 54f, 44f);
         private static readonly Vector4 SliderBorder = new(68f, 46f, 68f, 46f);
+        private static readonly Vector4 LargeProgressTrackBorder = new(56f, 56f, 56f, 56f);
+        private static readonly Vector4 CompactProgressTrackBorder = new(41f, 40f, 41f, 40f);
         private static readonly Color FlatPanelColor = new(0.014f, 0.048f, 0.078f, 0.98f);
         private static readonly Color FlatSurfaceColor = new(0.009f, 0.032f, 0.052f, 0.98f);
         private static readonly Color FlatBorderColor = new(0.17f, 0.28f, 0.36f, 0.92f);
@@ -40,6 +49,10 @@ namespace Baseball.Presentation.UI
         private static Sprite _sliderTrack;
         private static Sprite _sliderFill;
         private static Sprite _sliderHandle;
+        private static Sprite _largeProgressTrack;
+        private static Sprite _largeProgressHolder;
+        private static Sprite _compactProgressTrack;
+        private static Sprite _compactProgressHolder;
         private static Sprite _horizontalSweep;
         private static bool _isLoaded;
 
@@ -95,6 +108,14 @@ namespace Baseball.Presentation.UI
                 || image.sprite == _heroPanel
                 || IsSemanticActive(image.color);
 
+            if (visual != null
+                && visual.Role == CareerUiVisualRole.FramedControl
+                && IsCompactFramedControl(image.rectTransform))
+            {
+                ApplyCompactFramedControl(button, image, isSemanticActive);
+                return;
+            }
+
             if (IsCardButton(image.rectTransform))
             {
                 ApplyCardButton(button, image, isSemanticActive);
@@ -143,19 +164,21 @@ namespace Baseball.Presentation.UI
                 return;
 
             Image track = slider.GetComponent<Image>();
+            Image fill = slider.fillRect != null ? slider.fillRect.GetComponent<Image>() : null;
             if (track != null)
             {
                 if (track.sprite != _sliderTrack)
                     track.color = ResolveTextureTint(track.color, 0.35f);
                 track.sprite = _sliderTrack;
                 track.type = Image.Type.Sliced;
+                track.pixelsPerUnitMultiplier = 1f;
             }
 
-            Image fill = slider.fillRect != null ? slider.fillRect.GetComponent<Image>() : null;
             if (fill != null)
             {
                 fill.sprite = _sliderFill;
                 fill.type = Image.Type.Sliced;
+                fill.pixelsPerUnitMultiplier = 1f;
                 fill.color = Color.white;
             }
 
@@ -167,6 +190,89 @@ namespace Baseball.Presentation.UI
                 handle.preserveAspect = true;
                 handle.color = Color.white;
             }
+        }
+
+        /// <summary>표시 전용 진행 바의 크기에 맞는 Track과 Holder 쌍을 적용한다.</summary>
+        public static void ApplyProgressBar(Image track, Image fill, float? normalizedValue = null)
+        {
+            if (!EnsureLoaded())
+                return;
+
+            float trackWidth = track != null ? Mathf.Abs(track.rectTransform.rect.width) : 0f;
+            float trackHeight = track != null ? Mathf.Abs(track.rectTransform.rect.height) : 0f;
+            bool usesLargeVariant = trackWidth >= LargeProgressMinimumWidth
+                && trackHeight >= LargeProgressMinimumHeight;
+            Sprite trackSprite = usesLargeVariant ? _largeProgressTrack : _compactProgressTrack;
+            Sprite holderSprite = usesLargeVariant ? _largeProgressHolder : _compactProgressHolder;
+
+            if (track != null)
+            {
+                track.sprite = trackSprite;
+                track.type = Image.Type.Sliced;
+                track.pixelsPerUnitMultiplier = ResolveProgressPixelsPerUnit(
+                    trackHeight,
+                    usesLargeVariant);
+                track.color = Color.white;
+            }
+
+            if (fill != null)
+            {
+                Color sourceFillColor = fill.color;
+                if (normalizedValue.HasValue && track != null)
+                {
+                    float ratio = Mathf.Clamp01(normalizedValue.Value);
+                    RectTransform fillRect = fill.rectTransform;
+                    float heightRatio = usesLargeVariant
+                        ? LargeProgressFillHeightRatio
+                        : CompactProgressFillHeightRatio;
+                    float fillHeight = Mathf.Max(2f, trackHeight * heightRatio);
+                    float horizontalInset = (trackHeight - fillHeight) * 0.5f;
+                    float fullWidth = Mathf.Max(0f, track.rectTransform.rect.width - horizontalInset * 2f);
+                    fillRect.anchorMin = fillRect.anchorMax = new Vector2(0f, 0.5f);
+                    fillRect.pivot = new Vector2(0f, 0.5f);
+                    fillRect.anchoredPosition = new Vector2(horizontalInset, 0f);
+                    fillRect.sizeDelta = new Vector2(fullWidth * ratio, fillHeight);
+                    fill.enabled = ratio > 0f;
+                }
+
+                fill.sprite = holderSprite;
+                bool usesFillAmount = !normalizedValue.HasValue && fill.type == Image.Type.Filled;
+                fill.type = normalizedValue.HasValue ? Image.Type.Simple
+                    : usesFillAmount ? Image.Type.Filled : Image.Type.Simple;
+                fill.pixelsPerUnitMultiplier = 1f;
+                if (usesFillAmount)
+                {
+                    fill.fillMethod = Image.FillMethod.Horizontal;
+                    fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+                }
+
+                CareerUiProgressGradient gradient = fill.GetComponent<CareerUiProgressGradient>();
+                if (normalizedValue.HasValue && usesLargeVariant)
+                {
+                    if (gradient == null)
+                        gradient = fill.gameObject.AddComponent<CareerUiProgressGradient>();
+                    gradient.enabled = true;
+                    fill.color = Color.white;
+                    gradient.SetValue(normalizedValue.Value);
+                }
+                else
+                {
+                    if (gradient != null)
+                        gradient.enabled = false;
+                    fill.color = normalizedValue.HasValue
+                        ? CareerUiProgressGradient.EvaluateColor(normalizedValue.Value)
+                        : sourceFillColor;
+                }
+            }
+        }
+
+        private static float ResolveProgressPixelsPerUnit(float trackHeight, bool usesLargeVariant)
+        {
+            float sourceRadius = usesLargeVariant
+                ? LargeProgressTrackBorder.x
+                : CompactProgressTrackBorder.x;
+            float targetRadius = Mathf.Max(1f, trackHeight * 0.5f);
+            return Mathf.Max(1f, sourceRadius / targetRadius);
         }
 
         /// <summary>정보 패널에 범용 또는 핵심 CTA용 9-slice 프레임을 적용한다.</summary>
@@ -182,16 +288,28 @@ namespace Baseball.Presentation.UI
             image.color = new Color(1f, 1f, 1f, sourceAlpha);
         }
 
+        /// <summary>명시된 시각 역할을 가진 동적 Image에 공통 스킨을 즉시 적용한다.</summary>
+        public static void ApplyVisualElement(Image image)
+        {
+            if (image == null || !EnsureLoaded())
+                return;
+
+            TryApplyExplicitVisualRole(image);
+        }
+
         private static bool EnsureLoaded()
         {
             if (_isLoaded)
-                return _universalPanel != null && _buttonNormal != null && _sliderTrack != null;
+                return _universalPanel != null && _buttonNormal != null
+                    && _sliderTrack != null && _largeProgressTrack != null
+                    && _compactProgressTrack != null;
 
             _isLoaded = true;
             Texture2D universal = Resources.Load<Texture2D>(UniversalPanelPath);
             Texture2D hero = Resources.Load<Texture2D>(HeroPanelPath);
             Texture2D buttons = Resources.Load<Texture2D>(ButtonStatesPath);
             Texture2D sliders = Resources.Load<Texture2D>(SliderPartsPath);
+            Texture2D progress = Resources.Load<Texture2D>(ProgressPartsPath);
             Texture2D effects = Resources.Load<Texture2D>(EffectsPath);
 
             // ImageGen 투명화 과정에서 프레임 바깥 최상단에 남은 고립 픽셀은 Sprite 영역에서 제외한다.
@@ -203,9 +321,19 @@ namespace Baseball.Presentation.UI
             _sliderTrack = CreateSprite(sliders, new Rect(52f, 708f, 1432f, 124f), SliderBorder);
             _sliderFill = CreateSprite(sliders, new Rect(52f, 504f, 1432f, 120f), SliderBorder);
             _sliderHandle = CreateSprite(sliders, new Rect(632f, 159f, 270f, 267f), Vector4.zero);
+            _largeProgressTrack = CreateSprite(
+                progress, new Rect(89f, 735f, 1358f, 113f), LargeProgressTrackBorder);
+            _largeProgressHolder = CreateSprite(
+                progress, new Rect(127f, 608f, 1108f, 76f), Vector4.zero);
+            _compactProgressTrack = CreateSprite(
+                progress, new Rect(107f, 329f, 728f, 82f), CompactProgressTrackBorder);
+            _compactProgressHolder = CreateSprite(
+                progress, new Rect(126f, 237f, 661f, 57f), Vector4.zero);
             _horizontalSweep = CreateSprite(effects, new Rect(107f, 114f, 1283f, 201f), Vector4.zero);
 
-            return _universalPanel != null && _buttonNormal != null && _sliderTrack != null;
+            return _universalPanel != null && _buttonNormal != null
+                && _sliderTrack != null && _largeProgressTrack != null
+                && _compactProgressTrack != null;
         }
 
         private static Sprite CreateSprite(Texture2D texture, Rect rect, Vector4 border)
@@ -270,6 +398,9 @@ namespace Baseball.Presentation.UI
                 case CareerUiVisualRole.FlatSurface:
                     ApplyExplicitFlatSurface(image);
                     break;
+                case CareerUiVisualRole.FramedSurface:
+                    ApplyFramedSurface(image);
+                    break;
             }
 
             return true;
@@ -279,6 +410,8 @@ namespace Baseball.Presentation.UI
         {
             image.sprite = null;
             image.type = Image.Type.Simple;
+            Color source = image.color;
+            image.color = new Color(source.r, source.g, source.b, Mathf.Min(source.a, MaximumFlatSurfaceAlpha));
             Outline outline = image.GetComponent<Outline>();
             if (outline != null)
                 outline.enabled = false;
@@ -293,6 +426,46 @@ namespace Baseball.Presentation.UI
                 outline.enabled = false;
             button.targetGraphic = image;
             button.transition = Selectable.Transition.ColorTint;
+        }
+
+        private static void ApplyFramedSurface(Image image)
+        {
+            Color sourceTint = image.color;
+            bool isSemanticActive = image.sprite == _buttonFocused || IsSemanticActive(sourceTint);
+            bool isAlreadyStyled = IsButtonStyled(image);
+            image.sprite = isSemanticActive ? _buttonFocused : _buttonNormal;
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = CompactFramedPixelsPerUnitMultiplier;
+            if (!isAlreadyStyled)
+                image.color = ResolveTextureTint(sourceTint, 0.24f);
+            image.raycastTarget = false;
+
+            Outline outline = image.GetComponent<Outline>();
+            if (outline != null)
+                outline.enabled = false;
+        }
+
+        private static void ApplyCompactFramedControl(
+            Button button,
+            Image image,
+            bool isSemanticActive)
+        {
+            if (!IsButtonStyled(image))
+            {
+                Color sourceTint = image.color;
+                image.sprite = isSemanticActive ? _buttonFocused : ResolveButtonSprite(sourceTint);
+                image.color = ResolveTextureTint(sourceTint, 0.24f);
+                if (isSemanticActive)
+                    ConfigurePersistentSelectedTransition(button);
+                else
+                    ConfigureSpriteSwapTransition(button);
+            }
+
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = CompactFramedPixelsPerUnitMultiplier;
+            if (button.GetComponent<RectMask2D>() == null)
+                button.gameObject.AddComponent<RectMask2D>();
+            EnsureButtonLabelLayout(button);
         }
 
         private static bool IsPanelCandidate(Image image)
@@ -458,6 +631,12 @@ namespace Baseball.Presentation.UI
 
             Rect bounds = rect.rect;
             return IsCompactButton(Mathf.Abs(bounds.width), Mathf.Abs(bounds.height));
+        }
+
+        private static bool IsCompactFramedControl(RectTransform rect)
+        {
+            return rect != null
+                && Mathf.Abs(rect.rect.height) <= CompactButtonMaximumHeight;
         }
 
         private static bool IsCompactButton(float width, float height)

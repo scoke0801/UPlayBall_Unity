@@ -9,9 +9,11 @@ namespace Baseball.Presentation.UI
         DecorativeFrame,
         FlatSurface,
         InteractiveControl,
+        FramedControl,
         DataImage,
         Divider,
-        InputBlocker
+        InputBlocker,
+        FramedSurface
     }
 
     /// <summary>이름 추정 없이 Image의 시각 역할과 프레임 Variant를 공통 스킨에 전달한다.</summary>
@@ -63,6 +65,24 @@ namespace Baseball.Presentation.UI
             _interactionRoot = interactionRoot;
             _contentPadding = contentPadding;
             _isHero = isHero;
+        }
+
+        /// <summary>프레임 크기와 개별 패딩으로 실제 콘텐츠 안전 영역을 계산한다.</summary>
+        public static void ApplyContentPadding(
+            RectTransform target,
+            Vector2 frameSize,
+            Vector4 padding)
+        {
+            if (target == null)
+                return;
+
+            target.anchorMin = target.anchorMax = new Vector2(0.5f, 0.5f);
+            target.sizeDelta = new Vector2(
+                Mathf.Max(0f, frameSize.x - padding.x - padding.z),
+                Mathf.Max(0f, frameSize.y - padding.y - padding.w));
+            target.anchoredPosition = new Vector2(
+                (padding.x - padding.z) * 0.5f,
+                (padding.y - padding.w) * 0.5f);
         }
 
         public bool ContainsContent(Transform target)

@@ -17,8 +17,8 @@ namespace Baseball.Presentation.Career
     {
         private static readonly Color OverlayColor = new(0.001f, 0.006f, 0.012f, 0.88f);
         private static readonly Color BackgroundColor = new(0.008f, 0.031f, 0.055f, 1f);
-        private static readonly Color PanelColor = new(0.014f, 0.057f, 0.098f, 1f);
-        private static readonly Color CardColor = new(0.019f, 0.077f, 0.128f, 1f);
+        private static readonly Color PanelColor = new(0.014f, 0.057f, 0.098f, 0.78f);
+        private static readonly Color CardColor = new(0.019f, 0.077f, 0.128f, 0.82f);
         private static readonly Color SelectedColor = new(0.024f, 0.17f, 0.31f, 1f);
         private static readonly Color BorderColor = new(0.18f, 0.37f, 0.54f, 1f);
         private static readonly Color AccentColor = new(0.10f, 0.56f, 1f, 1f);
@@ -29,6 +29,9 @@ namespace Baseball.Presentation.Career
         private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
         private static readonly Color SecondaryTextColor = new(0.64f, 0.73f, 0.82f, 1f);
         private static readonly Color MutedTextColor = new(0.38f, 0.47f, 0.56f, 1f);
+        private const float ProgramListViewportHeight = 276f;
+        private const float ProgramCardHeight = 44f;
+        private const float ProgramCardPitch = 46f;
 
         private CareerManager _manager;
         private RectTransform _content;
@@ -84,12 +87,20 @@ namespace Baseball.Presentation.Career
                 Vector2.zero,
                 stretch: true);
             overlay.GetComponent<Image>().raycastTarget = true;
-            _content = CreateImage(
-                "Content",
-                root,
-                BorderColor,
-                new Vector2(1500f, 900f),
-                Vector2.zero);
+            Vector2 frameSize = new(1660f, 980f);
+            RectTransform frameRoot = CreateRect("PopupFrame", root, frameSize, Vector2.zero);
+            RectTransform decorativeFrame = CreateImage(
+                "DecorativeFrame", frameRoot, Color.white, Vector2.zero, Vector2.zero, stretch: true);
+            MarkVisual(decorativeFrame, CareerUiVisualRole.DecorativeFrame);
+            _content = CreateRect("ContentSafeArea", frameRoot, frameSize, Vector2.zero);
+            RectTransform interaction = CreateRect("InteractionRoot", frameRoot, frameSize, Vector2.zero);
+            RectTransform headerRoot = CreateRect("HeaderRoot", frameRoot, frameSize, Vector2.zero);
+            CareerUiFrame.ApplyContentPadding(_content, frameSize, CareerUiTheme.PopupFramePadding);
+            CareerUiFrame.ApplyContentPadding(interaction, frameSize, CareerUiTheme.PopupFramePadding);
+            CareerUiFrame frame = frameRoot.gameObject.AddComponent<CareerUiFrame>();
+            frame.Initialize(
+                decorativeFrame.GetComponent<Image>(), headerRoot, _content, interaction,
+                CareerUiTheme.PopupFramePadding, false);
         }
 
         protected override void OnShow()
@@ -125,7 +136,7 @@ namespace Baseball.Presentation.Career
 
             ClearChildren(_content);
             RectTransform surface = CreateImage(
-                "Surface",
+                "FlatSurface",
                 _content,
                 BackgroundColor,
                 Vector2.zero,
@@ -133,6 +144,7 @@ namespace Baseball.Presentation.Career
                 stretch: true);
             surface.offsetMin = new Vector2(2f, 2f);
             surface.offsetMax = new Vector2(-2f, -2f);
+            MarkVisual(surface, CareerUiVisualRole.FlatSurface);
 
             CareerDashboardView dashboard = _manager.Dashboard;
             CareerGrowthView growth = _manager.GrowthDashboard;
@@ -144,6 +156,7 @@ namespace Baseball.Presentation.Career
             RenderDetails(selected);
             RenderTimeline(growth, selected);
             RenderFooter(growth, selected);
+            CareerUiSkin.Apply(_content);
         }
 
         private void RenderHeader(GrowthProgramView selected)
@@ -155,20 +168,19 @@ namespace Baseball.Presentation.Career
                 OffseasonActivityType.Rest => "휴식 계획 확정",
                 _ => "훈련 계획 확정"
             };
-            RectTransform header = CreateImage(
+            RectTransform header = CreateRect(
                 "Header",
                 _content,
-                new Color(0.018f, 0.075f, 0.128f, 1f),
                 new Vector2(1496f, 66f),
-                new Vector2(0f, 415f));
+                new Vector2(0f, 390f));
+            CreateImage("HeaderDivider", header, AccentColor, new Vector2(1460f, 2f), new Vector2(0f, -31f));
             CreateText(
                 "Title", header, title, 30, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(640f, 54f), Vector2.zero, PrimaryTextColor);
             Button close = CreateButton(
-                "Close", header, "×", new Vector2(58f, 54f), new Vector2(705f, 0f),
-                new Color(0.02f, 0.06f, 0.10f, 0.1f), out Text closeLabel);
-            closeLabel.fontSize = 40;
-            closeLabel.fontStyle = FontStyle.Normal;
+                "Close", header, "닫기", new Vector2(130f, 52f), new Vector2(675f, 0f),
+                new Color(0.02f, 0.12f, 0.20f, 1f), out Text closeLabel);
+            closeLabel.fontSize = 16;
             close.onClick.AddListener(Close);
         }
 
@@ -183,6 +195,7 @@ namespace Baseball.Presentation.Career
                 PanelColor,
                 new Vector2(330f, 154f),
                 new Vector2(-567f, 300f));
+            MarkVisual(panel, CareerUiVisualRole.FramedSurface);
             RectTransform portrait = CreateImage(
                 "Portrait",
                 panel,
@@ -285,14 +298,9 @@ namespace Baseball.Presentation.Career
             bool isValid,
             string warning)
         {
-            RectTransform frame = CreateImage(
-                name,
-                _content,
-                isValid ? BorderColor : ErrorColor,
-                new Vector2(236f, 154f),
-                new Vector2(x, 300f));
+            RectTransform frame = CreateRect(name, _content, new Vector2(236f, 154f), new Vector2(x, 300f));
             RectTransform card = CreateImage(
-                "Surface",
+                "FlatSurface",
                 frame,
                 CardColor,
                 Vector2.zero,
@@ -300,6 +308,9 @@ namespace Baseball.Presentation.Career
                 stretch: true);
             card.offsetMin = new Vector2(2f, 2f);
             card.offsetMax = new Vector2(-2f, -2f);
+            MarkVisual(card, CareerUiVisualRole.FramedSurface);
+            CreateImage("Accent", frame, isValid ? BorderColor : ErrorColor,
+                new Vector2(4f, 130f), new Vector2(-114f, 0f));
             CreateText(
                 "Title", frame, title, 13, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(210f, 24f), new Vector2(0f, 52f), SecondaryTextColor);
@@ -327,9 +338,6 @@ namespace Baseball.Presentation.Career
                 new Vector2(440f, 366f),
                 new Vector2(-512f, 32f));
 
-            const float viewportHeight = 276f;
-            const float cardHeight = 48f;
-            const float cardPitch = 50f;
             int programCount = 0;
             int selectedIndex = 0;
             for (int index = 0; index < growth.Programs.Length; index++)
@@ -346,12 +354,14 @@ namespace Baseball.Presentation.Career
                 "Viewport",
                 panel,
                 new Color(0f, 0f, 0f, 0.001f),
-                new Vector2(396f, viewportHeight),
+                new Vector2(396f, ProgramListViewportHeight),
                 new Vector2(-6f, -24f));
             viewport.GetComponent<Image>().raycastTarget = true;
             viewport.gameObject.AddComponent<RectMask2D>();
 
-            float contentHeight = Mathf.Max(viewportHeight, programCount * cardPitch - (cardPitch - cardHeight));
+            float contentHeight = Mathf.Max(
+                ProgramListViewportHeight,
+                programCount * ProgramCardPitch - (ProgramCardPitch - ProgramCardHeight));
             RectTransform content = CreateRect(
                 "Content", viewport, new Vector2(396f, contentHeight), Vector2.zero);
             content.anchorMin = content.anchorMax = new Vector2(0.5f, 1f);
@@ -365,7 +375,7 @@ namespace Baseball.Presentation.Career
             scrollRect.vertical = true;
             scrollRect.movementType = ScrollRect.MovementType.Clamped;
             scrollRect.inertia = true;
-            scrollRect.scrollSensitivity = cardPitch;
+            scrollRect.scrollSensitivity = ProgramCardPitch;
 
             int visibleIndex = 0;
             for (int index = 0; index < growth.Programs.Length; index++)
@@ -376,16 +386,19 @@ namespace Baseball.Presentation.Career
                 RenderProgramCard(content, program, selected, visibleIndex++);
             }
 
-            float maximumScroll = Mathf.Max(0f, contentHeight - viewportHeight);
-            float selectedBottom = selectedIndex * cardPitch + cardHeight;
-            float selectedScroll = Mathf.Clamp(selectedBottom - viewportHeight, 0f, maximumScroll);
+            float maximumScroll = Mathf.Max(0f, contentHeight - ProgramListViewportHeight);
+            float selectedBottom = selectedIndex * ProgramCardPitch + ProgramCardHeight;
+            float selectedScroll = Mathf.Clamp(
+                selectedBottom - ProgramListViewportHeight,
+                0f,
+                maximumScroll);
             content.anchoredPosition = new Vector2(0f, selectedScroll);
 
             if (maximumScroll > 0f)
             {
                 RectTransform track = CreateImage(
                     "Scrollbar", panel, new Color(0.06f, 0.12f, 0.17f, 1f),
-                    new Vector2(6f, viewportHeight), new Vector2(207f, -24f));
+                    new Vector2(6f, ProgramListViewportHeight), new Vector2(207f, -24f));
                 track.GetComponent<Image>().raycastTarget = true;
                 Scrollbar scrollbar = track.gameObject.AddComponent<Scrollbar>();
                 RectTransform handle = CreateImage(
@@ -412,8 +425,8 @@ namespace Baseball.Presentation.Career
                 "Program_" + program.ProgramId,
                 panel,
                 string.Empty,
-                new Vector2(388f, 48f),
-                new Vector2(0f, -24f - index * 50f),
+                new Vector2(388f, ProgramCardHeight),
+                new Vector2(0f, -ProgramCardHeight * 0.5f - index * ProgramCardPitch),
                 isSelected ? SelectedColor : CardColor,
                 out _);
             RectTransform buttonRect = (RectTransform)button.transform;
@@ -562,6 +575,7 @@ namespace Baseball.Presentation.Career
                 CardColor,
                 new Vector2(350f, 225f),
                 new Vector2(270f, -39f));
+            MarkVisual(panel, CareerUiVisualRole.FramedSurface);
             CreateText(
                 "Title", panel,
                 selected.ActivityType == OffseasonActivityType.Study ? "유학 적합도와 가능성" : "부가 효과와 부담",
@@ -737,6 +751,7 @@ namespace Baseball.Presentation.Career
                 PanelColor,
                 new Vector2(1404f, 92f),
                 new Vector2(0f, -366f));
+            MarkVisual(footer, CareerUiVisualRole.FramedSurface);
             string result = BuildResultSummary(selected);
             CreateText(
                 "SummaryLabel", footer, "예상 결과", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -933,11 +948,17 @@ namespace Baseball.Presentation.Career
             Vector2 size,
             Vector2 position)
         {
-            RectTransform panel = CreateImage(name, _content, BorderColor, size, position);
+            RectTransform panel = CreateRect(name, _content, size, position);
             RectTransform surface = CreateImage(
-                "Surface", panel, PanelColor, Vector2.zero, Vector2.zero, stretch: true);
+                "FramedSurface",
+                panel,
+                PanelColor,
+                Vector2.zero,
+                Vector2.zero,
+                stretch: true);
             surface.offsetMin = new Vector2(2f, 2f);
             surface.offsetMax = new Vector2(-2f, -2f);
+            MarkVisual(surface, CareerUiVisualRole.FramedSurface);
             CreateText(
                 "Title", panel, title, 19, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(size.x - 34f, 40f), new Vector2(0f, size.y * 0.5f - 27f),
@@ -963,6 +984,10 @@ namespace Baseball.Presentation.Career
             currentFill.anchorMin = currentFill.anchorMax = new Vector2(0f, 0.5f);
             currentFill.pivot = new Vector2(0f, 0.5f);
             currentFill.anchoredPosition = new Vector2(2f, 0f);
+            CareerUiSkin.ApplyProgressBar(
+                track.GetComponent<Image>(),
+                currentFill.GetComponent<Image>(),
+                Mathf.Clamp01(current / 100f));
             float projectedWidth = size.x * Mathf.Clamp01((projectedMaximum - current) / 100f);
             if (projectedWidth <= 0f)
                 return;
@@ -1044,6 +1069,7 @@ namespace Baseball.Presentation.Career
             out Text text)
         {
             RectTransform rect = CreateImage(name, parent, color, size, position);
+            MarkVisual(rect, CareerUiVisualRole.FramedControl);
             Button button = rect.gameObject.AddComponent<Button>();
             rect.GetComponent<Image>().raycastTarget = true;
             ColorBlock colors = button.colors;
@@ -1056,6 +1082,14 @@ namespace Baseball.Presentation.Career
                 "Label", rect, label, 15, FontStyle.Bold, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
             return button;
+        }
+
+        private static void MarkVisual(RectTransform target, CareerUiVisualRole role)
+        {
+            CareerUiVisualElement visual = target.GetComponent<CareerUiVisualElement>();
+            if (visual == null)
+                visual = target.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(role);
         }
 
         private static void ClearChildren(Transform parent)
