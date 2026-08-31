@@ -1605,8 +1605,10 @@ Base Ability
   Legendary/Champion이다. Legendary는 개인 수상 1회 조건도 함께 요구한다.
 - Unique·Legendary는 단순 수치보다 Trait을 제공한다. Trait은 실제 경기 상황에서 발동하고
   계약 안정 전력에 직접 중복 합산하지 않는다.
-- 개막일에 `ActiveSkillBoardSnapshot`을 고정한다. 시즌 중 보드 편집은 허용하지 않고 경기·역할·계약은
-  같은 스냅샷을 사용한다.
+- 개막일에 `ActiveSkillBoardSnapshot`을 고정하고 경기·역할·계약은 항상 같은 스냅샷을 사용한다.
+- 시즌 중에도 보드를 교체할 수 있다. 편집은 자유롭고 확정만 비용을 받으며, 확정 전까지 스냅샷은
+  바뀌지 않는다. 확정 시점 이후의 경기와 역할 평가부터 새 스냅샷을 쓰고 이미 치른 기록은 불변이다.
+  횟수 제한과 적응 페널티는 두지 않는다.
 - 보장 카운트와 확률을 공개한다. 중복은 강화 재료가 아니라 소액 Money 판매만 허용한다.
 - 보드는 4×4이며 모든 등급의 블록은 `I/O/T/S/Z/J/L` 7종 중 하나인 4칸 표준 테트로미노다.
   등급은 칸 수가 아니라 보너스와 프레임으로 구분하며, 회전·경계·겹침·Trait Socket을 검증한다.
@@ -2286,8 +2288,9 @@ Unity BatchMode EditMode는 `Unity.PerformanceTesting.Editor.TestRunBuilder` 사
 - `FieldingPlayResolver`의 Range와 Hands는 `Defense`, Arm은 실제 `Arm`에서 파생한다. Arm은 추가 진루,
   병살 송구, 도루 저지에 영향을 주며 포구·송구 실책은 Hands가 담당한다. `Bunt`는 독립 저장값 대신
   `Contact`와 `Mental`의 파생값이다.
-- `PlayerValueEvaluator`와 시즌 성장 가중치는 포수의 Defense/Arm/Mental, 3루수의 Power/Arm,
-  유격수의 Speed/Arm/Defense, 중견수의 Speed/Defense처럼 포지션 카드의 핵심 능력과 맞춘다.
+- `PlayerValueEvaluator`와 시즌 성장 가중치는 포지션별 수비 기여 차이를 반영하되 모든 능력치를
+  양의 가중치로 평가한다. 생성 화면에는 일부 능력치만 정답처럼 보이는 "핵심 능력" 목록을 노출하지
+  않고, 포지션이 수비 위치와 팀 내 경쟁군을 결정한다는 계약만 안내한다.
 - NPC 로스터는 더 이상 모든 능력치를 같은 OVR로 복제하지 않는다. Seed, 포지션, 목표 OVR에서
   결정론적으로 프로필과 개인 편차를 만들고 포지션 가중 OVR은 원래 경쟁자 OVR에 맞춘다. 실제 경기
   라인업도 축약 경쟁자 수치로 선수를 다시 만들지 않고 `WorldState.PlayerState`의 능력치와 성장 결과를
@@ -2375,6 +2378,37 @@ OBP, SLG, 득점, BB, SO, HBP가 모두 약 ±5% 안이며 통계 범위 테스�
 Simulation 경계·구종 방향·이벤트 부분 공개와 PlayMode 흐름 테스트를 추가했다. 2026-08-30 이번
 수정에서는 사용자 요청에 따라 빌드, 결정론 회귀 실행, 10,000경기 통계 회귀 실행은 보류했으므로
 실행 통과를 완료 조건으로 보고하지 않는다.
+
+### 40.26 구현 상태 — 타자·투수 공통 Play Resolution 연출
+
+타자와 투수 미니게임의 입력 뒤 결과를 곧바로 텍스트로 압축하지 않고, 같은 경기 이벤트를 소비하는
+공통 `PlayResolutionSequence`로 연결한다.
+
+```text
+Pitch / Contact / Fielding / Runner MatchEvent
+→ PlayResolutionSequenceBuilder
+→ PresentationCue 타임라인
+→ Plate View 또는 Field View
+→ 판정 Cue 직후 HUD·점수·로그 공개
+```
+
+- Plate View는 Take, Swing, Swing & Miss, Foul, Contact를 실제 투구 도착과 이어서 표현한다.
+  인플레이가 아니면 포수 미트 도착과 판정 뒤 다음 투구로 돌아간다.
+- 인플레이는 Impact Hold 뒤 2D Field View로 전환한다. 타구 종류별 궤적, 실제 담당 야수 이동,
+  포구·공 회수·송구, 주자의 동시 이동, 베이스 도착의 `OUT/SAFE/SCORE`를 한 시퀀스로 보여 준다.
+- Simulation이 확정한 `BattedBallDescriptor`와 `FieldingPlayOutcome`을 `BallInPlayEventData`로 이벤트에
+  실어 보낸다. Presentation은 6-3 땅볼 같은 결과를 역추측하거나 별도 RNG로 야수를 선택하지 않는다.
+- 공·야수·주자·송구선은 화면 초기화 때 고정 생성하고 플레이마다 위치와 표시 상태만 초기화한다.
+  타구 경로 포인트 배열, Rigidbody, Collider, Unity 난수는 사용하지 않는다.
+- `CareerMatchPlayback` 이벤트 공개 위치는 Cue 타임라인이 소유한다. Contact, Field 전환,
+  RunnerAdvance, Out, Score, PlateAppearanceEnded는 해당 화면 사건이 발생한 직후까지 순차 공개되며,
+  경기 로그는 이미 본 플레이를 기록하는 역할만 한다.
+- 타자와 투수는 서로 다른 결과 판정기를 두지 않는다. 입력 평가와 야구 결과는 구분해 표시하며,
+  좋은 컨택의 정면 타구 아웃과 좋은 제구 뒤 타자의 대응도 기존 확률 결과 그대로 설명한다.
+
+이번 변경은 결과 이벤트의 표현 계약을 보강한 것이며 판정 확률, RNG 호출, 기록 집계 순서를 바꾸지
+않는다. 2026-08-30 작업에서는 사용자 요청에 따라 빌드, 결정론 검증, 10,000경기 회귀를 실행하지
+않았으므로 Unity Play Mode의 레이아웃·실제 재생과 함께 별도 검증이 남아 있다.
 
 ---
 

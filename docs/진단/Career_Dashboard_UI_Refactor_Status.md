@@ -91,6 +91,42 @@ Dashboard 정리 후 `UI_Scene_League`, `UI_Scene_Team`, `UI_Scene_Contract`,
 후속 작업도 데이터 바인딩, 탭 순서, 버튼 콜백, Core/Simulation/Save 구조와
 원본 프레임 PNG를 변경하지 않는다. 사용자 요청에 따라 Unity Test Mode와 Play Mode는 실행하지 않는다.
 
+## 재수정: 실제 스킨 안전 영역 적용
+
+후속 화면 캡처 검증 결과, 외곽 `DecorativeFrame` 자체는 적용됐지만 기존 전체 크기 좌표계를
+`ContentSafeArea`라는 이름으로만 감싼 상태였다. 그 결과 불투명한 내부 Box가 스킨을 가리고,
+헤더·탭·목록·푸터가 금속 모서리와 다른 카드 영역을 침범했다. 이전 완료 판정을 철회하고
+실제 안전 영역 크기와 화면별 콘텐츠 배치를 다시 적용한다.
+
+| 단계 | 상태 | 완료 조건 |
+|---|---|---|
+| R0. 캡처 기반 재진단 | 완료 | 외곽 스킨 적용과 내부 좌표/불투명 Box 문제를 분리 확인 |
+| R1. 문서 재개 | 완료 | 이전 완료 판정 철회와 재수정 범위 기록 |
+| R2. 공통 SafeArea 규칙 | 완료 | 실제 Insets 계산과 FlatSurface 최대 불투명도 규칙 적용 |
+| R3. 구단·리그 | 완료 | 표·탭·하단 카드 좌표와 가시 영역을 안전 영역 기준으로 재배치 |
+| R4. 일정 | 완료 | 달력 7×6 셀·우측 구단 요약을 Wide SafeArea 안으로 재산정 |
+| R5. 성장 화면군 | 완료 | 성장 보드·보관함·오프시즌·훈련 확인 팝업에 공통 스킨과 실제 SafeArea 적용 |
+| R6. 뉴스 팝업 | 완료 | 카테고리 공통 버튼 스킨 복원과 3열 본문 안전 영역 재배치 |
+| R7. 검증·마감 | 진행 중 | 정적 검사 완료, 보조 컴파일은 기존 경기 미니게임 누락 메서드로 차단 |
+
+### 재수정 반영 내역
+
+- `CareerUiFrame.ApplyContentPadding`을 추가해 `ContentSafeArea`와 `InteractionRoot`가 프레임 전체 크기를 재사용하지 않고 실제 Insets를 갖게 했다.
+- 화면 밀도에 따라 `DenseFramePadding`, `WideFramePadding`, `PopupFramePadding`을 구분했다.
+- 명시적 `FlatSurface`는 최대 알파를 제한해 장식 프레임의 종이 질감과 금속 모서리를 가리지 않게 했다.
+- 구단·리그·계약의 표, 탭, 요약 행, Footer를 새 안전 높이에 맞춰 재배치했다.
+- 일정 달력은 7열×6행 전체 폭과 높이를 다시 계산했고, 우측 구단 요약은 5개 정보 구역을 안전 영역 안에서 순서대로 배치했다.
+- 성장 보드 셀은 CTA 스킨 대상에서 제외해 평면 편집 셀로 유지하고, 선수 요약·보관함·오프시즌 액션의 상하단 침범을 제거했다.
+- 훈련 확인 팝업은 레거시 사각 `Content` 외곽선을 제거하고 단일 `DecorativeFrame`을 최상위 경계로 사용한다.
+- 커리어 뉴스는 카테고리 버튼을 공통 버튼 스킨으로 복원하고 기사 행만 평면 데이터 행으로 유지한다.
+
+### 재수정 검증 상태
+
+- `git diff --check`: 대상 UI 파일 통과.
+- `dotnet build Baseball.Presentation.csproj --no-restore`: 이번 UI 파일이 아닌 기존 경기 미니게임 partial의 누락 메서드 7건 때문에 실패.
+- 차단 심볼: `InitializePlayResolutionPresentation`, `ResetPlayResolutionPresentation`, `UpdatePlayResolutionPresentation`, `TryBeginPlayResolution`.
+- 사용자 요청에 따라 Unity Test Mode와 Play Mode는 실행하지 않았다.
+
 ## 완료 조건
 
 ### 시각 구조
