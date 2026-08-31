@@ -103,6 +103,8 @@ namespace Baseball.Game.Career
         public PlayerProfileAbilityView[] Abilities { get; internal set; }
         public GrowthBoardCellView[] BoardCells { get; internal set; }
         public GrowthSkillBlockView[] OwnedBlocks { get; internal set; }
+        public GrowthSkillBlockView[] PlacedBlocks { get; internal set; }
+        public GrowthBoardLayoutPlacement[] AppliedLayout { get; internal set; }
         public PlayerProfileStatisticsView SeasonStatistics { get; internal set; }
         public CareerRecordMetricValue[] CareerTotals { get; internal set; }
         public PlayerGameLogState[] RecentGames { get; internal set; }

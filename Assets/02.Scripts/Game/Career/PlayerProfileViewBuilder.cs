@@ -84,6 +84,8 @@ namespace Baseball.Game.Career
                 Abilities = BuildAbilities(player, playerType, growth),
                 BoardCells = growth?.BoardCells ?? Array.Empty<GrowthBoardCellView>(),
                 OwnedBlocks = growth?.OwnedBlocks ?? Array.Empty<GrowthSkillBlockView>(),
+                PlacedBlocks = growth?.PlacedBlocks ?? Array.Empty<GrowthSkillBlockView>(),
+                AppliedLayout = growth?.AppliedLayout ?? Array.Empty<GrowthBoardLayoutPlacement>(),
                 SeasonStatistics = new PlayerProfileStatisticsView(season.PlayerStatistics),
                 CareerTotals = records.CareerTotals ?? Array.Empty<CareerRecordMetricValue>(),
                 RecentGames = CopyRecentGames(season.PlayerStatistics)

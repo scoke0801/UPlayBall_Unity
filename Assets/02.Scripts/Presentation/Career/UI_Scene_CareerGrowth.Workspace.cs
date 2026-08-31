@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -130,15 +131,15 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreatePanel(
                 "PlayerSummary",
-                "PLAYER",
+                string.Empty,
                 "선수 요약",
                 new Vector2(320f, 760f),
                 new Vector2(-790f, -3f));
-            RectTransform identity = CreateSection(
+            RectTransform identity = CreateFramedSection(
                 "Identity",
                 panel,
-                new Vector2(286f, 112f),
-                new Vector2(0f, 273f),
+                new Vector2(272f, 104f),
+                new Vector2(0f, 248f),
                 new Color(0.02f, 0.12f, 0.20f, 1f));
             CreateText(
                 "Name",
@@ -180,7 +181,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility ability = abilities[index];
                 int baseValue = growth.BaseAbilities[(int)ability];
                 int value = Math.Min(100, baseValue + draftBonuses[(int)ability]);
-                float y = 177f - index * 48f;
+                float y = 135f - index * 45f;
                 CreateText(
                     "AbilityLabel_" + ability,
                     panel,
@@ -207,16 +208,16 @@ namespace Baseball.Presentation.Career
                     12,
                     FontStyle.Bold,
                     TextAnchor.MiddleRight,
-                    new Vector2(75f, 24f),
-                    new Vector2(104f, y),
+                    new Vector2(64f, 24f),
+                    new Vector2(96f, y),
                     draftBonuses[(int)ability] > 0 ? GreenColor : PrimaryTextColor);
             }
 
-            RectTransform condition = CreateSection(
+            RectTransform condition = CreateFramedSection(
                 "Condition",
                 panel,
-                new Vector2(286f, 62f),
-                new Vector2(0f, -126f),
+                new Vector2(252f, 48f),
+                new Vector2(0f, -123f),
                 PanelDarkColor);
             CreateText(
                 "ConditionValue",
@@ -225,19 +226,19 @@ namespace Baseball.Presentation.Career
                 13,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
-                new Vector2(265f, 32f),
+                new Vector2(244f, 30f),
                 Vector2.zero,
                 SecondaryTextColor);
 
-            RectTransform latest = CreateSection(
+            RectTransform latest = CreateFramedSection(
                 "LatestGrowth",
                 panel,
-                new Vector2(286f, 72f),
-                new Vector2(0f, -196f),
+                new Vector2(252f, 48f),
+                new Vector2(0f, -174f),
                 PanelDarkColor);
             CreateText(
                 "Title", latest, "최근 성장", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(100f, 22f), new Vector2(-82f, 20f), AccentColor);
+                new Vector2(100f, 18f), new Vector2(-72f, 14f), AccentColor);
             GrowthResultRecord latestExplainedGrowth = FindLatestExplainedGrowth(growth.RecentGrowth);
             string latestText = latestExplainedGrowth == null
                 ? "아직 설명 가능한 성장 기록이 없습니다."
@@ -251,28 +252,28 @@ namespace Baseball.Presentation.Career
                 12,
                 FontStyle.Normal,
                 TextAnchor.MiddleLeft,
-                new Vector2(250f, 38f),
-                new Vector2(0f, -12f),
+                new Vector2(232f, 30f),
+                new Vector2(0f, -9f),
                 SecondaryTextColor);
 
-            RectTransform role = CreateSection(
+            RectTransform role = CreateFramedSection(
                 "RoleCompetition",
                 panel,
-                new Vector2(286f, 112f),
-                new Vector2(0f, -296f),
+                new Vector2(252f, 84f),
+                new Vector2(0f, -243f),
                 new Color(0.035f, 0.10f, 0.16f, 1f));
             CreateText(
                 "RoleTitle", role,
                 $"현재 역할  {GetExpectedRoleLabel(growth.CurrentRole)}",
                 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(250f, 24f), new Vector2(0f, 35f), GoldColor);
+                new Vector2(232f, 22f), new Vector2(0f, 27f), GoldColor);
             string gap = growth.RoleScore == 0d && growth.CompetitorRoleScore == 0d
                 ? "경쟁 점수 산정 전"
                 : $"내 점수 {growth.RoleScore:0.0} · 경쟁자 {growth.CompetitorRoleScore:0.0} · " +
                   $"격차 {growth.RoleScore - growth.CompetitorRoleScore:+0.0;-0.0;0.0}";
             CreateText(
                 "RoleGap", role, gap, 11, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(250f, 22f), new Vector2(0f, 10f), SecondaryTextColor);
+                new Vector2(232f, 20f), new Vector2(0f, 5f), SecondaryTextColor);
             string protection = growth.WasInjuryReturnProtected
                 ? "\n부상 복귀 보호로 역할 하락 보류"
                 : growth.WasRoleCooldownProtected
@@ -282,7 +283,7 @@ namespace Baseball.Presentation.Career
                 "RoleReasons", role,
                 FormatDecisionExplanation(growth.RoleExplanation, 2) + protection,
                 10, FontStyle.Normal, TextAnchor.UpperLeft,
-                new Vector2(250f, 52f), new Vector2(0f, -30f), SecondaryTextColor);
+                new Vector2(232f, 34f), new Vector2(0f, -22f), SecondaryTextColor);
         }
 
         private static GrowthResultRecord FindLatestExplainedGrowth(GrowthResultRecord[] records)
@@ -294,15 +295,18 @@ namespace Baseball.Presentation.Career
 
         private void RenderDraftBoardPanel(CareerGrowthView growth)
         {
+            _draftPlacementPreviewVisual = null;
             RectTransform panel = CreatePanel(
                 "DraftBoard",
-                "GROWTH BOARD",
+                string.Empty,
                 "4×4 성장 보드",
                 new Vector2(700f, 760f),
                 new Vector2(-260f, -3f));
             string guide = !growth.CanEditBoard
-                ? "정규 시즌에는 현재 보드만 열람할 수 있습니다."
-                : _selectedOwnedBlockId > 0
+                ? "지금은 현재 보드만 열람할 수 있습니다."
+                : growth.IsBoardSeasonLocked
+                    ? $"시즌 중 교체는 확정 비용 {FormatMoney(growth.InSeasonBoardCommitCost)}이 듭니다. 확정 전까지 경기에는 기존 보드가 적용됩니다."
+                    : _selectedOwnedBlockId > 0
                     ? "청록색 칸을 눌러 임시 배치하세요. R 버튼은 회전입니다."
                     : "보관함 카드를 선택하면 배치 가능한 위치를 먼저 계산합니다.";
             CreateText(
@@ -313,15 +317,16 @@ namespace Baseball.Presentation.Career
                 FontStyle.Normal,
                 TextAnchor.MiddleCenter,
                 new Vector2(590f, 24f),
-                new Vector2(0f, 316f),
+                new Vector2(0f, 280f),
                 growth.CanEditBoard ? SecondaryTextColor : WarningColor);
 
             RectTransform board = CreateSection(
                 "BoardGrid",
                 panel,
-                new Vector2(470f, 470f),
-                new Vector2(0f, 68f),
+                new Vector2(440f, 440f),
+                new Vector2(0f, 56f),
                 new Color(0.006f, 0.022f, 0.036f, 1f));
+            board.gameObject.AddComponent<RectMask2D>();
             const float cellSize = 100f;
             const float gap = 7f;
             float span = growth.BoardWidth * cellSize + (growth.BoardWidth - 1) * gap;
@@ -348,12 +353,8 @@ namespace Baseball.Presentation.Career
                                         out originXAtCursor,
                                         out originYAtCursor);
                     Color cellColor = instanceId > 0
-                        ? GetCategoryColor(block.Category)
-                        : canPlace
-                            ? new Color(0.04f, 0.28f, 0.27f, 1f)
-                            : new Color(0.07f, 0.10f, 0.12f, 1f);
-                    if (instanceId == _selectedPlacedBlockId)
-                        cellColor = Color.Lerp(cellColor, Color.white, 0.24f);
+                        ? Color.clear
+                        : new Color(0.07f, 0.10f, 0.12f, 1f);
                     float px = -span * 0.5f + cellSize * 0.5f + x * (cellSize + gap);
                     float py = span * 0.5f - cellSize * 0.5f - y * (cellSize + gap);
                     Button cell = CreateButton(
@@ -364,6 +365,7 @@ namespace Baseball.Presentation.Career
                         new Vector2(px, py),
                         cellColor,
                         out _);
+                    MarkVisual((RectTransform)cell.transform, CareerUiVisualRole.FlatSurface);
                     cell.interactable = instanceId > 0 || canPlace;
                     if (instanceId > 0)
                     {
@@ -389,16 +391,6 @@ namespace Baseball.Presentation.Career
                         int targetX = originXAtCursor;
                         int targetY = originYAtCursor;
                         cell.onClick.AddListener(() => StageSelectedBlock(targetX, targetY, growth));
-                        CreateText(
-                            "Place",
-                            cell.transform,
-                            "＋",
-                            22,
-                            FontStyle.Bold,
-                            TextAnchor.MiddleCenter,
-                            new Vector2(52f, 52f),
-                            Vector2.zero,
-                            new Color(0.25f, 0.84f, 0.78f, 0.9f));
                     }
 
                     RectTransform preview = CreateImage(
@@ -418,7 +410,14 @@ namespace Baseball.Presentation.Career
                         AddPointerListener(
                             cell.gameObject,
                             EventTriggerType.PointerEnter,
-                            () => ShowDraftPlacementPreview(growth, hoverX, hoverY));
+                            () => ShowDraftPlacementPreview(
+                                board,
+                                growth,
+                                hoverX,
+                                hoverY,
+                                span,
+                                cellSize,
+                                gap));
                         AddPointerListener(
                             cell.gameObject,
                             EventTriggerType.PointerExit,
@@ -426,14 +425,15 @@ namespace Baseball.Presentation.Career
                     }
                 }
             }
+            RenderDraftBlockVisuals(board, growth, span, cellSize, gap);
 
             int[] current = growth.BoardBonuses;
             int[] draft = BuildDraftBonuses(growth);
-            RectTransform comparison = CreateSection(
+            RectTransform comparison = CreateFramedSection(
                 "BonusComparison",
                 panel,
-                new Vector2(650f, 78f),
-                new Vector2(0f, -214f),
+                new Vector2(640f, 88f),
+                new Vector2(0f, -192f),
                 PanelDarkColor);
             CreateText(
                 "Current",
@@ -442,8 +442,8 @@ namespace Baseball.Presentation.Career
                 12,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft,
-                new Vector2(285f, 58f),
-                new Vector2(-162f, 0f),
+                new Vector2(285f, 50f),
+                new Vector2(-162f, 8f),
                 SecondaryTextColor);
             CreateText(
                 "Draft",
@@ -452,30 +452,35 @@ namespace Baseball.Presentation.Career
                 12,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft,
-                new Vector2(285f, 58f),
-                new Vector2(162f, 0f),
+                new Vector2(285f, 50f),
+                new Vector2(162f, 8f),
                 _isBoardDraftDirty ? GreenColor : SecondaryTextColor);
 
             bool requiresRecovery = DraftRequiresSafeRecovery(growth);
-            string costText = requiresRecovery
-                ? $"안전 회수 {FormatMoney(growth.BoardRedesignCost)}"
-                : "추가 비용 없음";
+            string costText = growth.IsBoardSeasonLocked
+                ? $"시즌 중 확정 {FormatMoney(growth.InSeasonBoardCommitCost)}" +
+                  (growth.InSeasonBoardCommitCount > 0
+                      ? $" (이번 시즌 {growth.InSeasonBoardCommitCount}회 교체)"
+                      : string.Empty)
+                : requiresRecovery
+                    ? $"안전 회수 {FormatMoney(growth.BoardRedesignCost)}"
+                    : "추가 비용 없음";
             CreateText(
                 "ApplyCost",
                 panel,
                 costText,
-                11,
+                10,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
-                new Vector2(220f, 24f),
-                new Vector2(0f, -275f),
-                requiresRecovery ? GoldColor : MutedColor);
+                new Vector2(220f, 18f),
+                new Vector2(0f, -220f),
+                requiresRecovery || growth.IsBoardSeasonLocked ? GoldColor : MutedColor);
             Button cancel = CreateButton(
                 "CancelBoardDraft",
                 panel,
                 "편집 취소",
-                new Vector2(145f, 48f),
-                new Vector2(-235f, -323f),
+                new Vector2(135f, 48f),
+                new Vector2(-210f, -268f),
                 new Color(0.13f, 0.18f, 0.22f, 1f),
                 out _);
             cancel.interactable = _isBoardDraftDirty;
@@ -484,8 +489,8 @@ namespace Baseball.Presentation.Career
                 "ClearBoardDraft",
                 panel,
                 "초기화",
-                new Vector2(145f, 48f),
-                new Vector2(-75f, -323f),
+                new Vector2(135f, 48f),
+                new Vector2(-65f, -268f),
                 new Color(0.28f, 0.16f, 0.08f, 1f),
                 out _);
             clear.interactable = growth.CanEditBoard && _draftLayout.Count > 0;
@@ -494,14 +499,16 @@ namespace Baseball.Presentation.Career
                 "ApplyBoardDraft",
                 panel,
                 _confirmBoardApply ? "변경 적용 확정" : "변경 적용",
-                new Vector2(285f, 48f),
-                new Vector2(180f, -323f),
+                new Vector2(260f, 46f),
+                new Vector2(155f, -268f),
                 _confirmBoardApply
                     ? new Color(0.52f, 0.30f, 0.04f, 1f)
                     : new Color(0.02f, 0.38f, 0.72f, 1f),
                 out _);
             apply.interactable = growth.CanEditBoard && _isBoardDraftDirty &&
-                                 (!requiresRecovery || growth.CanRedesignBoard);
+                                 (growth.IsBoardSeasonLocked ||
+                                  !requiresRecovery ||
+                                  growth.CanRedesignBoard);
             apply.onClick.AddListener(() => ApplyBoardDraft(growth));
         }
 
@@ -509,7 +516,7 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreatePanel(
                 "BlockInventory",
-                "BLOCK INVENTORY",
+                string.Empty,
                 "블록 보관함",
                 new Vector2(800f, 760f),
                 new Vector2(500f, -3f));
@@ -523,9 +530,15 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.MiddleRight,
                 new Vector2(390f, 24f),
-                new Vector2(175f, 332f),
+                new Vector2(175f, 300f),
                 SecondaryTextColor);
 
+            CreateFramedSection(
+                "InventoryFilters",
+                panel,
+                new Vector2(752f, 84f),
+                new Vector2(0f, 233f),
+                PanelDarkColor);
             RenderInventoryCategoryFilters(panel, growth);
             RenderInventoryRarityFilters(panel);
             Button newOnly = CreateButton(
@@ -533,7 +546,7 @@ namespace Baseball.Presentation.Career
                 panel,
                 "신규",
                 new Vector2(78f, 30f),
-                new Vector2(112f, 252f),
+                new Vector2(112f, 214f),
                 _inventoryNewOnly
                     ? new Color(0.10f, 0.39f, 0.22f, 1f)
                     : PanelDarkColor,
@@ -550,7 +563,7 @@ namespace Baseball.Presentation.Career
                 panel,
                 "현재 보드 배치 가능만",
                 new Vector2(185f, 30f),
-                new Vector2(282f, 252f),
+                new Vector2(282f, 214f),
                 _inventoryPlaceableOnly
                     ? new Color(0.04f, 0.38f, 0.31f, 1f)
                     : PanelDarkColor,
@@ -576,7 +589,7 @@ namespace Baseball.Presentation.Career
                 panel,
                 "‹",
                 new Vector2(34f, 28f),
-                new Vector2(280f, -126f),
+                new Vector2(260f, -102f),
                 PanelDarkColor,
                 out _);
             previous.interactable = _inventoryPage > 0;
@@ -589,14 +602,14 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
                 new Vector2(65f, 28f),
-                new Vector2(326f, -126f),
+                new Vector2(306f, -102f),
                 SecondaryTextColor);
             Button next = CreateButton(
                 "InventoryNextPage",
                 panel,
                 "›",
                 new Vector2(34f, 28f),
-                new Vector2(372f, -126f),
+                new Vector2(352f, -102f),
                 PanelDarkColor,
                 out _);
             next.interactable = _inventoryPage < pageCount - 1;
@@ -612,7 +625,7 @@ namespace Baseball.Presentation.Career
                 panel,
                 "전체",
                 new Vector2(70f, 30f),
-                new Vector2(-344f, 292f),
+                new Vector2(-344f, 252f),
                 !_inventoryCategory.HasValue ? new Color(0.02f, 0.36f, 0.68f, 1f) : PanelDarkColor,
                 out Text allLabel);
             allLabel.fontSize = 11;
@@ -625,7 +638,7 @@ namespace Baseball.Presentation.Career
                     panel,
                     GetCategoryShortLabel(category),
                     new Vector2(78f, 30f),
-                    new Vector2(-264f + index * 84f, 292f),
+                    new Vector2(-264f + index * 84f, 252f),
                     _inventoryCategory == category
                         ? Color.Lerp(PanelDarkColor, GetCategoryColor(category), 0.7f)
                         : PanelDarkColor,
@@ -646,7 +659,7 @@ namespace Baseball.Presentation.Career
                     panel,
                     GetRarityCode(rarity),
                     new Vector2(44f, 30f),
-                    new Vector2(-344f + index * 50f, 252f),
+                    new Vector2(-344f + index * 50f, 214f),
                     _inventoryRarity == rarity
                         ? Color.Lerp(PanelDarkColor, GetRarityFrameColor(rarity), 0.62f)
                         : PanelDarkColor,
@@ -664,7 +677,7 @@ namespace Baseball.Presentation.Career
             int column = index % 4;
             int row = index / 4;
             float x = -285f + column * 190f;
-            float y = 180f - row * 122f;
+            float y = 138f - row * 112f;
             GrowthSkillBlockView block = stack.Block;
             bool selected = block.InstanceId == _selectedOwnedBlockId;
             Color frame = GetRarityFrameColor(block.Rarity);
@@ -678,18 +691,12 @@ namespace Baseball.Presentation.Career
                 out _);
             int instanceId = block.InstanceId;
             card.onClick.AddListener(() => SelectWorkspaceOwnedBlock(instanceId));
-            CreateImage(
-                "RarityTop",
-                card.transform,
-                frame,
-                new Vector2(width, selected ? 4f : 2f),
-                new Vector2(0f, height * 0.5f - 2f));
             RenderTetromino(
                 card.transform,
                 block.ShapeCells,
                 0,
                 GetCategoryColor(block.Category),
-                new Vector2(-43f, 8f),
+                new Vector2(-16f, 8f),
                 new Vector2(76f, 64f),
                 19f,
                 "InventoryShape");
@@ -701,7 +708,7 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
                 new Vector2(28f, 24f),
-                new Vector2(-69f, 39f),
+                new Vector2(-42f, 39f),
                 frame);
             CreateText(
                 "Count",
@@ -720,8 +727,8 @@ namespace Baseball.Presentation.Career
                 11,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
-                new Vector2(90f, 34f),
-                new Vector2(38f, 9f),
+                new Vector2(72f, 34f),
+                new Vector2(50f, 9f),
                 GetCategoryColor(block.Category));
             string state = stack.PlacementCount > 0
                 ? $"{block.CellCount}칸 · 배치 {stack.PlacementCount}곳"
@@ -752,11 +759,11 @@ namespace Baseball.Presentation.Career
 
         private void RenderWorkspaceSelectedBlock(RectTransform panel, CareerGrowthView growth)
         {
-            RectTransform detail = CreateSection(
+            RectTransform detail = CreateFramedSection(
                 "SelectedBlockDetail",
                 panel,
-                new Vector2(760f, 170f),
-                new Vector2(0f, -258f),
+                new Vector2(720f, 144f),
+                new Vector2(0f, -214f),
                 new Color(0.008f, 0.035f, 0.055f, 1f));
             if (_selectedOwnedBlockId <= 0 && _selectedPlacedBlockId <= 0)
             {
@@ -812,7 +819,7 @@ namespace Baseball.Presentation.Career
                 detail,
                 block.IsLocked ? "잠금 해제" : "잠금",
                 new Vector2(105f, 40f),
-                new Vector2(55f, -47f),
+                new Vector2(15f, -42f),
                 block.IsLocked ? new Color(0.42f, 0.31f, 0.07f, 1f) : PanelDarkColor,
                 out _);
             lockButton.onClick.AddListener(() => ToggleSelectedBlockLock(block));
@@ -823,7 +830,7 @@ namespace Baseball.Presentation.Career
                     detail,
                     $"판매 {FormatMoney(block.SellValue)}",
                     new Vector2(150f, 40f),
-                    new Vector2(185f, -47f),
+                    new Vector2(145f, -42f),
                     new Color(0.28f, 0.16f, 0.08f, 1f),
                     out _);
                 bool isActuallyOwned = IsActuallyOwned(growth, block.InstanceId);
@@ -836,7 +843,7 @@ namespace Baseball.Presentation.Career
                     detail,
                     $"회전 {_selectedRotation * 90}°",
                     new Vector2(115f, 40f),
-                    new Vector2(320f, -47f),
+                    new Vector2(280f, -42f),
                     new Color(0.03f, 0.24f, 0.42f, 1f),
                     out _);
                 rotate.interactable = growth.CanEditBoard && block.CanRotate;
@@ -849,7 +856,7 @@ namespace Baseball.Presentation.Career
                     detail,
                     "보관함으로 회수",
                     new Vector2(230f, 40f),
-                    new Vector2(260f, -47f),
+                    new Vector2(230f, -42f),
                     new Color(0.42f, 0.25f, 0.04f, 1f),
                     out _);
                 recover.interactable = growth.CanEditBoard;
@@ -864,14 +871,14 @@ namespace Baseball.Presentation.Career
             RenderCompactPlayerSummary(dashboard, growth);
             RectTransform panel = CreatePanel(
                 "OffseasonActionWorkspace",
-                "OFF-SEASON ACTION",
+                string.Empty,
                 "오프시즌 액션",
                 new Vector2(1480f, 760f),
                 new Vector2(180f, -3f));
             string phase = growth.IsOffseason
                 ? $"남은 기간 {growth.RemainingWeeks}주 · 현재 {growth.CurrentWeek}주차"
                 : "정규 시즌 중 · 다음 오프시즌 계획을 미리 확인할 수 있습니다.";
-            const float summaryRowY = 300f;
+            const float summaryRowY = 280f;
             CreateText(
                 "Phase",
                 panel,
@@ -962,7 +969,7 @@ namespace Baseball.Presentation.Career
                     FontStyle.Normal,
                     TextAnchor.MiddleCenter,
                     new Vector2(1300f, 25f),
-                    new Vector2(0f, -330f),
+                    new Vector2(0f, -310f),
                     ErrorColor);
             }
         }
@@ -993,13 +1000,9 @@ namespace Baseball.Presentation.Career
             card.interactable = growth.IsOffseason;
             card.onClick.AddListener(() => OpenActivityConfirmation(programId));
             CreateText(
-                "Type", card.transform, GetActivityShortLabel(program.ActivityType), 10,
-                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(contentWidth, 22f),
-                new Vector2(0f, 150f), AccentColor);
-            CreateText(
                 "Name", card.transform, GetProgramLabel(program.ProgramId), 17,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(contentWidth, 55f),
-                new Vector2(0f, 105f), PrimaryTextColor);
+                new Vector2(0f, 128f), PrimaryTextColor);
             CreateText(
                 "Cost", card.transform,
                 $"{program.DurationWeeks}주\n{FormatMoney(program.MoneyCost)}",
@@ -1148,7 +1151,7 @@ namespace Baseball.Presentation.Career
             dismiss.onClick.AddListener(CloseGachaOverlay);
             RectTransform panel = CreatePanel(
                 "GrowthGachaOverlay",
-                "BLOCK DRAW",
+                string.Empty,
                 "블록 뽑기",
                 new Vector2(1240f, 790f),
                 Vector2.zero);
@@ -1338,31 +1341,15 @@ namespace Baseball.Presentation.Career
                 _isProbabilityOpen = false;
                 Render();
             });
-            CreateImage(
-                "Frame",
-                card.transform,
-                frame,
-                new Vector2(212f, selected ? 5f : 2f),
-                new Vector2(0f, 85f));
-            CreateText(
-                "Code",
-                card.transform,
-                GetRarityCode(offer.MinimumRarity),
-                25,
-                FontStyle.Bold,
-                TextAnchor.MiddleCenter,
-                new Vector2(52f, 46f),
-                new Vector2(-62f, 46f),
-                frame);
             CreateText(
                 "Name",
                 card.transform,
                 GetGachaTierLabel(tier),
                 15,
                 FontStyle.Bold,
-                TextAnchor.MiddleLeft,
-                new Vector2(120f, 30f),
-                new Vector2(38f, 52f),
+                TextAnchor.MiddleCenter,
+                new Vector2(180f, 30f),
+                new Vector2(0f, 52f),
                 PrimaryTextColor);
             CreateText(
                 "Price",
@@ -1851,9 +1838,18 @@ namespace Baseball.Presentation.Career
             return false;
         }
 
-        private void ShowDraftPlacementPreview(CareerGrowthView growth, int hoverX, int hoverY)
+        private void ShowDraftPlacementPreview(
+            RectTransform board,
+            CareerGrowthView growth,
+            int hoverX,
+            int hoverY,
+            float boardSpan,
+            float cellSize,
+            float gap)
         {
             ClearPlacementPreview();
+            if (_selectedOwnedBlockId <= 0)
+                return;
             if (!TryResolvePlacementOrigin(
                     growth, _selectedOwnedBlockId, _selectedRotation, hoverX, hoverY,
                     out int originX, out int originY))
@@ -1867,9 +1863,11 @@ namespace Baseball.Presentation.Career
                 originX,
                 originY,
                 _selectedRotation);
+            GrowthSkillBlockView block = FindAnyBlock(growth, _selectedOwnedBlockId);
             Color color = preview.CanPlace
-                ? new Color(0.12f, 0.86f, 0.75f, 0.50f)
+                ? Color.Lerp(GetCategoryColor(block.Category), GreenColor, 0.2f)
                 : new Color(0.94f, 0.20f, 0.18f, 0.54f);
+            color.a = preview.CanPlace ? 0.72f : 0.62f;
             for (int index = 0; index < preview.Cells.Length; index++)
             {
                 BoardCell cell = preview.Cells[index];
@@ -1881,9 +1879,57 @@ namespace Baseball.Presentation.Career
                 Image image = _placementPreviewImages[cell.Y * growth.BoardWidth + cell.X];
                 if (image == null)
                     continue;
-                image.color = color;
+                image.color = new Color(color.r, color.g, color.b, 0.18f);
                 image.enabled = true;
             }
+
+            BoardCell[] occupiedCells = BuildOccupiedCells(
+                block.ShapeCells,
+                originX,
+                originY,
+                _selectedRotation);
+            GetCellBounds(
+                occupiedCells,
+                out int minimumX,
+                out int minimumY,
+                out int maximumX,
+                out int maximumY);
+            float cellPitch = cellSize + gap;
+            float centerX = -boardSpan * 0.5f + cellSize * 0.5f +
+                            (minimumX + maximumX) * 0.5f * cellPitch;
+            float centerY = boardSpan * 0.5f - cellSize * 0.5f -
+                            (minimumY + maximumY) * 0.5f * cellPitch;
+            int widthInCells = maximumX - minimumX + 1;
+            int heightInCells = maximumY - minimumY + 1;
+            if (_draftPlacementPreviewVisual == null)
+            {
+                _draftPlacementPreviewVisual = RenderTetromino(
+                    board,
+                    block.ShapeCells,
+                    _selectedRotation,
+                    color,
+                    new Vector2(centerX, centerY),
+                    new Vector2(widthInCells * cellPitch, heightInCells * cellPitch),
+                    cellPitch,
+                    "DraftPlacementPreview");
+            }
+            else
+            {
+                _draftPlacementPreviewVisual.anchoredPosition = new Vector2(centerX, centerY);
+                _draftPlacementPreviewVisual.gameObject.SetActive(true);
+            }
+            Image previewGraphic = _draftPlacementPreviewVisual != null
+                ? _draftPlacementPreviewVisual.GetComponent<Image>()
+                : null;
+            if (previewGraphic == null)
+                return;
+            previewGraphic.color = color;
+            Outline outline = previewGraphic.GetComponent<Outline>();
+            if (outline == null)
+                outline = previewGraphic.gameObject.AddComponent<Outline>();
+            outline.effectColor = preview.CanPlace ? GreenColor : ErrorColor;
+            outline.effectDistance = new Vector2(3f, -3f);
+            outline.useGraphicAlpha = true;
         }
 
         private static BoardCell[] BuildOccupiedCells(
@@ -1949,6 +1995,73 @@ namespace Baseball.Presentation.Career
                 CreateImage("LeftEdge", cell, color, new Vector2(thickness, cellSize), new Vector2(-cellSize * 0.5f + thickness * 0.5f, 0f));
             if (FindDraftInstanceAt(growth, x + 1, y) != instanceId)
                 CreateImage("RightEdge", cell, color, new Vector2(thickness, cellSize), new Vector2(cellSize * 0.5f - thickness * 0.5f, 0f));
+        }
+
+        private void RenderDraftBlockVisuals(
+            RectTransform board,
+            CareerGrowthView growth,
+            float boardSpan,
+            float cellSize,
+            float gap)
+        {
+            float cellPitch = cellSize + gap;
+            for (int index = 0; index < _draftLayout.Count; index++)
+            {
+                GrowthBoardLayoutPlacement placement = _draftLayout[index];
+                GrowthSkillBlockView block = FindAnyBlock(growth, placement.InstanceId);
+                BoardCell[] occupiedCells = BuildOccupiedCells(
+                    block.ShapeCells,
+                    placement.OriginX,
+                    placement.OriginY,
+                    placement.RotationQuarterTurns);
+                GetCellBounds(
+                    occupiedCells,
+                    out int minimumX,
+                    out int minimumY,
+                    out int maximumX,
+                    out int maximumY);
+                float centerX = -boardSpan * 0.5f + cellSize * 0.5f +
+                                (minimumX + maximumX) * 0.5f * cellPitch;
+                float centerY = boardSpan * 0.5f - cellSize * 0.5f -
+                                (minimumY + maximumY) * 0.5f * cellPitch;
+                int widthInCells = maximumX - minimumX + 1;
+                int heightInCells = maximumY - minimumY + 1;
+                Color tint = GetCategoryColor(block.Category);
+                if (block.InstanceId == _selectedPlacedBlockId)
+                    tint = Color.Lerp(tint, Color.white, 0.24f);
+
+                RectTransform visual = RenderTetromino(
+                    board,
+                    block.ShapeCells,
+                    placement.RotationQuarterTurns,
+                    tint,
+                    new Vector2(centerX, centerY),
+                    new Vector2(widthInCells * cellPitch, heightInCells * cellPitch),
+                    cellPitch,
+                    "DraftBlock_" + block.InstanceId);
+                if (visual != null)
+                    visual.SetSiblingIndex(Mathf.Min(index + 1, board.childCount - 1));
+            }
+        }
+
+        private static void GetCellBounds(
+            BoardCell[] cells,
+            out int minimumX,
+            out int minimumY,
+            out int maximumX,
+            out int maximumY)
+        {
+            minimumX = int.MaxValue;
+            minimumY = int.MaxValue;
+            maximumX = int.MinValue;
+            maximumY = int.MinValue;
+            for (int index = 0; index < cells.Length; index++)
+            {
+                minimumX = Math.Min(minimumX, cells[index].X);
+                minimumY = Math.Min(minimumY, cells[index].Y);
+                maximumX = Math.Max(maximumX, cells[index].X);
+                maximumY = Math.Max(maximumY, cells[index].Y);
+            }
         }
 
         private int[] BuildDraftBonuses(CareerGrowthView growth)

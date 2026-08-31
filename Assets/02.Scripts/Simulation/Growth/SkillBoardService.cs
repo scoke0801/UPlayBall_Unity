@@ -52,9 +52,13 @@ namespace Baseball.Simulation.Growth
             state.PlaceOwnedBlock(new PlacedSkillBlock(instance, originX, originY, rotationQuarterTurns));
         }
 
+        /// <summary>
+        /// 오프시즌에는 블록이 파괴되지만 시즌 중 편집은 확정 비용을 따로 받으므로 그대로 회수한다.
+        /// </summary>
         public void RemoveBlock(SkillBoardState state, int instanceId)
         {
-            state.RemovePlacedBlock(instanceId, returnToInventory: false);
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            state.RemovePlacedBlock(instanceId, returnToInventory: state.IsSeasonLocked);
         }
 
         /// <summary>
@@ -75,7 +79,10 @@ namespace Baseball.Simulation.Growth
             bool requiresSafeRecovery = RequiresSafeRecovery(state, layout);
             if (requiresSafeRecovery)
             {
-                Redesign(state, economy, offseason, seasonYear, safeRecoveryCost);
+                if (state.IsSeasonLocked)
+                    state.ReclaimPlacedBlocks();
+                else
+                    Redesign(state, economy, offseason, seasonYear, safeRecoveryCost);
             }
 
             for (int index = 0; index < layout.Length; index++)
@@ -213,6 +220,30 @@ namespace Baseball.Simulation.Growth
             economy.Spend(seasonYear, MoneyTransactionType.TrainingExpense, "skill_board_redesign", cost);
             offseason.MarkBoardRedesignUsed();
             state.Redesign(seasonYear);
+        }
+
+        /// <summary>
+        /// 시즌 중 편집한 배치를 비용을 받고 활성 보드로 확정한다.
+        /// 확정 전까지는 경기와 역할 평가가 이전 활성 보드를 계속 사용한다.
+        /// </summary>
+        public void CommitInSeason(
+            SkillBoardState state,
+            CareerEconomyState economy,
+            int seasonYear,
+            long cost)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (economy == null) throw new ArgumentNullException(nameof(economy));
+            if (!state.IsSeasonLocked)
+                throw new InvalidOperationException("시즌 중 확정은 정규시즌에만 사용할 수 있습니다.");
+            if (!state.HasUncommittedPlacements)
+                throw new InvalidOperationException("확정할 성장판 변경이 없습니다.");
+            economy.Spend(
+                seasonYear,
+                MoneyTransactionType.TrainingExpense,
+                "skill_board_in_season_commit",
+                cost);
+            state.CommitInSeasonPlacements(seasonYear);
         }
 
         public int GetAbilityBonus(SkillBoardState state, PlayerAbility ability)

@@ -80,8 +80,12 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(growth.transform.Find("Content/GrowthGachaOverlay"), Is.Null);
             Assert.That(growth.transform.Find("Content/BlockInventory/SelectedBlockDetail/Name"), Is.Not.Null,
                 "구매 직후 새 블록이 편집 대상으로 선택되어야 합니다.");
-            Assert.That(careerManager.GrowthDashboard.CanEditBoard, Is.False,
-                "정규 시즌에는 성장판을 열람할 수 있지만 배치와 회전은 잠겨야 합니다.");
+            Assert.That(careerManager.GrowthDashboard.CanEditBoard, Is.True,
+                "정규 시즌에도 성장판을 편집할 수 있어야 합니다.");
+            Assert.That(careerManager.GrowthDashboard.IsBoardSeasonLocked, Is.True,
+                "정규 시즌 편집은 확정 전까지 활성 보드를 바꾸지 않아야 합니다.");
+            Assert.That(careerManager.GrowthDashboard.HasUncommittedBoardChanges, Is.False,
+                "블록 구매만으로는 미확정 배치 변경이 생기지 않아야 합니다.");
             Transform selectedDetail = growth.transform.Find(
                 "Content/BlockInventory/SelectedBlockDetail");
             AssertTetrominoCells(selectedDetail, "SelectedShapeCell_");
@@ -92,7 +96,7 @@ namespace Baseball.Tests.PlayMode.Presentation
                 Is.EqualTo(
                     careerManager.GrowthDashboard.CanEditBoard &&
                     careerManager.GrowthDashboard.OwnedBlocks[0].CanRotate),
-                "회전 가능 형태라도 정규 시즌 열람 모드에서는 회전 입력이 잠겨야 합니다.");
+                "회전 입력은 선택 블록의 회전 가능 여부만 따라야 합니다.");
 
             growth.transform.Find("Content/GrowthSubNavigation/OffseasonActionsTab")
                 .GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
@@ -162,6 +166,13 @@ namespace Baseball.Tests.PlayMode.Presentation
                 Transform advanceReview = FindDescendant(home.transform, "AdvanceSeasonReview");
                 Assert.That(advanceReview, Is.Not.Null,
                     $"포스트시즌 진입 전 시즌 리뷰 {step + 1}단계 진행 버튼이 필요합니다.");
+                Transform skipReview = FindDescendant(home.transform, "SkipSeasonReview");
+                Assert.That(skipReview, Is.Not.Null,
+                    $"포스트시즌 진입 전 시즌 리뷰 {step + 1}단계에 연출 건너뛰기 버튼이 필요합니다.");
+                Assert.That(
+                    ((RectTransform)skipReview).anchoredPosition.y,
+                    Is.EqualTo(((RectTransform)advanceReview).anchoredPosition.y).Within(0.01f),
+                    "연출 건너뛰기 버튼은 현재 단계의 진행 버튼과 같은 높이에 있어야 합니다.");
                 advanceReview.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                 yield return null;
             }

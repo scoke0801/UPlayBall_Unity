@@ -187,22 +187,28 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreatePanel("BoardPreview", parent, "성장판 · 현재 적용",
                 new Vector2(480f, 322f), new Vector2(450f, 196f));
+            const float cellSize = 48f;
+            const float gap = 4f;
+            const float boardSpan = cellSize * 4f + gap * 3f;
             for (int y = 0; y < 4; y++)
             {
                 for (int x = 0; x < 4; x++)
                 {
                     GrowthBoardCellView cell = FindBoardCell(view.BoardCells, x, y, out bool found);
-                    Color color = found && cell.IsOccupied ? GetSkillCategoryColor(cell.Category) : PanelDarkColor;
                     RectTransform slot = CreateImage($"Cell_{x}_{y}", panel, DividerColor,
-                        new Vector2(66f, 44f), new Vector2(-112f + x * 75f, 76f - y * 52f));
-                    RectTransform fill = CreateImage("Fill", slot, color, new Vector2(60f, 38f), Vector2.zero);
-                    if (found && cell.IsOccupied)
-                    {
-                        CreateText("Rarity", fill, GetRarityCode(cell.Rarity), 12, FontStyle.Bold,
-                            TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
-                    }
+                        new Vector2(cellSize, cellSize),
+                        new Vector2(
+                            -boardSpan * 0.5f + cellSize * 0.5f + x * (cellSize + gap),
+                            boardSpan * 0.5f - cellSize * 0.5f - y * (cellSize + gap)));
+                    CreateImage(
+                        "Fill",
+                        slot,
+                        found && cell.IsOccupied ? Color.clear : PanelDarkColor,
+                        new Vector2(cellSize - 4f, cellSize - 4f),
+                        Vector2.zero);
                 }
             }
+            RenderAppliedBoardBlocks(panel, view, Vector2.zero, boardSpan, cellSize, gap, "Preview");
             Button button = CreateButton("OpenBoard", panel, "성장판 관리",
                 new Vector2(320f, 42f), new Vector2(0f, -132f),
                 new Color(0.025f, 0.22f, 0.43f, 1f), out Text label);
@@ -230,8 +236,23 @@ namespace Baseball.Presentation.Career
                     new Vector2(430f, 42f), new Vector2(0f, y));
                 CreateImage("Category", row, GetSkillCategoryColor(block.Category),
                     new Vector2(5f, 34f), new Vector2(-208f, 0f));
+                RectTransform shapeVisual = SkillBlockVisual.Create(
+                    row,
+                    block.ShapeCells,
+                    0,
+                    GetSkillCategoryColor(block.Category),
+                    new Vector2(-167f, 0f),
+                    new Vector2(70f, 34f),
+                    17f,
+                    "Shape");
+                const float skillNameRight = 88f;
+                float skillNameLeft = shapeVisual != null
+                    ? shapeVisual.anchoredPosition.x + shapeVisual.rect.width * 0.5f + 12f
+                    : -130f;
+                float skillNameWidth = skillNameRight - skillNameLeft;
                 CreateText("Name", row, GetSkillCategoryLabel(block.Category) + " 블록", 14, FontStyle.Bold,
-                    TextAnchor.MiddleLeft, new Vector2(250f, 30f), new Vector2(-65f, 0f), PrimaryTextColor);
+                    TextAnchor.MiddleLeft, new Vector2(skillNameWidth, 30f),
+                    new Vector2(skillNameLeft + skillNameWidth * 0.5f, 0f), PrimaryTextColor);
                 CreateText("Rarity", row, GetRarityLabel(block.Rarity), 12, FontStyle.Bold,
                     TextAnchor.MiddleRight, new Vector2(110f, 30f), new Vector2(150f, 0f),
                     GetRarityColor(block.Rarity));
@@ -287,23 +308,29 @@ namespace Baseball.Presentation.Career
             RectTransform page = CreateRect("BoardPage", _content, new Vector2(1390f, 720f), new Vector2(205f, -20f));
             RectTransform board = CreatePanel("Board", page, "4×4 성장판 · 읽기 전용",
                 new Vector2(820f, 720f), new Vector2(-285f, 0f));
+            const float cellSize = 112f;
+            const float gap = 14f;
+            const float boardSpan = cellSize * 4f + gap * 3f;
+            Vector2 boardCenter = new Vector2(0f, 5f);
             for (int y = 0; y < 4; y++)
             {
                 for (int x = 0; x < 4; x++)
                 {
                     GrowthBoardCellView cell = FindBoardCell(view.BoardCells, x, y, out bool found);
-                    Color color = found && cell.IsOccupied ? GetSkillCategoryColor(cell.Category) : PanelDarkColor;
                     RectTransform slot = CreateImage($"Cell_{x}_{y}", board, DividerColor,
-                        new Vector2(124f, 112f), new Vector2(-207f + x * 138f, 194f - y * 126f));
-                    RectTransform fill = CreateImage("Fill", slot, color, new Vector2(116f, 104f), Vector2.zero);
-                    string cellText = found && cell.IsOccupied
-                        ? $"{GetRarityCode(cell.Rarity)}\n#{cell.InstanceId}"
-                        : string.Empty;
-                    CreateText("Value", fill, cellText, 15, FontStyle.Bold, TextAnchor.MiddleCenter,
-                        Vector2.zero, Vector2.zero, PrimaryTextColor,
-                        stretch: true);
+                        new Vector2(cellSize, cellSize),
+                        new Vector2(
+                            boardCenter.x - boardSpan * 0.5f + cellSize * 0.5f + x * (cellSize + gap),
+                            boardCenter.y + boardSpan * 0.5f - cellSize * 0.5f - y * (cellSize + gap)));
+                    CreateImage(
+                        "Fill",
+                        slot,
+                        found && cell.IsOccupied ? Color.clear : PanelDarkColor,
+                        new Vector2(cellSize - 8f, cellSize - 8f),
+                        Vector2.zero);
                 }
             }
+            RenderAppliedBoardBlocks(board, view, boardCenter, boardSpan, cellSize, gap, "Applied");
             CreateText("Guide", board, "정규 시즌에는 현재 배치를 열람합니다. 배치 변경은 오프시즌 성장 메뉴에서만 가능합니다.",
                 13, FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(740f, 42f),
                 new Vector2(0f, -310f), SecondaryTextColor);
@@ -360,14 +387,126 @@ namespace Baseball.Presentation.Career
                     new Vector2(610f, 112f), new Vector2(x, y));
                 CreateImage("Category", card, GetSkillCategoryColor(block.Category),
                     new Vector2(8f, 96f), new Vector2(-295f, 0f));
+                SkillBlockVisual.Create(
+                    card,
+                    block.ShapeCells,
+                    0,
+                    GetSkillCategoryColor(block.Category),
+                    new Vector2(-242f, 0f),
+                    new Vector2(94f, 82f),
+                    23f,
+                    "Shape");
                 CreateText("Name", card, GetSkillCategoryLabel(block.Category) + " 블록", 18, FontStyle.Bold,
-                    TextAnchor.MiddleLeft, new Vector2(360f, 34f), new Vector2(-90f, 25f), PrimaryTextColor);
+                    TextAnchor.MiddleLeft, new Vector2(300f, 34f), new Vector2(-50f, 25f), PrimaryTextColor);
                 CreateText("Rarity", card, GetRarityLabel(block.Rarity), 14, FontStyle.Bold,
                     TextAnchor.MiddleRight, new Vector2(140f, 30f), new Vector2(215f, 25f),
                     GetRarityColor(block.Rarity));
                 CreateText("Effect", card, FormatAbilityBonuses(block.AbilityBonuses), 13, FontStyle.Normal,
-                    TextAnchor.MiddleLeft, new Vector2(520f, 40f), new Vector2(-25f, -25f), SecondaryTextColor);
+                    TextAnchor.MiddleLeft, new Vector2(450f, 40f), new Vector2(10f, -25f), SecondaryTextColor);
             }
+        }
+
+        private static void RenderAppliedBoardBlocks(
+            Transform parent,
+            PlayerProfileView view,
+            Vector2 boardCenter,
+            float boardSpan,
+            float cellSize,
+            float gap,
+            string namePrefix)
+        {
+            if (view.AppliedLayout == null || view.PlacedBlocks == null)
+                return;
+
+            float cellPitch = cellSize + gap;
+            for (int index = 0; index < view.AppliedLayout.Length; index++)
+            {
+                GrowthBoardLayoutPlacement placement = view.AppliedLayout[index];
+                GrowthSkillBlockView block = FindPlacedBlock(view.PlacedBlocks, placement.InstanceId);
+                if (block.InstanceId == 0)
+                    continue;
+
+                GetRotatedShapeSize(
+                    block.ShapeCells,
+                    placement.RotationQuarterTurns,
+                    out int widthInCells,
+                    out int heightInCells);
+                float centerX = boardCenter.x - boardSpan * 0.5f + cellSize * 0.5f +
+                                (placement.OriginX + (widthInCells - 1) * 0.5f) * cellPitch;
+                float centerY = boardCenter.y + boardSpan * 0.5f - cellSize * 0.5f -
+                                (placement.OriginY + (heightInCells - 1) * 0.5f) * cellPitch;
+                RectTransform visual = SkillBlockVisual.Create(
+                    parent,
+                    block.ShapeCells,
+                    placement.RotationQuarterTurns,
+                    GetSkillCategoryColor(block.Category),
+                    new Vector2(centerX, centerY),
+                    new Vector2(widthInCells * cellPitch, heightInCells * cellPitch),
+                    cellPitch,
+                    namePrefix + "Block_" + block.InstanceId);
+                Image image = visual != null ? visual.GetComponent<Image>() : null;
+                if (image == null)
+                    continue;
+                Outline outline = image.gameObject.AddComponent<Outline>();
+                outline.effectColor = GetRarityColor(block.Rarity);
+                outline.effectDistance = new Vector2(2f, -2f);
+                outline.useGraphicAlpha = true;
+            }
+        }
+
+        private static GrowthSkillBlockView FindPlacedBlock(
+            GrowthSkillBlockView[] blocks,
+            int instanceId)
+        {
+            for (int index = 0; index < blocks.Length; index++)
+            {
+                if (blocks[index].InstanceId == instanceId)
+                    return blocks[index];
+            }
+            return default;
+        }
+
+        private static void GetRotatedShapeSize(
+            BoardCell[] cells,
+            int rotationQuarterTurns,
+            out int width,
+            out int height)
+        {
+            int rotation = ((rotationQuarterTurns % 4) + 4) % 4;
+            int minimumX = int.MaxValue;
+            int minimumY = int.MaxValue;
+            int maximumX = int.MinValue;
+            int maximumY = int.MinValue;
+            for (int index = 0; index < cells.Length; index++)
+            {
+                int x;
+                int y;
+                switch (rotation)
+                {
+                    case 1:
+                        x = cells[index].Y;
+                        y = -cells[index].X;
+                        break;
+                    case 2:
+                        x = -cells[index].X;
+                        y = -cells[index].Y;
+                        break;
+                    case 3:
+                        x = -cells[index].Y;
+                        y = cells[index].X;
+                        break;
+                    default:
+                        x = cells[index].X;
+                        y = cells[index].Y;
+                        break;
+                }
+                minimumX = Math.Min(minimumX, x);
+                minimumY = Math.Min(minimumY, y);
+                maximumX = Math.Max(maximumX, x);
+                maximumY = Math.Max(maximumY, y);
+            }
+            width = maximumX - minimumX + 1;
+            height = maximumY - minimumY + 1;
         }
 
         private void RenderCareerPage(PlayerProfileView view)

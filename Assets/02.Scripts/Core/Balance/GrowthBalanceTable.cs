@@ -767,7 +767,8 @@ namespace Baseball.Core.Balance
             long skillBoardRedesignCost = MoneyAmount.WonPerTenThousand * 1_500L,
             TrainingIntensityBalanceTable trainingIntensity = null,
             SkillTraitBalance? skillTraits = null,
-            GrowthProgressionBalance progression = null)
+            GrowthProgressionBalance progression = null,
+            long inSeasonBoardCommitCost = MoneyAmount.WonPerTenThousand * 2_000L)
         {
             if (minimumQualityRoll <= 0d || maximumQualityRoll < minimumQualityRoll)
                 throw new ArgumentOutOfRangeException(nameof(minimumQualityRoll));
@@ -781,6 +782,8 @@ namespace Baseball.Core.Balance
                 throw new ArgumentOutOfRangeException(nameof(defaultPotentialGap));
             if (skillBoardRedesignCost < 0L)
                 throw new ArgumentOutOfRangeException(nameof(skillBoardRedesignCost));
+            if (inSeasonBoardCommitCost < 0L)
+                throw new ArgumentOutOfRangeException(nameof(inSeasonBoardCommitCost));
             AgeGrowth = ageGrowth;
             PotentialGap = potentialGap;
             WorkEthic = workEthic;
@@ -800,6 +803,7 @@ namespace Baseball.Core.Balance
             SkillBoard = skillBoard ?? GrowthSkillContent.CreateDefaultBoard();
             SkillBlocks = skillBlocks ?? GrowthSkillContent.CreateDefaultBlocks();
             SkillBoardRedesignCost = skillBoardRedesignCost;
+            InSeasonBoardCommitCost = inSeasonBoardCommitCost;
             TrainingIntensities = trainingIntensity ?? TrainingIntensityBalanceTable.CreateDefault();
             SkillTraits = skillTraits ?? SkillTraitBalance.CreateDefault();
             Progression = progression ?? GrowthProgressionBalance.CreateDefault();
@@ -824,6 +828,13 @@ namespace Baseball.Core.Balance
         public SkillBoardDefinition SkillBoard { get; }
         public SkillBlockDefinition[] SkillBlocks { get; }
         public long SkillBoardRedesignCost { get; }
+
+        /// <summary>
+        /// 시즌 중 성장판을 다시 확정할 때 드는 비용이다.
+        /// 오프시즌 재설계보다 비싸게 둬 개막 편성을 대충 하고 시즌 중 고치는 흐름을 억제한다.
+        /// </summary>
+        public long InSeasonBoardCommitCost { get; }
+
         public TrainingIntensityBalanceTable TrainingIntensities { get; }
         public SkillTraitBalance SkillTraits { get; }
         public GrowthProgressionBalance Progression { get; }
@@ -858,7 +869,8 @@ namespace Baseball.Core.Balance
                 SkillBoardRedesignCost,
                 TrainingIntensities,
                 skillTraits ?? SkillTraits,
-                progression ?? Progression);
+                progression ?? Progression,
+                InSeasonBoardCommitCost);
         }
 
         public TrainingProgramDefinition FindProgram(string programId)

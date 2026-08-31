@@ -19,9 +19,9 @@ namespace Baseball.Presentation.Career
 
         private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
         private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.99f);
-        private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.061f, 0.99f);
-        private static readonly Color CardColor = new(0.024f, 0.086f, 0.139f, 0.97f);
+        private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.78f);
+        private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.061f, 0.74f);
+        private static readonly Color CardColor = new(0.024f, 0.086f, 0.139f, 0.82f);
         private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
         private static readonly Color DividerColor = new(0.14f, 0.31f, 0.45f, 1f);
         private static readonly Color AccentColor = new(0.13f, 0.55f, 0.92f, 1f);
@@ -44,6 +44,7 @@ namespace Baseball.Presentation.Career
         private int _programPage;
         private bool _confirmPlacedBlockRemoval;
         private bool _confirmBoardRedesign;
+        private bool _confirmBoardCommit;
         private GrowthSection _growthSection;
         private bool _isGachaOpen;
         private bool _isProbabilityOpen;
@@ -328,6 +329,23 @@ namespace Baseball.Presentation.Career
         {
             _inventoryPage++;
             Render();
+        }
+
+        private void CommitBoardForSeason()
+        {
+            if (!_confirmBoardCommit)
+            {
+                _confirmBoardCommit = true;
+                Render();
+                return;
+            }
+
+            if (_manager.CommitSkillBoardForSeason())
+            {
+                _selectedOwnedBlockId = 0;
+                _selectedPlacedBlockId = 0;
+            }
+            _confirmBoardCommit = false;
         }
 
         private void RedesignBoard()

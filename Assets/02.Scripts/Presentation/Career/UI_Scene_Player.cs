@@ -175,9 +175,6 @@ namespace Baseball.Presentation.Career
                     selected ? new Color(0.025f, 0.25f, 0.49f, 1f) : PanelDarkColor, out Text label);
                 label.fontSize = 17;
                 label.color = selected ? PrimaryTextColor : SecondaryTextColor;
-                if (selected)
-                    CreateImage("Active", button.transform, BrightAccentColor,
-                        new Vector2(width - 18f, 3f), new Vector2(0f, 23f));
                 button.onClick.AddListener(() =>
                 {
                     _selectedTab = tab;

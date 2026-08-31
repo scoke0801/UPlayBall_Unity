@@ -604,19 +604,6 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetActivityShortLabel(OffseasonActivityType type)
-        {
-            return type switch
-            {
-                OffseasonActivityType.PersonalTraining => "PERSONAL",
-                OffseasonActivityType.TrainingPartner => "PARTNER",
-                OffseasonActivityType.Study => "STUDY",
-                OffseasonActivityType.Rehabilitation => "RECOVERY",
-                OffseasonActivityType.Rest => "REST",
-                _ => type.ToString().ToUpperInvariant()
-            };
-        }
-
         private static string GetProgramLabel(string programId)
         {
             return GrowthProgramNameFormatter.GetLabel(programId);

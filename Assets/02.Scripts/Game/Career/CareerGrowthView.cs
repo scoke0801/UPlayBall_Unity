@@ -407,6 +407,10 @@ namespace Baseball.Game.Career
         public bool IsOffseason { get; internal set; }
         public bool CanEditBoard { get; internal set; }
         public bool IsBoardSeasonLocked { get; internal set; }
+        public bool HasUncommittedBoardChanges { get; internal set; }
+        public bool CanCommitBoardInSeason { get; internal set; }
+        public long InSeasonBoardCommitCost { get; internal set; }
+        public int InSeasonBoardCommitCount { get; internal set; }
         public bool CanRedesignBoard { get; internal set; }
         public bool IsBoardRedesignUsed { get; internal set; }
         public bool IsActivityInProgress { get; internal set; }

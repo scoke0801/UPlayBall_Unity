@@ -405,13 +405,29 @@ namespace Baseball.Game.Career
                         layout[index].RotationQuarterTurns);
                 }
 
+                int seasonYear = CurrentCareer.CurrentLeague.CurrentSeason.Year;
+                bool isInSeason = board.IsSeasonLocked;
+                long commitCost = _balance.Growth.InSeasonBoardCommitCost;
+                if (isInSeason && CurrentCareer.AvailableMoney < commitCost)
+                    return FailGrowth("시즌 중 성장판 확정 비용이 부족합니다.");
+
                 _skillBoardService.ApplyLayout(
                     board,
                     placements,
                     CurrentCareer.Economy,
                     CurrentCareer.CurrentOffseason,
-                    CurrentCareer.CurrentLeague.CurrentSeason.Year,
+                    seasonYear,
                     _balance.Growth.SkillBoardRedesignCost);
+
+                if (isInSeason && board.HasUncommittedPlacements)
+                {
+                    _skillBoardService.CommitInSeason(
+                        board,
+                        CurrentCareer.Economy,
+                        seasonYear,
+                        commitCost);
+                    CurrentCareer.MyPlayer.SynchronizeFromGrowthState();
+                }
                 return CompleteGrowthCommand();
             }
             catch (InvalidOperationException exception)
@@ -457,7 +473,7 @@ namespace Baseball.Game.Career
             int y,
             int rotationQuarterTurns)
         {
-            if (!TryGetGrowthRuntime(out _) || !IsOffseason())
+            if (!TryGetGrowthRuntime(out _) || !IsOffseason() && !IsBoardSeasonLocked())
                 return new GrowthBlockPlacementPreviewView(Array.Empty<BoardCell>(), false);
 
             SkillBlockPlacementPreview preview = _skillBoardService.GetPlacementPreview(
@@ -492,6 +508,8 @@ namespace Baseball.Game.Career
         {
             if (!TryGetGrowthRuntime(out _))
                 return false;
+            if (CurrentCareer.MyPlayer.SkillBoardState.IsActivePlacement(instanceId))
+                return FailGrowth("아직 경기에 적용 중인 블록은 판매할 수 없습니다. 먼저 성장판을 확정하세요.");
             try
             {
                 _skillGachaService.SellOwnedBlock(
@@ -506,6 +524,31 @@ namespace Baseball.Game.Career
                 return FailGrowth(exception.Message);
             }
             catch (ArgumentException exception)
+            {
+                return FailGrowth(exception.Message);
+            }
+        }
+
+        /// <summary>
+        /// 시즌 중 편집한 성장판을 비용을 내고 확정해 이후 경기와 역할 평가에 반영한다.
+        /// </summary>
+        public bool CommitSkillBoardForSeason()
+        {
+            if (!TryGetGrowthRuntime(out _))
+                return false;
+            if (!IsBoardSeasonLocked())
+                return FailGrowth("시즌 중 확정은 정규시즌에만 사용할 수 있습니다.");
+            try
+            {
+                _skillBoardService.CommitInSeason(
+                    CurrentCareer.MyPlayer.SkillBoardState,
+                    CurrentCareer.Economy,
+                    CurrentCareer.CurrentLeague.CurrentSeason.Year,
+                    _balance.Growth.InSeasonBoardCommitCost);
+                CurrentCareer.MyPlayer.SynchronizeFromGrowthState();
+                return CompleteGrowthCommand();
+            }
+            catch (InvalidOperationException exception)
             {
                 return FailGrowth(exception.Message);
             }
@@ -599,8 +642,17 @@ namespace Baseball.Game.Career
                 WasInjuryReturnProtected = roleEvaluation?.WasInjuryReturnProtected ?? false,
                 RoleExplanation = roleEvaluation?.Explanation,
                 IsOffseason = IsOffseason(),
-                CanEditBoard = IsOffseason(),
+                CanEditBoard = IsOffseason() || board.IsSeasonLocked,
                 IsBoardSeasonLocked = board.IsSeasonLocked,
+                HasUncommittedBoardChanges = board.HasUncommittedPlacements,
+                InSeasonBoardCommitCost = _balance.Growth.InSeasonBoardCommitCost,
+                InSeasonBoardCommitCount = board.InSeasonCommitSeason ==
+                                           CurrentCareer.CurrentLeague.CurrentSeason.Year
+                    ? board.InSeasonCommitCount
+                    : 0,
+                CanCommitBoardInSeason = board.HasUncommittedPlacements &&
+                                         CurrentCareer.AvailableMoney >=
+                                         _balance.Growth.InSeasonBoardCommitCost,
                 CanRedesignBoard = IsOffseason() &&
                                    !offseason.BoardRedesignUsed &&
                                    board.PlacedBlocks.Count > 0 &&
@@ -1296,13 +1348,21 @@ namespace Baseball.Game.Career
             _lastPulledBlocks = Array.Empty<SkillBlockInstance>();
         }
 
+        /// <summary>
+        /// 오프시즌은 즉시 반영, 정규시즌은 확정 명령 전까지 활성 보드를 건드리지 않는 편집을 허용한다.
+        /// </summary>
         private bool RequireBoardEditing()
         {
             if (!TryGetGrowthRuntime(out _))
                 return false;
-            if (!IsOffseason())
-                return FailGrowth("성장판 배치는 오프시즌에만 변경할 수 있습니다.");
+            if (!IsOffseason() && !IsBoardSeasonLocked())
+                return FailGrowth("지금은 성장판 배치를 변경할 수 없습니다.");
             return true;
+        }
+
+        private bool IsBoardSeasonLocked()
+        {
+            return CurrentCareer?.MyPlayer?.SkillBoardState?.IsSeasonLocked == true;
         }
 
         private bool IsOffseason()

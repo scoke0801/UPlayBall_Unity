@@ -96,11 +96,31 @@ namespace Baseball.Core.Growth
         public IReadOnlyList<PlacedSkillBlock> PlacedBlocks => _placedBlocks;
         public IReadOnlyList<PlacedSkillBlock> AppliedBlocks => IsSeasonLocked ? _activePlacements : _placedBlocks;
         public bool IsSeasonLocked { get; private set; }
+
+        /// <summary>편집한 배치가 아직 경기에 적용되는 활성 보드와 다른 상태인지 알린다.</summary>
+        public bool HasUncommittedPlacements
+        {
+            get
+            {
+                if (!IsSeasonLocked)
+                    return false;
+                if (_placedBlocks.Count != _activePlacements.Count)
+                    return true;
+                for (int index = 0; index < _placedBlocks.Count; index++)
+                {
+                    if (!ContainsSamePlacement(_activePlacements, _placedBlocks[index]))
+                        return true;
+                }
+                return false;
+            }
+        }
         public int PityEliteCount { get; private set; }
         public int PityUniqueCount { get; private set; }
         public int PityLegendaryCount { get; private set; }
         public int TotalPullCount { get; private set; }
         public int LastRedesignSeason { get; private set; }
+        public int InSeasonCommitSeason { get; private set; }
+        public int InSeasonCommitCount { get; private set; }
         public int LimitedPurchaseSeason { get; private set; }
         public int UniquePurchasesThisOffseason { get; private set; }
         public int LegendaryPurchasesThisOffseason { get; private set; }
@@ -196,7 +216,6 @@ namespace Baseball.Core.Growth
 
         public void PlaceOwnedBlock(PlacedSkillBlock placement)
         {
-            EnsureEditable();
             int ownedIndex = FindOwnedIndex(placement.Instance.InstanceId);
             if (ownedIndex < 0)
                 throw new InvalidOperationException("보유 중인 블록만 장착할 수 있습니다.");
@@ -206,7 +225,6 @@ namespace Baseball.Core.Growth
 
         public SkillBlockInstance RemovePlacedBlock(int instanceId, bool returnToInventory)
         {
-            EnsureEditable();
             for (int index = 0; index < _placedBlocks.Count; index++)
             {
                 if (_placedBlocks[index].Instance.InstanceId != instanceId)
@@ -235,22 +253,55 @@ namespace Baseball.Core.Growth
 
         public void Redesign(int seasonYear)
         {
-            EnsureEditable();
             if (LastRedesignSeason == seasonYear)
                 throw new InvalidOperationException("전문 재설계는 오프시즌당 한 번만 가능합니다.");
+            ReclaimPlacedBlocks();
+            LastRedesignSeason = seasonYear;
+        }
+
+        /// <summary>장착 블록을 파괴하지 않고 전부 보유 목록으로 되돌린다.</summary>
+        public void ReclaimPlacedBlocks()
+        {
             for (int index = 0; index < _placedBlocks.Count; index++)
                 _ownedBlocks.Add(_placedBlocks[index].Instance);
             _placedBlocks.Clear();
-            LastRedesignSeason = seasonYear;
+        }
+
+        /// <summary>경기 판정과 역할 평가가 참조하는 활성 보드에 블록인지 확인한다.</summary>
+        public bool IsActivePlacement(int instanceId)
+        {
+            for (int index = 0; index < _activePlacements.Count; index++)
+            {
+                if (_activePlacements[index].Instance.InstanceId == instanceId)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>개막 시점 배치를 복사해 역할 평가와 경기에서 같은 성장판을 사용하게 한다.</summary>
         public void LockForSeason()
         {
-            _activePlacements.Clear();
-            for (int index = 0; index < _placedBlocks.Count; index++)
-                _activePlacements.Add(_placedBlocks[index]);
+            CopyPlacementsToActive();
             IsSeasonLocked = true;
+        }
+
+        /// <summary>
+        /// 시즌 중 편집한 배치를 활성 보드로 확정한다.
+        /// 확정 전까지 경기가 이전 보드를 계속 쓰므로 경기 도중 능력치가 흔들리지 않는다.
+        /// </summary>
+        public void CommitInSeasonPlacements(int seasonYear)
+        {
+            if (!IsSeasonLocked)
+                throw new InvalidOperationException("시즌 중 확정은 정규시즌에만 사용합니다.");
+            if (!HasUncommittedPlacements)
+                throw new InvalidOperationException("확정할 성장판 변경이 없습니다.");
+            CopyPlacementsToActive();
+            if (InSeasonCommitSeason != seasonYear)
+            {
+                InSeasonCommitSeason = seasonYear;
+                InSeasonCommitCount = 0;
+            }
+            InSeasonCommitCount++;
         }
 
         public void UnlockForOffseason()
@@ -259,10 +310,29 @@ namespace Baseball.Core.Growth
             _activePlacements.Clear();
         }
 
-        private void EnsureEditable()
+        private void CopyPlacementsToActive()
         {
-            if (IsSeasonLocked)
-                throw new InvalidOperationException("정규시즌에는 확정된 성장판을 변경할 수 없습니다.");
+            _activePlacements.Clear();
+            for (int index = 0; index < _placedBlocks.Count; index++)
+                _activePlacements.Add(_placedBlocks[index]);
+        }
+
+        private static bool ContainsSamePlacement(
+            List<PlacedSkillBlock> placements,
+            PlacedSkillBlock target)
+        {
+            for (int index = 0; index < placements.Count; index++)
+            {
+                PlacedSkillBlock candidate = placements[index];
+                if (candidate.Instance.InstanceId == target.Instance.InstanceId &&
+                    candidate.OriginX == target.OriginX &&
+                    candidate.OriginY == target.OriginY &&
+                    candidate.RotationQuarterTurns == target.RotationQuarterTurns)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private int FindOwnedIndex(int instanceId)

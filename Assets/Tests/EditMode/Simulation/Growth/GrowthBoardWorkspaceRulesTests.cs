@@ -120,6 +120,46 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
+        public void ApplyLayout_시즌중배치변경은오프시즌재설계를소비하지않는다()
+        {
+            SkillBlockDefinition normal = CreateDefinition(
+                "contact_normal", SkillBlockRarity.Normal,
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O), 1);
+            var service = new SkillBoardService(
+                SkillBoardDefinition.CreateDefault(),
+                new[] { normal });
+            var board = new SkillBoardState("standard_4x4");
+            SkillBlockInstance instance = board.AddOwnedBlock(normal.BlockId);
+            service.PlaceBlock(board, instance.InstanceId, 0, 0, 0);
+            board.LockForSeason();
+            var economy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(5_000L));
+            var offseason = new OffseasonState(2028, 12, 70);
+            long recoveryCost = MoneyAmount.FromTenThousandWon(1_500L);
+
+            bool usedRecovery = service.ApplyLayout(
+                board,
+                new[] { new PlacedSkillBlock(instance, 2, 0, 0) },
+                economy,
+                offseason,
+                2028,
+                recoveryCost);
+
+            Assert.That(usedRecovery, Is.True);
+            Assert.That(offseason.BoardRedesignUsed, Is.False,
+                "시즌 중 재배치는 오프시즌 안전 회수 1회를 소비하면 안 된다.");
+            Assert.That(economy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(5_000L)),
+                "회수 자체는 무료이고 비용은 확정에서 한 번만 받는다.");
+            Assert.That(board.PlacedBlocks, Has.Count.EqualTo(1));
+            Assert.That(board.HasUncommittedPlacements, Is.True);
+
+            long commitCost = MoneyAmount.FromTenThousandWon(2_000L);
+            service.CommitInSeason(board, economy, 2028, commitCost);
+
+            Assert.That(economy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(3_000L)));
+            Assert.That(board.AppliedBlocks[0].OriginX, Is.EqualTo(2));
+        }
+
+        [Test]
         public void ApplyLayout_겹치는임시보드는결제와원본변경전에거부한다()
         {
             SkillBlockDefinition definition = CreateDefinition(

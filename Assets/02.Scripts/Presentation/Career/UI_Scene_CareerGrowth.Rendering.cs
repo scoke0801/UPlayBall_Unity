@@ -17,6 +17,7 @@ namespace Baseball.Presentation.Career
         private const float ProgramCardGap = 10f;
 
         private Image[] _placementPreviewImages = Array.Empty<Image>();
+        private RectTransform _draftPlacementPreviewVisual;
 
         private void RenderBackgroundAccents()
         {
@@ -173,8 +174,12 @@ namespace Baseball.Presentation.Career
         private void RenderSkillBoard(CareerGrowthView growth)
         {
             string editGuide = !growth.CanEditBoard
-                ? "정규 시즌 중에는 열람만 가능합니다."
-                : _selectedOwnedBlockId > 0
+                ? "지금은 열람만 가능합니다."
+                : growth.HasUncommittedBoardChanges
+                    ? $"변경한 배치는 아직 경기에 반영되지 않았습니다. 확정 비용 {FormatMoney(growth.InSeasonBoardCommitCost)}"
+                    : growth.IsBoardSeasonLocked
+                        ? $"시즌 중에도 교체할 수 있습니다. 확정 비용 {FormatMoney(growth.InSeasonBoardCommitCost)}"
+                        : _selectedOwnedBlockId > 0
                     ? "보드에 올려 미리보기 · 초록 가능 / 빨강 불가"
                     : "보유 블록을 선택한 뒤 빈 칸을 누르세요.";
             RectTransform panel = CreatePanel(
@@ -184,21 +189,40 @@ namespace Baseball.Presentation.Career
                 "Guide", panel, editGuide, 13, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(500f, 20f), new Vector2(0f, 302f),
                 growth.CanEditBoard ? SecondaryTextColor : WarningColor);
-            Button redesign = CreateButton(
-                "Redesign", panel,
-                growth.IsBoardRedesignUsed
-                    ? "안전 회수 사용 완료"
-                    : _confirmBoardRedesign
-                    ? $"안전 회수 확정"
-                    : $"전체 안전 회수  {FormatMoney(growth.BoardRedesignCost)}",
-                new Vector2(200f, 34f), new Vector2(235f, 338f),
-                _confirmBoardRedesign
-                    ? new Color(0.54f, 0.12f, 0.12f, 1f)
-                    : new Color(0.03f, 0.24f, 0.42f, 1f),
-                out Text redesignLabel);
-            redesignLabel.fontSize = 11;
-            redesign.interactable = growth.CanRedesignBoard;
-            redesign.onClick.AddListener(RedesignBoard);
+            if (growth.IsBoardSeasonLocked)
+            {
+                Button commit = CreateButton(
+                    "CommitBoard", panel,
+                    _confirmBoardCommit
+                        ? "시즌 중 확정 진행"
+                        : $"시즌 중 확정  {FormatMoney(growth.InSeasonBoardCommitCost)}",
+                    new Vector2(200f, 34f), new Vector2(235f, 338f),
+                    _confirmBoardCommit
+                        ? new Color(0.54f, 0.30f, 0.04f, 1f)
+                        : new Color(0.03f, 0.24f, 0.42f, 1f),
+                    out Text commitLabel);
+                commitLabel.fontSize = 11;
+                commit.interactable = growth.CanCommitBoardInSeason;
+                commit.onClick.AddListener(CommitBoardForSeason);
+            }
+            else
+            {
+                Button redesign = CreateButton(
+                    "Redesign", panel,
+                    growth.IsBoardRedesignUsed
+                        ? "안전 회수 사용 완료"
+                        : _confirmBoardRedesign
+                        ? $"안전 회수 확정"
+                        : $"전체 안전 회수  {FormatMoney(growth.BoardRedesignCost)}",
+                    new Vector2(200f, 34f), new Vector2(235f, 338f),
+                    _confirmBoardRedesign
+                        ? new Color(0.54f, 0.12f, 0.12f, 1f)
+                        : new Color(0.03f, 0.24f, 0.42f, 1f),
+                    out Text redesignLabel);
+                redesignLabel.fontSize = 11;
+                redesign.interactable = growth.CanRedesignBoard;
+                redesign.onClick.AddListener(RedesignBoard);
+            }
             Button rotateSelection = CreateButton(
                 "RotateSelection", panel, $"선택 회전  {_selectedRotation * 90}°",
                 new Vector2(135f, 34f), new Vector2(62f, 338f),
@@ -380,6 +404,9 @@ namespace Baseball.Presentation.Career
                 if (_placementPreviewImages[index] != null)
                     _placementPreviewImages[index].enabled = false;
             }
+            if (_draftPlacementPreviewVisual == null)
+                return;
+            _draftPlacementPreviewVisual.gameObject.SetActive(false);
         }
 
         private void RenderInventoryBlock(Transform parent, GrowthSkillBlockView block, int index)
@@ -492,7 +519,7 @@ namespace Baseball.Presentation.Career
 
             string guide = growth.CanEditBoard
                 ? "보유 블록을 선택해 회전한 뒤 성장판의 빈 칸에 배치하세요."
-                : "장착 효과는 경기에 반영됩니다. 변경은 오프시즌에만 가능합니다.";
+                : "장착 효과는 경기에 반영됩니다.";
             if (growth.LastPulledBlocks.Length > 0)
             {
                 GrowthSkillBlockView last = growth.LastPulledBlocks[0];
@@ -596,7 +623,7 @@ namespace Baseball.Presentation.Career
         private void RenderOffseasonActions(CareerGrowthView growth)
         {
             RectTransform panel = CreatePanel(
-                "OffseasonActions", "OFF-SEASON ACTION", "오프시즌 액션",
+                "OffseasonActions", string.Empty, "오프시즌 액션",
                 new Vector2(650f, 435f), new Vector2(613f, -205f));
             string phaseText = growth.IsOffseason
                 ? $"{growth.RemainingWeeks}주 남음  ·  현재 {growth.CurrentWeek}주차"
@@ -745,13 +772,9 @@ namespace Baseball.Presentation.Career
             string programId = program.ProgramId;
             card.onClick.AddListener(() => OpenActivityConfirmation(programId));
             CreateText(
-                "Type", card.transform, GetActivityShortLabel(program.ActivityType), 10,
-                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(cardWidth - 24f, 20f),
-                new Vector2(0f, 84f), selected ? PrimaryTextColor : SecondaryTextColor);
-            CreateText(
                 "Name", card.transform, GetProgramLabel(program.ProgramId), 15,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(cardWidth - 16f, 50f),
-                new Vector2(0f, 52f), PrimaryTextColor);
+                new Vector2(0f, 68f), PrimaryTextColor);
             CreateText(
                 "Cost", card.transform, $"{program.DurationWeeks}주\n{FormatMoney(program.MoneyCost)}",
                 13, FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(cardWidth - 22f, 48f),
@@ -865,25 +888,37 @@ namespace Baseball.Presentation.Career
             MarkVisual(decorativeFrame, CareerUiVisualRole.DecorativeFrame);
             RectTransform content = CreateRect("ContentSafeArea", panel, size, Vector2.zero);
             RectTransform interaction = CreateRect("InteractionRoot", panel, size, Vector2.zero);
+            Vector4 padding = size.x >= 600f
+                ? CareerUiTheme.WideFramePadding
+                : CareerUiTheme.DenseFramePadding;
+            CareerUiFrame.ApplyContentPadding(content, size, padding);
+            CareerUiFrame.ApplyContentPadding(interaction, size, padding);
             RectTransform header = CreateRect(
                 "HeaderRoot", panel, new Vector2(size.x - 72f, 48f),
                 new Vector2(0f, size.y * 0.5f - 54f));
-            // 넓은 워크스페이스에서 선이 중앙 제목과 안내 행까지 침범하지 않도록 장식 폭을 제한한다.
-            float headerLineWidth = Mathf.Min(size.x * 0.34f, 280f);
-            float headerLineX = -size.x * 0.46f + headerLineWidth * 0.5f;
-            CreateImage(
-                "HeaderLine", header, AccentColor, new Vector2(headerLineWidth, 2f),
-                new Vector2(headerLineX, -21f));
-            CreateText(
-                "Eyebrow", header, eyebrow, 10, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(size.x * 0.3f, 18f), new Vector2(-size.x * 0.33f, 9f), AccentColor);
+            if (!string.IsNullOrEmpty(eyebrow))
+            {
+                // 영문 캡션과 선은 프레임의 사선 모서리 안쪽에서 시작해야 작은 패널에서도 겹치지 않는다.
+                float headerContentLeft = -size.x * 0.5f + padding.x + 12f;
+                float headerLineWidth = Mathf.Min(size.x * 0.28f, 220f);
+                float headerLineX = headerContentLeft + headerLineWidth * 0.5f;
+                CreateImage(
+                    "HeaderLine", header, AccentColor, new Vector2(headerLineWidth, 2f),
+                    new Vector2(headerLineX, -21f));
+                float eyebrowWidth = Mathf.Min(size.x * 0.3f, 180f);
+                CreateText(
+                    "Eyebrow", header, eyebrow, 10, FontStyle.Bold, TextAnchor.MiddleLeft,
+                    new Vector2(eyebrowWidth, 18f),
+                    new Vector2(headerContentLeft + eyebrowWidth * 0.5f, 9f),
+                    AccentColor);
+            }
             CreateText(
                 "Heading", header, title, 20, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(size.x * 0.62f, 32f), new Vector2(0f, -7f), PrimaryTextColor);
             CareerUiFrame frame = panel.gameObject.AddComponent<CareerUiFrame>();
             frame.Initialize(
                 decorativeFrame.GetComponent<Image>(), header, content, interaction,
-                CareerUiTheme.UniversalFramePadding, false);
+                padding, false);
             return content;
         }
 
@@ -901,6 +936,20 @@ namespace Baseball.Presentation.Career
             return section;
         }
 
+        private static RectTransform CreateFramedSection(
+            string name,
+            Transform parent,
+            Vector2 size,
+            Vector2 position,
+            Color color)
+        {
+            RectTransform section = CreateRect(name, parent, size, position);
+            RectTransform surface = CreateImage(
+                "FramedSurface", section, color, Vector2.zero, Vector2.zero, stretch: true);
+            MarkVisual(surface, CareerUiVisualRole.FramedSurface);
+            return section;
+        }
+
         private static void MarkVisual(
             RectTransform target,
             CareerUiVisualRole role,
@@ -912,7 +961,7 @@ namespace Baseball.Presentation.Career
             visual.Initialize(role, isHeroFrame);
         }
 
-        private static void RenderTetromino(
+        private static RectTransform RenderTetromino(
             Transform parent,
             BoardCell[] shapeCells,
             int rotationQuarterTurns,
@@ -922,47 +971,15 @@ namespace Baseball.Presentation.Career
             float maxCellSize,
             string namePrefix)
         {
-            if (shapeCells == null || shapeCells.Length == 0)
-                return;
-
-            int rotation = ((rotationQuarterTurns % 4) + 4) % 4;
-            int minimumX = int.MaxValue;
-            int minimumY = int.MaxValue;
-            int maximumX = int.MinValue;
-            int maximumY = int.MinValue;
-            for (int index = 0; index < shapeCells.Length; index++)
-            {
-                GetRotatedCoordinates(shapeCells[index], rotation, out int x, out int y);
-                minimumX = Math.Min(minimumX, x);
-                minimumY = Math.Min(minimumY, y);
-                maximumX = Math.Max(maximumX, x);
-                maximumY = Math.Max(maximumY, y);
-            }
-
-            const float gap = 2f;
-            int widthInCells = maximumX - minimumX + 1;
-            int heightInCells = maximumY - minimumY + 1;
-            float widthLimitedSize = (bounds.x - gap * (widthInCells - 1)) / widthInCells;
-            float heightLimitedSize = (bounds.y - gap * (heightInCells - 1)) / heightInCells;
-            float cellSize = Mathf.Min(maxCellSize, widthLimitedSize, heightLimitedSize);
-            float step = cellSize + gap;
-            float totalWidth = widthInCells * cellSize + (widthInCells - 1) * gap;
-            float totalHeight = heightInCells * cellSize + (heightInCells - 1) * gap;
-
-            for (int index = 0; index < shapeCells.Length; index++)
-            {
-                GetRotatedCoordinates(shapeCells[index], rotation, out int x, out int y);
-                float cellX = position.x - totalWidth * 0.5f + cellSize * 0.5f +
-                              (x - minimumX) * step;
-                float cellY = position.y + totalHeight * 0.5f - cellSize * 0.5f -
-                              (y - minimumY) * step;
-                CreateImage(
-                    namePrefix + "Cell_" + index,
-                    parent,
-                    color,
-                    new Vector2(cellSize, cellSize),
-                    new Vector2(cellX, cellY));
-            }
+            return SkillBlockVisual.Create(
+                parent,
+                shapeCells,
+                rotationQuarterTurns,
+                color,
+                position,
+                bounds,
+                maxCellSize,
+                namePrefix);
         }
 
         private static void GetRotatedCoordinates(
@@ -1008,6 +1025,7 @@ namespace Baseball.Presentation.Career
             fill.anchorMin = fill.anchorMax = new Vector2(0f, 0.5f);
             fill.pivot = new Vector2(0f, 0.5f);
             fill.anchoredPosition = new Vector2(2f, 0f);
+            CareerUiSkin.ApplyProgressBar(track.GetComponent<Image>(), fill.GetComponent<Image>(), clamped);
         }
 
         private static RectTransform CreateRect(string name, Transform parent, Vector2 size, Vector2 position)
@@ -1076,6 +1094,7 @@ namespace Baseball.Presentation.Career
             out Text text)
         {
             RectTransform rect = CreateImage(name, parent, color, size, position);
+            MarkVisual(rect, CareerUiVisualRole.FramedControl);
             Button button = rect.gameObject.AddComponent<Button>();
             rect.GetComponent<Image>().raycastTarget = true;
             ColorBlock colors = button.colors;

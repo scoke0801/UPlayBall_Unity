@@ -297,7 +297,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
-        public void LockForSeason_개막스냅샷을고정하고배치변경을거부한다()
+        public void LockForSeason_확정전편집은활성보드에반영되지않는다()
         {
             SkillBlockDefinition block = CreateDefinition(
                 "contact_normal",
@@ -312,10 +312,70 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             service.PlaceBlock(state, instance.InstanceId, 0, 0, 0);
 
             state.LockForSeason();
+            service.RemoveBlock(state, instance.InstanceId);
 
             Assert.That(state.AppliedBlocks, Has.Count.EqualTo(1));
-            Assert.Throws<InvalidOperationException>(() => service.RemoveBlock(state, instance.InstanceId));
-            Assert.That(service.GetAbilityBonus(state, PlayerAbility.Contact), Is.EqualTo(1));
+            Assert.That(state.HasUncommittedPlacements, Is.True);
+            Assert.That(service.GetAbilityBonus(state, PlayerAbility.Contact), Is.EqualTo(1),
+                "확정 전까지는 개막 보드가 경기에 그대로 적용돼야 한다.");
+            Assert.That(state.OwnedBlocks, Has.Count.EqualTo(1),
+                "시즌 중 회수한 블록은 파괴되지 않고 보관함으로 돌아와야 한다.");
+        }
+
+        [Test]
+        public void CommitInSeason_비용을받고활성보드를교체한다()
+        {
+            SkillBlockDefinition block = CreateDefinition(
+                "contact_normal",
+                SkillBlockRarity.Normal,
+                1,
+                60L);
+            var state = new SkillBoardState("standard_4x4");
+            SkillBlockInstance instance = state.AddOwnedBlock(block.BlockId);
+            var service = new SkillBoardService(
+                SkillBoardDefinition.CreateDefault(),
+                new[] { block });
+            service.PlaceBlock(state, instance.InstanceId, 0, 0, 0);
+            state.LockForSeason();
+            service.RemoveBlock(state, instance.InstanceId);
+            var economy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(5_000L));
+            long commitCost = MoneyAmount.FromTenThousandWon(2_000L);
+
+            service.CommitInSeason(state, economy, 2026, commitCost);
+
+            Assert.That(economy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(3_000L)));
+            Assert.That(state.AppliedBlocks, Has.Count.EqualTo(0));
+            Assert.That(service.GetAbilityBonus(state, PlayerAbility.Contact), Is.EqualTo(0));
+            Assert.That(state.HasUncommittedPlacements, Is.False);
+            Assert.That(state.InSeasonCommitCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CommitInSeason_변경이없거나오프시즌이면거부한다()
+        {
+            SkillBlockDefinition block = CreateDefinition(
+                "contact_normal",
+                SkillBlockRarity.Normal,
+                1,
+                60L);
+            var state = new SkillBoardState("standard_4x4");
+            SkillBlockInstance instance = state.AddOwnedBlock(block.BlockId);
+            var service = new SkillBoardService(
+                SkillBoardDefinition.CreateDefault(),
+                new[] { block });
+            service.PlaceBlock(state, instance.InstanceId, 0, 0, 0);
+            var economy = new CareerEconomyState(MoneyAmount.FromTenThousandWon(5_000L));
+            long commitCost = MoneyAmount.FromTenThousandWon(2_000L);
+
+            Assert.Throws<InvalidOperationException>(
+                () => service.CommitInSeason(state, economy, 2026, commitCost),
+                "오프시즌 편집은 즉시 반영되므로 확정 비용을 받지 않는다.");
+
+            state.LockForSeason();
+
+            Assert.Throws<InvalidOperationException>(
+                () => service.CommitInSeason(state, economy, 2026, commitCost));
+            Assert.That(economy.Money, Is.EqualTo(MoneyAmount.FromTenThousandWon(5_000L)));
         }
 
         [Test]
