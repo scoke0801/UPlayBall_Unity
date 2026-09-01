@@ -404,6 +404,9 @@ FodyWeavers.xsd
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 /[Ll]ibrary/
 /[Tt]emp/
+/Temp/KBOImport/
+Tools/KBOImporter/.venv/
+Tools/KBOImporter/.cache/
 /[Oo]bj/
 /[Bb]uild/
 /[Bb]uilds/
@@ -524,6 +527,7 @@ Assets/04.Images/UI/*
 **/09.ResourceData
 **/ExternalAssets
 **/Plugins
+**/Tools/KBOImporter/*
 **/BuildOutput
 **/com.rlabrecque.steamworks.net
 steam_appid.txt
