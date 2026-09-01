@@ -24,6 +24,13 @@ namespace Baseball.Presentation.Career
         private static readonly Color SecondaryTextColor = new(0.60f, 0.70f, 0.80f, 1f);
         private static readonly Color MutedTextColor = new(0.34f, 0.42f, 0.50f, 1f);
         private static readonly Color ErrorColor = new(1f, 0.40f, 0.40f, 1f);
+        private static readonly Color LockedCardColor = new(0.04f, 0.05f, 0.065f, 0.88f);
+
+        private const float LockedCardAlpha = 0.72f;
+#if UNITY_EDITOR
+        private static readonly Color CardPreviewTeamColor = new(0.07f, 0.23f, 0.35f, 1f);
+        private bool _showCardGallery;
+#endif
 
         private readonly HashSet<PitchType> _selectedPitches = new();
         private NewGameManager _manager;
@@ -173,18 +180,33 @@ namespace Baseball.Presentation.Career
             });
 
             RectTransform managerCard = CreateImage(
-                "ManagerCareer", right, new Color(0.04f, 0.05f, 0.065f, 0.88f),
+                "ManagerCareer", right, LockedCardColor,
                 new Vector2(580f, 190f), new Vector2(0f, -15f));
-            CreateText("Lock", managerCard, "LOCK", 11, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(90f, 24f), new Vector2(-200f, 60f), MutedTextColor);
-            CreateText("Badge", managerCard, "준비 중", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(92f, 30f), new Vector2(215f, 61f), GoldColor);
+            ApplyFramedCardSkin(managerCard);
+            // 잠긴 카드는 프레임 언어를 공유하되 CanvasGroup 하나로 프레임과 글자를 함께 눌러
+            // 선택 가능한 선수 커리어 카드보다 뒤로 물러나게 한다.
+            managerCard.gameObject.AddComponent<CanvasGroup>().alpha = LockedCardAlpha;
+            CreateText("Lock", managerCard, "LOCK", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(420f, 24f), new Vector2(55f, 58f), MutedTextColor);
+            CreateText("Badge", managerCard, "준비 중", 13, FontStyle.Bold, TextAnchor.MiddleRight,
+                new Vector2(420f, 24f), new Vector2(55f, 58f), GoldColor);
             CreateText("Mode", managerCard, "감독 커리어", 27, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(470f, 42f), new Vector2(0f, 30f), SecondaryTextColor);
+                new Vector2(420f, 40f), new Vector2(55f, 18f), SecondaryTextColor);
             CreateText("Description", managerCard,
                 "구단 운영과 라인업·영입을 담당하는 모드입니다.\n추후 업데이트에서 제공됩니다.",
                 16, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(490f, 65f), new Vector2(0f, -25f), MutedTextColor);
+                new Vector2(420f, 58f), new Vector2(55f, -45f), SecondaryTextColor);
+#if UNITY_EDITOR
+            Button cardGallery = CreateButton(
+                "CardDesignGallery", right, "카드 디자인 보기", new Vector2(280f, 52f),
+                new Vector2(0f, -250f), new Color(0.025f, 0.16f, 0.25f, 0.96f), out _);
+            CareerUiSkin.ApplyButton(cardGallery);
+            cardGallery.onClick.AddListener(() =>
+            {
+                _showCardGallery = true;
+                Render();
+            });
+#endif
             Button settings = CreateButton("TitleSettings", right, "설정", new Vector2(150f, 50f),
                 new Vector2(-180f, -445f), new Color(0.018f, 0.045f, 0.07f, 0.94f), out _);
             CareerUiSkin.ApplyButton(settings);
@@ -208,6 +230,11 @@ namespace Baseball.Presentation.Career
                 Render();
             });
 
+#if UNITY_EDITOR
+            if (_showCardGallery)
+                RenderCardDesignGallery();
+            else
+#endif
             if (!string.IsNullOrEmpty(_titleNotice))
                 RenderTitleNotice();
             else if (_showQuitConfirmation)
@@ -229,6 +256,74 @@ namespace Baseball.Presentation.Career
                 Render();
             });
         }
+
+#if UNITY_EDITOR
+        /// <summary>타이틀에서 일반·특수 선수 카드의 실제 런타임 합성을 비교한다.</summary>
+        private void RenderCardDesignGallery()
+        {
+            RectTransform shade = CreateImage(
+                "CardDesignGalleryShade", _content, new Color(0f, 0f, 0f, 0.84f),
+                new Vector2(1920f, 1080f), Vector2.zero);
+            RectTransform gallery = CreateImage(
+                "CardDesignGalleryPopup", shade, new Color(0.012f, 0.032f, 0.052f, 0.99f),
+                new Vector2(1700f, 980f), Vector2.zero);
+            ApplyFramedCardSkin(gallery);
+
+            CreateText("Title", gallery, "선수 카드 디자인 테스트", 32, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(760f, 52f), new Vector2(-390f, 425f),
+                PrimaryTextColor);
+            CreateText("Guide", gallery,
+                "동일한 네이비 Team Color 기준 · 카드를 클릭하면 앞/뒤가 전환됩니다.",
+                16, FontStyle.Normal, TextAnchor.MiddleRight,
+                new Vector2(760f, 40f), new Vector2(390f, 425f), SecondaryTextColor);
+
+            CreateCardPreview(gallery, "Normal", "일반", PlayerCardSpecialType.None, -600f);
+            CreateCardPreview(gallery, "AllStar", "올스타", PlayerCardSpecialType.AllStar, -200f);
+            CreateCardPreview(gallery, "MVP", "MVP", PlayerCardSpecialType.Mvp, 200f);
+            CreateCardPreview(
+                gallery, "GoldenGlove", "골든글러브", PlayerCardSpecialType.GoldenGlove, 600f);
+
+            Button close = CreateButton(
+                "Close", gallery, "닫기", new Vector2(220f, 52f), new Vector2(0f, -435f),
+                new Color(0.025f, 0.16f, 0.25f, 1f), out _);
+            CareerUiSkin.ApplyButton(close);
+            close.onClick.AddListener(() =>
+            {
+                _showCardGallery = false;
+                Render();
+            });
+        }
+
+        private void CreateCardPreview(
+            Transform parent,
+            string objectName,
+            string label,
+            PlayerCardSpecialType specialType,
+            float positionX)
+        {
+            RectTransform slot = CreateRect(
+                "CardPreview_" + objectName, parent, new Vector2(360f, 780f),
+                new Vector2(positionX, -8f));
+            CreateText("Label", slot, label, 22, FontStyle.Bold, TextAnchor.MiddleCenter,
+                new Vector2(320f, 40f), new Vector2(0f, 350f), PrimaryTextColor);
+
+            UIPlayerCard card = UIPlayerCard.CreateRuntime(
+                slot, new Vector2(320f, 480f), new Vector2(0f, 45f));
+            card.BindArtPreview(CardPreviewTeamColor, PlayerPosition.Shortstop);
+            card.SetSpecialType(specialType);
+
+            string description = specialType switch
+            {
+                PlayerCardSpecialType.AllStar => "Silver · Starburst",
+                PlayerCardSpecialType.Mvp => "Champagne · Spotlight",
+                PlayerCardSpecialType.GoldenGlove => "Leather · Defense",
+                _ => "Neutral · Team Color"
+            };
+            CreateText("Description", slot, description, 14, FontStyle.Normal,
+                TextAnchor.MiddleCenter, new Vector2(330f, 34f), new Vector2(0f, -225f),
+                SecondaryTextColor);
+        }
+#endif
 
         private void RenderQuitConfirmation()
         {

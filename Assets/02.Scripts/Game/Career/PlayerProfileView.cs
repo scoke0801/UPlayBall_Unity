@@ -84,6 +84,7 @@ namespace Baseball.Game.Career
         public Handedness ThrowingHand { get; internal set; }
         public string TeamName { get; internal set; }
         public TeamColor TeamColor { get; internal set; }
+        public int TeamEmblemId { get; internal set; }
         public int SeasonYear { get; internal set; }
         public LeagueLevel LeagueLevel { get; internal set; }
         public int Overall { get; internal set; }

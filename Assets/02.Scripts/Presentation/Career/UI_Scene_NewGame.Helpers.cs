@@ -611,6 +611,16 @@ namespace Baseball.Presentation.Career
             CareerUiSkin.ApplyButton(button);
         }
 
+        /// <summary>클릭할 수 없는 카드에 Button 카드와 같은 두께의 공통 프레임을 입힌다.</summary>
+        private static void ApplyFramedCardSkin(RectTransform card)
+        {
+            CareerUiVisualElement visual = card.GetComponent<CareerUiVisualElement>();
+            if (visual == null)
+                visual = card.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(CareerUiVisualRole.FramedCard);
+            CareerUiSkin.ApplyVisualElement(card.GetComponent<Image>());
+        }
+
         private static InputField CreateInputField(
             string name, Transform parent, string placeholder, string value, Vector2 size, Vector2 position)
         {

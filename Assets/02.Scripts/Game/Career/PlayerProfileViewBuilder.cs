@@ -65,6 +65,7 @@ namespace Baseball.Game.Career
                 ThrowingHand = player.ThrowingHand,
                 TeamName = team.Name,
                 TeamColor = team.PrimaryColor,
+                TeamEmblemId = team.EmblemId,
                 SeasonYear = season.Year,
                 LeagueLevel = season.LeagueLevel,
                 Overall = Clamp(overall, 0, 100),

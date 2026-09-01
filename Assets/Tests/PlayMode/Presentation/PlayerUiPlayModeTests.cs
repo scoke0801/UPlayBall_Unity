@@ -47,12 +47,46 @@ namespace Baseball.Tests.PlayMode.Presentation
             Assert.That(player.transform.Find("Content/ProfilePage/BoardPreview"), Is.Not.Null);
             Assert.That(player.transform.Find("Content/ProfilePage/OwnedSkills"), Is.Not.Null);
             Assert.That(player.transform.Find("Content/ProfilePage/RecentForm"), Is.Not.Null);
-            Assert.That(player.transform.Find("Content/Tabs/Tab_선수/ActiveGlow"), Is.Not.Null);
+            Transform activePlayerTab = player.transform.Find("Content/Tabs/Tab_선수");
+            Transform inactiveHomeTab = player.transform.Find("Content/Tabs/Tab_홈");
+            Assert.That(activePlayerTab, Is.Not.Null);
+            Assert.That(inactiveHomeTab, Is.Not.Null);
+            Assert.That(
+                activePlayerTab.GetComponent<Image>().color,
+                Is.Not.EqualTo(inactiveHomeTab.GetComponent<Image>().color),
+                "현재 탭은 비활성 탭과 다른 시각 상태여야 한다.");
 
-            RectTransform overallLabel = GetRect(player.transform, "Content/PlayerCard/OverallLabel");
-            RectTransform overallValue = GetRect(player.transform, "Content/PlayerCard/Overall");
-            Assert.That(overallLabel.anchoredPosition.x, Is.EqualTo(overallValue.anchoredPosition.x),
-                "OVR 라벨과 수치는 같은 세로축에 있어야 한다.");
+            Transform playerCard = player.transform.Find("Content/PlayerCard/Card");
+            Assert.That(playerCard, Is.Not.Null);
+            Assert.That(playerCard.Find("Front/NeutralFrame"), Is.Not.Null);
+            Assert.That(playerCard.Find("Front/TeamColorOverlay"), Is.Not.Null);
+            Assert.That(playerCard.Find("Front/SpecialCardOverlay"), Is.Not.Null);
+            Assert.That(playerCard.Find("Front/Portrait"), Is.Not.Null);
+            Assert.That(playerCard.Find("Front/CommonTopMeta"), Is.Not.Null);
+            Assert.That(playerCard.Find("Front/TopTeamEmblem"), Is.Not.Null);
+            Assert.That(playerCard.Find("Front/AwardSlot_2"), Is.Not.Null);
+            Assert.That(playerCard.Find("Front/AwardMark_2"), Is.Not.Null);
+            Assert.That(playerCard.Find("Front/StatLabel_5"), Is.Not.Null,
+                "선수 카드에는 여섯 능력치 행이 있어야 한다.");
+            Assert.That(playerCard.Find("Back/NeutralFrame"), Is.Not.Null);
+            Assert.That(playerCard.Find("Back/TeamColorOverlay"), Is.Not.Null);
+            Assert.That(playerCard.Find("Back/SpecialCardOverlay"), Is.Not.Null);
+
+            UIPlayerCard cardView = playerCard.GetComponent<UIPlayerCard>();
+            cardView.SetSpecialType(PlayerCardSpecialType.Mvp);
+            Assert.That(cardView.SpecialType, Is.EqualTo(PlayerCardSpecialType.Mvp));
+            Assert.That(playerCard.Find("Front/SpecialCardOverlay").GetComponent<Image>().enabled, Is.True);
+            Assert.That(playerCard.Find("Back/SpecialCardOverlay").GetComponent<Image>().enabled, Is.True);
+            cardView.SetSpecialType(PlayerCardSpecialType.GoldenGlove);
+            Assert.That(playerCard.Find("Front/CommonTopMeta").GetComponent<Image>().enabled, Is.True);
+            cardView.SetSpecialType(PlayerCardSpecialType.None);
+            Assert.That(playerCard.Find("Front/SpecialCardOverlay").GetComponent<Image>().enabled, Is.False);
+            Assert.That(cardView.IsShowingBack, Is.False);
+            playerCard.GetComponent<Button>().onClick.Invoke();
+            Assert.That(cardView.IsShowingBack, Is.True);
+            Assert.That(playerCard.Find("Front").gameObject.activeSelf, Is.False);
+            Assert.That(playerCard.Find("Back").gameObject.activeSelf, Is.True);
+            playerCard.GetComponent<Button>().onClick.Invoke();
 
             RectTransform basicInfoDivider = player.transform
                 .Find("Content/ProfilePage/BasicInfo/ColumnDivider")

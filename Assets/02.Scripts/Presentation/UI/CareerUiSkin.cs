@@ -401,6 +401,9 @@ namespace Baseball.Presentation.UI
                 case CareerUiVisualRole.FramedSurface:
                     ApplyFramedSurface(image);
                     break;
+                case CareerUiVisualRole.FramedCard:
+                    ApplyFramedCard(image);
+                    break;
             }
 
             return true;
@@ -430,12 +433,24 @@ namespace Baseball.Presentation.UI
 
         private static void ApplyFramedSurface(Image image)
         {
+            ApplyFramedBackplate(image, CompactFramedPixelsPerUnitMultiplier);
+        }
+
+        // 카드형 표면은 옆에 놓이는 Button 카드와 프레임 두께가 같아야 한 벌로 읽히므로
+        // 정보 표면(FramedSurface)의 축소 배율 대신 원본 9-slice 두께를 그대로 쓴다.
+        private static void ApplyFramedCard(Image image)
+        {
+            ApplyFramedBackplate(image, 1f);
+        }
+
+        private static void ApplyFramedBackplate(Image image, float pixelsPerUnitMultiplier)
+        {
             Color sourceTint = image.color;
             bool isSemanticActive = image.sprite == _buttonFocused || IsSemanticActive(sourceTint);
             bool isAlreadyStyled = IsButtonStyled(image);
             image.sprite = isSemanticActive ? _buttonFocused : _buttonNormal;
             image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = CompactFramedPixelsPerUnitMultiplier;
+            image.pixelsPerUnitMultiplier = pixelsPerUnitMultiplier;
             if (!isAlreadyStyled)
                 image.color = ResolveTextureTint(sourceTint, 0.24f);
             image.raycastTarget = false;

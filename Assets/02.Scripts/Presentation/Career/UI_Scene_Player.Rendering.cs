@@ -13,62 +13,21 @@ namespace Baseball.Presentation.Career
         {
             RectTransform card = CreatePanel("PlayerCard", _content, "MY PLAYER",
                 new Vector2(420f, 750f), new Vector2(-735f, -21f));
-            Color teamColor = ToColor(view.TeamColor);
-            CreateImage("TeamStripe", card, teamColor, new Vector2(388f, 5f), new Vector2(0f, 333f));
+            UIPlayerCard playerCard = UIPlayerCard.CreateRuntime(
+                card,
+                new Vector2(360f, 540f),
+                new Vector2(0f, 28f));
+            playerCard.Bind(view, GetRoleLabel(view));
 
-            RectTransform portraitFrame = CreateImage("PortraitFrame", card, DividerColor,
-                new Vector2(364f, 286f), new Vector2(0f, 165f));
-            RectTransform portrait = CreateImage("Portrait", portraitFrame,
-                new Color(0.77f, 0.84f, 0.9f, 1f), new Vector2(356f, 278f), Vector2.zero);
-            Image portraitImage = portrait.GetComponent<Image>();
-            portraitImage.sprite = PlayerPortraitSprites.GetDefault(view.Position);
-            portraitImage.preserveAspect = true;
-            portraitImage.color = Color.white;
-
-            RectTransform positionBadge = CreateImage("PositionBadge", card,
-                new Color(0.02f, 0.24f, 0.45f, 0.96f), new Vector2(68f, 42f), new Vector2(-148f, 278f));
-            CreateText("Position", positionBadge, GetPositionCode(view.Position), 20, FontStyle.Bold,
-                TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero, PrimaryTextColor, stretch: true);
-            CreateText("OverallLabel", card, "OVR", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(82f, 24f), new Vector2(145f, 283f), SecondaryTextColor);
-            CreateText("Overall", card, view.Overall.ToString(), 40, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(82f, 52f), new Vector2(145f, 251f), GoldColor);
-
-            CreateText("PlayerName", card, view.PlayerName, 29, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(370f, 46f), new Vector2(0f, -5f), PrimaryTextColor);
-            CreateText("TeamName", card, view.TeamName, 16, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(370f, 30f), new Vector2(0f, -43f), SecondaryTextColor);
-            CreateImage("IdentityDivider", card, DividerColor, new Vector2(356f, 1f), new Vector2(0f, -65f));
-
-            RenderCardInfoRow(card, "컨디션", $"{view.Condition} · {GetConditionLabel(view.Condition)}", -84f);
-            RenderCardInfoRow(card, "감독 평가", view.ManagerEvaluation.ToString(), -116f);
-            RenderCardInfoRow(card, "피로도", $"{view.Fatigue}% · {GetFatigueLabel(view.Fatigue)}", -148f);
-            RenderCardInfoRow(card, "나이", $"{view.Age}세", -180f);
-            RenderCardInfoRow(card, "투타", GetHandednessLabel(view.BattingHand, view.ThrowingHand), -212f);
-            RenderCardInfoRow(card, "프로 경력", $"{view.ProfessionalYears}년차", -244f);
-
-            RectTransform role = CreateImage("RoleBadge", card, new Color(0.03f, 0.25f, 0.22f, 1f),
-                new Vector2(356f, 48f), new Vector2(0f, -286f));
-            CreateText("Label", role, "현재 역할", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(90f, 36f), new Vector2(-121f, 0f), SecondaryTextColor);
-            CreateText("Value", role, GetRoleLabel(view), 17, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(235f, 36f), new Vector2(50f, 0f), RoleColor);
+            CreateText("FlipGuide", card, "카드를 선택하면 앞면과 뒷면을 전환합니다.", 12,
+                FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(356f, 28f),
+                new Vector2(0f, -264f), SecondaryTextColor);
 
             Button growthButton = CreateButton("OpenGrowth", card, "성장 계획 보기",
                 new Vector2(356f, 52f), new Vector2(0f, -340f),
                 new Color(0.025f, 0.22f, 0.43f, 1f), out Text growthLabel);
             growthLabel.fontSize = 17;
             growthButton.onClick.AddListener(() => CareerTabNavigation.Show(CareerMainTab.Growth));
-        }
-
-        private static void RenderCardInfoRow(Transform parent, string label, string value, float y)
-        {
-            CreateText("Label_" + label, parent, label, 14, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(130f, 30f), new Vector2(-111f, y), SecondaryTextColor);
-            CreateText("Value_" + label, parent, value, 15, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(210f, 30f), new Vector2(72f, y), PrimaryTextColor);
-            CreateImage("Divider_" + label, parent, new Color(0.12f, 0.24f, 0.34f, 0.75f),
-                new Vector2(356f, 1f), new Vector2(0f, y - 18f));
         }
 
         private void RenderProfilePage(PlayerProfileView view)

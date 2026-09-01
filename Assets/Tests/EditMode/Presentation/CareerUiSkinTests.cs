@@ -187,6 +187,28 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(cardSurface.color.r, Is.LessThan(0.05f));
         }
 
+        [Test]
+        public void Apply_FramedCard는Button카드와같은Frame두께를쓴다()
+        {
+            Image card = CreateSizedImage("ManagerCareer", _root.transform, new Vector2(580f, 190f));
+            card.color = new Color(0.04f, 0.05f, 0.065f, 0.88f);
+            card.gameObject.AddComponent<CareerUiVisualElement>()
+                .Initialize(CareerUiVisualRole.FramedCard);
+            Button reference = CreateButton("PlayerCareer", new Vector2(580f, 220f));
+
+            CareerUiSkin.Apply(_root.transform);
+
+            Image referenceImage = reference.GetComponent<Image>();
+            Assert.That(card.sprite, Is.Not.Null);
+            Assert.That(card.type, Is.EqualTo(Image.Type.Sliced));
+            Assert.That(card.pixelsPerUnitMultiplier, Is.EqualTo(referenceImage.pixelsPerUnitMultiplier));
+            Assert.That(card.raycastTarget, Is.False);
+
+            Color firstTint = card.color;
+            CareerUiSkin.Apply(_root.transform);
+            Assert.That(card.color, Is.EqualTo(firstTint));
+        }
+
         private Button CreateButton(string name, Vector2 size)
         {
             return CreateButton(name, size, Color.white);

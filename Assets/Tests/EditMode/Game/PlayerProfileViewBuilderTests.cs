@@ -23,6 +23,7 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(view.PlayerId, Is.EqualTo(career.MyPlayer.PlayerId));
             Assert.That(view.PlayerName, Is.EqualTo(career.MyPlayer.Name));
             Assert.That(view.TeamName, Is.Not.Empty);
+            Assert.That(view.TeamEmblemId, Is.GreaterThan(0));
             Assert.That(view.Overall, Is.EqualTo(67));
             Assert.That(view.PlannedRole, Is.EqualTo(PlayerGameRole.StartingBatter));
             Assert.That(view.Abilities.Length, Is.EqualTo(6));
