@@ -167,13 +167,7 @@ namespace Baseball.Core.Teams
                     throw new ArgumentException("교체 선수는 선발 Lineup에 중복 등록할 수 없습니다.", nameof(substitution));
             }
 
-            PlayerPosition inheritedPosition = lineup[substitution.BattingOrderIndex].FieldingPosition;
-            if (substitute.PrimaryPosition != inheritedPosition)
-            {
-                throw new ArgumentException(
-                    "교체 선수의 주 포지션은 승계할 타순의 수비 포지션과 같아야 합니다.",
-                    nameof(substitution));
-            }
+            // 비주포지션 교체는 유효하며, 경기 판정에 들어가기 전에 공통 PositionAssignmentRule의 비용을 평가해야 한다.
         }
     }
 }
