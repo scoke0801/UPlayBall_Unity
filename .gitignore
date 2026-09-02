@@ -521,13 +521,22 @@ Assets/04.Images/UI/*
 **/External
 **/Models
 **/Editor Default Resources
+!Assets/Editor Default Resources/
+Assets/Editor Default Resources/*
+!Assets/Editor Default Resources/HistoricalSimulation/
+!Assets/Editor Default Resources/HistoricalSimulation.meta
+!Assets/Editor Default Resources/HistoricalSimulation/**
 **/ExternalDependencyManager
 **/Firebase
 **/google-services*
 **/09.ResourceData
 **/ExternalAssets
 **/Plugins
+**/Assets/Editor Default Resources/*
 **/Tools/KBOImporter/*
+!Tools/KBOImporter/README.md
+!Tools/KBOImporter/synthetic_bake.py
+!Tools/KBOImporter/test_synthetic_bake.py
 **/BuildOutput
 **/com.rlabrecque.steamworks.net
 steam_appid.txt
