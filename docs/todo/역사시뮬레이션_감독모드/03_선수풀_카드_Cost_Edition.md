@@ -2,89 +2,129 @@
 
 ## 0. 목적
 
-이 문서의 `[Reference]`/`[ProjectOriginal]` 표기는 04절 §0.1의 규칙을 그대로 따른다.
+이 문서의 `[Reference]`/`[ProjectOriginal]` 표기는 04절 §0.1 규칙을 따른다.
 
-감독모드에서 수집·강화·판매의 대상이 되는 카드 데이터 모델을 정의한다. Edition은 정확히
-4종(`Normal`, `AllStar`, `GoldenGlove`, `Mvp`)만 두고, 그 이상의 등급 체계(Legend/Classic/Rare
-등)는 만들지 않는다 — 카드 시스템을 늘리지 않고 기존 성장/육성 축(강화, DP 훈련, 팀컬러)의
-조합으로 깊이를 만든다.
+`PlayerPersonDefinition`/`PlayerSeasonDefinition`/카드 원본은 **선수 커리어 모드와 감독모드가 공통으로 사용하는 Baked 콘텐츠**다. 감독모드만 이 공통 카드를 수집·강화·판매하는 `OwnedPlayerCardState`를 추가로 가진다.
 
-## 1. 3단 데이터 모델
+Edition은 정확히 4종만 사용한다.
 
 ```text
-PlayerPersonDefinition   // 가상 인물 1명, 영구
-  PlayerPersonId
-  FictionalName, BirthYear, Bats, Throws, PrimaryPosition
-  CareerSpan                        // 데뷔~은퇴 연도, 01절 §5의 SyntheticCareerGenerator가 결정
-  PersonPotentialTrait               // 성장 성향(능력치별 상대적 크는 속도/방향), Person당 1회 생성(§2.1)
-
-PlayerSeasonDefinition    // 인물의 특정 연도·구단 스냅샷
-  PlayerPersonId                    // 같은 인물의 여러 시즌을 연결하는 키 — 01절 §5 참고
-  OriginYear, FranchiseId, TeamSeasonKey
-  Position, PitcherRole
-  BaseAttributes           // 01절 §5.1 SyntheticPlayerBlueprint 결과
-  Cost                     // 1~10, §2
-  TrainingCeiling          // 이 시즌 카드 고유의 능력치별 훈련 상한, §2.1에서 파생
-
-PlayerCardDefinition       // 실제 수집 대상
-  CardId
-  PlayerSeasonId
-  Edition                  // Normal | AllStar | GoldenGlove | Mvp
-  EditionStatModifiers      // §3
+Normal
+AllStar
+GoldenGlove
+Mvp
 ```
 
-한 `PlayerPersonId`가 여러 `PlayerSeasonDefinition`(연도별)을 갖는 구조는 01절 §5
-`SyntheticCareerGenerator`가 생성 시점에 함께 만든다 — `PlayerSeasonDefinition`을 연도마다
-독립적으로 생성한 뒤 사후에 짝짓는 것이 아니라, 커리어 생성 자체가 인물 단위로 시작해서
-연도별 시즌을 파생시키는 순서다.
+Legend/Classic/Rare 등의 추가 선수 카드 등급은 만들지 않는다.
 
-**감독모드 카드는 나이를 먹지 않는다.** `2011 김도윤` 카드는 게임이 몇 시즌 진행되어도 항상
-2011 시즌의 능력치다. 이는 선수 커리어 모드의 노화/은퇴 시스템과 완전히 별개 규칙이다.
-
-이 규칙은 05절의 DP 훈련과 충돌하지 않는다 — 감독모드 카드의 훈련은 **나이·성장곡선 기반
-`NaturalGrowth`/노화 Resolver를 전혀 쓰지 않고**, 시즌 카드마다 고정되는 `TrainingCeiling`
-값만으로 `CardTrainingBonus`(고정 성장분)를 계산한다(05절 §5). "나이를 먹지 않는
-스냅샷"과 "훈련으로 조금 더 성장할 여지가 있는 카드"는 서로 다른 개념이며, 후자에 나이·
-노화 개념을 끌어들이지 않는다.
-
-### 1.1 PersonPotentialTrait과 시즌별 TrainingCeiling — 반드시 분리한다
-
-**이전 초안의 구조적 오류:** 훈련 잠재 상한(`DevelopmentPotentialProfile`)을 Person 단위로
-한 번만 만들어 모든 시즌 카드가 공유하게 했었다. 이러면 `2007 김도윤 Cost 3`(저코스트,
-전성기 이전)과 `2013 김도윤 Cost 9`(전성기, 리그 최정상급)가 **같은 PowerCeiling**을
-갖게 되어, 저코스트 카드를 DP로 밀어붙이면 전성기 카드와 능력치가 비슷해질 수 있다 —
-"상위 능력치 선수일수록 얻기 어렵다"는 선수풀 핵심 전제와 정면으로 충돌한다. 게다가 Ceiling을
-Person 생성 시점에 먼저 정하고 시즌 BaseStat을 나중에 생성하는 순서였으므로, 특정 시즌의
-BaseStat이 우연히 Ceiling을 넘어서는 모순도 가능했다.
-
-따라서 이 둘을 명확히 분리한다.
+## 1. 공통 데이터 모델
 
 ```text
-PersonPotentialTrait   // Person 소유, 능력치별 "성장 성향"만 — 절대 능력치 상한이 아니다
+PlayerPersonDefinition
+  PlayerPersonId
+  FictionalName
+  BirthYear
+  Bats
+  Throws
+  PrimaryPosition
+  RegistrationType       // Domestic | Foreign 등. 기존 동등 필드가 있으면 재사용
+  CareerSpan
+  PersonPotentialTrait
+
+PlayerSeasonDefinition
+  PlayerSeasonId
+  PlayerPersonId
+  OriginYear
+  FranchiseId
+  TeamSeasonKey
+  Position               // 해당 시즌의 본래 수비 포지션
+  PitcherRole            // 해당 시즌의 본래 투수 역할
+  BaseAttributes
+  Cost
+  TrainingCeiling
+
+PlayerCardDefinition
+  CardId
+  PlayerSeasonId
+  Edition
+  EditionStatModifiers
+```
+
+`PlayerPersonDefinition`과 `PlayerSeasonDefinition`은 01절의 Offline Pipeline에서 생성·검증 후 Bake한다. Runtime 월드 생성 시 능력치/Origin을 다시 생성하지 않는다.
+
+선수모드의 일반 구단 선수와 감독모드의 일반 선수는 같은 `PlayerSeasonDefinition`/카드 원본을 사용한다. 선수 커리어 주인공만 기존 성장형 `CareerPlayerState`를 사용한다(07절).
+
+### 1.1 PlayerPersonId와 실제 경기 인스턴스
+
+```text
+PlayerPersonId       // 동일 선수 카드 그룹을 묶는 식별자
+PlayerSeasonInstance // 실제 로스터·경기·기록·부상·계약에 참여하는 Runtime 개체
+```
+
+`PlayerPersonId`를 세계의 유일한 실존 인물 Entity로 취급하지 않는다. 서로 다른 TeamSeason은 같은 Person 계열의 다른 시즌 인스턴스를 동시에 사용할 수 있다.
+
+### 1.1.1 특수 합성팀의 선수 참조
+
+02절의 `AllStarComposite`/`GoldenGloveComposite`/`YearSelectComposite`는 원래
+`PlayerSeasonDefinition`/`PlayerCardDefinition`을 복제 참조하여 별도 경기용 로스터 인스턴스를
+구성한다. 특수팀 배정은 계약·이적·Origin 변경이 아니다.
+
+따라서 같은 `PlayerSeasonId`가 원래 Franchise 구단과 하나의 특수 합성팀에 동시에 등장하는 것은
+허용한다. 다만 02절 규칙에 따라 **세 특수 합성팀끼리는 동일 `PlayerSeasonId`를 공유할 수 없다.**
+
+특수팀에 들어간 카드도 다음 값은 원본 그대로 유지한다.
+
+```text
+PlayerSeasonId
+PlayerPersonId
+OriginYear
+OriginFranchiseId
+OriginTeamSeasonKey
+Cost
+Edition
+```
+
+특수팀 전용 가짜 Origin을 새로 부여하지 않는다.
+
+### 1.2 등록 포지션과 실제 기용 포지션
+
+`PlayerSeasonDefinition.Position`/`PitcherRole`은 **본래 포지션/역할**이다. 실제 경기의 `AssignedPosition`/`AssignedPitcherRole`은 달라질 수 있다.
+
+- 야수 비주포지션 수비: 허용, 실책 확률 증가 + Condition 하락.
+- DH: 어떤 타자도 본래 포지션과 무관하게 배치 가능하며 수비 비주포지션 패널티 없음.
+- 투수 비본래 PitcherRole: 허용, Condition 하락.
+- 정확한 패널티는 02절 `PositionAssignmentRule`/BalanceTable을 사용한다.
+
+여러 적격/서브포지션을 이미 표현하는 기존 데이터가 있다면 그것을 우선한다. 그런 구조가 없다면 이 단계에서 임의의 복잡한 서브포지션 체계를 추가하지 않고 `Position`을 기본 적격 포지션으로 본다.
+
+## 2. PersonPotentialTrait과 시즌별 TrainingCeiling
+
+Person의 성장 성향과 감독모드 카드의 훈련 상한은 반드시 분리한다.
+
+```text
+PersonPotentialTrait
 {
     ContactGrowthBias, PowerGrowthBias, SpeedGrowthBias,
     BuntGrowthBias, DefenseGrowthBias, MentalGrowthBias
-    // 투수는 대응 6항목. 각 값은 "이 인물은 어느 능력치가 상대적으로 더/덜 자라는 유형인가"를
-    // 나타내는 성향 계수일 뿐, 그 자체로는 어떤 시즌의 실제 상한도 결정하지 않는다.
 }
 
-PlayerSeasonDefinition.TrainingCeiling   // 시즌 카드 소유, 실제 훈련 상한 (Cost로 스케일)
+PlayerSeasonDefinition.TrainingCeiling
 {
-    ContactCeiling, PowerCeiling, SpeedCeiling, BuntCeiling, DefenseCeiling, MentalCeiling
-    // 투수는 대응 6항목
+    ContactCeiling, PowerCeiling, SpeedCeiling,
+    BuntCeiling, DefenseCeiling, MentalCeiling
 }
 ```
 
-`TrainingCeiling`은 Person 생성이 아니라 **그 시즌의 `BaseStat`과 `Cost`가 확정된 뒤**
-파생값으로 계산한다 — Ceiling이 BaseStat보다 낮아지는 모순이 애초에 생기지 않는다.
+투수는 대응 6능력치를 사용한다.
+
+`TrainingCeiling`은 시즌 BaseStat과 Cost가 확정된 뒤 파생한다.
 
 ```text
-Headroom(ability) = CostToHeadroomTable[Cost] × PersonPotentialTrait[ability]   // 능력치별 여유폭
+Headroom(ability) = CostToHeadroomTable[Cost] × PersonPotentialTrait[ability]
 TrainingCeiling[ability] = Clamp(BaseStat[ability] + Headroom(ability), max: 99)
 ```
 
-`CostToHeadroomTable`은 Cost가 낮을수록(약한 시즌 카드일수록) 여유폭을 크게, Cost가
-높을수록(이미 전성기) 여유폭을 작게 준다 — 초기값 예:
+초기 Headroom 범위:
 
 | Cost | Headroom 범위 |
 | ---: | --- |
@@ -93,25 +133,27 @@ TrainingCeiling[ability] = Clamp(BaseStat[ability] + Headroom(ability), max: 99)
 | 7~8 | +1 ~ +3 |
 | 9~10 | 0 ~ +2 |
 
-즉 `2007 김도윤 Cost 3`은 DP로 상당히 클 수 있지만 그래봐야 자기 시즌의 BaseStat 기준
-+4~8까지만 크고, `2013 김도윤 Cost 9`의 절대 수준을 따라잡지는 못한다. `CardTrainingResolver`
-(05절 §5)는 현재 `CardTrainingBonus` 누적치와 이 시즌 카드의 `TrainingCeiling` 사이의
-거리로 훈련 효율을 계산한다.
+저Cost 시즌 카드를 DP로 성장시켜도 동일 인물의 고Cost 전성기 카드 절대 수준을 따라잡지 못하도록 한다.
 
-### 1.2 CardTrainingState는 OwnedPlayerCardState에 귀속
+### 2.1 CardTrainingState는 감독모드 Owned State
 
-훈련 누적치(`CardTrainingBonus`)는 `PlayerSeasonDefinition`(공통 원본)이 아니라 §5의
-`OwnedPlayerCardState`(구단 귀속 세이브)에 저장한다 — 같은 카드를 나중에 다른 구단에서
-다시 뽑으면 훈련 누적치는 0부터 새로 쌓인다. 정확한 필드 구성은 §5를 참고한다.
+```text
+OwnedPlayerCardState
+{
+    CardId
+    EnhancementLevel
+    DuplicateCount
+    IsLocked
+    IsFavorite
+    CardTrainingState
+}
+```
 
-## 2. Cost — 희소도 축
+훈련 누적치는 공통 `PlayerSeasonDefinition`에 저장하지 않는다. 감독모드 플레이어 구단의 Save State에만 저장한다.
 
-Cost는 카드 성능 등급이자 스카우트 확률을 결정하는 유일한 희소도 지표다. 특수 Edition
-여부와 Cost는 독립이다 — 같은 `PlayerSeasonDefinition`에서 파생된 Normal/AllStar/GoldenGlove/
-Mvp 카드는 모두 같은 Cost를 공유한다.
+## 3. Cost — 고정 희소도 축
 
-Cost는 `BaseAttributes`의 역할 보정 종합 능력치를 해당 `OriginYear` 전체 선수 집단 내
-백분위로 변환해 결정한다(포지션 희소성 보정 포함). 초기 구간표:
+Cost는 Baked `BaseAttributes`의 역할 보정 종합 능력치를 해당 OriginYear 집단 내 백분위로 변환해 결정한다. 수상 여부와 무관하게 고정된다.
 
 | 백분위 | Cost |
 | --- | ---: |
@@ -126,22 +168,54 @@ Cost는 `BaseAttributes`의 역할 보정 종합 능력치를 해당 `OriginYear
 | 90~97% | 9 |
 | 상위 3% | 10 |
 
-이 구간값은 `CostBalanceTable`로 데이터화하고, 실제 생성 결과 분포를 보고 조정한다.
+구간은 `CostBalanceTable`로 데이터화한다.
 
-## 3. Edition
+같은 `PlayerSeasonId`에서 파생된 모든 Edition은 같은 Cost를 공유한다.
 
-과거 시드 연도의 AllStar/GoldenGlove/Mvp 선정 자체(어떤 가상 선수가 그 Edition을 받는가)는
-01절 §5.2 `SyntheticAwardResolver`가 결정론적으로 계산한다. 이 절은 선정된 카드가 받는
-**능력치 보너스**만 정의한다.
+## 4. Edition 자격 — World Award에서 파생
 
-### Normal
+### 4.1 Normal
 
-기본 카드. 보너스 없음.
+Normal은 모든 Baked PlayerSeason의 기본 카드다. 보너스 없음.
+
+### 4.2 특수 Edition의 생성/활성 조건
+
+AllStar/GoldenGlove/Mvp **수상자는 Offline 능력치 순위로 확정하지 않는다.** 새 게임 초기화 후 만들어진 공통 `WorldAwardRecord`를 기준으로 해당 World의 특수 Edition을 활성화한다.
+
+```text
+PlayerSeasonDefinition
+    +
+WorldAwardRecord
+    ↓
+WorldCardCatalog
+    ↓
+Normal / AllStar / GoldenGlove / Mvp 사용 가능 카드
+```
+
+`WorldAwardRecord`의 Source는 두 가지일 수 있다.
+
+- `SimulatedHistory`: 실제 Historical Season Statistics 기반 Award Resolver 결과.
+- `OriginalHistory`: Runtime-safe 고유 기록을 공통 Award Record로 변환한 결과.
+
+카드/TeamColor/Scout는 이 Source 차이를 직접 분기하지 않는다.
+
+### 4.3 CardId 안정성
+
+특수 Edition의 존재 여부는 World마다 달라질 수 있지만 ID 규칙은 안정적이어야 한다. 예:
+
+```text
+CardId = Stable(PlayerSeasonId + Edition)
+```
+
+프로젝트 기존 Stable ID 정책이 있으면 그것을 사용한다. World마다 무작위 GUID를 새로 생성하지 않는다.
+
+## 5. Edition 능력치 보너스
+
+수상 여부는 World 결과지만 **Edition Modifier 수치 자체는 고정 Balance**다.
 
 ### AllStar
 
-해당 `OriginYear`의 시즌 올스타로 선정된 카드(연도당 약 24~30명). Cost 구간별 보너스(약한
-선수일수록 보정이 크다, `[Reference]`):
+해당 World에서 All-Star로 선정된 PlayerSeason에 활성화한다.
 
 | Cost | 타자 | 투수 |
 | ---: | --- | --- |
@@ -150,19 +224,20 @@ Cost는 `BaseAttributes`의 역할 보정 종합 능력치를 해당 `OriginYear
 | 7~8 | Contact +3 / Speed +3 | Velocity +3 / Control +3 |
 | 9~10 | Contact +2 / Speed +2 | Velocity +2 / Control +2 |
 
+`[Reference]`.
+
 ### GoldenGlove
 
-해당 `OriginYear`의 포지션별 최고 선수(연도당 10명: P/C/1B/2B/3B/SS/OF×3/DH). Cost와 무관한
-고정 보너스: 야수 `Power +2 / Defense +2`, 투수 `Stuff +2 / Breaking +2`(`[Reference]`).
+해당 World의 Golden Glove 수상 PlayerSeason에 활성화한다. 포지션 수상 인원은 P/C/1B/2B/3B/SS 각 1명 + OF 3명 + DH 1명, 총 10명을 기본으로 한다.
 
-이 Edition 자체 보너스는 04절의 GoldenGlove **TeamColor**(덱 보너스, Contact/Mental 위주)와
-별개 레이어다. 두 수치를 섞어서 하나로 취급하지 않는다 — 04절 §8 참고.
+- 야수: `Power +2 / Defense +2`
+- 투수: `Stuff +2 / Breaking +2`
+
+`[Reference]`.
 
 ### Mvp
 
-연도당 최대 3명(정규시즌 MVP, 올스타전 MVP, 포스트시즌 MVP). 한 인물이 복수 수상해도 Mvp
-Edition 카드는 1장이며, 수상 이력만 별도 필드(`MvpAwardRecords[]`)로 여러 개 저장한다. Cost
-구간별 전 능력치 보너스(`[Reference]`):
+정규시즌 MVP, 올스타전 MVP, 포스트시즌 MVP 중 하나 이상을 수상한 PlayerSeason에 활성화한다. 한 PlayerSeason이 복수 MVP를 받아도 Mvp Edition 카드는 1장이며 수상 기록은 `WorldAwardRecord`에 각각 남긴다.
 
 | Cost | 보너스 |
 | ---: | --- |
@@ -170,79 +245,99 @@ Edition 카드는 1장이며, 수상 이력만 별도 필드(`MvpAwardRecords[]`
 | 6~8 | ALL +4 |
 | 9~10 | ALL +3 |
 
-## 4. Origin은 Edition과 무관하게 유지된다
+`[Reference]`.
 
-MVP·올스타·골든글러브 카드도 `OriginYear`/`FranchiseId`/`TeamSeasonKey`를 그대로 가진다.
-04절 TeamColorResolver가 "구단별 연도덱"/"구단덱"/"연도덱" 조건을 판정할 때 이 카드들도
-정상적으로 포함된다. Edition 전용 팀컬러(All-Star덱/Golden Glove덱/MVP덱)는 `Edition` 필드로
-별도 판정한다.
+## 6. Origin은 Edition과 무관하게 유지
 
-## 5. 보유 상태와 Definition의 분리
+특수 Edition도 원본 Normal과 같은 다음 값을 사용한다.
 
 ```text
-OwnedPlayerCardState   // 감독모드 세이브 전용, Definition과 별개 저장소
-{
-    CardId
-    EnhancementLevel        // 0~5, 강화는 05절 §4
-    DuplicateCount
-    IsLocked
-    IsFavorite
-    CardTrainingState       // { AccumulatedBonus[6], PendingProgramId? } — 04절 §1.1의
-                             // CardTrainingBonus 누적치, DP 훈련은 05절 §5
-}
+OriginYear
+FranchiseId
+TeamSeasonKey
+Cost
 ```
 
-`PlayerCardDefinition`은 게임 전체 공통 원본(글로벌 유일 자원이 아니다 — AI TeamSeason과
-플레이어가 같은 Definition을 동시에 참조할 수 있다). `OwnedPlayerCardState`는 감독모드로
-플레이한 구단에만 귀속된다(감독이 다른 구단으로 이적하면 컬렉션은 원래 구단에 남는다 —
-05절 참고).
+Award가 Origin을 변경하지 않는다. 다른 World에서 Award 결과가 달라도 `2011 COMETS` 선수는 계속 `COMETS_2011` Origin을 가진다.
 
-## 6. `PlayerPersonId`의 의미 — "세계의 유일한 실존 인물"이 아니라 "카드 그룹 식별자"
+## 7. 두 모드의 Card Definition 공유와 Owned State 분리
 
-**명확히 해야 한다.** 이 세계에는 `2009 Comets 김도윤`과 `2010 Tides 김도윤`이 동시에
-서로 다른 TeamSeason 소속으로 존재하고, 극단적으로는 같은 시점에 서로 다른 팀의 경기에
-"참여"할 수 있다(02·07절이 여러 TeamSeason을 동시에 굴리는 세계관이기 때문). 감독 카드
-게임 관점에서는 문제가 없다 — 프야매도 같은 선수의 여러 연도 카드가 각각 독립된 카드로
-존재했다. 하지만 코드에서 `PlayerPersonId`를 "세계에 실제로 존재하는 유일한 사람"으로
-취급하면 계약·부상·기록 집계 로직이 꼬인다.
-
-따라서 다음을 확정한다.
+### 공통
 
 ```text
-PlayerPersonId              // "동일 선수 카드 그룹" 식별자. 세계 안의 유일 개체를 의미하지 않는다.
-PlayerSeasonInstance         // 실제 경기·로스터·기록에 참여하는 개체. PlayerSeasonDefinition 1개당 1개.
+PlayerPersonDefinition
+PlayerSeasonDefinition
+Normal Card Base
+Edition Modifier Definition
+WorldCardCatalog
+TeamSeasonDefinition
 ```
 
-경기 시뮬레이션, 로스터 배치, 계약/이적, 부상, 기록 집계는 전부 `PlayerSeasonInstance`
-(또는 그 카드 인스턴스) 단위로 이뤄지고, `PlayerPersonId`는 어디까지나 "여러
-`PlayerSeasonInstance`를 하나의 카드 수집 계열로 묶는 라벨"일 뿐이다. `PlayerPersonId` 자체를
-계약·출전·부상의 주체로 삼는 코드를 만들지 않는다.
+### 감독모드 플레이어 구단 전용
 
-## 7. 동일 인물 중복 출전 금지 — 카드 덱 구성 규칙이지 세계 유일성 규칙이 아니다
+```text
+OwnedPlayerCardState
+DuplicateCount
+EnhancementLevel
+CardTrainingState
+Scout / Sale / Pity / SP / DP
+```
 
-`ActiveRoster`(1군 25인)에는 `PlayerPersonId` 기준으로 한 명만 등록할 수 있다. `2010 김도윤`과
-`2011 김도윤 Mvp`를 동시에 출전시킬 수 없다. **이는 한 구단의 카드 덱 구성 규칙이다** — "이
-세계에 김도윤이라는 사람이 동시에 한 명만 존재해야 한다"는 뜻이 아니다. 다른 구단
-(`CurrentRosterState`가 다른 TeamSeason)이 같은 `PlayerPersonId`의 다른 시즌 카드를 동시에
-기용하는 것은 전혀 제한하지 않는다.
+선수 커리어 모드의 일반 구단 선수도 `WorldCardCatalog`의 공통 카드 데이터를 사용하지만 `OwnedPlayerCardState`를 만들지 않는다.
 
-## 8. 검증 기준
+## 8. 동일 인물 중복 출전 금지
 
-- 모든 `PlayerSeasonDefinition`이 유효한 Cost(1~10)를 가지는지 테스트.
-- 같은 `PlayerSeasonId`에서 파생된 Normal/AllStar/GoldenGlove/Mvp 카드가 동일한 Cost를
-  갖는지 테스트.
-- 특수 Edition 카드의 `OriginYear`/`FranchiseId`/`TeamSeasonKey`가 원본 Normal 카드와 항상
-  일치하는지 테스트(변조 방지).
-- `ActiveRoster`에 동일 `PlayerPersonId`가 두 번 등록되면 검증 실패하는 테스트(§7).
-- 서로 다른 TeamSeason의 `CurrentRosterState`/`ActiveRoster`가 같은 `PlayerPersonId`의 다른
-  시즌 카드를 동시에 기용해도 아무 제약에 걸리지 않는지 테스트(§6 — 세계 유일성 규칙이
-  아님을 검증).
-- 같은 `PlayerPersonId`의 여러 `PlayerSeasonDefinition`이 01절 §5 `SyntheticCareerGenerator`
-  없이 서로 무관하게 생성되지 않는지(사후 짝짓기가 아니라 생성 시점부터 연결되는지) 테스트.
-- `PersonPotentialTrait`이 Person당 1회만 생성되고, 그 인물의 서로 다른 시즌 카드가 서로
-  다른 `TrainingCeiling`(BaseStat+Cost 기반 파생값)을 갖는지 테스트 — 특히 저코스트 시즌의
-  `TrainingCeiling`이 동일 인물의 고코스트 시즌 BaseStat을 넘어서지 않는지 확인.
-- 모든 시즌 카드에서 `TrainingCeiling ≥ BaseStat`이 항상 성립하는지(파생 순서상 모순이
-  생기지 않는지) 테스트.
-- `OwnedPlayerCardState.CardTrainingState`가 감독이 구단을 옮기면 이전 구단에 남고 새 구단의
-  같은 카드는 0부터 시작하는지 테스트.
+한 `ActiveRoster`에는 `PlayerPersonId` 기준 한 명만 등록한다.
+
+```text
+2010 김도윤 Normal + 2011 김도윤 Mvp 동시 등록 → 금지
+```
+
+다른 TeamSeason의 로스터가 같은 Person 계열의 다른 시즌 카드를 각각 사용하는 것은 허용한다.
+
+## 9. 외국인 카드와 등록 제한
+
+`RegistrationType == Foreign`인 카드의 **보유 수에는 제한이 없다.** 감독모드 Collection에 여러 장을 보관/스카우트할 수 있다.
+
+제한은 02절 `ActiveRosterCompositionRule`의 `ForeignPlayers <= 3`에만 적용한다.
+
+## 10. 검증 기준
+
+- 모든 Baked PlayerSeason이 유효한 Cost 1~10, Origin, Position/PitcherRole을 가지는지 검증.
+- 다른 World Seed에서도 BaseAttributes/Cost/TrainingCeiling/Origin이 변하지 않는지 검증.
+- 특수 Edition은 해당 World의 `WorldAwardRecord`가 있을 때만 `WorldCardCatalog`에 활성화되는지 검증.
+- `OriginalHistory`/`SimulatedHistory`가 동일한 WorldCardCatalog 생성 경로를 사용하는지 검증.
+- 같은 PlayerSeason의 모든 Edition Cost와 Origin이 동일한지 검증.
+- Award가 없는 PlayerSeason에 특수 Edition이 생성되지 않는지 검증.
+- `TrainingCeiling >= BaseStat`이 항상 성립하는지 검증.
+- 저Cost 카드 최대 훈련치가 동일 Person 고Cost 시즌 BaseStat을 부당하게 넘지 않는지 검증.
+- 동일 ActiveRoster의 PlayerPersonId 중복을 거부하고 다른 TeamSeason 간 동시 사용은 허용하는지 검증.
+- 특수 합성팀 배정이 카드의 Origin/Cost/Edition을 변조하지 않는지 검증.
+- 같은 PlayerSeasonId가 원래 Franchise 구단과 특수 합성팀에 동시에 참조될 수 있으나 세 특수 합성팀 상호 간에는 중복되지 않는지 검증.
+- 외국인 카드 4장 이상 보유는 허용하지만 ActiveRoster 4명 등록은 02절 Validator가 거부하는지 검증.
+- 비주포지션/비본래 PitcherRole 기용이 Definition을 변조하지 않고 Runtime Assignment + Penalty로만 처리되는지 검증.
+
+## 11. 2026-09-02 구현 현황
+
+### 완료된 계약과 집중 검증
+
+- `PlayerPersonDefinition`, `PlayerSeasonDefinition`, `PlayerCardDefinition`과 정확히 네 가지
+  `PlayerCardEdition`을 공통 Core 모델로 구현했다.
+- Stable `CardId`, Cost/Origin 유지, `TrainingCeiling >= BaseStat`, Definition 입력 복사에 따른
+  불변성을 테스트했다.
+- `WorldCardCatalog`가 Normal을 항상 만들고 `WorldAwardRecord`가 존재하는 경우에만
+  AllStar/GoldenGlove/Mvp Edition을 활성화하도록 구현·테스트했다.
+- Edition Modifier, Cost/Origin 동일성, 동일 Person의 ActiveRoster 중복 금지는 공통
+  Resolver/Validator에서 검증한다.
+
+### 부분 완료 또는 미완료
+
+- Editor Bake에는 위 공통 Definition에 필요한 원본 데이터가 생성되지만, 이를 실제 새 게임에
+  공급하는 Runtime `ICareerBakedContentProvider` 구현은 아직 없다.
+- Career의 일반 선수 Save에 `PlayerSeasonId`, Natural `PitcherRole`, 공통 World Card 참조를
+  영속화하는 통합은 미완료다.
+- 특수 합성팀이 원 구단과 같은 `PlayerSeasonId`를 동시에 사용할 경기용 Instance 모델은
+  미완료다.
+
+따라서 공통 Card/Edition Definition과 Resolver는 완료됐지만 **두 모드가 실제 Save/Season에서
+하나의 원본을 끝까지 소비하는 Gate는 부분 완료**다.
