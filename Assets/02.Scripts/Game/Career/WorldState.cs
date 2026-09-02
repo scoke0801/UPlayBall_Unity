@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
@@ -697,14 +697,13 @@ namespace Baseball.Game.Career
             }
         }
 
+        /// <remarks>
+        /// 엠블럼 도입 이전 세이브를 통과시키려고 "아무도 배정받지 않았으면 넘어간다"는 예외를 두었으나,
+        /// 그 예외가 일부만 배정된 월드까지 통과시켜 결함을 늦게 드러냈다. 커리어 세이브 마이그레이션을
+        /// 걷어내면서 예외도 함께 없앤다. 월드를 만든 쪽이 반드시 전 구단에 엠블럼을 배정해야 한다.
+        /// </remarks>
         private void EnsureValidTeamEmblems()
         {
-            bool hasAssignedEmblem = false;
-            for (int index = 0; index < _teams.Count; index++)
-                hasAssignedEmblem |= _teams[index].EmblemId > 0;
-            if (!hasAssignedEmblem)
-                return;
-
             var used = new HashSet<int>();
             for (int index = 0; index < _teams.Count; index++)
             {
