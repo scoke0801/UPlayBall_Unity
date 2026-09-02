@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using NUnit.Framework;
+using NUnit.Framework.Internal;
 
 namespace Baseball.Tools.EditModeTests
 {
@@ -18,6 +19,8 @@ namespace Baseball.Tools.EditModeTests
     {
         public static int Main(string[] args)
         {
+            ConnectNUnitOutput();
+
             string typeFilter = args.Length > 0 ? args[0] : null;
             string methodFilter = args.Length > 1 ? args[1] : null;
             bool includeExplicit = typeFilter != null;
@@ -138,6 +141,38 @@ namespace Baseball.Tools.EditModeTests
                 {
                     // TearDown 실패는 테스트 결과를 덮어쓰지 않도록 무시한다.
                 }
+            }
+        }
+
+        /// <summary>
+        /// <see cref="TestContext"/> 출력을 콘솔로 연결한다.
+        /// </summary>
+        /// <remarks>
+        /// TestContext.WriteLine은 NUnit 실행 컨텍스트의 OutWriter를 타는데, 정식 러너 밖에서는 그것이
+        /// 비어 있어 로그를 남기는 순간 NullReferenceException으로 죽는다. OutWriter는 공개 setter가
+        /// 없으므로 setter나 backing field를 반사로 채운다. 실패하면 계측 없이 그대로 진행한다.
+        /// </remarks>
+        private static void ConnectNUnitOutput()
+        {
+            try
+            {
+                TestExecutionContext context = TestExecutionContext.CurrentContext;
+                PropertyInfo property = typeof(TestExecutionContext)
+                    .GetProperty("OutWriter", BindingFlags.Public | BindingFlags.Instance);
+                MethodInfo setter = property?.GetSetMethod(nonPublic: true);
+                if (setter != null)
+                {
+                    setter.Invoke(context, new object[] { Console.Out });
+                    return;
+                }
+                FieldInfo field = typeof(TestExecutionContext).GetField(
+                    "_outWriter",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                field?.SetValue(context, Console.Out);
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine($"TestContext 출력 연결 실패(계측만 생략): {exception.GetType().Name}");
             }
         }
 
