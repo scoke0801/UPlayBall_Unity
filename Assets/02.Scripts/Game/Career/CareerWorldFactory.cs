@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
@@ -84,6 +85,77 @@ namespace Baseball.Game.Career
             myPlayer.AttachContract(currentContract.ContractId, LeagueId.RookieMain);
 
             PlayerState[] players = CreatePlayerRegistry(leagues, myPlayer, worldSeed);
+            PlayerContractState[] contracts = CreateInitialContracts(
+                leagues,
+                players,
+                myPlayer.PlayerId,
+                currentContract);
+            var result = new WorldState(
+                worldSeed,
+                new GlobalCalendarState(new DateTime(_configuration.FirstSeasonYear, 1, 1)),
+                leagues,
+                players,
+                contracts,
+                _configuration.FirstSeasonYear);
+            result.MovementLedger.Record(new PlayerMovementRecord(
+                result.Calendar.CurrentDate,
+                1,
+                myPlayer.PlayerId,
+                PlayerMovementType.InitialSigning,
+                LeagueId.Unassigned,
+                0,
+                LeagueId.RookieMain,
+                myPlayer.CurrentTeamId,
+                currentContract.PromisedRole,
+                currentContract.PromisedRole,
+                currentContract.PromisedRole,
+                currentContract.ContractId,
+                "신규 프로 계약"));
+            return result;
+        }
+
+        /// <summary>
+        /// 공통 Baked Person/Season/Card/Core25만 소비해 커리어 월드를 만들며 Runtime 생성기는 호출하지 않는다.
+        /// </summary>
+        public WorldState CreateNewWorld(
+            ulong worldSeed,
+            CareerBakedContent bakedContent,
+            PlayerState myPlayer,
+            PlayerContractState currentContract)
+        {
+            if (bakedContent == null)
+                throw new ArgumentNullException(nameof(bakedContent));
+            if (myPlayer == null)
+                throw new ArgumentNullException(nameof(myPlayer));
+            if (currentContract == null)
+                throw new ArgumentNullException(nameof(currentContract));
+
+            WorldGenerationConfiguration world = _configuration.WorldGeneration;
+            var leagues = new LeagueState[world.LeagueDefinitions.Count];
+            for (int definitionIndex = 0; definitionIndex < world.LeagueDefinitions.Count; definitionIndex++)
+            {
+                LeagueDefinition definition = world.LeagueDefinitions[definitionIndex];
+                LeagueGrade grade = (LeagueGrade)(int)definition.Tier;
+                LeagueId leagueId = LeagueId.FromLevel(definition.Tier);
+                TeamState[] teams = CreateBakedTeamStates(bakedContent, grade, leagueId);
+                if (definition.Tier == LeagueLevel.Rookie)
+                    ReplaceCompetitorWithMyPlayer(teams, myPlayer);
+                leagues[definitionIndex] = CreateLeague(
+                    worldSeed,
+                    GetLeagueStream(definition.Tier),
+                    leagueId,
+                    definition.Tier,
+                    definition.SortOrder + 1,
+                    teams,
+                    world.GetCompetitionOverallBonus(definition.Tier));
+            }
+
+            myPlayer.AssignLeague(LeagueId.RookieMain);
+            if (currentContract.ContractId <= 0)
+                currentContract.AttachIdentity(1, myPlayer.PlayerId, LeagueId.RookieMain);
+            myPlayer.AttachContract(currentContract.ContractId, LeagueId.RookieMain);
+
+            PlayerState[] players = CreateBakedPlayerRegistry(bakedContent, leagues, myPlayer);
             PlayerContractState[] contracts = CreateInitialContracts(
                 leagues,
                 players,
@@ -440,6 +512,58 @@ namespace Baseball.Game.Career
                 _configuration.WorldGeneration.RosterSize);
         }
 
+        private TeamState[] CreateBakedTeamStates(
+            CareerBakedContent content,
+            LeagueGrade grade,
+            LeagueId leagueId)
+        {
+            IReadOnlyList<CareerBakedTeamRuntimeDefinition> definitions = content.GetTeams(grade);
+            GeneratedTeam[] generated = CareerBakedContentAdapter.CreateGeneratedTeams(
+                content,
+                grade,
+                _configuration.Balance.PlayerEvaluation);
+            var result = new TeamState[definitions.Count];
+            for (int teamIndex = 0; teamIndex < definitions.Count; teamIndex++)
+            {
+                CareerBakedTeamRuntimeDefinition definition = definitions[teamIndex];
+                GeneratedTeam source = generated[teamIndex];
+                var positionNeeds = new int[(int)PlayerPosition.ReliefPitcher + 1];
+                var competitors = new List<RosterCompetitorState>(
+                    ActiveRosterCompositionRule.ActiveRosterSize);
+                for (int rawPosition = (int)PlayerPosition.Catcher;
+                     rawPosition <= (int)PlayerPosition.ReliefPitcher;
+                     rawPosition++)
+                {
+                    var position = (PlayerPosition)rawPosition;
+                    positionNeeds[rawPosition] = source.GetPositionNeed(position);
+                    IReadOnlyList<RosterCompetitor> sourcePlayers = source.GetPositionCompetitors(position);
+                    for (int playerIndex = 0; playerIndex < sourcePlayers.Count; playerIndex++)
+                    {
+                        RosterCompetitor player = sourcePlayers[playerIndex];
+                        competitors.Add(new RosterCompetitorState(
+                            player.PlayerId,
+                            player.Name,
+                            player.Position,
+                            player.Overall));
+                    }
+                }
+
+                if (competitors.Count != ActiveRosterCompositionRule.ActiveRosterSize)
+                    throw new InvalidOperationException("Baked ActiveRoster 변환 후 인원이 25명이 아닙니다.");
+                result[teamIndex] = new TeamState(
+                    NewGameFlow.CurrentSaveVersion,
+                    definition.TeamId,
+                    leagueId,
+                    source.Name,
+                    source.Archetype,
+                    source.PrimaryColor,
+                    positionNeeds,
+                    competitors.ToArray(),
+                    source.EmblemId);
+            }
+            return result;
+        }
+
         private LeagueState CreateLeague(
             ulong worldSeed,
             ulong stream,
@@ -703,6 +827,57 @@ namespace Baseball.Game.Career
             }
             result.Add(myPlayer);
             return result.ToArray();
+        }
+
+        private PlayerState[] CreateBakedPlayerRegistry(
+            CareerBakedContent content,
+            IReadOnlyList<LeagueState> leagues,
+            PlayerState myPlayer)
+        {
+            var result = new List<PlayerState>(
+                content.Teams.Count * ActiveRosterCompositionRule.ActiveRosterSize + 1);
+            for (int leagueIndex = 0; leagueIndex < leagues.Count; leagueIndex++)
+            {
+                LeagueState league = leagues[leagueIndex];
+                LeagueGrade grade = (LeagueGrade)(int)league.LeagueLevel;
+                IReadOnlyList<CareerBakedTeamRuntimeDefinition> definitions = content.GetTeams(grade);
+                for (int teamIndex = 0; teamIndex < definitions.Count; teamIndex++)
+                {
+                    CareerBakedTeamRuntimeDefinition definition = definitions[teamIndex];
+                    TeamState team = FindLeagueTeam(league, definition.TeamId);
+                    for (int playerIndex = 0; playerIndex < definition.ActiveRoster.Entries.Count; playerIndex++)
+                    {
+                        ActiveRosterEntry entry = definition.ActiveRoster.Entries[playerIndex];
+                        int playerId = CareerBakedContentAdapter.CreateStablePlayerInstanceId(
+                            definition.TeamSeason.TeamSeasonKey,
+                            entry.PlayerSeasonId);
+                        if (!ContainsPlayerId(team.RosterPlayerIds, playerId))
+                            continue;
+                        result.Add(CareerBakedContentAdapter.CreatePlayerState(
+                            content,
+                            definition,
+                            entry,
+                            league.LeagueId,
+                            _configuration.FirstSeasonYear));
+                    }
+                }
+            }
+            result.Add(myPlayer);
+            return result.ToArray();
+        }
+
+        private static bool ContainsPlayerId(IReadOnlyList<int> playerIds, int playerId)
+        {
+            for (int index = 0; index < playerIds.Count; index++)
+                if (playerIds[index] == playerId) return true;
+            return false;
+        }
+
+        private static TeamState FindLeagueTeam(LeagueState league, int teamId)
+        {
+            for (int index = 0; index < league.Teams.Count; index++)
+                if (league.Teams[index].TeamId == teamId) return league.Teams[index];
+            throw new InvalidOperationException($"League에서 TeamId {teamId}를 찾을 수 없습니다.");
         }
 
         internal static PlayerState CreateRosterPlayerState(

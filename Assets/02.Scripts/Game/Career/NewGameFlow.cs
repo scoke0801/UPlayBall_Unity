@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Core.Rules;
@@ -18,6 +19,7 @@ namespace Baseball.Game.Career
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
+        private CareerBakedContent _bakedContent;
 
         public NewGameFlow(NewGameConfiguration configuration, ulong randomSeed)
         {
@@ -46,6 +48,7 @@ namespace Baseball.Game.Career
                 Draft = new CareerCreationDraft()
             };
             Career = null;
+            _bakedContent = null;
             BuildWarning = string.Empty;
         }
 
@@ -370,21 +373,52 @@ namespace Baseball.Game.Career
         {
             RequireStep(NewGameStep.PlayerCard);
             Player player = CreatePlayer();
-            var setup = new NewGameSetup(
-                _configuration.Balance.ContractOffer,
-                _configuration.Balance.TeamGeneration,
-                _configuration.Balance.PlayerEvaluation,
-                new Pcg32Random(State.RandomSeed));
-            int[] emblemIds = TeamEmblemSelector.CreateShuffledIds(
-                _configuration.TeamEmblemCount,
-                State.RandomSeed);
-            State.SetupResult = setup.GenerateLeagueAndOffers(
-                player,
-                _configuration.TeamCount,
-                _configuration.Archetypes,
-                _configuration.TeamIdentities,
-                _configuration.PlayerNamePool,
-                emblemIds);
+            if (_configuration.ContentSource == NewGameContentSource.BakedHistorical)
+            {
+                _bakedContent = _configuration.BakedContentProvider.Load(
+                    new CareerBakedContentRequest(_configuration.WorldRecordMode, State.RandomSeed));
+                if (_bakedContent == null)
+                    throw new InvalidOperationException("Baked Content Provider가 null 월드를 반환했습니다.");
+                if (_bakedContent.WorldHistory.RecordMode != _configuration.WorldRecordMode ||
+                    _bakedContent.WorldHistory.WorldHistorySeed != State.RandomSeed)
+                {
+                    throw new InvalidOperationException(
+                        "Baked Content Provider 결과의 WorldRecordMode/WorldHistorySeed가 새 게임 선택과 다릅니다.");
+                }
+                GeneratedTeam[] teams = CareerBakedContentAdapter.CreateGeneratedTeams(
+                    _bakedContent,
+                    LeagueGrade.Rookie,
+                    _configuration.Balance.PlayerEvaluation);
+                var evaluator = new ContractOfferEvaluator(
+                    _configuration.Balance.ContractOffer,
+                    _configuration.Balance.PlayerEvaluation,
+                    new Pcg32Random(State.RandomSeed));
+                ContractOffer[] offers = ContractOfferBoard.SelectOffers(
+                    _configuration.Balance.ContractOffer,
+                    evaluator,
+                    player,
+                    teams);
+                State.SetupResult = new NewGameSetupResult(teams, offers);
+            }
+            else
+            {
+                // 기존 세이브/프로토타입 회귀를 위한 격리 경로다. Historical 새 게임은 이 분기에 진입하지 않는다.
+                var setup = new NewGameSetup(
+                    _configuration.Balance.ContractOffer,
+                    _configuration.Balance.TeamGeneration,
+                    _configuration.Balance.PlayerEvaluation,
+                    new Pcg32Random(State.RandomSeed));
+                int[] emblemIds = TeamEmblemSelector.CreateShuffledIds(
+                    _configuration.TeamEmblemCount,
+                    State.RandomSeed);
+                State.SetupResult = setup.GenerateLeagueAndOffers(
+                    player,
+                    _configuration.TeamCount,
+                    _configuration.Archetypes,
+                    _configuration.TeamIdentities,
+                    _configuration.PlayerNamePool,
+                    emblemIds);
+            }
             for (int index = 0; index < State.SetupResult.Offers.Length; index++)
             {
                 ContractOffer offer = State.SetupResult.Offers[index];
@@ -459,11 +493,17 @@ namespace Baseball.Game.Career
                 offer.HasUpperLeagueReleaseClause,
                 offer.UpperLeagueReleaseCompensation,
                 offer.HasRelegationTransferRequestClause);
-            WorldState world = new CareerWorldFactory(_configuration).CreateNewWorld(
-                State.RandomSeed,
-                State.SetupResult.Teams,
-                playerState,
-                contract);
+            WorldState world = _configuration.ContentSource == NewGameContentSource.BakedHistorical
+                ? new CareerWorldFactory(_configuration).CreateNewWorld(
+                    State.RandomSeed,
+                    _bakedContent ?? throw new InvalidOperationException("Baked 새 게임 월드가 로드되지 않았습니다."),
+                    playerState,
+                    contract)
+                : new CareerWorldFactory(_configuration).CreateNewWorld(
+                    State.RandomSeed,
+                    State.SetupResult.Teams,
+                    playerState,
+                    contract);
 
             Career = new CareerState(
                 CurrentSaveVersion,

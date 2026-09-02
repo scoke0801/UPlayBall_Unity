@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 
@@ -665,6 +666,11 @@ namespace Baseball.Game.Career
         {
             if (_leagues.Count != LeagueLevelRules.Count)
                 return;
+            int regularTeamCount = _leagues[0].Teams.Count;
+            bool isBakedHistoricalWorld = regularTeamCount == LeagueInstance.RequiredRegularFranchiseTeamCount;
+            const int legacyRuntimeTeamCount = 8;
+            if (!isBakedHistoricalWorld && regularTeamCount != legacyRuntimeTeamCount)
+                throw new InvalidOperationException($"리그 정규 구단 수가 {regularTeamCount}개입니다.");
             var tierCounts = new int[LeagueLevelRules.Count];
             for (int index = 0; index < _leagues.Count; index++)
             {
@@ -672,7 +678,7 @@ namespace Baseball.Game.Career
                 if (!LeagueLevelRules.IsValid(league.LeagueLevel))
                     throw new InvalidOperationException($"{league.LeagueId}의 LeagueTier가 유효하지 않습니다.");
                 tierCounts[(int)league.LeagueLevel]++;
-                if (league.Teams.Count != 8)
+                if (league.Teams.Count != regularTeamCount)
                     throw new InvalidOperationException($"{league.LeagueId}의 구단 수가 {league.Teams.Count}개입니다.");
             }
             for (int tier = 0; tier < tierCounts.Length; tier++)

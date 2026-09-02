@@ -1,5 +1,6 @@
 using System;
 using Baseball.Core.Balance;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 
@@ -20,7 +21,10 @@ namespace Baseball.Game.Career
             string[] playerNamePool,
             WorldGenerationConfiguration worldGeneration = null,
             CareerCreationRules? careerCreationRules = null,
-            int teamEmblemCount = 128)
+            int teamEmblemCount = 128,
+            NewGameContentSource contentSource = NewGameContentSource.LegacyRuntimeSynthetic,
+            ICareerBakedContentProvider bakedContentProvider = null,
+            WorldRecordMode worldRecordMode = WorldRecordMode.OriginalHistory)
         {
             if (balance == null)
                 throw new ArgumentNullException(nameof(balance));
@@ -30,6 +34,12 @@ namespace Baseball.Game.Career
                 throw new ArgumentException("구단 정체성 후보가 구단 수보다 적습니다.", nameof(teamIdentities));
             if (teamEmblemCount <= 0)
                 throw new ArgumentOutOfRangeException(nameof(teamEmblemCount));
+            if (contentSource == NewGameContentSource.BakedHistorical && bakedContentProvider == null)
+            {
+                throw new ArgumentException(
+                    "BakedHistorical 새 게임에는 ICareerBakedContentProvider가 필요합니다.",
+                    nameof(bakedContentProvider));
+            }
 
             Balance = balance;
             TeamCount = teamCount;
@@ -41,6 +51,9 @@ namespace Baseball.Game.Career
             WorldGeneration = worldGeneration ?? WorldGenerationConfiguration.CreateDefault();
             CareerCreationRules = careerCreationRules ?? Baseball.Core.Players.CareerCreationRules.CreateDefault();
             TeamEmblemCount = teamEmblemCount;
+            ContentSource = contentSource;
+            BakedContentProvider = bakedContentProvider;
+            WorldRecordMode = worldRecordMode;
         }
 
         public BalanceTable Balance { get; }
@@ -53,6 +66,30 @@ namespace Baseball.Game.Career
         public WorldGenerationConfiguration WorldGeneration { get; }
         public CareerCreationRules CareerCreationRules { get; }
         public int TeamEmblemCount { get; }
+        public NewGameContentSource ContentSource { get; }
+        public ICareerBakedContentProvider BakedContentProvider { get; }
+        public WorldRecordMode WorldRecordMode { get; }
+
+        /// <summary>동일 Balance·UI 설정을 유지하면서 공통 Baked Content 새 게임 경로를 선택한다.</summary>
+        public NewGameConfiguration WithBakedHistoricalContent(
+            ICareerBakedContentProvider provider,
+            WorldRecordMode worldRecordMode)
+        {
+            return new NewGameConfiguration(
+                Balance,
+                TeamCount,
+                FirstSeasonYear,
+                StartingAge,
+                Archetypes,
+                TeamIdentities,
+                PlayerNamePool,
+                WorldGeneration,
+                CareerCreationRules,
+                TeamEmblemCount,
+                NewGameContentSource.BakedHistorical,
+                provider,
+                worldRecordMode);
+        }
 
         /// <summary>
         /// 데이터 Asset을 읽지 못한 개발·테스트 환경에서도 같은 계약으로 동작하는 기본값을 만든다.
