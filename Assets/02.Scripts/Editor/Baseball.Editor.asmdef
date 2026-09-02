@@ -1,15 +1,16 @@
 {
-  "name": "Baseball.Editor",
-  "rootNamespace": "Baseball.Editor",
-  "references": [
-    "Baseball.Core",
-    "Baseball.Game",
-    "Baseball.Presentation",
-    "Unity.InputSystem",
-    "UnityEngine.UI"
-  ],
-  "includePlatforms": [
-    "Editor"
-  ],
-  "autoReferenced": true
+    "name": "Baseball.Editor",
+    "rootNamespace": "Baseball.Editor",
+    "references": [
+        "Baseball.Core",
+        "Baseball.Game",
+        "Baseball.Game.Unity",
+        "Baseball.Presentation",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": true
 }

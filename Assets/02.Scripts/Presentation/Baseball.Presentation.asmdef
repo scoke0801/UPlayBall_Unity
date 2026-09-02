@@ -1,12 +1,13 @@
 {
-  "name": "Baseball.Presentation",
-  "rootNamespace": "Baseball.Presentation",
-  "references": [
-    "Baseball.Core",
-    "Baseball.Game",
-    "Unity.InputSystem",
-    "UnityEngine.UI",
-    "Baseball.Simulation"
-  ],
-  "autoReferenced": true
+    "name": "Baseball.Presentation",
+    "rootNamespace": "Baseball.Presentation",
+    "references": [
+        "Baseball.Core",
+        "Baseball.Game",
+        "Baseball.Game.Unity",
+        "Unity.InputSystem",
+        "UnityEngine.UI",
+        "Baseball.Simulation"
+    ],
+    "autoReferenced": true
 }

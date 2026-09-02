@@ -1,17 +1,18 @@
 {
-  "name": "Baseball.Presentation.Tests",
-  "rootNamespace": "Baseball.Tests.EditMode.Presentation",
-  "references": [
-    "Baseball.Core",
-    "Baseball.Game",
-    "Baseball.Presentation",
-    "UnityEngine.UI"
-  ],
-  "includePlatforms": [
-    "Editor"
-  ],
-  "optionalUnityReferences": [
-    "TestAssemblies"
-  ],
-  "autoReferenced": false
+    "name": "Baseball.Presentation.Tests",
+    "rootNamespace": "Baseball.Tests.EditMode.Presentation",
+    "references": [
+        "Baseball.Core",
+        "Baseball.Game",
+        "Baseball.Game.Unity",
+        "Baseball.Presentation",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "autoReferenced": false
 }

@@ -1,15 +1,16 @@
 {
-  "name": "Baseball.Presentation.PlayModeTests",
-  "rootNamespace": "Baseball.Tests.PlayMode.Presentation",
-  "references": [
-    "Baseball.Core",
-    "Baseball.Game",
-    "Baseball.Presentation",
-    "Baseball.Simulation",
-    "Unity.InputSystem"
-  ],
-  "optionalUnityReferences": [
-    "TestAssemblies"
-  ],
-  "autoReferenced": false
+    "name": "Baseball.Presentation.PlayModeTests",
+    "rootNamespace": "Baseball.Tests.PlayMode.Presentation",
+    "references": [
+        "Baseball.Core",
+        "Baseball.Game",
+        "Baseball.Game.Unity",
+        "Baseball.Presentation",
+        "Baseball.Simulation",
+        "Unity.InputSystem"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "autoReferenced": false
 }

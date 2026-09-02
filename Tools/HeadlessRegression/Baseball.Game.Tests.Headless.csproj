@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="UnityNUnit.props" />
+  <!-- Unity 타입(매니저·SO·SceneFlow)에 직접 의존하는 4개 스위트만 제외한다. 나머지 EditMode Game 테스트는 Unity 없이 그대로 돈다. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Baseball.Game.Tests</AssemblyName>
+    <RootNamespace>Baseball.Tests.EditMode.Game</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);CS0168;CS0219;CS0414;MSB3277</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Assets\Tests\EditMode\Game\**\*.cs"
+             Exclude="..\..\Assets\Tests\EditMode\Game\BgmPlaylistDefinitionTests.cs;..\..\Assets\Tests\EditMode\Game\ContractFlowRetirementManagerTests.cs;..\..\Assets\Tests\EditMode\Game\GameManagerTests.cs;..\..\Assets\Tests\EditMode\Game\SceneFlow\SceneCatalogTests.cs" />
+    <ProjectReference Include="Baseball.Core.Headless.csproj" />
+    <ProjectReference Include="Baseball.Simulation.Headless.csproj" />
+    <ProjectReference Include="Baseball.Game.Headless.csproj" />
+  </ItemGroup>
+</Project>

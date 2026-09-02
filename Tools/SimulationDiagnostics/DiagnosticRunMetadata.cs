@@ -17,12 +17,12 @@ namespace Baseball.Tools.SimulationDiagnostics
             string repositoryRoot = FindRepositoryRoot();
             Console.WriteLine($"Command={command}");
             Console.WriteLine($"Samples={sampleCount:N0}");
-            Console.WriteLine($"GitCommit={ReadGit(repositoryRoot, \"rev-parse HEAD\")}");
+            Console.WriteLine($"GitCommit={ReadGit(repositoryRoot, "rev-parse HEAD")}");
             Console.WriteLine($"WorkingTreeDirty={ReadDirtyState(repositoryRoot)}");
             Console.WriteLine($"Runtime={RuntimeInformation.FrameworkDescription}");
             Console.WriteLine($"OS={RuntimeInformation.OSDescription}");
             Console.WriteLine($"Architecture={RuntimeInformation.ProcessArchitecture}");
-            Console.WriteLine($"CPU={Environment.GetEnvironmentVariable(\"PROCESSOR_IDENTIFIER\") ?? \"unknown\"}");
+            Console.WriteLine($"CPU={Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? "unknown"}");
 #if DEBUG
             Console.WriteLine("BuildConfiguration=Debug");
 #else

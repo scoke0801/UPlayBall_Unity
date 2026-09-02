@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unity 에디터 없이 EditMode NUnit 스위트를 Release로 실행한다. -->
+  <Import Project="..\UnityNUnit.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>Baseball.Tools.EditModeTests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Baseball.Core.Tests.Headless.csproj" />
+    <ProjectReference Include="..\Baseball.Simulation.Tests.Headless.csproj" />
+    <ProjectReference Include="..\Baseball.Game.Tests.Headless.csproj" />
+  </ItemGroup>
+</Project>

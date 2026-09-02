@@ -55,6 +55,13 @@ Unity 6 (6000.3.21f1) 기반 **싱글 플레이 야구 선수 커리어 시뮬�
 
 Unity 프로젝트이므로 최종 빌드와 Play Mode 검증은 Unity 6 (6000.3.21f1+)에서 수행한다. 생성된 `.csproj`가 최신이면 `dotnet build <프로젝트>.csproj --no-restore`로 asmdef별 컴파일을 보조 확인할 수 있다.
 
+Unity를 켜지 않는 검증은 `Tools/HeadlessRegression/`이 Assets 소스를 직접 Release로 컴파일해 수행한다.
+
+```bash
+dotnet run --project Tools/HeadlessRegression/EditModeTestRunner/EditModeTestRunner.csproj -c Release      # EditMode 테스트
+dotnet run --project Tools/HeadlessRegression/WorldRegressionRunner/WorldRegressionRunner.csproj -c Release # 10리그 × 10시즌 월드 회귀
+```
+
 단, **이 프로젝트의 주 검증 수단은 Play Mode가 아니라 EditMode 테스트와 대량 시뮬레이션이다.** Core/Simulation 레이어는 Unity API에 의존하지 않으므로 에디터를 켜지 않고도 검증할 수 있어야 하며, 그렇게 만들어야 한다.
 
 ## 아키텍처
@@ -68,14 +75,19 @@ Baseball.Core          순수 C#. 데이터 모델, 능력치, 기록, 상수.
       ↑
 Baseball.Simulation    순수 C#. 타석·경기·시즌 시뮬레이션, AI 판단.
       ↑
-Baseball.Game          Unity 의존. 매니저, 세이브/로드, 게임 상태 소유.
+Baseball.Game          순수 C#. Career/World 진행, 시즌 전환, 게임 상태 소유.
+      ↑
+Baseball.Game.Unity    Unity 의존. MonoBehaviour 매니저, SO, SceneFlow, Input, Sound.
       ↑
 Baseball.Presentation  Unity 의존. UI, 경기 중계 화면, 연출.
 
 Baseball.Editor        에디터 전용. 밸런스 툴, 데이터 저작 도구.
 ```
 
-**Core와 Simulation은 `UnityEngine`을 참조하지 않는다.** 금지 대상은 특히 다음이다.
+**Core·Simulation·Game은 `UnityEngine`을 참조하지 않는다.** Unity 전용 구현이 필요하면 Game 레이어에
+순수 계약을 두고 `Baseball.Game.Unity`가 주입한다(`GameBootstrap.RegisterUnityAdapters`). 덕분에
+Career/World 장기 회귀를 Unity 에디터 밖 .NET Release에서 그대로 돌릴 수 있다 —
+[[docs/지침/Headless_Regression_Guidelines_UPlayBall.md]] 참고. 금지 대상은 특히 다음이다.
 
 - `MonoBehaviour`, `ScriptableObject`, `GameObject`, `Component`
 - `Coroutine`, `Time.*`, `Application.*`

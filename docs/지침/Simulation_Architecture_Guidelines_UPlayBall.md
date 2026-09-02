@@ -9,12 +9,17 @@ Unity를 사용하되, 경기 시뮬레이션 Core는 Unity API 의존성을 최
 권장 구조:
 
 ```text
-Baseball.Core
-Baseball.Simulation
-Baseball.Game
-Baseball.Presentation
-Baseball.Editor
+Baseball.Core          순수 C#
+Baseball.Simulation    순수 C#
+Baseball.Game          순수 C# — Career/World 진행
+Baseball.Game.Unity    Unity 의존 — 매니저·SO·SceneFlow·Input·Sound
+Baseball.Presentation  Unity 의존
+Baseball.Editor        에디터 전용
 ```
+
+`Baseball.Game`까지가 `noEngineReferences: true`다. Unity 전용 구현은 Game 레이어의 순수 계약에
+`Baseball.Game.Unity`가 주입한다. 실행 방법과 규칙은
+[Headless_Regression_Guidelines_UPlayBall.md](Headless_Regression_Guidelines_UPlayBall.md)를 따른다.
 
 Simulation 레이어에서는 가능하면 다음에 의존하지 않는다.
 

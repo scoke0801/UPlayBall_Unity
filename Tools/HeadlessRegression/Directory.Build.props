@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    Headless 프로젝트 여러 개가 같은 폴더에 있으므로 obj/bin을 프로젝트 이름별로 분리한다.
+    분리하지 않으면 서로의 project.assets.json과 출력물을 덮어써서 참조가 조용히 사라진다.
+  -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin\$(MSBuildProjectName)\</BaseOutputPath>
+  </PropertyGroup>
+</Project>

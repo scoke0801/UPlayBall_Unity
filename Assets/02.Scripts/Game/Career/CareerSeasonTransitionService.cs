@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Game.Diagnostics;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
@@ -39,6 +40,31 @@ namespace Baseball.Game.Career
         private WorldOffseasonMarketPlan _marketPlan;
         private LeagueMovementPlan _leagueMovementPlan;
         private LeagueId _plannedPlayerLeagueId;
+        private static readonly ProfilerSection BeginTransitionMarker =
+            new("Transition.Begin");
+        private static readonly ProfilerSection CommitNextSeasonMarker =
+            new("Transition.Commit");
+        private static readonly ProfilerSection RenewalOfferMarker =
+            new("Transition.BuildRenewalOffers");
+        private static readonly ProfilerSection AdvanceWorldMarker =
+            new("Transition.AdvanceWorld");
+        private static readonly ProfilerSection WorldLifecycleMarker =
+            new("Transition.WorldLifecycle");
+        private static readonly ProfilerSection RoleEvaluationMarker =
+            new("Transition.RoleEvaluation");
+        private static readonly ProfilerSection CareerAchievementMarker =
+            new("Transition.CareerAchievement");
+        private static readonly ProfilerSection FinalizeStatisticsMarker =
+            new("Transition.FinalizeStatistics");
+        private static readonly ProfilerSection LeagueMovementPlanMarker =
+            new("Transition.LeagueMovementPlan");
+        private static readonly ProfilerSection OffseasonMarketPlanMarker =
+            new("Transition.OffseasonMarketPlan");
+        private static readonly ProfilerSection RetirementArchiveMarker =
+            new("Transition.RetirementArchive");
+        private static readonly ProfilerSection LeagueRolloverMarker =
+            new("Transition.LeagueRollover");
+
         private ContractOffer[] _renewalOffers = Array.Empty<ContractOffer>();
         private ContractOffer? _currentTeamOffer;
         private bool _isCurrentTeamOfferHeld;
@@ -85,19 +111,33 @@ namespace Baseball.Game.Career
         /// </remarks>
         public SeasonTransitionStep BeginTransition()
         {
+            using (BeginTransitionMarker.Auto())
+                return BeginTransitionCore();
+        }
+
+        private SeasonTransitionStep BeginTransitionCore()
+        {
             RequireStep(SeasonTransitionStep.NotStarted);
             SeasonState completedSeason = RequireOffseasonSeason();
 
             _nextYear = completedSeason.Year + 1;
             _nextSeasonId = completedSeason.SeasonId + 1;
-            for (int leagueIndex = 0; leagueIndex < _career.World.Leagues.Count; leagueIndex++)
+            using (FinalizeStatisticsMarker.Auto())
             {
-                LeagueState league = _career.World.Leagues[leagueIndex];
-                league.CurrentSeason.FinalizeAdjustedStatistics(league);
+                for (int leagueIndex = 0; leagueIndex < _career.World.Leagues.Count; leagueIndex++)
+                {
+                    LeagueState league = _career.World.Leagues[leagueIndex];
+                    league.CurrentSeason.FinalizeAdjustedStatistics(league);
+                }
             }
-            _leagueMovementPlan = new LeagueMovementPlanner(_career, _balance).CreatePlan(_career.World);
-            _marketPlan = new WorldOffseasonMarketService(_balance)
-                .CreatePlan(_career.World, _career.MyPlayerId, _nextYear, _leagueMovementPlan);
+
+            using (LeagueMovementPlanMarker.Auto())
+                _leagueMovementPlan = new LeagueMovementPlanner(_career, _balance).CreatePlan(_career.World);
+            using (OffseasonMarketPlanMarker.Auto())
+            {
+                _marketPlan = new WorldOffseasonMarketService(_balance)
+                    .CreatePlan(_career.World, _career.MyPlayerId, _nextYear, _leagueMovementPlan);
+            }
             _plannedPlayerLeagueId = _marketPlan.GetLeagueIdForTeam(_career.MyPlayer.CurrentTeamId);
             _nextTeams = _marketPlan.GetTeams(_plannedPlayerLeagueId);
 
@@ -105,7 +145,9 @@ namespace Baseball.Game.Career
             bool stillCovered = contract.SignedYear + contract.ContractYears - 1 >= _nextYear;
             if (stillCovered)
             {
-                ContractOffer[] activeContractOffers = BuildActiveContractOffers(completedSeason.LeagueLevel);
+                ContractOffer[] activeContractOffers;
+                using (RenewalOfferMarker.Auto())
+                    activeContractOffers = BuildActiveContractOffers(completedSeason.LeagueLevel);
                 if (activeContractOffers.Length > 1)
                 {
                     _renewalOffers = activeContractOffers;
@@ -117,7 +159,8 @@ namespace Baseball.Game.Career
                 return Step;
             }
 
-            _currentTeamOffer = BuildCurrentTeamRenewalOffer();
+            using (RenewalOfferMarker.Auto())
+                _currentTeamOffer = BuildCurrentTeamRenewalOffer();
             if (_currentTeamOffer.HasValue)
             {
                 _renewalOffers = new[] { _currentTeamOffer.Value };
@@ -271,6 +314,12 @@ namespace Baseball.Game.Career
         /// </summary>
         private CareerSeasonTransitionResult CommitNextSeason(ContractOffer? renewalOffer)
         {
+            using (CommitNextSeasonMarker.Auto())
+                return CommitNextSeasonCore(renewalOffer);
+        }
+
+        private CareerSeasonTransitionResult CommitNextSeasonCore(ContractOffer? renewalOffer)
+        {
             LeagueState completedLeague = _career.CurrentLeague;
             SeasonState completedSeason = completedLeague.CurrentSeason;
             bool requiresInjuryReturnObservation = _career.CurrentOffseason.MandatoryRehabWeeks > 0;
@@ -281,8 +330,11 @@ namespace Baseball.Game.Career
             completedSeason.CompleteArchive();
 
             TeamState previousPlayerTeam = GetTeam(_career.CurrentLeague.Teams, _career.MyPlayer.CurrentTeamId);
-            new RetirementRecapService(_balance)
-                .ArchiveCompletedSeason(_career, previousPlayerTeam);
+            using (RetirementArchiveMarker.Auto())
+            {
+                new RetirementRecapService(_balance)
+                    .ArchiveCompletedSeason(_career, previousPlayerTeam);
+            }
             var archivedRecord = new CareerSeasonHistoryRecord(
                 completedSeason.Year,
                 completedSeason.LeagueLevel,
@@ -306,7 +358,8 @@ namespace Baseball.Game.Career
                 out int careerPitchingOuts,
                 out int registeredSeasons);
 
-            RecordCareerAchievement(completedLeague);
+            using (CareerAchievementMarker.Auto())
+                RecordCareerAchievement(completedLeague);
 
             _career.MyPlayer.AdvanceAge();
 
@@ -432,29 +485,41 @@ namespace Baseball.Game.Career
 
             var worldLifecycle = new WorldSeasonLifecycleService(_career, _balance);
             _marketPlan = _marketPlan.WithTeams(_plannedPlayerLeagueId, _nextTeams);
-            LeagueState[] nextLeagues = BuildNextLeagues(
-                completedLeague.LeagueId,
-                targetLeagueId,
-                careerPlateAppearances,
-                careerPitchingOuts,
-                registeredSeasons);
+            LeagueState[] nextLeagues;
+            using (LeagueRolloverMarker.Auto())
+            {
+                nextLeagues = BuildNextLeagues(
+                    completedLeague.LeagueId,
+                    targetLeagueId,
+                    careerPlateAppearances,
+                    careerPitchingOuts,
+                    registeredSeasons);
+            }
             int playerNextSeasonId = GetLeague(nextLeagues, targetLeagueId).CurrentSeason.SeasonId;
-            _career.AdvanceToNextSeason(
-                nextLeagues,
-                archivedRecord,
-                _marketPlan,
-                completedSeason.SeasonId,
-                playerNextSeasonId,
-                _nextYear);
-            worldLifecycle.CompleteWorldTransition(_nextYear);
+            using (AdvanceWorldMarker.Auto())
+            {
+                _career.AdvanceToNextSeason(
+                    nextLeagues,
+                    archivedRecord,
+                    _marketPlan,
+                    completedSeason.SeasonId,
+                    playerNextSeasonId,
+                    _nextYear);
+            }
+
+            using (WorldLifecycleMarker.Auto())
+                worldLifecycle.CompleteWorldTransition(_nextYear);
             _career.TradeState.BeginSeason(
                 playerNextSeasonId,
                 _balance.TradeMarket.TradeDeadlineGame);
             _career.MyPlayer.InitializeSeasonStatus(
                 _balance.CareerSeason.InitialCondition,
                 _balance.CareerSeason.InitialManagerEvaluation);
-            new CareerRoleEvaluationService(_career, _balance)
-                .BeginSeason(requiresInjuryReturnObservation);
+            using (RoleEvaluationMarker.Auto())
+            {
+                new CareerRoleEvaluationService(_career, _balance)
+                    .BeginSeason(requiresInjuryReturnObservation);
+            }
             if (_career.MyPlayer.Age >= _balance.PlayerLifecycle.GuaranteedRetirementAge &&
                 !_career.Retirement.IsFinalSeasonDeclared)
             {

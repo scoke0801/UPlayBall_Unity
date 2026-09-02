@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unity 의존 코드는 Game/Unity 아래에만 있으므로 제외한다. 제외 없이 컴파일되면 경계가 깨진 것이다. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Baseball.Game</AssemblyName>
+    <RootNamespace>Baseball.Game</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);CS0168;CS0219;CS0414</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Assets\02.Scripts\Game\**\*.cs"
+             Exclude="..\..\Assets\02.Scripts\Game\Unity\**\*.cs" />
+    <ProjectReference Include="Baseball.Core.Headless.csproj" />
+    <ProjectReference Include="Baseball.Simulation.Headless.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,3 +1,6 @@
+﻿using Baseball.Game.Career.News;
+using Baseball.Game.Data;
+using Baseball.Game.Diagnostics;
 using Baseball.Game.Input;
 using Baseball.Game.Career;
 using Baseball.Game.SceneFlow;
@@ -18,6 +21,7 @@ namespace Baseball.Game.Manager
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void EnsureRuntimeManagers()
         {
+            RegisterUnityAdapters();
             GameManager gameManager = GameManager.EnsureExists();
             gameManager.EnsureManager<InputManager>("InputManager");
             gameManager.EnsureManager<CareerManager>("CareerManager");
@@ -25,6 +29,19 @@ namespace Baseball.Game.Manager
             gameManager.EnsureManager<SceneLoadManager>("SceneLoadManager");
             gameManager.EnsureManager<SoundManager>("SoundManager");
             gameManager.EnsureManager<BgmDirector>("BgmDirector");
+        }
+
+        /// <summary>
+        /// Unity를 참조하지 않는 Game 레이어에 Unity 전용 구현을 주입한다.
+        /// </summary>
+        /// <remarks>
+        /// 어댑터를 등록하지 않은 프로세스(EditMode 테스트, Headless 러너)에서는 각 계약이
+        /// 코드 기본값이나 no-op으로 동작하므로 같은 로직이 그대로 돈다.
+        /// </remarks>
+        private static void RegisterUnityAdapters()
+        {
+            ProfilerSectionSink.Current ??= new UnityProfilerSectionSink();
+            CareerNewsConfigurationProvider.SetLoader(CareerNewsDefinition.LoadConfiguration);
         }
     }
 }

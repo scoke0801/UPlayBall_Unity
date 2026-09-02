@@ -1,16 +1,17 @@
 {
-  "name": "Baseball.Game.Tests",
-  "rootNamespace": "Baseball.Tests.EditMode.Game",
-  "references": [
-    "Baseball.Core",
-    "Baseball.Game",
-    "Baseball.Simulation"
-  ],
-  "includePlatforms": [
-    "Editor"
-  ],
-  "optionalUnityReferences": [
-    "TestAssemblies"
-  ],
-  "autoReferenced": false
+    "name": "Baseball.Game.Tests",
+    "rootNamespace": "Baseball.Tests.EditMode.Game",
+    "references": [
+        "Baseball.Core",
+        "Baseball.Game",
+        "Baseball.Game.Unity",
+        "Baseball.Simulation"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "autoReferenced": false
 }

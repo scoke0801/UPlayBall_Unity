@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unity 에디터 밖에서 Core 레이어를 Release로 그대로 컴파일한다. 소스는 Assets를 직접 참조하므로 복제본이 생기지 않는다. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Baseball.Core</AssemblyName>
+    <RootNamespace>Baseball.Core</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);CS0168;CS0219;CS0414</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Assets\02.Scripts\Core\**\*.cs" />
+  </ItemGroup>
+</Project>

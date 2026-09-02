@@ -1,6 +1,5 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using Baseball.Game.Data;
 using Baseball.Game.Career.Narrative;
 
 namespace Baseball.Game.Career.News
@@ -16,7 +15,7 @@ namespace Baseball.Game.Career.News
         public CareerNewsService(CareerState career, CareerNewsConfiguration configuration = null)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
-            _configuration = configuration ?? CareerNewsDefinition.LoadConfiguration();
+            _configuration = configuration ?? CareerNewsConfigurationProvider.Load();
             _collector = new NewsEventCollector(career.News);
             _cycleService = new NewsCycleService(career.News, _configuration);
         }

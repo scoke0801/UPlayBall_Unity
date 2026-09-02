@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Unity 패키지 캐시의 nunit.framework를 그대로 참조한다. 캐시 폴더 이름에 붙는 해시가
+    머신마다 다르므로 경로를 와일드카드로 잡아 고정 버전 해시를 커밋하지 않는다.
+  -->
+  <ItemGroup>
+    <Reference Include="$(MSBuildThisFileDirectory)..\..\Library\PackageCache\com.unity.ext.nunit*\net40\unity-custom\nunit.framework.dll">
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

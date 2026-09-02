@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Game.Diagnostics;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Random;
 
@@ -14,6 +15,19 @@ namespace Baseball.Game.Career
     {
         private const ulong RetirementStream = 0x5245544952454D54UL;
         private const ulong RookieEntryStream = 0x524F4F4B49454E54UL;
+
+        private static readonly ProfilerSection LeagueBuilderMarker =
+            new("Offseason.LeagueBuilders");
+        private static readonly ProfilerSection RebalanceDepthMarker =
+            new("Offseason.RebalanceDepth");
+        private static readonly ProfilerSection RetireAndPromoteMarker =
+            new("Offseason.RetireAndPromote");
+        private static readonly ProfilerSection RecruitRookiesMarker =
+            new("Offseason.RecruitRookies");
+        private static readonly ProfilerSection BuildRostersMarker =
+            new("Offseason.BuildRosters");
+        private static readonly ProfilerSection BuildDecisionsMarker =
+            new("Offseason.BuildDecisions");
 
         private readonly BalanceTable _balance;
         private readonly PlayerValueEvaluator _playerValueEvaluator;
@@ -42,61 +56,88 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException($"기본 월드 시장에는 {LeagueLevelRules.Count}개 리그가 모두 필요합니다.");
 
             leagueMovementPlan ??= new LeagueMovementPlanner().CreatePlan(world);
-            TeamRosterBuilder[][] leagueBuilders = CreateLeagueBuilders(
-                world,
-                rollover,
-                leagueMovementPlan);
-            PlayerState myPlayer = world.GetPlayer(myPlayerId);
-            for (int index = 0; index < leagueBuilders.Length; index++)
+            TeamRosterBuilder[][] leagueBuilders;
+            using (LeagueBuilderMarker.Auto())
             {
-                RebalanceLeagueDepth(
-                    leagueBuilders[index],
-                    myPlayerId,
-                    myPlayer.PrimaryPosition);
+                leagueBuilders = CreateLeagueBuilders(
+                    world,
+                    rollover,
+                    leagueMovementPlan);
+            }
+
+            PlayerState myPlayer = world.GetPlayer(myPlayerId);
+            using (RebalanceDepthMarker.Auto())
+            {
+                for (int index = 0; index < leagueBuilders.Length; index++)
+                {
+                    RebalanceLeagueDepth(
+                        leagueBuilders[index],
+                        myPlayerId,
+                        myPlayer.PrimaryPosition);
+                }
             }
 
             var retiredPlayerIds = new List<int>();
             int topIndex = leagueBuilders.Length - 1;
-            List<RosterVacancy> rookieVacancies = RetirePlayers(
-                world,
-                leagueBuilders[topIndex],
-                world.Leagues[topIndex].LeagueId,
-                nextYear,
-                retiredPlayerIds);
-            for (int targetIndex = topIndex; targetIndex > 0; targetIndex--)
+            List<RosterVacancy> rookieVacancies;
+            using (RetireAndPromoteMarker.Auto())
             {
-                rookieVacancies = FillVacancies(
-                    rookieVacancies,
-                    leagueBuilders[targetIndex],
-                    leagueBuilders[targetIndex - 1]);
-                rookieVacancies.AddRange(RetirePlayers(
+                rookieVacancies = RetirePlayers(
                     world,
-                    leagueBuilders[targetIndex - 1],
-                    world.Leagues[targetIndex - 1].LeagueId,
+                    leagueBuilders[topIndex],
+                    world.Leagues[topIndex].LeagueId,
                     nextYear,
-                    retiredPlayerIds));
+                    retiredPlayerIds);
+                for (int targetIndex = topIndex; targetIndex > 0; targetIndex--)
+                {
+                    rookieVacancies = FillVacancies(
+                        rookieVacancies,
+                        leagueBuilders[targetIndex],
+                        leagueBuilders[targetIndex - 1]);
+                    rookieVacancies.AddRange(RetirePlayers(
+                        world,
+                        leagueBuilders[targetIndex - 1],
+                        world.Leagues[targetIndex - 1].LeagueId,
+                        nextYear,
+                        retiredPlayerIds));
+                }
             }
 
             int nextPlayerId = GetNextPlayerId(world);
             var newPlayers = new List<PlayerState>(rookieVacancies.Count);
-            RecruitRookies(
-                world,
-                leagueBuilders[0],
-                rookieVacancies,
-                nextYear,
-                ref nextPlayerId,
-                newPlayers);
+            using (RecruitRookiesMarker.Auto())
+            {
+                RecruitRookies(
+                    world,
+                    leagueBuilders[0],
+                    rookieVacancies,
+                    nextYear,
+                    ref nextPlayerId,
+                    newPlayers);
+            }
 
             var rosters = new LeagueRosterPlan[world.Leagues.Count];
-            for (int index = 0; index < rosters.Length; index++)
-                rosters[index] = new LeagueRosterPlan(world.Leagues[index].LeagueId, BuildTeams(leagueBuilders[index]));
-            AiMarketDecision[] decisions = BuildDecisions(
-                world,
-                rosters,
-                retiredPlayerIds,
-                newPlayers,
-                nextYear,
-                myPlayerId);
+            using (BuildRostersMarker.Auto())
+            {
+                for (int index = 0; index < rosters.Length; index++)
+                {
+                    rosters[index] = new LeagueRosterPlan(
+                        world.Leagues[index].LeagueId,
+                        BuildTeams(leagueBuilders[index]));
+                }
+            }
+
+            AiMarketDecision[] decisions;
+            using (BuildDecisionsMarker.Auto())
+            {
+                decisions = BuildDecisions(
+                    world,
+                    rosters,
+                    retiredPlayerIds,
+                    newPlayers,
+                    nextYear,
+                    myPlayerId);
+            }
             return new WorldOffseasonMarketPlan(
                 rosters,
                 decisions,
