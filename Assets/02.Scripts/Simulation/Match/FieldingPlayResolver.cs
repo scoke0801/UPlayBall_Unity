@@ -33,13 +33,18 @@ namespace Baseball.Simulation.Match
         public int Arm { get; }
         public int PositionProficiency { get; }
 
-        public static FieldingProfile Derive(Player player, PlayerPosition position, int abilityBonus = 0)
+        public static FieldingProfile Derive(
+            Player player,
+            PlayerPosition position,
+            int defenseAbilityBonus = 0,
+            int armAbilityBonus = 0)
         {
             uint hash = StableHash(player.PlayerId);
-            int defense = ClampRating(player.BatterAttributes.Defense + abilityBonus);
+            int defense = ClampRating(player.BatterAttributes.Defense + defenseAbilityBonus);
             int range = ClampRating(defense + (int)(hash % 7U) - 3);
             int hands = ClampRating(defense + (int)((hash >> 5) % 7U) - 3);
-            int arm = ClampRating(player.BatterAttributes.Arm + (int)((hash >> 11) % 7U) - 3);
+            int arm = ClampRating(
+                player.BatterAttributes.Arm + armAbilityBonus + (int)((hash >> 11) % 7U) - 3);
             return new FieldingProfile(range, hands, arm, player.GetPositionProficiency(position));
         }
 
@@ -153,13 +158,22 @@ namespace Baseball.Simulation.Match
             DefensiveAlignment alignment,
             int batterSpeed,
             int leadRunnerSpeed,
-            bool canAttemptDoublePlay)
+            bool canAttemptDoublePlay,
+            int defenseAbilityBonus = 0,
+            int armAbilityBonus = 0,
+            double fieldingErrorProbabilityMultiplier = 1d)
         {
             if (fielder == null) throw new ArgumentNullException(nameof(fielder));
+            if (fieldingErrorProbabilityMultiplier < 1d || double.IsNaN(fieldingErrorProbabilityMultiplier))
+                throw new ArgumentOutOfRangeException(nameof(fieldingErrorProbabilityMultiplier));
             int traitBonus = fielder.HasTrait(SkillTraitIds.DefensiveFocus)
                 ? _skillTraits.DefensiveFocusAbilityBonus
                 : 0;
-            FieldingProfile profile = FieldingProfile.Derive(fielder, position, traitBonus);
+            FieldingProfile profile = FieldingProfile.Derive(
+                fielder,
+                position,
+                traitBonus + defenseAbilityBonus,
+                armAbilityBonus);
             double reachChance = CalculateReachChance(ball, profile, alignment);
             bool routine = reachChance >= 0.68d && ball.Quality <= 62d;
             if (_random.NextDouble() >= reachChance)
@@ -174,7 +188,11 @@ namespace Baseball.Simulation.Match
                     reachChance);
             }
 
-            double handleFailure = CalculateHandleFailure(ball, profile, routine);
+            double handleFailure = CalculateHandleFailure(
+                ball,
+                profile,
+                routine,
+                fieldingErrorProbabilityMultiplier);
             if (_random.NextDouble() < handleFailure)
             {
                 PlateAppearanceResult result = routine
@@ -193,9 +211,13 @@ namespace Baseball.Simulation.Match
             if (ball.Type is BattedBallType.GroundBall or BattedBallType.Bunt)
             {
                 bool difficultThrow = ball.Quality >= 67d || profile.PositionProficiency < 70;
-                double throwFailure = (difficultThrow
-                    ? _balance.DifficultThrowFailure
-                    : _balance.NormalThrowFailure) * GetErrorMultiplier(profile.Hands);
+                double throwFailure = Clamp(
+                    (difficultThrow
+                        ? _balance.DifficultThrowFailure
+                        : _balance.NormalThrowFailure) * GetErrorMultiplier(profile.Hands) *
+                    fieldingErrorProbabilityMultiplier,
+                    0.001d,
+                    0.95d);
                 if (_random.NextDouble() < throwFailure)
                 {
                     return new FieldingPlayOutcome(
@@ -270,13 +292,18 @@ namespace Baseball.Simulation.Match
         private double CalculateHandleFailure(
             in BattedBallDescriptor ball,
             in FieldingProfile profile,
-            bool routine)
+            bool routine,
+            double fieldingErrorProbabilityMultiplier)
         {
             double baseFailure = ball.Type is BattedBallType.GroundBall or BattedBallType.Bunt
                 ? _balance.NormalGroundHandleFailure
                 : _balance.NormalFlyHandleFailure;
             double difficultyMultiplier = routine ? 1d : 1.8d;
-            return Clamp(baseFailure * GetErrorMultiplier(profile.Hands) * difficultyMultiplier, 0.001d, 0.08d);
+            return Clamp(
+                baseFailure * GetErrorMultiplier(profile.Hands) * difficultyMultiplier *
+                fieldingErrorProbabilityMultiplier,
+                0.001d,
+                0.95d);
         }
 
         private double GetErrorMultiplier(int hands)

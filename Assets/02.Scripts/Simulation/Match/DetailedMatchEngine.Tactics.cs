@@ -32,7 +32,9 @@ namespace Baseball.Simulation.Match
                 _pitcherManagementAi,
                 balance,
                 context.Leverage,
-                remainingInnings);
+                remainingInnings,
+                inning,
+                -context.ScoreDifference);
             if (candidateIndex < 0)
                 return;
 

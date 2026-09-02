@@ -1,7 +1,9 @@
 using System;
 using Baseball.Core.Balance;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Simulation.Historical;
 
 namespace Baseball.Simulation.Match
 {
@@ -16,8 +18,9 @@ namespace Baseball.Simulation.Match
             MatchExecutionProfile executionProfile)
         {
             Input = input;
-            Away = new DetailedTeamGameState(input.AwayRoster, fatigueResolver);
-            Home = new DetailedTeamGameState(input.HomeRoster, fatigueResolver);
+            Away = new DetailedTeamGameState(input.AwayRoster, fatigueResolver, input.HistoricalConfiguration);
+            Home = new DetailedTeamGameState(input.HomeRoster, fatigueResolver, input.HistoricalConfiguration);
+            Tactics = new DetailedMatchTacticRuntime(input.HistoricalConfiguration);
             EventSink = eventSink;
             RecordsEvents = executionProfile.EventMode == MatchEventMode.Full;
             Trace = executionProfile.DecisionTraceMode == MatchDecisionTraceMode.Full
@@ -29,6 +32,7 @@ namespace Baseball.Simulation.Match
         public MatchInput Input { get; }
         public DetailedTeamGameState Away { get; }
         public DetailedTeamGameState Home { get; }
+        public DetailedMatchTacticRuntime Tactics { get; }
         public IMatchEventSink EventSink { get; }
         public DecisionTrace Trace { get; }
         public bool RecordsEvents { get; }
@@ -61,12 +65,21 @@ namespace Baseball.Simulation.Match
         private readonly int[] _highLeverageBatters;
         private readonly int[] _overloadPitches;
         private readonly bool[] _enteredInSaveSituation;
+        private readonly HistoricalMatchConfiguration _historicalConfiguration;
+        private readonly PositionAssignmentPenaltyResolver _assignmentPenaltyResolver;
+        private readonly BullpenUsageResolver _bullpenUsageResolver;
 
         public DetailedTeamGameState(
             MatchRosterSnapshot roster,
-            PitcherFatigueResolver fatigueResolver)
+            PitcherFatigueResolver fatigueResolver,
+            HistoricalMatchConfiguration historicalConfiguration)
         {
             Roster = roster;
+            _historicalConfiguration = historicalConfiguration;
+            if (historicalConfiguration?.PositionAssignmentRule != null)
+                _assignmentPenaltyResolver = new PositionAssignmentPenaltyResolver();
+            if (historicalConfiguration?.BullpenUsagePolicy != null)
+                _bullpenUsageResolver = new BullpenUsageResolver();
             BoxScore = new TeamBoxScoreBuilder(roster, 16);
             Ledger = new SubstitutionLedger();
             _activeBatters = new Player[roster.StartingLineup.Count];
@@ -168,7 +181,11 @@ namespace Baseball.Simulation.Match
             {
                 if (_activePositions[index] == PlayerPosition.DesignatedHitter)
                     continue;
-                total += _activeBatters[index].BatterAttributes.Defense *
+                PositionAssignmentPenalty penalty = GetHitterAssignmentPenalty(index);
+                int effectiveDefense = Math.Max(
+                    0,
+                    _activeBatters[index].BatterAttributes.Defense - penalty.ConditionPenalty);
+                total += effectiveDefense *
                          _activeBatters[index].GetPositionProficiency(_activePositions[index]) / 100d;
                 count++;
             }
@@ -218,8 +235,14 @@ namespace Baseball.Simulation.Match
             PitcherManagementAi ai,
             BullpenManagementBalance balance,
             LeverageTier leverage,
-            int remainingInnings)
+            int remainingInnings,
+            int inning,
+            int runDifferential)
         {
+            int policySelection = SelectRelieverByPolicy(balance, leverage, inning, runDifferential);
+            if (policySelection != int.MinValue)
+                return policySelection;
+
             int bestIndex = -1;
             double bestScore = double.MinValue;
             bool hasNormallyAvailable = CountAvailableRelievers(balance, allowEmergency: false) > 0;
@@ -244,6 +267,106 @@ namespace Baseball.Simulation.Match
                 }
             }
             return bestIndex;
+        }
+
+        public PositionAssignmentPenalty GetHitterAssignmentPenalty(int battingOrderIndex)
+        {
+            if (_assignmentPenaltyResolver == null)
+                return PositionAssignmentPenalty.None;
+            return _assignmentPenaltyResolver.EvaluateHitter(
+                _activeBatters[battingOrderIndex],
+                _activePositions[battingOrderIndex],
+                _historicalConfiguration.PositionAssignmentRule);
+        }
+
+        public PositionAssignmentPenalty GetFielderAssignmentPenalty(Player fielder, PlayerPosition position)
+        {
+            if (_assignmentPenaltyResolver == null || fielder == null)
+                return PositionAssignmentPenalty.None;
+            return _assignmentPenaltyResolver.EvaluateHitter(
+                fielder,
+                position,
+                _historicalConfiguration.PositionAssignmentRule);
+        }
+
+        public PositionAssignmentPenalty GetActivePitcherAssignmentPenalty()
+        {
+            if (_assignmentPenaltyResolver == null)
+                return PositionAssignmentPenalty.None;
+            PitcherRosterEntry entry = ActivePitcherState.RosterEntry;
+            return _assignmentPenaltyResolver.EvaluatePitcher(
+                entry.NaturalRole,
+                entry.Role,
+                _historicalConfiguration.PositionAssignmentRule);
+        }
+
+        private int SelectRelieverByPolicy(
+            BullpenManagementBalance balance,
+            LeverageTier leverage,
+            int inning,
+            int runDifferential)
+        {
+            if (_bullpenUsageResolver == null)
+                return int.MinValue;
+
+            var context = new BullpenSelectionContext(
+                inning,
+                runDifferential,
+                _historicalConfiguration.GetLeverageIndex(leverage));
+            bool hasMatchingBand = false;
+            for (int bandIndex = 0; bandIndex < _historicalConfiguration.BullpenUsagePolicy.Bands.Count; bandIndex++)
+            {
+                if (_historicalConfiguration.BullpenUsagePolicy.Bands[bandIndex].Matches(context))
+                {
+                    hasMatchingBand = true;
+                    break;
+                }
+            }
+            if (!hasMatchingBand)
+                return int.MinValue;
+
+            var candidates = new BullpenCandidateState[_pitchers.Length - 1];
+            int candidateCount = 0;
+            bool hasNormallyAvailable = CountAvailableRelievers(balance, allowEmergency: false) > 0;
+            for (int index = 1; index < _pitchers.Length; index++)
+            {
+                PitcherGameState pitcher = _pitchers[index];
+                PitcherRosterEntry entry = pitcher.RosterEntry;
+                if (!entry.ActiveRosterRole.HasValue ||
+                    !ActiveRosterCompositionRule.Standard.IsBullpenRole(entry.ActiveRosterRole.Value))
+                {
+                    continue;
+                }
+
+                double recentLoad = entry.RecentWorkload.PreviousDayPitches +
+                                    entry.RecentWorkload.TwoDaysAgoPitches * balance.RecentLoadDayTwoWeight +
+                                    entry.RecentWorkload.ThreeDaysAgoPitches * balance.RecentLoadDayThreeWeight;
+                bool isAvailable = !pitcher.HasEntered && !pitcher.HasBeenRemoved &&
+                                   (!hasNormallyAvailable || recentLoad < balance.UnavailableRecentLoad);
+                candidates[candidateCount++] = new BullpenCandidateState(
+                    entry.PlayerSeasonId,
+                    entry.ActiveRosterRole.Value,
+                    entry.Condition,
+                    isAvailable);
+            }
+
+            if (candidateCount == 0)
+                return -1;
+            if (candidateCount != candidates.Length)
+                Array.Resize(ref candidates, candidateCount);
+            BullpenCandidateState? selected = _bullpenUsageResolver.SelectCandidate(
+                _historicalConfiguration.BullpenUsagePolicy,
+                context,
+                candidates);
+            if (!selected.HasValue)
+                return -1;
+            for (int index = 1; index < _pitchers.Length; index++)
+                if (string.Equals(
+                        _pitchers[index].RosterEntry.PlayerSeasonId,
+                        selected.Value.PlayerSeasonId,
+                        StringComparison.Ordinal))
+                    return index;
+            throw new InvalidOperationException("BullpenUsagePolicy가 경기 로스터에 없는 선수를 선택했습니다.");
         }
 
         public PitcherGameState ChangePitcher(
@@ -326,8 +449,16 @@ namespace Baseball.Simulation.Match
             {
                 if (!_benchAvailable[index]) continue;
                 Player candidate = Roster.Bench[index];
-                if (candidate.PrimaryPosition != _activePositions[battingOrderIndex]) continue;
-                double gain = GetOffenseValue(candidate) - currentOffense;
+                if (_assignmentPenaltyResolver == null &&
+                    candidate.PrimaryPosition != _activePositions[battingOrderIndex])
+                    continue;
+                PositionAssignmentPenalty penalty = _assignmentPenaltyResolver == null
+                    ? PositionAssignmentPenalty.None
+                    : _assignmentPenaltyResolver.EvaluateHitter(
+                        candidate,
+                        _activePositions[battingOrderIndex],
+                        _historicalConfiguration.PositionAssignmentRule);
+                double gain = GetOffenseValue(candidate) - penalty.ConditionPenalty - currentOffense;
                 if (gain > bestGain || Math.Abs(gain - bestGain) < 0.001d &&
                     (benchIndex < 0 || candidate.PlayerId < Roster.Bench[benchIndex].PlayerId))
                 {
@@ -347,8 +478,17 @@ namespace Baseball.Simulation.Match
             {
                 if (!_benchAvailable[index]) continue;
                 Player candidate = Roster.Bench[index];
-                if (candidate.PrimaryPosition != _activePositions[battingOrderIndex]) continue;
-                int gain = candidate.BatterAttributes.Defense - current.BatterAttributes.Defense;
+                if (_assignmentPenaltyResolver == null &&
+                    candidate.PrimaryPosition != _activePositions[battingOrderIndex])
+                    continue;
+                PositionAssignmentPenalty penalty = _assignmentPenaltyResolver == null
+                    ? PositionAssignmentPenalty.None
+                    : _assignmentPenaltyResolver.EvaluateHitter(
+                        candidate,
+                        _activePositions[battingOrderIndex],
+                        _historicalConfiguration.PositionAssignmentRule);
+                int gain = candidate.BatterAttributes.Defense - penalty.ConditionPenalty -
+                           current.BatterAttributes.Defense;
                 if (gain > bestGain)
                 {
                     bestGain = gain;
@@ -374,9 +514,17 @@ namespace Baseball.Simulation.Match
             {
                 if (!_benchAvailable[index]) continue;
                 Player candidate = Roster.Bench[index];
-                // 현재 구현은 다음 수비 이닝의 포지션 유효성을 보장할 수 있는 교체만 허용한다.
-                if (candidate.PrimaryPosition != _activePositions[battingOrderIndex]) continue;
-                int gain = candidate.BatterAttributes.Speed - current.BatterAttributes.Speed;
+                if (_assignmentPenaltyResolver == null &&
+                    candidate.PrimaryPosition != _activePositions[battingOrderIndex])
+                    continue;
+                PositionAssignmentPenalty penalty = _assignmentPenaltyResolver == null
+                    ? PositionAssignmentPenalty.None
+                    : _assignmentPenaltyResolver.EvaluateHitter(
+                        candidate,
+                        _activePositions[battingOrderIndex],
+                        _historicalConfiguration.PositionAssignmentRule);
+                int gain = candidate.BatterAttributes.Speed - penalty.ConditionPenalty -
+                           current.BatterAttributes.Speed;
                 if (gain > bestGain || gain == bestGain &&
                     (benchIndex < 0 || candidate.PlayerId < Roster.Bench[benchIndex].PlayerId))
                 {
@@ -399,7 +547,8 @@ namespace Baseball.Simulation.Match
                 throw new InvalidOperationException("사용 가능한 벤치 선수가 아닙니다.");
             Player entering = Roster.Bench[benchIndex];
             Player leaving = _activeBatters[battingOrderIndex];
-            if (entering.PrimaryPosition != _activePositions[battingOrderIndex])
+            if (_assignmentPenaltyResolver == null &&
+                entering.PrimaryPosition != _activePositions[battingOrderIndex])
                 throw new InvalidOperationException("교체 뒤 수비 포지션을 합법적으로 채울 수 없습니다.");
             Ledger.Record(new SubstitutionRecord(
                 inning,

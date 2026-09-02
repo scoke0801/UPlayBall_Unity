@@ -1,5 +1,7 @@
 using System;
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Rules;
 using Baseball.Simulation.PlateAppearance;
@@ -217,6 +219,15 @@ namespace Baseball.Simulation.Match
                     bases,
                     leverage);
 
+                MatchPlateAppearanceModifiers historicalModifiers = state.Tactics.Resolve(
+                    inning,
+                    half,
+                    context.ScoreDifference,
+                    battingOrderIndex + 1,
+                    bases.Second.IsOccupied || bases.Third.IsOccupied,
+                    defense.ActivePitcher,
+                    defense.ActivePitcherState.Role);
+
                 DefensiveAlignment alignment = _tacticalAi.SelectAlignment(context);
                 if (alignment != defense.Alignment)
                 {
@@ -306,7 +317,8 @@ namespace Baseball.Simulation.Match
                         pitchingApproach,
                         leverage,
                         outs,
-                        bases);
+                        bases,
+                        historicalModifiers);
                 }
 
                 int activePitcherRunsBefore = defense.ActivePitchingLine.RunsAllowed;
@@ -394,13 +406,20 @@ namespace Baseball.Simulation.Match
             PitchingApproach pitchingApproach,
             LeverageTier leverage,
             int outs,
-            DetailedBaseState bases)
+            DetailedBaseState bases,
+            MatchPlateAppearanceModifiers historicalModifiers)
         {
             int plateAppearanceIndex = state.NextPlateAppearanceIndex++;
             int timesFaced = defense.ActivePitcherState.BeginPlateAppearance(batter.Player.PlayerId);
             double contactBonus;
             double hardHitBonus;
             ResolveTimesThroughOrderBonus(defense.ActivePitcher, timesFaced, out contactBonus, out hardHitBonus);
+            PositionAssignmentPenalty hitterAssignmentPenalty = offense.GetHitterAssignmentPenalty(
+                batter.BattingOrderIndex);
+            contactBonus += historicalModifiers.GetBatter(PlayerAbility.Contact) -
+                            hitterAssignmentPenalty.ConditionPenalty;
+            hardHitBonus += historicalModifiers.GetBatter(PlayerAbility.Power) -
+                            hitterAssignmentPenalty.ConditionPenalty;
             int balls = 0;
             int strikes = 0;
             int pitchNumber = 0;
@@ -487,6 +506,10 @@ namespace Baseball.Simulation.Match
                 EffectivePitcherRatings effective = _fatigueResolver.Resolve(
                     defense.ActivePitcherState,
                     pitchingApproach);
+                effective = ApplyHistoricalPitcherModifiers(
+                    effective,
+                    historicalModifiers,
+                    defense.GetActivePitcherAssignmentPenalty());
                 var matchup = new PlateAppearanceMatchup(
                     batter.Player,
                     defense.ActivePitcher,
@@ -624,17 +647,54 @@ namespace Baseball.Simulation.Match
                     batter.Player.PlayerId, defense.ActivePitcher.PlayerId, fielder.PlayerId,
                     outs: outs,
                     ballInPlayData: new BallInPlayEventData(ball, default));
+                int batterSpeed = ClampRating(
+                    batter.Player.BatterAttributes.Speed +
+                    historicalModifiers.GetBatter(PlayerAbility.Speed) -
+                    hitterAssignmentPenalty.ConditionPenalty);
                 int leadRunnerSpeed = bases.First.IsOccupied ? bases.First.Player.BatterAttributes.Speed : 50;
+                PositionAssignmentPenalty fielderAssignmentPenalty =
+                    defense.GetFielderAssignmentPenalty(fielder, position);
                 FieldingPlayOutcome fielding = _fieldingResolver.Resolve(
                     ball,
                     fielder,
                     position,
                     defense.Alignment,
-                    batter.Player.BatterAttributes.Speed,
+                    batterSpeed,
                     leadRunnerSpeed,
-                    bases.First.IsOccupied && outs < 2);
+                    bases.First.IsOccupied && outs < 2,
+                    historicalModifiers.GetDefense(PlayerAbility.Defense),
+                    historicalModifiers.GetDefense(PlayerAbility.Arm),
+                    fielderAssignmentPenalty.FieldingErrorProbabilityMultiplier);
                 return new DetailedPlateAppearanceOutcome(fielding.Result, ball, fielding);
             }
+        }
+
+        private static EffectivePitcherRatings ApplyHistoricalPitcherModifiers(
+            in EffectivePitcherRatings current,
+            in MatchPlateAppearanceModifiers modifiers,
+            in PositionAssignmentPenalty assignmentPenalty)
+        {
+            int conditionPenalty = assignmentPenalty.ConditionPenalty;
+            return new EffectivePitcherRatings(
+                ClampRating(current.Velocity + modifiers.GetPitcher(PlayerAbility.Velocity) - conditionPenalty),
+                ClampRating(current.Stuff + modifiers.GetPitcher(PlayerAbility.Stuff) - conditionPenalty),
+                ClampRating(current.Breaking + modifiers.GetPitcher(PlayerAbility.Breaking) - conditionPenalty),
+                ClampRating(current.Control + modifiers.GetPitcher(PlayerAbility.Control) - conditionPenalty),
+                ClampRating(current.Mental + modifiers.GetPitcher(PlayerAbility.PitcherMental) - conditionPenalty));
+        }
+
+        private static int ClampRating(int value)
+        {
+            if (value < 0) return 0;
+            if (value > 100) return 100;
+            return value;
+        }
+
+        private static double ClampRating(double value)
+        {
+            if (value < 0d) return 0d;
+            if (value > 100d) return 100d;
+            return value;
         }
 
         private PitchResult ResolveCommandPitch(

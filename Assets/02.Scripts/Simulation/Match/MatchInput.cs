@@ -26,7 +26,8 @@ namespace Baseball.Simulation.Match
             ulong randomSeed,
             Team awayTeam,
             Team homeTeam,
-            bool requiresWinner)
+            bool requiresWinner,
+            HistoricalMatchConfiguration historicalConfiguration = null)
         {
             if (seasonId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(seasonId));
@@ -42,6 +43,7 @@ namespace Baseball.Simulation.Match
             RulesVersion = SimulationRulesVersion.DetailedV2;
             VersionStamp = SimulationVersionStamp.CreateCurrent(balanceVersion: 0);
             Rules = MatchRules.CreateDefault(requiresWinner);
+            HistoricalConfiguration = historicalConfiguration;
             AwayRoster = MatchRosterSnapshot.FromTeam(AwayTeam);
             HomeRoster = MatchRosterSnapshot.FromTeam(HomeTeam);
 
@@ -60,7 +62,8 @@ namespace Baseball.Simulation.Match
             MatchRosterSnapshot homeRoster,
             MatchRules rules,
             SimulationRulesVersion rulesVersion = SimulationRulesVersion.DetailedV2,
-            SimulationVersionStamp? versionStamp = null)
+            SimulationVersionStamp? versionStamp = null,
+            HistoricalMatchConfiguration historicalConfiguration = null)
         {
             if (seasonId <= 0) throw new ArgumentOutOfRangeException(nameof(seasonId));
             if (gameId <= 0) throw new ArgumentOutOfRangeException(nameof(gameId));
@@ -70,6 +73,7 @@ namespace Baseball.Simulation.Match
             AwayRoster = awayRoster ?? throw new ArgumentNullException(nameof(awayRoster));
             HomeRoster = homeRoster ?? throw new ArgumentNullException(nameof(homeRoster));
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
+            HistoricalConfiguration = historicalConfiguration;
             RulesVersion = rulesVersion;
             VersionStamp = versionStamp ?? SimulationVersionStamp.CreateCurrent(
                 balanceVersion: 0,
@@ -90,6 +94,7 @@ namespace Baseball.Simulation.Match
         public MatchRosterSnapshot AwayRoster { get; }
         public MatchRosterSnapshot HomeRoster { get; }
         public MatchRules Rules { get; }
+        public HistoricalMatchConfiguration HistoricalConfiguration { get; }
         public SimulationRulesVersion RulesVersion { get; }
         public SimulationVersionStamp VersionStamp { get; }
     }

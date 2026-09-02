@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 
@@ -36,7 +37,10 @@ namespace Baseball.Simulation.Match
             PitcherRole role,
             int condition = 100,
             RecentPitchingWorkload recentWorkload = default,
-            int pitchLimit = 0)
+            int pitchLimit = 0,
+            PitcherRole? naturalRole = null,
+            ActiveRosterRole? activeRosterRole = null,
+            string playerSeasonId = null)
         {
             Player = player ?? throw new ArgumentNullException(nameof(player));
             if (condition < 0 || condition > 100)
@@ -51,6 +55,20 @@ namespace Baseball.Simulation.Match
 
             Player = player;
             Role = role;
+            NaturalRole = naturalRole ?? role;
+            ActiveRosterRole = activeRosterRole;
+            PlayerSeasonId = playerSeasonId?.Trim() ?? string.Empty;
+            if (activeRosterRole.HasValue)
+            {
+                ActiveRosterRole rosterRole = activeRosterRole.Value;
+                bool isSupportedRole = ActiveRosterCompositionRule.Standard.IsBullpenRole(rosterRole) ||
+                                       rosterRole is Baseball.Core.Historical.ActiveRosterRole.Setup or
+                                           Baseball.Core.Historical.ActiveRosterRole.Closer;
+                if (!isSupportedRole)
+                    throw new ArgumentException("경기 투수 엔트리에는 Bullpen 1~4, Setup, Closer만 지정할 수 있습니다.", nameof(activeRosterRole));
+                if (PlayerSeasonId.Length == 0)
+                    throw new ArgumentException("ActiveRosterRole을 연결하려면 PlayerSeasonId가 필요합니다.", nameof(playerSeasonId));
+            }
             Condition = condition;
             RecentWorkload = recentWorkload;
             PitchLimit = pitchLimit;
@@ -58,6 +76,9 @@ namespace Baseball.Simulation.Match
 
         public Player Player { get; }
         public PitcherRole Role { get; }
+        public PitcherRole NaturalRole { get; }
+        public ActiveRosterRole? ActiveRosterRole { get; }
+        public string PlayerSeasonId { get; }
         public int Condition { get; }
         public RecentPitchingWorkload RecentWorkload { get; }
         public int PitchLimit { get; }
