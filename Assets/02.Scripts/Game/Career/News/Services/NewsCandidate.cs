@@ -41,6 +41,8 @@ namespace Baseball.Game.Career.News
         public NewsImportance Importance { get; set; }
 
         public bool IsLeagueBriefing => DominantEventType == NewsEventType.LeagueBriefing;
+        public bool IsPeriodicReport => DominantEventType is
+            NewsEventType.WeeklyReport or NewsEventType.MonthlyReport;
 
         public void Merge(NewsEvent source)
         {

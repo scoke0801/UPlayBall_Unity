@@ -76,6 +76,17 @@ namespace Baseball.Game.Career.News
                 else standardCount++;
             }
 
+            // 구간 리포트는 여러 경기의 결과를 해석하는 핵심 피드백이므로 같은 날의 단발 기사에 밀려 사라지지 않는다.
+            NewsCandidate periodicReport = FindPeriodicReport(candidates, context);
+            if (periodicReport != null &&
+                !selected.Contains(periodicReport) &&
+                result.Count < _configuration.Priority.MaximumArticlesPerCycle &&
+                TryCreate(periodicReport, context, result))
+            {
+                selected.Add(periodicReport);
+                standardCount++;
+            }
+
             for (int index = 0; index < candidates.Count &&
                                 result.Count < _configuration.Priority.MaximumArticlesPerCycle; index++)
             {
@@ -113,6 +124,22 @@ namespace Baseball.Game.Career.News
                 briefingCount++;
             }
             return result;
+        }
+
+        private NewsCandidate FindPeriodicReport(
+            IReadOnlyList<NewsCandidate> candidates,
+            NewsPublicationContext context)
+        {
+            for (int index = 0; index < candidates.Count; index++)
+            {
+                NewsCandidate candidate = candidates[index];
+                if (!candidate.IsPeriodicReport)
+                    continue;
+                NewsTemplateDefinition template = _templateService.SelectTemplate(candidate);
+                if (template != null && !IsTemplateOnCooldown(template, context))
+                    return candidate;
+            }
+            return null;
         }
 
         private NewsCandidate FindTopCandidate(
