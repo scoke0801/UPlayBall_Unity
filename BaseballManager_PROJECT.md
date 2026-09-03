@@ -2754,9 +2754,33 @@ Classic 54.35, Winners 57.38, Champion 63.32, Master 72.12, Galaxy 82.20이었�
 같이 `WorldState.EnsureValidTeamEmblems`의 예외를 없애 **"모든 구단은 유일한 양수 엠블럼을 가진다"**
 를 무조건 불변식으로 만든다. 월드를 만든 쪽이 배정 책임을 진다.
 
-이 결정으로 드러나는 남은 구멍이 하나 있다. `CareerWorldFactory.CreateNewWorld(bakedContent, ...)`는
-`AssignTeamEmblems`를 부르지 않고 `CareerBakedTeamRuntimeDefinition.EmblemId`를 그대로 신뢰하는데,
-그 값은 기본 0이고 `CareerBakedContent` 생성자도 `emblemId < 0`만 거부한다(0과 중복 허용).
-**아직 프로덕션 `ICareerBakedContentProvider` 구현체가 없어 지금 깨지지는 않는다.** Baked 콘텐츠를
-실제로 공급하는 시점에 엠블럼 배정 또는 검증을 반드시 함께 넣어야 한다.
+`CareerWorldFactory.CreateNewWorld(bakedContent, ...)`는
+`CareerBakedTeamRuntimeDefinition.EmblemId`를 그대로 사용하므로, Baked 입력 경계에서 모든 엠블럼이
+양수이고 월드 전체에서 유일한지 검증한다. 프로덕션 `ICareerBakedContentProvider`를 연결할 때도
+임의 기본값 0을 허용하지 않는다.
 
+### 41.13 결정 — 실제 4인 불펜 표시와 기용 통계 재정렬 (2026-09-03)
+
+`DetailedMatchEngine` 전환 뒤에도 팀 화면은 과거의 단일 `ReliefPitcher` 규칙을 사용했고,
+호환용 `Team` 어댑터는 실제 불펜 첫 슬롯인 Swingman을 `ReliefPitcher`로 축약했다. 화면과 테스트가
+이 손실 값을 정답으로 삼아 실제 경기의 `MatchRosterSnapshot.Bullpen`과 다른 선수를 보여 줬다.
+
+- `TeamOverviewBuilder`는 다음 경기의 실제 `CareerGameRunner` 입력을 만들고 그
+  `MatchRosterSnapshot`의 선발·불펜을 그대로 표시한다. 호환용 `Team.ReliefPitcher`를 UI 계약으로
+  사용하지 않는다.
+- 선발 강판이 사실상 작동하지 않던 수치를 바로잡기 위해 `BullpenManagementBalance`의 기본
+  PullThreshold를 60에서 40으로 낮췄다.
+- Condition이 주전 경쟁에 충분히 반영되도록 `CareerSeasonBalance.ConditionDecisionWeight`를
+  0.12에서 0.30으로 높였다. Serialized `NewGameDefinition`과 코드 기본값은 같은 값이다.
+- 4인 불펜에서 구원 등판당 2.5~3.8이닝을 요구하던 옛 단일 구원 모델 테스트는 0.8~2.2로
+  바꿨다. 실측값에 맞춰 무작정 넓힌 것이 아니라 역할 분산 뒤 등판당 약 1~2이닝을 검증한다.
+
+같은 45시즌/14,400경기 회귀에서 R/G 4.02, 타자 선발 출장률 86.1%, 선발 6.3 IP/App,
+구원 1.6 IP/App를 기록했다. 변경 전 98.5%, 7.3, 1.6에서 주전 경쟁과 선발 강판이 실제로
+작동하는 방향으로 이동했으며 기존 득점 환경은 유지됐다.
+
+동시에 역사 콘텐츠는 Editor 실명 검수본과 Runtime 가명 전용 정제본을 분리하고, 정제본만
+`HistoricalRuntimeContentCatalog`를 통해 Player Build에 포함한다. 감독모드 공통 Runtime 경로는
+44시즌 World Record와 Save/Load까지 연결했지만, 선수 커리어의 10단계 동시 리그에 440개
+TeamSeason을 모두 Rookie부터 진입시키는 정책은 아직 없다. 이 정책 없이 최근 10개 연도를 등급에
+임의 배치하지 않으며, Production Career 새 게임은 Synthetic으로 대체하지 않고 명시적으로 실패한다.

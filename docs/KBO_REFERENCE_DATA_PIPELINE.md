@@ -8,13 +8,15 @@ KBO 공식 기록은 실제 선수·구단 콘텐츠가 아니라 가상 리그�
 KBO Official WebForms
 → Raw Snapshot
 → Normalized JSON
-→ (후속) Editor Raw Season SO
-→ (후속) 익명 Derived Reference
-→ (후속) Synthetic Player / Team Generator
+→ Editor 실제 선수·시즌 1:1 원본 Archive
+→ 별도 Runtime 합성(실명 제거 + 자연스러운 가명 확정)
+→ Runtime-safe Synthetic Player / Team Content
 ```
 
-현재 단계는 Normalized JSON까지 구현한다. 실제 선수명, KBO PlayerId, 실제 구단명은 Editor 전용
-Raw 경계를 넘기지 않으며 Runtime Player Definition으로 복사하는 코드는 만들지 않았다.
+실제 선수명과 원본 시즌 기록은 `Assets/Editor Default Resources` 아래의 Editor 원본 Archive까지만 보존한다.
+Runtime 출력은 `originalName`과 시즌별 `sourceReferenceNames`를 제거하고, 실명과 일치하지 않는
+중복 없는 가명만 `fictionalName`으로 남긴다. KBO PlayerId와 실제 구단 식별자는 어느 Bake
+Definition에도 복사하지 않는다.
 
 ## Source와 수집
 
@@ -81,8 +83,22 @@ Category는 `Tools/KBOImporter/.cache/KBOImport/Reports/KBO_IMPORT_REPORT.md`에
 동명이인, 역사적 팀 Code/Franchise, 수상 Join 보정도 각각의 Override CSV에 공식 근거를 남겨야
 한다. 자동 후보가 0명 또는 2명 이상이면 임의 연결하지 않는다.
 
-## 후속 SO 단계
+## Editor / Runtime 이름 경계
 
-후속 구현은 시즌당 하나의 Editor Raw SO를 만들고, 별도 Builder가 실명과 KBO Source ID를 제거한
-분포·익명 Feature만 Runtime Reference로 내보내야 한다. Runtime Synthetic Generator가 Raw JSON이나
-KBO Season SO를 직접 참조해서는 안 된다.
+`synthetic_bake.py --editor-assets-dir`가 만드는 루트 Archive는 공식 `sourcePlayerId`를 해시한 Stable ID로
+실제 선수 한 명, 실제 시즌 한 건, 실제 기록 한 건을 1:1 연결한다. Browser 목록은 해당 선수의
+`originalName`을 표시하며 여러 선수 기록을 평균·혼합하지 않는다. 원본에 없는 생년·투타·등록 유형·훈련
+상한·잠재 성향은 비워 두고, 시즌 분포에서 계산한 Cost와 Base Ability만 `파생`으로 표시한다. KBO의
+원본 `sourcePlayerId` 자체는 Baked Definition에 복사하지 않는다.
+
+Editor Archive를 생성하면 그 아래 `Runtime/`에는 10개 가상 Franchise용 합성 콘텐츠를 별도로 만든다.
+이 데이터는 3~7명의 원본 시즌을 혼합해 게임용 능력과 기록으로 가공하며, 원본명과
+`sourceReferenceNames`를 모두 제거하고 `fictionalName`만 남긴다. Runtime Exporter와 Runtime Provider는
+이 하위 경로만 읽는다. `synthetic_bake.py --output`은 같은 Runtime 정제본을 단일 JSON으로 만들 때
+사용한다.
+
+Runtime 정제본에는 `nameDataPolicy=runtime-fictional-only-v2`가 기록된다. 가명은 cache의 표준
+3음절 한국 이름 중 여러 실명에서
+반복 확인된 두 글자 이름 부분과 일반 성씨를 재조합한다. 실명 일치, 중복, 음절 반복, 비표준 길이, 품질 기준을
+충족하는 후보 부족은 조용히 임의 음절로 대체하지 않고 Bake 오류로 처리한다. Runtime Synthetic
+Generator가 Raw/Normalized JSON을 직접 참조해서는 안 된다.

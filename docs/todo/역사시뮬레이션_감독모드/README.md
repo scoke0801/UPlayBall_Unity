@@ -22,7 +22,7 @@
 
 기존 `BaseballManager_PROJECT.md`의 과거 결정과 충돌하는 경우, 이 폴더 범위에서는 위 2026-09-01 확정을 우선한다.
 
-## 0.1 2026-09-02 구현 스냅샷
+## 0.1 2026-09-03 구현 스냅샷
 
 이 절은 위 설계를 변경하는 새 규칙이 아니라, 현재 코드와 검증의 도달 지점을 기록한다.
 `완료`는 해당 계약과 집중 테스트가 구현됐다는 뜻이며, 실제 새 게임 경로·Save·장기 Simulation까지
@@ -30,17 +30,21 @@
 
 | 영역 | 현재 상태 | 근거와 남은 경계 |
 | --- | --- | --- |
-| Offline Synthetic Bake | 완료(에디터 산출물) | 1982~2025 44시즌, `PlayerPerson` 1,757명, `PlayerSeason` 13,200개, `TeamSeason` 440개를 생성했다. 구단별 Pool 30명/Core25 25명, Original Record 13,200개, Award 1,672개다. 동일 입력/Seed 2회 결과의 Stable ID, `ContentHash`, 파일 SHA-256이 일치했다. |
-| Editor Asset 보관 | 완료(에디터 전용) | `1982-2025/manifest.json`, `player_persons.json`, `Years/1982.json`~`2025.json`을 `Assets/Editor Default Resources/HistoricalSimulation/`에 생성했다(46 JSON, 12,908,847 bytes). 파일 Hash/재조립과 Unity Import/Compile을 검증했으며 Archive Hash는 `dc6e328f8468bd18ae7147eedd53561853703b5f19521019ce70c29dfc1fd030`이다. 일반 `Assets/**/Resources`에는 두지 않으며 Runtime 배포 Provider가 아니다. |
+| Editor 원본 Bake | 완료(에디터 전용) | 1982~2025 공식 Source Player/Season을 1:1로 보존한다. `PlayerPerson` 3,510명, `PlayerSeason`/Original Record 17,333개, `TeamSeason` 363개, Award 555개다. 선수 목록은 원본 이름을 표시한다. |
+| Runtime 가명 Synthetic Bake | 완료 | 44시즌, `PlayerPerson` 1,757명, `PlayerSeason`/Normal Card/Original Record 13,200개, `TeamSeason` 440개, Award 1,672개다. 연도별 정규 10구단, 구단별 Pool 30/Core25 25를 만족하며 원본 이름 필드는 없다. |
+| Editor Asset 보관 | 완료(에디터 전용) | 루트 원본 검수본은 46 JSON/23,541,304 bytes, Content Hash `620f15ab…49447`, Archive Hash `3976bd88…8ab5`다. 같은 폴더의 `Runtime/` 가명 정제본과 물리적으로 분리되며 일반 `Assets/**/Resources`에는 두지 않는다. |
 | 공통 Core/Simulation 계약 | 완료(집중 테스트) | Player/Season/Card, Roster/Position/Bullpen, League/DNA, TeamColor, Economy/Scout, WorldHistory/Award/Composite, Tactic, Wildcard의 Definition/Resolver를 추가·확장했다. |
 | Match 연결 | 부분 완료 | `DetailedMatchEngine`에 전술·Assignment·Fielding Error·Bullpen 공통 규칙을 연결하고 집중 테스트했다. 전술의 모든 `BehaviorModifiers`, Stamina/BatterMental, 전체 벤치·감독 AI 운영은 미완료다. |
-| Historical World 실행 | 부분 완료 | `OriginalHistory`/`SimulatedHistory` 공통 Schema, Save/Load, Award/Composite 및 DetailedMatch 통계 Adapter 계약은 있다. 실제 시즌 Schedule/Lineup을 공급하는 `IHistoricalDetailedSeasonSource` 구현과 다중 Seed 장기 실행은 없다. |
-| Career 공통 콘텐츠 | 부분 완료 | Baked Provider 주입 경로와 회귀 테스트는 있다. 실제 `ICareerBakedContentProvider` 구현이 없고 기본 새 게임은 아직 `LegacyRuntimeSynthetic`이며, Career Save의 공통 World/PlayerSeason 영속화도 미완료다. |
-| Special Composite Runtime | 부분 완료 | 결정론적 Builder와 상호 중복 제거는 테스트했다. 원 구단과 합성팀이 같은 `PlayerSeason`을 동시에 출전시킬 별도 Runtime Instance 구조는 미완료다. |
-| 장기 검증 | 보류 | 신규 집중 EditMode 77/77, Offline Python 3/3은 통과했다. 전체 Career 장기 회귀와 Historical multi-seed, Tactic 수천 경기, 승강 10,000 TeamSeason, Endgame EffectiveRating 검증은 코드 개선 후 수행한다. |
+| Runtime Historical Provider | 완료 | `NewGameDefinition → HistoricalRuntimeContentCatalog → 46 TextAsset → UnityHistoricalContentProvider`로 Player Build용 정제본을 읽는다. Manifest/파일별 SHA-256/Archive Hash/Content Hash/이름 정책을 검증하며 Editor 실명 필드는 Runtime payload에 0건이다. |
+| Historical World 실행 | 완료(공통 Runtime 경로) | `OriginalHistory`는 Simulation 0회로 원기록을 읽고, `SimulatedHistory`는 실제 Baked 정규 10구단/Core25로 `DetailedMatchEngine`을 실행한다. 두 경로가 Snapshot/Award/Catalog/합성팀/감독모드 RuntimeState로 수렴한다. Player-facing 감독모드 Scene 진입점은 별도 UI 작업으로 남는다. |
+| World Persistence | 완료(감독모드 RuntimeState) | 파생 `WorldHistorySnapshot`/Award/리그·로스터·소유 경제만 저장하고 Definition 전체는 Stable ID와 Content Reference로 복구한다. Load 서비스에는 Historical Simulation 의존성이 없다. |
+| Career 공통 콘텐츠 | 부분 완료 | Baked Provider 주입 Seam, 공통 Card/World 계약, 감독모드 경제 타입 비유출 회귀는 있다. Production `ICareerBakedContentProvider`와 Career 디스크 Save는 아직 없다. Production 새 게임은 Synthetic fallback 없이 명시적으로 실패하며, 테스트만 `ExplicitSyntheticTestFixture`를 주입한다. 기존 Career 모델의 `10개 동시 리그 × 10구단`과 “모든 TeamSeason Rookie 시작”을 함께 만족하는 초기 배치 정책을 먼저 확정해야 한다. |
+| Special Composite Runtime | 완료(공통 Runtime 경로) | Award 확정 뒤 연도별 세 팀을 만들고 Catalog의 실제 Edition CardId를 배정한다. 각 25인, 세 팀 간 PlayerSeason 중복 0, 원 구단 Core25/Origin 불변을 검증했다. |
+| 장기 검증 | 부분 완료 | 실제 1982~2025 World를 3회(동일 Seed 2회+다른 Seed 1회), 총 132시즌 실행했다. 한 World는 18,041경기/실패 시즌 0이고 동일 Seed Hash가 일치했다. Career 10,000 월드 시즌, Tactic/Endgame 장기 검증은 별도 Gate로 남는다. |
 
-따라서 현재는 **에디터용 Bake 에셋 생성과 공통 계약 검증까지** 진행된 상태다. 이를 Runtime에서
-사용 가능한 완성 콘텐츠 또는 Phase 1~6 전체 통과로 해석하지 않는다.
+따라서 **Offline Bake → Runtime Provider → 공통 World Record → 감독모드 RuntimeState → Save/Load**
+경로는 닫혔다. 다만 Production 선수 커리어 콘텐츠 배치와 실제 두 모드의 화면 진입점이 남았으므로
+Phase 1~6 전체 통과로 해석하지 않는다.
 
 ## 1. 두 모드의 경계
 

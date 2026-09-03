@@ -332,8 +332,9 @@ Scout / Sale / Pity / SP / DP
 
 ### 부분 완료 또는 미완료
 
-- Editor Bake에는 위 공통 Definition에 필요한 원본 데이터가 생성되지만, 이를 실제 새 게임에
-  공급하는 Runtime `ICareerBakedContentProvider` 구현은 아직 없다.
+- Editor Bake의 Runtime 정제본을 공통 Definition과 `WorldCardCatalog`로 공급하는
+  `UnityHistoricalContentProvider`는 구현됐다. 다만 이를 기존 10단계 Career World의 초기
+  구단 배치로 변환하는 Production `ICareerBakedContentProvider`는 아직 없다.
 - Career의 일반 선수 Save에 `PlayerSeasonId`, Natural `PitcherRole`, 공통 World Card 참조를
   영속화하는 통합은 미완료다.
 - 특수 합성팀이 원 구단과 같은 `PlayerSeasonId`를 동시에 사용할 경기용 Instance 모델은
