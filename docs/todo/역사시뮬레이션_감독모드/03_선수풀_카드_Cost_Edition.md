@@ -6,6 +6,10 @@
 
 `PlayerPersonDefinition`/`PlayerSeasonDefinition`/카드 원본은 **선수 커리어 모드와 감독모드가 공통으로 사용하는 Baked 콘텐츠**다. 감독모드만 이 공통 카드를 수집·강화·판매하는 `OwnedPlayerCardState`를 추가로 가진다.
 
+일반 역사 선수의 정본은 01절의 Source Player/Source PlayerSeason이다. 한 Source Player는 한 가상
+`PlayerPersonDefinition`에, 한 Source PlayerSeason은 한 가상 `PlayerSeasonDefinition`에 대응한다.
+Runtime Definition에는 실제 이름과 Source ID를 넣지 않는다.
+
 Edition은 정확히 4종만 사용한다.
 
 ```text
@@ -50,7 +54,23 @@ PlayerCardDefinition
   EditionStatModifiers
 ```
 
+Editor/Offline은 Definition과 분리된 다음 provenance를 보존한다.
+
+```text
+PlayerSeasonBakeTrace
+  ProvenanceKind            // SourceBacked | ReplacementGenerated
+  SourcePlayerId            // SourceBacked에만 존재, Runtime 미포함
+  SourceSeasonYear          // SourceBacked에만 존재
+  Ability/Cost Derivation Trace
+```
+
+`ProvenanceKind`는 Bake 감사와 count report를 위한 값이다. Runtime Roster, Match, Award eligibility,
+Edition 또는 Cost 보정 분기에 사용하지 않는다.
+
 `PlayerPersonDefinition`과 `PlayerSeasonDefinition`은 01절의 Offline Pipeline에서 생성·검증 후 Bake한다. Runtime 월드 생성 시 능력치/Origin을 다시 생성하지 않는다.
+
+동일 SourcePlayerId의 모든 시즌은 같은 `PlayerPersonId`와 FictionalName을 공유한다. 서로 다른 실제
+선수 시즌을 한 Person의 커리어로 묶거나, 직전 시즌 능력치를 현재 Source season에 섞지 않는다.
 
 선수모드의 일반 구단 선수와 감독모드의 일반 선수는 같은 `PlayerSeasonDefinition`/카드 원본을 사용한다. 선수 커리어 주인공만 기존 성장형 `CareerPlayerState`를 사용한다(07절).
 
@@ -117,7 +137,9 @@ PlayerSeasonDefinition.TrainingCeiling
 
 투수는 대응 6능력치를 사용한다.
 
-`TrainingCeiling`은 시즌 BaseStat과 Cost가 확정된 뒤 파생한다.
+`TrainingCeiling`은 시즌 BaseStat과 Cost가 확정된 뒤 파생한다. Source에 존재하지 않는 Potential을
+실제 정보처럼 임의 생성해 상한을 흔들지 않는다. Potential 기반 변동을 유지하려면 Source 파생과
+분리된 명시적 gameplay metadata 계약과 버전을 먼저 둔다.
 
 ```text
 Headroom(ability) = CostToHeadroomTable[Cost] × PersonPotentialTrait[ability]
@@ -153,7 +175,9 @@ OwnedPlayerCardState
 
 ## 3. Cost — 고정 희소도 축
 
-Cost는 Baked `BaseAttributes`의 역할 보정 종합 능력치를 해당 OriginYear 집단 내 백분위로 변환해 결정한다. 수상 여부와 무관하게 고정된다.
+Cost는 Baked `BaseAttributes`의 역할 보정 종합 능력치를 해당 OriginYear의 **전체 Source-backed
+PlayerSeason 모집단** 내 백분위로 변환해 결정한다. 수상 여부와 무관하게 고정된다. Core25 여부나
+가상 Franchise 배정 결과로 다시 순위를 계산하지 않는다.
 
 | 백분위 | Cost |
 | --- | ---: |
@@ -169,6 +193,11 @@ Cost는 Baked `BaseAttributes`의 역할 보정 종합 능력치를 해당 Origi
 | 상위 3% | 10 |
 
 구간은 `CostBalanceTable`로 데이터화한다.
+
+ReplacementGenerated는 baseline, composite 분포 또는 percentile 모집단에 포함하지 않는다. 해당
+OriginYear Source-backed 모집단에서 확정한 composite 경계값에 Replacement composite를 대입해 Cost를
+정한다. 따라서 Replacement 추가 수가 Source-backed 선수의 Cost를 바꾸지 않으며 composite가 높아질수록
+Cost가 낮아지지 않는다.
 
 같은 `PlayerSeasonId`에서 파생된 모든 Edition은 같은 Cost를 공유한다.
 
@@ -304,6 +333,11 @@ Scout / Sale / Pity / SP / DP
 ## 10. 검증 기준
 
 - 모든 Baked PlayerSeason이 유효한 Cost 1~10, Origin, Position/PitcherRole을 가지는지 검증.
+- Source Player/PlayerSeason과 Source-backed Person/Season의 1:1 대응, 같은 Source Person의 가명
+  일관성, SourceSeason 복제·다중 Reference 혼합·타연도 위장 0건을 검증.
+- OriginYear 전체 Source-backed 모집단으로 Cost rank/threshold를 확정하고 Core25/Team 배정 결과와
+  Replacement가 Source-backed Cost를 바꾸지 않는지 검증.
+- Replacement Cost가 고정 composite threshold에 단조롭게 대응하는지 검증.
 - 다른 World Seed에서도 BaseAttributes/Cost/TrainingCeiling/Origin이 변하지 않는지 검증.
 - 특수 Edition은 해당 World의 `WorldAwardRecord`가 있을 때만 `WorldCardCatalog`에 활성화되는지 검증.
 - `OriginalHistory`/`SimulatedHistory`가 동일한 WorldCardCatalog 생성 경로를 사용하는지 검증.
@@ -316,6 +350,7 @@ Scout / Sale / Pity / SP / DP
 - 같은 PlayerSeasonId가 원래 Franchise 구단과 특수 합성팀에 동시에 참조될 수 있으나 세 특수 합성팀 상호 간에는 중복되지 않는지 검증.
 - 외국인 카드 4장 이상 보유는 허용하지만 ActiveRoster 4명 등록은 02절 Validator가 거부하는지 검증.
 - 비주포지션/비본래 PitcherRole 기용이 Definition을 변조하지 않고 Runtime Assignment + Penalty로만 처리되는지 검증.
+- Source-backed와 Replacement가 Runtime Card/Edition/Award 자격에서 동일하게 취급되는지 검증.
 
 ## 11. 2026-09-02 구현 현황
 
@@ -332,6 +367,9 @@ Scout / Sale / Pity / SP / DP
 
 ### 부분 완료 또는 미완료
 
+- 기존 Runtime PlayerSeason은 3~7 Reference 혼합 경로에서 생성됐으므로 새 Source 1:1 계약의
+  공통 카드 원본으로 인정하지 않는다. Source-backed/Replacement 재 Bake와 Cost 재검증 전까지
+  Player/Season/Cost Lane은 재작업 중이다.
 - Editor Bake의 Runtime 정제본을 공통 Definition과 `WorldCardCatalog`로 공급하는
   `UnityHistoricalContentProvider`는 구현됐다. 다만 이를 기존 10단계 Career World의 초기
   구단 배치로 변환하는 Production `ICareerBakedContentProvider`는 아직 없다.

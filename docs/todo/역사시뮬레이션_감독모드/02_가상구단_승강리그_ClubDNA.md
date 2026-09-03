@@ -2,8 +2,9 @@
 
 ## 0. 목적
 
-01절에서 Offline Bake한 가상 선수들을 "가상 연도 구단"으로 묶고, 기존 `LeagueGrade` 승강 구조
-위에서 자연스럽게 실력을 증명하게 만든다. 실제 KBO 구단·순위를 그대로 대응시키지 않는다.
+01절에서 Offline Bake한 Source-backed 선수와 필요한 최소 Replacement를 "가상 연도 구단"으로
+묶고, 기존 `LeagueGrade` 승강 구조 위에서 자연스럽게 실력을 증명하게 만든다. 실제 KBO 구단·순위를
+그대로 대응시키지 않는다.
 
 이 문서는 동시에 **공통 1군 25인 구성, 투수 역할, 외국인 등록, 포지션 불일치 기용 규칙**의
 Source of Truth 역할을 한다. 선수 커리어 모드와 감독모드는 동일한 규칙을 사용한다.
@@ -21,8 +22,8 @@ TeamSeasonKey  = FranchiseId + "_" + OriginYear
 
 ## 2. Franchise Fingerprint 생성
 
-한 TeamSeason의 기본 성향은 같은 OriginYear의 여러 실제 팀 시즌 특성을 혼합해 Offline에서 만든다.
-연도덱이 수집의 핵심 단위이므로 `2011 TeamSeason`은 원칙적으로 2011 데이터 안에서 혼합한다.
+한 TeamSeason의 기본 성향은 같은 OriginYear의 Source-backed 시즌 집단 통계에서 Offline으로 만든다.
+연도덱이 수집의 핵심 단위이므로 `2011 TeamSeason`은 2011 데이터만 사용한다.
 
 ```text
 Fingerprint = 30% 2011 강한 장타 집단
@@ -31,8 +32,9 @@ Fingerprint = 30% 2011 강한 장타 집단
             + 20% 2011 강한 불펜 집단
 ```
 
-필요한 포지션/역할 Reference가 부족할 때만 ±1~2년 Era Pool을 보조로 사용하며 최대 혼합 비율은
-`EraNormalizationConfig`에 데이터화한다. 서로 멀리 떨어진 시대를 임의로 섞지 않는다.
+다른 연도 PlayerSeason을 현재 OriginYear 선수로 차용하거나 위장하지 않는다. 같은 연도 내 세부
+Position/Role 집단이 작다면 같은 연도의 상위 Position/RoleGroup prior로 수축한다. Source-backed
+후보 자체가 부족한 roster slot은 01절의 `ReplacementGenerated`만 사용한다.
 
 Fingerprint와 선수의 연도별 원소속 배정은 **Offline Bake 단계에서 확정**한다. Runtime 월드 생성 시
 Core25나 OriginFranchise를 다시 추첨하지 않는다.
@@ -43,7 +45,7 @@ Core25나 OriginFranchise를 다시 추첨하지 않는다.
 TeamSeasonDefinition
 {
     TeamSeasonKey
-    AllNormalCardIds[]   // 시즌 전체 Baked 선수풀, 권장 28~40명
+    AllNormalCardIds[]   // 해당 팀에 배치된 전체 Source-backed + Replacement, 크기는 가변
     Core25CardIds[]      // Baked 초기 1군, 정확히 25명
     ReferenceStrength    // Fingerprint 기반 원본 전력 점수, 검증용
 }
@@ -54,6 +56,15 @@ TeamSeasonDefinition
 
 `SimulatedHistory`와 `OriginalHistory` 모두 같은 TeamSeasonDefinition/Core25를 사용한다.
 월드 기록 방식이 선수의 원소속이나 초기 Baked 로스터를 바꾸지 않는다.
+
+정규 Franchise는 연도마다 정확히 10개이고 각 TeamSeason은 정확한 Core25와 가변 크기의 전체 Pool을
+갖는다. Offline Allocator는 해당 OriginYear의 **모든** 고유 Source-backed PlayerSeason을 10팀 중
+정확히 한 곳에 배치한다. 같은 SourceSeason을 둘 이상의 정규 Franchise에 복제하지 않는다.
+
+Replacement는 10개 Core25 전체의 Hitter140/Pitcher110 quota와 Source-backed Hitter/Pitcher 수의
+차이만큼만 생성한다. Source 총수가 250명을 넘는 연도의 비-Core Source-backed 선수도 전체 Pool에서
+삭제하지 않는다. Natural Position/세부 PitcherRole 후보 부족은 기존 AssignedRole fallback과 warning으로
+처리하며 Replacement 수를 임의로 늘리는 근거로 사용하지 않는다.
 
 ## 4. ActiveRosterCompositionRule — 공통 25인 규칙
 
@@ -377,11 +388,19 @@ Baseball.Simulation
   LeagueGrade Promotion/Relegation Resolver
 ```
 
-`SyntheticTeamGenerator`는 01절에 따라 Offline Pipeline 책임이다. Runtime Simulation 목록에 넣지 않는다.
+`SourceBackedTeamAllocator`와 `ReplacementPlayerGenerator`는 01절에 따라 Offline Pipeline 책임이다.
+Runtime Simulation 목록에 넣지 않는다.
 
 ## 12. 검증 기준
 
 - 모든 Baked Core25가 정확히 25명이며 야수14/투수11, 주전9/벤치5, 선발5/불펜4/셋업1/마무리1을 만족하는지 검증.
+- 해당 OriginYear의 모든 Source-backed PlayerSeason이 정확히 한 정규 TeamSeason의 전체 Pool에
+  존재하고, 팀별 Pool 크기에는 고정 30명/28~40명 상한을 적용하지 않는지 검증.
+- 한 Source-backed PlayerSeason이 둘 이상의 정규 Franchise에 복제되지 않는지 검증.
+- Replacement Hitter/Pitcher 수가 각각 `Max(0, 140 - SourceBackedHitterCount)`와
+  `Max(0, 110 - SourceBackedPitcherCount)`에 정확히 일치하는지 검증.
+- Replacement가 SourcePlayerId를 갖거나 다른 연도 SourceSeason으로 위장하지 않는지 검증.
+- Source-backed와 Replacement가 Runtime 기용, 수상 자격, Card/Edition에서 동일하게 취급되는지 검증.
 - ActiveRoster 외국인 3명은 허용하고 4명은 거부하는지 검증.
 - 감독모드 Collection에 외국인 카드가 4장 이상 있어도 보유 자체는 허용되는지 검증.
 - 동일 ActiveRoster에 같은 `PlayerPersonId`가 중복 등록되지 않는지 검증.
@@ -422,6 +441,10 @@ Baseball.Simulation
 
 ### 부분 완료 또는 미완료
 
+- 모든 Source-backed 시즌을 정규 10팀의 가변 Pool에 중복 없이 배치하고 Core25 Hitter/Pitcher quota
+  부족분만 Replacement로 채우는
+  새 Offline Allocator는 재작업 대상이다. 새 Bake/Manifest 검증 전에는 기존 10팀 결과를 이 계약의
+  완료 근거로 사용하지 않는다.
 - `SpecialCompositeTeamBuilder`의 세 팀 구성, 우선순위, 상호 `PlayerSeasonId` 중복 제거와 원본
   불변성은 테스트했다. 그러나 원 Franchise와 합성팀에 같은 시즌 선수를 동시에 출전시키는
   별도 `PlayerSeasonInstance` Runtime 소유 구조는 아직 없다.
