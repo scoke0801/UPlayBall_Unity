@@ -49,9 +49,9 @@ namespace Baseball.Tests.EditMode.Game
                 nextGame,
                 nextGame.PlannedPlayerRole,
                 career.CurrentLeague.CurrentSeason.SeasonId);
-            Team matchTeam = input.AwayTeam.TeamId == career.MyPlayer.CurrentTeamId
-                ? input.AwayTeam
-                : input.HomeTeam;
+            MatchRosterSnapshot matchRoster = input.AwayRoster.TeamId == career.MyPlayer.CurrentTeamId
+                ? input.AwayRoster
+                : input.HomeRoster;
 
             Assert.That(view.HasNextGamePlan, Is.True);
             Assert.That(view.PlannedPlayerRole, Is.EqualTo(nextGame.PlannedPlayerRole));
@@ -59,8 +59,8 @@ namespace Baseball.Tests.EditMode.Game
             for (int index = 0; index < view.StartingLineup.Length; index++)
             {
                 TeamLineupSlotView slot = view.StartingLineup[index];
-                Assert.That(slot.Position, Is.EqualTo(matchTeam.Lineup[index].FieldingPosition));
-                Assert.That(slot.Player.PlayerId, Is.EqualTo(matchTeam.Lineup[index].Player.PlayerId));
+                Assert.That(slot.Position, Is.EqualTo(matchRoster.StartingLineup[index].FieldingPosition));
+                Assert.That(slot.Player.PlayerId, Is.EqualTo(matchRoster.StartingLineup[index].Player.PlayerId));
                 if (slot.Player.PlayerId == career.MyPlayer.PlayerId)
                     myLineupCount++;
             }
@@ -68,8 +68,15 @@ namespace Baseball.Tests.EditMode.Game
                 myLineupCount,
                 Is.EqualTo(nextGame.PlannedPlayerRole == PlayerGameRole.StartingBatter ? 1 : 0));
 
-            Assert.That(GetPlannedPitcherId(view.StartingRotation), Is.EqualTo(matchTeam.StartingPitcher.PlayerId));
-            Assert.That(GetPlannedPitcherId(view.Bullpen), Is.EqualTo(matchTeam.ReliefPitcher.PlayerId));
+            Assert.That(
+                GetPlannedPitcherId(view.StartingRotation),
+                Is.EqualTo(matchRoster.StartingPitcher.Player.PlayerId));
+            Assert.That(view.Bullpen.Length, Is.EqualTo(matchRoster.Bullpen.Count));
+            for (int index = 0; index < view.Bullpen.Length; index++)
+            {
+                Assert.That(view.Bullpen[index].PlayerId, Is.EqualTo(matchRoster.Bullpen[index].Player.PlayerId));
+                Assert.That(view.Bullpen[index].IsInNextGamePlan, Is.True);
+            }
         }
 
         [Test]
