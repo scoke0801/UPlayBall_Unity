@@ -1,0 +1,197 @@
+{
+  "version": "historical-derivation-balance-v3",
+  "abilityFormulaVersion": "historical-ability-v2",
+  "costFormulaVersion": "historical-role-composite-v2",
+  "positionRoleClassifierVersion": "season-position-role-v3",
+  "rosterBuilderVersion": "position-first-core25-v2",
+  "costPercentileThresholds": [
+    {"upperExclusive": 0.05, "cost": 1},
+    {"upperExclusive": 0.15, "cost": 2},
+    {"upperExclusive": 0.30, "cost": 3},
+    {"upperExclusive": 0.45, "cost": 4},
+    {"upperExclusive": 0.60, "cost": 5},
+    {"upperExclusive": 0.72, "cost": 6},
+    {"upperExclusive": 0.82, "cost": 7},
+    {"upperExclusive": 0.90, "cost": 8},
+    {"upperExclusive": 0.97, "cost": 9},
+    {"upperExclusive": 1.01, "cost": 10}
+  ],
+  "reliability": {
+    "plateAppearances": 250.0,
+    "battersFaced": 200.0,
+    "stolenBaseAttempts": 20.0,
+    "defensiveChances": 250.0
+  },
+  "roleTier": {
+    "qualifiedPlateAppearances": 250.0,
+    "qualifiedBattersFaced": 200.0
+  },
+  "validation": {
+    "abilityLowSampleReliabilityMaximum": 0.20,
+    "abilityDominantContributionShareMinimum": 0.50,
+    "abilityDominantContributionAbsoluteMinimum": 0.25
+  },
+  "rating": {
+    "center": 50.0,
+    "minimum": 25,
+    "maximum": 95
+  },
+  "ratingProfiles": {
+    "Hitter": {
+      "Contact": {
+        "scale": 14.0,
+        "metrics": {
+          "BattingAverage": 0.4,
+          "OnBasePercentage": 0.3,
+          "NegativeStrikeoutRate": 0.3
+        }
+      },
+      "Power": {
+        "scale": 14.0,
+        "metrics": {
+          "SluggingPercentage": 0.6,
+          "HomeRunRate": 0.4
+        }
+      },
+      "Speed": {
+        "scale": 14.0,
+        "metrics": {
+          "StolenBaseAttemptRate": 0.75,
+          "StolenBaseSuccessRate": 0.25
+        }
+      },
+      "Arm": {
+        "scale": 10.0,
+        "metrics": {
+          "FieldingPercentage": 1.0
+        }
+      },
+      "Defense": {
+        "scale": 14.0,
+        "metrics": {
+          "FieldingPercentage": 1.0
+        }
+      },
+      "BatterMental": {
+        "scale": 14.0,
+        "metrics": {
+          "WalkRate": 0.5,
+          "NegativeStrikeoutRate": 0.5
+        }
+      }
+    },
+    "Pitcher": {
+      "Stamina": {
+        "scale": 14.0,
+        "metrics": {
+          "InningsPerGame": 1.0
+        }
+      },
+      "Velocity": {
+        "scale": 12.0,
+        "metrics": {
+          "StrikeoutsPerNine": 1.0
+        }
+      },
+      "Stuff": {
+        "scale": 14.0,
+        "metrics": {
+          "NegativeEarnedRunAverage": 0.5,
+          "StrikeoutsPerNine": 0.5
+        }
+      },
+      "Breaking": {
+        "scale": 12.0,
+        "metrics": {
+          "NegativeEarnedRunAverage": 1.0
+        }
+      },
+      "Control": {
+        "scale": 14.0,
+        "metrics": {
+          "NegativeWalksPerNine": 1.0
+        }
+      },
+      "PitcherMental": {
+        "scale": 12.0,
+        "metrics": {
+          "NegativeEarnedRunAverage": 0.5,
+          "NegativeWhip": 0.5
+        }
+      }
+    }
+  },
+  "roleCompositeWeightLevels": {
+    "key": 2.0,
+    "supporting": 1.35,
+    "general": 1.0
+  },
+  "roleCompositeProfiles": {
+    "Hitter": {
+      "Default": ["general", "general", "general", "general", "general", "general"],
+      "C": ["supporting", "general", "general", "key", "key", "key"],
+      "1B": ["supporting", "key", "general", "general", "general", "supporting"],
+      "2B": ["supporting", "general", "supporting", "general", "key", "supporting"],
+      "3B": ["supporting", "key", "general", "key", "supporting", "general"],
+      "SS": ["supporting", "general", "supporting", "key", "key", "supporting"],
+      "LF": ["supporting", "key", "general", "key", "supporting", "general"],
+      "CF": ["supporting", "general", "key", "supporting", "key", "general"],
+      "RF": ["supporting", "key", "general", "key", "supporting", "general"],
+      "DH": ["supporting", "key", "general", "general", "general", "supporting"]
+    },
+    "Pitcher": {
+      "Default": ["general", "key", "key", "supporting", "supporting", "supporting"],
+      "Starter": ["key", "supporting", "supporting", "supporting", "key", "supporting"],
+      "LongRelief": ["general", "key", "key", "supporting", "supporting", "supporting"],
+      "MiddleRelief": ["general", "key", "key", "supporting", "supporting", "supporting"],
+      "Bullpen": ["general", "key", "key", "supporting", "supporting", "supporting"],
+      "Setup": ["general", "key", "key", "supporting", "supporting", "supporting"],
+      "Closer": ["general", "key", "key", "supporting", "supporting", "supporting"]
+    }
+  },
+  "pitcherRoleClassifier": {
+    "minimumStarterGames": 3.0,
+    "minimumStarterGameRate": 0.35,
+    "minimumCloserSaves": 3.0,
+    "minimumSetupHolds": 3.0,
+    "longReliefInningsPerGame": 2.0,
+    "lowConfidenceGames": 5.0,
+    "starterTargetInningsPerStart": 6.0,
+    "setupTargetHoldsPerRelief": 0.30,
+    "closerTargetSavesPerRelief": 0.30,
+    "legacyStarterMinimumInningsPerGame": 3.5,
+    "legacyStarterCompleteGameMinimum": 1.0,
+    "legacyStarterCompleteGameInningsPerGame": 2.5,
+    "legacyStarterTargetInningsPerGame": 5.5,
+    "roleScoreWeights": {
+      "Starter": {"gamesStartedRate": 0.70, "inningsPerStart": 0.30},
+      "Bullpen": {"reliefRate": 0.70, "inningsPerGame": 0.30},
+      "Setup": {"holdsPerRelief": 0.55, "reliefRate": 0.30, "gamesFinishedRate": 0.15},
+      "Closer": {"savesPerRelief": 0.50, "gamesFinishedRate": 0.30, "reliefRate": 0.20}
+    }
+  },
+  "rosterSelection": {
+    "naturalPositionBonus": 100.0,
+    "eligiblePositionBonus": 20.0,
+    "pitcherAbilityWeight": 0.70,
+    "pitcherRoleEvidenceWeight": 0.30,
+    "positionStarterAttributeWeights": {
+      "C": {"Contact": 0.20, "Power": 0.15, "Arm": 0.25, "Defense": 0.30, "BatterMental": 0.10},
+      "1B": {"Contact": 0.30, "Power": 0.35, "Arm": 0.05, "Defense": 0.15, "BatterMental": 0.15},
+      "2B": {"Contact": 0.25, "Power": 0.15, "Speed": 0.15, "Arm": 0.10, "Defense": 0.25, "BatterMental": 0.10},
+      "3B": {"Contact": 0.25, "Power": 0.25, "Arm": 0.20, "Defense": 0.20, "BatterMental": 0.10},
+      "SS": {"Contact": 0.20, "Power": 0.10, "Speed": 0.15, "Arm": 0.20, "Defense": 0.25, "BatterMental": 0.10},
+      "LF": {"Contact": 0.25, "Power": 0.30, "Speed": 0.10, "Arm": 0.10, "Defense": 0.15, "BatterMental": 0.10},
+      "CF": {"Contact": 0.20, "Power": 0.15, "Speed": 0.20, "Arm": 0.15, "Defense": 0.20, "BatterMental": 0.10},
+      "RF": {"Contact": 0.20, "Power": 0.30, "Speed": 0.10, "Arm": 0.15, "Defense": 0.15, "BatterMental": 0.10}
+    },
+    "designatedHitterAttributeWeights": {"Contact": 0.40, "Power": 0.40, "BatterMental": 0.20},
+    "benchAttributeWeights": {"Contact": 0.20, "Power": 0.20, "Speed": 0.20, "Arm": 0.10, "Defense": 0.20, "BatterMental": 0.10},
+    "pitcherAssignmentAttributeWeights": {
+      "Starter": {"Stamina": 0.30, "Velocity": 0.10, "Stuff": 0.20, "Breaking": 0.15, "Control": 0.15, "PitcherMental": 0.10},
+      "Bullpen": {"Stamina": 0.05, "Velocity": 0.20, "Stuff": 0.30, "Breaking": 0.20, "Control": 0.15, "PitcherMental": 0.10},
+      "Setup": {"Stamina": 0.05, "Velocity": 0.20, "Stuff": 0.30, "Breaking": 0.20, "Control": 0.15, "PitcherMental": 0.10},
+      "Closer": {"Stamina": 0.05, "Velocity": 0.25, "Stuff": 0.30, "Breaking": 0.15, "Control": 0.15, "PitcherMental": 0.10}
+    }
+  }
+}
