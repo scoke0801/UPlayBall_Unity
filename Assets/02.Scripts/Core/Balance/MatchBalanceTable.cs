@@ -302,8 +302,10 @@ namespace Baseball.Core.Balance
                     0.12d, 0.10d, 0.16d, 0.18d, 0.06d, 0.07d, 0.72d, 5d, 0.006d),
                 new TimesThroughOrderBalance(
                     1d, 3d, 5d, 0.006d, 0.016d, 0.026d, 0.40d),
+                // 40점은 5~6회 피로와 세 번째 타순 대면이 함께 쌓일 때 교체가 발생하도록 맞춘 값이다.
+                // 45시즌 회귀 표본에서 SP 6.3 IP/App, RP 1.6 IP/App를 만든다.
                 new BullpenManagementBalance(
-                    60d, 40d, 15d, 12d, 20d, 15d, 10d, 15d,
+                    40d, 40d, 15d, 12d, 20d, 15d, 10d, 15d,
                     0.55d, 0.25d, 55d, 20),
                 new DetailedFieldingBalance(
                     0.0008d, 0.04d, 0.0007d, 0.735d, 0.42d, 0.79d, 0.96d,

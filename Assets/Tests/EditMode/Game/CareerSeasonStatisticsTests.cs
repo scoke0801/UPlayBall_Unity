@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
@@ -39,16 +40,19 @@ namespace Baseball.Tests.EditMode.Game
                 $"SP App% {starter.AppearanceRate:P1} IP/App {starter.InningsPerAppearance:F1} ERA {starter.Era:F2}\n" +
                 $"RP App% {reliever.AppearanceRate:P1} IP/App {reliever.InningsPerAppearance:F1} ERA {reliever.Era:F2}");
 
-            Assert.That(runsPerTeamGame, Is.InRange(3.2d, 5.8d));
-            Assert.That(batter.StartRate, Is.InRange(0.18d, 0.95d));
-            Assert.That(batter.BattingAverage, Is.InRange(0.180d, 0.380d));
-            Assert.That(batter.Ops, Is.InRange(0.500d, 1.100d));
-            Assert.That(starter.AppearanceRate, Is.InRange(0.02d, 0.20d));
-            Assert.That(starter.InningsPerAppearance, Is.InRange(5.5d, 6.5d));
-            Assert.That(starter.Era, Is.InRange(1.5d, 7.0d));
-            Assert.That(reliever.AppearanceRate, Is.InRange(0.10d, 0.90d));
-            Assert.That(reliever.InningsPerAppearance, Is.InRange(2.5d, 3.8d));
-            Assert.That(reliever.Era, Is.InRange(1.5d, 7.0d));
+            var failures = new List<string>();
+            AddOutOfRange(failures, "R/G", runsPerTeamGame, 3.2d, 5.8d);
+            AddOutOfRange(failures, "Batter StartRate", batter.StartRate, 0.18d, 0.95d);
+            AddOutOfRange(failures, "Batter AVG", batter.BattingAverage, 0.180d, 0.380d);
+            AddOutOfRange(failures, "Batter OPS", batter.Ops, 0.500d, 1.100d);
+            AddOutOfRange(failures, "SP AppearanceRate", starter.AppearanceRate, 0.02d, 0.20d);
+            AddOutOfRange(failures, "SP IP/App", starter.InningsPerAppearance, 5.5d, 6.5d);
+            AddOutOfRange(failures, "SP ERA", starter.Era, 1.5d, 7.0d);
+            AddOutOfRange(failures, "RP AppearanceRate", reliever.AppearanceRate, 0.10d, 0.90d);
+            // 역할 기반 다인 불펜에서는 한 명이 7~9회를 전담하던 옛 3이닝 기대치를 쓰지 않는다.
+            AddOutOfRange(failures, "RP IP/App", reliever.InningsPerAppearance, 0.8d, 2.2d);
+            AddOutOfRange(failures, "RP ERA", reliever.Era, 1.5d, 7.0d);
+            Assert.That(failures, Is.Empty, string.Join("\n", failures));
         }
 
         [Test]
@@ -139,6 +143,17 @@ namespace Baseball.Tests.EditMode.Game
             flow.SignSelectedOffer();
             flow.StartRookieSeason();
             return flow.Career;
+        }
+
+        private static void AddOutOfRange(
+            ICollection<string> failures,
+            string metric,
+            double actual,
+            double minimum,
+            double maximum)
+        {
+            if (actual < minimum || actual > maximum)
+                failures.Add($"{metric}: actual={actual:F3}, expected={minimum:F3}..{maximum:F3}");
         }
 
         private static CareerState TryCreateStartedCareer(

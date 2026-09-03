@@ -199,7 +199,7 @@ namespace Baseball.Core.Balance
                 doublePlayDefenseWeight: 0.0020d);
 
             return new BalanceTable(
-                2,
+                3,
                 plateDiscipline,
                 battedBall,
                 baseRunning,

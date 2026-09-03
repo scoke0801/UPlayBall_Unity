@@ -204,7 +204,9 @@ namespace Baseball.Core.Balance
                 restingConditionRecovery: 1,
                 minimumCondition: 55,
                 maximumManagerEvaluationChange: 3,
-                conditionDecisionWeight: 0.12d,
+                // 45시즌 회귀 표본에서 StartingCompetition 신인의 선발률을 98.5%에서 86.1%로 낮춰
+                // 낮은 컨디션일 때 경쟁자에게 실제 휴식 기회가 돌아가도록 한 값이다.
+                conditionDecisionWeight: 0.30d,
                 managerEvaluationDecisionWeight: 0.10d,
                 productiveBattingHits: 2,
                 excellentBattingHits: 3,
