@@ -3,6 +3,7 @@ using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Game.Historical;
 using UnityEngine;
 
 namespace Baseball.Game.Data
@@ -14,6 +15,9 @@ namespace Baseball.Game.Data
     public sealed class NewGameDefinition : ScriptableObject
     {
         private const string ResourcePath = "NewGame/NewGameDefinition";
+
+        [Header("Historical Runtime Content")]
+        [SerializeField] private HistoricalRuntimeContentCatalog _historicalContentCatalog;
 
         [Serializable]
         private struct TeamIdentityData
@@ -250,7 +254,7 @@ namespace Baseball.Game.Data
         [SerializeField, Min(0)] private int _restingConditionRecovery = 1;
         [SerializeField, Range(0, 100)] private int _minimumCondition = 55;
         [SerializeField, Min(1)] private int _maximumManagerEvaluationChange = 3;
-        [SerializeField, Min(0f)] private double _conditionDecisionWeight = 0.12d;
+        [SerializeField, Min(0f)] private double _conditionDecisionWeight = 0.30d;
         [SerializeField, Min(0f)] private double _managerEvaluationDecisionWeight = 0.10d;
         [SerializeField, Min(1)] private int _productiveBattingHits = 2;
         [SerializeField, Min(1)] private int _excellentBattingHits = 3;
@@ -266,15 +270,31 @@ namespace Baseball.Game.Data
         [SerializeField, Min(1)] private int _gamesBetweenRestDays = 6;
 
         /// <summary>
-        /// Resources의 정적 정의를 읽고 없으면 명시적인 코드 기본값으로 대체한다.
+        /// Resources의 Production 정적 정의를 읽으며 누락 시 Synthetic으로 대체하지 않는다.
         /// </summary>
         public static NewGameConfiguration LoadConfiguration()
         {
-            NewGameDefinition definition = Resources.Load<NewGameDefinition>(ResourcePath);
-            return definition != null
-                ? definition.ToConfiguration()
-                : NewGameConfiguration.CreateDefault();
+            return LoadDefinition().ToConfiguration();
         }
+
+        /// <summary>Resources 정의에 직렬화된 Runtime Catalog로 Production 역사 Provider를 만든다.</summary>
+        public static IHistoricalContentProvider LoadHistoricalContentProvider()
+        {
+            return LoadDefinition().CreateHistoricalContentProvider();
+        }
+
+        /// <summary>명시적으로 연결된 Runtime Catalog만 사용하며 누락 시 Synthetic으로 대체하지 않는다.</summary>
+        public IHistoricalContentProvider CreateHistoricalContentProvider()
+        {
+            if (_historicalContentCatalog == null)
+            {
+                throw new InvalidOperationException(
+                    "Production NewGameDefinition에 HistoricalRuntimeContentCatalog가 연결되지 않았습니다.");
+            }
+            return new UnityHistoricalContentProvider(_historicalContentCatalog);
+        }
+
+        public HistoricalRuntimeContentCatalog HistoricalContentCatalog => _historicalContentCatalog;
 
         /// <summary>
         /// Unity 직렬화 데이터를 Core/Simulation이 소비할 수 있는 순수 값으로 변환한다.
@@ -297,7 +317,7 @@ namespace Baseball.Game.Data
                 ? _growthBalance.CreateContentHash()
                 : matchDefaults.ContentHash;
             var balance = new BalanceTable(
-                version: 1,
+                version: 3,
                 matchDefaults.PlateDiscipline,
                 matchDefaults.BattedBall,
                 matchDefaults.BaseRunning,
@@ -442,6 +462,17 @@ namespace Baseball.Game.Data
                         _careerPitcherBonusPoints,
                         _careerMaximumAttributeValue)),
                 _teamEmblemCount);
+        }
+
+        private static NewGameDefinition LoadDefinition()
+        {
+            NewGameDefinition definition = Resources.Load<NewGameDefinition>(ResourcePath);
+            if (definition == null)
+            {
+                throw new InvalidOperationException(
+                    $"Production NewGameDefinition을 찾을 수 없습니다: Resources/{ResourcePath}");
+            }
+            return definition;
         }
     }
 }

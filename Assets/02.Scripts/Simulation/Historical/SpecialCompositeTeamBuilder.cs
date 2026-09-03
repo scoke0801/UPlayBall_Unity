@@ -25,6 +25,7 @@ namespace Baseball.Simulation.Historical
             int originYear,
             IReadOnlyList<PlayerSeasonDefinition> allPlayerSeasons,
             WorldHistorySnapshot history,
+            WorldCardCatalog cardCatalog,
             IRandomSource random)
         {
             if (originYear <= 0)
@@ -33,6 +34,8 @@ namespace Baseball.Simulation.Historical
                 throw new ArgumentNullException(nameof(allPlayerSeasons));
             if (history == null)
                 throw new ArgumentNullException(nameof(history));
+            if (cardCatalog == null)
+                throw new ArgumentNullException(nameof(cardCatalog));
             if (random == null)
                 throw new ArgumentNullException(nameof(random));
 
@@ -52,6 +55,7 @@ namespace Baseball.Simulation.Historical
                 pool,
                 allStarAwardIds,
                 globallyAssigned,
+                cardCatalog,
                 useRandomAsPrimaryRank: false);
             teams[1] = BuildTeam(
                 originYear,
@@ -59,6 +63,7 @@ namespace Baseball.Simulation.Historical
                 pool,
                 goldenGloveAwardIds,
                 globallyAssigned,
+                cardCatalog,
                 useRandomAsPrimaryRank: false);
             teams[2] = BuildTeam(
                 originYear,
@@ -66,6 +71,7 @@ namespace Baseball.Simulation.Historical
                 pool,
                 EmptyAwardIds.Instance,
                 globallyAssigned,
+                cardCatalog,
                 useRandomAsPrimaryRank: true);
             return new SpecialCompositeTeamSet(teams);
         }
@@ -76,6 +82,7 @@ namespace Baseball.Simulation.Historical
             List<CompositeCandidate> pool,
             HashSet<string> awardIds,
             HashSet<string> globallyAssigned,
+            WorldCardCatalog cardCatalog,
             bool useRandomAsPrimaryRank)
         {
             var selectedPlayerIds = new HashSet<string>(StringComparer.Ordinal);
@@ -142,9 +149,7 @@ namespace Baseball.Simulation.Historical
             {
                 SelectedCompositePlayer item = selected[index];
                 PlayerSeasonDefinition player = item.Candidate.Player;
-                string cardId = PlayerCardDefinition.CreateStableCardId(
-                    player.PlayerSeasonId,
-                    PlayerCardEdition.Normal);
+                string cardId = ResolveCardId(teamType, player.PlayerSeasonId, cardCatalog);
                 outputEntries[index] = new SpecialCompositeRosterEntry(player.PlayerSeasonId, cardId, item.Role);
                 validationEntries[index] = new ActiveRosterEntry(
                     cardId,
@@ -163,6 +168,32 @@ namespace Baseball.Simulation.Historical
             for (int index = 0; index < selected.Count; index++)
                 globallyAssigned.Add(selected[index].Candidate.Player.PlayerSeasonId);
             return new SpecialCompositeTeamDefinition(teamType, originYear, outputEntries);
+        }
+
+        private static string ResolveCardId(
+            SpecialCompositeTeamType teamType,
+            string playerSeasonId,
+            WorldCardCatalog cardCatalog)
+        {
+            PlayerCardEdition preferredEdition = teamType switch
+            {
+                SpecialCompositeTeamType.AllStarComposite => PlayerCardEdition.AllStar,
+                SpecialCompositeTeamType.GoldenGloveComposite => PlayerCardEdition.GoldenGlove,
+                SpecialCompositeTeamType.YearSelectComposite => PlayerCardEdition.Normal,
+                _ => throw new ArgumentOutOfRangeException(nameof(teamType))
+            };
+            string preferredCardId = PlayerCardDefinition.CreateStableCardId(playerSeasonId, preferredEdition);
+            if (cardCatalog.TryGetCard(preferredCardId, out PlayerCardDefinition preferredCard) &&
+                string.Equals(preferredCard.PlayerSeasonId, playerSeasonId, StringComparison.Ordinal))
+                return preferredCard.CardId;
+
+            string normalCardId = PlayerCardDefinition.CreateStableCardId(
+                playerSeasonId,
+                PlayerCardEdition.Normal);
+            if (cardCatalog.TryGetCard(normalCardId, out PlayerCardDefinition normalCard) &&
+                string.Equals(normalCard.PlayerSeasonId, playerSeasonId, StringComparison.Ordinal))
+                return normalCard.CardId;
+            throw new InvalidOperationException($"WorldCardCatalog에 {playerSeasonId} Normal 카드가 없습니다.");
         }
 
         private void SelectForRole(

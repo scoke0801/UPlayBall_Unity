@@ -12,7 +12,8 @@ namespace Baseball.Game.Career
     /// <summary>새 선수 커리어가 일반 선수 월드를 어디에서 읽는지 명시한다.</summary>
     public enum NewGameContentSource
     {
-        LegacyRuntimeSynthetic,
+        Unconfigured,
+        ExplicitSyntheticTestFixture,
         BakedHistorical
     }
 
@@ -45,7 +46,7 @@ namespace Baseball.Game.Career
             CurrentRosterState activeRoster,
             TeamIdentityDefinition identity,
             TeamArchetypeProfile archetype,
-            int emblemId = 0)
+            int emblemId)
         {
             if (teamId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(teamId));
@@ -57,7 +58,7 @@ namespace Baseball.Game.Career
                 throw new ArgumentException("TeamSeason과 CurrentRoster의 TeamSeasonKey가 다릅니다.", nameof(activeRoster));
             if (string.IsNullOrWhiteSpace(identity.Name))
                 throw new ArgumentException("가상 구단 표시 이름이 필요합니다.", nameof(identity));
-            if (emblemId < 0)
+            if (emblemId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(emblemId));
 
             TeamId = teamId;
@@ -120,6 +121,7 @@ namespace Baseball.Game.Career
             _teams = new CareerBakedTeamRuntimeDefinition[teams.Count];
             _teamsByKey = new Dictionary<string, CareerBakedTeamRuntimeDefinition>(StringComparer.Ordinal);
             var teamIds = new HashSet<int>();
+            var emblemIds = new HashSet<int>();
             var playerInstanceIds = new HashSet<int>();
             var rosterValidator = new ActiveRosterValidator();
             for (int index = 0; index < teams.Count; index++)
@@ -128,6 +130,8 @@ namespace Baseball.Game.Career
                     ?? throw new ArgumentException("null TeamSeason Runtime 입력이 있습니다.", nameof(teams));
                 if (!teamIds.Add(team.TeamId))
                     throw new ArgumentException("커리어 TeamId는 중복될 수 없습니다.", nameof(teams));
+                if (!emblemIds.Add(team.EmblemId))
+                    throw new ArgumentException("커리어 EmblemId는 중복될 수 없습니다.", nameof(teams));
                 if (!_teamsByKey.TryAdd(team.TeamSeason.TeamSeasonKey, team))
                     throw new ArgumentException("TeamSeasonKey는 월드에서 중복될 수 없습니다.", nameof(teams));
                 if (!rosterValidator.Validate(team.ActiveRoster).IsValid)

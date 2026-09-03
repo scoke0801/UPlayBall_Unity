@@ -67,11 +67,44 @@ namespace Baseball.Game.Historical
     {
         private readonly HistoricalDetailedMatchRecord[] _matches;
         private readonly HistoricalPlayerSeasonIdentity[] _players;
+        private readonly HashSet<string> _allStarGameEligiblePlayerSeasonIds;
+        private readonly int? _allStarGameStatisticsTeamId;
 
         public HistoricalDetailedSeasonOutput(
             int seasonYear,
             IReadOnlyList<HistoricalDetailedMatchRecord> matches,
             IReadOnlyList<HistoricalPlayerSeasonIdentity> players)
+            : this(
+                seasonYear,
+                matches,
+                players,
+                allStarGameEligiblePlayerSeasonIds: null,
+                allStarGameStatisticsTeamId: null)
+        {
+        }
+
+        /// <summary>단일 All-Star 25인 명세에서 상대 경기 참가자가 MVP 후보로 섞이지 않도록 후보를 고정한다.</summary>
+        public HistoricalDetailedSeasonOutput(
+            int seasonYear,
+            IReadOnlyList<HistoricalDetailedMatchRecord> matches,
+            IReadOnlyList<HistoricalPlayerSeasonIdentity> players,
+            IReadOnlyList<string> allStarGameEligiblePlayerSeasonIds)
+            : this(
+                seasonYear,
+                matches,
+                players,
+                allStarGameEligiblePlayerSeasonIds,
+                allStarGameStatisticsTeamId: null)
+        {
+        }
+
+        /// <summary>All-Star 후보와 후보가 출전한 팀 측을 함께 고정해 상대팀의 동명 PlayerSeason 집계를 차단한다.</summary>
+        public HistoricalDetailedSeasonOutput(
+            int seasonYear,
+            IReadOnlyList<HistoricalDetailedMatchRecord> matches,
+            IReadOnlyList<HistoricalPlayerSeasonIdentity> players,
+            IReadOnlyList<string> allStarGameEligiblePlayerSeasonIds,
+            int? allStarGameStatisticsTeamId)
         {
             if (seasonYear <= 0)
                 throw new ArgumentOutOfRangeException(nameof(seasonYear));
@@ -83,11 +116,34 @@ namespace Baseball.Game.Historical
             _matches = Copy(matches, nameof(matches));
             _players = Copy(players, nameof(players));
             ValidatePlayerIdentities(_players);
+            _allStarGameEligiblePlayerSeasonIds = CopyEligibleIds(
+                allStarGameEligiblePlayerSeasonIds,
+                _players);
+            if (allStarGameStatisticsTeamId.HasValue && allStarGameStatisticsTeamId.Value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(allStarGameStatisticsTeamId));
+            if (allStarGameStatisticsTeamId.HasValue && _allStarGameEligiblePlayerSeasonIds == null)
+                throw new ArgumentException(
+                    "All-Star 집계 팀을 지정하려면 후보 PlayerSeasonId가 필요합니다.",
+                    nameof(allStarGameStatisticsTeamId));
+            _allStarGameStatisticsTeamId = allStarGameStatisticsTeamId;
         }
 
         public int SeasonYear { get; }
         public IReadOnlyList<HistoricalDetailedMatchRecord> Matches => _matches;
         public IReadOnlyList<HistoricalPlayerSeasonIdentity> Players => _players;
+
+        internal bool IsAllStarGameEligible(string playerSeasonId)
+        {
+            return _allStarGameEligiblePlayerSeasonIds == null ||
+                   _allStarGameEligiblePlayerSeasonIds.Contains(playerSeasonId);
+        }
+
+        internal bool ShouldAccumulateTeam(HistoricalMatchStage stage, int teamId)
+        {
+            return stage != HistoricalMatchStage.AllStarGame ||
+                   !_allStarGameStatisticsTeamId.HasValue ||
+                   _allStarGameStatisticsTeamId.Value == teamId;
+        }
 
         private static T[] Copy<T>(IReadOnlyList<T> source, string parameterName) where T : class
         {
@@ -106,6 +162,27 @@ namespace Baseball.Game.Historical
                 if (!playerIds.Add(players[index].PlayerId) || !playerSeasonIds.Add(players[index].PlayerSeasonId))
                     throw new ArgumentException("PlayerId와 PlayerSeasonId 매핑은 시즌 안에서 고유해야 합니다.", nameof(players));
             }
+        }
+
+        private static HashSet<string> CopyEligibleIds(
+            IReadOnlyList<string> source,
+            IReadOnlyList<HistoricalPlayerSeasonIdentity> players)
+        {
+            if (source == null)
+                return null;
+            var knownIds = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < players.Count; index++)
+                knownIds.Add(players[index].PlayerSeasonId);
+            var result = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < source.Count; index++)
+            {
+                string id = source[index];
+                if (string.IsNullOrWhiteSpace(id) || !knownIds.Contains(id) || !result.Add(id))
+                    throw new ArgumentException("All-Star Game 후보 ID가 없거나 중복되었습니다.", nameof(source));
+            }
+            if (result.Count == 0)
+                throw new ArgumentException("All-Star Game 후보가 비어 있습니다.", nameof(source));
+            return result;
         }
     }
 
@@ -137,7 +214,8 @@ namespace Baseball.Game.Historical
             return Aggregate(output, regularFranchiseTeams);
         }
 
-        private static IReadOnlyList<SeasonStatistics> Aggregate(
+        /// <summary>전반기 종료 시점처럼 시즌 중간에도 최종 집계와 같은 규칙으로 기록을 만든다.</summary>
+        internal static IReadOnlyList<SeasonStatistics> Aggregate(
             HistoricalDetailedSeasonOutput output,
             IReadOnlyList<TeamSeasonDefinition> regularTeams)
         {
@@ -158,7 +236,7 @@ namespace Baseball.Game.Historical
             for (int matchIndex = 0; matchIndex < output.Matches.Count; matchIndex++)
             {
                 HistoricalDetailedMatchRecord match = output.Matches[matchIndex];
-                AccumulateMatch(match, identities, accumulators);
+                AccumulateMatch(match, output, identities, accumulators);
             }
 
             var result = new List<SeasonStatistics>(accumulators.Count);
@@ -175,22 +253,28 @@ namespace Baseball.Game.Historical
 
         private static void AccumulateMatch(
             HistoricalDetailedMatchRecord match,
+            HistoricalDetailedSeasonOutput output,
             IReadOnlyDictionary<int, HistoricalPlayerSeasonIdentity> identities,
             IDictionary<StatisticsKey, StatisticsAccumulator> accumulators)
         {
-            AccumulateBoxScore(match.Result.AwayBoxScore, match.Stage, identities, accumulators);
-            AccumulateBoxScore(match.Result.HomeBoxScore, match.Stage, identities, accumulators);
+            if (output.ShouldAccumulateTeam(match.Stage, match.Result.AwayBoxScore.TeamId))
+                AccumulateBoxScore(match.Result.AwayBoxScore, match.Stage, output, identities, accumulators);
+            if (output.ShouldAccumulateTeam(match.Stage, match.Result.HomeBoxScore.TeamId))
+                AccumulateBoxScore(match.Result.HomeBoxScore, match.Stage, output, identities, accumulators);
         }
 
         private static void AccumulateBoxScore(
             TeamBoxScore boxScore,
             HistoricalMatchStage stage,
+            HistoricalDetailedSeasonOutput output,
             IReadOnlyDictionary<int, HistoricalPlayerSeasonIdentity> identities,
             IDictionary<StatisticsKey, StatisticsAccumulator> accumulators)
         {
             for (int index = 0; index < boxScore.BattingLines.Count; index++)
             {
                 PlayerBattingLine line = boxScore.BattingLines[index];
+                if (!IsEligibleForStage(line.PlayerId, stage, output, identities))
+                    continue;
                 StatisticsAccumulator accumulator = GetAccumulator(line.PlayerId, stage, identities, accumulators);
                 accumulator.AddBatting(line);
                 if (stage == HistoricalMatchStage.RegularSeasonFirstHalf)
@@ -199,6 +283,8 @@ namespace Baseball.Game.Historical
             for (int index = 0; index < boxScore.PitchingLines.Count; index++)
             {
                 PlayerPitchingLine line = boxScore.PitchingLines[index];
+                if (!IsEligibleForStage(line.PlayerId, stage, output, identities))
+                    continue;
                 StatisticsAccumulator accumulator = GetAccumulator(line.PlayerId, stage, identities, accumulators);
                 accumulator.AddPitching(line);
                 if (stage == HistoricalMatchStage.RegularSeasonFirstHalf)
@@ -207,11 +293,26 @@ namespace Baseball.Game.Historical
             for (int index = 0; index < boxScore.FieldingLines.Count; index++)
             {
                 PlayerFieldingLine line = boxScore.FieldingLines[index];
+                if (!IsEligibleForStage(line.PlayerId, stage, output, identities))
+                    continue;
                 StatisticsAccumulator accumulator = GetAccumulator(line.PlayerId, stage, identities, accumulators);
                 accumulator.AddFielding(line);
                 if (stage == HistoricalMatchStage.RegularSeasonFirstHalf)
                     GetRegularAccumulator(line.PlayerId, identities, accumulators).AddFielding(line);
             }
+        }
+
+        private static bool IsEligibleForStage(
+            int playerId,
+            HistoricalMatchStage stage,
+            HistoricalDetailedSeasonOutput output,
+            IReadOnlyDictionary<int, HistoricalPlayerSeasonIdentity> identities)
+        {
+            if (stage != HistoricalMatchStage.AllStarGame)
+                return true;
+            if (!identities.TryGetValue(playerId, out HistoricalPlayerSeasonIdentity identity))
+                throw new InvalidOperationException($"PlayerId {playerId}의 Baked PlayerSeason 매핑이 없습니다.");
+            return output.IsAllStarGameEligible(identity.PlayerSeasonId);
         }
 
         private static StatisticsAccumulator GetAccumulator(

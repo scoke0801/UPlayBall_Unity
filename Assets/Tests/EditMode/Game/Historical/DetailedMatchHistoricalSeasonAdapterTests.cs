@@ -29,6 +29,42 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(regular.IsAllStarGame, Is.False);
         }
 
+        [Test]
+        public void Simulate_AllStarGameStatisticsExcludeNonSelectedOpponentPlayers()
+        {
+            IReadOnlyList<TeamSeasonDefinition> regularTeams = CreateRegularTeams();
+            var adapter = new DetailedMatchHistoricalSeasonAdapter(
+                new OneDetailedMatchSeasonSource(
+                    HistoricalMatchStage.AllStarGame,
+                    new[] { "PS-101" }));
+
+            IReadOnlyList<SeasonStatistics> result = adapter.Simulate(99124UL, regularTeams);
+
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result[0].PlayerSeasonId, Is.EqualTo("PS-101"));
+            Assert.That(result[0].IsAllStarGame, Is.True);
+        }
+
+        [Test]
+        public void Simulate_AllStarGameSamePlayerOnBothSides_AccumulatesSelectedTeamSideOnly()
+        {
+            IReadOnlyList<TeamSeasonDefinition> regularTeams = CreateRegularTeams();
+            var source = new OneDetailedMatchSeasonSource(
+                HistoricalMatchStage.AllStarGame,
+                new[] { "PS-101" },
+                allStarGameStatisticsTeamId: 1,
+                duplicateEligiblePlayerOnOpponent: true);
+            var adapter = new DetailedMatchHistoricalSeasonAdapter(source);
+
+            IReadOnlyList<SeasonStatistics> result = adapter.Simulate(99125UL, regularTeams);
+
+            Assert.That(source.SelectedSidePlateAppearances, Is.GreaterThan(0));
+            Assert.That(source.OpponentSidePlateAppearances, Is.GreaterThan(0));
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result[0].PlayerSeasonId, Is.EqualTo("PS-101"));
+            Assert.That(result[0].PlateAppearances, Is.EqualTo(source.SelectedSidePlateAppearances));
+        }
+
         private static SeasonStatistics Find(
             IReadOnlyList<SeasonStatistics> rows,
             string playerSeasonId,
@@ -65,41 +101,85 @@ namespace Baseball.Tests.EditMode.Game.Historical
 
         private sealed class OneDetailedMatchSeasonSource : IHistoricalDetailedSeasonSource
         {
+            private readonly HistoricalMatchStage _stage;
+            private readonly IReadOnlyList<string> _allStarGameEligiblePlayerSeasonIds;
+            private readonly int? _allStarGameStatisticsTeamId;
+            private readonly bool _duplicateEligiblePlayerOnOpponent;
+
+            public OneDetailedMatchSeasonSource()
+                : this(HistoricalMatchStage.RegularSeasonFirstHalf, null, null, false)
+            {
+            }
+
+            public OneDetailedMatchSeasonSource(
+                HistoricalMatchStage stage,
+                IReadOnlyList<string> allStarGameEligiblePlayerSeasonIds,
+                int? allStarGameStatisticsTeamId = 1,
+                bool duplicateEligiblePlayerOnOpponent = false)
+            {
+                _stage = stage;
+                _allStarGameEligiblePlayerSeasonIds = allStarGameEligiblePlayerSeasonIds;
+                _allStarGameStatisticsTeamId = allStarGameStatisticsTeamId;
+                _duplicateEligiblePlayerOnOpponent = duplicateEligiblePlayerOnOpponent;
+            }
+
+            public int SelectedSidePlateAppearances { get; private set; }
+            public int OpponentSidePlateAppearances { get; private set; }
+
             public HistoricalDetailedSeasonOutput RunSeason(
                 ulong worldHistorySeed,
                 IReadOnlyList<TeamSeasonDefinition> regularFranchiseTeams)
             {
                 Team away = CreateTeam(1);
-                Team home = CreateTeam(2);
+                Player sharedPlayer = _duplicateEligiblePlayerOnOpponent
+                    ? away.Lineup[0].Player
+                    : null;
+                Team home = CreateTeam(2, sharedPlayer);
                 var input = new MatchInput(2024, 1, worldHistorySeed, away, home);
                 MatchResult match = new MatchSimulator(
                         BalanceTable.CreateDefault(),
                         MatchRandomStreams.Create(worldHistorySeed))
                     .Simulate(input, NullMatchEventSink.Instance);
+                if (_duplicateEligiblePlayerOnOpponent)
+                {
+                    SelectedSidePlateAppearances = GetPlateAppearances(match.AwayBoxScore, sharedPlayer.PlayerId);
+                    OpponentSidePlateAppearances = GetPlateAppearances(match.HomeBoxScore, sharedPlayer.PlayerId);
+                }
 
                 var identities = new List<HistoricalPlayerSeasonIdentity>(20);
                 AddIdentities(identities, 1, regularFranchiseTeams[0].TeamSeasonKey);
-                AddIdentities(identities, 2, regularFranchiseTeams[1].TeamSeasonKey);
-                return new HistoricalDetailedSeasonOutput(
-                    2024,
-                    new[] { new HistoricalDetailedMatchRecord(HistoricalMatchStage.RegularSeasonFirstHalf, match) },
-                    identities);
+                AddIdentities(
+                    identities,
+                    2,
+                    regularFranchiseTeams[1].TeamSeasonKey,
+                    skipFirstHitter: _duplicateEligiblePlayerOnOpponent);
+                var matches = new[] { new HistoricalDetailedMatchRecord(_stage, match) };
+                return _allStarGameEligiblePlayerSeasonIds == null
+                    ? new HistoricalDetailedSeasonOutput(2024, matches, identities)
+                    : new HistoricalDetailedSeasonOutput(
+                        2024,
+                        matches,
+                        identities,
+                        _allStarGameEligiblePlayerSeasonIds,
+                        _allStarGameStatisticsTeamId);
             }
 
-            private static Team CreateTeam(int teamId)
+            private static Team CreateTeam(int teamId, Player sharedFirstHitter = null)
             {
                 var slots = new LineupSlot[9];
                 for (int index = 0; index < slots.Length; index++)
                 {
                     PlayerPosition position = (PlayerPosition)(index + 1);
-                    var player = new Player(
-                        teamId * 100 + index + 1,
-                        $"{teamId}팀 타자 {index + 1}",
-                        position,
-                        Handedness.Right,
-                        Handedness.Right,
-                        new BatterAttributes(50, 50, 50, 50, 50, 50),
-                        new PitcherAttributes(20, 20, 20, 20, 20, 20));
+                    Player player = index == 0 && sharedFirstHitter != null
+                        ? sharedFirstHitter
+                        : new Player(
+                            teamId * 100 + index + 1,
+                            $"{teamId}팀 타자 {index + 1}",
+                            position,
+                            Handedness.Right,
+                            Handedness.Right,
+                            new BatterAttributes(50, 50, 50, 50, 50, 50),
+                            new PitcherAttributes(20, 20, 20, 20, 20, 20));
                     slots[index] = new LineupSlot(player, position);
                 }
                 var pitcher = new Player(
@@ -116,10 +196,13 @@ namespace Baseball.Tests.EditMode.Game.Historical
             private static void AddIdentities(
                 ICollection<HistoricalPlayerSeasonIdentity> target,
                 int teamId,
-                string teamSeasonKey)
+                string teamSeasonKey,
+                bool skipFirstHitter = false)
             {
                 for (int index = 0; index < 9; index++)
                 {
+                    if (skipFirstHitter && index == 0)
+                        continue;
                     int playerId = teamId * 100 + index + 1;
                     target.Add(new HistoricalPlayerSeasonIdentity(
                         playerId,
@@ -133,6 +216,17 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     $"PS-{pitcherId}",
                     teamSeasonKey,
                     PlayerPosition.StartingPitcher));
+            }
+
+            private static int GetPlateAppearances(TeamBoxScore boxScore, int playerId)
+            {
+                for (int index = 0; index < boxScore.BattingLines.Count; index++)
+                {
+                    PlayerBattingLine line = boxScore.BattingLines[index];
+                    if (line.PlayerId == playerId)
+                        return line.PlateAppearances;
+                }
+                throw new AssertionException("대상 선수의 타격 기록을 찾지 못했습니다.");
             }
         }
     }

@@ -15,6 +15,7 @@ namespace Baseball.Game.Historical
 
         public ManagerHistoricalRuntimeState(
             string playerTeamSeasonKey,
+            HistoricalContentReference contentReference,
             WorldHistorySnapshot worldHistory,
             WorldCardCatalog worldCardCatalog,
             LeagueInstance league,
@@ -23,6 +24,7 @@ namespace Baseball.Game.Historical
             ManagerEconomyState economy)
         {
             PlayerTeamSeasonKey = RequireId(playerTeamSeasonKey, nameof(playerTeamSeasonKey));
+            ContentReference = contentReference ?? throw new ArgumentNullException(nameof(contentReference));
             WorldHistory = worldHistory ?? throw new ArgumentNullException(nameof(worldHistory));
             WorldCardCatalog = worldCardCatalog ?? throw new ArgumentNullException(nameof(worldCardCatalog));
             League = league ?? throw new ArgumentNullException(nameof(league));
@@ -41,6 +43,7 @@ namespace Baseball.Game.Historical
         }
 
         public string PlayerTeamSeasonKey { get; }
+        public HistoricalContentReference ContentReference { get; }
         public WorldHistorySnapshot WorldHistory { get; }
         public WorldAwardRecord WorldAwardRecord => WorldHistory.Awards;
         public WorldCardCatalog WorldCardCatalog { get; }
@@ -242,6 +245,228 @@ namespace Baseball.Game.Historical
             if (string.IsNullOrWhiteSpace(value))
                 throw new ArgumentException("식별자는 비어 있을 수 없습니다.", parameterName);
             return value.Trim();
+        }
+    }
+
+    /// <summary>감독모드 한 월드의 기록 방식, 대상 연도, 플레이어 구단을 명시한다.</summary>
+    public readonly struct ManagerHistoricalNewGameRequest
+    {
+        public ManagerHistoricalNewGameRequest(
+            WorldRecordMode recordMode,
+            ulong worldHistorySeed,
+            int originYear,
+            string leagueInstanceId,
+            string playerTeamSeasonKey,
+            ManagerEconomyState initialEconomy)
+        {
+            if (originYear <= 0)
+                throw new ArgumentOutOfRangeException(nameof(originYear));
+            if (string.IsNullOrWhiteSpace(leagueInstanceId))
+                throw new ArgumentException("LeagueInstanceId가 필요합니다.", nameof(leagueInstanceId));
+            if (string.IsNullOrWhiteSpace(playerTeamSeasonKey))
+                throw new ArgumentException("플레이어 TeamSeasonKey가 필요합니다.", nameof(playerTeamSeasonKey));
+
+            RecordMode = recordMode;
+            WorldHistorySeed = worldHistorySeed;
+            OriginYear = originYear;
+            LeagueInstanceId = leagueInstanceId.Trim();
+            PlayerTeamSeasonKey = playerTeamSeasonKey.Trim();
+            InitialEconomy = initialEconomy ?? throw new ArgumentNullException(nameof(initialEconomy));
+        }
+
+        public WorldRecordMode RecordMode { get; }
+        public ulong WorldHistorySeed { get; }
+        public int OriginYear { get; }
+        public string LeagueInstanceId { get; }
+        public string PlayerTeamSeasonKey { get; }
+        public ManagerEconomyState InitialEconomy { get; }
+    }
+
+    /// <summary>Baked Content부터 World Record, 합성팀, 저장 가능한 감독모드 상태까지 한 번에 조립한다.</summary>
+    public sealed class ManagerHistoricalNewGameService
+    {
+        private readonly IHistoricalContentProvider _contentProvider;
+        private readonly HistoricalWorldRuntimeBuilder _worldBuilder;
+
+        public ManagerHistoricalNewGameService(
+            IHistoricalContentProvider contentProvider,
+            HistoricalWorldRuntimeBuilder worldBuilder)
+        {
+            _contentProvider = contentProvider ?? throw new ArgumentNullException(nameof(contentProvider));
+            _worldBuilder = worldBuilder ?? throw new ArgumentNullException(nameof(worldBuilder));
+        }
+
+        public ManagerHistoricalRuntimeState Create(ManagerHistoricalNewGameRequest request)
+        {
+            HistoricalBakedContent bakedContent = _contentProvider.Load()
+                ?? throw new InvalidOperationException("Runtime Historical Content Provider가 null을 반환했습니다.");
+            HistoricalYearContentDefinition year = bakedContent.GetYear(request.OriginYear);
+            HistoricalWorldRuntimeContent world = _worldBuilder.Build(
+                bakedContent,
+                request.RecordMode,
+                request.WorldHistorySeed);
+            SpecialCompositeTeamSet composites = FindCompositeSet(world, request.OriginYear);
+            LeagueInstance league = CreateLeague(request, year, composites);
+            CurrentRosterState[] rosters = CreateRosters(year, composites, world.WorldCardCatalog);
+            OwnedPlayerCardState[] ownedCards = CreateInitialOwnedCards(
+                request.PlayerTeamSeasonKey,
+                rosters);
+
+            return new ManagerHistoricalRuntimeState(
+                request.PlayerTeamSeasonKey,
+                world.ContentReference,
+                world.WorldHistory,
+                world.WorldCardCatalog,
+                league,
+                rosters,
+                ownedCards,
+                request.InitialEconomy);
+        }
+
+        private static SpecialCompositeTeamSet FindCompositeSet(
+            HistoricalWorldRuntimeContent world,
+            int originYear)
+        {
+            for (int index = 0; index < world.SpecialCompositeTeams.Count; index++)
+            {
+                SpecialCompositeTeamSet set = world.SpecialCompositeTeams[index];
+                if (set.OriginYear == originYear)
+                    return set;
+            }
+            throw new InvalidOperationException($"{originYear} 특수 합성팀을 찾을 수 없습니다.");
+        }
+
+        private static LeagueInstance CreateLeague(
+            ManagerHistoricalNewGameRequest request,
+            HistoricalYearContentDefinition year,
+            SpecialCompositeTeamSet composites)
+        {
+            var regularKeys = new string[year.TeamSeasons.Count];
+            for (int index = 0; index < regularKeys.Length; index++)
+                regularKeys[index] = year.TeamSeasons[index].TeamSeasonKey;
+
+            var registrations = new SpecialCompositeTeamRegistration[composites.Teams.Count];
+            for (int index = 0; index < registrations.Length; index++)
+            {
+                SpecialCompositeTeamDefinition team = composites.Teams[index];
+                registrations[index] = new SpecialCompositeTeamRegistration(
+                    team.TeamSeasonKey,
+                    team.OriginYear,
+                    team.TeamType);
+            }
+
+            // 모든 Baked TeamSeason은 새 World에서 Rookie부터 시작한다.
+            return new LeagueInstance(
+                request.LeagueInstanceId,
+                LeagueGrade.Rookie,
+                regularKeys,
+                registrations);
+        }
+
+        private static CurrentRosterState[] CreateRosters(
+            HistoricalYearContentDefinition year,
+            SpecialCompositeTeamSet composites,
+            WorldCardCatalog catalog)
+        {
+            var result = new CurrentRosterState[
+                year.TeamSeasons.Count + composites.Teams.Count];
+            int outputIndex = 0;
+            for (int index = 0; index < year.TeamSeasons.Count; index++)
+                result[outputIndex++] = CreateRegularRoster(year.TeamSeasons[index], catalog);
+            for (int index = 0; index < composites.Teams.Count; index++)
+                result[outputIndex++] = CreateCompositeRoster(composites.Teams[index], catalog);
+            return result;
+        }
+
+        private static CurrentRosterState CreateRegularRoster(
+            TeamSeasonDefinition team,
+            WorldCardCatalog catalog)
+        {
+            if (team.Core25CardIds.Count != ActiveRosterCompositionRule.ActiveRosterSize)
+                throw new InvalidOperationException($"{team.TeamSeasonKey} Core25가 정확히 25명이 아닙니다.");
+
+            var entries = new ActiveRosterEntry[team.Core25CardIds.Count];
+            for (int index = 0; index < entries.Length; index++)
+            {
+                string cardId = team.Core25CardIds[index];
+                if (!catalog.TryGetCard(cardId, out PlayerCardDefinition card) ||
+                    card.Edition != PlayerCardEdition.Normal)
+                {
+                    throw new InvalidOperationException(
+                        $"{team.TeamSeasonKey} Core25가 WorldCardCatalog의 Normal 카드를 참조하지 않습니다.");
+                }
+                PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
+                entries[index] = new ActiveRosterEntry(
+                    card.CardId,
+                    season.PlayerSeasonId,
+                    season.PlayerPersonId,
+                    season.RegistrationType,
+                    GetCore25Role(index));
+            }
+            return new CurrentRosterState(team.TeamSeasonKey, entries);
+        }
+
+        private static CurrentRosterState CreateCompositeRoster(
+            SpecialCompositeTeamDefinition team,
+            WorldCardCatalog catalog)
+        {
+            var entries = new ActiveRosterEntry[team.Roster.Count];
+            for (int index = 0; index < entries.Length; index++)
+            {
+                SpecialCompositeRosterEntry source = team.Roster[index];
+                if (!catalog.TryGetCard(source.CardId, out PlayerCardDefinition card) ||
+                    !string.Equals(card.PlayerSeasonId, source.PlayerSeasonId, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"{team.TeamSeasonKey} 합성 로스터 카드가 WorldCardCatalog와 다릅니다.");
+                }
+                PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
+                entries[index] = new ActiveRosterEntry(
+                    card.CardId,
+                    season.PlayerSeasonId,
+                    season.PlayerPersonId,
+                    season.RegistrationType,
+                    source.Role);
+            }
+            return new CurrentRosterState(team.TeamSeasonKey, entries);
+        }
+
+        private static OwnedPlayerCardState[] CreateInitialOwnedCards(
+            string playerTeamSeasonKey,
+            IReadOnlyList<CurrentRosterState> rosters)
+        {
+            CurrentRosterState playerRoster = null;
+            for (int index = 0; index < rosters.Count; index++)
+            {
+                if (string.Equals(
+                        rosters[index].TeamSeasonKey,
+                        playerTeamSeasonKey,
+                        StringComparison.Ordinal))
+                {
+                    playerRoster = rosters[index];
+                    break;
+                }
+            }
+            if (playerRoster == null)
+                throw new ArgumentException("플레이어 구단이 해당 연도의 정규 10구단에 없습니다.", nameof(playerTeamSeasonKey));
+
+            var result = new OwnedPlayerCardState[playerRoster.Entries.Count];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = new OwnedPlayerCardState(playerRoster.Entries[index].CardId);
+            return result;
+        }
+
+        private static ActiveRosterRole GetCore25Role(int index)
+        {
+            if (index < 0 || index >= ActiveRosterCompositionRule.ActiveRosterSize)
+                throw new ArgumentOutOfRangeException(nameof(index));
+            if (index < ActiveRosterCompositionRule.StartingHitterCount)
+                return (ActiveRosterRole)index;
+            if (index < ActiveRosterCompositionRule.HitterCount)
+                return ActiveRosterRole.BenchHitter;
+            return (ActiveRosterRole)(
+                (int)ActiveRosterRole.StartingPitcher1 +
+                index - ActiveRosterCompositionRule.HitterCount);
         }
     }
 }

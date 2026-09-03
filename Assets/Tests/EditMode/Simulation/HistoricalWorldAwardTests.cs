@@ -143,17 +143,23 @@ namespace Baseball.Tests.EditMode.Simulation
         {
             PlayerSeasonDefinition[] players = CreateCompositePool();
             WorldHistorySnapshot history = CreateCompositeHistory(players);
+            WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(
+                players,
+                history.Awards,
+                CardEditionBalanceTable.CreateInitial());
             var builder = new SpecialCompositeTeamBuilder(AwardScoringPolicy.CreateDefault());
 
             SpecialCompositeTeamSet first = builder.Build(
                 TestYear,
                 players,
                 history,
+                catalog,
                 new Pcg32Random(555UL));
             SpecialCompositeTeamSet second = builder.Build(
                 TestYear,
                 players.Reverse().ToArray(),
                 history,
+                catalog,
                 new Pcg32Random(555UL));
 
             Assert.That(first.Teams.Count, Is.EqualTo(3));
@@ -169,7 +175,13 @@ namespace Baseball.Tests.EditMode.Simulation
                 {
                     SpecialCompositeRosterEntry entry = team.Roster[rosterIndex];
                     Assert.That(uniquePlayerSeasons.Add(entry.PlayerSeasonId), Is.True);
-                    Assert.That(entry.CardId, Is.EqualTo(entry.PlayerSeasonId + ":Normal"));
+                    Assert.That(catalog.TryGetCard(entry.CardId, out PlayerCardDefinition card), Is.True);
+                    Assert.That(card.PlayerSeasonId, Is.EqualTo(entry.PlayerSeasonId));
+                    PlayerCardEdition expectedEdition = GetExpectedCompositeEdition(
+                        team.TeamType,
+                        entry.PlayerSeasonId,
+                        catalog);
+                    Assert.That(card.Edition, Is.EqualTo(expectedEdition));
                 }
             }
 
@@ -188,9 +200,29 @@ namespace Baseball.Tests.EditMode.Simulation
                 Array.Empty<SeasonStatistics>(),
                 new WorldAwardRecord(Array.Empty<WorldAwardEntry>()));
             var builder = new SpecialCompositeTeamBuilder(AwardScoringPolicy.CreateDefault());
+            WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(
+                players,
+                history.Awards,
+                CardEditionBalanceTable.CreateInitial());
 
             Assert.Throws<InvalidOperationException>(() =>
-                builder.Build(TestYear, players, history, new Pcg32Random(1UL)));
+                builder.Build(TestYear, players, history, catalog, new Pcg32Random(1UL)));
+        }
+
+        private static PlayerCardEdition GetExpectedCompositeEdition(
+            SpecialCompositeTeamType teamType,
+            string playerSeasonId,
+            WorldCardCatalog catalog)
+        {
+            PlayerCardEdition preferred = teamType switch
+            {
+                SpecialCompositeTeamType.AllStarComposite => PlayerCardEdition.AllStar,
+                SpecialCompositeTeamType.GoldenGloveComposite => PlayerCardEdition.GoldenGlove,
+                SpecialCompositeTeamType.YearSelectComposite => PlayerCardEdition.Normal,
+                _ => throw new ArgumentOutOfRangeException(nameof(teamType))
+            };
+            string preferredId = PlayerCardDefinition.CreateStableCardId(playerSeasonId, preferred);
+            return catalog.TryGetCard(preferredId, out _) ? preferred : PlayerCardEdition.Normal;
         }
 
         private static List<SeasonStatistics> CreateAwardStatistics()

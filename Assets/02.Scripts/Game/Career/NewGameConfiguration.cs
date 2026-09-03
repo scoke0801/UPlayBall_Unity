@@ -22,7 +22,7 @@ namespace Baseball.Game.Career
             WorldGenerationConfiguration worldGeneration = null,
             CareerCreationRules? careerCreationRules = null,
             int teamEmblemCount = 128,
-            NewGameContentSource contentSource = NewGameContentSource.LegacyRuntimeSynthetic,
+            NewGameContentSource contentSource = NewGameContentSource.Unconfigured,
             ICareerBakedContentProvider bakedContentProvider = null,
             WorldRecordMode worldRecordMode = WorldRecordMode.OriginalHistory)
         {
@@ -34,6 +34,12 @@ namespace Baseball.Game.Career
                 throw new ArgumentException("구단 정체성 후보가 구단 수보다 적습니다.", nameof(teamIdentities));
             if (teamEmblemCount <= 0)
                 throw new ArgumentOutOfRangeException(nameof(teamEmblemCount));
+            if (contentSource == NewGameContentSource.Unconfigured)
+            {
+                throw new ArgumentException(
+                    "Production 새 게임 Content Source가 구성되지 않았습니다. BakedHistorical Provider가 필요합니다.",
+                    nameof(contentSource));
+            }
             if (contentSource == NewGameContentSource.BakedHistorical && bakedContentProvider == null)
             {
                 throw new ArgumentException(
@@ -92,7 +98,7 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>
-        /// 데이터 Asset을 읽지 못한 개발·테스트 환경에서도 같은 계약으로 동작하는 기본값을 만든다.
+        /// 명시적으로 Synthetic fixture가 필요한 개발·테스트용 기본값을 만든다.
         /// </summary>
         public static NewGameConfiguration CreateDefault()
         {
@@ -103,7 +109,8 @@ namespace Baseball.Game.Career
                 startingAge: 18,
                 TeamArchetypeLibrary.CreateDefaultPool(),
                 CreateDefaultTeamIdentities(),
-                CreateDefaultPlayerNamePool());
+                CreateDefaultPlayerNamePool(),
+                contentSource: NewGameContentSource.ExplicitSyntheticTestFixture);
         }
 
         private static TeamIdentityDefinition[] CreateDefaultTeamIdentities()

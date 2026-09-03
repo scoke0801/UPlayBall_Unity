@@ -1,0 +1,107 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <Style src="./HistoricalDatabaseBrowserWindow.uss" />
+    <ui:VisualElement name="browser-root" class="browser-root">
+        <ui:VisualElement class="source-panel">
+            <ui:VisualElement class="title-row">
+                <ui:VisualElement class="title-block">
+                    <ui:Label text="역사 데이터베이스" class="window-title" />
+                    <ui:Label name="archive-summary" text="역사 아카이브를 선택하세요." class="window-subtitle" />
+                </ui:VisualElement>
+                <ui:Label name="archive-health-badge" text="미로드" class="status-badge status-neutral" />
+            </ui:VisualElement>
+            <ui:VisualElement class="source-row">
+                <ui:Label text="데이터 원본" class="field-caption" />
+                <ui:TextField name="source-path-field" class="source-path-field" tooltip="역사 아카이브 폴더를 입력하거나 이 영역으로 폴더를 끌어 놓으세요." />
+                <ui:Button name="browse-button" text="찾아보기..." class="compact-button" />
+                <ui:Button name="reload-button" text="다시 로드" class="primary-button" />
+                <ui:Button name="validate-button" text="검증" class="compact-button" />
+            </ui:VisualElement>
+            <ui:VisualElement name="source-changed-banner" class="banner banner-warning hidden"><ui:Label text="원본 데이터가 변경되었습니다. 현재 선택은 유지되며, 다시 로드할 때 반영됩니다." /><ui:Button name="reload-changed-button" text="다시 로드" /></ui:VisualElement>
+            <ui:VisualElement name="source-error-banner" class="banner banner-error hidden"><ui:Label name="source-error-label" text="아카이브를 읽을 수 없습니다." /></ui:VisualElement>
+            <ui:VisualElement name="loading-panel" class="loading-panel hidden"><ui:ProgressBar name="load-progress" low-value="0" high-value="1" value="0" title="불러오는 중..." class="load-progress" /><ui:Button name="cancel-load-button" text="취소" class="compact-button" /></ui:VisualElement>
+        </ui:VisualElement>
+        <uie:Toolbar name="main-tabs" class="main-tabs">
+            <uie:ToolbarButton name="overview-tab" text="개요" class="tab-button selected-tab" />
+            <uie:ToolbarButton name="players-tab" text="선수" class="tab-button" />
+            <uie:ToolbarButton name="teams-tab" text="팀" class="tab-button" />
+            <uie:ToolbarButton name="awards-tab" text="수상" class="tab-button" />
+            <uie:ToolbarButton name="analysis-tab" text="분석" class="tab-button" />
+            <uie:ToolbarButton name="validation-tab" text="검증" class="tab-button" />
+        </uie:Toolbar>
+        <ui:VisualElement name="empty-state" class="empty-state">
+            <ui:Label text="역사 데이터베이스가 선택되지 않았습니다" class="empty-title" />
+            <ui:Label text="manifest.json, player_persons.json, Years/*.json을 포함한 폴더를 선택하세요." class="muted" />
+            <ui:Button name="empty-select-folder-button" text="폴더 선택" class="primary-button empty-action" />
+        </ui:VisualElement>
+        <ui:VisualElement name="workspace" class="workspace hidden">
+            <ui:ScrollView name="overview-panel" class="tab-panel overview-panel">
+                <ui:Label text="아카이브 개요" class="section-title" />
+                <ui:VisualElement name="overview-cards" class="metric-grid">
+                    <ui:VisualElement class="metric-card"><ui:Label text="시즌" class="metric-label" /><ui:Label name="overview-seasons" text="—" class="metric-value" /></ui:VisualElement>
+                    <ui:VisualElement class="metric-card"><ui:Label text="인물" class="metric-label" /><ui:Label name="overview-persons" text="—" class="metric-value" /></ui:VisualElement>
+                    <ui:VisualElement class="metric-card"><ui:Label text="선수 시즌" class="metric-label" /><ui:Label name="overview-player-seasons" text="—" class="metric-value" /></ui:VisualElement>
+                    <ui:VisualElement class="metric-card"><ui:Label text="카드" class="metric-label" /><ui:Label name="overview-cards-count" text="—" class="metric-value" /></ui:VisualElement>
+                    <ui:VisualElement class="metric-card"><ui:Label text="팀 시즌" class="metric-label" /><ui:Label name="overview-teams" text="—" class="metric-value" /></ui:VisualElement>
+                    <ui:VisualElement class="metric-card"><ui:Label text="수상" class="metric-label" /><ui:Label name="overview-awards" text="—" class="metric-value" /></ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="detail-card"><ui:Label text="매니페스트" class="card-title" /><ui:VisualElement name="manifest-details" class="key-value-grid" /></ui:VisualElement>
+            </ui:ScrollView>
+            <ui:VisualElement name="players-panel" class="tab-panel hidden">
+                <ui:VisualElement class="filter-bar player-filter-bar">
+                    <uie:ToolbarSearchField name="player-search" class="universal-search" tooltip="표시 이름, 인물/선수 시즌 ID, 구단, 팀 시즌, 포지션, 투수 역할 검색. 혼합 참조는 ref:이름, 인게임 가명은 alias:이름으로 검색" />
+                    <ui:DropdownField name="player-year-filter" label="연도" class="filter-field filter-year" />
+                    <ui:DropdownField name="player-franchise-filter" label="구단" class="filter-field" />
+                    <ui:DropdownField name="player-team-filter" label="팀 시즌" class="filter-field" />
+                    <ui:DropdownField name="player-position-filter" label="포지션" class="filter-field filter-small" />
+                    <ui:DropdownField name="player-role-filter" label="투수 역할" class="filter-field filter-small" />
+                    <ui:DropdownField name="player-type-filter" label="선수 유형" class="filter-field filter-small" />
+                    <ui:DropdownField name="player-registration-filter" label="등록" class="filter-field filter-small" />
+                    <ui:IntegerField name="player-cost-min" label="비용 ≥" value="1" class="number-filter" />
+                    <ui:IntegerField name="player-cost-max" label="≤" value="10" class="number-filter narrow" />
+                    <ui:DropdownField name="player-ability-filter" label="능력치" class="filter-field filter-small" />
+                    <ui:IntegerField name="player-ability-min" label="능력 ≥" value="0" class="number-filter" />
+                    <ui:IntegerField name="player-ability-max" label="≤" value="100" class="number-filter narrow" />
+                    <ui:DropdownField name="player-award-filter" label="수상" class="filter-field filter-small" />
+                    <ui:Button name="clear-player-filter-button" text="초기화" class="compact-button" />
+                    <ui:Label name="player-result-count" text="0명" class="result-count" />
+                </ui:VisualElement>
+                <ui:TwoPaneSplitView name="player-split-view" fixed-pane-index="1" fixed-pane-initial-dimension="440" orientation="Horizontal" view-data-key="historical-player-split" class="browser-split-view">
+                    <ui:MultiColumnListView name="player-list" fixed-item-height="28" show-alternating-row-backgrounds="ContentOnly" selection-type="Single" sorting-mode="Custom" view-data-key="historical-player-list" class="data-table">
+                        <ui:Columns primary-column-name="player" reorderable="true" resizable="true">
+                            <ui:Column name="player" title="선수" width="150" min-width="100" stretchable="true" optional="false" sortable="true" />
+                            <ui:Column name="year" title="연도" width="58" min-width="52" sortable="true" /><ui:Column name="team" title="팀" width="100" min-width="72" sortable="true" />
+                            <ui:Column name="position" title="포지션" width="70" min-width="58" sortable="true" /><ui:Column name="role" title="투수 역할" width="82" min-width="68" sortable="true" />
+                            <ui:Column name="cost" title="비용" width="54" min-width="48" sortable="true" /><ui:Column name="primary" title="주요 능력" width="92" min-width="72" sortable="true" />
+                            <ui:Column name="summary" title="시즌 요약" width="150" min-width="110" stretchable="true" sortable="true" /><ui:Column name="awards" title="수상" width="54" min-width="46" sortable="true" />
+                        </ui:Columns>
+                    </ui:MultiColumnListView>
+                    <ui:VisualElement class="detail-pane">
+                <uie:Toolbar class="detail-toolbar"><uie:ToolbarButton name="player-details-mode-button" text="상세" class="detail-mode selected-detail-mode" /><uie:ToolbarButton name="player-raw-mode-button" text="원본 JSON" class="detail-mode" /><uie:ToolbarSpacer /><uie:ToolbarButton name="player-columns-button" text="열 설정" tooltip="추가 능력치와 시즌 기록 열을 선택합니다." /><uie:ToolbarButton name="pin-compare-button" text="비교 고정" tooltip="선택 선수를 비교 목록에 추가합니다(최대 4명)." /><uie:ToolbarButton name="copy-player-button" text="요약 복사" /></uie:Toolbar>
+                        <ui:ScrollView name="player-detail-scroll" class="detail-scroll"><ui:VisualElement name="player-detail-content" /></ui:ScrollView>
+                        <ui:TextField name="player-raw-json" multiline="true" is-read-only="true" class="raw-json hidden" />
+                    </ui:VisualElement>
+                </ui:TwoPaneSplitView>
+            </ui:VisualElement>
+            <ui:VisualElement name="teams-panel" class="tab-panel hidden">
+                <ui:VisualElement class="filter-bar"><uie:ToolbarSearchField name="team-search" class="universal-search" /><ui:DropdownField name="team-year-filter" label="연도" class="filter-field filter-year" /><ui:Label name="team-result-count" text="0팀" class="result-count" /></ui:VisualElement>
+                <ui:TwoPaneSplitView fixed-pane-index="1" fixed-pane-initial-dimension="460" orientation="Horizontal" view-data-key="historical-team-split" class="browser-split-view">
+                    <ui:MultiColumnListView name="team-list" fixed-item-height="28" show-alternating-row-backgrounds="ContentOnly" selection-type="Single" class="data-table"><ui:Columns primary-column-name="team" reorderable="true" resizable="true"><ui:Column name="year" title="연도" width="64" optional="false" /><ui:Column name="franchise" title="구단" width="130" stretchable="true" optional="false" /><ui:Column name="team" title="팀 시즌 ID" width="180" stretchable="true" optional="false" /><ui:Column name="pool" title="전체 선수" width="72" /><ui:Column name="core" title="대표 25인" width="72" /><ui:Column name="strength" title="평균 능력" width="78" /></ui:Columns></ui:MultiColumnListView>
+                    <ui:ScrollView name="team-detail-scroll" class="detail-scroll"><ui:VisualElement name="team-detail-content" /></ui:ScrollView>
+                </ui:TwoPaneSplitView>
+            </ui:VisualElement>
+            <ui:VisualElement name="awards-panel" class="tab-panel hidden">
+                <ui:VisualElement class="filter-bar"><uie:ToolbarSearchField name="award-search" class="universal-search" /><ui:DropdownField name="award-year-filter" label="연도" class="filter-field filter-year" /><ui:DropdownField name="award-type-filter" label="수상" class="filter-field" /><ui:DropdownField name="award-position-filter" label="포지션" class="filter-field filter-small" /><ui:DropdownField name="award-franchise-filter" label="구단" class="filter-field" /><ui:Label name="award-result-count" text="0건" class="result-count" /></ui:VisualElement>
+                <ui:MultiColumnListView name="award-list" fixed-item-height="28" show-alternating-row-backgrounds="ContentOnly" selection-type="Single" class="data-table fill"><ui:Columns primary-column-name="award" reorderable="true" resizable="true"><ui:Column name="year" title="연도" width="64" optional="false" /><ui:Column name="award" title="수상" width="170" stretchable="true" optional="false" /><ui:Column name="player" title="선수" width="150" stretchable="true" optional="false" /><ui:Column name="position" title="포지션" width="70" /><ui:Column name="team" title="팀" width="120" /><ui:Column name="source" title="출처" width="120" /></ui:Columns></ui:MultiColumnListView>
+            </ui:VisualElement>
+            <ui:ScrollView name="analysis-panel" class="tab-panel hidden">
+                <ui:VisualElement class="analysis-toolbar"><ui:DropdownField name="analysis-year-filter" label="연도" class="filter-field filter-year" /><ui:DropdownField name="analysis-franchise-filter" label="구단" class="filter-field" /><ui:DropdownField name="analysis-position-filter" label="포지션" class="filter-field" /><ui:DropdownField name="analysis-role-filter" label="투수 역할" class="filter-field" /><ui:DropdownField name="analysis-type-filter" label="선수 유형" class="filter-field filter-small" /><ui:IntegerField name="analysis-cost-min" label="비용 ≥" value="1" class="number-filter" /><ui:IntegerField name="analysis-cost-max" label="≤" value="10" class="number-filter narrow" /><ui:Button name="refresh-analysis-button" text="분석 갱신" class="primary-button" /></ui:VisualElement>
+                <ui:VisualElement class="analysis-grid"><ui:VisualElement class="detail-card analysis-card"><ui:Label text="비용 분포" class="card-title" /><ui:VisualElement name="cost-distribution" /></ui:VisualElement><ui:VisualElement class="detail-card analysis-card"><ui:Label text="포지션 / 역할 분포" class="card-title" /><ui:VisualElement name="position-distribution" /></ui:VisualElement><ui:VisualElement class="detail-card analysis-card analysis-card-wide"><ui:Label text="능력치 요약" class="card-title" /><ui:VisualElement name="ability-summary" /></ui:VisualElement><ui:VisualElement class="detail-card analysis-card analysis-card-wide"><ui:Label text="시즌 기록 분포" class="card-title" /><ui:Label text="아카이브에 저장되거나 원본으로부터 직접 산술 파생 가능한 지표만 표시합니다." class="muted" /><ui:VisualElement name="season-statistics-summary" /></ui:VisualElement><ui:VisualElement class="detail-card analysis-card"><ui:Label text="수상 분포" class="card-title" /><ui:VisualElement name="award-distribution" /></ui:VisualElement></ui:VisualElement>
+            </ui:ScrollView>
+            <ui:VisualElement name="validation-panel" class="tab-panel hidden">
+                <ui:VisualElement class="validation-summary"><ui:Label text="아카이브 상태" class="section-title" /><ui:Label name="validation-pass-count" text="통과 0" class="validation-count pass" /><ui:Label name="validation-warning-count" text="경고 0" class="validation-count warning" /><ui:Label name="validation-error-count" text="오류 0" class="validation-count error" /><ui:Button name="run-validation-button" text="전체 검증" class="primary-button push-right" /></ui:VisualElement>
+                <ui:MultiColumnListView name="validation-list" fixed-item-height="30" show-alternating-row-backgrounds="ContentOnly" selection-type="Single" class="data-table fill"><ui:Columns primary-column-name="severity" reorderable="true" resizable="true"><ui:Column name="severity" title="등급" width="72" optional="false" /><ui:Column name="year" title="연도" width="62" /><ui:Column name="category" title="범주" width="110" /><ui:Column name="entity" title="대상" width="180" stretchable="true" /><ui:Column name="message" title="메시지" width="420" stretchable="true" optional="false" /></ui:Columns></ui:MultiColumnListView>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="status-bar"><ui:Label name="status-label" text="아카이브 폴더를 선택하세요." class="status-text" /><ui:Label name="selection-label" text="선택 없음" class="selection-text" /></ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

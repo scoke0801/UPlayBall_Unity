@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2fbd8cf90e688ac47a483da18f6aceb0, type: 3}
   m_Name: NewGameDefinition
   m_EditorClassIdentifier: Baseball.Game::Baseball.Game.Data.NewGameDefinition
+  _historicalContentCatalog: {fileID: 11400000, guid: 2b73c9d20f3a50949b2ff71762b87d83, type: 2}
   _teamCount: 8
   _firstSeasonYear: 2028
   _startingAge: 18
@@ -125,9 +126,46 @@ MonoBehaviour:
   - "\uB178\uC7AC\uBBFC"
   - "\uD558\uC724\uC131"
   - "\uACFD\uC900\uD638"
-  _baseAttributeValue: 50
-  _bonusPoints: 60
-  _maximumAttributeValue: 75
+  _minorOverallBonus: 4
+  _majorOverallBonus: 8
+  _minorTeamNamePrefix: "\uB9C8\uC774\uB108 "
+  _majorTeamNamePrefix: "\uBA54\uC774\uC800 "
+  _rookieMinimumAge: 18
+  _rookieMaximumAge: 24
+  _minorMinimumAge: 20
+  _minorMaximumAge: 29
+  _majorMinimumAge: 23
+  _majorMaximumAge: 35
+  _retirementMinimumAge: 34
+  _guaranteedRetirementAge: 43
+  _retirementBaseProbability: 0.04
+  _retirementAgeWeight: 0.08
+  _retirementLowAbilityThreshold: 55
+  _retirementLowAbilityWeight: 0.01
+  _rookieEntryMinimumAge: 18
+  _rookieEntryMaximumAge: 22
+  _rookieEntryMinimumOverall: 38
+  _rookieEntryMaximumOverall: 58
+  _rookieBaseSalary: 30000000
+  _minorBaseSalary: 90000000
+  _majorBaseSalary: 300000000
+  _rookieAiContractYears: 1
+  _minorAiContractYears: 1
+  _majorAiContractYears: 1
+  _upperLeagueOverallPenalty: 2
+  _leaguePerformanceWeight: 0.2
+  _leaguePotentialWeight: 0.08
+  _reliablePromotionPlateAppearances: 300
+  _reliablePromotionPitchingOuts: 300
+  _minorMinimumProjectedOverall: 47
+  _majorMinimumProjectedOverall: 60
+  _promotionCompetitorMargin: 15
+  _promotionMinimumTeamBudget: 35
+  _promotionInterestScoreThreshold: 0.95
+  _maximumPromotionOffers: 2
+  _maximumRehabilitationOffers: 2
+  _minorPlayerContractYears: 2
+  _majorPlayerContractYears: 3
   _careerBaseAttributeValue: 50
   _careerBatterBonusPoints: 60
   _careerPitcherBonusPoints: 40
@@ -162,6 +200,31 @@ MonoBehaviour:
   _supportingAttributeWeight: 1.35
   _generalAttributeWeight: 1
   _teamPreferenceInfluence: 0.15
+  _leadoffLineupWeights:
+    _contact: 0.45
+    _power: 0
+    _speed: 0.3
+    _mental: 0.25
+  _tableSetterLineupWeights:
+    _contact: 0.5
+    _power: 0.1
+    _speed: 0.15
+    _mental: 0.25
+  _runProducerLineupWeights:
+    _contact: 0.35
+    _power: 0.45
+    _speed: 0
+    _mental: 0.2
+  _cleanupLineupWeights:
+    _contact: 0.25
+    _power: 0.6
+    _speed: 0
+    _mental: 0.15
+  _lowerOrderLineupWeights:
+    _contact: 0.35
+    _power: 0.35
+    _speed: 0.15
+    _mental: 0.15
   _regularSeasonGamesPerTeam: 80
   _startingRotationSize: 5
   _reliefStartInning: 7
@@ -183,7 +246,7 @@ MonoBehaviour:
   _restingConditionRecovery: 1
   _minimumCondition: 55
   _maximumManagerEvaluationChange: 3
-  _conditionDecisionWeight: 0.12
+  _conditionDecisionWeight: 0.3
   _managerEvaluationDecisionWeight: 0.1
   _productiveBattingHits: 2
   _excellentBattingHits: 3

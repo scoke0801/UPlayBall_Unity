@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
-using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Simulation.Historical;
 
 namespace Baseball.Game.Historical
 {
@@ -11,6 +11,20 @@ namespace Baseball.Game.Historical
     public sealed class ManagerHistoricalSaveAdapter
     {
         public const int CurrentSaveVersion = 1;
+
+        private readonly IHistoricalContentProvider _contentProvider;
+        private readonly CardEditionBalanceTable _cardEditionBalance;
+        private readonly WorldHistorySaveMapper _worldHistoryMapper;
+
+        public ManagerHistoricalSaveAdapter(
+            IHistoricalContentProvider contentProvider,
+            CardEditionBalanceTable cardEditionBalance,
+            WorldHistorySaveMapper worldHistoryMapper = null)
+        {
+            _contentProvider = contentProvider ?? throw new ArgumentNullException(nameof(contentProvider));
+            _cardEditionBalance = cardEditionBalance ?? throw new ArgumentNullException(nameof(cardEditionBalance));
+            _worldHistoryMapper = worldHistoryMapper ?? new WorldHistorySaveMapper();
+        }
 
         public ManagerHistoricalSaveData CreateSaveData(ManagerHistoricalRuntimeState state)
         {
@@ -20,9 +34,9 @@ namespace Baseball.Game.Historical
             return new ManagerHistoricalSaveData
             {
                 saveVersion = CurrentSaveVersion,
+                contentReference = HistoricalContentReferenceMapper.CreateSaveData(state.ContentReference),
                 playerTeamSeasonKey = state.PlayerTeamSeasonKey,
-                worldHistory = CreateWorldHistory(state.WorldHistory),
-                worldCardCatalog = CreateCardCatalog(state.WorldCardCatalog),
+                worldHistory = _worldHistoryMapper.CreateSaveData(state.WorldHistory),
                 league = CreateLeague(state.League),
                 rosters = CreateRosters(state.Rosters),
                 ownedCards = CreateOwnedCards(state.OwnedCards),
@@ -44,8 +58,19 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException(
                     $"Manager Historical SaveVersion {saveData.saveVersion}은 현재 버전 {CurrentSaveVersion}과 호환되지 않습니다.");
 
-            WorldHistorySnapshot history = RestoreWorldHistory(Require(saveData.worldHistory, nameof(saveData.worldHistory)));
-            WorldCardCatalog catalog = RestoreCardCatalog(Require(saveData.worldCardCatalog, nameof(saveData.worldCardCatalog)));
+            HistoricalContentReference contentReference = HistoricalContentReferenceMapper.Restore(
+                Require(saveData.contentReference, nameof(saveData.contentReference)));
+            HistoricalBakedContent bakedContent = _contentProvider.Load()
+                ?? throw new InvalidOperationException("Runtime Historical Content Provider가 null을 반환했습니다.");
+            contentReference.EnsureMatches(bakedContent.Manifest);
+
+            WorldHistorySnapshot history = _worldHistoryMapper.Restore(
+                Require(saveData.worldHistory, nameof(saveData.worldHistory)));
+            ValidateWorldHistoryReferences(history, bakedContent);
+            WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(
+                bakedContent.PlayerSeasons,
+                history.Awards,
+                _cardEditionBalance);
             LeagueInstance league = RestoreLeague(Require(saveData.league, nameof(saveData.league)));
             CurrentRosterState[] rosters = RestoreRosters(Require(saveData.rosters, nameof(saveData.rosters)));
             OwnedPlayerCardState[] ownedCards = RestoreOwnedCards(Require(saveData.ownedCards, nameof(saveData.ownedCards)));
@@ -53,6 +78,7 @@ namespace Baseball.Game.Historical
 
             return new ManagerHistoricalRuntimeState(
                 saveData.playerTeamSeasonKey,
+                contentReference,
                 history,
                 catalog,
                 league,
@@ -65,201 +91,69 @@ namespace Baseball.Game.Historical
                     economyData.pityGauge));
         }
 
-        private static WorldHistorySaveData CreateWorldHistory(WorldHistorySnapshot snapshot)
+        /// <summary>저장된 파생 기록이 현재 고정 Content의 동일 선수·구단·연도를 가리키는지 검증한다.</summary>
+        private static void ValidateWorldHistoryReferences(
+            WorldHistorySnapshot history,
+            HistoricalBakedContent bakedContent)
         {
-            var statistics = new SeasonStatisticsSaveData[snapshot.Statistics.Count];
-            for (int index = 0; index < snapshot.Statistics.Count; index++)
+            for (int index = 0; index < history.Statistics.Count; index++)
             {
-                SeasonStatistics row = snapshot.Statistics[index];
-                statistics[index] = new SeasonStatisticsSaveData
+                SeasonStatistics statistics = history.Statistics[index];
+                if (!bakedContent.TryGetPlayerSeason(
+                        statistics.PlayerSeasonId,
+                        out PlayerSeasonDefinition playerSeason))
                 {
-                    playerSeasonId = row.PlayerSeasonId,
-                    teamSeasonKey = row.TeamSeasonKey,
-                    seasonYear = row.SeasonYear,
-                    position = (int)row.Position,
-                    plateAppearances = row.PlateAppearances,
-                    hits = row.Hits,
-                    homeRuns = row.HomeRuns,
-                    walks = row.Walks,
-                    strikeouts = row.Strikeouts,
-                    stolenBases = row.StolenBases,
-                    pitchingOuts = row.PitchingOuts,
-                    earnedRuns = row.EarnedRuns,
-                    pitchingStrikeouts = row.PitchingStrikeouts,
-                    defensiveChances = row.DefensiveChances,
-                    defensiveOutsAboveAverage = row.DefensiveOutsAboveAverage,
-                    fieldingErrors = row.FieldingErrors,
-                    isFirstHalf = row.IsFirstHalf,
-                    isPostseason = row.IsPostseason,
-                    isAllStarGame = row.IsAllStarGame
-                };
-            }
-            Array.Sort(statistics, CompareStatistics);
-
-            var awards = new WorldAwardEntrySaveData[snapshot.Awards.Entries.Count];
-            for (int index = 0; index < snapshot.Awards.Entries.Count; index++)
-            {
-                WorldAwardEntry award = snapshot.Awards.Entries[index];
-                awards[index] = new WorldAwardEntrySaveData
+                    throw new InvalidOperationException(
+                        $"저장된 World History가 현재 Content에 없는 PlayerSeasonId를 참조합니다: " +
+                        $"{statistics.PlayerSeasonId}");
+                }
+                if (!bakedContent.TryGetTeamSeason(
+                        statistics.TeamSeasonKey,
+                        out TeamSeasonDefinition teamSeason))
                 {
-                    seasonYear = award.SeasonYear,
-                    awardType = (int)award.AwardType,
-                    playerSeasonId = award.PlayerSeasonId,
-                    position = (int)award.Position
-                };
-            }
-            Array.Sort(awards, CompareAwards);
-
-            return new WorldHistorySaveData
-            {
-                recordMode = (int)snapshot.RecordMode,
-                worldHistorySeed = snapshot.WorldHistorySeed,
-                statistics = statistics,
-                awards = awards
-            };
-        }
-
-        private static WorldHistorySnapshot RestoreWorldHistory(WorldHistorySaveData source)
-        {
-            ValidateEnum<WorldRecordMode>(source.recordMode, nameof(source.recordMode));
-            SeasonStatisticsSaveData[] statisticsData = Require(source.statistics, nameof(source.statistics));
-            WorldAwardEntrySaveData[] awardData = Require(source.awards, nameof(source.awards));
-
-            var statistics = new SeasonStatistics[statisticsData.Length];
-            for (int index = 0; index < statistics.Length; index++)
-            {
-                SeasonStatisticsSaveData row = Require(statisticsData[index], nameof(source.statistics));
-                ValidateEnum<PlayerPosition>(row.position, nameof(row.position));
-                statistics[index] = new SeasonStatistics(
-                    row.playerSeasonId,
-                    row.teamSeasonKey,
-                    row.seasonYear,
-                    (PlayerPosition)row.position,
-                    row.plateAppearances,
-                    row.hits,
-                    row.homeRuns,
-                    row.walks,
-                    row.strikeouts,
-                    row.stolenBases,
-                    row.pitchingOuts,
-                    row.earnedRuns,
-                    row.pitchingStrikeouts,
-                    row.defensiveChances,
-                    row.defensiveOutsAboveAverage,
-                    row.fieldingErrors,
-                    row.isFirstHalf,
-                    row.isPostseason,
-                    row.isAllStarGame);
-            }
-
-            var awards = new WorldAwardEntry[awardData.Length];
-            for (int index = 0; index < awards.Length; index++)
-            {
-                WorldAwardEntrySaveData award = Require(awardData[index], nameof(source.awards));
-                ValidateEnum<WorldAwardType>(award.awardType, nameof(award.awardType));
-                ValidateEnum<PlayerPosition>(award.position, nameof(award.position));
-                awards[index] = new WorldAwardEntry(
-                    award.seasonYear,
-                    (WorldAwardType)award.awardType,
-                    award.playerSeasonId,
-                    (PlayerPosition)award.position);
-            }
-
-            return new WorldHistorySnapshot(
-                (WorldRecordMode)source.recordMode,
-                source.worldHistorySeed,
-                statistics,
-                new WorldAwardRecord(awards));
-        }
-
-        private static WorldCardCatalogSaveData CreateCardCatalog(WorldCardCatalog catalog)
-        {
-            var cards = new PlayerCardSaveData[catalog.Cards.Count];
-            var playerSeasons = new Dictionary<string, PlayerSeasonSaveData>(StringComparer.Ordinal);
-            for (int index = 0; index < catalog.Cards.Count; index++)
-            {
-                PlayerCardDefinition card = catalog.Cards[index];
-                var modifiers = new int[PlayerAbilityCatalog.AbilityCount];
-                for (int abilityIndex = 0; abilityIndex < modifiers.Length; abilityIndex++)
-                    modifiers[abilityIndex] = card.GetModifier((PlayerAbility)abilityIndex);
-                cards[index] = new PlayerCardSaveData
+                    throw new InvalidOperationException(
+                        $"저장된 World History가 현재 Content에 없는 TeamSeasonKey를 참조합니다: " +
+                        $"{statistics.TeamSeasonKey}");
+                }
+                if (statistics.SeasonYear != playerSeason.OriginYear ||
+                    statistics.SeasonYear != teamSeason.OriginYear)
                 {
-                    cardId = card.CardId,
-                    playerSeasonId = card.PlayerSeasonId,
-                    edition = (int)card.Edition,
-                    editionStatModifiers = modifiers
-                };
-
-                if (!playerSeasons.ContainsKey(card.PlayerSeasonId))
+                    throw new InvalidOperationException(
+                        $"저장된 World History의 SeasonYear가 Baked Content와 다릅니다: " +
+                        $"playerSeasonId={statistics.PlayerSeasonId}, teamSeasonKey={statistics.TeamSeasonKey}, " +
+                        $"saved={statistics.SeasonYear}, player={playerSeason.OriginYear}, team={teamSeason.OriginYear}");
+                }
+                if (!string.Equals(
+                        statistics.TeamSeasonKey,
+                        playerSeason.OriginTeamSeasonKey,
+                        StringComparison.Ordinal))
                 {
-                    PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
-                    playerSeasons.Add(season.PlayerSeasonId, new PlayerSeasonSaveData
-                    {
-                        playerSeasonId = season.PlayerSeasonId,
-                        playerPersonId = season.PlayerPersonId,
-                        originYear = season.OriginYear,
-                        originFranchiseId = season.OriginFranchiseId,
-                        originTeamSeasonKey = season.OriginTeamSeasonKey,
-                        position = (int)season.Position,
-                        pitcherRole = (int)season.PitcherRole,
-                        playerType = (int)season.PlayerType,
-                        registrationType = (int)season.RegistrationType,
-                        baseAttributes = season.CreateBaseAttributes().ToArray(),
-                        cost = season.Cost,
-                        trainingCeiling = season.CreateTrainingCeiling().ToArray()
-                    });
+                    throw new InvalidOperationException(
+                        $"저장된 World History의 TeamSeasonKey가 PlayerSeason 원소속과 다릅니다: " +
+                        $"playerSeasonId={statistics.PlayerSeasonId}, saved={statistics.TeamSeasonKey}, " +
+                        $"expected={playerSeason.OriginTeamSeasonKey}");
                 }
             }
-            Array.Sort(cards, (left, right) => StringComparer.Ordinal.Compare(left.cardId, right.cardId));
 
-            var seasons = new PlayerSeasonSaveData[playerSeasons.Count];
-            int seasonIndex = 0;
-            foreach (PlayerSeasonSaveData season in playerSeasons.Values)
-                seasons[seasonIndex++] = season;
-            Array.Sort(seasons, (left, right) => StringComparer.Ordinal.Compare(left.playerSeasonId, right.playerSeasonId));
-
-            return new WorldCardCatalogSaveData { playerSeasons = seasons, cards = cards };
-        }
-
-        private static WorldCardCatalog RestoreCardCatalog(WorldCardCatalogSaveData source)
-        {
-            PlayerSeasonSaveData[] seasonData = Require(source.playerSeasons, nameof(source.playerSeasons));
-            PlayerCardSaveData[] cardData = Require(source.cards, nameof(source.cards));
-            var seasons = new PlayerSeasonDefinition[seasonData.Length];
-            for (int index = 0; index < seasons.Length; index++)
+            for (int index = 0; index < history.Awards.Entries.Count; index++)
             {
-                PlayerSeasonSaveData season = Require(seasonData[index], nameof(source.playerSeasons));
-                ValidateEnum<PlayerPosition>(season.position, nameof(season.position));
-                ValidateEnum<PitcherRole>(season.pitcherRole, nameof(season.pitcherRole));
-                ValidateEnum<PlayerType>(season.playerType, nameof(season.playerType));
-                ValidateEnum<RegistrationType>(season.registrationType, nameof(season.registrationType));
-                seasons[index] = new PlayerSeasonDefinition(
-                    season.playerSeasonId,
-                    season.playerPersonId,
-                    season.originYear,
-                    season.originFranchiseId,
-                    season.originTeamSeasonKey,
-                    (PlayerPosition)season.position,
-                    (PitcherRole)season.pitcherRole,
-                    (PlayerType)season.playerType,
-                    (RegistrationType)season.registrationType,
-                    new AbilityRatings(Require(season.baseAttributes, nameof(season.baseAttributes))),
-                    season.cost,
-                    new AbilityRatings(Require(season.trainingCeiling, nameof(season.trainingCeiling))));
+                WorldAwardEntry award = history.Awards.Entries[index];
+                if (!bakedContent.TryGetPlayerSeason(
+                        award.PlayerSeasonId,
+                        out PlayerSeasonDefinition playerSeason))
+                {
+                    throw new InvalidOperationException(
+                        $"저장된 World Award가 현재 Content에 없는 PlayerSeasonId를 참조합니다: " +
+                        $"{award.PlayerSeasonId}");
+                }
+                if (award.SeasonYear != playerSeason.OriginYear)
+                {
+                    throw new InvalidOperationException(
+                        $"저장된 World Award의 SeasonYear가 Baked PlayerSeason과 다릅니다: " +
+                        $"playerSeasonId={award.PlayerSeasonId}, saved={award.SeasonYear}, " +
+                        $"expected={playerSeason.OriginYear}");
+                }
             }
-
-            var cards = new PlayerCardDefinition[cardData.Length];
-            for (int index = 0; index < cards.Length; index++)
-            {
-                PlayerCardSaveData card = Require(cardData[index], nameof(source.cards));
-                ValidateEnum<PlayerCardEdition>(card.edition, nameof(card.edition));
-                cards[index] = new PlayerCardDefinition(
-                    card.cardId,
-                    card.playerSeasonId,
-                    (PlayerCardEdition)card.edition,
-                    Require(card.editionStatModifiers, nameof(card.editionStatModifiers)));
-            }
-            return new WorldCardCatalog(seasons, cards);
         }
 
         private static LeagueInstanceSaveData CreateLeague(LeagueInstance league)
@@ -401,30 +295,6 @@ namespace Baseball.Game.Historical
                     new CardTrainingState(Require(card.trainingBonuses, nameof(card.trainingBonuses))));
             }
             return result;
-        }
-
-        private static int CompareStatistics(SeasonStatisticsSaveData left, SeasonStatisticsSaveData right)
-        {
-            int comparison = left.seasonYear.CompareTo(right.seasonYear);
-            if (comparison != 0) return comparison;
-            comparison = StringComparer.Ordinal.Compare(left.playerSeasonId, right.playerSeasonId);
-            if (comparison != 0) return comparison;
-            comparison = left.isPostseason.CompareTo(right.isPostseason);
-            if (comparison != 0) return comparison;
-            comparison = left.isAllStarGame.CompareTo(right.isAllStarGame);
-            if (comparison != 0) return comparison;
-            return left.isFirstHalf.CompareTo(right.isFirstHalf);
-        }
-
-        private static int CompareAwards(WorldAwardEntrySaveData left, WorldAwardEntrySaveData right)
-        {
-            int comparison = left.seasonYear.CompareTo(right.seasonYear);
-            if (comparison != 0) return comparison;
-            comparison = left.awardType.CompareTo(right.awardType);
-            if (comparison != 0) return comparison;
-            comparison = left.position.CompareTo(right.position);
-            if (comparison != 0) return comparison;
-            return StringComparer.Ordinal.Compare(left.playerSeasonId, right.playerSeasonId);
         }
 
         private static int CompareRosterEntries(ActiveRosterEntrySaveData left, ActiveRosterEntrySaveData right)

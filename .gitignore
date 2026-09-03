@@ -517,6 +517,8 @@ Assets/04.Images/UI/*
 **/07.Animations
 **/08.Font
 **/Output
+/Assets/10.Datas/HistoricalSimulation/
+/Assets/10.Datas/HistoricalSimulation.meta
 **/AddressableAssetsData
 **/External
 **/Models

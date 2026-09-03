@@ -402,7 +402,10 @@ namespace Baseball.Game.Career
             }
             else
             {
-                // 기존 세이브/프로토타입 회귀를 위한 격리 경로다. Historical 새 게임은 이 분기에 진입하지 않는다.
+                if (_configuration.ContentSource != NewGameContentSource.ExplicitSyntheticTestFixture)
+                    throw new InvalidOperationException("알 수 없는 새 게임 Content Source입니다.");
+
+                // 테스트 fixture를 위한 명시적 격리 경로다. Production 새 게임은 이 분기에 진입하지 않는다.
                 var setup = new NewGameSetup(
                     _configuration.Balance.ContractOffer,
                     _configuration.Balance.TeamGeneration,

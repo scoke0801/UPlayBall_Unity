@@ -7,88 +7,13 @@ namespace Baseball.Game.Historical
     public sealed class ManagerHistoricalSaveData
     {
         public int saveVersion;
+        public HistoricalContentReferenceSaveData contentReference;
         public string playerTeamSeasonKey;
         public WorldHistorySaveData worldHistory;
-        public WorldCardCatalogSaveData worldCardCatalog;
         public LeagueInstanceSaveData league;
         public CurrentRosterSaveData[] rosters;
         public OwnedPlayerCardSaveData[] ownedCards;
         public ManagerEconomySaveData economy;
-    }
-
-    [Serializable]
-    public sealed class WorldHistorySaveData
-    {
-        public int recordMode;
-        public ulong worldHistorySeed;
-        public SeasonStatisticsSaveData[] statistics;
-        public WorldAwardEntrySaveData[] awards;
-    }
-
-    [Serializable]
-    public sealed class SeasonStatisticsSaveData
-    {
-        public string playerSeasonId;
-        public string teamSeasonKey;
-        public int seasonYear;
-        public int position;
-        public int plateAppearances;
-        public int hits;
-        public int homeRuns;
-        public int walks;
-        public int strikeouts;
-        public int stolenBases;
-        public int pitchingOuts;
-        public int earnedRuns;
-        public int pitchingStrikeouts;
-        public int defensiveChances;
-        public int defensiveOutsAboveAverage;
-        public int fieldingErrors;
-        public bool isFirstHalf;
-        public bool isPostseason;
-        public bool isAllStarGame;
-    }
-
-    [Serializable]
-    public sealed class WorldAwardEntrySaveData
-    {
-        public int seasonYear;
-        public int awardType;
-        public string playerSeasonId;
-        public int position;
-    }
-
-    [Serializable]
-    public sealed class WorldCardCatalogSaveData
-    {
-        public PlayerSeasonSaveData[] playerSeasons;
-        public PlayerCardSaveData[] cards;
-    }
-
-    [Serializable]
-    public sealed class PlayerSeasonSaveData
-    {
-        public string playerSeasonId;
-        public string playerPersonId;
-        public int originYear;
-        public string originFranchiseId;
-        public string originTeamSeasonKey;
-        public int position;
-        public int pitcherRole;
-        public int playerType;
-        public int registrationType;
-        public int[] baseAttributes;
-        public int cost;
-        public int[] trainingCeiling;
-    }
-
-    [Serializable]
-    public sealed class PlayerCardSaveData
-    {
-        public string cardId;
-        public string playerSeasonId;
-        public int edition;
-        public int[] editionStatModifiers;
     }
 
     [Serializable]
