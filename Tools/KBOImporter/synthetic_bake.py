@@ -15,13 +15,11 @@ from kbo_importer import SCHEMA_VERSION as NORMALIZED_SCHEMA_VERSION
 from kbo_importer.validation import validate_saved_document
 
 
-GENERATOR_VERSION = "synthetic-bake-v2"
-STABLE_GENERATION_VERSION = "synthetic-bake-v1"
-BALANCE_VERSION = "historical-normal-v1"
+GENERATOR_VERSION = "source-backed-runtime-bake-v1"
+BALANCE_VERSION = "historical-source-backed-v1"
 REFERENCE_DATA_VERSION = f"kbo-normalized-v{NORMALIZED_SCHEMA_VERSION}"
-CONTENT_SCHEMA_VERSION = 3
-NAME_POLICY_VERSION = "korean-source-component-v2"
-EDITOR_NAME_POLICY = "editor-original-reference-v1"
+CONTENT_SCHEMA_VERSION = 4
+NAME_POLICY_VERSION = "source-backed-fictional-name-v1"
 EDITOR_ORIGINAL_NAME_POLICY = "editor-original-source-v2"
 RUNTIME_NAME_POLICY = "runtime-fictional-only-v2"
 EDITOR_ASSET_FORMAT_VERSION = 1
@@ -46,21 +44,6 @@ FRANCHISE_IDS = (
 )
 HITTER_POSITIONS = ("C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH")
 DEFENSIVE_HITTER_POSITIONS = HITTER_POSITIONS[:-1]
-HITTER_ROLES = tuple(f"StartingHitter:{position}" for position in HITTER_POSITIONS) + tuple(
-    f"BenchHitter:{index}" for index in range(1, 6)
-)
-PITCHER_ROLES = tuple(f"StartingPitcher:{index}" for index in range(1, 6)) + (
-    "Bullpen1",
-    "Bullpen2",
-    "Bullpen3",
-    "Bullpen4",
-    "Setup",
-    "Closer",
-)
-RESERVE_ROLES = tuple(f"ReserveHitter:{index}" for index in range(1, 4)) + tuple(
-    f"ReservePitcher:{index}" for index in range(1, 3)
-)
-TEAM_POOL_ROLES = HITTER_ROLES + PITCHER_ROLES + RESERVE_ROLES
 ABILITY_NAMES = (
     "Contact",
     "Power",
@@ -85,6 +68,9 @@ HITTER_METRIC_NAMES = (
     "StolenBaseAttemptRate",
     "StolenBaseSuccessRate",
     "FieldingPercentage",
+    "DefensiveOpportunitiesPerNine",
+    "AssistsPerNine",
+    "CaughtStealingRate",
 )
 PITCHER_METRIC_NAMES = (
     "NegativeEarnedRunAverage",
@@ -115,7 +101,7 @@ DH_ATTRIBUTE_WEIGHTS = ROSTER_SELECTION_CONFIG["designatedHitterAttributeWeights
 BENCH_ATTRIBUTE_WEIGHTS = ROSTER_SELECTION_CONFIG["benchAttributeWeights"]
 PITCHER_ASSIGNMENT_ATTRIBUTE_WEIGHTS = ROSTER_SELECTION_CONFIG["pitcherAssignmentAttributeWeights"]
 COMMON_KOREAN_SURNAMES = tuple(
-    "김이박최정강조윤장임한오서신권황안송전홍유고문양배백허남심노하곽"
+    "김이박최정강조윤장임한오서신권황안송류홍전고문양손배백허유남심노하곽성차주우구민진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제탁국"
 )
 FALLBACK_GIVEN_NAMES = (
     "도윤", "준서", "시우", "민재", "우진", "현우", "성민", "태호",
@@ -129,7 +115,59 @@ FALLBACK_GIVEN_NAMES = (
 )
 
 
+def metric_composite_influence_audit(
+    player_type: str,
+    profile_name: str,
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Raw metric 하나가 역할 Composite를 중복 지배하는지 설정 단계에서 계산한다."""
+    balance = config or DERIVATION_BALANCE
+    profiles = balance["roleCompositeProfiles"][player_type]
+    resolved_profile = profile_name if profile_name in profiles else "Default"
+    ability_names = ABILITY_NAMES[:6] if player_type == "Hitter" else ABILITY_NAMES[6:]
+    levels = balance["roleCompositeWeightLevels"]
+    role_weights = [float(levels[level]) for level in profiles[resolved_profile]]
+    total_role_weight = sum(role_weights)
+    raw_influences: dict[str, float] = {}
+    for ability_name, role_weight in zip(ability_names, role_weights):
+        rating_profile = balance["ratingProfiles"][player_type][ability_name]
+        normalized_role_weight = role_weight / total_role_weight
+        scale = abs(float(rating_profile["scale"]))
+        for metric_name, metric_weight in rating_profile["metrics"].items():
+            raw_influences[metric_name] = raw_influences.get(metric_name, 0.0) + (
+                normalized_role_weight * scale * abs(float(metric_weight))
+            )
+
+    total_influence = sum(raw_influences.values())
+    maximum = float(balance["validation"]["maximumRawMetricCompositeInfluence"])
+    metrics = []
+    for metric_name in sorted(raw_influences):
+        normalized = raw_influences[metric_name] / total_influence if total_influence > 0.0 else 0.0
+        metrics.append(
+            {
+                "metric": metric_name,
+                "absoluteInfluence": round(raw_influences[metric_name], 8),
+                "normalizedInfluence": round(normalized, 8),
+                "maximumAllowed": maximum,
+                "exceedsMaximum": normalized > maximum + 1e-12,
+            }
+        )
+    return {
+        "playerType": player_type,
+        "roleProfile": resolved_profile,
+        "maximumAllowed": maximum,
+        "metrics": metrics,
+        "hasViolation": any(metric["exceedsMaximum"] for metric in metrics),
+    }
+
+
 def validate_derivation_balance(config: dict[str, Any]) -> None:
+    maximum_metric_influence = float(
+        config["validation"]["maximumRawMetricCompositeInfluence"]
+    )
+    if not 0.0 < maximum_metric_influence <= 1.0:
+        raise ValueError("Raw metric 역할 Composite 영향력 상한은 0 초과 1 이하여야 합니다.")
+
     thresholds = config["costPercentileThresholds"]
     if not thresholds or float(thresholds[-1]["upperExclusive"]) <= 1.0:
         raise ValueError("Cost 백분위 설정이 전체 모집단을 덮지 않습니다.")
@@ -158,6 +196,17 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
         for profile_name, profile in profiles.items():
             if len(profile) != 6 or any(level not in levels for level in profile):
                 raise ValueError(f"Cost 역할 가중치 설정이 유효하지 않습니다: {player_type}/{profile_name}")
+            audit = metric_composite_influence_audit(player_type, profile_name, config)
+            if audit["hasViolation"]:
+                violations = ", ".join(
+                    f"{metric['metric']}={metric['normalizedInfluence']:.4f}"
+                    for metric in audit["metrics"]
+                    if metric["exceedsMaximum"]
+                )
+                raise ValueError(
+                    "Raw metric의 역할 Composite 총 영향력이 상한을 초과합니다: "
+                    f"{player_type}/{profile_name}/{violations}"
+                )
 
 
 validate_derivation_balance(DERIVATION_BALANCE)
@@ -316,13 +365,21 @@ def hitter_metric_evidence(player: dict[str, Any]) -> list[dict[str, Any]]:
         )
     )
 
+    natural_position, _ = derive_source_position(player, "DH")
+    primary_defenses = [
+        record
+        for record in defenses
+        if SOURCE_POSITION_MAP.get(str(record.get("position") or "")) == natural_position
+    ]
     chances = sum(
         safe_number(record.get("putouts"))
         + safe_number(record.get("assists"))
         + safe_number(record.get("errors"))
-        for record in defenses
+        for record in primary_defenses
     )
-    errors = sum(safe_number(record.get("errors")) for record in defenses)
+    errors = sum(safe_number(record.get("errors")) for record in primary_defenses)
+    assists = sum(safe_number(record.get("assists")) for record in primary_defenses)
+    innings_outs = sum(safe_number(record.get("inningsOuts")) for record in primary_defenses)
     result.append(
         metric_evidence(
             "FieldingPercentage",
@@ -332,6 +389,51 @@ def hitter_metric_evidence(player: dict[str, Any]) -> list[dict[str, Any]]:
             chances,
             float(reliability_config["defensiveChances"]),
             chances > 0.0,
+        )
+    )
+    result.append(
+        metric_evidence(
+            "DefensiveOpportunitiesPerNine",
+            chances * 27.0 / innings_outs if innings_outs > 0.0 else 0.0,
+            chances,
+            innings_outs / 27.0,
+            innings_outs,
+            float(reliability_config["defensiveInningsOuts"]),
+            chances > 0.0 and innings_outs > 0.0,
+        )
+    )
+    assists_available = innings_outs > 0.0 and any(
+        record.get("assists") is not None for record in primary_defenses
+    )
+    result.append(
+        metric_evidence(
+            "AssistsPerNine",
+            assists * 27.0 / innings_outs if assists_available else 0.0,
+            assists,
+            innings_outs / 27.0,
+            innings_outs,
+            float(reliability_config["armInningsOuts"]),
+            assists_available,
+        )
+    )
+
+    stolen_bases_allowed = sum(
+        safe_number(record.get("stolenBasesAllowed")) for record in primary_defenses
+    )
+    caught_stealing = sum(
+        safe_number(record.get("caughtStealing")) for record in primary_defenses
+    )
+    catcher_attempts = stolen_bases_allowed + caught_stealing
+    catcher_arm_available = natural_position == "C" and catcher_attempts > 0.0
+    result.append(
+        metric_evidence(
+            "CaughtStealingRate",
+            caught_stealing / catcher_attempts if catcher_arm_available else 0.0,
+            caught_stealing,
+            catcher_attempts,
+            catcher_attempts,
+            float(reliability_config["catcherStealAttempts"]),
+            catcher_arm_available,
         )
     )
     return result
@@ -384,16 +486,23 @@ def derivation_group_key(
     player_type: str,
     pitcher_role_availability: dict[str, bool] | None = None,
 ) -> str:
+    if player_type == "Hitter":
+        group = source_position(player, player_type)
+    else:
+        group, _ = derive_source_pitcher_role(player, pitcher_role_availability)
+    return f"{year}:{group}"
+
+
+def derivation_role_tier(player: dict[str, Any], player_type: str) -> str:
+    """Qualified/Limited는 비교 모집단이 아니라 표본 진단 metadata로만 남긴다."""
     role_tier = DERIVATION_BALANCE["roleTier"]
     if player_type == "Hitter":
         sample_size = safe_number((player.get("hitterStats") or {}).get("plateAppearances"))
-        tier = "Qualified" if sample_size >= float(role_tier["qualifiedPlateAppearances"]) else "Limited"
-        group = source_position(player, player_type)
+        threshold = float(role_tier["qualifiedPlateAppearances"])
     else:
         sample_size = pitcher_batters_faced(player.get("pitcherStats") or {})
-        tier = "Qualified" if sample_size >= float(role_tier["qualifiedBattersFaced"]) else "Limited"
-        group, _ = derive_source_pitcher_role(player, pitcher_role_availability)
-    return f"{year}:{group}:{tier}"
+        threshold = float(role_tier["qualifiedBattersFaced"])
+    return "Qualified" if sample_size >= threshold else "Limited"
 
 
 def build_adjusted_feature_pool(
@@ -406,6 +515,7 @@ def build_adjusted_feature_pool(
     metric_names = HITTER_METRIC_NAMES if player_type == "Hitter" else PITCHER_METRIC_NAMES
     evidence_by_id: dict[str, list[dict[str, Any]]] = {}
     group_by_id: dict[str, str] = {}
+    role_tier_by_id: dict[str, str] = {}
     for player in players:
         source_id = str(player.get("sourcePlayerId") or "")
         if not source_id or source_id in evidence_by_id:
@@ -421,6 +531,7 @@ def build_adjusted_feature_pool(
             player_type,
             pitcher_role_availability,
         )
+        role_tier_by_id[source_id] = derivation_role_tier(player, player_type)
 
     group_statistics: dict[tuple[str, str], tuple[float, float]] = {}
     for group_key in sorted(set(group_by_id.values())):
@@ -462,6 +573,7 @@ def build_adjusted_feature_pool(
             adjusted_values.append(adjusted_z)
             component_traces[metric_name] = {
                 **evidence,
+                "roleTier": role_tier_by_id[source_id],
                 "groupMean": round(center, 8),
                 "groupStdDev": round(deviation, 8),
                 "rawZ": round(raw_z, 8),
@@ -560,24 +672,6 @@ def normalized_pool(players: list[dict[str, Any]], feature_fn) -> tuple[list[tup
     return normalized, centers, deviations
 
 
-def mixed_vector(
-    normalized: list[tuple[float, ...]],
-    rng: random.Random,
-    count: int,
-) -> tuple[tuple[float, ...], tuple[int, ...]]:
-    indices = tuple(rng.randrange(len(normalized)) for _ in range(count))
-    width = len(normalized[0])
-    vector = tuple(mean(normalized[index][field] for index in indices) for field in range(width))
-    return vector, indices
-
-
-def nearest_distance(vector: tuple[float, ...], references: list[tuple[float, ...]]) -> float:
-    return min(
-        math.sqrt(sum((left - right) ** 2 for left, right in zip(vector, reference)))
-        for reference in references
-    )
-
-
 def to_ratings(player_type: str, vector: tuple[float, ...]) -> list[int]:
     values, _ = to_ratings_with_trace(player_type, vector)
     return values
@@ -598,6 +692,14 @@ def to_ratings_with_trace(
     profiles = DERIVATION_BALANCE["ratingProfiles"][player_type]
     rating_center = float(DERIVATION_BALANCE["rating"]["center"])
     traces: list[dict[str, Any]] = []
+    role_tier = next(
+        (
+            str(component.get("roleTier"))
+            for component in (components or {}).values()
+            if component.get("roleTier")
+        ),
+        "Unknown",
+    )
     for attribute, profile in profiles.items():
         attribute_components = []
         combined_z = 0.0
@@ -630,6 +732,7 @@ def to_ratings_with_trace(
                 "seasonYear": season_year,
                 "attribute": attribute,
                 "groupKey": group_key,
+                "roleTier": role_tier,
                 "components": attribute_components,
                 "combinedZ": round(combined_z, 8),
                 "ratingBeforeClamp": round(rating_before_clamp, 8),
@@ -674,6 +777,22 @@ def build_ability_validation_warnings(
     return warnings
 
 
+def build_metric_influence_warnings(audit: dict[str, Any]) -> list[dict[str, Any]]:
+    """설정 오류가 허용된 진단 경로에서도 Raw metric 중복 지배를 명시적으로 남긴다."""
+    return [
+        {
+            "code": "ABILITY_METRIC_INFLUENCE_CAP_EXCEEDED",
+            "playerType": audit["playerType"],
+            "roleProfile": audit["roleProfile"],
+            "metric": metric["metric"],
+            "normalizedInfluence": metric["normalizedInfluence"],
+            "maximumAllowed": metric["maximumAllowed"],
+        }
+        for metric in audit["metrics"]
+        if metric["exceedsMaximum"]
+    ]
+
+
 def role_composite_weights(season: dict[str, Any]) -> tuple[str, list[float]]:
     player_type = str(season["playerType"])
     profiles = DERIVATION_BALANCE["roleCompositeProfiles"][player_type]
@@ -711,6 +830,7 @@ def role_adjusted_composite(season: dict[str, Any]) -> tuple[float, dict[str, An
         for ability_name, rating, weight in zip(ability_names, ratings, weights)
     ]
     composite = sum(component["contribution"] for component in contributions)
+    metric_influence_audit = metric_composite_influence_audit(player_type, profile_name)
     return composite, {
         "baseAttributes": list(season["baseAttributes"]),
         "role": role,
@@ -720,6 +840,7 @@ def role_adjusted_composite(season: dict[str, Any]) -> tuple[float, dict[str, An
             for ability_name, weight in zip(ability_names, weights)
         ],
         "abilityContribution": contributions,
+        "metricInfluenceAudit": metric_influence_audit,
         "composite": round(composite, 8),
         "originYear": int(season["originYear"]),
         "populationCount": 0,
@@ -743,14 +864,41 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
             key=lambda entry: (entry[1], str(entry[0]["playerSeasonId"])),
         )
         count = len(ranked)
+        threshold_rows = []
+        for threshold in DERIVATION_BALANCE["costPercentileThresholds"]:
+            upper_exclusive = float(threshold["upperExclusive"])
+            boundary_index = min(
+                count - 1,
+                max(0, math.ceil(min(1.0, upper_exclusive) * count) - 1),
+            )
+            threshold_rows.append(
+                {
+                    "upperExclusive": upper_exclusive,
+                    "cost": int(threshold["cost"]),
+                    "sourceCompositeAtBoundary": round(ranked[boundary_index][1], 8),
+                }
+            )
         for zero_based_rank, (season, _, trace) in enumerate(ranked):
             cost = percentile_cost(zero_based_rank, count)
             season["cost"] = cost
             trace["populationCount"] = count
+            trace["dataProvenance"] = "SourceBacked"
+            trace["costPopulationSource"] = "OriginYearSourceBacked"
+            trace["sourcePopulationSize"] = count
+            trace["replacementExcludedFromThresholdCalculation"] = True
+            trace["thresholds"] = threshold_rows
             trace["rank"] = zero_based_rank + 1
             trace["percentile"] = round((zero_based_rank + 0.5) / count, 8)
             trace["cost"] = cost
             season["costDerivationTrace"] = trace
+            metric_warnings = build_metric_influence_warnings(trace["metricInfluenceAudit"])
+            if metric_warnings:
+                existing = [
+                    warning
+                    for warning in season.get("derivationWarnings") or []
+                    if warning.get("code") != "ABILITY_METRIC_INFLUENCE_CAP_EXCEEDED"
+                ]
+                season["derivationWarnings"] = existing + metric_warnings
 
 
 def source_player_type(player: dict[str, Any]) -> str:
@@ -868,6 +1016,30 @@ def derive_source_pitcher_role(
     }
     official_role = str(player.get("seasonPitcherRole") or stats.get("pitcherRole") or "").strip()
     supported_roles = {"Starter", "Swingman", "LongRelief", "MiddleRelief", "Setup", "Closer"}
+    missing_usage_sources = [
+        source_name
+        for source_name, is_available in (
+            ("GamesStarted", games_started_available),
+            ("GamesFinished", games_finished_available),
+            ("Holds", holds_available),
+        )
+        if not is_available
+    ]
+    if games < float(config["lowConfidenceGames"]) or missing_usage_sources:
+        role_confidence = "Low"
+        confidence_reason = (
+            "역할 판정 표본이 작거나 GS/GF/HLD 원천이 없어 proxy를 사용"
+        )
+    elif games >= float(config["highConfidenceGames"]):
+        role_confidence = "High"
+        confidence_reason = (
+            "직접 기용 기록이 모두 제공되고 High confidence 최소 등판을 충족"
+        )
+    else:
+        role_confidence = "Medium"
+        confidence_reason = (
+            "직접 기용 기록은 제공되지만 High confidence 최소 등판에는 미달"
+        )
     if official_role in supported_roles:
         selected = official_role
         reason = "Normalized season record의 공식 역할 필드를 우선 사용"
@@ -900,16 +1072,22 @@ def derive_source_pitcher_role(
         reason = "선발/마무리/셋업/LongRelief 신호가 부족해 일반 Bullpen으로 분류"
 
     warnings: list[dict[str, Any]] = []
-    if games < config["lowConfidenceGames"]:
+    if role_confidence == "Low":
         warnings.append(
             {
                 "code": "PITCHER_ROLE_LOW_CONFIDENCE",
-                "message": "투수 역할을 판정할 시즌 등판 표본이 작습니다.",
+                "message": confidence_reason,
                 "games": games,
+                "missingUsageSources": missing_usage_sources,
             }
         )
     return selected, {
         "classifierVersion": POSITION_ROLE_CLASSIFIER_VERSION,
+        "pitcherRoleConfidence": role_confidence,
+        "pitcherRoleConfidenceReason": confidence_reason,
+        "roleMismatchPenaltyMultiplier": float(
+            config["roleMismatchPenaltyMultipliers"][role_confidence]
+        ),
         "pitcherRoleEvidence": {
             "games": games,
             "gamesStarted": games_started,
@@ -1511,6 +1689,7 @@ def build_editor_original_content(
             else:
                 position, position_role_trace = derive_source_position(player, "DH")
                 natural_pitcher_role = ""
+                position_role_trace["pitcherRoleConfidence"] = "High"
                 position_role_trace["selectedNaturalPitcherRole"] = ""
                 position_role_trace["pitcherRoleEvidence"] = {}
                 position_role_trace["pitcherRoleScores"] = []
@@ -1553,6 +1732,8 @@ def build_editor_original_content(
                 "originTeamSeasonKey": team_key,
                 "position": position,
                 "pitcherRole": natural_pitcher_role,
+                "pitcherRoleConfidence": position_role_trace["pitcherRoleConfidence"],
+                "dataProvenance": "SourceBacked",
                 "positionRoleDerivationTrace": position_role_trace,
                 "playerType": player_type,
                 "registrationType": "Unknown",
@@ -1674,6 +1855,17 @@ def build_editor_original_content(
             "generationSeed": 0,
             "namePolicyVersion": "original-source-name-v1",
             "nameDataPolicy": EDITOR_ORIGINAL_NAME_POLICY,
+            "sourceIdentityPolicyVersion": "editor-source-identity-v1",
+            "sourceAllocationPolicyVersion": "official-source-team-audit-v1",
+            "replacementGeneratorVersion": "replacement-generation-v1",
+            "replacementPopulationPolicyVersion": "origin-year-position-role-source-only-v1",
+            "sourceBackedPlayerPersonCount": len(player_persons),
+            "sourceBackedPlayerSeasonCount": sum(
+                len(year_content["playerSeasons"])
+                for year_content in year_contents
+            ),
+            "replacementGeneratedPlayerPersonCount": 0,
+            "replacementGeneratedPlayerSeasonCount": 0,
             "contentHash": "",
         },
     }
@@ -1738,173 +1930,6 @@ def build_fictional_name_map(
         else:
             raise ValueError(f"중복 없는 Runtime 가명을 배정할 수 없습니다: {person_id}")
     return result
-
-
-def original_record(
-    player_season_id: str,
-    team_season_key: str,
-    year: int,
-    player_type: str,
-    position: str,
-    references: list[dict[str, Any]],
-    indices: tuple[int, ...],
-) -> dict[str, Any]:
-    selected = [references[index] for index in indices]
-    if player_type == "Hitter":
-        stats = [player.get("hitterStats") or {} for player in selected]
-        return {
-            "playerSeasonId": player_season_id,
-            "teamSeasonKey": team_season_key,
-            "seasonYear": year,
-            "position": position,
-            "plateAppearances": round(mean(safe_number(row.get("plateAppearances")) for row in stats)),
-            "hits": round(mean(safe_number(row.get("hits")) for row in stats)),
-            "homeRuns": round(mean(safe_number(row.get("homeRuns")) for row in stats)),
-            "walks": round(mean(safe_number(row.get("walks")) for row in stats)),
-            "strikeouts": round(mean(safe_number(row.get("strikeouts")) for row in stats)),
-            "defensiveChances": round(
-                mean(
-                    sum(
-                        safe_number(record.get("putouts"))
-                        + safe_number(record.get("assists"))
-                        + safe_number(record.get("errors"))
-                        for record in (player.get("defenseRecords") or [])
-                    )
-                    for player in selected
-                )
-            ),
-            "fieldingErrors": round(
-                mean(
-                    sum(safe_number(record.get("errors")) for record in (player.get("defenseRecords") or []))
-                    for player in selected
-                )
-            ),
-        }
-    stats = [player.get("pitcherStats") or {} for player in selected]
-    return {
-        "playerSeasonId": player_season_id,
-        "teamSeasonKey": team_season_key,
-        "seasonYear": year,
-        "position": "P",
-        "pitchingOuts": round(mean(safe_number(row.get("inningsOuts")) for row in stats)),
-        "earnedRuns": round(mean(safe_number(row.get("earnedRuns")) for row in stats)),
-        "pitchingStrikeouts": round(mean(safe_number(row.get("strikeouts")) for row in stats)),
-    }
-
-
-def record_score(record: dict[str, Any]) -> float:
-    if safe_number(record.get("pitchingOuts")) > 0:
-        return (
-            safe_number(record.get("pitchingStrikeouts")) * 1.5
-            + safe_number(record.get("pitchingOuts")) * 0.2
-            - safe_number(record.get("earnedRuns")) * 2.0
-        )
-    return (
-        safe_number(record.get("hits"))
-        + safe_number(record.get("homeRuns")) * 4.0
-        + safe_number(record.get("walks")) * 0.5
-        - safe_number(record.get("fieldingErrors")) * 0.5
-    )
-
-
-def build_original_awards(year_content: dict[str, Any]) -> list[dict[str, Any]]:
-    year = year_content["year"]
-    records = year_content["originalSeasonRecords"]
-    ordered = sorted(records, key=lambda record: (-record_score(record), record["playerSeasonId"]))
-
-    def best(position: str, excluded: set[str]) -> dict[str, Any]:
-        return next(
-            record
-            for record in ordered
-            if record["position"] == position and record["playerSeasonId"] not in excluded
-        )
-
-    awards: list[dict[str, Any]] = []
-    golden_glove_ids: set[str] = set()
-    for position in ("P", "C", "1B", "2B", "3B", "SS"):
-        winner = best(position, golden_glove_ids)
-        golden_glove_ids.add(winner["playerSeasonId"])
-        awards.append(
-            {
-                "seasonYear": year,
-                "awardType": "GoldenGlove",
-                "playerSeasonId": winner["playerSeasonId"],
-                "position": position,
-            }
-        )
-    outfielders = [
-        record
-        for record in ordered
-        if record["position"] in {"LF", "CF", "RF"}
-        and record["playerSeasonId"] not in golden_glove_ids
-    ][:3]
-    for winner in outfielders:
-        golden_glove_ids.add(winner["playerSeasonId"])
-        awards.append(
-            {
-                "seasonYear": year,
-                "awardType": "GoldenGlove",
-                "playerSeasonId": winner["playerSeasonId"],
-                "position": "OF",
-            }
-        )
-    designated_hitter = best("DH", golden_glove_ids)
-    awards.append(
-        {
-            "seasonYear": year,
-            "awardType": "GoldenGlove",
-            "playerSeasonId": designated_hitter["playerSeasonId"],
-            "position": "DH",
-        }
-    )
-
-    all_star_ids: list[str] = []
-    for position in HITTER_POSITIONS:
-        candidate = best(position, set(all_star_ids))
-        all_star_ids.append(candidate["playerSeasonId"])
-    # 공통 ActiveRoster의 SP5+Bullpen/Setup/Closer6 쿼터와 같은 11명 투수 구성을 사용한다.
-    pitcher_candidates = [record for record in ordered if record["position"] == "P"][:11]
-    all_star_ids.extend(record["playerSeasonId"] for record in pitcher_candidates)
-    all_star_ids.extend(
-        record["playerSeasonId"]
-        for record in ordered
-        if record["position"] != "P" and record["playerSeasonId"] not in all_star_ids
-    )
-    all_star_ids = all_star_ids[:25]
-    record_by_id = {record["playerSeasonId"]: record for record in records}
-    for player_season_id in all_star_ids:
-        awards.append(
-            {
-                "seasonYear": year,
-                "awardType": "AllStar",
-                "playerSeasonId": player_season_id,
-                "position": record_by_id[player_season_id]["position"],
-            }
-        )
-
-    awards.extend(
-        (
-            {
-                "seasonYear": year,
-                "awardType": "RegularSeasonMvp",
-                "playerSeasonId": ordered[0]["playerSeasonId"],
-                "position": ordered[0]["position"],
-            },
-            {
-                "seasonYear": year,
-                "awardType": "AllStarGameMvp",
-                "playerSeasonId": all_star_ids[0],
-                "position": record_by_id[all_star_ids[0]]["position"],
-            },
-            {
-                "seasonYear": year,
-                "awardType": "PostseasonMvp",
-                "playerSeasonId": ordered[1]["playerSeasonId"],
-                "position": ordered[1]["position"],
-            },
-        )
-    )
-    return awards
 
 
 def load_reference(path: Path, expected_year: int) -> dict[str, Any]:
@@ -1987,252 +2012,121 @@ def validate_derivation_manifest(manifest: dict[str, Any]) -> None:
         raise ValueError("DERIVED_CACHE_VERSION_MISMATCH: " + "; ".join(mismatches))
 
 
-def bake_year(data: dict[str, Any], generation_seed: int) -> dict[str, Any]:
-    year = int(data["year"])
-    source_players = data["players"]
-    hitters = [player for player in source_players if player.get("hitterStats")]
-    pitchers = [player for player in source_players if player.get("pitcherStats")]
-    if not hitters or not pitchers:
-        raise ValueError(f"타자/투수 Reference가 모두 필요합니다: {year}")
-    hitter_vectors_by_id, _, _ = build_adjusted_feature_pool(hitters, year, "Hitter")
-    pitcher_vectors_by_id, _, _ = build_adjusted_feature_pool(pitchers, year, "Pitcher")
-    hitter_vectors = [hitter_vectors_by_id[str(player["sourcePlayerId"])] for player in hitters]
-    pitcher_vectors = [pitcher_vectors_by_id[str(player["sourcePlayerId"])] for player in pitchers]
-    seasons: list[dict[str, Any]] = []
-    persons: list[dict[str, Any]] = []
-    original_records: list[dict[str, Any]] = []
-    teams: list[dict[str, Any]] = []
-
-    for team_index, franchise_id in enumerate(FRANCHISE_IDS):
-        team_key = f"{franchise_id}_{year}"
-        core_card_ids: list[str] = []
-        all_card_ids: list[str] = []
-        for slot_index, roster_role in enumerate(TEAM_POOL_ROLES):
-            player_type = "Hitter" if "Hitter" in roster_role else "Pitcher"
-            references = hitters if player_type == "Hitter" else pitchers
-            normalized = hitter_vectors if player_type == "Hitter" else pitcher_vectors
-            rng = random.Random(stable_seed(STABLE_GENERATION_VERSION, generation_seed, year, franchise_id, roster_role))
-            vector: tuple[float, ...] | None = None
-            selected_indices: tuple[int, ...] = ()
-            distance = 0.0
-            for _ in range(32):
-                vector, selected_indices = mixed_vector(normalized, rng, rng.randint(3, 7))
-                distance = nearest_distance(vector, normalized)
-                if distance >= 0.12:
-                    break
-            assert vector is not None
-            global_index = team_index * len(TEAM_POOL_ROLES) + slot_index
-            person_id = "PERSON_" + stable_digest(STABLE_GENERATION_VERSION, generation_seed, year, global_index)
-            season_id = "SEASON_" + stable_digest(person_id, year, team_key)
-            card_id = f"{season_id}:Normal"
-            position = (
-                HITTER_POSITIONS[slot_index]
-                if slot_index < len(HITTER_POSITIONS)
-                else position_from_source(references[selected_indices[0]], "CF")
-            ) if player_type == "Hitter" else "P"
-            if player_type == "Pitcher":
-                if roster_role.startswith("StartingPitcher"):
-                    pitcher_role = "Starter"
-                elif roster_role == "Setup":
-                    pitcher_role = "Setup"
-                elif roster_role == "Closer":
-                    pitcher_role = "Closer"
-                else:
-                    pitcher_role = "MiddleRelief"
-            else:
-                pitcher_role = "MiddleRelief"
-            ratings = to_ratings(player_type, vector)
-            overall = mean(ratings[:6] if player_type == "Hitter" else ratings[6:])
-            source_reference_names = list(
-                dict.fromkeys(
-                    str(references[index].get("playerName") or "").strip()
-                    for index in selected_indices
-                    if str(references[index].get("playerName") or "").strip()
-                )
-            )
-            if not source_reference_names:
-                raise ValueError(f"원본 선수 이름이 없는 Reference 조합입니다: {year} {roster_role}")
-            persons.append(
-                {
-                    "playerPersonId": person_id,
-                    "originalName": source_reference_names[0],
-                    "fictionalName": "",
-                    "birthYear": year - rng.randint(18, 34),
-                    "bats": "Left" if rng.random() < 0.28 else "Right",
-                    "throws": "Left" if rng.random() < 0.18 else "Right",
-                    "primaryPosition": position,
-                    "registrationType": "Foreign" if global_index % 97 == 0 else "Domestic",
-                    "careerStartYear": year,
-                    "careerEndYear": year,
-                    "personPotentialTrait": [rng.randint(70, 100) for _ in ABILITY_NAMES],
-                }
-            )
-            seasons.append(
-                {
-                    "playerSeasonId": season_id,
-                    "playerPersonId": person_id,
-                    "originYear": year,
-                    "originFranchiseId": franchise_id,
-                    "originTeamSeasonKey": team_key,
-                    "position": position,
-                    "pitcherRole": pitcher_role,
-                    "playerType": player_type,
-                    "registrationType": persons[-1]["registrationType"],
-                    "baseAttributes": ratings,
-                    "cost": 0,
-                    "trainingCeiling": [],
-                    "rosterRole": roster_role,
-                    "referenceSimilarityDistance": round(distance, 6),
-                    "sourceReferenceNames": source_reference_names,
-                    "overall": overall,
-                }
-            )
-            original_records.append(
-                original_record(
-                    season_id,
-                    team_key,
-                    year,
-                    player_type,
-                    position,
-                    references,
-                    selected_indices,
-                )
-            )
-            if not roster_role.startswith("Reserve"):
-                core_card_ids.append(card_id)
-            all_card_ids.append(card_id)
-        teams.append(
-            {
-                "teamSeasonKey": team_key,
-                "franchiseId": franchise_id,
-                "originYear": year,
-                "allNormalCardIds": all_card_ids,
-                "core25CardIds": core_card_ids,
-                "referenceStrength": 0.0,
-            }
-        )
-
-    for season in seasons:
-        del season["overall"]
-    assign_origin_year_costs(seasons)
-    for season in seasons:
-        cost = season["cost"]
-        low, high = headroom_range(cost)
-        rng = random.Random(stable_seed("ceiling", generation_seed, season["playerSeasonId"]))
-        season["trainingCeiling"] = [min(99, rating + rng.randint(low, high)) for rating in season["baseAttributes"]]
-
-    season_by_id = {season["playerSeasonId"]: season for season in seasons}
-    for team in teams:
-        team["referenceStrength"] = round(
-            mean(
-                mean(season_by_id[card_id.removesuffix(":Normal")]["baseAttributes"])
-                for card_id in team["core25CardIds"]
-            ),
-            4,
-        )
-    result = {
-        "year": year,
-        "playerPersons": persons,
-        "playerSeasons": seasons,
-        "normalCards": [
-            {
-                "cardId": f"{season['playerSeasonId']}:Normal",
-                "playerSeasonId": season["playerSeasonId"],
-                "edition": "Normal",
-                "editionStatModifiers": [0] * len(ABILITY_NAMES),
-            }
-            for season in seasons
-        ],
-        "teamSeasons": teams,
-        "originalSeasonRecords": original_records,
-    }
-    result["originalAwardRecords"] = build_original_awards(result)
-    return result
-
-
 def validate_bake(content: dict[str, Any]) -> None:
-    name_data_policy = str(content.get("manifest", {}).get("nameDataPolicy") or "")
+    """Runtime-safe SourceBacked/Replacement Archive의 독립 구조 계약을 검증한다."""
+    manifest = content.get("manifest", {})
+    if manifest.get("nameDataPolicy") != RUNTIME_NAME_POLICY:
+        raise ValueError("Runtime Archive 이름 데이터 정책이 아닙니다.")
+    validate_derivation_manifest(manifest)
+    for field in (
+        "sourceIdentityPolicyVersion",
+        "sourceAllocationPolicyVersion",
+        "replacementGeneratorVersion",
+        "replacementPopulationPolicyVersion",
+    ):
+        if not str(manifest.get(field) or "").strip():
+            raise ValueError(f"Runtime provenance manifest version이 없습니다: {field}")
+
     persons = content["playerPersons"]
-    person_ids = [person["playerPersonId"] for person in content["playerPersons"]]
+    person_ids = [person["playerPersonId"] for person in persons]
     if len(person_ids) != len(set(person_ids)):
         raise ValueError("PlayerPersonId가 중복되었습니다.")
     fictional_names = [str(person.get("fictionalName") or "") for person in persons]
     if any(not is_natural_fictional_name(name) for name in fictional_names):
-        raise ValueError("Runtime 가명은 음절 반복이 없는 검증된 3음절 한국 이름이어야 합니다.")
+        raise ValueError("Runtime 가명은 음절 반복이 없는 3음절 한국 이름이어야 합니다.")
     if len(fictional_names) != len(set(fictional_names)):
         raise ValueError("Runtime 가상 선수 이름이 중복되었습니다.")
-    if name_data_policy == EDITOR_NAME_POLICY:
-        if any(not str(person.get("originalName") or "").strip() for person in persons):
-            raise ValueError("Editor Archive의 PlayerPerson에 대표 원본 이름이 없습니다.")
-        if any(person["fictionalName"] == person["originalName"] for person in persons):
-            raise ValueError("Runtime 가명이 실제 원본 이름과 같습니다.")
-    elif name_data_policy == RUNTIME_NAME_POLICY:
-        if any("originalName" in person for person in persons):
-            raise ValueError("Runtime 콘텐츠에 Editor 전용 원본 이름이 남아 있습니다.")
-    else:
-        raise ValueError(f"지원하지 않는 이름 데이터 정책입니다: {name_data_policy}")
+    if any("originalName" in person for person in persons):
+        raise ValueError("Runtime PlayerPerson에 실제 이름이 남아 있습니다.")
 
-    ids: set[str] = set()
+    all_season_ids: set[str] = set()
+    source_person_ids: set[str] = set()
+    replacement_person_ids: set[str] = set()
+    source_count = 0
+    replacement_count = 0
     for year_content in content["years"]:
+        year = int(year_content["year"])
         seasons = year_content["playerSeasons"]
         season_by_id = {season["playerSeasonId"]: season for season in seasons}
+        if len(season_by_id) != len(seasons) or all_season_ids.intersection(season_by_id):
+            raise ValueError("PlayerSeasonId가 중복되었습니다.")
+        all_season_ids.update(season_by_id)
         if len(year_content["teamSeasons"]) != 10:
             raise ValueError("정규 Franchise Team은 연도마다 정확히 10개여야 합니다.")
         for season in seasons:
-            if season["playerSeasonId"] in ids:
-                raise ValueError("PlayerSeasonId가 중복되었습니다.")
-            ids.add(season["playerSeasonId"])
-            if not 1 <= season["cost"] <= 10:
+            provenance = season.get("dataProvenance")
+            if provenance == "SourceBacked":
+                source_count += 1
+                source_person_ids.add(season["playerPersonId"])
+            elif provenance == "ReplacementGenerated":
+                replacement_count += 1
+                replacement_person_ids.add(season["playerPersonId"])
+            else:
+                raise ValueError("PlayerSeason DataProvenance가 유효하지 않습니다.")
+            if int(season["originYear"]) != year:
+                raise ValueError("SEASON_RECORD_CROSS_YEAR_REFERENCE")
+            if not 1 <= int(season["cost"]) <= 10:
                 raise ValueError("Cost는 1~10이어야 합니다.")
+            if len(season["baseAttributes"]) != len(ABILITY_NAMES) or len(season["trainingCeiling"]) != len(ABILITY_NAMES):
+                raise ValueError("BaseAttributes/TrainingCeiling은 12개여야 합니다.")
             if any(ceiling < base for base, ceiling in zip(season["baseAttributes"], season["trainingCeiling"])):
                 raise ValueError("TrainingCeiling이 BaseAttributes보다 낮습니다.")
-            if season["referenceSimilarityDistance"] < 0.12:
-                raise ValueError("실존 Reference와 지나치게 가까운 Synthetic PlayerSeason이 있습니다.")
-            if name_data_policy == EDITOR_NAME_POLICY:
-                if not season.get("sourceReferenceNames"):
-                    raise ValueError("Editor Archive의 PlayerSeason에 원본 Reference 이름이 없습니다.")
-            elif "sourceReferenceNames" in season:
-                raise ValueError("Runtime 콘텐츠에 Editor 전용 Reference 이름이 남아 있습니다.")
+            if "sourceReferenceNames" in season or "sourcePlayerId" in season:
+                raise ValueError("Runtime PlayerSeason에 Source 식별 정보가 남아 있습니다.")
+
+        allocated_cards: list[str] = []
         for team in year_content["teamSeasons"]:
-            if len(team["core25CardIds"]) != 25 or len(set(team["core25CardIds"])) != 25:
+            all_cards = team["allNormalCardIds"]
+            core_cards = team["core25CardIds"]
+            allocated_cards.extend(all_cards)
+            if len(core_cards) != 25 or len(set(core_cards)) != 25:
                 raise ValueError("Core25는 중복 없는 정확한 25장이어야 합니다.")
-            if not set(team["core25CardIds"]).issubset(team["allNormalCardIds"]):
+            if not set(core_cards).issubset(all_cards):
                 raise ValueError("Core25는 해당 TeamSeason의 전체 Normal Pool에 포함되어야 합니다.")
-            if not 28 <= len(team["allNormalCardIds"]) <= 40:
-                raise ValueError("TeamSeason 전체 Normal Pool은 권장 범위 28~40명을 지켜야 합니다.")
-            team_seasons = [season_by_id[card_id.removesuffix(":Normal")] for card_id in team["core25CardIds"]]
-            if len({season["playerPersonId"] for season in team_seasons}) != 25:
+            core = [season_by_id[card_id.removesuffix(":Normal")] for card_id in core_cards]
+            if len({season["playerPersonId"] for season in core}) != 25:
                 raise ValueError("Core25에 같은 PlayerPerson이 중복되었습니다.")
-            if sum(season["registrationType"] == "Foreign" for season in team_seasons) > 3:
+            if sum(season["registrationType"] == "Foreign" for season in core) > 3:
                 raise ValueError("Core25의 Foreign 등록 선수는 최대 3명입니다.")
-            roles = [season_by_id[card_id.removesuffix(":Normal")]["rosterRole"] for card_id in team["core25CardIds"]]
-            if sum(role.startswith("StartingHitter") for role in roles) != 9:
+            if sum(season["playerType"] == "Hitter" for season in core) != 14:
+                raise ValueError("Core25 야수는 14명이어야 합니다.")
+            if sum(season["playerType"] == "Pitcher" for season in core) != 11:
+                raise ValueError("Core25 투수는 11명이어야 합니다.")
+            roles = [season["rosterRole"] for season in core]
+            if sum(role.startswith("StartingHitter:") for role in roles) != 9:
                 raise ValueError("주전 야수는 9명이어야 합니다.")
-            if sum(role.startswith("BenchHitter") for role in roles) != 5:
+            if sum(role.startswith("BenchHitter:") for role in roles) != 5:
                 raise ValueError("벤치 야수는 5명이어야 합니다.")
-            if sum(role.startswith("StartingPitcher") for role in roles) != 5:
+            if sum(role.startswith("StartingPitcher:") for role in roles) != 5:
                 raise ValueError("선발 투수는 5명이어야 합니다.")
             if sum(role.startswith("Bullpen") for role in roles) != 4:
-                raise ValueError("일반 불펜은 4명이어야 합니다.")
+                raise ValueError("일반 Bullpen은 4명이어야 합니다.")
             if roles.count("Setup") != 1 or roles.count("Closer") != 1:
                 raise ValueError("Setup/Closer는 각 1명이어야 합니다.")
-        awards = year_content["originalAwardRecords"]
-        if any(award["playerSeasonId"] not in season_by_id for award in awards):
+        expected_cards = {f"{season_id}:Normal" for season_id in season_by_id}
+        if len(allocated_cards) != len(set(allocated_cards)) or set(allocated_cards) != expected_cards:
+            raise ValueError("모든 PlayerSeason은 정확히 한 Team Pool에 배치되어야 합니다.")
+
+        record_ids = [record["playerSeasonId"] for record in year_content["originalSeasonRecords"]]
+        if len(record_ids) != len(set(record_ids)) or set(record_ids) != set(season_by_id):
+            raise ValueError("PlayerSeason과 Baked record는 1:1이어야 합니다.")
+        if any(int(record["seasonYear"]) != year for record in year_content["originalSeasonRecords"]):
+            raise ValueError("SEASON_RECORD_CROSS_YEAR_REFERENCE")
+        if any(award["playerSeasonId"] not in season_by_id for award in year_content["originalAwardRecords"]):
             raise ValueError("Original Award가 존재하지 않는 PlayerSeason을 참조합니다.")
-        all_stars = [award for award in awards if award["awardType"] == "AllStar"]
-        if len(all_stars) != 25 or sum(award["position"] == "P" for award in all_stars) != 11:
-            raise ValueError("Original All-Star는 공통 Position quota를 만족하는 25명이어야 합니다.")
-        golden_gloves = [award for award in awards if award["awardType"] == "GoldenGlove"]
-        golden_glove_positions = [award["position"] for award in golden_gloves]
-        if (
-            len(golden_gloves) != 10
-            or golden_glove_positions.count("OF") != 3
-            or any(
-                golden_glove_positions.count(position) != 1
-                for position in ("P", "C", "1B", "2B", "3B", "SS", "DH")
-            )
-        ):
-            raise ValueError("Golden Glove는 P/C/내야/DH와 OF 3명을 합쳐 10명이어야 합니다.")
+
+    if source_count != int(manifest.get("sourceBackedPlayerSeasonCount", -1)):
+        raise ValueError("Manifest SourceBacked PlayerSeason 수가 실제와 다릅니다.")
+    if len(source_person_ids) != int(manifest.get("sourceBackedPlayerPersonCount", -1)):
+        raise ValueError("Manifest SourceBacked PlayerPerson 수가 실제와 다릅니다.")
+    if replacement_count != int(manifest.get("replacementGeneratedPlayerSeasonCount", -1)):
+        raise ValueError("Manifest Replacement PlayerSeason 수가 실제와 다릅니다.")
+    if len(replacement_person_ids) != int(manifest.get("replacementGeneratedPlayerPersonCount", -1)):
+        raise ValueError("Manifest Replacement PlayerPerson 수가 실제와 다릅니다.")
+    if source_person_ids.intersection(replacement_person_ids):
+        raise ValueError("SourceBacked와 ReplacementGenerated가 PlayerPerson을 공유합니다.")
+    if source_person_ids.union(replacement_person_ids) != set(person_ids):
+        raise ValueError("Runtime PlayerPerson이 provenance PlayerSeason에 연결되지 않았습니다.")
 
 
 def validate_editor_original_content(content: dict[str, Any]) -> None:
@@ -2240,6 +2134,16 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
     policy = str(content.get("manifest", {}).get("nameDataPolicy") or "")
     if policy != EDITOR_ORIGINAL_NAME_POLICY:
         raise ValueError(f"Editor 원본 이름 정책이 아닙니다: {policy}")
+
+    manifest = content["manifest"]
+    for field in (
+        "sourceIdentityPolicyVersion",
+        "sourceAllocationPolicyVersion",
+        "replacementGeneratorVersion",
+        "replacementPopulationPolicyVersion",
+    ):
+        if not str(manifest.get(field) or "").strip():
+            raise ValueError(f"Editor Source provenance manifest version이 없습니다: {field}")
 
     persons = content["playerPersons"]
     person_by_id = {person["playerPersonId"]: person for person in persons}
@@ -2256,6 +2160,8 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
     for year_content in content["years"]:
         year = int(year_content["year"])
         seasons = year_content["playerSeasons"]
+        if any(season.get("dataProvenance") != "SourceBacked" for season in seasons):
+            raise ValueError("Editor Source Audit에는 SourceBacked PlayerSeason만 있어야 합니다.")
         season_by_id = {season["playerSeasonId"]: season for season in seasons}
         if len(season_by_id) != len(seasons):
             raise ValueError("Editor 원본 PlayerSeasonId가 중복되었습니다.")
@@ -2317,6 +2223,10 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
             for attribute_trace in ability_trace:
                 if attribute_trace.get("playerSeasonId") != season["playerSeasonId"]:
                     raise ValueError("Ability 파생 Trace의 PlayerSeason 연결이 일치하지 않습니다.")
+                if attribute_trace.get("roleTier") not in {"Qualified", "Limited"}:
+                    raise ValueError("Ability 파생 Trace의 RoleTier 진단 metadata가 없습니다.")
+                if str(attribute_trace.get("groupKey") or "").endswith((":Qualified", ":Limited")):
+                    raise ValueError("Qualified/Limited는 Ability Z-score GroupKey에 포함될 수 없습니다.")
                 for component in attribute_trace.get("components") or []:
                     for field in ("groupMean", "groupStdDev", "rawZ", "reliability", "adjustedZ", "weight", "contribution"):
                         if not math.isfinite(safe_number(component.get(field), float("nan"))):
@@ -2328,6 +2238,9 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
                 or int(cost_trace.get("cost", 0)) != int(season["cost"])
             ):
                 raise ValueError("Cost 파생 Trace의 OriginYear 모집단 또는 Cost가 일치하지 않습니다.")
+            metric_influence_audit = cost_trace.get("metricInfluenceAudit") or {}
+            if not metric_influence_audit or metric_influence_audit.get("hasViolation"):
+                raise ValueError("ABILITY_METRIC_INFLUENCE_CAP_EXCEEDED: Cost metric 영향도 검증 실패")
 
         for team in team_by_key.values():
             if int(team["originYear"]) != year:
@@ -2385,6 +2298,15 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
         if any(int(award["seasonYear"]) != year for award in year_content["originalAwardRecords"]):
             raise ValueError("SEASON_RECORD_CROSS_YEAR_REFERENCE: Award SeasonYear가 연도 묶음과 다릅니다.")
 
+    if int(manifest.get("sourceBackedPlayerPersonCount", -1)) != len(persons):
+        raise ValueError("Editor Source manifest의 SourceBacked PlayerPerson 수가 실제와 다릅니다.")
+    if int(manifest.get("sourceBackedPlayerSeasonCount", -1)) != len(all_season_ids):
+        raise ValueError("Editor Source manifest의 SourceBacked PlayerSeason 수가 실제와 다릅니다.")
+    if int(manifest.get("replacementGeneratedPlayerPersonCount", -1)) != 0:
+        raise ValueError("Editor Source Audit manifest에 Replacement PlayerPerson이 포함되었습니다.")
+    if int(manifest.get("replacementGeneratedPlayerSeasonCount", -1)) != 0:
+        raise ValueError("Editor Source Audit manifest에 Replacement PlayerSeason이 포함되었습니다.")
+
 
 def validate_archive_content(content: dict[str, Any]) -> None:
     manifest = content.get("manifest", {})
@@ -2396,99 +2318,30 @@ def validate_archive_content(content: dict[str, Any]) -> None:
     validate_bake(content)
 
 
-def link_careers(
-    year_contents: list[dict[str, Any]],
+def bake_with_report(
+    input_dir: Path,
+    years: list[int],
     generation_seed: int,
-    source_names: Iterable[str],
-) -> list[dict[str, Any]]:
-    first_year = min(year["year"] for year in year_contents)
-    persons: dict[str, dict[str, Any]] = {}
-    previous_ratings: dict[str, list[int]] = {}
-    for year_content in sorted(year_contents, key=lambda item: item["year"]):
-        year = year_content["year"]
-        source_persons = year_content.pop("playerPersons")
-        seasons = year_content["playerSeasons"]
-        for slot_index, (source_person, season) in enumerate(zip(source_persons, seasons)):
-            career_length = 5 + stable_seed("career-length", generation_seed, slot_index) % 8
-            career_episode = (year - first_year) // career_length
-            person_id = "PERSON_" + stable_digest(
-                STABLE_GENERATION_VERSION,
-                generation_seed,
-                slot_index,
-                career_episode,
-            )
-            season["playerPersonId"] = person_id
-            previous = previous_ratings.get(person_id)
-            if previous is not None:
-                season["baseAttributes"] = [
-                    max(25, min(95, round(current * 0.75 + prior * 0.25)))
-                    for current, prior in zip(season["baseAttributes"], previous)
-                ]
-            previous_ratings[person_id] = list(season["baseAttributes"])
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Source Player/Season 1:1 정본에서 최종 Runtime과 검증 보고서를 만든다."""
+    from source_backed_final_bake import build_runtime_content
 
-            person = persons.get(person_id)
-            if person is None:
-                person = dict(source_person)
-                person["playerPersonId"] = person_id
-                person["careerStartYear"] = year
-                person["careerEndYear"] = year
-                persons[person_id] = person
-            else:
-                person["careerEndYear"] = year
-
-        season_by_id = {season["playerSeasonId"]: season for season in seasons}
-        assign_origin_year_costs(seasons)
-        for season in seasons:
-            cost = season["cost"]
-            low, high = headroom_range(cost)
-            rng = random.Random(stable_seed("ceiling", generation_seed, season["playerSeasonId"]))
-            season["trainingCeiling"] = [
-                min(99, rating + rng.randint(low, high))
-                for rating in season["baseAttributes"]
-            ]
-        for team in year_content["teamSeasons"]:
-            team["referenceStrength"] = round(
-                mean(
-                    mean(season_by_id[card_id.removesuffix(":Normal")]["baseAttributes"])
-                    for card_id in team["core25CardIds"]
-                ),
-                4,
-            )
-    fictional_names = build_fictional_name_map(persons.keys(), source_names)
-    for person_id, person in persons.items():
-        person["fictionalName"] = fictional_names[person_id]
-    return sorted(persons.values(), key=lambda person: person["playerPersonId"])
-
-
-def bake(input_dir: Path, years: list[int], generation_seed: int) -> dict[str, Any]:
     references = [
         load_reference(input_dir / f"{year}.json", year)
         for year in sorted(years)
     ]
-    reference_manifest_fields = build_reference_manifest_fields(references)
-    year_contents = [bake_year(data, generation_seed) for data in references]
-    source_names = {
-        str(player.get("playerName") or "")
-        for data in references
-        for player in data["players"]
-    }
-    persons = link_careers(year_contents, generation_seed, source_names)
-    content: dict[str, Any] = {
-        "schemaVersion": CONTENT_SCHEMA_VERSION,
-        "playerPersons": persons,
-        "years": year_contents,
-        "manifest": {
-            **reference_manifest_fields,
-            "generatorVersion": GENERATOR_VERSION,
-            "balanceVersion": BALANCE_VERSION,
-            "generationSeed": generation_seed,
-            "namePolicyVersion": NAME_POLICY_VERSION,
-            "nameDataPolicy": EDITOR_NAME_POLICY,
-            "contentHash": "",
-        },
-    }
-    validate_bake(content)
-    refresh_content_hash(content)
+    editor_source_content = build_editor_original_content(input_dir, years)
+    return build_runtime_content(
+        editor_source_content,
+        references,
+        generation_seed,
+        derivation=__import__(__name__),
+    )
+
+
+def bake(input_dir: Path, years: list[int], generation_seed: int) -> dict[str, Any]:
+    """SourceBacked + 최소 Replacement Runtime 콘텐츠를 Bake한다."""
+    content, _ = bake_with_report(input_dir, years, generation_seed)
     return content
 
 
@@ -2510,6 +2363,8 @@ def create_runtime_safe_content(editor_content: dict[str, Any]) -> dict[str, Any
             season.pop("costDerivationTrace", None)
             season.pop("derivationWarnings", None)
             season.pop("positionRoleDerivationTrace", None)
+            season.pop("replacementGenerationTrace", None)
+            season.pop("generationReason", None)
         for team in year_content["teamSeasons"]:
             team.pop("rosterSelectionTrace", None)
             team.pop("validationWarnings", None)
@@ -2561,6 +2416,16 @@ def write_editor_asset_archive(content: dict[str, Any], output_dir: Path) -> dic
         write_bytes_atomically(output_dir / relative_path, payload)
         archive_hash_entries.append((relative_path, payload_hash))
         awards = year_content["originalAwardRecords"]
+        source_seasons = [
+            season
+            for season in year_content["playerSeasons"]
+            if season.get("dataProvenance", "SourceBacked") == "SourceBacked"
+        ]
+        replacement_seasons = [
+            season
+            for season in year_content["playerSeasons"]
+            if season.get("dataProvenance") == "ReplacementGenerated"
+        ]
         year_entries.append(
             {
                 "year": year_content["year"],
@@ -2573,6 +2438,11 @@ def write_editor_asset_archive(content: dict[str, Any], output_dir: Path) -> dic
                 "originalRecordCount": len(year_content["originalSeasonRecords"]),
                 "allStarCount": sum(award["awardType"] == "AllStar" for award in awards),
                 "goldenGloveCount": sum(award["awardType"] == "GoldenGlove" for award in awards),
+                "sourceHitterCount": sum(season["playerType"] == "Hitter" for season in source_seasons),
+                "sourcePitcherCount": sum(season["playerType"] == "Pitcher" for season in source_seasons),
+                "replacementHitterCount": sum(season["playerType"] == "Hitter" for season in replacement_seasons),
+                "replacementPitcherCount": sum(season["playerType"] == "Pitcher" for season in replacement_seasons),
+                "replacementRatio": round(len(replacement_seasons) / 250.0, 8),
             }
         )
 
@@ -2600,10 +2470,40 @@ def write_editor_asset_archive(content: dict[str, Any], output_dir: Path) -> dic
                 len(year_content["originalAwardRecords"])
                 for year_content in content["years"]
             ),
+            "sourceBackedPlayerSeasonCount": sum(
+                entry["sourceHitterCount"] + entry["sourcePitcherCount"]
+                for entry in year_entries
+            ),
+            "replacementGeneratedPlayerSeasonCount": sum(
+                entry["replacementHitterCount"] + entry["replacementPitcherCount"]
+                for entry in year_entries
+            ),
+            "sourceBackedPlayerPersonCount": int(
+                content["manifest"].get("sourceBackedPlayerPersonCount", len(content["playerPersons"]))
+            ),
+            "replacementGeneratedPlayerPersonCount": int(
+                content["manifest"].get("replacementGeneratedPlayerPersonCount", 0)
+            ),
         },
     }
     write_bytes_atomically(output_dir / "manifest.json", canonical_json_bytes(manifest))
     return manifest
+
+
+def build_archive_validation_snapshot(manifest: dict[str, Any]) -> dict[str, Any]:
+    """문서와 검증 보고서가 공유할 결정론적 Archive 스냅샷을 만든다."""
+    payload_byte_length = int(manifest["playerPersons"]["byteLength"]) + sum(
+        int(entry["byteLength"])
+        for entry in manifest["years"]
+    )
+    return {
+        "contentSchemaVersion": int(manifest["contentSchemaVersion"]),
+        "contentHash": manifest["sourceManifest"]["contentHash"],
+        "assetArchiveHash": manifest["assetArchiveHash"],
+        "archivePayloadByteLength": payload_byte_length,
+        "manifestByteLength": len(canonical_json_bytes(manifest)),
+        "summary": manifest["summary"],
+    }
 
 
 def load_and_validate_editor_asset_archive(output_dir: Path) -> dict[str, Any]:
@@ -2664,7 +2564,7 @@ def parse_years(value: str) -> list[int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="KBO Reference를 1:1 Editor 원본 Archive와 분리된 Runtime-safe 합성 콘텐츠로 Bake합니다."
+        description="KBO Source 1:1 정본과 최소 Replacement를 Runtime-safe 콘텐츠로 Bake합니다."
     )
     parser.add_argument("--input-dir", type=Path, required=True)
     parser.add_argument("--years", type=parse_years, required=True)
@@ -2678,7 +2578,7 @@ def main() -> int:
     output_group.add_argument(
         "--editor-assets-dir",
         type=Path,
-        help="실제 선수·시즌을 1:1로 보존하는 Editor 원본 Archive 경로입니다. Runtime 합성본은 Runtime/에 생성됩니다.",
+        help="실제 선수·시즌을 1:1로 보존하는 Editor Source Archive 경로입니다. Runtime 결과는 Runtime/에 생성됩니다.",
     )
     parser.add_argument(
         "--verify-editor-assets",
@@ -2686,20 +2586,28 @@ def main() -> int:
         help="분할 Editor Asset을 다시 읽어 파일 Hash와 Bake 규칙을 검증합니다.",
     )
     args = parser.parse_args()
-    synthetic_audit_content = bake(args.input_dir, args.years, args.seed)
+    runtime_content, validation_report = bake_with_report(args.input_dir, args.years, args.seed)
     if args.output is not None:
-        content = create_runtime_safe_content(synthetic_audit_content)
+        content = create_runtime_safe_content(runtime_content)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         write_bytes_atomically(
             args.output,
             (json.dumps(content, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"),
         )
+        report_path = args.output.with_name(args.output.stem + ".validation_report.json")
+        write_bytes_atomically(report_path, canonical_json_bytes(validation_report))
     else:
         content = build_editor_original_content(args.input_dir, args.years)
-        write_editor_asset_archive(content, args.editor_assets_dir)
-        runtime_content = create_runtime_safe_content(synthetic_audit_content)
+        source_archive_manifest = write_editor_asset_archive(content, args.editor_assets_dir)
+        runtime_content = create_runtime_safe_content(runtime_content)
         runtime_assets_dir = args.editor_assets_dir / "Runtime"
-        write_editor_asset_archive(runtime_content, runtime_assets_dir)
+        runtime_archive_manifest = write_editor_asset_archive(runtime_content, runtime_assets_dir)
+        validation_report["sourceArchive"] = build_archive_validation_snapshot(source_archive_manifest)
+        validation_report["runtimeArchive"] = build_archive_validation_snapshot(runtime_archive_manifest)
+        write_bytes_atomically(
+            runtime_assets_dir / "validation_report.json",
+            canonical_json_bytes(validation_report),
+        )
         if args.verify_editor_assets:
             reloaded = load_and_validate_editor_asset_archive(args.editor_assets_dir)
             if reloaded != content:

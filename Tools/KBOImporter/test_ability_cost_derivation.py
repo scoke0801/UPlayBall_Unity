@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+import copy
 import unittest
 from pathlib import Path
 
 from synthetic_bake import (
     ABILITY_NAMES,
+    DERIVATION_BALANCE,
     assign_origin_year_costs,
     build_editor_original_content,
     build_adjusted_feature_pool,
     build_ability_validation_warnings,
+    build_metric_influence_warnings,
+    derive_source_pitcher_role,
+    metric_composite_influence_audit,
     role_adjusted_composite,
     to_ratings_with_trace,
+    validate_derivation_balance,
 )
 
 
@@ -105,6 +111,108 @@ class AbilityCostDerivationTests(unittest.TestCase):
             abs(traces["larger"]["BattingAverage"]["adjustedZ"]),
         )
 
+    def test_qualified_boundary_uses_one_continuous_baseline(self) -> None:
+        players = [
+            self._rate_hitter("below", 249, 0.340),
+            self._rate_hitter("above", 250, 0.340),
+            self._rate_hitter("peer_low", 400, 0.240),
+            self._rate_hitter("peer_middle", 400, 0.280),
+        ]
+        vectors, traces, groups = build_adjusted_feature_pool(players, 2099, "Hitter")
+        below_ratings, below_trace = to_ratings_with_trace(
+            "Hitter", vectors["below"], traces["below"], "BELOW", 2099, groups["below"]
+        )
+        above_ratings, above_trace = to_ratings_with_trace(
+            "Hitter", vectors["above"], traces["above"], "ABOVE", 2099, groups["above"]
+        )
+
+        self.assertEqual(groups["below"], "2099:1B")
+        self.assertEqual(groups["below"], groups["above"])
+        self.assertEqual(traces["below"]["BattingAverage"]["rawZ"], traces["above"]["BattingAverage"]["rawZ"])
+        self.assertEqual(below_trace[0]["roleTier"], "Limited")
+        self.assertEqual(above_trace[0]["roleTier"], "Qualified")
+        self.assertLessEqual(abs(below_ratings[0] - above_ratings[0]), 1)
+
+    def test_less_sample_never_strengthens_same_rate_deviation(self) -> None:
+        players = [
+            self._rate_hitter("small", 80, 0.340),
+            self._rate_hitter("large", 640, 0.340),
+            self._rate_hitter("peer_low", 400, 0.240),
+            self._rate_hitter("peer_middle", 400, 0.280),
+        ]
+        _, traces, groups = build_adjusted_feature_pool(players, 2099, "Hitter")
+
+        self.assertEqual(groups["small"], groups["large"])
+        for metric in ("BattingAverage", "OnBasePercentage", "SluggingPercentage"):
+            small = traces["small"][metric]
+            large = traces["large"][metric]
+            self.assertEqual(small["rawZ"], large["rawZ"])
+            self.assertLess(abs(small["adjustedZ"]), abs(large["adjustedZ"]))
+
+    def test_arm_and_defense_use_independent_evidence(self) -> None:
+        arm_metrics = set(DERIVATION_BALANCE["ratingProfiles"]["Hitter"]["Arm"]["metrics"])
+        defense_metrics = set(DERIVATION_BALANCE["ratingProfiles"]["Hitter"]["Defense"]["metrics"])
+        self.assertNotIn("FieldingPercentage", arm_metrics)
+        self.assertTrue(arm_metrics.isdisjoint(defense_metrics))
+
+        players = [
+            {**self._rate_hitter("no_defense", 400, 0.300), "defenseRecords": []},
+            {**self._rate_hitter("peer", 400, 0.280), "defenseRecords": []},
+        ]
+        vectors, traces, groups = build_adjusted_feature_pool(players, 2099, "Hitter")
+        ratings, ability_trace = to_ratings_with_trace(
+            "Hitter", vectors["no_defense"], traces["no_defense"], "NO_DEFENSE", 2099, groups["no_defense"]
+        )
+        arm_trace = next(trace for trace in ability_trace if trace["attribute"] == "Arm")
+        self.assertEqual(ratings[3], 50)
+        self.assertTrue(all(not component["isAvailable"] for component in arm_trace["components"]))
+
+    def test_metric_influence_cap_catches_duplicated_raw_metric(self) -> None:
+        for player_type, profiles in DERIVATION_BALANCE["roleCompositeProfiles"].items():
+            for profile_name in profiles:
+                audit = metric_composite_influence_audit(player_type, profile_name)
+                self.assertFalse(audit["hasViolation"], f"{player_type}/{profile_name}")
+
+        invalid = copy.deepcopy(DERIVATION_BALANCE)
+        invalid["ratingProfiles"]["Hitter"]["Arm"]["metrics"] = {"FieldingPercentage": 1.0}
+        invalid["ratingProfiles"]["Hitter"]["Defense"]["metrics"] = {"FieldingPercentage": 1.0}
+        invalid_audit = metric_composite_influence_audit("Hitter", "SS", invalid)
+        self.assertEqual(
+            [warning["code"] for warning in build_metric_influence_warnings(invalid_audit)],
+            ["ABILITY_METRIC_INFLUENCE_CAP_EXCEEDED"],
+        )
+        with self.assertRaisesRegex(ValueError, "Raw metric"):
+            validate_derivation_balance(invalid)
+
+    def test_pitcher_role_confidence_distinguishes_proxy_and_direct_usage(self) -> None:
+        legacy = self._pitcher(30, 0, 300)
+        _, legacy_trace = derive_source_pitcher_role(
+            legacy,
+            {"gamesStarted": False, "gamesFinished": False, "holds": False},
+        )
+        modern_high = self._pitcher(20, 18, 300)
+        _, high_trace = derive_source_pitcher_role(
+            modern_high,
+            {"gamesStarted": True, "gamesFinished": True, "holds": True},
+        )
+        modern_medium = self._pitcher(8, 6, 120)
+        _, medium_trace = derive_source_pitcher_role(
+            modern_medium,
+            {"gamesStarted": True, "gamesFinished": True, "holds": True},
+        )
+
+        self.assertEqual(legacy_trace["pitcherRoleConfidence"], "Low")
+        self.assertEqual(high_trace["pitcherRoleConfidence"], "High")
+        self.assertEqual(medium_trace["pitcherRoleConfidence"], "Medium")
+        self.assertLess(
+            legacy_trace["roleMismatchPenaltyMultiplier"],
+            medium_trace["roleMismatchPenaltyMultiplier"],
+        )
+        self.assertLess(
+            medium_trace["roleMismatchPenaltyMultiplier"],
+            high_trace["roleMismatchPenaltyMultiplier"],
+        )
+
     def test_cost_uses_origin_year_population_and_role_weights(self) -> None:
         seasons = [
             self._season("A", 2099, "1B", [50, 80, 80, 50, 50, 50]),
@@ -189,7 +297,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
             len(seasons_by_year[2020]),
         )
 
-        audit_names = {"안치용", "박진만", "로페즈", "최정", "박희수"}
+        audit_names = {"오지환", "안치용", "송은범", "박진만", "로페즈", "최정", "박희수"}
         audited = [
             season for season in seasons_by_year[2012]
             if person_names[season["playerPersonId"]] in audit_names
@@ -197,6 +305,20 @@ class AbilityCostDerivationTests(unittest.TestCase):
         self.assertEqual(len(audited), len(audit_names))
         self.assertTrue(all(season["costDerivationTrace"]["populationCount"] == len(seasons_by_year[2012]) for season in audited))
         self.assertTrue(all(season["costDerivationTrace"]["rank"] > 0 for season in audited))
+        by_name = {person_names[season["playerPersonId"]]: season for season in audited}
+        oh_ji_hwan = by_name["오지환"]
+        arm = next(trace for trace in oh_ji_hwan["abilityDerivationTrace"] if trace["attribute"] == "Arm")
+        defense = next(trace for trace in oh_ji_hwan["abilityDerivationTrace"] if trace["attribute"] == "Defense")
+        self.assertNotIn("FieldingPercentage", {component["metric"] for component in arm["components"]})
+        self.assertIn("FieldingPercentage", {component["metric"] for component in defense["components"]})
+        self.assertFalse(oh_ji_hwan["costDerivationTrace"]["metricInfluenceAudit"]["hasViolation"])
+
+        ahn_chi_yong = by_name["안치용"]
+        self.assertEqual(ahn_chi_yong["abilityDerivationTrace"][0]["groupKey"], "2012:LF")
+        self.assertEqual(ahn_chi_yong["abilityDerivationTrace"][0]["roleTier"], "Limited")
+        song_eun_beom = by_name["송은범"]
+        self.assertEqual(song_eun_beom["abilityDerivationTrace"][0]["groupKey"], "2012:Starter")
+        self.assertEqual(song_eun_beom["pitcherRoleConfidence"], "High")
 
     @staticmethod
     def _hitter(
@@ -241,6 +363,52 @@ class AbilityCostDerivationTests(unittest.TestCase):
             "playerType": "Hitter",
             "baseAttributes": hitter_ratings + [50] * (len(ABILITY_NAMES) - 6),
             "cost": 0,
+        }
+
+    @staticmethod
+    def _rate_hitter(source_id: str, plate_appearances: int, average: float) -> dict:
+        at_bats = max(1, int(plate_appearances * 0.9))
+        return {
+            "sourcePlayerId": source_id,
+            "hitterStats": {
+                "sourceAVG": average,
+                "sourceOBP": average + 0.060,
+                "sourceSLG": average + 0.150,
+                "plateAppearances": plate_appearances,
+                "atBats": at_bats,
+                "hits": round(average * at_bats),
+                "homeRuns": plate_appearances * 0.025,
+                "walks": plate_appearances * 0.08,
+                "strikeouts": plate_appearances * 0.18,
+            },
+            "runningStats": {
+                "stolenBases": plate_appearances * 0.02,
+                "caughtStealing": plate_appearances * 0.01,
+                "stolenBaseAttempts": plate_appearances * 0.03,
+            },
+            "defenseRecords": [
+                {
+                    "position": "1루수",
+                    "inningsOuts": plate_appearances * 2,
+                    "putouts": plate_appearances * 0.5,
+                    "assists": plate_appearances * 0.05,
+                    "errors": plate_appearances * 0.005,
+                }
+            ],
+        }
+
+    @staticmethod
+    def _pitcher(games: int, games_started: int, innings_outs: int) -> dict:
+        return {
+            "pitcherStats": {
+                "games": games,
+                "gamesStarted": games_started,
+                "gamesFinished": 2,
+                "completeGames": 0,
+                "saves": 0,
+                "holds": 1,
+                "inningsOuts": innings_outs,
+            }
         }
 
 

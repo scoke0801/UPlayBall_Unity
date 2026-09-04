@@ -31,7 +31,7 @@ class SyntheticBakeTests(unittest.TestCase):
         self.assertEqual(min(costs), 1)
         self.assertEqual(max(costs), 10)
 
-    def test_same_seed_bakes_editor_names_and_same_runtime_safe_content(self) -> None:
+    def test_same_seed_bakes_source_one_to_one_and_minimum_replacements(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             fixture = self._reference_fixture(
@@ -53,26 +53,23 @@ class SyntheticBakeTests(unittest.TestCase):
             self.assertEqual(first, second)
             year = first["years"][0]
             self.assertEqual(len(year["teamSeasons"]), 10)
-            self.assertEqual(len(year["playerSeasons"]), 300)
-            self.assertEqual(len(first["playerPersons"]), 300)
+            self.assertEqual(len(year["playerSeasons"]), 250)
+            self.assertEqual(len(first["playerPersons"]), 250)
+            self.assertEqual(
+                sum(season["dataProvenance"] == "SourceBacked" for season in year["playerSeasons"]),
+                4,
+            )
+            self.assertEqual(
+                sum(season["dataProvenance"] == "ReplacementGenerated" for season in year["playerSeasons"]),
+                246,
+            )
             self.assertTrue(all(len(team["core25CardIds"]) == 25 for team in year["teamSeasons"]))
-            self.assertTrue(all(len(team["allNormalCardIds"]) == 30 for team in year["teamSeasons"]))
-            self.assertTrue(all(
-                season["referenceSimilarityDistance"] >= 0.12
-                for season in year["playerSeasons"]
-            ))
-            self.assertEqual(
-                sum(award["awardType"] == "GoldenGlove" for award in year["originalAwardRecords"]),
-                10,
-            )
-            self.assertEqual(
-                sum(award["awardType"] == "AllStar" for award in year["originalAwardRecords"]),
-                25,
-            )
+            self.assertTrue(all(len(team["allNormalCardIds"]) == 25 for team in year["teamSeasons"]))
+            self.assertEqual(year["originalAwardRecords"], [])
             serialized = json.dumps(first, ensure_ascii=False)
-            self.assertIn("originalName", serialized)
-            self.assertIn("sourceReferenceNames", serialized)
-            self.assertIn("실제이름가", serialized)
+            self.assertNotIn("originalName", serialized)
+            self.assertNotIn("sourceReferenceNames", serialized)
+            self.assertNotIn("실제이름가", serialized)
 
             year["playerSeasons"][0]["positionRoleDerivationTrace"] = {"reason": "Editor only"}
             year["teamSeasons"][0]["rosterSelectionTrace"] = {"reason": "Editor only"}
@@ -286,7 +283,7 @@ class SyntheticBakeTests(unittest.TestCase):
             "Pitcher",
             availability,
         )
-        self.assertIn(":Starter:", groups["legacy-ace"])
+        self.assertEqual(groups["legacy-ace"], "1982:Starter")
         self.assertEqual(
             groups["legacy-ace"].split(":")[1],
             ace_trace["selectedNaturalPitcherRole"],

@@ -1,8 +1,8 @@
 {
-  "version": "historical-derivation-balance-v3",
-  "abilityFormulaVersion": "historical-ability-v2",
-  "costFormulaVersion": "historical-role-composite-v2",
-  "positionRoleClassifierVersion": "season-position-role-v3",
+  "version": "historical-derivation-balance-v4",
+  "abilityFormulaVersion": "historical-ability-v3",
+  "costFormulaVersion": "historical-role-composite-v3",
+  "positionRoleClassifierVersion": "season-position-role-v4",
   "rosterBuilderVersion": "position-first-core25-v2",
   "costPercentileThresholds": [
     {"upperExclusive": 0.05, "cost": 1},
@@ -16,11 +16,23 @@
     {"upperExclusive": 0.97, "cost": 9},
     {"upperExclusive": 1.01, "cost": 10}
   ],
+  "replacementGeneration": {
+    "version": "replacement-generation-v1",
+    "percentileLowerInclusive": 0.05,
+    "percentileUpperInclusive": 0.30,
+    "covarianceScale": 0.65,
+    "covarianceRegularization": 0.000001,
+    "minimumGroupPopulation": 6,
+    "maximumSamplingAttempts": 256
+  },
   "reliability": {
     "plateAppearances": 250.0,
     "battersFaced": 200.0,
     "stolenBaseAttempts": 20.0,
-    "defensiveChances": 250.0
+    "defensiveChances": 250.0,
+    "defensiveInningsOuts": 1200.0,
+    "armInningsOuts": 1200.0,
+    "catcherStealAttempts": 40.0
   },
   "roleTier": {
     "qualifiedPlateAppearances": 250.0,
@@ -29,7 +41,8 @@
   "validation": {
     "abilityLowSampleReliabilityMaximum": 0.20,
     "abilityDominantContributionShareMinimum": 0.50,
-    "abilityDominantContributionAbsoluteMinimum": 0.25
+    "abilityDominantContributionAbsoluteMinimum": 0.25,
+    "maximumRawMetricCompositeInfluence": 0.35
   },
   "rating": {
     "center": 50.0,
@@ -63,13 +76,15 @@
       "Arm": {
         "scale": 10.0,
         "metrics": {
-          "FieldingPercentage": 1.0
+          "AssistsPerNine": 0.7,
+          "CaughtStealingRate": 0.3
         }
       },
       "Defense": {
         "scale": 14.0,
         "metrics": {
-          "FieldingPercentage": 1.0
+          "FieldingPercentage": 0.65,
+          "DefensiveOpportunitiesPerNine": 0.35
         }
       },
       "BatterMental": {
@@ -156,6 +171,12 @@
     "minimumSetupHolds": 3.0,
     "longReliefInningsPerGame": 2.0,
     "lowConfidenceGames": 5.0,
+    "highConfidenceGames": 15.0,
+    "roleMismatchPenaltyMultipliers": {
+      "High": 1.0,
+      "Medium": 0.65,
+      "Low": 0.25
+    },
     "starterTargetInningsPerStart": 6.0,
     "setupTargetHoldsPerRelief": 0.30,
     "closerTargetSavesPerRelief": 0.30,

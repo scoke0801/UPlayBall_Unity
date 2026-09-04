@@ -538,8 +538,16 @@ Assets/Editor Default Resources/*
 **/Tools/KBOImporter/*
 !Tools/KBOImporter/README.md
 !Tools/KBOImporter/derivation_balance.json
+!Tools/KBOImporter/replacement_generation.py
+!Tools/KBOImporter/source_backed_final_bake.py
+!Tools/KBOImporter/source_backed_runtime_bake.py
+!Tools/KBOImporter/sync_historical_validation_docs.py
 !Tools/KBOImporter/synthetic_bake.py
 !Tools/KBOImporter/test_ability_cost_derivation.py
+!Tools/KBOImporter/test_replacement_generation.py
+!Tools/KBOImporter/test_source_backed_final_bake.py
+!Tools/KBOImporter/test_source_backed_runtime_bake.py
+!Tools/KBOImporter/test_sync_historical_validation_docs.py
 !Tools/KBOImporter/test_synthetic_bake.py
 !Tools/KBOImporter/test_validation.py
 !Tools/KBOImporter/kbo_importer/
