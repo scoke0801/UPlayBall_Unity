@@ -7,15 +7,15 @@ namespace Baseball.Editor.HistoricalDatabase
 {
     public sealed partial class HistoricalDatabaseValidationService
     {
-        private const int ExpectedContentSchemaVersion = 3;
+        private const int ExpectedContentSchemaVersion = 4;
         private const int ExpectedNormalizedSchemaVersion = 3;
         private const string ExpectedReferenceDataVersion = "kbo-normalized-v3";
         private const string ExpectedNormalizedImporterVersion = "1.2.0";
-        private const string ExpectedAbilityFormulaVersion = "historical-ability-v2";
-        private const string ExpectedPositionRoleClassifierVersion = "season-position-role-v3";
+        private const string ExpectedAbilityFormulaVersion = "historical-ability-v3";
+        private const string ExpectedPositionRoleClassifierVersion = "season-position-role-v4";
         private const string ExpectedRosterBuilderVersion = "position-first-core25-v2";
-        private const string ExpectedCostFormulaVersion = "historical-role-composite-v2";
-        private const string ExpectedDerivationBalanceVersion = "historical-derivation-balance-v3";
+        private const string ExpectedCostFormulaVersion = "historical-role-composite-v3";
+        private const string ExpectedDerivationBalanceVersion = "historical-derivation-balance-v4";
 
         private static void ValidateManifestAndFiles(
             HistoricalArchiveData archive,
@@ -79,6 +79,10 @@ namespace Baseball.Editor.HistoricalDatabase
             ValidateRequiredManifestText("referenceDataVersion", sourceManifest.ReferenceDataVersion, collector);
             ValidateRequiredManifestText("generatorVersion", sourceManifest.GeneratorVersion, collector);
             ValidateRequiredManifestText("balanceVersion", sourceManifest.BalanceVersion, collector);
+            ValidateRequiredManifestText("sourceIdentityPolicyVersion", sourceManifest.SourceIdentityPolicyVersion, collector);
+            ValidateRequiredManifestText("sourceAllocationPolicyVersion", sourceManifest.SourceAllocationPolicyVersion, collector);
+            ValidateRequiredManifestText("replacementGeneratorVersion", sourceManifest.ReplacementGeneratorVersion, collector);
+            ValidateRequiredManifestText("replacementPopulationPolicyVersion", sourceManifest.ReplacementPopulationPolicyVersion, collector);
             ValidateExpectedManifestText(
                 "referenceDataVersion",
                 ExpectedReferenceDataVersion,
@@ -248,6 +252,16 @@ namespace Baseball.Editor.HistoricalDatabase
             CheckCount(summary.NormalCardCount, archive.Cards?.Count ?? 0, "normalCardCount", collector);
             CheckCount(summary.OriginalRecordCount, archive.Records?.Count ?? 0, "originalRecordCount", collector);
             CheckCount(summary.OriginalAwardCount, archive.Awards?.Count ?? 0, "originalAwardCount", collector);
+            CheckCount(
+                summary.SourceBackedPlayerPersonCount + summary.ReplacementGeneratedPlayerPersonCount,
+                archive.Persons?.Count ?? 0,
+                "provenance.playerPersonCount",
+                collector);
+            CheckCount(
+                summary.SourceBackedPlayerSeasonCount + summary.ReplacementGeneratedPlayerSeasonCount,
+                archive.PlayerRows?.Count ?? 0,
+                "provenance.playerSeasonCount",
+                collector);
 
             if (manifest.PlayerPersons != null)
                 CheckCount(manifest.PlayerPersons.Count, archive.Persons?.Count ?? 0, "playerPersons.file.count", collector);

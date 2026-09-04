@@ -240,6 +240,20 @@ namespace Baseball.Simulation.Historical
             PitcherRole assignedRole,
             PositionAssignmentRule rule)
         {
+            return EvaluatePitcher(
+                naturalRole,
+                assignedRole,
+                PitcherRoleConfidence.High,
+                rule);
+        }
+
+        /// <summary>Source 역할 근거가 불완전하면 비본래 역할 비용을 설정된 비율로 완화한다.</summary>
+        public PositionAssignmentPenalty EvaluatePitcher(
+            PitcherRole naturalRole,
+            PitcherRole assignedRole,
+            PitcherRoleConfidence naturalRoleConfidence,
+            PositionAssignmentRule rule)
+        {
             if (rule == null)
                 throw new ArgumentNullException(nameof(rule));
             if (naturalRole == assignedRole)
@@ -247,7 +261,7 @@ namespace Baseball.Simulation.Historical
 
             return new PositionAssignmentPenalty(
                 true,
-                rule.PitcherRoleMismatchPenalty.ConditionPenalty,
+                rule.PitcherRoleMismatchPenalty.GetConditionPenalty(naturalRoleConfidence),
                 1d);
         }
 

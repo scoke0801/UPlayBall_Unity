@@ -40,7 +40,8 @@ namespace Baseball.Simulation.Match
             int pitchLimit = 0,
             PitcherRole? naturalRole = null,
             ActiveRosterRole? activeRosterRole = null,
-            string playerSeasonId = null)
+            string playerSeasonId = null,
+            PitcherRoleConfidence naturalRoleConfidence = PitcherRoleConfidence.High)
         {
             Player = player ?? throw new ArgumentNullException(nameof(player));
             if (condition < 0 || condition > 100)
@@ -58,6 +59,7 @@ namespace Baseball.Simulation.Match
             NaturalRole = naturalRole ?? role;
             ActiveRosterRole = activeRosterRole;
             PlayerSeasonId = playerSeasonId?.Trim() ?? string.Empty;
+            NaturalRoleConfidence = naturalRoleConfidence;
             if (activeRosterRole.HasValue)
             {
                 ActiveRosterRole rosterRole = activeRosterRole.Value;
@@ -79,6 +81,7 @@ namespace Baseball.Simulation.Match
         public PitcherRole NaturalRole { get; }
         public ActiveRosterRole? ActiveRosterRole { get; }
         public string PlayerSeasonId { get; }
+        public PitcherRoleConfidence NaturalRoleConfidence { get; }
         public int Condition { get; }
         public RecentPitchingWorkload RecentWorkload { get; }
         public int PitchLimit { get; }

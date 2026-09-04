@@ -297,6 +297,7 @@ namespace Baseball.Simulation.Match
             return _assignmentPenaltyResolver.EvaluatePitcher(
                 entry.NaturalRole,
                 entry.Role,
+                entry.NaturalRoleConfidence,
                 _historicalConfiguration.PositionAssignmentRule);
         }
 

@@ -54,6 +54,11 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private int originalRecordCount;
         [SerializeField] private int allStarCount;
         [SerializeField] private int goldenGloveCount;
+        [SerializeField] private int sourceHitterCount;
+        [SerializeField] private int sourcePitcherCount;
+        [SerializeField] private int replacementHitterCount;
+        [SerializeField] private int replacementPitcherCount;
+        [SerializeField] private double replacementRatio;
 
         public int Year => year;
         public string Path => path ?? string.Empty;
@@ -65,6 +70,11 @@ namespace Baseball.Editor.HistoricalDatabase
         public int OriginalRecordCount => originalRecordCount;
         public int AllStarCount => allStarCount;
         public int GoldenGloveCount => goldenGloveCount;
+        public int SourceHitterCount => sourceHitterCount;
+        public int SourcePitcherCount => sourcePitcherCount;
+        public int ReplacementHitterCount => replacementHitterCount;
+        public int ReplacementPitcherCount => replacementPitcherCount;
+        public double ReplacementRatio => replacementRatio;
     }
 
     /// <summary>Archive 생성에 사용한 입력·Generator·Balance 버전을 보관한다.</summary>
@@ -86,6 +96,14 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private long generationSeed;
         [SerializeField] private string namePolicyVersion;
         [SerializeField] private string nameDataPolicy;
+        [SerializeField] private string sourceIdentityPolicyVersion;
+        [SerializeField] private string sourceAllocationPolicyVersion;
+        [SerializeField] private string replacementGeneratorVersion;
+        [SerializeField] private string replacementPopulationPolicyVersion;
+        [SerializeField] private int sourceBackedPlayerPersonCount;
+        [SerializeField] private int sourceBackedPlayerSeasonCount;
+        [SerializeField] private int replacementGeneratedPlayerPersonCount;
+        [SerializeField] private int replacementGeneratedPlayerSeasonCount;
         [SerializeField] private string contentHash;
 
         public string ReferenceDataVersion => referenceDataVersion ?? string.Empty;
@@ -103,6 +121,14 @@ namespace Baseball.Editor.HistoricalDatabase
         public long GenerationSeed => generationSeed;
         public string NamePolicyVersion => namePolicyVersion ?? string.Empty;
         public string NameDataPolicy => nameDataPolicy ?? string.Empty;
+        public string SourceIdentityPolicyVersion => sourceIdentityPolicyVersion ?? string.Empty;
+        public string SourceAllocationPolicyVersion => sourceAllocationPolicyVersion ?? string.Empty;
+        public string ReplacementGeneratorVersion => replacementGeneratorVersion ?? string.Empty;
+        public string ReplacementPopulationPolicyVersion => replacementPopulationPolicyVersion ?? string.Empty;
+        public int SourceBackedPlayerPersonCount => sourceBackedPlayerPersonCount;
+        public int SourceBackedPlayerSeasonCount => sourceBackedPlayerSeasonCount;
+        public int ReplacementGeneratedPlayerPersonCount => replacementGeneratedPlayerPersonCount;
+        public int ReplacementGeneratedPlayerSeasonCount => replacementGeneratedPlayerSeasonCount;
         public string ContentHash => contentHash ?? string.Empty;
     }
 
@@ -117,6 +143,10 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private int normalCardCount;
         [SerializeField] private int originalRecordCount;
         [SerializeField] private int originalAwardCount;
+        [SerializeField] private int sourceBackedPlayerPersonCount;
+        [SerializeField] private int sourceBackedPlayerSeasonCount;
+        [SerializeField] private int replacementGeneratedPlayerPersonCount;
+        [SerializeField] private int replacementGeneratedPlayerSeasonCount;
 
         public int YearCount => yearCount;
         public int PlayerPersonCount => playerPersonCount;
@@ -125,6 +155,10 @@ namespace Baseball.Editor.HistoricalDatabase
         public int NormalCardCount => normalCardCount;
         public int OriginalRecordCount => originalRecordCount;
         public int OriginalAwardCount => originalAwardCount;
+        public int SourceBackedPlayerPersonCount => sourceBackedPlayerPersonCount;
+        public int SourceBackedPlayerSeasonCount => sourceBackedPlayerSeasonCount;
+        public int ReplacementGeneratedPlayerPersonCount => replacementGeneratedPlayerPersonCount;
+        public int ReplacementGeneratedPlayerSeasonCount => replacementGeneratedPlayerSeasonCount;
     }
 
     /// <summary>다년도 커리어에서 동일 인물을 연결하는 PlayerPerson 원본 DTO다.</summary>
@@ -172,7 +206,9 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private string originTeamSeasonKey;
         [SerializeField] private string position;
         [SerializeField] private string pitcherRole;
+        [SerializeField] private string pitcherRoleConfidence;
         [SerializeField] private string playerType;
+        [SerializeField] private string dataProvenance;
         [SerializeField] private string registrationType;
         [SerializeField] private int[] baseAttributes;
         [SerializeField] private int cost;
@@ -192,7 +228,9 @@ namespace Baseball.Editor.HistoricalDatabase
         public string OriginTeamSeasonKey => originTeamSeasonKey ?? string.Empty;
         public string Position => position ?? string.Empty;
         public string PitcherRole => pitcherRole ?? string.Empty;
+        public string PitcherRoleConfidence => pitcherRoleConfidence ?? string.Empty;
         public string PlayerType => playerType ?? string.Empty;
+        public string DataProvenance => dataProvenance ?? string.Empty;
         public string RegistrationType => registrationType ?? string.Empty;
         public int[] BaseAttributes => baseAttributes ?? Array.Empty<int>();
         public int Cost => cost;

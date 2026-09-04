@@ -1,5 +1,58 @@
 namespace Baseball.Core.Balance
 {
+    /// <summary>비주포지션과 Natural PitcherRole 불일치 비용을 한곳에 보관한다.</summary>
+    public sealed class HistoricalAssignmentBalance
+    {
+        public HistoricalAssignmentBalance(
+            int offPositionConditionPenalty,
+            double offPositionErrorProbabilityMultiplier,
+            int pitcherRoleMismatchConditionPenalty,
+            double mediumConfidenceMultiplier,
+            double lowConfidenceMultiplier)
+        {
+            if (offPositionConditionPenalty < 0)
+                throw new System.ArgumentOutOfRangeException(nameof(offPositionConditionPenalty));
+            if (offPositionErrorProbabilityMultiplier < 1d || double.IsNaN(offPositionErrorProbabilityMultiplier))
+                throw new System.ArgumentOutOfRangeException(nameof(offPositionErrorProbabilityMultiplier));
+            if (pitcherRoleMismatchConditionPenalty < 0)
+                throw new System.ArgumentOutOfRangeException(nameof(pitcherRoleMismatchConditionPenalty));
+            if (mediumConfidenceMultiplier < 0d || mediumConfidenceMultiplier > 1d || double.IsNaN(mediumConfidenceMultiplier))
+                throw new System.ArgumentOutOfRangeException(nameof(mediumConfidenceMultiplier));
+            if (lowConfidenceMultiplier < 0d || lowConfidenceMultiplier > mediumConfidenceMultiplier || double.IsNaN(lowConfidenceMultiplier))
+                throw new System.ArgumentOutOfRangeException(nameof(lowConfidenceMultiplier));
+
+            OffPositionConditionPenalty = offPositionConditionPenalty;
+            OffPositionErrorProbabilityMultiplier = offPositionErrorProbabilityMultiplier;
+            PitcherRoleMismatchConditionPenalty = pitcherRoleMismatchConditionPenalty;
+            MediumConfidenceMultiplier = mediumConfidenceMultiplier;
+            LowConfidenceMultiplier = lowConfidenceMultiplier;
+        }
+
+        public int OffPositionConditionPenalty { get; }
+        public double OffPositionErrorProbabilityMultiplier { get; }
+        public int PitcherRoleMismatchConditionPenalty { get; }
+        public double MediumConfidenceMultiplier { get; }
+        public double LowConfidenceMultiplier { get; }
+
+        /// <summary>DetailedMatchEngine에 주입할 순수 C# 규칙을 만든다.</summary>
+        public Baseball.Core.Historical.PositionAssignmentRule CreateRule()
+        {
+            return new Baseball.Core.Historical.PositionAssignmentRule(
+                new Baseball.Core.Historical.OffPositionPenaltyDefinition(
+                    OffPositionConditionPenalty,
+                    OffPositionErrorProbabilityMultiplier),
+                new Baseball.Core.Historical.PitcherRoleMismatchPenaltyDefinition(
+                    PitcherRoleMismatchConditionPenalty,
+                    MediumConfidenceMultiplier,
+                    LowConfidenceMultiplier));
+        }
+
+        public static HistoricalAssignmentBalance CreateDefault()
+        {
+            return new HistoricalAssignmentBalance(6, 1.5d, 8, 0.65d, 0.25d);
+        }
+    }
+
     /// <summary>
     /// 시뮬레이션 계수를 한 버전의 순수 C# 데이터로 묶어 제공한다.
     /// </summary>
@@ -75,6 +128,7 @@ namespace Baseball.Core.Balance
             ManagerLineupBalance? managerLineup = null,
             MatchBalanceTable match = null,
             MiniGameBalance miniGame = null,
+            HistoricalAssignmentBalance historicalAssignment = null,
             string contentHash = "builtin-career-content-v3")
         {
             if (string.IsNullOrWhiteSpace(contentHash))
@@ -103,6 +157,7 @@ namespace Baseball.Core.Balance
             ManagerLineup = managerLineup ?? ManagerLineupBalance.CreateDefault();
             Match = match ?? MatchBalanceTable.CreateDefault();
             MiniGame = miniGame ?? MiniGameBalance.CreateDefault();
+            HistoricalAssignment = historicalAssignment ?? HistoricalAssignmentBalance.CreateDefault();
             SeasonAwards = SeasonAwardBalance.CreateDefault();
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
         }
@@ -131,6 +186,7 @@ namespace Baseball.Core.Balance
         public ManagerLineupBalance ManagerLineup { get; }
         public MatchBalanceTable Match { get; }
         public MiniGameBalance MiniGame { get; }
+        public HistoricalAssignmentBalance HistoricalAssignment { get; }
         public SeasonAwardBalance SeasonAwards { get; }
         public SeasonSettlementBalance SeasonSettlement { get; }
 

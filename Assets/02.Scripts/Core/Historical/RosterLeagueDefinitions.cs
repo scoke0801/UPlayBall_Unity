@@ -191,14 +191,43 @@ namespace Baseball.Core.Historical
     /// <summary>투수의 본래 역할과 실제 역할이 다를 때 적용할 데이터 기반 비용이다.</summary>
     public sealed class PitcherRoleMismatchPenaltyDefinition
     {
-        public PitcherRoleMismatchPenaltyDefinition(int conditionPenalty)
+        public PitcherRoleMismatchPenaltyDefinition(
+            int conditionPenalty,
+            double mediumConfidenceMultiplier = 0.65d,
+            double lowConfidenceMultiplier = 0.25d)
         {
             if (conditionPenalty < 0)
                 throw new ArgumentOutOfRangeException(nameof(conditionPenalty));
+            if (mediumConfidenceMultiplier < 0d || mediumConfidenceMultiplier > 1d ||
+                double.IsNaN(mediumConfidenceMultiplier))
+            {
+                throw new ArgumentOutOfRangeException(nameof(mediumConfidenceMultiplier));
+            }
+            if (lowConfidenceMultiplier < 0d || lowConfidenceMultiplier > mediumConfidenceMultiplier ||
+                double.IsNaN(lowConfidenceMultiplier))
+            {
+                throw new ArgumentOutOfRangeException(nameof(lowConfidenceMultiplier));
+            }
             ConditionPenalty = conditionPenalty;
+            MediumConfidenceMultiplier = mediumConfidenceMultiplier;
+            LowConfidenceMultiplier = lowConfidenceMultiplier;
         }
 
         public int ConditionPenalty { get; }
+        public double MediumConfidenceMultiplier { get; }
+        public double LowConfidenceMultiplier { get; }
+
+        /// <summary>역할 근거가 불완전할수록 비본래 역할 비용을 완화한다.</summary>
+        public int GetConditionPenalty(PitcherRoleConfidence confidence)
+        {
+            double multiplier = confidence switch
+            {
+                PitcherRoleConfidence.Low => LowConfidenceMultiplier,
+                PitcherRoleConfidence.Medium => MediumConfidenceMultiplier,
+                _ => 1d
+            };
+            return (int)Math.Round(ConditionPenalty * multiplier, MidpointRounding.AwayFromZero);
+        }
     }
 
     /// <summary>포지션 불일치를 거부하지 않고 Simulation 비용으로 바꾸는 공통 규칙이다.</summary>

@@ -18,7 +18,7 @@ namespace Baseball.Game.Historical
             int assetFormatVersion,
             int contentSchemaVersion,
             string assetArchiveHash,
-            SyntheticContentManifest sourceManifest,
+            HistoricalSourceContentManifest sourceManifest,
             string namePolicyVersion = "",
             string nameDataPolicy = "",
             string rawDataVersion = "",
@@ -58,7 +58,7 @@ namespace Baseball.Game.Historical
         public int AssetFormatVersion { get; }
         public int ContentSchemaVersion { get; }
         public string AssetArchiveHash { get; }
-        public SyntheticContentManifest SourceManifest { get; }
+        public HistoricalSourceContentManifest SourceManifest { get; }
         public string NamePolicyVersion { get; }
         public string NameDataPolicy { get; }
         public string RawDataVersion { get; }

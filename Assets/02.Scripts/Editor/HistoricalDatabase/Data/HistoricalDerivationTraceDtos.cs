@@ -91,10 +91,28 @@ namespace Baseball.Editor.HistoricalDatabase
         public double Contribution => contribution;
     }
 
+    /// <summary>SourceBacked 모집단에서 확정한 Cost percentile 경계 하나다.</summary>
+    [Serializable]
+    public sealed class HistoricalCostThresholdTrace
+    {
+        [SerializeField] private double upperExclusive;
+        [SerializeField] private int cost;
+        [SerializeField] private double sourceCompositeAtBoundary;
+
+        public double UpperExclusive => upperExclusive;
+        public int Cost => cost;
+        public double SourceCompositeAtBoundary => sourceCompositeAtBoundary;
+    }
+
     /// <summary>OriginYear 전체 모집단에서 RoleAdjustedComposite가 Cost로 변환된 근거다.</summary>
     [Serializable]
     public sealed class HistoricalCostDerivationTrace
     {
+        [SerializeField] private string dataProvenance;
+        [SerializeField] private string costPopulationSource;
+        [SerializeField] private int sourcePopulationSize;
+        [SerializeField] private bool replacementExcludedFromThresholdCalculation;
+        [SerializeField] private HistoricalCostThresholdTrace[] thresholds;
         [SerializeField] private int[] baseAttributes;
         [SerializeField] private string role;
         [SerializeField] private string roleProfile;
@@ -107,6 +125,13 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private double percentile;
         [SerializeField] private int cost;
 
+        public string DataProvenance => dataProvenance ?? string.Empty;
+        public string CostPopulationSource => costPopulationSource ?? string.Empty;
+        public int SourcePopulationSize => sourcePopulationSize;
+        public bool ReplacementExcludedFromThresholdCalculation =>
+            replacementExcludedFromThresholdCalculation;
+        public IReadOnlyList<HistoricalCostThresholdTrace> Thresholds =>
+            thresholds ?? Array.Empty<HistoricalCostThresholdTrace>();
         public IReadOnlyList<int> BaseAttributes => baseAttributes ?? Array.Empty<int>();
         public string Role => role ?? string.Empty;
         public string RoleProfile => roleProfile ?? string.Empty;

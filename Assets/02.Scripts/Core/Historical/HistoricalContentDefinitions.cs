@@ -13,6 +13,21 @@ namespace Baseball.Core.Historical
         Foreign
     }
 
+    /// <summary>PlayerSeason 능력치가 공식 Source 시즌에서 왔는지 명시적 보충 선수에서 왔는지 구분한다.</summary>
+    public enum PlayerDataProvenance
+    {
+        SourceBacked,
+        ReplacementGenerated
+    }
+
+    /// <summary>해당 시즌의 Natural PitcherRole을 뒷받침하는 기록의 신뢰 수준이다.</summary>
+    public enum PitcherRoleConfidence
+    {
+        Low,
+        Medium,
+        High
+    }
+
     /// <summary>한 가상 인물이 Baked 다년도 커리어에서 유지하는 성장 성향이다.</summary>
     public sealed class PersonPotentialTrait
     {
@@ -113,7 +128,9 @@ namespace Baseball.Core.Historical
             RegistrationType registrationType,
             AbilityRatings baseAttributes,
             int cost,
-            AbilityRatings trainingCeiling)
+            AbilityRatings trainingCeiling,
+            PlayerDataProvenance dataProvenance = PlayerDataProvenance.SourceBacked,
+            PitcherRoleConfidence pitcherRoleConfidence = PitcherRoleConfidence.High)
         {
             PlayerSeasonId = RequireId(playerSeasonId, nameof(playerSeasonId));
             PlayerPersonId = RequireId(playerPersonId, nameof(playerPersonId));
@@ -141,6 +158,8 @@ namespace Baseball.Core.Historical
             PlayerType = playerType;
             RegistrationType = registrationType;
             Cost = cost;
+            DataProvenance = dataProvenance;
+            PitcherRoleConfidence = pitcherRoleConfidence;
         }
 
         public string PlayerSeasonId { get; }
@@ -153,6 +172,8 @@ namespace Baseball.Core.Historical
         public PlayerType PlayerType { get; }
         public RegistrationType RegistrationType { get; }
         public int Cost { get; }
+        public PlayerDataProvenance DataProvenance { get; }
+        public PitcherRoleConfidence PitcherRoleConfidence { get; }
 
         public AbilityRatings CreateBaseAttributes() => _baseAttributes.Clone();
         public AbilityRatings CreateTrainingCeiling() => _trainingCeiling.Clone();
@@ -271,20 +292,36 @@ namespace Baseball.Core.Historical
     }
 
     /// <summary>같은 입력 버전과 Seed에서 재현되는 Offline Bake Manifest다.</summary>
-    public sealed class SyntheticContentManifest
+    public sealed class HistoricalSourceContentManifest
     {
-        public SyntheticContentManifest(
+        public HistoricalSourceContentManifest(
             string referenceDataVersion,
             string generatorVersion,
             string balanceVersion,
             ulong generationSeed,
-            string contentHash)
+            string contentHash,
+            string sourceIdentityPolicyVersion = "",
+            string sourceAllocationPolicyVersion = "",
+            string replacementGeneratorVersion = "",
+            string replacementPopulationPolicyVersion = "",
+            int sourceBackedPlayerPersonCount = 0,
+            int sourceBackedPlayerSeasonCount = 0,
+            int replacementGeneratedPlayerPersonCount = 0,
+            int replacementGeneratedPlayerSeasonCount = 0)
         {
             ReferenceDataVersion = Require(referenceDataVersion, nameof(referenceDataVersion));
             GeneratorVersion = Require(generatorVersion, nameof(generatorVersion));
             BalanceVersion = Require(balanceVersion, nameof(balanceVersion));
             ContentHash = Require(contentHash, nameof(contentHash));
             GenerationSeed = generationSeed;
+            SourceIdentityPolicyVersion = sourceIdentityPolicyVersion?.Trim() ?? string.Empty;
+            SourceAllocationPolicyVersion = sourceAllocationPolicyVersion?.Trim() ?? string.Empty;
+            ReplacementGeneratorVersion = replacementGeneratorVersion?.Trim() ?? string.Empty;
+            ReplacementPopulationPolicyVersion = replacementPopulationPolicyVersion?.Trim() ?? string.Empty;
+            SourceBackedPlayerPersonCount = sourceBackedPlayerPersonCount;
+            SourceBackedPlayerSeasonCount = sourceBackedPlayerSeasonCount;
+            ReplacementGeneratedPlayerPersonCount = replacementGeneratedPlayerPersonCount;
+            ReplacementGeneratedPlayerSeasonCount = replacementGeneratedPlayerSeasonCount;
         }
 
         public string ReferenceDataVersion { get; }
@@ -292,6 +329,14 @@ namespace Baseball.Core.Historical
         public string BalanceVersion { get; }
         public ulong GenerationSeed { get; }
         public string ContentHash { get; }
+        public string SourceIdentityPolicyVersion { get; }
+        public string SourceAllocationPolicyVersion { get; }
+        public string ReplacementGeneratorVersion { get; }
+        public string ReplacementPopulationPolicyVersion { get; }
+        public int SourceBackedPlayerPersonCount { get; }
+        public int SourceBackedPlayerSeasonCount { get; }
+        public int ReplacementGeneratedPlayerPersonCount { get; }
+        public int ReplacementGeneratedPlayerSeasonCount { get; }
 
         private static string Require(string value, string parameterName)
         {

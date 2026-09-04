@@ -70,6 +70,7 @@ namespace Baseball.Game.Historical
         private readonly HistoricalBakedContent _content;
         private readonly BalanceTable _balance;
         private readonly AwardScoringPolicy _awardScoring;
+        private readonly HistoricalMatchConfiguration _historicalConfiguration;
 
         public BakedHistoricalDetailedSeasonSource(
             HistoricalBakedContent content,
@@ -79,6 +80,8 @@ namespace Baseball.Game.Historical
             _content = content ?? throw new ArgumentNullException(nameof(content));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _awardScoring = awardScoring ?? AwardScoringPolicy.CreateDefault();
+            _historicalConfiguration = new HistoricalMatchConfiguration(
+                _balance.HistoricalAssignment.CreateRule());
         }
 
         public HistoricalSeasonSimulationMetrics LastRunMetrics { get; private set; }
@@ -226,7 +229,8 @@ namespace Baseball.Game.Historical
                 opponentRoster,
                 MatchRules.CreateDefault(requiresWinner: true),
                 SimulationRulesVersion.DetailedV2,
-                CreateVersionStamp());
+                CreateVersionStamp(),
+                _historicalConfiguration);
             MatchResult result = new MatchSimulator(_balance, MatchRandomStreams.Create(gameSeed))
                 .Simulate(input, NullMatchEventSink.Instance, MatchExecutionProfile.DetailedBackground);
             workloads.Record(logicalDay, result.PitcherUsage);
@@ -359,7 +363,8 @@ namespace Baseball.Game.Historical
                 home,
                 MatchRules.CreateDefault(requiresWinner),
                 SimulationRulesVersion.DetailedV2,
-                CreateVersionStamp());
+                CreateVersionStamp(),
+                _historicalConfiguration);
             return new MatchSimulator(_balance, MatchRandomStreams.Create(gameSeed))
                 .Simulate(input, NullMatchEventSink.Instance, MatchExecutionProfile.DetailedBackground);
         }
@@ -413,7 +418,8 @@ namespace Baseball.Game.Historical
                     PitcherRole.Starter,
                     recentWorkload: workloads.Get(roster.Players[starterIndex].PlayerId, logicalDay),
                     naturalRole: roster.Seasons[starterIndex].PitcherRole,
-                    playerSeasonId: roster.Seasons[starterIndex].PlayerSeasonId),
+                    playerSeasonId: roster.Seasons[starterIndex].PlayerSeasonId,
+                    naturalRoleConfidence: roster.Seasons[starterIndex].PitcherRoleConfidence),
                 bullpen,
                 bench,
                 ManagerTacticalProfile.Balanced,
@@ -436,7 +442,8 @@ namespace Baseball.Game.Historical
                 recentWorkload: workloads.Get(player.PlayerId, logicalDay),
                 naturalRole: season.PitcherRole,
                 activeRosterRole: activeRosterRole,
-                playerSeasonId: season.PlayerSeasonId);
+                playerSeasonId: season.PlayerSeasonId,
+                naturalRoleConfidence: season.PitcherRoleConfidence);
         }
 
         private MatchRosterSnapshot BuildAllStarRoster(
@@ -496,7 +503,8 @@ namespace Baseball.Game.Historical
                     recentWorkload: workloads.Get(pair.Player.PlayerId, logicalDay),
                     naturalRole: pair.Season.PitcherRole,
                     activeRosterRole: rosterRole,
-                    playerSeasonId: pair.Season.PlayerSeasonId);
+                    playerSeasonId: pair.Season.PlayerSeasonId,
+                    naturalRoleConfidence: pair.Season.PitcherRoleConfidence);
             }
             PlayerSeasonPair starting = starters[0];
             return new MatchRosterSnapshot(
@@ -508,7 +516,8 @@ namespace Baseball.Game.Historical
                     PitcherRole.Starter,
                     recentWorkload: workloads.Get(starting.Player.PlayerId, logicalDay),
                     naturalRole: starting.Season.PitcherRole,
-                    playerSeasonId: starting.Season.PlayerSeasonId),
+                    playerSeasonId: starting.Season.PlayerSeasonId,
+                    naturalRoleConfidence: starting.Season.PitcherRoleConfidence),
                 bullpen,
                 bench,
                 ManagerTacticalProfile.Balanced,
@@ -636,22 +645,10 @@ namespace Baseball.Game.Historical
             PlayerSeasonDefinition season)
         {
             bool isHitterSlot = rosterIndex < 14;
-            bool isStartingPitcherSlot = rosterIndex >= 14 && rosterIndex <= 18;
-            bool isBullpenSlot = rosterIndex >= 19 && rosterIndex <= 22;
             if (isHitterSlot && season.PlayerType != PlayerType.Batter)
                 throw new InvalidOperationException($"{team.TeamSeasonKey} Core25 {rosterIndex}번은 야수 슬롯이어야 합니다.");
             if (!isHitterSlot && season.PlayerType != PlayerType.Pitcher)
                 throw new InvalidOperationException($"{team.TeamSeasonKey} Core25 {rosterIndex}번은 투수 슬롯이어야 합니다.");
-            if (rosterIndex < 9 && season.Position != (PlayerPosition)(rosterIndex + 1))
-                throw new InvalidOperationException($"{team.TeamSeasonKey} Core25 주전 야수 순서가 C~DH 계약과 다릅니다.");
-            if (isStartingPitcherSlot && season.PitcherRole != PitcherRole.Starter)
-                throw new InvalidOperationException($"{team.TeamSeasonKey} Core25 선발 슬롯의 자연 역할이 Starter가 아닙니다.");
-            if (isBullpenSlot && season.PitcherRole != PitcherRole.MiddleRelief)
-                throw new InvalidOperationException($"{team.TeamSeasonKey} Core25 Bullpen 슬롯의 자연 역할이 MiddleRelief가 아닙니다.");
-            if (rosterIndex == 23 && season.PitcherRole != PitcherRole.Setup)
-                throw new InvalidOperationException($"{team.TeamSeasonKey} Core25 Setup 슬롯의 자연 역할이 Setup이 아닙니다.");
-            if (rosterIndex == 24 && season.PitcherRole != PitcherRole.Closer)
-                throw new InvalidOperationException($"{team.TeamSeasonKey} Core25 Closer 슬롯의 자연 역할이 Closer가 아닙니다.");
         }
 
         private SimulationVersionStamp CreateVersionStamp()

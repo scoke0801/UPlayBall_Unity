@@ -89,7 +89,7 @@ namespace Baseball.Game.Career
         private readonly CareerBakedTeamRuntimeDefinition[][] _teamsByGrade;
 
         public CareerBakedContent(
-            SyntheticContentManifest manifest,
+            HistoricalSourceContentManifest manifest,
             IReadOnlyList<PlayerPersonDefinition> persons,
             WorldCardCatalog cardCatalog,
             IReadOnlyList<CareerBakedTeamRuntimeDefinition> teams,
@@ -156,7 +156,7 @@ namespace Baseball.Game.Career
             }
         }
 
-        public SyntheticContentManifest Manifest { get; }
+        public HistoricalSourceContentManifest Manifest { get; }
         public WorldCardCatalog CardCatalog { get; }
         public WorldHistorySnapshot WorldHistory { get; }
         public IReadOnlyList<PlayerPersonDefinition> Persons => _persons;

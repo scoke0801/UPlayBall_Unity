@@ -44,18 +44,19 @@ namespace Baseball.Game.Historical
     public sealed class UnityHistoricalContentProvider : IHistoricalContentProvider
     {
         public const int SupportedAssetFormatVersion = 1;
-        public const int SupportedContentSchemaVersion = 3;
+        public const int MinimumSupportedContentSchemaVersion = 3;
+        public const int SupportedContentSchemaVersion = 4;
         public const string SupportedReferenceDataVersion = "kbo-normalized-v3";
         public const int SupportedNormalizedSchemaVersion = 3;
         public const string SupportedNormalizedImporterVersion = "1.2.0";
-        public const string SupportedAbilityFormulaVersion = "historical-ability-v2";
-        public const string SupportedPositionRoleClassifierVersion = "season-position-role-v3";
+        public const string SupportedAbilityFormulaVersion = "historical-ability-v3";
+        public const string SupportedPositionRoleClassifierVersion = "season-position-role-v4";
         public const string SupportedRosterBuilderVersion = "position-first-core25-v2";
-        public const string SupportedCostFormulaVersion = "historical-role-composite-v2";
-        public const string SupportedDerivationBalanceVersion = "historical-derivation-balance-v3";
-        public const string SupportedGeneratorVersion = "synthetic-bake-v2";
-        public const string SupportedBalanceVersion = "historical-normal-v1";
-        public const string SupportedNamePolicyVersion = "korean-source-component-v2";
+        public const string SupportedCostFormulaVersion = "historical-role-composite-v3";
+        public const string SupportedDerivationBalanceVersion = "historical-derivation-balance-v4";
+        public const string SupportedGeneratorVersion = "source-backed-runtime-bake-v1";
+        public const string SupportedBalanceVersion = "historical-source-backed-v1";
+        public const string SupportedNamePolicyVersion = "source-backed-fictional-name-v1";
         public const string SupportedNameDataPolicy = "runtime-fictional-only-v2";
 
         private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
@@ -92,10 +93,12 @@ namespace Baseball.Game.Historical
             if (manifestAsset == null)
                 throw new HistoricalContentLoadException("Runtime catalog에 manifest TextAsset이 없습니다.", "manifest.json");
 
+            string manifestText = Decode(manifestAsset.bytes, "manifest.json", null);
             HistoricalRuntimeManifestDto manifestDto = ParseJson<HistoricalRuntimeManifestDto>(
-                Decode(manifestAsset.bytes, "manifest.json", null),
+                manifestText,
                 "manifest.json",
                 null);
+            ValidateSchemaManifestFieldPresence(manifestText, manifestDto.ContentSchemaVersion);
             HistoricalContentManifest manifest = BuildManifest(manifestDto);
             ValidateCatalogShape(manifestDto);
             using var contentHashVerifier = new RuntimeContentHashVerifier(manifestDto);
@@ -158,7 +161,7 @@ namespace Baseball.Game.Historical
             contentHashVerifier.Validate(sourceManifestHash: manifestDto.SourceManifest.ContentHash);
             ValidateArchiveHash(manifestDto.AssetArchiveHash, archiveEntries);
             ValidateSummary(
-                manifestDto.Summary,
+                manifestDto,
                 years.Length,
                 persons.Length,
                 totalPlayerSeasons,
@@ -177,10 +180,11 @@ namespace Baseball.Game.Historical
                     $"지원하지 않는 Asset Format입니다. expected={SupportedAssetFormatVersion}, actual={source.AssetFormatVersion}",
                     "manifest.json");
             }
-            if (source.ContentSchemaVersion != SupportedContentSchemaVersion)
+            if (source.ContentSchemaVersion < MinimumSupportedContentSchemaVersion ||
+                source.ContentSchemaVersion > SupportedContentSchemaVersion)
             {
                 throw new HistoricalContentLoadException(
-                    $"지원하지 않는 Content Schema입니다. expected={SupportedContentSchemaVersion}, actual={source.ContentSchemaVersion}",
+                    $"지원하지 않는 Content Schema입니다. supported={MinimumSupportedContentSchemaVersion}~{SupportedContentSchemaVersion}, actual={source.ContentSchemaVersion}",
                     "manifest.json");
             }
             if (!IsSha256(source.AssetArchiveHash))
@@ -243,17 +247,52 @@ namespace Baseball.Game.Historical
                 "nameDataPolicy",
                 SupportedNameDataPolicy,
                 sourceManifest.NameDataPolicy);
+            if (source.ContentSchemaVersion >= 4)
+            {
+                ValidateRequiredVersion(
+                    "sourceIdentityPolicyVersion",
+                    sourceManifest.SourceIdentityPolicyVersion);
+                ValidateRequiredVersion(
+                    "sourceAllocationPolicyVersion",
+                    sourceManifest.SourceAllocationPolicyVersion);
+                ValidateRequiredVersion(
+                    "replacementGeneratorVersion",
+                    sourceManifest.ReplacementGeneratorVersion);
+                ValidateRequiredVersion(
+                    "replacementPopulationPolicyVersion",
+                    sourceManifest.ReplacementPopulationPolicyVersion);
+                ValidateNonNegativeManifestCount(
+                    "sourceBackedPlayerPersonCount",
+                    sourceManifest.SourceBackedPlayerPersonCount);
+                ValidateNonNegativeManifestCount(
+                    "sourceBackedPlayerSeasonCount",
+                    sourceManifest.SourceBackedPlayerSeasonCount);
+                ValidateNonNegativeManifestCount(
+                    "replacementGeneratedPlayerPersonCount",
+                    sourceManifest.ReplacementGeneratedPlayerPersonCount);
+                ValidateNonNegativeManifestCount(
+                    "replacementGeneratedPlayerSeasonCount",
+                    sourceManifest.ReplacementGeneratedPlayerSeasonCount);
+            }
             if (sourceManifest.GenerationSeed < 0)
                 throw new HistoricalContentLoadException("generationSeed는 음수일 수 없습니다.", "manifest.json");
             if (!IsSha256(sourceManifest.ContentHash))
                 throw new HistoricalContentLoadException("contentHash가 64자리 SHA-256이 아닙니다.", "manifest.json");
 
-            var runtimeSource = new SyntheticContentManifest(
+            var runtimeSource = new HistoricalSourceContentManifest(
                 sourceManifest.ReferenceDataVersion,
                 sourceManifest.GeneratorVersion,
                 sourceManifest.BalanceVersion,
                 (ulong)sourceManifest.GenerationSeed,
-                sourceManifest.ContentHash);
+                sourceManifest.ContentHash,
+                sourceManifest.SourceIdentityPolicyVersion,
+                sourceManifest.SourceAllocationPolicyVersion,
+                sourceManifest.ReplacementGeneratorVersion,
+                sourceManifest.ReplacementPopulationPolicyVersion,
+                sourceManifest.SourceBackedPlayerPersonCount,
+                sourceManifest.SourceBackedPlayerSeasonCount,
+                sourceManifest.ReplacementGeneratedPlayerPersonCount,
+                sourceManifest.ReplacementGeneratedPlayerSeasonCount);
             return new HistoricalContentManifest(
                 source.AssetFormatVersion,
                 source.ContentSchemaVersion,
@@ -494,7 +533,8 @@ namespace Baseball.Game.Historical
                 throw new HistoricalContentLoadException("null PlayerSeason 항목이 있습니다.", relativePath, year);
             try
             {
-                PitcherRole pitcherRole = ParsePitcherRole(source.PitcherRole);
+                PlayerType playerType = ParsePlayerType(source.PlayerType);
+                PitcherRole pitcherRole = ParsePitcherRole(source.PitcherRole, playerType);
                 return new PlayerSeasonDefinition(
                     source.PlayerSeasonId,
                     source.PlayerPersonId,
@@ -503,11 +543,13 @@ namespace Baseball.Game.Historical
                     source.OriginTeamSeasonKey,
                     ParsePosition(source.Position, pitcherRole),
                     pitcherRole,
-                    ParsePlayerType(source.PlayerType),
+                    playerType,
                     ParseRegistrationType(source.RegistrationType),
                     new AbilityRatings(source.BaseAttributes),
                     source.Cost,
-                    new AbilityRatings(source.TrainingCeiling));
+                    new AbilityRatings(source.TrainingCeiling),
+                    ParsePlayerDataProvenance(source.DataProvenance),
+                    ParsePitcherRoleConfidence(source.PitcherRoleConfidence));
             }
             catch (Exception exception)
             {
@@ -693,7 +735,7 @@ namespace Baseball.Game.Historical
         }
 
         private static void ValidateSummary(
-            HistoricalRuntimeSummaryDto summary,
+            HistoricalRuntimeManifestDto manifest,
             int years,
             int persons,
             int seasons,
@@ -702,6 +744,7 @@ namespace Baseball.Game.Historical
             int records,
             int awards)
         {
+            HistoricalRuntimeSummaryDto summary = manifest.Summary;
             if (summary == null)
                 throw new HistoricalContentLoadException("Manifest summary가 없습니다.", "manifest.json");
             ValidateCount("Year summary", summary.YearCount, years, "manifest.json", null);
@@ -711,6 +754,22 @@ namespace Baseball.Game.Historical
             ValidateCount("Normal Card summary", summary.NormalCardCount, cards, "manifest.json", null);
             ValidateCount("Original Record summary", summary.OriginalRecordCount, records, "manifest.json", null);
             ValidateCount("Original Award summary", summary.OriginalAwardCount, awards, "manifest.json", null);
+            if (manifest.ContentSchemaVersion >= 4)
+            {
+                HistoricalRuntimeSourceManifestDto source = manifest.SourceManifest;
+                ValidateCount(
+                    "Source/Replacement PlayerPerson manifest",
+                    checked(source.SourceBackedPlayerPersonCount + source.ReplacementGeneratedPlayerPersonCount),
+                    persons,
+                    "manifest.json",
+                    null);
+                ValidateCount(
+                    "Source/Replacement PlayerSeason manifest",
+                    checked(source.SourceBackedPlayerSeasonCount + source.ReplacementGeneratedPlayerSeasonCount),
+                    seasons,
+                    "manifest.json",
+                    null);
+            }
         }
 
         private static void ValidateArchiveHash(
@@ -787,6 +846,101 @@ namespace Baseball.Game.Historical
                     $"지원하지 않는 {field}입니다. expected={expected}, actual={actual}",
                     "manifest.json");
             }
+        }
+
+        private static void ValidateRequiredVersion(string field, string actual)
+        {
+            if (string.IsNullOrWhiteSpace(actual))
+            {
+                throw new HistoricalContentLoadException(
+                    $"Content Schema v4의 {field}은 비어 있을 수 없습니다.",
+                    "manifest.json");
+            }
+        }
+
+        private static void ValidateNonNegativeManifestCount(string field, int count)
+        {
+            if (count < 0)
+            {
+                throw new HistoricalContentLoadException(
+                    $"Content Schema v4의 {field}은 음수일 수 없습니다. actual={count}",
+                    "manifest.json");
+            }
+        }
+
+        private static void ValidateSchemaManifestFieldPresence(string json, int contentSchemaVersion)
+        {
+            if (contentSchemaVersion < 4 || contentSchemaVersion > SupportedContentSchemaVersion)
+                return;
+
+            const string sourceManifestProperty = "\"sourceManifest\"";
+            int propertyIndex = json.IndexOf(sourceManifestProperty, StringComparison.Ordinal);
+            int objectStart = propertyIndex < 0 ? -1 : json.IndexOf('{', propertyIndex);
+            int objectEnd = FindJsonObjectEnd(json, objectStart);
+            if (objectStart < 0 || objectEnd <= objectStart)
+            {
+                throw new HistoricalContentLoadException(
+                    "Content Schema v4의 sourceManifest JSON을 찾을 수 없습니다.",
+                    "manifest.json");
+            }
+
+            string[] requiredFields =
+            {
+                "sourceIdentityPolicyVersion",
+                "sourceAllocationPolicyVersion",
+                "replacementGeneratorVersion",
+                "replacementPopulationPolicyVersion",
+                "sourceBackedPlayerPersonCount",
+                "sourceBackedPlayerSeasonCount",
+                "replacementGeneratedPlayerPersonCount",
+                "replacementGeneratedPlayerSeasonCount"
+            };
+            int length = objectEnd - objectStart;
+            for (int index = 0; index < requiredFields.Length; index++)
+            {
+                string property = $"\"{requiredFields[index]}\"";
+                if (json.IndexOf(property, objectStart, length, StringComparison.Ordinal) < 0)
+                {
+                    throw new HistoricalContentLoadException(
+                        $"Content Schema v4의 sourceManifest에 {requiredFields[index]} 필드가 없습니다.",
+                        "manifest.json");
+                }
+            }
+        }
+
+        private static int FindJsonObjectEnd(string json, int objectStart)
+        {
+            if (objectStart < 0 || objectStart >= json.Length || json[objectStart] != '{')
+                return -1;
+
+            int depth = 0;
+            bool isString = false;
+            bool isEscaped = false;
+            for (int index = objectStart; index < json.Length; index++)
+            {
+                char character = json[index];
+                if (isString)
+                {
+                    if (isEscaped)
+                        isEscaped = false;
+                    else if (character == '\\')
+                        isEscaped = true;
+                    else if (character == '"')
+                        isString = false;
+                    continue;
+                }
+
+                if (character == '"')
+                {
+                    isString = true;
+                    continue;
+                }
+                if (character == '{')
+                    depth++;
+                else if (character == '}' && --depth == 0)
+                    return index;
+            }
+            return -1;
         }
 
         private static void ValidateLogicalPath(string path, int? year)
@@ -878,6 +1032,30 @@ namespace Baseball.Game.Historical
             };
         }
 
+        private static PlayerDataProvenance ParsePlayerDataProvenance(string value)
+        {
+            return value switch
+            {
+                "" => PlayerDataProvenance.SourceBacked,
+                "SourceBacked" => PlayerDataProvenance.SourceBacked,
+                "ReplacementGenerated" => PlayerDataProvenance.ReplacementGenerated,
+                _ => throw new HistoricalContentLoadException($"알 수 없는 dataProvenance입니다. value={value}")
+            };
+        }
+
+        private static PitcherRoleConfidence ParsePitcherRoleConfidence(string value)
+        {
+            return value switch
+            {
+                "" => PitcherRoleConfidence.High,
+                "Low" => PitcherRoleConfidence.Low,
+                "Medium" => PitcherRoleConfidence.Medium,
+                "High" => PitcherRoleConfidence.High,
+                _ => throw new HistoricalContentLoadException(
+                    $"알 수 없는 pitcherRoleConfidence입니다. value={value}")
+            };
+        }
+
         private static PitcherRole ParsePitcherRole(string value)
         {
             return value switch
@@ -890,6 +1068,13 @@ namespace Baseball.Game.Historical
                 "Closer" => PitcherRole.Closer,
                 _ => throw new HistoricalContentLoadException($"알 수 없는 pitcherRole입니다. value={value}")
             };
+        }
+
+        private static PitcherRole ParsePitcherRole(string value, PlayerType playerType)
+        {
+            if (playerType == PlayerType.Batter && string.IsNullOrEmpty(value))
+                return PitcherRole.Starter;
+            return ParsePitcherRole(value);
         }
 
         private static PlayerType ParsePlayerType(string value)
@@ -940,14 +1125,16 @@ namespace Baseball.Game.Historical
         private sealed class RuntimeContentHashVerifier : IDisposable
         {
             private readonly SHA256 _sha256;
+            private readonly int _contentSchemaVersion;
             private int _yearCount;
             private bool _isCompleted;
 
             public RuntimeContentHashVerifier(HistoricalRuntimeManifestDto manifest)
             {
                 _sha256 = SHA256.Create();
+                _contentSchemaVersion = manifest.ContentSchemaVersion;
                 AppendUtf8("{\"manifest\":");
-                AppendSourceManifest(manifest.SourceManifest);
+                AppendSourceManifest(manifest.SourceManifest, _contentSchemaVersion);
                 AppendUtf8(",\"playerPersons\":");
             }
 
@@ -955,7 +1142,7 @@ namespace Baseball.Game.Historical
             {
                 AppendCanonicalPayload(payload);
                 AppendUtf8(",\"schemaVersion\":");
-                AppendUtf8(SupportedContentSchemaVersion.ToString(CultureInfo.InvariantCulture));
+                AppendUtf8(_contentSchemaVersion.ToString(CultureInfo.InvariantCulture));
                 AppendUtf8(",\"years\":[");
             }
 
@@ -991,7 +1178,9 @@ namespace Baseball.Game.Historical
                 _sha256.Dispose();
             }
 
-            private void AppendSourceManifest(HistoricalRuntimeSourceManifestDto source)
+            private void AppendSourceManifest(
+                HistoricalRuntimeSourceManifestDto source,
+                int contentSchemaVersion)
             {
                 var builder = new StringBuilder(768);
                 builder.Append("{\"abilityFormulaVersion\":\"");
@@ -1022,8 +1211,30 @@ namespace Baseball.Game.Historical
                 AppendJsonEscaped(builder, source.RawDataVersion);
                 builder.Append("\",\"referenceDataVersion\":\"");
                 AppendJsonEscaped(builder, source.ReferenceDataVersion);
+                if (contentSchemaVersion >= 4)
+                {
+                    builder.Append("\",\"replacementGeneratedPlayerPersonCount\":")
+                        .Append(source.ReplacementGeneratedPlayerPersonCount.ToString(CultureInfo.InvariantCulture))
+                        .Append(",\"replacementGeneratedPlayerSeasonCount\":")
+                        .Append(source.ReplacementGeneratedPlayerSeasonCount.ToString(CultureInfo.InvariantCulture))
+                        .Append(",\"replacementGeneratorVersion\":\"");
+                    AppendJsonEscaped(builder, source.ReplacementGeneratorVersion);
+                    builder.Append("\",\"replacementPopulationPolicyVersion\":\"");
+                    AppendJsonEscaped(builder, source.ReplacementPopulationPolicyVersion);
+                }
                 builder.Append("\",\"rosterBuilderVersion\":\"");
                 AppendJsonEscaped(builder, source.RosterBuilderVersion);
+                if (contentSchemaVersion >= 4)
+                {
+                    builder.Append("\",\"sourceAllocationPolicyVersion\":\"");
+                    AppendJsonEscaped(builder, source.SourceAllocationPolicyVersion);
+                    builder.Append("\",\"sourceBackedPlayerPersonCount\":")
+                        .Append(source.SourceBackedPlayerPersonCount.ToString(CultureInfo.InvariantCulture))
+                        .Append(",\"sourceBackedPlayerSeasonCount\":")
+                        .Append(source.SourceBackedPlayerSeasonCount.ToString(CultureInfo.InvariantCulture))
+                        .Append(",\"sourceIdentityPolicyVersion\":\"");
+                    AppendJsonEscaped(builder, source.SourceIdentityPolicyVersion);
+                }
                 builder.Append("\"}");
                 AppendUtf8(builder.ToString());
             }
