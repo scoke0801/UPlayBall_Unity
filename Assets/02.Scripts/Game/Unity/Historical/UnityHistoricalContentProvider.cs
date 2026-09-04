@@ -694,23 +694,33 @@ namespace Baseball.Game.Historical
             string awardPosition,
             PlayerSeasonDefinition playerSeason)
         {
-            PlayerPosition actual = playerSeason.Position;
-            bool isCompatible = awardPosition switch
-            {
-                "OF" => actual == PlayerPosition.LeftField ||
-                        actual == PlayerPosition.CenterField ||
-                        actual == PlayerPosition.RightField,
-                "P" => actual == PlayerPosition.StartingPitcher ||
-                       actual == PlayerPosition.ReliefPitcher,
-                _ => ParsePosition(awardPosition, playerSeason.PitcherRole) == actual
-            };
-            if (!isCompatible)
+            bool isPitcherAward = string.Equals(awardPosition, "P", StringComparison.Ordinal);
+            bool isPitcherSeason = playerSeason.PlayerType == PlayerType.Pitcher;
+            if (isPitcherAward != isPitcherSeason)
             {
                 throw new HistoricalContentLoadException(
-                    $"Award Position이 PlayerSeason의 실제 포지션과 호환되지 않습니다. " +
-                    $"playerSeasonId={playerSeason.PlayerSeasonId}, award={awardPosition}, actual={actual}");
+                    $"Award Position의 선수 유형이 PlayerSeason과 호환되지 않습니다. " +
+                    $"playerSeasonId={playerSeason.PlayerSeasonId}, award={awardPosition}, " +
+                    $"playerType={playerSeason.PlayerType}");
             }
-            return actual;
+
+            if (isPitcherAward)
+                return playerSeason.Position;
+
+            // 구시대 수비 기록 결측과 멀티포지션 시즌에서는 수상 부문의 포지션이
+            // NaturalPosition보다 직접적인 독립 증거다. OF만 세부 슬롯이 없으므로
+            // 자연 외야 포지션을 보존하고, 그마저 없을 때는 중립 대표 슬롯 CF로 둔다.
+            if (string.Equals(awardPosition, "OF", StringComparison.Ordinal))
+            {
+                return playerSeason.Position switch
+                {
+                    PlayerPosition.LeftField => PlayerPosition.LeftField,
+                    PlayerPosition.CenterField => PlayerPosition.CenterField,
+                    PlayerPosition.RightField => PlayerPosition.RightField,
+                    _ => PlayerPosition.CenterField
+                };
+            }
+            return ParsePosition(awardPosition, playerSeason.PitcherRole);
         }
 
         private static void ValidateAwardCount(
@@ -1116,6 +1126,7 @@ namespace Baseball.Game.Historical
                 "GoldenGlove" => WorldAwardType.GoldenGlove,
                 "RegularSeasonMvp" => WorldAwardType.RegularSeasonMvp,
                 "AllStarGameMvp" => WorldAwardType.AllStarGameMvp,
+                "KoreanSeriesMvp" => WorldAwardType.PostseasonMvp,
                 "PostseasonMvp" => WorldAwardType.PostseasonMvp,
                 _ => throw new HistoricalContentLoadException($"알 수 없는 awardType입니다. value={value}")
             };
