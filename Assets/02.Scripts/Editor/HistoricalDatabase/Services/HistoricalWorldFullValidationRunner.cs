@@ -10,6 +10,8 @@ namespace Baseball.Editor.HistoricalDatabase
     /// <summary>Unity Test Runner의 전역 prebuild와 분리해 실제 Runtime payload 장기 검증을 실행한다.</summary>
     public static class HistoricalWorldFullValidationRunner
     {
+        private const double MinimumReplacementAwardShareLimit = 0.05d;
+        private const double ReplacementAwardShareMultiplier = 2d;
         private const string CatalogAssetPath =
             "Assets/10.Datas/HistoricalSimulation/HistoricalRuntimeContentCatalog.asset";
 
@@ -43,6 +45,21 @@ namespace Baseball.Editor.HistoricalDatabase
                 throw new InvalidOperationException(
                     $"Full Historical World 집계가 예상과 다릅니다. " +
                     $"seasons={first.Metrics.Seasons.Count}, awards={first.AwardCount}");
+            HistoricalReplacementAwardMetrics replacementAwards = first.ReplacementAwards;
+            double maximumReplacementAwardShare = Math.Max(
+                MinimumReplacementAwardShareLimit,
+                replacementAwards.ReplacementPlayerSeasonShare * ReplacementAwardShareMultiplier);
+            if (replacementAwards.ReplacementAllStarShare > maximumReplacementAwardShare ||
+                replacementAwards.ReplacementGoldenGloveShare > maximumReplacementAwardShare ||
+                replacementAwards.ReplacementMvpShare > maximumReplacementAwardShare)
+            {
+                throw new InvalidOperationException(
+                    $"ReplacementGenerated가 Simulation 수상을 과도하게 점유합니다. " +
+                    $"limit={maximumReplacementAwardShare:P2}, " +
+                    $"allStar={replacementAwards.ReplacementAllStarShare:P2}, " +
+                    $"goldenGlove={replacementAwards.ReplacementGoldenGloveShare:P2}, " +
+                    $"mvp={replacementAwards.ReplacementMvpShare:P2}");
+            }
 
             for (int index = 0; index < first.Metrics.Seasons.Count; index++)
             {
@@ -67,6 +84,17 @@ namespace Baseball.Editor.HistoricalDatabase
                 $"HistoricalWorldDeterminism SameSeedHash={first.ResultHash} " +
                 $"RepeatHash={repeat.ResultHash} DifferentSeedHash={variation.ResultHash} " +
                 "UniqueSeeds=2 FullRuns=3");
+            Debug.Log(
+                $"HistoricalWorldReplacementAwards " +
+                $"PlayerSeasons={replacementAwards.ReplacementPlayerSeasonCount}/{replacementAwards.PlayerSeasonCount} " +
+                $"PlayerSeasonShare={replacementAwards.ReplacementPlayerSeasonShare:P4} " +
+                $"AllStar={replacementAwards.ReplacementAllStarCount}/{replacementAwards.AllStarCount} " +
+                $"AllStarShare={replacementAwards.ReplacementAllStarShare:P4} " +
+                $"GoldenGlove={replacementAwards.ReplacementGoldenGloveCount}/{replacementAwards.GoldenGloveCount} " +
+                $"GoldenGloveShare={replacementAwards.ReplacementGoldenGloveShare:P4} " +
+                $"Mvp={replacementAwards.ReplacementMvpCount}/{replacementAwards.MvpCount} " +
+                $"MvpShare={replacementAwards.ReplacementMvpShare:P4} " +
+                $"MaximumAllowedShare={maximumReplacementAwardShare:P4}");
         }
     }
 }

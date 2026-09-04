@@ -66,6 +66,9 @@ namespace Baseball.Tests.EditMode.Editor.Historical
                 Assert.That(run.Metrics.Seasons.Count, Is.EqualTo(44));
                 Assert.That(run.Metrics.TotalGameCount, Is.GreaterThanOrEqualTo(44 * 401));
                 Assert.That(run.AwardCount, Is.EqualTo(44 * 38));
+                Assert.That(run.ReplacementAwards.AllStarCount, Is.EqualTo(44 * 25));
+                Assert.That(run.ReplacementAwards.GoldenGloveCount, Is.EqualTo(44 * 10));
+                Assert.That(run.ReplacementAwards.MvpCount, Is.EqualTo(44 * 3));
                 Assert.That(run.ResultHash, Has.Length.EqualTo(16));
                 Assert.That(report.Runs[1].ResultHash, Is.EqualTo(run.ResultHash));
                 Assert.That(report.Runs[2].ResultHash, Is.Not.EqualTo(run.ResultHash));
@@ -73,6 +76,12 @@ namespace Baseball.Tests.EditMode.Editor.Historical
                     $"HistoricalWorldDeterminism SameSeedHash={run.ResultHash} " +
                     $"RepeatHash={report.Runs[1].ResultHash} " +
                     $"DifferentSeedHash={report.Runs[2].ResultHash}");
+                TestContext.WriteLine(
+                    $"HistoricalWorldReplacementAwards " +
+                    $"PlayerSeasons={run.ReplacementAwards.ReplacementPlayerSeasonCount}/{run.ReplacementAwards.PlayerSeasonCount} " +
+                    $"AllStar={run.ReplacementAwards.ReplacementAllStarCount}/{run.ReplacementAwards.AllStarCount} " +
+                    $"GoldenGlove={run.ReplacementAwards.ReplacementGoldenGloveCount}/{run.ReplacementAwards.GoldenGloveCount} " +
+                    $"Mvp={run.ReplacementAwards.ReplacementMvpCount}/{run.ReplacementAwards.MvpCount}");
             }
             catch (Exception exception)
             {

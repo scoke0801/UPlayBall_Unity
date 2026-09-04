@@ -274,9 +274,63 @@ namespace Baseball.Game.Historical
                     seed,
                     HistoricalWorldResultHasher.Compute(world),
                     world.WorldAwardRecord.Entries.Count,
+                    MeasureReplacementAwards(content, world.WorldAwardRecord),
                     world.Metrics);
             }
             return new HistoricalWorldValidationReport(runs);
+        }
+
+        private static HistoricalReplacementAwardMetrics MeasureReplacementAwards(
+            HistoricalBakedContent content,
+            WorldAwardRecord awards)
+        {
+            int replacementPlayerSeasons = 0;
+            for (int index = 0; index < content.PlayerSeasons.Count; index++)
+            {
+                if (content.PlayerSeasons[index].DataProvenance == PlayerDataProvenance.ReplacementGenerated)
+                    replacementPlayerSeasons++;
+            }
+
+            int allStarCount = 0;
+            int replacementAllStarCount = 0;
+            int goldenGloveCount = 0;
+            int replacementGoldenGloveCount = 0;
+            int mvpCount = 0;
+            int replacementMvpCount = 0;
+            for (int index = 0; index < awards.Entries.Count; index++)
+            {
+                WorldAwardEntry award = awards.Entries[index];
+                if (!content.TryGetPlayerSeason(award.PlayerSeasonId, out PlayerSeasonDefinition season))
+                    throw new InvalidOperationException($"Award PlayerSeason을 찾을 수 없습니다: {award.PlayerSeasonId}");
+                bool isReplacement = season.DataProvenance == PlayerDataProvenance.ReplacementGenerated;
+                switch (award.AwardType)
+                {
+                    case WorldAwardType.AllStar:
+                        allStarCount++;
+                        if (isReplacement) replacementAllStarCount++;
+                        break;
+                    case WorldAwardType.GoldenGlove:
+                        goldenGloveCount++;
+                        if (isReplacement) replacementGoldenGloveCount++;
+                        break;
+                    case WorldAwardType.RegularSeasonMvp:
+                    case WorldAwardType.AllStarGameMvp:
+                    case WorldAwardType.PostseasonMvp:
+                        mvpCount++;
+                        if (isReplacement) replacementMvpCount++;
+                        break;
+                }
+            }
+
+            return new HistoricalReplacementAwardMetrics(
+                content.PlayerSeasons.Count,
+                replacementPlayerSeasons,
+                allStarCount,
+                replacementAllStarCount,
+                goldenGloveCount,
+                replacementGoldenGloveCount,
+                mvpCount,
+                replacementMvpCount);
         }
     }
 
@@ -300,18 +354,63 @@ namespace Baseball.Game.Historical
             ulong worldHistorySeed,
             string resultHash,
             int awardCount,
+            HistoricalReplacementAwardMetrics replacementAwards,
             HistoricalWorldBuildMetrics metrics)
         {
             WorldHistorySeed = worldHistorySeed;
             ResultHash = resultHash;
             AwardCount = awardCount;
+            ReplacementAwards = replacementAwards;
             Metrics = metrics;
         }
 
         public ulong WorldHistorySeed { get; }
         public string ResultHash { get; }
         public int AwardCount { get; }
+        public HistoricalReplacementAwardMetrics ReplacementAwards { get; }
         public HistoricalWorldBuildMetrics Metrics { get; }
+    }
+
+    /// <summary>ReplacementGenerated의 선수풀 비중과 Simulation 수상 점유율을 비교한다.</summary>
+    public readonly struct HistoricalReplacementAwardMetrics
+    {
+        public HistoricalReplacementAwardMetrics(
+            int playerSeasonCount,
+            int replacementPlayerSeasonCount,
+            int allStarCount,
+            int replacementAllStarCount,
+            int goldenGloveCount,
+            int replacementGoldenGloveCount,
+            int mvpCount,
+            int replacementMvpCount)
+        {
+            PlayerSeasonCount = playerSeasonCount;
+            ReplacementPlayerSeasonCount = replacementPlayerSeasonCount;
+            AllStarCount = allStarCount;
+            ReplacementAllStarCount = replacementAllStarCount;
+            GoldenGloveCount = goldenGloveCount;
+            ReplacementGoldenGloveCount = replacementGoldenGloveCount;
+            MvpCount = mvpCount;
+            ReplacementMvpCount = replacementMvpCount;
+        }
+
+        public int PlayerSeasonCount { get; }
+        public int ReplacementPlayerSeasonCount { get; }
+        public int AllStarCount { get; }
+        public int ReplacementAllStarCount { get; }
+        public int GoldenGloveCount { get; }
+        public int ReplacementGoldenGloveCount { get; }
+        public int MvpCount { get; }
+        public int ReplacementMvpCount { get; }
+        public double ReplacementPlayerSeasonShare => Divide(ReplacementPlayerSeasonCount, PlayerSeasonCount);
+        public double ReplacementAllStarShare => Divide(ReplacementAllStarCount, AllStarCount);
+        public double ReplacementGoldenGloveShare => Divide(ReplacementGoldenGloveCount, GoldenGloveCount);
+        public double ReplacementMvpShare => Divide(ReplacementMvpCount, MvpCount);
+
+        private static double Divide(int numerator, int denominator)
+        {
+            return denominator == 0 ? 0d : (double)numerator / denominator;
+        }
     }
 
     /// <summary>Statistics, Award, Composite roster의 순서까지 포함한 Stable FNV-1a Hash를 만든다.</summary>

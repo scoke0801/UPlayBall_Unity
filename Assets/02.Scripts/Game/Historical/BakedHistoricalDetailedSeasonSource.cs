@@ -607,13 +607,26 @@ namespace Baseball.Game.Historical
                         player.PlayerId,
                         season.PlayerSeasonId,
                         team.TeamSeasonKey,
-                        season.Position));
+                        ResolveAssignedSeasonPosition(rosterIndex, season.Position)));
                     players.Add(season.PlayerSeasonId, new PlayerSeasonPair(player, season));
                 }
                 rosters[teamIndex] = new SeasonRoster(teamIndex + 1, team, rosterPlayers, rosterSeasons);
             }
             identities.Sort((left, right) => left.PlayerId.CompareTo(right.PlayerId));
             return new SeasonContext(year, teams, rosters, identities, players);
+        }
+
+        private static PlayerPosition ResolveAssignedSeasonPosition(
+            int rosterIndex,
+            PlayerPosition naturalPosition)
+        {
+            if (rosterIndex >= 0 && rosterIndex < 9)
+                return (PlayerPosition)(rosterIndex + 1);
+            if (rosterIndex >= 14 && rosterIndex < 19)
+                return PlayerPosition.StartingPitcher;
+            if (rosterIndex >= 19 && rosterIndex < 25)
+                return PlayerPosition.ReliefPitcher;
+            return naturalPosition;
         }
 
         private PlayerSeasonDefinition ResolveCorePlayer(TeamSeasonDefinition team, string cardId)

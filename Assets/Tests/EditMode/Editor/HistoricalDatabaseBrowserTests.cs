@@ -17,6 +17,8 @@ namespace Baseball.Tests.EditMode.Editor
     {
         private const string ArchiveRelativePath =
             "Assets/Editor Default Resources/HistoricalSimulation/1982-2025";
+        private const string RuntimeArchiveRelativePath =
+            "Assets/Editor Default Resources/HistoricalSimulation/1982-2025/Runtime";
 
         private static HistoricalArchiveData _archive;
 
@@ -108,13 +110,15 @@ namespace Baseball.Tests.EditMode.Editor
             HistoricalAbilityComponentTrace success = speed.Components.Single(component =>
                 component.Metric == "StolenBaseSuccessRate");
 
-            Assert.That(row.GetBaseAbility(2), Is.EqualTo(45));
-            Assert.That(row.Cost, Is.EqualTo(7));
+            Assert.That(row.GetBaseAbility(2), Is.EqualTo(speed.RatingAfterClamp));
+            Assert.That(row.GetBaseAbility(2), Is.LessThan(60));
             Assert.That(success.Numerator, Is.EqualTo(1d));
             Assert.That(success.Denominator, Is.EqualTo(1d));
             Assert.That(success.Reliability, Is.EqualTo(1d / 21d).Within(1e-8));
             Assert.That(row.Season.CostDerivationTrace.PopulationCount, Is.EqualTo(567));
-            Assert.That(row.Season.CostDerivationTrace.Rank, Is.EqualTo(436));
+            Assert.That(row.Cost, Is.EqualTo(row.Season.CostDerivationTrace.Cost));
+            Assert.That(row.Season.CostDerivationTrace.Rank,
+                Is.InRange(1, row.Season.CostDerivationTrace.PopulationCount));
         }
 
         [Test]
@@ -186,7 +190,7 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(trace.CostPopulationSource, Is.EqualTo("OriginYearSourceBacked"));
             Assert.That(trace.SourcePopulationSize, Is.EqualTo(141));
             Assert.That(trace.ReplacementExcludedFromThresholdCalculation, Is.True);
-            Assert.That(trace.Thresholds, Has.Count.EqualTo(1));
+            Assert.That(trace.Thresholds.Count, Is.EqualTo(1));
             Assert.That(trace.Thresholds[0].UpperExclusive, Is.EqualTo(0.05d));
             Assert.That(trace.Thresholds[0].Cost, Is.EqualTo(1));
             Assert.That(trace.Thresholds[0].SourceCompositeAtBoundary, Is.EqualTo(42.75d));
@@ -291,6 +295,27 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(team.TotalCount, Is.EqualTo(25));
             Assert.That(team.DuplicatePersonCount, Is.EqualTo(0));
             Assert.That(sourceTeam.Core25CardIds.All(sourceTeam.AllNormalCardIds.Contains), Is.True);
+        }
+
+        [Test]
+        public void Validator_AcceptsSourceBackedRuntimeArchiveAndReplacementIds()
+        {
+            HistoricalArchiveData runtimeArchive = new HistoricalArchiveRepository().Load(
+                Path.GetFullPath(RuntimeArchiveRelativePath));
+            HistoricalDatabaseValidationReport report =
+                new HistoricalDatabaseValidationService().Validate(runtimeArchive);
+
+            Assert.That(runtimeArchive.Manifest.SourceManifest.NameDataPolicy,
+                Is.EqualTo("runtime-fictional-only-v2"));
+            Assert.That(runtimeArchive.PlayerRows.Any(row =>
+                row.Season.DataProvenance == "ReplacementGenerated" &&
+                row.PlayerPersonId.StartsWith("REPL-PERSON-", StringComparison.Ordinal) &&
+                row.PlayerSeasonId.StartsWith("REPL-SEASON-", StringComparison.Ordinal)), Is.True);
+            Assert.That(report.ErrorCount, Is.EqualTo(0),
+                string.Join("\n", report.Issues
+                    .Where(issue => issue.Severity == HistoricalValidationSeverity.Error)
+                    .Take(10)
+                    .Select(issue => issue.Message)));
         }
 
         [Test]

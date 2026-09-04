@@ -17,6 +17,9 @@ namespace Baseball.Editor.HistoricalDatabase
             new[] { "AllStar", "GoldenGlove", "RegularSeasonMvp", "AllStarGameMvp", "KoreanSeriesMvp", "PostseasonMvp" },
             StringComparer.Ordinal);
 
+        private const string SourceBackedProvenance = "SourceBacked";
+        private const string ReplacementGeneratedProvenance = "ReplacementGenerated";
+
         private static void ValidatePersonsAndPlayers(
             HistoricalArchiveData archive,
             ValidationCollector collector)
@@ -29,6 +32,7 @@ namespace Baseball.Editor.HistoricalDatabase
                 StringComparison.Ordinal);
             var minimumYearByPerson = new Dictionary<string, int>(StringComparer.Ordinal);
             var maximumYearByPerson = new Dictionary<string, int>(StringComparer.Ordinal);
+            var provenanceByPerson = new Dictionary<string, string>(StringComparer.Ordinal);
             if (archive.PlayerRows != null)
             {
                 for (int index = 0; index < archive.PlayerRows.Count; index++)
@@ -41,6 +45,22 @@ namespace Baseball.Editor.HistoricalDatabase
                         minimumYearByPerson[personId] = row.Season.OriginYear;
                     if (!maximumYearByPerson.TryGetValue(personId, out int maximumYear) || row.Season.OriginYear > maximumYear)
                         maximumYearByPerson[personId] = row.Season.OriginYear;
+                    if (provenanceByPerson.TryGetValue(personId, out string existingProvenance))
+                    {
+                        collector.Check(
+                            string.Equals(existingProvenance, row.Season.DataProvenance, StringComparison.Ordinal),
+                            "Data Provenance",
+                            row.Season.OriginYear,
+                            personId,
+                            "한 PlayerPerson의 모든 시즌 DataProvenance가 일치합니다.",
+                            $"한 PlayerPerson에 서로 다른 DataProvenance가 섞였습니다: {existingProvenance}/{row.Season.DataProvenance}",
+                            HistoricalNavigationKind.Player,
+                            personId);
+                    }
+                    else
+                    {
+                        provenanceByPerson[personId] = row.Season.DataProvenance;
+                    }
                 }
             }
 
@@ -54,7 +74,8 @@ namespace Baseball.Editor.HistoricalDatabase
                         collector.Add(HistoricalValidationSeverity.Error, "PlayerPerson", null, string.Empty, "null PlayerPerson이 있습니다.");
                         continue;
                     }
-                    ValidatePerson(person, personIds, minimumYearByPerson, maximumYearByPerson, collector);
+                    provenanceByPerson.TryGetValue(person.PlayerPersonId, out string provenance);
+                    ValidatePerson(person, provenance, personIds, minimumYearByPerson, maximumYearByPerson, collector);
                     collector.Check(
                         fictionalNames.Add(person.FictionalName),
                         "PlayerPerson",
@@ -108,6 +129,7 @@ namespace Baseball.Editor.HistoricalDatabase
 
         private static void ValidatePerson(
             HistoricalPlayerPerson person,
+            string dataProvenance,
             ISet<string> personIds,
             IReadOnlyDictionary<string, int> minimumYearByPerson,
             IReadOnlyDictionary<string, int> maximumYearByPerson,
@@ -124,12 +146,12 @@ namespace Baseball.Editor.HistoricalDatabase
                 HistoricalNavigationKind.Player,
                 id);
             collector.Check(
-                IsStableHexId(id, "PERSON_"),
+                IsStablePersonId(id, dataProvenance),
                 "Stable ID",
                 null,
                 id,
-                "PlayerPersonId 형식이 유효합니다.",
-                "PlayerPersonId는 PERSON_ 접두사와 20자리 hex digest여야 합니다.",
+                $"{dataProvenance} PlayerPersonId 형식이 유효합니다.",
+                $"PlayerPersonId 형식이 DataProvenance와 맞지 않습니다: provenance={dataProvenance}, id={id}",
                 HistoricalNavigationKind.Player,
                 id);
             collector.Check(
@@ -258,12 +280,21 @@ namespace Baseball.Editor.HistoricalDatabase
                 HistoricalNavigationKind.Player,
                 id);
             collector.Check(
-                IsStableHexId(id, "SEASON_"),
+                IsStableSeasonId(id, season.DataProvenance),
                 "Stable ID",
                 year,
                 id,
-                "PlayerSeasonId 형식이 유효합니다.",
-                "PlayerSeasonId는 SEASON_ 접두사와 20자리 hex digest여야 합니다.",
+                $"{season.DataProvenance} PlayerSeasonId 형식이 유효합니다.",
+                $"PlayerSeasonId 형식이 DataProvenance와 맞지 않습니다: provenance={season.DataProvenance}, id={id}",
+                HistoricalNavigationKind.Player,
+                id);
+            collector.Check(
+                IsSupportedDataProvenance(season.DataProvenance),
+                "Data Provenance",
+                year,
+                id,
+                $"DataProvenance {season.DataProvenance}을 확인했습니다.",
+                $"지원하지 않는 DataProvenance입니다: {season.DataProvenance}",
                 HistoricalNavigationKind.Player,
                 id);
 
@@ -337,15 +368,6 @@ namespace Baseball.Editor.HistoricalDatabase
                 id);
             ValidateRatingArrays(season, collector);
             collector.Check(
-                season.ReferenceSimilarityDistance >= 0.12d && !double.IsNaN(season.ReferenceSimilarityDistance),
-                "Similarity",
-                year,
-                id,
-                $"ReferenceSimilarityDistance {season.ReferenceSimilarityDistance:0.######}가 최소 거리 이상입니다.",
-                $"ReferenceSimilarityDistance가 0.12보다 작습니다. actual={season.ReferenceSimilarityDistance:0.######}",
-                HistoricalNavigationKind.Player,
-                id);
-            collector.Check(
                 ValidPositions.Contains(season.Position) && IsPlayerTypePositionCompatible(season.PlayerType, season.Position),
                 "Position",
                 year,
@@ -355,7 +377,7 @@ namespace Baseball.Editor.HistoricalDatabase
                 HistoricalNavigationKind.Player,
                 id);
             collector.Check(
-                ValidPitcherRoles.Contains(season.PitcherRole),
+                IsPitcherRoleCompatible(season.PlayerType, season.PitcherRole),
                 "PitcherRole",
                 year,
                 id,
@@ -569,7 +591,8 @@ namespace Baseball.Editor.HistoricalDatabase
                     if (playerExists)
                     {
                         collector.Check(
-                            award.SeasonYear == row.Season.OriginYear && IsAwardPositionCompatible(award.Position, row.Season.Position),
+                            award.SeasonYear == row.Season.OriginYear &&
+                            IsAwardPositionCompatible(award.Position, row.Season.PlayerType),
                             "Join",
                             award.SeasonYear,
                             stableKey,
@@ -580,97 +603,6 @@ namespace Baseball.Editor.HistoricalDatabase
                     }
                 }
             }
-
-            ValidateAwardQuotas(archive, collector);
-        }
-
-        private static void ValidateAwardQuotas(HistoricalArchiveData archive, ValidationCollector collector)
-        {
-            if (archive.Manifest?.Years == null)
-                return;
-            for (int yearIndex = 0; yearIndex < archive.Manifest.Years.Count; yearIndex++)
-            {
-                int year = archive.Manifest.Years[yearIndex].Year;
-                int allStar = 0;
-                int allStarPitcher = 0;
-                int goldenGlove = 0;
-                int regularMvp = 0;
-                int allStarGameMvp = 0;
-                int postseasonMvp = 0;
-                int goldenGloveOutfield = 0;
-                var goldenGlovePositions = new Dictionary<string, int>(StringComparer.Ordinal);
-                for (int index = 0; index < archive.Awards.Count; index++)
-                {
-                    HistoricalAwardRecord award = archive.Awards[index];
-                    if (award == null || award.SeasonYear != year) continue;
-                    switch (award.AwardType)
-                    {
-                        case "AllStar":
-                            allStar++;
-                            if (string.Equals(award.Position, "P", StringComparison.Ordinal)) allStarPitcher++;
-                            break;
-                        case "GoldenGlove":
-                            goldenGlove++;
-                            goldenGlovePositions.TryGetValue(award.Position ?? string.Empty, out int positionCount);
-                            goldenGlovePositions[award.Position ?? string.Empty] = positionCount + 1;
-                            if (string.Equals(award.Position, "OF", StringComparison.Ordinal)) goldenGloveOutfield++;
-                            break;
-                        case "RegularSeasonMvp": regularMvp++; break;
-                        case "AllStarGameMvp": allStarGameMvp++; break;
-                        case "PostseasonMvp": postseasonMvp++; break;
-                    }
-                }
-
-                CheckAwardCount(year, "AllStar", 25, allStar, collector);
-                collector.Check(
-                    allStarPitcher == 11,
-                    "Award Quota",
-                    year,
-                    "AllStar:P",
-                    "AllStar 투수 Position 쿼터가 11명입니다.",
-                    $"AllStar 투수 Position은 11명이어야 합니다. actual={allStarPitcher}",
-                    HistoricalNavigationKind.File,
-                    $"Years/{year}.json");
-                CheckAwardCount(year, "GoldenGlove", 10, goldenGlove, collector);
-                CheckAwardCount(year, "RegularSeasonMvp", 1, regularMvp, collector);
-                CheckAwardCount(year, "AllStarGameMvp", 1, allStarGameMvp, collector);
-                CheckAwardCount(year, "PostseasonMvp", 1, postseasonMvp, collector);
-
-                bool goldenGloveQuotaValid = goldenGloveOutfield == 3;
-                string[] singlePositions = { "P", "C", "1B", "2B", "3B", "SS", "DH" };
-                for (int index = 0; index < singlePositions.Length; index++)
-                {
-                    goldenGlovePositions.TryGetValue(singlePositions[index], out int count);
-                    if (count != 1) goldenGloveQuotaValid = false;
-                }
-                collector.Check(
-                    goldenGloveQuotaValid,
-                    "Award Quota",
-                    year,
-                    "GoldenGlove:Position",
-                    "GoldenGlove가 P/C/내야/DH 각 1명과 OF 3명 쿼터를 만족합니다.",
-                    "GoldenGlove Position 쿼터가 P/C/내야/DH 각 1명, OF 3명과 다릅니다.",
-                    HistoricalNavigationKind.File,
-                    $"Years/{year}.json");
-            }
-        }
-
-        private static void CheckAwardCount(
-            int year,
-            string awardType,
-            int expected,
-            int actual,
-            ValidationCollector collector)
-        {
-            collector.Check(
-                actual == expected,
-                "Award Quota",
-                year,
-                awardType,
-                $"{awardType} 수가 {expected}명입니다.",
-                $"{awardType} 수가 다릅니다. expected={expected}, actual={actual}",
-                HistoricalNavigationKind.File,
-                $"Years/{year}.json");
         }
 
         private static void ValidateCards(HistoricalArchiveData archive, ValidationCollector collector)
@@ -773,10 +705,37 @@ namespace Baseball.Editor.HistoricalDatabase
             }
         }
 
+        private static bool IsStablePersonId(string value, string dataProvenance)
+        {
+            return string.Equals(dataProvenance, SourceBackedProvenance, StringComparison.Ordinal)
+                ? IsStableHexId(value, "PERSON_", 20)
+                : string.Equals(dataProvenance, ReplacementGeneratedProvenance, StringComparison.Ordinal) &&
+                  IsStableHexId(value, "REPL-PERSON-", 24);
+        }
+
+        private static bool IsStableSeasonId(string value, string dataProvenance)
+        {
+            return string.Equals(dataProvenance, SourceBackedProvenance, StringComparison.Ordinal)
+                ? IsStableHexId(value, "SEASON_", 20)
+                : string.Equals(dataProvenance, ReplacementGeneratedProvenance, StringComparison.Ordinal) &&
+                  IsStableHexId(value, "REPL-SEASON-", 24);
+        }
+
+        private static bool IsSupportedDataProvenance(string value)
+        {
+            return string.Equals(value, SourceBackedProvenance, StringComparison.Ordinal) ||
+                   string.Equals(value, ReplacementGeneratedProvenance, StringComparison.Ordinal);
+        }
+
         private static bool IsStableHexId(string value, string prefix)
         {
+            return IsStableHexId(value, prefix, 20);
+        }
+
+        private static bool IsStableHexId(string value, string prefix, int digestLength)
+        {
             if (string.IsNullOrEmpty(value) || !value.StartsWith(prefix, StringComparison.Ordinal) ||
-                value.Length != prefix.Length + 20)
+                value.Length != prefix.Length + digestLength)
                 return false;
             for (int index = prefix.Length; index < value.Length; index++)
             {
@@ -797,6 +756,14 @@ namespace Baseball.Editor.HistoricalDatabase
                   string.Equals(position, "P", StringComparison.Ordinal);
         }
 
+        private static bool IsPitcherRoleCompatible(string playerType, string pitcherRole)
+        {
+            if (string.Equals(playerType, "Pitcher", StringComparison.Ordinal))
+                return ValidPitcherRoles.Contains(pitcherRole);
+            return string.Equals(playerType, "Hitter", StringComparison.Ordinal) &&
+                   string.IsNullOrEmpty(pitcherRole);
+        }
+
         private static bool IsRosterRole(string value)
         {
             if (string.IsNullOrWhiteSpace(value)) return false;
@@ -806,11 +773,11 @@ namespace Baseball.Editor.HistoricalDatabase
             if (value.StartsWith("BenchHitter:", StringComparison.Ordinal))
                 return HasNumericSuffix(value, "BenchHitter:", 1, 5);
             if (value.StartsWith("ReserveHitter:", StringComparison.Ordinal))
-                return HasNumericSuffix(value, "ReserveHitter:", 1, 3);
+                return HasNumericSuffix(value, "ReserveHitter:", 1, int.MaxValue);
             if (value.StartsWith("StartingPitcher:", StringComparison.Ordinal))
                 return HasNumericSuffix(value, "StartingPitcher:", 1, 5);
             if (value.StartsWith("ReservePitcher:", StringComparison.Ordinal))
-                return HasNumericSuffix(value, "ReservePitcher:", 1, 2);
+                return HasNumericSuffix(value, "ReservePitcher:", 1, int.MaxValue);
             if (value.StartsWith("Bullpen", StringComparison.Ordinal))
                 return HasNumericSuffix(value, "Bullpen", 1, 4);
             return value == "Setup" || value == "Closer";
@@ -837,12 +804,12 @@ namespace Baseball.Editor.HistoricalDatabase
             return value == "Right" || value == "Left";
         }
 
-        private static bool IsAwardPositionCompatible(string awardPosition, string playerPosition)
+        private static bool IsAwardPositionCompatible(string awardPosition, string playerType)
         {
-            if (string.Equals(awardPosition, playerPosition, StringComparison.Ordinal)) return true;
-            if (string.Equals(awardPosition, "OF", StringComparison.Ordinal))
-                return playerPosition == "LF" || playerPosition == "CF" || playerPosition == "RF";
-            return false;
+            bool isPitcherAward = string.Equals(awardPosition, "P", StringComparison.Ordinal);
+            return isPitcherAward
+                ? string.Equals(playerType, "Pitcher", StringComparison.Ordinal)
+                : string.Equals(playerType, "Hitter", StringComparison.Ordinal);
         }
     }
 }

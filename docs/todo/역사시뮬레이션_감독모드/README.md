@@ -188,6 +188,11 @@ YearSelectCompositeTeam   — 해당 OriginYear 전체 선수풀에서 결정론
 | 6 | [06_전술카드_시스템.md](06_전술카드_시스템.md) | 감독 전술, 불펜/교체 운영, 전술카드, 조건부 발동/카운터 |
 | 7 | [07_선수모드_연동_와일드카드.md](07_선수모드_연동_와일드카드.md) | 공통 카드/로스터를 쓰는 선수모드와 Career Player Wildcard |
 | 8 | [08_구현_로드맵_검증기준.md](08_구현_로드맵_검증기준.md) | Offline Bake → 공통 Runtime → World Record → 모드별 기능의 구현 순서와 검증 |
+| 9 | [09_구단경영_구장_팬_관중_경제.md](09_구단경영_구장_팬_관중_경제.md) | 구단 경영 — 구장·팬·관중·시설·홈경기 경제 (신규 정본 기획안) |
+| 10 | [10_경기전_상대분석_라인업프리셋.md](10_경기전_상대분석_라인업프리셋.md) | 경기 전 상대 분석과 라인업 프리셋 (신규 정본 기획안) |
+| 11 | [11_코칭스태프_시스템.md](11_코칭스태프_시스템.md) | 코칭 스태프와 프런트 전문 인력 (신규 정본 기획안) |
+| 12 | [12_컨디션_타선_배터리_궁합.md](12_컨디션_타선_배터리_궁합.md) | 컨디션과 타선·배터리 궁합 (기존 Condition 계약의 정본 확장안) |
+| 13 | [13_4종_통합_구현로드맵_Codex.md](13_4종_통합_구현로드맵_Codex.md) | 09~12 네 시스템을 하나의 게임 루프로 닫는 통합 구현 로드맵 |
 
 ## 6. 설계 전반의 공통 원칙
 
@@ -202,7 +207,7 @@ YearSelectCompositeTeam   — 해당 OriginYear 전체 선수풀에서 결정론
 - **모든 주요 밸런스 변경은 대량 Simulation 근거를 요구한다.**
 
 <!-- HISTORICAL_BAKE_SNAPSHOT:START -->
-## 2026-09-03 Source-backed Bake 검증 스냅샷
+## 2026-09-04 Source-backed Bake 검증 스냅샷
 
 이 블록은 `Runtime/validation_report.json`에서 생성한다. 수동으로 숫자를 고치지 않는다.
 
@@ -222,8 +227,8 @@ YearSelectCompositeTeam   — 해당 OriginYear 전체 선수풀에서 결정론
 | 1988 | 172 | 91 | 0 | 19 | 7.6% | 1.842 | 47.895 |
 
 - Python 회귀: 52/52 통과, 실패 0, Skip 0
-- C# 컴파일: Baseball.Game, Core.Tests, Simulation.Tests 3개 빌드 통과; Editor.Tests는 Unity InputSystem/UI 참조 복원 전이라 미완료
-- Unity EditMode: 0건 실행; Unity LicensingClient 연결 실패로 중단
-- Historical World: 새 Bake 기준 미실행; 경기 수와 결정론 Hash 없음(이전 값 폐기)
+- C# 컴파일: PASS — Core/Simulation/Game/Editor Tests 어셈블리, 경고 0/오류 0
+- Unity EditMode: PASS — Provider 12/12, Archive Browser 21/21, Runtime Builder 9/9
+- Historical World: PASS — 44시즌/18,047경기, same-seed 0ed6549e474f2e62, different-seed e9e8e4b87054f31d, Replacement Awards AS 55/1100·GG 9/440·MVP 3/132
 
 <!-- HISTORICAL_BAKE_SNAPSHOT:END -->

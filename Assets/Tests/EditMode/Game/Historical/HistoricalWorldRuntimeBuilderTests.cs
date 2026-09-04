@@ -279,6 +279,10 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(run.Metrics.Seasons[0].AllStarGameCount, Is.EqualTo(1));
             Assert.That(run.Metrics.Seasons[0].PostseasonGameCount, Is.GreaterThan(0));
             Assert.That(run.Metrics.TotalElapsedTicks, Is.GreaterThan(0L));
+            Assert.That(run.ReplacementAwards.ReplacementPlayerSeasonCount, Is.Zero);
+            Assert.That(run.ReplacementAwards.AllStarCount, Is.EqualTo(25));
+            Assert.That(run.ReplacementAwards.GoldenGloveCount, Is.EqualTo(10));
+            Assert.That(run.ReplacementAwards.MvpCount, Is.EqualTo(3));
             TestContext.WriteLine(
                 $"HistoricalWorldSmoke Year=2024 Games={run.Metrics.TotalGameCount} " +
                 $"ElapsedMs={run.Metrics.TotalElapsedMilliseconds:F1} " +

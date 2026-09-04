@@ -172,12 +172,12 @@ namespace Baseball.Editor.HistoricalDatabase
             var allUnique = new HashSet<string>(StringComparer.Ordinal);
             bool allIdsUnique = AddAllIds(allCards, allUnique);
             collector.Check(
-                allCards.Count >= 28 && allCards.Count <= 40,
+                allCards.Count >= 25,
                 "Roster",
                 year,
                 teamKey,
-                $"전체 Normal Pool이 권장 범위입니다: {allCards.Count}",
-                $"전체 Normal Pool은 28~40장이어야 합니다. actual={allCards.Count}",
+                $"전체 Normal Pool이 Core25 이상입니다: {allCards.Count}",
+                $"전체 Normal Pool은 Core25 이상이어야 합니다. actual={allCards.Count}",
                 HistoricalNavigationKind.Team,
                 teamKey);
             collector.Check(

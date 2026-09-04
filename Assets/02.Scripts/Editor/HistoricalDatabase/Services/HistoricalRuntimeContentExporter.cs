@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Baseball.Editor.Tools;
 using Baseball.Game.Data;
 using Baseball.Game.Historical;
@@ -49,7 +50,7 @@ namespace Baseball.Editor.HistoricalDatabase
             if (!report.IsValid)
             {
                 throw new InvalidDataException(
-                    $"Historical Runtime 정제본 검증에 실패해 export를 중단했습니다. errors={report.ErrorCount}");
+                    BuildValidationFailureMessage(report));
             }
             if (!string.Equals(
                     archive.Manifest.SourceManifest?.NameDataPolicy,
@@ -171,6 +172,27 @@ namespace Baseball.Editor.HistoricalDatabase
             if (!string.IsNullOrEmpty(destinationDirectory))
                 Directory.CreateDirectory(destinationDirectory);
             File.WriteAllBytes(destinationPath, source);
+        }
+
+        private static string BuildValidationFailureMessage(HistoricalDatabaseValidationReport report)
+        {
+            const int maximumDetails = 12;
+            var builder = new StringBuilder(
+                $"Historical Runtime 정제본 검증에 실패해 export를 중단했습니다. errors={report.ErrorCount}");
+            int detailCount = 0;
+            for (int index = 0; index < report.Issues.Count && detailCount < maximumDetails; index++)
+            {
+                HistoricalValidationIssue issue = report.Issues[index];
+                if (issue.Severity != HistoricalValidationSeverity.Error)
+                    continue;
+                builder.AppendLine()
+                    .Append("- ").Append(issue.Category)
+                    .Append(" year=").Append(issue.Year?.ToString() ?? "-")
+                    .Append(" entity=").Append(issue.EntityId)
+                    .Append(": ").Append(issue.Message);
+                detailCount++;
+            }
+            return builder.ToString();
         }
 
         private static bool AreEqual(IReadOnlyList<byte> left, IReadOnlyList<byte> right)
