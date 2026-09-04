@@ -105,6 +105,22 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void PositionAssignmentPenaltyResolver_낮은역할신뢰도는불일치비용을완화한다()
+        {
+            PositionAssignmentRule rule = CreatePositionRule();
+
+            PositionAssignmentPenalty result = new PositionAssignmentPenaltyResolver().EvaluatePitcher(
+                PitcherRole.Starter,
+                PitcherRole.MiddleRelief,
+                PitcherRoleConfidence.Low,
+                rule);
+
+            Assert.That(result.IsAllowed, Is.True);
+            Assert.That(result.IsOffPosition, Is.True);
+            Assert.That(result.ConditionPenalty, Is.EqualTo(3));
+        }
+
+        [Test]
         public void BullpenUsageResolver_접전에서는상위불펜을우선하고소진시Bullpen4를사용한다()
         {
             BullpenUsagePolicy policy = CreateBullpenPolicy();

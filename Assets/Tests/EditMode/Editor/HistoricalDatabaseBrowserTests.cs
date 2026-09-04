@@ -149,15 +149,47 @@ namespace Baseball.Tests.EditMode.Editor
         {
             HistoricalSourceManifest manifest = _archive.Manifest.SourceManifest;
 
-            Assert.That(_archive.Manifest.ContentSchemaVersion, Is.EqualTo(3));
+            Assert.That(_archive.Manifest.ContentSchemaVersion, Is.EqualTo(4));
             Assert.That(manifest.ReferenceDataVersion, Is.EqualTo("kbo-normalized-v3"));
             Assert.That(manifest.RawDataVersion, Has.Length.EqualTo(64));
             Assert.That(manifest.NormalizedContentHash, Has.Length.EqualTo(64));
-            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v2"));
-            Assert.That(manifest.PositionRoleClassifierVersion, Is.EqualTo("season-position-role-v3"));
+            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v3"));
+            Assert.That(manifest.PositionRoleClassifierVersion, Is.EqualTo("season-position-role-v4"));
             Assert.That(manifest.RosterBuilderVersion, Is.EqualTo("position-first-core25-v2"));
-            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-role-composite-v2"));
-            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v3"));
+            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-role-composite-v3"));
+            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v4"));
+            Assert.That(manifest.SourceIdentityPolicyVersion, Is.EqualTo("editor-source-identity-v1"));
+            Assert.That(manifest.SourceAllocationPolicyVersion, Is.EqualTo("official-source-team-audit-v1"));
+            Assert.That(manifest.ReplacementGeneratorVersion, Is.EqualTo("replacement-generation-v1"));
+            Assert.That(manifest.ReplacementPopulationPolicyVersion, Is.EqualTo("origin-year-position-role-source-only-v1"));
+            Assert.That(manifest.SourceBackedPlayerPersonCount, Is.EqualTo(_archive.Persons.Count));
+            Assert.That(manifest.SourceBackedPlayerSeasonCount, Is.EqualTo(_archive.PlayerRows.Count));
+            Assert.That(manifest.ReplacementGeneratedPlayerPersonCount, Is.Zero);
+            Assert.That(manifest.ReplacementGeneratedPlayerSeasonCount, Is.Zero);
+        }
+
+        [Test]
+        public void CostTrace_DeserializesSourcePopulationContract()
+        {
+            const string json =
+                "{\"dataProvenance\":\"ReplacementGenerated\"," +
+                "\"costPopulationSource\":\"OriginYearSourceBacked\"," +
+                "\"sourcePopulationSize\":141," +
+                "\"replacementExcludedFromThresholdCalculation\":true," +
+                "\"thresholds\":[{\"upperExclusive\":0.05,\"cost\":1," +
+                "\"sourceCompositeAtBoundary\":42.75}]}";
+
+            HistoricalCostDerivationTrace trace =
+                JsonUtility.FromJson<HistoricalCostDerivationTrace>(json);
+
+            Assert.That(trace.DataProvenance, Is.EqualTo("ReplacementGenerated"));
+            Assert.That(trace.CostPopulationSource, Is.EqualTo("OriginYearSourceBacked"));
+            Assert.That(trace.SourcePopulationSize, Is.EqualTo(141));
+            Assert.That(trace.ReplacementExcludedFromThresholdCalculation, Is.True);
+            Assert.That(trace.Thresholds, Has.Count.EqualTo(1));
+            Assert.That(trace.Thresholds[0].UpperExclusive, Is.EqualTo(0.05d));
+            Assert.That(trace.Thresholds[0].Cost, Is.EqualTo(1));
+            Assert.That(trace.Thresholds[0].SourceCompositeAtBoundary, Is.EqualTo(42.75d));
         }
 
         [Test]

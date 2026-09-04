@@ -92,6 +92,35 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void AssignmentAdapter_낮은NaturalRole신뢰도는경기비용을완화한다()
+        {
+            PositionAssignmentRule rule = CreateAssignmentRule();
+            MatchRosterSnapshot roster = CreateRoster(4);
+            PitcherRosterEntry mismatch = new PitcherRosterEntry(
+                roster.StartingPitcher.Player,
+                PitcherRole.Starter,
+                naturalRole: PitcherRole.MiddleRelief,
+                naturalRoleConfidence: PitcherRoleConfidence.Low);
+            var mismatchRoster = new MatchRosterSnapshot(
+                roster.TeamId,
+                roster.TeamName,
+                roster.StartingLineup,
+                mismatch,
+                roster.Bullpen,
+                roster.Bench,
+                roster.ManagerProfile,
+                roster.RunningApproach);
+            var state = new DetailedTeamGameState(
+                mismatchRoster,
+                new PitcherFatigueResolver(BalanceTable.CreateDefault().Match),
+                new HistoricalMatchConfiguration(positionAssignmentRule: rule));
+
+            PositionAssignmentPenalty penalty = state.GetActivePitcherAssignmentPenalty();
+
+            Assert.That(penalty.ConditionPenalty, Is.EqualTo(2));
+        }
+
+        [Test]
         public void BullpenPolicy_공통Bullpen1부터4우선순위를경기교체후보에적용한다()
         {
             BullpenUsagePolicy policy = new BullpenUsagePolicy(new[]

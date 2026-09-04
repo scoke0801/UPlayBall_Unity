@@ -248,7 +248,7 @@ namespace Baseball.Tests.EditMode.Game
                 Array.Empty<SeasonStatistics>(),
                 new WorldAwardRecord(Array.Empty<WorldAwardEntry>()));
             return new CareerBakedContent(
-                new SyntheticContentManifest("test-reference", "test-generator", "test-balance", 1UL, "test-hash"),
+                new HistoricalSourceContentManifest("test-reference", "test-generator", "test-balance", 1UL, "test-hash"),
                 persons,
                 catalog,
                 teams,

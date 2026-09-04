@@ -42,6 +42,29 @@ namespace Baseball.Tests.EditMode.Core
         }
 
         [Test]
+        public void PlayerSeason_Provenance와NaturalRoleConfidence를Bake값으로보존한다()
+        {
+            var season = new PlayerSeasonDefinition(
+                "SEASON_REPLACEMENT_1982_001",
+                "PERSON_REPLACEMENT_1982_001",
+                1982,
+                "COMETS",
+                "COMETS_1982",
+                PlayerPosition.ReliefPitcher,
+                PitcherRole.MiddleRelief,
+                PlayerType.Pitcher,
+                RegistrationType.Domestic,
+                new AbilityRatings(45),
+                2,
+                new AbilityRatings(55),
+                PlayerDataProvenance.ReplacementGenerated,
+                PitcherRoleConfidence.Low);
+
+            Assert.That(season.DataProvenance, Is.EqualTo(PlayerDataProvenance.ReplacementGenerated));
+            Assert.That(season.PitcherRoleConfidence, Is.EqualTo(PitcherRoleConfidence.Low));
+        }
+
+        [Test]
         public void CardId_같은Season과Edition은항상같다()
         {
             string first = PlayerCardDefinition.CreateStableCardId("SEASON_2011_001", PlayerCardEdition.Mvp);

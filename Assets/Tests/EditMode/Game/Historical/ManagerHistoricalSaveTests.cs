@@ -476,7 +476,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     1,
                     1,
                     "test-archive-hash",
-                    new SyntheticContentManifest(
+                new HistoricalSourceContentManifest(
                         "test-reference",
                         "test-generator",
                         "test-balance",
