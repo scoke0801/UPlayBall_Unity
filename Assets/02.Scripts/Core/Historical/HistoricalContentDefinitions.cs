@@ -58,12 +58,12 @@ namespace Baseball.Core.Historical
         }
     }
 
-    /// <summary>두 게임 모드가 공유하는 가상 선수 인물 단위의 읽기 전용 Baked 정의다.</summary>
+    /// <summary>Source Person과 1:1로 대응하며 표시 이름을 포함하지 않는 읽기 전용 Canonical 정의다.</summary>
     public sealed class PlayerPersonDefinition
     {
+        /// <summary>표시 이름 없이 Canonical Person을 만든다.</summary>
         public PlayerPersonDefinition(
             string playerPersonId,
-            string fictionalName,
             int birthYear,
             Handedness bats,
             Handedness throws,
@@ -75,8 +75,6 @@ namespace Baseball.Core.Historical
         {
             if (string.IsNullOrWhiteSpace(playerPersonId))
                 throw new ArgumentException("PlayerPersonId는 비어 있을 수 없습니다.", nameof(playerPersonId));
-            if (string.IsNullOrWhiteSpace(fictionalName))
-                throw new ArgumentException("가상 선수 이름은 비어 있을 수 없습니다.", nameof(fictionalName));
             if (birthYear <= 0)
                 throw new ArgumentOutOfRangeException(nameof(birthYear));
             if (throws == Handedness.Switch)
@@ -87,7 +85,6 @@ namespace Baseball.Core.Historical
                 throw new ArgumentOutOfRangeException(nameof(careerEndYear));
 
             PlayerPersonId = playerPersonId.Trim();
-            FictionalName = fictionalName.Trim();
             BirthYear = birthYear;
             Bats = bats;
             Throws = throws;
@@ -99,7 +96,6 @@ namespace Baseball.Core.Historical
         }
 
         public string PlayerPersonId { get; }
-        public string FictionalName { get; }
         public int BirthYear { get; }
         public Handedness Bats { get; }
         public Handedness Throws { get; }
@@ -307,7 +303,10 @@ namespace Baseball.Core.Historical
             int sourceBackedPlayerPersonCount = 0,
             int sourceBackedPlayerSeasonCount = 0,
             int replacementGeneratedPlayerPersonCount = 0,
-            int replacementGeneratedPlayerSeasonCount = 0)
+            int replacementGeneratedPlayerSeasonCount = 0,
+            bool generationSeedAffectsCanonicalBake = false,
+            string sourceFranchiseIdentityPolicyVersion = "",
+            string sourceTeamSeasonIdentityPolicyVersion = "")
         {
             ReferenceDataVersion = Require(referenceDataVersion, nameof(referenceDataVersion));
             GeneratorVersion = Require(generatorVersion, nameof(generatorVersion));
@@ -322,6 +321,9 @@ namespace Baseball.Core.Historical
             SourceBackedPlayerSeasonCount = sourceBackedPlayerSeasonCount;
             ReplacementGeneratedPlayerPersonCount = replacementGeneratedPlayerPersonCount;
             ReplacementGeneratedPlayerSeasonCount = replacementGeneratedPlayerSeasonCount;
+            GenerationSeedAffectsCanonicalBake = generationSeedAffectsCanonicalBake;
+            SourceFranchiseIdentityPolicyVersion = sourceFranchiseIdentityPolicyVersion?.Trim() ?? string.Empty;
+            SourceTeamSeasonIdentityPolicyVersion = sourceTeamSeasonIdentityPolicyVersion?.Trim() ?? string.Empty;
         }
 
         public string ReferenceDataVersion { get; }
@@ -337,6 +339,9 @@ namespace Baseball.Core.Historical
         public int SourceBackedPlayerSeasonCount { get; }
         public int ReplacementGeneratedPlayerPersonCount { get; }
         public int ReplacementGeneratedPlayerSeasonCount { get; }
+        public bool GenerationSeedAffectsCanonicalBake { get; }
+        public string SourceFranchiseIdentityPolicyVersion { get; }
+        public string SourceTeamSeasonIdentityPolicyVersion { get; }
 
         private static string Require(string value, string parameterName)
         {

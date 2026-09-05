@@ -276,7 +276,7 @@ namespace Baseball.Core.Historical
         public static ScoutPityBalanceTable CreateInitial() => new ScoutPityBalanceTable(10, 100, 7);
     }
 
-    /// <summary>감독모드 카드 한 장에만 귀속되는 DP 훈련 누적치다.</summary>
+    /// <summary>구단주 모드 카드 한 장에만 귀속되는 DP 훈련 누적치다.</summary>
     public sealed class CardTrainingState
     {
         private readonly int[] _bonuses;
@@ -311,7 +311,7 @@ namespace Baseball.Core.Historical
         }
     }
 
-    /// <summary>감독모드 플레이어 구단에만 저장되는 카드 소유 상태다.</summary>
+    /// <summary>구단주 모드 플레이어 구단에만 저장되는 카드 소유 상태다.</summary>
     public sealed class OwnedPlayerCardState
     {
         public const int MaximumEnhancementLevel = 5;
@@ -368,7 +368,7 @@ namespace Baseball.Core.Historical
         }
     }
 
-    /// <summary>감독모드 플레이어 구단 전용 Money/SP/DP와 Pity 진행 상태다.</summary>
+    /// <summary>구단주 모드 플레이어 구단 전용 Money/SP/DP와 Pity 진행 상태다.</summary>
     public sealed class ManagerEconomyState
     {
         public ManagerEconomyState(long money = 0, int scoutingPoints = 0, int developmentPoints = 0, int pityGauge = 0)

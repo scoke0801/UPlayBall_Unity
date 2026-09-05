@@ -129,6 +129,10 @@ namespace Baseball.Core.Balance
             MatchBalanceTable match = null,
             MiniGameBalance miniGame = null,
             HistoricalAssignmentBalance historicalAssignment = null,
+            Baseball.Core.Historical.ConditionChemistryBalanceTable conditionChemistry = null,
+            ClubOperationBalanceTable clubOperation = null,
+            Baseball.Core.Historical.StaffBalanceTable staff = null,
+            Baseball.Core.Historical.ScoutingConfidenceDefinition scoutingConfidence = null,
             string contentHash = "builtin-career-content-v3")
         {
             if (string.IsNullOrWhiteSpace(contentHash))
@@ -158,6 +162,10 @@ namespace Baseball.Core.Balance
             Match = match ?? MatchBalanceTable.CreateDefault();
             MiniGame = miniGame ?? MiniGameBalance.CreateDefault();
             HistoricalAssignment = historicalAssignment ?? HistoricalAssignmentBalance.CreateDefault();
+            ConditionChemistry = conditionChemistry ?? Baseball.Core.Historical.ConditionChemistryBalanceTable.CreateDefault();
+            ClubOperation = clubOperation ?? ClubOperationBalanceTable.CreateInitial();
+            Staff = staff ?? Baseball.Core.Historical.StaffBalanceTable.CreateInitial();
+            ScoutingConfidence = scoutingConfidence ?? Baseball.Core.Historical.ScoutingConfidenceDefinition.CreateInitial();
             SeasonAwards = SeasonAwardBalance.CreateDefault();
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
         }
@@ -187,6 +195,10 @@ namespace Baseball.Core.Balance
         public MatchBalanceTable Match { get; }
         public MiniGameBalance MiniGame { get; }
         public HistoricalAssignmentBalance HistoricalAssignment { get; }
+        public Baseball.Core.Historical.ConditionChemistryBalanceTable ConditionChemistry { get; }
+        public ClubOperationBalanceTable ClubOperation { get; }
+        public Baseball.Core.Historical.StaffBalanceTable Staff { get; }
+        public Baseball.Core.Historical.ScoutingConfidenceDefinition ScoutingConfidence { get; }
         public SeasonAwardBalance SeasonAwards { get; }
         public SeasonSettlementBalance SeasonSettlement { get; }
 

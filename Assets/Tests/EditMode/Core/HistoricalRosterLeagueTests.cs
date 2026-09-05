@@ -44,7 +44,7 @@ namespace Baseball.Tests.EditMode.Core
         }
 
         [Test]
-        public void LeagueInstance_정규Franchise는정확히10개이고특수팀은별도로센다()
+        public void LeagueInstance_연도별정규Franchise6에서10개를허용하고특수팀은별도로센다()
         {
             string[] regularTeams = CreateRegularTeams(10);
             var specialTeams = new[]
@@ -62,8 +62,12 @@ namespace Baseball.Tests.EditMode.Core
             Assert.That(league.RegularFranchiseTeamCount, Is.EqualTo(10));
             Assert.That(league.SpecialCompositeTeams.Count, Is.EqualTo(3));
             Assert.That(league.ParticipantTeamCount, Is.EqualTo(13));
+            Assert.DoesNotThrow(() =>
+                new LeagueInstance("SIX-TEAM", LeagueGrade.Rookie, CreateRegularTeams(6)));
             Assert.Throws<ArgumentException>(() =>
-                new LeagueInstance("INVALID", LeagueGrade.Rookie, CreateRegularTeams(9)));
+                new LeagueInstance("TOO-FEW", LeagueGrade.Rookie, CreateRegularTeams(5)));
+            Assert.Throws<ArgumentException>(() =>
+                new LeagueInstance("TOO-MANY", LeagueGrade.Rookie, CreateRegularTeams(11)));
         }
 
         [Test]

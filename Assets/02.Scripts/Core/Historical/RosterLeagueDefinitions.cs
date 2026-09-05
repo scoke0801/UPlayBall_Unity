@@ -31,7 +31,7 @@ namespace Baseball.Core.Historical
         Closer
     }
 
-    /// <summary>선수 커리어와 감독모드가 공유하는 25인 1군 구성 계약이다.</summary>
+    /// <summary>선수 커리어와 구단주 모드가 공유하는 25인 1군 구성 계약이다.</summary>
     public sealed class ActiveRosterCompositionRule
     {
         public const int ActiveRosterSize = 25;
@@ -217,7 +217,7 @@ namespace Baseball.Core.Historical
         public double MediumConfidenceMultiplier { get; }
         public double LowConfidenceMultiplier { get; }
 
-        /// <summary>역할 근거가 불완전할수록 비본래 역할 비용을 완화한다.</summary>
+        /// <summary>역할 근거가 불완전할수록 비본래 역할 비용을 완화하고 가장 가까운 정수로 반올림한다.</summary>
         public int GetConditionPenalty(PitcherRoleConfidence confidence)
         {
             double multiplier = confidence switch
@@ -504,7 +504,7 @@ namespace Baseball.Core.Historical
         YearSelectComposite
     }
 
-    /// <summary>수상 확정 뒤 정규 10구단과 별도로 리그에 추가할 합성 참가팀이다.</summary>
+    /// <summary>수상 확정 뒤 해당 연도 정규 구단과 별도로 리그에 추가할 합성 참가팀이다.</summary>
     public sealed class SpecialCompositeTeamRegistration
     {
         public SpecialCompositeTeamRegistration(
@@ -528,10 +528,11 @@ namespace Baseball.Core.Historical
         public SpecialCompositeTeamType TeamType { get; }
     }
 
-    /// <summary>정규 Franchise 10구단과 별도 특수 합성 참가팀을 구분해 보관한다.</summary>
+    /// <summary>연도별 정규 Franchise 6~10구단과 별도 특수 합성 참가팀을 구분해 보관한다.</summary>
     public sealed class LeagueInstance
     {
-        public const int RequiredRegularFranchiseTeamCount = 10;
+        public const int MinimumRegularFranchiseTeamCount = 6;
+        public const int MaximumRegularFranchiseTeamCount = 10;
         private readonly string[] _regularTeamSeasonKeys;
         private readonly SpecialCompositeTeamRegistration[] _specialCompositeTeams;
 
@@ -545,8 +546,8 @@ namespace Baseball.Core.Historical
                 throw new ArgumentException("LeagueInstanceId는 비어 있을 수 없습니다.", nameof(leagueInstanceId));
             if (!Enum.IsDefined(typeof(LeagueGrade), grade))
                 throw new ArgumentOutOfRangeException(nameof(grade));
-            if (regularTeamSeasonKeys == null || regularTeamSeasonKeys.Count != RequiredRegularFranchiseTeamCount)
-                throw new ArgumentException("정규 Franchise 구단은 정확히 10개여야 합니다.", nameof(regularTeamSeasonKeys));
+            if (regularTeamSeasonKeys == null || !IsSupportedRegularFranchiseTeamCount(regularTeamSeasonKeys.Count))
+                throw new ArgumentException("정규 Franchise 구단은 6~10개여야 합니다.", nameof(regularTeamSeasonKeys));
 
             LeagueInstanceId = leagueInstanceId.Trim();
             Grade = grade;
@@ -560,6 +561,12 @@ namespace Baseball.Core.Historical
         public IReadOnlyList<string> RegularTeamSeasonKeys => _regularTeamSeasonKeys;
         public IReadOnlyList<SpecialCompositeTeamRegistration> SpecialCompositeTeams => _specialCompositeTeams;
         public int ParticipantTeamCount => _regularTeamSeasonKeys.Length + _specialCompositeTeams.Length;
+
+        public static bool IsSupportedRegularFranchiseTeamCount(int teamCount)
+        {
+            return teamCount >= MinimumRegularFranchiseTeamCount &&
+                   teamCount <= MaximumRegularFranchiseTeamCount;
+        }
 
         private static string[] CopyRegularTeams(IReadOnlyList<string> source)
         {
