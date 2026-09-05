@@ -14,7 +14,9 @@ namespace Baseball.Presentation.UI
         Divider,
         InputBlocker,
         FramedSurface,
-        FramedCard
+        FramedCard,
+        TexturedPanel,
+        TexturedAction
     }
 
     /// <summary>이름 추정 없이 Image의 시각 역할과 프레임 Variant를 공통 스킨에 전달한다.</summary>

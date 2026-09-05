@@ -10,7 +10,13 @@ namespace Baseball.Presentation.SharedUI
         /// <summary>
         /// Route와 제목, 현재 상태를 설명하는 한 줄 요약으로 Context를 만든다.
         /// </summary>
-        public ShellContextModel(string routeId, string title, string summary = null, string eyebrow = null)
+        public ShellContextModel(
+            string routeId,
+            string title,
+            string summary = null,
+            string eyebrow = null,
+            bool canGoBack = false,
+            string backLabel = null)
         {
             if (string.IsNullOrWhiteSpace(routeId))
                 throw new ArgumentException("Context Route는 비어 있을 수 없습니다.", nameof(routeId));
@@ -21,6 +27,8 @@ namespace Baseball.Presentation.SharedUI
             Title = title;
             Summary = summary ?? string.Empty;
             Eyebrow = eyebrow ?? string.Empty;
+            CanGoBack = canGoBack;
+            BackLabel = string.IsNullOrWhiteSpace(backLabel) ? "이전" : backLabel;
         }
 
         /// <summary>
@@ -42,5 +50,11 @@ namespace Baseball.Presentation.SharedUI
         /// 제목 앞에 붙일 선택적 상위 맥락이다.
         /// </summary>
         public string Eyebrow { get; }
+
+        /// <summary>현재 화면이 진입 원점으로 돌아갈 수 있는 Context Screen인지 나타낸다.</summary>
+        public bool CanGoBack { get; }
+
+        /// <summary>Context Header의 뒤로가기 버튼에 표시할 짧은 문구다.</summary>
+        public string BackLabel { get; }
     }
 }

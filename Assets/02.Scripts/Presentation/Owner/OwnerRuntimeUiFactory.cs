@@ -58,7 +58,11 @@ namespace Baseball.Presentation.Owner
 
         public static ScrollRect CreateVerticalScroll(string name, Transform parent, out RectTransform content)
         {
-            Image scrollSurface = CreateImage(name, parent, CareerUiTheme.PanelDark);
+            Image scrollSurface = CreateImage(name, parent, CareerUiTheme.ReferencePanel);
+            Outline outline = scrollSurface.gameObject.AddComponent<Outline>();
+            outline.effectColor = CareerUiTheme.ReferenceBorder;
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = false;
             ScrollRect scroll = scrollSurface.gameObject.AddComponent<ScrollRect>();
             scroll.horizontal = false;
             scroll.vertical = true;

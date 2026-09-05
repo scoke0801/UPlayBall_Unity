@@ -42,6 +42,59 @@ namespace Baseball.Tests.EditMode.Presentation
         }
 
         [Test]
+        public void NavigationManifest_Depth3Route를거부한다()
+        {
+            var depthThree = new NavigationEntry(
+                "Career.Records.Season",
+                "정규시즌",
+                children: new[] { new NavigationEntry("Career.Records.Season.All", "전체지표") });
+
+            Assert.Throws<ArgumentException>(() => new NavigationManifest(new[]
+            {
+                new NavigationEntry("Career", "커리어", children: new[] { depthThree })
+            }));
+        }
+
+        [Test]
+        public void GameModeUiProfile_OldRoute를새LocalTarget으로변환한다()
+        {
+            var migrations = new NavigationRouteMigrationMap(new Dictionary<string, string>
+            {
+                ["Player.Growth"] = "Player.Profile.Growth"
+            });
+            var profile = new GameModeUiProfile(
+                UiGameMode.PlayerCareer,
+                "선수 모드",
+                new NavigationManifest(new[]
+                {
+                    new NavigationEntry("Player.Profile", "선수", children: new[]
+                    {
+                        new NavigationEntry("Player.Profile.Growth", "성장")
+                    })
+                }),
+                new UiCapabilitySet(UiCapability.None),
+                routeMigrations: migrations);
+
+            Assert.That(profile.ResolveRouteId("Player.Growth"), Is.EqualTo("Player.Profile.Growth"));
+            Assert.That(profile.FindNavigationGroup("Player.Growth").RouteId, Is.EqualTo("Player.Profile"));
+        }
+
+        [Test]
+        public void GameModeNavigationState_ContextBack이진입원점과Local선택을복원한다()
+        {
+            GameModeUiProfile profile = CreateNavigationStateProfile();
+            var state = new GameModeNavigationState(profile, "Owner.Home");
+
+            Assert.That(state.Navigate("Shared.League.Schedule"), Is.EqualTo("Shared.League.Schedule"));
+            Assert.That(state.OpenContext("Owner.MatchCenter"), Is.EqualTo("Owner.MatchCenter.Analysis"));
+            Assert.That(state.NavigateContext("Owner.MatchCenter.Lineup"), Is.EqualTo("Owner.MatchCenter.Lineup"));
+
+            Assert.That(state.TryBack(out string returnRoute), Is.True);
+            Assert.That(returnRoute, Is.EqualTo("Shared.League.Schedule"));
+            Assert.That(state.Navigate("Shared.League"), Is.EqualTo("Shared.League.Schedule"));
+        }
+
+        [Test]
         public void SharedGameShellPresenter_모드이름분기없이Profile과상태를바인딩한다()
         {
             var view = new FakeShellView();
@@ -77,6 +130,20 @@ namespace Baseball.Tests.EditMode.Presentation
             }
 
             Assert.That(requestedRoutes, Is.EqualTo(new[] { "Player.Home" }));
+        }
+
+        [Test]
+        public void SharedGameShellPresenter_Back요청을Router에전달한다()
+        {
+            var view = new FakeShellView();
+            var statusProvider = new FakeStatusProvider(CreateStatus("서울 코멧츠"));
+            using var presenter = new SharedGameShellPresenter(view, CreatePlayerProfile(), statusProvider);
+            int requestCount = 0;
+            presenter.BackRequested += () => requestCount++;
+
+            view.RequestBack();
+
+            Assert.That(requestCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -196,6 +263,31 @@ namespace Baseball.Tests.EditMode.Presentation
                 new UiCapabilitySet(UiCapability.CanViewCareerPlayerGrowth));
         }
 
+        private static GameModeUiProfile CreateNavigationStateProfile()
+        {
+            return new GameModeUiProfile(
+                UiGameMode.OwnerCareer,
+                "구단주 모드",
+                new NavigationManifest(new[]
+                {
+                    new NavigationEntry("Owner.Home", "홈"),
+                    new NavigationEntry("Shared.League", "리그", children: new[]
+                    {
+                        new NavigationEntry("Shared.League.Schedule", "일정"),
+                        new NavigationEntry("Shared.League.Records", "기록")
+                    })
+                }),
+                new UiCapabilitySet(UiCapability.None),
+                new NavigationManifest(new[]
+                {
+                    new NavigationEntry("Owner.MatchCenter", "Match Center", children: new[]
+                    {
+                        new NavigationEntry("Owner.MatchCenter.Analysis", "상대 분석"),
+                        new NavigationEntry("Owner.MatchCenter.Lineup", "우리 라인업")
+                    })
+                }));
+        }
+
         private static ShellStatusModel CreateStatus(string teamName)
         {
             return new ShellStatusModel("2028", "4월 3주", "Premier", teamName, "3위", "다음 경기 D-1");
@@ -204,6 +296,7 @@ namespace Baseball.Tests.EditMode.Presentation
         private sealed class FakeShellView : ISharedGameShellView
         {
             public event Action<string> NavigationRequested;
+            public event Action BackRequested;
 
             public GameModeUiProfile BoundProfile { get; private set; }
             public ShellStatusModel BoundStatus { get; private set; }
@@ -227,6 +320,11 @@ namespace Baseball.Tests.EditMode.Presentation
             public void RequestNavigation(string routeId)
             {
                 NavigationRequested?.Invoke(routeId);
+            }
+
+            public void RequestBack()
+            {
+                BackRequested?.Invoke();
             }
         }
 

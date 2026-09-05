@@ -14,17 +14,19 @@ namespace Baseball.Presentation.SharedUI
         private const float WorkspaceGap = 12f;
 
         private static Color Background => CareerUiTheme.Background;
-        private static Color TopBar => CareerUiTheme.TopBar;
-        private static Color NavigationSurface => CareerUiTheme.PanelDark;
-        private static Color ContextSurface => CareerUiTheme.ContextSurface;
-        private static Color WorkspaceSurface => CareerUiTheme.Panel;
-        private static Color InspectorSurface => CareerUiTheme.SurfaceSubtle;
-        private static Color ActionSurface => CareerUiTheme.PanelDark;
-        private static Color NavigationColor => CareerUiTheme.SurfaceSubtle;
-        private static Color NavigationSelectedColor => CareerUiTheme.SurfaceSelected;
-        private static Color SubTabColor => CareerUiTheme.Surface;
-        private static Color StatusSurface => CareerUiTheme.PanelDark;
-        private static Color Border => CareerUiTheme.Border;
+        private static Color TopBar => CareerUiTheme.ShellHeader;
+        private static Color NavigationSurface => CareerUiTheme.ShellNavigation;
+        private static Color ContextSurface => CareerUiTheme.ReferenceCanvas;
+        private static Color WorkspaceSurface => CareerUiTheme.ReferenceCanvas;
+        private static Color InspectorSurface => CareerUiTheme.ReferenceCanvas;
+        private static Color ActionSurface => CareerUiTheme.ReferencePanelHeader;
+        private static Color NavigationColor => CareerUiTheme.ShellTab;
+        private static Color NavigationSelectedColor => CareerUiTheme.ShellTabSelected;
+        private static Color SubTabColor => CareerUiTheme.ReferencePanelHeader;
+        private static Color StatusSurface => CareerUiTheme.ShellNavigation;
+        private static Color Border => CareerUiTheme.ShellBorder;
+        private static Color Divider => CareerUiTheme.ShellDivider;
+        private static Color GoldAccent => CareerUiTheme.ShellGold;
         private static Color TextPrimary => CareerUiTheme.TextPrimary;
         private static Color TextSecondary => CareerUiTheme.TextSecondary;
         private static Color TextMuted => CareerUiTheme.TextMuted;
@@ -50,6 +52,7 @@ namespace Baseball.Presentation.SharedUI
             _rootBackground.color = _isChromeOverlayMode ? Color.clear : Background;
             _rootBackground.raycastTarget = false;
 
+            BuildModeBackground(root);
             BuildGlobalTopBar(root);
             BuildPrimaryNavigation(root);
             BuildContextHeader(root);
@@ -59,13 +62,23 @@ namespace Baseball.Presentation.SharedUI
             UpdateWorkspaceOffsets();
         }
 
+        private void BuildModeBackground(RectTransform root)
+        {
+            RectTransform backgroundRect = CreateAnchoredImage(
+                "ModeBackground", root, Color.clear, Vector2.zero, Vector2.one,
+                Vector2.zero, Vector2.zero);
+            backgroundRect.SetAsFirstSibling();
+            _modeBackground = backgroundRect.GetComponent<Image>();
+            _modeBackground.preserveAspect = false;
+        }
+
         private void BuildGlobalTopBar(RectTransform root)
         {
             _globalTopBar = CreateAnchoredImage(
                 "GlobalTopBar", root, TopBar, new Vector2(0f, 1f), Vector2.one,
                 new Vector2(0f, -TopBarHeight), Vector2.zero);
             _globalTopBar.GetComponent<Image>().raycastTarget = true;
-            AddBottomBorder(_globalTopBar);
+            AddBottomBorder(_globalTopBar, GoldAccent, 2f);
 
             RectTransform brand = CreateRect("Brand", _globalTopBar);
             SetAnchors(brand, new Vector2(0f, 0f), new Vector2(0f, 1f),
@@ -78,6 +91,8 @@ namespace Baseball.Presentation.SharedUI
                 "ModeName", brand, string.Empty, 12, FontStyle.Bold,
                 TextAnchor.LowerLeft, AccentLight);
             SetAnchors(_modeNameText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0f, 6f));
+
+            CreateVerticalDivider("BrandDivider", _globalTopBar, 260f);
 
             RectTransform teamStatus = CreateRect("TeamStatus", _globalTopBar);
             SetAnchors(teamStatus, new Vector2(0f, 0f), new Vector2(0f, 1f),
@@ -93,11 +108,19 @@ namespace Baseball.Presentation.SharedUI
             SetAnchors(_commonStatusText.rectTransform, Vector2.zero, Vector2.one,
                 Vector2.zero, new Vector2(0f, 6f));
 
+            CreateVerticalDivider("TeamDivider", _globalTopBar, 804f);
+
             _nextMatchText = CreateText(
                 "NextMatch", _globalTopBar, string.Empty, 14, FontStyle.Bold,
                 TextAnchor.MiddleRight, TextSecondary);
             SetAnchors(_nextMatchText.rectTransform, new Vector2(0.41f, 0f), new Vector2(0.62f, 1f),
                 new Vector2(8f, 0f), new Vector2(-8f, 0f));
+
+            RectTransform nextMatchAccent = CreateAnchoredImage(
+                "NextMatchAccent", _globalTopBar, CareerUiTheme.ShellField,
+                new Vector2(0.41f, 0f), new Vector2(0.41f, 1f),
+                new Vector2(0f, 13f), new Vector2(2f, -13f));
+            nextMatchAccent.SetAsFirstSibling();
 
             _statusSlotHost = CreateRect("ModeStatusSlots", _globalTopBar);
             SetAnchors(_statusSlotHost, new Vector2(0.63f, 0f), Vector2.one,
@@ -132,9 +155,9 @@ namespace Baseball.Presentation.SharedUI
 
             _navigationEntryHost = CreateRect("Entries", _primaryNavigation);
             SetAnchors(_navigationEntryHost, Vector2.zero, Vector2.one,
-                new Vector2(20f, 5f), new Vector2(-20f, -5f));
+                new Vector2(18f, 5f), new Vector2(-18f, -5f));
             var layout = _navigationEntryHost.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 4f;
+            layout.spacing = 5f;
             layout.childAlignment = TextAnchor.MiddleLeft;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
@@ -151,23 +174,37 @@ namespace Baseball.Presentation.SharedUI
             _contextHeader.GetComponent<Image>().raycastTarget = true;
             AddBottomBorder(_contextHeader);
 
+            RectTransform backRect = CreateAnchoredImage(
+                "Back", _contextHeader, NavigationSurface,
+                new Vector2(0f, 0f), new Vector2(0f, 1f),
+                new Vector2(16f, 7f), new Vector2(92f, -7f));
+            _backButton = backRect.gameObject.AddComponent<Button>();
+            _backButton.targetGraphic = backRect.GetComponent<Image>();
+            _backButton.colors = CreateButtonColors(true);
+            _backButton.onClick.AddListener(() => BackRequested?.Invoke());
+            _backButtonLabel = CreateText(
+                "Label", backRect, "이전", 13, FontStyle.Bold,
+                TextAnchor.MiddleCenter, TextPrimary);
+            Stretch(_backButtonLabel.rectTransform);
+            _backButton.gameObject.SetActive(false);
+
             _contextTitleText = CreateText(
                 "Title", _contextHeader, string.Empty, 19, FontStyle.Bold,
                 TextAnchor.MiddleLeft, DarkText);
-            SetAnchors(_contextTitleText.rectTransform, new Vector2(0f, 0f), new Vector2(0.31f, 1f),
-                new Vector2(20f, 0f), new Vector2(-8f, 0f));
+            SetAnchors(_contextTitleText.rectTransform, new Vector2(0f, 0f), new Vector2(0.28f, 1f),
+                new Vector2(104f, 0f), new Vector2(-8f, 0f));
 
             _contextSummaryText = CreateText(
                 "Summary", _contextHeader, string.Empty, 14, FontStyle.Normal,
                 TextAnchor.MiddleLeft, Color.Lerp(DarkText, ContextSurface, 0.22f));
-            SetAnchors(_contextSummaryText.rectTransform, new Vector2(0.31f, 0f), new Vector2(0.62f, 1f),
+            SetAnchors(_contextSummaryText.rectTransform, new Vector2(0.28f, 0f), new Vector2(0.52f, 1f),
                 new Vector2(0f, 0f), new Vector2(-10f, 0f));
 
             _subTabHost = CreateRect("SubTabs", _contextHeader);
-            SetAnchors(_subTabHost, new Vector2(0.62f, 0f), Vector2.one,
+            SetAnchors(_subTabHost, new Vector2(0.52f, 0f), Vector2.one,
                 new Vector2(0f, 5f), new Vector2(-14f, -5f));
             var layout = _subTabHost.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 3f;
+            layout.spacing = 4f;
             layout.childAlignment = TextAnchor.MiddleRight;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
@@ -182,12 +219,14 @@ namespace Baseball.Presentation.SharedUI
                 new Vector2(16f, ActionBarHeight + 12f),
                 new Vector2(-(InspectorWidth + WorkspaceGap + 16f), -(TopBarHeight + NavigationHeight + ContextHeaderHeight + 12f)));
             AddOutline(_mainWorkspaceHost.GetComponent<Image>());
+            AddTopBorder(_mainWorkspaceHost, GoldAccent, 2f);
 
             _rightInspectorHost = CreateAnchoredImage(
                 "OptionalRightInspector", root, InspectorSurface, new Vector2(1f, 0f), Vector2.one,
                 new Vector2(-(InspectorWidth + 16f), ActionBarHeight + 12f),
                 new Vector2(-16f, -(TopBarHeight + NavigationHeight + ContextHeaderHeight + 12f)));
             AddOutline(_rightInspectorHost.GetComponent<Image>());
+            AddTopBorder(_rightInspectorHost, CareerUiTheme.ShellField, 2f);
         }
 
         private void BuildContextActionBar(RectTransform root)
@@ -196,6 +235,7 @@ namespace Baseball.Presentation.SharedUI
                 "ContextActionBar", root, ActionSurface, Vector2.zero, new Vector2(1f, 0f),
                 new Vector2(16f, 8f), new Vector2(-16f, ActionBarHeight));
             AddOutline(_contextActionBarHost.GetComponent<Image>());
+            AddTopBorder(_contextActionBarHost, GoldAccent, 2f);
         }
 
         private void BuildOverlaySlots(RectTransform root)
@@ -217,10 +257,28 @@ namespace Baseball.Presentation.SharedUI
             if (_mainWorkspaceHost == null)
                 return;
 
+            // 홈은 사무실 전체를 보여주고, 세부 화면으로 이동하면 기존 작업 프레임을 복원한다.
+            bool isOwnerHome = _activeRouteId == Baseball.Presentation.Owner.OwnerNavigationRoutes.Home;
+            bool showContextHeader = !isOwnerHome && _isContextHeaderVisible;
+            _contextHeader.gameObject.SetActive(showContextHeader);
+            Image workspaceImage = _mainWorkspaceHost.GetComponent<Image>();
+            workspaceImage.color = isOwnerHome ? Color.clear : WorkspaceSurface;
+            _mainWorkspaceHost.GetComponent<Outline>().enabled = !isOwnerHome;
+            _mainWorkspaceHost.Find("TopBorder").gameObject.SetActive(!isOwnerHome);
+            SetAnchors(_contextActionBarHost, new Vector2(isOwnerHome ? 0.56f : 0f, 0f), new Vector2(1f, 0f),
+                new Vector2(16f, 8f), new Vector2(-16f, ActionBarHeight));
+            _contextActionBarHost.GetComponent<Image>().color = isOwnerHome
+                ? new Color(0.025f, 0.045f, 0.075f, 0.94f) : ActionSurface;
+            _primaryNavigation.GetComponent<Image>().color = isOwnerHome
+                ? new Color(0.055f, 0.075f, 0.10f, 0.82f) : NavigationSurface;
+            if (_modeBackground != null && _modeBackground.sprite != null)
+                _modeBackground.color = isOwnerHome ? Color.white : CareerUiTheme.ShellBackdropTint;
+
             float bottom = _isActionBarVisible ? ActionBarHeight + 12f : 12f;
             float right = _isInspectorVisible ? InspectorWidth + WorkspaceGap + 16f : 16f;
             _mainWorkspaceHost.offsetMin = new Vector2(16f, bottom);
-            _mainWorkspaceHost.offsetMax = new Vector2(-right, -(TopBarHeight + NavigationHeight + ContextHeaderHeight + 12f));
+            _mainWorkspaceHost.offsetMax = new Vector2(-right,
+                -(TopBarHeight + NavigationHeight + (showContextHeader ? ContextHeaderHeight : 0f) + 12f));
 
             if (_rightInspectorHost != null)
             {
@@ -302,9 +360,28 @@ namespace Baseball.Presentation.SharedUI
 
         private static void AddBottomBorder(RectTransform parent)
         {
+            AddBottomBorder(parent, Border, 1f);
+        }
+
+        private static void AddBottomBorder(RectTransform parent, Color color, float height)
+        {
             CreateAnchoredImage(
-                "BottomBorder", parent, Border, Vector2.zero, new Vector2(1f, 0f),
-                Vector2.zero, new Vector2(0f, 1f));
+                "BottomBorder", parent, color, Vector2.zero, new Vector2(1f, 0f),
+                Vector2.zero, new Vector2(0f, height));
+        }
+
+        private static void AddTopBorder(RectTransform parent, Color color, float height)
+        {
+            CreateAnchoredImage(
+                "TopBorder", parent, color, new Vector2(0f, 1f), Vector2.one,
+                new Vector2(0f, -height), Vector2.zero);
+        }
+
+        private static void CreateVerticalDivider(string name, RectTransform parent, float x)
+        {
+            CreateAnchoredImage(
+                name, parent, Divider, new Vector2(0f, 0f), new Vector2(0f, 1f),
+                new Vector2(x, 13f), new Vector2(x + 1f, -13f));
         }
 
         private static void AddOutline(Image image)

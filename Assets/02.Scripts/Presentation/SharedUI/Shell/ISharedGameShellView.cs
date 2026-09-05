@@ -12,6 +12,9 @@ namespace Baseball.Presentation.SharedUI
         /// </summary>
         event Action<string> NavigationRequested;
 
+        /// <summary>Context Screen에서 이전 진입 화면으로 돌아가기를 요청한다.</summary>
+        event Action BackRequested;
+
         /// <summary>
         /// 모드 표시 이름, Navigation, 기능 집합을 셸에 반영한다.
         /// </summary>

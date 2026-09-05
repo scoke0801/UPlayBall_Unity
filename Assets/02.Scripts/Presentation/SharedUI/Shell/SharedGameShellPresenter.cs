@@ -17,6 +17,9 @@ namespace Baseball.Presentation.SharedUI
         /// </summary>
         public event Action<string> NavigationRequested;
 
+        /// <summary>현재 Context Screen의 진입 원점으로 돌아가기를 요청한다.</summary>
+        public event Action BackRequested;
+
         /// <summary>
         /// View에 Profile과 최초 상태를 즉시 적용하고 이후 상태 변경을 구독한다.
         /// </summary>
@@ -30,6 +33,7 @@ namespace Baseball.Presentation.SharedUI
             _statusProvider = statusProvider ?? throw new ArgumentNullException(nameof(statusProvider));
 
             _view.NavigationRequested += HandleNavigationRequested;
+            _view.BackRequested += HandleBackRequested;
             _statusProvider.StatusChanged += HandleStatusChanged;
             _view.BindProfile(_profile);
             RefreshStatus();
@@ -42,7 +46,7 @@ namespace Baseball.Presentation.SharedUI
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
-            NavigationEntry entry = _profile.Navigation.FindEntry(context.RouteId);
+            NavigationEntry entry = _profile.FindEntry(context.RouteId);
             if (entry == null)
                 throw new ArgumentException($"Profile에 등록되지 않은 Route입니다: {context.RouteId}", nameof(context));
             if (!entry.IsVisible(_profile.Capabilities) || !entry.IsEnabled)
@@ -73,6 +77,7 @@ namespace Baseball.Presentation.SharedUI
 
             _isDisposed = true;
             _view.NavigationRequested -= HandleNavigationRequested;
+            _view.BackRequested -= HandleBackRequested;
             _statusProvider.StatusChanged -= HandleStatusChanged;
         }
 
@@ -81,11 +86,18 @@ namespace Baseball.Presentation.SharedUI
             if (_isDisposed)
                 return;
 
-            NavigationEntry entry = _profile.Navigation.FindEntry(routeId);
+            string resolvedRouteId = _profile.ResolveRouteId(routeId);
+            NavigationEntry entry = _profile.FindEntry(resolvedRouteId);
             if (entry == null || !entry.IsVisible(_profile.Capabilities) || !entry.IsEnabled)
                 return;
 
-            NavigationRequested?.Invoke(routeId);
+            NavigationRequested?.Invoke(resolvedRouteId);
+        }
+
+        private void HandleBackRequested()
+        {
+            if (!_isDisposed)
+                BackRequested?.Invoke();
         }
 
         private void HandleStatusChanged()

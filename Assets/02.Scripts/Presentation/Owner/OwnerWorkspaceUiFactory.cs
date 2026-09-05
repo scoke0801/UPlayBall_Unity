@@ -42,23 +42,55 @@ namespace Baseball.Presentation.Owner
         {
             RectTransform root = CreateRect(name, parent);
             Image frameImage = root.gameObject.AddComponent<Image>();
-            frameImage.color = Color.white;
+            frameImage.color = CareerUiTheme.ReferencePanel;
             frameImage.raycastTarget = false;
             CareerUiVisualElement visual = root.gameObject.AddComponent<CareerUiVisualElement>();
-            visual.Initialize(CareerUiVisualRole.DecorativeFrame, isHero);
+            visual.Initialize(CareerUiVisualRole.FlatSurface);
 
-            Text header = CreateText(root, "HeaderSlot", title, 20, FontStyle.Bold, TextAnchor.MiddleLeft,
-                CareerUiTheme.TextPrimary);
+            RectTransform headerSurface = CreateRect("HeaderSurface", root);
+            headerSurface.anchorMin = new Vector2(0f, 1f);
+            headerSurface.anchorMax = Vector2.one;
+            headerSurface.offsetMin = new Vector2(1f, -46f);
+            headerSurface.offsetMax = new Vector2(-1f, -1f);
+            Image headerImage = headerSurface.gameObject.AddComponent<Image>();
+            headerImage.color = CareerUiTheme.ReferencePanelHeader;
+            headerImage.raycastTarget = false;
+            headerSurface.gameObject.AddComponent<CareerUiVisualElement>()
+                .Initialize(CareerUiVisualRole.FlatSurface);
+
+            RectTransform accent = CreateRect("HeaderAccent", root);
+            accent.anchorMin = new Vector2(0f, 1f);
+            accent.anchorMax = Vector2.one;
+            accent.offsetMin = new Vector2(1f, -46f);
+            accent.offsetMax = new Vector2(-1f, -43f);
+            Image accentImage = accent.gameObject.AddComponent<Image>();
+            accentImage.color = isHero
+                ? CareerUiTheme.ReferenceAccentLight
+                : CareerUiTheme.ReferenceAccent;
+            accentImage.raycastTarget = false;
+
+            RectTransform border = CreateRect("ThinBorder", root);
+            Stretch(border);
+            Image borderImage = border.gameObject.AddComponent<Image>();
+            borderImage.color = new Color(1f, 1f, 1f, 0.01f);
+            borderImage.raycastTarget = false;
+            var outline = border.gameObject.AddComponent<Outline>();
+            outline.effectColor = CareerUiTheme.ReferenceBorder;
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = false;
+
+            Text header = CreateText(root, "HeaderSlot", title, 16, FontStyle.Bold, TextAnchor.MiddleLeft,
+                CareerUiTheme.ReferenceText);
             header.rectTransform.anchorMin = new Vector2(0f, 1f);
             header.rectTransform.anchorMax = Vector2.one;
-            header.rectTransform.offsetMin = new Vector2(CareerUiTheme.Space5, -56f);
-            header.rectTransform.offsetMax = new Vector2(-CareerUiTheme.Space5, -CareerUiTheme.Space2);
+            header.rectTransform.offsetMin = new Vector2(CareerUiTheme.Space3, -43f);
+            header.rectTransform.offsetMax = new Vector2(-CareerUiTheme.Space3, -CareerUiTheme.Space1);
 
             RectTransform content = CreateRect("ContentSafeRect", root);
             content.anchorMin = Vector2.zero;
             content.anchorMax = Vector2.one;
-            content.offsetMin = new Vector2(CareerUiTheme.Space5, CareerUiTheme.Space5);
-            content.offsetMax = new Vector2(-CareerUiTheme.Space5, -64f);
+            content.offsetMin = new Vector2(CareerUiTheme.Space3, CareerUiTheme.Space3);
+            content.offsetMax = new Vector2(-CareerUiTheme.Space3, -54f);
 
             CareerUiFrame frame = root.gameObject.AddComponent<CareerUiFrame>();
             frame.Initialize(frameImage, header.rectTransform, content, content, CareerUiTheme.WideFramePadding, isHero);
@@ -82,7 +114,7 @@ namespace Baseball.Presentation.Owner
             text.fontSize = fontSize;
             text.fontStyle = style;
             text.alignment = alignment;
-            text.color = color ?? CareerUiTheme.TextPrimary;
+            text.color = ResolveTextColor(color ?? CareerUiTheme.TextPrimary);
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Truncate;
             text.raycastTarget = false;
@@ -93,17 +125,26 @@ namespace Baseball.Presentation.Owner
         {
             RectTransform rect = CreateRect(name, parent);
             var image = rect.gameObject.AddComponent<Image>();
-            image.color = CareerUiTheme.SecondaryAction;
+            image.color = CareerUiTheme.ReferenceButton;
+            image.gameObject.AddComponent<CareerUiVisualElement>()
+                .Initialize(CareerUiVisualRole.FlatSurface);
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             if (onClick != null) button.onClick.AddListener(() => onClick());
-            Text text = CreateText(rect, "Label", label, 16, FontStyle.Bold, TextAnchor.MiddleCenter,
-                CareerUiTheme.TextPrimary);
+            Text text = CreateText(rect, "Label", label, 14, FontStyle.Bold, TextAnchor.MiddleCenter,
+                CareerUiTheme.ReferenceText);
             Stretch(text.rectTransform);
             var layout = rect.gameObject.AddComponent<LayoutElement>();
             layout.minHeight = 42f;
             layout.preferredHeight = 42f;
             CareerUiSkin.ApplyButton(button);
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = CareerUiTheme.ReferenceButtonHighlight;
+            colors.pressedColor = new Color(0.70f, 0.72f, 0.72f, 1f);
+            colors.disabledColor = new Color(0.72f, 0.73f, 0.72f, 0.55f);
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
             return button;
         }
 
@@ -160,6 +201,17 @@ namespace Baseball.Presentation.Owner
             var value = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             value.SetParent(parent, false);
             return value;
+        }
+
+        private static Color ResolveTextColor(Color requested)
+        {
+            if (requested == CareerUiTheme.TextPrimary)
+                return CareerUiTheme.ReferenceText;
+            if (requested == CareerUiTheme.TextSecondary || requested == CareerUiTheme.TextMuted)
+                return CareerUiTheme.ReferenceTextSecondary;
+            if (requested == CareerUiTheme.AccentGold)
+                return CareerUiTheme.ReferenceAccent;
+            return requested;
         }
 
         private static Font Font => _font ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");

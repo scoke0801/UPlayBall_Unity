@@ -91,14 +91,14 @@ namespace Baseball.Presentation.SharedScreens
             {
                 Column("Rank", "순위", RecordSortValueKind.Number, RecordSortDirection.Ascending, 0.6f),
                 Column("Player", "선수", RecordSortValueKind.Text, RecordSortDirection.Ascending, 1.8f, RecordCellAlignment.Left),
-                Column("Position", "POS", RecordSortValueKind.Text, RecordSortDirection.Ascending, 0.7f),
+                Column("Position", "포지션", RecordSortValueKind.Text, RecordSortDirection.Ascending, 0.7f),
                 Column("Team", "구단", RecordSortValueKind.Text, RecordSortDirection.Ascending, 1.3f, RecordCellAlignment.Left),
                 Column("Games", "경기", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.7f),
                 Column("Average", "타율", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f),
                 Column("HomeRuns", "홈런", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.8f),
                 Column("Rbi", "타점", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.8f),
                 Column("StolenBases", "도루", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.8f),
-                Column("Ops", "OPS", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f)
+                Column("Ops", "출루+장타", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f)
             };
             var rows = new List<RecordTableRowModel>(leaderboard.Leaders.Count + 1);
             for (int i = 0; i < leaderboard.Leaders.Count; i++)
@@ -124,14 +124,14 @@ namespace Baseball.Presentation.SharedScreens
             {
                 Column("Rank", "순위", RecordSortValueKind.Number, RecordSortDirection.Ascending, 0.6f),
                 Column("Player", "선수", RecordSortValueKind.Text, RecordSortDirection.Ascending, 1.8f, RecordCellAlignment.Left),
-                Column("Position", "POS", RecordSortValueKind.Text, RecordSortDirection.Ascending, 0.7f),
+                Column("Position", "포지션", RecordSortValueKind.Text, RecordSortDirection.Ascending, 0.7f),
                 Column("Team", "구단", RecordSortValueKind.Text, RecordSortDirection.Ascending, 1.3f, RecordCellAlignment.Left),
                 Column("Record", "승-패", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f),
                 Column("Saves", "세이브", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.8f),
                 Column("Innings", "이닝", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f),
                 Column("Era", "평균자책", RecordSortValueKind.Number, RecordSortDirection.Ascending, 1f),
                 Column("Strikeouts", "탈삼진", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f),
-                Column("Whip", "WHIP", RecordSortValueKind.Number, RecordSortDirection.Ascending, 0.9f)
+                Column("Whip", "이닝당출루", RecordSortValueKind.Number, RecordSortDirection.Ascending, 0.9f)
             };
             var rows = new List<RecordTableRowModel>(leaderboard.Leaders.Count + 1);
             for (int i = 0; i < leaderboard.Leaders.Count; i++)
@@ -154,7 +154,7 @@ namespace Baseball.Presentation.SharedScreens
             var columns = new[]
             {
                 Column("Date", "날짜", RecordSortValueKind.Number, RecordSortDirection.Ascending, 1.1f),
-                Column("Round", "R", RecordSortValueKind.Number, RecordSortDirection.Ascending, 0.5f),
+                Column("Round", "라운드", RecordSortValueKind.Number, RecordSortDirection.Ascending, 0.7f),
                 Column("Away", "원정", RecordSortValueKind.Text, RecordSortDirection.Ascending, 1.5f, RecordCellAlignment.Right),
                 Column("Score", "결과", RecordSortValueKind.Text, RecordSortDirection.Descending, 0.9f),
                 Column("Home", "홈", RecordSortValueKind.Text, RecordSortDirection.Ascending, 1.5f, RecordCellAlignment.Left)

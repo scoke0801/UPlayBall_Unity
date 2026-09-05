@@ -120,7 +120,7 @@ namespace Baseball.Presentation.SharedScreens
             Image background = GetComponent<Image>();
             if (background == null)
                 background = gameObject.AddComponent<Image>();
-            background.color = CareerUiTheme.PanelDark;
+            background.color = CareerUiTheme.ReferencePanel;
             background.raycastTarget = false;
             AddOutline(background);
 
@@ -173,14 +173,14 @@ namespace Baseball.Presentation.SharedScreens
             RectTransform state = CreateRect("ContentState", root);
             Stretch(state);
             Image surface = state.gameObject.AddComponent<Image>();
-            surface.color = CareerUiTheme.PanelDark;
+            surface.color = CareerUiTheme.ReferencePanel;
             surface.raycastTarget = false;
             _stateRoot = state.gameObject;
 
-            _stateTitle = CreateText("Title", state, 20, FontStyle.Bold, TextAnchor.LowerCenter, CareerUiTheme.TextPrimary);
+            _stateTitle = CreateText("Title", state, 20, FontStyle.Bold, TextAnchor.LowerCenter, CareerUiTheme.ReferenceText);
             SetAnchors(_stateTitle.rectTransform, new Vector2(0.1f, 0.5f), new Vector2(0.9f, 0.66f),
                 Vector2.zero, Vector2.zero);
-            _stateMessage = CreateText("Message", state, 14, FontStyle.Normal, TextAnchor.UpperCenter, CareerUiTheme.TextSecondary);
+            _stateMessage = CreateText("Message", state, 14, FontStyle.Normal, TextAnchor.UpperCenter, CareerUiTheme.ReferenceTextSecondary);
             SetAnchors(_stateMessage.rectTransform, new Vector2(0.1f, 0.35f), new Vector2(0.9f, 0.5f),
                 Vector2.zero, Vector2.zero);
 
@@ -190,11 +190,11 @@ namespace Baseball.Presentation.SharedScreens
             actionRect.pivot = new Vector2(0.5f, 0.5f);
             actionRect.sizeDelta = new Vector2(180f, 38f);
             Image actionImage = actionRect.gameObject.AddComponent<Image>();
-            actionImage.color = CareerUiTheme.SurfaceSelected;
+            actionImage.color = CareerUiTheme.ReferenceAccent;
             _stateActionButton = actionRect.gameObject.AddComponent<Button>();
             _stateActionButton.targetGraphic = actionImage;
             _stateActionButton.onClick.AddListener(HandleStateAction);
-            _stateActionLabel = CreateText("Label", actionRect, 14, FontStyle.Bold, TextAnchor.MiddleCenter, CareerUiTheme.TextPrimary);
+            _stateActionLabel = CreateText("Label", actionRect, 14, FontStyle.Bold, TextAnchor.MiddleCenter, Color.white);
             Stretch(_stateActionLabel.rectTransform);
             _stateRoot.SetActive(false);
         }
@@ -218,7 +218,7 @@ namespace Baseball.Presentation.SharedScreens
             layout.flexibleHeight = 1f;
             Image image = rect.gameObject.AddComponent<Image>();
             bool isSorted = string.Equals(_model.SortedColumnId, column.ColumnId, StringComparison.Ordinal);
-            image.color = isSorted ? CareerUiTheme.SurfaceSelected : CareerUiTheme.Panel;
+            image.color = isSorted ? CareerUiTheme.ReferenceAccentLight : CareerUiTheme.ReferencePanelHeader;
 
             Button button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
@@ -228,7 +228,7 @@ namespace Baseball.Presentation.SharedScreens
                 : string.Empty;
             Text label = CreateText(
                 "Label", rect, 13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                isSorted ? CareerUiTheme.PrimaryBright : CareerUiTheme.TextSecondary);
+                isSorted ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferenceTextSecondary);
             label.text = column.DisplayName + marker;
             Stretch(label.rectTransform);
             if (column.IsSortable)
@@ -246,8 +246,8 @@ namespace Baseball.Presentation.SharedScreens
             rowLayout.minHeight = 32f;
             Image image = rect.gameObject.AddComponent<Image>();
             image.color = row.IsHighlighted
-                ? CareerUiTheme.CurrentRow
-                : rowIndex % 2 == 0 ? CareerUiTheme.Surface : CareerUiTheme.SurfaceSubtle;
+                ? CareerUiTheme.ReferenceAccentLight
+                : rowIndex % 2 == 0 ? CareerUiTheme.ReferencePanel : CareerUiTheme.ReferenceCanvas;
             Button button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             string rowId = row.RowId;
@@ -277,7 +277,7 @@ namespace Baseball.Presentation.SharedScreens
             TextAnchor alignment = GetTextAnchor(column.Alignment);
             Text value = CreateText(
                 "Value", rect, 13, isHighlighted ? FontStyle.Bold : FontStyle.Normal,
-                alignment, isHighlighted ? CareerUiTheme.TextPrimary : CareerUiTheme.TextSecondary);
+                alignment, isHighlighted ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferenceTextSecondary);
             value.text = displayValue;
             Stretch(value.rectTransform);
             value.rectTransform.offsetMin = new Vector2(7f, 0f);
@@ -290,7 +290,7 @@ namespace Baseball.Presentation.SharedScreens
             _stateMessage.text = _contentState.Message;
             _stateTitle.color = _contentState.Kind == UiContentStateKind.Error
                 ? CareerUiTheme.Error
-                : CareerUiTheme.TextPrimary;
+                : CareerUiTheme.ReferenceText;
             bool hasAction = !string.IsNullOrEmpty(_contentState.ActionId);
             _stateActionButton.gameObject.SetActive(hasAction);
             _stateActionLabel.text = hasAction ? _contentState.ActionLabel : string.Empty;
@@ -392,7 +392,7 @@ namespace Baseball.Presentation.SharedScreens
         private static void AddOutline(Image image)
         {
             Outline outline = image.gameObject.AddComponent<Outline>();
-            outline.effectColor = CareerUiTheme.Border;
+            outline.effectColor = CareerUiTheme.ReferenceBorder;
             outline.effectDistance = new Vector2(1f, -1f);
             outline.useGraphicAlpha = false;
         }

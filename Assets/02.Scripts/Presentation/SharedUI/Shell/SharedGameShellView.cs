@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -37,8 +38,12 @@ namespace Baseball.Presentation.SharedUI
         private Text _commonStatusText;
         private Text _nextMatchText;
         private Text _contextTitleText;
+        private bool _isContextHeaderVisible = true;
         private Text _contextSummaryText;
+        private Button _backButton;
+        private Text _backButtonLabel;
         private Image _rootBackground;
+        private Image _modeBackground;
         private RectTransform _statusSlotHost;
         private RectTransform _navigationEntryHost;
         private RectTransform _subTabHost;
@@ -54,6 +59,9 @@ namespace Baseball.Presentation.SharedUI
         /// 사용자가 활성 Navigation 항목을 선택하면 Route ID를 전달한다.
         /// </summary>
         public event Action<string> NavigationRequested;
+
+        /// <summary>Context Screen에서 진입 원점으로 돌아가기를 요청한다.</summary>
+        public event Action BackRequested;
 
         /// <summary>전역 설정 진입을 요청하면 현재 모드 Coordinator에 알린다.</summary>
         public event Action SettingsRequested;
@@ -152,6 +160,7 @@ namespace Baseball.Presentation.SharedUI
             _profile = profile ?? throw new ArgumentNullException(nameof(profile));
             EnsureHierarchy();
             _modeNameText.text = profile.DisplayName;
+            ApplyModeBackground(profile.BackgroundResourcePath);
             RenderPrimaryNavigation();
             RenderSubTabs();
         }
@@ -181,12 +190,16 @@ namespace Baseball.Presentation.SharedUI
 
             EnsureHierarchy();
             _activeRouteId = context.RouteId;
+            _isContextHeaderVisible = true;
             _contextTitleText.text = string.IsNullOrEmpty(context.Eyebrow)
                 ? context.Title
                 : $"{context.Eyebrow} / {context.Title}";
             _contextSummaryText.text = context.Summary;
+            _backButton.gameObject.SetActive(context.CanGoBack);
+            _backButtonLabel.text = context.BackLabel;
             RefreshNavigationSelection(_primaryButtons);
             RenderSubTabs();
+            UpdateWorkspaceOffsets();
         }
 
         /// <summary>
@@ -197,6 +210,14 @@ namespace Baseball.Presentation.SharedUI
             EnsureHierarchy();
             _isInspectorVisible = isVisible;
             _rightInspectorHost.gameObject.SetActive(!_isChromeOverlayMode && isVisible);
+            UpdateWorkspaceOffsets();
+        }
+
+        /// <summary>현재 화면의 설명·보조 탭 영역을 숨기고 작업 영역에 높이를 돌려준다.</summary>
+        public void SetContextHeaderVisible(bool isVisible)
+        {
+            EnsureHierarchy();
+            _isContextHeaderVisible = isVisible;
             UpdateWorkspaceOffsets();
         }
 
@@ -219,6 +240,8 @@ namespace Baseball.Presentation.SharedUI
             EnsureHierarchy();
             _isChromeOverlayMode = isEnabled;
             _rootBackground.color = isEnabled ? Color.clear : Background;
+            if (_modeBackground != null)
+                _modeBackground.gameObject.SetActive(!isEnabled && _modeBackground.sprite != null);
             _mainWorkspaceHost.gameObject.SetActive(!isEnabled);
             _rightInspectorHost.gameObject.SetActive(!isEnabled && _isInspectorVisible);
             _contextActionBarHost.gameObject.SetActive(!isEnabled && _isActionBarVisible);
@@ -259,7 +282,7 @@ namespace Baseball.Presentation.SharedUI
             if (_profile == null)
                 return;
 
-            NavigationEntry primary = _profile.Navigation.FindPrimaryEntry(_activeRouteId);
+            NavigationEntry primary = _profile.FindNavigationGroup(_activeRouteId);
             if (primary == null)
                 return;
 
@@ -280,8 +303,8 @@ namespace Baseball.Presentation.SharedUI
         {
             RectTransform rect = CreateRect(entry.RouteId, parent);
             var layout = rect.gameObject.AddComponent<LayoutElement>();
-            layout.preferredWidth = isSubTab ? 118f : 142f;
-            layout.minWidth = isSubTab ? 92f : 112f;
+            layout.preferredWidth = isSubTab ? 128f : 132f;
+            layout.minWidth = isSubTab ? 106f : 108f;
             layout.flexibleHeight = 1f;
 
             Image background = rect.gameObject.AddComponent<Image>();
@@ -299,14 +322,36 @@ namespace Baseball.Presentation.SharedUI
                 isSubTab ? 15 : 17,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
-                TextPrimary);
+                isSubTab ? CareerUiTheme.ReferenceText : TextPrimary);
             Stretch(label.rectTransform);
             label.rectTransform.offsetMin = new Vector2(10f, 2f);
             label.rectTransform.offsetMax = new Vector2(-10f, -2f);
 
+            RectTransform selectionAccent = CreateAnchoredImage(
+                "SelectionAccent",
+                rect,
+                isSubTab ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferenceAccentLight,
+                Vector2.zero,
+                new Vector2(1f, 0f),
+                Vector2.zero,
+                new Vector2(0f, 3f));
+            selectionAccent.gameObject.SetActive(false);
+
+            var outline = rect.gameObject.AddComponent<Outline>();
+            outline.effectColor = isSubTab
+                ? CareerUiTheme.ReferenceBorder
+                : CareerUiTheme.ShellDivider;
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = false;
+
             string routeId = entry.RouteId;
             button.onClick.AddListener(() => NavigationRequested?.Invoke(routeId));
-            return new NavigationButtonBinding(entry, background, label, isSubTab);
+            return new NavigationButtonBinding(
+                entry,
+                background,
+                label,
+                selectionAccent.gameObject,
+                isSubTab);
         }
 
         private void RenderStatusSlots(IReadOnlyList<ShellStatusSlotModel> slots)
@@ -342,17 +387,34 @@ namespace Baseball.Presentation.SharedUI
             if (_profile == null)
                 return;
 
-            NavigationEntry selectedPrimary = _profile.Navigation.FindPrimaryEntry(_activeRouteId);
+            NavigationEntry selectedPrimary = _profile.Navigation.FindPrimaryEntry(_profile.ResolveRouteId(_activeRouteId));
             for (int i = 0; i < bindings.Count; i++)
             {
                 NavigationButtonBinding binding = bindings[i];
                 bool isSelected = string.Equals(binding.Entry.RouteId, _activeRouteId, StringComparison.Ordinal) ||
                     ReferenceEquals(binding.Entry, selectedPrimary);
                 binding.Background.color = isSelected
-                    ? NavigationSelectedColor
+                    ? binding.IsSubTab ? CareerUiTheme.ReferencePanel : NavigationSelectedColor
                     : binding.IsSubTab ? SubTabColor : NavigationColor;
-                binding.Label.color = isSelected ? AccentLight : TextPrimary;
+                binding.Label.color = binding.IsSubTab
+                    ? isSelected ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferenceText
+                    : isSelected ? AccentLight : TextPrimary;
+                binding.SelectionAccent.SetActive(isSelected);
             }
+        }
+
+        private void ApplyModeBackground(string resourcePath)
+        {
+            if (_modeBackground == null)
+                return;
+
+            _modeBackground.sprite = string.IsNullOrWhiteSpace(resourcePath)
+                ? null
+                : Resources.Load<Sprite>(resourcePath);
+            _modeBackground.color = _modeBackground.sprite == null
+                ? Color.clear
+                : CareerUiTheme.ShellBackdropTint;
+            _modeBackground.gameObject.SetActive(!_isChromeOverlayMode && _modeBackground.sprite != null);
         }
 
         private static string JoinStatus(ShellStatusModel status)
@@ -397,17 +459,20 @@ namespace Baseball.Presentation.SharedUI
                 NavigationEntry entry,
                 Image background,
                 Text label,
+                GameObject selectionAccent,
                 bool isSubTab)
             {
                 Entry = entry;
                 Background = background;
                 Label = label;
+                SelectionAccent = selectionAccent;
                 IsSubTab = isSubTab;
             }
 
             public NavigationEntry Entry { get; }
             public Image Background { get; }
             public Text Label { get; }
+            public GameObject SelectionAccent { get; }
             public bool IsSubTab { get; }
         }
     }

@@ -33,13 +33,13 @@ namespace Baseball.Presentation.UI
         private static readonly Vector4 SliderBorder = new(68f, 46f, 68f, 46f);
         private static readonly Vector4 LargeProgressTrackBorder = new(56f, 56f, 56f, 56f);
         private static readonly Vector4 CompactProgressTrackBorder = new(41f, 40f, 41f, 40f);
-        private static Color FlatPanelColor => CareerUiTheme.Panel;
-        private static Color FlatSurfaceColor => CareerUiTheme.PanelDark;
-        private static Color FlatBorderColor => CareerUiTheme.Border;
-        private static Color CompactButtonColor => CareerUiTheme.SurfaceSubtle;
-        private static Color CompactButtonSelectedColor => CareerUiTheme.SurfaceSelected;
-        private static Color CompactButtonBorderColor => CareerUiTheme.Border;
-        private static readonly Color CompactButtonSelectedBorderColor = new(0.86f, 0.84f, 0.74f, 1f);
+        private static Color FlatPanelColor => CareerUiTheme.ReferencePanel;
+        private static Color FlatSurfaceColor => CareerUiTheme.ReferencePanelHeader;
+        private static Color FlatBorderColor => CareerUiTheme.ReferenceBorder;
+        private static Color CompactButtonColor => CareerUiTheme.ReferenceButton;
+        private static Color CompactButtonSelectedColor => new(0.76f, 0.84f, 0.91f, 1f);
+        private static Color CompactButtonBorderColor => CareerUiTheme.ReferenceBorder;
+        private static Color CompactButtonSelectedBorderColor => CareerUiTheme.ReferenceAccent;
 
         private static Sprite _universalPanel;
         private static Sprite _heroPanel;
@@ -73,6 +73,7 @@ namespace Baseball.Presentation.UI
                 ApplySlider(sliders[i]);
 
             ApplyPanelHierarchy(root.GetComponentsInChildren<Image>(true));
+            ApplyReferenceTextHierarchy(root.GetComponentsInChildren<Text>(true));
 
             RectTransform[] containers = root.GetComponentsInChildren<RectTransform>(true);
             for (int i = 0; i < containers.Length; i++)
@@ -97,6 +98,19 @@ namespace Baseball.Presentation.UI
                 return;
 
             CareerUiVisualElement visual = image.GetComponent<CareerUiVisualElement>();
+            if (visual != null && visual.Role == CareerUiVisualRole.TexturedAction)
+            {
+                // Layout 계산 전 너비와 관계없이 명시한 버튼 스킨을 유지한다.
+                image.sprite = visual.IsHeroFrame ? _buttonFocused : _buttonNormal;
+                image.type = Image.Type.Sliced;
+                image.pixelsPerUnitMultiplier = CompactFramedPixelsPerUnitMultiplier;
+                image.color = Color.white;
+                Outline outline = image.GetComponent<Outline>();
+                if (outline != null) outline.enabled = false;
+                ConfigurePersistentSelectedTransition(button);
+                EnsureButtonLabelLayout(button);
+                return;
+            }
             if (visual != null && visual.Role == CareerUiVisualRole.FlatSurface)
             {
                 ApplyFlatInteractiveControl(button, image);
@@ -122,38 +136,7 @@ namespace Baseball.Presentation.UI
                 return;
             }
 
-            if (IsCompactButton(image.rectTransform))
-            {
-                ApplyCompactButton(button, image, isSemanticActive);
-                return;
-            }
-
-            if (IsButtonStyled(image))
-            {
-                EnsureButtonLabelLayout(button);
-                EnsurePrimaryActionShine(button);
-                return;
-            }
-
-            Color sourceTint = image.color;
-            image.sprite = isSemanticActive ? _buttonFocused : ResolveButtonSprite(sourceTint);
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 1f;
-            image.color = ResolveTextureTint(sourceTint, 0.24f);
-
-            if (isSemanticActive)
-            {
-                ConfigurePersistentSelectedTransition(button);
-            }
-            else
-            {
-                ConfigureSpriteSwapTransition(button);
-            }
-
-            if (button.GetComponent<RectMask2D>() == null)
-                button.gameObject.AddComponent<RectMask2D>();
-
-            EnsureButtonLabelLayout(button);
+            ApplyCompactButton(button, image, isSemanticActive);
             EnsurePrimaryActionShine(button);
         }
 
@@ -282,10 +265,14 @@ namespace Baseball.Presentation.UI
                 return;
 
             float sourceAlpha = image.color.a;
-            image.sprite = isHero ? _heroPanel : _universalPanel;
-            image.type = Image.Type.Sliced;
+            image.sprite = null;
+            image.type = Image.Type.Simple;
             image.pixelsPerUnitMultiplier = 1f;
-            image.color = new Color(1f, 1f, 1f, sourceAlpha);
+            Color surface = isHero
+                ? Color.Lerp(CareerUiTheme.ReferencePanel, new Color(0.80f, 0.87f, 0.93f, 1f), 0.28f)
+                : CareerUiTheme.ReferencePanel;
+            image.color = new Color(surface.r, surface.g, surface.b, sourceAlpha);
+            ConfigureReferenceOutline(image, isHero);
         }
 
         /// <summary>명시된 시각 역할을 가진 동적 Image에 공통 스킨을 즉시 적용한다.</summary>
@@ -391,6 +378,14 @@ namespace Baseball.Presentation.UI
 
             switch (visual.Role)
             {
+                case CareerUiVisualRole.TexturedPanel:
+                    image.sprite = visual.IsHeroFrame ? _heroPanel : _universalPanel;
+                    image.type = Image.Type.Sliced;
+                    // 작은 홈 패널에서도 모서리 장식이 본문을 침범하지 않도록 축소한다.
+                    image.pixelsPerUnitMultiplier = 5f;
+                    image.color = Color.white;
+                    image.raycastTarget = false;
+                    break;
                 case CareerUiVisualRole.DecorativeFrame:
                     ApplyPanel(image, visual.IsHeroFrame);
                     image.raycastTarget = false;
@@ -602,6 +597,63 @@ namespace Baseball.Presentation.UI
             outline.useGraphicAlpha = true;
         }
 
+        private static void ApplyReferenceTextHierarchy(Text[] texts)
+        {
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text text = texts[i];
+                if (text == null || text.GetComponentInParent<CareerUiPreserveTextColor>() != null ||
+                    !HasLightSurface(text.transform))
+                    continue;
+
+                Color source = text.color;
+                if (IsNear(source, CareerUiTheme.AccentGold) || IsNear(source, CareerUiTheme.Number))
+                    text.color = WithAlpha(CareerUiTheme.ReferenceAccent, source.a);
+                else if (IsNear(source, CareerUiTheme.TextSecondary) || IsNear(source, CareerUiTheme.TextMuted))
+                    text.color = WithAlpha(CareerUiTheme.ReferenceTextSecondary, source.a);
+                else if (IsNear(source, CareerUiTheme.TextPrimary) || IsBrightNeutral(source))
+                    text.color = WithAlpha(CareerUiTheme.ReferenceText, source.a);
+            }
+        }
+
+        private static bool HasLightSurface(Transform target)
+        {
+            Transform current = target.parent;
+            while (current != null)
+            {
+                Image image = current.GetComponent<Image>();
+                if (image != null && image.color.a > 0.15f)
+                {
+                    Color color = image.color;
+                    float luminance = color.r * 0.2126f + color.g * 0.7152f + color.b * 0.0722f;
+                    return luminance >= 0.58f;
+                }
+                current = current.parent;
+            }
+            return false;
+        }
+
+        private static bool IsNear(Color first, Color second)
+        {
+            const float tolerance = 0.035f;
+            return Mathf.Abs(first.r - second.r) <= tolerance &&
+                Mathf.Abs(first.g - second.g) <= tolerance &&
+                Mathf.Abs(first.b - second.b) <= tolerance;
+        }
+
+        private static bool IsBrightNeutral(Color color)
+        {
+            float maximum = Mathf.Max(color.r, Mathf.Max(color.g, color.b));
+            float minimum = Mathf.Min(color.r, Mathf.Min(color.g, color.b));
+            return maximum >= 0.78f && maximum - minimum <= 0.14f;
+        }
+
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = alpha;
+            return color;
+        }
+
         private static bool IsHeroPanel(string name)
         {
             return name.IndexOf("NextGame", StringComparison.OrdinalIgnoreCase) >= 0
@@ -694,10 +746,14 @@ namespace Baseball.Presentation.UI
         private static void ApplyCardButton(Button button, Image image, bool isSemanticActive)
         {
             float sourceAlpha = image.color.a;
-            image.sprite = isSemanticActive ? _heroPanel : _universalPanel;
-            image.type = Image.Type.Sliced;
+            image.sprite = null;
+            image.type = Image.Type.Simple;
             image.pixelsPerUnitMultiplier = 1f;
-            image.color = new Color(1f, 1f, 1f, sourceAlpha);
+            Color surface = isSemanticActive
+                ? CompactButtonSelectedColor
+                : CareerUiTheme.ReferencePanel;
+            image.color = new Color(surface.r, surface.g, surface.b, sourceAlpha);
+            ConfigureReferenceOutline(image, isSemanticActive);
 
             ConfigureCardTransition(button, isSemanticActive);
             EnsureButtonLabelLayout(button);
@@ -756,6 +812,19 @@ namespace Baseball.Presentation.UI
             colors.fadeDuration = 0.08f;
             button.colors = colors;
             button.transition = Selectable.Transition.ColorTint;
+        }
+
+        private static void ConfigureReferenceOutline(Image image, bool isSelected)
+        {
+            Outline outline = image.GetComponent<Outline>();
+            if (outline == null)
+                outline = image.gameObject.AddComponent<Outline>();
+            outline.enabled = true;
+            outline.effectColor = isSelected
+                ? CareerUiTheme.ReferenceAccent
+                : CareerUiTheme.ReferenceBorder;
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = false;
         }
 
         private static void RemoveLegacySelectedBadge(Button button)
@@ -854,5 +923,11 @@ namespace Baseball.Presentation.UI
             tint.a = source.a;
             return tint;
         }
+    }
+
+    /// <summary>밝은 Workspace 안의 독립적인 어두운 위젯이 자체 Text 팔레트를 유지하게 한다.</summary>
+    [DisallowMultipleComponent]
+    internal sealed class CareerUiPreserveTextColor : MonoBehaviour
+    {
     }
 }

@@ -53,6 +53,33 @@ namespace Baseball.Presentation.UI
         public static readonly Color ProgressTrack = new(0.18f, 0.20f, 0.20f, 1f);
         public static readonly Color RatingMid = new(0.53f, 0.65f, 0.57f, 1f);
 
+        // Shared Game Shell 전용 토큰. 개별 화면의 기존 색 계약과 분리해 Shell을 한 번에 조정한다.
+        public static readonly Color ShellBackdropTint = new(0.42f, 0.45f, 0.41f, 0.22f);
+        public static readonly Color ShellHeader = new(0.065f, 0.075f, 0.075f, 0.985f);
+        public static readonly Color ShellNavigation = new(0.085f, 0.10f, 0.10f, 0.985f);
+        public static readonly Color ShellContext = new(0.88f, 0.89f, 0.88f, 0.98f);
+        public static readonly Color ShellWorkspace = new(0.88f, 0.89f, 0.88f, 0.98f);
+        public static readonly Color ShellInspector = new(0.88f, 0.89f, 0.88f, 0.98f);
+        public static readonly Color ShellActionBar = new(0.91f, 0.92f, 0.91f, 1f);
+        public static readonly Color ShellTab = new(0.12f, 0.145f, 0.145f, 1f);
+        public static readonly Color ShellTabSelected = new(0.06f, 0.20f, 0.39f, 1f);
+        public static readonly Color ShellBorder = new(0.33f, 0.36f, 0.34f, 0.95f);
+        public static readonly Color ShellDivider = new(0.24f, 0.27f, 0.25f, 0.92f);
+        public static readonly Color ShellGold = new(0.69f, 0.57f, 0.30f, 1f);
+        public static readonly Color ShellField = new(0.31f, 0.49f, 0.34f, 1f);
+
+        // docs/디자인/ref의 PC 관리 화면을 기준으로 한 밝은 업무 영역 토큰이다.
+        public static readonly Color ReferenceCanvas = new(0.88f, 0.89f, 0.88f, 0.98f);
+        public static readonly Color ReferencePanel = new(0.965f, 0.965f, 0.945f, 0.97f);
+        public static readonly Color ReferencePanelHeader = new(0.91f, 0.92f, 0.91f, 1f);
+        public static readonly Color ReferenceBorder = new(0.42f, 0.48f, 0.54f, 1f);
+        public static readonly Color ReferenceAccent = new(0.06f, 0.20f, 0.39f, 1f);
+        public static readonly Color ReferenceAccentLight = new(0.16f, 0.39f, 0.62f, 1f);
+        public static readonly Color ReferenceText = new(0.10f, 0.12f, 0.14f, 1f);
+        public static readonly Color ReferenceTextSecondary = new(0.31f, 0.35f, 0.39f, 1f);
+        public static readonly Color ReferenceButton = new(0.82f, 0.83f, 0.82f, 1f);
+        public static readonly Color ReferenceButtonHighlight = new(0.91f, 0.92f, 0.90f, 1f);
+
         // Vector4 순서는 left, bottom, right, top이다.
         public static readonly Vector4 UniversalFramePadding = new(32f, 28f, 32f, 76f);
         public static readonly Vector4 HeroFramePadding = new(40f, 32f, 40f, 80f);

@@ -1,4 +1,6 @@
 using Baseball.Presentation.SharedUI;
+using Baseball.Presentation.Career;
+using Baseball.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -135,6 +137,55 @@ namespace Baseball.Tests.EditMode.Presentation
             _view.transform.Find("GlobalTopBar/GlobalSettings").GetComponent<Button>().onClick.Invoke();
 
             Assert.That(wasRequested, Is.True);
+        }
+
+        [Test]
+        public void PlayerWorkspaceAdapter_화면을Workspace에합성하고원래배치를복원한다()
+        {
+            _root.GetComponent<RectTransform>().sizeDelta = new Vector2(1920f, 1080f);
+            RectTransform legacyLayer = new GameObject("LegacySceneLayer", typeof(RectTransform))
+                .GetComponent<RectTransform>();
+            legacyLayer.SetParent(_root.transform, false);
+            var screenObject = new GameObject(
+                nameof(UI_Scene_Player),
+                typeof(RectTransform),
+                typeof(CanvasGroup));
+            screenObject.transform.SetParent(legacyLayer, false);
+            RectTransform screenRect = screenObject.GetComponent<RectTransform>();
+            screenRect.anchorMin = new Vector2(0.25f, 0.25f);
+            screenRect.anchorMax = new Vector2(0.75f, 0.75f);
+            screenRect.anchoredPosition = new Vector2(17f, -23f);
+            screenRect.sizeDelta = new Vector2(120f, 80f);
+            UI_Scene_Player screen = screenObject.AddComponent<UI_Scene_Player>();
+
+            RectTransform content = new GameObject("Content", typeof(RectTransform))
+                .GetComponent<RectTransform>();
+            content.SetParent(screenRect, false);
+            content.sizeDelta = new Vector2(1920f, 1080f);
+            content.anchoredPosition = new Vector2(0f, -90f);
+
+            var adapter = new PlayerCareerWorkspaceAdapter(_view.MainWorkspaceHost);
+            adapter.Embed(screen);
+
+            Assert.That(screenRect.parent, Is.EqualTo(_view.MainWorkspaceHost));
+            Assert.That(screenRect.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(screenRect.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(screenRect.sizeDelta, Is.EqualTo(Vector2.zero));
+            Assert.That(content.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(content.localScale.x, Is.LessThan(1f));
+            Assert.That(content.localScale.y, Is.EqualTo(content.localScale.x).Within(0.0001f));
+            Assert.That(screen.GetComponent<RectMask2D>(), Is.Not.Null);
+
+            adapter.RestoreAll();
+
+            Assert.That(screenRect.parent, Is.EqualTo(legacyLayer));
+            Assert.That(screenRect.anchorMin, Is.EqualTo(new Vector2(0.25f, 0.25f)));
+            Assert.That(screenRect.anchorMax, Is.EqualTo(new Vector2(0.75f, 0.75f)));
+            Assert.That(screenRect.anchoredPosition, Is.EqualTo(new Vector2(17f, -23f)));
+            Assert.That(screenRect.sizeDelta, Is.EqualTo(new Vector2(120f, 80f)));
+            Assert.That(content.anchoredPosition, Is.EqualTo(new Vector2(0f, -90f)));
+            Assert.That(content.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(screen.GetComponent<RectMask2D>(), Is.Null);
         }
 
         private static GameModeUiProfile CreatePlayerProfile()

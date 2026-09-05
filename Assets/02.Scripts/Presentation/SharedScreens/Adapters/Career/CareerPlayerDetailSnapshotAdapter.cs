@@ -97,9 +97,9 @@ namespace Baseball.Presentation.SharedScreens
         {
             var columns = new[]
             {
-                NumericColumn("Games", "G"), NumericColumn("AtBats", "AB"), NumericColumn("Hits", "H"),
-                NumericColumn("HomeRuns", "HR"), NumericColumn("Rbi", "RBI"),
-                NumericColumn("Average", "AVG"), NumericColumn("Ops", "OPS")
+                NumericColumn("Games", "경기"), NumericColumn("AtBats", "타수"), NumericColumn("Hits", "안타"),
+                NumericColumn("HomeRuns", "홈런"), NumericColumn("Rbi", "타점"),
+                NumericColumn("Average", "타율"), NumericColumn("Ops", "출루+장타")
             };
             var row = new RecordTableRowModel(
                 "current-season",
@@ -118,10 +118,10 @@ namespace Baseball.Presentation.SharedScreens
         {
             var columns = new[]
             {
-                NumericColumn("Games", "G"), NumericColumn("Starts", "GS"), NumericColumn("Wins", "W"),
-                NumericColumn("Losses", "L"), NumericColumn("Saves", "SV"), NumericColumn("Innings", "IP"),
-                NumericColumn("Strikeouts", "SO"), NumericColumn("Era", "ERA", RecordSortDirection.Ascending),
-                NumericColumn("Whip", "WHIP", RecordSortDirection.Ascending)
+                NumericColumn("Games", "경기"), NumericColumn("Starts", "선발"), NumericColumn("Wins", "승"),
+                NumericColumn("Losses", "패"), NumericColumn("Saves", "세이브"), NumericColumn("Innings", "이닝"),
+                NumericColumn("Strikeouts", "탈삼진"), NumericColumn("Era", "평균자책", RecordSortDirection.Ascending),
+                NumericColumn("Whip", "이닝당출루", RecordSortDirection.Ascending)
             };
             var row = new RecordTableRowModel(
                 "current-season",

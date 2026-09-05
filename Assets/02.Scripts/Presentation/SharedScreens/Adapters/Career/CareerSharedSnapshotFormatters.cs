@@ -10,7 +10,7 @@ namespace Baseball.Presentation.SharedScreens
     /// <summary>
     /// Career 도메인 값을 공용 Snapshot의 한국어 표시 문자열로 변환한다.
     /// </summary>
-    internal static class CareerSharedSnapshotFormatters
+    public static class CareerSharedSnapshotFormatters
     {
         public static string FormatId(int value) => value.ToString(CultureInfo.InvariantCulture);
 
@@ -177,7 +177,7 @@ namespace Baseball.Presentation.SharedScreens
                 CareerRecordMetric.BattingAverage => "타율",
                 CareerRecordMetric.OnBasePercentage => "출루율",
                 CareerRecordMetric.SluggingPercentage => "장타율",
-                CareerRecordMetric.OnBasePlusSlugging => "OPS",
+                CareerRecordMetric.OnBasePlusSlugging => "출루+장타",
                 CareerRecordMetric.WalkStrikeoutRatio => "볼넷/삼진",
                 CareerRecordMetric.PitchingAppearances => "등판",
                 CareerRecordMetric.PitchingStarts => "선발",
@@ -195,9 +195,9 @@ namespace Baseball.Presentation.SharedScreens
                 CareerRecordMetric.HitBatters => "사구 허용",
                 CareerRecordMetric.PitchingStrikeouts => "탈삼진",
                 CareerRecordMetric.BattersFaced => "상대타자",
-                CareerRecordMetric.QualityStarts => "QS",
+                CareerRecordMetric.QualityStarts => "퀄리티스타트",
                 CareerRecordMetric.EarnedRunAverage => "평균자책",
-                CareerRecordMetric.WalksHitsPerInningPitched => "WHIP",
+                CareerRecordMetric.WalksHitsPerInningPitched => "이닝당출루",
                 CareerRecordMetric.StrikeoutWalkRatio => "삼진/볼넷",
                 CareerRecordMetric.HomeRunsPerNineInnings => "피홈런/9",
                 CareerRecordMetric.DefensiveOuts => "수비이닝",
