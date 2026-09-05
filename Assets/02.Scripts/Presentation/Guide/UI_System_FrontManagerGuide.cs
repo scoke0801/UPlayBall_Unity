@@ -13,10 +13,11 @@ namespace Baseball.Presentation.Guide
     /// <summary>여섯 PresentationType을 한 Queue에서 소비하는 프런트 매니저 공통 Presenter다.</summary>
     public sealed class UI_System_FrontManagerGuide : UIBase
     {
-        private static readonly Color PanelColor = CareerUiTheme.PanelDark;
-        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color PanelColor = CareerUiTheme.ReferencePanel;
         private static readonly Color AccentColor = CareerUiTheme.PrimaryBright;
-        private static readonly Color TextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color TextColor = CareerUiTheme.TextOnLight;
+        private const float CompactGuideTopInset = 204f;
+        [SerializeField, Range(1f, 1.25f)] private float _dialogueScale = 1.25f;
         private readonly FrontManagerGuideCtaRouter _router = new();
         private readonly List<string> _suppressionContexts = new(2);
         private GuideManager _manager;
@@ -140,7 +141,6 @@ namespace Baseball.Presentation.Guide
 
         private void Render(GuideMessage message)
         {
-            ConfigureLayout(message.PresentationType);
             _overlay.color = BlocksLowerInput ? new Color(0f, 0f, 0f, 0.56f) : Color.clear;
             _overlay.raycastTarget = BlocksLowerInput;
             _messageText.text = message.Text;
@@ -158,9 +158,9 @@ namespace Baseball.Presentation.Guide
             if (canRoute)
                 _ctaLabel.text = message.Cta.Value.Label;
 
-            bool showDismiss = message.RequiresAcknowledgement || message.AutoDismissSeconds <= 0f;
-            _dismissButton.gameObject.SetActive(showDismiss);
-            _dismissLabel.text = message.RequiresAcknowledgement ? "확인" : "닫기";
+            _dismissButton.gameObject.SetActive(true);
+            _dismissLabel.text = message.RequiresAcknowledgement ? "확인" : "×";
+            ConfigureLayout(message.PresentationType);
             _remainingAutoDismiss = message.RequiresAcknowledgement ? 0f : message.AutoDismissSeconds;
         }
 
@@ -182,13 +182,15 @@ namespace Baseball.Presentation.Guide
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             _overlay = CreateImage("Overlay", root, Color.clear, Vector2.zero, Vector2.zero, stretch: true);
-            _panel = CreateImage("Panel", root, PanelColor, new Vector2(820f, 220f), Vector2.zero).rectTransform;
-            Outline outline = _panel.gameObject.AddComponent<Outline>();
-            outline.effectColor = BorderColor;
-            outline.effectDistance = new Vector2(2f, -2f);
+            Image frame = CreateImage("Panel", root, PanelColor, new Vector2(900f, 300f), Vector2.zero);
+            frame.sprite = Resources.Load<Sprite>("FrontManager/FM_DialogueFrame_V1");
+            frame.color = frame.sprite != null ? Color.white : PanelColor;
+            frame.raycastTarget = true;
+            _panel = frame.rectTransform;
 
             _portrait = CreateImage("Portrait", _panel, Color.white,
                 new Vector2(172f, 172f), new Vector2(-298f, 0f));
+            _portrait.preserveAspect = true;
             _expressionFallback = CreateText("ExpressionFallback", _portrait.transform, "FM", 28,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(160f, 160f), Vector2.zero, TextColor);
             _typeLabel = CreateText("Type", _panel, string.Empty, 14,
@@ -202,38 +204,72 @@ namespace Baseball.Presentation.Guide
             _dismissButton = CreateButton("Dismiss", _panel, "닫기", new Vector2(120f, 46f),
                 new Vector2(354f, -75f), CareerUiTheme.SecondaryAction, out _dismissLabel);
             _dismissButton.onClick.AddListener(CompleteCurrent);
+            gameObject.AddComponent<CareerUiPreserveTextColor>();
         }
 
         private void ConfigureLayout(GuidePresentationType type)
         {
             Vector2 size;
+            Vector2 anchor;
             Vector2 position;
             switch (type)
             {
                 case GuidePresentationType.Toast:
-                    size = new Vector2(660f, 160f);
-                    position = new Vector2(560f, 390f);
+                    size = new Vector2(780f, 260f);
+                    anchor = Vector2.one;
+                    position = new Vector2(-32f, -CompactGuideTopInset);
                     break;
                 case GuidePresentationType.NotificationCard:
-                    size = new Vector2(760f, 200f);
-                    position = new Vector2(520f, 330f);
+                    size = new Vector2(900f, 300f);
+                    anchor = Vector2.one;
+                    position = new Vector2(-32f, -CompactGuideTopInset);
                     break;
                 case GuidePresentationType.FullDialogue:
                 case GuidePresentationType.ModalCelebration:
-                    size = new Vector2(1040f, 290f);
-                    position = new Vector2(0f, -315f);
+                    size = new Vector2(1080f, 360f);
+                    anchor = new Vector2(0.5f, 0f);
+                    position = new Vector2(0f, 84f);
                     break;
                 case GuidePresentationType.Briefing:
-                    size = new Vector2(900f, 250f);
-                    position = new Vector2(-410f, 260f);
+                    size = new Vector2(960f, 320f);
+                    anchor = new Vector2(0f, 1f);
+                    position = new Vector2(32f, -CompactGuideTopInset);
                     break;
                 default:
-                    size = new Vector2(820f, 220f);
-                    position = new Vector2(-500f, -300f);
+                    size = new Vector2(900f, 300f);
+                    anchor = Vector2.zero;
+                    position = new Vector2(32f, 84f);
                     break;
             }
+            _panel.anchorMin = _panel.anchorMax = _panel.pivot = anchor;
             _panel.sizeDelta = size;
+            // 프레임·캐릭터·글자·버튼을 같은 배율로 키우고 화면 가장자리 기준점은 유지한다.
+            _panel.localScale = Vector3.one * _dialogueScale;
             _panel.anchoredPosition = position;
+            // 프레임과 대사의 비율을 함께 바꿔 모든 안내 유형에서 오른쪽 초상화 영역을 비운다.
+            SetContentRect(_typeLabel.rectTransform, new Vector2(0f, 1f),
+                new Vector2(36f, -36f), new Vector2(size.x * 0.64f, 24f));
+            SetContentRect(_messageText.rectTransform, new Vector2(0f, 1f),
+                new Vector2(36f, -72f), new Vector2(size.x * 0.64f, size.y - 152f));
+            SetContentRect(_portrait.rectTransform, new Vector2(1f, 0f),
+                new Vector2(-22f, 18f), new Vector2(size.x * 0.27f, size.y + 12f));
+            SetContentRect((RectTransform)_ctaButton.transform, Vector2.zero,
+                new Vector2(36f, 32f), new Vector2(210f, 38f));
+            bool requiresAcknowledgement = _message != null && _message.RequiresAcknowledgement;
+            SetContentRect((RectTransform)_dismissButton.transform,
+                requiresAcknowledgement ? Vector2.zero : Vector2.one,
+                requiresAcknowledgement ? new Vector2(260f, 32f) : new Vector2(-22f, -32f),
+                requiresAcknowledgement ? new Vector2(100f, 38f) : new Vector2(32f, 32f));
+            _dismissLabel.fontSize = requiresAcknowledgement ? 15 : 26;
+            Stretch(_ctaLabel.rectTransform);
+            Stretch(_dismissLabel.rectTransform);
+        }
+
+        private static void SetContentRect(RectTransform rect, Vector2 anchor, Vector2 position, Vector2 size)
+        {
+            rect.anchorMin = rect.anchorMax = rect.pivot = anchor;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
         }
 
         private static string GetTypeLabel(GuidePresentationType type) => type switch

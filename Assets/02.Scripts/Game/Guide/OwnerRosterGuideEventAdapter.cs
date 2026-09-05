@@ -124,4 +124,49 @@ namespace Baseball.Game.Guide
             };
         }
     }
+
+    /// <summary>1군 구성 자체에서 Guide dedupe용 Revision을 만든다.</summary>
+    public static class OwnerRosterRevision
+    {
+        private const ulong OffsetBasis = 14695981039346656037UL;
+        private const ulong Prime = 1099511628211UL;
+
+        /// <summary>
+        /// Revision을 증가 순번이 아니라 내용 해시로 정의한다. Guide dedupe key가 "ROSTER_*:{rosterRevision}"이고
+        /// 반복 정책이 Revision당 1회이므로, 로스터가 그대로인데 시설 업그레이드·저장 같은 다른 Runtime 변경으로
+        /// 값이 바뀌면 같은 경고가 다시 뜬다. 반대로 세이브·로드를 거쳐도 구성이 같으면 같은 값이어야 한다.
+        /// FNV-1a를 쓰는 이유는 GuideWeightedHash와 같이 플랫폼·프로세스에 무관한 값이 필요하기 때문이다.
+        /// </summary>
+        public static int Compute(CurrentRosterState roster)
+        {
+            if (roster == null)
+                throw new ArgumentNullException(nameof(roster));
+
+            ulong hash = Combine(OffsetBasis, roster.TeamSeasonKey);
+            for (int index = 0; index < roster.Entries.Count; index++)
+            {
+                ActiveRosterEntry entry = roster.Entries[index];
+                hash = Combine(hash, entry.PlayerPersonId);
+                hash = Combine(hash, entry.CardId);
+                hash = Combine(hash, (byte)entry.Role);
+                hash = Combine(hash, (byte)entry.RegistrationType);
+            }
+            // Adapter가 음수가 아닌 rosterRevision을 요구하므로 부호 비트만 떨어뜨린다.
+            return (int)(hash & int.MaxValue);
+        }
+
+        private static ulong Combine(ulong hash, string value)
+        {
+            for (int index = 0; index < value.Length; index++)
+            {
+                char character = value[index];
+                hash = Combine(hash, (byte)character);
+                hash = Combine(hash, (byte)(character >> 8));
+            }
+            // 항목 경계를 남겨 "ab"+"c"와 "a"+"bc"가 같은 값이 되지 않게 한다.
+            return Combine(hash, (byte)0);
+        }
+
+        private static ulong Combine(ulong hash, byte value) => (hash ^ value) * Prime;
+    }
 }
