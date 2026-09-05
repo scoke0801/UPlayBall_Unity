@@ -14,8 +14,11 @@ namespace Baseball.Presentation.Owner
     {
         private Text _title;
         private Text _context;
+        private Button _nextMatchAnalysisButton;
         private RecordTableView _table;
         private bool _isBuilt;
+
+        public event Action NextMatchAnalysisRequested;
 
         /// <summary>공용 Workspace 슬롯을 채우는 Owner 읽기 전용 정보 화면을 생성한다.</summary>
         public static UI_Scene_OwnerSharedInformation CreateRuntime(Transform parent)
@@ -42,6 +45,9 @@ namespace Baseball.Presentation.Owner
                 ? null
                 : ScheduleRecordTableBuilder.CreateFocusedSchedule(snapshot);
             _table.Bind(table, model.ContentState);
+            bool hasNextMatch = HasNextFocusTeamMatch(snapshot);
+            _nextMatchAnalysisButton.gameObject.SetActive(true);
+            _nextMatchAnalysisButton.interactable = hasNextMatch;
         }
 
         /// <summary>현재 시즌과 구분된 WorldHistory 확정 기록과 콘텐츠 상태를 표시한다.</summary>
@@ -61,6 +67,7 @@ namespace Baseball.Presentation.Owner
                 snapshot?.Table,
                 model.ContentState,
                 snapshot?.FocusedRowId);
+            _nextMatchAnalysisButton.gameObject.SetActive(false);
         }
 
         /// <summary>다른 Workspace로 이동할 때 화면 표시를 전환한다.</summary>
@@ -72,6 +79,12 @@ namespace Baseball.Presentation.Owner
         private void Awake()
         {
             EnsureHierarchy();
+        }
+
+        private void OnDestroy()
+        {
+            if (_nextMatchAnalysisButton != null)
+                _nextMatchAnalysisButton.onClick.RemoveAllListeners();
         }
 
         private void EnsureHierarchy()
@@ -102,7 +115,19 @@ namespace Baseball.Presentation.Owner
                 new Vector2(0f, 0.42f),
                 Vector2.one,
                 new Vector2(14f, 0f),
-                new Vector2(-14f, 0f));
+                new Vector2(-220f, 0f));
+            _nextMatchAnalysisButton = OwnerRuntimeUiFactory.CreateButton(
+                "NextMatchAnalysisButton",
+                header.Content,
+                "다음 경기 분석",
+                CareerUiTheme.PrimaryAction);
+            OwnerRuntimeUiFactory.SetAnchors(
+                _nextMatchAnalysisButton.GetComponent<RectTransform>(),
+                new Vector2(0.76f, 0.5f),
+                new Vector2(1f, 1f),
+                new Vector2(0f, 4f),
+                new Vector2(-14f, -4f));
+            _nextMatchAnalysisButton.onClick.AddListener(() => NextMatchAnalysisRequested?.Invoke());
             _context = OwnerRuntimeUiFactory.CreateText(
                 "Context", header.Content, string.Empty, 13, FontStyle.Normal,
                 TextAnchor.MiddleLeft, CareerUiTheme.TextSecondary);
@@ -121,6 +146,19 @@ namespace Baseball.Presentation.Owner
                 new Vector2(12f, 12f),
                 new Vector2(-12f, -4f));
             _table = RecordTableView.CreateRuntime(tableHost, "SharedRecordTable");
+        }
+
+        private static bool HasNextFocusTeamMatch(ScheduleScreenSnapshot snapshot)
+        {
+            if (snapshot == null)
+                return false;
+            for (int index = 0; index < snapshot.Games.Count; index++)
+            {
+                ScheduleGameSnapshot game = snapshot.Games[index];
+                if (!game.IsCompleted && game.FocusSide != ScheduleFocusSide.None)
+                    return true;
+            }
+            return false;
         }
     }
 }

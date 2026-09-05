@@ -109,7 +109,7 @@ namespace Baseball.Presentation.Owner
             OwnerWorkspaceUiFactory.Stretch(_currentStaffText.rectTransform);
 
             OwnerWorkspaceUiFactory.Panel market = OwnerWorkspaceUiFactory.CreatePanel(
-                columns, "StaffMarketPanel", "Staff Market");
+                columns, "StaffMarketPanel", "영입 후보");
             OwnerWorkspaceUiFactory.SetFlexible(market.Root, 1f);
             _marketList = OwnerWorkspaceUiFactory.CreateRoot(market.Content, "MarketList", false);
             OwnerWorkspaceUiFactory.AddVerticalLayout(_marketList, CareerUiTheme.Space2);
@@ -135,7 +135,7 @@ namespace Baseball.Presentation.Owner
 
             _actionRoot = OwnerWorkspaceUiFactory.CreateRoot(actionBarHost, "OwnerStaffOfficeActionBar", false);
             HorizontalLayoutGroup actionLayout = OwnerWorkspaceUiFactory.AddHorizontalLayout(_actionRoot, CareerUiTheme.Space3);
-            actionLayout.padding = new RectOffset(16, 16, 8, 8);
+            actionLayout.padding = new RectOffset(16, 16, 4, 4);
             _signStateText = OwnerWorkspaceUiFactory.CreateText(_actionRoot, "SignState", string.Empty, 14,
                 FontStyle.Normal, TextAnchor.MiddleRight, CareerUiTheme.TextSecondary);
             OwnerWorkspaceUiFactory.SetFlexible(_signStateText.rectTransform, 1f, 0f);

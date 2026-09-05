@@ -44,7 +44,7 @@ namespace Baseball.Presentation.Owner
                 games[index] = new ScheduleGameSnapshot(
                     game.GameId.ToString(CultureInfo.InvariantCulture),
                     game.Round,
-                    game.Round.ToString(CultureInfo.InvariantCulture) + "R",
+                    game.Round.ToString(CultureInfo.InvariantCulture) + "라운드",
                     new ScheduleTeamSnapshot(
                         awayKey,
                         teamDisplayNameResolver(awayKey)),
@@ -139,12 +139,12 @@ namespace Baseball.Presentation.Owner
                 new RecordTableColumnModel(
                     "Team", "구단", RecordSortValueKind.Text, true,
                     RecordSortDirection.Ascending, 1.7f, RecordCellAlignment.Left),
-                new RecordTableColumnModel("PA", "PA", RecordSortValueKind.Number),
-                new RecordTableColumnModel("Hits", "H", RecordSortValueKind.Number),
-                new RecordTableColumnModel("HR", "HR", RecordSortValueKind.Number),
-                new RecordTableColumnModel("BB", "BB", RecordSortValueKind.Number),
-                new RecordTableColumnModel("SO", "SO", RecordSortValueKind.Number),
-                new RecordTableColumnModel("AVG", "AVG", RecordSortValueKind.Number)
+                new RecordTableColumnModel("PA", "타석", RecordSortValueKind.Number),
+                new RecordTableColumnModel("Hits", "안타", RecordSortValueKind.Number),
+                new RecordTableColumnModel("HR", "홈런", RecordSortValueKind.Number),
+                new RecordTableColumnModel("BB", "볼넷", RecordSortValueKind.Number),
+                new RecordTableColumnModel("SO", "삼진", RecordSortValueKind.Number),
+                new RecordTableColumnModel("AVG", "타율", RecordSortValueKind.Number)
             };
         }
 
@@ -192,7 +192,7 @@ namespace Baseball.Presentation.Owner
             if (manager == null)
                 throw new ArgumentNullException(nameof(manager));
             if (!manager.HasActiveRuntime || manager.Runtime == null || !manager.Runtime.HasManagerMode)
-                throw new InvalidOperationException("활성 구단주 Runtime이 필요합니다.");
+                throw new InvalidOperationException("활성 구단주 진행 정보가 필요합니다.");
             return manager.Runtime;
         }
     }

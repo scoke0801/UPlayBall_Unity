@@ -52,7 +52,7 @@ namespace Baseball.Presentation.Owner
             Image background = OwnerRuntimeUiFactory.CreateImage("Background", root, CareerUiTheme.Background);
             OwnerRuntimeUiFactory.Stretch(background.rectTransform);
             OwnerWorkspaceUiFactory.Panel panel = OwnerRuntimeUiFactory.CreatePanel(
-                "ConditionPanel", root, "Condition · 타선 · 배터리 궁합", true);
+                "ConditionPanel", root, "컨디션 · 타선 · 배터리 궁합", true);
             OwnerRuntimeUiFactory.Stretch(panel.Root, new Vector2(12f, 12f), new Vector2(-12f, -12f));
 
             _summaryText = OwnerRuntimeUiFactory.CreateText(
@@ -75,11 +75,11 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero, Vector2.zero);
             CreateColumnText(header.transform, "Player", "선수", 0f, 0.18f, TextAnchor.MiddleLeft);
             CreateColumnText(header.transform, "Position", "포지션", 0.18f, 0.27f);
-            CreateColumnText(header.transform, "Base", "기본 Condition", 0.27f, 0.43f);
+            CreateColumnText(header.transform, "Base", "기본 컨디션", 0.27f, 0.43f);
             CreateColumnText(header.transform, "Assignment", "비주포지션", 0.43f, 0.53f);
             CreateColumnText(header.transform, "Lineup", "타선 궁합", 0.53f, 0.63f);
             CreateColumnText(header.transform, "Battery", "배터리 궁합", 0.63f, 0.74f);
-            CreateColumnText(header.transform, "Expected", "예상 Match Condition", 0.74f, 1f);
+            CreateColumnText(header.transform, "Expected", "경기 적용 컨디션", 0.74f, 1f);
         }
 
         private void RenderPlayers(IReadOnlyList<OwnerConditionPlayerPresentationRow> players)

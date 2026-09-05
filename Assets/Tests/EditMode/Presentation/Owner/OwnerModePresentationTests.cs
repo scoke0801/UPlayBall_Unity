@@ -27,20 +27,39 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_ProductionAdapter가연결된상위화면만선택가능하다()
+        public void Profile_여섯업무영역과ContextMatchCenter를분리한다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
-            Assert.That(profile.Navigation.FindEntry(OwnerModeShellCoordinator.HomeRouteId).IsEnabled, Is.True);
-            Assert.That(profile.Navigation.FindEntry("Owner.Roster").IsEnabled, Is.True);
-            Assert.That(profile.Navigation.FindEntry("Owner.Club").IsEnabled, Is.True);
-            Assert.That(profile.Navigation.FindEntry(OwnerModeShellCoordinator.MatchRouteId).IsEnabled, Is.True);
-            Assert.That(profile.Navigation.FindEntry("Owner.Scout").IsEnabled, Is.False);
-            Assert.That(profile.Navigation.FindEntry("Owner.Development").IsEnabled, Is.False);
-            Assert.That(profile.Navigation.FindEntry("Owner.Tactic").IsEnabled, Is.False);
-            Assert.That(profile.Navigation.FindEntry("Shared.League").IsEnabled, Is.False);
-            Assert.That(profile.Navigation.FindEntry("Owner.Roster.Active").IsEnabled, Is.False);
-            Assert.That(profile.Navigation.FindEntry(OwnerManagementRoutes.RosterCondition).IsEnabled, Is.True);
+            Assert.That(profile.Navigation.Entries.Count, Is.EqualTo(6));
+            Assert.That(profile.Navigation.Entries[0].RouteId, Is.EqualTo(OwnerNavigationRoutes.Home));
+            Assert.That(profile.Navigation.Entries[1].RouteId, Is.EqualTo(OwnerNavigationRoutes.Roster));
+            Assert.That(profile.Navigation.Entries[2].RouteId, Is.EqualTo(OwnerNavigationRoutes.PowerUp));
+            Assert.That(profile.Navigation.Entries[3].RouteId, Is.EqualTo(OwnerNavigationRoutes.Dugout));
+            Assert.That(profile.Navigation.Entries[4].RouteId, Is.EqualTo(OwnerNavigationRoutes.Club));
+            Assert.That(profile.Navigation.Entries[5].RouteId, Is.EqualTo(OwnerNavigationRoutes.League));
+            Assert.That(profile.Navigation.FindEntry("Owner.Scout"), Is.Null);
+            Assert.That(profile.Navigation.FindEntry("Owner.Development"), Is.Null);
+            Assert.That(profile.Navigation.FindEntry("Owner.Tactic"), Is.Null);
+            Assert.That(profile.Navigation.FindEntry(OwnerModeShellCoordinator.MatchRouteId), Is.Null);
+            Assert.That(profile.ContextNavigation.FindEntry(OwnerNavigationRoutes.MatchCenterAnalysis), Is.Not.Null);
+            NavigationEntry spectator = profile.ContextNavigation.FindEntry(OwnerNavigationRoutes.MatchSpectator);
+            Assert.That(spectator, Is.Not.Null);
+            Assert.That(spectator.Children, Is.Empty);
+            Assert.That(profile.BackgroundResourcePath, Is.EqualTo(OwnerUiAssetIds.HomeBackgroundResourcePath));
+        }
+
+        [TestCase("COMPOSITE", "상대 구단", "상대 구단")]
+        [TestCase("KBO_COMPOSITE_1982", "내 구단", "내 구단")]
+        [TestCase("서울 웨이브스", "상대 구단", "서울 웨이브스")]
+        public void TeamDisplayName_내부Id를사용자용이름으로보정한다(
+            string teamName,
+            string fallback,
+            string expected)
+        {
+            Assert.That(
+                OwnerModeRuntimeSnapshotFactory.FormatTeamDisplayName(teamName, fallback),
+                Is.EqualTo(expected));
         }
 
         [Test]
@@ -48,14 +67,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
-            NavigationEntry contract = profile.Navigation.FindEntry("Owner.Club.Contract");
-            NavigationEntry awardScout = profile.Navigation.FindEntry("Owner.Scout.Award");
+            NavigationEntry contract = profile.FindEntry(OwnerNavigationRoutes.ClubContract);
+            NavigationEntry awardScout = profile.FindEntry("Owner.Scout.Award");
 
             Assert.That(contract, Is.Not.Null);
             Assert.That(contract.IsEnabled, Is.False);
-            Assert.That(contract.DisabledReason, Does.Contain("Runtime State"));
+            Assert.That(contract.DisabledReason, Does.Contain("계약 조회"));
             Assert.That(awardScout.IsEnabled, Is.False);
-            Assert.That(awardScout.DisabledReason, Does.Contain("Runtime"));
+            Assert.That(awardScout.DisabledReason, Does.Contain("스카우트 후보군"));
         }
 
         [Test]

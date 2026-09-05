@@ -76,7 +76,7 @@ namespace Baseball.Presentation.Owner
             if (canUpgrade && !nextUpgradeMoneyCost.HasValue)
                 throw new ArgumentException("업그레이드 가능한 시설에는 다음 비용이 필요합니다.");
             if (!canUpgrade && string.IsNullOrWhiteSpace(upgradeDisabledReason))
-                throw new ArgumentException("업그레이드 불가 상태에는 Resolver 사유가 필요합니다.", nameof(upgradeDisabledReason));
+                throw new ArgumentException("업그레이드 불가 상태에는 안내 사유가 필요합니다.", nameof(upgradeDisabledReason));
 
             FacilityType = facilityType;
             Level = level;
@@ -144,7 +144,7 @@ namespace Baseball.Presentation.Owner
             if (canUpgradeStadium && !nextStadiumUpgradeMoneyCost.HasValue)
                 throw new ArgumentException("증축 가능한 구장에는 다음 비용이 필요합니다.");
             if (!canUpgradeStadium && string.IsNullOrWhiteSpace(stadiumUpgradeDisabledReason))
-                throw new ArgumentException("증축 불가 상태에는 Resolver 사유가 필요합니다.", nameof(stadiumUpgradeDisabledReason));
+                throw new ArgumentException("증축 불가 상태에는 안내 사유가 필요합니다.", nameof(stadiumUpgradeDisabledReason));
 
             StadiumLevel = stadiumLevel;
             StadiumCapacity = stadiumCapacity;
@@ -235,7 +235,8 @@ namespace Baseball.Presentation.Owner
             IncomeText = $"수입 {FormatMoney(snapshot.MoneyIncome)}";
             ExpenseText = $"지출 {FormatMoney(snapshot.MoneyExpense)}";
             NetText = $"순이익 {FormatSignedMoney(snapshot.MoneyIncome - snapshot.MoneyExpense)}";
-            ProductionText = $"SP +{snapshot.ScoutingPointProduction:N0} · DP +{snapshot.DevelopmentPointProduction:N0}";
+            ProductionText =
+                $"스카우트 포인트 +{snapshot.ScoutingPointProduction:N0} · 육성 포인트 +{snapshot.DevelopmentPointProduction:N0}";
             AttendanceText = snapshot.HomeGames == 0
                 ? "홈 경기 없음"
                 : $"홈 {snapshot.HomeGames:N0}경기 · 관중 {snapshot.Attendance:N0}명";
@@ -315,8 +316,8 @@ namespace Baseball.Presentation.Owner
                 snapshot,
                 $"구장 Lv.{snapshot.StadiumLevel} · {snapshot.StadiumCapacity:N0}석",
                 stadiumUpgrade,
-                $"FanBase {snapshot.FanBase:0.0}",
-                $"Popularity {snapshot.Popularity:0.0}",
+                $"팬 기반 {snapshot.FanBase:0.0}",
+                $"인기도 {snapshot.Popularity:0.0}",
                 $"예상 관중 {FormatAttendance(snapshot.ExpectedAttendance)}",
                 $"최근 관중 {FormatAttendance(snapshot.RecentAttendance)}",
                 $"티켓 정책 · {FormatTicket(snapshot.TicketPriceTier)}",
@@ -346,12 +347,12 @@ namespace Baseball.Presentation.Owner
             {
                 case FacilityType.ScoutingCenter:
                     return source.ScoutingPointStorageCapacity.HasValue
-                        ? $"주간 SP +{source.WeeklyScoutingPointProduction:N0} · 저장 {source.ScoutingPointStorageCapacity.Value:N0}"
-                        : "SP 생산 없음";
+                        ? $"주간 스카우트 포인트 +{source.WeeklyScoutingPointProduction:N0} · 보유 한도 {source.ScoutingPointStorageCapacity.Value:N0}"
+                        : "스카우트 포인트 생산 없음";
                 case FacilityType.TrainingCenter:
                     return source.DevelopmentPointStorageCapacity.HasValue
-                        ? $"주간 DP +{source.WeeklyDevelopmentPointProduction:N0} · 저장 {source.DevelopmentPointStorageCapacity.Value:N0}"
-                        : "DP 생산 없음";
+                        ? $"주간 육성 포인트 +{source.WeeklyDevelopmentPointProduction:N0} · 보유 한도 {source.DevelopmentPointStorageCapacity.Value:N0}"
+                        : "육성 포인트 생산 없음";
                 case FacilityType.RecoveryCenter:
                     return FormatPercentEffect("회복 효율", source.ConditionRecoveryEfficiencyModifier);
                 case FacilityType.DataAnalysisCenter:

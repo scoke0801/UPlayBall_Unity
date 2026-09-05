@@ -1,5 +1,6 @@
 using System;
 using Baseball.Presentation.SharedUI;
+using Baseball.Simulation.Historical;
 
 namespace Baseball.Presentation.Owner
 {
@@ -28,7 +29,10 @@ namespace Baseball.Presentation.Owner
             int foreignPlayerLimit,
             int ownedCardCount,
             bool isRosterValid,
-            string rosterValidationMessage)
+            string rosterValidationMessage,
+            RosterStrengthBreakdown rosterStrength = null,
+            RosterCostBreakdown? rosterCost = null,
+            string opponentStrengthText = null)
         {
             if (money < 0)
                 throw new ArgumentOutOfRangeException(nameof(money));
@@ -57,9 +61,12 @@ namespace Baseball.Presentation.Owner
             if (ownedCardCount < 0)
                 throw new ArgumentOutOfRangeException(nameof(ownedCardCount));
             if (!isRosterValid && string.IsNullOrWhiteSpace(rosterValidationMessage))
-                throw new ArgumentException("유효하지 않은 로스터에는 Resolver가 제공한 사유가 필요합니다.", nameof(rosterValidationMessage));
+                throw new ArgumentException("유효하지 않은 선수단에는 검증 사유가 필요합니다.", nameof(rosterValidationMessage));
 
             SeasonText = seasonText ?? string.Empty;
+            RosterStrength = rosterStrength;
+            RosterCost = rosterCost;
+            OpponentStrengthText = opponentStrengthText ?? string.Empty;
             DateText = dateText ?? string.Empty;
             LeagueText = leagueText ?? string.Empty;
             TeamName = teamName ?? string.Empty;
@@ -82,6 +89,9 @@ namespace Baseball.Presentation.Owner
             RosterValidationMessage = rosterValidationMessage ?? string.Empty;
         }
 
+        public RosterStrengthBreakdown RosterStrength { get; }
+        public RosterCostBreakdown? RosterCost { get; }
+        public string OpponentStrengthText { get; }
         public string SeasonText { get; }
         public string DateText { get; }
         public string LeagueText { get; }
@@ -116,6 +126,8 @@ namespace Baseball.Presentation.Owner
 
         public OwnerHomeSnapshot Snapshot { get; }
         public ShellStatusModel ShellStatus { get; }
+        public string StrengthText => OwnerRosterEvaluationFormatter.FormatStrength(Snapshot.RosterStrength);
+        public string CostText => OwnerRosterEvaluationFormatter.FormatCost(Snapshot.RosterCost);
         public string RosterCountText =>
             $"현재 1군 {Snapshot.ActiveRosterCount}/{Snapshot.ActiveRosterCapacity}";
         public string RosterCompositionText =>
@@ -139,9 +151,9 @@ namespace Baseball.Presentation.Owner
 
             var slots = new[]
             {
-                new ShellStatusSlotModel("Money", "Money", OwnerMoneyFormatter.Format(snapshot.Money)),
-                new ShellStatusSlotModel("SP", "SP", snapshot.ScoutingPoints.ToString("N0")),
-                new ShellStatusSlotModel("DP", "DP", snapshot.DevelopmentPoints.ToString("N0")),
+                new ShellStatusSlotModel("Money", "자금", OwnerMoneyFormatter.Format(snapshot.Money)),
+                new ShellStatusSlotModel("SP", "스카우트 포인트", snapshot.ScoutingPoints.ToString("N0")),
+                new ShellStatusSlotModel("DP", "육성 포인트", snapshot.DevelopmentPoints.ToString("N0")),
                 new ShellStatusSlotModel(
                     "Roster",
                     "1군",
@@ -165,8 +177,8 @@ namespace Baseball.Presentation.Owner
     public static class OwnerUiAssetIds
     {
         public const string HomeBackgroundAssetPath =
-            "Assets/Resources/UI/Generated/bg_owner_front_office_v1.png";
+            "Assets/Resources/UI/Generated/bg_owner_container_office_v2.png";
         public const string HomeBackgroundResourcePath =
-            "UI/Generated/bg_owner_front_office_v1";
+            "UI/Generated/bg_owner_container_office_v2";
     }
 }

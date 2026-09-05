@@ -247,7 +247,7 @@ namespace Baseball.Presentation.Owner
                     FormatQuality(staff.QualityTier),
                     JoinSpecialties(staff.Specialties),
                     JoinPhilosophies(staff.Philosophies),
-                    string.IsNullOrWhiteSpace(source.EffectPreview) ? "효과 Preview 확인 필요" : source.EffectPreview,
+                    string.IsNullOrWhiteSpace(source.EffectPreview) ? "예상 효과 확인 필요" : source.EffectPreview,
                     $"연봉 {OwnerMoneyFormatter.Format(source.Offer.AnnualSalary)}",
                     $"{source.Offer.ContractYears}시즌 계약",
                     $"계약 비용 {OwnerMoneyFormatter.Format(source.Offer.SigningCost)}",
@@ -260,7 +260,7 @@ namespace Baseball.Presentation.Owner
 
         private static OwnerStaffSlotModel CreateVacantSlot(StaffRole role)
         {
-            return new OwnerStaffSlotModel(role, FormatRole(role), string.Empty, "미배치", "Quality -",
+            return new OwnerStaffSlotModel(role, FormatRole(role), string.Empty, "미배치", "등급 -",
                 "전문 분야 없음", "운영 철학 없음", "현재 적용 효과 없음", "연봉 -", "계약 -", string.Empty);
         }
 
@@ -304,7 +304,7 @@ namespace Baseball.Presentation.Owner
             {
                 StaffRole.HittingCoach => $"타자 훈련 효율 +{ToBonusPercent(effects.HittingTrainingEfficiency):0.#}%",
                 StaffRole.PitchingCoach => $"투수 훈련 효율 +{ToBonusPercent(effects.PitchingTrainingEfficiency):0.#}%",
-                StaffRole.DevelopmentCoach => $"DP 사용 효율 +{ToBonusPercent(effects.DevelopmentPointEfficiency):0.#}%",
+                StaffRole.DevelopmentCoach => $"육성 포인트 사용 효율 +{ToBonusPercent(effects.DevelopmentPointEfficiency):0.#}%",
                 StaffRole.ConditioningCoach => $"회복 효율 +{ToBonusPercent(effects.ConditionRecoveryEfficiency):0.#}%",
                 _ => $"상대 분석 신뢰도 +{effects.ScoutingConfidenceModifier * 100d:0.#}%"
             };
@@ -324,7 +324,7 @@ namespace Baseball.Presentation.Owner
             };
         }
 
-        private static string FormatQuality(int quality) => $"Quality {quality}/{StaffDefinition.MaximumQualityTier}";
+        private static string FormatQuality(int quality) => $"등급 {quality}/{StaffDefinition.MaximumQualityTier}";
 
         private static string JoinSpecialties(IReadOnlyList<StaffSpecialtyTag> values)
         {

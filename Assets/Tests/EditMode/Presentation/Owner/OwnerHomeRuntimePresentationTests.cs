@@ -43,8 +43,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Is.EqualTo("R3 · 부산 마리너스 · 홈"));
             Assert.That(FindText("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/RosterPanel/ContentSafeRect/RosterValue").text,
                 Does.Contain("현재 1군 25/25"));
+            Assert.That(FindText("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/RosterPanel/ContentSafeRect/RosterValue").text,
+                Does.Contain("기본 전력 미평가").And.Contain("편성 비용 미평가"));
             Assert.That(FindText("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/ResourcePanel/ContentSafeRect/ResourceValue").text,
-                Does.Contain("SP  420"));
+                Does.Contain("스카우트 포인트  420"));
+            Assert.That(FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/OpponentAnalysisButton").interactable,
+                Is.True);
+            Assert.That(FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/MatchPreparationButton").interactable,
+                Is.True);
             Assert.That(FindButton("ContextActionBar/OwnerHomeActionBar/PlayNextGameButton").interactable, Is.True);
         }
 
@@ -54,18 +60,47 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             bool playRequested = false;
             bool saveRequested = false;
             bool titleRequested = false;
+            bool analysisRequested = false;
+            bool preparationRequested = false;
+            _view.OpponentAnalysisRequested += () => analysisRequested = true;
+            _view.MatchPreparationRequested += () => preparationRequested = true;
             _view.PlayNextGameRequested += () => playRequested = true;
             _view.SaveRequested += () => saveRequested = true;
             _view.TitleRequested += () => titleRequested = true;
             _view.Bind(CreateModel(), true);
 
+            FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/OpponentAnalysisButton").onClick.Invoke();
+            FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/MatchPreparationButton").onClick.Invoke();
             FindButton("ContextActionBar/OwnerHomeActionBar/PlayNextGameButton").onClick.Invoke();
             FindButton("ContextActionBar/OwnerHomeActionBar/SaveButton").onClick.Invoke();
             FindButton("ContextActionBar/OwnerHomeActionBar/TitleButton").onClick.Invoke();
 
+            Assert.That(analysisRequested, Is.True);
+            Assert.That(preparationRequested, Is.True);
             Assert.That(playRequested, Is.True);
             Assert.That(saveRequested, Is.True);
             Assert.That(titleRequested, Is.True);
+        }
+
+        [Test]
+        public void Skin_재적용해도버튼프레임과진행강조를유지한다()
+        {
+            _view.Bind(CreateModel(), true);
+            Button play = FindButton("ContextActionBar/OwnerHomeActionBar/PlayNextGameButton");
+            Button save = FindButton("ContextActionBar/OwnerHomeActionBar/SaveButton");
+            Sprite playSprite = play.GetComponent<Image>().sprite;
+            Sprite saveSprite = save.GetComponent<Image>().sprite;
+            Assert.That(playSprite, Is.Not.Null);
+            Assert.That(saveSprite, Is.Not.Null.And.Not.EqualTo(playSprite));
+
+            Baseball.Presentation.UI.CareerUiSkin.Apply(_shell.ContextActionBarHost);
+            _view.Bind(CreateModel(), false);
+
+            Assert.That(play.GetComponent<Image>().sprite, Is.SameAs(playSprite));
+            Assert.That(save.GetComponent<Image>().sprite, Is.SameAs(saveSprite));
+            Assert.That(play.GetComponent<Image>().type, Is.EqualTo(Image.Type.Sliced));
+            Assert.That(play.interactable, Is.False);
+            Assert.That(save.interactable, Is.True);
         }
 
         private Text FindText(string path) => _shell.transform.Find(path).GetComponent<Text>();

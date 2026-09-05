@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Baseball.Game.Career;
 using Baseball.Game.Historical;
@@ -6,6 +7,7 @@ using Baseball.Presentation.SharedScreens;
 using Baseball.Presentation.SharedUI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
 {
@@ -40,7 +42,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(snapshot.CurrentPeriodLabel, Is.EqualTo("4주차"));
             Assert.That(snapshot.FocusTeamId, Is.EqualTo("owner-team"));
             Assert.That(snapshot.Games[0].HasCalendarDate, Is.False);
-            Assert.That(snapshot.Games[0].PeriodLabel, Is.EqualTo("2R"));
+            Assert.That(snapshot.Games[0].PeriodLabel, Is.EqualTo("2라운드"));
             Assert.That(snapshot.Games[0].HomeRuns, Is.EqualTo(6));
             Assert.That(snapshot.Games[0].FocusOutcome, Is.EqualTo(ScheduleFocusOutcome.Pending));
         }
@@ -77,6 +79,56 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(records.IsEnabled, Is.True);
             Assert.That(standings.IsEnabled, Is.False);
             Assert.That(standings.DisabledReason, Does.Contain("누적 승패"));
+        }
+
+        [Test]
+        public void ScheduleWorkspace_다음경기분석을Context진입요청으로전달한다()
+        {
+            var root = new GameObject("OwnerScheduleContextTests_Root", typeof(RectTransform));
+            try
+            {
+                SharedGameShellView shell = SharedGameShellView.CreateRuntime(root.transform);
+                OwnerSharedInformationWorkspaceCoordinator coordinator =
+                    shell.gameObject.AddComponent<OwnerSharedInformationWorkspaceCoordinator>();
+                coordinator.Initialize(shell);
+                var owner = new ScheduleTeamSnapshot("owner", "내 구단");
+                var opponent = new ScheduleTeamSnapshot("opponent", "상대 구단");
+                var snapshot = new ScheduleScreenSnapshot(
+                    "2028 시즌",
+                    "Rookie",
+                    "3주차",
+                    "owner",
+                    new[]
+                    {
+                        new ScheduleGameSnapshot(
+                            "game-3",
+                            3,
+                            "3R",
+                            opponent,
+                            owner,
+                            false,
+                            0,
+                            0,
+                            ScheduleFocusSide.Home)
+                    });
+                bool requested = false;
+                coordinator.NextMatchAnalysisRequested += () => requested = true;
+
+                coordinator.BindSchedule(snapshot, OwnerModeUiProfileFactory.Create().Capabilities);
+                Assert.That(coordinator.TryShowRoute(
+                    OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId), Is.True);
+                Button button = shell.transform.Find(
+                    "MainWorkspaceHost/UI_Scene_OwnerSchedule/InformationHeader/ContentSafeRect/NextMatchAnalysisButton")
+                    .GetComponent<Button>();
+
+                Assert.That(button.interactable, Is.True);
+                button.onClick.Invoke();
+                Assert.That(requested, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
         }
     }
 }

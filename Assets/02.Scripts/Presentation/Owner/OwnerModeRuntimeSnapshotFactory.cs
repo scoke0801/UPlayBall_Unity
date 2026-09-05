@@ -24,7 +24,7 @@ namespace Baseball.Presentation.Owner
                 mode.LiveSeason.OriginYear + " 시즌",
                 $"{mode.LiveSeason.CurrentWeekIndex + 1}주차",
                 runtime.League.Grade.ToString(),
-                manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey),
+                FormatTeamDisplayName(manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey), "내 구단"),
                 string.Empty,
                 nextMatch,
                 runtime.Economy.Money,
@@ -41,7 +41,10 @@ namespace Baseball.Presentation.Owner
                 roster.ForeignPlayerLimit,
                 runtime.OwnedCards.Count,
                 roster.Validation.IsValid,
-                roster.Validation.IsValid ? string.Empty : FormatRosterIssue(roster.Validation.Issues[0]));
+                roster.Validation.IsValid ? string.Empty : FormatRosterIssue(roster.Validation.Issues[0]),
+                roster.Strength,
+                roster.Cost,
+                game == null ? string.Empty : CreateOpponentStrengthText(manager, mode, game));
         }
 
         /// <summary>현재 1군·선택 프리셋·Resolver 검증을 규칙 재계산 없이 선수단 화면에 투영한다.</summary>
@@ -58,6 +61,7 @@ namespace Baseball.Presentation.Owner
                 if (!runtime.WorldCardCatalog.TryGetCard(entry.CardId, out PlayerCardDefinition card))
                     throw new InvalidOperationException($"CardId {entry.CardId} 원본이 없습니다.");
                 PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+                TeamSeasonPlayerStatus playerStatus = statuses.GetRequiredPlayer(entry.PlayerPersonId);
                 players[index] = new OwnerRosterPlayerSnapshot(
                     entry.CardId,
                     runtime.IdentityRegistry.GetPlayerDisplayName(entry.PlayerPersonId),
@@ -68,7 +72,29 @@ namespace Baseball.Presentation.Owner
                     season.Cost,
                     entry.RegistrationType,
                     entry.Role,
-                    statuses.GetRequiredPlayer(entry.PlayerPersonId).Availability);
+                    playerStatus.Availability,
+                    playerStatus.StoredBaseCondition);
+            }
+
+            var ownedPlayers = new OwnerCollectionCardSnapshot[runtime.OwnedCards.Count];
+            for (int index = 0; index < ownedPlayers.Length; index++)
+            {
+                OwnedPlayerCardState owned = runtime.OwnedCards[index];
+                if (!runtime.WorldCardCatalog.TryGetCard(owned.CardId, out PlayerCardDefinition card))
+                    throw new InvalidOperationException($"CardId {owned.CardId} 원본이 없습니다.");
+                PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+                ownedPlayers[index] = new OwnerCollectionCardSnapshot(
+                    owned.CardId,
+                    season.PlayerPersonId,
+                    runtime.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId),
+                    season.OriginYear,
+                    season.Position,
+                    season.Cost,
+                    card.Edition,
+                    owned.EnhancementLevel,
+                    owned.DuplicateCount,
+                    owned.IsLocked,
+                    owned.IsFavorite);
             }
 
             ManagerPregamePreparation preparation = null;
@@ -114,7 +140,8 @@ namespace Baseball.Presentation.Owner
                 presetSnapshots,
                 mode.SelectedLineupPresetId,
                 teamColorCandidates,
-                tacticCandidates);
+                tacticCandidates,
+                ownedPlayers);
         }
 
         /// <summary>현재 Save의 OwnedCards와 WorldCardCatalog를 보유 선수 화면 Snapshot으로 투영한다.</summary>
@@ -292,7 +319,7 @@ namespace Baseball.Presentation.Owner
             return new OwnerPregameSnapshot(
                 UiContentStateModel.Ready,
                 CreateNextMatchText(manager, mode, preparation.ScheduledGame),
-                manager.GetTeamDisplayName(preparation.OpponentTeamSeasonKey),
+                FormatTeamDisplayName(manager.GetTeamDisplayName(preparation.OpponentTeamSeasonKey), "상대 구단"),
                 preparation.ScoutingReport,
                 presetSnapshots,
                 preset.PresetId,
@@ -325,7 +352,17 @@ namespace Baseball.Presentation.Owner
         private static ManagerHistoricalRuntimeState RequireRuntime(OwnerModeManager manager)
         {
             if (manager == null) throw new ArgumentNullException(nameof(manager));
-            return manager.Runtime ?? throw new InvalidOperationException("활성 구단주 Runtime이 없습니다.");
+            return manager.Runtime ?? throw new InvalidOperationException("활성 구단주 운영 데이터가 없습니다.");
+        }
+
+        private static string CreateOpponentStrengthText(
+            OwnerModeManager manager,
+            ManagerModeRuntimeState mode,
+            ScheduledGameState game)
+        {
+            int opponentId = game.AwayTeamId == mode.LiveSeason.PlayerTeamId ? game.HomeTeamId : game.AwayTeamId;
+            string opponentKey = mode.LiveSeason.GetTeamSeasonKey(opponentId);
+            return "상대 " + OwnerRosterEvaluationFormatter.FormatStrength(manager.BuildTeamStrength(opponentKey));
         }
 
         private static string CreateNextMatchText(
@@ -338,7 +375,20 @@ namespace Baseball.Presentation.Owner
                 : game.AwayTeamId;
             string opponentKey = mode.LiveSeason.GetTeamSeasonKey(opponentId);
             bool isHome = game.HomeTeamId == mode.LiveSeason.PlayerTeamId;
-            return $"{game.Round}R · {(isHome ? "홈" : "원정")} vs {manager.GetTeamDisplayName(opponentKey)}";
+            string opponentName = FormatTeamDisplayName(
+                manager.GetTeamDisplayName(opponentKey),
+                "상대 구단");
+            return $"{game.Round}R · {(isHome ? "홈" : "원정")} vs {opponentName}";
+        }
+
+        /// <summary>내부 합성 구단 ID를 사용자용 대체 이름으로 바꾼다.</summary>
+        public static string FormatTeamDisplayName(string teamName, string fallback)
+        {
+            if (!string.IsNullOrWhiteSpace(teamName) &&
+                teamName.IndexOf("COMPOSITE", StringComparison.OrdinalIgnoreCase) < 0)
+                return teamName.Trim();
+
+            return string.IsNullOrWhiteSpace(fallback) ? "구단" : fallback;
         }
 
         private static PlayerSeasonDefinition GetPlayerSeason(ManagerHistoricalRuntimeState runtime, string cardId)
@@ -376,9 +426,9 @@ namespace Baseball.Presentation.Owner
             return status switch
             {
                 ClubUpgradeStatus.MaximumLevel => "최대 레벨",
-                ClubUpgradeStatus.InsufficientMoney => "Money 부족",
+                ClubUpgradeStatus.InsufficientMoney => "자금 부족",
                 ClubUpgradeStatus.LeagueGradeLocked => "리그 등급 조건 미달",
-                ClubUpgradeStatus.FanBaseLocked => "FanBase 조건 미달",
+                ClubUpgradeStatus.FanBaseLocked => "팬 기반 조건 미달",
                 ClubUpgradeStatus.SeasonAttendanceLocked => "누적 관중 조건 미달",
                 ClubUpgradeStatus.AlreadyApplied => "이미 반영됨",
                 _ => "현재 상태에서 업그레이드 불가"
@@ -389,8 +439,8 @@ namespace Baseball.Presentation.Owner
         {
             return status switch
             {
-                StaffServiceStatus.InsufficientMoney => "Money 부족",
-                StaffServiceStatus.StaffUnavailable => "Staff가 이미 계약 중입니다.",
+                StaffServiceStatus.InsufficientMoney => "자금 부족",
+                StaffServiceStatus.StaffUnavailable => "해당 코칭스태프는 이미 계약 중입니다.",
                 StaffServiceStatus.SalaryNotSettled => "기존 급여 정산 필요",
                 _ => "현재 계약 불가"
             };
@@ -402,7 +452,7 @@ namespace Baseball.Presentation.Owner
             {
                 StaffRole.HittingCoach => $"타자 훈련 효율 {(effects.HittingTrainingEfficiency - 1d):+0%;-0%;0%}",
                 StaffRole.PitchingCoach => $"투수 훈련 효율 {(effects.PitchingTrainingEfficiency - 1d):+0%;-0%;0%}",
-                StaffRole.DevelopmentCoach => $"DP 사용 효율 {(effects.DevelopmentPointEfficiency - 1d):+0%;-0%;0%}",
+                StaffRole.DevelopmentCoach => $"육성 포인트 사용 효율 {(effects.DevelopmentPointEfficiency - 1d):+0%;-0%;0%}",
                 StaffRole.ConditioningCoach => $"회복 효율 {(effects.ConditionRecoveryEfficiency - 1d):+0%;-0%;0%}",
                 _ => $"상대 분석 신뢰도 {effects.ScoutingConfidenceModifier:+0%;-0%;0%}"
             };
@@ -470,7 +520,23 @@ namespace Baseball.Presentation.Owner
 
         private static string FormatRosterIssue(RosterValidationIssue issue)
         {
-            return $"{issue.Code}: 필요 {issue.Expected}, 현재 {issue.Actual}";
+            string label = issue.Code switch
+            {
+                RosterValidationIssueCode.TotalCount => "1군 총원",
+                RosterValidationIssueCode.HitterCount => "야수 인원",
+                RosterValidationIssueCode.StartingHitterCount => "주전 야수 인원",
+                RosterValidationIssueCode.BenchHitterCount => "벤치 인원",
+                RosterValidationIssueCode.PitcherCount => "투수 인원",
+                RosterValidationIssueCode.StartingPitcherCount => "선발투수 인원",
+                RosterValidationIssueCode.BullpenPitcherCount => "불펜 인원",
+                RosterValidationIssueCode.SetupPitcherCount => "셋업 투수 인원",
+                RosterValidationIssueCode.CloserPitcherCount => "마무리 투수 인원",
+                RosterValidationIssueCode.ForeignPlayerCount => "외국인 등록",
+                RosterValidationIssueCode.DuplicatePlayerPersonId => "동일 선수 중복",
+                RosterValidationIssueCode.FixedRoleCount => "고정 역할 인원",
+                _ => "로스터 구성"
+            };
+            return $"{label}: 필요 {issue.Expected}, 현재 {issue.Actual}";
         }
     }
 }

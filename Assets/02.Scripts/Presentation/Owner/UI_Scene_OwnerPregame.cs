@@ -25,6 +25,7 @@ namespace Baseball.Presentation.Owner
         private Text _threatText;
         private Text _presetText;
         private Text _readinessText;
+        private Text _readinessSummaryText;
         private Text _loadoutText;
         private Text _startStateText;
         private Button _previousPresetButton;
@@ -62,7 +63,7 @@ namespace Baseball.Presentation.Owner
             _matchText.text = string.IsNullOrWhiteSpace(model.Snapshot.NextMatchText)
                 ? $"상대 {model.Snapshot.OpponentName}"
                 : $"{model.Snapshot.NextMatchText} · {model.Snapshot.OpponentName}";
-            _intelText.text = $"Intel Confidence  {model.IntelText}";
+            _intelText.text = $"정보 신뢰도  {model.IntelText}";
             _probableStarterText.text = $"예상 선발  {model.ProbableStarterText}";
             _recentFormText.text = $"최근 성적  {model.RecentFormText}";
             _managerTendencyText.text = $"감독 성향  {model.ManagerTendencyText}";
@@ -73,6 +74,9 @@ namespace Baseball.Presentation.Owner
             _presetIndex = FindSelectedPreset(model);
             RenderPreset();
             _readinessText.text = BuildReadinessText(model);
+            _readinessText.GetComponent<LayoutElement>().preferredHeight =
+                CalculateReadinessHeight(model);
+            _readinessSummaryText.text = BuildReadinessSummary(model);
             _loadoutText.text = BuildLoadoutText(model);
             _startButton.interactable = ready && model.CanStartMatch;
             _startStateText.text = model.CanStartMatch ? "경기 시작 준비 완료" : model.MatchStartDisabledReason;
@@ -108,7 +112,7 @@ namespace Baseball.Presentation.Owner
 
         private void Build(RectTransform workspaceHost, RectTransform inspectorHost, RectTransform actionBarHost)
         {
-            _workspaceRoot = OwnerWorkspaceUiFactory.CreateRoot(workspaceHost, "OwnerPregameWorkspace", true);
+            _workspaceRoot = OwnerWorkspaceUiFactory.CreateRoot(workspaceHost, "OwnerPregameWorkspace", false);
             RectTransform columns = OwnerWorkspaceUiFactory.CreateRoot(_workspaceRoot, "WorkspaceColumns", false);
             columns.offsetMin = new Vector2(CareerUiTheme.Space4, CareerUiTheme.Space4);
             columns.offsetMax = new Vector2(-CareerUiTheme.Space4, -CareerUiTheme.Space4);
@@ -116,24 +120,32 @@ namespace Baseball.Presentation.Owner
 
             OwnerWorkspaceUiFactory.Panel intelligence = OwnerWorkspaceUiFactory.CreatePanel(
                 columns, "OpponentAnalysisPanel", "상대 분석", true);
-            OwnerWorkspaceUiFactory.SetFlexible(intelligence.Root, 1.05f);
+            OwnerWorkspaceUiFactory.SetFlexible(intelligence.Root, 0.9f);
             OwnerWorkspaceUiFactory.AddVerticalLayout(intelligence.Content, CareerUiTheme.Space2);
             _matchText = AddLine(intelligence.Content, 20, FontStyle.Bold, 34f);
             _intelText = AddLine(intelligence.Content, 16, FontStyle.Bold, 28f);
             _probableStarterText = AddLine(intelligence.Content, 16, FontStyle.Normal, 28f);
             _recentFormText = AddLine(intelligence.Content, 16, FontStyle.Normal, 28f);
             _managerTendencyText = AddLine(intelligence.Content, 16, FontStyle.Normal, 44f);
-            AddSectionTitle(intelligence.Content, "Key Threat");
-            _threatText = AddLine(intelligence.Content, 15, FontStyle.Normal, 80f);
+            AddSectionTitle(intelligence.Content, "주요 경계 요소");
+            _threatText = AddLine(intelligence.Content, 14, FontStyle.Normal, 80f, 1f);
 
             OwnerWorkspaceUiFactory.Panel projections = OwnerWorkspaceUiFactory.CreatePanel(
                 columns, "ExpectedLineupPanel", "예상 타선 · 불펜");
-            OwnerWorkspaceUiFactory.SetFlexible(projections.Root, 0.95f);
+            OwnerWorkspaceUiFactory.SetFlexible(projections.Root, 1f);
             OwnerWorkspaceUiFactory.AddVerticalLayout(projections.Content, CareerUiTheme.Space2);
-            AddSectionTitle(projections.Content, "예상 Lineup");
-            _expectedLineupText = AddLine(projections.Content, 14, FontStyle.Normal, 220f);
-            AddSectionTitle(projections.Content, "Bullpen 상태");
-            _bullpenText = AddLine(projections.Content, 14, FontStyle.Normal, 150f);
+            AddSectionTitle(projections.Content, "예상 라인업");
+            _expectedLineupText = AddLine(projections.Content, 13, FontStyle.Normal, 220f, 1.2f);
+            AddSectionTitle(projections.Content, "불펜 상태");
+            _bullpenText = AddLine(projections.Content, 13, FontStyle.Normal, 150f, 0.8f);
+
+            OwnerWorkspaceUiFactory.Panel readiness = OwnerWorkspaceUiFactory.CreatePanel(
+                columns, "LineupReadinessPanel", "우리 라인업 상태");
+            OwnerWorkspaceUiFactory.SetFlexible(readiness.Root, 1.1f);
+            ScrollRect readinessScroll = OwnerRuntimeUiFactory.CreateVerticalScroll(
+                "LineupReadinessScroll", readiness.Content, out RectTransform readinessContent);
+            OwnerRuntimeUiFactory.Stretch(readinessScroll.GetComponent<RectTransform>());
+            _readinessText = AddLine(readinessContent, 12, FontStyle.Normal, 180f);
 
             _contentStateText = OwnerWorkspaceUiFactory.CreateText(
                 _workspaceRoot, "ContentState", string.Empty, 20, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -147,14 +159,14 @@ namespace Baseball.Presentation.Owner
             OwnerWorkspaceUiFactory.Stretch(plan.Root);
             OwnerWorkspaceUiFactory.AddVerticalLayout(plan.Content, CareerUiTheme.Space2);
             _presetText = AddLine(plan.Content, 18, FontStyle.Bold, 36f);
-            AddSectionTitle(plan.Content, "Condition · Chemistry · Position Warning");
-            _readinessText = AddLine(plan.Content, 13, FontStyle.Normal, 330f);
-            AddSectionTitle(plan.Content, "TeamColor · Tactic 2장");
-            _loadoutText = AddLine(plan.Content, 14, FontStyle.Normal, 90f);
+            AddSectionTitle(plan.Content, "선발 준비 요약");
+            _readinessSummaryText = AddLine(plan.Content, 14, FontStyle.Normal, 76f);
+            AddSectionTitle(plan.Content, "팀컬러 · 전술카드 2장");
+            _loadoutText = AddLine(plan.Content, 14, FontStyle.Normal, 110f);
 
             _actionRoot = OwnerWorkspaceUiFactory.CreateRoot(actionBarHost, "OwnerPregameActionBar", false);
             HorizontalLayoutGroup actionLayout = OwnerWorkspaceUiFactory.AddHorizontalLayout(_actionRoot, CareerUiTheme.Space3);
-            actionLayout.padding = new RectOffset(16, 16, 8, 8);
+            actionLayout.padding = new RectOffset(16, 16, 4, 4);
             _previousPresetButton = OwnerWorkspaceUiFactory.CreateButton(
                 _actionRoot, "PreviousPresetButton", "이전 프리셋", () => SelectRelativePreset(-1));
             _nextPresetButton = OwnerWorkspaceUiFactory.CreateButton(
@@ -213,23 +225,48 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < model.Lineup.Count; index++)
             {
                 OwnerPregamePlayerModel player = model.Lineup[index];
-                if (index > 0) builder.AppendLine();
+                if (index > 0) builder.AppendLine().AppendLine();
                 builder.Append(index + 1).Append(". ").Append(player.DisplayName).Append(" · ")
-                    .Append(player.PositionText).Append(" | 기본 ").Append(player.BaseConditionText)
-                    .Append(" | 타선 ").Append(player.LineupChemistryText);
+                    .Append(player.PositionText).Append(" · 예상 ").Append(player.ExpectedConditionText)
+                    .AppendLine();
+                builder.Append("   기본 ").Append(player.BaseConditionText)
+                    .Append(" · 타선 ").Append(player.LineupChemistryText);
                 if (!string.IsNullOrEmpty(player.BatteryChemistryText))
-                    builder.Append(" | 배터리 ").Append(player.BatteryChemistryText);
-                builder.Append(" | 예상 ").Append(player.ExpectedConditionText);
-                if (!string.IsNullOrEmpty(player.WarningText)) builder.Append(" | 경고: ").Append(player.WarningText);
+                    builder.Append(" · 배터리 ").Append(player.BatteryChemistryText);
+                if (!string.IsNullOrEmpty(player.WarningText))
+                    builder.AppendLine().Append("   ⚠ ").Append(player.WarningText);
             }
             return builder.ToString();
+        }
+
+        private static string BuildReadinessSummary(OwnerPregamePresentationModel model)
+        {
+            int warningCount = 0;
+            int batteryCount = 0;
+            for (int index = 0; index < model.Lineup.Count; index++)
+            {
+                OwnerPregamePlayerModel player = model.Lineup[index];
+                if (!string.IsNullOrEmpty(player.WarningText)) warningCount++;
+                if (!string.IsNullOrEmpty(player.BatteryChemistryText)) batteryCount++;
+            }
+
+            string warning = warningCount == 0 ? "구성 경고 없음" : $"구성 경고 {warningCount}건";
+            return $"선발 {model.Lineup.Count}명 · 배터리 궁합 {batteryCount}명\n{warning}\n상세 수치는 중앙 목록에서 확인";
+        }
+
+        private static float CalculateReadinessHeight(OwnerPregamePresentationModel model)
+        {
+            int warningCount = 0;
+            for (int index = 0; index < model.Lineup.Count; index++)
+                if (!string.IsNullOrEmpty(model.Lineup[index].WarningText)) warningCount++;
+            return Mathf.Max(180f, model.Lineup.Count * 46f + warningCount * 18f);
         }
 
         private static string BuildLoadoutText(OwnerPregamePresentationModel model)
         {
             string colors = string.Join(" / ", model.Snapshot.TeamColors);
             string tactics = model.Snapshot.Tactics.Count == 0 ? "선택 없음" : string.Join(" / ", model.Snapshot.Tactics);
-            return $"TeamColor  {colors}\nTactic  {tactics}";
+            return $"팀컬러  {colors}\n전술카드  {tactics}";
         }
 
         private static string JoinRows(System.Collections.Generic.IReadOnlyList<string> rows)
@@ -237,12 +274,18 @@ namespace Baseball.Presentation.Owner
             return rows.Count == 0 ? "정보 부족" : string.Join("\n", rows);
         }
 
-        private static Text AddLine(Transform parent, int size, FontStyle style, float height)
+        private static Text AddLine(
+            Transform parent,
+            int size,
+            FontStyle style,
+            float height,
+            float flexibleHeight = 0f)
         {
             Text text = OwnerWorkspaceUiFactory.CreateText(parent, "Value", string.Empty, size, style,
                 TextAnchor.UpperLeft, CareerUiTheme.TextPrimary);
             LayoutElement layout = text.gameObject.AddComponent<LayoutElement>();
             layout.preferredHeight = height;
+            layout.flexibleHeight = flexibleHeight;
             return text;
         }
 

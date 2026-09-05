@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Historical;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
@@ -20,6 +21,7 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerConditionChemistry _conditionView;
         private UI_Scene_OwnerRosterLineup _rosterLineupView;
         private UI_Scene_OwnerCollection _collectionView;
+        private RectTransform _lockedWorkspaceRoot;
         private OwnerPregamePresentationModel _pregameModel;
         private OwnerStaffOfficePresentationModel _staffModel;
         private OwnerRosterLineupPresentationModel _rosterLineupModel;
@@ -107,7 +109,8 @@ namespace Baseball.Presentation.Owner
             if (_pregameView != null) _pregameView.SetVisible(false);
             if (_conditionView != null) _conditionView.SetVisible(false);
             if (string.Equals(ActiveRouteId, PregameRouteId, StringComparison.Ordinal) ||
-                string.Equals(ActiveRouteId, OwnerManagementRoutes.RosterCondition, StringComparison.Ordinal))
+                string.Equals(ActiveRouteId, OwnerManagementRoutes.RosterCondition, StringComparison.Ordinal) ||
+                ActiveRouteId.StartsWith("Owner.MatchCenter.", StringComparison.Ordinal))
                 ActiveRouteId = string.Empty;
         }
 
@@ -122,7 +125,9 @@ namespace Baseball.Presentation.Owner
         /// <summary>Home 외 Route의 Command 결과를 현재 화면이 소유한 feedback 영역에 표시한다.</summary>
         public bool SetFeedback(string message, bool isError)
         {
-            if (string.Equals(ActiveRouteId, PregameRouteId, StringComparison.Ordinal) && _pregameView != null)
+            if ((string.Equals(ActiveRouteId, PregameRouteId, StringComparison.Ordinal) ||
+                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.MatchCenterAnalysis, StringComparison.Ordinal)) &&
+                _pregameView != null)
             {
                 _pregameView.SetFeedback(message, isError);
                 return true;
@@ -132,7 +137,10 @@ namespace Baseball.Presentation.Owner
                 _staffView.SetFeedback(message, isError);
                 return true;
             }
-            if (string.Equals(ActiveRouteId, RosterLineupRouteId, StringComparison.Ordinal) &&
+            if ((string.Equals(ActiveRouteId, RosterLineupRouteId, StringComparison.Ordinal) ||
+                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.DugoutLineupNotes, StringComparison.Ordinal) ||
+                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.MatchCenterLineup, StringComparison.Ordinal) ||
+                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.MatchCenterTactics, StringComparison.Ordinal)) &&
                 _rosterLineupView != null)
             {
                 _rosterLineupView.SetFeedback(message, isError);
@@ -149,37 +157,45 @@ namespace Baseball.Presentation.Owner
         /// <summary>Owner Route Registry가 승인한 Route만 현재 Shell 슬롯에 표시한다.</summary>
         public bool TryShowRoute(string routeId)
         {
+            return TryShowRoute(routeId, routeId);
+        }
+
+        /// <summary>Navigation Route는 유지하면서 기존 Production Workspace를 adapter로 표시한다.</summary>
+        public bool TryShowRoute(string workspaceRouteId, string navigationRouteId)
+        {
             RequireInitialized();
-            if (string.Equals(routeId, CollectionRouteId, StringComparison.Ordinal) && _collectionView != null)
+            if (string.Equals(workspaceRouteId, CollectionRouteId, StringComparison.Ordinal) && _collectionView != null)
             {
                 SetAllViewsVisible(false);
                 _collectionView.SetVisible(true);
                 _shell.SetInspectorVisible(true);
                 _shell.SetActionBarVisible(true);
                 _shell.BindContext(new SharedUI.ShellContextModel(
-                    CollectionRouteId,
+                    navigationRouteId,
                     "보유 선수",
-                    "실제 Save의 보유 카드를 검색·정렬하고 소유 상태를 확인합니다.",
+                    "현재 보유 카드를 검색·정렬하고 소유 상태를 확인합니다.",
                     "구단주 모드"));
-                ActiveRouteId = CollectionRouteId;
+                ActiveRouteId = navigationRouteId;
                 return true;
             }
-            if (string.Equals(routeId, RosterLineupRouteId, StringComparison.Ordinal) && _rosterLineupModel != null)
+            if ((string.Equals(workspaceRouteId, RosterLineupRouteId, StringComparison.Ordinal) ||
+                 string.Equals(workspaceRouteId, OwnerNavigationRoutes.DugoutLineupNotes, StringComparison.Ordinal)) &&
+                _rosterLineupModel != null)
             {
-                EnsureRosterLineupView();
-                SetAllViewsVisible(false);
-                _rosterLineupView.SetVisible(true);
-                _shell.SetInspectorVisible(true);
-                _shell.SetActionBarVisible(true);
-                _shell.BindContext(new SharedUI.ShellContextModel(
-                    RosterLineupRouteId,
-                    "선수단·라인업",
-                    "25인 1군과 역할 배치를 한 화면에서 비교하고 Resolver 경고를 확인합니다.",
-                    "구단주 모드"));
-                ActiveRouteId = RosterLineupRouteId;
-                return true;
+                string title = string.Equals(navigationRouteId, OwnerNavigationRoutes.DugoutLineupNotes, StringComparison.Ordinal)
+                    ? "라인업 노트"
+                    : string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterTactics, StringComparison.Ordinal)
+                        ? "전술카드"
+                        : string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterLineup, StringComparison.Ordinal)
+                            ? "우리 라인업"
+                            : "선수단 라인업";
+                return ShowRosterLineup(
+                    navigationRouteId,
+                    title,
+                    navigationRouteId.StartsWith("Owner.MatchCenter.", StringComparison.Ordinal));
             }
-            if (string.Equals(routeId, PregameRouteId, StringComparison.Ordinal) && _pregameModel != null)
+            if (string.Equals(workspaceRouteId, PregameRouteId, StringComparison.Ordinal) &&
+                _pregameModel != null)
             {
                 EnsurePregameView();
                 SetAllViewsVisible(false);
@@ -187,14 +203,16 @@ namespace Baseball.Presentation.Owner
                 _shell.SetInspectorVisible(true);
                 _shell.SetActionBarVisible(true);
                 _shell.BindContext(new SharedUI.ShellContextModel(
-                    PregameRouteId,
+                    navigationRouteId,
+                    "상대 분석",
+                    "상대 분석 근거와 현재 라인업 노트의 컨디션·궁합을 확인합니다.",
                     "경기 준비",
-                    "상대 분석 근거와 현재 프리셋의 Condition·Chemistry를 확인합니다.",
-                    "구단주 모드"));
-                ActiveRouteId = PregameRouteId;
+                    canGoBack: navigationRouteId.StartsWith("Owner.MatchCenter.", StringComparison.Ordinal),
+                    backLabel: "돌아가기"));
+                ActiveRouteId = navigationRouteId;
                 return true;
             }
-            if (string.Equals(routeId, StaffOfficeRouteId, StringComparison.Ordinal) && _staffModel != null)
+            if (string.Equals(workspaceRouteId, StaffOfficeRouteId, StringComparison.Ordinal) && _staffModel != null)
             {
                 EnsureStaffView();
                 SetAllViewsVisible(false);
@@ -202,30 +220,30 @@ namespace Baseball.Presentation.Owner
                 _shell.SetInspectorVisible(true);
                 _shell.SetActionBarVisible(true);
                 _shell.BindContext(new SharedUI.ShellContextModel(
-                    StaffOfficeRouteId,
-                    "Staff Office",
+                    navigationRouteId,
+                    "코칭스태프",
                     "다섯 역할의 운영 효율과 계약 비용을 비교합니다.",
                     "구단주 모드"));
-                ActiveRouteId = StaffOfficeRouteId;
+                ActiveRouteId = navigationRouteId;
                 return true;
             }
-            if (OwnerManagementRoutes.IsClubOperation(routeId) && _clubView != null)
+            if (OwnerManagementRoutes.IsClubOperation(workspaceRouteId) && _clubView != null)
             {
                 SetAllViewsVisible(false);
                 _clubView.SetVisible(true);
                 _shell.SetInspectorVisible(false);
                 _shell.SetActionBarVisible(false);
                 _shell.BindContext(new SharedUI.ShellContextModel(
-                    routeId,
-                    string.Equals(routeId, OwnerManagementRoutes.ClubFinance, StringComparison.Ordinal)
+                    navigationRouteId,
+                    string.Equals(workspaceRouteId, OwnerManagementRoutes.ClubFinance, StringComparison.Ordinal)
                         ? "구단 재정"
                         : "구장·시설",
                     "관중과 수익을 확인하고 다음 운영 투자의 기회비용을 비교합니다.",
                     "구단주 모드"));
-                ActiveRouteId = routeId;
+                ActiveRouteId = navigationRouteId;
                 return true;
             }
-            if (string.Equals(routeId, OwnerManagementRoutes.RosterCondition, StringComparison.Ordinal) &&
+            if (string.Equals(workspaceRouteId, OwnerManagementRoutes.RosterCondition, StringComparison.Ordinal) &&
                 _conditionView != null && _hasConditionModel)
             {
                 SetAllViewsVisible(false);
@@ -233,14 +251,52 @@ namespace Baseball.Presentation.Owner
                 _shell.SetInspectorVisible(false);
                 _shell.SetActionBarVisible(false);
                 _shell.BindContext(new SharedUI.ShellContextModel(
-                    routeId,
-                    "Condition·궁합",
-                    "Base Condition과 배치·타선·배터리 보정을 경기 Snapshot으로 확인합니다.",
+                    navigationRouteId,
+                    "컨디션·궁합",
+                    "기본 컨디션과 배치·타선·배터리 보정을 다음 경기 기준으로 확인합니다.",
+                    navigationRouteId.StartsWith("Owner.MatchCenter.", StringComparison.Ordinal)
+                        ? "경기 준비"
+                        : "구단주 모드",
+                    canGoBack: navigationRouteId.StartsWith("Owner.MatchCenter.", StringComparison.Ordinal),
+                    backLabel: "돌아가기"));
+                ActiveRouteId = navigationRouteId;
+                return true;
+            }
+            if (string.Equals(workspaceRouteId, OwnerNavigationRoutes.PowerUp, StringComparison.Ordinal))
+            {
+                EnsureLockedWorkspace();
+                SetAllViewsVisible(false);
+                _lockedWorkspaceRoot.gameObject.SetActive(true);
+                _shell.SetInspectorVisible(false);
+                _shell.SetActionBarVisible(false);
+                _shell.BindContext(new SharedUI.ShellContextModel(
+                    navigationRouteId,
+                    "전력보강",
+                    "스카우트·카드훈련·강화·판매 기능을 준비하고 있습니다.",
                     "구단주 모드"));
-                ActiveRouteId = routeId;
+                ActiveRouteId = navigationRouteId;
                 return true;
             }
             return false;
+        }
+
+        private bool ShowRosterLineup(string routeId, string title, bool canGoBack)
+        {
+            EnsureRosterLineupView();
+            SetAllViewsVisible(false);
+            _rosterLineupView.SetVisible(true);
+            _shell.SetInspectorVisible(false);
+            _shell.SetActionBarVisible(false);
+            _shell.BindContext(new SharedUI.ShellContextModel(
+                routeId,
+                title,
+                    "25인 1군과 역할 배치, 라인업 노트와 전력 설정의 검증 결과를 확인합니다.",
+                canGoBack ? "경기 준비" : "구단주 모드",
+                canGoBack,
+                "돌아가기"));
+            _shell.SetContextHeaderVisible(false);
+            ActiveRouteId = routeId;
+            return true;
         }
 
         private void OnDestroy()
@@ -282,6 +338,7 @@ namespace Baseball.Presentation.Owner
             }
             if (_collectionView != null)
                 DestroyView(_collectionView);
+            OwnerWorkspaceUiFactory.DestroyOwnedRoot(_lockedWorkspaceRoot);
         }
 
         private void EnsurePregameView()
@@ -353,6 +410,26 @@ namespace Baseball.Presentation.Owner
             _collectionView.SetVisible(false);
         }
 
+        private void EnsureLockedWorkspace()
+        {
+            if (_lockedWorkspaceRoot != null) return;
+            _lockedWorkspaceRoot = OwnerWorkspaceUiFactory.CreateRoot(
+                _shell.MainWorkspaceHost, "OwnerPowerUpWorkspace", true);
+            OwnerWorkspaceUiFactory.Panel panel = OwnerWorkspaceUiFactory.CreatePanel(
+                _lockedWorkspaceRoot, "PreparationPanel", "전력보강 준비 중", true);
+            OwnerWorkspaceUiFactory.Stretch(panel.Root);
+            Text message = OwnerWorkspaceUiFactory.CreateText(
+                panel.Content,
+                "Message",
+                "스카우트 후보·실제 확률, 카드훈련 비용·결과, 강화·판매 검증 계약이 연결되면 이곳에서 제공합니다.\n" +
+                "현재 사용할 수 없는 기능은 위 세부 탭에서 잠김 사유를 확인할 수 있습니다.",
+                18,
+                FontStyle.Normal,
+                TextAnchor.MiddleCenter);
+            OwnerWorkspaceUiFactory.Stretch(message.rectTransform);
+            _lockedWorkspaceRoot.gameObject.SetActive(false);
+        }
+
         private void SetAllViewsVisible(bool visible)
         {
             if (_pregameView != null) _pregameView.SetVisible(visible);
@@ -361,6 +438,7 @@ namespace Baseball.Presentation.Owner
             if (_conditionView != null) _conditionView.SetVisible(visible);
             if (_rosterLineupView != null) _rosterLineupView.SetVisible(visible);
             if (_collectionView != null) _collectionView.SetVisible(visible);
+            if (_lockedWorkspaceRoot != null) _lockedWorkspaceRoot.gameObject.SetActive(visible);
         }
 
         private void HandlePresetSelected(string presetId) => PregamePresetSelected?.Invoke(presetId);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Game.Career;
+using Baseball.Game.Diagnostics;
 using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
@@ -33,7 +34,7 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerMatchSpectator _matchSpectatorView;
         private OwnerExpansionWorkspaceCoordinator _expansionWorkspace;
         private OwnerSharedInformationWorkspaceCoordinator _sharedInformationWorkspace;
-        private string _activeRouteId = HomeRouteId;
+        private GameModeNavigationState _navigationState;
         private bool _hasAppliedExclusivePresentation;
         private bool _isOwnerMatchVisible;
         private bool _isTransitioningToOwnerMatch;
@@ -63,6 +64,9 @@ namespace Baseball.Presentation.Owner
                 _shell.gameObject.SetActive(isVisible);
             if (!isVisible)
             {
+                // 진입 도중 StartNewGame/Load가 RuntimeChanged를 먼저 쏘면 아직 모드 선택 전이라 여기로 온다.
+                // 실패가 아니라 정상적인 중간 상태이므로 계측을 끊지 않고 구간만 남긴다.
+                OwnerModeEntryProfiler.Mark("구단 런타임 생성·로드(RuntimeChanged 통지 시점)");
                 _homeView?.SetVisible(false);
                 _matchSpectatorView?.SetVisible(false);
                 _expansionWorkspace?.HideAll();
@@ -71,45 +75,56 @@ namespace Baseball.Presentation.Owner
                 return;
             }
 
+            OwnerModeEntryProfiler.Mark("Shell 활성화");
             OwnerHomePresentationModel home = OwnerHomePresentationBuilder.Build(
                 _snapshotFactory.CreateHome(_manager));
+            OwnerModeEntryProfiler.Mark("홈 스냅샷 생성");
             if (_statusProvider == null)
             {
                 _statusProvider = new OwnerShellStatusProvider(home);
                 _profile = OwnerModeUiProfileFactory.Create();
+                _navigationState = new GameModeNavigationState(_profile, HomeRouteId);
                 _presenter = new SharedGameShellPresenter(
                     _shell,
                     _profile,
                     _statusProvider);
                 _presenter.NavigationRequested += HandleNavigationRequested;
+                _presenter.BackRequested += HandleBackRequested;
             }
             else
             {
                 _statusProvider.Update(home);
             }
 
+            OwnerModeEntryProfiler.Mark("Shell 프레젠터 초기화");
             EnsureHomeView();
+            OwnerModeEntryProfiler.Mark("홈 뷰 생성");
             BindExpansionSnapshots();
+            OwnerModeEntryProfiler.Mark("확장 워크스페이스 스냅샷 바인딩");
             BindSharedInformationSnapshots();
+            OwnerModeEntryProfiler.Mark("공용 정보 스냅샷 바인딩");
             if (_isOwnerMatchVisible || _isTransitioningToOwnerMatch)
             {
                 ShowOwnerMatchSpectator();
+                OwnerModeEntryProfiler.MarkHomeComposed();
                 _hasAppliedExclusivePresentation = false;
                 return;
             }
-            if (!string.Equals(_activeRouteId, HomeRouteId, StringComparison.Ordinal) &&
-                _sharedInformationWorkspace.TryShowRoute(_activeRouteId))
+            if (!string.Equals(ActiveRouteId, HomeRouteId, StringComparison.Ordinal) &&
+                _sharedInformationWorkspace.TryShowRoute(ActiveRouteId))
             {
                 _expansionWorkspace.HideAll();
                 _homeView.SetVisible(false);
+                OwnerModeEntryProfiler.MarkHomeComposed();
                 _hasAppliedExclusivePresentation = false;
                 return;
             }
-            if (!string.Equals(_activeRouteId, HomeRouteId, StringComparison.Ordinal) &&
-                _expansionWorkspace.TryShowRoute(_activeRouteId))
+            if (!string.Equals(ActiveRouteId, HomeRouteId, StringComparison.Ordinal) &&
+                TryShowExpansionRoute(ActiveRouteId))
             {
                 _sharedInformationWorkspace.HideAll();
                 _homeView.SetVisible(false);
+                OwnerModeEntryProfiler.MarkHomeComposed();
                 _hasAppliedExclusivePresentation = false;
                 return;
             }
@@ -120,7 +135,8 @@ namespace Baseball.Presentation.Owner
 
         private void ShowHome(OwnerHomePresentationModel home)
         {
-            _activeRouteId = HomeRouteId;
+            if (_navigationState != null && !string.Equals(ActiveRouteId, HomeRouteId, StringComparison.Ordinal))
+                _navigationState.Navigate(HomeRouteId);
             _expansionWorkspace.HideAll();
             _sharedInformationWorkspace.HideAll();
             _matchSpectatorView?.SetVisible(false);
@@ -131,8 +147,9 @@ namespace Baseball.Presentation.Owner
             _presenter.ShowContext(new ShellContextModel(
                 HomeRouteId,
                 "구단 현황",
-                "다음 경기, 1군 구성과 구단 자원을 실제 Save 상태로 확인합니다.",
+                "다음 경기, 1군 구성과 구단 자원을 현재 저장 상태로 확인합니다.",
                 "구단주 모드"));
+            OwnerModeEntryProfiler.MarkHomeComposed();
         }
 
         private void LateUpdate()
@@ -144,7 +161,10 @@ namespace Baseball.Presentation.Owner
             if (parent != null && _shell.transform.GetSiblingIndex() != parent.childCount - 1)
                 _shell.transform.SetAsLastSibling();
             if (!_hasAppliedExclusivePresentation)
+            {
                 HidePlayerPresentation();
+                OwnerModeEntryProfiler.Mark("선수 모드 화면 정리");
+            }
         }
 
         private void OnDestroy()
@@ -157,9 +177,12 @@ namespace Baseball.Presentation.Owner
             if (_presenter != null)
             {
                 _presenter.NavigationRequested -= HandleNavigationRequested;
+                _presenter.BackRequested -= HandleBackRequested;
                 _presenter.Dispose();
             }
             UnsubscribeExpansionWorkspace();
+            if (_sharedInformationWorkspace != null)
+                _sharedInformationWorkspace.NextMatchAnalysisRequested -= HandleOpponentAnalysisRequested;
             if (_matchSpectatorView != null)
             {
                 _matchSpectatorView.HomeRequested -= HandleOwnerMatchHomeRequested;
@@ -168,6 +191,8 @@ namespace Baseball.Presentation.Owner
             }
             if (_homeView != null)
             {
+                _homeView.OpponentAnalysisRequested -= HandleOpponentAnalysisRequested;
+                _homeView.MatchPreparationRequested -= HandleMatchPreparationRequested;
                 _homeView.PlayNextGameRequested -= HandlePlayNextGameRequested;
                 _homeView.SaveRequested -= HandleSaveRequested;
                 _homeView.TitleRequested -= HandleTitleRequested;
@@ -191,10 +216,60 @@ namespace Baseball.Presentation.Owner
             if (_isOwnerMatchVisible || _isTransitioningToOwnerMatch)
                 return;
 
-            routeId = ResolveNavigationTarget(routeId);
+            try
+            {
+                routeId = _profile.IsContextRoute(routeId)
+                    ? _navigationState.NavigateContext(routeId)
+                    : _navigationState.Navigate(routeId);
+            }
+            catch (InvalidOperationException)
+            {
+                ShowHomeWithFeedback("현재 시즌 상태에서는 해당 화면을 열 수 없습니다.");
+                return;
+            }
+
+            ShowSelectedRoute(routeId);
+        }
+
+        private void HandleOpponentAnalysisRequested()
+        {
+            OpenMatchCenter(OwnerNavigationRoutes.MatchCenterAnalysis);
+        }
+
+        private void HandleMatchPreparationRequested()
+        {
+            OpenMatchCenter(OwnerNavigationRoutes.MatchCenterLineup);
+        }
+
+        private void OpenMatchCenter(string routeId)
+        {
+            if (_isOwnerMatchVisible || _isTransitioningToOwnerMatch)
+                return;
+
+            try
+            {
+                string destination = _navigationState.OpenContext(routeId);
+                ShowSelectedRoute(destination);
+            }
+            catch (InvalidOperationException exception)
+            {
+                _homeView.SetFeedback(exception.Message, true);
+            }
+        }
+
+        private void HandleBackRequested()
+        {
+            if (_isOwnerMatchVisible || _isTransitioningToOwnerMatch)
+                return;
+
+            if (_navigationState != null && _navigationState.TryBack(out string returnRouteId))
+                ShowSelectedRoute(returnRouteId);
+        }
+
+        private void ShowSelectedRoute(string routeId)
+        {
             if (string.Equals(routeId, HomeRouteId, StringComparison.Ordinal))
             {
-                _activeRouteId = HomeRouteId;
                 Refresh();
                 return;
             }
@@ -202,21 +277,43 @@ namespace Baseball.Presentation.Owner
             if (_sharedInformationWorkspace.TryShowRoute(routeId))
             {
                 _expansionWorkspace.HideAll();
-                _activeRouteId = routeId;
                 _homeView.SetVisible(false);
                 return;
             }
 
-            if (!_expansionWorkspace.TryShowRoute(routeId))
+            if (TryShowExpansionRoute(routeId))
             {
-                _activeRouteId = HomeRouteId;
-                Refresh();
-                _homeView.SetFeedback("현재 시즌 상태에서는 해당 화면을 열 수 없습니다.", true);
+                _sharedInformationWorkspace.HideAll();
+                _homeView.SetVisible(false);
                 return;
             }
-            _sharedInformationWorkspace.HideAll();
-            _activeRouteId = routeId;
-            _homeView.SetVisible(false);
+
+            ShowHomeWithFeedback("현재 시즌 상태에서는 해당 화면을 열 수 없습니다.");
+        }
+
+        private bool TryShowExpansionRoute(string navigationRouteId)
+        {
+            string workspaceRouteId = ResolveWorkspaceRoute(navigationRouteId);
+            return _expansionWorkspace.TryShowRoute(workspaceRouteId, navigationRouteId);
+        }
+
+        private static string ResolveWorkspaceRoute(string navigationRouteId)
+        {
+            if (string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterAnalysis, StringComparison.Ordinal))
+                return OwnerExpansionWorkspaceCoordinator.PregameRouteId;
+            if (string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterLineup, StringComparison.Ordinal) ||
+                string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterTactics, StringComparison.Ordinal))
+                return OwnerExpansionWorkspaceCoordinator.RosterLineupRouteId;
+            if (string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterCondition, StringComparison.Ordinal))
+                return OwnerManagementRoutes.RosterCondition;
+            return navigationRouteId;
+        }
+
+        private void ShowHomeWithFeedback(string message)
+        {
+            _navigationState.Navigate(HomeRouteId);
+            Refresh();
+            _homeView.SetFeedback(message, true);
         }
 
         private static void HandleSettingsRequested()
@@ -274,7 +371,7 @@ namespace Baseball.Presentation.Owner
             try
             {
                 _manager.Save();
-                ShowFeedback("구단주 Save를 저장했습니다.", false);
+                ShowFeedback("구단주 진행 데이터를 저장했습니다.", false);
             }
             catch (Exception exception) when (
                 exception is ArgumentException ||
@@ -303,6 +400,8 @@ namespace Baseball.Presentation.Owner
             _homeView = UI_Scene_OwnerHome.CreateRuntime(
                 _shell.MainWorkspaceHost,
                 _shell.ContextActionBarHost);
+            _homeView.OpponentAnalysisRequested += HandleOpponentAnalysisRequested;
+            _homeView.MatchPreparationRequested += HandleMatchPreparationRequested;
             _homeView.PlayNextGameRequested += HandlePlayNextGameRequested;
             _homeView.SaveRequested += HandleSaveRequested;
             _homeView.TitleRequested += HandleTitleRequested;
@@ -325,7 +424,7 @@ namespace Baseball.Presentation.Owner
             EnsureMatchSpectatorView();
             _isTransitioningToOwnerMatch = true;
             _isOwnerMatchVisible = true;
-            _activeRouteId = HomeRouteId;
+            _navigationState.OpenContext(OwnerNavigationRoutes.MatchSpectator);
             ShowOwnerMatchSpectator();
             try
             {
@@ -356,12 +455,12 @@ namespace Baseball.Presentation.Owner
             _shell.SetInspectorVisible(false);
             _shell.SetActionBarVisible(false);
             _matchSpectatorView?.SetVisible(true);
-            // 관전은 직접 탐색하는 메뉴가 아니라 Match 흐름의 일시 상태이므로 등록된 상위 Route를 유지한다.
             _presenter?.ShowContext(new ShellContextModel(
-                MatchRouteId,
+                OwnerNavigationRoutes.MatchSpectator,
                 "경기 관전",
-                "감독 AI의 경기 운영을 이벤트 중계로 확인합니다.",
-                "구단주 모드"));
+                "감독의 경기 운영을 실시간 중계로 확인합니다.",
+                "구단주 모드",
+                canGoBack: false));
         }
 
         private void HandleOwnerMatchHomeRequested()
@@ -371,7 +470,7 @@ namespace Baseball.Presentation.Owner
 
             _matchSpectatorView.EndPresentation();
             _isOwnerMatchVisible = false;
-            _activeRouteId = HomeRouteId;
+            _navigationState.Navigate(HomeRouteId);
             Refresh();
         }
 
@@ -404,6 +503,7 @@ namespace Baseball.Presentation.Owner
 
             _sharedInformationWorkspace = gameObject.AddComponent<OwnerSharedInformationWorkspaceCoordinator>();
             _sharedInformationWorkspace.Initialize(_shell);
+            _sharedInformationWorkspace.NextMatchAnalysisRequested += HandleOpponentAnalysisRequested;
         }
 
         private void UnsubscribeExpansionWorkspace()
@@ -442,10 +542,8 @@ namespace Baseball.Presentation.Owner
             }
 
             _expansionWorkspace.ClearMatchPreparation();
-            if (string.Equals(_activeRouteId, OwnerExpansionWorkspaceCoordinator.PregameRouteId,
-                    StringComparison.Ordinal) ||
-                string.Equals(_activeRouteId, OwnerManagementRoutes.RosterCondition, StringComparison.Ordinal))
-                _activeRouteId = HomeRouteId;
+            if (_navigationState != null && _navigationState.IsContextOpen)
+                _navigationState.Navigate(HomeRouteId);
         }
 
         private void BindSharedInformationSnapshots()
@@ -496,21 +594,6 @@ namespace Baseball.Presentation.Owner
             });
         }
 
-        private string ResolveNavigationTarget(string routeId)
-        {
-            NavigationEntry entry = _profile?.Navigation.FindEntry(routeId);
-            if (entry == null || entry.Children.Count == 0)
-                return routeId;
-
-            for (int index = 0; index < entry.Children.Count; index++)
-            {
-                NavigationEntry child = entry.Children[index];
-                if (child.IsEnabled && child.IsVisible(_profile.Capabilities))
-                    return child.RouteId;
-            }
-            return routeId;
-        }
-
         private void ExecuteOperation(Action operation)
         {
             try
@@ -529,12 +612,14 @@ namespace Baseball.Presentation.Owner
 
         private void ShowFeedback(string message, bool isError)
         {
-            if (!string.Equals(_activeRouteId, HomeRouteId, StringComparison.Ordinal) &&
+            if (!string.Equals(ActiveRouteId, HomeRouteId, StringComparison.Ordinal) &&
                 _expansionWorkspace != null &&
                 _expansionWorkspace.SetFeedback(message, isError))
                 return;
             _homeView?.SetFeedback(message, isError);
         }
+
+        private string ActiveRouteId => _navigationState?.ActiveRouteId ?? HomeRouteId;
 
         private void HidePlayerPresentation()
         {

@@ -18,6 +18,8 @@ namespace Baseball.Presentation.Owner
         private SharedScreenPresentationModel<ScheduleScreenSnapshot> _scheduleModel;
         private SharedScreenPresentationModel<RecordsScreenSnapshot> _recordsModel;
 
+        public event Action NextMatchAnalysisRequested;
+
         public string ActiveRouteId { get; private set; } = string.Empty;
 
         /// <summary>Owner 공용 정보 화면이 사용할 Shell 슬롯을 한 번만 연결한다.</summary>
@@ -117,7 +119,19 @@ namespace Baseball.Presentation.Owner
                 return;
             _scheduleView = UI_Scene_OwnerSharedInformation.CreateRuntime(_shell.MainWorkspaceHost);
             _scheduleView.gameObject.name = "UI_Scene_OwnerSchedule";
+            _scheduleView.NextMatchAnalysisRequested += HandleNextMatchAnalysisRequested;
             _scheduleView.SetVisible(false);
+        }
+
+        private void OnDestroy()
+        {
+            if (_scheduleView != null)
+                _scheduleView.NextMatchAnalysisRequested -= HandleNextMatchAnalysisRequested;
+        }
+
+        private void HandleNextMatchAnalysisRequested()
+        {
+            NextMatchAnalysisRequested?.Invoke();
         }
 
         private void EnsureRecordsView()

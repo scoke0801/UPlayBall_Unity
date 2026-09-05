@@ -118,7 +118,7 @@ namespace Baseball.Presentation.Owner
 
             return new OwnerConditionChemistryPresentationModel(
                 rows,
-                $"경기 준비 {players.Count:N0}명 · 출전 가능 {availableCount:N0}명 · Condition은 경기 Snapshot 기준");
+                $"경기 준비 {players.Count:N0}명 · 출전 가능 {availableCount:N0}명 · 컨디션은 경기 시작 시점 기준");
         }
 
         private static OwnerConditionPlayerPresentationRow BuildPlayer(

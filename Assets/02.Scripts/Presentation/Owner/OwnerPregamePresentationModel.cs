@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using Baseball.Presentation.SharedUI;
 
 namespace Baseball.Presentation.Owner
@@ -323,7 +324,7 @@ namespace Baseball.Presentation.Owner
         {
             if (!value.HasValue) return "확인 불가";
             string name = snapshot.ResolveText(value.Value.Player.CardId, value.Value.Player.CardId);
-            return $"{name} · {value.Value.ThrowingHand} · {FormatIntelState(value.State)}";
+            return $"{name} · {FormatHandedness(value.Value.ThrowingHand)} · {FormatIntelState(value.State)}";
         }
 
         private static string FormatRecentForm(ScoutedValue<OpponentRecentForm> value)
@@ -351,7 +352,7 @@ namespace Baseball.Presentation.Owner
                 ScoutedValue<ExpectedLineupEntry> value = report.ExpectedLineup[index];
                 rows[index] = value.HasValue
                     ? $"{value.Value.BattingOrder}. {snapshot.ResolveText(value.Value.Player.CardId, value.Value.Player.CardId)} · " +
-                      $"{value.Value.Position} · {FormatIntelState(value.State)}"
+                      $"{FormatPosition(value.Value.Position)} · {FormatIntelState(value.State)}"
                     : $"{index + 1}. 확인 불가";
             }
             return rows;
@@ -396,6 +397,35 @@ namespace Baseball.Presentation.Owner
                 BullpenReadiness.Tired => "피로 추정",
                 BullpenReadiness.VeryTired => "강한 피로 추정",
                 _ => "등판 불가"
+            };
+        }
+
+        private static string FormatHandedness(Handedness handedness)
+        {
+            return handedness switch
+            {
+                Handedness.Right => "우투",
+                Handedness.Left => "좌투",
+                _ => "투구 손 확인 필요"
+            };
+        }
+
+        private static string FormatPosition(PlayerPosition position)
+        {
+            return position switch
+            {
+                PlayerPosition.Catcher => "C",
+                PlayerPosition.FirstBase => "1B",
+                PlayerPosition.SecondBase => "2B",
+                PlayerPosition.ThirdBase => "3B",
+                PlayerPosition.Shortstop => "SS",
+                PlayerPosition.LeftField => "LF",
+                PlayerPosition.CenterField => "CF",
+                PlayerPosition.RightField => "RF",
+                PlayerPosition.DesignatedHitter => "DH",
+                PlayerPosition.StartingPitcher => "SP",
+                PlayerPosition.ReliefPitcher => "RP",
+                _ => "포지션 확인 필요"
             };
         }
 

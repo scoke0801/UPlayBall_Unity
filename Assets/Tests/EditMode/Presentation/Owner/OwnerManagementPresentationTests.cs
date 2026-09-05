@@ -33,16 +33,16 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 OwnerClubOperationPresentationBuilder.Build(CreateClubSnapshot());
 
             Assert.That(model.StadiumText, Does.Contain("15,000석"));
-            Assert.That(model.FanBaseText, Is.EqualTo("FanBase 62.5"));
-            Assert.That(model.PopularityText, Is.EqualTo("Popularity 71.0"));
+            Assert.That(model.FanBaseText, Is.EqualTo("팬 기반 62.5"));
+            Assert.That(model.PopularityText, Is.EqualTo("인기도 71.0"));
             Assert.That(model.ExpectedAttendanceText, Does.Contain("12,340명"));
             Assert.That(model.RecentAttendanceText, Does.Contain("정보 부족"));
             Assert.That(model.TicketPolicyText, Does.Contain("프리미엄"));
             Assert.That(model.Facilities.Count, Is.EqualTo(6));
             Assert.That(model.Facilities[(int)FacilityType.ScoutingCenter].EffectPreviewText,
-                Does.Contain("SP +25"));
+                Does.Contain("스카우트 포인트 +25"));
             Assert.That(model.Facilities[(int)FacilityType.TrainingCenter].EffectPreviewText,
-                Does.Contain("DP +12"));
+                Does.Contain("육성 포인트 +12"));
             Assert.That(model.Facilities[(int)FacilityType.RecoveryCenter].EffectPreviewText,
                 Does.Contain("회복 효율 +5"));
             Assert.That(model.Facilities[(int)FacilityType.DataAnalysisCenter].EffectPreviewText,
@@ -128,7 +128,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Transform facility = view.transform.Find(
                 "FacilityPanel/ContentSafeRect/FacilityList/Viewport/Content/Facility_ScoutingCenter");
             Assert.That(facility, Is.Not.Null);
-            Assert.That(facility.Find("EffectPreview").GetComponent<Text>().text, Does.Contain("SP +25"));
+            Assert.That(facility.Find("EffectPreview").GetComponent<Text>().text, Does.Contain("스카우트 포인트 +25"));
             Assert.That(view.GetComponent<Image>().sprite, Is.Not.Null);
             facility.Find("Upgrade").GetComponent<Button>().onClick.Invoke();
             view.transform.Find("ClubSummaryPanel/ContentSafeRect/Ticket_Cheap").GetComponent<Button>().onClick.Invoke();
@@ -220,9 +220,29 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(coordinator.ActiveRouteId, Is.EqualTo(OwnerManagementRoutes.ClubFinance));
             Assert.That(coordinator.TryShowRoute(OwnerManagementRoutes.RosterCondition), Is.True);
             Assert.That(coordinator.ActiveRouteId, Is.EqualTo(OwnerManagementRoutes.RosterCondition));
+            Assert.That(coordinator.TryShowRoute(
+                OwnerManagementRoutes.RosterCondition,
+                OwnerNavigationRoutes.MatchCenterCondition), Is.True);
+            Assert.That(coordinator.ActiveRouteId, Is.EqualTo(OwnerNavigationRoutes.MatchCenterCondition));
+            Assert.That(shell.transform.Find("ContextHeader/Back").gameObject.activeSelf, Is.True);
 
             coordinator.HideAll();
             Assert.That(coordinator.ActiveRouteId, Is.Empty);
+        }
+
+        [Test]
+        public void ExpansionWorkspaceCoordinator_전력보강Primary는Home대신잠김Workspace를표시한다()
+        {
+            SharedGameShellView shell = SharedGameShellView.CreateRuntime(_root.transform);
+            OwnerExpansionWorkspaceCoordinator coordinator =
+                shell.gameObject.AddComponent<OwnerExpansionWorkspaceCoordinator>();
+            coordinator.Initialize(shell);
+
+            Assert.That(coordinator.TryShowRoute(OwnerNavigationRoutes.PowerUp), Is.True);
+            Assert.That(coordinator.ActiveRouteId, Is.EqualTo(OwnerNavigationRoutes.PowerUp));
+            Transform workspace = shell.MainWorkspaceHost.Find("OwnerPowerUpWorkspace");
+            Assert.That(workspace, Is.Not.Null);
+            Assert.That(workspace.gameObject.activeSelf, Is.True);
         }
 
         private static OwnerClubOperationSnapshot CreateClubSnapshot()

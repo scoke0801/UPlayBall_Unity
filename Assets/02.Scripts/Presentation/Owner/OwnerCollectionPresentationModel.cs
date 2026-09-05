@@ -161,7 +161,7 @@ namespace Baseball.Presentation.Owner
                 card.DisplayName,
                 FormatPosition(card.Position),
                 card.OriginYear.ToString(),
-                $"Cost {card.Cost}",
+                $"비용 {card.Cost}",
                 FormatEdition(card.Edition),
                 status,
                 card.PlayerPersonId,
@@ -195,7 +195,7 @@ namespace Baseball.Presentation.Owner
                 PlayerCardEdition.AllStar => "올스타",
                 PlayerCardEdition.GoldenGlove => "골든글러브",
                 PlayerCardEdition.Mvp => "MVP",
-                _ => "Edition 미확인"
+                _ => "카드 종류 미확인"
             };
         }
 

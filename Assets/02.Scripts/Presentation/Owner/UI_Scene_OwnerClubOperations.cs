@@ -184,15 +184,15 @@ namespace Baseball.Presentation.Owner
                 new Vector2(-12f, -12f));
             Text help = OwnerRuntimeUiFactory.CreateText(
                 "Help", facilities.Content,
-                "시설은 BaseStat을 올리지 않고 SP/DP 생산과 회복·분석·전술 Context에만 연결됩니다.",
+                "시설은 선수 기본 능력치를 직접 올리지 않으며, 스카우트·육성 포인트 생산과 회복·분석·전술 효과에만 영향을 줍니다.",
                 13, FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.TextSecondary);
             OwnerRuntimeUiFactory.SetAnchors(help.rectTransform, new Vector2(0f, 0.91f), new Vector2(0.54f, 1f),
                 Vector2.zero, Vector2.zero);
             CreateOperationButton(facilities.Content, "AdvanceWeek", "주간 진행", 0.55f, 0.70f,
                 () => WeekAdvanceRequested?.Invoke());
-            CreateOperationButton(facilities.Content, "Save", "Save", 0.71f, 0.84f,
+            CreateOperationButton(facilities.Content, "Save", "저장", 0.71f, 0.84f,
                 () => SaveRequested?.Invoke());
-            CreateOperationButton(facilities.Content, "Load", "Load", 0.85f, 1f,
+            CreateOperationButton(facilities.Content, "Load", "불러오기", 0.85f, 1f,
                 () => LoadRequested?.Invoke());
             ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll(
                 "FacilityList", facilities.Content, out _facilityContent);

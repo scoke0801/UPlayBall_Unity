@@ -75,7 +75,7 @@ namespace Baseball.Presentation.Owner
 
             _actionRoot = OwnerWorkspaceUiFactory.CreateRoot(actionBarHost, "OwnerCollectionActionBar", false);
             HorizontalLayoutGroup actions = OwnerWorkspaceUiFactory.AddHorizontalLayout(_actionRoot, CareerUiTheme.Space3);
-            actions.padding = new RectOffset(16, 16, 8, 8);
+            actions.padding = new RectOffset(16, 16, 4, 4);
             Text help = OwnerWorkspaceUiFactory.CreateText(
                 _actionRoot, "ReadOnlyHelp", "카드를 선택하면 현재 저장 데이터의 소유 상태를 확인할 수 있습니다.",
                 14, FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.TextSecondary);
@@ -99,8 +99,8 @@ namespace Baseball.Presentation.Owner
             _searchInput.onValueChanged.AddListener(HandleSearchChanged);
             CreateSortButton(filter, "SortName", "이름", OwnerCollectionSort.Name);
             CreateSortButton(filter, "SortPosition", "포지션", OwnerCollectionSort.Position);
-            CreateSortButton(filter, "SortCost", "Cost", OwnerCollectionSort.Cost);
-            CreateSortButton(filter, "SortEdition", "Edition", OwnerCollectionSort.Edition);
+            CreateSortButton(filter, "SortCost", "비용", OwnerCollectionSort.Cost);
+            CreateSortButton(filter, "SortEdition", "카드 종류", OwnerCollectionSort.Edition);
             _countText = OwnerWorkspaceUiFactory.CreateText(
                 filter, "Count", string.Empty, 13, FontStyle.Bold, TextAnchor.MiddleRight,
                 CareerUiTheme.TextSecondary);
@@ -164,7 +164,7 @@ namespace Baseball.Presentation.Owner
                 TextAnchor.MiddleLeft, CareerUiTheme.TextPrimary);
             OwnerRuntimeUiFactory.Stretch(value.rectTransform, new Vector2(12f, 4f), new Vector2(-12f, -4f));
             Text placeholder = OwnerWorkspaceUiFactory.CreateText(
-                surface.transform, "Placeholder", "이름·포지션·Cost·Edition 검색", 14, FontStyle.Italic,
+                surface.transform, "Placeholder", "이름·포지션·비용·카드 종류 검색", 14, FontStyle.Italic,
                 TextAnchor.MiddleLeft, CareerUiTheme.TextMuted);
             OwnerRuntimeUiFactory.Stretch(placeholder.rectTransform, new Vector2(12f, 4f), new Vector2(-12f, -4f));
             input.textComponent = value;
@@ -261,8 +261,8 @@ namespace Baseball.Presentation.Owner
                 $"{card.DisplayName}\n\n" +
                 $"연도  {card.OriginYear}\n" +
                 $"포지션  {OwnerCollectionPresentationBuilder.FormatPosition(card.Position)}\n" +
-                $"Cost  {card.Cost}\n" +
-                $"Edition  {OwnerCollectionPresentationBuilder.FormatEdition(card.Edition)}\n\n" +
+                    $"비용  {card.Cost}\n" +
+                $"카드 종류  {OwnerCollectionPresentationBuilder.FormatEdition(card.Edition)}\n\n" +
                 $"강화  +{card.EnhancementLevel}\n" +
                 $"중복  {card.DuplicateCount}장\n" +
                 $"잠금  {(card.IsLocked ? "예" : "아니오")}\n" +
