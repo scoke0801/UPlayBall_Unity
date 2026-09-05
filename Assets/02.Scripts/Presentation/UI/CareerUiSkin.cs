@@ -109,6 +109,15 @@ namespace Baseball.Presentation.UI
                 if (outline != null) outline.enabled = false;
                 ConfigurePersistentSelectedTransition(button);
                 EnsureButtonLabelLayout(button);
+                Text actionLabel = button.transform.Find("Label")?.GetComponent<Text>();
+                if (actionLabel != null)
+                {
+                    // 생성 중 임시 높이에서 계산된 패딩을 누적하면 짧은 한글도 세로로 꺾인다.
+                    actionLabel.rectTransform.offsetMin = new Vector2(18f, 6f);
+                    actionLabel.rectTransform.offsetMax = new Vector2(-18f, -6f);
+                    actionLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    actionLabel.resizeTextForBestFit = false;
+                }
                 return;
             }
             if (visual != null && visual.Role == CareerUiVisualRole.FlatSurface)

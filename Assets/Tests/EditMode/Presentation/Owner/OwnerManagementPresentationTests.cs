@@ -245,6 +245,36 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(workspace.gameObject.activeSelf, Is.True);
         }
 
+        [Test]
+        public void ExpansionWorkspaceCoordinator_덕아웃은데이터없이열리고이탈시선택창을닫는다()
+        {
+            SharedGameShellView shell = SharedGameShellView.CreateRuntime(_root.transform);
+            var coordinator = shell.gameObject.AddComponent<OwnerExpansionWorkspaceCoordinator>();
+            coordinator.Initialize(shell);
+
+            Assert.That(coordinator.TryShowRoute(OwnerNavigationRoutes.DugoutLineupNotes), Is.True);
+            Transform workspace = shell.MainWorkspaceHost.Find("OwnerDugoutWorkspace");
+            Assert.That(workspace, Is.Not.Null);
+            Assert.That(shell.MainWorkspaceHost.Find("OwnerRosterLineupWorkspace"), Is.Null);
+            workspace.Find("DugoutBoard/StaffColumn/Manager/Select").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Transform overlay = workspace.Find("StaffSelectionOverlay");
+            Assert.That(overlay.gameObject.activeSelf, Is.True);
+            Assert.That(workspace.Find("Confirm").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+
+            var slider = workspace.Find("DugoutBoard/PolicyPanel/PolicyRow0/PolicySlider")
+                .GetComponent<UnityEngine.UI.Slider>();
+            slider.value = 4f;
+            workspace.Find("Cancel").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.That(slider.value, Is.EqualTo(2f));
+
+            coordinator.HideAll();
+            Assert.That(workspace.gameObject.activeSelf, Is.False);
+            Assert.That(overlay.gameObject.activeSelf, Is.False);
+            Assert.That(coordinator.TryShowRoute(OwnerNavigationRoutes.DugoutLineupNotes), Is.True);
+            Assert.That(workspace.gameObject.activeSelf, Is.True);
+            Assert.That(overlay.gameObject.activeSelf, Is.False);
+        }
+
         private static OwnerClubOperationSnapshot CreateClubSnapshot()
         {
             return new OwnerClubOperationSnapshot(

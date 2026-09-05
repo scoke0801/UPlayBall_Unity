@@ -73,7 +73,7 @@ namespace Baseball.Presentation.Owner
             };
             var dugoutTabs = new[]
             {
-                new NavigationEntry(OwnerNavigationRoutes.DugoutLineupNotes, "라인업 노트"),
+                new NavigationEntry(OwnerNavigationRoutes.DugoutLineupNotes, "덕아웃"),
                 new NavigationEntry(OwnerNavigationRoutes.DugoutTeamColor, "팀컬러", isEnabled: false,
                     disabledReason: TeamColorBackendUnavailable),
                 new NavigationEntry(OwnerNavigationRoutes.DugoutTactics, "작전", isEnabled: false,

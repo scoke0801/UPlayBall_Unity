@@ -20,7 +20,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             _shell = SharedGameShellView.CreateRuntime(_root.transform);
             _view = UI_Scene_OwnerHome.CreateRuntime(
                 _shell.MainWorkspaceHost,
-                _shell.ContextActionBarHost);
+                _shell.MainWorkspaceHost);
         }
 
         [TearDown]
@@ -33,74 +33,68 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Bind_다음경기로스터구단자원을NativeUi에표시한다()
+        public void Bind_다음경기와세가지행동만표시한다()
         {
             OwnerHomePresentationModel model = CreateModel();
 
             _view.Bind(model, true);
 
+            Assert.That(_shell.MainWorkspaceHost.GetComponentsInChildren<Button>(true).Length, Is.EqualTo(3));
+            Assert.That(_shell.transform.Find("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/RosterPanel"), Is.Null);
+            Assert.That(_shell.transform.Find("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/ResourcePanel"), Is.Null);
+
             Assert.That(FindText("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchValue").text,
                 Is.EqualTo("R3 · 부산 마리너스 · 홈"));
-            Assert.That(FindText("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/RosterPanel/ContentSafeRect/RosterValue").text,
-                Does.Contain("현재 1군 25/25"));
-            Assert.That(FindText("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/RosterPanel/ContentSafeRect/RosterValue").text,
-                Does.Contain("기본 전력 미평가").And.Contain("편성 비용 미평가"));
-            Assert.That(FindText("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/ResourcePanel/ContentSafeRect/ResourceValue").text,
-                Does.Contain("스카우트 포인트  420"));
             Assert.That(FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/OpponentAnalysisButton").interactable,
                 Is.True);
             Assert.That(FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/MatchPreparationButton").interactable,
                 Is.True);
-            Assert.That(FindButton("ContextActionBar/OwnerHomeActionBar/PlayNextGameButton").interactable, Is.True);
+            Assert.That(FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/PlayNextGameButton").interactable, Is.True);
         }
 
         [Test]
         public void Actions_게임상태를바꾸지않고Coordinator에Command를요청한다()
         {
             bool playRequested = false;
-            bool saveRequested = false;
-            bool titleRequested = false;
             bool analysisRequested = false;
             bool preparationRequested = false;
             _view.OpponentAnalysisRequested += () => analysisRequested = true;
             _view.MatchPreparationRequested += () => preparationRequested = true;
             _view.PlayNextGameRequested += () => playRequested = true;
-            _view.SaveRequested += () => saveRequested = true;
-            _view.TitleRequested += () => titleRequested = true;
             _view.Bind(CreateModel(), true);
 
             FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/OpponentAnalysisButton").onClick.Invoke();
             FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/MatchPreparationButton").onClick.Invoke();
-            FindButton("ContextActionBar/OwnerHomeActionBar/PlayNextGameButton").onClick.Invoke();
-            FindButton("ContextActionBar/OwnerHomeActionBar/SaveButton").onClick.Invoke();
-            FindButton("ContextActionBar/OwnerHomeActionBar/TitleButton").onClick.Invoke();
+            FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/PlayNextGameButton").onClick.Invoke();
 
             Assert.That(analysisRequested, Is.True);
             Assert.That(preparationRequested, Is.True);
             Assert.That(playRequested, Is.True);
-            Assert.That(saveRequested, Is.True);
-            Assert.That(titleRequested, Is.True);
         }
 
         [Test]
         public void Skin_재적용해도버튼프레임과진행강조를유지한다()
         {
             _view.Bind(CreateModel(), true);
-            Button play = FindButton("ContextActionBar/OwnerHomeActionBar/PlayNextGameButton");
-            Button save = FindButton("ContextActionBar/OwnerHomeActionBar/SaveButton");
+            Button play = FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/PlayNextGameButton");
+            Button save = FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/OpponentAnalysisButton");
             Sprite playSprite = play.GetComponent<Image>().sprite;
             Sprite saveSprite = save.GetComponent<Image>().sprite;
             Assert.That(playSprite, Is.Not.Null);
             Assert.That(saveSprite, Is.Not.Null.And.Not.EqualTo(playSprite));
 
-            Baseball.Presentation.UI.CareerUiSkin.Apply(_shell.ContextActionBarHost);
+            Baseball.Presentation.UI.CareerUiSkin.Apply(_shell.MainWorkspaceHost);
             _view.Bind(CreateModel(), false);
 
             Assert.That(play.GetComponent<Image>().sprite, Is.SameAs(playSprite));
             Assert.That(save.GetComponent<Image>().sprite, Is.SameAs(saveSprite));
             Assert.That(play.GetComponent<Image>().type, Is.EqualTo(Image.Type.Sliced));
             Assert.That(play.interactable, Is.False);
-            Assert.That(save.interactable, Is.True);
+            Assert.That(save.interactable, Is.False);
+            Text saveLabel = save.transform.Find("Label").GetComponent<Text>();
+            Assert.That(saveLabel.horizontalOverflow, Is.EqualTo(HorizontalWrapMode.Overflow));
+            Assert.That(saveLabel.rectTransform.offsetMin.x, Is.EqualTo(18f));
+            Assert.That(saveLabel.rectTransform.offsetMax.x, Is.EqualTo(-18f));
         }
 
         private Text FindText(string path) => _shell.transform.Find(path).GetComponent<Text>();

@@ -141,7 +141,7 @@ namespace Baseball.Presentation.Owner
             _sharedInformationWorkspace.HideAll();
             _matchSpectatorView?.SetVisible(false);
             _shell.SetInspectorVisible(false);
-            _shell.SetActionBarVisible(true);
+            _shell.SetActionBarVisible(false);
             _homeView.Bind(home, _manager.Runtime.ManagerMode.LiveSeason.NextPlayerGame != null);
             _homeView.SetVisible(true);
             _presenter.ShowContext(new ShellContextModel(
@@ -194,8 +194,6 @@ namespace Baseball.Presentation.Owner
                 _homeView.OpponentAnalysisRequested -= HandleOpponentAnalysisRequested;
                 _homeView.MatchPreparationRequested -= HandleMatchPreparationRequested;
                 _homeView.PlayNextGameRequested -= HandlePlayNextGameRequested;
-                _homeView.SaveRequested -= HandleSaveRequested;
-                _homeView.TitleRequested -= HandleTitleRequested;
                 if (Application.isPlaying) Destroy(_homeView.gameObject);
                 else DestroyImmediate(_homeView.gameObject);
             }
@@ -403,8 +401,6 @@ namespace Baseball.Presentation.Owner
             _homeView.OpponentAnalysisRequested += HandleOpponentAnalysisRequested;
             _homeView.MatchPreparationRequested += HandleMatchPreparationRequested;
             _homeView.PlayNextGameRequested += HandlePlayNextGameRequested;
-            _homeView.SaveRequested += HandleSaveRequested;
-            _homeView.TitleRequested += HandleTitleRequested;
         }
 
         private void EnsureMatchSpectatorView()

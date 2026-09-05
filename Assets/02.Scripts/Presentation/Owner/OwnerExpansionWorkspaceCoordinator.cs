@@ -21,6 +21,7 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerConditionChemistry _conditionView;
         private UI_Scene_OwnerRosterLineup _rosterLineupView;
         private UI_Scene_OwnerCollection _collectionView;
+        private UI_Scene_OwnerDugout _dugoutView;
         private RectTransform _lockedWorkspaceRoot;
         private OwnerPregamePresentationModel _pregameModel;
         private OwnerStaffOfficePresentationModel _staffModel;
@@ -138,7 +139,6 @@ namespace Baseball.Presentation.Owner
                 return true;
             }
             if ((string.Equals(ActiveRouteId, RosterLineupRouteId, StringComparison.Ordinal) ||
-                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.DugoutLineupNotes, StringComparison.Ordinal) ||
                  string.Equals(ActiveRouteId, OwnerNavigationRoutes.MatchCenterLineup, StringComparison.Ordinal) ||
                  string.Equals(ActiveRouteId, OwnerNavigationRoutes.MatchCenterTactics, StringComparison.Ordinal)) &&
                 _rosterLineupView != null)
@@ -164,6 +164,20 @@ namespace Baseball.Presentation.Owner
         public bool TryShowRoute(string workspaceRouteId, string navigationRouteId)
         {
             RequireInitialized();
+            if (string.Equals(workspaceRouteId, OwnerNavigationRoutes.DugoutLineupNotes, StringComparison.Ordinal))
+            {
+                if (_dugoutView == null)
+                    _dugoutView = UI_Scene_OwnerDugout.CreateRuntime(_shell.MainWorkspaceHost);
+                SetAllViewsVisible(false);
+                _dugoutView.SetVisible(true);
+                _shell.SetInspectorVisible(false);
+                _shell.SetActionBarVisible(false);
+                _shell.BindContext(new SharedUI.ShellContextModel(
+                    navigationRouteId, "덕아웃", "작전 방침과 감독·코치 카드를 확인합니다.", "구단주 모드"));
+                _shell.SetContextHeaderVisible(false);
+                ActiveRouteId = navigationRouteId;
+                return true;
+            }
             if (string.Equals(workspaceRouteId, CollectionRouteId, StringComparison.Ordinal) && _collectionView != null)
             {
                 SetAllViewsVisible(false);
@@ -178,13 +192,10 @@ namespace Baseball.Presentation.Owner
                 ActiveRouteId = navigationRouteId;
                 return true;
             }
-            if ((string.Equals(workspaceRouteId, RosterLineupRouteId, StringComparison.Ordinal) ||
-                 string.Equals(workspaceRouteId, OwnerNavigationRoutes.DugoutLineupNotes, StringComparison.Ordinal)) &&
+            if (string.Equals(workspaceRouteId, RosterLineupRouteId, StringComparison.Ordinal) &&
                 _rosterLineupModel != null)
             {
-                string title = string.Equals(navigationRouteId, OwnerNavigationRoutes.DugoutLineupNotes, StringComparison.Ordinal)
-                    ? "라인업 노트"
-                    : string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterTactics, StringComparison.Ordinal)
+                string title = string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterTactics, StringComparison.Ordinal)
                         ? "전술카드"
                         : string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterLineup, StringComparison.Ordinal)
                             ? "우리 라인업"
@@ -338,6 +349,8 @@ namespace Baseball.Presentation.Owner
             }
             if (_collectionView != null)
                 DestroyView(_collectionView);
+            if (_dugoutView != null)
+                DestroyView(_dugoutView);
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_lockedWorkspaceRoot);
         }
 
@@ -438,6 +451,7 @@ namespace Baseball.Presentation.Owner
             if (_conditionView != null) _conditionView.SetVisible(visible);
             if (_rosterLineupView != null) _rosterLineupView.SetVisible(visible);
             if (_collectionView != null) _collectionView.SetVisible(visible);
+            if (_dugoutView != null) _dugoutView.SetVisible(visible);
             if (_lockedWorkspaceRoot != null) _lockedWorkspaceRoot.gameObject.SetActive(visible);
         }
 
