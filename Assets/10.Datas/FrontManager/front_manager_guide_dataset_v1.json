@@ -1,0 +1,6042 @@
+{
+  "datasetId": "front_manager_guide_dataset",
+  "version": "1.0.0",
+  "language": "ko-KR",
+  "status": "implementation-ready-v1",
+  "designContract": {
+    "guideDoesNotJudge": true,
+    "factProducerOwnsGameLogic": true,
+    "deterministicVariationSelection": {
+      "strategy": "WeightedHash",
+      "hashAlgorithm": "FNV1A64_UTF8",
+      "seedTemplate": "{worldSeed}|{eventId}|{cueId}",
+      "fallbackSeedTemplate": "{saveId}|{sequenceNo}|{cueId}"
+    },
+    "defaultSuppressionContexts": [
+      "PlayerMinigameInput",
+      "BlockingCinematic"
+    ],
+    "priorityOrder": [
+      "Critical",
+      "High",
+      "Normal",
+      "Low",
+      "Flavor"
+    ],
+    "homeFullDialogueMaxPerEntry": 1,
+    "nonCriticalDuringMatch": "queue-until-safe-point",
+    "runtimeContextKeys": [
+      "worldSeed",
+      "saveId",
+      "eventId",
+      "sequenceNo",
+      "dayId",
+      "weekId",
+      "seasonId",
+      "matchId",
+      "teamSeasonKey",
+      "rosterRevision",
+      "lineupRevision",
+      "loadoutRevision",
+      "slotRevision",
+      "catalogRevision",
+      "worldAwardRevision",
+      "trainingRevision",
+      "duplicateRevision",
+      "careerPlayerId",
+      "playerInstanceId",
+      "awardRecordId",
+      "playerPersonId",
+      "pityCycleId",
+      "filterKey",
+      "scoutRollId",
+      "cardId",
+      "acquisitionId",
+      "saleAttemptId",
+      "teamColorId",
+      "groupId",
+      "activationId",
+      "counterId",
+      "offerId",
+      "offerBoardId",
+      "tradeInquiryId",
+      "transactionId",
+      "tradeOfferId",
+      "contractId",
+      "newsId"
+    ]
+  },
+  "projectRules": {
+    "activeRosterSize": 25,
+    "hitters": 14,
+    "pitchers": 11,
+    "startingHitters": 9,
+    "benchHitters": 5,
+    "startingPitchers": 5,
+    "bullpenPitchers": 4,
+    "setupPitchers": 1,
+    "closerPitchers": 1,
+    "maxForeignPlayers": 3,
+    "duplicatePlayerPersonAllowedInActiveRoster": false,
+    "offPositionHitterAllowed": true,
+    "offPositionHitterCosts": [
+      "ConditionPenalty",
+      "FieldingErrorRisk"
+    ],
+    "dhOffPositionPenalty": false,
+    "pitcherRoleMismatchAllowed": true,
+    "pitcherRoleMismatchCosts": [
+      "ConditionPenalty"
+    ],
+    "tacticSlots": 2,
+    "maxDisruptionTactics": 1,
+    "tacticConsumedOnMatchConfirmation": true,
+    "scoutPityThreshold": 100,
+    "focusScoutMinimumCost": 7,
+    "careerManagerOwnsLineupAndTactics": true,
+    "careerAllStarHonorExpires": "CurrentSeasonEnd",
+    "careerGoldenGloveHonorExpires": "NextSeasonEnd",
+    "careerMvpHonorExpires": "NextSeasonEnd"
+  },
+  "enums": {
+    "modeScope": [
+      "Common",
+      "Owner",
+      "Career"
+    ],
+    "priority": [
+      "Critical",
+      "High",
+      "Normal",
+      "Low",
+      "Flavor"
+    ],
+    "presentationType": [
+      "FullDialogue",
+      "Briefing",
+      "ContextBubble",
+      "Toast",
+      "NotificationCard",
+      "ModalCelebration"
+    ],
+    "expressionKey": [
+      "Neutral",
+      "Welcome",
+      "Analysis",
+      "Concerned",
+      "Warning",
+      "Celebrate",
+      "Surprised",
+      "Calm"
+    ],
+    "tone": [
+      "Calm",
+      "Friendly",
+      "Analysis",
+      "Concerned",
+      "Warning",
+      "Celebrate",
+      "Welcome",
+      "Surprised"
+    ],
+    "cooldownScope": [
+      "Event",
+      "Revision",
+      "Day",
+      "Week",
+      "Season",
+      "Save"
+    ]
+  },
+  "character": {
+    "characterId": "FRONT_MANAGER_DEFAULT_01",
+    "displayNameKey": "guide.character.front_manager_default_01",
+    "defaultExpression": "Neutral",
+    "expressions": {
+      "Neutral": "FM_NEUTRAL",
+      "Welcome": "FM_WELCOME",
+      "Analysis": "FM_ANALYSIS",
+      "Concerned": "FM_CONCERNED",
+      "Warning": "FM_WARNING",
+      "Celebrate": "FM_CELEBRATE",
+      "Surprised": "FM_SURPRISED",
+      "Calm": "FM_CALM"
+    }
+  },
+  "factContracts": [
+    {
+      "factType": "RosterInvalidTotal",
+      "producer": "Roster/Application Adapter",
+      "description": "ActiveRosterValidator 결과 Total != 25를 Presentation fact로 변환",
+      "payload": {
+        "current": "int",
+        "required": "int"
+      }
+    },
+    {
+      "factType": "RosterRoleCountInvalid",
+      "producer": "Roster/Application Adapter",
+      "description": "야수14/투수11 구성 불일치 결과",
+      "payload": {
+        "hitters": "int",
+        "pitchers": "int"
+      }
+    },
+    {
+      "factType": "ForeignPlayerLimitExceeded",
+      "producer": "Roster/Application Adapter",
+      "description": "ActiveRoster 외국인 최대3 위반 결과",
+      "payload": {
+        "current": "int",
+        "limit": "int"
+      }
+    },
+    {
+      "factType": "DuplicatePlayerPerson",
+      "producer": "Roster/Application Adapter",
+      "description": "동일 PlayerPersonId 중복 등록 결과",
+      "payload": {
+        "playerName": "string",
+        "playerPersonId": "string"
+      }
+    },
+    {
+      "factType": "HitterOffPositionAssigned",
+      "producer": "Lineup/Application Adapter",
+      "description": "PositionAssignmentPenaltyResolver 결과 비주포지션 야수 배치",
+      "payload": {
+        "playerName": "string",
+        "assignedPosition": "string",
+        "naturalPosition": "string",
+        "playerInstanceId": "string"
+      }
+    },
+    {
+      "factType": "HitterAssignedToDH",
+      "producer": "Lineup/Application Adapter",
+      "description": "DH 배치 사실. OffPosition 수비 페널티 없음",
+      "payload": {
+        "playerName": "string",
+        "playerInstanceId": "string"
+      }
+    },
+    {
+      "factType": "PitcherRoleMismatchAssigned",
+      "producer": "Pitching/Application Adapter",
+      "description": "본래 PitcherRole과 AssignedPitcherRole 불일치 결과",
+      "payload": {
+        "playerName": "string",
+        "naturalRole": "string",
+        "assignedRole": "string",
+        "playerInstanceId": "string"
+      }
+    },
+    {
+      "factType": "ScoutPityReady",
+      "producer": "Manager Economy/Application Adapter",
+      "description": "PityGauge == 100 사실",
+      "payload": {
+        "pityCycleId": "string"
+      }
+    },
+    {
+      "factType": "ScoutPityFilterNoCandidate",
+      "producer": "Scout/Application Adapter",
+      "description": "선택 필터에 Cost7+ 후보가 없음",
+      "payload": {
+        "filterName": "string",
+        "filterKey": "string"
+      }
+    },
+    {
+      "factType": "TeamColorUnlocked",
+      "producer": "TeamColor/Application Adapter",
+      "description": "TeamColorResolver.Resolve 결과 신규 후보 활성화",
+      "payload": {
+        "teamColorName": "string",
+        "teamColorId": "string"
+      }
+    },
+    {
+      "factType": "TacticTriggered",
+      "producer": "Match/Application Adapter",
+      "description": "TacticCardResolver 발동 결과를 전달",
+      "payload": {
+        "cardName": "string",
+        "activationId": "string"
+      }
+    },
+    {
+      "factType": "CareerStartingLineupSelected",
+      "producer": "Career/Application Adapter",
+      "description": "감독 AI가 확정한 선발 라인업 결과",
+      "payload": {
+        "battingOrder": "int",
+        "position": "string"
+      }
+    },
+    {
+      "factType": "CareerNotStarting",
+      "producer": "Career/Application Adapter",
+      "description": "감독 AI가 선발 제외한 결과와 설명용 요약",
+      "payload": {
+        "reasonSummary": "string"
+      }
+    },
+    {
+      "factType": "LeaguePromotion",
+      "producer": "League/Application Adapter",
+      "description": "승강 Resolver 확정 결과",
+      "payload": {
+        "fromGrade": "string",
+        "toGrade": "string"
+      }
+    },
+    {
+      "factType": "AllStarSelected",
+      "producer": "Award/Application Adapter",
+      "description": "WorldAwardRecord AllStar 확정",
+      "payload": {
+        "playerName": "string",
+        "awardRecordId": "string"
+      }
+    },
+    {
+      "factType": "GoldenGloveSelected",
+      "producer": "Award/Application Adapter",
+      "description": "WorldAwardRecord GoldenGlove 확정",
+      "payload": {
+        "playerName": "string",
+        "position": "string",
+        "awardRecordId": "string"
+      }
+    },
+    {
+      "factType": "RegularSeasonMvpSelected",
+      "producer": "Award/Application Adapter",
+      "description": "Statistics 기반 Regular MVP 확정",
+      "payload": {
+        "playerName": "string",
+        "awardRecordId": "string"
+      }
+    }
+  ],
+  "cueDefinitions": [
+    {
+      "cueId": "HOME_DAILY_BRIEFING",
+      "factType": "DailyBriefingReady",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "Briefing",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "gameCount",
+        "primaryHeadline"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "HOME_DAILY_BRIEFING:{dayId}",
+        "cooldownScope": "Day",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenDailyBriefing",
+        "label": "브리핑 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "HOME_DAILY_BRIEFING_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "오늘 확인할 내용이 정리됐습니다. 예정된 경기는 {gameCount}경기이고, 가장 중요한 소식은 ‘{primaryHeadline}’입니다."
+        },
+        {
+          "variationId": "HOME_DAILY_BRIEFING_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "오늘 일정부터 살펴볼까요? 경기는 {gameCount}경기 예정되어 있고, 먼저 확인할 소식은 ‘{primaryHeadline}’입니다."
+        },
+        {
+          "variationId": "HOME_DAILY_BRIEFING_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "오늘 운영의 우선순위를 정리했습니다. {gameCount}경기 일정과 ‘{primaryHeadline}’부터 확인하시면 됩니다."
+        }
+      ],
+      "tags": [
+        "Home",
+        "Daily"
+      ]
+    },
+    {
+      "cueId": "HOME_MATCH_DAY",
+      "factType": "MatchDayStarted",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Welcome",
+      "requiredPayload": [
+        "gameCount"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "HOME_MATCH_DAY:{dayId}",
+        "cooldownScope": "Day",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenSchedule",
+        "label": "오늘 일정 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "HOME_MATCH_DAY_A",
+          "weight": 40,
+          "tone": "Friendly",
+          "text": "오늘은 {gameCount}경기가 예정되어 있습니다. 첫 경기 전에 선발진과 컨디션을 확인해 두시면 좋겠습니다."
+        },
+        {
+          "variationId": "HOME_MATCH_DAY_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "경기 일정이 시작됩니다. 오늘은 {gameCount}경기입니다. 필요한 점검부터 끝내고 출발하죠."
+        },
+        {
+          "variationId": "HOME_MATCH_DAY_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "오늘은 {gameCount}경기를 치릅니다. 연전이라면 불펜 피로와 벤치 활용도까지 함께 보시는 편이 좋습니다."
+        }
+      ],
+      "tags": [
+        "Home",
+        "Schedule"
+      ]
+    },
+    {
+      "cueId": "HOME_NO_MATCH_DAY",
+      "factType": "NoMatchDay",
+      "modeScope": "Common",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Calm",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "HOME_NO_MATCH_DAY:{dayId}",
+        "cooldownScope": "Day",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRoster",
+        "label": "선수단 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "HOME_NO_MATCH_DAY_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "오늘은 경기가 없습니다. 선수단을 정리하고 다음 일정을 준비하기 좋은 날입니다."
+        },
+        {
+          "variationId": "HOME_NO_MATCH_DAY_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "비교적 조용한 하루네요. 다음 경기 전에 선수 상태를 한 번 정리해 두실까요?"
+        },
+        {
+          "variationId": "HOME_NO_MATCH_DAY_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "경기 없는 날입니다. 컨디션, 로스터, 훈련 상태를 점검할 여유가 있습니다."
+        }
+      ],
+      "tags": [
+        "Home"
+      ],
+      "autoDismissSec": 6
+    },
+    {
+      "cueId": "HOME_IMPORTANT_ITEMS",
+      "factType": "ImportantItemsQueued",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "count"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "HOME_IMPORTANT_ITEMS:{dayId}",
+        "cooldownScope": "Day",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenNotificationCenter",
+        "label": "확인할 내용 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "HOME_IMPORTANT_ITEMS_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "확인이 필요한 중요한 내용이 {count}건 있습니다. 경기나 일정 진행 전에 먼저 살펴봐 주세요."
+        },
+        {
+          "variationId": "HOME_IMPORTANT_ITEMS_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "우선 확인해야 할 항목이 {count}건 있습니다. 중요한 순서대로 정리해 두었습니다."
+        },
+        {
+          "variationId": "HOME_IMPORTANT_ITEMS_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "지금 지나치기엔 중요한 소식이 {count}건 있습니다. 먼저 확인하는 편이 좋겠습니다."
+        }
+      ],
+      "tags": [
+        "Home",
+        "Priority"
+      ]
+    },
+    {
+      "cueId": "HOME_NEW_RECORD",
+      "factType": "NewRecordHeadline",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Surprised",
+      "requiredPayload": [
+        "headline"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "HOME_NEW_RECORD:{eventId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenNews",
+        "label": "관련 뉴스 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "HOME_NEW_RECORD_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "새 기록이 나왔습니다. {headline}"
+        },
+        {
+          "variationId": "HOME_NEW_RECORD_B",
+          "weight": 35,
+          "tone": "Surprised",
+          "text": "기록실에 새 항목이 추가됐습니다. {headline}"
+        },
+        {
+          "variationId": "HOME_NEW_RECORD_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "좋은 소식이네요. {headline}"
+        }
+      ],
+      "tags": [
+        "Home",
+        "Record",
+        "News"
+      ],
+      "autoDismissSec": 7
+    },
+    {
+      "cueId": "HOME_GUIDE_SETTINGS_HINT",
+      "factType": "GuideSettingsHint",
+      "modeScope": "Common",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Calm",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "HOME_GUIDE_SETTINGS_HINT:{saveId}",
+        "cooldownScope": "Save",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenGuideSettings",
+        "label": "안내 설정"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "HOME_GUIDE_SETTINGS_HINT_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "안내가 많게 느껴진다면 설정에서 중요 안내만 받도록 조정할 수 있습니다."
+        },
+        {
+          "variationId": "HOME_GUIDE_SETTINGS_HINT_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "필요한 내용만 보고 싶으시면 안내 빈도를 줄일 수 있어요."
+        },
+        {
+          "variationId": "HOME_GUIDE_SETTINGS_HINT_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "프런트 매니저 안내는 설정에서 전체·중요·튜토리얼 중심으로 조절할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Home",
+        "Settings"
+      ],
+      "autoDismissSec": 8
+    },
+    {
+      "cueId": "TUTORIAL_OWNER_FIRST_ENTRY",
+      "factType": "OwnerModeFirstEntry",
+      "modeScope": "Owner",
+      "priority": "High",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Welcome",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TUTORIAL_OWNER_FIRST_ENTRY:{saveId}",
+        "cooldownScope": "Save",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRoster",
+        "label": "선수단부터 보기"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "TUTORIAL_OWNER_FIRST_ENTRY_A",
+          "weight": 40,
+          "tone": "Welcome",
+          "text": "처음 뵙겠습니다. 구단 운영에 필요한 변화와 중요한 소식은 제가 정리해서 알려드리겠습니다. 우선 선수단부터 확인해 보죠."
+        },
+        {
+          "variationId": "TUTORIAL_OWNER_FIRST_ENTRY_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "구단 운영을 시작하셨군요. 모든 메뉴를 한 번에 익히실 필요는 없습니다. 먼저 1군 구성을 확인해 보겠습니다."
+        },
+        {
+          "variationId": "TUTORIAL_OWNER_FIRST_ENTRY_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "앞으로 일정, 선수단, 스카우트, 계약과 주요 기록을 필요한 순간에 안내드리겠습니다. 첫 단계는 현재 선수단 확인입니다."
+        }
+      ],
+      "tags": [
+        "Tutorial",
+        "Owner"
+      ]
+    },
+    {
+      "cueId": "TUTORIAL_CAREER_FIRST_ENTRY",
+      "factType": "CareerModeFirstEntry",
+      "modeScope": "Career",
+      "priority": "High",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Welcome",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TUTORIAL_CAREER_FIRST_ENTRY:{saveId}",
+        "cooldownScope": "Save",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCareerHome",
+        "label": "커리어 시작"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "TUTORIAL_CAREER_FIRST_ENTRY_A",
+          "weight": 40,
+          "tone": "Welcome",
+          "text": "선수 생활을 시작하신 걸 환영합니다. 출전 여부와 구단의 중요한 결정은 필요한 순간마다 알려드리겠습니다."
+        },
+        {
+          "variationId": "TUTORIAL_CAREER_FIRST_ENTRY_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "이제 한 선수의 커리어를 직접 만들어가게 됩니다. 경기와 성장에 집중하시면, 구단의 결정은 제가 정리해 드릴게요."
+        },
+        {
+          "variationId": "TUTORIAL_CAREER_FIRST_ENTRY_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "선수 커리어에서는 감독이 라인업과 경기 운영을 결정합니다. 플레이어에게 영향을 주는 변화는 가능한 한 이유와 함께 전달하겠습니다."
+        }
+      ],
+      "tags": [
+        "Tutorial",
+        "Career"
+      ]
+    },
+    {
+      "cueId": "TUTORIAL_OWNER_SCOUT_FIRST",
+      "factType": "ScoutFirstEntry",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Analysis",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TUTORIAL_OWNER_SCOUT_FIRST:{saveId}",
+        "cooldownScope": "Save",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenScout",
+        "label": "스카우트 시작"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "TUTORIAL_OWNER_SCOUT_FIRST_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "스카우트 포인트를 사용하면 새로운 선수 카드를 확보할 수 있습니다. 후보군을 좁힐수록 원하는 구성을 노리기 쉬워집니다."
+        },
+        {
+          "variationId": "TUTORIAL_OWNER_SCOUT_FIRST_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "새 선수를 찾아볼 시간입니다. 일반 스카우트부터 특정 연도·구단 집중까지 선택할 수 있습니다."
+        },
+        {
+          "variationId": "TUTORIAL_OWNER_SCOUT_FIRST_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "스카우트는 현재 월드에서 실제로 존재하는 카드 후보만 대상으로 합니다. 먼저 원하는 후보 범위를 정해 보세요."
+        }
+      ],
+      "tags": [
+        "Tutorial",
+        "Owner",
+        "Scout"
+      ]
+    },
+    {
+      "cueId": "TUTORIAL_GUIDE_ROLE",
+      "factType": "GuideRoleExplanation",
+      "modeScope": "Common",
+      "priority": "Low",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Calm",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TUTORIAL_GUIDE_ROLE:{saveId}",
+        "cooldownScope": "Save",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": null,
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TUTORIAL_GUIDE_ROLE_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "제가 경기 결과나 로스터 규칙을 직접 결정하지는 않습니다. 이미 결정된 결과 가운데 지금 필요한 정보를 골라 전달합니다."
+        },
+        {
+          "variationId": "TUTORIAL_GUIDE_ROLE_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "판정은 경기와 구단 시스템이 맡고, 저는 그 결과를 이해하기 쉽게 설명해 드리는 역할입니다."
+        },
+        {
+          "variationId": "TUTORIAL_GUIDE_ROLE_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "안내는 게임의 판정을 바꾸지 않습니다. 중요한 사실과 다음 행동을 연결하는 역할만 담당합니다."
+        }
+      ],
+      "tags": [
+        "Tutorial",
+        "Architecture"
+      ]
+    },
+    {
+      "cueId": "ROSTER_INVALID_TOTAL",
+      "factType": "RosterInvalidTotal",
+      "modeScope": "Owner",
+      "priority": "Critical",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "current",
+        "required"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "ROSTER_INVALID_TOTAL:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRoster",
+        "label": "로스터 수정"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "ROSTER_INVALID_TOTAL_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "1군 등록 인원이 {current}명입니다. 경기를 진행하려면 정확히 {required}명이 필요합니다."
+        },
+        {
+          "variationId": "ROSTER_INVALID_TOTAL_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "현재 1군 인원이 기준과 맞지 않습니다. {current}/{required}명 상태입니다."
+        },
+        {
+          "variationId": "ROSTER_INVALID_TOTAL_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "로스터 구성이 완료되지 않았습니다. 현재 {current}명, 필요한 인원은 {required}명입니다."
+        }
+      ],
+      "tags": [
+        "Roster",
+        "Blocking"
+      ]
+    },
+    {
+      "cueId": "ROSTER_HITTER_PITCHER_RATIO",
+      "factType": "RosterRoleCountInvalid",
+      "modeScope": "Owner",
+      "priority": "Critical",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "hitters",
+        "pitchers"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "ROSTER_HITTER_PITCHER_RATIO:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRoster",
+        "label": "구성 확인"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "ROSTER_HITTER_PITCHER_RATIO_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "1군은 야수 14명과 투수 11명으로 구성됩니다. 현재 야수 {hitters}명, 투수 {pitchers}명입니다."
+        },
+        {
+          "variationId": "ROSTER_HITTER_PITCHER_RATIO_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "야수와 투수 인원 비율을 다시 맞춰야 합니다. 현재는 야수 {hitters}, 투수 {pitchers}입니다."
+        },
+        {
+          "variationId": "ROSTER_HITTER_PITCHER_RATIO_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "등록 인원은 있어도 역할 구성이 기준에 맞지 않습니다. 야수 14명·투수 11명 구성이 필요합니다."
+        }
+      ],
+      "tags": [
+        "Roster",
+        "Blocking"
+      ]
+    },
+    {
+      "cueId": "ROSTER_FOREIGN_LIMIT",
+      "factType": "ForeignPlayerLimitExceeded",
+      "modeScope": "Owner",
+      "priority": "Critical",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "current",
+        "limit"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "ROSTER_FOREIGN_LIMIT:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRoster",
+        "label": "외국인 등록 확인"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "ROSTER_FOREIGN_LIMIT_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "현재 외국인 선수가 {current}명 등록되어 있습니다. 1군에는 최대 {limit}명까지만 등록할 수 있습니다."
+        },
+        {
+          "variationId": "ROSTER_FOREIGN_LIMIT_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "외국인 카드 보유 수에는 제한이 없지만 1군 등록은 {limit}명까지입니다. 현재 {current}명입니다."
+        },
+        {
+          "variationId": "ROSTER_FOREIGN_LIMIT_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "외국인 등록 한도를 넘었습니다. 한 명 이상을 1군에서 제외해야 합니다."
+        }
+      ],
+      "tags": [
+        "Roster",
+        "Blocking"
+      ]
+    },
+    {
+      "cueId": "ROSTER_DUPLICATE_PERSON",
+      "factType": "DuplicatePlayerPerson",
+      "modeScope": "Owner",
+      "priority": "Critical",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "ROSTER_DUPLICATE_PERSON:{playerPersonId}:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRoster",
+        "label": "중복 선수 확인"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "ROSTER_DUPLICATE_PERSON_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "{playerName} 선수의 다른 시즌 카드가 동시에 등록되어 있습니다. 같은 인물은 1군에 한 명만 등록할 수 있습니다."
+        },
+        {
+          "variationId": "ROSTER_DUPLICATE_PERSON_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "같은 선수의 여러 시즌 카드를 동시에 사용할 수 없습니다. {playerName} 선수의 등록 상태를 확인해 주세요."
+        },
+        {
+          "variationId": "ROSTER_DUPLICATE_PERSON_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "동일 인물 중복 등록이 확인됐습니다. {playerName} 선수 카드 중 하나만 1군에 남길 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Roster",
+        "Blocking"
+      ]
+    },
+    {
+      "cueId": "ROSTER_PITCHING_ROLE_EMPTY",
+      "factType": "PitchingRoleSlotEmpty",
+      "modeScope": "Owner",
+      "priority": "Critical",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "roleName",
+        "missingCount"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "ROSTER_PITCHING_ROLE_EMPTY:{roleName}:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenPitchingStaff",
+        "label": "투수진 편성"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "ROSTER_PITCHING_ROLE_EMPTY_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "{roleName} 자리가 {missingCount}개 비어 있습니다. 투수 역할 구성을 완료해야 합니다."
+        },
+        {
+          "variationId": "ROSTER_PITCHING_ROLE_EMPTY_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "투수진 편성이 아직 끝나지 않았습니다. {roleName} 역할을 채워 주세요."
+        },
+        {
+          "variationId": "ROSTER_PITCHING_ROLE_EMPTY_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "{roleName} 역할이 부족합니다. 경기 전에 투수진 배치를 다시 확인해야 합니다."
+        }
+      ],
+      "tags": [
+        "Roster",
+        "Blocking"
+      ]
+    },
+    {
+      "cueId": "ROSTER_BENCH_SHORTAGE",
+      "factType": "BenchSlotShortage",
+      "modeScope": "Owner",
+      "priority": "Critical",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "current",
+        "required"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "ROSTER_BENCH_SHORTAGE:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRoster",
+        "label": "벤치 편성"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "ROSTER_BENCH_SHORTAGE_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "벤치 야수가 {current}명입니다. 1군 구성에는 {required}명이 필요합니다."
+        },
+        {
+          "variationId": "ROSTER_BENCH_SHORTAGE_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "주전만 채워서는 로스터가 완성되지 않습니다. 벤치를 {required}명까지 맞춰 주세요."
+        },
+        {
+          "variationId": "ROSTER_BENCH_SHORTAGE_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "벤치 인원이 부족합니다. 경기 중 교체까지 고려하면 먼저 정상 구성을 맞춰야 합니다."
+        }
+      ],
+      "tags": [
+        "Roster",
+        "Blocking"
+      ]
+    },
+    {
+      "cueId": "ROSTER_VALID",
+      "factType": "RosterValidated",
+      "modeScope": "Owner",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "ROSTER_VALID:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenLineup",
+        "label": "라인업 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "ROSTER_VALID_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "1군 구성이 정상적으로 완료됐습니다. 이제 선발 라인업과 투수 역할을 다듬을 수 있습니다."
+        },
+        {
+          "variationId": "ROSTER_VALID_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "로스터 검증을 통과했습니다. 경기 출전 구성을 확인해 보세요."
+        },
+        {
+          "variationId": "ROSTER_VALID_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "좋습니다. 25인 구성이 모두 맞았습니다. 이제 실제 기용만 정하면 됩니다."
+        }
+      ],
+      "tags": [
+        "Roster"
+      ],
+      "autoDismissSec": 6
+    },
+    {
+      "cueId": "ROSTER_FOREIGN_COLLECTION_OK",
+      "factType": "ForeignCollectionNoLimit",
+      "modeScope": "Owner",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Neutral",
+      "requiredPayload": [
+        "ownedCount"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "ROSTER_FOREIGN_COLLECTION_OK:{saveId}",
+        "cooldownScope": "Save",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCollection",
+        "label": "컬렉션 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "ROSTER_FOREIGN_COLLECTION_OK_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "외국인 카드는 현재 {ownedCount}장을 보유하고 있습니다. 보유 자체에는 제한이 없고 1군 등록만 최대 3명입니다."
+        },
+        {
+          "variationId": "ROSTER_FOREIGN_COLLECTION_OK_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "외국인 카드가 많아도 괜찮습니다. 실제 1군에 올릴 세 명만 잘 고르면 됩니다."
+        },
+        {
+          "variationId": "ROSTER_FOREIGN_COLLECTION_OK_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "컬렉션 보유 수와 1군 등록 제한은 별개입니다. 외국인 카드는 필요에 따라 계속 보유할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Roster",
+        "Collection"
+      ],
+      "autoDismissSec": 8
+    },
+    {
+      "cueId": "POSITION_HITTER_OFFPOSITION",
+      "factType": "HitterOffPositionAssigned",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "playerName",
+        "assignedPosition",
+        "naturalPosition"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "POSITION_HITTER_OFFPOSITION:{playerInstanceId}:{assignedPosition}:{lineupRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenLineup",
+        "label": "배치 확인"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "POSITION_HITTER_OFFPOSITION_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "{playerName} 선수가 {naturalPosition}이 아닌 {assignedPosition}에 배치됐습니다. 출전은 가능하지만 컨디션과 수비 실책 위험이 커집니다."
+        },
+        {
+          "variationId": "POSITION_HITTER_OFFPOSITION_B",
+          "weight": 35,
+          "tone": "Analysis",
+          "text": "{playerName} 선수의 {assignedPosition} 기용은 공격적 선택이 될 수 있지만 수비 비용이 있습니다."
+        },
+        {
+          "variationId": "POSITION_HITTER_OFFPOSITION_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "비주포지션 배치입니다. {playerName} 선수를 그대로 쓸지, 수비 안정성을 우선할지 확인해 주세요."
+        }
+      ],
+      "tags": [
+        "Position",
+        "OffPosition"
+      ]
+    },
+    {
+      "cueId": "POSITION_DH_FREE",
+      "factType": "HitterAssignedToDH",
+      "modeScope": "Owner",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Neutral",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "POSITION_DH_FREE:{playerInstanceId}:{lineupRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": null,
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "POSITION_DH_FREE_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "{playerName} 선수는 지명타자로 배치됐습니다. 이 자리에서는 비주포지션 수비 페널티가 없습니다."
+        },
+        {
+          "variationId": "POSITION_DH_FREE_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "{playerName} 선수는 수비 부담 없이 지명타자로 출전합니다."
+        },
+        {
+          "variationId": "POSITION_DH_FREE_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "DH는 타자의 본래 수비 포지션과 무관하게 사용할 수 있습니다. {playerName} 선수도 수비 불일치로 보지 않습니다."
+        }
+      ],
+      "tags": [
+        "Position",
+        "DH"
+      ],
+      "autoDismissSec": 6
+    },
+    {
+      "cueId": "POSITION_PITCHER_ROLE_MISMATCH",
+      "factType": "PitcherRoleMismatchAssigned",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "playerName",
+        "naturalRole",
+        "assignedRole"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "POSITION_PITCHER_ROLE_MISMATCH:{playerInstanceId}:{assignedRole}:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenPitchingStaff",
+        "label": "투수 역할 확인"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "POSITION_PITCHER_ROLE_MISMATCH_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "{playerName} 투수를 본래 {naturalRole}이 아닌 {assignedRole} 역할로 사용합니다. 기용은 가능하지만 컨디션 부담이 발생합니다."
+        },
+        {
+          "variationId": "POSITION_PITCHER_ROLE_MISMATCH_B",
+          "weight": 35,
+          "tone": "Analysis",
+          "text": "{playerName} 투수의 역할을 {assignedRole}로 바꿨습니다. 전력상 이득과 역할 불일치 비용을 함께 봐야 합니다."
+        },
+        {
+          "variationId": "POSITION_PITCHER_ROLE_MISMATCH_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "평소와 다른 투수 역할입니다. {playerName} 선수의 컨디션 관리가 더 중요해집니다."
+        }
+      ],
+      "tags": [
+        "Position",
+        "PitcherRole"
+      ]
+    },
+    {
+      "cueId": "POSITION_DEFENSE_RISK_HIGH",
+      "factType": "DefensiveAssignmentRiskHigh",
+      "modeScope": "Owner",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "position",
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "POSITION_DEFENSE_RISK_HIGH:{playerInstanceId}:{position}:{lineupRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenLineup",
+        "label": "수비 위험 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "POSITION_DEFENSE_RISK_HIGH_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "{position} 수비 위험이 높습니다. 현재 배치된 {playerName} 선수의 적합성을 다시 확인하는 편이 좋겠습니다."
+        },
+        {
+          "variationId": "POSITION_DEFENSE_RISK_HIGH_B",
+          "weight": 35,
+          "tone": "Analysis",
+          "text": "현재 {position} 배치는 공격력과 맞바꾼 수비 위험이 큰 편입니다. 경기 후반까지 유지할지 판단이 필요합니다."
+        },
+        {
+          "variationId": "POSITION_DEFENSE_RISK_HIGH_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "{position}에서 실책 위험이 커질 수 있습니다. 중요한 경기라면 대안을 비교해 보세요."
+        }
+      ],
+      "tags": [
+        "Position",
+        "Defense"
+      ]
+    },
+    {
+      "cueId": "POSITION_NO_NATURAL_STARTER",
+      "factType": "NoNaturalPositionStarter",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "position"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "POSITION_NO_NATURAL_STARTER:{position}:{lineupRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenLineup",
+        "label": "라인업 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "POSITION_NO_NATURAL_STARTER_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "현재 {position}에 본래 해당 포지션인 선수가 없습니다. 비주포지션 기용은 가능하지만 수비 위험이 따릅니다."
+        },
+        {
+          "variationId": "POSITION_NO_NATURAL_STARTER_B",
+          "weight": 35,
+          "tone": "Analysis",
+          "text": "{position} 자리의 자연 포지션 선수가 비어 있습니다. 공격력을 우선할지 수비 안정성을 우선할지 선택이 필요합니다."
+        },
+        {
+          "variationId": "POSITION_NO_NATURAL_STARTER_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "{position}은 현재 비주포지션 선수로 채워져 있습니다. 경기 출전에는 문제가 없지만 예상 페널티를 확인해 주세요."
+        }
+      ],
+      "tags": [
+        "Position",
+        "Lineup"
+      ]
+    },
+    {
+      "cueId": "POSITION_ASSIGNMENT_CLEAN",
+      "factType": "NoAssignmentPenalty",
+      "modeScope": "Owner",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Neutral",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "POSITION_ASSIGNMENT_CLEAN:{lineupRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": null,
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "POSITION_ASSIGNMENT_CLEAN_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "현재 선발 라인업에는 비주포지션 수비 배치가 없습니다."
+        },
+        {
+          "variationId": "POSITION_ASSIGNMENT_CLEAN_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "수비 배치는 안정적입니다. 포지션 불일치로 인한 추가 부담은 없습니다."
+        },
+        {
+          "variationId": "POSITION_ASSIGNMENT_CLEAN_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "현재 라인업은 수비 포지션 적합성 측면에서 무리 없는 구성입니다."
+        }
+      ],
+      "tags": [
+        "Position"
+      ],
+      "autoDismissSec": 5
+    },
+    {
+      "cueId": "MATCH_PRE_STARTER_GOOD",
+      "factType": "PreMatchStarterConditionGood",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_PRE_STARTER_GOOD:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenStartingPitcher",
+        "label": "선발 정보"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_PRE_STARTER_GOOD_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "오늘 선발 {playerName} 선수의 컨디션은 좋습니다. 초반부터 불펜을 걱정할 상황은 아니겠네요."
+        },
+        {
+          "variationId": "MATCH_PRE_STARTER_GOOD_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "{playerName} 선수가 좋은 상태로 선발에 들어갑니다. 경기 초반을 안정적으로 넘길 수 있으면 좋겠습니다."
+        },
+        {
+          "variationId": "MATCH_PRE_STARTER_GOOD_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "선발 {playerName} 선수의 상태가 안정적입니다. 오늘은 선발 이닝 소화가 경기 운영의 강점이 될 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Pre"
+      ]
+    },
+    {
+      "cueId": "MATCH_PRE_STARTER_RISK",
+      "factType": "PreMatchStarterConditionPoor",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_PRE_STARTER_RISK:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenStartingPitcher",
+        "label": "선발 상태"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_PRE_STARTER_RISK_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "오늘 선발 {playerName} 선수의 컨디션이 좋지 않습니다. 평소보다 빠른 교체 가능성을 염두에 둬야겠습니다."
+        },
+        {
+          "variationId": "MATCH_PRE_STARTER_RISK_B",
+          "weight": 35,
+          "tone": "Analysis",
+          "text": "{playerName} 선발의 상태가 낮습니다. 불펜이 예상보다 일찍 준비해야 할 수 있습니다."
+        },
+        {
+          "variationId": "MATCH_PRE_STARTER_RISK_C",
+          "weight": 25,
+          "tone": "Warning",
+          "text": "선발 컨디션에 주의가 필요합니다. {playerName} 선수가 흔들릴 경우 후속 투수 선택이 중요해집니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Pre"
+      ]
+    },
+    {
+      "cueId": "MATCH_PRE_BULLPEN_FATIGUE",
+      "factType": "PreMatchBullpenFatigueHigh",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "fatiguedCount"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_PRE_BULLPEN_FATIGUE:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenBullpen",
+        "label": "불펜 상태"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_PRE_BULLPEN_FATIGUE_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "오늘은 불펜 피로가 높습니다. 주요 불펜 {fatiguedCount}명이 충분히 회복하지 못했습니다."
+        },
+        {
+          "variationId": "MATCH_PRE_BULLPEN_FATIGUE_B",
+          "weight": 35,
+          "tone": "Concerned",
+          "text": "접전이 길어지면 후반 운영이 까다로울 수 있습니다. 현재 피로가 높은 불펜이 {fatiguedCount}명입니다."
+        },
+        {
+          "variationId": "MATCH_PRE_BULLPEN_FATIGUE_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "불펜 선택지가 평소보다 좁습니다. 선발이 얼마나 오래 버티는지가 중요해 보입니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Pre",
+        "Bullpen"
+      ]
+    },
+    {
+      "cueId": "MATCH_PRE_OPPONENT_STARTER_STRONG",
+      "factType": "OpponentStarterStrong",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_PRE_OPPONENT_STARTER_STRONG:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenOpponentAnalysis",
+        "label": "상대 선발 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_PRE_OPPONENT_STARTER_STRONG_A",
+          "weight": 40,
+          "tone": "Analysis",
+          "text": "상대 선발 {playerName} 선수의 최근 내용이 좋습니다. 초반 출루 기회를 놓치지 않는 게 중요하겠습니다."
+        },
+        {
+          "variationId": "MATCH_PRE_OPPONENT_STARTER_STRONG_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "오늘 상대 선발은 {playerName} 선수입니다. 최근 안정적이어서 타선이 서두르지 않는 편이 좋겠습니다."
+        },
+        {
+          "variationId": "MATCH_PRE_OPPONENT_STARTER_STRONG_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "상대 선발 {playerName} 선수가 좋은 흐름입니다. 적은 기회라도 득점으로 연결해야 합니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Pre",
+        "Opponent"
+      ]
+    },
+    {
+      "cueId": "MATCH_PRE_OPPONENT_LINEUP_HOT",
+      "factType": "OpponentLineupHot",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "streakGames"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_PRE_OPPONENT_LINEUP_HOT:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenOpponentAnalysis",
+        "label": "상대 타선 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_PRE_OPPONENT_LINEUP_HOT_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "상대 타선의 최근 흐름이 좋습니다. {streakGames}경기째 득점력이 안정적이라 주자가 쌓였을 때 특히 조심해야 합니다."
+        },
+        {
+          "variationId": "MATCH_PRE_OPPONENT_LINEUP_HOT_B",
+          "weight": 35,
+          "tone": "Analysis",
+          "text": "오늘은 상대 중심 타선 경계가 필요합니다. 최근 {streakGames}경기에서 공격 흐름이 이어지고 있습니다."
+        },
+        {
+          "variationId": "MATCH_PRE_OPPONENT_LINEUP_HOT_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "상대 타선이 상승세입니다. 초반부터 불필요한 출루를 줄이는 게 중요하겠습니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Pre",
+        "Opponent"
+      ]
+    },
+    {
+      "cueId": "MATCH_PRE_READY",
+      "factType": "PreMatchReady",
+      "modeScope": "Common",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Welcome",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_PRE_READY:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "StartMatch",
+        "label": "경기 시작"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_PRE_READY_A",
+          "weight": 40,
+          "tone": "Friendly",
+          "text": "준비는 끝났습니다. 이제 선수들이 보여줄 차례네요."
+        },
+        {
+          "variationId": "MATCH_PRE_READY_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "경기 준비가 완료됐습니다. 시작하셔도 좋습니다."
+        },
+        {
+          "variationId": "MATCH_PRE_READY_C",
+          "weight": 25,
+          "tone": "Welcome",
+          "text": "라인업과 투수진 확인이 끝났습니다. 경기를 시작하겠습니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Pre"
+      ],
+      "autoDismissSec": 5
+    },
+    {
+      "cueId": "MATCH_POST_WIN",
+      "factType": "MatchWon",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "score"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_POST_WIN:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenMatchSummary",
+        "label": "경기 기록 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_POST_WIN_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "승리했습니다. 최종 스코어는 {score}입니다. 오늘 경기의 결정적 장면을 확인해 보세요."
+        },
+        {
+          "variationId": "MATCH_POST_WIN_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "좋은 경기였습니다. {score} 승리입니다. 중요한 기록을 정리해 두었습니다."
+        },
+        {
+          "variationId": "MATCH_POST_WIN_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "경기가 승리로 끝났습니다. {score}. 투타 주요 기록을 함께 확인할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Post"
+      ]
+    },
+    {
+      "cueId": "MATCH_POST_LOSS",
+      "factType": "MatchLost",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "score"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_POST_LOSS:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenMatchSummary",
+        "label": "경기 분석"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_POST_LOSS_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "경기는 {score}로 끝났습니다. 패배 원인이 한쪽에만 있지는 않습니다. 주요 지표를 함께 보죠."
+        },
+        {
+          "variationId": "MATCH_POST_LOSS_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "아쉬운 결과입니다. 최종 스코어는 {score}입니다. 경기 내용에서 확인할 부분을 정리했습니다."
+        },
+        {
+          "variationId": "MATCH_POST_LOSS_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "{score} 패배입니다. 결과보다 반복되는 패턴이 있는지 최근 경기와 함께 보는 편이 좋겠습니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Post"
+      ]
+    },
+    {
+      "cueId": "MATCH_POST_BULLPEN_OVERUSE",
+      "factType": "MatchBullpenOverused",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "usedPitchers"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_POST_BULLPEN_OVERUSE:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenBullpen",
+        "label": "투수 피로 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_POST_BULLPEN_OVERUSE_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "오늘 불펜 소모가 컸습니다. 구원 투수 {usedPitchers}명이 등판해 다음 경기 운영에 영향이 있을 수 있습니다."
+        },
+        {
+          "variationId": "MATCH_POST_BULLPEN_OVERUSE_B",
+          "weight": 35,
+          "tone": "Warning",
+          "text": "경기 결과와 별개로 불펜 사용량은 주의가 필요합니다. 다음 경기 전에 회복 상태를 확인해 주세요."
+        },
+        {
+          "variationId": "MATCH_POST_BULLPEN_OVERUSE_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "후반에 많은 투수를 사용했습니다. 연전이라면 다음 경기의 불펜 선택지가 줄어들 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Post",
+        "Bullpen"
+      ]
+    },
+    {
+      "cueId": "MATCH_POST_STARTER_LONG_OUTING",
+      "factType": "StarterLongOuting",
+      "modeScope": "Common",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName",
+        "innings"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_POST_STARTER_LONG_OUTING:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenPitchingStats",
+        "label": "투수 기록"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_POST_STARTER_LONG_OUTING_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "{playerName} 선수가 {innings}이닝을 책임졌습니다. 불펜 부담을 크게 줄인 등판이었습니다."
+        },
+        {
+          "variationId": "MATCH_POST_STARTER_LONG_OUTING_B",
+          "weight": 35,
+          "tone": "Analysis",
+          "text": "선발 {playerName} 선수가 {innings}이닝을 소화하며 경기 운영에 여유를 만들었습니다."
+        },
+        {
+          "variationId": "MATCH_POST_STARTER_LONG_OUTING_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "오늘은 {playerName} 선발의 긴 이닝 소화가 큰 도움이 됐습니다."
+        }
+      ],
+      "tags": [
+        "Match",
+        "Post",
+        "Pitching"
+      ],
+      "autoDismissSec": 7
+    },
+    {
+      "cueId": "MATCH_POST_KEY_PLAYER",
+      "factType": "MatchKeyPlayer",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName",
+        "summary"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_POST_KEY_PLAYER:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenPlayerGameLog",
+        "label": "오늘의 선수"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_POST_KEY_PLAYER_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "오늘 가장 눈에 띈 선수는 {playerName}입니다. {summary}"
+        },
+        {
+          "variationId": "MATCH_POST_KEY_PLAYER_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "{playerName} 선수가 승부의 중심에 있었습니다. {summary}"
+        },
+        {
+          "variationId": "MATCH_POST_KEY_PLAYER_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "경기 영향도가 가장 컸던 선수는 {playerName}입니다. {summary}"
+        }
+      ],
+      "tags": [
+        "Match",
+        "Post",
+        "Player"
+      ]
+    },
+    {
+      "cueId": "MATCH_POST_CLOSE_LOSS_POSITIVE",
+      "factType": "CloseLossPositiveSignal",
+      "modeScope": "Common",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Calm",
+      "requiredPayload": [
+        "summary"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "MATCH_POST_CLOSE_LOSS_POSITIVE:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRecentMatches",
+        "label": "최근 경기 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "MATCH_POST_CLOSE_LOSS_POSITIVE_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "결과는 아쉽지만 긍정적인 부분도 있었습니다. {summary}"
+        },
+        {
+          "variationId": "MATCH_POST_CLOSE_LOSS_POSITIVE_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "쉽지 않은 경기였지만 끝까지 따라붙었습니다. {summary}"
+        },
+        {
+          "variationId": "MATCH_POST_CLOSE_LOSS_POSITIVE_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "패배 속에서도 유지된 강점이 있습니다. {summary}"
+        }
+      ],
+      "tags": [
+        "Match",
+        "Post"
+      ],
+      "autoDismissSec": 7
+    },
+    {
+      "cueId": "FORM_WIN_STREAK",
+      "factType": "WinStreakReached",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "streak"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "FORM_WIN_STREAK:{seasonId}:{streak}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRecentMatches",
+        "label": "연승 기록 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "FORM_WIN_STREAK_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "{streak}연승입니다. 팀 전체 흐름이 확실히 좋아졌습니다."
+        },
+        {
+          "variationId": "FORM_WIN_STREAK_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "쉽게 지지 않는 흐름이 이어지고 있습니다. 현재 {streak}연승입니다."
+        },
+        {
+          "variationId": "FORM_WIN_STREAK_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "연승이 {streak}경기까지 늘었습니다. 지금의 강점이 무엇인지 최근 기록에서 확인할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Form",
+        "WinStreak"
+      ],
+      "autoDismissSec": 7
+    },
+    {
+      "cueId": "FORM_LOSS_STREAK",
+      "factType": "LossStreakReached",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "streak"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "FORM_LOSS_STREAK:{seasonId}:{streak}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenRecentMatches",
+        "label": "최근 경기 분석"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "FORM_LOSS_STREAK_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "{streak}연패입니다. 한 경기의 문제가 아니라 반복되는 패턴이 있는지 확인할 필요가 있습니다."
+        },
+        {
+          "variationId": "FORM_LOSS_STREAK_B",
+          "weight": 35,
+          "tone": "Warning",
+          "text": "연패가 {streak}경기까지 이어졌습니다. 급하게 전부 바꾸기보다 최근 실점과 득점 흐름부터 보죠."
+        },
+        {
+          "variationId": "FORM_LOSS_STREAK_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "현재 {streak}연패입니다. 타선, 선발, 불펜 중 어느 쪽에서 손실이 반복되는지 비교해 보겠습니다."
+        }
+      ],
+      "tags": [
+        "Form",
+        "LossStreak"
+      ]
+    },
+    {
+      "cueId": "FORM_STREAK_BULLPEN_WARNING",
+      "factType": "WinStreakWithBullpenFatigue",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "streak"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "FORM_STREAK_BULLPEN_WARNING:{dayId}",
+        "cooldownScope": "Day",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenBullpen",
+        "label": "불펜 상태"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "FORM_STREAK_BULLPEN_WARNING_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "{streak}연승의 좋은 흐름 뒤에 불펜 피로가 쌓였습니다. 다음 경기에서는 체력 관리가 필요합니다."
+        },
+        {
+          "variationId": "FORM_STREAK_BULLPEN_WARNING_B",
+          "weight": 35,
+          "tone": "Analysis",
+          "text": "연승 동안 주요 불펜 사용량도 함께 늘었습니다. 좋은 흐름을 오래 가져가려면 휴식이 중요합니다."
+        },
+        {
+          "variationId": "FORM_STREAK_BULLPEN_WARNING_C",
+          "weight": 25,
+          "tone": "Warning",
+          "text": "성적은 좋지만 불펜 소모가 위험 구간에 들어왔습니다. 다음 일정까지 회복 상태를 확인해 주세요."
+        }
+      ],
+      "tags": [
+        "Form",
+        "Bullpen"
+      ]
+    },
+    {
+      "cueId": "FORM_LOSS_STREAK_ENDED",
+      "factType": "LossStreakEnded",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "previousStreak"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "FORM_LOSS_STREAK_ENDED:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenMatchSummary",
+        "label": "경기 결과"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "FORM_LOSS_STREAK_ENDED_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "긴 연패가 끝났습니다. {previousStreak}경기 동안 이어진 흐름을 오늘 끊어냈습니다."
+        },
+        {
+          "variationId": "FORM_LOSS_STREAK_ENDED_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "드디어 분위기를 바꿨습니다. 이번 승리가 반등의 시작이 될 수 있겠네요."
+        },
+        {
+          "variationId": "FORM_LOSS_STREAK_ENDED_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "연패가 종료됐습니다. 이제 다음 경기에서 흐름을 이어가는 것이 중요합니다."
+        }
+      ],
+      "tags": [
+        "Form"
+      ],
+      "autoDismissSec": 7
+    },
+    {
+      "cueId": "SCOUT_SP_READY",
+      "factType": "ScoutPointsReady",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "sp"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "SCOUT_SP_READY:{dayId}",
+        "cooldownScope": "Day",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenScout",
+        "label": "스카우트 이동"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "SCOUT_SP_READY_A",
+          "weight": 40,
+          "tone": "Friendly",
+          "text": "스카우트 포인트가 {sp}까지 모였습니다. 새로운 선수를 찾아볼 수 있습니다."
+        },
+        {
+          "variationId": "SCOUT_SP_READY_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "현재 SP는 {sp}입니다. 사용 가능한 스카우트가 있습니다."
+        },
+        {
+          "variationId": "SCOUT_SP_READY_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "스카우트에 필요한 포인트가 준비됐습니다. 필요한 선수군을 정한 뒤 후보를 좁혀 보세요."
+        }
+      ],
+      "tags": [
+        "Scout",
+        "Economy"
+      ],
+      "autoDismissSec": 7
+    },
+    {
+      "cueId": "SCOUT_PITY_READY",
+      "factType": "ScoutPityReady",
+      "modeScope": "Owner",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "SCOUT_PITY_READY:{pityCycleId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenFocusScout",
+        "label": "집중 스카우트"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "SCOUT_PITY_READY_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "집중 스카우트 게이지가 가득 찼습니다. Cost 7 이상 후보가 있는 조건에서 확정 스카우트를 사용할 수 있습니다."
+        },
+        {
+          "variationId": "SCOUT_PITY_READY_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "집중 스카우트를 사용할 수 있습니다. 원하는 구단이나 연도를 정하고 Cost 7 이상 후보를 노려보세요."
+        },
+        {
+          "variationId": "SCOUT_PITY_READY_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "Pity 게이지가 100에 도달했습니다. 적격 후보가 존재하는 필터에서 한 번의 집중 스카우트를 실행할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Scout",
+        "Pity"
+      ]
+    },
+    {
+      "cueId": "SCOUT_PITY_FILTER_INVALID",
+      "factType": "ScoutPityFilterNoCandidate",
+      "modeScope": "Owner",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "filterName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "SCOUT_PITY_FILTER_INVALID:{filterKey}:{pityCycleId}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenScoutFilters",
+        "label": "조건 변경"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "SCOUT_PITY_FILTER_INVALID_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "‘{filterName}’ 조건에는 Cost 7 이상 후보가 없습니다. 이 조건으로는 집중 스카우트를 사용할 수 없습니다."
+        },
+        {
+          "variationId": "SCOUT_PITY_FILTER_INVALID_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "선택한 후보군에는 집중 스카우트 대상이 없습니다. 조건을 조금 넓혀 주세요."
+        },
+        {
+          "variationId": "SCOUT_PITY_FILTER_INVALID_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "이 필터에서는 확정 조건을 만족하는 카드가 나오지 않습니다. 다른 구단이나 연도를 선택해야 합니다."
+        }
+      ],
+      "tags": [
+        "Scout",
+        "Pity"
+      ]
+    },
+    {
+      "cueId": "SCOUT_NEW_CARD",
+      "factType": "ScoutNewCardAcquired",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName",
+        "cost",
+        "edition"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "SCOUT_NEW_CARD:{scoutRollId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCardDetail",
+        "label": "새 카드 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "SCOUT_NEW_CARD_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "새 선수를 확보했습니다. {playerName}, Cost {cost}, {edition} 카드입니다."
+        },
+        {
+          "variationId": "SCOUT_NEW_CARD_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "새 카드가 들어왔습니다. {playerName} 선수의 Cost {cost} {edition} 카드입니다."
+        },
+        {
+          "variationId": "SCOUT_NEW_CARD_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "스카우트 결과는 {playerName} / Cost {cost} / {edition}입니다. 현재 선수단과 비교해 보세요."
+        }
+      ],
+      "tags": [
+        "Scout",
+        "Card"
+      ]
+    },
+    {
+      "cueId": "SCOUT_DUPLICATE_CARD",
+      "factType": "ScoutDuplicateCardAcquired",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Neutral",
+      "requiredPayload": [
+        "playerName",
+        "enhancementLevel"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "SCOUT_DUPLICATE_CARD:{scoutRollId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenDuplicateAction",
+        "label": "중복 카드 처리"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "SCOUT_DUPLICATE_CARD_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "{playerName} 선수의 동일 카드가 다시 나왔습니다. 현재 강화 단계는 +{enhancementLevel}입니다."
+        },
+        {
+          "variationId": "SCOUT_DUPLICATE_CARD_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "중복 카드입니다. {playerName} 카드를 강화에 쓸지, 보관하거나 판매할지 선택할 수 있습니다."
+        },
+        {
+          "variationId": "SCOUT_DUPLICATE_CARD_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "동일 CardId를 다시 획득했습니다. 최대 강화 전이라면 강화 재료로 사용할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Scout",
+        "Duplicate"
+      ]
+    },
+    {
+      "cueId": "SCOUT_RENORMALIZED_ODDS",
+      "factType": "ScoutPoolRenormalized",
+      "modeScope": "Owner",
+      "priority": "Low",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "filterName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "SCOUT_RENORMALIZED_ODDS:{filterKey}:{catalogRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenScoutOdds",
+        "label": "실제 확률 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "SCOUT_RENORMALIZED_ODDS_A",
+          "weight": 40,
+          "tone": "Analysis",
+          "text": "‘{filterName}’ 후보군에는 존재하지 않는 Cost·Edition 조합이 있습니다. 해당 항목을 제외한 실제 확률로 다시 계산됐습니다."
+        },
+        {
+          "variationId": "SCOUT_RENORMALIZED_ODDS_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "현재 선택한 조건에서 나올 수 없는 카드는 확률에서 제외됩니다. 화면에는 재계산된 실제 확률이 표시됩니다."
+        },
+        {
+          "variationId": "SCOUT_RENORMALIZED_ODDS_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "후보가 없는 Bucket은 제거하고 남은 후보끼리 확률을 재분배했습니다. 표시 확률이 실제 추첨 확률입니다."
+        }
+      ],
+      "tags": [
+        "Scout",
+        "Odds"
+      ]
+    },
+    {
+      "cueId": "SCOUT_SP_LOW",
+      "factType": "ScoutPointsLow",
+      "modeScope": "Owner",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Calm",
+      "requiredPayload": [
+        "sp",
+        "needed"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "SCOUT_SP_LOW:{dayId}",
+        "cooldownScope": "Day",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenEconomy",
+        "label": "SP 현황"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "SCOUT_SP_LOW_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "현재 SP는 {sp}입니다. 이 스카우트에는 {needed}이 필요합니다."
+        },
+        {
+          "variationId": "SCOUT_SP_LOW_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "포인트가 조금 부족합니다. 다음 생산 시점까지 기다리거나 다른 스카우트를 살펴보세요."
+        },
+        {
+          "variationId": "SCOUT_SP_LOW_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "현재 보유 SP로는 이 스카우트를 실행할 수 없습니다. 필요한 SP는 {needed}입니다."
+        }
+      ],
+      "tags": [
+        "Scout",
+        "Economy"
+      ],
+      "autoDismissSec": 6
+    },
+    {
+      "cueId": "CARD_DUPLICATE_ENHANCE_AVAILABLE",
+      "factType": "DuplicateEnhancementAvailable",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Neutral",
+      "requiredPayload": [
+        "playerName",
+        "enhancementLevel"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CARD_DUPLICATE_ENHANCE_AVAILABLE:{cardId}:{duplicateRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenEnhancement",
+        "label": "강화하기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CARD_DUPLICATE_ENHANCE_AVAILABLE_A",
+          "weight": 40,
+          "tone": "Friendly",
+          "text": "{playerName} 카드의 중복이 있습니다. 현재 +{enhancementLevel}에서 한 단계 강화할 수 있습니다."
+        },
+        {
+          "variationId": "CARD_DUPLICATE_ENHANCE_AVAILABLE_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "중복 카드를 강화에 사용할 수 있습니다. {playerName} 카드는 현재 +{enhancementLevel}입니다."
+        },
+        {
+          "variationId": "CARD_DUPLICATE_ENHANCE_AVAILABLE_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "강화 가능한 중복 카드가 확인됐습니다. 이 시스템은 실패 없이 최대 +5까지 진행됩니다."
+        }
+      ],
+      "tags": [
+        "Card",
+        "Enhancement"
+      ],
+      "autoDismissSec": 7
+    },
+    {
+      "cueId": "CARD_ENHANCEMENT_MAX",
+      "factType": "CardEnhancementMaxed",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CARD_ENHANCEMENT_MAX:{cardId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCardDetail",
+        "label": "카드 확인"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CARD_ENHANCEMENT_MAX_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "{playerName} 카드가 최대 강화 +5에 도달했습니다."
+        },
+        {
+          "variationId": "CARD_ENHANCEMENT_MAX_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "강화가 끝났습니다. {playerName} 카드는 이제 +5 MAX 상태입니다."
+        },
+        {
+          "variationId": "CARD_ENHANCEMENT_MAX_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "최대 강화가 완료됐습니다. 이후 추가 중복은 판매 대상으로 정리할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Card",
+        "Enhancement"
+      ],
+      "autoDismissSec": 7
+    },
+    {
+      "cueId": "CARD_EXTRA_DUPLICATE_AFTER_MAX",
+      "factType": "ExtraDuplicateAfterMax",
+      "modeScope": "Owner",
+      "priority": "Low",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Neutral",
+      "requiredPayload": [
+        "playerName",
+        "saleSp"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CARD_EXTRA_DUPLICATE_AFTER_MAX:{acquisitionId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCardSale",
+        "label": "판매 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CARD_EXTRA_DUPLICATE_AFTER_MAX_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "{playerName} 카드는 이미 +5입니다. 이번 중복은 판매하면 SP {saleSp}를 회수할 수 있습니다."
+        },
+        {
+          "variationId": "CARD_EXTRA_DUPLICATE_AFTER_MAX_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "최대 강화 이후의 추가 중복입니다. 보관하거나 SP로 판매할 수 있습니다."
+        },
+        {
+          "variationId": "CARD_EXTRA_DUPLICATE_AFTER_MAX_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "강화에 더 사용할 수 없는 중복 카드입니다. 기본 자동 판매 정책에서도 이 상태만 자동 판매 대상으로 삼습니다."
+        }
+      ],
+      "tags": [
+        "Card",
+        "Sale"
+      ]
+    },
+    {
+      "cueId": "CARD_TRAINING_AVAILABLE",
+      "factType": "CardTrainingAvailable",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "playerName",
+        "abilityName",
+        "headroom"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CARD_TRAINING_AVAILABLE:{cardId}:{trainingRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCardTraining",
+        "label": "카드 훈련"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CARD_TRAINING_AVAILABLE_A",
+          "weight": 40,
+          "tone": "Analysis",
+          "text": "{playerName} 카드의 {abilityName}은 아직 {headroom}만큼 성장 여지가 있습니다. DP 훈련을 사용할 수 있습니다."
+        },
+        {
+          "variationId": "CARD_TRAINING_AVAILABLE_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "이 카드는 아직 훈련 상한에 도달하지 않았습니다. {abilityName} 쪽에 성장 여지가 남아 있습니다."
+        },
+        {
+          "variationId": "CARD_TRAINING_AVAILABLE_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "조금 더 다듬을 수 있는 카드네요. {abilityName} 능력치에 아직 훈련 여유가 있습니다."
+        }
+      ],
+      "tags": [
+        "Card",
+        "Training"
+      ]
+    },
+    {
+      "cueId": "CARD_TRAINING_CEILING",
+      "factType": "CardTrainingCeilingReached",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "playerName",
+        "abilityName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CARD_TRAINING_CEILING:{cardId}:{abilityName}:{trainingRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCardTraining",
+        "label": "다른 능력치 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CARD_TRAINING_CEILING_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "{playerName} 카드의 {abilityName}은 훈련 상한에 도달했습니다. 이 능력치에는 DP를 더 사용해도 오르지 않습니다."
+        },
+        {
+          "variationId": "CARD_TRAINING_CEILING_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "{abilityName} 훈련은 여기까지입니다. 다른 능력치의 성장 여지를 확인해 보세요."
+        },
+        {
+          "variationId": "CARD_TRAINING_CEILING_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "현재 시즌 카드가 허용하는 {abilityName} TrainingCeiling에 도달했습니다."
+        }
+      ],
+      "tags": [
+        "Card",
+        "Training"
+      ]
+    },
+    {
+      "cueId": "CARD_FAVORITE_SALE_WARNING",
+      "factType": "FavoriteCardSaleAttempt",
+      "modeScope": "Owner",
+      "priority": "High",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CARD_FAVORITE_SALE_WARNING:{saleAttemptId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCardDetail",
+        "label": "카드 다시 확인"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "CARD_FAVORITE_SALE_WARNING_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "{playerName} 카드는 즐겨찾기로 지정되어 있습니다. 정말 판매할 카드가 맞는지 다시 확인해 주세요."
+        },
+        {
+          "variationId": "CARD_FAVORITE_SALE_WARNING_B",
+          "weight": 35,
+          "tone": "Concerned",
+          "text": "즐겨찾기 카드 판매를 시도했습니다. 실수일 수 있으니 한 번 더 확인하는 편이 좋겠습니다."
+        },
+        {
+          "variationId": "CARD_FAVORITE_SALE_WARNING_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "보호 표시된 카드입니다. 판매 전 카드 정보를 다시 확인해 주세요."
+        }
+      ],
+      "tags": [
+        "Card",
+        "Sale",
+        "Safety"
+      ]
+    },
+    {
+      "cueId": "TEAMCOLOR_NEW_UNLOCK",
+      "factType": "TeamColorUnlocked",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "teamColorName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TEAMCOLOR_NEW_UNLOCK:{teamColorId}:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTeamColor",
+        "label": "팀컬러 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TEAMCOLOR_NEW_UNLOCK_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "새 팀컬러 ‘{teamColorName}’ 조건을 만족했습니다. 장착 후보가 하나 늘었습니다."
+        },
+        {
+          "variationId": "TEAMCOLOR_NEW_UNLOCK_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "선수 구성이 맞아떨어졌네요. ‘{teamColorName}’ 팀컬러를 사용할 수 있습니다."
+        },
+        {
+          "variationId": "TEAMCOLOR_NEW_UNLOCK_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "현재 1군 구성으로 ‘{teamColorName}’이 활성화됐습니다. 적용 선수와 효과를 확인해 보세요."
+        }
+      ],
+      "tags": [
+        "TeamColor"
+      ]
+    },
+    {
+      "cueId": "TEAMCOLOR_TWO_SLOTS_AVAILABLE",
+      "factType": "TeamColorSlotsAvailable",
+      "modeScope": "Owner",
+      "priority": "Low",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Analysis",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TEAMCOLOR_TWO_SLOTS_AVAILABLE:{saveId}",
+        "cooldownScope": "Save",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTeamColor",
+        "label": "팀컬러 설정"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TEAMCOLOR_TWO_SLOTS_AVAILABLE_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "팀컬러는 최대 두 슬롯까지 장착할 수 있습니다. 활성화된 후보 중 원하는 조합을 선택하세요."
+        },
+        {
+          "variationId": "TEAMCOLOR_TWO_SLOTS_AVAILABLE_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "두 개의 팀컬러를 함께 사용할 수 있습니다. 서로 다른 조건을 조합해 보는 것도 좋습니다."
+        },
+        {
+          "variationId": "TEAMCOLOR_TWO_SLOTS_AVAILABLE_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "장착 슬롯은 2개입니다. 각 팀컬러는 자신의 조건을 만족하는 카드에만 효과를 적용합니다."
+        }
+      ],
+      "tags": [
+        "TeamColor",
+        "Tutorial"
+      ]
+    },
+    {
+      "cueId": "TEAMCOLOR_HIGHEST_ONLY_CONFLICT",
+      "factType": "TeamColorHighestOnlyConflict",
+      "modeScope": "Owner",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "groupName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TEAMCOLOR_HIGHEST_ONLY_CONFLICT:{groupId}:{slotRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTeamColor",
+        "label": "다른 조합 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TEAMCOLOR_HIGHEST_ONLY_CONFLICT_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "‘{groupName}’ 계열은 같은 업그레이드 그룹의 여러 단계를 동시에 장착할 수 없습니다."
+        },
+        {
+          "variationId": "TEAMCOLOR_HIGHEST_ONLY_CONFLICT_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "이 두 팀컬러는 같은 카드 집합을 겨냥하는 상위·하위 조건입니다. 더 높은 단계 하나만 사용됩니다."
+        },
+        {
+          "variationId": "TEAMCOLOR_HIGHEST_ONLY_CONFLICT_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "HighestOnly 정책이 적용되는 그룹입니다. 조건을 만족한 가장 강한 단계만 장착 후보로 남습니다."
+        }
+      ],
+      "tags": [
+        "TeamColor",
+        "StackPolicy"
+      ]
+    },
+    {
+      "cueId": "TEAMCOLOR_DUAL_APPLY",
+      "factType": "TeamColorDualApply",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "playerCount"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TEAMCOLOR_DUAL_APPLY:{slotRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTeamColorCoverage",
+        "label": "적용 대상 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TEAMCOLOR_DUAL_APPLY_A",
+          "weight": 40,
+          "tone": "Analysis",
+          "text": "현재 {playerCount}명의 카드가 두 슬롯의 조건을 모두 만족해 두 팀컬러 효과를 함께 받습니다."
+        },
+        {
+          "variationId": "TEAMCOLOR_DUAL_APPLY_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "두 팀컬러가 동시에 적용되는 선수가 {playerCount}명입니다. 카드별 적용 범위를 확인할 수 있습니다."
+        },
+        {
+          "variationId": "TEAMCOLOR_DUAL_APPLY_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "조합이 잘 맞았습니다. {playerCount}명은 두 팀컬러의 효과를 함께 받고 있습니다."
+        }
+      ],
+      "tags": [
+        "TeamColor"
+      ]
+    },
+    {
+      "cueId": "TEAMCOLOR_HONOR_UNLOCK",
+      "factType": "HonorTeamColorUnlocked",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "teamColorName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TEAMCOLOR_HONOR_UNLOCK:{teamColorId}:{worldAwardRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTeamColor",
+        "label": "명예 팀컬러"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TEAMCOLOR_HONOR_UNLOCK_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "특수 Edition 구성이 갖춰지며 ‘{teamColorName}’ 명예 팀컬러가 활성화됐습니다."
+        },
+        {
+          "variationId": "TEAMCOLOR_HONOR_UNLOCK_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "수상 카드들이 모여 새로운 팀컬러를 만들었습니다. ‘{teamColorName}’을 확인해 보세요."
+        },
+        {
+          "variationId": "TEAMCOLOR_HONOR_UNLOCK_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "World Award 기반 Edition 구성이 ‘{teamColorName}’ 조건을 충족했습니다."
+        }
+      ],
+      "tags": [
+        "TeamColor",
+        "Award"
+      ]
+    },
+    {
+      "cueId": "TACTIC_SLOT_EMPTY",
+      "factType": "TacticSlotEmpty",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Neutral",
+      "requiredPayload": [
+        "emptySlots"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TACTIC_SLOT_EMPTY:{matchId}:{loadoutRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTactics",
+        "label": "전술 설정"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TACTIC_SLOT_EMPTY_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "이번 경기 전술카드 슬롯이 {emptySlots}칸 비어 있습니다. 경기 확정 전에 준비할 수 있습니다."
+        },
+        {
+          "variationId": "TACTIC_SLOT_EMPTY_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "전술카드를 아직 다 채우지 않았습니다. 필요하다면 경기 전에 준비해 두세요."
+        },
+        {
+          "variationId": "TACTIC_SLOT_EMPTY_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "전술카드는 경기당 최대 2장입니다. 현재 {emptySlots}개 슬롯이 비어 있습니다."
+        }
+      ],
+      "tags": [
+        "Tactic",
+        "Owner"
+      ]
+    },
+    {
+      "cueId": "TACTIC_CONSUME_WARNING",
+      "factType": "TacticConsumeOnMatchConfirm",
+      "modeScope": "Owner",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TACTIC_CONSUME_WARNING:{matchId}:{loadoutRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTactics",
+        "label": "조건 확인"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TACTIC_CONSUME_WARNING_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "장착한 전술카드는 조건이 발동하지 않더라도 경기 시작이 확정되면 소모됩니다."
+        },
+        {
+          "variationId": "TACTIC_CONSUME_WARNING_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "전술카드는 ‘발동했을 때’가 아니라 경기 확정 시 소모됩니다. 조건을 한 번 확인해 주세요."
+        },
+        {
+          "variationId": "TACTIC_CONSUME_WARNING_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "이번 경기에서 조건이 나오지 않아도 장착 카드는 돌아오지 않습니다. 사용 여부를 신중히 결정해 주세요."
+        }
+      ],
+      "tags": [
+        "Tactic",
+        "Owner"
+      ]
+    },
+    {
+      "cueId": "TACTIC_DISRUPTION_LIMIT",
+      "factType": "DisruptionTacticLimit",
+      "modeScope": "Owner",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TACTIC_DISRUPTION_LIMIT:{matchId}:{loadoutRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTactics",
+        "label": "전술 조합 수정"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TACTIC_DISRUPTION_LIMIT_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "방해형 전술카드는 한 경기에 최대 1장만 준비할 수 있습니다."
+        },
+        {
+          "variationId": "TACTIC_DISRUPTION_LIMIT_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "현재 조합에는 방해형 카드가 두 장 이상 포함돼 있습니다. 한 장만 남겨 주세요."
+        },
+        {
+          "variationId": "TACTIC_DISRUPTION_LIMIT_C",
+          "weight": 25,
+          "tone": "Concerned",
+          "text": "전술 조합 규칙에 맞지 않습니다. IsDisruption 카드의 경기당 한도는 1장입니다."
+        }
+      ],
+      "tags": [
+        "Tactic",
+        "Owner"
+      ]
+    },
+    {
+      "cueId": "TACTIC_COUNTER_RELATION",
+      "factType": "TacticCounterAvailable",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "cardName",
+        "counterName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TACTIC_COUNTER_RELATION:{matchId}:{cardId}:{counterId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTacticCounters",
+        "label": "카운터 확인"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TACTIC_COUNTER_RELATION_A",
+          "weight": 40,
+          "tone": "Analysis",
+          "text": "‘{cardName}’은 ‘{counterName}’과 직접 맞물리는 관계가 있습니다. 상대 전술 가능성을 함께 보세요."
+        },
+        {
+          "variationId": "TACTIC_COUNTER_RELATION_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "이 카드에는 명시된 카운터 관계가 있습니다. ‘{counterName}’과 동시에 발동하면 상쇄 여부를 확인해야 합니다."
+        },
+        {
+          "variationId": "TACTIC_COUNTER_RELATION_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "전술끼리 궁합도 있습니다. ‘{cardName}’과 ‘{counterName}’의 관계를 확인해 보세요."
+        }
+      ],
+      "tags": [
+        "Tactic",
+        "Counter"
+      ]
+    },
+    {
+      "cueId": "TACTIC_TRIGGERED_OWNER",
+      "factType": "TacticTriggered",
+      "modeScope": "Owner",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "cardName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TACTIC_TRIGGERED_OWNER:{matchId}:{activationId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTacticLog",
+        "label": "전술 효과 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TACTIC_TRIGGERED_OWNER_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "준비한 ‘{cardName}’ 전술이 발동했습니다."
+        },
+        {
+          "variationId": "TACTIC_TRIGGERED_OWNER_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "조건이 맞았습니다. ‘{cardName}’ 효과가 적용됩니다."
+        },
+        {
+          "variationId": "TACTIC_TRIGGERED_OWNER_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "‘{cardName}’의 Trigger 조건이 성립해 현재 효과가 적용됐습니다."
+        }
+      ],
+      "tags": [
+        "Tactic",
+        "Match"
+      ],
+      "autoDismissSec": 5,
+      "suppressDuring": [
+        "PlayerMinigameInput"
+      ]
+    },
+    {
+      "cueId": "TACTIC_TRIGGERED_CAREER",
+      "factType": "ManagerTacticTriggeredForCareer",
+      "modeScope": "Career",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "cardName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "TACTIC_TRIGGERED_CAREER:{matchId}:{activationId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTacticLog",
+        "label": "전술 효과 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "TACTIC_TRIGGERED_CAREER_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "우리 감독이 ‘{cardName}’ 전술을 사용했습니다. 현재 상황이 발동 조건을 만족했습니다."
+        },
+        {
+          "variationId": "TACTIC_TRIGGERED_CAREER_B",
+          "weight": 35,
+          "tone": "Analysis",
+          "text": "감독의 ‘{cardName}’ 전술이 발동했습니다. 경기 운영에 해당 효과가 반영됩니다."
+        },
+        {
+          "variationId": "TACTIC_TRIGGERED_CAREER_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "감독이 준비한 ‘{cardName}’이 지금 발동했네요."
+        }
+      ],
+      "tags": [
+        "Tactic",
+        "Career",
+        "Match"
+      ],
+      "autoDismissSec": 5,
+      "suppressDuring": [
+        "PlayerMinigameInput"
+      ]
+    },
+    {
+      "cueId": "BULLPEN_HIGH_LEVERAGE_FATIGUE",
+      "factType": "HighLeverageBullpenFatigue",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "availableHighLeverageCount"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "BULLPEN_HIGH_LEVERAGE_FATIGUE:{matchId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenBullpen",
+        "label": "불펜 확인"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "BULLPEN_HIGH_LEVERAGE_FATIGUE_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "접전에서 우선 고려할 불펜의 여유가 부족합니다. 현재 정상적으로 활용 가능한 핵심 불펜은 {availableHighLeverageCount}명입니다."
+        },
+        {
+          "variationId": "BULLPEN_HIGH_LEVERAGE_FATIGUE_B",
+          "weight": 35,
+          "tone": "Concerned",
+          "text": "필승·추격 상황에서 쓸 선택지가 줄었습니다. 후반 운영이 평소보다 제한될 수 있습니다."
+        },
+        {
+          "variationId": "BULLPEN_HIGH_LEVERAGE_FATIGUE_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "Bullpen 1·2 중심의 고레버리지 운용이 어려운 상태입니다. 다른 불펜까지 후보에 들어올 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Bullpen",
+        "Tactic"
+      ]
+    },
+    {
+      "cueId": "CAREER_STARTING_LINEUP",
+      "factType": "CareerStartingLineupSelected",
+      "modeScope": "Career",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "battingOrder",
+        "position"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_STARTING_LINEUP:{matchId}:{careerPlayerId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTodayLineup",
+        "label": "오늘 라인업"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_STARTING_LINEUP_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "오늘은 {battingOrder}번 타자 {position}으로 선발 출장합니다."
+        },
+        {
+          "variationId": "CAREER_STARTING_LINEUP_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "선발 명단에 이름을 올렸습니다. 오늘 역할은 {battingOrder}번 {position}입니다."
+        },
+        {
+          "variationId": "CAREER_STARTING_LINEUP_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "감독이 오늘 선발 라인업에 포함했습니다. {battingOrder}번, {position}으로 경기를 시작합니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Lineup"
+      ]
+    },
+    {
+      "cueId": "CAREER_BENCHED",
+      "factType": "CareerNotStarting",
+      "modeScope": "Career",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Calm",
+      "requiredPayload": [
+        "reasonSummary"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_BENCHED:{matchId}:{careerPlayerId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTodayLineup",
+        "label": "출전 계획 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_BENCHED_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "오늘은 선발 명단에서 제외됐습니다. {reasonSummary}"
+        },
+        {
+          "variationId": "CAREER_BENCHED_B",
+          "weight": 35,
+          "tone": "Concerned",
+          "text": "이번 경기는 벤치에서 시작합니다. {reasonSummary}"
+        },
+        {
+          "variationId": "CAREER_BENCHED_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "오늘은 선발이 아니네요. {reasonSummary} 경기 중 교체 기회는 남아 있습니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Lineup"
+      ]
+    },
+    {
+      "cueId": "CAREER_PINCH_HIT_READY",
+      "factType": "CareerPinchHitPlanned",
+      "modeScope": "Career",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "inning"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_PINCH_HIT_READY:{matchId}:{careerPlayerId}:{inning}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": null,
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_PINCH_HIT_READY_A",
+          "weight": 40,
+          "tone": "Analysis",
+          "text": "{inning}회, 대타 출전 가능성이 높아졌습니다. 한 타석이 중요한 상황입니다."
+        },
+        {
+          "variationId": "CAREER_PINCH_HIT_READY_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "출전 준비를 해두세요. {inning}회에 대타 기회가 올 수 있습니다."
+        },
+        {
+          "variationId": "CAREER_PINCH_HIT_READY_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "감독이 대타 후보로 고려하고 있습니다. 현재 경기 상황상 곧 출전할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Match"
+      ],
+      "autoDismissSec": 5,
+      "suppressDuring": [
+        "PlayerMinigameInput"
+      ]
+    },
+    {
+      "cueId": "CAREER_OFFPOSITION_START",
+      "factType": "CareerOffPositionStart",
+      "modeScope": "Career",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "assignedPosition",
+        "naturalPosition"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_OFFPOSITION_START:{matchId}:{careerPlayerId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTodayLineup",
+        "label": "포지션 확인"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_OFFPOSITION_START_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "오늘은 본래 {naturalPosition}이 아닌 {assignedPosition}에서 선발 출장합니다. 수비 부담과 컨디션 소모가 평소보다 커질 수 있습니다."
+        },
+        {
+          "variationId": "CAREER_OFFPOSITION_START_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "감독이 공격과 선수 구성을 고려해 {assignedPosition}에 배치했습니다. 비주포지션 비용이 적용됩니다."
+        },
+        {
+          "variationId": "CAREER_OFFPOSITION_START_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "오늘 배치는 {naturalPosition} → {assignedPosition}입니다. 출전은 가능하지만 수비 실책 위험과 컨디션 페널티가 있습니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Position"
+      ]
+    },
+    {
+      "cueId": "CAREER_DH_START",
+      "factType": "CareerDHStart",
+      "modeScope": "Career",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Neutral",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_DH_START:{matchId}:{careerPlayerId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTodayLineup",
+        "label": "라인업 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_DH_START_A",
+          "weight": 40,
+          "tone": "Friendly",
+          "text": "오늘은 지명타자로 선발 출장합니다. 수비 부담 없이 타격에 집중할 수 있습니다."
+        },
+        {
+          "variationId": "CAREER_DH_START_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "오늘 역할은 DH입니다. 본래 수비 포지션과 관계없이 비주포지션 수비 페널티는 적용되지 않습니다."
+        },
+        {
+          "variationId": "CAREER_DH_START_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "지명타자 출전입니다. 수비 Assignment 비용 없이 공격에만 참가합니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Position"
+      ],
+      "autoDismissSec": 6
+    },
+    {
+      "cueId": "CAREER_PITCHER_ROLE_CHANGE",
+      "factType": "CareerPitcherRoleChanged",
+      "modeScope": "Career",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "naturalRole",
+        "assignedRole"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_PITCHER_ROLE_CHANGE:{matchId}:{careerPlayerId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenPitchingRole",
+        "label": "투수 역할 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_PITCHER_ROLE_CHANGE_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "오늘은 본래 {naturalRole}이 아닌 {assignedRole} 역할로 등판 대기합니다. 컨디션 부담이 생길 수 있습니다."
+        },
+        {
+          "variationId": "CAREER_PITCHER_ROLE_CHANGE_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "감독이 오늘 역할을 {assignedRole}로 조정했습니다. 평소와 다른 운용이므로 상태 관리가 중요합니다."
+        },
+        {
+          "variationId": "CAREER_PITCHER_ROLE_CHANGE_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "투수 역할 Assignment가 {naturalRole} → {assignedRole}로 변경됐습니다. 기용 가능하지만 역할 불일치 페널티가 적용됩니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "PitcherRole"
+      ]
+    },
+    {
+      "cueId": "CAREER_SUBSTITUTED_DEFENSE",
+      "factType": "CareerSubstitutedForDefense",
+      "modeScope": "Career",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Calm",
+      "requiredPayload": [
+        "inning"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_SUBSTITUTED_DEFENSE:{matchId}:{careerPlayerId}:{inning}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenMatchLog",
+        "label": "교체 내용"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_SUBSTITUTED_DEFENSE_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "{inning}회 수비 강화를 위해 교체됐습니다. 오늘 출전은 여기까지입니다."
+        },
+        {
+          "variationId": "CAREER_SUBSTITUTED_DEFENSE_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "감독이 후반 수비를 강화하기로 했습니다. {inning}회에 교체됐습니다."
+        },
+        {
+          "variationId": "CAREER_SUBSTITUTED_DEFENSE_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "{inning}회, 경기 상황과 수비 우선 판단으로 교체가 이뤄졌습니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Substitution"
+      ],
+      "autoDismissSec": 6,
+      "suppressDuring": [
+        "PlayerMinigameInput"
+      ]
+    },
+    {
+      "cueId": "CAREER_PLAYING_TIME_UP",
+      "factType": "CareerPlayingTimeTrendUp",
+      "modeScope": "Career",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "recentStarts"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_PLAYING_TIME_UP:{weekId}:{careerPlayerId}",
+        "cooldownScope": "Week",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCareerUsage",
+        "label": "출장 기록"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_PLAYING_TIME_UP_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "최근 선발 출장이 늘고 있습니다. 최근 기간 선발 출전은 {recentStarts}회입니다."
+        },
+        {
+          "variationId": "CAREER_PLAYING_TIME_UP_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "기용 순위가 조금씩 올라가고 있습니다. 선발 기회가 전보다 자주 오고 있어요."
+        },
+        {
+          "variationId": "CAREER_PLAYING_TIME_UP_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "최근 선발 출장 빈도가 증가했습니다. 감독의 역할 평가가 긍정적으로 변하고 있습니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Usage"
+      ]
+    },
+    {
+      "cueId": "CAREER_PLAYING_TIME_DOWN",
+      "factType": "CareerPlayingTimeTrendDown",
+      "modeScope": "Career",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "reasonSummary"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_PLAYING_TIME_DOWN:{weekId}:{careerPlayerId}",
+        "cooldownScope": "Week",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCareerUsage",
+        "label": "기용 현황"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_PLAYING_TIME_DOWN_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "최근 출전 시간이 줄고 있습니다. {reasonSummary}"
+        },
+        {
+          "variationId": "CAREER_PLAYING_TIME_DOWN_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "기용 빈도가 이전보다 낮아졌습니다. {reasonSummary}"
+        },
+        {
+          "variationId": "CAREER_PLAYING_TIME_DOWN_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "최근 역할 평가가 내려간 상태입니다. {reasonSummary} 다음 기회를 위해 현재 상태를 확인해 보세요."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Usage"
+      ]
+    },
+    {
+      "cueId": "CAREER_CONDITION_LOW",
+      "factType": "CareerPlayerConditionLow",
+      "modeScope": "Career",
+      "priority": "High",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "conditionLabel"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_CONDITION_LOW:{dayId}:{careerPlayerId}",
+        "cooldownScope": "Day",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCareerCondition",
+        "label": "컨디션 확인"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_CONDITION_LOW_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "현재 컨디션은 ‘{conditionLabel}’입니다. 출전 시간이나 기용 역할에 영향이 생길 수 있습니다."
+        },
+        {
+          "variationId": "CAREER_CONDITION_LOW_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "몸 상태가 완전하지 않습니다. 오늘 기용이 평소와 달라질 가능성이 있습니다."
+        },
+        {
+          "variationId": "CAREER_CONDITION_LOW_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "컨디션 저하가 확인됐습니다. 감독 AI의 라인업·교체 판단에도 이 상태가 반영됩니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Condition"
+      ]
+    },
+    {
+      "cueId": "CAREER_RENEWAL_OFFER",
+      "factType": "CareerRenewalOfferArrived",
+      "modeScope": "Career",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "teamName",
+        "deadline"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_RENEWAL_OFFER:{offerId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenContractOffer",
+        "label": "재계약 조건 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_RENEWAL_OFFER_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "{teamName}에서 재계약 조건을 제시했습니다. 응답 기한은 {deadline}입니다."
+        },
+        {
+          "variationId": "CAREER_RENEWAL_OFFER_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "현재 구단이 재계약을 원하고 있습니다. 조건과 예상 역할을 함께 비교해 보세요."
+        },
+        {
+          "variationId": "CAREER_RENEWAL_OFFER_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "재계약 오퍼가 도착했습니다. 금액뿐 아니라 다음 시즌 기용 전망도 함께 확인하는 편이 좋습니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Contract"
+      ]
+    },
+    {
+      "cueId": "CAREER_CONTRACT_DEADLINE",
+      "factType": "CareerContractDeadlineNear",
+      "modeScope": "Career",
+      "priority": "Critical",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "deadline"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_CONTRACT_DEADLINE:{offerBoardId}",
+        "cooldownScope": "Day",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenContractOffer",
+        "label": "계약 확인"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "CAREER_CONTRACT_DEADLINE_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "계약 결정 기한이 {deadline}까지입니다. 아직 응답하지 않은 제안이 있습니다."
+        },
+        {
+          "variationId": "CAREER_CONTRACT_DEADLINE_B",
+          "weight": 35,
+          "tone": "Concerned",
+          "text": "계약 선택을 미룰 시간이 많지 않습니다. 남은 제안을 다시 확인해 주세요."
+        },
+        {
+          "variationId": "CAREER_CONTRACT_DEADLINE_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "계약 응답 기한이 가까워졌습니다. 결정하지 않은 오퍼가 있다면 지금 확인하는 편이 좋겠습니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Contract",
+        "Deadline"
+      ]
+    },
+    {
+      "cueId": "CAREER_TRADE_INQUIRY",
+      "factType": "CareerTradeInquiry",
+      "modeScope": "Career",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Surprised",
+      "requiredPayload": [
+        "teamName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_TRADE_INQUIRY:{tradeInquiryId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTradeInquiry",
+        "label": "트레이드 내용 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CAREER_TRADE_INQUIRY_A",
+          "weight": 40,
+          "tone": "Surprised",
+          "text": "{teamName}에서 트레이드 가능성을 문의했습니다. 아직 이동이 확정된 것은 아닙니다."
+        },
+        {
+          "variationId": "CAREER_TRADE_INQUIRY_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "다른 구단에서 관심을 보였습니다. 트레이드 협의 단계이며 현재 소속에는 아직 변화가 없습니다."
+        },
+        {
+          "variationId": "CAREER_TRADE_INQUIRY_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "새로운 이야기가 들어왔습니다. {teamName}이 트레이드 가능성을 알아보고 있습니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Trade"
+      ]
+    },
+    {
+      "cueId": "CAREER_TRADE_COMPLETED",
+      "factType": "CareerTradeCompleted",
+      "modeScope": "Career",
+      "priority": "Critical",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Calm",
+      "requiredPayload": [
+        "newTeamName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CAREER_TRADE_COMPLETED:{transactionId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenNewTeam",
+        "label": "새 구단 보기"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "CAREER_TRADE_COMPLETED_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "트레이드가 확정됐습니다. 이제 {newTeamName} 소속으로 커리어를 이어갑니다."
+        },
+        {
+          "variationId": "CAREER_TRADE_COMPLETED_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "새로운 팀으로 이동합니다. 다음 경기부터 {newTeamName} 선수로 등록됩니다."
+        },
+        {
+          "variationId": "CAREER_TRADE_COMPLETED_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "이적이 완료됐습니다. 소속 변경에 따라 정체성 TeamColor Wildcard도 새 TeamSeason 기준으로 갱신됩니다."
+        }
+      ],
+      "tags": [
+        "Career",
+        "Trade"
+      ]
+    },
+    {
+      "cueId": "OWNER_TRADE_OFFER",
+      "factType": "OwnerTradeOfferArrived",
+      "modeScope": "Owner",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Analysis",
+      "requiredPayload": [
+        "teamName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "OWNER_TRADE_OFFER:{tradeOfferId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTradeOffer",
+        "label": "제안 보기"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "OWNER_TRADE_OFFER_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "{teamName}에서 트레이드 제안을 보냈습니다. 주고받는 선수와 로스터 영향을 확인할 수 있습니다."
+        },
+        {
+          "variationId": "OWNER_TRADE_OFFER_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "새 트레이드 제안이 도착했습니다. 전력 보강이 될지 한번 비교해 보죠."
+        },
+        {
+          "variationId": "OWNER_TRADE_OFFER_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "트레이드 오퍼가 도착했습니다. 현재 25인 구성과 포지션 공백까지 함께 확인하는 것이 좋습니다."
+        }
+      ],
+      "tags": [
+        "Owner",
+        "Trade"
+      ]
+    },
+    {
+      "cueId": "OWNER_TRADE_ROSTER_RISK",
+      "factType": "OwnerTradeRosterRisk",
+      "modeScope": "Owner",
+      "priority": "Critical",
+      "presentationType": "ContextBubble",
+      "expressionKey": "Warning",
+      "requiredPayload": [
+        "reasonSummary"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "OWNER_TRADE_ROSTER_RISK:{tradeOfferId}:{rosterRevision}",
+        "cooldownScope": "Revision",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenTradeRosterImpact",
+        "label": "로스터 영향 보기"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "OWNER_TRADE_ROSTER_RISK_A",
+          "weight": 40,
+          "tone": "Warning",
+          "text": "이 트레이드를 그대로 수락하면 1군 구성에 문제가 생깁니다. {reasonSummary}"
+        },
+        {
+          "variationId": "OWNER_TRADE_ROSTER_RISK_B",
+          "weight": 35,
+          "tone": "Concerned",
+          "text": "전력뿐 아니라 등록 규칙도 확인해야 합니다. {reasonSummary}"
+        },
+        {
+          "variationId": "OWNER_TRADE_ROSTER_RISK_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "거래 후 예상 CurrentRosterState가 공통 로스터 규칙을 만족하지 않습니다. {reasonSummary}"
+        }
+      ],
+      "tags": [
+        "Owner",
+        "Trade",
+        "Roster"
+      ]
+    },
+    {
+      "cueId": "OWNER_TRADE_FAILED",
+      "factType": "OwnerTradeNegotiationFailed",
+      "modeScope": "Owner",
+      "priority": "Low",
+      "presentationType": "Toast",
+      "expressionKey": "Calm",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "OWNER_TRADE_FAILED:{tradeOfferId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": null,
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "OWNER_TRADE_FAILED_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "트레이드 협상이 결렬됐습니다. 현재 선수 구성에는 변화가 없습니다."
+        },
+        {
+          "variationId": "OWNER_TRADE_FAILED_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "이번 거래는 성사되지 않았습니다. 기존 선수단으로 계속 진행합니다."
+        },
+        {
+          "variationId": "OWNER_TRADE_FAILED_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "협상이 종료됐습니다. CurrentRosterState와 보유 카드는 그대로 유지됩니다."
+        }
+      ],
+      "tags": [
+        "Owner",
+        "Trade"
+      ],
+      "autoDismissSec": 6
+    },
+    {
+      "cueId": "CONTRACT_COMPLETED",
+      "factType": "ContractCompleted",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName",
+        "teamName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CONTRACT_COMPLETED:{contractId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenContractResult",
+        "label": "계약 결과"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "CONTRACT_COMPLETED_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "{playerName} 선수와 {teamName}의 계약이 완료됐습니다."
+        },
+        {
+          "variationId": "CONTRACT_COMPLETED_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "계약 절차가 끝났습니다. 새로운 조건이 선수와 구단 상태에 반영됩니다."
+        },
+        {
+          "variationId": "CONTRACT_COMPLETED_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "계약이 확정됐습니다. 이제 다음 일정에 맞춰 새 조건으로 진행합니다."
+        }
+      ],
+      "tags": [
+        "Contract"
+      ]
+    },
+    {
+      "cueId": "LEAGUE_PROMOTION",
+      "factType": "LeaguePromotion",
+      "modeScope": "Common",
+      "priority": "Critical",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "fromGrade",
+        "toGrade"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "LEAGUE_PROMOTION:{seasonId}:{teamSeasonKey}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenLeagueResult",
+        "label": "승격 결과 보기"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "LEAGUE_PROMOTION_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "승격이 확정됐습니다. {fromGrade}에서 {toGrade}로 올라갑니다."
+        },
+        {
+          "variationId": "LEAGUE_PROMOTION_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "한 단계 올라섰습니다. 다음 시즌부터 {toGrade}에서 경쟁합니다."
+        },
+        {
+          "variationId": "LEAGUE_PROMOTION_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "시즌 결과에 따라 {toGrade} 승격이 확정됐습니다. 상위 리그 준비를 시작할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "League",
+        "Promotion"
+      ]
+    },
+    {
+      "cueId": "LEAGUE_RELEGATION",
+      "factType": "LeagueRelegation",
+      "modeScope": "Common",
+      "priority": "Critical",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Concerned",
+      "requiredPayload": [
+        "fromGrade",
+        "toGrade"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "LEAGUE_RELEGATION:{seasonId}:{teamSeasonKey}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenLeagueResult",
+        "label": "시즌 결과 보기"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "LEAGUE_RELEGATION_A",
+          "weight": 40,
+          "tone": "Concerned",
+          "text": "강등이 확정됐습니다. 다음 시즌은 {toGrade}에서 다시 시작합니다."
+        },
+        {
+          "variationId": "LEAGUE_RELEGATION_B",
+          "weight": 35,
+          "tone": "Calm",
+          "text": "이번 시즌 결과로 {fromGrade}에서 {toGrade}로 내려갑니다. 다음 시즌 반등을 준비해야겠습니다."
+        },
+        {
+          "variationId": "LEAGUE_RELEGATION_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "리그 등급이 {toGrade}로 변경됩니다. 능력치 보정이 아니라 실제 시즌 결과에 따른 이동입니다."
+        }
+      ],
+      "tags": [
+        "League",
+        "Relegation"
+      ]
+    },
+    {
+      "cueId": "LEAGUE_STAY",
+      "factType": "LeagueStayed",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Calm",
+      "requiredPayload": [
+        "grade"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "LEAGUE_STAY:{seasonId}:{teamSeasonKey}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenLeagueResult",
+        "label": "시즌 결과"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "LEAGUE_STAY_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "이번 시즌은 {grade}에 잔류합니다. 다음 시즌 다시 승격을 노릴 수 있습니다."
+        },
+        {
+          "variationId": "LEAGUE_STAY_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "등급 변화 없이 {grade}에서 한 시즌 더 경쟁합니다."
+        },
+        {
+          "variationId": "LEAGUE_STAY_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "승강 결과는 잔류입니다. 현재 리그 등급은 {grade}로 유지됩니다."
+        }
+      ],
+      "tags": [
+        "League"
+      ]
+    },
+    {
+      "cueId": "POSTSEASON_QUALIFIED",
+      "factType": "PostseasonQualified",
+      "modeScope": "Common",
+      "priority": "Critical",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "POSTSEASON_QUALIFIED:{seasonId}:{teamSeasonKey}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenPostseasonSchedule",
+        "label": "포스트시즌 일정"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "POSTSEASON_QUALIFIED_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "포스트시즌 진출이 확정됐습니다. 이제 한 경기의 무게가 훨씬 커집니다."
+        },
+        {
+          "variationId": "POSTSEASON_QUALIFIED_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "정규시즌을 넘어 다음 무대로 갑니다. 포스트시즌 일정이 확정됐습니다."
+        },
+        {
+          "variationId": "POSTSEASON_QUALIFIED_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "포스트시즌 참가가 확정됐습니다. 일정과 투수진 상태를 미리 확인해 두세요."
+        }
+      ],
+      "tags": [
+        "League",
+        "Postseason"
+      ]
+    },
+    {
+      "cueId": "POSTSEASON_ELIMINATED",
+      "factType": "PostseasonEliminated",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Calm",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "POSTSEASON_ELIMINATED:{seasonId}:{teamSeasonKey}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenSeasonReview",
+        "label": "시즌 회고"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "POSTSEASON_ELIMINATED_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "포스트시즌 여정이 여기서 끝났습니다. 아쉽지만 이번 시즌의 모든 기록은 남습니다."
+        },
+        {
+          "variationId": "POSTSEASON_ELIMINATED_B",
+          "weight": 35,
+          "tone": "Concerned",
+          "text": "포스트시즌에서 탈락했습니다. 이제 이번 시즌을 정리하고 다음 시즌을 준비할 시간입니다."
+        },
+        {
+          "variationId": "POSTSEASON_ELIMINATED_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "이번 시즌은 여기까지네요. 결과와 성장, 주요 기록을 함께 돌아볼 수 있습니다."
+        }
+      ],
+      "tags": [
+        "League",
+        "Postseason"
+      ]
+    },
+    {
+      "cueId": "CHAMPIONSHIP_REACHED",
+      "factType": "ChampionshipReached",
+      "modeScope": "Common",
+      "priority": "Critical",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CHAMPIONSHIP_REACHED:{seasonId}:{teamSeasonKey}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenPostseasonSchedule",
+        "label": "결승 일정"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "CHAMPIONSHIP_REACHED_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "챔피언 결정전에 진출했습니다. 이제 시즌의 마지막 목표가 남았습니다."
+        },
+        {
+          "variationId": "CHAMPIONSHIP_REACHED_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "결승까지 왔습니다. 지금까지의 흐름을 마지막 시리즈에서도 이어가야 합니다."
+        },
+        {
+          "variationId": "CHAMPIONSHIP_REACHED_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "챔피언 결정전 진출이 확정됐습니다. 선발 로테이션과 불펜 체력을 다시 확인해 주세요."
+        }
+      ],
+      "tags": [
+        "League",
+        "Postseason"
+      ]
+    },
+    {
+      "cueId": "CHAMPIONSHIP_WON",
+      "factType": "ChampionshipWon",
+      "modeScope": "Common",
+      "priority": "Critical",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "CHAMPIONSHIP_WON:{seasonId}:{teamSeasonKey}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenSeasonHistory",
+        "label": "우승 기록 보기"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "CHAMPIONSHIP_WON_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "우승입니다. 긴 시즌 동안 쌓아온 결과가 하나의 기록으로 완성됐습니다."
+        },
+        {
+          "variationId": "CHAMPIONSHIP_WON_B",
+          "weight": 35,
+          "tone": "Celebrate",
+          "text": "마지막 경기까지 해냈습니다. 이번 시즌의 챔피언은 우리 팀입니다."
+        },
+        {
+          "variationId": "CHAMPIONSHIP_WON_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "시즌 우승이 확정됐습니다. 순위와 포스트시즌 기록, 주요 선수 기록이 역사에 남습니다."
+        }
+      ],
+      "tags": [
+        "League",
+        "Championship"
+      ]
+    },
+    {
+      "cueId": "AWARD_ALLSTAR_SELECTED",
+      "factType": "AllStarSelected",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "AWARD_ALLSTAR_SELECTED:{awardRecordId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenAwardRecord",
+        "label": "올스타 기록"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "AWARD_ALLSTAR_SELECTED_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "{playerName} 선수가 올스타에 선정됐습니다. 전반기의 활약이 공식적으로 인정받았습니다."
+        },
+        {
+          "variationId": "AWARD_ALLSTAR_SELECTED_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "올스타 소식입니다. {playerName} 선수가 이번 시즌 올스타 명단에 이름을 올렸습니다."
+        },
+        {
+          "variationId": "AWARD_ALLSTAR_SELECTED_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "World Award 결과가 확정됐습니다. {playerName} 선수가 AllStar 자격을 획득했습니다."
+        }
+      ],
+      "tags": [
+        "Award",
+        "AllStar"
+      ]
+    },
+    {
+      "cueId": "AWARD_CAREER_ALLSTAR",
+      "factType": "CareerPlayerAllStar",
+      "modeScope": "Career",
+      "priority": "High",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "AWARD_CAREER_ALLSTAR:{awardRecordId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCareerAwards",
+        "label": "선정 결과"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "AWARD_CAREER_ALLSTAR_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "올스타에 선정됐습니다. 이 명예 자격은 이번 시즌이 끝날 때까지 유지됩니다."
+        },
+        {
+          "variationId": "AWARD_CAREER_ALLSTAR_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "전반기 활약이 인정받았습니다. 이제 올스타 선수로 기록됩니다."
+        },
+        {
+          "variationId": "AWARD_CAREER_ALLSTAR_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "AllStar Award가 확정됐습니다. Career Player의 AllStar Wildcard는 해당 시즌 종료까지 유효합니다."
+        }
+      ],
+      "tags": [
+        "Award",
+        "Career",
+        "AllStar"
+      ]
+    },
+    {
+      "cueId": "AWARD_GOLDENGLOVE_SELECTED",
+      "factType": "GoldenGloveSelected",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName",
+        "position"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "AWARD_GOLDENGLOVE_SELECTED:{awardRecordId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenAwardRecord",
+        "label": "골든글러브 기록"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "AWARD_GOLDENGLOVE_SELECTED_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "{playerName} 선수가 {position} 골든글러브를 수상했습니다."
+        },
+        {
+          "variationId": "AWARD_GOLDENGLOVE_SELECTED_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "시즌 전체의 활약이 좋은 결과로 이어졌습니다. {playerName} 선수의 골든글러브 수상입니다."
+        },
+        {
+          "variationId": "AWARD_GOLDENGLOVE_SELECTED_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "{position} 부문 GoldenGlove Award가 {playerName} 선수로 확정됐습니다."
+        }
+      ],
+      "tags": [
+        "Award",
+        "GoldenGlove"
+      ]
+    },
+    {
+      "cueId": "AWARD_CAREER_GOLDENGLOVE",
+      "factType": "CareerPlayerGoldenGlove",
+      "modeScope": "Career",
+      "priority": "High",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "AWARD_CAREER_GOLDENGLOVE:{awardRecordId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenCareerAwards",
+        "label": "명예 효과 보기"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "AWARD_CAREER_GOLDENGLOVE_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "골든글러브를 수상했습니다. 이 명예 Wildcard는 다음 시즌 종료까지 유지됩니다."
+        },
+        {
+          "variationId": "AWARD_CAREER_GOLDENGLOVE_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "시즌을 대표하는 수비·포지션 성과를 인정받았습니다. 골든글러브 수상입니다."
+        },
+        {
+          "variationId": "AWARD_CAREER_GOLDENGLOVE_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "GoldenGlove Award가 확정됐습니다. Career Player의 명예 자격은 다음 시즌 종료까지 유효합니다."
+        }
+      ],
+      "tags": [
+        "Award",
+        "Career",
+        "GoldenGlove"
+      ]
+    },
+    {
+      "cueId": "AWARD_REGULAR_MVP",
+      "factType": "RegularSeasonMvpSelected",
+      "modeScope": "Common",
+      "priority": "Critical",
+      "presentationType": "FullDialogue",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "AWARD_REGULAR_MVP:{awardRecordId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenAwardRecord",
+        "label": "MVP 뉴스"
+      },
+      "requiresAcknowledgement": true,
+      "variations": [
+        {
+          "variationId": "AWARD_REGULAR_MVP_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "정규시즌 MVP는 {playerName} 선수입니다. 이번 시즌을 대표하는 선수로 기록됩니다."
+        },
+        {
+          "variationId": "AWARD_REGULAR_MVP_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "시즌 최고의 활약이 인정받았습니다. {playerName} 선수가 정규시즌 MVP를 수상했습니다."
+        },
+        {
+          "variationId": "AWARD_REGULAR_MVP_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "정규시즌 Statistics 기반 MVP 선정 결과가 확정됐습니다. 수상자는 {playerName} 선수입니다."
+        }
+      ],
+      "tags": [
+        "Award",
+        "MVP"
+      ]
+    },
+    {
+      "cueId": "AWARD_ALLSTAR_GAME_MVP",
+      "factType": "AllStarGameMvpSelected",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "AWARD_ALLSTAR_GAME_MVP:{awardRecordId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenAllStarGame",
+        "label": "올스타전 기록"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "AWARD_ALLSTAR_GAME_MVP_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "올스타전 MVP는 {playerName} 선수입니다. 짧은 경기에서 가장 강한 인상을 남겼습니다."
+        },
+        {
+          "variationId": "AWARD_ALLSTAR_GAME_MVP_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "올스타전의 주인공이 정해졌습니다. {playerName} 선수가 MVP입니다."
+        },
+        {
+          "variationId": "AWARD_ALLSTAR_GAME_MVP_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "실제 올스타전 경기 결과를 기반으로 {playerName} 선수가 All-Star Game MVP에 선정됐습니다."
+        }
+      ],
+      "tags": [
+        "Award",
+        "MVP",
+        "AllStar"
+      ]
+    },
+    {
+      "cueId": "AWARD_POSTSEASON_MVP",
+      "factType": "PostseasonMvpSelected",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Celebrate",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "AWARD_POSTSEASON_MVP:{awardRecordId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenPostseasonAwards",
+        "label": "포스트시즌 기록"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "AWARD_POSTSEASON_MVP_A",
+          "weight": 40,
+          "tone": "Celebrate",
+          "text": "포스트시즌 MVP는 {playerName} 선수입니다. 가장 중요한 경기들에서 보여준 활약이 결정적이었습니다."
+        },
+        {
+          "variationId": "AWARD_POSTSEASON_MVP_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "가을 무대의 주인공은 {playerName} 선수였습니다. 포스트시즌 MVP 수상입니다."
+        },
+        {
+          "variationId": "AWARD_POSTSEASON_MVP_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "포스트시즌 출전과 Statistics를 기반으로 {playerName} 선수가 MVP에 선정됐습니다."
+        }
+      ],
+      "tags": [
+        "Award",
+        "MVP",
+        "Postseason"
+      ]
+    },
+    {
+      "cueId": "NEWS_STREAK_RECORD",
+      "factType": "NewsStreakRecord",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "Toast",
+      "expressionKey": "Surprised",
+      "requiredPayload": [
+        "playerName",
+        "recordName",
+        "value"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "NEWS_STREAK_RECORD:{newsId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenNewsArticle",
+        "label": "기록 추적"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "NEWS_STREAK_RECORD_A",
+          "weight": 40,
+          "tone": "Surprised",
+          "text": "{playerName} 선수가 {recordName} {value}까지 기록을 이어갔습니다."
+        },
+        {
+          "variationId": "NEWS_STREAK_RECORD_B",
+          "weight": 35,
+          "tone": "Celebrate",
+          "text": "기록이 계속 늘어나고 있습니다. {playerName} 선수의 {recordName}은 현재 {value}입니다."
+        },
+        {
+          "variationId": "NEWS_STREAK_RECORD_C",
+          "weight": 25,
+          "tone": "Friendly",
+          "text": "오늘도 기록이 이어졌네요. {playerName} 선수의 {recordName}이 {value}에 도달했습니다."
+        }
+      ],
+      "tags": [
+        "News",
+        "Record"
+      ],
+      "autoDismissSec": 7
+    },
+    {
+      "cueId": "NEWS_CLUB_RECORD_BROKEN",
+      "factType": "ClubRecordBroken",
+      "modeScope": "Common",
+      "priority": "High",
+      "presentationType": "NotificationCard",
+      "expressionKey": "Surprised",
+      "requiredPayload": [
+        "recordName",
+        "playerName",
+        "value"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "NEWS_CLUB_RECORD_BROKEN:{newsId}",
+        "cooldownScope": "Event",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenClubRecords",
+        "label": "구단 기록실"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "NEWS_CLUB_RECORD_BROKEN_A",
+          "weight": 40,
+          "tone": "Surprised",
+          "text": "구단 신기록입니다. {playerName} 선수가 {recordName} 기록을 {value}로 새로 썼습니다."
+        },
+        {
+          "variationId": "NEWS_CLUB_RECORD_BROKEN_B",
+          "weight": 35,
+          "tone": "Celebrate",
+          "text": "역사 기록이 바뀌었습니다. {recordName} 구단 최고 기록의 새 주인은 {playerName} 선수입니다."
+        },
+        {
+          "variationId": "NEWS_CLUB_RECORD_BROKEN_C",
+          "weight": 25,
+          "tone": "Calm",
+          "text": "이번 경기 결과로 구단 기록실이 갱신됐습니다. {recordName}: {value}."
+        }
+      ],
+      "tags": [
+        "News",
+        "Record"
+      ]
+    },
+    {
+      "cueId": "NEWS_SEASON_WRAP",
+      "factType": "SeasonNewsWrapReady",
+      "modeScope": "Common",
+      "priority": "Normal",
+      "presentationType": "Briefing",
+      "expressionKey": "Calm",
+      "requiredPayload": [
+        "headlineCount"
+      ],
+      "repeatPolicy": {
+        "dedupeKeyTemplate": "NEWS_SEASON_WRAP:{seasonId}:{teamSeasonKey}",
+        "cooldownScope": "Season",
+        "maxDisplaysPerScope": 1
+      },
+      "cta": {
+        "action": "OpenSeasonHistory",
+        "label": "시즌 기록실"
+      },
+      "requiresAcknowledgement": false,
+      "variations": [
+        {
+          "variationId": "NEWS_SEASON_WRAP_A",
+          "weight": 40,
+          "tone": "Calm",
+          "text": "이번 시즌을 정리한 주요 기록과 뉴스가 {headlineCount}건 있습니다. 승패뿐 아니라 선수와 구단의 변화도 함께 돌아볼 수 있습니다."
+        },
+        {
+          "variationId": "NEWS_SEASON_WRAP_B",
+          "weight": 35,
+          "tone": "Friendly",
+          "text": "한 시즌이 끝났습니다. 기억해 둘 만한 기록과 이야기를 {headlineCount}건으로 정리했습니다."
+        },
+        {
+          "variationId": "NEWS_SEASON_WRAP_C",
+          "weight": 25,
+          "tone": "Analysis",
+          "text": "시즌 종료 Snapshot에서 주요 사건 {headlineCount}건을 추렸습니다. 기록실과 뉴스에서 세부 내용을 확인할 수 있습니다."
+        }
+      ],
+      "tags": [
+        "News",
+        "Season"
+      ]
+    }
+  ],
+  "factTypeIndex": [
+    {
+      "factType": "AllStarGameMvpSelected",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "AWARD_ALLSTAR_GAME_MVP"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "AllStarSelected",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "AWARD_ALLSTAR_SELECTED"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "BenchSlotShortage",
+      "requiredPayload": [
+        "current",
+        "required"
+      ],
+      "cueIds": [
+        "ROSTER_BENCH_SHORTAGE"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "CardEnhancementMaxed",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "CARD_ENHANCEMENT_MAX"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "CardTrainingAvailable",
+      "requiredPayload": [
+        "abilityName",
+        "headroom",
+        "playerName"
+      ],
+      "cueIds": [
+        "CARD_TRAINING_AVAILABLE"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "CardTrainingCeilingReached",
+      "requiredPayload": [
+        "abilityName",
+        "playerName"
+      ],
+      "cueIds": [
+        "CARD_TRAINING_CEILING"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "CareerContractDeadlineNear",
+      "requiredPayload": [
+        "deadline"
+      ],
+      "cueIds": [
+        "CAREER_CONTRACT_DEADLINE"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerDHStart",
+      "requiredPayload": [],
+      "cueIds": [
+        "CAREER_DH_START"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerModeFirstEntry",
+      "requiredPayload": [],
+      "cueIds": [
+        "TUTORIAL_CAREER_FIRST_ENTRY"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerNotStarting",
+      "requiredPayload": [
+        "reasonSummary"
+      ],
+      "cueIds": [
+        "CAREER_BENCHED"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerOffPositionStart",
+      "requiredPayload": [
+        "assignedPosition",
+        "naturalPosition"
+      ],
+      "cueIds": [
+        "CAREER_OFFPOSITION_START"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerPinchHitPlanned",
+      "requiredPayload": [
+        "inning"
+      ],
+      "cueIds": [
+        "CAREER_PINCH_HIT_READY"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerPitcherRoleChanged",
+      "requiredPayload": [
+        "assignedRole",
+        "naturalRole"
+      ],
+      "cueIds": [
+        "CAREER_PITCHER_ROLE_CHANGE"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerPlayerAllStar",
+      "requiredPayload": [],
+      "cueIds": [
+        "AWARD_CAREER_ALLSTAR"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerPlayerConditionLow",
+      "requiredPayload": [
+        "conditionLabel"
+      ],
+      "cueIds": [
+        "CAREER_CONDITION_LOW"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerPlayerGoldenGlove",
+      "requiredPayload": [],
+      "cueIds": [
+        "AWARD_CAREER_GOLDENGLOVE"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerPlayingTimeTrendDown",
+      "requiredPayload": [
+        "reasonSummary"
+      ],
+      "cueIds": [
+        "CAREER_PLAYING_TIME_DOWN"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerPlayingTimeTrendUp",
+      "requiredPayload": [
+        "recentStarts"
+      ],
+      "cueIds": [
+        "CAREER_PLAYING_TIME_UP"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerRenewalOfferArrived",
+      "requiredPayload": [
+        "deadline",
+        "teamName"
+      ],
+      "cueIds": [
+        "CAREER_RENEWAL_OFFER"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerStartingLineupSelected",
+      "requiredPayload": [
+        "battingOrder",
+        "position"
+      ],
+      "cueIds": [
+        "CAREER_STARTING_LINEUP"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerSubstitutedForDefense",
+      "requiredPayload": [
+        "inning"
+      ],
+      "cueIds": [
+        "CAREER_SUBSTITUTED_DEFENSE"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerTradeCompleted",
+      "requiredPayload": [
+        "newTeamName"
+      ],
+      "cueIds": [
+        "CAREER_TRADE_COMPLETED"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "CareerTradeInquiry",
+      "requiredPayload": [
+        "teamName"
+      ],
+      "cueIds": [
+        "CAREER_TRADE_INQUIRY"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "ChampionshipReached",
+      "requiredPayload": [],
+      "cueIds": [
+        "CHAMPIONSHIP_REACHED"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "ChampionshipWon",
+      "requiredPayload": [],
+      "cueIds": [
+        "CHAMPIONSHIP_WON"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "CloseLossPositiveSignal",
+      "requiredPayload": [
+        "summary"
+      ],
+      "cueIds": [
+        "MATCH_POST_CLOSE_LOSS_POSITIVE"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "ClubRecordBroken",
+      "requiredPayload": [
+        "playerName",
+        "recordName",
+        "value"
+      ],
+      "cueIds": [
+        "NEWS_CLUB_RECORD_BROKEN"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "ContractCompleted",
+      "requiredPayload": [
+        "playerName",
+        "teamName"
+      ],
+      "cueIds": [
+        "CONTRACT_COMPLETED"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "DailyBriefingReady",
+      "requiredPayload": [
+        "gameCount",
+        "primaryHeadline"
+      ],
+      "cueIds": [
+        "HOME_DAILY_BRIEFING"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "DefensiveAssignmentRiskHigh",
+      "requiredPayload": [
+        "playerName",
+        "position"
+      ],
+      "cueIds": [
+        "POSITION_DEFENSE_RISK_HIGH"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "DisruptionTacticLimit",
+      "requiredPayload": [],
+      "cueIds": [
+        "TACTIC_DISRUPTION_LIMIT"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "DuplicateEnhancementAvailable",
+      "requiredPayload": [
+        "enhancementLevel",
+        "playerName"
+      ],
+      "cueIds": [
+        "CARD_DUPLICATE_ENHANCE_AVAILABLE"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "DuplicatePlayerPerson",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "ROSTER_DUPLICATE_PERSON"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ExtraDuplicateAfterMax",
+      "requiredPayload": [
+        "playerName",
+        "saleSp"
+      ],
+      "cueIds": [
+        "CARD_EXTRA_DUPLICATE_AFTER_MAX"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "FavoriteCardSaleAttempt",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "CARD_FAVORITE_SALE_WARNING"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ForeignCollectionNoLimit",
+      "requiredPayload": [
+        "ownedCount"
+      ],
+      "cueIds": [
+        "ROSTER_FOREIGN_COLLECTION_OK"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ForeignPlayerLimitExceeded",
+      "requiredPayload": [
+        "current",
+        "limit"
+      ],
+      "cueIds": [
+        "ROSTER_FOREIGN_LIMIT"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "GoldenGloveSelected",
+      "requiredPayload": [
+        "playerName",
+        "position"
+      ],
+      "cueIds": [
+        "AWARD_GOLDENGLOVE_SELECTED"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "GuideRoleExplanation",
+      "requiredPayload": [],
+      "cueIds": [
+        "TUTORIAL_GUIDE_ROLE"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "GuideSettingsHint",
+      "requiredPayload": [],
+      "cueIds": [
+        "HOME_GUIDE_SETTINGS_HINT"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "HighLeverageBullpenFatigue",
+      "requiredPayload": [
+        "availableHighLeverageCount"
+      ],
+      "cueIds": [
+        "BULLPEN_HIGH_LEVERAGE_FATIGUE"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "HitterAssignedToDH",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "POSITION_DH_FREE"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "HitterOffPositionAssigned",
+      "requiredPayload": [
+        "assignedPosition",
+        "naturalPosition",
+        "playerName"
+      ],
+      "cueIds": [
+        "POSITION_HITTER_OFFPOSITION"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "HonorTeamColorUnlocked",
+      "requiredPayload": [
+        "teamColorName"
+      ],
+      "cueIds": [
+        "TEAMCOLOR_HONOR_UNLOCK"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ImportantItemsQueued",
+      "requiredPayload": [
+        "count"
+      ],
+      "cueIds": [
+        "HOME_IMPORTANT_ITEMS"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "LeaguePromotion",
+      "requiredPayload": [
+        "fromGrade",
+        "toGrade"
+      ],
+      "cueIds": [
+        "LEAGUE_PROMOTION"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "LeagueRelegation",
+      "requiredPayload": [
+        "fromGrade",
+        "toGrade"
+      ],
+      "cueIds": [
+        "LEAGUE_RELEGATION"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "LeagueStayed",
+      "requiredPayload": [
+        "grade"
+      ],
+      "cueIds": [
+        "LEAGUE_STAY"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "LossStreakEnded",
+      "requiredPayload": [
+        "previousStreak"
+      ],
+      "cueIds": [
+        "FORM_LOSS_STREAK_ENDED"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "LossStreakReached",
+      "requiredPayload": [
+        "streak"
+      ],
+      "cueIds": [
+        "FORM_LOSS_STREAK"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "ManagerTacticTriggeredForCareer",
+      "requiredPayload": [
+        "cardName"
+      ],
+      "cueIds": [
+        "TACTIC_TRIGGERED_CAREER"
+      ],
+      "modeScopes": [
+        "Career"
+      ]
+    },
+    {
+      "factType": "MatchBullpenOverused",
+      "requiredPayload": [
+        "usedPitchers"
+      ],
+      "cueIds": [
+        "MATCH_POST_BULLPEN_OVERUSE"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "MatchDayStarted",
+      "requiredPayload": [
+        "gameCount"
+      ],
+      "cueIds": [
+        "HOME_MATCH_DAY"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "MatchKeyPlayer",
+      "requiredPayload": [
+        "playerName",
+        "summary"
+      ],
+      "cueIds": [
+        "MATCH_POST_KEY_PLAYER"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "MatchLost",
+      "requiredPayload": [
+        "score"
+      ],
+      "cueIds": [
+        "MATCH_POST_LOSS"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "MatchWon",
+      "requiredPayload": [
+        "score"
+      ],
+      "cueIds": [
+        "MATCH_POST_WIN"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "NewRecordHeadline",
+      "requiredPayload": [
+        "headline"
+      ],
+      "cueIds": [
+        "HOME_NEW_RECORD"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "NewsStreakRecord",
+      "requiredPayload": [
+        "playerName",
+        "recordName",
+        "value"
+      ],
+      "cueIds": [
+        "NEWS_STREAK_RECORD"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "NoAssignmentPenalty",
+      "requiredPayload": [],
+      "cueIds": [
+        "POSITION_ASSIGNMENT_CLEAN"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "NoMatchDay",
+      "requiredPayload": [],
+      "cueIds": [
+        "HOME_NO_MATCH_DAY"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "NoNaturalPositionStarter",
+      "requiredPayload": [
+        "position"
+      ],
+      "cueIds": [
+        "POSITION_NO_NATURAL_STARTER"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "OpponentLineupHot",
+      "requiredPayload": [
+        "streakGames"
+      ],
+      "cueIds": [
+        "MATCH_PRE_OPPONENT_LINEUP_HOT"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "OpponentStarterStrong",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "MATCH_PRE_OPPONENT_STARTER_STRONG"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "OwnerModeFirstEntry",
+      "requiredPayload": [],
+      "cueIds": [
+        "TUTORIAL_OWNER_FIRST_ENTRY"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "OwnerTradeNegotiationFailed",
+      "requiredPayload": [],
+      "cueIds": [
+        "OWNER_TRADE_FAILED"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "OwnerTradeOfferArrived",
+      "requiredPayload": [
+        "teamName"
+      ],
+      "cueIds": [
+        "OWNER_TRADE_OFFER"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "OwnerTradeRosterRisk",
+      "requiredPayload": [
+        "reasonSummary"
+      ],
+      "cueIds": [
+        "OWNER_TRADE_ROSTER_RISK"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "PitcherRoleMismatchAssigned",
+      "requiredPayload": [
+        "assignedRole",
+        "naturalRole",
+        "playerName"
+      ],
+      "cueIds": [
+        "POSITION_PITCHER_ROLE_MISMATCH"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "PitchingRoleSlotEmpty",
+      "requiredPayload": [
+        "missingCount",
+        "roleName"
+      ],
+      "cueIds": [
+        "ROSTER_PITCHING_ROLE_EMPTY"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "PostseasonEliminated",
+      "requiredPayload": [],
+      "cueIds": [
+        "POSTSEASON_ELIMINATED"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "PostseasonMvpSelected",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "AWARD_POSTSEASON_MVP"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "PostseasonQualified",
+      "requiredPayload": [],
+      "cueIds": [
+        "POSTSEASON_QUALIFIED"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "PreMatchBullpenFatigueHigh",
+      "requiredPayload": [
+        "fatiguedCount"
+      ],
+      "cueIds": [
+        "MATCH_PRE_BULLPEN_FATIGUE"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "PreMatchReady",
+      "requiredPayload": [],
+      "cueIds": [
+        "MATCH_PRE_READY"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "PreMatchStarterConditionGood",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "MATCH_PRE_STARTER_GOOD"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "PreMatchStarterConditionPoor",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "MATCH_PRE_STARTER_RISK"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "RegularSeasonMvpSelected",
+      "requiredPayload": [
+        "playerName"
+      ],
+      "cueIds": [
+        "AWARD_REGULAR_MVP"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "RosterInvalidTotal",
+      "requiredPayload": [
+        "current",
+        "required"
+      ],
+      "cueIds": [
+        "ROSTER_INVALID_TOTAL"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "RosterRoleCountInvalid",
+      "requiredPayload": [
+        "hitters",
+        "pitchers"
+      ],
+      "cueIds": [
+        "ROSTER_HITTER_PITCHER_RATIO"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "RosterValidated",
+      "requiredPayload": [],
+      "cueIds": [
+        "ROSTER_VALID"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ScoutDuplicateCardAcquired",
+      "requiredPayload": [
+        "enhancementLevel",
+        "playerName"
+      ],
+      "cueIds": [
+        "SCOUT_DUPLICATE_CARD"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ScoutFirstEntry",
+      "requiredPayload": [],
+      "cueIds": [
+        "TUTORIAL_OWNER_SCOUT_FIRST"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ScoutNewCardAcquired",
+      "requiredPayload": [
+        "cost",
+        "edition",
+        "playerName"
+      ],
+      "cueIds": [
+        "SCOUT_NEW_CARD"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ScoutPityFilterNoCandidate",
+      "requiredPayload": [
+        "filterName"
+      ],
+      "cueIds": [
+        "SCOUT_PITY_FILTER_INVALID"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ScoutPityReady",
+      "requiredPayload": [],
+      "cueIds": [
+        "SCOUT_PITY_READY"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ScoutPointsLow",
+      "requiredPayload": [
+        "needed",
+        "sp"
+      ],
+      "cueIds": [
+        "SCOUT_SP_LOW"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ScoutPointsReady",
+      "requiredPayload": [
+        "sp"
+      ],
+      "cueIds": [
+        "SCOUT_SP_READY"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "ScoutPoolRenormalized",
+      "requiredPayload": [
+        "filterName"
+      ],
+      "cueIds": [
+        "SCOUT_RENORMALIZED_ODDS"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "SeasonNewsWrapReady",
+      "requiredPayload": [
+        "headlineCount"
+      ],
+      "cueIds": [
+        "NEWS_SEASON_WRAP"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "StarterLongOuting",
+      "requiredPayload": [
+        "innings",
+        "playerName"
+      ],
+      "cueIds": [
+        "MATCH_POST_STARTER_LONG_OUTING"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "TacticConsumeOnMatchConfirm",
+      "requiredPayload": [],
+      "cueIds": [
+        "TACTIC_CONSUME_WARNING"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "TacticCounterAvailable",
+      "requiredPayload": [
+        "cardName",
+        "counterName"
+      ],
+      "cueIds": [
+        "TACTIC_COUNTER_RELATION"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "TacticSlotEmpty",
+      "requiredPayload": [
+        "emptySlots"
+      ],
+      "cueIds": [
+        "TACTIC_SLOT_EMPTY"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "TacticTriggered",
+      "requiredPayload": [
+        "cardName"
+      ],
+      "cueIds": [
+        "TACTIC_TRIGGERED_OWNER"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "TeamColorDualApply",
+      "requiredPayload": [
+        "playerCount"
+      ],
+      "cueIds": [
+        "TEAMCOLOR_DUAL_APPLY"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "TeamColorHighestOnlyConflict",
+      "requiredPayload": [
+        "groupName"
+      ],
+      "cueIds": [
+        "TEAMCOLOR_HIGHEST_ONLY_CONFLICT"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "TeamColorSlotsAvailable",
+      "requiredPayload": [],
+      "cueIds": [
+        "TEAMCOLOR_TWO_SLOTS_AVAILABLE"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "TeamColorUnlocked",
+      "requiredPayload": [
+        "teamColorName"
+      ],
+      "cueIds": [
+        "TEAMCOLOR_NEW_UNLOCK"
+      ],
+      "modeScopes": [
+        "Owner"
+      ]
+    },
+    {
+      "factType": "WinStreakReached",
+      "requiredPayload": [
+        "streak"
+      ],
+      "cueIds": [
+        "FORM_WIN_STREAK"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    },
+    {
+      "factType": "WinStreakWithBullpenFatigue",
+      "requiredPayload": [
+        "streak"
+      ],
+      "cueIds": [
+        "FORM_STREAK_BULLPEN_WARNING"
+      ],
+      "modeScopes": [
+        "Common"
+      ]
+    }
+  ]
+}

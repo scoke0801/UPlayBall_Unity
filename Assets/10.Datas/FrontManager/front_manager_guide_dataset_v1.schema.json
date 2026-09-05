@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "front_manager_guide_dataset_v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "datasetId",
+    "version",
+    "language",
+    "status",
+    "designContract",
+    "projectRules",
+    "enums",
+    "character",
+    "factContracts",
+    "cueDefinitions",
+    "factTypeIndex"
+  ],
+  "properties": {
+    "datasetId": { "const": "front_manager_guide_dataset" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "language": { "const": "ko-KR" },
+    "status": { "const": "implementation-ready-v1" },
+    "designContract": { "$ref": "#/$defs/designContract" },
+    "projectRules": { "type": "object" },
+    "enums": { "$ref": "#/$defs/enums" },
+    "character": { "$ref": "#/$defs/character" },
+    "factContracts": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "cueDefinitions": {
+      "type": "array",
+      "minItems": 100,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/cue" }
+    },
+    "factTypeIndex": {
+      "type": "array",
+      "minItems": 100,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/factTypeIndex" }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "designContract": {
+      "type": "object",
+      "required": [
+        "guideDoesNotJudge",
+        "factProducerOwnsGameLogic",
+        "deterministicVariationSelection",
+        "defaultSuppressionContexts",
+        "priorityOrder",
+        "homeFullDialogueMaxPerEntry",
+        "nonCriticalDuringMatch",
+        "runtimeContextKeys"
+      ],
+      "properties": {
+        "guideDoesNotJudge": { "const": true },
+        "factProducerOwnsGameLogic": { "const": true },
+        "deterministicVariationSelection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["strategy", "hashAlgorithm", "seedTemplate", "fallbackSeedTemplate"],
+          "properties": {
+            "strategy": { "const": "WeightedHash" },
+            "hashAlgorithm": { "const": "FNV1A64_UTF8" },
+            "seedTemplate": { "const": "{worldSeed}|{eventId}|{cueId}" },
+            "fallbackSeedTemplate": { "const": "{saveId}|{sequenceNo}|{cueId}" }
+          }
+        },
+        "defaultSuppressionContexts": { "$ref": "#/$defs/stringArray" },
+        "priorityOrder": { "$ref": "#/$defs/stringArray" },
+        "homeFullDialogueMaxPerEntry": { "type": "integer", "minimum": 1 },
+        "nonCriticalDuringMatch": { "const": "queue-until-safe-point" },
+        "runtimeContextKeys": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "enums": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modeScope", "priority", "presentationType", "expressionKey", "tone", "cooldownScope"],
+      "properties": {
+        "modeScope": { "$ref": "#/$defs/stringArray" },
+        "priority": { "$ref": "#/$defs/stringArray" },
+        "presentationType": { "$ref": "#/$defs/stringArray" },
+        "expressionKey": { "$ref": "#/$defs/stringArray" },
+        "tone": { "$ref": "#/$defs/stringArray" },
+        "cooldownScope": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["characterId", "displayNameKey", "defaultExpression", "expressions"],
+      "properties": {
+        "characterId": { "$ref": "#/$defs/nonEmptyString" },
+        "displayNameKey": { "$ref": "#/$defs/nonEmptyString" },
+        "defaultExpression": { "$ref": "#/$defs/expressionKey" },
+        "expressions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["Neutral", "Welcome", "Analysis", "Concerned", "Warning", "Celebrate", "Surprised", "Calm"],
+          "properties": {
+            "Neutral": { "$ref": "#/$defs/nonEmptyString" },
+            "Welcome": { "$ref": "#/$defs/nonEmptyString" },
+            "Analysis": { "$ref": "#/$defs/nonEmptyString" },
+            "Concerned": { "$ref": "#/$defs/nonEmptyString" },
+            "Warning": { "$ref": "#/$defs/nonEmptyString" },
+            "Celebrate": { "$ref": "#/$defs/nonEmptyString" },
+            "Surprised": { "$ref": "#/$defs/nonEmptyString" },
+            "Calm": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        }
+      }
+    },
+    "modeScope": { "enum": ["Common", "Owner", "Career"] },
+    "priority": { "enum": ["Critical", "High", "Normal", "Low", "Flavor"] },
+    "presentationType": { "enum": ["FullDialogue", "Briefing", "ContextBubble", "Toast", "NotificationCard", "ModalCelebration"] },
+    "expressionKey": { "enum": ["Neutral", "Welcome", "Analysis", "Concerned", "Warning", "Celebrate", "Surprised", "Calm"] },
+    "tone": { "enum": ["Calm", "Friendly", "Analysis", "Concerned", "Warning", "Celebrate", "Welcome", "Surprised"] },
+    "cooldownScope": { "enum": ["Event", "Revision", "Day", "Week", "Season", "Save"] },
+    "repeatPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dedupeKeyTemplate", "cooldownScope", "maxDisplaysPerScope"],
+      "properties": {
+        "dedupeKeyTemplate": { "$ref": "#/$defs/nonEmptyString" },
+        "cooldownScope": { "$ref": "#/$defs/cooldownScope" },
+        "maxDisplaysPerScope": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "cta": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["action", "label"],
+      "properties": {
+        "action": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "variation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["variationId", "weight", "tone", "text"],
+      "properties": {
+        "variationId": { "type": "string", "pattern": "^[A-Z0-9_]+$" },
+        "weight": { "type": "integer", "minimum": 1 },
+        "tone": { "$ref": "#/$defs/tone" },
+        "text": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "cue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cueId",
+        "factType",
+        "modeScope",
+        "priority",
+        "presentationType",
+        "expressionKey",
+        "requiredPayload",
+        "repeatPolicy",
+        "cta",
+        "requiresAcknowledgement",
+        "variations",
+        "tags"
+      ],
+      "properties": {
+        "cueId": { "type": "string", "pattern": "^[A-Z0-9_]+$" },
+        "factType": { "$ref": "#/$defs/nonEmptyString" },
+        "modeScope": { "$ref": "#/$defs/modeScope" },
+        "priority": { "$ref": "#/$defs/priority" },
+        "presentationType": { "$ref": "#/$defs/presentationType" },
+        "expressionKey": { "$ref": "#/$defs/expressionKey" },
+        "requiredPayload": { "$ref": "#/$defs/stringArray" },
+        "repeatPolicy": { "$ref": "#/$defs/repeatPolicy" },
+        "cta": { "$ref": "#/$defs/cta" },
+        "requiresAcknowledgement": { "type": "boolean" },
+        "autoDismissSec": { "type": "number", "exclusiveMinimum": 0 },
+        "suppressDuring": { "$ref": "#/$defs/stringArray" },
+        "tags": { "$ref": "#/$defs/stringArray" },
+        "variations": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/variation" }
+        }
+      }
+    },
+    "factTypeIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["factType", "requiredPayload", "cueIds", "modeScopes"],
+      "properties": {
+        "factType": { "$ref": "#/$defs/nonEmptyString" },
+        "requiredPayload": { "$ref": "#/$defs/stringArray" },
+        "cueIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Z0-9_]+$" }
+        },
+        "modeScopes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/modeScope" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3cc76b76e1c6d64fba5a89a97dea485, type: 3}
+  m_Name: FrontManagerGuideDataset
+  m_EditorClassIdentifier: Baseball.Game.Unity::Baseball.Game.Data.FrontManagerGuideDatasetAsset
+  _dataset: {fileID: 4900000, guid: 692028920a71407448ee8f32886b0d05, type: 3}
+  _schema: {fileID: 4900000, guid: 9de36362a4b5c54468652c0ed743642c, type: 3}
