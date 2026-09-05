@@ -1,0 +1,4 @@
+생성 도구: built-in image_gen
+용도: 기존 흑백 선수 실루엣을 유지하는 소형 카드 프레임. 이름·포지션·코스트·역할은 Unity Text로 표시.
+프롬프트:
+Production game UI bitmap: one blank compact baseball portrait card frame, rectangle aspect ratio 2:3 filling entire canvas edge to edge. Intended display size 80x120 pixels. Thin straight silver border, simple classic Korean baseball manager miniature card style. Top 70% completely EMPTY light silver grey portrait background reserved for an existing black silhouette added in Unity. Bottom 30% three blank flat horizontal bands: navy name band from 70-81% of height, ivory position/cost band 81-91%, pale blue assigned role band 91-100%. No portrait, no person, NO FACE, no silhouette, no text, no numbers, no letters, no icons, no stats, no ornate decorations, no mockup background, no perspective, no external margins. Clean subtle metal texture confined to thin outer edge; generous uninterrupted readable label space. Exact flat front view reusable UI sprite.

@@ -31,8 +31,11 @@ namespace Baseball.Presentation.Owner
             int cost,
             RegistrationType registrationType,
             ActiveRosterRole activeRosterRole,
-            PlayerAvailabilityStatus availability)
+            PlayerAvailabilityStatus availability,
+            int condition = 100)
         {
+            if (condition < 0 || condition > 100)
+                throw new ArgumentOutOfRangeException(nameof(condition));
             CardId = cardId ?? string.Empty;
             DisplayName = displayName ?? string.Empty;
             OriginYear = originYear;
@@ -43,6 +46,7 @@ namespace Baseball.Presentation.Owner
             RegistrationType = registrationType;
             ActiveRosterRole = activeRosterRole;
             Availability = availability;
+            Condition = condition;
         }
 
         public string CardId { get; }
@@ -55,6 +59,7 @@ namespace Baseball.Presentation.Owner
         public RegistrationType RegistrationType { get; }
         public ActiveRosterRole ActiveRosterRole { get; }
         public PlayerAvailabilityStatus Availability { get; }
+        public int Condition { get; }
     }
 
     /// <summary>저장 프리셋 하나와 현재 Runtime에서 다시 계산한 Validator 결과다.</summary>
@@ -98,6 +103,7 @@ namespace Baseball.Presentation.Owner
     public sealed class OwnerRosterLineupSnapshot
     {
         private readonly OwnerRosterPlayerSnapshot[] _players;
+        private readonly OwnerCollectionCardSnapshot[] _ownedPlayers;
         private readonly OwnerRosterPresetSnapshot[] _presets;
         private readonly OwnerLoadoutCandidateSnapshot[] _teamColorCandidates;
         private readonly OwnerLoadoutCandidateSnapshot[] _tacticCandidates;
@@ -124,13 +130,17 @@ namespace Baseball.Presentation.Owner
             IReadOnlyList<OwnerRosterPresetSnapshot> presets,
             string selectedPresetId,
             IReadOnlyList<OwnerLoadoutCandidateSnapshot> teamColorCandidates,
-            IReadOnlyList<OwnerLoadoutCandidateSnapshot> tacticCandidates)
+            IReadOnlyList<OwnerLoadoutCandidateSnapshot> tacticCandidates,
+            IReadOnlyList<OwnerCollectionCardSnapshot> ownedPlayers = null)
         {
             RosterStatus = rosterStatus ?? throw new ArgumentNullException(nameof(rosterStatus));
             if (players == null) throw new ArgumentNullException(nameof(players));
             _players = new OwnerRosterPlayerSnapshot[players.Count];
             for (int index = 0; index < players.Count; index++)
                 _players[index] = players[index] ?? throw new ArgumentException("null 선수 Snapshot이 있습니다.", nameof(players));
+            _ownedPlayers = ownedPlayers == null
+                ? CreateOwnedPlayerFallback(_players)
+                : CopyRequired(ownedPlayers, nameof(ownedPlayers));
             _presets = CopyRequired(presets, nameof(presets));
             _teamColorCandidates = CopyRequired(teamColorCandidates, nameof(teamColorCandidates));
             _tacticCandidates = CopyRequired(tacticCandidates, nameof(tacticCandidates));
@@ -149,6 +159,7 @@ namespace Baseball.Presentation.Owner
 
         public OwnerModeRosterStatus RosterStatus { get; }
         public IReadOnlyList<OwnerRosterPlayerSnapshot> Players => _players;
+        public IReadOnlyList<OwnerCollectionCardSnapshot> OwnedPlayers => _ownedPlayers;
         public IReadOnlyList<OwnerRosterPresetSnapshot> Presets => _presets;
         public int SelectedPresetIndex { get; }
         public LineupPresetState Preset => _presets[SelectedPresetIndex].Preset;
@@ -165,6 +176,29 @@ namespace Baseball.Presentation.Owner
             var result = new T[source.Count];
             for (int index = 0; index < result.Length; index++)
                 result[index] = source[index] ?? throw new ArgumentException("null Snapshot이 있습니다.", parameterName);
+            return result;
+        }
+
+        private static OwnerCollectionCardSnapshot[] CreateOwnedPlayerFallback(
+            IReadOnlyList<OwnerRosterPlayerSnapshot> players)
+        {
+            var result = new OwnerCollectionCardSnapshot[players.Count];
+            for (int index = 0; index < players.Count; index++)
+            {
+                OwnerRosterPlayerSnapshot player = players[index];
+                result[index] = new OwnerCollectionCardSnapshot(
+                    player.CardId,
+                    player.CardId,
+                    player.DisplayName,
+                    player.OriginYear,
+                    player.NaturalPosition,
+                    player.Cost,
+                    player.Edition,
+                    0,
+                    0,
+                    false,
+                    false);
+            }
             return result;
         }
     }
@@ -193,13 +227,15 @@ namespace Baseball.Presentation.Owner
             int index,
             string label,
             string playerText,
-            string warningText)
+            string warningText,
+            OwnerRosterPlayerSnapshot player = null)
         {
             Group = group;
             Index = index;
             Label = label ?? string.Empty;
             PlayerText = playerText ?? string.Empty;
             WarningText = warningText ?? string.Empty;
+            Player = player;
         }
 
         public OwnerLineupSwapGroup Group { get; }
@@ -207,6 +243,7 @@ namespace Baseball.Presentation.Owner
         public string Label { get; }
         public string PlayerText { get; }
         public string WarningText { get; }
+        public OwnerRosterPlayerSnapshot Player { get; }
         public bool HasWarning => !string.IsNullOrEmpty(WarningText);
     }
 
@@ -247,14 +284,24 @@ namespace Baseball.Presentation.Owner
             $"투수 {Snapshot.RosterStatus.PitcherCount}/{Snapshot.RosterStatus.RequiredPitcherCount} · " +
             $"외국인 {Snapshot.RosterStatus.ForeignPlayerCount}/{Snapshot.RosterStatus.ForeignPlayerLimit}";
 
+        public string EvaluationText =>
+            OwnerRosterEvaluationFormatter.FormatStrength(Snapshot.RosterStatus.Strength) + "\n" +
+            OwnerRosterEvaluationFormatter.FormatUnits(Snapshot.RosterStatus.Strength) + "\n" +
+            OwnerRosterEvaluationFormatter.FormatCost(Snapshot.RosterStatus.Cost);
+
+        public string EvaluationBasisText =>
+            "전력: 등록 선수의 시즌 기본 6능력 평균\n" +
+            "훈련·카드 보너스·컨디션 미포함\n" +
+            "비용: 주전 타자 9명+투수 11명";
+
         public string TeamColorSlotText(int slotIndex) => FormatLoadoutSlot(
-            "TC",
+            "팀컬러",
             slotIndex,
             Snapshot.Preset.TeamColorIds,
             Snapshot.TeamColorCandidates);
 
         public string TacticSlotText(int slotIndex) => FormatLoadoutSlot(
-            "전술",
+            "전술카드",
             slotIndex,
             Snapshot.Preset.DefaultTacticCardIds,
             Snapshot.TacticCandidates);
@@ -329,7 +376,7 @@ namespace Baseball.Presentation.Owner
                     : index == relief.Length - 2 ? LineupPresetAssignmentGroup.Setup : LineupPresetAssignmentGroup.Closer;
                 string label = index < preset.BullpenAssignmentCardIds.Count
                     ? $"불펜 {index + 1}"
-                    : index == relief.Length - 2 ? "Setup" : "Closer";
+                : index == relief.Length - 2 ? "셋업" : "마무리";
                 relief[index] = CreateSlot(snapshot, players, OwnerLineupSwapGroup.ReliefPitching,
                     index, label, reliefIds[index], issueGroup);
             }
@@ -363,14 +410,15 @@ namespace Baseball.Presentation.Owner
             LineupPresetAssignmentGroup issueGroup)
         {
             string playerText = "미지정";
-            if (!string.IsNullOrEmpty(cardId) && players.TryGetValue(cardId, out OwnerRosterPlayerSnapshot player))
+            OwnerRosterPlayerSnapshot player = null;
+            if (!string.IsNullOrEmpty(cardId) && players.TryGetValue(cardId, out player))
             {
                 string foreign = player.RegistrationType == RegistrationType.Foreign ? " · 외국인" : string.Empty;
                 playerText = $"{player.DisplayName} · {player.OriginYear} · {FormatPosition(player.NaturalPosition)} · " +
-                    $"Cost {player.Cost} · {FormatEdition(player.Edition)}{foreign}";
+                $"비용 {player.Cost} · {FormatEdition(player.Edition)}{foreign}";
             }
             return new OwnerLineupSlotModel(group, index, label, playerText,
-                FindIssue(snapshot.PresetValidation, issueGroup, index, cardId));
+                FindIssue(snapshot.PresetValidation, issueGroup, index, cardId), player);
         }
 
         private static string FindIssue(
@@ -413,12 +461,12 @@ namespace Baseball.Presentation.Owner
                 for (int index = 0; index < snapshot.PresetValidation.Issues.Count; index++)
                     lines.Add(FormatIssue(snapshot.PresetValidation.Issues[index]));
             }
-            return lines.Count == 0 ? "현재 1군과 경기 프리셋이 Resolver 검증을 통과했습니다." : string.Join("\n", lines);
+            return lines.Count == 0 ? "현재 1군과 경기 프리셋이 구성 검증을 통과했습니다." : string.Join("\n", lines);
         }
 
         private static string FormatIssue(LineupPresetValidationIssue issue)
         {
-            string penalty = issue.ConditionPenalty > 0 ? $" · Condition -{issue.ConditionPenalty}" : string.Empty;
+            string penalty = issue.ConditionPenalty > 0 ? $" · 컨디션 -{issue.ConditionPenalty}" : string.Empty;
             string errorRisk = issue.FieldingErrorProbabilityMultiplier > 1d
                 ? $" · 실책 위험 ×{issue.FieldingErrorProbabilityMultiplier:0.##}" : string.Empty;
             string detail = string.IsNullOrWhiteSpace(issue.Context)
@@ -438,8 +486,8 @@ namespace Baseball.Presentation.Owner
                 RosterValidationIssueCode.PitcherCount => "투수 인원",
                 RosterValidationIssueCode.StartingPitcherCount => "선발투수 인원",
                 RosterValidationIssueCode.BullpenPitcherCount => "불펜 인원",
-                RosterValidationIssueCode.SetupPitcherCount => "Setup 인원",
-                RosterValidationIssueCode.CloserPitcherCount => "Closer 인원",
+                RosterValidationIssueCode.SetupPitcherCount => "셋업 투수 인원",
+                RosterValidationIssueCode.CloserPitcherCount => "마무리 투수 인원",
                 RosterValidationIssueCode.ForeignPlayerCount => "외국인 등록",
                 RosterValidationIssueCode.DuplicatePlayerPersonId => "동일 선수 중복",
                 RosterValidationIssueCode.FixedRoleCount => "고정 역할 인원",
@@ -481,7 +529,7 @@ namespace Baseball.Presentation.Owner
             };
         }
 
-        private static string FormatEdition(PlayerCardEdition edition)
+        public static string FormatEdition(PlayerCardEdition edition)
         {
             return edition switch
             {
@@ -489,11 +537,11 @@ namespace Baseball.Presentation.Owner
                 PlayerCardEdition.AllStar => "올스타",
                 PlayerCardEdition.GoldenGlove => "골든글러브",
                 PlayerCardEdition.Mvp => "MVP",
-                _ => "Edition 확인 필요"
+                _ => "카드 종류 확인 필요"
             };
         }
 
-        private static string FormatPosition(PlayerPosition position)
+        public static string FormatPosition(PlayerPosition position)
         {
             return position switch
             {

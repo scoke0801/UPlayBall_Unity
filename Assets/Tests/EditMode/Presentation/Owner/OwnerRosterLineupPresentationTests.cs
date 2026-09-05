@@ -35,7 +35,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(model.Bench.Count, Is.EqualTo(5));
             Assert.That(model.StarterRotation.Count, Is.EqualTo(5));
             Assert.That(model.ReliefPitching.Count, Is.EqualTo(6));
-            Assert.That(model.DefensiveLineup[0].WarningText, Does.Contain("Condition -2"));
+            Assert.That(model.DefensiveLineup[0].WarningText, Does.Contain("컨디션 -2"));
             Assert.That(model.DefensiveLineup[0].WarningText, Does.Contain("실책 위험 ×1.35"));
         }
 
