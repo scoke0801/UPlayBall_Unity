@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using Baseball.Simulation.Match;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -44,7 +45,7 @@ namespace Baseball.Presentation.Career
                     "PitchPreviewDot_" + index,
                     _pitchPresentationRoot,
                     GetMiniGameSolidCircleSprite(),
-                    new Color(0.25f, 0.78f, 1f, Mathf.Lerp(0.14f, 0.48f, index / 7f)),
+                    WithAlpha(CareerUiTheme.PrimaryBright, Mathf.Lerp(0.14f, 0.48f, index / 7f)),
                     new Vector2(7f, 7f),
                     Vector2.zero);
             }
@@ -55,7 +56,7 @@ namespace Baseball.Presentation.Career
                     "PitchActualTrail_" + index,
                     _pitchPresentationRoot,
                     GetMiniGameSolidCircleSprite(),
-                    new Color(0.86f, 0.95f, 1f, Mathf.Lerp(0.05f, 0.28f, 1f - index / 8f)),
+                    WithAlpha(CareerUiTheme.TextPrimary, Mathf.Lerp(0.05f, 0.28f, 1f - index / 8f)),
                     new Vector2(10f, 10f),
                     Vector2.zero);
             }
@@ -63,7 +64,7 @@ namespace Baseball.Presentation.Career
             RectTransform connector = CreateImage(
                 "PitchCommandConnector",
                 _pitchPresentationRoot,
-                new Color(0.85f, 0.92f, 0.96f, 0.58f),
+                WithAlpha(CareerUiTheme.TextSecondary, 0.58f),
                 new Vector2(1f, 2f),
                 Vector2.zero);
             connector.GetComponent<Image>().raycastTarget = false;
@@ -71,7 +72,7 @@ namespace Baseball.Presentation.Career
                 "PitchCommandEllipse",
                 _pitchPresentationRoot,
                 GetMiniGameRingSprite(),
-                new Color(0.12f, 0.64f, 1f, 0.28f),
+                WithAlpha(CareerUiTheme.Primary, 0.28f),
                 new Vector2(80f, 62f),
                 Vector2.zero);
             RectTransform target = CreateRect(
@@ -88,7 +89,7 @@ namespace Baseball.Presentation.Career
                 "PitchActualPoint",
                 _pitchPresentationRoot,
                 GetMiniGameRingSprite(),
-                new Color(0.30f, 0.92f, 0.66f, 1f),
+                CareerUiTheme.Success,
                 new Vector2(30f, 30f),
                 Vector2.zero);
 
@@ -184,7 +185,7 @@ namespace Baseball.Presentation.Career
             _miniGamePlateRect = CreateFramedSurface(
                 "PitchTargetPlane",
                 panel,
-                new Color(0.008f, 0.027f, 0.045f, 1f),
+                CareerUiTheme.PanelDark,
                 new Vector2(640f, 360f),
                 new Vector2(120f, -5f));
             _miniGamePlateRect.gameObject.AddComponent<RectMask2D>();
@@ -306,7 +307,7 @@ namespace Baseball.Presentation.Career
                     $"숙련 {option.Proficiency}",
                     new Vector2(245f, 55f),
                     new Vector2(-350f, 146f - index * 61f),
-                    selected ? new Color(0.025f, 0.32f, 0.52f, 1f) : PanelDarkColor,
+                    selected ? CareerUiTheme.SurfaceSelected : PanelDarkColor,
                     selected ? PrimaryTextColor : SecondaryTextColor);
                 button.interactable = _pitchMiniGame.IsInputUnlocked;
                 PitchType pitchType = option.PitchType;
@@ -323,13 +324,13 @@ namespace Baseball.Presentation.Career
             RectTransform strikeZone = CreateImage(
                 "PitchStrikeZone",
                 field,
-                new Color(0.07f, 0.34f, 0.45f, 0.10f),
+                WithAlpha(CareerUiTheme.Primary, 0.10f),
                 new Vector2(210f, 170f),
                 new Vector2(0f, -55f));
             Image strikeImage = strikeZone.GetComponent<Image>();
             strikeImage.raycastTarget = false;
             Outline outline = strikeZone.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0.26f, 0.72f, 0.82f, 0.52f);
+            outline.effectColor = WithAlpha(CareerUiTheme.PrimaryBright, 0.52f);
             outline.effectDistance = new Vector2(1f, -1f);
             CreateZoneGrid(strikeZone);
         }
@@ -384,7 +385,7 @@ namespace Baseball.Presentation.Career
                     GetPitchingApproachLabel(approach),
                     new Vector2(410f, 50f),
                     new Vector2(0f, 272f - index * 56f),
-                    selected ? new Color(0.025f, 0.32f, 0.52f, 1f) : PanelDarkColor,
+                    selected ? CareerUiTheme.SurfaceSelected : PanelDarkColor,
                     selected ? PrimaryTextColor : SecondaryTextColor);
                 button.onClick.AddListener(() => SelectPitchMiniGameApproach(approach));
             }
@@ -405,7 +406,7 @@ namespace Baseball.Presentation.Career
                 "투구 확정   SPACE / GAMEPAD A",
                 new Vector2(430f, 64f),
                 new Vector2(0f, -100f),
-                new Color(0.02f, 0.38f, 0.7f, 1f),
+                CareerUiTheme.PrimaryAction,
                 PrimaryTextColor);
             _pitchMiniGamePrimaryButton.onClick.AddListener(SubmitPitchMiniGameCommand);
             Button back = CreateButton(
@@ -469,7 +470,7 @@ namespace Baseball.Presentation.Career
                 "투구 준비   SPACE / GAMEPAD A",
                 new Vector2(430f, 66f),
                 new Vector2(0f, 18f),
-                new Color(0.02f, 0.38f, 0.7f, 1f),
+                CareerUiTheme.PrimaryAction,
                 PrimaryTextColor);
             _pitchMiniGamePrimaryButton.onClick.AddListener(BeginPitchMiniGameSelection);
             Button auto = CreateButton(
@@ -534,7 +535,7 @@ namespace Baseball.Presentation.Career
                 IsPitchMiniGameResultState(state) ? "결과 확인 중" : "투구 진행 중",
                 new Vector2(430f, 64f),
                 new Vector2(0f, 46f),
-                new Color(0.08f, 0.16f, 0.20f, 1f),
+                CareerUiTheme.SecondaryAction,
                 MutedTextColor);
             locked.interactable = false;
             if (_pitchMiniGame.HasResolvedPlay && IsPitchMiniGameResultState(state))

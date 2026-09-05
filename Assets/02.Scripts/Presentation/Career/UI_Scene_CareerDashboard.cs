@@ -4,6 +4,7 @@ using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Career.News;
 using Baseball.Game.Manager;
+using Baseball.Presentation.Player;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -42,6 +43,8 @@ namespace Baseball.Presentation.Career
         private bool _isSeasonAutoCompletionConfirmationVisible;
         private bool _isSeasonFastForwardProgressVisible;
         private bool _isSeasonReviewSkipConfirmationVisible;
+        private static Sprite _playerHomeBackground;
+        private static bool _hasTriedLoadingPlayerHomeBackground;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Home;
@@ -238,7 +241,6 @@ namespace Baseball.Presentation.Career
             ClearChildren(_content);
             CareerDashboardView view = _manager.Dashboard;
             RenderBackgroundAccents();
-            RenderTopBar(view);
             if (view.PendingReaction != null)
             {
                 RenderCareerReactionOverlay(view);
@@ -270,7 +272,7 @@ namespace Baseball.Presentation.Career
             RectTransform safeArea = CreateRect("DashboardContentSafeArea", _content, Vector2.zero, Vector2.zero);
             Stretch(safeArea);
             safeArea.offsetMin = new Vector2(CareerUiTheme.Space4, 102f);
-            safeArea.offsetMax = new Vector2(-CareerUiTheme.Space4, -92f);
+            safeArea.offsetMax = new Vector2(-CareerUiTheme.Space4, -CareerUiTheme.SharedShellChromeHeight - 12f);
 
             VerticalLayoutGroup columns = safeArea.gameObject.AddComponent<VerticalLayoutGroup>();
             columns.childAlignment = TextAnchor.MiddleCenter;
@@ -303,10 +305,52 @@ namespace Baseball.Presentation.Career
 
         private void RenderBackgroundAccents()
         {
+            Sprite background = LoadPlayerHomeBackground();
+            if (background != null)
+            {
+                RectTransform backdrop = CreateImage(
+                    "PlayerHomeBackground",
+                    _content,
+                    new Color(0.50f, 0.52f, 0.50f, 0.42f),
+                    new Vector2(1920f, 1080f),
+                    Vector2.zero);
+                Image backdropImage = backdrop.GetComponent<Image>();
+                backdropImage.sprite = background;
+                backdropImage.preserveAspect = false;
+                CreateImage(
+                    "PlayerHomeBackgroundShade",
+                    _content,
+                    new Color(
+                        CareerUiTheme.Background.r,
+                        CareerUiTheme.Background.g,
+                        CareerUiTheme.Background.b,
+                        0.58f),
+                    new Vector2(1920f, 1080f),
+                    Vector2.zero);
+            }
             CreateImage("TopGlow", _content, CareerUiTheme.TopGlow,
                 new Vector2(1920f, 5f), new Vector2(0f, 456f));
             CreateImage("BottomGlow", _content, CareerUiTheme.BottomGlow,
                 new Vector2(1920f, 4f), new Vector2(0f, -443f));
+        }
+
+        private static Sprite LoadPlayerHomeBackground()
+        {
+            if (_hasTriedLoadingPlayerHomeBackground)
+                return _playerHomeBackground;
+
+            _hasTriedLoadingPlayerHomeBackground = true;
+            Texture2D texture = Resources.Load<Texture2D>(PlayerUiAssetCatalog.HomeClubhouseBackgroundResourcePath);
+            if (texture == null)
+                return null;
+
+            _playerHomeBackground = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            _playerHomeBackground.name = "PlayerHomeBackground_Runtime";
+            return _playerHomeBackground;
         }
 
         private void RenderTopBar(CareerDashboardView view)

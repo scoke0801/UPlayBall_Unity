@@ -1,6 +1,8 @@
+using System;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
+using Baseball.Presentation.SharedScreens;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,21 +12,24 @@ namespace Baseball.Presentation.Career
     /// <summary>내 선수의 현재 상태·능력·성장 근거·커리어를 읽는 선수 상세 화면이다.</summary>
     public sealed partial class UI_Scene_Player : UISceneBase, ICareerTabScreen
     {
-        private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
-        private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.99f);
-        private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.061f, 0.99f);
-        private static readonly Color CardColor = new(0.024f, 0.086f, 0.139f, 0.97f);
-        private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
-        private static readonly Color DividerColor = new(0.14f, 0.31f, 0.45f, 1f);
-        private static readonly Color AccentColor = new(0.13f, 0.55f, 0.92f, 1f);
-        private static readonly Color BrightAccentColor = new(0.12f, 0.67f, 1f, 1f);
-        private static readonly Color RoleColor = new(0.27f, 0.77f, 0.47f, 1f);
-        private static readonly Color GoldColor = new(0.95f, 0.69f, 0.22f, 1f);
-        private static readonly Color WarningColor = new(0.94f, 0.56f, 0.16f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.62f, 0.71f, 0.8f, 1f);
-        private static readonly Color MutedColor = new(0.34f, 0.40f, 0.49f, 1f);
+        private static readonly Color BackgroundColor = CareerUiTheme.Background;
+        private static readonly Color TopBarColor = CareerUiTheme.TopBar;
+        private static readonly Color PanelColor = CareerUiTheme.Panel;
+        private static readonly Color PanelDarkColor = CareerUiTheme.PanelDark;
+        private static readonly Color CardColor = CareerUiTheme.Surface;
+        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color DividerColor = CareerUiTheme.Divider;
+        private static readonly Color AccentColor = CareerUiTheme.Primary;
+        private static readonly Color BrightAccentColor = CareerUiTheme.PrimaryBright;
+        private static readonly Color RoleColor = CareerUiTheme.Success;
+        private static readonly Color GoldColor = CareerUiTheme.AccentGold;
+        private static readonly Color WarningColor = CareerUiTheme.Warning;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedColor = CareerUiTheme.TextMuted;
+        private static readonly Vector2 SharedShellWorkspaceOffset = new(
+            0f,
+            -(CareerUiTheme.SharedShellChromeHeight * 0.5f + CareerUiTheme.Space2));
 
         private readonly PlayerProfileViewBuilder _viewBuilder = new();
         private CareerManager _manager;
@@ -33,6 +38,9 @@ namespace Baseball.Presentation.Career
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Player;
+
+        /// <summary>현재 화면과 공용 선수 상세 화면이 함께 소비하는 읽기 전용 Snapshot이다.</summary>
+        public PlayerDetailSnapshot CurrentDetailSnapshot { get; private set; }
 
         /// <summary>프리팹이 없는 프로토타입 환경에서 선수 화면을 런타임 생성한다.</summary>
         public static UI_Scene_Player CreateRuntime(Transform parent)
@@ -68,13 +76,14 @@ namespace Baseball.Presentation.Career
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             CreateImage("Background", root, BackgroundColor, Vector2.zero, Vector2.zero, stretch: true);
-            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
+            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), SharedShellWorkspaceOffset);
         }
 
         private void HandleCareerChanged()
         {
             if (!_manager.HasActiveCareer)
             {
+                CurrentDetailSnapshot = null;
                 Hide();
                 return;
             }
@@ -97,22 +106,21 @@ namespace Baseball.Presentation.Career
                 dashboard.Overall,
                 plannedRole,
                 growth);
+            CurrentDetailSnapshot = CareerPlayerDetailSnapshotAdapter.Create(view);
 
             ClearChildren(_content);
             RenderBackgroundAccents();
-            RenderTopBar(dashboard);
-            RenderPageHeader();
             RenderPlayerCard(view);
             RenderSubTabs();
-            RenderSelectedTab(view);
-            CareerNavigationChrome.Create(_content, CareerMainTab.Player);
+            RenderSelectedTab(view, CurrentDetailSnapshot);
+            RenderSharedDetailContext(CurrentDetailSnapshot);
         }
 
         private void RenderBackgroundAccents()
         {
-            CreateImage("TopGlow", _content, new Color(0.02f, 0.18f, 0.31f, 0.24f),
+            CreateImage("TopGlow", _content, CareerUiTheme.TopGlow,
                 new Vector2(1920f, 5f), new Vector2(0f, 456f));
-            CreateImage("BottomGlow", _content, new Color(0.02f, 0.16f, 0.28f, 0.2f),
+            CreateImage("BottomGlow", _content, CareerUiTheme.BottomGlow,
                 new Vector2(1920f, 4f), new Vector2(0f, -443f));
         }
 
@@ -183,12 +191,12 @@ namespace Baseball.Presentation.Career
             }
         }
 
-        private void RenderSelectedTab(PlayerProfileView view)
+        private void RenderSelectedTab(PlayerProfileView view, PlayerDetailSnapshot detail)
         {
             switch (_selectedTab)
             {
                 case PlayerDetailTab.Attributes:
-                    RenderAttributesPage(view);
+                    RenderSharedAbilityPage(detail);
                     break;
                 case PlayerDetailTab.Board:
                     RenderBoardPage(view);
@@ -203,6 +211,86 @@ namespace Baseball.Presentation.Career
                     RenderProfilePage(view);
                     break;
             }
+        }
+
+        /// <summary>공용 Snapshot의 동일한 식별·상태 값을 Career 전용 화면 상단에 표시한다.</summary>
+        private void RenderSharedDetailContext(PlayerDetailSnapshot detail)
+        {
+            if (detail == null)
+                return;
+
+            RectTransform strip = CreateImage(
+                "SharedPlayerDetailContext",
+                _content,
+                CareerUiTheme.SurfaceSubtle,
+                new Vector2(1390f, 44f),
+                new Vector2(205f, 421f));
+            CreateImage(
+                "Accent",
+                strip,
+                CareerUiTheme.Primary,
+                new Vector2(5f, 44f),
+                new Vector2(-692f, 0f));
+            string identity =
+                $"{detail.DisplayName}  ·  {detail.TeamName}  ·  {detail.PositionLabel}  ·  {detail.SeasonLabel} 시즌";
+            CreateText(
+                "Identity",
+                strip,
+                identity,
+                17,
+                FontStyle.Bold,
+                TextAnchor.MiddleLeft,
+                new Vector2(760f, 38f),
+                new Vector2(-285f, 0f),
+                PrimaryTextColor);
+            string condition = FindDetailValue(detail, "Condition");
+            string fatigue = FindDetailValue(detail, "Fatigue");
+            CreateText(
+                "Availability",
+                strip,
+                $"컨디션 {condition}  ·  피로 {fatigue}",
+                15,
+                FontStyle.Bold,
+                TextAnchor.MiddleRight,
+                new Vector2(460f, 38f),
+                new Vector2(430f, 0f),
+                SecondaryTextColor);
+        }
+
+        /// <summary>모드 중립 능력치 표를 공용 RecordTable View로 표시한다.</summary>
+        private void RenderSharedAbilityPage(PlayerDetailSnapshot detail)
+        {
+            RectTransform page = CreateRect(
+                "SharedAbilityPage",
+                _content,
+                new Vector2(1390f, 720f),
+                new Vector2(205f, -20f));
+            RectTransform panel = CreatePanel(
+                "SharedAbilityTablePanel",
+                page,
+                "능력치 · 현재 / 기본 / 성장 근거",
+                new Vector2(1320f, 650f),
+                Vector2.zero);
+            RectTransform tableHost = CreateRect(
+                "SharedAbilityTableHost",
+                panel,
+                new Vector2(1240f, 520f),
+                new Vector2(0f, -30f));
+            CompactRecordTableView table = CompactRecordTableView.CreateRuntime(
+                tableHost,
+                "PlayerAbilityRecordTable");
+            table.Bind(detail.AbilityTable);
+        }
+
+        private static string FindDetailValue(PlayerDetailSnapshot detail, string valueId)
+        {
+            for (int index = 0; index < detail.SummaryValues.Count; index++)
+            {
+                DetailValueModel value = detail.SummaryValues[index];
+                if (string.Equals(value.ValueId, valueId, StringComparison.Ordinal))
+                    return value.Value;
+            }
+            return "-";
         }
 
         private enum PlayerDetailTab

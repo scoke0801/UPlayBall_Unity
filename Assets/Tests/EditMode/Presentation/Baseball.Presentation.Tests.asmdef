@@ -6,6 +6,7 @@
         "Baseball.Game",
         "Baseball.Game.Unity",
         "Baseball.Presentation",
+        "Baseball.Simulation",
         "UnityEngine.UI"
     ],
     "includePlatforms": [

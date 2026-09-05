@@ -17,23 +17,26 @@ namespace Baseball.Presentation.Career
         private const int InventoryPageSize = 12;
         private const int ProgramPageSize = 5;
 
-        private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
-        private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.78f);
-        private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.061f, 0.74f);
-        private static readonly Color CardColor = new(0.024f, 0.086f, 0.139f, 0.82f);
-        private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
-        private static readonly Color DividerColor = new(0.14f, 0.31f, 0.45f, 1f);
-        private static readonly Color AccentColor = new(0.13f, 0.55f, 0.92f, 1f);
-        private static readonly Color BrightAccentColor = new(0.12f, 0.67f, 1f, 1f);
-        private static readonly Color GreenColor = new(0.31f, 0.82f, 0.27f, 1f);
-        private static readonly Color PurpleColor = new(0.74f, 0.31f, 0.93f, 1f);
-        private static readonly Color GoldColor = new(0.96f, 0.72f, 0.22f, 1f);
-        private static readonly Color WarningColor = new(0.94f, 0.56f, 0.16f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.62f, 0.71f, 0.8f, 1f);
-        private static readonly Color MutedColor = new(0.34f, 0.40f, 0.49f, 1f);
-        private static readonly Color ErrorColor = new(1f, 0.42f, 0.42f, 1f);
+        private static readonly Color BackgroundColor = CareerUiTheme.Background;
+        private static readonly Color TopBarColor = CareerUiTheme.TopBar;
+        private static readonly Color PanelColor = CareerUiTheme.Panel;
+        private static readonly Color PanelDarkColor = CareerUiTheme.PanelDark;
+        private static readonly Color CardColor = CareerUiTheme.Surface;
+        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color DividerColor = CareerUiTheme.Divider;
+        private static readonly Color AccentColor = CareerUiTheme.Primary;
+        private static readonly Color BrightAccentColor = CareerUiTheme.PrimaryBright;
+        private static readonly Color GreenColor = CareerUiTheme.Success;
+        private static readonly Color PurpleColor = CareerUiTheme.PrimaryBright;
+        private static readonly Color GoldColor = CareerUiTheme.AccentGold;
+        private static readonly Color WarningColor = CareerUiTheme.Warning;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedColor = CareerUiTheme.TextMuted;
+        private static readonly Color ErrorColor = CareerUiTheme.Error;
+        private static readonly Vector2 SharedShellWorkspaceOffset = new(
+            0f,
+            -(CareerUiTheme.SharedShellChromeHeight * 0.5f + CareerUiTheme.Space2));
 
         private CareerManager _manager;
         private RectTransform _content;
@@ -143,7 +146,7 @@ namespace Baseball.Presentation.Career
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             CreateImage("Background", root, BackgroundColor, Vector2.zero, Vector2.zero, stretch: true);
-            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
+            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), SharedShellWorkspaceOffset);
         }
 
         private void HandleCareerChanged()
@@ -176,19 +179,17 @@ namespace Baseball.Presentation.Career
                 "Content",
                 transform,
                 new Vector2(1920f, 1080f),
-                Vector2.zero);
+                SharedShellWorkspaceOffset);
             nextContent.gameObject.SetActive(false);
             _content = nextContent;
             try
             {
                 RenderBackgroundAccents();
-                RenderTopBar(dashboard, growth);
                 RenderGrowthSubNavigation(growth);
                 if (_growthSection == GrowthSection.Board)
                     RenderGrowthBoardWorkspace(dashboard, growth);
                 else
                     RenderOffseasonActionWorkspace(dashboard, growth);
-            CareerNavigationChrome.Create(_content, CareerMainTab.Growth);
                 if (_isGachaOpen)
                     RenderGachaOverlay(dashboard, growth);
             }

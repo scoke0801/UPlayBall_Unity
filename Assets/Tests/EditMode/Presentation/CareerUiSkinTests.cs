@@ -190,7 +190,7 @@ namespace Baseball.Tests.EditMode.Presentation
         [Test]
         public void Apply_FramedCard는Button카드와같은Frame두께를쓴다()
         {
-            Image card = CreateSizedImage("ManagerCareer", _root.transform, new Vector2(580f, 190f));
+            Image card = CreateSizedImage("OwnerCareer", _root.transform, new Vector2(580f, 190f));
             card.color = new Color(0.04f, 0.05f, 0.065f, 0.88f);
             card.gameObject.AddComponent<CareerUiVisualElement>()
                 .Initialize(CareerUiVisualRole.FramedCard);

@@ -1,6 +1,8 @@
 using System;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
+using Baseball.Presentation.SharedScreens;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -18,23 +20,26 @@ namespace Baseball.Presentation.Career
             Split
         }
 
-        private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
-        private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.99f);
-        private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.061f, 0.99f);
-        private static readonly Color CardColor = new(0.024f, 0.086f, 0.139f, 0.97f);
-        private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
-        private static readonly Color DividerColor = new(0.14f, 0.31f, 0.45f, 1f);
-        private static readonly Color AccentColor = new(0.13f, 0.55f, 0.92f, 1f);
-        private static readonly Color BrightAccentColor = new(0.12f, 0.67f, 1f, 1f);
-        private static readonly Color GoldColor = new(0.95f, 0.69f, 0.22f, 1f);
-        private static readonly Color WinColor = new(0.25f, 0.78f, 0.50f, 1f);
-        private static readonly Color LossColor = new(0.95f, 0.32f, 0.38f, 1f);
-        private static readonly Color TieColor = new(0.86f, 0.69f, 0.34f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.62f, 0.71f, 0.8f, 1f);
-        private static readonly Color MutedColor = new(0.34f, 0.40f, 0.49f, 1f);
+        private static readonly Color BackgroundColor = CareerUiTheme.Background;
+        private static readonly Color TopBarColor = CareerUiTheme.TopBar;
+        private static readonly Color PanelColor = CareerUiTheme.Panel;
+        private static readonly Color PanelDarkColor = CareerUiTheme.PanelDark;
+        private static readonly Color CardColor = CareerUiTheme.Surface;
+        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color DividerColor = CareerUiTheme.Divider;
+        private static readonly Color AccentColor = CareerUiTheme.Primary;
+        private static readonly Color BrightAccentColor = CareerUiTheme.PrimaryBright;
+        private static readonly Color GoldColor = CareerUiTheme.AccentGold;
+        private static readonly Color WinColor = CareerUiTheme.Success;
+        private static readonly Color LossColor = CareerUiTheme.Loss;
+        private static readonly Color TieColor = CareerUiTheme.TextSecondary;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedColor = CareerUiTheme.TextMuted;
         private static readonly Vector4 ScheduleFramePadding = new(24f, 52f, 24f, 72f);
+        private static readonly Vector2 SharedShellWorkspaceOffset = new(
+            0f,
+            -(CareerUiTheme.SharedShellChromeHeight * 0.5f + CareerUiTheme.Space2));
 
         private CareerManager _manager;
         private RectTransform _content;
@@ -98,7 +103,7 @@ namespace Baseball.Presentation.Career
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             CreateImage("Background", root, BackgroundColor, Vector2.zero, Vector2.zero, true);
-            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
+            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), SharedShellWorkspaceOffset);
         }
 
         private void HandleCareerChanged()
@@ -120,6 +125,7 @@ namespace Baseball.Presentation.Career
             CareerScheduleView view = _manager.Schedule;
             if (view == null)
                 return;
+            ScheduleScreenSnapshot snapshot = CareerScheduleSnapshotAdapter.Create(view);
             EnsureVisibleMonth(view);
             CareerScheduleMonthView month = view.BuildMonth(
                 _visibleMonth.Year,
@@ -128,18 +134,48 @@ namespace Baseball.Presentation.Career
 
             ClearChildren(_content);
             RenderBackgroundAccents();
-            RenderTopBar(view);
-            RenderScreenHeader();
             RenderViewControls(view);
             if (_layout == ScheduleLayout.Calendar)
                 RenderCalendar(month);
             else if (_layout == ScheduleLayout.List)
-                RenderList(month);
+            {
+                if (_scope == CareerScheduleScope.MyTeam)
+                    RenderSharedScheduleList(snapshot);
+                else
+                    RenderList(month);
+            }
             else
                 RenderSplit(month);
             RenderTeamSummary(view, month);
             RenderScopeAndLegend(view);
-            CareerNavigationChrome.Create(_content, CareerMainTab.Schedule);
+        }
+
+        private void RenderSharedScheduleList(ScheduleScreenSnapshot snapshot)
+        {
+            RectTransform panel = CreateFrame(
+                "ScheduleList", _content, new Vector2(1320f, 570f), new Vector2(-270f, -4f), PanelDarkColor);
+            CreateText(
+                "Title", panel, "내 구단 월간 일정", 18, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(600f, 34f), new Vector2(-330f, 200f), PrimaryTextColor);
+            CreateText(
+                "Description", panel, "완료 결과와 앞으로의 대진을 한 흐름으로 확인합니다.",
+                12, FontStyle.Normal, TextAnchor.MiddleRight,
+                new Vector2(600f, 30f), new Vector2(330f, 200f), SecondaryTextColor);
+            CreateImage("HeaderLine", panel, DividerColor, new Vector2(1240f, 2f), new Vector2(0f, 178f));
+
+            RecordTableModel tableModel = ScheduleRecordTableBuilder.CreateFocusedMonth(
+                snapshot,
+                _visibleMonth.Year,
+                _visibleMonth.Month);
+            RecordTableView table = RecordTableView.CreateRuntime(
+                panel,
+                new Vector2(1240f, 350f),
+                new Vector2(0f, -18f),
+                "SharedScheduleTable");
+            UiContentStateModel state = tableModel.Rows.Count > 0
+                ? UiContentStateModel.Ready
+                : UiContentStateModel.CreateEmpty("일정 없음", "이 달에는 표시할 경기가 없습니다.");
+            table.Bind(tableModel, state);
         }
 
         private void EnsureVisibleMonth(CareerScheduleView view)
@@ -205,9 +241,9 @@ namespace Baseball.Presentation.Career
 
         private void RenderBackgroundAccents()
         {
-            CreateImage("TopGlow", _content, new Color(0.02f, 0.18f, 0.31f, 0.24f),
+            CreateImage("TopGlow", _content, CareerUiTheme.TopGlow,
                 new Vector2(1920f, 5f), new Vector2(0f, 456f));
-            CreateImage("BottomGlow", _content, new Color(0.02f, 0.16f, 0.28f, 0.20f),
+            CreateImage("BottomGlow", _content, CareerUiTheme.BottomGlow,
                 new Vector2(1920f, 4f), new Vector2(0f, -443f));
         }
 

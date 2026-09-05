@@ -5,12 +5,14 @@ using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Career.Narrative;
 using Baseball.Game.Manager;
+using Baseball.Presentation.Match;
 using Baseball.Presentation.UI;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.PlateAppearance;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using BaseballPlayer = Baseball.Core.Players.Player;
 
 namespace Baseball.Presentation.Career
 {
@@ -36,20 +38,18 @@ namespace Baseball.Presentation.Career
         private const int BattingOrderPreviewCount = 4;
         private const float PanelClipInset = 18f;
 
-        private static readonly Color BackgroundColor = new(0.004f, 0.018f, 0.032f, 1f);
-        private static readonly Color TopBarColor = new(0.008f, 0.038f, 0.065f, 1f);
-        private static readonly Color PanelColor = new(0.018f, 0.068f, 0.108f, 0.99f);
-        private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.057f, 0.99f);
-        private static readonly Color CardColor = new(0.026f, 0.096f, 0.147f, 1f);
-        private static readonly Color BorderColor = new(0.18f, 0.43f, 0.62f, 1f);
-        private static readonly Color AccentColor = new(0.12f, 0.64f, 1f, 1f);
-        private static readonly Color RoleColor = new(0.27f, 0.78f, 0.49f, 1f);
-        private static readonly Color GoldColor = new(0.96f, 0.7f, 0.22f, 1f);
-        private static readonly Color DangerColor = new(0.92f, 0.35f, 0.31f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.63f, 0.72f, 0.8f, 1f);
-        private static readonly Color MutedTextColor = new(0.38f, 0.47f, 0.55f, 1f);
-        private static readonly Color EmptyDotColor = new(0.13f, 0.22f, 0.28f, 1f);
+        private static readonly Color BackgroundColor = CareerUiTheme.Background;
+        private static readonly Color PanelColor = CareerUiTheme.Panel;
+        private static readonly Color PanelDarkColor = CareerUiTheme.PanelDark;
+        private static readonly Color CardColor = CareerUiTheme.Surface;
+        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color AccentColor = CareerUiTheme.Primary;
+        private static readonly Color RoleColor = CareerUiTheme.Success;
+        private static readonly Color GoldColor = CareerUiTheme.AccentGold;
+        private static readonly Color DangerColor = CareerUiTheme.Loss;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedTextColor = CareerUiTheme.TextMuted;
 
         /// <summary>오른쪽 조작 패널의 크기와 위치. 재생성되지 않는 조작 계층이 같은 자리를 덮어야 하므로 상수로 둔다.</summary>
         private static readonly Vector2 ControlPanelSize = new(500f, 900f);
@@ -58,6 +58,8 @@ namespace Baseball.Presentation.Career
         private static readonly Vector2 ControlStatusPillPosition = new(0f, 378f);
 
         private CareerManager _manager;
+        private readonly MatchHudPresentationModelBuilder _matchHudBuilder = new();
+        private PlayerMatchControls _playerMatchControls;
         private RectTransform _content;
         private RectTransform _controlHost;
         private RectTransform _settingsHost;
@@ -107,6 +109,14 @@ namespace Baseball.Presentation.Career
         protected override void OnInitialize()
         {
             _manager = GameManager.EnsureExists().EnsureManager<CareerManager>("CareerManager");
+            _playerMatchControls = new PlayerMatchControls(
+                new PlayerMatchControlCallbacks(
+                    intent => SelectApproach(ToBattingApproach(intent)),
+                    SubmitSelectedApproach,
+                    intent => SelectPitchingApproach(ToPitchingApproach(intent)),
+                    StartSelectedPitchingInning,
+                    TogglePause,
+                    AutoCompleteCurrentPlateAppearance));
             _manager.CareerChanged += HandleCareerChanged;
             RectTransform root = (RectTransform)transform;
             Stretch(root);
@@ -127,7 +137,7 @@ namespace Baseball.Presentation.Career
             _settingsHost = CreateRect("SettingsHost", controlLayer, new Vector2(160f, 50f), new Vector2(860f, 512f));
             Button settings = CreateButton(
                 "Settings", _settingsHost, "설정", new Vector2(160f, 50f), Vector2.zero,
-                new Color(0.025f, 0.08f, 0.13f, 1f), SecondaryTextColor);
+                CareerUiTheme.SecondaryAction, SecondaryTextColor);
             CareerUiSkin.ApplyButton(settings);
             settings.onClick.AddListener(() => UI_Popup_CareerSettings.ShowRuntime());
         }
@@ -189,6 +199,7 @@ namespace Baseball.Presentation.Career
 
             Keyboard keyboard = Keyboard.current;
             CareerMatchSession session = _manager.ActiveMatch;
+            UpdatePlayerMatchControlAvailability(session);
             if (session.Phase == CareerMatchPhase.Preparation)
             {
                 if (keyboard == null)
@@ -217,7 +228,7 @@ namespace Baseball.Presentation.Career
             if (UpdateAutomaticPlayback(session))
             {
                 if (keyboard != null && keyboard.pKey.wasPressedThisFrame)
-                    TogglePause();
+                    _playerMatchControls.TryTogglePause();
                 return;
             }
 
@@ -237,24 +248,102 @@ namespace Baseball.Presentation.Career
                 return;
             if (IsPitchingDecisionInputReady(session))
             {
-                if (keyboard.digit1Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.Balanced);
-                else if (keyboard.digit2Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.FullPower);
-                else if (keyboard.digit3Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.ControlFirst);
-                else if (keyboard.digit4Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.InduceChase);
-                else if (keyboard.digit5Key.wasPressedThisFrame) SelectPitchingApproach(PitchingApproach.QuickAttack);
-                else if (keyboard.spaceKey.wasPressedThisFrame) StartSelectedPitchingInning();
+                if (keyboard.digit1Key.wasPressedThisFrame)
+                    _playerMatchControls.TrySelectPitchingIntent(PlayerPitchingIntent.Balanced);
+                else if (keyboard.digit2Key.wasPressedThisFrame)
+                    _playerMatchControls.TrySelectPitchingIntent(PlayerPitchingIntent.FullPower);
+                else if (keyboard.digit3Key.wasPressedThisFrame)
+                    _playerMatchControls.TrySelectPitchingIntent(PlayerPitchingIntent.ControlFirst);
+                else if (keyboard.digit4Key.wasPressedThisFrame)
+                    _playerMatchControls.TrySelectPitchingIntent(PlayerPitchingIntent.InduceChase);
+                else if (keyboard.digit5Key.wasPressedThisFrame)
+                    _playerMatchControls.TrySelectPitchingIntent(PlayerPitchingIntent.QuickAttack);
+                else if (keyboard.spaceKey.wasPressedThisFrame)
+                    _playerMatchControls.TryConfirmPitchingIntent();
                 return;
             }
 
             if (IsDecisionInputReady(session))
             {
-                if (keyboard.digit1Key.wasPressedThisFrame) SelectApproach(BattingApproach.Patient);
-                else if (keyboard.digit2Key.wasPressedThisFrame) SelectApproach(BattingApproach.Balanced);
-                else if (keyboard.digit3Key.wasPressedThisFrame) SelectApproach(BattingApproach.Contact);
-                else if (keyboard.digit4Key.wasPressedThisFrame) SelectApproach(BattingApproach.Power);
-                else if (keyboard.spaceKey.wasPressedThisFrame) SubmitSelectedApproach();
-                else if (keyboard.aKey.wasPressedThisFrame) AutoCompleteCurrentPlateAppearance();
+                if (keyboard.digit1Key.wasPressedThisFrame)
+                    _playerMatchControls.TrySelectBattingIntent(PlayerBattingIntent.Patient);
+                else if (keyboard.digit2Key.wasPressedThisFrame)
+                    _playerMatchControls.TrySelectBattingIntent(PlayerBattingIntent.Balanced);
+                else if (keyboard.digit3Key.wasPressedThisFrame)
+                    _playerMatchControls.TrySelectBattingIntent(PlayerBattingIntent.Contact);
+                else if (keyboard.digit4Key.wasPressedThisFrame)
+                    _playerMatchControls.TrySelectBattingIntent(PlayerBattingIntent.Power);
+                else if (keyboard.spaceKey.wasPressedThisFrame)
+                    _playerMatchControls.TryConfirmBattingIntent();
+                else if (keyboard.aKey.wasPressedThisFrame)
+                    _playerMatchControls.TryAutoCompleteCurrentPlayerMoment();
             }
+        }
+
+        private void UpdatePlayerMatchControlAvailability(CareerMatchSession session)
+        {
+            bool canChooseBattingIntent = IsDecisionInputReady(session);
+            bool canChoosePitchingIntent = IsPitchingDecisionInputReady(session);
+            _playerMatchControls.UpdateAvailability(
+                new PlayerMatchControlAvailability(
+                    canTogglePause: IsAutomaticPlaybackActive(session) || _playResolution.IsActive,
+                    canChooseBattingIntent,
+                    canConfirmBattingIntent: canChooseBattingIntent,
+                    canChoosePitchingIntent,
+                    canConfirmPitchingIntent: canChoosePitchingIntent,
+                    canAutoCompleteCurrentPlayerMoment: canChooseBattingIntent,
+                    canUseBattingMiniGame: IsMiniGameInputReady(session),
+                    canUsePitchingMiniGame: IsPitchMiniGameStageVisible(session)));
+        }
+
+        private static BattingApproach ToBattingApproach(PlayerBattingIntent intent)
+        {
+            return intent switch
+            {
+                PlayerBattingIntent.Patient => BattingApproach.Patient,
+                PlayerBattingIntent.Balanced => BattingApproach.Balanced,
+                PlayerBattingIntent.Contact => BattingApproach.Contact,
+                PlayerBattingIntent.Power => BattingApproach.Power,
+                _ => throw new ArgumentOutOfRangeException(nameof(intent), intent, null)
+            };
+        }
+
+        private static PitchingApproach ToPitchingApproach(PlayerPitchingIntent intent)
+        {
+            return intent switch
+            {
+                PlayerPitchingIntent.Balanced => PitchingApproach.Balanced,
+                PlayerPitchingIntent.FullPower => PitchingApproach.FullPower,
+                PlayerPitchingIntent.ControlFirst => PitchingApproach.ControlFirst,
+                PlayerPitchingIntent.InduceChase => PitchingApproach.InduceChase,
+                PlayerPitchingIntent.QuickAttack => PitchingApproach.QuickAttack,
+                _ => throw new ArgumentOutOfRangeException(nameof(intent), intent, null)
+            };
+        }
+
+        private static PlayerBattingIntent ToPlayerBattingIntent(BattingApproach approach)
+        {
+            return approach switch
+            {
+                BattingApproach.Patient => PlayerBattingIntent.Patient,
+                BattingApproach.Balanced => PlayerBattingIntent.Balanced,
+                BattingApproach.Contact => PlayerBattingIntent.Contact,
+                BattingApproach.Power => PlayerBattingIntent.Power,
+                _ => throw new ArgumentOutOfRangeException(nameof(approach), approach, null)
+            };
+        }
+
+        private static PlayerPitchingIntent ToPlayerPitchingIntent(PitchingApproach approach)
+        {
+            return approach switch
+            {
+                PitchingApproach.Balanced => PlayerPitchingIntent.Balanced,
+                PitchingApproach.FullPower => PlayerPitchingIntent.FullPower,
+                PitchingApproach.ControlFirst => PlayerPitchingIntent.ControlFirst,
+                PitchingApproach.InduceChase => PlayerPitchingIntent.InduceChase,
+                PitchingApproach.QuickAttack => PlayerPitchingIntent.QuickAttack,
+                _ => throw new ArgumentOutOfRangeException(nameof(approach), approach, null)
+            };
         }
 
         private void HandleCareerChanged()
@@ -331,7 +420,7 @@ namespace Baseball.Presentation.Career
                 205f);
 
             RectTransform role = CreateImage(
-                "ConfirmedRole", card, new Color(0.035f, 0.16f, 0.19f, 1f),
+                "ConfirmedRole", card, CareerUiTheme.RoleBand,
                 new Vector2(970f, 86f), new Vector2(0f, 66f));
             CreateText(
                 "Label", role, "출전 역할 확정", 13, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -397,7 +486,7 @@ namespace Baseball.Presentation.Career
             cancel.onClick.AddListener(() => _manager.CancelPreparedGame());
             Button resultsOnly = CreateButton(
                 "ResultsOnly", card, "결과만 보기   R", new Vector2(270f, 62f), new Vector2(-120f, -242f),
-                new Color(0.08f, 0.15f, 0.2f, 1f), SecondaryTextColor);
+                CareerUiTheme.SecondaryAction, SecondaryTextColor);
             resultsOnly.onClick.AddListener(() =>
             {
                 resultsOnly.interactable = false;
@@ -405,7 +494,7 @@ namespace Baseball.Presentation.Career
             });
             Button start = CreateButton(
                 "Start", card, "경기 시작   SPACE / ENTER", new Vector2(460f, 70f), new Vector2(285f, -242f),
-                new Color(0.02f, 0.37f, 0.68f, 1f), PrimaryTextColor);
+                CareerUiTheme.PrimaryAction, PrimaryTextColor);
             start.onClick.AddListener(() =>
             {
                 start.interactable = false;
@@ -415,6 +504,7 @@ namespace Baseball.Presentation.Career
 
         private void RenderPlaying(CareerMatchSession session)
         {
+            UpdatePlayerMatchControlAvailability(session);
             bool isDecisionInputReady = IsDecisionInputReady(session);
             MatchDecisionRequest? visibleDecision = isDecisionInputReady
                 ? session.PendingDecision
@@ -423,8 +513,9 @@ namespace Baseball.Presentation.Career
                 session.Events,
                 visibleDecision);
             MatchProgressViewState view = BuildViewState(session, snapshot, isDecisionInputReady);
+            MatchHudPresentationModel hud = BuildMatchHudPresentationModel(session, snapshot, view);
 
-            RenderScoreboard(session, snapshot, view);
+            MatchHudView.CreateRuntime(_content).Present(hud);
 
             RectTransform playerPanel = CreatePanel(
                 "PlayerPanel", _content, new Vector2(360f, 900f), new Vector2(-770f, -32f));
@@ -450,90 +541,37 @@ namespace Baseball.Presentation.Career
             RenderControlPanel(controlPanel, session, snapshot, view);
         }
 
-        /// <summary>
-        /// 상단 스코어를 공격 팀 강조와 B/S/O 인디케이터 중심으로 그린다.
-        /// </summary>
-        private void RenderScoreboard(
+        private MatchHudPresentationModel BuildMatchHudPresentationModel(
             CareerMatchSession session,
             CareerMatchPlaybackSnapshot snapshot,
             MatchProgressViewState view)
         {
-            RectTransform bar = CreateImage(
-                "Scoreboard", _content, TopBarColor, new Vector2(1920f, 116f), new Vector2(0f, 482f));
-
-            RenderScoreboardTeam(
-                bar, session.Input.AwayTeam.Name, snapshot.AwayScore, -1f, view.IsAwayTeamBatting);
-            RenderScoreboardTeam(
-                bar, session.Input.HomeTeam.Name, snapshot.HomeScore, 1f, !view.IsAwayTeamBatting);
-
-            CreateText(
-                "Inning", bar, $"{snapshot.Inning}회{GetHalfLabel(snapshot.Half)}", 23, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(240f, 32f), new Vector2(0f, 30f), AccentColor);
-            string battingTeamName = view.IsAwayTeamBatting
-                ? session.Input.AwayTeam.Name
-                : session.Input.HomeTeam.Name;
-            CreateText(
-                "Attacking", bar, $"{battingTeamName} 공격", 15, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(320f, 26f), new Vector2(0f, 4f), SecondaryTextColor);
-
-            bool isSideChange = view.Flow == MatchFlowState.SideChange;
-            CreateCountDots(bar, "B", isSideChange ? 0 : snapshot.Balls, 3, new Vector2(-118f, -30f), AccentColor);
-            CreateCountDots(bar, "S", isSideChange ? 0 : snapshot.Strikes, 2, new Vector2(0f, -30f), GoldColor);
-            CreateCountDots(bar, "O", isSideChange ? 0 : snapshot.Outs, 2, new Vector2(112f, -30f), DangerColor);
-
-            CreateText(
-                "Runners", bar, isSideChange ? "주자 없음" : GetRunnerSituation(snapshot), 15,
-                FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(260f, 28f), new Vector2(-800f, -32f), SecondaryTextColor);
-            CreateText(
-                "FlowStatus", bar, GetFlowStatusLine(view), 15, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(340f, 28f), new Vector2(790f, -32f), GetFlowStatusColor(view));
-        }
-
-        private static void RenderScoreboardTeam(
-            RectTransform bar,
-            string teamName,
-            int score,
-            float direction,
-            bool isBatting)
-        {
-            CreateText(
-                "Team", bar, teamName, 20, FontStyle.Bold,
-                direction < 0f ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft,
-                new Vector2(340f, 34f), new Vector2(330f * direction, 20f),
-                isBatting ? PrimaryTextColor : SecondaryTextColor);
-            if (isBatting)
+            MatchHudParticipantModel CreateParticipant(int playerId)
             {
-                CreateImage(
-                    "AttackingUnderline", bar, GoldColor,
-                    new Vector2(180f, 3f), new Vector2(330f * direction, -6f));
+                return playerId > 0
+                    ? new MatchHudParticipantModel(playerId, FindPlayerName(session.Input, playerId))
+                    : MatchHudParticipantModel.Empty;
             }
-            CreateText(
-                "Score", bar, score.ToString(), 46, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(110f, 62f), new Vector2(140f * direction, 8f), PrimaryTextColor);
-        }
 
-        /// <summary>
-        /// 볼·스트라이크·아웃을 채워지는 점으로 표시한다. 숫자보다 남은 여유가 한눈에 들어온다.
-        /// </summary>
-        private static void CreateCountDots(
-            RectTransform parent,
-            string label,
-            int filled,
-            int total,
-            Vector2 position,
-            Color filledColor)
-        {
-            CreateText(
-                "CountLabel_" + label, parent, label, 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(22f, 24f), position, SecondaryTextColor);
-            for (int index = 0; index < total; index++)
-            {
-                Color color = index < filled ? filledColor : EmptyDotColor;
-                CreateImage(
-                    $"Dot_{label}_{index}", parent, color, new Vector2(12f, 12f),
-                    new Vector2(position.x + 22f + index * 18f, position.y));
-            }
+            return _matchHudBuilder.Build(
+                snapshot.Inning,
+                snapshot.Half == InningHalf.Top ? MatchHudHalf.Top : MatchHudHalf.Bottom,
+                new MatchHudTeamModel(
+                    session.Input.AwayTeam.Name,
+                    snapshot.AwayScore,
+                    view.IsAwayTeamBatting),
+                new MatchHudTeamModel(
+                    session.Input.HomeTeam.Name,
+                    snapshot.HomeScore,
+                    !view.IsAwayTeamBatting),
+                new MatchHudCountModel(snapshot.Balls, snapshot.Strikes, snapshot.Outs),
+                new MatchHudBaseStateModel(
+                    CreateParticipant(snapshot.FirstRunnerId),
+                    CreateParticipant(snapshot.SecondRunnerId),
+                    CreateParticipant(snapshot.ThirdRunnerId)),
+                CreateParticipant(snapshot.BatterId),
+                CreateParticipant(snapshot.PitcherId),
+                view.Flow == MatchFlowState.SideChange);
         }
 
         /// <summary>
@@ -651,7 +689,7 @@ namespace Baseball.Presentation.Career
                 "Value", card, $"{condition} · {GetConditionLabel(condition)}", 18, FontStyle.Bold,
                 TextAnchor.MiddleRight, new Vector2(184f, 26f), new Vector2(48f, 24f), GetConditionColor(condition));
             RectTransform track = CreateImage(
-                "Track", card, new Color(0.06f, 0.13f, 0.17f, 1f), new Vector2(256f, 8f), new Vector2(0f, -18f));
+                "Track", card, CareerUiTheme.ProgressTrack, new Vector2(256f, 8f), new Vector2(0f, -18f));
             RectTransform fill = CreateImage(
                 "Fill", track, GetConditionColor(condition),
                 new Vector2(256f * Mathf.Clamp01(condition / 100f), 8f), Vector2.zero);
@@ -733,7 +771,7 @@ namespace Baseball.Presentation.Career
             Vector2 position)
         {
             RectTransform diamond = CreateImage(
-                "Diamond", panel, new Color(0.03f, 0.19f, 0.13f, 1f),
+                "Diamond", panel, CareerUiTheme.RoleBand,
                 new Vector2(360f, 250f), position);
             diamond.gameObject.AddComponent<RectMask2D>();
             CreateBroadcastFieldIllustration(
@@ -873,7 +911,7 @@ namespace Baseball.Presentation.Career
             Button enter = CreateButton(
                 "EnterPlateAppearance", panel, "타석으로 이동   SPACE",
                 new Vector2(460f, 68f), new Vector2(0f, -150f),
-                new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
+                CareerUiTheme.PrimaryAction, PrimaryTextColor);
             enter.onClick.AddListener(AcknowledgeCallUp);
         }
 
@@ -918,16 +956,17 @@ namespace Baseball.Presentation.Career
 
             Button nextPitch = CreateButton(
                 "NextPitch", panel, "다음 투구   SPACE", new Vector2(460f, 68f), new Vector2(0f, -152f),
-                new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
+                CareerUiTheme.PrimaryAction, PrimaryTextColor);
             nextPitch.onClick.AddListener(() =>
             {
                 nextPitch.interactable = false;
-                SubmitSelectedApproach();
+                _playerMatchControls.TryConfirmBattingIntent();
             });
             Button autoPlateAppearance = CreateButton(
                 "AutoPlateAppearance", panel, "현재 타석 자동 진행   A",
                 new Vector2(340f, 44f), new Vector2(0f, -226f), PanelDarkColor, SecondaryTextColor);
-            autoPlateAppearance.onClick.AddListener(AutoCompleteCurrentPlateAppearance);
+            autoPlateAppearance.onClick.AddListener(() =>
+                _playerMatchControls.TryAutoCompleteCurrentPlayerMoment());
 
             if (!string.IsNullOrEmpty(_manager.LastError))
             {
@@ -1058,7 +1097,7 @@ namespace Baseball.Presentation.Career
                 FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(180f, 24f), new Vector2(-340f, y), AccentColor);
             CreateImage(
-                $"InningRule{line}", panel, new Color(0.1f, 0.24f, 0.34f, 1f),
+                $"InningRule{line}", panel, CareerUiTheme.Divider,
                 new Vector2(660f, 1f), new Vector2(110f, y));
         }
 
@@ -1076,7 +1115,7 @@ namespace Baseball.Presentation.Career
             {
                 CreateImage(
                     $"RowHighlight_{matchEvent.Sequence}", panel,
-                    isScore ? new Color(0.14f, 0.1f, 0.02f, 1f) : new Color(0.03f, 0.14f, 0.1f, 1f),
+                    isScore ? CareerUiTheme.SpecialAction : CareerUiTheme.RoleBand,
                     new Vector2(880f, TimelineRowHeight - 2f), new Vector2(0f, y));
             }
 
@@ -1105,8 +1144,8 @@ namespace Baseball.Presentation.Career
                 MatchEventType.PinchHitterEntered or MatchEventType.PinchRunnerEntered => AccentColor,
                 MatchEventType.FieldingError or MatchEventType.ThrowingError => DangerColor,
                 MatchEventType.StealSucceeded or MatchEventType.DoublePlay => RoleColor,
-                MatchEventType.RunnerAdvance => new Color(0.4f, 0.6f, 0.7f, 1f),
-                _ => new Color(0.2f, 0.32f, 0.4f, 1f)
+                MatchEventType.RunnerAdvance => CareerUiTheme.RatingMid,
+                _ => CareerUiTheme.Border
             };
         }
         private void RenderCompleted(CareerMatchSession session)
@@ -1227,7 +1266,7 @@ namespace Baseball.Presentation.Career
                     ? "다음 날로   SPACE / ENTER"
                     : "경기 후 인터뷰로   SPACE / ENTER",
                 new Vector2(520f, 72f), new Vector2(0f, -448f),
-                new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
+                CareerUiTheme.PrimaryAction, PrimaryTextColor);
             nextDay.onClick.AddListener(() => _manager.ReturnHomeFromCompletedMatch());
         }
 
@@ -1246,7 +1285,7 @@ namespace Baseball.Presentation.Career
             Vector2 position)
         {
             bool isSelected = _selectedApproach == approach;
-            Color background = isSelected ? new Color(0.035f, 0.24f, 0.39f, 1f) : PanelDarkColor;
+            Color background = isSelected ? CareerUiTheme.SurfaceSelected : PanelDarkColor;
             Button button = CreateButton(
                 "Approach_" + approach, parent, string.Empty,
                 new Vector2(468f, 92f), position, background, PrimaryTextColor);
@@ -1258,7 +1297,8 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "Description", button.transform, description, 13, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(400f, 25f), new Vector2(14f, -17f), isSelected ? AccentColor : SecondaryTextColor);
-            button.onClick.AddListener(() => SelectApproach(approach));
+            button.onClick.AddListener(() =>
+                _playerMatchControls.TrySelectBattingIntent(ToPlayerBattingIntent(approach)));
         }
 
         private void SelectApproach(BattingApproach approach)
@@ -1440,10 +1480,10 @@ namespace Baseball.Presentation.Career
             bool isControlledRunner = false)
         {
             Color color = isHome
-                ? new Color(0.8f, 0.86f, 0.9f, 1f)
+                ? CareerUiTheme.TextSecondary
                 : isControlledRunner
                     ? RoleColor
-                    : isOccupied ? GoldColor : new Color(0.2f, 0.32f, 0.34f, 1f);
+                : isOccupied ? GoldColor : CareerUiTheme.ProgressTrack;
             RectTransform baseRect = CreateImage(name, parent, color, new Vector2(38f, 38f), position);
             baseRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
         }
@@ -1451,7 +1491,7 @@ namespace Baseball.Presentation.Career
         private static void CreateStatusPill(Transform parent, string label, Vector2 size, Vector2 position)
         {
             RectTransform pill = CreateFramedSurface(
-                "StatusPill", parent, new Color(0.04f, 0.18f, 0.18f, 1f), size, position);
+                "StatusPill", parent, CareerUiTheme.RoleBand, size, position);
             CreateText(
                 "Label", pill, label, 14, FontStyle.Bold, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.zero, RoleColor, true);
@@ -1579,14 +1619,14 @@ namespace Baseball.Presentation.Career
             return FindPlayer(input, playerId)?.Name ?? string.Empty;
         }
 
-        private static Player FindPlayer(MatchInput input, int playerId)
+        private static BaseballPlayer FindPlayer(MatchInput input, int playerId)
         {
             if (input == null || playerId <= 0)
                 return null;
             return FindPlayer(input.AwayRoster, playerId) ?? FindPlayer(input.HomeRoster, playerId);
         }
 
-        private static Player FindPlayer(MatchRosterSnapshot roster, int playerId)
+        private static BaseballPlayer FindPlayer(MatchRosterSnapshot roster, int playerId)
         {
             if (roster == null)
                 return null;
@@ -1613,11 +1653,11 @@ namespace Baseball.Presentation.Career
         /// <summary>Switch Hitter는 상대 투수의 반대 타석을 선택해 실제 타석 방향을 확정한다.</summary>
         private static Handedness ResolveBattingSide(MatchInput input, int batterId, int pitcherId)
         {
-            Player batter = FindPlayer(input, batterId);
+            BaseballPlayer batter = FindPlayer(input, batterId);
             if (batter == null || batter.BattingHand != Handedness.Switch)
                 return batter?.BattingHand ?? Handedness.Right;
 
-            Player pitcher = FindPlayer(input, pitcherId);
+            BaseballPlayer pitcher = FindPlayer(input, pitcherId);
             return pitcher?.ThrowingHand == Handedness.Left
                 ? Handedness.Right
                 : Handedness.Left;
@@ -1871,7 +1911,7 @@ namespace Baseball.Presentation.Career
             Vector2 position)
         {
             RectTransform badge = CreateImage(
-                "Badge_" + teamName, parent, new Color(0.03f, 0.23f, 0.38f, 1f),
+                "Badge_" + teamName, parent, CareerUiTheme.TeamBadgeSurface,
                 new Vector2(118f, 118f), position);
             RectTransform emblem = CreateImage(
                 "Emblem", badge, Color.clear, new Vector2(108f, 108f), Vector2.zero);
@@ -1989,6 +2029,12 @@ namespace Baseball.Presentation.Career
                 Vector2.zero, Vector2.zero, textColor, true);
             CareerUiSkin.ApplyButton(button);
             return button;
+        }
+
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = alpha;
+            return color;
         }
 
         private static void ClearChildren(Transform parent)

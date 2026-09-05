@@ -21,7 +21,7 @@ namespace Baseball.Presentation.Career
             RectTransform parent, string playerName, PlayerPosition position, Vector2 anchoredPosition)
         {
             RectTransform frame = CreateImage(
-                "Portrait", parent, new Color(0.03f, 0.19f, 0.32f, 1f),
+                "Portrait", parent, CareerUiTheme.PortraitBackdrop,
                 new Vector2(116f, 116f), anchoredPosition);
             CreateImage("PortraitBorder", frame, BorderColor, new Vector2(116f, 2f), new Vector2(0f, 57f));
 

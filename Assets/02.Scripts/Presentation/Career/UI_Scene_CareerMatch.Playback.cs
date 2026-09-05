@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.PlateAppearance;
 using UnityEngine;
@@ -419,16 +420,17 @@ namespace Baseball.Presentation.Career
                     $"{index + 1}  {GetPitchingApproachLabel(approach)}",
                     new Vector2(410f, 52f),
                     new Vector2(0f, 220f - index * 61f),
-                    selected ? new Color(0.025f, 0.32f, 0.52f, 1f) : PanelDarkColor,
+                    selected ? CareerUiTheme.SurfaceSelected : PanelDarkColor,
                     selected ? PrimaryTextColor : SecondaryTextColor);
-                button.onClick.AddListener(() => SelectPitchingApproach(approach));
+                button.onClick.AddListener(() =>
+                    _playerMatchControls.TrySelectPitchingIntent(ToPlayerPitchingIntent(approach)));
             }
 
             Button start = CreateButton(
                 "StartPitchingInning", panel, "이닝 투구 시작   SPACE",
                 new Vector2(430f, 64f), new Vector2(0f, -140f),
-                new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
-            start.onClick.AddListener(StartSelectedPitchingInning);
+                CareerUiTheme.PrimaryAction, PrimaryTextColor);
+            start.onClick.AddListener(() => _playerMatchControls.TryConfirmPitchingIntent());
             CreateText("PitchingGuide", panel,
                 "현재 방침으로 이닝 종료까지 진행하고 다음 이닝 시작 전에 다시 멈춥니다.",
                 14, FontStyle.Normal, TextAnchor.MiddleCenter,
@@ -485,7 +487,7 @@ namespace Baseball.Presentation.Career
                     Button primary = CreateButton(
                         "PrimaryAction", _controlHost, GetPrimaryActionLabel(view.PrimaryAction),
                         new Vector2(460f, 66f), new Vector2(0f, 200f),
-                        new Color(0.02f, 0.38f, 0.7f, 1f), PrimaryTextColor);
+                        CareerUiTheme.PrimaryAction, PrimaryTextColor);
                     primary.onClick.AddListener(() => InvokePrimaryAction(view.PrimaryAction));
 
                     RenderSecondaryActions(_controlHost, session, view, 136f);
@@ -537,7 +539,7 @@ namespace Baseball.Presentation.Career
             CreateImage(
                 "RunningDot", card, isRunning ? RoleColor : MutedTextColor,
                 new Vector2(14f, 14f), new Vector2(208f, 58f));
-            CreateImage("Divider", card, new Color(0.1f, 0.24f, 0.34f, 1f),
+            CreateImage("Divider", card, CareerUiTheme.Divider,
                 new Vector2(420f, 1f), new Vector2(0f, 34f));
 
             CreateText(
@@ -557,7 +559,7 @@ namespace Baseball.Presentation.Career
             Button button = CreateButton(
                 "Speed_" + stepIndex, parent, FormatPlaybackSpeedRate(PlaybackSpeedRates[stepIndex]),
                 new Vector2(104f, 44f), position,
-                isSelected ? new Color(0.035f, 0.24f, 0.39f, 1f) : new Color(0.06f, 0.13f, 0.17f, 1f),
+                isSelected ? CareerUiTheme.SurfaceSelected : CareerUiTheme.ProgressTrack,
                 isSelected ? PrimaryTextColor : SecondaryTextColor);
             button.onClick.AddListener(() => SelectPlaybackSpeed(stepIndex));
         }
@@ -575,18 +577,18 @@ namespace Baseball.Presentation.Career
             {
                 Button finish = CreateButton(
                     "FinishMatch", panel, "경기 종료까지 진행", new Vector2(460f, 44f), new Vector2(0f, y),
-                    new Color(0.07f, 0.16f, 0.21f, 1f), SecondaryTextColor);
+                    CareerUiTheme.SecondaryAction, SecondaryTextColor);
                 finish.onClick.AddListener(AutoCompleteMatch);
                 return;
             }
 
             Button nextBatter = CreateButton(
                 "StepPlateAppearance", panel, "다음 타자 진행", new Vector2(224f, 44f), new Vector2(-118f, y),
-                new Color(0.07f, 0.16f, 0.21f, 1f), SecondaryTextColor);
+                CareerUiTheme.SecondaryAction, SecondaryTextColor);
             nextBatter.onClick.AddListener(StepOnePlateAppearance);
             Button inningEnd = CreateButton(
                 "StepInningEnd", panel, "이닝 종료까지", new Vector2(224f, 44f), new Vector2(118f, y),
-                new Color(0.07f, 0.16f, 0.21f, 1f), SecondaryTextColor);
+                CareerUiTheme.SecondaryAction, SecondaryTextColor);
             inningEnd.onClick.AddListener(StepToInningEnd);
         }
 
@@ -595,18 +597,19 @@ namespace Baseball.Presentation.Career
             switch (action)
             {
                 case MatchPrimaryAction.Pause:
-                    TogglePause();
+                    _playerMatchControls.TryTogglePause();
                     return;
                 case MatchPrimaryAction.AdvanceToPlayerEntry:
                 case MatchPrimaryAction.AdvanceToPlayerAtBat:
                 case MatchPrimaryAction.ContinueMatch:
-                    ResumePlayback();
+                    if (_isPaused)
+                        _playerMatchControls.TryTogglePause();
                     return;
                 case MatchPrimaryAction.EnterPlateAppearance:
                     AcknowledgeCallUp();
                     return;
                 case MatchPrimaryAction.NextPitch:
-                    SubmitSelectedApproach();
+                    _playerMatchControls.TryConfirmBattingIntent();
                     return;
                 case MatchPrimaryAction.FinishMatch:
                     AutoCompleteMatch();
@@ -705,7 +708,7 @@ namespace Baseball.Presentation.Career
                 RenderBattingOrderRow(card, session, battingTeam, slotIndex, offset, 106f - offset * 40f);
             }
 
-            CreateImage("Divider", card, new Color(0.1f, 0.24f, 0.34f, 1f),
+            CreateImage("Divider", card, CareerUiTheme.Divider,
                 new Vector2(420f, 1f), new Vector2(0f, -76f));
             CreateText(
                 "Pitcher", card,
@@ -736,7 +739,7 @@ namespace Baseball.Presentation.Career
             if (isControlled)
             {
                 CreateImage(
-                    "ControlledRow", card, new Color(0.03f, 0.14f, 0.1f, 1f),
+                    "ControlledRow", card, CareerUiTheme.CurrentRow,
                     new Vector2(420f, 34f), new Vector2(0f, y));
             }
 

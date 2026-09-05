@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.UI
 {
-    /// <summary>선수 커리어 UI의 공통 프레임, 버튼, 슬라이더와 강조 연출을 한 테마로 적용한다.</summary>
+    /// <summary>공용 야구 관리 UI의 프레임, 버튼, 슬라이더와 강조 연출을 한 테마로 적용한다.</summary>
     public static class CareerUiSkin
     {
         private const string UniversalPanelPath = "UI/Skin/ui_panel_universal_v2";
@@ -33,13 +33,13 @@ namespace Baseball.Presentation.UI
         private static readonly Vector4 SliderBorder = new(68f, 46f, 68f, 46f);
         private static readonly Vector4 LargeProgressTrackBorder = new(56f, 56f, 56f, 56f);
         private static readonly Vector4 CompactProgressTrackBorder = new(41f, 40f, 41f, 40f);
-        private static readonly Color FlatPanelColor = new(0.014f, 0.048f, 0.078f, 0.98f);
-        private static readonly Color FlatSurfaceColor = new(0.009f, 0.032f, 0.052f, 0.98f);
-        private static readonly Color FlatBorderColor = new(0.17f, 0.28f, 0.36f, 0.92f);
-        private static readonly Color CompactButtonColor = new(0.018f, 0.062f, 0.098f, 1f);
-        private static readonly Color CompactButtonSelectedColor = new(0.035f, 0.25f, 0.42f, 1f);
-        private static readonly Color CompactButtonBorderColor = new(0.34f, 0.45f, 0.53f, 0.9f);
-        private static readonly Color CompactButtonSelectedBorderColor = new(0.94f, 0.86f, 0.66f, 1f);
+        private static Color FlatPanelColor => CareerUiTheme.Panel;
+        private static Color FlatSurfaceColor => CareerUiTheme.PanelDark;
+        private static Color FlatBorderColor => CareerUiTheme.Border;
+        private static Color CompactButtonColor => CareerUiTheme.SurfaceSubtle;
+        private static Color CompactButtonSelectedColor => CareerUiTheme.SurfaceSelected;
+        private static Color CompactButtonBorderColor => CareerUiTheme.Border;
+        private static readonly Color CompactButtonSelectedBorderColor = new(0.86f, 0.84f, 0.74f, 1f);
 
         private static Sprite _universalPanel;
         private static Sprite _heroPanel;

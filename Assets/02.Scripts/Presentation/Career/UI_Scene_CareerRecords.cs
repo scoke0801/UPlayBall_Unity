@@ -12,22 +12,25 @@ namespace Baseball.Presentation.Career
     /// <summary>리그 순위와 내 시즌·통산·수상 기록을 실제 커리어 원본에서 조회하는 기록 화면이다.</summary>
     public sealed partial class UI_Scene_CareerRecords : UISceneBase, ICareerTabScreen
     {
-        private static readonly Color BackgroundColor = new(0.005f, 0.018f, 0.032f, 1f);
-        private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.014f, 0.052f, 0.087f, 0.99f);
-        private static readonly Color PanelDarkColor = new(0.007f, 0.029f, 0.052f, 1f);
-        private static readonly Color HeaderColor = new(0.019f, 0.084f, 0.14f, 1f);
-        private static readonly Color BorderColor = new(0.13f, 0.34f, 0.51f, 1f);
-        private static readonly Color DividerColor = new(0.08f, 0.20f, 0.31f, 1f);
-        private static readonly Color AccentColor = new(0.12f, 0.55f, 0.95f, 1f);
-        private static readonly Color BrightAccentColor = new(0.22f, 0.68f, 1f, 1f);
-        private static readonly Color RankColor = new(0.43f, 0.89f, 0.19f, 1f);
-        private static readonly Color GoldColor = new(0.96f, 0.71f, 0.18f, 1f);
-        private static readonly Color WinColor = new(0.28f, 0.82f, 0.49f, 1f);
-        private static readonly Color LossColor = new(0.91f, 0.34f, 0.39f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.68f, 0.75f, 0.82f, 1f);
-        private static readonly Color MutedTextColor = new(0.40f, 0.49f, 0.58f, 1f);
+        private static readonly Color BackgroundColor = CareerUiTheme.Background;
+        private static readonly Color TopBarColor = CareerUiTheme.TopBar;
+        private static readonly Color PanelColor = CareerUiTheme.Panel;
+        private static readonly Color PanelDarkColor = CareerUiTheme.PanelDark;
+        private static readonly Color HeaderColor = CareerUiTheme.RoleBand;
+        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color DividerColor = CareerUiTheme.Divider;
+        private static readonly Color AccentColor = CareerUiTheme.Primary;
+        private static readonly Color BrightAccentColor = CareerUiTheme.PrimaryBright;
+        private static readonly Color RankColor = CareerUiTheme.PrimaryBright;
+        private static readonly Color GoldColor = CareerUiTheme.AccentGold;
+        private static readonly Color WinColor = CareerUiTheme.Success;
+        private static readonly Color LossColor = CareerUiTheme.Loss;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedTextColor = CareerUiTheme.TextMuted;
+        private static readonly Vector2 SharedShellWorkspaceOffset = new(
+            0f,
+            -(CareerUiTheme.SharedShellChromeHeight * 0.5f + CareerUiTheme.Space2));
 
         private readonly CareerRecordsService _recordsService = new();
         private CareerManager _manager;
@@ -79,7 +82,7 @@ namespace Baseball.Presentation.Career
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             CreateImage("Background", root, BackgroundColor, Vector2.zero, Vector2.zero, stretch: true);
-            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
+            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), SharedShellWorkspaceOffset);
         }
 
         private void SelectInitialCategory()
@@ -116,8 +119,6 @@ namespace Baseball.Presentation.Career
                 _viewMode,
                 _scope);
             RenderBackgroundAccents();
-            RenderTopBar(_manager.Dashboard);
-            RenderTitle();
             RenderPageTabs();
             RenderCategoryMenu();
 
@@ -139,15 +140,13 @@ namespace Baseball.Presentation.Career
                     RenderHighlightsPage(view);
                     break;
             }
-
-            CareerNavigationChrome.Create(_content, CareerMainTab.Records);
         }
 
         private void RenderBackgroundAccents()
         {
-            CreateImage("TopGlow", _content, new Color(0.02f, 0.18f, 0.31f, 0.25f),
+            CreateImage("TopGlow", _content, CareerUiTheme.TopGlow,
                 new Vector2(1920f, 5f), new Vector2(0f, 456f));
-            CreateImage("ContentGlow", _content, new Color(0.02f, 0.12f, 0.21f, 0.16f),
+            CreateImage("ContentGlow", _content, CareerUiTheme.BottomGlow,
                 new Vector2(1880f, 2f), new Vector2(0f, 339f));
         }
 
@@ -352,20 +351,7 @@ namespace Baseball.Presentation.Career
                 $"주요 {GetCategoryLabel(view.Category)} 기록 (TOP 10)",
                 new Vector2(1070f, 510f),
                 new Vector2(-150f, 75f));
-            if (view.Leaderboard.Length == 0)
-            {
-                RenderEmptyState(
-                    panel,
-                    !view.HasScopeData
-                        ? "선택한 경기 범위에 아직 기록이 없습니다."
-                        : view.Category == CareerRecordCategory.Baserunning
-                        ? "아직 도루 시도가 없어 주루 순위가 생성되지 않았습니다."
-                        : "현재 규정 자격을 충족한 선수가 없습니다.");
-            }
-            else
-            {
-                RenderScrollableLeaderboardTable(panel, view);
-            }
+            RenderScrollableLeaderboardTable(panel, view);
 
             string qualification = view.Category switch
             {
@@ -493,10 +479,7 @@ namespace Baseball.Presentation.Career
                 sortByRecord ? $"역대 {GetMetricLabel(view.PrimaryMetric, true)} 시즌 TOP" : "시즌별 기록",
                 new Vector2(1070f, 510f),
                 new Vector2(-150f, 75f));
-            if (seasons.Length == 0)
-                RenderEmptyState(panel, "선택한 경기 범위의 시즌 기록이 아직 없습니다.");
-            else
-                RenderScrollableSeasonTable(panel, view.LeaderboardColumns, seasons, sortByRecord);
+            RenderScrollableSeasonTable(panel, view, seasons, sortByRecord);
 
             RenderCareerTotals(view);
             if (view.TradeHistory.Length > 0 || view.TeamSplits.Length > 0)

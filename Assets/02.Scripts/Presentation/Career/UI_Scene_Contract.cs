@@ -3,6 +3,8 @@ using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
+using Baseball.Presentation.Player;
+using Baseball.Presentation.SharedScreens;
 using Baseball.Presentation.UI;
 using Baseball.Simulation.Career;
 using UnityEngine;
@@ -15,30 +17,36 @@ namespace Baseball.Presentation.Career
     /// </summary>
     public sealed class UI_Scene_Contract : UISceneBase, ICareerTabScreen
     {
-        private static readonly Color BackgroundColor = new(0.004f, 0.015f, 0.028f, 1f);
-        private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.012f, 0.047f, 0.079f, 0.78f);
-        private static readonly Color PanelDarkColor = new(0.006f, 0.028f, 0.049f, 0.74f);
-        private static readonly Color CardColor = new(0.020f, 0.075f, 0.124f, 0.82f);
-        private static readonly Color PortraitBackdropColor = new(0.78f, 0.86f, 0.94f, 1f);
-        private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
-        private static readonly Color DividerColor = new(0.11f, 0.27f, 0.40f, 1f);
-        private static readonly Color AccentColor = new(0.08f, 0.52f, 0.92f, 1f);
-        private static readonly Color BrightAccentColor = new(0.12f, 0.68f, 1f, 1f);
-        private static readonly Color GoldColor = new(1f, 0.73f, 0.16f, 1f);
-        private static readonly Color SuccessColor = new(0.27f, 0.82f, 0.36f, 1f);
-        private static readonly Color WarningColor = new(0.98f, 0.62f, 0.10f, 1f);
-        private static readonly Color ErrorColor = new(1f, 0.38f, 0.40f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.62f, 0.71f, 0.80f, 1f);
-        private static readonly Color MutedColor = new(0.34f, 0.42f, 0.50f, 1f);
+        private static readonly Color BackgroundColor = CareerUiTheme.Background;
+        private static readonly Color TopBarColor = CareerUiTheme.TopBar;
+        private static readonly Color PanelColor = CareerUiTheme.Panel;
+        private static readonly Color PanelDarkColor = CareerUiTheme.PanelDark;
+        private static readonly Color CardColor = CareerUiTheme.Surface;
+        private static readonly Color PortraitBackdropColor = CareerUiTheme.PortraitBackdrop;
+        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color DividerColor = CareerUiTheme.Divider;
+        private static readonly Color AccentColor = CareerUiTheme.Primary;
+        private static readonly Color GoldColor = CareerUiTheme.AccentGold;
+        private static readonly Color SuccessColor = CareerUiTheme.Success;
+        private static readonly Color WarningColor = CareerUiTheme.Warning;
+        private static readonly Color ErrorColor = CareerUiTheme.Error;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedColor = CareerUiTheme.TextMuted;
+        private static readonly Vector2 SharedShellWorkspaceOffset = new(
+            0f,
+            -(CareerUiTheme.SharedShellChromeHeight * 0.5f + CareerUiTheme.Space2));
 
         private CareerManager _manager;
+        private readonly PlayerContractPresentationModelBuilder _presentationBuilder = new();
         private RectTransform _content;
         private bool _isRetirementConfirming;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Contract;
+
+        /// <summary>공용 표와 상태 View가 현재 표시 중인 선수 계약 모델이다.</summary>
+        public PlayerContractPresentationModel CurrentPresentationModel { get; private set; }
 
         /// <summary>
         /// 프리팹이 없는 프로토타입 환경에서 계약 화면을 런타임 생성한다.
@@ -80,13 +88,14 @@ namespace Baseball.Presentation.Career
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             CreateImage("Background", root, BackgroundColor, Vector2.zero, Vector2.zero, stretch: true);
-            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
+            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), SharedShellWorkspaceOffset);
         }
 
         private void HandleCareerChanged()
         {
             if (!_manager.HasActiveCareer)
             {
+                CurrentPresentationModel = null;
                 Hide();
                 return;
             }
@@ -101,25 +110,24 @@ namespace Baseball.Presentation.Career
 
             ClearChildren(_content);
             CareerContractView view = _manager.Contract;
+            CurrentPresentationModel = _presentationBuilder.Build(view);
             RenderBackgroundAccents();
-            RenderTopBar(view);
-            RenderTitle(view);
+            RenderContextGuide(view);
             RenderPlayerPanel(view);
             if (view.NegotiationStatus is ContractNegotiationStatus.CurrentTeamOfferAvailable or
                 ContractNegotiationStatus.OffersAvailable)
-                RenderOfferMode(view);
+                RenderOfferMode(view, CurrentPresentationModel);
             else
-                RenderContractOverview(view);
-            CareerNavigationChrome.Create(_content, CareerMainTab.Contract);
+                RenderContractOverview(view, CurrentPresentationModel);
             if (_isRetirementConfirming && view.CanRetireInsteadOfSigning)
                 RenderRetirementConfirm(view);
         }
 
         private void RenderBackgroundAccents()
         {
-            CreateImage("TopGlow", _content, new Color(0.02f, 0.18f, 0.31f, 0.22f),
+            CreateImage("TopGlow", _content, CareerUiTheme.TopGlow,
                 new Vector2(1920f, 5f), new Vector2(0f, 456f));
-            CreateImage("BottomGlow", _content, new Color(0.02f, 0.16f, 0.28f, 0.18f),
+            CreateImage("BottomGlow", _content, CareerUiTheme.BottomGlow,
                 new Vector2(1920f, 4f), new Vector2(0f, -443f));
         }
 
@@ -165,7 +173,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(size.x - 32f, 30f), new Vector2(0f, -7f), valueColor ?? PrimaryTextColor);
         }
 
-        private void RenderTitle(CareerContractView view)
+        private void RenderContextGuide(CareerContractView view)
         {
             bool isOfferMode = view.NegotiationStatus is ContractNegotiationStatus.CurrentTeamOfferAvailable or
                 ContractNegotiationStatus.OffersAvailable;
@@ -176,10 +184,7 @@ namespace Baseball.Presentation.Career
                 ? 900f
                 : 640f;
             CreateText(
-                "Title", _content, "계약", 30, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(70f, 48f), new Vector2(-910f, 440f), PrimaryTextColor);
-            CreateText(
-                "Subtitle", _content, subtitle,
+                "ContextGuide", _content, subtitle,
                 15, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(subtitleWidth, 40f), new Vector2(-860f + subtitleWidth * 0.5f, 438f),
                 SecondaryTextColor);
@@ -265,7 +270,7 @@ namespace Baseball.Presentation.Career
             Button button = CreateButton(
                 "Negotiation", panel, buttonLabel,
                 new Vector2(330f, 58f), new Vector2(0f, -226f),
-                interactable ? new Color(0.025f, 0.31f, 0.61f, 1f) : new Color(0.05f, 0.10f, 0.15f, 1f),
+                interactable ? CareerUiTheme.SurfaceSelected : CareerUiTheme.SurfaceSubtle,
                 out Text label);
             label.fontSize = 22;
             button.interactable = interactable;
@@ -281,7 +286,7 @@ namespace Baseball.Presentation.Career
                 Button decline = CreateButton(
                     "DeclineExtension", panel, "이번 연장 제안 거절",
                     new Vector2(200f, 30f), new Vector2(0f, -270f),
-                    new Color(0.16f, 0.10f, 0.10f, 1f), out Text declineLabel);
+                    Color.Lerp(CareerUiTheme.PanelDark, ErrorColor, 0.28f), out Text declineLabel);
                 declineLabel.fontSize = 12;
                 decline.onClick.AddListener(() => _manager.DeclineCurrentTeamExtension());
             }
@@ -291,11 +296,13 @@ namespace Baseball.Presentation.Career
                 interactable ? SecondaryTextColor : MutedColor);
         }
 
-        private void RenderContractOverview(CareerContractView view)
+        private void RenderContractOverview(
+            CareerContractView view,
+            PlayerContractPresentationModel presentation)
         {
             RenderCurrentContract(view);
-            RenderSalaryAndHistory(view);
-            RenderBonusConditions(view);
+            RenderContractHistory(presentation);
+            RenderBonusConditions(view, presentation);
             RenderMarketAndStatus(view);
         }
 
@@ -337,100 +344,46 @@ namespace Baseball.Presentation.Career
                 new Vector2(210f, 62f), new Vector2(0f, -13f), valueColor ?? PrimaryTextColor);
         }
 
-        private void RenderSalaryAndHistory(CareerContractView view)
+        private void RenderContractHistory(PlayerContractPresentationModel presentation)
         {
             RectTransform panel = CreatePanel(
-                "SalaryHistory", "연봉 및 계약 이력",
+                "ContractHistory", "계약 이력 · 최근 12건",
                 new Vector2(760f, 390f), new Vector2(-170f, -190f));
-            CurrentContractView contract = view.CurrentContract;
-            CreateText(
-                "SalaryTitle", panel, "연도별 보장 연봉", 14, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Vector2(240f, 26f), new Vector2(-244f, 104f), SecondaryTextColor);
-            int visibleSalaryYears = Math.Min(contract.ContractYears, 4);
-            for (int index = 0; index < visibleSalaryYears; index++)
-            {
-                float y = 70f - index * 30f;
-                int year = contract.SignedYear + index;
-                RectTransform row = CreateFramedSurface(
-                    "Salary_" + year, panel,
-                    index % 2 == 0 ? PanelDarkColor : new Color(0.014f, 0.052f, 0.084f, 1f),
-                    new Vector2(710f, 28f), new Vector2(0f, y));
-                CreateText("Year", row, year.ToString(), 13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                    new Vector2(120f, 24f), new Vector2(-285f, 0f), PrimaryTextColor);
-                CreateText("Salary", row, FormatMoney(contract.AnnualSalary), 14, FontStyle.Bold,
-                    TextAnchor.MiddleRight, new Vector2(190f, 24f), new Vector2(-60f, 0f), GoldColor);
-                CreateText("Note", row, index == 0 ? "계약 시작" : "보장",
-                    12, FontStyle.Normal, TextAnchor.MiddleCenter,
-                    new Vector2(150f, 24f), new Vector2(240f, 0f), SecondaryTextColor);
-            }
-
-            CreateText(
-                "HistoryTitle", panel, "계약 히스토리", 14, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Vector2(240f, 24f), new Vector2(-244f, -50f), SecondaryTextColor);
-            int visibleHistory = Math.Min(view.ContractHistory.Length, 2);
-            for (int index = 0; index < visibleHistory; index++)
-            {
-                ContractHistoryView history = view.ContractHistory[index];
-                float y = -77f - index * 28f;
-                RectTransform row = CreateFramedSurface(
-                    "History_" + index, panel,
-                    history.IsCurrent ? new Color(0.025f, 0.12f, 0.20f, 1f) : PanelDarkColor,
-                    new Vector2(710f, 26f), new Vector2(0f, y));
-                CreateText("Term", row, $"{history.SignedYear}~{history.EndYear}", 12, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(120f, 22f), new Vector2(-290f, 0f), PrimaryTextColor);
-                CreateText("Team", row, history.TeamName, 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                    new Vector2(220f, 22f), new Vector2(-100f, 0f), PrimaryTextColor);
-                CreateText("Salary", row, FormatMoney(history.AnnualSalary), 12, FontStyle.Normal,
-                    TextAnchor.MiddleRight, new Vector2(160f, 22f), new Vector2(105f, 0f), SecondaryTextColor);
-                CreateText("Role", row, GetExpectedRoleLabel(history.ExpectedRole), 12, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(130f, 22f), new Vector2(275f, 0f),
-                    history.IsCurrent ? SuccessColor : SecondaryTextColor);
-            }
+            RectTransform tableHost = CreateRect(
+                "ContractHistoryTableHost", panel, new Vector2(710f, 300f), Vector2.zero);
+            CompactRecordTableView table = CompactRecordTableView.CreateRuntime(
+                tableHost,
+                "ContractHistoryTable");
+            table.Bind(presentation.ContractHistory, presentation.ContractHistoryState);
         }
 
-        private void RenderBonusConditions(CareerContractView view)
+        private void RenderBonusConditions(
+            CareerContractView view,
+            PlayerContractPresentationModel presentation)
         {
             RectTransform panel = CreatePanel(
                 "Bonus", "상여 조건",
                 new Vector2(650f, 440f), new Vector2(570f, 155f));
-            int visibleCount = Math.Min(view.BonusProgress.Length, 6);
-            for (int index = 0; index < visibleCount; index++)
-            {
-                ContractBonusProgressView bonus = view.BonusProgress[index];
-                float y = 128f - index * 36f;
-                RectTransform row = CreateFramedSurface(
-                    "Bonus_" + bonus.ClauseId, panel,
-                    index % 2 == 0 ? PanelDarkColor : new Color(0.014f, 0.052f, 0.084f, 1f),
-                    new Vector2(610f, 34f), new Vector2(0f, y));
-                CreateText(
-                    "Condition", row, GetBonusLabel(bonus), 13, FontStyle.Bold, TextAnchor.MiddleLeft,
-                    new Vector2(210f, 32f), new Vector2(-185f, 0f), PrimaryTextColor);
-                CreateText(
-                    "Reward", row, "+" + FormatMoney(bonus.Reward), 12, FontStyle.Bold,
-                    TextAnchor.MiddleRight, new Vector2(120f, 30f), new Vector2(5f, 0f), GoldColor);
-                CreateText(
-                    "Progress", row, GetBonusProgressText(bonus), 11, FontStyle.Normal,
-                    TextAnchor.MiddleRight, new Vector2(90f, 30f), new Vector2(145f, 0f),
-                    bonus.IsCompleted ? SuccessColor : SecondaryTextColor);
-                CreateProgressBar(
-                    row, (float)bonus.NormalizedProgress, new Vector2(100f, 10f), new Vector2(250f, 0f),
-                    bonus.IsCompleted ? SuccessColor :
-                    bonus.NormalizedProgress >= 0.75d ? GoldColor : BrightAccentColor);
-            }
+            RectTransform tableHost = CreateRect(
+                "BonusProgressTableHost", panel, new Vector2(610f, 230f), new Vector2(0f, 40f));
+            CompactRecordTableView table = CompactRecordTableView.CreateRuntime(
+                tableHost,
+                "BonusProgressTable");
+            table.Bind(presentation.BonusProgress, presentation.BonusProgressState);
 
-            CreateImage("BonusFooter", panel, DividerColor, new Vector2(610f, 2f), new Vector2(0f, -76f));
+            CreateImage("BonusFooter", panel, DividerColor, new Vector2(610f, 2f), new Vector2(0f, -91f));
             CreateText(
                 "AchievedLabel", panel, "현재 달성 상여", 12, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(160f, 16f), new Vector2(-148f, -89f), SecondaryTextColor);
+                new Vector2(160f, 16f), new Vector2(-148f, -108f), SecondaryTextColor);
             CreateText(
                 "Achieved", panel, FormatMoney(view.AchievedBonus), 20, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(190f, 24f), new Vector2(-148f, -111f), GoldColor);
+                new Vector2(190f, 24f), new Vector2(-148f, -132f), GoldColor);
             CreateText(
                 "MaximumLabel", panel, "최대 수령 가능", 12, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(160f, 16f), new Vector2(148f, -89f), SecondaryTextColor);
+                new Vector2(160f, 16f), new Vector2(148f, -108f), SecondaryTextColor);
             CreateText(
                 "Maximum", panel, FormatMoney(view.MaximumBonus), 20, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(190f, 24f), new Vector2(148f, -111f), PrimaryTextColor);
+                new Vector2(190f, 24f), new Vector2(148f, -132f), PrimaryTextColor);
         }
 
         private void RenderMarketAndStatus(CareerContractView view)
@@ -450,7 +403,7 @@ namespace Baseball.Presentation.Career
 
             GetStatusContent(view, out string statusTitle, out string statusDescription, out Color statusColor);
             RectTransform status = CreateFramedSurface(
-                "Status", panel, new Color(0.01f, 0.06f, 0.10f, 1f),
+                "Status", panel, CareerUiTheme.SurfaceSubtle,
                 new Vector2(590f, 40f), new Vector2(0f, -48f));
             CreateText("StatusTitle", status, statusTitle, 16, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(530f, 20f), new Vector2(12f, 8f), statusColor);
@@ -478,7 +431,9 @@ namespace Baseball.Presentation.Career
                 new Vector2(310f, 24f), new Vector2(130f, 0f), valueColor ?? PrimaryTextColor);
         }
 
-        private void RenderOfferMode(CareerContractView view)
+        private void RenderOfferMode(
+            CareerContractView view,
+            PlayerContractPresentationModel presentation)
         {
             RectTransform panel = CreatePanel(
                 "Offers",
@@ -501,11 +456,21 @@ namespace Baseball.Presentation.Career
                     new Vector2(1320f, 30f), new Vector2(0f, 258f), WarningColor);
             }
 
-            int visibleCount = Math.Min(view.RenewalOffers.Length, 5);
-            for (int index = 0; index < visibleCount; index++)
-                RenderOfferRow(panel, view.RenewalOffers[index], index);
+            RectTransform tableHost = CreateRect(
+                "ContractOfferTableHost", panel, new Vector2(1320f, 470f), new Vector2(0f, -13f));
+            CompactRecordTableView table = CompactRecordTableView.CreateRuntime(
+                tableHost,
+                "ContractOfferTable");
+            table.Bind(presentation.Offers, presentation.OffersState);
+            table.RowSelected += HandleOfferRowSelected;
 
             RenderOfferActions(panel, view);
+        }
+
+        private void HandleOfferRowSelected(string rowId)
+        {
+            if (PlayerContractPresentationModel.TryGetOfferTeamId(rowId, out int teamId))
+                _manager.SelectContractOffer(teamId);
         }
 
         /// <summary>계약 확정·시장 확인·현역 은퇴를 한 줄에 배치한다. 은퇴는 계약 버튼과 색으로 구분한다.</summary>
@@ -521,8 +486,8 @@ namespace Baseball.Presentation.Career
                     : view.CanSignSelectedOffer ? "선택한 구단과 계약" : "계약할 구단을 선택하세요",
                 new Vector2(signWidth, 68f), new Vector2(signX, -302f),
                 view.CanSignSelectedOffer
-                    ? new Color(0.025f, 0.31f, 0.61f, 1f)
-                    : new Color(0.05f, 0.10f, 0.15f, 1f),
+                    ? CareerUiTheme.SurfaceSelected
+                    : CareerUiTheme.SurfaceSubtle,
                 out Text label);
             label.fontSize = 22;
             signButton.interactable = view.CanSignSelectedOffer;
@@ -536,13 +501,13 @@ namespace Baseball.Presentation.Career
                 Button holdButton = CreateButton(
                     "HoldAndOpenMarket", panel, "보류하고 시장 보기",
                     new Vector2(300f, 68f), new Vector2(holdX, -302f),
-                    new Color(0.08f, 0.24f, 0.37f, 1f), out Text holdLabel);
+                    CareerUiTheme.SurfaceSelected, out Text holdLabel);
                 holdLabel.fontSize = 18;
                 holdButton.onClick.AddListener(() => _manager.OpenContractMarket(true));
                 Button declineButton = CreateButton(
                     "DeclineAndOpenMarket", panel, "거절하고 시장 보기",
                     new Vector2(300f, 68f), new Vector2(declineX, -302f),
-                    new Color(0.18f, 0.12f, 0.12f, 1f), out Text declineLabel);
+                    Color.Lerp(CareerUiTheme.PanelDark, ErrorColor, 0.28f), out Text declineLabel);
                 declineLabel.fontSize = 18;
                 declineButton.onClick.AddListener(() => _manager.OpenContractMarket(false));
             }
@@ -608,7 +573,7 @@ namespace Baseball.Presentation.Career
             Button cancel = CreateButton("KeepPlaying", panel,
                 view.IsUnsignedRetirementRequired ? "회고 전 화면으로" : "한 시즌 더 뛴다",
                 new Vector2(330f, 66f), new Vector2(-180f, -125f),
-                new Color(0.025f, 0.31f, 0.61f, 1f), out Text cancelLabel);
+                CareerUiTheme.SurfaceSelected, out Text cancelLabel);
             cancelLabel.fontSize = 19;
             cancel.onClick.AddListener(() =>
             {
@@ -618,7 +583,7 @@ namespace Baseball.Presentation.Career
             Button confirm = CreateButton("ConfirmRetirement", panel,
                 view.IsUnsignedRetirementRequired ? "커리어 종료" : "은퇴 확정",
                 new Vector2(330f, 66f), new Vector2(180f, -125f),
-                new Color(0.22f, 0.16f, 0.05f, 1f), out Text confirmLabel);
+                Color.Lerp(CareerUiTheme.PanelDark, GoldColor, 0.3f), out Text confirmLabel);
             confirmLabel.fontSize = 19;
             confirmLabel.color = GoldColor;
             confirm.onClick.AddListener(() =>
@@ -644,56 +609,6 @@ namespace Baseball.Presentation.Career
         {
             if (_manager.SignSelectedContractOffer())
                 CareerTabNavigation.Show(CareerMainTab.Home);
-        }
-
-        private void RenderOfferRow(Transform parent, RenewalContractOfferView offer, int index)
-        {
-            float y = 220f - index * 99f;
-            Color teamColor = ToColor(offer.TeamColor);
-            Color background = offer.IsSelected
-                ? new Color(0.025f, 0.14f, 0.23f, 1f)
-                : index % 2 == 0 ? PanelDarkColor : new Color(0.014f, 0.052f, 0.084f, 1f);
-            RectTransform row = CreateImage(
-                "Offer_" + offer.TeamId, parent, background,
-                new Vector2(1360f, 88f), new Vector2(0f, y));
-            Image rowImage = row.GetComponent<Image>();
-            rowImage.raycastTarget = true;
-            Button button = row.gameObject.AddComponent<Button>();
-            button.onClick.AddListener(() => _manager.SelectContractOffer(offer.TeamId));
-            CreateImage("TeamColor", row, teamColor, new Vector2(7f, 76f), new Vector2(-671f, 0f));
-            CreateText("Team", row,
-                $"{GetOfferChannelLabel(offer.Channel)} [{GetLeagueLevelLabel(offer.LeagueLevel)}]  {offer.TeamName}", 18,
-                FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(260f, 38f), new Vector2(-520f, 13f), PrimaryTextColor);
-            CreateText("Term", row,
-                $"{offer.ContractYears}년 · 경쟁 {offer.CompetitorSummary} · {GetMovementClauseLabel(offer)}",
-                11, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(280f, 30f), new Vector2(-510f, -20f), SecondaryTextColor);
-            CreateOfferMetric(row, "연봉", FormatMoney(offer.AnnualSalary), -230f, GoldColor);
-            CreateOfferMetric(row, "계약금", FormatMoney(offer.SigningBonus), 5f, PrimaryTextColor);
-            CreateOfferMetric(row, "예상 역할", GetExpectedRoleLabel(offer.ExpectedRole), 240f, SuccessColor);
-            CreateOfferMetric(row, "예상 출장", $"{offer.EstimatedPlayingTime:P0}", 445f, PrimaryTextColor);
-            CreateOfferMetric(row, "필요 / 육성", $"{offer.PositionNeed} / {offer.DevelopmentRating}", 600f,
-                PrimaryTextColor);
-            if (offer.IsSelected)
-            {
-                CreateImage("Selected", row, BrightAccentColor, new Vector2(4f, 76f), new Vector2(671f, 0f));
-                CreateText("SelectedLabel", row, "선택", 10, FontStyle.Bold, TextAnchor.MiddleRight,
-                    new Vector2(70f, 24f), new Vector2(630f, -29f), BrightAccentColor);
-            }
-        }
-
-        private static void CreateOfferMetric(
-            Transform parent,
-            string label,
-            string value,
-            float x,
-            Color valueColor)
-        {
-            CreateText(label + "Label", parent, label, 10, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(150f, 22f), new Vector2(x, 19f), MutedColor);
-            CreateText(label + "Value", parent, value, 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(180f, 30f), new Vector2(x, -12f), valueColor);
         }
 
         private static void CreateInfoRow(
@@ -767,60 +682,6 @@ namespace Baseball.Presentation.Career
             return surface;
         }
 
-        private static void CreateProgressBar(
-            Transform parent,
-            float normalizedValue,
-            Vector2 size,
-            Vector2 position,
-            Color fillColor)
-        {
-            float clamped = Mathf.Clamp01(normalizedValue);
-            RectTransform track = CreateImage(
-                "Track", parent, new Color(0.09f, 0.14f, 0.18f, 1f), size, position);
-            float fillWidth = Mathf.Max(2f, (size.x - 4f) * clamped);
-            RectTransform fill = CreateImage(
-                "Fill", track, fillColor, new Vector2(fillWidth, size.y - 4f), Vector2.zero);
-            fill.anchorMin = fill.anchorMax = new Vector2(0f, 0.5f);
-            fill.pivot = new Vector2(0f, 0.5f);
-            fill.anchoredPosition = new Vector2(2f, 0f);
-            CareerUiSkin.ApplyProgressBar(track.GetComponent<Image>(), fill.GetComponent<Image>(), clamped);
-        }
-
-        private static string GetBonusLabel(ContractBonusProgressView bonus)
-        {
-            return bonus.Metric switch
-            {
-                ContractBonusMetric.GamesPlayed => $"{bonus.TargetValue:0}경기 출장",
-                ContractBonusMetric.HomeRuns => $"홈런 {bonus.TargetValue:0}개",
-                ContractBonusMetric.RunsBattedIn => $"타점 {bonus.TargetValue:0}개",
-                ContractBonusMetric.OnBasePlusSlugging => $"OPS {bonus.TargetValue:.000}",
-                ContractBonusMetric.PitchingAppearances => $"{bonus.TargetValue:0}경기 등판",
-                ContractBonusMetric.PitchingOuts => $"{FormatInnings((int)bonus.TargetValue)}이닝",
-                ContractBonusMetric.PitchingStrikeouts => $"탈삼진 {bonus.TargetValue:0}개",
-                ContractBonusMetric.EarnedRunAverage => $"평균자책 {bonus.TargetValue:0.00} 이하",
-                ContractBonusMetric.IndividualAward => "개인상 수상",
-                ContractBonusMetric.Championship => "리그 우승",
-                _ => bonus.ClauseId
-            };
-        }
-
-        private static string GetBonusProgressText(ContractBonusProgressView bonus)
-        {
-            if (bonus.IsCompleted)
-                return "달성";
-            return bonus.Metric switch
-            {
-                ContractBonusMetric.OnBasePlusSlugging => $"{bonus.CurrentValue:.000} / {bonus.TargetValue:.000}",
-                ContractBonusMetric.EarnedRunAverage => bonus.HasSample
-                    ? $"{bonus.CurrentValue:0.00} / {bonus.TargetValue:0.00}"
-                    : "미등판",
-                ContractBonusMetric.PitchingOuts =>
-                    $"{FormatInnings((int)bonus.CurrentValue)} / {FormatInnings((int)bonus.TargetValue)}",
-                ContractBonusMetric.IndividualAward or ContractBonusMetric.Championship => "미달성",
-                _ => $"{bonus.CurrentValue:0} / {bonus.TargetValue:0}"
-            };
-        }
-
         private static void GetStatusContent(
             CareerContractView view,
             out string title,
@@ -867,37 +728,6 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetOfferChannelLabel(ContractOfferChannel channel)
-        {
-            return channel switch
-            {
-                ContractOfferChannel.CurrentTeamRenewal => "[기존 구단]",
-                ContractOfferChannel.CurrentTeamExtension => "[연장 계약]",
-                ContractOfferChannel.ContractContinuation => "[현 계약 유지]",
-                ContractOfferChannel.TryoutContract => "[테스트 입단]",
-                ContractOfferChannel.Promotion => "[상위 리그]",
-                ContractOfferChannel.Rehabilitation => "[재기 계약]",
-                ContractOfferChannel.DevelopmentFallback => "[육성 계약]",
-                _ => "[공개 시장]"
-            };
-        }
-
-        private static string GetMovementClauseLabel(RenewalContractOfferView offer)
-        {
-            if (offer.HasUpperLeagueReleaseClause && offer.HasRelegationTransferRequestClause)
-                return "상위 이적·강등 요청권";
-            if (offer.HasUpperLeagueReleaseClause)
-                return "상위 리그 이적 조항";
-            if (offer.HasRelegationTransferRequestClause)
-                return "강등 시 이적 요청권";
-            return "이동 조항 없음";
-        }
-
-        private static string GetLeagueLevelLabel(LeagueLevel level)
-        {
-            return WorldGenerationConfiguration.GetDefaultDefinition(level).UiDisplayName;
-        }
-
         private static string GetPositionCode(PlayerPosition position)
         {
             return position switch
@@ -935,21 +765,11 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static Color ToColor(TeamColor color)
-        {
-            return new Color32(color.Red, color.Green, color.Blue, 255);
-        }
-
         private static string FormatMoney(long amount)
         {
             return amount >= 100_000_000L
                 ? $"{amount / 100_000_000d:0.##}억원"
                 : $"{amount / 10_000d:N0}만원";
-        }
-
-        private static string FormatInnings(int outs)
-        {
-            return $"{outs / 3}.{outs % 3}";
         }
 
         private static RectTransform CreateRect(string name, Transform parent, Vector2 size, Vector2 position)

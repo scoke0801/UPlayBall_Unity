@@ -1,6 +1,8 @@
 using System;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
+using Baseball.Presentation.SharedScreens;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,192 +11,53 @@ namespace Baseball.Presentation.Career
 {
     public sealed partial class UI_Scene_CareerRecords
     {
-        private const float RecordTableViewportWidth = 1034f;
-        private const float RecordTableViewportHeight = 370f;
-        private const float RecordTableHeaderHeight = 34f;
-        private const float RecordTableRowHeight = 35f;
-        private const float RecordTableIdentityWidth = 342f;
-        private const float RecordTableMetricWidth = 92f;
-
         private static void RenderScrollableLeaderboardTable(
             Transform panel,
             CareerRecordsView view)
         {
-            UIXScrollView table = CreateRecordTable(
+            RecordsScreenSnapshot snapshot = CareerRecordsSnapshotAdapter.Create(view);
+            RecordTableView table = RecordTableView.CreateRuntime(
                 panel,
-                "LeaderboardTable",
-                view.LeaderboardColumns,
-                view.Leaderboard.Length);
-            RenderRecordTableHeader(
-                CreateStickyTableHeader(table),
-                view.LeaderboardColumns,
-                includeRank: true,
-                showSeasonRank: false);
-
-            for (int index = 0; index < view.Leaderboard.Length; index++)
-            {
-                CareerRecordLeaderboardRow row = view.Leaderboard[index];
-                float top = RecordTableHeaderHeight + index * RecordTableRowHeight;
-                Color background = row.IsMyPlayer
-                    ? new Color(0.025f, 0.18f, 0.34f, 1f)
-                    : index % 2 == 0
-                        ? new Color(0.01f, 0.042f, 0.071f, 1f)
-                        : PanelDarkColor;
-                RectTransform rowRoot = CreateTopLeftImage(
-                    "Player_" + row.PlayerId,
-                    table.Content,
-                    background,
-                    new Vector2(table.Content.sizeDelta.x, RecordTableRowHeight - 2f),
-                    0f,
-                    top + 1f);
-                if (row.IsMyPlayer)
-                {
-                    CreateTopLeftImage(
-                        "Selection",
-                        rowRoot,
-                        BrightAccentColor,
-                        new Vector2(4f, RecordTableRowHeight - 6f),
-                        0f,
-                        2f);
-                }
-
-                Color valueColor = row.IsMyPlayer ? BrightAccentColor : PrimaryTextColor;
-                CreateTopLeftText("Rank", rowRoot, row.Rank.ToString(), 15, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Vector2(64f, 31f), 0f, 1f, valueColor);
-                CreateTopLeftText("Name", rowRoot, row.PlayerName, 15,
-                    row.IsMyPlayer ? FontStyle.Bold : FontStyle.Normal,
-                    TextAnchor.MiddleLeft, new Vector2(190f, 31f), 64f, 1f, valueColor);
-                CreateTopLeftText("Team", rowRoot, GetTeamShortName(row.TeamName), 14, FontStyle.Normal,
-                    TextAnchor.MiddleCenter, new Vector2(88f, 31f), 254f, 1f, SecondaryTextColor);
-                RenderMetricValues(rowRoot, row.Metrics, valueColor);
-            }
+                new Vector2(1034f, 370f),
+                new Vector2(0f, -8f),
+                "LeaderboardTable");
+            UiContentStateModel state = view.Leaderboard.Length > 0
+                ? UiContentStateModel.Ready
+                : UiContentStateModel.CreateEmpty(
+                    "기록 없음",
+                    !view.HasScopeData
+                        ? "선택한 경기 범위에 아직 기록이 없습니다."
+                        : view.Category == CareerRecordCategory.Baserunning
+                            ? "아직 도루 시도가 없어 주루 순위가 생성되지 않았습니다."
+                            : "현재 규정 자격을 충족한 선수가 없습니다.");
+            table.Bind(snapshot.Table, state, snapshot.FocusedRowId);
         }
 
         private static void RenderScrollableSeasonTable(
             Transform panel,
-            CareerRecordMetric[] columns,
+            CareerRecordsView view,
             CareerRecordSeasonRow[] seasons,
             bool showRank)
         {
-            UIXScrollView table = CreateRecordTable(panel, "SeasonTable", columns, seasons.Length);
-            RenderRecordTableHeader(
-                CreateStickyTableHeader(table), columns, includeRank: false, showSeasonRank: showRank);
-
+            RecordTableModel model = CareerRecordsSnapshotAdapter.CreateSeasonTable(view, seasons, showRank);
+            RecordTableView table = RecordTableView.CreateRuntime(
+                panel,
+                new Vector2(1034f, 370f),
+                new Vector2(0f, -8f),
+                "SeasonTable");
+            string focusedRowId = string.Empty;
             for (int index = 0; index < seasons.Length; index++)
             {
-                CareerRecordSeasonRow row = seasons[index];
-                float top = RecordTableHeaderHeight + index * RecordTableRowHeight;
-                Color background = row.IsCurrent
-                    ? new Color(0.025f, 0.18f, 0.34f, 1f)
-                    : index % 2 == 0
-                        ? new Color(0.01f, 0.042f, 0.071f, 1f)
-                        : PanelDarkColor;
-                RectTransform rowRoot = CreateTopLeftImage(
-                    "Season_" + row.Year,
-                    table.Content,
-                    background,
-                    new Vector2(table.Content.sizeDelta.x, RecordTableRowHeight - 2f),
-                    0f,
-                    top + 1f);
-                Color valueColor = row.IsCurrent ? BrightAccentColor : PrimaryTextColor;
-                CreateTopLeftText("Year", rowRoot, showRank ? (index + 1).ToString() : row.Year.ToString(),
-                    15, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(64f, 31f), 0f, 1f, valueColor);
-                string teamName = row.IsCurrent ? row.TeamName + "  (진행 중)" : row.TeamName;
-                CreateTopLeftText("Team", rowRoot, teamName, 14,
-                    row.IsCurrent ? FontStyle.Bold : FontStyle.Normal,
-                    TextAnchor.MiddleLeft, new Vector2(190f, 31f), 64f, 1f, valueColor);
-                CreateTopLeftText("League", rowRoot, GetLeagueLabel(row.LeagueLevel), 13, FontStyle.Normal,
-                    TextAnchor.MiddleCenter, new Vector2(88f, 31f), 254f, 1f, SecondaryTextColor);
-                RenderMetricValues(rowRoot, row.Metrics, valueColor);
+                if (seasons[index].IsCurrent)
+                {
+                    focusedRowId = "season-" + seasons[index].Year;
+                    break;
+                }
             }
-        }
-
-        private static UIXScrollView CreateRecordTable(
-            Transform panel,
-            string name,
-            CareerRecordMetric[] columns,
-            int rowCount)
-        {
-            float contentWidth = Mathf.Max(
-                RecordTableViewportWidth - 13f,
-                RecordTableIdentityWidth + columns.Length * RecordTableMetricWidth);
-            float contentHeight = Mathf.Max(
-                RecordTableViewportHeight - 13f,
-                RecordTableHeaderHeight + rowCount * RecordTableRowHeight);
-            bool canScrollHorizontally = contentWidth > RecordTableViewportWidth - 13f;
-            bool canScrollVertically = contentHeight > RecordTableViewportHeight - 13f;
-            return UIXScrollView.Create(
-                panel,
-                name,
-                new Vector2(RecordTableViewportWidth, RecordTableViewportHeight),
-                new Vector2(0f, -8f),
-                new Vector2(contentWidth, contentHeight),
-                canScrollHorizontally,
-                canScrollVertically,
-                new Color(0.006f, 0.028f, 0.05f, 0.82f),
-                new Color(0.025f, 0.09f, 0.14f, 1f),
-                new Color(0.18f, 0.52f, 0.76f, 1f));
-        }
-
-        private static RectTransform CreateStickyTableHeader(UIXScrollView table)
-        {
-            return table.CreateStickyHeader(
-                table.Content.sizeDelta.x,
-                RecordTableHeaderHeight,
-                new Color(0.006f, 0.028f, 0.05f, 1f));
-        }
-
-        private static void RenderRecordTableHeader(
-            Transform header,
-            CareerRecordMetric[] columns,
-            bool includeRank,
-            bool showSeasonRank)
-        {
-            CreateTopLeftText("Rank", header, includeRank || showSeasonRank ? "순위" : "연도",
-                14, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(64f, 30f),
-                0f, 2f, SecondaryTextColor);
-            CreateTopLeftText("Name", header, includeRank ? "선수명" : "소속 구단",
-                14, FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(190f, 30f),
-                64f, 2f, SecondaryTextColor);
-            CreateTopLeftText("Team", header, includeRank ? "팀" : "리그",
-                14, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(88f, 30f),
-                254f, 2f, SecondaryTextColor);
-            for (int index = 0; index < columns.Length; index++)
-            {
-                CreateTopLeftText(
-                    "Metric_" + index,
-                    header,
-                    GetMetricLabel(columns[index], false),
-                    13,
-                    FontStyle.Bold,
-                    TextAnchor.MiddleCenter,
-                    new Vector2(RecordTableMetricWidth, 30f),
-                    RecordTableIdentityWidth + index * RecordTableMetricWidth,
-                    2f,
-                    SecondaryTextColor);
-            }
-        }
-
-        private static void RenderMetricValues(
-            Transform row,
-            CareerRecordMetricValue[] metrics,
-            Color color)
-        {
-            for (int index = 0; index < metrics.Length; index++)
-            {
-                CareerRecordMetricValue metric = metrics[index];
-                CreateTopLeftText(
-                    "Value_" + index,
-                    row,
-                    FormatMetric(metric.Metric, metric.Value),
-                    14,
-                    FontStyle.Normal,
-                    TextAnchor.MiddleCenter,
-                    new Vector2(RecordTableMetricWidth, 31f),
-                    RecordTableIdentityWidth + index * RecordTableMetricWidth,
-                    1f,
-                    color);
-            }
+            UiContentStateModel state = seasons.Length > 0
+                ? UiContentStateModel.Ready
+                : UiContentStateModel.CreateEmpty("시즌 기록 없음", "선택한 경기 범위의 시즌 기록이 아직 없습니다.");
+            table.Bind(model, state, focusedRowId);
         }
 
         private static void RenderScrollableMetricGrid(
@@ -213,9 +76,9 @@ namespace Baseball.Presentation.Career
                 new Vector2(470f, contentHeight),
                 horizontal: false,
                 vertical: contentHeight > 196f,
-                new Color(0.006f, 0.028f, 0.05f, 0.5f),
-                new Color(0.025f, 0.09f, 0.14f, 1f),
-                new Color(0.18f, 0.52f, 0.76f, 1f));
+                WithAlpha(CareerUiTheme.PanelDark, 0.5f),
+                CareerUiTheme.Surface,
+                CareerUiTheme.Primary);
 
             for (int index = 0; index < metrics.Length; index++)
             {
@@ -225,7 +88,7 @@ namespace Baseball.Presentation.Career
                 RectTransform cell = CreateTopLeftImage(
                     "Metric_" + metric.Metric,
                     scroll.Content,
-                    rowIndex % 2 == 0 ? new Color(0.01f, 0.045f, 0.074f, 1f) : PanelDarkColor,
+                    rowIndex % 2 == 0 ? CareerUiTheme.SurfaceSubtle : PanelDarkColor,
                     new Vector2(cellWidth, cellHeight - 2f),
                     column * (cellWidth + 6f),
                     rowIndex * cellHeight + 1f);
@@ -254,9 +117,9 @@ namespace Baseball.Presentation.Career
                 new Vector2(470f, contentHeight),
                 horizontal: false,
                 vertical: contentHeight > 322f,
-                new Color(0.006f, 0.028f, 0.05f, 0.5f),
-                new Color(0.025f, 0.09f, 0.14f, 1f),
-                new Color(0.18f, 0.52f, 0.76f, 1f));
+                WithAlpha(CareerUiTheme.PanelDark, 0.5f),
+                CareerUiTheme.Surface,
+                CareerUiTheme.Primary);
 
             int rowIndex = 0;
             for (int index = 0; index < view.TradeHistory.Length; index++)
@@ -265,7 +128,7 @@ namespace Baseball.Presentation.Career
                 RectTransform row = CreateTopLeftImage(
                     "Trade_" + index,
                     scroll.Content,
-                    new Color(0.025f, 0.15f, 0.27f, 1f),
+                    CareerUiTheme.SurfaceSelected,
                     new Vector2(470f, 49f),
                     0f,
                     rowIndex * rowHeight);
@@ -289,7 +152,7 @@ namespace Baseball.Presentation.Career
                 RectTransform row = CreateTopLeftImage(
                     "Split_" + split.Year + "_" + split.TeamId,
                     scroll.Content,
-                    rowIndex % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
+                    rowIndex % 2 == 0 ? CareerUiTheme.SurfaceSubtle : PanelDarkColor,
                     new Vector2(470f, 49f),
                     0f,
                     rowIndex * rowHeight);
@@ -321,11 +184,11 @@ namespace Baseball.Presentation.Career
                 new Vector2(1021f, contentHeight),
                 horizontal: false,
                 vertical: contentHeight > 382f,
-                new Color(0.006f, 0.028f, 0.05f, 0.82f),
-                new Color(0.025f, 0.09f, 0.14f, 1f),
-                new Color(0.18f, 0.52f, 0.76f, 1f));
+                WithAlpha(CareerUiTheme.PanelDark, 0.82f),
+                CareerUiTheme.Surface,
+                CareerUiTheme.Primary);
             RectTransform header = scroll.CreateStickyHeader(
-                1021f, headerHeight, new Color(0.006f, 0.028f, 0.05f, 1f));
+                1021f, headerHeight, CareerUiTheme.PanelDark);
             string[] labels = { "연도", "수상", "리그", "포지션" };
             float[] starts = { 0f, 100f, 620f, 820f };
             float[] widths = { 100f, 520f, 200f, 190f };
@@ -340,7 +203,7 @@ namespace Baseball.Presentation.Career
             {
                 CareerAwardRecordView award = awards[index];
                 RectTransform row = CreateTopLeftImage("Award_" + index, scroll.Content,
-                    index % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
+                    index % 2 == 0 ? CareerUiTheme.SurfaceSubtle : PanelDarkColor,
                     new Vector2(1021f, rowHeight - 2f), 0f, headerHeight + index * rowHeight + 1f);
                 if (CareerPresentationRequestFactory.TryCreateAwardReplay(
                         award,
@@ -351,8 +214,8 @@ namespace Baseball.Presentation.Career
                     var replayButton = row.gameObject.AddComponent<Button>();
                     replayButton.targetGraphic = rowImage;
                     ColorBlock colors = replayButton.colors;
-                    colors.highlightedColor = new Color(0.025f, 0.13f, 0.20f, 1f);
-                    colors.pressedColor = new Color(0.02f, 0.09f, 0.15f, 1f);
+                    colors.highlightedColor = CareerUiTheme.SurfaceSelected;
+                    colors.pressedColor = CareerUiTheme.PrimaryAction;
                     replayButton.colors = colors;
                     replayButton.onClick.AddListener(() =>
                         UI_CareerPresentation.Instance?.Replay(replayRequest));
@@ -394,11 +257,11 @@ namespace Baseball.Presentation.Career
                 new Vector2(contentWidth, Mathf.Max(382f, contentHeight)),
                 horizontal: contentWidth > 1034f,
                 vertical: contentHeight > 382f,
-                new Color(0.006f, 0.028f, 0.05f, 0.82f),
-                new Color(0.025f, 0.09f, 0.14f, 1f),
-                new Color(0.18f, 0.52f, 0.76f, 1f));
+                WithAlpha(CareerUiTheme.PanelDark, 0.82f),
+                CareerUiTheme.Surface,
+                CareerUiTheme.Primary);
             RectTransform header = scroll.CreateStickyHeader(
-                contentWidth, 34f, new Color(0.006f, 0.028f, 0.05f, 1f));
+                contentWidth, 34f, CareerUiTheme.PanelDark);
             float start = 0f;
             for (int index = 0; index < headers.Length; index++)
             {
@@ -412,7 +275,7 @@ namespace Baseball.Presentation.Career
                 CareerRecordHighlightView highlight = highlights[index];
                 PlayerGameLogState game = highlight.Game;
                 RectTransform row = CreateTopLeftImage("Game_" + game.GameId, scroll.Content,
-                    index % 2 == 0 ? new Color(0.01f, 0.042f, 0.071f, 1f) : PanelDarkColor,
+                    index % 2 == 0 ? CareerUiTheme.SurfaceSubtle : PanelDarkColor,
                     new Vector2(contentWidth, 39f), 0f, 36f + index * 43f);
                 string result = game.TeamRuns == game.OpponentRuns ? "무" : game.DidWin ? "승" : "패";
                 string[] values = isPitcher
@@ -507,6 +370,12 @@ namespace Baseball.Presentation.Career
             rect.pivot = new Vector2(0f, 1f);
             rect.sizeDelta = size;
             rect.anchoredPosition = new Vector2(left, -top);
+        }
+
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = alpha;
+            return color;
         }
     }
 }

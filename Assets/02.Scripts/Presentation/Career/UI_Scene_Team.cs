@@ -3,6 +3,7 @@ using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
+using Baseball.Presentation.SharedScreens;
 using Baseball.Presentation.UI;
 using Baseball.Simulation.Career;
 using UnityEngine;
@@ -15,20 +16,23 @@ namespace Baseball.Presentation.Career
     /// </summary>
     public sealed partial class UI_Scene_Team : UISceneBase, ICareerTabScreen
     {
-        private static readonly Color BackgroundColor = new(0.006f, 0.02f, 0.034f, 1f);
-        private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.018f, 0.065f, 0.108f, 0.78f);
-        private static readonly Color PanelDarkColor = new(0.009f, 0.035f, 0.061f, 0.74f);
-        private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
-        private static readonly Color DividerColor = new(0.14f, 0.31f, 0.45f, 1f);
-        private static readonly Color AccentColor = new(0.13f, 0.55f, 0.92f, 1f);
-        private static readonly Color RoleColor = new(0.27f, 0.77f, 0.47f, 1f);
-        private static readonly Color GoldColor = new(0.95f, 0.69f, 0.22f, 1f);
-        private static readonly Color WarningColor = new(0.94f, 0.56f, 0.16f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.62f, 0.71f, 0.8f, 1f);
-        private static readonly Color MutedColor = new(0.34f, 0.40f, 0.49f, 1f);
+        private static readonly Color BackgroundColor = CareerUiTheme.Background;
+        private static readonly Color TopBarColor = CareerUiTheme.TopBar;
+        private static readonly Color PanelColor = CareerUiTheme.Panel;
+        private static readonly Color PanelDarkColor = CareerUiTheme.PanelDark;
+        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color DividerColor = CareerUiTheme.Divider;
+        private static readonly Color AccentColor = CareerUiTheme.Primary;
+        private static readonly Color RoleColor = CareerUiTheme.Success;
+        private static readonly Color GoldColor = CareerUiTheme.AccentGold;
+        private static readonly Color WarningColor = CareerUiTheme.Warning;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedColor = CareerUiTheme.TextMuted;
         private static readonly Vector4 TeamFramePadding = new(20f, 52f, 20f, 68f);
+        private static readonly Vector2 SharedShellWorkspaceOffset = new(
+            0f,
+            -(CareerUiTheme.SharedShellChromeHeight * 0.5f + CareerUiTheme.Space2));
 
         private static readonly PlayerPosition[] CompetitionPositions =
         {
@@ -90,7 +94,7 @@ namespace Baseball.Presentation.Career
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             CreateImage("Background", root, BackgroundColor, Vector2.zero, Vector2.zero, stretch: true);
-            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
+            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), SharedShellWorkspaceOffset);
         }
 
         private void HandleCareerChanged()
@@ -118,24 +122,56 @@ namespace Baseball.Presentation.Career
                 _selectedPosition = view.MyPlayerPosition;
                 _renderedPlayerId = view.MyPlayerId;
             }
+            TeamOverviewSnapshot snapshot = CareerTeamOverviewSnapshotAdapter.Create(view);
 
             ClearChildren(_content);
             RenderBackgroundAccents();
-            RenderTopBar(dashboard, view);
             RenderClubSummary(view);
-            RenderRoster(view);
+            RenderSharedRoster(snapshot.Roster, view);
             RenderUsagePlan(view);
             RenderCompetition(view);
             RenderClubBriefing(view);
             RenderPolicy(view);
-            CareerNavigationChrome.Create(_content, CareerMainTab.Team);
+        }
+
+        private void RenderSharedRoster(ReadOnlyRosterModel roster, TeamOverviewView source)
+        {
+            RectTransform panel = CreatePanel(
+                "Roster", $"로스터 명단  {source.Roster.Length}명",
+                new Vector2(650f, 558f), new Vector2(-165f, 166f));
+            RenderRosterFilters(panel, source);
+
+            ReadOnlyRosterModel visibleRoster = _rosterFilter switch
+            {
+                RosterFilter.Batter => roster.FilterByKind(RosterPlayerKind.Batter),
+                RosterFilter.Pitcher => roster.FilterByKind(RosterPlayerKind.Pitcher),
+                _ => roster
+            };
+            RectTransform host = CreateRect(
+                "SharedReadOnlyRosterHost", panel, new Vector2(600f, 354f), new Vector2(0f, -38f));
+            ReadOnlyRosterListView rosterView = ReadOnlyRosterListView.CreateRuntime(host);
+            rosterView.Bind(visibleRoster);
+            rosterView.PlayerSelected += playerId =>
+            {
+                if (!int.TryParse(playerId, out int parsedPlayerId))
+                    return;
+                TeamRosterPlayerView selectedPlayer = FindPlayer(source, parsedPlayerId);
+                _selectedPosition = selectedPlayer.Position;
+                Render();
+            };
+
+            CreateText(
+                "RosterGuide", panel,
+                "선수 선택 시 아래 포지션 경쟁 현황으로 이동 · 편성은 감독 AI 소유",
+                12, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(590f, 25f), new Vector2(0f, -218f), MutedColor);
         }
 
         private void RenderBackgroundAccents()
         {
-            CreateImage("TopGlow", _content, new Color(0.02f, 0.18f, 0.31f, 0.24f),
+            CreateImage("TopGlow", _content, CareerUiTheme.TopGlow,
                 new Vector2(1920f, 5f), new Vector2(0f, 456f));
-            CreateImage("BottomGlow", _content, new Color(0.02f, 0.16f, 0.28f, 0.2f),
+            CreateImage("BottomGlow", _content, CareerUiTheme.BottomGlow,
                 new Vector2(1920f, 4f), new Vector2(0f, -443f));
         }
 

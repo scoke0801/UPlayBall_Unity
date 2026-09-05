@@ -4,6 +4,7 @@ using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
+using Baseball.Presentation.SharedScreens;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,22 +14,25 @@ namespace Baseball.Presentation.Career
     /// <summary>리그 순위와 타자·투수 기록 경쟁을 한 화면에서 비교하는 읽기 전용 리그 화면이다.</summary>
     public sealed class UI_Scene_League : UISceneBase, ICareerTabScreen
     {
-        private static readonly Color BackgroundColor = new(0.004f, 0.015f, 0.028f, 1f);
-        private static readonly Color TopBarColor = new(0.008f, 0.027f, 0.052f, 1f);
-        private static readonly Color PanelColor = new(0.012f, 0.047f, 0.079f, 0.78f);
-        private static readonly Color PanelDarkColor = new(0.006f, 0.028f, 0.049f, 0.74f);
-        private static readonly Color RowColor = new(0.015f, 0.055f, 0.088f, 0.76f);
-        private static readonly Color BorderColor = new(0.28f, 0.46f, 0.62f, 1f);
-        private static readonly Color DividerColor = new(0.11f, 0.27f, 0.40f, 1f);
-        private static readonly Color AccentColor = new(0.08f, 0.52f, 0.92f, 1f);
-        private static readonly Color BrightAccentColor = new(0.12f, 0.68f, 1f, 1f);
-        private static readonly Color GoldColor = new(1f, 0.78f, 0.12f, 1f);
-        private static readonly Color WinColor = new(0.20f, 0.76f, 0.45f, 1f);
-        private static readonly Color LossColor = new(0.88f, 0.29f, 0.34f, 1f);
-        private static readonly Color TieColor = new(0.66f, 0.70f, 0.76f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.62f, 0.71f, 0.80f, 1f);
-        private static readonly Color MutedColor = new(0.34f, 0.42f, 0.50f, 1f);
+        private static readonly Color BackgroundColor = CareerUiTheme.Background;
+        private static readonly Color TopBarColor = CareerUiTheme.TopBar;
+        private static readonly Color PanelColor = CareerUiTheme.Panel;
+        private static readonly Color PanelDarkColor = CareerUiTheme.PanelDark;
+        private static readonly Color RowColor = CareerUiTheme.SurfaceSubtle;
+        private static readonly Color BorderColor = CareerUiTheme.Border;
+        private static readonly Color DividerColor = CareerUiTheme.Divider;
+        private static readonly Color AccentColor = CareerUiTheme.Primary;
+        private static readonly Color BrightAccentColor = CareerUiTheme.PrimaryBright;
+        private static readonly Color GoldColor = CareerUiTheme.AccentGold;
+        private static readonly Color WinColor = CareerUiTheme.Success;
+        private static readonly Color LossColor = CareerUiTheme.Loss;
+        private static readonly Color TieColor = CareerUiTheme.TextSecondary;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedColor = CareerUiTheme.TextMuted;
+        private static readonly Vector2 SharedShellWorkspaceOffset = new(
+            0f,
+            -(CareerUiTheme.SharedShellChromeHeight * 0.5f + CareerUiTheme.Space2));
 
         private CareerManager _manager;
         private RectTransform _content;
@@ -72,7 +76,7 @@ namespace Baseball.Presentation.Career
             RectTransform root = (RectTransform)transform;
             Stretch(root);
             CreateImage("Background", root, BackgroundColor, Vector2.zero, Vector2.zero, stretch: true);
-            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), Vector2.zero);
+            _content = CreateRect("Content", root, new Vector2(1920f, 1080f), SharedShellWorkspaceOffset);
         }
 
         private void HandleCareerChanged()
@@ -94,7 +98,6 @@ namespace Baseball.Presentation.Career
             ClearChildren(_content);
             LeagueHubView view = _manager.LeagueHub;
             RenderBackgroundAccents();
-            RenderTopBar(view);
             RenderLeagueLadder(view);
             RenderStandings(view);
             RenderBattingLeaders(view);
@@ -102,14 +105,13 @@ namespace Baseball.Presentation.Career
             RenderTeamMetrics(view);
             RenderLeagueFocus(view);
             RenderSchedule(view);
-            CareerNavigationChrome.Create(_content, CareerMainTab.League);
         }
 
         private void RenderBackgroundAccents()
         {
-            CreateImage("TopGlow", _content, new Color(0.02f, 0.19f, 0.33f, 0.26f),
+            CreateImage("TopGlow", _content, CareerUiTheme.TopGlow,
                 new Vector2(1920f, 4f), new Vector2(0f, 458f));
-            CreateImage("BottomGlow", _content, new Color(0.02f, 0.16f, 0.28f, 0.20f),
+            CreateImage("BottomGlow", _content, CareerUiTheme.BottomGlow,
                 new Vector2(1920f, 4f), new Vector2(0f, -443f));
         }
 
@@ -150,17 +152,13 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreatePanel(
                 "Standings", "리그 순위", new Vector2(650f, 480f),
                 new Vector2(-635f, 188f));
-            CreateTableHeader(panel,
-                new[] { "순위", "팀", "경기", "승", "패", "승률", "게임차", "최근" },
-                new[] { -278f, -148f, 16f, 70f, 114f, 169f, 230f, 278f },
-                new[] { 40f, 150f, 50f, 40f, 40f, 56f, 54f, 46f },
-                166f);
-
-            for (int index = 0; index < view.Standings.Count; index++)
-                RenderStandingRow(panel, view.Standings[index], 122f - index * 34f);
+            RectTransform tableHost = CreateRect(
+                "SharedStandingsTable", panel, new Vector2(606f, 324f), new Vector2(0f, 20f));
+            CompactRecordTableView table = CompactRecordTableView.CreateRuntime(tableHost);
+            table.Bind(CareerLeagueSnapshotAdapter.CreateStandingsTable(view));
 
             RectTransform legend = CreateImage(
-                "PostseasonLegend", panel, PanelDarkColor, new Vector2(596f, 28f), new Vector2(0f, -150f));
+                "PostseasonLegend", panel, PanelDarkColor, new Vector2(596f, 28f), new Vector2(0f, -166f));
             CreateImage("PostseasonColor", legend, AccentColor, new Vector2(24f, 6f), new Vector2(-263f, 0f));
             CreateText(
                 "Legend", legend, "1~2위 승격 · 3~4위 PS · 7~8위 강등",

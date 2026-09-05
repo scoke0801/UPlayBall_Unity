@@ -1,7 +1,6 @@
 using System;
 using Baseball.Presentation.UI;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Baseball.Presentation.Career
 {
@@ -24,83 +23,25 @@ namespace Baseball.Presentation.Career
         CareerMainTab MainTab { get; }
     }
 
-    /// <summary>모든 커리어 메뉴에 하단 탭과 공통 설정 진입점을 같은 위치로 배치한다.</summary>
+    /// <summary>SharedGameShell 이관 중인 화면에서 Legacy 하단 Chrome 생성을 차단한다.</summary>
     public static class CareerNavigationChrome
     {
-        /// <summary>현재 메뉴 탭바와 전역 설정 버튼을 함께 생성한다.</summary>
+        /// <summary>Navigation은 단일 PlayerCareerShellCoordinator가 소유하므로 화면별 복제 생성을 하지 않는다.</summary>
         public static void Create(Transform parent, CareerMainTab activeTab)
         {
-            CareerTabBar.Create(parent, activeTab);
-            CreateSettingsButton(parent);
-        }
-
-        private static void CreateSettingsButton(Transform parent)
-        {
-            var buttonObject = new GameObject("CareerSettings", typeof(RectTransform), typeof(Image), typeof(Button));
-            RectTransform rect = buttonObject.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(160f, 50f);
-            rect.anchoredPosition = new Vector2(860f, 500f);
-
-            Image image = buttonObject.GetComponent<Image>();
-            image.color = CareerUiTheme.PanelDark;
-            MarkVisual(rect, CareerUiVisualRole.InteractiveControl);
-            var button = buttonObject.GetComponent<Button>();
-            button.targetGraphic = image;
-            ColorBlock colors = button.colors;
-            colors.highlightedColor = CareerUiTheme.SurfaceSelected;
-            colors.pressedColor = CareerUiTheme.Background;
-            colors.selectedColor = colors.highlightedColor;
-            button.colors = colors;
-            button.onClick.AddListener(() => UI_Popup_CareerSettings.ShowRuntime());
-
-            Text label = CreateText(
-                "Label", rect, "설정", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(150f, 42f), Vector2.zero, CareerUiTheme.TextSecondary);
-            label.raycastTarget = false;
-            CareerUiSkin.ApplyButton(button);
-        }
-
-        private static Text CreateText(
-            string name,
-            Transform parent,
-            string value,
-            int fontSize,
-            FontStyle style,
-            TextAnchor alignment,
-            Vector2 size,
-            Vector2 position,
-            Color color)
-        {
-            var textObject = new GameObject(name, typeof(RectTransform), typeof(Text));
-            RectTransform rect = textObject.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = position;
-
-            Text text = textObject.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.text = value;
-            text.fontSize = fontSize;
-            text.fontStyle = style;
-            text.alignment = alignment;
-            text.color = color;
-            text.raycastTarget = false;
-            return text;
-        }
-
-        private static void MarkVisual(RectTransform target, CareerUiVisualRole role)
-        {
-            CareerUiVisualElement visual = target.gameObject.AddComponent<CareerUiVisualElement>();
-            visual.Initialize(role);
+            // 기존 화면의 Render 호출 계약을 깨지 않고 중앙 셸로 이동하기 위한 무동작 호환점이다.
         }
     }
 
     /// <summary>등록된 커리어 화면을 찾아 현재 탭만 보이게 전환한다.</summary>
     public static class CareerTabNavigation
     {
+        /// <summary>중앙 셸이 프로그램 기반 화면 전환도 같은 선택 상태로 반영하도록 알린다.</summary>
+        public static event Action<CareerMainTab> TabChanged;
+
+        /// <summary>마지막으로 성공적으로 표시한 선수 커리어 탭이다.</summary>
+        public static CareerMainTab CurrentTab { get; private set; } = CareerMainTab.Home;
+
         public static bool Show(CareerMainTab tab)
         {
             UIBase[] screens = UnityEngine.Object.FindObjectsByType<UIBase>(
@@ -124,116 +65,9 @@ namespace Baseball.Presentation.Career
                     screens[index].Hide();
             }
             target.Show();
+            CurrentTab = tab;
+            TabChanged?.Invoke(tab);
             return true;
-        }
-    }
-
-    /// <summary>모든 커리어 메뉴가 재사용하는 하단 탭바를 런타임 생성한다.</summary>
-    public static class CareerTabBar
-    {
-        private static readonly Color BarColor = CareerUiTheme.TopBar;
-        private static readonly Color BorderColor = CareerUiTheme.Border;
-        private static readonly Color ActiveColor = CareerUiTheme.SurfaceSelected;
-        private static readonly Color InactiveColor = CareerUiTheme.PanelDark;
-        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
-        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
-
-        private static readonly string[] Labels =
-            { "홈", "선수", "성장", "일정", "리그", "구단", "기록", "계약" };
-
-        public static void Create(Transform parent, CareerMainTab activeTab)
-        {
-            RectTransform bar = CreateImage(
-                "Tabs", parent, BarColor, new Vector2(1920f, 94f), new Vector2(0f, -493f));
-            MarkVisual(bar, CareerUiVisualRole.FlatSurface);
-            RectTransform topDivider = CreateImage(
-                "TabsTop", bar, BorderColor, new Vector2(1920f, 2f), new Vector2(0f, 46f));
-            MarkVisual(topDivider, CareerUiVisualRole.Divider);
-            const float tabWidth = 240f;
-            for (int index = 0; index < Labels.Length; index++)
-            {
-                var tabId = (CareerMainTab)index;
-                bool isActive = tabId == activeTab;
-                float x = -840f + index * tabWidth;
-                RectTransform tab = CreateImage(
-                    "Tab_" + Labels[index],
-                    bar,
-                    isActive ? ActiveColor : InactiveColor,
-                    new Vector2(tabWidth - 2f, 86f),
-                    new Vector2(x, -2f));
-                MarkVisual(tab, CareerUiVisualRole.InteractiveControl);
-
-                Text label = CreateText(
-                    "Label", tab, Labels[index], 18, FontStyle.Bold, TextAnchor.MiddleCenter,
-                    new Vector2(150f, 42f), Vector2.zero,
-                    isActive ? PrimaryTextColor : SecondaryTextColor);
-                label.raycastTarget = false;
-
-                Button button = tab.gameObject.AddComponent<Button>();
-                tab.GetComponent<Image>().raycastTarget = true;
-                ColorBlock colors = button.colors;
-                colors.highlightedColor = Color.Lerp(isActive ? ActiveColor : InactiveColor, Color.white, 0.12f);
-                colors.pressedColor = Color.Lerp(isActive ? ActiveColor : InactiveColor, Color.black, 0.18f);
-                colors.selectedColor = colors.highlightedColor;
-                button.colors = colors;
-                button.onClick.AddListener(() => CareerTabNavigation.Show(tabId));
-            }
-        }
-
-        private static RectTransform CreateRect(string name, Transform parent, Vector2 size, Vector2 position)
-        {
-            var gameObject = new GameObject(name, typeof(RectTransform));
-            var rect = gameObject.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = position;
-            return rect;
-        }
-
-        private static void MarkVisual(RectTransform target, CareerUiVisualRole role)
-        {
-            CareerUiVisualElement visual = target.gameObject.AddComponent<CareerUiVisualElement>();
-            visual.Initialize(role);
-        }
-
-        private static RectTransform CreateImage(
-            string name,
-            Transform parent,
-            Color color,
-            Vector2 size,
-            Vector2 position)
-        {
-            RectTransform rect = CreateRect(name, parent, size, position);
-            Image image = rect.gameObject.AddComponent<Image>();
-            image.color = color;
-            image.raycastTarget = false;
-            return rect;
-        }
-
-        private static Text CreateText(
-            string name,
-            Transform parent,
-            string value,
-            int fontSize,
-            FontStyle style,
-            TextAnchor alignment,
-            Vector2 size,
-            Vector2 position,
-            Color color)
-        {
-            RectTransform rect = CreateRect(name, parent, size, position);
-            Text text = rect.gameObject.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.text = value;
-            text.fontSize = fontSize;
-            text.fontStyle = style;
-            text.alignment = alignment;
-            text.color = color;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Truncate;
-            text.raycastTarget = false;
-            return text;
         }
     }
 }

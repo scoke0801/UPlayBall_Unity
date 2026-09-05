@@ -178,29 +178,29 @@ namespace Baseball.Presentation.Career
                 new Vector2(820f, 26f), new Vector2(0f, 205f), SecondaryTextColor);
 
             _miniGamePlateRect = CreateFramedSurface(
-                "BattingPlane", panel, new Color(0.008f, 0.027f, 0.045f, 1f),
+                "BattingPlane", panel, CareerUiTheme.PanelDark,
                 new Vector2(880f, 350f), new Vector2(0f, -4f));
             _miniGamePlateRect.gameObject.AddComponent<RectMask2D>();
             RenderBattingField(_miniGamePlateRect);
 
             RectTransform strikeZone = CreateImage(
-                "StrikeZone", _miniGamePlateRect, new Color(0.07f, 0.34f, 0.45f, 0.10f),
+                "StrikeZone", _miniGamePlateRect, WithAlpha(CareerUiTheme.Primary, 0.10f),
                 new Vector2(BattingZoneScaleX * 2f, BattingZoneScaleY * 2f),
                 new Vector2(0f, BattingZoneCenterY));
             Image strikeImage = strikeZone.GetComponent<Image>();
             strikeImage.raycastTarget = false;
             Outline strikeOutline = strikeZone.gameObject.AddComponent<Outline>();
-            strikeOutline.effectColor = new Color(0.26f, 0.72f, 0.82f, 0.52f);
+            strikeOutline.effectColor = WithAlpha(CareerUiTheme.PrimaryBright, 0.52f);
             strikeOutline.effectDistance = new Vector2(1f, -1f);
             CreateZoneGrid(strikeZone);
 
             _miniGameTrajectoryTunnel = CreateMiniGameSpriteImage(
                 "TrajectoryTunnel", _miniGamePlateRect, GetMiniGameSolidCircleSprite(),
-                new Color(0.12f, 0.78f, 0.78f, 0.12f),
+                WithAlpha(CareerUiTheme.Primary, 0.12f),
                 new Vector2(128f, 58f), new Vector2(0f, 104f));
             _miniGameArrivalGuide = CreateMiniGameSpriteImage(
                 "ArrivalGuide", _miniGamePlateRect, GetMiniGameRingSprite(),
-                new Color(0.20f, 0.76f, 1f, 0.25f), new Vector2(42f, 42f),
+                WithAlpha(CareerUiTheme.PrimaryBright, 0.25f), new Vector2(42f, 42f),
                 ToBattingScenePosition(request.Pitch.PlatePoint));
             _miniGameArrivalGuide.gameObject.SetActive(false);
 
@@ -209,7 +209,7 @@ namespace Baseball.Presentation.Career
                 float alpha = Mathf.Lerp(0.06f, 0.26f, 1f - index / (float)PitchTrailCount);
                 _miniGamePitchTrail[index] = CreateMiniGameSpriteImage(
                     "PitchTrail_" + index, _miniGamePlateRect, GetMiniGameSolidCircleSprite(),
-                    new Color(0.86f, 0.95f, 1f, alpha), new Vector2(16f, 16f),
+                    WithAlpha(CareerUiTheme.TextPrimary, alpha), new Vector2(16f, 16f),
                     new Vector2(0f, 112f));
                 _miniGamePitchTrail[index].gameObject.SetActive(false);
             }
@@ -260,10 +260,10 @@ namespace Baseball.Presentation.Career
                 "BatCursor", field, new Vector2(140f, 100f), ToBattingScenePosition(_miniGameBatPoint));
             _miniGameBatTimingRing = CreateMiniGameSpriteImage(
                 "TimingRing", _miniGameBatCursor, GetMiniGameRingSprite(),
-                new Color(0.96f, 0.70f, 0.22f, 0.72f), contactSize + new Vector2(36f, 38f), Vector2.zero);
+                WithAlpha(CareerUiTheme.AccentGold, 0.72f), contactSize + new Vector2(36f, 38f), Vector2.zero);
             CreateMiniGameSpriteImage(
                 "ContactArea", _miniGameBatCursor, GetMiniGameRingSprite(),
-                new Color(0.16f, 0.88f, 0.84f, 0.86f), contactSize, Vector2.zero);
+                WithAlpha(CareerUiTheme.Success, 0.86f), contactSize, Vector2.zero);
             Sprite batSprite = CareerMatchMiniGameSprites.GetBaseballBatCursorIllustration();
             if (batSprite != null)
             {
@@ -281,10 +281,10 @@ namespace Baseball.Presentation.Career
             }
             CreateMiniGameSpriteImage(
                 "SweetSpot", _miniGameBatCursor, GetMiniGameSolidCircleSprite(),
-                new Color(1f, 0.78f, 0.24f, 1f), new Vector2(12f, 12f), Vector2.zero);
-            CreateImage("CrossHorizontal", _miniGameBatCursor, new Color(0.9f, 0.98f, 1f, 0.82f),
+                CareerUiTheme.AccentGold, new Vector2(12f, 12f), Vector2.zero);
+            CreateImage("CrossHorizontal", _miniGameBatCursor, WithAlpha(CareerUiTheme.TextPrimary, 0.82f),
                 new Vector2(28f, 2f), Vector2.zero);
-            CreateImage("CrossVertical", _miniGameBatCursor, new Color(0.9f, 0.98f, 1f, 0.82f),
+            CreateImage("CrossVertical", _miniGameBatCursor, WithAlpha(CareerUiTheme.TextPrimary, 0.82f),
                 new Vector2(2f, 28f), Vector2.zero);
         }
 
@@ -303,13 +303,13 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleCenter, new Vector2(130f, 20f), new Vector2(280f, -238f), MutedTextColor);
 
             RectTransform track = CreateImage(
-                "TimingTrack", panel, new Color(0.06f, 0.18f, 0.22f, 1f),
+                "TimingTrack", panel, CareerUiTheme.ProgressTrack,
                 new Vector2(trackWidth, 14f), new Vector2(0f, -260f));
-            CreateImage("TimingEarlyZone", track, new Color(0.10f, 0.48f, 0.48f, 0.65f),
+            CreateImage("TimingEarlyZone", track, WithAlpha(CareerUiTheme.Primary, 0.65f),
                 new Vector2(210f, 14f), new Vector2(-140f, 0f));
             CreateImage("TimingPerfectZone", track, GoldColor,
                 new Vector2(52f, 14f), Vector2.zero);
-            CreateImage("TimingLateZone", track, new Color(0.10f, 0.48f, 0.48f, 0.65f),
+            CreateImage("TimingLateZone", track, WithAlpha(CareerUiTheme.Primary, 0.65f),
                 new Vector2(210f, 14f), new Vector2(140f, 0f));
             _miniGameTimingMarker = CreateImage(
                 "TimingMarker", track, PrimaryTextColor, new Vector2(4f, 28f), new Vector2(-350f, 0f));
@@ -356,7 +356,7 @@ namespace Baseball.Presentation.Career
                     $"{index + 1}  {GetMiniGameSwingIntentLabel(approach)}",
                     new Vector2(410f, 52f),
                     new Vector2(0f, 260f - index * 57f),
-                    selected ? new Color(0.025f, 0.32f, 0.52f, 1f) : PanelDarkColor,
+                    selected ? CareerUiTheme.SurfaceSelected : PanelDarkColor,
                     selected ? PrimaryTextColor : SecondaryTextColor);
                 button.interactable = isAwaitingReady;
                 button.onClick.AddListener(() => SelectMiniGameSwingIntent(approach));
@@ -375,8 +375,8 @@ namespace Baseball.Presentation.Career
                 isAwaitingReady ? "타격 준비   SPACE / ENTER" : "투구 추적 중",
                 new Vector2(430f, 64f), new Vector2(0f, -104f),
                 isAwaitingReady
-                    ? new Color(0.02f, 0.38f, 0.7f, 1f)
-                    : new Color(0.08f, 0.16f, 0.20f, 1f),
+                    ? CareerUiTheme.PrimaryAction
+                    : CareerUiTheme.SecondaryAction,
                 isAwaitingReady ? PrimaryTextColor : MutedTextColor);
             if (isAwaitingReady)
                 primaryAction.onClick.AddListener(BeginMiniGamePitchTracking);
@@ -954,9 +954,9 @@ namespace Baseball.Presentation.Career
             {
                 float x = -strikeZone.sizeDelta.x * 0.5f + strikeZone.sizeDelta.x * index / 3f;
                 float y = -strikeZone.sizeDelta.y * 0.5f + strikeZone.sizeDelta.y * index / 3f;
-                CreateImage("Vertical_" + index, strikeZone, new Color(0.35f, 0.65f, 0.82f, 0.35f),
+                CreateImage("Vertical_" + index, strikeZone, WithAlpha(CareerUiTheme.PrimaryBright, 0.35f),
                     new Vector2(1f, strikeZone.sizeDelta.y), new Vector2(x, 0f));
-                CreateImage("Horizontal_" + index, strikeZone, new Color(0.35f, 0.65f, 0.82f, 0.35f),
+                CreateImage("Horizontal_" + index, strikeZone, WithAlpha(CareerUiTheme.PrimaryBright, 0.35f),
                     new Vector2(strikeZone.sizeDelta.x, 1f), new Vector2(0f, y));
             }
         }

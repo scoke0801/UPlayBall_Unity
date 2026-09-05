@@ -1,5 +1,6 @@
 using Baseball.Core.Players;
 using Baseball.Game.Career;
+using Baseball.Presentation.UI;
 using Baseball.Simulation.Match;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -36,7 +37,7 @@ namespace Baseball.Presentation.Career
             _playResolutionRoot = CreateImage(
                 "PlayResolutionLayer",
                 controlLayer,
-                new Color(0.006f, 0.026f, 0.042f, 0.995f),
+                WithAlpha(CareerUiTheme.InputBlocker, 0.995f),
                 new Vector2(1280f, 800f),
                 new Vector2(-145f, 20f));
             Image rootImage = _playResolutionRoot.GetComponent<Image>();
@@ -45,7 +46,7 @@ namespace Baseball.Presentation.Career
             RectTransform plateView = CreateImage(
                 "PlateView",
                 _playResolutionRoot,
-                new Color(0.006f, 0.025f, 0.041f, 1f),
+                CareerUiTheme.PanelDark,
                 new Vector2(1248f, 666f),
                 new Vector2(0f, 12f));
             CreatePitchFieldIllustration(plateView, new Vector2(1248f, 700f));
@@ -55,7 +56,7 @@ namespace Baseball.Presentation.Career
             RectTransform fieldView = CreateImage(
                 "FieldView",
                 _playResolutionRoot,
-                new Color(0.018f, 0.125f, 0.105f, 1f),
+                CareerUiTheme.RoleBand,
                 new Vector2(1248f, 666f),
                 new Vector2(0f, 12f));
             fieldView.gameObject.AddComponent<RectMask2D>();
@@ -69,7 +70,7 @@ namespace Baseball.Presentation.Career
             RectTransform throwLine = CreateImage(
                 "ThrowLine",
                 fieldView,
-                new Color(0.84f, 0.93f, 1f, 0.48f),
+                WithAlpha(CareerUiTheme.TextSecondary, 0.48f),
                 new Vector2(1f, 3f),
                 Vector2.zero);
             throwLine.GetComponent<Image>().raycastTarget = false;
@@ -162,7 +163,7 @@ namespace Baseball.Presentation.Career
                 return false;
 
             if (keyboard != null && keyboard.pKey.wasPressedThisFrame)
-                TogglePause();
+                _playerMatchControls.TryTogglePause();
 
             double deltaSeconds = _isPaused ? 0d : Time.unscaledDeltaTime;
             bool isComplete = _playResolution.Tick(deltaSeconds);
@@ -224,13 +225,13 @@ namespace Baseball.Presentation.Career
             RectTransform strikeZone = CreateImage(
                 "ResolutionStrikeZone",
                 plateView,
-                new Color(0.07f, 0.34f, 0.45f, 0.12f),
+                WithAlpha(CareerUiTheme.Primary, 0.12f),
                 new Vector2(
                     PlayResolutionPlateLayout.ZoneScaleX * 2f,
                     PlayResolutionPlateLayout.ZoneScaleY * 2f),
                 new Vector2(0f, PlayResolutionPlateLayout.ZoneCenterY));
             Outline zoneOutline = strikeZone.gameObject.AddComponent<Outline>();
-            zoneOutline.effectColor = new Color(0.32f, 0.72f, 0.88f, 0.82f);
+            zoneOutline.effectColor = WithAlpha(CareerUiTheme.PrimaryBright, 0.82f);
             zoneOutline.effectDistance = new Vector2(1f, -1f);
             CreateZoneGrid(strikeZone);
 
@@ -243,7 +244,7 @@ namespace Baseball.Presentation.Career
                 "ResolutionImpactRing",
                 plateView,
                 GetMiniGameRingSprite(),
-                new Color(0.96f, 0.70f, 0.22f, 0.92f),
+                WithAlpha(CareerUiTheme.AccentGold, 0.92f),
                 new Vector2(76f, 76f),
                 new Vector2(0f, PlayResolutionPlateLayout.ZoneCenterY));
             bat = CreateMiniGameSpriteImage(
@@ -263,7 +264,7 @@ namespace Baseball.Presentation.Career
             RectTransform outfield = CreateImage(
                 "OutfieldShade",
                 fieldView,
-                new Color(0.025f, 0.22f, 0.16f, 1f),
+                CareerUiTheme.SuccessAction,
                 new Vector2(770f, 770f),
                 new Vector2(0f, 190f));
             outfield.localRotation = Quaternion.Euler(0f, 0f, 45f);
@@ -272,7 +273,7 @@ namespace Baseball.Presentation.Career
             RectTransform infield = CreateImage(
                 "InfieldDirt",
                 fieldView,
-                new Color(0.39f, 0.27f, 0.15f, 0.94f),
+                WithAlpha(CareerUiTheme.Warning, 0.94f),
                 new Vector2(245f, 245f),
                 new Vector2(0f, -52f));
             infield.localRotation = Quaternion.Euler(0f, 0f, 45f);
@@ -285,7 +286,7 @@ namespace Baseball.Presentation.Career
                 RectTransform plate = CreateImage(
                     "Base_" + baseNumber,
                     fieldView,
-                    new Color(0.95f, 0.94f, 0.82f, 1f),
+                    CareerUiTheme.TextPrimary,
                     baseNumber == 4 ? new Vector2(20f, 12f) : new Vector2(15f, 15f),
                     ToPlayResolutionFieldPosition(PlayResolutionFieldLayout.GetBasePoint(baseNumber)));
                 plate.localRotation = Quaternion.Euler(0f, 0f, baseNumber == 4 ? 0f : 45f);
@@ -308,7 +309,7 @@ namespace Baseball.Presentation.Career
                     "Badge",
                     root,
                     GetMiniGameSolidCircleSprite(),
-                    new Color(0.16f, 0.42f, 0.58f, 1f),
+                    CareerUiTheme.PrimaryAction,
                     new Vector2(38f, 38f),
                     Vector2.zero);
                 Text label = CreateText(
@@ -338,7 +339,7 @@ namespace Baseball.Presentation.Career
                 "RunnerBadge",
                 root,
                 GetMiniGameSolidCircleSprite(),
-                new Color(0.96f, 0.66f, 0.2f, 1f),
+                CareerUiTheme.Warning,
                 new Vector2(32f, 32f),
                 Vector2.zero);
             label = CreateText(
@@ -350,7 +351,7 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleCenter,
                 new Vector2(38f, 22f),
                 Vector2.zero,
-                new Color(0.02f, 0.06f, 0.08f, 1f));
+                CareerUiTheme.PanelDark);
             label.transform.SetAsLastSibling();
         }
 
@@ -360,7 +361,7 @@ namespace Baseball.Presentation.Career
             RectTransform line = CreateImage(
                 "FoulLine",
                 parent,
-                new Color(0.92f, 0.92f, 0.82f, 0.48f),
+                WithAlpha(CareerUiTheme.TextSecondary, 0.48f),
                 new Vector2(delta.magnitude, 2f),
                 (start + end) * 0.5f);
             line.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);

@@ -1,6 +1,8 @@
 using Baseball.Game.Career;
+using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -34,7 +36,10 @@ namespace Baseball.Presentation.Career
                 return;
             }
 
-            UIManager uiManager = GameManager.EnsureExists().EnsureManager<UIManager>("UIManager");
+            GameManager gameManager = GameManager.EnsureExists();
+            UIManager uiManager = gameManager.EnsureManager<UIManager>("UIManager");
+            CareerManager careerManager = gameManager.EnsureManager<CareerManager>("CareerManager");
+            OwnerModeManager ownerManager = gameManager.EnsureManager<OwnerModeManager>("OwnerModeManager");
             if (screen == null)
                 screen = UI_Scene_NewGame.CreateRuntime(uiManager.Root.GetLayerRoot(UILayer.Scene));
             if (dashboard == null)
@@ -42,11 +47,14 @@ namespace Baseball.Presentation.Career
             if (match == null)
                 match = UI_Scene_CareerMatch.CreateRuntime(uiManager.Root.GetLayerRoot(UILayer.Scene));
 
-            if (CareerManager.Instance != null && CareerManager.Instance.HasActiveCareer)
+            UiGameMode? selectedMode = UiGameModeSession.ResolveInitialMode(
+                careerManager.HasActiveCareer,
+                ownerManager.HasActiveRuntime);
+            if (selectedMode == UiGameMode.PlayerCareer && careerManager.HasActiveCareer)
             {
                 screen.Hide();
                 dashboard.Show();
-                if (CareerManager.Instance.HasActiveMatch)
+                if (careerManager.HasActiveMatch)
                     match.Show();
                 else
                     match.Hide();
@@ -55,7 +63,10 @@ namespace Baseball.Presentation.Career
             {
                 dashboard.Hide();
                 match.Hide();
-                screen.Show();
+                if (selectedMode == UiGameMode.OwnerCareer && ownerManager.HasActiveRuntime)
+                    screen.Hide();
+                else
+                    screen.Show();
             }
         }
     }

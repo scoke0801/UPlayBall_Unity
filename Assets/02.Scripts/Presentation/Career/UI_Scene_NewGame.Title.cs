@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Game.Historical;
 using Baseball.Game.Manager;
+using Baseball.Game.SceneFlow;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using DG.Tweening;
 using UnityEngine;
@@ -14,17 +17,17 @@ namespace Baseball.Presentation.Career
     /// <summary>타이틀에서 선수 생성·계약·Rookie League 진입까지 한 흐름으로 표시한다.</summary>
     public sealed partial class UI_Scene_NewGame : UISceneBase
     {
-        private static readonly Color BackgroundColor = new(0.008f, 0.018f, 0.035f, 1f);
-        private static readonly Color PanelColor = new(0.02f, 0.045f, 0.075f, 0.985f);
-        private static readonly Color CardColor = new(0.035f, 0.075f, 0.115f, 1f);
-        private static readonly Color SelectedColor = new(0.035f, 0.30f, 0.48f, 1f);
-        private static readonly Color AccentColor = new(0.08f, 0.66f, 1f, 1f);
-        private static readonly Color GoldColor = new(0.96f, 0.71f, 0.24f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.60f, 0.70f, 0.80f, 1f);
-        private static readonly Color MutedTextColor = new(0.34f, 0.42f, 0.50f, 1f);
-        private static readonly Color ErrorColor = new(1f, 0.40f, 0.40f, 1f);
-        private static readonly Color LockedCardColor = new(0.04f, 0.05f, 0.065f, 0.88f);
+        private static readonly Color BackgroundColor = CareerUiTheme.Background;
+        private static readonly Color PanelColor = CareerUiTheme.Panel;
+        private static readonly Color CardColor = CareerUiTheme.Surface;
+        private static readonly Color SelectedColor = CareerUiTheme.SurfaceSelected;
+        private static readonly Color AccentColor = CareerUiTheme.PrimaryBright;
+        private static readonly Color GoldColor = CareerUiTheme.AccentGold;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.TextPrimary;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.TextSecondary;
+        private static readonly Color MutedTextColor = CareerUiTheme.TextMuted;
+        private static readonly Color ErrorColor = CareerUiTheme.Error;
+        private static readonly Color LockedCardColor = CareerUiTheme.PanelDark;
 
         private const float LockedCardAlpha = 0.72f;
 #if UNITY_EDITOR
@@ -155,17 +158,17 @@ namespace Baseball.Presentation.Career
             CreateImage("TitleShade", _content, new Color(0.005f, 0.012f, 0.025f, 0.52f),
                 new Vector2(1920f, 1080f), Vector2.zero);
             RectTransform right = CreateImage(
-                "ModePanel", _content, new Color(0.008f, 0.022f, 0.04f, 0.91f),
+                "ModePanel", _content, CareerUiTheme.PanelDark,
                 new Vector2(720f, 1080f), new Vector2(600f, 0f));
-            CreateText("Eyebrow", right, "SINGLE PLAYER BASEBALL CAREER", 13, FontStyle.Bold,
+            CreateText("Eyebrow", right, "싱글 플레이 야구 커리어", 13, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(580f, 28f), new Vector2(0f, 430f), AccentColor);
             CreateText("Heading", right, "커리어를 선택하세요", 34, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(580f, 52f), new Vector2(0f, 382f), PrimaryTextColor);
 
             Button playerCareer = CreateButton(
                 "PlayerCareer", right, string.Empty, new Vector2(580f, 220f), new Vector2(0f, 220f),
-                new Color(0.025f, 0.20f, 0.34f, 0.98f), out _);
-            CreateText("Mode", playerCareer.transform, "선수 커리어", 30, FontStyle.Bold,
+                CareerUiTheme.PrimaryAction, out _);
+            CreateText("Mode", playerCareer.transform, "선수 모드", 30, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(420f, 45f), new Vector2(55f, 58f), PrimaryTextColor);
             CreateText("Description", playerCareer.transform,
                 "한 명의 선수를 만들고 경기·성장·계약을 통해\n여러 시즌의 커리어를 이어갑니다.",
@@ -176,30 +179,60 @@ namespace Baseball.Presentation.Career
             playerCareer.onClick.AddListener(() =>
             {
                 ResetLocalDraft();
+                UiGameModeSession.Select(UiGameMode.PlayerCareer);
                 _manager.StartPlayerCareerCreation();
             });
 
-            RectTransform managerCard = CreateImage(
-                "ManagerCareer", right, LockedCardColor,
-                new Vector2(580f, 190f), new Vector2(0f, -15f));
-            ApplyFramedCardSkin(managerCard);
-            // 잠긴 카드는 프레임 언어를 공유하되 CanvasGroup 하나로 프레임과 글자를 함께 눌러
-            // 선택 가능한 선수 커리어 카드보다 뒤로 물러나게 한다.
-            managerCard.gameObject.AddComponent<CanvasGroup>().alpha = LockedCardAlpha;
-            CreateText("Lock", managerCard, "LOCK", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(420f, 24f), new Vector2(55f, 58f), MutedTextColor);
-            CreateText("Badge", managerCard, "준비 중", 13, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(420f, 24f), new Vector2(55f, 58f), GoldColor);
-            CreateText("Mode", managerCard, "감독 커리어", 27, FontStyle.Bold, TextAnchor.MiddleLeft,
-                new Vector2(420f, 40f), new Vector2(55f, 18f), SecondaryTextColor);
-            CreateText("Description", managerCard,
-                "구단 운영과 라인업·영입을 담당하는 모드입니다.\n추후 업데이트에서 제공됩니다.",
+            OwnerModeManager ownerManager = GameManager.EnsureExists()
+                .EnsureManager<OwnerModeManager>("OwnerModeManager");
+            string ownerAction = ownerManager.HasActiveRuntime
+                ? "계속하기  →"
+                : ownerManager.HasSave ? "저장 불러오기  →" : "새 구단 시작  →";
+            Button ownerCareer = CreateButton(
+                "OwnerCareer", right, string.Empty, new Vector2(580f, 190f), new Vector2(0f, -15f),
+                CareerUiTheme.SecondaryAction, out _);
+            // ApplyFramedCardSkin(FramedCard 역할)은 장식용 배경판을 가정해 raycastTarget을 끈다.
+            // Show()/Initialize()마다 CareerUiSkin.Apply가 재적용되며 다시 꺼버리므로,
+            // 실제 클릭을 받아야 하는 이 Button에는 적용하지 않고 CareerUiSkin.ApplyButton의
+            // 기본 버튼 스타일링(playerCareer 버튼과 동일한 경로)만 쓴다.
+            CreateText("Badge", ownerCareer.transform, "CLUB MANAGEMENT", 12, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(420f, 24f), new Vector2(55f, 58f), GoldColor);
+            CreateText("Mode", ownerCareer.transform, "구단주 모드", 27, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(420f, 40f), new Vector2(55f, 18f), PrimaryTextColor);
+            CreateText("Description", ownerCareer.transform,
+                "실제 구단 Save로 로스터·자원·일정을 운영합니다.",
                 16, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(420f, 58f), new Vector2(55f, -45f), SecondaryTextColor);
+                new Vector2(420f, 40f), new Vector2(55f, -28f), SecondaryTextColor);
+            CreateText("Action", ownerCareer.transform, ownerAction, 15, FontStyle.Bold,
+                TextAnchor.MiddleRight, new Vector2(420f, 28f), new Vector2(55f, -68f), AccentColor);
+            ownerCareer.onClick.AddListener(() =>
+            {
+                try
+                {
+                    if (!ownerManager.HasActiveRuntime)
+                    {
+                        if (ownerManager.HasSave)
+                            ownerManager.Load();
+                        else if (!ownerManager.StartNewGame())
+                            throw new InvalidOperationException(ownerManager.LastError);
+                    }
+
+                    UiGameModeSession.Select(UiGameMode.OwnerCareer);
+                    Hide();
+                }
+                catch (Exception exception) when (
+                    exception is ArgumentException || exception is InvalidOperationException)
+                {
+                    _titleNotice = string.IsNullOrWhiteSpace(exception.Message)
+                        ? "구단주 모드를 시작할 수 없습니다."
+                        : exception.Message;
+                    Render();
+                }
+            });
 #if UNITY_EDITOR
             Button cardGallery = CreateButton(
                 "CardDesignGallery", right, "카드 디자인 보기", new Vector2(280f, 52f),
-                new Vector2(0f, -250f), new Color(0.025f, 0.16f, 0.25f, 0.96f), out _);
+                new Vector2(0f, -250f), CareerUiTheme.SecondaryAction, out _);
             CareerUiSkin.ApplyButton(cardGallery);
             cardGallery.onClick.AddListener(() =>
             {
@@ -208,7 +241,7 @@ namespace Baseball.Presentation.Career
             });
 #endif
             Button settings = CreateButton("TitleSettings", right, "설정", new Vector2(150f, 50f),
-                new Vector2(-180f, -445f), new Color(0.018f, 0.045f, 0.07f, 0.94f), out _);
+                new Vector2(-180f, -445f), CareerUiTheme.SecondaryAction, out _);
             CareerUiSkin.ApplyButton(settings);
             settings.onClick.AddListener(() =>
             {
@@ -216,14 +249,14 @@ namespace Baseball.Presentation.Career
                 Render();
             });
             Button credits = CreateButton("Credits", right, "크레딧", new Vector2(150f, 42f),
-                new Vector2(0f, -445f), new Color(0.018f, 0.045f, 0.07f, 0.94f), out _);
+                new Vector2(0f, -445f), CareerUiTheme.SecondaryAction, out _);
             credits.onClick.AddListener(() =>
             {
                 _titleNotice = "UPlayBall · Baseball Career Simulation";
                 Render();
             });
             Button quit = CreateButton("Quit", right, "게임 종료", new Vector2(150f, 42f),
-                new Vector2(180f, -445f), new Color(0.10f, 0.04f, 0.05f, 0.94f), out _);
+                new Vector2(180f, -445f), CareerUiTheme.Loss, out _);
             quit.onClick.AddListener(() =>
             {
                 _showQuitConfirmation = true;
