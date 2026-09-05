@@ -88,6 +88,8 @@ Title  두 모드 모두 이미 만들어 둔 결과를 그대로 쓴다
 
 - 파싱과 World 생성이 워커 스레드에서 도는 것은 **Core/Simulation/Game이 Unity에 의존하지 않기 때문**이다. 이 경계가 실제로 값을 만들어 내는 지점이므로 깨뜨리지 않는다.
 - 미리 만든 World를 진입점이 그대로 쓰려면 Builder 인스턴스가 유지되어야 한다. `HistoricalWorldRuntimeBuilder.GetOrBuild()`가 `(Content, RecordMode, Seed)`로 메모이제이션하고, `OwnerModeManager`는 Builder를 하나만 들고 있는다.
+- **Bake가 없으면 World 준비를 하지 않는다.** 그 경우 준비란 곧 44시즌을 실제로 돌린다는 뜻인데, 그것을 백그라운드에 띄우면 Editor에서 Domain Reload를 붙잡고 빌드에서도 로딩이 수십 초 길어진다. Bake Catalog가 없을 때는 콘텐츠 파싱까지만 미리 하고 World는 진입 시점에 만든다.
+- **워밍업은 취소 가능해야 한다.** Play Mode 종료와 Domain Reload는 모두 `OnDisable`을 지나므로 거기서 취소를 알리고 최대 2초만 기다린다. 취소가 실제로 먹히도록 `HistoricalWorldRuntimeBuilder`의 시즌 루프가 `CancellationToken`을 확인한다 — 워커가 44시즌 중간에 멈출 수 있어야 Editor가 멈추지 않는다.
 - **워밍업은 실패해도 게임을 막지 않는다.** 실패하면 경고를 남기고 넘어가며, 각 진입점은 캐시가 없을 때 스스로 만드는 경로를 그대로 갖고 있다. 느려질 뿐이다.
 - 타이틀로 돌아갔다가 다시 시작하면 새 커리어 Seed를 뽑는다. `WorldHistorySeed`가 Pool의 다른 항목으로 바뀌면 그 월드는 다시 만들어야 하는데, Bake가 있으면 복원이라 비용이 작다.
 

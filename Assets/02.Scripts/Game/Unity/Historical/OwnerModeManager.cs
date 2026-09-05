@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Baseball.Core.Balance;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
@@ -169,14 +170,15 @@ namespace Baseball.Game.Historical
         /// UnityHistoricalContentProvider가 바이트를 미리 확보했다면 워커 스레드에서 호출해도 된다.
         /// Runtime 상태를 만들지는 않으므로, 실제 새 게임 시작 전까지 게임 상태는 바뀌지 않는다.
         /// </summary>
-        public void PrewarmNewGameWorld()
+        public void PrewarmNewGameWorld(CancellationToken cancellationToken = default)
         {
             HistoricalBakedContent content = _contentProvider.Load()
                 ?? throw new InvalidOperationException("Historical Content가 없습니다.");
             _worldBuilder.GetOrBuild(
                 content,
                 WorldRecordMode.SimulatedHistory,
-                _newGameConfiguration.WorldSeed);
+                _newGameConfiguration.WorldSeed,
+                cancellationToken);
         }
 
         public void Save()

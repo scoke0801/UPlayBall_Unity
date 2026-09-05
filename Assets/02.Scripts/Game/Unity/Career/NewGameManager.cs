@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Data;
@@ -544,10 +545,11 @@ namespace Baseball.Game.Career
         /// 로딩 화면에서 현재 Seed의 커리어 Content를 미리 만들어 둔다.
         /// "구단 오퍼 확인"이 누르는 순간 같은 Seed의 캐시를 그대로 쓴다.
         /// </summary>
-        public void PrewarmCareerContent()
+        public void PrewarmCareerContent(CancellationToken cancellationToken = default)
         {
             if (_configuration?.ContentSource != NewGameContentSource.BakedHistorical || _flow == null)
                 return;
+            cancellationToken.ThrowIfCancellationRequested();
             _configuration.BakedContentProvider.Load(new CareerBakedContentRequest(
                 _configuration.WorldRecordMode,
                 _flow.State.WorldHistorySeed));

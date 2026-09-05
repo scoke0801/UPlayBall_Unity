@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using Baseball.Core.Balance;
 using Baseball.Core.Historical;
 using Baseball.Simulation.Historical;
@@ -269,16 +270,24 @@ namespace Baseball.Game.Historical
         public HistoricalWorldRuntimeContent Build(
             HistoricalBakedContent content,
             WorldRecordMode recordMode,
-            ulong worldHistorySeed)
+            ulong worldHistorySeed,
+            CancellationToken cancellationToken = default)
         {
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
+            cancellationToken.ThrowIfCancellationRequested();
             WorldIdentityRegistry identityRegistry = new WorldIdentityGenerator().Generate(
                 content.PlayerPersons,
                 content.TeamSeasons,
                 content.IdentityNameCatalog,
                 worldHistorySeed);
-            return BuildCore(content, recordMode, worldHistorySeed, identityRegistry, allowBakedHistory: true);
+            return BuildCore(
+                content,
+                recordMode,
+                worldHistorySeed,
+                identityRegistry,
+                allowBakedHistory: true,
+                cancellationToken);
         }
 
         /// <summary>
@@ -288,7 +297,8 @@ namespace Baseball.Game.Historical
         public HistoricalWorldRuntimeContent GetOrBuild(
             HistoricalBakedContent content,
             WorldRecordMode recordMode,
-            ulong worldHistorySeed)
+            ulong worldHistorySeed,
+            CancellationToken cancellationToken = default)
         {
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
@@ -304,7 +314,7 @@ namespace Baseball.Game.Historical
                 }
             }
 
-            HistoricalWorldRuntimeContent world = Build(content, recordMode, worldHistorySeed);
+            HistoricalWorldRuntimeContent world = Build(content, recordMode, worldHistorySeed, cancellationToken);
             lock (_cacheLock)
             {
                 _cachedFor = content;
@@ -329,7 +339,13 @@ namespace Baseball.Game.Historical
                 throw new ArgumentNullException(nameof(content));
             if (identityRegistry == null)
                 throw new ArgumentNullException(nameof(identityRegistry));
-            return BuildCore(content, recordMode, worldHistorySeed, identityRegistry, allowBakedHistory: false);
+            return BuildCore(
+                content,
+                recordMode,
+                worldHistorySeed,
+                identityRegistry,
+                allowBakedHistory: false,
+                CancellationToken.None);
         }
 
         private HistoricalWorldRuntimeContent BuildCore(
@@ -337,7 +353,8 @@ namespace Baseball.Game.Historical
             WorldRecordMode recordMode,
             ulong worldHistorySeed,
             WorldIdentityRegistry identityRegistry,
-            bool allowBakedHistory)
+            bool allowBakedHistory,
+            CancellationToken cancellationToken)
         {
             long startedAt = Stopwatch.GetTimestamp();
             var seasonMetrics = new List<HistoricalSeasonSimulationMetrics>(content.Years.Count);
@@ -357,7 +374,12 @@ namespace Baseball.Game.Historical
                     }
                     else
                     {
-                        history = BuildSimulatedHistory(content, identityRegistry, worldHistorySeed, seasonMetrics);
+                        history = BuildSimulatedHistory(
+                            content,
+                            identityRegistry,
+                            worldHistorySeed,
+                            seasonMetrics,
+                            cancellationToken);
                     }
                     break;
                 default:
@@ -474,7 +496,8 @@ namespace Baseball.Game.Historical
             HistoricalBakedContent content,
             WorldIdentityRegistry identityRegistry,
             ulong worldHistorySeed,
-            ICollection<HistoricalSeasonSimulationMetrics> metrics)
+            ICollection<HistoricalSeasonSimulationMetrics> metrics,
+            CancellationToken cancellationToken)
         {
             BakedHistoricalDetailedSeasonSource bakedSource = null;
             IHistoricalSeasonSimulation simulation = _simulationOverride;
@@ -498,6 +521,9 @@ namespace Baseball.Game.Historical
             var awards = new List<WorldAwardEntry>(content.Years.Count * 38);
             for (int yearIndex = 0; yearIndex < content.Years.Count; yearIndex++)
             {
+                // 44시즌은 수 분이 걸릴 수 있다. 사전 준비를 중단해야 할 때
+                // 한 시즌 안에 빠져나올 수 있어야 Editor Domain Reload를 막지 않는다.
+                cancellationToken.ThrowIfCancellationRequested();
                 HistoricalYearContentDefinition year = content.Years[yearIndex];
                 WorldHistorySnapshot season;
                 try
