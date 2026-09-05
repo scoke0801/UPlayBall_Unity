@@ -17,6 +17,7 @@ from synthetic_bake import (
     role_adjusted_composite,
     to_ratings_with_trace,
     validate_derivation_balance,
+    workload_cost_cap,
 )
 
 
@@ -259,6 +260,181 @@ class AbilityCostDerivationTests(unittest.TestCase):
             ):
                 self.assertIn(key, component)
 
+    def test_tiny_sample_peers_do_not_inflate_reference_deviation(self) -> None:
+        regulars = [
+            self._rate_hitter(f"regular_{index}", 500, 0.260 + index * 0.005)
+            for index in range(8)
+        ]
+        noise = [
+            self._rate_hitter("noise_high", 2, 1.000),
+            self._rate_hitter("noise_low", 2, 0.000),
+        ]
+        target = self._rate_hitter("target", 500, 0.330)
+
+        clean_traces = build_adjusted_feature_pool(regulars + [target], 2099, "Hitter")[1]
+        noisy_traces = build_adjusted_feature_pool(regulars + noise + [target], 2099, "Hitter")[1]
+
+        clean = clean_traces["target"]["BattingAverage"]
+        noisy = noisy_traces["target"]["BattingAverage"]
+        self.assertAlmostEqual(clean["groupStdDev"], noisy["groupStdDev"], delta=0.01)
+        self.assertAlmostEqual(clean["rawZ"], noisy["rawZ"], delta=0.2)
+        self.assertGreater(noisy["rawZ"], 1.0)
+
+    def test_tiny_sample_player_still_receives_own_ability(self) -> None:
+        players = [
+            self._rate_hitter(f"regular_{index}", 500, 0.250 + index * 0.005)
+            for index in range(8)
+        ] + [self._rate_hitter("tiny", 12, 0.500)]
+        vectors, traces, groups = build_adjusted_feature_pool(players, 2099, "Hitter")
+
+        tiny = traces["tiny"]["BattingAverage"]
+        self.assertTrue(tiny["isAvailable"])
+        self.assertGreater(tiny["rawZ"], 0.0)
+        self.assertLess(tiny["referenceWeight"], 0.10)
+        self.assertLess(abs(tiny["adjustedZ"]), abs(tiny["rawZ"]))
+
+        ratings, _ = to_ratings_with_trace(
+            "Hitter", vectors["tiny"], traces["tiny"], "TINY", 2099, groups["tiny"]
+        )
+        self.assertGreater(ratings[0], 50)
+
+    def test_thin_group_blends_toward_position_family(self) -> None:
+        players = [
+            self._rate_hitter(f"infield_{index}", 500, 0.250 + index * 0.004)
+            for index in range(10)
+        ]
+        for index, player in enumerate(players):
+            player["defenseRecords"][0]["position"] = "1루수" if index else "유격수"
+        vectors, traces, groups = build_adjusted_feature_pool(players, 2099, "Hitter")
+
+        lone_shortstop = traces["infield_0"]["BattingAverage"]
+        self.assertEqual(groups["infield_0"], "2099:SS")
+        self.assertEqual(lone_shortstop["referenceFamilyKey"], "2099:Infield")
+        self.assertLess(lone_shortstop["referenceGroupShare"], 1.0)
+        self.assertGreater(lone_shortstop["groupStdDev"], 0.0)
+
+    def test_limited_workload_cannot_reach_high_cost(self) -> None:
+        seasons = [
+            self._pitcher_season(f"BULK_{index}", 2099, "Starter", [50] * 6, 600.0)
+            for index in range(20)
+        ]
+        seasons.append(
+            self._pitcher_season("SHORT_ACE", 2099, "Starter", [80] * 6, 90.0)
+        )
+        seasons.append(
+            self._pitcher_season("FULL_ACE", 2099, "Starter", [78] * 6, 620.0)
+        )
+        assign_origin_year_costs(seasons)
+
+        short_ace = next(season for season in seasons if season["playerSeasonId"] == "SHORT_ACE")
+        full_ace = next(season for season in seasons if season["playerSeasonId"] == "FULL_ACE")
+        short_trace = short_ace["costDerivationTrace"]
+        curve = DERIVATION_BALANCE["costEligibility"]["capCurve"]
+        self.assertEqual(short_trace["costEligibility"]["tier"], "Tiny")
+        self.assertEqual(short_trace["rawPercentileCost"], 10)
+        self.assertEqual(short_ace["cost"], short_trace["costEligibility"]["maximumCost"])
+        self.assertLess(short_ace["cost"], int(curve["maximumCost"]))
+        self.assertEqual(full_ace["costDerivationTrace"]["costEligibility"]["tier"], "Full")
+        self.assertEqual(full_ace["cost"], full_ace["costDerivationTrace"]["rawPercentileCost"])
+        self.assertLess(short_ace["cost"], full_ace["cost"])
+
+    def test_full_workload_closer_is_not_capped_by_starter_thresholds(self) -> None:
+        """마무리 한 시즌은 선발보다 상대 타자가 적어도 온전한 시즌이다."""
+        seasons = [
+            self._pitcher_season(f"SP_{index:02d}", 2099, "Starter", [50] * 6, 620.0)
+            for index in range(30)
+        ]
+        seasons.append(self._pitcher_season("CLOSER", 2099, "Closer", [75] * 6, 215.0))
+        assign_origin_year_costs(seasons)
+
+        closer = next(season for season in seasons if season["playerSeasonId"] == "CLOSER")
+        eligibility = closer["costDerivationTrace"]["costEligibility"]
+        self.assertEqual(eligibility["scope"], "Relief")
+        self.assertEqual(eligibility["tier"], "Full")
+        self.assertEqual(closer["cost"], closer["costDerivationTrace"]["rawPercentileCost"])
+
+    def test_short_stint_starter_lands_in_low_cost_band(self) -> None:
+        """선발 5경기 남짓한 시즌은 성적이 아무리 좋아도 상위 Cost 카드가 되지 않는다."""
+        seasons = [
+            self._pitcher_season(f"SP_{index:02d}", 2099, "Starter", [50] * 6, 620.0)
+            for index in range(30)
+        ]
+        seasons.append(self._pitcher_season("SHORT", 2099, "Starter", [90] * 6, 110.0))
+        assign_origin_year_costs(seasons)
+
+        short = next(season for season in seasons if season["playerSeasonId"] == "SHORT")
+        trace = short["costDerivationTrace"]
+        eligibility = trace["costEligibility"]
+        self.assertEqual(eligibility["tier"], "Limited")
+        self.assertEqual(trace["rawPercentileCost"], 10)
+        self.assertLess(eligibility["workloadRatio"], 0.25)
+        self.assertEqual(short["cost"], eligibility["maximumCost"])
+        self.assertLessEqual(short["cost"], 4)
+
+    def test_workload_cap_rises_smoothly_without_a_cliff(self) -> None:
+        """상한이 출전량에 따라 단조 증가하고, 한 계단씩만 움직인다."""
+        caps = [workload_cost_cap(step / 400.0) for step in range(0, 401)]
+        curve = DERIVATION_BALANCE["costEligibility"]["capCurve"]
+        self.assertEqual(caps[0], int(curve["minimumCost"]))
+        self.assertEqual(caps[-1], int(curve["maximumCost"]))
+        for lower, higher in zip(caps, caps[1:]):
+            self.assertLessEqual(lower, higher)
+            self.assertLessEqual(higher - lower, 1)
+
+    def test_workload_just_short_of_a_full_season_is_not_demoted(self) -> None:
+        """표본이 몇 타자 모자란다고 해서 상한이 깎이지 않는다."""
+        thresholds = DERIVATION_BALANCE["costEligibility"]["pitcherSampleThresholds"]["Rotation"]
+        full = float(thresholds["Full"])
+        maximum = int(DERIVATION_BALANCE["costEligibility"]["capCurve"]["maximumCost"])
+        self.assertEqual(workload_cost_cap(full / full), maximum)
+        self.assertEqual(workload_cost_cap((full - 6.0) / full), maximum)
+
+    def test_partial_starter_is_not_ranked_below_a_shorter_relief_season(self) -> None:
+        """이닝이 더 많은 부분 선발이 더 짧은 구원 시즌보다 낮은 상한을 받지 않는다."""
+        seasons = [
+            self._pitcher_season(f"SP_{index:02d}", 2099, "Starter", [50] * 6, 620.0)
+            for index in range(30)
+        ]
+        seasons.append(self._pitcher_season("SWINGMAN", 2099, "Starter", [80] * 6, 349.0))
+        seasons.append(self._pitcher_season("SHORT_RELIEF", 2099, "Closer", [80] * 6, 102.0))
+        assign_origin_year_costs(seasons)
+
+        swingman = next(s for s in seasons if s["playerSeasonId"] == "SWINGMAN")
+        relief = next(s for s in seasons if s["playerSeasonId"] == "SHORT_RELIEF")
+        self.assertGreaterEqual(
+            swingman["costDerivationTrace"]["costEligibility"]["maximumCost"],
+            relief["costDerivationTrace"]["costEligibility"]["maximumCost"],
+        )
+
+    def test_cost_percentile_population_is_split_by_player_type(self) -> None:
+        seasons = [
+            self._season(f"HITTER_{index:02d}", 2099, "1B", [40 + index] * 6, 500.0)
+            for index in range(40)
+        ] + [
+            self._pitcher_season(f"PITCHER_{index:02d}", 2099, "Starter", [40 + index] * 6, 600.0)
+            for index in range(60)
+        ]
+        assign_origin_year_costs(seasons)
+
+        for season in seasons:
+            trace = season["costDerivationTrace"]
+            expected = 40 if season["playerType"] == "Hitter" else 60
+            self.assertEqual(trace["populationCount"], expected)
+            self.assertEqual(
+                trace["costPopulationSource"],
+                f"OriginYear{season['playerType']}SourceBacked",
+            )
+        top_hitter = max(
+            (season for season in seasons if season["playerType"] == "Hitter"),
+            key=lambda season: season["cost"],
+        )
+        top_pitcher = max(
+            (season for season in seasons if season["playerType"] == "Pitcher"),
+            key=lambda season: season["cost"],
+        )
+        self.assertEqual(top_hitter["cost"], 10)
+        self.assertEqual(top_pitcher["cost"], 10)
+
     def test_actual_2020_and_2012_audit_fixtures(self) -> None:
         normalized = Path(__file__).parent / ".cache" / "KBOImport" / "Normalized"
         if not (normalized / "2012.json").is_file() or not (normalized / "2020.json").is_file():
@@ -294,7 +470,11 @@ class AbilityCostDerivationTests(unittest.TestCase):
         )
         self.assertEqual(
             lee_dae_ho["costDerivationTrace"]["populationCount"],
-            len(seasons_by_year[2020]),
+            sum(season["playerType"] == "Hitter" for season in seasons_by_year[2020]),
+        )
+        self.assertEqual(
+            lee_dae_ho["costDerivationTrace"]["costPopulationSource"],
+            "OriginYearHitterSourceBacked",
         )
 
         audit_names = {"오지환", "안치용", "송은범", "박진만", "로페즈", "최정", "박희수"}
@@ -303,7 +483,17 @@ class AbilityCostDerivationTests(unittest.TestCase):
             if person_names[season["playerPersonId"]] in audit_names
         ]
         self.assertEqual(len(audited), len(audit_names))
-        self.assertTrue(all(season["costDerivationTrace"]["populationCount"] == len(seasons_by_year[2012]) for season in audited))
+        population_by_type = {
+            "Hitter": sum(season["playerType"] == "Hitter" for season in seasons_by_year[2012]),
+            "Pitcher": sum(season["playerType"] == "Pitcher" for season in seasons_by_year[2012]),
+        }
+        self.assertTrue(
+            all(
+                season["costDerivationTrace"]["populationCount"]
+                == population_by_type[season["playerType"]]
+                for season in audited
+            )
+        )
         self.assertTrue(all(season["costDerivationTrace"]["rank"] > 0 for season in audited))
         by_name = {person_names[season["playerPersonId"]]: season for season in audited}
         oh_ji_hwan = by_name["오지환"]
@@ -354,8 +544,14 @@ class AbilityCostDerivationTests(unittest.TestCase):
         }
 
     @staticmethod
-    def _season(season_id: str, year: int, position: str, hitter_ratings: list[int]) -> dict:
-        return {
+    def _season(
+        season_id: str,
+        year: int,
+        position: str,
+        hitter_ratings: list[int],
+        eligibility_sample: float | None = None,
+    ) -> dict:
+        season = {
             "playerSeasonId": season_id,
             "originYear": year,
             "position": position,
@@ -364,6 +560,30 @@ class AbilityCostDerivationTests(unittest.TestCase):
             "baseAttributes": hitter_ratings + [50] * (len(ABILITY_NAMES) - 6),
             "cost": 0,
         }
+        if eligibility_sample is not None:
+            season["costEligibilitySample"] = eligibility_sample
+        return season
+
+    @staticmethod
+    def _pitcher_season(
+        season_id: str,
+        year: int,
+        pitcher_role: str,
+        pitcher_ratings: list[int],
+        eligibility_sample: float | None = None,
+    ) -> dict:
+        season = {
+            "playerSeasonId": season_id,
+            "originYear": year,
+            "position": "P",
+            "pitcherRole": pitcher_role,
+            "playerType": "Pitcher",
+            "baseAttributes": [50] * 6 + pitcher_ratings,
+            "cost": 0,
+        }
+        if eligibility_sample is not None:
+            season["costEligibilitySample"] = eligibility_sample
+        return season
 
     @staticmethod
     def _rate_hitter(source_id: str, plate_appearances: int, average: float) -> dict:

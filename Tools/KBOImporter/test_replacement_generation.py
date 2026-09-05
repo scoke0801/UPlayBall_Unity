@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import json
-import math
 from pathlib import Path
 import unittest
 
@@ -20,11 +19,8 @@ from replacement_generation import (
 class ReplacementGenerationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.settings = ReplacementGenerationSettings(
-            percentile_lower_inclusive=0.05,
-            percentile_upper_inclusive=0.30,
-            covariance_scale=0.75,
+            baseline_percentile=0.20,
             minimum_group_population=6,
-            maximum_sampling_attempts=512,
             composite_profiles={
                 "Hitter:Default": (1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
                 "Hitter:SS": (1.35, 1.0, 1.35, 2.0, 2.0, 1.35),
@@ -54,7 +50,7 @@ class ReplacementGenerationTests(unittest.TestCase):
         second = generate_replacements(
             list(reversed(self.sources)),
             list(reversed(slots)),
-            "fixture-seed",
+            "different-ignored-seed",
             self.settings,
         )
 
@@ -82,20 +78,25 @@ class ReplacementGenerationTests(unittest.TestCase):
             self.assertNotIn("sourcePlayerId", trace)
             self.assertNotIn("sourcePlayerSeasonIds", trace)
 
-    def test_generated_vector_never_exactly_duplicates_source_vector(self) -> None:
-        source_vectors = {tuple(row["baseAttributes"]) for row in self.sources}
+    def test_same_group_uses_one_explicit_aggregate_baseline(self) -> None:
         result = generate_replacements(
             self.sources,
             [ShortageSlotSpec(1982, "SEOUL", "1982:SEOUL", "Hitter", position="SS", count=100)],
-            "collision-fixture",
+            "ignored-seed",
             self.settings,
         )
 
         generated_vectors = [tuple(row["baseAttributes"]) for row in result.replacements]
-        self.assertTrue(source_vectors.isdisjoint(generated_vectors))
-        self.assertEqual(len(generated_vectors), len(set(generated_vectors)))
+        self.assertEqual(1, len(set(generated_vectors)))
+        self.assertTrue(
+            all(
+                trace["baselineMethod"] == "ComponentPercentileAggregate"
+                and trace["sourceAggregateOnly"]
+                for trace in result.generation_traces
+            )
+        )
 
-    def test_replacement_is_sampled_from_configured_group_low_tail(self) -> None:
+    def test_replacement_uses_configured_group_percentile_baseline(self) -> None:
         result = generate_replacements(
             self.sources,
             [ShortageSlotSpec(1982, "SEOUL", "1982:SEOUL", "Hitter", position="SS", count=50)],
@@ -104,24 +105,24 @@ class ReplacementGenerationTests(unittest.TestCase):
         )
 
         percentiles = [trace["groupInsertionPercentile"] for trace in result.generation_traces]
-        self.assertTrue(all(trace["acceptedWithinBand"] for trace in result.generation_traces))
-        self.assertGreaterEqual(min(percentiles), self.settings.percentile_lower_inclusive)
-        self.assertLessEqual(max(percentiles), self.settings.percentile_upper_inclusive)
+        self.assertTrue(
+            all(trace["baselinePercentile"] == 0.20 for trace in result.generation_traces)
+        )
+        self.assertEqual(1, len(set(percentiles)))
         self.assertLess(sum(percentiles) / len(percentiles), 0.25)
 
-    def test_population_covariance_preserves_positive_contact_power_relation(self) -> None:
+    def test_production_trace_contains_no_covariance_or_random_sampling(self) -> None:
         result = generate_replacements(
             self.sources,
             [ShortageSlotSpec(1982, "SEOUL", "1982:SEOUL", "Hitter", position="SS", count=80)],
-            "covariance-fixture",
+            "ignored-seed",
             self.settings,
         )
-        contacts = [row["baseAttributes"][0] for row in result.replacements]
-        powers = [row["baseAttributes"][1] for row in result.replacements]
+        serialized = json.dumps(result.to_dict(), ensure_ascii=False).casefold()
 
-        self.assertGreater(self._correlation(contacts, powers), 0.20)
-        covariance = result.generation_traces[0]["aggregateCovariance"]
-        self.assertGreater(covariance[0][1], 0.0)
+        self.assertNotIn("covariance", serialized)
+        self.assertNotIn("random", serialized)
+        self.assertNotIn("sampling", serialized)
 
     def test_source_cost_thresholds_exclude_replacements_and_cost_is_monotonic(self) -> None:
         source_before = build_source_cost_thresholds(self.sources, self.settings)
@@ -140,7 +141,19 @@ class ReplacementGenerationTests(unittest.TestCase):
 
         self.assertEqual(source_before, small.source_cost_thresholds)
         self.assertEqual(source_before, large.source_cost_thresholds)
-        self.assertEqual(source_before[1982]["sourcePopulationSize"], len(self.sources))
+        self.assertEqual(
+            sum(row["sourcePopulationSize"] for row in source_before[1982].values()),
+            len(self.sources),
+        )
+        for player_type, row in source_before[1982].items():
+            self.assertEqual(
+                row["costPopulationSource"],
+                f"OriginYear{player_type}SourceBacked",
+            )
+            self.assertEqual(
+                row["sourcePopulationSize"],
+                sum(source["playerType"] == player_type for source in self.sources),
+            )
         ordered = sorted(
             (
                 row["costDerivationTrace"]["composite"],
@@ -164,7 +177,10 @@ class ReplacementGenerationTests(unittest.TestCase):
             self.assertEqual(trace["dataProvenance"], REPLACEMENT_GENERATED)
             self.assertEqual(trace["generationReason"], ROSTER_SHORTAGE)
             self.assertEqual(trace["costPopulationSource"], "OriginYearSourceBacked")
-            self.assertEqual(trace["sourcePopulationSize"], len(self.sources))
+            self.assertEqual(
+                trace["sourcePopulationSize"],
+                sum(source["playerType"] == row["playerType"] for source in self.sources),
+            )
             self.assertTrue(trace["replacementExcludedFromThresholdCalculation"])
             self.assertIsInstance(trace["thresholds"], list)
             self.assertEqual(trace["cost"], row["cost"])
@@ -172,26 +188,18 @@ class ReplacementGenerationTests(unittest.TestCase):
             self.assertNotIn("SourcePopulationSize", trace)
             self._assert_lower_camel_case_keys(row)
 
-    def test_balance_file_exposes_explicit_replacement_generation_v1(self) -> None:
+    def test_balance_file_exposes_explicit_quota_fallback_baseline(self) -> None:
         balance_path = Path(__file__).with_name("derivation_balance.json")
         balance = json.loads(balance_path.read_text(encoding="utf-8"))
         replacement = balance["replacementGeneration"]
 
-        self.assertEqual(replacement["version"], "replacement-generation-v1")
-        self.assertEqual(replacement["percentileLowerInclusive"], 0.05)
-        self.assertEqual(replacement["percentileUpperInclusive"], 0.30)
-        self.assertEqual(replacement["covarianceScale"], 0.65)
-        self.assertEqual(replacement["covarianceRegularization"], 1e-6)
+        self.assertEqual(replacement["version"], "quota-fallback-percentile-v2")
+        self.assertEqual(replacement["baselinePercentile"], 0.20)
         self.assertEqual(replacement["minimumGroupPopulation"], 6)
-        self.assertEqual(replacement["maximumSamplingAttempts"], 256)
 
         settings = ReplacementGenerationSettings.from_balance(balance)
-        self.assertEqual(settings.percentile_lower_inclusive, 0.05)
-        self.assertEqual(settings.percentile_upper_inclusive, 0.30)
-        self.assertEqual(settings.covariance_scale, 0.65)
-        self.assertEqual(settings.covariance_regularization, 1e-6)
+        self.assertEqual(settings.baseline_percentile, 0.20)
         self.assertEqual(settings.minimum_group_population, 6)
-        self.assertEqual(settings.maximum_sampling_attempts, 256)
 
     def test_small_role_group_uses_explicit_year_player_type_fallback(self) -> None:
         sparse_catchers = copy.deepcopy(self.sources)
@@ -280,15 +288,6 @@ class ReplacementGenerationTests(unittest.TestCase):
                 }
             )
         return rows
-
-    @staticmethod
-    def _correlation(left: list[int], right: list[int]) -> float:
-        left_mean = sum(left) / len(left)
-        right_mean = sum(right) / len(right)
-        numerator = sum((x - left_mean) * (y - right_mean) for x, y in zip(left, right))
-        left_sum = sum((x - left_mean) ** 2 for x in left)
-        right_sum = sum((y - right_mean) ** 2 for y in right)
-        return numerator / math.sqrt(left_sum * right_sum)
 
     def _assert_lower_camel_case_keys(self, value: object) -> None:
         if isinstance(value, dict):

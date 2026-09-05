@@ -1,7 +1,7 @@
 {
-  "version": "historical-derivation-balance-v4",
-  "abilityFormulaVersion": "historical-ability-v3",
-  "costFormulaVersion": "historical-role-composite-v3",
+  "version": "historical-derivation-balance-v8",
+  "abilityFormulaVersion": "historical-ability-v4",
+  "costFormulaVersion": "historical-role-composite-v6",
   "positionRoleClassifierVersion": "season-position-role-v4",
   "rosterBuilderVersion": "position-first-core25-v2",
   "costPercentileThresholds": [
@@ -17,13 +17,9 @@
     {"upperExclusive": 1.01, "cost": 10}
   ],
   "replacementGeneration": {
-    "version": "replacement-generation-v1",
-    "percentileLowerInclusive": 0.05,
-    "percentileUpperInclusive": 0.30,
-    "covarianceScale": 0.65,
-    "covarianceRegularization": 0.000001,
-    "minimumGroupPopulation": 6,
-    "maximumSamplingAttempts": 256
+    "version": "quota-fallback-percentile-v2",
+    "baselinePercentile": 0.20,
+    "minimumGroupPopulation": 6
   },
   "reliability": {
     "plateAppearances": 250.0,
@@ -37,6 +33,39 @@
   "roleTier": {
     "qualifiedPlateAppearances": 250.0,
     "qualifiedBattersFaced": 200.0
+  },
+  "referencePopulation": {
+    "version": "weighted-robust-reference-v1",
+    "minimumEffectiveSampleCount": 8.0,
+    "winsorizeTailQuantile": 0.05,
+    "positionFamilies": {
+      "C": "Battery",
+      "1B": "Infield",
+      "2B": "Infield",
+      "3B": "Infield",
+      "SS": "Infield",
+      "DH": "Infield",
+      "LF": "Outfield",
+      "CF": "Outfield",
+      "RF": "Outfield"
+    },
+    "pitcherRoleFamilies": {
+      "Starter": "Rotation",
+      "LongRelief": "Relief",
+      "MiddleRelief": "Relief",
+      "Setup": "Relief",
+      "Closer": "Relief",
+      "Default": "Relief"
+    }
+  },
+  "costEligibility": {
+    "version": "cost-eligibility-continuous-v1",
+    "capCurve": {"minimumCost": 2, "maximumCost": 10},
+    "hitterSampleThresholds": {"Full": 400.0, "Regular": 250.0, "Limited": 100.0},
+    "pitcherSampleThresholds": {
+      "Rotation": {"Full": 560.0, "Regular": 350.0, "Limited": 110.0},
+      "Relief": {"Full": 190.0, "Regular": 110.0, "Limited": 40.0}
+    }
   },
   "validation": {
     "abilityLowSampleReliabilityMaximum": 0.20,
@@ -83,8 +112,9 @@
       "Defense": {
         "scale": 14.0,
         "metrics": {
-          "FieldingPercentage": 0.65,
-          "DefensiveOpportunitiesPerNine": 0.35
+          "FieldingPercentage": 0.50,
+          "NegativeErrorsPerNine": 0.30,
+          "DefensiveOpportunitiesPerNine": 0.20
         }
       },
       "BatterMental": {

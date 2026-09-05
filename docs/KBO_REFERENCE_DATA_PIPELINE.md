@@ -1,104 +1,130 @@
 # KBO Reference Data Pipeline
 
-## 목적과 경계
+## 목적과 Runtime 경계
 
-KBO 공식 기록은 실제 선수·구단 콘텐츠가 아니라 가상 리그를 만들기 위한 역사적 밸런스 Reference다.
+KBO Source는 선수 능력치와 구단 선수 구성의 정본이다. 하지만 실제 선수명·구단명, 실제 시즌 결과와
+수상은 Runtime World의 표시 콘텐츠나 역사로 복사하지 않는다.
 
 ```text
-KBO Official WebForms
-→ Raw Snapshot
-→ Normalized JSON
-→ Editor 실제 선수·시즌 1:1 원본 Archive
-→ 별도 Runtime 합성(실명 제거 + 자연스러운 가명 확정)
-→ Runtime-safe Synthetic Player / Team Content
+Raw Snapshot
+→ Normalized Source JSON
+→ Source Person / PlayerSeason / TeamSeason 1:1 Canonical Bake
+→ Runtime-safe Stable ID + Ability / Cost / TrainingCeiling / Origin / Core25
+→ World Identity Generation
+→ Detailed Historical Simulation
+→ 가상 Statistics / Standings / Postseason / Awards
 ```
 
-실제 선수명과 원본 시즌 기록은 `Assets/Editor Default Resources` 아래의 Editor 원본 Archive까지만 보존한다.
-Runtime 출력은 `originalName`과 시즌별 `sourceReferenceNames`를 제거하고, 실명과 일치하지 않는
-중복 없는 가명만 `fictionalName`으로 남긴다. KBO PlayerId와 실제 구단 식별자는 어느 Bake
-Definition에도 복사하지 않는다.
+한 선수의 Contact/Power/Speed를 서로 다른 Reference 선수에게서 가져오거나, 여러 구단의 강점을
+섞어 일반 Franchise를 만들지 않는다. 평균·표준편차·백분위·Z-Score·리그 환경은 Source 자신의
+수치를 시대와 역할 안에서 평가하는 normalization 기준으로만 사용한다.
 
-## Source와 수집
+## 데이터 계층
 
-선수 타격 Basic1/Basic2/Detail1, 투수 Basic1/Basic2/Detail1, 포지션별 수비, 주루, 팀 타격·투수·
-수비·주루, 연도별 팀 순위, 선수 이동, 정규시즌 MVP, All-Star Game/Korean Series MVP, Golden
-Glove를 KBO 공식 공개 페이지에서 조회한다. 통계는 ASP.NET WebForms PostBack, 선수 이동은 공개
-페이지가 호출하는 `Player.asmx/GetTradeList` 형식을 그대로 사용한다.
+### Raw Snapshot
 
-전체 명령과 Cache 구조는 `Tools/KBOImporter/README.md`를 따른다. 매년 완료 시즌은 다음처럼
-추가할 수 있다.
+수집 당시 응답과 Source Version을 보존한다. 재현 가능한 Offline 입력이며 Runtime Build에 포함하지
+않는다.
 
-```powershell
-uv run --project Tools/KBOImporter Tools/KBOImporter/fetch_kbo.py --from-year 2026 --to-year 2026
+### Normalized Source JSON
+
+Editor/검수 전용이다. 원본 Player/Team ID와 이름, 시즌 기록, TeamSeason 구성, 수상 자료를 검증할
+수 있다. 이름 정보는 blacklist 생성과 provenance 검수에 사용한다.
+
+### Canonical Runtime Archive
+
+Runtime Archive는 원본 ID를 노출하지 않는 Stable ID를 사용한다.
+
+```text
+SourcePlayerKey → PlayerPersonId
+SourcePlayerKey + SeasonYear → PlayerSeasonId
+SourceTeamSeasonKey → TeamSeasonKey
+SourceFranchiseKey → FranchiseId
 ```
 
-실행 시점에 2026이 진행 중이면 위 명령은 실패하며, 임시 데이터는 `--include-current`를 명시해야
-한다. 진행 중 결과에는 `isSeasonComplete: false`가 저장된다.
+PlayerSeason과 TeamSeason은 Source와 1:1이다. Archive에는 `BaseAttributes`, `Cost`,
+`TrainingCeiling`, Position/Role/RegistrationType, Origin, Source Team 내부 Core25를 넣는다.
+Person별 고정 `fictionalName`이나 실제 Source 이름은 넣지 않는다.
 
-Raw 하나는 전체 Player Archive가 아니다. 각 Snapshot은 `seasonYear/category/page/teamId`에 묶인
-시즌 통계 응답이며, 최신 시즌 파일에는 과거 시즌 기록이 없다. 2025 시즌도 여러 Page와 Category를
-병합해야 585명이 되고 1982~2025 전체는 3,510명·17,333 PlayerSeason이므로, 최신 Raw 하나로
-축약하면 선수와 시즌 정보가 모두 부족하다. 따라서 시즌별 Raw/Sidecar를 Source of Truth로 유지한다.
+World용 이름 후보 Catalog와 blacklist 검증 결과는 Canonical 선수 데이터와 분리해 배포할 수 있다.
+최종 Person/Franchise DisplayName은 World 생성 시 `WorldIdentityRegistry`에 확정한다.
 
-## JSON 핵심 구조
+## Source Person / Season 연결
 
-시즌 파일은 `year`, `isSeasonComplete`, `sourceMetadata`, `dataAvailability`,
-`dataAvailabilityStatus`, `teams[]`, `players[]`, `awards[]`, `tradeMovements[]`,
-`validationSummary`를 가진다.
+- 동일 Source Player ID의 모든 시즌은 같은 `PlayerPersonId`다.
+- 다른 Source Player ID는 다른 `PlayerPersonId`다.
+- 한 `PlayerSeasonId`는 한 Source PlayerSeason에만 대응한다.
+- `CareerSpan`은 동일 Source Person의 실제 시즌 범위다.
+- Source 누락을 다른 선수 시즌 연결로 보충하지 않는다.
 
-`players[]`는 Aggregate 타격/투수 기록, 포지션별 수비 배열, 주루 기록,
-`teamFilterRecords[]`, `teamStints[]`, `tradeMovements[]`를 함께 보관한다. KBO Team Filter의 수치는
-실제 분할 Stint라고 가정하지 않는다. 시즌 중 이동이 확인돼도 팀별 분할 Count를 공식 Source가
-제공하지 않으면 Stint 수치는 `null/Unavailable`이다. 모든 누락 수치는 `null`이고 실제 무기록은
-`0`이다. 투구·수비 이닝은 모두 `inningsOuts`다. `awardAvailabilityStatus`는 수상 유형별 가용성을
-따로 기록하며, 공식 일괄 명단을 확보하지 못한 All-Star Selection 0건은 `Unavailable`로 보존한다.
+Offline Validation Report에는 Runtime Stable ID에서 원본으로 추적 가능한 1:1 provenance를 기록하되,
+그 원본 식별 정보 파일은 Player Build에 넣지 않는다.
 
-## Update와 Validation
+## Source TeamSeason 연결과 Core25
 
-기존 Raw가 있으면 Cache를 사용하고, 명시적인 `--force`만 해당 범위를 재조회한다. Aggregate만
-손상된 것으로 확인되면
-Team Filter Cache를 보존하는 `--force-aggregate`로 Year/Category 범위를 제한한다. Header 변경,
-PostBack 실패, Row 열 수
-변경은 조용히 통과하지 않는다. 시즌 Selector만 요청 연도이고 통계 표가 다른 시즌에 남는 혼합
-응답도 선수 Aggregate 팀과 해당 시즌 공식 순위표를 대조해 차단한다. 정상 Parse 뒤 PA/AB/H,
-장타 합계, ER/R, SB/CS/SBA, 팀 G/W/L/D, AVG/OBP/SLG/ERA/WHIP 재계산을 확인한 후 JSON을
-원자적으로 교체한다.
+- 한 Source TeamSeason은 한 Canonical `TeamSeasonDefinition`이다.
+- 후보는 그 Source TeamSeason에 실제 등록된 Source PlayerSeason만 사용한다.
+- Source에 존재한 연도별 구단 수를 보존한다. 모든 선수를 고정 10개 가상 팀에 재분배하지 않는다.
+- Core25는 해당 팀 내부에서 Hitter14/Pitcher11, SP5/Bullpen4/Setup1/Closer1, Foreign≤3을 맞춘다.
+- 데이터 부족은 연도·팀·Role별 오류로 보고한다. 다른 팀 선수나 covariance Replacement로 조용히
+  보충하지 않는다.
 
-WebForms는 Team Selector가 화면상 전체로 보여도 서버 상태에 직전 Team Filter를 유지할 수 있다.
-Player Aggregate 요청은 빈 Team Code를 강제 PostBack해 이를 초기화하고, 대표 통계 표의 순위 Row가
-최소 두 구단을 포함하는지 검증한다. 1999~2000처럼 공식 순위 페이지가 Dream/Magic 복수 표를
-제공하면 동일 Header 표를 모두 병합하고 `standingsGroup`을 보존한다.
+`ReferenceStrength`와 초기 Club DNA가 필요하면 해당 Canonical TeamSeason의 Baked 선수 구성에서
+결정론적으로 파생한다.
 
-`--validate-only`는 네트워크 요청 없이 저장된 JSON의 필수 Schema를 검사한다. 실행 요약과 누락
-Category는 `Tools/KBOImporter/.cache/KBOImport/Reports/KBO_IMPORT_REPORT.md`에 기록된다. Unity가
-관리하는 프로젝트 `Temp/`는 실행 중 삭제될 수 있어 Cache 위치로 사용하지 않는다.
+## Ability, Cost, TrainingCeiling
 
-## Known Missing Data와 Override
+Source PlayerSeason 자신의 기록을 시대·포지션·역할 집단으로 Normalization하고 표본 Reliability를
+적용한 뒤 결정론적으로 Rating을 변환한다. 같은 Source Data/Normalization/Balance Version이면 항상
+같은 Baked 값이 나와야 한다.
 
-과거 수비·주루·팀 세부 기록은 KBO 공식 Page Selector가 2001년부터만 제공하는 경우가 있으며,
-이때 `Unavailable`과 사유를 기록하고 0으로 채우지 않는다. All-Star
-전체 Selection은 시대별 공식 형식이 일정하지 않아 성적으로 추론하지 않는다. 공식 보도자료나
-명단으로 확인한 경우에만 `Overrides/allstar_overrides.csv`에 `Reason`, `SourceNote`와 함께 추가한다.
+World Seed, World DisplayName, Historical 성적, Standings, Award는 `BaseAttributes`, `Cost`,
+`TrainingCeiling`, Origin을 변경하지 않는다. 특수 Edition도 같은 Cost를 공유한다.
 
-동명이인, 역사적 팀 Code/Franchise, 수상 Join 보정도 각각의 Override CSV에 공식 근거를 남겨야
-한다. 자동 후보가 0명 또는 2명 이상이면 임의 연결하지 않는다.
+## Name Catalog와 blacklist
 
-## Editor / Runtime 이름 경계
+Normalized Archive가 보유한 실제 선수명과 구단명 전체를 exact-match blacklist로 사용한다.
 
-`synthetic_bake.py --editor-assets-dir`가 만드는 루트 Archive는 공식 `sourcePlayerId`를 해시한 Stable ID로
-실제 선수 한 명, 실제 시즌 한 건, 실제 기록 한 건을 1:1 연결한다. Browser 목록은 해당 선수의
-`originalName`을 표시하며 여러 선수 기록을 평균·혼합하지 않는다. 원본에 없는 생년·투타·등록 유형·훈련
-상한·잠재 성향은 비워 두고, 시즌 분포에서 계산한 Cost와 Base Ability만 `파생`으로 표시한다. KBO의
-원본 `sourcePlayerId` 자체는 Baked Definition에 복사하지 않는다.
+- Domestic 이름은 성씨 빈도와 자연스러운 이름 음절/세대 경향을 반영할 수 있는 충분한 공간을 둔다.
+- Foreign은 신뢰 가능한 RegistrationType 범위 안에서 별도 후보를 사용한다.
+- 구단명은 자연스러운 지역+Nickname/Brand 형태를 사용한다.
+- 실제 이름 exact match, World 내부 중복, null/empty, 숫자, 제어문자, 과도한 길이, 금칙어를 거부한다.
+- 작은 이름 목록의 반복 순환이나 닉네임식 문자열 조합을 사용하지 않는다.
 
-Editor Archive를 생성하면 그 아래 `Runtime/`에는 10개 가상 Franchise용 합성 콘텐츠를 별도로 만든다.
-이 데이터는 3~7명의 원본 시즌을 혼합해 게임용 능력과 기록으로 가공하며, 원본명과
-`sourceReferenceNames`를 모두 제거하고 `fictionalName`만 남긴다. Runtime Exporter와 Runtime Provider는
-이 하위 경로만 읽는다. `synthetic_bake.py --output`은 같은 Runtime 정제본을 단일 JSON으로 만들 때
-사용한다.
+최종 생성 이름은 Source Archive에 쓰지 않고 World State에 저장한다.
 
-Runtime 정제본에는 `nameDataPolicy=runtime-fictional-only-v2`가 기록된다. 가명은 cache의 표준
-3음절 한국 이름 중 여러 실명에서
-반복 확인된 두 글자 이름 부분과 일반 성씨를 재조합한다. 실명 일치, 중복, 음절 반복, 비표준 길이, 품질 기준을
-충족하는 후보 부족은 조용히 임의 음절로 대체하지 않고 Bake 오류로 처리한다. Runtime Synthetic
-Generator가 Raw/Normalized JSON을 직접 참조해서는 안 된다.
+## Historical World 결과
+
+Source 시즌 개인 기록, 실제 팀 승패·순위·우승, 실제 수상은 정식 Runtime History로 복사하지 않는다.
+Canonical TeamSeason을 `DetailedMatchSimulator`와 동일한 판정 모델에 투입해 개인·팀 Statistics,
+Standings, Postseason, Awards를 새로 만든다. `OriginalHistory` 데이터가 남아 있으면 Offline 비교와
+Legacy 회귀 검증 전용이다.
+
+## 도구 실행 개요
+
+정확한 CLI는 `Tools/KBOImporter/README.md`를 따른다. 산출 단계는 다음 책임으로 분리한다.
+
+1. Extract/Normalize
+2. Stable 1:1 Player/Team Mapping
+3. Rating/Cost/TrainingCeiling Bake
+4. Source Team 내부 Core25
+5. Runtime-safe Archive + Name Catalog
+6. Validation Report/Manifest/Hash
+
+기존 도구 파일명에 `synthetic_bake.py`가 남아 있더라도 이름은 호환용 Legacy일 수 있다. Production
+출력은 반드시 위 1:1 계약을 따라야 하며 다중 Reference Mixing 경로는 호출하지 않는다.
+
+## Validation Gate
+
+- Source Person/PlayerSeason/TeamSeason 1:1과 Stable ID 결정론
+- 타 Person 개별 기록 및 타 Team 선수 Mixing 0건
+- World Seed 변화에도 Canonical hash 동일
+- Source 실제 이름의 Runtime Archive 노출/exact-match generated name 0건
+- Core25 구성·소속·Role/Position/Foreign 규칙
+- Source 통계와 Rating 간 의도된 상관
+- 다른 Seed Historical Simulation의 개인·팀 분포 및 결정론
+- Source Statistics/Standings/Award 복사 Production 경로 0건
+
+이 Gate를 통과하지 않은 Archive는 `HistoricalRuntimeContentCatalog`에 등록하지 않는다. 과거 3~7
+Reference 혼합, 가상 10구단 재배분, 고정 `fictionalName` Archive의 Hash와 Count는 현행 검증 근거가
+아니다.

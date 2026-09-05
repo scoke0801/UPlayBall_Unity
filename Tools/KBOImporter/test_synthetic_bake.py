@@ -6,7 +6,6 @@ import unittest
 from pathlib import Path
 
 from synthetic_bake import (
-    COMMON_KOREAN_SURNAMES,
     DEFENSIVE_HITTER_POSITIONS,
     assign_source_team_roles,
     bake,
@@ -52,16 +51,16 @@ class SyntheticBakeTests(unittest.TestCase):
 
             self.assertEqual(first, second)
             year = first["years"][0]
-            self.assertEqual(len(year["teamSeasons"]), 10)
-            self.assertEqual(len(year["playerSeasons"]), 250)
-            self.assertEqual(len(first["playerPersons"]), 250)
+            self.assertEqual(len(year["teamSeasons"]), 1)
+            self.assertEqual(len(year["playerSeasons"]), 25)
+            self.assertEqual(len(first["playerPersons"]), 25)
             self.assertEqual(
                 sum(season["dataProvenance"] == "SourceBacked" for season in year["playerSeasons"]),
                 4,
             )
             self.assertEqual(
                 sum(season["dataProvenance"] == "ReplacementGenerated" for season in year["playerSeasons"]),
-                246,
+                21,
             )
             self.assertTrue(all(len(team["core25CardIds"]) == 25 for team in year["teamSeasons"]))
             self.assertTrue(all(len(team["allNormalCardIds"]) == 25 for team in year["teamSeasons"]))
@@ -83,12 +82,17 @@ class SyntheticBakeTests(unittest.TestCase):
             self.assertNotIn("실제이름가", runtime_serialized)
             self.assertNotIn("positionRoleDerivationTrace", runtime_serialized)
             self.assertNotIn("rosterSelectionTrace", runtime_serialized)
-            fictional_names = [
-                person["fictionalName"] for person in runtime_content["playerPersons"]
+            self.assertTrue(all(
+                "fictionalName" not in person
+                for person in runtime_content["playerPersons"]
+            ))
+            fictional_names = runtime_content["worldIdentityNamePool"][
+                "domesticPlayerNames"
             ]
+            self.assertEqual(len(runtime_content["playerPersons"]), len(fictional_names))
             self.assertEqual(len(fictional_names), len(set(fictional_names)))
             self.assertTrue(all(len(name) == 3 for name in fictional_names))
-            self.assertTrue(all(name[0] in COMMON_KOREAN_SURNAMES for name in fictional_names))
+            self.assertTrue(all("가" <= name[0] <= "힣" for name in fictional_names))
             self.assertTrue(all(len(set(name)) == 3 for name in fictional_names))
 
     def test_editor_asset_archive_is_split_and_deterministic(self) -> None:
@@ -114,10 +118,23 @@ class SyntheticBakeTests(unittest.TestCase):
             runtime_content = create_runtime_safe_content(bake(root, [2099], 77))
             write_editor_asset_archive(runtime_content, root / "runtime")
             reloaded_runtime = load_and_validate_editor_asset_archive(root / "runtime")
+            runtime_person_document = json.loads(
+                (root / "runtime" / "player_persons.json").read_text(
+                    encoding="utf-8"
+                )
+            )
 
             self.assertEqual(first_manifest, second_manifest)
             self.assertEqual(reloaded, content)
             self.assertEqual(reloaded_runtime, runtime_content)
+            self.assertEqual(
+                runtime_person_document["items"],
+                runtime_content["playerPersons"],
+            )
+            self.assertEqual(
+                runtime_person_document["worldIdentityNamePool"],
+                runtime_content["worldIdentityNamePool"],
+            )
             self.assertTrue((root / "first" / "manifest.json").is_file())
             self.assertTrue((root / "first" / "player_persons.json").is_file())
             self.assertTrue((root / "first" / "Years" / "2099.json").is_file())
@@ -420,6 +437,7 @@ class SyntheticBakeTests(unittest.TestCase):
     def _reference_fixture(year: int, players: list[dict]) -> dict:
         for player in players:
             player["year"] = year
+            player["aggregateTeamId"] = "fixture-team"
         return {
             "schemaVersion": 3,
             "importerVersion": "1.2.0",
@@ -436,6 +454,7 @@ class SyntheticBakeTests(unittest.TestCase):
                 {
                     "sourceTeamId": "fixture-team",
                     "sourceTeamName": "원본팀",
+                    "sourceFranchiseId": "fixture-franchise",
                     "seasonYear": year,
                 }
             ],

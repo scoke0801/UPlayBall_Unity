@@ -5,15 +5,15 @@ from __future__ import annotations
 from collections import Counter
 import copy
 import random
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import replacement_generation as replacement
 import source_backed_runtime_bake as source_plan
 
 
-GENERATOR_VERSION = "source-backed-runtime-bake-v1"
-BALANCE_VERSION = "historical-source-backed-v1"
-REPLACEMENT_POPULATION_POLICY_VERSION = "origin-year-position-role-source-only-v1"
+GENERATOR_VERSION = "source-backed-runtime-bake-v2"
+BALANCE_VERSION = "historical-source-backed-v2"
+REPLACEMENT_POPULATION_POLICY_VERSION = "quota-fallback-aggregate-percentile-v2"
 SOURCE_BACKED = "SourceBacked"
 REPLACEMENT_GENERATED = "ReplacementGenerated"
 ROSTER_SHORTAGE = "RosterShortage"
@@ -48,8 +48,8 @@ def build_runtime_content(
     plan = source_plan.build_source_backed_runtime_plan(
         editor_source_content,
         normalized_references,
-        allocation_seed=generation_seed,
     )
+    del generation_seed
     source_plan.validate_source_backed_runtime_plan(plan)
     runtime = copy.deepcopy(plan.runtime_content)
     years_by_value = {int(row["year"]): row for row in runtime["years"]}
@@ -70,7 +70,7 @@ def build_runtime_content(
     generated = replacement.generate_replacements(
         source_seasons,
         shortage_slots,
-        generation_seed,
+        GENERATOR_VERSION,
         settings,
     )
     replacements_by_year: dict[int, list[dict[str, Any]]] = {}
@@ -82,22 +82,6 @@ def build_runtime_content(
         materialized["pitcherRoleConfidence"] = "High"
         materialized["positionRoleDerivationTrace"] = _replacement_role_trace(materialized)
         replacements_by_year.setdefault(int(materialized["originYear"]), []).append(materialized)
-
-    all_person_ids = {
-        str(person["playerPersonId"])
-        for person in runtime["playerPersons"]
-    }
-    all_person_ids.update(
-        str(season["playerPersonId"])
-        for seasons in replacements_by_year.values()
-        for season in seasons
-    )
-    source_names = {
-        str(player.get("playerName") or "").strip()
-        for reference in normalized_references
-        for player in reference["players"]
-    }
-    fictional_names = _build_fictional_names(all_person_ids, source_names)
 
     source_records_by_year = {
         int(year["year"]): list(year["seasonRecords"])
@@ -156,6 +140,9 @@ def build_runtime_content(
                 {
                     "teamSeasonKey": team_key,
                     "franchiseId": team_plan["franchiseId"],
+                    "canonicalSourceTeamSeasonId": team_plan[
+                        "canonicalSourceTeamSeasonId"
+                    ],
                     "originYear": year,
                     "allNormalCardIds": [
                         f"{row['playerSeasonId']}:Normal" for row in team_rows
@@ -181,7 +168,7 @@ def build_runtime_content(
 
         for season in seasons:
             season["registrationType"] = "Domestic"
-            _assign_training_ceiling(season, generation_seed, derivation)
+            _assign_training_ceiling(season, derivation)
         records = sorted(
             source_records_by_year[year]
             + [_replacement_record(row) for row in replacements_for_year],
@@ -212,23 +199,56 @@ def build_runtime_content(
                 ),
             }
         )
-        year_reports.append(_build_year_report(year, seasons, generated.source_cost_thresholds[year]))
+        year_reports.append(
+            _build_year_report(
+                year,
+                seasons,
+                generated.source_cost_thresholds[year],
+                plan_year["allocationReport"],
+            )
+        )
 
     runtime_persons = _materialize_persons(
         runtime["playerPersons"],
         replacements_by_year,
-        fictional_names,
-        generation_seed,
         derivation,
+    )
+    world_identity_name_pool = source_plan.build_world_identity_name_pool(
+        domestic_player_count=sum(
+            person["registrationType"] != "Foreign" for person in runtime_persons
+        ),
+        foreign_player_count=sum(
+            person["registrationType"] == "Foreign" for person in runtime_persons
+        ),
+        franchise_count=len(
+            {
+                team["franchiseId"]
+                for year_content in final_years
+                for team in year_content["teamSeasons"]
+            }
+        ),
+        forbidden_player_names=(
+            str(player.get("playerName") or "").strip()
+            for reference in normalized_references
+            for player in reference["players"]
+        ),
+        forbidden_franchise_names=(
+            str(team.get("sourceTeamName") or "").strip()
+            for reference in normalized_references
+            for team in reference.get("teams", [])
+        ),
     )
     manifest = {
         **_source_manifest(editor_source_content["manifest"]),
         "generatorVersion": GENERATOR_VERSION,
         "balanceVersion": BALANCE_VERSION,
-        "generationSeed": generation_seed,
-        "namePolicyVersion": source_plan.NAME_POLICY_VERSION,
+        "generationSeed": 0,
+        "generationSeedAffectsCanonicalBake": False,
+        "namePolicyVersion": source_plan.WORLD_IDENTITY_NAME_POOL_VERSION,
         "nameDataPolicy": derivation.RUNTIME_NAME_POLICY,
         "sourceIdentityPolicyVersion": source_plan.IDENTITY_POLICY_VERSION,
+        "sourceFranchiseIdentityPolicyVersion": source_plan.FRANCHISE_ID_POLICY_VERSION,
+        "sourceTeamSeasonIdentityPolicyVersion": source_plan.TEAM_SEASON_ID_POLICY_VERSION,
         "sourceAllocationPolicyVersion": source_plan.ALLOCATION_POLICY_VERSION,
         "replacementGeneratorVersion": str(
             derivation.DERIVATION_BALANCE["replacementGeneration"]["version"]
@@ -243,6 +263,7 @@ def build_runtime_content(
     content = {
         "schemaVersion": derivation.CONTENT_SCHEMA_VERSION,
         "playerPersons": runtime_persons,
+        "worldIdentityNamePool": world_identity_name_pool,
         "years": final_years,
         "manifest": manifest,
     }
@@ -250,12 +271,20 @@ def build_runtime_content(
     validate_runtime_content(content, editor_source_content, plan, derivation)
     derivation.refresh_content_hash(content)
     report = {
-        "contractVersion": "source-backed-validation-report-v1",
-        "generationSeed": generation_seed,
+        "contractVersion": "source-team-season-one-to-one-report-v2",
+        "generationSeed": 0,
+        "generationSeedAffectsCanonicalBake": False,
         "sourceBackedPlayerPersonCount": len(runtime["playerPersons"]),
         "sourceBackedPlayerSeasonCount": len(source_seasons),
         "replacementGeneratedPlayerPersonCount": len(generated.replacements),
         "replacementGeneratedPlayerSeasonCount": len(generated.replacements),
+        "worldIdentityNameSample": {
+            "players": (
+                world_identity_name_pool["domesticPlayerNames"]
+                + world_identity_name_pool["foreignPlayerNames"]
+            )[:300],
+            "franchises": world_identity_name_pool["franchiseNames"][:300],
+        },
         "years": year_reports,
         "sourceCostThresholds": generated.source_cost_thresholds,
         "replacementGenerationTraces": generated.generation_traces,
@@ -470,9 +499,15 @@ def _replacement_source_proxy(season: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _assign_training_ceiling(season: dict[str, Any], seed: int, derivation: Any) -> None:
+def _assign_training_ceiling(season: dict[str, Any], derivation: Any) -> None:
     low, high = derivation.headroom_range(int(season["cost"]))
-    rng = random.Random(derivation.stable_seed("training-ceiling-v2", seed, season["playerSeasonId"]))
+    rng = random.Random(
+        derivation.stable_seed(
+            "training-ceiling-v3",
+            derivation.DERIVATION_BALANCE_VERSION,
+            season["playerSeasonId"],
+        )
+    )
     season["trainingCeiling"] = [
         min(99, int(rating) + rng.randint(low, high))
         for rating in season["baseAttributes"]
@@ -526,48 +561,9 @@ def _replacement_record(season: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_fictional_names(
-    person_ids: Iterable[str],
-    forbidden_names: Iterable[str],
-) -> dict[str, str]:
-    ordered_ids = sorted(set(person_ids))
-    forbidden = {name for name in forbidden_names if name}
-    candidate_count = (
-        len(source_plan._SURNAMES)
-        * len(source_plan._GIVEN_FIRST)
-        * len(source_plan._GIVEN_SECOND)
-    )
-    result: dict[str, str] = {}
-    used: set[str] = set()
-    for person_id in ordered_ids:
-        start = source_plan.stable_integer(source_plan.NAME_POLICY_VERSION, person_id) % candidate_count
-        for probe in range(candidate_count):
-            index = (start + probe) % candidate_count
-            surname_index, remainder = divmod(
-                index,
-                len(source_plan._GIVEN_FIRST) * len(source_plan._GIVEN_SECOND),
-            )
-            first_index, second_index = divmod(remainder, len(source_plan._GIVEN_SECOND))
-            name = (
-                source_plan._SURNAMES[surname_index]
-                + source_plan._GIVEN_FIRST[first_index]
-                + source_plan._GIVEN_SECOND[second_index]
-            )
-            if name in forbidden or name in used or len(set(name)) != len(name):
-                continue
-            result[person_id] = name
-            used.add(name)
-            break
-        else:
-            raise ValueError("중복 없는 Runtime 가명을 생성하지 못했습니다.")
-    return result
-
-
 def _materialize_persons(
     source_persons: Sequence[Mapping[str, Any]],
     replacements_by_year: Mapping[int, Sequence[Mapping[str, Any]]],
-    fictional_names: Mapping[str, str],
-    seed: int,
     derivation: Any,
 ) -> list[dict[str, Any]]:
     persons = [copy.deepcopy(dict(row)) for row in source_persons]
@@ -585,11 +581,14 @@ def _materialize_persons(
     for person in persons:
         person_id = str(person["playerPersonId"])
         career_start = int(person["careerStartYear"])
-        identity_seed = derivation.stable_seed("runtime-person-metadata-v1", seed, person_id)
+        identity_seed = derivation.stable_seed(
+            "runtime-person-metadata-v2",
+            derivation.DERIVATION_BALANCE_VERSION,
+            person_id,
+        )
         rng = random.Random(identity_seed)
         materialized = {
             "playerPersonId": person_id,
-            "fictionalName": fictional_names[person_id],
             "birthYear": career_start - rng.randint(18, 32),
             "bats": ("Right", "Left", "Switch")[rng.randrange(3)],
             "throws": ("Right", "Left")[rng.randrange(2)],
@@ -610,10 +609,14 @@ def _build_year_report(
     year: int,
     seasons: Sequence[Mapping[str, Any]],
     source_thresholds: Mapping[str, Any],
+    allocation_report: Mapping[str, Any],
 ) -> dict[str, Any]:
     source_rows = [row for row in seasons if row["dataProvenance"] == SOURCE_BACKED]
     replacement_rows = [row for row in seasons if row["dataProvenance"] == REPLACEMENT_GENERATED]
-    required = len(source_plan.FRANCHISE_IDS) * (source_plan.CORE_HITTER_COUNT + source_plan.CORE_PITCHER_COUNT)
+    team_count = int(allocation_report["canonicalTeamSeasonCount"])
+    required = team_count * (
+        source_plan.CORE_HITTER_COUNT + source_plan.CORE_PITCHER_COUNT
+    )
     replacement_costs = [int(row["cost"]) for row in replacement_rows]
     replacement_ratings = [
         value
@@ -628,14 +631,24 @@ def _build_year_report(
         "originYear": year,
         "sourceHitterCount": sum(row["playerType"] == "Hitter" for row in source_rows),
         "sourcePitcherCount": sum(row["playerType"] == "Pitcher" for row in source_rows),
-        "requiredHitterCount": len(source_plan.FRANCHISE_IDS) * source_plan.CORE_HITTER_COUNT,
-        "requiredPitcherCount": len(source_plan.FRANCHISE_IDS) * source_plan.CORE_PITCHER_COUNT,
+        "requiredHitterCount": team_count * source_plan.CORE_HITTER_COUNT,
+        "requiredPitcherCount": team_count * source_plan.CORE_PITCHER_COUNT,
         "replacementHitterCount": sum(row["playerType"] == "Hitter" for row in replacement_rows),
         "replacementPitcherCount": sum(row["playerType"] == "Pitcher" for row in replacement_rows),
         "replacementRatio": round(len(replacement_rows) / required, 8),
         "replacementAverageCost": round(sum(replacement_costs) / len(replacement_costs), 8) if replacement_costs else 0.0,
         "replacementAverageRelevantAbility": round(sum(replacement_ratings) / len(replacement_ratings), 8) if replacement_ratings else 0.0,
         "sourceCostThresholds": dict(source_thresholds),
+        "sourceTeamSeasonCount": int(allocation_report["sourceTeamSeasonCount"]),
+        "canonicalTeamSeasonCount": team_count,
+        "leagueTeamTargetCount": int(allocation_report["leagueTeamTargetCount"]),
+        "teamCountDisposition": allocation_report["teamCountDisposition"],
+        "sourceFranchiseIdFallbackCount": int(
+            allocation_report["sourceFranchiseIdFallbackCount"]
+        ),
+        "playerTeamAssignmentBasisCounts": dict(
+            allocation_report["playerTeamAssignmentBasisCounts"]
+        ),
     }
 
 
@@ -653,19 +666,94 @@ def _validate_source_costs_unchanged(
         raise ValueError("Replacement가 SourceBacked Cost를 변경했습니다.")
 
 
+def _validate_world_identity_name_pool(
+    pool: Any,
+    persons: Sequence[Mapping[str, Any]],
+    editor_source_content: Mapping[str, Any],
+    expected_franchise_count: int,
+) -> None:
+    if not isinstance(pool, Mapping):
+        raise ValueError("World Identity 이름 후보 풀이 없습니다.")
+    if pool.get("version") != source_plan.WORLD_IDENTITY_NAME_POOL_VERSION:
+        raise ValueError("World Identity 이름 후보 풀 버전이 다릅니다.")
+
+    domestic_names = list(pool.get("domesticPlayerNames") or [])
+    foreign_names = list(pool.get("foreignPlayerNames") or [])
+    franchise_names = list(pool.get("franchiseNames") or [])
+    expected_domestic_count = sum(
+        person["registrationType"] != "Foreign" for person in persons
+    )
+    expected_foreign_count = len(persons) - expected_domestic_count
+    if len(domestic_names) < expected_domestic_count:
+        raise ValueError("Domestic World Player Identity 후보가 부족합니다.")
+    if len(foreign_names) < expected_foreign_count:
+        raise ValueError("Foreign World Player Identity 후보가 부족합니다.")
+    if len(franchise_names) < expected_franchise_count:
+        raise ValueError("World Franchise Identity 후보가 부족합니다.")
+
+    all_player_names = domestic_names + foreign_names
+    if len(all_player_names) != len(set(all_player_names)):
+        raise ValueError("World Player Identity 후보가 중복됩니다.")
+    if len(franchise_names) != len(set(franchise_names)):
+        raise ValueError("World Franchise Identity 후보가 중복됩니다.")
+
+    forbidden_player_names = {
+        str(person.get("originalName") or "").strip()
+        for person in editor_source_content.get("playerPersons", [])
+        if str(person.get("originalName") or "").strip()
+    }
+    forbidden_franchise_names = {
+        str(team.get("franchiseId") or "").strip()
+        for year in editor_source_content.get("years", [])
+        for team in year.get("teamSeasons", [])
+        if str(team.get("franchiseId") or "").strip()
+    }
+    if forbidden_player_names.intersection(all_player_names):
+        raise ValueError("World Player Identity 후보가 Source 선수명을 재사용합니다.")
+    if forbidden_franchise_names.intersection(franchise_names):
+        raise ValueError("World Franchise Identity 후보가 Source 구단명을 재사용합니다.")
+
+    for label, names in (
+        ("World Player", all_player_names),
+        ("World Franchise", franchise_names),
+    ):
+        if any(
+            not isinstance(name, str)
+            or not name.strip()
+            or len(name) > 40
+            or any(character.isdigit() or ord(character) < 32 for character in name)
+            for name in names
+        ):
+            raise ValueError(f"{label} Identity 후보 품질 계약을 위반했습니다.")
+
+
 def validate_runtime_content(
     content: Mapping[str, Any],
     editor_source_content: Mapping[str, Any],
     plan: source_plan.SourceBackedRuntimeBakePlan,
     derivation: Any,
 ) -> None:
-    """1:1 provenance, Cost 격리, 10×Core25 계약을 최종 JSON에서 검증한다."""
+    """Player/Team 1:1 provenance, Cost 격리, Core25를 최종 JSON에서 검증한다."""
 
     source_person_count = len(editor_source_content["playerPersons"])
     source_season_count = sum(len(year["playerSeasons"]) for year in editor_source_content["years"])
     persons = content["playerPersons"]
     if len(persons) != len({row["playerPersonId"] for row in persons}):
         raise ValueError("Runtime PlayerPersonId가 중복되었습니다.")
+    if any("fictionalName" in row or "displayName" in row for row in persons):
+        raise ValueError("Canonical PlayerPerson에 World DisplayName을 고정할 수 없습니다.")
+    _validate_world_identity_name_pool(
+        content.get("worldIdentityNamePool"),
+        persons,
+        editor_source_content,
+        len(
+            {
+                team["franchiseId"]
+                for year_content in content["years"]
+                for team in year_content["teamSeasons"]
+            }
+        ),
+    )
     seasons_all = [row for year in content["years"] for row in year["playerSeasons"]]
     source_rows = [row for row in seasons_all if row.get("dataProvenance") == SOURCE_BACKED]
     replacement_rows = [row for row in seasons_all if row.get("dataProvenance") == REPLACEMENT_GENERATED]
@@ -689,17 +777,34 @@ def validate_runtime_content(
         raise ValueError("Runtime PlayerSeason에 Source 식별 정보가 노출되었습니다.")
 
     seen_seasons: set[str] = set()
+    plan_years = {
+        int(row["year"]): row for row in plan.runtime_content["years"]
+    }
     for year_content in content["years"]:
         year = int(year_content["year"])
+        plan_year = plan_years[year]
         seasons = year_content["playerSeasons"]
         season_by_id = {row["playerSeasonId"]: row for row in seasons}
         if len(season_by_id) != len(seasons) or seen_seasons.intersection(season_by_id):
             raise ValueError("PlayerSeasonId가 중복되었습니다.")
         seen_seasons.update(season_by_id)
-        if len(year_content["teamSeasons"]) != len(source_plan.FRANCHISE_IDS):
-            raise ValueError("정규 Franchise는 연도마다 정확히 10개여야 합니다.")
+        expected_team_count = len(plan_year["teamAllocationPlans"])
+        if len(year_content["teamSeasons"]) != expected_team_count:
+            raise ValueError("Canonical TeamSeason 수가 Source TeamSeason 수와 다릅니다.")
+        source_plan_by_team = {
+            row["teamSeasonKey"]: row for row in plan_year["teamAllocationPlans"]
+        }
         allocated_cards: list[str] = []
         for team in year_content["teamSeasons"]:
+            team_plan = source_plan_by_team.get(team["teamSeasonKey"])
+            if team_plan is None:
+                raise ValueError("Source와 연결되지 않은 Canonical TeamSeason입니다.")
+            if (
+                team["franchiseId"] != team_plan["franchiseId"]
+                or team["canonicalSourceTeamSeasonId"]
+                != team_plan["canonicalSourceTeamSeasonId"]
+            ):
+                raise ValueError("Canonical TeamSeason 1:1 provenance가 변경되었습니다.")
             all_cards = team["allNormalCardIds"]
             core_cards = team["core25CardIds"]
             allocated_cards.extend(all_cards)
@@ -707,6 +812,16 @@ def validate_runtime_content(
                 raise ValueError("Core25는 중복 없는 정확한 25명이어야 합니다.")
             if not set(core_cards).issubset(all_cards):
                 raise ValueError("Core25가 Team Pool 밖의 선수를 참조합니다.")
+            team_pool = [
+                season_by_id[card_id.removesuffix(":Normal")]
+                for card_id in all_cards
+            ]
+            if any(
+                row["originTeamSeasonKey"] != team["teamSeasonKey"]
+                or row["originFranchiseId"] != team["franchiseId"]
+                for row in team_pool
+            ):
+                raise ValueError("Team Pool에 다른 Source TeamSeason 선수가 섞였습니다.")
             core = [season_by_id[card_id.removesuffix(":Normal")] for card_id in core_cards]
             roles = [row["rosterRole"] for row in core]
             if sum(row["playerType"] == "Hitter" for row in core) != 14:
@@ -725,6 +840,19 @@ def validate_runtime_content(
                 raise ValueError("Setup/Closer는 정확히 한 명이어야 합니다.")
             if len({row["playerPersonId"] for row in core}) != 25:
                 raise ValueError("Core25 PlayerPerson이 중복되었습니다.")
+            for row in core:
+                if row["originTeamSeasonKey"] != team["teamSeasonKey"]:
+                    raise ValueError("Core25에 다른 Source TeamSeason 선수가 섞였습니다.")
+            source_team_season_ids = set(
+                team_plan["sourceBackedPlayerSeasonIds"]
+            )
+            actual_source_ids = {
+                row["playerSeasonId"]
+                for row in core
+                if row["dataProvenance"] == SOURCE_BACKED
+            }
+            if not actual_source_ids.issubset(source_team_season_ids):
+                raise ValueError("Core25 SourceBacked 선수가 다른 Source 구단에서 왔습니다.")
             if sum(row["registrationType"] == "Foreign" for row in core) > 3:
                 raise ValueError("Core25 Foreign 제한을 위반했습니다.")
         expected_cards = {f"{season_id}:Normal" for season_id in season_by_id}

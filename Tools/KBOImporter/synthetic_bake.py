@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import hashlib
 import json
 import math
-import random
 import statistics
 from pathlib import Path
 from typing import Any, Iterable
@@ -15,13 +13,10 @@ from kbo_importer import SCHEMA_VERSION as NORMALIZED_SCHEMA_VERSION
 from kbo_importer.validation import validate_saved_document
 
 
-GENERATOR_VERSION = "source-backed-runtime-bake-v1"
-BALANCE_VERSION = "historical-source-backed-v1"
 REFERENCE_DATA_VERSION = f"kbo-normalized-v{NORMALIZED_SCHEMA_VERSION}"
-CONTENT_SCHEMA_VERSION = 4
-NAME_POLICY_VERSION = "source-backed-fictional-name-v1"
+CONTENT_SCHEMA_VERSION = 5
 EDITOR_ORIGINAL_NAME_POLICY = "editor-original-source-v2"
-RUNTIME_NAME_POLICY = "runtime-fictional-only-v2"
+RUNTIME_NAME_POLICY = "runtime-world-identity-pool-v3"
 EDITOR_ASSET_FORMAT_VERSION = 1
 DERIVATION_BALANCE_PATH = Path(__file__).with_name("derivation_balance.json")
 DERIVATION_BALANCE = json.loads(DERIVATION_BALANCE_PATH.read_text(encoding="utf-8"))
@@ -30,18 +25,6 @@ COST_FORMULA_VERSION = str(DERIVATION_BALANCE["costFormulaVersion"])
 POSITION_ROLE_CLASSIFIER_VERSION = str(DERIVATION_BALANCE["positionRoleClassifierVersion"])
 ROSTER_BUILDER_VERSION = str(DERIVATION_BALANCE["rosterBuilderVersion"])
 DERIVATION_BALANCE_VERSION = str(DERIVATION_BALANCE["version"])
-FRANCHISE_IDS = (
-    "SEOUL_COMETS",
-    "BUSAN_TIDES",
-    "INCHEON_HARBORS",
-    "DAEGU_FORGE",
-    "DAEJEON_PIONEERS",
-    "GWANGJU_PHOENIX",
-    "SUWON_GUARDIANS",
-    "CHANGWON_MARINERS",
-    "JEONJU_STARS",
-    "GANGNEUNG_WAVES",
-)
 HITTER_POSITIONS = ("C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH")
 DEFENSIVE_HITTER_POSITIONS = HITTER_POSITIONS[:-1]
 ABILITY_NAMES = (
@@ -68,6 +51,7 @@ HITTER_METRIC_NAMES = (
     "StolenBaseAttemptRate",
     "StolenBaseSuccessRate",
     "FieldingPercentage",
+    "NegativeErrorsPerNine",
     "DefensiveOpportunitiesPerNine",
     "AssistsPerNine",
     "CaughtStealingRate",
@@ -100,21 +84,6 @@ POSITION_STARTER_ATTRIBUTE_WEIGHTS = ROSTER_SELECTION_CONFIG["positionStarterAtt
 DH_ATTRIBUTE_WEIGHTS = ROSTER_SELECTION_CONFIG["designatedHitterAttributeWeights"]
 BENCH_ATTRIBUTE_WEIGHTS = ROSTER_SELECTION_CONFIG["benchAttributeWeights"]
 PITCHER_ASSIGNMENT_ATTRIBUTE_WEIGHTS = ROSTER_SELECTION_CONFIG["pitcherAssignmentAttributeWeights"]
-COMMON_KOREAN_SURNAMES = tuple(
-    "김이박최정강조윤장임한오서신권황안송류홍전고문양손배백허유남심노하곽성차주우구민진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제탁국"
-)
-FALLBACK_GIVEN_NAMES = (
-    "도윤", "준서", "시우", "민재", "우진", "현우", "성민", "태호",
-    "민준", "재현", "승우", "지훈", "동현", "예준", "민성", "준혁",
-    "지환", "재원", "성훈", "민기", "건우", "은찬", "태윤", "시현",
-    "준영", "승현", "도현", "건호", "재민", "윤성", "준호", "민규",
-    "동욱", "정우", "진우", "성우", "상현", "정현", "영준", "재훈",
-    "현준", "성호", "정훈", "승민", "승환", "진호", "대현", "영진",
-    "정호", "경호", "경환", "동훈", "민석", "상민", "성진", "재영",
-    "재호", "준우", "준형", "민철", "상우", "성철", "태영", "현수",
-)
-
-
 def metric_composite_influence_audit(
     player_type: str,
     profile_name: str,
@@ -190,6 +159,35 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
                 raise ValueError(f"알 수 없는 Ability/Metric 설정입니다: {player_type}/{attribute}")
             if abs(sum(float(weight) for weight in weights.values()) - 1.0) > 1e-9:
                 raise ValueError(f"Ability metric weight 합은 1이어야 합니다: {player_type}/{attribute}")
+
+    reference = config["referencePopulation"]
+    if float(reference["minimumEffectiveSampleCount"]) <= 0.0:
+        raise ValueError("Reference 모집단의 최소 유효 표본은 0보다 커야 합니다.")
+    if not 0.0 <= float(reference["winsorizeTailQuantile"]) < 0.5:
+        raise ValueError("Reference Winsorize 분위는 0 이상 0.5 미만이어야 합니다.")
+    if set(reference["positionFamilies"]) != set(HITTER_POSITIONS):
+        raise ValueError("Reference PositionFamily 설정이 모든 타자 포지션을 덮지 않습니다.")
+
+    eligibility = config["costEligibility"]
+    curve = eligibility["capCurve"]
+    minimum_cost = int(curve["minimumCost"])
+    maximum_cost = int(curve["maximumCost"])
+    highest_cost = max(int(threshold["cost"]) for threshold in thresholds)
+    if not 1 <= minimum_cost < maximum_cost <= highest_cost:
+        raise ValueError(
+            "Cost 상한 곡선은 1 이상에서 시작해 백분위 최대 Cost 이하로 끝나야 합니다."
+        )
+
+    threshold_sets = [eligibility["hitterSampleThresholds"]] + list(
+        eligibility["pitcherSampleThresholds"].values()
+    )
+    for thresholds in threshold_sets:
+        if set(thresholds) != {"Full", "Regular", "Limited"}:
+            raise ValueError("Cost 자격 출전량 기준이 Full/Regular/Limited를 덮지 않습니다.")
+        if not float(thresholds["Limited"]) < float(thresholds["Regular"]) < float(thresholds["Full"]):
+            raise ValueError("Cost 자격 출전량 기준은 순증가해야 합니다.")
+    if set(eligibility["pitcherSampleThresholds"]) != set(reference["pitcherRoleFamilies"].values()):
+        raise ValueError("Cost 자격 투수 기준이 투수 역할군 전체를 덮지 않습니다.")
 
     levels = config["roleCompositeWeightLevels"]
     for player_type, profiles in config["roleCompositeProfiles"].items():
@@ -393,6 +391,17 @@ def hitter_metric_evidence(player: dict[str, Any]) -> list[dict[str, Any]]:
     )
     result.append(
         metric_evidence(
+            "NegativeErrorsPerNine",
+            -errors * 27.0 / innings_outs if innings_outs > 0.0 else 0.0,
+            -errors,
+            innings_outs / 27.0,
+            innings_outs,
+            float(reliability_config["defensiveInningsOuts"]),
+            chances > 0.0 and innings_outs > 0.0,
+        )
+    )
+    result.append(
+        metric_evidence(
             "DefensiveOpportunitiesPerNine",
             chances * 27.0 / innings_outs if innings_outs > 0.0 else 0.0,
             chances,
@@ -493,6 +502,81 @@ def derivation_group_key(
     return f"{year}:{group}"
 
 
+def reference_family_key(group_key: str, player_type: str) -> str:
+    """표본이 얇은 집단이 기댈 상위 비교 집단(포지션군·투수 역할군) 키를 만든다."""
+    reference_config = DERIVATION_BALANCE["referencePopulation"]
+    year, _, group = group_key.partition(":")
+    families = (
+        reference_config["positionFamilies"]
+        if player_type == "Hitter"
+        else reference_config["pitcherRoleFamilies"]
+    )
+    return f"{year}:{families.get(group, 'Default')}"
+
+
+def weighted_reference_statistics(
+    values: list[float],
+    weights: list[float],
+) -> tuple[float, float, float]:
+    """표본 신뢰도를 Reference Weight로 쓴 Winsorized 가중 평균·표준편차를 만든다.
+
+    소표본 선수를 모집단에서 제거하면 희소 포지션과 초기 연도의 비교 기준이 무너지므로
+    제거하지 않고 기여도만 줄인다. Reference Weight는 개인 Shrinkage와 같은 곡선
+    ``n / (n + k)``을 쓴다. 한 값이 자기 자신에 대해 갖는 증거력과 모집단에 대해 갖는
+    증거력을 같은 척도로 두기 위해서다.
+    """
+    total_weight = sum(weights)
+    if not values or total_weight <= 1e-9:
+        return 0.0, 1.0, 0.0
+
+    tail_quantile = float(DERIVATION_BALANCE["referencePopulation"]["winsorizeTailQuantile"])
+    ordered = sorted(zip(values, weights), key=lambda pair: pair[0])
+    lower_bound = ordered[0][0]
+    upper_bound = ordered[-1][0]
+    cumulative = 0.0
+    for value, weight in ordered:
+        cumulative += weight
+        if cumulative >= tail_quantile * total_weight:
+            lower_bound = value
+            break
+    cumulative = 0.0
+    for value, weight in ordered:
+        cumulative += weight
+        if cumulative >= (1.0 - tail_quantile) * total_weight:
+            upper_bound = value
+            break
+    if upper_bound < lower_bound:
+        lower_bound, upper_bound = upper_bound, lower_bound
+
+    clamped = [min(max(value, lower_bound), upper_bound) for value, _ in ordered]
+    ordered_weights = [weight for _, weight in ordered]
+    center = sum(value * weight for value, weight in zip(clamped, ordered_weights)) / total_weight
+    variance = sum(
+        weight * (value - center) ** 2 for value, weight in zip(clamped, ordered_weights)
+    ) / total_weight
+    deviation = math.sqrt(variance)
+    return center, deviation if deviation > 1e-9 else 1.0, total_weight
+
+
+def blend_reference_statistics(
+    narrow: tuple[float, float, float],
+    wide: tuple[float, float, float],
+) -> tuple[float, float, float, float]:
+    """유효 표본이 모자란 좁은 집단을 상위 집단 통계 쪽으로 연속적으로 섞는다."""
+    minimum_effective = float(
+        DERIVATION_BALANCE["referencePopulation"]["minimumEffectiveSampleCount"]
+    )
+    narrow_center, narrow_deviation, narrow_effective = narrow
+    wide_center, wide_deviation, wide_effective = wide
+    if wide_effective <= 1e-9:
+        return narrow_center, narrow_deviation, narrow_effective, 1.0
+    share = min(1.0, narrow_effective / minimum_effective) if minimum_effective > 0.0 else 1.0
+    center = share * narrow_center + (1.0 - share) * wide_center
+    variance = share * narrow_deviation**2 + (1.0 - share) * wide_deviation**2
+    deviation = math.sqrt(variance)
+    return center, deviation if deviation > 1e-9 else 1.0, narrow_effective, share
+
+
 def derivation_role_tier(player: dict[str, Any], player_type: str) -> str:
     """Qualified/Limited는 비교 모집단이 아니라 표본 진단 metadata로만 남긴다."""
     role_tier = DERIVATION_BALANCE["roleTier"]
@@ -533,21 +617,66 @@ def build_adjusted_feature_pool(
         )
         role_tier_by_id[source_id] = derivation_role_tier(player, player_type)
 
-    group_statistics: dict[tuple[str, str], tuple[float, float]] = {}
-    for group_key in sorted(set(group_by_id.values())):
-        member_ids = sorted(source_id for source_id, value in group_by_id.items() if value == group_key)
+    family_by_id = {
+        source_id: reference_family_key(group_key, player_type)
+        for source_id, group_key in group_by_id.items()
+    }
+    type_key = f"{year}:{player_type}"
+
+    def reference_weight(component: dict[str, Any]) -> float:
+        if not component["isAvailable"]:
+            return 0.0
+        return reliability(
+            float(component["sampleSize"]),
+            float(component["reliabilityConstant"]),
+        )
+
+    def statistics_for(member_ids: list[str], metric_name: str) -> tuple[float, float, float]:
+        values: list[float] = []
+        weights: list[float] = []
+        for source_id in member_ids:
+            for component in evidence_by_id[source_id]:
+                if component["metric"] != metric_name or not component["isAvailable"]:
+                    continue
+                values.append(float(component["rawValue"]))
+                weights.append(reference_weight(component))
+        return weighted_reference_statistics(values, weights)
+
+    def members_of(scope_by_id: dict[str, str], scope_key: str) -> list[str]:
+        return sorted(source_id for source_id, value in scope_by_id.items() if value == scope_key)
+
+    all_member_ids = sorted(evidence_by_id)
+    type_statistics = {
+        metric_name: statistics_for(all_member_ids, metric_name)
+        for metric_name in metric_names
+    }
+    family_statistics: dict[tuple[str, str], tuple[float, float, float]] = {}
+    for family_key in sorted(set(family_by_id.values())):
+        member_ids = members_of(family_by_id, family_key)
         for metric_name in metric_names:
-            values = [
-                float(component["rawValue"])
-                for source_id in member_ids
-                for component in evidence_by_id[source_id]
-                if component["metric"] == metric_name and component["isAvailable"]
-            ]
-            center = mean(values)
-            deviation = statistics.pstdev(values) if len(values) > 1 else 1.0
+            family_statistics[(family_key, metric_name)] = statistics_for(member_ids, metric_name)
+
+    group_statistics: dict[tuple[str, str], tuple[float, float, float, float, float]] = {}
+    for group_key in sorted(set(group_by_id.values())):
+        member_ids = members_of(group_by_id, group_key)
+        family_key = family_by_id[member_ids[0]]
+        for metric_name in metric_names:
+            family_center, family_deviation, family_effective, family_share = (
+                blend_reference_statistics(
+                    family_statistics[(family_key, metric_name)],
+                    type_statistics[metric_name],
+                )
+            )
+            center, deviation, group_effective, group_share = blend_reference_statistics(
+                statistics_for(member_ids, metric_name),
+                (family_center, family_deviation, family_effective),
+            )
             group_statistics[(group_key, metric_name)] = (
                 center,
-                deviation if deviation > 1e-9 else 1.0,
+                deviation,
+                group_effective,
+                group_share,
+                family_share,
             )
 
     vectors: dict[str, tuple[float, ...]] = {}
@@ -559,7 +688,13 @@ def build_adjusted_feature_pool(
         by_metric = {component["metric"]: component for component in evidence_by_id[source_id]}
         for metric_name in metric_names:
             evidence = by_metric[metric_name]
-            center, deviation = group_statistics[(group_key, metric_name)]
+            (
+                center,
+                deviation,
+                group_effective,
+                group_share,
+                family_share,
+            ) = group_statistics[(group_key, metric_name)]
             raw_z = (
                 (float(evidence["rawValue"]) - center) / deviation
                 if evidence["isAvailable"]
@@ -574,6 +709,11 @@ def build_adjusted_feature_pool(
             component_traces[metric_name] = {
                 **evidence,
                 "roleTier": role_tier_by_id[source_id],
+                "referenceWeight": round(reference_weight(evidence), 8),
+                "referenceFamilyKey": family_by_id[source_id],
+                "referenceEffectiveSampleCount": round(group_effective, 8),
+                "referenceGroupShare": round(group_share, 8),
+                "referenceFamilyShare": round(family_share, 8),
                 "groupMean": round(center, 8),
                 "groupStdDev": round(deviation, 8),
                 "rawZ": round(raw_z, 8),
@@ -850,15 +990,99 @@ def role_adjusted_composite(season: dict[str, Any]) -> tuple[float, dict[str, An
     }
 
 
+def cost_eligibility_sample_thresholds(season: dict[str, Any]) -> tuple[str, dict[str, float]]:
+    """Cost 자격 판정에 쓸 출전량 기준을 선수 유형·투수 역할군별로 고른다."""
+    eligibility = DERIVATION_BALANCE["costEligibility"]
+    if str(season["playerType"]) == "Hitter":
+        return "Hitter", {
+            key: float(value) for key, value in eligibility["hitterSampleThresholds"].items()
+        }
+    families = DERIVATION_BALANCE["referencePopulation"]["pitcherRoleFamilies"]
+    family = families.get(str(season.get("pitcherRole") or "Default"), "Relief")
+    return family, {
+        key: float(value) for key, value in eligibility["pitcherSampleThresholds"][family].items()
+    }
+
+
+def workload_cost_cap(workload_ratio: float) -> int:
+    """온전한 시즌 대비 출전 비율을 Cost 상한으로 연속 변환한다.
+
+    구간별 고정 상한을 쓰면 문턱 하나를 사이에 두고 상한이 여러 계단 갈라진다. 실제로
+    83이닝을 던진 부분 선발이 56이닝 마무리보다 낮은 상한을 받는 역전이 생겼다. 상한을
+    비율의 연속 함수로 두면 그 절벽이 사라지고, 표본이 한두 타자 모자라 한 계단 깎이는
+    경계 인공물도 없어진다. 반올림은 부동소수 구현에 기대지 않도록 floor(x + 0.5)로 고정한다.
+    """
+    curve = DERIVATION_BALANCE["costEligibility"]["capCurve"]
+    minimum_cost = int(curve["minimumCost"])
+    maximum_cost = int(curve["maximumCost"])
+    ratio = min(1.0, max(0.0, workload_ratio))
+    return math.floor(minimum_cost + (maximum_cost - minimum_cost) * ratio + 0.5)
+
+
+def cost_eligibility_tier(season: dict[str, Any]) -> dict[str, Any]:
+    """능력치와 별개로 이 시즌이 어느 Cost까지 인정받을 수 있는지 판정한다.
+
+    28이닝 투수의 볼넷 억제력이나 20타석 타자의 타율은 능력치로는 사실대로 남겨야 하지만,
+    그 시즌 자체가 500타석 주전과 같은 카드 희소도를 가질 수는 없다. Ability는 "얼마나
+    잘했나", Cost는 "얼마나 큰 시즌이었나"를 각각 답하도록 두 판단을 분리한다.
+
+    Full/Regular/Limited/Tiny는 사람이 읽는 진단 이름일 뿐 상한을 정하지 않는다. 상한은
+    ``Full`` 기준 대비 출전 비율에서 연속으로 나온다.
+    """
+    curve = DERIVATION_BALANCE["costEligibility"]["capCurve"]
+    scope, thresholds = cost_eligibility_sample_thresholds(season)
+    has_sample, sample = optional_number(season.get("costEligibilitySample"))
+    if not has_sample:
+        return {
+            "tier": "Full",
+            "scope": scope,
+            "sample": -1.0,
+            "workloadRatio": 1.0,
+            "maximumCost": int(curve["maximumCost"]),
+            "reason": "출전량 표본이 없어 Cost 상한을 적용하지 않았습니다.",
+        }
+    if sample >= thresholds["Full"]:
+        tier = "Full"
+    elif sample >= thresholds["Regular"]:
+        tier = "Regular"
+    elif sample >= thresholds["Limited"]:
+        tier = "Limited"
+    else:
+        tier = "Tiny"
+    workload_ratio = min(1.0, max(0.0, sample / thresholds["Full"]))
+    maximum_cost = workload_cost_cap(workload_ratio)
+    return {
+        "tier": tier,
+        "scope": scope,
+        "sample": round(sample, 8),
+        "workloadRatio": round(workload_ratio, 8),
+        "maximumCost": maximum_cost,
+        "reason": (
+            f"{scope} 출전량 {sample:.0f}은 온전한 시즌의 {workload_ratio * 100:.0f}%라 "
+            f"Cost {maximum_cost}까지 인정합니다."
+        ),
+    }
+
+
+def resolve_eligible_cost(raw_cost: int, eligibility_trace: dict[str, Any]) -> int:
+    """백분위 Cost를 출전량이 허용하는 상한으로 낮춘다."""
+    return min(raw_cost, int(eligibility_trace["maximumCost"]))
+
+
 def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
-    """Team/Core25가 아니라 OriginYear 전체 PlayerSeason 모집단에서 Cost를 확정한다."""
-    by_year: dict[int, list[tuple[dict[str, Any], float, dict[str, Any]]]] = {}
+    """OriginYear의 같은 선수 유형 모집단에서 백분위 Cost를 정하고 자격 상한을 적용한다.
+
+    타자와 투수는 입력 지표도 Composite 분산 구조도 달라서, 한 모집단에 합치면 분산이 큰
+    쪽이 상위 Cost를 독점한다. 백분위 구간 자체는 그대로 두고 모집단만 유형별로 나눈다.
+    """
+    by_population: dict[tuple[int, str], list[tuple[dict[str, Any], float, dict[str, Any]]]] = {}
     for season in seasons:
         composite, trace = role_adjusted_composite(season)
-        by_year.setdefault(int(season["originYear"]), []).append((season, composite, trace))
+        key = (int(season["originYear"]), str(season["playerType"]))
+        by_population.setdefault(key, []).append((season, composite, trace))
 
-    for year in sorted(by_year):
-        population = by_year[year]
+    for year, player_type in sorted(by_population):
+        population = by_population[(year, player_type)]
         ranked = sorted(
             population,
             key=lambda entry: (entry[1], str(entry[0]["playerSeasonId"])),
@@ -879,16 +1103,21 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
                 }
             )
         for zero_based_rank, (season, _, trace) in enumerate(ranked):
-            cost = percentile_cost(zero_based_rank, count)
+            percentile = (zero_based_rank + 0.5) / count
+            raw_cost = percentile_cost(zero_based_rank, count)
+            eligibility_trace = cost_eligibility_tier(season)
+            cost = resolve_eligible_cost(raw_cost, eligibility_trace)
             season["cost"] = cost
             trace["populationCount"] = count
             trace["dataProvenance"] = "SourceBacked"
-            trace["costPopulationSource"] = "OriginYearSourceBacked"
+            trace["costPopulationSource"] = f"OriginYear{player_type}SourceBacked"
             trace["sourcePopulationSize"] = count
             trace["replacementExcludedFromThresholdCalculation"] = True
             trace["thresholds"] = threshold_rows
             trace["rank"] = zero_based_rank + 1
-            trace["percentile"] = round((zero_based_rank + 0.5) / count, 8)
+            trace["percentile"] = round(percentile, 8)
+            trace["rawPercentileCost"] = raw_cost
+            trace["costEligibility"] = eligibility_trace
             trace["cost"] = cost
             season["costDerivationTrace"] = trace
             metric_warnings = build_metric_influence_warnings(trace["metricInfluenceAudit"])
@@ -1142,6 +1371,13 @@ def source_workload(player: dict[str, Any], player_type: str) -> float:
     if player_type == "Pitcher":
         return safe_number((player.get("pitcherStats") or {}).get("inningsOuts"))
     return safe_number((player.get("hitterStats") or {}).get("plateAppearances"))
+
+
+def source_cost_eligibility_sample(player: dict[str, Any], player_type: str) -> float:
+    """Cost 자격 판정에 쓰는 상대한 타자 수 또는 타석 수를 만든다."""
+    if player_type == "Pitcher":
+        return pitcher_batters_faced(player.get("pitcherStats") or {})
+    return max(0.0, safe_number((player.get("hitterStats") or {}).get("plateAppearances")))
 
 
 def source_original_record(
@@ -1740,6 +1976,7 @@ def build_editor_original_content(
                 "baseAttributes": ratings,
                 "abilityDerivationTrace": ability_trace,
                 "derivationWarnings": build_ability_validation_warnings(ability_trace),
+                "costEligibilitySample": source_cost_eligibility_sample(player, player_type),
                 "cost": 0,
                 "trainingCeiling": [],
                 "rosterRole": "",
@@ -1853,11 +2090,14 @@ def build_editor_original_content(
             "generatorVersion": "editor-original-bake-v1",
             "balanceVersion": "source-record-derived-rating-v1",
             "generationSeed": 0,
+            "generationSeedAffectsCanonicalBake": False,
             "namePolicyVersion": "original-source-name-v1",
             "nameDataPolicy": EDITOR_ORIGINAL_NAME_POLICY,
             "sourceIdentityPolicyVersion": "editor-source-identity-v1",
             "sourceAllocationPolicyVersion": "official-source-team-audit-v1",
-            "replacementGeneratorVersion": "replacement-generation-v1",
+            "sourceFranchiseIdentityPolicyVersion": "editor-source-franchise-id-v1",
+            "sourceTeamSeasonIdentityPolicyVersion": "editor-source-team-season-id-v1",
+            "replacementGeneratorVersion": "quota-fallback-percentile-v2",
             "replacementPopulationPolicyVersion": "origin-year-position-role-source-only-v1",
             "sourceBackedPlayerPersonCount": len(player_persons),
             "sourceBackedPlayerSeasonCount": sum(
@@ -1872,64 +2112,6 @@ def build_editor_original_content(
     validate_editor_original_content(content)
     refresh_content_hash(content)
     return content
-
-
-def is_standard_korean_name(value: str) -> bool:
-    return (
-        len(value) == 3
-        and value[0] in COMMON_KOREAN_SURNAMES
-        and all("가" <= character <= "힣" for character in value)
-    )
-
-
-def is_natural_fictional_name(value: str) -> bool:
-    return is_standard_korean_name(value) and len(set(value)) == len(value)
-
-
-def build_fictional_name_map(
-    person_ids: Iterable[str],
-    source_names: Iterable[str],
-) -> dict[str, str]:
-    """실제 이름의 검증된 이름 조각을 재조합해 중복 없는 Runtime 가명을 만든다."""
-    forbidden_names = {str(name).strip() for name in source_names if str(name).strip()}
-    eligible_source_names = {
-        name for name in forbidden_names if is_standard_korean_name(name)
-    }
-    given_name_counts = Counter(name[1:] for name in eligible_source_names)
-    given_names = set(FALLBACK_GIVEN_NAMES)
-    given_names.update(
-        given_name
-        for given_name, count in given_name_counts.items()
-        if count >= 4
-    )
-    candidates = sorted(
-        surname + given_name
-        for surname in COMMON_KOREAN_SURNAMES
-        for given_name in given_names
-        if surname + given_name not in forbidden_names
-        and is_natural_fictional_name(surname + given_name)
-    )
-    ordered_person_ids = sorted(set(person_ids))
-    if len(candidates) < len(ordered_person_ids):
-        raise ValueError(
-            "품질 기준을 만족하는 Runtime 가명이 부족합니다: "
-            f"필요 {len(ordered_person_ids)}, 사용 가능 {len(candidates)}"
-        )
-
-    result: dict[str, str] = {}
-    used_names: set[str] = set()
-    for person_id in ordered_person_ids:
-        start = stable_seed(NAME_POLICY_VERSION, person_id) % len(candidates)
-        for offset in range(len(candidates)):
-            candidate = candidates[(start + offset) % len(candidates)]
-            if candidate in used_names:
-                continue
-            result[person_id] = candidate
-            used_names.add(candidate)
-            break
-        else:
-            raise ValueError(f"중복 없는 Runtime 가명을 배정할 수 없습니다: {person_id}")
-    return result
 
 
 def load_reference(path: Path, expected_year: int) -> dict[str, Any]:
@@ -2020,6 +2202,8 @@ def validate_bake(content: dict[str, Any]) -> None:
     validate_derivation_manifest(manifest)
     for field in (
         "sourceIdentityPolicyVersion",
+        "sourceFranchiseIdentityPolicyVersion",
+        "sourceTeamSeasonIdentityPolicyVersion",
         "sourceAllocationPolicyVersion",
         "replacementGeneratorVersion",
         "replacementPopulationPolicyVersion",
@@ -2031,13 +2215,24 @@ def validate_bake(content: dict[str, Any]) -> None:
     person_ids = [person["playerPersonId"] for person in persons]
     if len(person_ids) != len(set(person_ids)):
         raise ValueError("PlayerPersonId가 중복되었습니다.")
-    fictional_names = [str(person.get("fictionalName") or "") for person in persons]
-    if any(not is_natural_fictional_name(name) for name in fictional_names):
-        raise ValueError("Runtime 가명은 음절 반복이 없는 3음절 한국 이름이어야 합니다.")
-    if len(fictional_names) != len(set(fictional_names)):
-        raise ValueError("Runtime 가상 선수 이름이 중복되었습니다.")
+    if any("fictionalName" in person or "displayName" in person for person in persons):
+        raise ValueError("Canonical PlayerPerson에 World DisplayName을 고정할 수 없습니다.")
     if any("originalName" in person for person in persons):
         raise ValueError("Runtime PlayerPerson에 실제 이름이 남아 있습니다.")
+    identity_pool = content.get("worldIdentityNamePool")
+    if not isinstance(identity_pool, dict) or not str(identity_pool.get("version") or ""):
+        raise ValueError("Runtime World Identity 이름 후보 풀이 없습니다.")
+    domestic_names = list(identity_pool.get("domesticPlayerNames") or [])
+    foreign_names = list(identity_pool.get("foreignPlayerNames") or [])
+    franchise_names = list(identity_pool.get("franchiseNames") or [])
+    expected_domestic_count = sum(person.get("registrationType") != "Foreign" for person in persons)
+    expected_foreign_count = len(persons) - expected_domestic_count
+    if len(domestic_names) < expected_domestic_count or len(foreign_names) < expected_foreign_count:
+        raise ValueError("Runtime World Player Identity 후보가 부족합니다.")
+    if len(domestic_names + foreign_names) != len(set(domestic_names + foreign_names)):
+        raise ValueError("Runtime World Player Identity 후보가 중복됩니다.")
+    if len(franchise_names) != len(set(franchise_names)):
+        raise ValueError("Runtime World Franchise Identity 후보가 중복됩니다.")
 
     all_season_ids: set[str] = set()
     source_person_ids: set[str] = set()
@@ -2051,8 +2246,11 @@ def validate_bake(content: dict[str, Any]) -> None:
         if len(season_by_id) != len(seasons) or all_season_ids.intersection(season_by_id):
             raise ValueError("PlayerSeasonId가 중복되었습니다.")
         all_season_ids.update(season_by_id)
-        if len(year_content["teamSeasons"]) != 10:
-            raise ValueError("정규 Franchise Team은 연도마다 정확히 10개여야 합니다.")
+        if not year_content["teamSeasons"]:
+            raise ValueError("정규 Canonical TeamSeason이 없습니다.")
+        team_keys = [team["teamSeasonKey"] for team in year_content["teamSeasons"]]
+        if len(team_keys) != len(set(team_keys)):
+            raise ValueError("Canonical TeamSeasonKey가 중복됩니다.")
         for season in seasons:
             provenance = season.get("dataProvenance")
             if provenance == "SourceBacked":
@@ -2103,6 +2301,15 @@ def validate_bake(content: dict[str, Any]) -> None:
                 raise ValueError("일반 Bullpen은 4명이어야 합니다.")
             if roles.count("Setup") != 1 or roles.count("Closer") != 1:
                 raise ValueError("Setup/Closer는 각 1명이어야 합니다.")
+        unique_franchise_count = len(
+            {
+                team["franchiseId"]
+                for year in content["years"]
+                for team in year["teamSeasons"]
+            }
+        )
+        if len(franchise_names) < unique_franchise_count:
+            raise ValueError("Runtime World Franchise Identity 후보가 부족합니다.")
         expected_cards = {f"{season_id}:Normal" for season_id in season_by_id}
         if len(allocated_cards) != len(set(allocated_cards)) or set(allocated_cards) != expected_cards:
             raise ValueError("모든 PlayerSeason은 정확히 한 Team Pool에 배치되어야 합니다.")
@@ -2232,12 +2439,24 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
                         if not math.isfinite(safe_number(component.get(field), float("nan"))):
                             raise ValueError("Ability 파생 Trace에 NaN/Infinity가 있습니다.")
             cost_trace = season.get("costDerivationTrace") or {}
+            type_population = sum(
+                1 for row in seasons if row["playerType"] == season["playerType"]
+            )
             if (
                 int(cost_trace.get("originYear", -1)) != int(season["originYear"])
-                or int(cost_trace.get("populationCount", 0)) != len(seasons)
+                or int(cost_trace.get("populationCount", 0)) != type_population
                 or int(cost_trace.get("cost", 0)) != int(season["cost"])
             ):
                 raise ValueError("Cost 파생 Trace의 OriginYear 모집단 또는 Cost가 일치하지 않습니다.")
+            eligibility_trace = cost_trace.get("costEligibility") or {}
+            if eligibility_trace.get("tier") not in {"Full", "Regular", "Limited", "Tiny"}:
+                raise ValueError("Cost 자격 Tier 판정 근거가 없습니다.")
+            if int(season["cost"]) > int(eligibility_trace.get("maximumCost", 0)):
+                raise ValueError(
+                    "COST_ELIGIBILITY_CAP_EXCEEDED: "
+                    f"PlayerSeason={season['playerSeasonId']}, cost={season['cost']}, "
+                    f"tier={eligibility_trace.get('tier')}"
+                )
             metric_influence_audit = cost_trace.get("metricInfluenceAudit") or {}
             if not metric_influence_audit or metric_influence_audit.get("hasViolation"):
                 raise ValueError("ABILITY_METRIC_INFLUENCE_CAP_EXCEEDED: Cost metric 영향도 검증 실패")
@@ -2402,7 +2621,14 @@ def write_editor_asset_archive(content: dict[str, Any], output_dir: Path) -> dic
     verify_content_hash(content)
 
     player_persons_path = "player_persons.json"
-    player_persons_payload = canonical_json_bytes(content["playerPersons"])
+    player_persons_document: dict[str, Any] = {
+        "items": content["playerPersons"],
+    }
+    if "worldIdentityNamePool" in content:
+        player_persons_document["worldIdentityNamePool"] = content[
+            "worldIdentityNamePool"
+        ]
+    player_persons_payload = canonical_json_bytes(player_persons_document)
     write_bytes_atomically(output_dir / player_persons_path, player_persons_payload)
 
     year_entries: list[dict[str, Any]] = []
@@ -2442,7 +2668,11 @@ def write_editor_asset_archive(content: dict[str, Any], output_dir: Path) -> dic
                 "sourcePitcherCount": sum(season["playerType"] == "Pitcher" for season in source_seasons),
                 "replacementHitterCount": sum(season["playerType"] == "Hitter" for season in replacement_seasons),
                 "replacementPitcherCount": sum(season["playerType"] == "Pitcher" for season in replacement_seasons),
-                "replacementRatio": round(len(replacement_seasons) / 250.0, 8),
+                "replacementRatio": round(
+                    len(replacement_seasons)
+                    / (len(year_content["teamSeasons"]) * 25.0),
+                    8,
+                ),
             }
         )
 
@@ -2519,7 +2749,20 @@ def load_and_validate_editor_asset_archive(output_dir: Path) -> dict[str, Any]:
     if hashlib.sha256(person_payload).hexdigest() != person_entry["sha256"]:
         raise ValueError("PlayerPerson Asset의 SHA-256이 Manifest와 다릅니다.")
 
-    player_persons = json.loads(person_payload.decode("utf-8"))
+    player_persons_document = json.loads(person_payload.decode("utf-8"))
+    if isinstance(player_persons_document, list):
+        # Asset Format v1 구 archive는 배열 자체를 저장했다.
+        player_persons = player_persons_document
+        world_identity_name_pool = None
+    elif isinstance(player_persons_document, dict):
+        player_persons = player_persons_document.get("items")
+        world_identity_name_pool = player_persons_document.get(
+            "worldIdentityNamePool"
+        )
+        if not isinstance(player_persons, list):
+            raise ValueError("PlayerPerson wrapper의 items가 배열이 아닙니다.")
+    else:
+        raise ValueError("PlayerPerson Asset JSON 구조가 잘못되었습니다.")
     years: list[dict[str, Any]] = []
     archive_hash_entries: list[tuple[str, str]] = [(person_entry["path"], person_entry["sha256"])]
     for year_entry in manifest["years"]:
@@ -2543,6 +2786,8 @@ def load_and_validate_editor_asset_archive(output_dir: Path) -> dict[str, Any]:
         "years": years,
         "manifest": manifest["sourceManifest"],
     }
+    if world_identity_name_pool is not None:
+        content["worldIdentityNamePool"] = world_identity_name_pool
     validate_archive_content(content)
     verify_content_hash(content)
     return content
@@ -2573,7 +2818,7 @@ def main() -> int:
     output_group.add_argument(
         "--output",
         type=Path,
-        help="원본 이름을 제거하고 자연스러운 가명만 남긴 Runtime-safe 단일 JSON 경로입니다.",
+        help="원본 이름을 제거하고 World Identity 이름 후보군을 포함한 Runtime-safe 단일 JSON 경로입니다.",
     )
     output_group.add_argument(
         "--editor-assets-dir",

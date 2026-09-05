@@ -12,7 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\Assets\Tests\EditMode\Game\**\*.cs"
-             Exclude="..\..\Assets\Tests\EditMode\Game\BgmPlaylistDefinitionTests.cs;..\..\Assets\Tests\EditMode\Game\ContractFlowRetirementManagerTests.cs;..\..\Assets\Tests\EditMode\Game\GameManagerTests.cs;..\..\Assets\Tests\EditMode\Game\Historical\ManagerHistoricalSaveJsonStoreTests.cs;..\..\Assets\Tests\EditMode\Game\Historical\RuntimeHistoricalContentProviderTests.cs;..\..\Assets\Tests\EditMode\Game\SceneFlow\SceneCatalogTests.cs" />
+             Exclude="..\..\Assets\Tests\EditMode\Game\BgmPlaylistDefinitionTests.cs;..\..\Assets\Tests\EditMode\Game\ContractFlowRetirementManagerTests.cs;..\..\Assets\Tests\EditMode\Game\GameManagerTests.cs;..\..\Assets\Tests\EditMode\Game\Guide\**\*.cs;..\..\Assets\Tests\EditMode\Game\Historical\ManagerHistoricalSaveJsonStoreTests.cs;..\..\Assets\Tests\EditMode\Game\Historical\OwnerModeManagerIntegrationTests.cs;..\..\Assets\Tests\EditMode\Game\Historical\RuntimeHistoricalContentProviderTests.cs;..\..\Assets\Tests\EditMode\Game\OwnerExpansionBalanceConfigTests.cs;..\..\Assets\Tests\EditMode\Game\SceneFlow\SceneCatalogTests.cs" />
     <ProjectReference Include="Baseball.Core.Headless.csproj" />
     <ProjectReference Include="Baseball.Simulation.Headless.csproj" />
     <ProjectReference Include="Baseball.Game.Headless.csproj" />
