@@ -69,16 +69,19 @@ namespace Baseball.Game.Historical
 
         private readonly HistoricalBakedContent _content;
         private readonly BalanceTable _balance;
+        private readonly WorldIdentityRegistry _identityRegistry;
         private readonly AwardScoringPolicy _awardScoring;
         private readonly HistoricalMatchConfiguration _historicalConfiguration;
 
         public BakedHistoricalDetailedSeasonSource(
             HistoricalBakedContent content,
             BalanceTable balance,
+            WorldIdentityRegistry identityRegistry,
             AwardScoringPolicy awardScoring = null)
         {
             _content = content ?? throw new ArgumentNullException(nameof(content));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _identityRegistry = identityRegistry ?? throw new ArgumentNullException(nameof(identityRegistry));
             _awardScoring = awardScoring ?? AwardScoringPolicy.CreateDefault();
             _historicalConfiguration = new HistoricalMatchConfiguration(
                 _balance.HistoricalAssignment.CreateRule());
@@ -94,14 +97,17 @@ namespace Baseball.Game.Historical
             long startedAt = Stopwatch.GetTimestamp();
             SeasonContext context = CreateContext(regularFranchiseTeams);
             ulong seasonSeed = DeterministicSeed.Derive(worldHistorySeed, unchecked((ulong)context.SeasonYear));
-            var matches = new List<HistoricalDetailedMatchRecord>(RegularSeasonGamesPerTeam * 5 + 16);
+            int regularSeasonGamesPerTeam = ResolveRegularSeasonGamesPerTeam(context.Rosters.Count);
+            int regularGameCapacity = regularSeasonGamesPerTeam * context.Rosters.Count / 2;
+            var matches = new List<HistoricalDetailedMatchRecord>(regularGameCapacity + 16);
             var standings = new StandingsAccumulator(context.Rosters.Count, seasonSeed);
             var workloads = new PitchingWorkloadTracker();
             int[] teamIds = context.GetTeamIds();
             ScheduledGameDefinition[] schedule = new SeasonScheduleGenerator(
                     new Pcg32Random(DeterministicSeed.Derive(seasonSeed, ScheduleStream)))
-                .Generate(teamIds, RegularSeasonGamesPerTeam);
-            int firstHalfRoundCount = RegularSeasonGamesPerTeam / 2;
+                .Generate(teamIds, regularSeasonGamesPerTeam);
+            int lastRegularSeasonRound = schedule[schedule.Length - 1].Round;
+            int firstHalfRoundCount = lastRegularSeasonRound / 2;
 
             int scheduleIndex = 0;
             while (scheduleIndex < schedule.Length && schedule[scheduleIndex].Round <= firstHalfRoundCount)
@@ -146,10 +152,15 @@ namespace Baseball.Game.Historical
                     matches);
             }
 
-            int postseasonGameCount = SimulatePostseason(
+            int[] orderedTeamIds = standings.GetOrderedTeamIds();
+            int[] postseasonTeamIds = CopyFirst(
+                orderedTeamIds,
+                _balance.Postseason.PlayoffTeamCount);
+            PostseasonSimulationRun postseasonRun = SimulatePostseason(
                 context,
-                standings,
+                postseasonTeamIds,
                 seasonSeed,
+                lastRegularSeasonRound + 2,
                 workloads,
                 matches);
             long elapsedTicks = Stopwatch.GetTimestamp() - startedAt;
@@ -158,7 +169,7 @@ namespace Baseball.Game.Historical
                 context.GetTeamSeasonKeys(),
                 schedule.Length,
                 allStarGameCount: 1,
-                postseasonGameCount,
+                postseasonRun.GameCount,
                 elapsedTicks,
                 AllocationCounter.Read() - allocationBefore,
                 AllocationCounter.UsesExactCounter);
@@ -167,7 +178,60 @@ namespace Baseball.Game.Historical
                 matches,
                 context.Identities,
                 allStarGameEligibleIds,
-                AllStarTeamId);
+                AllStarTeamId,
+                standings.CreateTeamStatistics(context),
+                CreateStandingHistory(context, orderedTeamIds),
+                new HistoricalPostseasonResult(
+                    context.SeasonYear,
+                    GetTeamSeasonKeys(context, postseasonTeamIds),
+                    context.GetTeamSeasonKey(postseasonRun.ChampionTeamId)));
+        }
+
+        private static int ResolveRegularSeasonGamesPerTeam(int teamCount)
+        {
+            if ((teamCount & 1) == 0)
+                return RegularSeasonGamesPerTeam;
+
+            int opponentCount = teamCount - 1;
+            int compatibleGameCount = RegularSeasonGamesPerTeam - RegularSeasonGamesPerTeam % opponentCount;
+            if (compatibleGameCount <= 0)
+                throw new InvalidOperationException("홀수 구단 Historical Season의 균등 대진을 구성할 수 없습니다.");
+
+            // 홀수 구단은 매 cycle마다 한 팀이 쉬므로 상대 수의 배수만 전 구단의 경기 수가 같아진다.
+            return compatibleGameCount;
+        }
+
+        private static int[] CopyFirst(IReadOnlyList<int> source, int count)
+        {
+            if (count <= 0 || count > source.Count)
+                throw new InvalidOperationException("Postseason 진출 구단 수가 정규 구단 수 범위를 벗어났습니다.");
+            var result = new int[count];
+            for (int index = 0; index < count; index++)
+                result[index] = source[index];
+            return result;
+        }
+
+        private static HistoricalStandingEntry[] CreateStandingHistory(
+            SeasonContext context,
+            IReadOnlyList<int> orderedTeamIds)
+        {
+            var result = new HistoricalStandingEntry[orderedTeamIds.Count];
+            for (int index = 0; index < result.Length; index++)
+            {
+                result[index] = new HistoricalStandingEntry(
+                    context.SeasonYear,
+                    index + 1,
+                    context.GetTeamSeasonKey(orderedTeamIds[index]));
+            }
+            return result;
+        }
+
+        private static string[] GetTeamSeasonKeys(SeasonContext context, IReadOnlyList<int> teamIds)
+        {
+            var result = new string[teamIds.Count];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = context.GetTeamSeasonKey(teamIds[index]);
+            return result;
         }
 
         private static string[] GetAllStarGameEligibleIds(
@@ -237,18 +301,18 @@ namespace Baseball.Game.Historical
             return result;
         }
 
-        private int SimulatePostseason(
+        private PostseasonSimulationRun SimulatePostseason(
             SeasonContext context,
-            StandingsAccumulator standings,
+            int[] seeds,
             ulong seasonSeed,
+            int postseasonStartDay,
             PitchingWorkloadTracker workloads,
             ICollection<HistoricalDetailedMatchRecord> matches)
         {
-            int[] seeds = PostseasonBracket.SelectSeeds(
-                standings.CreateEntries(),
-                _balance.Postseason.PlayoffTeamCount);
+            if (seeds == null || seeds.Length != _balance.Postseason.PlayoffTeamCount)
+                throw new ArgumentException("Postseason 시드가 설정된 진출 구단 수와 다릅니다.", nameof(seeds));
             int gameSequence = 0;
-            int logicalDay = RegularSeasonGamesPerTeam + 2;
+            int logicalDay = postseasonStartDay;
             int semifinalAWinner = SimulateSeries(
                 context,
                 seeds[PostseasonBracket.GetHigherSeedIndex(PostseasonSeriesId.SemifinalA)],
@@ -273,7 +337,7 @@ namespace Baseball.Game.Historical
                 ref logicalDay);
             int higherSeed = GetHigherSeed(seeds, semifinalAWinner, semifinalBWinner);
             int lowerSeed = higherSeed == semifinalAWinner ? semifinalBWinner : semifinalAWinner;
-            SimulateSeries(
+            int championTeamId = SimulateSeries(
                 context,
                 higherSeed,
                 lowerSeed,
@@ -284,7 +348,19 @@ namespace Baseball.Game.Historical
                 matches,
                 ref gameSequence,
                 ref logicalDay);
-            return gameSequence;
+            return new PostseasonSimulationRun(gameSequence, championTeamId);
+        }
+
+        private readonly struct PostseasonSimulationRun
+        {
+            public PostseasonSimulationRun(int gameCount, int championTeamId)
+            {
+                GameCount = gameCount;
+                ChampionTeamId = championTeamId;
+            }
+
+            public int GameCount { get; }
+            public int ChampionTeamId { get; }
         }
 
         private int SimulateSeries(
@@ -526,12 +602,12 @@ namespace Baseball.Game.Historical
 
         private SeasonContext CreateContext(IReadOnlyList<TeamSeasonDefinition> inputTeams)
         {
-            if (inputTeams == null || inputTeams.Count != LeagueInstance.RequiredRegularFranchiseTeamCount)
-                throw new ArgumentException("Historical Season에는 정규 Franchise 10구단이 필요합니다.", nameof(inputTeams));
+            if (inputTeams == null || !LeagueInstance.IsSupportedRegularFranchiseTeamCount(inputTeams.Count))
+                throw new ArgumentException("Historical Season에는 해당 연도의 정규 Franchise 6~10구단이 필요합니다.", nameof(inputTeams));
             int year = inputTeams[0]?.OriginYear ?? 0;
             HistoricalYearContentDefinition yearContent = _content.GetYear(year);
-            if (yearContent.TeamSeasons.Count != LeagueInstance.RequiredRegularFranchiseTeamCount)
-                throw new InvalidOperationException($"{year} Baked Content의 정규 Franchise 구단 수가 10이 아닙니다.");
+            if (!LeagueInstance.IsSupportedRegularFranchiseTeamCount(yearContent.TeamSeasons.Count))
+                throw new InvalidOperationException($"{year} Baked Content의 정규 Franchise 구단 수가 6~10 범위가 아닙니다.");
 
             var teams = new TeamSeasonDefinition[inputTeams.Count];
             var keys = new HashSet<string>(StringComparer.Ordinal);
@@ -550,7 +626,7 @@ namespace Baseball.Game.Historical
             for (int index = 0; index < yearContent.TeamSeasons.Count; index++)
             {
                 if (!keys.Contains(yearContent.TeamSeasons[index].TeamSeasonKey))
-                    throw new ArgumentException("Historical Season 입력은 해당 연도의 Baked 정규 10구단 전체여야 합니다.", nameof(inputTeams));
+                    throw new ArgumentException("Historical Season 입력은 해당 연도의 Baked 정규 구단 전체여야 합니다.", nameof(inputTeams));
             }
             Array.Sort(teams, (left, right) => string.CompareOrdinal(left.TeamSeasonKey, right.TeamSeasonKey));
             return CreateContext(year, teams);
@@ -569,7 +645,7 @@ namespace Baseball.Game.Historical
                 {
                     PlayerSeasonDefinition season = ResolveCorePlayer(team, team.Core25CardIds[rosterIndex]);
                     if (!uniqueSeasonIds.Add(season.PlayerSeasonId))
-                        throw new InvalidOperationException("정규 10구단 Core25에 PlayerSeasonId가 중복되었습니다.");
+                        throw new InvalidOperationException("정규 구단 Core25에 PlayerSeasonId가 중복되었습니다.");
                     seasonIds.Add(season.PlayerSeasonId);
                 }
             }
@@ -593,7 +669,7 @@ namespace Baseball.Game.Historical
                     AbilityRatings ratings = season.CreateBaseAttributes();
                     var player = new Player(
                         playerIds[season.PlayerSeasonId],
-                        person.FictionalName,
+                        _identityRegistry.GetPlayerDisplayName(person.PlayerPersonId),
                         season.Position,
                         person.Bats,
                         person.Throws,
@@ -719,6 +795,8 @@ namespace Baseball.Game.Historical
 
             public SeasonRoster GetRoster(int teamId) => _rostersById[teamId];
 
+            public string GetTeamSeasonKey(int teamId) => GetRoster(teamId).Team.TeamSeasonKey;
+
             public PlayerSeasonPair GetPlayer(string playerSeasonId)
             {
                 if (!_players.TryGetValue(playerSeasonId, out PlayerSeasonPair pair))
@@ -787,7 +865,8 @@ namespace Baseball.Game.Historical
                     int teamId = index + 1;
                     _teams[index] = new TeamStanding(
                         teamId,
-                        DeterministicSeed.Derive(seasonSeed, unchecked((ulong)teamId)));
+                        DeterministicSeed.Derive(seasonSeed, unchecked((ulong)teamId)),
+                        teamCount);
                 }
             }
 
@@ -795,12 +874,20 @@ namespace Baseball.Game.Historical
             {
                 TeamStanding away = _teams[result.AwayBoxScore.TeamId - 1];
                 TeamStanding home = _teams[result.HomeBoxScore.TeamId - 1];
+                away.Games++;
+                home.Games++;
+                AccumulateBoxScore(away, result.AwayBoxScore);
+                AccumulateBoxScore(home, result.HomeBoxScore);
                 away.RunsScored += result.AwayBoxScore.Runs;
                 away.RunsAllowed += result.HomeBoxScore.Runs;
                 home.RunsScored += result.HomeBoxScore.Runs;
                 home.RunsAllowed += result.AwayBoxScore.Runs;
                 if (result.IsTie)
+                {
+                    away.Ties++;
+                    home.Ties++;
                     return;
+                }
                 TeamStanding winner = result.WinnerTeamId == away.TeamId ? away : home;
                 TeamStanding loser = ReferenceEquals(winner, away) ? home : away;
                 winner.Wins++;
@@ -813,6 +900,53 @@ namespace Baseball.Game.Historical
             {
                 TeamStandingEntry[] entries = CreateEntries();
                 return PostseasonBracket.SelectSeeds(entries, 1)[0];
+            }
+
+            public int[] GetOrderedTeamIds()
+            {
+                return PostseasonBracket.SelectSeeds(CreateEntries(), _teams.Length);
+            }
+
+            public TeamSeasonStatistics[] CreateTeamStatistics(SeasonContext context)
+            {
+                var result = new TeamSeasonStatistics[_teams.Length];
+                for (int index = 0; index < _teams.Length; index++)
+                {
+                    TeamStanding team = _teams[index];
+                    result[index] = new TeamSeasonStatistics(
+                        context.GetTeamSeasonKey(team.TeamId),
+                        context.SeasonYear,
+                        team.Games,
+                        team.Wins,
+                        team.Losses,
+                        team.Ties,
+                        team.RunsScored,
+                        team.RunsAllowed,
+                        team.AtBats,
+                        team.Hits,
+                        team.PitchingOuts,
+                        team.EarnedRuns,
+                        team.HitsAllowed,
+                        team.WalksAllowed);
+                }
+                return result;
+            }
+
+            private static void AccumulateBoxScore(TeamStanding team, TeamBoxScore boxScore)
+            {
+                for (int index = 0; index < boxScore.BattingLines.Count; index++)
+                {
+                    team.AtBats += boxScore.BattingLines[index].AtBats;
+                    team.Hits += boxScore.BattingLines[index].Hits;
+                }
+                for (int index = 0; index < boxScore.PitchingLines.Count; index++)
+                {
+                    PlayerPitchingLine line = boxScore.PitchingLines[index];
+                    team.PitchingOuts += line.OutsRecorded;
+                    team.EarnedRuns += line.EarnedRuns;
+                    team.HitsAllowed += line.HitsAllowed;
+                    team.WalksAllowed += line.WalksAllowed;
+                }
             }
 
             public TeamStandingEntry[] CreateEntries()
@@ -846,20 +980,28 @@ namespace Baseball.Game.Historical
 
             private sealed class TeamStanding
             {
-                public TeamStanding(int teamId, ulong fixedTiebreaker)
+                public TeamStanding(int teamId, ulong fixedTiebreaker, int teamCount)
                 {
                     TeamId = teamId;
                     FixedTiebreaker = fixedTiebreaker;
-                    HeadToHeadWins = new int[10];
-                    HeadToHeadLosses = new int[10];
+                    HeadToHeadWins = new int[teamCount];
+                    HeadToHeadLosses = new int[teamCount];
                 }
 
                 public int TeamId { get; }
                 public ulong FixedTiebreaker { get; }
+                public int Games { get; set; }
                 public int Wins { get; set; }
                 public int Losses { get; set; }
+                public int Ties { get; set; }
                 public int RunsScored { get; set; }
                 public int RunsAllowed { get; set; }
+                public int AtBats { get; set; }
+                public int Hits { get; set; }
+                public int PitchingOuts { get; set; }
+                public int EarnedRuns { get; set; }
+                public int HitsAllowed { get; set; }
+                public int WalksAllowed { get; set; }
                 public int[] HeadToHeadWins { get; }
                 public int[] HeadToHeadLosses { get; }
             }

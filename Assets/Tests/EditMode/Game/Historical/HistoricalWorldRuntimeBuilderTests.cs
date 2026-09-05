@@ -14,7 +14,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class HistoricalWorldRuntimeBuilderTests
     {
         [Test]
-        public void OriginalHistory_DoesNotRunHistoricalSimulation()
+        public void LegacyBuilder_OriginalHistory는Simulation을실행하지않는다()
         {
             HistoricalBakedContent content = Fixture.CreateContent();
             var simulation = new RecordingSeasonSimulation();
@@ -31,7 +31,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
-        public void OriginalHistory_NewGameSaveLoad_공통World를복원하고재시뮬레이션하지않는다()
+        public void ProductionNewGame_OriginalHistory를거부한다()
         {
             HistoricalBakedContent content = Fixture.CreateContent();
             var provider = new RecordingContentProvider(content);
@@ -41,38 +41,18 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 CreateBuilder(simulation));
             string playerTeamSeasonKey = content.Years[0].TeamSeasons[0].TeamSeasonKey;
 
-            ManagerHistoricalRuntimeState created = service.Create(
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => service.Create(
                 new ManagerHistoricalNewGameRequest(
                     WorldRecordMode.OriginalHistory,
                     700UL,
                     content.Years[0].Year,
                     "HISTORICAL-2024-ROOKIE",
                     playerTeamSeasonKey,
-                    new ManagerEconomyState(1_000_000L, 100, 50)));
+                    new ManagerEconomyState(1_000_000L, 100, 50))));
 
             Assert.That(simulation.CallCount, Is.Zero);
-            Assert.That(provider.LoadCount, Is.EqualTo(1));
-            Assert.That(created.League.Grade, Is.EqualTo(LeagueGrade.Rookie));
-            Assert.That(created.League.RegularFranchiseTeamCount, Is.EqualTo(10));
-            Assert.That(created.League.SpecialCompositeTeams.Count, Is.EqualTo(3));
-            Assert.That(created.Rosters.Count, Is.EqualTo(13));
-            Assert.That(created.OwnedCards.Count, Is.EqualTo(25));
-
-            var adapter = new ManagerHistoricalSaveAdapter(
-                provider,
-                CardEditionBalanceTable.CreateInitial());
-            ManagerHistoricalSaveData saveData = adapter.CreateSaveData(created);
-            ManagerHistoricalRuntimeState restored = new ManagerHistoricalLoadService(adapter)
-                .Restore(saveData);
-
-            Assert.That(simulation.CallCount, Is.Zero);
-            Assert.That(provider.LoadCount, Is.EqualTo(2));
-            Assert.That(restored.WorldHistory.RecordMode, Is.EqualTo(WorldRecordMode.OriginalHistory));
-            Assert.That(restored.WorldHistory.WorldHistorySeed, Is.EqualTo(700UL));
-            Assert.That(restored.WorldHistory.Statistics.Count, Is.EqualTo(created.WorldHistory.Statistics.Count));
-            Assert.That(restored.WorldAwardRecord.Entries.Count, Is.EqualTo(created.WorldAwardRecord.Entries.Count));
-            Assert.That(restored.League.ParticipantTeamCount, Is.EqualTo(13));
-            Assert.That(restored.OwnedCards.Count, Is.EqualTo(25));
+            Assert.That(provider.LoadCount, Is.Zero);
+            Assert.That(exception.Message, Does.Contain("Legacy"));
         }
 
         [Test]
@@ -107,6 +87,12 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(restored.WorldHistory.RecordMode, Is.EqualTo(WorldRecordMode.SimulatedHistory));
             Assert.That(restored.WorldHistory.WorldHistorySeed, Is.EqualTo(709UL));
             Assert.That(restored.WorldHistory.Statistics.Count, Is.EqualTo(created.WorldHistory.Statistics.Count));
+            Assert.That(restored.WorldHistory.TeamStatistics.Count, Is.EqualTo(created.WorldHistory.TeamStatistics.Count));
+            Assert.That(restored.WorldHistory.Standings.Count, Is.EqualTo(created.WorldHistory.Standings.Count));
+            Assert.That(restored.WorldHistory.PostseasonResults.Count, Is.EqualTo(created.WorldHistory.PostseasonResults.Count));
+            Assert.That(
+                restored.WorldHistory.PostseasonResults[0].ChampionTeamSeasonKey,
+                Is.EqualTo(created.WorldHistory.PostseasonResults[0].ChampionTeamSeasonKey));
             Assert.That(restored.WorldAwardRecord.Entries.Count, Is.EqualTo(created.WorldAwardRecord.Entries.Count));
         }
 
@@ -130,6 +116,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     Does.Contain(content.Years[0].TeamSeasons[index].TeamSeasonKey));
             }
             Assert.That(result.WorldHistory.RecordMode, Is.EqualTo(WorldRecordMode.SimulatedHistory));
+            Assert.That(result.WorldHistory.TeamStatistics.Count, Is.EqualTo(10));
+            Assert.That(result.WorldHistory.Standings.Count, Is.EqualTo(10));
+            Assert.That(result.WorldHistory.PostseasonResults.Count, Is.EqualTo(1));
         }
 
         [Test]
@@ -167,6 +156,31 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(
                 HistoricalWorldResultHasher.Compute(second),
                 Is.EqualTo(HistoricalWorldResultHasher.Compute(first)));
+            Assert.That(
+                HistoricalWorldResultHasher.ComputeFingerprints(second).HistoryHash,
+                Is.EqualTo(HistoricalWorldResultHasher.ComputeFingerprints(first).HistoryHash));
+        }
+
+        [Test]
+        public void ResultHasher_Seed만다르고산출물이같으면HistoryHash는같다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            var builder = CreateBuilder(new SeedIgnoringSeasonSimulation());
+            HistoricalWorldRuntimeContent first = builder.Build(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                704UL);
+            HistoricalWorldRuntimeContent second = builder.Build(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                705UL);
+
+            Assert.That(HistoricalWorldResultHasher.Compute(second), Is.Not.EqualTo(
+                HistoricalWorldResultHasher.Compute(first)), "전체 Hash는 Seed 자체를 포함한다.");
+            Assert.That(
+                HistoricalWorldResultHasher.ComputeFingerprints(second).HistoryHash,
+                Is.EqualTo(HistoricalWorldResultHasher.ComputeFingerprints(first).HistoryHash),
+                "Seed 제외 History Hash는 실제 산출물만 비교해야 한다.");
         }
 
         [Test]
@@ -193,6 +207,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(
                 first.WorldHistory.Statistics[0].Hits,
                 Is.Not.EqualTo(second.WorldHistory.Statistics[0].Hits));
+            Assert.That(
+                first.WorldHistory.PostseasonResults[0].ChampionTeamSeasonKey,
+                Is.Not.EqualTo(second.WorldHistory.PostseasonResults[0].ChampionTeamSeasonKey));
         }
 
         [Test]
@@ -266,11 +283,22 @@ namespace Baseball.Tests.EditMode.Game.Historical
             HistoricalWorldValidationReport report = HistoricalWorldLongValidationHarness.Run(
                 Fixture.CreateContent(),
                 BalanceTable.CreateDefault(),
-                new[] { 708UL, 708UL });
+                new[]
+                {
+                    new HistoricalWorldValidationSeed(708UL, 708UL),
+                    new HistoricalWorldValidationSeed(708UL, 708UL),
+                    new HistoricalWorldValidationSeed(708UL, 709UL)
+                });
 
-            Assert.That(report.Runs.Count, Is.EqualTo(2));
+            Assert.That(report.Runs.Count, Is.EqualTo(3));
             HistoricalWorldValidationRun run = report.Runs[0];
             Assert.That(report.Runs[1].ResultHash, Is.EqualTo(run.ResultHash));
+            Assert.That(report.Runs[1].Fingerprints.HistoryHash, Is.EqualTo(run.Fingerprints.HistoryHash));
+            Assert.That(report.Runs[2].Fingerprints.IdentityHash, Is.Not.EqualTo(run.Fingerprints.IdentityHash));
+            Assert.That(report.Runs[2].Fingerprints.HistoryHash, Is.EqualTo(run.Fingerprints.HistoryHash));
+            Assert.That(report.Runs[0].IsSaveRoundTripStable, Is.True);
+            Assert.That(report.Runs[1].IsSaveRoundTripStable, Is.True);
+            Assert.That(report.Runs[2].IsSaveRoundTripStable, Is.True);
             Assert.That(run.ResultHash, Has.Length.EqualTo(16));
             Assert.That(run.Metrics.Seasons.Count, Is.EqualTo(1));
             Assert.That(
@@ -283,12 +311,46 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(run.ReplacementAwards.AllStarCount, Is.EqualTo(25));
             Assert.That(run.ReplacementAwards.GoldenGloveCount, Is.EqualTo(10));
             Assert.That(run.ReplacementAwards.MvpCount, Is.EqualTo(3));
-            TestContext.WriteLine(
+            Console.WriteLine(
                 $"HistoricalWorldSmoke Year=2024 Games={run.Metrics.TotalGameCount} " +
                 $"ElapsedMs={run.Metrics.TotalElapsedMilliseconds:F1} " +
                 $"MsPerGame={run.Metrics.MillisecondsPerGame:F3} " +
                 $"AllocatedBytes={run.Metrics.AllocatedBytes} Hash={run.ResultHash} " +
                 $"RepeatHash={report.Runs[1].ResultHash}");
+        }
+
+        [Test]
+        [Timeout(120000)]
+        public void DetailedSimulation_DifferentWorldSeed_ChangesSeasonStatistics()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            var builder = new HistoricalWorldRuntimeBuilder(BalanceTable.CreateDefault());
+            HistoricalWorldRuntimeContent first = builder.Build(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                810UL);
+            HistoricalWorldRuntimeContent second = builder.Build(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                811UL);
+
+            bool hasDifferentStatistics = false;
+            for (int index = 0; index < first.WorldHistory.Statistics.Count; index++)
+            {
+                SeasonStatistics left = first.WorldHistory.Statistics[index];
+                SeasonStatistics right = second.WorldHistory.Statistics[index];
+                if (left.Hits != right.Hits ||
+                    left.HomeRuns != right.HomeRuns ||
+                    left.Walks != right.Walks ||
+                    left.Strikeouts != right.Strikeouts ||
+                    left.EarnedRuns != right.EarnedRuns)
+                {
+                    hasDifferentStatistics = true;
+                    break;
+                }
+            }
+
+            Assert.That(hasDifferentStatistics, Is.True);
         }
 
         private static HistoricalWorldRuntimeBuilder CreateBuilder(IHistoricalSeasonSimulation simulation)
@@ -339,7 +401,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             public int CallCount { get; private set; }
             public IReadOnlyList<string> ReceivedTeamKeys { get; private set; } = Array.Empty<string>();
 
-            public IReadOnlyList<SeasonStatistics> Simulate(
+            public HistoricalSeasonSimulationResult Simulate(
                 ulong worldHistorySeed,
                 IReadOnlyList<TeamSeasonDefinition> regularFranchiseTeams)
             {
@@ -353,7 +415,17 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     teamKeys[index] = key;
                 }
                 ReceivedTeamKeys = teamKeys;
-                return Fixture.CreateSimulationStatistics(regularFranchiseTeams, worldHistorySeed);
+                return Fixture.CreateSimulationResult(regularFranchiseTeams, worldHistorySeed);
+            }
+        }
+
+        private sealed class SeedIgnoringSeasonSimulation : IHistoricalSeasonSimulation
+        {
+            public HistoricalSeasonSimulationResult Simulate(
+                ulong worldHistorySeed,
+                IReadOnlyList<TeamSeasonDefinition> regularFranchiseTeams)
+            {
+                return Fixture.CreateSimulationResult(regularFranchiseTeams, 999UL);
             }
         }
 
@@ -410,7 +482,6 @@ namespace Baseball.Tests.EditMode.Game.Historical
                             PlayerCardEdition.Normal);
                         persons.Add(new PlayerPersonDefinition(
                             personId,
-                            $"가상 선수 {playerIndex:000}",
                             1998,
                             Handedness.Right,
                             Handedness.Right,
@@ -519,6 +590,49 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     }
                 }
                 return result;
+            }
+
+            public static HistoricalSeasonSimulationResult CreateSimulationResult(
+                IReadOnlyList<TeamSeasonDefinition> teams,
+                ulong worldHistorySeed)
+            {
+                var teamStatistics = new TeamSeasonStatistics[teams.Count];
+                var standings = new HistoricalStandingEntry[teams.Count];
+                for (int index = 0; index < teams.Count; index++)
+                {
+                    int wins = teams.Count - index;
+                    int losses = index;
+                    teamStatistics[index] = new TeamSeasonStatistics(
+                        teams[index].TeamSeasonKey,
+                        teams[index].OriginYear,
+                        wins + losses,
+                        wins,
+                        losses,
+                        0,
+                        100 - index,
+                        80 + index,
+                        300,
+                        80 - index,
+                        270,
+                        25 + index,
+                        70 + index,
+                        20 + index);
+                    standings[index] = new HistoricalStandingEntry(
+                        teams[index].OriginYear,
+                        index + 1,
+                        teams[index].TeamSeasonKey);
+                }
+                var qualifiers = new string[4];
+                for (int index = 0; index < qualifiers.Length; index++)
+                    qualifiers[index] = teams[index].TeamSeasonKey;
+                return new HistoricalSeasonSimulationResult(
+                    CreateSimulationStatistics(teams, worldHistorySeed),
+                    teamStatistics,
+                    standings,
+                    new HistoricalPostseasonResult(
+                        teams[0].OriginYear,
+                        qualifiers,
+                        qualifiers[(int)(worldHistorySeed % (ulong)qualifiers.Length)]));
             }
 
             private static SeasonStatistics CreateRegularStatistics(

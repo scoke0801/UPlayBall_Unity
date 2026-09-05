@@ -3,6 +3,8 @@ using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Game.Career.Diagnostics;
+using Baseball.Game.Guide;
+using Baseball.Simulation.Career;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game
@@ -105,6 +107,67 @@ namespace Baseball.Tests.EditMode.Game
             }
             Assert.That(completedInRound, Is.EqualTo(4));
             Assert.Throws<System.InvalidOperationException>(() => service.CompletePreparedGame(session));
+        }
+
+        [Test]
+        public void PrepareNextGame_실제역할과감독판단Snapshot을같은경기에고정한다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 8182UL);
+            var service = new CareerSeasonService(career, configuration.Balance);
+
+            CareerMatchSession session = service.PrepareNextGame();
+
+            Assert.That(session.ScheduledGame.HasPlayerRolePlan, Is.True);
+            Assert.That(session.ScheduledGame.HasPlayerRoleDecision, Is.True);
+            Assert.That(session.PlayerRoleDecision.HasValue, Is.True);
+            Assert.That(session.PlayerRoleDecision.Value.Role, Is.EqualTo(session.PlayerRole));
+            Assert.That(
+                session.PlayerRoleDecision.Value.Reason,
+                Is.Not.EqualTo(ManagerUsageDecisionReason.Unspecified));
+        }
+
+        [Test]
+        public void CareerUsageReasonSummary_실제판단조정치를선발제외설명으로변환한다()
+        {
+            var conditionDecision = new ManagerUsageDecision(
+                PlayerGameRole.Bench,
+                ManagerUsageDecisionReason.CompetitionLoss,
+                conditionAdjustment: -6d,
+                managerEvaluationAdjustment: 0d,
+                decisionScore: 44d,
+                requiredScore: 50d);
+            var rotationDecision = new ManagerUsageDecision(
+                PlayerGameRole.PitcherRest,
+                ManagerUsageDecisionReason.RotationRest,
+                conditionAdjustment: 0d,
+                managerEvaluationAdjustment: 0d,
+                decisionScore: 90d,
+                requiredScore: 50d);
+
+            StringAssert.Contains("컨디션", CareerUsageReasonSummary.Create(conditionDecision));
+            StringAssert.Contains("로테이션 순번", CareerUsageReasonSummary.Create(rotationDecision));
+        }
+
+        [Test]
+        public void CareerPreparedMatchGuideEventAdapter_저장된선발제외근거로Fact를만든다()
+        {
+            NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
+            CareerState career = CreateStartedCareer(configuration, 8183UL);
+            career.MyPlayer.InitializeSeasonStatus(condition: 0, managerEvaluation: 0);
+            CareerMatchSession session = new CareerSeasonService(career, configuration.Balance)
+                .PrepareNextGame();
+            var identity = new GuideFactIdentity(
+                career.World.WorldSeed,
+                $"career-role:{session.Input.GameId}");
+
+            GuideFact[] facts = new CareerPreparedMatchGuideEventAdapter()
+                .CreatePreparedMatchFacts(career, session, identity);
+
+            Assert.That(session.PlayerRole, Is.EqualTo(PlayerGameRole.Bench));
+            Assert.That(facts, Has.Length.EqualTo(1));
+            Assert.That(facts[0].FactType, Is.EqualTo("CareerNotStarting"));
+            Assert.That(facts[0].Payload["reasonSummary"], Does.Contain("컨디션"));
         }
 
         [Test]

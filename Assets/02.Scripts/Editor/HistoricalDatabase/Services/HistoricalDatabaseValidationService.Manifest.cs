@@ -7,15 +7,15 @@ namespace Baseball.Editor.HistoricalDatabase
 {
     public sealed partial class HistoricalDatabaseValidationService
     {
-        private const int ExpectedContentSchemaVersion = 4;
+        private const int ExpectedContentSchemaVersion = 5;
         private const int ExpectedNormalizedSchemaVersion = 3;
         private const string ExpectedReferenceDataVersion = "kbo-normalized-v3";
         private const string ExpectedNormalizedImporterVersion = "1.2.0";
-        private const string ExpectedAbilityFormulaVersion = "historical-ability-v3";
+        private const string ExpectedAbilityFormulaVersion = "historical-ability-v4";
         private const string ExpectedPositionRoleClassifierVersion = "season-position-role-v4";
         private const string ExpectedRosterBuilderVersion = "position-first-core25-v2";
-        private const string ExpectedCostFormulaVersion = "historical-role-composite-v3";
-        private const string ExpectedDerivationBalanceVersion = "historical-derivation-balance-v4";
+        private const string ExpectedCostFormulaVersion = "historical-role-composite-v6";
+        private const string ExpectedDerivationBalanceVersion = "historical-derivation-balance-v8";
 
         private static void ValidateManifestAndFiles(
             HistoricalArchiveData archive,
@@ -81,6 +81,8 @@ namespace Baseball.Editor.HistoricalDatabase
             ValidateRequiredManifestText("balanceVersion", sourceManifest.BalanceVersion, collector);
             ValidateRequiredManifestText("sourceIdentityPolicyVersion", sourceManifest.SourceIdentityPolicyVersion, collector);
             ValidateRequiredManifestText("sourceAllocationPolicyVersion", sourceManifest.SourceAllocationPolicyVersion, collector);
+            ValidateRequiredManifestText("sourceFranchiseIdentityPolicyVersion", sourceManifest.SourceFranchiseIdentityPolicyVersion, collector);
+            ValidateRequiredManifestText("sourceTeamSeasonIdentityPolicyVersion", sourceManifest.SourceTeamSeasonIdentityPolicyVersion, collector);
             ValidateRequiredManifestText("replacementGeneratorVersion", sourceManifest.ReplacementGeneratorVersion, collector);
             ValidateRequiredManifestText("replacementPopulationPolicyVersion", sourceManifest.ReplacementPopulationPolicyVersion, collector);
             ValidateExpectedManifestText(
@@ -132,6 +134,15 @@ namespace Baseball.Editor.HistoricalDatabase
                 "generationSeed",
                 $"Generation Seed {sourceManifest.GenerationSeed}을 확인했습니다.",
                 "Generation Seed는 음수일 수 없습니다.",
+                HistoricalNavigationKind.File,
+                "manifest.json");
+            collector.Check(
+                !sourceManifest.GenerationSeedAffectsCanonicalBake,
+                "Manifest",
+                null,
+                "generationSeedAffectsCanonicalBake",
+                "Canonical Bake가 Generation Seed와 분리되어 있습니다.",
+                "Canonical Bake가 Generation Seed에 의존합니다.",
                 HistoricalNavigationKind.File,
                 "manifest.json");
 

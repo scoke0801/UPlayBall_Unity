@@ -34,8 +34,14 @@ namespace Baseball.Game.Manager
                 return Instance;
 
             var root = new GameObject("GameRoot");
-            DontDestroyOnLoad(root);
-            return root.AddComponent<GameManager>();
+            if (Application.isPlaying)
+                DontDestroyOnLoad(root);
+            GameManager created = root.AddComponent<GameManager>();
+            // EditMode에서는 Awake가 자동 호출되지 않으므로 테스트 가능한 명시적 생성 경계에서
+            // Instance만 확정한다. PlayMode에서는 Awake가 이미 같은 인스턴스를 등록한다.
+            if (Instance == null)
+                Instance = created;
+            return created;
         }
 
         private void Awake()
@@ -47,7 +53,8 @@ namespace Baseball.Game.Manager
             }
 
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            if (Application.isPlaying)
+                DontDestroyOnLoad(gameObject);
             _activeSceneName = SceneManager.GetActiveScene().name;
             SceneManager.activeSceneChanged += HandleActiveSceneChanged;
         }
@@ -135,7 +142,14 @@ namespace Baseball.Game.Manager
 
             var managerObject = new GameObject(objectName);
             managerObject.transform.SetParent(transform, false);
-            return managerObject.AddComponent<T>();
+            T created = managerObject.AddComponent<T>();
+            // EditMode AddComponent는 ManagerBehaviour.Awake를 보장하지 않는다.
+            if (!TryGetManager(out T registered))
+            {
+                Register(created);
+                return created;
+            }
+            return registered;
         }
 
         private int FindInsertIndex(int initializationOrder)

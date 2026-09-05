@@ -92,15 +92,30 @@ namespace Baseball.Editor.HistoricalDatabase
             {
                 int year = archive.Manifest.Years[index].Year;
                 int count = CountTeamsByYear(archive.Teams, year);
+                // 실제 KBO는 1982년 6구단에서 2015년에야 10구단이 되었다. Archive는 그 해 실존한
+                // 구단만 1:1로 보존하므로 매 연도 10개를 강제하면 없는 구단을 지어내야 한다.
+                // 상한만 Error로 막고, 미달은 리그 배치 시 걸러야 할 정보로 Warning에 남긴다.
                 collector.Check(
-                    count == RequiredTeamCountPerYear,
+                    count > 0 && count <= RequiredTeamCountPerYear,
                     "TeamSeason",
                     year,
                     year.ToString(),
-                    $"정규 Franchise TeamSeason이 {RequiredTeamCountPerYear}개입니다.",
-                    $"정규 Franchise TeamSeason은 연도마다 {RequiredTeamCountPerYear}개여야 합니다. actual={count}",
+                    $"정규 Franchise TeamSeason이 {count}개로 {RequiredTeamCountPerYear}개 이하입니다.",
+                    $"정규 Franchise TeamSeason은 1개 이상 {RequiredTeamCountPerYear}개 이하여야 합니다. actual={count}",
                     HistoricalNavigationKind.File,
                     $"Years/{year}.json");
+                if (count > 0 && count < RequiredTeamCountPerYear)
+                {
+                    collector.Add(
+                        HistoricalValidationSeverity.Warning,
+                        "TEAM_SEASON_UNDER_LEAGUE_TARGET",
+                        year,
+                        year.ToString(),
+                        $"{year}년은 실제 {count}개 구단이라 정본 {RequiredTeamCountPerYear}구단 리그 " +
+                        $"연도로 배치할 수 없습니다.",
+                        HistoricalNavigationKind.File,
+                        $"Years/{year}.json");
+                }
             }
         }
 

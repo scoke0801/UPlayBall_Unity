@@ -15,6 +15,19 @@ namespace Baseball.Tests.EditMode.Game
     public sealed class NewGameFlowTests
     {
         [Test]
+        public void GameMode_OwnerCareer가LegacyManagerCareer직렬화값을유지한다()
+        {
+            Assert.That((int)GameMode.PlayerCareer, Is.EqualTo(0));
+            Assert.That((int)GameMode.OwnerCareer, Is.EqualTo(1));
+            Assert.That(
+                System.Enum.Parse<GameMode>("ManagerCareer"),
+                Is.EqualTo(GameMode.OwnerCareer));
+#pragma warning disable CS0618
+            Assert.That(GameMode.ManagerCareer, Is.EqualTo(GameMode.OwnerCareer));
+#pragma warning restore CS0618
+        }
+
+        [Test]
         public void CompleteFlow_계약과세이브상태를만들고Rookie정규시즌을시작한다()
         {
             NewGameFlow flow = CreatePlayerCard(seed: 424242UL);

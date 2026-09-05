@@ -25,7 +25,6 @@ namespace Baseball.Editor.HistoricalDatabase
             ValidationCollector collector)
         {
             var personIds = new HashSet<string>(StringComparer.Ordinal);
-            var fictionalNames = new HashSet<string>(StringComparer.Ordinal);
             bool requiresOriginalNames = string.Equals(
                 archive.Manifest.SourceManifest?.NameDataPolicy,
                 "editor-original-reference-v1",
@@ -76,15 +75,6 @@ namespace Baseball.Editor.HistoricalDatabase
                     }
                     provenanceByPerson.TryGetValue(person.PlayerPersonId, out string provenance);
                     ValidatePerson(person, provenance, personIds, minimumYearByPerson, maximumYearByPerson, collector);
-                    collector.Check(
-                        fictionalNames.Add(person.FictionalName),
-                        "PlayerPerson",
-                        null,
-                        person.PlayerPersonId,
-                        "Runtime 가명이 고유합니다.",
-                        "Runtime 가명이 중복되었습니다.",
-                        HistoricalNavigationKind.Player,
-                        person.PlayerPersonId);
                     if (requiresOriginalNames)
                     {
                         collector.Check(
@@ -119,8 +109,8 @@ namespace Baseball.Editor.HistoricalDatabase
                         "Editor Source",
                         row.OriginYear,
                         row.PlayerSeasonId,
-                        "시즌 혼합 Reference 이름이 존재합니다.",
-                        "Editor 원본명 Archive에 시즌 Reference 이름이 없습니다.",
+                        "1:1 Source Reference 이름이 존재합니다.",
+                        "Editor 원본명 Archive에 1:1 Source Reference 이름이 없습니다.",
                         HistoricalNavigationKind.Player,
                         row.PlayerSeasonId);
                 }
@@ -152,15 +142,6 @@ namespace Baseball.Editor.HistoricalDatabase
                 id,
                 $"{dataProvenance} PlayerPersonId 형식이 유효합니다.",
                 $"PlayerPersonId 형식이 DataProvenance와 맞지 않습니다: provenance={dataProvenance}, id={id}",
-                HistoricalNavigationKind.Player,
-                id);
-            collector.Check(
-                !string.IsNullOrWhiteSpace(person.FictionalName),
-                "PlayerPerson",
-                null,
-                id,
-                "가상 선수 이름이 존재합니다.",
-                "가상 선수 이름이 비어 있습니다.",
                 HistoricalNavigationKind.Player,
                 id);
             collector.Check(

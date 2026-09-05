@@ -92,9 +92,12 @@ namespace Baseball.Game.Historical
         [SerializeField] private string generatorVersion;
         [SerializeField] private string balanceVersion;
         [SerializeField] private long generationSeed;
+        [SerializeField] private bool generationSeedAffectsCanonicalBake;
         [SerializeField] private string namePolicyVersion;
         [SerializeField] private string nameDataPolicy;
         [SerializeField] private string sourceIdentityPolicyVersion;
+        [SerializeField] private string sourceFranchiseIdentityPolicyVersion;
+        [SerializeField] private string sourceTeamSeasonIdentityPolicyVersion;
         [SerializeField] private string sourceAllocationPolicyVersion;
         [SerializeField] private string replacementGeneratorVersion;
         [SerializeField] private string replacementPopulationPolicyVersion;
@@ -117,9 +120,12 @@ namespace Baseball.Game.Historical
         public string GeneratorVersion => generatorVersion ?? string.Empty;
         public string BalanceVersion => balanceVersion ?? string.Empty;
         public long GenerationSeed => generationSeed;
+        public bool GenerationSeedAffectsCanonicalBake => generationSeedAffectsCanonicalBake;
         public string NamePolicyVersion => namePolicyVersion ?? string.Empty;
         public string NameDataPolicy => nameDataPolicy ?? string.Empty;
         public string SourceIdentityPolicyVersion => sourceIdentityPolicyVersion ?? string.Empty;
+        public string SourceFranchiseIdentityPolicyVersion => sourceFranchiseIdentityPolicyVersion ?? string.Empty;
+        public string SourceTeamSeasonIdentityPolicyVersion => sourceTeamSeasonIdentityPolicyVersion ?? string.Empty;
         public string SourceAllocationPolicyVersion => sourceAllocationPolicyVersion ?? string.Empty;
         public string ReplacementGeneratorVersion => replacementGeneratorVersion ?? string.Empty;
         public string ReplacementPopulationPolicyVersion => replacementPopulationPolicyVersion ?? string.Empty;
@@ -162,7 +168,6 @@ namespace Baseball.Game.Historical
     internal sealed class HistoricalRuntimePlayerPersonDto
     {
         [SerializeField] private string playerPersonId;
-        [SerializeField] private string fictionalName;
         [SerializeField] private int birthYear;
         [SerializeField] private string bats;
         [SerializeField] private string throws;
@@ -173,7 +178,6 @@ namespace Baseball.Game.Historical
         [SerializeField] private int[] personPotentialTrait;
 
         public string PlayerPersonId => playerPersonId ?? string.Empty;
-        public string FictionalName => fictionalName ?? string.Empty;
         public int BirthYear => birthYear;
         public string Bats => bats ?? string.Empty;
         public string Throws => throws ?? string.Empty;
@@ -188,9 +192,25 @@ namespace Baseball.Game.Historical
     internal sealed class HistoricalRuntimePlayerPersonArrayDto
     {
         [SerializeField] private HistoricalRuntimePlayerPersonDto[] items;
+        [SerializeField] private HistoricalRuntimeWorldIdentityNamePoolDto worldIdentityNamePool;
 
         public HistoricalRuntimePlayerPersonDto[] Items =>
             items ?? Array.Empty<HistoricalRuntimePlayerPersonDto>();
+        public HistoricalRuntimeWorldIdentityNamePoolDto WorldIdentityNamePool => worldIdentityNamePool;
+    }
+
+    [Serializable]
+    internal sealed class HistoricalRuntimeWorldIdentityNamePoolDto
+    {
+        [SerializeField] private string version;
+        [SerializeField] private string[] domesticPlayerNames;
+        [SerializeField] private string[] foreignPlayerNames;
+        [SerializeField] private string[] franchiseNames;
+
+        public string Version => version ?? string.Empty;
+        public string[] DomesticPlayerNames => domesticPlayerNames ?? Array.Empty<string>();
+        public string[] ForeignPlayerNames => foreignPlayerNames ?? Array.Empty<string>();
+        public string[] FranchiseNames => franchiseNames ?? Array.Empty<string>();
     }
 
     [Serializable]

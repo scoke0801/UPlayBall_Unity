@@ -7,7 +7,6 @@ namespace Baseball.Editor.HistoricalDatabase
     public sealed class HistoricalPlayerFilter
     {
         private const string ReferenceSearchPrefix = "ref:";
-        private const string AliasSearchPrefix = "alias:";
 
         private string _searchText = string.Empty;
         private string[] _searchTerms = Array.Empty<string>();
@@ -131,11 +130,7 @@ namespace Baseball.Editor.HistoricalDatabase
             if (TryGetScopedSearchValue(term, ReferenceSearchPrefix, out string referenceName))
                 return referenceName.Length > 0 && ContainsAny(row.SourceReferenceNames, referenceName);
 
-            if (TryGetScopedSearchValue(term, AliasSearchPrefix, out string runtimeAlias))
-                return runtimeAlias.Length > 0 && Contains(row.RuntimeName, runtimeAlias);
-
-            // 기본 검색 결과는 화면에 보이는 값만 대상으로 삼는다. 숨은 Reference나 Runtime 가명이
-            // 매칭되면 검색어와 무관한 이름이 결과에 나타나므로 명시적 Scope에서만 찾는다.
+            // 기본 검색 결과는 화면에 보이는 원본 검수 값만 대상으로 삼는다.
             return Contains(row.Name, term)
                 || Contains(row.PlayerPersonId, term)
                 || Contains(row.PlayerSeasonId, term)

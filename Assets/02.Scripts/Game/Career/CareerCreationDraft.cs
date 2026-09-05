@@ -7,7 +7,9 @@ namespace Baseball.Game.Career
     public enum GameMode
     {
         PlayerCareer = 0,
-        ManagerCareer = 1
+        OwnerCareer = 1,
+        [Obsolete("게임 모드 명칭은 OwnerCareer를 사용하세요. 실제 야구 감독 개념과 구분하기 위한 Legacy alias입니다.")]
+        ManagerCareer = OwnerCareer
     }
 
     public enum BatterStyle

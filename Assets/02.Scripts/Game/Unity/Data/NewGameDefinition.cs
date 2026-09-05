@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
@@ -8,6 +11,60 @@ using UnityEngine;
 
 namespace Baseball.Game.Data
 {
+    /// <summary>구단주 모드 Production 새 게임이 사용할 직렬화된 초기 값의 순수 값 계약이다.</summary>
+    public readonly struct OwnerModeNewGameConfiguration
+    {
+        private readonly TacticCardDefinition[] _starterTacticCards;
+
+        public OwnerModeNewGameConfiguration(
+            ulong worldSeed,
+            int originYear,
+            string playerTeamSeasonKey,
+            string leagueInstanceId,
+            long initialMoney,
+            int initialScoutingPoints,
+            int initialDevelopmentPoints,
+            IReadOnlyList<TacticCardDefinition> starterTacticCards)
+        {
+            if (worldSeed == 0UL) throw new ArgumentOutOfRangeException(nameof(worldSeed));
+            if (originYear <= 0) throw new ArgumentOutOfRangeException(nameof(originYear));
+            if (string.IsNullOrWhiteSpace(leagueInstanceId))
+                throw new ArgumentException("LeagueInstanceId가 필요합니다.", nameof(leagueInstanceId));
+            if (initialMoney < 0L || initialScoutingPoints < 0 || initialDevelopmentPoints < 0)
+                throw new ArgumentOutOfRangeException(nameof(initialMoney));
+
+            WorldSeed = worldSeed;
+            OriginYear = originYear;
+            PlayerTeamSeasonKey = string.IsNullOrWhiteSpace(playerTeamSeasonKey)
+                ? string.Empty
+                : playerTeamSeasonKey.Trim();
+            LeagueInstanceId = leagueInstanceId.Trim();
+            InitialMoney = initialMoney;
+            InitialScoutingPoints = initialScoutingPoints;
+            InitialDevelopmentPoints = initialDevelopmentPoints;
+            if (starterTacticCards == null || starterTacticCards.Count != LineupPresetState.MaximumTacticCardCount)
+                throw new ArgumentException("Starter Tactic은 정확히 두 장이어야 합니다.", nameof(starterTacticCards));
+            _starterTacticCards = new TacticCardDefinition[starterTacticCards.Count];
+            for (int index = 0; index < _starterTacticCards.Length; index++)
+            {
+                _starterTacticCards[index] = starterTacticCards[index] ??
+                    throw new ArgumentException("null Starter Tactic이 있습니다.", nameof(starterTacticCards));
+                for (int previous = 0; previous < index; previous++)
+                    if (string.Equals(_starterTacticCards[previous].CardId, _starterTacticCards[index].CardId, StringComparison.Ordinal))
+                        throw new ArgumentException("Starter Tactic CardId는 중복될 수 없습니다.", nameof(starterTacticCards));
+            }
+        }
+
+        public ulong WorldSeed { get; }
+        public int OriginYear { get; }
+        public string PlayerTeamSeasonKey { get; }
+        public string LeagueInstanceId { get; }
+        public long InitialMoney { get; }
+        public int InitialScoutingPoints { get; }
+        public int InitialDevelopmentPoints { get; }
+        public IReadOnlyList<TacticCardDefinition> StarterTacticCards => _starterTacticCards;
+    }
+
     /// <summary>
     /// 새 게임의 구단 후보와 조정 가능한 생성 계수를 보관하는 읽기 전용 정적 정의다.
     /// </summary>
@@ -16,8 +73,76 @@ namespace Baseball.Game.Data
     {
         private const string ResourcePath = "NewGame/NewGameDefinition";
 
+        [Serializable]
+        private struct OwnerTacticTriggerData
+        {
+            [SerializeField] private TacticTriggerField _field;
+            [SerializeField] private TacticComparison _comparison;
+            [SerializeField] private int _value;
+            [SerializeField] private int _maximumValue;
+
+            public TacticTriggerCondition ToDefinition()
+            {
+                return new TacticTriggerCondition(_field, _comparison, _value, _maximumValue);
+            }
+        }
+
+        [Serializable]
+        private struct OwnerTacticStatModifierData
+        {
+            [SerializeField] private PlayerAbility _ability;
+            [SerializeField] private int _amount;
+
+            public TacticStatModifier ToDefinition() => new TacticStatModifier(_ability, _amount);
+        }
+
+        [Serializable]
+        private struct OwnerStarterTacticData
+        {
+            [SerializeField] private string _cardId;
+            [SerializeField] private string _name;
+            [SerializeField] private TacticCardCategory _category;
+            [SerializeField] private TacticTier _tier;
+            [SerializeField] private string _referenceBehavior;
+            [SerializeField] private string _projectBalanceValue;
+            [SerializeField] private OwnerTacticTriggerData[] _triggers;
+            [SerializeField] private TacticTargetRule _target;
+            [SerializeField] private OwnerTacticStatModifierData[] _statModifiers;
+            [SerializeField] private TacticDurationRule _duration;
+            [SerializeField] private bool _isDisruption;
+
+            public TacticCardDefinition ToDefinition()
+            {
+                var triggers = new TacticTriggerCondition[_triggers?.Length ?? 0];
+                for (int index = 0; index < triggers.Length; index++)
+                    triggers[index] = _triggers[index].ToDefinition();
+                var modifiers = new TacticStatModifier[_statModifiers?.Length ?? 0];
+                for (int index = 0; index < modifiers.Length; index++)
+                    modifiers[index] = _statModifiers[index].ToDefinition();
+                return new TacticCardDefinition(
+                    _cardId,
+                    _name,
+                    _category,
+                    _tier,
+                    _referenceBehavior,
+                    _projectBalanceValue,
+                    triggers,
+                    _target,
+                    modifiers,
+                    Array.Empty<TacticBehaviorModifier>(),
+                    _duration,
+                    Array.Empty<string>(),
+                    _isDisruption);
+            }
+        }
+
         [Header("Historical Runtime Content")]
         [SerializeField] private HistoricalRuntimeContentCatalog _historicalContentCatalog;
+        [SerializeField] private int[] _historicalLeagueSeasonYears =
+        {
+            2016, 2017, 2018, 2019, 2020,
+            2021, 2022, 2023, 2024, 2025
+        };
 
         [Serializable]
         private struct TeamIdentityData
@@ -101,6 +226,17 @@ namespace Baseball.Game.Data
         [SerializeField, Range(16, 25)] private int _startingAge = 18;
         [SerializeField, Range(1, 128)] private int _teamEmblemCount = 128;
         [SerializeField] private GrowthBalanceAsset _growthBalance;
+        [SerializeField] private TextAsset _ownerExpansionBalanceConfig;
+
+        [Header("Owner Mode New Game")]
+        [SerializeField, Min(1)] private long _ownerWorldSeed = 20_260_905L;
+        [SerializeField, Min(1)] private int _ownerOriginYear = 2024;
+        [SerializeField] private string _ownerPlayerTeamSeasonKey = string.Empty;
+        [SerializeField] private string _ownerLeagueInstanceId = "OWNER-ROOKIE-01";
+        [SerializeField, Min(0)] private long _ownerInitialMoney = 1_000_000_000L;
+        [SerializeField, Min(0)] private int _ownerInitialScoutingPoints = 100;
+        [SerializeField, Min(0)] private int _ownerInitialDevelopmentPoints = 100;
+        [SerializeField] private OwnerStarterTacticData[] _ownerStarterTactics = Array.Empty<OwnerStarterTacticData>();
         [SerializeField] private TeamIdentityData[] _teamIdentities =
         {
             new("서울 블루윙스", 45, 105, 210),
@@ -283,6 +419,18 @@ namespace Baseball.Game.Data
             return LoadDefinition().CreateHistoricalContentProvider();
         }
 
+        /// <summary>Resources 정의의 구단주 모드 Seed·연도·구단·초기 3자원을 읽는다.</summary>
+        public static OwnerModeNewGameConfiguration LoadOwnerModeConfiguration()
+        {
+            return LoadDefinition().ToOwnerModeConfiguration();
+        }
+
+        /// <summary>구단주 모드에만 09~12 저작 Config를 합성한 BalanceTable을 제공한다.</summary>
+        public static BalanceTable LoadOwnerModeBalanceTable()
+        {
+            return LoadDefinition().ToOwnerModeBalanceTable();
+        }
+
         /// <summary>명시적으로 연결된 Runtime Catalog만 사용하며 누락 시 Synthetic으로 대체하지 않는다.</summary>
         public IHistoricalContentProvider CreateHistoricalContentProvider()
         {
@@ -295,6 +443,66 @@ namespace Baseball.Game.Data
         }
 
         public HistoricalRuntimeContentCatalog HistoricalContentCatalog => _historicalContentCatalog;
+
+        /// <summary>비어 있는 TeamSeasonKey는 Runtime에서 첫 유효 정규구단을 선택한다.</summary>
+        public OwnerModeNewGameConfiguration ToOwnerModeConfiguration()
+        {
+            var tactics = new TacticCardDefinition[_ownerStarterTactics?.Length ?? 0];
+            for (int index = 0; index < tactics.Length; index++)
+                tactics[index] = _ownerStarterTactics[index].ToDefinition();
+            return new OwnerModeNewGameConfiguration(
+                checked((ulong)_ownerWorldSeed),
+                _ownerOriginYear,
+                _ownerPlayerTeamSeasonKey,
+                _ownerLeagueInstanceId,
+                _ownerInitialMoney,
+                _ownerInitialScoutingPoints,
+                _ownerInitialDevelopmentPoints,
+                tactics);
+        }
+
+        /// <summary>공통 경기 Balance를 보존하면서 구단주 전용 시스템 표만 교체한다.</summary>
+        public BalanceTable ToOwnerModeBalanceTable()
+        {
+            if (_ownerExpansionBalanceConfig == null)
+            {
+                throw new InvalidOperationException(
+                    "Production NewGameDefinition에 OwnerExpansionBalance Config가 연결되지 않았습니다.");
+            }
+            OwnerExpansionBalanceTables ownerExpansion =
+                OwnerExpansionBalanceConfig.Parse(_ownerExpansionBalanceConfig.text);
+            BalanceTable common = ToConfiguration().Balance;
+            return new BalanceTable(
+                checked(common.Version + OwnerExpansionBalanceConfig.CurrentSchemaVersion),
+                common.PlateDiscipline,
+                common.BattedBall,
+                common.BaseRunning,
+                common.ContractOffer,
+                common.TeamGeneration,
+                common.PlayerEvaluation,
+                common.CareerSeason,
+                common.Growth,
+                common.Injury,
+                common.ManagerRoleEvaluation,
+                common.ContractMarket,
+                common.RosterTurnover,
+                common.Postseason,
+                common.BattingApproach,
+                common.ContractBonus,
+                common.ContractRenewal,
+                common.TradeMarket,
+                common.PlayerLifecycle,
+                common.LeagueMovement,
+                common.ManagerLineup,
+                common.Match,
+                common.MiniGame,
+                common.HistoricalAssignment,
+                ownerExpansion.ConditionChemistry,
+                ownerExpansion.ClubOperation,
+                ownerExpansion.Staff,
+                ownerExpansion.ScoutingConfidence,
+                $"{common.ContentHash}:{ownerExpansion.ContentHash}");
+        }
 
         /// <summary>
         /// Unity 직렬화 데이터를 Core/Simulation이 소비할 수 있는 순수 값으로 변환한다.
@@ -431,6 +639,11 @@ namespace Baseball.Game.Data
                 growth: growthBalance,
                 contentHash: contentHash);
 
+            var bakedContentProvider = new HistoricalCareerBakedContentProvider(
+                CreateHistoricalContentProvider(),
+                balance,
+                _historicalLeagueSeasonYears);
+
             return new NewGameConfiguration(
                 balance,
                 _teamCount,
@@ -461,7 +674,10 @@ namespace Baseball.Game.Data
                         _careerBaseAttributeValue,
                         _careerPitcherBonusPoints,
                         _careerMaximumAttributeValue)),
-                _teamEmblemCount);
+                _teamEmblemCount,
+                NewGameContentSource.BakedHistorical,
+                bakedContentProvider,
+                WorldRecordMode.SimulatedHistory);
         }
 
         private static NewGameDefinition LoadDefinition()

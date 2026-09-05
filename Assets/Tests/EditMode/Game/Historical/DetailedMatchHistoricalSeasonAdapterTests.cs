@@ -18,7 +18,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
             IReadOnlyList<TeamSeasonDefinition> regularTeams = CreateRegularTeams();
             var adapter = new DetailedMatchHistoricalSeasonAdapter(new OneDetailedMatchSeasonSource());
 
-            IReadOnlyList<SeasonStatistics> result = adapter.Simulate(99123UL, regularTeams);
+            HistoricalSeasonSimulationResult simulation = adapter.Simulate(99123UL, regularTeams);
+            IReadOnlyList<SeasonStatistics> result = simulation.Statistics;
 
             SeasonStatistics firstHalf = Find(result, "PS-101", isFirstHalf: true);
             SeasonStatistics regular = Find(result, "PS-101", isFirstHalf: false);
@@ -27,6 +28,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(regular.Hits, Is.EqualTo(firstHalf.Hits));
             Assert.That(regular.IsPostseason, Is.False);
             Assert.That(regular.IsAllStarGame, Is.False);
+            Assert.That(simulation.TeamStatistics.Count, Is.EqualTo(10));
+            Assert.That(simulation.Standings.Count, Is.EqualTo(10));
+            Assert.That(simulation.Postseason.ChampionTeamSeasonKey, Is.EqualTo("TEAM-00"));
         }
 
         [Test]
@@ -38,7 +42,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     HistoricalMatchStage.AllStarGame,
                     new[] { "PS-101" }));
 
-            IReadOnlyList<SeasonStatistics> result = adapter.Simulate(99124UL, regularTeams);
+            IReadOnlyList<SeasonStatistics> result = adapter.Simulate(99124UL, regularTeams).Statistics;
 
             Assert.That(result.Count, Is.EqualTo(1));
             Assert.That(result[0].PlayerSeasonId, Is.EqualTo("PS-101"));
@@ -56,7 +60,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 duplicateEligiblePlayerOnOpponent: true);
             var adapter = new DetailedMatchHistoricalSeasonAdapter(source);
 
-            IReadOnlyList<SeasonStatistics> result = adapter.Simulate(99125UL, regularTeams);
+            IReadOnlyList<SeasonStatistics> result = adapter.Simulate(99125UL, regularTeams).Statistics;
 
             Assert.That(source.SelectedSidePlateAppearances, Is.GreaterThan(0));
             Assert.That(source.OpponentSidePlateAppearances, Is.GreaterThan(0));
@@ -154,14 +158,40 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     regularFranchiseTeams[1].TeamSeasonKey,
                     skipFirstHitter: _duplicateEligiblePlayerOnOpponent);
                 var matches = new[] { new HistoricalDetailedMatchRecord(_stage, match) };
-                return _allStarGameEligiblePlayerSeasonIds == null
-                    ? new HistoricalDetailedSeasonOutput(2024, matches, identities)
-                    : new HistoricalDetailedSeasonOutput(
+                var teamStatistics = new TeamSeasonStatistics[regularFranchiseTeams.Count];
+                var standings = new HistoricalStandingEntry[regularFranchiseTeams.Count];
+                for (int index = 0; index < regularFranchiseTeams.Count; index++)
+                {
+                    string teamSeasonKey = regularFranchiseTeams[index].TeamSeasonKey;
+                    teamStatistics[index] = new TeamSeasonStatistics(
+                        teamSeasonKey,
                         2024,
-                        matches,
-                        identities,
-                        _allStarGameEligiblePlayerSeasonIds,
-                        _allStarGameStatisticsTeamId);
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0);
+                    standings[index] = new HistoricalStandingEntry(2024, index + 1, teamSeasonKey);
+                }
+                var qualifiers = new string[4];
+                for (int index = 0; index < qualifiers.Length; index++)
+                    qualifiers[index] = regularFranchiseTeams[index].TeamSeasonKey;
+                return new HistoricalDetailedSeasonOutput(
+                    2024,
+                    matches,
+                    identities,
+                    _allStarGameEligiblePlayerSeasonIds,
+                    _allStarGameStatisticsTeamId,
+                    teamStatistics,
+                    standings,
+                    new HistoricalPostseasonResult(2024, qualifiers, qualifiers[0]));
             }
 
             private static Team CreateTeam(int teamId, Player sharedFirstHitter = null)

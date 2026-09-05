@@ -4,6 +4,7 @@ using Baseball.Core.Balance;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career.Narrative;
+using Baseball.Simulation.Career;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
 
@@ -67,6 +68,8 @@ namespace Baseball.Game.Career
                 throw new ArgumentOutOfRangeException(nameof(controlledPlayerId));
             ControlledPlayerId = controlledPlayerId;
             PlayerRole = playerRole;
+            if (scheduledGame.HasPlayerRoleDecision && scheduledGame.PlayerRoleDecision.Role != playerRole)
+                throw new ArgumentException("경기 역할과 저장된 감독 AI 판단 Snapshot이 일치하지 않습니다.", nameof(playerRole));
             CompetitionScope = competitionScope;
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             ConditionBefore = conditionBefore;
@@ -82,6 +85,9 @@ namespace Baseball.Game.Career
         public DateTime GameDate { get; }
         public int ControlledPlayerId { get; }
         public PlayerGameRole PlayerRole { get; }
+        public ManagerUsageDecision? PlayerRoleDecision => ScheduledGame.HasPlayerRoleDecision
+            ? ScheduledGame.PlayerRoleDecision
+            : null;
         public CompetitionScope CompetitionScope { get; }
         public CareerMatchPhase Phase { get; private set; }
         public CareerMatchMode Mode { get; private set; }

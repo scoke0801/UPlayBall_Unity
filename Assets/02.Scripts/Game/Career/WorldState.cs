@@ -667,9 +667,7 @@ namespace Baseball.Game.Career
             if (_leagues.Count != LeagueLevelRules.Count)
                 return;
             int regularTeamCount = _leagues[0].Teams.Count;
-            bool isBakedHistoricalWorld = regularTeamCount == LeagueInstance.RequiredRegularFranchiseTeamCount;
-            const int legacyRuntimeTeamCount = 8;
-            if (!isBakedHistoricalWorld && regularTeamCount != legacyRuntimeTeamCount)
+            if (!LeagueInstance.IsSupportedRegularFranchiseTeamCount(regularTeamCount))
                 throw new InvalidOperationException($"리그 정규 구단 수가 {regularTeamCount}개입니다.");
             var tierCounts = new int[LeagueLevelRules.Count];
             for (int index = 0; index < _leagues.Count; index++)

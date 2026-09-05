@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Balance;
 using Baseball.Core.Historical;
 using Baseball.Simulation.Historical;
 
 namespace Baseball.Game.Historical
 {
-    /// <summary>감독모드 한 세이브가 소유하는 역사·리그·로스터·플레이어 구단 경제 상태다.</summary>
+    /// <summary>구단주 모드 한 세이브가 소유하는 역사·리그·로스터·플레이어 구단 경제 상태다.</summary>
     public sealed class ManagerHistoricalRuntimeState
     {
         private readonly CurrentRosterState[] _rosters;
@@ -16,22 +17,26 @@ namespace Baseball.Game.Historical
         public ManagerHistoricalRuntimeState(
             string playerTeamSeasonKey,
             HistoricalContentReference contentReference,
+            WorldIdentityRegistry identityRegistry,
             WorldHistorySnapshot worldHistory,
             WorldCardCatalog worldCardCatalog,
             LeagueInstance league,
             IReadOnlyList<CurrentRosterState> rosters,
             IReadOnlyList<OwnedPlayerCardState> ownedCards,
-            ManagerEconomyState economy)
+            ManagerEconomyState economy,
+            ManagerModeRuntimeState managerMode = null)
         {
             PlayerTeamSeasonKey = RequireId(playerTeamSeasonKey, nameof(playerTeamSeasonKey));
             ContentReference = contentReference ?? throw new ArgumentNullException(nameof(contentReference));
+            IdentityRegistry = identityRegistry ?? throw new ArgumentNullException(nameof(identityRegistry));
             WorldHistory = worldHistory ?? throw new ArgumentNullException(nameof(worldHistory));
             WorldCardCatalog = worldCardCatalog ?? throw new ArgumentNullException(nameof(worldCardCatalog));
             League = league ?? throw new ArgumentNullException(nameof(league));
             Economy = economy ?? throw new ArgumentNullException(nameof(economy));
+            ManagerMode = managerMode;
 
             if (!Contains(league.RegularTeamSeasonKeys, PlayerTeamSeasonKey))
-                throw new ArgumentException("플레이어 구단은 정규 Franchise 10구단 중 하나여야 합니다.", nameof(playerTeamSeasonKey));
+                throw new ArgumentException("플레이어 구단은 해당 연도 정규 Franchise 중 하나여야 합니다.", nameof(playerTeamSeasonKey));
 
             _rosters = CopyAndValidateRosters(rosters, worldCardCatalog, league);
             _rostersByTeamSeasonKey = IndexRosters(_rosters);
@@ -40,10 +45,14 @@ namespace Baseball.Game.Historical
             ValidateSpecialEditionActivation();
             ValidatePlayerRosterOwnership();
             ValidateSpecialCompositeOverlap();
+            if (ManagerMode != null &&
+                !string.Equals(ManagerMode.ClubOperation.TeamSeasonKey, PlayerTeamSeasonKey, StringComparison.Ordinal))
+                throw new ArgumentException("ManagerMode 상태가 플레이어 구단과 일치하지 않습니다.", nameof(managerMode));
         }
 
         public string PlayerTeamSeasonKey { get; }
         public HistoricalContentReference ContentReference { get; }
+        public WorldIdentityRegistry IdentityRegistry { get; }
         public WorldHistorySnapshot WorldHistory { get; }
         public WorldAwardRecord WorldAwardRecord => WorldHistory.Awards;
         public WorldCardCatalog WorldCardCatalog { get; }
@@ -51,6 +60,8 @@ namespace Baseball.Game.Historical
         public IReadOnlyList<CurrentRosterState> Rosters => _rosters;
         public IReadOnlyList<OwnedPlayerCardState> OwnedCards => _ownedCards;
         public ManagerEconomyState Economy { get; }
+        public ManagerModeRuntimeState ManagerMode { get; }
+        public bool HasManagerMode => ManagerMode != null;
 
         public CurrentRosterState GetRoster(string teamSeasonKey)
         {
@@ -248,7 +259,7 @@ namespace Baseball.Game.Historical
         }
     }
 
-    /// <summary>감독모드 한 월드의 기록 방식, 대상 연도, 플레이어 구단을 명시한다.</summary>
+    /// <summary>구단주 모드 한 월드의 기록 방식, 대상 연도, 플레이어 구단을 명시한다.</summary>
     public readonly struct ManagerHistoricalNewGameRequest
     {
         public ManagerHistoricalNewGameRequest(
@@ -282,22 +293,30 @@ namespace Baseball.Game.Historical
         public ManagerEconomyState InitialEconomy { get; }
     }
 
-    /// <summary>Baked Content부터 World Record, 합성팀, 저장 가능한 감독모드 상태까지 한 번에 조립한다.</summary>
+    /// <summary>Baked Content부터 World Record, 합성팀, 저장 가능한 구단주 모드 상태까지 한 번에 조립한다.</summary>
     public sealed class ManagerHistoricalNewGameService
     {
         private readonly IHistoricalContentProvider _contentProvider;
         private readonly HistoricalWorldRuntimeBuilder _worldBuilder;
+        private readonly BalanceTable _balance;
 
         public ManagerHistoricalNewGameService(
             IHistoricalContentProvider contentProvider,
-            HistoricalWorldRuntimeBuilder worldBuilder)
+            HistoricalWorldRuntimeBuilder worldBuilder,
+            BalanceTable balance = null)
         {
             _contentProvider = contentProvider ?? throw new ArgumentNullException(nameof(contentProvider));
             _worldBuilder = worldBuilder ?? throw new ArgumentNullException(nameof(worldBuilder));
+            _balance = balance ?? BalanceTable.CreateDefault();
         }
 
         public ManagerHistoricalRuntimeState Create(ManagerHistoricalNewGameRequest request)
         {
+            if (request.RecordMode != WorldRecordMode.SimulatedHistory)
+            {
+                throw new InvalidOperationException(
+                    "Production 구단주 모드 새 게임은 SimulatedHistory만 지원합니다. OriginalHistory는 Legacy 검증 전용입니다.");
+            }
             HistoricalBakedContent bakedContent = _contentProvider.Load()
                 ?? throw new InvalidOperationException("Runtime Historical Content Provider가 null을 반환했습니다.");
             HistoricalYearContentDefinition year = bakedContent.GetYear(request.OriginYear);
@@ -311,16 +330,45 @@ namespace Baseball.Game.Historical
             OwnedPlayerCardState[] ownedCards = CreateInitialOwnedCards(
                 request.PlayerTeamSeasonKey,
                 rosters);
+            StaffCatalog staffCatalog = CreateStaffCatalog(world.IdentityRegistry, request.WorldHistorySeed);
+            ManagerModeRuntimeState managerMode = ManagerModeRuntimeFactory.CreateInitial(
+                request.PlayerTeamSeasonKey,
+                request.OriginYear,
+                request.WorldHistorySeed,
+                league,
+                rosters,
+                staffCatalog,
+                _balance);
 
             return new ManagerHistoricalRuntimeState(
                 request.PlayerTeamSeasonKey,
                 world.ContentReference,
+                world.IdentityRegistry,
                 world.WorldHistory,
                 world.WorldCardCatalog,
                 league,
                 rosters,
                 ownedCards,
-                request.InitialEconomy);
+                request.InitialEconomy,
+                managerMode);
+        }
+
+        private StaffCatalog CreateStaffCatalog(WorldIdentityRegistry identities, ulong worldSeed)
+        {
+            int countPerRole = _balance.Staff.Market.OffseasonOfferCount;
+            int requiredNameCount = checked(Enum.GetValues(typeof(StaffRole)).Length * countPerRole);
+            if (identities.PlayerIdentities.Count < requiredNameCount)
+                throw new InvalidOperationException("가상 스태프 생성에 필요한 이름 후보가 부족합니다.");
+            var sorted = new WorldPlayerIdentity[identities.PlayerIdentities.Count];
+            for (int index = 0; index < sorted.Length; index++) sorted[index] = identities.PlayerIdentities[index];
+            Array.Sort(sorted, (left, right) => string.CompareOrdinal(left.PlayerPersonId, right.PlayerPersonId));
+            var names = new string[requiredNameCount];
+            for (int index = 0; index < names.Length; index++) names[index] = sorted[index].DisplayName;
+            return new StaffCatalogGenerator().Generate(
+                new StaffNameCatalog(names),
+                countPerRole,
+                worldSeed,
+                _balance.Staff);
         }
 
         private static SpecialCompositeTeamSet FindCompositeSet(
@@ -448,7 +496,7 @@ namespace Baseball.Game.Historical
                 }
             }
             if (playerRoster == null)
-                throw new ArgumentException("플레이어 구단이 해당 연도의 정규 10구단에 없습니다.", nameof(playerTeamSeasonKey));
+                throw new ArgumentException("플레이어 구단이 해당 연도의 정규 Franchise에 없습니다.", nameof(playerTeamSeasonKey));
 
             var result = new OwnedPlayerCardState[playerRoster.Entries.Count];
             for (int index = 0; index < result.Length; index++)

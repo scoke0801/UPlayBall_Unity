@@ -94,10 +94,13 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private string generatorVersion;
         [SerializeField] private string balanceVersion;
         [SerializeField] private long generationSeed;
+        [SerializeField] private bool generationSeedAffectsCanonicalBake;
         [SerializeField] private string namePolicyVersion;
         [SerializeField] private string nameDataPolicy;
         [SerializeField] private string sourceIdentityPolicyVersion;
         [SerializeField] private string sourceAllocationPolicyVersion;
+        [SerializeField] private string sourceFranchiseIdentityPolicyVersion;
+        [SerializeField] private string sourceTeamSeasonIdentityPolicyVersion;
         [SerializeField] private string replacementGeneratorVersion;
         [SerializeField] private string replacementPopulationPolicyVersion;
         [SerializeField] private int sourceBackedPlayerPersonCount;
@@ -119,10 +122,13 @@ namespace Baseball.Editor.HistoricalDatabase
         public string GeneratorVersion => generatorVersion ?? string.Empty;
         public string BalanceVersion => balanceVersion ?? string.Empty;
         public long GenerationSeed => generationSeed;
+        public bool GenerationSeedAffectsCanonicalBake => generationSeedAffectsCanonicalBake;
         public string NamePolicyVersion => namePolicyVersion ?? string.Empty;
         public string NameDataPolicy => nameDataPolicy ?? string.Empty;
         public string SourceIdentityPolicyVersion => sourceIdentityPolicyVersion ?? string.Empty;
         public string SourceAllocationPolicyVersion => sourceAllocationPolicyVersion ?? string.Empty;
+        public string SourceFranchiseIdentityPolicyVersion => sourceFranchiseIdentityPolicyVersion ?? string.Empty;
+        public string SourceTeamSeasonIdentityPolicyVersion => sourceTeamSeasonIdentityPolicyVersion ?? string.Empty;
         public string ReplacementGeneratorVersion => replacementGeneratorVersion ?? string.Empty;
         public string ReplacementPopulationPolicyVersion => replacementPopulationPolicyVersion ?? string.Empty;
         public int SourceBackedPlayerPersonCount => sourceBackedPlayerPersonCount;
@@ -167,7 +173,6 @@ namespace Baseball.Editor.HistoricalDatabase
     {
         [SerializeField] private string playerPersonId;
         [SerializeField] private string originalName;
-        [SerializeField] private string fictionalName;
         [SerializeField] private int birthYear;
         [SerializeField] private string bats;
         [SerializeField] private string throws;
@@ -180,8 +185,7 @@ namespace Baseball.Editor.HistoricalDatabase
 
         public string PlayerPersonId => playerPersonId ?? string.Empty;
         public string OriginalName => originalName ?? string.Empty;
-        public string FictionalName => fictionalName ?? string.Empty;
-        public string DisplayName => string.IsNullOrWhiteSpace(OriginalName) ? FictionalName : OriginalName;
+        public string DisplayName => OriginalName;
         public int BirthYear => birthYear;
         public string Bats => bats ?? string.Empty;
         public string Throws => throws ?? string.Empty;
@@ -294,7 +298,7 @@ namespace Baseball.Editor.HistoricalDatabase
         internal void SetSourcePath(string sourcePath) => _sourcePath = sourcePath;
     }
 
-    /// <summary>OriginalHistory에 Baked된 한 선수 시즌의 제한된 원기록 DTO다.</summary>
+    /// <summary>Editor 검수와 Legacy OriginalHistory 회귀 비교용 원기록 DTO다.</summary>
     [Serializable]
     public sealed class HistoricalSeasonRecord
     {
@@ -391,7 +395,7 @@ namespace Baseball.Editor.HistoricalDatabase
         internal void SetSourcePath(string sourcePath) => _sourcePath = sourcePath;
     }
 
-    /// <summary>OriginalHistory 수상 하나를 원본 AwardType과 Position 문자열로 보관하는 DTO다.</summary>
+    /// <summary>Editor 검수와 Legacy OriginalHistory 비교용 Source 수상 DTO다.</summary>
     [Serializable]
     public sealed class HistoricalAwardRecord
     {

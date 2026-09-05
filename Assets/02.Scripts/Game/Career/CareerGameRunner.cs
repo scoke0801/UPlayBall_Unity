@@ -71,7 +71,7 @@ namespace Baseball.Game.Career
             TeamState team = GetTeam(_career.MyPlayer.CurrentTeamId);
             Player player = CreateMyPlayer();
             ulong decisionSeed = DeterministicSeed.Derive(game.RandomSeed, (ulong)player.PlayerId);
-            PlayerGameRole role = _managerUsageAi.DecideRole(
+            ManagerUsageDecision decision = _managerUsageAi.Decide(
                 player,
                 _career.CurrentExpectedRole,
                 team.GetStrongestCompetitorOverall(player.PrimaryPosition),
@@ -80,7 +80,7 @@ namespace Baseball.Game.Career
                 game.Round,
                 allowEvaluationOpportunity,
                 new Pcg32Random(decisionSeed));
-            game.PlanPlayerRole(role);
+            game.PlanPlayerRole(decision);
         }
 
         /// <summary>

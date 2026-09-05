@@ -239,12 +239,12 @@ namespace Baseball.Editor.HistoricalDatabase
                 if (person == null)
                     continue;
                 collector.Check(
-                    !string.IsNullOrWhiteSpace(person.OriginalName) && string.IsNullOrWhiteSpace(person.FictionalName),
+                    !string.IsNullOrWhiteSpace(person.OriginalName),
                     "이름 분리",
                     null,
                     personId,
-                    "실제 이름만 존재하며 Runtime 가명이 없습니다.",
-                    "Editor 원본 선수에 실제 이름이 없거나 Runtime 가명이 섞였습니다.",
+                    "Editor Source Archive에 검수용 실제 이름이 존재합니다.",
+                    "Editor Source Archive의 실제 이름이 비어 있습니다.",
                     HistoricalNavigationKind.Player,
                     personId);
                 collector.Check(
@@ -361,8 +361,22 @@ namespace Baseball.Editor.HistoricalDatabase
                     "CostDerivationTrace",
                     row.OriginYear,
                     row.PlayerSeasonId,
-                    "Cost Trace가 OriginYear 전체 모집단과 저장 Cost에 일치합니다.",
+                    "Cost Trace가 OriginYear 같은 유형 모집단과 저장 Cost에 일치합니다.",
                     "Cost Trace의 OriginYear/Population/Cost/Composite가 저장값과 일치하지 않습니다.",
+                    HistoricalNavigationKind.Player,
+                    row.PlayerSeasonId);
+                HistoricalCostEligibilityTrace eligibility = costTrace.CostEligibility;
+                collector.Check(
+                    eligibility != null && !string.IsNullOrEmpty(eligibility.Tier) &&
+                    row.Cost <= eligibility.MaximumCost,
+                    "COST_ELIGIBILITY_CAP_EXCEEDED",
+                    row.OriginYear,
+                    row.PlayerSeasonId,
+                    "Cost가 출전량 자격 상한 안에 있습니다.",
+                    eligibility == null
+                        ? "Cost 자격 Tier 판정 근거가 없습니다."
+                        : $"Cost {row.Cost}가 {eligibility.Tier} 자격 상한 " +
+                          $"{eligibility.MaximumCost}를 넘었습니다.",
                     HistoricalNavigationKind.Player,
                     row.PlayerSeasonId);
                 if (costTrace.PopulationCount < 20)

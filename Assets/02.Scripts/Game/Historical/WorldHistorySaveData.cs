@@ -9,7 +9,45 @@ namespace Baseball.Game.Historical
         public int recordMode;
         public ulong worldHistorySeed;
         public SeasonStatisticsSaveData[] statistics;
+        public TeamSeasonStatisticsSaveData[] teamStatistics;
+        public HistoricalStandingEntrySaveData[] standings;
+        public HistoricalPostseasonResultSaveData[] postseasonResults;
         public WorldAwardEntrySaveData[] awards;
+    }
+
+    [Serializable]
+    public sealed class TeamSeasonStatisticsSaveData
+    {
+        public string teamSeasonKey;
+        public int seasonYear;
+        public int games;
+        public int wins;
+        public int losses;
+        public int ties;
+        public int runsScored;
+        public int runsAllowed;
+        public int atBats;
+        public int hits;
+        public int pitchingOuts;
+        public int earnedRuns;
+        public int hitsAllowed;
+        public int walksAllowed;
+    }
+
+    [Serializable]
+    public sealed class HistoricalStandingEntrySaveData
+    {
+        public int seasonYear;
+        public int rank;
+        public string teamSeasonKey;
+    }
+
+    [Serializable]
+    public sealed class HistoricalPostseasonResultSaveData
+    {
+        public int seasonYear;
+        public string[] qualifiedTeamSeasonKeys;
+        public string championTeamSeasonKey;
     }
 
     [Serializable]

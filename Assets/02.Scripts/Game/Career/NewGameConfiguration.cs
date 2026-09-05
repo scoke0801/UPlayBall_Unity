@@ -24,7 +24,7 @@ namespace Baseball.Game.Career
             int teamEmblemCount = 128,
             NewGameContentSource contentSource = NewGameContentSource.Unconfigured,
             ICareerBakedContentProvider bakedContentProvider = null,
-            WorldRecordMode worldRecordMode = WorldRecordMode.OriginalHistory)
+            WorldRecordMode worldRecordMode = WorldRecordMode.SimulatedHistory)
         {
             if (balance == null)
                 throw new ArgumentNullException(nameof(balance));
@@ -79,8 +79,14 @@ namespace Baseball.Game.Career
         /// <summary>동일 Balance·UI 설정을 유지하면서 공통 Baked Content 새 게임 경로를 선택한다.</summary>
         public NewGameConfiguration WithBakedHistoricalContent(
             ICareerBakedContentProvider provider,
-            WorldRecordMode worldRecordMode)
+            WorldRecordMode worldRecordMode = WorldRecordMode.SimulatedHistory)
         {
+            if (worldRecordMode != WorldRecordMode.SimulatedHistory)
+            {
+                throw new ArgumentException(
+                    "Production 커리어 새 게임은 SimulatedHistory만 지원합니다.",
+                    nameof(worldRecordMode));
+            }
             return new NewGameConfiguration(
                 Balance,
                 TeamCount,

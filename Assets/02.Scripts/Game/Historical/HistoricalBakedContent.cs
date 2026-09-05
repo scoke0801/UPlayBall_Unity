@@ -194,7 +194,8 @@ namespace Baseball.Game.Historical
         public HistoricalBakedContent(
             HistoricalContentManifest manifest,
             IReadOnlyList<PlayerPersonDefinition> playerPersons,
-            IReadOnlyList<HistoricalYearContentDefinition> years)
+            IReadOnlyList<HistoricalYearContentDefinition> years,
+            WorldIdentityNameCatalog identityNameCatalog = null)
         {
             Manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));
             _playerPersons = Copy(playerPersons, nameof(playerPersons));
@@ -235,9 +236,11 @@ namespace Baseball.Game.Historical
             _cardsById = IndexUnique(_normalCards, item => item.CardId, "CardId");
             _teamsByKey = IndexUnique(_teamSeasons, item => item.TeamSeasonKey, "TeamSeasonKey");
             ValidateReferences();
+            IdentityNameCatalog = identityNameCatalog ?? CreateDevelopmentIdentityNameCatalog(_playerPersons);
         }
 
         public HistoricalContentManifest Manifest { get; }
+        public WorldIdentityNameCatalog IdentityNameCatalog { get; }
         public IReadOnlyList<PlayerPersonDefinition> PlayerPersons => _playerPersonsView;
         public IReadOnlyList<HistoricalYearContentDefinition> Years => _yearsView;
         public IReadOnlyList<PlayerSeasonDefinition> PlayerSeasons => _playerSeasonsView;
@@ -291,6 +294,53 @@ namespace Baseball.Game.Historical
                 return false;
             }
             return _teamsByKey.TryGetValue(teamSeasonKey, out definition);
+        }
+
+        private static WorldIdentityNameCatalog CreateDevelopmentIdentityNameCatalog(
+            IReadOnlyList<PlayerPersonDefinition> persons)
+        {
+            const string surnames = "김이박최정강조윤장임한오서신권황안송홍전고문양손배백허유남심노하곽";
+            const string firstSyllables = "민서지현준우성도하윤시재태수영진호건주혁찬승원정규경동환희예은재";
+            const string secondSyllables = "준우호진혁민석현수빈영원성훈환재윤찬건규하도경태욱승율희아린";
+            var domestic = new List<string>(persons.Count);
+            var foreign = new List<string>();
+            int candidate = 0;
+            for (int index = 0; index < persons.Count; index++)
+            {
+                PlayerPersonDefinition person = persons[index];
+                if (person.RegistrationType == RegistrationType.Foreign)
+                {
+                    foreign.Add(CreateForeignDevelopmentName(candidate++));
+                    continue;
+                }
+                int surnameIndex = candidate % surnames.Length;
+                int firstIndex = (candidate / surnames.Length) % firstSyllables.Length;
+                int secondIndex = (candidate / (surnames.Length * firstSyllables.Length)) % secondSyllables.Length;
+                domestic.Add(string.Concat(
+                    surnames[surnameIndex],
+                    firstSyllables[firstIndex],
+                    secondSyllables[secondIndex]));
+                candidate++;
+            }
+            return new WorldIdentityNameCatalog(domestic, foreign, CreateDefaultFranchiseNames());
+        }
+
+        private static string CreateForeignDevelopmentName(int index)
+        {
+            string[] given = { "Liam", "Noah", "Ethan", "Lucas", "Mateo", "Adrian", "Julian", "Marco" };
+            string[] family = { "Carter", "Bennett", "Foster", "Hayes", "Morgan", "Reed", "Turner", "Walker" };
+            return given[index % given.Length] + " " + family[(index / given.Length) % family.Length];
+        }
+
+        internal static string[] CreateDefaultFranchiseNames()
+        {
+            return new[]
+            {
+                "서울 코멧츠", "부산 타이즈", "인천 하버스", "대구 포지", "대전 파이오니어스",
+                "광주 피닉스", "수원 가디언즈", "창원 세일러스", "전주 스타즈", "강릉 웨이브스",
+                "울산 오로라", "제주 윈드스", "춘천 레이븐스", "성남 볼츠", "청주 크레인스",
+                "포항 트라이던츠", "고양 스카이라인", "용인 스톰즈", "천안 브레이브스", "김해 팔콘스"
+            };
         }
 
         private void ValidateReferences()

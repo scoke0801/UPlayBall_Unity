@@ -69,6 +69,8 @@ namespace Baseball.Game.Historical
         private readonly HistoricalPlayerSeasonIdentity[] _players;
         private readonly HashSet<string> _allStarGameEligiblePlayerSeasonIds;
         private readonly int? _allStarGameStatisticsTeamId;
+        private readonly TeamSeasonStatistics[] _teamStatistics;
+        private readonly HistoricalStandingEntry[] _standings;
 
         public HistoricalDetailedSeasonOutput(
             int seasonYear,
@@ -79,7 +81,10 @@ namespace Baseball.Game.Historical
                 matches,
                 players,
                 allStarGameEligiblePlayerSeasonIds: null,
-                allStarGameStatisticsTeamId: null)
+                allStarGameStatisticsTeamId: null,
+                teamStatistics: Array.Empty<TeamSeasonStatistics>(),
+                standings: Array.Empty<HistoricalStandingEntry>(),
+                postseason: null)
         {
         }
 
@@ -94,7 +99,10 @@ namespace Baseball.Game.Historical
                 matches,
                 players,
                 allStarGameEligiblePlayerSeasonIds,
-                allStarGameStatisticsTeamId: null)
+                allStarGameStatisticsTeamId: null,
+                teamStatistics: Array.Empty<TeamSeasonStatistics>(),
+                standings: Array.Empty<HistoricalStandingEntry>(),
+                postseason: null)
         {
         }
 
@@ -105,6 +113,28 @@ namespace Baseball.Game.Historical
             IReadOnlyList<HistoricalPlayerSeasonIdentity> players,
             IReadOnlyList<string> allStarGameEligiblePlayerSeasonIds,
             int? allStarGameStatisticsTeamId)
+            : this(
+                seasonYear,
+                matches,
+                players,
+                allStarGameEligiblePlayerSeasonIds,
+                allStarGameStatisticsTeamId,
+                Array.Empty<TeamSeasonStatistics>(),
+                Array.Empty<HistoricalStandingEntry>(),
+                postseason: null)
+        {
+        }
+
+        /// <summary>Detailed 경기와 그 경기들에서 확정된 정규 팀 성적·순위·Postseason 결과를 함께 반환한다.</summary>
+        public HistoricalDetailedSeasonOutput(
+            int seasonYear,
+            IReadOnlyList<HistoricalDetailedMatchRecord> matches,
+            IReadOnlyList<HistoricalPlayerSeasonIdentity> players,
+            IReadOnlyList<string> allStarGameEligiblePlayerSeasonIds,
+            int? allStarGameStatisticsTeamId,
+            IReadOnlyList<TeamSeasonStatistics> teamStatistics,
+            IReadOnlyList<HistoricalStandingEntry> standings,
+            HistoricalPostseasonResult postseason)
         {
             if (seasonYear <= 0)
                 throw new ArgumentOutOfRangeException(nameof(seasonYear));
@@ -126,11 +156,17 @@ namespace Baseball.Game.Historical
                     "All-Star 집계 팀을 지정하려면 후보 PlayerSeasonId가 필요합니다.",
                     nameof(allStarGameStatisticsTeamId));
             _allStarGameStatisticsTeamId = allStarGameStatisticsTeamId;
+            _teamStatistics = Copy(teamStatistics, nameof(teamStatistics));
+            _standings = Copy(standings, nameof(standings));
+            Postseason = postseason;
         }
 
         public int SeasonYear { get; }
         public IReadOnlyList<HistoricalDetailedMatchRecord> Matches => _matches;
         public IReadOnlyList<HistoricalPlayerSeasonIdentity> Players => _players;
+        public IReadOnlyList<TeamSeasonStatistics> TeamStatistics => _teamStatistics;
+        public IReadOnlyList<HistoricalStandingEntry> Standings => _standings;
+        public HistoricalPostseasonResult Postseason { get; }
 
         internal bool IsAllStarGameEligible(string playerSeasonId)
         {
@@ -204,14 +240,20 @@ namespace Baseball.Game.Historical
             _source = source ?? throw new ArgumentNullException(nameof(source));
         }
 
-        public IReadOnlyList<SeasonStatistics> Simulate(
+        public HistoricalSeasonSimulationResult Simulate(
             ulong worldHistorySeed,
             IReadOnlyList<TeamSeasonDefinition> regularFranchiseTeams)
         {
             ValidateRegularTeams(regularFranchiseTeams);
             HistoricalDetailedSeasonOutput output = _source.RunSeason(worldHistorySeed, regularFranchiseTeams)
                 ?? throw new InvalidOperationException("Detailed 역사 시즌 실행 결과가 없습니다.");
-            return Aggregate(output, regularFranchiseTeams);
+            if (output.Postseason == null)
+                throw new InvalidOperationException("Detailed 역사 시즌 결과에 Postseason 결과가 없습니다.");
+            return new HistoricalSeasonSimulationResult(
+                Aggregate(output, regularFranchiseTeams),
+                output.TeamStatistics,
+                output.Standings,
+                output.Postseason);
         }
 
         /// <summary>전반기 종료 시점처럼 시즌 중간에도 최종 집계와 같은 규칙으로 기록을 만든다.</summary>
@@ -342,8 +384,8 @@ namespace Baseball.Game.Historical
 
         private static void ValidateRegularTeams(IReadOnlyList<TeamSeasonDefinition> teams)
         {
-            if (teams == null || teams.Count != LeagueInstance.RequiredRegularFranchiseTeamCount)
-                throw new ArgumentException("Detailed 역사 시즌에는 정규 Franchise 10구단이 필요합니다.", nameof(teams));
+            if (teams == null || !LeagueInstance.IsSupportedRegularFranchiseTeamCount(teams.Count))
+                throw new ArgumentException("Detailed 역사 시즌에는 해당 연도의 정규 Franchise 6~10구단이 필요합니다.", nameof(teams));
             var keys = new HashSet<string>(StringComparer.Ordinal);
             for (int index = 0; index < teams.Count; index++)
             {

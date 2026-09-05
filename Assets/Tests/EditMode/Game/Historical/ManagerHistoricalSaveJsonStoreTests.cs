@@ -27,7 +27,15 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 Assert.That(restored.worldHistory.recordMode, Is.EqualTo(source.worldHistory.recordMode));
                 Assert.That(restored.worldHistory.worldHistorySeed, Is.EqualTo(77123UL));
                 Assert.That(restored.worldHistory.statistics.Length, Is.EqualTo(1));
+                Assert.That(restored.worldHistory.teamStatistics[0].wins, Is.EqualTo(8));
+                Assert.That(restored.worldHistory.standings[0].rank, Is.EqualTo(1));
+                Assert.That(restored.worldHistory.postseasonResults[0].championTeamSeasonKey, Is.EqualTo("TEAM-00"));
                 Assert.That(restored.contentReference.contentHash, Is.EqualTo("test-content-hash"));
+                Assert.That(restored.identityRegistry.identityGeneratorVersion, Is.EqualTo("test-identity-v1"));
+                Assert.That(restored.identityRegistry.identitySeed, Is.EqualTo(77123UL));
+                Assert.That(restored.identityRegistry.players[0].displayName, Is.EqualTo("김도윤"));
+                Assert.That(restored.identityRegistry.franchises[0].displayName, Is.EqualTo("서울 코멧츠"));
+                Assert.That(json, Does.Contain("\"displayName\":\"김도윤\""));
                 Assert.That(json, Does.Not.Contain("worldCardCatalog"));
                 Assert.That(json, Does.Not.Contain("baseAttributes"));
                 Assert.That(json, Does.Not.Contain("trainingCeiling"));
@@ -69,6 +77,27 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     contentHash = "test-content-hash"
                 },
                 playerTeamSeasonKey = "TEAM-00",
+                identityRegistry = new WorldIdentityRegistrySaveData
+                {
+                    identityGeneratorVersion = "test-identity-v1",
+                    identitySeed = 77123UL,
+                    players = new[]
+                    {
+                        new WorldPlayerIdentitySaveData
+                        {
+                            playerPersonId = "PP-000",
+                            displayName = "김도윤"
+                        }
+                    },
+                    franchises = new[]
+                    {
+                        new WorldFranchiseIdentitySaveData
+                        {
+                            franchiseId = "FRANCHISE-00",
+                            displayName = "서울 코멧츠"
+                        }
+                    }
+                },
                 worldHistory = new WorldHistorySaveData
                 {
                     recordMode = 1,
@@ -83,6 +112,43 @@ namespace Baseball.Tests.EditMode.Game.Historical
                             position = 0,
                             plateAppearances = 500,
                             hits = 150
+                        }
+                    },
+                    teamStatistics = new[]
+                    {
+                        new TeamSeasonStatisticsSaveData
+                        {
+                            teamSeasonKey = "TEAM-00",
+                            seasonYear = 2024,
+                            games = 10,
+                            wins = 8,
+                            losses = 2,
+                            runsScored = 50,
+                            runsAllowed = 30,
+                            atBats = 300,
+                            hits = 80,
+                            pitchingOuts = 270,
+                            earnedRuns = 20,
+                            hitsAllowed = 70,
+                            walksAllowed = 20
+                        }
+                    },
+                    standings = new[]
+                    {
+                        new HistoricalStandingEntrySaveData
+                        {
+                            seasonYear = 2024,
+                            rank = 1,
+                            teamSeasonKey = "TEAM-00"
+                        }
+                    },
+                    postseasonResults = new[]
+                    {
+                        new HistoricalPostseasonResultSaveData
+                        {
+                            seasonYear = 2024,
+                            qualifiedTeamSeasonKeys = new[] { "TEAM-00" },
+                            championTeamSeasonKey = "TEAM-00"
                         }
                     },
                     awards = Array.Empty<WorldAwardEntrySaveData>()

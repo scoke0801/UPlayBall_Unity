@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "contentId": "owner-expansion-09-12-v1",
+  "conditionChemistry": {
+    "presentationBands": [
+      { "minimumCondition": 0, "labelKey": "condition.worst", "iconKey": "condition.level_1" },
+      { "minimumCondition": 10, "labelKey": "condition.very_bad", "iconKey": "condition.level_2" },
+      { "minimumCondition": 20, "labelKey": "condition.bad", "iconKey": "condition.level_3" },
+      { "minimumCondition": 30, "labelKey": "condition.somewhat_bad", "iconKey": "condition.level_4" },
+      { "minimumCondition": 40, "labelKey": "condition.normal", "iconKey": "condition.level_5" },
+      { "minimumCondition": 50, "labelKey": "condition.somewhat_good", "iconKey": "condition.level_6" },
+      { "minimumCondition": 60, "labelKey": "condition.good", "iconKey": "condition.level_7" },
+      { "minimumCondition": 70, "labelKey": "condition.very_good", "iconKey": "condition.level_8" },
+      { "minimumCondition": 80, "labelKey": "condition.excellent", "iconKey": "condition.level_9" },
+      { "minimumCondition": 90, "labelKey": "condition.peak", "iconKey": "condition.level_10" }
+    ],
+    "familiarityCap": 100,
+    "lineupSharedStartGain": 2,
+    "batterySharedInningGain": 1,
+    "familiarityScoreWeight": 0.35,
+    "styleComplementScore": 18.0,
+    "styleConflictScore": 12.0,
+    "catcherDefenseWeight": 0.30,
+    "catcherMentalWeight": 0.30,
+    "pitcherMentalStabilityWeight": 0.20,
+    "goodScoreThreshold": 22.0,
+    "badScoreThreshold": -12.0,
+    "conditionLevelStep": 10,
+    "maximumChemistryLevelDelta": 1,
+    "tableSetterLeadThreshold": 12,
+    "powerLeadThreshold": 10,
+    "neutralMatchCondition": 80,
+    "conditionPointsPerRating": 10,
+    "maximumConditionRatingModifier": 3,
+    "weeklyBaseRecovery": 6,
+    "startingHitterConditionCost": 4,
+    "pitcherConditionCostPerThirtyPitches": 6
+  },
+  "clubOperation": {
+    "attendance": {
+      "minimumBaseDemand": 2000.0,
+      "maximumBaseDemand": 18000.0,
+      "minimumPopularityFactor": 0.75,
+      "maximumPopularityFactor": 1.25,
+      "minimumRecentPerformanceFactor": 0.85,
+      "maximumRecentPerformanceFactor": 1.15,
+      "minimumOpponentAttractionFactor": 0.90,
+      "maximumOpponentAttractionFactor": 1.20,
+      "minimumSeasonImportanceFactor": 0.90,
+      "maximumSeasonImportanceFactor": 1.20,
+      "minimumMomentumFactor": 0.90,
+      "maximumMomentumFactor": 1.10,
+      "rivalryAttractionWeight": 0.30,
+      "varianceMinimum": 0.94,
+      "varianceMaximum": 1.06
+    },
+    "homeGameFinance": {
+      "otherRevenuePerAttendee": 2500,
+      "baseGameDayOperatingCost": 30000000
+    },
+    "fanPopularity": {
+      "winFanBaseDelta": 0.04,
+      "drawFanBaseDelta": 0.01,
+      "lossFanBaseDelta": -0.02,
+      "winPopularityDelta": 0.80,
+      "drawPopularityDelta": 0.05,
+      "lossPopularityDelta": -0.55,
+      "seasonImportanceOutcomeScale": 0.50,
+      "attendanceFanBaseDeltaAtEmpty": -0.04,
+      "attendanceFanBaseDeltaAtFull": 0.04,
+      "popularityDecayPerHomeGame": 0.18,
+      "momentumTargetCapacityRate": 0.65,
+      "momentumDeltaScale": 2.50
+    },
+    "ticketPolicies": [
+      { "priceTier": 0, "demandMultiplier": 1.12, "revenuePerAttendee": 9000 },
+      { "priceTier": 1, "demandMultiplier": 1.00, "revenuePerAttendee": 13000 },
+      { "priceTier": 2, "demandMultiplier": 0.72, "revenuePerAttendee": 18000 }
+    ],
+    "leagueOperations": [
+      { "leagueGrade": 0, "demandMultiplier": 0.55, "operatingCostMultiplier": 0.70 },
+      { "leagueGrade": 1, "demandMultiplier": 0.65, "operatingCostMultiplier": 0.78 },
+      { "leagueGrade": 2, "demandMultiplier": 0.75, "operatingCostMultiplier": 0.87 },
+      { "leagueGrade": 3, "demandMultiplier": 0.85, "operatingCostMultiplier": 0.96 },
+      { "leagueGrade": 4, "demandMultiplier": 0.95, "operatingCostMultiplier": 1.05 },
+      { "leagueGrade": 5, "demandMultiplier": 1.05, "operatingCostMultiplier": 1.15 },
+      { "leagueGrade": 6, "demandMultiplier": 1.15, "operatingCostMultiplier": 1.25 },
+      { "leagueGrade": 7, "demandMultiplier": 1.25, "operatingCostMultiplier": 1.36 },
+      { "leagueGrade": 8, "demandMultiplier": 1.38, "operatingCostMultiplier": 1.48 },
+      { "leagueGrade": 9, "demandMultiplier": 1.52, "operatingCostMultiplier": 1.60 }
+    ],
+    "facilityLevels": [
+      { "type": 0, "level": 0, "upgradeMoneyCost": 0, "weeklyOperatingCost": 0, "homeGameOperatingCost": 0, "hasRequiredLeagueGrade": false, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 0, "level": 1, "upgradeMoneyCost": 500000000, "weeklyOperatingCost": 5000000, "homeGameOperatingCost": 400000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 25, "hasScoutingPointStorageCapacity": true, "scoutingPointStorageCapacity": 250, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 0, "level": 2, "upgradeMoneyCost": 1200000000, "weeklyOperatingCost": 9000000, "homeGameOperatingCost": 700000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 2, "minimumFanBase": 35, "minimumSeasonAttendance": 200000, "weeklyScoutingPointProduction": 40, "hasScoutingPointStorageCapacity": true, "scoutingPointStorageCapacity": 400, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 0, "level": 3, "upgradeMoneyCost": 2400000000, "weeklyOperatingCost": 15000000, "homeGameOperatingCost": 1200000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 5, "minimumFanBase": 60, "minimumSeasonAttendance": 500000, "weeklyScoutingPointProduction": 60, "hasScoutingPointStorageCapacity": true, "scoutingPointStorageCapacity": 600, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+
+      { "type": 1, "level": 0, "upgradeMoneyCost": 0, "weeklyOperatingCost": 0, "homeGameOperatingCost": 0, "hasRequiredLeagueGrade": false, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 1, "level": 1, "upgradeMoneyCost": 500000000, "weeklyOperatingCost": 5000000, "homeGameOperatingCost": 400000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 12, "hasDevelopmentPointStorageCapacity": true, "developmentPointStorageCapacity": 120, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 1, "level": 2, "upgradeMoneyCost": 1200000000, "weeklyOperatingCost": 9000000, "homeGameOperatingCost": 700000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 2, "minimumFanBase": 35, "minimumSeasonAttendance": 200000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 20, "hasDevelopmentPointStorageCapacity": true, "developmentPointStorageCapacity": 200, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 1, "level": 3, "upgradeMoneyCost": 2400000000, "weeklyOperatingCost": 15000000, "homeGameOperatingCost": 1200000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 5, "minimumFanBase": 60, "minimumSeasonAttendance": 500000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 32, "hasDevelopmentPointStorageCapacity": true, "developmentPointStorageCapacity": 320, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+
+      { "type": 2, "level": 0, "upgradeMoneyCost": 0, "weeklyOperatingCost": 0, "homeGameOperatingCost": 0, "hasRequiredLeagueGrade": false, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 2, "level": 1, "upgradeMoneyCost": 450000000, "weeklyOperatingCost": 4500000, "homeGameOperatingCost": 350000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0.05, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 2, "level": 2, "upgradeMoneyCost": 1100000000, "weeklyOperatingCost": 8000000, "homeGameOperatingCost": 600000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 2, "minimumFanBase": 35, "minimumSeasonAttendance": 200000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0.10, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 2, "level": 3, "upgradeMoneyCost": 2200000000, "weeklyOperatingCost": 13000000, "homeGameOperatingCost": 1000000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 5, "minimumFanBase": 60, "minimumSeasonAttendance": 500000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0.16, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+
+      { "type": 3, "level": 0, "upgradeMoneyCost": 0, "weeklyOperatingCost": 0, "homeGameOperatingCost": 0, "hasRequiredLeagueGrade": false, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 3, "level": 1, "upgradeMoneyCost": 450000000, "weeklyOperatingCost": 4500000, "homeGameOperatingCost": 350000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0.03, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 3, "level": 2, "upgradeMoneyCost": 1100000000, "weeklyOperatingCost": 8000000, "homeGameOperatingCost": 600000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 2, "minimumFanBase": 35, "minimumSeasonAttendance": 200000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0.06, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 3, "level": 3, "upgradeMoneyCost": 2200000000, "weeklyOperatingCost": 13000000, "homeGameOperatingCost": 1000000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 5, "minimumFanBase": 60, "minimumSeasonAttendance": 500000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0.10, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+
+      { "type": 4, "level": 0, "upgradeMoneyCost": 0, "weeklyOperatingCost": 0, "homeGameOperatingCost": 0, "hasRequiredLeagueGrade": false, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 4, "level": 1, "upgradeMoneyCost": 400000000, "weeklyOperatingCost": 4000000, "homeGameOperatingCost": 300000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0.05, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 4, "level": 2, "upgradeMoneyCost": 1000000000, "weeklyOperatingCost": 7000000, "homeGameOperatingCost": 550000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 2, "minimumFanBase": 35, "minimumSeasonAttendance": 200000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0.10, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 4, "level": 3, "upgradeMoneyCost": 2000000000, "weeklyOperatingCost": 12000000, "homeGameOperatingCost": 900000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 5, "minimumFanBase": 60, "minimumSeasonAttendance": 500000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0.15, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+
+      { "type": 5, "level": 0, "upgradeMoneyCost": 0, "weeklyOperatingCost": 0, "homeGameOperatingCost": 0, "hasRequiredLeagueGrade": false, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 0, "fanShopPopularityRetention": 0 },
+      { "type": 5, "level": 1, "upgradeMoneyCost": 800000000, "weeklyOperatingCost": 3500000, "homeGameOperatingCost": 250000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 700, "fanShopPopularityRetention": 0.03 },
+      { "type": 5, "level": 2, "upgradeMoneyCost": 850000000, "weeklyOperatingCost": 6500000, "homeGameOperatingCost": 450000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 2, "minimumFanBase": 35, "minimumSeasonAttendance": 200000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 1400, "fanShopPopularityRetention": 0.06 },
+      { "type": 5, "level": 3, "upgradeMoneyCost": 1700000000, "weeklyOperatingCost": 10000000, "homeGameOperatingCost": 750000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 5, "minimumFanBase": 60, "minimumSeasonAttendance": 500000, "weeklyScoutingPointProduction": 0, "hasScoutingPointStorageCapacity": false, "scoutingPointStorageCapacity": 0, "weeklyDevelopmentPointProduction": 0, "hasDevelopmentPointStorageCapacity": false, "developmentPointStorageCapacity": 0, "conditionRecoveryEfficiencyModifier": 0, "scoutingConfidenceModifier": 0, "tacticResearchEfficiencyModifier": 0, "fanShopRevenuePerAttendee": 2200, "fanShopPopularityRetention": 0.10 }
+    ],
+    "stadiumLevels": [
+      { "level": 1, "capacity": 10000, "upgradeMoneyCost": 0, "homeGameOperatingCost": 20000000, "hasRequiredLeagueGrade": false, "requiredLeagueGrade": 0, "minimumFanBase": 0, "minimumSeasonAttendance": 0 },
+      { "level": 2, "capacity": 15000, "upgradeMoneyCost": 3000000000, "homeGameOperatingCost": 28000000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 0, "minimumFanBase": 25, "minimumSeasonAttendance": 100000 },
+      { "level": 3, "capacity": 22000, "upgradeMoneyCost": 7000000000, "homeGameOperatingCost": 40000000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 2, "minimumFanBase": 40, "minimumSeasonAttendance": 250000 },
+      { "level": 4, "capacity": 30000, "upgradeMoneyCost": 14000000000, "homeGameOperatingCost": 58000000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 4, "minimumFanBase": 58, "minimumSeasonAttendance": 500000 },
+      { "level": 5, "capacity": 40000, "upgradeMoneyCost": 25000000000, "homeGameOperatingCost": 80000000, "hasRequiredLeagueGrade": true, "requiredLeagueGrade": 7, "minimumFanBase": 75, "minimumSeasonAttendance": 900000 }
+    ]
+  },
+  "staff": {
+    "qualities": [
+      { "qualityTier": 1, "salaryBand": 0, "effectBonus": 0.02, "baseAnnualSalary": 80000000, "marketWeight": 32.0 },
+      { "qualityTier": 2, "salaryBand": 1, "effectBonus": 0.04, "baseAnnualSalary": 120000000, "marketWeight": 28.0 },
+      { "qualityTier": 3, "salaryBand": 1, "effectBonus": 0.06, "baseAnnualSalary": 180000000, "marketWeight": 21.0 },
+      { "qualityTier": 4, "salaryBand": 2, "effectBonus": 0.08, "baseAnnualSalary": 270000000, "marketWeight": 13.0 },
+      { "qualityTier": 5, "salaryBand": 3, "effectBonus": 0.10, "baseAnnualSalary": 400000000, "marketWeight": 6.0 }
+    ],
+    "salaryBands": [
+      { "salaryBand": 0, "salaryMultiplier": 0.90 },
+      { "salaryBand": 1, "salaryMultiplier": 1.00 },
+      { "salaryBand": 2, "salaryMultiplier": 1.12 },
+      { "salaryBand": 3, "salaryMultiplier": 1.25 }
+    ],
+    "roles": [
+      { "role": 0, "effectMultiplier": 1.00, "salaryMultiplier": 1.05, "specialties": [0, 1, 2], "aiClubDnaWeights": [0.45, 0.45, 0.05, 0.05, 0, 0, 0, 0] },
+      { "role": 1, "effectMultiplier": 1.00, "salaryMultiplier": 1.05, "specialties": [3, 4, 5, 6], "aiClubDnaWeights": [0, 0, 0, 0, 0.45, 0.45, 0.05, 0.05] },
+      { "role": 2, "effectMultiplier": 1.00, "salaryMultiplier": 1.00, "specialties": [7, 8], "aiClubDnaWeights": [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.55, 0.15] },
+      { "role": 3, "effectMultiplier": 0.90, "salaryMultiplier": 0.95, "specialties": [9, 10], "aiClubDnaWeights": [0, 0, 0.05, 0.05, 0.15, 0.15, 0.25, 0.35] },
+      { "role": 4, "effectMultiplier": 0.75, "salaryMultiplier": 1.00, "specialties": [11], "aiClubDnaWeights": [0.10, 0.10, 0.10, 0.20, 0.10, 0.10, 0.15, 0.15] }
+    ],
+    "specialties": [
+      { "specialty": 0, "role": 0, "effectBonus": 0.010 },
+      { "specialty": 1, "role": 0, "effectBonus": 0.010 },
+      { "specialty": 2, "role": 0, "effectBonus": 0.010 },
+      { "specialty": 3, "role": 1, "effectBonus": 0.010 },
+      { "specialty": 4, "role": 1, "effectBonus": 0.010 },
+      { "specialty": 5, "role": 1, "effectBonus": 0.010 },
+      { "specialty": 6, "role": 1, "effectBonus": 0.010 },
+      { "specialty": 7, "role": 2, "effectBonus": 0.010 },
+      { "specialty": 8, "role": 2, "effectBonus": 0.008 },
+      { "specialty": 9, "role": 3, "effectBonus": 0.010 },
+      { "specialty": 10, "role": 3, "effectBonus": 0.008 },
+      { "specialty": 11, "role": 4, "effectBonus": 0.010 }
+    ],
+    "philosophies": [
+      { "philosophy": 0, "effectBonusByRole": [0.006, 0.006, 0.002, 0, 0] },
+      { "philosophy": 1, "effectBonusByRole": [0.003, 0.003, 0.007, 0, 0] },
+      { "philosophy": 2, "effectBonusByRole": [0.001, 0.001, 0.008, 0.002, 0] },
+      { "philosophy": 3, "effectBonusByRole": [0, 0.002, 0.002, 0.008, 0] },
+      { "philosophy": 4, "effectBonusByRole": [0.002, 0.002, 0.003, 0, 0.008] },
+      { "philosophy": 5, "effectBonusByRole": [0.002, 0.002, 0.005, 0.005, 0] }
+    ],
+    "market": {
+      "offseasonOfferCount": 10,
+      "midseasonOfferCount": 5,
+      "minimumContractYears": 1,
+      "maximumContractYears": 3,
+      "preferredContractYears": [1, 2, 3],
+      "contractPreferenceWeights": [0.30, 0.45, 0.25],
+      "marketSalaryMultipliers": [1.00, 1.08],
+      "minimumSalaryVariance": 0.92,
+      "maximumSalaryVariance": 1.08,
+      "signingCostRate": 0.10,
+      "replacementPenaltyRate": 0.25,
+      "leagueQualityBiasPerGrade": 0.025,
+      "salaryRoundingUnit": 1000000
+    },
+    "ai": {
+      "gradeEffectBonus": [0.010, 0.015, 0.020, 0.025, 0.030, 0.035, 0.040, 0.045, 0.050, 0.055],
+      "managerQualityCoefficient": 0.030,
+      "clubDnaCoefficient": 0.035,
+      "seedVariance": 0.005
+    },
+    "maximumEffectBonus": 0.12,
+    "maximumScoutingConfidenceModifier": 0.10
+  },
+  "scoutingConfidence": {
+    "lowConfidenceThreshold": 0.18,
+    "estimatedThreshold": 0.42,
+    "highConfidenceThreshold": 0.68,
+    "maximumInferredConfidence": 0.92,
+    "maximumCombinedModifier": 1.25,
+    "publicRosterEvidenceQuality": 0.72,
+    "publicRosterRecencyFactor": 0.90,
+    "publicRosterSampleFactor": 0.75,
+    "bullpenFreshMaximumRecentPitches": 15,
+    "bullpenTiredMinimumRecentPitches": 36,
+    "bullpenVeryTiredMinimumRecentPitches": 61,
+    "bullpenFreshMinimumRestDays": 2
+  }
+}

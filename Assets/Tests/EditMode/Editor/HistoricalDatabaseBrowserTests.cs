@@ -45,7 +45,6 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(_archive.Manifest.SourceManifest.NameDataPolicy,
                 Is.EqualTo("editor-original-source-v2"));
             Assert.That(_archive.Persons.All(person => !string.IsNullOrWhiteSpace(person.OriginalName)), Is.True);
-            Assert.That(_archive.Persons.All(person => string.IsNullOrWhiteSpace(person.FictionalName)), Is.True);
             Assert.That(_archive.PlayerRows.All(row => row.IsOriginalSource), Is.True);
             Assert.That(_archive.PlayerRows.All(row => row.SourceReferenceNames.Count == 1), Is.True);
             Assert.That(_archive.PlayerRows.All(row => row.SourceReferenceNames[0] == row.Name), Is.True);
@@ -115,7 +114,11 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(success.Numerator, Is.EqualTo(1d));
             Assert.That(success.Denominator, Is.EqualTo(1d));
             Assert.That(success.Reliability, Is.EqualTo(1d / 21d).Within(1e-8));
-            Assert.That(row.Season.CostDerivationTrace.PopulationCount, Is.EqualTo(567));
+            int hitterCount = _archive.PlayerRows.Count(candidate =>
+                candidate.OriginYear == 2020 && candidate.Season.PlayerType == "Hitter");
+            Assert.That(row.Season.CostDerivationTrace.PopulationCount, Is.EqualTo(hitterCount));
+            Assert.That(row.Season.CostDerivationTrace.CostPopulationSource,
+                Is.EqualTo("OriginYearHitterSourceBacked"));
             Assert.That(row.Cost, Is.EqualTo(row.Season.CostDerivationTrace.Cost));
             Assert.That(row.Season.CostDerivationTrace.Rank,
                 Is.InRange(1, row.Season.CostDerivationTrace.PopulationCount));
@@ -153,23 +156,26 @@ namespace Baseball.Tests.EditMode.Editor
         {
             HistoricalSourceManifest manifest = _archive.Manifest.SourceManifest;
 
-            Assert.That(_archive.Manifest.ContentSchemaVersion, Is.EqualTo(4));
+            Assert.That(_archive.Manifest.ContentSchemaVersion, Is.EqualTo(5));
             Assert.That(manifest.ReferenceDataVersion, Is.EqualTo("kbo-normalized-v3"));
             Assert.That(manifest.RawDataVersion, Has.Length.EqualTo(64));
             Assert.That(manifest.NormalizedContentHash, Has.Length.EqualTo(64));
-            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v3"));
+            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v4"));
             Assert.That(manifest.PositionRoleClassifierVersion, Is.EqualTo("season-position-role-v4"));
             Assert.That(manifest.RosterBuilderVersion, Is.EqualTo("position-first-core25-v2"));
-            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-role-composite-v3"));
-            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v4"));
+            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-role-composite-v6"));
+            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v8"));
             Assert.That(manifest.SourceIdentityPolicyVersion, Is.EqualTo("editor-source-identity-v1"));
             Assert.That(manifest.SourceAllocationPolicyVersion, Is.EqualTo("official-source-team-audit-v1"));
-            Assert.That(manifest.ReplacementGeneratorVersion, Is.EqualTo("replacement-generation-v1"));
+            Assert.That(manifest.ReplacementGeneratorVersion, Is.EqualTo("quota-fallback-percentile-v2"));
             Assert.That(manifest.ReplacementPopulationPolicyVersion, Is.EqualTo("origin-year-position-role-source-only-v1"));
             Assert.That(manifest.SourceBackedPlayerPersonCount, Is.EqualTo(_archive.Persons.Count));
             Assert.That(manifest.SourceBackedPlayerSeasonCount, Is.EqualTo(_archive.PlayerRows.Count));
             Assert.That(manifest.ReplacementGeneratedPlayerPersonCount, Is.Zero);
             Assert.That(manifest.ReplacementGeneratedPlayerSeasonCount, Is.Zero);
+            Assert.That(manifest.GenerationSeedAffectsCanonicalBake, Is.False);
+            Assert.That(manifest.SourceFranchiseIdentityPolicyVersion, Is.EqualTo("editor-source-franchise-id-v1"));
+            Assert.That(manifest.SourceTeamSeasonIdentityPolicyVersion, Is.EqualTo("editor-source-team-season-id-v1"));
         }
 
         [Test]
@@ -306,7 +312,12 @@ namespace Baseball.Tests.EditMode.Editor
                 new HistoricalDatabaseValidationService().Validate(runtimeArchive);
 
             Assert.That(runtimeArchive.Manifest.SourceManifest.NameDataPolicy,
-                Is.EqualTo("runtime-fictional-only-v2"));
+                Is.EqualTo("runtime-world-identity-pool-v3"));
+            Assert.That(runtimeArchive.Manifest.SourceManifest.GenerationSeedAffectsCanonicalBake, Is.False);
+            Assert.That(runtimeArchive.Manifest.SourceManifest.SourceFranchiseIdentityPolicyVersion,
+                Is.EqualTo("source-franchise-identity-v1"));
+            Assert.That(runtimeArchive.Manifest.SourceManifest.SourceTeamSeasonIdentityPolicyVersion,
+                Is.EqualTo("source-team-season-identity-v1"));
             Assert.That(runtimeArchive.PlayerRows.Any(row =>
                 row.Season.DataProvenance == "ReplacementGenerated" &&
                 row.PlayerPersonId.StartsWith("REPL-PERSON-", StringComparison.Ordinal) &&

@@ -45,19 +45,19 @@ namespace Baseball.Game.Historical
     {
         public const int SupportedAssetFormatVersion = 1;
         public const int MinimumSupportedContentSchemaVersion = 3;
-        public const int SupportedContentSchemaVersion = 4;
+        public const int SupportedContentSchemaVersion = 5;
         public const string SupportedReferenceDataVersion = "kbo-normalized-v3";
         public const int SupportedNormalizedSchemaVersion = 3;
         public const string SupportedNormalizedImporterVersion = "1.2.0";
-        public const string SupportedAbilityFormulaVersion = "historical-ability-v3";
+        public const string SupportedAbilityFormulaVersion = "historical-ability-v4";
         public const string SupportedPositionRoleClassifierVersion = "season-position-role-v4";
         public const string SupportedRosterBuilderVersion = "position-first-core25-v2";
-        public const string SupportedCostFormulaVersion = "historical-role-composite-v3";
-        public const string SupportedDerivationBalanceVersion = "historical-derivation-balance-v4";
-        public const string SupportedGeneratorVersion = "source-backed-runtime-bake-v1";
-        public const string SupportedBalanceVersion = "historical-source-backed-v1";
-        public const string SupportedNamePolicyVersion = "source-backed-fictional-name-v1";
-        public const string SupportedNameDataPolicy = "runtime-fictional-only-v2";
+        public const string SupportedCostFormulaVersion = "historical-role-composite-v6";
+        public const string SupportedDerivationBalanceVersion = "historical-derivation-balance-v8";
+        public const string SupportedGeneratorVersion = "source-backed-runtime-bake-v2";
+        public const string SupportedBalanceVersion = "historical-source-backed-v2";
+        public const string SupportedNamePolicyVersion = "world-identity-name-pool-v1";
+        public const string SupportedNameDataPolicy = "runtime-world-identity-pool-v3";
 
         private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
         private readonly HistoricalRuntimeContentCatalog _catalog;
@@ -112,7 +112,8 @@ namespace Baseball.Game.Historical
                 manifestDto.PlayerPersons.Path,
                 personsPayload.Sha256));
             contentHashVerifier.AppendPlayerPersons(personsPayload.Bytes);
-            HistoricalRuntimePlayerPersonDto[] personDtos = ParsePersonArray(personsPayload);
+            HistoricalRuntimePlayerPersonArrayDto personPayload = ParsePersonArray(personsPayload);
+            HistoricalRuntimePlayerPersonDto[] personDtos = personPayload.Items;
             ValidateCount(
                 "PlayerPerson",
                 manifestDto.PlayerPersons.Count,
@@ -169,7 +170,27 @@ namespace Baseball.Game.Historical
                 totalCards,
                 totalRecords,
                 totalAwards);
-            return new HistoricalBakedContent(manifest, persons, years);
+            HistoricalRuntimeWorldIdentityNamePoolDto identityPool = personPayload.WorldIdentityNamePool;
+            if (manifestDto.ContentSchemaVersion >= 5 && identityPool == null)
+            {
+                throw new HistoricalContentLoadException(
+                    "Content Schema v5에는 worldIdentityNamePool이 필요합니다.",
+                    personsPayload.RelativePath);
+            }
+            if (identityPool != null)
+            {
+                ValidateVersion(
+                    "worldIdentityNamePool.version",
+                    SupportedNamePolicyVersion,
+                    identityPool.Version);
+            }
+            WorldIdentityNameCatalog identityNames = identityPool == null
+                ? null
+                : new WorldIdentityNameCatalog(
+                    identityPool.DomesticPlayerNames,
+                    identityPool.ForeignPlayerNames,
+                    identityPool.FranchiseNames);
+            return new HistoricalBakedContent(manifest, persons, years, identityNames);
         }
 
         private static HistoricalContentManifest BuildManifest(HistoricalRuntimeManifestDto source)
@@ -274,6 +295,21 @@ namespace Baseball.Game.Historical
                     "replacementGeneratedPlayerSeasonCount",
                     sourceManifest.ReplacementGeneratedPlayerSeasonCount);
             }
+            if (source.ContentSchemaVersion >= 5)
+            {
+                ValidateRequiredVersion(
+                    "sourceFranchiseIdentityPolicyVersion",
+                    sourceManifest.SourceFranchiseIdentityPolicyVersion);
+                ValidateRequiredVersion(
+                    "sourceTeamSeasonIdentityPolicyVersion",
+                    sourceManifest.SourceTeamSeasonIdentityPolicyVersion);
+                if (sourceManifest.GenerationSeedAffectsCanonicalBake)
+                {
+                    throw new HistoricalContentLoadException(
+                        "Canonical Bake는 generationSeed에 의존할 수 없습니다.",
+                        "manifest.json");
+                }
+            }
             if (sourceManifest.GenerationSeed < 0)
                 throw new HistoricalContentLoadException("generationSeed는 음수일 수 없습니다.", "manifest.json");
             if (!IsSha256(sourceManifest.ContentHash))
@@ -292,7 +328,10 @@ namespace Baseball.Game.Historical
                 sourceManifest.SourceBackedPlayerPersonCount,
                 sourceManifest.SourceBackedPlayerSeasonCount,
                 sourceManifest.ReplacementGeneratedPlayerPersonCount,
-                sourceManifest.ReplacementGeneratedPlayerSeasonCount);
+                sourceManifest.ReplacementGeneratedPlayerSeasonCount,
+                sourceManifest.GenerationSeedAffectsCanonicalBake,
+                sourceManifest.SourceFranchiseIdentityPolicyVersion,
+                sourceManifest.SourceTeamSeasonIdentityPolicyVersion);
             return new HistoricalContentManifest(
                 source.AssetFormatVersion,
                 source.ContentSchemaVersion,
@@ -432,16 +471,16 @@ namespace Baseball.Game.Historical
             }
         }
 
-        private static HistoricalRuntimePlayerPersonDto[] ParsePersonArray(VerifiedPayload payload)
+        private static HistoricalRuntimePlayerPersonArrayDto ParsePersonArray(VerifiedPayload payload)
         {
             string trimmed = payload.Text.TrimStart();
-            if (trimmed.Length == 0 || trimmed[0] != '[')
-                throw new HistoricalContentLoadException("PlayerPerson JSON Root는 배열이어야 합니다.", payload.RelativePath);
-            HistoricalRuntimePlayerPersonArrayDto result = ParseJson<HistoricalRuntimePlayerPersonArrayDto>(
-                "{\"items\":" + payload.Text + "}",
+            if (trimmed.Length == 0 || (trimmed[0] != '[' && trimmed[0] != '{'))
+                throw new HistoricalContentLoadException("PlayerPerson JSON Root 형식이 올바르지 않습니다.", payload.RelativePath);
+            string json = trimmed[0] == '[' ? "{\"items\":" + payload.Text + "}" : payload.Text;
+            return ParseJson<HistoricalRuntimePlayerPersonArrayDto>(
+                json,
                 payload.RelativePath,
                 null);
-            return result.Items;
         }
 
         private static HistoricalYearContentDefinition MapYear(
@@ -504,7 +543,6 @@ namespace Baseball.Game.Historical
             {
                 return new PlayerPersonDefinition(
                     source.PlayerPersonId,
-                    source.FictionalName,
                     source.BirthYear,
                     ParseHandedness(source.Bats, "bats"),
                     ParseHandedness(source.Throws, "throws"),
@@ -916,6 +954,25 @@ namespace Baseball.Game.Historical
                         "manifest.json");
                 }
             }
+            if (contentSchemaVersion >= 5)
+            {
+                string[] canonicalFields =
+                {
+                    "generationSeedAffectsCanonicalBake",
+                    "sourceFranchiseIdentityPolicyVersion",
+                    "sourceTeamSeasonIdentityPolicyVersion"
+                };
+                for (int index = 0; index < canonicalFields.Length; index++)
+                {
+                    string property = $"\"{canonicalFields[index]}\"";
+                    if (json.IndexOf(property, objectStart, length, StringComparison.Ordinal) < 0)
+                    {
+                        throw new HistoricalContentLoadException(
+                            $"Content Schema v5의 sourceManifest에 {canonicalFields[index]} 필드가 없습니다.",
+                            "manifest.json");
+                    }
+                }
+            }
         }
 
         private static int FindJsonObjectEnd(string json, int objectStart)
@@ -1151,6 +1208,18 @@ namespace Baseball.Game.Historical
 
             public void AppendPlayerPersons(byte[] payload)
             {
+                if (_contentSchemaVersion >= 5)
+                {
+                    string json = DecodeCanonicalPayload(payload);
+                    AppendUtf8(ExtractCanonicalPropertyValue(json, "items"));
+                    AppendUtf8(",\"schemaVersion\":");
+                    AppendUtf8(_contentSchemaVersion.ToString(CultureInfo.InvariantCulture));
+                    AppendUtf8(",\"worldIdentityNamePool\":");
+                    AppendUtf8(ExtractCanonicalPropertyValue(json, "worldIdentityNamePool"));
+                    AppendUtf8(",\"years\":[");
+                    return;
+                }
+
                 AppendCanonicalPayload(payload);
                 AppendUtf8(",\"schemaVersion\":");
                 AppendUtf8(_contentSchemaVersion.ToString(CultureInfo.InvariantCulture));
@@ -1203,8 +1272,13 @@ namespace Baseball.Game.Historical
                 builder.Append("\",\"derivationBalanceVersion\":\"");
                 AppendJsonEscaped(builder, source.DerivationBalanceVersion);
                 builder.Append("\",\"generationSeed\":")
-                    .Append(source.GenerationSeed.ToString(CultureInfo.InvariantCulture))
-                    .Append(",\"generatorVersion\":\"");
+                    .Append(source.GenerationSeed.ToString(CultureInfo.InvariantCulture));
+                if (contentSchemaVersion >= 5)
+                {
+                    builder.Append(",\"generationSeedAffectsCanonicalBake\":")
+                        .Append(source.GenerationSeedAffectsCanonicalBake ? "true" : "false");
+                }
+                builder.Append(",\"generatorVersion\":\"");
                 AppendJsonEscaped(builder, source.GeneratorVersion);
                 builder.Append("\",\"nameDataPolicy\":\"");
                 AppendJsonEscaped(builder, source.NameDataPolicy);
@@ -1242,9 +1316,23 @@ namespace Baseball.Game.Historical
                     builder.Append("\",\"sourceBackedPlayerPersonCount\":")
                         .Append(source.SourceBackedPlayerPersonCount.ToString(CultureInfo.InvariantCulture))
                         .Append(",\"sourceBackedPlayerSeasonCount\":")
-                        .Append(source.SourceBackedPlayerSeasonCount.ToString(CultureInfo.InvariantCulture))
-                        .Append(",\"sourceIdentityPolicyVersion\":\"");
+                        .Append(source.SourceBackedPlayerSeasonCount.ToString(CultureInfo.InvariantCulture));
+                    if (contentSchemaVersion >= 5)
+                    {
+                        builder.Append(",\"sourceFranchiseIdentityPolicyVersion\":\"");
+                        AppendJsonEscaped(builder, source.SourceFranchiseIdentityPolicyVersion);
+                        builder.Append("\",\"sourceIdentityPolicyVersion\":\"");
+                    }
+                    else
+                    {
+                        builder.Append(",\"sourceIdentityPolicyVersion\":\"");
+                    }
                     AppendJsonEscaped(builder, source.SourceIdentityPolicyVersion);
+                    if (contentSchemaVersion >= 5)
+                    {
+                        builder.Append("\",\"sourceTeamSeasonIdentityPolicyVersion\":\"");
+                        AppendJsonEscaped(builder, source.SourceTeamSeasonIdentityPolicyVersion);
+                    }
                 }
                 builder.Append("\"}");
                 AppendUtf8(builder.ToString());
@@ -1263,6 +1351,79 @@ namespace Baseball.Game.Historical
                 if (count == 0)
                     throw new HistoricalContentLoadException("contentHash 대상 JSON이 비어 있습니다.");
                 AppendBytes(payload, 0, count);
+            }
+
+            private static string DecodeCanonicalPayload(byte[] payload)
+            {
+                if (payload == null || payload.Length == 0)
+                    throw new HistoricalContentLoadException("contentHash 대상 payload가 비어 있습니다.");
+                string json = Encoding.UTF8.GetString(payload);
+                if (json.Length > 0 && json[0] == '\uFEFF')
+                    json = json.Substring(1);
+                return json.TrimEnd('\r', '\n');
+            }
+
+            private static string ExtractCanonicalPropertyValue(string json, string propertyName)
+            {
+                string token = "\"" + propertyName + "\":";
+                int propertyIndex = json.IndexOf(token, StringComparison.Ordinal);
+                if (propertyIndex < 0)
+                {
+                    throw new HistoricalContentLoadException(
+                        $"contentHash 대상 PlayerPerson payload에 {propertyName} 값이 없습니다.");
+                }
+
+                int start = propertyIndex + token.Length;
+                while (start < json.Length && char.IsWhiteSpace(json[start]))
+                    start++;
+                if (start >= json.Length || (json[start] != '[' && json[start] != '{'))
+                {
+                    throw new HistoricalContentLoadException(
+                        $"contentHash 대상 {propertyName} JSON 값이 배열 또는 객체가 아닙니다.");
+                }
+
+                int depth = 0;
+                bool isInsideString = false;
+                bool isEscaped = false;
+                for (int index = start; index < json.Length; index++)
+                {
+                    char character = json[index];
+                    if (isInsideString)
+                    {
+                        if (isEscaped)
+                        {
+                            isEscaped = false;
+                            continue;
+                        }
+                        if (character == '\\')
+                        {
+                            isEscaped = true;
+                            continue;
+                        }
+                        if (character == '"')
+                            isInsideString = false;
+                        continue;
+                    }
+
+                    if (character == '"')
+                    {
+                        isInsideString = true;
+                        continue;
+                    }
+                    if (character == '[' || character == '{')
+                    {
+                        depth++;
+                        continue;
+                    }
+                    if (character != ']' && character != '}')
+                        continue;
+                    depth--;
+                    if (depth == 0)
+                        return json.Substring(start, index - start + 1);
+                }
+
+                throw new HistoricalContentLoadException(
+                    $"contentHash 대상 {propertyName} JSON 값이 닫히지 않았습니다.");
             }
 
             private void AppendUtf8(string value)

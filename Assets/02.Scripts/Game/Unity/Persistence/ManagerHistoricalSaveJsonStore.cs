@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Baseball.Game.Unity.Persistence
 {
-    /// <summary>주입된 파일 경로에 감독모드 DTO를 UTF-8 JSON으로 저장하고 복원한다.</summary>
+    /// <summary>주입된 파일 경로에 구단주 모드 DTO를 UTF-8 JSON으로 저장하고 복원한다.</summary>
     public sealed class ManagerHistoricalSaveJsonStore
     {
         private readonly string _filePath;
@@ -35,7 +35,7 @@ namespace Baseball.Game.Unity.Persistence
         public ManagerHistoricalSaveData Load()
         {
             if (!File.Exists(_filePath))
-                throw new FileNotFoundException("감독모드 세이브 파일을 찾을 수 없습니다.", _filePath);
+                throw new FileNotFoundException("구단주 모드 세이브 파일을 찾을 수 없습니다.", _filePath);
             return Deserialize(File.ReadAllText(_filePath, Encoding.UTF8));
         }
 
@@ -49,7 +49,7 @@ namespace Baseball.Game.Unity.Persistence
         public static ManagerHistoricalSaveData Deserialize(string json)
         {
             if (string.IsNullOrWhiteSpace(json))
-                throw new InvalidDataException("감독모드 세이브 JSON이 비어 있습니다.");
+                throw new InvalidDataException("구단주 모드 세이브 JSON이 비어 있습니다.");
 
             ManagerHistoricalSaveData saveData;
             try
@@ -58,9 +58,9 @@ namespace Baseball.Game.Unity.Persistence
             }
             catch (ArgumentException exception)
             {
-                throw new InvalidDataException("감독모드 세이브 JSON 형식이 잘못되었습니다.", exception);
+                throw new InvalidDataException("구단주 모드 세이브 JSON 형식이 잘못되었습니다.", exception);
             }
-            return saveData ?? throw new InvalidDataException("감독모드 세이브 JSON을 복원하지 못했습니다.");
+            return saveData ?? throw new InvalidDataException("구단주 모드 세이브 JSON을 복원하지 못했습니다.");
         }
     }
 

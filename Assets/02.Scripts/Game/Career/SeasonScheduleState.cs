@@ -39,6 +39,8 @@ namespace Baseball.Game.Career
         public int HomeRuns { get; private set; }
         public bool HasPlayerRolePlan { get; private set; }
         public PlayerGameRole PlannedPlayerRole { get; private set; }
+        public bool HasPlayerRoleDecision { get; private set; }
+        public ManagerUsageDecision PlayerRoleDecision { get; private set; }
 
         /// <summary>
         /// 화면 표시와 실제 경기 입력이 같은 판단을 쓰도록 기용 결정을 경기 상태에 고정한다.
@@ -49,6 +51,22 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("완료된 경기의 기용 계획은 바꿀 수 없습니다.");
             PlannedPlayerRole = role;
             HasPlayerRolePlan = true;
+            HasPlayerRoleDecision = false;
+            PlayerRoleDecision = default;
+        }
+
+        /// <summary>실제 경기 역할과 감독 AI의 설명 가능한 판단 근거를 함께 고정한다.</summary>
+        public void PlanPlayerRole(ManagerUsageDecision decision)
+        {
+            if (IsCompleted)
+                throw new InvalidOperationException("완료된 경기의 기용 계획은 바꿀 수 없습니다.");
+            if (decision.Reason == ManagerUsageDecisionReason.Unspecified)
+                throw new ArgumentException("판단 근거가 없는 기용 결정은 저장할 수 없습니다.", nameof(decision));
+
+            PlannedPlayerRole = decision.Role;
+            PlayerRoleDecision = decision;
+            HasPlayerRolePlan = true;
+            HasPlayerRoleDecision = true;
         }
 
         /// <summary>

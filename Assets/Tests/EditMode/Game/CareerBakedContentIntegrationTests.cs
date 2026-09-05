@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Game.Historical;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game
@@ -14,21 +16,41 @@ namespace Baseball.Tests.EditMode.Game
     public sealed class CareerBakedContentIntegrationTests
     {
         [Test]
+        public void HistoricalCareerProvider_명시적League연도정책을요구한다()
+        {
+            var source = new NullHistoricalContentProvider();
+            BalanceTable balance = BalanceTable.CreateDefault();
+
+            Assert.Throws<ArgumentException>(() =>
+                new HistoricalCareerBakedContentProvider(source, balance, Array.Empty<int>()));
+            Assert.Throws<ArgumentException>(() =>
+                new HistoricalCareerBakedContentProvider(
+                    source,
+                    balance,
+                    new[] { 2025, 2025, 2025, 2025, 2025, 2025, 2025, 2025, 2025, 2025 }));
+            Assert.DoesNotThrow(() =>
+                new HistoricalCareerBakedContentProvider(
+                    source,
+                    balance,
+                    new[] { 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025 }));
+        }
+
+        [Test]
         public void HistoricalNewGame_BakedCore25로모든리그를만들고Runtime생성경로를우회한다()
         {
-            CareerBakedContent content = CreateContent(WorldRecordMode.OriginalHistory, 91001UL);
+            CareerBakedContent content = CreateContent(WorldRecordMode.SimulatedHistory, 91001UL);
             var provider = new RecordingProvider(content);
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault()
-                .WithBakedHistoricalContent(provider, WorldRecordMode.OriginalHistory);
+                .WithBakedHistoricalContent(provider);
             NewGameFlow flow = CreatePlayerCard(configuration, 91001UL);
 
             flow.GenerateOffers();
 
             Assert.That(provider.LoadCount, Is.EqualTo(1));
-            Assert.That(provider.LastRequest.RecordMode, Is.EqualTo(WorldRecordMode.OriginalHistory));
+            Assert.That(provider.LastRequest.RecordMode, Is.EqualTo(WorldRecordMode.SimulatedHistory));
             Assert.That(provider.LastRequest.WorldHistorySeed, Is.EqualTo(91001UL));
             Assert.That(flow.State.SetupResult.Teams.Length, Is.EqualTo(10));
-            Assert.That(flow.State.SetupResult.Teams[0].Name, Does.StartWith("Baked "));
+            Assert.That(flow.State.SetupResult.Teams[0].Name, Does.StartWith("테스트 구단"));
 
             flow.SelectOffer(flow.State.SetupResult.Offers[0].Team.TeamId);
             flow.SignSelectedOffer();
@@ -68,7 +90,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void CareerSaveRoot_감독모드OwnedEconomy타입을소유하지않는다()
+        public void CareerSaveRoot_구단주모드OwnedEconomy타입을소유하지않는다()
         {
             Type[] careerTypes =
             {
@@ -96,7 +118,7 @@ namespace Baseball.Tests.EditMode.Game
                         Assert.That(
                             ContainsType(properties[propertyIndex].PropertyType, forbiddenTypes[forbiddenIndex]),
                             Is.False,
-                            $"{careerTypes[typeIndex].Name}.{properties[propertyIndex].Name}에 감독모드 소유 경제가 유출됐습니다.");
+                            $"{careerTypes[typeIndex].Name}.{properties[propertyIndex].Name}에 구단주 모드 소유 경제가 유출됐습니다.");
                     }
                 }
 
@@ -109,7 +131,7 @@ namespace Baseball.Tests.EditMode.Game
                         Assert.That(
                             ContainsType(fields[fieldIndex].FieldType, forbiddenTypes[forbiddenIndex]),
                             Is.False,
-                            $"{careerTypes[typeIndex].Name}.{fields[fieldIndex].Name}에 감독모드 소유 경제가 유출됐습니다.");
+                            $"{careerTypes[typeIndex].Name}.{fields[fieldIndex].Name}에 구단주 모드 소유 경제가 유출됐습니다.");
                     }
                 }
             }
@@ -134,6 +156,16 @@ namespace Baseball.Tests.EditMode.Game
                 bakedContentProvider: null));
         }
 
+        [Test]
+        public void BakedConfiguration_OriginalHistory는Production선택에서거부한다()
+        {
+            CareerBakedContent content = CreateContent(WorldRecordMode.SimulatedHistory, 1UL);
+            var provider = new RecordingProvider(content);
+
+            Assert.Throws<ArgumentException>(() => NewGameConfiguration.CreateDefault()
+                .WithBakedHistoricalContent(provider, WorldRecordMode.OriginalHistory));
+        }
+
         private static void CompleteContract(NewGameFlow flow)
         {
             flow.GenerateOffers();
@@ -144,7 +176,7 @@ namespace Baseball.Tests.EditMode.Game
         private static PlayerState FindBakedPlayer(IReadOnlyList<PlayerState> players)
         {
             for (int index = 0; index < players.Count; index++)
-                if (players[index].Name.StartsWith("Baked ", StringComparison.Ordinal)) return players[index];
+                if (players[index].Name.StartsWith("테스트 선수", StringComparison.Ordinal)) return players[index];
             throw new AssertionException("Baked 일반 선수를 찾을 수 없습니다.");
         }
 
@@ -189,7 +221,6 @@ namespace Baseball.Tests.EditMode.Game
                         var ceiling = new AbilityRatings(70);
                         persons.Add(new PlayerPersonDefinition(
                             personId,
-                            $"Baked {personId}",
                             birthYear: 1995,
                             Handedness.Right,
                             Handedness.Right,
@@ -247,12 +278,34 @@ namespace Baseball.Tests.EditMode.Game
                 worldHistorySeed,
                 Array.Empty<SeasonStatistics>(),
                 new WorldAwardRecord(Array.Empty<WorldAwardEntry>()));
+            var playerIdentities = new WorldPlayerIdentity[persons.Count];
+            for (int index = 0; index < playerIdentities.Length; index++)
+            {
+                playerIdentities[index] = new WorldPlayerIdentity(
+                    persons[index].PlayerPersonId,
+                    CreateDisplayName("테스트 선수", index));
+            }
+            var franchiseIdentities = new WorldFranchiseIdentity[10];
+            for (int index = 0; index < franchiseIdentities.Length; index++)
+            {
+                franchiseIdentities[index] = new WorldFranchiseIdentity(
+                    $"F{index:D2}",
+                    CreateDisplayName("테스트 구단", index));
+            }
             return new CareerBakedContent(
                 new HistoricalSourceContentManifest("test-reference", "test-generator", "test-balance", 1UL, "test-hash"),
                 persons,
                 catalog,
                 teams,
-                history);
+                history,
+                new WorldIdentityRegistry("test-v1", worldHistorySeed, playerIdentities, franchiseIdentities));
+        }
+
+        private static string CreateDisplayName(string prefix, int index)
+        {
+            char first = (char)(0xAC00 + index / 100);
+            char second = (char)(0xAC00 + index % 100);
+            return prefix + first + second;
         }
 
         private static ActiveRosterRole GetRole(int playerIndex)
@@ -311,6 +364,14 @@ namespace Baseball.Tests.EditMode.Game
                 LoadCount++;
                 LastRequest = request;
                 return _content;
+            }
+        }
+
+        private sealed class NullHistoricalContentProvider : IHistoricalContentProvider
+        {
+            public HistoricalBakedContent Load()
+            {
+                return null;
             }
         }
     }

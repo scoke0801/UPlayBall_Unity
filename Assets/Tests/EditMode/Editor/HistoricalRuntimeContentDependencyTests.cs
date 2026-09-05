@@ -43,7 +43,7 @@ namespace Baseball.Tests.EditMode.Editor
 
             Assert.That(provider, Is.TypeOf<UnityHistoricalContentProvider>());
             Assert.That(content.Years.Count, Is.EqualTo(44));
-            Assert.That(content.Manifest.NameDataPolicy, Is.EqualTo("runtime-fictional-only-v2"));
+            Assert.That(content.Manifest.NameDataPolicy, Is.EqualTo("runtime-world-identity-pool-v3"));
         }
 
         [Test]

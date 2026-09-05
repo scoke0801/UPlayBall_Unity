@@ -28,6 +28,20 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(restored.PlayerTeamSeasonKey, Is.EqualTo(original.PlayerTeamSeasonKey));
             Assert.That(restored.WorldHistory.RecordMode, Is.EqualTo(WorldRecordMode.SimulatedHistory));
             Assert.That(restored.WorldHistory.WorldHistorySeed, Is.EqualTo(77123UL));
+            Assert.That(restored.WorldHistory.TeamStatistics.Count, Is.EqualTo(10));
+            Assert.That(restored.WorldHistory.TeamStatistics[0].Wins, Is.EqualTo(10));
+            Assert.That(restored.WorldHistory.Standings[0].TeamSeasonKey, Is.EqualTo("TEAM-00"));
+            Assert.That(restored.WorldHistory.PostseasonResults[0].ChampionTeamSeasonKey, Is.EqualTo("TEAM-00"));
+            Assert.That(
+                restored.IdentityRegistry.IdentityGeneratorVersion,
+                Is.EqualTo(original.IdentityRegistry.IdentityGeneratorVersion));
+            Assert.That(restored.IdentityRegistry.IdentitySeed, Is.EqualTo(original.IdentityRegistry.IdentitySeed));
+            Assert.That(
+                restored.IdentityRegistry.GetPlayerDisplayName("PP-000"),
+                Is.EqualTo(original.IdentityRegistry.GetPlayerDisplayName("PP-000")));
+            Assert.That(
+                restored.IdentityRegistry.GetFranchiseDisplayName("FRANCHISE-00"),
+                Is.EqualTo(original.IdentityRegistry.GetFranchiseDisplayName("FRANCHISE-00")));
             Assert.That(restored.League.RegularFranchiseTeamCount, Is.EqualTo(10));
             Assert.That(restored.Rosters.Count, Is.EqualTo(10));
             Assert.That(restored.OwnedCards.Count, Is.EqualTo(25));
@@ -45,7 +59,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
 
         [TestCase(WorldRecordMode.OriginalHistory)]
         [TestCase(WorldRecordMode.SimulatedHistory)]
-        public void Restore_WithSavedSnapshot_DoesNotRunHistoricalSimulation(WorldRecordMode mode)
+        public void Restore_LegacyOriginal또는SimulatedSnapshot은HistoricalSimulation을실행하지않는다(WorldRecordMode mode)
         {
             FixtureData fixture = Fixture.Create(mode);
             ManagerHistoricalRuntimeState original = fixture.State;
@@ -62,10 +76,35 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(constructor.GetParameters()[0].ParameterType, Is.EqualTo(typeof(ManagerHistoricalSaveAdapter)));
         }
 
+        [TestCase(2)]
+        [TestCase(ManagerHistoricalSaveAdapter.CurrentSaveVersion)]
+        public void Restore_Identity포함Save는확정된DisplayName을Seed로재생성하지않는다(int saveVersion)
+        {
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
+            ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            ManagerHistoricalSaveData save = adapter.CreateSaveData(fixture.State);
+            save.saveVersion = saveVersion;
+            string playerPersonId = save.identityRegistry.players[0].playerPersonId;
+            string franchiseId = save.identityRegistry.franchises[0].franchiseId;
+            save.identityRegistry.identityGeneratorVersion = "save-preserved-v99";
+            save.identityRegistry.identitySeed = 999_999UL;
+            save.identityRegistry.players[0].displayName = "세이브보존명";
+            save.identityRegistry.franchises[0].displayName = "보존시티 유니콘즈";
+
+            ManagerHistoricalRuntimeState restored = adapter.Restore(save);
+
+            Assert.That(restored.IdentityRegistry.IdentityGeneratorVersion, Is.EqualTo("save-preserved-v99"));
+            Assert.That(restored.IdentityRegistry.IdentitySeed, Is.EqualTo(999_999UL));
+            Assert.That(restored.IdentityRegistry.GetPlayerDisplayName(playerPersonId), Is.EqualTo("세이브보존명"));
+            Assert.That(restored.IdentityRegistry.GetFranchiseDisplayName(franchiseId), Is.EqualTo("보존시티 유니콘즈"));
+            Assert.That(restored.WorldHistory.WorldHistorySeed, Is.EqualTo(77123UL));
+            Assert.That(fixture.Provider.LoadCount, Is.EqualTo(1));
+        }
+
         [Test]
         public void RuntimeState_ExposesOwnedEconomyOnlyForPlayerFranchise()
         {
-            ManagerHistoricalRuntimeState state = Fixture.Create(WorldRecordMode.OriginalHistory).State;
+            ManagerHistoricalRuntimeState state = Fixture.Create(WorldRecordMode.SimulatedHistory).State;
 
             Assert.That(state.HasOwnedEconomy("TEAM-00"), Is.True);
             Assert.That(state.HasOwnedEconomy("TEAM-01"), Is.False);
@@ -94,7 +133,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
         [Test]
         public void Restore_WithUnknownSaveVersion_IsRejected()
         {
-            FixtureData fixture = Fixture.Create(WorldRecordMode.OriginalHistory);
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
             ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
             ManagerHistoricalSaveData save = adapter.CreateSaveData(fixture.State);
             save.saveVersion++;
@@ -105,7 +144,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
         [Test]
         public void Restore_WithDifferentContentHash_IsRejected()
         {
-            FixtureData fixture = Fixture.Create(WorldRecordMode.OriginalHistory);
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
             ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
             ManagerHistoricalSaveData save = adapter.CreateSaveData(fixture.State);
             save.contentReference.contentHash = "damaged-content";
@@ -168,6 +207,20 @@ namespace Baseball.Tests.EditMode.Game.Historical
 
             Assert.That(exception.Message, Does.Contain("SeasonYear"));
             Assert.That(exception.Message, Does.Contain("saved=2023"));
+        }
+
+        [Test]
+        public void Restore_WithUnknownStandingTeamSeason_IsRejected()
+        {
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
+            ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            ManagerHistoricalSaveData save = adapter.CreateSaveData(fixture.State);
+            save.worldHistory.standings[0].teamSeasonKey = "TEAM-NOT-FOUND";
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => adapter.Restore(save));
+
+            Assert.That(exception.Message, Does.Contain("순위"));
+            Assert.That(exception.Message, Does.Contain("TEAM-NOT-FOUND"));
         }
 
         [Test]
@@ -386,7 +439,6 @@ namespace Baseball.Tests.EditMode.Game.Historical
                             : PitcherRole.Starter;
                         persons.Add(new PlayerPersonDefinition(
                             playerPersonId,
-                            $"선수 {playerIndex:000}",
                             1998,
                             Handedness.Right,
                             Handedness.Right,
@@ -466,11 +518,53 @@ namespace Baseball.Tests.EditMode.Game.Historical
                         defensiveOutsAboveAverage: 4,
                         fieldingErrors: 3)
                 };
-                var history = new WorldHistorySnapshot(
-                    mode,
-                    77123UL,
-                    historyStatistics,
-                    new WorldAwardRecord(awards));
+                WorldHistorySnapshot history;
+                if (mode == WorldRecordMode.SimulatedHistory)
+                {
+                    var teamStatistics = new TeamSeasonStatistics[teamKeys.Length];
+                    var standings = new HistoricalStandingEntry[teamKeys.Length];
+                    for (int index = 0; index < teamKeys.Length; index++)
+                    {
+                        teamStatistics[index] = new TeamSeasonStatistics(
+                            teamKeys[index],
+                            2024,
+                            10,
+                            10 - index,
+                            index,
+                            0,
+                            50 - index,
+                            30 + index,
+                            300,
+                            80 - index,
+                            270,
+                            20 + index,
+                            70 + index,
+                            20 + index);
+                        standings[index] = new HistoricalStandingEntry(2024, index + 1, teamKeys[index]);
+                    }
+                    history = new WorldHistorySnapshot(
+                        mode,
+                        77123UL,
+                        historyStatistics,
+                        teamStatistics,
+                        standings,
+                        new[]
+                        {
+                            new HistoricalPostseasonResult(
+                                2024,
+                                new[] { teamKeys[0], teamKeys[1], teamKeys[2], teamKeys[3] },
+                                teamKeys[0])
+                        },
+                        new WorldAwardRecord(awards));
+                }
+                else
+                {
+                    history = new WorldHistorySnapshot(
+                        mode,
+                        77123UL,
+                        historyStatistics,
+                        new WorldAwardRecord(awards));
+                }
 
                 var manifest = new HistoricalContentManifest(
                     1,
@@ -489,8 +583,13 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     teamSeasons,
                     Array.Empty<OriginalSeasonRecordDefinition>(),
                     Array.Empty<OriginalAwardRecordDefinition>());
-                var provider = new RecordingHistoricalContentProvider(
-                    new HistoricalBakedContent(manifest, persons, new[] { year }));
+                var bakedContent = new HistoricalBakedContent(manifest, persons, new[] { year });
+                var provider = new RecordingHistoricalContentProvider(bakedContent);
+                WorldIdentityRegistry identities = new WorldIdentityGenerator().Generate(
+                    bakedContent.PlayerPersons,
+                    bakedContent.TeamSeasons,
+                    bakedContent.IdentityNameCatalog,
+                    77123UL);
                 WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(
                     seasons,
                     history.Awards,
@@ -498,6 +597,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 var state = new ManagerHistoricalRuntimeState(
                     "TEAM-00",
                     HistoricalContentReference.FromManifest(manifest),
+                    identities,
                     history,
                     catalog,
                     new LeagueInstance("LEAGUE-01", LeagueGrade.Rookie, teamKeys, specialTeams),

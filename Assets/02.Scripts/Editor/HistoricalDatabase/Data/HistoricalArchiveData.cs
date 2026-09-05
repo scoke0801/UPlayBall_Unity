@@ -75,7 +75,6 @@ namespace Baseball.Editor.HistoricalDatabase
         public IReadOnlyList<HistoricalAwardRecord> Awards { get; }
         public string Name => Person?.DisplayName ?? string.Empty;
         public string OriginalName => Person?.OriginalName ?? string.Empty;
-        public string RuntimeName => Person?.FictionalName ?? string.Empty;
         public IReadOnlyList<string> SourceReferenceNames => Season.SourceReferenceNames;
         public string PlayerPersonId => Season.PlayerPersonId;
         public string PlayerSeasonId => Season.PlayerSeasonId;

@@ -39,7 +39,56 @@ namespace Baseball.Game.Historical
                     isAllStarGame = row.IsAllStarGame
                 };
             }
-            Array.Sort(statistics, CompareStatistics);
+
+            var teamStatistics = new TeamSeasonStatisticsSaveData[snapshot.TeamStatistics.Count];
+            for (int index = 0; index < teamStatistics.Length; index++)
+            {
+                TeamSeasonStatistics row = snapshot.TeamStatistics[index];
+                teamStatistics[index] = new TeamSeasonStatisticsSaveData
+                {
+                    teamSeasonKey = row.TeamSeasonKey,
+                    seasonYear = row.SeasonYear,
+                    games = row.Games,
+                    wins = row.Wins,
+                    losses = row.Losses,
+                    ties = row.Ties,
+                    runsScored = row.RunsScored,
+                    runsAllowed = row.RunsAllowed,
+                    atBats = row.AtBats,
+                    hits = row.Hits,
+                    pitchingOuts = row.PitchingOuts,
+                    earnedRuns = row.EarnedRuns,
+                    hitsAllowed = row.HitsAllowed,
+                    walksAllowed = row.WalksAllowed
+                };
+            }
+
+            var standings = new HistoricalStandingEntrySaveData[snapshot.Standings.Count];
+            for (int index = 0; index < standings.Length; index++)
+            {
+                HistoricalStandingEntry row = snapshot.Standings[index];
+                standings[index] = new HistoricalStandingEntrySaveData
+                {
+                    seasonYear = row.SeasonYear,
+                    rank = row.Rank,
+                    teamSeasonKey = row.TeamSeasonKey
+                };
+            }
+
+            var postseasonResults = new HistoricalPostseasonResultSaveData[snapshot.PostseasonResults.Count];
+            for (int index = 0; index < postseasonResults.Length; index++)
+            {
+                HistoricalPostseasonResult row = snapshot.PostseasonResults[index];
+                var qualifiers = new string[row.QualifiedTeamSeasonKeys.Count];
+                for (int qualifierIndex = 0; qualifierIndex < qualifiers.Length; qualifierIndex++)
+                    qualifiers[qualifierIndex] = row.QualifiedTeamSeasonKeys[qualifierIndex];
+                postseasonResults[index] = new HistoricalPostseasonResultSaveData
+                {
+                    seasonYear = row.SeasonYear,
+                    qualifiedTeamSeasonKeys = qualifiers,
+                    championTeamSeasonKey = row.ChampionTeamSeasonKey
+                };
+            }
 
             var awards = new WorldAwardEntrySaveData[snapshot.Awards.Entries.Count];
             for (int index = 0; index < snapshot.Awards.Entries.Count; index++)
@@ -53,13 +102,15 @@ namespace Baseball.Game.Historical
                     position = (int)award.Position
                 };
             }
-            Array.Sort(awards, CompareAwards);
 
             return new WorldHistorySaveData
             {
                 recordMode = (int)snapshot.RecordMode,
                 worldHistorySeed = snapshot.WorldHistorySeed,
                 statistics = statistics,
+                teamStatistics = teamStatistics,
+                standings = standings,
+                postseasonResults = postseasonResults,
                 awards = awards
             };
         }
@@ -116,36 +167,62 @@ namespace Baseball.Game.Historical
                     (PlayerPosition)award.position);
             }
 
+            TeamSeasonStatisticsSaveData[] teamStatisticsData =
+                source.teamStatistics ?? Array.Empty<TeamSeasonStatisticsSaveData>();
+            var teamStatistics = new TeamSeasonStatistics[teamStatisticsData.Length];
+            for (int index = 0; index < teamStatistics.Length; index++)
+            {
+                TeamSeasonStatisticsSaveData row = teamStatisticsData[index]
+                    ?? throw new ArgumentException("World History에 null 팀 통계가 있습니다.", nameof(source));
+                teamStatistics[index] = new TeamSeasonStatistics(
+                    row.teamSeasonKey,
+                    row.seasonYear,
+                    row.games,
+                    row.wins,
+                    row.losses,
+                    row.ties,
+                    row.runsScored,
+                    row.runsAllowed,
+                    row.atBats,
+                    row.hits,
+                    row.pitchingOuts,
+                    row.earnedRuns,
+                    row.hitsAllowed,
+                    row.walksAllowed);
+            }
+
+            HistoricalStandingEntrySaveData[] standingsData =
+                source.standings ?? Array.Empty<HistoricalStandingEntrySaveData>();
+            var standings = new HistoricalStandingEntry[standingsData.Length];
+            for (int index = 0; index < standings.Length; index++)
+            {
+                HistoricalStandingEntrySaveData row = standingsData[index]
+                    ?? throw new ArgumentException("World History에 null 순위가 있습니다.", nameof(source));
+                standings[index] = new HistoricalStandingEntry(row.seasonYear, row.rank, row.teamSeasonKey);
+            }
+
+            HistoricalPostseasonResultSaveData[] postseasonData =
+                source.postseasonResults ?? Array.Empty<HistoricalPostseasonResultSaveData>();
+            var postseasonResults = new HistoricalPostseasonResult[postseasonData.Length];
+            for (int index = 0; index < postseasonResults.Length; index++)
+            {
+                HistoricalPostseasonResultSaveData row = postseasonData[index]
+                    ?? throw new ArgumentException("World History에 null Postseason 결과가 있습니다.", nameof(source));
+                postseasonResults[index] = new HistoricalPostseasonResult(
+                    row.seasonYear,
+                    row.qualifiedTeamSeasonKeys
+                        ?? throw new ArgumentException("Postseason 진출 구단이 없습니다.", nameof(source)),
+                    row.championTeamSeasonKey);
+            }
+
             return new WorldHistorySnapshot(
                 (WorldRecordMode)source.recordMode,
                 source.worldHistorySeed,
                 statistics,
+                teamStatistics,
+                standings,
+                postseasonResults,
                 new WorldAwardRecord(awards));
-        }
-
-        private static int CompareStatistics(SeasonStatisticsSaveData left, SeasonStatisticsSaveData right)
-        {
-            int comparison = left.seasonYear.CompareTo(right.seasonYear);
-            if (comparison != 0) return comparison;
-            comparison = StringComparer.Ordinal.Compare(left.playerSeasonId, right.playerSeasonId);
-            if (comparison != 0) return comparison;
-            comparison = left.isPostseason.CompareTo(right.isPostseason);
-            if (comparison != 0) return comparison;
-            comparison = left.isAllStarGame.CompareTo(right.isAllStarGame);
-            if (comparison != 0) return comparison;
-            return left.isFirstHalf.CompareTo(right.isFirstHalf);
-        }
-
-        private static int CompareAwards(WorldAwardEntrySaveData left, WorldAwardEntrySaveData right)
-        {
-            int comparison = left.seasonYear.CompareTo(right.seasonYear);
-            if (comparison != 0) return comparison;
-            comparison = left.awardType.CompareTo(right.awardType);
-            if (comparison != 0) return comparison;
-            comparison = left.position.CompareTo(right.position);
-            return comparison != 0
-                ? comparison
-                : StringComparer.Ordinal.Compare(left.playerSeasonId, right.playerSeasonId);
         }
 
         private static void ValidateEnum<T>(int value, string parameterName) where T : struct

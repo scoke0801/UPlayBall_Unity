@@ -1,0 +1,729 @@
+using System;
+using System.Collections.Generic;
+using Baseball.Core.Balance;
+using Baseball.Core.Historical;
+using Baseball.Core.Players;
+using Baseball.Core.Teams;
+using Baseball.Game.Data;
+using Baseball.Game.Manager;
+using Baseball.Game.Unity.Persistence;
+using Baseball.Simulation.Historical;
+using Baseball.Simulation.Match;
+
+namespace Baseball.Game.Historical
+{
+    /// <summary>UI가 재계산하지 않도록 Game 경계에서 확정한 선수별 Condition Snapshot이다.</summary>
+    public sealed class OwnerModeConditionEntry
+    {
+        public OwnerModeConditionEntry(
+            string playerPersonId,
+            string displayName,
+            PlayerPosition naturalPosition,
+            bool isPitcher,
+            PlayerAvailabilityStatus availability,
+            EffectiveMatchCondition effectiveCondition)
+        {
+            PlayerPersonId = playerPersonId ?? throw new ArgumentNullException(nameof(playerPersonId));
+            DisplayName = displayName ?? throw new ArgumentNullException(nameof(displayName));
+            NaturalPosition = naturalPosition;
+            IsPitcher = isPitcher;
+            Availability = availability;
+            EffectiveCondition = effectiveCondition;
+        }
+
+        public string PlayerPersonId { get; }
+        public string DisplayName { get; }
+        public PlayerPosition NaturalPosition { get; }
+        public bool IsPitcher { get; }
+        public PlayerAvailabilityStatus Availability { get; }
+        public EffectiveMatchCondition EffectiveCondition { get; }
+    }
+
+    /// <summary>Simulation 검증과 공통 로스터 규칙에서 확정한 구단주 1군 요약이다.</summary>
+    public sealed class OwnerModeRosterStatus
+    {
+        public OwnerModeRosterStatus(
+            int activeRosterCount,
+            int hitterCount,
+            int pitcherCount,
+            int foreignPlayerCount,
+            RosterValidationResult validation)
+        {
+            if (activeRosterCount < 0 || hitterCount < 0 || pitcherCount < 0 || foreignPlayerCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(activeRosterCount));
+
+            ActiveRosterCount = activeRosterCount;
+            HitterCount = hitterCount;
+            PitcherCount = pitcherCount;
+            ForeignPlayerCount = foreignPlayerCount;
+            Validation = validation ?? throw new ArgumentNullException(nameof(validation));
+        }
+
+        public int ActiveRosterCount { get; }
+        public int ActiveRosterCapacity => ActiveRosterCompositionRule.ActiveRosterSize;
+        public int HitterCount { get; }
+        public int RequiredHitterCount => ActiveRosterCompositionRule.HitterCount;
+        public int PitcherCount { get; }
+        public int RequiredPitcherCount => ActiveRosterCompositionRule.PitcherCount;
+        public int ForeignPlayerCount { get; }
+        public int ForeignPlayerLimit => ActiveRosterCompositionRule.MaxForeignPlayers;
+        public RosterValidationResult Validation { get; }
+    }
+
+    /// <summary>구단주 Production Runtime과 저장·운영·경기 Command를 영속 GameRoot에서 소유한다.</summary>
+    public sealed class OwnerModeManager : ManagerBehaviour<OwnerModeManager>
+    {
+        private string[] _availableTeamColorIds = Array.Empty<string>();
+        private string[] _availableTacticCardIds = Array.Empty<string>();
+        private TeamColorDefinition[] _teamColors = Array.Empty<TeamColorDefinition>();
+        private TacticCardDefinition[] _tacticCards = Array.Empty<TacticCardDefinition>();
+        private IHistoricalContentProvider _contentProvider;
+        private BalanceTable _balance;
+        private OwnerModeNewGameConfiguration _newGameConfiguration;
+        private ManagerHistoricalSaveAdapter _saveAdapter;
+        private ManagerHistoricalSaveJsonStore _saveStore;
+        private ManagerModeCoordinator _coordinator;
+        private ManagerPregameService _pregameService;
+        private ManagerModeMatchService _matchService;
+        private StaffMarketResolver _staffMarketResolver;
+
+        public override int InitializationOrder => -20;
+        public ManagerHistoricalRuntimeState Runtime { get; private set; }
+        public ManagerPregamePreparation CurrentPregame { get; private set; }
+        public ManagerModeMatchResult LastMatch { get; private set; }
+        public string LastError { get; private set; } = string.Empty;
+        public bool HasActiveRuntime => Runtime != null;
+        public BalanceTable Balance => _balance;
+        public string SaveFilePath => _saveStore?.FilePath ?? string.Empty;
+        public bool HasSave => _saveStore != null && _saveStore.Exists;
+
+        public event Action RuntimeChanged;
+
+        protected override void OnInitialize()
+        {
+            ConfigureServices(
+                NewGameDefinition.LoadHistoricalContentProvider(),
+                NewGameDefinition.LoadOwnerModeBalanceTable(),
+                NewGameDefinition.LoadOwnerModeConfiguration(),
+                new ManagerHistoricalSaveJsonStore(ManagerHistoricalSavePath.GetDefaultFilePath()));
+        }
+
+        protected override void OnShutdown()
+        {
+            RuntimeChanged = null;
+            Runtime = null;
+            CurrentPregame = null;
+            LastMatch = null;
+        }
+
+        /// <summary>직렬화된 기본 Seed와 첫 유효 정규구단으로 새 구단주 Runtime을 만든다.</summary>
+        public bool StartNewGame()
+        {
+            try
+            {
+                HistoricalBakedContent content = _contentProvider.Load()
+                    ?? throw new InvalidOperationException("Historical Content가 없습니다.");
+                HistoricalYearContentDefinition year = content.GetYear(_newGameConfiguration.OriginYear);
+                string teamSeasonKey = ResolvePlayerTeamSeasonKey(year, content, _newGameConfiguration.PlayerTeamSeasonKey);
+                var service = new ManagerHistoricalNewGameService(
+                    _contentProvider,
+                    new HistoricalWorldRuntimeBuilder(_balance),
+                    _balance);
+                Runtime = service.Create(new ManagerHistoricalNewGameRequest(
+                    WorldRecordMode.SimulatedHistory,
+                    _newGameConfiguration.WorldSeed,
+                    _newGameConfiguration.OriginYear,
+                    _newGameConfiguration.LeagueInstanceId,
+                    teamSeasonKey,
+                    new ManagerEconomyState(
+                        _newGameConfiguration.InitialMoney,
+                        _newGameConfiguration.InitialScoutingPoints,
+                        _newGameConfiguration.InitialDevelopmentPoints)));
+                RosterValidationResult rosterValidation = new ActiveRosterValidator().Validate(
+                    Runtime.GetRoster(teamSeasonKey));
+                if (!rosterValidation.IsValid)
+                    throw new InvalidOperationException("첫 유효 정규구단의 ActiveRoster 검증에 실패했습니다.");
+                ConfigureTeamColors(content, teamSeasonKey);
+                ApplyStarterLoadout(Runtime.ManagerMode);
+
+                CurrentPregame = null;
+                LastMatch = null;
+                LastError = string.Empty;
+                NotifyRuntimeChanged();
+                return true;
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                LastError = exception.Message;
+                Runtime = null;
+                CurrentPregame = null;
+                return false;
+            }
+        }
+
+        public void Save()
+        {
+            RequireRuntime();
+            _saveStore.Save(_saveAdapter.CreateSaveData(Runtime));
+            LastError = string.Empty;
+            NotifyRuntimeChanged();
+        }
+
+        public void Load()
+        {
+            Runtime = new ManagerHistoricalLoadService(_saveAdapter).Restore(_saveStore.Load());
+            ConfigureTeamColors(_contentProvider.Load(), Runtime.PlayerTeamSeasonKey);
+            CurrentPregame = null;
+            LastMatch = null;
+            LastError = string.Empty;
+            NotifyRuntimeChanged();
+        }
+
+        public ManagerWeeklyAdvanceResult AdvanceWeek()
+        {
+            ManagerWeeklyAdvanceResult result = _coordinator.AdvanceWeek(RequireRuntime());
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+            return result;
+        }
+
+        /// <summary>남은 구단 경기가 없을 때 급여·계약·재무를 마감하고 다음 운영 시즌을 연다.</summary>
+        public ManagerSeasonAdvanceResult AdvanceSeason()
+        {
+            ManagerSeasonAdvanceResult result = _coordinator.AdvanceSeason(RequireRuntime());
+            if (result.IsApplied)
+            {
+                CurrentPregame = null;
+                LastMatch = null;
+            }
+            NotifyRuntimeChanged();
+            return result;
+        }
+
+        public FacilityUpgradeResult UpgradeFacility(FacilityType facilityType)
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            string operationId = $"facility:{runtime.PlayerTeamSeasonKey}:{runtime.ManagerMode.LiveSeason.SeasonId}:" +
+                                 $"{runtime.ManagerMode.LiveSeason.CurrentWeekIndex}:{(int)facilityType}:" +
+                                 $"{runtime.ManagerMode.ClubOperation.GetFacility(facilityType).Level + 1}";
+            FacilityUpgradeResult result = _coordinator.UpgradeFacility(runtime, facilityType, operationId);
+            NotifyRuntimeChanged();
+            return result;
+        }
+
+        public StadiumUpgradeResult UpgradeStadium()
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            string operationId = $"stadium:{runtime.PlayerTeamSeasonKey}:{runtime.ManagerMode.LiveSeason.SeasonId}:" +
+                                 $"{runtime.ManagerMode.LiveSeason.CurrentWeekIndex}:" +
+                                 $"{runtime.ManagerMode.ClubOperation.Stadium.Level + 1}";
+            StadiumUpgradeResult result = _coordinator.UpgradeStadium(runtime, operationId);
+            NotifyRuntimeChanged();
+            return result;
+        }
+
+        public void SetTicketPolicy(TicketPriceTier priceTier)
+        {
+            RequireRuntime().ManagerMode.ClubOperation.SetTicketPolicy(new TicketPolicy(priceTier));
+            NotifyRuntimeChanged();
+        }
+
+        public IReadOnlyList<StaffMarketOffer> GetStaffMarketOffers()
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            ManagerModeRuntimeState mode = runtime.ManagerMode;
+            string periodId = $"{mode.LiveSeason.SeasonId}:W{mode.LiveSeason.CurrentWeekIndex:D3}";
+            return _staffMarketResolver.CreateOffers(
+                mode.StaffCatalog,
+                mode.StaffContracts,
+                runtime.PlayerTeamSeasonKey,
+                periodId,
+                StaffMarketKind.MidseasonReplacement,
+                runtime.League.Grade,
+                runtime.WorldHistory.WorldHistorySeed,
+                _balance.Staff);
+        }
+
+        public StaffSigningResult SignStaff(string offerId)
+        {
+            if (string.IsNullOrWhiteSpace(offerId))
+                throw new ArgumentException("OfferId가 필요합니다.", nameof(offerId));
+            IReadOnlyList<StaffMarketOffer> offers = GetStaffMarketOffers();
+            for (int index = 0; index < offers.Count; index++)
+            {
+                if (!string.Equals(offers[index].OfferId, offerId, StringComparison.Ordinal)) continue;
+                StaffSigningResult result = _coordinator.SignStaff(
+                    RequireRuntime(),
+                    offers[index],
+                    RequireRuntime().ManagerMode.StaffContracts.Count + 1);
+                InvalidatePregame();
+                NotifyRuntimeChanged();
+                return result;
+            }
+            throw new InvalidOperationException("현재 시장에 없는 Staff Offer입니다.");
+        }
+
+        public StaffSigningResult PreviewStaffSigning(StaffMarketOffer offer)
+        {
+            if (offer == null) throw new ArgumentNullException(nameof(offer));
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            int sequence = runtime.ManagerMode.StaffContracts.Count + 1;
+            string contractId = StaffContractService.CreateStableContractId(
+                runtime.PlayerTeamSeasonKey,
+                offer.StaffId,
+                runtime.ManagerMode.LiveSeason.SeasonNumber,
+                sequence);
+            return new StaffContractService().TrySign(
+                new StaffSigningCommand(
+                    contractId,
+                    $"preview-staff:{contractId}",
+                    runtime.PlayerTeamSeasonKey,
+                    runtime.ManagerMode.LiveSeason.SeasonNumber,
+                    runtime.Economy.Money),
+                offer,
+                runtime.ManagerMode.StaffCatalog,
+                runtime.ManagerMode.StaffContracts,
+                runtime.ManagerMode.StaffAssignment,
+                _balance.Staff);
+        }
+
+        public TeamStaffEffectProfile PreviewStaffEffects(StaffSigningResult signing)
+        {
+            if (signing == null) throw new ArgumentNullException(nameof(signing));
+            ManagerModeRuntimeState mode = RequireRuntime().ManagerMode;
+            return new TeamStaffEffectResolver().Resolve(
+                mode.StaffCatalog,
+                signing.Contracts,
+                signing.Assignment,
+                _balance.Staff);
+        }
+
+        public StaffSalarySettlementResult SettleStaffSalary()
+        {
+            StaffSalarySettlementResult result = _coordinator.SettleStaffSalary(RequireRuntime());
+            NotifyRuntimeChanged();
+            return result;
+        }
+
+        public void SelectLineupPreset(string presetId)
+        {
+            RequireRuntime().ManagerMode.SelectLineupPreset(presetId);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+        }
+
+        public void UpsertLineupPreset(LineupPresetState preset)
+        {
+            RequireRuntime().ManagerMode.UpsertLineupPreset(preset);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+        }
+
+        /// <summary>UI가 저장 상태를 바꾸지 않고 임의 프리셋의 현재 경기 유효성을 확인한다.</summary>
+        public LineupPresetValidationResult ValidateLineupPreset(LineupPresetState preset)
+        {
+            return _pregameService.ValidateLineupPreset(
+                RequireRuntime(),
+                preset,
+                _availableTeamColorIds,
+                _availableTacticCardIds);
+        }
+
+        /// <summary>현재 로스터에서 활성화된 TeamColor 후보 Definition을 안정된 순서로 반환한다.</summary>
+        public IReadOnlyList<TeamColorDefinition> GetAvailableTeamColors()
+        {
+            var result = new List<TeamColorDefinition>(_availableTeamColorIds.Length);
+            for (int availableIndex = 0; availableIndex < _availableTeamColorIds.Length; availableIndex++)
+            {
+                for (int definitionIndex = 0; definitionIndex < _teamColors.Length; definitionIndex++)
+                {
+                    TeamColorDefinition definition = _teamColors[definitionIndex];
+                    if (!string.Equals(definition.TeamColorId, _availableTeamColorIds[availableIndex],
+                            StringComparison.Ordinal))
+                        continue;
+                    result.Add(definition);
+                    break;
+                }
+            }
+            return result;
+        }
+
+        /// <summary>현재 구단주 Save가 실제 경기에서 장착할 수 있는 전술카드 Definition을 반환한다.</summary>
+        public IReadOnlyList<TacticCardDefinition> GetAvailableTacticCards()
+        {
+            var result = new TacticCardDefinition[_tacticCards.Length];
+            Array.Copy(_tacticCards, result, result.Length);
+            return result;
+        }
+
+        public ManagerPregamePreparation PrepareNextGame()
+        {
+            CurrentPregame = _pregameService.PrepareNextGame(
+                RequireRuntime(),
+                _availableTeamColorIds,
+                _availableTacticCardIds);
+            return CurrentPregame;
+        }
+
+        public ManagerModeMatchResult PlayNextGame(
+            IMatchEventSink eventSink = null,
+            MatchExecutionProfile? executionProfile = null)
+        {
+            ManagerPregamePreparation preparation = CurrentPregame ?? PrepareNextGame();
+            if (!preparation.CanStartGame)
+                throw new InvalidOperationException("현재 경기 준비 상태로 경기를 시작할 수 없습니다.");
+            LastMatch = _matchService.PlayNextGame(RequireRuntime(), eventSink, executionProfile);
+            CurrentPregame = null;
+            NotifyRuntimeChanged();
+            return LastMatch;
+        }
+
+        public TeamStaffEffectProfile GetStaffEffects()
+        {
+            return _coordinator.ResolvePlayerStaffEffects(RequireRuntime().ManagerMode);
+        }
+
+        public CardTrainingResult TrainOwnedCard(string cardId, CardTrainingProgramDefinition program)
+        {
+            CardTrainingResult result = _coordinator.TrainOwnedCard(RequireRuntime(), cardId, program);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+            return result;
+        }
+
+        public ClubFacilityEffectProfile GetFacilityEffects()
+        {
+            return new ClubFacilityEffectResolver(_balance.ClubOperation)
+                .Resolve(RequireRuntime().ManagerMode.ClubOperation);
+        }
+
+        public FacilityUpgradeResult PreviewFacilityUpgrade(FacilityType facilityType)
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            return new ClubUpgradeResolver(_balance.ClubOperation).ResolveFacilityUpgrade(
+                runtime.ManagerMode.ClubOperation,
+                facilityType,
+                CreateUpgradeContext(runtime, $"preview-facility:{(int)facilityType}"));
+        }
+
+        public StadiumUpgradeResult PreviewStadiumUpgrade()
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            return new ClubUpgradeResolver(_balance.ClubOperation).ResolveStadiumUpgrade(
+                runtime.ManagerMode.ClubOperation,
+                CreateUpgradeContext(runtime, "preview-stadium"));
+        }
+
+        /// <summary>다음 경기가 홈일 때 실제 관중 Resolver와 동일한 예상 관중을 반환한다.</summary>
+        public int? PreviewNextHomeAttendance()
+        {
+            AttendanceResult? result = _matchService.PreviewNextHomeAttendance(RequireRuntime());
+            return result.HasValue ? result.Value.Attendance : null;
+        }
+
+        /// <summary>경기 준비 Resolver 결과를 선수 원본 Condition에 한 번 합성해 UI용 행을 만든다.</summary>
+        public IReadOnlyList<OwnerModeConditionEntry> BuildConditionEntries()
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            ManagerPregamePreparation preparation = CurrentPregame ?? PrepareNextGame();
+            CurrentRosterState roster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            TeamSeasonPlayerStatusState statuses = runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey);
+            LineupPresetState preset = runtime.ManagerMode.GetSelectedLineupPreset();
+            string activePitcherCardId = ResolveActivePitcherCardId(preparation, preset);
+            var resolver = new EffectiveMatchConditionResolver();
+            var result = new OwnerModeConditionEntry[roster.Entries.Count];
+            for (int index = 0; index < roster.Entries.Count; index++)
+            {
+                ActiveRosterEntry entry = roster.Entries[index];
+                PlayerCardDefinition card = runtime.WorldCardCatalog.TryGetCard(entry.CardId, out PlayerCardDefinition found)
+                    ? found
+                    : throw new InvalidOperationException($"CardId {entry.CardId} 원본이 없습니다.");
+                PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+                TeamSeasonPlayerStatus status = statuses.GetRequiredPlayer(entry.PlayerPersonId);
+                bool isPitcher = season.PlayerType == PlayerType.Pitcher;
+                int assignmentModifier = ResolveAssignmentModifier(preparation.PresetValidation, entry.CardId);
+                int lineupModifier = preparation.LineupChemistry?.GetConditionModifier(entry.PlayerPersonId) ?? 0;
+                int batteryModifier = isPitcher &&
+                    string.Equals(activePitcherCardId, entry.CardId, StringComparison.Ordinal) &&
+                    preparation.BatteryChemistry.HasValue
+                        ? preparation.BatteryChemistry.Value.PitcherConditionModifier
+                        : 0;
+                result[index] = new OwnerModeConditionEntry(
+                    entry.PlayerPersonId,
+                    runtime.IdentityRegistry.GetPlayerDisplayName(entry.PlayerPersonId),
+                    season.Position,
+                    isPitcher,
+                    status.Availability,
+                    resolver.Resolve(
+                        status.StoredBaseCondition,
+                        assignmentModifier,
+                        lineupModifier,
+                        batteryModifier,
+                        0));
+            }
+            return result;
+        }
+
+        /// <summary>UI가 로스터 규칙을 복제하지 않도록 현재 1군의 인원 요약과 Resolver 결과를 함께 반환한다.</summary>
+        public OwnerModeRosterStatus BuildRosterStatus()
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            CurrentRosterState roster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            ActiveRosterCompositionRule rule = ActiveRosterCompositionRule.Standard;
+            int hitters = 0;
+            int pitchers = 0;
+            int foreignPlayers = 0;
+            for (int index = 0; index < roster.Entries.Count; index++)
+            {
+                ActiveRosterEntry entry = roster.Entries[index];
+                if (rule.IsHitterRole(entry.Role)) hitters++;
+                if (rule.IsPitcherRole(entry.Role)) pitchers++;
+                if (entry.RegistrationType == RegistrationType.Foreign) foreignPlayers++;
+            }
+
+            return new OwnerModeRosterStatus(
+                roster.Entries.Count,
+                hitters,
+                pitchers,
+                foreignPlayers,
+                new ActiveRosterValidator(rule).Validate(roster));
+        }
+
+        public string GetTeamDisplayName(string teamSeasonKey)
+        {
+            HistoricalBakedContent content = _contentProvider.Load();
+            if (!content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
+                return teamSeasonKey ?? string.Empty;
+            return Runtime == null
+                ? team.FranchiseId
+                : Runtime.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId);
+        }
+
+        public string GetTacticDisplayName(string tacticCardId)
+        {
+            for (int index = 0; index < _tacticCards.Length; index++)
+                if (string.Equals(_tacticCards[index].CardId, tacticCardId, StringComparison.Ordinal))
+                    return _tacticCards[index].Name;
+            return tacticCardId ?? string.Empty;
+        }
+
+        private void ConfigureServices(
+            IHistoricalContentProvider contentProvider,
+            BalanceTable balance,
+            OwnerModeNewGameConfiguration newGameConfiguration,
+            ManagerHistoricalSaveJsonStore saveStore)
+        {
+            _contentProvider = contentProvider ?? throw new ArgumentNullException(nameof(contentProvider));
+            _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _newGameConfiguration = newGameConfiguration;
+            _saveStore = saveStore ?? throw new ArgumentNullException(nameof(saveStore));
+            _saveAdapter = new ManagerHistoricalSaveAdapter(
+                _contentProvider,
+                CardEditionBalanceTable.CreateInitial(),
+                balance: _balance);
+            _coordinator = new ManagerModeCoordinator(_balance);
+            _pregameService = new ManagerPregameService(_balance, _contentProvider);
+            _tacticCards = CopyTactics(newGameConfiguration.StarterTacticCards);
+            _availableTacticCardIds = new string[_tacticCards.Length];
+            for (int index = 0; index < _tacticCards.Length; index++)
+                _availableTacticCardIds[index] = _tacticCards[index].CardId;
+            _matchService = new ManagerModeMatchService(
+                _contentProvider,
+                _balance,
+                teamColors: _teamColors,
+                tacticCards: _tacticCards);
+            _staffMarketResolver = new StaffMarketResolver();
+        }
+
+        private ManagerHistoricalRuntimeState RequireRuntime()
+        {
+            return Runtime ?? throw new InvalidOperationException("활성 구단주 Runtime이 없습니다.");
+        }
+
+        private void InvalidatePregame()
+        {
+            CurrentPregame = null;
+        }
+
+        private void NotifyRuntimeChanged()
+        {
+            RuntimeChanged?.Invoke();
+        }
+
+        private static string ResolvePlayerTeamSeasonKey(
+            HistoricalYearContentDefinition year,
+            HistoricalBakedContent content,
+            string configuredTeamSeasonKey)
+        {
+            if (!string.IsNullOrWhiteSpace(configuredTeamSeasonKey))
+            {
+                for (int index = 0; index < year.TeamSeasons.Count; index++)
+                    if (string.Equals(year.TeamSeasons[index].TeamSeasonKey, configuredTeamSeasonKey, StringComparison.Ordinal) &&
+                        IsValidRegularTeam(year.TeamSeasons[index], content))
+                        return configuredTeamSeasonKey.Trim();
+                throw new InvalidOperationException("설정된 구단이 해당 연도의 유효 정규구단이 아닙니다.");
+            }
+
+            for (int index = 0; index < year.TeamSeasons.Count; index++)
+                if (IsValidRegularTeam(year.TeamSeasons[index], content))
+                    return year.TeamSeasons[index].TeamSeasonKey;
+            throw new InvalidOperationException("선택 가능한 유효 정규구단이 없습니다.");
+        }
+
+        private void ApplyStarterLoadout(ManagerModeRuntimeState mode)
+        {
+            LineupPresetState source = mode.GetSelectedLineupPreset();
+            var tacticIds = new string[_tacticCards.Length];
+            for (int index = 0; index < tacticIds.Length; index++) tacticIds[index] = _tacticCards[index].CardId;
+            string[] teamColorIds = SelectStarterTeamColorIds();
+            mode.UpsertLineupPreset(new LineupPresetState(
+                source.PresetId,
+                source.Name,
+                source.StartingLineupSlots,
+                source.BattingOrderCardIds,
+                source.BenchPriorityCardIds,
+                source.StarterRotationCardIds,
+                source.BullpenAssignmentCardIds,
+                source.SetupPitcherCardId,
+                source.CloserPitcherCardId,
+                teamColorIds,
+                tacticIds));
+        }
+
+        private void ConfigureTeamColors(HistoricalBakedContent content, string teamSeasonKey)
+        {
+            if (content == null) throw new ArgumentNullException(nameof(content));
+            if (!content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
+                throw new InvalidOperationException("플레이어 구단의 TeamSeasonDefinition이 없습니다.");
+
+            var definitions = new List<TeamColorDefinition>();
+            AddDefinitions(definitions,
+                InitialTeamColorDefinitionFactory.CreateYearFranchise(
+                    Runtime.ManagerMode.LiveSeason.OriginYear,
+                    team.FranchiseId));
+            AddDefinitions(definitions, InitialTeamColorDefinitionFactory.CreateFranchise(team.FranchiseId));
+            definitions.Add(InitialTeamColorDefinitionFactory.CreateYear(
+                Runtime.ManagerMode.LiveSeason.OriginYear));
+            _teamColors = definitions.ToArray();
+
+            IReadOnlyList<TeamColorCandidate> candidates = new TeamColorResolver().Resolve(
+                Runtime.GetRoster(teamSeasonKey),
+                Runtime.WorldCardCatalog,
+                _teamColors);
+            _availableTeamColorIds = new string[candidates.Count];
+            for (int index = 0; index < candidates.Count; index++)
+                _availableTeamColorIds[index] = candidates[index].Definition.TeamColorId;
+
+            _matchService = new ManagerModeMatchService(
+                _contentProvider,
+                _balance,
+                teamColors: _teamColors,
+                tacticCards: _tacticCards);
+        }
+
+        private string[] SelectStarterTeamColorIds()
+        {
+            var candidates = new List<TeamColorDefinition>();
+            for (int definitionIndex = 0; definitionIndex < _teamColors.Length; definitionIndex++)
+            {
+                TeamColorDefinition definition = _teamColors[definitionIndex];
+                for (int availableIndex = 0; availableIndex < _availableTeamColorIds.Length; availableIndex++)
+                {
+                    if (!string.Equals(definition.TeamColorId, _availableTeamColorIds[availableIndex],
+                            StringComparison.Ordinal))
+                        continue;
+                    candidates.Add(definition);
+                    break;
+                }
+            }
+            candidates.Sort(CompareTeamColorStrength);
+
+            var selected = new string[LineupPresetState.TeamColorSlotCount];
+            var selectedFamilies = new HashSet<TeamColorFamily>();
+            int selectedCount = 0;
+            for (int index = 0; index < candidates.Count && selectedCount < selected.Length; index++)
+            {
+                TeamColorDefinition candidate = candidates[index];
+                if (!selectedFamilies.Add(candidate.Family))
+                    continue;
+                selected[selectedCount++] = candidate.TeamColorId;
+            }
+            return selected;
+        }
+
+        private static int CompareTeamColorStrength(TeamColorDefinition left, TeamColorDefinition right)
+        {
+            int comparison = right.StrengthScore.CompareTo(left.StrengthScore);
+            if (comparison != 0) return comparison;
+            comparison = right.RequiredCount.CompareTo(left.RequiredCount);
+            if (comparison != 0) return comparison;
+            comparison = right.Priority.CompareTo(left.Priority);
+            return comparison != 0
+                ? comparison
+                : string.CompareOrdinal(left.TeamColorId, right.TeamColorId);
+        }
+
+        private static void AddDefinitions(
+            ICollection<TeamColorDefinition> target,
+            IReadOnlyList<TeamColorDefinition> definitions)
+        {
+            for (int index = 0; index < definitions.Count; index++)
+                target.Add(definitions[index]);
+        }
+
+        private static TacticCardDefinition[] CopyTactics(IReadOnlyList<TacticCardDefinition> source)
+        {
+            var result = new TacticCardDefinition[source.Count];
+            for (int index = 0; index < result.Length; index++) result[index] = source[index];
+            return result;
+        }
+
+        private static bool IsValidRegularTeam(TeamSeasonDefinition team, HistoricalBakedContent content)
+        {
+            if (team == null || team.Core25CardIds.Count != ActiveRosterCompositionRule.ActiveRosterSize)
+                return false;
+            for (int index = 0; index < team.Core25CardIds.Count; index++)
+                if (!content.TryGetNormalCard(team.Core25CardIds[index], out PlayerCardDefinition card) ||
+                    card.Edition != PlayerCardEdition.Normal)
+                    return false;
+            return true;
+        }
+
+        private static ClubUpgradeContext CreateUpgradeContext(
+            ManagerHistoricalRuntimeState runtime,
+            string operationId)
+        {
+            ManagerModeRuntimeState mode = runtime.ManagerMode;
+            return new ClubUpgradeContext(
+                operationId,
+                mode.LiveSeason.SeasonId,
+                mode.LiveSeason.CurrentWeekIndex,
+                runtime.League.Grade,
+                mode.ClubOperation.FanBase,
+                mode.ClubOperation.CurrentSeason.Attendance,
+                runtime.Economy.Money);
+        }
+
+        private static int ResolveAssignmentModifier(LineupPresetValidationResult validation, string cardId)
+        {
+            int penalty = 0;
+            for (int index = 0; index < validation.Issues.Count; index++)
+            {
+                LineupPresetValidationIssue issue = validation.Issues[index];
+                if (string.Equals(issue.CardId, cardId, StringComparison.Ordinal))
+                    penalty = Math.Max(penalty, issue.ConditionPenalty);
+            }
+            return -penalty;
+        }
+
+        private static string ResolveActivePitcherCardId(
+            ManagerPregamePreparation preparation,
+            LineupPresetState preset)
+        {
+            if (!preparation.CanStartGame || preset.StarterRotationCardIds.Count == 0)
+                return string.Empty;
+            int index = (preparation.ScheduledGame.Round - 1) % preset.StarterRotationCardIds.Count;
+            return preset.StarterRotationCardIds[index] ?? string.Empty;
+        }
+    }
+}

@@ -93,11 +93,13 @@ namespace Baseball.Game.Career
             IReadOnlyList<PlayerPersonDefinition> persons,
             WorldCardCatalog cardCatalog,
             IReadOnlyList<CareerBakedTeamRuntimeDefinition> teams,
-            WorldHistorySnapshot worldHistory)
+            WorldHistorySnapshot worldHistory,
+            WorldIdentityRegistry identityRegistry)
         {
             Manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));
             CardCatalog = cardCatalog ?? throw new ArgumentNullException(nameof(cardCatalog));
             WorldHistory = worldHistory ?? throw new ArgumentNullException(nameof(worldHistory));
+            IdentityRegistry = identityRegistry ?? throw new ArgumentNullException(nameof(identityRegistry));
             if (persons == null || persons.Count == 0)
                 throw new ArgumentException("Baked PlayerPerson이 필요합니다.", nameof(persons));
             if (teams == null)
@@ -112,6 +114,7 @@ namespace Baseball.Game.Career
                 if (!_personsById.TryAdd(person.PlayerPersonId, person))
                     throw new ArgumentException("PlayerPersonId는 중복될 수 없습니다.", nameof(persons));
                 _persons[index] = person;
+                IdentityRegistry.GetPlayerDisplayName(person.PlayerPersonId);
             }
 
             int gradeCount = Enum.GetValues(typeof(LeagueGrade)).Length;
@@ -134,6 +137,7 @@ namespace Baseball.Game.Career
                     throw new ArgumentException("커리어 EmblemId는 중복될 수 없습니다.", nameof(teams));
                 if (!_teamsByKey.TryAdd(team.TeamSeason.TeamSeasonKey, team))
                     throw new ArgumentException("TeamSeasonKey는 월드에서 중복될 수 없습니다.", nameof(teams));
+                IdentityRegistry.GetFranchiseDisplayName(team.TeamSeason.FranchiseId);
                 if (!rosterValidator.Validate(team.ActiveRoster).IsValid)
                     throw new ArgumentException("Baked CurrentRoster가 공통 ActiveRoster 규칙을 만족하지 않습니다.", nameof(teams));
                 ValidateRosterReferences(team, playerInstanceIds);
@@ -146,10 +150,10 @@ namespace Baseball.Game.Career
             {
                 List<CareerBakedTeamRuntimeDefinition> source = gradeTeams[gradeIndex];
                 source.Sort(CompareTeams);
-                if (source.Count != LeagueInstance.RequiredRegularFranchiseTeamCount)
+                if (source.Count != LeagueInstance.MaximumRegularFranchiseTeamCount)
                 {
                     throw new ArgumentException(
-                        $"{(LeagueGrade)gradeIndex} LeagueInstance에는 정규 Franchise 구단 10개가 필요합니다.",
+                        $"{(LeagueGrade)gradeIndex} Career LeagueInstance에는 정규 Franchise 구단 10개가 필요합니다.",
                         nameof(teams));
                 }
                 _teamsByGrade[gradeIndex] = source.ToArray();
@@ -159,6 +163,7 @@ namespace Baseball.Game.Career
         public HistoricalSourceContentManifest Manifest { get; }
         public WorldCardCatalog CardCatalog { get; }
         public WorldHistorySnapshot WorldHistory { get; }
+        public WorldIdentityRegistry IdentityRegistry { get; }
         public IReadOnlyList<PlayerPersonDefinition> Persons => _persons;
         public IReadOnlyList<CareerBakedTeamRuntimeDefinition> Teams => _teams;
 
@@ -258,7 +263,7 @@ namespace Baseball.Game.Career
                     AbilityRatings ratings = season.CreateBaseAttributes();
                     var player = new Player(
                         playerId,
-                        person.FictionalName,
+                        content.IdentityRegistry.GetPlayerDisplayName(person.PlayerPersonId),
                         season.Position,
                         person.Bats,
                         person.Throws,
@@ -268,7 +273,7 @@ namespace Baseball.Game.Career
                     int overall = evaluator.CalculatePositionValue(player);
                     competitors[playerIndex] = new RosterCompetitor(
                         playerId,
-                        person.FictionalName,
+                        content.IdentityRegistry.GetPlayerDisplayName(person.PlayerPersonId),
                         season.Position,
                         overall);
                     int positionIndex = (int)season.Position;
@@ -281,7 +286,7 @@ namespace Baseball.Game.Career
                     positionNeeds[positionIndex] = 100 - strongestByPosition[positionIndex];
                 result[teamIndex] = new GeneratedTeam(
                     team.TeamId,
-                    team.Identity.Name,
+                    content.IdentityRegistry.GetFranchiseDisplayName(team.TeamSeason.FranchiseId),
                     team.Archetype,
                     team.Identity.PrimaryColor,
                     positionNeeds,
@@ -309,7 +314,7 @@ namespace Baseball.Game.Career
             var player = new PlayerState(
                 NewGameFlow.CurrentSaveVersion,
                 playerId,
-                person.FictionalName,
+                content.IdentityRegistry.GetPlayerDisplayName(person.PlayerPersonId),
                 season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty,
                 age,
                 season.Position,

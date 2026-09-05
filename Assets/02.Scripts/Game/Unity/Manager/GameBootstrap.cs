@@ -5,6 +5,8 @@ using Baseball.Game.Input;
 using Baseball.Game.Career;
 using Baseball.Game.SceneFlow;
 using Baseball.Game.Sound;
+using Baseball.Game.Guide;
+using Baseball.Game.Historical;
 using UnityEngine;
 
 namespace Baseball.Game.Manager
@@ -26,6 +28,8 @@ namespace Baseball.Game.Manager
             gameManager.EnsureManager<InputManager>("InputManager");
             gameManager.EnsureManager<CareerManager>("CareerManager");
             gameManager.EnsureManager<NewGameManager>("NewGameManager");
+            gameManager.EnsureManager<OwnerModeManager>("OwnerModeManager");
+            gameManager.EnsureManager<GuideManager>("GuideManager");
             gameManager.EnsureManager<SceneLoadManager>("SceneLoadManager");
             gameManager.EnsureManager<SoundManager>("SoundManager");
             gameManager.EnsureManager<BgmDirector>("BgmDirector");

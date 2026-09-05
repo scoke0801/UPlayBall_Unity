@@ -15,6 +15,12 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private double sampleSize;
         [SerializeField] private double reliabilityConstant;
         [SerializeField] private bool isAvailable;
+        [SerializeField] private string roleTier;
+        [SerializeField] private double referenceWeight;
+        [SerializeField] private string referenceFamilyKey;
+        [SerializeField] private double referenceEffectiveSampleCount;
+        [SerializeField] private double referenceGroupShare;
+        [SerializeField] private double referenceFamilyShare;
         [SerializeField] private double groupMean;
         [SerializeField] private double groupStdDev;
         [SerializeField] private double rawZ;
@@ -30,6 +36,15 @@ namespace Baseball.Editor.HistoricalDatabase
         public double SampleSize => sampleSize;
         public double ReliabilityConstant => reliabilityConstant;
         public bool IsAvailable => isAvailable;
+        /// <summary>Qualified/Limited 표본 진단값이다. 비교 모집단 분리에는 쓰지 않는다.</summary>
+        public string RoleTier => roleTier ?? string.Empty;
+        /// <summary>이 값이 비교 모집단 평균·표준편차에 기여한 가중치다.</summary>
+        public double ReferenceWeight => referenceWeight;
+        public string ReferenceFamilyKey => referenceFamilyKey ?? string.Empty;
+        public double ReferenceEffectiveSampleCount => referenceEffectiveSampleCount;
+        /// <summary>좁은 집단 통계가 최종 기준에서 차지한 비율이다. 1보다 작으면 상위 집단과 혼합했다.</summary>
+        public double ReferenceGroupShare => referenceGroupShare;
+        public double ReferenceFamilyShare => referenceFamilyShare;
         public double GroupMean => groupMean;
         public double GroupStdDev => groupStdDev;
         public double RawZ => rawZ;
@@ -104,7 +119,30 @@ namespace Baseball.Editor.HistoricalDatabase
         public double SourceCompositeAtBoundary => sourceCompositeAtBoundary;
     }
 
-    /// <summary>OriginYear 전체 모집단에서 RoleAdjustedComposite가 Cost로 변환된 근거다.</summary>
+    /// <summary>출전량이 정한 Cost 상한과 그 판정 근거다.</summary>
+    [Serializable]
+    public sealed class HistoricalCostEligibilityTrace
+    {
+        [SerializeField] private string tier;
+        [SerializeField] private string scope;
+        [SerializeField] private double sample;
+        [SerializeField] private double workloadRatio;
+        [SerializeField] private int maximumCost;
+        [SerializeField] private string reason;
+
+        /// <summary>Full / Regular / Limited / Tiny 중 하나다. 사람이 읽는 이름일 뿐 상한을 정하지 않는다.</summary>
+        public string Tier => tier ?? string.Empty;
+        /// <summary>출전량 기준을 고른 집단이다. Hitter 또는 투수 역할군이다.</summary>
+        public string Scope => scope ?? string.Empty;
+        /// <summary>타자는 타석 수, 투수는 상대한 타자 수다.</summary>
+        public double Sample => sample;
+        /// <summary>해당 역할군의 온전한 시즌 대비 출전 비율이다. 상한이 여기서 연속으로 나온다.</summary>
+        public double WorkloadRatio => workloadRatio;
+        public int MaximumCost => maximumCost;
+        public string Reason => reason ?? string.Empty;
+    }
+
+    /// <summary>OriginYear의 같은 선수 유형 모집단에서 RoleAdjustedComposite가 Cost로 변환된 근거다.</summary>
     [Serializable]
     public sealed class HistoricalCostDerivationTrace
     {
@@ -123,6 +161,8 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private int populationCount;
         [SerializeField] private int rank;
         [SerializeField] private double percentile;
+        [SerializeField] private int rawPercentileCost;
+        [SerializeField] private HistoricalCostEligibilityTrace costEligibility;
         [SerializeField] private int cost;
 
         public string DataProvenance => dataProvenance ?? string.Empty;
@@ -144,6 +184,9 @@ namespace Baseball.Editor.HistoricalDatabase
         public int PopulationCount => populationCount;
         public int Rank => rank;
         public double Percentile => percentile;
+        /// <summary>자격 상한을 적용하기 전 백분위만으로 나온 Cost다.</summary>
+        public int RawPercentileCost => rawPercentileCost;
+        public HistoricalCostEligibilityTrace CostEligibility => costEligibility;
         public int Cost => cost;
     }
 

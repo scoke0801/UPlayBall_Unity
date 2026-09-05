@@ -42,27 +42,30 @@ namespace Baseball.Tests.EditMode.Game
             HistoricalBakedContent content = _provider.Load();
 
             Assert.That(content.Manifest.AssetFormatVersion, Is.EqualTo(1));
-            Assert.That(content.Manifest.ContentSchemaVersion, Is.EqualTo(4));
+            Assert.That(content.Manifest.ContentSchemaVersion, Is.EqualTo(5));
             Assert.That(
                 content.Manifest.AssetArchiveHash,
-                Is.EqualTo("d995ba952985a0a2e2c1622cc877db7e1293440249b853910a7e35ef8d224d12"));
+                Is.EqualTo("a1c71bdc9a991b5c5bac09a185b61306ab8861a7cd86da6a71b4f06f7d687aa6"));
             Assert.That(content.Manifest.ReferenceDataVersion, Is.EqualTo("kbo-normalized-v3"));
-            Assert.That(content.Manifest.GeneratorVersion, Is.EqualTo("source-backed-runtime-bake-v1"));
-            Assert.That(content.Manifest.BalanceVersion, Is.EqualTo("historical-source-backed-v1"));
-            Assert.That(content.Manifest.NamePolicyVersion, Is.EqualTo("source-backed-fictional-name-v1"));
-            Assert.That(content.Manifest.NameDataPolicy, Is.EqualTo("runtime-fictional-only-v2"));
-            Assert.That(content.Manifest.GenerationSeed, Is.EqualTo(20260901UL));
+            Assert.That(content.Manifest.GeneratorVersion, Is.EqualTo("source-backed-runtime-bake-v2"));
+            Assert.That(content.Manifest.BalanceVersion, Is.EqualTo("historical-source-backed-v2"));
+            Assert.That(content.Manifest.NamePolicyVersion, Is.EqualTo("world-identity-name-pool-v1"));
+            Assert.That(content.Manifest.NameDataPolicy, Is.EqualTo("runtime-world-identity-pool-v3"));
+            Assert.That(content.Manifest.GenerationSeed, Is.Zero);
+            Assert.That(content.Manifest.SourceManifest.GenerationSeedAffectsCanonicalBake, Is.False);
             Assert.That(content.Manifest.SourceManifest.SourceIdentityPolicyVersion, Is.EqualTo("source-backed-identity-v1"));
-            Assert.That(content.Manifest.SourceManifest.SourceAllocationPolicyVersion, Is.EqualTo("source-backed-franchise-allocation-v1"));
-            Assert.That(content.Manifest.SourceManifest.ReplacementGeneratorVersion, Is.EqualTo("replacement-generation-v1"));
-            Assert.That(content.Manifest.SourceManifest.ReplacementPopulationPolicyVersion, Is.EqualTo("origin-year-position-role-source-only-v1"));
+            Assert.That(content.Manifest.SourceManifest.SourceFranchiseIdentityPolicyVersion, Is.EqualTo("source-franchise-identity-v1"));
+            Assert.That(content.Manifest.SourceManifest.SourceTeamSeasonIdentityPolicyVersion, Is.EqualTo("source-team-season-identity-v1"));
+            Assert.That(content.Manifest.SourceManifest.SourceAllocationPolicyVersion, Is.EqualTo("source-team-season-one-to-one-v2"));
+            Assert.That(content.Manifest.SourceManifest.ReplacementGeneratorVersion, Is.EqualTo("quota-fallback-percentile-v2"));
+            Assert.That(content.Manifest.SourceManifest.ReplacementPopulationPolicyVersion, Is.EqualTo("quota-fallback-aggregate-percentile-v2"));
             Assert.That(content.Manifest.SourceManifest.SourceBackedPlayerPersonCount, Is.EqualTo(3510));
             Assert.That(content.Manifest.SourceManifest.SourceBackedPlayerSeasonCount, Is.EqualTo(17333));
-            Assert.That(content.Manifest.SourceManifest.ReplacementGeneratedPlayerPersonCount, Is.EqualTo(355));
-            Assert.That(content.Manifest.SourceManifest.ReplacementGeneratedPlayerSeasonCount, Is.EqualTo(355));
+            Assert.That(content.Manifest.SourceManifest.ReplacementGeneratedPlayerPersonCount, Is.EqualTo(54));
+            Assert.That(content.Manifest.SourceManifest.ReplacementGeneratedPlayerSeasonCount, Is.EqualTo(54));
             Assert.That(
                 content.Manifest.ContentHash,
-                Is.EqualTo("f52ff738c10520285e9ecaf9486d602a6cd382d04e20f1077c339296a0815c2c"));
+                Is.EqualTo("bf89f8413044f110f753195a9fcca595aab4ba0775588aeb4a1fa041e338207e"));
         }
 
         [Test]
@@ -88,7 +91,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void RuntimeContentProvider_RejectsSchemaV4WithoutSourceContractFields()
+        public void RuntimeContentProvider_RejectsSchemaV5WithoutSourceContractFields()
         {
             string invalidManifest = _catalog.Manifest.text.Replace(
                 "\"sourceIdentityPolicyVersion\":\"source-backed-identity-v1\"",
@@ -107,7 +110,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void RuntimeContentProvider_RejectsSchemaV4EmptySourceContractVersion()
+        public void RuntimeContentProvider_RejectsSchemaV5EmptySourceContractVersion()
         {
             string invalidManifest = _catalog.Manifest.text.Replace(
                 "\"sourceIdentityPolicyVersion\":\"source-backed-identity-v1\"",
@@ -146,16 +149,17 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(content.Years.Count, Is.EqualTo(44));
             Assert.That(content.Years[0].Year, Is.EqualTo(1982));
             Assert.That(content.Years[43].Year, Is.EqualTo(2025));
-            Assert.That(content.PlayerPersons.Count, Is.EqualTo(3865));
-            Assert.That(content.PlayerSeasons.Count, Is.EqualTo(17688));
-            Assert.That(content.NormalCards.Count, Is.EqualTo(17688));
-            Assert.That(content.TeamSeasons.Count, Is.EqualTo(440));
-            Assert.That(content.OriginalSeasonRecords.Count, Is.EqualTo(17688));
+            Assert.That(content.PlayerPersons.Count, Is.EqualTo(3564));
+            Assert.That(content.PlayerSeasons.Count, Is.EqualTo(17387));
+            Assert.That(content.NormalCards.Count, Is.EqualTo(17387));
+            Assert.That(content.TeamSeasons.Count, Is.EqualTo(363));
+            Assert.That(content.OriginalSeasonRecords.Count, Is.EqualTo(17387));
             Assert.That(content.OriginalAwardRecords.Count, Is.EqualTo(555));
             for (int index = 0; index < content.Years.Count; index++)
             {
-                Assert.That(content.Years[index].TeamSeasons.Count, Is.EqualTo(10));
-                Assert.That(content.Years[index].PlayerSeasons.Count, Is.GreaterThanOrEqualTo(250));
+                int teamCount = content.Years[index].TeamSeasons.Count;
+                Assert.That(teamCount, Is.InRange(6, 10));
+                Assert.That(content.Years[index].PlayerSeasons.Count, Is.GreaterThanOrEqualTo(teamCount * 25));
             }
         }
 
@@ -199,7 +203,7 @@ namespace Baseball.Tests.EditMode.Game
         public void RuntimeContentProvider_RejectsInvalidContentHash()
         {
             string invalidManifest = _catalog.Manifest.text.Replace(
-                "f52ff738c10520285e9ecaf9486d602a6cd382d04e20f1077c339296a0815c2c",
+                "bf89f8413044f110f753195a9fcca595aab4ba0775588aeb4a1fa041e338207e",
                 new string('0', 64));
             TextAsset manifest = CreateTextAsset(invalidManifest);
             HistoricalRuntimeContentCatalog invalidCatalog = CreateCatalog(
@@ -218,7 +222,7 @@ namespace Baseball.Tests.EditMode.Game
         public void RuntimeContentProvider_RejectsInvalidVersion()
         {
             string invalidManifest = _catalog.Manifest.text.Replace(
-                "\"contentSchemaVersion\":4",
+                "\"contentSchemaVersion\":5",
                 "\"contentSchemaVersion\":999");
             TextAsset manifest = CreateTextAsset(invalidManifest);
             HistoricalRuntimeContentCatalog invalidCatalog = CreateCatalog(
@@ -237,7 +241,7 @@ namespace Baseball.Tests.EditMode.Game
         public void RuntimeContentProvider_RejectsEditorNamePolicy()
         {
             string invalidManifest = _catalog.Manifest.text.Replace(
-                "runtime-fictional-only-v2",
+                "runtime-world-identity-pool-v3",
                 "editor-original-reference-v1");
             TextAsset manifest = CreateTextAsset(invalidManifest);
             HistoricalRuntimeContentCatalog invalidCatalog = CreateCatalog(
@@ -309,25 +313,28 @@ namespace Baseball.Tests.EditMode.Game
         private string BuildSchemaV3ManifestText()
         {
             const string currentContentHash =
-                "f52ff738c10520285e9ecaf9486d602a6cd382d04e20f1077c339296a0815c2c";
-            const string schemaV4Tail =
+                "bf89f8413044f110f753195a9fcca595aab4ba0775588aeb4a1fa041e338207e";
+            const string schemaV5Tail =
                 "\"referenceDataVersion\":\"kbo-normalized-v3\"," +
-                "\"replacementGeneratedPlayerPersonCount\":355," +
-                "\"replacementGeneratedPlayerSeasonCount\":355," +
-                "\"replacementGeneratorVersion\":\"replacement-generation-v1\"," +
-                "\"replacementPopulationPolicyVersion\":\"origin-year-position-role-source-only-v1\"," +
+                "\"replacementGeneratedPlayerPersonCount\":54," +
+                "\"replacementGeneratedPlayerSeasonCount\":54," +
+                "\"replacementGeneratorVersion\":\"quota-fallback-percentile-v2\"," +
+                "\"replacementPopulationPolicyVersion\":\"quota-fallback-aggregate-percentile-v2\"," +
                 "\"rosterBuilderVersion\":\"position-first-core25-v2\"," +
-                "\"sourceAllocationPolicyVersion\":\"source-backed-franchise-allocation-v1\"," +
+                "\"sourceAllocationPolicyVersion\":\"source-team-season-one-to-one-v2\"," +
                 "\"sourceBackedPlayerPersonCount\":3510," +
                 "\"sourceBackedPlayerSeasonCount\":17333," +
-                "\"sourceIdentityPolicyVersion\":\"source-backed-identity-v1\"}";
+                "\"sourceFranchiseIdentityPolicyVersion\":\"source-franchise-identity-v1\"," +
+                "\"sourceIdentityPolicyVersion\":\"source-backed-identity-v1\"," +
+                "\"sourceTeamSeasonIdentityPolicyVersion\":\"source-team-season-identity-v1\"}";
             const string schemaV3Tail =
                 "\"referenceDataVersion\":\"kbo-normalized-v3\"," +
                 "\"rosterBuilderVersion\":\"position-first-core25-v2\"}";
 
             string manifest = _catalog.Manifest.text
-                .Replace("\"contentSchemaVersion\":4", "\"contentSchemaVersion\":3")
-                .Replace(schemaV4Tail, schemaV3Tail);
+                .Replace("\"contentSchemaVersion\":5", "\"contentSchemaVersion\":3")
+                .Replace(",\"generationSeedAffectsCanonicalBake\":false", string.Empty)
+                .Replace(schemaV5Tail, schemaV3Tail);
             string sourceManifest = ExtractSourceManifest(manifest).Replace(
                 $"\"contentHash\":\"{currentContentHash}\"",
                 "\"contentHash\":\"\"");

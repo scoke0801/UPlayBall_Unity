@@ -113,6 +113,47 @@ namespace Baseball.Editor.HistoricalDatabase
             return catalog;
         }
 
+        /// <summary>이미 검증 가능한 Runtime payload는 바꾸지 않고 Unity TextAsset 참조만 다시 묶는다.</summary>
+        public static void RebindExistingRuntimeCatalog()
+        {
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            TextAsset manifest = LoadTextAsset(RuntimeRoot + "/manifest.json");
+            TextAsset persons = LoadTextAsset(RuntimeRoot + "/player_persons.json");
+            string[] yearPaths = Directory.GetFiles(RuntimeRoot + "/Years", "*.json");
+            Array.Sort(yearPaths, StringComparer.Ordinal);
+            var years = new HistoricalRuntimeYearContentFile[yearPaths.Length];
+            for (int index = 0; index < yearPaths.Length; index++)
+            {
+                string assetPath = yearPaths[index].Replace('\\', '/');
+                if (!int.TryParse(Path.GetFileNameWithoutExtension(assetPath), out int year))
+                    throw new InvalidDataException($"Runtime 연도 파일명이 숫자가 아닙니다: {assetPath}");
+                years[index] = new HistoricalRuntimeYearContentFile(
+                    year,
+                    new HistoricalRuntimeContentFile(
+                        "Years/" + Path.GetFileName(assetPath),
+                        LoadTextAsset(assetPath)));
+            }
+
+            HistoricalRuntimeContentCatalog catalog =
+                AssetDatabase.LoadAssetAtPath<HistoricalRuntimeContentCatalog>(CatalogAssetPath);
+            if (catalog == null)
+                throw new InvalidDataException($"Runtime Catalog를 찾을 수 없습니다: {CatalogAssetPath}");
+            catalog.Configure(
+                manifest,
+                new HistoricalRuntimeContentFile("player_persons.json", persons),
+                years);
+            EditorUtility.SetDirty(catalog);
+            BindCatalogToNewGameDefinition(catalog);
+            AssetDatabase.SaveAssets();
+
+            // Source authoring cache와 무관하게 manifest hash·파일 hash·schema·summary를 전부 다시 검증한다.
+            HistoricalBakedContent content = new UnityHistoricalContentProvider(catalog).Load();
+            Debug.Log(
+                $"[HistoricalRuntimeContentExporter] 기존 Runtime Catalog 재바인딩 완료: " +
+                $"years={content.Years.Count}, persons={content.PlayerPersons.Count}, " +
+                $"contentHash={content.Manifest.ContentHash}");
+        }
+
         private static void BindCatalogToNewGameDefinition(HistoricalRuntimeContentCatalog catalog)
         {
             NewGameDefinition definition =

@@ -248,17 +248,41 @@ namespace Baseball.Editor.HistoricalDatabase
                 _loadProgress.title = string.IsNullOrWhiteSpace(value.Message) ? "불러오는 중..." : value.Message;
             });
 
-            Task.Run(() =>
+            // HistoricalArchiveRepository는 Unity JsonUtility로 DTO를 역직렬화한다.
+            // JsonUtility는 worker thread에서 호출하면 Editor native state를 건드려 crash할 수 있다.
+            // 첫 repaint 뒤 main thread에서 로드해 진행 패널을 먼저 표시하고 thread 경계를 지킨다.
+            EditorApplication.delayCall += () =>
+                LoadArchiveOnMainThread(normalizedPath, progress, cancellationToken, generation);
+        }
+
+        private void LoadArchiveOnMainThread(
+            string normalizedPath,
+            IProgress<HistoricalLoadProgress> progress,
+            CancellationToken cancellationToken,
+            int generation)
+        {
+            if (this == null || generation != _loadGeneration)
+                return;
+
+            Task<HistoricalDatabaseViewModel> task;
+            try
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var viewModel = new HistoricalDatabaseViewModel();
                 viewModel.Load(normalizedPath, progress);
                 cancellationToken.ThrowIfCancellationRequested();
-                return viewModel;
-            }, cancellationToken).ContinueWith(task =>
+                task = Task.FromResult(viewModel);
+            }
+            catch (OperationCanceledException)
             {
-                EditorApplication.delayCall += () => CompleteLoad(task, generation, normalizedPath);
-            }, TaskScheduler.Default);
+                task = Task.FromCanceled<HistoricalDatabaseViewModel>(new CancellationToken(true));
+            }
+            catch (Exception exception)
+            {
+                task = Task.FromException<HistoricalDatabaseViewModel>(exception);
+            }
+
+            CompleteLoad(task, generation, normalizedPath);
         }
 
         private void CompleteLoad(Task<HistoricalDatabaseViewModel> task, int generation, string normalizedPath)
@@ -270,6 +294,7 @@ namespace Baseball.Editor.HistoricalDatabase
             _loadCancellation = null;
 
             _loadingPanel.AddToClassList("hidden");
+            SetCancelLoadButtonEnabled(false);
             if (task.IsCanceled)
             {
                 _statusLabel.text = "아카이브 로드를 취소했습니다.";
@@ -323,8 +348,17 @@ namespace Baseball.Editor.HistoricalDatabase
             _loadGeneration++;
             if (_loadingPanel != null)
                 _loadingPanel.AddToClassList("hidden");
+            SetCancelLoadButtonEnabled(false);
+            _workspace?.SetEnabled(true);
+            if (_statusLabel != null)
+                _statusLabel.text = "아카이브 로드를 취소했습니다.";
             if (_sourcePathField != null)
                 SetSourceControlsEnabled(true);
+        }
+
+        private void SetCancelLoadButtonEnabled(bool enabled)
+        {
+            rootVisualElement.Q<Button>("cancel-load-button")?.SetEnabled(enabled);
         }
 
         private void ShowLoadError(string message)

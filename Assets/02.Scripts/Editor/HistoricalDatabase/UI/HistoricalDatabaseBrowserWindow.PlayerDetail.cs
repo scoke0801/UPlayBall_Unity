@@ -78,8 +78,6 @@ namespace Baseball.Editor.HistoricalDatabase
                 return;
             }
             AddKeyValue(section, row.IsOriginalSource ? "실제 선수명" : "에디터 표시 이름", person.DisplayName);
-            if (!string.IsNullOrWhiteSpace(person.FictionalName))
-                AddKeyValue(section, "게임용 가명", person.FictionalName);
             AddKeyValue(section, "출생 연도", person.BirthYear > 0 ? person.BirthYear.ToString() : "원본에 없음");
             AddKeyValue(section, "해당 시즌 나이", row.Age?.ToString() ?? "—");
             AddKeyValue(section, "타석 / 투구 손", FormatHandednessPair(person.Bats, person.Throws));
@@ -101,16 +99,16 @@ namespace Baseball.Editor.HistoricalDatabase
                 return;
             }
 
-            AddKeyValue(section, "합성 선수의 대표 참고 이름", row.OriginalName);
+            AddKeyValue(section, "Source 선수명", row.OriginalName);
             if (row.SourceReferenceNames.Count == 0)
             {
                 AddAbsent(section, "이 아카이브에는 원본 참조 이름이 포함되지 않았습니다.");
                 return;
             }
 
-            AddKeyValue(section, "시즌 혼합 원본명", string.Join(", ", row.SourceReferenceNames));
-            var note = new Label("이 선수 시즌의 능력치와 기록은 위 3~7명 참조 선수를 혼합한 값이며, 대표 원본명 한 명의 실제 성적이 아닙니다.");
-            note.AddToClassList("schema-absent");
+            AddKeyValue(section, "1:1 Source 원본명", string.Join(", ", row.SourceReferenceNames));
+            var note = new Label("이 PlayerSeason은 한 Source PlayerSeason의 기록만 정규화하여 능력치로 Bake합니다.");
+            note.AddToClassList("derived-badge");
             section.Add(note);
         }
 

@@ -366,9 +366,11 @@ namespace Baseball.Editor.HistoricalDatabase
         private static HistoricalPlayerPersonArray ParseTopLevelPersonArray(string json, string sourcePath)
         {
             string trimmed = json?.TrimStart();
-            if (string.IsNullOrEmpty(trimmed) || trimmed[0] != '[')
-                throw new InvalidDataException($"PlayerPerson JSON Root는 배열이어야 합니다: {sourcePath}");
-            return ParseJson<HistoricalPlayerPersonArray>("{\"items\":" + json + "}", sourcePath);
+            if (string.IsNullOrEmpty(trimmed) || (trimmed[0] != '[' && trimmed[0] != '{'))
+                throw new InvalidDataException($"PlayerPerson JSON Root 형식이 올바르지 않습니다: {sourcePath}");
+            return ParseJson<HistoricalPlayerPersonArray>(
+                trimmed[0] == '[' ? "{\"items\":" + json + "}" : json,
+                sourcePath);
         }
 
         private static T ParseJson<T>(string json, string sourcePath) where T : class

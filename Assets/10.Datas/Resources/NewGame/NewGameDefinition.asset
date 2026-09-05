@@ -13,11 +13,55 @@ MonoBehaviour:
   m_Name: NewGameDefinition
   m_EditorClassIdentifier: Baseball.Game::Baseball.Game.Data.NewGameDefinition
   _historicalContentCatalog: {fileID: 11400000, guid: 2b73c9d20f3a50949b2ff71762b87d83, type: 2}
+  _historicalLeagueSeasonYears: e0070000e1070000e2070000e3070000e4070000e5070000e6070000e7070000e8070000e9070000
   _teamCount: 8
   _firstSeasonYear: 2028
   _startingAge: 18
   _teamEmblemCount: 128
   _growthBalance: {fileID: 11400000, guid: b7777777777777777777777777777777, type: 2}
+  _ownerExpansionBalanceConfig: {fileID: 4900000, guid: 872c399badb6478b9374bd09474ce2a1, type: 3}
+  _ownerWorldSeed: 20260905
+  _ownerOriginYear: 2024
+  _ownerPlayerTeamSeasonKey: 
+  _ownerLeagueInstanceId: OWNER-ROOKIE-01
+  _ownerInitialMoney: 1000000000
+  _ownerInitialScoutingPoints: 100
+  _ownerInitialDevelopmentPoints: 100
+  _ownerStarterTactics:
+  - _cardId: OWNER-TACTIC-PATIENT-AT-BAT
+    _name: "\uCD08\uAD6C \uC2E0\uC911"
+    _category: 0
+    _tier: 0
+    _referenceBehavior: "\uCD08\uBC18 \uD0C0\uC790\uC758 \uC120\uAD6C\uB97C \uBCF4\uC870\uD55C\uB2E4."
+    _projectBalanceValue: Mental +1
+    _triggers:
+    - _field: 0
+      _comparison: 4
+      _value: 1
+      _maximumValue: 9
+    _target: 0
+    _statModifiers:
+    - _ability: 5
+      _amount: 1
+    _duration: 0
+    _isDisruption: 0
+  - _cardId: OWNER-TACTIC-ATTACK-ZONE
+    _name: "\uC874 \uC2B9\uBD80"
+    _category: 1
+    _tier: 0
+    _referenceBehavior: "\uCD08\uBC18 \uD22C\uC218\uC758 \uC81C\uAD6C\uB97C \uBCF4\uC870\uD55C\uB2E4."
+    _projectBalanceValue: Control +1
+    _triggers:
+    - _field: 0
+      _comparison: 4
+      _value: 1
+      _maximumValue: 9
+    _target: 1
+    _statModifiers:
+    - _ability: 10
+      _amount: 1
+    _duration: 0
+    _isDisruption: 0
   _teamIdentities:
   - _name: "\uC11C\uC6B8 \uBE14\uB8E8\uC719\uC2A4"
     _primaryColor:
