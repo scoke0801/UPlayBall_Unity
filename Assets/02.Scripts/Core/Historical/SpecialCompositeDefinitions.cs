@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Baseball.Core.Historical
 {
@@ -30,6 +31,8 @@ namespace Baseball.Core.Historical
     public sealed class SpecialCompositeTeamDefinition
     {
         private const int RosterSize = 25;
+        private const string KeyPrefix = "COMPOSITE:";
+        private const string KeySeparator = ":";
         private readonly SpecialCompositeRosterEntry[] _roster;
 
         public SpecialCompositeTeamDefinition(
@@ -84,7 +87,56 @@ namespace Baseball.Core.Historical
         {
             if (originYear <= 0)
                 throw new ArgumentOutOfRangeException(nameof(originYear));
-            return "COMPOSITE:" + originYear + ":" + teamType;
+            return KeyPrefix + originYear + KeySeparator + teamType;
+        }
+
+        /// <summary>합성팀 TeamSeasonKey를 되돌려 원본 연도와 종류를 복원한다.</summary>
+        public static bool TryParseTeamSeasonKey(
+            string teamSeasonKey,
+            out int originYear,
+            out SpecialCompositeTeamType teamType)
+        {
+            originYear = 0;
+            teamType = default;
+            if (string.IsNullOrWhiteSpace(teamSeasonKey)) return false;
+
+            string key = teamSeasonKey.Trim();
+            if (!key.StartsWith(KeyPrefix, StringComparison.Ordinal)) return false;
+
+            int separatorIndex = key.IndexOf(KeySeparator, KeyPrefix.Length, StringComparison.Ordinal);
+            if (separatorIndex < 0) return false;
+
+            string yearText = key.Substring(KeyPrefix.Length, separatorIndex - KeyPrefix.Length);
+            if (!int.TryParse(yearText, NumberStyles.None, CultureInfo.InvariantCulture, out originYear) ||
+                originYear <= 0)
+                return false;
+
+            string typeText = key.Substring(separatorIndex + KeySeparator.Length);
+            return Enum.TryParse(typeText, false, out teamType) &&
+                   Enum.IsDefined(typeof(SpecialCompositeTeamType), teamType);
+        }
+
+        /// <summary>합성팀 TeamSeasonKey를 플레이어에게 보여줄 한국어 구단명으로 바꾼다.</summary>
+        public static bool TryCreateDisplayName(string teamSeasonKey, out string displayName)
+        {
+            displayName = null;
+            if (!TryParseTeamSeasonKey(teamSeasonKey, out int originYear, out SpecialCompositeTeamType teamType))
+                return false;
+
+            displayName = originYear.ToString(CultureInfo.InvariantCulture) + " " + GetTeamTypeName(teamType);
+            return true;
+        }
+
+        /// <summary>합성팀 종류의 한국어 이름이며 일정·기록·중계에서 같은 표기를 쓴다.</summary>
+        public static string GetTeamTypeName(SpecialCompositeTeamType teamType)
+        {
+            return teamType switch
+            {
+                SpecialCompositeTeamType.AllStarComposite => "올스타",
+                SpecialCompositeTeamType.GoldenGloveComposite => "골든글러브",
+                SpecialCompositeTeamType.YearSelectComposite => "올해의 선수",
+                _ => throw new ArgumentOutOfRangeException(nameof(teamType))
+            };
         }
     }
 

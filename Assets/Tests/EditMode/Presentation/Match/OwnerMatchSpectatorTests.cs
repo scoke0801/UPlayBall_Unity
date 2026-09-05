@@ -45,10 +45,11 @@ namespace Baseball.Tests.EditMode.Presentation.Match
             }
         }
 
-        [TestCase("COMPOSITE", false, "상대 구단")]
-        [TestCase("HISTORICAL_COMPOSITE", true, "우리 구단")]
+        [TestCase("", false, "상대 구단")]
+        [TestCase("   ", true, "우리 구단")]
+        [TestCase("2024 올스타", false, "2024 올스타")]
         [TestCase("부산 마리너스", false, "부산 마리너스")]
-        public void 관전구단명_내부Id를역할기반이름으로보정한다(
+        public void 관전구단명_빈이름만역할기반이름으로대체한다(
             string teamName,
             bool isPlayerTeam,
             string expected)

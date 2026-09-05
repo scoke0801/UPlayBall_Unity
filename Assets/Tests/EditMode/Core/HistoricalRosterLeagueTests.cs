@@ -44,6 +44,39 @@ namespace Baseball.Tests.EditMode.Core
         }
 
         [Test]
+        public void SpecialCompositeTeamKey_왕복해서연도와종류를복원하고한국어이름을만든다()
+        {
+            string key = SpecialCompositeTeamDefinition.CreateStableTeamSeasonKey(
+                2024, SpecialCompositeTeamType.AllStarComposite);
+
+            Assert.That(
+                SpecialCompositeTeamDefinition.TryParseTeamSeasonKey(
+                    key, out int originYear, out SpecialCompositeTeamType teamType),
+                Is.True);
+            Assert.That(originYear, Is.EqualTo(2024));
+            Assert.That(teamType, Is.EqualTo(SpecialCompositeTeamType.AllStarComposite));
+
+            Assert.That(
+                SpecialCompositeTeamDefinition.TryCreateDisplayName(key, out string displayName),
+                Is.True);
+            Assert.That(displayName, Is.EqualTo("2024 올스타"));
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("KBO_COMPOSITE_1982")]
+        [TestCase("COMPOSITE:2024")]
+        [TestCase("COMPOSITE:0:AllStarComposite")]
+        [TestCase("COMPOSITE:2024:UnknownComposite")]
+        public void SpecialCompositeTeamKey_형식이아닌구단Key는이름을만들지않는다(string teamSeasonKey)
+        {
+            Assert.That(
+                SpecialCompositeTeamDefinition.TryCreateDisplayName(teamSeasonKey, out string displayName),
+                Is.False);
+            Assert.That(displayName, Is.Null);
+        }
+
+        [Test]
         public void LeagueInstance_연도별정규Franchise6에서10개를허용하고특수팀은별도로센다()
         {
             string[] regularTeams = CreateRegularTeams(10);

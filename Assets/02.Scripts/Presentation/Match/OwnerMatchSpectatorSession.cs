@@ -191,11 +191,10 @@ namespace Baseball.Presentation.Match
                 isBetweenInnings);
         }
 
-        /// <summary>내부 합성 구단 ID가 관전 화면에 노출되면 역할 기반 이름으로 바꾼다.</summary>
+        /// <summary>구단명이 비어 있을 때만 역할 기반 이름으로 대체한다.</summary>
         public static string FormatTeamDisplayName(string teamName, bool isPlayerTeam)
         {
-            if (!string.IsNullOrWhiteSpace(teamName) &&
-                teamName.IndexOf("COMPOSITE", StringComparison.OrdinalIgnoreCase) < 0)
+            if (!string.IsNullOrWhiteSpace(teamName))
                 return teamName.Trim();
 
             return isPlayerTeam ? "우리 구단" : "상대 구단";

@@ -94,7 +94,7 @@ namespace Baseball.Presentation.Owner
                     owned.EnhancementLevel,
                     owned.DuplicateCount,
                     owned.IsLocked,
-                    owned.IsFavorite);
+                    owned.IsFavorite, season.CreateBaseAttributes());
             }
 
             ManagerPregamePreparation preparation = null;
@@ -166,7 +166,7 @@ namespace Baseball.Presentation.Owner
                     owned.EnhancementLevel,
                     owned.DuplicateCount,
                     owned.IsLocked,
-                    owned.IsFavorite);
+                    owned.IsFavorite, season.CreateBaseAttributes());
             }
             return new OwnerCollectionSnapshot(cards);
         }

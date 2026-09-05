@@ -49,10 +49,11 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(profile.BackgroundResourcePath, Is.EqualTo(OwnerUiAssetIds.HomeBackgroundResourcePath));
         }
 
-        [TestCase("COMPOSITE", "상대 구단", "상대 구단")]
-        [TestCase("KBO_COMPOSITE_1982", "내 구단", "내 구단")]
+        [TestCase("", "상대 구단", "상대 구단")]
+        [TestCase(null, "내 구단", "내 구단")]
+        [TestCase("2024 골든글러브", "상대 구단", "2024 골든글러브")]
         [TestCase("서울 웨이브스", "상대 구단", "서울 웨이브스")]
-        public void TeamDisplayName_내부Id를사용자용이름으로보정한다(
+        public void TeamDisplayName_빈이름만대체이름으로보정한다(
             string teamName,
             string fallback,
             string expected)

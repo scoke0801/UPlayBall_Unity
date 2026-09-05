@@ -681,6 +681,9 @@ namespace Baseball.Game.Historical
 
         private string GetTeamDisplayName(ManagerHistoricalRuntimeState runtime, string teamSeasonKey)
         {
+            // 합성 참가팀은 Franchise TeamSeason 정의가 없으므로 Key에서 직접 이름을 만든다.
+            if (SpecialCompositeTeamDefinition.TryCreateDisplayName(teamSeasonKey, out string compositeName))
+                return compositeName;
             if (_content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
                 return runtime.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId);
             return teamSeasonKey;
