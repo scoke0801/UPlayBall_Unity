@@ -16,7 +16,9 @@ namespace Baseball.Presentation.Guide
         private static readonly Color PanelColor = CareerUiTheme.ReferencePanel;
         private static readonly Color AccentColor = CareerUiTheme.PrimaryBright;
         private static readonly Color TextColor = CareerUiTheme.TextOnLight;
-        private const float DialogueBottomInset = 60f;
+        [SerializeField, Range(0f, 1f)] private float _dialogueBottomAnchor = 0.25f;
+        [SerializeField, Range(0f, 0.1f)] private float _dialogueRightMargin = 0.05f;
+        [SerializeField, Range(0f, 1f)] private float _backgroundDimAlpha = 0.56f;
         [SerializeField, Range(1f, 1.25f)] private float _dialogueScale = 1.25f;
         private readonly FrontManagerGuideCtaRouter _router = new();
         private readonly List<string> _suppressionContexts = new(2);
@@ -140,7 +142,8 @@ namespace Baseball.Presentation.Guide
 
         private void Render(GuideMessage message)
         {
-            _overlay.color = BlocksLowerInput ? new Color(0f, 0f, 0f, 0.56f) : Color.clear;
+            // 알림 유형과 무관하게 배경을 낮추고, 뒤에 생성한 프레임과 초상화는 선명하게 유지한다.
+            _overlay.color = new Color(0f, 0f, 0f, _backgroundDimAlpha);
             _overlay.raycastTarget = BlocksLowerInput;
             _messageText.text = message.Text;
 
@@ -205,9 +208,8 @@ namespace Baseball.Presentation.Guide
         private void ConfigureLayout(GuidePresentationType type)
         {
             Vector2 size;
-            Vector2 anchor = new Vector2(1f, 0f);
-            // 하단 행동 바에 이어지는 위치로 고정해 알림 유형이 바뀌어도 프레임이 떠 보이지 않게 한다.
-            Vector2 position = new Vector2(-32f, DialogueBottomInset);
+            // 참고 화면처럼 오른쪽 중하단에 두고 하단 정보 영역이 프레임 아래로 보이게 한다.
+            Vector2 anchor = new Vector2(1f - _dialogueRightMargin, _dialogueBottomAnchor);
             switch (type)
             {
                 case GuidePresentationType.Toast:
@@ -219,8 +221,6 @@ namespace Baseball.Presentation.Guide
                 case GuidePresentationType.FullDialogue:
                 case GuidePresentationType.ModalCelebration:
                     size = new Vector2(1080f, 360f);
-                    anchor = new Vector2(0.5f, 0f);
-                    position = new Vector2(0f, DialogueBottomInset);
                     break;
                 case GuidePresentationType.Briefing:
                     size = new Vector2(960f, 320f);
@@ -229,11 +229,12 @@ namespace Baseball.Presentation.Guide
                     size = new Vector2(900f, 300f);
                     break;
             }
-            _panel.anchorMin = _panel.anchorMax = _panel.pivot = anchor;
+            _panel.anchorMin = _panel.anchorMax = anchor;
+            _panel.pivot = new Vector2(1f, 0f);
             _panel.sizeDelta = size;
             // 프레임·캐릭터·글자·버튼을 같은 배율로 키우고 화면 가장자리 기준점은 유지한다.
             _panel.localScale = Vector3.one * _dialogueScale;
-            _panel.anchoredPosition = position;
+            _panel.anchoredPosition = Vector2.zero;
             // 프레임과 대사의 비율을 함께 바꿔 모든 안내 유형에서 오른쪽 초상화 영역을 비운다.
             SetContentRect(_messageText.rectTransform, new Vector2(0f, 1f),
                 new Vector2(36f, -40f), new Vector2(size.x * 0.64f, size.y - 120f));
