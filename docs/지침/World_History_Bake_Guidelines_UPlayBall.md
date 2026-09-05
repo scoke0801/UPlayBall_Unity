@@ -27,7 +27,7 @@
 - 계약은 `IBakedWorldHistorySource`(순수 C#, `Baseball.Game`)이고, TextAsset을 읽는 구현만 `Baseball.Game.Unity`에 있다. Core/Simulation/Game의 Unity 비의존은 유지된다.
 - Editor 도구는 `Baseball.Simulation`을 참조하지 않는다. 그래서 `WorldHistoryBakeService`가 Game 경계의 진입점 역할을 한다.
 
-## Bake Key — 밸런스를 바꿨으면 반드시 다시 구울 것
+## Bake Key
 
 `BakedWorldHistoryKey`는 다음을 모두 포함한다.
 
@@ -36,17 +36,71 @@
 | `RecordMode` | OriginalHistory는 Bake 대상이 아니다 |
 | `WorldHistorySeed` | Seed가 다르면 다른 월드다 |
 | `ContentHash` | 역사 원본 Bake가 바뀌면 경기 입력이 바뀐다 |
-| `BalanceVersion` + `BalanceContentHash` | **경기 결과를 좌우한다** |
+| `BalanceVersion` + `BalanceContentHash` | 경기 결과를 좌우한다 |
+| (파일 헤더의 `FormatVersion`) | 산출물 포맷이 바뀌면 읽지 않는다 |
 
-**Key가 하나라도 어긋나면 Bake를 조용히 무시하고 실제 시뮬레이션으로 되돌아간다.** 즉 다시 굽는 것을 잊어도 결과가 틀리지는 않고 **느려질 뿐**이다. 반대로 말하면, 새 게임이 갑자기 다시 느려졌다면 Key가 깨진 것이므로 다시 구우면 된다.
+**Key가 하나라도 어긋나면 Bake를 조용히 무시하고 실제 시뮬레이션으로 되돌아간다.** 결과가 틀리지는 않고 **느려질 뿐**이다. 그래서 다시 굽는 것을 잊어도 게임은 깨지지 않지만, 새 게임 시작이 다시 60~90초가 된다.
 
-`BalanceTable`의 `Version`/`ContentHash`를 올리지 않고 경기 계수만 바꾸면 Key가 그대로라 낡은 Bake가 적중한다. **경기 결과에 영향을 주는 밸런스를 바꿀 때는 `BalanceTable.Version`이나 `ContentHash`를 함께 올린다.**
+## 언제 다시 구워야 하는가
+
+아래 중 **하나라도** 하면 기존 Bake는 버려진다. 반드시 다시 굽는다.
+
+### A. Key가 자동으로 어긋나는 경우 — 안전하지만 느려진다
+
+1. **역사 원본 아카이브를 다시 생성했을 때.** `Tools/KBOImporter`의 importer·`synthetic_bake.py`·`derivation_cost.py` 등을 고쳐 `Assets/10.Datas/HistoricalSimulation/1982-2025/`를 다시 구우면 `manifest.json`의 `sourceManifest.contentHash`가 바뀐다. **이 프로젝트에서 가장 자주 발생하는 재굽기 사유다.**
+2. **`UnityHistoricalContentProvider`의 `Supported*Version` 상수를 올렸을 때.** 이 상수들은 아카이브 재생성과 짝을 이루므로 1번을 동반한다. (`SupportedAbilityFormulaVersion`, `SupportedRosterBuilderVersion`, `SupportedCostFormulaVersion`, `SupportedDerivationBalanceVersion` 등)
+3. **`BalanceTable`의 `Version` 또는 `ContentHash`가 바뀌었을 때.**
+4. **`WorldHistoryBakeCodec.FormatVersion`을 올렸을 때.**
+5. **`_ownerWorldSeed`나 `_careerWorldSeedPool`을 바꿨을 때.** 새로 넣은 Seed에는 대응하는 Bake가 없다.
+
+### B. Key가 어긋나지 않는 경우 — 위험하다
+
+**경기 시뮬레이션 코드를 고치면 Key는 그대로인데 결과만 달라진다.** 이때 낡은 Bake가 그대로 적중해서, 배경 역사만 옛 엔진 결과로 남고 이후 진행은 새 엔진으로 돌아간다. 조용히 어긋나므로 A보다 나쁘다.
+
+해당하는 것:
+
+- `MatchSimulator`, `DetailedMatchEngine`, 타석·주루·수비 판정
+- `BakedHistoricalDetailedSeasonSource`(일정 생성, 올스타, 포스트시즌 시리즈)
+- `WorldHistoryInitializer`, `AwardScoringPolicy`, `WorldAwardResolver`
+- `MatchRandomStreams`, `DeterministicSeed` 등 난수 파생
+
+**이 코드들을 고쳤다면 `BalanceTable.Version`을 올리거나 `ContentHash`를 바꿔서 Key가 어긋나게 만든 뒤 다시 굽는다.** 밸런스 수치를 바꾸지 않았더라도 그렇게 한다. Key를 일부러 깨는 것이 유일하게 안전한 방법이다.
+
+### 다시 굽지 않아도 되는 것
+
+표현·UI·커리어 진행 로직처럼 **44시즌 배경 역사 생성에 관여하지 않는** 변경은 무관하다. `WorldCardCatalog`·`SpecialCompositeTeams`는 Bake 대상이 아니라 런타임에 파생되므로, 그쪽 계수만 바꿨다면 다시 구울 필요가 없다.
+
+## 지금 Bake가 유효한지 확인하는 법
+
+가장 빠른 신호는 **새 게임 시작 시간**이다. 즉시 열리면 적중, 60~90초 걸리면 어긋난 것이다.
+
+파일로 직접 확인하려면 `.bytes` 헤더의 `ContentHash`를 `manifest.json`의 `sourceManifest.contentHash`와 비교한다. 헤더 구조는 `WorldHistoryBakeCodec`에 있고, 순서는 다음과 같다.
+
+```text
+magic "UPWH"(u32) / FormatVersion(i32) / RecordMode(i32) / Seed(u64)
+/ ContentHash(string) / BalanceVersion(i32) / BalanceContentHash(string)
+```
+
+문자열은 `BinaryWriter.Write(string)` 규칙(7비트 길이 접두사 + UTF-8)을 따른다.
 
 ## 굽는 방법
 
 1. `Baseball/툴 런처` → **데이터 → World History Bake** 실행.
 2. 산출물은 `Assets/10.Datas/HistoricalSimulation/BakedWorldHistory/`에 생기고, 같은 위치의 `BakedWorldHistoryCatalog.asset`이 `NewGameDefinition`에 자동 연결된다.
-3. 이 경로는 역사 원본과 함께 `.gitignore` 대상이다. **파생 산출물이므로 커밋하지 않으며, 각자 로컬에서 굽는다.**
+3. 이 경로는 역사 원본과 함께 `.gitignore` 대상이다. **파생 산출물이므로 커밋하지 않으며, 각자 로컬에서 굽는다.** 저장소를 새로 받은 사람은 한 번 구워야 한다.
+
+Editor를 띄우지 않고 굽는 배치모드 경로도 있다. Editor가 프로젝트를 잠그고 있으면 실행되지 않으므로 먼저 닫는다.
+
+```text
+"C:\Program Files\Unity\Hub\Editor\6000.3.21f1\Editor\Unity.exe" -batchmode -nographics ^
+  -projectPath "<프로젝트 경로>" ^
+  -executeMethod Baseball.Editor.HistoricalDatabase.WorldHistoryBakeTool.BakeFromCommandLine ^
+  -logFile bake.log
+```
+
+`-careerWorldSeeds 20260905,19820327,...`를 덧붙이면 Pool을 먼저 확정한 뒤 굽는다. 생략하면 `NewGameDefinition`에 저장된 Pool을 그대로 쓴다.
+
+한 Seed를 굽는 데 걸리는 시간은 이 프로젝트 실측으로 **65~87초**다(Unity Mono 약 172경기/초, 시즌 44개 약 1만 5천 경기). 구단주 Seed 1개 + 커리어 Pool 개수만큼 구우므로, Pool이 4개면 5개를 굽고 약 6~7분이 든다. 산출물은 Seed당 약 630KB다.
 
 ## 두 개의 Seed — 반드시 구분할 것
 
