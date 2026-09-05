@@ -570,3 +570,5 @@ ProjectSettings/ScriptableBuildPipeline.json
 .code-review-graph/graph.db
 Assets/01.Scenes/GameLogic/InGame_Old.unity
 Assets/01.Scenes/GameLogic/InGame_Old.unity.meta
+docs/디자인/ref/
+Tools/PMReference/
