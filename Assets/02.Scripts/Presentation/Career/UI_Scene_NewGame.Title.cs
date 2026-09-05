@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Game.Diagnostics;
 using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
@@ -207,22 +208,40 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleRight, new Vector2(420f, 28f), new Vector2(55f, -68f), AccentColor);
             ownerCareer.onClick.AddListener(() =>
             {
+                OwnerModeEntryProfiler.Begin($"구단주 모드 · {ownerAction.Replace("  →", string.Empty)}");
                 try
                 {
                     if (!ownerManager.HasActiveRuntime)
                     {
                         if (ownerManager.HasSave)
+                        {
                             ownerManager.Load();
+                            OwnerModeEntryProfiler.Mark("세이브 로드");
+                        }
                         else if (!ownerManager.StartNewGame())
+                        {
                             throw new InvalidOperationException(ownerManager.LastError);
+                        }
+                        else
+                        {
+                            OwnerModeEntryProfiler.Mark("신규 구단 생성");
+                        }
+                    }
+                    else
+                    {
+                        OwnerModeEntryProfiler.Mark("기존 런타임 재사용");
                     }
 
+                    // Select는 ModeChanged를 동기 통지해 OwnerModeShellCoordinator.Refresh를 그 자리에서 돌린다.
+                    // Shell 구성 구간의 세부 Mark는 그 안에서 찍힌다.
                     UiGameModeSession.Select(UiGameMode.OwnerCareer);
                     Hide();
+                    OwnerModeEntryProfiler.Mark("타이틀 화면 숨김");
                 }
                 catch (Exception exception) when (
                     exception is ArgumentException || exception is InvalidOperationException)
                 {
+                    OwnerModeEntryProfiler.Abort(exception.Message);
                     _titleNotice = string.IsNullOrWhiteSpace(exception.Message)
                         ? "구단주 모드를 시작할 수 없습니다."
                         : exception.Message;
@@ -252,7 +271,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(0f, -445f), CareerUiTheme.SecondaryAction, out _);
             credits.onClick.AddListener(() =>
             {
-                _titleNotice = "UPlayBall · Baseball Career Simulation";
+            _titleNotice = "UPlayBall · 프로야구 선수 커리어";
                 Render();
             });
             Button quit = CreateButton("Quit", right, "게임 종료", new Vector2(150f, 42f),

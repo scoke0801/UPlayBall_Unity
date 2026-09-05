@@ -4,7 +4,6 @@ using Baseball.Game.Manager;
 using Baseball.Core.Historical;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace Baseball.Tests.EditMode.Game.Historical
 {
@@ -35,7 +34,6 @@ namespace Baseball.Tests.EditMode.Game.Historical
         [Test]
         public void GameBootstrap_OwnerModeManager를한번만등록한다()
         {
-            ExpectKnownGuideValidationError();
             GameBootstrap.EnsureRuntimeManagers();
             GameManager gameManager = GameManager.Instance;
 
@@ -49,11 +47,18 @@ namespace Baseball.Tests.EditMode.Game.Historical
         [Test]
         public void StartNewGame_같은Catalog의TeamColor두슬롯과Tactic두장을Pregame에전달한다()
         {
-            ExpectKnownGuideValidationError();
             GameBootstrap.EnsureRuntimeManagers();
             GameManager.Instance.TryGetManager(out OwnerModeManager manager);
 
             Assert.That(manager.StartNewGame(), Is.True, manager.LastError);
+            OwnerModeRosterStatus rosterStatus = manager.BuildRosterStatus();
+            Assert.That(rosterStatus.Strength.PlayerCount, Is.EqualTo(25));
+            Assert.That(rosterStatus.Strength.HitterCount, Is.EqualTo(14));
+            Assert.That(rosterStatus.Strength.PitcherCount, Is.EqualTo(11));
+            Assert.That(rosterStatus.Strength.Overall, Is.InRange(1d, 100d));
+            Assert.That(rosterStatus.Cost.HasValue, Is.True);
+            Assert.That(manager.BuildTeamStrength(manager.Runtime.PlayerTeamSeasonKey).Overall,
+                Is.EqualTo(rosterStatus.Strength.Overall));
             LineupPresetState preset = manager.Runtime.ManagerMode.GetSelectedLineupPreset();
             Assert.That(preset.TeamColorIds.Count, Is.EqualTo(LineupPresetState.TeamColorSlotCount));
             Assert.That(preset.TeamColorIds[0], Is.Not.Null.And.Not.Empty);
@@ -64,13 +69,6 @@ namespace Baseball.Tests.EditMode.Game.Historical
             ManagerPregamePreparation preparation = manager.PrepareNextGame();
             Assert.That(preparation.PresetValidation.CanStartGame, Is.True);
             Assert.That(preparation.CanStartGame, Is.True);
-        }
-
-        private static void ExpectKnownGuideValidationError()
-        {
-            LogAssert.Expect(
-                LogType.Error,
-                "[GuideManager] [CTA_UNKNOWN] $.cueDefinitions[9].cta.action: '' CTA Adapter가 없습니다.");
         }
     }
 }

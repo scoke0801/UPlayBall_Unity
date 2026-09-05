@@ -6,6 +6,7 @@ using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Data;
+using Baseball.Game.Diagnostics;
 using Baseball.Game.Manager;
 using Baseball.Game.Unity.Persistence;
 using Baseball.Simulation.Historical;
@@ -48,7 +49,9 @@ namespace Baseball.Game.Historical
             int hitterCount,
             int pitcherCount,
             int foreignPlayerCount,
-            RosterValidationResult validation)
+            RosterValidationResult validation,
+            RosterStrengthBreakdown strength = null,
+            RosterCostBreakdown? cost = null)
         {
             if (activeRosterCount < 0 || hitterCount < 0 || pitcherCount < 0 || foreignPlayerCount < 0)
                 throw new ArgumentOutOfRangeException(nameof(activeRosterCount));
@@ -58,6 +61,8 @@ namespace Baseball.Game.Historical
             PitcherCount = pitcherCount;
             ForeignPlayerCount = foreignPlayerCount;
             Validation = validation ?? throw new ArgumentNullException(nameof(validation));
+            Strength = strength;
+            Cost = cost;
         }
 
         public int ActiveRosterCount { get; }
@@ -69,6 +74,8 @@ namespace Baseball.Game.Historical
         public int ForeignPlayerCount { get; }
         public int ForeignPlayerLimit => ActiveRosterCompositionRule.MaxForeignPlayers;
         public RosterValidationResult Validation { get; }
+        public RosterStrengthBreakdown Strength { get; }
+        public RosterCostBreakdown? Cost { get; }
     }
 
     /// <summary>구단주 Production Runtime과 저장·운영·경기 Command를 영속 GameRoot에서 소유한다.</summary>
@@ -129,6 +136,13 @@ namespace Baseball.Game.Historical
                     ?? throw new InvalidOperationException("Historical Content가 없습니다.");
                 HistoricalYearContentDefinition year = content.GetYear(_newGameConfiguration.OriginYear);
                 string teamSeasonKey = ResolvePlayerTeamSeasonKey(year, content, _newGameConfiguration.PlayerTeamSeasonKey);
+                OwnerModeEntryProfiler.Mark("콘텐츠 로드·팀 결정");
+
+                // World 자체는 워밍업이 만들어 뒀더라도 Card Catalog·합성팀은 지연 생성이라
+                // 여기서 처음 만들어질 수 있다. 어느 쪽이 비용인지 구분해서 남긴다.
+                PrewarmNewGameWorld();
+                OwnerModeEntryProfiler.Mark("World·파생물 확보");
+
                 var service = new ManagerHistoricalNewGameService(
                     _contentProvider,
                     _worldBuilder,
@@ -143,12 +157,17 @@ namespace Baseball.Game.Historical
                         _newGameConfiguration.InitialMoney,
                         _newGameConfiguration.InitialScoutingPoints,
                         _newGameConfiguration.InitialDevelopmentPoints)));
+                OwnerModeEntryProfiler.Mark("Runtime 생성(리그·로스터·스태프)");
+
                 RosterValidationResult rosterValidation = new ActiveRosterValidator().Validate(
                     Runtime.GetRoster(teamSeasonKey));
                 if (!rosterValidation.IsValid)
                     throw new InvalidOperationException("첫 유효 정규구단의 ActiveRoster 검증에 실패했습니다.");
+                OwnerModeEntryProfiler.Mark("로스터 검증");
+
                 ConfigureTeamColors(content, teamSeasonKey);
                 ApplyStarterLoadout(Runtime.ManagerMode);
+                OwnerModeEntryProfiler.Mark("팀 컬러·스타터 로드아웃");
 
                 CurrentPregame = null;
                 LastMatch = null;
@@ -166,6 +185,40 @@ namespace Baseball.Game.Historical
         }
 
         /// <summary>
+        /// Bake TextAsset의 바이트를 미리 확보한다. 워밍업이 워커 스레드에서 World를 만들려면
+        /// 그 전에 메인 스레드에서 이것을 호출해야 한다. TextAsset은 워커에서 읽을 수 없다.
+        /// </summary>
+        public void CacheBakedWorldHistoryBytesOnMainThread()
+        {
+            (_bakedWorldHistorySource as UnityBakedWorldHistorySource)?.CacheAssetBytesOnMainThread();
+        }
+
+        /// <summary>확보해 둔 Bake 바이트를 놓아준다. 복원된 World는 Builder가 그대로 들고 있다.</summary>
+        public void ReleaseBakedWorldHistoryByteCache()
+        {
+            (_bakedWorldHistorySource as UnityBakedWorldHistorySource)?.ReleaseAssetByteCache();
+        }
+
+        /// <summary>
+        /// 지금 조건에 맞는 Bake가 있는지 미리 확인한다. 적중하면 복원 결과가 Source에 캐시되므로
+        /// 뒤이은 World 생성이 그것을 그대로 쓴다. 미스면 44시즌을 실제로 시뮬레이션하게 된다.
+        /// 로딩 화면이 남은 시간을 안내하려면 이 구분이 필요하다.
+        /// </summary>
+        public bool HasMatchingBakedWorldHistory()
+        {
+            if (_bakedWorldHistorySource == null)
+                return false;
+
+            HistoricalBakedContent content = _contentProvider.Load();
+            if (content == null)
+                return false;
+            return _bakedWorldHistorySource.TryLoad(
+                HistoricalWorldRuntimeBuilder.CreateBakeKey(
+                    content, _newGameConfiguration.WorldSeed, _balance),
+                out _);
+        }
+
+        /// <summary>
         /// 로딩 화면에서 새 게임에 필요한 World를 미리 만들어 둔다.
         /// UnityHistoricalContentProvider가 바이트를 미리 확보했다면 워커 스레드에서 호출해도 된다.
         /// Runtime 상태를 만들지는 않으므로, 실제 새 게임 시작 전까지 게임 상태는 바뀌지 않는다.
@@ -174,11 +227,19 @@ namespace Baseball.Game.Historical
         {
             HistoricalBakedContent content = _contentProvider.Load()
                 ?? throw new InvalidOperationException("Historical Content가 없습니다.");
-            _worldBuilder.GetOrBuild(
+            HistoricalWorldRuntimeContent world = _worldBuilder.GetOrBuild(
                 content,
                 WorldRecordMode.SimulatedHistory,
                 _newGameConfiguration.WorldSeed,
                 cancellationToken);
+
+            // World를 만들어 둬도 Card Catalog와 합성팀은 지연 생성이라, 새 게임을 시작하는 순간
+            // 처음 만들어진다. 그 비용까지 여기서 치러야 로딩 화면이 실제로 다 기다린 것이 된다.
+            // 새 게임은 시작 연도 한 해의 합성팀만 쓰므로 44년치를 만들지 않는다.
+            cancellationToken.ThrowIfCancellationRequested();
+            _ = world.WorldCardCatalog;
+            cancellationToken.ThrowIfCancellationRequested();
+            _ = world.GetSpecialCompositeTeamSet(_newGameConfiguration.OriginYear);
         }
 
         public void Save()
@@ -191,11 +252,17 @@ namespace Baseball.Game.Historical
 
         public void Load()
         {
-            Runtime = new ManagerHistoricalLoadService(_saveAdapter).Restore(_saveStore.Load());
+            ManagerHistoricalSaveData saveData = _saveStore.Load();
+            OwnerModeEntryProfiler.Mark("세이브 파일 읽기·역직렬화");
+
+            Runtime = new ManagerHistoricalLoadService(_saveAdapter).Restore(saveData);
+            OwnerModeEntryProfiler.Mark("Runtime 복원");
+
             ConfigureTeamColors(_contentProvider.Load(), Runtime.PlayerTeamSeasonKey);
             CurrentPregame = null;
             LastMatch = null;
             LastError = string.Empty;
+            OwnerModeEntryProfiler.Mark("팀 컬러 적용");
             NotifyRuntimeChanged();
         }
 
@@ -506,7 +573,16 @@ namespace Baseball.Game.Historical
                 hitters,
                 pitchers,
                 foreignPlayers,
-                new ActiveRosterValidator(rule).Validate(roster));
+                new ActiveRosterValidator(rule).Validate(roster),
+                BuildTeamStrength(runtime.PlayerTeamSeasonKey),
+                new RosterCostResolver(rule).Resolve(roster, runtime.WorldCardCatalog));
+        }
+
+        /// <summary>지정 구단의 현재 등록 선수 시즌 기본 능력을 평가하며 저장 상태와 경기 준비를 변경하지 않는다.</summary>
+        public RosterStrengthBreakdown BuildTeamStrength(string teamSeasonKey)
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            return new RosterStrengthResolver().Resolve(runtime.GetRoster(teamSeasonKey), runtime.WorldCardCatalog);
         }
 
         public string GetTeamDisplayName(string teamSeasonKey)

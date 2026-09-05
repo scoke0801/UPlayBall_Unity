@@ -257,14 +257,28 @@ namespace Baseball.Game.Historical
         /// <summary>Bake 산출물을 만들거나 확인할 때 쓸, 지금 실행 조건 그대로의 Key다.</summary>
         public BakedWorldHistoryKey CreateBakeKey(HistoricalBakedContent content, ulong worldHistorySeed)
         {
+            return CreateBakeKey(content, worldHistorySeed, _balance);
+        }
+
+        /// <summary>
+        /// Builder 없이도 같은 Key를 얻는다. 저작 도구가 Bake 적중 여부를 미리 확인할 때 쓴다.
+        /// Key 계산식이 저작 도구와 런타임으로 갈라지면 진단이 조용히 거짓말을 하므로 한 곳에 둔다.
+        /// </summary>
+        public static BakedWorldHistoryKey CreateBakeKey(
+            HistoricalBakedContent content,
+            ulong worldHistorySeed,
+            BalanceTable balance)
+        {
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
+            if (balance == null)
+                throw new ArgumentNullException(nameof(balance));
             return new BakedWorldHistoryKey(
                 WorldRecordMode.SimulatedHistory,
                 worldHistorySeed,
                 content.Manifest.ContentHash,
-                _balance.Version,
-                _balance.ContentHash);
+                balance.Version,
+                balance.ContentHash);
         }
 
         public HistoricalWorldRuntimeContent Build(

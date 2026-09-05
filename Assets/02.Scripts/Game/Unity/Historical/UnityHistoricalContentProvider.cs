@@ -62,11 +62,6 @@ namespace Baseball.Game.Historical
         public const string SupportedReferenceDataVersion = "kbo-normalized-v3";
         public const int SupportedNormalizedSchemaVersion = 3;
         public const string SupportedNormalizedImporterVersion = "1.2.0";
-        public const string SupportedAbilityFormulaVersion = "historical-ability-v5";
-        public const string SupportedPositionRoleClassifierVersion = "season-position-role-v5";
-        public const string SupportedRosterBuilderVersion = "ability-fit-core25-v3";
-        public const string SupportedCostFormulaVersion = "historical-role-composite-v7";
-        public const string SupportedDerivationBalanceVersion = "historical-derivation-balance-v10";
         public const string SupportedGeneratorVersion = "source-backed-runtime-bake-v2";
         public const string SupportedBalanceVersion = "historical-source-backed-v2";
         public const string SupportedNamePolicyVersion = "world-identity-name-pool-v1";
@@ -372,26 +367,11 @@ namespace Baseball.Game.Historical
                 "normalizedImporterVersion",
                 SupportedNormalizedImporterVersion,
                 sourceManifest.NormalizedImporterVersion);
-            ValidateVersion(
-                "abilityFormulaVersion",
-                SupportedAbilityFormulaVersion,
-                sourceManifest.AbilityFormulaVersion);
-            ValidateVersion(
-                "positionRoleClassifierVersion",
-                SupportedPositionRoleClassifierVersion,
-                sourceManifest.PositionRoleClassifierVersion);
-            ValidateVersion(
-                "rosterBuilderVersion",
-                SupportedRosterBuilderVersion,
-                sourceManifest.RosterBuilderVersion);
-            ValidateVersion(
-                "costFormulaVersion",
-                SupportedCostFormulaVersion,
-                sourceManifest.CostFormulaVersion);
-            ValidateVersion(
-                "derivationBalanceVersion",
-                SupportedDerivationBalanceVersion,
-                sourceManifest.DerivationBalanceVersion);
+            ValidateRequiredVersion("abilityFormulaVersion", sourceManifest.AbilityFormulaVersion);
+            ValidateRequiredVersion("positionRoleClassifierVersion", sourceManifest.PositionRoleClassifierVersion);
+            ValidateRequiredVersion("rosterBuilderVersion", sourceManifest.RosterBuilderVersion);
+            ValidateRequiredVersion("costFormulaVersion", sourceManifest.CostFormulaVersion);
+            ValidateRequiredVersion("derivationBalanceVersion", sourceManifest.DerivationBalanceVersion);
             if (sourceManifest.NormalizedSchemaVersion != SupportedNormalizedSchemaVersion)
             {
                 throw new HistoricalContentLoadException(

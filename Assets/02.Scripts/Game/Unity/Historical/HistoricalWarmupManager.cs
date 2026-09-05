@@ -39,14 +39,37 @@ namespace Baseball.Game.Historical
         private volatile int _progressPermille;
         private volatile int _state = (int)HistoricalWarmupState.Idle;
         private string _lastError = string.Empty;
+        private string _statusMessage = string.Empty;
+        private volatile bool _isSimulatingWorldHistory;
+        private bool _isBakeMissReported;
 
         public override int InitializationOrder => -10;
 
         public HistoricalWarmupState State => (HistoricalWarmupState)_state;
         public float Progress => _progressPermille / 1000f;
 
+        /// <summary>Bake가 맞지 않아 44시즌을 실제로 돌리는 중인지. 로딩이 길어지는 유일한 경우다.</summary>
+        public bool IsSimulatingWorldHistory => _isSimulatingWorldHistory;
+
+        /// <summary>로딩 화면에 그대로 띄울 현재 단계 문구다.</summary>
+        public string StatusMessage
+        {
+            get { lock (_stateLock) return _statusMessage; }
+            private set { lock (_stateLock) _statusMessage = value; }
+        }
+
         public bool IsRunning =>
             State == HistoricalWarmupState.ReadingAssets || State == HistoricalWarmupState.Building;
+
+        /// <summary>
+        /// 더 기다릴 것이 없는 상태다. Idle은 워밍업을 아예 시작하지 않은 경우이므로 기다릴 대상이 아니다.
+        /// 실패·취소도 기다림의 끝이다. 각 진입점이 스스로 만드는 경로를 갖고 있기 때문이다.
+        /// </summary>
+        public bool IsSettled =>
+            State == HistoricalWarmupState.Idle ||
+            State == HistoricalWarmupState.Completed ||
+            State == HistoricalWarmupState.Failed ||
+            State == HistoricalWarmupState.Canceled;
 
         public string LastError
         {
@@ -61,6 +84,7 @@ namespace Baseball.Game.Historical
             CancelAndWait();
             _contentProvider = null;
             _isFailureReported = false;
+            _isBakeMissReported = false;
         }
 
         private void OnDisable()
@@ -84,17 +108,16 @@ namespace Baseball.Game.Historical
             if (State != HistoricalWarmupState.Idle)
                 return;
 
-            bool hasBakedWorld;
+            OwnerModeManager ownerMode = OwnerModeManager.Instance;
             try
             {
                 _state = (int)HistoricalWarmupState.ReadingAssets;
+                StatusMessage = "역사 데이터를 읽는 중…";
                 _contentProvider = NewGameDefinition.LoadSharedHistoricalContentProvider();
                 _contentProvider.CacheAssetBytesOnMainThread();
 
-                // Bake가 없으면 World 준비는 44시즌을 실제로 돌린다는 뜻이다.
-                // 그 작업을 백그라운드에 띄워 두면 Editor에서 Domain Reload를 붙잡고,
-                // 빌드에서도 로딩 화면이 수십 초 길어진다. 그럴 바에는 준비하지 않는다.
-                hasBakedWorld = NewGameDefinition.LoadBakedWorldHistorySource() != null;
+                // TextAsset은 워커 스레드에서 읽을 수 없다. Bake 바이트도 여기서 미리 떠 둔다.
+                ownerMode?.CacheBakedWorldHistoryBytesOnMainThread();
                 SetProgress(0.05f);
             }
             catch (Exception exception)
@@ -103,22 +126,23 @@ namespace Baseball.Game.Historical
                 return;
             }
 
-            OwnerModeManager ownerMode = OwnerModeManager.Instance;
             NewGameManager newGame = NewGameManager.Instance;
             UnityHistoricalContentProvider provider = _contentProvider;
             _cancellation = new CancellationTokenSource();
             CancellationToken token = _cancellation.Token;
             _state = (int)HistoricalWarmupState.Building;
-            _warmupTask = Task.Run(
-                () => RunWarmup(provider, ownerMode, newGame, hasBakedWorld, token),
-                token);
+            _warmupTask = Task.Run(() => RunWarmup(provider, ownerMode, newGame, token), token);
         }
 
+        /// <summary>
+        /// World 준비를 Bake 유무로 건너뛰지 않는다. 로딩 화면이 여기 완료를 기다리므로,
+        /// Bake가 맞지 않으면 그 자리에서 44시즌을 시뮬레이션해서라도 World를 만들어 둔다.
+        /// 비용을 뒤로 미루면 결국 타이틀에서 버튼을 누른 사용자가 아무 안내 없이 그 시간을 맞는다.
+        /// </summary>
         private void RunWarmup(
             UnityHistoricalContentProvider contentProvider,
             OwnerModeManager ownerMode,
             NewGameManager newGame,
-            bool hasBakedWorld,
             CancellationToken cancellationToken)
         {
             try
@@ -126,30 +150,42 @@ namespace Baseball.Game.Historical
                 // 1) 23.6MB 역사 payload 파싱. 두 모드가 같은 Provider 인스턴스를 공유한다.
                 contentProvider.Load();
                 cancellationToken.ThrowIfCancellationRequested();
-                SetProgress(hasBakedWorld ? 0.35f : 1f);
+                SetProgress(0.35f);
 
-                if (hasBakedWorld)
-                {
-                    // 2) 구단주 모드 시작 World. Bake를 복원하므로 짧게 끝난다.
-                    ownerMode?.PrewarmNewGameWorld(cancellationToken);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    SetProgress(0.75f);
+                // 2) 맞는 Bake가 있으면 여기서 복원되고, 그 결과를 아래 World 생성이 그대로 쓴다.
+                bool hasMatchingBake = ownerMode != null && ownerMode.HasMatchingBakedWorldHistory();
+                cancellationToken.ThrowIfCancellationRequested();
+                _isSimulatingWorldHistory = !hasMatchingBake;
+                StatusMessage = hasMatchingBake
+                    ? "역사 World를 불러오는 중…"
+                    : "맞는 역사 Bake가 없어 44시즌을 시뮬레이션합니다. 시간이 걸립니다…";
+                SetProgress(0.45f);
 
-                    // 3) 커리어 "구단 오퍼 확인"이 쓸 Content.
-                    newGame?.PrewarmCareerContent(cancellationToken);
-                    SetProgress(1f);
-                }
+                // 3) 구단주 모드 시작 World. Bake가 적중하면 즉시, 아니면 실제 시뮬레이션으로 만든다.
+                ownerMode?.PrewarmNewGameWorld(cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                _isSimulatingWorldHistory = false;
+                SetProgress(0.85f);
+
+                // 4) 커리어 "구단 오퍼 확인"이 쓸 Content.
+                StatusMessage = "커리어 콘텐츠를 준비하는 중…";
+                newGame?.PrewarmCareerContent(cancellationToken);
+                SetProgress(1f);
 
                 contentProvider.ReleaseAssetByteCache();
+                ownerMode?.ReleaseBakedWorldHistoryByteCache();
+                StatusMessage = "준비 완료";
                 _state = (int)HistoricalWarmupState.Completed;
             }
             catch (OperationCanceledException)
             {
+                _isSimulatingWorldHistory = false;
                 SetProgress(1f);
                 _state = (int)HistoricalWarmupState.Canceled;
             }
             catch (Exception exception)
             {
+                _isSimulatingWorldHistory = false;
                 Fail("역사 World 준비에 실패했습니다.", exception);
             }
         }
@@ -195,7 +231,15 @@ namespace Baseball.Game.Historical
 
         private void Update()
         {
-            // 워커에서 던진 예외는 메인 스레드 로그로 옮겨야 눈에 띈다.
+            // 워커에서 만든 상태는 메인 스레드 로그로 옮겨야 눈에 띈다.
+            if (!_isBakeMissReported && _isSimulatingWorldHistory)
+            {
+                _isBakeMissReported = true;
+                Debug.LogWarning(
+                    "[HistoricalWarmupManager] 맞는 World History Bake가 없어 44시즌을 실제로 시뮬레이션합니다. " +
+                    "로딩이 길어집니다. 툴 런처의 '역사 콘텐츠 파이프라인'에서 다시 구우면 즉시 열립니다.");
+            }
+
             if (_isFailureReported || State != HistoricalWarmupState.Failed)
                 return;
             _isFailureReported = true;

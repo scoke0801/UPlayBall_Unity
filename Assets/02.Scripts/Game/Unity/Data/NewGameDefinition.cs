@@ -554,7 +554,15 @@ namespace Baseball.Game.Data
 
         private sealed class UnityBakedWorldHistoryDiagnostics : UnityBakedWorldHistorySource.ILoadDiagnostics
         {
-            public void ReportBakeIgnored(string message) => Debug.LogWarning(message);
+            private const string LogPrefix = "[WorldHistoryBake] ";
+
+            public void ReportBakeIgnored(string message) => Debug.LogWarning(LogPrefix + message);
+
+            public void ReportBakeHit(string message) => Debug.Log(LogPrefix + message);
+
+            // 미스는 결과를 틀리게 하지 않지만 새 게임 시작이 44시즌 실시뮬레이션으로 떨어진다.
+            // 경고로 남겨야 성능 문제를 추적할 때 눈에 띈다.
+            public void ReportBakeMissed(string message) => Debug.LogWarning(LogPrefix + message);
         }
 
         /// <summary>비어 있는 TeamSeasonKey는 Runtime에서 첫 유효 정규구단을 선택한다.</summary>

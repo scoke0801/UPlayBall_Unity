@@ -44,5 +44,18 @@ namespace Baseball.Tests.EditMode.Presentation.Match
                     token);
             }
         }
+
+        [TestCase("COMPOSITE", false, "상대 구단")]
+        [TestCase("HISTORICAL_COMPOSITE", true, "우리 구단")]
+        [TestCase("부산 마리너스", false, "부산 마리너스")]
+        public void 관전구단명_내부Id를역할기반이름으로보정한다(
+            string teamName,
+            bool isPlayerTeam,
+            string expected)
+        {
+            Assert.That(
+                OwnerMatchSpectatorSession.FormatTeamDisplayName(teamName, isPlayerTeam),
+                Is.EqualTo(expected));
+        }
     }
 }

@@ -14,6 +14,7 @@ namespace Baseball.Presentation.Match
         private readonly MatchEvent[] _events;
         private readonly MatchHudPresentationModelBuilder _hudBuilder = new MatchHudPresentationModelBuilder();
         private readonly IMatchHudView _hudView;
+        private readonly int _playerTeamId;
         private int _visibleEventCount;
         private bool _isPaused;
         private OwnerMatchPlaybackSpeed _speed = OwnerMatchPlaybackSpeed.Normal;
@@ -21,7 +22,8 @@ namespace Baseball.Presentation.Match
         private OwnerMatchSpectatorSession(
             ManagerModeMatchResult result,
             MatchEvent[] events,
-            IMatchHudView hudView)
+            IMatchHudView hudView,
+            int playerTeamId)
         {
             Result = result ?? throw new ArgumentNullException(nameof(result));
             _events = events ?? throw new ArgumentNullException(nameof(events));
@@ -29,6 +31,7 @@ namespace Baseball.Presentation.Match
                 throw new InvalidOperationException("구단주 관전 경기의 이벤트 스트림이 비어 있습니다.");
 
             _hudView = hudView;
+            _playerTeamId = playerTeamId;
             CurrentHud = BuildHud();
             _hudView?.Present(CurrentHud);
         }
@@ -50,11 +53,12 @@ namespace Baseball.Presentation.Match
             if (manager == null)
                 throw new ArgumentNullException(nameof(manager));
 
+            int playerTeamId = manager.Runtime?.ManagerMode.LiveSeason.PlayerTeamId ?? 0;
             var eventBuffer = new MatchEventBuffer();
             ManagerModeMatchResult result = manager.PlayNextGame(
                 eventBuffer,
                 CreateSpectatorExecutionProfile());
-            return new OwnerMatchSpectatorSession(result, eventBuffer.ToArray(), hudView);
+            return new OwnerMatchSpectatorSession(result, eventBuffer.ToArray(), hudView, playerTeamId);
         }
 
         public bool TryTogglePause()
@@ -169,8 +173,14 @@ namespace Baseball.Presentation.Match
             return _hudBuilder.Build(
                 Math.Max(1, latest.Inning),
                 isTop ? MatchHudHalf.Top : MatchHudHalf.Bottom,
-                new MatchHudTeamModel(input.AwayRoster.TeamName, latest.AwayScore, isTop),
-                new MatchHudTeamModel(input.HomeRoster.TeamName, latest.HomeScore, !isTop),
+                new MatchHudTeamModel(
+                    FormatTeamDisplayName(input.AwayRoster.TeamName, input.AwayRoster.TeamId == _playerTeamId),
+                    latest.AwayScore,
+                    isTop),
+                new MatchHudTeamModel(
+                    FormatTeamDisplayName(input.HomeRoster.TeamName, input.HomeRoster.TeamId == _playerTeamId),
+                    latest.HomeScore,
+                    !isTop),
                 new MatchHudCountModel(latest.Balls, latest.Strikes, latest.Outs),
                 new MatchHudBaseStateModel(
                     CreateParticipant(input, firstRunnerId),
@@ -179,6 +189,16 @@ namespace Baseball.Presentation.Match
                 CreateParticipant(input, latest.BatterId),
                 CreateParticipant(input, latest.PitcherId),
                 isBetweenInnings);
+        }
+
+        /// <summary>내부 합성 구단 ID가 관전 화면에 노출되면 역할 기반 이름으로 바꾼다.</summary>
+        public static string FormatTeamDisplayName(string teamName, bool isPlayerTeam)
+        {
+            if (!string.IsNullOrWhiteSpace(teamName) &&
+                teamName.IndexOf("COMPOSITE", StringComparison.OrdinalIgnoreCase) < 0)
+                return teamName.Trim();
+
+            return isPlayerTeam ? "우리 구단" : "상대 구단";
         }
 
         private static MatchHudParticipantModel CreateParticipant(MatchInput input, int playerId)
