@@ -237,6 +237,7 @@ namespace Baseball.Presentation.Owner
             {
                 PlayerMiniCardView cardView = PlayerMiniCardView.CreateRuntime(_gridContent);
                 cardView.Selected += HandleCardSelected;
+                cardView.DetailRequested += ShowCardDetail;
                 _cardViews.Add(cardView);
             }
         }
@@ -253,6 +254,16 @@ namespace Baseball.Presentation.Owner
                 if (isSelected) selectedSnapshot = card;
             }
             if (selectedSnapshot != null) ShowInspector(selectedSnapshot);
+        }
+
+        private void ShowCardDetail(PlayerMiniCardModel selected)
+        {
+            foreach (var card in _snapshot.Cards)
+                if (card.CardId == selected.PlayerId)
+                {
+                    UI_Popup_OwnerPlayerCard.Show(_workspaceRoot, card);
+                    return;
+                }
         }
 
         private void ShowInspector(OwnerCollectionCardSnapshot card)

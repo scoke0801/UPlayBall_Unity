@@ -381,11 +381,10 @@ namespace Baseball.Presentation.Owner
             return $"{game.Round}R · {(isHome ? "홈" : "원정")} vs {opponentName}";
         }
 
-        /// <summary>내부 합성 구단 ID를 사용자용 대체 이름으로 바꾼다.</summary>
+        /// <summary>구단명이 비어 있을 때만 호출부가 정한 대체 이름으로 바꾼다.</summary>
         public static string FormatTeamDisplayName(string teamName, string fallback)
         {
-            if (!string.IsNullOrWhiteSpace(teamName) &&
-                teamName.IndexOf("COMPOSITE", StringComparison.OrdinalIgnoreCase) < 0)
+            if (!string.IsNullOrWhiteSpace(teamName))
                 return teamName.Trim();
 
             return string.IsNullOrWhiteSpace(fallback) ? "구단" : fallback;

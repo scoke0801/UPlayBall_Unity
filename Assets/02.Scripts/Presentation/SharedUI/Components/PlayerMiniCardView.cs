@@ -2,6 +2,7 @@ using System;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace Baseball.Presentation.SharedUI
 {
@@ -10,7 +11,7 @@ namespace Baseball.Presentation.SharedUI
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RectTransform), typeof(Image), typeof(Button))]
-    public sealed class PlayerMiniCardView : MonoBehaviour
+    public sealed class PlayerMiniCardView : MonoBehaviour, IPointerClickHandler
     {
         /// <summary>
         /// Compact Card의 기준 너비다.
@@ -62,6 +63,14 @@ namespace Baseball.Presentation.SharedUI
         /// 사용자가 상세 보기 대상으로 카드를 선택했을 때 현재 모델을 전달한다.
         /// </summary>
         public event Action<PlayerMiniCardModel> Selected;
+        public event Action<PlayerMiniCardModel> DetailRequested;
+
+        /// <summary>왼쪽 선택·교환과 독립적으로 우클릭 상세 보기를 요청한다.</summary>
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (eventData.button == PointerEventData.InputButton.Right && _model != null)
+                DetailRequested?.Invoke(_model);
+        }
 
         /// <summary>
         /// 현재 카드에 바인딩된 순수 표시 모델이다.

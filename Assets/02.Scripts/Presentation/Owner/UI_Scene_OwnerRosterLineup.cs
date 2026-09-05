@@ -474,13 +474,14 @@ namespace Baseball.Presentation.Owner
             card.UseLineupSlotLayout();
             card.Bind(cardModel, GetRosterPortrait());
             card.Selected += _ => HandleSlotSelected(slot.Group, slot.Index);
+            card.DetailRequested += ShowCardDetail;
 
             Button button = card.GetComponent<Button>();
             _slotButtons.Add(button);
             _slotCards[button] = card;
         }
 
-        private static void CreateOwnedPlayerCard(
+        private void CreateOwnedPlayerCard(
             Transform parent,
             OwnerCollectionCardSnapshot player,
             int sourceIndex)
@@ -496,6 +497,17 @@ namespace Baseball.Presentation.Owner
             PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(parent, $"Owned_{sourceIndex}");
             card.UseLineupSlotLayout();
             card.Bind(cardModel, GetRosterPortrait());
+            card.DetailRequested += ShowCardDetail;
+        }
+
+        private void ShowCardDetail(PlayerMiniCardModel selected)
+        {
+            foreach (var card in _model.Snapshot.OwnedPlayers)
+                if (card.CardId == selected.PlayerId)
+                {
+                    UI_Popup_OwnerPlayerCard.Show(_workspaceRoot, card);
+                    return;
+                }
         }
 
         private static bool IsPitcher(OwnerCollectionCardSnapshot player)

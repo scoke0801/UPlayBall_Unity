@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
+using Baseball.Core.Growth;
 using Baseball.Presentation.SharedUI;
 
 namespace Baseball.Presentation.Owner
@@ -29,7 +30,8 @@ namespace Baseball.Presentation.Owner
             int enhancementLevel,
             int duplicateCount,
             bool isLocked,
-            bool isFavorite)
+            bool isFavorite,
+            AbilityRatings abilities = null)
         {
             CardId = RequireText(cardId, nameof(cardId));
             PlayerPersonId = RequireText(playerPersonId, nameof(playerPersonId));
@@ -42,6 +44,7 @@ namespace Baseball.Presentation.Owner
             DuplicateCount = duplicateCount;
             IsLocked = isLocked;
             IsFavorite = isFavorite;
+            _abilities = abilities?.Clone();
         }
 
         public string CardId { get; }
@@ -55,6 +58,8 @@ namespace Baseball.Presentation.Owner
         public int DuplicateCount { get; }
         public bool IsLocked { get; }
         public bool IsFavorite { get; }
+        private readonly AbilityRatings _abilities;
+        public int? GetAbility(PlayerAbility ability) => _abilities?.Get(ability);
 
         private static string RequireText(string value, string parameterName)
         {
