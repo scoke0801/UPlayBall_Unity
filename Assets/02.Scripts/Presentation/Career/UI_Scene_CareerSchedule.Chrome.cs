@@ -21,22 +21,22 @@ namespace Baseball.Presentation.Career
             Outline outline = logo.gameObject.AddComponent<Outline>();
             outline.effectColor = new Color(0.05f, 0.34f, 0.62f, 0.9f);
             outline.effectDistance = new Vector2(1.5f, -1.5f);
-            CreateText("LogoCaption", bar, "BASEBALL CAREER", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
+            CreateText("LogoCaption", bar, "프로야구 선수 커리어", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(230f, 18f), new Vector2(-796f, -23f), AccentColor);
 
             CreateTopBarSegment(
-                bar, "LEAGUE", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} LEAGUE",
+                bar, "리그", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} 리그",
                 new Vector2(-365f, 0f), new Vector2(420f, 64f));
             CreateTopBarSegment(
-                bar, "DATE", $"{view.CurrentDate:M월 d일} ({GetKoreanDay(view.CurrentDate.DayOfWeek)})",
+                bar, "날짜", $"{view.CurrentDate:M월 d일} ({GetKoreanDay(view.CurrentDate.DayOfWeek)})",
                 new Vector2(25f, 0f), new Vector2(300f, 64f));
             CreateTopBarSegment(
-                bar, "SEASON", GetSeasonPhaseLabel(view.SeasonPhase),
+                bar, "시즌", GetSeasonPhaseLabel(view.SeasonPhase),
                 new Vector2(300f, 0f), new Vector2(230f, 64f));
             CreateTopBarSegment(
-                bar, "MONEY", FormatMoney(view.AvailableMoney),
+                bar, "보유 자금", FormatMoney(view.AvailableMoney),
                 new Vector2(590f, 0f), new Vector2(330f, 64f));
-            CreateText("Mail", bar, "MAIL", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
+            CreateText("Mail", bar, "우편함", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(70f, 44f), new Vector2(805f, 0f), SecondaryTextColor);
         }
 

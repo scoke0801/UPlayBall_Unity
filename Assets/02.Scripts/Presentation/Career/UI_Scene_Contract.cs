@@ -141,16 +141,16 @@ namespace Baseball.Presentation.Career
                 new Vector2(310f, 50f), new Vector2(-800f, 5f), PrimaryTextColor);
             AddTextOutline(logo, new Color(0.05f, 0.34f, 0.62f, 0.9f), 1.5f);
             CreateText(
-                "LogoCaption", bar, "BASEBALL CAREER", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
+                "LogoCaption", bar, "프로야구 선수 커리어", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(230f, 18f), new Vector2(-796f, -23f), AccentColor);
             CreateTopBarSegment(
-                bar, "LEAGUE", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} LEAGUE",
+                bar, "리그", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} 리그",
                 new Vector2(-365f, 0f), new Vector2(420f, 64f));
             CreateTopBarSegment(
-                bar, "SEASON", GetSeasonPhaseLabel(view.SeasonPhase),
+                bar, "시즌", GetSeasonPhaseLabel(view.SeasonPhase),
                 new Vector2(25f, 0f), new Vector2(300f, 64f));
             CreateTopBarSegment(
-                bar, "MONEY", FormatMoney(view.AvailableMoney),
+                bar, "보유 자금", FormatMoney(view.AvailableMoney),
                 new Vector2(390f, 0f), new Vector2(370f, 64f), GoldColor);
         }
 

@@ -365,18 +365,18 @@ namespace Baseball.Presentation.Career
                 new Vector2(310f, 50f), new Vector2(-800f, 5f), PrimaryTextColor);
             AddTextOutline(logo, CareerUiTheme.PrimaryOutline, 1.5f);
             CreateText(
-                "LogoCaption", bar, "BASEBALL CAREER", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
+                "LogoCaption", bar, "프로야구 선수 커리어", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(230f, 18f), new Vector2(-796f, -23f), AccentColor);
 
             CreateTopBarSegment(
-                bar, "LEAGUE", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} LEAGUE",
+                bar, "리그", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} 리그",
                 new Vector2(-365f, 0f), new Vector2(420f, 64f));
             string dateText = GetSeasonDateText(view);
-            CreateTopBarSegment(bar, "DATE", dateText, new Vector2(25f, 0f), new Vector2(300f, 64f));
+            CreateTopBarSegment(bar, "날짜", dateText, new Vector2(25f, 0f), new Vector2(300f, 64f));
             CreateTopBarSegment(
-                bar, "MONEY", FormatMoney(view.AvailableMoney), new Vector2(390f, 0f), new Vector2(370f, 64f));
+                bar, "보유 자금", FormatMoney(view.AvailableMoney), new Vector2(390f, 0f), new Vector2(370f, 64f));
             CreateText(
-                "Mail", bar, "MAIL", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Mail", bar, "우편함", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(80f, 44f), new Vector2(755f, 0f), SecondaryTextColor);
         }
 
@@ -973,7 +973,7 @@ namespace Baseball.Presentation.Career
             string[] detailValues;
             if (statistics.IsPitcher)
             {
-                primaryLabels = new[] { "평균자책", "WHIP", "승-패", "탈삼진" };
+                primaryLabels = new[] { "평균자책", "이닝당출루", "승-패", "탈삼진" };
                 primaryValues = new[]
                 {
                     statistics.EarnedRunAverage.ToString("0.00"),
@@ -992,7 +992,7 @@ namespace Baseball.Presentation.Career
             }
             else
             {
-                primaryLabels = new[] { "타율", "OPS", "홈런", "타점" };
+                primaryLabels = new[] { "타율", "출루+장타", "홈런", "타점" };
                 primaryValues = new[]
                 {
                     statistics.BattingAverage.ToString(".000"),

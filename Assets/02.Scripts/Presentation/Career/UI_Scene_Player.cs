@@ -141,15 +141,15 @@ namespace Baseball.Presentation.Career
             Text logo = CreateText("Logo", bar, "UPlayBall", 34, FontStyle.BoldAndItalic,
                 TextAnchor.MiddleLeft, new Vector2(310f, 50f), new Vector2(-800f, 5f), PrimaryTextColor);
             AddTextOutline(logo, new Color(0.05f, 0.34f, 0.62f, 0.9f), 1.5f);
-            CreateText("LogoCaption", bar, "BASEBALL CAREER", 10, FontStyle.Bold,
+            CreateText("LogoCaption", bar, "프로야구 선수 커리어", 10, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(230f, 18f), new Vector2(-796f, -23f), AccentColor);
-            CreateTopBarSegment(bar, "LEAGUE", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} LEAGUE",
+            CreateTopBarSegment(bar, "리그", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} 리그",
                 new Vector2(-355f, 0f), new Vector2(430f, 64f));
             string date = view.NextGame.HasValue
                 ? $"{view.NextGame.Value.Date:M월 d일} ({GetKoreanDayOfWeek(view.NextGame.Value.Date.DayOfWeek)})"
                 : "시즌 일정 종료";
-            CreateTopBarSegment(bar, "DATE", date, new Vector2(40f, 0f), new Vector2(310f, 64f));
-            CreateTopBarSegment(bar, "MONEY", FormatMoney(view.AvailableMoney),
+            CreateTopBarSegment(bar, "날짜", date, new Vector2(40f, 0f), new Vector2(310f, 64f));
+            CreateTopBarSegment(bar, "보유 자금", FormatMoney(view.AvailableMoney),
                 new Vector2(405f, 0f), new Vector2(360f, 64f));
             CreateText("Status", bar, GetSeasonPhaseLabel(view.SeasonPhase), 15, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(170f, 42f), new Vector2(720f, 0f), RoleColor);
@@ -293,13 +293,25 @@ namespace Baseball.Presentation.Career
             return "-";
         }
 
-        private enum PlayerDetailTab
+        /// <summary>Shared Shell의 선수 Local Navigation이 선택할 기존 상세 영역이다.</summary>
+        public enum PlayerDetailTab
         {
             Profile,
             Attributes,
             Board,
             Skills,
             Career
+        }
+
+        /// <summary>Shared Shell Route와 기존 선수 화면의 상세 영역을 동기화한다.</summary>
+        public void SelectDetailTab(PlayerDetailTab tab)
+        {
+            if (_selectedTab == tab)
+                return;
+
+            _selectedTab = tab;
+            if (IsVisible)
+                Render();
         }
     }
 }

@@ -584,7 +584,7 @@ namespace Baseball.Presentation.Career
         private static Sprite _goldenGloveBack;
 
         public static Sprite FrontNeutral =>
-            _frontNeutral ??= Resources.Load<Sprite>(Root + "PlayerCard_Front_Neutral");
+            _frontNeutral ??= Resources.Load<Sprite>(Root + "PlayerCard_MainFrame_V2");
 
         public static Sprite FrontTeamColorOverlay =>
             _frontTeamColorOverlay ??= Resources.Load<Sprite>(Root + "PlayerCard_Front_TeamColorOverlay");

@@ -289,7 +289,7 @@ namespace Baseball.Presentation.Career
             RenderBackdrop("career_archive_complete", isHighlight: true);
             RectTransform panel = CreateImage(
                 "CompletePanel", _root, PanelColor, new Vector2(1100f, 680f), Vector2.zero);
-            CreateText("Archive", panel, "CAREER ARCHIVE", 18, FontStyle.Bold, TextAnchor.MiddleCenter,
+            CreateText("Archive", panel, "커리어 기록", 18, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(700f, 32f), new Vector2(0f, 260f), AccentColor);
             CreateText("Title", panel, "한 선수의 기록이 완성되었습니다.", 42, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(900f, 70f), new Vector2(0f, 190f), PrimaryTextColor);

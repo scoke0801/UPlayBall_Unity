@@ -3,6 +3,7 @@ using System.Text;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
+using Baseball.Presentation.SharedScreens;
 using UnityEngine;
 
 namespace Baseball.Presentation.Career
@@ -162,15 +163,15 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.BattingAverage => "타율",
                 CareerRecordMetric.OnBasePercentage => "출루율",
                 CareerRecordMetric.SluggingPercentage => "장타율",
-                CareerRecordMetric.OnBasePlusSlugging => "OPS",
+                CareerRecordMetric.OnBasePlusSlugging => "출루+장타",
                 CareerRecordMetric.PitchingAppearances => "등판",
                 CareerRecordMetric.OutsRecorded => "이닝",
                 CareerRecordMetric.Wins => "승",
                 CareerRecordMetric.Saves => "세이브",
                 CareerRecordMetric.PitchingStrikeouts => "탈삼진",
                 CareerRecordMetric.EarnedRunAverage => "평균자책",
-                CareerRecordMetric.WalksHitsPerInningPitched => "WHIP",
-                _ => metric.ToString()
+                CareerRecordMetric.WalksHitsPerInningPitched => "이닝당출루",
+                _ => CareerSharedSnapshotFormatters.FormatMetricLabel(metric)
             };
         }
 
@@ -192,8 +193,8 @@ namespace Baseball.Presentation.Career
         private static string FormatGameLine(PlayerGameLogState game, PlayerType playerType)
         {
             return playerType == PlayerType.Pitcher
-                ? $"{FormatInnings(game.OutsRecorded)} IP  ·  {game.EarnedRuns} ER  ·  {game.Strikeouts} SO" +
-                  $"  ·  {game.WalksAllowed} BB"
+                ? $"{FormatInnings(game.OutsRecorded)}이닝  ·  자책 {game.EarnedRuns}  ·  탈삼진 {game.Strikeouts}" +
+                  $"  ·  볼넷 {game.WalksAllowed}"
                 : $"{game.AtBats}타수 {game.Hits}안타  ·  {game.HomeRuns}홈런  ·  {game.RunsBattedIn}타점" +
                   $"  ·  {game.Walks}볼넷";
         }

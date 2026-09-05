@@ -40,7 +40,7 @@ namespace Baseball.Presentation.Player
             {
                 new ShellStatusSlotModel(
                     "player.condition",
-                    "Condition",
+                    "컨디션",
                     _current.Condition.ToString(),
                     GetConditionEmphasis(_current.Condition)),
                 new ShellStatusSlotModel(

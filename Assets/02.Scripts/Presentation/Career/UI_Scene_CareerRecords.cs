@@ -166,21 +166,21 @@ namespace Baseball.Presentation.Career
 
             CreateTopBarSegment(
                 bar,
-                "SEASON",
-                $"{dashboard.SeasonYear} 시즌  {GetLeagueLabel(dashboard.LeagueLevel)} League",
+                "시즌",
+                $"{dashboard.SeasonYear} 시즌  {GetLeagueLabel(dashboard.LeagueLevel)} 리그",
                 new Vector2(-390f, 0f),
                 new Vector2(455f, 64f));
             string date = dashboard.NextGame.HasValue
                 ? $"{dashboard.NextGame.Value.Date:yyyy년 M월 d일}"
                 : "정규 시즌 종료";
-            CreateTopBarSegment(bar, "DATE", date, new Vector2(50f, 0f), new Vector2(340f, 64f));
+            CreateTopBarSegment(bar, "날짜", date, new Vector2(50f, 0f), new Vector2(340f, 64f));
             CreateTopBarSegment(
                 bar,
-                "MONEY",
+                "보유 자금",
                 FormatMoney(dashboard.AvailableMoney),
                 new Vector2(430f, 0f),
                 new Vector2(330f, 64f));
-            CreateText("Mail", bar, "MAIL", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
+            CreateText("Mail", bar, "우편함", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(74f, 44f), new Vector2(775f, 0f), SecondaryTextColor);
         }
 
@@ -234,6 +234,12 @@ namespace Baseball.Presentation.Career
                 return;
             _page = page;
             Render();
+        }
+
+        /// <summary>Shared Shell Route와 기존 기록 화면의 Page를 동기화한다.</summary>
+        public void SelectNavigationPage(CareerRecordsPage page)
+        {
+            SelectPage(page);
         }
 
         private void RenderCategoryMenu()

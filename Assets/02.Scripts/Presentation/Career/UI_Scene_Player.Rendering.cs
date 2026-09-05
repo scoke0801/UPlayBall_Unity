@@ -102,7 +102,7 @@ namespace Baseball.Presentation.Career
             if (view.PlayerType == Baseball.Core.Players.PlayerType.Pitcher)
             {
                 RenderStatCells(panel,
-                    new[] { "경기", "선발", "승-패", "세이브", "평균자책", "WHIP", "탈삼진" },
+                    new[] { "경기", "선발", "승-패", "세이브", "평균자책", "이닝당출루", "탈삼진" },
                     new[]
                     {
                         stats.PitchingAppearances.ToString(), stats.PitchingStarts.ToString(),
@@ -114,7 +114,7 @@ namespace Baseball.Presentation.Career
             else
             {
                 RenderStatCells(panel,
-                    new[] { "경기", "타수", "안타", "홈런", "타점", "타율", "OPS" },
+                    new[] { "경기", "타수", "안타", "홈런", "타점", "타율", "출루+장타" },
                     new[]
                     {
                         stats.GamesPlayed.ToString(), stats.AtBats.ToString(), stats.Hits.ToString(),

@@ -390,7 +390,7 @@ namespace Baseball.Presentation.Career
             RectTransform card = CreateImage(
                 "Dashboard", _body, CardColor, new Vector2(980f, 470f), new Vector2(0f, 10f));
             CreateText(
-                "League", card, $"{summary.SeasonYear} ROOKIE LEAGUE", 18, FontStyle.Bold,
+                "League", card, $"{summary.SeasonYear} 루키 리그", 18, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(700f, 40f), new Vector2(0f, 185f), AccentColor);
             CreateText(
                 "Player", card, summary.PlayerName, 38, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -557,7 +557,7 @@ namespace Baseball.Presentation.Career
                 NewGameStep.ContractComplete => 8,
                 _ => 9
             };
-            return current < 9 ? $"NEW CAREER  {current} / 8" : "ROOKIE SEASON";
+            return current < 9 ? $"새 커리어  {current} / 8" : "루키 시즌";
         }
 
         private static string GetPositionLabel(PlayerPosition position)

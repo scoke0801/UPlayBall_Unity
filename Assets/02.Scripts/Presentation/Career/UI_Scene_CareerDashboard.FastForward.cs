@@ -215,8 +215,8 @@ namespace Baseball.Presentation.Career
         {
             PlayerSeasonStatisticsView statistics = view.Statistics;
             return statistics.IsPitcher
-                ? $"{view.PlayerName}\n{statistics.Wins}승 {statistics.Losses}패  ERA {statistics.EarnedRunAverage:0.00}  K {statistics.PitchingStrikeouts}"
-                : $"{view.PlayerName}\nAVG {statistics.BattingAverage:0.000}  HR {statistics.HomeRuns}  RBI {statistics.RunsBattedIn}";
+                    ? $"{view.PlayerName}\n{statistics.Wins}승 {statistics.Losses}패  평균자책 {statistics.EarnedRunAverage:0.00}  탈삼진 {statistics.PitchingStrikeouts}"
+                    : $"{view.PlayerName}\n타율 {statistics.BattingAverage:0.000}  홈런 {statistics.HomeRuns}  타점 {statistics.RunsBattedIn}";
         }
     }
 }

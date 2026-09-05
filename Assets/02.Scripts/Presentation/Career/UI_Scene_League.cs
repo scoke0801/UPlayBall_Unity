@@ -130,10 +130,10 @@ namespace Baseball.Presentation.Career
                 new Vector2(230f, 18f), new Vector2(-796f, -23f), AccentColor);
 
             CreateTopBarSegment(
-                bar, "LEAGUE", $"{view.SeasonYear} {GetLeagueLabel(view.LeagueLevel)} LEAGUE",
+                bar, "리그", $"{view.SeasonYear} {GetLeagueLabel(view.LeagueLevel)} 리그",
                 new Vector2(-360f, 0f), new Vector2(430f, 64f));
             CreateTopBarSegment(
-                bar, "DATE", $"{view.CurrentDate:M월 d일} ({GetDayLabel(view.CurrentDate.DayOfWeek)})",
+                bar, "날짜", $"{view.CurrentDate:M월 d일} ({GetDayLabel(view.CurrentDate.DayOfWeek)})",
                 new Vector2(45f, 0f), new Vector2(330f, 64f));
             CreateTopBarSegment(
                 bar, "SEASON PROGRESS",
@@ -243,14 +243,14 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreatePanel(
                 "BattingLeaders", "타자 순위", new Vector2(600f, 480f),
                 new Vector2(0f, 188f));
-            string[] labels = { "타율", "홈런", "타점", "도루", "OPS" };
+            string[] labels = { "타율", "홈런", "타점", "도루", "출루+장타" };
             RenderCategoryTabs(panel, labels, (int)_battingCategory, 560f, index =>
             {
                 _battingCategory = (LeagueBattingCategory)index;
                 Render();
             });
             CreateTableHeader(panel,
-                new[] { "순위", "선수", "팀", "경기", "타율", "홈런", "타점", "도루", "OPS" },
+                new[] { "순위", "선수", "팀", "경기", "타율", "홈런", "타점", "도루", "출루+장타" },
                 new[] { -268f, -198f, -82f, 16f, 65f, 109f, 147f, 185f, 247f },
                 new[] { 45f, 120f, 88f, 38f, 50f, 34f, 36f, 36f, 58f },
                 119f);
@@ -321,14 +321,14 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreatePanel(
                 "PitchingLeaders", "투수 순위", new Vector2(650f, 480f),
                 new Vector2(635f, 188f));
-            string[] labels = { "평균자책", "승", "세이브", "탈삼진", "WHIP" };
+            string[] labels = { "평균자책", "승", "세이브", "탈삼진", "이닝당출루" };
             RenderCategoryTabs(panel, labels, (int)_pitchingCategory, 610f, index =>
             {
                 _pitchingCategory = (LeaguePitchingCategory)index;
                 Render();
             });
             CreateTableHeader(panel,
-                new[] { "순위", "선수", "팀", "승-패", "세이브", "이닝", "평균자책", "탈삼진", "WHIP" },
+                new[] { "순위", "선수", "팀", "승-패", "세이브", "이닝", "평균자책", "탈삼진", "이닝당출루" },
                 new[] { -292f, -216f, -91f, -5f, 40f, 87f, 139f, 188f, 259f },
                 new[] { 45f, 126f, 86f, 46f, 42f, 48f, 48f, 38f, 54f },
                 119f);
@@ -842,7 +842,7 @@ namespace Baseball.Presentation.Career
             {
                 LeagueTeamMetric.BattingAverage => "팀 타율",
                 LeagueTeamMetric.HomeRuns => "팀 홈런",
-                LeagueTeamMetric.EarnedRunAverage => "팀 ERA",
+                LeagueTeamMetric.EarnedRunAverage => "팀 평균자책",
                 LeagueTeamMetric.Strikeouts => "팀 탈삼진",
                 _ => "-"
             };
@@ -866,7 +866,7 @@ namespace Baseball.Presentation.Career
                 LeagueBattingCategory.HomeRuns => "홈런",
                 LeagueBattingCategory.RunsBattedIn => "타점",
                 LeagueBattingCategory.StolenBases => "도루",
-                LeagueBattingCategory.OnBasePlusSlugging => "OPS",
+                LeagueBattingCategory.OnBasePlusSlugging => "출루+장타",
                 _ => "기록"
             };
         }
@@ -894,7 +894,7 @@ namespace Baseball.Presentation.Career
                 LeaguePitchingCategory.Wins => "승",
                 LeaguePitchingCategory.Saves => "세이브",
                 LeaguePitchingCategory.Strikeouts => "탈삼진",
-                LeaguePitchingCategory.WalksHitsPerInningPitched => "WHIP",
+                LeaguePitchingCategory.WalksHitsPerInningPitched => "이닝당출루",
                 _ => "기록"
             };
         }

@@ -220,7 +220,7 @@ namespace Baseball.Presentation.Career
             RectTransform hero = CreateReviewCard(root, "RegularSeasonHero", new Vector2(660f, 480f), new Vector2(-425f, 15f));
             string league = GetLeagueLabel(snapshot.LeagueLevel);
             CreateText(
-                "League", hero, $"{snapshot.Year} {league} LEAGUE", 14, FontStyle.Bold,
+                "League", hero, $"{snapshot.Year} {league} 리그", 14, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(500f, 28f), new Vector2(0f, 175f), AccentColor);
             CreateText(
                 "ResultLabel", hero, "정규시즌", 20, FontStyle.Bold,
@@ -242,7 +242,7 @@ namespace Baseball.Presentation.Career
                 20, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(550f, 36f), new Vector2(0f, -108f), SecondaryTextColor);
             string seed = snapshot.PostseasonSeed > 0
-                ? $"POSTSEASON SEED {snapshot.PostseasonSeed}   ·   포스트시즌 진출"
+                ? $"포스트시즌 {snapshot.PostseasonSeed}번 시드   ·   포스트시즌 진출"
                 : "정규시즌 종료   ·   포스트시즌 미진출";
             CreateText(
                 "Seed", hero, seed, 16, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -413,7 +413,7 @@ namespace Baseball.Presentation.Career
             switch (snapshot.PlayerTeamPostseasonResult)
             {
                 case PlayerTeamPostseasonResult.Champion:
-                    eyebrow = $"{snapshot.Year} CHAMPION";
+                eyebrow = $"{snapshot.Year} 우승";
                     title = snapshot.IsIntegratedChampion ? "통합 우승" : "포스트시즌 우승";
                     description = snapshot.IsIntegratedChampion
                         ? "정규시즌 1위와 포스트시즌 우승을 모두 차지했습니다."
@@ -473,7 +473,7 @@ namespace Baseball.Presentation.Career
             SeasonReviewSnapshot snapshot = view.SeasonReview;
             int revealed = view.RevealedAwardCount;
             CreateText(
-                "Eyebrow", root, $"{snapshot.Year} {GetLeagueLabel(snapshot.LeagueLevel)} LEAGUE AWARDS",
+                "Eyebrow", root, $"{snapshot.Year} {GetLeagueLabel(snapshot.LeagueLevel)} 리그 수상",
                 15, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(720f, 28f), new Vector2(0f, 212f), GoldColor);
 
@@ -529,7 +529,7 @@ namespace Baseball.Presentation.Career
         private void RenderSeasonSummary(Transform root, SeasonReviewSnapshot snapshot)
         {
             CreateText(
-                "Eyebrow", root, $"{snapshot.Year} SEASON SUMMARY", 15, FontStyle.Bold,
+                "Eyebrow", root, $"{snapshot.Year} 시즌 결산", 15, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(600f, 28f), new Vector2(0f, 220f), AccentColor);
             CreateText(
                 "Team", root, snapshot.PlayerTeamName, 36, FontStyle.Bold,
@@ -568,7 +568,7 @@ namespace Baseball.Presentation.Career
         private void RenderIncomeSettlement(Transform root, SeasonReviewSnapshot snapshot)
         {
             CreateText(
-                "Eyebrow", root, $"{snapshot.Year} SEASON SETTLEMENT", 15, FontStyle.Bold,
+                "Eyebrow", root, $"{snapshot.Year} 시즌 정산", 15, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(650f, 28f), new Vector2(0f, 224f), RoleColor);
             CreateText(
                 "Title", root, "성장·수입 결산", 40, FontStyle.Bold,
@@ -744,7 +744,7 @@ namespace Baseball.Presentation.Career
             else
             {
                 RenderStat(card, "BattingAverage", "타율", stats.BattingAverage.ToString(".000"), -285f);
-                RenderStat(card, "Ops", "OPS", stats.OnBasePlusSlugging.ToString(".000"), -95f);
+                RenderStat(card, "Ops", "출루+장타", stats.OnBasePlusSlugging.ToString(".000"), -95f);
                 RenderStat(card, "HomeRuns", "홈런", stats.HomeRuns.ToString(), 95f);
                 RenderStat(card, "RunsBattedIn", "타점", stats.RunsBattedIn.ToString(), 285f);
             }
@@ -771,7 +771,7 @@ namespace Baseball.Presentation.Career
             PlayerSeasonReviewStatistics stats = snapshot.PlayerStatistics;
             string line = stats.IsPitcher
                 ? $"평균자책 {stats.EarnedRunAverage:0.00}  |  {stats.Wins}승 {stats.Losses}패  |  탈삼진 {stats.PitchingStrikeouts}"
-                : $"타율 {stats.BattingAverage:.000}  |  OPS {stats.OnBasePlusSlugging:.000}  |  홈런 {stats.HomeRuns}  |  타점 {stats.RunsBattedIn}";
+                    : $"타율 {stats.BattingAverage:.000}  |  출루+장타 {stats.OnBasePlusSlugging:.000}  |  홈런 {stats.HomeRuns}  |  타점 {stats.RunsBattedIn}";
             CreateText(
                 "PlayerSeasonLine", root,
                 $"{snapshot.PlayerName} · {GetSeasonReviewPositionLabel(snapshot.PlayerPosition)}    {line}",

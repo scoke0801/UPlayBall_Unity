@@ -279,8 +279,8 @@ namespace Baseball.Presentation.Career
         {
             return outcome switch
             {
-                CareerScheduleOutcome.Win => "W",
-                CareerScheduleOutcome.Loss => "L",
+                CareerScheduleOutcome.Win => "승",
+                CareerScheduleOutcome.Loss => "패",
                 CareerScheduleOutcome.Tie => "T",
                 _ => "-"
             };

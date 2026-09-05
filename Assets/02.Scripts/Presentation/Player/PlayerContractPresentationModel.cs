@@ -248,7 +248,7 @@ namespace Baseball.Presentation.Player
             ContractBonusMetric.GamesPlayed => $"{bonus.TargetValue:0}경기 출장",
             ContractBonusMetric.HomeRuns => $"홈런 {bonus.TargetValue:0}개",
             ContractBonusMetric.RunsBattedIn => $"타점 {bonus.TargetValue:0}개",
-            ContractBonusMetric.OnBasePlusSlugging => $"OPS {bonus.TargetValue:.000}",
+                ContractBonusMetric.OnBasePlusSlugging => $"출루+장타 {bonus.TargetValue:.000}",
             ContractBonusMetric.PitchingAppearances => $"{bonus.TargetValue:0}경기 등판",
             ContractBonusMetric.PitchingOuts => $"{(int)bonus.TargetValue / 3}.{(int)bonus.TargetValue % 3}이닝",
             ContractBonusMetric.PitchingStrikeouts => $"탈삼진 {bonus.TargetValue:0}개",

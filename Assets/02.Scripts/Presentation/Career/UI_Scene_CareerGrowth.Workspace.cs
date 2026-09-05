@@ -1214,7 +1214,7 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "Guarantee",
                 detail,
-                guarantee + "\n기간 소모 없음 · Money만 사용합니다.",
+                guarantee + "\n기간 소모 없이 자금만 사용합니다.",
                 13,
                 FontStyle.Bold,
                 TextAnchor.MiddleLeft,

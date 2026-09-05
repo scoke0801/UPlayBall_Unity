@@ -43,17 +43,17 @@ namespace Baseball.Presentation.Career
 
             string seasonLabel = growth.IsOffseason ? "OFF-SEASON" : GetSeasonPhaseLabel(dashboard.SeasonPhase);
             CreateTopBarSegment(
-                bar, "SEASON", $"{dashboard.SeasonYear}  {seasonLabel}",
+                bar, "시즌", $"{dashboard.SeasonYear}  {seasonLabel}",
                 new Vector2(-365f, 0f), new Vector2(420f, 64f));
             string period = growth.IsOffseason
                 ? $"남은 기간  {growth.RemainingWeeks}주"
                 : "정규 시즌 · 열람 모드";
             CreateTopBarSegment(bar, "PERIOD", period, new Vector2(25f, 0f), new Vector2(330f, 64f));
             CreateTopBarSegment(
-                bar, "MONEY", FormatMoney(dashboard.AvailableMoney),
+                bar, "보유 자금", FormatMoney(dashboard.AvailableMoney),
                 new Vector2(400f, 0f), new Vector2(390f, 64f));
             CreateText(
-                "Mail", bar, "MAIL", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Mail", bar, "우편함", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(80f, 44f), new Vector2(760f, 0f), SecondaryTextColor);
         }
 
@@ -613,9 +613,9 @@ namespace Baseball.Presentation.Career
                 new Vector2(400f, 58f), new Vector2(-105f, -174f), MutedColor);
             CreateText(
                 "Pity", panel,
-                $"보장 E {growth.ElitePityCount}/{growth.ElitePityTarget} · " +
-                $"U {growth.UniquePityCount}/{growth.UniquePityTarget}\n" +
-                $"L {growth.LegendaryPityCount}/{growth.LegendaryPityTarget}",
+                $"엘리트 보장 {growth.ElitePityCount}/{growth.ElitePityTarget} · " +
+                $"유니크 {growth.UniquePityCount}/{growth.UniquePityTarget}\n" +
+                $"레전더리 {growth.LegendaryPityCount}/{growth.LegendaryPityTarget}",
                 9, FontStyle.Normal, TextAnchor.MiddleRight,
                 new Vector2(200f, 38f), new Vector2(200f, -177f), GoldColor);
         }

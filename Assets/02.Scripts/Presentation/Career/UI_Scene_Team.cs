@@ -184,17 +184,17 @@ namespace Baseball.Presentation.Career
                 "Logo", bar, "UPlayBall", 34, FontStyle.BoldAndItalic, TextAnchor.MiddleLeft,
                 new Vector2(310f, 50f), new Vector2(-800f, 5f), PrimaryTextColor);
             AddTextOutline(logo, new Color(0.05f, 0.34f, 0.62f, 0.9f), 1.5f);
-            CreateText("LogoCaption", bar, "BASEBALL CAREER", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
+            CreateText("LogoCaption", bar, "프로야구 선수 커리어", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(230f, 18f), new Vector2(-796f, -23f), AccentColor);
             CreateTopBarSegment(
-                bar, "LEAGUE", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} LEAGUE",
+                bar, "리그", $"{view.SeasonYear}  {GetLeagueLabel(view.LeagueLevel)} 리그",
                 new Vector2(-365f, 0f), new Vector2(420f, 64f));
             string dateText = dashboard.NextGame.HasValue
                 ? $"{dashboard.NextGame.Value.Date:M월 d일} ({GetKoreanDayOfWeek(dashboard.NextGame.Value.Date.DayOfWeek)})"
                 : "시즌 일정 종료";
-            CreateTopBarSegment(bar, "DATE", dateText, new Vector2(25f, 0f), new Vector2(300f, 64f));
+            CreateTopBarSegment(bar, "날짜", dateText, new Vector2(25f, 0f), new Vector2(300f, 64f));
             CreateTopBarSegment(
-                bar, "MONEY", FormatMoney(dashboard.AvailableMoney), new Vector2(390f, 0f), new Vector2(370f, 64f));
+                bar, "보유 자금", FormatMoney(dashboard.AvailableMoney), new Vector2(390f, 0f), new Vector2(370f, 64f));
             CreateText("ReadOnly", bar, "구단 정보 · 커리어 이동", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(190f, 44f), new Vector2(700f, 0f), SecondaryTextColor);
         }

@@ -34,6 +34,19 @@ namespace Baseball.Tests.EditMode.Presentation.Player
             Assert.That(create.ReturnType, Is.EqualTo(typeof(PlayerDetailSnapshot)));
         }
 
+        [TestCase(CareerRecordMetric.PlateAppearances, "타석")]
+        [TestCase(CareerRecordMetric.Hits, "안타")]
+        [TestCase(CareerRecordMetric.HomeRuns, "홈런")]
+        [TestCase(CareerRecordMetric.Walks, "볼넷")]
+        [TestCase(CareerRecordMetric.BattingStrikeouts, "삼진")]
+        [TestCase(CareerRecordMetric.BattingAverage, "타율")]
+        [TestCase(CareerRecordMetric.OnBasePlusSlugging, "출루+장타")]
+        [TestCase(CareerRecordMetric.WalksHitsPerInningPitched, "이닝당출루")]
+        public void 기록지표_사용자용한국어이름을제공한다(CareerRecordMetric metric, string expected)
+        {
+            Assert.That(CareerSharedSnapshotFormatters.FormatMetricLabel(metric), Is.EqualTo(expected));
+        }
+
         [Test]
         public void Player화면공개Api_구단주전용동작을노출하지않는다()
         {

@@ -29,7 +29,7 @@ namespace Baseball.Presentation.Career
                     CareerPresentationType.RegularSeasonFirst,
                     CareerPresentationGrade.Major,
                     snapshot.Year,
-                    $"{snapshot.Year} REGULAR SEASON",
+                    $"{snapshot.Year} 정규시즌",
                     "정규 시즌 1위 확정",
                     snapshot.PlayerTeamName,
                     "한 시즌의 꾸준함이 가장 높은 자리로 이어졌습니다.\n포스트시즌에서 마지막 승부를 준비합니다.",
@@ -52,7 +52,7 @@ namespace Baseball.Presentation.Career
                     CareerPresentationType.PostseasonChampion,
                     CareerPresentationGrade.Major,
                     snapshot.Year,
-                    $"{snapshot.Year} POSTSEASON",
+                    $"{snapshot.Year} 포스트시즌",
                     "포스트시즌 우승",
                     snapshot.PlayerTeamName,
                     "마지막 아웃카운트가 올라갔습니다.\n올 시즌의 마지막 승자는 우리 팀입니다.",
@@ -89,7 +89,7 @@ namespace Baseball.Presentation.Career
                     break;
                 case AwardCategory.GoldGlove:
                     type = CareerPresentationType.GoldenGlove;
-                    category = $"{snapshot.Year} SEASON AWARD";
+                category = $"{snapshot.Year} 시즌 수상";
                     title = "골든글러브 수상";
                     description = "한 시즌 동안 가장 믿을 수 있는 수비를 보여 주며\n포지션 최고의 수비수로 선정되었습니다.";
                     stats = new[]
@@ -101,7 +101,7 @@ namespace Baseball.Presentation.Career
                     break;
                 case AwardCategory.RegularSeasonMvp:
                     type = CareerPresentationType.RegularSeasonMvp;
-                    category = $"{snapshot.Year} SEASON MVP";
+                category = $"{snapshot.Year} 시즌 MVP";
                     title = "정규 시즌 MVP";
                     description = "긴 정규시즌 동안 쌓은 결과가\n리그에서 가장 가치 있는 한 시즌으로 인정받았습니다.";
                     stats = BuildRegularSeasonStats(snapshot.PlayerStatistics);
@@ -240,7 +240,7 @@ namespace Baseball.Presentation.Career
                     new PresentationStat("타율", stats.BattingAverage.ToString(".000"), true),
                     new PresentationStat("홈런", stats.HomeRuns.ToString(), true),
                     new PresentationStat("타점", stats.RunsBattedIn.ToString()),
-                    new PresentationStat("OPS", stats.OnBasePlusSlugging.ToString(".000"))
+                    new PresentationStat("출루+장타", stats.OnBasePlusSlugging.ToString(".000"))
                 };
         }
 
