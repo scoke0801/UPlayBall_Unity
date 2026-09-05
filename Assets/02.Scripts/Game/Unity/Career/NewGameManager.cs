@@ -190,7 +190,7 @@ namespace Baseball.Game.Career
         /// </summary>
         public void RestartNewGame(ulong randomSeed)
         {
-            _flow = new NewGameFlow(_configuration, randomSeed);
+            _flow = new NewGameFlow(_configuration, randomSeed, CreateWorldHistorySeed(randomSeed));
             _isAtTitle = true;
             LastError = string.Empty;
             RebuildOfferViews();
@@ -201,7 +201,7 @@ namespace Baseball.Game.Career
         public void StartPlayerCareerCreation()
         {
             if (_flow == null || _flow.State.Step != NewGameStep.Identity)
-                _flow = new NewGameFlow(_configuration, CreateRuntimeSeed());
+                _flow = CreateFlow();
             _isAtTitle = false;
             LastError = string.Empty;
             RebuildOfferViews();
@@ -211,7 +211,7 @@ namespace Baseball.Game.Career
         /// <summary>확정 전 draft를 버리고 타이틀로 돌아간다.</summary>
         public void DiscardDraftAndShowTitle()
         {
-            _flow = new NewGameFlow(_configuration, CreateRuntimeSeed());
+            _flow = CreateFlow();
             _isAtTitle = true;
             LastError = string.Empty;
             RebuildOfferViews();
@@ -540,16 +540,42 @@ namespace Baseball.Game.Career
             return $"컨디션 {balance.EvaluationOpportunityMinimumCondition}+ · 약 {gameInterval}경기마다 평가";
         }
 
+        /// <summary>
+        /// 로딩 화면에서 현재 Seed의 커리어 Content를 미리 만들어 둔다.
+        /// "구단 오퍼 확인"이 누르는 순간 같은 Seed의 캐시를 그대로 쓴다.
+        /// </summary>
+        public void PrewarmCareerContent()
+        {
+            if (_configuration?.ContentSource != NewGameContentSource.BakedHistorical || _flow == null)
+                return;
+            _configuration.BakedContentProvider.Load(new CareerBakedContentRequest(
+                _configuration.WorldRecordMode,
+                _flow.State.WorldHistorySeed));
+        }
+
+        private NewGameFlow CreateFlow()
+        {
+            ulong randomSeed = CreateRuntimeSeed();
+            return new NewGameFlow(_configuration, randomSeed, CreateWorldHistorySeed(randomSeed));
+        }
+
         private static ulong CreateRuntimeSeed()
         {
             // 시스템 시간은 Seed를 고르는 Game 레이어 경계에서만 사용하며, 선택된 값은 즉시 상태에 저장한다.
-            ulong selector = unchecked((ulong)DateTime.UtcNow.Ticks);
+            // 커리어 진행(리그 시드, 일정, 오퍼 RNG)은 매 플레이스루마다 달라야 하므로 항상 새로 뽑는다.
+            return unchecked((ulong)DateTime.UtcNow.Ticks);
+        }
 
-            // Seed Pool이 설정돼 있으면 그 안에서 고른다. 미리 구운 월드가 적중해 새 게임이 즉시 열리고,
-            // Pool 크기만큼의 월드 다양성은 그대로 유지된다. Pool이 비어 있으면 지금까지처럼 매번 새 월드다.
-            return NewGameDefinition.TrySelectCareerWorldSeedFromResources(selector, out ulong pooledSeed)
+        /// <summary>
+        /// 배경 역사만 담당하는 Seed다. Pool이 설정돼 있으면 그중 하나를 골라 미리 구운 월드가 적중하게 하고,
+        /// 비어 있으면 지금까지처럼 커리어 Seed를 그대로 써서 매번 새 월드를 만든다.
+        /// 커리어 Seed와 분리돼 있으므로 Pool을 써도 플레이스루의 다양성은 줄지 않는다.
+        /// </summary>
+        private static ulong CreateWorldHistorySeed(ulong careerSeed)
+        {
+            return NewGameDefinition.TrySelectCareerWorldSeedFromResources(careerSeed, out ulong pooledSeed)
                 ? pooledSeed
-                : selector;
+                : careerSeed;
         }
     }
 }

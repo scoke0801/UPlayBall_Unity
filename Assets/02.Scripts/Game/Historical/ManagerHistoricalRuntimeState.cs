@@ -320,7 +320,7 @@ namespace Baseball.Game.Historical
             HistoricalBakedContent bakedContent = _contentProvider.Load()
                 ?? throw new InvalidOperationException("Runtime Historical Content Provider가 null을 반환했습니다.");
             HistoricalYearContentDefinition year = bakedContent.GetYear(request.OriginYear);
-            HistoricalWorldRuntimeContent world = _worldBuilder.Build(
+            HistoricalWorldRuntimeContent world = _worldBuilder.GetOrBuild(
                 bakedContent,
                 request.RecordMode,
                 request.WorldHistorySeed);

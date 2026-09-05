@@ -1,4 +1,5 @@
 using System.Collections;
+using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
 using Baseball.Presentation.UI;
@@ -18,6 +19,7 @@ namespace Baseball.Presentation.SceneFlow
         [SerializeField] private Slider _progressBar;
 
         private SceneLoadManager _sceneLoadManager;
+        private HistoricalWarmupManager _warmup;
         private bool _activationRequested;
         private bool _isPersistent;
 
@@ -36,6 +38,7 @@ namespace Baseball.Presentation.SceneFlow
         {
             _sceneLoadManager = GameManager.EnsureExists()
                 .EnsureManager<SceneLoadManager>("SceneLoadManager");
+            _warmup = HistoricalWarmupManager.Instance;
 
             if (_sceneLoadManager.StartPendingLoad())
                 return;
@@ -52,17 +55,33 @@ namespace Baseball.Presentation.SceneFlow
             if (_sceneLoadManager == null || _activationRequested)
                 return;
 
+            // 둘 중 느린 쪽이 곧 "들어갈 준비"이므로 최소값을 표시한다.
+            float readiness = Mathf.Min(_sceneLoadManager.LoadProgress, GetWarmupProgress());
             float nextValue = Mathf.MoveTowards(
                 _progressBar.value,
-                _sceneLoadManager.LoadProgress,
+                readiness,
                 Time.unscaledDeltaTime * ProgressAnimationSpeed);
             _progressBar.SetValueWithoutNotify(nextValue);
 
-            if (!_sceneLoadManager.IsReadyToActivate || nextValue < 0.999f)
+            if (!_sceneLoadManager.IsReadyToActivate || !IsWarmupSettled() || nextValue < 0.999f)
                 return;
 
             PreserveUntilTargetReady();
             _activationRequested = _sceneLoadManager.ActivatePendingScene();
+        }
+
+        /// <summary>
+        /// 워밍업 매니저가 없거나 시작하지 않았으면 기다릴 대상이 없다.
+        /// 워밍업은 비용을 앞당길 뿐이므로 없다고 해서 진입을 막지 않는다.
+        /// </summary>
+        private bool IsWarmupSettled()
+        {
+            return _warmup == null || !_warmup.IsRunning;
+        }
+
+        private float GetWarmupProgress()
+        {
+            return _warmup == null || !_warmup.IsRunning ? 1f : _warmup.Progress;
         }
 
         private void PreserveUntilTargetReady()

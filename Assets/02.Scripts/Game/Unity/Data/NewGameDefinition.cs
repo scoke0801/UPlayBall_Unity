@@ -513,6 +513,15 @@ namespace Baseball.Game.Data
                     new UnityBakedWorldHistoryDiagnostics());
         }
 
+        /// <summary>
+        /// 워밍업이 메인 스레드에서 바이트를 미리 확보하려면 구현 타입이 필요하다.
+        /// 인스턴스는 CreateHistoricalContentProvider와 동일하게 공유된다.
+        /// </summary>
+        public static UnityHistoricalContentProvider LoadSharedHistoricalContentProvider()
+        {
+            return (UnityHistoricalContentProvider)LoadHistoricalContentProvider();
+        }
+
         /// <summary>Resources 정의에서 Bake Source를 만든다.</summary>
         public static IBakedWorldHistorySource LoadBakedWorldHistorySource()
         {

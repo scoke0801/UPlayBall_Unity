@@ -434,6 +434,46 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 contentHash: "changed-balance-content");
         }
 
+        [Test]
+        public void GetOrBuild_같은Content와Seed면World를다시만들지않는다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            var simulation = new RecordingSeasonSimulation();
+            HistoricalWorldRuntimeBuilder builder = CreateBuilder(simulation);
+
+            HistoricalWorldRuntimeContent first = builder.GetOrBuild(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                777UL);
+            HistoricalWorldRuntimeContent second = builder.GetOrBuild(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                777UL);
+
+            Assert.That(second, Is.SameAs(first));
+            Assert.That(simulation.CallCount, Is.EqualTo(content.Years.Count));
+        }
+
+        [Test]
+        public void GetOrBuild_Seed가다르면새World를만든다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            var simulation = new RecordingSeasonSimulation();
+            HistoricalWorldRuntimeBuilder builder = CreateBuilder(simulation);
+
+            HistoricalWorldRuntimeContent first = builder.GetOrBuild(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                777UL);
+            HistoricalWorldRuntimeContent second = builder.GetOrBuild(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                778UL);
+
+            Assert.That(second, Is.Not.SameAs(first));
+            Assert.That(simulation.CallCount, Is.EqualTo(content.Years.Count * 2));
+        }
+
         private static byte[] CreateBakedBytes(
             HistoricalBakedContent content,
             WorldHistorySnapshot history,

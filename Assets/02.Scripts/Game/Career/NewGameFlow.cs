@@ -22,9 +22,14 @@ namespace Baseball.Game.Career
         private CareerBakedContent _bakedContent;
 
         public NewGameFlow(NewGameConfiguration configuration, ulong randomSeed)
+            : this(configuration, randomSeed, randomSeed)
+        {
+        }
+
+        public NewGameFlow(NewGameConfiguration configuration, ulong randomSeed, ulong worldHistorySeed)
         {
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-            Begin(randomSeed);
+            Begin(randomSeed, worldHistorySeed);
         }
 
         public NewGameFlowState State { get; private set; }
@@ -38,6 +43,12 @@ namespace Baseball.Game.Career
         /// </summary>
         public void Begin(ulong randomSeed)
         {
+            Begin(randomSeed, randomSeed);
+        }
+
+        /// <summary>배경 역사 Seed를 따로 지정해 시작한다. 미리 구운 월드를 쓰는 경로다.</summary>
+        public void Begin(ulong randomSeed, ulong worldHistorySeed)
+        {
             State = new NewGameFlowState
             {
                 Step = NewGameStep.Identity,
@@ -45,6 +56,7 @@ namespace Baseball.Game.Career
                 BattingHand = Handedness.Right,
                 ThrowingHand = Handedness.Right,
                 RandomSeed = randomSeed,
+                WorldHistorySeed = worldHistorySeed,
                 Draft = new CareerCreationDraft()
             };
             Career = null;
@@ -376,11 +388,11 @@ namespace Baseball.Game.Career
             if (_configuration.ContentSource == NewGameContentSource.BakedHistorical)
             {
                 _bakedContent = _configuration.BakedContentProvider.Load(
-                    new CareerBakedContentRequest(_configuration.WorldRecordMode, State.RandomSeed));
+                    new CareerBakedContentRequest(_configuration.WorldRecordMode, State.WorldHistorySeed));
                 if (_bakedContent == null)
                     throw new InvalidOperationException("Baked Content Provider가 null 월드를 반환했습니다.");
                 if (_bakedContent.WorldHistory.RecordMode != _configuration.WorldRecordMode ||
-                    _bakedContent.WorldHistory.WorldHistorySeed != State.RandomSeed)
+                    _bakedContent.WorldHistory.WorldHistorySeed != State.WorldHistorySeed)
                 {
                     throw new InvalidOperationException(
                         "Baked Content Provider 결과의 WorldRecordMode/WorldHistorySeed가 새 게임 선택과 다릅니다.");

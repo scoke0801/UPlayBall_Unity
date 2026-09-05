@@ -76,6 +76,7 @@ namespace Baseball.Game.Historical
         private readonly HistoricalRuntimeContentCatalog _catalog;
         private readonly HistoricalContentVerificationMode _verificationMode;
         private readonly object _loadLock = new object();
+        private readonly AssetByteReader _byteReader = new AssetByteReader();
         private HistoricalBakedContent _cached;
 
         public UnityHistoricalContentProvider(
@@ -88,6 +89,26 @@ namespace Baseball.Game.Historical
 
         public HistoricalContentVerificationMode VerificationMode => _verificationMode;
         public int MaterializationCount { get; private set; }
+
+        /// <summary>
+        /// TextAsset 접근은 메인 스레드에서만 가능하다. 파싱을 워커 스레드로 옮기려면
+        /// 원본 바이트를 먼저 이 메서드로 확보해야 한다. 반드시 메인 스레드에서 호출한다.
+        /// </summary>
+        public void CacheAssetBytesOnMainThread()
+        {
+            _byteReader.Cache(_catalog.Manifest);
+            if (_catalog.PlayerPersons != null)
+                _byteReader.Cache(_catalog.PlayerPersons.Content);
+            IReadOnlyList<HistoricalRuntimeYearContentFile> years = _catalog.Years;
+            for (int index = 0; index < years.Count; index++)
+                _byteReader.Cache(years[index]?.File?.Content);
+        }
+
+        /// <summary>파싱이 끝난 뒤 원본 바이트 사본을 놓아준다.</summary>
+        public void ReleaseAssetByteCache()
+        {
+            _byteReader.Clear();
+        }
 
         public HistoricalBakedContent Load()
         {
@@ -111,7 +132,7 @@ namespace Baseball.Game.Historical
             if (manifestAsset == null)
                 throw new HistoricalContentLoadException("Runtime catalog에 manifest TextAsset이 없습니다.", "manifest.json");
 
-            string manifestText = Decode(manifestAsset.bytes, "manifest.json", null);
+            string manifestText = Decode(_byteReader.Read(manifestAsset), "manifest.json", null);
             HistoricalRuntimeManifestDto manifestDto = ParseJson<HistoricalRuntimeManifestDto>(
                 manifestText,
                 "manifest.json",
@@ -124,7 +145,8 @@ namespace Baseball.Game.Historical
                 _catalog.PlayerPersons,
                 manifestDto.PlayerPersons,
                 null,
-                _verificationMode);
+                _verificationMode,
+                _byteReader);
             HistoricalRuntimePlayerPersonArrayDto personPayload = ParsePersonArray(personsPayload);
             HistoricalRuntimePlayerPersonDto[] personDtos = personPayload.Items;
             ValidateCount(
@@ -150,21 +172,23 @@ namespace Baseball.Game.Historical
                     manifestDto,
                     catalogYears,
                     personsPayload,
-                    persons.Length);
+                    persons.Length,
+                    _byteReader);
                 return new HistoricalBakedContent(manifest, persons, years, identityNames);
             }
 
             // 연도 하나가 평균 500KB이고 44개가 전부 필요한 화면은 역대 기록뿐이다.
             // 새 게임 시작은 한두 해만 읽으므로 나머지는 실제로 요구될 때 파싱한다.
-            var yearSource = new LazyRuntimeYearContentSource(manifestDto, catalogYears);
+            var yearSource = new LazyRuntimeYearContentSource(manifestDto, catalogYears, _byteReader);
             return new HistoricalBakedContent(manifest, persons, yearSource, identityNames);
         }
 
-        private HistoricalYearContentDefinition[] MaterializeAllYearsVerified(
+        private static HistoricalYearContentDefinition[] MaterializeAllYearsVerified(
             HistoricalRuntimeManifestDto manifestDto,
             Dictionary<int, HistoricalRuntimeYearContentFile> catalogYears,
             VerifiedPayload personsPayload,
-            int personCount)
+            int personCount,
+            AssetByteReader byteReader)
         {
             using var contentHashVerifier = new RuntimeContentHashVerifier(manifestDto);
             var archiveEntries = new List<KeyValuePair<string, string>>(manifestDto.Years.Length + 1);
@@ -187,7 +211,8 @@ namespace Baseball.Game.Historical
                     catalogYear.File,
                     entry,
                     entry.Year,
-                    HistoricalContentVerificationMode.Full);
+                    HistoricalContentVerificationMode.Full,
+                    byteReader);
                 archiveEntries.Add(new KeyValuePair<string, string>(entry.Path, payload.Sha256));
                 contentHashVerifier.AppendYear(payload.Bytes, index);
                 HistoricalRuntimeYearContentDto yearDto = ParseJson<HistoricalRuntimeYearContentDto>(
@@ -270,13 +295,16 @@ namespace Baseball.Game.Historical
         {
             private readonly Dictionary<int, HistoricalRuntimeYearEntryDto> _entriesByYear;
             private readonly Dictionary<int, HistoricalRuntimeYearContentFile> _catalogYears;
+            private readonly AssetByteReader _byteReader;
             private readonly int[] _years;
 
             public LazyRuntimeYearContentSource(
                 HistoricalRuntimeManifestDto manifestDto,
-                Dictionary<int, HistoricalRuntimeYearContentFile> catalogYears)
+                Dictionary<int, HistoricalRuntimeYearContentFile> catalogYears,
+                AssetByteReader byteReader)
             {
                 _catalogYears = catalogYears;
+                _byteReader = byteReader;
                 _entriesByYear = new Dictionary<int, HistoricalRuntimeYearEntryDto>(manifestDto.Years.Length);
                 for (int index = 0; index < manifestDto.Years.Length; index++)
                 {
@@ -305,7 +333,8 @@ namespace Baseball.Game.Historical
                     catalogYear.File,
                     entry,
                     entry.Year,
-                    HistoricalContentVerificationMode.Fast);
+                    HistoricalContentVerificationMode.Fast,
+                    _byteReader);
                 HistoricalRuntimeYearContentDto yearDto = ParseJson<HistoricalRuntimeYearContentDto>(
                     payload.Text,
                     payload.RelativePath,
@@ -512,7 +541,8 @@ namespace Baseball.Game.Historical
             HistoricalRuntimeContentFile catalogFile,
             HistoricalRuntimeFileEntryDto manifestEntry,
             int? year,
-            HistoricalContentVerificationMode verificationMode)
+            HistoricalContentVerificationMode verificationMode,
+            AssetByteReader byteReader)
         {
             if (catalogFile == null)
                 throw new HistoricalContentLoadException("Runtime catalog 파일 참조가 없습니다.", manifestEntry?.Path, year);
@@ -522,14 +552,16 @@ namespace Baseball.Game.Historical
                 manifestEntry?.Sha256,
                 manifestEntry?.ByteLength ?? -1,
                 year,
-                verificationMode);
+                verificationMode,
+                byteReader);
         }
 
         private static VerifiedPayload VerifyPayload(
             HistoricalRuntimeContentFile catalogFile,
             HistoricalRuntimeYearEntryDto manifestEntry,
             int year,
-            HistoricalContentVerificationMode verificationMode)
+            HistoricalContentVerificationMode verificationMode,
+            AssetByteReader byteReader)
         {
             if (catalogFile == null)
                 throw new HistoricalContentLoadException("Runtime catalog 연도 파일 참조가 없습니다.", manifestEntry?.Path, year);
@@ -539,7 +571,8 @@ namespace Baseball.Game.Historical
                 manifestEntry?.Sha256,
                 manifestEntry?.ByteLength ?? -1,
                 year,
-                verificationMode);
+                verificationMode,
+                byteReader);
         }
 
         private static VerifiedPayload VerifyPayload(
@@ -548,7 +581,8 @@ namespace Baseball.Game.Historical
             string expectedHash,
             long expectedByteLength,
             int? year,
-            HistoricalContentVerificationMode verificationMode)
+            HistoricalContentVerificationMode verificationMode,
+            AssetByteReader byteReader)
         {
             string path = expectedPath ?? string.Empty;
             ValidateLogicalPath(path, year);
@@ -562,7 +596,7 @@ namespace Baseball.Game.Historical
             if (catalogFile.Content == null)
                 throw new HistoricalContentLoadException("Runtime TextAsset이 없습니다.", path, year);
 
-            byte[] bytes = catalogFile.Content.bytes;
+            byte[] bytes = byteReader.Read(catalogFile.Content);
             if (bytes.LongLength != expectedByteLength)
             {
                 throw new HistoricalContentLoadException(
@@ -1323,6 +1357,47 @@ namespace Baseball.Game.Historical
         }
 
         /// <summary>분할 JSON을 원래 Runtime content의 canonical 순서로 이어 붙여 contentHash를 검증한다.</summary>
+        /// <summary>
+        /// TextAsset.bytes는 메인 스레드에서만 읽을 수 있고 호출마다 사본을 만든다.
+        /// 미리 확보해 두면 파싱을 워커 스레드에서 돌릴 수 있고, 중복 사본도 생기지 않는다.
+        /// </summary>
+        private sealed class AssetByteReader
+        {
+            private readonly Dictionary<TextAsset, byte[]> _bytesByAsset =
+                new Dictionary<TextAsset, byte[]>();
+
+            public void Cache(TextAsset asset)
+            {
+                if (asset == null)
+                    return;
+                lock (_bytesByAsset)
+                {
+                    if (!_bytesByAsset.ContainsKey(asset))
+                        _bytesByAsset.Add(asset, asset.bytes);
+                }
+            }
+
+            public void Clear()
+            {
+                lock (_bytesByAsset)
+                    _bytesByAsset.Clear();
+            }
+
+            public byte[] Read(TextAsset asset)
+            {
+                if (asset == null)
+                    throw new HistoricalContentLoadException("Runtime TextAsset이 없습니다.");
+                lock (_bytesByAsset)
+                {
+                    if (_bytesByAsset.TryGetValue(asset, out byte[] cached))
+                        return cached;
+                }
+
+                // 미리 확보하지 않았다면 메인 스레드에서 호출된 것으로 보고 직접 읽는다.
+                return asset.bytes;
+            }
+        }
+
         private sealed class RuntimeContentHashVerifier : IDisposable
         {
             private readonly SHA256 _sha256;

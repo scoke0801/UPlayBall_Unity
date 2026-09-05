@@ -38,6 +38,13 @@ namespace Baseball.Game.Career
         public BatterAttributes? BatterAttributes { get; set; }
         public PitcherAttributes? PitcherAttributes { get; set; }
         public ulong RandomSeed { get; set; }
+
+        /// <summary>
+        /// 44시즌 배경 역사와 표시 이름만 결정하는 Seed다.
+        /// 커리어 진행 자체를 좌우하는 RandomSeed와 분리해야, 배경 역사를 미리 구워 두면서도
+        /// 플레이스루마다 다른 커리어를 만들 수 있다.
+        /// </summary>
+        public ulong WorldHistorySeed { get; set; }
         public NewGameSetupResult SetupResult { get; set; }
         public ContractOffer? SelectedOffer { get; set; }
         public CareerCreationDraft Draft { get; set; }

@@ -233,6 +233,11 @@ namespace Baseball.Game.Historical
         private readonly CardEditionBalanceTable _cardEditionBalance;
         private readonly IHistoricalSeasonSimulation _simulationOverride;
         private readonly IBakedWorldHistorySource _bakedHistorySource;
+        private readonly object _cacheLock = new object();
+        private HistoricalBakedContent _cachedFor;
+        private WorldRecordMode _cachedRecordMode;
+        private ulong _cachedWorldHistorySeed;
+        private HistoricalWorldRuntimeContent _cachedWorld;
 
         public HistoricalWorldRuntimeBuilder(
             BalanceTable balance,
@@ -274,6 +279,40 @@ namespace Baseball.Game.Historical
                 content.IdentityNameCatalog,
                 worldHistorySeed);
             return BuildCore(content, recordMode, worldHistorySeed, identityRegistry, allowBakedHistory: true);
+        }
+
+        /// <summary>
+        /// 같은 Content와 Seed면 World는 항상 같으므로(결정론 계약) 이미 만든 것을 그대로 돌려준다.
+        /// 로딩 화면이 미리 만들어 둔 World를 타이틀 이후 화면이 그대로 쓰게 하는 통로다.
+        /// </summary>
+        public HistoricalWorldRuntimeContent GetOrBuild(
+            HistoricalBakedContent content,
+            WorldRecordMode recordMode,
+            ulong worldHistorySeed)
+        {
+            if (content == null)
+                throw new ArgumentNullException(nameof(content));
+
+            lock (_cacheLock)
+            {
+                if (_cachedWorld != null &&
+                    ReferenceEquals(_cachedFor, content) &&
+                    _cachedRecordMode == recordMode &&
+                    _cachedWorldHistorySeed == worldHistorySeed)
+                {
+                    return _cachedWorld;
+                }
+            }
+
+            HistoricalWorldRuntimeContent world = Build(content, recordMode, worldHistorySeed);
+            lock (_cacheLock)
+            {
+                _cachedFor = content;
+                _cachedRecordMode = recordMode;
+                _cachedWorldHistorySeed = worldHistorySeed;
+                _cachedWorld = world;
+            }
+            return world;
         }
 
         /// <summary>

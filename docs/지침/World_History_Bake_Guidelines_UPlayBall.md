@@ -48,16 +48,48 @@
 2. 산출물은 `Assets/10.Datas/HistoricalSimulation/BakedWorldHistory/`에 생기고, 같은 위치의 `BakedWorldHistoryCatalog.asset`이 `NewGameDefinition`에 자동 연결된다.
 3. 이 경로는 역사 원본과 함께 `.gitignore` 대상이다. **파생 산출물이므로 커밋하지 않으며, 각자 로컬에서 굽는다.**
 
-## 커리어 모드의 Seed 정책 — 판단이 남아 있는 부분
+## 두 개의 Seed — 반드시 구분할 것
+
+커리어 새 게임은 **서로 다른 두 Seed**를 갖는다. 이 둘을 합치면 안 된다.
+
+| Seed | 무엇을 정하는가 | Bake 대상 |
+| --- | --- | --- |
+| `NewGameFlowState.RandomSeed` | 커리어 진행 전체 — 리그 시드, 일정, 계약 오퍼 RNG, 성장 | **아니오.** 매 플레이스루마다 새로 뽑는다 |
+| `NewGameFlowState.WorldHistorySeed` | 44시즌 배경 역사와 표시 이름(`WorldIdentityGenerator`)만 | 예 |
+
+`RandomSeed`까지 Pool에 묶으면 같은 선수 빌드에서 **커리어 전체가 Pool 크기만큼의 경우의 수로 줄어든다.** 오퍼 구성도, 일정도, 성장도 몇 가지 변주로 고정된다. 배경 역사를 미리 구우려다 게임의 다양성을 버리는 셈이므로, 분리는 타협 대상이 아니다.
 
 구단주 모드의 월드 Seed는 `NewGameDefinition._ownerWorldSeed`로 고정이라 한 번 구우면 항상 적중한다.
 
-반면 **커리어 모드는 `DateTime.UtcNow.Ticks`로 매 새 게임마다 다른 Seed를 뽑는다.** 그래서 Bake가 원리적으로 적중할 수 없다. 이를 위해 `NewGameDefinition._careerWorldSeedPool`을 두었다.
+커리어의 `WorldHistorySeed`는 `NewGameDefinition._careerWorldSeedPool`에서 고른다.
 
-- Pool이 **비어 있으면** 지금까지와 똑같이 매번 새 월드를 시뮬레이션한다(기본값, 동작 변화 없음).
-- Pool에 Seed를 넣으면 커리어 새 게임이 그중 하나를 골라 쓴다. **Pool 크기만큼의 월드 다양성**을 유지하면서 전부 미리 구울 수 있다.
+- Pool이 **비어 있으면** 커리어 Seed를 그대로 써서 매번 새 월드를 시뮬레이션한다(기본값, 동작 변화 없음).
+- Pool에 Seed를 넣으면 그중 하나를 골라 쓴다. **배경 역사만** Pool 크기만큼으로 제한되고, 커리어 진행의 다양성은 그대로다.
 
-여기서 정해야 할 것은 "44시즌 배경 역사가 플레이스루마다 달라야 하는가"이다. Seed는 배경 역사뿐 아니라 `WorldIdentityGenerator`(선수·프랜차이즈 표시 이름)도 좌우하므로, Pool 크기가 곧 플레이어가 만날 수 있는 서로 다른 세계의 수가 된다. 이 값은 게임 디자인 결정이므로 기본값을 비워 두었다.
+Pool 크기는 "44시즌 배경 역사와 선수 이름이 플레이스루마다 달라야 하는가"에 대한 답이다. 게임 디자인 결정이므로 기본값을 비워 두었다.
+
+## 워밍업 — Boot → Loading 구간에서 미리 만든다
+
+Bake를 써도 남는 비용(23.6MB 파싱, Identity 생성, 카드 카탈로그)이 있고, 그것을 버튼 누른 뒤에 내면 여전히 화면이 멈춘다. 그래서 **로딩 화면이 도는 동안** 미리 만든다.
+
+```text
+Boot   BootSceneController.Start()
+         → HistoricalWarmupManager.BeginWarmup()
+              메인 스레드: TextAsset 바이트 확보 (TextAsset은 메인 스레드 전용)
+              워커 스레드: Content 파싱 → 구단주 World → 커리어 Content
+         → SceneLoadManager.LoadScene(..., LoadingScreen)
+
+Load   LoadingSceneController
+         진행률 = min(Scene Load, 워밍업)
+         둘 다 끝나야 대상 Scene을 활성화한다
+
+Title  두 모드 모두 이미 만들어 둔 결과를 그대로 쓴다
+```
+
+- 파싱과 World 생성이 워커 스레드에서 도는 것은 **Core/Simulation/Game이 Unity에 의존하지 않기 때문**이다. 이 경계가 실제로 값을 만들어 내는 지점이므로 깨뜨리지 않는다.
+- 미리 만든 World를 진입점이 그대로 쓰려면 Builder 인스턴스가 유지되어야 한다. `HistoricalWorldRuntimeBuilder.GetOrBuild()`가 `(Content, RecordMode, Seed)`로 메모이제이션하고, `OwnerModeManager`는 Builder를 하나만 들고 있는다.
+- **워밍업은 실패해도 게임을 막지 않는다.** 실패하면 경고를 남기고 넘어가며, 각 진입점은 캐시가 없을 때 스스로 만드는 경로를 그대로 갖고 있다. 느려질 뿐이다.
+- 타이틀로 돌아갔다가 다시 시작하면 새 커리어 Seed를 뽑는다. `WorldHistorySeed`가 Pool의 다른 항목으로 바뀌면 그 월드는 다시 만들어야 하는데, Bake가 있으면 복원이라 비용이 작다.
 
 ## 검증
 

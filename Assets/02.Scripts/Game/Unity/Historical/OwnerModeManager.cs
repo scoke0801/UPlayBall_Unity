@@ -87,6 +87,7 @@ namespace Baseball.Game.Historical
         private ManagerModeMatchService _matchService;
         private StaffMarketResolver _staffMarketResolver;
         private IBakedWorldHistorySource _bakedWorldHistorySource;
+        private HistoricalWorldRuntimeBuilder _worldBuilder;
 
         public override int InitializationOrder => -20;
         public ManagerHistoricalRuntimeState Runtime { get; private set; }
@@ -129,7 +130,7 @@ namespace Baseball.Game.Historical
                 string teamSeasonKey = ResolvePlayerTeamSeasonKey(year, content, _newGameConfiguration.PlayerTeamSeasonKey);
                 var service = new ManagerHistoricalNewGameService(
                     _contentProvider,
-                    new HistoricalWorldRuntimeBuilder(_balance, bakedHistorySource: _bakedWorldHistorySource),
+                    _worldBuilder,
                     _balance);
                 Runtime = service.Create(new ManagerHistoricalNewGameRequest(
                     WorldRecordMode.SimulatedHistory,
@@ -161,6 +162,21 @@ namespace Baseball.Game.Historical
                 CurrentPregame = null;
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 로딩 화면에서 새 게임에 필요한 World를 미리 만들어 둔다.
+        /// UnityHistoricalContentProvider가 바이트를 미리 확보했다면 워커 스레드에서 호출해도 된다.
+        /// Runtime 상태를 만들지는 않으므로, 실제 새 게임 시작 전까지 게임 상태는 바뀌지 않는다.
+        /// </summary>
+        public void PrewarmNewGameWorld()
+        {
+            HistoricalBakedContent content = _contentProvider.Load()
+                ?? throw new InvalidOperationException("Historical Content가 없습니다.");
+            _worldBuilder.GetOrBuild(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                _newGameConfiguration.WorldSeed);
         }
 
         public void Save()
@@ -520,6 +536,10 @@ namespace Baseball.Game.Historical
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _newGameConfiguration = newGameConfiguration;
             _bakedWorldHistorySource = bakedWorldHistorySource;
+            // 로딩 화면이 미리 만들어 둔 World를 새 게임에서 그대로 쓰려면 Builder 인스턴스를 유지해야 한다.
+            _worldBuilder = new HistoricalWorldRuntimeBuilder(
+                _balance,
+                bakedHistorySource: _bakedWorldHistorySource);
             _saveStore = saveStore ?? throw new ArgumentNullException(nameof(saveStore));
             _saveAdapter = new ManagerHistoricalSaveAdapter(
                 _contentProvider,

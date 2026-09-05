@@ -29,6 +29,7 @@ namespace Baseball.Game.Manager
             gameManager.EnsureManager<CareerManager>("CareerManager");
             gameManager.EnsureManager<NewGameManager>("NewGameManager");
             gameManager.EnsureManager<OwnerModeManager>("OwnerModeManager");
+            gameManager.EnsureManager<HistoricalWarmupManager>("HistoricalWarmupManager");
             gameManager.EnsureManager<GuideManager>("GuideManager");
             gameManager.EnsureManager<SceneLoadManager>("SceneLoadManager");
             gameManager.EnsureManager<SoundManager>("SoundManager");

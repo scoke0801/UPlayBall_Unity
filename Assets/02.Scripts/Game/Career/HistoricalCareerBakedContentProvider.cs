@@ -53,7 +53,7 @@ namespace Baseball.Game.Career
 
             HistoricalBakedContent baked = _contentProvider.Load()
                 ?? throw new InvalidOperationException("Historical Content Provider가 null을 반환했습니다.");
-            HistoricalWorldRuntimeContent world = _worldBuilder.Build(
+            HistoricalWorldRuntimeContent world = _worldBuilder.GetOrBuild(
                 baked,
                 WorldRecordMode.SimulatedHistory,
                 request.WorldHistorySeed);
