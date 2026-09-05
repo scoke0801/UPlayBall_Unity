@@ -1,10 +1,10 @@
 # Single Baseball Manager — Game System Design
 
-> **⚠ 2026-08-26 폐기됨.** 이 문서는 "플레이어가 구단주 겸 감독으로 전체 로스터·라인업·전술을 편성한다"는 전제로 쓰였다.
-> 프로젝트는 "선수 1명의 커리어를 사는" 장르로 방향을 바꿨다 (`BaseballManager_PROJECT.md` 상단 공지, 40절 참고). 새 게임 플로우와 콘텐츠 설계는 `BaseballManager_PROJECT.md`를 따른다.
-> 이 문서에서 재사용 가능한 것은 **5절 리그 구조(`LeagueGrade`, 승강 규칙)** 뿐이다. 4절(구단 창단/`AcademyPlayer`/`Rookie Tryout`), 8~10절(`GamePlan`/`TacticCard`/`ManagerAi`에게 플레이어가 지시), 그 외 "플레이어가 팀을 운영한다"는 전제가 깔린 절은 새 방향과 충돌하므로 따르지 않는다.
+> **⚠ 2026-08-26 선수 모드 기준으로 후순위화.** 이 문서는 "플레이어가 구단주 겸 감독으로 전체 로스터·라인업·전술을 편성한다"는 전제로 쓰였다.
+> 2026-08-26에 선수 커리어 모드(선수 1명의 커리어를 사는 장르)를 우선 구현하기로 하면서 이 문서는 한동안 참고 대상에서 제외됐다 (`BaseballManager_PROJECT.md` 상단 공지, 40절 참고). 이후 2026-08-31에 야구 시뮬레이션 엔진이 고도화되며 **구단주 모드(구단 전체 운영)를 별도의 정식 진입점으로 재도입**했다 — 선수 모드를 대체하는 것이 아니라 병행하는 두 번째 모드다. 구단주 모드의 현재 설계는 `docs/todo/역사시뮬레이션_구단주모드/`와 `BaseballManager_PROJECT.md` 상단 2026-08-31 공지를 따른다.
+> 이 문서에서 재사용 가능한 것은 **5절 리그 구조(`LeagueGrade`, 승강 규칙)** 뿐이다. 4절(구단 창단/`AcademyPlayer`/`Rookie Tryout`), 8~10절(`GamePlan`/`TacticCard`/`ManagerAi`에게 플레이어가 지시), 그 외 절은 현재 구단주 모드 구현(`Assets/02.Scripts/Presentation/Owner/`, `docs/todo/역사시뮬레이션_구단주모드/`)과 어긋나면 그쪽을 따르고 이 문서는 참고만 한다.
 >
-> 상태: Core System Draft v0.1 (Archived)
+> 상태: Core System Draft v0.1 (선수 모드 우선 구현 기간 동안 참고 보류 — 구단주 모드 재도입 후에는 `docs/todo/역사시뮬레이션_구단주모드/`가 정본)
 >
 > 기준 문서: `BaseballManager_PROJECT.md`
 >
