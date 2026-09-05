@@ -304,11 +304,20 @@ namespace Baseball.Core.Historical
     {
         private readonly WorldAwardEntry[] _entries;
 
+        /// <summary>
+        /// PlayerSeasonId → 그 선수 시즌이 받은 수상 종류 비트마스크다.
+        /// 카드 카탈로그는 선수 시즌 1만 7천여 건마다 수상 여부를 5번 물어보므로,
+        /// 선형 탐색이면 1억 회를 넘는 문자열 비교가 되어 새 게임 시작에서 초 단위를 먹는다.
+        /// 조회 전용이며 순회하지 않으므로 Dictionary를 써도 결정론 계약을 깨지 않는다.
+        /// </summary>
+        private readonly Dictionary<string, int> _awardMaskByPlayerSeason;
+
         public WorldAwardRecord(IReadOnlyList<WorldAwardEntry> entries)
         {
             if (entries == null)
                 throw new ArgumentNullException(nameof(entries));
             _entries = new WorldAwardEntry[entries.Count];
+            _awardMaskByPlayerSeason = new Dictionary<string, int>(entries.Count, StringComparer.Ordinal);
             var unique = new HashSet<string>(StringComparer.Ordinal);
             for (int index = 0; index < entries.Count; index++)
             {
@@ -317,6 +326,8 @@ namespace Baseball.Core.Historical
                 if (!unique.Add(key))
                     throw new ArgumentException("같은 World Award를 중복 저장할 수 없습니다.", nameof(entries));
                 _entries[index] = entry;
+                _awardMaskByPlayerSeason.TryGetValue(entry.PlayerSeasonId, out int mask);
+                _awardMaskByPlayerSeason[entry.PlayerSeasonId] = mask | ToMask(entry.AwardType);
             }
         }
 
@@ -324,14 +335,13 @@ namespace Baseball.Core.Historical
 
         public bool HasAward(string playerSeasonId, WorldAwardType awardType)
         {
-            for (int index = 0; index < _entries.Length; index++)
-            {
-                if (_entries[index].AwardType == awardType &&
-                    string.Equals(_entries[index].PlayerSeasonId, playerSeasonId, StringComparison.Ordinal))
-                    return true;
-            }
-            return false;
+            if (playerSeasonId == null)
+                return false;
+            return _awardMaskByPlayerSeason.TryGetValue(playerSeasonId, out int mask) &&
+                   (mask & ToMask(awardType)) != 0;
         }
+
+        private static int ToMask(WorldAwardType awardType) => 1 << (int)awardType;
     }
 
     /// <summary>두 기록 초기화 경로가 수렴하며 Save에 한 번만 저장하는 World 역사 Snapshot이다.</summary>
