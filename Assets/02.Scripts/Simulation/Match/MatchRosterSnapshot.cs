@@ -6,6 +6,37 @@ using Baseball.Core.Teams;
 
 namespace Baseball.Simulation.Match
 {
+    /// <summary>한 선수에게 경기 시작 시 동결된 파생 Condition과 근거를 연결한다.</summary>
+    public readonly struct MatchPlayerConditionEntry
+    {
+        public MatchPlayerConditionEntry(int playerId, EffectiveMatchCondition condition)
+        {
+            if (playerId <= 0) throw new ArgumentOutOfRangeException(nameof(playerId));
+            PlayerId = playerId;
+            Condition = condition;
+        }
+
+        public int PlayerId { get; }
+        public EffectiveMatchCondition Condition { get; }
+    }
+
+    /// <summary>투수·포수 교체 때 누적 없이 교체할 Battery Condition 변경량이다.</summary>
+    public readonly struct MatchBatteryConditionEntry
+    {
+        public MatchBatteryConditionEntry(int pitcherPlayerId, int catcherPlayerId, int conditionModifier)
+        {
+            if (pitcherPlayerId <= 0) throw new ArgumentOutOfRangeException(nameof(pitcherPlayerId));
+            if (catcherPlayerId <= 0) throw new ArgumentOutOfRangeException(nameof(catcherPlayerId));
+            PitcherPlayerId = pitcherPlayerId;
+            CatcherPlayerId = catcherPlayerId;
+            ConditionModifier = conditionModifier;
+        }
+
+        public int PitcherPlayerId { get; }
+        public int CatcherPlayerId { get; }
+        public int ConditionModifier { get; }
+    }
+
     /// <summary>
     /// 최근 3일의 투구 수를 경기 입력에 고정해 불펜 가용성을 재현 가능하게 만든다.
     /// </summary>
@@ -94,6 +125,8 @@ namespace Baseball.Simulation.Match
     {
         private readonly Player[] _bench;
         private readonly PitcherRosterEntry[] _bullpen;
+        private readonly MatchPlayerConditionEntry[] _playerConditions;
+        private readonly MatchBatteryConditionEntry[] _batteryConditions;
 
         public MatchRosterSnapshot(
             int teamId,
@@ -104,7 +137,9 @@ namespace Baseball.Simulation.Match
             IReadOnlyList<Player> bench,
             ManagerTacticalProfile managerProfile,
             RunningApproach runningApproach,
-            int playerCharacterId = 0)
+            int playerCharacterId = 0,
+            IReadOnlyList<MatchPlayerConditionEntry> playerConditions = null,
+            IReadOnlyList<MatchBatteryConditionEntry> batteryConditions = null)
         {
             if (teamId <= 0) throw new ArgumentOutOfRangeException(nameof(teamId));
             if (string.IsNullOrWhiteSpace(teamName)) throw new ArgumentException("구단 이름이 필요합니다.", nameof(teamName));
@@ -117,10 +152,14 @@ namespace Baseball.Simulation.Match
 
             _bullpen = CopyPitchers(bullpen);
             _bench = CopyPlayers(bench);
+            _playerConditions = CopyPlayerConditions(playerConditions);
+            _batteryConditions = CopyBatteryConditions(batteryConditions);
             ManagerProfile = managerProfile;
             RunningApproach = runningApproach;
             PlayerCharacterId = playerCharacterId;
             ValidateUniquePlayers();
+            ValidatePlayerConditions();
+            ValidateBatteryConditions();
         }
 
         public int TeamId { get; }
@@ -132,6 +171,50 @@ namespace Baseball.Simulation.Match
         public ManagerTacticalProfile ManagerProfile { get; }
         public RunningApproach RunningApproach { get; }
         public int PlayerCharacterId { get; }
+        public IReadOnlyList<MatchPlayerConditionEntry> PlayerConditions => _playerConditions;
+        public IReadOnlyList<MatchBatteryConditionEntry> BatteryConditions => _batteryConditions;
+
+        /// <summary>경기 시작 때 동결된 선수별 Condition이 있으면 반환한다.</summary>
+        public bool TryGetEffectiveCondition(int playerId, out EffectiveMatchCondition condition)
+        {
+            for (int index = 0; index < _playerConditions.Length; index++)
+            {
+                if (_playerConditions[index].PlayerId == playerId)
+                {
+                    condition = _playerConditions[index].Condition;
+                    return true;
+                }
+            }
+            condition = default;
+            return false;
+        }
+
+        /// <summary>현재 투수-포수 Pair의 Battery 변경량이 있으면 반환한다.</summary>
+        public bool TryGetBatteryConditionModifier(
+            int pitcherPlayerId,
+            int catcherPlayerId,
+            out int conditionModifier)
+        {
+            int low = 0;
+            int high = _batteryConditions.Length - 1;
+            while (low <= high)
+            {
+                int middle = low + ((high - low) / 2);
+                MatchBatteryConditionEntry entry = _batteryConditions[middle];
+                if (entry.PitcherPlayerId == pitcherPlayerId && entry.CatcherPlayerId == catcherPlayerId)
+                {
+                    conditionModifier = entry.ConditionModifier;
+                    return true;
+                }
+                if (entry.PitcherPlayerId < pitcherPlayerId ||
+                    entry.PitcherPlayerId == pitcherPlayerId && entry.CatcherPlayerId < catcherPlayerId)
+                    low = middle + 1;
+                else
+                    high = middle - 1;
+            }
+            conditionModifier = 0;
+            return false;
+        }
 
         /// <summary>
         /// 기존 Team 입력을 V2 경기 스냅샷으로 변환한다.
@@ -194,6 +277,37 @@ namespace Baseball.Simulation.Match
             return result;
         }
 
+        private static MatchPlayerConditionEntry[] CopyPlayerConditions(
+            IReadOnlyList<MatchPlayerConditionEntry> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<MatchPlayerConditionEntry>();
+            var result = new MatchPlayerConditionEntry[source.Count];
+            for (int index = 0; index < source.Count; index++)
+                result[index] = source[index];
+            return result;
+        }
+
+        private static MatchBatteryConditionEntry[] CopyBatteryConditions(
+            IReadOnlyList<MatchBatteryConditionEntry> source)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<MatchBatteryConditionEntry>();
+            var result = new MatchBatteryConditionEntry[source.Count];
+            for (int index = 0; index < source.Count; index++)
+                result[index] = source[index];
+            Array.Sort(result, CompareBatteryCondition);
+            return result;
+        }
+
+        private static int CompareBatteryCondition(
+            MatchBatteryConditionEntry left,
+            MatchBatteryConditionEntry right)
+        {
+            int pitcher = left.PitcherPlayerId.CompareTo(right.PitcherPlayerId);
+            return pitcher != 0 ? pitcher : left.CatcherPlayerId.CompareTo(right.CatcherPlayerId);
+        }
+
         private void ValidateUniquePlayers()
         {
             int totalCount = StartingLineup.Count + 1 + _bullpen.Length + _bench.Length;
@@ -212,6 +326,62 @@ namespace Baseball.Simulation.Match
                 if (ids[index] == ids[index - 1])
                     throw new ArgumentException($"PlayerId {ids[index]}가 경기 로스터에 중복 등록되었습니다.");
             }
+        }
+
+        private void ValidatePlayerConditions()
+        {
+            for (int index = 0; index < _playerConditions.Length; index++)
+            {
+                int playerId = _playerConditions[index].PlayerId;
+                if (!ContainsRosterPlayer(playerId))
+                    throw new ArgumentException($"PlayerId {playerId}의 Condition이 경기 로스터 밖 선수를 참조합니다.");
+                for (int previous = 0; previous < index; previous++)
+                {
+                    if (_playerConditions[previous].PlayerId == playerId)
+                        throw new ArgumentException($"PlayerId {playerId}의 Condition은 중복될 수 없습니다.");
+                }
+            }
+        }
+
+        private bool ContainsRosterPlayer(int playerId)
+        {
+            for (int index = 0; index < StartingLineup.Count; index++)
+                if (StartingLineup[index].Player.PlayerId == playerId) return true;
+            if (StartingPitcher.Player.PlayerId == playerId) return true;
+            for (int index = 0; index < _bullpen.Length; index++)
+                if (_bullpen[index].Player.PlayerId == playerId) return true;
+            for (int index = 0; index < _bench.Length; index++)
+                if (_bench[index].PlayerId == playerId) return true;
+            return false;
+        }
+
+        private void ValidateBatteryConditions()
+        {
+            for (int index = 0; index < _batteryConditions.Length; index++)
+            {
+                MatchBatteryConditionEntry entry = _batteryConditions[index];
+                if (!ContainsPitcher(entry.PitcherPlayerId))
+                    throw new ArgumentException("Battery Condition의 투수가 경기 투수진에 없습니다.");
+                if (!ContainsRosterPlayer(entry.CatcherPlayerId))
+                    throw new ArgumentException("Battery Condition의 포수가 경기 로스터에 없습니다.");
+                for (int previous = 0; previous < index; previous++)
+                {
+                    MatchBatteryConditionEntry other = _batteryConditions[previous];
+                    if (other.PitcherPlayerId == entry.PitcherPlayerId &&
+                        other.CatcherPlayerId == entry.CatcherPlayerId)
+                    {
+                        throw new ArgumentException("같은 투수-포수 Battery Condition은 중복될 수 없습니다.");
+                    }
+                }
+            }
+        }
+
+        private bool ContainsPitcher(int playerId)
+        {
+            if (StartingPitcher.Player.PlayerId == playerId) return true;
+            for (int index = 0; index < _bullpen.Length; index++)
+                if (_bullpen[index].Player.PlayerId == playerId) return true;
+            return false;
         }
     }
 }

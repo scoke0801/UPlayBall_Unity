@@ -24,7 +24,7 @@ namespace Baseball.Simulation.Career
     }
 
     /// <summary>
-    /// 모든 구단이 매 라운드 한 번씩 경기하는 결정론적 Round-robin 일정을 생성한다.
+    /// 짝수 구단은 매 라운드 경기하고 홀수 구단은 한 구단씩 bye를 갖는 결정론적 Round-robin 일정을 생성한다.
     /// </summary>
     public sealed class SeasonScheduleGenerator
     {
@@ -42,18 +42,31 @@ namespace Baseball.Simulation.Career
         {
             if (teamIds == null)
                 throw new ArgumentNullException(nameof(teamIds));
-            if (teamIds.Count < 2 || teamIds.Count % 2 != 0)
-                throw new ArgumentException("Round-robin 일정에는 2개 이상의 짝수 구단이 필요합니다.", nameof(teamIds));
+            if (teamIds.Count < 2)
+                throw new ArgumentException("Round-robin 일정에는 2개 이상의 구단이 필요합니다.", nameof(teamIds));
             if (gamesPerTeam <= 0)
                 throw new ArgumentOutOfRangeException(nameof(gamesPerTeam));
 
-            int[] rotation = CopyAndShuffle(teamIds);
+            bool requiresBye = teamIds.Count % 2 != 0;
+            if (requiresBye && gamesPerTeam % (teamIds.Count - 1) != 0)
+            {
+                throw new ArgumentException(
+                    "홀수 구단 Round-robin의 팀별 경기 수는 상대 구단 수의 배수여야 합니다.",
+                    nameof(gamesPerTeam));
+            }
+
+            int[] shuffledTeams = CopyAndShuffle(teamIds);
+            int[] rotation = requiresBye ? AddByeSlot(shuffledTeams) : shuffledTeams;
             int roundsPerCycle = rotation.Length - 1;
             int gamesPerRound = rotation.Length / 2;
-            var result = new ScheduledGameDefinition[gamesPerTeam * gamesPerRound];
+            int scheduledGameCount = teamIds.Count * gamesPerTeam / 2;
+            int roundCount = requiresBye
+                ? gamesPerTeam * teamIds.Count / (teamIds.Count - 1)
+                : gamesPerTeam;
+            var result = new ScheduledGameDefinition[scheduledGameCount];
             int resultIndex = 0;
 
-            for (int round = 0; round < gamesPerTeam; round++)
+            for (int round = 0; round < roundCount; round++)
             {
                 int cycle = round / roundsPerCycle;
                 int cycleRound = round % roundsPerCycle;
@@ -61,6 +74,8 @@ namespace Baseball.Simulation.Career
                 {
                     int left = rotation[pair];
                     int right = rotation[rotation.Length - 1 - pair];
+                    if (left == 0 || right == 0)
+                        continue;
                     bool swapHome = ((cycle + cycleRound + pair) & 1) != 0;
                     int away = swapHome ? right : left;
                     int home = swapHome ? left : right;
@@ -75,6 +90,13 @@ namespace Baseball.Simulation.Career
                 RotateKeepingFirst(rotation);
             }
 
+            return result;
+        }
+
+        private static int[] AddByeSlot(int[] teamIds)
+        {
+            var result = new int[teamIds.Length + 1];
+            Array.Copy(teamIds, result, teamIds.Length);
             return result;
         }
 

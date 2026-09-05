@@ -438,6 +438,22 @@ namespace Baseball.Simulation.Historical
             CardTrainingProgramDefinition program,
             ManagerEconomyState economy)
         {
+            return Train(
+                ownedCard,
+                season,
+                program,
+                economy,
+                new StaffTrainingEfficiencyResult(1d));
+        }
+
+        /// <summary>스태프의 훈련 효율을 DP 비용에만 반영하고 TrainingCeiling은 그대로 지킨다.</summary>
+        public static CardTrainingResult Train(
+            OwnedPlayerCardState ownedCard,
+            PlayerSeasonDefinition season,
+            CardTrainingProgramDefinition program,
+            ManagerEconomyState economy,
+            StaffTrainingEfficiencyResult staffEfficiency)
+        {
             if (ownedCard == null)
                 throw new ArgumentNullException(nameof(ownedCard));
             if (season == null)
@@ -453,9 +469,12 @@ namespace Baseball.Simulation.Historical
             int ceiling = season.CreateTrainingCeiling().Get(program.Ability);
             int current = baseRating + ownedCard.Training.GetBonus(program.Ability);
             int remainingHeadroom = Math.Max(0, ceiling - current);
-            int affordablePoints = economy.DevelopmentPoints / program.DpCostPerPoint;
+            int effectiveDpCost = Math.Max(
+                1,
+                (int)Math.Ceiling(program.DpCostPerPoint / staffEfficiency.EfficiencyMultiplier));
+            int affordablePoints = economy.DevelopmentPoints / effectiveDpCost;
             int gainedPoints = Math.Min(program.MaximumPointsPerSession, Math.Min(remainingHeadroom, affordablePoints));
-            int spentDp = gainedPoints * program.DpCostPerPoint;
+            int spentDp = gainedPoints * effectiveDpCost;
             if (spentDp > 0)
             {
                 if (!economy.TrySpendDevelopmentPoints(spentDp))

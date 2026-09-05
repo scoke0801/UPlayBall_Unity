@@ -117,7 +117,7 @@ namespace Baseball.Tests.EditMode.Simulation
 
             PositionAssignmentPenalty penalty = state.GetActivePitcherAssignmentPenalty();
 
-            Assert.That(penalty.ConditionPenalty, Is.EqualTo(2));
+            Assert.That(penalty.ConditionPenalty, Is.EqualTo(1));
         }
 
         [Test]

@@ -70,5 +70,27 @@ namespace Baseball.Tests.EditMode.Simulation.Career
                 Assert.That(second[index].HomeTeamId, Is.EqualTo(first[index].HomeTeamId));
             }
         }
+
+        [TestCase(7)]
+        [TestCase(9)]
+        public void Generate_홀수구단은Bye라운드로팀별144경기를보장한다(int teamCount)
+        {
+            var teamIds = new int[teamCount];
+            for (int index = 0; index < teamIds.Length; index++)
+                teamIds[index] = index + 1;
+
+            ScheduledGameDefinition[] games = new SeasonScheduleGenerator(new Pcg32Random(123UL))
+                .Generate(teamIds, 144);
+            var counts = new int[teamCount];
+            for (int index = 0; index < games.Length; index++)
+            {
+                counts[games[index].AwayTeamId - 1]++;
+                counts[games[index].HomeTeamId - 1]++;
+            }
+
+            Assert.That(games, Has.Length.EqualTo(teamCount * 144 / 2));
+            for (int index = 0; index < counts.Length; index++)
+                Assert.That(counts[index], Is.EqualTo(144), $"Team {index + 1}");
+        }
     }
 }

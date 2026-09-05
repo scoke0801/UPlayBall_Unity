@@ -15,11 +15,20 @@ namespace Baseball.Simulation.Match
             MatchInput input,
             IMatchEventSink eventSink,
             PitcherFatigueResolver fatigueResolver,
-            MatchExecutionProfile executionProfile)
+            MatchExecutionProfile executionProfile,
+            MatchConditionRatingResolver conditionRatingResolver)
         {
             Input = input;
-            Away = new DetailedTeamGameState(input.AwayRoster, fatigueResolver, input.HistoricalConfiguration);
-            Home = new DetailedTeamGameState(input.HomeRoster, fatigueResolver, input.HistoricalConfiguration);
+            Away = new DetailedTeamGameState(
+                input.AwayRoster,
+                fatigueResolver,
+                input.HistoricalConfiguration,
+                conditionRatingResolver);
+            Home = new DetailedTeamGameState(
+                input.HomeRoster,
+                fatigueResolver,
+                input.HistoricalConfiguration,
+                conditionRatingResolver);
             Tactics = new DetailedMatchTacticRuntime(input.HistoricalConfiguration);
             EventSink = eventSink;
             RecordsEvents = executionProfile.EventMode == MatchEventMode.Full;
@@ -65,17 +74,23 @@ namespace Baseball.Simulation.Match
         private readonly int[] _highLeverageBatters;
         private readonly int[] _overloadPitches;
         private readonly bool[] _enteredInSaveSituation;
+        private readonly int[] _batteryPitcherIds;
+        private readonly int[] _batteryCatcherIds;
+        private readonly int[] _batteryDefensiveOuts;
         private readonly HistoricalMatchConfiguration _historicalConfiguration;
         private readonly PositionAssignmentPenaltyResolver _assignmentPenaltyResolver;
         private readonly BullpenUsageResolver _bullpenUsageResolver;
+        private readonly MatchConditionRatingResolver _conditionRatingResolver;
 
         public DetailedTeamGameState(
             MatchRosterSnapshot roster,
             PitcherFatigueResolver fatigueResolver,
-            HistoricalMatchConfiguration historicalConfiguration)
+            HistoricalMatchConfiguration historicalConfiguration,
+            MatchConditionRatingResolver conditionRatingResolver = null)
         {
             Roster = roster;
             _historicalConfiguration = historicalConfiguration;
+            _conditionRatingResolver = conditionRatingResolver;
             if (historicalConfiguration?.PositionAssignmentRule != null)
                 _assignmentPenaltyResolver = new PositionAssignmentPenaltyResolver();
             if (historicalConfiguration?.BullpenUsagePolicy != null)
@@ -106,6 +121,10 @@ namespace Baseball.Simulation.Match
             _highLeverageBatters = new int[_pitchers.Length];
             _overloadPitches = new int[_pitchers.Length];
             _enteredInSaveSituation = new bool[_pitchers.Length];
+            int maximumBatteryPairs = checked(_pitchers.Length * (_activeBatters.Length + _benchAvailable.Length));
+            _batteryPitcherIds = new int[maximumBatteryPairs];
+            _batteryCatcherIds = new int[maximumBatteryPairs];
+            _batteryDefensiveOuts = new int[maximumBatteryPairs];
             ActivePitcherIndex = 0;
             Ledger.RegisterStarter(_pitchers[0].Player.PlayerId);
         }
@@ -120,6 +139,46 @@ namespace Baseball.Simulation.Match
         public PlayerPitchingLine ActivePitchingLine => BoxScore.GetPitchingLine(ActivePitcher.PlayerId);
         public DefensiveAlignment Alignment { get; set; }
         public int PitcherCount => _pitchers.Length;
+        private int BatteryUsageCount { get; set; }
+
+        /// <summary>현재 선수의 동결 Condition과 실제 배치 비용을 한 번 합성해 능력치 변경량으로 변환한다.</summary>
+        public int GetConditionRatingModifier(Player player, int assignmentConditionModifier = 0)
+        {
+            if (player == null || _conditionRatingResolver == null ||
+                !Roster.TryGetEffectiveCondition(player.PlayerId, out EffectiveMatchCondition condition))
+            {
+                return 0;
+            }
+
+            if (player.PlayerId == ActivePitcher.PlayerId)
+            {
+                Player catcher = GetCatcher();
+                if (catcher != null && Roster.TryGetBatteryConditionModifier(
+                    player.PlayerId,
+                    catcher.PlayerId,
+                    out int batteryModifier))
+                {
+                    condition = new EffectiveMatchCondition(
+                        condition.StoredBaseCondition,
+                        condition.AssignmentModifier,
+                        condition.LineupChemistryModifier,
+                        batteryModifier,
+                        condition.TemporaryModifier);
+                }
+            }
+
+            if (assignmentConditionModifier != 0)
+            {
+                condition = new EffectiveMatchCondition(
+                    condition.StoredBaseCondition,
+                    checked(condition.AssignmentModifier + assignmentConditionModifier),
+                    condition.LineupChemistryModifier,
+                    condition.BatteryChemistryModifier,
+                    condition.TemporaryModifier);
+            }
+
+            return _conditionRatingResolver.ResolveRatingModifier(condition.Value);
+        }
 
         public DetailedLineupReference GetBatter(int battingOrderIndex)
         {
@@ -184,7 +243,8 @@ namespace Baseball.Simulation.Match
                 PositionAssignmentPenalty penalty = GetHitterAssignmentPenalty(index);
                 int effectiveDefense = Math.Max(
                     0,
-                    _activeBatters[index].BatterAttributes.Defense - penalty.ConditionPenalty);
+                    _activeBatters[index].BatterAttributes.Defense +
+                    GetConditionRatingModifier(_activeBatters[index], -penalty.ConditionPenalty));
                 total += effectiveDefense *
                          _activeBatters[index].GetPositionProficiency(_activePositions[index]) / 100d;
                 count++;
@@ -277,6 +337,16 @@ namespace Baseball.Simulation.Match
                 _activeBatters[battingOrderIndex],
                 _activePositions[battingOrderIndex],
                 _historicalConfiguration.PositionAssignmentRule);
+        }
+
+        public PositionAssignmentPenalty GetHitterAssignmentPenalty(Player player)
+        {
+            if (player == null)
+                return PositionAssignmentPenalty.None;
+            for (int index = 0; index < _activeBatters.Length; index++)
+                if (_activeBatters[index].PlayerId == player.PlayerId)
+                    return GetHitterAssignmentPenalty(index);
+            return PositionAssignmentPenalty.None;
         }
 
         public PositionAssignmentPenalty GetFielderAssignmentPenalty(Player fielder, PlayerPosition position)
@@ -573,6 +643,29 @@ namespace Baseball.Simulation.Match
                 BoxScore.GetFieldingLineByPlayer(_activeBatters[index].PlayerId).DefensiveOuts++;
             }
             BoxScore.GetFieldingLineByPlayer(ActivePitcher.PlayerId).DefensiveOuts++;
+            RecordBatteryDefensiveOut();
+        }
+
+        private void RecordBatteryDefensiveOut()
+        {
+            Player catcher = GetCatcher();
+            if (catcher == null)
+                return;
+            int pitcherId = ActivePitcher.PlayerId;
+            int catcherId = catcher.PlayerId;
+            for (int index = 0; index < BatteryUsageCount; index++)
+            {
+                if (_batteryPitcherIds[index] != pitcherId || _batteryCatcherIds[index] != catcherId)
+                    continue;
+                _batteryDefensiveOuts[index]++;
+                return;
+            }
+            if (BatteryUsageCount >= _batteryPitcherIds.Length)
+                throw new InvalidOperationException("한 경기의 Battery Pair 수가 로스터 조합 상한을 초과했습니다.");
+            _batteryPitcherIds[BatteryUsageCount] = pitcherId;
+            _batteryCatcherIds[BatteryUsageCount] = catcherId;
+            _batteryDefensiveOuts[BatteryUsageCount] = 1;
+            BatteryUsageCount++;
         }
 
         public void RecordHighLeverageBatter()
@@ -616,6 +709,20 @@ namespace Baseball.Simulation.Match
                     pitcher.Role,
                     pitcher.InheritedRunners,
                     pitcher.InheritedRunnersScored);
+            }
+            return result;
+        }
+
+        public BatteryUsageReport[] BuildBatteryUsageReports()
+        {
+            var result = new BatteryUsageReport[BatteryUsageCount];
+            for (int index = 0; index < result.Length; index++)
+            {
+                result[index] = new BatteryUsageReport(
+                    Roster.TeamId,
+                    _batteryPitcherIds[index],
+                    _batteryCatcherIds[index],
+                    _batteryDefensiveOuts[index]);
             }
             return result;
         }

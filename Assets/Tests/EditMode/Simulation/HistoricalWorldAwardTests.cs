@@ -17,7 +17,7 @@ namespace Baseball.Tests.EditMode.Simulation
         private const int TestYear = 2035;
 
         [Test]
-        public void Initialize_OriginalHistory는Simulation을호출하지않고공통Snapshot으로수렴한다()
+        public void LegacyInitializer_OriginalHistory는Simulation을호출하지않는다()
         {
             SeasonStatistics statistic = CreateStatistic("P001", PlayerPosition.Catcher, 10);
             var originalSeasons = new[] { new OriginalSeasonRecordDefinition(statistic) };
@@ -74,7 +74,7 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void Initialize_SimulatedHistory는정규10구단만한번실행한다()
+        public void Initialize_SimulatedHistory는해당연도정규구단만한번실행한다()
         {
             TeamSeasonDefinition[] teams = CreateRegularTeams();
             SeasonStatistics statistic = CreateStatistic(
@@ -97,8 +97,36 @@ namespace Baseball.Tests.EditMode.Simulation
 
             Assert.That(snapshot.RecordMode, Is.EqualTo(WorldRecordMode.SimulatedHistory));
             Assert.That(simulation.CallCount, Is.EqualTo(1));
-            Assert.That(simulation.LastTeamCount, Is.EqualTo(LeagueInstance.RequiredRegularFranchiseTeamCount));
+            Assert.That(simulation.LastTeamCount, Is.EqualTo(LeagueInstance.MaximumRegularFranchiseTeamCount));
             Assert.That(awardResolver.CallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Initialize_SimulatedHistory는6구단연도를수용한다()
+        {
+            TeamSeasonDefinition[] teams = CreateRegularTeams(6);
+            var simulation = new CountingHistoricalSimulation(new[]
+            {
+                CreateStatistic(
+                    "SIM-SIX-P001",
+                    PlayerPosition.Catcher,
+                    15,
+                    teamSeasonKey: teams[0].TeamSeasonKey)
+            });
+            var initializer = new WorldHistoryInitializer(
+                simulation,
+                new CountingAwardResolver(),
+                new OriginalHistoryLoader());
+
+            WorldHistorySnapshot snapshot = initializer.Initialize(
+                new WorldHistoryInitializationRequest(
+                    WorldRecordMode.SimulatedHistory,
+                    9877UL,
+                    regularFranchiseTeams: teams));
+
+            Assert.That(snapshot.TeamStatistics.Count, Is.EqualTo(6));
+            Assert.That(snapshot.Standings.Count, Is.EqualTo(6));
+            Assert.That(snapshot.PostseasonResults[0].QualifiedTeamSeasonKeys.Count, Is.EqualTo(4));
         }
 
         [Test]
@@ -348,9 +376,10 @@ namespace Baseball.Tests.EditMode.Simulation
                 new AbilityRatings(70));
         }
 
-        private static TeamSeasonDefinition[] CreateRegularTeams()
+        private static TeamSeasonDefinition[] CreateRegularTeams(
+            int teamCount = LeagueInstance.MaximumRegularFranchiseTeamCount)
         {
-            var result = new TeamSeasonDefinition[LeagueInstance.RequiredRegularFranchiseTeamCount];
+            var result = new TeamSeasonDefinition[teamCount];
             for (int team = 0; team < result.Length; team++)
             {
                 var cardIds = new string[25];
@@ -488,13 +517,48 @@ namespace Baseball.Tests.EditMode.Simulation
             public int CallCount { get; private set; }
             public int LastTeamCount { get; private set; }
 
-            public IReadOnlyList<SeasonStatistics> Simulate(
+            public HistoricalSeasonSimulationResult Simulate(
                 ulong worldHistorySeed,
                 IReadOnlyList<TeamSeasonDefinition> regularFranchiseTeams)
             {
                 CallCount++;
                 LastTeamCount = regularFranchiseTeams.Count;
-                return _result;
+                var teamStatistics = new TeamSeasonStatistics[regularFranchiseTeams.Count];
+                var standings = new HistoricalStandingEntry[regularFranchiseTeams.Count];
+                for (int index = 0; index < regularFranchiseTeams.Count; index++)
+                {
+                    string teamSeasonKey = regularFranchiseTeams[index].TeamSeasonKey;
+                    teamStatistics[index] = new TeamSeasonStatistics(
+                        teamSeasonKey,
+                        regularFranchiseTeams[index].OriginYear,
+                        1,
+                        index == 0 ? 1 : 0,
+                        index == 0 ? 0 : 1,
+                        0,
+                        index == 0 ? 5 : 1,
+                        index == 0 ? 1 : 5,
+                        30,
+                        8,
+                        27,
+                        index == 0 ? 1 : 5,
+                        8,
+                        2);
+                    standings[index] = new HistoricalStandingEntry(
+                        regularFranchiseTeams[index].OriginYear,
+                        index + 1,
+                        teamSeasonKey);
+                }
+                var qualifiers = new string[4];
+                for (int index = 0; index < qualifiers.Length; index++)
+                    qualifiers[index] = regularFranchiseTeams[index].TeamSeasonKey;
+                return new HistoricalSeasonSimulationResult(
+                    _result,
+                    teamStatistics,
+                    standings,
+                    new HistoricalPostseasonResult(
+                        regularFranchiseTeams[0].OriginYear,
+                        qualifiers,
+                        qualifiers[0]));
             }
         }
 

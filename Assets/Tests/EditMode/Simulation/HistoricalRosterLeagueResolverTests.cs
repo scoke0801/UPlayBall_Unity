@@ -117,7 +117,19 @@ namespace Baseball.Tests.EditMode.Simulation
 
             Assert.That(result.IsAllowed, Is.True);
             Assert.That(result.IsOffPosition, Is.True);
-            Assert.That(result.ConditionPenalty, Is.EqualTo(3));
+            Assert.That(result.ConditionPenalty, Is.EqualTo(2));
+        }
+
+        [TestCase(PitcherRoleConfidence.Low, 2)]
+        [TestCase(PitcherRoleConfidence.Medium, 6)]
+        [TestCase(PitcherRoleConfidence.High, 9)]
+        public void PitcherRoleMismatchPenaltyDefinition_신뢰도배율을가장가까운정수로환산한다(
+            PitcherRoleConfidence confidence,
+            int expectedPenalty)
+        {
+            var definition = new PitcherRoleMismatchPenaltyDefinition(9);
+
+            Assert.That(definition.GetConditionPenalty(confidence), Is.EqualTo(expectedPenalty));
         }
 
         [Test]

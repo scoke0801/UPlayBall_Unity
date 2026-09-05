@@ -7,7 +7,7 @@ namespace Baseball.Simulation.Historical
     /// <summary>기존 DetailedMatchEngine 기반 과거 시즌 실행 결과를 Historical 초기화에 공급한다.</summary>
     public interface IHistoricalSeasonSimulation
     {
-        IReadOnlyList<SeasonStatistics> Simulate(
+        HistoricalSeasonSimulationResult Simulate(
             ulong worldHistorySeed,
             IReadOnlyList<TeamSeasonDefinition> regularFranchiseTeams);
     }
@@ -45,7 +45,7 @@ namespace Baseball.Simulation.Historical
         public IReadOnlyList<OriginalAwardRecordDefinition> OriginalAwardRecords { get; }
     }
 
-    /// <summary>Runtime-safe 고유 기록을 공통 WorldHistorySnapshot으로 복사한다.</summary>
+    /// <summary>Legacy/Debug 회귀 검증에서만 원기록을 WorldHistorySnapshot으로 복사한다.</summary>
     public sealed class OriginalHistoryLoader
     {
         public WorldHistorySnapshot Load(
@@ -82,7 +82,7 @@ namespace Baseball.Simulation.Historical
         }
     }
 
-    /// <summary>한 모드의 Provider만 실행하고 저장된 Snapshot이 있으면 과거를 재실행하지 않는다.</summary>
+    /// <summary>정식 Simulation 또는 Legacy 검증 Provider를 실행하며 저장 Snapshot은 재실행하지 않는다.</summary>
     public sealed class WorldHistoryInitializer
     {
         private readonly IHistoricalSeasonSimulation _historicalSimulation;
@@ -132,18 +132,21 @@ namespace Baseball.Simulation.Historical
         private WorldHistorySnapshot InitializeSimulatedHistory(WorldHistoryInitializationRequest request)
         {
             ValidateRegularFranchiseTeams(request.RegularFranchiseTeams);
-            IReadOnlyList<SeasonStatistics> statistics = _historicalSimulation.Simulate(
+            HistoricalSeasonSimulationResult result = _historicalSimulation.Simulate(
                 request.WorldHistorySeed,
                 request.RegularFranchiseTeams);
-            if (statistics == null || statistics.Count == 0)
+            if (result == null || result.Statistics.Count == 0)
                 throw new InvalidOperationException("Historical Simulation이 시즌 기록을 만들지 않았습니다.");
-            ValidateStatisticsTeams(statistics, request.RegularFranchiseTeams);
+            ValidateSimulationResult(result, request.RegularFranchiseTeams);
 
-            WorldAwardRecord awards = _awardResolver.Resolve(statistics);
+            WorldAwardRecord awards = _awardResolver.Resolve(result.Statistics);
             return new WorldHistorySnapshot(
                 WorldRecordMode.SimulatedHistory,
                 request.WorldHistorySeed,
-                statistics,
+                result.Statistics,
+                result.TeamStatistics,
+                result.Standings,
+                new[] { result.Postseason },
                 awards);
         }
 
@@ -151,17 +154,69 @@ namespace Baseball.Simulation.Historical
         {
             if (teams == null)
                 throw new ArgumentNullException(nameof(teams));
-            if (teams.Count != LeagueInstance.RequiredRegularFranchiseTeamCount)
-                throw new ArgumentException("Historical Simulation에는 정규 Franchise 구단만 정확히 전달해야 합니다.", nameof(teams));
+            if (!LeagueInstance.IsSupportedRegularFranchiseTeamCount(teams.Count))
+                throw new ArgumentException("Historical Simulation에는 해당 연도의 정규 Franchise 6~10구단을 전달해야 합니다.", nameof(teams));
 
             var teamSeasonKeys = new HashSet<string>(StringComparer.Ordinal);
             var franchiseIds = new HashSet<string>(StringComparer.Ordinal);
+            int seasonYear = teams[0]?.OriginYear ?? 0;
             for (int index = 0; index < teams.Count; index++)
             {
                 TeamSeasonDefinition team = teams[index]
                     ?? throw new ArgumentException("null TeamSeason이 있습니다.", nameof(teams));
+                if (team.OriginYear != seasonYear)
+                    throw new ArgumentException("한 Historical Simulation에 서로 다른 OriginYear를 섞을 수 없습니다.", nameof(teams));
                 if (!teamSeasonKeys.Add(team.TeamSeasonKey) || !franchiseIds.Add(team.FranchiseId))
                     throw new ArgumentException("Historical Simulation의 정규 Franchise 구단은 고유해야 합니다.", nameof(teams));
+            }
+        }
+
+        private static void ValidateSimulationResult(
+            HistoricalSeasonSimulationResult result,
+            IReadOnlyList<TeamSeasonDefinition> teams)
+        {
+            ValidateStatisticsTeams(result.Statistics, teams);
+            if (result.TeamStatistics.Count != teams.Count || result.Standings.Count != teams.Count)
+                throw new InvalidOperationException("Historical Simulation의 팀 성적과 순위는 정규 구단 전체를 포함해야 합니다.");
+
+            int seasonYear = teams[0].OriginYear;
+            var expectedKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < teams.Count; index++)
+                expectedKeys.Add(teams[index].TeamSeasonKey);
+            var statisticsKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < result.TeamStatistics.Count; index++)
+            {
+                TeamSeasonStatistics statistics = result.TeamStatistics[index];
+                if (statistics.SeasonYear != seasonYear ||
+                    !expectedKeys.Contains(statistics.TeamSeasonKey) ||
+                    !statisticsKeys.Add(statistics.TeamSeasonKey))
+                {
+                    throw new InvalidOperationException("Historical Simulation 팀 성적의 연도 또는 TeamSeasonKey가 유효하지 않습니다.");
+                }
+            }
+
+            var standingKeys = new HashSet<string>(StringComparer.Ordinal);
+            var ranks = new HashSet<int>();
+            for (int index = 0; index < result.Standings.Count; index++)
+            {
+                HistoricalStandingEntry standing = result.Standings[index];
+                if (standing.SeasonYear != seasonYear ||
+                    !expectedKeys.Contains(standing.TeamSeasonKey) ||
+                    !standingKeys.Add(standing.TeamSeasonKey) ||
+                    standing.Rank > teams.Count ||
+                    !ranks.Add(standing.Rank))
+                {
+                    throw new InvalidOperationException("Historical Simulation 순위의 연도, 순번 또는 TeamSeasonKey가 유효하지 않습니다.");
+                }
+            }
+
+            HistoricalPostseasonResult postseason = result.Postseason;
+            if (postseason.SeasonYear != seasonYear)
+                throw new InvalidOperationException("Historical Simulation Postseason 연도가 정규 시즌과 다릅니다.");
+            for (int index = 0; index < postseason.QualifiedTeamSeasonKeys.Count; index++)
+            {
+                if (!expectedKeys.Contains(postseason.QualifiedTeamSeasonKeys[index]))
+                    throw new InvalidOperationException("정규 Franchise 외 구단이 Postseason에 포함되었습니다.");
             }
         }
 

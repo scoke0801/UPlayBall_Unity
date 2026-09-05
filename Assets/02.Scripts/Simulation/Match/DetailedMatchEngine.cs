@@ -4,6 +4,7 @@ using Baseball.Core.Growth;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Rules;
+using Baseball.Simulation.Historical;
 using Baseball.Simulation.PlateAppearance;
 using Baseball.Simulation.Random;
 
@@ -34,6 +35,7 @@ namespace Baseball.Simulation.Match
         private readonly PitchSelectionAi _pitchSelectionAi;
         private readonly SwingExecutionAi _swingExecutionAi;
         private readonly MatchExecutionProfile _executionProfile;
+        private readonly MatchConditionRatingResolver _conditionRatingResolver;
 
         public DetailedMatchEngine(
             BalanceTable balance,
@@ -83,6 +85,7 @@ namespace Baseball.Simulation.Match
             _swingContactResolver = new SwingContactResolver(balance);
             _pitchSelectionAi = new PitchSelectionAi(balance, random.Contact);
             _swingExecutionAi = new SwingExecutionAi(balance, random.SwingDecision);
+            _conditionRatingResolver = new MatchConditionRatingResolver(balance.ConditionChemistry);
         }
 
         public MatchResult Simulate(
@@ -95,7 +98,8 @@ namespace Baseball.Simulation.Match
                 input,
                 eventSink,
                 _fatigueResolver,
-                _executionProfile);
+                _executionProfile,
+                _conditionRatingResolver);
             int inning = 1;
             while (true)
             {
@@ -144,6 +148,9 @@ namespace Baseball.Simulation.Match
             PitcherUsageReport[] usage = CombineUsage(
                 state.Away.BuildUsageReports(),
                 state.Home.BuildUsageReports());
+            BatteryUsageReport[] batteryUsage = CombineBatteryUsage(
+                state.Away.BuildBatteryUsageReports(),
+                state.Home.BuildBatteryUsageReports());
             return new MatchResult(
                 input,
                 inning,
@@ -151,6 +158,7 @@ namespace Baseball.Simulation.Match
                 state.Home.BoxScore.Build(inning),
                 events,
                 usage,
+                batteryUsage,
                 state.Trace?.ToArray() ?? Array.Empty<DecisionTraceEntry>());
         }
 
@@ -416,10 +424,11 @@ namespace Baseball.Simulation.Match
             ResolveTimesThroughOrderBonus(defense.ActivePitcher, timesFaced, out contactBonus, out hardHitBonus);
             PositionAssignmentPenalty hitterAssignmentPenalty = offense.GetHitterAssignmentPenalty(
                 batter.BattingOrderIndex);
-            contactBonus += historicalModifiers.GetBatter(PlayerAbility.Contact) -
-                            hitterAssignmentPenalty.ConditionPenalty;
-            hardHitBonus += historicalModifiers.GetBatter(PlayerAbility.Power) -
-                            hitterAssignmentPenalty.ConditionPenalty;
+            int batterConditionRating = offense.GetConditionRatingModifier(
+                batter.Player,
+                -hitterAssignmentPenalty.ConditionPenalty);
+            contactBonus += historicalModifiers.GetBatter(PlayerAbility.Contact) + batterConditionRating;
+            hardHitBonus += historicalModifiers.GetBatter(PlayerAbility.Power) + batterConditionRating;
             int balls = 0;
             int strikes = 0;
             int pitchNumber = 0;
@@ -506,10 +515,14 @@ namespace Baseball.Simulation.Match
                 EffectivePitcherRatings effective = _fatigueResolver.Resolve(
                     defense.ActivePitcherState,
                     pitchingApproach);
+                PositionAssignmentPenalty pitcherAssignmentPenalty =
+                    defense.GetActivePitcherAssignmentPenalty();
                 effective = ApplyHistoricalPitcherModifiers(
                     effective,
                     historicalModifiers,
-                    defense.GetActivePitcherAssignmentPenalty());
+                    defense.GetConditionRatingModifier(
+                        defense.ActivePitcher,
+                        -pitcherAssignmentPenalty.ConditionPenalty));
                 var matchup = new PlateAppearanceMatchup(
                     batter.Player,
                     defense.ActivePitcher,
@@ -649,9 +662,18 @@ namespace Baseball.Simulation.Match
                     ballInPlayData: new BallInPlayEventData(ball, default));
                 int batterSpeed = ClampRating(
                     batter.Player.BatterAttributes.Speed +
-                    historicalModifiers.GetBatter(PlayerAbility.Speed) -
-                    hitterAssignmentPenalty.ConditionPenalty);
-                int leadRunnerSpeed = bases.First.IsOccupied ? bases.First.Player.BatterAttributes.Speed : 50;
+                    historicalModifiers.GetBatter(PlayerAbility.Speed) + batterConditionRating);
+                int leadRunnerSpeed = 50;
+                if (bases.First.IsOccupied)
+                {
+                    PositionAssignmentPenalty runnerAssignmentPenalty =
+                        offense.GetHitterAssignmentPenalty(bases.First.Player);
+                    leadRunnerSpeed = ClampRating(
+                        bases.First.Player.BatterAttributes.Speed +
+                        offense.GetConditionRatingModifier(
+                            bases.First.Player,
+                            -runnerAssignmentPenalty.ConditionPenalty));
+                }
                 PositionAssignmentPenalty fielderAssignmentPenalty =
                     defense.GetFielderAssignmentPenalty(fielder, position);
                 FieldingPlayOutcome fielding = _fieldingResolver.Resolve(
@@ -662,8 +684,10 @@ namespace Baseball.Simulation.Match
                     batterSpeed,
                     leadRunnerSpeed,
                     bases.First.IsOccupied && outs < 2,
-                    historicalModifiers.GetDefense(PlayerAbility.Defense),
-                    historicalModifiers.GetDefense(PlayerAbility.Arm),
+                    historicalModifiers.GetDefense(PlayerAbility.Defense) +
+                    defense.GetConditionRatingModifier(fielder, -fielderAssignmentPenalty.ConditionPenalty),
+                    historicalModifiers.GetDefense(PlayerAbility.Arm) +
+                    defense.GetConditionRatingModifier(fielder, -fielderAssignmentPenalty.ConditionPenalty),
                     fielderAssignmentPenalty.FieldingErrorProbabilityMultiplier);
                 return new DetailedPlateAppearanceOutcome(fielding.Result, ball, fielding);
             }
@@ -672,15 +696,14 @@ namespace Baseball.Simulation.Match
         private static EffectivePitcherRatings ApplyHistoricalPitcherModifiers(
             in EffectivePitcherRatings current,
             in MatchPlateAppearanceModifiers modifiers,
-            in PositionAssignmentPenalty assignmentPenalty)
+            int conditionRatingModifier)
         {
-            int conditionPenalty = assignmentPenalty.ConditionPenalty;
             return new EffectivePitcherRatings(
-                ClampRating(current.Velocity + modifiers.GetPitcher(PlayerAbility.Velocity) - conditionPenalty),
-                ClampRating(current.Stuff + modifiers.GetPitcher(PlayerAbility.Stuff) - conditionPenalty),
-                ClampRating(current.Breaking + modifiers.GetPitcher(PlayerAbility.Breaking) - conditionPenalty),
-                ClampRating(current.Control + modifiers.GetPitcher(PlayerAbility.Control) - conditionPenalty),
-                ClampRating(current.Mental + modifiers.GetPitcher(PlayerAbility.PitcherMental) - conditionPenalty));
+                ClampRating(current.Velocity + modifiers.GetPitcher(PlayerAbility.Velocity) + conditionRatingModifier),
+                ClampRating(current.Stuff + modifiers.GetPitcher(PlayerAbility.Stuff) + conditionRatingModifier),
+                ClampRating(current.Breaking + modifiers.GetPitcher(PlayerAbility.Breaking) + conditionRatingModifier),
+                ClampRating(current.Control + modifiers.GetPitcher(PlayerAbility.Control) + conditionRatingModifier),
+                ClampRating(current.Mental + modifiers.GetPitcher(PlayerAbility.PitcherMental) + conditionRatingModifier));
         }
 
         private static int ClampRating(int value)
@@ -1071,6 +1094,16 @@ namespace Baseball.Simulation.Match
             PitcherUsageReport[] home)
         {
             var result = new PitcherUsageReport[away.Length + home.Length];
+            Array.Copy(away, 0, result, 0, away.Length);
+            Array.Copy(home, 0, result, away.Length, home.Length);
+            return result;
+        }
+
+        private static BatteryUsageReport[] CombineBatteryUsage(
+            BatteryUsageReport[] away,
+            BatteryUsageReport[] home)
+        {
+            var result = new BatteryUsageReport[away.Length + home.Length];
             Array.Copy(away, 0, result, 0, away.Length);
             Array.Copy(home, 0, result, away.Length, home.Length);
             return result;

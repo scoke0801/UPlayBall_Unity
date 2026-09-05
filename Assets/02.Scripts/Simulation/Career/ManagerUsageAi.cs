@@ -6,6 +6,55 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Career
 {
+    /// <summary>감독 AI가 한 경기 역할을 결정한 직접 원인을 구분한다.</summary>
+    public enum ManagerUsageDecisionReason
+    {
+        Unspecified = 0,
+        EvaluationOpportunity = 1,
+        CompetitiveSelection = 2,
+        RotationRest = 3,
+        CompetitionLoss = 4
+    }
+
+    /// <summary>화면 설명과 실제 경기 입력이 공유하는 감독 기용 판단 스냅샷이다.</summary>
+    public readonly struct ManagerUsageDecision
+    {
+        public ManagerUsageDecision(
+            PlayerGameRole role,
+            ManagerUsageDecisionReason reason,
+            double conditionAdjustment,
+            double managerEvaluationAdjustment,
+            double decisionScore,
+            double requiredScore)
+        {
+            if (reason == ManagerUsageDecisionReason.Unspecified)
+                throw new ArgumentOutOfRangeException(nameof(reason));
+            if (double.IsNaN(conditionAdjustment) || double.IsInfinity(conditionAdjustment))
+                throw new ArgumentOutOfRangeException(nameof(conditionAdjustment));
+            if (double.IsNaN(managerEvaluationAdjustment) || double.IsInfinity(managerEvaluationAdjustment))
+                throw new ArgumentOutOfRangeException(nameof(managerEvaluationAdjustment));
+            if (double.IsNaN(decisionScore) || double.IsInfinity(decisionScore))
+                throw new ArgumentOutOfRangeException(nameof(decisionScore));
+            if (double.IsNaN(requiredScore) || double.IsInfinity(requiredScore))
+                throw new ArgumentOutOfRangeException(nameof(requiredScore));
+
+            Role = role;
+            Reason = reason;
+            ConditionAdjustment = conditionAdjustment;
+            ManagerEvaluationAdjustment = managerEvaluationAdjustment;
+            DecisionScore = decisionScore;
+            RequiredScore = requiredScore;
+        }
+
+        public PlayerGameRole Role { get; }
+        public ManagerUsageDecisionReason Reason { get; }
+        public double ConditionAdjustment { get; }
+        public double ManagerEvaluationAdjustment { get; }
+        public double DecisionScore { get; }
+        public double RequiredScore { get; }
+        public double ScoreMargin => DecisionScore - RequiredScore;
+    }
+
     /// <summary>
     /// 계약 역할·경쟁자·컨디션·감독 평가를 바탕으로 한 경기의 선수 기용을 결정한다.
     /// </summary>
@@ -32,7 +81,52 @@ namespace Baseball.Simulation.Career
             int teamGameNumber,
             IRandomSource random)
         {
-            return DecideRole(
+            return Decide(
+                player,
+                expectedRole,
+                strongestCompetitorOverall,
+                condition,
+                managerEvaluation,
+                teamGameNumber,
+                allowEvaluationOpportunity: true,
+                random).Role;
+        }
+
+        /// <summary>
+        /// 포스트시즌처럼 평가 목적의 강제 기회를 허용하지 않는 경기까지 구분해 역할을 결정한다.
+        /// </summary>
+        public PlayerGameRole DecideRole(
+            Player player,
+            ExpectedRole expectedRole,
+            int strongestCompetitorOverall,
+            int condition,
+            int managerEvaluation,
+            int teamGameNumber,
+            bool allowEvaluationOpportunity,
+            IRandomSource random)
+        {
+            return Decide(
+                player,
+                expectedRole,
+                strongestCompetitorOverall,
+                condition,
+                managerEvaluation,
+                teamGameNumber,
+                allowEvaluationOpportunity,
+                random).Role;
+        }
+
+        /// <summary>같은 입력과 RNG Seed에서 역할과 그 판단 근거를 함께 반환한다.</summary>
+        public ManagerUsageDecision Decide(
+            Player player,
+            ExpectedRole expectedRole,
+            int strongestCompetitorOverall,
+            int condition,
+            int managerEvaluation,
+            int teamGameNumber,
+            IRandomSource random)
+        {
+            return Decide(
                 player,
                 expectedRole,
                 strongestCompetitorOverall,
@@ -43,10 +137,8 @@ namespace Baseball.Simulation.Career
                 random);
         }
 
-        /// <summary>
-        /// 포스트시즌처럼 평가 목적의 강제 기회를 허용하지 않는 경기까지 구분해 역할을 결정한다.
-        /// </summary>
-        public PlayerGameRole DecideRole(
+        /// <summary>평가 기회 허용 여부를 포함해 역할과 그 판단 근거를 함께 반환한다.</summary>
+        public ManagerUsageDecision Decide(
             Player player,
             ExpectedRole expectedRole,
             int strongestCompetitorOverall,
@@ -81,26 +173,122 @@ namespace Baseball.Simulation.Career
 
             if (player.PrimaryPosition == PlayerPosition.StartingPitcher)
             {
+                double requiredScore = strongestCompetitorOverall - _balance.ReliefOpportunityMargin;
                 int rotationSlot = player.PlayerId % _balance.StartingRotationSize;
                 bool isRotationTurn = (teamGameNumber - 1) % _balance.StartingRotationSize == rotationSlot;
-                return isRotationTurn &&
-                       (isEvaluationOpportunity ||
-                        decisionScore >= strongestCompetitorOverall - _balance.ReliefOpportunityMargin)
-                    ? PlayerGameRole.StartingPitcher
-                    : PlayerGameRole.PitcherRest;
+                if (!isRotationTurn)
+                {
+                    return CreateDecision(
+                        PlayerGameRole.PitcherRest,
+                        ManagerUsageDecisionReason.RotationRest,
+                        conditionAdjustment,
+                        evaluationAdjustment,
+                        decisionScore,
+                        requiredScore);
+                }
+
+                if (isEvaluationOpportunity)
+                {
+                    return CreateDecision(
+                        PlayerGameRole.StartingPitcher,
+                        ManagerUsageDecisionReason.EvaluationOpportunity,
+                        conditionAdjustment,
+                        evaluationAdjustment,
+                        decisionScore,
+                        requiredScore);
+                }
+
+                return decisionScore >= requiredScore
+                    ? CreateDecision(
+                        PlayerGameRole.StartingPitcher,
+                        ManagerUsageDecisionReason.CompetitiveSelection,
+                        conditionAdjustment,
+                        evaluationAdjustment,
+                        decisionScore,
+                        requiredScore)
+                    : CreateDecision(
+                        PlayerGameRole.PitcherRest,
+                        ManagerUsageDecisionReason.CompetitionLoss,
+                        conditionAdjustment,
+                        evaluationAdjustment,
+                        decisionScore,
+                        requiredScore);
             }
 
             if (player.PrimaryPosition == PlayerPosition.ReliefPitcher)
             {
-                return isEvaluationOpportunity ||
-                       decisionScore >= strongestCompetitorOverall - _balance.ReliefOpportunityMargin
-                    ? PlayerGameRole.ReliefPitcher
-                    : PlayerGameRole.PitcherRest;
+                double requiredScore = strongestCompetitorOverall - _balance.ReliefOpportunityMargin;
+                if (isEvaluationOpportunity)
+                {
+                    return CreateDecision(
+                        PlayerGameRole.ReliefPitcher,
+                        ManagerUsageDecisionReason.EvaluationOpportunity,
+                        conditionAdjustment,
+                        evaluationAdjustment,
+                        decisionScore,
+                        requiredScore);
+                }
+
+                return decisionScore >= requiredScore
+                    ? CreateDecision(
+                        PlayerGameRole.ReliefPitcher,
+                        ManagerUsageDecisionReason.CompetitiveSelection,
+                        conditionAdjustment,
+                        evaluationAdjustment,
+                        decisionScore,
+                        requiredScore)
+                    : CreateDecision(
+                        PlayerGameRole.PitcherRest,
+                        ManagerUsageDecisionReason.CompetitionLoss,
+                        conditionAdjustment,
+                        evaluationAdjustment,
+                        decisionScore,
+                        requiredScore);
             }
 
-            return isEvaluationOpportunity || decisionScore >= strongestCompetitorOverall
-                ? PlayerGameRole.StartingBatter
-                : PlayerGameRole.Bench;
+            if (isEvaluationOpportunity)
+            {
+                return CreateDecision(
+                    PlayerGameRole.StartingBatter,
+                    ManagerUsageDecisionReason.EvaluationOpportunity,
+                    conditionAdjustment,
+                    evaluationAdjustment,
+                    decisionScore,
+                    strongestCompetitorOverall);
+            }
+
+            return decisionScore >= strongestCompetitorOverall
+                ? CreateDecision(
+                    PlayerGameRole.StartingBatter,
+                    ManagerUsageDecisionReason.CompetitiveSelection,
+                    conditionAdjustment,
+                    evaluationAdjustment,
+                    decisionScore,
+                    strongestCompetitorOverall)
+                : CreateDecision(
+                    PlayerGameRole.Bench,
+                    ManagerUsageDecisionReason.CompetitionLoss,
+                    conditionAdjustment,
+                    evaluationAdjustment,
+                    decisionScore,
+                    strongestCompetitorOverall);
+        }
+
+        private static ManagerUsageDecision CreateDecision(
+            PlayerGameRole role,
+            ManagerUsageDecisionReason reason,
+            double conditionAdjustment,
+            double managerEvaluationAdjustment,
+            double decisionScore,
+            double requiredScore)
+        {
+            return new ManagerUsageDecision(
+                role,
+                reason,
+                conditionAdjustment,
+                managerEvaluationAdjustment,
+                decisionScore,
+                requiredScore);
         }
 
         private bool IsEvaluationOpportunity(

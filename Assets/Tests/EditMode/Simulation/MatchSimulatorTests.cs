@@ -137,6 +137,33 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void Simulate_DisplayName만달라도경기결과는같다()
+        {
+            MatchInput source = CreateInput();
+            var renamed = new MatchInput(
+                source.SeasonId,
+                source.GameId,
+                source.RandomSeed,
+                RenameTeam(source.AwayTeam, "가상 원정 구단", "원정 선수"),
+                RenameTeam(source.HomeTeam, "가상 홈 구단", "홈 선수"));
+
+            MatchResult originalResult = new MatchSimulator(
+                    BalanceTable.CreateDefault(),
+                    new Pcg32Random(source.RandomSeed))
+                .Simulate(source);
+            MatchResult renamedResult = new MatchSimulator(
+                    BalanceTable.CreateDefault(),
+                    new Pcg32Random(renamed.RandomSeed))
+                .Simulate(renamed);
+
+            Assert.That(renamedResult.AwayBoxScore.Runs, Is.EqualTo(originalResult.AwayBoxScore.Runs));
+            Assert.That(renamedResult.HomeBoxScore.Runs, Is.EqualTo(originalResult.HomeBoxScore.Runs));
+            Assert.That(renamedResult.Events.Count, Is.EqualTo(originalResult.Events.Count));
+            for (int index = 0; index < originalResult.Events.Count; index++)
+                Assert.That(renamedResult.Events[index], Is.EqualTo(originalResult.Events[index]), $"Event {index}");
+        }
+
+        [Test]
         public void Simulate_BoxScore팀합계와선수합계가일치한다()
         {
             MatchInput input = CreateInput();
@@ -284,6 +311,39 @@ namespace Baseball.Tests.EditMode.Simulation
                 new Baseball.Core.Players.BatterAttributes(20, 20, 20, 20, 20, 20),
                 new Baseball.Core.Players.PitcherAttributes(50, 50, 50, 50, 50, 50));
             return new Team(source.TeamId, source.Name, source.Lineup, source.StartingPitcher, relief, 7);
+        }
+
+        private static Team RenameTeam(Team source, string displayName, string playerNamePrefix)
+        {
+            var slots = new LineupSlot[source.Lineup.Count];
+            for (int index = 0; index < slots.Length; index++)
+            {
+                LineupSlot sourceSlot = source.Lineup[index];
+                slots[index] = new LineupSlot(
+                    RenamePlayer(sourceSlot.Player, $"{playerNamePrefix} {index + 1}"),
+                    sourceSlot.FieldingPosition);
+            }
+            return new Team(
+                source.TeamId,
+                displayName,
+                new Lineup(slots),
+                RenamePlayer(source.StartingPitcher, playerNamePrefix + " 선발"));
+        }
+
+        private static Player RenamePlayer(Player source, string displayName)
+        {
+            return new Player(
+                source.PlayerId,
+                displayName,
+                source.PrimaryPosition,
+                source.BattingHand,
+                source.ThrowingHand,
+                source.BatterAttributes,
+                source.PitcherAttributes,
+                source.SecondaryPositions,
+                source.Nationality,
+                source.PitchRepertoire,
+                source.TraitIds);
         }
 
         private static void AssertTeamTotals(TeamBoxScore boxScore)

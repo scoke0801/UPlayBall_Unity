@@ -138,7 +138,10 @@ namespace Baseball.Simulation.Match
             PitchOption[] destination)
         {
             bool favorsBreaking = matchup.Pitcher.PitcherAttributes.Breaking >= 55;
-            PitchType secondary = favorsBreaking ? PitchType.Slider : PitchType.TwoSeamFastball;
+            bool favorsCommand = matchup.Pitcher.PitcherAttributes.Control >= 58;
+            PitchType secondary = favorsBreaking
+                ? (favorsCommand ? PitchType.Cutter : PitchType.Slider)
+                : PitchType.TwoSeamFastball;
             PitchType third = favorsBreaking ? PitchType.Curveball : PitchType.Changeup;
             PitchType fourth = matchup.Pitcher.PitcherAttributes.Stuff >= 60
                 ? PitchType.Splitter
