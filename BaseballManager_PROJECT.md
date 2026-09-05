@@ -2895,6 +2895,8 @@ Browser Unity 실행은 테스트가 준비됐으나 현재 Unity Licensing Clie
 
 ### 42.6 Canonical 능력치와 Cost의 일관성
 
+> 이 절은 Cost v7 구현 이력이다. 현행 Cost 계약과 검증 결과는 42.8의 v8 정의가 대체한다.
+
 Cost는 출전량이나 그 해의 카드 희소도가 아니라, 확정된 BaseAttributes의 역할별 종합 능력치에
 대응한다. 같은 종합 능력치에는 같은 Cost를 부여하며 연도별 백분위와 출전량은 진단으로 남긴다.
 Source와 Replacement는 같은 고정 Cost 경계를 사용한다. 능력치에서 표본 신뢰도를 보정한 뒤
@@ -2918,6 +2920,8 @@ Source 17,333개 선수 시즌과 Replacement 54개의 JSON 재생성·데이터
 
 ### 42.7 대표 로스터의 능력치·적합성 분리
 
+> 이 절은 Core25 v3 구현 이력이다. 현행 v4의 제한적 주전 재검토는 42.8을 따른다.
+
 Canonical Core25 배치는 `ability-fit-core25-v3`, DerivationBalance v10을 사용한다.
 이 변경은 BaseAttributes·Cost·TrainingCeiling·Natural Position/Role을 바꾸지 않고 Assigned Role과
 Core25 선택을 개선한다. 경기 중 감독 AI나 타순 최적화의 대체 구현이 아니다.
@@ -2936,6 +2940,84 @@ Core25 선택을 개선한다. 경기 중 감독 AI나 타순 최적화의 대�
 현재 계수는 데이터 기반 배치 개선안이며 경기 성능이나 경제 밸런스 검증 결과가 아니다.
 사용자 요청에 따라 이번 변경도 JSON 재생성·배치 대조까지만 수행하고 테스트·컴파일·경기
 시뮬레이션은 별도 실행 대상으로 남긴다.
+
+### 42.8 프야매 Cost 역공학 Research Gate
+
+Cost v8 재보정은 Source 1:1·Offline Canonical·World/Edition 독립성을 유지하면서,
+능력치 종합합과 시즌 기여·출전량·포지션/역할 문맥을 분리해 평가하도록 한다.
+Ability 오류를 Cost 경계로 가리거나 실제 선수/팀/연도별 Cost override를 두지 않는다.
+
+연구 자료는 Runtime과 분리된 `Tools/PMReference/`에 보관한다. 출시·재평가·개별 후속 수정과
+Normal/특수 카드의 비용 동등성을 구분한다. 2012 SK 사용자 Fixture는 학습 가중치0의 별도 회귀
+자료다. 유효 후기 Normal 자료가 부족한 상태에서 사용자가 모델 진행을 명시해, 해당 한계를 보고서에
+남기는 조건으로 B 역사 Anchor + C 일관 확장 정책을 채택했다.
+
+현재628개 중복 제거 관측을 수집했으나 후기 Normal·Source 연결 확인 후보는1장이라 원작 최종판
+Calibration Gate는 미통과다. Production은 Ability v5를 유지하고 Cost v8/Balance v11/Core25 v4로
+갱신했다. Cost v8은 Source 성과 quality, workload, 수비 기회, 역할 집단 내 최대 ±0.5 보정과
+Cost9/10의 workload·reliability·quality 자격을 독립 구성 요소로 기록한다. Core25 v4는 기존 최대
+적합 매칭을 유지하며 같은 Natural Position의 벤치 선수가 Cost2·평균 능력4 이상 높고 슬롯 손실2
+이하이며 수비 안전선을 지킬 때만 주전을 재검토한다.
+
+44시즌 Source17,333개와 명시적 보충54개를 재Bake했고, 현재 2012 SK Builder20은60+79=139다.
+동일 입력 두 번의 ContentHash와 ArchiveHash가 일치했고 Unity Runtime Export 및 Source/Runtime
+계약 감사 오류는0건이다. GS 결측 연도는 역할 분류기의 inferred Starter 비율을 재사용한다.
+subtype·최종 버전 불명인 2011 관측491장의 탐색 지표는 ±1 69.25%, MAE1.134라 PM 원본 동일성
+완료 조건은 충족하지 않는다. 상세 수치와 잔여 한계는
+`Tools/PMReference/reports/PM_REFERENCE_RESEARCH.md`를 따른다.
+
+### 42.9 기록 중심 평가와 결측 제외 (현행)
+
+Ability v6 / Cost v9 / DerivationBalance v12가 42.6·42.8의 평가 지표를 대체한다.
+체력은 KBO Source 1982~2025 단일 시즌 최다 1282아웃(427⅓이닝)을 100으로 두고
+`25 + 75 × 시즌 이닝 / 427⅓`로 분배한다. 실측 구속은 110km/h=25, 170km/h=100의
+선형 척도를 사용한다. 두 기준은 시즌별 Z-score와 신뢰도 축소를 적용하지 않는다.
+실측 `fastballVelocityKph`가 없으면 구속은 중립 55이며 삼진율로 구속을 추정하지 않는다.
+
+제구는 BB/9 역방향, 구위·변화구·투수 멘탈은 ERA 역방향이다. 교타는 타율,
+장타는 홈런 수·장타율 각 50%, 주력은 도루 수, 수비는 수비율·9이닝당 실책 역방향이다.
+추가 타격 평가축을 만들지 않도록 타자 멘탈도 타율을 사용하고, 송구는 기존 보살·도루저지율을
+유지한다. 절대 기준 이외에는 해당 시즌 비교 집단과 당시 시즌 길이 기반 표본 보정을 유지한다.
+
+결측은 실제 0과 구분하고 Ability와 Cost에서 해당 지표의 가중치를 제외한 뒤 남은 가중치를
+재정규화한다. 한 능력치의 근거가 전부 없으면 중립 55를 쓰고 Trace에 결측임을 남긴다.
+Cost quality는 타율·장타율·홈런·도루 또는 ERA·BB/9만 사용한다. 기존 출전량·역할·elite
+자격 구조는 유지하며, 수비 출전 기록 자체에 주던 정액 가산은 제거한다.
+특정 구단·이름·연도에 능력치 가산이나 Cost override를 적용하지 않는다.
+
+최대 100 능력치가 Runtime에서 거부되지 않도록 AbilityRatings와 관련 범위 검사를 100으로
+맞추며 TrainingCeiling은 BaseAttributes +3, 최대 100이다. Save 구조는 바뀌지 않는다.
+1982~2025 Source 17,333개와 Replacement 54개, 구단 363개를 재Bake하고 Runtime JSON 46개를
+동기화했다. Core25 유형별 6능력 평균은 과거(1982~2000) 정규 1위 구단 52.093,
+최근(2016~2025) 정규 2·3위 구단 52.167이다. 개별 구단의 승률이나 순위 보장은 아니다.
+
+사용자 지시에 따라 테스트·컴파일·Unity·대량 경기 시뮬레이션은 실행하지 않았다.
+기존 WorldHistory Bake는 이전 ContentHash에 묶여 있으므로 새 능력치의 경기 결과로 재사용할 수
+없다. 이번 작업은 Canonical 평가 Bake까지만 수행했다. 상세 결과는
+`docs/reports/선수_기록평가_v6_Bake_결과.md`를 따른다.
+
+### 42.10 구단 기본 전력과 편성 Cost의 분리
+
+구단의 기본 전력은 현재 등록된 25인 선수단에서 타자는 타자 6능력, 투수는 투수 6능력을
+각각 평균한 뒤 선수별 동일 가중으로 집계한다. `RosterStrengthResolver`가 순수 C#으로
+계산하며, Core25 원본 구성에서는 기존 `ReferenceStrength`와 반올림 정밀도 내에서 일치한다.
+벤치를 포함하되 타자의 투수 능력처럼 해당 유형과 무관한 값은 포함하지 않는다.
+
+Cost는 기존 시즌 가치 가격과 편성 비용으로 유지한다. `RosterCostResolver`의 주전 타자 9명+
+투수 11명 합계에 벤치 비용을 추가하지 않는다. 능력치 평균과 Cost를 혼합한 전력 공식을 만들거나
+Cost 차이에서 예상 승률을 산출하지 않는다. 카드 Edition·훈련·팀컬러·당일 컨디션은 기본 전력에
+포함하지 않으므로 UI에서 기본 능력 기준임을 표시한다. 빈 선수단은 0점 대신 미평가로 표시한다.
+
+구단주 홈은 내 구단과 다음 상대의 기본 전력을 우선 표시하고 편성 비용을 별도로 표시한다.
+선수단 화면은 야수·투수 평균과 평가 대상을 함께 표시한다. Game의 읽기 전용 Query가 현재
+로스터를 평가하고 Presentation은 그 결과만 표시한다. 저장 필드와 경기 확률 모델은 변경하지 않는다.
+커리어 구단 화면의 기존 능력치 평가와 Editor의 `ReferenceStrength` 표시는 그대로 유지한다.
+
+1982~2025년 363개 구단에서 실제 새 C# Resolver를 실행해 Cost 불일치 0건을 확인했다.
+기본 전력과 저장 `ReferenceStrength`의 최대 차이는 소수점 저장 반올림에 따른 0.00003334이며,
+실제 승률과 연도 평균 제거 Pearson 상관은 0.871933이다(Cost는 0.746317).
+이는 역사 기록의 사후 설명력이고 경기 시뮬레이션의 재현력 검증은 아니다. 세부 분석은
+`docs/reports/구단_Cost_실제_KBO_성적_상관분석.md`를 따른다.
 
 ## 43. Player/Owner 공용 UI Shell 계약 (2026-09-05)
 

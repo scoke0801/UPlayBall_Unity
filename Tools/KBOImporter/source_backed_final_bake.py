@@ -509,7 +509,7 @@ def _assign_training_ceiling(season: dict[str, Any], derivation: Any) -> None:
         )
     )
     season["trainingCeiling"] = [
-        min(99, int(rating) + rng.randint(low, high))
+        min(int(derivation.DERIVATION_BALANCE["rating"]["maximum"]), int(rating) + rng.randint(low, high))
         for rating in season["baseAttributes"]
     ]
 

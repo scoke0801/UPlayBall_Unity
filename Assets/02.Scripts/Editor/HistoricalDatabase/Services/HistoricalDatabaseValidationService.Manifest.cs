@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using UnityEngine;
 
 namespace Baseball.Editor.HistoricalDatabase
 {
@@ -11,11 +13,17 @@ namespace Baseball.Editor.HistoricalDatabase
         private const int ExpectedNormalizedSchemaVersion = 3;
         private const string ExpectedReferenceDataVersion = "kbo-normalized-v3";
         private const string ExpectedNormalizedImporterVersion = "1.2.0";
-        private const string ExpectedAbilityFormulaVersion = "historical-ability-v5";
-        private const string ExpectedPositionRoleClassifierVersion = "season-position-role-v5";
-        private const string ExpectedRosterBuilderVersion = "ability-fit-core25-v3";
-        private const string ExpectedCostFormulaVersion = "historical-role-composite-v7";
-        private const string ExpectedDerivationBalanceVersion = "historical-derivation-balance-v10";
+        private const string DerivationBalanceRelativePath = "Tools/KBOImporter/derivation_balance.json";
+
+        [Serializable]
+        private sealed class DerivationVersionContract
+        {
+            public string version;
+            public string abilityFormulaVersion;
+            public string costFormulaVersion;
+            public string positionRoleClassifierVersion;
+            public string rosterBuilderVersion;
+        }
 
         private static void ValidateManifestAndFiles(
             HistoricalArchiveData archive,
@@ -76,6 +84,8 @@ namespace Baseball.Editor.HistoricalDatabase
                 return;
             }
 
+            DerivationVersionContract derivationContract = LoadDerivationVersionContract(collector);
+
             ValidateRequiredManifestText("referenceDataVersion", sourceManifest.ReferenceDataVersion, collector);
             ValidateRequiredManifestText("generatorVersion", sourceManifest.GeneratorVersion, collector);
             ValidateRequiredManifestText("balanceVersion", sourceManifest.BalanceVersion, collector);
@@ -100,31 +110,34 @@ namespace Baseball.Editor.HistoricalDatabase
                 ExpectedNormalizedImporterVersion,
                 sourceManifest.NormalizedImporterVersion,
                 collector);
-            ValidateExpectedManifestText(
-                "abilityFormulaVersion",
-                ExpectedAbilityFormulaVersion,
-                sourceManifest.AbilityFormulaVersion,
-                collector);
-            ValidateExpectedManifestText(
-                "positionRoleClassifierVersion",
-                ExpectedPositionRoleClassifierVersion,
-                sourceManifest.PositionRoleClassifierVersion,
-                collector);
-            ValidateExpectedManifestText(
-                "rosterBuilderVersion",
-                ExpectedRosterBuilderVersion,
-                sourceManifest.RosterBuilderVersion,
-                collector);
-            ValidateExpectedManifestText(
-                "costFormulaVersion",
-                ExpectedCostFormulaVersion,
-                sourceManifest.CostFormulaVersion,
-                collector);
-            ValidateExpectedManifestText(
-                "derivationBalanceVersion",
-                ExpectedDerivationBalanceVersion,
-                sourceManifest.DerivationBalanceVersion,
-                collector);
+            if (derivationContract != null)
+            {
+                ValidateExpectedManifestText(
+                    "abilityFormulaVersion",
+                    derivationContract.abilityFormulaVersion,
+                    sourceManifest.AbilityFormulaVersion,
+                    collector);
+                ValidateExpectedManifestText(
+                    "positionRoleClassifierVersion",
+                    derivationContract.positionRoleClassifierVersion,
+                    sourceManifest.PositionRoleClassifierVersion,
+                    collector);
+                ValidateExpectedManifestText(
+                    "rosterBuilderVersion",
+                    derivationContract.rosterBuilderVersion,
+                    sourceManifest.RosterBuilderVersion,
+                    collector);
+                ValidateExpectedManifestText(
+                    "costFormulaVersion",
+                    derivationContract.costFormulaVersion,
+                    sourceManifest.CostFormulaVersion,
+                    collector);
+                ValidateExpectedManifestText(
+                    "derivationBalanceVersion",
+                    derivationContract.version,
+                    sourceManifest.DerivationBalanceVersion,
+                    collector);
+            }
             ValidateManifestHash("rawDataVersion", sourceManifest.RawDataVersion, collector);
             ValidateManifestHash("normalizedContentHash", sourceManifest.NormalizedContentHash, collector);
             collector.Check(
@@ -184,6 +197,45 @@ namespace Baseball.Editor.HistoricalDatabase
                 $"{entityId} 값이 비어 있습니다.",
                 HistoricalNavigationKind.File,
                 "manifest.json");
+        }
+
+        private static DerivationVersionContract LoadDerivationVersionContract(
+            ValidationCollector collector)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName;
+            string path = string.IsNullOrEmpty(projectRoot)
+                ? string.Empty
+                : Path.Combine(projectRoot, DerivationBalanceRelativePath);
+            try
+            {
+                if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                    throw new FileNotFoundException("파생 밸런스 정본을 찾을 수 없습니다.", path);
+
+                DerivationVersionContract contract =
+                    JsonUtility.FromJson<DerivationVersionContract>(File.ReadAllText(path));
+                if (contract == null ||
+                    string.IsNullOrWhiteSpace(contract.version) ||
+                    string.IsNullOrWhiteSpace(contract.abilityFormulaVersion) ||
+                    string.IsNullOrWhiteSpace(contract.costFormulaVersion) ||
+                    string.IsNullOrWhiteSpace(contract.positionRoleClassifierVersion) ||
+                    string.IsNullOrWhiteSpace(contract.rosterBuilderVersion))
+                {
+                    throw new InvalidDataException("파생 밸런스 정본의 버전 필드가 비어 있습니다.");
+                }
+                return contract;
+            }
+            catch (Exception exception)
+            {
+                collector.Add(
+                    HistoricalValidationSeverity.Error,
+                    "Manifest",
+                    null,
+                    "derivationBalanceContract",
+                    $"파생 밸런스 정본을 읽지 못했습니다: {exception.Message}",
+                    HistoricalNavigationKind.File,
+                    DerivationBalanceRelativePath);
+                return null;
+            }
         }
 
         private static void ValidateExpectedManifestText(

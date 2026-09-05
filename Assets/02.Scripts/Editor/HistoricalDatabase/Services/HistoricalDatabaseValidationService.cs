@@ -375,17 +375,21 @@ namespace Baseball.Editor.HistoricalDatabase
                     expectedCost = threshold.Cost;
                     break;
                 }
+                if (eligibility != null && eligibility.MaximumCost > 0)
+                    expectedCost = Math.Min(expectedCost, eligibility.MaximumCost);
                 collector.Check(
                     eligibility != null && !string.IsNullOrEmpty(eligibility.Tier) &&
-                    !eligibility.AffectsCost && costTrace.CostMethod == "FixedRoleComposite" &&
+                    eligibility.AffectsCost && costTrace.CostMethod == "SeasonValueOrdinalWithEliteGate" &&
+                    costTrace.ComponentScores != null && costTrace.EliteEligibility != null &&
+                    Math.Abs(costTrace.ContinuousValue - costTrace.Composite) < 0.000001d &&
                     row.Cost == expectedCost,
-                    "COST_COMPOSITE_MISMATCH",
+                    "COST_SEASON_VALUE_MISMATCH",
                     row.OriginYear,
                     row.PlayerSeasonId,
-                    "Cost가 기본 전력 구간에 일치하고 출전량 추가 할인이 없습니다.",
+                    "Cost가 Source season value 구간과 elite 자격 상한에 일치합니다.",
                     eligibility == null
-                        ? "시즌 출전량 진단 근거가 없습니다."
-                        : $"Cost {row.Cost}가 기본 전력 구간의 기대 Cost {expectedCost}와 다르거나 출전량을 중복 반영했습니다.",
+                        ? "시즌 출전량과 elite 자격 근거가 없습니다."
+                        : $"Cost {row.Cost}가 season value와 elite 상한으로 계산한 기대 Cost {expectedCost}와 다릅니다.",
                     HistoricalNavigationKind.Player,
                     row.PlayerSeasonId);
                 if (costTrace.PopulationCount < 20)
@@ -395,7 +399,7 @@ namespace Baseball.Editor.HistoricalDatabase
                         "COST_SMALL_POPULATION",
                         row.OriginYear,
                         row.PlayerSeasonId,
-                        $"참고 백분위 모집단이 작습니다: {costTrace.PopulationCount}. Cost는 고정 전력 구간을 사용합니다.",
+                        $"참고 백분위 모집단이 작습니다: {costTrace.PopulationCount}. 절대 season value 구간은 유지됩니다.",
                         HistoricalNavigationKind.Player,
                         row.PlayerSeasonId);
                 }

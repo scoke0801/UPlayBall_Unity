@@ -61,3 +61,12 @@ Test Runner와 Player Build는 사용자 지시에 따라 생략했으며 실제
 `TacticLab` 연구 Consumer도 남아 있다. 상세 Gate는
 `docs/todo/역사시뮬레이션_구단주모드/08_구현_로드맵_검증기준.md`와
 `13_4종_통합_구현로드맵_Codex.md`를 따른다.
+
+## 프야매 Cost 연구 상태
+
+[PMReference 연구 보고서](Tools/PMReference/reports/PM_REFERENCE_RESEARCH.md)에 카드628개 관측과
+출시·재평가·후속 수정의 근거를 보존한다. 후기 Normal·Source 연결 확인 표본은 여전히 부족하므로
+PM 최종판을 정확히 복원했다는 Calibration Gate는 미통과다. 사용자의 명시적 진행 결정에 따라
+Source 성과·출전량·수비·역할 내 상대가치와 별도 elite 자격을 쓰는 Cost v8을 채택했고,
+1982~2025 Canonical Archive와 Runtime을 재Bake했다. Reference는 게임 빌드에 포함하지 않는
+`Tools/PMReference/` 연구 전용이다.

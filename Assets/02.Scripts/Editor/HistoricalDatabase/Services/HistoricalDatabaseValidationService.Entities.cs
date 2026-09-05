@@ -411,7 +411,10 @@ namespace Baseball.Editor.HistoricalDatabase
             {
                 int baseValue = season.BaseAttributes[abilityIndex];
                 int ceilingValue = season.TrainingCeiling[abilityIndex];
-                if (baseValue < 1 || baseValue > 99 || ceilingValue < 1 || ceilingValue > 99)
+                if (baseValue < Baseball.Core.Growth.AbilityRatings.Minimum ||
+                    baseValue > Baseball.Core.Growth.AbilityRatings.Maximum ||
+                    ceilingValue < Baseball.Core.Growth.AbilityRatings.Minimum ||
+                    ceilingValue > Baseball.Core.Growth.AbilityRatings.Maximum)
                     rangeValid = false;
                 if (ceilingValue < baseValue)
                     ceilingValid = false;
@@ -421,8 +424,8 @@ namespace Baseball.Editor.HistoricalDatabase
                 "Ability",
                 season.OriginYear,
                 id,
-                "BaseAttributes와 TrainingCeiling이 1~99 범위입니다.",
-                "BaseAttributes 또는 TrainingCeiling에 1~99 범위 밖 값이 있습니다.",
+                "BaseAttributes와 TrainingCeiling이 1~100 범위입니다.",
+                "BaseAttributes 또는 TrainingCeiling에 1~100 범위 밖 값이 있습니다.",
                 HistoricalNavigationKind.Player,
                 id);
             collector.Check(

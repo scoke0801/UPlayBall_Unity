@@ -13,6 +13,7 @@ from synthetic_bake import (
     build_ability_validation_warnings,
     build_metric_influence_warnings,
     derive_source_pitcher_role,
+    derive_player_value_components,
     metric_composite_influence_audit,
     role_adjusted_composite,
     to_ratings_with_trace,
@@ -22,6 +23,28 @@ from synthetic_bake import (
 
 
 class AbilityCostDerivationTests(unittest.TestCase):
+    def test_cost_workload_uses_classifier_proxy_when_games_started_is_unavailable(self) -> None:
+        season = self._pitcher_season("LEGACY_STARTER", 1982, "Starter", [60] * 6, 450.0)
+        self._with_cost_quality(season, 0.5, 0.8)
+        season["sourceSeasonGames"] = 80
+        season["_costValueInputs"] = {
+            "inningsOuts": 450,
+            "games": 30,
+            "gamesStarted": 0,
+            "gamesStartedAvailable": False,
+            "inferredStarterRate": 0.8,
+            "starterEvidenceMode": "CompleteGamesAndInningsPerGameProxy",
+        }
+
+        components = derive_player_value_components(season, 60.0)
+
+        workload = components["workload"]
+        self.assertEqual(workload["starterShare"], 0.8)
+        self.assertEqual(
+            workload["starterShareOrigin"],
+            "Inferred:CompleteGamesAndInningsPerGameProxy",
+        )
+
     def test_adjusted_features_and_cost_are_deterministic(self) -> None:
         players = [
             self._hitter("first", 400, 1, 0),
@@ -314,17 +337,17 @@ class AbilityCostDerivationTests(unittest.TestCase):
         self.assertLess(lone_shortstop["referenceGroupShare"], 1.0)
         self.assertGreater(lone_shortstop["groupStdDev"], 0.0)
 
-    def test_workload_does_not_discount_already_derived_ability(self) -> None:
-        """기본 전력이 같으면 표본 크기로 가격을 다시 할인하지 않는다."""
+    def test_workload_contributes_separately_from_ability(self) -> None:
+        """기본 전력이 같아도 실제 시즌 workload가 큰 선수의 가격이 더 높다."""
         seasons = [
             self._pitcher_season("SHORT", 2099, "Starter", [60] * 6, 90.0),
             self._pitcher_season("FULL", 2099, "Starter", [60] * 6, 620.0),
         ]
         assign_origin_year_costs(seasons)
-        self.assertEqual(seasons[0]["cost"], seasons[1]["cost"])
+        self.assertLess(seasons[0]["cost"], seasons[1]["cost"])
         self.assertEqual(seasons[0]["costDerivationTrace"]["costEligibility"]["tier"], "Tiny")
         self.assertEqual(seasons[1]["costDerivationTrace"]["costEligibility"]["tier"], "Full")
-        self.assertFalse(seasons[0]["costDerivationTrace"]["costEligibility"]["affectsCost"])
+        self.assertTrue(seasons[0]["costDerivationTrace"]["costEligibility"]["affectsCost"])
 
     def test_full_workload_closer_is_not_capped_by_starter_thresholds(self) -> None:
         """마무리 한 시즌은 선발보다 상대 타자가 적어도 온전한 시즌이다."""
@@ -333,13 +356,16 @@ class AbilityCostDerivationTests(unittest.TestCase):
             for index in range(30)
         ]
         seasons.append(self._pitcher_season("CLOSER", 2099, "Closer", [75] * 6, 215.0))
+        self._with_cost_quality(seasons[-1], 2.0, 0.70)
         assign_origin_year_costs(seasons)
 
         closer = next(season for season in seasons if season["playerSeasonId"] == "CLOSER")
         eligibility = closer["costDerivationTrace"]["costEligibility"]
         self.assertEqual(eligibility["scope"], "Relief")
         self.assertEqual(eligibility["tier"], "Full")
-        self.assertEqual(closer["cost"], closer["costDerivationTrace"]["rawPercentileCost"])
+        self.assertGreaterEqual(eligibility["workloadRatio"], 0.75)
+        self.assertGreaterEqual(closer["costEligibilitySample"], 190.0)
+        self.assertGreaterEqual(closer["cost"], 9)
 
     def test_cost_depends_on_ability_not_peer_population(self) -> None:
         """주변에 약한 선수를 추가해도 이미 결정된 선수 가격은 바뀌지 않는다."""
@@ -349,7 +375,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
         peers = [self._pitcher_season(f"PEER_{i}", 2099, "Starter", [30] * 6, 620.0) for i in range(40)]
         assign_origin_year_costs([target] + peers)
         self.assertEqual(before, target["cost"])
-        self.assertEqual(target["costDerivationTrace"]["costMethod"], "FixedRoleComposite")
+        self.assertEqual(target["costDerivationTrace"]["costMethod"], "SeasonValueOrdinalWithEliteGate")
 
     def test_training_headroom_does_not_favor_low_cost(self) -> None:
         """기본 전력이 낮다는 이유로 더 큰 능력치 증가를 주지 않는다."""
@@ -360,6 +386,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
         """80경기 시대의 298타석을 현대 400타석 기준으로 제한하지 않는다."""
         season = self._season("HISTORICAL", 1982, "DH", [75] * 6, 298.0)
         season["sourceSeasonGames"] = 80.0
+        self._with_cost_quality(season, 2.0, 0.70)
         assign_origin_year_costs([season])
         self.assertEqual(season["costDerivationTrace"]["costEligibility"]["tier"], "Full")
         self.assertEqual(season["cost"], 10)
@@ -389,6 +416,8 @@ class AbilityCostDerivationTests(unittest.TestCase):
             self._pitcher_season(f"PITCHER_{index:02d}", 2099, "Starter", [40 + index] * 6, 600.0)
             for index in range(60)
         ]
+        self._with_cost_quality(seasons[39], 2.0, 0.70)
+        self._with_cost_quality(seasons[-1], 2.0, 0.70)
         assign_origin_year_costs(seasons)
 
         for season in seasons:
@@ -479,7 +508,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
         self.assertFalse(oh_ji_hwan["costDerivationTrace"]["metricInfluenceAudit"]["hasViolation"])
 
         ahn_chi_yong = by_name["안치용"]
-        self.assertEqual(ahn_chi_yong["abilityDerivationTrace"][0]["groupKey"], "2012:LF")
+        self.assertEqual(ahn_chi_yong["abilityDerivationTrace"][0]["groupKey"], "2012:DH")
         self.assertEqual(ahn_chi_yong["abilityDerivationTrace"][0]["roleTier"], "Limited")
         song_eun_beom = by_name["송은범"]
         self.assertEqual(song_eun_beom["abilityDerivationTrace"][0]["groupKey"], "2012:Starter")
@@ -559,6 +588,22 @@ class AbilityCostDerivationTests(unittest.TestCase):
         if eligibility_sample is not None:
             season["costEligibilitySample"] = eligibility_sample
         return season
+
+    @staticmethod
+    def _with_cost_quality(season: dict, quality: float, reliability: float) -> None:
+        profile = DERIVATION_BALANCE["costValueModel"]["qualityProfiles"][season["playerType"]]
+        season["abilityDerivationTrace"] = [
+            {
+                "components": [
+                    {
+                        "metric": metric,
+                        "adjustedZ": quality,
+                        "reliability": reliability,
+                    }
+                    for metric in profile
+                ]
+            }
+        ]
 
     @staticmethod
     def _rate_hitter(source_id: str, plate_appearances: int, average: float) -> dict:

@@ -211,7 +211,8 @@ namespace Baseball.Simulation.Historical
             int tacticBonus,
             EffectiveRatingCapTable capTable)
         {
-            if (baseStat < 1 || baseStat > 99)
+            if (baseStat < Baseball.Core.Growth.AbilityRatings.Minimum ||
+                baseStat > Baseball.Core.Growth.AbilityRatings.Maximum)
                 throw new ArgumentOutOfRangeException(nameof(baseStat));
             if (cardTrainingBonus < 0)
                 throw new ArgumentOutOfRangeException(nameof(cardTrainingBonus));

@@ -14,3 +14,14 @@ def composite_cost(composite: float, thresholds: Iterable[tuple[float, int]]) ->
         if composite < upper_exclusive:
             return cost
     raise ValueError("Cost 종합 능력치 구간이 입력값을 덮지 않습니다.")
+
+
+def resolve_value_cost(
+    continuous_value: float,
+    thresholds: Iterable[tuple[float, int]],
+    maximum_cost: int,
+) -> int:
+    """시즌 가치 구간과 elite 자격 상한을 함께 적용한다."""
+    if maximum_cost < 1 or maximum_cost > 10:
+        raise ValueError("Cost 상한은 1~10이어야 합니다.")
+    return min(composite_cost(continuous_value, thresholds), maximum_cost)

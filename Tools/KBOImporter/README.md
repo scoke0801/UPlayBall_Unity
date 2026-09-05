@@ -130,6 +130,16 @@ Validation Error로 보고한다.
 
 ### Ability와 Cost
 
+현행은 **Ability v6 / Cost v9 / Balance v12**이며 아래 v5/v7 설명보다
+`BaseballManager_PROJECT.md` 42.9절과 `docs/reports/선수_기록평가_v6_Bake_결과.md`가 우선한다.
+체력은 역대 단일 시즌 이닝 기준, 구속은 실측 170km/h=100, 제구는 BB/9,
+구위·변화구·투수 멘탈은 ERA를 쓴다. 교타=타율, 장타=홈런·장타율, 주력=도루 수,
+수비=수비율·실책이며 결측 지표는 Ability와 Cost의 평가 분모에서 제외한다.
+평가 범위와 TrainingCeiling 상한은 100이다. Cost의 출전량·역할·elite 자격은 v8 구조를 유지한다.
+실측 구속이 없는 Source의 구속 55는 중립값이며 실제 구속 추정치가 아니다.
+
+아래는 기존 v5/v7 설계 이력이다.
+
 Source 기록 → 지표별 비교 집단 → 표본 신뢰도 보정 → BaseAttributes → 역할별 종합 능력치 → 고정 Cost
 구간 순서로 계산한다. World Seed·World 성적·Award·이름·Edition은 이 값을 바꾸지 않는다.
 설정은 `derivation_balance.json`, Source/Replacement 공용 가격 함수는 `derivation_cost.py`에 둔다.

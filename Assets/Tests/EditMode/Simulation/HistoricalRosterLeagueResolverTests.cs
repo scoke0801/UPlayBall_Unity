@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
+using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Historical;
@@ -59,6 +60,30 @@ namespace Baseball.Tests.EditMode.Simulation
 
             Assert.That(result.IsValid, Is.False);
             Assert.That(HasIssue(result, RosterValidationIssueCode.FixedRoleCount), Is.True);
+        }
+
+        [Test]
+        public void RosterCostResolver_벤치는제외하고주전교체와투수내역할교체를구분한다()
+        {
+            CurrentRosterState baseline = CreateValidRoster(0);
+            int[] costs = new int[baseline.Entries.Count];
+            for (int index = 0; index < costs.Length; index++)
+                costs[index] = 5;
+            costs[0] = 2;
+            costs[9] = 8;
+            WorldCardCatalog catalog = CreateCatalog(baseline, costs);
+            var resolver = new RosterCostResolver();
+
+            RosterCostBreakdown original = resolver.Resolve(baseline, catalog);
+            RosterCostBreakdown starterBenchSwap = resolver.Resolve(SwapRoles(baseline, 0, 9), catalog);
+            RosterCostBreakdown benchBenchSwap = resolver.Resolve(SwapRoles(baseline, 9, 10), catalog);
+            RosterCostBreakdown pitcherRoleSwap = resolver.Resolve(SwapRoles(baseline, 14, 24), catalog);
+
+            Assert.That(original.StartingHitterCost, Is.EqualTo(42));
+            Assert.That(original.PitcherCost, Is.EqualTo(55));
+            Assert.That(starterBenchSwap.TotalCost, Is.EqualTo(original.TotalCost + 6));
+            Assert.That(benchBenchSwap.TotalCost, Is.EqualTo(original.TotalCost));
+            Assert.That(pitcherRoleSwap.TotalCost, Is.EqualTo(original.TotalCost));
         }
 
         [Test]
@@ -299,13 +324,66 @@ namespace Baseball.Tests.EditMode.Simulation
             for (int index = 0; index < roles.Length; index++)
             {
                 entries[index] = new ActiveRosterEntry(
-                    $"CARD_{index:D2}",
+                    $"SEASON_{index:D2}:Normal",
                     $"SEASON_{index:D2}",
                     $"PERSON_{index:D2}",
                     index < foreignCount ? RegistrationType.Foreign : RegistrationType.Domestic,
                     roles[index]);
             }
             return new CurrentRosterState("COMETS_2011", entries);
+        }
+
+        private static CurrentRosterState SwapRoles(CurrentRosterState roster, int firstIndex, int secondIndex)
+        {
+            var entries = new ActiveRosterEntry[roster.Entries.Count];
+            for (int index = 0; index < entries.Length; index++)
+            {
+                ActiveRosterEntry source = roster.Entries[index];
+                ActiveRosterRole role = index == firstIndex
+                    ? roster.Entries[secondIndex].Role
+                    : index == secondIndex
+                        ? roster.Entries[firstIndex].Role
+                        : source.Role;
+                entries[index] = new ActiveRosterEntry(
+                    source.CardId,
+                    source.PlayerSeasonId,
+                    source.PlayerPersonId,
+                    source.RegistrationType,
+                    role);
+            }
+            return new CurrentRosterState(roster.TeamSeasonKey, entries);
+        }
+
+        private static WorldCardCatalog CreateCatalog(CurrentRosterState roster, IReadOnlyList<int> costs)
+        {
+            var seasons = new PlayerSeasonDefinition[roster.Entries.Count];
+            var cards = new PlayerCardDefinition[roster.Entries.Count];
+            var ratings = new AbilityRatings(50);
+            var modifiers = new int[PlayerAbilityCatalog.AbilityCount];
+            for (int index = 0; index < roster.Entries.Count; index++)
+            {
+                ActiveRosterEntry entry = roster.Entries[index];
+                bool isPitcher = ActiveRosterCompositionRule.Standard.IsPitcherRole(entry.Role);
+                seasons[index] = new PlayerSeasonDefinition(
+                    entry.PlayerSeasonId,
+                    entry.PlayerPersonId,
+                    2011,
+                    "COMETS",
+                    roster.TeamSeasonKey,
+                    isPitcher ? PlayerPosition.StartingPitcher : PlayerPosition.Catcher,
+                    isPitcher ? PitcherRole.Starter : PitcherRole.MiddleRelief,
+                    isPitcher ? PlayerType.Pitcher : PlayerType.Batter,
+                    RegistrationType.Domestic,
+                    ratings,
+                    costs[index],
+                    ratings);
+                cards[index] = new PlayerCardDefinition(
+                    entry.CardId,
+                    entry.PlayerSeasonId,
+                    PlayerCardEdition.Normal,
+                    modifiers);
+            }
+            return new WorldCardCatalog(seasons, cards);
         }
 
         private static PositionAssignmentRule CreatePositionRule()

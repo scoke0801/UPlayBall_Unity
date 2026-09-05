@@ -1,9 +1,9 @@
 {
-  "version": "historical-derivation-balance-v10",
-  "abilityFormulaVersion": "historical-ability-v5",
-  "costFormulaVersion": "historical-role-composite-v7",
+  "version": "historical-derivation-balance-v12",
+  "abilityFormulaVersion": "historical-ability-v6",
+  "costFormulaVersion": "historical-season-value-v9",
   "positionRoleClassifierVersion": "season-position-role-v5",
-  "rosterBuilderVersion": "ability-fit-core25-v3",
+  "rosterBuilderVersion": "ability-fit-core25-v4",
   "costPercentileThresholds": [
     {"upperExclusive": 0.05, "cost": 1},
     {"upperExclusive": 0.15, "cost": 2},
@@ -33,6 +33,65 @@
     {"upperExclusive": 64.0, "cost": 9},
     {"upperExclusive": 101.0, "cost": 10}
   ],
+  "costValueModel": {
+    "version": "available-record-season-value-v2",
+    "baseScore": 2.5,
+    "qualityMultiplier": 2.0,
+    "qualityProfiles": {
+      "Hitter": {
+        "BattingAverage": 0.45,
+        "SluggingPercentage": 0.25,
+        "HomeRuns": 0.25,
+        "StolenBases": 0.05
+      },
+      "Pitcher": {
+        "NegativeEarnedRunAverage": 0.75,
+        "NegativeWalksPerNine": 0.25
+      }
+    },
+    "hitterWorkload": {
+      "plateAppearanceTarget": 500.0,
+      "weight": 5.0,
+      "defensiveValueMaximum": 0.5,
+      "defensiveInningsTargetPerGame": 7.5
+    },
+    "pitcherWorkload": {
+      "reliefInningsTarget": 70.0,
+      "starterInningsIncrement": 110.0,
+      "absoluteInningsTarget": 180.0,
+      "roleTargetWeight": 2.0,
+      "absoluteTargetWeight": 4.0,
+      "starterShareWeight": 1.25
+    },
+    "roleNormalization": {
+      "minimumGroupCount": 8,
+      "maximumAdjustment": 0.5
+    },
+    "valueTierThresholds": [
+      {"upperExclusive": 1.5, "cost": 1},
+      {"upperExclusive": 2.5, "cost": 2},
+      {"upperExclusive": 3.5, "cost": 3},
+      {"upperExclusive": 4.5, "cost": 4},
+      {"upperExclusive": 5.5, "cost": 5},
+      {"upperExclusive": 6.5, "cost": 6},
+      {"upperExclusive": 7.25, "cost": 7},
+      {"upperExclusive": 9.4, "cost": 8},
+      {"upperExclusive": 9.5, "cost": 9},
+      {"upperExclusive": 100.0, "cost": 10}
+    ],
+    "eliteEligibility": {
+      "cost9": {
+        "minimumQuality": 0.0,
+        "minimumWorkloadRatio": 0.75,
+        "minimumReliability": 0.45
+      },
+      "cost10": {
+        "minimumQuality": 0.65,
+        "minimumWorkloadRatio": 1.0,
+        "minimumReliability": 0.55
+      }
+    }
+  },
   "trainingHeadroom": {"minimum": 3, "maximum": 3},
   "positionClassifier": {
     "minimumDesignatedHitterPlateAppearances": 100.0,
@@ -95,36 +154,36 @@
     "abilityLowSampleReliabilityMaximum": 0.20,
     "abilityDominantContributionShareMinimum": 0.50,
     "abilityDominantContributionAbsoluteMinimum": 0.25,
-    "maximumRawMetricCompositeInfluence": 0.35
+    "maximumRawMetricCompositeInfluence": 0.80
   },
   "rating": {
     "center": 55.0,
     "minimum": 25,
-    "maximum": 95
+    "maximum": 100
+  },
+  "absoluteRatingAnchors": {
+    "SeasonInnings": {"minimumValue": 0.0, "maximumValue": 427.3333333333333, "minimumRating": 25.0, "maximumRating": 100.0, "source": "KBO Normalized 1982~2025 단일 시즌 최다 1282아웃"},
+    "FastballVelocityKph": {"minimumValue": 110.0, "maximumValue": 170.0, "minimumRating": 25.0, "maximumRating": 100.0, "source": "사용자 지정 170km/h=100; 110km/h=25 선형 분배"}
   },
   "ratingProfiles": {
     "Hitter": {
       "Contact": {
         "scale": 24.0,
         "metrics": {
-          "BattingAverage": 0.60,
-          "OnBasePercentage": 0.25,
-          "NegativeStrikeoutRate": 0.15
+          "BattingAverage": 1.0
         }
       },
       "Power": {
         "scale": 24.0,
         "metrics": {
-          "SluggingPercentage": 0.35,
-          "IsolatedPower": 0.25,
-          "HomeRunRate": 0.4
+          "SluggingPercentage": 0.5,
+          "HomeRuns": 0.5
         }
       },
       "Speed": {
         "scale": 20.0,
         "metrics": {
-          "StolenBaseAttemptRate": 0.75,
-          "StolenBaseSuccessRate": 0.25
+          "StolenBases": 1.0
         }
       },
       "Arm": {
@@ -137,16 +196,14 @@
       "Defense": {
         "scale": 14.0,
         "metrics": {
-          "FieldingPercentage": 0.50,
-          "NegativeErrorsPerNine": 0.15,
-          "DefensiveOpportunitiesPerNine": 0.35
+          "FieldingPercentage": 0.65,
+          "NegativeErrorsPerNine": 0.35
         }
       },
       "BatterMental": {
         "scale": 20.0,
         "metrics": {
-          "WalkRate": 0.85,
-          "NegativeStrikeoutRate": 0.15
+          "BattingAverage": 1.0
         }
       }
     },
@@ -154,27 +211,25 @@
       "Stamina": {
         "scale": 20.0,
         "metrics": {
-          "InningsPerGame": 1.0
+          "SeasonInnings": 1.0
         }
       },
       "Velocity": {
         "scale": 20.0,
         "metrics": {
-          "StrikeoutsPerNine": 1.0
+          "FastballVelocityKph": 1.0
         }
       },
       "Stuff": {
         "scale": 24.0,
         "metrics": {
-          "NegativeEarnedRunAverage": 0.55,
-          "StrikeoutsPerNine": 0.45
+          "NegativeEarnedRunAverage": 1.0
         }
       },
       "Breaking": {
         "scale": 20.0,
         "metrics": {
-          "NegativeEarnedRunAverage": 0.4,
-          "NegativeHomeRunsPerNine": 0.6
+          "NegativeEarnedRunAverage": 1.0
         }
       },
       "Control": {
@@ -186,8 +241,7 @@
       "PitcherMental": {
         "scale": 20.0,
         "metrics": {
-          "NegativeEarnedRunAverage": 0.3,
-          "NegativeWhip": 0.7
+          "NegativeEarnedRunAverage": 1.0
         }
       }
     }
@@ -254,6 +308,14 @@
     "secondaryPositionMinimumGames": 5.0,
     "secondaryPositionMinimumOuts": 45.0,
     "benchCoverageBonus": 6.0,
+    "starterReconsideration": {
+      "minimumCostAdvantage": 2,
+      "minimumAbilityAdvantage": 4.0,
+      "maximumSlotScoreLoss": 2.0,
+      "minimumDefenseRatio": 0.90,
+      "minimumArmRatio": 0.85,
+      "minimumCenterFieldSpeedRatio": 0.90
+    },
     "positionStarterAttributeWeights": {
       "C": {"Contact": 0.20, "Power": 0.15, "Arm": 0.25, "Defense": 0.30, "BatterMental": 0.10},
       "1B": {"Contact": 0.30, "Power": 0.35, "Arm": 0.05, "Defense": 0.15, "BatterMental": 0.15},

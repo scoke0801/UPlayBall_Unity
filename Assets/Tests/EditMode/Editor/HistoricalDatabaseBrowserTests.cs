@@ -145,7 +145,7 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(requiredSlots.All(slot => roster.Count(player => player.RosterRole == slot) == 1), Is.True);
             Assert.That(team.RosterSelectionTrace.StartingSlots.Count, Is.EqualTo(8));
             Assert.That(chaeByungYong.PitcherRole, Is.EqualTo("Starter"));
-            Assert.That(chaeByungYong.RosterRole, Does.StartWith("ReservePitcher:"));
+            Assert.That(chaeByungYong.RosterRole, Is.EqualTo("StartingPitcher:4"));
             Assert.That(
                 chaeByungYong.Season.PositionRoleDerivationTrace.SelectedNaturalPitcherRole,
                 Is.EqualTo("Starter"));
@@ -160,11 +160,11 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(manifest.ReferenceDataVersion, Is.EqualTo("kbo-normalized-v3"));
             Assert.That(manifest.RawDataVersion, Has.Length.EqualTo(64));
             Assert.That(manifest.NormalizedContentHash, Has.Length.EqualTo(64));
-            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v5"));
+            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v6"));
             Assert.That(manifest.PositionRoleClassifierVersion, Is.EqualTo("season-position-role-v5"));
-            Assert.That(manifest.RosterBuilderVersion, Is.EqualTo("ability-fit-core25-v3"));
-            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-role-composite-v7"));
-            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v10"));
+            Assert.That(manifest.RosterBuilderVersion, Is.EqualTo("ability-fit-core25-v4"));
+            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-season-value-v9"));
+            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v12"));
             Assert.That(manifest.SourceIdentityPolicyVersion, Is.EqualTo("editor-source-identity-v1"));
             Assert.That(manifest.SourceAllocationPolicyVersion, Is.EqualTo("official-source-team-audit-v1"));
             Assert.That(manifest.ReplacementGeneratorVersion, Is.EqualTo("quota-fallback-percentile-v2"));

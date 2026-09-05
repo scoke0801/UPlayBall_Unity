@@ -172,19 +172,54 @@ namespace Baseball.Editor.HistoricalDatabase
         private void AddCostSection(HistoricalPlayerRow row)
         {
             VisualElement section = CreateDetailSection(row.IsOriginalSource ? "비용 · 파생" : "비용");
-            AddKeyValue(section, row.IsOriginalSource ? "기본 전력 기준 비용" : "저장값", $"{row.Cost} / 10");
+            AddKeyValue(section, row.IsOriginalSource ? "Canonical Cost" : "저장값", $"{row.Cost} / 10");
             HistoricalCostDerivationTrace trace = row.Season.CostDerivationTrace;
             if (trace != null)
             {
-                AddKeyValue(section, "역할 Composite", $"{trace.Composite:0.0000} · {trace.RoleProfile}");
+                AddKeyValue(section, "연속 Season Value", $"{trace.ContinuousValue:0.0000} · {trace.RoleProfile}");
                 AddKeyValue(
                     section,
                     "동일 연도·유형 백분위 (참고)",
                     $"순위 {trace.Rank:N0} / {trace.PopulationCount:N0} · {trace.Percentile:P2}");
                 var detail = new Foldout { text = "Cost 산출 상세", value = false };
-                AddKeyValue(detail, "계산 기준", "역할별 기본 전력의 고정 구간 · 출전량 추가 할인 없음");
+                AddKeyValue(detail, "계산 기준", "Source 성과 + 출전량 + 수비 + 역할 내 상대가치 · 9/10 별도 자격");
+                AddKeyValue(detail, "Balance", trace.BalanceVersion);
                 if (trace.CostEligibility != null)
                     AddKeyValue(detail, "시즌 출전량", trace.CostEligibility.Reason);
+                HistoricalCostComponentScoresTrace components = trace.ComponentScores;
+                if (components != null)
+                {
+                    AddKeyValue(detail, "성과", $"{components.QualityScore:+0.000;-0.000;0.000} (z={components.Quality:0.000})");
+                    AddKeyValue(detail, "출전량", $"{components.WorkloadScore:+0.000;-0.000;0.000}");
+                    AddKeyValue(detail, "수비", $"{components.DefensiveValue:+0.000;-0.000;0.000}");
+                    AddKeyValue(detail, "역할 보정", $"{components.RoleAdjustment:+0.000;-0.000;0.000} · {components.RoleGroup}");
+                    AddKeyValue(detail, "Reliability", components.Reliability.ToString("P1"));
+                    HistoricalCostWorkloadTrace workload = components.Workload;
+                    if (workload != null)
+                    {
+                        string workloadText = $"{workload.Kind} {workload.Sample:0.0} · 기준 대비 {workload.Ratio:P1}";
+                        if (row.IsPitcher)
+                            workloadText += $" · 선발 비중 {workload.StarterShare:P1}";
+                        AddKeyValue(detail, "Workload 근거", workloadText);
+                    }
+                    for (int index = 0; index < components.QualityContributions.Count; index++)
+                    {
+                        HistoricalCostQualityContributionTrace contribution = components.QualityContributions[index];
+                        AddKeyValue(
+                            detail,
+                            contribution.Metric,
+                            $"z {contribution.AdjustedZ:+0.000;-0.000;0.000} × {contribution.Weight:P0} = {contribution.Contribution:+0.000;-0.000;0.000}");
+                    }
+                }
+                HistoricalEliteCostEligibilityTrace elite = trace.EliteEligibility;
+                if (elite != null)
+                {
+                    AddKeyValue(detail, "Elite 상한", $"Cost {elite.MaximumCost} · workload {elite.WorkloadRatio:P1}");
+                    if (elite.Cost9 != null)
+                        AddKeyValue(detail, "Cost 9 자격", elite.Cost9.Passed ? "충족" : "미충족");
+                    if (elite.Cost10 != null)
+                        AddKeyValue(detail, "Cost 10 자격", elite.Cost10.Passed ? "충족" : "미충족");
+                }
                 double lower = 0d;
                 for (int index = 0; index < trace.CompositeThresholds.Count; index++)
                 {

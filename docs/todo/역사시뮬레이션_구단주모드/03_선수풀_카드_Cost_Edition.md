@@ -205,3 +205,15 @@ Simulation, Award Resolver를 다시 호출하지 않는다.
 - DisplayName을 바꿔도 CardId/TeamColor/Scout/Match 결과 불변
 - Save/Load 전후 Identity, WorldCardCatalog, Statistics, Award 일치
 - Load 중 Identity/Historical/Award 생성기 호출 0회
+
+## 11. 프야매 Reference 연구 상태
+
+3절의 Cost 구현은 v8이다. `BaseballManager_PROJECT.md` 42.8에 따라 Source 성과 quality,
+출전량, 수비 기회, 역할 내 상대가치를 별도 구성 요소로 계산한 뒤 ordinal 구간과 elite 자격으로
+1~10을 확정한다. PMReference628개 관측 중 후기 Normal·Source 연결 확인 후보는1개이므로 원작
+최종판 Calibration 완료로 해석하지 않는다. subtype 미확인 초기 시뮬레이터 화면도 Normal 최종판과
+혼합하지 않는다.
+
+ReferenceCost는 `Tools/PMReference` 연구/검증 전용이며 Runtime Definition 필드가 아니다. 2012 SK를
+맞추기 위한 개별 보정·World 결과 환류·Edition별 가격 변경은 금지한다. 자료·수집 실패·전사 충돌·
+변경 전/후 전체 분포와 남은 불확실성은 `Tools/PMReference/reports/PM_REFERENCE_RESEARCH.md`에 기록한다.

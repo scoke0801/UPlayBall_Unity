@@ -125,7 +125,7 @@ namespace Baseball.Editor.HistoricalDatabase
         public double SourceCompositeAtBoundary => sourceCompositeAtBoundary;
     }
 
-    /// <summary>시즌 길이·역할 기준의 출전량 진단이다. 가격에는 다시 반영하지 않는다.</summary>
+    /// <summary>시즌 가치에 반영한 출전량과 elite Cost 자격 근거다.</summary>
     [Serializable]
     public sealed class HistoricalCostEligibilityTrace
     {
@@ -138,11 +138,11 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private double fullSeasonSample;
         [SerializeField] private string reason;
 
-        /// <summary>Full / Regular / Limited / Tiny 중 하나다. 사람이 읽는 이름일 뿐 상한을 정하지 않는다.</summary>
+        /// <summary>Full / Regular / Limited / Tiny 중 하나다.</summary>
         public string Tier => tier ?? string.Empty;
         /// <summary>출전량 기준을 고른 집단이다. Hitter 또는 투수 역할군이다.</summary>
         public string Scope => scope ?? string.Empty;
-        /// <summary>타자는 타석 수, 투수는 상대한 타자 수다.</summary>
+        /// <summary>타자는 타석 수, 투수는 투구 이닝을 아웃 수로 환산한 값이다.</summary>
         public double Sample => sample;
         /// <summary>해당 연도와 역할군의 온전한 시즌 대비 출전 비율이다.</summary>
         public double WorkloadRatio => workloadRatio;
@@ -150,6 +150,132 @@ namespace Baseball.Editor.HistoricalDatabase
         public bool AffectsCost => affectsCost;
         public double FullSeasonSample => fullSeasonSample;
         public string Reason => reason ?? string.Empty;
+    }
+
+    /// <summary>한 Source 지표가 season quality에 기여한 값이다.</summary>
+    [Serializable]
+    public sealed class HistoricalCostQualityContributionTrace
+    {
+        [SerializeField] private string metric;
+        [SerializeField] private double adjustedZ;
+        [SerializeField] private double weight;
+        [SerializeField] private double contribution;
+
+        public string Metric => metric ?? string.Empty;
+        public double AdjustedZ => adjustedZ;
+        public double Weight => weight;
+        public double Contribution => contribution;
+    }
+
+    /// <summary>출전량의 역할 기준·절대 기준 곡선과 선발 비중 근거다.</summary>
+    [Serializable]
+    public sealed class HistoricalCostWorkloadTrace
+    {
+        [SerializeField] private string kind;
+        [SerializeField] private double sample;
+        [SerializeField] private double ratio;
+        [SerializeField] private double roleTarget;
+        [SerializeField] private double absoluteTarget;
+        [SerializeField] private double roleCurve;
+        [SerializeField] private double absoluteCurve;
+        [SerializeField] private double starterShare;
+        [SerializeField] private double starterShareScore;
+        [SerializeField] private string starterShareOrigin;
+
+        public string Kind => kind ?? string.Empty;
+        public double Sample => sample;
+        public double Ratio => ratio;
+        public double RoleTarget => roleTarget;
+        public double AbsoluteTarget => absoluteTarget;
+        public double RoleCurve => roleCurve;
+        public double AbsoluteCurve => absoluteCurve;
+        public double StarterShare => starterShare;
+        public double StarterShareScore => starterShareScore;
+        public string StarterShareOrigin => starterShareOrigin ?? string.Empty;
+    }
+
+    /// <summary>설명 가능한 연속 season value의 구성 요소다.</summary>
+    [Serializable]
+    public sealed class HistoricalCostComponentScoresTrace
+    {
+        [SerializeField] private double baseScore;
+        [SerializeField] private double quality;
+        [SerializeField] private double qualityScore;
+        [SerializeField] private double workloadScore;
+        [SerializeField] private double defensiveValue;
+        [SerializeField] private double roleAdjustment;
+        [SerializeField] private double rawValue;
+        [SerializeField] private double continuousValue;
+        [SerializeField] private double reliability;
+        [SerializeField] private string qualityOrigin;
+        [SerializeField] private string roleAdjustmentOrigin;
+        [SerializeField] private string roleGroup;
+        [SerializeField] private double rolePercentile;
+        [SerializeField] private int rolePopulationCount;
+        [SerializeField] private HistoricalCostWorkloadTrace workload;
+        [SerializeField] private HistoricalCostQualityContributionTrace[] qualityContributions;
+
+        public double BaseScore => baseScore;
+        public double Quality => quality;
+        public double QualityScore => qualityScore;
+        public double WorkloadScore => workloadScore;
+        public double DefensiveValue => defensiveValue;
+        public double RoleAdjustment => roleAdjustment;
+        public double RawValue => rawValue;
+        public double ContinuousValue => continuousValue;
+        public double Reliability => reliability;
+        public string QualityOrigin => qualityOrigin ?? string.Empty;
+        public string RoleAdjustmentOrigin => roleAdjustmentOrigin ?? string.Empty;
+        public string RoleGroup => roleGroup ?? string.Empty;
+        public double RolePercentile => rolePercentile;
+        public int RolePopulationCount => rolePopulationCount;
+        public HistoricalCostWorkloadTrace Workload => workload;
+        public IReadOnlyList<HistoricalCostQualityContributionTrace> QualityContributions =>
+            qualityContributions ?? Array.Empty<HistoricalCostQualityContributionTrace>();
+    }
+
+    /// <summary>Cost 9 또는 10의 성과·출전량·신뢰도 통과 조건이다.</summary>
+    [Serializable]
+    public sealed class HistoricalEliteCostCheckTrace
+    {
+        [SerializeField] private double minimumQuality;
+        [SerializeField] private double minimumWorkloadRatio;
+        [SerializeField] private double minimumReliability;
+        [SerializeField] private bool passed;
+
+        public double MinimumQuality => minimumQuality;
+        public double MinimumWorkloadRatio => minimumWorkloadRatio;
+        public double MinimumReliability => minimumReliability;
+        public bool Passed => passed;
+    }
+
+    /// <summary>Cost 9와 10의 자격 검사를 묶는다.</summary>
+    [Serializable]
+    public sealed class HistoricalEliteCostChecksTrace
+    {
+        [SerializeField] private HistoricalEliteCostCheckTrace cost9;
+        [SerializeField] private HistoricalEliteCostCheckTrace cost10;
+
+        public HistoricalEliteCostCheckTrace Cost9 => cost9;
+        public HistoricalEliteCostCheckTrace Cost10 => cost10;
+    }
+
+    /// <summary>연속값이 elite 구간이어도 요구 조건을 충족했는지 남기는 Trace다.</summary>
+    [Serializable]
+    public sealed class HistoricalEliteCostEligibilityTrace
+    {
+        [SerializeField] private double quality;
+        [SerializeField] private double workloadRatio;
+        [SerializeField] private double reliability;
+        [SerializeField] private int maximumCost;
+        [SerializeField] private HistoricalEliteCostChecksTrace checks;
+
+        public double Quality => quality;
+        public double WorkloadRatio => workloadRatio;
+        public double Reliability => reliability;
+        public int MaximumCost => maximumCost;
+        public HistoricalEliteCostCheckTrace Cost9 => checks?.Cost9;
+        public HistoricalEliteCostCheckTrace Cost10 => checks?.Cost10;
     }
 
     /// <summary>OriginYear의 같은 선수 유형 모집단에서 RoleAdjustedComposite가 Cost로 변환된 근거다.</summary>
@@ -169,6 +295,11 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private HistoricalCostRoleWeightTrace[] roleWeights;
         [SerializeField] private HistoricalCostAbilityContributionTrace[] abilityContribution;
         [SerializeField] private double composite;
+        [SerializeField] private double continuousValue;
+        [SerializeField] private double legacyAbilityComposite;
+        [SerializeField] private string balanceVersion;
+        [SerializeField] private HistoricalCostComponentScoresTrace componentScores;
+        [SerializeField] private HistoricalEliteCostEligibilityTrace eliteEligibility;
         [SerializeField] private int originYear;
         [SerializeField] private int populationCount;
         [SerializeField] private int rank;
@@ -195,6 +326,11 @@ namespace Baseball.Editor.HistoricalDatabase
         public IReadOnlyList<HistoricalCostAbilityContributionTrace> AbilityContribution =>
             abilityContribution ?? Array.Empty<HistoricalCostAbilityContributionTrace>();
         public double Composite => composite;
+        public double ContinuousValue => continuousValue;
+        public double LegacyAbilityComposite => legacyAbilityComposite;
+        public string BalanceVersion => balanceVersion ?? string.Empty;
+        public HistoricalCostComponentScoresTrace ComponentScores => componentScores;
+        public HistoricalEliteCostEligibilityTrace EliteEligibility => eliteEligibility;
         public int OriginYear => originYear;
         public int PopulationCount => populationCount;
         public int Rank => rank;

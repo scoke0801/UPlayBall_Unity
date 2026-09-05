@@ -17,6 +17,7 @@ from synthetic_bake import (
     derive_source_pitcher_role,
     load_and_validate_editor_asset_archive,
     percentile_cost,
+    reconsider_hitter_starters,
     select_defensive_starters,
     select_hitter_bench,
     select_pitcher_group,
@@ -25,6 +26,61 @@ from synthetic_bake import (
 
 
 class SyntheticBakeTests(unittest.TestCase):
+    def test_starter_reconsideration_requires_cost_and_overall_ability_advantage(self) -> None:
+        starter = self._hitter_row("starter", 60, "C")
+        challenger = self._hitter_row("challenger", 60, "C")
+        challenger["baseAttributes"][2] = 95
+        starter["cost"] = 4
+        challenger["cost"] = 6
+        sources = {
+            starter["playerSeasonId"]: starter["_source"],
+            challenger["playerSeasonId"]: challenger["_source"],
+        }
+        assignment = [starter] + [None] * 8
+        bench = [challenger]
+
+        trace = reconsider_hitter_starters(assignment, bench, sources)
+
+        self.assertEqual(assignment[0]["playerSeasonId"], "challenger")
+        self.assertEqual(bench[0]["playerSeasonId"], "starter")
+        self.assertEqual(trace[0]["slot"], "C")
+
+        assignment = [starter] + [None] * 8
+        bench = [challenger]
+        challenger["cost"] = 5
+        self.assertEqual(reconsider_hitter_starters(assignment, bench, sources), [])
+        self.assertEqual(assignment[0]["playerSeasonId"], "starter")
+
+        defensive_starter = self._hitter_row("defensive-starter", 60, "C")
+        weak_defender = self._hitter_row("weak-defender", 85, "C")
+        defensive_starter["baseAttributes"][3:5] = [80, 80]
+        weak_defender["baseAttributes"][3:5] = [60, 60]
+        defensive_starter["cost"] = 4
+        weak_defender["cost"] = 7
+        defensive_sources = {
+            row["playerSeasonId"]: row["_source"]
+            for row in (defensive_starter, weak_defender)
+        }
+        assignment = [defensive_starter] + [None] * 8
+        self.assertEqual(
+            reconsider_hitter_starters(assignment, [weak_defender], defensive_sources),
+            [],
+        )
+
+        coverage_starter = self._hitter_row("coverage-starter", 60, "C", ("C",))
+        coverage_challenger = self._hitter_row("coverage-challenger", 70, "C", ("C", "1B"))
+        coverage_starter["cost"] = 4
+        coverage_challenger["cost"] = 7
+        coverage_sources = {
+            row["playerSeasonId"]: row["_source"]
+            for row in (coverage_starter, coverage_challenger)
+        }
+        assignment = [coverage_starter] + [None] * 8
+        self.assertEqual(
+            reconsider_hitter_starters(assignment, [coverage_challenger], coverage_sources),
+            [],
+        )
+
     def test_joint_starting_assignment_preserves_strong_bat_for_dh(self) -> None:
         """수비 점수만 먼저 확정해서 DH의 공격 기회비용을 놓치지 않는다."""
         batter = self._hitter_row("bat-catcher", 95, "C")
