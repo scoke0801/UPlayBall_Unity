@@ -168,92 +168,207 @@ namespace Baseball.Game.Historical
         }
     }
 
-    /// <summary>모든 Runtime Consumer가 공유하며 최초 구성 뒤 변경되지 않는 역사 콘텐츠 캐시다.</summary>
+    /// <summary>
+    /// 연도 콘텐츠를 필요할 때 한 해씩 만들어 준다.
+    /// Runtime에서는 연도 JSON 하나를 그때 파싱하는 구현이 들어온다.
+    /// </summary>
+    public interface IHistoricalYearContentSource
+    {
+        /// <summary>파싱하지 않고도 알 수 있어야 하는 보유 연도 목록이다.</summary>
+        IReadOnlyList<int> Years { get; }
+
+        HistoricalYearContentDefinition Load(int year);
+    }
+
+    /// <summary>이미 만들어 둔 연도 묶음을 그대로 돌려주는 기본 구현이다.</summary>
+    public sealed class InMemoryHistoricalYearContentSource : IHistoricalYearContentSource
+    {
+        private readonly Dictionary<int, HistoricalYearContentDefinition> _yearsByValue;
+        private readonly int[] _years;
+
+        public InMemoryHistoricalYearContentSource(IReadOnlyList<HistoricalYearContentDefinition> years)
+        {
+            if (years == null)
+                throw new ArgumentNullException(nameof(years));
+            _yearsByValue = new Dictionary<int, HistoricalYearContentDefinition>(years.Count);
+            for (int index = 0; index < years.Count; index++)
+            {
+                HistoricalYearContentDefinition year = years[index]
+                    ?? throw new ArgumentException("null 연도 콘텐츠가 있습니다.", nameof(years));
+                if (!_yearsByValue.TryAdd(year.Year, year))
+                    throw new ArgumentException($"Historical Year {year.Year}가 중복되었습니다.", nameof(years));
+            }
+            _years = new int[_yearsByValue.Count];
+            _yearsByValue.Keys.CopyTo(_years, 0);
+            Array.Sort(_years);
+        }
+
+        public IReadOnlyList<int> Years => _years;
+
+        public HistoricalYearContentDefinition Load(int year)
+        {
+            if (!_yearsByValue.TryGetValue(year, out HistoricalYearContentDefinition content))
+                throw new KeyNotFoundException($"Historical Year {year} 콘텐츠가 없습니다.");
+            return content;
+        }
+    }
+
+    /// <summary>
+    /// 모든 Runtime Consumer가 공유하며 최초 구성 뒤 변경되지 않는 역사 콘텐츠 캐시다.
+    /// 연도 콘텐츠는 44년 전체가 20MB를 넘으므로 실제로 읽는 연도만 만들고,
+    /// 전체를 훑는 집계·역참조 검증은 그것을 요구하는 첫 호출에서 한 번에 수행한다.
+    /// </summary>
     public sealed class HistoricalBakedContent
     {
+        private readonly object _materializationLock = new object();
+        private readonly IHistoricalYearContentSource _yearSource;
+        private readonly int[] _yearNumbers;
         private readonly PlayerPersonDefinition[] _playerPersons;
-        private readonly HistoricalYearContentDefinition[] _years;
-        private readonly PlayerSeasonDefinition[] _playerSeasons;
-        private readonly PlayerCardDefinition[] _normalCards;
-        private readonly TeamSeasonDefinition[] _teamSeasons;
-        private readonly OriginalSeasonRecordDefinition[] _originalSeasonRecords;
-        private readonly OriginalAwardRecordDefinition[] _originalAwardRecords;
         private readonly IReadOnlyList<PlayerPersonDefinition> _playerPersonsView;
-        private readonly IReadOnlyList<HistoricalYearContentDefinition> _yearsView;
-        private readonly IReadOnlyList<PlayerSeasonDefinition> _playerSeasonsView;
-        private readonly IReadOnlyList<PlayerCardDefinition> _normalCardsView;
-        private readonly IReadOnlyList<TeamSeasonDefinition> _teamSeasonsView;
-        private readonly IReadOnlyList<OriginalSeasonRecordDefinition> _originalSeasonRecordsView;
-        private readonly IReadOnlyList<OriginalAwardRecordDefinition> _originalAwardRecordsView;
         private readonly Dictionary<string, PlayerPersonDefinition> _personsById;
-        private readonly Dictionary<string, PlayerSeasonDefinition> _seasonsById;
-        private readonly Dictionary<string, PlayerCardDefinition> _cardsById;
-        private readonly Dictionary<string, TeamSeasonDefinition> _teamsByKey;
         private readonly Dictionary<int, HistoricalYearContentDefinition> _yearsByValue;
+
+        private HistoricalYearContentDefinition[] _years;
+        private PlayerSeasonDefinition[] _playerSeasons;
+        private PlayerCardDefinition[] _normalCards;
+        private TeamSeasonDefinition[] _teamSeasons;
+        private OriginalSeasonRecordDefinition[] _originalSeasonRecords;
+        private OriginalAwardRecordDefinition[] _originalAwardRecords;
+        private IReadOnlyList<HistoricalYearContentDefinition> _yearsView;
+        private IReadOnlyList<PlayerSeasonDefinition> _playerSeasonsView;
+        private IReadOnlyList<PlayerCardDefinition> _normalCardsView;
+        private IReadOnlyList<TeamSeasonDefinition> _teamSeasonsView;
+        private IReadOnlyList<OriginalSeasonRecordDefinition> _originalSeasonRecordsView;
+        private IReadOnlyList<OriginalAwardRecordDefinition> _originalAwardRecordsView;
+        private Dictionary<string, PlayerSeasonDefinition> _seasonsById;
+        private Dictionary<string, PlayerCardDefinition> _cardsById;
+        private Dictionary<string, TeamSeasonDefinition> _teamsByKey;
+        private bool _isFullyMaterialized;
 
         public HistoricalBakedContent(
             HistoricalContentManifest manifest,
             IReadOnlyList<PlayerPersonDefinition> playerPersons,
             IReadOnlyList<HistoricalYearContentDefinition> years,
             WorldIdentityNameCatalog identityNameCatalog = null)
+            : this(
+                manifest,
+                playerPersons,
+                new InMemoryHistoricalYearContentSource(
+                    years ?? throw new ArgumentNullException(nameof(years))),
+                identityNameCatalog)
+        {
+            // 이미 메모리에 있는 입력이면 미룰 이유가 없고, 기존 호출자는 생성 시점 검증을 기대한다.
+            EnsureFullyMaterialized();
+        }
+
+        public HistoricalBakedContent(
+            HistoricalContentManifest manifest,
+            IReadOnlyList<PlayerPersonDefinition> playerPersons,
+            IHistoricalYearContentSource yearSource,
+            WorldIdentityNameCatalog identityNameCatalog = null)
         {
             Manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));
+            _yearSource = yearSource ?? throw new ArgumentNullException(nameof(yearSource));
             _playerPersons = Copy(playerPersons, nameof(playerPersons));
-            _years = Copy(years, nameof(years));
             if (_playerPersons.Length == 0)
                 throw new ArgumentException("하나 이상의 PlayerPerson이 필요합니다.", nameof(playerPersons));
-            if (_years.Length == 0)
-                throw new ArgumentException("하나 이상의 연도 콘텐츠가 필요합니다.", nameof(years));
-            Array.Sort(_years, CompareYears);
 
-            _personsById = IndexPersons(_playerPersons);
-            _yearsByValue = IndexYears(_years);
-            int seasonCount = Count(_years, year => year.PlayerSeasons.Count);
-            int cardCount = Count(_years, year => year.NormalCards.Count);
-            int teamCount = Count(_years, year => year.TeamSeasons.Count);
-            int recordCount = Count(_years, year => year.OriginalSeasonRecords.Count);
-            int awardCount = Count(_years, year => year.OriginalAwardRecords.Count);
-            _playerSeasons = new PlayerSeasonDefinition[seasonCount];
-            _normalCards = new PlayerCardDefinition[cardCount];
-            _teamSeasons = new TeamSeasonDefinition[teamCount];
-            _originalSeasonRecords = new OriginalSeasonRecordDefinition[recordCount];
-            _originalAwardRecords = new OriginalAwardRecordDefinition[awardCount];
-            Flatten(_years, _playerSeasons, year => year.PlayerSeasons);
-            Flatten(_years, _normalCards, year => year.NormalCards);
-            Flatten(_years, _teamSeasons, year => year.TeamSeasons);
-            Flatten(_years, _originalSeasonRecords, year => year.OriginalSeasonRecords);
-            Flatten(_years, _originalAwardRecords, year => year.OriginalAwardRecords);
+            IReadOnlyList<int> sourceYears = _yearSource.Years
+                ?? throw new ArgumentException("연도 목록이 없습니다.", nameof(yearSource));
+            if (sourceYears.Count == 0)
+                throw new ArgumentException("하나 이상의 연도 콘텐츠가 필요합니다.", nameof(yearSource));
+            _yearNumbers = new int[sourceYears.Count];
+            for (int index = 0; index < sourceYears.Count; index++)
+                _yearNumbers[index] = sourceYears[index];
+            Array.Sort(_yearNumbers);
+            for (int index = 1; index < _yearNumbers.Length; index++)
+            {
+                if (_yearNumbers[index] == _yearNumbers[index - 1])
+                    throw new ArgumentException($"Historical Year {_yearNumbers[index]}가 중복되었습니다.", nameof(yearSource));
+            }
 
             _playerPersonsView = Array.AsReadOnly(_playerPersons);
-            _yearsView = Array.AsReadOnly(_years);
-            _playerSeasonsView = Array.AsReadOnly(_playerSeasons);
-            _normalCardsView = Array.AsReadOnly(_normalCards);
-            _teamSeasonsView = Array.AsReadOnly(_teamSeasons);
-            _originalSeasonRecordsView = Array.AsReadOnly(_originalSeasonRecords);
-            _originalAwardRecordsView = Array.AsReadOnly(_originalAwardRecords);
-
-            _seasonsById = IndexUnique(_playerSeasons, item => item.PlayerSeasonId, "PlayerSeasonId");
-            _cardsById = IndexUnique(_normalCards, item => item.CardId, "CardId");
-            _teamsByKey = IndexUnique(_teamSeasons, item => item.TeamSeasonKey, "TeamSeasonKey");
-            ValidateReferences();
+            _personsById = IndexPersons(_playerPersons);
+            _yearsByValue = new Dictionary<int, HistoricalYearContentDefinition>(_yearNumbers.Length);
             IdentityNameCatalog = identityNameCatalog ?? CreateDevelopmentIdentityNameCatalog(_playerPersons);
         }
 
         public HistoricalContentManifest Manifest { get; }
         public WorldIdentityNameCatalog IdentityNameCatalog { get; }
         public IReadOnlyList<PlayerPersonDefinition> PlayerPersons => _playerPersonsView;
-        public IReadOnlyList<HistoricalYearContentDefinition> Years => _yearsView;
-        public IReadOnlyList<PlayerSeasonDefinition> PlayerSeasons => _playerSeasonsView;
-        public IReadOnlyList<PlayerCardDefinition> NormalCards => _normalCardsView;
-        public IReadOnlyList<TeamSeasonDefinition> TeamSeasons => _teamSeasonsView;
-        public IReadOnlyList<OriginalSeasonRecordDefinition> OriginalSeasonRecords => _originalSeasonRecordsView;
-        public IReadOnlyList<OriginalAwardRecordDefinition> OriginalAwardRecords => _originalAwardRecordsView;
+
+        /// <summary>파싱하지 않고도 알 수 있는 보유 연도다. 연도 확인만 필요하면 이것을 쓴다.</summary>
+        public IReadOnlyList<int> YearNumbers => _yearNumbers;
+
+        public IReadOnlyList<HistoricalYearContentDefinition> Years
+        {
+            get
+            {
+                EnsureFullyMaterialized();
+                return _yearsView;
+            }
+        }
+
+        public IReadOnlyList<PlayerSeasonDefinition> PlayerSeasons
+        {
+            get
+            {
+                EnsureFullyMaterialized();
+                return _playerSeasonsView;
+            }
+        }
+
+        public IReadOnlyList<PlayerCardDefinition> NormalCards
+        {
+            get
+            {
+                EnsureFullyMaterialized();
+                return _normalCardsView;
+            }
+        }
+
+        public IReadOnlyList<TeamSeasonDefinition> TeamSeasons
+        {
+            get
+            {
+                EnsureFullyMaterialized();
+                return _teamSeasonsView;
+            }
+        }
+
+        public IReadOnlyList<OriginalSeasonRecordDefinition> OriginalSeasonRecords
+        {
+            get
+            {
+                EnsureFullyMaterialized();
+                return _originalSeasonRecordsView;
+            }
+        }
+
+        public IReadOnlyList<OriginalAwardRecordDefinition> OriginalAwardRecords
+        {
+            get
+            {
+                EnsureFullyMaterialized();
+                return _originalAwardRecordsView;
+            }
+        }
 
         public HistoricalYearContentDefinition GetYear(int year)
         {
-            if (!_yearsByValue.TryGetValue(year, out HistoricalYearContentDefinition content))
-                throw new KeyNotFoundException($"Historical Year {year} 콘텐츠가 없습니다.");
-            return content;
+            lock (_materializationLock)
+            {
+                if (_yearsByValue.TryGetValue(year, out HistoricalYearContentDefinition cached))
+                    return cached;
+                if (Array.BinarySearch(_yearNumbers, year) < 0)
+                    throw new KeyNotFoundException($"Historical Year {year} 콘텐츠가 없습니다.");
+                HistoricalYearContentDefinition loaded = _yearSource.Load(year)
+                    ?? throw new KeyNotFoundException($"Historical Year {year} 콘텐츠가 없습니다.");
+                if (loaded.Year != year)
+                    throw new ArgumentException($"연도 콘텐츠의 Year가 {year}과 다릅니다. actual={loaded.Year}");
+                _yearsByValue.Add(year, loaded);
+                return loaded;
+            }
         }
 
         public bool TryGetPlayerPerson(string playerPersonId, out PlayerPersonDefinition definition)
@@ -273,6 +388,7 @@ namespace Baseball.Game.Historical
                 definition = null;
                 return false;
             }
+            EnsureFullyMaterialized();
             return _seasonsById.TryGetValue(playerSeasonId, out definition);
         }
 
@@ -283,6 +399,7 @@ namespace Baseball.Game.Historical
                 definition = null;
                 return false;
             }
+            EnsureFullyMaterialized();
             return _cardsById.TryGetValue(cardId, out definition);
         }
 
@@ -293,7 +410,65 @@ namespace Baseball.Game.Historical
                 definition = null;
                 return false;
             }
+            EnsureFullyMaterialized();
             return _teamsByKey.TryGetValue(teamSeasonKey, out definition);
+        }
+
+        /// <summary>
+        /// 전체 연도를 훑어야 하는 집계와 역참조 검증을 한 번만 수행한다.
+        /// 여기서 던지는 예외는 원래 생성자에서 나던 것과 같은 데이터 오류다.
+        /// </summary>
+        private void EnsureFullyMaterialized()
+        {
+            if (_isFullyMaterialized)
+                return;
+            lock (_materializationLock)
+            {
+                if (_isFullyMaterialized)
+                    return;
+
+                var years = new HistoricalYearContentDefinition[_yearNumbers.Length];
+                for (int index = 0; index < _yearNumbers.Length; index++)
+                {
+                    int year = _yearNumbers[index];
+                    if (!_yearsByValue.TryGetValue(year, out HistoricalYearContentDefinition content))
+                    {
+                        content = _yearSource.Load(year)
+                            ?? throw new ArgumentException($"Historical Year {year} 콘텐츠가 없습니다.");
+                        if (content.Year != year)
+                            throw new ArgumentException($"연도 콘텐츠의 Year가 {year}과 다릅니다. actual={content.Year}");
+                        _yearsByValue.Add(year, content);
+                    }
+                    years[index] = content;
+                }
+
+                _years = years;
+                _playerSeasons = new PlayerSeasonDefinition[Count(years, year => year.PlayerSeasons.Count)];
+                _normalCards = new PlayerCardDefinition[Count(years, year => year.NormalCards.Count)];
+                _teamSeasons = new TeamSeasonDefinition[Count(years, year => year.TeamSeasons.Count)];
+                _originalSeasonRecords =
+                    new OriginalSeasonRecordDefinition[Count(years, year => year.OriginalSeasonRecords.Count)];
+                _originalAwardRecords =
+                    new OriginalAwardRecordDefinition[Count(years, year => year.OriginalAwardRecords.Count)];
+                Flatten(years, _playerSeasons, year => year.PlayerSeasons);
+                Flatten(years, _normalCards, year => year.NormalCards);
+                Flatten(years, _teamSeasons, year => year.TeamSeasons);
+                Flatten(years, _originalSeasonRecords, year => year.OriginalSeasonRecords);
+                Flatten(years, _originalAwardRecords, year => year.OriginalAwardRecords);
+
+                _yearsView = Array.AsReadOnly(_years);
+                _playerSeasonsView = Array.AsReadOnly(_playerSeasons);
+                _normalCardsView = Array.AsReadOnly(_normalCards);
+                _teamSeasonsView = Array.AsReadOnly(_teamSeasons);
+                _originalSeasonRecordsView = Array.AsReadOnly(_originalSeasonRecords);
+                _originalAwardRecordsView = Array.AsReadOnly(_originalAwardRecords);
+
+                _seasonsById = IndexUnique(_playerSeasons, item => item.PlayerSeasonId, "PlayerSeasonId");
+                _cardsById = IndexUnique(_normalCards, item => item.CardId, "CardId");
+                _teamsByKey = IndexUnique(_teamSeasons, item => item.TeamSeasonKey, "TeamSeasonKey");
+                ValidateReferences();
+                _isFullyMaterialized = true;
+            }
         }
 
         private static WorldIdentityNameCatalog CreateDevelopmentIdentityNameCatalog(
@@ -459,34 +634,10 @@ namespace Baseball.Game.Historical
             return result;
         }
 
-        private static HistoricalYearContentDefinition[] Copy(
-            IReadOnlyList<HistoricalYearContentDefinition> source,
-            string parameterName)
-        {
-            if (source == null)
-                throw new ArgumentNullException(parameterName);
-            var result = new HistoricalYearContentDefinition[source.Count];
-            for (int index = 0; index < source.Count; index++)
-                result[index] = source[index] ?? throw new ArgumentException("null 연도 콘텐츠가 있습니다.", parameterName);
-            return result;
-        }
-
         private static Dictionary<string, PlayerPersonDefinition> IndexPersons(
             IReadOnlyList<PlayerPersonDefinition> source)
         {
             return IndexUnique(source, item => item.PlayerPersonId, "PlayerPersonId");
-        }
-
-        private static Dictionary<int, HistoricalYearContentDefinition> IndexYears(
-            IReadOnlyList<HistoricalYearContentDefinition> source)
-        {
-            var result = new Dictionary<int, HistoricalYearContentDefinition>(source.Count);
-            for (int index = 0; index < source.Count; index++)
-            {
-                if (!result.TryAdd(source[index].Year, source[index]))
-                    throw new ArgumentException($"Historical Year {source[index].Year}가 중복되었습니다.");
-            }
-            return result;
         }
 
         private static Dictionary<string, T> IndexUnique<T>(
@@ -526,13 +677,6 @@ namespace Baseball.Game.Historical
                 for (int sourceIndex = 0; sourceIndex < source.Count; sourceIndex++)
                     destination[destinationIndex++] = source[sourceIndex];
             }
-        }
-
-        private static int CompareYears(
-            HistoricalYearContentDefinition left,
-            HistoricalYearContentDefinition right)
-        {
-            return left.Year.CompareTo(right.Year);
         }
     }
 }

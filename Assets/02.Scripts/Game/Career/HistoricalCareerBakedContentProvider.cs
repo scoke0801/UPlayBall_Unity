@@ -19,11 +19,13 @@ namespace Baseball.Game.Career
         public HistoricalCareerBakedContentProvider(
             IHistoricalContentProvider contentProvider,
             BalanceTable balance,
-            IReadOnlyList<int> leagueSeasonYears)
+            IReadOnlyList<int> leagueSeasonYears,
+            IBakedWorldHistorySource bakedWorldHistorySource = null)
         {
             _contentProvider = contentProvider ?? throw new ArgumentNullException(nameof(contentProvider));
             _worldBuilder = new HistoricalWorldRuntimeBuilder(
-                balance ?? throw new ArgumentNullException(nameof(balance)));
+                balance ?? throw new ArgumentNullException(nameof(balance)),
+                bakedHistorySource: bakedWorldHistorySource);
             int gradeCount = Enum.GetValues(typeof(LeagueGrade)).Length;
             if (leagueSeasonYears == null || leagueSeasonYears.Count != gradeCount)
             {

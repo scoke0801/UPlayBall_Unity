@@ -324,7 +324,7 @@ namespace Baseball.Game.Historical
                 bakedContent,
                 request.RecordMode,
                 request.WorldHistorySeed);
-            SpecialCompositeTeamSet composites = FindCompositeSet(world, request.OriginYear);
+            SpecialCompositeTeamSet composites = world.GetSpecialCompositeTeamSet(request.OriginYear);
             LeagueInstance league = CreateLeague(request, year, composites);
             CurrentRosterState[] rosters = CreateRosters(year, composites, world.WorldCardCatalog);
             OwnedPlayerCardState[] ownedCards = CreateInitialOwnedCards(
@@ -369,19 +369,6 @@ namespace Baseball.Game.Historical
                 countPerRole,
                 worldSeed,
                 _balance.Staff);
-        }
-
-        private static SpecialCompositeTeamSet FindCompositeSet(
-            HistoricalWorldRuntimeContent world,
-            int originYear)
-        {
-            for (int index = 0; index < world.SpecialCompositeTeams.Count; index++)
-            {
-                SpecialCompositeTeamSet set = world.SpecialCompositeTeams[index];
-                if (set.OriginYear == originYear)
-                    return set;
-            }
-            throw new InvalidOperationException($"{originYear} 특수 합성팀을 찾을 수 없습니다.");
         }
 
         private static LeagueInstance CreateLeague(

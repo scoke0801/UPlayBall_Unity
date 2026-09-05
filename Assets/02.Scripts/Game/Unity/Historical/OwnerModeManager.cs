@@ -86,6 +86,7 @@ namespace Baseball.Game.Historical
         private ManagerPregameService _pregameService;
         private ManagerModeMatchService _matchService;
         private StaffMarketResolver _staffMarketResolver;
+        private IBakedWorldHistorySource _bakedWorldHistorySource;
 
         public override int InitializationOrder => -20;
         public ManagerHistoricalRuntimeState Runtime { get; private set; }
@@ -105,7 +106,8 @@ namespace Baseball.Game.Historical
                 NewGameDefinition.LoadHistoricalContentProvider(),
                 NewGameDefinition.LoadOwnerModeBalanceTable(),
                 NewGameDefinition.LoadOwnerModeConfiguration(),
-                new ManagerHistoricalSaveJsonStore(ManagerHistoricalSavePath.GetDefaultFilePath()));
+                new ManagerHistoricalSaveJsonStore(ManagerHistoricalSavePath.GetDefaultFilePath()),
+                NewGameDefinition.LoadBakedWorldHistorySource());
         }
 
         protected override void OnShutdown()
@@ -127,7 +129,7 @@ namespace Baseball.Game.Historical
                 string teamSeasonKey = ResolvePlayerTeamSeasonKey(year, content, _newGameConfiguration.PlayerTeamSeasonKey);
                 var service = new ManagerHistoricalNewGameService(
                     _contentProvider,
-                    new HistoricalWorldRuntimeBuilder(_balance),
+                    new HistoricalWorldRuntimeBuilder(_balance, bakedHistorySource: _bakedWorldHistorySource),
                     _balance);
                 Runtime = service.Create(new ManagerHistoricalNewGameRequest(
                     WorldRecordMode.SimulatedHistory,
@@ -511,11 +513,13 @@ namespace Baseball.Game.Historical
             IHistoricalContentProvider contentProvider,
             BalanceTable balance,
             OwnerModeNewGameConfiguration newGameConfiguration,
-            ManagerHistoricalSaveJsonStore saveStore)
+            ManagerHistoricalSaveJsonStore saveStore,
+            IBakedWorldHistorySource bakedWorldHistorySource = null)
         {
             _contentProvider = contentProvider ?? throw new ArgumentNullException(nameof(contentProvider));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _newGameConfiguration = newGameConfiguration;
+            _bakedWorldHistorySource = bakedWorldHistorySource;
             _saveStore = saveStore ?? throw new ArgumentNullException(nameof(saveStore));
             _saveAdapter = new ManagerHistoricalSaveAdapter(
                 _contentProvider,

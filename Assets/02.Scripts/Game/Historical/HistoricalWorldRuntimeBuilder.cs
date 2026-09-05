@@ -27,8 +27,10 @@ namespace Baseball.Game.Historical
 
         public HistoricalWorldBuildMetrics(
             IReadOnlyList<HistoricalSeasonSimulationMetrics> seasons,
-            long totalElapsedTicks)
+            long totalElapsedTicks,
+            bool isHistoryRestoredFromBake = false)
         {
+            IsHistoryRestoredFromBake = isHistoryRestoredFromBake;
             if (seasons == null)
                 throw new ArgumentNullException(nameof(seasons));
             _seasons = new HistoricalSeasonSimulationMetrics[seasons.Count];
@@ -54,6 +56,10 @@ namespace Baseball.Game.Historical
         }
 
         public IReadOnlyList<HistoricalSeasonSimulationMetrics> Seasons => _seasons;
+
+        /// <summary>true면 44시즌을 실제로 돌리지 않고 구운 결과를 복원했다는 뜻이다.</summary>
+        public bool IsHistoryRestoredFromBake { get; }
+
         public int TotalGameCount { get; }
         public long HistoricalSimulationElapsedTicks { get; }
         public long TotalElapsedTicks { get; }
@@ -71,7 +77,14 @@ namespace Baseball.Game.Historical
     /// <summary>공통 World Record, 카드, Award 확정 뒤 합성팀을 함께 반환하는 불변 Runtime 결과다.</summary>
     public sealed class HistoricalWorldRuntimeContent
     {
-        private readonly SpecialCompositeTeamSet[] _specialCompositeTeams;
+        private readonly object _derivationLock = new object();
+        private readonly Func<WorldCardCatalog> _worldCardCatalogFactory;
+        private readonly Func<IReadOnlyList<SpecialCompositeTeamSet>> _specialCompositeTeamsFactory;
+        private readonly Func<int, SpecialCompositeTeamSet> _specialCompositeTeamSetFactory;
+        private readonly Dictionary<int, SpecialCompositeTeamSet> _specialCompositeTeamsByYear =
+            new Dictionary<int, SpecialCompositeTeamSet>();
+        private WorldCardCatalog _worldCardCatalog;
+        private SpecialCompositeTeamSet[] _specialCompositeTeams;
 
         public HistoricalWorldRuntimeContent(
             HistoricalContentReference contentReference,
@@ -80,27 +93,134 @@ namespace Baseball.Game.Historical
             WorldCardCatalog worldCardCatalog,
             IReadOnlyList<SpecialCompositeTeamSet> specialCompositeTeams,
             HistoricalWorldBuildMetrics metrics)
+            : this(
+                contentReference,
+                identityRegistry,
+                worldHistory,
+                CreateConstantFactory(worldCardCatalog, nameof(worldCardCatalog)),
+                CreateConstantFactory(specialCompositeTeams, nameof(specialCompositeTeams)),
+                metrics)
+        {
+        }
+
+        /// <summary>
+        /// 카드 카탈로그와 특수 합성팀은 17,000개가 넘는 선수 시즌 전체를 훑어야 만들어지는데,
+        /// 새 게임 시작·계약 오퍼 화면은 둘 다 읽지 않는다. 그래서 실제로 읽는 화면이 열릴 때까지 미룬다.
+        /// </summary>
+        public HistoricalWorldRuntimeContent(
+            HistoricalContentReference contentReference,
+            WorldIdentityRegistry identityRegistry,
+            WorldHistorySnapshot worldHistory,
+            Func<WorldCardCatalog> worldCardCatalogFactory,
+            Func<IReadOnlyList<SpecialCompositeTeamSet>> specialCompositeTeamsFactory,
+            HistoricalWorldBuildMetrics metrics,
+            Func<int, SpecialCompositeTeamSet> specialCompositeTeamSetFactory = null)
         {
             ContentReference = contentReference ?? throw new ArgumentNullException(nameof(contentReference));
             IdentityRegistry = identityRegistry ?? throw new ArgumentNullException(nameof(identityRegistry));
             WorldHistory = worldHistory ?? throw new ArgumentNullException(nameof(worldHistory));
-            WorldCardCatalog = worldCardCatalog ?? throw new ArgumentNullException(nameof(worldCardCatalog));
             Metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
-            if (specialCompositeTeams == null)
-                throw new ArgumentNullException(nameof(specialCompositeTeams));
-            _specialCompositeTeams = new SpecialCompositeTeamSet[specialCompositeTeams.Count];
-            for (int index = 0; index < specialCompositeTeams.Count; index++)
-                _specialCompositeTeams[index] = specialCompositeTeams[index]
-                    ?? throw new ArgumentException("null 특수 합성팀 묶음이 있습니다.", nameof(specialCompositeTeams));
+            _worldCardCatalogFactory = worldCardCatalogFactory
+                ?? throw new ArgumentNullException(nameof(worldCardCatalogFactory));
+            _specialCompositeTeamsFactory = specialCompositeTeamsFactory
+                ?? throw new ArgumentNullException(nameof(specialCompositeTeamsFactory));
+            _specialCompositeTeamSetFactory = specialCompositeTeamSetFactory;
         }
 
         public HistoricalContentReference ContentReference { get; }
         public WorldIdentityRegistry IdentityRegistry { get; }
         public WorldHistorySnapshot WorldHistory { get; }
         public WorldAwardRecord WorldAwardRecord => WorldHistory.Awards;
-        public WorldCardCatalog WorldCardCatalog { get; }
-        public IReadOnlyList<SpecialCompositeTeamSet> SpecialCompositeTeams => _specialCompositeTeams;
+
+        public WorldCardCatalog WorldCardCatalog
+        {
+            get
+            {
+                WorldCardCatalog cached = _worldCardCatalog;
+                if (cached != null)
+                    return cached;
+                lock (_derivationLock)
+                {
+                    return _worldCardCatalog ??= _worldCardCatalogFactory()
+                        ?? throw new InvalidOperationException("WorldCardCatalog 생성이 null을 반환했습니다.");
+                }
+            }
+        }
+
+        public IReadOnlyList<SpecialCompositeTeamSet> SpecialCompositeTeams
+        {
+            get
+            {
+                SpecialCompositeTeamSet[] cached = _specialCompositeTeams;
+                if (cached != null)
+                    return cached;
+                lock (_derivationLock)
+                {
+                    return _specialCompositeTeams ??= CopyCompositeTeams(_specialCompositeTeamsFactory());
+                }
+            }
+        }
+
         public HistoricalWorldBuildMetrics Metrics { get; }
+
+        /// <summary>한 연도만 필요한 호출자가 44년치 합성팀 생성 비용을 내지 않게 한다.</summary>
+        public SpecialCompositeTeamSet GetSpecialCompositeTeamSet(int originYear)
+        {
+            lock (_derivationLock)
+            {
+                if (_specialCompositeTeamsByYear.TryGetValue(originYear, out SpecialCompositeTeamSet cached))
+                    return cached;
+                if (_specialCompositeTeams != null || _specialCompositeTeamSetFactory == null)
+                {
+                    SpecialCompositeTeamSet found = FindInAllSets(originYear);
+                    _specialCompositeTeamsByYear.Add(originYear, found);
+                    return found;
+                }
+                SpecialCompositeTeamSet built = _specialCompositeTeamSetFactory(originYear)
+                    ?? throw new InvalidOperationException($"{originYear} 특수 합성팀 생성이 null을 반환했습니다.");
+                _specialCompositeTeamsByYear.Add(originYear, built);
+                return built;
+            }
+        }
+
+        private SpecialCompositeTeamSet FindInAllSets(int originYear)
+        {
+            IReadOnlyList<SpecialCompositeTeamSet> all =
+                _specialCompositeTeams ??= CopyCompositeTeams(_specialCompositeTeamsFactory());
+            for (int index = 0; index < all.Count; index++)
+            {
+                if (all[index].OriginYear == originYear)
+                    return all[index];
+            }
+            throw new InvalidOperationException($"{originYear} 특수 합성팀을 찾을 수 없습니다.");
+        }
+
+        private static Func<WorldCardCatalog> CreateConstantFactory(WorldCardCatalog value, string parameterName)
+        {
+            if (value == null)
+                throw new ArgumentNullException(parameterName);
+            return () => value;
+        }
+
+        private static Func<IReadOnlyList<SpecialCompositeTeamSet>> CreateConstantFactory(
+            IReadOnlyList<SpecialCompositeTeamSet> value,
+            string parameterName)
+        {
+            if (value == null)
+                throw new ArgumentNullException(parameterName);
+            return () => value;
+        }
+
+        private static SpecialCompositeTeamSet[] CopyCompositeTeams(IReadOnlyList<SpecialCompositeTeamSet> source)
+        {
+            if (source == null)
+                throw new InvalidOperationException("특수 합성팀 생성이 null을 반환했습니다.");
+            var result = new SpecialCompositeTeamSet[source.Count];
+            for (int index = 0; index < source.Count; index++)
+                result[index] = source[index]
+                    ?? throw new InvalidOperationException("null 특수 합성팀 묶음이 있습니다.");
+            return result;
+        }
     }
 
     /// <summary>연도 순서대로 World History를 확정한 뒤 카드와 특수 합성팀을 만드는 단일 조립점이다.</summary>
@@ -112,17 +232,33 @@ namespace Baseball.Game.Historical
         private readonly AwardScoringPolicy _awardScoring;
         private readonly CardEditionBalanceTable _cardEditionBalance;
         private readonly IHistoricalSeasonSimulation _simulationOverride;
+        private readonly IBakedWorldHistorySource _bakedHistorySource;
 
         public HistoricalWorldRuntimeBuilder(
             BalanceTable balance,
             AwardScoringPolicy awardScoring = null,
             CardEditionBalanceTable cardEditionBalance = null,
-            IHistoricalSeasonSimulation simulationOverride = null)
+            IHistoricalSeasonSimulation simulationOverride = null,
+            IBakedWorldHistorySource bakedHistorySource = null)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _awardScoring = awardScoring ?? AwardScoringPolicy.CreateDefault();
             _cardEditionBalance = cardEditionBalance ?? CardEditionBalanceTable.CreateInitial();
             _simulationOverride = simulationOverride;
+            _bakedHistorySource = bakedHistorySource;
+        }
+
+        /// <summary>Bake 산출물을 만들거나 확인할 때 쓸, 지금 실행 조건 그대로의 Key다.</summary>
+        public BakedWorldHistoryKey CreateBakeKey(HistoricalBakedContent content, ulong worldHistorySeed)
+        {
+            if (content == null)
+                throw new ArgumentNullException(nameof(content));
+            return new BakedWorldHistoryKey(
+                WorldRecordMode.SimulatedHistory,
+                worldHistorySeed,
+                content.Manifest.ContentHash,
+                _balance.Version,
+                _balance.ContentHash);
         }
 
         public HistoricalWorldRuntimeContent Build(
@@ -137,10 +273,13 @@ namespace Baseball.Game.Historical
                 content.TeamSeasons,
                 content.IdentityNameCatalog,
                 worldHistorySeed);
-            return BuildCore(content, recordMode, worldHistorySeed, identityRegistry);
+            return BuildCore(content, recordMode, worldHistorySeed, identityRegistry, allowBakedHistory: true);
         }
 
-        /// <summary>표시 Identity만 교체해 Simulation 입력 독립성을 검증하는 내부 검증 경로다.</summary>
+        /// <summary>
+        /// 표시 Identity만 교체해 Simulation 입력 독립성을 검증하는 내부 검증 경로다.
+        /// 검증이 목적이므로 Bake를 쓰지 않고 항상 실제로 시뮬레이션한다.
+        /// </summary>
         internal HistoricalWorldRuntimeContent BuildForValidation(
             HistoricalBakedContent content,
             WorldRecordMode recordMode,
@@ -151,17 +290,19 @@ namespace Baseball.Game.Historical
                 throw new ArgumentNullException(nameof(content));
             if (identityRegistry == null)
                 throw new ArgumentNullException(nameof(identityRegistry));
-            return BuildCore(content, recordMode, worldHistorySeed, identityRegistry);
+            return BuildCore(content, recordMode, worldHistorySeed, identityRegistry, allowBakedHistory: false);
         }
 
         private HistoricalWorldRuntimeContent BuildCore(
             HistoricalBakedContent content,
             WorldRecordMode recordMode,
             ulong worldHistorySeed,
-            WorldIdentityRegistry identityRegistry)
+            WorldIdentityRegistry identityRegistry,
+            bool allowBakedHistory)
         {
             long startedAt = Stopwatch.GetTimestamp();
             var seasonMetrics = new List<HistoricalSeasonSimulationMetrics>(content.Years.Count);
+            bool restoredFromBake = false;
             WorldHistorySnapshot history;
             switch (recordMode)
             {
@@ -169,29 +310,115 @@ namespace Baseball.Game.Historical
                     history = BuildOriginalHistory(content, worldHistorySeed);
                     break;
                 case WorldRecordMode.SimulatedHistory:
-                    history = BuildSimulatedHistory(content, identityRegistry, worldHistorySeed, seasonMetrics);
+                    if (allowBakedHistory &&
+                        TryRestoreBakedHistory(content, worldHistorySeed, out WorldHistorySnapshot baked))
+                    {
+                        history = baked;
+                        restoredFromBake = true;
+                    }
+                    else
+                    {
+                        history = BuildSimulatedHistory(content, identityRegistry, worldHistorySeed, seasonMetrics);
+                    }
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(recordMode));
             }
-            WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(
-                content.PlayerSeasons,
-                history.Awards,
-                _cardEditionBalance);
-            SpecialCompositeTeamSet[] specialTeams = BuildSpecialCompositeTeams(
-                content,
-                history,
-                catalog,
-                worldHistorySeed);
+            var derivation = new DeferredWorldDerivation(this, content, history, worldHistorySeed);
             return new HistoricalWorldRuntimeContent(
                 HistoricalContentReference.FromManifest(content.Manifest),
                 identityRegistry,
                 history,
-                catalog,
-                specialTeams,
+                derivation.GetCardCatalog,
+                derivation.GetSpecialCompositeTeams,
                 new HistoricalWorldBuildMetrics(
                     seasonMetrics,
-                    Stopwatch.GetTimestamp() - startedAt));
+                    Stopwatch.GetTimestamp() - startedAt,
+                    restoredFromBake),
+                derivation.GetSpecialCompositeTeamSet);
+        }
+
+        /// <summary>
+        /// 카드 카탈로그와 특수 합성팀은 History가 확정된 뒤에야 만들 수 있고 서로 입력 관계가 있어서,
+        /// 두 파생물의 지연 생성 순서를 한곳에서 잡아 준다.
+        /// </summary>
+        private sealed class DeferredWorldDerivation
+        {
+            private readonly object _lock = new object();
+            private readonly HistoricalWorldRuntimeBuilder _owner;
+            private readonly HistoricalBakedContent _content;
+            private readonly WorldHistorySnapshot _history;
+            private readonly ulong _worldHistorySeed;
+            private WorldCardCatalog _cardCatalog;
+
+            public DeferredWorldDerivation(
+                HistoricalWorldRuntimeBuilder owner,
+                HistoricalBakedContent content,
+                WorldHistorySnapshot history,
+                ulong worldHistorySeed)
+            {
+                _owner = owner;
+                _content = content;
+                _history = history;
+                _worldHistorySeed = worldHistorySeed;
+            }
+
+            public WorldCardCatalog GetCardCatalog()
+            {
+                WorldCardCatalog cached = _cardCatalog;
+                if (cached != null)
+                    return cached;
+                lock (_lock)
+                {
+                    return _cardCatalog ??= WorldCardCatalogBuilder.Build(
+                        _content.PlayerSeasons,
+                        _history.Awards,
+                        _owner._cardEditionBalance);
+                }
+            }
+
+            public IReadOnlyList<SpecialCompositeTeamSet> GetSpecialCompositeTeams()
+            {
+                return _owner.BuildSpecialCompositeTeams(
+                    _content,
+                    _history,
+                    GetCardCatalog(),
+                    _worldHistorySeed);
+            }
+
+            public SpecialCompositeTeamSet GetSpecialCompositeTeamSet(int originYear)
+            {
+                return _owner.BuildSpecialCompositeTeamSet(
+                    new SpecialCompositeTeamBuilder(_owner._awardScoring),
+                    _content.GetYear(originYear),
+                    _history,
+                    GetCardCatalog(),
+                    _worldHistorySeed);
+            }
+        }
+
+        /// <summary>
+        /// Key가 정확히 맞는 Bake만 채택한다. 콘텐츠나 밸런스가 바뀌면 Key가 어긋나 자동으로
+        /// 실제 시뮬레이션으로 되돌아가므로, 다시 굽지 않아도 결과가 틀리지는 않는다(느려질 뿐이다).
+        /// </summary>
+        private bool TryRestoreBakedHistory(
+            HistoricalBakedContent content,
+            ulong worldHistorySeed,
+            out WorldHistorySnapshot snapshot)
+        {
+            snapshot = null;
+            if (_bakedHistorySource == null)
+                return false;
+            if (!_bakedHistorySource.TryLoad(CreateBakeKey(content, worldHistorySeed), out WorldHistorySnapshot loaded))
+                return false;
+            if (loaded == null ||
+                loaded.RecordMode != WorldRecordMode.SimulatedHistory ||
+                loaded.WorldHistorySeed != worldHistorySeed)
+            {
+                return false;
+            }
+            snapshot = loaded;
+            return true;
         }
 
         private static WorldHistorySnapshot BuildOriginalHistory(
@@ -274,18 +501,36 @@ namespace Baseball.Game.Historical
             var result = new SpecialCompositeTeamSet[content.Years.Count];
             for (int index = 0; index < content.Years.Count; index++)
             {
-                HistoricalYearContentDefinition year = content.Years[index];
-                ulong randomSeed = DeterministicSeed.Derive(
-                    worldHistorySeed,
-                    CompositeTeamStream + unchecked((ulong)year.Year));
-                result[index] = builder.Build(
-                    year.Year,
-                    year.PlayerSeasons,
+                result[index] = BuildSpecialCompositeTeamSet(
+                    builder,
+                    content.Years[index],
                     history,
                     cardCatalog,
-                    new Pcg32Random(randomSeed));
+                    worldHistorySeed);
             }
             return result;
+        }
+
+        /// <summary>
+        /// 연도마다 Seed를 따로 파생하므로 한 연도만 만들어도 전체를 만든 결과의 그 연도와 같다.
+        /// 구단주 모드 새 게임은 시작 연도 하나만 필요하다.
+        /// </summary>
+        private SpecialCompositeTeamSet BuildSpecialCompositeTeamSet(
+            SpecialCompositeTeamBuilder builder,
+            HistoricalYearContentDefinition year,
+            WorldHistorySnapshot history,
+            WorldCardCatalog cardCatalog,
+            ulong worldHistorySeed)
+        {
+            ulong randomSeed = DeterministicSeed.Derive(
+                worldHistorySeed,
+                CompositeTeamStream + unchecked((ulong)year.Year));
+            return builder.Build(
+                year.Year,
+                year.PlayerSeasons,
+                history,
+                cardCatalog,
+                new Pcg32Random(randomSeed));
         }
 
         private static void Append<T>(ICollection<T> target, IReadOnlyList<T> source)

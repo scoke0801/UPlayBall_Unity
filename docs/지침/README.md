@@ -7,5 +7,6 @@
 - [Simulation_Architecture_Guidelines_UPlayBall.md](Simulation_Architecture_Guidelines_UPlayBall.md) — 어셈블리 레이어 분리, 시뮬레이션/표현 분리, 결정론적 시뮬레이션
 - [Balance_Testing_Guidelines_UPlayBall.md](Balance_Testing_Guidelines_UPlayBall.md) — 대량 시뮬레이션 밸런스 테스트 도구 지침
 - [Headless_Regression_Guidelines_UPlayBall.md](Headless_Regression_Guidelines_UPlayBall.md) — Unity 밖 .NET Release 장기 회귀 실행 구조
+- [World_History_Bake_Guidelines_UPlayBall.md](World_History_Bake_Guidelines_UPlayBall.md) — 새 게임 시작 비용, 44시즌 World History Bake와 Bake Key 규칙
 - [Project_Principles_UPlayBall.md](Project_Principles_UPlayBall.md) — 프로젝트 7대 원칙
 - [Unity_UI_Production_Guidelines_UPlayBall.md](Unity_UI_Production_Guidelines_UPlayBall.md) — Unity UI 제작 지침

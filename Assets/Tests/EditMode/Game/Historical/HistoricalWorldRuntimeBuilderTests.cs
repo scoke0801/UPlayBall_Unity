@@ -353,6 +353,177 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(hasDifferentStatistics, Is.True);
         }
 
+        [Test]
+        public void BakedHistory_실제시뮬레이션과같은결과를복원하고시뮬레이션을생략한다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            const ulong seed = 4_242UL;
+            HistoricalWorldRuntimeContent simulated = CreateBuilder(new RecordingSeasonSimulation()).Build(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                seed);
+            var source = new StubBakedWorldHistorySource(CreateBakedBytes(content, simulated.WorldHistory, seed));
+            var replaySimulation = new RecordingSeasonSimulation();
+
+            HistoricalWorldRuntimeContent restored = new HistoricalWorldRuntimeBuilder(
+                BalanceTable.CreateDefault(),
+                simulationOverride: replaySimulation,
+                bakedHistorySource: source).Build(content, WorldRecordMode.SimulatedHistory, seed);
+
+            Assert.That(replaySimulation.CallCount, Is.Zero, "Bake가 적중하면 시즌을 다시 돌리지 않아야 한다.");
+            Assert.That(restored.Metrics.IsHistoryRestoredFromBake, Is.True);
+            AssertSameHistory(simulated.WorldHistory, restored.WorldHistory);
+        }
+
+        [Test]
+        public void BakedHistory_Seed가다르면Bake를무시하고실제로시뮬레이션한다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            const ulong bakedSeed = 4_242UL;
+            HistoricalWorldRuntimeContent baked = CreateBuilder(new RecordingSeasonSimulation()).Build(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                bakedSeed);
+            var source = new StubBakedWorldHistorySource(
+                CreateBakedBytes(content, baked.WorldHistory, bakedSeed));
+            var replaySimulation = new RecordingSeasonSimulation();
+
+            HistoricalWorldRuntimeContent other = new HistoricalWorldRuntimeBuilder(
+                BalanceTable.CreateDefault(),
+                simulationOverride: replaySimulation,
+                bakedHistorySource: source).Build(content, WorldRecordMode.SimulatedHistory, bakedSeed + 1UL);
+
+            Assert.That(replaySimulation.CallCount, Is.EqualTo(content.Years.Count));
+            Assert.That(other.Metrics.IsHistoryRestoredFromBake, Is.False);
+        }
+
+        [Test]
+        public void BakedHistory_Balance가바뀌면Bake를무시한다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            const ulong seed = 4_242UL;
+            HistoricalWorldRuntimeContent baked = CreateBuilder(new RecordingSeasonSimulation()).Build(
+                content,
+                WorldRecordMode.SimulatedHistory,
+                seed);
+            var source = new StubBakedWorldHistorySource(CreateBakedBytes(content, baked.WorldHistory, seed));
+            var replaySimulation = new RecordingSeasonSimulation();
+
+            HistoricalWorldRuntimeContent result = new HistoricalWorldRuntimeBuilder(
+                CreateBalanceWithDifferentContentHash(),
+                simulationOverride: replaySimulation,
+                bakedHistorySource: source).Build(content, WorldRecordMode.SimulatedHistory, seed);
+
+            Assert.That(replaySimulation.CallCount, Is.EqualTo(content.Years.Count));
+            Assert.That(result.Metrics.IsHistoryRestoredFromBake, Is.False);
+        }
+
+        /// <summary>Bake Key에 들어가는 Balance 식별자만 바꾼 표를 만든다.</summary>
+        private static BalanceTable CreateBalanceWithDifferentContentHash()
+        {
+            BalanceTable source = BalanceTable.CreateDefault();
+            return new BalanceTable(
+                source.Version + 1,
+                source.PlateDiscipline,
+                source.BattedBall,
+                source.BaseRunning,
+                source.ContractOffer,
+                source.TeamGeneration,
+                source.PlayerEvaluation,
+                source.CareerSeason,
+                contentHash: "changed-balance-content");
+        }
+
+        private static byte[] CreateBakedBytes(
+            HistoricalBakedContent content,
+            WorldHistorySnapshot history,
+            ulong worldHistorySeed)
+        {
+            BakedWorldHistoryKey key = CreateBuilder(new RecordingSeasonSimulation())
+                .CreateBakeKey(content, worldHistorySeed);
+            return WorldHistoryBakeCodec.Encode(new BakedWorldHistoryPayload(
+                key,
+                new WorldHistorySaveMapper().CreateSaveData(history)));
+        }
+
+        private static void AssertSameHistory(WorldHistorySnapshot expected, WorldHistorySnapshot actual)
+        {
+            Assert.That(actual.RecordMode, Is.EqualTo(expected.RecordMode));
+            Assert.That(actual.WorldHistorySeed, Is.EqualTo(expected.WorldHistorySeed));
+            Assert.That(actual.Statistics.Count, Is.EqualTo(expected.Statistics.Count));
+            for (int index = 0; index < expected.Statistics.Count; index++)
+            {
+                SeasonStatistics left = expected.Statistics[index];
+                SeasonStatistics right = actual.Statistics[index];
+                Assert.That(right.PlayerSeasonId, Is.EqualTo(left.PlayerSeasonId));
+                Assert.That(right.TeamSeasonKey, Is.EqualTo(left.TeamSeasonKey));
+                Assert.That(right.SeasonYear, Is.EqualTo(left.SeasonYear));
+                Assert.That(right.PlateAppearances, Is.EqualTo(left.PlateAppearances));
+                Assert.That(right.Hits, Is.EqualTo(left.Hits));
+                Assert.That(right.HomeRuns, Is.EqualTo(left.HomeRuns));
+                Assert.That(right.EarnedRuns, Is.EqualTo(left.EarnedRuns));
+                Assert.That(right.PitchingOuts, Is.EqualTo(left.PitchingOuts));
+            }
+
+            Assert.That(actual.TeamStatistics.Count, Is.EqualTo(expected.TeamStatistics.Count));
+            for (int index = 0; index < expected.TeamStatistics.Count; index++)
+            {
+                Assert.That(actual.TeamStatistics[index].Wins, Is.EqualTo(expected.TeamStatistics[index].Wins));
+                Assert.That(actual.TeamStatistics[index].Losses, Is.EqualTo(expected.TeamStatistics[index].Losses));
+            }
+
+            Assert.That(actual.Standings.Count, Is.EqualTo(expected.Standings.Count));
+            for (int index = 0; index < expected.Standings.Count; index++)
+            {
+                Assert.That(actual.Standings[index].Rank, Is.EqualTo(expected.Standings[index].Rank));
+                Assert.That(
+                    actual.Standings[index].TeamSeasonKey,
+                    Is.EqualTo(expected.Standings[index].TeamSeasonKey));
+            }
+
+            Assert.That(actual.PostseasonResults.Count, Is.EqualTo(expected.PostseasonResults.Count));
+            for (int index = 0; index < expected.PostseasonResults.Count; index++)
+            {
+                Assert.That(
+                    actual.PostseasonResults[index].ChampionTeamSeasonKey,
+                    Is.EqualTo(expected.PostseasonResults[index].ChampionTeamSeasonKey));
+            }
+
+            Assert.That(actual.Awards.Entries.Count, Is.EqualTo(expected.Awards.Entries.Count));
+            for (int index = 0; index < expected.Awards.Entries.Count; index++)
+            {
+                Assert.That(
+                    actual.Awards.Entries[index].PlayerSeasonId,
+                    Is.EqualTo(expected.Awards.Entries[index].PlayerSeasonId));
+                Assert.That(
+                    actual.Awards.Entries[index].AwardType,
+                    Is.EqualTo(expected.Awards.Entries[index].AwardType));
+            }
+        }
+
+        /// <summary>Key가 맞을 때만 구운 결과를 내주는 최소 구현이다.</summary>
+        private sealed class StubBakedWorldHistorySource : IBakedWorldHistorySource
+        {
+            private readonly byte[] _bytes;
+
+            public StubBakedWorldHistorySource(byte[] bytes)
+            {
+                _bytes = bytes;
+            }
+
+            public bool TryLoad(BakedWorldHistoryKey key, out WorldHistorySnapshot snapshot)
+            {
+                snapshot = null;
+                if (!WorldHistoryBakeCodec.TryPeekKey(_bytes, out BakedWorldHistoryKey candidate) ||
+                    !candidate.Equals(key))
+                {
+                    return false;
+                }
+                snapshot = new WorldHistorySaveMapper().Restore(WorldHistoryBakeCodec.Decode(_bytes).History);
+                return true;
+            }
+        }
+
         private static HistoricalWorldRuntimeBuilder CreateBuilder(IHistoricalSeasonSimulation simulation)
         {
             return new HistoricalWorldRuntimeBuilder(

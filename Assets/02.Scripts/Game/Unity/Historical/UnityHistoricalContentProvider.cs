@@ -40,6 +40,19 @@ namespace Baseball.Game.Historical
         }
     }
 
+    /// <summary>Runtime Historical payload를 얼마나 검증할지 정한다.</summary>
+    public enum HistoricalContentVerificationMode
+    {
+        /// <summary>
+        /// 스키마·버전·연도별 개수만 확인하고 44개 파일 전체 SHA-256과 Archive Hash는 건너뛴다.
+        /// 저작 산출물의 무결성은 데이터 저작·CI가 책임지므로 게임 시작에서 다시 볼 이유가 없다.
+        /// </summary>
+        Fast = 0,
+
+        /// <summary>파일별 SHA-256, Archive Hash, Runtime 안전 필드까지 전부 확인한다. 저작 도구와 검증 테스트용이다.</summary>
+        Full = 1
+    }
+
     /// <summary>Player Build TextAsset을 검증하고 고정 Definition으로 한 번만 역직렬화한다.</summary>
     public sealed class UnityHistoricalContentProvider : IHistoricalContentProvider
     {
@@ -49,11 +62,11 @@ namespace Baseball.Game.Historical
         public const string SupportedReferenceDataVersion = "kbo-normalized-v3";
         public const int SupportedNormalizedSchemaVersion = 3;
         public const string SupportedNormalizedImporterVersion = "1.2.0";
-        public const string SupportedAbilityFormulaVersion = "historical-ability-v4";
-        public const string SupportedPositionRoleClassifierVersion = "season-position-role-v4";
+        public const string SupportedAbilityFormulaVersion = "historical-ability-v5";
+        public const string SupportedPositionRoleClassifierVersion = "season-position-role-v5";
         public const string SupportedRosterBuilderVersion = "position-first-core25-v2";
-        public const string SupportedCostFormulaVersion = "historical-role-composite-v6";
-        public const string SupportedDerivationBalanceVersion = "historical-derivation-balance-v8";
+        public const string SupportedCostFormulaVersion = "historical-role-composite-v7";
+        public const string SupportedDerivationBalanceVersion = "historical-derivation-balance-v9";
         public const string SupportedGeneratorVersion = "source-backed-runtime-bake-v2";
         public const string SupportedBalanceVersion = "historical-source-backed-v2";
         public const string SupportedNamePolicyVersion = "world-identity-name-pool-v1";
@@ -61,14 +74,19 @@ namespace Baseball.Game.Historical
 
         private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
         private readonly HistoricalRuntimeContentCatalog _catalog;
+        private readonly HistoricalContentVerificationMode _verificationMode;
         private readonly object _loadLock = new object();
         private HistoricalBakedContent _cached;
 
-        public UnityHistoricalContentProvider(HistoricalRuntimeContentCatalog catalog)
+        public UnityHistoricalContentProvider(
+            HistoricalRuntimeContentCatalog catalog,
+            HistoricalContentVerificationMode verificationMode = HistoricalContentVerificationMode.Fast)
         {
             _catalog = catalog != null ? catalog : throw new ArgumentNullException(nameof(catalog));
+            _verificationMode = verificationMode;
         }
 
+        public HistoricalContentVerificationMode VerificationMode => _verificationMode;
         public int MaterializationCount { get; private set; }
 
         public HistoricalBakedContent Load()
@@ -101,17 +119,12 @@ namespace Baseball.Game.Historical
             ValidateSchemaManifestFieldPresence(manifestText, manifestDto.ContentSchemaVersion);
             HistoricalContentManifest manifest = BuildManifest(manifestDto);
             ValidateCatalogShape(manifestDto);
-            using var contentHashVerifier = new RuntimeContentHashVerifier(manifestDto);
 
-            var archiveEntries = new List<KeyValuePair<string, string>>(manifestDto.Years.Length + 1);
             VerifiedPayload personsPayload = VerifyPayload(
                 _catalog.PlayerPersons,
                 manifestDto.PlayerPersons,
-                null);
-            archiveEntries.Add(new KeyValuePair<string, string>(
-                manifestDto.PlayerPersons.Path,
-                personsPayload.Sha256));
-            contentHashVerifier.AppendPlayerPersons(personsPayload.Bytes);
+                null,
+                _verificationMode);
             HistoricalRuntimePlayerPersonArrayDto personPayload = ParsePersonArray(personsPayload);
             HistoricalRuntimePlayerPersonDto[] personDtos = personPayload.Items;
             ValidateCount(
@@ -125,7 +138,41 @@ namespace Baseball.Game.Historical
             for (int index = 0; index < personDtos.Length; index++)
                 persons[index] = MapPerson(personDtos[index], personsPayload.RelativePath);
 
+            WorldIdentityNameCatalog identityNames = CreateIdentityNames(
+                manifestDto,
+                personPayload,
+                personsPayload);
             Dictionary<int, HistoricalRuntimeYearContentFile> catalogYears = IndexCatalogYears();
+
+            if (_verificationMode == HistoricalContentVerificationMode.Full)
+            {
+                HistoricalYearContentDefinition[] years = MaterializeAllYearsVerified(
+                    manifestDto,
+                    catalogYears,
+                    personsPayload,
+                    persons.Length);
+                return new HistoricalBakedContent(manifest, persons, years, identityNames);
+            }
+
+            // 연도 하나가 평균 500KB이고 44개가 전부 필요한 화면은 역대 기록뿐이다.
+            // 새 게임 시작은 한두 해만 읽으므로 나머지는 실제로 요구될 때 파싱한다.
+            var yearSource = new LazyRuntimeYearContentSource(manifestDto, catalogYears);
+            return new HistoricalBakedContent(manifest, persons, yearSource, identityNames);
+        }
+
+        private HistoricalYearContentDefinition[] MaterializeAllYearsVerified(
+            HistoricalRuntimeManifestDto manifestDto,
+            Dictionary<int, HistoricalRuntimeYearContentFile> catalogYears,
+            VerifiedPayload personsPayload,
+            int personCount)
+        {
+            using var contentHashVerifier = new RuntimeContentHashVerifier(manifestDto);
+            var archiveEntries = new List<KeyValuePair<string, string>>(manifestDto.Years.Length + 1);
+            archiveEntries.Add(new KeyValuePair<string, string>(
+                manifestDto.PlayerPersons.Path,
+                personsPayload.Sha256));
+            contentHashVerifier.AppendPlayerPersons(personsPayload.Bytes);
+
             var years = new HistoricalYearContentDefinition[manifestDto.Years.Length];
             int totalPlayerSeasons = 0;
             int totalTeamSeasons = 0;
@@ -134,17 +181,13 @@ namespace Baseball.Game.Historical
             int totalAwards = 0;
             for (int index = 0; index < manifestDto.Years.Length; index++)
             {
-                HistoricalRuntimeYearEntryDto entry = manifestDto.Years[index]
-                    ?? throw new HistoricalContentLoadException("Manifest에 null 연도 항목이 있습니다.", "manifest.json");
-                if (!catalogYears.TryGetValue(entry.Year, out HistoricalRuntimeYearContentFile catalogYear))
-                {
-                    throw new HistoricalContentLoadException(
-                        "Runtime catalog에 manifest 연도 파일이 없습니다.",
-                        entry.Path,
-                        entry.Year);
-                }
-
-                VerifiedPayload payload = VerifyPayload(catalogYear.File, entry, entry.Year);
+                HistoricalRuntimeYearEntryDto entry = ResolveYearEntry(manifestDto, index);
+                HistoricalRuntimeYearContentFile catalogYear = ResolveCatalogYear(catalogYears, entry);
+                VerifiedPayload payload = VerifyPayload(
+                    catalogYear.File,
+                    entry,
+                    entry.Year,
+                    HistoricalContentVerificationMode.Full);
                 archiveEntries.Add(new KeyValuePair<string, string>(entry.Path, payload.Sha256));
                 contentHashVerifier.AppendYear(payload.Bytes, index);
                 HistoricalRuntimeYearContentDto yearDto = ParseJson<HistoricalRuntimeYearContentDto>(
@@ -164,12 +207,20 @@ namespace Baseball.Game.Historical
             ValidateSummary(
                 manifestDto,
                 years.Length,
-                persons.Length,
+                personCount,
                 totalPlayerSeasons,
                 totalTeamSeasons,
                 totalCards,
                 totalRecords,
                 totalAwards);
+            return years;
+        }
+
+        private static WorldIdentityNameCatalog CreateIdentityNames(
+            HistoricalRuntimeManifestDto manifestDto,
+            HistoricalRuntimePlayerPersonArrayDto personPayload,
+            VerifiedPayload personsPayload)
+        {
             HistoricalRuntimeWorldIdentityNamePoolDto identityPool = personPayload.WorldIdentityNamePool;
             if (manifestDto.ContentSchemaVersion >= 5 && identityPool == null)
             {
@@ -177,20 +228,90 @@ namespace Baseball.Game.Historical
                     "Content Schema v5에는 worldIdentityNamePool이 필요합니다.",
                     personsPayload.RelativePath);
             }
-            if (identityPool != null)
+            if (identityPool == null)
+                return null;
+            ValidateVersion(
+                "worldIdentityNamePool.version",
+                SupportedNamePolicyVersion,
+                identityPool.Version);
+            return new WorldIdentityNameCatalog(
+                identityPool.DomesticPlayerNames,
+                identityPool.ForeignPlayerNames,
+                identityPool.FranchiseNames);
+        }
+
+        private static HistoricalRuntimeYearEntryDto ResolveYearEntry(
+            HistoricalRuntimeManifestDto manifestDto,
+            int index)
+        {
+            return manifestDto.Years[index]
+                ?? throw new HistoricalContentLoadException("Manifest에 null 연도 항목이 있습니다.", "manifest.json");
+        }
+
+        private static HistoricalRuntimeYearContentFile ResolveCatalogYear(
+            Dictionary<int, HistoricalRuntimeYearContentFile> catalogYears,
+            HistoricalRuntimeYearEntryDto entry)
+        {
+            if (!catalogYears.TryGetValue(entry.Year, out HistoricalRuntimeYearContentFile catalogYear))
             {
-                ValidateVersion(
-                    "worldIdentityNamePool.version",
-                    SupportedNamePolicyVersion,
-                    identityPool.Version);
+                throw new HistoricalContentLoadException(
+                    "Runtime catalog에 manifest 연도 파일이 없습니다.",
+                    entry.Path,
+                    entry.Year);
             }
-            WorldIdentityNameCatalog identityNames = identityPool == null
-                ? null
-                : new WorldIdentityNameCatalog(
-                    identityPool.DomesticPlayerNames,
-                    identityPool.ForeignPlayerNames,
-                    identityPool.FranchiseNames);
-            return new HistoricalBakedContent(manifest, persons, years, identityNames);
+            return catalogYear;
+        }
+
+        /// <summary>
+        /// 요청받은 연도 하나만 TextAsset에서 읽어 파싱한다.
+        /// 연도별 개수 검증(manifest entry 대조)은 그대로 수행하므로 그 연도의 정합성은 여전히 보장된다.
+        /// </summary>
+        private sealed class LazyRuntimeYearContentSource : IHistoricalYearContentSource
+        {
+            private readonly Dictionary<int, HistoricalRuntimeYearEntryDto> _entriesByYear;
+            private readonly Dictionary<int, HistoricalRuntimeYearContentFile> _catalogYears;
+            private readonly int[] _years;
+
+            public LazyRuntimeYearContentSource(
+                HistoricalRuntimeManifestDto manifestDto,
+                Dictionary<int, HistoricalRuntimeYearContentFile> catalogYears)
+            {
+                _catalogYears = catalogYears;
+                _entriesByYear = new Dictionary<int, HistoricalRuntimeYearEntryDto>(manifestDto.Years.Length);
+                for (int index = 0; index < manifestDto.Years.Length; index++)
+                {
+                    HistoricalRuntimeYearEntryDto entry = ResolveYearEntry(manifestDto, index);
+                    if (!_entriesByYear.TryAdd(entry.Year, entry))
+                    {
+                        throw new HistoricalContentLoadException(
+                            "Manifest에 같은 연도가 중복되었습니다.",
+                            entry.Path,
+                            entry.Year);
+                    }
+                }
+                _years = new int[_entriesByYear.Count];
+                _entriesByYear.Keys.CopyTo(_years, 0);
+                Array.Sort(_years);
+            }
+
+            public IReadOnlyList<int> Years => _years;
+
+            public HistoricalYearContentDefinition Load(int year)
+            {
+                if (!_entriesByYear.TryGetValue(year, out HistoricalRuntimeYearEntryDto entry))
+                    throw new HistoricalContentLoadException("Manifest에 없는 연도입니다.", null, year);
+                HistoricalRuntimeYearContentFile catalogYear = ResolveCatalogYear(_catalogYears, entry);
+                VerifiedPayload payload = VerifyPayload(
+                    catalogYear.File,
+                    entry,
+                    entry.Year,
+                    HistoricalContentVerificationMode.Fast);
+                HistoricalRuntimeYearContentDto yearDto = ParseJson<HistoricalRuntimeYearContentDto>(
+                    payload.Text,
+                    payload.RelativePath,
+                    entry.Year);
+                return MapYear(yearDto, entry, payload.RelativePath);
+            }
         }
 
         private static HistoricalContentManifest BuildManifest(HistoricalRuntimeManifestDto source)
@@ -390,7 +511,8 @@ namespace Baseball.Game.Historical
         private static VerifiedPayload VerifyPayload(
             HistoricalRuntimeContentFile catalogFile,
             HistoricalRuntimeFileEntryDto manifestEntry,
-            int? year)
+            int? year,
+            HistoricalContentVerificationMode verificationMode)
         {
             if (catalogFile == null)
                 throw new HistoricalContentLoadException("Runtime catalog 파일 참조가 없습니다.", manifestEntry?.Path, year);
@@ -399,13 +521,15 @@ namespace Baseball.Game.Historical
                 manifestEntry?.Path,
                 manifestEntry?.Sha256,
                 manifestEntry?.ByteLength ?? -1,
-                year);
+                year,
+                verificationMode);
         }
 
         private static VerifiedPayload VerifyPayload(
             HistoricalRuntimeContentFile catalogFile,
             HistoricalRuntimeYearEntryDto manifestEntry,
-            int year)
+            int year,
+            HistoricalContentVerificationMode verificationMode)
         {
             if (catalogFile == null)
                 throw new HistoricalContentLoadException("Runtime catalog 연도 파일 참조가 없습니다.", manifestEntry?.Path, year);
@@ -414,7 +538,8 @@ namespace Baseball.Game.Historical
                 manifestEntry?.Path,
                 manifestEntry?.Sha256,
                 manifestEntry?.ByteLength ?? -1,
-                year);
+                year,
+                verificationMode);
         }
 
         private static VerifiedPayload VerifyPayload(
@@ -422,7 +547,8 @@ namespace Baseball.Game.Historical
             string expectedPath,
             string expectedHash,
             long expectedByteLength,
-            int? year)
+            int? year,
+            HistoricalContentVerificationMode verificationMode)
         {
             string path = expectedPath ?? string.Empty;
             ValidateLogicalPath(path, year);
@@ -445,17 +571,24 @@ namespace Baseball.Game.Historical
                     year);
             }
 
-            string actualHash = ComputeSha256Hex(bytes);
-            if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            // Fast에서는 23MB에 대한 SHA-256 재계산과 23MB 문자열 스캔을 건너뛴다.
+            // 둘 다 Bake 산출물의 저작 무결성 검사이며, Full 모드 검증 테스트가 계속 수행한다.
+            string actualHash = string.Empty;
+            if (verificationMode == HistoricalContentVerificationMode.Full)
             {
-                throw new HistoricalContentLoadException(
-                    $"파일 SHA-256이 다릅니다. expected={expectedHash}, actual={actualHash}",
-                    path,
-                    year);
+                actualHash = ComputeSha256Hex(bytes);
+                if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new HistoricalContentLoadException(
+                        $"파일 SHA-256이 다릅니다. expected={expectedHash}, actual={actualHash}",
+                        path,
+                        year);
+                }
             }
 
             string text = Decode(bytes, path, year);
-            ValidateRuntimeSafePayloadText(text, path, year);
+            if (verificationMode == HistoricalContentVerificationMode.Full)
+                ValidateRuntimeSafePayloadText(text, path, year);
             return new VerifiedPayload(path, actualHash, text, bytes);
         }
 

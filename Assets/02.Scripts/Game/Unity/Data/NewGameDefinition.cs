@@ -138,6 +138,12 @@ namespace Baseball.Game.Data
 
         [Header("Historical Runtime Content")]
         [SerializeField] private HistoricalRuntimeContentCatalog _historicalContentCatalog;
+        [SerializeField, Tooltip("비워 두면 새 게임마다 44시즌을 실제로 시뮬레이션한다. 툴 런처의 World History Bake로 채운다.")]
+        private BakedWorldHistoryCatalog _bakedWorldHistoryCatalog;
+        [SerializeField, Tooltip(
+            "커리어 새 게임이 고를 월드 Seed 후보다. 비워 두면 시작할 때마다 임의 Seed를 뽑으므로 Bake가 적중하지 않는다. " +
+            "여기에 넣은 Seed만큼 서로 다른 월드가 만들어지고, 그 전부를 미리 구울 수 있다.")]
+        private long[] _careerWorldSeedPool = Array.Empty<long>();
         [SerializeField] private int[] _historicalLeagueSeasonYears =
         {
             2016, 2017, 2018, 2019, 2020,
@@ -405,6 +411,21 @@ namespace Baseball.Game.Data
         [SerializeField, Range(1, 28)] private int _seasonOpeningDay = 1;
         [SerializeField, Min(1)] private int _gamesBetweenRestDays = 6;
 
+        private static readonly object SharedContentProviderLock = new object();
+        private static HistoricalRuntimeContentCatalog SharedContentProviderCatalog;
+        private static UnityHistoricalContentProvider SharedContentProvider;
+
+        /// <summary>Domain Reload를 끈 Play Mode에서 이전 세션의 Provider가 남지 않게 한다.</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetSharedContentProvider()
+        {
+            lock (SharedContentProviderLock)
+            {
+                SharedContentProvider = null;
+                SharedContentProviderCatalog = null;
+            }
+        }
+
         /// <summary>
         /// Resources의 Production 정적 정의를 읽으며 누락 시 Synthetic으로 대체하지 않는다.
         /// </summary>
@@ -431,7 +452,11 @@ namespace Baseball.Game.Data
             return LoadDefinition().ToOwnerModeBalanceTable();
         }
 
-        /// <summary>명시적으로 연결된 Runtime Catalog만 사용하며 누락 시 Synthetic으로 대체하지 않는다.</summary>
+        /// <summary>
+        /// 명시적으로 연결된 Runtime Catalog만 사용하며 누락 시 Synthetic으로 대체하지 않는다.
+        /// Provider는 23MB 역사 payload를 인스턴스 단위로 캐시하므로, 같은 Catalog에는 같은 인스턴스를 돌려준다.
+        /// 그렇지 않으면 구단주 모드와 선수 모드가 같은 데이터를 각자 한 번씩 파싱한다.
+        /// </summary>
         public IHistoricalContentProvider CreateHistoricalContentProvider()
         {
             if (_historicalContentCatalog == null)
@@ -439,10 +464,71 @@ namespace Baseball.Game.Data
                 throw new InvalidOperationException(
                     "Production NewGameDefinition에 HistoricalRuntimeContentCatalog가 연결되지 않았습니다.");
             }
-            return new UnityHistoricalContentProvider(_historicalContentCatalog);
+            lock (SharedContentProviderLock)
+            {
+                if (SharedContentProvider != null &&
+                    ReferenceEquals(SharedContentProviderCatalog, _historicalContentCatalog))
+                {
+                    return SharedContentProvider;
+                }
+                SharedContentProviderCatalog = _historicalContentCatalog;
+                SharedContentProvider = new UnityHistoricalContentProvider(_historicalContentCatalog);
+                return SharedContentProvider;
+            }
         }
 
         public HistoricalRuntimeContentCatalog HistoricalContentCatalog => _historicalContentCatalog;
+        public BakedWorldHistoryCatalog BakedWorldHistoryCatalog => _bakedWorldHistoryCatalog;
+        public IReadOnlyList<long> CareerWorldSeedPool => _careerWorldSeedPool ?? Array.Empty<long>();
+
+        /// <summary>Editor Baker가 산출물 Catalog를 연결한다.</summary>
+        public void ConfigureBakedWorldHistoryCatalog(BakedWorldHistoryCatalog catalog)
+        {
+            _bakedWorldHistoryCatalog = catalog;
+        }
+
+        /// <summary>
+        /// Pool이 비어 있지 않으면 그중 하나를 골라 Bake가 적중하게 한다.
+        /// Pool이 비어 있으면 호출자가 오늘처럼 임의 Seed를 쓰도록 false를 돌려준다.
+        /// </summary>
+        public bool TrySelectCareerWorldSeed(ulong selector, out ulong worldSeed)
+        {
+            IReadOnlyList<long> pool = CareerWorldSeedPool;
+            if (pool.Count == 0)
+            {
+                worldSeed = 0UL;
+                return false;
+            }
+            worldSeed = unchecked((ulong)pool[(int)(selector % (ulong)pool.Count)]);
+            return true;
+        }
+
+        /// <summary>Bake Catalog가 없으면 null을 돌려주고, Builder는 실제 시뮬레이션 경로를 쓴다.</summary>
+        public IBakedWorldHistorySource CreateBakedWorldHistorySource()
+        {
+            return _bakedWorldHistoryCatalog == null
+                ? null
+                : new UnityBakedWorldHistorySource(
+                    _bakedWorldHistoryCatalog,
+                    new UnityBakedWorldHistoryDiagnostics());
+        }
+
+        /// <summary>Resources 정의에서 Bake Source를 만든다.</summary>
+        public static IBakedWorldHistorySource LoadBakedWorldHistorySource()
+        {
+            return LoadDefinition().CreateBakedWorldHistorySource();
+        }
+
+        /// <summary>Resources 정의의 Career World Seed Pool에서 하나를 고른다.</summary>
+        public static bool TrySelectCareerWorldSeedFromResources(ulong selector, out ulong worldSeed)
+        {
+            return LoadDefinition().TrySelectCareerWorldSeed(selector, out worldSeed);
+        }
+
+        private sealed class UnityBakedWorldHistoryDiagnostics : UnityBakedWorldHistorySource.ILoadDiagnostics
+        {
+            public void ReportBakeIgnored(string message) => Debug.LogWarning(message);
+        }
 
         /// <summary>비어 있는 TeamSeasonKey는 Runtime에서 첫 유효 정규구단을 선택한다.</summary>
         public OwnerModeNewGameConfiguration ToOwnerModeConfiguration()
@@ -642,7 +728,8 @@ namespace Baseball.Game.Data
             var bakedContentProvider = new HistoricalCareerBakedContentProvider(
                 CreateHistoricalContentProvider(),
                 balance,
-                _historicalLeagueSeasonYears);
+                _historicalLeagueSeasonYears,
+                CreateBakedWorldHistorySource());
 
             return new NewGameConfiguration(
                 balance,

@@ -543,7 +543,13 @@ namespace Baseball.Game.Career
         private static ulong CreateRuntimeSeed()
         {
             // 시스템 시간은 Seed를 고르는 Game 레이어 경계에서만 사용하며, 선택된 값은 즉시 상태에 저장한다.
-            return unchecked((ulong)DateTime.UtcNow.Ticks);
+            ulong selector = unchecked((ulong)DateTime.UtcNow.Ticks);
+
+            // Seed Pool이 설정돼 있으면 그 안에서 고른다. 미리 구운 월드가 적중해 새 게임이 즉시 열리고,
+            // Pool 크기만큼의 월드 다양성은 그대로 유지된다. Pool이 비어 있으면 지금까지처럼 매번 새 월드다.
+            return NewGameDefinition.TrySelectCareerWorldSeedFromResources(selector, out ulong pooledSeed)
+                ? pooledSeed
+                : selector;
         }
     }
 }
