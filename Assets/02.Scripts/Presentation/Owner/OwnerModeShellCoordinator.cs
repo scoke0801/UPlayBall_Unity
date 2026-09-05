@@ -19,6 +19,7 @@ namespace Baseball.Presentation.Owner
     public sealed class OwnerModeShellCoordinator : MonoBehaviour
     {
         public const string HomeRouteId = "Owner.Home";
+        public const string MatchRouteId = "Owner.Match";
 
         private readonly OwnerModeRuntimeSnapshotFactory _snapshotFactory = new OwnerModeRuntimeSnapshotFactory();
         private readonly OwnerSharedInformationSnapshotFactory _sharedInformationSnapshotFactory =
@@ -355,8 +356,9 @@ namespace Baseball.Presentation.Owner
             _shell.SetInspectorVisible(false);
             _shell.SetActionBarVisible(false);
             _matchSpectatorView?.SetVisible(true);
+            // 관전은 직접 탐색하는 메뉴가 아니라 Match 흐름의 일시 상태이므로 등록된 상위 Route를 유지한다.
             _presenter?.ShowContext(new ShellContextModel(
-                "Owner.Match.Spectator",
+                MatchRouteId,
                 "경기 관전",
                 "감독 AI의 경기 운영을 이벤트 중계로 확인합니다.",
                 "구단주 모드"));

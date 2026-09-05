@@ -14,7 +14,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(profile.Capabilities.Has(UiCapability.CanManageFinance), Is.True);
             AssertEnabled(profile, "Owner.Roster");
             AssertEnabled(profile, "Owner.Club");
-            AssertEnabled(profile, "Owner.Match");
+            AssertEnabled(profile, OwnerModeShellCoordinator.MatchRouteId);
             AssertEnabled(profile, OwnerExpansionWorkspaceCoordinator.RosterLineupRouteId);
             AssertEnabled(profile, OwnerExpansionWorkspaceCoordinator.CollectionRouteId);
             AssertEnabled(profile, OwnerManagementRoutes.RosterCondition);

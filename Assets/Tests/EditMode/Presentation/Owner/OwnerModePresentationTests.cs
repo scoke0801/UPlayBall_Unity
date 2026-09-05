@@ -34,7 +34,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(profile.Navigation.FindEntry(OwnerModeShellCoordinator.HomeRouteId).IsEnabled, Is.True);
             Assert.That(profile.Navigation.FindEntry("Owner.Roster").IsEnabled, Is.True);
             Assert.That(profile.Navigation.FindEntry("Owner.Club").IsEnabled, Is.True);
-            Assert.That(profile.Navigation.FindEntry("Owner.Match").IsEnabled, Is.True);
+            Assert.That(profile.Navigation.FindEntry(OwnerModeShellCoordinator.MatchRouteId).IsEnabled, Is.True);
             Assert.That(profile.Navigation.FindEntry("Owner.Scout").IsEnabled, Is.False);
             Assert.That(profile.Navigation.FindEntry("Owner.Development").IsEnabled, Is.False);
             Assert.That(profile.Navigation.FindEntry("Owner.Tactic").IsEnabled, Is.False);

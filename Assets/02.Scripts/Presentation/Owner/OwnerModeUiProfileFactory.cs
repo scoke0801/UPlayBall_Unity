@@ -133,7 +133,7 @@ namespace Baseball.Presentation.Owner
                     UiCapability.CanManageFinance,
                     children: clubTabs),
                 new NavigationEntry(
-                    "Owner.Match",
+                    OwnerModeShellCoordinator.MatchRouteId,
                     "경기 준비",
                     UiCapability.CanEditLineup,
                     children: new[]

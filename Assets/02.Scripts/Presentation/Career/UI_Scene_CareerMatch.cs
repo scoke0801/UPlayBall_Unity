@@ -751,7 +751,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(700f, 32f), new Vector2(0f, 230f), SecondaryTextColor);
 
             RenderDiamond(panel, session, snapshot, new Vector2(-300f, 22f));
-            RenderMatchupCard(panel, session, snapshot, new Vector2(148f, 26f));
+               RenderMatchupCard(panel, session, snapshot, new Vector2(148f, 26f));
 
             RectTransform moment = CreateFramedSurface(
                 "Moment", panel, PanelDarkColor, new Vector2(940f, 74f), new Vector2(0f, -218f));
