@@ -1,9 +1,23 @@
 # Unity UI 제작 지침 — UPlayBall
 
-> 문서 버전: 1.1  
-> 기준일: 2026-08-30  
+> 문서 버전: 1.2
+> 기준일: 2026-09-04
 > 대상: UI 기획자, UI 디자이너, Unity 클라이언트 개발자, AI 코딩 에이전트  
 > 엔진 기준: Unity 6
+
+---
+
+## 2026-09-04 개정 우선 규칙
+
+이 문서의 과거 `하단 8탭`과 청록 금속 Skin 보존 규칙은 Player Career 단일 모드 프로토타입을 전제로 했다. 현재는 Player Mode와 Owner Mode가 `SharedGameShell`을 공유하므로, 아래 규칙이 문서 뒤쪽의 충돌하는 과거 문구보다 우선한다.
+
+- PC Landscape의 얇은 `GlobalTopBar + Horizontal PrimaryNavigation + ContextHeader`를 기본 셸로 사용한다.
+- 메뉴 구성은 `GameModeUiProfile`과 `NavigationManifest`가 공급한다. 두 모드에 같은 메뉴나 권한을 강제하지 않는다.
+- 화면은 `MainWorkspaceHost`, 선택적인 `RightInspectorHost`, `ContextActionBarHost`에 합성한다.
+- 경기 화면은 별도 `MatchShell`을 사용하되 Theme과 공용 카드·Popup 문법을 공유한다.
+- 중립 graphite/off-white/muted navy를 Base로 사용하고 Team Color는 작은 Accent에만 사용한다.
+- 기존 청록 Glow·절삭 금속 Frame은 자동 보존 대상이 아니다. 정보 계층과 고밀도 배치를 방해하면 교체한다.
+- ImageGen 자산은 텍스트 없는 환경 배경과 장식에만 사용하며 Panel/Button/Table은 Native UI로 만든다.
 
 ---
 
@@ -34,37 +48,37 @@
 │ 공통 상단 헤더                                               │
 │ 로고 / 현재 시즌·날짜 / 보유 자원 / 알림 / 설정·도움말       │
 ├──────────────────────────────────────────────────────────────┤
-│ 화면별 제목·상단 탭 또는 필터                                │
+│ 공통 가로형 Primary Navigation                               │
+├──────────────────────────────────────────────────────────────┤
+│ Context Header / Sub Tab / 현재 등록·필터·Cost 요약          │
 ├───────────────┬──────────────────────────────────────────────┤
-│ 선택형        │                                              │
-│ 좌측 서브메뉴 │               메인 콘텐츠                    │
-│ 또는 목록     │                                              │
-├───────────────┴──────────────────────────────────────────────┤
-│ 공통 하단 내비게이션                                         │
-│ 홈 / 선수 / 성장 / 일정 / 리그 / 구단 / 기록 / 계약          │
+│ 선택적 목록    │ 메인 Workspace              │ 우측 Inspector │
+├───────────────┴──────────────────────────────┴───────────────┤
+│ Context Action Bar — 현재 화면의 저장·비교·자동 구성          │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- **상단 헤더, 하단 내비게이션, 콘텐츠 시작 위치를 화면마다 바꾸지 않는다.**
+- **상단 헤더, Primary Navigation, Context Header, 콘텐츠 시작 위치를 화면마다 바꾸지 않는다.**
 - 화면에 필요한 기능이 많아도 새로운 전역 메뉴를 임의로 추가하지 않는다.
 - 화면별 기능은 상단 탭, 좌측 서브메뉴, 필터, 상세 패널 중 하나로 해결한다.
 - 같은 수준의 메뉴를 어떤 화면에서는 탭, 다른 화면에서는 하단 버튼으로 표현하지 않는다.
 
-### 1.2 메인 내비게이션 순서는 고정한다
+### 1.2 메인 내비게이션은 Mode Profile이 고정한다
 
-아래 순서를 전 화면에서 동일하게 사용한다.
+한 모드 안에서는 순서가 고정되며, 모드의 권한 차이는 메뉴 구조에도 드러나야 한다.
 
 ```text
-홈 → 선수 → 성장 → 일정 → 리그 → 구단 → 기록 → 계약
+Player: 홈 → 경기 → 선수 → 성장 → 구단 → 리그 → 기록 → 커리어
+Owner : 홈 → 선수단 → 스카우트 → 육성 → 전술 → 리그 → 기록 → 구단
 ```
 
 필수 규칙:
 
-- 메뉴 이름, 순서, 아이콘 의미를 화면마다 변경하지 않는다.
-- 현재 화면은 파란색 선택 상태와 명확한 인디케이터로 표시한다.
+- 메뉴 이름, 순서, 아이콘 의미를 같은 Mode 안에서 화면마다 변경하지 않는다.
+- 현재 화면은 중립 Theme의 선택 상태와 명확한 인디케이터로 표시한다.
 - 선택 상태는 동시에 하나만 존재해야 한다.
 - 비활성 메뉴는 숨기기보다 비활성 상태와 잠금 사유를 보여주는 방식을 우선한다.
-- 계약 화면을 포함한 후속 추가 화면도 동일한 하단 내비게이션을 사용한다.
+- 공용 정보 화면은 같은 Route 의미를 쓰되 Mode-specific Action Provider를 분리한다.
 
 ### 1.3 정보 구조를 시각 장식보다 우선한다
 
@@ -258,20 +272,18 @@ PanelRoot
 화면 전체에도 영역 소유권을 명시한다.
 
 ```text
-Screen
-├─ HeaderSlot             ← Header만 사용
-│
-├─ PageContentSlot
-│  ├─ PageTitleSlot
-│  └─ MainContentSlot
-│
-├─ BottomNavigationSlot   ← Bottom Nav만 사용
-│
-└─ OverlayRoot            ← Popup / Tooltip / Dropdown
+SharedGameShell
+├─ GlobalTopBar           ← 공통 상태 + Mode Status Provider
+├─ PrimaryNavigation      ← NavigationManifest만 사용
+├─ ContextHeader          ← Title / Summary / Sub Tab
+├─ MainWorkspaceHost      ← 화면별 Workspace
+├─ OptionalRightInspector ← 선택 상세·분석
+├─ ContextActionBarHost   ← 현재 문맥의 행동
+└─ OverlaySlots           ← Popup / Toast / Tooltip
 ```
 
-- 화면별 UI는 `MainContentSlot` 밖에 직접 생성하지 않는다.
-- 일반 화면 코드가 `HeaderSlot` 또는 `BottomNavigationSlot`의 RectTransform을 직접 변경하지 않는다.
+- 화면별 UI는 `MainWorkspaceHost`와 명시적으로 받은 Inspector/Action Slot 밖에 직접 생성하지 않는다.
+- 일반 화면 코드가 `GlobalTopBar` 또는 `PrimaryNavigation`의 RectTransform을 직접 변경하지 않는다.
 - Popup, Tooltip, Dropdown 이외의 일반 콘텐츠를 `OverlayRoot`에 생성하지 않는다.
 - Panel 내부 코드가 자신의 `PanelRoot`보다 상위 RectTransform을 기준으로 좌표를 계산하지 않는다.
 
@@ -444,7 +456,7 @@ Theme 토큰을 사용했다는 이유만으로 Skin 사용을 생략할 수 없
 - 자원 수치는 단위와 자릿수 표기를 통일한다.
 - 설정과 도움말 아이콘은 동일한 위치와 크기를 유지한다.
 
-### 6.2 하단 내비게이션
+### 6.2 Primary Navigation
 
 각 메뉴 항목은 다음 상태를 가져야 한다.
 
@@ -459,7 +471,7 @@ Theme 토큰을 사용했다는 이유만으로 Skin 사용을 생략할 수 없
 선택 표현은 최소 두 가지를 함께 사용한다.
 
 - 배경 또는 아이콘 색상 변화
-- 하단 바, 외곽선, 점, 라벨 굵기 중 하나
+- 선택 바, 외곽선, 점, 라벨 굵기 중 하나
 
 Hover와 Selected가 같은 표현이 되지 않도록 한다.
 
@@ -1072,8 +1084,8 @@ Metrics          : Header / Bottom Navigation / Panel Gap / Content Inset 기준
 
 ### 구조
 
-- [ ] 공통 상단 헤더와 하단 내비게이션이 기존 화면과 동일하다.
-- [ ] 메인 메뉴 순서가 `홈·선수·성장·일정·리그·구단·기록·계약`으로 유지된다.
+- [ ] 공통 `SharedGameShell`의 Header/Primary Navigation/Context Header를 사용한다.
+- [ ] Player/Owner 메뉴와 권한이 각 `GameModeUiProfile`과 일치한다.
 - [ ] 화면별 탭·서브메뉴의 위계가 명확하다.
 - [ ] 대표 행동이 한눈에 식별된다.
 
@@ -1116,7 +1128,7 @@ Metrics          : Header / Bottom Navigation / Panel Gap / Content Inset 기준
 - [ ] Content가 `ContentSafeRect`를 벗어난 곳이 0건이다.
 - [ ] 형제 Panel끼리 침범한 곳이 0건이다.
 - [ ] `HeaderSlot` 영역 침범이 0건이다.
-- [ ] `BottomNavigationSlot` 영역 침범이 0건이다.
+- [ ] `PrimaryNavigation`과 `ContextActionBarHost` 영역 침범이 0건이다.
 - [ ] 일반 UI가 `OverlayRoot`에 배치된 곳이 0건이다.
 - [ ] ScrollView 콘텐츠가 Viewport 밖으로 노출되지 않는다.
 - [ ] Decoration 이외의 음수 Margin 사용이 없다.
@@ -1135,7 +1147,7 @@ Metrics          : Header / Bottom Navigation / Panel Gap / Content Inset 기준
 - [ ] 배경, 패널, 선택색, 텍스트색이 공통 토큰을 사용한다.
 - [ ] 같은 역할의 버튼이 같은 스타일을 사용한다.
 - [ ] Hover, Selected, Focused 상태가 서로 구분된다.
-- [ ] 금색과 파란색의 역할이 혼용되지 않는다.
+- [ ] Team Accent와 상태색의 역할이 혼용되지 않는다.
 - [ ] 다른 화면과 나란히 보았을 때 동일한 게임 UI로 인식된다.
 
 ---
@@ -1144,8 +1156,8 @@ Metrics          : Header / Bottom Navigation / Panel Gap / Content Inset 기준
 
 다음 항목은 별도 승인 없이 허용하지 않는다.
 
-- 화면별 메인 메뉴 재설계
-- 하단 내비게이션 항목의 누락·순서 변경
+- 화면 코드에서 `NavigationManifest`를 우회해 메인 메뉴를 재설계
+- 같은 Mode 안에서 Primary Navigation 항목의 임의 누락·순서 변경
 - 계약 화면만 다른 레이아웃 체계 사용
 - 화면별 색상·폰트·간격 하드코딩
 - 작은 텍스트로 정보량만 늘리는 설계
@@ -1158,7 +1170,7 @@ Metrics          : Header / Bottom Navigation / Panel Gap / Content Inset 기준
 - 의미 없는 장식, 그래프, 애니메이션 추가
 - 기존 공통 컴포넌트 확인 없이 유사 Prefab 복제
 - Skin이 있는 Panel/Button/Tab/Card/Popup을 `Image + Color`로 대체
-- 승인된 UPlayBall Skin(프레임·코너·스티치·금속 장식)의 임의 제거·단순화
+- 검토 없이 공용 Theme/Skin을 화면별로 제거·복제
 - Content가 `ContentSafeRect`를 벗어나거나 형제 Panel/Header/BottomNav를 침범하는 배치
 - 컴파일 성공만으로, 또는 Skin Compliance·Layout Bounds 검증 없이 UI 작업을 완료 처리하는 것
 
@@ -1178,3 +1190,4 @@ Metrics          : Header / Bottom Navigation / Panel Gap / Content Inset 기준
 |---|---|---|
 | 1.0 | 2026-08-28 | 최초 작성. 공통 셸, 메뉴 구조, 시각 토큰, 입력, 코드 구조, 완료 조건 정의 |
 | 1.1 | 2026-08-30 | Theme/Skin/Layout 개념 분리. Skin 적용 규칙(5.5), Content Safe Bounds(4.5), Screen Slot 구조(4.6), Responsive 우선순위(4.7) 추가. AI 작업 지침과 완료 조건에 Skin 검증·Layout Bounds 검증 추가 |
+| 1.2 | 2026-09-04 | Player/Owner 공용 `SharedGameShell`, Mode Profile Navigation, 중립 Theme, 선택 Inspector/Action Bar와 Legacy 하단 8탭 폐기 기준 반영 |

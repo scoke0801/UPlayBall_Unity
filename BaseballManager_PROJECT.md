@@ -7,9 +7,9 @@
 > `BaseballManager_GAME_SYSTEM.md`는 "구단주 겸 감독이 전체 로스터를 편성한다"는 옛 전제로 쓰여 폐기 대상이다. 리그 승강 구조(`LeagueGrade`) 등 장르와 무관한 부분만 참고하고, 나머지(로스터 편성 `Rookie Tryout`, `TacticCard`, `ManagerAi`에게 플레이어가 지시하는 구조 등)는 따르지 않는다.
 > 이 문서에서도 8·9·12·13·16·17절(라인업/투수 운영/경기 중 개입/경기 AI/드래프트/트레이드)은 "플레이어가 팀을 운영한다"는 옛 전제로 쓰인 절이라 재작성이 필요하다 — 해당 의사결정의 주체를 감독 AI로 바꾸고, 플레이어는 자신의 계약·이적·개인 훈련만 결정하는 것으로 재정의해야 한다. 새 게임 플로우는 40절을 따른다.
 
-> **2026-08-31 방향 확정:** 사용자 지시로 **감독모드(구단 전체 운영)를 범위 안으로 재도입**한다. 이는 5~8행의 "감독모드 범위 밖" 결정, 그리고 23절(946~971행)의 "카드=UI 표현, 가챠 금지" 결정을 **감독모드에 한해서만** 뒤집는 확정 변경이다.
-> 상세 설계는 `docs/todo/역사시뮬레이션_감독모드/`에 있다. 핵심은 (1) 선수 커리어 모드는 기존 결정대로 그대로 유지하고 감독모드를 **별도의 두 번째 진입점**으로 신설하며, (2) 감독모드에서만 선수 카드 수집·스카우트 뽑기·중복 강화·팀컬러·전술카드 경제가 존재하고 AI 구단과 선수 커리어 모드에는 적용하지 않으며, (3) KBO Source Player/PlayerSeason은 Offline Bake의 1:1 능력치·Cost 정본으로만 사용하고 Runtime에는 실제 이름·Source ID·실제 구단 식별자를 노출하지 않는다는 것이다. 정규 10구단 Core25의 원천 부족분은 Source 선수 복제·혼합이 아니라 명시적인 `ReplacementGenerated` 선수로만 채우며, 상세 모집단·Cost 계약은 감독모드 01/03절을 따른다.
-> 5~8행·23절 본문은 "선수 커리어 모드에 한정된 결정"으로 좁혀 읽는다 — 별도 개정 없이 감독모드 문서(위 링크)가 우선한다.
+> **2026-08-31 방향 확정:** 사용자 지시로 **구단주 모드(구단 전체 운영)를 범위 안으로 재도입**한다. 이는 5~8행의 "구단주 모드 범위 밖" 결정, 그리고 23절(946~971행)의 "카드=UI 표현, 가챠 금지" 결정을 **구단주 모드에 한해서만** 뒤집는 확정 변경이다.
+> 상세 설계는 `docs/todo/역사시뮬레이션_구단주모드/`에 있다. 핵심은 (1) 선수 커리어 모드는 기존 결정대로 그대로 유지하고 구단주 모드를 **별도의 두 번째 진입점**으로 신설하며, (2) 구단주 모드에서만 선수 카드 수집·스카우트 뽑기·중복 강화·팀컬러·전술카드 경제가 존재하고 AI 구단과 선수 커리어 모드에는 적용하지 않으며, (3) KBO Source Person/PlayerSeason/TeamSeason을 Offline Bake의 1:1 정본으로 유지하고 Runtime에는 실제 이름·Source ID·실제 구단명을 노출하지 않는다는 것이다. Core25는 해당 Source TeamSeason 내부 선수로만 구성하고, 원본 부족을 타 구단 선수나 생성 선수로 조용히 채우지 않는다. World에서는 표시 Identity와 Detailed Simulation History만 가상화하며 상세 계약은 42절과 구단주 모드 01~03/08절을 따른다.
+> 5~8행·23절 본문은 "선수 커리어 모드에 한정된 결정"으로 좁혀 읽는다 — 별도 개정 없이 구단주 모드 문서(위 링크)가 우선한다.
 
 ## 1. 프로젝트 개요
 
@@ -1198,7 +1198,9 @@ SaveVersion
 
 ## 31. MVP에서 제외할 기능
 
-아래 시스템은 초기에 구현하지 않는다.
+아래 시스템은 선수 커리어 MVP에 한해 초기에 구현하지 않는다. 2026-08-31에 별도 진입점으로
+재도입한 구단주 모드에서는 `docs/todo/역사시뮬레이션_구단주모드/`의 단계와 데이터 계약이 이 목록보다
+우선한다. 두 모드 사이에 카드 소유 경제나 구단 운영 상태를 공유한다는 뜻은 아니다.
 
 ```text
 온라인 멀티플레이
@@ -2186,9 +2188,10 @@ Editor가 현재 프로젝트를 사용 중이어서 별도 BatchMode EditMode �
 → 경기 운영 설정 → 최종 확인 → 신인 계약 오퍼 → 커리어 홈
 ```
 
-- 타이틀은 `img_title`을 배경으로 선수 커리어만 활성화한다. 감독 커리어는 자물쇠·`준비 중`
-  배지와 낮은 채도로 표시하되 Button/포커스 대상이 아니다. 저장 전까지 이어하기·불러오기·
-  커리어 슬롯은 노출하지 않는다.
+- 이 항목의 최초 구현 당시 타이틀은 `img_title`을 배경으로 선수 커리어만 활성화했고 구단주 모드는
+  `준비 중`이었다. 2026-08-31 방향 변경 이후 타이틀은 선수 모드와 구단주 모드를 별도 진입점으로
+  제공하며, 각 모드의 실제 Runtime·Save가 준비된 경우에만 이어하기를 활성화한다. 명시적 세션 없이
+  두 Runtime이 함께 존재하면 한쪽 화면을 임의 노출하지 않고 모드 선택으로 돌아간다.
 - 생성 중 입력은 `CareerCreationDraft`에만 보관하고 최종 확인 뒤 `CareerCreationProfile`로 확정한다.
   이전 단계로 돌아가도 draft와 화면 선택을 유지하며 타이틀 복귀 시 draft만 폐기한다.
 - 이름은 공백 정리 후 2~12자의 한글·영문·숫자를 허용한다. 타자/투수, 투타를 1단계에서 함께
@@ -2264,7 +2267,9 @@ Unity BatchMode는 Licensing Client가 headless entitlement를 찾지 못해 Edi
 - `SituationalBattingDecisionProvider`와 `SituationalPitchingDecisionProvider`가 타자/투수의 전략을
   같은 `DecisionContext`로 결정한다. `MatchSession.Advance()`는 이벤트 1건, 의사결정 요청, 공수 교대,
   경기 종료 경계만 반환하므로 Simulation은 Unity UI를 모른다. 선수 입력은 타석당 한 번이며 Auto,
-  KeyMoments, FullControl 권한을 지원한다. 감독 모드는 현재 선수 커리어 게임의 범위 밖이다.
+  KeyMoments, FullControl 권한을 지원한다. 구단주 모드도 같은 이벤트 스트림과 공용 Match HUD를
+  소비하되, 선수 직접 입력이나 존재하지 않는 운영 Command를 가짜로 노출하지 않고 실제 Owner
+  Runtime이 제공하는 권한만 별도 Overlay로 연결한다.
 - 경기 RNG는 PitchOutcome/SwingDecision/Contact/BattedBall/Fielding/Baserunning/Injury 서브스트림으로
   나뉜다. 같은 Seed·입력·판단의 이벤트 스트림은 필드 전체 비교 테스트로 고정한다.
 - 정규 시즌은 12회 동점 무승부, 포스트시즌은 승자가 날 때까지 진행한다. 자동 주자는 `MatchRules`의
@@ -2779,8 +2784,160 @@ Classic 54.35, Winners 57.38, Champion 63.32, Master 72.12, Galaxy 82.20이었�
 구원 1.6 IP/App를 기록했다. 변경 전 98.5%, 7.3, 1.6에서 주전 경쟁과 선발 강판이 실제로
 작동하는 방향으로 이동했으며 기존 득점 환경은 유지됐다.
 
-동시에 역사 콘텐츠는 Editor 실명 검수본과 Runtime 가명 전용 정제본을 분리하고, 정제본만
-`HistoricalRuntimeContentCatalog`를 통해 Player Build에 포함한다. 감독모드 공통 Runtime 경로는
+동시에 역사 콘텐츠는 Editor 실명 검수본과 Runtime 실명 제거 Canonical 정제본을 분리한다. Runtime
+정제본은 Person별 고정 가명을 저장하지 않고 World Identity 이름 후보 Pool만 함께 제공하며, 검증된
+정제본만 `HistoricalRuntimeContentCatalog`를 통해 Player Build에 포함한다. 구단주 모드 공통 Runtime 경로는
 44시즌 World Record와 Save/Load까지 연결했지만, 선수 커리어의 10단계 동시 리그에 440개
 TeamSeason을 모두 Rookie부터 진입시키는 정책은 아직 없다. 이 정책 없이 최근 10개 연도를 등급에
 임의 배치하지 않으며, Production Career 새 게임은 Synthetic으로 대체하지 않고 명시적으로 실패한다.
+
+## 42. Historical World 정본 계약 (2026-09-04)
+
+이 절은 선수·구단 Historical Content와 World 생성에 관한 최상위 Source of Truth다. 41.13까지의
+기록이나 별도 문서가 이 절과 충돌하면 이 절을 따른다.
+
+```text
+Source PlayerPerson / PlayerSeason / TeamSeason
+        ↓ 1:1 Runtime-safe Canonical Bake
+BaseAttributes / Cost / TrainingCeiling / Origin / Core25
+        ↓
+WorldIdentityRegistry
+        ↓
+Detailed Match / Season Simulation
+        ↓
+Season Statistics / Team Standings / Postseason / Awards
+        ↓
+WorldHistorySnapshot / WorldCardCatalog / SpecialCompositeTeam
+```
+
+### 42.1 선수와 구단은 Source와 1:1이다
+
+- 한 Source Person은 하나의 안정적인 `PlayerPersonId`가 되고 그 인물의 모든 연도는 같은 ID 아래
+  연결한다. 서로 다른 Source Person의 시즌을 이어 인공 커리어를 만들지 않는다.
+- 한 Source PlayerSeason은 정확히 하나의 `PlayerSeasonDefinition`이 된다. 시대·포지션·역할
+  모집단의 평균·표준편차·백분위·Z-Score는 정규화 기준일 뿐 다른 선수의 개별 기록을 능력치에
+  혼입하는 재료가 아니다.
+- 한 Source TeamSeason은 정확히 하나의 `TeamSeasonDefinition`이 된다. Core25는 그 Source
+  TeamSeason 소속 선수만으로 구성하며 다른 Source Team에서 조용히 보충하지 않는다. 원본 부족은
+  Bake 오류와 Validation Report로 드러낸다. 실제 1982~2025 데이터의 투수 quota 부족 54석은
+  `ReplacementGenerated`로 명시하고, 개별 선수 혼합이나 공분산 표본 없이 동일 연도·역할 모집단의
+  고정 20백분위 aggregate baseline으로만 채운다. 이는 Source PlayerSeason이 아니라 결손 슬롯
+  fallback이며 해당 Source TeamSeason 밖의 선수를 가져오지 않는다.
+- 여러 Reference의 Contact/Power/Speed를 조합하는 Synthetic Player Mixing과 여러 구단의
+  장타·선발·수비·불펜을 조합하는 Franchise Fingerprint Mixing은 Production 경로에 두지 않는다.
+- Career 리그 배치는 `NewGameDefinition`의 명시적 연도 목록(현재 2016~2025)을 LeagueGrade 순서로
+  소비한다. 누락·중복·10구단 미달이면 실패하며 코드가 임의로 최근 연도를 선택하지 않는다.
+
+### 42.2 Canonical 값과 World 값의 경계
+
+Canonical Bake에는 `PlayerPersonId`, `PlayerSeasonId`, `BaseAttributes`, `Cost`,
+`TrainingCeiling`, `Position`, `PitcherRole`, `RegistrationType`, `OriginYear`,
+`OriginFranchiseId`, `OriginTeamSeasonKey`, `TeamSeasonDefinition`, `Core25`가 들어간다. 같은 Source
+Data/Normalization/Balance Version이면 이 값은 동일하며 World Seed, World 성적, 수상, 표시 이름으로
+다시 계산하지 않는다.
+
+선수와 구단의 표시 이름은 Canonical Definition에 두지 않는다. 새 World는 `PlayerPersonId`와
+`FranchiseId`를 키로 `WorldPlayerIdentity`와 `WorldFranchiseIdentity`를 만들고
+`WorldIdentityRegistry`에 확정한다. 생성 이름은 프로젝트가 보유한 실제 선수·구단명 exact match와
+World 내부 중복을 거부한다. 한 Person의 모든 시즌과 한 Franchise의 모든 연도 TeamSeason은 같은
+World 이름을 공유한다. 표시 문자열은 Presentation 전용이며 Simulation, TeamColor, Scout, Award,
+Contract, Roster, AI의 판정 키로 사용하지 않는다.
+
+`WorldIdentityRegistry`, `WorldHistorySnapshot`, 통계·순위·포스트시즌·수상·특수 합성팀 상태는
+Save에 확정 값을 기록한다. Load에서 Name Generator, Historical Simulation, Award Resolver를 다시
+실행하지 않는다.
+
+### 42.3 가상 역사는 실제 경기 Simulation 결과다
+
+Source 시즌 기록과 팀 순위·수상은 능력치 변환 및 Offline 검증의 근거이지 정식 World History가
+아니다. 고정된 Canonical TeamSeason을 `DetailedMatchEngine`과 동일한 야구 판정 모델에 투입해
+개인 기록, 팀 기록, Standings, Postseason을 만든다. 이어 실제 World Statistics를 입력으로
+All-Star, Golden Glove, Regular Season MVP, All-Star Game MVP, Postseason MVP를 결정한다.
+BaseAttributes 순위나 Source Award를 정식 World 수상 결과로 복사하지 않는다.
+
+`OriginalHistory`는 과거 데이터 비교·회귀 검증이 필요한 동안에만 Legacy/Debug/Validation 경계에
+격리한다. 사용자 선택 가능한 정식 새 게임은 `SimulatedHistory` 하나이며, 해당 Legacy 경로가
+Runtime의 통계·순위·수상을 Source 결과로 되돌리는 우회로가 되어서는 안 된다.
+
+`AllStarComposite`, `GoldenGloveComposite`, `YearSelectComposite`는 선수를 합성하는 파이프라인이
+아니다. World Statistics와 Award가 확정된 뒤 기존 `PlayerSeasonId`를 참조해 구성하는 게임용 특수
+로스터다. 세 특수팀 사이 중복 금지를 유지하며 Historical Award 계산에는 역으로 참여하지 않는다.
+
+### 42.4 필수 검증
+
+- Source Person/Season/TeamSeason의 1:1 provenance와 타 선수·타 구단 개별 기록 Mixing 0건
+- `ReplacementGenerated`는 보고된 Core25 결손 54석에만 존재하고 deterministic aggregate baseline 사용
+- World Seed와 무관한 `BaseAttributes`, `Cost`, `TrainingCeiling`, `Origin`
+- 다른 Seed에서 달라질 수 있는 개인·팀 성적, Standings, Postseason, Award
+- 실제 선수·구단명 exact match 0건, World 내 이름 중복 0건, Person/Franchise 다년도 이름 일치
+- 표시 이름만 바꿔도 Match Event/Statistics 결과가 동일한지 검증
+- Save/Load 전후 Identity, Statistics, Standings, Award의 완전 일치와 재생성 호출 0회
+- Source 통계와 Baked Rating의 의도된 상관 및 다수 World Seed 대량 Simulation의 리그 분포 검증
+
+### 42.5 구현 검증 상태 (2026-09-05)
+
+Canonical Bake부터 World Identity, Detailed Historical Simulation, Statistics/Standings, Award,
+WorldCardCatalog, 특수 합성팀과 Save DTO까지 연결했다. 다른 Seed 검증이 Seed 값 자체를 Hash에 포함해
+false-positive가 되지 않도록 Player/Team Statistics, Standings/Postseason, Awards, Identity, 전체
+History의 Seed 제외 Fingerprint를 분리했다. Simulation Seed와 Identity Seed도 독립 입력으로 검증해
+Identity만 바꿀 때 경기 역사와 수상이 변하지 않아야 한다.
+
+Python Importer/Bake는 56/56, 순수 C# Headless Core/Simulation/Game은 538 passed, 0 failed,
+Explicit 장기 Fixture 1 skipped로 통과했다. Detailed 2024 Historical smoke는 동일 Simulation/Identity
+반복과 Identity-only 변경을 포함해 3회, 실행당 409경기를 완료했고 동일 Seed Result Hash는
+`564e68ae44d943ff`였다. Save DTO round-trip과 Identity-only History 불변도 통과했다.
+
+실제 schema 5 Archive 1982~2025 전체 44시즌 4회 검증, Runtime Content Provider와 Historical Database
+Browser Unity 실행은 테스트가 준비됐으나 현재 Unity Licensing Client가
+`com.unity.editor.headless` 권한을 얻지 못해 Test Runner 진입 전에 중단됐다. 따라서 이 항목은 아직
+통과로 기록하지 않는다. Browser의 worker thread `JsonUtility` crash 경로는 main thread load로
+교체했으며 라이선스가 정상인 Unity Editor에서 실제 Archive load 재검증이 필요하다.
+
+## 43. Player/Owner 공용 UI Shell 계약 (2026-09-05)
+
+관리 UI는 `SharedGameShellView`의 Global Header, 상단 Navigation, Context Header, Workspace,
+선택형 Right Inspector, Action Bar와 Overlay Layer를 공유한다. 화면이 닮았다는 이유만으로 상태와
+Command를 합치지 않으며, `GameModeUiProfile`과 `UiCapabilitySet`이 모드별 메뉴·권한을 공급한다.
+Player와 Owner Runtime이 함께 존재하거나 선택한 Runtime이 사라진 경우에는 한쪽을 임의로 열지 않고
+타이틀의 모드 선택으로 돌아간다.
+
+- 선수 모드는 기존 Career 성장·계약·감독 AI 기용을 유지한다. Team/Roster는 읽기 전용이고
+  `OwnedPlayerCardState`, Scout, CardTraining, TeamColor 장착과 구단 재정 Command를 참조하지 않는다.
+- 구단주 모드는 별도 `OwnerModeManager` Runtime과 Save를 사용한다. 현재 실제 화면은 Home, 25인
+  선수단·라인업, 보유 선수 Collection, 재정, 시설, Staff Office, Pregame, Condition·궁합과 경기 관전이다.
+  같은 역할 그룹 슬롯 교환은 `UpsertLineupPreset`에 연결하지만, ActiveRoster 등록 변경 Command가
+  없으므로 해당 Action은 비활성화한다.
+- 구단주 확장 전용 Condition·운영·Staff·Intel 조정값은
+  `Assets/10.Datas/Resources/NewGame/OwnerExpansionBalance.json`에서 저작하고
+  `LoadOwnerModeBalanceTable()`에서만 공통 경기 Balance에 합성한다. Config 누락·불완전 상태는
+  Production 진입 시 실패하며, 선수 커리어의 `LoadConfiguration()`과 Balance hash/version은 바꾸지
+  않는다.
+- TeamColor와 Tactic은 실제 가용 후보 Query와 `ValidateLineupPreset`/`UpsertLineupPreset`을 통해
+  선수단·라인업의 각 2슬롯을 변경한다. 현재 충족 인원·StackPolicy·Trigger·Duration·Counter를 표시할
+  전용 분석 Snapshot은 아직 없으므로 별도 상세 Route는 비활성 상태다.
+- Scout, CardTraining, Enhancement, Sale은 저장 필드나 Simulation Resolver가 일부 존재하더라도 UI가
+  소비할 Catalog/Preview/검증/결정론적 Command 계약이 완결되지 않은 상태에서는 Capability와 Route를
+  노출하지 않는다. Presentation이 후보군·확률·비용·로스터 유효성을 재계산해서는 안 된다.
+- 공용 `MatchHudView`는 같은 Match Event를 표시한다. Player 입력은 `PlayerMatchControls`만 통하고,
+  Owner 경기는 `InternalAiOnly`로 한 번 확정한 이벤트를 타석 경계별로 재생하며 일시정지·배속·즉시
+  결과만 허용한다. 존재하지 않는 실시간 교체·불펜·전술 Command를 UI에 만들지 않는다.
+- Career 리그 요약은 `CompactRecordTableView`, 대량 리더보드와 시즌/역대 기록은 Viewport Row Pool
+  기반 `RecordTableView`를 사용한다. 1,000행 전체를 GameObject로 생성하지 않으며 정렬 뒤에도 Stable
+  Row ID 선택을 유지한다.
+- Owner 일정은 날짜를 발명하지 않고 현재 Save의 Round·대진·완료 점수를 같은 `RecordTableView`로
+  표시한다. Owner 기록은 현재 시즌 누적과 구분된 `WorldHistory` 확정 기록만 표시하며, 구단별 누적
+  승패 Aggregate가 없는 현재 시즌 순위는 비활성 상태로 둔다.
+
+사용자 노출 게임 모드 명칭은 `구단주 모드`다. `ManagerTacticProfile`과 감독 AI·감독 판단은 실제
+야구 감독 개념이므로 유지한다. `ManagerModeCoordinator`, `ManagerModeRuntimeState`, Save DTO의
+`managerMode`는 기존 Save 호환을 위한 Legacy 내부 명칭이며, 추후 `OwnerMode*` 정식 타입으로 옮길
+때에는 숫자 값과 JSON alias를 함께 보존해야 한다.
+
+Game/Game.Unity/Presentation/Game.Tests/Presentation.Tests 보조 컴파일은 이전 대상 실행에서
+경고·오류 없이 통과했다. 최신 Balance/시즌 lifecycle/UI 병합 전 구단주 Unity 대상 실행도 39/39
+통과했다. 다만 최신 통합본의 집계 Unity Test Runner와 Player Build는 사용자 지시에 따라 생략했고,
+1280×720·1920×1080·2560×1440 Screenshot 검증도 완료하지 않았다. 따라서 이 절은 구조·코드 연결
+상태이며 UI 전체 Acceptance 완료 선언이 아니다. `TacticLab` 연구 Consumer, 임의 선수 편집, 전체
+Tactic Inventory 선택과 승강·새 시즌 로스터 이월도 남아 있다. 세부 Gate는
+`docs/todo/역사시뮬레이션_구단주모드/08_구현_로드맵_검증기준.md`와
+`13_4종_통합_구현로드맵_Codex.md`를 따른다.
