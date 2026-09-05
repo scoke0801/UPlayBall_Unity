@@ -7,14 +7,14 @@
 스킬/전술) UI와 뽑기 연출을 실제 Unity 화면으로 구현하기 위한 작업 명세다. 원작의 이미지·로고·
 아이콘·폰트·에셋은 복제하지 않고 UX 문법만 참고한다.
 
-**착수 전 필수 선행 조건 (미해결):** 이 작업은 감독모드 상점 경제(선수 스카우트·카드 강화·
-전술카드)의 UI를 전제로 한다. 그런데 `docs/todo/역사시뮬레이션_감독모드/README.md` 4항은
-"감독모드 플레이어 구단만 `OwnedPlayerCardState`, SP 스카우트, 중복 강화, 카드 DP 훈련 경제를
+**착수 전 필수 선행 조건 (미해결):** 이 작업은 구단주 모드 상점 경제(선수 스카우트·카드 강화·
+전술카드)의 UI를 전제로 한다. 그런데 `docs/todo/역사시뮬레이션_구단주모드/README.md` 4항은
+"구단주 모드 플레이어 구단만 `OwnedPlayerCardState`, SP 스카우트, 중복 강화, 카드 DP 훈련 경제를
 사용한다. AI 구단과 선수 커리어 모드에는 이 소유 경제를 적용하지 않는다"를 Source of Truth로
-명시하고 있고, 감독모드 자체가 `구현_현황.md` 기준으로 아직 완성된 단계가 아니다. 따라서 이
-문서의 상점/스카우트/전술카드 파트는 **감독모드 경제 시스템이 실제로 존재하고 안정화된 뒤** 착수
+명시하고 있고, 구단주 모드 자체가 `구현_현황.md` 기준으로 아직 완성된 단계가 아니다. 따라서 이
+문서의 상점/스카우트/전술카드 파트는 **구단주 모드 경제 시스템이 실제로 존재하고 안정화된 뒤** 착수
 대상이며, 그 전에는 선수단 UI·월드/구단 UI 파트만 선수 커리어 모드 기준으로 먼저 진행할 수 있는지
-판단이 필요하다. 착수 시점에 `구현_현황.md`를 다시 확인해 감독모드 경제 시스템(§13~§25 대상)의
+판단이 필요하다. 착수 시점에 `구현_현황.md`를 다시 확인해 구단주 모드 경제 시스템(§13~§25 대상)의
 실제 구현 여부를 재확인한다.
 
 ## 1. 목표와 금지 경계
@@ -44,7 +44,7 @@
 - `OwnedPlayerCardState`, `ScoutPoolDefinition`/`ScoutRoller`/Pity Gauge, 전술카드/전술 연구소
 - 선수 커리어 계약 시스템, GameMode 구분, 현재 세이브 구조
 - 기존 UI 공통 컬러/폰트/패널/버튼/탭 디자인
-- 핵심 기획 문서: `docs/todo/역사시뮬레이션_감독모드/` 하위 01~08, `BaseballManager_PROJECT.md`,
+- 핵심 기획 문서: `docs/todo/역사시뮬레이션_구단주모드/` 하위 01~08, `BaseballManager_PROJECT.md`,
   `docs/구현_현황.md`, `docs/지침/` 전체
 
 ## 3. 작업 방식 — 병렬화 전 공통 계약 확정
@@ -57,7 +57,7 @@
 1. **공통 구조 분석 + 공통 컴포넌트** — UI 아키텍처 분석, MiniPlayerCard, FullPlayerCardViewer
    연결, Card Flip, 공통 Tooltip/Modal/Tab, TeamSeason Header, 공통 Card Reveal Controller
    인터페이스, 공통 Tween/Transition 규칙. 이 계약이 확정된 뒤 나머지가 시작한다.
-2. **선수단 UI** — 감독모드 편성 화면, 선수모드 관람(읽기 전용) 화면, 동적 Roster Slot, 역할별
+2. **선수단 UI** — 구단주 모드 편성 화면, 선수모드 관람(읽기 전용) 화면, 동적 Roster Slot, 역할별
    UI, 선수 교체 UX, TeamColor 상태 표시, Mini→Full 카드 전환.
 3. **월드/리그/구단/계약 UI** — 다른 리그 조회, TeamSeason 상세, Club DNA 표현, 계약 오퍼→구단
    상세 연결, 내 포지션 경쟁자 필터.
@@ -106,10 +106,10 @@ ImageGen 결과 검수 기준: 같은 게임으로 보이는가, SF 느낌이 �
 
 ## 6. 선수단 UI
 
-- 감독모드는 편집 가능, 선수 커리어 모드는 동일 화면을 읽기 전용으로 재사용 — 화면을 두 벌 만들지
+- 구단주 모드는 편집 가능, 선수 커리어 모드는 동일 화면을 읽기 전용으로 재사용 — 화면을 두 벌 만들지
   않는다. 선수 모드 상단에 "현재 선수단은 감독 AI가 운영 중입니다" 안내를 둔다.
 - **MiniPlayerCard**: 기존 Full Card를 단순 축소하지 않고 새로 설계. 표시 우선순위 — Portrait,
-  Name, Position, OriginYear, Cost, Edition, Condition, 현재 역할/출장 상태. 감독모드에서는
+  Name, Position, OriginYear, Cost, Edition, Condition, 현재 역할/출장 상태. 구단주 모드에서는
   EnhancementLevel도 표시. 정보 과다 시 아이콘/Badge로 압축.
   - Mini Card 클릭 → 선택 Tween → 기존 Full Player Card Overlay(기존 디자인 재사용, 새로
     만들지 않음) → 클릭 시 Front/Back Flip Tween → ESC/외부 클릭으로 닫기.
@@ -127,7 +127,7 @@ ImageGen 결과 검수 기준: 같은 게임으로 보이는가, SF 느낌이 �
 
 - `TeamSeason`/`LeagueGrade`(Rookie~Galaxy) 탐색 UI. 같은 Franchise라도 OriginYear가 다르면
   다른 TeamSeason이므로 표시는 항상 `OriginYear + Franchise`("2011 COMETS") 형태를 우선한다.
-- 다른 리그의 진행 중 경기(LIVE) 상태를 선수모드/감독모드 공통으로 조회 가능. 전체/진행 중/내
+- 다른 리그의 진행 중 경기(LIVE) 상태를 선수모드/구단주 모드 공통으로 조회 가능. 전체/진행 중/내
   구단 관련 필터 지원.
 - **구단 상세(TeamDetail)는 어디서 구단명을 눌러도 동일 화면으로 연결**한다. 중복 화면 금지.
   탭: OVERVIEW/ROSTER/SEASON/MANAGER/HISTORY. ROSTER 탭은 선수단 UI의 MiniPlayerCard를 재사용.
@@ -142,7 +142,7 @@ ImageGen 결과 검수 기준: 같은 게임으로 보이는가, SF 느낌이 �
 - Shop Shell 하위에 PLAYER SCOUT / SKILL / TACTICAL LAB 카테고리. 상단에 실제 존재하는 재화만
   표시(Money/SP/DP 등, 임의 재화 신설 금지).
 - **`ShopCategoryAvailability`**: Category별 Unlocked/LockedByGameMode/LockedByProgress/
-  LockedByLeague 상태를 데이터로 표현. 감독모드에서 Player Scout/Tactic을 잠글 수도, §0에서
+  LockedByLeague 상태를 데이터로 표현. 구단주 모드에서 Player Scout/Tactic을 잠글 수도, §0에서
   언급한 기존 명세대로 전부 열 수도 있게 **설정값만으로** 전환 가능해야 한다. 잠긴 카테고리는
   완전히 숨기지 않고 잠금 상태·사유를 표시한다.
 
@@ -228,7 +228,7 @@ Home/Match/Career/Player/Growth/Contract/League/Team 화면과 공통 Shell을 �
 Resolver 자체가 이미 테스트되어 있으면 중복 테스트 금지):
 
 - GameMode별 `ShopCategoryAvailability`
-- 선수모드 Roster ReadOnly / 감독모드 Roster Editable
+- 선수모드 Roster ReadOnly / 구단주 모드 Roster Editable
 - MiniPlayerCard ViewModel Binding
 - TeamSeason OriginYear 표시
 - Full Card Front/Back 상태
@@ -257,7 +257,7 @@ Resolver 자체가 이미 테스트되어 있으면 중복 테스트 금지):
 
 ## 18. 완료 기준 (요약)
 
-- 선수단 화면에서 실제 선수 데이터가 MiniPlayerCard로 표시되고, 감독모드는 편집 가능, 선수모드는
+- 선수단 화면에서 실제 선수 데이터가 MiniPlayerCard로 표시되고, 구단주 모드는 편집 가능, 선수모드는
   동일 화면에서 편집 불가.
 - MiniPlayerCard → 기존 Full Player Card Open, Front/Back Flip 정상 동작.
 - TeamColor 진행 상태가 실제 편성 결과와 연동.
