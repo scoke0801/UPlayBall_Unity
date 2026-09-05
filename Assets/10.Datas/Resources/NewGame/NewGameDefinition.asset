@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: NewGameDefinition
   m_EditorClassIdentifier: Baseball.Game::Baseball.Game.Data.NewGameDefinition
   _historicalContentCatalog: {fileID: 11400000, guid: 2b73c9d20f3a50949b2ff71762b87d83, type: 2}
+  _bakedWorldHistoryCatalog: {fileID: 11400000, guid: 1d0c69bfa5262144c90171bc03a40700, type: 2}
+  _careerWorldSeedPool: 2928350100000000276f2e010000000026a6310100000000f77a330100000000
   _historicalLeagueSeasonYears: e0070000e1070000e2070000e3070000e4070000e5070000e6070000e7070000e8070000e9070000
   _teamCount: 8
   _firstSeasonYear: 2028

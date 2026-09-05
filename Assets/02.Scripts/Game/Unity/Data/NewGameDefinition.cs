@@ -487,6 +487,24 @@ namespace Baseball.Game.Data
             _bakedWorldHistoryCatalog = catalog;
         }
 
+        /// <summary>Editor Baker가 구울 대상 Seed를 확정한다.</summary>
+        public void ConfigureCareerWorldSeedPool(IReadOnlyList<long> seeds)
+        {
+            if (seeds == null)
+                throw new ArgumentNullException(nameof(seeds));
+            var unique = new HashSet<long>();
+            var result = new long[seeds.Count];
+            for (int index = 0; index < seeds.Count; index++)
+            {
+                if (seeds[index] <= 0L)
+                    throw new ArgumentException("World Seed는 양수여야 합니다.", nameof(seeds));
+                if (!unique.Add(seeds[index]))
+                    throw new ArgumentException($"World Seed {seeds[index]}가 중복되었습니다.", nameof(seeds));
+                result[index] = seeds[index];
+            }
+            _careerWorldSeedPool = result;
+        }
+
         /// <summary>
         /// Pool이 비어 있지 않으면 그중 하나를 골라 Bake가 적중하게 한다.
         /// Pool이 비어 있으면 호출자가 오늘처럼 임의 Seed를 쓰도록 false를 돌려준다.

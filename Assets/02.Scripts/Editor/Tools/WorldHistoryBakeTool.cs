@@ -31,7 +31,65 @@ namespace Baseball.Editor.HistoricalDatabase
             impact: ToolImpact.BulkWrite)]
         public static void BakeAll()
         {
-            NewGameDefinition definition = LoadDefinition();
+            BakeAll(LoadDefinition());
+        }
+
+        /// <summary>
+        /// Editor를 띄우지 않고 굽는 배치모드 진입점이다.
+        /// -careerWorldSeeds a,b,c,d 를 주면 Pool을 먼저 확정한 뒤 굽는다.
+        /// </summary>
+        public static void BakeFromCommandLine()
+        {
+            int exitCode = 0;
+            try
+            {
+                NewGameDefinition definition = LoadDefinition();
+                long[] seeds = ParseCareerWorldSeedArgument();
+                if (seeds.Length > 0)
+                {
+                    definition.ConfigureCareerWorldSeedPool(seeds);
+                    EditorUtility.SetDirty(definition);
+                    AssetDatabase.SaveAssets();
+                    Debug.Log(
+                        "[WorldHistoryBakeTool] Career World Seed Pool을 설정했습니다: " +
+                        string.Join(", ", Array.ConvertAll(seeds, seed => seed.ToString(CultureInfo.InvariantCulture))));
+                }
+                BakeAll(definition);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[WorldHistoryBakeTool] Bake에 실패했습니다: {exception}");
+                exitCode = 1;
+            }
+            finally
+            {
+                if (Application.isBatchMode)
+                    EditorApplication.Exit(exitCode);
+            }
+        }
+
+        private static long[] ParseCareerWorldSeedArgument()
+        {
+            string[] arguments = Environment.GetCommandLineArgs();
+            for (int index = 0; index < arguments.Length - 1; index++)
+            {
+                if (!string.Equals(arguments[index], "-careerWorldSeeds", StringComparison.Ordinal))
+                    continue;
+                string[] parts = arguments[index + 1].Split(',');
+                var seeds = new long[parts.Length];
+                for (int partIndex = 0; partIndex < parts.Length; partIndex++)
+                {
+                    seeds[partIndex] = long.Parse(
+                        parts[partIndex].Trim(),
+                        CultureInfo.InvariantCulture);
+                }
+                return seeds;
+            }
+            return Array.Empty<long>();
+        }
+
+        private static void BakeAll(NewGameDefinition definition)
+        {
             var requests = new List<BakeRequest>();
             OwnerModeNewGameConfiguration ownerConfiguration = definition.ToOwnerModeConfiguration();
             requests.Add(new BakeRequest(
