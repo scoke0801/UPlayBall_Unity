@@ -16,7 +16,7 @@ namespace Baseball.Presentation.Guide
         private static readonly Color PanelColor = CareerUiTheme.ReferencePanel;
         private static readonly Color AccentColor = CareerUiTheme.PrimaryBright;
         private static readonly Color TextColor = CareerUiTheme.TextOnLight;
-        private const float CompactGuideTopInset = 204f;
+        private const float DialogueBottomInset = 60f;
         [SerializeField, Range(1f, 1.25f)] private float _dialogueScale = 1.25f;
         private readonly FrontManagerGuideCtaRouter _router = new();
         private readonly List<string> _suppressionContexts = new(2);
@@ -27,7 +27,6 @@ namespace Baseball.Presentation.Guide
         private RectTransform _panel;
         private Image _portrait;
         private Text _expressionFallback;
-        private Text _typeLabel;
         private Text _messageText;
         private Button _ctaButton;
         private Text _ctaLabel;
@@ -144,8 +143,6 @@ namespace Baseball.Presentation.Guide
             _overlay.color = BlocksLowerInput ? new Color(0f, 0f, 0f, 0.56f) : Color.clear;
             _overlay.raycastTarget = BlocksLowerInput;
             _messageText.text = message.Text;
-            _typeLabel.text = GetTypeLabel(message.PresentationType);
-            _typeLabel.color = GetExpressionColor(message.Expression);
 
             Sprite sprite = Resources.Load<Sprite>("FrontManager/" + message.ExpressionAssetKey);
             _portrait.sprite = sprite;
@@ -193,8 +190,6 @@ namespace Baseball.Presentation.Guide
             _portrait.preserveAspect = true;
             _expressionFallback = CreateText("ExpressionFallback", _portrait.transform, "FM", 28,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(160f, 160f), Vector2.zero, TextColor);
-            _typeLabel = CreateText("Type", _panel, string.Empty, 14,
-                FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(410f, 28f), new Vector2(16f, 73f), AccentColor);
             _messageText = CreateText("Message", _panel, string.Empty, 20,
                 FontStyle.Normal, TextAnchor.UpperLeft, new Vector2(570f, 108f), new Vector2(96f, 4f), TextColor);
 
@@ -210,35 +205,28 @@ namespace Baseball.Presentation.Guide
         private void ConfigureLayout(GuidePresentationType type)
         {
             Vector2 size;
-            Vector2 anchor;
-            Vector2 position;
+            Vector2 anchor = new Vector2(1f, 0f);
+            // 하단 행동 바에 이어지는 위치로 고정해 알림 유형이 바뀌어도 프레임이 떠 보이지 않게 한다.
+            Vector2 position = new Vector2(-32f, DialogueBottomInset);
             switch (type)
             {
                 case GuidePresentationType.Toast:
                     size = new Vector2(780f, 260f);
-                    anchor = Vector2.one;
-                    position = new Vector2(-32f, -CompactGuideTopInset);
                     break;
                 case GuidePresentationType.NotificationCard:
                     size = new Vector2(900f, 300f);
-                    anchor = Vector2.one;
-                    position = new Vector2(-32f, -CompactGuideTopInset);
                     break;
                 case GuidePresentationType.FullDialogue:
                 case GuidePresentationType.ModalCelebration:
                     size = new Vector2(1080f, 360f);
                     anchor = new Vector2(0.5f, 0f);
-                    position = new Vector2(0f, 84f);
+                    position = new Vector2(0f, DialogueBottomInset);
                     break;
                 case GuidePresentationType.Briefing:
                     size = new Vector2(960f, 320f);
-                    anchor = new Vector2(0f, 1f);
-                    position = new Vector2(32f, -CompactGuideTopInset);
                     break;
                 default:
                     size = new Vector2(900f, 300f);
-                    anchor = Vector2.zero;
-                    position = new Vector2(32f, 84f);
                     break;
             }
             _panel.anchorMin = _panel.anchorMax = _panel.pivot = anchor;
@@ -247,10 +235,8 @@ namespace Baseball.Presentation.Guide
             _panel.localScale = Vector3.one * _dialogueScale;
             _panel.anchoredPosition = position;
             // 프레임과 대사의 비율을 함께 바꿔 모든 안내 유형에서 오른쪽 초상화 영역을 비운다.
-            SetContentRect(_typeLabel.rectTransform, new Vector2(0f, 1f),
-                new Vector2(36f, -36f), new Vector2(size.x * 0.64f, 24f));
             SetContentRect(_messageText.rectTransform, new Vector2(0f, 1f),
-                new Vector2(36f, -72f), new Vector2(size.x * 0.64f, size.y - 152f));
+                new Vector2(36f, -40f), new Vector2(size.x * 0.64f, size.y - 120f));
             SetContentRect(_portrait.rectTransform, new Vector2(1f, 0f),
                 new Vector2(-22f, 18f), new Vector2(size.x * 0.27f, size.y + 12f));
             SetContentRect((RectTransform)_ctaButton.transform, Vector2.zero,
@@ -271,17 +257,6 @@ namespace Baseball.Presentation.Guide
             rect.anchoredPosition = position;
             rect.sizeDelta = size;
         }
-
-        private static string GetTypeLabel(GuidePresentationType type) => type switch
-        {
-            GuidePresentationType.FullDialogue => "FRONT MANAGER · 중요 안내",
-            GuidePresentationType.Briefing => "FRONT MANAGER · 브리핑",
-            GuidePresentationType.ContextBubble => "FRONT MANAGER · 분석",
-            GuidePresentationType.Toast => "FRONT MANAGER",
-            GuidePresentationType.NotificationCard => "FRONT MANAGER · 알림",
-            GuidePresentationType.ModalCelebration => "FRONT MANAGER · 기록",
-            _ => "FRONT MANAGER"
-        };
 
         private static string GetExpressionLabel(GuideExpression expression) => expression switch
         {
