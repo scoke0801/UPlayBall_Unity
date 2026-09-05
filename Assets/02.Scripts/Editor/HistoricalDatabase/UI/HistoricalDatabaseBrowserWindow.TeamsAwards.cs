@@ -203,8 +203,16 @@ namespace Baseball.Editor.HistoricalDatabase
                     section,
                     "DH",
                     $"{FormatTracePlayer(trace.DesignatedHitter.PlayerSeasonId)} · {trace.DesignatedHitter.SelectionScore:0.000}");
+                AddKeyValue(section, "DH 선택 근거", trace.DesignatedHitter.Reason);
             }
             AddKeyValue(section, "Bench", string.Join(", ", trace.Bench.Select(candidate => FormatTracePlayer(candidate.PlayerSeasonId))));
+            for (int index = 0; index < trace.Bench.Count; index++)
+            {
+                HistoricalSimpleRosterSelectionTrace member = trace.Bench[index];
+                AddKeyValue(section, FormatTracePlayer(member.PlayerSeasonId),
+                    $"{member.Reason} · 능력 {member.AbilityScore:0.00} · 배치 {member.SelectionScore:0.00} · " +
+                    $"추가 백업 {string.Join(", ", member.NewBackupPositions.Select(FormatPosition))}");
+            }
             for (int index = 0; index < trace.PitchingStaff.Count; index++)
             {
                 HistoricalPitchingStaffSelectionTrace staff = trace.PitchingStaff[index];
@@ -212,6 +220,17 @@ namespace Baseball.Editor.HistoricalDatabase
                     section,
                     staff.AssignedRole,
                     $"{string.Join(", ", staff.SelectedPlayerSeasonIds.Select(FormatTracePlayer))} · fallback {staff.FallbackCount}");
+                var detail = new Foldout { text = "후보별 배치 점수", value = false };
+                AddKeyValue(detail, "선택 기준", staff.Reason);
+                for (int candidateIndex = 0; candidateIndex < staff.Candidates.Count; candidateIndex++)
+                {
+                    HistoricalRosterCandidateTrace candidate = staff.Candidates[candidateIndex];
+                    string status = staff.SelectedPlayerSeasonIds.Contains(candidate.PlayerSeasonId)
+                        ? "선택" : candidate.IsEligible ? "적격 후보" : "다른 보직 · 결손 시 후보";
+                    AddKeyValue(detail, FormatTracePlayer(candidate.PlayerSeasonId),
+                        $"{candidate.Score:0.000} · {status}");
+                }
+                section.Add(detail);
             }
             for (int index = 0; index < trace.ValidationWarnings.Count; index++)
             {

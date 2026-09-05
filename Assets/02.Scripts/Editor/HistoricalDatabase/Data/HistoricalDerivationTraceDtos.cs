@@ -24,6 +24,9 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private double groupMean;
         [SerializeField] private double groupStdDev;
         [SerializeField] private double rawZ;
+        [SerializeField] private double boundedZ;
+        [SerializeField] private double priorZ;
+        [SerializeField] private string referenceGroupKey;
         [SerializeField] private double reliability;
         [SerializeField] private double adjustedZ;
         [SerializeField] private double weight;
@@ -48,6 +51,9 @@ namespace Baseball.Editor.HistoricalDatabase
         public double GroupMean => groupMean;
         public double GroupStdDev => groupStdDev;
         public double RawZ => rawZ;
+        public double BoundedZ => boundedZ;
+        public double PriorZ => priorZ;
+        public string ReferenceGroupKey => referenceGroupKey ?? string.Empty;
         public double Reliability => reliability;
         public double AdjustedZ => adjustedZ;
         public double Weight => weight;
@@ -119,7 +125,7 @@ namespace Baseball.Editor.HistoricalDatabase
         public double SourceCompositeAtBoundary => sourceCompositeAtBoundary;
     }
 
-    /// <summary>출전량이 정한 Cost 상한과 그 판정 근거다.</summary>
+    /// <summary>시즌 길이·역할 기준의 출전량 진단이다. 가격에는 다시 반영하지 않는다.</summary>
     [Serializable]
     public sealed class HistoricalCostEligibilityTrace
     {
@@ -128,6 +134,8 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private double sample;
         [SerializeField] private double workloadRatio;
         [SerializeField] private int maximumCost;
+        [SerializeField] private bool affectsCost;
+        [SerializeField] private double fullSeasonSample;
         [SerializeField] private string reason;
 
         /// <summary>Full / Regular / Limited / Tiny 중 하나다. 사람이 읽는 이름일 뿐 상한을 정하지 않는다.</summary>
@@ -136,9 +144,11 @@ namespace Baseball.Editor.HistoricalDatabase
         public string Scope => scope ?? string.Empty;
         /// <summary>타자는 타석 수, 투수는 상대한 타자 수다.</summary>
         public double Sample => sample;
-        /// <summary>해당 역할군의 온전한 시즌 대비 출전 비율이다. 상한이 여기서 연속으로 나온다.</summary>
+        /// <summary>해당 연도와 역할군의 온전한 시즌 대비 출전 비율이다.</summary>
         public double WorkloadRatio => workloadRatio;
         public int MaximumCost => maximumCost;
+        public bool AffectsCost => affectsCost;
+        public double FullSeasonSample => fullSeasonSample;
         public string Reason => reason ?? string.Empty;
     }
 
@@ -151,6 +161,8 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private int sourcePopulationSize;
         [SerializeField] private bool replacementExcludedFromThresholdCalculation;
         [SerializeField] private HistoricalCostThresholdTrace[] thresholds;
+        [SerializeField] private HistoricalCostThresholdTrace[] compositeThresholds;
+        [SerializeField] private string costMethod;
         [SerializeField] private int[] baseAttributes;
         [SerializeField] private string role;
         [SerializeField] private string roleProfile;
@@ -172,6 +184,9 @@ namespace Baseball.Editor.HistoricalDatabase
             replacementExcludedFromThresholdCalculation;
         public IReadOnlyList<HistoricalCostThresholdTrace> Thresholds =>
             thresholds ?? Array.Empty<HistoricalCostThresholdTrace>();
+        public IReadOnlyList<HistoricalCostThresholdTrace> CompositeThresholds =>
+            compositeThresholds ?? Array.Empty<HistoricalCostThresholdTrace>();
+        public string CostMethod => costMethod ?? string.Empty;
         public IReadOnlyList<int> BaseAttributes => baseAttributes ?? Array.Empty<int>();
         public string Role => role ?? string.Empty;
         public string RoleProfile => roleProfile ?? string.Empty;
@@ -349,12 +364,16 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private string selectedPlayerSeasonId;
         [SerializeField] private double selectionScore;
         [SerializeField] private string reason;
+        [SerializeField] private double abilityScore;
+        [SerializeField] private string[] newBackupPositions;
 
         public string PlayerSeasonId => string.IsNullOrEmpty(playerSeasonId)
             ? selectedPlayerSeasonId ?? string.Empty
             : playerSeasonId;
         public double SelectionScore => selectionScore;
         public string Reason => reason ?? string.Empty;
+        public double AbilityScore => abilityScore;
+        public IReadOnlyList<string> NewBackupPositions => newBackupPositions ?? Array.Empty<string>();
     }
 
     /// <summary>투수 Assigned Role 하나의 후보 순위와 선택 목록이다.</summary>
@@ -365,6 +384,7 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private HistoricalRosterCandidateTrace[] candidates;
         [SerializeField] private string[] selectedPlayerSeasonIds;
         [SerializeField] private int fallbackCount;
+        [SerializeField] private string reason;
 
         public string AssignedRole => assignedRole ?? string.Empty;
         public IReadOnlyList<HistoricalRosterCandidateTrace> Candidates =>
@@ -372,9 +392,10 @@ namespace Baseball.Editor.HistoricalDatabase
         public IReadOnlyList<string> SelectedPlayerSeasonIds =>
             selectedPlayerSeasonIds ?? Array.Empty<string>();
         public int FallbackCount => fallbackCount;
+        public string Reason => reason ?? string.Empty;
     }
 
-    /// <summary>TeamSeason의 수비 8→DH→Bench와 투수진 선택 전체 Trace다.</summary>
+    /// <summary>TeamSeason의 수비·DH 동시 배치, 백업 벤치와 투수진 선택 근거다.</summary>
     [Serializable]
     public sealed class HistoricalRosterSelectionTrace
     {

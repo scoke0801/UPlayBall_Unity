@@ -18,11 +18,52 @@ from synthetic_bake import (
     load_and_validate_editor_asset_archive,
     percentile_cost,
     select_defensive_starters,
+    select_hitter_bench,
+    select_pitcher_group,
     write_editor_asset_archive,
 )
 
 
 class SyntheticBakeTests(unittest.TestCase):
+    def test_joint_starting_assignment_preserves_strong_bat_for_dh(self) -> None:
+        """수비 점수만 먼저 확정해서 DH의 공격 기회비용을 놓치지 않는다."""
+        batter = self._hitter_row("bat-catcher", 95, "C")
+        batter["baseAttributes"][3:5] = [60, 60]
+        defender = self._hitter_row("defense-catcher", 55, "C")
+        defender["baseAttributes"][3:5] = [80, 80]
+        rows = [batter, defender, self._hitter_row("dh", 40, "DH")] + [
+            self._hitter_row(position, 60, position) for position in DEFENSIVE_HITTER_POSITIONS if position != "C"
+        ]
+        sources = {row["playerSeasonId"]: row["_source"] for row in rows}
+        selected, _, _ = select_defensive_starters(rows, sources, include_designated_hitter=True)
+        self.assertEqual(selected[0]["playerSeasonId"], "defense-catcher")
+        self.assertEqual(selected[-1]["playerSeasonId"], "bat-catcher")
+        self.assertEqual(len({row["playerSeasonId"] for row in selected}), 9)
+
+    def test_bench_reserves_backup_catcher_before_redundant_bats(self) -> None:
+        """단순 점수 하위여도 교체 가능한 백업 포수 한 자리를 확보한다."""
+        rows = [self._hitter_row("backup-catcher", 30, "C")] + [
+            self._hitter_row(f"dh-{index}", 80, "DH") for index in range(6)
+        ]
+        sources = {row["playerSeasonId"]: row["_source"] for row in rows}
+        selected, trace, warnings = select_hitter_bench(rows, sources, 5)
+        self.assertEqual(selected[0]["playerSeasonId"], "backup-catcher")
+        self.assertEqual(trace[0]["reason"], "백업 포수 확보")
+        self.assertFalse(warnings)
+
+    def test_pitcher_selection_uses_ability_and_admits_remaining_starter_to_bullpen(self) -> None:
+        """등판 비율의 역할 점수로 능력치 순위가 뒤집히거나 선발이 불펜에서 배제되지 않는다."""
+        stronger, weaker = self._pitcher_rows()[:2]
+        stronger["baseAttributes"] = [60] * 12
+        weaker["baseAttributes"] = [45] * 12
+        stronger["positionRoleDerivationTrace"]["pitcherRoleScores"] = [{"role": "Starter", "score": 60}]
+        weaker["positionRoleDerivationTrace"]["pitcherRoleScores"] = [{"role": "Starter", "score": 100}]
+        remaining = [weaker, stronger]
+        starters, _ = select_pitcher_group(remaining, 1, "Starter", {"Starter"})
+        self.assertEqual(starters[0]["playerSeasonId"], stronger["playerSeasonId"])
+        bullpen, _ = select_pitcher_group(remaining, 1, "Bullpen", {"MiddleRelief"})
+        self.assertEqual(bullpen[0]["playerSeasonId"], weaker["playerSeasonId"])
+
     def test_cost_percentile_boundaries(self) -> None:
         costs = [percentile_cost(rank, 1000) for rank in range(1000)]
         self.assertEqual(costs.count(1), 50)

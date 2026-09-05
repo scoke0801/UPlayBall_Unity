@@ -130,67 +130,62 @@ Validation Error로 보고한다.
 
 ### Ability와 Cost
 
-Source Season을 Era/Position/Role Normalization하고 Reliability Shrinkage한 뒤 결정론적으로 Rating을
-변환한다. World Seed, World 성적, Award, 표시 이름, Edition은 BaseAttributes/Cost/TrainingCeiling을
-바꾸지 않는다.
+Source 기록 → 지표별 비교 집단 → 표본 신뢰도 보정 → BaseAttributes → 역할별 종합 능력치 → 고정 Cost
+구간 순서로 계산한다. World Seed·World 성적·Award·이름·Edition은 이 값을 바꾸지 않는다.
+설정은 `derivation_balance.json`, Source/Replacement 공용 가격 함수는 `derivation_cost.py`에 둔다.
 
-파이프라인은 네 판단을 각각 다른 단계에서 답한다. 하나를 Composite 한 값에 몰아넣지 않는다.
+- 타격 효율은 같은 연도 전체 타자, 투구 효율은 같은 연도 전체 투수와 비교한다. 수비는 실제 수비
+  포지션, Stamina는 선발/구원 역할군을 쓴다. 포지션별 공격 상대평가로 타격 우수자가 저평가되는
+  현상을 줄인다. 수비 소집단은 기존 포지션군·유형 전체 통계와 연속 혼합한다.
+- 신뢰도는 `r = n / (n + k × 당시 시즌 경기 수 / 144)`다. 시즌 경기 수는 당시 구단 순위표를
+  우선하며 불가피한 대체 근거도 Trace에 남긴다. 짧은 옛 시즌에 현대 시즌의 출전 기준을 강제하지 않는다.
+- 성과 지표는 `adjustedZ = clamp(rawZ, -3, 3) × r + (-1) × (1-r)`로 보정한다.
+  극소표본을 평균 주전으로 자동 복원하지 않기 위한 보수적 사전값이다. 수비·송구 근거 부족은
+  못한다는 증거가 아니므로 해당 지표의 사전 Z는 0이다.
+- Rating 기준점은 55, 범위는 25~95다. 주요 타격·투구 성과의 변환 폭과 역할 가중치를 조정하고,
+  Power에 ISO, Breaking에 피홈런 억제율을 사용한다. 이는 실측 구속·구종 정보를 대체하는
+  게임용 지표이며 선수의 실제 구속이나 구종 자체를 추정했다고 해석하지 않는다.
+- 100타석 이상이며 실제 수비 기록이 있으나 경기당 수비 이닝이 4.5 미만인 타자는 시즌 주역할을
+  DH로 추론한다. 실제 주수비 포지션은 파생 Trace에 남겨 수비 능력치 계산에 사용한다.
+  공식 DH 출전 기록의 복원이 아니라 기용 형태에 대한 명시적 추론이다.
+- Cost는 역할별 능력치 가중평균에 고정 경계를 적용한다. 같은 종합 능력치는 같은 가격이며,
+  백분위와 Full/Regular/Limited/Tiny는 진단일 뿐 출전량으로 Cost를 추가 할인하지 않는다.
+  Cost별 선수 수를 일정 비율로 강제하지 않는다.
 
-```text
-Raw Season Stats
-      ↓ ReferencePopulationBuilder   비교 기준을 어떻게 세울 것인가
-Metric Z
-      ↓ Reliability Shrinkage        이 기록을 얼마나 믿을 것인가 (단 한 번)
-BaseAttributes
-      ↓ RoleComposite                역할 기준으로 얼마나 잘했는가
-      ↓ CostEligibilityResolver      얼마나 큰 시즌이었는가
-Hitter / Pitcher 별 Percentile
-      ↓
-Cost 1~10
-```
+| Cost | 종합 능력치 구간 |
+|---|---|
+| 1 | 32 미만 |
+| 2 | 32 이상 36 미만 |
+| 3 | 36 이상 40 미만 |
+| 4 | 40 이상 44 미만 |
+| 5 | 44 이상 48 미만 |
+| 6 | 48 이상 52 미만 |
+| 7 | 52 이상 56 미만 |
+| 8 | 56 이상 60 미만 |
+| 9 | 60 이상 64 미만 |
+| 10 | 64 이상 |
 
-**Reference Population.** 비교 집단의 평균·표준편차는 표본 신뢰도 `n / (n + k)`를 Reference Weight로
-쓴 Winsorized 가중 통계다. 소표본 선수를 모집단에서 제거하지 않는다 — 제거하면 희소 포지션과
-1980년대처럼 얇은 연도의 기준이 무너진다. 대신 기여도만 줄인다. 한 값이 자기 자신에 대해 갖는
-증거력과 모집단에 대해 갖는 증거력을 같은 척도로 두기 위해 개인 Shrinkage와 같은 곡선을 쓴다.
-유효 표본이 `minimumEffectiveSampleCount`에 못 미치면 포지션군(`positionFamilies`) → 같은 연도
-같은 선수 유형 순으로 연속 혼합한다. **RoleTier는 GroupKey에 넣지 않는다.** 넣으면 규정 미달
-선수들끼리 비교하게 되어 소표본만으로 이루어진 비교 기준이 만들어진다.
+TrainingCeiling은 최종 Runtime Bake에서 BaseAttributes에 동일한 +3을 부여한다(최대 99).
+저Cost에만 +4~8을 주던 추가 성장 역전 요인을 제거한다. 역할별 장단점은 유지하므로 고Cost 선수가
+모든 개별 능력치에서 우월함을 보장하지는 않으며, 인접 Cost 경계의 최소 능력차도 보장하지 않는다.
 
-**Cost Eligibility.** 능력치와 별개로 출전량이 Cost 상한을 정한다. 28이닝 투수의 볼넷 억제력은
-능력치로는 사실대로 남기되, 그 시즌이 500타석 주전과 같은 카드 희소도를 갖지는 않는다.
-타자는 타석 수, 투수는 상대한 타자 수를 쓰고, 온전한 시즌 기준(`Full`)은 역할군별로 다르다.
+현재 버전은 Ability v5 / Cost v7 / PositionRole v5 / DerivationBalance v10 / RosterBuilder v3다.
+사전 Z, Rating 폭, 역할 가중치와 가격 경계는 밸런스 초안이다. 데이터 일관성 확인과 실제 경기
+밸런스 검증은 별개이며, 대량 경기·경제·훈련 검증 없이 승률이나 리그 평균 개선을 확정하지 않는다.
 
-```text
-상한 = round(minimumCost + (maximumCost - minimumCost) x clamp(표본 / 역할군 Full기준, 0, 1))
-```
+### 대표 로스터 배치
 
-| 기준 | 타자(타석) | 선발(상대타자) | 구원(상대타자) |
-|---|---|---|---|
-| Full — 온전한 시즌, 곡선의 분모 | 400 | 560 | 190 |
-| Regular — 진단 이름 경계 | 250 | 350 | 110 |
-| Limited — 진단 이름 경계 | 100 | 110 | 40 |
+`ability-fit-core25-v3`는 수비 8자리와 DH의 합산 점수를 동시에 최대화한다. 주포지션의 과도한
+고정 가산점을 제거하고 적격 부포지션에만 -4를 적용한다. 부포지션 자격은 실제 주수비 위치 또는
+5경기/45아웃 이상의 반복 기용 근거다. 적격 배치 불가능 시에만 OffPosition 경고를 남긴다.
 
-상한 수치는 레퍼런스인 엔트리브 프로야구 매니저의 Cost 구간 의미를 기준으로 잡았다. 그 게임에서
-1~2 Cost는 신고선수·부상선수처럼 출장이 극히 적은 카드, 3~4는 표본이 작지만 효율이 좋은 카드,
-5~6은 가장 두꺼운 선수 풀, 7~9는 팀 핵심, 10은 그 해를 지배한 선수다.
+벤치는 백업 포수 확보를 우선하며, 나머지는 교체 능력치와 새 백업 수비 범위(포지션당 +6)로
+순차 선택한다. 주전 9명은 공동 최적화지만, 벤치 포함 14명 전체의 전역 최적화를 의미하지 않는다.
 
-**상한은 구간이 아니라 연속 함수다.** Full/Regular/Limited/Tiny는 사람이 읽는 진단 이름으로만
-남기고 상한을 정하지 않는다. 구간마다 고정 상한을 주면 문턱 하나를 사이에 두고 상한이 여러 계단
-갈라져서, 83이닝을 던진 부분 선발이 56이닝 마무리보다 낮은 상한을 받는 역전이 생긴다. 표본이
-몇 타자 모자라 한 계단 깎이는 경계 인공물도 없어진다.
-
-백분위는 상한에 관여하지 않는다. "얼마나 잘했는가"는 Composite 백분위가, "얼마나 큰 시즌인가"는
-출전 비율이 각각 답하고, 최종 Cost는 둘 중 낮은 쪽이다.
-
-투수 기준을 역할군별로 나눈 이유는 마무리 한 시즌이 선발보다 상대 타자가 훨씬 적기 때문이다.
-50경기 56이닝을 던진 마무리는 온전한 시즌이지 부분 출장이 아니다. 단일 기준을 쓰면 이런 시즌이
-전부 부분 출장으로 떨어진다. 타자 Full 기준 400타석과 선발 Full 기준 560(약 140이닝)은 KBO
-규정타석·규정이닝 근처다.
-
-**Cost 모집단.** 백분위 구간(`costPercentileThresholds`)은 그대로 두고 모집단만 OriginYear의 같은
-선수 유형으로 나눈다. 타자와 투수는 입력 지표도 Composite 분산 구조도 달라서, 합치면 분산이 큰
-쪽이 상위 Cost를 독점한다.
+선발 5명은 Natural Starter 중 선발용 능력치 순서다. 등판 비율의 역할 점수는 가산하지 않는다.
+전문 셋업·마무리를 확보한 뒤 남은 투수는 Natural Role에 관계없이 일반 불펜에서 경쟁한다.
+역할 결손 fallback은 별도 경고로 남긴다. Cost는 배치 점수의 입력이 아니며 기존 능력치·Cost는
+변경하지 않는다. 원본 후보 점수와 벤치 선택 근거를 Editor Trace에서 확인할 수 있다.
 
 ## Editor Audit와 Runtime Archive
 
@@ -217,6 +212,11 @@ Canonical 선수 데이터와 분리해 제공한다. 최종 이름은 World 생
 
 실제 선수명/구단명, `sourceReferenceNames`, Editor provenance는 Runtime Archive에 넣지 않는다.
 `HistoricalRuntimeContentCatalog`는 검증된 Runtime 하위 Archive만 읽는다.
+
+현재 프로젝트의 Catalog 참조 대상은 `Assets/10.Datas/HistoricalSimulation/1982-2025/`다.
+Bake 후 검증된 `Runtime/`의 manifest·player_persons·Years JSON을 이 경로에도 동기화해야 실제
+게임에 반영된다. 기존 `.meta`와 Catalog GUID는 보존한다. 정본 ContentHash가 바뀌면 과거 Hash로
+Bake한 WorldHistory를 새 콘텐츠의 경기 결과로 재사용하지 않는다.
 
 ## Manifest와 검증
 

@@ -11,11 +11,11 @@ namespace Baseball.Editor.HistoricalDatabase
         private const int ExpectedNormalizedSchemaVersion = 3;
         private const string ExpectedReferenceDataVersion = "kbo-normalized-v3";
         private const string ExpectedNormalizedImporterVersion = "1.2.0";
-        private const string ExpectedAbilityFormulaVersion = "historical-ability-v4";
-        private const string ExpectedPositionRoleClassifierVersion = "season-position-role-v4";
-        private const string ExpectedRosterBuilderVersion = "position-first-core25-v2";
-        private const string ExpectedCostFormulaVersion = "historical-role-composite-v6";
-        private const string ExpectedDerivationBalanceVersion = "historical-derivation-balance-v8";
+        private const string ExpectedAbilityFormulaVersion = "historical-ability-v5";
+        private const string ExpectedPositionRoleClassifierVersion = "season-position-role-v5";
+        private const string ExpectedRosterBuilderVersion = "ability-fit-core25-v3";
+        private const string ExpectedCostFormulaVersion = "historical-role-composite-v7";
+        private const string ExpectedDerivationBalanceVersion = "historical-derivation-balance-v10";
 
         private static void ValidateManifestAndFiles(
             HistoricalArchiveData archive,

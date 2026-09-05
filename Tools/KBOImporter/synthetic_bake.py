@@ -8,6 +8,8 @@ import statistics
 from pathlib import Path
 from typing import Any, Iterable
 
+from derivation_cost import composite_cost
+
 from kbo_importer import IMPORTER_VERSION as NORMALIZED_IMPORTER_VERSION
 from kbo_importer import SCHEMA_VERSION as NORMALIZED_SCHEMA_VERSION
 from kbo_importer.validation import validate_saved_document
@@ -45,6 +47,7 @@ HITTER_METRIC_NAMES = (
     "BattingAverage",
     "OnBasePercentage",
     "SluggingPercentage",
+    "IsolatedPower",
     "HomeRunRate",
     "WalkRate",
     "NegativeStrikeoutRate",
@@ -61,6 +64,7 @@ PITCHER_METRIC_NAMES = (
     "NegativeWhip",
     "StrikeoutsPerNine",
     "NegativeWalksPerNine",
+    "NegativeHomeRunsPerNine",
     "InningsPerGame",
     "SaveRate",
     "HoldRate",
@@ -94,8 +98,7 @@ def metric_composite_influence_audit(
     profiles = balance["roleCompositeProfiles"][player_type]
     resolved_profile = profile_name if profile_name in profiles else "Default"
     ability_names = ABILITY_NAMES[:6] if player_type == "Hitter" else ABILITY_NAMES[6:]
-    levels = balance["roleCompositeWeightLevels"]
-    role_weights = [float(levels[level]) for level in profiles[resolved_profile]]
+    role_weights = [float(weight) for weight in profiles[resolved_profile]]
     total_role_weight = sum(role_weights)
     raw_influences: dict[str, float] = {}
     for ability_name, role_weight in zip(ability_names, role_weights):
@@ -169,14 +172,23 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
         raise ValueError("Reference PositionFamily 설정이 모든 타자 포지션을 덮지 않습니다.")
 
     eligibility = config["costEligibility"]
-    curve = eligibility["capCurve"]
-    minimum_cost = int(curve["minimumCost"])
-    maximum_cost = int(curve["maximumCost"])
-    highest_cost = max(int(threshold["cost"]) for threshold in thresholds)
-    if not 1 <= minimum_cost < maximum_cost <= highest_cost:
-        raise ValueError(
-            "Cost 상한 곡선은 1 이상에서 시작해 백분위 최대 Cost 이하로 끝나야 합니다."
-        )
+    boundaries = config["costCompositeThresholds"]
+    if len(boundaries) != 10 or float(boundaries[-1]["upperExclusive"]) <= 100.0:
+        raise ValueError("능력치 Cost 경계는 0~100과 Cost 1~10을 덮어야 합니다.")
+    previous = 0.0
+    for expected_cost, boundary in enumerate(boundaries, 1):
+        upper = float(boundary["upperExclusive"])
+        if not math.isfinite(upper) or upper <= previous or boundary["cost"] != expected_cost:
+            raise ValueError("능력치 Cost 경계는 유한한 순증가 값이어야 합니다.")
+        previous = upper
+    if float(eligibility["referenceSeasonGames"]) <= 0.0:
+        raise ValueError("기준 시즌 경기 수는 양수여야 합니다.")
+    prior = config["samplePrior"]
+    if not -float(prior["maximumAbsoluteZ"]) <= float(prior["performanceZ"]) < 0.0:
+        raise ValueError("소표본 사전 편차는 음수이며 Z 경계 안이어야 합니다.")
+    headroom = config["trainingHeadroom"]
+    if not 0 <= int(headroom["minimum"]) <= int(headroom["maximum"]):
+        raise ValueError("훈련 여유는 음수가 아닌 순서쌍이어야 합니다.")
 
     threshold_sets = [eligibility["hitterSampleThresholds"]] + list(
         eligibility["pitcherSampleThresholds"].values()
@@ -189,10 +201,10 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
     if set(eligibility["pitcherSampleThresholds"]) != set(reference["pitcherRoleFamilies"].values()):
         raise ValueError("Cost 자격 투수 기준이 투수 역할군 전체를 덮지 않습니다.")
 
-    levels = config["roleCompositeWeightLevels"]
     for player_type, profiles in config["roleCompositeProfiles"].items():
         for profile_name, profile in profiles.items():
-            if len(profile) != 6 or any(level not in levels for level in profile):
+            if (len(profile) != 6 or any(not math.isfinite(float(weight)) or float(weight) < 0.0 for weight in profile)
+                    or abs(sum(profile) - 1.0) > 1e-9):
                 raise ValueError(f"Cost 역할 가중치 설정이 유효하지 않습니다: {player_type}/{profile_name}")
             audit = metric_composite_influence_audit(player_type, profile_name, config)
             if audit["hasViolation"]:
@@ -245,13 +257,11 @@ def percentile_cost(rank: int, count: int) -> int:
 
 
 def headroom_range(cost: int) -> tuple[int, int]:
-    if cost <= 3:
-        return 4, 8
-    if cost <= 6:
-        return 2, 5
-    if cost <= 8:
-        return 1, 3
-    return 0, 2
+    """저Cost 추가 성장으로 가격과 기본 전력의 관계를 뒤집지 않도록 같은 여유를 쓴다."""
+    if not 1 <= cost <= 10:
+        raise ValueError("훈련 대상 Cost는 1~10이어야 합니다.")
+    settings = DERIVATION_BALANCE["trainingHeadroom"]
+    return int(settings["minimum"]), int(settings["maximum"])
 
 
 def clamp_rating(value: float) -> int:
@@ -320,6 +330,7 @@ def hitter_metric_evidence(player: dict[str, Any]) -> list[dict[str, Any]]:
         metric_evidence("BattingAverage", average, hits, at_bats, plate_appearances, pa_constant, has_average),
         metric_evidence("OnBasePercentage", on_base, on_base * plate_appearances, plate_appearances, plate_appearances, pa_constant, has_on_base),
         metric_evidence("SluggingPercentage", slugging, slugging * at_bats, at_bats, plate_appearances, pa_constant, has_slugging),
+        metric_evidence("IsolatedPower", slugging - average, (slugging - average) * at_bats, at_bats, plate_appearances, pa_constant, has_slugging and has_average),
         metric_evidence("HomeRunRate", ratio(stats.get("homeRuns"), plate_appearances), safe_number(stats.get("homeRuns")), plate_appearances, plate_appearances, pa_constant, plate_appearances > 0.0),
         metric_evidence("WalkRate", ratio(stats.get("walks"), plate_appearances), safe_number(stats.get("walks")), plate_appearances, plate_appearances, pa_constant, plate_appearances > 0.0),
         metric_evidence("NegativeStrikeoutRate", -ratio(stats.get("strikeouts"), plate_appearances), -safe_number(stats.get("strikeouts")), plate_appearances, plate_appearances, pa_constant, plate_appearances > 0.0),
@@ -363,7 +374,8 @@ def hitter_metric_evidence(player: dict[str, Any]) -> list[dict[str, Any]]:
         )
     )
 
-    natural_position, _ = derive_source_position(player, "DH")
+    _, position_trace = derive_source_position(player, "DH")
+    natural_position = position_trace["primaryDefensivePosition"]
     primary_defenses = [
         record
         for record in defenses
@@ -483,6 +495,7 @@ def pitcher_metric_evidence(
         metric_evidence("NegativeWhip", -whip, -(safe_number(stats.get("hitsAllowed")) + safe_number(stats.get("walks"))), innings, batters_faced, tbf_constant, has_whip),
         metric_evidence("StrikeoutsPerNine", ratio(stats.get("strikeouts"), innings) * 9.0, safe_number(stats.get("strikeouts")), innings, batters_faced, tbf_constant, innings > 0.0),
         metric_evidence("NegativeWalksPerNine", -ratio(stats.get("walks"), innings) * 9.0, -safe_number(stats.get("walks")), innings, batters_faced, tbf_constant, innings > 0.0),
+        metric_evidence("NegativeHomeRunsPerNine", -ratio(stats.get("homeRunsAllowed"), innings) * 9.0, -safe_number(stats.get("homeRunsAllowed")), innings, batters_faced, tbf_constant, innings > 0.0 and stats.get("homeRunsAllowed") is not None),
         metric_evidence("InningsPerGame", innings / games if games > 0.0 else 0.0, innings, games, batters_faced, tbf_constant, games > 0.0),
         metric_evidence("SaveRate", ratio(stats.get("saves"), games), safe_number(stats.get("saves")), games, batters_faced, tbf_constant, games > 0.0),
         metric_evidence("HoldRate", ratio(stats.get("holds"), games), safe_number(stats.get("holds")), games, batters_faced, tbf_constant, holds_available and games > 0.0),
@@ -594,12 +607,18 @@ def build_adjusted_feature_pool(
     year: int,
     player_type: str,
     pitcher_role_availability: dict[str, bool] | None = None,
+    season_games: float | None = None,
 ) -> tuple[dict[str, tuple[float, ...]], dict[str, dict[str, dict[str, Any]]], dict[str, str]]:
     """시대·포지션/역할 집단 Z-score에 지표별 표본 신뢰도를 적용한다."""
     metric_names = HITTER_METRIC_NAMES if player_type == "Hitter" else PITCHER_METRIC_NAMES
     evidence_by_id: dict[str, list[dict[str, Any]]] = {}
     group_by_id: dict[str, str] = {}
     role_tier_by_id: dict[str, str] = {}
+    reference_group_by_id: dict[str, str] = {}
+    reference_season_games = float(DERIVATION_BALANCE["costEligibility"]["referenceSeasonGames"])
+    season_scale = (season_games if season_games is not None else reference_season_games) / reference_season_games
+    if not math.isfinite(season_scale) or season_scale <= 0.0:
+        raise ValueError("능력치 신뢰도 기준 시즌 길이는 양수여야 합니다.")
     for player in players:
         source_id = str(player.get("sourcePlayerId") or "")
         if not source_id or source_id in evidence_by_id:
@@ -616,10 +635,19 @@ def build_adjusted_feature_pool(
             pitcher_role_availability,
         )
         role_tier_by_id[source_id] = derivation_role_tier(player, player_type)
+        reference_group_by_id[source_id] = group_by_id[source_id]
+        if player_type == "Hitter":
+            _, position_trace = derive_source_position(player, "DH")
+            defensive_position = position_trace["primaryDefensivePosition"]
+            if defensive_position:
+                reference_group_by_id[source_id] = f"{year}:{defensive_position}"
+        # 짧은 역사 시즌에서도 같은 출전 비율은 같은 신뢰도로 평가한다.
+        for component in evidence_by_id[source_id]:
+            component["reliabilityConstant"] *= season_scale
 
     family_by_id = {
         source_id: reference_family_key(group_key, player_type)
-        for source_id, group_key in group_by_id.items()
+        for source_id, group_key in reference_group_by_id.items()
     }
     type_key = f"{year}:{player_type}"
 
@@ -657,8 +685,8 @@ def build_adjusted_feature_pool(
             family_statistics[(family_key, metric_name)] = statistics_for(member_ids, metric_name)
 
     group_statistics: dict[tuple[str, str], tuple[float, float, float, float, float]] = {}
-    for group_key in sorted(set(group_by_id.values())):
-        member_ids = members_of(group_by_id, group_key)
+    for group_key in sorted(set(reference_group_by_id.values())):
+        member_ids = members_of(reference_group_by_id, group_key)
         family_key = family_by_id[member_ids[0]]
         for metric_name in metric_names:
             family_center, family_deviation, family_effective, family_share = (
@@ -682,7 +710,7 @@ def build_adjusted_feature_pool(
     vectors: dict[str, tuple[float, ...]] = {}
     traces: dict[str, dict[str, dict[str, Any]]] = {}
     for source_id in sorted(evidence_by_id):
-        group_key = group_by_id[source_id]
+        group_key = reference_group_by_id[source_id]
         adjusted_values: list[float] = []
         component_traces: dict[str, dict[str, Any]] = {}
         by_metric = {component["metric"]: component for component in evidence_by_id[source_id]}
@@ -695,6 +723,19 @@ def build_adjusted_feature_pool(
                 group_share,
                 family_share,
             ) = group_statistics[(group_key, metric_name)]
+            reference_key = group_key
+            reference_config = DERIVATION_BALANCE["referencePopulation"]
+            if player_type == "Pitcher" and metric_name in reference_config["pitcherFamilyMetrics"]:
+                reference_key = family_by_id[source_id]
+                center, deviation, group_effective, group_share = blend_reference_statistics(
+                    family_statistics[(reference_key, metric_name)], type_statistics[metric_name]
+                )
+                family_share = group_share
+            elif player_type == "Pitcher" or metric_name not in reference_config["positionMetrics"]:
+                # 타격·실점 억제는 포지션과 보직이 달라도 같은 경기 척도로 비교한다.
+                reference_key = type_key
+                center, deviation, group_effective = type_statistics[metric_name]
+                group_share = family_share = 1.0
             raw_z = (
                 (float(evidence["rawValue"]) - center) / deviation
                 if evidence["isAvailable"]
@@ -704,11 +745,21 @@ def build_adjusted_feature_pool(
                 float(evidence["sampleSize"]),
                 float(evidence["reliabilityConstant"]),
             ) if evidence["isAvailable"] else 0.0
-            adjusted_z = raw_z * sample_reliability
+            prior = DERIVATION_BALANCE["samplePrior"]
+            prior_z = 0.0 if metric_name in prior["neutralMetrics"] else float(prior["performanceZ"])
+            limit = float(prior["maximumAbsoluteZ"])
+            bounded_z = max(-limit, min(limit, raw_z))
+            # 소표본은 평균 전력을 보장하지 않는다. 관측 증거가 쌓이면 보수적 사전값에서 벗어난다.
+            # 시대별 수비 결측은 실제 능력 부족과 구분해 중립 사전값을 쓴다.
+            adjusted_z = bounded_z * sample_reliability + prior_z * (1.0 - sample_reliability)
             adjusted_values.append(adjusted_z)
             component_traces[metric_name] = {
                 **evidence,
                 "roleTier": role_tier_by_id[source_id],
+                "referenceGroupKey": reference_key,
+                "seasonLengthScale": round(season_scale, 8),
+                "priorZ": prior_z,
+                "boundedZ": round(bounded_z, 8),
                 "referenceWeight": round(reference_weight(evidence), 8),
                 "referenceFamilyKey": family_by_id[source_id],
                 "referenceEffectiveSampleCount": round(group_effective, 8),
@@ -759,16 +810,35 @@ def derive_source_position(
             HITTER_POSITIONS.index(candidate["position"]),
         )
     )
+    primary_defensive_position = next(
+        (candidate["position"] for candidate in candidates if candidate["position"] != "DH"), ""
+    )
     selected = candidates[0]["position"] if candidates else fallback
     reason = (
         "해당 SeasonYear의 수비 이닝, 선발 경기, 출전 경기 순으로 선택"
         if candidates
         else f"해당 SeasonYear의 수비 기록이 없어 {fallback} fallback"
     )
+    stats = player.get("hitterStats") or {}
+    games = safe_number(stats.get("games"))
+    defensive_outs = sum(candidate["inningsOuts"] for candidate in candidates if candidate["position"] != "DH")
+    settings = DERIVATION_BALANCE["positionClassifier"]
+    is_inferred_dh = (
+        bool(primary_defensive_position)
+        and safe_number(stats.get("plateAppearances")) >= float(settings["minimumDesignatedHitterPlateAppearances"])
+        and games > 0.0
+        and defensive_outs / (3.0 * games) < float(settings["maximumDefensiveInningsPerGame"])
+    )
+    if is_inferred_dh:
+        selected = "DH"
+        reason = "충분한 타격 출전 대비 수비 이닝 비율이 낮아 DH 중심 시즌으로 추정; 주수비 위치 근거는 별도 보존"
     return selected, {
         "classifierVersion": POSITION_ROLE_CLASSIFIER_VERSION,
         "positionCandidates": candidates,
         "selectedNaturalPosition": selected,
+        "primaryDefensivePosition": primary_defensive_position,
+        "isDesignatedHitterInferred": is_inferred_dh,
+        "defensiveInningsPerGame": round(defensive_outs / (3.0 * games), 8) if games > 0.0 else None,
         "reason": reason,
     }
 
@@ -781,18 +851,9 @@ def hitter_features(player: dict[str, Any]) -> tuple[float, ...]:
 
 
 def pitcher_features(player: dict[str, Any]) -> tuple[float, ...]:
-    stats = player.get("pitcherStats") or {}
-    outs = safe_number(stats.get("inningsOuts"))
-    games = max(1.0, safe_number(stats.get("games"), 1.0))
-    innings = outs / 3.0
-    return (
-        -safe_number(stats.get("sourceERA"), 9.0),
-        -safe_number(stats.get("sourceWHIP"), 3.0),
-        ratio(stats.get("strikeouts"), innings) * 9.0,
-        -ratio(stats.get("walks"), innings) * 9.0,
-        innings / games,
-        ratio(stats.get("saves"), games),
-        ratio(stats.get("holds"), games),
+    return tuple(
+        safe_number(component["rawValue"])
+        for component in pitcher_metric_evidence(player)
     )
 
 
@@ -862,6 +923,10 @@ def to_ratings_with_trace(
             })
             component["weight"] = weight
             component["contribution"] = round(contribution, 8)
+            component["priorContribution"] = round(
+                float(component.get("priorZ", 0.0)) * (1.0 - float(component.get("reliability", 0.0))) * weight, 8
+            )
+            component["observedContribution"] = round(contribution - component["priorContribution"], 8)
             attribute_components.append(component)
         rating_before_clamp = rating_center + float(profile["scale"]) * combined_z
         rating_after_clamp = clamp_rating(rating_before_clamp)
@@ -893,11 +958,11 @@ def build_ability_validation_warnings(
     warnings: list[dict[str, Any]] = []
     for trace in ability_trace:
         components = trace.get("components") or []
-        absolute_total = sum(abs(float(component["contribution"])) for component in components)
+        absolute_total = sum(abs(float(component.get("observedContribution", component["contribution"]))) for component in components)
         if absolute_total <= 1e-9:
             continue
         for component in components:
-            contribution = abs(float(component["contribution"]))
+            contribution = abs(float(component.get("observedContribution", component["contribution"])))
             contribution_share = contribution / absolute_total
             if (
                 float(component["reliability"]) <= reliability_maximum
@@ -910,7 +975,7 @@ def build_ability_validation_warnings(
                         "attribute": trace["attribute"],
                         "metric": component["metric"],
                         "reliability": component["reliability"],
-                        "contribution": component["contribution"],
+                        "contribution": component.get("observedContribution", component["contribution"]),
                         "contributionShare": round(contribution_share, 8),
                     }
                 )
@@ -942,12 +1007,11 @@ def role_composite_weights(season: dict[str, Any]) -> tuple[str, list[float]]:
         profile_name = str(season.get("pitcherRole") or "Default")
     if profile_name not in profiles:
         profile_name = "Default"
-    levels = DERIVATION_BALANCE["roleCompositeWeightLevels"]
-    return profile_name, [float(levels[level]) for level in profiles[profile_name]]
+    return profile_name, [float(weight) for weight in profiles[profile_name]]
 
 
 def role_adjusted_composite(season: dict[str, Any]) -> tuple[float, dict[str, Any]]:
-    """기존 PlayerValueEvaluator의 역할별 핵심/보조/일반 능력치 계약으로 가치를 계산한다."""
+    """오프라인 밸런스의 역할별 수치 가중치로 가격 기준 종합 능력치를 계산한다."""
     player_type = str(season["playerType"])
     if player_type == "Hitter":
         ability_names = ABILITY_NAMES[:6]
@@ -991,90 +1055,48 @@ def role_adjusted_composite(season: dict[str, Any]) -> tuple[float, dict[str, An
 
 
 def cost_eligibility_sample_thresholds(season: dict[str, Any]) -> tuple[str, dict[str, float]]:
-    """Cost 자격 판정에 쓸 출전량 기준을 선수 유형·투수 역할군별로 고른다."""
-    eligibility = DERIVATION_BALANCE["costEligibility"]
+    """시즌 길이와 역할에 맞춘 출전량 진단 기준을 만든다. 가격 상한으로 쓰지 않는다."""
+    settings = DERIVATION_BALANCE["costEligibility"]
+    reference_games = float(settings["referenceSeasonGames"])
+    season_games = float(season.get("sourceSeasonGames", reference_games))
+    if not math.isfinite(season_games) or season_games <= 0.0:
+        raise ValueError("출전량 진단의 시즌 경기 수가 유효하지 않습니다.")
+    scale = season_games / reference_games
     if str(season["playerType"]) == "Hitter":
-        return "Hitter", {
-            key: float(value) for key, value in eligibility["hitterSampleThresholds"].items()
-        }
-    families = DERIVATION_BALANCE["referencePopulation"]["pitcherRoleFamilies"]
-    family = families.get(str(season.get("pitcherRole") or "Default"), "Relief")
-    return family, {
-        key: float(value) for key, value in eligibility["pitcherSampleThresholds"][family].items()
-    }
-
-
-def workload_cost_cap(workload_ratio: float) -> int:
-    """온전한 시즌 대비 출전 비율을 Cost 상한으로 연속 변환한다.
-
-    구간별 고정 상한을 쓰면 문턱 하나를 사이에 두고 상한이 여러 계단 갈라진다. 실제로
-    83이닝을 던진 부분 선발이 56이닝 마무리보다 낮은 상한을 받는 역전이 생겼다. 상한을
-    비율의 연속 함수로 두면 그 절벽이 사라지고, 표본이 한두 타자 모자라 한 계단 깎이는
-    경계 인공물도 없어진다. 반올림은 부동소수 구현에 기대지 않도록 floor(x + 0.5)로 고정한다.
-    """
-    curve = DERIVATION_BALANCE["costEligibility"]["capCurve"]
-    minimum_cost = int(curve["minimumCost"])
-    maximum_cost = int(curve["maximumCost"])
-    ratio = min(1.0, max(0.0, workload_ratio))
-    return math.floor(minimum_cost + (maximum_cost - minimum_cost) * ratio + 0.5)
+        scope, thresholds = "Hitter", settings["hitterSampleThresholds"]
+    else:
+        families = DERIVATION_BALANCE["referencePopulation"]["pitcherRoleFamilies"]
+        scope = families.get(str(season.get("pitcherRole") or "Default"), "Relief")
+        thresholds = settings["pitcherSampleThresholds"][scope]
+    return scope, {key: float(value) * scale for key, value in thresholds.items()}
 
 
 def cost_eligibility_tier(season: dict[str, Any]) -> dict[str, Any]:
-    """능력치와 별개로 이 시즌이 어느 Cost까지 인정받을 수 있는지 판정한다.
-
-    28이닝 투수의 볼넷 억제력이나 20타석 타자의 타율은 능력치로는 사실대로 남겨야 하지만,
-    그 시즌 자체가 500타석 주전과 같은 카드 희소도를 가질 수는 없다. Ability는 "얼마나
-    잘했나", Cost는 "얼마나 큰 시즌이었나"를 각각 답하도록 두 판단을 분리한다.
-
-    Full/Regular/Limited/Tiny는 사람이 읽는 진단 이름일 뿐 상한을 정하지 않는다. 상한은
-    ``Full`` 기준 대비 출전 비율에서 연속으로 나온다.
-    """
-    curve = DERIVATION_BALANCE["costEligibility"]["capCurve"]
+    """출전량 설명용 metadata다. 능력치의 신뢰도 보정을 가격에서 중복 할인하지 않는다."""
     scope, thresholds = cost_eligibility_sample_thresholds(season)
     has_sample, sample = optional_number(season.get("costEligibilitySample"))
     if not has_sample:
-        return {
-            "tier": "Full",
-            "scope": scope,
-            "sample": -1.0,
-            "workloadRatio": 1.0,
-            "maximumCost": int(curve["maximumCost"]),
-            "reason": "출전량 표본이 없어 Cost 상한을 적용하지 않았습니다.",
-        }
-    if sample >= thresholds["Full"]:
-        tier = "Full"
-    elif sample >= thresholds["Regular"]:
-        tier = "Regular"
-    elif sample >= thresholds["Limited"]:
-        tier = "Limited"
-    else:
-        tier = "Tiny"
+        sample = -1.0
+    tier = "Full" if sample >= thresholds["Full"] else "Regular" if sample >= thresholds["Regular"] else "Limited" if sample >= thresholds["Limited"] else "Tiny"
     workload_ratio = min(1.0, max(0.0, sample / thresholds["Full"]))
-    maximum_cost = workload_cost_cap(workload_ratio)
     return {
         "tier": tier,
         "scope": scope,
         "sample": round(sample, 8),
         "workloadRatio": round(workload_ratio, 8),
-        "maximumCost": maximum_cost,
+        "maximumCost": 10,
+        "affectsCost": False,
+        "fullSeasonSample": thresholds["Full"],
         "reason": (
-            f"{scope} 출전량 {sample:.0f}은 온전한 시즌의 {workload_ratio * 100:.0f}%라 "
-            f"Cost {maximum_cost}까지 인정합니다."
+            f"{scope} 출전량 {sample:.0f}은 해당 시즌 기준의 {workload_ratio * 100:.0f}%입니다. "
+            "신뢰도는 능력치에 반영했으며 Cost는 별도로 할인하지 않습니다."
+            if has_sample else "출전량 표본이 없습니다. Cost는 기본 전력으로 계산합니다."
         ),
     }
 
 
-def resolve_eligible_cost(raw_cost: int, eligibility_trace: dict[str, Any]) -> int:
-    """백분위 Cost를 출전량이 허용하는 상한으로 낮춘다."""
-    return min(raw_cost, int(eligibility_trace["maximumCost"]))
-
-
 def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
-    """OriginYear의 같은 선수 유형 모집단에서 백분위 Cost를 정하고 자격 상한을 적용한다.
-
-    타자와 투수는 입력 지표도 Composite 분산 구조도 달라서, 한 모집단에 합치면 분산이 큰
-    쪽이 상위 Cost를 독점한다. 백분위 구간 자체는 그대로 두고 모집단만 유형별로 나눈다.
-    """
+    """종합 능력치의 고정 구간으로 Cost를 정하고 연도별 백분위·출전량은 진단으로 남긴다."""
     by_population: dict[tuple[int, str], list[tuple[dict[str, Any], float, dict[str, Any]]]] = {}
     for season in seasons:
         composite, trace = role_adjusted_composite(season)
@@ -1102,11 +1124,14 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
                     "sourceCompositeAtBoundary": round(ranked[boundary_index][1], 8),
                 }
             )
-        for zero_based_rank, (season, _, trace) in enumerate(ranked):
+        for zero_based_rank, (season, composite, trace) in enumerate(ranked):
             percentile = (zero_based_rank + 0.5) / count
             raw_cost = percentile_cost(zero_based_rank, count)
             eligibility_trace = cost_eligibility_tier(season)
-            cost = resolve_eligible_cost(raw_cost, eligibility_trace)
+            cost = composite_cost(composite, (
+                (float(row["upperExclusive"]), int(row["cost"]))
+                for row in DERIVATION_BALANCE["costCompositeThresholds"]
+            ))
             season["cost"] = cost
             trace["populationCount"] = count
             trace["dataProvenance"] = "SourceBacked"
@@ -1117,6 +1142,8 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
             trace["rank"] = zero_based_rank + 1
             trace["percentile"] = round(percentile, 8)
             trace["rawPercentileCost"] = raw_cost
+            trace["costMethod"] = "FixedRoleComposite"
+            trace["compositeThresholds"] = DERIVATION_BALANCE["costCompositeThresholds"]
             trace["costEligibility"] = eligibility_trace
             trace["cost"] = cost
             season["costDerivationTrace"] = trace
@@ -1374,7 +1401,7 @@ def source_workload(player: dict[str, Any], player_type: str) -> float:
 
 
 def source_cost_eligibility_sample(player: dict[str, Any], player_type: str) -> float:
-    """Cost 자격 판정에 쓰는 상대한 타자 수 또는 타석 수를 만든다."""
+    """출전량 진단에 쓰는 상대한 타자 수 또는 타석 수를 만든다."""
     if player_type == "Pitcher":
         return pitcher_batters_faced(player.get("pitcherStats") or {})
     return max(0.0, safe_number((player.get("hitterStats") or {}).get("plateAppearances")))
@@ -1466,14 +1493,19 @@ def weighted_rating(row: dict[str, Any], weights: dict[str, float]) -> float:
 
 
 def eligible_source_positions(player: dict[str, Any]) -> set[str]:
+    """주수비 또는 반복 기용 근거가 있는 포지션만 수비 후보로 인정한다."""
     result: set[str] = set()
+    _, position_trace = derive_source_position(player, "DH")
+    primary = position_trace["primaryDefensivePosition"]
     for record in player.get("defenseRecords") or []:
         source_name = str(record.get("position") or "")
         if (
             source_name not in SOURCE_POSITION_MAP
+            or (safe_number(record.get("inningsOuts")) <= 0 and safe_number(record.get("games")) <= 0)
             or (
-                safe_number(record.get("inningsOuts")) <= 0
-                and safe_number(record.get("games")) <= 0
+                safe_number(record.get("inningsOuts")) < ROSTER_SELECTION_CONFIG["secondaryPositionMinimumOuts"]
+                and safe_number(record.get("games")) < ROSTER_SELECTION_CONFIG["secondaryPositionMinimumGames"]
+                and SOURCE_POSITION_MAP[source_name] != primary
             )
         ):
             continue
@@ -1487,11 +1519,15 @@ def eligible_source_positions(player: dict[str, Any]) -> set[str]:
 
 
 def position_starter_score(row: dict[str, Any], position: str, is_eligible: bool) -> float:
+    if position == "DH":
+        return weighted_rating(row, DH_ATTRIBUTE_WEIGHTS)
     score = weighted_rating(row, POSITION_STARTER_ATTRIBUTE_WEIGHTS[position])
     if row["position"] == position:
         score += ROSTER_SELECTION_CONFIG["naturalPositionBonus"]
     elif is_eligible:
         score += ROSTER_SELECTION_CONFIG["eligiblePositionBonus"]
+    else:
+        score -= ROSTER_SELECTION_CONFIG["offPositionPenalty"]
     return score
 
 
@@ -1504,14 +1540,19 @@ def assignment_stable_key(
 def select_defensive_starters(
     hitters: list[dict[str, Any]],
     source_by_season_id: dict[str, dict[str, Any]],
+    include_designated_hitter: bool = False,
 ) -> tuple[list[dict[str, Any] | None], list[dict[str, Any]], list[dict[str, Any]]]:
-    """Eligible Position 전체를 보며 결정론적 최대 가중 매칭으로 수비 8자리를 채운다."""
+    """수비 적격 자리와 선택적 DH를 함께 최대 가중 매칭해 주전 기회비용을 반영한다."""
+    positions = HITTER_POSITIONS if include_designated_hitter else DEFENSIVE_HITTER_POSITIONS
     ordered = sorted(hitters, key=lambda row: row["playerSeasonId"])
     eligible_by_id = {
         row["playerSeasonId"]: eligible_source_positions(source_by_season_id[row["playerSeasonId"]])
         for row in ordered
     }
-    empty_assignment: tuple[dict[str, Any] | None, ...] = (None,) * len(DEFENSIVE_HITTER_POSITIONS)
+    if include_designated_hitter:
+        for eligible in eligible_by_id.values():
+            eligible.add("DH")
+    empty_assignment: tuple[dict[str, Any] | None, ...] = (None,) * len(positions)
     states: dict[int, tuple[float, tuple[dict[str, Any] | None, ...]]] = {
         0: (0.0, empty_assignment)
     }
@@ -1519,7 +1560,7 @@ def select_defensive_starters(
         previous_states = list(states.items())
         eligible = eligible_by_id[row["playerSeasonId"]]
         for mask, (total_score, assignment) in previous_states:
-            for slot_index, position in enumerate(DEFENSIVE_HITTER_POSITIONS):
+            for slot_index, position in enumerate(positions):
                 bit = 1 << slot_index
                 if mask & bit or position not in eligible:
                     continue
@@ -1541,12 +1582,15 @@ def select_defensive_starters(
 
     best_mask = 0
     best_score, best_assignment = states[0]
+    defense_mask = (1 << len(DEFENSIVE_HITTER_POSITIONS)) - 1
     for mask, (score, assignment) in states.items():
+        coverage = ((mask & defense_mask).bit_count(), mask.bit_count())
+        best_coverage = ((best_mask & defense_mask).bit_count(), best_mask.bit_count())
         if (
-            mask.bit_count() > best_mask.bit_count()
-            or (mask.bit_count() == best_mask.bit_count() and score > best_score + 1e-9)
+            coverage > best_coverage
+            or (coverage == best_coverage and score > best_score + 1e-9)
             or (
-                mask.bit_count() == best_mask.bit_count()
+                coverage == best_coverage
                 and abs(score - best_score) <= 1e-9
                 and assignment_stable_key(assignment) < assignment_stable_key(best_assignment)
             )
@@ -1561,9 +1605,9 @@ def select_defensive_starters(
     remaining = [row for row in ordered if row["playerSeasonId"] not in selected_ids]
     warnings: list[dict[str, Any]] = []
     assignments = list(best_assignment)
-    for slot_index, position in enumerate(DEFENSIVE_HITTER_POSITIONS):
+    for slot_index, position in enumerate(positions):
         natural_count = sum(row["position"] == position for row in ordered)
-        if natural_count == 0:
+        if natural_count == 0 and position != "DH":
             warnings.append(
                 {
                     "code": "ROSTER_MISSING_NATURAL_POSITION",
@@ -1593,7 +1637,7 @@ def select_defensive_starters(
         )
 
     trace: list[dict[str, Any]] = []
-    for slot_index, position in enumerate(DEFENSIVE_HITTER_POSITIONS):
+    for slot_index, position in enumerate(positions):
         selected = assignments[slot_index]
         candidates = []
         for row in ordered:
@@ -1623,9 +1667,7 @@ def select_defensive_starters(
                 ) if selected else 0.0,
                 "isFallback": selected is not None and not selected_is_eligible,
                 "reason": (
-                    "Natural Position 최고 점수"
-                    if selected is not None and selected["position"] == position
-                    else "Eligible Position 최대 가중 매칭"
+                    "수비와 DH를 함께 고려한 적격 포지션 최대 가중 매칭"
                     if selected_is_eligible
                     else "Eligible 후보 부족 OffPosition fallback"
                     if selected is not None
@@ -1637,16 +1679,8 @@ def select_defensive_starters(
 
 
 def pitcher_assignment_score(row: dict[str, Any], assigned_group: str) -> float:
-    ability_score = weighted_rating(row, PITCHER_ASSIGNMENT_ATTRIBUTE_WEIGHTS[assigned_group])
-    role_scores = row["positionRoleDerivationTrace"]["pitcherRoleScores"]
-    role_score = next(
-        (safe_number(item.get("score")) for item in role_scores if item.get("role") == assigned_group),
-        0.0,
-    )
-    return (
-        ability_score * ROSTER_SELECTION_CONFIG["pitcherAbilityWeight"]
-        + role_score * ROSTER_SELECTION_CONFIG["pitcherRoleEvidenceWeight"]
-    )
+    """등판 패턴은 자격 판정에만 쓰고, 적격 후보의 우열은 보직별 능력치로 정한다."""
+    return weighted_rating(row, PITCHER_ASSIGNMENT_ATTRIBUTE_WEIGHTS[assigned_group])
 
 
 def select_pitcher_group(
@@ -1659,16 +1693,19 @@ def select_pitcher_group(
         remaining,
         key=lambda row: (-pitcher_assignment_score(row, assigned_group), row["playerSeasonId"]),
     )
-    natural = [row for row in candidates if row["pitcherRole"] in natural_roles]
+    # 선발 5명을 확보한 뒤 남은 선발도 단기 구원 능력으로 경쟁한다.
+    natural = [row for row in candidates if assigned_group == "Bullpen" or row["pitcherRole"] in natural_roles]
     selected = natural[:count]
     selected_ids = {row["playerSeasonId"] for row in selected}
     remaining[:] = [row for row in remaining if row["playerSeasonId"] not in selected_ids]
     return selected, {
         "assignedRole": assigned_group,
+        "reason": "적격 후보의 보직별 능력치 순위; 등판 비율 가산 없음",
         "candidates": [
             {
                 "playerSeasonId": row["playerSeasonId"],
                 "naturalPitcherRole": row["pitcherRole"],
+                "isEligible": assigned_group == "Bullpen" or row["pitcherRole"] in natural_roles,
                 "score": round(pitcher_assignment_score(row, assigned_group), 6),
             }
             for row in candidates
@@ -1711,6 +1748,50 @@ def fill_pitcher_group_fallback(
     trace["fallbackCount"] = len(fallback)
 
 
+def select_hitter_bench(
+    hitters: list[dict[str, Any]],
+    source_by_season_id: dict[str, dict[str, Any]],
+    count: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    """백업 포수를 확보한 뒤 미확보 수비 백업과 교체 능력치를 함께 평가한다."""
+    remaining = sorted(hitters, key=lambda row: row["playerSeasonId"])
+    eligible = {
+        row["playerSeasonId"]: eligible_source_positions(source_by_season_id[row["playerSeasonId"]])
+        for row in remaining
+    }
+    selected, traces, warnings = [], [], []
+    covered: set[str] = set()
+    while remaining and len(selected) < count:
+        catchers = [row for row in remaining if "C" in eligible[row["playerSeasonId"]]]
+        needs_catcher = not selected
+        candidates = catchers if needs_catcher and catchers else remaining
+        if needs_catcher and not catchers:
+            warnings.append({
+                "code": "ROSTER_BACKUP_CATCHER_MISSING",
+                "message": "주전 외에 수비 근거를 충족하는 백업 포수가 없습니다.",
+            })
+        def score(row: dict[str, Any]) -> float:
+            uncovered = eligible[row["playerSeasonId"]] - covered
+            return weighted_rating(row, BENCH_ATTRIBUTE_WEIGHTS) + (
+                len(uncovered) * float(ROSTER_SELECTION_CONFIG["benchCoverageBonus"])
+            )
+        ranked = sorted(candidates, key=lambda row: (-score(row), row["playerSeasonId"]))
+        choice = ranked[0]
+        newly_covered = eligible[choice["playerSeasonId"]] - covered
+        traces.append({
+            "playerSeasonId": choice["playerSeasonId"],
+            "selectionScore": round(score(choice), 6),
+            "abilityScore": round(weighted_rating(choice, BENCH_ATTRIBUTE_WEIGHTS), 6),
+            "newBackupPositions": sorted(newly_covered),
+            "reason": "백업 포수 확보" if needs_catcher and catchers else "교체 능력치와 미확보 수비 백업 평가",
+            "candidates": [{"playerSeasonId": row["playerSeasonId"], "score": round(score(row), 6)} for row in ranked],
+        })
+        selected.append(choice)
+        remaining.remove(choice)
+        covered.update(newly_covered)
+    return selected, traces, warnings
+
+
 def assign_source_team_roles(
     team_rows: list[dict[str, Any]],
     source_by_season_id: dict[str, dict[str, Any]],
@@ -1723,10 +1804,14 @@ def assign_source_team_roles(
     for index, row in enumerate(sorted(pitchers, key=lambda candidate: candidate["playerSeasonId"])):
         row["rosterRole"] = f"ReservePitcher:{index + 1}"
 
-    defensive_starters, starting_trace, warnings = select_defensive_starters(
+    starting_assignment, joint_trace, warnings = select_defensive_starters(
         hitters,
         source_by_season_id,
+        include_designated_hitter=True,
     )
+    defensive_starters = starting_assignment[:-1]
+    designated_hitter = starting_assignment[-1]
+    starting_trace = joint_trace[:-1]
     if len(team_rows) < 25:
         warnings.append(
             {
@@ -1749,19 +1834,21 @@ def assign_source_team_roles(
             }
         )
     selected_hitter_ids = {
-        row["playerSeasonId"] for row in defensive_starters if row is not None
+        row["playerSeasonId"] for row in starting_assignment if row is not None
     }
     remaining_hitters = [row for row in hitters if row["playerSeasonId"] not in selected_hitter_ids]
     remaining_hitters.sort(
         key=lambda row: (-weighted_rating(row, DH_ATTRIBUTE_WEIGHTS), row["playerSeasonId"])
     )
-    designated_hitter_candidates = list(remaining_hitters)
-    designated_hitter = remaining_hitters.pop(0) if remaining_hitters else None
+    designated_hitter_candidates = sorted(
+        hitters, key=lambda row: (-weighted_rating(row, DH_ATTRIBUTE_WEIGHTS), row["playerSeasonId"])
+    )
     remaining_hitters.sort(
         key=lambda row: (-weighted_rating(row, BENCH_ATTRIBUTE_WEIGHTS), row["playerSeasonId"])
     )
     bench_candidates = list(remaining_hitters)
-    bench = remaining_hitters[:5]
+    bench, bench_trace, bench_warnings = select_hitter_bench(remaining_hitters, source_by_season_id, 5)
+    warnings.extend(bench_warnings)
 
     for position, row in zip(DEFENSIVE_HITTER_POSITIONS, defensive_starters):
         if row is not None:
@@ -1773,12 +1860,16 @@ def assign_source_team_roles(
 
     remaining_pitchers = sorted(pitchers, key=lambda row: row["playerSeasonId"])
     pitching_trace: list[dict[str, Any]] = []
+    starters, starter_trace = select_pitcher_group(remaining_pitchers, 5, "Starter", {"Starter"})
     closer, trace = select_pitcher_group(remaining_pitchers, 1, "Closer", {"Closer"})
     pitching_trace.append(trace)
     setup, trace = select_pitcher_group(remaining_pitchers, 1, "Setup", {"Setup"})
     pitching_trace.append(trace)
-    starters, trace = select_pitcher_group(remaining_pitchers, 5, "Starter", {"Starter"})
-    pitching_trace.append(trace)
+    pitching_trace.append(starter_trace)
+    # 희소한 전문 보직을 먼저 확보하고, 선발 결손을 채운 뒤 잔여 투수 전체로 불펜을 경쟁시킨다.
+    fill_pitcher_group_fallback(starters, pitching_trace[2], remaining_pitchers, 5, "Starter", warnings)
+    fill_pitcher_group_fallback(closer, pitching_trace[0], remaining_pitchers, 1, "Closer", warnings)
+    fill_pitcher_group_fallback(setup, pitching_trace[1], remaining_pitchers, 1, "Setup", warnings)
     bullpen, trace = select_pitcher_group(
         remaining_pitchers,
         4,
@@ -1787,9 +1878,6 @@ def assign_source_team_roles(
     )
     pitching_trace.append(trace)
 
-    fill_pitcher_group_fallback(closer, pitching_trace[0], remaining_pitchers, 1, "Closer", warnings)
-    fill_pitcher_group_fallback(setup, pitching_trace[1], remaining_pitchers, 1, "Setup", warnings)
-    fill_pitcher_group_fallback(starters, pitching_trace[2], remaining_pitchers, 5, "Starter", warnings)
     fill_pitcher_group_fallback(bullpen, pitching_trace[3], remaining_pitchers, 4, "Bullpen", warnings)
 
     for index, row in enumerate(starters):
@@ -1829,15 +1917,9 @@ def assign_source_team_roles(
             "selectedPlayerSeasonId": designated_hitter["playerSeasonId"] if designated_hitter else "",
             "selectionScore": round(weighted_rating(designated_hitter, DH_ATTRIBUTE_WEIGHTS), 6)
             if designated_hitter else 0.0,
-            "reason": "수비 8자리 확정 후 남은 타자 중 HittingScore 최고",
+            "reason": "수비 8자리와 DH를 함께 최대 가중 매칭; 다른 포지션 기회비용 반영",
         },
-        "bench": [
-            {
-                "playerSeasonId": row["playerSeasonId"],
-                "selectionScore": round(weighted_rating(row, BENCH_ATTRIBUTE_WEIGHTS), 6),
-            }
-            for row in bench
-        ],
+        "bench": bench_trace,
         "benchCandidates": [
             {
                 "playerSeasonId": row["playerSeasonId"],
@@ -1866,6 +1948,22 @@ def source_award_position(award: dict[str, Any], player_position: str) -> str:
     return mapping.get(value, player_position)
 
 
+def source_season_games(data: dict[str, Any]) -> tuple[float, str]:
+    """당시 구단 순위표의 경기 수로 출전 기회를 정하고 대체 근거를 명시한다."""
+    games = [safe_number((team.get("rankStats") or {}).get("games")) for team in data.get("teams") or []]
+    known = [value for value in games if value > 0.0]
+    if known:
+        return max(known), "TeamSeasonGames"
+    player_games = [
+        max(safe_number((player.get("hitterStats") or {}).get("games")),
+            safe_number((player.get("pitcherStats") or {}).get("games")))
+        for player in data["players"]
+    ]
+    if any(value > 0.0 for value in player_games):
+        return max(player_games), "ObservedPlayerGamesFallback"
+    return float(DERIVATION_BALANCE["costEligibility"]["referenceSeasonGames"]), "ConfiguredReferenceFallback"
+
+
 def build_editor_original_content(
     input_dir: Path,
     years: list[int],
@@ -1882,11 +1980,12 @@ def build_editor_original_content(
     for data in references:
         year = int(data["year"])
         source_players = data["players"]
+        season_games, season_games_origin = source_season_games(data)
         hitters = [player for player in source_players if source_player_type(player) == "Hitter"]
         pitchers = [player for player in source_players if source_player_type(player) == "Pitcher"]
         pitcher_role_availability = derive_pitcher_role_availability(source_players)
         hitter_vector_by_id, hitter_components_by_id, hitter_group_by_id = (
-            build_adjusted_feature_pool(hitters, year, "Hitter")
+            build_adjusted_feature_pool(hitters, year, "Hitter", season_games=season_games)
             if hitters else ({}, {}, {})
         )
         pitcher_vector_by_id, pitcher_components_by_id, pitcher_group_by_id = (
@@ -1895,6 +1994,7 @@ def build_editor_original_content(
                 year,
                 "Pitcher",
                 pitcher_role_availability,
+                season_games=season_games,
             )
             if pitchers else ({}, {}, {})
         )
@@ -1977,6 +2077,8 @@ def build_editor_original_content(
                 "abilityDerivationTrace": ability_trace,
                 "derivationWarnings": build_ability_validation_warnings(ability_trace),
                 "costEligibilitySample": source_cost_eligibility_sample(player, player_type),
+                "sourceSeasonGames": season_games,
+                "sourceSeasonGamesOrigin": season_games_origin,
                 "cost": 0,
                 "trainingCeiling": [],
                 "rosterRole": "",
@@ -2451,12 +2553,14 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
             eligibility_trace = cost_trace.get("costEligibility") or {}
             if eligibility_trace.get("tier") not in {"Full", "Regular", "Limited", "Tiny"}:
                 raise ValueError("Cost 자격 Tier 판정 근거가 없습니다.")
-            if int(season["cost"]) > int(eligibility_trace.get("maximumCost", 0)):
-                raise ValueError(
-                    "COST_ELIGIBILITY_CAP_EXCEEDED: "
-                    f"PlayerSeason={season['playerSeasonId']}, cost={season['cost']}, "
-                    f"tier={eligibility_trace.get('tier')}"
-                )
+            expected_cost = composite_cost(float(cost_trace["composite"]), (
+                (float(row["upperExclusive"]), int(row["cost"]))
+                for row in DERIVATION_BALANCE["costCompositeThresholds"]
+            ))
+            if (int(season["cost"]) != expected_cost
+                    or cost_trace.get("costMethod") != "FixedRoleComposite"
+                    or eligibility_trace.get("affectsCost") is not False):
+                raise ValueError("COST_COMPOSITE_MISMATCH: 능력치 고정 구간과 Cost가 일치하지 않습니다.")
             metric_influence_audit = cost_trace.get("metricInfluenceAudit") or {}
             if not metric_influence_audit or metric_influence_audit.get("hasViolation"):
                 raise ValueError("ABILITY_METRIC_INFLUENCE_CAP_EXCEEDED: Cost metric 영향도 검증 실패")

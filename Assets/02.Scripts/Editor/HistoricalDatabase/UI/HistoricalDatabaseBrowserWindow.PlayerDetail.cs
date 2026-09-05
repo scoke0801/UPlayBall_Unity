@@ -172,16 +172,27 @@ namespace Baseball.Editor.HistoricalDatabase
         private void AddCostSection(HistoricalPlayerRow row)
         {
             VisualElement section = CreateDetailSection(row.IsOriginalSource ? "비용 · 파생" : "비용");
-            AddKeyValue(section, row.IsOriginalSource ? "시즌 기록 분포 환산값" : "저장값", $"{row.Cost} / 10");
+            AddKeyValue(section, row.IsOriginalSource ? "기본 전력 기준 비용" : "저장값", $"{row.Cost} / 10");
             HistoricalCostDerivationTrace trace = row.Season.CostDerivationTrace;
             if (trace != null)
             {
                 AddKeyValue(section, "역할 Composite", $"{trace.Composite:0.0000} · {trace.RoleProfile}");
                 AddKeyValue(
                     section,
-                    "OriginYear 전체 백분위",
+                    "동일 연도·유형 백분위 (참고)",
                     $"순위 {trace.Rank:N0} / {trace.PopulationCount:N0} · {trace.Percentile:P2}");
                 var detail = new Foldout { text = "Cost 산출 상세", value = false };
+                AddKeyValue(detail, "계산 기준", "역할별 기본 전력의 고정 구간 · 출전량 추가 할인 없음");
+                if (trace.CostEligibility != null)
+                    AddKeyValue(detail, "시즌 출전량", trace.CostEligibility.Reason);
+                double lower = 0d;
+                for (int index = 0; index < trace.CompositeThresholds.Count; index++)
+                {
+                    HistoricalCostThresholdTrace threshold = trace.CompositeThresholds[index];
+                    if (threshold.Cost == trace.Cost)
+                        AddKeyValue(detail, "적용 전력 구간", $"{lower:0.##} 이상 · {threshold.UpperExclusive:0.##} 미만");
+                    lower = threshold.UpperExclusive;
+                }
                 for (int index = 0; index < trace.AbilityContribution.Count; index++)
                 {
                     HistoricalCostAbilityContributionTrace contribution = trace.AbilityContribution[index];
@@ -284,7 +295,8 @@ namespace Baseball.Editor.HistoricalDatabase
                     detail,
                     component.Metric,
                     $"Raw {raw} · 표본 {component.SampleSize:0.##} · 신뢰도 {component.Reliability:P1} · " +
-                    $"Z {component.RawZ:0.0000} → {component.AdjustedZ:0.0000} · 기여 {component.Contribution:0.0000}");
+                    $"비교 {component.ReferenceGroupKey} · Z {component.RawZ:0.0000} → 제한 {component.BoundedZ:0.0000} · " +
+                    $"사전 Z {component.PriorZ:0.00} → 보정 {component.AdjustedZ:0.0000} · 기여 {component.Contribution:0.0000}");
             }
             section.Add(detail);
         }

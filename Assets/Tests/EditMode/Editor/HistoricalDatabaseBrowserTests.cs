@@ -160,11 +160,11 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(manifest.ReferenceDataVersion, Is.EqualTo("kbo-normalized-v3"));
             Assert.That(manifest.RawDataVersion, Has.Length.EqualTo(64));
             Assert.That(manifest.NormalizedContentHash, Has.Length.EqualTo(64));
-            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v4"));
-            Assert.That(manifest.PositionRoleClassifierVersion, Is.EqualTo("season-position-role-v4"));
-            Assert.That(manifest.RosterBuilderVersion, Is.EqualTo("position-first-core25-v2"));
-            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-role-composite-v6"));
-            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v8"));
+            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v5"));
+            Assert.That(manifest.PositionRoleClassifierVersion, Is.EqualTo("season-position-role-v5"));
+            Assert.That(manifest.RosterBuilderVersion, Is.EqualTo("ability-fit-core25-v3"));
+            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-role-composite-v7"));
+            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v10"));
             Assert.That(manifest.SourceIdentityPolicyVersion, Is.EqualTo("editor-source-identity-v1"));
             Assert.That(manifest.SourceAllocationPolicyVersion, Is.EqualTo("official-source-team-audit-v1"));
             Assert.That(manifest.ReplacementGeneratorVersion, Is.EqualTo("quota-fallback-percentile-v2"));

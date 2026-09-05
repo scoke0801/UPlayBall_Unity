@@ -366,17 +366,26 @@ namespace Baseball.Editor.HistoricalDatabase
                     HistoricalNavigationKind.Player,
                     row.PlayerSeasonId);
                 HistoricalCostEligibilityTrace eligibility = costTrace.CostEligibility;
+                int expectedCost = 0;
+                for (int index = 0; index < costTrace.CompositeThresholds.Count; index++)
+                {
+                    HistoricalCostThresholdTrace threshold = costTrace.CompositeThresholds[index];
+                    if (costTrace.Composite >= threshold.UpperExclusive)
+                        continue;
+                    expectedCost = threshold.Cost;
+                    break;
+                }
                 collector.Check(
                     eligibility != null && !string.IsNullOrEmpty(eligibility.Tier) &&
-                    row.Cost <= eligibility.MaximumCost,
-                    "COST_ELIGIBILITY_CAP_EXCEEDED",
+                    !eligibility.AffectsCost && costTrace.CostMethod == "FixedRoleComposite" &&
+                    row.Cost == expectedCost,
+                    "COST_COMPOSITE_MISMATCH",
                     row.OriginYear,
                     row.PlayerSeasonId,
-                    "Cost가 출전량 자격 상한 안에 있습니다.",
+                    "Cost가 기본 전력 구간에 일치하고 출전량 추가 할인이 없습니다.",
                     eligibility == null
-                        ? "Cost 자격 Tier 판정 근거가 없습니다."
-                        : $"Cost {row.Cost}가 {eligibility.Tier} 자격 상한 " +
-                          $"{eligibility.MaximumCost}를 넘었습니다.",
+                        ? "시즌 출전량 진단 근거가 없습니다."
+                        : $"Cost {row.Cost}가 기본 전력 구간의 기대 Cost {expectedCost}와 다르거나 출전량을 중복 반영했습니다.",
                     HistoricalNavigationKind.Player,
                     row.PlayerSeasonId);
                 if (costTrace.PopulationCount < 20)
@@ -386,7 +395,7 @@ namespace Baseball.Editor.HistoricalDatabase
                         "COST_SMALL_POPULATION",
                         row.OriginYear,
                         row.PlayerSeasonId,
-                        $"Cost 백분위 모집단이 작습니다: {costTrace.PopulationCount}",
+                        $"참고 백분위 모집단이 작습니다: {costTrace.PopulationCount}. Cost는 고정 전력 구간을 사용합니다.",
                         HistoricalNavigationKind.Player,
                         row.PlayerSeasonId);
                 }

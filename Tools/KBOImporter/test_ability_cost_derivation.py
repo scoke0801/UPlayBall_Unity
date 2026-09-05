@@ -17,7 +17,7 @@ from synthetic_bake import (
     role_adjusted_composite,
     to_ratings_with_trace,
     validate_derivation_balance,
-    workload_cost_cap,
+    headroom_range,
 )
 
 
@@ -108,8 +108,8 @@ class AbilityCostDerivationTests(unittest.TestCase):
 
         self.assertEqual(groups["small"], groups["larger"])
         self.assertLess(
-            abs(traces["small"]["BattingAverage"]["adjustedZ"]),
-            abs(traces["larger"]["BattingAverage"]["adjustedZ"]),
+            abs(traces["small"]["BattingAverage"]["adjustedZ"] - traces["small"]["BattingAverage"]["priorZ"]),
+            abs(traces["larger"]["BattingAverage"]["adjustedZ"] - traces["larger"]["BattingAverage"]["priorZ"]),
         )
 
     def test_qualified_boundary_uses_one_continuous_baseline(self) -> None:
@@ -148,7 +148,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
             small = traces["small"][metric]
             large = traces["large"][metric]
             self.assertEqual(small["rawZ"], large["rawZ"])
-            self.assertLess(abs(small["adjustedZ"]), abs(large["adjustedZ"]))
+            self.assertLess(abs(small["adjustedZ"] - small["priorZ"]), abs(large["adjustedZ"] - large["priorZ"]))
 
     def test_arm_and_defense_use_independent_evidence(self) -> None:
         arm_metrics = set(DERIVATION_BALANCE["ratingProfiles"]["Hitter"]["Arm"]["metrics"])
@@ -165,7 +165,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
             "Hitter", vectors["no_defense"], traces["no_defense"], "NO_DEFENSE", 2099, groups["no_defense"]
         )
         arm_trace = next(trace for trace in ability_trace if trace["attribute"] == "Arm")
-        self.assertEqual(ratings[3], 50)
+        self.assertEqual(ratings[3], int(DERIVATION_BALANCE["rating"]["center"]))
         self.assertTrue(all(not component["isAvailable"] for component in arm_trace["components"]))
 
     def test_metric_influence_cap_catches_duplicated_raw_metric(self) -> None:
@@ -177,6 +177,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
         invalid = copy.deepcopy(DERIVATION_BALANCE)
         invalid["ratingProfiles"]["Hitter"]["Arm"]["metrics"] = {"FieldingPercentage": 1.0}
         invalid["ratingProfiles"]["Hitter"]["Defense"]["metrics"] = {"FieldingPercentage": 1.0}
+        invalid["roleCompositeProfiles"]["Hitter"]["SS"] = [0.0, 0.0, 0.0, 0.5, 0.5, 0.0]
         invalid_audit = metric_composite_influence_audit("Hitter", "SS", invalid)
         self.assertEqual(
             [warning["code"] for warning in build_metric_influence_warnings(invalid_audit)],
@@ -296,7 +297,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
         ratings, _ = to_ratings_with_trace(
             "Hitter", vectors["tiny"], traces["tiny"], "TINY", 2099, groups["tiny"]
         )
-        self.assertGreater(ratings[0], 50)
+        self.assertLess(ratings[0], int(DERIVATION_BALANCE["rating"]["center"]))
 
     def test_thin_group_blends_toward_position_family(self) -> None:
         players = [
@@ -307,36 +308,23 @@ class AbilityCostDerivationTests(unittest.TestCase):
             player["defenseRecords"][0]["position"] = "1루수" if index else "유격수"
         vectors, traces, groups = build_adjusted_feature_pool(players, 2099, "Hitter")
 
-        lone_shortstop = traces["infield_0"]["BattingAverage"]
+        lone_shortstop = traces["infield_0"]["FieldingPercentage"]
         self.assertEqual(groups["infield_0"], "2099:SS")
         self.assertEqual(lone_shortstop["referenceFamilyKey"], "2099:Infield")
         self.assertLess(lone_shortstop["referenceGroupShare"], 1.0)
         self.assertGreater(lone_shortstop["groupStdDev"], 0.0)
 
-    def test_limited_workload_cannot_reach_high_cost(self) -> None:
+    def test_workload_does_not_discount_already_derived_ability(self) -> None:
+        """기본 전력이 같으면 표본 크기로 가격을 다시 할인하지 않는다."""
         seasons = [
-            self._pitcher_season(f"BULK_{index}", 2099, "Starter", [50] * 6, 600.0)
-            for index in range(20)
+            self._pitcher_season("SHORT", 2099, "Starter", [60] * 6, 90.0),
+            self._pitcher_season("FULL", 2099, "Starter", [60] * 6, 620.0),
         ]
-        seasons.append(
-            self._pitcher_season("SHORT_ACE", 2099, "Starter", [80] * 6, 90.0)
-        )
-        seasons.append(
-            self._pitcher_season("FULL_ACE", 2099, "Starter", [78] * 6, 620.0)
-        )
         assign_origin_year_costs(seasons)
-
-        short_ace = next(season for season in seasons if season["playerSeasonId"] == "SHORT_ACE")
-        full_ace = next(season for season in seasons if season["playerSeasonId"] == "FULL_ACE")
-        short_trace = short_ace["costDerivationTrace"]
-        curve = DERIVATION_BALANCE["costEligibility"]["capCurve"]
-        self.assertEqual(short_trace["costEligibility"]["tier"], "Tiny")
-        self.assertEqual(short_trace["rawPercentileCost"], 10)
-        self.assertEqual(short_ace["cost"], short_trace["costEligibility"]["maximumCost"])
-        self.assertLess(short_ace["cost"], int(curve["maximumCost"]))
-        self.assertEqual(full_ace["costDerivationTrace"]["costEligibility"]["tier"], "Full")
-        self.assertEqual(full_ace["cost"], full_ace["costDerivationTrace"]["rawPercentileCost"])
-        self.assertLess(short_ace["cost"], full_ace["cost"])
+        self.assertEqual(seasons[0]["cost"], seasons[1]["cost"])
+        self.assertEqual(seasons[0]["costDerivationTrace"]["costEligibility"]["tier"], "Tiny")
+        self.assertEqual(seasons[1]["costDerivationTrace"]["costEligibility"]["tier"], "Full")
+        self.assertFalse(seasons[0]["costDerivationTrace"]["costEligibility"]["affectsCost"])
 
     def test_full_workload_closer_is_not_capped_by_starter_thresholds(self) -> None:
         """마무리 한 시즌은 선발보다 상대 타자가 적어도 온전한 시즌이다."""
@@ -353,41 +341,28 @@ class AbilityCostDerivationTests(unittest.TestCase):
         self.assertEqual(eligibility["tier"], "Full")
         self.assertEqual(closer["cost"], closer["costDerivationTrace"]["rawPercentileCost"])
 
-    def test_short_stint_starter_lands_in_low_cost_band(self) -> None:
-        """선발 5경기 남짓한 시즌은 성적이 아무리 좋아도 상위 Cost 카드가 되지 않는다."""
-        seasons = [
-            self._pitcher_season(f"SP_{index:02d}", 2099, "Starter", [50] * 6, 620.0)
-            for index in range(30)
-        ]
-        seasons.append(self._pitcher_season("SHORT", 2099, "Starter", [90] * 6, 110.0))
-        assign_origin_year_costs(seasons)
+    def test_cost_depends_on_ability_not_peer_population(self) -> None:
+        """주변에 약한 선수를 추가해도 이미 결정된 선수 가격은 바뀌지 않는다."""
+        target = self._pitcher_season("TARGET", 2099, "Starter", [54] * 6, 110.0)
+        assign_origin_year_costs([target])
+        before = target["cost"]
+        peers = [self._pitcher_season(f"PEER_{i}", 2099, "Starter", [30] * 6, 620.0) for i in range(40)]
+        assign_origin_year_costs([target] + peers)
+        self.assertEqual(before, target["cost"])
+        self.assertEqual(target["costDerivationTrace"]["costMethod"], "FixedRoleComposite")
 
-        short = next(season for season in seasons if season["playerSeasonId"] == "SHORT")
-        trace = short["costDerivationTrace"]
-        eligibility = trace["costEligibility"]
-        self.assertEqual(eligibility["tier"], "Limited")
-        self.assertEqual(trace["rawPercentileCost"], 10)
-        self.assertLess(eligibility["workloadRatio"], 0.25)
-        self.assertEqual(short["cost"], eligibility["maximumCost"])
-        self.assertLessEqual(short["cost"], 4)
+    def test_training_headroom_does_not_favor_low_cost(self) -> None:
+        """기본 전력이 낮다는 이유로 더 큰 능력치 증가를 주지 않는다."""
+        ranges = [headroom_range(cost) for cost in range(1, 11)]
+        self.assertEqual(len(set(ranges)), 1)
 
-    def test_workload_cap_rises_smoothly_without_a_cliff(self) -> None:
-        """상한이 출전량에 따라 단조 증가하고, 한 계단씩만 움직인다."""
-        caps = [workload_cost_cap(step / 400.0) for step in range(0, 401)]
-        curve = DERIVATION_BALANCE["costEligibility"]["capCurve"]
-        self.assertEqual(caps[0], int(curve["minimumCost"]))
-        self.assertEqual(caps[-1], int(curve["maximumCost"]))
-        for lower, higher in zip(caps, caps[1:]):
-            self.assertLessEqual(lower, higher)
-            self.assertLessEqual(higher - lower, 1)
-
-    def test_workload_just_short_of_a_full_season_is_not_demoted(self) -> None:
-        """표본이 몇 타자 모자란다고 해서 상한이 깎이지 않는다."""
-        thresholds = DERIVATION_BALANCE["costEligibility"]["pitcherSampleThresholds"]["Rotation"]
-        full = float(thresholds["Full"])
-        maximum = int(DERIVATION_BALANCE["costEligibility"]["capCurve"]["maximumCost"])
-        self.assertEqual(workload_cost_cap(full / full), maximum)
-        self.assertEqual(workload_cost_cap((full - 6.0) / full), maximum)
+    def test_historical_full_season_uses_its_own_schedule(self) -> None:
+        """80경기 시대의 298타석을 현대 400타석 기준으로 제한하지 않는다."""
+        season = self._season("HISTORICAL", 1982, "DH", [75] * 6, 298.0)
+        season["sourceSeasonGames"] = 80.0
+        assign_origin_year_costs([season])
+        self.assertEqual(season["costDerivationTrace"]["costEligibility"]["tier"], "Full")
+        self.assertEqual(season["cost"], 10)
 
     def test_partial_starter_is_not_ranked_below_a_shorter_relief_season(self) -> None:
         """이닝이 더 많은 부분 선발이 더 짧은 구원 시즌보다 낮은 상한을 받지 않는다."""

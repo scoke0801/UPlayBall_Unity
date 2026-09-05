@@ -75,7 +75,9 @@ Roster, SpecialCompositeTeam은 Stable ID를 사용한다.
 ## 3. Cost와 TrainingCeiling
 
 Cost는 Source PlayerSeason에서 결정론적으로 변환한 BaseAttributes가 확정된 뒤 Offline에서 계산한다.
-현행 composite percentile 방식이 합리적이면 유지하되 Source-backed 모집단과 Version을 명시한다.
+역할별 종합 능력치에 고정 Cost 1~10 구간을 적용한다. 백분위·시즌 출전량은 진단용이며,
+능력치의 신뢰도 보정 뒤 가격에서 출전량을 다시 할인하지 않는다. 비교 지표·소표본 사전값·
+시즌 길이 보정과 구간은 `Tools/KBOImporter/derivation_balance.json`으로 버전 관리한다.
 
 다음은 Cost를 변경하지 않는다.
 
@@ -90,6 +92,7 @@ Card Edition
 
 `TrainingCeiling`도 Source와 Versioned Balance에 의해 Bake되는 고정값이다. 구단주 모드 카드 훈련으로
 오르는 현재 값은 별도 `CardTrainingState`가 소유하며 Definition을 수정하지 않는다.
+현행 훈련 여유는 Cost에 무관하게 모든 능력치 +3(상한 99)이다. 저Cost 추가 성장 보너스는 없다.
 
 ## 4. Card 구조
 

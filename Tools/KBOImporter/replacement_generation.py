@@ -6,6 +6,9 @@ import hashlib
 import json
 import math
 from typing import Any, Iterable, Mapping, Sequence
+from pathlib import Path
+
+from derivation_cost import composite_cost
 
 
 ABILITY_NAMES = (
@@ -54,6 +57,10 @@ class ReplacementGenerationSettings:
     rating_minimum: int = 25
     rating_maximum: int = 95
     cost_percentile_thresholds: tuple[tuple[float, int], ...] = DEFAULT_COST_PERCENTILE_THRESHOLDS
+    cost_composite_thresholds: tuple[tuple[float, int], ...] = field(default_factory=lambda: tuple(
+        (float(row["upperExclusive"]), int(row["cost"]))
+        for row in json.loads(Path(__file__).with_name("derivation_balance.json").read_text(encoding="utf-8"))["costCompositeThresholds"]
+    ))
     composite_profiles: Mapping[str, tuple[float, ...]] = field(
         default_factory=lambda: {
             "Hitter:Default": (1.0,) * 6,
@@ -87,11 +94,10 @@ class ReplacementGenerationSettings:
 
         replacement = balance.get("replacementGeneration") or {}
         rating = balance.get("rating") or {}
-        levels = balance.get("roleCompositeWeightLevels") or {}
         profiles: dict[str, tuple[float, ...]] = {}
         for player_type, role_profiles in (balance.get("roleCompositeProfiles") or {}).items():
             for role, profile in role_profiles.items():
-                profiles[f"{player_type}:{role}"] = tuple(float(levels[level]) for level in profile)
+                profiles[f"{player_type}:{role}"] = tuple(float(weight) for weight in profile)
 
         thresholds = tuple(
             (float(row["upperExclusive"]), int(row["cost"]))
@@ -103,6 +109,10 @@ class ReplacementGenerationSettings:
             rating_minimum=int(rating.get("minimum", 25)),
             rating_maximum=int(rating.get("maximum", 95)),
             cost_percentile_thresholds=thresholds or DEFAULT_COST_PERCENTILE_THRESHOLDS,
+            cost_composite_thresholds=tuple(
+                (float(row["upperExclusive"]), int(row["cost"]))
+                for row in balance["costCompositeThresholds"]
+            ),
             composite_profiles=profiles or {
                 "Hitter:Default": (1.0,) * 6,
                 "Pitcher:Default": (1.0,) * 6,
@@ -198,7 +208,7 @@ def generate_replacements(
             year_composites,
             composite,
         )
-        cost = _cost_from_percentile(insertion_percentile, settings.cost_percentile_thresholds)
+        cost = composite_cost(composite, settings.cost_composite_thresholds)
         cost_threshold = source_thresholds[population_key]
 
         person_digest = _stable_digest(
@@ -226,6 +236,11 @@ def generate_replacements(
             "insertionUpperRank": insertion_upper_rank,
             "percentile": round(insertion_percentile, 8),
             "thresholds": cost_threshold["thresholds"],
+            "costMethod": "FixedRoleComposite",
+            "compositeThresholds": [
+                {"upperExclusive": upper, "cost": band}
+                for upper, band in settings.cost_composite_thresholds
+            ],
             "cost": cost,
         }
         generation_trace = {
