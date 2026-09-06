@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Baseball.Core.Balance;
 using Baseball.Core.Historical;
@@ -166,6 +167,82 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(preview.HasValue, Is.True);
             Assert.That(preview.Value.Attendance, Is.EqualTo(result.HomeFinance.Attendance));
             Assert.That(preview.Value.Attendance, Is.LessThanOrEqualTo(preview.Value.Capacity));
+        }
+
+        [Test]
+        public void PlayNextGame_같은라운드의AI구단대진도함께확정한다()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider);
+            ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
+            int playerRound = season.NextPlayerGame.Round;
+
+            new ManagerModeMatchService(provider, BalanceTable.CreateDefault()).PlayNextGame(runtime);
+
+            int completedAiGames = 0;
+            IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
+            for (int index = 0; index < games.Count; index++)
+            {
+                ScheduledGameState game = games[index];
+                if (game.Round > playerRound)
+                {
+                    Assert.That(game.IsCompleted, Is.False, "이후 라운드를 미리 진행하면 안 된다.");
+                    continue;
+                }
+                Assert.That(game.IsCompleted, Is.True, $"라운드 {game.Round}의 대진이 남아 있다.");
+                if (!game.IncludesTeam(season.PlayerTeamId)) completedAiGames++;
+            }
+            Assert.That(completedAiGames, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void 정규시즌을끝까지진행하면모든구단이같은경기수를치른다()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider);
+            ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
+            var service = new ManagerModeMatchService(provider, BalanceTable.CreateDefault());
+
+            while (season.NextPlayerGame != null) service.PlayNextGame(runtime);
+
+            var gamesByTeam = new Dictionary<int, int>();
+            for (int index = 0; index < season.Teams.Count; index++) gamesByTeam.Add(season.Teams[index].TeamId, 0);
+            IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
+            for (int index = 0; index < games.Count; index++)
+            {
+                ScheduledGameState game = games[index];
+                Assert.That(game.IsCompleted, Is.True, "시즌 종료 시 미완료 대진이 남아 있다.");
+                gamesByTeam[game.AwayTeamId]++;
+                gamesByTeam[game.HomeTeamId]++;
+            }
+
+            int playerGames = gamesByTeam[season.PlayerTeamId];
+            Assert.That(playerGames, Is.GreaterThan(0));
+            for (int index = 0; index < season.Teams.Count; index++)
+            {
+                int teamId = season.Teams[index].TeamId;
+                Assert.That(gamesByTeam[teamId], Is.EqualTo(playerGames), $"TeamId {teamId}의 경기 수가 다르다.");
+            }
+        }
+
+        [Test]
+        public void AI구단대진도같은Seed에서같은결과를낸다()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState first, out IHistoricalContentProvider firstProvider);
+            CreateRuntime(out ManagerHistoricalRuntimeState second, out IHistoricalContentProvider secondProvider);
+
+            for (int round = 0; round < 3; round++)
+            {
+                new ManagerModeMatchService(firstProvider, BalanceTable.CreateDefault()).PlayNextGame(first);
+                new ManagerModeMatchService(secondProvider, BalanceTable.CreateDefault()).PlayNextGame(second);
+            }
+
+            IReadOnlyList<ScheduledGameState> firstGames = first.ManagerMode.LiveSeason.Schedule.Games;
+            IReadOnlyList<ScheduledGameState> secondGames = second.ManagerMode.LiveSeason.Schedule.Games;
+            for (int index = 0; index < firstGames.Count; index++)
+            {
+                Assert.That(secondGames[index].IsCompleted, Is.EqualTo(firstGames[index].IsCompleted));
+                Assert.That(secondGames[index].AwayRuns, Is.EqualTo(firstGames[index].AwayRuns));
+                Assert.That(secondGames[index].HomeRuns, Is.EqualTo(firstGames[index].HomeRuns));
+            }
         }
 
         private static void CreateRuntime(
