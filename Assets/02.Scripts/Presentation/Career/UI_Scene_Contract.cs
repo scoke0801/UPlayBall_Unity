@@ -204,7 +204,7 @@ namespace Baseball.Presentation.Career
                 "Overall", card, view.Overall.ToString(), 52, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(110f, 70f), new Vector2(-105f, 98f), PrimaryTextColor);
             CreateText(
-                "OverallLabel", card, "OVR", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "OverallLabel", card, "종합", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(90f, 22f), new Vector2(-105f, 58f), SecondaryTextColor);
             CreateImage(
                 "PortraitBackdrop", card, PortraitBackdropColor,
@@ -482,7 +482,7 @@ namespace Baseball.Presentation.Career
             Button signButton = CreateButton(
                 "SignOffer", panel,
                 view.IsUnsignedRetirementRequired
-                    ? "Rookie 테스트 입단 연속 실패"
+                ? "루키 리그 테스트 입단 연속 실패"
                     : view.CanSignSelectedOffer ? "선택한 구단과 계약" : "계약할 구단을 선택하세요",
                 new Vector2(signWidth, 68f), new Vector2(signX, -302f),
                 view.CanSignSelectedOffer
@@ -550,7 +550,7 @@ namespace Baseball.Presentation.Career
             CreateText("Eyebrow", panel, "한 선수의 기록", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(600f, 26f), new Vector2(0f, 160f), GoldColor);
             string retirementTitle = view.IsUnsignedRetirementRequired
-                ? "모든 계약과 Rookie 테스트 입단이 끝났습니다."
+                ? "모든 계약과 루키 리그 테스트 입단이 끝났습니다."
                 : $"{view.Age}세, 여기서 선수 생활을 마칩니까?";
             CreateText("Title", panel, retirementTitle, 30, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(800f, 50f), new Vector2(0f, 105f), PrimaryTextColor);

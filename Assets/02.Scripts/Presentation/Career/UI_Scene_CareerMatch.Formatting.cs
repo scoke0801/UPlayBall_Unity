@@ -153,7 +153,7 @@ namespace Baseball.Presentation.Career
         {
             return view.Flow switch
             {
-                MatchFlowState.AutoRunning => $"AUTO · {GetPlaybackSpeedLabel()}",
+                MatchFlowState.AutoRunning => $"자동 · {GetPlaybackSpeedLabel()}",
                 MatchFlowState.SideChange => "공수 교대",
                 MatchFlowState.PlayerCallUp => "감독 호출",
                 MatchFlowState.PlayerAtBat => "내 타석 · 입력 대기",
@@ -291,7 +291,7 @@ namespace Baseball.Presentation.Career
                     GetPlateAppearanceResultLabel(
                         matchEvent.PlateAppearanceResult,
                         CountOutsInPlateAppearance(events, eventIndex)),
-                MatchEventType.PlayerSubstitution => $"{batterName} IN  ·  {playerName} OUT",
+                MatchEventType.PlayerSubstitution => $"{batterName} 투입  ·  {playerName} 교체",
                 MatchEventType.PitcherRemoved =>
                     $"{playerName} 강판 · {GetDecisionReasonLabel(matchEvent.ReasonCode)}",
                 MatchEventType.PitcherEntered =>

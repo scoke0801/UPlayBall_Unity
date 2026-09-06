@@ -52,7 +52,7 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.BattingAverage => "타율",
                 CareerRecordMetric.OnBasePercentage => "출루율",
                 CareerRecordMetric.SluggingPercentage => "장타율",
-                CareerRecordMetric.OnBasePlusSlugging => "출루+장타",
+                CareerRecordMetric.OnBasePlusSlugging => "출루율+장타율",
                 CareerRecordMetric.WalkStrikeoutRatio => "볼넷/삼진",
                 CareerRecordMetric.PitchingAppearances => "등판",
                 CareerRecordMetric.PitchingStarts => "선발",
@@ -72,7 +72,7 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.BattersFaced => "상대 타자",
                 CareerRecordMetric.QualityStarts => "퀄리티스타트",
                 CareerRecordMetric.EarnedRunAverage => "평균자책점",
-                CareerRecordMetric.WalksHitsPerInningPitched => "이닝당출루",
+                CareerRecordMetric.WalksHitsPerInningPitched => "이닝당 출루허용률",
                 CareerRecordMetric.StrikeoutWalkRatio => "탈삼진/볼넷",
                 CareerRecordMetric.HomeRunsPerNineInnings => "9이닝 피홈런",
                 CareerRecordMetric.DefensiveOuts => "수비 이닝",
@@ -117,7 +117,7 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.WalksAllowed => "볼넷",
                 CareerRecordMetric.HitBatters => "사구",
                 CareerRecordMetric.EarnedRuns => "자책",
-                CareerRecordMetric.EarnedRunAverage => "평균자책",
+                CareerRecordMetric.EarnedRunAverage => "평균자책점",
                 CareerRecordMetric.SacrificeFlies => "희생플라이",
                 CareerRecordMetric.StolenBasePercentage => "도루성공률",
                 CareerRecordMetric.CaughtStealing => "도루실패",
@@ -170,7 +170,7 @@ namespace Baseball.Presentation.Career
                 AwardCategory.Strikeout => "탈삼진왕",
                 AwardCategory.Save => "세이브왕",
                 AwardCategory.GoldGlove => "골든글러브",
-                _ => category.ToString()
+                _ => "수상 기록"
             };
         }
 

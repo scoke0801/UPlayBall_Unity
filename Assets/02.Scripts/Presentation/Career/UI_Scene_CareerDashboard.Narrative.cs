@@ -79,9 +79,9 @@ namespace Baseball.Presentation.Career
         {
             return speaker switch
             {
-                CareerReactionSpeaker.Manager => "MANAGER MESSAGE",
-                CareerReactionSpeaker.Teammate => "TEAMMATE MESSAGE",
-                _ => "POSTGAME INTERVIEW"
+                CareerReactionSpeaker.Manager => "감독 메시지",
+                CareerReactionSpeaker.Teammate => "동료 메시지",
+                _ => "경기 후 인터뷰"
             };
         }
     }

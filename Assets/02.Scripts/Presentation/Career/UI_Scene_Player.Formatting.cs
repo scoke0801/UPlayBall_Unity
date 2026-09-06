@@ -52,11 +52,11 @@ namespace Baseball.Presentation.Career
         {
             return rarity switch
             {
-                SkillBlockRarity.Legendary => "L",
-                SkillBlockRarity.Unique => "U",
-                SkillBlockRarity.Elite => "E",
-                SkillBlockRarity.Rare => "R",
-                _ => "N"
+                SkillBlockRarity.Legendary => "전설",
+                SkillBlockRarity.Unique => "유일",
+                SkillBlockRarity.Elite => "특급",
+                SkillBlockRarity.Rare => "희귀",
+                _ => "일반"
             };
         }
 
@@ -163,14 +163,14 @@ namespace Baseball.Presentation.Career
                 CareerRecordMetric.BattingAverage => "타율",
                 CareerRecordMetric.OnBasePercentage => "출루율",
                 CareerRecordMetric.SluggingPercentage => "장타율",
-                CareerRecordMetric.OnBasePlusSlugging => "출루+장타",
+                CareerRecordMetric.OnBasePlusSlugging => "출루율+장타율",
                 CareerRecordMetric.PitchingAppearances => "등판",
                 CareerRecordMetric.OutsRecorded => "이닝",
                 CareerRecordMetric.Wins => "승",
                 CareerRecordMetric.Saves => "세이브",
                 CareerRecordMetric.PitchingStrikeouts => "탈삼진",
-                CareerRecordMetric.EarnedRunAverage => "평균자책",
-                CareerRecordMetric.WalksHitsPerInningPitched => "이닝당출루",
+                CareerRecordMetric.EarnedRunAverage => "평균자책점",
+                CareerRecordMetric.WalksHitsPerInningPitched => "이닝당 출루허용률",
                 _ => CareerSharedSnapshotFormatters.FormatMetricLabel(metric)
             };
         }

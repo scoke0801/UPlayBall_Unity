@@ -82,7 +82,7 @@ namespace Baseball.Presentation.Career
             {
                 case AwardCategory.PostseasonMvp:
                     type = CareerPresentationType.PostseasonMvp;
-                    category = "POSTSEASON AWARD";
+                    category = "포스트시즌 수상";
                     title = "포스트시즌 MVP";
                     description = "가장 큰 무대에서 남긴 활약이\n이번 포스트시즌 최고의 선수로 이어졌습니다.";
                     stats = BuildPostseasonStats(snapshot);
@@ -141,19 +141,19 @@ namespace Baseball.Presentation.Career
             if (result.SourceType == GrowthSourceType.Study)
             {
                 type = CareerPresentationType.OverseasTraining;
-                category = "OFFSEASON STUDY";
+                category = "오프시즌 유학";
                 description = $"{result.WeeksSpent}주간의 유학을 마쳤습니다.\n낯선 환경에서 얻은 경험이 성장으로 남았습니다.";
             }
             else if (string.Equals(result.SourceId, "rest", StringComparison.Ordinal))
             {
                 type = CareerPresentationType.Rest;
-                category = "OFFSEASON RECOVERY";
+                category = "오프시즌 회복";
                 description = "충분한 시간을 보내며 몸과 마음을 회복했습니다.";
             }
             else if (result.SourceType is GrowthSourceType.PersonalTraining or GrowthSourceType.TrainingPartner)
             {
                 type = CareerPresentationType.Training;
-                category = "OFFSEASON TRAINING";
+                category = "오프시즌 훈련";
                 description = $"{result.WeeksSpent}주간의 훈련을 마쳤습니다.\n선택한 방향이 실제 능력 변화로 이어졌습니다.";
             }
             else
@@ -191,17 +191,17 @@ namespace Baseball.Presentation.Career
             {
                 case AwardCategory.PostseasonMvp:
                     type = CareerPresentationType.PostseasonMvp;
-                    category = "POSTSEASON AWARD";
+                    category = "포스트시즌 수상";
                     title = "포스트시즌 MVP";
                     break;
                 case AwardCategory.GoldGlove:
                     type = CareerPresentationType.GoldenGlove;
-                    category = $"{award.Year} SEASON AWARD";
+                    category = $"{award.Year} 시즌 수상";
                     title = "골든글러브 수상";
                     break;
                 case AwardCategory.RegularSeasonMvp:
                     type = CareerPresentationType.RegularSeasonMvp;
-                    category = $"{award.Year} SEASON MVP";
+                    category = $"{award.Year} 시즌 MVP";
                     title = "정규 시즌 MVP";
                     break;
                 default:
@@ -220,7 +220,9 @@ namespace Baseball.Presentation.Career
                 new[]
                 {
                     new PresentationStat("수상 연도", award.Year.ToString(), true),
-                    new PresentationStat("리그", award.LeagueLevel.ToString()),
+                new PresentationStat(
+                    "리그",
+                    WorldGenerationConfiguration.GetDefaultDefinition(award.LeagueLevel).DisplayName),
                     new PresentationStat("포지션", GetPositionCode(award.Position), true)
                 });
             return true;
@@ -240,7 +242,7 @@ namespace Baseball.Presentation.Career
                     new PresentationStat("타율", stats.BattingAverage.ToString(".000"), true),
                     new PresentationStat("홈런", stats.HomeRuns.ToString(), true),
                     new PresentationStat("타점", stats.RunsBattedIn.ToString()),
-                    new PresentationStat("출루+장타", stats.OnBasePlusSlugging.ToString(".000"))
+                new PresentationStat("출루율+장타율", stats.OnBasePlusSlugging.ToString(".000"))
                 };
         }
 
@@ -307,7 +309,7 @@ namespace Baseball.Presentation.Career
                 if (change.Amount == 0)
                     continue;
                 stats.Add(new PresentationStat(
-                    GetAbilityLabel(change.Ability) + " Potential",
+                    GetAbilityLabel(change.Ability) + " 성장 가능성",
                     FormatSigned(change.Amount),
                     true));
             }
@@ -384,7 +386,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Control => "제구",
                 PlayerAbility.Stamina => "체력",
                 PlayerAbility.PitcherMental => "투수 멘탈",
-                _ => ability.ToString()
+                _ => "능력치 미정"
             };
         }
 

@@ -691,7 +691,7 @@ namespace Baseball.Game.Career.News
                     NewsArticleLength.Feature,
                     NewsSourceType.NationalSports,
                     System.Array.Empty<NewsTemplateCondition>(),
-                    new[] { "{PlayerName}, Galaxy League 데뷔" },
+                new[] { "{PlayerName}, 갤럭시 리그 데뷔" },
                     new[] { "커리어 최상위 리그의 첫 공식 출전이 기록됐다." },
                     new[] { "이제 승격보다 Galaxy 우승과 통산 기록 경쟁이 새로운 목표가 된다." }),
                 Template(

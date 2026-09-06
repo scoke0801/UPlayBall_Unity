@@ -445,7 +445,7 @@ namespace Baseball.Presentation.Career
                 RetirementArchiveTab.Growth => "성장 기록",
                 RetirementArchiveTab.News => "뉴스 보관함",
                 RetirementArchiveTab.FinalGame => "마지막 경기",
-                _ => tab.ToString()
+                _ => "기록"
             };
         }
 

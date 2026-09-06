@@ -106,7 +106,7 @@ namespace Baseball.Presentation.Career
             CreateTeamBadge(
                 cell, game.OpponentName, game.OpponentColor, game.OpponentEmblemId,
                 new Vector2(-62f, -3f), 31f);
-            string venue = game.IsPlayerHome ? "VS" : "@";
+            string venue = game.IsPlayerHome ? "홈" : "원정";
             CreateText("Venue", cell, venue, 11, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(26f, 20f), new Vector2(-34f, 3f),
                 game.IsPlayerHome ? AccentColor : GoldColor);
@@ -175,7 +175,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(610f, 22f), position);
             CreateText("Date", row, game.Date.ToString("MM.dd"), 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(60f, 22f), new Vector2(-278f, 0f), SecondaryTextColor);
-            CreateText("Venue", row, game.IsPlayerHome ? "HOME" : "AWAY", 10, FontStyle.Bold,
+            CreateText("Venue", row, game.IsPlayerHome ? "홈" : "원정", 10, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(54f, 22f), new Vector2(-217f, 0f),
                 game.IsPlayerHome ? AccentColor : GoldColor);
             CreateText("Opponent", row, game.OpponentName, 12, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -208,7 +208,7 @@ namespace Baseball.Presentation.Career
                 RectTransform row = CreateImage("LeagueDay_" + day.Date.ToString("MMdd"), panel,
                     resultIndex % 2 == 0 ? new Color(0.018f, 0.064f, 0.103f, 1f) : PanelDarkColor,
                     new Vector2(610f, 22f), new Vector2(x, y));
-                CreateText("Date", row, day.Date.ToString("MM.dd (ddd)"), 12, FontStyle.Bold,
+                CreateText("Date", row, $"{day.Date:MM.dd} ({GetKoreanDay(day.Date.DayOfWeek)})", 12, FontStyle.Bold,
                     TextAnchor.MiddleLeft, new Vector2(150f, 22f), new Vector2(-228f, 0f), PrimaryTextColor);
                 CreateText("Count", row, $"{day.Games.Count}경기", 12, FontStyle.Bold,
                     TextAnchor.MiddleCenter, new Vector2(100f, 22f), new Vector2(5f, 0f), AccentColor);
@@ -230,16 +230,16 @@ namespace Baseball.Presentation.Career
             CreateText("Description", panel, "완료된 내 구단 경기만 사용합니다.", 12, FontStyle.Normal,
                 TextAnchor.MiddleRight, new Vector2(500f, 30f), new Vector2(360f, 200f), SecondaryTextColor);
 
-            RenderSplitCard(panel, "HomeSplit", "HOME", month.Summary.HomeGames,
+            RenderSplitCard(panel, "HomeSplit", "홈", month.Summary.HomeGames,
                 month.Summary.HomeWins, month.Summary.HomeWinningPercentage,
                 new Vector2(-310f, 70f), AccentColor);
-            RenderSplitCard(panel, "AwaySplit", "AWAY", month.Summary.AwayGames,
+            RenderSplitCard(panel, "AwaySplit", "원정", month.Summary.AwayGames,
                 month.Summary.AwayWins, month.Summary.AwayWinningPercentage,
                 new Vector2(310f, 70f), GoldColor);
 
             RectTransform total = CreateFramedSurface(
                 "MonthTotal", panel, new Vector2(1200f, 100f), new Vector2(0f, -160f), CardColor);
-            CreateText("Label", total, "MONTH TOTAL", 11, FontStyle.Bold, TextAnchor.MiddleLeft,
+            CreateText("Label", total, "월간 합계", 11, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(180f, 24f), new Vector2(-470f, 20f), AccentColor);
             CreateText("Games", total, $"{month.Summary.CompletedGames} 경기", 25, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(190f, 45f), new Vector2(-330f, -8f), PrimaryTextColor);
@@ -281,7 +281,7 @@ namespace Baseball.Presentation.Career
             {
                 CareerScheduleOutcome.Win => "승",
                 CareerScheduleOutcome.Loss => "패",
-                CareerScheduleOutcome.Tie => "T",
+                CareerScheduleOutcome.Tie => "무",
                 _ => "-"
             };
         }

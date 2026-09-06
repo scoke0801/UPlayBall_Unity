@@ -18,13 +18,13 @@ namespace Baseball.Presentation.Career
         {
             if (selected.ActivityType == OffseasonActivityType.Study)
             {
-                return $"훈련 적합도 {GetFitLabel(selected.Fit)} · 나이와 Potential 여유를 반영한 " +
+            return $"훈련 적합도 {GetFitLabel(selected.Fit)} · 나이와 성장 가능성 여유를 반영한 " +
                        "장기 프로그램입니다.";
             }
             if (selected.ActivityType == OffseasonActivityType.Rehabilitation)
                 return "성장보다 다음 활동을 이어 갈 컨디션과 오프시즌 시간을 확보하는 프로그램입니다.";
             if (selected.ActivityType == OffseasonActivityType.TrainingPartner)
-                return "높은 비용으로 코치·파트너의 전문성과 Potential 성장 기회를 확보합니다.";
+                return "높은 비용으로 코치·파트너의 전문성과 성장 가능성을 높일 기회를 확보합니다.";
             if (selected.ActivityType == OffseasonActivityType.Rest)
                 return "비용 없이 한 주를 사용해 컨디션을 회복합니다.";
             return selected.Intensity switch
@@ -56,7 +56,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Breaking => "변화구",
                 PlayerAbility.Control => "제구",
                 PlayerAbility.PitcherMental => "위기관리",
-                _ => ability.ToString()
+                _ => "능력치 미정"
             };
         }
 
@@ -75,7 +75,7 @@ namespace Baseball.Presentation.Career
                 PlayerPosition.CenterField => "중견수",
                 PlayerPosition.RightField => "우익수",
                 PlayerPosition.DesignatedHitter => "지명타자",
-                _ => position.ToString()
+                _ => "포지션 미정"
             };
         }
 
@@ -86,7 +86,7 @@ namespace Baseball.Presentation.Career
                 TrainingIntensity.Safe => "안정",
                 TrainingIntensity.Standard => "표준",
                 TrainingIntensity.Intensive => "집중",
-                _ => intensity.ToString()
+                _ => "강도 미정"
             };
         }
 
@@ -98,7 +98,7 @@ namespace Baseball.Presentation.Career
                 TrainingFitGrade.Normal => "보통",
                 TrainingFitGrade.High => "높음",
                 TrainingFitGrade.VeryHigh => "매우 높음",
-                _ => fit.ToString()
+                _ => "적합도 미정"
             };
         }
 

@@ -449,7 +449,7 @@ namespace Baseball.Presentation.Career
                 "PitchReadySummary",
                 panel,
                 $"추천 · {GetPitchTypeLabel(option.PitchType)}\n" +
-                $"{option.MinimumVelocityMph:0}-{option.MaximumVelocityMph:0} mph · 숙련 {option.Proficiency}",
+                $"{option.MinimumVelocityMph * 1.609344d:0}-{option.MaximumVelocityMph * 1.609344d:0} km/h · 숙련 {option.Proficiency}",
                 20,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,

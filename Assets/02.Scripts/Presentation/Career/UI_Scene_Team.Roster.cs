@@ -20,7 +20,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(150f, 24f), new Vector2(-170f, 127f), MutedColor);
             CreateText("HeaderRole", panel, "역할", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(98f, 24f), new Vector2(-47f, 127f), MutedColor);
-            CreateText("HeaderOverall", panel, "OVR", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
+            CreateText("HeaderOverall", panel, "종합", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(62f, 24f), new Vector2(45f, 127f), MutedColor);
             CreateText("HeaderRecord", panel, "시즌", 12, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(110f, 24f), new Vector2(137f, 127f), MutedColor);

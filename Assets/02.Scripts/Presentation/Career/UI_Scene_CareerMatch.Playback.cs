@@ -654,7 +654,7 @@ namespace Baseball.Presentation.Career
                 "HomeName", card, session.Input.HomeTeam.Name, 13, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(130f, 22f), new Vector2(-160f, -34f), SecondaryTextColor);
             CreateText(
-                "RunHeader", card, "R", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "RunHeader", card, "득점", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(34f, 22f), new Vector2(200f, 34f), MutedTextColor);
             CreateText(
                 "AwayTotal", card, lineScore.AwayTotal.ToString(), 17, FontStyle.Bold, TextAnchor.MiddleCenter,

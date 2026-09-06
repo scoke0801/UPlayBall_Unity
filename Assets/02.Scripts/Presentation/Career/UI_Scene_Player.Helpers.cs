@@ -224,7 +224,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Breaking => "변화구",
                 PlayerAbility.Control => "제구",
                 PlayerAbility.PitcherMental => "위기관리",
-                _ => ability.ToString()
+                _ => "능력치 미정"
             };
         }
 

@@ -112,7 +112,7 @@ namespace Baseball.Presentation.Tests
                 CareerPresentationType.Training,
                 CareerPresentationGrade.Activity,
                 2028,
-                "OFFSEASON",
+                "오프시즌",
                 "훈련",
                 "김하준",
                 "결과",

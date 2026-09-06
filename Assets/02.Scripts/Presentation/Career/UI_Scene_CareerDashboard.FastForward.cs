@@ -57,7 +57,7 @@ namespace Baseball.Presentation.Career
 
             RectTransform modal = CreatePanel(
                 "SeasonFastForwardModal",
-                "FAST FORWARD",
+                "빠른 진행",
                 view.Progress.TargetPhase == SeasonPhase.RegularSeason
                     ? "정규시즌 진행 중"
                     : "포스트시즌 진행 중",

@@ -246,7 +246,7 @@ namespace Baseball.Presentation.Career
                 15, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(120f, 32f), new Vector2(-278f, 0f),
                 remaining == 0 ? AccentColor : SecondaryTextColor);
-            CreateText("Remaining", pointSummary, $"{remaining} P", 23, FontStyle.Bold,
+            CreateText("Remaining", pointSummary, $"{remaining}점", 23, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(88f, 36f), new Vector2(-170f, 0f),
                 remaining == 0 ? AccentColor : GoldColor);
             CreateText("Rule", pointSummary,
@@ -474,7 +474,7 @@ namespace Baseball.Presentation.Career
                 button.onClick.AddListener(() => { _selectedGameSpeed = speed; Render(); });
             }
             Button autoSlow = CreateButton("AutoSlow", speedPanel,
-                (_autoSlowOnPlayerEvent ? "ON" : "OFF") + "  내 선수 장면 1× 자동 전환",
+                (_autoSlowOnPlayerEvent ? "사용" : "미사용") + "  내 선수 장면 1× 자동 전환",
                 new Vector2(330f, 70f), new Vector2(0f, -5f),
                 _autoSlowOnPlayerEvent ? SelectedColor : CardColor, out Text slowLabel);
             slowLabel.fontSize = 15;
@@ -569,7 +569,7 @@ namespace Baseball.Presentation.Career
                 $"플레이 모드  {(draft.GameSettings.PlayMode == PlayModeType.MiniGame ? "직접 참여" : "자동")}\n" +
                 $"진행 방식  {(draft.GameSettings.PlayMode == PlayModeType.MiniGame ? "내 선수 관여 장면" : GetProgressModeLabel(draft.GameSettings.MatchProgressMode))}\n" +
                 $"경기 속도  {(draft.GameSettings.MatchProgressMode == MatchProgressMode.InstantResult ? "사용 안 함" : draft.GameSettings.GameSpeed + "×")}\n" +
-                $"내 선수 장면 1×  {(draft.GameSettings.AutoSlowOnPlayerEvent ? "ON" : "OFF")}",
+                $"내 선수 장면 1×  {(draft.GameSettings.AutoSlowOnPlayerEvent ? "사용" : "미사용")}",
                 16, FontStyle.Normal, TextAnchor.UpperLeft,
                 new Vector2(700f, 120f), new Vector2(185f, -175f), SecondaryTextColor);
             CreateText("SaveWarning", card,
@@ -646,7 +646,7 @@ namespace Baseball.Presentation.Career
             CareerSummaryView summary = _manager.CareerSummary.Value;
             RectTransform card = CreateImage("ContractCard", _body, CardColor,
                 new Vector2(900f, 470f), new Vector2(0f, 5f));
-            CreateText("Signed", card, "SIGNED", 16, FontStyle.Bold, TextAnchor.MiddleCenter,
+            CreateText("Signed", card, "계약 완료", 16, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(260f, 30f), new Vector2(0f, 190f), AccentColor);
             RectTransform emblem = CreateImage(
                 "TeamEmblem", card, Color.clear, new Vector2(112f, 112f), new Vector2(-330f, 120f));
@@ -660,7 +660,7 @@ namespace Baseball.Presentation.Career
                 20, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(720f, 240f), new Vector2(0f, -45f), PrimaryTextColor);
             _backButton.gameObject.SetActive(false);
-            SetNext("Rookie League 시작", () =>
+            SetNext("루키 리그 시작", () =>
             {
                 if (_manager.StartRookieSeason())
                     OpenCareerHome();

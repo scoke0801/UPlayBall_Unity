@@ -122,7 +122,7 @@ namespace Baseball.Presentation.Career
                 Button button = CreateButton(
                     "MainCard_" + card.CardId,
                     panel,
-                    $"{card.DisplayName}\n{card.OriginYear} · {type} · C{card.Cost}",
+                $"{card.DisplayName}\n{card.OriginYear} · {type} · 비용 {card.Cost}",
                     new Vector2(245f, 118f),
                     new Vector2(-625f + column * 250f, 230f - row * 130f),
                     card.IsSelected ? SelectedColor : CardColor,
@@ -134,7 +134,7 @@ namespace Baseball.Presentation.Career
 
             CreateText("SelectionStatus", panel,
                 $"선택 {status.SelectedCount}/{flow.Rule.MainCardCount} · 타자 {status.HitterCount}/{flow.Rule.MainHitterCount} · " +
-                $"투수 {status.PitcherCount}/{flow.Rule.MainPitcherCount} · Cost {status.TotalCost}/{flow.Rule.MaximumMainCost}",
+                $"투수 {status.PitcherCount}/{flow.Rule.MainPitcherCount} · 비용 {status.TotalCost}/{flow.Rule.MaximumMainCost}",
                 16, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(1050f, 36f), new Vector2(0f, -315f),
                 status.IsValid ? AccentColor : SecondaryTextColor);

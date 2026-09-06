@@ -194,7 +194,7 @@ namespace Baseball.Presentation.Career
         private void RenderRegularSeasonIntro(Transform root, SeasonReviewSnapshot snapshot)
         {
             CreateText(
-                "SceneEyebrow", root, "REGULAR SEASON COMPLETE", 16, FontStyle.Bold,
+                "SceneEyebrow", root, "정규시즌 종료", 16, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(700f, 30f), new Vector2(0f, 195f), AccentColor);
             Text title = CreateText(
                 "SceneTitle", root, $"{snapshot.Year} 정규시즌 종료", 46, FontStyle.Bold,
@@ -288,7 +288,7 @@ namespace Baseball.Presentation.Career
             string title = snapshot.PostseasonSeed > 0 ? "포스트시즌 진출" : "포스트시즌 관전";
             Color accent = snapshot.PostseasonSeed > 0 ? GoldColor : SecondaryTextColor;
             CreateText(
-                "SceneEyebrow", root, "POSTSEASON", 17, FontStyle.Bold,
+                "SceneEyebrow", root, "포스트시즌", 17, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(500f, 30f), new Vector2(0f, 200f), GoldColor);
             Text titleText = CreateText(
                 "SceneTitle", root, title, 50, FontStyle.Bold,
@@ -314,7 +314,7 @@ namespace Baseball.Presentation.Career
             SeasonReviewSnapshot snapshot = view.SeasonReview;
             RectTransform bracket = CreateReviewCard(root, "PostseasonBracket", new Vector2(780f, 490f), new Vector2(-405f, 15f));
             CreateText(
-                "Eyebrow", bracket, "POSTSEASON ROAD", 14, FontStyle.Bold,
+                "Eyebrow", bracket, "포스트시즌 여정", 14, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(240f, 25f), new Vector2(-245f, 208f), GoldColor);
             int seriesCount = Math.Min(snapshot.PostseasonSeries.Count, 3);
             for (int index = 0; index < seriesCount; index++)
@@ -363,9 +363,9 @@ namespace Baseball.Presentation.Career
             else
             {
                 PostseasonGameReviewSnapshot game = snapshot.PlayerTeamPostseasonGames[revealed - 1];
-                string round = game.Round == PostseasonRound.ChampionshipSeries ? "FINAL" : "SEMIFINAL";
+                string round = game.Round == PostseasonRound.ChampionshipSeries ? "결승" : "준결승";
                 CreateText(
-                    "GameEyebrow", result, $"POSTSEASON {round} · GAME {game.GameNumber}", 13, FontStyle.Bold,
+                    "GameEyebrow", result, $"포스트시즌 {round} · {game.GameNumber}차전", 13, FontStyle.Bold,
                     TextAnchor.MiddleCenter, new Vector2(520f, 28f), new Vector2(0f, 180f), GoldColor);
                 CreateText(
                     "Away", result, game.AwayTeamName, 20, FontStyle.Bold,
@@ -421,19 +421,19 @@ namespace Baseball.Presentation.Career
                     accent = GoldColor;
                     break;
                 case PlayerTeamPostseasonResult.RunnerUp:
-                    eyebrow = "POSTSEASON FINAL";
+                    eyebrow = "포스트시즌 결승";
                     title = "포스트시즌 준우승";
                     description = $"결승까지 진출했지만 마지막 승부에서\n{snapshot.ChampionTeamName}에 패했습니다.";
                     accent = SilverColor;
                     break;
                 case PlayerTeamPostseasonResult.SemifinalElimination:
-                    eyebrow = "POSTSEASON RESULT";
+                    eyebrow = "포스트시즌 결과";
                     title = "플레이오프 탈락";
                     description = $"정규시즌 {snapshot.PlayerTeamRank}위로 진출했지만\n결승에는 오르지 못했습니다.";
                     accent = new Color(0.36f, 0.56f, 0.7f, 1f);
                     break;
                 default:
-                    eyebrow = "POSTSEASON RESULT";
+                    eyebrow = "포스트시즌 결과";
                     title = "포스트시즌 종료";
                     description = "정규시즌 성적으로 포스트시즌에 진출하지 못했습니다.";
                     accent = SecondaryTextColor;
@@ -544,7 +544,7 @@ namespace Baseball.Presentation.Career
             RenderSummaryCard(
                 root, "PostseasonSummary", "포스트시즌", postseason,
                 snapshot.PlayerTeamPostseasonResult == PlayerTeamPostseasonResult.Champion
-                    ? "CHAMPION"
+                    ? "우승"
                     : $"우승팀 {snapshot.ChampionTeamName}",
                 new Vector2(0f, -16f),
                 snapshot.PlayerTeamPostseasonResult == PlayerTeamPostseasonResult.Champion ? GoldColor : SilverColor);
@@ -647,7 +647,7 @@ namespace Baseball.Presentation.Career
                 Vector2.zero, Vector2.zero, stretch: true);
             blocker.GetComponent<Image>().raycastTarget = true;
             RectTransform modal = CreatePanel(
-                "SeasonReviewSkipModal", "SKIP PRESENTATION", "결산 연출 건너뛰기",
+                "SeasonReviewSkipModal", "연출 건너뛰기", "결산 연출 건너뛰기",
                 new Vector2(760f, 390f), Vector2.zero);
             string destination = view.SeasonPhase == SeasonPhase.Postseason
                 ? "포스트시즌 진행 화면으로 이동합니다."
@@ -736,7 +736,7 @@ namespace Baseball.Presentation.Career
             PlayerSeasonReviewStatistics stats = snapshot.PlayerStatistics;
             if (stats.IsPitcher)
             {
-                RenderStat(card, "Era", "평균자책", stats.EarnedRunAverage.ToString("0.00"), -285f);
+            RenderStat(card, "Era", "평균자책점", stats.EarnedRunAverage.ToString("0.00"), -285f);
                 RenderStat(card, "WinLoss", "승-패", $"{stats.Wins}-{stats.Losses}", -95f);
                 RenderStat(card, "InningsPitched", "이닝", $"{stats.OutsRecorded / 3}.{stats.OutsRecorded % 3}", 95f);
                 RenderStat(card, "Strikeouts", "탈삼진", stats.PitchingStrikeouts.ToString(), 285f);
@@ -744,7 +744,7 @@ namespace Baseball.Presentation.Career
             else
             {
                 RenderStat(card, "BattingAverage", "타율", stats.BattingAverage.ToString(".000"), -285f);
-                RenderStat(card, "Ops", "출루+장타", stats.OnBasePlusSlugging.ToString(".000"), -95f);
+            RenderStat(card, "Ops", "출루율+장타율", stats.OnBasePlusSlugging.ToString(".000"), -95f);
                 RenderStat(card, "HomeRuns", "홈런", stats.HomeRuns.ToString(), 95f);
                 RenderStat(card, "RunsBattedIn", "타점", stats.RunsBattedIn.ToString(), 285f);
             }
@@ -771,7 +771,7 @@ namespace Baseball.Presentation.Career
             PlayerSeasonReviewStatistics stats = snapshot.PlayerStatistics;
             string line = stats.IsPitcher
                 ? $"평균자책 {stats.EarnedRunAverage:0.00}  |  {stats.Wins}승 {stats.Losses}패  |  탈삼진 {stats.PitchingStrikeouts}"
-                    : $"타율 {stats.BattingAverage:.000}  |  출루+장타 {stats.OnBasePlusSlugging:.000}  |  홈런 {stats.HomeRuns}  |  타점 {stats.RunsBattedIn}";
+                : $"타율 {stats.BattingAverage:.000}  |  출루율+장타율 {stats.OnBasePlusSlugging:.000}  |  홈런 {stats.HomeRuns}  |  타점 {stats.RunsBattedIn}";
             CreateText(
                 "PlayerSeasonLine", root,
                 $"{snapshot.PlayerName} · {GetSeasonReviewPositionLabel(snapshot.PlayerPosition)}    {line}",
@@ -880,7 +880,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Stuff => "구위",
                 PlayerAbility.Breaking => "변화구",
                 PlayerAbility.Control => "제구력",
-                _ => ability.ToString()
+                _ => "능력치 미정"
             };
         }
     }

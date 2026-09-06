@@ -129,7 +129,7 @@ namespace Baseball.Presentation.Career
             bool showField = sequence.IsBallInPlay && elapsedSeconds >= sequence.FieldTransitionSeconds;
             _plateView.gameObject.SetActive(!showField);
             _fieldView.gameObject.SetActive(showField);
-            _phaseText.text = showField ? "FIELD VIEW · 인플레이" : "PLATE VIEW · 타석 승부";
+            _phaseText.text = showField ? "필드 화면 · 인플레이" : "타석 화면 · 타석 승부";
             _phaseText.color = showField ? ActiveFielderColor : SecondaryTextColor;
 
             ResetPlateVisuals(sequence);
@@ -423,13 +423,13 @@ namespace Baseball.Presentation.Career
         {
             return type switch
             {
-                PlayResolutionCueType.SwingAndMiss => "SWING & MISS",
+                PlayResolutionCueType.SwingAndMiss => "헛스윙",
                 PlayResolutionCueType.PlateCall => GetPitchCallLabel(sequence.PitchPlay.Contact.PitchResult),
-                PlayResolutionCueType.FieldingError => "ERROR",
-                PlayResolutionCueType.OutCall => "OUT",
-                PlayResolutionCueType.SafeCall => "SAFE",
-                PlayResolutionCueType.ScoreCall => "SCORE",
-                PlayResolutionCueType.HomeRunCall => "HOME RUN",
+                PlayResolutionCueType.FieldingError => "실책",
+                PlayResolutionCueType.OutCall => "아웃",
+                PlayResolutionCueType.SafeCall => "세이프",
+                PlayResolutionCueType.ScoreCall => "득점",
+                PlayResolutionCueType.HomeRunCall => "홈런",
                 PlayResolutionCueType.FinalResult or PlayResolutionCueType.ResultHold =>
                     GetFinalResultLabel(sequence),
                 _ => string.Empty
@@ -452,12 +452,12 @@ namespace Baseball.Presentation.Career
         {
             return result switch
             {
-                PitchResult.Ball => "BALL",
-                PitchResult.CalledStrike => "STRIKE",
-                PitchResult.SwingingStrike => "SWING & MISS",
-                PitchResult.Foul => "FOUL",
-                PitchResult.HitByPitch => "HIT BY PITCH",
-                _ => "IN PLAY"
+                PitchResult.Ball => "볼",
+                PitchResult.CalledStrike => "스트라이크",
+                PitchResult.SwingingStrike => "헛스윙",
+                PitchResult.Foul => "파울",
+                PitchResult.HitByPitch => "몸에 맞는 공",
+                _ => "인플레이"
             };
         }
 
@@ -465,16 +465,16 @@ namespace Baseball.Presentation.Career
         {
             ContactProfile contact = sequence.PitchPlay.Contact;
             if (!sequence.PitchPlay.Swing.DidSwing)
-                return "TAKE";
+                return "지켜보기";
             return contact.Grade switch
             {
-                ContactGrade.Barrel => "PERFECT CONTACT",
+                ContactGrade.Barrel => "완벽한 타격",
                 ContactGrade.Solid => contact.TimingFeedback == SwingTimingFeedback.Perfect
-                    ? "PERFECT"
-                    : "GOOD CONTACT",
-                ContactGrade.Normal => "CONTACT",
-                ContactGrade.Weak => "WEAK CONTACT",
-                ContactGrade.FoulTip => "FOUL TIP",
+                    ? "완벽"
+                    : "좋은 타격",
+                ContactGrade.Normal => "타격",
+                ContactGrade.Weak => "약한 타격",
+                ContactGrade.FoulTip => "파울팁",
                 _ => string.Empty
             };
         }
@@ -499,7 +499,7 @@ namespace Baseball.Presentation.Career
             if (sequence.FinalResult == PlateAppearanceResult.None)
                 return GetPitchCallLabel(sequence.PitchPlay.Contact.PitchResult);
             if (sequence.OutsOnPlay >= 2)
-                return "DOUBLE PLAY";
+                return "병살타";
             return sequence.FinalResult switch
             {
                 PlateAppearanceResult.Walk => "볼넷",
@@ -510,12 +510,12 @@ namespace Baseball.Presentation.Career
                 PlateAppearanceResult.Single or PlateAppearanceResult.BuntSingle => "안타",
                 PlateAppearanceResult.Double => "2루타",
                 PlateAppearanceResult.Triple => "3루타",
-                PlateAppearanceResult.HomeRun => "HOME RUN",
+                PlateAppearanceResult.HomeRun => "홈런",
                 PlateAppearanceResult.HitByPitch => "몸에 맞는 공",
                 PlateAppearanceResult.ReachedOnError => "실책 출루",
                 PlateAppearanceResult.FieldersChoice => "야수 선택",
                 PlateAppearanceResult.SacrificeBunt => "희생 번트",
-                _ => sequence.FinalResult.ToString()
+                _ => "결과 확인"
             };
         }
 

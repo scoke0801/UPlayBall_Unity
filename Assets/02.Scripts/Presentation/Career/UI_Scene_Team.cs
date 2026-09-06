@@ -260,7 +260,7 @@ namespace Baseball.Presentation.Career
 
         private void RenderUsagePlan(TeamOverviewView view)
         {
-            string title = view.HasNextGamePlan ? $"다음 경기 기용 계획 · {view.NextGameRound}R" : "기용 현황";
+            string title = view.HasNextGamePlan ? $"다음 경기 기용 계획 · {view.NextGameRound}라운드" : "기용 현황";
             RectTransform panel = CreatePanel("Usage", title,
                 new Vector2(700f, 558f), new Vector2(525f, 166f));
             RectTransform lineup = CreateSection("Lineup", panel, new Vector2(376f, 400f),
@@ -303,7 +303,7 @@ namespace Baseball.Presentation.Career
         {
             CreateText("Title", parent, title, 16, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(144f, 29f), new Vector2(-23f, 68f), PrimaryTextColor);
-            CreateText("Stat", parent, "평균자책", 11, FontStyle.Bold, TextAnchor.MiddleRight,
+            CreateText("Stat", parent, "평균자책점", 11, FontStyle.Bold, TextAnchor.MiddleRight,
                 new Vector2(44f, 25f), new Vector2(91f, 68f), MutedColor);
             int visibleCount = Math.Min(players.Length, 4);
             for (int index = 0; index < visibleCount; index++)
@@ -340,7 +340,7 @@ namespace Baseball.Presentation.Career
                     continue;
                 RenderCompetitionRow(panel, player, view.MyPlayerExpectedRole, rowIndex++);
             }
-            CreateText("Guide", panel, "OVR만이 아니라 계약 역할·컨디션·감독 평가가 실제 기용에 반영됩니다.",
+            CreateText("Guide", panel, "종합 능력뿐 아니라 계약 역할·컨디션·감독 평가가 실제 기용에 반영됩니다.",
                 11, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(440f, 22f), new Vector2(0f, -78f), MutedColor);
         }
@@ -379,7 +379,7 @@ namespace Baseball.Presentation.Career
                 player.IsMyPlayer ? GoldColor : player.IsInNextGamePlan ? RoleColor : MutedColor);
             CreateText("Name", row, player.Name, 15, player.IsMyPlayer ? FontStyle.Bold : FontStyle.Normal,
                 TextAnchor.MiddleLeft, new Vector2(190f, 32f), new Vector2(-85f, 0f), PrimaryTextColor);
-            CreateText("Overall", row, $"OVR {player.Overall}", 14, FontStyle.Bold,
+            CreateText("Overall", row, $"종합 {player.Overall}", 14, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(82f, 32f), new Vector2(68f, 0f), GetRatingColor(player.Overall));
             CreateText("Role", row, GetRosterRoleLabel(player, myPlayerExpectedRole), 13, FontStyle.Bold,
                 TextAnchor.MiddleRight, new Vector2(105f, 32f), new Vector2(170f, 0f),
@@ -392,15 +392,15 @@ namespace Baseball.Presentation.Career
                 new Vector2(620f, 300f), new Vector2(-115f, -288f));
             int positionCount = CountPlayersAtPosition(view, view.MyPlayerPosition);
             TeamRosterPlayerView myPlayer = FindPlayer(view, view.MyPlayerId);
-            RenderBriefingRow(panel, "TEAM", $"{view.TeamRank}위 · {view.Wins}승 {view.Losses}패 {view.Ties}무",
+            RenderBriefingRow(panel, "구단", $"{view.TeamRank}위 · {view.Wins}승 {view.Losses}패 {view.Ties}무",
                 $"득실차 {FormatSigned(view.RunsScored - view.RunsAllowed)}", 56f, AccentColor);
-            RenderBriefingRow(panel, "ROLE", GetPlannedRoleLabel(
+            RenderBriefingRow(panel, "역할", GetPlannedRoleLabel(
                     view.PlannedPlayerRole, view.MyPlayerPosition, view.MyPlayerBattingOrder),
                 view.HasNextGamePlan ? $"다음 경기 {view.NextGameRound}R" : "일정 종료", 16f,
                 view.HasNextGamePlan ? RoleColor : GoldColor);
-            RenderBriefingRow(panel, "DEPTH", $"{GetPositionCode(view.MyPlayerPosition)} 경쟁 {positionCount}명 · 내 OVR {myPlayer.Overall}",
+            RenderBriefingRow(panel, "경쟁", $"{GetPositionCode(view.MyPlayerPosition)} 경쟁 {positionCount}명 · 내 종합 {myPlayer.Overall}",
                 GetRosterRoleLabel(myPlayer, view.MyPlayerExpectedRole), -24f, GoldColor);
-            RenderBriefingRow(panel, "ROSTER", $"등록 선수 {view.Roster.Length}명 · 야수층 OVR {view.FieldPlayerOverall}",
+            RenderBriefingRow(panel, "선수단", $"등록 선수 {view.Roster.Length}명 · 야수층 종합 {view.FieldPlayerOverall}",
                 "열람 전용", -64f, SecondaryTextColor);
         }
 

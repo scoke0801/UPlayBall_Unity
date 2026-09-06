@@ -152,7 +152,7 @@ namespace Baseball.Presentation.Career
             _descriptionText.text = request.Description;
             _rankText.text = request.Type == CareerPresentationType.RegularSeasonFirst ? "1" : string.Empty;
             _weekText.text = request.HasWeekProgress
-                ? $"OFFSEASON WEEK {request.StartWeek}  →  WEEK {request.EndWeek}"
+                ? $"오프시즌 {request.StartWeek}주차  →  {request.EndWeek}주차"
                 : string.Empty;
             _weekText.gameObject.SetActive(request.HasWeekProgress);
 

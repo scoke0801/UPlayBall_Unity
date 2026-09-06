@@ -168,7 +168,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(68f, 68f),
                 new Vector2(-100f, 2f));
             CreateText(
-                "OverallLabel", overall, "OVR", 10, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "OverallLabel", overall, "종합", 10, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(60f, 18f), new Vector2(0f, 18f), GoldColor);
             CreateText(
                 "OverallValue", overall, dashboard.Overall.ToString(), 28, FontStyle.Bold,
@@ -744,13 +744,13 @@ namespace Baseball.Presentation.Career
             if (block.IsLocked)
             {
                 CreateText(
-                    "Locked", card.transform, "LOCK", 8, FontStyle.Bold, TextAnchor.MiddleRight,
+                "Locked", card.transform, "잠김", 8, FontStyle.Bold, TextAnchor.MiddleRight,
                     new Vector2(42f, 18f), new Vector2(60f, -39f), GoldColor);
             }
             if (stack.IsNew)
             {
                 CreateText(
-                    "New", card.transform, "NEW", 8, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "New", card.transform, "신규", 8, FontStyle.Bold, TextAnchor.MiddleCenter,
                     new Vector2(30f, 14f), new Vector2(15f, 39f), GreenColor);
             }
         }
@@ -2262,12 +2262,12 @@ namespace Baseball.Presentation.Career
         {
             return tier switch
             {
-                SkillGachaPurchaseTier.Normal => "Normal 뽑기",
-                SkillGachaPurchaseTier.Rare => "Rare 뽑기",
-                SkillGachaPurchaseTier.Elite => "Elite 뽑기",
-                SkillGachaPurchaseTier.Unique => "Unique 뽑기",
-                SkillGachaPurchaseTier.Legendary => "Legendary 뽑기",
-                _ => tier.ToString()
+                SkillGachaPurchaseTier.Normal => "일반 뽑기",
+                SkillGachaPurchaseTier.Rare => "희귀 뽑기",
+                SkillGachaPurchaseTier.Elite => "엘리트 뽑기",
+                SkillGachaPurchaseTier.Unique => "유니크 뽑기",
+                SkillGachaPurchaseTier.Legendary => "레전더리 뽑기",
+                _ => "등급 미정 뽑기"
             };
         }
 

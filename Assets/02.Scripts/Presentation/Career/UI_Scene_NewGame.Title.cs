@@ -15,7 +15,7 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Career
 {
-    /// <summary>타이틀에서 선수 생성·계약·Rookie League 진입까지 한 흐름으로 표시한다.</summary>
+    /// <summary>타이틀에서 선수 생성·계약·루키 리그 진입까지 한 흐름으로 표시한다.</summary>
     public sealed partial class UI_Scene_NewGame : UISceneBase
     {
         private static readonly Color BackgroundColor = CareerUiTheme.Background;
@@ -202,7 +202,7 @@ namespace Baseball.Presentation.Career
             // Show()/Initialize()마다 CareerUiSkin.Apply가 재적용되며 다시 꺼버리므로,
             // 실제 클릭을 받아야 하는 이 Button에는 적용하지 않고 CareerUiSkin.ApplyButton의
             // 기본 버튼 스타일링(playerCareer 버튼과 동일한 경로)만 쓴다.
-            CreateText("Badge", ownerCareer.transform, "CLUB MANAGEMENT", 12, FontStyle.Bold,
+            CreateText("Badge", ownerCareer.transform, "구단 운영", 12, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(420f, 24f), new Vector2(55f, 58f), GoldColor);
             CreateText("Mode", ownerCareer.transform, "구단주 모드", 27, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(420f, 40f), new Vector2(55f, 18f), PrimaryTextColor);
@@ -280,8 +280,7 @@ namespace Baseball.Presentation.Career
             CareerUiSkin.ApplyButton(settings);
             settings.onClick.AddListener(() =>
             {
-                _titleNotice = "화면·사운드·조작 설정은 후속 구현에서 제공됩니다.";
-                Render();
+                UI_Popup_CareerSettings.ShowSaveLoadRuntime();
             });
             Button credits = CreateButton("Credits", right, "크레딧", new Vector2(150f, 42f),
                 new Vector2(0f, -445f), CareerUiTheme.SecondaryAction, out _);
@@ -382,10 +381,10 @@ namespace Baseball.Presentation.Career
 
             string description = specialType switch
             {
-                PlayerCardSpecialType.AllStar => "Silver · Starburst",
-                PlayerCardSpecialType.Mvp => "Champagne · Spotlight",
-                PlayerCardSpecialType.GoldenGlove => "Leather · Defense",
-                _ => "Neutral · Team Color"
+                PlayerCardSpecialType.AllStar => "은색 · 별빛",
+                PlayerCardSpecialType.Mvp => "샴페인 · 조명",
+                PlayerCardSpecialType.GoldenGlove => "가죽 · 수비",
+                _ => "기본 · 구단 색상"
             };
             CreateText("Description", slot, description, 14, FontStyle.Normal,
                 TextAnchor.MiddleCenter, new Vector2(330f, 34f), new Vector2(0f, -225f),

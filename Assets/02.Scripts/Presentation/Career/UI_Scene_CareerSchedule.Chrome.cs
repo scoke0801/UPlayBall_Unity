@@ -147,12 +147,12 @@ namespace Baseball.Presentation.Career
                 new Vector2(140f, 26f), 52f);
             CreateText("Away", next, GetShortTeamName(game.AwayTeamName), 13, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(140f, 30f), new Vector2(-140f, -27f), PrimaryTextColor);
-            CreateText("Versus", next, "VS", 26, FontStyle.Bold, TextAnchor.MiddleCenter,
+            CreateText("Versus", next, "대", 26, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(90f, 44f), new Vector2(0f, 24f), PrimaryTextColor);
             CreateText("Home", next, GetShortTeamName(game.HomeTeamName), 13, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(140f, 30f), new Vector2(140f, -27f), PrimaryTextColor);
             CreateText("Date", next,
-                $"{game.Date:M월 d일} ({GetKoreanDay(game.Date.DayOfWeek)})  ·  {(game.IsPlayerHome ? "HOME" : "AWAY")}",
+                $"{game.Date:M월 d일} ({GetKoreanDay(game.Date.DayOfWeek)})  ·  {(game.IsPlayerHome ? "홈" : "원정")}",
                 13, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(390f, 26f), new Vector2(0f, -51f), SecondaryTextColor);
         }
@@ -201,7 +201,7 @@ namespace Baseball.Presentation.Career
                 CreateText("Date_" + index, card, game.Date.ToString("M.dd"), 12, FontStyle.Bold,
                     TextAnchor.MiddleLeft, new Vector2(60f, 24f), new Vector2(-160f, y), SecondaryTextColor);
                 CreateText("Opponent_" + index,
-                    card, $"{(game.IsPlayerHome ? "vs" : "@")} {game.OpponentName}", 12, FontStyle.Normal,
+                    card, $"{(game.IsPlayerHome ? "홈" : "원정")} · {game.OpponentName}", 12, FontStyle.Normal,
                     TextAnchor.MiddleLeft, new Vector2(270f, 24f), new Vector2(30f, y), PrimaryTextColor);
             }
         }
@@ -234,7 +234,7 @@ namespace Baseball.Presentation.Career
             CreateText("Date_" + rowId, parent, game.Date.ToString("M.dd"), 11, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(60f, 22f), new Vector2(-160f, y), SecondaryTextColor);
             CreateText("Opponent_" + rowId,
-                parent, $"{(game.IsPlayerHome ? "vs" : "@")} {GetShortTeamName(game.OpponentName)}", 11,
+                parent, $"{(game.IsPlayerHome ? "홈" : "원정")} · {GetShortTeamName(game.OpponentName)}", 11,
                 FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(245f, 22f), new Vector2(5f, y), PrimaryTextColor);
             string result = isRecent

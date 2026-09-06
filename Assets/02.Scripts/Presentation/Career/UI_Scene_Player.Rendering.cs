@@ -11,7 +11,7 @@ namespace Baseball.Presentation.Career
     {
         private void RenderPlayerCard(PlayerProfileView view)
         {
-            RectTransform card = CreatePanel("PlayerCard", _content, "MY PLAYER",
+            RectTransform card = CreatePanel("PlayerCard", _content, "내 선수",
                 new Vector2(420f, 750f), new Vector2(-735f, -21f));
             UIPlayerCard playerCard = UIPlayerCard.CreateRuntime(
                 card,
@@ -102,7 +102,7 @@ namespace Baseball.Presentation.Career
             if (view.PlayerType == Baseball.Core.Players.PlayerType.Pitcher)
             {
                 RenderStatCells(panel,
-                    new[] { "경기", "선발", "승-패", "세이브", "평균자책", "이닝당출루", "탈삼진" },
+                    new[] { "경기", "선발", "승-패", "세이브", "평균자책점", "이닝당 출루허용률", "탈삼진" },
                     new[]
                     {
                         stats.PitchingAppearances.ToString(), stats.PitchingStarts.ToString(),
@@ -114,7 +114,7 @@ namespace Baseball.Presentation.Career
             else
             {
                 RenderStatCells(panel,
-                    new[] { "경기", "타수", "안타", "홈런", "타점", "타율", "출루+장타" },
+                    new[] { "경기", "타수", "안타", "홈런", "타점", "타율", "출루율+장타율" },
                     new[]
                     {
                         stats.GamesPlayed.ToString(), stats.AtBats.ToString(), stats.Hits.ToString(),
@@ -235,7 +235,7 @@ namespace Baseball.Presentation.Career
             RectTransform page = CreatePanel("AttributesPage", _content, "능력치 · 현재 적용값과 성장 여지",
                 new Vector2(1390f, 720f), new Vector2(205f, -20f));
             CreateText("Guide", page,
-                "막대는 경기 시뮬레이션에 들어가는 현재 적용값입니다. Potential은 정확한 수치 대신 성장 여지로만 표시합니다.",
+                "막대는 경기 시뮬레이션에 들어가는 현재 적용값입니다. 성장 가능성은 정확한 수치 대신 성장 여지로만 표시합니다.",
                 13, FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(1320f, 34f),
                 new Vector2(0f, 278f), SecondaryTextColor);
             for (int index = 0; index < view.Abilities.Length; index++)

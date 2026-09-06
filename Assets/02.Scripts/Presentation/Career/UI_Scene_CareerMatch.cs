@@ -399,7 +399,7 @@ namespace Baseball.Presentation.Career
             ClearPersistentControls();
             SyncCareerGameSettings();
             CreateText(
-                "Eyebrow", _content, "GAME DAY", 15, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Eyebrow", _content, "경기일", 15, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(400f, 28f), new Vector2(0f, 465f), AccentColor);
             CreateText(
                 "Title", _content, "경기 준비", 42, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -837,7 +837,7 @@ namespace Baseball.Presentation.Career
             }
 
             CreateText(
-                "Vs", card, "VS", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Vs", card, "대", 14, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(80f, 24f), new Vector2(0f, 12f), MutedTextColor);
             CreateText(
                 "Pitcher", card, FindPlayerName(session.Input, snapshot.PitcherId), 23, FontStyle.Bold,
@@ -1159,11 +1159,11 @@ namespace Baseball.Presentation.Career
             bool isHome = session.ScheduledGame.HomeTeamId == narrative.TeamId;
             int playerRuns = isHome ? result.HomeBoxScore.Runs : result.AwayBoxScore.Runs;
             int opponentRuns = isHome ? result.AwayBoxScore.Runs : result.HomeBoxScore.Runs;
-            string outcome = playerRuns > opponentRuns ? "WIN" : playerRuns < opponentRuns ? "LOSS" : "DRAW";
+            string outcome = playerRuns > opponentRuns ? "승리" : playerRuns < opponentRuns ? "패배" : "무승부";
             Color outcomeColor = playerRuns > opponentRuns ? RoleColor : playerRuns < opponentRuns ? DangerColor : GoldColor;
 
             CreateText(
-                "Eyebrow", _content, "FINAL", 15, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Eyebrow", _content, "최종 결과", 15, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(300f, 28f), new Vector2(0f, 456f), AccentColor);
             CreateText(
                 "Title", _content, "경기 종료", 44, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -1410,7 +1410,7 @@ namespace Baseball.Presentation.Career
                 "AwayTeam", parent, away, 25, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(360f, 44f), new Vector2(-305f, y - 78f), PrimaryTextColor);
             CreateText(
-                "Vs", parent, "VS", 48, FontStyle.BoldAndItalic, TextAnchor.MiddleCenter,
+                "Vs", parent, "대", 48, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(120f, 70f), new Vector2(0f, y - 12f), PrimaryTextColor);
             CreateTeamBadge(parent, home, homeEmblemId, new Vector2(305f, y));
             CreateText(
@@ -1917,7 +1917,7 @@ namespace Baseball.Presentation.Career
                 "Emblem", badge, Color.clear, new Vector2(108f, 108f), Vector2.zero);
             if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId))
             {
-                string initial = string.IsNullOrEmpty(teamName) ? "T" : teamName.Substring(0, 1);
+            string initial = string.IsNullOrEmpty(teamName) ? "구" : teamName.Substring(0, 1);
                 CreateText(
                     "Initial", badge, initial, 48, FontStyle.Bold, TextAnchor.MiddleCenter,
                     Vector2.zero, Vector2.zero, PrimaryTextColor, true);

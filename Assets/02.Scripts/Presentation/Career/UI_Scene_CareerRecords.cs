@@ -161,7 +161,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(310f, 50f), new Vector2(-800f, 5f), PrimaryTextColor);
             AddTextOutline(logo, new Color(0.05f, 0.34f, 0.62f, 0.9f), 1.5f);
             CreateText(
-                "LogoCaption", bar, "ULTIMATE BASEBALL", 9, FontStyle.Bold, TextAnchor.MiddleLeft,
+                "LogoCaption", bar, "최고의 야구 커리어", 9, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(230f, 18f), new Vector2(-796f, -23f), AccentColor);
 
             CreateTopBarSegment(
@@ -562,7 +562,7 @@ namespace Baseball.Presentation.Career
         {
             RectTransform panel = CreateContentPanel(
                 "AwardSummary", "수상 요약", new Vector2(520f, 300f), new Vector2(665f, 180f));
-            CreateText("Trophy", panel, "TROPHY", 18, FontStyle.Bold, TextAnchor.MiddleCenter,
+            CreateText("Trophy", panel, "트로피", 18, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(150f, 32f), new Vector2(0f, 72f), GoldColor);
             CreateText("Count", panel, view.Awards.Length.ToString(), 52, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(180f, 70f), new Vector2(0f, 18f), PrimaryTextColor);

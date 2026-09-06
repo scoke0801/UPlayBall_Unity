@@ -126,7 +126,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(310f, 50f), new Vector2(-800f, 5f), PrimaryTextColor);
             AddTextOutline(logo, new Color(0.05f, 0.34f, 0.62f, 0.9f), 1.5f);
             CreateText(
-                "LogoCaption", bar, "ULTIMATE BASEBALL", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
+                "LogoCaption", bar, "최고의 야구 커리어", 10, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(230f, 18f), new Vector2(-796f, -23f), AccentColor);
 
             CreateTopBarSegment(
@@ -136,7 +136,7 @@ namespace Baseball.Presentation.Career
                 bar, "날짜", $"{view.CurrentDate:M월 d일} ({GetDayLabel(view.CurrentDate.DayOfWeek)})",
                 new Vector2(45f, 0f), new Vector2(330f, 64f));
             CreateTopBarSegment(
-                bar, "SEASON PROGRESS",
+                bar, "시즌 진행",
                 $"{view.GamesPlayedPerTeam}/{view.RegularSeasonGamesPerTeam} 경기",
                 new Vector2(395f, 0f), new Vector2(320f, 64f));
             CreateTeamBadge(
@@ -161,7 +161,7 @@ namespace Baseball.Presentation.Career
                 "PostseasonLegend", panel, PanelDarkColor, new Vector2(596f, 28f), new Vector2(0f, -166f));
             CreateImage("PostseasonColor", legend, AccentColor, new Vector2(24f, 6f), new Vector2(-263f, 0f));
             CreateText(
-                "Legend", legend, "1~2위 승격 · 3~4위 PS · 7~8위 강등",
+                "Legend", legend, "1~2위 승격 · 3~4위 포스트시즌 · 7~8위 강등",
                 12, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(230f, 26f), new Vector2(-125f, 0f), SecondaryTextColor);
             CreateText(
@@ -243,14 +243,14 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreatePanel(
                 "BattingLeaders", "타자 순위", new Vector2(600f, 480f),
                 new Vector2(0f, 188f));
-            string[] labels = { "타율", "홈런", "타점", "도루", "출루+장타" };
+            string[] labels = { "타율", "홈런", "타점", "도루", "출루율+장타율" };
             RenderCategoryTabs(panel, labels, (int)_battingCategory, 560f, index =>
             {
                 _battingCategory = (LeagueBattingCategory)index;
                 Render();
             });
             CreateTableHeader(panel,
-                new[] { "순위", "선수", "팀", "경기", "타율", "홈런", "타점", "도루", "출루+장타" },
+                new[] { "순위", "선수", "팀", "경기", "타율", "홈런", "타점", "도루", "출루율+장타율" },
                 new[] { -268f, -198f, -82f, 16f, 65f, 109f, 147f, 185f, 247f },
                 new[] { 45f, 120f, 88f, 38f, 50f, 34f, 36f, 36f, 58f },
                 119f);
@@ -321,14 +321,14 @@ namespace Baseball.Presentation.Career
             RectTransform panel = CreatePanel(
                 "PitchingLeaders", "투수 순위", new Vector2(650f, 480f),
                 new Vector2(635f, 188f));
-            string[] labels = { "평균자책", "승", "세이브", "탈삼진", "이닝당출루" };
+            string[] labels = { "평균자책점", "승", "세이브", "탈삼진", "이닝당 출루허용률" };
             RenderCategoryTabs(panel, labels, (int)_pitchingCategory, 610f, index =>
             {
                 _pitchingCategory = (LeaguePitchingCategory)index;
                 Render();
             });
             CreateTableHeader(panel,
-                new[] { "순위", "선수", "팀", "승-패", "세이브", "이닝", "평균자책", "탈삼진", "이닝당출루" },
+                new[] { "순위", "선수", "팀", "승-패", "세이브", "이닝", "평균자책점", "탈삼진", "이닝당 출루허용률" },
                 new[] { -292f, -216f, -91f, -5f, 40f, 87f, 139f, 188f, 259f },
                 new[] { 45f, 126f, 86f, 46f, 42f, 48f, 48f, 38f, 54f },
                 119f);
@@ -453,7 +453,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(610f, 340f), new Vector2(0f, -242f));
 
             LeagueStandingView leader = view.Standings.Count > 0 ? view.Standings[0] : default;
-            RenderFocusCard(panel, "STANDINGS", "선두 경쟁",
+            RenderFocusCard(panel, "순위", "선두 경쟁",
                 view.Standings.Count == 0 ? "기록 없음" : leader.TeamName,
                 view.Standings.Count == 0 ? "시즌 시작 전" :
                     $"{leader.Wins}승 {leader.Losses}패  {FormatRate(leader.WinningPercentage)}",
@@ -465,7 +465,7 @@ namespace Baseball.Presentation.Career
                 ? "규정 타석 충족 대기"
                 : $"{GetBattingCategoryLabel(_battingCategory)}  " +
                   FormatBattingCategoryValue(batting.Leaders[0], _battingCategory);
-            RenderFocusCard(panel, "BATTER", "타자 타이틀 선두", battingName, battingDetail,
+            RenderFocusCard(panel, "타자", "타자 타이틀 선두", battingName, battingDetail,
                 new Vector2(-140f, -30f), AccentColor, new Vector2(270f, 82f));
 
             LeaguePitchingLeaderboardView pitching = view.GetPitchingLeaderboard(_pitchingCategory);
@@ -474,7 +474,7 @@ namespace Baseball.Presentation.Career
                 ? "규정 이닝 충족 대기"
                 : $"{GetPitchingCategoryLabel(_pitchingCategory)}  " +
                   FormatPitchingCategoryValue(pitching.Leaders[0], _pitchingCategory);
-            RenderFocusCard(panel, "PITCHER", "투수 타이틀 선두", pitchingName, pitchingDetail,
+            RenderFocusCard(panel, "투수", "투수 타이틀 선두", pitchingName, pitchingDetail,
                 new Vector2(140f, -30f), new Color(0.30f, 0.55f, 0.88f, 1f), new Vector2(270f, 82f));
 
             RenderMyPlayerRace(panel, batting, pitching);
@@ -572,7 +572,7 @@ namespace Baseball.Presentation.Career
             CreateText("Away", row, GetShortTeamName(game.AwayTeamName), 12, FontStyle.Bold,
                 TextAnchor.MiddleRight, new Vector2(80f, 32f), new Vector2(-49f, 0f),
                 game.IncludesMyTeam ? GoldColor : PrimaryTextColor);
-            CreateText("Versus", row, showScore ? $"{game.AwayRuns} : {game.HomeRuns}" : "VS", 12,
+            CreateText("Versus", row, showScore ? $"{game.AwayRuns} : {game.HomeRuns}" : "대", 12,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(52f, 32f), new Vector2(29f, 0f),
                 showScore ? BrightAccentColor : SecondaryTextColor);
             CreateText("Home", row, GetShortTeamName(game.HomeTeamName), 12, FontStyle.Bold,
@@ -842,7 +842,7 @@ namespace Baseball.Presentation.Career
             {
                 LeagueTeamMetric.BattingAverage => "팀 타율",
                 LeagueTeamMetric.HomeRuns => "팀 홈런",
-                LeagueTeamMetric.EarnedRunAverage => "팀 평균자책",
+                LeagueTeamMetric.EarnedRunAverage => "팀 평균자책점",
                 LeagueTeamMetric.Strikeouts => "팀 탈삼진",
                 _ => "-"
             };
@@ -866,7 +866,7 @@ namespace Baseball.Presentation.Career
                 LeagueBattingCategory.HomeRuns => "홈런",
                 LeagueBattingCategory.RunsBattedIn => "타점",
                 LeagueBattingCategory.StolenBases => "도루",
-                LeagueBattingCategory.OnBasePlusSlugging => "출루+장타",
+                LeagueBattingCategory.OnBasePlusSlugging => "출루율+장타율",
                 _ => "기록"
             };
         }
@@ -890,11 +890,11 @@ namespace Baseball.Presentation.Career
         {
             return category switch
             {
-                LeaguePitchingCategory.EarnedRunAverage => "평균자책",
+                LeaguePitchingCategory.EarnedRunAverage => "평균자책점",
                 LeaguePitchingCategory.Wins => "승",
                 LeaguePitchingCategory.Saves => "세이브",
                 LeaguePitchingCategory.Strikeouts => "탈삼진",
-                LeaguePitchingCategory.WalksHitsPerInningPitched => "이닝당출루",
+                LeaguePitchingCategory.WalksHitsPerInningPitched => "이닝당 출루허용률",
                 _ => "기록"
             };
         }

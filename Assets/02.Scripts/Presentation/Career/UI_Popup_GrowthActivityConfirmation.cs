@@ -218,7 +218,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(112f, 43f),
                 new Vector2(44f, -43f));
             CreateText(
-                "Label", overall, "OVR", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
+                "Label", overall, "종합", 12, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(46f, 28f), new Vector2(-25f, 0f), SecondaryTextColor);
             CreateText(
                 "Value", overall, dashboard.Overall.ToString(), 27, FontStyle.Bold,

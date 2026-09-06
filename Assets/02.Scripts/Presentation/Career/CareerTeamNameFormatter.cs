@@ -13,7 +13,7 @@ namespace Baseball.Presentation.Career
         public static string GetMonogram(string teamName)
         {
             if (string.IsNullOrWhiteSpace(teamName))
-                return "UP";
+            return "유플";
 
             string[] tokens = teamName.Split(
                 new[] { ' ', '\t', '\r', '\n' },

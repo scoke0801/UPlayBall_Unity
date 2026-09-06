@@ -15,13 +15,13 @@ namespace Baseball.Presentation.Career
         {
             return phase switch
             {
-                SeasonPhase.Preseason => "PRE-SEASON",
-                SeasonPhase.RegularSeason => "REGULAR SEASON",
-                SeasonPhase.Postseason => "POST-SEASON",
-                SeasonPhase.SeasonReview => "SEASON REVIEW",
-                SeasonPhase.Offseason => "OFF-SEASON",
-                SeasonPhase.Completed => "COMPLETED",
-                _ => phase.ToString().ToUpperInvariant()
+                SeasonPhase.Preseason => "시즌 준비",
+                SeasonPhase.RegularSeason => "정규시즌",
+                SeasonPhase.Postseason => "포스트시즌",
+                SeasonPhase.SeasonReview => "시즌 결산",
+                SeasonPhase.Offseason => "오프시즌",
+                SeasonPhase.Completed => "시즌 완료",
+                _ => "시즌 정보 없음"
             };
         }
 
@@ -125,7 +125,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Breaking => "변화구",
                 PlayerAbility.Control => "제구력",
                 PlayerAbility.PitcherMental => "위기관리",
-                _ => ability.ToString()
+                _ => "능력치 미정"
             };
         }
 
@@ -168,7 +168,7 @@ namespace Baseball.Presentation.Career
                 {
                     AppendSeparator(builder);
                     builder.Append(GetAbilityLabel(record.PeakChanges[index].Ability));
-                    builder.Append(" Peak ");
+                    builder.Append(" 최고치 ");
                     AppendSigned(builder, record.PeakChanges[index].Amount);
                 }
             }
@@ -241,7 +241,7 @@ namespace Baseball.Presentation.Career
             builder.Append(SkillBoardService.MaximumTotalAbilityBonus);
             if (growth.ActiveTraitIds != null && growth.ActiveTraitIds.Length > 0)
             {
-                builder.Append("\nTrait ");
+                builder.Append("\n특성 ");
                 for (int index = 0; index < growth.ActiveTraitIds.Length; index++)
                 {
                     if (index > 0) builder.Append(" · ");
@@ -294,7 +294,7 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.PitcherMental => "투수 정신",
                 SkillBlockCategory.Arm => "송구",
                 SkillBlockCategory.Stuff => "구위",
-                _ => category.ToString()
+                _ => "분류 없음"
             };
         }
 
@@ -375,11 +375,11 @@ namespace Baseball.Presentation.Career
         {
             return rarity switch
             {
-                SkillBlockRarity.Normal => "N",
-                SkillBlockRarity.Rare => "R",
-                SkillBlockRarity.Elite => "E",
-                SkillBlockRarity.Unique => "U",
-                SkillBlockRarity.Legendary => "L",
+                SkillBlockRarity.Normal => "일반",
+                SkillBlockRarity.Rare => "희귀",
+                SkillBlockRarity.Elite => "특급",
+                SkillBlockRarity.Unique => "유일",
+                SkillBlockRarity.Legendary => "전설",
                 _ => "?"
             };
         }
@@ -398,21 +398,21 @@ namespace Baseball.Presentation.Career
 
         private static string FormatGachaProbability(GrowthGachaOfferView offer)
         {
-            return $"N {offer.NormalProbability:P0} · R {offer.RareProbability:P0} · " +
-                   $"E {offer.EliteProbability:P0} · U {offer.UniqueProbability:P0} · " +
-                   $"L {offer.LegendaryProbability:P0}";
+            return $"일반 {offer.NormalProbability:P0} · 희귀 {offer.RareProbability:P0} · " +
+                   $"특급 {offer.EliteProbability:P0} · 유일 {offer.UniqueProbability:P0} · " +
+                   $"전설 {offer.LegendaryProbability:P0}";
         }
 
         private static string GetRarityLabel(SkillBlockRarity rarity)
         {
             return rarity switch
             {
-                SkillBlockRarity.Normal => "Normal",
-                SkillBlockRarity.Rare => "Rare",
-                SkillBlockRarity.Elite => "Elite",
-                SkillBlockRarity.Unique => "Unique",
-                SkillBlockRarity.Legendary => "Legendary",
-                _ => rarity.ToString()
+                SkillBlockRarity.Normal => "일반",
+                SkillBlockRarity.Rare => "희귀",
+                SkillBlockRarity.Elite => "특급",
+                SkillBlockRarity.Unique => "유일",
+                SkillBlockRarity.Legendary => "전설",
+                _ => "등급 정보 없음"
             };
         }
 
@@ -496,8 +496,8 @@ namespace Baseball.Presentation.Career
                 : $"추가 컨디션 저하 {program.ConditionSetbackRisk:P1}";
             string breakthrough = program.CanRaisePotential
                 ? program.MinimumPotentialBreakthroughsWhenCapped > 0
-                    ? $" · Potential {program.PotentialBreakthroughProbability:P0} · 정체 시 돌파 보장"
-                    : $" · Potential {program.PotentialBreakthroughProbability:P0}"
+                    ? $" · 성장 가능성 {program.PotentialBreakthroughProbability:P0} · 정체 시 돌파 보장"
+                    : $" · 성장 가능성 {program.PotentialBreakthroughProbability:P0}"
                 : string.Empty;
             string repetition = program.RepetitionMultiplier < 0.999d
                 ? $" · 반복 페널티 ×{program.RepetitionMultiplier:0.00}"
@@ -568,14 +568,14 @@ namespace Baseball.Presentation.Career
                 DecisionReasonCode.IncumbentBonus => "기존 주전 보정",
                 DecisionReasonCode.CompetitorScore => "경쟁자 전력",
                 DecisionReasonCode.AgeCurve => "나이 곡선",
-                DecisionReasonCode.PotentialGap => "Potential 여유",
-                DecisionReasonCode.WorkEthic => "Work Ethic",
+                DecisionReasonCode.PotentialGap => "성장 가능성 여유",
+                DecisionReasonCode.WorkEthic => "성실도",
                 DecisionReasonCode.TrainingFit => "훈련 적합도",
                 DecisionReasonCode.RepetitionPenalty => "반복 페널티",
                 DecisionReasonCode.UsageExposure => "출장 경험",
                 DecisionReasonCode.CatchUpSupport => "따라잡기 보정",
                 DecisionReasonCode.RecoveryProtection => "휴식·재활 보호",
-                _ => reason.ToString()
+                _ => "판단 근거 없음"
             };
         }
 
@@ -589,7 +589,7 @@ namespace Baseball.Presentation.Career
                 RecommendedActionCode.EarnPlayingTime => "출장 기회 확보",
                 RecommendedActionCode.ReduceTrainingRepetition => "훈련 종류 변경",
                 RecommendedActionCode.ChooseRecovery => "휴식·재활 선택",
-                _ => action.ToString()
+                _ => "권장 행동 없음"
             };
         }
 
@@ -637,7 +637,7 @@ namespace Baseball.Presentation.Career
                 TrainingFitGrade.Normal => "보통",
                 TrainingFitGrade.High => "높음",
                 TrainingFitGrade.VeryHigh => "매우 높음",
-                _ => fit.ToString()
+                _ => "적합도 정보 없음"
             };
         }
 

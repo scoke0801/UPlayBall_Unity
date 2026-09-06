@@ -27,7 +27,7 @@ namespace Baseball.Tests.EditMode.Presentation
         {
             RecordTableModel table = ScheduleRecordTableBuilder.CreateFocusedMonth(CreateSnapshot(), 2028, 4);
 
-            Assert.That(table.Rows[1].FindCell("Result").DisplayValue, Is.EqualTo("L  9:1"));
+            Assert.That(table.Rows[1].FindCell("Result").DisplayValue, Is.EqualTo("패  9:1"));
         }
 
         [Test]
@@ -37,23 +37,23 @@ namespace Baseball.Tests.EditMode.Presentation
             var home = new ScheduleTeamSnapshot("home", "홈");
             var snapshot = new ScheduleScreenSnapshot(
                 "2028 시즌",
-                "Rookie",
+                "루키 리그",
                 "3주차",
                 "home",
                 new[]
                 {
                     new ScheduleGameSnapshot(
-                        "late", 3, "3R", away, home,
+                        "late", 3, "3라운드", away, home,
                         true, 7, 2, ScheduleFocusSide.Home),
                     new ScheduleGameSnapshot(
-                        "early", 1, "1R", home, away,
+                        "early", 1, "1라운드", home, away,
                         false, 0, 0, ScheduleFocusSide.Away)
                 });
 
             RecordTableModel table = ScheduleRecordTableBuilder.CreateFocusedSchedule(snapshot);
 
             Assert.That(table.Rows[0].RowId, Is.EqualTo("game-early"));
-            Assert.That(table.Rows[1].FindCell("Date").DisplayValue, Is.EqualTo("3R"));
+            Assert.That(table.Rows[1].FindCell("Date").DisplayValue, Is.EqualTo("3라운드"));
             Assert.That(table.Rows[1].FindCell("Result").DisplayValue, Is.EqualTo("2:7"));
         }
 
@@ -64,13 +64,13 @@ namespace Baseball.Tests.EditMode.Presentation
             var home = new ScheduleTeamSnapshot("home", "홈");
             var snapshot = new ScheduleScreenSnapshot(
                 "2028 시즌",
-                "Rookie",
+                "루키 리그",
                 "1주차",
                 "home",
                 new[]
                 {
                     new ScheduleGameSnapshot(
-                        "round", 1, "1R", away, home,
+                        "round", 1, "1라운드", away, home,
                         false, 0, 0, ScheduleFocusSide.Home)
                 });
 

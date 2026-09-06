@@ -414,7 +414,7 @@ namespace Baseball.Presentation.Career
                 "PlayerCard", panel, new Vector2(400f, 144f), new Vector2(0f, 144f),
                 CareerUiTheme.SurfaceSubtle);
             CreateText(
-                "OverallLabel", card, "OVR", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "OverallLabel", card, "종합", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(60f, 20f), new Vector2(-160f, 32f), SecondaryTextColor);
             Text overall = CreateText(
                 "Overall", card, view.Overall.ToString(), 39, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -556,11 +556,11 @@ namespace Baseball.Presentation.Career
                 "HomeTeam", panel, game.HomeTeamName, 21, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(248f, 32f), new Vector2(220f, 72f), PrimaryTextColor);
             Text versus = CreateText(
-                "Versus", panel, "VS", 42, FontStyle.BoldAndItalic, TextAnchor.MiddleCenter,
+                "Versus", panel, "대", 42, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(100f, 60f), new Vector2(0f, 140f), PrimaryTextColor);
             AddTextOutline(versus, AccentColor, 1.6f);
             CreateText(
-                "VenueType", panel, game.IsHome ? "HOME" : "AWAY", 13, FontStyle.Bold,
+                "VenueType", panel, game.IsHome ? "홈" : "원정", 13, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(100f, 24f), new Vector2(0f, 100f), AccentColor);
 
             CreateMetadataRow(
@@ -639,7 +639,7 @@ namespace Baseball.Presentation.Career
             bool canPlay = view.SeasonProgress.CanPlayNextPostseasonGame;
             RenderSeasonTransitionHeading(
                 panel,
-                "POST-SEASON",
+                "포스트시즌",
                 canPlay ? "포스트시즌 진출" : qualified ? "포스트시즌 탈락" : "포스트시즌 관전",
                 canPlay
                     ? $"{view.TeamName}의 우승 도전이 진행 중입니다.\n내 구단 경기는 직접 진행하며 포스트시즌 기록으로 별도 집계됩니다."
@@ -691,7 +691,7 @@ namespace Baseball.Presentation.Career
                 : string.Empty;
             RenderSeasonTransitionHeading(
                 panel,
-                "SEASON REVIEW",
+                "시즌 결산",
                 "시즌 결산",
                 $"{champion}\n{autoSummary}{result} · 개인 수상 {view.SeasonProgress.PlayerAwardCount}개",
                 GoldColor);
@@ -717,7 +717,7 @@ namespace Baseball.Presentation.Career
                 : $"{income}\n남은 {progress.OffseasonRemainingWeeks}주 동안 성장 방향을 결정하세요.";
             RenderSeasonTransitionHeading(
                 panel,
-                "OFF-SEASON",
+                "오프시즌",
                 progress.RequiresContractDecision ? "계약 결정 필요" : "오프시즌 시작",
                 description,
                 progress.RequiresContractDecision ? WarningColor : RoleColor);
@@ -737,7 +737,7 @@ namespace Baseball.Presentation.Career
         {
             RenderSeasonTransitionHeading(
                 panel,
-                "SEASON COMPLETE",
+                "시즌 완료",
                 "시즌 일정 완료",
                 "현재 시즌 상태를 확인하고 다시 시도하세요.",
                 SecondaryTextColor);
@@ -813,7 +813,7 @@ namespace Baseball.Presentation.Career
             blocker.GetComponent<Image>().raycastTarget = true;
             MarkVisual(blocker, CareerUiVisualRole.InputBlocker);
             RectTransform modal = CreatePanel(
-                "SeasonAutoCompletionModal", "FAST FORWARD", title,
+                "SeasonAutoCompletionModal", "빠른 진행", title,
                 new Vector2(790f, 440f), Vector2.zero);
             CreateText(
                 "Warning", modal, warning,
@@ -973,7 +973,7 @@ namespace Baseball.Presentation.Career
             string[] detailValues;
             if (statistics.IsPitcher)
             {
-                primaryLabels = new[] { "평균자책", "이닝당출루", "승-패", "탈삼진" };
+                primaryLabels = new[] { "평균자책점", "이닝당 출루허용률", "승-패", "탈삼진" };
                 primaryValues = new[]
                 {
                     statistics.EarnedRunAverage.ToString("0.00"),
@@ -992,7 +992,7 @@ namespace Baseball.Presentation.Career
             }
             else
             {
-                primaryLabels = new[] { "타율", "출루+장타", "홈런", "타점" };
+                primaryLabels = new[] { "타율", "출루율+장타율", "홈런", "타점" };
                 primaryValues = new[]
                 {
                     statistics.BattingAverage.ToString(".000"),
@@ -1126,7 +1126,7 @@ namespace Baseball.Presentation.Career
                     competitor.IsMyPlayer ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleLeft,
                     new Vector2(220f, 28f), new Vector2(-20f, 0f), PrimaryTextColor);
                 CreateText(
-                    "Overall", row, $"OVR  {competitor.Overall}", 14, FontStyle.Bold,
+                "Overall", row, $"종합  {competitor.Overall}", 14, FontStyle.Bold,
                     TextAnchor.MiddleRight, new Vector2(96f, 28f), new Vector2(136f, 0f), color);
             }
         }
@@ -1173,7 +1173,7 @@ namespace Baseball.Presentation.Career
                 NewsArticleView article = feed.Articles[index];
                 RenderFeedRow(
                     panel,
-                    index == 0 ? "TOP" : GetNewsCategoryTag(article.Category),
+                index == 0 ? "주요" : GetNewsCategoryTag(article.Category),
                     article.Headline,
                     index == 0 && view.LastGame.HasValue
                         ? $"최근 경기 · {article.PublishedAt:M.d}"
@@ -1187,14 +1187,14 @@ namespace Baseball.Presentation.Career
         {
             return category switch
             {
-                NewsCategory.MyPlayer => "PLAYER",
-                NewsCategory.Club => "CLUB",
-                NewsCategory.League => "LEAGUE",
-                NewsCategory.TransferContract => "DEAL",
-                NewsCategory.Postseason => "POST",
-                NewsCategory.RecordsAwards => "RECORD",
-                NewsCategory.Offseason => "OFF",
-                _ => "GAME"
+                NewsCategory.MyPlayer => "선수",
+                NewsCategory.Club => "구단",
+                NewsCategory.League => "리그",
+                NewsCategory.TransferContract => "계약",
+                NewsCategory.Postseason => "포스트",
+                NewsCategory.RecordsAwards => "기록",
+                NewsCategory.Offseason => "휴식",
+                _ => "경기"
             };
         }
 
@@ -1285,7 +1285,7 @@ namespace Baseball.Presentation.Career
                 "Opponent", row, game.OpponentName, 15, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(210f, 28f), new Vector2(16f, 0f), PrimaryTextColor);
             CreateText(
-                "Venue", row, game.IsHome ? "HOME" : "AWAY", 12, FontStyle.Bold,
+                "Venue", row, game.IsHome ? "홈" : "원정", 12, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(70f, 28f), new Vector2(192f, 0f),
                 game.IsHome ? AccentColor : WarningColor);
         }

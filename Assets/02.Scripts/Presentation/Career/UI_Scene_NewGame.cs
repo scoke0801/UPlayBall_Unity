@@ -11,7 +11,7 @@ using UnityEngine.UI;
 namespace Baseball.Presentation.Career
 {
     /// <summary>
-    /// 선수 생성부터 구단 계약과 Rookie League 시작까지를 한 화면 마법사로 표시한다.
+    /// 선수 생성부터 구단 계약과 루키 리그 시작까지를 한 화면 마법사로 표시한다.
     /// </summary>
     internal sealed class UI_Scene_NewGame_Legacy : UISceneBase
     {
@@ -154,7 +154,7 @@ namespace Baseball.Presentation.Career
                 string.IsNullOrWhiteSpace(_manager.Nationality) ? "대한민국" : _manager.Nationality,
                 new Vector2(520f, 60f), new Vector2(0f, 5f));
             CreateText(
-                "Seed", _body, $"WORLD SEED  {_manager.RandomSeed}", 15, FontStyle.Normal,
+                "Seed", _body, $"월드 생성 번호  {_manager.RandomSeed}", 15, FontStyle.Normal,
                 TextAnchor.MiddleCenter, new Vector2(600f, 34f), new Vector2(0f, -80f), SecondaryTextColor);
             SetNext("선수 유형 선택", () => _manager.SubmitIdentity(_nameInput.text, _nationalityInput.text));
         }
@@ -163,9 +163,9 @@ namespace Baseball.Presentation.Career
         {
             _hasAttributeDraft = false;
             SetTitle("투수 / 타자 선택", "경기에서 성장시킬 역할을 먼저 정합니다.");
-            CreateChoice("Batter", "BATTER\n타자 커리어", new Vector2(-285f, 20f),
+            CreateChoice("Batter", "타자\n타자 커리어", new Vector2(-285f, 20f),
                 () => _manager.SelectPlayerType(PlayerType.Batter));
-            CreateChoice("Pitcher", "PITCHER\n투수 커리어", new Vector2(285f, 20f),
+            CreateChoice("Pitcher", "투수\n투수 커리어", new Vector2(285f, 20f),
                 () => _manager.SelectPlayerType(PlayerType.Pitcher));
             HideNext();
         }
@@ -228,8 +228,8 @@ namespace Baseball.Presentation.Career
             EnsureAttributeDraft();
             CareerAttributeAllocationRule rule = _manager.CurrentCreationAttributeRule;
             string[] names = _manager.PlayerType == PlayerType.Pitcher
-                ? new[] { "Stuff", "Control", "Breaking", "Stamina" }
-                : new[] { "Contact", "Power", "Eye", "Speed", "Defense", "Arm" };
+                ? new[] { "구위", "제구", "변화구", "체력" }
+                : new[] { "컨택", "장타", "선구안", "주루", "수비", "송구" };
             int remaining = rule.BonusPoints - GetSpentPoints(rule);
             CreateText(
                 "Remaining", _body,
@@ -301,7 +301,7 @@ namespace Baseball.Presentation.Career
 
         private void RenderPlayerCard()
         {
-            SetTitle("무소속 선수 카드", "이 능력치와 포지션으로 Rookie League 구단의 평가를 받습니다.");
+            SetTitle("무소속 선수 카드", "이 능력치와 포지션으로 루키 리그 구단의 평가를 받습니다.");
             RectTransform card = CreateImage(
                 "PlayerCard", _body, CardColor, new Vector2(760f, 430f), new Vector2(0f, 15f));
             CreateText(
@@ -366,7 +366,7 @@ namespace Baseball.Presentation.Career
             RectTransform card = CreateImage(
                 "ContractCard", _body, CardColor, new Vector2(820f, 410f), new Vector2(0f, 15f));
             CreateText(
-                "Signed", card, "SIGNED", 18, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Signed", card, "계약 완료", 18, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(300f, 35f), new Vector2(0f, 165f), AccentColor);
             CreateText(
                 "Team", card, summary.TeamName, 34, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -380,7 +380,7 @@ namespace Baseball.Presentation.Career
                 21, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(700f, 220f), new Vector2(0f, -35f), PrimaryTextColor);
             _backButton.gameObject.SetActive(false);
-            SetNext("Rookie League 시작", () => _manager.StartRookieSeason());
+            SetNext("루키 리그 시작", () => _manager.StartRookieSeason());
         }
 
         private void RenderSeasonStarted()
@@ -535,12 +535,12 @@ namespace Baseball.Presentation.Career
             if (_manager.BatterAttributes.HasValue)
             {
                 BatterAttributes value = _manager.BatterAttributes.Value;
-                return $"Contact {value.Contact}     Power {value.Power}     Speed {value.Speed}\n\n" +
-                       $"Arm {value.Arm}     Fielding {value.Defense}     Mental {value.Mental}";
+                return $"컨택 {value.Contact}     장타 {value.Power}     주루 {value.Speed}\n\n" +
+                       $"송구 {value.Arm}     수비 {value.Defense}     정신력 {value.Mental}";
             }
             PitcherAttributes pitcher = _manager.PitcherAttributes.Value;
-            return $"Stamina {pitcher.Stamina}     Velocity {pitcher.Velocity}     Stuff {pitcher.Stuff}\n\n" +
-                   $"Breaking {pitcher.Breaking}     Control {pitcher.Control}     Mental {pitcher.Mental}";
+            return $"체력 {pitcher.Stamina}     구속 {pitcher.Velocity}     구위 {pitcher.Stuff}\n\n" +
+                   $"변화구 {pitcher.Breaking}     제구 {pitcher.Control}     정신력 {pitcher.Mental}";
         }
 
         private static string GetProgressText(NewGameStep step)
@@ -564,17 +564,17 @@ namespace Baseball.Presentation.Career
         {
             return position switch
             {
-                PlayerPosition.Catcher => "C  포수",
-                PlayerPosition.FirstBase => "1B  1루수",
-                PlayerPosition.SecondBase => "2B  2루수",
-                PlayerPosition.ThirdBase => "3B  3루수",
-                PlayerPosition.Shortstop => "SS  유격수",
-                PlayerPosition.LeftField => "LF  좌익수",
-                PlayerPosition.CenterField => "CF  중견수",
-                PlayerPosition.RightField => "RF  우익수",
-                PlayerPosition.DesignatedHitter => "DH  지명타자",
-                PlayerPosition.StartingPitcher => "SP  선발투수",
-                PlayerPosition.ReliefPitcher => "RP  구원투수",
+                PlayerPosition.Catcher => "포수",
+                PlayerPosition.FirstBase => "1루수",
+                PlayerPosition.SecondBase => "2루수",
+                PlayerPosition.ThirdBase => "3루수",
+                PlayerPosition.Shortstop => "유격수",
+                PlayerPosition.LeftField => "좌익수",
+                PlayerPosition.CenterField => "중견수",
+                PlayerPosition.RightField => "우익수",
+                PlayerPosition.DesignatedHitter => "지명타자",
+                PlayerPosition.StartingPitcher => "선발투수",
+                PlayerPosition.ReliefPitcher => "구원투수",
                 _ => "미정"
             };
         }
@@ -588,7 +588,7 @@ namespace Baseball.Presentation.Career
                 TeamArchetype.OffenseFocused => "타격 육성형",
                 TeamArchetype.PitchingFocused => "투수 육성형",
                 TeamArchetype.SmallMarket => "도전자형",
-                _ => archetype.ToString()
+                _ => "구단 성향 미정"
             };
         }
 

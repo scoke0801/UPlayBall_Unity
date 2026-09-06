@@ -630,7 +630,7 @@ namespace Baseball.Presentation.Career
                         _miniGamePitchReadText.text = flightProgress < 0.55f
                             ? "구종 판독 중"
                             : $"{GetPitchTypeLabel(request.Pitch.PitchType)} · " +
-                              $"{request.Pitch.VelocityMph:0} mph 추정";
+                $"{request.Pitch.VelocityMph * 1.609344d:0} km/h 추정";
                     }
                     if (_miniGameTrackingStatusText != null)
                         _miniGameTrackingStatusText.text = "투구 추적 중";
@@ -722,7 +722,7 @@ namespace Baseball.Presentation.Career
 
             PitchPlayData data = latest.Value.PitchPlayData;
             string feedback = $"직전 투구 · {GetPitchTypeLabel(data.Pitch.PitchType)} " +
-                              $"{data.Pitch.VelocityMph:0.0} mph\n" +
+                $"{data.Pitch.VelocityMph * 1.609344d:0.0} km/h\n" +
                               GetContactFeedback(data.Contact);
             CreateText("MiniGameFeedback", panel, feedback,
                 15, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -749,7 +749,7 @@ namespace Baseball.Presentation.Career
             if (contact.PitchResult == Baseball.Simulation.PlateAppearance.PitchResult.Foul) return "커트 · 파울";
             if (contact.PitchResult == Baseball.Simulation.PlateAppearance.PitchResult.HitByPitch) return "몸에 맞는 공";
             return $"{GetContactGradeLabel(contact.Grade)} · {GetTimingLabel(contact.TimingFeedback)} · " +
-                   $"타구 {contact.ExitVelocityMph:0.0} mph";
+                $"타구 {contact.ExitVelocityMph * 1.609344d:0.0} km/h";
         }
 
         private static string GetContactGradeLabel(ContactGrade grade)
@@ -808,7 +808,7 @@ namespace Baseball.Presentation.Career
                 PitchType.Forkball => "포크볼",
                 PitchType.Screwball => "스크루볼",
                 PitchType.Knuckleball => "너클볼",
-                _ => pitchType.ToString()
+                _ => "구종 미정"
             };
         }
 

@@ -300,17 +300,17 @@ namespace Baseball.Presentation.Career
         {
             return position switch
             {
-                PlayerPosition.Catcher => "C  포수",
-                PlayerPosition.FirstBase => "1B  1루수",
-                PlayerPosition.SecondBase => "2B  2루수",
-                PlayerPosition.ThirdBase => "3B  3루수",
-                PlayerPosition.Shortstop => "SS  유격수",
-                PlayerPosition.LeftField => "LF  좌익수",
-                PlayerPosition.CenterField => "CF  중견수",
-                PlayerPosition.RightField => "RF  우익수",
-                PlayerPosition.DesignatedHitter => "DH  지명타자",
-                PlayerPosition.StartingPitcher => "SP  선발투수",
-                PlayerPosition.ReliefPitcher => "RP  불펜투수",
+                PlayerPosition.Catcher => "포수",
+                PlayerPosition.FirstBase => "1루수",
+                PlayerPosition.SecondBase => "2루수",
+                PlayerPosition.ThirdBase => "3루수",
+                PlayerPosition.Shortstop => "유격수",
+                PlayerPosition.LeftField => "좌익수",
+                PlayerPosition.CenterField => "중견수",
+                PlayerPosition.RightField => "우익수",
+                PlayerPosition.DesignatedHitter => "지명타자",
+                PlayerPosition.StartingPitcher => "선발투수",
+                PlayerPosition.ReliefPitcher => "불펜투수",
                 _ => "미정"
             };
         }
@@ -389,7 +389,7 @@ namespace Baseball.Presentation.Career
                 PitchType.Changeup => "체인지업",
                 PitchType.Splitter => "스플리터",
                 PitchType.Sinker => "싱커",
-                _ => pitch.ToString()
+                _ => "구종 미정"
             };
         }
 
@@ -466,7 +466,7 @@ namespace Baseball.Presentation.Career
                 MatchProgressMode.PlayerFocusAutomatic => "내 선수 중심 자동",
                 MatchProgressMode.InstantResult => "즉시 결과",
                 MatchProgressMode.MiniGame => "직접 참여",
-                _ => mode.ToString()
+                _ => "진행 방식 미정"
             };
         }
 
@@ -504,7 +504,7 @@ namespace Baseball.Presentation.Career
                 TeamArchetype.OffenseFocused => "타격 육성형",
                 TeamArchetype.PitchingFocused => "투수 육성형",
                 TeamArchetype.SmallMarket => "도전자형",
-                _ => archetype.ToString()
+                _ => "구단 성향 미정"
             };
         }
 
