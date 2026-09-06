@@ -10,3 +10,6 @@
 - [World_History_Bake_Guidelines_UPlayBall.md](World_History_Bake_Guidelines_UPlayBall.md) — 새 게임 시작 비용, 44시즌 World History Bake와 Bake Key 규칙
 - [Project_Principles_UPlayBall.md](Project_Principles_UPlayBall.md) — 프로젝트 7대 원칙
 - [Unity_UI_Production_Guidelines_UPlayBall.md](Unity_UI_Production_Guidelines_UPlayBall.md) — Unity UI 제작 지침
+- [Owner_Roster_UI_Guidelines_UPlayBall.md](Owner_Roster_UI_Guidelines_UPlayBall.md) — 구단주 모드 선수단 4개 Route의 Layout, Preview/검증/확정, 투수 부하, Collection 가상화, Condition 근거 표시 정규 계약
+- [Owner_PowerUp_UI_Guidelines_UPlayBall.md](Owner_PowerUp_UI_Guidelines_UPlayBall.md) — 구단주 전력보강 세 Route의 전용 View, Preview, Command, 레이아웃 지침
+- [Owner_Club_UI_Guidelines_UPlayBall.md](Owner_Club_UI_Guidelines_UPlayBall.md) — 구단주 구단 7개 Route의 재정·시설·스태프·선수 계약·1:1 트레이드 UI와 저장·검증 정규 계약

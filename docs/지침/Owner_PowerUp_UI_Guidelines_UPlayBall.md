@@ -1,0 +1,72 @@
+# 구단주 모드 전력보강 UI 구현 지침
+
+## 목적과 적용 범위
+
+이 문서는 구단주 모드의 `Owner.PowerUp.Scout`, `Owner.PowerUp.Training`,
+`Owner.PowerUp.EnhancementSale` Route를 구현하거나 수정할 때 따르는 정규 지침이다.
+세 화면의 목표는 수집 기능을 나열하는 데 있지 않다. 선수 영입과 성장에 드는 자원, 기대 결과,
+실패 또는 차단 이유를 Command 전에 보여 주어 플레이어가 선택 결과를 납득하게 만드는 데 있다.
+
+## 구조 계약
+
+- 세 Route는 `UI_Scene_OwnerPowerUp`의 서로 분리된 View State를 사용한다. Shop 또는 Collection Route로 변환하지 않는다.
+- Simulation은 확률과 성장·정산 결과를 계산하고 Unity API를 참조하지 않는다.
+- Game은 Runtime Query, Preview, Validate, Command와 저장 상태 변경을 소유한다.
+- Presentation은 `OwnerPowerUpSnapshot`을 읽어 표시하며 확률, 성장량, 판매가를 다시 계산하지 않는다.
+- 성공한 Command 뒤에는 Runtime 변경 통지로 Snapshot 전체를 다시 만들고 Bind한다.
+- 선택한 상품, 카드, Program, 판매 수량은 View State로 유지한다. 다시 Bind할 때 대상이 사라진 경우에만 첫 유효 항목으로 이동한다.
+
+## 공통 화면 규격
+
+공용 Shell의 Header, 전역 Navigation, Context 영역은 변경하지 않는다. Route 본문은 바깥 여백 16px,
+열 사이 12px, 하단 피드백 32px를 기준으로 한다. 목록 행은 60px, 주요 CTA는 42px를 기준으로 하며,
+선수 카드는 `PlayerMiniCardView`의 151:212 비율을 유지한다. 버튼, 목록, 표, 수치와 Popup은 Native uGUI로 만든다.
+
+| Route | 좌측 | 중앙 | 우측 |
+|---|---:|---:|---:|
+| Scout | 상품 36% | - | 조건·Pity·확률 64% |
+| Training | 카드 34% | 선수 카드 27% | Program·Preview 39% |
+| EnhancementSale | 카드·중복 34% | 선수 카드 27% | 강화·판매 Preview 39% |
+
+긴 한글 문구는 열 폭 안에서 줄바꿈한다. 실행 가능 여부를 색만으로 전달하지 않고 차단 사유를 본문에 표시한다.
+초기 구성 중에는 Loading, 데이터가 없으면 Empty, 권한 또는 자원이 부족하면 Locked/Insufficient,
+입력과 Runtime이 어긋나면 Invalid/Error를 같은 Content 영역에서 설명한다.
+
+## 스카우트
+
+진입 시 선수 카드 상품을 우선 표시한다. 상품을 선택하면 실제 지갑 잔액, 대상 범위, 가격, 획득 수,
+현재 Pity Gauge와 증가량, 보장 Cost, 실제 후보 수와 재정규화 확률을 함께 보여 준다.
+구매 버튼은 `ShopPurchaseQuote`가 허용할 때만 활성화한다. 확인 Popup 이후에만 구매 Command를 실행하며,
+결과는 이미 확정된 `ShopGrantedItem`을 Reveal한다. Reveal은 신규와 중복을 구분하고 보유선수 이동과 재구매 흐름을 제공한다.
+
+Pity는 일반 Scout 때 누적되고, Threshold에 도달하면 Simulation의 집중 Scout 조건으로 소비할 수 있다.
+일반 상품 확률을 표시할 때 Pity 보장 확률을 임의로 섞지 않는다.
+
+## 카드훈련
+
+좌측에는 보유 카드를, 중앙에는 선택 카드를, 우측에는 포지션에 맞는 Program만 표시한다.
+각 Program은 현재 수치, 예상 증가, TrainingCeiling, DP 비용과 차단 이유를 보여 준다.
+유학 중인 카드, 상한에 도달한 능력치, DP가 부족한 Program은 실행할 수 없다.
+확인 Popup 이후 `TrainOwnedCard`를 한 번 호출한다. 전용 화면에서 같은 버튼을 다시 눌러 확정하게 만들지 않는다.
+
+## 강화·판매
+
+강화 Preview는 현재 단계, 다음 단계, 중복 보유량, 최대 단계 여부를 표시한다. 강화는 중복 1장을 쓰고
+실패 없이 최대 +5까지 진행한다. 판매 Preview는 판매 수량, 보유 중복 수량, 장당 SP와 총 SP를 표시한다.
+수량은 1부터 보유 중복 수량 사이에서만 변경한다. 강화와 판매는 각각 별도 확인 Popup과 Command를 사용한다.
+
+## 장식 자산
+
+현재 화면은 정보 판독과 입력 흐름을 Native uGUI만으로 충족하므로 필수 래스터 자산이 없다.
+Pack, Reveal 배경, 빛 효과를 추가할 때만 ImageGen을 사용하고 텍스트·수치·버튼을 이미지에 굽지 않는다.
+장식 자산은 정보 영역의 크기나 CTA 위치를 바꾸는 근거가 될 수 없다.
+
+## 완료 조건
+
+- Route가 전용 View State를 열고 Back 뒤 선택 상태를 복원한다.
+- 실제 Snapshot과 Preview를 표시하고, 확인 뒤 Command를 정확히 한 번 실행한다.
+- 성공 뒤 재화, 카드, 중복, 능력치가 새 Snapshot에 반영된다.
+- 확률과 Preview 계산이 Presentation에 중복 구현되지 않는다.
+- Empty와 모든 차단 상태에서 실행 버튼이 비활성화되고 이유가 보인다.
+- Core와 Simulation 빌드, 관련 EditMode 테스트가 통과한다.
+
