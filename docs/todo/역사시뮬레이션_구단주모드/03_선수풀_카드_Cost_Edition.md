@@ -208,12 +208,28 @@ Simulation, Award Resolver를 다시 호출하지 않는다.
 
 ## 11. 프야매 Reference 연구 상태
 
-3절의 Cost 구현은 v8이다. `BaseballManager_PROJECT.md` 42.8에 따라 Source 성과 quality,
-출전량, 수비 기회, 역할 내 상대가치를 별도 구성 요소로 계산한 뒤 ordinal 구간과 elite 자격으로
-1~10을 확정한다. PMReference628개 관측 중 후기 Normal·Source 연결 확인 후보는1개이므로 원작
+현행 구현은 `historical-season-value-v9`/`historical-derivation-balance-v12`이며 3절의
+역할별 Composite 고정 경계를 사용한다. 백분위 기반 Cost라는 작업 요청의 전제와 현행 코드가
+다르므로 이번 구종 확장에서 경계를 임의 변경하지 않는다. percentile 정책 여부는 미해결 Gate다.
+PMReference628개 관측 중 후기 Normal·Source 연결 확인 후보는1개이므로 원작
 최종판 Calibration 완료로 해석하지 않는다. subtype 미확인 초기 시뮬레이터 화면도 Normal 최종판과
 혼합하지 않는다.
 
 ReferenceCost는 `Tools/PMReference` 연구/검증 전용이며 Runtime Definition 필드가 아니다. 2012 SK를
 맞추기 위한 개별 보정·World 결과 환류·Edition별 가격 변경은 금지한다. 자료·수집 실패·전사 충돌·
 변경 전/후 전체 분포와 남은 불확실성은 `Tools/PMReference/reports/PM_REFERENCE_RESEARCH.md`에 기록한다.
+
+## 12. Pitch Arsenal 공통 정의
+
+`PlayerSeasonDefinition.PitchRepertoire`는 읽기 전용 `PitchRepertoireEntry` 목록이다.
+각 항목은 `PitchType`, `BaseMastery`(기존 `Proficiency`와 같은 값), `IsPrimary`,
+`DevelopmentAffinity`, `UsagePreference`, `VelocityOffset`(km/h)을 가진다. 데이터 출처와 버전도
+시즌 정의에 저장한다. 같은 시즌의 Normal/AllStar/GoldenGlove/Mvp는 같은 구종 목록을 공유한다.
+
+Cost는 종합 능력 평가, 구종은 전술적 개성, 성장 적성은 영구 성장의 구종별 효율이다. 희귀 구종이
+자동으로 좋은 구종이 되거나 SS 구종 때문에 Cost가 올라가지는 않는다. 등급 D/C/B/A/S/SS의
+하한은 현재 0/35/50/65/80/95이며 JSON 정본에서 관리한다.
+
+카드 기본 등급은 BaseMastery에 영구 성장분만 적용한다. Condition, TeamColor, 경기 Tactic은
+카드 기본 등급을 바꾸지 않고 현재 실전 품질에만 기여한다. 카드 뒷면은 동일 Record Provider와
+World Identity를 소비하며 Raw KBO 이름/구단명을 표시하지 않는다.

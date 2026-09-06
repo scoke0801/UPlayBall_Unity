@@ -67,6 +67,30 @@ Test Runner와 Player Build는 사용자 지시에 따라 생략했으며 실제
 [PMReference 연구 보고서](Tools/PMReference/reports/PM_REFERENCE_RESEARCH.md)에 카드628개 관측과
 출시·재평가·후속 수정의 근거를 보존한다. 후기 Normal·Source 연결 확인 표본은 여전히 부족하므로
 PM 최종판을 정확히 복원했다는 Calibration Gate는 미통과다. 사용자의 명시적 진행 결정에 따라
-Source 성과·출전량·수비·역할 내 상대가치와 별도 elite 자격을 쓰는 Cost v8을 채택했고,
+현행 코드의 Cost는 `historical-season-value-v9`이며 역할별 Composite의 고정 경계를 쓴다.
+OriginYear 백분위는 진단값이다. 기존 v8/백분위 설명과 최신 구현의 차이를 이번 구종 작업에서
+임의로 되돌리지 않았으며, percentile 정책 채택 여부는 별도 미해결 Gate다.
 1982~2025 Canonical Archive와 Runtime을 재Bake했다. Reference는 게임 빌드에 포함하지 않는
 `Tools/PMReference/` 연구 전용이다.
+
+## 투수 구종과 카드 뒷면
+
+아래 생성 통계는 작업 중 확보한 **사전 검증값**이다. 최종 통합 코드 기준 Bake와 ContentHash
+확정은 사용자가 수행하며, 이번 보고서를 최종 정본 Bake 승인으로 해석하지 않는다.
+
+일반 투수의 2~6구종은 관측 자료가 없는 **Synthetic** 선수 개성 데이터다. 구종은 Offline에서
+`PlayerSeasonId + pitchGenerationSeed + PitchBalanceVersion`으로 확정하고, World Load나 Edition
+변경으로 재추첨하지 않는다. 실제 이름·구종 실측치를 수집한 것으로 표현하지 않는다.
+계수 정본은 `Assets/10.Datas/Resources/NewGame/PitchArsenalBalance.json`이며 Python Bake와
+Production C#이 함께 읽는다. Headless 기본값은 이 JSON에서 자동 생성한다.
+
+`PitchRepertoireEntry.BaseMastery`는 고정하고, 현재 Stuff/Breaking/Control과 영구 성장 적성은
+공통 Resolver가 계산한다. 5~6구종의 보조 성장만 분산하며 현재 성능은 깎지 않는다.
+카드 뒷면은 기존 프레임과 하단 4×4 스킬 블록 영역을 유지한다. 투수는 기존 중앙 정보 영역에만
+구종 등급·km/h를 추가하고, 타자는 기존 수비 포지션 표시를 유지한다.
+실제 Unity 시각 검증과 전체 경기 밸런스 Gate는 구현 완료와 구분한다.
+
+사전 생성 결과는 `docs/reports/pitch_arsenal_generation_v1.json`을 따른다. 7,646투수/27,509구종의
+동일 Seed 재생성 일치, Python 구종 규칙 3건 및 기존 Bake 회귀 27건을 확인했다.
+ContentHash/BalanceContentHash 변경으로 이전 WorldHistory Bake는 사용하지 않고 기존 Detailed
+Simulation fallback을 사용하므로 사전 History 재Bake 전에는 새 게임 준비 시간이 늘어난다.
