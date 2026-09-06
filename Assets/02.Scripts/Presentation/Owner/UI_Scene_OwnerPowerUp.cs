@@ -12,7 +12,7 @@ namespace Baseball.Presentation.Owner
 {
     /// <summary>스카우트·카드훈련·강화·판매를 각각의 View State로 제공하는 전력보강 화면이다.</summary>
     [DisallowMultipleComponent]
-    public sealed class UI_Scene_OwnerPowerUp : MonoBehaviour
+    public sealed partial class UI_Scene_OwnerPowerUp : MonoBehaviour, IUiCancelHandler
     {
         private RectTransform _root;
         private RectTransform _scoutRoot;
@@ -33,8 +33,13 @@ namespace Baseball.Presentation.Owner
         private Button _trainingExecuteButton;
         private Button _enhanceButton;
         private Button _sellButton;
-        private PlayerMiniCardView _trainingCard;
+        private RectTransform _trainingCard;
+        private RectTransform _trainingCardFront;
         private PlayerMiniCardView _enhancementCard;
+        private PlayerMiniCardView _enhancementMaterialCard;
+        private Text _enhancementMaterialEmpty;
+        private Text _trainingCardCount;
+        private Text _enhancementCardCount;
         private RectTransform _confirmRoot;
         private Text _confirmTitle;
         private Text _confirmBody;
@@ -80,10 +85,16 @@ namespace Baseball.Presentation.Owner
             _scoutDetails.text = "스카우트 상품과 실제 확률을 불러오는 중입니다.";
             _trainingDetails.text = "보유 카드와 훈련 Preview를 불러오는 중입니다.";
             _enhancementDetails.text = "중복 카드와 강화·판매 Preview를 불러오는 중입니다.";
+            _trainingCard.gameObject.SetActive(false);
+            _enhancementCard.gameObject.SetActive(false);
+            _enhancementMaterialCard.gameObject.SetActive(false);
+            _enhancementMaterialEmpty.gameObject.SetActive(true);
             _scoutPurchaseButton.interactable = false;
             _trainingExecuteButton.interactable = false;
             _enhanceButton.interactable = false;
             _sellButton.interactable = false;
+            _registerButton.interactable = false;
+            _hasRegisteredEnhancement = false;
         }
 
         /// <summary>선택한 전력보강 Route의 View State만 표시한다.</summary>
@@ -95,12 +106,55 @@ namespace Baseball.Presentation.Owner
             _scoutRoot.gameObject.SetActive(isScout);
             _trainingRoot.gameObject.SetActive(isTraining);
             _enhancementRoot.gameObject.SetActive(isEnhancement);
+            if (!isScout)
+            {
+                if (_scoutProbabilityOverlay != null) _scoutProbabilityOverlay.gameObject.SetActive(false);
+                if (_scoutPolicyOverlay != null) _scoutPolicyOverlay.gameObject.SetActive(false);
+            }
+            _salePanel.gameObject.SetActive(false);
         }
 
         /// <summary>전력보강 Workspace 전체의 표시 여부를 바꾼다.</summary>
         public void SetVisible(bool visible)
         {
             if (_root != null) _root.gameObject.SetActive(visible);
+        }
+
+        /// <summary>전력보강 화면에 겹쳐 열린 확인·결과·정책·판매 창을 최상단부터 하나 닫는다.</summary>
+        public bool TryHandleCancel()
+        {
+            if (_confirmRoot != null && _confirmRoot.gameObject.activeSelf)
+            {
+                CloseConfirmation();
+                return true;
+            }
+            if (_revealRoot != null && _revealRoot.gameObject.activeSelf)
+            {
+                _revealRoot.gameObject.SetActive(false);
+                return true;
+            }
+            if (_scoutPolicyOverlay != null && _scoutPolicyOverlay.gameObject.activeSelf)
+            {
+                CloseScoutPolicy();
+                return true;
+            }
+            if (_scoutProbabilityOverlay != null && _scoutProbabilityOverlay.gameObject.activeSelf)
+            {
+                _scoutProbabilityOverlay.gameObject.SetActive(false);
+                return true;
+            }
+            if (_salePanel != null && _salePanel.gameObject.activeSelf)
+            {
+                _salePanel.gameObject.SetActive(false);
+                return true;
+            }
+            if (_hasRegisteredEnhancement)
+            {
+                _hasRegisteredEnhancement = false;
+                RefreshEnhancementTarget();
+                return true;
+            }
+            return false;
         }
 
         /// <summary>현재 Route 하단에 Command 결과나 차단 사유를 표시한다.</summary>
@@ -115,25 +169,15 @@ namespace Baseball.Presentation.Owner
         public void ShowScoutReveal(ShopPurchaseResult result)
         {
             if (!result.IsSuccess || result.Items == null || result.Items.Length == 0) return;
-            var body = new StringBuilder();
-            for (int index = 0; index < result.Items.Length; index++)
-            {
-                if (index > 0) body.AppendLine().AppendLine();
-                ShopGrantedItem item = result.Items[index];
-                body.Append(item.IsNew ? "신규" : "중복")
-                    .Append(" · ").Append(item.GradeLabel).AppendLine()
-                    .Append(item.DisplayName);
-            }
-            _revealBody.text = body.ToString();
-            _revealRoot.gameObject.SetActive(true);
-            _revealRoot.SetAsLastSibling();
+            BindScoutResults(result.Items);
+            SetFeedback("영입이 완료되었습니다. 영입 선수 탭에서 결과를 확인하세요.", false);
         }
 
         private void Build(RectTransform host)
         {
             _root = OwnerWorkspaceUiFactory.CreateRoot(host, "OwnerPowerUpWorkspace", true);
             OwnerWorkspaceUiFactory.Panel panel = OwnerWorkspaceUiFactory.CreatePanel(
-                _root, "PowerUpPanel", "전력보강");
+                _root, "PowerUpPanel", "전력보강 센터");
             OwnerRuntimeUiFactory.Stretch(panel.Root,
                 new Vector2(CareerUiTheme.Space4, CareerUiTheme.Space4),
                 new Vector2(-CareerUiTheme.Space4, -CareerUiTheme.Space4));
@@ -153,63 +197,38 @@ namespace Baseball.Presentation.Owner
 
         private void BuildScout()
         {
-            HorizontalLayoutGroup columns = OwnerWorkspaceUiFactory.AddHorizontalLayout(_scoutRoot, CareerUiTheme.Space3);
-            columns.padding = new RectOffset(0, 0, 0, 38);
-            RectTransform left = CreateColumn(_scoutRoot, "ScoutProducts", 0.36f, "스카우트 상품");
-            _scoutList = CreateScrollContent(left);
-            RectTransform right = CreateColumn(_scoutRoot, "ScoutPreview", 0.64f, "영입 조건과 확률");
-            OwnerWorkspaceUiFactory.AddVerticalLayout(right, CareerUiTheme.Space2);
-            _scoutWallet = CreateFixedText(right, "ScoutWallet", 24f, 15, FontStyle.Bold, TextAnchor.MiddleRight);
-            _scoutDetails = CreateFlexibleText(right, "ScoutDetails");
-            _scoutPurchaseButton = OwnerWorkspaceUiFactory.CreateButton(
-                right, "ScoutPurchase", "선택 상품 영입", RequestScoutPurchase);
+            BuildScoutReference();
         }
 
         private void BuildTraining()
         {
-            HorizontalLayoutGroup columns = OwnerWorkspaceUiFactory.AddHorizontalLayout(_trainingRoot, CareerUiTheme.Space3);
+            HorizontalLayoutGroup columns = OwnerWorkspaceUiFactory.AddHorizontalLayout(_trainingRoot, CareerUiTheme.Space2);
             columns.padding = new RectOffset(0, 0, 0, 38);
-            RectTransform left = CreateColumn(_trainingRoot, "TrainingTargets", 0.34f, "훈련 가능 카드");
-            _trainingCardList = CreateScrollContent(left);
-            RectTransform center = CreateColumn(_trainingRoot, "TrainingCard", 0.27f, "대상 선수");
+            RectTransform left = CreateColumn(_trainingRoot, "TrainingTargets", 0.35f, "보유 선수 카드");
+            OwnerWorkspaceUiFactory.AddVerticalLayout(left, CareerUiTheme.Space2);
+            _trainingCardCount = CreateFixedText(left, "TrainingCardCount", 30f, 13, FontStyle.Bold, TextAnchor.MiddleRight);
+            _trainingCardList = CreateGridScrollContent(left, 3, new Vector2(82f, 150f));
+            RectTransform center = CreateColumn(_trainingRoot, "TrainingCard", 0.25f, "선택한 선수");
             OwnerWorkspaceUiFactory.AddVerticalLayout(center, CareerUiTheme.Space2);
-            _trainingCard = PlayerMiniCardView.CreateRuntime(center, "SelectedTrainingCard");
-            SetPreferred(_trainingCard.GetComponent<RectTransform>(), PlayerMiniCardView.PreferredHeight);
+            _trainingCard = OwnerRuntimeUiFactory.CreateRect("SelectedTrainingCard", center);
+            SetPreferred(_trainingCard, 420f);
+            _trainingCardFront = OwnerRuntimeUiFactory.CreateRect("CardFront", _trainingCard);
+            OwnerRuntimeUiFactory.Stretch(_trainingCardFront);
+            _trainingCardFront.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            var cardAspect = _trainingCardFront.gameObject.AddComponent<AspectRatioFitter>();
+            cardAspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            cardAspect.aspectRatio = 2f / 3f;
             _trainingDetails = CreateFlexibleText(center, "TrainingCardDetails");
-            RectTransform right = CreateColumn(_trainingRoot, "TrainingPrograms", 0.39f, "훈련 프로그램 / 미리보기");
+            RectTransform right = CreateColumn(_trainingRoot, "TrainingPrograms", 0.40f, "훈련 프로그램");
             OwnerWorkspaceUiFactory.AddVerticalLayout(right, CareerUiTheme.Space2);
             _trainingWallet = CreateFixedText(right, "TrainingWallet", 24f, 15, FontStyle.Bold, TextAnchor.MiddleRight);
-            ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", right, out _trainingProgramList);
-            SetPreferred(scroll.GetComponent<RectTransform>(), 200f, 1f);
+            ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalGridScroll(
+                "ProgramScroll", right, 2, new Vector2(150f, 66f), 8f, out _trainingProgramList);
+            SetPreferred(scroll.GetComponent<RectTransform>(), 230f, 1f);
             _trainingExecuteButton = OwnerWorkspaceUiFactory.CreateButton(
-                right, "TrainingExecute", "훈련 실행", RequestTraining);
+                right, "TrainingExecute", "선택 훈련 적용", RequestTraining);
         }
 
-        private void BuildEnhancementSale()
-        {
-            HorizontalLayoutGroup columns = OwnerWorkspaceUiFactory.AddHorizontalLayout(_enhancementRoot, CareerUiTheme.Space3);
-            columns.padding = new RectOffset(0, 0, 0, 38);
-            RectTransform left = CreateColumn(_enhancementRoot, "EnhancementTargets", 0.34f, "보유 카드와 중복");
-            _enhancementCardList = CreateScrollContent(left);
-            RectTransform center = CreateColumn(_enhancementRoot, "EnhancementCard", 0.27f, "선택 카드");
-            OwnerWorkspaceUiFactory.AddVerticalLayout(center, CareerUiTheme.Space2);
-            _enhancementCard = PlayerMiniCardView.CreateRuntime(center, "SelectedEnhancementCard");
-            SetPreferred(_enhancementCard.GetComponent<RectTransform>(), PlayerMiniCardView.PreferredHeight);
-            CreateFlexibleText(center, "EnhancementCardHint", TextAnchor.UpperCenter).text =
-                "강화는 중복 카드 1장을 사용해 모든 능력치를 올립니다.";
-            RectTransform right = CreateColumn(_enhancementRoot, "EnhancementPreview", 0.39f, "강화 / 판매 Preview");
-            OwnerWorkspaceUiFactory.AddVerticalLayout(right, CareerUiTheme.Space2);
-            _enhancementWallet = CreateFixedText(right, "EnhancementWallet", 24f, 15, FontStyle.Bold, TextAnchor.MiddleRight);
-            _enhancementDetails = CreateFlexibleText(right, "EnhancementDetails");
-            RectTransform quantity = OwnerRuntimeUiFactory.CreateRect("SaleQuantity", right);
-            HorizontalLayoutGroup quantityLayout = OwnerWorkspaceUiFactory.AddHorizontalLayout(quantity, CareerUiTheme.Space2);
-            quantityLayout.childForceExpandWidth = false;
-            SetPreferred(quantity, 36f);
-            CreateSizedButton(quantity, "SaleMinus", "−", () => ChangeSaleCount(-1), 56f);
-            CreateSizedButton(quantity, "SalePlus", "+", () => ChangeSaleCount(1), 56f);
-            _enhanceButton = OwnerWorkspaceUiFactory.CreateButton(right, "Enhance", "중복 1장으로 강화", RequestEnhancement);
-            _sellButton = OwnerWorkspaceUiFactory.CreateButton(right, "Sell", "선택 수량 판매", RequestSale);
-        }
 
         private void BuildFeedback(RectTransform parent)
         {
@@ -259,21 +278,33 @@ namespace Baseball.Presentation.Owner
             _scoutWallet.text = scout.WalletText;
             if (scout.State != OwnerPowerUpContentState.Ready)
             {
+                OwnerRuntimeUiFactory.ClearChildren(_scoutPolicyOptions);
+                _scoutPolicyOverlay.gameObject.SetActive(false);
                 _scoutDetails.text = scout.State == OwnerPowerUpContentState.Empty
                     ? "현재 이용할 수 있는 스카우트 상품이 없습니다."
                     : scout.ErrorMessage;
+                _scoutSummary.text = _scoutDetails.text;
+                _scoutCost.text = "비 용   —";
+                _scoutDispatch.text = "이용 가능한\n상품 없음";
                 _scoutPurchaseButton.interactable = false;
                 return;
             }
             if (FindScoutProduct(_selectedScoutProductId) == null)
                 _selectedScoutProductId = scout.Products[0].ProductId;
+            OwnerScoutProductSnapshot selectedScout = FindScoutProduct(_selectedScoutProductId);
+            int markerIndex = 0;
+            int markerCount = 0;
+            for (int index = 0; index < scout.Products.Count; index++)
+                if (scout.Products[index].DrawCount == 1) markerCount++;
             for (int index = 0; index < scout.Products.Count; index++)
             {
                 OwnerScoutProductSnapshot product = scout.Products[index];
-                CreateListButton(_scoutList, "Scout_" + product.ProductId,
-                    product.Title + "\n" + product.Scope + "   " + product.PriceText,
+                if (product.DrawCount != 1) continue;
+                CreateScoutReferencePin(_scoutList, "Scout_" + product.ProductId,
+                    product.Scope,
                     () => SelectScoutProduct(product.ProductId),
-                    string.Equals(product.ProductId, _selectedScoutProductId, StringComparison.Ordinal));
+                    selectedScout != null && string.Equals(product.Scope, selectedScout.Scope, StringComparison.Ordinal),
+                    markerIndex++, markerCount);
             }
             RefreshScoutDetails();
         }
@@ -283,8 +314,10 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.ClearChildren(_trainingCardList);
             OwnerCardTrainingScreenSnapshot training = _snapshot.Training;
             _trainingWallet.text = $"보유 육성 포인트 {training.DevelopmentPoints:N0}";
+            _trainingCardCount.text = $"전체 {training.Cards.Count:N0}장";
             if (training.State != OwnerPowerUpContentState.Ready)
             {
+                _trainingCard.gameObject.SetActive(false);
                 _trainingDetails.text = training.State == OwnerPowerUpContentState.Empty
                     ? "훈련할 보유 카드가 없습니다."
                     : training.ErrorMessage;
@@ -293,10 +326,11 @@ namespace Baseball.Presentation.Owner
             }
             if (FindTrainingTarget(_selectedTrainingCardId) == null)
                 _selectedTrainingCardId = training.Cards[0].Card.CardId;
+            _trainingCard.gameObject.SetActive(true);
             for (int index = 0; index < training.Cards.Count; index++)
             {
                 OwnerCollectionCardSnapshot card = training.Cards[index].Card;
-                CreateCardListButton(_trainingCardList, card, () => SelectTrainingCard(card.CardId),
+                CreateCompactCardButton(_trainingCardList, card, () => SelectTrainingCard(card.CardId),
                     string.Equals(card.CardId, _selectedTrainingCardId, StringComparison.Ordinal));
             }
             RefreshTrainingTarget();
@@ -304,11 +338,19 @@ namespace Baseball.Presentation.Owner
 
         private void BindEnhancementSale()
         {
+            if (_snapshot == null) return;
             OwnerRuntimeUiFactory.ClearChildren(_enhancementCardList);
             OwnerEnhancementSaleScreenSnapshot screen = _snapshot.EnhancementSale;
             _enhancementWallet.text = $"보유 스카우트 포인트 {screen.ScoutingPoints:N0}";
+            _enhancementCardCount.text = $"보유선수  {screen.Cards.Count:N0}장";
+            _registerButton.interactable = screen.State == OwnerPowerUpContentState.Ready;
+            _hideLockedButton.transform.Find("Label").GetComponent<Text>().text =
+                (_hideLockedCards ? "■" : "□") + " 잠금 선수 숨기기";
             if (screen.State != OwnerPowerUpContentState.Ready)
             {
+                _enhancementCard.gameObject.SetActive(false);
+                _enhancementMaterialCard.gameObject.SetActive(false);
+                _enhancementMaterialEmpty.gameObject.SetActive(true);
                 _enhancementDetails.text = screen.State == OwnerPowerUpContentState.Empty
                     ? "강화하거나 판매할 보유 카드가 없습니다."
                     : screen.ErrorMessage;
@@ -317,11 +359,23 @@ namespace Baseball.Presentation.Owner
                 return;
             }
             if (FindEnhancementTarget(_selectedEnhancementCardId) == null)
-                _selectedEnhancementCardId = screen.Cards[0].Card.CardId;
-            for (int index = 0; index < screen.Cards.Count; index++)
             {
-                OwnerCollectionCardSnapshot card = screen.Cards[index].Card;
-                CreateCardListButton(_enhancementCardList, card, () => SelectEnhancementCard(card.CardId),
+                _hasRegisteredEnhancement = false;
+                _selectedEnhancementCardId = screen.Cards[0].Card.CardId;
+            }
+            _enhancementCard.gameObject.SetActive(_hasRegisteredEnhancement);
+            var sortedCards = new List<OwnerEnhancementSaleTargetSnapshot>(screen.Cards);
+            sortedCards.Sort((left, right) =>
+            {
+                int cost = left.Card.Cost.CompareTo(right.Card.Cost);
+                if (cost != 0) return _sortCostDescending ? -cost : cost;
+                return string.CompareOrdinal(left.Card.CardId, right.Card.CardId);
+            });
+            for (int index = 0; index < sortedCards.Count; index++)
+            {
+                OwnerCollectionCardSnapshot card = sortedCards[index].Card;
+                if (_hideLockedCards && card.IsLocked) continue;
+                CreateCompactCardButton(_enhancementCardList, card, () => SelectEnhancementCard(card.CardId),
                     string.Equals(card.CardId, _selectedEnhancementCardId, StringComparison.Ordinal));
             }
             RefreshEnhancementTarget();
@@ -352,14 +406,16 @@ namespace Baseball.Presentation.Owner
             if (!product.CanPurchase) text.AppendLine().Append(product.BlockedReason);
             _scoutDetails.text = text.ToString();
             _scoutPurchaseButton.interactable = product.CanPurchase;
+            RefreshScoutReference(product);
         }
 
         private void RequestScoutPurchase()
         {
             OwnerScoutProductSnapshot product = FindScoutProduct(_selectedScoutProductId);
             if (product == null || !product.CanPurchase) return;
-            OpenConfirmation("스카우트 실행",
-                product.Title + "\n" + product.Scope + "\n" + product.PriceText + "를 사용합니다.",
+            OpenConfirmation("스카우트 파견",
+                product.Scope + "에 전담 스카우터를 파견합니다.\n" + product.Title + "\n" +
+                product.DrawCount + "명 탐색 · 비용 " + product.PriceText,
                 () => ScoutPurchaseRequested?.Invoke(product.ProductId));
         }
 
@@ -380,7 +436,8 @@ namespace Baseball.Presentation.Owner
         {
             OwnerCardTrainingTargetSnapshot target = FindTrainingTarget(_selectedTrainingCardId);
             if (target == null) return;
-            _trainingCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(target.Card, true));
+            OwnerRuntimeUiFactory.ClearChildren(_trainingCardFront);
+            UI_Popup_OwnerPlayerCard.BuildFrontCard(_trainingCardFront, target.Card);
             OwnerRuntimeUiFactory.ClearChildren(_trainingProgramList);
             if (FindTrainingProgram(target, _selectedTrainingProgramId) == null && target.Programs.Count > 0)
                 _selectedTrainingProgramId = target.Programs[0].ProgramId;
@@ -388,7 +445,7 @@ namespace Baseball.Presentation.Owner
             {
                 OwnerCardTrainingProgramSnapshot program = target.Programs[index];
                 CreateListButton(_trainingProgramList, "Program_" + program.ProgramId,
-                    program.Title + $"   {program.Current} → {program.Current + program.GainedPoints} / {program.Ceiling}",
+                    program.Title + $"\n{program.Current}  →  {program.Current + program.GainedPoints}  /  {program.Ceiling}",
                     () => SelectTrainingProgram(program.ProgramId),
                     string.Equals(program.ProgramId, _selectedTrainingProgramId, StringComparison.Ordinal));
             }
@@ -421,6 +478,7 @@ namespace Baseball.Presentation.Owner
 
         private void SelectEnhancementCard(string cardId)
         {
+            _hasRegisteredEnhancement = false;
             _selectedEnhancementCardId = cardId;
             _saleCount = 1;
             BindEnhancementSale();
@@ -439,6 +497,12 @@ namespace Baseball.Presentation.Owner
             OwnerEnhancementSaleTargetSnapshot target = FindEnhancementTarget(_selectedEnhancementCardId);
             if (target == null) return;
             _enhancementCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(target.Card, true));
+            _enhancementCard.gameObject.SetActive(_hasRegisteredEnhancement);
+            bool hasMaterial = _hasRegisteredEnhancement && target.Card.DuplicateCount > 0;
+            _enhancementMaterialCard.gameObject.SetActive(hasMaterial);
+            _enhancementMaterialEmpty.gameObject.SetActive(!hasMaterial);
+            if (hasMaterial)
+                _enhancementMaterialCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(target.Card, false));
             _saleCount = Mathf.Clamp(_saleCount, 1, Math.Max(1, target.Card.DuplicateCount));
             CardSalePreview sale = target.GetSalePreview(_saleCount);
             string enhancementReason = target.Enhancement.Result switch
@@ -447,24 +511,23 @@ namespace Baseball.Presentation.Owner
                 CardEnhancementResult.MaximumLevel => "최대 강화 단계입니다.",
                 _ => "전 능력치 +1"
             };
-            _enhancementDetails.text = target.Card.DisplayName + "\n" +
-                OwnerCollectionPresentationBuilder.FormatPosition(target.Card.Position) + " · 비용 " + target.Card.Cost + "\n\n" +
-                "강화 Preview\n+" + target.Enhancement.CurrentLevel + " → +" + target.Enhancement.NextLevel +
-                " · " + enhancementReason + "\n재료  중복 1장 / 보유 " + target.Card.DuplicateCount + "장\n\n" +
-                "판매 Preview\n수량  " + _saleCount + " / " + target.Card.DuplicateCount + "장\n" +
-                "단가  스카우트 포인트 " + sale.UnitPriceSp.ToString("N0") +
-                "\n획득  스카우트 포인트 " + sale.TotalPriceSp.ToString("N0");
-            _enhanceButton.interactable = target.Enhancement.CanEnhance;
+            _enhancementDetails.text = _hasRegisteredEnhancement
+                ? target.Card.DisplayName + "  +" + target.Enhancement.CurrentLevel + " → +" +
+                    target.Enhancement.NextLevel + "    " + enhancementReason + " · 중복 1장 사용"
+                : target.Card.DisplayName + " 선택 · 등록하기를 눌러 보강할 선수를 등록하세요.";
+            _sellButton.transform.Find("Label").GetComponent<Text>().text =
+                _saleCount + "장 판매 · " + sale.TotalPriceSp.ToString("N0") + " SP";
+            _enhanceButton.interactable = _hasRegisteredEnhancement && target.Enhancement.CanEnhance;
             _sellButton.interactable = sale.CanSell;
         }
 
         private void RequestEnhancement()
         {
             OwnerEnhancementSaleTargetSnapshot target = FindEnhancementTarget(_selectedEnhancementCardId);
-            if (target == null || !target.Enhancement.CanEnhance) return;
-            OpenConfirmation("카드 강화",
+            if (target == null || !_hasRegisteredEnhancement || !target.Enhancement.CanEnhance) return;
+            OpenConfirmation("선수카드 합성",
                 target.Card.DisplayName + "\n+" + target.Enhancement.CurrentLevel + " → +" +
-                target.Enhancement.NextLevel + "\n중복 카드 1장을 사용합니다.",
+                target.Enhancement.NextLevel + "\n동일 선수카드 1장을 합성 재료로 사용합니다.\n실패 확률은 없습니다.",
                 () => EnhancementRequested?.Invoke(target.Card.CardId));
         }
 
@@ -560,6 +623,17 @@ namespace Baseball.Presentation.Owner
             return content;
         }
 
+        private static RectTransform CreateGridScrollContent(
+            RectTransform parent,
+            int columns,
+            Vector2 cellSize)
+        {
+            ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalGridScroll(
+                "CardScroll", parent, columns, cellSize, 8f, out RectTransform content);
+            SetPreferred(scroll.GetComponent<RectTransform>(), 240f, 1f);
+            return content;
+        }
+
         private static Text CreateFixedText(
             Transform parent,
             string name,
@@ -601,6 +675,87 @@ namespace Baseball.Presentation.Owner
             text.alignment = TextAnchor.MiddleLeft;
             text.color = selected ? Color.white : CareerUiTheme.ReferenceText;
             return button;
+        }
+
+        private static void CreateCompactCardButton(
+            Transform parent,
+            OwnerCollectionCardSnapshot card,
+            Action action,
+            bool selected)
+        {
+            PlayerMiniCardView view = PlayerMiniCardView.CreateRuntime(parent, "Card_" + card.CardId);
+            view.UseLineupSlotLayout();
+            view.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card, selected));
+            view.Selected += _ => action?.Invoke();
+            RectTransform rect = view.GetComponent<RectTransform>();
+            LayoutElement element = rect.gameObject.AddComponent<LayoutElement>();
+            element.minWidth = PlayerMiniCardView.LineupSlotWidth;
+            element.preferredWidth = PlayerMiniCardView.LineupSlotWidth;
+            element.minHeight = PlayerMiniCardView.LineupSlotHeight;
+            element.preferredHeight = PlayerMiniCardView.LineupSlotHeight;
+        }
+
+        private static void CreateScoutPin(
+            Transform parent,
+            string name,
+            string label,
+            Action action,
+            bool selected,
+            int index,
+            int count)
+        {
+            Vector2[] positions =
+            {
+                new Vector2(.20f, .67f), new Vector2(.47f, .69f), new Vector2(.72f, .60f),
+                new Vector2(.58f, .38f), new Vector2(.82f, .31f), new Vector2(.31f, .35f)
+            };
+            Button button = OwnerWorkspaceUiFactory.CreateButton(parent, name, "●  " + label, action);
+            RectTransform rect = button.GetComponent<RectTransform>();
+            Vector2 position = positions[index % positions.Length];
+            rect.anchorMin = position;
+            rect.anchorMax = position;
+            rect.pivot = new Vector2(.5f, .5f);
+            rect.sizeDelta = new Vector2(count <= 3 ? 168f : 142f, 44f);
+            rect.anchoredPosition = Vector2.zero;
+            LayoutElement layout = button.GetComponent<LayoutElement>();
+            if (layout != null) layout.ignoreLayout = true;
+            Image image = button.GetComponent<Image>();
+            image.color = selected
+                ? new Color32(236, 248, 255, 255)
+                : new Color32(15, 48, 87, 238);
+            Text text = button.transform.Find("Label").GetComponent<Text>();
+            text.fontSize = 12;
+            text.color = selected ? new Color32(20, 80, 139, 255) : Color.white;
+            Outline outline = image.GetComponent<Outline>() ?? image.gameObject.AddComponent<Outline>();
+            outline.effectColor = selected ? new Color32(100, 205, 255, 255) : new Color32(156, 207, 242, 255);
+            outline.effectDistance = selected ? new Vector2(2f, -2f) : new Vector2(1f, -1f);
+        }
+
+        private static PlayerMiniCardView CreateSynthesisCardSlot(
+            RectTransform parent,
+            string name,
+            string label,
+            float anchorMinX,
+            float anchorMaxX)
+        {
+            Image slot = OwnerRuntimeUiFactory.CreateImage(name + "Slot", parent, new Color32(235, 238, 240, 255));
+            OwnerRuntimeUiFactory.SetAnchors(
+                slot.rectTransform, new Vector2(anchorMinX, .02f), new Vector2(anchorMaxX, .98f),
+                Vector2.zero, Vector2.zero);
+            Outline outline = slot.gameObject.AddComponent<Outline>();
+            outline.effectColor = CareerUiTheme.ReferenceDataGrid;
+            outline.effectDistance = new Vector2(1f, -1f);
+            Text heading = OwnerWorkspaceUiFactory.CreateText(
+                slot.transform, "Heading", label, 13, FontStyle.Bold, TextAnchor.MiddleCenter,
+                CareerUiTheme.ReferenceDataAccent);
+            OwnerRuntimeUiFactory.SetAnchors(
+                heading.rectTransform, new Vector2(0f, .86f), Vector2.one,
+                new Vector2(4f, 0f), new Vector2(-4f, 0f));
+            PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(slot.transform, name);
+            OwnerRuntimeUiFactory.SetAnchors(
+                card.GetComponent<RectTransform>(), new Vector2(.18f, .04f), new Vector2(.82f, .84f),
+                Vector2.zero, Vector2.zero);
+            return card;
         }
 
         private static void CreateCardListButton(
@@ -664,6 +819,62 @@ namespace Baseball.Presentation.Owner
             EnhancementRequested = null;
             DuplicateSaleRequested = null;
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_root);
+        }
+    }
+
+    /// <summary>스카우트 선택 화면에 저해상도 레퍼런스의 지도망과 탐색 지점을 벡터로 그린다.</summary>
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(CanvasRenderer))]
+    internal sealed class OwnerScoutMapGraphic : MaskableGraphic
+    {
+        private static readonly Vector2[] WorldPoints =
+        {
+            new Vector2(.10f,.66f), new Vector2(.14f,.70f), new Vector2(.18f,.67f), new Vector2(.21f,.61f),
+            new Vector2(.16f,.57f), new Vector2(.20f,.51f), new Vector2(.25f,.48f), new Vector2(.29f,.42f),
+            new Vector2(.32f,.34f), new Vector2(.28f,.28f), new Vector2(.23f,.35f), new Vector2(.13f,.52f),
+            new Vector2(.38f,.69f), new Vector2(.42f,.72f), new Vector2(.47f,.68f), new Vector2(.50f,.61f),
+            new Vector2(.47f,.55f), new Vector2(.45f,.48f), new Vector2(.48f,.39f), new Vector2(.53f,.29f),
+            new Vector2(.58f,.24f), new Vector2(.59f,.36f), new Vector2(.57f,.49f), new Vector2(.62f,.61f),
+            new Vector2(.68f,.67f), new Vector2(.74f,.64f), new Vector2(.78f,.57f), new Vector2(.73f,.50f),
+            new Vector2(.79f,.44f), new Vector2(.84f,.36f), new Vector2(.89f,.30f), new Vector2(.86f,.24f),
+            new Vector2(.77f,.29f), new Vector2(.69f,.40f), new Vector2(.64f,.50f), new Vector2(.55f,.58f)
+        };
+
+        protected override void OnPopulateMesh(VertexHelper vertexHelper)
+        {
+            vertexHelper.Clear();
+            Rect bounds = GetPixelAdjustedRect();
+            Color32 grid = new Color32(91, 159, 215, 75);
+            Color32 land = new Color32(198, 230, 250, 220);
+            for (int index = 1; index < 10; index++)
+            {
+                float x = bounds.xMin + bounds.width * index / 10f;
+                AddQuad(vertexHelper, new Rect(x, bounds.yMin, 1f, bounds.height), grid);
+            }
+            for (int index = 1; index < 7; index++)
+            {
+                float y = bounds.yMin + bounds.height * index / 7f;
+                AddQuad(vertexHelper, new Rect(bounds.xMin, y, bounds.width, 1f), grid);
+            }
+            float dotSize = Mathf.Clamp(Mathf.Min(bounds.width, bounds.height) * .014f, 3f, 7f);
+            for (int index = 0; index < WorldPoints.Length; index++)
+            {
+                Vector2 point = WorldPoints[index];
+                float x = bounds.xMin + point.x * bounds.width - dotSize * .5f;
+                float y = bounds.yMin + point.y * bounds.height - dotSize * .5f;
+                AddQuad(vertexHelper, new Rect(x, y, dotSize, dotSize), land);
+            }
+        }
+
+        private static void AddQuad(VertexHelper helper, Rect rect, Color32 color)
+        {
+            int start = helper.currentVertCount;
+            helper.AddVert(new Vector3(rect.xMin, rect.yMin), color, Vector2.zero);
+            helper.AddVert(new Vector3(rect.xMin, rect.yMax), color, Vector2.up);
+            helper.AddVert(new Vector3(rect.xMax, rect.yMax), color, Vector2.one);
+            helper.AddVert(new Vector3(rect.xMax, rect.yMin), color, Vector2.right);
+            helper.AddTriangle(start, start + 1, start + 2);
+            helper.AddTriangle(start, start + 2, start + 3);
         }
     }
 }
