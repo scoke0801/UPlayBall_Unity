@@ -20,12 +20,17 @@ namespace Baseball.Game.Historical
         public void EnsureInitialized(ManagerHistoricalRuntimeState runtime)
         {
             ManagerModeRuntimeState mode = RequireMode(runtime);
-            if (mode.PlayerContracts.Count > 0) return;
-            OwnerPlayerContractState[] contracts = _resolver.CreateInitialContracts(
-                runtime.GetRoster(runtime.PlayerTeamSeasonKey),
-                runtime.WorldCardCatalog,
-                mode.LiveSeason.SeasonNumber);
-            mode.ReplacePlayerMarketState(contracts, mode.TradeReceipts);
+            CurrentRosterState playerRoster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            if (mode.PlayerContracts.Count == 0)
+            {
+                OwnerPlayerContractState[] contracts = _resolver.CreateInitialContracts(
+                    playerRoster,
+                    runtime.WorldCardCatalog,
+                    mode.LiveSeason.SeasonNumber);
+                mode.ReplacePlayerMarketState(contracts, mode.TradeReceipts);
+            }
+
+            ValidateContractCoverage(mode, playerRoster);
         }
 
         public OwnerContractRenewalPreview PreviewRenewal(
@@ -71,6 +76,21 @@ namespace Baseball.Game.Historical
         {
             EnsureInitialized(runtime);
             ManagerModeRuntimeState mode = runtime.ManagerMode;
+            CurrentRosterState playerRoster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            CurrentRosterState partnerRoster = FindPartnerRoster(runtime, partnerTeamSeasonKey);
+            if (partnerRoster == null)
+            {
+                return new OwnerTradePreview(
+                    OwnerPlayerMarketStatus.InvalidSelection,
+                    partnerTeamSeasonKey,
+                    outgoingCardId,
+                    incomingCardId,
+                    0,
+                    0,
+                    playerRoster,
+                    null,
+                    "같은 리그의 상대 구단을 선택해야 합니다.");
+            }
             if (mode.CountTrades(mode.LiveSeason.SeasonNumber) >= _balance.OwnerPlayerMarket.MaximumTradesPerSeason)
             {
                 return new OwnerTradePreview(
@@ -80,16 +100,16 @@ namespace Baseball.Game.Historical
                     incomingCardId,
                     0,
                     0,
-                    runtime.GetRoster(runtime.PlayerTeamSeasonKey),
-                    runtime.GetRoster(partnerTeamSeasonKey),
+                    playerRoster,
+                    partnerRoster,
                     "이번 시즌 트레이드 횟수를 모두 사용했습니다.");
             }
             int enhancement = runtime.TryGetOwnedCard(outgoingCardId, out OwnedPlayerCardState owned)
                 ? owned.EnhancementLevel
                 : 0;
             return _resolver.PreviewTrade(
-                runtime.GetRoster(runtime.PlayerTeamSeasonKey),
-                runtime.GetRoster(partnerTeamSeasonKey),
+                playerRoster,
+                partnerRoster,
                 outgoingCardId,
                 incomingCardId,
                 runtime.WorldCardCatalog,
@@ -139,6 +159,47 @@ namespace Baseball.Game.Historical
             if (!runtime.HasManagerMode)
                 throw new InvalidOperationException("구단주 확장 상태가 없습니다.");
             return runtime.ManagerMode;
+        }
+
+        private static void ValidateContractCoverage(
+            ManagerModeRuntimeState mode,
+            CurrentRosterState playerRoster)
+        {
+            if (mode.PlayerContracts.Count != playerRoster.Entries.Count)
+                throw new InvalidOperationException("현재 25인 로스터와 선수 계약 수가 일치하지 않습니다.");
+
+            for (int rosterIndex = 0; rosterIndex < playerRoster.Entries.Count; rosterIndex++)
+            {
+                string cardId = playerRoster.Entries[rosterIndex].CardId;
+                bool hasContract = false;
+                for (int contractIndex = 0; contractIndex < mode.PlayerContracts.Count; contractIndex++)
+                {
+                    if (!string.Equals(mode.PlayerContracts[contractIndex].CardId, cardId, StringComparison.Ordinal))
+                        continue;
+                    hasContract = true;
+                    break;
+                }
+                if (!hasContract)
+                    throw new InvalidOperationException($"현재 로스터 CardId {cardId}의 선수 계약이 없습니다.");
+            }
+        }
+
+        private static CurrentRosterState FindPartnerRoster(
+            ManagerHistoricalRuntimeState runtime,
+            string partnerTeamSeasonKey)
+        {
+            if (string.IsNullOrWhiteSpace(partnerTeamSeasonKey) ||
+                string.Equals(partnerTeamSeasonKey.Trim(), runtime.PlayerTeamSeasonKey, StringComparison.Ordinal))
+                return null;
+
+            string key = partnerTeamSeasonKey.Trim();
+            for (int index = 0; index < runtime.Rosters.Count; index++)
+            {
+                CurrentRosterState roster = runtime.Rosters[index];
+                if (string.Equals(roster.TeamSeasonKey, key, StringComparison.Ordinal))
+                    return roster;
+            }
+            return null;
         }
     }
 }

@@ -48,6 +48,35 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void PreviewRenewal_WhenContractExpired_ReturnsExpiredReasonWithoutMutation()
+        {
+            CreateWorld(out CurrentRosterState player, out _, out WorldCardCatalog catalog);
+            var resolver = new OwnerPlayerMarketResolver(OwnerPlayerMarketBalanceTable.CreateInitial());
+            OwnerPlayerContractState active = resolver.CreateInitialContracts(player, catalog, 1)[0];
+            var expired = new OwnerPlayerContractState(
+                active.ContractId,
+                active.CardId,
+                active.StartSeason,
+                0,
+                active.AnnualSalary,
+                active.StartSeason);
+            PlayerCardDefinition card = GetCard(catalog, active.CardId);
+
+            OwnerContractRenewalPreview preview = resolver.PreviewRenewal(
+                expired,
+                card,
+                catalog.GetPlayerSeason(card),
+                2,
+                2,
+                long.MaxValue);
+
+            Assert.That(preview.Status, Is.EqualTo(OwnerPlayerMarketStatus.ContractExpired));
+            Assert.That(preview.CanCommit, Is.False);
+            Assert.That(preview.Reason, Does.Contain("만료"));
+            Assert.That(expired.RemainingSeasons, Is.Zero);
+        }
+
+        [Test]
         public void PreviewTrade_EqualHitterValue_PreservesBothRosterContracts()
         {
             CreateWorld(out CurrentRosterState player, out CurrentRosterState partner, out WorldCardCatalog catalog);

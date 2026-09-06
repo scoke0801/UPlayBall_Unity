@@ -131,6 +131,10 @@ namespace Baseball.Simulation.Historical
             if (contract == null || card == null || season == null ||
                 !string.Equals(contract.CardId, card.CardId, StringComparison.Ordinal))
                 return new OwnerContractRenewalPreview(OwnerPlayerMarketStatus.InvalidSelection, string.Empty, 0, 0L, 0L, "계약 선수를 확인할 수 없습니다.");
+            if (currentSeason < contract.StartSeason)
+                return new OwnerContractRenewalPreview(OwnerPlayerMarketStatus.InvalidSelection, card.CardId, contractSeasons, 0L, 0L, "아직 시작하지 않은 계약입니다.");
+            if (contract.RemainingSeasons <= 0)
+                return new OwnerContractRenewalPreview(OwnerPlayerMarketStatus.ContractExpired, card.CardId, contractSeasons, 0L, 0L, "이미 만료된 계약입니다.");
             if (contractSeasons < 1 || contractSeasons > _balance.MaximumContractSeasons)
                 return new OwnerContractRenewalPreview(OwnerPlayerMarketStatus.InvalidSelection, card.CardId, contractSeasons, 0L, 0L, "계약 기간은 1~3년이어야 합니다.");
 

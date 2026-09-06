@@ -62,6 +62,66 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(restored.ManagerMode.GetPlayerContract(preview.IncomingCardId).RemainingSeasons, Is.EqualTo(2));
         }
 
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("UNKNOWN_TEAM")]
+        public void PreviewTrade_InvalidPartner_ReturnsReasonWithoutMutation(string partnerTeamSeasonKey)
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out _);
+            var service = new OwnerPlayerMarketService(BalanceTable.CreateDefault());
+            service.EnsureInitialized(runtime);
+            CurrentRosterState playerRoster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            string outgoingCardId = playerRoster.Entries[0].CardId;
+
+            OwnerTradePreview preview = service.PreviewTrade(
+                runtime,
+                partnerTeamSeasonKey,
+                outgoingCardId,
+                outgoingCardId);
+
+            Assert.That(preview.Status, Is.EqualTo(OwnerPlayerMarketStatus.InvalidSelection));
+            Assert.That(preview.CanCommit, Is.False);
+            Assert.That(preview.Reason, Does.Contain("상대 구단"));
+            Assert.That(runtime.ManagerMode.TradeReceipts, Is.Empty);
+            Assert.That(runtime.GetRoster(runtime.PlayerTeamSeasonKey), Is.SameAs(playerRoster));
+        }
+
+        [Test]
+        public void PreviewTrade_PlayerTeamAsPartner_ReturnsReasonWithoutMutation()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out _);
+            var service = new OwnerPlayerMarketService(BalanceTable.CreateDefault());
+            service.EnsureInitialized(runtime);
+            CurrentRosterState playerRoster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+
+            OwnerTradePreview preview = service.PreviewTrade(
+                runtime,
+                runtime.PlayerTeamSeasonKey,
+                playerRoster.Entries[0].CardId,
+                playerRoster.Entries[1].CardId);
+
+            Assert.That(preview.Status, Is.EqualTo(OwnerPlayerMarketStatus.InvalidSelection));
+            Assert.That(preview.CanCommit, Is.False);
+            Assert.That(runtime.ManagerMode.TradeReceipts, Is.Empty);
+        }
+
+        [Test]
+        public void EnsureInitialized_PartialContractState_RejectsCorruptedAggregate()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out _);
+            var service = new OwnerPlayerMarketService(BalanceTable.CreateDefault());
+            service.EnsureInitialized(runtime);
+            OwnerPlayerContractState first = runtime.ManagerMode.PlayerContracts[0];
+            runtime.ManagerMode.ReplacePlayerMarketState(
+                new[] { first },
+                runtime.ManagerMode.TradeReceipts);
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => service.EnsureInitialized(runtime));
+
+            Assert.That(exception.Message, Does.Contain("로스터와 선수 계약 수"));
+        }
+
         private static OwnerTradePreview FindValidTrade(
             ManagerHistoricalRuntimeState runtime,
             OwnerPlayerMarketService service)
