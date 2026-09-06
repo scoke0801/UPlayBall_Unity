@@ -146,7 +146,7 @@ namespace Baseball.Presentation.Owner
                 DugoutPolicyAxis.PinchHitAggression => "대타기용",
                 DugoutPolicyAxis.HookSpeed => "선발교체",
                 DugoutPolicyAxis.BullpenAggression => "중간교체",
-                _ => axis.ToString()
+                _ => "운영 방침"
             };
         }
 

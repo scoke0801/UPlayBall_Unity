@@ -14,9 +14,15 @@ namespace Baseball.Presentation.Owner
     {
         private Text _summaryText;
         private RectTransform _playerContent;
+        private RectTransform _plotContent;
+        private Text _detailTitle;
+        private Text _detailText;
+        private OwnerConditionChemistryPresentationModel _model;
+        private string _selectedPlayerId = string.Empty;
         private bool _isBuilt;
 
         public event Action<string> PlayerSelected;
+        public event Action LineupRequested;
 
         public void SetVisible(bool isVisible) => gameObject.SetActive(isVisible);
 
@@ -34,8 +40,31 @@ namespace Baseball.Presentation.Owner
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
             EnsureHierarchy();
+            _model = model;
             _summaryText.text = model.SummaryText;
             RenderPlayers(model.Players);
+            if (model.Players.Count == 0)
+            {
+                _selectedPlayerId = string.Empty;
+                RenderSelection(null);
+                return;
+            }
+            OwnerConditionPlayerPresentationRow selected = FindPlayer(_selectedPlayerId) ?? model.Players[0];
+            _selectedPlayerId = selected.Snapshot.PlayerPersonId;
+            RenderSelection(selected);
+        }
+
+        /// <summary>다음 경기 Context가 없는 정상 Empty 상태를 같은 Content 영역에 표시한다.</summary>
+        public void ShowUnavailable(string message)
+        {
+            EnsureHierarchy();
+            _model = null;
+            _selectedPlayerId = string.Empty;
+            _summaryText.text = string.IsNullOrWhiteSpace(message)
+                ? "다음 경기 일정이 없어 컨디션·궁합을 계산하지 않습니다."
+                : message;
+            RenderPlayers(Array.Empty<OwnerConditionPlayerPresentationRow>());
+            RenderSelection(null);
         }
 
         private void Awake()
@@ -52,8 +81,9 @@ namespace Baseball.Presentation.Owner
             Image background = OwnerRuntimeUiFactory.CreateImage("Background", root, CareerUiTheme.Background);
             OwnerRuntimeUiFactory.Stretch(background.rectTransform);
             OwnerWorkspaceUiFactory.Panel panel = OwnerRuntimeUiFactory.CreatePanel(
-                "ConditionPanel", root, "컨디션 · 타선 · 배터리 궁합", true);
-            OwnerRuntimeUiFactory.Stretch(panel.Root, new Vector2(12f, 12f), new Vector2(-12f, -12f));
+                "ConditionPanel", root, "선수 목록", true);
+            OwnerRuntimeUiFactory.SetAnchors(panel.Root, Vector2.zero, new Vector2(0.34f, 1f),
+                new Vector2(12f, 12f), new Vector2(-4f, -12f));
 
             _summaryText = OwnerRuntimeUiFactory.CreateText(
                 "Summary", panel.Content, string.Empty, 14, FontStyle.Normal,
@@ -65,6 +95,32 @@ namespace Baseball.Presentation.Owner
                 "PlayerConditionList", panel.Content, out _playerContent);
             OwnerRuntimeUiFactory.SetAnchors(scroll.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0.855f),
                 Vector2.zero, new Vector2(0f, -4f));
+
+            OwnerWorkspaceUiFactory.Panel plot = OwnerRuntimeUiFactory.CreatePanel(
+                "ConditionPlotPanel", root, "10단계 컨디션", true);
+            OwnerRuntimeUiFactory.SetAnchors(plot.Root, new Vector2(0.34f, 0f), new Vector2(0.66f, 1f),
+                new Vector2(4f, 12f), new Vector2(-4f, -12f));
+            _plotContent = plot.Content;
+
+            OwnerWorkspaceUiFactory.Panel detail = OwnerRuntimeUiFactory.CreatePanel(
+                "ConditionDetailPanel", root, "궁합 원인 · 경기 영향", true);
+            OwnerRuntimeUiFactory.SetAnchors(detail.Root, new Vector2(0.66f, 0f), Vector2.one,
+                new Vector2(4f, 12f), new Vector2(-12f, -12f));
+            _detailTitle = OwnerRuntimeUiFactory.CreateText(
+                "SelectedPlayer", detail.Content, "선수를 선택하세요.", 18, FontStyle.Bold,
+                TextAnchor.UpperLeft, CareerUiTheme.TextPrimary);
+            OwnerRuntimeUiFactory.SetAnchors(_detailTitle.rectTransform, new Vector2(0f, 0.86f), Vector2.one,
+                new Vector2(8f, 4f), new Vector2(-8f, -4f));
+            _detailText = OwnerRuntimeUiFactory.CreateText(
+                "Reasons", detail.Content, string.Empty, 15, FontStyle.Normal,
+                TextAnchor.UpperLeft, CareerUiTheme.TextSecondary);
+            OwnerRuntimeUiFactory.SetAnchors(_detailText.rectTransform, new Vector2(0f, 0.15f), new Vector2(1f, 0.85f),
+                new Vector2(8f, 4f), new Vector2(-8f, -4f));
+            Button lineup = OwnerWorkspaceUiFactory.CreateButton(
+                detail.Content, "OpenLineup", "라인업에서 배치 확인", () => LineupRequested?.Invoke());
+            OwnerRuntimeUiFactory.SetAnchors(lineup.GetComponent<RectTransform>(), Vector2.zero,
+                new Vector2(1f, 0.12f), new Vector2(8f, 8f), new Vector2(-8f, -4f));
+            CareerUiSkin.Apply(root);
         }
 
         private void BuildTableHeader(Transform parent)
@@ -73,13 +129,9 @@ namespace Baseball.Presentation.Owner
             header.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
             OwnerRuntimeUiFactory.SetAnchors(header.rectTransform, new Vector2(0f, 0.855f), new Vector2(1f, 0.925f),
                 Vector2.zero, Vector2.zero);
-            CreateColumnText(header.transform, "Player", "선수", 0f, 0.18f, TextAnchor.MiddleLeft);
-            CreateColumnText(header.transform, "Position", "포지션", 0.18f, 0.27f);
-            CreateColumnText(header.transform, "Base", "기본 컨디션", 0.27f, 0.43f);
-            CreateColumnText(header.transform, "Assignment", "비주포지션", 0.43f, 0.53f);
-            CreateColumnText(header.transform, "Lineup", "타선 궁합", 0.53f, 0.63f);
-            CreateColumnText(header.transform, "Battery", "배터리 궁합", 0.63f, 0.74f);
-            CreateColumnText(header.transform, "Expected", "경기 적용 컨디션", 0.74f, 1f);
+            CreateColumnText(header.transform, "Player", "선수", 0f, 0.48f, TextAnchor.MiddleLeft);
+            CreateColumnText(header.transform, "Position", "포지션", 0.48f, 0.68f);
+            CreateColumnText(header.transform, "Expected", "최종", 0.68f, 1f);
         }
 
         private void RenderPlayers(IReadOnlyList<OwnerConditionPlayerPresentationRow> players)
@@ -104,31 +156,73 @@ namespace Baseball.Presentation.Owner
             Button button = surface.gameObject.AddComponent<Button>();
             button.targetGraphic = surface;
             string playerId = row.Snapshot.PlayerPersonId;
-            button.onClick.AddListener(() => PlayerSelected?.Invoke(playerId));
+            button.onClick.AddListener(() => SelectPlayer(playerId));
 
             Text player = CreateColumnText(
                 surface.transform, "Name",
                 string.Concat(row.Snapshot.PlayerName, "\n", row.AvailabilityText),
-                0f, 0.18f, TextAnchor.MiddleLeft);
+                0f, 0.48f, TextAnchor.MiddleLeft);
             player.fontStyle = FontStyle.Bold;
             player.color = GetAvailabilityColor(row.Snapshot.Availability);
-            CreateColumnText(surface.transform, "Position", row.Snapshot.PositionText, 0.18f, 0.27f);
-            CreateColumnText(surface.transform, "BaseCondition", row.BaseConditionText, 0.27f, 0.43f);
-            Text assignment = CreateColumnText(
-                surface.transform, "AssignmentModifier", row.AssignmentText, 0.43f, 0.53f);
-            assignment.color = GetModifierColor(row.Snapshot.EffectiveCondition.AssignmentModifier);
-            Text lineup = CreateColumnText(
-                surface.transform, "LineupChemistry", row.LineupChemistryText, 0.53f, 0.63f);
-            lineup.color = GetModifierColor(row.Snapshot.EffectiveCondition.LineupChemistryModifier);
-            Text battery = CreateColumnText(
-                surface.transform, "BatteryChemistry", row.BatteryChemistryText, 0.63f, 0.74f);
-            battery.color = row.Snapshot.IsPitcher
-                ? GetModifierColor(row.Snapshot.EffectiveCondition.BatteryChemistryModifier)
-                : CareerUiTheme.TextMuted;
+            CreateColumnText(surface.transform, "Position", row.Snapshot.PositionText, 0.48f, 0.68f);
             Text expected = CreateColumnText(
-                surface.transform, "ExpectedCondition", row.EffectiveConditionText, 0.74f, 1f);
+                surface.transform, "ExpectedCondition", row.EffectiveConditionText, 0.68f, 1f);
             expected.fontStyle = FontStyle.Bold;
             expected.color = GetConditionColor(row.EffectiveLevel);
+        }
+
+        private void SelectPlayer(string playerId)
+        {
+            OwnerConditionPlayerPresentationRow row = FindPlayer(playerId);
+            if (row == null) return;
+            _selectedPlayerId = playerId;
+            RenderSelection(row);
+            PlayerSelected?.Invoke(playerId);
+        }
+
+        private OwnerConditionPlayerPresentationRow FindPlayer(string playerId)
+        {
+            if (_model == null || string.IsNullOrEmpty(playerId)) return null;
+            for (int index = 0; index < _model.Players.Count; index++)
+                if (string.Equals(_model.Players[index].Snapshot.PlayerPersonId, playerId, StringComparison.Ordinal))
+                    return _model.Players[index];
+            return null;
+        }
+
+        private void RenderSelection(OwnerConditionPlayerPresentationRow row)
+        {
+            OwnerRuntimeUiFactory.ClearChildren(_plotContent);
+            if (row == null)
+            {
+                _detailTitle.text = "선수를 선택하세요.";
+                _detailText.text = "다음 경기에 적용될 컨디션과 궁합 근거가 이곳에 표시됩니다.";
+                return;
+            }
+
+            _detailTitle.text = row.Snapshot.PlayerName + " · " + row.Snapshot.PositionText;
+            _detailText.text =
+                $"상태  {row.AvailabilityText}\n\n" +
+                $"기본  {row.BaseConditionText}\n" +
+                $"최종  {row.EffectiveConditionText}\n\n" +
+                row.ReasonText + "\n\n" + row.ImpactText;
+            for (int level = 1; level <= 10; level++)
+            {
+                float bottom = 0.06f + (level - 1) * 0.087f;
+                float top = bottom + 0.072f;
+                bool isBase = level == row.BaseLevel;
+                bool isEffective = level == row.EffectiveLevel;
+                Color color = isEffective
+                    ? GetConditionColor(level)
+                    : isBase ? CareerUiTheme.ReferenceAccent : CareerUiTheme.SurfaceSubtle;
+                Image step = OwnerRuntimeUiFactory.CreateImage("Level" + level, _plotContent, color);
+                OwnerRuntimeUiFactory.SetAnchors(step.rectTransform,
+                    new Vector2(0.08f, bottom), new Vector2(0.92f, top), Vector2.zero, Vector2.zero);
+                string marker = isBase && isEffective ? "기본 = 최종" : isEffective ? "최종" : isBase ? "기본" : string.Empty;
+                Text label = OwnerRuntimeUiFactory.CreateText(
+                "Label", step.transform, $"{level}단계  {marker}", 13, FontStyle.Bold,
+                    TextAnchor.MiddleLeft, isEffective ? Color.white : CareerUiTheme.TextSecondary);
+                OwnerRuntimeUiFactory.Stretch(label.rectTransform, new Vector2(10f, 0f), new Vector2(-8f, 0f));
+            }
         }
 
         private static Text CreateColumnText(

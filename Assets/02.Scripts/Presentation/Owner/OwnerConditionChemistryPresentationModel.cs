@@ -13,7 +13,8 @@ namespace Baseball.Presentation.Owner
             string positionText,
             bool isPitcher,
             PlayerAvailabilityStatus availability,
-            EffectiveMatchCondition effectiveCondition)
+            EffectiveMatchCondition effectiveCondition,
+            int ratingModifier = 0)
         {
             if (string.IsNullOrWhiteSpace(playerPersonId))
                 throw new ArgumentException("PlayerPersonId는 비어 있을 수 없습니다.", nameof(playerPersonId));
@@ -32,6 +33,7 @@ namespace Baseball.Presentation.Owner
             IsPitcher = isPitcher;
             Availability = availability;
             EffectiveCondition = effectiveCondition;
+            RatingModifier = ratingModifier;
         }
 
         public string PlayerPersonId { get; }
@@ -40,6 +42,7 @@ namespace Baseball.Presentation.Owner
         public bool IsPitcher { get; }
         public PlayerAvailabilityStatus Availability { get; }
         public EffectiveMatchCondition EffectiveCondition { get; }
+        public int RatingModifier { get; }
     }
 
     /// <summary>선수별 Condition 행이 표시할 원본 값과 완성 문구다.</summary>
@@ -54,7 +57,9 @@ namespace Baseball.Presentation.Owner
             string batteryChemistryText,
             int effectiveLevel,
             string effectiveConditionText,
-            string availabilityText)
+            string availabilityText,
+            string reasonText,
+            string impactText)
         {
             Snapshot = snapshot;
             BaseLevel = baseLevel;
@@ -65,6 +70,8 @@ namespace Baseball.Presentation.Owner
             EffectiveLevel = effectiveLevel;
             EffectiveConditionText = effectiveConditionText;
             AvailabilityText = availabilityText;
+            ReasonText = reasonText;
+            ImpactText = impactText;
         }
 
         public OwnerConditionPlayerSnapshot Snapshot { get; }
@@ -76,6 +83,8 @@ namespace Baseball.Presentation.Owner
         public int EffectiveLevel { get; }
         public string EffectiveConditionText { get; }
         public string AvailabilityText { get; }
+        public string ReasonText { get; }
+        public string ImpactText { get; }
     }
 
     /// <summary>Condition/Chemistry Runtime View에 필요한 불변 행 목록이다.</summary>
@@ -133,13 +142,31 @@ namespace Baseball.Presentation.Owner
             return new OwnerConditionPlayerPresentationRow(
                 player,
                 baseLevel,
-                $"{FormatConditionLabel(baseBand.LabelKey)} · Lv.{baseLevel}",
+                $"{FormatConditionLabel(baseBand.LabelKey)} · {baseLevel}단계",
                 FormatModifier(condition.AssignmentModifier),
                 FormatModifier(condition.LineupChemistryModifier),
                 player.IsPitcher ? FormatModifier(condition.BatteryChemistryModifier) : "해당 없음",
                 effectiveLevel,
-                $"{FormatConditionLabel(effectiveBand.LabelKey)} · Lv.{effectiveLevel}",
-                FormatAvailability(player.Availability));
+                $"{FormatConditionLabel(effectiveBand.LabelKey)} · {effectiveLevel}단계",
+                FormatAvailability(player.Availability),
+                FormatReasons(player),
+                $"다음 경기 모든 능력치 {FormatModifier(player.RatingModifier)}");
+        }
+
+        private static string FormatReasons(OwnerConditionPlayerSnapshot player)
+        {
+            EffectiveMatchCondition condition = player.EffectiveCondition;
+            var reasons = new List<string>(5)
+            {
+                $"저장 컨디션 {condition.StoredBaseCondition}",
+                $"배치 {FormatModifier(condition.AssignmentModifier)}",
+                $"타선 궁합 {FormatModifier(condition.LineupChemistryModifier)}"
+            };
+            if (player.IsPitcher)
+                reasons.Add($"배터리 궁합 {FormatModifier(condition.BatteryChemistryModifier)}");
+            if (condition.TemporaryModifier != 0)
+                reasons.Add($"일시 보정 {FormatModifier(condition.TemporaryModifier)}");
+            return string.Join("\n", reasons);
         }
 
         /// <summary>연속 Condition 원값을 노출하지 않고 데이터화된 1~10단계와 한글 상태로 표현한다.</summary>
@@ -147,7 +174,7 @@ namespace Baseball.Presentation.Owner
         {
             if (presentation == null) throw new ArgumentNullException(nameof(presentation));
             int level = presentation.GetLevel(condition);
-            return $"{FormatConditionLabel(presentation.GetBand(condition).LabelKey)} · Lv.{level}";
+            return $"{FormatConditionLabel(presentation.GetBand(condition).LabelKey)} · {level}단계";
         }
 
         private static string FormatModifier(int value) => value > 0 ? $"+{value}" : value.ToString();
