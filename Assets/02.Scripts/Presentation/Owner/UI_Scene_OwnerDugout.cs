@@ -1,4 +1,6 @@
 using System;
+using Baseball.Core.Historical;
+using Baseball.Core.Teams;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,6 +11,8 @@ namespace Baseball.Presentation.Owner
     [DisallowMultipleComponent]
     public sealed class UI_Scene_OwnerDugout : MonoBehaviour
     {
+        private const string ManagerPortraitPath = "UI/OwnerDugout/OwnerManager_Silhouette_V1";
+        private const string HeadCoachPortraitPath = "UI/OwnerDugout/OwnerHeadCoach_Silhouette_V1";
         private static readonly Color Paper = new Color(0.02f, 0.045f, 0.08f, 0.72f);
         private static readonly Color Border = CareerUiTheme.ShellGold;
         private static readonly Color Ink = CareerUiTheme.TextPrimary;
@@ -17,9 +21,25 @@ namespace Baseball.Presentation.Owner
         private readonly Slider[] _sliders = new Slider[6];
         private RectTransform _root;
         private RectTransform _selectionOverlay;
+        private RectTransform _selectionInventory;
         private Text _selectionTitle;
         private Text _selectionEmpty;
+        private Text _selectionDetail;
         private Text _status;
+        private Text _managerName;
+        private Text _managerEffect;
+        private Text _headCoachName;
+        private Text _headCoachEffect;
+        private readonly Text[] _summaryCards = new Text[4];
+        private Button _confirmButton;
+        private Button _selectionConfirmButton;
+        private OwnerDugoutSnapshot _snapshot;
+        private string _draftManagerId = string.Empty;
+        private string _draftHeadCoachId = string.Empty;
+        private string _candidateId = string.Empty;
+        private bool _isSelectingManager;
+
+        public event Action<OwnerDugoutConfigurationCommand> ConfigurationConfirmed;
 
         /// <summary>셸의 전체 작업 영역에 덕아웃을 생성한다.</summary>
         public static UI_Scene_OwnerDugout CreateRuntime(RectTransform host)
@@ -35,6 +55,22 @@ namespace Baseball.Presentation.Owner
         {
             if (!visible) _selectionOverlay.gameObject.SetActive(false);
             _root.gameObject.SetActive(visible);
+        }
+
+        /// <summary>저장 원본과 실제 경기 적용값으로 화면의 임시 편집 상태를 초기화한다.</summary>
+        public void Bind(OwnerDugoutSnapshot snapshot)
+        {
+            _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+            RestoreSnapshot();
+            _confirmButton.interactable = true;
+            _status.text = $"경기 적용 준비 · 감독 신뢰도 {snapshot.ManagerTrust}/100";
+        }
+
+        /// <summary>Game Command의 성공·실패를 덕아웃 상태 줄에 표시한다.</summary>
+        public void SetFeedback(string message, bool isError)
+        {
+            _status.text = message ?? string.Empty;
+            _status.color = isError ? Red : Ink;
         }
 
         private void Build(RectTransform host)
@@ -60,8 +96,10 @@ namespace Baseball.Presentation.Owner
             Label(policy, "PolicyHint", "방침을 움직여 설명을 확인하세요.", 0.03f, 0.005f, 0.97f, 0.07f, 16, Ink);
 
             RectTransform staff = Box(board, "StaffColumn", 0.41f, 0f, 0.55f, 1f, Paper);
-            CreateStaff(staff, "Manager", "감독", 0.515f, 0.98f, new Color(0.22f, 0.17f, 0.07f, 0.72f));
-            CreateStaff(staff, "HeadCoach", "수석코치", 0.02f, 0.485f, new Color(0.15f, 0.10f, 0.23f, 0.72f));
+            CreateStaff(staff, "Manager", "감독", ManagerPortraitPath,
+                0.515f, 0.98f, new Color(0.22f, 0.17f, 0.07f, 0.72f));
+            CreateStaff(staff, "HeadCoach", "수석코치", HeadCoachPortraitPath,
+                0.02f, 0.485f, new Color(0.15f, 0.10f, 0.23f, 0.72f));
             RectTransform cards = Box(board, "CardSlots", 0.56f, 0f, 1f, 1f, Paper);
             for (int index = 0; index < 4; index++)
             {
@@ -71,17 +109,18 @@ namespace Baseball.Presentation.Owner
                     0.025f + column * 0.495f, 0.515f - row * 0.495f,
                     0.48f + column * 0.495f, 0.98f - row * 0.495f,
                     new Color(0.89f, 0.90f, 0.90f));
-                CardBack(card);
+                _summaryCards[index] = Label(card, "Summary", "덕아웃 정보",
+                    0.08f, 0.08f, 0.92f, 0.92f, 17, index < 2 ? Blue : Red);
             }
 
-            _status = Label(_root, "PreviewStatus", "화면 미리보기 · 방침은 경기에 적용되지 않습니다.",
+            _status = Label(_root, "PreviewStatus", "덕아웃 데이터를 불러오는 중입니다.",
                 0.02f, 0.01f, 0.47f, 0.08f, 16, Ink);
             Button sell = ActionButton(_root, "Sell", "판매", 0.49f, 0.015f, 0.64f, 0.075f, null);
-            Button confirm = ActionButton(_root, "Confirm", "결정", 0.65f, 0.015f, 0.80f, 0.075f, null);
-            ActionButton(_root, "Cancel", "취소", 0.81f, 0.015f, 0.96f, 0.075f, ResetPolicy);
-            // 저장·판매 경로가 없으므로 성공한 것처럼 보이는 로컬 확정 동작을 만들지 않는다.
+            _confirmButton = ActionButton(_root, "Confirm", "결정", 0.65f, 0.015f, 0.80f, 0.075f, ConfirmConfiguration);
+            ActionButton(_root, "Cancel", "취소", 0.81f, 0.015f, 0.96f, 0.075f, RestoreSnapshot);
+            // 감독·수석코치는 선수 카드 경제와 별도인 운영 인력이므로 판매 대상이 아니다.
             sell.interactable = false;
-            confirm.interactable = false;
+            _confirmButton.interactable = false;
             BuildSelectionOverlay();
             CareerUiSkin.Apply(_root);
         }
@@ -122,19 +161,52 @@ namespace Baseball.Presentation.Owner
             slider.onValueChanged.AddListener(value =>
             {
                 description.text = value < 2f ? lowDescription : value > 2f ? highDescription : "균형 잡힌 방침을 사용합니다.";
-                _status.text = "방침 미리보기 중 · 경기에 적용되지 않습니다.";
+                if (_snapshot != null) _status.text = "변경 사항이 있습니다. 결정하면 다음 경기부터 적용됩니다.";
             });
             _sliders[index] = slider;
         }
 
-        private void CreateStaff(RectTransform parent, string name, string title, float bottom, float top, Color tint)
+        private void CreateStaff(
+            RectTransform parent,
+            string name,
+            string title,
+            string portraitPath,
+            float bottom,
+            float top,
+            Color tint)
         {
             RectTransform panel = Box(parent, name, 0.06f, bottom, 0.94f, top, tint);
             Label(panel, "Title", title, 0f, 0.85f, 1f, 1f, 21, name == "Manager" ? CareerUiTheme.AccentGold : new Color(0.78f, 0.65f, 0.94f));
             RectTransform card = Box(panel, "StaffCard", 0.17f, 0.27f, 0.83f, 0.81f, new Color(0.81f, 0.82f, 0.82f));
-            CardBack(card);
+            if (!TryCreateStaffPortrait(card, portraitPath)) CardBack(card);
+            Text currentName = Label(panel, "CurrentName", "미배정", 0.04f, 0.20f, 0.96f, 0.30f, 17, Ink);
+            Text currentEffect = Label(panel, "CurrentEffect", "정보 없음", 0.04f, 0.135f, 0.96f, 0.22f, 12, Ink);
+            if (name == "Manager")
+            {
+                _managerName = currentName;
+                _managerEffect = currentEffect;
+            }
+            else
+            {
+                _headCoachName = currentName;
+                _headCoachEffect = currentEffect;
+            }
             ActionButton(panel, "Select", title == "감독" ? "감독 선택" : "코치 선택",
-                0.10f, 0.04f, 0.90f, 0.20f, () => OpenSelection(title));
+                0.10f, 0.02f, 0.90f, 0.13f, () => OpenSelection(title == "감독"));
+        }
+
+        private static bool TryCreateStaffPortrait(Transform parent, string resourcePath)
+        {
+            Sprite sprite = Resources.Load<Sprite>(resourcePath);
+            if (sprite == null) return false;
+
+            RectTransform portrait = Rect(parent, "Portrait", 0f, 0f, 1f, 1f);
+            Image image = portrait.gameObject.AddComponent<Image>();
+            image.sprite = sprite;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            return true;
         }
 
         private void BuildSelectionOverlay()
@@ -147,19 +219,24 @@ namespace Baseball.Presentation.Owner
             _selectionTitle = Label(dialog, "Title", "감독 선택", 0.025f, 0.92f, 0.85f, 0.995f, 24, Blue, TextAnchor.MiddleLeft);
             ActionButton(dialog, "Close", "×", 0.92f, 0.935f, 0.98f, 0.99f, CloseSelection);
             RectTransform preview = Box(dialog, "SelectedCard", 0.025f, 0.17f, 0.40f, 0.91f, new Color(0.90f, 0.86f, 0.72f));
-            CardBack(preview);
-            RectTransform inventory = Box(dialog, "StaffInventory", 0.425f, 0.17f, 0.975f, 0.91f, Paper);
-            _selectionEmpty = Label(inventory, "EmptyState", string.Empty, 0.08f, 0.12f, 0.92f, 0.88f, 22, Ink);
-            Button confirm = ActionButton(dialog, "Confirm", "결정", 0.28f, 0.035f, 0.49f, 0.12f, null);
-            confirm.interactable = false;
+            _selectionDetail = Label(preview, "Detail", "후보를 선택하세요.", 0.08f, 0.08f, 0.92f, 0.92f, 17, Ink);
+            _selectionInventory = Box(dialog, "StaffInventory", 0.425f, 0.17f, 0.975f, 0.91f, Paper);
+            _selectionEmpty = Label(_selectionInventory, "EmptyState", string.Empty, 0.08f, 0.12f, 0.92f, 0.88f, 22, Ink);
+            _selectionConfirmButton = ActionButton(dialog, "Confirm", "결정", 0.28f, 0.035f, 0.49f, 0.12f, ApplySelectedCandidate);
+            _selectionConfirmButton.interactable = false;
             ActionButton(dialog, "Exit", "나가기", 0.51f, 0.035f, 0.72f, 0.12f, CloseSelection);
             _selectionOverlay.gameObject.SetActive(false);
         }
 
-        private void OpenSelection(string title)
+        private void OpenSelection(bool isManager)
         {
+            _isSelectingManager = isManager;
+            _candidateId = string.Empty;
+            string title = isManager ? "감독" : "수석코치";
             _selectionTitle.text = title + " 선택";
-            _selectionEmpty.text = "선택 가능한 " + title + " 카드가 없습니다.\n\n카드 선택 기능 준비 중";
+            _selectionDetail.text = "후보를 선택하면 전술 성향과 효과를 확인할 수 있습니다.";
+            _selectionConfirmButton.interactable = false;
+            RebuildCandidateButtons();
             _selectionOverlay.gameObject.SetActive(true);
             _selectionOverlay.SetAsLastSibling();
         }
@@ -169,7 +246,132 @@ namespace Baseball.Presentation.Owner
         private void ResetPolicy()
         {
             for (int index = 0; index < _sliders.Length; index++) _sliders[index].value = 2f;
-            _status.text = "화면 미리보기 · 방침은 경기에 적용되지 않습니다.";
+            if (_snapshot != null) _status.text = "중립 방침으로 변경했습니다. 결정 전에는 저장되지 않습니다.";
+        }
+
+        private void RestoreSnapshot()
+        {
+            if (_snapshot == null)
+            {
+                ResetPolicy();
+                return;
+            }
+            _draftManagerId = _snapshot.SelectedManagerId;
+            _draftHeadCoachId = _snapshot.SelectedHeadCoachId;
+            int minimum = DugoutPolicySettings.NeutralLevel - _snapshot.AllowedPolicyOffset;
+            int maximum = DugoutPolicySettings.NeutralLevel + _snapshot.AllowedPolicyOffset;
+            for (int index = 0; index < _sliders.Length; index++)
+            {
+                _sliders[index].minValue = minimum;
+                _sliders[index].maxValue = maximum;
+                _sliders[index].SetValueWithoutNotify(_snapshot.Policy.GetLevel((DugoutPolicyAxis)index));
+            }
+            RefreshStaffLabels();
+            RefreshSummary();
+            _status.color = Ink;
+            _status.text = $"저장된 방침 · 감독 신뢰도 {_snapshot.ManagerTrust}/100";
+        }
+
+        private void ConfirmConfiguration()
+        {
+            if (_snapshot == null) return;
+            var policy = new DugoutPolicySettings(
+                (int)_sliders[0].value,
+                (int)_sliders[1].value,
+                (int)_sliders[2].value,
+                (int)_sliders[3].value,
+                (int)_sliders[4].value,
+                (int)_sliders[5].value);
+            ConfigurationConfirmed?.Invoke(new OwnerDugoutConfigurationCommand(
+                _draftManagerId,
+                _draftHeadCoachId,
+                policy));
+        }
+
+        private void RebuildCandidateButtons()
+        {
+            for (int index = _selectionInventory.childCount - 1; index >= 0; index--)
+            {
+                Transform child = _selectionInventory.GetChild(index);
+                if (child == _selectionEmpty.transform) continue;
+                if (Application.isPlaying) Destroy(child.gameObject);
+                else DestroyImmediate(child.gameObject);
+            }
+            if (_snapshot == null)
+            {
+                _selectionEmpty.text = "덕아웃 데이터를 불러오지 못했습니다.";
+                _selectionEmpty.gameObject.SetActive(true);
+                return;
+            }
+            _selectionEmpty.gameObject.SetActive(false);
+            OwnerDugoutStaffCandidate[] source = _isSelectingManager ? _snapshot.Managers : _snapshot.HeadCoaches;
+            for (int index = 0; index < source.Length; index++)
+            {
+                OwnerDugoutStaffCandidate candidate = source[index];
+                float top = 0.96f - index * 0.15f;
+                ActionButton(_selectionInventory, "Candidate" + index,
+                    candidate.DisplayName + " · " + candidate.Specialty,
+                    0.05f, top - 0.115f, 0.95f, top,
+                    () => SelectCandidate(candidate));
+            }
+        }
+
+        private void SelectCandidate(OwnerDugoutStaffCandidate candidate)
+        {
+            _candidateId = candidate.Id;
+            _selectionDetail.text = candidate.DisplayName + "\n" + candidate.Specialty + "\n\n" +
+                                    candidate.Description + "\n\n" + candidate.EffectDescription;
+            _selectionConfirmButton.interactable = true;
+        }
+
+        private void ApplySelectedCandidate()
+        {
+            if (string.IsNullOrEmpty(_candidateId)) return;
+            if (_isSelectingManager)
+            {
+                _draftManagerId = _candidateId;
+                if (!string.Equals(_draftManagerId, _snapshot.SelectedManagerId, StringComparison.Ordinal))
+                {
+                    for (int index = 0; index < _sliders.Length; index++)
+                    {
+                        _sliders[index].minValue = 1f;
+                        _sliders[index].maxValue = 3f;
+                        _sliders[index].value = Mathf.Clamp(_sliders[index].value, 1f, 3f);
+                    }
+                }
+            }
+            else _draftHeadCoachId = _candidateId;
+            RefreshStaffLabels();
+            _status.text = "인선 변경 사항이 있습니다. 결정하면 다음 경기부터 적용됩니다.";
+            CloseSelection();
+        }
+
+        private void RefreshStaffLabels()
+        {
+            if (_snapshot == null) return;
+            OwnerDugoutStaffCandidate manager = _snapshot.GetManager(_draftManagerId);
+            OwnerDugoutStaffCandidate coach = _snapshot.GetHeadCoach(_draftHeadCoachId);
+            _managerName.text = manager.DisplayName + " · " + manager.Specialty;
+            _managerEffect.text = manager.EffectDescription;
+            _headCoachName.text = coach.DisplayName + " · " + coach.Specialty;
+            _headCoachEffect.text = coach.EffectDescription;
+        }
+
+        private void RefreshSummary()
+        {
+            if (_snapshot == null) return;
+            ManagerTacticalProfile profile = _snapshot.EffectiveProfile;
+            _summaryCards[0].text = "타격·주루 판단\n\n타격 " + profile.BattingApproach +
+                                    "\n도루 " + profile.RunningAggression +
+                                    "\n번트 " + profile.SmallBallPreference;
+            _summaryCards[1].text = "교체 판단\n\n대타 " + profile.PinchHitAggression +
+                                    "\n선발 훅 " + profile.HookSpeed +
+                                    "\n불펜 " + profile.BullpenAggression;
+            _summaryCards[2].text = "감독 세부 성향\n\n역할 고정 " + profile.BullpenRoleRigidity +
+                                    "\n상대 맞춤 " + profile.MatchupPreference +
+                                    "\n수비 교체 " + profile.DefensiveAggression;
+            _summaryCards[3].text = "신뢰도 " + _snapshot.ManagerTrust + "/100\n\n현재 조정 범위 ±" +
+                                    _snapshot.AllowedPolicyOffset + "\n60 이상에서 ±2 해금\n능력치 직접 보정 없음";
         }
 
         private static void CardBack(RectTransform parent)
@@ -244,6 +446,7 @@ namespace Baseball.Presentation.Owner
 
         private void OnDestroy()
         {
+            ConfigurationConfirmed = null;
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_root);
         }
     }

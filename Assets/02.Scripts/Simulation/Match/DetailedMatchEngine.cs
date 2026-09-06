@@ -182,7 +182,13 @@ namespace Baseball.Simulation.Match
                 LeverageTier leverage = GetLeverage(state, inning, half, offense, defense, outs, bases);
                 UpdateLeverageEvent(state, inning, half, leverage);
 
-                if (offense.TryFindPinchHitter(battingOrderIndex, inning, leverage, out int benchIndex))
+                if (offense.TryFindPinchHitter(
+                        battingOrderIndex,
+                        inning,
+                        leverage,
+                        out int benchIndex,
+                        out double pinchHitScore,
+                        out double pinchHitThreshold))
                 {
                     Player leaving = offense.SubstitutePositionPlayer(
                         battingOrderIndex,
@@ -192,6 +198,14 @@ namespace Baseball.Simulation.Match
                         SubstitutionType.PinchHitter,
                         DecisionReasonCode.ExpectedValue);
                     batter = offense.GetBatter(battingOrderIndex);
+                    state.Trace?.Add(new DecisionTraceEntry(
+                        inning,
+                        half,
+                        batter.Player.PlayerId,
+                        "PinchHit",
+                        DecisionReasonCode.ManagerProfile,
+                        pinchHitScore,
+                        pinchHitThreshold));
                     offense.BoxScore.GetBattingLine(batter.Player.PlayerId).AppearedAsPinchHitter = true;
                     Emit(
                         state,
@@ -301,9 +315,21 @@ namespace Baseball.Simulation.Match
                 }
                 else
                 {
-                    BattingApproach strategicApproach = _tacticalAi.ShouldSacrificeBunt(context)
+                    TacticalDecision buntDecision = _tacticalAi.EvaluateSacrificeBunt(context);
+                    BattingApproach strategicApproach = buntDecision.ShouldAct
                         ? BattingApproach.Bunt
                         : _decisionCoordinator.GetBattingApproach(context);
+                    if (buntDecision.ShouldAct)
+                    {
+                        state.Trace?.Add(new DecisionTraceEntry(
+                            inning,
+                            half,
+                            batter.Player.PlayerId,
+                            "SacrificeBunt",
+                            DecisionReasonCode.ManagerProfile,
+                            buntDecision.Score,
+                            buntDecision.Threshold));
+                    }
                     PitchingApproach pitchingApproach = GetPitchingApproach(
                         state,
                         inning,
@@ -351,7 +377,9 @@ namespace Baseball.Simulation.Match
                         inning,
                         offense.BoxScore.Runs - defense.BoxScore.Runs,
                         leverage,
-                        out int pinchRunnerBenchIndex))
+                        out int pinchRunnerBenchIndex,
+                        out double pinchRunnerScore,
+                        out double pinchRunnerThreshold))
                 {
                     Player leaving = offense.SubstitutePositionPlayer(
                         battingOrderIndex,
@@ -361,6 +389,14 @@ namespace Baseball.Simulation.Match
                         SubstitutionType.PinchRunner,
                         DecisionReasonCode.ExpectedValue);
                     DetailedLineupReference entering = offense.GetBatter(battingOrderIndex);
+                    state.Trace?.Add(new DecisionTraceEntry(
+                        inning,
+                        half,
+                        entering.Player.PlayerId,
+                        "PinchRunner",
+                        DecisionReasonCode.ManagerProfile,
+                        pinchRunnerScore,
+                        pinchRunnerThreshold));
                     bases.ReplaceRunner(
                         leaving.PlayerId,
                         entering.Player,

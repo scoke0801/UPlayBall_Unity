@@ -84,7 +84,11 @@ namespace Baseball.Simulation.Match
                 return;
             for (int orderIndex = 0; orderIndex < BaseballRules.BattingOrderSize; orderIndex++)
             {
-                if (!defense.TryFindDefensiveReplacement(orderIndex, out int benchIndex))
+                if (!defense.TryFindDefensiveReplacement(
+                        orderIndex,
+                        out int benchIndex,
+                        out double replacementScore,
+                        out double replacementThreshold))
                     continue;
                 Player leaving = defense.SubstitutePositionPlayer(
                     orderIndex,
@@ -94,6 +98,14 @@ namespace Baseball.Simulation.Match
                     SubstitutionType.DefensiveReplacement,
                     DecisionReasonCode.DefensiveStrategy);
                 Player entering = defense.GetBatter(orderIndex).Player;
+                state.Trace?.Add(new DecisionTraceEntry(
+                    inning,
+                    half,
+                    entering.PlayerId,
+                    "DefensiveReplacement",
+                    DecisionReasonCode.ManagerProfile,
+                    replacementScore,
+                    replacementThreshold));
                 Emit(
                     state,
                     MatchEventType.DefensiveReplacement,
@@ -151,7 +163,8 @@ namespace Baseball.Simulation.Match
             if (!bases.First.IsOccupied || bases.Second.IsOccupied)
                 return false;
             Player catcher = defense.GetCatcher();
-            if (!_tacticalAi.ShouldAttemptSteal(context, bases.First.Player, catcher))
+            TacticalDecision decision = _tacticalAi.EvaluateSteal(context, bases.First.Player, catcher);
+            if (!decision.ShouldAct)
                 return false;
 
             DetailedBaseRunner runner = bases.First;
@@ -159,6 +172,14 @@ namespace Baseball.Simulation.Match
                 runner.Player,
                 catcher,
                 defense.ActivePitcher);
+            state.Trace?.Add(new DecisionTraceEntry(
+                inning,
+                half,
+                runner.Player.PlayerId,
+                "Steal",
+                DecisionReasonCode.ManagerProfile,
+                decision.Score,
+                decision.Threshold));
             Emit(
                 state,
                 MatchEventType.StealAttempted,

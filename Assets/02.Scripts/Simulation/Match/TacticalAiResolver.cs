@@ -4,6 +4,21 @@ using Baseball.Core.Players;
 
 namespace Baseball.Simulation.Match
 {
+    /// <summary>전술 행동 여부와 그때 비교한 기대값을 함께 반환한다.</summary>
+    public readonly struct TacticalDecision
+    {
+        public TacticalDecision(bool shouldAct, double score, double threshold)
+        {
+            ShouldAct = shouldAct;
+            Score = score;
+            Threshold = threshold;
+        }
+
+        public bool ShouldAct { get; }
+        public double Score { get; }
+        public double Threshold { get; }
+    }
+
     /// <summary>
     /// 도루·번트·고의사구·수비 정렬을 같은 기대 득점/승리 기대값 위에서 결정한다.
     /// </summary>
@@ -56,8 +71,17 @@ namespace Baseball.Simulation.Match
             Player runner,
             Player catcher)
         {
+            return EvaluateSteal(context, runner, catcher).ShouldAct;
+        }
+
+        /// <summary>도루 기대값에 주루 방침을 더한 최종 판단값을 반환한다.</summary>
+        public TacticalDecision EvaluateSteal(
+            DecisionContext context,
+            Player runner,
+            Player catcher)
+        {
             if (!context.Bases.HasRunnerOnFirst || context.Bases.HasRunnerOnSecond || context.Outs >= 2)
-                return false;
+                return new TacticalDecision(false, double.MinValue, _balance.StealAttemptUtilityThreshold);
             double success = CalculateStealSuccess(runner, catcher, context.Pitcher);
             double current = _runExpectancy.Get(context.Outs, context.Bases.OccupancyMask);
             double successValue = _runExpectancy.Get(context.Outs, 2);
@@ -66,17 +90,26 @@ namespace Baseball.Simulation.Match
             utility += (context.ManagerProfile.RunningAggression - 50d) * 0.0015d;
             if (context.Inning >= 8 && context.ScoreDifference == 0)
                 utility += 0.035d;
-            return utility >= _balance.StealAttemptUtilityThreshold;
+            return new TacticalDecision(
+                utility >= _balance.StealAttemptUtilityThreshold,
+                utility,
+                _balance.StealAttemptUtilityThreshold);
         }
 
         public bool ShouldSacrificeBunt(DecisionContext context)
         {
+            return EvaluateSacrificeBunt(context).ShouldAct;
+        }
+
+        /// <summary>번트 기대값에 감독의 SmallBall 성향을 더한 최종 판단값을 반환한다.</summary>
+        public TacticalDecision EvaluateSacrificeBunt(DecisionContext context)
+        {
             if (context.Outs >= 2 || !context.Bases.HasRunnerOnFirst && !context.Bases.HasRunnerOnSecond)
-                return false;
+                return new TacticalDecision(false, double.MinValue, _balance.BuntUtilityThreshold);
             if (context.Inning < 7 || context.ScoreDifference < -1 || context.ScoreDifference > 0)
-                return false;
+                return new TacticalDecision(false, double.MinValue, _balance.BuntUtilityThreshold);
             if (GetBatterThreat(context.Batter) >= 62d)
-                return false;
+                return new TacticalDecision(false, double.MinValue, _balance.BuntUtilityThreshold);
             int successMask = context.Bases.HasRunnerOnSecond ? 4 : 2;
             double current = _runExpectancy.Get(context.Outs, context.Bases.OccupancyMask);
             double oneRunValue = _runExpectancy.Get(context.Outs + 1, successMask);
@@ -86,7 +119,10 @@ namespace Baseball.Simulation.Match
                 utility += 0.24d;
             else if (context.Inning >= 7 && context.ScoreDifference == -1)
                 utility += 0.12d;
-            return utility >= _balance.BuntUtilityThreshold;
+            return new TacticalDecision(
+                utility >= _balance.BuntUtilityThreshold,
+                utility,
+                _balance.BuntUtilityThreshold);
         }
 
         public double CalculateStealSuccess(Player runner, Player catcher, Player pitcher)

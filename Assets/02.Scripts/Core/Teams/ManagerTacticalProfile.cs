@@ -15,7 +15,9 @@ namespace Baseball.Core.Teams
             int runningAggression,
             int matchupPreference,
             int defensiveAggression,
-            int starTrust)
+            int starTrust,
+            int battingApproach = 50,
+            int pinchHitAggression = 50)
         {
             HookSpeed = Validate(hookSpeed, nameof(hookSpeed));
             BullpenAggression = Validate(bullpenAggression, nameof(bullpenAggression));
@@ -25,6 +27,8 @@ namespace Baseball.Core.Teams
             MatchupPreference = Validate(matchupPreference, nameof(matchupPreference));
             DefensiveAggression = Validate(defensiveAggression, nameof(defensiveAggression));
             StarTrust = Validate(starTrust, nameof(starTrust));
+            BattingApproach = Validate(battingApproach, nameof(battingApproach));
+            PinchHitAggression = Validate(pinchHitAggression, nameof(pinchHitAggression));
         }
 
         public int HookSpeed { get; }
@@ -35,6 +39,8 @@ namespace Baseball.Core.Teams
         public int MatchupPreference { get; }
         public int DefensiveAggression { get; }
         public int StarTrust { get; }
+        public int BattingApproach { get; }
+        public int PinchHitAggression { get; }
 
         public static ManagerTacticalProfile Balanced => new ManagerTacticalProfile(
             50, 50, 50, 50, 50, 50, 50, 50);

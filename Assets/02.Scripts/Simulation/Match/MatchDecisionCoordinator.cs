@@ -45,6 +45,11 @@ namespace Baseball.Simulation.Match
             double contact = batter.Contact * 0.12d + batter.Mental * 0.06d - pitcher.Velocity * 0.04d;
             double power = batter.Power * 0.16d - pitcher.Breaking * 0.08d;
 
+            // 방침은 능력치를 바꾸지 않고 AI가 이미 계산한 타격 접근법의 선택 점수만 이동시킨다.
+            double approachBias = (context.ManagerProfile.BattingApproach - 50d) * 0.18d;
+            contact -= approachBias;
+            power += approachBias;
+
             if (context.Bases.HasRunnerOnThird && context.Outs < 2) contact += 12d;
             if (context.Inning >= 7 && context.ScoreDifference <= -2) power += 11d;
             if (context.Inning >= 7 && context.ScoreDifference == 0) { patient += 6d; contact += 5d; }

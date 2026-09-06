@@ -514,15 +514,21 @@ namespace Baseball.Simulation.Match
             int battingOrderIndex,
             int inning,
             LeverageTier leverage,
-            out int benchIndex)
+            out int benchIndex,
+            out double decisionScore,
+            out double decisionThreshold)
         {
             benchIndex = -1;
-            if (inning < 6 || leverage < LeverageTier.Medium)
+            decisionScore = double.MinValue;
+            decisionThreshold = (8d - (Roster.ManagerProfile.PinchHitAggression - 50d) * 0.10d) *
+                                _decisionRatingSlope;
+            int earliestInning = Roster.ManagerProfile.PinchHitAggression >= 70 ? 5 : 6;
+            if (inning < earliestInning || leverage < LeverageTier.Medium)
                 return false;
             Player current = _activeBatters[battingOrderIndex];
             double currentOffense = GetOffenseValue(current);
             // 선수 능력과 같은 단위로 기준도 투영해 압축 전 감독 교체 의도를 유지한다.
-            double bestGain = 8d * _decisionRatingSlope;
+            double bestGain = decisionThreshold;
             for (int index = 0; index < _benchAvailable.Length; index++)
             {
                 if (!_benchAvailable[index]) continue;
@@ -544,14 +550,22 @@ namespace Baseball.Simulation.Match
                     benchIndex = index;
                 }
             }
+            decisionScore = bestGain;
             return benchIndex >= 0;
         }
 
-        public bool TryFindDefensiveReplacement(int battingOrderIndex, out int benchIndex)
+        public bool TryFindDefensiveReplacement(
+            int battingOrderIndex,
+            out int benchIndex,
+            out double decisionScore,
+            out double decisionThreshold)
         {
             benchIndex = -1;
+            decisionScore = double.MinValue;
             Player current = _activeBatters[battingOrderIndex];
-            double bestGain = 14d * _decisionRatingSlope;
+            decisionThreshold = (14d - (Roster.ManagerProfile.DefensiveAggression - 50d) * 0.10d) *
+                                _decisionRatingSlope;
+            double bestGain = decisionThreshold;
             for (int index = 0; index < _benchAvailable.Length; index++)
             {
                 if (!_benchAvailable[index]) continue;
@@ -573,6 +587,7 @@ namespace Baseball.Simulation.Match
                     benchIndex = index;
                 }
             }
+            decisionScore = bestGain;
             return benchIndex >= 0;
         }
 
@@ -581,13 +596,19 @@ namespace Baseball.Simulation.Match
             int inning,
             int scoreDifference,
             LeverageTier leverage,
-            out int benchIndex)
+            out int benchIndex,
+            out double decisionScore,
+            out double decisionThreshold)
         {
             benchIndex = -1;
-            if (inning < 7 || Math.Abs(scoreDifference) > 1 || leverage < LeverageTier.Medium)
+            decisionScore = double.MinValue;
+            decisionThreshold = (14d - (Roster.ManagerProfile.RunningAggression - 50d) * 0.10d) *
+                                _decisionRatingSlope;
+            int earliestInning = Roster.ManagerProfile.RunningAggression >= 70 ? 6 : 7;
+            if (inning < earliestInning || Math.Abs(scoreDifference) > 1 || leverage < LeverageTier.Medium)
                 return false;
             Player current = _activeBatters[battingOrderIndex];
-            double bestGain = 14d * _decisionRatingSlope;
+            double bestGain = decisionThreshold;
             for (int index = 0; index < _benchAvailable.Length; index++)
             {
                 if (!_benchAvailable[index]) continue;
@@ -610,6 +631,7 @@ namespace Baseball.Simulation.Match
                     benchIndex = index;
                 }
             }
+            decisionScore = bestGain;
             return benchIndex >= 0;
         }
 

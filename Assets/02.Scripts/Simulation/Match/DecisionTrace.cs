@@ -17,7 +17,8 @@ namespace Baseball.Simulation.Match
         DefensiveStrategy = 9,
         Emergency = 10,
         ExpectedValue = 11,
-        PlayerPolicy = 12
+        PlayerPolicy = 12,
+        ManagerProfile = 13
     }
 
     /// <summary>
