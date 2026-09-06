@@ -68,6 +68,22 @@ namespace Baseball.Tests.EditMode.Core.Shop
             Assert.IsFalse(availability.IsPurchasable(product));
         }
 
+        [Test]
+        public void 상품_상세는_공개_확률의_범위와_후보_수를_검증한다()
+        {
+            var details = new ShopProductDetails(
+                "a",
+                "실제 후보군 설명",
+                new[] { new ShopProbabilityEntry("Cost 7 · 일반", 0.25d, 12) },
+                "후보가 있는 결과만 재정규화합니다.");
+
+            Assert.AreEqual("a", details.ProductId);
+            Assert.AreEqual(0.25d, details.Probabilities[0].Probability);
+            Assert.AreEqual(12, details.Probabilities[0].CandidateCount);
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new ShopProbabilityEntry("잘못된 확률", 1.01d, 1));
+        }
+
         internal static ShopProductDefinition CreateProduct(
             string productId,
             ShopProductKind kind,

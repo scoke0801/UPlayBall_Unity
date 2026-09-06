@@ -32,9 +32,20 @@ namespace Baseball.Game.Shop
             IReadOnlyList<ScoutPoolDefinition> scoutPools = ShopDefaultPools.CreateScoutPools(featurePolicy);
             IReadOnlyList<TacticResearchPoolDefinition> tacticPools = ShopDefaultPools.CreateTacticResearchPools(
                 manager.GetFacilityEffects().TacticResearchEfficiencyModifier);
+            IReadOnlyList<TacticCardDefinition> tacticCatalog = manager.GetTacticCardCatalog();
+            ScoutPityBalanceTable pityBalance = ScoutPityBalanceTable.CreateInitial();
 
             ShopCatalog catalog = ShopCatalogBuilder.Build(
                 manager.Balance.Growth.SkillGacha, scoutPools, tacticPools);
+            IReadOnlyList<ShopProductDetails> details = OwnerShopDetailsBuilder.Build(
+                catalog,
+                manager.Balance.Growth.SkillGacha,
+                scoutPools,
+                featurePolicy,
+                runtime.WorldCardCatalog,
+                tacticPools,
+                tacticCatalog,
+                pityBalance);
             var wallet = new ManagerEconomyShopWallet(runtime.Economy);
 
             var fulfillments = new List<IShopProductFulfillment>
@@ -43,7 +54,7 @@ namespace Baseball.Game.Shop
                     new ScoutRoller(),
                     scoutPools,
                     featurePolicy,
-                    ScoutPityBalanceTable.CreateInitial(),
+                    pityBalance,
                     wallet,
                     () => manager.Runtime,
                     () => CreateRandom(manager, history),
@@ -51,7 +62,7 @@ namespace Baseball.Game.Shop
                 new TacticCardPackFulfillment(
                     new TacticResearchRoller(),
                     tacticPools,
-                    manager.GetTacticCardCatalog(),
+                    tacticCatalog,
                     wallet,
                     () => tacticCollection,
                     () => CreateRandom(manager, history)),
@@ -68,7 +79,8 @@ namespace Baseball.Game.Shop
                 ShopAvailabilityFactory.CreateFor(GameMode.OwnerCareer),
                 wallet,
                 fulfillments,
-                history);
+                history,
+                details);
         }
 
         /// <summary>

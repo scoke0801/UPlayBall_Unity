@@ -15,13 +15,15 @@ namespace Baseball.Game.Shop
         private readonly IShopWallet _wallet;
         private readonly Dictionary<ShopProductKind, IShopProductFulfillment> _fulfillments;
         private readonly ShopPurchaseHistoryState _history;
+        private readonly Dictionary<string, ShopProductDetails> _detailsByProductId;
 
         public ShopService(
             ShopCatalog catalog,
             ShopAvailabilityTable availability,
             IShopWallet wallet,
             IReadOnlyList<IShopProductFulfillment> fulfillments,
-            ShopPurchaseHistoryState history)
+            ShopPurchaseHistoryState history,
+            IReadOnlyList<ShopProductDetails> details = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _availability = availability ?? throw new ArgumentNullException(nameof(availability));
@@ -39,6 +41,20 @@ namespace Baseball.Game.Shop
                     throw new ArgumentException("같은 상품 종류의 지급 구현이 둘 이상입니다.", nameof(fulfillments));
                 _fulfillments.Add(fulfillment.Kind, fulfillment);
             }
+
+            _detailsByProductId = new Dictionary<string, ShopProductDetails>(StringComparer.Ordinal);
+            if (details == null)
+                return;
+            for (int index = 0; index < details.Count; index++)
+            {
+                ShopProductDetails productDetails = details[index]
+                    ?? throw new ArgumentException("null 상품 상세가 있습니다.", nameof(details));
+                if (!_catalog.TryGetProduct(productDetails.ProductId, out _))
+                    throw new ArgumentException("카탈로그에 없는 상품 상세가 있습니다.", nameof(details));
+                if (_detailsByProductId.ContainsKey(productDetails.ProductId))
+                    throw new ArgumentException("같은 상품 상세가 둘 이상입니다.", nameof(details));
+                _detailsByProductId.Add(productDetails.ProductId, productDetails);
+            }
         }
 
         public ShopCatalog Catalog => _catalog;
@@ -46,6 +62,17 @@ namespace Baseball.Game.Shop
         public ShopPurchaseHistoryState History => _history;
 
         public ShopWalletBalance GetBalance() => _wallet.GetBalance();
+
+        /// <summary>Simulation이 확정한 실제 결과군 확률을 돌려준다.</summary>
+        public bool TryGetDetails(string productId, out ShopProductDetails details)
+        {
+            if (string.IsNullOrWhiteSpace(productId))
+            {
+                details = null;
+                return false;
+            }
+            return _detailsByProductId.TryGetValue(productId, out details);
+        }
 
         public ShopPurchaseQuote GetQuote(ShopProductDefinition product)
         {

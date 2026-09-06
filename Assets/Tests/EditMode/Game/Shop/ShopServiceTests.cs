@@ -141,6 +141,28 @@ namespace Baseball.Tests.EditMode.Game.Shop
                 "broken", new[] { 1d, 1d, 1d, 1d }, 100L));
         }
 
+        [Test]
+        public void 상품_상세는_카탈로그_ProductId로만_조회된다()
+        {
+            ShopProductDefinition product = CreateSkillProduct();
+            var details = new ShopProductDetails(
+                product.ProductId,
+                "실제 확률 설명",
+                new[] { new ShopProbabilityEntry("일반", 1d, 3) },
+                "테스트 공지");
+            var service = new ShopService(
+                new ShopCatalog(new[] { product }),
+                ShopAvailabilityTable.AllUnlocked(),
+                new ShopWalletStub(1000L),
+                new IShopProductFulfillment[] { new StubFulfillment(ShopProductKind.SkillBlockPack) },
+                new ShopPurchaseHistoryState(),
+                new[] { details });
+
+            Assert.IsTrue(service.TryGetDetails(product.ProductId, out ShopProductDetails found));
+            Assert.AreSame(details, found);
+            Assert.IsFalse(service.TryGetDetails("없는상품", out _));
+        }
+
         private static ShopService CreateService(
             IShopWallet wallet,
             ShopAvailabilityTable availability,
