@@ -78,13 +78,17 @@ namespace Baseball.Game.Historical
             SeasonFinanceSummary completedFinance,
             StaffSalarySettlementResult salarySettlement,
             StaffContractAdvanceResult staffAdvance,
-            ManagerLiveSeasonState nextSeason)
+            ManagerLiveSeasonState nextSeason,
+            LeagueGrade? previousLeagueGrade = null,
+            LeagueGrade? nextLeagueGrade = null)
         {
             Status = status;
             CompletedFinance = completedFinance;
             SalarySettlement = salarySettlement;
             StaffAdvance = staffAdvance;
             NextSeason = nextSeason;
+            PreviousLeagueGrade = previousLeagueGrade;
+            NextLeagueGrade = nextLeagueGrade;
         }
 
         public ManagerSeasonAdvanceStatus Status { get; }
@@ -92,6 +96,8 @@ namespace Baseball.Game.Historical
         public StaffSalarySettlementResult SalarySettlement { get; }
         public StaffContractAdvanceResult StaffAdvance { get; }
         public ManagerLiveSeasonState NextSeason { get; }
+        public LeagueGrade? PreviousLeagueGrade { get; }
+        public LeagueGrade? NextLeagueGrade { get; }
         public bool IsApplied => Status == ManagerSeasonAdvanceStatus.Applied;
     }
 
@@ -148,9 +154,12 @@ namespace Baseball.Game.Historical
             ManagerModeRuntimeState mode = RequireMode(runtime);
             if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState ownedCard))
                 throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 훈련할 수 없습니다.");
+            if (IsStudying(runtime, cardId))
+                throw new InvalidOperationException("유학 중인 카드는 카드 훈련할 수 없습니다.");
             if (!runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
                 throw new InvalidOperationException("WorldCardCatalog에 훈련 카드가 없습니다.");
             PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+            ValidateTrainingDiscipline(season, program.Ability);
             StaffTrainingDiscipline discipline = PlayerAbilityCatalog.IsBatterAbility(program.Ability)
                 ? StaffTrainingDiscipline.Hitting
                 : StaffTrainingDiscipline.Pitching;
@@ -163,6 +172,110 @@ namespace Baseball.Game.Historical
                 program,
                 runtime.Economy,
                 staffEfficiency);
+        }
+
+        /// <summary>실제 훈련과 같은 스태프 효율·상한·DP를 사용해 적용 전 결과를 계산한다.</summary>
+        public CardTrainingPreview PreviewOwnedCardTraining(
+            ManagerHistoricalRuntimeState runtime,
+            string cardId,
+            CardTrainingProgramDefinition program)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (program == null) throw new ArgumentNullException(nameof(program));
+            if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState ownedCard))
+                throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 훈련할 수 없습니다.");
+            if (IsStudying(runtime, cardId))
+                throw new InvalidOperationException("유학 중인 카드는 카드 훈련할 수 없습니다.");
+            if (!runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
+                throw new InvalidOperationException("WorldCardCatalog에 훈련 카드가 없습니다.");
+            PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+            ValidateTrainingDiscipline(season, program.Ability);
+            StaffTrainingDiscipline discipline = PlayerAbilityCatalog.IsBatterAbility(program.Ability)
+                ? StaffTrainingDiscipline.Hitting
+                : StaffTrainingDiscipline.Pitching;
+            StaffTrainingEfficiencyResult efficiency = StaffTrainingEfficiencyResolver.Resolve(
+                ResolvePlayerStaffEffects(RequireMode(runtime)),
+                new StaffTrainingEfficiencyContext(discipline, includeDevelopmentCoach: true));
+            return CardTrainingResolver.Preview(
+                ownedCard, season, program, runtime.Economy, efficiency);
+        }
+
+        /// <summary>1군 밖 보유 카드의 유학을 TrainingCenter 정원과 시즌 1회 규칙으로 시작한다.</summary>
+        public void StartOwnedCardStudy(
+            ManagerHistoricalRuntimeState runtime,
+            string cardId,
+            CardStudyProgramDefinition program)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (program == null) throw new ArgumentNullException(nameof(program));
+            if (ContainsCard(runtime.GetRoster(runtime.PlayerTeamSeasonKey), cardId))
+                throw new InvalidOperationException("1군 등록 카드는 유학을 시작할 수 없습니다.");
+            if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState owned))
+                throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 유학할 수 없습니다.");
+            if (!runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
+                throw new InvalidOperationException("WorldCardCatalog에 유학 카드가 없습니다.");
+            int capacity = _balance.OwnerCardGrowth.GetStudyCapacity(
+                RequireMode(runtime).ClubOperation.GetFacility(FacilityType.TrainingCenter).Level);
+            OwnerCardStudyResolver.Start(
+                runtime.PlayerGrowth, owned, runtime.WorldCardCatalog.GetPlayerSeason(card), program,
+                runtime.Economy, runtime.ManagerMode.LiveSeason.SeasonNumber, capacity);
+        }
+
+        /// <summary>공유 인벤토리 블록을 다른 카드와 중복하지 않게 지정 좌표에 장착한다.</summary>
+        public void PlaceOwnedCardSkillBlock(
+            ManagerHistoricalRuntimeState runtime,
+            string cardId,
+            int instanceId,
+            int originX,
+            int originY,
+            int rotationQuarterTurns)
+        {
+            OwnedPlayerCardState card = GetOwnedCard(runtime, cardId);
+            EnsureBlockIsNotEquipped(runtime, instanceId, cardId);
+            new OwnerSkillBoardService(_balance.Growth).Place(
+                runtime.PlayerGrowth.Inventory, card.SkillBoard, instanceId, originX, originY, rotationQuarterTurns);
+        }
+
+        public bool AutoPlaceOwnedCardSkillBlock(ManagerHistoricalRuntimeState runtime, string cardId, int instanceId)
+        {
+            OwnedPlayerCardState card = GetOwnedCard(runtime, cardId);
+            EnsureBlockIsNotEquipped(runtime, instanceId, cardId);
+            return new OwnerSkillBoardService(_balance.Growth).TryPlaceFirstAvailable(
+                runtime.PlayerGrowth.Inventory, card.SkillBoard, instanceId);
+        }
+
+        public bool RemoveOwnedCardSkillBlock(ManagerHistoricalRuntimeState runtime, string cardId, int instanceId) =>
+            new OwnerSkillBoardService(_balance.Growth).Remove(GetOwnedCard(runtime, cardId).SkillBoard, instanceId);
+
+        /// <summary>보유 중복 카드 한 장을 실패 없이 +5 상한까지 강화한다.</summary>
+        public CardEnhancementResult EnhanceOwnedCard(
+            ManagerHistoricalRuntimeState runtime,
+            string cardId)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState ownedCard))
+                throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 강화할 수 없습니다.");
+            return CardEnhancementResolver.Enhance(ownedCard);
+        }
+
+        /// <summary>보유 중복 카드를 Cost·Edition 판매가로 정산해 SP에 반영한다.</summary>
+        public int SellOwnedCardDuplicates(
+            ManagerHistoricalRuntimeState runtime,
+            string cardId,
+            int count)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState ownedCard))
+                throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 판매할 수 없습니다.");
+            if (!runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
+                throw new InvalidOperationException("WorldCardCatalog에 판매 카드가 없습니다.");
+            return CardSaleResolver.SellDuplicates(
+                ownedCard,
+                card,
+                runtime.WorldCardCatalog.GetPlayerSeason(card),
+                CardSaleBalanceTable.CreateInitial(),
+                runtime.Economy,
+                count);
         }
 
         /// <summary>RecoveryCenter와 ConditioningCoach를 별도 Tick이 아닌 단일 회복 Context로 합성한다.</summary>
@@ -259,8 +372,73 @@ namespace Baseball.Game.Historical
             }
 
             season.AdvanceWeek();
+            AdvanceStudies(runtime);
             mode.ClubOperation.BeginWeek(season.CurrentWeekIndex);
             return new ManagerWeeklyAdvanceResult(status, production, recoveries);
+        }
+
+        private void AdvanceStudies(ManagerHistoricalRuntimeState runtime)
+        {
+            for (int index = runtime.PlayerGrowth.StudyProjects.Count - 1; index >= 0; index--)
+            {
+                CardStudyProjectState project = runtime.PlayerGrowth.StudyProjects[index];
+                if (!project.AdvanceWeek()) continue;
+                OwnedPlayerCardState owned = GetOwnedCard(runtime, project.CardId);
+                PlayerCardDefinition card = runtime.WorldCardCatalog.TryGetCard(project.CardId, out PlayerCardDefinition found)
+                    ? found
+                    : throw new InvalidOperationException("유학 카드 원본이 없습니다.");
+                OwnerCardStudyResolver.Complete(
+                    owned,
+                    runtime.WorldCardCatalog.GetPlayerSeason(card),
+                    _balance.OwnerCardGrowth.GetStudyProgram(project.ProgramId));
+                runtime.PlayerGrowth.RemoveStudyAt(index);
+            }
+        }
+
+        private static OwnedPlayerCardState GetOwnedCard(ManagerHistoricalRuntimeState runtime, string cardId)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState card))
+                throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드입니다.");
+            return card;
+        }
+
+        private static bool ContainsCard(CurrentRosterState roster, string cardId)
+        {
+            for (int index = 0; index < roster.Entries.Count; index++)
+                if (string.Equals(roster.Entries[index].CardId, cardId, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        private static bool IsStudying(ManagerHistoricalRuntimeState runtime, string cardId)
+        {
+            for (int index = 0; index < runtime.PlayerGrowth.StudyProjects.Count; index++)
+                if (string.Equals(runtime.PlayerGrowth.StudyProjects[index].CardId, cardId, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        private static void EnsureBlockIsNotEquipped(
+            ManagerHistoricalRuntimeState runtime, int instanceId, string targetCardId)
+        {
+            runtime.PlayerGrowth.Inventory.GetRequired(instanceId);
+            for (int cardIndex = 0; cardIndex < runtime.OwnedCards.Count; cardIndex++)
+            {
+                OwnedPlayerCardState owned = runtime.OwnedCards[cardIndex];
+                for (int blockIndex = 0; blockIndex < owned.SkillBoard.Placements.Count; blockIndex++)
+                {
+                    if (owned.SkillBoard.Placements[blockIndex].Instance.InstanceId != instanceId) continue;
+                    if (string.Equals(owned.CardId, targetCardId, StringComparison.Ordinal))
+                        throw new InvalidOperationException("이 블록은 이미 해당 카드에 장착되어 있습니다.");
+                    throw new InvalidOperationException("이 블록은 다른 카드에 장착되어 있습니다.");
+                }
+            }
+        }
+
+        private static void ValidateTrainingDiscipline(PlayerSeasonDefinition season, PlayerAbility ability)
+        {
+            bool isBatterAbility = PlayerAbilityCatalog.IsBatterAbility(ability);
+            if ((season.PlayerType == Baseball.Core.Players.PlayerType.Batter) != isBatterAbility)
+                throw new InvalidOperationException("선수 유형에 맞는 능력치만 카드 훈련할 수 있습니다.");
         }
 
         /// <summary>플레이어의 연봉·계약을 마감한 뒤 같은 Historical roster snapshot으로 다음 운영 시즌을 연다.</summary>
@@ -330,6 +508,13 @@ namespace Baseball.Game.Historical
                 mode.ClubOperation,
                 nextSeason.SeasonId);
             SeasonFinanceSummary completedFinance = mode.ClubOperation.CurrentSeason;
+            LeagueGrade previousGrade = runtime.League.Grade;
+            ResolvePlayerSeasonRecord(mode.LiveSeason, out int wins, out int losses);
+            LeagueGrade nextGrade = new LeaguePromotionResolver().ResolveNextGrade(
+                previousGrade,
+                wins,
+                losses,
+                _balance.LeaguePromotion);
 
             if (salary.TotalSalary > 0L && !runtime.Economy.TrySpendMoney(salary.TotalSalary))
                 throw new InvalidOperationException("검증된 시즌 Staff 급여를 반영할 수 없습니다.");
@@ -338,12 +523,37 @@ namespace Baseball.Game.Historical
                 nextSeason,
                 staffAdvance.Contracts,
                 staffAdvance.Assignment);
+            runtime.MoveLeagueTo(nextGrade);
+            runtime.ShopPurchaseHistory.ResetPeriod();
             return new ManagerSeasonAdvanceResult(
                 ManagerSeasonAdvanceStatus.Applied,
                 completedFinance,
                 salary,
                 staffAdvance,
-                nextSeason);
+                nextSeason,
+                previousGrade,
+                nextGrade);
+        }
+
+        private static void ResolvePlayerSeasonRecord(
+            ManagerLiveSeasonState season,
+            out int wins,
+            out int losses)
+        {
+            wins = 0;
+            losses = 0;
+            IReadOnlyList<Baseball.Game.Career.ScheduledGameState> games = season.Schedule.Games;
+            for (int index = 0; index < games.Count; index++)
+            {
+                Baseball.Game.Career.ScheduledGameState game = games[index];
+                if (!game.IsCompleted || !game.IncludesTeam(season.PlayerTeamId) || game.AwayRuns == game.HomeRuns)
+                    continue;
+                bool isWin = game.AwayTeamId == season.PlayerTeamId
+                    ? game.AwayRuns > game.HomeRuns
+                    : game.HomeRuns > game.AwayRuns;
+                if (isWin) wins++;
+                else losses++;
+            }
         }
 
         public ManagerModeTransactionStatus ApplyHomeGameFinance(

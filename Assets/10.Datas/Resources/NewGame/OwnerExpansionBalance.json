@@ -1,6 +1,20 @@
 {
-  "schemaVersion": 1,
-  "contentId": "owner-expansion-09-12-v1",
+  "schemaVersion": 2,
+  "contentId": "owner-expansion-09-12-v2",
+  "leaguePromotion": {
+    "rules": [
+      { "leagueGrade": 0, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": false, "relegationWinningPercentage": 0.00 },
+      { "leagueGrade": 1, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": true, "relegationWinningPercentage": 0.40 },
+      { "leagueGrade": 2, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": true, "relegationWinningPercentage": 0.40 },
+      { "leagueGrade": 3, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": true, "relegationWinningPercentage": 0.40 },
+      { "leagueGrade": 4, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": true, "relegationWinningPercentage": 0.40 },
+      { "leagueGrade": 5, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": true, "relegationWinningPercentage": 0.40 },
+      { "leagueGrade": 6, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": true, "relegationWinningPercentage": 0.40 },
+      { "leagueGrade": 7, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": true, "relegationWinningPercentage": 0.40 },
+      { "leagueGrade": 8, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": true, "relegationWinningPercentage": 0.40 },
+      { "leagueGrade": 9, "minimumGames": 40, "hasPromotion": false, "promotionWinningPercentage": 0.00, "hasRelegation": true, "relegationWinningPercentage": 0.40 }
+    ]
+  },
   "conditionChemistry": {
     "presentationBands": [
       { "minimumCondition": 0, "labelKey": "condition.worst", "iconKey": "condition.level_1" },

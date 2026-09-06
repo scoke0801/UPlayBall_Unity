@@ -24,30 +24,10 @@ MonoBehaviour:
     _programPower: 0
     _targetAbilities: []
     _minimumCondition: 0
-    _injuryRisk: 0
+    _conditionSetbackRisk: 0
     _maxTotalGain: 0
     _maxGainPerAbility: 0
     _conditionChange: 30
-    _minimumGuaranteedGain: 0
-    _partnerId:
-    _canRaisePotential: 0
-    _minimumAccessTier: 0
-    _potentialBreakthroughChanceMultiplier: 1
-    _minimumPotentialBreakthroughsWhenCapped: 0
-  - _programId: mandatory_rehab
-    _activityType: 1
-    _category: 1
-    _appliesToAllPlayers: 1
-    _targetPlayerType: 0
-    _durationWeeks: 1
-    _moneyCost: 0
-    _programPower: 0
-    _targetAbilities: []
-    _minimumCondition: 0
-    _injuryRisk: 0
-    _maxTotalGain: 0
-    _maxGainPerAbility: 0
-    _conditionChange: 12
     _minimumGuaranteedGain: 0
     _partnerId:
     _canRaisePotential: 0

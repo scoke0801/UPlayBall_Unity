@@ -68,6 +68,16 @@ namespace Baseball.Presentation.Owner
                 games);
         }
 
+        /// <summary>현재 시즌 누적 개인 기록을 네 부문 모두 확정해 화면이 부문 전환에서 재계산하지 않게 한다.</summary>
+        public OwnerSeasonRecordsPresentationModel CreateSeasonRecords(OwnerModeManager manager)
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime(manager);
+            return new OwnerSeasonRecordsPresentationModel(
+                new OwnerSeasonRecordsService().Build(
+                    runtime,
+                    teamSeasonKey => manager.GetTeamDisplayName(teamSeasonKey)));
+        }
+
         /// <summary>새 게임 생성 때 확정된 WorldHistory 정규 시즌 타격 기록을 현재 시즌 기록과 혼동되지 않게 복사한다.</summary>
         public RecordsScreenSnapshot CreateHistoricalBattingRecords(OwnerModeManager manager)
         {

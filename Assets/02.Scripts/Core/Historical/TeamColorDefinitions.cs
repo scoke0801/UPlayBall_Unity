@@ -298,6 +298,24 @@ namespace Baseball.Core.Historical
         public const string AllStarUpgradeGroupId = "AllStar_SamePool";
         public const string GoldenGloveUpgradeGroupId = "GoldenGlove_SamePool";
 
+        /// <summary>
+        /// 한 구단주 세이브가 사용할 초기 TeamColor 전체 집합이다.
+        /// 정체성 3계열(YearFranchise·Franchise·Year)은 플레이어 구단과 진행 연도를 기준으로 만들고,
+        /// 명예 3계열(AllStar·GoldenGlove·Mvp)은 Edition만 보므로 구단과 무관하게 항상 포함한다.
+        /// 어떤 TeamColor가 존재하는지는 밸런스 결정이므로 Unity 레이어가 아니라 여기서 소유한다.
+        /// </summary>
+        public static IReadOnlyList<TeamColorDefinition> CreateAll(int originYear, string franchiseId)
+        {
+            var definitions = new List<TeamColorDefinition>();
+            definitions.AddRange(CreateYearFranchise(originYear, franchiseId));
+            definitions.AddRange(CreateFranchise(franchiseId));
+            definitions.Add(CreateYear(originYear));
+            definitions.AddRange(CreateAllStar(originYear));
+            definitions.AddRange(CreateGoldenGlove(originYear));
+            definitions.AddRange(CreateMvp());
+            return definitions;
+        }
+
         public static IReadOnlyList<TeamColorDefinition> CreateYearFranchise(int originYear, string franchiseId)
         {
             return new[]

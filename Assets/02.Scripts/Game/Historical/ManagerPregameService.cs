@@ -67,6 +67,7 @@ namespace Baseball.Game.Historical
         private readonly LineupPresetValidator _presetValidator;
         private readonly LineupChemistryResolver _lineupChemistryResolver;
         private readonly BatteryChemistryResolver _batteryChemistryResolver;
+        private readonly OwnerCardAbilityResolver _ownerCardAbilityResolver;
 
         public ManagerPregameService(
             BalanceTable balance,
@@ -93,6 +94,7 @@ namespace Baseball.Game.Historical
             _presetValidator = new LineupPresetValidator();
             _lineupChemistryResolver = new LineupChemistryResolver(balance.ConditionChemistry);
             _batteryChemistryResolver = new BatteryChemistryResolver(balance.ConditionChemistry);
+            _ownerCardAbilityResolver = new OwnerCardAbilityResolver(balance.Growth);
         }
 
         public ManagerPregamePreparation PrepareNextGame(
@@ -374,15 +376,9 @@ namespace Baseball.Game.Historical
         private AbilityRatings CreateEffectiveAbilities(ManagerHistoricalRuntimeState runtime, string cardId)
         {
             PlayerCardDefinition card = GetCard(runtime, cardId);
-            AbilityRatings ratings = runtime.WorldCardCatalog.GetPlayerSeason(card).CreateBaseAttributes();
             runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState owned);
-            for (int index = 0; index < PlayerAbilityCatalog.AbilityCount; index++)
-            {
-                var ability = (PlayerAbility)index;
-                int training = owned == null ? 0 : owned.Training.GetBonus(ability);
-                ratings.AddClamped(ability, card.GetModifier(ability) + training);
-            }
-            return ratings;
+            return _ownerCardAbilityResolver.ResolvePermanent(
+                runtime.WorldCardCatalog.GetPlayerSeason(card), card, owned);
         }
 
         private PlayerSeasonDefinition GetPlayerSeason(ManagerHistoricalRuntimeState runtime, string cardId)

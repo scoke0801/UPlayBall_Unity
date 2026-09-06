@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
+using Baseball.Core.Growth;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -20,10 +21,30 @@ namespace Baseball.Presentation.Owner
         private Text _countText;
         private Text _emptyText;
         private Text _inspectorText;
+        private Text _feedbackText;
         private OwnerCollectionSnapshot _snapshot;
         private OwnerCollectionPresentationModel _model;
         private OwnerCollectionSort _sort = OwnerCollectionSort.Name;
         private string _selectedCardId = string.Empty;
+        private int _trainingIndex;
+        private int _studyIndex;
+        private string _pendingEnhancementCardId = string.Empty;
+
+        private static readonly PlayerAbility[] BatterTrainingAbilities =
+            { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Arm, PlayerAbility.Defense, PlayerAbility.BatterMental };
+        private static readonly PlayerAbility[] PitcherTrainingAbilities =
+            { PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff, PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental };
+        private static readonly string[] BatterStudyPrograms =
+            { "study_contact", "study_power", "study_defense", "study_batter_allround" };
+        private static readonly string[] PitcherStudyPrograms =
+            { "study_velocity", "study_command", "study_breaking", "study_stamina" };
+
+        public event Action<string> EnhancementRequested;
+        public event Action<string> DuplicateSaleRequested;
+        public event Action<string, string> TrainingRequested;
+        public event Action<string, string> StudyRequested;
+        public event Action<string> SkillBlockAutoPlaceRequested;
+        public event Action<string> SkillBlockRemoveRequested;
 
         public static UI_Scene_OwnerCollection CreateRuntime(
             RectTransform workspaceHost,
@@ -42,6 +63,7 @@ namespace Baseball.Presentation.Owner
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             _selectedCardId = string.Empty;
+            _pendingEnhancementCardId = string.Empty;
             RefreshCards();
             ShowNoSelection();
         }
@@ -51,6 +73,13 @@ namespace Baseball.Presentation.Owner
             if (_workspaceRoot != null) _workspaceRoot.gameObject.SetActive(visible);
             if (_inspectorRoot != null) _inspectorRoot.gameObject.SetActive(visible);
             if (_actionRoot != null) _actionRoot.gameObject.SetActive(visible);
+        }
+
+        public void SetFeedback(string message, bool isError)
+        {
+            if (_feedbackText == null) return;
+            _feedbackText.text = message ?? string.Empty;
+            _feedbackText.color = isError ? CareerUiTheme.Loss : CareerUiTheme.Success;
         }
 
         private void Build(RectTransform workspaceHost, RectTransform inspectorHost, RectTransform actionBarHost)
@@ -76,13 +105,38 @@ namespace Baseball.Presentation.Owner
             _actionRoot = OwnerWorkspaceUiFactory.CreateRoot(actionBarHost, "OwnerCollectionActionBar", false);
             HorizontalLayoutGroup actions = OwnerWorkspaceUiFactory.AddHorizontalLayout(_actionRoot, CareerUiTheme.Space3);
             actions.padding = new RectOffset(16, 16, 4, 4);
-            Text help = OwnerWorkspaceUiFactory.CreateText(
-                _actionRoot, "ReadOnlyHelp", "카드를 선택하면 현재 저장 데이터의 소유 상태를 확인할 수 있습니다.",
+            _feedbackText = OwnerWorkspaceUiFactory.CreateText(
+                _actionRoot, "ActionFeedback", "카드를 선택해 중복 강화 또는 판매를 결정합니다.",
                 14, FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.TextSecondary);
-            OwnerWorkspaceUiFactory.SetFlexible(help.rectTransform, 1f, 0f);
-            CreateDisabledAction("EnhancementDisabled", "강화 미리보기·실행 미제공");
-            CreateDisabledAction("SaleDisabled", "판매 미리보기·실행 미제공");
-            CreateDisabledAction("ActiveRosterDisabled", "1군 등록 변경 미제공");
+            OwnerWorkspaceUiFactory.SetFlexible(_feedbackText.rectTransform, 1f, 0f);
+            CreateAction("Enhancement", "중복 1장 강화", () =>
+            {
+                if (string.IsNullOrEmpty(_selectedCardId)) return;
+                if (!string.Equals(_pendingEnhancementCardId, _selectedCardId, StringComparison.Ordinal))
+                {
+                    _pendingEnhancementCardId = _selectedCardId;
+                    SetFeedback("강화 결과는 전 능력치 +1, 재료는 중복 1장입니다. 같은 버튼을 다시 누르면 확정합니다.", false);
+                    return;
+                }
+                _pendingEnhancementCardId = string.Empty;
+                EnhancementRequested?.Invoke(_selectedCardId);
+            });
+            CreateAction("Sale", "중복 1장 판매", () =>
+            {
+                if (!string.IsNullOrEmpty(_selectedCardId)) DuplicateSaleRequested?.Invoke(_selectedCardId);
+            });
+            CreateAction("TrainingCycle", "훈련 선택", CycleTraining);
+            CreateAction("TrainingApply", "훈련 실행", RequestTraining);
+            CreateAction("StudyCycle", "유학 선택", CycleStudy);
+            CreateAction("StudyStart", "유학 출발", RequestStudy);
+            CreateAction("SkillPlace", "블록 장착", () =>
+            {
+                if (!string.IsNullOrEmpty(_selectedCardId)) SkillBlockAutoPlaceRequested?.Invoke(_selectedCardId);
+            });
+            CreateAction("SkillRemove", "블록 해제", () =>
+            {
+                if (!string.IsNullOrEmpty(_selectedCardId)) SkillBlockRemoveRequested?.Invoke(_selectedCardId);
+            });
             CareerUiSkin.Apply(_workspaceRoot);
             CareerUiSkin.Apply(_inspectorRoot);
             CareerUiSkin.Apply(_actionRoot);
@@ -192,6 +246,11 @@ namespace Baseball.Presentation.Owner
             button.interactable = false;
         }
 
+        private void CreateAction(string name, string label, Action action)
+        {
+            OwnerWorkspaceUiFactory.CreateButton(_actionRoot, name, label, action);
+        }
+
         private void HandleSearchChanged(string query)
         {
             if (_snapshot == null) return;
@@ -245,6 +304,9 @@ namespace Baseball.Presentation.Owner
         private void HandleCardSelected(PlayerMiniCardModel selected)
         {
             _selectedCardId = selected.PlayerId;
+            _trainingIndex = 0;
+            _studyIndex = 0;
+            _pendingEnhancementCardId = string.Empty;
             OwnerCollectionCardSnapshot selectedSnapshot = null;
             for (int index = 0; index < _model.Cards.Count; index++)
             {
@@ -278,8 +340,76 @@ namespace Baseball.Presentation.Owner
                 $"중복  {card.DuplicateCount}장\n" +
                 $"잠금  {(card.IsLocked ? "예" : "아니오")}\n" +
                 $"즐겨찾기  {(card.IsFavorite ? "예" : "아니오")}\n\n" +
+                $"훈련 누적  +{card.TrainingBonusTotal}\n" +
+                $"성장판  {card.PlacedSkillBlockCount}개 장착\n" +
+                $"미장착 블록  {card.AvailableSkillBlockCount}개\n" +
+                $"1군 상태  {(card.IsActiveRoster ? "등록" : "미등록")}\n" +
+                $"유학  {(string.IsNullOrEmpty(card.StudyStatus) ? "대기" : card.StudyStatus)}\n\n" +
                 $"CardId\n{card.CardId}";
         }
+
+        private void CycleTraining()
+        {
+            OwnerCollectionCardSnapshot card = GetSelectedCard();
+            if (card == null) return;
+            PlayerAbility[] abilities = IsPitcher(card) ? PitcherTrainingAbilities : BatterTrainingAbilities;
+            _trainingIndex = (_trainingIndex + 1) % abilities.Length;
+            SetFeedback($"훈련 선택: {DescribeAbility(abilities[_trainingIndex])} · 실행 전 DP와 상한을 다시 검증합니다.", false);
+        }
+
+        private void RequestTraining()
+        {
+            OwnerCollectionCardSnapshot card = GetSelectedCard();
+            if (card == null) return;
+            PlayerAbility[] abilities = IsPitcher(card) ? PitcherTrainingAbilities : BatterTrainingAbilities;
+            string programId = "card_training_" + abilities[_trainingIndex].ToString().ToLowerInvariant();
+            TrainingRequested?.Invoke(card.CardId, programId);
+        }
+
+        private void CycleStudy()
+        {
+            OwnerCollectionCardSnapshot card = GetSelectedCard();
+            if (card == null) return;
+            string[] programs = IsPitcher(card) ? PitcherStudyPrograms : BatterStudyPrograms;
+            _studyIndex = (_studyIndex + 1) % programs.Length;
+            SetFeedback($"유학 선택: {DescribeStudy(programs[_studyIndex])} · 4주/DP 100", false);
+        }
+
+        private void RequestStudy()
+        {
+            OwnerCollectionCardSnapshot card = GetSelectedCard();
+            if (card == null) return;
+            string[] programs = IsPitcher(card) ? PitcherStudyPrograms : BatterStudyPrograms;
+            StudyRequested?.Invoke(card.CardId, programs[_studyIndex]);
+        }
+
+        private OwnerCollectionCardSnapshot GetSelectedCard()
+        {
+            if (_snapshot == null || string.IsNullOrEmpty(_selectedCardId)) return null;
+            for (int index = 0; index < _snapshot.Cards.Count; index++)
+                if (string.Equals(_snapshot.Cards[index].CardId, _selectedCardId, StringComparison.Ordinal)) return _snapshot.Cards[index];
+            return null;
+        }
+
+        private static bool IsPitcher(OwnerCollectionCardSnapshot card) =>
+            card.Position == Baseball.Core.Players.PlayerPosition.StartingPitcher ||
+            card.Position == Baseball.Core.Players.PlayerPosition.ReliefPitcher;
+
+        private static string DescribeAbility(PlayerAbility ability) => ability switch
+        {
+            PlayerAbility.Contact => "교타력", PlayerAbility.Power => "장타력", PlayerAbility.Speed => "주력",
+            PlayerAbility.Arm => "송구력", PlayerAbility.Defense => "수비력", PlayerAbility.BatterMental => "타자 정신력",
+            PlayerAbility.Stamina => "체력", PlayerAbility.Velocity => "구속", PlayerAbility.Stuff => "구위",
+            PlayerAbility.Breaking => "변화구", PlayerAbility.Control => "제구력", _ => "투수 정신력"
+        };
+
+        private static string DescribeStudy(string id) => id switch
+        {
+            "study_contact" => "정교 타격 아카데미", "study_power" => "장타 강화 캠프",
+            "study_defense" => "수비 전문 학교", "study_batter_allround" => "야수 실전 리그",
+            "study_velocity" => "구속 연구소", "study_command" => "제구 아카데미",
+            "study_breaking" => "변화구 디자인 랩", _ => "선발 체력 리그"
+        };
 
         private void ShowNoSelection()
         {
@@ -304,6 +434,12 @@ namespace Baseball.Presentation.Owner
         {
             if (_searchInput != null) _searchInput.onValueChanged.RemoveListener(HandleSearchChanged);
             DestroyCards();
+            EnhancementRequested = null;
+            DuplicateSaleRequested = null;
+            TrainingRequested = null;
+            StudyRequested = null;
+            SkillBlockAutoPlaceRequested = null;
+            SkillBlockRemoveRequested = null;
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_workspaceRoot);
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_inspectorRoot);
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_actionRoot);

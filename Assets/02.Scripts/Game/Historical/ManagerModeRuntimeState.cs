@@ -38,7 +38,8 @@ namespace Baseball.Game.Historical
             int currentWeekIndex,
             int playerTeamId,
             IReadOnlyList<ManagerTeamReference> teams,
-            SeasonScheduleState schedule)
+            SeasonScheduleState schedule,
+            LeagueSeasonStatisticsState statistics = null)
         {
             if (string.IsNullOrWhiteSpace(seasonId))
                 throw new ArgumentException("SeasonId는 비어 있을 수 없습니다.", nameof(seasonId));
@@ -53,6 +54,7 @@ namespace Baseball.Game.Historical
             CurrentWeekIndex = currentWeekIndex;
             PlayerTeamId = playerTeamId;
             Schedule = schedule ?? throw new ArgumentNullException(nameof(schedule));
+            Statistics = statistics ?? new LeagueSeasonStatisticsState();
             _teams = new ManagerTeamReference[teams.Count];
             var ids = new HashSet<int>();
             var keys = new HashSet<string>(StringComparer.Ordinal);
@@ -78,7 +80,21 @@ namespace Baseball.Game.Historical
         public int PlayerTeamId { get; }
         public IReadOnlyList<ManagerTeamReference> Teams => _teams;
         public SeasonScheduleState Schedule { get; }
+
+        /// <summary>현재 시즌 리그 전체 선수 기록이며 선수 커리어 모드와 같은 타입을 쓴다.</summary>
+        public LeagueSeasonStatisticsState Statistics { get; }
+
         public ScheduledGameState NextPlayerGame => Schedule.GetNextGameForTeam(PlayerTeamId);
+
+        /// <summary>규정 타석·이닝 판정이 쓰는 한 구단의 완료 경기 수를 센다.</summary>
+        public int GetCompletedGameCount(int teamId)
+        {
+            IReadOnlyList<ScheduledGameState> games = Schedule.Games;
+            int count = 0;
+            for (int index = 0; index < games.Count; index++)
+                if (games[index].IsCompleted && games[index].IncludesTeam(teamId)) count++;
+            return count;
+        }
 
         public void AdvanceWeek()
         {
@@ -110,12 +126,14 @@ namespace Baseball.Game.Historical
             string selectedLineupPresetId,
             IReadOnlyList<TeamSeasonPlayerStatusState> playerStatuses,
             IReadOnlyList<TeamChemistryFamiliarityState> familiarities,
-            ManagerLiveSeasonState liveSeason)
+            ManagerLiveSeasonState liveSeason,
+            DugoutManagementState dugout = null)
         {
             ClubOperation = clubOperation ?? throw new ArgumentNullException(nameof(clubOperation));
             StaffCatalog = staffCatalog ?? throw new ArgumentNullException(nameof(staffCatalog));
             StaffAssignment = staffAssignment ?? throw new ArgumentNullException(nameof(staffAssignment));
             LiveSeason = liveSeason ?? throw new ArgumentNullException(nameof(liveSeason));
+            Dugout = dugout ?? DugoutManagementState.CreateDefault();
             if (!string.Equals(ClubOperation.TeamSeasonKey, StaffAssignment.TeamSeasonKey, StringComparison.Ordinal))
                 throw new ArgumentException("구단 운영 상태와 Staff Assignment의 TeamSeasonKey가 다릅니다.");
             if (!string.Equals(
@@ -140,6 +158,7 @@ namespace Baseball.Game.Historical
         public IReadOnlyList<TeamSeasonPlayerStatusState> PlayerStatuses => _playerStatuses;
         public IReadOnlyList<TeamChemistryFamiliarityState> Familiarities => _familiarities;
         public ManagerLiveSeasonState LiveSeason { get; private set; }
+        public DugoutManagementState Dugout { get; }
 
         public LineupPresetState GetSelectedLineupPreset()
         {

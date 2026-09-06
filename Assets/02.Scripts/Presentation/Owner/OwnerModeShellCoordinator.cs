@@ -4,12 +4,15 @@ using Baseball.Core.Historical;
 using Baseball.Game.Career;
 using Baseball.Game.Diagnostics;
 using Baseball.Game.Historical;
+using Baseball.Game.Guide;
 using Baseball.Core.Shop;
 using Baseball.Game.Manager;
 using Baseball.Game.Shop;
 using Baseball.Game.SceneFlow;
+using Baseball.Simulation.Historical;
 using Baseball.Presentation.Career;
 using Baseball.Presentation.Match;
+using Baseball.Presentation.Guide;
 using Baseball.Presentation.SharedScreens;
 using Baseball.Presentation.Shop;
 using Baseball.Presentation.SharedUI;
@@ -39,9 +42,9 @@ namespace Baseball.Presentation.Owner
         private OwnerExpansionWorkspaceCoordinator _expansionWorkspace;
         private OwnerSharedInformationWorkspaceCoordinator _sharedInformationWorkspace;
         private GameModeNavigationState _navigationState;
-        private readonly ShopPurchaseHistoryState _shopHistory = new ShopPurchaseHistoryState();
-        private readonly TacticCollectionState _tacticCollection = new TacticCollectionState();
         private ShopService _shopService;
+        private string _pendingTrainingCardId = string.Empty;
+        private string _pendingTrainingProgramId = string.Empty;
         private bool _hasAppliedExclusivePresentation;
         private bool _isOwnerMatchVisible;
         private bool _isTransitioningToOwnerMatch;
@@ -56,6 +59,8 @@ namespace Baseball.Presentation.Owner
             _shell.SetChromeOverlayMode(false);
             _shell.SettingsRequested += HandleSettingsRequested;
             _manager.RuntimeChanged += HandleRuntimeChanged;
+            FrontManagerGuideCtaRouter.OwnerRouteRequested -= HandleGuideRouteRequested;
+            FrontManagerGuideCtaRouter.OwnerRouteRequested += HandleGuideRouteRequested;
             UiGameModeSession.ModeChanged += HandleModeChanged;
             EnsureExpansionWorkspace();
             EnsureSharedInformationWorkspace();
@@ -179,6 +184,7 @@ namespace Baseball.Presentation.Owner
             if (_manager != null)
                 _manager.RuntimeChanged -= HandleRuntimeChanged;
             UiGameModeSession.ModeChanged -= HandleModeChanged;
+            FrontManagerGuideCtaRouter.OwnerRouteRequested -= HandleGuideRouteRequested;
             if (_shell != null)
                 _shell.SettingsRequested -= HandleSettingsRequested;
             if (_presenter != null)
@@ -234,6 +240,29 @@ namespace Baseball.Presentation.Owner
             }
 
             ShowSelectedRoute(routeId);
+        }
+
+        /// <summary>프런트 매니저의 첫 선수 배정 안내 CTA를 실제 선수단 화면에 연결한다.</summary>
+        private void HandleGuideRouteRequested(GuideCtaAction action, string eventId)
+        {
+            string routeId = action switch
+            {
+                GuideCtaAction.OpenRoster or GuideCtaAction.OpenLineup or GuideCtaAction.OpenTodayLineup =>
+                    OwnerNavigationRoutes.RosterLineup,
+                GuideCtaAction.OpenPitchingRole or GuideCtaAction.OpenPitchingStaff or GuideCtaAction.OpenBullpen =>
+                    OwnerNavigationRoutes.RosterLineup,
+                GuideCtaAction.OpenScout or GuideCtaAction.OpenFocusScout => OwnerNavigationRoutes.PowerUpScout,
+                GuideCtaAction.OpenTactics => OwnerNavigationRoutes.DugoutTactics,
+                _ => HomeRouteId
+            };
+            HandleNavigationRequested(routeId);
+            if (_manager.HasActiveRuntime &&
+                !_manager.Runtime.Onboarding.IsCompleted &&
+                !string.IsNullOrWhiteSpace(eventId) &&
+                eventId.IndexOf("owner-first-entry", StringComparison.Ordinal) >= 0)
+            {
+                _manager.SkipOnboarding();
+            }
         }
 
         private void HandleOpponentAnalysisRequested()
@@ -299,7 +328,22 @@ namespace Baseball.Presentation.Owner
         private bool TryShowExpansionRoute(string navigationRouteId)
         {
             string workspaceRouteId = ResolveWorkspaceRoute(navigationRouteId);
-            return _expansionWorkspace.TryShowRoute(workspaceRouteId, navigationRouteId);
+            bool isShown = _expansionWorkspace.TryShowRoute(workspaceRouteId, navigationRouteId);
+            if (isShown && string.Equals(navigationRouteId, OwnerNavigationRoutes.PowerUpScout, StringComparison.Ordinal) &&
+                GuideManager.Instance != null && GuideManager.Instance.IsAvailable)
+            {
+                GuideManager.Instance.PublishOwnerFact(
+                    "ScoutFirstEntry",
+                    $"owner-scout-first:{_manager.Runtime.PlayerTeamSeasonKey}");
+            }
+            if (isShown && string.Equals(navigationRouteId, OwnerNavigationRoutes.PowerUpTraining, StringComparison.Ordinal) &&
+                _manager.HasAvailableCardStudySlot() && GuideManager.Instance != null && GuideManager.Instance.IsAvailable)
+            {
+                GuideManager.Instance.PublishOwnerFact(
+                    "CardStudySlotAvailable",
+                    $"owner-study-slot:{_manager.Runtime.ManagerMode.LiveSeason.SeasonNumber}:{_manager.Runtime.PlayerGrowth.StudyProjects.Count}");
+            }
+            return isShown;
         }
 
         private static string ResolveWorkspaceRoute(string navigationRouteId)
@@ -311,6 +355,16 @@ namespace Baseball.Presentation.Owner
                 return OwnerExpansionWorkspaceCoordinator.RosterLineupRouteId;
             if (string.Equals(navigationRouteId, OwnerNavigationRoutes.MatchCenterCondition, StringComparison.Ordinal))
                 return OwnerManagementRoutes.RosterCondition;
+            if (string.Equals(navigationRouteId, OwnerNavigationRoutes.PowerUpScout, StringComparison.Ordinal))
+                return OwnerExpansionWorkspaceCoordinator.ShopRouteId;
+            if (string.Equals(navigationRouteId, OwnerNavigationRoutes.PowerUpEnhancementSale, StringComparison.Ordinal))
+                return OwnerExpansionWorkspaceCoordinator.CollectionRouteId;
+            if (string.Equals(navigationRouteId, OwnerNavigationRoutes.PowerUpTraining, StringComparison.Ordinal))
+                return OwnerExpansionWorkspaceCoordinator.CollectionRouteId;
+            if (string.Equals(navigationRouteId, OwnerNavigationRoutes.DugoutTactics, StringComparison.Ordinal))
+                return OwnerExpansionWorkspaceCoordinator.RosterLineupRouteId;
+            if (string.Equals(navigationRouteId, OwnerNavigationRoutes.DugoutManagerPolicy, StringComparison.Ordinal))
+                return OwnerNavigationRoutes.DugoutLineupNotes;
             return navigationRouteId;
         }
 
@@ -499,6 +553,13 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.TacticSlotCycleRequested += HandleTacticSlotCycleRequested;
             _expansionWorkspace.ShopPurchaseRequested += HandleShopPurchaseRequested;
             _expansionWorkspace.ShopDetailsRequested += HandleShopDetailsRequested;
+            _expansionWorkspace.CardEnhancementRequested += HandleCardEnhancementRequested;
+            _expansionWorkspace.CardDuplicateSaleRequested += HandleCardDuplicateSaleRequested;
+            _expansionWorkspace.DugoutConfigurationConfirmed += HandleDugoutConfigurationConfirmed;
+            _expansionWorkspace.CardTrainingRequested += HandleCardTrainingRequested;
+            _expansionWorkspace.CardStudyRequested += HandleCardStudyRequested;
+            _expansionWorkspace.CardSkillBlockAutoPlaceRequested += HandleCardSkillBlockAutoPlaceRequested;
+            _expansionWorkspace.CardSkillBlockRemoveRequested += HandleCardSkillBlockRemoveRequested;
         }
 
         private void EnsureSharedInformationWorkspace()
@@ -531,10 +592,18 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.TacticSlotCycleRequested -= HandleTacticSlotCycleRequested;
             _expansionWorkspace.ShopPurchaseRequested -= HandleShopPurchaseRequested;
             _expansionWorkspace.ShopDetailsRequested -= HandleShopDetailsRequested;
+            _expansionWorkspace.CardEnhancementRequested -= HandleCardEnhancementRequested;
+            _expansionWorkspace.CardDuplicateSaleRequested -= HandleCardDuplicateSaleRequested;
+            _expansionWorkspace.DugoutConfigurationConfirmed -= HandleDugoutConfigurationConfirmed;
+            _expansionWorkspace.CardTrainingRequested -= HandleCardTrainingRequested;
+            _expansionWorkspace.CardStudyRequested -= HandleCardStudyRequested;
+            _expansionWorkspace.CardSkillBlockAutoPlaceRequested -= HandleCardSkillBlockAutoPlaceRequested;
+            _expansionWorkspace.CardSkillBlockRemoveRequested -= HandleCardSkillBlockRemoveRequested;
         }
 
         private void BindExpansionSnapshots()
         {
+            _expansionWorkspace.BindDugout(_snapshotFactory.CreateDugout(_manager));
             _expansionWorkspace.BindRosterLineup(_snapshotFactory.CreateRosterLineup(_manager));
             _expansionWorkspace.BindCollection(_snapshotFactory.CreateCollection(_manager));
             BindShopSnapshot();
@@ -557,7 +626,7 @@ namespace Baseball.Presentation.Owner
         /// <summary>구매로 재화·보유 상태가 바뀔 때마다 상점 타일을 다시 판정해 표시한다.</summary>
         private void BindShopSnapshot()
         {
-            _shopService = OwnerShopComposer.Create(_manager, _shopHistory, _tacticCollection);
+            _shopService = _manager.CreateShopService();
             _expansionWorkspace.BindShop(ShopPresentationModel.CreateSnapshot(_shopService));
         }
 
@@ -566,11 +635,100 @@ namespace Baseball.Presentation.Owner
             if (_shopService == null)
                 return;
 
-            ShopPurchaseResult result = _shopService.Purchase(productId);
+            ShopPurchaseResult result = _manager.PurchaseShopProduct(productId);
             BindShopSnapshot();
             _expansionWorkspace.SetShopFeedback(
                 result.IsSuccess ? DescribePurchase(result) : result.FailureMessage,
                 !result.IsSuccess);
+            if (result.IsSuccess)
+                _expansionWorkspace.ShowShopReveal(result);
+        }
+
+        private void HandleCardEnhancementRequested(string cardId)
+        {
+            ExecuteOperation(() =>
+            {
+                CardEnhancementResult result = _manager.EnhanceOwnedCard(cardId);
+                ShowFeedback(result switch
+                {
+                    CardEnhancementResult.Enhanced => "중복 카드 1장을 사용해 강화했습니다.",
+                    CardEnhancementResult.NoDuplicate => "강화에 사용할 중복 카드가 없습니다.",
+                    CardEnhancementResult.MaximumLevel => "이미 최대 강화 단계입니다.",
+                    _ => "강화 결과를 확인할 수 없습니다."
+                }, result != CardEnhancementResult.Enhanced);
+            });
+        }
+
+        private void HandleCardDuplicateSaleRequested(string cardId)
+        {
+            ExecuteOperation(() =>
+            {
+                int earnedSp = _manager.SellOwnedCardDuplicates(cardId);
+                ShowFeedback($"중복 카드 1장을 판매해 SP {earnedSp:N0}을 획득했습니다.", false);
+            });
+        }
+
+        private void HandleDugoutConfigurationConfirmed(OwnerDugoutConfigurationCommand command)
+        {
+            ExecuteOperation(() =>
+            {
+                _manager.ConfigureDugout(command.ManagerId, command.HeadCoachId, command.Policy);
+                ShowFeedback("감독·수석코치와 작전 방침을 다음 경기 계획에 반영했습니다.", false);
+            });
+        }
+
+        private void HandleCardTrainingRequested(string cardId, string programId)
+        {
+            ExecuteOperation(() =>
+            {
+                CardTrainingPreview preview = _manager.PreviewOwnedCardTraining(cardId, programId);
+                if (!preview.CanTrain)
+                {
+                    ShowFeedback("훈련 상한에 도달했거나 사용할 DP가 부족합니다.", true);
+                    return;
+                }
+                if (!string.Equals(_pendingTrainingCardId, cardId, StringComparison.Ordinal) ||
+                    !string.Equals(_pendingTrainingProgramId, programId, StringComparison.Ordinal))
+                {
+                    _pendingTrainingCardId = cardId;
+                    _pendingTrainingProgramId = programId;
+                    ShowFeedback(
+                        $"{preview.Ability} {preview.Current}→{preview.Current + preview.GainedPoints} / 상한 {preview.Ceiling} · DP {preview.DpCost}. 같은 실행 버튼을 다시 누르면 확정합니다.",
+                        false);
+                    return;
+                }
+                _pendingTrainingCardId = string.Empty;
+                _pendingTrainingProgramId = string.Empty;
+                CardTrainingResult result = _manager.TrainOwnedCard(cardId, programId);
+                ShowFeedback($"{result.Ability} +{result.GainedPoints} · DP {result.SpentDp} 사용", false);
+            });
+        }
+
+        private void HandleCardStudyRequested(string cardId, string programId)
+        {
+            ExecuteOperation(() =>
+            {
+                _manager.StartOwnedCardStudy(cardId, programId);
+                ShowFeedback("유학을 시작했습니다. 4주 뒤 성장 결과가 확정됩니다.", false);
+            });
+        }
+
+        private void HandleCardSkillBlockAutoPlaceRequested(string cardId)
+        {
+            ExecuteOperation(() =>
+            {
+                bool placed = _manager.AutoPlaceFirstAvailableSkillBlock(cardId);
+                ShowFeedback(placed ? "빈 공간에 스킬 블록을 장착했습니다." : "장착 가능한 미사용 블록 또는 빈 공간이 없습니다.", !placed);
+            });
+        }
+
+        private void HandleCardSkillBlockRemoveRequested(string cardId)
+        {
+            ExecuteOperation(() =>
+            {
+                bool removed = _manager.RemoveLastOwnedCardSkillBlock(cardId);
+                ShowFeedback(removed ? "마지막 스킬 블록을 인벤토리로 돌려놓았습니다." : "해제할 스킬 블록이 없습니다.", !removed);
+            });
         }
 
         private void HandleShopDetailsRequested(string productId)
@@ -615,11 +773,15 @@ namespace Baseball.Presentation.Owner
             _sharedInformationWorkspace.BindHistoricalRecords(
                 _sharedInformationSnapshotFactory.CreateHistoricalBattingRecords(_manager),
                 _profile.Capabilities);
+            _sharedInformationWorkspace.BindSeasonRecords(
+                _sharedInformationSnapshotFactory.CreateSeasonRecords(_manager));
             _sharedInformationWorkspace.BindClubInformation(new OwnerClubInformationPresentationModel(
                 _snapshotFactory.CreateHome(_manager),
                 _snapshotFactory.CreateCollection(_manager),
                 _snapshotFactory.CreateClubOperation(_manager),
-                schedule));
+                schedule,
+                _manager.Runtime.OwnerProfile.Nickname,
+                _manager.Runtime.OwnerProfile.FrontManagerId));
         }
 
         private void HandleLineupSwapRequested(

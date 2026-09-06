@@ -16,6 +16,13 @@ namespace Baseball.Presentation.Owner
     /// <summary>Game에서 확정된 상태와 Resolver 결과를 A/B/C/D 불변 UI Snapshot으로 투영한다.</summary>
     public sealed class OwnerModeRuntimeSnapshotFactory
     {
+        /// <summary>현재 감독·수석코치·방침과 실제 경기 적용값을 덕아웃 Snapshot으로 만든다.</summary>
+        public OwnerDugoutSnapshot CreateDugout(OwnerModeManager manager)
+        {
+            RequireRuntime(manager);
+            return OwnerDugoutPresentationBuilder.Build(manager);
+        }
+
         public OwnerHomeSnapshot CreateHome(OwnerModeManager manager)
         {
             ManagerHistoricalRuntimeState runtime = RequireRuntime(manager);
@@ -123,7 +130,15 @@ namespace Baseball.Presentation.Owner
             IReadOnlyList<TacticCardDefinition> tactics = manager.GetAvailableTacticCards();
             var tacticCandidates = new OwnerLoadoutCandidateSnapshot[tactics.Count];
             for (int index = 0; index < tacticCandidates.Length; index++)
-                tacticCandidates[index] = new OwnerLoadoutCandidateSnapshot(tactics[index].CardId, tactics[index].Name);
+            {
+                TacticCardDefinition tactic = tactics[index];
+                int ownedCount = runtime.TacticCollection.GetCount(tactic.CardId);
+                tacticCandidates[index] = new OwnerLoadoutCandidateSnapshot(
+                    tactic.CardId,
+                    $"{tactic.Name} ×{ownedCount}",
+                    TacticCardArtwork.GetKey(tactic.Category),
+                    ownedCount);
+            }
 
             return new OwnerRosterLineupSnapshot(
                 manager.BuildRosterStatus(),
@@ -158,6 +173,8 @@ namespace Baseball.Presentation.Owner
         {
             PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
             manager.TryGetPlayerPerson(season.PlayerPersonId, out PlayerPersonDefinition person);
+            AbilityRatings permanent = new OwnerCardAbilityResolver(manager.Balance.Growth)
+                .ResolvePermanent(season, card, owned);
             return new OwnerCollectionCardSnapshot(
                 owned.CardId,
                 season.PlayerPersonId,
@@ -170,36 +187,72 @@ namespace Baseball.Presentation.Owner
                 owned.DuplicateCount,
                 owned.IsLocked,
                 owned.IsFavorite,
-                season.CreateBaseAttributes(),
+                permanent,
                 season.OriginYear + " · 월드 기록",
                 season.PlayerSeasonId,
                 season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
                 person?.Throws,
                 person?.Bats,
-                CreatePitchSnapshots(manager, season, card, owned),
-                CreateSeasonRecord(runtime.WorldHistory, season));
+                CreatePitchSnapshots(manager, season, permanent),
+                CreateSeasonRecord(runtime.WorldHistory, season),
+                GetTrainingBonusTotal(owned),
+                owned.SkillBoard.Placements.Count,
+                CountAvailableSkillBlocks(runtime),
+                IsActiveRoster(runtime, owned.CardId),
+                GetStudyStatus(runtime, owned.CardId));
+        }
+
+        private static int GetTrainingBonusTotal(OwnedPlayerCardState owned)
+        {
+            int total = 0;
+            for (int index = 0; index < PlayerAbilityCatalog.AbilityCount; index++)
+                total += owned.Training.GetBonus((PlayerAbility)index);
+            return total;
+        }
+
+        private static int CountAvailableSkillBlocks(ManagerHistoricalRuntimeState runtime)
+        {
+            int equipped = 0;
+            for (int index = 0; index < runtime.OwnedCards.Count; index++)
+                equipped += runtime.OwnedCards[index].SkillBoard.Placements.Count;
+            return Math.Max(0, runtime.PlayerGrowth.Inventory.Blocks.Count - equipped);
+        }
+
+        private static bool IsActiveRoster(ManagerHistoricalRuntimeState runtime, string cardId)
+        {
+            CurrentRosterState roster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            for (int index = 0; index < roster.Entries.Count; index++)
+                if (string.Equals(roster.Entries[index].CardId, cardId, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        private static string GetStudyStatus(ManagerHistoricalRuntimeState runtime, string cardId)
+        {
+            for (int index = 0; index < runtime.PlayerGrowth.StudyProjects.Count; index++)
+            {
+                CardStudyProjectState project = runtime.PlayerGrowth.StudyProjects[index];
+                if (string.Equals(project.CardId, cardId, StringComparison.Ordinal))
+                    return $"유학 중 · {project.RemainingWeeks}주 남음";
+            }
+            return string.Empty;
         }
 
         private static OwnerPitchCardSnapshot[] CreatePitchSnapshots(
             OwnerModeManager manager,
             PlayerSeasonDefinition season,
-            PlayerCardDefinition card,
-            OwnedPlayerCardState owned)
+            AbilityRatings permanentRatings)
         {
             if (season.PlayerType != PlayerType.Pitcher || season.PitchRepertoire.Count == 0)
                 return Array.Empty<OwnerPitchCardSnapshot>();
             AbilityRatings source = season.CreateBaseAttributes();
-            int Stable(PlayerAbility ability) => Math.Min(100,
-                source.Get(ability) + card.GetModifier(ability) +
-                owned.Training.GetBonus(ability) + owned.EnhancementLevel);
             var baked = new PitcherAttributes(
                 source.Get(PlayerAbility.Stamina), source.Get(PlayerAbility.Velocity),
                 source.Get(PlayerAbility.Stuff), source.Get(PlayerAbility.Breaking),
                 source.Get(PlayerAbility.Control), source.Get(PlayerAbility.PitcherMental));
             var permanent = new PitcherAttributes(
-                Stable(PlayerAbility.Stamina), Stable(PlayerAbility.Velocity),
-                Stable(PlayerAbility.Stuff), Stable(PlayerAbility.Breaking),
-                Stable(PlayerAbility.Control), Stable(PlayerAbility.PitcherMental));
+                permanentRatings.Get(PlayerAbility.Stamina), permanentRatings.Get(PlayerAbility.Velocity),
+                permanentRatings.Get(PlayerAbility.Stuff), permanentRatings.Get(PlayerAbility.Breaking),
+                permanentRatings.Get(PlayerAbility.Control), permanentRatings.Get(PlayerAbility.PitcherMental));
             PitchArsenalBalance balance = manager.Balance.PitchArsenal;
             var result = new OwnerPitchCardSnapshot[season.PitchRepertoire.Count];
             for (int index = 0; index < result.Length; index++)

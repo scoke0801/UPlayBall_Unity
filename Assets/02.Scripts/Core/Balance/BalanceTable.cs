@@ -134,7 +134,9 @@ namespace Baseball.Core.Balance
             Baseball.Core.Historical.ScoutingConfidenceDefinition scoutingConfidence = null,
             string contentHash = "builtin-career-content-v3",
             PitchArsenalBalance pitchArsenal = null,
-            MatchRatingCurveBalance matchRatingCurve = null)
+            MatchRatingCurveBalance matchRatingCurve = null,
+            Baseball.Core.Historical.LeagueDefinition leaguePromotion = null,
+            Baseball.Core.Historical.OwnerCardGrowthBalanceTable ownerCardGrowth = null)
         {
             if (string.IsNullOrWhiteSpace(contentHash))
                 throw new System.ArgumentException("ContentHash는 비어 있을 수 없습니다.", nameof(contentHash));
@@ -170,6 +172,8 @@ namespace Baseball.Core.Balance
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
             PitchArsenal = pitchArsenal ?? PitchArsenalBalance.CreateDefault();
             MatchRatingCurve = matchRatingCurve ?? MatchRatingCurveBalance.CreateDefault();
+            LeaguePromotion = leaguePromotion ?? Baseball.Core.Historical.LeagueDefinition.CreateInitial();
+            OwnerCardGrowth = ownerCardGrowth ?? Baseball.Core.Historical.OwnerCardGrowthBalanceTable.CreateDefault();
         }
 
         public int Version { get; }
@@ -195,6 +199,7 @@ namespace Baseball.Core.Balance
         public ManagerLineupBalance ManagerLineup { get; }
         public MatchBalanceTable Match { get; }
         public MiniGameBalance MiniGame { get; }
+        public Baseball.Core.Historical.LeagueDefinition LeaguePromotion { get; }
         public HistoricalAssignmentBalance HistoricalAssignment { get; }
         public Baseball.Core.Historical.ConditionChemistryBalanceTable ConditionChemistry { get; }
         public ClubOperationBalanceTable ClubOperation { get; }
@@ -204,6 +209,7 @@ namespace Baseball.Core.Balance
         public SeasonSettlementBalance SeasonSettlement { get; }
         public PitchArsenalBalance PitchArsenal { get; }
         public MatchRatingCurveBalance MatchRatingCurve { get; }
+        public Baseball.Core.Historical.OwnerCardGrowthBalanceTable OwnerCardGrowth { get; }
 
         /// <summary>
         /// 현대 프로야구의 평균 타격 지표를 초기 가설로 삼은 프로토타입 값을 만든다.

@@ -4,10 +4,14 @@ using System.Threading;
 using Baseball.Core.Balance;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
+using Baseball.Core.Shop;
 using Baseball.Core.Teams;
 using Baseball.Game.Data;
+using Baseball.Game.Career;
 using Baseball.Game.Diagnostics;
+using Baseball.Game.Guide;
 using Baseball.Game.Manager;
+using Baseball.Game.Shop;
 using Baseball.Game.Unity.Persistence;
 using Baseball.Simulation.Historical;
 using Baseball.Simulation.Match;
@@ -81,6 +85,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 Production Runtime과 저장·운영·경기 Command를 영속 GameRoot에서 소유한다.</summary>
     public sealed class OwnerModeManager : ManagerBehaviour<OwnerModeManager>
     {
+        private const string LosingStreakSignatureCardId = "OWNER-TACTIC-BREAK-LOSING-STREAK";
         private string[] _availableTeamColorIds = Array.Empty<string>();
         private string[] _availableTacticCardIds = Array.Empty<string>();
         private TeamColorDefinition[] _teamColors = Array.Empty<TeamColorDefinition>();
@@ -96,9 +101,12 @@ namespace Baseball.Game.Historical
         private StaffMarketResolver _staffMarketResolver;
         private IBakedWorldHistorySource _bakedWorldHistorySource;
         private HistoricalWorldRuntimeBuilder _worldBuilder;
+        private readonly DugoutStaffCatalog _dugoutCatalog = DugoutStaffCatalog.CreateDefault();
+        private readonly DugoutTacticalProfileResolver _dugoutResolver = new DugoutTacticalProfileResolver();
 
         public override int InitializationOrder => -20;
         public ManagerHistoricalRuntimeState Runtime { get; private set; }
+        public OwnerNewGameFlow NewGameFlow { get; private set; }
         public ManagerPregamePreparation CurrentPregame { get; private set; }
         public ManagerModeMatchResult LastMatch { get; private set; }
         public string LastError { get; private set; } = string.Empty;
@@ -106,6 +114,7 @@ namespace Baseball.Game.Historical
         public BalanceTable Balance => _balance;
         public string SaveFilePath => _saveStore?.FilePath ?? string.Empty;
         public bool HasSave => _saveStore != null && _saveStore.Exists;
+        public string LastUnlockedSignatureCardId { get; private set; } = string.Empty;
 
         /// <summary>표시 Snapshot이 Canonical 선수의 투타 손 정보를 읽도록 Baked Person을 제공한다.</summary>
         public bool TryGetPlayerPerson(string playerPersonId, out PlayerPersonDefinition person)
@@ -135,6 +144,7 @@ namespace Baseball.Game.Historical
         {
             RuntimeChanged = null;
             Runtime = null;
+            NewGameFlow = null;
             CurrentPregame = null;
             LastMatch = null;
         }
@@ -178,12 +188,17 @@ namespace Baseball.Game.Historical
                 OwnerModeEntryProfiler.Mark("로스터 검증");
 
                 ConfigureTeamColors(content, teamSeasonKey);
+                EnsureStarterTacticCollection();
+                RefreshAvailableTacticCards();
                 ApplyStarterLoadout(Runtime.ManagerMode);
                 OwnerModeEntryProfiler.Mark("팀 컬러·스타터 로드아웃");
 
                 CurrentPregame = null;
                 LastMatch = null;
+                LastUnlockedSignatureCardId = string.Empty;
                 LastError = string.Empty;
+                if (GuideManager.Instance != null && GuideManager.Instance.IsAvailable)
+                    GuideManager.Instance.RestoreRepeatState(Runtime.GuideRepeatState);
                 NotifyRuntimeChanged();
                 return true;
             }
@@ -256,7 +271,9 @@ namespace Baseball.Game.Historical
 
         public void Save()
         {
-            RequireRuntime();
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            if (GuideManager.Instance != null && GuideManager.Instance.IsAvailable)
+                runtime.SetGuideRepeatState(GuideManager.Instance.CaptureRepeatState());
             _saveStore.Save(_saveAdapter.CreateSaveData(Runtime));
             LastError = string.Empty;
             NotifyRuntimeChanged();
@@ -268,9 +285,14 @@ namespace Baseball.Game.Historical
             OwnerModeEntryProfiler.Mark("세이브 파일 읽기·역직렬화");
 
             Runtime = new ManagerHistoricalLoadService(_saveAdapter).Restore(saveData);
+            if (GuideManager.Instance != null && GuideManager.Instance.IsAvailable)
+                GuideManager.Instance.RestoreRepeatState(Runtime.GuideRepeatState);
             OwnerModeEntryProfiler.Mark("Runtime 복원");
 
             ConfigureTeamColors(_contentProvider.Load(), Runtime.PlayerTeamSeasonKey);
+            if (saveData.saveVersion < ManagerHistoricalSaveAdapter.CurrentSaveVersion)
+                EnsureStarterTacticCollection();
+            RefreshAvailableTacticCards();
             CurrentPregame = null;
             LastMatch = null;
             LastError = string.Empty;
@@ -280,7 +302,11 @@ namespace Baseball.Game.Historical
 
         public ManagerWeeklyAdvanceResult AdvanceWeek()
         {
+            var studiesBefore = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < RequireRuntime().PlayerGrowth.StudyProjects.Count; index++)
+                studiesBefore.Add(RequireRuntime().PlayerGrowth.StudyProjects[index].CardId);
             ManagerWeeklyAdvanceResult result = _coordinator.AdvanceWeek(RequireRuntime());
+            PublishCompletedStudyFacts(studiesBefore);
             InvalidatePregame();
             NotifyRuntimeChanged();
             return result;
@@ -450,10 +476,123 @@ namespace Baseball.Game.Historical
         /// <summary>현재 구단주 Save가 실제 경기에서 장착할 수 있는 전술카드 Definition을 반환한다.</summary>
         public IReadOnlyList<TacticCardDefinition> GetAvailableTacticCards()
         {
-            var result = new TacticCardDefinition[_tacticCards.Length];
-            Array.Copy(_tacticCards, result, result.Length);
+            var result = new TacticCardDefinition[_availableTacticCardIds.Length];
+            int resultIndex = 0;
+            for (int idIndex = 0; idIndex < _availableTacticCardIds.Length; idIndex++)
+            {
+                for (int cardIndex = 0; cardIndex < _tacticCards.Length; cardIndex++)
+                {
+                    if (!string.Equals(_availableTacticCardIds[idIndex], _tacticCards[cardIndex].CardId,
+                            StringComparison.Ordinal))
+                        continue;
+                    result[resultIndex++] = _tacticCards[cardIndex];
+                    break;
+                }
+            }
             return result;
         }
+
+        /// <summary>구단 선택부터 25인 스타터 로스터 확인까지 새 게임 Draft를 시작한다.</summary>
+        public OwnerNewGameFlow BeginNewGameFlow()
+        {
+            LastError = string.Empty;
+            NewGameFlow = new OwnerNewGameFlow(
+                _contentProvider,
+                _worldBuilder,
+                _newGameConfiguration.OriginYear,
+                _newGameConfiguration.WorldSeed,
+                _newGameConfiguration.StarterRosterRule);
+            NewGameFlow.GetTeamCandidates();
+            return NewGameFlow;
+        }
+
+        /// <summary>아직 Runtime을 만들지 않은 새 게임 Draft를 버리고 타이틀로 돌아간다.</summary>
+        public void CancelNewGameFlow()
+        {
+            NewGameFlow = null;
+            LastError = string.Empty;
+        }
+
+        /// <summary>화면에서 확인한 Draft만 사용해 Runtime을 만들고 첫 배정 튜토리얼을 연다.</summary>
+        public bool CompleteNewGameFlow()
+        {
+            try
+            {
+                OwnerNewGameFlow flow = NewGameFlow
+                    ?? throw new InvalidOperationException("진행 중인 구단주 새 게임 Draft가 없습니다.");
+                OwnerStarterRosterResult starter = flow.StarterRoster
+                    ?? throw new InvalidOperationException("스타터 로스터를 먼저 확인해야 합니다.");
+                OwnerProfileState profile = flow.CreateProfile();
+                OwnerNewGameReceipt receipt = flow.CreateReceipt();
+                HistoricalBakedContent content = _contentProvider.Load()
+                    ?? throw new InvalidOperationException("Historical Content가 없습니다.");
+
+                var service = new ManagerHistoricalNewGameService(
+                    _contentProvider,
+                    _worldBuilder,
+                    _balance);
+                Runtime = service.Create(new ManagerHistoricalNewGameRequest(
+                    WorldRecordMode.SimulatedHistory,
+                    _newGameConfiguration.WorldSeed,
+                    _newGameConfiguration.OriginYear,
+                    _newGameConfiguration.LeagueInstanceId,
+                    flow.SelectedTeamSeasonKey,
+                    new ManagerEconomyState(
+                        _newGameConfiguration.InitialMoney,
+                        _newGameConfiguration.InitialScoutingPoints,
+                        _newGameConfiguration.InitialDevelopmentPoints),
+                    starter.Roster,
+                    profile,
+                    receipt));
+
+                RosterValidationResult validation = new ActiveRosterValidator().Validate(starter.Roster);
+                if (!validation.IsValid)
+                    throw new InvalidOperationException("생성한 25인 스타터 로스터가 ActiveRoster 계약을 위반했습니다.");
+                ConfigureTeamColors(content, flow.SelectedTeamSeasonKey);
+                EnsureStarterTacticCollection();
+                RefreshAvailableTacticCards();
+                ApplyStarterLoadout(Runtime.ManagerMode);
+                CurrentPregame = null;
+                LastMatch = null;
+                LastUnlockedSignatureCardId = string.Empty;
+                LastError = string.Empty;
+                flow.Complete();
+                NewGameFlow = null;
+                if (GuideManager.Instance != null && GuideManager.Instance.IsAvailable)
+                    GuideManager.Instance.RestoreRepeatState(Runtime.GuideRepeatState);
+                NotifyRuntimeChanged();
+                Save();
+                return true;
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                LastError = exception.Message;
+                Runtime = null;
+                CurrentPregame = null;
+                return false;
+            }
+        }
+
+        /// <summary>첫 진입 배정 가이드의 다음 단계로 이동하고 즉시 저장한다.</summary>
+        public void AdvanceOnboarding()
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            runtime.Onboarding.Advance();
+            Save();
+            NotifyRuntimeChanged();
+        }
+
+        /// <summary>첫 진입 배정 가이드를 건너뛰고 완료 상태를 저장한다.</summary>
+        public void SkipOnboarding()
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            runtime.Onboarding.Skip();
+            Save();
+            NotifyRuntimeChanged();
+        }
+
+        /// <summary>상점 연구와 AI 선택이 사용하는 전체 작전 카드 정의를 안정된 저작 순서로 반환한다.</summary>
+        public IReadOnlyList<TacticCardDefinition> GetTacticCardCatalog() => _tacticCards;
 
         public ManagerPregamePreparation PrepareNextGame()
         {
@@ -472,6 +611,11 @@ namespace Baseball.Game.Historical
             if (!preparation.CanStartGame)
                 throw new InvalidOperationException("현재 경기 준비 상태로 경기를 시작할 수 없습니다.");
             LastMatch = _matchService.PlayNextGame(RequireRuntime(), eventSink, executionProfile);
+            LastUnlockedSignatureCardId = TryUnlockLosingStreakSignature()
+                ? LosingStreakSignatureCardId
+                : string.Empty;
+            ClearConsumedTacticLoadout();
+            RefreshAvailableTacticCards();
             CurrentPregame = null;
             NotifyRuntimeChanged();
             return LastMatch;
@@ -482,12 +626,266 @@ namespace Baseball.Game.Historical
             return _coordinator.ResolvePlayerStaffEffects(RequireRuntime().ManagerMode);
         }
 
+        /// <summary>덕아웃 화면과 경기 입력이 공유하는 가상 감독·수석코치 정의를 반환한다.</summary>
+        public DugoutStaffCatalog GetDugoutStaffCatalog() => _dugoutCatalog;
+
+        /// <summary>현재 선택을 경기 시작 시 동결될 실제 감독 판단값으로 합성한다.</summary>
+        public ManagerTacticalProfile GetEffectiveManagerProfile()
+        {
+            return _dugoutResolver.Resolve(RequireRuntime().ManagerMode.Dugout, _dugoutCatalog);
+        }
+
+        /// <summary>감독·수석코치·여섯 방침을 원자적으로 적용하고 다음 경기 준비를 무효화한다.</summary>
+        public void ConfigureDugout(
+            string managerId,
+            string headCoachId,
+            DugoutPolicySettings policy)
+        {
+            RequireRuntime().ManagerMode.Dugout.Configure(managerId, headCoachId, policy, _dugoutCatalog);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+        }
+
         public CardTrainingResult TrainOwnedCard(string cardId, CardTrainingProgramDefinition program)
         {
             CardTrainingResult result = _coordinator.TrainOwnedCard(RequireRuntime(), cardId, program);
             InvalidatePregame();
             NotifyRuntimeChanged();
+            PublishGrowthFact("CardTrainingCompleted", cardId,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["ability"] = result.Ability.ToString(),
+                    ["gained"] = result.GainedPoints.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                });
             return result;
+        }
+
+        public CardTrainingResult TrainOwnedCard(string cardId, string programId) =>
+            TrainOwnedCard(cardId, _balance.OwnerCardGrowth.GetTrainingProgram(programId));
+
+        public CardTrainingPreview PreviewOwnedCardTraining(string cardId, string programId) =>
+            _coordinator.PreviewOwnedCardTraining(
+                RequireRuntime(), cardId, _balance.OwnerCardGrowth.GetTrainingProgram(programId));
+
+        public IReadOnlyList<CardTrainingProgramDefinition> GetCardTrainingPrograms() =>
+            _balance.OwnerCardGrowth.TrainingPrograms;
+
+        public IReadOnlyList<CardStudyProgramDefinition> GetCardStudyPrograms() =>
+            _balance.OwnerCardGrowth.StudyPrograms;
+
+        public bool HasAvailableCardStudySlot()
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            int capacity = _balance.OwnerCardGrowth.GetStudyCapacity(
+                runtime.ManagerMode.ClubOperation.GetFacility(FacilityType.TrainingCenter).Level);
+            if (runtime.PlayerGrowth.StudyProjects.Count >= capacity) return false;
+            CurrentRosterState roster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            int season = runtime.ManagerMode.LiveSeason.SeasonNumber;
+            for (int cardIndex = 0; cardIndex < runtime.OwnedCards.Count; cardIndex++)
+            {
+                OwnedPlayerCardState card = runtime.OwnedCards[cardIndex];
+                if (card.LastStudySeason == season) continue;
+                bool registered = false;
+                for (int rosterIndex = 0; rosterIndex < roster.Entries.Count; rosterIndex++)
+                    if (string.Equals(roster.Entries[rosterIndex].CardId, card.CardId, StringComparison.Ordinal)) registered = true;
+                if (!registered) return true;
+            }
+            return false;
+        }
+
+        public void StartOwnedCardStudy(string cardId, string programId)
+        {
+            CardStudyProgramDefinition program = _balance.OwnerCardGrowth.GetStudyProgram(programId);
+            _coordinator.StartOwnedCardStudy(RequireRuntime(), cardId, program);
+            PublishGrowthFact("CardStudyStarted", cardId,
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["program"] = program.DisplayName });
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+        }
+
+        public void PlaceOwnedCardSkillBlock(
+            string cardId, int instanceId, int originX, int originY, int rotationQuarterTurns)
+        {
+            string[] traitsBefore = GetActiveOwnerCardTraits(cardId);
+            _coordinator.PlaceOwnedCardSkillBlock(
+                RequireRuntime(), cardId, instanceId, originX, originY, rotationQuarterTurns);
+            PublishGrowthFact("SkillBlockPlaced", cardId,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                    { ["instanceId"] = instanceId.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+            PublishNewTraitFacts(cardId, traitsBefore);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+        }
+
+        public bool AutoPlaceOwnedCardSkillBlock(string cardId, int instanceId)
+        {
+            string[] traitsBefore = GetActiveOwnerCardTraits(cardId);
+            bool placed = _coordinator.AutoPlaceOwnedCardSkillBlock(RequireRuntime(), cardId, instanceId);
+            if (!placed) return false;
+            PublishGrowthFact("SkillBlockPlaced", cardId,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                    { ["instanceId"] = instanceId.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+            PublishNewTraitFacts(cardId, traitsBefore);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+            return true;
+        }
+
+        public bool RemoveOwnedCardSkillBlock(string cardId, int instanceId)
+        {
+            bool removed = _coordinator.RemoveOwnedCardSkillBlock(RequireRuntime(), cardId, instanceId);
+            if (!removed) return false;
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+            return true;
+        }
+
+        public bool AutoPlaceFirstAvailableSkillBlock(string cardId)
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            for (int index = 0; index < runtime.PlayerGrowth.Inventory.Blocks.Count; index++)
+            {
+                int instanceId = runtime.PlayerGrowth.Inventory.Blocks[index].InstanceId;
+                try
+                {
+                    if (AutoPlaceOwnedCardSkillBlock(cardId, instanceId)) return true;
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+            return false;
+        }
+
+        public bool RemoveLastOwnedCardSkillBlock(string cardId)
+        {
+            if (!RequireRuntime().TryGetOwnedCard(cardId, out OwnedPlayerCardState card) ||
+                card.SkillBoard.Placements.Count == 0) return false;
+            return RemoveOwnedCardSkillBlock(
+                cardId, card.SkillBoard.Placements[card.SkillBoard.Placements.Count - 1].Instance.InstanceId);
+        }
+
+        /// <summary>구단주 저장 상태를 사용하는 상점 서비스를 만든다.</summary>
+        public ShopService CreateShopService() => OwnerShopComposer.Create(this);
+
+        /// <summary>스카우트·전술 연구를 Game 계층 단일 Command로 실행한다.</summary>
+        public ShopPurchaseResult PurchaseShopProduct(string productId)
+        {
+            ShopService shop = CreateShopService();
+            shop.Catalog.TryGetProduct(productId, out ShopProductDefinition product);
+            ShopPurchaseResult result = shop.Purchase(productId);
+            if (result.IsSuccess)
+            {
+                PublishScoutAcquisitionFacts(product, result);
+                PublishSkillBlockAcquisitionFacts(product, result);
+                RefreshAvailableTacticCards();
+                InvalidatePregame();
+                NotifyRuntimeChanged();
+            }
+            return result;
+        }
+
+        private void PublishScoutAcquisitionFacts(ShopProductDefinition product, ShopPurchaseResult result)
+        {
+            GuideManager guide = GuideManager.Instance;
+            if (product == null || product.Kind != ShopProductKind.PlayerCardPack || guide == null || !guide.IsAvailable)
+                return;
+            for (int index = 0; index < result.Items.Length; index++)
+            {
+                ShopGrantedItem item = result.Items[index];
+                if (!item.IsNew || !Runtime.WorldCardCatalog.TryGetCard(item.ItemId, out PlayerCardDefinition card))
+                    continue;
+                PlayerSeasonDefinition season = Runtime.WorldCardCatalog.GetPlayerSeason(card);
+                var payload = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["playerName"] = item.DisplayName,
+                    ["cost"] = season.Cost.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["edition"] = card.Edition.ToString()
+                };
+                guide.PublishOwnerFact(
+                    "ScoutNewCardAcquired",
+                    $"owner-scout-card:{Runtime.ShopPurchaseHistory.TotalPurchaseCount}:{card.CardId}",
+                    payload);
+            }
+        }
+
+        public CardEnhancementResult EnhanceOwnedCard(string cardId)
+        {
+            CardEnhancementResult result = _coordinator.EnhanceOwnedCard(RequireRuntime(), cardId);
+            if (result == CardEnhancementResult.Enhanced)
+            {
+                PublishGrowthFact("CardEnhanced", cardId, null);
+                InvalidatePregame();
+                NotifyRuntimeChanged();
+            }
+            return result;
+        }
+
+        private void PublishSkillBlockAcquisitionFacts(ShopProductDefinition product, ShopPurchaseResult result)
+        {
+            if (product == null || product.Kind != ShopProductKind.SkillBlockPack) return;
+            for (int index = 0; index < result.Items.Length; index++)
+            {
+                ShopGrantedItem item = result.Items[index];
+                PublishGrowthFact("SkillBlockAcquired", string.Empty,
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["definitionId"] = item.ItemId,
+                        ["rarity"] = item.GradeLabel
+                    });
+            }
+        }
+
+        private void PublishCompletedStudyFacts(HashSet<string> studiesBefore)
+        {
+            foreach (string cardId in studiesBefore)
+            {
+                bool remains = false;
+                for (int index = 0; index < Runtime.PlayerGrowth.StudyProjects.Count; index++)
+                    if (string.Equals(Runtime.PlayerGrowth.StudyProjects[index].CardId, cardId, StringComparison.Ordinal))
+                        remains = true;
+                if (!remains) PublishGrowthFact("CardStudyCompleted", cardId, null);
+            }
+        }
+
+        private void PublishGrowthFact(string factType, string cardId, Dictionary<string, string> payload)
+        {
+            GuideManager guide = GuideManager.Instance;
+            if (guide == null || !guide.IsAvailable) return;
+            payload ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            payload["cardId"] = cardId ?? string.Empty;
+            guide.PublishOwnerFact(
+                factType,
+                $"owner-growth:{factType}:{Runtime.ManagerMode.LiveSeason.SeasonNumber}:{cardId}:{Runtime.ManagerMode.LiveSeason.CurrentWeekIndex}",
+                payload);
+        }
+
+        private string[] GetActiveOwnerCardTraits(string cardId)
+        {
+            if (!RequireRuntime().TryGetOwnedCard(cardId, out OwnedPlayerCardState card)) return Array.Empty<string>();
+            return new OwnerCardAbilityResolver(_balance.Growth).ResolveActiveTraitIds(card);
+        }
+
+        private void PublishNewTraitFacts(string cardId, string[] before)
+        {
+            string[] after = GetActiveOwnerCardTraits(cardId);
+            for (int index = 0; index < after.Length; index++)
+            {
+                bool existed = false;
+                for (int previous = 0; previous < before.Length; previous++)
+                    if (string.Equals(before[previous], after[index], StringComparison.Ordinal)) existed = true;
+                if (!existed)
+                    PublishGrowthFact("SkillBoardTraitActivated", cardId,
+                        new Dictionary<string, string>(StringComparer.Ordinal) { ["traitId"] = after[index] });
+            }
+        }
+
+        public int SellOwnedCardDuplicates(string cardId, int count = 1)
+        {
+            int earnedSp = _coordinator.SellOwnedCardDuplicates(RequireRuntime(), cardId, count);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+            return earnedSp;
         }
 
         public ClubFacilityEffectProfile GetFacilityEffects()
@@ -642,9 +1040,7 @@ namespace Baseball.Game.Historical
             _coordinator = new ManagerModeCoordinator(_balance);
             _pregameService = new ManagerPregameService(_balance, _contentProvider);
             _tacticCards = CopyTactics(newGameConfiguration.StarterTacticCards);
-            _availableTacticCardIds = new string[_tacticCards.Length];
-            for (int index = 0; index < _tacticCards.Length; index++)
-                _availableTacticCardIds[index] = _tacticCards[index].CardId;
+            _availableTacticCardIds = Array.Empty<string>();
             _matchService = new ManagerModeMatchService(
                 _contentProvider,
                 _balance,
@@ -691,7 +1087,7 @@ namespace Baseball.Game.Historical
         private void ApplyStarterLoadout(ManagerModeRuntimeState mode)
         {
             LineupPresetState source = mode.GetSelectedLineupPreset();
-            var tacticIds = new string[_tacticCards.Length];
+            var tacticIds = new string[LineupPresetState.MaximumTacticCardCount];
             for (int index = 0; index < tacticIds.Length; index++) tacticIds[index] = _tacticCards[index].CardId;
             string[] teamColorIds = SelectStarterTeamColorIds();
             mode.UpsertLineupPreset(new LineupPresetState(
@@ -708,21 +1104,93 @@ namespace Baseball.Game.Historical
                 tacticIds));
         }
 
+        private void EnsureStarterTacticCollection()
+        {
+            if (_tacticCards.Length < LineupPresetState.MaximumTacticCardCount)
+                throw new InvalidOperationException("구단주 모드 Starter Tactic 두 장이 필요합니다.");
+            for (int index = 0; index < LineupPresetState.MaximumTacticCardCount; index++)
+                Runtime.TacticCollection.Acquire(_tacticCards[index].CardId);
+        }
+
+        /// <summary>3연패를 직접 끊은 순간에만 업적 전용 Signature 전술을 한 번 지급한다.</summary>
+        private bool TryUnlockLosingStreakSignature()
+        {
+            if (Runtime.TacticCollection.Contains(LosingStreakSignatureCardId))
+                return false;
+
+            IReadOnlyList<ScheduledGameState> games = Runtime.ManagerMode.LiveSeason.Schedule.Games;
+            var latestResults = new bool[4];
+            int resultCount = 0;
+            int playerTeamId = Runtime.ManagerMode.LiveSeason.PlayerTeamId;
+            for (int index = 0; index < games.Count; index++)
+            {
+                ScheduledGameState game = games[index];
+                if (!game.IsCompleted || !game.IncludesTeam(playerTeamId))
+                    continue;
+                bool isWin = game.AwayTeamId == playerTeamId
+                    ? game.AwayRuns > game.HomeRuns
+                    : game.HomeRuns > game.AwayRuns;
+                if (resultCount < latestResults.Length)
+                    latestResults[resultCount++] = isWin;
+                else
+                {
+                    latestResults[0] = latestResults[1];
+                    latestResults[1] = latestResults[2];
+                    latestResults[2] = latestResults[3];
+                    latestResults[3] = isWin;
+                }
+            }
+            if (resultCount < latestResults.Length || latestResults[0] || latestResults[1] || latestResults[2] || !latestResults[3])
+                return false;
+            Runtime.TacticCollection.Acquire(LosingStreakSignatureCardId);
+            return true;
+        }
+
+        private void ClearConsumedTacticLoadout()
+        {
+            ManagerModeRuntimeState mode = Runtime.ManagerMode;
+            LineupPresetState source = mode.GetSelectedLineupPreset();
+            mode.UpsertLineupPreset(new LineupPresetState(
+                source.PresetId,
+                source.Name,
+                source.StartingLineupSlots,
+                source.BattingOrderCardIds,
+                source.BenchPriorityCardIds,
+                source.StarterRotationCardIds,
+                source.BullpenAssignmentCardIds,
+                source.SetupPitcherCardId,
+                source.CloserPitcherCardId,
+                source.TeamColorIds,
+                Array.Empty<string>()));
+        }
+
+        private void RefreshAvailableTacticCards()
+        {
+            if (Runtime == null)
+            {
+                _availableTacticCardIds = Array.Empty<string>();
+                return;
+            }
+            var ids = new List<string>();
+            for (int index = 0; index < _tacticCards.Length; index++)
+                if (Runtime.TacticCollection.Contains(_tacticCards[index].CardId))
+                    ids.Add(_tacticCards[index].CardId);
+            ids.Sort(StringComparer.Ordinal);
+            _availableTacticCardIds = ids.ToArray();
+        }
+
         private void ConfigureTeamColors(HistoricalBakedContent content, string teamSeasonKey)
         {
             if (content == null) throw new ArgumentNullException(nameof(content));
             if (!content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
                 throw new InvalidOperationException("플레이어 구단의 TeamSeasonDefinition이 없습니다.");
 
-            var definitions = new List<TeamColorDefinition>();
-            AddDefinitions(definitions,
-                InitialTeamColorDefinitionFactory.CreateYearFranchise(
-                    Runtime.ManagerMode.LiveSeason.OriginYear,
-                    team.FranchiseId));
-            AddDefinitions(definitions, InitialTeamColorDefinitionFactory.CreateFranchise(team.FranchiseId));
-            definitions.Add(InitialTeamColorDefinitionFactory.CreateYear(
-                Runtime.ManagerMode.LiveSeason.OriginYear));
-            _teamColors = definitions.ToArray();
+            IReadOnlyList<TeamColorDefinition> definitions = InitialTeamColorDefinitionFactory.CreateAll(
+                Runtime.ManagerMode.LiveSeason.OriginYear,
+                team.FranchiseId);
+            _teamColors = new TeamColorDefinition[definitions.Count];
+            for (int index = 0; index < _teamColors.Length; index++)
+                _teamColors[index] = definitions[index];
 
             IReadOnlyList<TeamColorCandidate> candidates = new TeamColorResolver().Resolve(
                 Runtime.GetRoster(teamSeasonKey),
@@ -779,14 +1247,6 @@ namespace Baseball.Game.Historical
             return comparison != 0
                 ? comparison
                 : string.CompareOrdinal(left.TeamColorId, right.TeamColorId);
-        }
-
-        private static void AddDefinitions(
-            ICollection<TeamColorDefinition> target,
-            IReadOnlyList<TeamColorDefinition> definitions)
-        {
-            for (int index = 0; index < definitions.Count; index++)
-                target.Add(definitions[index]);
         }
 
         private static TacticCardDefinition[] CopyTactics(IReadOnlyList<TacticCardDefinition> source)

@@ -194,6 +194,17 @@ namespace Baseball.Presentation.Owner
                     $"TacticSlot{index}",
                     string.Empty,
                     () => TacticSlotCycleRequested?.Invoke(slotIndex));
+                LayoutElement tacticLayout = _tacticButtons[index].GetComponent<LayoutElement>();
+                tacticLayout.minWidth = 142f;
+                tacticLayout.preferredWidth = 154f;
+                RawImage artwork = TacticCardArtwork.Create(
+                    _tacticButtons[index].transform,
+                    "TacticArtwork",
+                    TacticCardArtwork.CommonKey,
+                    new Color(1f, 1f, 1f, 0.32f));
+                OwnerRuntimeUiFactory.Stretch(artwork.rectTransform);
+                artwork.uvRect = new Rect(0f, 0.34f, 1f, 0.28f);
+                artwork.transform.SetAsFirstSibling();
             }
             _activeRosterEditButton = OwnerWorkspaceUiFactory.CreateButton(
                 _actionRoot, "ActiveRosterEditDisabled", "1군 등록 변경 미제공", null);
@@ -237,10 +248,30 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < _tacticButtons.Length; index++)
             {
                 _tacticButtons[index].GetComponentInChildren<Text>().text = _model.TacticSlotText(index);
+                BindTacticArtwork(_tacticButtons[index], index);
                 _tacticButtons[index].interactable =
                     _model.Snapshot.TacticCandidates.Count > 0 &&
                     index <= _model.Snapshot.Preset.DefaultTacticCardIds.Count;
             }
+        }
+
+        private void BindTacticArtwork(Button button, int slotIndex)
+        {
+            RawImage artwork = button.transform.Find("TacticArtwork")?.GetComponent<RawImage>();
+            if (artwork == null) return;
+            string selectedId = slotIndex < _model.Snapshot.Preset.DefaultTacticCardIds.Count
+                ? _model.Snapshot.Preset.DefaultTacticCardIds[slotIndex]
+                : string.Empty;
+            OwnerLoadoutCandidateSnapshot selected = null;
+            for (int index = 0; index < _model.Snapshot.TacticCandidates.Count; index++)
+            {
+                OwnerLoadoutCandidateSnapshot candidate = _model.Snapshot.TacticCandidates[index];
+                if (!string.Equals(candidate.Id, selectedId, StringComparison.Ordinal)) continue;
+                selected = candidate;
+                break;
+            }
+            artwork.texture = selected == null ? null : TacticCardArtwork.Load(selected.ArtworkKey);
+            artwork.gameObject.SetActive(artwork.texture != null);
         }
 
         private static int FindSelectedPreset(OwnerRosterLineupPresentationModel model)

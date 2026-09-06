@@ -256,6 +256,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Transform workspace = shell.MainWorkspaceHost.Find("OwnerDugoutWorkspace");
             Assert.That(workspace, Is.Not.Null);
             Assert.That(shell.MainWorkspaceHost.Find("OwnerRosterLineupWorkspace"), Is.Null);
+            Assert.That(
+                workspace.Find("DugoutBoard/StaffColumn/Manager/StaffCard/Portrait")
+                    .GetComponent<UnityEngine.UI.Image>().sprite,
+                Is.Not.Null);
+            Assert.That(
+                workspace.Find("DugoutBoard/StaffColumn/HeadCoach/StaffCard/Portrait")
+                    .GetComponent<UnityEngine.UI.Image>().sprite,
+                Is.Not.Null);
             workspace.Find("DugoutBoard/StaffColumn/Manager/Select").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
             Transform overlay = workspace.Find("StaffSelectionOverlay");
             Assert.That(overlay.gameObject.activeSelf, Is.True);

@@ -89,14 +89,24 @@ namespace Baseball.Presentation.Owner
     public sealed class OwnerLoadoutCandidateSnapshot
     {
         public OwnerLoadoutCandidateSnapshot(string id, string displayName)
+            : this(id, displayName, string.Empty, 0)
+        {
+        }
+
+        public OwnerLoadoutCandidateSnapshot(string id, string displayName, string artworkKey, int ownedCount)
         {
             if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("후보 ID가 필요합니다.", nameof(id));
+            if (ownedCount < 0) throw new ArgumentOutOfRangeException(nameof(ownedCount));
             Id = id.Trim();
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? Id : displayName.Trim();
+            ArtworkKey = artworkKey ?? string.Empty;
+            OwnedCount = ownedCount;
         }
 
         public string Id { get; }
         public string DisplayName { get; }
+        public string ArtworkKey { get; }
+        public int OwnedCount { get; }
     }
 
     /// <summary>Game의 로스터 및 프리셋 Resolver 결과를 변경 없이 묶은 화면 Snapshot이다.</summary>

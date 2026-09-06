@@ -69,7 +69,12 @@ namespace Baseball.Presentation.Owner
             Handedness? throws = null,
             Handedness? bats = null,
             IReadOnlyList<OwnerPitchCardSnapshot> pitches = null,
-            IReadOnlyList<OwnerCardRecordFieldSnapshot> seasonRecord = null)
+            IReadOnlyList<OwnerCardRecordFieldSnapshot> seasonRecord = null,
+            int trainingBonusTotal = 0,
+            int placedSkillBlockCount = 0,
+            int availableSkillBlockCount = 0,
+            bool isActiveRoster = false,
+            string studyStatus = "")
         {
             CardId = RequireText(cardId, nameof(cardId));
             PlayerPersonId = RequireText(playerPersonId, nameof(playerPersonId));
@@ -90,6 +95,11 @@ namespace Baseball.Presentation.Owner
             Bats = bats;
             _pitches = Copy(pitches);
             _seasonRecord = Copy(seasonRecord);
+            TrainingBonusTotal = trainingBonusTotal;
+            PlacedSkillBlockCount = placedSkillBlockCount;
+            AvailableSkillBlockCount = availableSkillBlockCount;
+            IsActiveRoster = isActiveRoster;
+            StudyStatus = studyStatus ?? string.Empty;
         }
 
         public string CardId { get; }
@@ -110,6 +120,11 @@ namespace Baseball.Presentation.Owner
         public Handedness? Bats { get; }
         public IReadOnlyList<OwnerPitchCardSnapshot> Pitches => _pitches;
         public IReadOnlyList<OwnerCardRecordFieldSnapshot> SeasonRecord => _seasonRecord;
+        public int TrainingBonusTotal { get; }
+        public int PlacedSkillBlockCount { get; }
+        public int AvailableSkillBlockCount { get; }
+        public bool IsActiveRoster { get; }
+        public string StudyStatus { get; }
         private readonly AbilityRatings _abilities;
         private readonly OwnerPitchCardSnapshot[] _pitches;
         private readonly OwnerCardRecordFieldSnapshot[] _seasonRecord;

@@ -130,6 +130,9 @@ namespace Baseball.Simulation.Historical
                 throw new InvalidOperationException("현재 카드 카탈로그로 15인 저가치 보충 로스터를 구성할 수 없습니다.");
 
             CurrentRosterState roster = AssignRoles(selectedTeam.TeamSeasonKey, mainCardIds, fillerCardIds, catalog);
+            RosterValidationResult validation = new ActiveRosterValidator().Validate(roster);
+            if (!validation.IsValid)
+                throw new InvalidOperationException("자동 배정한 스타터 로스터가 25인 구성 계약을 만족하지 않습니다.");
             return new OwnerStarterRosterResult(mainCardIds, fillerCardIds, roster, rerollIndex, resultSeed);
         }
 

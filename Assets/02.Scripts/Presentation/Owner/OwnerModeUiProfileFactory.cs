@@ -51,10 +51,6 @@ namespace Baseball.Presentation.Owner
             "라인업의 팀컬러 슬롯은 변경할 수 있지만 조건·적용 대상·중첩 결과를 보여주는 상세 화면은 아직 준비되지 않았습니다.";
         private const string TacticBackendUnavailable =
             "라인업의 전술카드 슬롯은 변경할 수 있지만 발동 조건·대상·지속 시간을 보여주는 상세 화면은 아직 준비되지 않았습니다.";
-        private const string ManagerPolicyBackendUnavailable =
-            "감독 방침 조회·변경 기능이 아직 준비되지 않았습니다.";
-        private const string CardTrainingBackendUnavailable =
-            "카드 훈련 기능은 있으나 훈련 목록과 비용·결과 미리보기가 아직 제공되지 않았습니다.";
         /// <summary>현재 백엔드 연결 범위를 숨기거나 과장하지 않는 구단주 UI Profile을 만든다.</summary>
         public static GameModeUiProfile Create()
         {
@@ -68,29 +64,33 @@ namespace Baseball.Presentation.Owner
             };
             var powerUpTabs = new[]
             {
-                new NavigationEntry(OwnerNavigationRoutes.PowerUpScout, "스카우트", isEnabled: false,
-                    disabledReason: ScoutBackendUnavailable),
-                new NavigationEntry(OwnerNavigationRoutes.PowerUpTraining, "카드훈련", isEnabled: false,
-                    disabledReason: CardTrainingBackendUnavailable),
-                new NavigationEntry(OwnerNavigationRoutes.PowerUpEnhancementSale, "강화·판매", isEnabled: false,
-                    disabledReason: "강화·판매 계산은 있으나 비용·결과 미리보기와 실행 기능이 아직 제공되지 않았습니다.")
+                new NavigationEntry(OwnerNavigationRoutes.PowerUpScout, "스카우트"),
+                new NavigationEntry(OwnerNavigationRoutes.PowerUpTraining, "카드훈련"),
+                new NavigationEntry(OwnerNavigationRoutes.PowerUpEnhancementSale, "강화·판매")
             };
             var dugoutTabs = new[]
             {
                 new NavigationEntry(OwnerNavigationRoutes.DugoutLineupNotes, "덕아웃"),
                 new NavigationEntry(OwnerNavigationRoutes.DugoutTeamColor, "팀컬러", isEnabled: false,
                     disabledReason: TeamColorBackendUnavailable),
-                new NavigationEntry(OwnerNavigationRoutes.DugoutTactics, "작전", isEnabled: false,
-                    disabledReason: TacticBackendUnavailable),
-                new NavigationEntry(OwnerNavigationRoutes.DugoutManagerPolicy, "감독방침", isEnabled: false,
-                    disabledReason: ManagerPolicyBackendUnavailable)
+                new NavigationEntry(OwnerNavigationRoutes.DugoutTactics, "작전"),
+                new NavigationEntry(OwnerNavigationRoutes.DugoutManagerPolicy, "감독방침")
             };
             var leagueTabs = new[]
             {
                 new NavigationEntry(OwnerNavigationRoutes.LeagueStandings, "순위표"),
                 new NavigationEntry(OwnerNavigationRoutes.LeagueTeamResults, "구단 성적"),
                 new NavigationEntry(OwnerNavigationRoutes.LeagueMatchups, "대전 결과"),
-                new NavigationEntry(OwnerNavigationRoutes.LeagueRankHistory, "순위 변화")
+                new NavigationEntry(OwnerNavigationRoutes.LeagueRankHistory, "순위 변화"),
+                new NavigationEntry(OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId, "일정"),
+                new NavigationEntry(
+                    OwnerSharedInformationWorkspaceCoordinator.SeasonRecordsRouteId,
+                    "선수 기록",
+                    UiCapability.CanViewSeasonRecords),
+                new NavigationEntry(
+                    OwnerSharedInformationWorkspaceCoordinator.RecordsRouteId,
+                    "역사 기록",
+                    UiCapability.CanViewSeasonRecords)
             };
             var clubTabs = new[]
             {

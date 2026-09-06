@@ -11,7 +11,7 @@ namespace Baseball.Game.Data
     /// <summary>09~12 구단주 확장 시스템의 직렬화 JSON을 순수 C# Balance 계약으로 변환한다.</summary>
     internal static class OwnerExpansionBalanceConfig
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         public static OwnerExpansionBalanceTables Parse(string json)
         {
@@ -37,7 +37,7 @@ namespace Baseball.Game.Data
             }
             if (string.IsNullOrWhiteSpace(data.contentId))
                 throw new InvalidOperationException("OwnerExpansionBalance Config ContentId가 비어 있습니다.");
-            if (data.conditionChemistry == null || data.clubOperation == null ||
+            if (data.leaguePromotion == null || data.conditionChemistry == null || data.clubOperation == null ||
                 data.staff == null || data.scoutingConfidence == null)
             {
                 throw new InvalidOperationException("OwnerExpansionBalance Config에 09~12 시스템 섹션이 모두 필요합니다.");
@@ -46,6 +46,7 @@ namespace Baseball.Game.Data
             try
             {
                 return new OwnerExpansionBalanceTables(
+                    data.leaguePromotion.Build(),
                     data.conditionChemistry.Build(),
                     data.clubOperation.Build(),
                     data.staff.Build(),
@@ -75,12 +76,14 @@ namespace Baseball.Game.Data
     internal readonly struct OwnerExpansionBalanceTables
     {
         public OwnerExpansionBalanceTables(
+            LeagueDefinition leaguePromotion,
             ConditionChemistryBalanceTable conditionChemistry,
             ClubOperationBalanceTable clubOperation,
             StaffBalanceTable staff,
             ScoutingConfidenceDefinition scoutingConfidence,
             string contentHash)
         {
+            LeaguePromotion = leaguePromotion ?? throw new ArgumentNullException(nameof(leaguePromotion));
             ConditionChemistry = conditionChemistry ?? throw new ArgumentNullException(nameof(conditionChemistry));
             ClubOperation = clubOperation ?? throw new ArgumentNullException(nameof(clubOperation));
             Staff = staff ?? throw new ArgumentNullException(nameof(staff));
@@ -90,6 +93,7 @@ namespace Baseball.Game.Data
                 : contentHash.Trim();
         }
 
+        public LeagueDefinition LeaguePromotion { get; }
         public ConditionChemistryBalanceTable ConditionChemistry { get; }
         public ClubOperationBalanceTable ClubOperation { get; }
         public StaffBalanceTable Staff { get; }
@@ -102,10 +106,52 @@ namespace Baseball.Game.Data
     {
         public int schemaVersion;
         public string contentId;
+        public LeaguePromotionBalanceData leaguePromotion;
         public ConditionChemistryBalanceData conditionChemistry;
         public ClubOperationBalanceData clubOperation;
         public StaffBalanceData staff;
         public ScoutingConfidenceBalanceData scoutingConfidence;
+    }
+
+    [Serializable]
+    internal sealed class LeaguePromotionBalanceData
+    {
+        public LeaguePromotionRuleData[] rules;
+
+        public LeagueDefinition Build()
+        {
+            if (rules == null)
+                throw new InvalidOperationException("LeaguePromotion.rules가 없습니다.");
+            var definitions = new LeagueGradeRule[rules.Length];
+            for (int index = 0; index < definitions.Length; index++)
+            {
+                definitions[index] = rules[index]?.Build() ??
+                    throw new InvalidOperationException("LeaguePromotion.rules에 null 행이 있습니다.");
+            }
+            return new LeagueDefinition(definitions);
+        }
+    }
+
+    [Serializable]
+    internal sealed class LeaguePromotionRuleData
+    {
+        public int leagueGrade;
+        public int minimumGames;
+        public bool hasPromotion;
+        public double promotionWinningPercentage;
+        public bool hasRelegation;
+        public double relegationWinningPercentage;
+
+        public LeagueGradeRule Build()
+        {
+            if (!Enum.IsDefined(typeof(LeagueGrade), leagueGrade))
+                throw new InvalidOperationException($"LeaguePromotion의 LeagueGrade {leagueGrade}가 잘못되었습니다.");
+            return new LeagueGradeRule(
+                (LeagueGrade)leagueGrade,
+                minimumGames,
+                hasPromotion ? promotionWinningPercentage : null,
+                hasRelegation ? relegationWinningPercentage : null);
+        }
     }
 
     [Serializable]

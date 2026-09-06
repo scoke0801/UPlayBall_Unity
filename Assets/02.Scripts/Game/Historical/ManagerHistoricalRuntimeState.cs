@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Historical;
+using Baseball.Core.Shop;
+using Baseball.Game.Guide;
 using Baseball.Simulation.Historical;
 
 namespace Baseball.Game.Historical
@@ -24,7 +26,14 @@ namespace Baseball.Game.Historical
             IReadOnlyList<CurrentRosterState> rosters,
             IReadOnlyList<OwnedPlayerCardState> ownedCards,
             ManagerEconomyState economy,
-            ManagerModeRuntimeState managerMode = null)
+            ManagerModeRuntimeState managerMode = null,
+            TacticCollectionState tacticCollection = null,
+            ShopPurchaseHistoryState shopPurchaseHistory = null,
+            GuideRepeatStateData guideRepeatState = null,
+            OwnerProfileState ownerProfile = null,
+            OwnerNewGameReceipt newGameReceipt = null,
+            OwnerOnboardingState onboarding = null,
+            OwnerPlayerGrowthState playerGrowth = null)
         {
             PlayerTeamSeasonKey = RequireId(playerTeamSeasonKey, nameof(playerTeamSeasonKey));
             ContentReference = contentReference ?? throw new ArgumentNullException(nameof(contentReference));
@@ -34,6 +43,13 @@ namespace Baseball.Game.Historical
             League = league ?? throw new ArgumentNullException(nameof(league));
             Economy = economy ?? throw new ArgumentNullException(nameof(economy));
             ManagerMode = managerMode;
+            TacticCollection = tacticCollection ?? new TacticCollectionState();
+            ShopPurchaseHistory = shopPurchaseHistory ?? new ShopPurchaseHistoryState();
+            GuideRepeatState = guideRepeatState ?? new GuideRepeatStateData();
+            OwnerProfile = ownerProfile ?? OwnerProfileState.CreateLegacyDefault();
+            NewGameReceipt = newGameReceipt;
+            Onboarding = onboarding ?? new OwnerOnboardingState(0, false);
+            PlayerGrowth = playerGrowth ?? new OwnerPlayerGrowthState();
 
             if (!Contains(league.RegularTeamSeasonKeys, PlayerTeamSeasonKey))
                 throw new ArgumentException("플레이어 구단은 해당 연도 정규 Franchise 중 하나여야 합니다.", nameof(playerTeamSeasonKey));
@@ -44,6 +60,7 @@ namespace Baseball.Game.Historical
             _ownedCardsById = IndexOwnedCards(_ownedCards);
             ValidateSpecialEditionActivation();
             ValidatePlayerRosterOwnership();
+            ValidatePlayerGrowth();
             ValidateSpecialCompositeOverlap();
             if (ManagerMode != null &&
                 !string.Equals(ManagerMode.ClubOperation.TeamSeasonKey, PlayerTeamSeasonKey, StringComparison.Ordinal))
@@ -56,12 +73,39 @@ namespace Baseball.Game.Historical
         public WorldHistorySnapshot WorldHistory { get; }
         public WorldAwardRecord WorldAwardRecord => WorldHistory.Awards;
         public WorldCardCatalog WorldCardCatalog { get; }
-        public LeagueInstance League { get; }
+        public LeagueInstance League { get; private set; }
         public IReadOnlyList<CurrentRosterState> Rosters => _rosters;
         public IReadOnlyList<OwnedPlayerCardState> OwnedCards => _ownedCards;
         public ManagerEconomyState Economy { get; }
         public ManagerModeRuntimeState ManagerMode { get; }
+        public TacticCollectionState TacticCollection { get; }
+        public ShopPurchaseHistoryState ShopPurchaseHistory { get; }
+        public GuideRepeatStateData GuideRepeatState { get; private set; }
+        public OwnerProfileState OwnerProfile { get; }
+        public OwnerNewGameReceipt NewGameReceipt { get; }
+        public OwnerOnboardingState Onboarding { get; }
+        public OwnerPlayerGrowthState PlayerGrowth { get; }
         public bool HasManagerMode => ManagerMode != null;
+
+        /// <summary>GuideManager가 확정한 Save 범위 반복 상태를 저장 Aggregate에 동기화한다.</summary>
+        public void SetGuideRepeatState(GuideRepeatStateData state)
+        {
+            GuideRepeatState = state ?? new GuideRepeatStateData();
+        }
+
+        /// <summary>참가 구단과 로스터를 그대로 유지한 채 다음 시즌 리그 등급만 교체한다.</summary>
+        public void MoveLeagueTo(LeagueGrade nextGrade)
+        {
+            if (!Enum.IsDefined(typeof(LeagueGrade), nextGrade))
+                throw new ArgumentOutOfRangeException(nameof(nextGrade));
+            if (League.Grade == nextGrade)
+                return;
+            League = new LeagueInstance(
+                League.LeagueInstanceId,
+                nextGrade,
+                League.RegularTeamSeasonKeys,
+                League.SpecialCompositeTeams);
+        }
 
         public CurrentRosterState GetRoster(string teamSeasonKey)
         {
@@ -108,6 +152,36 @@ namespace Baseball.Game.Historical
                 RequireId(teamSeasonKey, nameof(teamSeasonKey)),
                 PlayerTeamSeasonKey,
                 StringComparison.Ordinal);
+        }
+
+        private void ValidatePlayerGrowth()
+        {
+            var equipped = new HashSet<int>();
+            for (int cardIndex = 0; cardIndex < _ownedCards.Count; cardIndex++)
+            {
+                OwnedPlayerCardState card = _ownedCards[cardIndex];
+                for (int blockIndex = 0; blockIndex < card.SkillBoard.Placements.Count; blockIndex++)
+                {
+                    int instanceId = card.SkillBoard.Placements[blockIndex].Instance.InstanceId;
+                    if (!PlayerGrowth.Inventory.Contains(instanceId))
+                        throw new ArgumentException("카드 성장판이 인벤토리에 없는 블록을 참조합니다.", nameof(PlayerGrowth));
+                    if (!string.Equals(
+                            PlayerGrowth.Inventory.GetRequired(instanceId).DefinitionId,
+                            card.SkillBoard.Placements[blockIndex].Instance.DefinitionId,
+                            StringComparison.Ordinal))
+                        throw new ArgumentException("성장판과 인벤토리의 블록 정의가 일치하지 않습니다.", nameof(PlayerGrowth));
+                    if (!equipped.Add(instanceId))
+                        throw new ArgumentException("하나의 스킬 블록을 여러 카드에 장착할 수 없습니다.", nameof(PlayerGrowth));
+                }
+            }
+
+            var studyingCards = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < PlayerGrowth.StudyProjects.Count; index++)
+            {
+                string cardId = PlayerGrowth.StudyProjects[index].CardId;
+                if (!_ownedCardsById.ContainsKey(cardId) || !studyingCards.Add(cardId))
+                    throw new ArgumentException("유학 중인 카드 상태가 보유 카드와 일치하지 않습니다.", nameof(PlayerGrowth));
+            }
         }
 
         private void ValidatePlayerRosterOwnership()
@@ -288,7 +362,10 @@ namespace Baseball.Game.Historical
             int originYear,
             string leagueInstanceId,
             string playerTeamSeasonKey,
-            ManagerEconomyState initialEconomy)
+            ManagerEconomyState initialEconomy,
+            CurrentRosterState starterRoster = null,
+            OwnerProfileState ownerProfile = null,
+            OwnerNewGameReceipt newGameReceipt = null)
         {
             if (originYear <= 0)
                 throw new ArgumentOutOfRangeException(nameof(originYear));
@@ -303,6 +380,11 @@ namespace Baseball.Game.Historical
             LeagueInstanceId = leagueInstanceId.Trim();
             PlayerTeamSeasonKey = playerTeamSeasonKey.Trim();
             InitialEconomy = initialEconomy ?? throw new ArgumentNullException(nameof(initialEconomy));
+            if (starterRoster != null && !string.Equals(starterRoster.TeamSeasonKey, PlayerTeamSeasonKey, StringComparison.Ordinal))
+                throw new ArgumentException("StarterRoster는 플레이어 구단과 일치해야 합니다.", nameof(starterRoster));
+            StarterRoster = starterRoster;
+            OwnerProfile = ownerProfile;
+            NewGameReceipt = newGameReceipt;
         }
 
         public WorldRecordMode RecordMode { get; }
@@ -311,6 +393,9 @@ namespace Baseball.Game.Historical
         public string LeagueInstanceId { get; }
         public string PlayerTeamSeasonKey { get; }
         public ManagerEconomyState InitialEconomy { get; }
+        public CurrentRosterState StarterRoster { get; }
+        public OwnerProfileState OwnerProfile { get; }
+        public OwnerNewGameReceipt NewGameReceipt { get; }
     }
 
     /// <summary>Baked Content부터 World Record, 합성팀, 저장 가능한 구단주 모드 상태까지 한 번에 조립한다.</summary>
@@ -346,7 +431,12 @@ namespace Baseball.Game.Historical
                 request.WorldHistorySeed);
             SpecialCompositeTeamSet composites = world.GetSpecialCompositeTeamSet(request.OriginYear);
             LeagueInstance league = CreateLeague(request, year, composites);
-            CurrentRosterState[] rosters = CreateRosters(year, composites, world.WorldCardCatalog);
+            CurrentRosterState[] rosters = CreateRosters(
+                year,
+                composites,
+                world.WorldCardCatalog,
+                request.PlayerTeamSeasonKey,
+                request.StarterRoster);
             OwnedPlayerCardState[] ownedCards = CreateInitialOwnedCards(
                 request.PlayerTeamSeasonKey,
                 rosters);
@@ -370,7 +460,10 @@ namespace Baseball.Game.Historical
                 rosters,
                 ownedCards,
                 request.InitialEconomy,
-                managerMode);
+                managerMode,
+                ownerProfile: request.OwnerProfile,
+                newGameReceipt: request.NewGameReceipt,
+                onboarding: new OwnerOnboardingState(0, false));
         }
 
         private StaffCatalog CreateStaffCatalog(WorldIdentityRegistry identities, ulong worldSeed)
@@ -421,13 +514,21 @@ namespace Baseball.Game.Historical
         private static CurrentRosterState[] CreateRosters(
             HistoricalYearContentDefinition year,
             SpecialCompositeTeamSet composites,
-            WorldCardCatalog catalog)
+            WorldCardCatalog catalog,
+            string playerTeamSeasonKey,
+            CurrentRosterState starterRoster)
         {
             var result = new CurrentRosterState[
                 year.TeamSeasons.Count + composites.Teams.Count];
             int outputIndex = 0;
             for (int index = 0; index < year.TeamSeasons.Count; index++)
-                result[outputIndex++] = CreateRegularRoster(year.TeamSeasons[index], catalog);
+            {
+                TeamSeasonDefinition team = year.TeamSeasons[index];
+                result[outputIndex++] = starterRoster != null &&
+                    string.Equals(team.TeamSeasonKey, playerTeamSeasonKey, StringComparison.Ordinal)
+                        ? starterRoster
+                        : CreateRegularRoster(team, catalog);
+            }
             for (int index = 0; index < composites.Teams.Count; index++)
                 result[outputIndex++] = CreateCompositeRoster(composites.Teams[index], catalog);
             return result;

@@ -16,6 +16,36 @@ namespace Baseball.Game.Historical
         public OwnedPlayerCardSaveData[] ownedCards;
         public ManagerEconomySaveData economy;
         public ManagerModeSaveData managerMode;
+        public TacticCollectionSaveData tacticCollection;
+        public ShopPurchaseHistorySaveData shopPurchaseHistory;
+        public Baseball.Game.Guide.GuideRepeatStateData guideRepeatState;
+        public OwnerProfileSaveData ownerProfile;
+        public OwnerNewGameReceiptSaveData newGameReceipt;
+        public OwnerOnboardingSaveData onboarding;
+        public OwnerPlayerGrowthSaveData playerGrowth;
+    }
+
+    [Serializable]
+    public sealed class OwnerProfileSaveData
+    {
+        public string nickname;
+        public string frontManagerId;
+    }
+
+    [Serializable]
+    public sealed class OwnerNewGameReceiptSaveData
+    {
+        public string[] mainCardIds;
+        public string[] fillerCardIds;
+        public int fillerRerollCount;
+        public ulong starterRosterSeed;
+    }
+
+    [Serializable]
+    public sealed class OwnerOnboardingSaveData
+    {
+        public int currentStep;
+        public bool isCompleted;
     }
 
     [Serializable]
@@ -84,6 +114,51 @@ namespace Baseball.Game.Historical
         public bool isLocked;
         public bool isFavorite;
         public int[] trainingBonuses;
+        public OwnerPlacedSkillBlockSaveData[] skillBoard;
+        public int lastStudySeason;
+    }
+
+    [Serializable]
+    public sealed class OwnerPlayerGrowthSaveData
+    {
+        public OwnerSkillBlockInventorySaveData inventory;
+        public CardStudyProjectSaveData[] studyProjects;
+    }
+
+    [Serializable]
+    public sealed class OwnerSkillBlockInventorySaveData
+    {
+        public OwnerSkillBlockInstanceSaveData[] blocks;
+        public int pityEliteCount;
+        public int pityUniqueCount;
+        public int pityLegendaryCount;
+        public int totalPullCount;
+    }
+
+    [Serializable]
+    public sealed class OwnerSkillBlockInstanceSaveData
+    {
+        public int instanceId;
+        public string definitionId;
+    }
+
+    [Serializable]
+    public sealed class OwnerPlacedSkillBlockSaveData
+    {
+        public int instanceId;
+        public string definitionId;
+        public int originX;
+        public int originY;
+        public int rotationQuarterTurns;
+    }
+
+    [Serializable]
+    public sealed class CardStudyProjectSaveData
+    {
+        public string cardId;
+        public string programId;
+        public int startedSeason;
+        public int remainingWeeks;
     }
 
     [Serializable]
@@ -95,7 +170,34 @@ namespace Baseball.Game.Historical
         public int pityGauge;
     }
 
-    /// <summary>구단주 모드 확장 시스템의 원본 상태만 보관하는 v4 DTO다.</summary>
+    [Serializable]
+    public sealed class TacticCollectionSaveData
+    {
+        public TacticCollectionEntrySaveData[] entries;
+    }
+
+    [Serializable]
+    public sealed class TacticCollectionEntrySaveData
+    {
+        public string cardId;
+        public int count;
+    }
+
+    [Serializable]
+    public sealed class ShopPurchaseHistorySaveData
+    {
+        public int totalPurchaseCount;
+        public ShopPurchaseCountSaveData[] entries;
+    }
+
+    [Serializable]
+    public sealed class ShopPurchaseCountSaveData
+    {
+        public string productId;
+        public int count;
+    }
+
+    /// <summary>구단주 모드 확장 시스템의 원본 상태만 보관하는 DTO다.</summary>
     [Serializable]
     public sealed class ManagerModeSaveData
     {
@@ -110,6 +212,21 @@ namespace Baseball.Game.Historical
         public TeamSeasonPlayerStatusSaveData[] playerStatuses;
         public TeamChemistryFamiliaritySaveData[] familiarities;
         public ManagerLiveSeasonSaveData liveSeason;
+        public DugoutManagementSaveData dugout;
+    }
+
+    [Serializable]
+    public sealed class DugoutManagementSaveData
+    {
+        public string managerId;
+        public string headCoachId;
+        public int managerTrust;
+        public int battingApproach;
+        public int runningAggression;
+        public int smallBallPreference;
+        public int pinchHitAggression;
+        public int hookSpeed;
+        public int bullpenAggression;
     }
 
     [Serializable]
@@ -269,6 +386,94 @@ namespace Baseball.Game.Historical
         public int playerTeamId;
         public ManagerTeamReferenceSaveData[] teams;
         public ManagerScheduledGameSaveData[] games;
+        public LeagueSeasonStatisticsSaveData statistics;
+    }
+
+    [Serializable]
+    public sealed class LeagueSeasonStatisticsSaveData
+    {
+        public int schemaVersion;
+        public PlayerSeasonRecordSaveData[] regularSeason;
+    }
+
+    [Serializable]
+    public sealed class PlayerSeasonRecordSaveData
+    {
+        public int playerId;
+        public string playerName;
+        public int teamId;
+        public int primaryPosition;
+        public int teamGames;
+        public BattingRecordSaveData batting;
+        public PitchingRecordSaveData pitching;
+        public FieldingRecordSaveData[] fielding;
+    }
+
+    [Serializable]
+    public sealed class BattingRecordSaveData
+    {
+        public int games;
+        public int gamesStarted;
+        public int plateAppearances;
+        public int atBats;
+        public int runs;
+        public int hits;
+        public int doubles;
+        public int triples;
+        public int homeRuns;
+        public int runsBattedIn;
+        public int walks;
+        public int hitByPitches;
+        public int strikeouts;
+        public int stolenBases;
+        public int caughtStealing;
+        public int sacrificeBunts;
+        public int sacrificeFlies;
+        public int intentionalWalks;
+        public int reachedOnErrors;
+        public int groundedIntoDoublePlays;
+    }
+
+    [Serializable]
+    public sealed class PitchingRecordSaveData
+    {
+        public int appearances;
+        public int starts;
+        public int outsRecorded;
+        public int pitchesThrown;
+        public int wins;
+        public int losses;
+        public int saves;
+        public int holds;
+        public int blownSaves;
+        public int hitsAllowed;
+        public int homeRunsAllowed;
+        public int walksAllowed;
+        public int hitBatters;
+        public int strikeouts;
+        public int runsAllowed;
+        public int earnedRuns;
+        public int battersFaced;
+        public int inheritedRunners;
+        public int inheritedRunnersScored;
+        public int qualityStarts;
+    }
+
+    [Serializable]
+    public sealed class FieldingRecordSaveData
+    {
+        public int position;
+        public int defensiveOuts;
+        public int opportunities;
+        public int successfulPlays;
+        public int putouts;
+        public int assists;
+        public int errors;
+        public int doublePlays;
+        public int difficultPlayAttempts;
+        public int difficultPlaysMade;
+        public double expectedOuts;
+        public double estimatedRunsSaved;
     }
 
     [Serializable]

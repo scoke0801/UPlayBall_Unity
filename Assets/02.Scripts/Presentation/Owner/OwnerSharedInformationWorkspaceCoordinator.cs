@@ -19,10 +19,12 @@ namespace Baseball.Presentation.Owner
         private static readonly string[] LeagueTabLabels = { "순위표", "구단 성적", "대전 결과", "순위 변화" };
         public const string ScheduleRouteId = "Shared.League.Schedule";
         public const string RecordsRouteId = "Shared.League.Records";
+        public const string SeasonRecordsRouteId = "Shared.League.SeasonRecords";
 
         private SharedGameShellView _shell;
         private UI_Scene_OwnerSharedInformation _scheduleView;
         private UI_Scene_OwnerSharedInformation _recordsView;
+        private UI_Scene_OwnerSeasonRecords _seasonRecordsView;
         private UI_Scene_OwnerLeague _leagueView;
         private UI_Scene_OwnerClubInformation _clubInformationView;
         private SharedScreenPresentationModel<ScheduleScreenSnapshot> _scheduleModel;
@@ -96,6 +98,19 @@ namespace Baseball.Presentation.Owner
             _recordsView.BindRecords(_recordsModel);
         }
 
+        /// <summary>현재 시즌 누적 개인 기록을 네 부문 탭이 있는 기록 화면에 연결한다.</summary>
+        public void BindSeasonRecords(OwnerSeasonRecordsPresentationModel model)
+        {
+            RequireInitialized();
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            if (_seasonRecordsView == null)
+            {
+                _seasonRecordsView = UI_Scene_OwnerSeasonRecords.CreateRuntime(_shell.MainWorkspaceHost);
+                _seasonRecordsView.SetVisible(false);
+            }
+            _seasonRecordsView.Bind(model);
+        }
+
         /// <summary>현재 구단의 구단주·구단 정보 화면을 실제 진행 Snapshot으로 갱신한다.</summary>
         public void BindClubInformation(OwnerClubInformationPresentationModel model)
         {
@@ -143,6 +158,16 @@ namespace Baseball.Presentation.Owner
                 ActiveRouteId = ScheduleRouteId;
                 return true;
             }
+            if (string.Equals(routeId, SeasonRecordsRouteId, StringComparison.Ordinal) &&
+                _seasonRecordsView != null)
+            {
+                HideAll();
+                _seasonRecordsView.SetVisible(true);
+                ShowContext(SeasonRecordsRouteId, "선수 기록",
+                    "이번 시즌 리그 전체 선수의 누적 기록을 부문별로 확인합니다.");
+                ActiveRouteId = SeasonRecordsRouteId;
+                return true;
+            }
             if (string.Equals(routeId, RecordsRouteId, StringComparison.Ordinal) && _recordsModel != null)
             {
                 HideAll();
@@ -162,6 +187,7 @@ namespace Baseball.Presentation.Owner
                 return;
             _scheduleView?.SetVisible(false);
             _recordsView?.SetVisible(false);
+            _seasonRecordsView?.SetVisible(false);
             if (_leagueView != null) _leagueView.gameObject.SetActive(false);
             if (_clubInformationView != null) _clubInformationView.gameObject.SetActive(false);
             ActiveRouteId = string.Empty;

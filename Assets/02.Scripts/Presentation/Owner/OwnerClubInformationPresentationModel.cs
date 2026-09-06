@@ -11,7 +11,9 @@ namespace Baseball.Presentation.Owner
             OwnerHomeSnapshot home,
             OwnerCollectionSnapshot collection,
             OwnerClubOperationSnapshot operation,
-            ScheduleScreenSnapshot schedule)
+            ScheduleScreenSnapshot schedule,
+            string ownerName = "구단주",
+            string frontManagerId = "FRONT_MANAGER_DEFAULT_01")
         {
             if (home == null) throw new ArgumentNullException(nameof(home));
             if (collection == null) throw new ArgumentNullException(nameof(collection));
@@ -21,7 +23,8 @@ namespace Baseball.Presentation.Owner
             TeamName = home.TeamName;
             LeagueLabel = string.Concat(schedule.SeasonLabel, " · ", schedule.LeagueLabel);
             LocationLabel = "가상 프로야구 리그";
-            OwnerName = "구단주";
+            OwnerName = string.IsNullOrWhiteSpace(ownerName) ? "구단주" : ownerName.Trim();
+            FrontManagerId = frontManagerId ?? string.Empty;
             OwnedPlayerCount = collection.Cards.Count;
             ActiveRosterText = string.Concat(home.ActiveRosterCount, "/", home.ActiveRosterCapacity);
             FanBaseText = Math.Round(operation.FanBase).ToString("N0");
@@ -66,6 +69,7 @@ namespace Baseball.Presentation.Owner
         public string LeagueLabel { get; }
         public string LocationLabel { get; }
         public string OwnerName { get; }
+        public string FrontManagerId { get; }
         public string FanBaseText { get; }
         public string PopularityText { get; }
         public string StadiumText { get; }

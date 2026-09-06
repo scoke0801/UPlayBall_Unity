@@ -1,5 +1,6 @@
 using System;
 using Baseball.Core.Historical;
+using Baseball.Core.Shop;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -48,6 +49,13 @@ namespace Baseball.Presentation.Owner
         public event Action<int> TacticSlotCycleRequested;
         public event Action<string> ShopPurchaseRequested;
         public event Action<string> ShopDetailsRequested;
+        public event Action<string> CardEnhancementRequested;
+        public event Action<string> CardDuplicateSaleRequested;
+        public event Action<OwnerDugoutConfigurationCommand> DugoutConfigurationConfirmed;
+        public event Action<string, string> CardTrainingRequested;
+        public event Action<string, string> CardStudyRequested;
+        public event Action<string> CardSkillBlockAutoPlaceRequested;
+        public event Action<string> CardSkillBlockRemoveRequested;
 
         public string ActiveRouteId { get; private set; } = string.Empty;
 
@@ -113,6 +121,14 @@ namespace Baseball.Presentation.Owner
             _shopView.Bind(snapshot);
         }
 
+        /// <summary>저장된 인선·방침과 합성된 경기 판단값을 덕아웃에 연결한다.</summary>
+        public void BindDugout(OwnerDugoutSnapshot snapshot)
+        {
+            RequireInitialized();
+            EnsureDugoutView();
+            _dugoutView.Bind(snapshot);
+        }
+
         /// <summary>다음 경기 Snapshot이 없을 때 이전 경기 준비 화면을 다시 열지 않도록 폐기한다.</summary>
         public void ClearMatchPreparation()
         {
@@ -162,6 +178,22 @@ namespace Baseball.Presentation.Owner
                 _clubView.SetFeedback(message, isError);
                 return true;
             }
+            if ((string.Equals(ActiveRouteId, CollectionRouteId, StringComparison.Ordinal) ||
+                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.PowerUpEnhancementSale, StringComparison.Ordinal) ||
+                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.PowerUpTraining, StringComparison.Ordinal)) &&
+                _collectionView != null)
+            {
+                _collectionView.SetFeedback(message, isError);
+                return true;
+            }
+            if ((string.Equals(ActiveRouteId, OwnerNavigationRoutes.DugoutLineupNotes, StringComparison.Ordinal) ||
+                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.DugoutTactics, StringComparison.Ordinal) ||
+                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.DugoutManagerPolicy, StringComparison.Ordinal)) &&
+                _dugoutView != null)
+            {
+                _dugoutView.SetFeedback(message, isError);
+                return true;
+            }
             return false;
         }
 
@@ -170,6 +202,12 @@ namespace Baseball.Presentation.Owner
         {
             if (_shopView != null)
                 _shopView.SetFeedback(message, isError);
+        }
+
+        public void ShowShopReveal(ShopPurchaseResult result)
+        {
+            if (_shopView != null)
+                _shopView.ShowReveal(result);
         }
 
         /// <summary>Owner Route Registry가 승인한 Route만 현재 Shell 슬롯에 표시한다.</summary>
@@ -184,8 +222,7 @@ namespace Baseball.Presentation.Owner
             RequireInitialized();
             if (string.Equals(workspaceRouteId, OwnerNavigationRoutes.DugoutLineupNotes, StringComparison.Ordinal))
             {
-                if (_dugoutView == null)
-                    _dugoutView = UI_Scene_OwnerDugout.CreateRuntime(_shell.MainWorkspaceHost);
+                EnsureDugoutView();
                 SetAllViewsVisible(false);
                 _dugoutView.SetVisible(true);
                 _shell.SetInspectorVisible(false);
@@ -380,9 +417,20 @@ namespace Baseball.Presentation.Owner
                 DestroyView(_rosterLineupView);
             }
             if (_collectionView != null)
+            {
+                _collectionView.EnhancementRequested -= HandleCardEnhancementRequested;
+                _collectionView.DuplicateSaleRequested -= HandleCardDuplicateSaleRequested;
+                _collectionView.TrainingRequested -= HandleCardTrainingRequested;
+                _collectionView.StudyRequested -= HandleCardStudyRequested;
+                _collectionView.SkillBlockAutoPlaceRequested -= HandleCardSkillBlockAutoPlaceRequested;
+                _collectionView.SkillBlockRemoveRequested -= HandleCardSkillBlockRemoveRequested;
                 DestroyView(_collectionView);
+            }
             if (_dugoutView != null)
+            {
+                _dugoutView.ConfigurationConfirmed -= HandleDugoutConfigurationConfirmed;
                 DestroyView(_dugoutView);
+            }
             if (_shopView != null)
             {
                 _shopView.PurchaseRequested -= HandleShopPurchaseRequested;
@@ -467,7 +515,21 @@ namespace Baseball.Presentation.Owner
                 _shell.MainWorkspaceHost,
                 _shell.RightInspectorHost,
                 _shell.ContextActionBarHost);
+            _collectionView.EnhancementRequested += HandleCardEnhancementRequested;
+            _collectionView.DuplicateSaleRequested += HandleCardDuplicateSaleRequested;
+            _collectionView.TrainingRequested += HandleCardTrainingRequested;
+            _collectionView.StudyRequested += HandleCardStudyRequested;
+            _collectionView.SkillBlockAutoPlaceRequested += HandleCardSkillBlockAutoPlaceRequested;
+            _collectionView.SkillBlockRemoveRequested += HandleCardSkillBlockRemoveRequested;
             _collectionView.SetVisible(false);
+        }
+
+        private void EnsureDugoutView()
+        {
+            if (_dugoutView != null) return;
+            _dugoutView = UI_Scene_OwnerDugout.CreateRuntime(_shell.MainWorkspaceHost);
+            _dugoutView.ConfigurationConfirmed += HandleDugoutConfigurationConfirmed;
+            _dugoutView.SetVisible(false);
         }
 
         private void EnsureLockedWorkspace()
@@ -505,6 +567,14 @@ namespace Baseball.Presentation.Owner
 
         private void HandleShopPurchaseRequested(string productId) => ShopPurchaseRequested?.Invoke(productId);
         private void HandleShopDetailsRequested(string productId) => ShopDetailsRequested?.Invoke(productId);
+        private void HandleCardEnhancementRequested(string cardId) => CardEnhancementRequested?.Invoke(cardId);
+        private void HandleCardDuplicateSaleRequested(string cardId) => CardDuplicateSaleRequested?.Invoke(cardId);
+        private void HandleDugoutConfigurationConfirmed(OwnerDugoutConfigurationCommand command) =>
+            DugoutConfigurationConfirmed?.Invoke(command);
+        private void HandleCardTrainingRequested(string cardId, string programId) => CardTrainingRequested?.Invoke(cardId, programId);
+        private void HandleCardStudyRequested(string cardId, string programId) => CardStudyRequested?.Invoke(cardId, programId);
+        private void HandleCardSkillBlockAutoPlaceRequested(string cardId) => CardSkillBlockAutoPlaceRequested?.Invoke(cardId);
+        private void HandleCardSkillBlockRemoveRequested(string cardId) => CardSkillBlockRemoveRequested?.Invoke(cardId);
         private void HandlePresetSelected(string presetId) => PregamePresetSelected?.Invoke(presetId);
         private void HandleMatchStartRequested() => MatchStartRequested?.Invoke();
         private void HandleStaffOfferSelected(string offerId) => StaffOfferSelected?.Invoke(offerId);

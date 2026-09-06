@@ -21,7 +21,12 @@ namespace Baseball.Game.Historical
             PreGamePlanSnapshot playerPlan,
             LineupChemistryResult playerLineupChemistry,
             HomeGameFinanceResult homeFinance,
-            ManagerModeTransactionStatus homeFinanceStatus)
+            ManagerModeTransactionStatus homeFinanceStatus,
+            string managerId,
+            string headCoachId,
+            ManagerTacticalProfile effectiveManagerProfile,
+            string managerDisplayName,
+            string headCoachDisplayName)
         {
             Match = match ?? throw new ArgumentNullException(nameof(match));
             PlayerPlan = playerPlan ?? throw new ArgumentNullException(nameof(playerPlan));
@@ -29,6 +34,11 @@ namespace Baseball.Game.Historical
                 throw new ArgumentNullException(nameof(playerLineupChemistry));
             HomeFinance = homeFinance ?? throw new ArgumentNullException(nameof(homeFinance));
             HomeFinanceStatus = homeFinanceStatus;
+            ManagerId = managerId ?? string.Empty;
+            HeadCoachId = headCoachId ?? string.Empty;
+            EffectiveManagerProfile = effectiveManagerProfile;
+            ManagerDisplayName = managerDisplayName ?? string.Empty;
+            HeadCoachDisplayName = headCoachDisplayName ?? string.Empty;
         }
 
         public MatchResult Match { get; }
@@ -36,6 +46,11 @@ namespace Baseball.Game.Historical
         public LineupChemistryResult PlayerLineupChemistry { get; }
         public HomeGameFinanceResult HomeFinance { get; }
         public ManagerModeTransactionStatus HomeFinanceStatus { get; }
+        public string ManagerId { get; }
+        public string HeadCoachId { get; }
+        public ManagerTacticalProfile EffectiveManagerProfile { get; }
+        public string ManagerDisplayName { get; }
+        public string HeadCoachDisplayName { get; }
     }
 
     /// <summary>검증된 프리셋을 DetailedMatchEngine 한 경로로 실행하고 경기 후 원본 상태를 갱신한다.</summary>
@@ -53,7 +68,11 @@ namespace Baseball.Game.Historical
         private readonly LineupChemistryResolver _lineupChemistryResolver;
         private readonly BatteryChemistryResolver _batteryChemistryResolver;
         private readonly ChemistryFamiliarityRecorder _familiarityRecorder;
+        private readonly AiTacticSelectionResolver _aiTacticSelectionResolver;
         private readonly ManagerModeCoordinator _coordinator;
+        private readonly OwnerCardAbilityResolver _ownerCardAbilityResolver;
+        private readonly DugoutStaffCatalog _dugoutCatalog;
+        private readonly DugoutTacticalProfileResolver _dugoutResolver;
 
         public ManagerModeMatchService(
             HistoricalBakedContent content,
@@ -71,7 +90,11 @@ namespace Baseball.Game.Historical
             _lineupChemistryResolver = new LineupChemistryResolver(balance.ConditionChemistry);
             _batteryChemistryResolver = new BatteryChemistryResolver(balance.ConditionChemistry);
             _familiarityRecorder = new ChemistryFamiliarityRecorder(balance.ConditionChemistry);
+            _aiTacticSelectionResolver = new AiTacticSelectionResolver();
             _coordinator = new ManagerModeCoordinator(balance);
+            _ownerCardAbilityResolver = new OwnerCardAbilityResolver(balance.Growth);
+            _dugoutCatalog = DugoutStaffCatalog.CreateDefault();
+            _dugoutResolver = new DugoutTacticalProfileResolver();
         }
 
         public ManagerModeMatchService(
@@ -127,7 +150,7 @@ namespace Baseball.Game.Historical
             MatchRosterSnapshot away = playerIsHome ? opponentBuild.Roster : playerBuild.Roster;
             MatchRosterSnapshot home = playerIsHome ? playerBuild.Roster : opponentBuild.Roster;
             TacticLoadoutState playerTactics = CreateConfirmedLoadout(playerPlan.TacticCardIds);
-            TacticLoadoutState opponentTactics = CreateConfirmedLoadout(Array.Empty<string>());
+            TacticLoadoutState opponentTactics = CreateAiLoadout(runtime, game, playerIsHome ? game.AwayTeamId : game.HomeTeamId);
             var configuration = new HistoricalMatchConfiguration(
                 _balance.HistoricalAssignment.CreateRule(),
                 awayTacticLoadout: playerIsHome ? opponentTactics : playerTactics,
@@ -166,6 +189,9 @@ namespace Baseball.Game.Historical
             // 영수증 경계를 먼저 통과한 뒤 일정과 선수 상태를 확정한다.
             game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
             ApplyPostGameState(mode, playerBuild, opponentBuild, match);
+            RecordStatistics(mode, game, match);
+            ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
+            mode.Dugout.RecordMatchCompleted();
 
             // 같은 라운드의 나머지 대진까지 확정해야 순위표에서 플레이어 구단만 경기 수가 앞서가지 않는다.
             SimulateAiGamesThrough(runtime, playerIds, game.Round);
@@ -179,7 +205,12 @@ namespace Baseball.Game.Historical
                 playerPlan,
                 playerBuild.LineupChemistry,
                 finance,
-                financeStatus);
+                financeStatus,
+                mode.Dugout.ManagerId,
+                mode.Dugout.HeadCoachId,
+                playerBuild.Roster.ManagerProfile,
+                _dugoutCatalog.GetManager(mode.Dugout.ManagerId).DisplayName,
+                _dugoutCatalog.GetHeadCoach(mode.Dugout.HeadCoachId).DisplayName);
         }
 
         /// <summary>지정 라운드까지 남은 AI 구단 대진을 라운드·GameId 순서로 정확히 한 번 진행한다.</summary>
@@ -224,8 +255,8 @@ namespace Baseball.Game.Historical
                 playerIds);
             var configuration = new HistoricalMatchConfiguration(
                 _balance.HistoricalAssignment.CreateRule(),
-                awayTacticLoadout: CreateConfirmedLoadout(Array.Empty<string>()),
-                homeTacticLoadout: CreateConfirmedLoadout(Array.Empty<string>()));
+                awayTacticLoadout: CreateAiLoadout(runtime, game, game.AwayTeamId),
+                homeTacticLoadout: CreateAiLoadout(runtime, game, game.HomeTeamId));
             var input = new MatchInput(
                 season.OriginYear,
                 game.GameId,
@@ -244,6 +275,21 @@ namespace Baseball.Game.Historical
 
             game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
             ApplyPostGameState(runtime.ManagerMode, awayBuild, homeBuild, match);
+            RecordStatistics(runtime.ManagerMode, game, match);
+        }
+
+        /// <summary>플레이어 경기와 AI 경기를 같은 집계 경로에 넣어 리그 기록이 한쪽으로 치우치지 않게 한다.</summary>
+        private static void RecordStatistics(
+            ManagerModeRuntimeState mode,
+            ScheduledGameState game,
+            MatchResult match)
+        {
+            new LeagueStatisticsService(mode.LiveSeason.Statistics).RecordMatch(
+                match,
+                CompetitionScope.RegularSeason,
+                game.Round,
+                isChampionship: false,
+                isSeriesClinching: false);
         }
 
         /// <summary>다음 홈 경기의 실제 관중 입력과 동일한 Seed·Context로 경기 전 예상 관중을 계산한다.</summary>
@@ -428,14 +474,23 @@ namespace Baseball.Game.Historical
                 starter,
                 bullpen,
                 familiarity);
+            int teamId = runtime.ManagerMode.LiveSeason.Teams[
+                FindTeamReferenceIndex(runtime.ManagerMode.LiveSeason.Teams, teamSeasonKey)].TeamId;
+            DugoutManagementState dugout = string.Equals(
+                    teamSeasonKey,
+                    runtime.PlayerTeamSeasonKey,
+                    StringComparison.Ordinal)
+                ? runtime.ManagerMode.Dugout
+                : _dugoutResolver.CreateAiState(teamId, _dugoutCatalog);
+            ManagerTacticalProfile managerProfile = _dugoutResolver.Resolve(dugout, _dugoutCatalog);
             var roster = new MatchRosterSnapshot(
-                runtime.ManagerMode.LiveSeason.Teams[FindTeamReferenceIndex(runtime.ManagerMode.LiveSeason.Teams, teamSeasonKey)].TeamId,
+                teamId,
                 GetTeamDisplayName(runtime, teamSeasonKey),
                 new Lineup(lineup),
                 starter,
                 bullpen,
                 bench,
-                ManagerTacticalProfile.Balanced,
+                managerProfile,
                 RunningApproach.Balanced,
                 playerConditions: conditions,
                 batteryConditions: battery);
@@ -458,9 +513,8 @@ namespace Baseball.Game.Historical
             bool usesOwnedEconomy = runtime.HasOwnedEconomy(teamSeasonKey);
             int GetRawPermanent(PlayerAbility ability)
             {
-                int training = usesOwnedEconomy && owned != null ? owned.Training.GetBonus(ability) : 0;
-                int enhancement = usesOwnedEconomy && owned != null ? owned.EnhancementLevel : 0;
-                return checked(source.Get(ability) + card.GetModifier(ability) + training + enhancement);
+                return _ownerCardAbilityResolver.ResolveRawPermanent(
+                    season, card, usesOwnedEconomy ? owned : null, ability);
             }
             int GetPermanent(PlayerAbility ability) => Math.Max(1, Math.Min(100, GetRawPermanent(ability)));
             double GetRawEffective(PlayerAbility ability) => Math.Max(1d, Math.Min(_balance.MatchRatingCurve.Caps.HardCap,
@@ -494,6 +548,9 @@ namespace Baseball.Game.Historical
                 pitcher,
                 nationality: season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty,
                 pitchRepertoire: season.PitchRepertoire,
+                traitIds: usesOwnedEconomy
+                    ? _ownerCardAbilityResolver.ResolveActiveTraitIds(owned)
+                    : Array.Empty<string>(),
                 bakedPitcherAttributes: source.ToPitcherAttributes(),
                 permanentPitcherAttributes: new PitcherAttributes(
                     GetPermanent(PlayerAbility.Stamina), GetPermanent(PlayerAbility.Velocity),
@@ -758,6 +815,32 @@ namespace Baseball.Game.Historical
             var loadout = new TacticLoadoutState(cards);
             loadout.ConfirmGame();
             return loadout;
+        }
+
+        private TacticLoadoutState CreateAiLoadout(
+            ManagerHistoricalRuntimeState runtime,
+            ScheduledGameState game,
+            int teamId)
+        {
+            TacticCardDefinition[] cards = _aiTacticSelectionResolver.Select(
+                _tacticCards,
+                runtime.League.Grade,
+                game.RandomSeed,
+                teamId);
+            var loadout = new TacticLoadoutState(cards);
+            loadout.ConfirmGame();
+            return loadout;
+        }
+
+        private static void ConsumePlayerTactics(
+            TacticCollectionState collection,
+            IReadOnlyList<string> tacticCardIds)
+        {
+            for (int index = 0; index < tacticCardIds.Count; index++)
+            {
+                if (!collection.TryConsume(tacticCardIds[index]))
+                    throw new InvalidOperationException($"보유하지 않은 TacticCard {tacticCardIds[index]}를 소비할 수 없습니다.");
+            }
         }
 
         private PlayerCardDefinition GetCard(ManagerHistoricalRuntimeState runtime, string cardId)
