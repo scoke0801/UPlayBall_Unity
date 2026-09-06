@@ -988,6 +988,12 @@ FA
 기능은 업무 영역의 Local Navigation으로 묶는다. 각 영역의 세부 화면 구조와 레이아웃은
 `BaseballManager_UI_FLOW.md`를 기준 문서로 삼는다. 여기서는 화면 책임만 요약한다.
 
+플레이어에게 보이는 리그명과 기록 지표는 한글을 정본으로 사용한다. 리그는 `루키 리그`부터
+`갤럭시 리그`까지 전체 이름으로 표시하고, 공간이 좁은 곳에서만 `루키`·`올스타`·`갤럭시` 같은
+한글 축약형을 쓴다. 기록 표시는 `AVG` 대신 `타율`, `ERA` 대신 `평균자책점`처럼 한국어 설명형
+명칭을 우선한다. enum·저장 ID·테이블 열 Key 같은 내부 식별자는 영문을 유지하며 화면에 직접
+노출하지 않는다. `MVP`·`FA`와 좁은 카드의 포지션 코드처럼 한국 야구에서 통용되는 표기만 예외다.
+
 ### 홈
 
 선수 중심 메인 대시보드. 좌측 내 선수 패널(현재 역할), 중앙 다음 경기/경기 진행 CTA, 우측
@@ -2967,7 +2973,7 @@ subtype·최종 버전 불명인 2011 관측491장의 탐색 지표는 ±1 69.25
 완료 조건은 충족하지 않는다. 상세 수치와 잔여 한계는
 `Tools/PMReference/reports/PM_REFERENCE_RESEARCH.md`를 따른다.
 
-### 42.9 기록 중심 평가와 결측 제외 (현행)
+### 42.9 기록 중심 평가와 결측 제외 (v6 이력, 현행은 42.12)
 
 Ability v6 / Cost v9 / DerivationBalance v12가 42.6·42.8의 평가 지표를 대체한다.
 체력은 KBO Source 1982~2025 단일 시즌 최다 1282아웃(427⅓이닝)을 100으로 두고
@@ -3020,6 +3026,90 @@ Cost 차이에서 예상 승률을 산출하지 않는다. 카드 Edition·훈�
 이는 역사 기록의 사후 설명력이고 경기 시뮬레이션의 재현력 검증은 아니다. 세부 분석은
 `docs/reports/구단_Cost_실제_KBO_성적_상관분석.md`를 따른다.
 
+### 42.11 프야매 관측 기반 평가 보정 (v7 이력, 현행은 42.12)
+
+Ability v7 / Cost v10 / DerivationBalance v13은 42.9의 기본 구조를 유지하면서 아래 평가축을
+대체한다. 목표는 당시 관측에 가까운 일반 산식이며 선수·구단·특정 연도별 보정표는 사용하지 않는다.
+
+- Cost의 유형별 기본점을 야수 2.5·투수 1.25로 설정한다. 2011 관측의 학습 연도에서 작은 공통
+  이동량을 탐색했고, 검증에서 악화된 야수 이동은 채택하지 않았다. 출전량·품질·elite 자격은 유지한다.
+- 주력은 도루 시도율 70%·성공률 30%, 기준점 67로 평가한다. 타자 정신은 출루율 70%·타율 30%,
+  기준점 63이다. 가중치는 신뢰도 보정한 시즌 지표에 적용한다. 단순 도루 수·타율 한 축보다
+  행동 성향과 출루 기여를 구분하며, 모든 근거가 결측이면 조정 기준점 대신 중립 55를 유지한다.
+- Cost는 독립된 `costMetricEvidence`에서 원기록을 읽는다. 주력 등 표시 능력치의 구성을 바꿔도
+  Cost의 도루 수 근거가 사라지지 않으며, 이 자료는 Editor 전용으로 Runtime에서 제거한다.
+- 원작 야수의 네 번째 능력은 Bunt다. 현재 Arm과 대응시키지 않는다. 수비·구종의 `+N`은 상승
+  임계값이므로 기본 능력치로 학습하지 않는다. 투수 능력·체력·실측 구속 기준은 유지한다.
+
+1982~2025 Source 17,333개와 Replacement 54개를 재Bake했다. 다른 생성 Seed의 JSON 93개가
+전부 바이트 단위로 같고 Runtime 46개도 동기화했다. 원작 관측 491건에서 Cost MAE는
+1.200→0.996, ±1 일치율은 66.4%→74.1%다. 일부 보류 표본의 정확 일치율은 악화됐으며,
+시점 충돌·고Cost 편중·소수 Normal 이미지 때문에 최종판 공식 복원 완료로 해석하지 않는다.
+
+Importer 80건과 역사 데이터 관련 Headless EditMode 78건이 통과했다. 변경 전후 각각
+DetailedMatchEngine 10,000경기를 측정했고, 타율 0.269→0.273·ERA 3.396→3.496·
+구단 경기당 득점 3.509→3.616·성공 도루 0.773→1.167이다. 도루 증가는 추가 관찰 대상이다.
+이 실험은 피로를 초기화한 중립 로스터 비교이며 커리어 전체 시즌·구단 경제의 수용성 검증은 아니다.
+Unity Test Runner/Play Mode는 미실행이다. 기존 WorldHistory Bake는 새 ContentHash와 맞지 않아
+기존 실제 시뮬레이션 fallback을 사용한다. 근거·재현 명령·제약은
+`docs/reports/pm_calibration_20260906/결과.md`에 기록한다.
+
+### 42.12 수비·투수 원문 카드 확장 보정 (v8/v11 이력, 현행 코드는 42.13)
+
+Ability v8 / Cost v11 / DerivationBalance v14는 인벤 86864/86866의 원문 HTML과 연결된 카드
+452장을 대조한 공통 평가 척도를 사용한다. 42.11의 지표 조합은 유지하되 표시 기준점·변환 폭을
+조정한다. 교타 67/16, 장타 67/16, 주력 69/12, 수비 73/8, 타자 정신 65/8,
+구위 69/24, 변화구 71/20, 제구 77/8, 투수 정신 67/20이다(기준점/Adjusted Z 변환 폭).
+체력·실측 구속의 절대 기준, 결측 55, 송구 평가, 100 상한은 유지한다.
+
+선수별·구단별·특정 연도별 예외는 없다. 438개 유일 Source 연결을 선수 인물 ID 단위로
+학습/검증/보류 분할했고, 같은 인물의 다른 시즌을 학습과 검증에 나눠 넣지 않는다.
+수비 기사 593행은 Normal 400·All Star 185·EX 7·Rare 1로 분리했다. 투수 기사에는
+추가 저변화구 투수를 포함해 카드 52장과 목표 등급 445건이 있다.
+`+N`은 선수·포지션·구종별 상승 필요치다. 공통 등급 경계로 기본 수비/변화구를 역산하지 않는다.
+
+Cost의 기본점·공격/투구 품질·출전량·elite 자격은 유지한다. 수비 가산은 표시 Defense/Arm 대신
+독립 `defensiveQualityProfiles`와 원기록 근거로 계산한다. 표시 척도 조정 때문에 가격이 같이
+상승하지 않는다. Source 가격은 정수 경계 주변 야수 20개만 바뀌었고, 기존 참조 491건의 Cost
+MAE 0.996은 유지된다. 새 438건의 Cost MAE는 1.034→1.032다.
+
+새 표본의 수비 MAE는 18.101→5.454(388장), 변화구는 15.160→4.320(50장)이다.
+체력·구속 오차와 기존 소표본의 타자 정신 악화는 남는다. 원문이 B 이상 수비와 선별 투수를
+대상으로 하므로 전 리그 분포의 정답으로 보지 않는다. 현재 연결 이미지가 기사 게시 당시와
+완전히 같은 파일이라는 증거도 없으므로 원작 최종판 복원 완료로 선언하지 않는다.
+
+Importer 88건, 다른 Seed의 Bake JSON 93개 일치, Editor/Runtime 데이터 동기화를 확인했다.
+기존 빌드의 동일 DetailedMatchEngine 러너로 전후 각각 10,000경기를 비교했다.
+타율 .273→.272, ERA 3.496→3.330, 구단 경기당 득점 3.616→3.434이다.
+최신 소스의 보조 빌드는 별도 변경 중인 TeamColorDefinitions의 컴파일 오류로 실패했으며,
+이 수치를 최신 소스 전체의 검증으로 해석하지 않는다. Unity Test Runner/Play Mode 미실행이다.
+WorldHistory 캐시는 사용자가 별도로 Bake한다. 근거·선수별 비교·검증 제약은
+`docs/reports/pm_threshold_review_20260906/결과.md`를 따른다.
+
+### 42.13 Cost와 기본 주전 배치 추가 보정
+
+평가 코드는 Ability v8 / Cost v12 / Balance v15 / Roster v5다. 선수·팀·특정 연도별 예외 없이
+타자 Cost 기본점·출전량·상위 진입 경계를 조정했다. 투수 후보는 별도 2013 관측에서 악화되어
+적용하지 않았다. 모든 기본 능력치와 투수 Cost는 기존 값과 같다.
+
+주전 점수는 해당 시즌 PA와 포지션 수비 이닝의 제한된 가산을 사용한다. 9자리 동시 최대 가중
+매칭을 유지하고, Cost와 단순 능력치 평균에 따른 사후 교체는 제거한다. 구원 후보 중 최다 세이브
+선수는 최소 세이브 요건을 충족하면 Natural Role과 함께 마무리 후보 자격으로 인정한다.
+
+검증 후보의 Cost MAE는 438장 기준 1.032→0.742, 야수 주전 명단 불일치는 60명 중 9→6,
+수비 근거가 있는 52명의 위치 불일치는 10→7이다. 전체 팀 시즌의 10타석 미만 주전은 20→0명이다.
+엑셀 2011 표본 MAE 0.510→0.519와 일부 팀의 배치 악화는 남는다. 참조의 강화·판본 차이와
+과거 수비 원자료 결측을 이름별 강제 배치로 메우지 않는다.
+
+Importer 93건과 Core/Simulation EditMode 88건 통과, 서로 다른 Seed의 JSON 93개 일치를 확인했다.
+현재 Core/Simulation 빌드에서 전후 각각 10,000경기 결과는 타율 .272→.272, ERA 3.330→3.325,
+구단 경기당 득점 3.434→3.431이다. Game 포함 전체 EditMode 빌드는 별도 변경 중인
+ManagerModeMatchService/ManagerModeCoordinator 컴파일 오류로 실패했고 Unity 실행은 미검증이다.
+
+공식 Editor/Runtime 데이터 교체는 자동 승인 검토 거부로 사용자 확인 대기 중이며, 검증 후보는
+`.tmp/pm-final-calibration/candidate/`에 보존한다. WorldHistory 캐시는 사용자가 베이크한다.
+판독 근거·변경 전후 수치·재실행 도구는 `docs/reports/pm_final_review_20260906/결과.md`를 따른다.
+
 ## 43. Player/Owner 공용 UI Shell 계약 (2026-09-05)
 
 관리 UI는 `SharedGameShellView`의 Global Header, 상단 Navigation, Context Header, Workspace,
@@ -3033,6 +3123,9 @@ Navigation은 `Shared Game Shell → 최대 6개 Primary 업무 영역 → Local
 내부 Filter/Selector/View Mode로 둔다. Match Center는 Global 항목이 아닌 Context Navigation이며,
 Home 또는 일정에서 들어온 원점을 보존해 Back 시 복귀한다. 기존 Deep Link는
 `NavigationRouteMigrationMap`으로 새 Local/Context Target에 연결하고 즉시 삭제하지 않는다.
+공용 UI의 Cancel 입력은 Popup 표시 스택을 먼저 한 단계 닫고, Popup이 없으면 Route 방문 스택을
+역순으로 한 단계 복원한다. Home은 스택의 고정 바닥이라 더 뒤로 가지 않으며 Home에서 ESC를 누르면
+설정 Popup을 열고, 열린 설정 Popup에서 ESC를 누르면 Popup을 닫는다.
 
 선수 모드 Primary는 `홈/경기/선수/팀/리그/커리어`, 구단주 모드는
 `홈/선수단/전력보강/덕아웃/구단/리그`다. Production Consumer가 없는 기능은 Global 슬롯을 차지하지
@@ -3042,12 +3135,32 @@ Home 또는 일정에서 들어온 원점을 보존해 Back 시 복귀한다. �
 검정·은색 상단 상태 바, 작은 직사각형 탭과 조밀한 표·목록 비율을 우선한다. 파란 대형 카드 프레임,
 야구공 장식이 본문을 침범하는 패널, SF/HUD 형태의 대형 버튼은 관리 화면 기본 Skin으로 사용하지 않는다.
 
+구단주 대기실은 인벤 「첫화면 대기실! 하나하나 뜯어 보자」(news 86747)의 상단 중앙 아이콘 메뉴와
+검정·은색 상태 바, 사무실 배경, 우측 하단의 밝은 구단 정보창을 기준으로 한다. 메뉴 Route·모드 권한은
+위 계약을 유지하고, 정보창의 일정·구단·저장은 기존 Command로 연결한다. 레퍼런스에 있는 온라인 채팅과
+연습경기는 추가하지 않는다. 생성 에셋·대응표·검증은
+`docs/UI/ChangeRequests/OwnerLobbyInvenReference.md`에 기록한다.
+
+선수 카드 표면은 사용자 지정 [인벤 선수 카드 가이드](https://www.inven.co.kr/webzine/news/?news=86752&site=bm)의
+초기 프야매 디자인을 우선한다. 얇은 은색 테두리, 어두운 초상화 영역, 검정 명찰, 흰 능력치 막대와
+하단 COST를 사용하며 구단주 상세 앞뒷면과 목록, 커리어 카드 앞면에 적용한다. 구단주 뒷면은 좌측
+프로필·우측 구종/수비·하단 기록/스킬 영역으로 배치한다. 원작의 계약 잔여일·수비 등급·서포트카드처럼
+현재 표시 데이터가 없는 값은 발명하지 않는다. 구단주 COST와 커리어 종합 능력은 각각 기존 의미를 유지한다.
+실사 선수 사진은 이 작업에 포함하지 않으며 기존 초상화 자산을 사용한다. 검증 현황은
+`docs/reports/선수카드_인벤레퍼런스_UI.md`를 따른다.
+
 - 선수 모드는 기존 Career 성장·계약·감독 AI 기용을 유지한다. Team/Roster는 읽기 전용이고
   `OwnedPlayerCardState`, Scout, CardTraining, TeamColor 장착과 구단 재정 Command를 참조하지 않는다.
 - 구단주 모드는 별도 `OwnerModeManager` Runtime과 Save를 사용한다. 현재 실제 화면은 Home, 25인
-  선수단·라인업, 보유 선수 Collection, 재정, 시설, Staff Office, Pregame, Condition·궁합과 경기 관전이다.
+  선수단·라인업, 보유 선수 Collection, 재정, 시설, Staff Office, 선수 계약, 1:1 트레이드, Pregame,
+  Condition·궁합과 경기 관전이다.
   같은 역할 그룹 슬롯 교환은 `UpsertLineupPreset`에 연결하지만, ActiveRoster 등록 변경 Command가
   없으므로 해당 Action은 비활성화한다.
+- 선수단의 `라인업 / 투수진 / 보유선수 / 컨디션·궁합` Route는
+  `docs/지침/Owner_Roster_UI_Guidelines_UPlayBall.md`를 정규 계약으로 삼는다. 투수진은 저장 프리셋과
+  `PitchingWorkloadState`를 사용하는 Production Route이며, 역할·TeamColor·Tactic 변경은
+  `Preview → ValidateLineupPreset → 명시적 Confirm → UpsertLineupPreset`을 거친다. Collection은
+  Viewport Row Pool을 사용하고 Condition은 10단계와 실제 경기 능력치 보정 근거를 표시한다.
 - 구단주 확장 전용 Condition·운영·Staff·Intel 조정값은
   `Assets/10.Datas/Resources/NewGame/OwnerExpansionBalance.json`에서 저작하고
   `LoadOwnerModeBalanceTable()`에서만 공통 경기 Balance에 합성한다. Config 누락·불완전 상태는
@@ -3056,9 +3169,14 @@ Home 또는 일정에서 들어온 원점을 보존해 Back 시 복귀한다. �
 - TeamColor와 Tactic은 실제 가용 후보 Query와 `ValidateLineupPreset`/`UpsertLineupPreset`을 통해
   선수단·라인업의 각 2슬롯을 변경한다. 현재 충족 인원·StackPolicy·Trigger·Duration·Counter를 표시할
   전용 분석 Snapshot은 아직 없으므로 별도 상세 Route는 비활성 상태다.
-- Scout, CardTraining, Enhancement, Sale은 저장 필드나 Simulation Resolver가 일부 존재하더라도 UI가
-  소비할 Catalog/Preview/검증/결정론적 Command 계약이 완결되지 않은 상태에서는 Capability와 Route를
-  노출하지 않는다. Presentation이 후보군·확률·비용·로스터 유효성을 재계산해서는 안 된다.
+- Scout, CardTraining, Enhancement, Sale은 `Owner.PowerUp.*` 전용 View State에서 실제
+  Catalog/Query/Preview/검증/결정론적 Command를 소비한다. 세 Route는 Shop 또는 Collection 화면으로
+  변환하지 않으며, Presentation은 후보군·확률·성장량·비용·판매가를 재계산하지 않는다. 레이아웃과
+  상태·확정 흐름의 정규 계약은 `docs/지침/Owner_PowerUp_UI_Guidelines_UPlayBall.md`를 따른다.
+- `Owner.Club.*` 일곱 Route는 `docs/지침/Owner_Club_UI_Guidelines_UPlayBall.md`를 정규 계약으로 삼는다.
+  선수 계약은 Cost·Edition 기반 1~3년 계약과 시즌 급여를 구단주 SaveVersion 11에 저장한다. 트레이드는
+  같은 리그 1:1 선수 교환만 허용하고, 가치·25인 역할·외국인·동일 인물 중복 검증을 통과한 Command만
+  양 구단 Roster, 선수 상태, LineupPreset, 계약에 원자적으로 반영한다.
 - 공용 `MatchHudView`는 같은 Match Event를 표시한다. Player 입력은 `PlayerMatchControls`만 통하고,
   Owner 경기는 `InternalAiOnly`로 한 번 확정한 이벤트를 타석 경계별로 재생하며 일시정지·배속·즉시
   결과만 허용한다. 존재하지 않는 실시간 교체·불펜·전술 Command를 UI에 만들지 않는다.
@@ -3096,10 +3214,36 @@ Tactic Inventory 선택과 승강·새 시즌 로스터 이월도 남아 있다.
 - Front Manager는 Owner Runtime 최초 관찰, Scout 최초 진입, Scout 신규 카드 획득 Fact를 생산한다.
   `GuideRepeatState`는 Save/Load에 포함되어 `cooldownScope: Save`를 실제로 보존한다.
 - 상점은 기존 Owner UI 문법의 탭·2열 상품 타일·확정 결과 공개 패널을 사용한다. `docs/디자인/ref`의
-  단순 실루엣 문법을 따른 ImageGen 타자·투수·공용 3종 아트를 상점과 경기 작전 슬롯에 공통 연결한다.
+  단순 실루엣 문법을 따른 ImageGen 선수 Pack·스킬 Pack·Reveal 배경을 연결하고, 작전 상품은 기존
+  `TacticCardArtwork`의 공격·투수·분석·공용 자산을 재사용한다.
+- 상점 상세는 `ScoutRoller`의 Joint Bucket과 `TacticResearchRoller`의 후보군 재정규화 확률,
+  Skill Gacha 공개 확률을 Game 계층 `ShopProductDetails` Query로 확정한다. 구매는 상세 → 최신 Quote
+  확인 → 처리 중 입력 차단 → 결과 공개 순서이며, Reveal에서 같은 상품 재구매와 선수/스킬/작전 보관
+  화면으로 이동한다. 선택 탭과 탭별 Scroll은 Route 복귀 후에도 유지한다.
 - 선수 커리어의 기간 결장형 부상 시스템과 강제 재활·복귀 보호·시장 패널티·부상 뉴스·은퇴 회고를
   제거했다. 훈련 리스크는 0~100 Condition 추가 차감으로 통합했고, 구단주 모드는 기존 출장 소모와
   주간 회복 및 10단계 파생 표시를 유지한다. 구세이브 호환은 이번 정리 범위에서 보장하지 않는다.
 - 위 항목은 Assembly 컴파일까지 확인한 **코드 연결** 상태다. 사용자 요청에 따라 UI 실행 검증과
   시뮬레이션·대량 통계 테스트는 수행하지 않았다. 상세 근거는
   `docs/reports/2026-09-06_한시_잔여작업_S1-S6_구현보고.md`에 기록한다.
+
+### 43.2 모드 독립성 재검토와 진행 상태 보존
+
+- 구단주 경기 서비스는 전술 정의 등록 여부와 실제 보유 수량을 경기 전 각각 검증한다.
+  부족한 전술은 AI 경기·재무·일정·기록을 바꾸기 전에 거부한다. 전체 슬롯 소모와 경기 후
+  장착 해제를 순수 Game 서비스가 소유하므로 Unity Manager를 거치지 않는 진행도 같은 규칙을 쓴다.
+- 구단주 완료 시즌은 `ManagerModeRuntimeState.CompletedSeasons`에 당시 LeagueGrade와
+  일정·Seed·점수·선수 누적을 보관한다. 현재 시즌을 교체하기 전에 모든 AI 경기도 완료됐는지
+  확인한다. 구단주 SaveVersion 10은 현재 시즌과 완료 시즌 배열을 함께 저장하며, v1~v9의
+  완료 이력은 빈 배열로 이행한다. 구버전에서 이미 사라진 기록은 생성하거나 추정하지 않는다.
+  선수 기록 화면에서 현재 시즌과 저장된 완료 시즌을 선택할 수 있다.
+- 전술 수집을 도입하기 전인 v1~v4에만 초기 전술을 보충한다. 이후 SaveVersion 증가가
+  반복적인 초기 카드 지급으로 이어지지 않도록 한다.
+- 선수 월드의 오프시즌은 모든 AI의 은퇴를 먼저 확정하고 승격·신인 충원을 처리한다.
+  출전·순위 근거는 방금 마친 소속 리그에서 읽으며 승격으로 은퇴 검사를 건너뛰지 않는다.
+  대규모 동시 은퇴에도 후보군을 채울 수 있도록 아래 리그부터 공석을 복원하고 신인은 Rookie에서 생성한다.
+- 이전 41.12절의 디스크 저장 미지원 설명은 당시 상태다. 현재 작업 폴더에는
+  CareerSaveAdapter/GraphSerializer, CareerSaveJsonStore, CareerManager.Persistence와
+  설정 화면의 저장·불러오기 연결이 추가되어 있다. 이번 수정에서 해당 저장 구현을 대체하지 않았다.
+- 이 항목들은 코드 변경 상태다. 사용자의 지시에 따라 테스트·대량 시뮬레이션을 실행하지 않았다.
+  이전 보고서의 테스트 결과를 수정 후 통과 근거로 재사용하지 않는다.
