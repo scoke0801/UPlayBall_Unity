@@ -11,8 +11,8 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Career
 {
-    /// <summary>커리어 경기 설정과 저장되지 않은 세션 종료를 한곳에서 처리한다.</summary>
-    public sealed class UI_Popup_CareerSettings : UIPopupBase
+    /// <summary>커리어 경기·저장·불러오기 설정과 세션 종료를 한곳에서 처리한다.</summary>
+    public sealed partial class UI_Popup_CareerSettings : UIPopupBase
     {
         private static readonly int[] GameSpeeds = { 1, 2, 3, 5 };
         private static readonly Color BackdropColor = new(0.002f, 0.008f, 0.016f, 1f);
@@ -55,6 +55,15 @@ namespace Baseball.Presentation.Career
             return popup;
         }
 
+        /// <summary>타이틀에서도 같은 설정 Popup의 저장·불러오기 탭을 바로 연다.</summary>
+        public static UI_Popup_CareerSettings ShowSaveLoadRuntime()
+        {
+            UI_Popup_CareerSettings popup = ShowRuntime();
+            popup._selectedTab = 1;
+            popup.Render();
+            return popup;
+        }
+
         protected override void OnInitialize()
         {
             _careerManager = GameManager.EnsureExists().EnsureManager<CareerManager>("CareerManager");
@@ -71,6 +80,8 @@ namespace Baseball.Presentation.Career
             _selectedTab = 0;
             _showTitleConfirmation = false;
             _showInstantResultConfirmation = false;
+            _persistenceConfirmation = PersistenceConfirmationAction.None;
+            _persistenceMessage = string.Empty;
             Render();
         }
 
@@ -101,7 +112,7 @@ namespace Baseball.Presentation.Career
             CareerUiSkin.ApplyButton(close);
             close.onClick.AddListener(Close);
 
-            string[] tabs = { "경기", "화면", "사운드", "조작", "게임 종료" };
+            string[] tabs = { "경기", "저장·불러오기", "화면", "사운드", "조작", "게임 종료" };
             for (int index = 0; index < tabs.Length; index++)
             {
                 int selected = index;
@@ -125,12 +136,16 @@ namespace Baseball.Presentation.Career
                 new Vector2(930f, 720f), new Vector2(120f, -30f));
             if (_selectedTab == 0)
                 RenderGameSettings(body);
-            else if (_selectedTab == 4)
+            else if (_selectedTab == 1)
+                RenderPersistenceSettings(body);
+            else if (_selectedTab == 5)
                 RenderExitSettings(body);
             else
                 RenderPlaceholder(body, tabs[_selectedTab]);
 
-            if (_showTitleConfirmation)
+            if (_persistenceConfirmation != PersistenceConfirmationAction.None)
+                RenderPersistenceConfirmation(panel);
+            else if (_showTitleConfirmation)
                 RenderTitleConfirmation(panel);
             else if (_showInstantResultConfirmation)
                 RenderInstantResultConfirmation(panel);
@@ -138,6 +153,14 @@ namespace Baseball.Presentation.Career
 
         private void RenderGameSettings(RectTransform body)
         {
+            if (_careerManager.CurrentCareer == null)
+            {
+                CreateText("Unavailable", body,
+                    "진행 중인 선수 커리어가 없어 경기 설정을 바꿀 수 없습니다.", 21,
+                    FontStyle.Bold, TextAnchor.MiddleCenter,
+                    new Vector2(700f, 60f), Vector2.zero, MutedTextColor);
+                return;
+            }
             CareerGameSettings settings = _careerManager.CurrentCareer.GameSettings;
             bool isPitcher = _careerManager.CurrentCareer.MyPlayer.PrimaryPosition is
                 PlayerPosition.StartingPitcher or PlayerPosition.ReliefPitcher;
@@ -312,7 +335,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(360f, 62f), new Vector2(0f, 70f), SelectedColor, out _);
             retirement.onClick.AddListener(() => UI_Popup_RetirementDecision.ShowRuntime());
             CreateText("Guide", body,
-                "현재 버전은 저장을 지원하지 않습니다.\n타이틀 화면으로 돌아가면 이번 커리어의 모든 진행이 사라집니다.",
+                "저장하지 않은 진행은 타이틀 화면으로 돌아갈 때 사라집니다.\n중요한 경기나 시즌 전환 뒤에는 저장·불러오기 탭에서 저장해 주세요.",
                 18, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(720f, 70f), new Vector2(0f, -35f), SecondaryTextColor);
             Button title = CreateButton("ReturnToTitle", body, "타이틀 화면으로",
@@ -341,7 +364,7 @@ namespace Baseball.Presentation.Career
             CreateText("Message", modal,
                 isInMatch
                     ? "진행 중인 경기와 현재 커리어가 모두 종료됩니다.\n저장되지 않은 모든 진행 내용이 사라집니다."
-                    : "현재 커리어는 저장되지 않습니다.\n타이틀 화면으로 돌아가면 모든 진행이 사라집니다.",
+                    : "저장하지 않은 진행은 사라집니다.\n필요하면 저장·불러오기 탭에서 먼저 저장해 주세요.",
                 17, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(650f, 74f), new Vector2(0f, 30f), SecondaryTextColor);
             Button cancel = CreateButton("Cancel", modal,
