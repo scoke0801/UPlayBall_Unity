@@ -494,6 +494,21 @@ namespace Baseball.Core.Historical
                 throw new ArgumentOutOfRangeException(nameof(grade));
             return _rules[index];
         }
+
+        /// <summary>80경기 시즌에서 승률 60%/40%를 승강 경계로 쓰는 초기 규칙을 만든다.</summary>
+        public static LeagueDefinition CreateInitial()
+        {
+            int gradeCount = Enum.GetValues(typeof(LeagueGrade)).Length;
+            var rules = new LeagueGradeRule[gradeCount];
+            for (int index = 0; index < gradeCount; index++)
+            {
+                LeagueGrade grade = (LeagueGrade)index;
+                double? promotion = grade == LeagueGrade.Galaxy ? null : 0.60d;
+                double? relegation = grade == LeagueGrade.Rookie ? null : 0.40d;
+                rules[index] = new LeagueGradeRule(grade, 40, promotion, relegation);
+            }
+            return new LeagueDefinition(rules);
+        }
     }
 
     /// <summary>특수 합성 참가팀의 세 가지 생성 목적을 구분한다.</summary>

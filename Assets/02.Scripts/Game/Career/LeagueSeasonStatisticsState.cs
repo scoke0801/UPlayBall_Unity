@@ -15,26 +15,26 @@ namespace Baseball.Game.Career
     /// <summary>수상과 커리어 기록에 필요한 타격 원본 및 파생 기록을 보관한다.</summary>
     public sealed class BattingStatisticsState
     {
-        public int Games { get; private set; }
-        public int GamesStarted { get; private set; }
-        public int PlateAppearances { get; private set; }
-        public int AtBats { get; private set; }
-        public int Runs { get; private set; }
-        public int Hits { get; private set; }
-        public int Doubles { get; private set; }
-        public int Triples { get; private set; }
-        public int HomeRuns { get; private set; }
-        public int RunsBattedIn { get; private set; }
-        public int Walks { get; private set; }
-        public int HitByPitches { get; private set; }
-        public int Strikeouts { get; private set; }
-        public int StolenBases { get; private set; }
-        public int CaughtStealing { get; private set; }
-        public int SacrificeBunts { get; private set; }
-        public int SacrificeFlies { get; private set; }
-        public int IntentionalWalks { get; private set; }
-        public int ReachedOnErrors { get; private set; }
-        public int GroundedIntoDoublePlays { get; private set; }
+        public int Games { get; internal set; }
+        public int GamesStarted { get; internal set; }
+        public int PlateAppearances { get; internal set; }
+        public int AtBats { get; internal set; }
+        public int Runs { get; internal set; }
+        public int Hits { get; internal set; }
+        public int Doubles { get; internal set; }
+        public int Triples { get; internal set; }
+        public int HomeRuns { get; internal set; }
+        public int RunsBattedIn { get; internal set; }
+        public int Walks { get; internal set; }
+        public int HitByPitches { get; internal set; }
+        public int Strikeouts { get; internal set; }
+        public int StolenBases { get; internal set; }
+        public int CaughtStealing { get; internal set; }
+        public int SacrificeBunts { get; internal set; }
+        public int SacrificeFlies { get; internal set; }
+        public int IntentionalWalks { get; internal set; }
+        public int ReachedOnErrors { get; internal set; }
+        public int GroundedIntoDoublePlays { get; internal set; }
         public int Singles => Hits - Doubles - Triples - HomeRuns;
         public int TotalBases => Hits + Doubles + Triples * 2 + HomeRuns * 3;
         public double BattingAverage => AtBats == 0 ? 0d : Hits / (double)AtBats;
@@ -77,26 +77,26 @@ namespace Baseball.Game.Career
     /// <summary>투구 이닝을 소수가 아닌 아웃 카운트 정수로 보관한다.</summary>
     public sealed class PitchingStatisticsState
     {
-        public int Appearances { get; private set; }
-        public int Starts { get; private set; }
-        public int OutsRecorded { get; private set; }
-        public int PitchesThrown { get; private set; }
-        public int Wins { get; private set; }
-        public int Losses { get; private set; }
-        public int Saves { get; private set; }
-        public int Holds { get; private set; }
-        public int BlownSaves { get; private set; }
-        public int HitsAllowed { get; private set; }
-        public int HomeRunsAllowed { get; private set; }
-        public int WalksAllowed { get; private set; }
-        public int HitBatters { get; private set; }
-        public int Strikeouts { get; private set; }
-        public int RunsAllowed { get; private set; }
-        public int EarnedRuns { get; private set; }
-        public int BattersFaced { get; private set; }
-        public int InheritedRunners { get; private set; }
-        public int InheritedRunnersScored { get; private set; }
-        public int QualityStarts { get; private set; }
+        public int Appearances { get; internal set; }
+        public int Starts { get; internal set; }
+        public int OutsRecorded { get; internal set; }
+        public int PitchesThrown { get; internal set; }
+        public int Wins { get; internal set; }
+        public int Losses { get; internal set; }
+        public int Saves { get; internal set; }
+        public int Holds { get; internal set; }
+        public int BlownSaves { get; internal set; }
+        public int HitsAllowed { get; internal set; }
+        public int HomeRunsAllowed { get; internal set; }
+        public int WalksAllowed { get; internal set; }
+        public int HitBatters { get; internal set; }
+        public int Strikeouts { get; internal set; }
+        public int RunsAllowed { get; internal set; }
+        public int EarnedRuns { get; internal set; }
+        public int BattersFaced { get; internal set; }
+        public int InheritedRunners { get; internal set; }
+        public int InheritedRunnersScored { get; internal set; }
+        public int QualityStarts { get; internal set; }
         public double EarnedRunAverage => OutsRecorded == 0 ? 0d : EarnedRuns * 27d / OutsRecorded;
         public double WalksHitsPerInningPitched => OutsRecorded == 0
             ? 0d
@@ -133,17 +133,17 @@ namespace Baseball.Game.Career
     /// <summary>한 포지션에서 발생한 수비 기회와 기대 대비 실점 억제를 보관한다.</summary>
     public sealed class FieldingStatisticsState
     {
-        public int DefensiveOuts { get; private set; }
-        public int Opportunities { get; private set; }
-        public int SuccessfulPlays { get; private set; }
-        public int Putouts { get; private set; }
-        public int Assists { get; private set; }
-        public int Errors { get; private set; }
-        public int DoublePlays { get; private set; }
-        public int DifficultPlayAttempts { get; private set; }
-        public int DifficultPlaysMade { get; private set; }
-        public double ExpectedOuts { get; private set; }
-        public double EstimatedRunsSaved { get; private set; }
+        public int DefensiveOuts { get; internal set; }
+        public int Opportunities { get; internal set; }
+        public int SuccessfulPlays { get; internal set; }
+        public int Putouts { get; internal set; }
+        public int Assists { get; internal set; }
+        public int Errors { get; internal set; }
+        public int DoublePlays { get; internal set; }
+        public int DifficultPlayAttempts { get; internal set; }
+        public int DifficultPlaysMade { get; internal set; }
+        public double ExpectedOuts { get; internal set; }
+        public double EstimatedRunsSaved { get; internal set; }
         public double SuccessRate => Opportunities == 0 ? 0d : SuccessfulPlays / (double)Opportunities;
 
         internal void Add(PlayerFieldingLine line)
@@ -214,7 +214,7 @@ namespace Baseball.Game.Career
         public string PlayerName { get; }
         public int TeamId { get; private set; }
         public PlayerPosition PrimaryPosition { get; private set; }
-        public int TeamGames { get; private set; }
+        public int TeamGames { get; internal set; }
         public BattingStatisticsState Batting { get; }
         public PitchingStatisticsState Pitching { get; }
         public IReadOnlyDictionary<PlayerPosition, FieldingStatisticsState> FieldingByPosition => _fieldingByPosition;
@@ -257,6 +257,17 @@ namespace Baseball.Game.Career
         public FieldingStatisticsState GetFielding(PlayerPosition position)
         {
             return _fieldingByPosition.TryGetValue(position, out FieldingStatisticsState value) ? value : null;
+        }
+
+        /// <summary>세이브 복원이 경기 누적을 다시 재생하지 않고 포지션별 수비 기록을 만들 수 있게 한다.</summary>
+        internal FieldingStatisticsState GetOrCreateFielding(PlayerPosition position)
+        {
+            if (!_fieldingByPosition.TryGetValue(position, out FieldingStatisticsState fielding))
+            {
+                fielding = new FieldingStatisticsState();
+                _fieldingByPosition.Add(position, fielding);
+            }
+            return fielding;
         }
 
         public PlayerTeamStatisticsSplitState GetTeamSplit(int teamId)
