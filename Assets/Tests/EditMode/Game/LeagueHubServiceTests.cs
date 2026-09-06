@@ -18,7 +18,7 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(view.Standings.Count, Is.EqualTo(8));
             Assert.That(view.GamesPlayedPerTeam, Is.EqualTo(12));
-            Assert.That(view.RegularSeasonGamesPerTeam, Is.EqualTo(80));
+            Assert.That(view.RegularSeasonGamesPerTeam, Is.EqualTo(configuration.Balance.CareerSeason.RegularSeasonGamesPerTeam));
             Assert.That(view.NextRoundGames.Count, Is.EqualTo(4));
             Assert.That(view.RecentResults.Count, Is.EqualTo(5));
             Assert.That(view.TeamMetrics.Count, Is.EqualTo(4));

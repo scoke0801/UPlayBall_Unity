@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Historical;
 using Baseball.Core.Teams;
 using Baseball.Simulation.Career;
 
@@ -10,6 +11,8 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class ScheduledGameState
     {
+        private string[] _plannedTacticCardIds = Array.Empty<string>();
+
         public ScheduledGameState(
             int gameId,
             int round,
@@ -41,6 +44,32 @@ namespace Baseball.Game.Career
         public PlayerGameRole PlannedPlayerRole { get; private set; }
         public bool HasPlayerRoleDecision { get; private set; }
         public ManagerUsageDecision PlayerRoleDecision { get; private set; }
+        public bool HasTacticPlan { get; private set; }
+        public IReadOnlyList<string> PlannedTacticCardIds => _plannedTacticCardIds;
+
+        /// <summary>경기별 작전카드 계획을 stable ID로 고정하며 빈 목록도 명시적인 미장착 계획으로 보관한다.</summary>
+        public void PlanTactics(IReadOnlyList<string> tacticCardIds)
+        {
+            if (IsCompleted)
+                throw new InvalidOperationException("완료된 경기의 작전카드 계획은 바꿀 수 없습니다.");
+            tacticCardIds ??= Array.Empty<string>();
+            if (tacticCardIds.Count > LineupPresetState.MaximumTacticCardCount)
+                throw new ArgumentException("작전카드는 경기당 최대 두 장까지 계획할 수 있습니다.", nameof(tacticCardIds));
+
+            var ids = new string[tacticCardIds.Count];
+            var unique = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < ids.Length; index++)
+            {
+                if (string.IsNullOrWhiteSpace(tacticCardIds[index]))
+                    throw new ArgumentException("작전카드 ID는 비어 있을 수 없습니다.", nameof(tacticCardIds));
+                ids[index] = tacticCardIds[index].Trim();
+                if (!unique.Add(ids[index]))
+                    throw new ArgumentException("같은 작전카드는 한 경기에 중복 계획할 수 없습니다.", nameof(tacticCardIds));
+            }
+
+            _plannedTacticCardIds = ids;
+            HasTacticPlan = true;
+        }
 
         /// <summary>
         /// 화면 표시와 실제 경기 입력이 같은 판단을 쓰도록 기용 결정을 경기 상태에 고정한다.

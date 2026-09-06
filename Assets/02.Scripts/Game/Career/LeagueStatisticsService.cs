@@ -75,7 +75,7 @@ namespace Baseball.Game.Career
             var players = new List<PlayerGameStatistics>(24);
             AppendTeam(players, result.Input.AwayRoster, result.AwayBoxScore);
             AppendTeam(players, result.Input.HomeRoster, result.HomeBoxScore);
-            ApplyPitchingDecisions(players, result);
+            ApplyPitchingLoss(players, result);
             for (int index = 0; index < players.Count; index++)
             {
                 PlayerGameStatistics player = players[index];
@@ -166,6 +166,7 @@ namespace Baseball.Game.Career
                     BattersFaced = line.BattersFaced,
                     InheritedRunners = line.InheritedRunners,
                     InheritedRunnersScored = line.InheritedRunnersScored,
+                    Wins = line.HasWin ? 1 : 0,
                     Saves = line.HasSave ? 1 : 0,
                     Holds = line.HasHold ? 1 : 0,
                     BlownSaves = line.HasBlownSave ? 1 : 0,
@@ -230,7 +231,7 @@ namespace Baseball.Game.Career
             return null;
         }
 
-        private static void ApplyPitchingDecisions(List<PlayerGameStatistics> players, MatchResult result)
+        private static void ApplyPitchingLoss(List<PlayerGameStatistics> players, MatchResult result)
         {
             if (result.IsTie) return;
 
@@ -238,9 +239,7 @@ namespace Baseball.Game.Career
             int loserTeamId = winnerTeamId == result.HomeBoxScore.TeamId
                 ? result.AwayBoxScore.TeamId
                 : result.HomeBoxScore.TeamId;
-            PlayerGameStatistics winningPitcher = SelectDecisionPitcher(players, winnerTeamId);
             PlayerGameStatistics losingPitcher = SelectDecisionPitcher(players, loserTeamId);
-            if (winningPitcher != null) winningPitcher.Wins = 1;
             if (losingPitcher != null) losingPitcher.Losses = 1;
         }
 

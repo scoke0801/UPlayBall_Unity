@@ -10,12 +10,14 @@ namespace Baseball.Tests.EditMode.Simulation.Career
     /// </summary>
     public sealed class SeasonScheduleGeneratorTests
     {
-        [Test]
-        public void Generate_8구단모두정확히80경기를치른다()
+        [TestCase(8)]
+        [TestCase(10)]
+        public void Generate_짝수구단모두정확히144경기를치른다(int teamCount)
         {
-            int[] teamIds = { 1, 2, 3, 4, 5, 6, 7, 8 };
+            var teamIds = new int[teamCount];
+            for (int index = 0; index < teamIds.Length; index++) teamIds[index] = index + 1;
             ScheduledGameDefinition[] games = new SeasonScheduleGenerator(new Pcg32Random(77UL))
-                .Generate(teamIds, 80);
+                .Generate(teamIds, 144);
             var counts = new Dictionary<int, int>();
 
             for (int index = 0; index < games.Length; index++)
@@ -26,9 +28,9 @@ namespace Baseball.Tests.EditMode.Simulation.Career
                 counts[game.HomeTeamId] = counts.GetValueOrDefault(game.HomeTeamId) + 1;
             }
 
-            Assert.That(games, Has.Length.EqualTo(320));
-            for (int teamId = 1; teamId <= 8; teamId++)
-                Assert.That(counts[teamId], Is.EqualTo(80), $"Team {teamId}");
+            Assert.That(games, Has.Length.EqualTo(teamCount * 144 / 2));
+            for (int teamId = 1; teamId <= teamCount; teamId++)
+                Assert.That(counts[teamId], Is.EqualTo(144), $"Team {teamId}");
         }
 
         [Test]

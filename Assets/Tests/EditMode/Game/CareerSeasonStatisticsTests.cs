@@ -112,7 +112,7 @@ namespace Baseball.Tests.EditMode.Game
             for (int index = 0; index < career.CurrentLeague.CurrentSeason.TeamRecords.Count; index++)
             {
                 TeamSeasonRecordState record = career.CurrentLeague.CurrentSeason.TeamRecords[index];
-                Assert.That(record.GamesPlayed, Is.EqualTo(80));
+                Assert.That(record.GamesPlayed, Is.EqualTo(configuration.Balance.CareerSeason.RegularSeasonGamesPerTeam));
                 leagueRuns += record.RunsScored;
                 leagueTeamGames += record.GamesPlayed;
             }

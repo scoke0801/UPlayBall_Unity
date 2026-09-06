@@ -11,7 +11,7 @@ namespace Baseball.Tests.EditMode.Game
     public sealed class CareerContractSystemTests
     {
         [Test]
-        public void ContractBonus_80경기타자계약은30경기출장을목표로한다()
+        public void ContractBonus_144경기타자계약은54경기출장을목표로한다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateBatterCareer(configuration, 10101UL);
@@ -23,7 +23,7 @@ namespace Baseball.Tests.EditMode.Game
                 configuration.Balance.CareerSeason.RegularSeasonGamesPerTeam);
 
             Assert.That(clauses[0].Metric, Is.EqualTo(ContractBonusMetric.GamesPlayed));
-            Assert.That(clauses[0].TargetValue, Is.EqualTo(30d));
+            Assert.That(clauses[0].TargetValue, Is.EqualTo(54d));
             Assert.That(clauses.Length, Is.EqualTo(6));
         }
 
@@ -268,7 +268,7 @@ namespace Baseball.Tests.EditMode.Game
 
         private static void RecordQualifiedBatterSeason(PlayerSeasonStatisticsState statistics)
         {
-            for (int game = 0; game < 48; game++)
+            for (int game = 0; game < 60; game++)
             {
                 bool isHomeRun = game < 12;
                 bool isDouble = game >= 12 && game < 36;

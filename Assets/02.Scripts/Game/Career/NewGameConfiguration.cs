@@ -131,10 +131,10 @@ namespace Baseball.Game.Career
                 new TeamIdentityDefinition("대전 호크스", new TeamColor(224, 139, 47)),
                 new TeamIdentityDefinition("대구 크라운", new TeamColor(195, 166, 52)),
                 new TeamIdentityDefinition("창원 블레이즈", new TeamColor(216, 76, 43)),
-                new TeamIdentityDefinition("울산 가디언즈", new TeamColor(52, 133, 89)),
+                new TeamIdentityDefinition("서울 가디언즈", new TeamColor(52, 133, 89)),
                 new TeamIdentityDefinition("전주 팔콘스", new TeamColor(103, 119, 138)),
-                new TeamIdentityDefinition("제주 돌핀스", new TeamColor(38, 171, 197)),
-                new TeamIdentityDefinition("춘천 스톰", new TeamColor(96, 108, 145))
+                new TeamIdentityDefinition("인천 돌핀스", new TeamColor(38, 171, 197)),
+                new TeamIdentityDefinition("부산 스톰", new TeamColor(96, 108, 145))
             };
         }
 

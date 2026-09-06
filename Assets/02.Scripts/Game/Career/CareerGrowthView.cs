@@ -41,21 +41,19 @@ namespace Baseball.Game.Career
     }
 
     /// <summary>
-    /// 성장판 한 칸의 소켓·점유 블록 정보를 Presentation에 전달한다.
+    /// 성장판 한 칸의 점유 블록 정보를 Presentation에 전달한다.
     /// </summary>
     public readonly struct GrowthBoardCellView
     {
         public GrowthBoardCellView(
             int x,
             int y,
-            bool isTraitSocket,
             int instanceId,
             SkillBlockCategory category,
             SkillBlockRarity rarity)
         {
             X = x;
             Y = y;
-            IsTraitSocket = isTraitSocket;
             InstanceId = instanceId;
             Category = category;
             Rarity = rarity;
@@ -63,7 +61,6 @@ namespace Baseball.Game.Career
 
         public int X { get; }
         public int Y { get; }
-        public bool IsTraitSocket { get; }
         public int InstanceId { get; }
         public bool IsOccupied => InstanceId > 0;
         public SkillBlockCategory Category { get; }
