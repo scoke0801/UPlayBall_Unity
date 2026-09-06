@@ -310,13 +310,13 @@ namespace Baseball.Presentation.Guide
 
         private static string GetExpressionLabel(GuideExpression expression) => expression switch
         {
-            GuideExpression.Welcome => "WELCOME",
-            GuideExpression.Analysis => "ANALYSIS",
-            GuideExpression.Concerned => "CHECK",
-            GuideExpression.Warning => "WARNING",
-            GuideExpression.Celebrate => "WIN",
-            GuideExpression.Surprised => "NEWS",
-            GuideExpression.Calm => "CALM",
+                GuideExpression.Welcome => "환영",
+                GuideExpression.Analysis => "분석",
+                GuideExpression.Concerned => "확인",
+                GuideExpression.Warning => "주의",
+                GuideExpression.Celebrate => "승리",
+                GuideExpression.Surprised => "소식",
+                GuideExpression.Calm => "침착",
             _ => "FM"
         };
 

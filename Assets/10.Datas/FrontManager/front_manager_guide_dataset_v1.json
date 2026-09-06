@@ -2155,7 +2155,7 @@
           "variationId": "SCOUT_SP_READY_B",
           "weight": 35,
           "tone": "Calm",
-          "text": "현재 SP는 {sp}입니다. 사용 가능한 스카우트가 있습니다."
+          "text": "현재 스카우트 포인트는 {sp}입니다. 사용 가능한 스카우트가 있습니다."
         },
         {
           "variationId": "SCOUT_SP_READY_C",
@@ -2193,19 +2193,19 @@
           "variationId": "SCOUT_PITY_READY_A",
           "weight": 40,
           "tone": "Celebrate",
-          "text": "집중 스카우트 게이지가 가득 찼습니다. Cost 7 이상 후보가 있는 조건에서 확정 스카우트를 사용할 수 있습니다."
+          "text": "집중 스카우트 게이지가 가득 찼습니다. 비용 7 이상 후보가 있는 조건에서 확정 스카우트를 사용할 수 있습니다."
         },
         {
           "variationId": "SCOUT_PITY_READY_B",
           "weight": 35,
           "tone": "Friendly",
-          "text": "집중 스카우트를 사용할 수 있습니다. 원하는 구단이나 연도를 정하고 Cost 7 이상 후보를 노려보세요."
+          "text": "집중 스카우트를 사용할 수 있습니다. 원하는 구단이나 연도를 정하고 비용 7 이상 후보를 노려보세요."
         },
         {
           "variationId": "SCOUT_PITY_READY_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "Pity 게이지가 100에 도달했습니다. 적격 후보가 존재하는 필터에서 한 번의 집중 스카우트를 실행할 수 있습니다."
+          "text": "확정 획득 게이지가 100에 도달했습니다. 적격 후보가 존재하는 필터에서 한 번의 집중 스카우트를 실행할 수 있습니다."
         }
       ],
       "tags": [
@@ -2238,7 +2238,7 @@
           "variationId": "SCOUT_PITY_FILTER_INVALID_A",
           "weight": 40,
           "tone": "Warning",
-          "text": "‘{filterName}’ 조건에는 Cost 7 이상 후보가 없습니다. 이 조건으로는 집중 스카우트를 사용할 수 없습니다."
+          "text": "‘{filterName}’ 조건에는 비용 7 이상 후보가 없습니다. 이 조건으로는 집중 스카우트를 사용할 수 없습니다."
         },
         {
           "variationId": "SCOUT_PITY_FILTER_INVALID_B",
@@ -2285,19 +2285,19 @@
           "variationId": "SCOUT_NEW_CARD_A",
           "weight": 40,
           "tone": "Celebrate",
-          "text": "새 선수를 확보했습니다. {playerName}, Cost {cost}, {edition} 카드입니다."
+          "text": "새 선수를 확보했습니다. {playerName}, 비용 {cost}, {edition} 카드입니다."
         },
         {
           "variationId": "SCOUT_NEW_CARD_B",
           "weight": 35,
           "tone": "Friendly",
-          "text": "새 카드가 들어왔습니다. {playerName} 선수의 Cost {cost} {edition} 카드입니다."
+          "text": "새 카드가 들어왔습니다. {playerName} 선수의 비용 {cost} {edition} 카드입니다."
         },
         {
           "variationId": "SCOUT_NEW_CARD_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "스카우트 결과는 {playerName} / Cost {cost} / {edition}입니다. 현재 선수단과 비교해 보세요."
+          "text": "스카우트 결과는 {playerName} / 비용 {cost} / {edition}입니다. 현재 선수단과 비교해 보세요."
         }
       ],
       "tags": [
@@ -2343,7 +2343,7 @@
           "variationId": "SCOUT_DUPLICATE_CARD_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "동일 CardId를 다시 획득했습니다. 최대 강화 전이라면 강화 재료로 사용할 수 있습니다."
+          "text": "동일한 선수 카드를 다시 획득했습니다. 최대 강화 전이라면 강화 재료로 사용할 수 있습니다."
         }
       ],
       "tags": [
@@ -2376,7 +2376,7 @@
           "variationId": "SCOUT_RENORMALIZED_ODDS_A",
           "weight": 40,
           "tone": "Analysis",
-          "text": "‘{filterName}’ 후보군에는 존재하지 않는 Cost·Edition 조합이 있습니다. 해당 항목을 제외한 실제 확률로 다시 계산됐습니다."
+          "text": "‘{filterName}’ 후보군에는 존재하지 않는 비용·등급 조합이 있습니다. 해당 항목을 제외한 실제 확률로 다시 계산됐습니다."
         },
         {
           "variationId": "SCOUT_RENORMALIZED_ODDS_B",
@@ -2388,7 +2388,7 @@
           "variationId": "SCOUT_RENORMALIZED_ODDS_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "후보가 없는 Bucket은 제거하고 남은 후보끼리 확률을 재분배했습니다. 표시 확률이 실제 추첨 확률입니다."
+          "text": "후보가 없는 구간은 제거하고 남은 후보끼리 확률을 재분배했습니다. 표시 확률이 실제 추첨 확률입니다."
         }
       ],
       "tags": [
@@ -2414,7 +2414,7 @@
       },
       "cta": {
         "action": "OpenEconomy",
-        "label": "SP 현황"
+        "label": "스카우트 포인트 현황"
       },
       "requiresAcknowledgement": false,
       "variations": [
@@ -2422,7 +2422,7 @@
           "variationId": "SCOUT_SP_LOW_A",
           "weight": 40,
           "tone": "Calm",
-          "text": "현재 SP는 {sp}입니다. 이 스카우트에는 {needed}이 필요합니다."
+          "text": "현재 스카우트 포인트는 {sp}입니다. 이 스카우트에는 {needed}이 필요합니다."
         },
         {
           "variationId": "SCOUT_SP_LOW_B",
@@ -2434,7 +2434,7 @@
           "variationId": "SCOUT_SP_LOW_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "현재 보유 SP로는 이 스카우트를 실행할 수 없습니다. 필요한 SP는 {needed}입니다."
+          "text": "현재 보유한 스카우트 포인트로는 이 스카우트를 실행할 수 없습니다. 필요한 스카우트 포인트는 {needed}입니다."
         }
       ],
       "tags": [
@@ -2521,7 +2521,7 @@
           "variationId": "CARD_ENHANCEMENT_MAX_B",
           "weight": 35,
           "tone": "Friendly",
-          "text": "강화가 끝났습니다. {playerName} 카드는 이제 +5 MAX 상태입니다."
+          "text": "강화가 끝났습니다. {playerName} 카드는 이제 +5 최대 강화 상태입니다."
         },
         {
           "variationId": "CARD_ENHANCEMENT_MAX_C",
@@ -2562,13 +2562,13 @@
           "variationId": "CARD_EXTRA_DUPLICATE_AFTER_MAX_A",
           "weight": 40,
           "tone": "Calm",
-          "text": "{playerName} 카드는 이미 +5입니다. 이번 중복은 판매하면 SP {saleSp}를 회수할 수 있습니다."
+          "text": "{playerName} 카드는 이미 +5입니다. 이번 중복은 판매하면 스카우트 포인트 {saleSp}를 회수할 수 있습니다."
         },
         {
           "variationId": "CARD_EXTRA_DUPLICATE_AFTER_MAX_B",
           "weight": 35,
           "tone": "Friendly",
-          "text": "최대 강화 이후의 추가 중복입니다. 보관하거나 SP로 판매할 수 있습니다."
+          "text": "최대 강화 이후의 추가 중복입니다. 보관하거나 스카우트 포인트로 판매할 수 있습니다."
         },
         {
           "variationId": "CARD_EXTRA_DUPLICATE_AFTER_MAX_C",
@@ -2609,7 +2609,7 @@
           "variationId": "CARD_TRAINING_AVAILABLE_A",
           "weight": 40,
           "tone": "Analysis",
-          "text": "{playerName} 카드의 {abilityName}은 아직 {headroom}만큼 성장 여지가 있습니다. DP 훈련을 사용할 수 있습니다."
+          "text": "{playerName} 카드의 {abilityName}은 아직 {headroom}만큼 성장 여지가 있습니다. 육성 포인트 훈련을 사용할 수 있습니다."
         },
         {
           "variationId": "CARD_TRAINING_AVAILABLE_B",
@@ -2655,7 +2655,7 @@
           "variationId": "CARD_TRAINING_CEILING_A",
           "weight": 40,
           "tone": "Warning",
-          "text": "{playerName} 카드의 {abilityName}은 훈련 상한에 도달했습니다. 이 능력치에는 DP를 더 사용해도 오르지 않습니다."
+          "text": "{playerName} 카드의 {abilityName}은 훈련 상한에 도달했습니다. 이 능력치에는 육성 포인트를 더 사용해도 오르지 않습니다."
         },
         {
           "variationId": "CARD_TRAINING_CEILING_B",
@@ -2667,7 +2667,7 @@
           "variationId": "CARD_TRAINING_CEILING_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "현재 시즌 카드가 허용하는 {abilityName} TrainingCeiling에 도달했습니다."
+          "text": "현재 시즌 카드가 허용하는 {abilityName} 훈련 상한에 도달했습니다."
         }
       ],
       "tags": [
@@ -2845,7 +2845,7 @@
           "variationId": "TEAMCOLOR_HIGHEST_ONLY_CONFLICT_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "HighestOnly 정책이 적용되는 그룹입니다. 조건을 만족한 가장 강한 단계만 장착 후보로 남습니다."
+          "text": "최고 단계만 적용되는 그룹입니다. 조건을 만족한 가장 강한 단계만 장착 후보로 남습니다."
         }
       ],
       "tags": [
@@ -2922,7 +2922,7 @@
           "variationId": "TEAMCOLOR_HONOR_UNLOCK_A",
           "weight": 40,
           "tone": "Celebrate",
-          "text": "특수 Edition 구성이 갖춰지며 ‘{teamColorName}’ 명예 팀컬러가 활성화됐습니다."
+          "text": "특수 등급 구성이 갖춰지며 ‘{teamColorName}’ 명예 팀컬러가 활성화됐습니다."
         },
         {
           "variationId": "TEAMCOLOR_HONOR_UNLOCK_B",
@@ -2934,7 +2934,7 @@
           "variationId": "TEAMCOLOR_HONOR_UNLOCK_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "World Award 기반 Edition 구성이 ‘{teamColorName}’ 조건을 충족했습니다."
+          "text": "세계 수상 기록 기반 등급 구성이 ‘{teamColorName}’ 조건을 충족했습니다."
         }
       ],
       "tags": [
@@ -3065,7 +3065,7 @@
           "variationId": "TACTIC_DISRUPTION_LIMIT_C",
           "weight": 25,
           "tone": "Concerned",
-          "text": "전술 조합 규칙에 맞지 않습니다. IsDisruption 카드의 경기당 한도는 1장입니다."
+          "text": "전술 조합 규칙에 맞지 않습니다. 방해 전술 카드는 경기당 1장만 사용할 수 있습니다."
         }
       ],
       "tags": [
@@ -3156,7 +3156,7 @@
           "variationId": "TACTIC_TRIGGERED_OWNER_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "‘{cardName}’의 Trigger 조건이 성립해 현재 효과가 적용됐습니다."
+          "text": "‘{cardName}’의 발동 조건이 성립해 현재 효과가 적용됐습니다."
         }
       ],
       "tags": [
@@ -3255,7 +3255,7 @@
           "variationId": "BULLPEN_HIGH_LEVERAGE_FATIGUE_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "Bullpen 1·2 중심의 고레버리지 운용이 어려운 상태입니다. 다른 불펜까지 후보에 들어올 수 있습니다."
+          "text": "핵심 불펜 1·2 중심의 승부처 운용이 어려운 상태입니다. 다른 불펜까지 후보에 들어올 수 있습니다."
         }
       ],
       "tags": [
@@ -3475,13 +3475,13 @@
           "variationId": "CAREER_DH_START_B",
           "weight": 35,
           "tone": "Calm",
-          "text": "오늘 역할은 DH입니다. 본래 수비 포지션과 관계없이 비주포지션 수비 페널티는 적용되지 않습니다."
+          "text": "오늘 역할은 지명타자입니다. 본래 수비 포지션과 관계없이 비주포지션 수비 페널티는 적용되지 않습니다."
         },
         {
           "variationId": "CAREER_DH_START_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "지명타자 출전입니다. 수비 Assignment 비용 없이 공격에만 참가합니다."
+          "text": "지명타자 출전입니다. 수비 배치 비용 없이 공격에만 참가합니다."
         }
       ],
       "tags": [
@@ -3528,7 +3528,7 @@
           "variationId": "CAREER_PITCHER_ROLE_CHANGE_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "투수 역할 Assignment가 {naturalRole} → {assignedRole}로 변경됐습니다. 기용 가능하지만 역할 불일치 페널티가 적용됩니다."
+          "text": "투수 역할 배치가 {naturalRole} → {assignedRole}로 변경됐습니다. 기용 가능하지만 역할 불일치 페널티가 적용됩니다."
         }
       ],
       "tags": [
@@ -3894,7 +3894,7 @@
           "variationId": "CAREER_TRADE_COMPLETED_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "이적이 완료됐습니다. 소속 변경에 따라 정체성 TeamColor Wildcard도 새 TeamSeason 기준으로 갱신됩니다."
+          "text": "이적이 완료됐습니다. 소속 변경에 따라 정체성 팀컬러 예외 자격도 새 구단 시즌 기준으로 갱신됩니다."
         }
       ],
       "tags": [
@@ -3984,7 +3984,7 @@
           "variationId": "OWNER_TRADE_ROSTER_RISK_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "거래 후 예상 CurrentRosterState가 공통 로스터 규칙을 만족하지 않습니다. {reasonSummary}"
+          "text": "거래 후 예상 선수단이 공통 로스터 규칙을 만족하지 않습니다. {reasonSummary}"
         }
       ],
       "tags": [
@@ -4025,7 +4025,7 @@
           "variationId": "OWNER_TRADE_FAILED_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "협상이 종료됐습니다. CurrentRosterState와 보유 카드는 그대로 유지됩니다."
+          "text": "협상이 종료됐습니다. 현재 선수단과 보유 카드는 그대로 유지됩니다."
         }
       ],
       "tags": [
@@ -4424,7 +4424,7 @@
           "variationId": "AWARD_ALLSTAR_SELECTED_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "World Award 결과가 확정됐습니다. {playerName} 선수가 AllStar 자격을 획득했습니다."
+          "text": "세계 수상 결과가 확정됐습니다. {playerName} 선수가 올스타 자격을 획득했습니다."
         }
       ],
       "tags": [
@@ -4467,7 +4467,7 @@
           "variationId": "AWARD_CAREER_ALLSTAR_C",
           "weight": 25,
           "tone": "Calm",
-          "text": "AllStar Award가 확정됐습니다. Career Player의 AllStar Wildcard는 해당 시즌 종료까지 유효합니다."
+          "text": "올스타 선정이 확정됐습니다. 커리어 선수의 올스타 예외 자격은 해당 시즌 종료까지 유효합니다."
         }
       ],
       "tags": [
@@ -4514,7 +4514,7 @@
           "variationId": "AWARD_GOLDENGLOVE_SELECTED_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "{position} 부문 GoldenGlove Award가 {playerName} 선수로 확정됐습니다."
+          "text": "{position} 부문 골든글러브 수상자가 {playerName} 선수로 확정됐습니다."
         }
       ],
       "tags": [
@@ -4545,7 +4545,7 @@
           "variationId": "AWARD_CAREER_GOLDENGLOVE_A",
           "weight": 40,
           "tone": "Celebrate",
-          "text": "골든글러브를 수상했습니다. 이 명예 Wildcard는 다음 시즌 종료까지 유지됩니다."
+          "text": "골든글러브를 수상했습니다. 이 명예 예외 자격은 다음 시즌 종료까지 유지됩니다."
         },
         {
           "variationId": "AWARD_CAREER_GOLDENGLOVE_B",
@@ -4557,7 +4557,7 @@
           "variationId": "AWARD_CAREER_GOLDENGLOVE_C",
           "weight": 25,
           "tone": "Calm",
-          "text": "GoldenGlove Award가 확정됐습니다. Career Player의 명예 자격은 다음 시즌 종료까지 유효합니다."
+          "text": "골든글러브 수상이 확정됐습니다. 커리어 선수의 명예 자격은 다음 시즌 종료까지 유효합니다."
         }
       ],
       "tags": [
@@ -4603,7 +4603,7 @@
           "variationId": "AWARD_REGULAR_MVP_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "정규시즌 Statistics 기반 MVP 선정 결과가 확정됐습니다. 수상자는 {playerName} 선수입니다."
+          "text": "정규시즌 기록 기반 MVP 선정 결과가 확정됐습니다. 수상자는 {playerName} 선수입니다."
         }
       ],
       "tags": [
@@ -4648,7 +4648,7 @@
           "variationId": "AWARD_ALLSTAR_GAME_MVP_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "실제 올스타전 경기 결과를 기반으로 {playerName} 선수가 All-Star Game MVP에 선정됐습니다."
+          "text": "실제 올스타전 경기 결과를 기반으로 {playerName} 선수가 올스타전 MVP에 선정됐습니다."
         }
       ],
       "tags": [
@@ -4694,7 +4694,7 @@
           "variationId": "AWARD_POSTSEASON_MVP_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "포스트시즌 출전과 Statistics를 기반으로 {playerName} 선수가 MVP에 선정됐습니다."
+          "text": "포스트시즌 출전과 기록을 기반으로 {playerName} 선수가 MVP에 선정됐습니다."
         }
       ],
       "tags": [
@@ -4835,7 +4835,7 @@
           "variationId": "NEWS_SEASON_WRAP_C",
           "weight": 25,
           "tone": "Analysis",
-          "text": "시즌 종료 Snapshot에서 주요 사건 {headlineCount}건을 추렸습니다. 기록실과 뉴스에서 세부 내용을 확인할 수 있습니다."
+          "text": "시즌 종료 기록에서 주요 사건 {headlineCount}건을 추렸습니다. 기록실과 뉴스에서 세부 내용을 확인할 수 있습니다."
         }
       ],
       "tags": [
@@ -4850,7 +4850,7 @@
       "repeatPolicy": { "dedupeKeyTemplate": "CARD_STUDY_SLOT_AVAILABLE:{seasonId}:{eventId}", "cooldownScope": "Event", "maxDisplaysPerScope": 1 },
       "cta": { "action": "OpenCardTraining", "label": "유학 선수 선택" }, "requiresAcknowledgement": false,
       "variations": [
-        { "variationId": "CARD_STUDY_SLOT_AVAILABLE_A", "weight": 40, "tone": "Analysis", "text": "TrainingCenter 유학 정원에 빈자리가 있습니다. 1군 밖 보유 카드를 보낼 수 있습니다." },
+        { "variationId": "CARD_STUDY_SLOT_AVAILABLE_A", "weight": 40, "tone": "Analysis", "text": "훈련 시설 유학 정원에 빈자리가 있습니다. 1군 밖 보유 카드를 보낼 수 있습니다." },
         { "variationId": "CARD_STUDY_SLOT_AVAILABLE_B", "weight": 35, "tone": "Friendly", "text": "유학을 시작할 수 있는 슬롯이 남아 있습니다. 장기 육성할 카드를 골라 보세요." },
         { "variationId": "CARD_STUDY_SLOT_AVAILABLE_C", "weight": 25, "tone": "Calm", "text": "현재 유학 정원에 여유가 있습니다. 출전시키지 않을 카드의 성장 기회입니다." }
       ], "tags": ["Card", "Study"]
@@ -4888,13 +4888,13 @@
       "variations": [
         { "variationId": "CARD_STUDY_COMPLETED_A", "weight": 40, "tone": "Celebrate", "text": "유학이 끝났습니다. 확정 성장량이 카드에 반영됐습니다." },
         { "variationId": "CARD_STUDY_COMPLETED_B", "weight": 35, "tone": "Friendly", "text": "선수가 유학을 마치고 돌아왔습니다. 성장 결과를 확인해 보세요." },
-        { "variationId": "CARD_STUDY_COMPLETED_C", "weight": 25, "tone": "Analysis", "text": "4주 유학 과정이 완료됐습니다. TrainingCeiling 안에서 성장이 적용됐습니다." }
+        { "variationId": "CARD_STUDY_COMPLETED_C", "weight": 25, "tone": "Analysis", "text": "4주 유학 과정이 완료됐습니다. 훈련 상한 안에서 성장이 적용됐습니다." }
       ], "tags": ["Card", "Study"]
     },
     {
       "cueId": "SKILL_BLOCK_ACQUIRED", "factType": "SkillBlockAcquired", "modeScope": "Owner",
       "priority": "Normal", "presentationType": "Toast", "expressionKey": "Surprised",
-      "requiredPayload": ["cardId", "definitionId", "rarity"],
+      "requiredPayload": ["definitionId", "rarity"],
       "repeatPolicy": { "dedupeKeyTemplate": "SKILL_BLOCK_ACQUIRED:{definitionId}:{eventId}", "cooldownScope": "Event", "maxDisplaysPerScope": 1 },
       "cta": { "action": "OpenCardTraining", "label": "블록 장착" }, "requiresAcknowledgement": false,
       "variations": [
@@ -4908,11 +4908,11 @@
       "priority": "High", "presentationType": "Toast", "expressionKey": "Celebrate",
       "requiredPayload": ["cardId", "traitId"],
       "repeatPolicy": { "dedupeKeyTemplate": "SKILL_BOARD_TRAIT_ACTIVATED:{cardId}:{traitId}:{eventId}", "cooldownScope": "Event", "maxDisplaysPerScope": 1 },
-      "cta": { "action": "OpenCardTraining", "label": "Trait 확인" }, "requiresAcknowledgement": false,
+      "cta": { "action": "OpenCardTraining", "label": "특성 확인" }, "requiresAcknowledgement": false,
       "variations": [
-        { "variationId": "SKILL_BOARD_TRAIT_ACTIVATED_A", "weight": 40, "tone": "Celebrate", "text": "성장판 Trait이 활성화됐습니다: {traitId}." },
-        { "variationId": "SKILL_BOARD_TRAIT_ACTIVATED_B", "weight": 35, "tone": "Analysis", "text": "Trait Socket 조건을 만족해 {traitId} 효과가 경기 입력에 적용됩니다." },
-        { "variationId": "SKILL_BOARD_TRAIT_ACTIVATED_C", "weight": 25, "tone": "Friendly", "text": "블록 배치가 완성됐습니다. 새 Trait {traitId}이(가) 활성화됐습니다." }
+        { "variationId": "SKILL_BOARD_TRAIT_ACTIVATED_A", "weight": 40, "tone": "Celebrate", "text": "성장판 특성이 활성화됐습니다: {traitId}." },
+        { "variationId": "SKILL_BOARD_TRAIT_ACTIVATED_B", "weight": 35, "tone": "Analysis", "text": "특성 슬롯 조건을 만족해 {traitId} 효과가 경기 입력에 적용됩니다." },
+        { "variationId": "SKILL_BOARD_TRAIT_ACTIVATED_C", "weight": 25, "tone": "Friendly", "text": "블록 배치가 완성됐습니다. 새 특성 {traitId}이(가) 활성화됐습니다." }
       ], "tags": ["Card", "SkillBlock", "Trait"]
     }
   ],
@@ -4921,7 +4921,7 @@
     { "factType": "CardStudySlotAvailable", "requiredPayload": [], "cueIds": ["CARD_STUDY_SLOT_AVAILABLE"], "modeScopes": ["Owner"] },
     { "factType": "CardStudyStarted", "requiredPayload": ["cardId", "program"], "cueIds": ["CARD_STUDY_STARTED"], "modeScopes": ["Owner"] },
     { "factType": "CardTrainingCompleted", "requiredPayload": ["ability", "cardId", "gained"], "cueIds": ["CARD_TRAINING_COMPLETED"], "modeScopes": ["Owner"] },
-    { "factType": "SkillBlockAcquired", "requiredPayload": ["cardId", "definitionId", "rarity"], "cueIds": ["SKILL_BLOCK_ACQUIRED"], "modeScopes": ["Owner"] },
+    { "factType": "SkillBlockAcquired", "requiredPayload": ["definitionId", "rarity"], "cueIds": ["SKILL_BLOCK_ACQUIRED"], "modeScopes": ["Owner"] },
     { "factType": "SkillBoardTraitActivated", "requiredPayload": ["cardId", "traitId"], "cueIds": ["SKILL_BOARD_TRAIT_ACTIVATED"], "modeScopes": ["Owner"] },
     {
       "factType": "AllStarGameMvpSelected",

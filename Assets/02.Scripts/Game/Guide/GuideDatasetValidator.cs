@@ -23,7 +23,7 @@ namespace Baseball.Game.Guide
     /// <summary>JSON Schema의 구조 검증 뒤 Fact·CTA·표현·placeholder 상호 참조를 검사한다.</summary>
     public static class GuideDatasetValidator
     {
-        public const int ExpectedCueCount = 100;
+        public const int ExpectedCueCount = 106;
         public const int ExpectedVariationCountPerCue = 3;
         public const string WeightedHashStrategy = "WeightedHash";
         public const string HashAlgorithm = "FNV1A64_UTF8";
@@ -342,6 +342,9 @@ namespace Baseball.Game.Guide
             }
 
             var usedPayload = new HashSet<string>(StringComparer.Ordinal);
+            string[] repeatTokens = GuideTemplate.ExtractTokens(cue.repeatPolicy?.dedupeKeyTemplate);
+            for (int index = 0; index < repeatTokens.Length; index++)
+                if (payloadKeys.Contains(repeatTokens[index])) usedPayload.Add(repeatTokens[index]);
             for (int index = 0; index < variations.Length; index++)
             {
                 GuideVariationData variation = variations[index];
@@ -373,7 +376,8 @@ namespace Baseball.Game.Guide
             foreach (string required in payloadKeys)
             {
                 if (!usedPayload.Contains(required))
-                    Add(issues, "UNUSED_PAYLOAD", cuePath + ".requiredPayload", $"'{required}'가 문장에 사용되지 않습니다.");
+                    Add(issues, "UNUSED_PAYLOAD", cuePath + ".requiredPayload",
+                        $"'{required}'가 문장 또는 반복 방지 Key에 사용되지 않습니다.");
             }
         }
 

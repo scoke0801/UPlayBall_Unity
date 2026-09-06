@@ -29,7 +29,7 @@ namespace Baseball.Editor.Guide
             string[] errors = Validate();
             if (errors.Length == 0)
             {
-                Debug.Log("[FrontManagerGuideValidation] 오류 없음 — 100 Cue / 300 Variation");
+                Debug.Log("[FrontManagerGuideValidation] 오류 없음 — 106 Cue / 318 Variation");
                 return;
             }
             for (int index = 0; index < errors.Length; index++)
@@ -43,7 +43,7 @@ namespace Baseball.Editor.Guide
             if (errors.Length > 0)
                 throw new InvalidOperationException(
                     "Front Manager Guide CI 검증 실패:\n" + string.Join("\n", errors));
-            Debug.Log("[FrontManagerGuideValidation] CI 검증 통과 — 100 Cue / 300 Variation");
+            Debug.Log("[FrontManagerGuideValidation] CI 검증 통과 — 106 Cue / 318 Variation");
         }
 
         public static string[] Validate()
