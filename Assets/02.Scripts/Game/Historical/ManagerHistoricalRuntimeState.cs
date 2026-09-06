@@ -10,7 +10,7 @@ namespace Baseball.Game.Historical
     public sealed class ManagerHistoricalRuntimeState
     {
         private readonly CurrentRosterState[] _rosters;
-        private readonly OwnedPlayerCardState[] _ownedCards;
+        private readonly List<OwnedPlayerCardState> _ownedCards;
         private readonly Dictionary<string, CurrentRosterState> _rostersByTeamSeasonKey;
         private readonly Dictionary<string, OwnedPlayerCardState> _ownedCardsById;
 
@@ -79,6 +79,26 @@ namespace Baseball.Game.Historical
                 return false;
             }
             return _ownedCardsById.TryGetValue(cardId.Trim(), out ownedCard);
+        }
+
+        /// <summary>
+        /// 스카우트로 카드를 획득한다. 이미 보유한 카드면 중복 수를 올려 강화 재료로 남긴다.
+        /// </summary>
+        /// <returns>처음 획득한 카드면 true다.</returns>
+        public bool AcquireCard(string cardId)
+        {
+            string id = RequireId(cardId, nameof(cardId));
+            if (!WorldCardCatalog.TryGetCard(id, out _))
+                throw new ArgumentException("WorldCardCatalog에 없는 카드는 획득할 수 없습니다.", nameof(cardId));
+            if (_ownedCardsById.TryGetValue(id, out OwnedPlayerCardState owned))
+            {
+                owned.AddDuplicate();
+                return false;
+            }
+            var acquired = new OwnedPlayerCardState(id);
+            _ownedCards.Add(acquired);
+            _ownedCardsById.Add(id, acquired);
+            return true;
         }
 
         /// <summary>AI 구단은 카드 소유 경제를 갖지 않으므로 플레이어 구단 여부만 명시적으로 반환한다.</summary>
@@ -196,13 +216,13 @@ namespace Baseball.Game.Historical
             }
         }
 
-        private static OwnedPlayerCardState[] CopyAndValidateOwnedCards(
+        private static List<OwnedPlayerCardState> CopyAndValidateOwnedCards(
             IReadOnlyList<OwnedPlayerCardState> source,
             WorldCardCatalog catalog)
         {
             if (source == null)
                 throw new ArgumentNullException(nameof(source));
-            var result = new OwnedPlayerCardState[source.Count];
+            var result = new List<OwnedPlayerCardState>(source.Count);
             var cardIds = new HashSet<string>(StringComparer.Ordinal);
             for (int index = 0; index < source.Count; index++)
             {
@@ -212,7 +232,7 @@ namespace Baseball.Game.Historical
                     throw new ArgumentException("OwnedPlayerCardState가 WorldCardCatalog에 없는 카드를 참조합니다.", nameof(source));
                 if (!cardIds.Add(owned.CardId))
                     throw new ArgumentException("카드 소유 상태는 CardId별 하나만 존재해야 합니다.", nameof(source));
-                result[index] = owned;
+                result.Add(owned);
             }
             return result;
         }
