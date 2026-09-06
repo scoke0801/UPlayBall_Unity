@@ -7,7 +7,7 @@ namespace Baseball.Simulation.Historical
     /// <summary>감독 원형, 구단주 지시, 수석코치 보정을 경기 시작 시점의 판단값으로 합성한다.</summary>
     public sealed class DugoutTacticalProfileResolver
     {
-        private const int PolicyStepValue = 5;
+        public const int PolicyStepValue = 5;
 
         public ManagerTacticalProfile Resolve(
             DugoutManagementState state,
@@ -45,6 +45,25 @@ namespace Baseball.Simulation.Historical
                 managerTrust: 100);
         }
 
+        /// <summary>인선 효과를 다시 계산하지 않고 현재 적용값에 방침 변경분만 더해 UI Preview를 만든다.</summary>
+        public static ManagerTacticalProfile PreviewPolicyChange(
+            ManagerTacticalProfile current,
+            DugoutPolicySettings currentPolicy,
+            DugoutPolicySettings draftPolicy)
+        {
+            return new ManagerTacticalProfile(
+                ApplyPolicyDelta(current.HookSpeed, DugoutPolicyAxis.HookSpeed, currentPolicy, draftPolicy),
+                ApplyPolicyDelta(current.BullpenAggression, DugoutPolicyAxis.BullpenAggression, currentPolicy, draftPolicy),
+                current.BullpenRoleRigidity,
+                ApplyPolicyDelta(current.SmallBallPreference, DugoutPolicyAxis.SmallBallPreference, currentPolicy, draftPolicy),
+                ApplyPolicyDelta(current.RunningAggression, DugoutPolicyAxis.RunningAggression, currentPolicy, draftPolicy),
+                current.MatchupPreference,
+                current.DefensiveAggression,
+                current.StarTrust,
+                ApplyPolicyDelta(current.BattingApproach, DugoutPolicyAxis.BattingApproach, currentPolicy, draftPolicy),
+                ApplyPolicyDelta(current.PinchHitAggression, DugoutPolicyAxis.PinchHitAggression, currentPolicy, draftPolicy));
+        }
+
         private static int ResolveAxis(
             int baseValue,
             DugoutPolicyAxis axis,
@@ -60,6 +79,16 @@ namespace Baseball.Simulation.Historical
             if (value < 0) return 0;
             if (value > 100) return 100;
             return value;
+        }
+
+        private static int ApplyPolicyDelta(
+            int currentValue,
+            DugoutPolicyAxis axis,
+            DugoutPolicySettings currentPolicy,
+            DugoutPolicySettings draftPolicy)
+        {
+            int levelDelta = draftPolicy.GetLevel(axis) - currentPolicy.GetLevel(axis);
+            return Clamp(currentValue + levelDelta * PolicyStepValue);
         }
     }
 }

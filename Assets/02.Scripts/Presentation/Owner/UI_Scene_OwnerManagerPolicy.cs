@@ -1,0 +1,183 @@
+using System;
+using Baseball.Core.Historical;
+using Baseball.Core.Teams;
+using Baseball.Simulation.Historical;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace Baseball.Presentation.Owner
+{
+    /// <summary>감독 인선을 건드리지 않고 여섯 경기 운영 축만 독립 편집하는 감독방침 화면이다.</summary>
+    [DisallowMultipleComponent]
+    public sealed class UI_Scene_OwnerManagerPolicy : MonoBehaviour
+    {
+        private static readonly string[] AxisNames =
+        {
+            "타격방침", "도루시도", "번트시도", "대타기용", "선발교체", "중간교체"
+        };
+
+        private RectTransform _root;
+        private readonly Slider[] _sliders = new Slider[AxisNames.Length];
+        private readonly Text[] _valueLabels = new Text[AxisNames.Length];
+        private Text _staff;
+        private Text _profile;
+        private Text _status;
+        private OwnerDugoutSnapshot _snapshot;
+
+        public event Action<OwnerDugoutConfigurationCommand> PolicyConfirmed;
+
+        public static UI_Scene_OwnerManagerPolicy CreateRuntime(Transform parent)
+        {
+            var host = new GameObject(nameof(UI_Scene_OwnerManagerPolicy), typeof(RectTransform));
+            host.transform.SetParent(parent, false);
+            OwnerWorkspaceUiFactory.Stretch(host.GetComponent<RectTransform>());
+            var view = host.AddComponent<UI_Scene_OwnerManagerPolicy>();
+            view.Build();
+            return view;
+        }
+
+        public void Bind(OwnerDugoutSnapshot snapshot)
+        {
+            _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+            int minimum = DugoutPolicySettings.NeutralLevel - snapshot.AllowedPolicyOffset;
+            int maximum = DugoutPolicySettings.NeutralLevel + snapshot.AllowedPolicyOffset;
+            for (int index = 0; index < _sliders.Length; index++)
+            {
+                _sliders[index].minValue = minimum;
+                _sliders[index].maxValue = maximum;
+                _sliders[index].SetValueWithoutNotify(snapshot.Policy.GetLevel((DugoutPolicyAxis)index));
+                RefreshAxis(index);
+            }
+            OwnerDugoutStaffCandidate manager = snapshot.GetManager(snapshot.SelectedManagerId);
+            OwnerDugoutStaffCandidate coach = snapshot.GetHeadCoach(snapshot.SelectedHeadCoachId);
+            _staff.text = manager.DisplayName + " · " + manager.Specialty + "\n" +
+                          coach.DisplayName + " · " + coach.Specialty + "\n\n" +
+                          "감독 신뢰도 " + snapshot.ManagerTrust + "/100\n조정 범위 ±" + snapshot.AllowedPolicyOffset;
+            RefreshProfilePreview();
+            SetFeedback("저장된 감독방침입니다. 결정 전에는 다음 경기에 반영되지 않습니다.", false);
+        }
+
+        public void SetVisible(bool visible)
+        {
+            if (_root != null) _root.gameObject.SetActive(visible);
+        }
+
+        public void SetFeedback(string message, bool isError)
+        {
+            if (_status == null) return;
+            _status.text = message ?? string.Empty;
+            _status.color = isError ? new Color(0.72f, 0.16f, 0.12f) : new Color(0.12f, 0.35f, 0.20f);
+        }
+
+        private void Build()
+        {
+            _root = OwnerWorkspaceUiFactory.CreateRoot(transform, "OwnerManagerPolicyWorkspace", true);
+            RectTransform policy = OwnerDugoutDetailUiFactory.CreatePanel(_root, "PolicyPanel", 0.02f, 0.10f, 0.61f, 0.975f);
+            RectTransform context = OwnerDugoutDetailUiFactory.CreatePanel(_root, "ContextPanel", 0.63f, 0.10f, 0.98f, 0.975f);
+            OwnerDugoutDetailUiFactory.CreateLabel(policy, "Title", "감독 작전 방침", 0.04f, 0.91f, 0.96f, 0.98f, 21, FontStyle.Bold);
+            OwnerDugoutDetailUiFactory.CreateLabel(policy, "Hint", "중앙 2 · 신뢰도에 따라 조정 범위 해금", 0.04f, 0.86f, 0.96f, 0.91f, 12);
+            for (int index = 0; index < _sliders.Length; index++) BuildAxis(policy, index);
+            OwnerDugoutDetailUiFactory.CreateButton(policy, "Neutral", "모두 중립", 0.67f, 0.035f, 0.96f, 0.10f, ResetNeutral);
+
+            OwnerDugoutDetailUiFactory.CreateLabel(context, "StaffTitle", "현재 인선", 0.06f, 0.91f, 0.94f, 0.98f, 19, FontStyle.Bold);
+            _staff = OwnerDugoutDetailUiFactory.CreateLabel(context, "Staff", string.Empty, 0.06f, 0.62f, 0.94f, 0.89f, 14, FontStyle.Normal, TextAnchor.UpperLeft);
+            _profile = OwnerDugoutDetailUiFactory.CreateLabel(context, "Profile", string.Empty, 0.06f, 0.20f, 0.94f, 0.58f, 14, FontStyle.Normal, TextAnchor.UpperLeft);
+            OwnerDugoutDetailUiFactory.CreateLabel(context, "Rule", "감독 또는 수석코치 변경은 ‘덕아웃’ 탭에서 진행합니다.",
+                0.06f, 0.08f, 0.94f, 0.16f, 12, FontStyle.Normal, TextAnchor.UpperLeft);
+
+            _status = OwnerDugoutDetailUiFactory.CreateLabel(_root, "Status", string.Empty, 0.02f, 0.025f, 0.68f, 0.085f, 13);
+            OwnerDugoutDetailUiFactory.CreateButton(_root, "Restore", "되돌리기", 0.70f, 0.02f, 0.82f, 0.085f, Restore);
+            OwnerDugoutDetailUiFactory.CreateButton(_root, "Confirm", "결정", 0.84f, 0.02f, 0.98f, 0.085f, Confirm);
+        }
+
+        private void BuildAxis(Transform parent, int index)
+        {
+            float top = 0.83f - index * 0.12f;
+            OwnerDugoutDetailUiFactory.CreateLabel(parent, "AxisName" + index, AxisNames[index], 0.04f, top - 0.065f, 0.23f, top, 14, FontStyle.Bold);
+            RectTransform sliderRect = OwnerDugoutDetailUiFactory.CreateRect(parent, "AxisSlider" + index, 0.25f, top - 0.055f, 0.82f, top - 0.005f);
+            Slider slider = sliderRect.gameObject.AddComponent<Slider>();
+            slider.wholeNumbers = true;
+            slider.minValue = 1f;
+            slider.maxValue = 3f;
+            slider.targetGraphic = sliderRect.gameObject.AddComponent<Image>();
+            slider.targetGraphic.color = new Color(0.72f, 0.75f, 0.76f);
+            RectTransform fill = OwnerDugoutDetailUiFactory.CreateRect(sliderRect, "Fill", 0f, 0.18f, 1f, 0.82f);
+            fill.gameObject.AddComponent<Image>().color = new Color(0.22f, 0.43f, 0.58f);
+            slider.fillRect = fill;
+            RectTransform handle = OwnerDugoutDetailUiFactory.CreateRect(sliderRect, "Handle", 0f, 0f, 0.05f, 1f);
+            handle.gameObject.AddComponent<Image>().color = Color.white;
+            slider.handleRect = handle;
+            _sliders[index] = slider;
+            int axisIndex = index;
+            slider.onValueChanged.AddListener(_ => OnAxisChanged(axisIndex));
+            _valueLabels[index] = OwnerDugoutDetailUiFactory.CreateLabel(parent, "AxisValue" + index, "중립", 0.84f, top - 0.065f, 0.96f, top, 13, FontStyle.Bold, TextAnchor.MiddleCenter);
+        }
+
+        private void OnAxisChanged(int index)
+        {
+            RefreshAxis(index);
+            RefreshProfilePreview();
+            SetFeedback("임시 방침을 조정했습니다. 결정하면 다음 경기부터 적용됩니다.", false);
+        }
+
+        private void RefreshAxis(int index)
+        {
+            int value = Mathf.RoundToInt(_sliders[index].value);
+            _valueLabels[index].text = value < DugoutPolicySettings.NeutralLevel ? "소극" : value > DugoutPolicySettings.NeutralLevel ? "적극" : "중립";
+        }
+
+        private void ResetNeutral()
+        {
+            for (int index = 0; index < _sliders.Length; index++) _sliders[index].value = DugoutPolicySettings.NeutralLevel;
+        }
+
+        private void RefreshProfilePreview()
+        {
+            if (_snapshot == null) return;
+            ManagerTacticalProfile profile = DugoutTacticalProfileResolver.PreviewPolicyChange(
+                _snapshot.EffectiveProfile,
+                _snapshot.Policy,
+                CreateDraftPolicy());
+            _profile.text = "다음 경기 Preview\n\n" +
+                            "타격 " + profile.BattingApproach + " · 도루 " + profile.RunningAggression + " · 번트 " + profile.SmallBallPreference + "\n" +
+                            "대타 " + profile.PinchHitAggression + " · 선발 훅 " + profile.HookSpeed + " · 불펜 " + profile.BullpenAggression + "\n\n" +
+                            "현재 저장값에서 방침 단계당 " + DugoutTacticalProfileResolver.PolicyStepValue +
+                            "만큼 판단 임계값이 변합니다. 선수 능력치는 직접 보정하지 않습니다.";
+        }
+
+        private DugoutPolicySettings CreateDraftPolicy()
+        {
+            return new DugoutPolicySettings(
+                Mathf.RoundToInt(_sliders[0].value),
+                Mathf.RoundToInt(_sliders[1].value),
+                Mathf.RoundToInt(_sliders[2].value),
+                Mathf.RoundToInt(_sliders[3].value),
+                Mathf.RoundToInt(_sliders[4].value),
+                Mathf.RoundToInt(_sliders[5].value));
+        }
+
+        private void Restore()
+        {
+            if (_snapshot == null) return;
+            for (int index = 0; index < _sliders.Length; index++)
+                _sliders[index].value = _snapshot.Policy.GetLevel((DugoutPolicyAxis)index);
+            SetFeedback("저장된 감독방침으로 되돌렸습니다.", false);
+        }
+
+        private void Confirm()
+        {
+            if (_snapshot == null) return;
+            DugoutPolicySettings policy = CreateDraftPolicy();
+            PolicyConfirmed?.Invoke(new OwnerDugoutConfigurationCommand(
+                _snapshot.SelectedManagerId,
+                _snapshot.SelectedHeadCoachId,
+                policy));
+        }
+
+        private void OnDestroy()
+        {
+            PolicyConfirmed = null;
+            OwnerWorkspaceUiFactory.DestroyOwnedRoot(_root);
+        }
+    }
+}
