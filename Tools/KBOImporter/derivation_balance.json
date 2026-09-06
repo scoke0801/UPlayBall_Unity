@@ -1,9 +1,9 @@
 {
-  "version": "historical-derivation-balance-v16",
+  "version": "historical-derivation-balance-v18",
   "abilityFormulaVersion": "historical-ability-v8",
   "costFormulaVersion": "historical-season-value-v13",
   "positionRoleClassifierVersion": "season-position-role-v6",
-  "rosterBuilderVersion": "ability-fit-core25-v6",
+  "rosterBuilderVersion": "ability-fit-core25-v8",
   "ratingCalibrationNote": "2010 기사 연결 카드 452장 중 유일 Source 연결 438장. 선수 단위 분할로 공통 중심과 변환 폭을 비교. B 이상 수비·선별 투수 표본이며 전 리그·최종판 분포의 확정 복원이 아님.",
   "costPercentileThresholds": [
     {"upperExclusive": 0.05, "cost": 1},
@@ -448,6 +448,7 @@
     "naturalPositionBonus": 0.0,
     "eligiblePositionBonus": -4.0,
     "offPositionPenalty": 20.0,
+    "unknownPositionPenalty": 8.0,
     "secondaryPositionMinimumGames": 5.0,
     "secondaryPositionMinimumOuts": 45.0,
     "benchCoverageBonus": 6.0,
@@ -455,6 +456,7 @@
       "plateAppearancesPerGame": 3.5,
       "defensiveInningsPerGame": 7.5,
       "battingWeight": 2.0,
+      "supplementalPositionWeight": 6.0,
       "positionWeight": 6.0
     },
     "positionStarterAttributeWeights": {

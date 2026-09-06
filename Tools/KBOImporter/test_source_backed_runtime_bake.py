@@ -24,7 +24,7 @@ from source_backed_runtime_bake import (
 
 
 class SourceBackedRuntimeBakeTests(unittest.TestCase):
-    def test_world_franchise_name_pool_preserves_source_regions_and_adds_ten_cities(self) -> None:
+    def test_world_franchise_name_pool_uses_only_source_backed_regions(self) -> None:
         pool = build_world_identity_name_pool(
             domestic_player_count=1,
             foreign_player_count=0,
@@ -36,14 +36,10 @@ class SourceBackedRuntimeBakeTests(unittest.TestCase):
         franchise_names = pool["franchiseNames"]
         regions = {name.split(" ", 1)[0] for name in franchise_names}
 
-        self.assertEqual(19, len(franchise_names))
-        self.assertEqual(19, len(regions))
-        self.assertTrue({
+        self.assertEqual(12, len(franchise_names))
+        self.assertEqual({
             "서울", "부산", "인천", "대구", "대전", "광주", "수원", "창원", "전주",
-        }.issubset(regions))
-        self.assertTrue({
-            "강릉", "고양", "울산", "제주", "포항", "청주", "천안", "원주", "김해", "안양",
-        }.issubset(regions))
+        }, regions)
 
     def test_source_person_and_season_are_preserved_exactly_once(self) -> None:
         editor, normalized = _build_fixture({2012: (19, 13), 2013: (7, 5)}, repeat_person=True)
@@ -271,6 +267,15 @@ class SourceBackedRuntimeBakeTests(unittest.TestCase):
 
         self.assertEqual("SourceBacked", runtime_pitcher["dataProvenance"])
         self.assertEqual(0.375, runtime_pitcher["pitcherRoleConfidence"])
+
+    def test_runtime_keeps_position_missing_separate_from_known_dh(self) -> None:
+        editor, normalized = _build_fixture({1988: (2, 2)})
+        hitters = [s for s in editor["years"][0]["playerSeasons"] if s["playerType"] == "Hitter"]
+        hitters[0]["isPositionEvidenceMissing"] = True
+        hitters[1]["isPositionEvidenceMissing"] = False
+        plan = build_source_backed_runtime_plan(editor, normalized)
+        result = [s for s in plan.runtime_content["years"][0]["playerSeasons"] if s["playerType"] == "Hitter"]
+        self.assertEqual(sorted(s["isPositionEvidenceMissing"] for s in result), [False, True])
 
 
 def _build_fixture(

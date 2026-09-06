@@ -1,0 +1,69 @@
+# 실제 역사 시즌 진단
+
+## 역사 베이크 성능 검증
+
+전체 44시즌을 기존 경기 엔진으로 실행하고 산출물 SHA-256, 시간, 전체 할당량,
+프로세스 최대 Working Set, 완료 파일 재사용 시간을 기록한다.
+동시 실행 수가 달라도 동일 입력의 산출물 해시는 같아야 한다.
+
+```powershell
+dotnet run --project Tools/HistoricalSeasonDiagnostics -c Release -- `
+  --bake-performance 'Assets/Editor Default Resources/HistoricalSimulation/1982-2025/Runtime' `
+  .tmp/world-bake-performance/result.json 4
+```
+
+마지막 인수는 동시에 실행할 연도 수이며 생략하면 1이다. JSON 옆에 비교용 `.bytes`도 만든다.
+이 측정은 .NET Release와 `BalanceTable.CreateDefault()` 기준이다. 실제 Unity Editor 실행 시간이나
+Unity 밸런스 자산을 모두 반영한 측정으로 해석하지 않는다. 공식 베이크 자산은 수정하지 않는다.
+
+Unity 통합 도구의 `World History Bake`는 기본 최대 4개 연도를 동시에 계산하고,
+같은 Key의 정상 완료 파일을 자동 재사용한다. `World History Bake 설정`에서 동시 연도 수를
+1~32로 조정할 수 있다. 전체 재계산은 `World History 강제 재베이크`를 실행한다.
+CLI는 `-worldHistoryBakeWorkers 4`, `-forceWorldHistoryBake` 인수를 지원한다.
+취소하면 완료한 Seed 파일은 남고, 다음 실행에서 해당 Seed를 건너뛴다. 중간 연도 재개는 지원하지 않는다.
+
+## 시즌 통계 진단
+
+Runtime Archive를 읽어 `BakedHistoricalDetailedSeasonSource → DetailedMatchEngine`으로 시즌을 반복한다.
+정규시즌·올스타·포스트시즌, 원래 손잡이, 수비 적응도, 투수 피로와 팀별 5인 선발 순환을 사용한다.
+경량 경기 공식이나 중립 손잡이·수비로 만든 대체 로스터를 사용하지 않는다.
+
+현재 기본값은 팀당 정규시즌 **144경기**이며 인게임과 같은 `CareerSeasonBalance` 설정을 읽는다.
+10구단 리그는 총 720경기다. 반복 수 32는 시즌을 32번 실행한다는 뜻이며 시즌당 경기 수가 아니다.
+기존 보고서의 78~80경기 검증은 당시 실행 이력으로 남기고 다음 실행부터 144경기를 적용한다.
+
+```powershell
+dotnet run --project Tools/HistoricalSeasonDiagnostics -c Release -- `
+  .tmp/team-strength/fixed_rotation_v18/Runtime .tmp/team-strength/reproduced.json `
+  32 1982,1985,1988,1991,1994,1998,2000,2008,2010,2016
+```
+
+마지막에 `45 0.45`처럼 Rating Curve의 center와 slope를 지정해 후보를 비교할 수 있다.
+생략하면 `BalanceTable.CreateDefault()`다. Unity의 다른 SO/JSON이나 전술 효과를 자동 로드하지 않는다.
+실제 게임에서 밸런스 자산을 별도로 변경했다면 그 변경을 포함한 검증을 추가해야 한다.
+
+시드는 `20260905 + 반복 인덱스 × 104729`이며 연도마다 첫 시드를 다시 실행한다.
+모든 경기 결과·이벤트를 직렬화한 SHA-256이 다르면 실패한다. `games`는 추가 결정론 재실행을 제외한
+정규시즌·올스타·포스트시즌 합계다. `statistics`에서 전반기·올스타·포스트시즌을 제외한 행만 합쳐야
+정규시즌 누적 기록을 중복 없이 얻는다. 승률은 무승부를 제외한 `W/(W+L)`로 비교한다.
+
+원본 Archive와 역사 캐시는 읽기 전용이다. 출력 경로에는 새 진단 JSON을 저장한다.
+`UnityInputShim.cs`는 콘솔에서 TextAsset과 JSON 입력만 대체한다. 실제 Runtime Provider의 전체 해시 검증과
+Definition 매핑을 사용하지만 **Unity Test Runner·Unity JsonUtility·Player Build 검증은 아니다.**
+Headless 전용 프로젝트이며 Unity 어셈블리에 추가하지 않는다.
+
+같은 시드 집합으로 실행한 전후 결과를 비교하려면 프로젝트 루트에서 다음을 실행한다.
+
+```powershell
+uv run --project Tools/KBOImporter python Tools/HistoricalSeasonDiagnostics/compare.py `
+  --before .tmp/team-strength/before_seasons.json --after .tmp/team-strength/fixed_rotation_seasons.json `
+  --normalized Tools/KBOImporter/.cache/KBOImport/Normalized `
+  --output .tmp/team-strength/comparison.json
+```
+
+모든 원본 팀을 Source Franchise ID로 연결한다. 승률 MAE, 연도별 평균을 제거한 상관,
+동일 시드의 승률 차이와 정규시즌 타격·투구·실책을 집계하고 입력 파일 해시를 함께 저장한다.
+
+모든 시즌의 각 경기 입력에서 실제 선발이 Core25의 1~5선발 순서인지 검증한다.
+올스타를 제외하고 정규시즌에서 포스트시즌까지 팀별 순번을 이어서 검사한다.
+각 결과의 `rotations.regularStarts`에 정규시즌 선발별 등판 횟수를 기록한다.

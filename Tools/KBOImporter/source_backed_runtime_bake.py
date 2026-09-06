@@ -61,13 +61,9 @@ _FOREIGN_FAMILY_NAMES = (
     "톰슨", "로빈슨", "클라크", "루이스", "리", "워커", "홀", "엘리스",
     "영", "킹", "라이트", "터너", "힐", "그린", "베이커", "넬슨",
 )
-_SOURCE_FRANCHISE_REGIONS = (
+_FRANCHISE_REGIONS = (
     "서울", "부산", "인천", "대구", "대전", "광주", "수원", "창원", "전주",
 )
-_ADDITIONAL_FRANCHISE_REGIONS = (
-    "강릉", "고양", "울산", "제주", "포항", "청주", "천안", "원주", "김해", "안양",
-)
-_FRANCHISE_REGIONS = _SOURCE_FRANCHISE_REGIONS + _ADDITIONAL_FRANCHISE_REGIONS
 _FRANCHISE_NICKNAMES = (
     "코멧츠", "타이드", "하버스", "포지", "파이오니어스", "피닉스", "가디언즈", "마리너스",
     "스타즈", "웨이브즈", "팔콘즈", "파워스", "세이버즈", "볼트즈", "레이더스", "타이탄즈",
@@ -889,7 +885,7 @@ def build_world_identity_name_pool(
         for family in _FOREIGN_FAMILY_NAMES
         if given != family
     )
-    # 첫 순회에서 모든 연고지를 한 번씩 내보내야 작은 후보 수도 서울로 몰리지 않는다.
+    # 실제 Source 계보가 사용한 연고지만 순환하고 World Seed는 별칭 선택에만 사용한다.
     franchise_candidates = (
         f"{region} {_FRANCHISE_NICKNAMES[(region_index + round_index) % len(_FRANCHISE_NICKNAMES)]}"
         for round_index in range(len(_FRANCHISE_NICKNAMES))

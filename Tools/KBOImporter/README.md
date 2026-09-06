@@ -217,23 +217,50 @@ TrainingCeiling은 최종 Runtime Bake에서 BaseAttributes에 동일한 +3을 �
 저Cost에만 +4~8을 주던 추가 성장 역전 요인을 제거한다. 역할별 장단점은 유지하므로 고Cost 선수가
 모든 개별 능력치에서 우월함을 보장하지는 않으며, 인접 Cost 경계의 최소 능력차도 보장하지 않는다.
 
-현재 버전은 Ability v5 / Cost v7 / PositionRole v5 / DerivationBalance v10 / RosterBuilder v3다.
+현재 버전은 Ability v8 / Cost v13 / PositionRole v6 / DerivationBalance v18 / RosterBuilder v8다.
 사전 Z, Rating 폭, 역할 가중치와 가격 경계는 밸런스 초안이다. 데이터 일관성 확인과 실제 경기
 밸런스 검증은 별개이며, 대량 경기·경제·훈련 검증 없이 승률이나 리그 평균 개선을 확정하지 않는다.
 
 ### 대표 로스터 배치
 
-`ability-fit-core25-v3`는 수비 8자리와 DH의 합산 점수를 동시에 최대화한다. 주포지션의 과도한
+`ability-fit-core25-v8`은 수비 8자리와 DH의 합산 점수를 동시에 최대화한다. 주포지션의 과도한
 고정 가산점을 제거하고 적격 부포지션에만 -4를 적용한다. 부포지션 자격은 실제 주수비 위치 또는
 5경기/45아웃 이상의 반복 기용 근거다. 적격 배치 불가능 시에만 OffPosition 경고를 남긴다.
 
 벤치는 백업 포수 확보를 우선하며, 나머지는 교체 능력치와 새 백업 수비 범위(포지션당 +6)로
 순차 선택한다. 주전 9명은 공동 최적화지만, 벤치 포함 14명 전체의 전역 최적화를 의미하지 않는다.
 
-선발 5명은 Natural Starter 중 선발용 능력치 순서다. 등판 비율의 역할 점수는 가산하지 않는다.
+선발 5명은 Natural Starter 중 선발용 능력치 순서다. 선발 결손은 실제 GS 양수, GS 결측,
+확인된 GS=0 순으로 보충한다. GS 결측에 추정 Natural Role을 다시 확정 근거로 가산하지 않는다.
 전문 셋업·마무리를 확보한 뒤 남은 투수는 Natural Role에 관계없이 일반 불펜에서 경쟁한다.
-역할 결손 fallback은 별도 경고로 남긴다. Cost는 배치 점수의 입력이 아니며 기존 능력치·Cost는
-변경하지 않는다. 원본 후보 점수와 벤치 선택 근거를 Editor Trace에서 확인할 수 있다.
+역할 결손 fallback은 별도 경고로 남긴다. Cost는 배치 점수의 입력이 아니다. 포지션 근거가
+바뀌면 역할별 Cost 비교 모집단은 바뀔 수 있지만 선수·구단별 가격 예외는 사용하지 않는다.
+원본 후보 점수와 벤치 선택 근거를 Editor Trace에서 확인할 수 있다.
+
+### 수비 자료 결측과 선발 순환
+
+`season_position_evidence.json`은 236개의 시즌·Source ID·구단·포지션 근거를 보존한다.
+KBO 공식 수상 부문과 구단 역사(A), 해당 시즌 선수단 목록(B)을 구분하며 실제 수비 기록이
+있으면 원기록을 우선한다. 이 자료로 출전 경기, 수비 이닝이나 능력치를 만들지 않는다.
+수집 중 충돌·제외된 후보는 `unresolved`에 남긴다. 추가 출처로 보완된 후보도 있으므로
+이 로그 개수와 현재 결측 선수 수는 다르다.
+
+원기록과 보조 출처가 모두 없으면 `isPositionEvidenceMissing`을 저장한다. 실제 DH 전담과
+구분하며, 주전 공동 최적화에서 `unknownPositionPenalty=8`의 비용을 적용해 비교한다.
+경기에서는 위치 적응도·비주포지션 추가 패널티만 중립으로 처리하고 수비·송구 능력은 유지한다.
+알려진 수비 부적격 선수의 기존 패널티와 부포지션 자격은 유지한다. 보조 위치의 주전 출전량
+사전 가중치는 `starterUsage.supplementalPositionWeight=6`이며 수비 이닝 추정값이 아니다.
+
+선발 등판은 팀별 실제 경기마다 **1→2→3→4→5→1** 순서다. 휴식일·올스타는 순번을 소비하지
+않고, 과거 GS나 투구 이닝으로 등판 횟수를 가중 배분하지 않는다. 원기록의 GS는 선발 후보를
+선택하는 근거로만 사용한다. 경기마다 소화하는 이닝은 체력·실점·투구 수·교체 판단에 따라 달라진다.
+검토 중 추가했던 `historicalRotation` 데이터와 가중 스케줄러는 제거했다.
+
+표시 능력치를 경기 입력으로 바꾸는 곡선은 Importer 밖의
+`Assets/10.Datas/Resources/NewGame/MatchRatingCurve.json`이 소유한다. 현재 center 45 / slope .45다.
+공식 데이터와 WorldHistory 반영은 검증 후 재베이크해야 한다. 실제 경기 경로의 재현 도구와
+최신 비교는 `Tools/HistoricalSeasonDiagnostics/README.md`,
+`docs/reports/team_strength_improvement_20260906/결과.md`를 참조한다.
 
 ## Editor Audit와 Runtime Archive
 

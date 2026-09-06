@@ -8,6 +8,31 @@ import test_ability_cost_derivation as fixtures
 
 
 class PitcherPositionTests(unittest.TestCase):
+    def test_starter_fallback_uses_actual_starts_before_relief_ability(self):
+        def pitcher(sid, role, rating, available, starts):
+            return {"playerSeasonId":sid,"pitcherRole":role,"baseAttributes":[rating]*12,
+                    "positionRoleDerivationTrace":{"pitcherRoleEvidence":{
+                        "gamesStartedAvailable":available,"gamesStarted":starts}}}
+        relief=pitcher("relief","Setup",95,True,0)
+        swing=pitcher("swing","LongRelief",55,True,7)
+        legacy=pitcher("legacy","LongRelief",85,False,0)
+        ordered=sorted([relief,legacy,swing],key=lambda r:bake.pitcher_fallback_sort_key(r,"Starter"))
+        self.assertEqual([r["playerSeasonId"] for r in ordered],["swing","legacy","relief"])
+        self.assertEqual(sorted([swing,relief],key=lambda r:bake.pitcher_fallback_sort_key(r,"Bullpen"))[0],relief)
+        unknown=copy.deepcopy(relief)
+        unknown['positionRoleDerivationTrace']['pitcherRoleEvidence']['gamesStartedAvailable']=False
+        self.assertLess(bake.pitcher_fallback_sort_key(unknown,'Starter'),bake.pitcher_fallback_sort_key(legacy,'Starter'))
+
+    def test_starter_shortage_preserves_fixed_roster_size_and_records_fallback(self):
+        row={"playerSeasonId":"relief","pitcherRole":"Setup","baseAttributes":[70]*12,
+             "positionRoleDerivationTrace":{"pitcherRoleEvidence":{"gamesStartedAvailable":True,"gamesStarted":0}}}
+        selected=[];remaining=[row];trace={};warnings=[]
+        bake.fill_pitcher_group_fallback(selected,trace,remaining,1,"Starter",warnings)
+        self.assertEqual(selected,[row])
+        self.assertEqual(remaining,[])
+        self.assertEqual(trace["fallbackCount"],1)
+        self.assertEqual(warnings[0]["code"],"PITCHER_ROLE_FALLBACK")
+
     def test_position_evidence_is_scoped_to_source_id_and_season(self):
         row = {"sourceTeamName":"Test", "primaryPosition":"C", "positions":["C"]}
         source = {"sourcePlayerId":"1", "aggregateTeamName":"Test", "defenseRecords":[]}
@@ -39,6 +64,15 @@ class PitcherPositionTests(unittest.TestCase):
             "positionCandidates":[],"isSupplementalPositionApplied":True,"supplementalPositionEvidence":{"primaryPosition":"DH"}}}
         without=copy.deepcopy(row);without["positionRoleDerivationTrace"]={"positionCandidates":[]}
         self.assertEqual(bake.starter_usage_score(row,"DH"),bake.starter_usage_score(without,"DH"))
+
+    def test_verified_defensive_position_prior_uses_season_sample_without_inventing_outs(self):
+        row={"sourceSeasonGames":144,"costEligibilitySample":500,"positionRoleDerivationTrace":{
+            "positionCandidates":[],"isSupplementalPositionApplied":True,
+            "supplementalPositionEvidence":{"primaryPosition":"C","positions":["C"]}}}
+        reserve=copy.deepcopy(row);reserve["costEligibilitySample"]=50
+        self.assertGreater(bake.starter_usage_score(row,"C"),bake.starter_usage_score(reserve,"C"))
+        self.assertGreater(bake.starter_usage_score(row,"C"),bake.starter_usage_score(row,"DH"))
+        self.assertEqual(row["positionRoleDerivationTrace"]["positionCandidates"],[])
 
     def test_ace_quality_separates_from_average_rotation_with_same_workload(self):
         rows=[]

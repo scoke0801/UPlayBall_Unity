@@ -40,6 +40,8 @@ namespace Baseball.Tools.SimulationDiagnostics
                 return RunTeamColorBalance(args);
             if (args.Length > 0 && string.Equals(args[0], "historical-balance", StringComparison.Ordinal))
                 return RunHistoricalBalance(args);
+            if (args.Length > 0 && string.Equals(args[0], "historical-strength", StringComparison.Ordinal))
+                return RunHistoricalStrength(args);
             if (args.Length > 0 && string.Equals(args[0], "controlled-cost", StringComparison.Ordinal))
                 return RunControlledCost(args);
             if (args.Length > 0 && string.Equals(args[0], "--growth-cohort", StringComparison.Ordinal))

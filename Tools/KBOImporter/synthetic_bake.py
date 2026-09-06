@@ -286,7 +286,10 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
             if not 0.0 <= float(gate["minimumReliability"]) <= 1.0 or float(gate["minimumWorkloadRatio"]) < 0.0:
                 raise ValueError("Elite Reliability는 0~1, Workload는 0 이상이어야 합니다.")
     usage = config["rosterSelection"]["starterUsage"]
-    for key in ("plateAppearancesPerGame", "defensiveInningsPerGame", "battingWeight", "positionWeight"):
+    unknown_penalty = float(config["rosterSelection"]["unknownPositionPenalty"])
+    if not math.isfinite(unknown_penalty) or unknown_penalty < 0.0:
+        raise ValueError("수비 결측 배치 비용은 0 이상의 유한한 값이어야 합니다.")
+    for key in ("plateAppearancesPerGame", "defensiveInningsPerGame", "battingWeight", "positionWeight", "supplementalPositionWeight"):
         value = float(usage[key])
         if not math.isfinite(value) or value < 0.0 or (key.endswith("PerGame") and value == 0.0):
             raise ValueError("주전 출전량 기준은 양수, 가중치는 0 이상의 유한한 값이어야 합니다.")
@@ -1986,7 +1989,13 @@ def starter_usage_score(row: dict[str, Any], position: str) -> float:
         defensive_outs = sum(max(0.0, safe_number(p.get("inningsOuts"))) for p in candidates
                              if p["position"] == position or (p.get("sourcePosition") == "외야수" and position in ("LF","CF","RF")))
         position_ratio = min(1.0, defensive_outs / defensive_target)
-    return batting_ratio * settings["battingWeight"] + position_ratio * settings["positionWeight"]
+    trace = row.get("positionRoleDerivationTrace") or {}
+    supplemental = trace.get("supplementalPositionEvidence") or {}
+    supplemental_prior = 0.0
+    if not candidates and position != "DH" and trace.get("isSupplementalPositionApplied") and position in supplemental.get("positions", []):
+        # 수비 이닝 추정치가 아니다. 확인된 수비 위치에서 시즌 주전을 우선할 제한된 사전 가중치다.
+        supplemental_prior = batting_ratio * settings["supplementalPositionWeight"]
+    return batting_ratio * settings["battingWeight"] + position_ratio * settings["positionWeight"] + supplemental_prior
 
 
 def position_starter_score(row: dict[str, Any], position: str, is_eligible: bool) -> float:
@@ -1998,6 +2007,8 @@ def position_starter_score(row: dict[str, Any], position: str, is_eligible: bool
         score += ROSTER_SELECTION_CONFIG["naturalPositionBonus"]
     elif is_eligible:
         score += ROSTER_SELECTION_CONFIG["eligiblePositionBonus"]
+    elif row.get("isPositionEvidenceMissing"):
+        score -= ROSTER_SELECTION_CONFIG["unknownPositionPenalty"]
     else:
         score -= ROSTER_SELECTION_CONFIG["offPositionPenalty"]
     return score
@@ -2032,8 +2043,9 @@ def select_defensive_starters(
         previous_states = list(states.items())
         eligible = eligible_by_id[row["playerSeasonId"]]
         # 같은 선수·자리 점수는 모든 DP 상태에서 같으므로 한 번만 계산한다.
-        slot_scores = [(index, 1 << index, position_starter_score(row, position, True))
-                       for index, position in enumerate(positions) if position in eligible]
+        slot_scores = [(index, 1 << index, position_starter_score(row, position, position in eligible))
+                       for index, position in enumerate(positions)
+                       if position in eligible or row.get("isPositionEvidenceMissing")]
         for mask, (total_score, assignment) in previous_states:
             for slot_index, bit, slot_score in slot_scores:
                 if mask & bit:
@@ -2131,6 +2143,10 @@ def select_defensive_starters(
             selected is not None
             and position in eligible_by_id[selected["playerSeasonId"]]
         )
+        if selected is not None and not selected_is_eligible and selected.get("isPositionEvidenceMissing"):
+            warnings.append({"code": "ROSTER_POSITION_UNVERIFIED", "position": position,
+                             "playerSeasonId": selected["playerSeasonId"],
+                             "message": "수비 근거가 없는 주전 후보를 제한된 비용으로 비교했습니다. 위치는 미확정입니다."})
         trace.append(
             {
                 "slot": position,
@@ -2213,7 +2229,7 @@ def fill_pitcher_group_fallback(
         return
     candidates = sorted(
         remaining,
-        key=lambda row: (-pitcher_assignment_score(row, assigned_group), row["playerSeasonId"]),
+        key=lambda row: pitcher_fallback_sort_key(row, assigned_group),
     )
     fallback = candidates[:needed]
     for row in fallback:
@@ -2231,6 +2247,25 @@ def fill_pitcher_group_fallback(
     remaining[:] = [row for row in remaining if row["playerSeasonId"] not in fallback_ids]
     trace["selectedPlayerSeasonIds"] = [row["playerSeasonId"] for row in selected]
     trace["fallbackCount"] = len(fallback)
+    trace["fallbackCandidates"] = [
+        {"playerSeasonId": row["playerSeasonId"],
+         "priority": list(pitcher_fallback_sort_key(row, assigned_group)[:-1])}
+        for row in candidates
+    ]
+
+
+def pitcher_fallback_sort_key(row: dict[str, Any], assigned_group: str) -> tuple:
+    """선발 결손은 실제 GS, 기용 기록 결측, 확인된 구원 전담 순서로 채운다."""
+    ability_key = (-pitcher_assignment_score(row, assigned_group), row["playerSeasonId"])
+    if assigned_group != "Starter":
+        return ability_key
+    evidence = (row.get("positionRoleDerivationTrace") or {}).get("pitcherRoleEvidence") or {}
+    if evidence.get("gamesStartedAvailable"):
+        starts = safe_number(evidence.get("gamesStarted"))
+        # 기록이 없는 시즌과 확인된 GS=0을 구분한다. 높은 불펜 능력치가 선발 근거를 대신하지 않는다.
+        return (0 if starts > 0 else 2, -starts, *ability_key)
+    # GS 결측 시즌은 이미 추정한 NaturalRole을 두 번째 확정 근거로 사용하지 않는다.
+    return (1, 0.0, *ability_key)
 
 
 def select_hitter_bench(
@@ -2581,6 +2616,10 @@ def build_editor_original_content(
                 "pitcherRoleConfidence": position_role_trace["pitcherRoleConfidence"],
                 "dataProvenance": "SourceBacked",
                 "positionRoleDerivationTrace": position_role_trace,
+                "isPositionEvidenceMissing": player_type == "Hitter" and not (
+                    position_role_trace.get("positionCandidates")
+                    or position_role_trace.get("isSupplementalPositionApplied")
+                ),
                 "playerType": player_type,
                 "registrationType": "Unknown",
                 "baseAttributes": ratings,

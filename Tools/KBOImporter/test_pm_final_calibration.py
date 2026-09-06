@@ -7,6 +7,18 @@ import test_synthetic_bake as fixtures
 
 
 class FinalCalibrationTests(unittest.TestCase):
+    def test_unverified_regular_can_compete_with_tiny_sample_position_candidate(self):
+        tiny=self.with_usage(fixtures.SyntheticBakeTests._hitter_row('tiny',50,'1B'),5,'1B',0)
+        regular=self.with_usage(fixtures.SyntheticBakeTests._hitter_row('regular',80,'DH'),500,'DH',0)
+        regular['isPositionEvidenceMissing']=True
+        rows=[tiny,regular,fixtures.SyntheticBakeTests._hitter_row('dh',90,'DH')]
+        rows += [fixtures.SyntheticBakeTests._hitter_row(p,70,p) for p in bake.DEFENSIVE_HITTER_POSITIONS if p!='1B']
+        sources={r['playerSeasonId']:r['_source'] for r in rows}
+        selected,trace,warnings=bake.select_defensive_starters(rows,sources,True)
+        self.assertEqual(selected[1]['playerSeasonId'],'regular')
+        self.assertTrue(trace[1]['isFallback'])
+        self.assertIn('ROSTER_POSITION_UNVERIFIED',[w['code'] for w in warnings])
+
     @staticmethod
     def with_usage(row, plate_appearances, position, outs):
         row['sourceSeasonGames'] = 144

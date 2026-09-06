@@ -53,14 +53,14 @@ namespace Baseball.Tools.SimulationDiagnostics
             return 0;
         }
 
-        private static List<MatchRosterSnapshot[]> ReadHistoricalTeams(string path)
+        private static List<MatchRosterSnapshot[]> ReadHistoricalTeams(string path, int teamIdOffset = 0)
         {
             using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
             var seasons = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
             foreach (JsonElement season in document.RootElement.GetProperty("playerSeasons").EnumerateArray())
                 seasons.Add(season.GetProperty("playerSeasonId").GetString(), season);
             var result = new List<MatchRosterSnapshot[]>();
-            int teamId = 0;
+            int teamId = teamIdOffset;
             foreach (JsonElement team in document.RootElement.GetProperty("teamSeasons").EnumerateArray())
             {
                 teamId++;
