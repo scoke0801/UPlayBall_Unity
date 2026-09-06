@@ -38,6 +38,25 @@ namespace Baseball.Presentation.Match
 
         public ManagerModeMatchResult Result { get; }
         public MatchHudPresentationModel CurrentHud { get; private set; }
+        /// <summary>관전 화면은 이 경계 안의 이벤트만 읽어 최종 결과가 먼저 노출되지 않게 한다.</summary>
+        public MatchEvent GetVisibleEvent(int index)
+        {
+            if (index < 0 || index >= _visibleEventCount)
+                throw new ArgumentOutOfRangeException(nameof(index));
+            return _events[index];
+        }
+
+        /// <summary>현재 공개 구간에서만 이닝별 득점을 복원한다.</summary>
+        public Baseball.Game.Career.MatchLineScore CreateVisibleLineScore()
+        {
+            return Baseball.Game.Career.MatchLineScore.Create(_events, _visibleEventCount);
+        }
+
+        /// <summary>경기에 등록된 선수의 표시 이름을 조회한다.</summary>
+        public string GetParticipantName(int playerId)
+        {
+            return CreateParticipant(Result.Match.Input, playerId).Name;
+        }
         public OwnerMatchOverlayState State => new OwnerMatchOverlayState(
             _visibleEventCount,
             _events.Length,

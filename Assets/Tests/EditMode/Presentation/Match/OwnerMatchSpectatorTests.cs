@@ -1,13 +1,69 @@
 using System;
 using System.Linq;
 using Baseball.Presentation.Match;
+using Baseball.Simulation.PlateAppearance;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Baseball.Tests.EditMode.Presentation.Match
 {
     /// <summary>구단주 관전 화면의 배속과 운영 권한 비노출을 검증한다.</summary>
     public sealed class OwnerMatchSpectatorTests
     {
+        [Test]
+        public void 관전화면은중계와결과에필요한계층을구성한다()
+        {
+            var hostObject = new GameObject("Host", typeof(RectTransform));
+            UI_Scene_OwnerMatchSpectator view = null;
+            try
+            {
+                view = UI_Scene_OwnerMatchSpectator.CreateRuntime(hostObject.GetComponent<RectTransform>());
+
+                Transform canvas = view.transform.Find("BroadcastCanvas");
+                Assert.That(canvas, Is.Not.Null);
+                Assert.That(canvas.Find("Field/StadiumArtwork"), Is.Not.Null);
+                Assert.That(canvas.Find("Field/StadiumArtworkBlend"), Is.Not.Null);
+                Assert.That(canvas.Find("InningOverlay/LineScore"), Is.Not.Null);
+                Assert.That(canvas.Find("MatchResult/FinalLineScore"), Is.Not.Null);
+                Assert.That(canvas.Find("MatchResult/RecordViewport"), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void 관전용야구장이미지는Resources에서불러온다()
+        {
+            string[] paths =
+            {
+                "stadium_pitch", "stadium_pitch_release", "stadium_swing_miss", "stadium_bat_contact",
+                "stadium_ball_flight", "stadium_ball_caught", "stadium_safe_hit", "stadium_overview"
+            };
+            foreach (string path in paths)
+            {
+                Assert.That(
+                    Resources.LoadAll("UI/OwnerMatch/" + path)
+                        .Any(asset => asset is Texture2D or Sprite),
+                    Is.True,
+                    path);
+            }
+        }
+
+        [TestCase(PlateAppearanceResult.Strikeout, OwnerMatchVisualSequenceKind.SwingMiss)]
+        [TestCase(PlateAppearanceResult.FlyOut, OwnerMatchVisualSequenceKind.BallCaught)]
+        [TestCase(PlateAppearanceResult.Single, OwnerMatchVisualSequenceKind.SafeHit)]
+        [TestCase(PlateAppearanceResult.Double, OwnerMatchVisualSequenceKind.SafeHit)]
+        [TestCase(PlateAppearanceResult.HomeRun, OwnerMatchVisualSequenceKind.ContactOnly)]
+        [TestCase(PlateAppearanceResult.Walk, OwnerMatchVisualSequenceKind.PitchOnly)]
+        public void 타석결과에맞는이미지연출을선택한다(
+            PlateAppearanceResult result,
+            OwnerMatchVisualSequenceKind expected)
+        {
+            Assert.That(OwnerMatchVisualSequenceResolver.Resolve(result), Is.EqualTo(expected));
+        }
+
         [Test]
         public void 배속은자동재생간격에실제로반영된다()
         {
