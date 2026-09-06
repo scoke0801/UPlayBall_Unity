@@ -174,35 +174,5 @@ namespace Baseball.Game.Career
             }
         }
 
-        private struct FieldingTotals
-        {
-            public int DefensiveOuts;
-            public int Opportunities;
-            public int SuccessfulPlays;
-            public int Putouts;
-            public int Assists;
-            public int Errors;
-            public int DoublePlays;
-            public int DifficultPlayAttempts;
-            public int DifficultPlaysMade;
-            public double ExpectedOuts;
-            public double EstimatedRunsSaved;
-            public double SuccessRate => Opportunities == 0 ? 0d : SuccessfulPlays / (double)Opportunities;
-
-            public void Add(FieldingStatisticsState fielding)
-            {
-                DefensiveOuts += fielding.DefensiveOuts;
-                Opportunities += fielding.Opportunities;
-                SuccessfulPlays += fielding.SuccessfulPlays;
-                Putouts += fielding.Putouts;
-                Assists += fielding.Assists;
-                Errors += fielding.Errors;
-                DoublePlays += fielding.DoublePlays;
-                DifficultPlayAttempts += fielding.DifficultPlayAttempts;
-                DifficultPlaysMade += fielding.DifficultPlaysMade;
-                ExpectedOuts += fielding.ExpectedOuts;
-                EstimatedRunsSaved += fielding.EstimatedRunsSaved;
-            }
-        }
     }
 }

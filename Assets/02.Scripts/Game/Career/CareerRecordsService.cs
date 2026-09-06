@@ -7,10 +7,8 @@ namespace Baseball.Game.Career
     /// <summary>커리어 상태의 원본 기록을 순위·시즌 추이·통산 합계 화면 모델로 투영한다.</summary>
     public sealed partial class CareerRecordsService
     {
-        private const int LeaderboardLimit = 10;
-        private const double PlateAppearancesPerTeamGame = 3.1d;
-        private const int PitchingOutsPerTeamGame = 3;
-        private const double TieTolerance = 0.0000001d;
+        private const int LeaderboardLimit = LeagueLeaderboardService.DefaultLeaderboardLimit;
+        private const double TieTolerance = LeagueLeaderboardService.TieTolerance;
 
         public CareerRecordsView Build(CareerState career, CareerRecordCategory category)
         {
@@ -80,27 +78,12 @@ namespace Baseball.Game.Career
             CareerRecordMetric[] columns,
             int myPlayerId)
         {
-            int count = Math.Min(LeaderboardLimit, qualified.Count);
-            var rows = new CareerRecordLeaderboardRow[count];
-            int rank = 0;
-            double previousValue = 0d;
-            for (int index = 0; index < count; index++)
-            {
-                PlayerCompetitionStatisticsState player = qualified[index];
-                double value = GetValue(player, columns[0]);
-                if (index == 0 || Math.Abs(value - previousValue) > TieTolerance)
-                    rank = index + 1;
-                previousValue = value;
-                rows[index] = new CareerRecordLeaderboardRow(
-                    rank,
-                    player.PlayerId,
-                    player.PlayerName,
-                    player.TeamId,
-                    GetTeamName(career, player.TeamId),
-                    player.PlayerId == myPlayerId,
-                    BuildMetricValues(player, columns));
-            }
-            return rows;
+            return LeagueLeaderboardService.BuildLeaderboard(
+                qualified,
+                columns,
+                teamId => GetTeamName(career, teamId),
+                player => player.PlayerId == myPlayerId,
+                LeaderboardLimit);
         }
 
         private static CareerRecordMetricValue[] BuildMyMetrics(
@@ -346,13 +329,11 @@ namespace Baseball.Game.Career
             CareerRecordCategory category,
             CompetitionScope scope)
         {
-            var result = new List<PlayerCompetitionStatisticsState>(competition.Players.Count);
-            foreach (PlayerCompetitionStatisticsState player in competition.Players.Values)
-            {
-                if (IsQualified(player, category, GetTeamGames(season, player.TeamId), scope))
-                    result.Add(player);
-            }
-            return result;
+            return LeagueLeaderboardService.CollectQualifiedPlayers(
+                competition,
+                category,
+                scope,
+                teamId => GetTeamGames(season, teamId));
         }
 
         private static bool IsQualified(
@@ -361,38 +342,9 @@ namespace Baseball.Game.Career
             int teamGames,
             CompetitionScope scope)
         {
-            if (scope == CompetitionScope.Postseason)
-                return HasCategoryParticipation(player, category);
-
-            return category switch
-            {
-                CareerRecordCategory.Batting =>
-                    player.Batting.PlateAppearances >= Math.Ceiling(teamGames * PlateAppearancesPerTeamGame) &&
-                    player.Batting.PlateAppearances > 0,
-                CareerRecordCategory.Pitching =>
-                    player.Pitching.OutsRecorded >= teamGames * PitchingOutsPerTeamGame &&
-                    player.Pitching.OutsRecorded > 0,
-                CareerRecordCategory.Fielding => GetFieldingTotals(player).Opportunities > 0,
-                CareerRecordCategory.Baserunning =>
-                    player.Batting.StolenBases + player.Batting.CaughtStealing > 0,
-                _ => false
-            };
+            return LeagueLeaderboardService.IsQualified(player, category, teamGames, scope);
         }
 
-        private static bool HasCategoryParticipation(
-            PlayerCompetitionStatisticsState player,
-            CareerRecordCategory category)
-        {
-            return category switch
-            {
-                CareerRecordCategory.Batting => player.Batting.PlateAppearances > 0,
-                CareerRecordCategory.Pitching => player.Pitching.OutsRecorded > 0,
-                CareerRecordCategory.Fielding => GetFieldingTotals(player).Opportunities > 0,
-                CareerRecordCategory.Baserunning =>
-                    player.Batting.StolenBases + player.Batting.CaughtStealing > 0,
-                _ => false
-            };
-        }
 
         private static PlayerSeasonStatisticsState GetPlayerStatistics(
             SeasonState season,
@@ -433,14 +385,7 @@ namespace Baseball.Game.Career
             PlayerCompetitionStatisticsState right,
             CareerRecordMetric metric)
         {
-            double leftValue = GetValue(left, metric);
-            double rightValue = GetValue(right, metric);
-            int comparison = IsLowerBetter(metric)
-                ? leftValue.CompareTo(rightValue)
-                : rightValue.CompareTo(leftValue);
-            if (comparison != 0)
-                return comparison;
-            return left.PlayerId.CompareTo(right.PlayerId);
+            return LeagueLeaderboardService.ComparePlayers(left, right, metric);
         }
 
         private static int CalculateRank(
@@ -448,21 +393,7 @@ namespace Baseball.Game.Career
             PlayerCompetitionStatisticsState player,
             CareerRecordMetric metric)
         {
-            double playerValue = GetValue(player, metric);
-            int betterCount = 0;
-            for (int index = 0; index < qualified.Count; index++)
-            {
-                if (qualified[index].PlayerId == player.PlayerId)
-                    continue;
-                double otherValue = GetValue(qualified[index], metric);
-                if (IsLowerBetter(metric)
-                        ? otherValue < playerValue - TieTolerance
-                        : otherValue > playerValue + TieTolerance)
-                {
-                    betterCount++;
-                }
-            }
-            return betterCount + 1;
+            return LeagueLeaderboardService.CalculateRank(qualified, player, metric);
         }
 
         private static bool ContainsPlayer(List<PlayerCompetitionStatisticsState> players, int playerId)
@@ -479,10 +410,7 @@ namespace Baseball.Game.Career
             PlayerCompetitionStatisticsState player,
             CareerRecordMetric[] metrics)
         {
-            var values = new CareerRecordMetricValue[metrics.Length];
-            for (int index = 0; index < metrics.Length; index++)
-                values[index] = new CareerRecordMetricValue(metrics[index], GetValue(player, metrics[index]));
-            return values;
+            return LeagueLeaderboardService.BuildMetricValues(player, metrics);
         }
 
         private static CareerRecordMetricValue[] BuildMetricValues(
@@ -592,71 +520,7 @@ namespace Baseball.Game.Career
 
         private static double GetValue(PlayerCompetitionStatisticsState player, CareerRecordMetric metric)
         {
-            BattingStatisticsState batting = player.Batting;
-            PitchingStatisticsState pitching = player.Pitching;
-            FieldingTotals fielding = GetFieldingTotals(player);
-            return metric switch
-            {
-                CareerRecordMetric.Games => player.GamesPlayed,
-                CareerRecordMetric.GamesStarted => batting.GamesStarted + pitching.Starts,
-                CareerRecordMetric.PlateAppearances => batting.PlateAppearances,
-                CareerRecordMetric.AtBats => batting.AtBats,
-                CareerRecordMetric.Runs => batting.Runs,
-                CareerRecordMetric.Hits => batting.Hits,
-                CareerRecordMetric.Singles => batting.Singles,
-                CareerRecordMetric.Doubles => batting.Doubles,
-                CareerRecordMetric.Triples => batting.Triples,
-                CareerRecordMetric.HomeRuns => batting.HomeRuns,
-                CareerRecordMetric.RunsBattedIn => batting.RunsBattedIn,
-                CareerRecordMetric.Walks => batting.Walks,
-                CareerRecordMetric.HitByPitches => batting.HitByPitches,
-                CareerRecordMetric.BattingStrikeouts => batting.Strikeouts,
-                CareerRecordMetric.SacrificeFlies => batting.SacrificeFlies,
-                CareerRecordMetric.GroundedIntoDoublePlays => batting.GroundedIntoDoublePlays,
-                CareerRecordMetric.TotalBases => batting.TotalBases,
-                CareerRecordMetric.BattingAverage => batting.BattingAverage,
-                CareerRecordMetric.OnBasePercentage => batting.OnBasePercentage,
-                CareerRecordMetric.SluggingPercentage => batting.SluggingPercentage,
-                CareerRecordMetric.OnBasePlusSlugging => batting.OnBasePlusSlugging,
-                CareerRecordMetric.WalkStrikeoutRatio => batting.WalkStrikeoutRatio,
-                CareerRecordMetric.PitchingAppearances => pitching.Appearances,
-                CareerRecordMetric.PitchingStarts => pitching.Starts,
-                CareerRecordMetric.OutsRecorded => pitching.OutsRecorded,
-                CareerRecordMetric.Wins => pitching.Wins,
-                CareerRecordMetric.Losses => pitching.Losses,
-                CareerRecordMetric.Saves => pitching.Saves,
-                CareerRecordMetric.Holds => pitching.Holds,
-                CareerRecordMetric.BlownSaves => pitching.BlownSaves,
-                CareerRecordMetric.HitsAllowed => pitching.HitsAllowed,
-                CareerRecordMetric.HomeRunsAllowed => pitching.HomeRunsAllowed,
-                CareerRecordMetric.RunsAllowed => pitching.RunsAllowed,
-                CareerRecordMetric.EarnedRuns => pitching.EarnedRuns,
-                CareerRecordMetric.WalksAllowed => pitching.WalksAllowed,
-                CareerRecordMetric.HitBatters => pitching.HitBatters,
-                CareerRecordMetric.PitchingStrikeouts => pitching.Strikeouts,
-                CareerRecordMetric.BattersFaced => pitching.BattersFaced,
-                CareerRecordMetric.QualityStarts => pitching.QualityStarts,
-                CareerRecordMetric.EarnedRunAverage => pitching.EarnedRunAverage,
-                CareerRecordMetric.WalksHitsPerInningPitched => pitching.WalksHitsPerInningPitched,
-                CareerRecordMetric.StrikeoutWalkRatio => pitching.StrikeoutWalkRatio,
-                CareerRecordMetric.HomeRunsPerNineInnings => pitching.HomeRunsPerNineInnings,
-                CareerRecordMetric.DefensiveOuts => fielding.DefensiveOuts,
-                CareerRecordMetric.FieldingOpportunities => fielding.Opportunities,
-                CareerRecordMetric.SuccessfulFieldingPlays => fielding.SuccessfulPlays,
-                CareerRecordMetric.Putouts => fielding.Putouts,
-                CareerRecordMetric.Assists => fielding.Assists,
-                CareerRecordMetric.Errors => fielding.Errors,
-                CareerRecordMetric.DoublePlays => fielding.DoublePlays,
-                CareerRecordMetric.DifficultPlayAttempts => fielding.DifficultPlayAttempts,
-                CareerRecordMetric.DifficultPlaysMade => fielding.DifficultPlaysMade,
-                CareerRecordMetric.ExpectedOuts => fielding.ExpectedOuts,
-                CareerRecordMetric.EstimatedRunsSaved => fielding.EstimatedRunsSaved,
-                CareerRecordMetric.FieldingSuccessRate => fielding.SuccessRate,
-                CareerRecordMetric.StolenBases => batting.StolenBases,
-                CareerRecordMetric.CaughtStealing => batting.CaughtStealing,
-                CareerRecordMetric.StolenBasePercentage => batting.StolenBasePercentage,
-                _ => 0d
-            };
+            return LeagueLeaderboardService.GetMetricValue(player, metric);
         }
 
         private static double GetValue(
@@ -732,16 +596,7 @@ namespace Baseball.Game.Career
 
         private static FieldingTotals GetFieldingTotals(PlayerCompetitionStatisticsState player)
         {
-            var totals = new FieldingTotals();
-            for (int positionIndex = (int)PlayerPosition.Catcher;
-                 positionIndex <= (int)PlayerPosition.ReliefPitcher;
-                 positionIndex++)
-            {
-                FieldingStatisticsState fielding = player.GetFielding((PlayerPosition)positionIndex);
-                if (fielding != null)
-                    totals.Add(fielding);
-            }
-            return totals;
+            return LeagueLeaderboardService.GetFieldingTotals(player);
         }
 
         private static FieldingTotals GetFieldingTotals(PlayerSeasonStatisticsState statistics)
@@ -859,45 +714,7 @@ namespace Baseball.Game.Career
 
         private static CareerRecordMetric[] GetBasicColumns(CareerRecordCategory category)
         {
-            return category switch
-            {
-                CareerRecordCategory.Batting => new[]
-                {
-                    CareerRecordMetric.BattingAverage,
-                    CareerRecordMetric.Games,
-                    CareerRecordMetric.Hits,
-                    CareerRecordMetric.HomeRuns,
-                    CareerRecordMetric.RunsBattedIn,
-                    CareerRecordMetric.OnBasePlusSlugging
-                },
-                CareerRecordCategory.Pitching => new[]
-                {
-                    CareerRecordMetric.EarnedRunAverage,
-                    CareerRecordMetric.PitchingAppearances,
-                    CareerRecordMetric.OutsRecorded,
-                    CareerRecordMetric.Wins,
-                    CareerRecordMetric.PitchingStrikeouts,
-                    CareerRecordMetric.WalksHitsPerInningPitched
-                },
-                CareerRecordCategory.Fielding => new[]
-                {
-                    CareerRecordMetric.EstimatedRunsSaved,
-                    CareerRecordMetric.FieldingOpportunities,
-                    CareerRecordMetric.SuccessfulFieldingPlays,
-                    CareerRecordMetric.Putouts,
-                    CareerRecordMetric.Errors,
-                    CareerRecordMetric.FieldingSuccessRate
-                },
-                _ => new[]
-                {
-                    CareerRecordMetric.StolenBases,
-                    CareerRecordMetric.CaughtStealing,
-                    CareerRecordMetric.StolenBasePercentage,
-                    CareerRecordMetric.Games,
-                    CareerRecordMetric.Runs,
-                    CareerRecordMetric.Hits
-                }
-            };
+            return LeagueLeaderboardService.GetBasicColumns(category);
         }
 
         private static CareerRecordMetric[] GetSummaryMetrics(
@@ -956,10 +773,7 @@ namespace Baseball.Game.Career
 
         private static bool IsLowerBetter(CareerRecordMetric metric)
         {
-            return metric is CareerRecordMetric.EarnedRunAverage or
-                CareerRecordMetric.WalksHitsPerInningPitched or
-                CareerRecordMetric.HomeRunsPerNineInnings or
-                CareerRecordMetric.Errors;
+            return LeagueLeaderboardService.IsLowerBetter(metric);
         }
 
     }
