@@ -18,6 +18,7 @@ namespace Baseball.Presentation.Match
         private int _visibleEventCount;
         private bool _isPaused;
         private OwnerMatchPlaybackSpeed _speed = OwnerMatchPlaybackSpeed.Normal;
+        private OwnerMatchViewingMode _viewingMode = OwnerMatchViewingMode.EveryMoment;
 
         private OwnerMatchSpectatorSession(
             ManagerModeMatchResult result,
@@ -57,12 +58,40 @@ namespace Baseball.Presentation.Match
         {
             return CreateParticipant(Result.Match.Input, playerId).Name;
         }
+
+        /// <summary>판단 Trace의 Actor가 플레이어 구단 경기 로스터에 속하는지 확인한다.</summary>
+        public bool IsPlayerTeamParticipant(int playerId)
+        {
+            MatchInput input = Result.Match.Input;
+            MatchRosterSnapshot roster = input.AwayRoster.TeamId == _playerTeamId
+                ? input.AwayRoster
+                : input.HomeRoster;
+            return FindPlayer(roster, playerId) != null;
+        }
+
+        /// <summary>현재 투수와 타자의 실제 투타 방향을 연출용으로 해석한다.</summary>
+        public OwnerMatchHandedness GetHandedness(int pitcherId, int batterId)
+        {
+            MatchInput input = Result.Match.Input;
+            BaseballPlayer pitcher = FindPlayer(input.AwayRoster, pitcherId) ?? FindPlayer(input.HomeRoster, pitcherId);
+            BaseballPlayer batter = FindPlayer(input.AwayRoster, batterId) ?? FindPlayer(input.HomeRoster, batterId);
+            var throwingHand = pitcher?.ThrowingHand ?? Baseball.Core.Players.Handedness.Right;
+            var battingHand = batter?.BattingHand ?? Baseball.Core.Players.Handedness.Right;
+            if (battingHand == Baseball.Core.Players.Handedness.Switch)
+            {
+                battingHand = throwingHand == Baseball.Core.Players.Handedness.Left
+                    ? Baseball.Core.Players.Handedness.Right
+                    : Baseball.Core.Players.Handedness.Left;
+            }
+            return new OwnerMatchHandedness(throwingHand, battingHand);
+        }
         public OwnerMatchOverlayState State => new OwnerMatchOverlayState(
             _visibleEventCount,
             _events.Length,
             _isPaused,
             _speed,
-            SpectatorPermissionMessage);
+            SpectatorPermissionMessage,
+            _viewingMode);
 
         /// <summary>실시간 명령 없이 감독 AI가 경기 전체를 확정하고 Full 이벤트를 관전 세션에 연결한다.</summary>
         public static OwnerMatchSpectatorSession PlayNextGame(
@@ -98,7 +127,20 @@ namespace Baseball.Presentation.Match
             return true;
         }
 
-        /// <summary>다음 타석 또는 공수 교대까지 이미 확정된 이벤트만 공개한다.</summary>
+        public bool TrySetViewingMode(OwnerMatchViewingMode mode)
+        {
+            if (!State.CanChangeViewingMode || !Enum.IsDefined(typeof(OwnerMatchViewingMode), mode))
+                return false;
+
+            _viewingMode = mode;
+            _isPaused = false;
+            if (mode == OwnerMatchViewingMode.ResultOnly)
+                return TryRevealAll();
+
+            return true;
+        }
+
+        /// <summary>선택한 관전 밀도의 다음 경계까지 이미 확정된 이벤트만 공개한다.</summary>
         public bool TryAdvance()
         {
             if (!State.CanAdvance)
@@ -107,8 +149,7 @@ namespace Baseball.Presentation.Match
             while (_visibleEventCount < _events.Length)
             {
                 MatchEvent matchEvent = _events[_visibleEventCount++];
-                if (matchEvent.EventType is MatchEventType.PlateAppearanceEnded or
-                    MatchEventType.HalfInningEnded or MatchEventType.MatchEnded)
+                if (IsAdvanceBoundary(matchEvent))
                 {
                     break;
                 }
@@ -116,6 +157,41 @@ namespace Baseball.Presentation.Match
 
             PresentCurrentHud();
             return true;
+        }
+
+        private bool IsAdvanceBoundary(in MatchEvent matchEvent)
+        {
+            if (matchEvent.EventType is MatchEventType.HalfInningEnded or MatchEventType.MatchEnded or
+                MatchEventType.MatchEndedAsDraw)
+                return true;
+
+            if (_viewingMode == OwnerMatchViewingMode.EveryMoment)
+                return matchEvent.EventType is MatchEventType.Pitch or MatchEventType.PlateAppearanceEnded;
+
+            if (_viewingMode != OwnerMatchViewingMode.KeyMoments)
+                return false;
+
+            if (matchEvent.EventType is MatchEventType.HighLeverageSituationStarted or
+                MatchEventType.PlayerSubstitution or MatchEventType.PitcherEntered or
+                MatchEventType.PinchHitterEntered or MatchEventType.PinchRunnerEntered or
+                MatchEventType.FieldingError or MatchEventType.ThrowingError)
+                return true;
+
+            return matchEvent.EventType == MatchEventType.PlateAppearanceEnded &&
+                   IsKeyPlateAppearance(matchEvent.PlateAppearanceResult);
+        }
+
+        private static bool IsKeyPlateAppearance(Baseball.Simulation.PlateAppearance.PlateAppearanceResult result)
+        {
+            return result is Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Single or
+                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Double or
+                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Triple or
+                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.HomeRun or
+                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Strikeout or
+                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.ReachedOnError or
+                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.SacrificeBunt or
+                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.BuntSingle or
+                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.BuntPopOut;
         }
 
         public bool TryRevealAll()
@@ -135,7 +211,7 @@ namespace Baseball.Presentation.Match
                 SimulationEngineKind.Detailed,
                 MatchDecisionMode.InternalAiOnly,
                 MatchEventMode.Full,
-                MatchDecisionTraceMode.None,
+                MatchDecisionTraceMode.Full,
                 MatchStatisticsMode.FullBoxScore);
         }
 

@@ -2,12 +2,38 @@ using System;
 
 namespace Baseball.Presentation.Match
 {
+    /// <summary>오버레이 묶음과 수평 반전으로 표현할 실제 투타 방향이다.</summary>
+    public readonly struct OwnerMatchHandedness
+    {
+        public OwnerMatchHandedness(
+            Baseball.Core.Players.Handedness throwingHand,
+            Baseball.Core.Players.Handedness battingHand)
+        {
+            ThrowingHand = throwingHand;
+            BattingHand = battingHand;
+        }
+
+        public Baseball.Core.Players.Handedness ThrowingHand { get; }
+        public Baseball.Core.Players.Handedness BattingHand { get; }
+        public bool IsPitcherLeftHanded => ThrowingHand == Baseball.Core.Players.Handedness.Left;
+        public bool UsesRightPitcherLeftBatterSet => IsPitcherLeftHanded !=
+            (BattingHand == Baseball.Core.Players.Handedness.Left);
+    }
+
     /// <summary>구단주 경기 중계가 지원하는 표현 계층 재생 속도다.</summary>
     public enum OwnerMatchPlaybackSpeed
     {
         Normal = 1,
         Fast = 2,
         VeryFast = 5
+    }
+
+    /// <summary>확정된 경기 이벤트를 어느 밀도로 공개할지 정한다.</summary>
+    public enum OwnerMatchViewingMode
+    {
+        EveryMoment = 0,
+        KeyMoments = 1,
+        ResultOnly = 2
     }
 
     /// <summary>선택 배속을 자동 중계의 실제 이벤트 공개 간격으로 변환한다.</summary>
@@ -31,7 +57,8 @@ namespace Baseball.Presentation.Match
             int totalEventCount,
             bool isPaused,
             OwnerMatchPlaybackSpeed speed,
-            string permissionMessage)
+            string permissionMessage,
+            OwnerMatchViewingMode viewingMode = OwnerMatchViewingMode.EveryMoment)
         {
             if (visibleEventCount < 0)
                 throw new ArgumentOutOfRangeException(nameof(visibleEventCount));
@@ -39,12 +66,15 @@ namespace Baseball.Presentation.Match
                 throw new ArgumentOutOfRangeException(nameof(totalEventCount));
             if (!Enum.IsDefined(typeof(OwnerMatchPlaybackSpeed), speed))
                 throw new ArgumentOutOfRangeException(nameof(speed));
+            if (!Enum.IsDefined(typeof(OwnerMatchViewingMode), viewingMode))
+                throw new ArgumentOutOfRangeException(nameof(viewingMode));
 
             VisibleEventCount = visibleEventCount;
             TotalEventCount = totalEventCount;
             IsPaused = isPaused;
             Speed = speed;
             PermissionMessage = permissionMessage ?? string.Empty;
+            ViewingMode = viewingMode;
         }
 
         public int VisibleEventCount { get; }
@@ -52,11 +82,13 @@ namespace Baseball.Presentation.Match
         public bool IsPaused { get; }
         public OwnerMatchPlaybackSpeed Speed { get; }
         public string PermissionMessage { get; }
+        public OwnerMatchViewingMode ViewingMode { get; }
         public bool HasMatch => TotalEventCount > 0;
         public bool IsComplete => HasMatch && VisibleEventCount >= TotalEventCount;
         public bool CanAdvance => HasMatch && !IsComplete;
         public bool CanTogglePause => CanAdvance;
         public bool CanChangeSpeed => CanAdvance;
+        public bool CanChangeViewingMode => HasMatch && !IsComplete;
     }
 
     /// <summary>구단주 경기의 실제 권한인 결과 관전과 재생 제어만 노출한다.</summary>
@@ -66,6 +98,7 @@ namespace Baseball.Presentation.Match
         MatchHudPresentationModel CurrentHud { get; }
         bool TryTogglePause();
         bool TrySetPlaybackSpeed(OwnerMatchPlaybackSpeed speed);
+        bool TrySetViewingMode(OwnerMatchViewingMode mode);
         bool TryAdvance();
         bool TryRevealAll();
     }
@@ -92,6 +125,7 @@ namespace Baseball.Presentation.Match
 
         public bool TryTogglePause() => false;
         public bool TrySetPlaybackSpeed(OwnerMatchPlaybackSpeed speed) => false;
+        public bool TrySetViewingMode(OwnerMatchViewingMode mode) => false;
         public bool TryAdvance() => false;
         public bool TryRevealAll() => false;
     }

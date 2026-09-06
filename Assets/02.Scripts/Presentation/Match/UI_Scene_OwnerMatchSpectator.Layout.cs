@@ -15,17 +15,20 @@ namespace Baseball.Presentation.Match
         private static Font _font;
         private Text _awayLabel, _homeLabel, _inningLabel, _statusLabel, _pauseLabel;
         private Text _pitcherLabel, _batterLabel, _pitcherDetail, _batterDetail;
-        private Text _announcement, _commentary, _resultHeading, _resultSummary, _recordHeader;
+        private Text _announcement, _commentary, _resultHeading, _resultSummary, _managerDecisionSummary, _recordHeader;
         private Text _scoreCaption, _resultToggleLabel;
         private Button _pauseButton, _advanceButton, _revealAllButton, _homeButton, _resultButton;
         private Button[] _speedButtons;
+        private Button[] _viewingModeButtons;
         private readonly Image[] _balls = new Image[4];
         private readonly Image[] _strikes = new Image[3];
         private readonly Image[] _outs = new Image[3];
         private readonly Image[] _bases = new Image[3];
-        private RawImage _stadium, _stadiumBlend;
-        private Texture2D _pitchView, _overview, _pitchRelease, _swingMiss, _batContact;
-        private Texture2D _ballFlight, _ballCaught, _safeHit;
+        private RawImage _stadiumBackground, _actors, _actorsBlend;
+        private Texture2D _pitchBackground;
+        private readonly Texture2D[] _rightBatterOverlays = new Texture2D[8];
+        private readonly Texture2D[] _leftBatterOverlays = new Texture2D[8];
+        private Material _overlayMaterial;
         private RectTransform _scorePanel, _scoreRows, _resultPanel, _recordContent;
         private RectTransform _resultScoreRows;
         private ScrollRect _recordScroll;
@@ -36,33 +39,47 @@ namespace Baseball.Presentation.Match
             _canvas.anchorMin = _canvas.anchorMax = new Vector2(0.5f, 0.5f);
             _canvas.pivot = new Vector2(0.5f, 0.5f);
             _canvas.anchoredPosition = Vector2.zero;
-            _pitchView = LoadStadiumTexture("UI/OwnerMatch/stadium_pitch");
-            _overview = LoadStadiumTexture("UI/OwnerMatch/stadium_overview");
-            _pitchRelease = LoadStadiumTexture("UI/OwnerMatch/stadium_pitch_release");
-            _swingMiss = LoadStadiumTexture("UI/OwnerMatch/stadium_swing_miss");
-            _batContact = LoadStadiumTexture("UI/OwnerMatch/stadium_bat_contact");
-            _ballFlight = LoadStadiumTexture("UI/OwnerMatch/stadium_ball_flight");
-            _ballCaught = LoadStadiumTexture("UI/OwnerMatch/stadium_ball_caught");
-            _safeHit = LoadStadiumTexture("UI/OwnerMatch/stadium_safe_hit");
+            _pitchBackground = LoadStadiumTexture("UI/OwnerMatch/stadium_pitch_background");
+            LoadOverlaySet(_rightBatterOverlays, "rr");
+            LoadOverlaySet(_leftBatterOverlays, "rl");
+            Shader overlayShader = Resources.Load<Shader>("UI/OwnerMatch/OwnerMatchOverlayKey");
+            if (overlayShader != null)
+                _overlayMaterial = new Material(overlayShader) { name = "OwnerMatchOverlayMaterial" };
             RectTransform field = Panel("Field", _canvas, new Color32(44, 75, 47, 255), 0, 62, 1440, 748);
             field.gameObject.AddComponent<RectMask2D>();
-            var backdrop = new GameObject("StadiumArtwork", typeof(RectTransform), typeof(RawImage));
+            var backdrop = new GameObject("StadiumBackground", typeof(RectTransform), typeof(RawImage));
             backdrop.transform.SetParent(field, false);
-            _stadium = backdrop.GetComponent<RawImage>();
-            Place(_stadium.rectTransform, 0, 0, 1440, 748);
-            _stadium.raycastTarget = false;
-            var blend = new GameObject("StadiumArtworkBlend", typeof(RectTransform), typeof(RawImage));
-            blend.transform.SetParent(field, false);
-            _stadiumBlend = blend.GetComponent<RawImage>();
-            Place(_stadiumBlend.rectTransform, 0, 0, 1440, 748);
-            _stadiumBlend.raycastTarget = false;
+            _stadiumBackground = backdrop.GetComponent<RawImage>();
+            Place(_stadiumBackground.rectTransform, 0, 0, 1440, 748);
+            _stadiumBackground.raycastTarget = false;
+            SetLayerTexture(_stadiumBackground, _pitchBackground, false);
+            _actors = CreateActorLayer("StadiumActors", field);
+            _actorsBlend = CreateActorLayer("StadiumActorsBlend", field);
             HideBlendLayer();
-            SetStadiumTexture(_pitchView);
+            SetActorTexture(_rightBatterOverlays[0], false);
             BuildHeader();
             BuildFieldOverlay();
             BuildFooter();
             BuildResults();
             FitWorkspace();
+        }
+
+        private RawImage CreateActorLayer(string name, Transform parent)
+        {
+            var actorObject = new GameObject(name, typeof(RectTransform), typeof(RawImage));
+            actorObject.transform.SetParent(parent, false);
+            RawImage actor = actorObject.GetComponent<RawImage>();
+            Place(actor.rectTransform, 0, 0, 1440, 748);
+            actor.raycastTarget = false;
+            actor.material = _overlayMaterial;
+            return actor;
+        }
+
+        private static void LoadOverlaySet(Texture2D[] target, string suffix)
+        {
+            string[] names = { "set", "windup", "pitch1", "pitch2", "flight", "hit", "miss", "take" };
+            for (int index = 0; index < names.Length; index++)
+                target[index] = LoadStadiumTexture("UI/OwnerMatch/stadium_overlay_" + names[index] + "_" + suffix);
         }
 
         private void BuildHeader()
@@ -105,6 +122,26 @@ namespace Baseball.Presentation.Match
         {
             var badge = Panel("LiveBadge", _canvas, new Color(0.08f, 0.12f, 0.15f, 0.88f), 20, 80, 250, 36);
             _statusLabel = Label("LiveStatus", badge, "경기 중계", 17, 12, 0, 226, 36, Color.white);
+            _viewingModeButtons = new Button[3];
+            var viewingModes = new[]
+            {
+                OwnerMatchViewingMode.EveryMoment,
+                OwnerMatchViewingMode.KeyMoments,
+                OwnerMatchViewingMode.ResultOnly
+            };
+            string[] viewingLabels = { "모든 순간", "중요 순간", "경기 결과" };
+            for (int index = 0; index < viewingModes.Length; index++)
+            {
+                OwnerMatchViewingMode mode = viewingModes[index];
+                _viewingModeButtons[index] = Control(
+                    "ViewingMode" + mode,
+                    _canvas,
+                    viewingLabels[index],
+                    282 + index * 112,
+                    79,
+                    106,
+                    () => HandleViewingModeRequested(mode));
+            }
             var runners = Panel("BaseOccupancy", _canvas, new Color(0.08f, 0.12f, 0.15f, 0.85f), 1300, 80, 120, 118);
             Label("BaseTitle", runners, "주자 상황", 13, 0, 2, 120, 25, Color.white).alignment = TextAnchor.MiddleCenter;
             for (int i = 0; i < 3; i++)
@@ -172,29 +209,24 @@ namespace Baseball.Presentation.Match
             _resultSummary = Label("Versus", _resultPanel, "", 28, 40, 70, 1360, 55, Ink);
             _resultSummary.alignment = TextAnchor.MiddleCenter;
             _resultScoreRows = Panel("FinalLineScore", _resultPanel, Silver, 40, 140, 1360, 126);
-            Control("AwayRecords", _resultPanel, "원정 기록", 40, 280, 135, () => { _showHomeRecords = false; RenderRecords(); });
-            Control("HomeRecords", _resultPanel, "홈 기록", 185, 280, 135, () => { _showHomeRecords = true; RenderRecords(); });
-            Control("BattingRecords", _resultPanel, "타격 성적", 340, 280, 135, () => { _showPitching = false; RenderRecords(); });
-            Control("PitchingRecords", _resultPanel, "투구 성적", 485, 280, 135, () => { _showPitching = true; RenderRecords(); });
-            _recordHeader = Label("RecordHeader", _resultPanel, "", 17, 650, 280, 748, 38, Blue);
+            _managerDecisionSummary = Label("ManagerDecisions", _resultPanel, "", 14, 40, 270, 1360, 62, Muted);
+            _managerDecisionSummary.alignment = TextAnchor.MiddleLeft;
+            Control("AwayRecords", _resultPanel, "원정 기록", 40, 342, 135, () => { _showHomeRecords = false; RenderRecords(); });
+            Control("HomeRecords", _resultPanel, "홈 기록", 185, 342, 135, () => { _showHomeRecords = true; RenderRecords(); });
+            Control("BattingRecords", _resultPanel, "타격 성적", 340, 342, 135, () => { _showPitching = false; RenderRecords(); });
+            Control("PitchingRecords", _resultPanel, "투구 성적", 485, 342, 135, () => { _showPitching = true; RenderRecords(); });
+            _recordHeader = Label("RecordHeader", _resultPanel, "", 17, 650, 342, 748, 38, Blue);
             _recordHeader.alignment = TextAnchor.MiddleRight;
-            var viewport = Panel("RecordViewport", _resultPanel, Silver, 40, 332, 1360, 264);
+            var viewport = Panel("RecordViewport", _resultPanel, Silver, 40, 394, 1360, 202);
             viewport.gameObject.AddComponent<RectMask2D>();
             _recordScroll = viewport.gameObject.AddComponent<ScrollRect>();
-            _recordContent = Panel("Records", viewport, Paper, 0, 0, 1360, 264);
+            _recordContent = Panel("Records", viewport, Paper, 0, 0, 1360, 202);
             _recordScroll.viewport = viewport;
             _recordScroll.content = _recordContent;
             _recordScroll.horizontal = false;
             _recordScroll.movementType = ScrollRect.MovementType.Clamped;
             _recordScroll.scrollSensitivity = 30;
             _resultPanel.gameObject.SetActive(false);
-        }
-
-        private void SetStadiumTexture(Texture2D texture)
-        {
-            _isVisualSequencePlaying = false;
-            SetLayerTexture(_stadium, texture);
-            HideBlendLayer();
         }
 
         private static Texture2D LoadStadiumTexture(string path)

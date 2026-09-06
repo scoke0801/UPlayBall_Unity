@@ -49,6 +49,7 @@ namespace Baseball.Presentation.Match
             if (manager == null) throw new ArgumentNullException(nameof(manager));
             _showResults = _showPitching = _showHomeRecords = _wasComplete = false;
             _lastVisibleCount = -1;
+            _lastAnimatedPitchSequence = -1;
             _session = OwnerMatchSpectatorSession.PlayNextGame(manager, this);
             IsPresenting = true;
             SetVisible(true);
@@ -121,7 +122,14 @@ namespace Baseball.Presentation.Match
 
         private void HandleRevealAllRequested()
         {
-            if (_session?.TryRevealAll() != true) return;
+            if (_session?.TrySetViewingMode(OwnerMatchViewingMode.ResultOnly) != true) return;
+            RefreshControls();
+        }
+
+        private void HandleViewingModeRequested(OwnerMatchViewingMode mode)
+        {
+            if (_session?.TrySetViewingMode(mode) != true) return;
+            ScheduleNextAutomaticAdvance();
             RefreshControls();
         }
 

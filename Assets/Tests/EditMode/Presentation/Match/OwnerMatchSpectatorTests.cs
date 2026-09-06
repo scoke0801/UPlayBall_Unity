@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
+using Baseball.Core.Players;
 using Baseball.Presentation.Match;
-using Baseball.Simulation.PlateAppearance;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -21,8 +21,12 @@ namespace Baseball.Tests.EditMode.Presentation.Match
 
                 Transform canvas = view.transform.Find("BroadcastCanvas");
                 Assert.That(canvas, Is.Not.Null);
-                Assert.That(canvas.Find("Field/StadiumArtwork"), Is.Not.Null);
-                Assert.That(canvas.Find("Field/StadiumArtworkBlend"), Is.Not.Null);
+                Assert.That(canvas.Find("Field/StadiumBackground"), Is.Not.Null);
+                Assert.That(canvas.Find("Field/StadiumActors"), Is.Not.Null);
+                Assert.That(canvas.Find("Field/StadiumActorsBlend"), Is.Not.Null);
+                Assert.That(canvas.Find("ViewingModeEveryMoment"), Is.Not.Null);
+                Assert.That(canvas.Find("ViewingModeKeyMoments"), Is.Not.Null);
+                Assert.That(canvas.Find("ViewingModeResultOnly"), Is.Not.Null);
                 Assert.That(canvas.Find("InningOverlay/LineScore"), Is.Not.Null);
                 Assert.That(canvas.Find("MatchResult/FinalLineScore"), Is.Not.Null);
                 Assert.That(canvas.Find("MatchResult/RecordViewport"), Is.Not.Null);
@@ -38,8 +42,13 @@ namespace Baseball.Tests.EditMode.Presentation.Match
         {
             string[] paths =
             {
-                "stadium_pitch", "stadium_pitch_release", "stadium_swing_miss", "stadium_bat_contact",
-                "stadium_ball_flight", "stadium_ball_caught", "stadium_safe_hit", "stadium_overview"
+                "stadium_pitch_background",
+                "stadium_overlay_set_rr", "stadium_overlay_windup_rr", "stadium_overlay_pitch1_rr",
+                "stadium_overlay_pitch2_rr", "stadium_overlay_flight_rr", "stadium_overlay_hit_rr",
+                "stadium_overlay_miss_rr", "stadium_overlay_take_rr",
+                "stadium_overlay_set_rl", "stadium_overlay_windup_rl", "stadium_overlay_pitch1_rl",
+                "stadium_overlay_pitch2_rl", "stadium_overlay_flight_rl", "stadium_overlay_hit_rl",
+                "stadium_overlay_miss_rl", "stadium_overlay_take_rl"
             };
             foreach (string path in paths)
             {
@@ -49,19 +58,33 @@ namespace Baseball.Tests.EditMode.Presentation.Match
                     Is.True,
                     path);
             }
+            Assert.That(Resources.Load<Shader>("UI/OwnerMatch/OwnerMatchOverlayKey"), Is.Not.Null);
         }
 
-        [TestCase(PlateAppearanceResult.Strikeout, OwnerMatchVisualSequenceKind.SwingMiss)]
-        [TestCase(PlateAppearanceResult.FlyOut, OwnerMatchVisualSequenceKind.BallCaught)]
-        [TestCase(PlateAppearanceResult.Single, OwnerMatchVisualSequenceKind.SafeHit)]
-        [TestCase(PlateAppearanceResult.Double, OwnerMatchVisualSequenceKind.SafeHit)]
-        [TestCase(PlateAppearanceResult.HomeRun, OwnerMatchVisualSequenceKind.ContactOnly)]
-        [TestCase(PlateAppearanceResult.Walk, OwnerMatchVisualSequenceKind.PitchOnly)]
-        public void 타석결과에맞는이미지연출을선택한다(
-            PlateAppearanceResult result,
-            OwnerMatchVisualSequenceKind expected)
+        [TestCase(Handedness.Right, Handedness.Right, false, false)]
+        [TestCase(Handedness.Right, Handedness.Left, false, true)]
+        [TestCase(Handedness.Left, Handedness.Left, true, false)]
+        [TestCase(Handedness.Left, Handedness.Right, true, true)]
+        public void 투타조합에맞는오버레이와반전방향을선택한다(
+            Handedness throwingHand,
+            Handedness battingHand,
+            bool expectedMirror,
+            bool expectedLeftBatterSet)
         {
-            Assert.That(OwnerMatchVisualSequenceResolver.Resolve(result), Is.EqualTo(expected));
+            var handedness = new OwnerMatchHandedness(throwingHand, battingHand);
+
+            Assert.That(handedness.IsPitcherLeftHanded, Is.EqualTo(expectedMirror));
+            Assert.That(handedness.UsesRightPitcherLeftBatterSet, Is.EqualTo(expectedLeftBatterSet));
+        }
+
+        [TestCase(OwnerMatchViewingMode.EveryMoment)]
+        [TestCase(OwnerMatchViewingMode.KeyMoments)]
+        [TestCase(OwnerMatchViewingMode.ResultOnly)]
+        public void 관전상태는세가지보기옵션을보존한다(OwnerMatchViewingMode mode)
+        {
+            var state = new OwnerMatchOverlayState(0, 10, false, OwnerMatchPlaybackSpeed.Normal, "안내", mode);
+
+            Assert.That(state.ViewingMode, Is.EqualTo(mode));
         }
 
         [Test]
