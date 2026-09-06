@@ -70,6 +70,20 @@ namespace Baseball.Tests.EditMode.Presentation
         }
 
         [Test]
+        public void ProcessCancel_Scene이뒤늦게표시되어도Popup을먼저닫는다()
+        {
+            TestFirstPopup popup = CreateUi<TestFirstPopup>("UI_Popup_First");
+            TestEditingScene scene = CreateUi<TestEditingScene>("UI_Scene_Editing");
+            popup.Show();
+            scene.Show();
+
+            _uiManager.ProcessCancel();
+
+            Assert.That(popup.IsVisible, Is.False);
+            Assert.That(scene.WasCancelled, Is.False);
+        }
+
+        [Test]
         public void ProcessCancel_닫을Popup이없으면화면뒤로가기를요청한다()
         {
             int navigationRequestCount = 0;
@@ -94,6 +108,34 @@ namespace Baseball.Tests.EditMode.Presentation
 
             Assert.That(blockingPopup.IsVisible, Is.True);
             Assert.That(lowerPopup.IsVisible, Is.True);
+            Assert.That(navigationRequestCount, Is.Zero);
+        }
+
+        [Test]
+        public void ProcessCancel_Scene입력차단은Home이동요청을막지않는다()
+        {
+            TestBlockingScene scene = CreateUi<TestBlockingScene>("UI_Scene_Blocking");
+            int navigationRequestCount = 0;
+            _uiManager.NavigationBackRequested += () => navigationRequestCount++;
+            scene.Show();
+
+            _uiManager.ProcessCancel();
+
+            Assert.That(scene.IsVisible, Is.True);
+            Assert.That(navigationRequestCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ProcessCancel_화면내부편집취소가Route이동보다우선한다()
+        {
+            TestEditingScene scene = CreateUi<TestEditingScene>("UI_Scene_Editing");
+            int navigationRequestCount = 0;
+            _uiManager.NavigationBackRequested += () => navigationRequestCount++;
+            scene.Show();
+
+            _uiManager.ProcessCancel();
+
+            Assert.That(scene.WasCancelled, Is.True);
             Assert.That(navigationRequestCount, Is.Zero);
         }
 
@@ -122,5 +164,22 @@ namespace Baseball.Tests.EditMode.Presentation
     public sealed class TestBlockingPopup : UIPopupBase
     {
         public override bool CanCloseWithCancel => false;
+    }
+
+    public sealed class TestBlockingScene : UISceneBase
+    {
+        public override bool BlocksLowerInput => true;
+    }
+
+    public sealed class TestEditingScene : UISceneBase
+    {
+        public bool WasCancelled { get; private set; }
+        public override bool BlocksLowerInput => true;
+
+        public override bool TryHandleCancel()
+        {
+            WasCancelled = true;
+            return true;
+        }
     }
 }

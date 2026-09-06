@@ -136,6 +136,7 @@ namespace Baseball.Presentation.SharedUI
             RectTransform settingsRect = CreateAnchoredImage(
                 "GlobalSettings", _globalTopBar, StatusSurface, new Vector2(1f, 0f), Vector2.one,
                 new Vector2(-66f, 9f), new Vector2(-14f, -9f));
+            settingsRect.GetComponent<Image>().raycastTarget = true;
             Button settingsButton = settingsRect.gameObject.AddComponent<Button>();
             settingsButton.targetGraphic = settingsRect.GetComponent<Image>();
             settingsButton.colors = CreateButtonColors(false);

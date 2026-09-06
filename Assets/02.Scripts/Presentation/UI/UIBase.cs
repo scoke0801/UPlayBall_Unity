@@ -2,11 +2,17 @@ using UnityEngine;
 
 namespace Baseball.Presentation.UI
 {
+    /// <summary>현재 UI가 Cancel 입력을 자체 상태 정리에 사용했는지 반환한다.</summary>
+    public interface IUiCancelHandler
+    {
+        bool TryHandleCancel();
+    }
+
     /// <summary>
     /// 모든 런타임 UI의 등록과 표시 생명주기를 통일한다.
     /// </summary>
     [RequireComponent(typeof(RectTransform), typeof(CanvasGroup))]
-    public abstract class UIBase : MonoBehaviour
+    public abstract class UIBase : MonoBehaviour, IUiCancelHandler
     {
         [SerializeField] private UILayer _layer = UILayer.Scene;
         [SerializeField] private bool _startVisible;
@@ -23,6 +29,12 @@ namespace Baseball.Presentation.UI
         public virtual bool CanCloseWithCancel => _canCloseWithCancel;
         public virtual bool BlocksLowerInput => _blocksLowerInput;
         public bool DestroyOnClose => _destroyOnClose;
+
+        /// <summary>Popup 닫기나 Route 이동보다 먼저 처리할 화면 내부 취소가 있으면 소비한다.</summary>
+        public virtual bool TryHandleCancel()
+        {
+            return false;
+        }
 
         protected virtual void Awake()
         {

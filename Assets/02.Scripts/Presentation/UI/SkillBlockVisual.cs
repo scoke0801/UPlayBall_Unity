@@ -199,4 +199,37 @@ namespace Baseball.Presentation.UI
             return ((rotationQuarterTurns % 4) + 4) % 4;
         }
     }
+
+    /// <summary>가리킨 보드 칸을 블록의 실제 점유 칸에 맞춰 유효한 배치 원점으로 변환한다.</summary>
+    internal static class SkillBlockPlacementTargetResolver
+    {
+        /// <summary>가리킨 칸을 포함하는 후보 중 첫 번째로 배치 가능한 원점을 반환한다.</summary>
+        public static bool TryResolveOrigin(
+            BoardCell[] localCells,
+            int targetX,
+            int targetY,
+            Func<int, int, bool> canPlaceAtOrigin,
+            out int originX,
+            out int originY)
+        {
+            if (localCells == null) throw new ArgumentNullException(nameof(localCells));
+            if (canPlaceAtOrigin == null) throw new ArgumentNullException(nameof(canPlaceAtOrigin));
+
+            for (int index = 0; index < localCells.Length; index++)
+            {
+                int candidateX = targetX - localCells[index].X;
+                int candidateY = targetY - localCells[index].Y;
+                if (!canPlaceAtOrigin(candidateX, candidateY))
+                    continue;
+
+                originX = candidateX;
+                originY = candidateY;
+                return true;
+            }
+
+            originX = targetX;
+            originY = targetY;
+            return false;
+        }
+    }
 }

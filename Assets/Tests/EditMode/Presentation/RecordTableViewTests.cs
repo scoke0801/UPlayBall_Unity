@@ -101,6 +101,20 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(_view.transform.Find("ContentState").gameObject.activeSelf, Is.True);
         }
 
+        [Test]
+        public void ReferenceLightSkin_가상화계약을유지하며밝은리그표색상을적용한다()
+        {
+            _view.SetVisualStyle(RecordTableVisualStyle.ReferenceLight);
+            _view.Bind(CreateTable(1000));
+
+            Assert.That(_view.VisualStyle, Is.EqualTo(RecordTableVisualStyle.ReferenceLight));
+            Assert.That(_view.GetComponent<UnityEngine.UI.Image>().color,
+                Is.EqualTo((Color)new Color32(248, 249, 250, 255)));
+            Assert.That(_view.transform.Find("Table/HeaderViewport").GetComponent<UnityEngine.UI.Image>().color,
+                Is.EqualTo((Color)new Color32(236, 238, 240, 255)));
+            Assert.That(_view.CreatedRowViewCount, Is.LessThan(20));
+        }
+
         private static RecordTableModel CreateTable(int rowCount)
         {
             var rows = new RecordTableRowModel[rowCount];

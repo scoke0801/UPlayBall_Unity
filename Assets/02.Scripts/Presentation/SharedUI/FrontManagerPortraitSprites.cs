@@ -9,6 +9,12 @@ namespace Baseball.Presentation.SharedUI
         private const string ResourceRoot = "FrontManager/";
         private static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetCache()
+        {
+            Cache.Clear();
+        }
+
         public static Sprite Load(string assetKey, string fallbackAssetKey = "FM_NEUTRAL")
         {
             Sprite sprite = LoadSingle(assetKey);
@@ -39,7 +45,10 @@ namespace Baseball.Presentation.SharedUI
                     sprite.name = assetKey;
                 }
             }
-            Cache[assetKey] = sprite;
+            // Domain Reload를 끈 Editor에서 Import 전 null을 기억하면 이후에도 다른 매니저가
+            // 기본 초상화로 대체된다. 성공한 로드만 캐시한다.
+            if (sprite != null)
+                Cache[assetKey] = sprite;
             return sprite;
         }
     }

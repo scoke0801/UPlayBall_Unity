@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 321c6b9cfd7a492983c063767352f2c1
+guid: 79de5d31118a44de92361096816d74a1
 TextureImporter:
   externalObjects: {}
   serializedVersion: 13
@@ -9,7 +9,7 @@ TextureImporter:
   isReadable: 0
   streamingMipmaps: 0
   textureFormat: 1
-  maxTextureSize: 2048
+  maxTextureSize: 256
   textureSettings:
     serializedVersion: 2
     filterMode: 1
@@ -21,10 +21,11 @@ TextureImporter:
   nPOTScale: 0
   textureType: 0
   textureShape: 1
+  alphaIsTransparency: 1
   platformSettings: []
   spriteSheet:
     serializedVersion: 2
     sprites: []
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
+  userData:
+  assetBundleName:
+  assetBundleVariant:

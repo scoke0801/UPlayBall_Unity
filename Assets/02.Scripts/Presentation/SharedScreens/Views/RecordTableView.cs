@@ -7,6 +7,13 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.SharedScreens
 {
+    /// <summary>기록표의 데이터·가상화 계약과 독립적으로 적용할 화면 Skin이다.</summary>
+    public enum RecordTableVisualStyle
+    {
+        Default,
+        ReferenceLight
+    }
+
     /// <summary>
     /// 대량 기록에서 viewport에 필요한 Row만 재사용하며 정렬과 Stable ID 선택을 제공하는 uGUI 기록표다.
     /// </summary>
@@ -26,18 +33,23 @@ namespace Baseball.Presentation.SharedScreens
         private static Font _defaultFont;
 
         private readonly List<PooledRow> _rowPool = new();
+        private Image _backgroundImage;
         private RectTransform _tableRoot;
         private RectTransform _headerViewport;
         private RectTransform _headerContent;
+        private Image _headerViewportImage;
         private RectTransform _bodyViewport;
+        private Image _bodyViewportImage;
         private RectTransform _content;
         private ScrollRect _scrollRect;
         private Scrollbar _horizontalScrollbar;
         private Scrollbar _verticalScrollbar;
         private GameObject _stateRoot;
+        private Image _stateSurfaceImage;
         private Text _stateTitle;
         private Text _stateMessage;
         private Button _stateActionButton;
+        private Image _stateActionImage;
         private Text _stateActionLabel;
         private RecordTableModel _model;
         private UiContentStateModel _contentState;
@@ -45,6 +57,7 @@ namespace Baseball.Presentation.SharedScreens
         private string _selectedRowId = string.Empty;
         private float _contentWidth;
         private int _firstRenderedRowIndex;
+        private RecordTableVisualStyle _visualStyle;
 
         /// <summary>사용자가 Row를 선택하면 Stable Row ID를 전달한다.</summary>
         public event Action<string> RowSelected;
@@ -73,6 +86,9 @@ namespace Baseball.Presentation.SharedScreens
         /// <summary>테스트와 화면 구성에서 Scroll 위치를 제어할 수 있는 uGUI ScrollRect다.</summary>
         public ScrollRect ScrollRect => _scrollRect;
 
+        /// <summary>현재 기록표에 적용된 Skin이다.</summary>
+        public RecordTableVisualStyle VisualStyle => _visualStyle;
+
         /// <summary>부모 전체를 채우는 대량 기록표를 런타임 생성한다.</summary>
         public static RecordTableView CreateRuntime(
             Transform parent,
@@ -85,6 +101,24 @@ namespace Baseball.Presentation.SharedScreens
             tableObject.transform.SetParent(parent, false);
             Stretch(tableObject.GetComponent<RectTransform>());
             return tableObject.AddComponent<RecordTableView>();
+        }
+
+        /// <summary>데이터와 가상화 상태는 유지하고 화면 Skin만 교체한다.</summary>
+        public void SetVisualStyle(RecordTableVisualStyle visualStyle)
+        {
+            if (_visualStyle == visualStyle && _tableRoot != null)
+                return;
+
+            _visualStyle = visualStyle;
+            EnsureHierarchy();
+            ApplyVisualStyle();
+            if (_model == null || _contentState?.Kind != UiContentStateKind.Ready)
+                return;
+
+            RebuildHeaders();
+            ClearRowPool();
+            EnsureRowPool();
+            RefreshVisibleRows();
         }
 
         /// <summary>부모 안의 지정 크기와 위치에 대량 기록표를 런타임 생성한다.</summary>
@@ -191,12 +225,12 @@ namespace Baseball.Presentation.SharedScreens
                 return;
 
             RectTransform root = GetComponent<RectTransform>();
-            Image background = GetComponent<Image>();
-            if (background == null)
-                background = gameObject.AddComponent<Image>();
-            background.color = CareerUiTheme.PanelDark;
-            background.raycastTarget = false;
-            AddOutline(background);
+            _backgroundImage = GetComponent<Image>();
+            if (_backgroundImage == null)
+                _backgroundImage = gameObject.AddComponent<Image>();
+            _backgroundImage.color = TableBackgroundColor;
+            _backgroundImage.raycastTarget = false;
+            AddOutline(_backgroundImage);
 
             _tableRoot = CreateRect("Table", root);
             Stretch(_tableRoot);
@@ -208,9 +242,9 @@ namespace Baseball.Presentation.SharedScreens
                 Vector2.one,
                 new Vector2(0f, -DefaultHeaderHeight),
                 new Vector2(-ScrollbarThickness, 0f));
-            Image headerMaskImage = _headerViewport.gameObject.AddComponent<Image>();
-            headerMaskImage.color = CareerUiTheme.Panel;
-            headerMaskImage.raycastTarget = true;
+            _headerViewportImage = _headerViewport.gameObject.AddComponent<Image>();
+            _headerViewportImage.color = HeaderColor;
+            _headerViewportImage.raycastTarget = true;
             _headerViewport.gameObject.AddComponent<Mask>().showMaskGraphic = true;
             _headerContent = CreateTopLeftRect("Header", _headerViewport);
 
@@ -221,9 +255,9 @@ namespace Baseball.Presentation.SharedScreens
                 Vector2.one,
                 new Vector2(0f, ScrollbarThickness),
                 new Vector2(-ScrollbarThickness, -DefaultHeaderHeight));
-            Image viewportImage = _bodyViewport.gameObject.AddComponent<Image>();
-            viewportImage.color = CareerUiTheme.PanelDark;
-            viewportImage.raycastTarget = true;
+            _bodyViewportImage = _bodyViewport.gameObject.AddComponent<Image>();
+            _bodyViewportImage.color = BodyColor;
+            _bodyViewportImage.raycastTarget = true;
             _bodyViewport.gameObject.AddComponent<Mask>().showMaskGraphic = true;
 
             _content = CreateTopLeftRect("Content", _bodyViewport);
@@ -267,19 +301,20 @@ namespace Baseball.Presentation.SharedScreens
             _scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
             BuildState(root);
+            ApplyVisualStyle();
         }
 
         private void BuildState(RectTransform root)
         {
             RectTransform state = CreateRect("ContentState", root);
             Stretch(state);
-            Image surface = state.gameObject.AddComponent<Image>();
-            surface.color = CareerUiTheme.PanelDark;
-            surface.raycastTarget = false;
+            _stateSurfaceImage = state.gameObject.AddComponent<Image>();
+            _stateSurfaceImage.color = BodyColor;
+            _stateSurfaceImage.raycastTarget = false;
             _stateRoot = state.gameObject;
 
             _stateTitle = CreateText(
-                "Title", state, 20, FontStyle.Bold, TextAnchor.LowerCenter, CareerUiTheme.TextPrimary);
+                "Title", state, 20, FontStyle.Bold, TextAnchor.LowerCenter, PrimaryTextColor);
             SetAnchors(
                 _stateTitle.rectTransform,
                 new Vector2(0.1f, 0.5f),
@@ -287,7 +322,7 @@ namespace Baseball.Presentation.SharedScreens
                 Vector2.zero,
                 Vector2.zero);
             _stateMessage = CreateText(
-                "Message", state, 14, FontStyle.Normal, TextAnchor.UpperCenter, CareerUiTheme.TextSecondary);
+                "Message", state, 14, FontStyle.Normal, TextAnchor.UpperCenter, SecondaryTextColor);
             SetAnchors(
                 _stateMessage.rectTransform,
                 new Vector2(0.1f, 0.35f),
@@ -299,13 +334,13 @@ namespace Baseball.Presentation.SharedScreens
             actionRect.anchorMin = actionRect.anchorMax = new Vector2(0.5f, 0.23f);
             actionRect.pivot = new Vector2(0.5f, 0.5f);
             actionRect.sizeDelta = new Vector2(180f, 38f);
-            Image actionImage = actionRect.gameObject.AddComponent<Image>();
-            actionImage.color = CareerUiTheme.PrimaryAction;
+            _stateActionImage = actionRect.gameObject.AddComponent<Image>();
+            _stateActionImage.color = StateActionColor;
             _stateActionButton = actionRect.gameObject.AddComponent<Button>();
-            _stateActionButton.targetGraphic = actionImage;
+            _stateActionButton.targetGraphic = _stateActionImage;
             _stateActionButton.onClick.AddListener(HandleStateAction);
             _stateActionLabel = CreateText(
-                "Label", actionRect, 14, FontStyle.Bold, TextAnchor.MiddleCenter, CareerUiTheme.TextPrimary);
+                "Label", actionRect, 14, FontStyle.Bold, TextAnchor.MiddleCenter, StateActionTextColor);
             Stretch(_stateActionLabel.rectTransform);
             _stateRoot.SetActive(false);
         }
@@ -346,7 +381,7 @@ namespace Baseball.Presentation.SharedScreens
 
                 Image image = rect.gameObject.AddComponent<Image>();
                 bool isSorted = string.Equals(_model.SortedColumnId, column.ColumnId, StringComparison.Ordinal);
-                image.color = isSorted ? CareerUiTheme.SurfaceSelected : CareerUiTheme.Panel;
+                image.color = isSorted ? SelectedColor : HeaderColor;
                 Button button = rect.gameObject.AddComponent<Button>();
                 button.targetGraphic = image;
                 button.interactable = column.IsSortable;
@@ -360,7 +395,7 @@ namespace Baseball.Presentation.SharedScreens
                     13,
                     FontStyle.Bold,
                     TextAnchor.MiddleCenter,
-                    isSorted ? CareerUiTheme.PrimaryBright : CareerUiTheme.TextSecondary);
+                    isSorted ? SortedTextColor : SecondaryTextColor);
                 label.text = column.DisplayName + marker;
                 Stretch(label.rectTransform);
                 label.rectTransform.offsetMin = new Vector2(6f, 0f);
@@ -370,6 +405,9 @@ namespace Baseball.Presentation.SharedScreens
                     string columnId = column.ColumnId;
                     button.onClick.AddListener(() => HandleSort(columnId));
                 }
+
+                if (IsReferenceLight && i > 0)
+                    CreateColumnRule(rect);
             }
 
             SyncHeaderPosition();
@@ -544,7 +582,7 @@ namespace Baseball.Presentation.SharedScreens
             _stateMessage.text = _contentState.Message;
             _stateTitle.color = _contentState.Kind == UiContentStateKind.Error
                 ? CareerUiTheme.Error
-                : CareerUiTheme.TextPrimary;
+                : PrimaryTextColor;
             bool hasAction = !string.IsNullOrEmpty(_contentState.ActionId);
             _stateActionButton.gameObject.SetActive(hasAction);
             _stateActionLabel.text = hasAction ? _contentState.ActionLabel : string.Empty;
@@ -581,21 +619,21 @@ namespace Baseball.Presentation.SharedScreens
             };
         }
 
-        private static Scrollbar CreateScrollbar(
+        private Scrollbar CreateScrollbar(
             Transform parent,
             string name,
             Scrollbar.Direction direction)
         {
             RectTransform track = CreateRect(name, parent);
             Image trackImage = track.gameObject.AddComponent<Image>();
-            trackImage.color = CareerUiTheme.Panel;
+            trackImage.color = ScrollbarTrackColor;
 
             RectTransform slidingArea = CreateRect("SlidingArea", track);
             Stretch(slidingArea, 1f);
             RectTransform handle = CreateRect("Handle", slidingArea);
             Stretch(handle, 1f);
             Image handleImage = handle.gameObject.AddComponent<Image>();
-            handleImage.color = CareerUiTheme.Primary;
+            handleImage.color = AccentColor;
 
             Scrollbar scrollbar = track.gameObject.AddComponent<Scrollbar>();
             scrollbar.handleRect = handle;
@@ -647,13 +685,77 @@ namespace Baseball.Presentation.SharedScreens
         private static Font DefaultFont =>
             _defaultFont ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-        private static void AddOutline(Image image)
+        private void AddOutline(Image image)
         {
             Outline outline = image.gameObject.AddComponent<Outline>();
-            outline.effectColor = CareerUiTheme.Border;
+            outline.effectColor = BorderColor;
             outline.effectDistance = new Vector2(1f, -1f);
             outline.useGraphicAlpha = false;
         }
+
+        private void ApplyVisualStyle()
+        {
+            if (_backgroundImage == null)
+                return;
+
+            _backgroundImage.color = TableBackgroundColor;
+            Outline outline = _backgroundImage.GetComponent<Outline>();
+            if (outline != null)
+                outline.effectColor = BorderColor;
+            if (_headerViewportImage != null)
+                _headerViewportImage.color = HeaderColor;
+            if (_bodyViewportImage != null)
+                _bodyViewportImage.color = BodyColor;
+            if (_stateSurfaceImage != null)
+                _stateSurfaceImage.color = BodyColor;
+            if (_stateTitle != null)
+                _stateTitle.color = PrimaryTextColor;
+            if (_stateMessage != null)
+                _stateMessage.color = SecondaryTextColor;
+            if (_stateActionImage != null)
+                _stateActionImage.color = StateActionColor;
+            if (_stateActionLabel != null)
+                _stateActionLabel.color = StateActionTextColor;
+            ApplyScrollbarStyle(_horizontalScrollbar);
+            ApplyScrollbarStyle(_verticalScrollbar);
+        }
+
+        private void ApplyScrollbarStyle(Scrollbar scrollbar)
+        {
+            if (scrollbar == null)
+                return;
+            Image track = scrollbar.GetComponent<Image>();
+            if (track != null)
+                track.color = ScrollbarTrackColor;
+            if (scrollbar.targetGraphic is Image handle)
+                handle.color = AccentColor;
+        }
+
+        private void CreateColumnRule(Transform parent)
+        {
+            RectTransform rule = CreateRect("ColumnRule", parent);
+            SetAnchors(rule, Vector2.zero, new Vector2(0f, 1f), Vector2.zero, new Vector2(1f, 0f));
+            Image image = rule.gameObject.AddComponent<Image>();
+            image.color = BorderColor;
+            image.raycastTarget = false;
+        }
+
+        private bool IsReferenceLight => _visualStyle == RecordTableVisualStyle.ReferenceLight;
+        private Color TableBackgroundColor => IsReferenceLight ? CareerUiTheme.ReferenceDataCanvas : CareerUiTheme.PanelDark;
+        private Color HeaderColor => IsReferenceLight ? CareerUiTheme.ReferenceDataHeader : CareerUiTheme.Panel;
+        private Color BodyColor => IsReferenceLight ? Color.white : CareerUiTheme.PanelDark;
+        private Color BorderColor => IsReferenceLight ? CareerUiTheme.ReferenceDataGrid : CareerUiTheme.Border;
+        private Color AccentColor => IsReferenceLight ? CareerUiTheme.ReferenceDataAccent : CareerUiTheme.Primary;
+        private Color SelectedColor => IsReferenceLight ? CareerUiTheme.ReferenceDataFocus : CareerUiTheme.SurfaceSelected;
+        private Color HighlightedColor => IsReferenceLight ? CareerUiTheme.ReferenceDataFocus : CareerUiTheme.CurrentRow;
+        private Color EvenRowColor => IsReferenceLight ? new Color32(248, 248, 248, 255) : CareerUiTheme.Surface;
+        private Color OddRowColor => IsReferenceLight ? Color.white : CareerUiTheme.SurfaceSubtle;
+        private Color PrimaryTextColor => IsReferenceLight ? CareerUiTheme.ReferenceDataInk : CareerUiTheme.TextPrimary;
+        private Color SecondaryTextColor => IsReferenceLight ? CareerUiTheme.ReferenceDataInkSecondary : CareerUiTheme.TextSecondary;
+        private Color SortedTextColor => IsReferenceLight ? CareerUiTheme.ReferenceDataAccent : CareerUiTheme.PrimaryBright;
+        private Color StateActionColor => IsReferenceLight ? CareerUiTheme.ReferenceDataAccent : CareerUiTheme.PrimaryAction;
+        private Color StateActionTextColor => IsReferenceLight ? Color.white : CareerUiTheme.TextPrimary;
+        private Color ScrollbarTrackColor => IsReferenceLight ? CareerUiTheme.ReferenceDataScrollbar : CareerUiTheme.Panel;
 
         private static void SetAnchors(
             RectTransform rect,
@@ -746,11 +848,14 @@ namespace Baseball.Presentation.SharedScreens
                         13,
                         FontStyle.Normal,
                         GetTextAnchor(column.Alignment),
-                        CareerUiTheme.TextSecondary);
+                        owner.SecondaryTextColor);
                     Stretch(value.rectTransform);
                     value.rectTransform.offsetMin = new Vector2(7f, 0f);
                     value.rectTransform.offsetMax = new Vector2(-7f, 0f);
                     _values[i] = value;
+
+                    if (owner.IsReferenceLight && i > 0)
+                        owner.CreateColumnRule(cell);
                 }
             }
 
@@ -774,15 +879,15 @@ namespace Baseball.Presentation.SharedScreens
                 Root.gameObject.SetActive(true);
 
                 _background.color = isSelected
-                    ? CareerUiTheme.SurfaceSelected
+                    ? _owner.SelectedColor
                     : row.IsHighlighted
-                        ? CareerUiTheme.CurrentRow
+                        ? _owner.HighlightedColor
                         : rowIndex % 2 == 0
-                            ? CareerUiTheme.Surface
-                            : CareerUiTheme.SurfaceSubtle;
+                            ? _owner.EvenRowColor
+                            : _owner.OddRowColor;
                 Color textColor = isSelected || row.IsHighlighted
-                    ? CareerUiTheme.TextPrimary
-                    : CareerUiTheme.TextSecondary;
+                    ? _owner.PrimaryTextColor
+                    : _owner.SecondaryTextColor;
                 FontStyle fontStyle = isSelected || row.IsHighlighted
                     ? FontStyle.Bold
                     : FontStyle.Normal;

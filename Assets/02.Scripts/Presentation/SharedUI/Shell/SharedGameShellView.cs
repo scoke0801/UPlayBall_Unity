@@ -293,16 +293,46 @@ namespace Baseball.Presentation.SharedUI
 
             NavigationEntry primary = _profile.FindNavigationGroup(_activeRouteId);
             if (primary == null)
+            {
+                ConfigureSubTabStrip(false);
                 return;
+            }
+
+            int visibleCount = 0;
+            for (int i = 0; i < primary.Children.Count; i++)
+                if (primary.Children[i].IsVisible(_profile.Capabilities))
+                    visibleCount++;
+            bool usesDenseTabStrip = visibleCount > 4;
+            ConfigureSubTabStrip(usesDenseTabStrip);
 
             for (int i = 0; i < primary.Children.Count; i++)
             {
                 NavigationEntry child = primary.Children[i];
                 if (child.IsVisible(_profile.Capabilities))
-                    _subTabButtons.Add(CreateNavigationButton(_subTabHost, child, true));
+                {
+                    NavigationButtonBinding binding = CreateNavigationButton(_subTabHost, child, true);
+                    if (usesDenseTabStrip)
+                        binding.Background.GetComponent<LayoutElement>().flexibleWidth = 1f;
+                    _subTabButtons.Add(binding);
+                }
             }
 
             RefreshNavigationSelection(_subTabButtons);
+        }
+
+        private void ConfigureSubTabStrip(bool usesDenseTabStrip)
+        {
+            _contextTitleText.gameObject.SetActive(!usesDenseTabStrip);
+            _contextSummaryText.gameObject.SetActive(!usesDenseTabStrip);
+            SetAnchors(
+                _subTabHost,
+                new Vector2(usesDenseTabStrip ? 0.06f : 0.52f, 0f),
+                Vector2.one,
+                new Vector2(0f, 5f),
+                new Vector2(-14f, -5f));
+            HorizontalLayoutGroup layout = _subTabHost.GetComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = usesDenseTabStrip ? TextAnchor.MiddleCenter : TextAnchor.MiddleRight;
+            layout.childForceExpandWidth = usesDenseTabStrip;
         }
 
         private NavigationButtonBinding CreateNavigationButton(
@@ -357,6 +387,9 @@ namespace Baseball.Presentation.SharedUI
 
             string routeId = entry.RouteId;
             button.onClick.AddListener(() => NavigationRequested?.Invoke(routeId));
+            if (_profile.Mode == UiGameMode.OwnerCareer)
+                Baseball.Presentation.Owner.OwnerUiButtonSkin.Apply(button, isSubTab
+                    ? Baseball.Presentation.Owner.OwnerButtonRole.Tab : Baseball.Presentation.Owner.OwnerButtonRole.Navigation);
             return new NavigationButtonBinding(
                 entry,
                 background,
@@ -390,6 +423,15 @@ namespace Baseball.Presentation.SharedUI
                     "Value", slotRect, slot.Value, 16, FontStyle.Bold,
                     TextAnchor.LowerCenter, GetEmphasisColor(slot.Emphasis));
                 SetAnchors(value.rectTransform, Vector2.zero, Vector2.one, new Vector2(4f, 4f), new Vector2(-4f, -18f));
+                // 금액처럼 긴 핵심 상태는 칸을 넓혀 보존하되 비정상적으로 긴 공급 값은 인접 UI를 침범하지 않는다.
+                layout.preferredWidth = Mathf.Clamp(
+                    Mathf.Max(layout.preferredWidth, value.preferredWidth + 12f),
+                    layout.preferredWidth,
+                    184f);
+                value.horizontalOverflow = HorizontalWrapMode.Wrap;
+                value.resizeTextForBestFit = true;
+                value.resizeTextMinSize = 12;
+                value.resizeTextMaxSize = 16;
             }
         }
 
@@ -411,6 +453,8 @@ namespace Baseball.Presentation.SharedUI
                     ? isSelected ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferenceText
                     : isSelected ? AccentLight : TextPrimary;
                 binding.SelectionAccent.SetActive(isSelected);
+                if (_profile.Mode == UiGameMode.OwnerCareer)
+                    Baseball.Presentation.Owner.OwnerUiButtonSkin.SetSelected(binding.Background.GetComponent<Button>(), isSelected);
             }
         }
 

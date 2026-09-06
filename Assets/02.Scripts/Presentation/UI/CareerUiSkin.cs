@@ -88,6 +88,16 @@ namespace Baseball.Presentation.UI
         /// <summary>버튼의 상태와 라벨 안전 영역을 공통 야구 중계 스킨으로 교체한다.</summary>
         public static void ApplyButton(Button button)
         {
+            // 데이터 카드가 소유한 Graphic과 입력 상태는 공용 버튼 프레임으로 교체하지 않는다.
+            var buttonVisual = button != null ? button.GetComponent<CareerUiVisualElement>() : null;
+            if (buttonVisual != null && buttonVisual.Role == CareerUiVisualRole.DataImage)
+                return;
+            var ownerSkin = button != null ? button.GetComponent<Baseball.Presentation.Owner.OwnerUiButtonSkin>() : null;
+            if (ownerSkin != null && ownerSkin.enabled)
+            {
+                ownerSkin.Refresh();
+                return;
+            }
             if (button == null || !EnsureLoaded())
                 return;
 
@@ -385,6 +395,10 @@ namespace Baseball.Presentation.UI
         {
             if (image == null)
                 return false;
+
+            var ownerSkin = image.GetComponent<Baseball.Presentation.Owner.OwnerUiButtonSkin>();
+            if (ownerSkin != null && ownerSkin.enabled)
+                return true;
 
             CareerUiVisualElement visual = image.GetComponent<CareerUiVisualElement>();
             if (visual == null)

@@ -10,10 +10,12 @@ namespace Baseball.Presentation.SharedUI
         public const string BattingKey = "tactic-batting";
         public const string PitchingKey = "tactic-pitching";
         public const string CommonKey = "tactic-common";
+        public const string ScheduleTokenKey = "tactic-schedule-token";
 
         private static Texture2D _batting;
         private static Texture2D _pitching;
         private static Texture2D _common;
+        private static Texture2D _scheduleToken;
 
         public static string GetKey(TacticCardCategory category)
         {
@@ -44,6 +46,10 @@ namespace Baseball.Presentation.SharedUI
                     return _common != null
                         ? _common
                         : _common = Resources.Load<Texture2D>("UI/TacticCards/tactic_common");
+                case ScheduleTokenKey:
+                    return _scheduleToken != null
+                        ? _scheduleToken
+                        : _scheduleToken = Resources.Load<Texture2D>("UI/TacticCards/tactic_schedule_token");
                 default:
                     return null;
             }

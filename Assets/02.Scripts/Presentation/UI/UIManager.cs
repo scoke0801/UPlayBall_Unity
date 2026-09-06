@@ -149,11 +149,14 @@ namespace Baseball.Presentation.UI
         /// </summary>
         public bool CloseTopmost()
         {
+            // 표시 순서가 뒤늦게 갱신된 Scene이 있어도 시각적으로 위에 있는 Overlay를 먼저 처리한다.
             for (int i = _visibleStack.Count - 1; i >= 0; i--)
             {
                 UIBase ui = _visibleStack[i];
-                if (ui == null || !ui.IsVisible)
+                if (ui == null || !ui.IsVisible || ui.Layer == UILayer.Scene)
                     continue;
+                if (ui.TryHandleCancel())
+                    return true;
                 if (!ui.CanCloseWithCancel)
                 {
                     if (ui.BlocksLowerInput)
@@ -165,13 +168,20 @@ namespace Baseball.Presentation.UI
                 return true;
             }
 
+            for (int i = _visibleStack.Count - 1; i >= 0; i--)
+            {
+                UIBase ui = _visibleStack[i];
+                if (ui != null && ui.IsVisible && ui.Layer == UILayer.Scene && ui.TryHandleCancel())
+                    return true;
+            }
+
             return false;
         }
 
         /// <summary>Cancel 입력을 Popup 닫기부터 처리하고 남는 입력만 화면 Router에 전달한다.</summary>
         public void ProcessCancel()
         {
-            if (CloseTopmost() || HasVisibleBlockingUi())
+            if (CloseTopmost() || HasVisibleBlockingOverlay())
                 return;
             NavigationBackRequested?.Invoke();
         }
@@ -316,12 +326,12 @@ namespace Baseball.Presentation.UI
             }
         }
 
-        private bool HasVisibleBlockingUi()
+        private bool HasVisibleBlockingOverlay()
         {
             for (int i = _visibleStack.Count - 1; i >= 0; i--)
             {
                 UIBase ui = _visibleStack[i];
-                if (ui != null && ui.IsVisible && ui.BlocksLowerInput)
+                if (ui != null && ui.IsVisible && ui.BlocksLowerInput && ui.Layer != UILayer.Scene)
                     return true;
             }
             return false;

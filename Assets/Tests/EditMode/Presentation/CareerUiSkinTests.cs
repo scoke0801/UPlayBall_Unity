@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Reflection;
+using Baseball.Presentation.Career;
 using Baseball.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -209,6 +212,36 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(card.color, Is.EqualTo(firstTint));
         }
 
+        [Test]
+        public void OwnerFilterDropdown_비활성Template의항목배경에도어두운Palette를적용한다()
+        {
+            MethodInfo createDropdown = typeof(UI_Scene_NewGame).GetMethod(
+                "CreateOwnerFilterDropdown",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            Assert.That(createDropdown, Is.Not.Null);
+            Dropdown dropdown = (Dropdown)createDropdown.Invoke(null, new object[]
+            {
+                "OwnerCardYearFilter",
+                _root.transform,
+                new List<string> { "연도 전체", "2024" },
+                0,
+                new Vector2(205f, 42f),
+                Vector2.zero
+            });
+
+            Assert.That(dropdown.template.gameObject.activeSelf, Is.False);
+            Toggle itemToggle = dropdown.itemText.GetComponentInParent<Toggle>(true);
+            Assert.That(itemToggle, Is.Not.Null);
+            Assert.That(itemToggle.targetGraphic, Is.TypeOf<Image>());
+
+            Image itemBackground = (Image)itemToggle.targetGraphic;
+            float textLuminance = CalculateLuminance(dropdown.itemText.color);
+            float backgroundLuminance = CalculateLuminance(itemBackground.color);
+            Assert.That(backgroundLuminance, Is.LessThan(0.2f));
+            Assert.That(textLuminance - backgroundLuminance, Is.GreaterThan(0.65f));
+        }
+
         private Button CreateButton(string name, Vector2 size)
         {
             return CreateButton(name, size, Color.white);
@@ -262,6 +295,11 @@ namespace Baseball.Tests.EditMode.Presentation
             RectTransform rect = CreateImage(name, parent);
             rect.sizeDelta = size;
             return rect.GetComponent<Image>();
+        }
+
+        private static float CalculateLuminance(Color color)
+        {
+            return color.r * 0.2126f + color.g * 0.7152f + color.b * 0.0722f;
         }
     }
 }

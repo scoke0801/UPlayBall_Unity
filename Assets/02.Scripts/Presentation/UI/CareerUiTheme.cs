@@ -80,6 +80,16 @@ namespace Baseball.Presentation.UI
         public static readonly Color ReferenceButton = new(0.82f, 0.83f, 0.82f, 1f);
         public static readonly Color ReferenceButtonHighlight = new(0.91f, 0.92f, 0.90f, 1f);
 
+        // 순위·일정·기록처럼 수치 비교가 핵심인 Ref 표 화면의 고밀도 색상이다.
+        public static readonly Color ReferenceDataCanvas = new Color32(248, 249, 250, 255);
+        public static readonly Color ReferenceDataHeader = new Color32(236, 238, 240, 255);
+        public static readonly Color ReferenceDataGrid = new Color32(185, 190, 198, 255);
+        public static readonly Color ReferenceDataAccent = new Color32(25, 92, 184, 255);
+        public static readonly Color ReferenceDataFocus = new Color32(218, 245, 253, 255);
+        public static readonly Color ReferenceDataInk = new Color32(35, 39, 45, 255);
+        public static readonly Color ReferenceDataInkSecondary = new Color32(67, 73, 82, 255);
+        public static readonly Color ReferenceDataScrollbar = new Color32(224, 227, 230, 255);
+
         // 선수단의 고밀도 카드 목록은 밝은 본문과 어두운 제목 띠를 분리한다.
         public static readonly Color RosterPanel = new(0.94f, 0.96f, 0.98f, 1f);
         public static readonly Color RosterHeader = new(0.075f, 0.16f, 0.26f, 1f);

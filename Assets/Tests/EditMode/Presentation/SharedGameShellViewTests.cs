@@ -1,5 +1,6 @@
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.Career;
+using Baseball.Presentation.Owner;
 using Baseball.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -71,6 +72,28 @@ namespace Baseball.Tests.EditMode.Presentation
         }
 
         [Test]
+        public void BindContext_다섯개가넘는Owner하위탭은Header전체폭에균등배치한다()
+        {
+            _view.BindProfile(OwnerModeUiProfileFactory.Create());
+            _view.BindContext(new ShellContextModel(
+                OwnerNavigationRoutes.LeagueStandings,
+                "순위표",
+                string.Empty,
+                "구단주 모드"));
+
+            RectTransform subTabs = (RectTransform)_view.transform.Find("ContextHeader/SubTabs");
+            HorizontalLayoutGroup layout = subTabs.GetComponent<HorizontalLayoutGroup>();
+            LayoutElement schedule = subTabs.Find(
+                OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId).GetComponent<LayoutElement>();
+
+            Assert.That(subTabs.childCount, Is.EqualTo(7));
+            Assert.That(subTabs.anchorMin.x, Is.EqualTo(0.06f).Within(0.001f));
+            Assert.That(layout.childForceExpandWidth, Is.True);
+            Assert.That(schedule.flexibleWidth, Is.EqualTo(1f));
+            Assert.That(_view.transform.Find("ContextHeader/Title").gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
         public void BindStatus_Provider가준비한모드전용Slot만표시한다()
         {
             _view.BindStatus(new ShellStatusModel(
@@ -90,6 +113,70 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(slots.childCount, Is.EqualTo(2));
             Assert.That(slots.Find("Condition/Value").GetComponent<Text>().text, Is.EqualTo("좋음"));
             Assert.That(slots.Find("Fatigue/Value").GetComponent<Text>().text, Is.EqualTo("낮음"));
+        }
+
+        [Test]
+        public void BindProfile_Owner상단의주요문구와보조문구영역이겹치지않는다()
+        {
+            _view.BindProfile(OwnerModeUiProfileFactory.Create());
+
+            RectTransform brandPrimary = (RectTransform)_view.transform.Find("GlobalTopBar/Brand/GameName");
+            RectTransform brandSecondary = (RectTransform)_view.transform.Find("GlobalTopBar/Brand/ModeName");
+            RectTransform teamPrimary = (RectTransform)_view.transform.Find("GlobalTopBar/TeamStatus/TeamName");
+            RectTransform teamSecondary = (RectTransform)_view.transform.Find("GlobalTopBar/TeamStatus/CommonStatus");
+
+            Assert.That(brandSecondary.anchorMax.y, Is.LessThanOrEqualTo(brandPrimary.anchorMin.y));
+            Assert.That(teamSecondary.anchorMax.y, Is.LessThanOrEqualTo(teamPrimary.anchorMin.y));
+            Assert.That(brandSecondary.offsetMax.y, Is.LessThan(brandPrimary.offsetMin.y));
+            Assert.That(teamSecondary.offsetMax.y, Is.LessThan(teamPrimary.offsetMin.y));
+        }
+
+        [Test]
+        public void BindProfile_Owner상점아이콘은라벨영역을침범하지않는다()
+        {
+            _root.GetComponent<RectTransform>().sizeDelta = new Vector2(1920f, 1080f);
+            _view.BindProfile(OwnerModeUiProfileFactory.Create());
+
+            RectTransform entries = (RectTransform)_view.transform.Find("PrimaryNavigation/Entries");
+            LayoutRebuilder.ForceRebuildLayoutImmediate(entries);
+            Canvas.ForceUpdateCanvases();
+
+            Transform shop = entries.Find(OwnerNavigationRoutes.Shop);
+            RectTransform icon = (RectTransform)shop.Find("Icon");
+            RectTransform label = (RectTransform)shop.Find("Label");
+            var iconCorners = new Vector3[4];
+            var labelCorners = new Vector3[4];
+            icon.GetWorldCorners(iconCorners);
+            label.GetWorldCorners(labelCorners);
+
+            Assert.That(icon.GetComponent<AspectRatioFitter>(), Is.Null);
+            Assert.That(icon.rect.size, Is.EqualTo(new Vector2(48f, 36f)));
+            Assert.That(iconCorners[0].y, Is.GreaterThanOrEqualTo(labelCorners[1].y));
+        }
+
+        [Test]
+        public void BindStatus_긴자금값은Slot안에서폭을확보하고넘침을막는다()
+        {
+            _view.BindStatus(new ShellStatusModel(
+                "2024 시즌",
+                "1주차",
+                "Rookie",
+                "강릉 웨이브즈",
+                string.Empty,
+                string.Empty,
+                new[]
+                {
+                    new ShellStatusSlotModel("Money", "자금", "10억 5,229만 6,000원")
+                }));
+
+            Transform moneySlot = _view.transform.Find("GlobalTopBar/ModeStatusSlots/Money");
+            LayoutElement layout = moneySlot.GetComponent<LayoutElement>();
+            Text value = moneySlot.Find("Value").GetComponent<Text>();
+
+            Assert.That(layout.preferredWidth, Is.GreaterThan(112f));
+            Assert.That(layout.preferredWidth, Is.LessThanOrEqualTo(184f));
+            Assert.That(value.horizontalOverflow, Is.EqualTo(HorizontalWrapMode.Wrap));
+            Assert.That(value.resizeTextForBestFit, Is.True);
         }
 
         [Test]
@@ -134,7 +221,9 @@ namespace Baseball.Tests.EditMode.Presentation
             bool wasRequested = false;
             _view.SettingsRequested += () => wasRequested = true;
 
-            _view.transform.Find("GlobalTopBar/GlobalSettings").GetComponent<Button>().onClick.Invoke();
+            Transform settings = _view.transform.Find("GlobalTopBar/GlobalSettings");
+            Assert.That(settings.GetComponent<Image>().raycastTarget, Is.True);
+            settings.GetComponent<Button>().onClick.Invoke();
 
             Assert.That(wasRequested, Is.True);
         }

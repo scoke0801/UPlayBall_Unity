@@ -27,7 +27,7 @@ namespace Baseball.Presentation.SharedUI
         public const float LineupSlotWidth = 80f;
 
         /// <summary>Roster 역할 슬롯에서 사용하는 세로형 카드 높이다.</summary>
-        public const float LineupSlotHeight = 148f;
+        public const float LineupSlotHeight = 120f;
 
         private static Color NeutralSurface => new Color32(9, 12, 20, 255);
         private static Color HighlightedSurface => new Color32(32, 44, 65, 255);
@@ -48,6 +48,7 @@ namespace Baseball.Presentation.SharedUI
         private Image _portrait;
         private Image _portraitBacking;
         private RectTransform _nameBand;
+        private RectTransform _costStars;
         private Outline _outline;
         private Button _button;
         private CanvasGroup _canvasGroup;
@@ -59,9 +60,9 @@ namespace Baseball.Presentation.SharedUI
         private Text _statusText;
         private Image _assignmentBadge;
         private Text _assignmentText;
+        private Image _teamEmblem;
         private PlayerMiniCardModel _model;
         private bool _usesLineupSlotLayout;
-        private bool _hasCompactSurfaces;
 
         /// <summary>
         /// 사용자가 상세 보기 대상으로 카드를 선택했을 때 현재 모델을 전달한다.
@@ -98,7 +99,9 @@ namespace Baseball.Presentation.SharedUI
             cardObject.transform.SetParent(parent, false);
             RectTransform rect = cardObject.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(PreferredWidth, PreferredHeight);
-            return cardObject.AddComponent<PlayerMiniCardView>();
+            PlayerMiniCardView view = cardObject.AddComponent<PlayerMiniCardView>();
+            view.EnsureHierarchy();
+            return view;
         }
 
         /// <summary>
@@ -128,6 +131,7 @@ namespace Baseball.Presentation.SharedUI
             _portrait.sprite = portrait;
             _portrait.preserveAspect = true;
             _portrait.color = portrait == null ? PortraitSurface : Color.white;
+            if (_teamEmblem != null) _teamEmblem.gameObject.SetActive(false);
             _button.interactable = model.IsInteractable;
             _canvasGroup.alpha = model.VisualState == PlayerMiniCardVisualState.Disabled ? 0.48f : 1f;
 
@@ -155,42 +159,36 @@ namespace Baseball.Presentation.SharedUI
             visual.Initialize(CareerUiVisualRole.FlatSurface);
             RectTransform root = GetComponent<RectTransform>();
             root.sizeDelta = new Vector2(LineupSlotWidth, LineupSlotHeight);
-            _lineupFrame.gameObject.SetActive(false);
+            _lineupFrame.gameObject.SetActive(true);
             _portraitBacking.gameObject.SetActive(false);
-            _nameBand.gameObject.SetActive(false);
-            if (!_hasCompactSurfaces)
-            {
-                // 얇은 프레임과 정보 행을 실제 UI 영역으로 분리해 작은 카드에서도 선명하게 표시한다.
-                AddCompactSurface("LineupPortraitBacking", PortraitSurface, 0.33f, 0.88f);
-                AddCompactSurface("NameBacking", NeutralSurface, 0.235f, 0.335f);
-                AddCompactSurface("DetailsBacking", HighlightedSurface, 0.12f, 0.235f);
-                AddCompactSurface("RoleBacking", NeutralSurface, 0.01f, 0.115f);
-                _hasCompactSurfaces = true;
-            }
-            SetAnchors(_lineupFrame.rectTransform, new Vector2(0f, 0.10f), new Vector2(1f, 0.88f), Vector2.zero, Vector2.zero);
+            _nameBand.gameObject.SetActive(true);
+            _nameBand.GetComponent<PlayerCardSurface>().SetColors(Color.black, Color.black);
+            SetAnchors(_nameBand, new Vector2(.025f, .17f), new Vector2(.975f, .32f), Vector2.zero, Vector2.zero);
+            SetAnchors(_lineupFrame.rectTransform, Vector2.zero, new Vector2(1f, .89f), Vector2.zero, Vector2.zero);
             _portrait.gameObject.SetActive(true);
 
-            SetAnchors(_accentStrip.rectTransform, new Vector2(0.08f, 0.02f), new Vector2(0.92f, 0.04f),
+            SetAnchors(_accentStrip.rectTransform, new Vector2(0.08f, 0.01f), new Vector2(0.92f, 0.025f),
                 Vector2.zero, Vector2.zero);
-            SetAnchors(_portrait.rectTransform, new Vector2(0.05f, 0.335f), new Vector2(0.95f, 0.88f),
+            SetAnchors(_portrait.rectTransform, new Vector2(0.035f, 0.32f), new Vector2(0.965f, 0.88f),
                 Vector2.zero, Vector2.zero);
-            SetAnchors(_positionText.rectTransform, new Vector2(0.04f, 0.89f), new Vector2(0.96f, 1f),
+            SetAnchors(_positionText.rectTransform, new Vector2(0.06f, 0.88f), new Vector2(0.94f, 0.99f),
                 Vector2.zero, Vector2.zero);
-            SetAnchors(_yearText.rectTransform, new Vector2(0.75f, 0.79f), new Vector2(0.94f, 0.87f),
+            SetAnchors(_yearText.rectTransform, new Vector2(0.03f, 0.22f), new Vector2(0.24f, 0.32f),
                 Vector2.zero, Vector2.zero);
-            SetAnchors(_nameText.rectTransform, new Vector2(0.03f, 0.245f), new Vector2(0.97f, 0.335f),
+            SetAnchors(_nameText.rectTransform, new Vector2(0.25f, 0.22f), new Vector2(0.97f, 0.32f),
                 Vector2.zero, Vector2.zero);
-            SetAnchors(_statusText.rectTransform, new Vector2(0.03f, 0.005f), new Vector2(0.97f, 0.09f),
+            SetAnchors(_statusText.rectTransform, new Vector2(0.03f, 0.005f), new Vector2(0.97f, 0.11f),
                 Vector2.zero, Vector2.zero);
-            SetAnchors(_costText.rectTransform, new Vector2(0.46f, 0.12f), new Vector2(0.98f, 0.235f),
+            SetAnchors(_costText.rectTransform, new Vector2(0.47f, 0.115f), new Vector2(0.95f, 0.22f),
                 Vector2.zero, Vector2.zero);
-            SetAnchors(_editionText.rectTransform, new Vector2(0.02f, 0.12f), new Vector2(0.46f, 0.235f),
+            SetAnchors(_editionText.rectTransform, new Vector2(0.035f, 0.115f), new Vector2(0.47f, 0.22f),
                 Vector2.zero, Vector2.zero);
             _positionText.alignment = TextAnchor.MiddleCenter;
             _yearText.alignment = TextAnchor.MiddleCenter;
             _nameText.alignment = TextAnchor.MiddleCenter;
             _statusText.alignment = TextAnchor.MiddleCenter;
-            _accentStrip.gameObject.SetActive(false);
+            _accentStrip.gameObject.SetActive(true);
+            SetAnchors(_accentStrip.rectTransform, new Vector2(.025f, .115f), new Vector2(.975f, .22f), Vector2.zero, Vector2.zero);
             _costText.alignment = TextAnchor.MiddleCenter;
             _editionText.alignment = TextAnchor.MiddleCenter;
             _nameText.fontSize = 11;
@@ -199,12 +197,12 @@ namespace Baseball.Presentation.SharedUI
             _costText.fontSize = 8;
             _editionText.fontSize = 7;
             _statusText.fontSize = 7;
-            SetBestFitRange(_nameText, 10, 13);
-            SetBestFitRange(_positionText, 9, 11);
-            SetBestFitRange(_yearText, 6, 7);
-            SetBestFitRange(_costText, 9, 11);
-            SetBestFitRange(_editionText, 9, 11);
-            SetBestFitRange(_statusText, 10, 12);
+            SetBestFitRange(_nameText, 10, 26);
+            SetBestFitRange(_positionText, 9, 20);
+            SetBestFitRange(_yearText, 9, 18);
+            SetBestFitRange(_costText, 9, 24);
+            SetBestFitRange(_editionText, 9, 20);
+            SetBestFitRange(_statusText, 10, 22);
             ApplyVisualState(_model?.VisualState ?? PlayerMiniCardVisualState.Normal,
                 ParseAccent(_model?.TeamAccentHex));
         }
@@ -214,13 +212,6 @@ namespace Baseball.Presentation.SharedUI
         {
             EnsureHierarchy();
             ApplyVisualState(visualState, ParseAccent(_model?.TeamAccentHex));
-        }
-
-        private void AddCompactSurface(string name, Color color, float bottom, float top)
-        {
-            Image surface = CreateImage(name, transform, color);
-            SetAnchors(surface.rectTransform, new Vector2(0.025f, bottom), new Vector2(0.975f, top), Vector2.zero, Vector2.zero);
-            surface.transform.SetSiblingIndex(1);
         }
 
         private void Awake()
@@ -272,14 +263,18 @@ namespace Baseball.Presentation.SharedUI
             _outline.useGraphicAlpha = false;
 
             _lineupFrame = CreateImage("LineupSubFrame", root, Color.white);
-            _lineupFrame.sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_PortraitMiniFrame_V2");
+            _lineupFrame.sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_Mini_Reference");
             _lineupFrame.preserveAspect = false;
             SetAnchors(_lineupFrame.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             _lineupFrame.gameObject.SetActive(false);
 
             _portraitBacking = CreateImage("PortraitBacking", root, PortraitSurface);
             SetAnchors(_portraitBacking.rectTransform, new Vector2(.025f, .38f), new Vector2(.975f, .975f), Vector2.zero, Vector2.zero);
-            var nameBand = new GameObject("NameBand", typeof(RectTransform), typeof(PlayerCardSurface));
+            var nameBand = new GameObject(
+                "NameBand",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(PlayerCardSurface));
             nameBand.transform.SetParent(root, false);
             _nameBand = (RectTransform)nameBand.transform;
             SetAnchors(_nameBand, new Vector2(.025f, .23f), new Vector2(.975f, .39f), Vector2.zero, Vector2.zero);
@@ -312,17 +307,20 @@ namespace Baseball.Presentation.SharedUI
             SetAnchors(_statusText.rectTransform, Vector2.zero, new Vector2(1f, 0.12f),
                 new Vector2(10f, 1f), new Vector2(-10f, 0f));
             _statusText.gameObject.SetActive(false);
+
         }
 
         private void ApplyVisualState(PlayerMiniCardVisualState visualState, Color accent)
         {
-            _accentStrip.color = accent;
+            _accentStrip.color = _usesLineupSlotLayout && string.IsNullOrWhiteSpace(_model?.TeamAccentHex)
+                ? new Color32(20, 82, 142, 255) : accent;
             _positionText.color = TextSecondary;
             _statusText.color = visualState == PlayerMiniCardVisualState.Warning ? Warning : TextSecondary;
 
             if (_usesLineupSlotLayout)
             {
                 ApplyLineupSlotVisualState(visualState, accent);
+                ApplyEditionFrame();
                 return;
             }
 
@@ -349,6 +347,46 @@ namespace Baseball.Presentation.SharedUI
                     _outline.effectDistance = new Vector2(1f, -1f);
                     break;
             }
+            ApplyEditionFrame();
+        }
+
+        private void ApplyEditionFrame()
+        {
+            if (_model == null || !_model.FrameEdition.HasValue) return;
+            Sprite frame = OwnerPlayerCardFrames.Get(_model.FrameEdition.Value, true);
+            if (frame == null) return;
+            _lineupFrame.sprite = frame;
+            _lineupFrame.color = Color.white;
+            _lineupFrame.gameObject.SetActive(true);
+            _portraitBacking.gameObject.SetActive(false);
+            _nameBand.gameObject.SetActive(false);
+            _editionText.gameObject.SetActive(false);
+            _accentStrip.gameObject.SetActive(false);
+            _portrait.color = _portrait.sprite == null ? Color.clear : Color.white;
+            float top = _usesLineupSlotLayout ? .89f : 1f;
+            Vector2 band = OwnerPlayerCardFrames.GetMiniNameBand(_model.FrameEdition.Value);
+            SetAnchors(_lineupFrame.rectTransform, Vector2.zero, new Vector2(1f, top), Vector2.zero, Vector2.zero);
+            SetAnchors(_portrait.rectTransform, new Vector2(.12f, top * (band.y + .03f)), new Vector2(.88f, top * .86f), Vector2.zero, Vector2.zero);
+            SetAnchors(_nameText.rectTransform, new Vector2(.07f, top * band.x), new Vector2(.76f, top * band.y), Vector2.zero, Vector2.zero);
+            SetAnchors(_yearText.rectTransform, new Vector2(.77f, top * band.x), new Vector2(.94f, top * band.y), Vector2.zero, Vector2.zero);
+            SetAnchors(_costText.rectTransform, new Vector2(.06f, top * .085f), new Vector2(.94f, top * .165f), Vector2.zero, Vector2.zero);
+            SetAnchors(_statusText.rectTransform, new Vector2(.04f, .01f), new Vector2(.96f, top * .085f), Vector2.zero, Vector2.zero);
+            _nameText.color = _yearText.color = new Color32(18, 20, 24, 255);
+            _costText.alignment = _statusText.alignment = TextAnchor.MiddleCenter;
+            if (_model.Cost.HasValue)
+            {
+                if (_costStars == null)
+                {
+                    var row = new GameObject("CostStars", typeof(RectTransform));
+                    row.transform.SetParent(transform, false);
+                    _costStars = (RectTransform)row.transform;
+                }
+                _costStars.gameObject.SetActive(true);
+                SetAnchors(_costStars, new Vector2(.045f, top * .095f), new Vector2(.79f, top * .16f), Vector2.zero, Vector2.zero);
+                OwnerPlayerCardFrames.SetCostStars(_costStars, _model.FrameEdition.Value, _model.Cost.Value);
+                _costText.text = _model.Cost.Value.ToString();
+                SetAnchors(_costText.rectTransform, new Vector2(.81f, top * .085f), new Vector2(.97f, top * .165f), Vector2.zero, Vector2.zero);
+            }
         }
 
         private void ApplyLineupSlotVisualState(PlayerMiniCardVisualState visualState, Color accent)
@@ -359,7 +397,7 @@ namespace Baseball.Presentation.SharedUI
                 : isSelected ? new Color(0.72f, 0.86f, 1f, 1f) : Color.white;
             _surface.color = visualState == PlayerMiniCardVisualState.Warning
                 ? new Color(0.45f, 0.28f, 0.08f, 1f)
-                : isSelected ? SelectedSurface : NeutralSurface;
+                : isSelected ? SelectedSurface : new Color32(238, 238, 232, 255);
             _outline.effectColor = visualState == PlayerMiniCardVisualState.Warning
                 ? CareerUiTheme.Warning
                 : isSelected ? accent : new Color(0.65f, 0.71f, 0.75f, 1f);
@@ -368,23 +406,25 @@ namespace Baseball.Presentation.SharedUI
             _nameText.color = Color.white;
             _yearText.color = TextPrimary;
             _costText.color = TextPrimary;
-            _editionText.color = TextSecondary;
-            _positionText.color = TextPrimary;
+            _editionText.color = TextPrimary;
+            _positionText.color = new Color32(44, 44, 44, 255);
             _statusText.color = visualState == PlayerMiniCardVisualState.Warning
                 ? new Color(1f, 0.76f, 0.30f, 1f)
                 : TextSecondary;
         }
 
-        /// <summary>보유 목록에서 현재 배치된 카드를 초상화 위 배지로 구분한다.</summary>
+        /// <summary>초상을 가리지 않는 상단 배지로 현재 배치 역할을 구분한다.</summary>
         public void SetAssignmentBadge(string assignmentLabel)
         {
             bool isAssigned = !string.IsNullOrWhiteSpace(assignmentLabel);
+            // 배치 라벨과 본래 포지션이 같은 상단 영역에서 동시에 그려지지 않게 한다.
+            if (_positionText != null) _positionText.gameObject.SetActive(!isAssigned);
             if (_assignmentBadge == null && !isAssigned) return;
             if (_assignmentBadge == null)
             {
                 _assignmentBadge = CreateImage("AssignmentBadge", transform, new Color(0.04f, 0.36f, 0.65f, 0.97f));
-                SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, 0.57f),
-                    new Vector2(0.97f, 0.73f), Vector2.zero, Vector2.zero);
+                SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, 0.87f),
+                    new Vector2(0.97f, 0.985f), Vector2.zero, Vector2.zero);
                 _assignmentText = CreateText("AssignmentLabel", _assignmentBadge.transform, 12,
                     FontStyle.Bold, TextAnchor.MiddleCenter, Color.white);
                 SetAnchors(_assignmentText.rectTransform, Vector2.zero, Vector2.one,
@@ -394,6 +434,20 @@ namespace Baseball.Presentation.SharedUI
             _assignmentBadge.gameObject.SetActive(isAssigned);
             _assignmentText.text = isAssigned ? "배치 중 · " + assignmentLabel : string.Empty;
             _assignmentBadge.transform.SetAsLastSibling();
+        }
+
+        /// <summary>원 소속 구단의 정본 엠블럼을 초상 왼쪽에 표시한다.</summary>
+        public void SetTeamIdentity(string teamDisplayName)
+        {
+            if (_teamEmblem == null)
+            {
+                _teamEmblem = CreateImage("TeamEmblem", transform, Color.white);
+                SetAnchors(_teamEmblem.rectTransform, new Vector2(.04f, .65f), new Vector2(.35f, .86f),
+                    Vector2.zero, Vector2.zero);
+            }
+            bool shown = !string.IsNullOrWhiteSpace(teamDisplayName) &&
+                TeamEmblemSprites.TryApply(_teamEmblem, 0, teamDisplayName);
+            _teamEmblem.gameObject.SetActive(shown);
         }
 
         private void HandleSelected()
