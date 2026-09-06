@@ -93,6 +93,10 @@ namespace Baseball.Game.Guide
             message = default;
             if (_guide == null || !_guide.TryDequeue(context, out message))
                 return false;
+            // 화면 진입·런타임 재연결 전에 현재 게임에도 표시 이력을 반영한다.
+            if (message.Mode == GuideModeScope.Owner && _ownerModeManager != null &&
+                _ownerModeManager.HasActiveRuntime)
+                _ownerModeManager.Runtime.SetGuideRepeatState(CaptureRepeatState());
             QueueChanged?.Invoke();
             return true;
         }
@@ -104,7 +108,9 @@ namespace Baseball.Game.Guide
         {
             if (_guide == null)
                 throw new InvalidOperationException("Guide가 초기화되지 않았습니다.");
+            _guide.ClearPending();
             _guide.RepeatState.Restore(state);
+            QueueChanged?.Invoke();
         }
 
         /// <summary>구단주 UI 진입처럼 Presentation 경계에서 확정되는 단순 Fact를 안정된 Save identity로 발행한다.</summary>
@@ -118,6 +124,16 @@ namespace Baseball.Game.Guide
             string eventId,
             IReadOnlyDictionary<string, string> payload)
         {
+            return PublishOwnerFact(factType, eventId, payload, null);
+        }
+
+        /// <summary>표시 payload와 반복 제어 context를 분리해 구단주 Fact를 발행한다.</summary>
+        public GuideEnqueueResult PublishOwnerFact(
+            string factType,
+            string eventId,
+            IReadOnlyDictionary<string, string> payload,
+            IReadOnlyDictionary<string, string> runtimeContext)
+        {
             if (_ownerModeManager == null || !_ownerModeManager.HasActiveRuntime)
                 return new GuideEnqueueResult(0, 0, "활성 구단주 Runtime이 없습니다.");
             ManagerHistoricalRuntimeState runtime = _ownerModeManager.Runtime;
@@ -125,7 +141,8 @@ namespace Baseball.Game.Guide
                 GuideModeScope.Owner,
                 factType,
                 CreateOwnerIdentity(runtime, eventId),
-                payload));
+                payload,
+                runtimeContext));
         }
 
         private void HandleCareerChanged()
@@ -142,6 +159,7 @@ namespace Baseball.Game.Guide
             if (!ReferenceEquals(_observedCareer, career))
             {
                 ClearPendingIfNeeded();
+                _guide.RepeatState.Restore(new GuideRepeatStateData());
                 _observedCareer = career;
                 _observedMatch = null;
                 Publish(_careerAdapter.CreateFirstEntryFact(career, CreateCareerIdentity(
@@ -183,6 +201,8 @@ namespace Baseball.Game.Guide
             if (!ReferenceEquals(_observedOwnerRuntime, runtime))
             {
                 ClearPendingIfNeeded();
+                // GuideManager가 새 게임 생성·불러오기보다 늦게 초기화돼도 저장 이력을 먼저 복원한다.
+                _guide.RepeatState.Restore(runtime.GuideRepeatState);
                 _observedOwnerRuntime = runtime;
                 _publishedOwnerRosterRevision = UnknownRosterRevision;
                 Publish(new GuideFactBuilder(

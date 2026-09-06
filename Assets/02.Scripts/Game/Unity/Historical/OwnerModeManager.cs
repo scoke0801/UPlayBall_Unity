@@ -86,6 +86,7 @@ namespace Baseball.Game.Historical
     public sealed partial class OwnerModeManager : ManagerBehaviour<OwnerModeManager>
     {
         private const string LosingStreakSignatureCardId = "OWNER-TACTIC-BREAK-LOSING-STREAK";
+        public const int MaximumTacticPlanningGames = 10;
         private string[] _availableTeamColorIds = Array.Empty<string>();
         private string[] _availableTacticCardIds = Array.Empty<string>();
         private TeamColorDefinition[] _teamColors = Array.Empty<TeamColorDefinition>();
@@ -301,6 +302,27 @@ namespace Baseball.Game.Historical
             NotifyRuntimeChanged();
         }
 
+        /// <summary>사용자 확인을 받은 구단주 모드 디스크 저장을 삭제한다. 현재 Runtime은 별도의 진행 상태이므로 유지한다.</summary>
+        public void DeleteSave()
+        {
+            _saveStore.Delete();
+            LastError = string.Empty;
+            NotifyRuntimeChanged();
+        }
+
+        /// <summary>타이틀의 구단주 저장 슬롯을 삭제하고 메모리에 남은 진행 세션도 함께 폐기한다.</summary>
+        public void DeleteSaveAndDiscardRuntime()
+        {
+            _saveStore.Delete();
+            Runtime = null;
+            NewGameFlow = null;
+            CurrentPregame = null;
+            LastMatch = null;
+            LastUnlockedSignatureCardId = string.Empty;
+            LastError = string.Empty;
+            NotifyRuntimeChanged();
+        }
+
         public ManagerWeeklyAdvanceResult AdvanceWeek()
         {
             var studiesBefore = new HashSet<string>(StringComparer.Ordinal);
@@ -316,6 +338,7 @@ namespace Baseball.Game.Historical
         /// <summary>남은 구단 경기가 없을 때 급여·계약·재무를 마감하고 다음 운영 시즌을 연다.</summary>
         public ManagerSeasonAdvanceResult AdvanceSeason()
         {
+            EnsureRegularSeasonSimulationIsNotRunning();
             ManagerSeasonAdvanceResult result = _coordinator.AdvanceSeason(RequireRuntime());
             if (result.IsApplied)
             {
@@ -455,6 +478,142 @@ namespace Baseball.Game.Historical
                 _availableTacticCardIds);
         }
 
+        /// <summary>보유 카드의 1군 등록과 선택 프리셋 변경을 저장하지 않고 함께 검증한다.</summary>
+        public OwnerActiveRosterChangePreview PreviewActiveRosterChange(
+            string outgoingCardId,
+            string incomingCardId,
+            LineupPresetState preset)
+        {
+            if (preset == null) throw new ArgumentNullException(nameof(preset));
+            return BuildActiveRosterChangePreview(
+                new[] { new OwnerActiveRosterReplacement(outgoingCardId, incomingCardId) },
+                preset);
+        }
+
+        /// <summary>기존 저장 전 후보에 1군 교체 한 건을 더 누적하고 전체 후보를 다시 검증한다.</summary>
+        public OwnerActiveRosterChangePreview AppendActiveRosterChange(
+            OwnerActiveRosterChangePreview preview,
+            string outgoingCardId,
+            string incomingCardId,
+            LineupPresetState preset)
+        {
+            if (preview == null) throw new ArgumentNullException(nameof(preview));
+            if (preset == null) throw new ArgumentNullException(nameof(preset));
+            var replacements = new OwnerActiveRosterReplacement[preview.ReplacementCount + 1];
+            for (int index = 0; index < preview.ReplacementCount; index++)
+                replacements[index] = preview.Replacements[index];
+            replacements[replacements.Length - 1] =
+                new OwnerActiveRosterReplacement(outgoingCardId, incomingCardId);
+            return BuildActiveRosterChangePreview(
+                replacements,
+                preset,
+                preview.ClearedTeamColorCount);
+        }
+
+        /// <summary>누적한 1군 교체는 유지하고 역할 배치만 바꾼 후보를 전체 규칙으로 다시 검증한다.</summary>
+        public OwnerActiveRosterChangePreview UpdateActiveRosterChangePreset(
+            OwnerActiveRosterChangePreview preview,
+            LineupPresetState preset)
+        {
+            if (preview == null) throw new ArgumentNullException(nameof(preview));
+            if (preset == null) throw new ArgumentNullException(nameof(preset));
+            return BuildActiveRosterChangePreview(
+                preview.Replacements,
+                preset,
+                preview.ClearedTeamColorCount);
+        }
+
+        /// <summary>재검증된 1군 카드 교체와 선택 프리셋을 한 번의 사용자 확정으로 적용한다.</summary>
+        public void ApplyActiveRosterChange(OwnerActiveRosterChangePreview preview)
+        {
+            if (preview == null) throw new ArgumentNullException(nameof(preview));
+            OwnerActiveRosterChangePreview validated = BuildActiveRosterChangePreview(
+                preview.Replacements,
+                preview.Preset);
+            if (validated.Validation.Status != LineupPresetValidationStatus.Valid)
+                throw new InvalidOperationException("현재 규칙을 통과하지 못한 1군 교체는 저장할 수 없습니다.");
+
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            runtime.ApplyPlayerActiveRosterChange(validated.Roster, validated.PlayerStatus);
+            runtime.ManagerMode.UpsertLineupPreset(validated.Preset);
+            ConfigureTeamColors(_contentProvider.Load(), runtime.PlayerTeamSeasonKey);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+        }
+
+        private OwnerActiveRosterChangePreview BuildActiveRosterChangePreview(
+            IReadOnlyList<OwnerActiveRosterReplacement> replacements,
+            LineupPresetState preset,
+            int previouslyClearedTeamColorCount = 0)
+        {
+            if (replacements == null) throw new ArgumentNullException(nameof(replacements));
+            if (replacements.Count == 0)
+                throw new ArgumentException("1군 교체 후보가 한 건 이상 필요합니다.", nameof(replacements));
+            if (preset == null) throw new ArgumentNullException(nameof(preset));
+            if (previouslyClearedTeamColorCount < 0 ||
+                previouslyClearedTeamColorCount > LineupPresetState.TeamColorSlotCount)
+                throw new ArgumentOutOfRangeException(nameof(previouslyClearedTeamColorCount));
+
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            CurrentRosterState candidateRoster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            TeamSeasonPlayerStatusState candidateStatus =
+                runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey);
+            for (int replacementIndex = 0; replacementIndex < replacements.Count; replacementIndex++)
+            {
+                OwnerActiveRosterReplacement replacement = replacements[replacementIndex] ??
+                    throw new ArgumentException("1군 교체 후보는 null일 수 없습니다.", nameof(replacements));
+                if (!runtime.TryGetOwnedCard(replacement.IncomingCardId, out _))
+                    throw new InvalidOperationException("보유하지 않은 카드는 1군에 등록할 수 없습니다.");
+                if (!runtime.WorldCardCatalog.TryGetCard(
+                        replacement.IncomingCardId,
+                        out PlayerCardDefinition incomingCard))
+                    throw new InvalidOperationException("등록할 카드 원본을 찾을 수 없습니다.");
+
+                ActiveRosterEntry outgoing = FindRosterEntry(candidateRoster, replacement.OutgoingCardId);
+                PlayerSeasonDefinition incomingSeason = runtime.WorldCardCatalog.GetPlayerSeason(incomingCard);
+                candidateRoster = OwnerActiveRosterChangeBuilder.ReplaceCard(
+                    candidateRoster,
+                    outgoing.CardId,
+                    incomingCard,
+                    incomingSeason);
+                candidateStatus = OwnerActiveRosterChangeBuilder.ReplacePlayerStatus(
+                    candidateStatus,
+                    outgoing.PlayerPersonId,
+                    incomingSeason.PlayerPersonId,
+                    Balance.ConditionChemistry.NeutralMatchCondition);
+            }
+
+            string[] candidateTeamColorIds = ResolveAvailableTeamColorIds(candidateRoster);
+            LineupPresetState candidatePreset = OwnerActiveRosterChangeBuilder.ClearUnavailableTeamColors(
+                preset,
+                candidateTeamColorIds,
+                out int newlyClearedTeamColorCount);
+            LineupPresetValidationResult validation = _pregameService.ValidateLineupPreset(
+                runtime,
+                candidatePreset,
+                candidateRoster,
+                candidateStatus,
+                candidateTeamColorIds,
+                _availableTacticCardIds);
+            return new OwnerActiveRosterChangePreview(
+                replacements,
+                candidateRoster,
+                candidateStatus,
+                candidatePreset,
+                validation,
+                previouslyClearedTeamColorCount + newlyClearedTeamColorCount);
+        }
+
+        private static ActiveRosterEntry FindRosterEntry(CurrentRosterState roster, string cardId)
+        {
+            for (int index = 0; index < roster.Entries.Count; index++)
+            {
+                ActiveRosterEntry entry = roster.Entries[index];
+                if (string.Equals(entry.CardId, cardId, StringComparison.Ordinal)) return entry;
+            }
+            throw new InvalidOperationException("교체할 1군 카드를 찾을 수 없습니다.");
+        }
+
         /// <summary>현재 로스터에서 활성화된 TeamColor 후보 Definition을 안정된 순서로 반환한다.</summary>
         public IReadOnlyList<TeamColorDefinition> GetAvailableTeamColors()
         {
@@ -535,9 +694,88 @@ namespace Baseball.Game.Historical
             for (int index = 0; index < definitions.Length; index++)
                 definitions[index] = ResolveAvailableTacticCard(tacticCardIds[index]);
             _ = new TacticLoadoutState(definitions);
+            ScheduledGameState nextGame = runtime.ManagerMode.LiveSeason.NextPlayerGame;
+            if (nextGame != null)
+            {
+                ValidateScheduledTacticInventory(runtime, nextGame, tacticCardIds);
+                nextGame.PlanTactics(tacticCardIds);
+            }
             runtime.ManagerMode.UpsertLineupPreset(CopySelectedPreset(null, tacticCardIds));
             InvalidatePregame();
             NotifyRuntimeChanged();
+        }
+
+        /// <summary>앞으로 열릴 최대 10경기 중 한 경기의 작전카드를 보유 수량까지 예약 검증해 저장한다.</summary>
+        public void ConfigureScheduledGameTactics(int gameId, IReadOnlyList<string> tacticCardIds)
+        {
+            tacticCardIds ??= Array.Empty<string>();
+            if (tacticCardIds.Count > LineupPresetState.MaximumTacticCardCount)
+                throw new ArgumentException("작전카드는 최대 두 장까지 장착할 수 있습니다.", nameof(tacticCardIds));
+
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            ManagerModeRuntimeState mode = runtime.ManagerMode;
+            ScheduledGameState target = FindConfigurableTacticGame(mode.LiveSeason, gameId);
+            var definitions = new TacticCardDefinition[tacticCardIds.Count];
+            for (int index = 0; index < definitions.Length; index++)
+                definitions[index] = ResolveAvailableTacticCard(tacticCardIds[index]);
+            _ = new TacticLoadoutState(definitions);
+            ValidateScheduledTacticInventory(runtime, target, tacticCardIds);
+
+            target.PlanTactics(tacticCardIds);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+        }
+
+        private static ScheduledGameState FindConfigurableTacticGame(ManagerLiveSeasonState season, int gameId)
+        {
+            int futureIndex = 0;
+            for (int index = 0; index < season.Schedule.Games.Count; index++)
+            {
+                ScheduledGameState game = season.Schedule.Games[index];
+                if (game.IsCompleted || !game.IncludesTeam(season.PlayerTeamId)) continue;
+                if (futureIndex >= MaximumTacticPlanningGames) break;
+                if (game.GameId == gameId) return game;
+                futureIndex++;
+            }
+            throw new InvalidOperationException("작전카드는 앞으로 열릴 최대 10경기에만 미리 배치할 수 있습니다.");
+        }
+
+        private void ValidateScheduledTacticInventory(
+            ManagerHistoricalRuntimeState runtime,
+            ScheduledGameState target,
+            IReadOnlyList<string> candidateIds)
+        {
+            var reserved = new Dictionary<string, int>(StringComparer.Ordinal);
+            ManagerModeRuntimeState mode = runtime.ManagerMode;
+            IReadOnlyList<ScheduledGameState> games = mode.LiveSeason.Schedule.Games;
+            for (int gameIndex = 0; gameIndex < games.Count; gameIndex++)
+            {
+                ScheduledGameState game = games[gameIndex];
+                if (game.IsCompleted || ReferenceEquals(game, target) ||
+                    !game.IncludesTeam(mode.LiveSeason.PlayerTeamId)) continue;
+                IReadOnlyList<string> ids = game.HasTacticPlan
+                    ? game.PlannedTacticCardIds
+                    : ReferenceEquals(game, mode.LiveSeason.NextPlayerGame)
+                        ? mode.GetSelectedLineupPreset().DefaultTacticCardIds
+                        : Array.Empty<string>();
+                AddReservedTactics(reserved, ids);
+            }
+            AddReservedTactics(reserved, candidateIds);
+
+            foreach (KeyValuePair<string, int> pair in reserved)
+                if (pair.Value > runtime.TacticCollection.GetCount(pair.Key))
+                    throw new InvalidOperationException(
+                        $"{GetTacticDisplayName(pair.Key)} 작전카드는 예정 경기 배치 수보다 보유 수량이 부족합니다.");
+        }
+
+        private static void AddReservedTactics(Dictionary<string, int> reserved, IReadOnlyList<string> ids)
+        {
+            for (int index = 0; index < ids.Count; index++)
+            {
+                string id = ids[index];
+                reserved.TryGetValue(id, out int count);
+                reserved[id] = count + 1;
+            }
         }
 
         /// <summary>구단 선택부터 25인 스타터 로스터 확인까지 새 게임 Draft를 시작한다.</summary>
@@ -655,6 +893,7 @@ namespace Baseball.Game.Historical
             IMatchEventSink eventSink = null,
             MatchExecutionProfile? executionProfile = null)
         {
+            EnsureRegularSeasonSimulationIsNotRunning();
             ManagerPregamePreparation preparation = CurrentPregame ?? PrepareNextGame();
             if (!preparation.CanStartGame)
                 throw new InvalidOperationException("현재 경기 준비 상태로 경기를 시작할 수 없습니다.");
@@ -666,6 +905,38 @@ namespace Baseball.Game.Historical
             CurrentPregame = null;
             NotifyRuntimeChanged();
             return LastMatch;
+        }
+
+        /// <summary>남은 정규시즌을 중계 없이 완주하되 경기별 후처리와 Signature 해금은 그대로 적용한다.</summary>
+        public ManagerRegularSeasonCompletionResult CompleteRegularSeason()
+        {
+            EnsureRegularSeasonSimulationIsNotRunning();
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            CurrentPregame = null;
+            LastUnlockedSignatureCardId = string.Empty;
+            bool hasUnlockedSignature = false;
+            try
+            {
+                ManagerRegularSeasonCompletionResult result = _matchService.CompleteRegularSeason(
+                    runtime,
+                    matchResult =>
+                    {
+                        LastMatch = matchResult;
+                        if (!TryUnlockLosingStreakSignature()) return;
+                        hasUnlockedSignature = true;
+                        LastUnlockedSignatureCardId = LosingStreakSignatureCardId;
+                    });
+                LastUnlockedSignatureCardId = hasUnlockedSignature
+                    ? LosingStreakSignatureCardId
+                    : string.Empty;
+                return result;
+            }
+            finally
+            {
+                RefreshAvailableTacticCards();
+                CurrentPregame = null;
+                NotifyRuntimeChanged();
+            }
         }
 
         public TeamStaffEffectProfile GetStaffEffects()
@@ -823,37 +1094,12 @@ namespace Baseball.Game.Historical
             ShopPurchaseResult result = shop.Purchase(productId);
             if (result.IsSuccess)
             {
-                PublishScoutAcquisitionFacts(product, result);
                 PublishSkillBlockAcquisitionFacts(product, result);
                 RefreshAvailableTacticCards();
                 InvalidatePregame();
                 NotifyRuntimeChanged();
             }
             return result;
-        }
-
-        private void PublishScoutAcquisitionFacts(ShopProductDefinition product, ShopPurchaseResult result)
-        {
-            GuideManager guide = GuideManager.Instance;
-            if (product == null || product.Kind != ShopProductKind.PlayerCardPack || guide == null || !guide.IsAvailable)
-                return;
-            for (int index = 0; index < result.Items.Length; index++)
-            {
-                ShopGrantedItem item = result.Items[index];
-                if (!item.IsNew || !Runtime.WorldCardCatalog.TryGetCard(item.ItemId, out PlayerCardDefinition card))
-                    continue;
-                PlayerSeasonDefinition season = Runtime.WorldCardCatalog.GetPlayerSeason(card);
-                var payload = new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["playerName"] = item.DisplayName,
-                    ["cost"] = season.Cost.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    ["edition"] = card.Edition.ToString()
-                };
-                guide.PublishOwnerFact(
-                    "ScoutNewCardAcquired",
-                    $"owner-scout-card:{Runtime.ShopPurchaseHistory.TotalPurchaseCount}:{card.CardId}",
-                    payload);
-            }
         }
 
         public CardEnhancementResult EnhanceOwnedCard(string cardId)
@@ -874,16 +1120,9 @@ namespace Baseball.Game.Historical
         private void PublishSkillBlockAcquisitionFacts(ShopProductDefinition product, ShopPurchaseResult result)
         {
             if (product == null || product.Kind != ShopProductKind.SkillBlockPack) return;
-            for (int index = 0; index < result.Items.Length; index++)
-            {
-                ShopGrantedItem item = result.Items[index];
-                PublishGrowthFact("SkillBlockAcquired", string.Empty,
-                    new Dictionary<string, string>(StringComparer.Ordinal)
-                    {
-                        ["definitionId"] = item.ItemId,
-                        ["rarity"] = item.GradeLabel
-                    });
-            }
+            if (result.Items == null || result.Items.Length == 0) return;
+            // 개별 획득 내역은 결과 화면에서 보여 준다. 가이드는 사용법만 게임당 한 번 안내한다.
+            PublishGrowthFact("SkillBlockAcquired", string.Empty, null);
         }
 
         private void PublishCompletedStudyFacts(HashSet<string> studiesBefore)
@@ -1018,7 +1257,16 @@ namespace Baseball.Game.Historical
         public OwnerModeRosterStatus BuildRosterStatus()
         {
             ManagerHistoricalRuntimeState runtime = RequireRuntime();
-            CurrentRosterState roster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            return BuildRosterStatus(runtime.GetRoster(runtime.PlayerTeamSeasonKey));
+        }
+
+        /// <summary>저장 전 후보 1군을 실제 Resolver로 평가해 Preview에 제공한다.</summary>
+        public OwnerModeRosterStatus BuildRosterStatus(CurrentRosterState roster)
+        {
+            if (roster == null) throw new ArgumentNullException(nameof(roster));
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            if (!string.Equals(roster.TeamSeasonKey, runtime.PlayerTeamSeasonKey, StringComparison.Ordinal))
+                throw new ArgumentException("플레이어 구단 로스터만 평가할 수 있습니다.", nameof(roster));
             ActiveRosterCompositionRule rule = ActiveRosterCompositionRule.Standard;
             int hitters = 0;
             int pitchers = 0;
@@ -1037,7 +1285,7 @@ namespace Baseball.Game.Historical
                 pitchers,
                 foreignPlayers,
                 new ActiveRosterValidator(rule).Validate(roster),
-                BuildTeamStrength(runtime.PlayerTeamSeasonKey),
+                new RosterStrengthResolver().Resolve(roster, runtime.WorldCardCatalog),
                 new RosterCostResolver(rule).Resolve(roster, runtime.WorldCardCatalog));
         }
 
@@ -1186,8 +1434,6 @@ namespace Baseball.Game.Historical
         private void ApplyStarterLoadout(ManagerModeRuntimeState mode)
         {
             LineupPresetState source = mode.GetSelectedLineupPreset();
-            var tacticIds = new string[LineupPresetState.MaximumTacticCardCount];
-            for (int index = 0; index < tacticIds.Length; index++) tacticIds[index] = _tacticCards[index].CardId;
             string[] teamColorIds = SelectStarterTeamColorIds();
             mode.UpsertLineupPreset(new LineupPresetState(
                 source.PresetId,
@@ -1200,7 +1446,7 @@ namespace Baseball.Game.Historical
                 source.SetupPitcherCardId,
                 source.CloserPitcherCardId,
                 teamColorIds,
-                tacticIds));
+                Array.Empty<string>()));
         }
 
         private void EnsureStarterTacticCollection()
@@ -1287,6 +1533,18 @@ namespace Baseball.Game.Historical
                 _balance,
                 teamColors: _teamColors,
                 tacticCards: _tacticCards);
+        }
+
+        private string[] ResolveAvailableTeamColorIds(CurrentRosterState roster)
+        {
+            IReadOnlyList<TeamColorRosterCard> rosterCards = TeamColorResolver.CreateRosterCards(
+                roster,
+                Runtime.WorldCardCatalog);
+            IReadOnlyList<TeamColorCandidate> candidates = new TeamColorResolver().Resolve(rosterCards, _teamColors);
+            var ids = new string[candidates.Count];
+            for (int index = 0; index < ids.Length; index++)
+                ids[index] = candidates[index].Definition.TeamColorId;
+            return ids;
         }
 
         private string[] SelectStarterTeamColorIds()

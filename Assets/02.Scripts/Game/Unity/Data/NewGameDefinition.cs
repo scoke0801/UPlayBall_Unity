@@ -244,8 +244,8 @@ namespace Baseball.Game.Data
         [SerializeField] private string _ownerPlayerTeamSeasonKey = string.Empty;
         [SerializeField] private string _ownerLeagueInstanceId = "OWNER-ROOKIE-01";
         [SerializeField, Min(0)] private long _ownerInitialMoney = 1_000_000_000L;
-        [SerializeField, Min(0)] private int _ownerInitialScoutingPoints = 100;
-        [SerializeField, Min(0)] private int _ownerInitialDevelopmentPoints = 100;
+        [SerializeField, Min(0)] private int _ownerInitialScoutingPoints = 10_000;
+        [SerializeField, Min(0)] private int _ownerInitialDevelopmentPoints = 3_000;
         [SerializeField, Min(10)] private int _ownerMaximumMainCost = 60;
         [SerializeField, Range(0, 30)] private int _ownerMaximumFillerRerolls = 30;
         [SerializeField] private OwnerStarterTacticData[] _ownerStarterTactics = Array.Empty<OwnerStarterTacticData>();
@@ -259,10 +259,10 @@ namespace Baseball.Game.Data
             new("대전 호크스", 224, 139, 47),
             new("대구 크라운", 195, 166, 52),
             new("창원 블레이즈", 216, 76, 43),
-            new("울산 가디언즈", 52, 133, 89),
+            new("서울 가디언즈", 52, 133, 89),
             new("전주 팔콘스", 103, 119, 138),
-            new("제주 돌핀스", 38, 171, 197),
-            new("춘천 스톰", 96, 108, 145)
+            new("인천 돌핀스", 38, 171, 197),
+            new("부산 스톰", 96, 108, 145)
         };
         [SerializeField] private TeamArchetypeData[] _archetypes =
         {
@@ -381,7 +381,7 @@ namespace Baseball.Game.Data
             new(0.35d, 0.35d, 0.15d, 0.15d);
 
         [Header("Career Season")]
-        [SerializeField, Min(1)] private int _regularSeasonGamesPerTeam = 80;
+        [SerializeField, Min(1)] private int _regularSeasonGamesPerTeam = CareerSeasonBalance.DefaultRegularSeasonGamesPerTeam;
         [SerializeField, Min(1)] private int _startingRotationSize = 5;
         [SerializeField, Range(2, 9)] private int _reliefStartInning = 7;
         [SerializeField, Min(0f)] private double _managerDecisionVariance = 7d;
@@ -658,7 +658,8 @@ namespace Baseball.Game.Data
                 : matchDefaults.ContentHash;
             PitchArsenalBalance pitchBalance = PitchArsenalBalanceConfig.Load(out string pitchContentHash);
             MatchRatingCurveBalance ratingCurve = MatchRatingCurveConfig.Load(out string curveContentHash);
-            contentHash = $"{contentHash}:{pitchContentHash}:{curveContentHash}";
+            // 일정 길이가 달라지면 이전 경기 수로 만든 WorldHistory를 재사용하지 않는다.
+            contentHash = $"{contentHash}:{pitchContentHash}:{curveContentHash}:season-games-{_regularSeasonGamesPerTeam.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
             var balance = new BalanceTable(
                 version: 3,
                 matchDefaults.PlateDiscipline,

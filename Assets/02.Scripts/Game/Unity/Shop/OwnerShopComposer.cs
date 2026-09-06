@@ -29,14 +29,19 @@ namespace Baseball.Game.Shop
             TacticCollectionState tacticCollection = runtime.TacticCollection;
 
             ScoutFeaturePolicy featurePolicy = ResolveFeaturePolicy(runtime.WorldCardCatalog);
-            IReadOnlyList<ScoutPoolDefinition> scoutPools = ShopDefaultPools.CreateScoutPools(featurePolicy);
+            IReadOnlyList<ScoutPoolDefinition> scoutPools = ShopDefaultPools.CreateScoutPools(
+                featurePolicy,
+                ResolveScoutMarketTargets(runtime.WorldCardCatalog));
             IReadOnlyList<TacticResearchPoolDefinition> tacticPools = ShopDefaultPools.CreateTacticResearchPools(
                 manager.GetFacilityEffects().TacticResearchEfficiencyModifier);
             IReadOnlyList<TacticCardDefinition> tacticCatalog = manager.GetTacticCardCatalog();
             ScoutPityBalanceTable pityBalance = ScoutPityBalanceTable.CreateInitial();
 
             ShopCatalog catalog = ShopCatalogBuilder.Build(
-                manager.Balance.Growth.SkillGacha, scoutPools, tacticPools);
+                manager.Balance.Growth.SkillGacha,
+                scoutPools,
+                tacticPools,
+                runtime.IdentityRegistry.GetFranchiseDisplayName);
             IReadOnlyList<ShopProductDetails> details = OwnerShopDetailsBuilder.Build(
                 catalog,
                 manager.Balance.Growth.SkillGacha,
@@ -80,7 +85,8 @@ namespace Baseball.Game.Shop
                 wallet,
                 fulfillments,
                 history,
-                details);
+                details,
+                new ShopProgressDetails(runtime.Economy.PityGauge, pityBalance.Threshold));
         }
 
         /// <summary>
@@ -92,6 +98,23 @@ namespace Baseball.Game.Shop
             ulong stream = ShopStreamTag ^ (uint)(history.TotalPurchaseCount + 1);
             ulong seed = DeterministicSeed.Derive(manager.Runtime.WorldHistory.WorldHistorySeed, stream);
             return new Pcg32Random(seed);
+        }
+
+        /// <summary>Normal과 특수 Edition의 중복을 제거해 월드에 실재하는 구단·연도 Scout 대상만 만든다.</summary>
+        private static IReadOnlyList<ScoutMarketTarget> ResolveScoutMarketTargets(WorldCardCatalog catalog)
+        {
+            var targets = new List<ScoutMarketTarget>();
+            var keys = new HashSet<string>(System.StringComparer.Ordinal);
+            for (int index = 0; index < catalog.Cards.Count; index++)
+            {
+                PlayerSeasonDefinition season = catalog.GetPlayerSeason(catalog.Cards[index]);
+                string key = string.Concat(season.OriginFranchiseId, "\u001f", season.OriginYear.ToString());
+                if (keys.Add(key))
+                    targets.Add(new ScoutMarketTarget(season.OriginFranchiseId, season.OriginYear));
+            }
+            if (targets.Count == 0)
+                throw new System.InvalidOperationException("선수 카드 Scout 범위를 만들 월드 카드가 없습니다.");
+            return targets;
         }
 
         /// <summary>

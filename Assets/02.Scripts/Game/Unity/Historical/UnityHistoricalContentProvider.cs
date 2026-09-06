@@ -257,7 +257,8 @@ namespace Baseball.Game.Historical
             return new WorldIdentityNameCatalog(
                 identityPool.DomesticPlayerNames,
                 identityPool.ForeignPlayerNames,
-                identityPool.FranchiseNames);
+                identityPool.FranchiseNames,
+                HistoricalBakedContent.CreateSourceFranchiseRegions());
         }
 
         private static HistoricalRuntimeYearEntryDto ResolveYearEntry(
@@ -749,7 +750,8 @@ namespace Baseball.Game.Historical
                     MapPitchRepertoire(source),
                     string.IsNullOrEmpty(source.PitchDataSourceKind) ? PitchDataSourceKind.Synthetic :
                         (PitchDataSourceKind)Enum.Parse(typeof(PitchDataSourceKind), source.PitchDataSourceKind),
-                    source.PitchBalanceVersion);
+                    source.PitchBalanceVersion,
+                    source.IsPositionEvidenceMissing);
             }
             catch (Exception exception)
             {

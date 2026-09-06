@@ -4,13 +4,15 @@ using Baseball.Game.Manager;
 namespace Baseball.Game.Sound
 {
     /// <summary>
-    /// 커리어 진행 상태를 읽어 지금이 어떤 BGM 국면인지 판정하고 SoundManager에 알린다.
-    /// SoundManager가 커리어를 직접 알지 않도록 판정만 이쪽에 모아 둔다.
+    /// 선수 커리어와 구단주 관전 상태를 읽어 지금이 어떤 BGM 국면인지 판정하고 SoundManager에 알린다.
+    /// SoundManager가 각 모드의 Runtime과 화면을 직접 알지 않도록 판정만 이쪽에 모아 둔다.
     /// </summary>
     public sealed class BgmDirector : ManagerBehaviour<BgmDirector>
     {
         private CareerManager _careerManager;
         private SoundManager _soundManager;
+        private bool _isOwnerMatchBroadcasting;
+        private bool _isOwnerMatchAudioSuppressed;
 
         // SoundManager(-40)와 CareerManager(-20)가 준비된 뒤 판정해야 한다.
         public override int InitializationOrder => 0;
@@ -28,8 +30,26 @@ namespace Baseball.Game.Sound
             if (_careerManager != null)
                 _careerManager.CareerChanged -= HandleCareerChanged;
 
+            _isOwnerMatchBroadcasting = false;
+            _isOwnerMatchAudioSuppressed = false;
             _careerManager = null;
             _soundManager = null;
+        }
+
+        /// <summary>
+        /// 구단주 관전 화면의 생명주기를 BGM 국면에 반영한다.
+        /// 구단주 경기는 진입 시 이미 결과가 확정되므로 Runtime이 아니라 실제 재생 화면이 이 상태를 알린다.
+        /// </summary>
+        public void SetOwnerMatchBroadcasting(bool isBroadcasting, bool shouldPlayAudio = true)
+        {
+            bool isAudioSuppressed = isBroadcasting && !shouldPlayAudio;
+            if (_isOwnerMatchBroadcasting == isBroadcasting &&
+                _isOwnerMatchAudioSuppressed == isAudioSuppressed)
+                return;
+
+            _isOwnerMatchBroadcasting = isBroadcasting;
+            _isOwnerMatchAudioSuppressed = isAudioSuppressed;
+            ApplyCurrentSituation();
         }
 
         private void HandleCareerChanged()
@@ -44,7 +64,13 @@ namespace Baseball.Game.Sound
             if (_soundManager == null)
                 return;
 
-            bool isBroadcasting = IsMatchBroadcasting(_careerManager?.ActiveMatch);
+            if (_isOwnerMatchAudioSuppressed)
+            {
+                _soundManager.StopBgm(0f);
+                return;
+            }
+
+            bool isBroadcasting = _isOwnerMatchBroadcasting || IsMatchBroadcasting(_careerManager?.ActiveMatch);
             _soundManager.PlaySituation(isBroadcasting ? BgmSituation.MatchPlay : BgmSituation.Lobby);
         }
 

@@ -39,6 +39,13 @@ namespace Baseball.Game.Unity.Persistence
             return Deserialize(File.ReadAllText(_filePath, Encoding.UTF8));
         }
 
+        /// <summary>사용자 확인이 끝난 구단주 모드 단일 저장 슬롯을 삭제한다.</summary>
+        public void Delete()
+        {
+            if (File.Exists(_filePath))
+                File.Delete(_filePath);
+        }
+
         public static string Serialize(ManagerHistoricalSaveData saveData)
         {
             if (saveData == null)

@@ -783,7 +783,6 @@ namespace Baseball.Game.Career
                     cells[y * definition.Width + x] = new GrowthBoardCellView(
                         x,
                         y,
-                        IsTraitSocket(definition, x, y),
                         0,
                         default,
                         default);
@@ -801,7 +800,6 @@ namespace Baseball.Game.Career
                     cells[cell.Y * definition.Width + cell.X] = new GrowthBoardCellView(
                         cell.X,
                         cell.Y,
-                        IsTraitSocket(definition, cell.X, cell.Y),
                         placement.Instance.InstanceId,
                         block.Category,
                         block.Rarity);
@@ -1524,16 +1522,6 @@ namespace Baseball.Game.Career
                     count++;
             }
             return count;
-        }
-
-        private static bool IsTraitSocket(SkillBoardDefinition definition, int x, int y)
-        {
-            for (int index = 0; index < definition.TraitSockets.Length; index++)
-            {
-                if (definition.TraitSockets[index].X == x && definition.TraitSockets[index].Y == y)
-                    return true;
-            }
-            return false;
         }
 
         private PlannedOffseasonActivity PlanGrowthActivityCore(

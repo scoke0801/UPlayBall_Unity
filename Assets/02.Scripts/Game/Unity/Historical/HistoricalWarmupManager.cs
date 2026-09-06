@@ -157,8 +157,8 @@ namespace Baseball.Game.Historical
                 cancellationToken.ThrowIfCancellationRequested();
                 _isSimulatingWorldHistory = !hasMatchingBake;
                 StatusMessage = hasMatchingBake
-                    ? "역사 World를 불러오는 중…"
-                    : "맞는 역사 Bake가 없어 44시즌을 시뮬레이션합니다. 시간이 걸립니다…";
+                    ? "데이터 로딩 중…"
+                    : "데이터가 없어서 시즌을 시뮬레이션합니다. 시간이 걸립니다…";
                 SetProgress(0.45f);
 
                 // 3) 구단주 모드 시작 World. Bake가 적중하면 즉시, 아니면 실제 시뮬레이션으로 만든다.

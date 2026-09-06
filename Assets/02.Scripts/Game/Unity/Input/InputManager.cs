@@ -156,17 +156,26 @@ namespace Baseball.Game.Input
 
             if (_runtimeInputAsset != null)
             {
-                _runtimeInputAsset.Disable();
-
-                if (CurrentContext != InputContext.Disabled)
-                    _runtimeInputAsset.FindActionMap(UiMapName, false)?.Enable();
-
-                if (CurrentContext == InputContext.Match)
-                    _runtimeInputAsset.FindActionMap(MatchMapName, false)?.Enable();
+                // UI callback 도중 Modal lease가 해제될 수 있다. 이때 이미 활성화된 UI map까지
+                // Disable/Enable하면 뒤이어 실행되는 InputSystemUIInputModule의 CallbackContext가 무효화된다.
+                SetActionMapEnabled(UiMapName, CurrentContext != InputContext.Disabled);
+                SetActionMapEnabled(MatchMapName, CurrentContext == InputContext.Match);
             }
 
             if (hasChanged || forceNotification)
                 ContextChanged?.Invoke(CurrentContext);
+        }
+
+        private void SetActionMapEnabled(string mapName, bool shouldEnable)
+        {
+            InputActionMap actionMap = _runtimeInputAsset.FindActionMap(mapName, false);
+            if (actionMap == null || actionMap.enabled == shouldEnable)
+                return;
+
+            if (shouldEnable)
+                actionMap.Enable();
+            else
+                actionMap.Disable();
         }
 
         private void HandleCancel(InputAction.CallbackContext context)

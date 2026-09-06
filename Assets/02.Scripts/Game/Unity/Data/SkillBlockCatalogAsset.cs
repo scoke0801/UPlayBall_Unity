@@ -30,7 +30,6 @@ namespace Baseball.Game.Data
             [SerializeField] private AbilityBonusData[] _abilityBonuses;
             [SerializeField, Min(0)] private long _sellValue;
             [SerializeField] private string _traitId;
-            [SerializeField] private TraitSocketRule _traitSocketRule;
             [SerializeField] private bool _isUniqueReward;
 
             public SkillBlockDefinition ToDefinition()
@@ -47,7 +46,6 @@ namespace Baseball.Game.Data
                     bonuses,
                     _sellValue,
                     _traitId,
-                    _traitSocketRule,
                     _isUniqueReward);
             }
 
@@ -56,7 +54,7 @@ namespace Baseball.Game.Data
                 builder.Append(_blockId).Append('|').Append((int)_rarity).Append('|')
                     .Append((int)_category).Append('|').Append((int)_shape).Append('|')
                     .Append(_canRotate).Append('|').Append(_sellValue).Append('|')
-                    .Append(_traitId).Append('|').Append((int)_traitSocketRule).Append('|')
+                    .Append(_traitId).Append('|')
                     .Append(_isUniqueReward).Append('|');
                 for (int index = 0; index < (_abilityBonuses?.Length ?? 0); index++)
                     _abilityBonuses[index].AppendContent(builder);

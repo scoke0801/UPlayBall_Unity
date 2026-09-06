@@ -220,6 +220,8 @@ namespace Baseball.Game.Historical
     [Serializable]
     internal sealed class HistoricalRuntimePlayerSeasonDto
     {
+        [SerializeField] private bool isPositionEvidenceMissing;
+        public bool IsPositionEvidenceMissing => isPositionEvidenceMissing;
         [SerializeField] private string playerSeasonId;
         [SerializeField] private string playerPersonId;
         [SerializeField] private int originYear;

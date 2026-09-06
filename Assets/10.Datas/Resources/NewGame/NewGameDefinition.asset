@@ -27,8 +27,8 @@ MonoBehaviour:
   _ownerPlayerTeamSeasonKey: 
   _ownerLeagueInstanceId: OWNER-ROOKIE-01
   _ownerInitialMoney: 1000000000
-  _ownerInitialScoutingPoints: 100
-  _ownerInitialDevelopmentPoints: 100
+  _ownerInitialScoutingPoints: 10000
+  _ownerInitialDevelopmentPoints: 3000
   _ownerMaximumMainCost: 60
   _ownerMaximumFillerRerolls: 30
   _ownerStarterTactics:
@@ -961,7 +961,7 @@ MonoBehaviour:
     _primaryColor:
       serializedVersion: 2
       rgba: 4281027800
-  - _name: "\uC6B8\uC0B0 \uAC00\uB514\uC5B8\uC988"
+  - _name: "\uC11C\uC6B8 \uAC00\uB514\uC5B8\uC988"
     _primaryColor:
       serializedVersion: 2
       rgba: 4284056884
@@ -969,11 +969,11 @@ MonoBehaviour:
     _primaryColor:
       serializedVersion: 2
       rgba: 4287264615
-  - _name: "\uC81C\uC8FC \uB3CC\uD540\uC2A4"
+  - _name: "\uC778\uCC9C \uB3CC\uD540\uC2A4"
     _primaryColor:
       serializedVersion: 2
       rgba: 4291144486
-  - _name: "\uCD98\uCC9C \uC2A4\uD1B0"
+  - _name: "\uBD80\uC0B0 \uC2A4\uD1B0"
     _primaryColor:
       serializedVersion: 2
       rgba: 4287720544
@@ -1135,7 +1135,7 @@ MonoBehaviour:
     _power: 0.35
     _speed: 0.15
     _mental: 0.15
-  _regularSeasonGamesPerTeam: 80
+  _regularSeasonGamesPerTeam: 144
   _startingRotationSize: 5
   _reliefStartInning: 7
   _managerDecisionVariance: 7
