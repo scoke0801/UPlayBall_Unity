@@ -98,7 +98,7 @@ namespace Baseball.Presentation.SharedScreens
                 Column("HomeRuns", "홈런", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.8f),
                 Column("Rbi", "타점", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.8f),
                 Column("StolenBases", "도루", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.8f),
-                Column("Ops", "출루+장타", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f)
+                Column("Ops", "출루율+장타율", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f)
             };
             var rows = new List<RecordTableRowModel>(leaderboard.Leaders.Count + 1);
             for (int i = 0; i < leaderboard.Leaders.Count; i++)
@@ -129,9 +129,9 @@ namespace Baseball.Presentation.SharedScreens
                 Column("Record", "승-패", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f),
                 Column("Saves", "세이브", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.8f),
                 Column("Innings", "이닝", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f),
-                Column("Era", "평균자책", RecordSortValueKind.Number, RecordSortDirection.Ascending, 1f),
+                Column("Era", "평균자책점", RecordSortValueKind.Number, RecordSortDirection.Ascending, 1f),
                 Column("Strikeouts", "탈삼진", RecordSortValueKind.Number, RecordSortDirection.Descending, 0.9f),
-                Column("Whip", "이닝당출루", RecordSortValueKind.Number, RecordSortDirection.Ascending, 0.9f)
+                Column("Whip", "이닝당 출루허용률", RecordSortValueKind.Number, RecordSortDirection.Ascending, 1.25f)
             };
             var rows = new List<RecordTableRowModel>(leaderboard.Leaders.Count + 1);
             for (int i = 0; i < leaderboard.Leaders.Count; i++)
@@ -313,7 +313,7 @@ namespace Baseball.Presentation.SharedScreens
             {
                 LeagueTeamMetric.BattingAverage => "팀 타율",
                 LeagueTeamMetric.HomeRuns => "팀 홈런",
-                LeagueTeamMetric.EarnedRunAverage => "팀 평균자책",
+                LeagueTeamMetric.EarnedRunAverage => "팀 평균자책점",
                 _ => "팀 탈삼진"
             };
         }
