@@ -83,6 +83,9 @@
 
 ## 구단 12~18 구현 검증 기록
 
-- `Baseball.Core`, `Baseball.Simulation`, `Baseball.Game`, `Baseball.Game.Unity`, `Baseball.Presentation` 보조 컴파일 오류 0개다.
-- `OwnerPlayerMarketResolverTests` 4건과 `ManagerHistoricalSaveTests` 19건을 Headless EditMode Runner로 실행해 모두 통과했다.
-- Unity 배치 실행은 로컬 License Client 연결 실패로 Import 전에 중단했다. 사용자 지시에 따라 화면 렌더링·육안 QA는 수행하지 않았다.
+- `OwnerPlayerMarketResolverTests` 5건, `OwnerPlayerMarketServiceTests` 7건,
+  `ManagerHistoricalSaveTests` 19건을 Headless EditMode Runner로 실행해 모두 통과했다.
+- 위 실행 과정에서 `Baseball.Core`, `Baseball.Simulation`, `Baseball.Game` Headless 컴파일도 통과했다.
+- Unity Package Cache 복구 후 생성 csproj로 `Baseball.Core`, `Baseball.Simulation`, `Baseball.Game`,
+  `Baseball.Game.Unity`, `Baseball.Presentation`, `Baseball.Presentation.Tests`를 재컴파일해 모두 경고·오류 0개를 확인했다.
+- 사용자 지시에 따라 화면 렌더링·해상도·입력 육안 QA와 PlayMode 테스트는 수행하지 않았다.

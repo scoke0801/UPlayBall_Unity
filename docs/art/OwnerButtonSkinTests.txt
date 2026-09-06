@@ -1,0 +1,9 @@
+PASS Apply_역할별프레임이공용스킨재적용후에도유지된다 Navigation,navigation
+PASS Apply_역할별프레임이공용스킨재적용후에도유지된다 Secondary,secondary
+PASS Apply_역할별프레임이공용스킨재적용후에도유지된다 Primary,primary
+PASS Selection_포커스와비활성변경이현재탭선택을지우지않는다 
+PASS Restore_선수모드복귀시원래Graphic을복원한다 
+PASS Apply_빈라벨의카드클릭영역은변경하지않는다 
+PASS Click_프레임입력이원래버튼에전달되고비활성상태에서는막힌다 
+PASS Refresh_방침의의미색상을보존하고라벨대비를갱신한다 
+Passed=8, Failed=0

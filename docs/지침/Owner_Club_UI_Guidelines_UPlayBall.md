@@ -83,3 +83,12 @@
 - 계약 결정론·자금 부족·동일 유형 트레이드·투타 교환 거절 EditMode 테스트 통과
 - SaveVersion 11 저장/복원 회귀 통과
 - 실제 Unity 화면 배치·해상도·입력 QA는 사용자가 수행한다.
+
+### 8.1 잔여 작업 감사 기록
+
+- 계약·트레이드 Route는 `CanManagePlayerContracts`와 `CanProposeTrades` 권한을 가진 Production Route로 유지한다.
+- 트레이드 Preview는 빈 ID, 존재하지 않는 구단, 자기 구단 선택을 예외로 누출하지 않고 `InvalidSelection`과 차단 사유로 반환한다.
+- 계약 Aggregate는 현재 25인 로스터와 같은 수의 CardId를 정확히 가져야 한다. 일부 계약만 복원된 손상 상태는 자동 보정하지 않고 진입 시 실패시킨다.
+- 만료된 계약의 갱신 Preview는 `ContractExpired`로 구분하며 Runtime을 변경하지 않는다.
+- Headless EditMode Runner에서 `OwnerPlayerMarketResolverTests` 5건, `OwnerPlayerMarketServiceTests` 7건이 통과했다.
+- Core/Simulation/Game Headless 컴파일과 생성 csproj의 Core/Simulation/Game/Game.Unity/Presentation/Presentation.Tests 보조 컴파일이 모두 통과했다.

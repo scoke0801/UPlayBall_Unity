@@ -124,7 +124,9 @@ WorldFranchiseIdentity
 `WorldIdentityRegistry`는 한 World에서 `FranchiseId`마다 이름 하나를 확정한다. 따라서 같은
 Franchise의 2010~2012 TeamSeason은 모두 같은 DisplayName을 쓴다.
 
-- 자연스러운 지역 Identity + Nickname/Brand Identity를 데이터 기반으로 조합한다.
+- 지역 Identity는 실제 Source Franchise 계보의 연고지로 고정하고 Nickname/Brand만 데이터 기반으로 조합한다.
+- World Seed는 별칭을 바꿀 수 있지만 LG·두산 계보를 서울 밖의 임의 지역으로 옮기지 않는다.
+- 연고지 후보는 서울·부산·인천·대구·대전·광주·수원·창원·전주만 사용한다.
 - 실제 KBO 구단명과 exact match하면 Reject한다.
 - 서로 다른 Franchise의 이름 중복을 금지한다.
 - 이름 생성 결과 자체를 Save하며 Load에서 재생성하지 않는다.
@@ -160,6 +162,12 @@ Career 진입 정책은 `NewGameDefinition._historicalLeagueSeasonYears`가 Leag
 TeamSeason은 같은 `WorldFranchiseIdentity`를 공유하고 `TeamSeasonKey`로 시즌 인스턴스를 구분한다.
 정책 밖의 임의 재배치나 Synthetic Team fallback은 사용하지 않는다.
 
+구단주 모드는 선택한 `OriginYear`의 Canonical TeamSeason을 모두 우선 배치하고 한 리그의 참가팀을
+정확히 10개로 고정한다. 실제 구단이 10개면 합성팀을 추가하지 않는다. 6~9개면 부족한 슬롯 수만큼
+그 연도의 특수 합성팀 후보를 World Seed로 결정론적으로 선택한다. 따라서 같은 Seed와 OriginYear는
+같은 참가팀을 만들며, 특수팀은 Historical Simulation과 Award 산출에는 참가하지 않고 새 게임의
+현재 리그 빈 슬롯만 점유한다.
+
 ## 8. Club DNA
 
 Club DNA는 두 층으로 나눈다.
@@ -178,6 +186,7 @@ DisplayName은 DNA 계산에 사용하지 않는다. 같은 Canonical 입력과 
 AllStarComposite
 GoldenGloveComposite
 YearSelectComposite
+RandomSelectComposite
 ```
 
 생성 순서는 고정한다.
@@ -187,10 +196,10 @@ YearSelectComposite
 → Statistics / Standings / Postseason
 → Awards / WorldHistorySnapshot
 → SpecialCompositeTeamBuilder
-→ 특수 합성팀 3종
+→ 특수 합성팀 후보 4종
 ```
 
-특수팀은 기존 PlayerSeason을 참조하며 선수 능력치를 혼합하지 않는다. 세 특수팀의 최종 25인 사이
+특수팀은 기존 PlayerSeason을 참조하며 선수 능력치를 혼합하지 않는다. 네 후보팀의 최종 25인 사이
 동일 `PlayerSeasonId` 중복 금지를 유지한다. 원 Franchise의 Core25/Origin을 이동·변경하지 않고,
 자신을 생성하는 Award 계산에 역으로 참가하지 않는다.
 
@@ -207,7 +216,7 @@ YearSelectComposite
 - Source Standings/Champion 복사 없이 Match 결과에서 순위 생성
 - DisplayName만 변경해도 Schedule/Match/Standings hash 불변
 - 같은 Seed 결정론, 다른 Seed에서 Standings/Champion 변화 가능
-- Award 확정 전 특수 합성팀 참가 0개와 특수팀 사이 PlayerSeason 중복 0건
+- Award 확정 전 특수 합성팀 참가 0개, 후보팀 사이 PlayerSeason 중복 0건, 구단주 리그 참가팀 10개
 
 ## 11. 완료 판정
 

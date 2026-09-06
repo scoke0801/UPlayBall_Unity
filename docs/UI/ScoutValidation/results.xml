@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-06 09:59:29Z" end-time="2026-09-06 09:59:29Z" duration="0.5339549">
+  <test-suite type="TestSuite" id="1000" name="ScoutUiValidation" fullname="ScoutUiValidation" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-06 09:59:29Z" end-time="2026-09-06 09:59:29Z" duration="0.533955" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1003" name="ScoutUiValidation.Tests.dll" fullname="C:/UsingProject/UnityProject/UPlayBall_Unity/Temp/ScoutUiValidation/Library/ScriptAssemblies/ScoutUiValidation.Tests.dll" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-06 09:59:29Z" end-time="2026-09-06 09:59:29Z" duration="0.522338" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="54696" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1004" name="Baseball" fullname="Baseball" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-06 09:59:29Z" end-time="2026-09-06 09:59:29Z" duration="0.521693" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1005" name="Tests" fullname="Baseball.Tests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-06 09:59:29Z" end-time="2026-09-06 09:59:29Z" duration="0.521438" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1006" name="ScoutValidation" fullname="Baseball.Tests.ScoutValidation" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-06 09:59:29Z" end-time="2026-09-06 09:59:29Z" duration="0.521131" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1001" name="ScoutUiTests" fullname="Baseball.Tests.ScoutValidation.ScoutUiTests" classname="Baseball.Tests.ScoutValidation.ScoutUiTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-06 09:59:29Z" end-time="2026-09-06 09:59:29Z" duration="0.519946" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1002" name="Scout_선택취소확정과영입확인및확률스크롤을검증한다" fullname="Baseball.Tests.ScoutValidation.ScoutUiTests.Scout_선택취소확정과영입확인및확률스크롤을검증한다" methodname="Scout_선택취소확정과영입확인및확률스크롤을검증한다" classname="Baseball.Tests.ScoutValidation.ScoutUiTests" runstate="Runnable" seed="1661249520" result="Passed" start-time="2026-09-06 09:59:29Z" end-time="2026-09-06 09:59:29Z" duration="0.505178" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/UsingProject/UnityProject/UPlayBall_Unity/.tmp/scout-tests.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

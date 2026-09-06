@@ -286,3 +286,22 @@ Prefab·Popup·Component / ImageGen 사용 내역(프롬프트 위치·적용 As
 구현 내용 / 월드·구단·계약 구현 내용 / 상점(Player/Skill/Tactic) 구현 상태 / 뽑기 연출별 구현
 상태(Player Scout/Focused Scout/Skill/Tactic/Multi Reveal/Skip) / 주요 신규·수정 파일 목록 /
 추가한 테스트와 실행 결과 / 기존 시스템 회귀 테스트 결과 / 남은 사항(기술적으로 미구현인 부분만).
+
+## 21. 상점·뽑기 연출 구현 상태
+
+2026-09-06 상점 범위 구현:
+
+- Shop 공통 Shell은 추천/선수/스킬/작전 탭, 실제 Money/SP/DP, Category 잠금 사유를 유지한다.
+- 본문은 좌측 2열 상품 진열과 우측 선택 상품 Preview로 재구성했다. 확률 상세와 구매 확인은 최신 `ShopPurchaseQuote`를 다시 읽는다.
+- 선수 카드 탭에 실제 `ManagerEconomyState.PityGauge`와 `ScoutPityBalanceTable.Threshold`를 표시한다.
+- Player/Skill/Tactic에 10회 묶음을 추가했다. Fulfillment는 기존 결정론 RNG를 한 번 주입받아 `DrawCount` 순서대로 결과를 확정한다.
+- `ShopGrantedItem`이 Game 계층에서 계산한 Cost/Edition/Rarity/Tier 연출 강도를 전달한다. Presentation은 강도를 재계산하거나 RNG를 호출하지 않는다.
+- Player Scout는 Scouting Report와 Cost→Edition 분리 단계, Skill은 Development Analysis, Tactic은 Tactical Lab 단계를 사용한다.
+- 1개/5개/10개를 같은 MultiReveal이 처리하고, 희귀 결과 직전 Tempo 지연과 최종 NEW/중복 Summary를 제공한다.
+- 전체 연출/희귀 결과만/최소 연출 설정과 건너뛰기를 제공한다. 연출 중 Back은 결과 화면을 닫지 않고 Summary로 즉시 완료한다.
+- 현재 SFX 재생기가 없으므로 외부 음원 대신 Scouting Paper/Analysis/Stamp/Card Reveal/Exceptional Pause/Summary `ShopRevealAudioCue` 이벤트를 연결했다.
+- 상점 Navigation Icon과 세 종류 Reveal 중심 자산을 built-in ImageGen으로 생성해 연결했다. 프롬프트와 저장 경로는 `docs/UI/ImageGenPrompts/ShopRevealV2.md`에 기록했다.
+- Core/Game/Game.Unity/Presentation 및 Core/Game/Presentation Test Assembly 컴파일은 경고·오류 없이 통과했다. 최종 재검증 시 Unity 생성 `.csproj`가 동시 작업에서 추가된 `UI_Scene_OwnerPowerUp.Reinforcement.cs`와 `UICircleGraphic.cs`를 아직 포함하지 않아 원본 프로젝트 빌드는 중단됐다. 두 파일만 임시 검증 프로젝트에 포함한 전체 Presentation 컴파일은 0경고·0오류로 통과했고 임시 파일은 삭제했다. 별도 Smoke에서 10회 Catalog 가격·수량과 MultiReveal 10개 계획을 확인했다.
+- 화면 실행과 Screenshot 비교는 사용자 요청에 따라 수행하지 않았다.
+
+통합 보고서 전체 범위 중 Focused Scout의 구단/연도 필터 선택, Reveal에서 Full Player Card Front/Back 직접 열기, 중복 카드 즉시 강화·판매, 실제 Audio Clip 연결은 이번 상점 화면 수정 범위에 포함하지 않았다. 현재 기본 Catalog에는 Focused Scout가 요구하는 Franchise/Year 선택 상품이 없고 Audio Asset도 없으므로, 임의 상품이나 음원을 만들지 않고 Pity 상태와 연출 Audio Hook까지만 연결했다.
