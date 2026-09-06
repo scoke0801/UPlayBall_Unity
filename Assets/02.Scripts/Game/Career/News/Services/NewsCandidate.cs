@@ -106,7 +106,6 @@ namespace Baseball.Game.Career.News
                 NewsEventType.ChampionshipWon => 80,
                 NewsEventType.SeasonAwardGranted => 75,
                 NewsEventType.CareerMilestoneReached => 70,
-                NewsEventType.PlayerInjuryConfirmed => 65,
                 NewsEventType.ContractSigned => 65,
                 NewsEventType.PlayerRoleChanged => 60,
                 NewsEventType.PlayerGamePerformance => 55,

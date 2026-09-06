@@ -47,7 +47,7 @@ namespace Baseball.Game.Career.News
                 NewsReleaseGate.EndOfScheduleDate));
         }
 
-        /// <summary>계약·부상·수상 등 외부 시스템이 모은 사건을 지정 공개 관문에서 발행한다.</summary>
+        /// <summary>계약·수상 등 외부 시스템이 모은 사건을 지정 공개 관문에서 발행한다.</summary>
         public IReadOnlyList<NewsArticleState> PublishCycle(
             CareerDate publishedAt,
             params NewsReleaseGate[] releasedGates)

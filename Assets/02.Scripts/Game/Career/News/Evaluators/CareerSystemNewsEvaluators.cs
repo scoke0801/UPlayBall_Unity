@@ -2,67 +2,6 @@ using System;
 
 namespace Baseball.Game.Career.News
 {
-    /// <summary>부상 시스템의 확정 진단과 복귀 단계만 뉴스 사건으로 변환한다.</summary>
-    public sealed class InjuryNewsEvaluator
-    {
-        public NewsEvent EvaluateConfirmedInjury(
-            string eventId,
-            CareerDate occurredAt,
-            PlayerState player,
-            TeamState team,
-            int expectedAbsenceGames,
-            bool isSeasonEnding)
-        {
-            if (expectedAbsenceGames <= 1 && !isSeasonEnding)
-                return null;
-            int importance = isSeasonEnding
-                ? 55
-                : expectedAbsenceGames >= 22 ? 45 : expectedAbsenceGames >= 6 ? 30 : 20;
-            var newsEvent = new NewsEvent(
-                eventId,
-                NewsEventType.PlayerInjuryConfirmed,
-                occurredAt,
-                NewsReleaseGate.EndOfScheduleDate,
-                NewsSubject.Player(player.PlayerId, player.Name),
-                $"injury_{player.PlayerId}_{occurredAt.Cycle.SeasonId}",
-                importance)
-            {
-                CareerImpact = isSeasonEnding ? 35 : expectedAbsenceGames >= 6 ? 20 : 5,
-                Rarity = isSeasonEnding ? 20 : 0,
-                IsCareerArchive = expectedAbsenceGames >= 6
-            };
-            newsEvent.AddRelatedSubject(NewsSubject.Team(team.TeamId, team.Name));
-            newsEvent.FactSet.SetText(NewsFactKey.PlayerName, player.Name);
-            newsEvent.FactSet.SetText(NewsFactKey.TeamName, team.Name);
-            newsEvent.FactSet.SetInteger(NewsFactKey.ExpectedAbsenceGames, expectedAbsenceGames);
-            return newsEvent;
-        }
-
-        public NewsEvent EvaluateReturn(
-            string eventId,
-            CareerDate occurredAt,
-            PlayerState player,
-            TeamState team)
-        {
-            var newsEvent = new NewsEvent(
-                eventId,
-                NewsEventType.PlayerReturnedFromInjury,
-                occurredAt,
-                NewsReleaseGate.EndOfScheduleDate,
-                NewsSubject.Player(player.PlayerId, player.Name),
-                $"injury_{player.PlayerId}_{occurredAt.Cycle.SeasonId}",
-                baseImportance: 30)
-            {
-                CareerImpact = 20,
-                IsCareerArchive = true
-            };
-            newsEvent.AddRelatedSubject(NewsSubject.Team(team.TeamId, team.Name));
-            newsEvent.FactSet.SetText(NewsFactKey.PlayerName, player.Name);
-            newsEvent.FactSet.SetText(NewsFactKey.TeamName, team.Name);
-            return newsEvent;
-        }
-    }
-
     /// <summary>감독이 확정한 장기 역할 변화만 뉴스 사건으로 변환한다.</summary>
     public sealed class PlayerRoleNewsEvaluator
     {

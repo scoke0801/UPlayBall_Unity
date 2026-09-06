@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Baseball.Game.Career.News
 {
-    /// <summary>같은 경기·계약·부상 흐름의 사건을 한 기사 후보로 병합한다.</summary>
+    /// <summary>같은 경기·계약 흐름의 사건을 한 기사 후보로 병합한다.</summary>
     internal sealed class NewsMergeService
     {
         public List<NewsCandidate> Merge(IReadOnlyList<NewsEvent> events)

@@ -181,11 +181,6 @@ namespace Baseball.Game.Career.News
         {
             switch (eventType)
             {
-                case NewsEventType.PlayerInjuryConfirmed:
-                case NewsEventType.InjuryRecoveryStageReached:
-                case NewsEventType.PlayerReturnedFromInjury:
-                    type = NewsStorylineType.InjuryReturn;
-                    return true;
                 case NewsEventType.TeamRosterChanged:
                 case NewsEventType.RoleCompetitionChanged:
                     type = NewsStorylineType.RosterCompetition;
@@ -221,8 +216,7 @@ namespace Baseball.Game.Career.News
 
         private static bool IsStartingEvent(NewsEventType eventType)
         {
-            return eventType is NewsEventType.PlayerInjuryConfirmed or
-                NewsEventType.TeamRosterChanged or
+            return eventType is NewsEventType.TeamRosterChanged or
                 NewsEventType.RoleCompetitionChanged or
                 NewsEventType.PlayerRoleChanged or
                 NewsEventType.ContractNegotiationReported or
@@ -240,9 +234,6 @@ namespace Baseball.Game.Career.News
         {
             switch (eventType)
             {
-                case NewsEventType.PlayerReturnedFromInjury:
-                    resolution = NewsStorylineResolution.Recovered;
-                    return true;
                 case NewsEventType.ContractSigned:
                     resolution = NewsStorylineResolution.Succeeded;
                     return true;
