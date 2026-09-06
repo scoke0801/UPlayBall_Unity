@@ -14,13 +14,27 @@ using Baseball.Simulation.Match;
 namespace Baseball.Presentation.Owner
 {
     /// <summary>Game에서 확정된 상태와 Resolver 결과를 A/B/C/D 불변 UI Snapshot으로 투영한다.</summary>
-    public sealed class OwnerModeRuntimeSnapshotFactory
+    public sealed partial class OwnerModeRuntimeSnapshotFactory
     {
         /// <summary>현재 감독·수석코치·방침과 실제 경기 적용값을 덕아웃 Snapshot으로 만든다.</summary>
         public OwnerDugoutSnapshot CreateDugout(OwnerModeManager manager)
         {
             RequireRuntime(manager);
             return OwnerDugoutPresentationBuilder.Build(manager);
+        }
+
+        /// <summary>전체 팀컬러의 발동 진행도와 현재 두 슬롯을 상세 화면용으로 만든다.</summary>
+        public OwnerTeamColorSnapshot CreateTeamColor(OwnerModeManager manager)
+        {
+            RequireRuntime(manager);
+            return OwnerDugoutLoadoutPresentationBuilder.BuildTeamColor(manager);
+        }
+
+        /// <summary>보유 작전카드의 조건·효과와 현재 두 슬롯을 상세 화면용으로 만든다.</summary>
+        public OwnerTacticsSnapshot CreateTactics(OwnerModeManager manager)
+        {
+            RequireRuntime(manager);
+            return OwnerDugoutLoadoutPresentationBuilder.BuildTactics(manager);
         }
 
         public OwnerHomeSnapshot CreateHome(OwnerModeManager manager)
@@ -33,7 +47,7 @@ namespace Baseball.Presentation.Owner
             return new OwnerHomeSnapshot(
                 mode.LiveSeason.OriginYear + " 시즌",
                 $"{mode.LiveSeason.CurrentWeekIndex + 1}주차",
-                runtime.League.Grade.ToString(),
+                OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
                 FormatTeamDisplayName(manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey), "내 구단"),
                 string.Empty,
                 nextMatch,
@@ -54,7 +68,8 @@ namespace Baseball.Presentation.Owner
                 roster.Validation.IsValid ? string.Empty : FormatRosterIssue(roster.Validation.Issues[0]),
                 roster.Strength,
                 roster.Cost,
-                game == null ? string.Empty : CreateOpponentStrengthText(manager, mode, game));
+                game == null ? string.Empty : CreateOpponentStrengthText(manager, mode, game),
+                runtime.League.Grade);
         }
 
         /// <summary>현재 1군·선택 프리셋·Resolver 검증을 규칙 재계산 없이 선수단 화면에 투영한다.</summary>
@@ -72,6 +87,8 @@ namespace Baseball.Presentation.Owner
                     throw new InvalidOperationException($"CardId {entry.CardId} 원본이 없습니다.");
                 PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
                 TeamSeasonPlayerStatus playerStatus = statuses.GetRequiredPlayer(entry.PlayerPersonId);
+                ConditionPresentationTable conditionPresentation = manager.Balance.ConditionChemistry.Presentation;
+                ConditionPresentationBand conditionBand = conditionPresentation.GetBand(playerStatus.StoredBaseCondition);
                 players[index] = new OwnerRosterPlayerSnapshot(
                     entry.CardId,
                     runtime.IdentityRegistry.GetPlayerDisplayName(entry.PlayerPersonId),
@@ -83,7 +100,10 @@ namespace Baseball.Presentation.Owner
                     entry.RegistrationType,
                     entry.Role,
                     playerStatus.Availability,
-                    playerStatus.StoredBaseCondition);
+                    playerStatus.StoredBaseCondition,
+                    conditionPresentation.GetLevel(playerStatus.StoredBaseCondition),
+                    FormatConditionLabel(conditionBand.LabelKey),
+                    playerStatus.PitchingWorkload);
             }
 
             var ownedPlayers = new OwnerCollectionCardSnapshot[runtime.OwnedCards.Count];
@@ -210,6 +230,24 @@ namespace Baseball.Presentation.Owner
             return total;
         }
 
+        private static string FormatConditionLabel(string labelKey)
+        {
+            return labelKey switch
+            {
+                "condition.worst" => "최악",
+                "condition.very_bad" => "매우 나쁨",
+                "condition.bad" => "나쁨",
+                "condition.somewhat_bad" => "다소 나쁨",
+                "condition.normal" => "보통",
+                "condition.somewhat_good" => "다소 좋음",
+                "condition.good" => "좋음",
+                "condition.very_good" => "매우 좋음",
+                "condition.excellent" => "최상",
+                "condition.peak" => "절정",
+                _ => labelKey
+            };
+        }
+
         private static int CountAvailableSkillBlocks(ManagerHistoricalRuntimeState runtime)
         {
             int equipped = 0;
@@ -294,20 +332,20 @@ namespace Baseball.Presentation.Owner
             {
                 return new[]
                 {
-                    new OwnerCardRecordFieldSnapshot("IP", FormatInnings(record.PitchingOuts)),
-                    new OwnerCardRecordFieldSnapshot("ERA", record.EarnedRunAverage.ToString("0.00", CultureInfo.InvariantCulture)),
-                    new OwnerCardRecordFieldSnapshot("SO", record.PitchingStrikeouts.ToString(CultureInfo.InvariantCulture))
+                    new OwnerCardRecordFieldSnapshot("이닝", FormatInnings(record.PitchingOuts)),
+                    new OwnerCardRecordFieldSnapshot("평균자책점", record.EarnedRunAverage.ToString("0.00", CultureInfo.InvariantCulture)),
+                    new OwnerCardRecordFieldSnapshot("탈삼진", record.PitchingStrikeouts.ToString(CultureInfo.InvariantCulture))
                 };
             }
             return new[]
             {
-                new OwnerCardRecordFieldSnapshot("PA", record.PlateAppearances.ToString(CultureInfo.InvariantCulture)),
-                new OwnerCardRecordFieldSnapshot("AVG", record.BattingAverage.ToString("0.000", CultureInfo.InvariantCulture)),
-                new OwnerCardRecordFieldSnapshot("H", record.Hits.ToString(CultureInfo.InvariantCulture)),
-                new OwnerCardRecordFieldSnapshot("HR", record.HomeRuns.ToString(CultureInfo.InvariantCulture)),
-                new OwnerCardRecordFieldSnapshot("BB", record.Walks.ToString(CultureInfo.InvariantCulture)),
-                new OwnerCardRecordFieldSnapshot("SO", record.Strikeouts.ToString(CultureInfo.InvariantCulture)),
-                new OwnerCardRecordFieldSnapshot("SB", record.StolenBases.ToString(CultureInfo.InvariantCulture))
+                new OwnerCardRecordFieldSnapshot("타석", record.PlateAppearances.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("타율", record.BattingAverage.ToString("0.000", CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("안타", record.Hits.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("홈런", record.HomeRuns.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("볼넷", record.Walks.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("삼진", record.Strikeouts.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("도루", record.StolenBases.ToString(CultureInfo.InvariantCulture))
             };
         }
 
@@ -479,6 +517,7 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<OwnerConditionPlayerSnapshot> CreateConditionChemistry(OwnerModeManager manager)
         {
             IReadOnlyList<OwnerModeConditionEntry> entries = manager.BuildConditionEntries();
+            var ratingResolver = new MatchConditionRatingResolver(manager.Balance.ConditionChemistry);
             var result = new OwnerConditionPlayerSnapshot[entries.Count];
             for (int index = 0; index < result.Length; index++)
             {
@@ -489,7 +528,8 @@ namespace Baseball.Presentation.Owner
                     FormatPosition(entry.NaturalPosition),
                     entry.IsPitcher,
                     entry.Availability,
-                    entry.EffectiveCondition);
+                    entry.EffectiveCondition,
+                    ratingResolver.ResolveRatingModifier(entry.EffectiveCondition.Value));
             }
             return result;
         }
@@ -523,7 +563,7 @@ namespace Baseball.Presentation.Owner
             string opponentName = FormatTeamDisplayName(
                 manager.GetTeamDisplayName(opponentKey),
                 "상대 구단");
-            return $"{game.Round}R · {(isHome ? "홈" : "원정")} vs {opponentName}";
+            return $"{game.Round}라운드 · {(isHome ? "홈" : "원정")} · {opponentName}";
         }
 
         /// <summary>구단명이 비어 있을 때만 호출부가 정한 대체 이름으로 바꾼다.</summary>
@@ -682,5 +722,26 @@ namespace Baseball.Presentation.Owner
             };
             return $"{label}: 필요 {issue.Expected}, 현재 {issue.Actual}";
         }
+    }
+
+    /// <summary>Owner 모드의 내부 리그 등급을 사용자 표시용 한글명으로 변환한다.</summary>
+    internal static class OwnerLeagueDisplayNameFormatter
+    {
+        public static string FormatFull(LeagueGrade grade) => FormatShort(grade) + " 리그";
+
+        private static string FormatShort(LeagueGrade grade) => grade switch
+        {
+            LeagueGrade.Rookie => "루키",
+            LeagueGrade.Minor => "마이너",
+            LeagueGrade.Major => "메이저",
+            LeagueGrade.World => "월드",
+            LeagueGrade.AllStar => "올스타",
+            LeagueGrade.Classic => "클래식",
+            LeagueGrade.Winners => "위너스",
+            LeagueGrade.Champion => "챔피언",
+            LeagueGrade.Master => "마스터",
+            LeagueGrade.Galaxy => "갤럭시",
+            _ => "알 수 없는"
+        };
     }
 }

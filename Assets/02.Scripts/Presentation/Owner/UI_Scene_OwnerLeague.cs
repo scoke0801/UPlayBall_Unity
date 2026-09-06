@@ -130,7 +130,7 @@ namespace Baseball.Presentation.Owner
             graphic.Bind(_model, _historyStart);
             int visible = Math.Min(6, _model.Rounds.Count - _historyStart);
             for (int i = 0; i < visible; i++)
-                Label(chart, "Round_" + i, _model.Rounds[_historyStart + i] + "R",
+                Label(chart, "Round_" + i, _model.Rounds[_historyStart + i] + "회",
                     i / 6f, .92f, (i + 1) / 6f, 1, 15, Ink);
             var list = OwnerRuntimeUiFactory.CreateRect("RankList", host);
             Place(list, .45f, 0, 1, 1);

@@ -68,7 +68,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_백엔드없는기능은구체적인잠금사유를제공한다()
+        public void Profile_계약은권한으로열고미구현스카우트는잠금사유를유지한다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
@@ -76,8 +76,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             NavigationEntry awardScout = profile.FindEntry("Owner.Scout.Award");
 
             Assert.That(contract, Is.Not.Null);
-            Assert.That(contract.IsEnabled, Is.False);
-            Assert.That(contract.DisabledReason, Does.Contain("계약 조회"));
+            Assert.That(contract.IsEnabled, Is.True);
+            Assert.That(contract.RequiredCapability, Is.EqualTo(UiCapability.CanManagePlayerContracts));
             Assert.That(awardScout.IsEnabled, Is.False);
             Assert.That(awardScout.DisabledReason, Does.Contain("스카우트 후보군"));
         }
@@ -131,7 +131,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             return new OwnerHomeSnapshot(
                 "2028 시즌",
                 "4월 3주",
-                "Rookie",
+                "루키 리그",
                 "서울 웨이브스",
                 "3위",
                 "다음 경기 D-1",

@@ -95,6 +95,51 @@ namespace Baseball.Tests.EditMode.Presentation
         }
 
         [Test]
+        public void GameModeNavigationState_방문Route를역순으로복원하고Home에서는멈춘다()
+        {
+            GameModeUiProfile profile = CreateNavigationStateProfile();
+            var state = new GameModeNavigationState(profile, "Owner.Home");
+
+            state.Navigate("Shared.League.Schedule");
+            state.Navigate("Shared.League.Records");
+
+            Assert.That(state.TryBack(out string scheduleRoute), Is.True);
+            Assert.That(scheduleRoute, Is.EqualTo("Shared.League.Schedule"));
+            Assert.That(state.TryBack(out string homeRoute), Is.True);
+            Assert.That(homeRoute, Is.EqualTo("Owner.Home"));
+            Assert.That(state.IsAtRoot, Is.True);
+            Assert.That(state.TryBack(out string unchangedRoute), Is.False);
+            Assert.That(unchangedRoute, Is.EqualTo("Owner.Home"));
+        }
+
+        [Test]
+        public void GameModeNavigationState_Home직접선택은방문기록을비운다()
+        {
+            GameModeUiProfile profile = CreateNavigationStateProfile();
+            var state = new GameModeNavigationState(profile, "Owner.Home");
+
+            state.Navigate("Shared.League.Schedule");
+            state.Navigate("Owner.Home");
+
+            Assert.That(state.IsAtRoot, Is.True);
+            Assert.That(state.CanGoBack, Is.False);
+            Assert.That(state.TryBack(out _), Is.False);
+        }
+
+        [Test]
+        public void GameModeNavigationState_Home이아닌초기화면아래에Home을보존한다()
+        {
+            GameModeUiProfile profile = CreateNavigationStateProfile();
+            var state = new GameModeNavigationState(
+                profile,
+                "Shared.League.Records",
+                "Owner.Home");
+
+            Assert.That(state.TryBack(out string homeRoute), Is.True);
+            Assert.That(homeRoute, Is.EqualTo("Owner.Home"));
+        }
+
+        [Test]
         public void SharedGameShellPresenter_모드이름분기없이Profile과상태를바인딩한다()
         {
             var view = new FakeShellView();

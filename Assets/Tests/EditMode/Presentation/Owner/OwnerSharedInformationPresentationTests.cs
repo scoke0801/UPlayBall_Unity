@@ -35,7 +35,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
             ScheduleScreenSnapshot snapshot = new OwnerSharedInformationSnapshotFactory().CreateSchedule(
                 liveSeason,
-                "Rookie",
+                "루키 리그",
                 teamId => teamId == "owner-team" ? "내 구단" : "상대 구단");
 
             Assert.That(snapshot.HasCalendarDate, Is.False);
@@ -93,7 +93,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 var opponent = new ScheduleTeamSnapshot("opponent", "상대 구단");
                 var snapshot = new ScheduleScreenSnapshot(
                     "2028 시즌",
-                    "Rookie",
+                    "루키 리그",
                     "3주차",
                     "owner",
                     new[]
@@ -101,7 +101,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                         new ScheduleGameSnapshot(
                             "game-3",
                             3,
-                            "3R",
+                            "3라운드",
                             opponent,
                             owner,
                             false,

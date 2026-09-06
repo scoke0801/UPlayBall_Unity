@@ -43,22 +43,13 @@ namespace Baseball.Presentation.Owner
     /// <summary>구단주 모드에서 실제로 제공되는 Route와 권한을 공용 셸 계약으로 만든다.</summary>
     public static class OwnerModeUiProfileFactory
     {
-        private const string RuntimeAdapterPending =
-            "실제 게임 기능과 이 화면의 연결이 아직 완료되지 않았습니다.";
-        private const string ScoutBackendUnavailable =
-            "스카우트 후보군·확률 조회·실행 기능이 아직 준비되지 않았습니다.";
-        private const string TeamColorBackendUnavailable =
-            "라인업의 팀컬러 슬롯은 변경할 수 있지만 조건·적용 대상·중첩 결과를 보여주는 상세 화면은 아직 준비되지 않았습니다.";
-        private const string TacticBackendUnavailable =
-            "라인업의 전술카드 슬롯은 변경할 수 있지만 발동 조건·대상·지속 시간을 보여주는 상세 화면은 아직 준비되지 않았습니다.";
         /// <summary>현재 백엔드 연결 범위를 숨기거나 과장하지 않는 구단주 UI Profile을 만든다.</summary>
         public static GameModeUiProfile Create()
         {
             var rosterTabs = new[]
             {
                 new NavigationEntry(OwnerNavigationRoutes.RosterLineup, "라인업"),
-                new NavigationEntry(OwnerNavigationRoutes.RosterPitching, "투수진", isEnabled: false,
-                    disabledReason: RuntimeAdapterPending),
+                new NavigationEntry(OwnerNavigationRoutes.RosterPitching, "투수진"),
                 new NavigationEntry(OwnerNavigationRoutes.RosterCollection, "보유선수"),
                 new NavigationEntry(OwnerNavigationRoutes.RosterCondition, "컨디션·궁합")
             };
@@ -71,8 +62,7 @@ namespace Baseball.Presentation.Owner
             var dugoutTabs = new[]
             {
                 new NavigationEntry(OwnerNavigationRoutes.DugoutLineupNotes, "덕아웃"),
-                new NavigationEntry(OwnerNavigationRoutes.DugoutTeamColor, "팀컬러", isEnabled: false,
-                    disabledReason: TeamColorBackendUnavailable),
+                new NavigationEntry(OwnerNavigationRoutes.DugoutTeamColor, "팀컬러"),
                 new NavigationEntry(OwnerNavigationRoutes.DugoutTactics, "작전"),
                 new NavigationEntry(OwnerNavigationRoutes.DugoutManagerPolicy, "감독방침")
             };
@@ -102,13 +92,11 @@ namespace Baseball.Presentation.Owner
                 new NavigationEntry(
                     OwnerNavigationRoutes.ClubContract,
                     "계약",
-                    isEnabled: false,
-                    disabledReason: "구단 계약 조회와 협상 기능이 아직 구현되지 않았습니다."),
+                    UiCapability.CanManagePlayerContracts),
                 new NavigationEntry(
                     OwnerNavigationRoutes.ClubTrade,
                     "트레이드",
-                    isEnabled: false,
-                    disabledReason: "트레이드 조회와 제안 기능이 아직 구현되지 않았습니다.")
+                    UiCapability.CanProposeTrades)
             };
 
             var manifest = new NavigationManifest(new[]
@@ -166,9 +154,13 @@ namespace Baseball.Presentation.Owner
                 UiCapability.CanEditLineup |
                 UiCapability.CanEquipTeamColor |
                 UiCapability.CanEquipTacticCards |
+                UiCapability.CanUseScout |
+                UiCapability.CanTrainOwnedCards |
                 UiCapability.CanManageFinance |
                 UiCapability.CanViewLeagueInformation |
-                UiCapability.CanViewSeasonRecords);
+                UiCapability.CanViewSeasonRecords |
+                UiCapability.CanManagePlayerContracts |
+                UiCapability.CanProposeTrades);
 
             return new GameModeUiProfile(
                 UiGameMode.OwnerCareer,

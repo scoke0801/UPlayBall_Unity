@@ -32,10 +32,15 @@ namespace Baseball.Presentation.Owner
             RegistrationType registrationType,
             ActiveRosterRole activeRosterRole,
             PlayerAvailabilityStatus availability,
-            int condition = 100)
+            int condition = 100,
+            int conditionLevel = 10,
+            string conditionLabel = "절정",
+            PitchingWorkloadState pitchingWorkload = default)
         {
             if (condition < 0 || condition > 100)
                 throw new ArgumentOutOfRangeException(nameof(condition));
+            if (conditionLevel < 1 || conditionLevel > 10)
+                throw new ArgumentOutOfRangeException(nameof(conditionLevel));
             CardId = cardId ?? string.Empty;
             DisplayName = displayName ?? string.Empty;
             OriginYear = originYear;
@@ -47,6 +52,9 @@ namespace Baseball.Presentation.Owner
             ActiveRosterRole = activeRosterRole;
             Availability = availability;
             Condition = condition;
+            ConditionLevel = conditionLevel;
+            ConditionLabel = string.IsNullOrWhiteSpace(conditionLabel) ? "상태 확인 필요" : conditionLabel.Trim();
+            PitchingWorkload = pitchingWorkload;
         }
 
         public string CardId { get; }
@@ -60,6 +68,9 @@ namespace Baseball.Presentation.Owner
         public ActiveRosterRole ActiveRosterRole { get; }
         public PlayerAvailabilityStatus Availability { get; }
         public int Condition { get; }
+        public int ConditionLevel { get; }
+        public string ConditionLabel { get; }
+        public PitchingWorkloadState PitchingWorkload { get; }
     }
 
     /// <summary>저장 프리셋 하나와 현재 Runtime에서 다시 계산한 Validator 결과다.</summary>
@@ -178,6 +189,34 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<OwnerLoadoutCandidateSnapshot> TeamColorCandidates => _teamColorCandidates;
         public IReadOnlyList<OwnerLoadoutCandidateSnapshot> TacticCandidates => _tacticCandidates;
 
+        /// <summary>저장 상태를 바꾸지 않고 선택 프리셋만 Validator 결과와 함께 교체한 Preview Snapshot을 만든다.</summary>
+        public OwnerRosterLineupSnapshot CreatePreview(
+            LineupPresetState previewPreset,
+            LineupPresetValidationResult validation)
+        {
+            if (previewPreset == null) throw new ArgumentNullException(nameof(previewPreset));
+            if (!string.Equals(previewPreset.PresetId, Preset.PresetId, StringComparison.Ordinal))
+                throw new ArgumentException("현재 선택 프리셋과 Preview ID가 다릅니다.", nameof(previewPreset));
+
+            var previews = new OwnerRosterPresetSnapshot[_presets.Length];
+            for (int index = 0; index < previews.Length; index++)
+            {
+                OwnerRosterPresetSnapshot source = _presets[index];
+                previews[index] = index == SelectedPresetIndex
+                    ? new OwnerRosterPresetSnapshot(previewPreset, validation)
+                    : source;
+            }
+
+            return new OwnerRosterLineupSnapshot(
+                RosterStatus,
+                _players,
+                previews,
+                previewPreset.PresetId,
+                _teamColorCandidates,
+                _tacticCandidates,
+                _ownedPlayers);
+        }
+
         private static T[] CopyRequired<T>(IReadOnlyList<T> source, string parameterName) where T : class
         {
             if (source == null) throw new ArgumentNullException(parameterName);
@@ -288,6 +327,8 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<OwnerLineupSlotModel> StarterRotation { get; }
         public IReadOnlyList<OwnerLineupSlotModel> ReliefPitching { get; }
         public string ValidationText { get; }
+        public bool CanSave => Snapshot.PresetValidation != null &&
+                               Snapshot.PresetValidation.Status == LineupPresetValidationStatus.Valid;
         public string RosterSummaryText =>
             $"1군 {Snapshot.RosterStatus.ActiveRosterCount}/{Snapshot.RosterStatus.ActiveRosterCapacity} · " +
             $"야수 {Snapshot.RosterStatus.HitterCount}/{Snapshot.RosterStatus.RequiredHitterCount} · " +
@@ -568,6 +609,131 @@ namespace Baseball.Presentation.Owner
                 PlayerPosition.ReliefPitcher => "RP",
                 _ => "-"
             };
+        }
+    }
+
+    /// <summary>투수 역할 화면에서 한 선수를 비교할 때 사용하는 실제 부하·구종·기록 문구다.</summary>
+    public sealed class OwnerPitchingPlayerPresentationModel
+    {
+        internal OwnerPitchingPlayerPresentationModel(
+            OwnerLineupSlotModel slot,
+            string conditionText,
+            string workloadText,
+            string pitchesText,
+            string recentRecordText)
+        {
+            Slot = slot ?? throw new ArgumentNullException(nameof(slot));
+            ConditionText = conditionText ?? string.Empty;
+            WorkloadText = workloadText ?? string.Empty;
+            PitchesText = pitchesText ?? string.Empty;
+            RecentRecordText = recentRecordText ?? string.Empty;
+        }
+
+        public OwnerLineupSlotModel Slot { get; }
+        public string ConditionText { get; }
+        public string WorkloadText { get; }
+        public string PitchesText { get; }
+        public string RecentRecordText { get; }
+    }
+
+    /// <summary>라인업 원본을 투수 Rotation·Bullpen 전용 View State로 투영한다.</summary>
+    public sealed class OwnerRosterPitchingPresentationModel
+    {
+        internal OwnerRosterPitchingPresentationModel(
+            OwnerRosterLineupPresentationModel lineup,
+            IReadOnlyList<OwnerPitchingPlayerPresentationModel> pitchers)
+        {
+            Lineup = lineup ?? throw new ArgumentNullException(nameof(lineup));
+            Pitchers = pitchers ?? throw new ArgumentNullException(nameof(pitchers));
+        }
+
+        public OwnerRosterLineupPresentationModel Lineup { get; }
+        public IReadOnlyList<OwnerPitchingPlayerPresentationModel> Pitchers { get; }
+
+        public OwnerPitchingPlayerPresentationModel Find(string cardId)
+        {
+            for (int index = 0; index < Pitchers.Count; index++)
+                if (string.Equals(Pitchers[index].Slot.Player?.CardId, cardId, StringComparison.Ordinal))
+                    return Pitchers[index];
+            return null;
+        }
+    }
+
+    /// <summary>저장된 최근 3일 투구 부하와 카드 원본 구종·시즌 기록을 투수 역할에 결합한다.</summary>
+    public static class OwnerRosterPitchingPresentationBuilder
+    {
+        public static OwnerRosterPitchingPresentationModel Build(OwnerRosterLineupPresentationModel lineup)
+        {
+            if (lineup == null) throw new ArgumentNullException(nameof(lineup));
+            var result = new OwnerPitchingPlayerPresentationModel[
+                lineup.StarterRotation.Count + lineup.ReliefPitching.Count];
+            int targetIndex = 0;
+            for (int index = 0; index < lineup.StarterRotation.Count; index++)
+                result[targetIndex++] = BuildPlayer(lineup.Snapshot, lineup.StarterRotation[index]);
+            for (int index = 0; index < lineup.ReliefPitching.Count; index++)
+                result[targetIndex++] = BuildPlayer(lineup.Snapshot, lineup.ReliefPitching[index]);
+            return new OwnerRosterPitchingPresentationModel(lineup, result);
+        }
+
+        private static OwnerPitchingPlayerPresentationModel BuildPlayer(
+            OwnerRosterLineupSnapshot snapshot,
+            OwnerLineupSlotModel slot)
+        {
+            if (slot.Player == null)
+                return new OwnerPitchingPlayerPresentationModel(
+                    slot,
+                    "컨디션 · 미지정",
+                    "최근 투구 부하 · 미지정",
+                    "구종 · 선수 배정 필요",
+                    "시즌 기록 · 선수 배정 필요");
+
+            OwnerRosterPlayerSnapshot player = slot.Player;
+            PitchingWorkloadState workload = player.PitchingWorkload;
+            int recentPitches = checked(
+                workload.PreviousDayPitches + workload.TwoDaysAgoPitches + workload.ThreeDaysAgoPitches);
+            int restDays = workload.PreviousDayPitches > 0 ? 0 :
+                workload.TwoDaysAgoPitches > 0 ? 1 : workload.ThreeDaysAgoPitches > 0 ? 2 : 3;
+            string workloadText = recentPitches == 0
+                ? "최근 3일 등판 없음 · 휴식 3일 이상"
+                : $"최근 3일 {recentPitches}구 · 휴식 {restDays}일 · " +
+                  $"일별 {workload.PreviousDayPitches}/{workload.TwoDaysAgoPitches}/{workload.ThreeDaysAgoPitches}구";
+            OwnerCollectionCardSnapshot card = FindOwnedCard(snapshot.OwnedPlayers, player.CardId);
+            return new OwnerPitchingPlayerPresentationModel(
+                slot,
+                $"컨디션 · {player.ConditionLabel} {player.ConditionLevel}단계",
+                workloadText,
+                FormatPitches(card),
+                FormatRecord(card));
+        }
+
+        private static OwnerCollectionCardSnapshot FindOwnedCard(
+            IReadOnlyList<OwnerCollectionCardSnapshot> cards,
+            string cardId)
+        {
+            for (int index = 0; index < cards.Count; index++)
+                if (string.Equals(cards[index].CardId, cardId, StringComparison.Ordinal)) return cards[index];
+            return null;
+        }
+
+        private static string FormatPitches(OwnerCollectionCardSnapshot card)
+        {
+            if (card == null || card.Pitches.Count == 0) return "구종 · 기록 없음";
+            var values = new string[card.Pitches.Count];
+            for (int index = 0; index < values.Length; index++)
+            {
+                OwnerPitchCardSnapshot pitch = card.Pitches[index];
+                values[index] = $"{pitch.DisplayName} {pitch.Grade} {pitch.VelocityKph:0.#}km/h";
+            }
+            return "구종 · " + string.Join(" / ", values);
+        }
+
+        private static string FormatRecord(OwnerCollectionCardSnapshot card)
+        {
+            if (card == null || card.SeasonRecord.Count == 0) return "시즌 기록 · 기록 없음";
+            var values = new string[card.SeasonRecord.Count];
+            for (int index = 0; index < values.Length; index++)
+                values[index] = $"{card.SeasonRecord[index].Label} {card.SeasonRecord[index].Value}";
+            return "시즌 기록 · " + string.Join(" · ", values);
         }
     }
 

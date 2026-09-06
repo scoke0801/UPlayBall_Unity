@@ -314,7 +314,7 @@ namespace Baseball.Presentation.Owner
 
             return new OwnerClubOperationPresentationModel(
                 snapshot,
-                $"구장 Lv.{snapshot.StadiumLevel} · {snapshot.StadiumCapacity:N0}석",
+                $"구장 {snapshot.StadiumLevel}단계 · {snapshot.StadiumCapacity:N0}석",
                 stadiumUpgrade,
                 $"팬 기반 {snapshot.FanBase:0.0}",
                 $"인기도 {snapshot.Popularity:0.0}",
@@ -334,7 +334,7 @@ namespace Baseball.Presentation.Owner
             return new OwnerFacilityPresentationRow(
                 source.FacilityType,
                 FormatFacilityName(source.FacilityType),
-                $"Lv.{source.Level}/{source.MaximumLevel}",
+                $"{source.Level}/{source.MaximumLevel}단계",
                 FormatFacilityEffect(source),
                 upgradeCost,
                 source.CanUpgrade,

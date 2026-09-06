@@ -254,17 +254,17 @@ namespace Baseball.Presentation.Owner
         {
             return position switch
             {
-                PlayerPosition.Catcher => "포수 (C)",
-                PlayerPosition.FirstBase => "1루수 (1B)",
-                PlayerPosition.SecondBase => "2루수 (2B)",
-                PlayerPosition.ThirdBase => "3루수 (3B)",
-                PlayerPosition.Shortstop => "유격수 (SS)",
-                PlayerPosition.LeftField => "좌익수 (LF)",
-                PlayerPosition.CenterField => "중견수 (CF)",
-                PlayerPosition.RightField => "우익수 (RF)",
-                PlayerPosition.DesignatedHitter => "지명타자 (DH)",
-                PlayerPosition.StartingPitcher => "선발투수 (SP)",
-                PlayerPosition.ReliefPitcher => "구원투수 (RP)",
+                PlayerPosition.Catcher => "포수",
+                PlayerPosition.FirstBase => "1루수",
+                PlayerPosition.SecondBase => "2루수",
+                PlayerPosition.ThirdBase => "3루수",
+                PlayerPosition.Shortstop => "유격수",
+                PlayerPosition.LeftField => "좌익수",
+                PlayerPosition.CenterField => "중견수",
+                PlayerPosition.RightField => "우익수",
+                PlayerPosition.DesignatedHitter => "지명타자",
+                PlayerPosition.StartingPitcher => "선발투수",
+                PlayerPosition.ReliefPitcher => "구원투수",
                 _ => "포지션 미확인"
             };
         }

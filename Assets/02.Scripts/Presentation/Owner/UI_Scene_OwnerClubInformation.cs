@@ -119,12 +119,12 @@ namespace Baseball.Presentation.Owner
             InfoBand(roster, "보유 선수", _model.OwnedPlayerCount.ToString("N0"), .84f);
             InfoBand(roster, "1군 등록", _model.ActiveRosterText, .73f);
             InfoBand(roster, "구장", _model.StadiumText, .62f);
-            GridRow(roster, .43f, new[] { "일반", "All-Star", "Golden Glove", "MVP" }, new[]
+            GridRow(roster, .43f, new[] { "일반", "올스타", "골든글러브", "MVP" }, new[]
             {
                 _model.NormalCardCount.ToString(), _model.AllStarCardCount.ToString(),
                 _model.GoldenGloveCardCount.ToString(), _model.MvpCardCount.ToString()
             });
-            Label(roster, "Watermark", "PRO BASEBALL MANAGER", .04f, .25f, .96f, .37f, 18,
+            Label(roster, "Watermark", "프로야구 구단주", .04f, .25f, .96f, .37f, 18,
                 new Color32(216, 219, 222, 255), TextAnchor.MiddleCenter, FontStyle.Bold);
             Section(roster, "현재 구단 운영", .18f);
             GridRow(roster, .035f, new[] { "인기도", "팬 기반", "순위", "승률" }, new[]

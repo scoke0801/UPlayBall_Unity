@@ -99,7 +99,7 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>현재 시즌 누적 개인 기록을 네 부문 탭이 있는 기록 화면에 연결한다.</summary>
-        public void BindSeasonRecords(OwnerSeasonRecordsPresentationModel model)
+        public void BindSeasonRecords(OwnerSeasonRecordsPresentationModel model, Action<int> selectSeason = null)
         {
             RequireInitialized();
             if (model == null) throw new ArgumentNullException(nameof(model));
@@ -108,7 +108,7 @@ namespace Baseball.Presentation.Owner
                 _seasonRecordsView = UI_Scene_OwnerSeasonRecords.CreateRuntime(_shell.MainWorkspaceHost);
                 _seasonRecordsView.SetVisible(false);
             }
-            _seasonRecordsView.Bind(model);
+            _seasonRecordsView.Bind(model, selectSeason);
         }
 
         /// <summary>현재 구단의 구단주·구단 정보 화면을 실제 진행 Snapshot으로 갱신한다.</summary>

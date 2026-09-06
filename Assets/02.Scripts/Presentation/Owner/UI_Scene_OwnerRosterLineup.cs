@@ -9,6 +9,13 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
+    /// <summary>같은 프리셋을 타자 Lineup과 투수 역할 화면에서 서로 독립된 View State로 연다.</summary>
+    public enum OwnerRosterWorkspaceMode
+    {
+        Lineup,
+        Pitching
+    }
+
     /// <summary>25인 상태와 타자·투수 역할 슬롯을 한 화면에서 편집하는 구단주 uGUI Workspace다.</summary>
     [DisallowMultipleComponent]
     public sealed partial class UI_Scene_OwnerRosterLineup : MonoBehaviour
@@ -40,7 +47,10 @@ namespace Baseball.Presentation.Owner
         private Text _evaluationText;
         private Text _validationText;
         private Text _presetStateText;
+        private Text _previewStateText;
         private Button _activeRosterEditButton;
+        private Button _confirmPreviewButton;
+        private Button _cancelPreviewButton;
         private Button _previousPresetButton;
         private Button _nextPresetButton;
         private Button _hitterTabButton;
@@ -49,8 +59,10 @@ namespace Baseball.Presentation.Owner
         private Button[] _tacticButtons;
         private Button _selectedButton;
         private OwnerRosterLineupPresentationModel _model;
+        private OwnerRosterPitchingPresentationModel _pitchingModel;
         private int _presetIndex;
         private PlayerGroupTab _activePlayerGroup = PlayerGroupTab.Hitter;
+        private OwnerRosterWorkspaceMode _workspaceMode = OwnerRosterWorkspaceMode.Lineup;
         private OwnerLineupSwapGroup? _selectedGroup;
         private int _selectedIndex = -1;
         private int _positionFilter;
@@ -59,6 +71,8 @@ namespace Baseball.Presentation.Owner
         public event Action<string> PresetSelected;
         public event Action<int> TeamColorSlotCycleRequested;
         public event Action<int> TacticSlotCycleRequested;
+        public event Action LineupChangeConfirmed;
+        public event Action LineupChangeCancelled;
 
         public static UI_Scene_OwnerRosterLineup CreateRuntime(
             RectTransform workspaceHost,
@@ -77,6 +91,7 @@ namespace Baseball.Presentation.Owner
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
             _model = model;
+            _pitchingModel = OwnerRosterPitchingPresentationBuilder.Build(model);
             EnsureBuilt();
             ClearSelection();
             _summaryText.text = model.RosterSummaryText;
@@ -86,6 +101,40 @@ namespace Baseball.Presentation.Owner
             RenderActivePlayerGroup();
             _presetIndex = FindSelectedPreset(model);
             RenderPresetControls();
+            SetPreviewState("슬롯 두 개를 선택하면 변경안을 먼저 검증합니다.", false, false);
+        }
+
+        /// <summary>Navigation Route마다 타자·투수 선택과 필터를 독립적으로 유지한다.</summary>
+        public void SetWorkspaceMode(OwnerRosterWorkspaceMode mode)
+        {
+            PlayerGroupTab target = mode == OwnerRosterWorkspaceMode.Pitching
+                ? PlayerGroupTab.Pitcher
+                : PlayerGroupTab.Hitter;
+            if (_workspaceMode == mode && _activePlayerGroup == target)
+            {
+                if (_hitterTabButton != null) _hitterTabButton.transform.parent.gameObject.SetActive(false);
+                return;
+            }
+            _workspaceMode = mode;
+            _activePlayerGroup = target;
+            _positionFilter = 0;
+            if (_hitterTabButton != null) _hitterTabButton.transform.parent.gameObject.SetActive(false);
+            RenderActivePlayerGroup();
+        }
+
+        /// <summary>저장 전 후보 배치를 화면에 표시하고 Validator가 허용한 경우에만 확정 CTA를 연다.</summary>
+        public void BindPreview(
+            OwnerRosterLineupPresentationModel preview,
+            string message,
+            bool canConfirm)
+        {
+            if (preview == null) throw new ArgumentNullException(nameof(preview));
+            _model = preview;
+            _pitchingModel = OwnerRosterPitchingPresentationBuilder.Build(preview);
+            _summaryText.text = preview.RosterSummaryText;
+            _evaluationText.text = preview.EvaluationText + "\n" + preview.EvaluationBasisText;
+            RenderActivePlayerGroup();
+            SetPreviewState(message, canConfirm, true);
         }
 
         /// <summary>현재 Route에서 발생한 Command 실패를 Home으로 보내지 않고 Inspector에 표시한다.</summary>
@@ -112,6 +161,8 @@ namespace Baseball.Presentation.Owner
             if (_nextPresetButton != null) _nextPresetButton.onClick.RemoveAllListeners();
             if (_hitterTabButton != null) _hitterTabButton.onClick.RemoveAllListeners();
             if (_pitcherTabButton != null) _pitcherTabButton.onClick.RemoveAllListeners();
+            if (_confirmPreviewButton != null) _confirmPreviewButton.onClick.RemoveAllListeners();
+            if (_cancelPreviewButton != null) _cancelPreviewButton.onClick.RemoveAllListeners();
             RemoveListeners(_teamColorButtons);
             RemoveListeners(_tacticButtons);
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_workspaceRoot);
@@ -159,28 +210,36 @@ namespace Baseball.Presentation.Owner
                 _inspectorRoot, "ValidationPanel", "선수단 검증");
             OwnerWorkspaceUiFactory.Stretch(validation.Root);
             OwnerWorkspaceUiFactory.AddVerticalLayout(validation.Content, CareerUiTheme.Space3);
-            _summaryText = AddText(validation.Content, "RosterSummary", 16, FontStyle.Bold, 64f);
-            _evaluationText = AddText(validation.Content, "RosterEvaluation", 14, FontStyle.Normal, 144f);
-            _evaluationText.GetComponent<LayoutElement>().minHeight = 144f;
-            _validationText = AddText(validation.Content, "ValidationMessages", 14, FontStyle.Normal, 410f);
+            _summaryText = AddText(validation.Content, "RosterSummary", 15, FontStyle.Bold, 54f);
+            _evaluationText = AddText(validation.Content, "RosterEvaluation", 13, FontStyle.Normal, 112f);
+            _evaluationText.GetComponent<LayoutElement>().minHeight = 112f;
+            _validationText = AddText(validation.Content, "ValidationMessages", 13, FontStyle.Normal, 160f);
+            _presetStateText = OwnerWorkspaceUiFactory.CreateText(
+                validation.Content, "PresetState", string.Empty,
+                13, FontStyle.Bold, TextAnchor.MiddleLeft, CareerUiTheme.TextSecondary);
+            _presetStateText.gameObject.AddComponent<LayoutElement>().preferredHeight = 26f;
+            RectTransform presetControls = CreateInspectorControlRow(validation.Content, "PresetControls");
+            RectTransform teamColorControls = CreateInspectorControlRow(validation.Content, "TeamColorControls");
+            RectTransform tacticControls = CreateInspectorControlRow(validation.Content, "TacticControls");
+            RectTransform rosterControls = CreateInspectorControlRow(validation.Content, "RosterControls");
 
             _actionRoot = OwnerWorkspaceUiFactory.CreateRoot(actionBarHost, "OwnerRosterLineupActionBar", false);
             HorizontalLayoutGroup actions = OwnerWorkspaceUiFactory.AddHorizontalLayout(_actionRoot, CareerUiTheme.Space3);
             actions.padding = new RectOffset(16, 16, 4, 4);
-            _presetStateText = OwnerWorkspaceUiFactory.CreateText(
-                _actionRoot, "PresetState", string.Empty,
+            _previewStateText = OwnerWorkspaceUiFactory.CreateText(
+                _actionRoot, "PreviewState", string.Empty,
                 13, FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.TextSecondary);
-            OwnerWorkspaceUiFactory.SetFlexible(_presetStateText.rectTransform, 1f, 0f);
+            OwnerWorkspaceUiFactory.SetFlexible(_previewStateText.rectTransform, 1f, 0f);
             _previousPresetButton = OwnerWorkspaceUiFactory.CreateButton(
-                _actionRoot, "PreviousPresetButton", "◀ 프리셋", () => SelectRelativePreset(-1));
+                presetControls, "PreviousPresetButton", "◀ 이전", () => SelectRelativePreset(-1));
             _nextPresetButton = OwnerWorkspaceUiFactory.CreateButton(
-                _actionRoot, "NextPresetButton", "프리셋 ▶", () => SelectRelativePreset(1));
+                presetControls, "NextPresetButton", "다음 ▶", () => SelectRelativePreset(1));
             _teamColorButtons = new Button[LineupPresetState.TeamColorSlotCount];
             for (int index = 0; index < _teamColorButtons.Length; index++)
             {
                 int slotIndex = index;
                 _teamColorButtons[index] = OwnerWorkspaceUiFactory.CreateButton(
-                    _actionRoot,
+                    teamColorControls,
                     $"TeamColorSlot{index}",
                     string.Empty,
                     () => TeamColorSlotCycleRequested?.Invoke(slotIndex));
@@ -190,13 +249,13 @@ namespace Baseball.Presentation.Owner
             {
                 int slotIndex = index;
                 _tacticButtons[index] = OwnerWorkspaceUiFactory.CreateButton(
-                    _actionRoot,
+                    tacticControls,
                     $"TacticSlot{index}",
                     string.Empty,
                     () => TacticSlotCycleRequested?.Invoke(slotIndex));
                 LayoutElement tacticLayout = _tacticButtons[index].GetComponent<LayoutElement>();
-                tacticLayout.minWidth = 142f;
-                tacticLayout.preferredWidth = 154f;
+                tacticLayout.minWidth = 0f;
+                tacticLayout.preferredWidth = 120f;
                 RawImage artwork = TacticCardArtwork.Create(
                     _tacticButtons[index].transform,
                     "TacticArtwork",
@@ -207,8 +266,12 @@ namespace Baseball.Presentation.Owner
                 artwork.transform.SetAsFirstSibling();
             }
             _activeRosterEditButton = OwnerWorkspaceUiFactory.CreateButton(
-                _actionRoot, "ActiveRosterEditDisabled", "1군 등록 변경 미제공", null);
+                rosterControls, "ActiveRosterEditDisabled", "1군 등록 변경 미제공", null);
             _activeRosterEditButton.interactable = false;
+            _cancelPreviewButton = OwnerWorkspaceUiFactory.CreateButton(
+                _actionRoot, "CancelLineupPreview", "변경 취소", () => LineupChangeCancelled?.Invoke());
+            _confirmPreviewButton = OwnerWorkspaceUiFactory.CreateButton(
+                _actionRoot, "ConfirmLineupPreview", "검증된 배치 저장", () => LineupChangeConfirmed?.Invoke());
             CareerUiSkin.Apply(_workspaceRoot);
             CareerUiSkin.Apply(_inspectorRoot);
             CareerUiSkin.Apply(_actionRoot);
@@ -220,6 +283,7 @@ namespace Baseball.Presentation.Owner
             ApplyRoleBoardPalette(closerPanel);
             ApplyInspectorPalette(_inspectorRoot.Find("ValidationPanel"));
             UpdatePlayerGroupTabs();
+            tabs.gameObject.SetActive(false);
             foreach (Transform panel in board)
                 if (panel.name.EndsWith("Panel", StringComparison.Ordinal)) CompactPanel((RectTransform)panel);
             OwnerRuntimeUiFactory.SetAnchors(ownedPanel, Vector2.zero, new Vector2(0.64f, 0.69f), Vector2.zero, Vector2.zero);
@@ -301,6 +365,17 @@ namespace Baseball.Presentation.Owner
             return content;
         }
 
+        private static RectTransform CreateInspectorControlRow(Transform parent, string name)
+        {
+            RectTransform row = OwnerRuntimeUiFactory.CreateRect(name, parent);
+            row.gameObject.AddComponent<LayoutElement>().preferredHeight = 38f;
+            HorizontalLayoutGroup layout = OwnerWorkspaceUiFactory.AddHorizontalLayout(row, CareerUiTheme.Space1);
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            return row;
+        }
+
         private Button CreatePlayerGroupTab(
             Transform parent,
             string name,
@@ -367,10 +442,21 @@ namespace Baseball.Presentation.Owner
             UpdatePlayerGroupTabs();
         }
 
+        private void SetPreviewState(string message, bool canConfirm, bool hasPreview)
+        {
+            if (_previewStateText == null) return;
+            _previewStateText.text = message ?? string.Empty;
+            _previewStateText.color = hasPreview && !canConfirm
+                ? CareerUiTheme.Warning
+                : CareerUiTheme.TextSecondary;
+            _confirmPreviewButton.interactable = canConfirm;
+            _cancelPreviewButton.interactable = hasPreview;
+        }
+
         private static void SetUpperPanel(RectTransform panel, float left, float right)
         {
             OwnerRuntimeUiFactory.SetAnchors(panel, new Vector2(left, 0.70f),
-                new Vector2(right, 0.93f), Vector2.zero, Vector2.zero);
+                new Vector2(right, 0.99f), Vector2.zero, Vector2.zero);
         }
 
         private static OwnerLineupSlotModel[] SliceSlots(IReadOnlyList<OwnerLineupSlotModel> slots, int start, int count)
@@ -640,6 +726,7 @@ namespace Baseball.Presentation.Owner
             if (!_selectedGroup.HasValue || _selectedGroup.Value != group)
             {
                 Select(clicked, group, index);
+                ShowPitchingDetail(group, index);
                 return;
             }
             if (_selectedIndex == index)
@@ -651,6 +738,22 @@ namespace Baseball.Presentation.Owner
             int first = _selectedIndex;
             ClearSelection();
             SwapRequested?.Invoke(group, first, index);
+        }
+
+        private void ShowPitchingDetail(OwnerLineupSwapGroup group, int index)
+        {
+            if (_workspaceMode != OwnerRosterWorkspaceMode.Pitching || _pitchingModel == null) return;
+            IReadOnlyList<OwnerLineupSlotModel> slots = group == OwnerLineupSwapGroup.StarterRotation
+                ? _model.StarterRotation
+                : group == OwnerLineupSwapGroup.ReliefPitching ? _model.ReliefPitching : null;
+            if (slots == null || index < 0 || index >= slots.Count || slots[index].Player == null) return;
+            OwnerPitchingPlayerPresentationModel pitcher = _pitchingModel.Find(slots[index].Player.CardId);
+            if (pitcher == null) return;
+            _validationText.text =
+                $"{pitcher.Slot.Player.DisplayName} · {pitcher.Slot.Label}\n\n" +
+                $"{pitcher.ConditionText}\n{pitcher.WorkloadText}\n\n" +
+                $"{pitcher.PitchesText}\n\n{pitcher.RecentRecordText}";
+            _validationText.color = InspectorMessage;
         }
 
         private void Select(Button button, OwnerLineupSwapGroup group, int index)

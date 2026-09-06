@@ -20,9 +20,10 @@ namespace Baseball.Presentation.Owner
             var game = preparation.ScheduledGame;
             int opponentId = game.HomeTeamId == live.PlayerTeamId ? game.AwayTeamId : game.HomeTeamId;
             output["analysis.own.name"] = manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey);
-            output["analysis.own.side"] = game.HomeTeamId == live.PlayerTeamId ? "H" : "A";
-            output["analysis.opponent.side"] = game.HomeTeamId == opponentId ? "H" : "A";
-            output["analysis.league"] = runtime.League.Grade + " 리그 · " + live.OriginYear + " 시즌";
+            output["analysis.own.side"] = game.HomeTeamId == live.PlayerTeamId ? "홈" : "원정";
+            output["analysis.opponent.side"] = game.HomeTeamId == opponentId ? "홈" : "원정";
+            output["analysis.league"] = OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade) +
+                " · " + live.OriginYear + " 시즌";
             var rotation = preparation.PlanSnapshot?.StarterRotationCardIds;
             if (rotation != null && rotation.Count > 0)
             {

@@ -29,7 +29,7 @@ namespace Baseball.Presentation.Owner
             ActiveRosterText = string.Concat(home.ActiveRosterCount, "/", home.ActiveRosterCapacity);
             FanBaseText = Math.Round(operation.FanBase).ToString("N0");
             PopularityText = Math.Round(operation.Popularity).ToString("N0");
-            StadiumText = string.Concat("구장 Lv.", operation.StadiumLevel, " · ", operation.StadiumCapacity.ToString("N0"), "석");
+            StadiumText = string.Concat("구장 ", operation.StadiumLevel, "단계 · ", operation.StadiumCapacity.ToString("N0"), "석");
 
             int normal = 0;
             int allStar = 0;

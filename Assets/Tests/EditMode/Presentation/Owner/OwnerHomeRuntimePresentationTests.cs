@@ -1,12 +1,14 @@
+using System.Linq;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
+using Baseball.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
 {
-    /// <summary>구단주 Home이 실제 Snapshot 표시와 Command 요청만 담당하는지 검증한다.</summary>
+    /// <summary>대기실의 정보 표시·이동 요청·진행 차단·해상도별 영역 분리를 검증한다.</summary>
     public sealed class OwnerHomeRuntimePresentationTests
     {
         private GameObject _root;
@@ -16,113 +18,140 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         [SetUp]
         public void SetUp()
         {
-            _root = new GameObject("OwnerHomeRuntimePresentationTests_Root", typeof(RectTransform));
+            _root = new GameObject("OwnerHomeTests", typeof(RectTransform));
+            _root.GetComponent<RectTransform>().sizeDelta = new Vector2(1920f, 1080f);
             _shell = SharedGameShellView.CreateRuntime(_root.transform);
-            _view = UI_Scene_OwnerHome.CreateRuntime(
-                _shell.MainWorkspaceHost,
-                _shell.ContextActionBarHost);
+            _shell.BindProfile(OwnerModeUiProfileFactory.Create());
+            _shell.SetInspectorVisible(false);
+            _shell.SetActionBarVisible(false);
+            _shell.BindContext(new ShellContextModel(OwnerNavigationRoutes.Home, "홈", "", ""));
+            _view = UI_Scene_OwnerHome.CreateRuntime(_shell.MainWorkspaceHost, _shell.ContextActionBarHost);
         }
 
         [TearDown]
         public void TearDown()
         {
-            if (_view != null)
-                Object.DestroyImmediate(_view.gameObject);
-            if (_root != null)
-                Object.DestroyImmediate(_root);
+            if (_view != null) Object.DestroyImmediate(_view.gameObject);
+            if (_root != null) Object.DestroyImmediate(_root);
         }
 
         [Test]
-        public void Bind_다음경기와세가지행동만표시한다()
-        {
-            OwnerHomePresentationModel model = CreateModel();
-
-            _view.Bind(model, true);
-
-            Assert.That(_shell.MainWorkspaceHost.GetComponentsInChildren<Button>(true).Length, Is.EqualTo(3));
-            Assert.That(_shell.transform.Find("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/RosterPanel"), Is.Null);
-            Assert.That(_shell.transform.Find("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/ResourcePanel"), Is.Null);
-
-            Assert.That(FindText("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchValue").text,
-                Is.EqualTo("R3 · 부산 마리너스 · 홈"));
-            Assert.That(FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/OpponentAnalysisButton").interactable,
-                Is.True);
-            Assert.That(FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/MatchPreparationButton").interactable,
-                Is.True);
-            Assert.That(FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/PlayNextGameButton").interactable, Is.True);
-        }
-
-        [Test]
-        public void Actions_게임상태를바꾸지않고Coordinator에Command를요청한다()
-        {
-            bool playRequested = false;
-            bool analysisRequested = false;
-            bool preparationRequested = false;
-            _view.OpponentAnalysisRequested += () => analysisRequested = true;
-            _view.MatchPreparationRequested += () => preparationRequested = true;
-            _view.PlayNextGameRequested += () => playRequested = true;
-            _view.Bind(CreateModel(), true);
-
-            FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/OpponentAnalysisButton").onClick.Invoke();
-            FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/MatchPreparationButton").onClick.Invoke();
-            FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/PlayNextGameButton").onClick.Invoke();
-
-            Assert.That(analysisRequested, Is.True);
-            Assert.That(preparationRequested, Is.True);
-            Assert.That(playRequested, Is.True);
-        }
-
-        [Test]
-        public void Skin_재적용해도장식스킨없이기본버튼을유지한다()
+        public void Bind_구단정보와실제일정을표시하고없는순위를발명하지않는다()
         {
             _view.Bind(CreateModel(), true);
-            Button play = FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/PlayNextGameButton");
-            Button save = FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/OpponentAnalysisButton");
-            Assert.That(play.GetComponent<Image>().sprite, Is.Null);
-            Assert.That(save.GetComponent<Image>().sprite, Is.Null);
+            Assert.That(FindText("NextMatchValue").text, Is.EqualTo("R3 · 부산 마리너스 · 홈"));
+            Assert.That(FindText("TeamName").text, Is.EqualTo("서울 웨이브스"));
+            Assert.That(_shell.MainWorkspaceHost.GetComponentsInChildren<Text>().Any(t => t.text == "시즌 성적 집계 전"), Is.True);
+            Assert.That(FindButton("PlayNextGameButton").interactable, Is.True);
+        }
 
-            Baseball.Presentation.UI.CareerUiSkin.Apply(_shell.MainWorkspaceHost);
+        [Test]
+        public void Actions_경기와바로가기를기존Coordinator에요청한다()
+        {
+            int requests = 0;
+            string route = null;
+            _view.OpponentAnalysisRequested += () => requests++;
+            _view.MatchPreparationRequested += () => requests++;
+            _view.PlayNextGameRequested += () => requests++;
+            _view.SaveRequested += () => requests++;
+            _view.NavigationRequested += value => route = value;
+            _view.Bind(CreateModel(), true);
+            foreach (string name in new[] { "OpponentAnalysisButton", "MatchPreparationButton", "PlayNextGameButton", "SaveButton" })
+                FindButton(name).onClick.Invoke();
+            Assert.That(requests, Is.EqualTo(4));
+            FindButton("ScheduleButton").onClick.Invoke();
+            Assert.That(route, Is.EqualTo(OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId));
+            FindButton("ClubButton").onClick.Invoke();
+            Assert.That(route, Is.EqualTo(OwnerNavigationRoutes.ClubInformation));
+        }
+
+        [Test]
+        public void InvalidRoster_진행은막고수정과분석은열어둔다()
+        {
+            _view.Bind(CreateModel(false), true);
+            Assert.That(FindButton("PlayNextGameButton").interactable, Is.False);
+            Assert.That(FindButton("MatchPreparationButton").interactable, Is.True);
+            Assert.That(FindButton("OpponentAnalysisButton").interactable, Is.True);
+            Assert.That(FindText("Feedback").text, Is.EqualTo("투수 1명이 부족합니다."));
+        }
+
+        [Test]
+        public void CompletedSchedule_경기행동은막고결과조회는유지한다()
+        {
             _view.Bind(CreateModel(), false);
-
-            Assert.That(play.GetComponent<Image>().sprite, Is.Null);
-            Assert.That(save.GetComponent<Image>().sprite, Is.Null);
-            Assert.That(play.GetComponent<Image>().type, Is.EqualTo(Image.Type.Simple));
-            Assert.That(_view.GuideDockTarget.GetComponent<Image>().sprite, Is.Null);
-            Assert.That(play.interactable, Is.False);
-            Assert.That(save.interactable, Is.False);
-            Text saveLabel = save.transform.Find("Label").GetComponent<Text>();
-            Assert.That(saveLabel.horizontalOverflow, Is.EqualTo(HorizontalWrapMode.Overflow));
-            Assert.That(saveLabel.rectTransform.offsetMin.x, Is.EqualTo(18f));
-            Assert.That(saveLabel.rectTransform.offsetMax.x, Is.EqualTo(-18f));
+            Assert.That(FindButton("PlayNextGameButton").interactable, Is.False);
+            Assert.That(FindButton("MatchPreparationButton").interactable, Is.False);
+            Assert.That(FindButton("OpponentAnalysisButton").interactable, Is.False);
+            Assert.That(FindButton("ScheduleButton").interactable, Is.True);
+            Assert.That(FindText("NextMatchValue").text, Is.EqualTo("남은 일정 없음"));
         }
 
-        private Text FindText(string path) => _shell.transform.Find(path).GetComponent<Text>();
-        private Button FindButton(string path) => _shell.transform.Find(path).GetComponent<Button>();
+        [Test]
+        public void Skin_재적용해도밝은정보창과텍스트대비를유지한다()
+        {
+            _view.Bind(CreateModel(), true);
+            Color titleColor = FindText("TeamName").color;
+            CareerUiSkin.Apply(_shell.MainWorkspaceHost);
+            Assert.That(FindText("TeamName").color, Is.EqualTo(titleColor));
+            Assert.That(FindButton("PlayNextGameButton").GetComponent<Image>().sprite, Is.Null);
+        }
 
-        private static OwnerHomePresentationModel CreateModel()
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
+        public void Layout_정보창과경기버튼이Workspace안에있고겹치지않는다(int width, int height)
+        {
+            _root.GetComponent<RectTransform>().sizeDelta = new Vector2(width, height);
+            _view.Bind(CreateModel(), true);
+            Canvas.ForceUpdateCanvases();
+            RectTransform dock = _view.GuideDockTarget;
+            var corners = new Vector3[4];
+            dock.GetWorldCorners(corners);
+            foreach (Vector3 corner in corners)
+                Assert.That(_shell.MainWorkspaceHost.rect.Contains(_shell.MainWorkspaceHost.InverseTransformPoint(corner)), Is.True);
+            Button[] buttons = _shell.MainWorkspaceHost.GetComponentsInChildren<Button>();
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                Rect first = Bounds((RectTransform)buttons[i].transform, dock);
+                Assert.That(first.width, Is.GreaterThan(0f));
+                for (int j = i + 1; j < buttons.Length; j++)
+                    Assert.That(first.Overlaps(Bounds((RectTransform)buttons[j].transform, dock)), Is.False);
+            }
+        }
+
+        [Test]
+        public void Route_홈과세부화면왕복시배경과제목행을복원한다()
+        {
+            Assert.That(_shell.transform.Find("ContextHeader").gameObject.activeSelf, Is.False);
+            _view.SetVisible(false);
+            _shell.BindContext(new ShellContextModel(OwnerNavigationRoutes.RosterLineup, "선수단", "", ""));
+            Assert.That(_shell.transform.Find("ContextHeader").gameObject.activeSelf, Is.True);
+            Assert.That(_view.GuideDockTarget.gameObject.activeInHierarchy, Is.False);
+            _shell.BindContext(new ShellContextModel(OwnerNavigationRoutes.Home, "홈", "", ""));
+            _view.SetVisible(true);
+            Assert.That(_shell.transform.Find("ContextHeader").gameObject.activeSelf, Is.False);
+            Assert.That(_view.GuideDockTarget.gameObject.activeInHierarchy, Is.True);
+        }
+
+        private static Rect Bounds(RectTransform rect, Transform relativeTo)
+        {
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            Vector3 min = relativeTo.InverseTransformPoint(corners[0]);
+            Vector3 max = relativeTo.InverseTransformPoint(corners[2]);
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        private Text FindText(string name) => _shell.MainWorkspaceHost.GetComponentsInChildren<Text>(true).First(t => t.name == name);
+        private Button FindButton(string name) => _shell.MainWorkspaceHost.GetComponentsInChildren<Button>(true).First(b => b.name == name);
+
+        private static OwnerHomePresentationModel CreateModel(bool isValid = true)
         {
             return OwnerHomePresentationBuilder.Build(new OwnerHomeSnapshot(
-                "2028 시즌",
-                "3주차",
-                "Rookie League",
-                "서울 웨이브스",
-                string.Empty,
-                "R3 · 부산 마리너스 · 홈",
-                1_250_000,
-                420,
-                185,
-                12,
-                25,
-                25,
-                14,
-                14,
-                11,
-                11,
-                3,
-                3,
-                61,
-                true,
-                string.Empty));
+                "2028 시즌", "3주차", "루키 리그", "서울 웨이브스", string.Empty,
+                "R3 · 부산 마리너스 · 홈", 1250000, 420, 185, 12, 25, 25, 14, 14, 11, 11, 3, 3, 61,
+                isValid, isValid ? "" : "투수 1명이 부족합니다."));
         }
     }
 }

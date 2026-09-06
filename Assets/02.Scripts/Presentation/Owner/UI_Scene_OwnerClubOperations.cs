@@ -25,6 +25,9 @@ namespace Baseball.Presentation.Owner
         private Text _seasonFinanceText;
         private Button _stadiumUpgradeButton;
         private RectTransform _facilityContent;
+        private RectTransform _summaryRoot;
+        private RectTransform _facilityRoot;
+        private Image _background;
         private bool _isBuilt;
 
         public event Action<TicketPriceTier> TicketPolicyRequested;
@@ -35,6 +38,34 @@ namespace Baseball.Presentation.Owner
         public event Action LoadRequested;
 
         public void SetVisible(bool isVisible) => gameObject.SetActive(isVisible);
+
+        /// <summary>재정과 시설이 서로의 정보 밀도를 빼앗지 않도록 Route별 작업면을 분리한다.</summary>
+        public void ShowRoute(string routeId)
+        {
+            EnsureHierarchy();
+            bool showFinance = string.Equals(routeId, OwnerManagementRoutes.ClubFinance, StringComparison.Ordinal);
+            if (_background != null)
+            {
+                _background.sprite = Resources.Load<Sprite>(showFinance
+                    ? OwnerUiAssetIds.HomeBackgroundResourcePath
+                    : "UI/Generated/bg_owner_club_facilities_v1");
+                _background.color = _background.sprite == null ? CareerUiTheme.ReferenceCanvas : Color.white;
+            }
+            _summaryRoot.gameObject.SetActive(true);
+            _facilityRoot.gameObject.SetActive(!showFinance);
+            if (showFinance)
+            {
+                OwnerRuntimeUiFactory.SetAnchors(_summaryRoot, Vector2.zero, Vector2.one,
+                    new Vector2(12f, 12f), new Vector2(-12f, -12f));
+            }
+            else
+            {
+                OwnerRuntimeUiFactory.SetAnchors(_summaryRoot, Vector2.zero, new Vector2(0.34f, 1f),
+                    new Vector2(12f, 12f), new Vector2(-6f, -12f));
+                OwnerRuntimeUiFactory.SetAnchors(_facilityRoot, new Vector2(0.34f, 0f), Vector2.one,
+                    new Vector2(6f, 12f), new Vector2(-12f, -12f));
+            }
+        }
 
         /// <summary>운영 Command 실패를 현재 구단 요약 영역에 즉시 표시한다.</summary>
         public void SetFeedback(string message, bool isError)
@@ -84,6 +115,7 @@ namespace Baseball.Presentation.Owner
             _isBuilt = true;
             RectTransform root = GetComponent<RectTransform>();
             OwnerRuntimeUiFactory.Stretch(root);
+            _background = root.GetComponent<Image>();
 
             Image shade = OwnerRuntimeUiFactory.CreateImage(
                 "ReadabilityShade",
@@ -99,6 +131,7 @@ namespace Baseball.Presentation.Owner
         {
             OwnerWorkspaceUiFactory.Panel summary = OwnerRuntimeUiFactory.CreatePanel(
                 "ClubSummaryPanel", root, "구단 운영 현황", true);
+            _summaryRoot = summary.Root;
             OwnerRuntimeUiFactory.SetAnchors(
                 summary.Root,
                 Vector2.zero,
@@ -176,6 +209,7 @@ namespace Baseball.Presentation.Owner
         {
             OwnerWorkspaceUiFactory.Panel facilities = OwnerRuntimeUiFactory.CreatePanel(
                 "FacilityPanel", root, "시설 투자와 운영 효과");
+            _facilityRoot = facilities.Root;
             OwnerRuntimeUiFactory.SetAnchors(
                 facilities.Root,
                 new Vector2(0.34f, 0f),

@@ -18,7 +18,7 @@ namespace Baseball.Presentation.Owner
             ManagerLiveSeasonState liveSeason = runtime.ManagerMode.LiveSeason;
             return CreateSchedule(
                 liveSeason,
-                runtime.League.Grade.ToString(),
+                OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
                 teamSeasonKey => manager.GetTeamDisplayName(teamSeasonKey));
         }
 
@@ -69,13 +69,24 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>현재 시즌 누적 개인 기록을 네 부문 모두 확정해 화면이 부문 전환에서 재계산하지 않게 한다.</summary>
-        public OwnerSeasonRecordsPresentationModel CreateSeasonRecords(OwnerModeManager manager)
+        public OwnerSeasonRecordsPresentationModel CreateSeasonRecords(OwnerModeManager manager, int? seasonNumber = null)
         {
             ManagerHistoricalRuntimeState runtime = RequireRuntime(manager);
+            ManagerModeRuntimeState mode = runtime.ManagerMode;
+            var seasonNumbers = new int[mode.CompletedSeasons.Count + 1];
+            seasonNumbers[0] = mode.LiveSeason.SeasonNumber;
+            int selectedIndex = 0;
+            for (int index = 0; index < mode.CompletedSeasons.Count; index++)
+            {
+                seasonNumbers[index + 1] = mode.CompletedSeasons[mode.CompletedSeasons.Count - 1 - index].Season.SeasonNumber;
+                if (seasonNumbers[index + 1] == seasonNumber) selectedIndex = index + 1;
+            }
             return new OwnerSeasonRecordsPresentationModel(
                 new OwnerSeasonRecordsService().Build(
                     runtime,
-                    teamSeasonKey => manager.GetTeamDisplayName(teamSeasonKey)));
+                    teamSeasonKey => manager.GetTeamDisplayName(teamSeasonKey),
+                    seasonNumber: seasonNumbers[selectedIndex]),
+                seasonNumbers, selectedIndex);
         }
 
         /// <summary>새 게임 생성 때 확정된 WorldHistory 정규 시즌 타격 기록을 현재 시즌 기록과 혼동되지 않게 복사한다.</summary>
@@ -111,7 +122,7 @@ namespace Baseball.Presentation.Owner
                 .SortBy("Hits", RecordSortDirection.Descending);
             return new RecordsScreenSnapshot(
                 originYear.ToString(CultureInfo.InvariantCulture) + " 시즌",
-                runtime.League.Grade.ToString(),
+                OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
                 "월드 히스토리 확정 기록",
                 "정규 시즌 타격",
                 table,

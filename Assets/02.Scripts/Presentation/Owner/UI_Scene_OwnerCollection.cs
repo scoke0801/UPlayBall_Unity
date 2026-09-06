@@ -17,10 +17,13 @@ namespace Baseball.Presentation.Owner
         private RectTransform _inspectorRoot;
         private RectTransform _actionRoot;
         private RectTransform _gridContent;
+        private RectTransform _gridViewport;
+        private ScrollRect _gridScroll;
         private InputField _searchInput;
         private Text _countText;
         private Text _emptyText;
         private Text _inspectorText;
+        private PlayerMiniCardView _inspectorCard;
         private Text _feedbackText;
         private OwnerCollectionSnapshot _snapshot;
         private OwnerCollectionPresentationModel _model;
@@ -29,6 +32,9 @@ namespace Baseball.Presentation.Owner
         private int _trainingIndex;
         private int _studyIndex;
         private string _pendingEnhancementCardId = string.Empty;
+        private int _gridColumns = 4;
+        private int _firstVisibleIndex = -1;
+        private Vector2 _lastViewportSize;
 
         private static readonly PlayerAbility[] BatterTrainingAbilities =
             { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Arm, PlayerAbility.Defense, PlayerAbility.BatterMental };
@@ -62,10 +68,18 @@ namespace Baseball.Presentation.Owner
         public void Bind(OwnerCollectionSnapshot snapshot)
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
-            _selectedCardId = string.Empty;
             _pendingEnhancementCardId = string.Empty;
             RefreshCards();
-            ShowNoSelection();
+            OwnerCollectionCardSnapshot selected = GetSelectedCard();
+            if (selected == null)
+            {
+                _selectedCardId = string.Empty;
+                ShowNoSelection();
+            }
+            else
+            {
+                ShowInspector(selected);
+            }
         }
 
         public void SetVisible(bool visible)
@@ -100,7 +114,13 @@ namespace Baseball.Presentation.Owner
             _inspectorText = OwnerWorkspaceUiFactory.CreateText(
                 inspector.Content, "SelectedCardDetails", string.Empty, 15, FontStyle.Normal,
                 TextAnchor.UpperLeft, CareerUiTheme.TextPrimary);
-            OwnerWorkspaceUiFactory.Stretch(_inspectorText.rectTransform);
+            OwnerRuntimeUiFactory.SetAnchors(_inspectorText.rectTransform, Vector2.zero, new Vector2(1f, 0.50f),
+                new Vector2(8f, 4f), new Vector2(-8f, -4f));
+            _inspectorCard = PlayerMiniCardView.CreateRuntime(inspector.Content, "SelectedCardPreview");
+            OwnerRuntimeUiFactory.SetAnchors(_inspectorCard.GetComponent<RectTransform>(),
+                new Vector2(0.16f, 0.52f), new Vector2(0.84f, 0.98f), Vector2.zero, Vector2.zero);
+            _inspectorCard.DetailRequested += ShowCardDetail;
+            _inspectorCard.gameObject.SetActive(false);
 
             _actionRoot = OwnerWorkspaceUiFactory.CreateRoot(actionBarHost, "OwnerCollectionActionBar", false);
             HorizontalLayoutGroup actions = OwnerWorkspaceUiFactory.AddHorizontalLayout(_actionRoot, CareerUiTheme.Space3);
@@ -168,37 +188,29 @@ namespace Baseball.Presentation.Owner
             Image surface = OwnerRuntimeUiFactory.CreateImage("CardScroll", parent, CareerUiTheme.PanelDark);
             OwnerRuntimeUiFactory.SetAnchors(surface.rectTransform, Vector2.zero, Vector2.one,
                 Vector2.zero, new Vector2(0f, -54f));
-            ScrollRect scroll = surface.gameObject.AddComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 28f;
+            _gridScroll = surface.gameObject.AddComponent<ScrollRect>();
+            _gridScroll.horizontal = false;
+            _gridScroll.vertical = true;
+            _gridScroll.movementType = ScrollRect.MovementType.Clamped;
+            _gridScroll.scrollSensitivity = 28f;
 
             Image viewportImage = OwnerRuntimeUiFactory.CreateImage(
-                "Viewport", scroll.transform, new Color(0f, 0f, 0f, 0.01f));
-            RectTransform viewport = viewportImage.rectTransform;
-            OwnerRuntimeUiFactory.Stretch(viewport);
-            viewport.gameObject.AddComponent<RectMask2D>();
-            _gridContent = OwnerRuntimeUiFactory.CreateRect("Content", viewport);
+                "Viewport", _gridScroll.transform, new Color(0f, 0f, 0f, 0.01f));
+            _gridViewport = viewportImage.rectTransform;
+            OwnerRuntimeUiFactory.Stretch(_gridViewport);
+            _gridViewport.gameObject.AddComponent<RectMask2D>();
+            _gridContent = OwnerRuntimeUiFactory.CreateRect("Content", _gridViewport);
             _gridContent.anchorMin = new Vector2(0f, 1f);
             _gridContent.anchorMax = Vector2.one;
             _gridContent.pivot = new Vector2(0.5f, 1f);
             _gridContent.offsetMin = Vector2.zero;
             _gridContent.offsetMax = Vector2.zero;
-            GridLayoutGroup grid = _gridContent.gameObject.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(PlayerMiniCardView.PreferredWidth, PlayerMiniCardView.PreferredHeight);
-            grid.spacing = new Vector2(12f, 12f);
-            grid.padding = new RectOffset(10, 10, 10, 10);
-            grid.childAlignment = TextAnchor.UpperLeft;
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 4;
-            ContentSizeFitter fitter = _gridContent.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            scroll.viewport = viewport;
-            scroll.content = _gridContent;
+            _gridScroll.viewport = _gridViewport;
+            _gridScroll.content = _gridContent;
+            _gridScroll.onValueChanged.AddListener(HandleGridScrolled);
 
             _emptyText = OwnerWorkspaceUiFactory.CreateText(
-                viewport, "EmptyState", "검색 결과가 없습니다.", 16, FontStyle.Bold,
+                _gridViewport, "EmptyState", "검색 결과가 없습니다. 필터를 바꾸거나 검색어를 지워 주세요.", 16, FontStyle.Bold,
                 TextAnchor.MiddleCenter, CareerUiTheme.TextMuted);
             OwnerRuntimeUiFactory.Stretch(_emptyText.rectTransform);
             _emptyText.gameObject.SetActive(false);
@@ -269,25 +281,20 @@ namespace Baseball.Presentation.Owner
             _model = OwnerCollectionPresentationBuilder.Build(_snapshot, _searchInput?.text, _sort);
             _countText.text = _model.CountText;
             _emptyText.gameObject.SetActive(_model.Cards.Count == 0);
-            EnsureCardCapacity(_model.Cards.Count);
             bool selectedRemainsVisible = false;
-            for (int index = 0; index < _cardViews.Count; index++)
+            for (int index = 0; index < _model.Cards.Count; index++)
             {
-                bool isVisible = index < _model.Cards.Count;
-                _cardViews[index].gameObject.SetActive(isVisible);
-                if (!isVisible) continue;
                 OwnerCollectionCardModel card = _model.Cards[index];
-                bool isSelected = string.Equals(card.Snapshot.CardId, _selectedCardId, StringComparison.Ordinal);
-                PlayerMiniCardView cardView = _cardViews[index];
-                cardView.name = $"Card_{card.Snapshot.CardId}";
-                cardView.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card.Snapshot, isSelected));
-                selectedRemainsVisible |= isSelected;
+                selectedRemainsVisible |= string.Equals(
+                    card.Snapshot.CardId, _selectedCardId, StringComparison.Ordinal);
             }
             if (!selectedRemainsVisible && !string.IsNullOrEmpty(_selectedCardId))
             {
                 _selectedCardId = string.Empty;
                 ShowNoSelection();
             }
+            UpdateVirtualContentHeight();
+            RefreshVirtualizedGrid(true);
         }
 
         private void EnsureCardCapacity(int count)
@@ -301,20 +308,72 @@ namespace Baseball.Presentation.Owner
             }
         }
 
+        private void LateUpdate()
+        {
+            if (_gridViewport == null || _model == null || !gameObject.activeInHierarchy) return;
+            Vector2 size = _gridViewport.rect.size;
+            if (size == _lastViewportSize) return;
+            _lastViewportSize = size;
+            float stride = PlayerMiniCardView.PreferredWidth + 12f;
+            _gridColumns = Mathf.Max(1, Mathf.FloorToInt(Mathf.Max(1f, size.x - 20f) / stride));
+            UpdateVirtualContentHeight();
+            RefreshVirtualizedGrid(true);
+        }
+
+        private void UpdateVirtualContentHeight()
+        {
+            if (_gridContent == null || _model == null) return;
+            int rows = Mathf.CeilToInt(_model.Cards.Count / (float)Mathf.Max(1, _gridColumns));
+            float height = 20f + rows * (PlayerMiniCardView.PreferredHeight + 12f);
+            _gridContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(height, _gridViewport?.rect.height ?? 0f));
+        }
+
+        private void RefreshVirtualizedGrid(bool force)
+        {
+            if (_gridViewport == null || _gridContent == null || _model == null) return;
+            float rowHeight = PlayerMiniCardView.PreferredHeight + 12f;
+            int firstRow = Mathf.Max(0, Mathf.FloorToInt(Mathf.Max(0f, _gridContent.anchoredPosition.y - 10f) / rowHeight));
+            int visibleRows = Mathf.Max(1, Mathf.CeilToInt(_gridViewport.rect.height / rowHeight) + 2);
+            int firstIndex = firstRow * _gridColumns;
+            int poolSize = visibleRows * _gridColumns;
+            EnsureCardCapacity(poolSize);
+            if (!force && firstIndex == _firstVisibleIndex) return;
+            _firstVisibleIndex = firstIndex;
+
+            float availableWidth = Mathf.Max(1f, _gridViewport.rect.width - 20f - 12f * (_gridColumns - 1));
+            float cardWidth = availableWidth / _gridColumns;
+            for (int poolIndex = 0; poolIndex < _cardViews.Count; poolIndex++)
+            {
+                int dataIndex = firstIndex + poolIndex;
+                PlayerMiniCardView cardView = _cardViews[poolIndex];
+                bool isVisible = poolIndex < poolSize && dataIndex < _model.Cards.Count;
+                cardView.gameObject.SetActive(isVisible);
+                if (!isVisible) continue;
+                OwnerCollectionCardSnapshot card = _model.Cards[dataIndex].Snapshot;
+                RectTransform rect = cardView.GetComponent<RectTransform>();
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(0f, 1f);
+                rect.pivot = new Vector2(0f, 1f);
+                int row = dataIndex / _gridColumns;
+                int column = dataIndex % _gridColumns;
+                rect.anchoredPosition = new Vector2(10f + column * (cardWidth + 12f), -10f - row * rowHeight);
+                rect.sizeDelta = new Vector2(cardWidth, PlayerMiniCardView.PreferredHeight);
+                cardView.name = $"Card_{card.CardId}";
+                bool selected = string.Equals(card.CardId, _selectedCardId, StringComparison.Ordinal);
+                cardView.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card, selected));
+            }
+        }
+
+        private void HandleGridScrolled(Vector2 _) => RefreshVirtualizedGrid(false);
+
         private void HandleCardSelected(PlayerMiniCardModel selected)
         {
             _selectedCardId = selected.PlayerId;
             _trainingIndex = 0;
             _studyIndex = 0;
             _pendingEnhancementCardId = string.Empty;
-            OwnerCollectionCardSnapshot selectedSnapshot = null;
-            for (int index = 0; index < _model.Cards.Count; index++)
-            {
-                OwnerCollectionCardSnapshot card = _model.Cards[index].Snapshot;
-                bool isSelected = string.Equals(card.CardId, _selectedCardId, StringComparison.Ordinal);
-                _cardViews[index].Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card, isSelected));
-                if (isSelected) selectedSnapshot = card;
-            }
+            OwnerCollectionCardSnapshot selectedSnapshot = GetSelectedCard();
+            RefreshVirtualizedGrid(true);
             if (selectedSnapshot != null) ShowInspector(selectedSnapshot);
         }
 
@@ -330,6 +389,8 @@ namespace Baseball.Presentation.Owner
 
         private void ShowInspector(OwnerCollectionCardSnapshot card)
         {
+            _inspectorCard.gameObject.SetActive(true);
+            _inspectorCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card, true));
             _inspectorText.text =
                 $"{card.DisplayName}\n\n" +
                 $"연도  {card.OriginYear}\n" +
@@ -372,7 +433,7 @@ namespace Baseball.Presentation.Owner
             if (card == null) return;
             string[] programs = IsPitcher(card) ? PitcherStudyPrograms : BatterStudyPrograms;
             _studyIndex = (_studyIndex + 1) % programs.Length;
-            SetFeedback($"유학 선택: {DescribeStudy(programs[_studyIndex])} · 4주/DP 100", false);
+            SetFeedback($"유학 선택: {DescribeStudy(programs[_studyIndex])} · 4주/육성 포인트 100", false);
         }
 
         private void RequestStudy()
@@ -413,6 +474,7 @@ namespace Baseball.Presentation.Owner
 
         private void ShowNoSelection()
         {
+            if (_inspectorCard != null) _inspectorCard.gameObject.SetActive(false);
             if (_inspectorText != null)
                 _inspectorText.text = "보유 선수 카드를 선택하면\n현재 저장 데이터의 카드 상태를 확인할 수 있습니다.";
         }
@@ -424,6 +486,7 @@ namespace Baseball.Presentation.Owner
                 PlayerMiniCardView cardView = _cardViews[index];
                 if (cardView == null) continue;
                 cardView.Selected -= HandleCardSelected;
+                cardView.DetailRequested -= ShowCardDetail;
                 if (Application.isPlaying) Destroy(cardView.gameObject);
                 else DestroyImmediate(cardView.gameObject);
             }
@@ -433,6 +496,8 @@ namespace Baseball.Presentation.Owner
         private void OnDestroy()
         {
             if (_searchInput != null) _searchInput.onValueChanged.RemoveListener(HandleSearchChanged);
+            if (_gridScroll != null) _gridScroll.onValueChanged.RemoveListener(HandleGridScrolled);
+            if (_inspectorCard != null) _inspectorCard.DetailRequested -= ShowCardDetail;
             DestroyCards();
             EnhancementRequested = null;
             DuplicateSaleRequested = null;

@@ -37,22 +37,22 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_전력보강은Global업무영역이고미완성기능은Local에서잠근다()
+        public void Profile_전력보강의세업무와필요권한을모두연다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
             NavigationEntry powerUp = profile.Navigation.FindEntry(OwnerNavigationRoutes.PowerUp);
             NavigationEntry scout = profile.Navigation.FindEntry(OwnerNavigationRoutes.PowerUpScout);
 
-            Assert.That(profile.Capabilities.Has(UiCapability.CanUseScout), Is.False);
+            Assert.That(profile.Capabilities.Has(UiCapability.CanUseScout), Is.True);
+            Assert.That(profile.Capabilities.Has(UiCapability.CanTrainOwnedCards), Is.True);
             Assert.That(powerUp.IsEnabled, Is.True);
             Assert.That(powerUp.IsVisible(profile.Capabilities), Is.True);
-            Assert.That(scout.IsEnabled, Is.False);
+            Assert.That(scout.IsEnabled, Is.True);
             Assert.That(scout.IsVisible(profile.Capabilities), Is.True);
-            Assert.That(scout.DisabledReason, Does.Contain("스카우트 후보군"));
             for (int index = 0; index < powerUp.Children.Count; index++)
             {
-                Assert.That(powerUp.Children[index].IsEnabled, Is.False, powerUp.Children[index].RouteId);
-                Assert.That(powerUp.Children[index].DisabledReason, Is.Not.Empty, powerUp.Children[index].RouteId);
+                Assert.That(powerUp.Children[index].IsEnabled, Is.True, powerUp.Children[index].RouteId);
+                Assert.That(powerUp.Children[index].DisabledReason, Is.Empty, powerUp.Children[index].RouteId);
             }
         }
 

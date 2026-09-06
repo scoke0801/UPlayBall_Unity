@@ -74,7 +74,7 @@ namespace Baseball.Presentation.Owner
             Surface(board, "StarterRule", Rule, .02f, .555f, .98f, .558f);
             _ownStarter = CreateStarter(board, "OwnStarter", .02f, .465f, OwnBlue);
             _opponentStarter = CreateStarter(board, "OpponentStarter", .535f, .98f, OpponentRed);
-            Label(board, "Versus", "VS", 28, .465f, .38f, .535f, .55f, TextAnchor.MiddleCenter, true, Rule);
+            Label(board, "Versus", "대", 28, .465f, .38f, .535f, .55f, TextAnchor.MiddleCenter, true, Rule);
             for (int side = 0; side < 2; side++)
             {
                 int teamIndex = side;
@@ -112,7 +112,7 @@ namespace Baseball.Presentation.Owner
             Label(root, "StarterTitle", "선발 투수 정보", 12, .18f, .70f, 1, 1, TextAnchor.MiddleLeft, true, accent);
             Text value = Label(root, "StarterValue", "", 12, .18f, .48f, 1, .7f);
             RectTransform record = Rect(root, "PitchingRecord", .18f, 0, 1, .47f);
-            CreateCells(record, new[] { "평균자책", "경기", "승", "패", "이닝", "삼진", "피안타" }, .5f, 1, accent, true);
+            CreateCells(record, new[] { "평균자책점", "경기", "승", "패", "이닝", "삼진", "피안타" }, .5f, 1, accent, true);
             CreateCells(record, new[] { "—", "—", "—", "—", "—", "—", "—" }, 0, .5f, Ink, false);
             return value;
         }

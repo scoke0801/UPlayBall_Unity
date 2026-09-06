@@ -1,71 +1,84 @@
 using System;
-using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>구단주 홈의 다음 경기와 분석·준비·진행 행동을 표시한다.</summary>
+    /// <summary>대기실의 구단 정보창과 경기 상태를 표시하고 기존 화면으로의 이동을 요청한다.</summary>
     [DisallowMultipleComponent]
     public sealed class UI_Scene_OwnerHome : MonoBehaviour
     {
+        private const float DockWidth = 704f;
+        private const float DockHeight = 292f;
         private RectTransform _workspaceRoot;
         private RectTransform _dashboardBackplate;
-
-        /// <summary>매니저 안내가 홈 패널의 실제 화면 경계에 맞춰 배치되는 기준이다.</summary>
-        public RectTransform GuideDockTarget => _dashboardBackplate;
+        private Text _teamNameText;
+        private Text _leagueText;
+        private Text _seasonText;
+        private Text _recordText;
+        private Text _rosterText;
+        private Text _evaluationText;
         private Text _nextMatchText;
+        private Text _opponentText;
         private Text _feedbackText;
+        private Text _matchStateText;
         private Button _opponentAnalysisButton;
         private Button _matchPreparationButton;
         private Button _playNextGameButton;
 
+        /// <summary>안내창을 경기 상태창 위에 도킹하는 실제 화면 경계다.</summary>
+        public RectTransform GuideDockTarget => _dashboardBackplate;
+
         public event Action OpponentAnalysisRequested;
         public event Action MatchPreparationRequested;
         public event Action PlayNextGameRequested;
+        public event Action<string> NavigationRequested;
+        public event Action SaveRequested;
 
-        public static UI_Scene_OwnerHome CreateRuntime(
-            RectTransform workspaceHost,
-            RectTransform actionBarHost)
+        /// <summary>공용 셸의 Workspace 안에 홈을 생성한다.</summary>
+        public static UI_Scene_OwnerHome CreateRuntime(RectTransform workspaceHost, RectTransform actionBarHost)
         {
             if (workspaceHost == null) throw new ArgumentNullException(nameof(workspaceHost));
             if (actionBarHost == null) throw new ArgumentNullException(nameof(actionBarHost));
-
             var owner = new GameObject(nameof(UI_Scene_OwnerHome)).AddComponent<UI_Scene_OwnerHome>();
-            owner.Build(workspaceHost, actionBarHost);
+            owner.Build(workspaceHost);
             return owner;
         }
 
+        /// <summary>순위·일정·선수단은 공급된 Snapshot 값으로만 표시한다.</summary>
         public void Bind(OwnerHomePresentationModel model, bool canPlayNextGame)
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
-            EnsureBuilt();
-
             OwnerHomeSnapshot snapshot = model.Snapshot;
-            _nextMatchText.text = string.IsNullOrWhiteSpace(snapshot.NextMatchText)
-                ? "남은 일정 없음"
-                : snapshot.NextMatchText;
-            if (!string.IsNullOrEmpty(snapshot.OpponentStrengthText))
-                _nextMatchText.text += "\n<size=15><color=#B9C8D8>" + snapshot.OpponentStrengthText + "</color></size>";
+            _teamNameText.text = snapshot.TeamName;
+            _leagueText.text = snapshot.LeagueText;
+            _seasonText.text = snapshot.SeasonText + "  ·  " + snapshot.DateText;
+            _recordText.text = string.IsNullOrWhiteSpace(snapshot.RankText) ? "시즌 성적 집계 전" : snapshot.RankText;
+            _rosterText.text = model.RosterCountText + "  ·  " + model.RosterCompositionText;
+            _evaluationText.text = model.StrengthText + "  /  " + model.CostText;
+            _nextMatchText.text = canPlayNextGame && !string.IsNullOrWhiteSpace(snapshot.NextMatchText)
+                ? snapshot.NextMatchText : "남은 일정 없음";
+            _opponentText.text = canPlayNextGame ? snapshot.OpponentStrengthText : "일정에서 이번 시즌 결과를 확인하세요.";
             _opponentAnalysisButton.interactable = canPlayNextGame;
+            // 잘못된 로스터도 경기 준비 화면에서 수정할 수 있어야 한다.
             _matchPreparationButton.interactable = canPlayNextGame;
             _playNextGameButton.interactable = canPlayNextGame && snapshot.IsRosterValid;
-            _feedbackText.text = snapshot.IsRosterValid
-                ? canPlayNextGame ? "출전 준비 완료" : "남은 일정 없음"
-                : snapshot.RosterValidationMessage;
-            _feedbackText.color = snapshot.IsRosterValid
-                ? CareerUiTheme.TextSecondary
-                : CareerUiTheme.Error;
+            _matchStateText.text = !canPlayNextGame ? "일정 종료" : snapshot.IsRosterValid ? "경기 준비 완료" : "선수단 확인 필요";
+            _matchStateText.color = canPlayNextGame && snapshot.IsRosterValid ? CareerUiTheme.Number : CareerUiTheme.TextPrimary;
+            _feedbackText.text = !snapshot.IsRosterValid ? snapshot.RosterValidationMessage
+                : canPlayNextGame ? "상대 확인 → 경기 준비 → 다음 경기 진행" : "남은 일정이 없습니다. 구단에서 시즌 진행을 확인하세요.";
+            _feedbackText.color = snapshot.IsRosterValid ? CareerUiTheme.ReferenceTextSecondary : CareerUiTheme.Loss;
         }
 
+        /// <summary>저장과 경기 준비 결과를 정보창에 표시한다.</summary>
         public void SetFeedback(string message, bool isError = false)
         {
-            EnsureBuilt();
             _feedbackText.text = message ?? string.Empty;
-            _feedbackText.color = isError ? CareerUiTheme.Error : CareerUiTheme.Success;
+            _feedbackText.color = isError ? CareerUiTheme.Loss : CareerUiTheme.ReferenceAccent;
         }
 
+        /// <summary>세부 화면으로 이동하면 홈에 속한 전체 UI를 숨긴다.</summary>
         public void SetVisible(bool visible)
         {
             if (_workspaceRoot != null) _workspaceRoot.gameObject.SetActive(visible);
@@ -73,131 +86,107 @@ namespace Baseball.Presentation.Owner
 
         private void OnDestroy()
         {
-            if (_opponentAnalysisButton != null) _opponentAnalysisButton.onClick.RemoveAllListeners();
-            if (_matchPreparationButton != null) _matchPreparationButton.onClick.RemoveAllListeners();
-            if (_playNextGameButton != null) _playNextGameButton.onClick.RemoveAllListeners();
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_workspaceRoot);
         }
 
-        private void Build(RectTransform workspaceHost, RectTransform actionBarHost)
+        private void Build(RectTransform workspaceHost)
         {
             _workspaceRoot = OwnerWorkspaceUiFactory.CreateRoot(workspaceHost, "OwnerHomeWorkspace", false);
-            RectTransform columns = OwnerWorkspaceUiFactory.CreateRoot(_workspaceRoot, "DashboardColumns", false);
-            columns.offsetMin = new Vector2(CareerUiTheme.Space4, CareerUiTheme.Space4);
-            columns.offsetMax = new Vector2(-CareerUiTheme.Space4, -CareerUiTheme.Space4);
+            _workspaceRoot.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            RectTransform dock = OwnerWorkspaceUiFactory.CreateRoot(_workspaceRoot, "DashboardColumns", false);
+            dock.anchorMin = dock.anchorMax = new Vector2(1f, 0f);
+            dock.pivot = new Vector2(1f, 0f);
+            dock.anchoredPosition = Vector2.zero;
+            dock.sizeDelta = new Vector2(DockWidth, DockHeight + 116f);
+            _dashboardBackplate = dock;
 
-            Image dashboard = OwnerRuntimeUiFactory.CreateImage("DashboardBackplate", columns, CareerUiTheme.ShellHeader);
-            _dashboardBackplate = dashboard.rectTransform;
-            OwnerRuntimeUiFactory.SetAnchors(dashboard.rectTransform,
-                new Vector2(0.56f, 0f), new Vector2(1f, 0f),
-                new Vector2(-8f, -8f), new Vector2(8f, 206f));
-            dashboard.gameObject.AddComponent<CareerUiVisualElement>()
-                .Initialize(CareerUiVisualRole.FlatSurface);
+            RectTransform match = Surface(dock, "NextMatchPanel", CareerUiTheme.ShellHeader, 0f, 304f, DockWidth, 408f);
+            _matchStateText = Label(match, "MatchState", "", 20, FontStyle.Bold, CareerUiTheme.Number,
+                new Vector2(16f, 66f), new Vector2(300f, 96f));
+            _nextMatchText = Label(match, "NextMatchValue", "", 20, FontStyle.Bold, CareerUiTheme.TextPrimary,
+                new Vector2(16f, 34f), new Vector2(490f, 66f));
+            _opponentText = Label(match, "OpponentStrength", "", 16, FontStyle.Normal, CareerUiTheme.TextSecondary,
+                new Vector2(16f, 8f), new Vector2(490f, 34f));
+            _playNextGameButton = CreateAction(match, "PlayNextGameButton", "다음 경기 진행",
+                () => PlayNextGameRequested?.Invoke(), new Vector2(516f, 22f), new Vector2(688f, 82f), true);
 
-            OwnerWorkspaceUiFactory.Panel nextMatch = OwnerWorkspaceUiFactory.CreatePanel(
-                columns, "NextMatchPanel", "다음 경기", true);
-            OwnerRuntimeUiFactory.SetAnchors(
-                nextMatch.Root,
-                new Vector2(0.56f, 0f),
-                new Vector2(1f, 0f),
-                new Vector2(8f, 0f),
-                new Vector2(-8f, 198f));
-            OwnerWorkspaceUiFactory.AddVerticalLayout(nextMatch.Content, 8f);
-            _nextMatchText = CreateValue(nextMatch.Content, "NextMatchValue", 22, FontStyle.Bold);
-            OwnerWorkspaceUiFactory.SetFlexible(_nextMatchText.rectTransform, 1f, 1f);
-            _nextMatchText.GetComponent<LayoutElement>().minHeight = 48f;
-            _nextMatchText.resizeTextForBestFit = true;
-            _nextMatchText.resizeTextMinSize = 16;
-            _nextMatchText.resizeTextMaxSize = 22;
-            RectTransform nextMatchActions = OwnerWorkspaceUiFactory.CreateRoot(
-                nextMatch.Content, "NextMatchActions", false);
-            HorizontalLayoutGroup preparationActions = OwnerWorkspaceUiFactory.AddHorizontalLayout(nextMatchActions, 10f);
-            preparationActions.childForceExpandWidth = false;
-            preparationActions.childAlignment = TextAnchor.MiddleRight;
-            OwnerWorkspaceUiFactory.SetFlexible(nextMatchActions, 1f, 0f);
-            nextMatchActions.GetComponent<LayoutElement>().minHeight = 42f;
-            nextMatchActions.GetComponent<LayoutElement>().preferredHeight = 42f;
-            _opponentAnalysisButton = OwnerWorkspaceUiFactory.CreateButton(
-                nextMatchActions, "OpponentAnalysisButton", "상대 분석", () => OpponentAnalysisRequested?.Invoke());
-            _matchPreparationButton = OwnerWorkspaceUiFactory.CreateButton(
-                nextMatchActions, "MatchPreparationButton", "경기 준비", () => MatchPreparationRequested?.Invoke());
+            RectTransform info = Surface(dock, "ClubInformationPanel", CareerUiTheme.ReferencePanel, 0f, 0f, DockWidth, DockHeight);
+            RectTransform teamHeader = Surface(info, "TeamHeader", CareerUiTheme.ShellHeader, 2f, 234f, DockWidth - 2f, 290f);
+            _teamNameText = Label(teamHeader, "TeamName", "", 23, FontStyle.Bold, CareerUiTheme.TextPrimary,
+                new Vector2(16f, 6f), new Vector2(450f, 50f));
+            _leagueText = Label(teamHeader, "League", "", 18, FontStyle.Bold, CareerUiTheme.TextPrimary,
+                new Vector2(460f, 6f), new Vector2(682f, 50f));
+            _leagueText.alignment = TextAnchor.MiddleRight;
+            _seasonText = Row(info, "Season", "페넌트레이스", 200f, true);
+            _recordText = Row(info, "Record", "시즌 성적", 168f);
+            _rosterText = Row(info, "Roster", "선수단", 136f, true);
+            _evaluationText = Row(info, "Evaluation", "전력 / 비용", 104f);
+            _feedbackText = Label(info, "Feedback", "", 16, FontStyle.Normal, CareerUiTheme.ReferenceTextSecondary,
+                new Vector2(14f, 52f), new Vector2(690f, 102f));
 
-            _playNextGameButton = OwnerWorkspaceUiFactory.CreateButton(
-                nextMatchActions, "PlayNextGameButton", "다음 경기 진행", () => PlayNextGameRequested?.Invoke());
-            _feedbackText = OwnerWorkspaceUiFactory.CreateText(
-                nextMatch.Content, "Feedback", string.Empty, 13, FontStyle.Normal,
-                TextAnchor.MiddleLeft, CareerUiTheme.TextSecondary);
-            var feedbackLayout = _feedbackText.gameObject.AddComponent<LayoutElement>();
-            feedbackLayout.minHeight = 26f;
-            feedbackLayout.preferredHeight = 26f;
-
-            CareerUiSkin.Apply(_workspaceRoot);
-            ApplyHomeSection(nextMatch);
-            ApplyHomeButton(_opponentAnalysisButton, 152f);
-            ApplyHomeButton(_matchPreparationButton, 152f);
-            ApplyHomeButton(_playNextGameButton, 204f, true);
+            RectTransform actions = Surface(info, "QuickActions", CareerUiTheme.ReferencePanelHeader, 2f, 2f, DockWidth - 2f, 50f);
+            _opponentAnalysisButton = CreateAction(actions, "OpponentAnalysisButton", "상대 분석",
+                () => OpponentAnalysisRequested?.Invoke(), new Vector2(8f, 6f), new Vector2(138f, 42f));
+            _matchPreparationButton = CreateAction(actions, "MatchPreparationButton", "경기 준비",
+                () => MatchPreparationRequested?.Invoke(), new Vector2(146f, 6f), new Vector2(276f, 42f));
+            CreateAction(actions, "ScheduleButton", "일정·결과",
+                () => NavigationRequested?.Invoke(OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId),
+                new Vector2(284f, 6f), new Vector2(414f, 42f));
+            CreateAction(actions, "ClubButton", "구단 정보",
+                () => NavigationRequested?.Invoke(OwnerNavigationRoutes.ClubInformation),
+                new Vector2(422f, 6f), new Vector2(552f, 42f));
+            CreateAction(actions, "SaveButton", "저장", () => SaveRequested?.Invoke(),
+                new Vector2(560f, 6f), new Vector2(690f, 42f));
         }
 
-        private static Text CreateValue(Transform parent, string name, int fontSize, FontStyle style)
+        private static RectTransform Surface(Transform parent, string name, Color color, float left, float bottom, float right, float top)
         {
-            Text text = OwnerWorkspaceUiFactory.CreateText(
-                parent, name, string.Empty, fontSize, style,
-                TextAnchor.UpperLeft, CareerUiTheme.TextPrimary);
-            OwnerWorkspaceUiFactory.Stretch(text.rectTransform);
+            Image image = OwnerRuntimeUiFactory.CreateImage(name, parent, color);
+            SetRect(image.rectTransform, new Vector2(left, bottom), new Vector2(right, top));
+            image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
+            var outline = image.gameObject.AddComponent<Outline>();
+            outline.effectColor = CareerUiTheme.ReferenceBorder;
+            outline.effectDistance = new Vector2(1f, -1f);
+            return image.rectTransform;
+        }
+
+        private static Text Row(RectTransform parent, string name, string title, float bottom, bool alternate = false)
+        {
+            RectTransform row = Surface(parent, name + "Row",
+                alternate ? CareerUiTheme.ReferencePanelHeader : CareerUiTheme.ReferencePanel,
+                2f, bottom, DockWidth - 2f, bottom + 32f);
+            Label(row, "Title", title, 16, FontStyle.Bold, CareerUiTheme.ReferenceAccent,
+                new Vector2(12f, 0f), new Vector2(126f, 32f));
+            return Label(row, "Value", "", 17, FontStyle.Normal, CareerUiTheme.ReferenceText,
+                new Vector2(134f, 0f), new Vector2(684f, 32f));
+        }
+
+        private static Text Label(Transform parent, string name, string value, int size, FontStyle style, Color color, Vector2 min, Vector2 max)
+        {
+            Text text = OwnerWorkspaceUiFactory.CreateText(parent, name, value, size, style, TextAnchor.MiddleLeft, color);
+            text.color = color;
+            SetRect(text.rectTransform, min, max);
             return text;
         }
 
-        private static void ApplyHomeSection(OwnerWorkspaceUiFactory.Panel panel)
+        private static Button CreateAction(Transform parent, string name, string label, Action action, Vector2 min, Vector2 max, bool primary = false)
         {
-            panel.Root.GetComponent<CareerUiVisualElement>()
-                .Initialize(CareerUiVisualRole.FlatSurface);
-            panel.Root.GetComponent<Image>().color = new Color(0.02f, 0.045f, 0.08f, 0.46f);
-            CareerUiSkin.ApplyVisualElement(panel.Root.GetComponent<Image>());
-            // 홈은 장식 테두리 없이 배경과 여백으로 정보 영역을 구분한다.
-            panel.Root.Find("HeaderSurface").gameObject.SetActive(false);
-            panel.Root.Find("HeaderAccent").gameObject.SetActive(false);
-            panel.Root.Find("ThinBorder").gameObject.SetActive(false);
-            panel.Root.gameObject.AddComponent<CareerUiPreserveTextColor>();
-            Text header = panel.Root.Find("HeaderSlot").GetComponent<Text>();
-            header.color = CareerUiTheme.TextSecondary;
-            header.fontSize = 14;
-            header.rectTransform.offsetMin = new Vector2(20f, -32f);
-            header.rectTransform.offsetMax = new Vector2(-20f, -6f);
-            panel.Content.offsetMin = new Vector2(20f, 16f);
-            panel.Content.offsetMax = new Vector2(-20f, -36f);
-            foreach (Text text in panel.Content.GetComponentsInChildren<Text>(true))
-            {
-                if (text.GetComponentInParent<Button>() == null)
-                    text.color = CareerUiTheme.TextPrimary;
-            }
+            Button button = OwnerWorkspaceUiFactory.CreateButton(parent, name, label, action);
+            SetRect(button.GetComponent<RectTransform>(), min, max);
+            button.GetComponent<Image>().color = primary ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferenceButton;
+            Text text = button.transform.Find("Label").GetComponent<Text>();
+            text.color = primary ? CareerUiTheme.TextPrimary : CareerUiTheme.ReferenceText;
+            text.fontSize = primary ? 18 : 17;
+            text.resizeTextForBestFit = false;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            return button;
         }
 
-        private static void ApplyHomeButton(Button button, float width, bool isPrimary = false)
+        private static void SetRect(RectTransform rect, Vector2 min, Vector2 max)
         {
-            button.GetComponent<CareerUiVisualElement>()
-                .Initialize(CareerUiVisualRole.FlatSurface);
-            button.gameObject.AddComponent<CareerUiPreserveTextColor>();
-            LayoutElement layout = button.GetComponent<LayoutElement>();
-            layout.minWidth = width;
-            layout.preferredWidth = width;
-            layout.flexibleWidth = 0f;
-            layout.minHeight = 42f;
-            layout.preferredHeight = 42f;
-            CareerUiSkin.ApplyButton(button);
-            Text label = button.transform.Find("Label").GetComponent<Text>();
-            label.color = CareerUiTheme.ReferenceText;
-            label.fontSize = isPrimary ? 17 : 15;
-            label.fontStyle = FontStyle.Bold;
-            label.rectTransform.offsetMin = new Vector2(18f, 6f);
-            label.rectTransform.offsetMax = new Vector2(-18f, -6f);
-            label.horizontalOverflow = HorizontalWrapMode.Overflow;
-            label.resizeTextForBestFit = false;
-        }
-
-        private void EnsureBuilt()
-        {
-            if (_workspaceRoot == null)
-                throw new InvalidOperationException("CreateRuntime으로 Owner Home을 먼저 생성해야 합니다.");
+            rect.anchorMin = rect.anchorMax = Vector2.zero;
+            rect.offsetMin = min;
+            rect.offsetMax = max;
         }
     }
 }
