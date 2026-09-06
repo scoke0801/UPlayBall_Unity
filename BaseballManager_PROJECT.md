@@ -3082,3 +3082,24 @@ Game/Game.Unity/Presentation/Game.Tests/Presentation.Tests 보조 컴파일은 �
 Tactic Inventory 선택과 승강·새 시즌 로스터 이월도 남아 있다. 세부 Gate는
 `docs/todo/역사시뮬레이션_구단주모드/08_구현_로드맵_검증기준.md`와
 `13_4종_통합_구현로드맵_Codex.md`를 따른다.
+
+### 43.1 구단주 상점·전술·승강 코드 연결 상태 (2026-09-06)
+
+- Scout, 카드 강화·중복 판매를 공용 Shell에서 `OwnerModeManager`의 Production Command로 연결했다.
+  구매 이력과 전술 보유 수량은 `ManagerHistoricalRuntimeState`가 소유하며 구단주 SaveVersion 5에 저장한다.
+- 작전 카드 Catalog는 44장(타자 16, 투수 16, 분석 6, 공용 6)으로 확장됐고 Counter 조합, 연구 획득,
+  경기별 최대 2장 지정과 경기 종료 시 수량 소모, 3연패 종료 Signature 해금, 리그 등급 기반 AI 선택을
+  같은 데이터 정의로 처리한다. 상점은 전체 카탈로그에서 Roll하고 보유 수량은 별도 Save Aggregate에 쌓는다.
+  `TacticLab`은 연구 Tier 가중치 소비자다.
+- 구단주 시즌 종료는 플레이어 구단 승률을 `LeaguePromotionResolver`에 전달해 Rookie~Galaxy 등급을
+  갱신한다. 참가 구단·로스터·카드 소유 상태는 유지하고 시즌 한도형 상점 구매 횟수만 초기화한다.
+- Front Manager는 Owner Runtime 최초 관찰, Scout 최초 진입, Scout 신규 카드 획득 Fact를 생산한다.
+  `GuideRepeatState`는 Save/Load에 포함되어 `cooldownScope: Save`를 실제로 보존한다.
+- 상점은 기존 Owner UI 문법의 탭·2열 상품 타일·확정 결과 공개 패널을 사용한다. `docs/디자인/ref`의
+  단순 실루엣 문법을 따른 ImageGen 타자·투수·공용 3종 아트를 상점과 경기 작전 슬롯에 공통 연결한다.
+- 선수 커리어의 기간 결장형 부상 시스템과 강제 재활·복귀 보호·시장 패널티·부상 뉴스·은퇴 회고를
+  제거했다. 훈련 리스크는 0~100 Condition 추가 차감으로 통합했고, 구단주 모드는 기존 출장 소모와
+  주간 회복 및 10단계 파생 표시를 유지한다. 구세이브 호환은 이번 정리 범위에서 보장하지 않는다.
+- 위 항목은 Assembly 컴파일까지 확인한 **코드 연결** 상태다. 사용자 요청에 따라 UI 실행 검증과
+  시뮬레이션·대량 통계 테스트는 수행하지 않았다. 상세 근거는
+  `docs/reports/2026-09-06_한시_잔여작업_S1-S6_구현보고.md`에 기록한다.

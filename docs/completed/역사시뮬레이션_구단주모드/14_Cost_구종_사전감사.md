@@ -1,5 +1,7 @@
 # Cost와 구종 작업 전 능력치 감사
 
+> 상태: 사전감사 완료. 아래 미완료 항목은 후속 구현 Gate이며 이 감사의 측정 범위에는 포함되지 않는다.
+
 ## 측정 범위
 
 `Assets/10.Datas/HistoricalSimulation/1982-2025/Years`의 44년 Runtime JSON을 전수 조사했다.
