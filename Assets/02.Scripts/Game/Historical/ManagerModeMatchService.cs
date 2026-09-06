@@ -129,6 +129,10 @@ namespace Baseball.Game.Historical
             bool playerIsHome = string.Equals(playerTeamKey, homeTeamKey, StringComparison.Ordinal);
 
             LineupPresetState playerPreset = mode.GetSelectedLineupPreset();
+            // 다른 프리셋에서 이미 쓴 카드도 있으므로 UI의 준비 Snapshot을 신뢰하지 않는다.
+            // AI 경기와 재무를 포함한 어떤 상태도 바꾸기 전에 전체 보유 수량을 검증한다.
+            if (!runtime.TacticCollection.CanConsume(playerPreset.DefaultTacticCardIds))
+                throw new InvalidOperationException("장착한 전술 카드의 보유 수량이 부족합니다.");
             LineupPresetValidationResult validation = _presetValidator.Validate(
                 playerPreset,
                 CreateValidationContext(runtime, playerTeamKey));
@@ -191,6 +195,7 @@ namespace Baseball.Game.Historical
             ApplyPostGameState(mode, playerBuild, opponentBuild, match);
             RecordStatistics(mode, game, match);
             ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
+            mode.ClearSelectedTactics();
             mode.Dugout.RecordMatchCompleted();
 
             // 같은 라운드의 나머지 대진까지 확정해야 순위표에서 플레이어 구단만 경기 수가 앞서가지 않는다.
@@ -349,7 +354,15 @@ namespace Baseball.Game.Historical
                 players,
                 _balance.HistoricalAssignment.CreateRule(),
                 activeColorIds,
-                GetIds(_tacticCards, item => item.CardId));
+                GetOwnedTacticIds(runtime.TacticCollection));
+        }
+
+        private string[] GetOwnedTacticIds(TacticCollectionState collection)
+        {
+            var ids = new List<string>();
+            for (int index = 0; index < _tacticCards.Length; index++)
+                if (collection.Contains(_tacticCards[index].CardId)) ids.Add(_tacticCards[index].CardId);
+            return ids.ToArray();
         }
 
         private TeamMatchBuild BuildTeam(
@@ -836,11 +849,8 @@ namespace Baseball.Game.Historical
             TacticCollectionState collection,
             IReadOnlyList<string> tacticCardIds)
         {
-            for (int index = 0; index < tacticCardIds.Count; index++)
-            {
-                if (!collection.TryConsume(tacticCardIds[index]))
-                    throw new InvalidOperationException($"보유하지 않은 TacticCard {tacticCardIds[index]}를 소비할 수 없습니다.");
-            }
+            if (!collection.TryConsumeAll(tacticCardIds))
+                throw new InvalidOperationException("경기 전에 검증한 전술 카드 수량이 변경되었습니다.");
         }
 
         private PlayerCardDefinition GetCard(ManagerHistoricalRuntimeState runtime, string cardId)
@@ -992,13 +1002,6 @@ namespace Baseball.Game.Historical
                 if (!result.TryAdd(id, source[index]))
                     throw new ArgumentException($"{idName}는 중복될 수 없습니다.", nameof(source));
             }
-            return result;
-        }
-
-        private static string[] GetIds<T>(IReadOnlyList<T> source, Func<T, string> getId)
-        {
-            var result = new string[source.Count];
-            for (int index = 0; index < source.Count; index++) result[index] = getId(source[index]);
             return result;
         }
 

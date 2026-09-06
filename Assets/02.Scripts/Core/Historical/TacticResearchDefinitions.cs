@@ -129,6 +129,30 @@ namespace Baseball.Core.Historical
 
         public bool Contains(string cardId) => GetCount(cardId) > 0;
 
+        /// <summary>중복 지정 수량까지 합산해 전체 전술을 소모할 수 있는지 상태 변경 없이 확인한다.</summary>
+        public bool CanConsume(IReadOnlyList<string> cardIds)
+        {
+            if (cardIds == null) throw new ArgumentNullException(nameof(cardIds));
+            for (int index = 0; index < cardIds.Count; index++)
+            {
+                if (string.IsNullOrWhiteSpace(cardIds[index])) return false;
+                string id = cardIds[index].Trim();
+                int requiredCount = 1;
+                for (int previous = 0; previous < index; previous++)
+                    if (string.Equals(cardIds[previous].Trim(), id, StringComparison.Ordinal)) requiredCount++;
+                if (GetCount(id) < requiredCount) return false;
+            }
+            return true;
+        }
+
+        /// <summary>전체 수량이 충분할 때만 지정 전술을 일괄 소모해 일부 슬롯만 차감되지 않게 한다.</summary>
+        public bool TryConsumeAll(IReadOnlyList<string> cardIds)
+        {
+            if (!CanConsume(cardIds)) return false;
+            for (int index = 0; index < cardIds.Count; index++) TryConsume(cardIds[index]);
+            return true;
+        }
+
         /// <returns>처음 확보한 카드면 true다.</returns>
         public bool Acquire(string cardId)
         {
