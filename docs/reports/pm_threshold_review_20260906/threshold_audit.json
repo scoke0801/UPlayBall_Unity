@@ -1,0 +1,63 @@
+{
+  "defenseRows": 593,
+  "defenseVariants": {
+    "Normal": 400,
+    "AllStar": 185,
+    "EX": 7,
+    "Rare": 1
+  },
+  "pitchCards": 52,
+  "pitchThresholdRows": 445,
+  "defenseStepDifferences": {
+    "10": 303
+  },
+  "pitchStepDifferences": {
+    "10": 209
+  },
+  "observedDefensePlusDeltaByTarget": {
+    "A": {
+      "minimum": 68,
+      "maximum": 87,
+      "count": 303
+    },
+    "S": {
+      "minimum": 78,
+      "maximum": 97,
+      "count": 400
+    }
+  },
+  "observedBreakingPlusDeltaByTarget": {
+    "A": {
+      "minimum": 80,
+      "maximum": 107,
+      "count": 114
+    },
+    "B": {
+      "minimum": 70,
+      "maximum": 107,
+      "count": 127
+    },
+    "C": {
+      "minimum": 66,
+      "maximum": 105,
+      "count": 87
+    },
+    "D": {
+      "minimum": 71,
+      "maximum": 95,
+      "count": 31
+    },
+    "E": {
+      "minimum": 68,
+      "maximum": 71,
+      "count": 8
+    },
+    "S": {
+      "minimum": 90,
+      "maximum": 109,
+      "count": 78
+    }
+  },
+  "interpretation": "DifferentPlayerThresholds_DoNotInferBaseRatingFromDeltaOrUniformGradeBoundary",
+  "snapshotCaveat": "LinkedLiveImagesAreNotProofOfOriginalPublicationBytes"
+}

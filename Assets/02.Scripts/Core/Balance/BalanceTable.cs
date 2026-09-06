@@ -136,7 +136,9 @@ namespace Baseball.Core.Balance
             PitchArsenalBalance pitchArsenal = null,
             MatchRatingCurveBalance matchRatingCurve = null,
             Baseball.Core.Historical.LeagueDefinition leaguePromotion = null,
-            Baseball.Core.Historical.OwnerCardGrowthBalanceTable ownerCardGrowth = null)
+            Baseball.Core.Historical.OwnerCardGrowthBalanceTable ownerCardGrowth = null,
+            Baseball.Core.Historical.TeamColorBalanceTable teamColor = null,
+            Baseball.Core.Historical.OwnerPlayerMarketBalanceTable ownerPlayerMarket = null)
         {
             if (string.IsNullOrWhiteSpace(contentHash))
                 throw new System.ArgumentException("ContentHash는 비어 있을 수 없습니다.", nameof(contentHash));
@@ -174,6 +176,8 @@ namespace Baseball.Core.Balance
             MatchRatingCurve = matchRatingCurve ?? MatchRatingCurveBalance.CreateDefault();
             LeaguePromotion = leaguePromotion ?? Baseball.Core.Historical.LeagueDefinition.CreateInitial();
             OwnerCardGrowth = ownerCardGrowth ?? Baseball.Core.Historical.OwnerCardGrowthBalanceTable.CreateDefault();
+            TeamColor = teamColor ?? Baseball.Core.Historical.TeamColorBalanceTable.CreateInitial();
+            OwnerPlayerMarket = ownerPlayerMarket ?? Baseball.Core.Historical.OwnerPlayerMarketBalanceTable.CreateInitial();
         }
 
         public int Version { get; }
@@ -210,6 +214,8 @@ namespace Baseball.Core.Balance
         public PitchArsenalBalance PitchArsenal { get; }
         public MatchRatingCurveBalance MatchRatingCurve { get; }
         public Baseball.Core.Historical.OwnerCardGrowthBalanceTable OwnerCardGrowth { get; }
+        public Baseball.Core.Historical.TeamColorBalanceTable TeamColor { get; }
+        public Baseball.Core.Historical.OwnerPlayerMarketBalanceTable OwnerPlayerMarket { get; }
 
         /// <summary>
         /// 현대 프로야구의 평균 타격 지표를 초기 가설로 삼은 프로토타입 값을 만든다.

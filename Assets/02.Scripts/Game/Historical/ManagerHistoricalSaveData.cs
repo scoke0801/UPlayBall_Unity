@@ -212,7 +212,42 @@ namespace Baseball.Game.Historical
         public TeamSeasonPlayerStatusSaveData[] playerStatuses;
         public TeamChemistryFamiliaritySaveData[] familiarities;
         public ManagerLiveSeasonSaveData liveSeason;
+        public ManagerCompletedSeasonSaveData[] completedSeasons;
         public DugoutManagementSaveData dugout;
+        public OwnerPlayerContractSaveData[] playerContracts;
+        public OwnerTradeReceiptSaveData[] tradeReceipts;
+    }
+
+    [Serializable]
+    public sealed class OwnerPlayerContractSaveData
+    {
+        public string contractId;
+        public string cardId;
+        public int startSeason;
+        public int remainingSeasons;
+        public long annualSalary;
+        public bool hasLastSalaryPaidSeason;
+        public int lastSalaryPaidSeason;
+    }
+
+    [Serializable]
+    public sealed class OwnerTradeReceiptSaveData
+    {
+        public string receiptId;
+        public int season;
+        public string partnerTeamSeasonKey;
+        public string outgoingCardId;
+        public string incomingCardId;
+        public int outgoingValue;
+        public int incomingValue;
+    }
+
+    /// <summary>운영 이력을 생성 당시 WorldHistory와 분리해 저장하는 완료 시즌 DTO다.</summary>
+    [Serializable]
+    public sealed class ManagerCompletedSeasonSaveData
+    {
+        public int leagueGrade;
+        public ManagerLiveSeasonSaveData season;
     }
 
     [Serializable]

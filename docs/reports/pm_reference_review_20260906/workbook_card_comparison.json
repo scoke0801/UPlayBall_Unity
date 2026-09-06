@@ -1,0 +1,1287 @@
+﻿[
+    {
+        "WorkbookRow":  2,
+        "Year":  2008,
+        "Team":  "SK",
+        "PlayerName":  "박재홍",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_2d939ec0341a95e2732d",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  9,
+        "CurrentCost":  10,
+        "Delta":  1,
+        "ReferenceBunt":  "40",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  80,
+                                                "Current":  69,
+                                                "Delta":  -11
+                                            },
+                           "Contact":  {
+                                           "Reference":  80,
+                                           "Current":  71,
+                                           "Delta":  -9
+                                       },
+                           "Defense":  {
+                                           "Reference":  76,
+                                           "Current":  56,
+                                           "Delta":  -20
+                                       },
+                           "Power":  {
+                                         "Reference":  77,
+                                         "Current":  85,
+                                         "Delta":  8
+                                     },
+                           "Speed":  {
+                                         "Reference":  61,
+                                         "Current":  45,
+                                         "Delta":  -16
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  3,
+        "Year":  2008,
+        "Team":  "SK",
+        "PlayerName":  "최정",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_2cc5688fc57b98c05093",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  9,
+        "CurrentCost":  8,
+        "Delta":  -1,
+        "ReferenceBunt":  "70",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  75,
+                                                "Current":  72,
+                                                "Delta":  -3
+                                            },
+                           "Contact":  {
+                                           "Reference":  81,
+                                           "Current":  75,
+                                           "Delta":  -6
+                                       },
+                           "Defense":  {
+                                           "Reference":  75,
+                                           "Current":  49,
+                                           "Delta":  -26
+                                       },
+                           "Power":  {
+                                         "Reference":  70,
+                                         "Current":  69,
+                                         "Delta":  -1
+                                     },
+                           "Speed":  {
+                                         "Reference":  74,
+                                         "Current":  67,
+                                         "Delta":  -7
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  4,
+        "Year":  2008,
+        "Team":  "SK",
+        "PlayerName":  "김광현",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_a05d65e2545e720e9011",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "EX",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  10,
+        "CurrentCost":  9,
+        "Delta":  -1,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  79,
+                                            "Current":  69,
+                                            "Delta":  -10
+                                        },
+                           "Control":  {
+                                           "Reference":  83,
+                                           "Current":  54,
+                                           "Delta":  -29
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  80,
+                                                 "Current":  69,
+                                                 "Delta":  -11
+                                             },
+                           "Stamina":  {
+                                           "Reference":  81,
+                                           "Current":  53,
+                                           "Delta":  -28
+                                       },
+                           "Stuff":  {
+                                         "Reference":  91,
+                                         "Current":  72,
+                                         "Delta":  -19
+                                     },
+                           "Velocity":  {
+                                            "Reference":  65,
+                                            "Current":  55,
+                                            "Delta":  -10
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/271f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  5,
+        "Year":  2008,
+        "Team":  "SK",
+        "PlayerName":  "채병용",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_0682b78e9d70b023e0d3",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "All Star",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  9,
+        "CurrentCost":  9,
+        "Delta":  0,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  83,
+                                            "Current":  66,
+                                            "Delta":  -17
+                                        },
+                           "Control":  {
+                                           "Reference":  87,
+                                           "Current":  63,
+                                           "Delta":  -24
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  78,
+                                                 "Current":  66,
+                                                 "Delta":  -12
+                                             },
+                           "Stamina":  {
+                                           "Reference":  68,
+                                           "Current":  49,
+                                           "Delta":  -19
+                                       },
+                           "Stuff":  {
+                                         "Reference":  83,
+                                         "Current":  68,
+                                         "Delta":  -15
+                                     },
+                           "Velocity":  {
+                                            "Reference":  64,
+                                            "Current":  55,
+                                            "Delta":  -9
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4156f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  6,
+        "Year":  2009,
+        "Team":  "SK",
+        "PlayerName":  "정근우",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_ff09fa00bb8eb87ce384",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  10,
+        "CurrentCost":  8,
+        "Delta":  -2,
+        "ReferenceBunt":  "58",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  76,
+                                                "Current":  79,
+                                                "Delta":  3
+                                            },
+                           "Contact":  {
+                                           "Reference":  86,
+                                           "Current":  84,
+                                           "Delta":  -2
+                                       },
+                           "Defense":  {
+                                           "Reference":  71,
+                                           "Current":  46,
+                                           "Delta":  -25
+                                       },
+                           "Power":  {
+                                         "Reference":  68,
+                                         "Current":  54,
+                                         "Delta":  -14
+                                     },
+                           "Speed":  {
+                                         "Reference":  80,
+                                         "Current":  92,
+                                         "Delta":  12
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  7,
+        "Year":  2009,
+        "Team":  "SK",
+        "PlayerName":  "박재상",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_88d701045a196d72d219",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "All Star",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  8,
+        "CurrentCost":  8,
+        "Delta":  0,
+        "ReferenceBunt":  "68",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  64,
+                                                "Current":  59,
+                                                "Delta":  -5
+                                            },
+                           "Contact":  {
+                                           "Reference":  79,
+                                           "Current":  60,
+                                           "Delta":  -19
+                                       },
+                           "Defense":  {
+                                           "Reference":  70,
+                                           "Current":  44,
+                                           "Delta":  -26
+                                       },
+                           "Power":  {
+                                         "Reference":  72,
+                                         "Current":  59,
+                                         "Delta":  -13
+                                     },
+                           "Speed":  {
+                                         "Reference":  77,
+                                         "Current":  89,
+                                         "Delta":  12
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4214f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  8,
+        "Year":  2009,
+        "Team":  "SK",
+        "PlayerName":  "나주환",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_60bc34a4b12e986e9c93",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  8,
+        "CurrentCost":  8,
+        "Delta":  0,
+        "ReferenceBunt":  "74",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  69,
+                                                "Current":  55,
+                                                "Delta":  -14
+                                            },
+                           "Contact":  {
+                                           "Reference":  76,
+                                           "Current":  55,
+                                           "Delta":  -21
+                                       },
+                           "Defense":  {
+                                           "Reference":  70,
+                                           "Current":  53,
+                                           "Delta":  -17
+                                       },
+                           "Power":  {
+                                         "Reference":  71,
+                                         "Current":  55,
+                                         "Delta":  -16
+                                     },
+                           "Speed":  {
+                                         "Reference":  70,
+                                         "Current":  67,
+                                         "Delta":  -3
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  9,
+        "Year":  2009,
+        "Team":  "SK",
+        "PlayerName":  "김광현",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_13a084838ec06c121de4",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  10,
+        "CurrentCost":  9,
+        "Delta":  -1,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  84,
+                                            "Current":  70,
+                                            "Delta":  -14
+                                        },
+                           "Control":  {
+                                           "Reference":  76,
+                                           "Current":  60,
+                                           "Delta":  -16
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  80,
+                                                 "Current":  70,
+                                                 "Delta":  -10
+                                             },
+                           "Stamina":  {
+                                           "Reference":  83,
+                                           "Current":  49,
+                                           "Delta":  -34
+                                       },
+                           "Stuff":  {
+                                         "Reference":  80,
+                                         "Current":  73,
+                                         "Delta":  -7
+                                     },
+                           "Velocity":  {
+                                            "Reference":  76,
+                                            "Current":  55,
+                                            "Delta":  -21
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  10,
+        "Year":  2009,
+        "Team":  "SK",
+        "PlayerName":  "송은범",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_1f834e4c9dd1c1e7b9b5",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "All Star",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  9,
+        "CurrentCost":  9,
+        "Delta":  0,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  89,
+                                            "Current":  68,
+                                            "Delta":  -21
+                                        },
+                           "Control":  {
+                                           "Reference":  79,
+                                           "Current":  67,
+                                           "Delta":  -12
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  78,
+                                                 "Current":  68,
+                                                 "Delta":  -10
+                                             },
+                           "Stamina":  {
+                                           "Reference":  67,
+                                           "Current":  51,
+                                           "Delta":  -16
+                                       },
+                           "Stuff":  {
+                                         "Reference":  76,
+                                         "Current":  71,
+                                         "Delta":  -5
+                                     },
+                           "Velocity":  {
+                                            "Reference":  76,
+                                            "Current":  55,
+                                            "Delta":  -21
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4197f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  11,
+        "Year":  2009,
+        "Team":  "SK",
+        "PlayerName":  "글로버",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_cf286b89a58cc1728796",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  9,
+        "CurrentCost":  8,
+        "Delta":  -1,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  87,
+                                            "Current":  74,
+                                            "Delta":  -13
+                                        },
+                           "Control":  {
+                                           "Reference":  70,
+                                           "Current":  72,
+                                           "Delta":  2
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  74,
+                                                 "Current":  74,
+                                                 "Delta":  0
+                                             },
+                           "Stamina":  {
+                                           "Reference":  78,
+                                           "Current":  44,
+                                           "Delta":  -34
+                                       },
+                           "Stuff":  {
+                                         "Reference":  77,
+                                         "Current":  78,
+                                         "Delta":  1
+                                     },
+                           "Velocity":  {
+                                            "Reference":  72,
+                                            "Current":  55,
+                                            "Delta":  -17
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  12,
+        "Year":  2008,
+        "Team":  "두산",
+        "PlayerName":  "김현수",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_bde4d98ab6fa52a6b6fe",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "EX",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  10,
+        "CurrentCost":  10,
+        "Delta":  0,
+        "ReferenceBunt":  "40",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  82,
+                                                "Current":  84,
+                                                "Delta":  2
+                                            },
+                           "Contact":  {
+                                           "Reference":  85,
+                                           "Current":  90,
+                                           "Delta":  5
+                                       },
+                           "Defense":  {
+                                           "Reference":  78,
+                                           "Current":  59,
+                                           "Delta":  -19
+                                       },
+                           "Power":  {
+                                         "Reference":  68,
+                                         "Current":  70,
+                                         "Delta":  2
+                                     },
+                           "Speed":  {
+                                         "Reference":  65,
+                                         "Current":  59,
+                                         "Delta":  -6
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/764f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  13,
+        "Year":  2008,
+        "Team":  "두산",
+        "PlayerName":  "김동주",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_0028f7afe505798402c1",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  9,
+        "CurrentCost":  8,
+        "Delta":  -1,
+        "ReferenceBunt":  "40",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  84,
+                                                "Current":  65,
+                                                "Delta":  -19
+                                            },
+                           "Contact":  {
+                                           "Reference":  78,
+                                           "Current":  67,
+                                           "Delta":  -11
+                                       },
+                           "Defense":  {
+                                           "Reference":  75,
+                                           "Current":  52,
+                                           "Delta":  -23
+                                       },
+                           "Power":  {
+                                         "Reference":  76,
+                                         "Current":  79,
+                                         "Delta":  3
+                                     },
+                           "Speed":  {
+                                         "Reference":  59,
+                                         "Current":  40,
+                                         "Delta":  -19
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  14,
+        "Year":  2008,
+        "Team":  "두산",
+        "PlayerName":  "홍성흔",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_e7eedbbcefa984183989",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  8,
+        "CurrentCost":  8,
+        "Delta":  0,
+        "ReferenceBunt":  "47",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  74,
+                                                "Current":  73,
+                                                "Delta":  -1
+                                            },
+                           "Contact":  {
+                                           "Reference":  81,
+                                           "Current":  76,
+                                           "Delta":  -5
+                                       },
+                           "Defense":  {
+                                           "Reference":  55,
+                                           "Current":  52,
+                                           "Delta":  -3
+                                       },
+                           "Power":  {
+                                         "Reference":  66,
+                                         "Current":  59,
+                                         "Delta":  -7
+                                     },
+                           "Speed":  {
+                                         "Reference":  67,
+                                         "Current":  50,
+                                         "Delta":  -17
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  15,
+        "Year":  2008,
+        "Team":  "두산",
+        "PlayerName":  "김상현",
+        "PlayerType":  "Pitcher",
+        "Variant":  "Normal",
+        "ReferenceCost":  8,
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/413f.jpg",
+        "JoinStatus":  "Unresolved:0",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  16,
+        "Year":  2008,
+        "Team":  "두산",
+        "PlayerName":  "이재우",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_85f95020b83a4fcfc356",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "All Star",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  7,
+        "CurrentCost":  8,
+        "Delta":  1,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  80,
+                                            "Current":  71,
+                                            "Delta":  -9
+                                        },
+                           "Control":  {
+                                           "Reference":  79,
+                                           "Current":  58,
+                                           "Delta":  -21
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  78,
+                                                 "Current":  71,
+                                                 "Delta":  -7
+                                             },
+                           "Stamina":  {
+                                           "Reference":  53,
+                                           "Current":  40,
+                                           "Delta":  -13
+                                       },
+                           "Stuff":  {
+                                         "Reference":  83,
+                                         "Current":  74,
+                                         "Delta":  -9
+                                     },
+                           "Velocity":  {
+                                            "Reference":  69,
+                                            "Current":  55,
+                                            "Delta":  -14
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4158f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  17,
+        "Year":  2008,
+        "Team":  "두산",
+        "PlayerName":  "정재훈",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_0c230d026f7117894ca5",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  7,
+        "CurrentCost":  7,
+        "Delta":  0,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  80,
+                                            "Current":  54,
+                                            "Delta":  -26
+                                        },
+                           "Control":  {
+                                           "Reference":  81,
+                                           "Current":  55,
+                                           "Delta":  -26
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  74,
+                                                 "Current":  54,
+                                                 "Delta":  -20
+                                             },
+                           "Stamina":  {
+                                           "Reference":  48,
+                                           "Current":  34,
+                                           "Delta":  -14
+                                       },
+                           "Stuff":  {
+                                         "Reference":  82,
+                                         "Current":  54,
+                                         "Delta":  -28
+                                     },
+                           "Velocity":  {
+                                            "Reference":  60,
+                                            "Current":  55,
+                                            "Delta":  -5
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  18,
+        "Year":  2010,
+        "Team":  "두산",
+        "PlayerName":  "이종욱",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_f7cadb7a36393df5ead2",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  8,
+        "CurrentCost":  8,
+        "Delta":  0,
+        "ReferenceBunt":  "70",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  80,
+                                                "Current":  65,
+                                                "Delta":  -15
+                                            },
+                           "Contact":  {
+                                           "Reference":  84,
+                                           "Current":  67,
+                                           "Delta":  -17
+                                       },
+                           "Defense":  {
+                                           "Reference":  75,
+                                           "Current":  56,
+                                           "Delta":  -19
+                                       },
+                           "Power":  {
+                                         "Reference":  62,
+                                         "Current":  45,
+                                         "Delta":  -17
+                                     },
+                           "Speed":  {
+                                         "Reference":  80,
+                                         "Current":  79,
+                                         "Delta":  -1
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  19,
+        "Year":  2010,
+        "Team":  "두산",
+        "PlayerName":  "최준석",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_36042a3d4356d091f0e7",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  9,
+        "CurrentCost":  8,
+        "Delta":  -1,
+        "ReferenceBunt":  "56",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  77,
+                                                "Current":  68,
+                                                "Delta":  -9
+                                            },
+                           "Contact":  {
+                                           "Reference":  84,
+                                           "Current":  71,
+                                           "Delta":  -13
+                                       },
+                           "Defense":  {
+                                           "Reference":  77,
+                                           "Current":  62,
+                                           "Delta":  -15
+                                       },
+                           "Power":  {
+                                         "Reference":  82,
+                                         "Current":  77,
+                                         "Delta":  -5
+                                     },
+                           "Speed":  {
+                                         "Reference":  52,
+                                         "Current":  37,
+                                         "Delta":  -15
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  20,
+        "Year":  2010,
+        "Team":  "두산",
+        "PlayerName":  "김현수",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_6a731a6d531bb1abcda8",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "특수 아이콘(종류 미확정)",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  10,
+        "CurrentCost":  10,
+        "Delta":  0,
+        "ReferenceBunt":  "65",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  81,
+                                                "Current":  69,
+                                                "Delta":  -12
+                                            },
+                           "Contact":  {
+                                           "Reference":  84,
+                                           "Current":  71,
+                                           "Delta":  -13
+                                       },
+                           "Defense":  {
+                                           "Reference":  76,
+                                           "Current":  57,
+                                           "Delta":  -19
+                                       },
+                           "Power":  {
+                                         "Reference":  83,
+                                         "Current":  81,
+                                         "Delta":  -2
+                                     },
+                           "Speed":  {
+                                         "Reference":  66,
+                                         "Current":  43,
+                                         "Delta":  -23
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4406f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  21,
+        "Year":  2010,
+        "Team":  "두산",
+        "PlayerName":  "김선우",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_11499d75b2513f4a72c4",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "특수 아이콘(종류 미확정)",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  8,
+        "CurrentCost":  9,
+        "Delta":  1,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  77,
+                                            "Current":  59,
+                                            "Delta":  -18
+                                        },
+                           "Control":  {
+                                           "Reference":  78,
+                                           "Current":  64,
+                                           "Delta":  -14
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  79,
+                                                 "Current":  59,
+                                                 "Delta":  -20
+                                             },
+                           "Stamina":  {
+                                           "Reference":  84,
+                                           "Current":  52,
+                                           "Delta":  -32
+                                       },
+                           "Stuff":  {
+                                         "Reference":  80,
+                                         "Current":  59,
+                                         "Delta":  -21
+                                     },
+                           "Velocity":  {
+                                            "Reference":  72,
+                                            "Current":  55,
+                                            "Delta":  -17
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4395f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  22,
+        "Year":  2010,
+        "Team":  "두산",
+        "PlayerName":  "히메네스",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_3dd5c4866f5f0a1416aa",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "특수 아이콘(종류 미확정)",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  10,
+        "CurrentCost":  9,
+        "Delta":  -1,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  85,
+                                            "Current":  65,
+                                            "Delta":  -20
+                                        },
+                           "Control":  {
+                                           "Reference":  80,
+                                           "Current":  54,
+                                           "Delta":  -26
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  85,
+                                                 "Current":  65,
+                                                 "Delta":  -20
+                                             },
+                           "Stamina":  {
+                                           "Reference":  84,
+                                           "Current":  52,
+                                           "Delta":  -32
+                                       },
+                           "Stuff":  {
+                                         "Reference":  84,
+                                         "Current":  67,
+                                         "Delta":  -17
+                                     },
+                           "Velocity":  {
+                                            "Reference":  76,
+                                            "Current":  55,
+                                            "Delta":  -21
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4460f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  23,
+        "Year":  2010,
+        "Team":  "두산",
+        "PlayerName":  "정재훈",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_9ea6c3baadb37cd1f6fe",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "Normal",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  8,
+        "CurrentCost":  8,
+        "Delta":  0,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  86,
+                                            "Current":  70,
+                                            "Delta":  -16
+                                        },
+                           "Control":  {
+                                           "Reference":  84,
+                                           "Current":  54,
+                                           "Delta":  -30
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  80,
+                                                 "Current":  70,
+                                                 "Delta":  -10
+                                             },
+                           "Stamina":  {
+                                           "Reference":  57,
+                                           "Current":  39,
+                                           "Delta":  -18
+                                       },
+                           "Stuff":  {
+                                         "Reference":  80,
+                                         "Current":  73,
+                                         "Delta":  -7
+                                     },
+                           "Velocity":  {
+                                            "Reference":  62,
+                                            "Current":  55,
+                                            "Delta":  -7
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  24,
+        "Year":  1994,
+        "Team":  "LG",
+        "PlayerName":  "김재현",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_3e37f20055e4cd75cabf",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "특수 아이콘(종류 미확정)",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  10,
+        "CurrentCost":  10,
+        "Delta":  0,
+        "ReferenceBunt":  "46",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  82,
+                                                "Current":  62,
+                                                "Delta":  -20
+                                            },
+                           "Contact":  {
+                                           "Reference":  79,
+                                           "Current":  63,
+                                           "Delta":  -16
+                                       },
+                           "Defense":  {
+                                           "Reference":  78,
+                                           "Current":  55,
+                                           "Delta":  -23
+                                       },
+                           "Power":  {
+                                         "Reference":  81,
+                                         "Current":  88,
+                                         "Delta":  7
+                                     },
+                           "Speed":  {
+                                         "Reference":  77,
+                                         "Current":  55,
+                                         "Delta":  -22
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9924f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  25,
+        "Year":  1994,
+        "Team":  "LG",
+        "PlayerName":  "유지현",
+        "PlayerType":  "Hitter",
+        "Variant":  "특수 아이콘(종류 미확정)",
+        "ReferenceCost":  10,
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9939f.jpg",
+        "JoinStatus":  "Unresolved:0",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  26,
+        "Year":  1994,
+        "Team":  "LG",
+        "PlayerName":  "서용빈",
+        "PlayerType":  "Hitter",
+        "EditorPlayerSeasonId":  "SEASON_3d1dec1e9c398a11e3b5",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "특수 아이콘(종류 미확정)",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  7,
+        "CurrentCost":  8,
+        "Delta":  1,
+        "ReferenceBunt":  "41",
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "BatterMental":  {
+                                                "Reference":  82,
+                                                "Current":  72,
+                                                "Delta":  -10
+                                            },
+                           "Contact":  {
+                                           "Reference":  84,
+                                           "Current":  75,
+                                           "Delta":  -9
+                                       },
+                           "Defense":  {
+                                           "Reference":  78,
+                                           "Current":  55,
+                                           "Delta":  -23
+                                       },
+                           "Power":  {
+                                         "Reference":  64,
+                                         "Current":  53,
+                                         "Delta":  -11
+                                     },
+                           "Speed":  {
+                                         "Reference":  66,
+                                         "Current":  55,
+                                         "Delta":  -11
+                                     }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9935f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  27,
+        "Year":  1994,
+        "Team":  "LG",
+        "PlayerName":  "이상훈",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_a7f3e32cecd5e490a04b",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "특수 아이콘(종류 미확정)",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  10,
+        "CurrentCost":  9,
+        "Delta":  -1,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  87,
+                                            "Current":  69,
+                                            "Delta":  -18
+                                        },
+                           "Control":  {
+                                           "Reference":  87,
+                                           "Current":  61,
+                                           "Delta":  -26
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  85,
+                                                 "Current":  69,
+                                                 "Delta":  -16
+                                             },
+                           "Stamina":  {
+                                           "Reference":  89,
+                                           "Current":  58,
+                                           "Delta":  -31
+                                       },
+                           "Stuff":  {
+                                         "Reference":  85,
+                                         "Current":  72,
+                                         "Delta":  -13
+                                     },
+                           "Velocity":  {
+                                            "Reference":  72,
+                                            "Current":  55,
+                                            "Delta":  -17
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9903f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  28,
+        "Year":  1994,
+        "Team":  "LG",
+        "PlayerName":  "정삼흠",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_3f7d642e4aceab88021d",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "특수 아이콘(종류 미확정)",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  10,
+        "CurrentCost":  9,
+        "Delta":  -1,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  87,
+                                            "Current":  64,
+                                            "Delta":  -23
+                                        },
+                           "Control":  {
+                                           "Reference":  84,
+                                           "Current":  73,
+                                           "Delta":  -11
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  85,
+                                                 "Current":  64,
+                                                 "Delta":  -21
+                                             },
+                           "Stamina":  {
+                                           "Reference":  85,
+                                           "Current":  58,
+                                           "Delta":  -27
+                                       },
+                           "Stuff":  {
+                                         "Reference":  83,
+                                         "Current":  65,
+                                         "Delta":  -18
+                                     },
+                           "Velocity":  {
+                                            "Reference":  58,
+                                            "Current":  55,
+                                            "Delta":  -3
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9909f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    },
+    {
+        "WorkbookRow":  29,
+        "Year":  1994,
+        "Team":  "LG",
+        "PlayerName":  "김용수",
+        "PlayerType":  "Pitcher",
+        "EditorPlayerSeasonId":  "SEASON_fb4287284a60227e0463",
+        "JoinStatus":  "ExactYearTeamNameType",
+        "Variant":  "특수 아이콘(종류 미확정)",
+        "SnapshotStatus":  "Unknown",
+        "ReferenceCost":  7,
+        "CurrentCost":  8,
+        "Delta":  1,
+        "ReferenceBunt":  null,
+        "ArmMapping":  "Excluded_BuntIsNotArm",
+        "Attributes":  {
+                           "Breaking":  {
+                                            "Reference":  85,
+                                            "Current":  59,
+                                            "Delta":  -26
+                                        },
+                           "Control":  {
+                                           "Reference":  87,
+                                           "Current":  68,
+                                           "Delta":  -19
+                                       },
+                           "PitcherMental":  {
+                                                 "Reference":  79,
+                                                 "Current":  59,
+                                                 "Delta":  -20
+                                             },
+                           "Stamina":  {
+                                           "Reference":  49,
+                                           "Current":  36,
+                                           "Delta":  -13
+                                       },
+                           "Stuff":  {
+                                         "Reference":  83,
+                                         "Current":  60,
+                                         "Delta":  -23
+                                     },
+                           "Velocity":  {
+                                            "Reference":  52,
+                                            "Current":  55,
+                                            "Delta":  3
+                                        }
+                       },
+        "ImageUrl":  "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9891f.jpg",
+        "EvidenceStatus":  "UserTranscription_ImageNotReverified",
+        "CalibrationEligible":  false
+    }
+]

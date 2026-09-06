@@ -9,7 +9,7 @@ using Baseball.Simulation.Historical;
 namespace Baseball.Game.Historical
 {
     /// <summary>구단주 모드 한 세이브가 소유하는 역사·리그·로스터·플레이어 구단 경제 상태다.</summary>
-    public sealed class ManagerHistoricalRuntimeState
+    public sealed partial class ManagerHistoricalRuntimeState
     {
         private readonly CurrentRosterState[] _rosters;
         private readonly List<OwnedPlayerCardState> _ownedCards;

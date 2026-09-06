@@ -13,7 +13,8 @@ namespace Baseball.Simulation.Historical
         public static WorldCardCatalog Build(
             IReadOnlyList<PlayerSeasonDefinition> playerSeasons,
             WorldAwardRecord awards,
-            CardEditionBalanceTable balance)
+            CardEditionBalanceTable balance,
+            IReadOnlyList<PlayerPersonDefinition> playerPersons = null)
         {
             if (playerSeasons == null)
                 throw new ArgumentNullException(nameof(playerSeasons));
@@ -39,7 +40,7 @@ namespace Baseball.Simulation.Historical
                 if (HasMvpAward(awards, season.PlayerSeasonId))
                     AddCard(cards, season, PlayerCardEdition.Mvp, balance);
             }
-            return new WorldCardCatalog(sortedSeasons, cards);
+            return new WorldCardCatalog(sortedSeasons, cards, playerPersons);
         }
 
         private static bool HasMvpAward(WorldAwardRecord awards, string playerSeasonId)
@@ -336,9 +337,49 @@ namespace Baseball.Simulation.Historical
         MaximumLevel
     }
 
+    /// <summary>강화 Command와 같은 조건으로 현재 단계와 재료 소비 가능 여부를 설명한다.</summary>
+    public readonly struct CardEnhancementPreview
+    {
+        public CardEnhancementPreview(
+            int currentLevel,
+            int nextLevel,
+            int duplicateCount,
+            CardEnhancementResult result)
+        {
+            CurrentLevel = currentLevel;
+            NextLevel = nextLevel;
+            DuplicateCount = duplicateCount;
+            Result = result;
+        }
+
+        public int CurrentLevel { get; }
+        public int NextLevel { get; }
+        public int DuplicateCount { get; }
+        public CardEnhancementResult Result { get; }
+        public bool CanEnhance => Result == CardEnhancementResult.Enhanced;
+    }
+
     /// <summary>중복 한 장을 소비해 실패 없이 최대 +5까지 강화한다.</summary>
     public static class CardEnhancementResolver
     {
+        public static CardEnhancementPreview Preview(OwnedPlayerCardState ownedCard)
+        {
+            if (ownedCard == null)
+                throw new ArgumentNullException(nameof(ownedCard));
+            CardEnhancementResult result = ownedCard.EnhancementLevel >= OwnedPlayerCardState.MaximumEnhancementLevel
+                ? CardEnhancementResult.MaximumLevel
+                : ownedCard.DuplicateCount <= 0
+                    ? CardEnhancementResult.NoDuplicate
+                    : CardEnhancementResult.Enhanced;
+            return new CardEnhancementPreview(
+                ownedCard.EnhancementLevel,
+                result == CardEnhancementResult.Enhanced
+                    ? ownedCard.EnhancementLevel + 1
+                    : ownedCard.EnhancementLevel,
+                ownedCard.DuplicateCount,
+                result);
+        }
+
         public static CardEnhancementResult Enhance(OwnedPlayerCardState ownedCard)
         {
             if (ownedCard == null)
@@ -352,9 +393,45 @@ namespace Baseball.Simulation.Historical
         }
     }
 
+    /// <summary>중복 판매 Command가 소비할 수량과 지급할 SP를 상태 변경 없이 계산한다.</summary>
+    public readonly struct CardSalePreview
+    {
+        public CardSalePreview(int requestedCount, int availableCount, int unitPriceSp, int totalPriceSp)
+        {
+            RequestedCount = requestedCount;
+            AvailableCount = availableCount;
+            UnitPriceSp = unitPriceSp;
+            TotalPriceSp = totalPriceSp;
+        }
+
+        public int RequestedCount { get; }
+        public int AvailableCount { get; }
+        public int UnitPriceSp { get; }
+        public int TotalPriceSp { get; }
+        public bool CanSell => RequestedCount > 0 && RequestedCount <= AvailableCount;
+    }
+
     /// <summary>Cost와 Edition 판매 배율만 사용해 중복 카드 판매 SP를 정산한다.</summary>
     public static class CardSaleResolver
     {
+        public static CardSalePreview Preview(
+            OwnedPlayerCardState ownedCard,
+            PlayerCardDefinition card,
+            PlayerSeasonDefinition season,
+            CardSaleBalanceTable balance,
+            int count)
+        {
+            if (ownedCard == null)
+                throw new ArgumentNullException(nameof(ownedCard));
+            if (count <= 0)
+                throw new ArgumentOutOfRangeException(nameof(count));
+            if (!string.Equals(ownedCard.CardId, card?.CardId, StringComparison.Ordinal))
+                throw new ArgumentException("소유 상태와 카드가 일치하지 않습니다.", nameof(card));
+            int unitPrice = CalculateSaleSp(card, season, balance);
+            int totalPrice = count <= ownedCard.DuplicateCount ? checked(unitPrice * count) : 0;
+            return new CardSalePreview(count, ownedCard.DuplicateCount, unitPrice, totalPrice);
+        }
+
         public static int CalculateSaleSp(
             PlayerCardDefinition card,
             PlayerSeasonDefinition season,

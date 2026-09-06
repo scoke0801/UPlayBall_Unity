@@ -1,0 +1,50 @@
+{
+  "importerTestsPassed": 93,
+  "headlessTests": [
+    {
+      "class": "HistoricalCardEconomyResolverTests",
+      "passed": 19,
+      "failed": 0
+    },
+    {
+      "class": "HistoricalCardEconomyTests",
+      "passed": 8,
+      "failed": 0
+    },
+    {
+      "class": "HistoricalContentDefinitionTests",
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "class": "HistoricalMatchIntegrationTests",
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "class": "HistoricalPregamePresetTests",
+      "passed": 17,
+      "failed": 0
+    },
+    {
+      "class": "HistoricalRosterLeagueResolverTests",
+      "passed": 18,
+      "failed": 0
+    },
+    {
+      "class": "HistoricalRosterLeagueTests",
+      "passed": 12,
+      "failed": 0
+    }
+  ],
+  "headlessPassedTotal": 88,
+  "sourcePlayerSeasons": 17333,
+  "runtimePlayerSeasons": 17387,
+  "candidatePublished": false,
+  "worldHistoryBaked": false,
+  "publicationStatus": "AwaitingUserApproval_AutoReviewRejectedOfficialArchiveOverwrite",
+  "activeRuntimeManifestSha256": "7b7f23412a2f188e8e5e52d849de6d5003fe144977bc7835f6ee34d17ad58f15",
+  "fullGameBuild": "Failed in unrelated ManagerModeMatchService and ManagerModeCoordinator",
+  "unityTestRunner": "NotRun",
+  "playMode": "NotRun"
+}

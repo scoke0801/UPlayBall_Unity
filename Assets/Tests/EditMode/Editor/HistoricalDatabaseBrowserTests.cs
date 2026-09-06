@@ -160,11 +160,11 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(manifest.ReferenceDataVersion, Is.EqualTo("kbo-normalized-v3"));
             Assert.That(manifest.RawDataVersion, Has.Length.EqualTo(64));
             Assert.That(manifest.NormalizedContentHash, Has.Length.EqualTo(64));
-            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v6"));
+            Assert.That(manifest.AbilityFormulaVersion, Is.EqualTo("historical-ability-v8"));
             Assert.That(manifest.PositionRoleClassifierVersion, Is.EqualTo("season-position-role-v5"));
-            Assert.That(manifest.RosterBuilderVersion, Is.EqualTo("ability-fit-core25-v4"));
-            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-season-value-v9"));
-            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v12"));
+            Assert.That(manifest.RosterBuilderVersion, Is.EqualTo("ability-fit-core25-v5"));
+            Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-season-value-v12"));
+            Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v15"));
             Assert.That(manifest.PitchBalanceVersion, Is.EqualTo("pitch-arsenal-v1"));
             Assert.That(manifest.PitchGenerationSeed, Is.EqualTo(20260906));
             Assert.That(manifest.SourceIdentityPolicyVersion, Is.EqualTo("editor-source-identity-v1"));

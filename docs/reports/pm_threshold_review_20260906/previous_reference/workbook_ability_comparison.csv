@@ -1,0 +1,155 @@
+﻿workbookRow,year,team,name,variant,sourceUrl,attribute,reference,before,after,metricStatus
+2,2008,SK,박재홍,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg,Contact,80,71,78,NormalExploratory
+3,2008,SK,최정,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg,Contact,81,75,81,NormalExploratory
+6,2009,SK,정근우,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg,Contact,86,84,86,NormalExploratory
+7,2009,SK,박재상,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4214f.jpg,Contact,79,60,70,ExcludedVariant
+8,2009,SK,나주환,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg,Contact,76,55,67,NormalExploratory
+12,2008,두산,김현수,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/764f.jpg,Contact,85,90,91,ExcludedVariant
+13,2008,두산,김동주,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg,Contact,78,67,75,NormalExploratory
+14,2008,두산,홍성흔,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg,Contact,81,76,81,NormalExploratory
+18,2010,두산,이종욱,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg,Contact,84,67,75,NormalExploratory
+19,2010,두산,최준석,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg,Contact,84,71,78,NormalExploratory
+20,2010,두산,김현수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4406f.jpg,Contact,84,71,78,ExcludedVariant
+24,1994,LG,김재현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9924f.jpg,Contact,79,63,73,ExcludedVariant
+25,1994,LG,유지현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9939f.jpg,Contact,83,,,UnresolvedIdentity
+26,1994,LG,서용빈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9935f.jpg,Contact,84,75,80,ExcludedVariant
+2,2008,SK,박재홍,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg,Power,77,85,87,NormalExploratory
+3,2008,SK,최정,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg,Power,70,69,77,NormalExploratory
+6,2009,SK,정근우,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg,Power,68,54,67,NormalExploratory
+7,2009,SK,박재상,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4214f.jpg,Power,72,59,69,ExcludedVariant
+8,2009,SK,나주환,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg,Power,71,55,67,NormalExploratory
+12,2008,두산,김현수,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/764f.jpg,Power,68,70,77,ExcludedVariant
+13,2008,두산,김동주,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg,Power,76,79,83,NormalExploratory
+14,2008,두산,홍성흔,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg,Power,66,59,70,NormalExploratory
+18,2010,두산,이종욱,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg,Power,62,45,60,NormalExploratory
+19,2010,두산,최준석,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg,Power,82,77,82,NormalExploratory
+20,2010,두산,김현수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4406f.jpg,Power,83,81,84,ExcludedVariant
+24,1994,LG,김재현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9924f.jpg,Power,81,88,89,ExcludedVariant
+25,1994,LG,유지현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9939f.jpg,Power,78,,,UnresolvedIdentity
+26,1994,LG,서용빈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9935f.jpg,Power,64,53,66,ExcludedVariant
+2,2008,SK,박재홍,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg,Speed,61,53,61,NormalExploratory
+3,2008,SK,최정,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg,Speed,74,68,70,NormalExploratory
+6,2009,SK,정근우,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg,Speed,80,90,83,NormalExploratory
+7,2009,SK,박재상,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4214f.jpg,Speed,77,75,74,ExcludedVariant
+8,2009,SK,나주환,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg,Speed,70,69,70,NormalExploratory
+12,2008,두산,김현수,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/764f.jpg,Speed,65,61,65,ExcludedVariant
+13,2008,두산,김동주,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg,Speed,59,49,58,NormalExploratory
+14,2008,두산,홍성흔,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg,Speed,67,57,63,NormalExploratory
+18,2010,두산,이종욱,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg,Speed,80,77,75,NormalExploratory
+19,2010,두산,최준석,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg,Speed,52,47,57,NormalExploratory
+20,2010,두산,김현수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4406f.jpg,Speed,66,51,59,ExcludedVariant
+24,1994,LG,김재현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9924f.jpg,Speed,77,55,55,ExcludedVariant
+25,1994,LG,유지현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9939f.jpg,Speed,83,,,UnresolvedIdentity
+26,1994,LG,서용빈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9935f.jpg,Speed,66,55,55,ExcludedVariant
+2,2008,SK,박재홍,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg,Defense,76,56,74,NormalExploratory
+3,2008,SK,최정,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg,Defense,75,49,70,NormalExploratory
+6,2009,SK,정근우,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg,Defense,71,46,68,NormalExploratory
+7,2009,SK,박재상,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4214f.jpg,Defense,70,44,67,ExcludedVariant
+8,2009,SK,나주환,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg,Defense,70,53,72,NormalExploratory
+12,2008,두산,김현수,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/764f.jpg,Defense,78,59,75,ExcludedVariant
+13,2008,두산,김동주,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg,Defense,75,52,71,NormalExploratory
+14,2008,두산,홍성흔,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg,Defense,55,52,71,NormalExploratory
+18,2010,두산,이종욱,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg,Defense,75,56,74,NormalExploratory
+19,2010,두산,최준석,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg,Defense,77,62,77,NormalExploratory
+20,2010,두산,김현수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4406f.jpg,Defense,76,57,74,ExcludedVariant
+24,1994,LG,김재현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9924f.jpg,Defense,78,55,55,ExcludedVariant
+25,1994,LG,유지현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9939f.jpg,Defense,78,,,UnresolvedIdentity
+26,1994,LG,서용빈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9935f.jpg,Defense,78,55,55,ExcludedVariant
+2,2008,SK,박재홍,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg,BatterMental,80,80,72,NormalExploratory
+3,2008,SK,최정,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg,BatterMental,75,79,71,NormalExploratory
+6,2009,SK,정근우,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg,BatterMental,76,85,74,NormalExploratory
+7,2009,SK,박재상,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4214f.jpg,BatterMental,64,67,67,ExcludedVariant
+8,2009,SK,나주환,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg,BatterMental,69,61,64,NormalExploratory
+12,2008,두산,김현수,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/764f.jpg,BatterMental,82,93,77,ExcludedVariant
+13,2008,두산,김동주,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg,BatterMental,84,77,71,NormalExploratory
+14,2008,두산,홍성흔,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg,BatterMental,74,71,68,NormalExploratory
+18,2010,두산,이종욱,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg,BatterMental,80,70,68,NormalExploratory
+19,2010,두산,최준석,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg,BatterMental,77,74,69,NormalExploratory
+20,2010,두산,김현수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4406f.jpg,BatterMental,81,79,71,ExcludedVariant
+24,1994,LG,김재현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9924f.jpg,BatterMental,82,72,68,ExcludedVariant
+25,1994,LG,유지현,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9939f.jpg,BatterMental,76,,,UnresolvedIdentity
+26,1994,LG,서용빈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9935f.jpg,BatterMental,82,74,69,ExcludedVariant
+4,2008,SK,김광현,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/271f.jpg,Stamina,81,53,53,ExcludedVariant
+5,2008,SK,채병용,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4156f.jpg,Stamina,68,49,49,ExcludedVariant
+9,2009,SK,김광현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg,Stamina,83,49,49,NormalExploratory
+10,2009,SK,송은범,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4197f.jpg,Stamina,67,51,51,ExcludedVariant
+11,2009,SK,글로버,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg,Stamina,78,44,44,NormalExploratory
+15,2008,두산,김상현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/413f.jpg,Stamina,61,,,UnresolvedIdentity
+16,2008,두산,이재우,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4158f.jpg,Stamina,53,40,40,ExcludedVariant
+17,2008,두산,정재훈,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg,Stamina,48,34,34,NormalExploratory
+21,2010,두산,김선우,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4395f.jpg,Stamina,84,52,52,ExcludedVariant
+22,2010,두산,히메네스,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4460f.jpg,Stamina,84,52,52,ExcludedVariant
+23,2010,두산,정재훈,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg,Stamina,57,39,39,NormalExploratory
+27,1994,LG,이상훈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9903f.jpg,Stamina,89,58,58,ExcludedVariant
+28,1994,LG,정삼흠,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9909f.jpg,Stamina,85,58,58,ExcludedVariant
+29,1994,LG,김용수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9891f.jpg,Stamina,49,36,36,ExcludedVariant
+4,2008,SK,김광현,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/271f.jpg,Velocity,65,55,55,ExcludedVariant
+5,2008,SK,채병용,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4156f.jpg,Velocity,64,55,55,ExcludedVariant
+9,2009,SK,김광현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg,Velocity,76,55,55,NormalExploratory
+10,2009,SK,송은범,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4197f.jpg,Velocity,76,55,55,ExcludedVariant
+11,2009,SK,글로버,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg,Velocity,72,55,55,NormalExploratory
+15,2008,두산,김상현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/413f.jpg,Velocity,64,,,UnresolvedIdentity
+16,2008,두산,이재우,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4158f.jpg,Velocity,69,55,55,ExcludedVariant
+17,2008,두산,정재훈,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg,Velocity,60,55,55,NormalExploratory
+21,2010,두산,김선우,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4395f.jpg,Velocity,72,55,55,ExcludedVariant
+22,2010,두산,히메네스,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4460f.jpg,Velocity,76,55,55,ExcludedVariant
+23,2010,두산,정재훈,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg,Velocity,62,55,55,NormalExploratory
+27,1994,LG,이상훈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9903f.jpg,Velocity,72,55,55,ExcludedVariant
+28,1994,LG,정삼흠,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9909f.jpg,Velocity,58,55,55,ExcludedVariant
+29,1994,LG,김용수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9891f.jpg,Velocity,52,55,55,ExcludedVariant
+4,2008,SK,김광현,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/271f.jpg,Stuff,91,72,86,ExcludedVariant
+5,2008,SK,채병용,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4156f.jpg,Stuff,83,68,82,ExcludedVariant
+9,2009,SK,김광현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg,Stuff,80,73,87,NormalExploratory
+10,2009,SK,송은범,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4197f.jpg,Stuff,76,71,85,ExcludedVariant
+11,2009,SK,글로버,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg,Stuff,77,78,92,NormalExploratory
+15,2008,두산,김상현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/413f.jpg,Stuff,84,,,UnresolvedIdentity
+16,2008,두산,이재우,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4158f.jpg,Stuff,83,74,88,ExcludedVariant
+17,2008,두산,정재훈,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg,Stuff,82,54,68,NormalExploratory
+21,2010,두산,김선우,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4395f.jpg,Stuff,80,59,73,ExcludedVariant
+22,2010,두산,히메네스,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4460f.jpg,Stuff,84,67,81,ExcludedVariant
+23,2010,두산,정재훈,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg,Stuff,80,73,87,NormalExploratory
+27,1994,LG,이상훈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9903f.jpg,Stuff,85,72,86,ExcludedVariant
+28,1994,LG,정삼흠,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9909f.jpg,Stuff,83,65,79,ExcludedVariant
+29,1994,LG,김용수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9891f.jpg,Stuff,83,60,74,ExcludedVariant
+4,2008,SK,김광현,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/271f.jpg,Breaking,79,69,85,ExcludedVariant
+5,2008,SK,채병용,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4156f.jpg,Breaking,83,66,82,ExcludedVariant
+9,2009,SK,김광현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg,Breaking,84,70,86,NormalExploratory
+10,2009,SK,송은범,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4197f.jpg,Breaking,89,68,84,ExcludedVariant
+11,2009,SK,글로버,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg,Breaking,87,74,90,NormalExploratory
+15,2008,두산,김상현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/413f.jpg,Breaking,77,,,UnresolvedIdentity
+16,2008,두산,이재우,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4158f.jpg,Breaking,80,71,87,ExcludedVariant
+17,2008,두산,정재훈,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg,Breaking,80,54,70,NormalExploratory
+21,2010,두산,김선우,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4395f.jpg,Breaking,77,59,75,ExcludedVariant
+22,2010,두산,히메네스,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4460f.jpg,Breaking,85,65,81,ExcludedVariant
+23,2010,두산,정재훈,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg,Breaking,86,70,86,NormalExploratory
+27,1994,LG,이상훈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9903f.jpg,Breaking,87,69,85,ExcludedVariant
+28,1994,LG,정삼흠,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9909f.jpg,Breaking,87,64,80,ExcludedVariant
+29,1994,LG,김용수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9891f.jpg,Breaking,85,59,75,ExcludedVariant
+4,2008,SK,김광현,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/271f.jpg,Control,83,54,77,ExcludedVariant
+5,2008,SK,채병용,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4156f.jpg,Control,87,63,80,ExcludedVariant
+9,2009,SK,김광현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg,Control,76,60,79,NormalExploratory
+10,2009,SK,송은범,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4197f.jpg,Control,79,67,81,ExcludedVariant
+11,2009,SK,글로버,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg,Control,70,72,83,NormalExploratory
+15,2008,두산,김상현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/413f.jpg,Control,78,,,UnresolvedIdentity
+16,2008,두산,이재우,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4158f.jpg,Control,79,58,78,ExcludedVariant
+17,2008,두산,정재훈,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg,Control,81,55,77,NormalExploratory
+21,2010,두산,김선우,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4395f.jpg,Control,78,64,80,ExcludedVariant
+22,2010,두산,히메네스,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4460f.jpg,Control,80,54,77,ExcludedVariant
+23,2010,두산,정재훈,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg,Control,84,54,77,NormalExploratory
+27,1994,LG,이상훈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9903f.jpg,Control,87,61,79,ExcludedVariant
+28,1994,LG,정삼흠,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9909f.jpg,Control,84,73,83,ExcludedVariant
+29,1994,LG,김용수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9891f.jpg,Control,87,68,81,ExcludedVariant
+4,2008,SK,김광현,EX,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/271f.jpg,PitcherMental,80,69,81,ExcludedVariant
+5,2008,SK,채병용,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4156f.jpg,PitcherMental,78,66,78,ExcludedVariant
+9,2009,SK,김광현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg,PitcherMental,80,70,82,NormalExploratory
+10,2009,SK,송은범,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4197f.jpg,PitcherMental,78,68,80,ExcludedVariant
+11,2009,SK,글로버,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg,PitcherMental,74,74,86,NormalExploratory
+15,2008,두산,김상현,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/413f.jpg,PitcherMental,80,,,UnresolvedIdentity
+16,2008,두산,이재우,All Star,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/4158f.jpg,PitcherMental,78,71,83,ExcludedVariant
+17,2008,두산,정재훈,Normal,https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg,PitcherMental,74,54,66,NormalExploratory
+21,2010,두산,김선우,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4395f.jpg,PitcherMental,79,59,71,ExcludedVariant
+22,2010,두산,히메네스,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4460f.jpg,PitcherMental,85,65,77,ExcludedVariant
+23,2010,두산,정재훈,Normal,https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg,PitcherMental,80,70,82,NormalExploratory
+27,1994,LG,이상훈,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9903f.jpg,PitcherMental,85,69,81,ExcludedVariant
+28,1994,LG,정삼흠,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9909f.jpg,PitcherMental,85,64,76,ExcludedVariant
+29,1994,LG,김용수,특수 아이콘(종류 미확정),https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/9891f.jpg,PitcherMental,79,59,71,ExcludedVariant

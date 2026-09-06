@@ -86,6 +86,17 @@ namespace Baseball.Game.Historical
 
         public ScheduledGameState NextPlayerGame => Schedule.GetNextGameForTeam(PlayerTeamId);
 
+        /// <summary>플레이어의 마지막 휴식 라운드에 남은 AI 경기까지 모두 확정됐는지 확인한다.</summary>
+        public bool IsCompleted
+        {
+            get
+            {
+                for (int index = 0; index < Schedule.Games.Count; index++)
+                    if (!Schedule.Games[index].IsCompleted) return false;
+                return true;
+            }
+        }
+
         /// <summary>규정 타석·이닝 판정이 쓰는 한 구단의 완료 경기 수를 센다.</summary>
         public int GetCompletedGameCount(int teamId)
         {
@@ -109,13 +120,31 @@ namespace Baseball.Game.Historical
         }
     }
 
+    /// <summary>운영 시즌을 마감했을 때의 리그 등급과 일정·선수 기록을 함께 보관한다.</summary>
+    public sealed class ManagerCompletedSeasonState
+    {
+        public ManagerCompletedSeasonState(ManagerLiveSeasonState season, LeagueGrade leagueGrade)
+        {
+            Season = season ?? throw new ArgumentNullException(nameof(season));
+            if (!Enum.IsDefined(typeof(LeagueGrade), leagueGrade))
+                throw new ArgumentOutOfRangeException(nameof(leagueGrade));
+            if (!season.IsCompleted)
+                throw new ArgumentException("미완료 경기가 있는 시즌은 이력으로 보관할 수 없습니다.", nameof(season));
+            LeagueGrade = leagueGrade;
+        }
+
+        public ManagerLiveSeasonState Season { get; }
+        public LeagueGrade LeagueGrade { get; }
+    }
+
     /// <summary>네 확장 시스템의 저장 원본을 구단주 모드 한 Aggregate로 묶는다.</summary>
-    public sealed class ManagerModeRuntimeState
+    public sealed partial class ManagerModeRuntimeState
     {
         private readonly List<StaffContractState> _staffContracts;
         private readonly List<LineupPresetState> _lineupPresets;
         private readonly TeamSeasonPlayerStatusState[] _playerStatuses;
         private readonly TeamChemistryFamiliarityState[] _familiarities;
+        private readonly List<ManagerCompletedSeasonState> _completedSeasons;
 
         public ManagerModeRuntimeState(
             ClubOperationState clubOperation,
@@ -127,7 +156,8 @@ namespace Baseball.Game.Historical
             IReadOnlyList<TeamSeasonPlayerStatusState> playerStatuses,
             IReadOnlyList<TeamChemistryFamiliarityState> familiarities,
             ManagerLiveSeasonState liveSeason,
-            DugoutManagementState dugout = null)
+            DugoutManagementState dugout = null,
+            IReadOnlyList<ManagerCompletedSeasonState> completedSeasons = null)
         {
             ClubOperation = clubOperation ?? throw new ArgumentNullException(nameof(clubOperation));
             StaffCatalog = staffCatalog ?? throw new ArgumentNullException(nameof(staffCatalog));
@@ -147,6 +177,25 @@ namespace Baseball.Game.Historical
             SelectedLineupPresetId = RequireSelectedPreset(selectedLineupPresetId, _lineupPresets);
             _playerStatuses = CopyPlayerStatuses(playerStatuses, LiveSeason.Teams);
             _familiarities = CopyFamiliarities(familiarities, LiveSeason.Teams);
+            _completedSeasons = new List<ManagerCompletedSeasonState>();
+            if (completedSeasons != null)
+            {
+                var seasonNumbers = new HashSet<int>();
+                for (int index = 0; index < completedSeasons.Count; index++)
+                {
+                    ManagerCompletedSeasonState completed = completedSeasons[index]
+                        ?? throw new ArgumentException("완료 시즌 이력에 null이 있습니다.", nameof(completedSeasons));
+                    if (completed.Season.SeasonNumber >= LiveSeason.SeasonNumber ||
+                        completed.Season.OriginYear != LiveSeason.OriginYear ||
+                        completed.Season.PlayerTeamId != LiveSeason.PlayerTeamId ||
+                        !seasonNumbers.Add(completed.Season.SeasonNumber))
+                        throw new ArgumentException("완료 시즌의 연도·구단·시즌 번호가 올바르지 않습니다.", nameof(completedSeasons));
+                    ValidateSameTeamReferences(completed.Season, LiveSeason);
+                    _completedSeasons.Add(completed);
+                }
+                _completedSeasons.Sort((left, right) => left.Season.SeasonNumber.CompareTo(right.Season.SeasonNumber));
+            }
+            CompletedSeasons = _completedSeasons.AsReadOnly();
         }
 
         public ClubOperationState ClubOperation { get; private set; }
@@ -159,6 +208,17 @@ namespace Baseball.Game.Historical
         public IReadOnlyList<TeamChemistryFamiliarityState> Familiarities => _familiarities;
         public ManagerLiveSeasonState LiveSeason { get; private set; }
         public DugoutManagementState Dugout { get; }
+        public IReadOnlyList<ManagerCompletedSeasonState> CompletedSeasons { get; }
+
+        /// <summary>한 경기용 전술 장착 해제를 UI가 아닌 진행 상태에서 확정한다.</summary>
+        public void ClearSelectedTactics()
+        {
+            LineupPresetState source = GetSelectedLineupPreset();
+            UpsertLineupPreset(new LineupPresetState(
+                source.PresetId, source.Name, source.StartingLineupSlots, source.BattingOrderCardIds,
+                source.BenchPriorityCardIds, source.StarterRotationCardIds, source.BullpenAssignmentCardIds,
+                source.SetupPitcherCardId, source.CloserPitcherCardId, source.TeamColorIds, Array.Empty<string>()));
+        }
 
         public LineupPresetState GetSelectedLineupPreset()
         {
@@ -205,7 +265,8 @@ namespace Baseball.Game.Historical
             ClubOperationState clubOperation,
             ManagerLiveSeasonState liveSeason,
             IReadOnlyList<StaffContractState> staffContracts,
-            TeamStaffAssignmentState staffAssignment)
+            TeamStaffAssignmentState staffAssignment,
+            ManagerCompletedSeasonState completedSeason)
         {
             if (clubOperation == null) throw new ArgumentNullException(nameof(clubOperation));
             if (liveSeason == null) throw new ArgumentNullException(nameof(liveSeason));
@@ -223,8 +284,11 @@ namespace Baseball.Game.Historical
                 throw new ArgumentException("다음 시즌 운영·일정·Staff의 구단/시즌 계약이 일치하지 않습니다.");
             }
             ValidateSameTeamReferences(LiveSeason, liveSeason);
+            if (completedSeason == null || !ReferenceEquals(completedSeason.Season, LiveSeason))
+                throw new ArgumentException("현재 시즌을 마감한 이력이 필요합니다.", nameof(completedSeason));
 
             List<StaffContractState> validatedContracts = CopyContracts(staffContracts, StaffCatalog);
+            _completedSeasons.Add(completedSeason);
             _staffContracts.Clear();
             _staffContracts.AddRange(validatedContracts);
             StaffAssignment = staffAssignment;

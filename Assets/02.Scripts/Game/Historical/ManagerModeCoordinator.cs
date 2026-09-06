@@ -67,7 +67,8 @@ namespace Baseball.Game.Historical
         Applied,
         SeasonInProgress,
         InsufficientMoney,
-        InvalidStaffState
+        InvalidStaffState,
+        ContractRenewalRequired
     }
 
     /// <summary>시즌 재무 마감, 연봉, 계약 만료와 다음 일정 교체의 단일 결과다.</summary>
@@ -113,6 +114,8 @@ namespace Baseball.Game.Historical
         private readonly StaffContractService _staffContractService;
         private readonly ClubUpgradeResolver _upgradeResolver;
         private readonly AiStaffProfileResolver _aiStaffProfileResolver;
+        private readonly CardSaleBalanceTable _cardSaleBalance;
+        private readonly OwnerPlayerMarketService _playerMarketService;
 
         private const ulong AiStaffSeasonStream = 0x4149535441464653UL;
         private const double NeutralAiManagerQuality = 50d;
@@ -129,6 +132,8 @@ namespace Baseball.Game.Historical
             _staffContractService = new StaffContractService();
             _upgradeResolver = new ClubUpgradeResolver(balance.ClubOperation);
             _aiStaffProfileResolver = new AiStaffProfileResolver();
+            _cardSaleBalance = CardSaleBalanceTable.CreateInitial();
+            _playerMarketService = new OwnerPlayerMarketService(balance);
         }
 
         public TeamStaffEffectProfile ResolvePlayerStaffEffects(ManagerModeRuntimeState mode)
@@ -258,6 +263,17 @@ namespace Baseball.Game.Historical
             return CardEnhancementResolver.Enhance(ownedCard);
         }
 
+        /// <summary>중복을 소비하지 않고 강화 단계와 차단 사유를 조회한다.</summary>
+        public CardEnhancementPreview PreviewOwnedCardEnhancement(
+            ManagerHistoricalRuntimeState runtime,
+            string cardId)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState ownedCard))
+                throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 강화할 수 없습니다.");
+            return CardEnhancementResolver.Preview(ownedCard);
+        }
+
         /// <summary>보유 중복 카드를 Cost·Edition 판매가로 정산해 SP에 반영한다.</summary>
         public int SellOwnedCardDuplicates(
             ManagerHistoricalRuntimeState runtime,
@@ -273,8 +289,27 @@ namespace Baseball.Game.Historical
                 ownedCard,
                 card,
                 runtime.WorldCardCatalog.GetPlayerSeason(card),
-                CardSaleBalanceTable.CreateInitial(),
+                _cardSaleBalance,
                 runtime.Economy,
+                count);
+        }
+
+        /// <summary>중복을 소비하지 않고 선택 수량의 판매 SP와 가능 여부를 조회한다.</summary>
+        public CardSalePreview PreviewOwnedCardSale(
+            ManagerHistoricalRuntimeState runtime,
+            string cardId,
+            int count)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState ownedCard))
+                throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 판매할 수 없습니다.");
+            if (!runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
+                throw new InvalidOperationException("WorldCardCatalog에 판매 카드가 없습니다.");
+            return CardSaleResolver.Preview(
+                ownedCard,
+                card,
+                runtime.WorldCardCatalog.GetPlayerSeason(card),
+                _cardSaleBalance,
                 count);
         }
 
@@ -445,7 +480,7 @@ namespace Baseball.Game.Historical
         public ManagerSeasonAdvanceResult AdvanceSeason(ManagerHistoricalRuntimeState runtime)
         {
             ManagerModeRuntimeState mode = RequireMode(runtime);
-            if (mode.LiveSeason.NextPlayerGame != null)
+            if (!mode.LiveSeason.IsCompleted)
             {
                 return new ManagerSeasonAdvanceResult(
                     ManagerSeasonAdvanceStatus.SeasonInProgress,
@@ -455,13 +490,24 @@ namespace Baseball.Game.Historical
                     null);
             }
 
-            int completedSeason = mode.LiveSeason.SeasonNumber;
+            _playerMarketService.EnsureInitialized(runtime);
+            if (mode.HasExpiringPlayerContracts())
+            {
+                return new ManagerSeasonAdvanceResult(
+                    ManagerSeasonAdvanceStatus.ContractRenewalRequired,
+                    mode.ClubOperation.CurrentSeason,
+                    null,
+                    null,
+                    null);
+            }
+
+            int completedSeasonNumber = mode.LiveSeason.SeasonNumber;
             string salaryTransactionId =
-                $"staff-salary:{runtime.PlayerTeamSeasonKey}:{completedSeason:D4}";
+                $"staff-salary:{runtime.PlayerTeamSeasonKey}:{completedSeasonNumber:D4}";
             var salaryCommand = new StaffSalarySettlementCommand(
                 salaryTransactionId,
                 runtime.PlayerTeamSeasonKey,
-                completedSeason,
+                completedSeasonNumber,
                 runtime.Economy.Money);
             StaffSalarySettlementResult salary = _staffContractService.SettleSalaries(
                 salaryCommand,
@@ -487,7 +533,7 @@ namespace Baseball.Game.Historical
 
             StaffContractAdvanceResult staffAdvance = _staffContractService.AdvanceSeason(
                 runtime.PlayerTeamSeasonKey,
-                completedSeason,
+                completedSeasonNumber,
                 salary.Contracts,
                 mode.StaffAssignment);
             if (!staffAdvance.IsSuccess)
@@ -509,6 +555,7 @@ namespace Baseball.Game.Historical
                 nextSeason.SeasonId);
             SeasonFinanceSummary completedFinance = mode.ClubOperation.CurrentSeason;
             LeagueGrade previousGrade = runtime.League.Grade;
+            var completedSeasonState = new ManagerCompletedSeasonState(mode.LiveSeason, previousGrade);
             ResolvePlayerSeasonRecord(mode.LiveSeason, out int wins, out int losses);
             LeagueGrade nextGrade = new LeaguePromotionResolver().ResolveNextGrade(
                 previousGrade,
@@ -516,13 +563,26 @@ namespace Baseball.Game.Historical
                 losses,
                 _balance.LeaguePromotion);
 
-            if (salary.TotalSalary > 0L && !runtime.Economy.TrySpendMoney(salary.TotalSalary))
-                throw new InvalidOperationException("검증된 시즌 Staff 급여를 반영할 수 없습니다.");
+            long playerSalary = mode.GetAnnualPlayerSalaryTotal();
+            long totalSalary = checked(salary.TotalSalary + playerSalary);
+            if (runtime.Economy.Money < totalSalary)
+            {
+                return new ManagerSeasonAdvanceResult(
+                    ManagerSeasonAdvanceStatus.InsufficientMoney,
+                    mode.ClubOperation.CurrentSeason,
+                    salary,
+                    staffAdvance,
+                    null);
+            }
+            if (totalSalary > 0L && !runtime.Economy.TrySpendMoney(totalSalary))
+                throw new InvalidOperationException("검증된 시즌 급여를 반영할 수 없습니다.");
+            mode.SettleAndAdvancePlayerContracts(completedSeasonNumber);
             mode.AdvanceSeason(
                 nextOperation,
                 nextSeason,
                 staffAdvance.Contracts,
-                staffAdvance.Assignment);
+                staffAdvance.Assignment,
+                completedSeasonState);
             runtime.MoveLeagueTo(nextGrade);
             runtime.ShopPurchaseHistory.ResetPeriod();
             return new ManagerSeasonAdvanceResult(

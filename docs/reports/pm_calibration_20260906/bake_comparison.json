@@ -1,0 +1,1254 @@
+{
+  "referencePolicy": "OriginalObserved2011_ExploratoryNotFinalNormalAcceptance",
+  "costMetrics": [
+    {
+      "split": "All",
+      "before": {
+        "count": 491,
+        "mae": 1.19959266802444,
+        "exact": 0.29124236252545826,
+        "within1": 0.6639511201629328,
+        "bias": 0.9348268839103869
+      },
+      "after": {
+        "count": 491,
+        "mae": 0.9959266802443992,
+        "exact": 0.3258655804480652,
+        "within1": 0.7413441955193483,
+        "bias": 0.39307535641547864
+      }
+    },
+    {
+      "split": "Train",
+      "before": {
+        "count": 313,
+        "mae": 1.2779552715654952,
+        "exact": 0.28434504792332266,
+        "within1": 0.6357827476038339,
+        "bias": 0.9904153354632588
+      },
+      "after": {
+        "count": 313,
+        "mae": 1.0223642172523961,
+        "exact": 0.31629392971246006,
+        "within1": 0.7284345047923323,
+        "bias": 0.4536741214057508
+      }
+    },
+    {
+      "split": "Validation",
+      "before": {
+        "count": 80,
+        "mae": 0.8625,
+        "exact": 0.3875,
+        "within1": 0.8,
+        "bias": 0.6375
+      },
+      "after": {
+        "count": 80,
+        "mae": 0.7625,
+        "exact": 0.4875,
+        "within1": 0.8125,
+        "bias": 0.0875
+      }
+    },
+    {
+      "split": "Holdout",
+      "before": {
+        "count": 98,
+        "mae": 1.2244897959183674,
+        "exact": 0.23469387755102042,
+        "within1": 0.6428571428571429,
+        "bias": 1.0
+      },
+      "after": {
+        "count": 98,
+        "mae": 1.1020408163265305,
+        "exact": 0.22448979591836735,
+        "within1": 0.7244897959183674,
+        "bias": 0.4489795918367347
+      }
+    }
+  ],
+  "externalArticleMetrics": [
+    {
+      "date": "2010-04-06",
+      "before": {
+        "count": 7,
+        "mae": 1.0,
+        "exact": 0.14285714285714285,
+        "within1": 0.8571428571428571,
+        "bias": -0.14285714285714285
+      },
+      "after": {
+        "count": 7,
+        "mae": 1.0,
+        "exact": 0.14285714285714285,
+        "within1": 0.8571428571428571,
+        "bias": -0.14285714285714285
+      }
+    },
+    {
+      "date": "2011",
+      "before": {
+        "count": 104,
+        "mae": 0.5096153846153846,
+        "exact": 0.5576923076923077,
+        "within1": 0.9326923076923077,
+        "bias": 0.125
+      },
+      "after": {
+        "count": 104,
+        "mae": 0.5096153846153846,
+        "exact": 0.5769230769230769,
+        "within1": 0.9134615384615384,
+        "bias": -0.125
+      }
+    },
+    {
+      "date": "2013-11-15",
+      "before": {
+        "count": 62,
+        "mae": 1.1612903225806452,
+        "exact": 0.25806451612903225,
+        "within1": 0.6451612903225806,
+        "bias": 1.1612903225806452
+      },
+      "after": {
+        "count": 62,
+        "mae": 1.032258064516129,
+        "exact": 0.24193548387096775,
+        "within1": 0.7419354838709677,
+        "bias": 0.5806451612903226
+      }
+    }
+  ],
+  "abilityMetrics": [
+    {
+      "attribute": "Contact",
+      "before": {
+        "count": 8,
+        "mae": 10.5,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -10.5
+      },
+      "after": {
+        "count": 8,
+        "mae": 10.5,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -10.5
+      },
+      "rows": [
+        {
+          "workbookRow": 2,
+          "year": 2008,
+          "team": "SK",
+          "name": "박재홍",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg",
+          "attribute": "Contact",
+          "reference": 80,
+          "before": 71,
+          "after": 71,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 3,
+          "year": 2008,
+          "team": "SK",
+          "name": "최정",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg",
+          "attribute": "Contact",
+          "reference": 81,
+          "before": 75,
+          "after": 75,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 6,
+          "year": 2009,
+          "team": "SK",
+          "name": "정근우",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg",
+          "attribute": "Contact",
+          "reference": 86,
+          "before": 84,
+          "after": 84,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 8,
+          "year": 2009,
+          "team": "SK",
+          "name": "나주환",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg",
+          "attribute": "Contact",
+          "reference": 76,
+          "before": 55,
+          "after": 55,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 13,
+          "year": 2008,
+          "team": "두산",
+          "name": "김동주",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg",
+          "attribute": "Contact",
+          "reference": 78,
+          "before": 67,
+          "after": 67,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 14,
+          "year": 2008,
+          "team": "두산",
+          "name": "홍성흔",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg",
+          "attribute": "Contact",
+          "reference": 81,
+          "before": 76,
+          "after": 76,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 18,
+          "year": 2010,
+          "team": "두산",
+          "name": "이종욱",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg",
+          "attribute": "Contact",
+          "reference": 84,
+          "before": 67,
+          "after": 67,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 19,
+          "year": 2010,
+          "team": "두산",
+          "name": "최준석",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg",
+          "attribute": "Contact",
+          "reference": 84,
+          "before": 71,
+          "after": 71,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "Power",
+      "before": {
+        "count": 8,
+        "mae": 8.875,
+        "exact": 0.0,
+        "within1": 0.125,
+        "bias": -6.125
+      },
+      "after": {
+        "count": 8,
+        "mae": 8.875,
+        "exact": 0.0,
+        "within1": 0.125,
+        "bias": -6.125
+      },
+      "rows": [
+        {
+          "workbookRow": 2,
+          "year": 2008,
+          "team": "SK",
+          "name": "박재홍",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg",
+          "attribute": "Power",
+          "reference": 77,
+          "before": 85,
+          "after": 85,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 3,
+          "year": 2008,
+          "team": "SK",
+          "name": "최정",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg",
+          "attribute": "Power",
+          "reference": 70,
+          "before": 69,
+          "after": 69,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 6,
+          "year": 2009,
+          "team": "SK",
+          "name": "정근우",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg",
+          "attribute": "Power",
+          "reference": 68,
+          "before": 54,
+          "after": 54,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 8,
+          "year": 2009,
+          "team": "SK",
+          "name": "나주환",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg",
+          "attribute": "Power",
+          "reference": 71,
+          "before": 55,
+          "after": 55,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 13,
+          "year": 2008,
+          "team": "두산",
+          "name": "김동주",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg",
+          "attribute": "Power",
+          "reference": 76,
+          "before": 79,
+          "after": 79,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 14,
+          "year": 2008,
+          "team": "두산",
+          "name": "홍성흔",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg",
+          "attribute": "Power",
+          "reference": 66,
+          "before": 59,
+          "after": 59,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 18,
+          "year": 2010,
+          "team": "두산",
+          "name": "이종욱",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg",
+          "attribute": "Power",
+          "reference": 62,
+          "before": 45,
+          "after": 45,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 19,
+          "year": 2010,
+          "team": "두산",
+          "name": "최준석",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg",
+          "attribute": "Power",
+          "reference": 82,
+          "before": 77,
+          "after": 77,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "Speed",
+      "before": {
+        "count": 8,
+        "mae": 11.25,
+        "exact": 0.0,
+        "within1": 0.125,
+        "bias": -8.25
+      },
+      "after": {
+        "count": 8,
+        "mae": 6.625,
+        "exact": 0.0,
+        "within1": 0.125,
+        "bias": -4.125
+      },
+      "rows": [
+        {
+          "workbookRow": 2,
+          "year": 2008,
+          "team": "SK",
+          "name": "박재홍",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg",
+          "attribute": "Speed",
+          "reference": 61,
+          "before": 45,
+          "after": 53,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 3,
+          "year": 2008,
+          "team": "SK",
+          "name": "최정",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg",
+          "attribute": "Speed",
+          "reference": 74,
+          "before": 67,
+          "after": 68,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 6,
+          "year": 2009,
+          "team": "SK",
+          "name": "정근우",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg",
+          "attribute": "Speed",
+          "reference": 80,
+          "before": 92,
+          "after": 90,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 8,
+          "year": 2009,
+          "team": "SK",
+          "name": "나주환",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg",
+          "attribute": "Speed",
+          "reference": 70,
+          "before": 67,
+          "after": 69,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 13,
+          "year": 2008,
+          "team": "두산",
+          "name": "김동주",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg",
+          "attribute": "Speed",
+          "reference": 59,
+          "before": 40,
+          "after": 49,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 14,
+          "year": 2008,
+          "team": "두산",
+          "name": "홍성흔",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg",
+          "attribute": "Speed",
+          "reference": 67,
+          "before": 50,
+          "after": 57,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 18,
+          "year": 2010,
+          "team": "두산",
+          "name": "이종욱",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg",
+          "attribute": "Speed",
+          "reference": 80,
+          "before": 79,
+          "after": 77,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 19,
+          "year": 2010,
+          "team": "두산",
+          "name": "최준석",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg",
+          "attribute": "Speed",
+          "reference": 52,
+          "before": 37,
+          "after": 47,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "Defense",
+      "before": {
+        "count": 8,
+        "mae": 18.5,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -18.5
+      },
+      "after": {
+        "count": 8,
+        "mae": 18.5,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -18.5
+      },
+      "rows": [
+        {
+          "workbookRow": 2,
+          "year": 2008,
+          "team": "SK",
+          "name": "박재홍",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg",
+          "attribute": "Defense",
+          "reference": 76,
+          "before": 56,
+          "after": 56,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 3,
+          "year": 2008,
+          "team": "SK",
+          "name": "최정",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg",
+          "attribute": "Defense",
+          "reference": 75,
+          "before": 49,
+          "after": 49,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 6,
+          "year": 2009,
+          "team": "SK",
+          "name": "정근우",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg",
+          "attribute": "Defense",
+          "reference": 71,
+          "before": 46,
+          "after": 46,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 8,
+          "year": 2009,
+          "team": "SK",
+          "name": "나주환",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg",
+          "attribute": "Defense",
+          "reference": 70,
+          "before": 53,
+          "after": 53,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 13,
+          "year": 2008,
+          "team": "두산",
+          "name": "김동주",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg",
+          "attribute": "Defense",
+          "reference": 75,
+          "before": 52,
+          "after": 52,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 14,
+          "year": 2008,
+          "team": "두산",
+          "name": "홍성흔",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg",
+          "attribute": "Defense",
+          "reference": 55,
+          "before": 52,
+          "after": 52,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 18,
+          "year": 2010,
+          "team": "두산",
+          "name": "이종욱",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg",
+          "attribute": "Defense",
+          "reference": 75,
+          "before": 56,
+          "after": 56,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 19,
+          "year": 2010,
+          "team": "두산",
+          "name": "최준석",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg",
+          "attribute": "Defense",
+          "reference": 77,
+          "before": 62,
+          "after": 62,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "BatterMental",
+      "before": {
+        "count": 8,
+        "mae": 9.375,
+        "exact": 0.0,
+        "within1": 0.125,
+        "bias": -8.625
+      },
+      "after": {
+        "count": 8,
+        "mae": 5.5,
+        "exact": 0.125,
+        "within1": 0.125,
+        "bias": -2.25
+      },
+      "rows": [
+        {
+          "workbookRow": 2,
+          "year": 2008,
+          "team": "SK",
+          "name": "박재홍",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/1109f.jpg",
+          "attribute": "BatterMental",
+          "reference": 80,
+          "before": 69,
+          "after": 80,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 3,
+          "year": 2008,
+          "team": "SK",
+          "name": "최정",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2953f.jpg",
+          "attribute": "BatterMental",
+          "reference": 75,
+          "before": 72,
+          "after": 79,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 6,
+          "year": 2009,
+          "team": "SK",
+          "name": "정근우",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3704f.jpg",
+          "attribute": "BatterMental",
+          "reference": 76,
+          "before": 79,
+          "after": 85,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 8,
+          "year": 2009,
+          "team": "SK",
+          "name": "나주환",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3398f.jpg",
+          "attribute": "BatterMental",
+          "reference": 69,
+          "before": 55,
+          "after": 61,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 13,
+          "year": 2008,
+          "team": "두산",
+          "name": "김동주",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/333f.jpg",
+          "attribute": "BatterMental",
+          "reference": 84,
+          "before": 65,
+          "after": 77,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 14,
+          "year": 2008,
+          "team": "두산",
+          "name": "홍성흔",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3135f.jpg",
+          "attribute": "BatterMental",
+          "reference": 74,
+          "before": 73,
+          "after": 71,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 18,
+          "year": 2010,
+          "team": "두산",
+          "name": "이종욱",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4442f.jpg",
+          "attribute": "BatterMental",
+          "reference": 80,
+          "before": 65,
+          "after": 70,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 19,
+          "year": 2010,
+          "team": "두산",
+          "name": "최준석",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4458f.jpg",
+          "attribute": "BatterMental",
+          "reference": 77,
+          "before": 68,
+          "after": 74,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "Stamina",
+      "before": {
+        "count": 4,
+        "mae": 25.0,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -25.0
+      },
+      "after": {
+        "count": 4,
+        "mae": 25.0,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -25.0
+      },
+      "rows": [
+        {
+          "workbookRow": 9,
+          "year": 2009,
+          "team": "SK",
+          "name": "김광현",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg",
+          "attribute": "Stamina",
+          "reference": 83,
+          "before": 49,
+          "after": 49,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 11,
+          "year": 2009,
+          "team": "SK",
+          "name": "글로버",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg",
+          "attribute": "Stamina",
+          "reference": 78,
+          "before": 44,
+          "after": 44,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 17,
+          "year": 2008,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg",
+          "attribute": "Stamina",
+          "reference": 48,
+          "before": 34,
+          "after": 34,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 23,
+          "year": 2010,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg",
+          "attribute": "Stamina",
+          "reference": 57,
+          "before": 39,
+          "after": 39,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "Velocity",
+      "before": {
+        "count": 4,
+        "mae": 12.5,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -12.5
+      },
+      "after": {
+        "count": 4,
+        "mae": 12.5,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -12.5
+      },
+      "rows": [
+        {
+          "workbookRow": 9,
+          "year": 2009,
+          "team": "SK",
+          "name": "김광현",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg",
+          "attribute": "Velocity",
+          "reference": 76,
+          "before": 55,
+          "after": 55,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 11,
+          "year": 2009,
+          "team": "SK",
+          "name": "글로버",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg",
+          "attribute": "Velocity",
+          "reference": 72,
+          "before": 55,
+          "after": 55,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 17,
+          "year": 2008,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg",
+          "attribute": "Velocity",
+          "reference": 60,
+          "before": 55,
+          "after": 55,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 23,
+          "year": 2010,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg",
+          "attribute": "Velocity",
+          "reference": 62,
+          "before": 55,
+          "after": 55,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "Stuff",
+      "before": {
+        "count": 4,
+        "mae": 10.75,
+        "exact": 0.0,
+        "within1": 0.25,
+        "bias": -10.25
+      },
+      "after": {
+        "count": 4,
+        "mae": 10.75,
+        "exact": 0.0,
+        "within1": 0.25,
+        "bias": -10.25
+      },
+      "rows": [
+        {
+          "workbookRow": 9,
+          "year": 2009,
+          "team": "SK",
+          "name": "김광현",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg",
+          "attribute": "Stuff",
+          "reference": 80,
+          "before": 73,
+          "after": 73,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 11,
+          "year": 2009,
+          "team": "SK",
+          "name": "글로버",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg",
+          "attribute": "Stuff",
+          "reference": 77,
+          "before": 78,
+          "after": 78,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 17,
+          "year": 2008,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg",
+          "attribute": "Stuff",
+          "reference": 82,
+          "before": 54,
+          "after": 54,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 23,
+          "year": 2010,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg",
+          "attribute": "Stuff",
+          "reference": 80,
+          "before": 73,
+          "after": 73,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "Breaking",
+      "before": {
+        "count": 4,
+        "mae": 17.25,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -17.25
+      },
+      "after": {
+        "count": 4,
+        "mae": 17.25,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -17.25
+      },
+      "rows": [
+        {
+          "workbookRow": 9,
+          "year": 2009,
+          "team": "SK",
+          "name": "김광현",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg",
+          "attribute": "Breaking",
+          "reference": 84,
+          "before": 70,
+          "after": 70,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 11,
+          "year": 2009,
+          "team": "SK",
+          "name": "글로버",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg",
+          "attribute": "Breaking",
+          "reference": 87,
+          "before": 74,
+          "after": 74,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 17,
+          "year": 2008,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg",
+          "attribute": "Breaking",
+          "reference": 80,
+          "before": 54,
+          "after": 54,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 23,
+          "year": 2010,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg",
+          "attribute": "Breaking",
+          "reference": 86,
+          "before": 70,
+          "after": 70,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "Control",
+      "before": {
+        "count": 4,
+        "mae": 18.5,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -17.5
+      },
+      "after": {
+        "count": 4,
+        "mae": 18.5,
+        "exact": 0.0,
+        "within1": 0.0,
+        "bias": -17.5
+      },
+      "rows": [
+        {
+          "workbookRow": 9,
+          "year": 2009,
+          "team": "SK",
+          "name": "김광현",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg",
+          "attribute": "Control",
+          "reference": 76,
+          "before": 60,
+          "after": 60,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 11,
+          "year": 2009,
+          "team": "SK",
+          "name": "글로버",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg",
+          "attribute": "Control",
+          "reference": 70,
+          "before": 72,
+          "after": 72,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 17,
+          "year": 2008,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg",
+          "attribute": "Control",
+          "reference": 81,
+          "before": 55,
+          "after": 55,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 23,
+          "year": 2010,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg",
+          "attribute": "Control",
+          "reference": 84,
+          "before": 54,
+          "after": 54,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    },
+    {
+      "attribute": "PitcherMental",
+      "before": {
+        "count": 4,
+        "mae": 10.0,
+        "exact": 0.25,
+        "within1": 0.25,
+        "bias": -10.0
+      },
+      "after": {
+        "count": 4,
+        "mae": 10.0,
+        "exact": 0.25,
+        "within1": 0.25,
+        "bias": -10.0
+      },
+      "rows": [
+        {
+          "workbookRow": 9,
+          "year": 2009,
+          "team": "SK",
+          "name": "김광현",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3313f.jpg",
+          "attribute": "PitcherMental",
+          "reference": 80,
+          "before": 70,
+          "after": 70,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 11,
+          "year": 2009,
+          "team": "SK",
+          "name": "글로버",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/3301f.jpg",
+          "attribute": "PitcherMental",
+          "reference": 74,
+          "before": 74,
+          "after": 74,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 17,
+          "year": 2008,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image/site_image/bm/dataninfo/playercard/2580f.jpg",
+          "attribute": "PitcherMental",
+          "reference": 74,
+          "before": 54,
+          "after": 54,
+          "metricStatus": "NormalExploratory"
+        },
+        {
+          "workbookRow": 23,
+          "year": 2010,
+          "team": "두산",
+          "name": "정재훈",
+          "variant": "Normal",
+          "sourceUrl": "https://img.inven.co.kr/image_2011/site_image/bm/dataninfo/playercard/4452f.jpg",
+          "attribute": "PitcherMental",
+          "reference": 80,
+          "before": 70,
+          "after": 70,
+          "metricStatus": "NormalExploratory"
+        }
+      ]
+    }
+  ],
+  "sourceCount": 17333,
+  "costChanged": 6004,
+  "hitterCostChanged": 0,
+  "distributionBefore": {
+    "1": 3092,
+    "2": 2767,
+    "3": 1961,
+    "4": 1742,
+    "5": 1701,
+    "6": 1576,
+    "7": 1131,
+    "8": 2437,
+    "9": 600,
+    "10": 326
+  },
+  "distributionAfter": {
+    "1": 4452,
+    "2": 2425,
+    "3": 1935,
+    "4": 1790,
+    "5": 1640,
+    "6": 1500,
+    "7": 945,
+    "8": 2094,
+    "9": 245,
+    "10": 307
+  },
+  "beforeManifest": {
+    "abilityFormulaVersion": "historical-ability-v6",
+    "balanceVersion": "source-record-derived-rating-v1",
+    "contentHash": "82b1c363f77187b3727dc7e7df7e61355fa0382d91aec2bffc490d3364f599e6",
+    "costFormulaVersion": "historical-season-value-v9",
+    "derivationBalanceVersion": "historical-derivation-balance-v12",
+    "generationSeed": 0,
+    "generationSeedAffectsCanonicalBake": false,
+    "generatorVersion": "editor-original-bake-v1",
+    "nameDataPolicy": "editor-original-source-v2",
+    "namePolicyVersion": "original-source-name-v1",
+    "normalizedContentHash": "395b47b8c60627121d7464dd8fbfd7241a9a0f3bdf5088e4b5bdded69defc278",
+    "normalizedImporterVersion": "1.2.0",
+    "normalizedSchemaVersion": 3,
+    "positionRoleClassifierVersion": "season-position-role-v5",
+    "rawDataVersion": "03b33c14f4c48574af86b5db75a204b70726779097556dcbc2694c944b0591ad",
+    "referenceDataVersion": "kbo-normalized-v3",
+    "replacementGeneratedPlayerPersonCount": 0,
+    "replacementGeneratedPlayerSeasonCount": 0,
+    "replacementGeneratorVersion": "quota-fallback-percentile-v2",
+    "replacementPopulationPolicyVersion": "origin-year-position-role-source-only-v1",
+    "rosterBuilderVersion": "ability-fit-core25-v4",
+    "sourceAllocationPolicyVersion": "official-source-team-audit-v1",
+    "sourceBackedPlayerPersonCount": 3510,
+    "sourceBackedPlayerSeasonCount": 17333,
+    "sourceFranchiseIdentityPolicyVersion": "editor-source-franchise-id-v1",
+    "sourceIdentityPolicyVersion": "editor-source-identity-v1",
+    "sourceTeamSeasonIdentityPolicyVersion": "editor-source-team-season-id-v1"
+  },
+  "afterManifest": {
+    "abilityFormulaVersion": "historical-ability-v7",
+    "balanceVersion": "source-record-derived-rating-v1",
+    "contentHash": "4ab0bcf1770c31e46293bdffb0347661c99307d90006e8331f45c3a91f8f3bfc",
+    "costFormulaVersion": "historical-season-value-v10",
+    "derivationBalanceVersion": "historical-derivation-balance-v13",
+    "generationSeed": 0,
+    "generationSeedAffectsCanonicalBake": false,
+    "generatorVersion": "editor-original-bake-v1",
+    "nameDataPolicy": "editor-original-source-v2",
+    "namePolicyVersion": "original-source-name-v1",
+    "normalizedContentHash": "395b47b8c60627121d7464dd8fbfd7241a9a0f3bdf5088e4b5bdded69defc278",
+    "normalizedImporterVersion": "1.2.0",
+    "normalizedSchemaVersion": 3,
+    "positionRoleClassifierVersion": "season-position-role-v5",
+    "rawDataVersion": "03b33c14f4c48574af86b5db75a204b70726779097556dcbc2694c944b0591ad",
+    "referenceDataVersion": "kbo-normalized-v3",
+    "replacementGeneratedPlayerPersonCount": 0,
+    "replacementGeneratedPlayerSeasonCount": 0,
+    "replacementGeneratorVersion": "quota-fallback-percentile-v2",
+    "replacementPopulationPolicyVersion": "origin-year-position-role-source-only-v1",
+    "rosterBuilderVersion": "ability-fit-core25-v4",
+    "sourceAllocationPolicyVersion": "official-source-team-audit-v1",
+    "sourceBackedPlayerPersonCount": 3510,
+    "sourceBackedPlayerSeasonCount": 17333,
+    "sourceFranchiseIdentityPolicyVersion": "editor-source-franchise-id-v1",
+    "sourceIdentityPolicyVersion": "editor-source-identity-v1",
+    "sourceTeamSeasonIdentityPolicyVersion": "editor-source-team-season-id-v1"
+  }
+}

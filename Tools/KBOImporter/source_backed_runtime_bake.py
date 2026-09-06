@@ -38,6 +38,7 @@ _SENSITIVE_EXACT_KEYS = frozenset(
         "isoriginalsourceseason",
         "abilityderivationtrace",
         "costderivationtrace",
+        "costmetricevidence",
         "positionrolederivationtrace",
         "rosterselectiontrace",
         "derivationwarnings",

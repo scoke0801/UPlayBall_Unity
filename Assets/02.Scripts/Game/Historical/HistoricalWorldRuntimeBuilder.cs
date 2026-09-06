@@ -448,7 +448,8 @@ namespace Baseball.Game.Historical
                     return _cardCatalog ??= WorldCardCatalogBuilder.Build(
                         _content.PlayerSeasons,
                         _history.Awards,
-                        _owner._cardEditionBalance);
+                        _owner._cardEditionBalance,
+                        _content.PlayerPersons);
                 }
             }
 

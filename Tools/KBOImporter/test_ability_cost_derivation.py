@@ -597,6 +597,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
                 "components": [
                     {
                         "metric": metric,
+                        "isAvailable": True,
                         "adjustedZ": quality,
                         "reliability": reliability,
                     }

@@ -10,21 +10,37 @@ namespace Baseball.Core.Historical
         private readonly PlayerCardDefinition[] _cards;
         private readonly Dictionary<string, PlayerCardDefinition> _cardsById;
         private readonly Dictionary<string, PlayerSeasonDefinition> _seasonsById;
+        private readonly Dictionary<string, PlayerPersonDefinition> _personsById;
 
         public WorldCardCatalog(
             IReadOnlyList<PlayerSeasonDefinition> playerSeasons,
-            IReadOnlyList<PlayerCardDefinition> cards)
+            IReadOnlyList<PlayerCardDefinition> cards,
+            IReadOnlyList<PlayerPersonDefinition> playerPersons = null)
         {
             if (playerSeasons == null)
                 throw new ArgumentNullException(nameof(playerSeasons));
             if (cards == null)
                 throw new ArgumentNullException(nameof(cards));
 
+            _personsById = new Dictionary<string, PlayerPersonDefinition>(StringComparer.Ordinal);
+            if (playerPersons != null)
+            {
+                for (int index = 0; index < playerPersons.Count; index++)
+                {
+                    PlayerPersonDefinition person = playerPersons[index]
+                        ?? throw new ArgumentException("null 선수 인물이 있습니다.", nameof(playerPersons));
+                    if (!_personsById.TryAdd(person.PlayerPersonId, person))
+                        throw new ArgumentException("PlayerPersonId는 중복될 수 없습니다.", nameof(playerPersons));
+                }
+            }
+
             _seasonsById = new Dictionary<string, PlayerSeasonDefinition>(StringComparer.Ordinal);
             for (int index = 0; index < playerSeasons.Count; index++)
             {
                 PlayerSeasonDefinition season = playerSeasons[index]
                     ?? throw new ArgumentException("null 선수 시즌이 있습니다.", nameof(playerSeasons));
+                if (_personsById.Count > 0 && !_personsById.ContainsKey(season.PlayerPersonId))
+                    throw new ArgumentException("PlayerSeason이 존재하지 않는 PlayerPerson을 참조합니다.", nameof(playerSeasons));
                 if (!_seasonsById.TryAdd(season.PlayerSeasonId, season))
                     throw new ArgumentException("PlayerSeasonId는 중복될 수 없습니다.", nameof(playerSeasons));
             }
@@ -71,6 +87,16 @@ namespace Baseball.Core.Historical
             if (!_seasonsById.TryGetValue(card.PlayerSeasonId, out PlayerSeasonDefinition season))
                 throw new ArgumentException("카탈로그에 속하지 않은 카드입니다.", nameof(card));
             return season;
+        }
+
+        public bool TryGetPlayerPerson(string playerPersonId, out PlayerPersonDefinition person)
+        {
+            if (string.IsNullOrWhiteSpace(playerPersonId))
+            {
+                person = null;
+                return false;
+            }
+            return _personsById.TryGetValue(playerPersonId, out person);
         }
     }
 

@@ -1,0 +1,14 @@
+﻿[
+    {
+        "File":  "Baseball.Core.dll",
+        "Hash":  "693E155FB8BC97A98BEC5F5F3BD977A6A59B17D820DE9BB14271A70058AF9089"
+    },
+    {
+        "File":  "Baseball.Simulation.dll",
+        "Hash":  "6C1E74F5B62BC098AE664D3A1061FA4F8B491D6B3E055B7A59348F6C25567D88"
+    },
+    {
+        "File":  "SimulationDiagnostics.dll",
+        "Hash":  "93F430E22CBA0E7BDD95831469CA616236222B4A555DCC0E5EBBD26EB8B4EE8A"
+    }
+]

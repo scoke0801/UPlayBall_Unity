@@ -1,0 +1,22 @@
+﻿{
+    "WorkbookSHA256":  "C187654AE6803855F15994F9D87FE75A64E7B9ED24CBBE0CD724A67E677FB367",
+    "Counts":  {
+                   "Fragments":  13,
+                   "Cost":  233,
+                   "DefenseThreshold":  82,
+                   "ConflictCases":  5,
+                   "PitchThreshold":  136,
+                   "CardAttributes":  28
+               },
+    "SameArticleSameCostCandidateRows":  70,
+    "SameArticleOtherCostCandidateRows":  0,
+    "NoYearNameCandidateRows":  144,
+    "PitchThresholdUniqueYearPlayers":  30,
+    "Cost7PlusRows":  194,
+    "NormalImageRows":  13,
+    "CardYearCount":  4,
+    "CardsSourceJoined":  26,
+    "CardsSourceUnresolved":  2,
+    "SummaryCountIfCachesVerified":  10,
+    "ProductionModified":  false
+}

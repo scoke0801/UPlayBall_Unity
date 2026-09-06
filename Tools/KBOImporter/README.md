@@ -130,13 +130,36 @@ Validation Error로 보고한다.
 
 ### Ability와 Cost
 
-현행은 **Ability v6 / Cost v9 / Balance v12**이며 아래 v5/v7 설명보다
-`BaseballManager_PROJECT.md` 42.9절과 `docs/reports/선수_기록평가_v6_Bake_결과.md`가 우선한다.
+현행 평가 코드는 **Ability v8 / Cost v12 / Balance v15 / Roster v5**이며 아래 설계 이력보다
+`BaseballManager_PROJECT.md` 42.13절과 `docs/reports/pm_final_review_20260906/결과.md`가 우선한다.
+공식 데이터 교체는 승인 대기이며 검증 후보는 `.tmp/pm-final-calibration/candidate/`에 있다.
 체력은 역대 단일 시즌 이닝 기준, 구속은 실측 170km/h=100, 제구는 BB/9,
-구위·변화구·투수 멘탈은 ERA를 쓴다. 교타=타율, 장타=홈런·장타율, 주력=도루 수,
+구위·변화구·투수 멘탈은 ERA를 쓴다. 교타=타율, 장타=홈런·장타율,
+주력=도루 시도율 70%·성공률 30%, 타자 정신=출루율 70%·타율 30%,
 수비=수비율·실책이며 결측 지표는 Ability와 Cost의 평가 분모에서 제외한다.
 평가 범위와 TrainingCeiling 상한은 100이다. Cost의 출전량·역할·elite 자격은 v8 구조를 유지한다.
 실측 구속이 없는 Source의 구속 55는 중립값이며 실제 구속 추정치가 아니다.
+프로필 기준점은 근거가 있는 능력치에만 적용하며 전부 결측이면 여전히 55다.
+Cost 기본점은 야수 2.75·투수 1.25이고, 경기 공식이나 선수 이름별 예외 없이 JSON으로 조정한다.
+타자 출전량 가중치는 4이며 유형별 Cost 경계·상위 자격은 `costValueModel`에서 조정한다.
+주전은 PA·포지션 수비 이닝을 제한적으로 반영하며 Cost를 이용한 사후 교체는 하지 않는다.
+Cost의 원기록 근거는 `costMetricEvidence`로 독립 저장하여 능력치 프로필 변경에 가격이 간접 종속되지
+않게 한다. 이 근거는 Editor 전용이며 Runtime 변환 시 제거한다.
+수비 가격 기여도 `defensiveQualityProfiles`의 원기록 Z에서 계산한다. 수비 표시 기준점·변환 폭을
+보정해도 가격 가산이 함께 오르지 않는다. Fielding 계수 0.525와 Arm 계수 0.125는 이전 가격 신호의
+14×0.75/20, 10×0.25/20에서 나온 무차원 가중치이며, 각 그룹의 결측 지표는 재정규화한다.
+
+인벤 86864/86866 원문의 판본·기본/목표 등급은 `extract_pm_thresholds.py`, 카드 막대 판독은
+`read_pm_card_bars.py`, 등급 역산 한계 검사는 `analyze_pm_thresholds.py`, 선수 단위 분할과
+실제 Bake 비교는 `study_pm_expanded.py`를 사용한다. 이미지 판독 도구에만 Pillow가 추가로 필요하며
+`uv run --with pillow==12.3.0`으로 실행했다. 연결된 현행 이미지와 2010년 기사의 게시 시점을 구분한다.
+판독한 452장 중 유일 Source 연결 438장으로 공통 기준점·변환 폭을 보정했으며 실제 선수 이름과
+원작 등급 표는 Production 입력으로 사용하지 않는다.
+
+참조 후보 탐색은 `study_pm_calibration.py`와 `study_pm_abilities.py`, 실제 Bake 전후 비교는
+`report_pm_calibration.py`로 재실행한다. 기준 Bake와 Balance 파일 경로를 명시해야 하며,
+로컬 `Tools/PMReference/reports` 코퍼스와 `docs/reports/pm_reference_review_20260906/workbook_extracted.json`이
+필요하다. 원본 시점·카드 판본이 불명확한 관측은 최종 Normal의 정답으로 간주하지 않는다.
 
 아래는 기존 v5/v7 설계 이력이다.
 

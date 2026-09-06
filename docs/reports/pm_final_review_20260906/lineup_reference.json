@@ -1,0 +1,246 @@
+{
+  "sourceUrl": "https://www.inven.co.kr/webzine/news/?news=86959",
+  "sourceDate": "2011-11-24",
+  "policy": "기사 연결 라인업 이미지 직접 판독. 타순과 선발 번호는 평가하지 않음. OF는 외야 어느 자리든 인정. 강화·특수 카드와 당시 최적화 선택이 포함된 탐색 참조이며 실제 시즌 기용의 정답은 아님.",
+  "teams": [
+    {
+      "year": 2008,
+      "team": "SK",
+      "split": "Review",
+      "image": "(81)20101220011931126.jpg",
+      "hitters": {
+        "정근우": "2B",
+        "조동화": "OF",
+        "최정": "3B",
+        "박재홍": "OF",
+        "김재현": "DH",
+        "박정권": "1B",
+        "박경완": "C",
+        "나주환": "SS",
+        "이진영": "OF"
+      },
+      "starters": [
+        "김광현",
+        "채병용",
+        "레이번",
+        "송은범",
+        "이영욱"
+      ],
+      "bullpen": [
+        "김원형",
+        "조웅천",
+        "가득염",
+        "윤길현"
+      ],
+      "setup": "정우람",
+      "closer": "정대현",
+      "imageUrl": "https://img.inven.co.kr/column/jukz_bm_news/(81)20101220011931126.jpg",
+      "imageSha256": "4bb26e12b2d186315e123f3e87b88820cb4a86eff7dcc69e583972b6b8094a3d"
+    },
+    {
+      "year": 2009,
+      "team": "SK",
+      "split": "Validation",
+      "image": "(10)20101220011931126.jpg",
+      "hitters": {
+        "정근우": "2B",
+        "박재상": "OF",
+        "박재홍": "OF",
+        "김재현": "DH",
+        "박정권": "1B",
+        "나주환": "SS",
+        "정상호": "C",
+        "김강민": "OF",
+        "최정": "3B"
+      },
+      "starters": [
+        "김광현",
+        "송은범",
+        "글로버",
+        "카도쿠라",
+        "고효준"
+      ],
+      "bullpen": [
+        "채병용",
+        "전병두",
+        "엄정욱",
+        "윤길현"
+      ],
+      "setup": "정우람",
+      "closer": "정대현",
+      "imageUrl": "https://img.inven.co.kr/column/jukz_bm_news/(10)20101220011931126.jpg",
+      "imageSha256": "5898b75ff5616d08167d6afec4919c6154ee9ba870990923d21f63c5f5f80c00"
+    },
+    {
+      "year": 2010,
+      "team": "두산",
+      "split": "Review",
+      "image": "20110120123525444.jpg",
+      "hitters": {
+        "이종욱": "OF",
+        "오재원": "2B",
+        "김현수": "OF",
+        "최준석": "1B",
+        "김동주": "DH",
+        "이성열": "OF",
+        "양의지": "C",
+        "손시헌": "SS",
+        "이원석": "3B"
+      },
+      "starters": [
+        "김선우",
+        "히메네스",
+        "왈론드",
+        "임태훈",
+        "이현승"
+      ],
+      "bullpen": [
+        "정재훈",
+        "고창성",
+        "김승회",
+        "이재학"
+      ],
+      "setup": "원용묵",
+      "closer": "이용찬",
+      "imageUrl": "https://img.inven.co.kr/column/jukz_bm_news/20110120123525444.jpg",
+      "imageSha256": "08323abefc6ab7637b9236f3fdcad6e4aca2697668d4f8cb9669407b72406708"
+    },
+    {
+      "year": 2008,
+      "team": "두산",
+      "split": "Validation",
+      "image": "(95)20101217114532467.jpg",
+      "hitters": {
+        "이종욱": "CF",
+        "고영민": "2B",
+        "홍성흔": "DH",
+        "김현수": "OF",
+        "김동주": "3B",
+        "오재원": "1B",
+        "김재호": "SS",
+        "채상병": "C",
+        "민병헌": "RF"
+      },
+      "starters": [
+        "김선우",
+        "랜들",
+        "이승학",
+        "김명제",
+        "이혜천"
+      ],
+      "bullpen": [
+        "이재우",
+        "김상현",
+        "박민석",
+        "임태훈"
+      ],
+      "setup": "진야곱",
+      "closer": "정재훈",
+      "imageUrl": "https://img.inven.co.kr/column/jukz_bm_news/(95)20101217114532467.jpg",
+      "imageSha256": "ffdc84ba1f0b85d24fadc9591c7ffbe9e3994ad12fa90fe20e012bf30b803f0a"
+    },
+    {
+      "year": 1994,
+      "team": "LG",
+      "split": "Review",
+      "image": "20111122184029948.jpg",
+      "hitters": {
+        "김재현": "CF",
+        "유지현": "SS",
+        "서용빈": "1B",
+        "노찬엽": "LF",
+        "한대화": "3B",
+        "박준태": "RF",
+        "최훈재": "DH",
+        "김동수": "C",
+        "박종호": "2B"
+      },
+      "starters": [
+        "신철수",
+        "정삼흠",
+        "김태원",
+        "인현배",
+        "김기범"
+      ],
+      "bullpen": [
+        "차동철",
+        "박철홍",
+        "민원기",
+        "차명석"
+      ],
+      "setup": "강봉수",
+      "closer": "김용수",
+      "imageUrl": "https://img.inven.co.kr/column/jukz_bm_news/20111122184029948.jpg",
+      "imageSha256": "96a455e6837d6207f5561e1c4c92a2e705d21431f848cf2f2aadce78a315d01d"
+    },
+    {
+      "year": 2007,
+      "team": "LG",
+      "split": "Validation",
+      "image": "(42)20101215151059597.jpg",
+      "hitters": {
+        "이대형": "OF",
+        "박용택": "OF",
+        "이종열": "2B",
+        "최동수": "1B",
+        "발데스": "OF",
+        "조인성": "C",
+        "정의윤": "DH",
+        "김상현": "3B",
+        "권용관": "SS"
+      },
+      "starters": [
+        "박명환",
+        "옥스프링",
+        "봉중근",
+        "최원호",
+        "이승호"
+      ],
+      "bullpen": [
+        "김민기",
+        "정재복",
+        "심수창",
+        "신윤호"
+      ],
+      "setup": "류택현",
+      "closer": "우규민",
+      "imageUrl": "https://img.inven.co.kr/column/jukz_bm_news/(42)20101215151059597.jpg",
+      "imageSha256": "24457d94c14b862dbcfa7cf231919149583ccaf3cc734192ccfdfc56d302d9fb"
+    },
+    {
+      "year": 2008,
+      "team": "우리",
+      "split": "Validation",
+      "image": "20110202164416359.jpg",
+      "hitters": {
+        "전준호": "OF",
+        "송지만": "OF",
+        "이택근": "OF",
+        "브룸바": "OF|DH",
+        "정성훈": "3B",
+        "강정호": "SS",
+        "강귀태": "C",
+        "이숭용": "1B",
+        "김일경": "2B"
+      },
+      "starters": [
+        "장원삼",
+        "마일영",
+        "황두성",
+        "김수경",
+        "이현승"
+      ],
+      "bullpen": [
+        "노환수",
+        "김성현",
+        "박준수",
+        "손승락"
+      ],
+      "setup": "조용훈",
+      "closer": "다카쓰",
+      "imageUrl": "https://img.inven.co.kr/column/jukz_bm_news/20110202164416359.jpg",
+      "imageSha256": "2a3daaa3bbdc6ec5d6f0877fba67f5bdb99b75724cbe8572d32a274ed8561f52"
+    }
+  ],
+  "sourceHtmlSha256": "7e82c1781f2fa63d3d531ac5dca2f0622ca4034cc5ef17bd3228f5356c18041b"
+}

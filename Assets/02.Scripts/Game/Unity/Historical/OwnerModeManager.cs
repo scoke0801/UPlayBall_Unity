@@ -83,7 +83,7 @@ namespace Baseball.Game.Historical
     }
 
     /// <summary>구단주 Production Runtime과 저장·운영·경기 Command를 영속 GameRoot에서 소유한다.</summary>
-    public sealed class OwnerModeManager : ManagerBehaviour<OwnerModeManager>
+    public sealed partial class OwnerModeManager : ManagerBehaviour<OwnerModeManager>
     {
         private const string LosingStreakSignatureCardId = "OWNER-TACTIC-BREAK-LOSING-STREAK";
         private string[] _availableTeamColorIds = Array.Empty<string>();
@@ -290,7 +290,8 @@ namespace Baseball.Game.Historical
             OwnerModeEntryProfiler.Mark("Runtime 복원");
 
             ConfigureTeamColors(_contentProvider.Load(), Runtime.PlayerTeamSeasonKey);
-            if (saveData.saveVersion < ManagerHistoricalSaveAdapter.CurrentSaveVersion)
+            // 전술 수집이 없던 v1~v4에만 지급한다. 이후 schema 추가가 무료 카드 지급을 반복하면 안 된다.
+            if (saveData.saveVersion < 5)
                 EnsureStarterTacticCollection();
             RefreshAvailableTacticCards();
             CurrentPregame = null;
@@ -473,6 +474,14 @@ namespace Baseball.Game.Historical
             return result;
         }
 
+        /// <summary>상세 화면이 발동 전 단계까지 설명할 수 있도록 현재 로스터용 TeamColor 전체 정의를 반환한다.</summary>
+        public IReadOnlyList<TeamColorDefinition> GetTeamColorCatalog()
+        {
+            var result = new TeamColorDefinition[_teamColors.Length];
+            Array.Copy(_teamColors, result, _teamColors.Length);
+            return result;
+        }
+
         /// <summary>현재 구단주 Save가 실제 경기에서 장착할 수 있는 전술카드 Definition을 반환한다.</summary>
         public IReadOnlyList<TacticCardDefinition> GetAvailableTacticCards()
         {
@@ -490,6 +499,45 @@ namespace Baseball.Game.Historical
                 }
             }
             return result;
+        }
+
+        /// <summary>두 TeamColor 슬롯을 발동·중첩 규칙으로 검증한 뒤 선택 프리셋에 한 번에 적용한다.</summary>
+        public void ConfigureSelectedPresetTeamColors(IReadOnlyList<string> teamColorIds)
+        {
+            if (teamColorIds == null || teamColorIds.Count != LineupPresetState.TeamColorSlotCount)
+                throw new ArgumentException("팀컬러 슬롯은 정확히 두 칸이어야 합니다.", nameof(teamColorIds));
+
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            TeamColorDefinition first = ResolveAvailableTeamColor(teamColorIds[0]);
+            TeamColorDefinition second = ResolveAvailableTeamColor(teamColorIds[1]);
+            new TeamColorResolver().ApplyEquipped(
+                runtime.GetRoster(runtime.PlayerTeamSeasonKey),
+                runtime.WorldCardCatalog,
+                _teamColors,
+                first,
+                second);
+            runtime.ManagerMode.UpsertLineupPreset(CopySelectedPreset(teamColorIds, null));
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+        }
+
+        /// <summary>보유 수량과 카드 조합 규칙을 검증한 뒤 선택 프리셋의 기본 작전을 한 번에 적용한다.</summary>
+        public void ConfigureSelectedPresetTactics(IReadOnlyList<string> tacticCardIds)
+        {
+            tacticCardIds ??= Array.Empty<string>();
+            if (tacticCardIds.Count > LineupPresetState.MaximumTacticCardCount)
+                throw new ArgumentException("작전카드는 최대 두 장까지 장착할 수 있습니다.", nameof(tacticCardIds));
+
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            if (!runtime.TacticCollection.CanConsume(tacticCardIds))
+                throw new InvalidOperationException("보유 수량이 부족한 작전카드는 장착할 수 없습니다.");
+            var definitions = new TacticCardDefinition[tacticCardIds.Count];
+            for (int index = 0; index < definitions.Length; index++)
+                definitions[index] = ResolveAvailableTacticCard(tacticCardIds[index]);
+            _ = new TacticLoadoutState(definitions);
+            runtime.ManagerMode.UpsertLineupPreset(CopySelectedPreset(null, tacticCardIds));
+            InvalidatePregame();
+            NotifyRuntimeChanged();
         }
 
         /// <summary>구단 선택부터 25인 스타터 로스터 확인까지 새 게임 Draft를 시작한다.</summary>
@@ -614,7 +662,6 @@ namespace Baseball.Game.Historical
             LastUnlockedSignatureCardId = TryUnlockLosingStreakSignature()
                 ? LosingStreakSignatureCardId
                 : string.Empty;
-            ClearConsumedTacticLoadout();
             RefreshAvailableTacticCards();
             CurrentPregame = null;
             NotifyRuntimeChanged();
@@ -821,6 +868,9 @@ namespace Baseball.Game.Historical
             return result;
         }
 
+        public CardEnhancementPreview PreviewOwnedCardEnhancement(string cardId) =>
+            _coordinator.PreviewOwnedCardEnhancement(RequireRuntime(), cardId);
+
         private void PublishSkillBlockAcquisitionFacts(ShopProductDefinition product, ShopPurchaseResult result)
         {
             if (product == null || product.Kind != ShopProductKind.SkillBlockPack) return;
@@ -887,6 +937,9 @@ namespace Baseball.Game.Historical
             NotifyRuntimeChanged();
             return earnedSp;
         }
+
+        public CardSalePreview PreviewOwnedCardSale(string cardId, int count = 1) =>
+            _coordinator.PreviewOwnedCardSale(RequireRuntime(), cardId, count);
 
         public ClubFacilityEffectProfile GetFacilityEffects()
         {
@@ -1054,6 +1107,52 @@ namespace Baseball.Game.Historical
             return Runtime ?? throw new InvalidOperationException("활성 구단주 Runtime이 없습니다.");
         }
 
+        private TeamColorDefinition ResolveAvailableTeamColor(string teamColorId)
+        {
+            if (string.IsNullOrWhiteSpace(teamColorId)) return null;
+            for (int index = 0; index < _availableTeamColorIds.Length; index++)
+            {
+                if (!string.Equals(_availableTeamColorIds[index], teamColorId, StringComparison.Ordinal)) continue;
+                for (int definitionIndex = 0; definitionIndex < _teamColors.Length; definitionIndex++)
+                    if (string.Equals(_teamColors[definitionIndex].TeamColorId, teamColorId, StringComparison.Ordinal))
+                        return _teamColors[definitionIndex];
+            }
+            throw new InvalidOperationException("현재 25인 로스터에서 발동하지 않은 팀컬러는 장착할 수 없습니다.");
+        }
+
+        private TacticCardDefinition ResolveAvailableTacticCard(string cardId)
+        {
+            if (string.IsNullOrWhiteSpace(cardId))
+                throw new ArgumentException("작전카드 ID는 비어 있을 수 없습니다.", nameof(cardId));
+            for (int index = 0; index < _availableTacticCardIds.Length; index++)
+            {
+                if (!string.Equals(_availableTacticCardIds[index], cardId, StringComparison.Ordinal)) continue;
+                for (int definitionIndex = 0; definitionIndex < _tacticCards.Length; definitionIndex++)
+                    if (string.Equals(_tacticCards[definitionIndex].CardId, cardId, StringComparison.Ordinal))
+                        return _tacticCards[definitionIndex];
+            }
+            throw new InvalidOperationException("보유하지 않은 작전카드는 장착할 수 없습니다.");
+        }
+
+        private LineupPresetState CopySelectedPreset(
+            IReadOnlyList<string> teamColorIds,
+            IReadOnlyList<string> tacticCardIds)
+        {
+            LineupPresetState source = RequireRuntime().ManagerMode.GetSelectedLineupPreset();
+            return new LineupPresetState(
+                source.PresetId,
+                source.Name,
+                source.StartingLineupSlots,
+                source.BattingOrderCardIds,
+                source.BenchPriorityCardIds,
+                source.StarterRotationCardIds,
+                source.BullpenAssignmentCardIds,
+                source.SetupPitcherCardId,
+                source.CloserPitcherCardId,
+                teamColorIds ?? source.TeamColorIds,
+                tacticCardIds ?? source.DefaultTacticCardIds);
+        }
+
         private void InvalidatePregame()
         {
             CurrentPregame = null;
@@ -1146,24 +1245,6 @@ namespace Baseball.Game.Historical
             return true;
         }
 
-        private void ClearConsumedTacticLoadout()
-        {
-            ManagerModeRuntimeState mode = Runtime.ManagerMode;
-            LineupPresetState source = mode.GetSelectedLineupPreset();
-            mode.UpsertLineupPreset(new LineupPresetState(
-                source.PresetId,
-                source.Name,
-                source.StartingLineupSlots,
-                source.BattingOrderCardIds,
-                source.BenchPriorityCardIds,
-                source.StarterRotationCardIds,
-                source.BullpenAssignmentCardIds,
-                source.SetupPitcherCardId,
-                source.CloserPitcherCardId,
-                source.TeamColorIds,
-                Array.Empty<string>()));
-        }
-
         private void RefreshAvailableTacticCards()
         {
             if (Runtime == null)
@@ -1185,17 +1266,18 @@ namespace Baseball.Game.Historical
             if (!content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
                 throw new InvalidOperationException("플레이어 구단의 TeamSeasonDefinition이 없습니다.");
 
-            IReadOnlyList<TeamColorDefinition> definitions = InitialTeamColorDefinitionFactory.CreateAll(
-                Runtime.ManagerMode.LiveSeason.OriginYear,
-                team.FranchiseId);
+            CurrentRosterState roster = Runtime.GetRoster(teamSeasonKey);
+            IReadOnlyList<TeamColorRosterCard> rosterCards = TeamColorResolver.CreateRosterCards(
+                roster,
+                Runtime.WorldCardCatalog);
+            IReadOnlyList<TeamColorDefinition> definitions = InitialTeamColorDefinitionFactory.CreateForRoster(
+                rosterCards,
+                _balance.TeamColor);
             _teamColors = new TeamColorDefinition[definitions.Count];
             for (int index = 0; index < _teamColors.Length; index++)
                 _teamColors[index] = definitions[index];
 
-            IReadOnlyList<TeamColorCandidate> candidates = new TeamColorResolver().Resolve(
-                Runtime.GetRoster(teamSeasonKey),
-                Runtime.WorldCardCatalog,
-                _teamColors);
+            IReadOnlyList<TeamColorCandidate> candidates = new TeamColorResolver().Resolve(rosterCards, _teamColors);
             _availableTeamColorIds = new string[candidates.Count];
             for (int index = 0; index < candidates.Count; index++)
                 _availableTeamColorIds[index] = candidates[index].Definition.TeamColorId;
@@ -1225,13 +1307,10 @@ namespace Baseball.Game.Historical
             candidates.Sort(CompareTeamColorStrength);
 
             var selected = new string[LineupPresetState.TeamColorSlotCount];
-            var selectedFamilies = new HashSet<TeamColorFamily>();
             int selectedCount = 0;
             for (int index = 0; index < candidates.Count && selectedCount < selected.Length; index++)
             {
                 TeamColorDefinition candidate = candidates[index];
-                if (!selectedFamilies.Add(candidate.Family))
-                    continue;
                 selected[selectedCount++] = candidate.TeamColorId;
             }
             return selected;

@@ -230,6 +230,23 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void EnhancementPreview는_상태를바꾸지않고_다음단계와차단사유를반환한다()
+        {
+            var available = new OwnedPlayerCardState("available:Normal", enhancementLevel: 2, duplicateCount: 1);
+            var blocked = new OwnedPlayerCardState("blocked:Normal", enhancementLevel: 2, duplicateCount: 0);
+
+            CardEnhancementPreview availablePreview = CardEnhancementResolver.Preview(available);
+            CardEnhancementPreview blockedPreview = CardEnhancementResolver.Preview(blocked);
+
+            Assert.That(availablePreview.CanEnhance, Is.True);
+            Assert.That(availablePreview.CurrentLevel, Is.EqualTo(2));
+            Assert.That(availablePreview.NextLevel, Is.EqualTo(3));
+            Assert.That(blockedPreview.Result, Is.EqualTo(CardEnhancementResult.NoDuplicate));
+            Assert.That(available.EnhancementLevel, Is.EqualTo(2));
+            Assert.That(available.DuplicateCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void CardSale는_Cost와_Edition배율로_SP를_지급하고_MAX추가중복만_자동판매한다()
         {
             PlayerSeasonDefinition season = CreateSeason("sale", 10);
@@ -252,6 +269,26 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(saleSp, Is.EqualTo(198));
             Assert.That(economy.ScoutingPoints, Is.EqualTo(198));
             Assert.That(owned.DuplicateCount, Is.Zero);
+        }
+
+        [Test]
+        public void CardSalePreview는_수량별정산을계산하고_중복과SP를변경하지않는다()
+        {
+            PlayerSeasonDefinition season = CreateSeason("sale-preview", 10);
+            var card = new PlayerCardDefinition(
+                PlayerCardDefinition.CreateStableCardId(season.PlayerSeasonId, PlayerCardEdition.Mvp),
+                season.PlayerSeasonId,
+                PlayerCardEdition.Mvp,
+                new int[PlayerAbilityCatalog.AbilityCount]);
+            var owned = new OwnedPlayerCardState(card.CardId, duplicateCount: 3);
+
+            CardSalePreview preview = CardSaleResolver.Preview(
+                owned, card, season, CardSaleBalanceTable.CreateInitial(), 2);
+
+            Assert.That(preview.CanSell, Is.True);
+            Assert.That(preview.UnitPriceSp, Is.EqualTo(99));
+            Assert.That(preview.TotalPriceSp, Is.EqualTo(198));
+            Assert.That(owned.DuplicateCount, Is.EqualTo(3));
         }
 
         [Test]

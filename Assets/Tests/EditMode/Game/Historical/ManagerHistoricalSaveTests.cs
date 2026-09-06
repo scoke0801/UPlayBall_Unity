@@ -49,6 +49,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(restored.Economy.ScoutingPoints, Is.EqualTo(80));
             Assert.That(restored.Economy.DevelopmentPoints, Is.EqualTo(30));
             Assert.That(restored.Economy.PityGauge, Is.EqualTo(40));
+            Assert.That(restored.ManagerMode.PlayerContracts.Count, Is.EqualTo(25));
+            Assert.That(saveData.managerMode.playerContracts.Length, Is.EqualTo(25));
+            Assert.That(saveData.managerMode.tradeReceipts, Is.Empty);
 
             Assert.That(restored.TryGetOwnedCard("PS-000:Normal", out OwnedPlayerCardState owned), Is.True);
             Assert.That(owned.EnhancementLevel, Is.EqualTo(3));
