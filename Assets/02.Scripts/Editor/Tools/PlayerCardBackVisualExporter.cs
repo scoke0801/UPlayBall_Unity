@@ -11,10 +11,10 @@ using UnityEngine.UI;
 
 namespace Baseball.Editor.Tools
 {
-    /// <summary>실제 카드 뒷면 Builder와 기존 프레임을 테스트 데이터로 렌더링한다.</summary>
+    /// <summary>실제 카드 앞뒷면 Builder를 테스트 데이터로 렌더링한다.</summary>
     public static class PlayerCardBackVisualExporter
     {
-        [BaseballEditorTool("UI", "선수 카드 뒷면 시각 검증", "실제 Runtime Builder로 타자와 2~6구종 PNG를 docs/reports/player-card-back-visuals에 출력합니다.", impact: ToolImpact.DataWrite)]
+        [BaseballEditorTool("UI", "선수 카드 시각 검증", "실제 Runtime Builder로 카드 앞뒷면 PNG를 docs/reports/player-card-back-visuals에 출력합니다.", impact: ToolImpact.DataWrite)]
         public static void Export()
         {
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
@@ -23,16 +23,18 @@ namespace Baseball.Editor.Tools
             Directory.CreateDirectory(output);
             foreach (int height in new[] { 960, 640 })
             {
+                RenderFixture(CreateFixture(0), height, Path.Combine(output, "hitter-front-" + height + ".png"), "BuildFront");
+                RenderFixture(CreateFixture(4), height, Path.Combine(output, "pitcher-front-" + height + ".png"), "BuildFront");
                 RenderFixture(CreateFixture(0), height, Path.Combine(output, "hitter-" + height + ".png"));
                 for (int count = 2; count <= 6; count++)
                     RenderFixture(CreateFixture(count), height, Path.Combine(output, "pitcher-" + count + "-" + height + ".png"));
             }
-            Debug.Log("카드 뒷면 테스트 데이터 PNG 12장 출력: " + output);
+            Debug.Log("카드 앞뒷면 테스트 데이터 PNG 16장 출력: " + output);
         }
 
-        private static void RenderFixture(OwnerCollectionCardSnapshot snapshot, int height, string path)
+        private static void RenderFixture(OwnerCollectionCardSnapshot snapshot, int height, string path, string builder = "BuildReferenceBack")
         {
-            int width = height * 2 / 3;
+            int width = Mathf.RoundToInt(height * 228f / 320f);
             var cameraObject = new GameObject("CardBackVisualCamera", typeof(Camera));
             var root = new GameObject("CardBackVisualFixture", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             var renderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
@@ -57,8 +59,8 @@ namespace Baseball.Editor.Tools
                 rect.offsetMax = Vector2.zero;
                 var view = root.AddComponent<UI_Popup_OwnerPlayerCard>();
                 view.enabled = false;
-                MethodInfo build = typeof(UI_Popup_OwnerPlayerCard).GetMethod("BuildReferenceBack", BindingFlags.NonPublic | BindingFlags.Instance)
-                    ?? throw new MissingMethodException("Runtime 카드 뒷면 Builder를 찾을 수 없습니다.");
+                MethodInfo build = typeof(UI_Popup_OwnerPlayerCard).GetMethod(builder, BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?? throw new MissingMethodException("Runtime 카드 Builder를 찾을 수 없습니다: " + builder);
                 build.Invoke(view, new object[] { rect, snapshot, snapshot.Pitches.Count > 0 });
                 Canvas.ForceUpdateCanvases();
                 LayoutRebuilder.ForceRebuildLayoutImmediate(rect);

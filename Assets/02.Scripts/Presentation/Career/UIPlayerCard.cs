@@ -4,6 +4,7 @@ using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Presentation.UI;
+using Baseball.Presentation.SharedUI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -38,6 +39,7 @@ namespace Baseball.Presentation.Career
         private Image _frontSpecialOverlay;
         private Image _backSpecialOverlay;
         private Image _commonTopMeta;
+        private PlayerCardSurface _nameBand;
         private Image _photoBackground;
         private Image _portrait;
         private Image _frontEmblem;
@@ -133,13 +135,13 @@ namespace Baseball.Presentation.Career
             }
             else
                 _topTeamFallback.text = string.Empty;
-            SetAwardMarks("★", "M", "G");
+            SetAwardMarks("★", "최", "골");
             _playerName.text = "디자인 샘플";
             _season.text = "20XX";
             _position.text = GetPositionCode(position);
-            _role.text = "CARD PREVIEW";
+            _role.text = "카드 미리보기";
             _overall.text = "--";
-            _backTeamName.text = "TEAM COLOR PREVIEW";
+            _backTeamName.text = "팀컬러 미리보기";
 
             string[] labels = { "컨택", "장타", "주루", "송구", "수비", "정신력" };
             int[] values = { 72, 64, 68, 76, 82, 70 };
@@ -151,7 +153,7 @@ namespace Baseball.Presentation.Career
                 _abilityFills[index].anchorMax = new Vector2(
                     (238f + 540f * values[index] / 100f) / SourceWidth,
                     _abilityFills[index].anchorMax.y);
-                _abilityFills[index].GetComponent<Image>().color = primary;
+                _abilityFills[index].GetComponent<Image>().color = Color.white;
             }
 
             SetShowingBack(false);
@@ -169,9 +171,9 @@ namespace Baseball.Presentation.Career
         public void SetSpecialType(PlayerCardSpecialType specialType)
         {
             SpecialType = specialType;
-            Sprite frontSprite = PlayerCardSprites.GetSpecialFront(specialType);
             Sprite backSprite = PlayerCardSprites.GetSpecialBack(specialType);
-            ApplySpecialOverlay(_frontSpecialOverlay, frontSprite);
+            _nameBand.SetColors(GetTopMetaColor(specialType), new Color32(8, 10, 16, 255));
+            _frontSpecialOverlay.enabled = false;
             ApplySpecialOverlay(_backSpecialOverlay, backSprite);
             _commonTopMeta.color = GetTopMetaColor(specialType);
         }
@@ -218,18 +220,29 @@ namespace Baseball.Presentation.Career
 
         private void BuildFront()
         {
+            CreateFullImage("OuterBorder", _front, null, new Color32(8, 10, 16, 255));
+            CreateGradient("MetalBorder", _front, new Color32(145, 152, 170, 255), new Color32(58, 62, 74, 255),
+                8f, 8f, 1008f, 1520f);
             _photoBackground = CreateImage("TeamColorBackground", _front, null, Color.white,
-                37f, 51f, 949f, 847f);
+                18f, 18f, 988f, 895f);
             _frontTeamColorOverlay = CreateFullImage(
-                "TeamColorOverlay", _front, PlayerCardSprites.FrontTeamColorOverlay, Color.white);
-            CreateFullImage("NeutralFrame", _front, PlayerCardSprites.FrontNeutral, Color.white);
+                "TeamColorOverlay", _front, null, Color.clear);
+            _frontTeamColorOverlay.enabled = false;
+            CreateGradient("Header", _front, new Color32(52, 61, 78, 255), new Color32(8, 10, 16, 255),
+                18f, 18f, 988f, 70f);
+            _nameBand = CreateGradient("NameBand", _front, new Color32(55, 60, 72, 255), new Color32(8, 10, 16, 255),
+                18f, 910f, 988f, 114f);
+            CreateImage("StatsBacking", _front, null, new Color32(8, 10, 16, 255), 18f, 1024f, 988f, 418f);
+            CreateGradient("Footer", _front, new Color32(100, 107, 120, 255), new Color32(8, 10, 16, 255),
+                18f, 1442f, 988f, 76f);
             _frontSpecialOverlay = CreateFullImage("SpecialCardOverlay", _front, null, Color.clear);
             _frontSpecialOverlay.enabled = false;
             _portrait = CreateImage("Portrait", _front, null, Color.white,
                 92f, 76f, 840f, 820f);
             _portrait.preserveAspect = true;
             _commonTopMeta = CreateFullImage(
-                "CommonTopMeta", _front, PlayerCardSprites.TopMetaCommon, Color.white);
+                "CommonTopMeta", _front, null, Color.clear);
+            _commonTopMeta.enabled = false;
 
             for (int index = 0; index < _awardSlots.Length; index++)
             {
@@ -254,10 +267,10 @@ namespace Baseball.Presentation.Career
                 48f, 920f, 158f, 91f);
             _frontEmblem.preserveAspect = true;
             _playerName = CreateText("PlayerName", _front, 30, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Color32(38, 41, 43, 255),
+                TextAnchor.MiddleCenter, Color.white,
                 212f, 920f, 570f, 92f);
             _season = CreateText("Season", _front, 19, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Color32(56, 59, 61, 255),
+                TextAnchor.MiddleCenter, Color.white,
                 794f, 922f, 175f, 86f);
             _position = CreateText("Position", _front, 20, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Color32(228, 232, 234, 255),
@@ -272,27 +285,29 @@ namespace Baseball.Presentation.Career
                     18,
                     FontStyle.Bold,
                     TextAnchor.MiddleCenter,
-                    new Color32(48, 50, 51, 255),
+                    Color.white,
                     48f,
                     rowTop,
                     164f,
                     56f);
+                CreateGradient("StatTrack_" + index, _front, new Color32(93, 97, 107, 255), new Color32(44, 47, 55, 255),
+                    238f, rowTop + 19f, 540f, 22f);
                 _abilityFills[index] = CreateImage(
                     "StatFill_" + index,
                     _front,
                     null,
                     Color.white,
                     238f,
-                    rowTop + 24f,
+                    rowTop + 19f,
                     0f,
-                    10f).rectTransform;
+                    22f).rectTransform;
                 _abilityValues[index] = CreateText(
                     "StatValue_" + index,
                     _front,
                     18,
                     FontStyle.Bold,
                     TextAnchor.MiddleCenter,
-                    new Color32(48, 50, 51, 255),
+                    Color.white,
                     812f,
                     rowTop,
                     164f,
@@ -300,10 +315,10 @@ namespace Baseball.Presentation.Career
             }
 
             _role = CreateText("Role", _front, 17, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Color32(48, 50, 51, 255),
+                TextAnchor.MiddleLeft, Color.white,
                 104f, 1448f, 656f, 55f);
             _overall = CreateText("Overall", _front, 24, FontStyle.Bold,
-                TextAnchor.MiddleRight, new Color32(35, 38, 40, 255),
+                TextAnchor.MiddleRight, Color.white,
                 810f, 1444f, 150f, 62f);
             _frontGradeEffect = CreateFullImage("GradeEffect", _front, null, Color.clear);
             _frontGradeEffect.enabled = false;
@@ -339,7 +354,7 @@ namespace Baseball.Presentation.Career
                 _abilityFills[index].anchorMax = new Vector2(
                     (238f + 540f * value / 100f) / SourceWidth,
                     _abilityFills[index].anchorMax.y);
-                _abilityFills[index].GetComponent<Image>().color = primary;
+                _abilityFills[index].GetComponent<Image>().color = Color.white;
             }
         }
 
@@ -435,6 +450,16 @@ namespace Baseball.Presentation.Career
             return image;
         }
 
+        private static PlayerCardSurface CreateGradient(string name, Transform parent, Color topColor, Color bottomColor,
+            float left, float top, float width, float height)
+        {
+            RectTransform rect = CreateRect(name, parent, stretch: false);
+            ApplySourceRect(rect, left, top, width, height);
+            PlayerCardSurface surface = rect.gameObject.AddComponent<PlayerCardSurface>();
+            surface.SetColors(topColor, bottomColor);
+            return surface;
+        }
+
         private static Image CreateImage(
             string name,
             Transform parent,
@@ -505,7 +530,7 @@ namespace Baseball.Presentation.Career
         {
             _frontTeamColorOverlay.color = primary;
             _backTeamColorOverlay.color = primary;
-            _photoBackground.color = Color.Lerp(primary, Color.black, 0.38f);
+            _photoBackground.color = Color.Lerp(new Color32(12, 19, 40, 255), primary, .18f);
         }
 
         private static Color GetReadableSecondary(Color primary)
@@ -523,7 +548,7 @@ namespace Baseball.Presentation.Career
                 PlayerCardSpecialType.AllStar => new Color32(220, 232, 240, 242),
                 PlayerCardSpecialType.Mvp => new Color32(222, 188, 122, 242),
                 PlayerCardSpecialType.GoldenGlove => new Color32(166, 106, 60, 242),
-                _ => new Color32(164, 170, 174, 230)
+                _ => new Color32(55, 60, 72, 255)
             };
         }
 
@@ -562,7 +587,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Breaking => "변화구",
                 PlayerAbility.Control => "제구",
                 PlayerAbility.PitcherMental => "위기관리",
-                _ => ability.ToString()
+                _ => "능력치 미정"
             };
         }
     }

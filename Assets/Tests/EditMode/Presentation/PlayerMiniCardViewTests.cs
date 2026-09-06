@@ -35,8 +35,8 @@ namespace Baseball.Tests.EditMode.Presentation
                 "김하늘",
                 "SS",
                 "2028",
-                "COST 8",
-                "AllStar",
+                "비용 8",
+                "올스타",
                 "오늘 5번 선발",
                 teamAccentHex: "#6C927B",
                 visualState: PlayerMiniCardVisualState.Highlighted);

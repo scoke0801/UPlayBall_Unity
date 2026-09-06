@@ -1,6 +1,8 @@
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Presentation.UI;
+using Baseball.Presentation.SharedUI;
+using Baseball.Core.Historical;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
@@ -17,8 +19,8 @@ namespace Baseball.Presentation.Owner
         private RectTransform _back;
         private bool _isFlipping;
         private bool _isBack;
-        private static readonly Color Ink = new Color(0.04f, 0.07f, 0.12f);
-        private static readonly Color Gold = new Color(0.89f, 0.76f, 0.47f);
+        private static readonly Color Ink = new Color32(8, 10, 16, 255);
+        private static readonly Color Gold = new Color32(218, 223, 232, 255);
 
         /// <summary>한 번에 하나의 상세 팝업을 최상단 Canvas에 연다.</summary>
         public static void Show(Transform source, OwnerCollectionCardSnapshot card)
@@ -58,17 +60,27 @@ namespace Baseball.Presentation.Owner
 
         private void BuildFront(RectTransform parent, OwnerCollectionCardSnapshot card, bool pitcher)
         {
-            Image frame = Surface(parent, "ExistingCardFrame", Color.white, 0, 0, 1, 1).GetComponent<Image>();
-            frame.sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_MainFrame_V2");
-            Surface(parent, "PortraitBackdrop", new Color(0.15f, 0.20f, 0.27f), 0.045f, 0.43f, 0.955f, 0.94f);
-            Image portrait = Surface(parent, "Silhouette", Color.white, 0.13f, 0.44f, 0.87f, 0.91f).GetComponent<Image>();
-            portrait.sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1");
+            BuildCardBorder(parent);
+            RectTransform backdrop = Gradient(parent, "PortraitBackdrop", new Color32(21, 29, 61, 255),
+                new Color32(3, 7, 19, 255), .018f, .46f, .982f, .982f);
+            BuildPortraitLines(backdrop);
+            Image portrait = Surface(parent, "Silhouette", Color.white, .08f, .46f, .92f, .945f).GetComponent<Image>();
+            portrait.sprite = PlayerPortraitSprites.GetDefault(card.Position);
             portrait.preserveAspect = true;
-            Label(parent, "Edition", OwnerCollectionPresentationBuilder.FormatEdition(card.Edition), 0.06f, 0.91f, 0.94f, 0.98f, 19, Gold);
-            Label(parent, "Year", card.OriginYear.ToString(), 0.69f, 0.82f, 0.94f, 0.91f, 23, Gold);
-            Surface(parent, "NameBand", new Color(0.85f, 0.82f, 0.72f), 0.04f, 0.38f, 0.96f, 0.45f);
-            Label(parent, "Name", card.DisplayName, 0.07f, 0.38f, 0.93f, 0.45f, 24, Ink);
-            Surface(parent, "Stats", Ink, 0.04f, 0.06f, 0.96f, 0.375f);
+            Gradient(parent, "HeaderBand", new Color32(52, 61, 78, 255), Ink, .02f, .934f, .98f, .982f);
+            Label(parent, "Edition", OwnerCollectionPresentationBuilder.FormatEdition(card.Edition), .04f, .935f, .73f, .98f, 15, Color.white);
+            Label(parent, "Enhancement", "+" + card.EnhancementLevel, .76f, .86f, .95f, .93f, 27, Gold);
+            Label(parent, "EnhancementLabel", "강화", .76f, .825f, .95f, .86f, 11, Gold);
+            if (card.IsLocked) Label(parent, "Locked", "잠금", .04f, .85f, .23f, .90f, 12, Gold);
+            Gradient(parent, "PositionBadge", new Color32(106, 118, 140, 255), Ink, .04f, .485f, .29f, .555f);
+            Label(parent, "Position", OwnerCollectionPresentationBuilder.FormatPosition(card.Position), .045f, .49f, .285f, .55f, 12, Color.white);
+            Color nameTop = GetEditionColor(card.Edition);
+            Gradient(parent, "NameBand", nameTop, Ink, .018f, .335f, .982f, .46f);
+            Surface(parent, "NameHighlight", Gold, .02f, .456f, .98f, .459f);
+            Label(parent, "Name", card.DisplayName, .05f, .35f, .77f, .445f, 26, Color.white);
+            Gradient(parent, "YearBadge", new Color32(83, 87, 96, 255), Ink, .79f, .365f, .95f, .43f);
+            Label(parent, "Year", (card.OriginYear % 100).ToString("00") + "′", .79f, .365f, .95f, .43f, 20, Color.white);
+            Surface(parent, "Stats", Ink, .018f, .071f, .982f, .335f);
             string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화구", "제구력", "정신력" } :
                 new[] { "교타력", "장타력", "주력", "송구력", "수비력", "정신력" };
             PlayerAbility[] abilities = pitcher ? new[] { PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff,
@@ -76,18 +88,63 @@ namespace Baseball.Presentation.Owner
                 new[] { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Arm, PlayerAbility.Defense, PlayerAbility.BatterMental };
             for (int i = 0; i < labels.Length; i++)
             {
-                float y = 0.325f - i * 0.044f;
+                float y = .285f - i * .039f;
                 int? value = card.GetAbility(abilities[i]);
-                Label(parent, "Ability" + i, labels[i], 0.065f, y, 0.25f, y + 0.04f, 13, Color.white);
-                Surface(parent, "Track" + i, new Color(0.31f, 0.34f, 0.39f), 0.27f, y + 0.014f, 0.79f, y + 0.027f);
-                if (value.HasValue) Surface(parent, "Fill" + i, Gold, 0.27f, y + 0.014f,
-                    0.27f + 0.52f * Mathf.Clamp01(value.Value / (float)AbilityRatings.Maximum), y + 0.027f);
-                Label(parent, "Value" + i, value?.ToString() ?? "—", 0.80f, y, 0.94f, y + 0.04f, 14, Gold);
+                Label(parent, "Ability" + i, labels[i], .04f, y, .235f, y + .04f, 14, Color.white);
+                Gradient(parent, "Track" + i, new Color32(93, 97, 107, 255), new Color32(44, 47, 55, 255),
+                    .25f, y + .014f, .79f, y + .031f);
+                if (value.HasValue) Gradient(parent, "Fill" + i, Color.white, new Color32(194, 205, 225, 255),
+                    .25f, y + .014f, .25f + .54f * Mathf.Clamp01(value.Value / (float)AbilityRatings.Maximum), y + .031f);
+                Label(parent, "Value" + i, value?.ToString() ?? "—", .80f, y, .96f, y + .04f, 16, Color.white);
             }
-            Surface(parent, "CostBand", new Color(0.36f, 0.29f, 0.16f), 0.04f, 0.02f, 0.96f, 0.07f);
-            Label(parent, "Cost", "COST   " + card.Cost + "     ·     시즌 기본 능력치", 0.06f, 0.02f, 0.94f, 0.07f, 14, Color.white);
+            Gradient(parent, "CostBand", new Color32(100, 107, 120, 255), Ink, .018f, .018f, .982f, .073f);
+            Label(parent, "CostLabel", "비용", .035f, .02f, .205f, .07f, 14, Gold);
+            for (int index = 0; index < 10; index++)
+            {
+                float x = .22f + index * .058f;
+                Label(parent, "CostStar" + index, "★", x, .022f, x + .056f, .069f, 16,
+                    index < card.Cost ? Color.white : new Color32(37, 41, 49, 255));
+            }
+            Label(parent, "Cost", card.Cost.ToString(), .825f, .018f, .96f, .073f, 27, Color.white);
         }
 
+        private static Color GetEditionColor(PlayerCardEdition edition)
+        {
+            return edition switch
+            {
+                PlayerCardEdition.AllStar => new Color32(129, 148, 179, 255),
+                PlayerCardEdition.GoldenGlove => new Color32(144, 106, 57, 255),
+                PlayerCardEdition.Mvp => new Color32(182, 150, 77, 255),
+                _ => new Color32(55, 60, 72, 255)
+            };
+        }
+
+        private static void BuildCardBorder(RectTransform parent)
+        {
+            Surface(parent, "OuterBorder", Ink, 0, 0, 1, 1);
+            Gradient(parent, "MetalBorder", new Color32(145, 152, 170, 255), new Color32(58, 62, 74, 255), .009f, .009f, .991f, .991f);
+            Surface(parent, "InnerBorder", Ink, .016f, .016f, .984f, .984f);
+        }
+
+        private static void BuildPortraitLines(RectTransform parent)
+        {
+            parent.gameObject.AddComponent<RectMask2D>();
+            for (int index = 0; index < 7; index++)
+            {
+                RectTransform line = Surface(parent, "BackdropLine" + index, new Color(0.36f, .43f, .65f, .12f),
+                    .06f + index * .14f, -.25f, .062f + index * .14f, 1.25f);
+                line.localEulerAngles = new Vector3(0, 0, -24);
+            }
+        }
+
+        private static RectTransform Gradient(Transform parent, string name, Color top, Color bottom,
+            float x0, float y0, float x1, float y1)
+        {
+            RectTransform rect = OwnerRuntimeUiFactory.CreateRect(name, parent);
+            OwnerRuntimeUiFactory.SetAnchors(rect, new Vector2(x0, y0), new Vector2(x1, y1), Vector2.zero, Vector2.zero);
+            rect.gameObject.AddComponent<PlayerCardSurface>().SetColors(top, bottom);
+            return rect;
+        }
 
         private static RectTransform Surface(Transform parent, string name, Color color, float x0, float y0, float x1, float y1)
         {
@@ -114,8 +171,9 @@ namespace Baseball.Presentation.Owner
         private void ResizeCard()
         {
             Rect bounds = ((RectTransform)transform).rect;
-            float height = Mathf.Min(bounds.height * 0.86f, bounds.width * 0.84f * 1.5f);
-            _cardRoot.sizeDelta = new Vector2(height / 1.5f, height);
+            const float aspect = 228f / 320f;
+            float height = Mathf.Min(bounds.height * 0.86f, bounds.width * 0.84f / aspect);
+            _cardRoot.sizeDelta = new Vector2(height * aspect, height);
         }
 
         private void Flip()

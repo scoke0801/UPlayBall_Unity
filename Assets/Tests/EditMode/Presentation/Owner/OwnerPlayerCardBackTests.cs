@@ -10,7 +10,7 @@ using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
 {
-    /// <summary>기존 구단주 카드 Frame과 성장판을 보존하며 구종 수만 동적으로 반영하는지 검증한다.</summary>
+    /// <summary>카드 시각 구성 변경 뒤에도 실제 구종·기록·성장판 정보가 보존되는지 검증한다.</summary>
     public sealed class OwnerPlayerCardBackTests
     {
         [TestCase(2)]
@@ -43,7 +43,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void HitterBack_UsesExistingNeutralFrameAndActualRecordFields()
+        public void HitterBack_UsesActualRecordFieldsAndSkillBoard()
         {
             GameObject canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
             GameObject sourceObject = new GameObject("Source", typeof(RectTransform));
@@ -62,8 +62,6 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     Handedness.Right, Handedness.Left, null, record);
                 UI_Popup_OwnerPlayerCard.Show(sourceObject.transform, card);
                 Transform back = canvasObject.transform.Find("UI_Popup_OwnerPlayerCard/CardDetail/Back");
-                Assert.That(back.Find("NeutralFrame").GetComponent<Image>().sprite.name,
-                    Is.EqualTo("PlayerCard_Back_Neutral"));
                 Assert.That(back.Find("RecordValue0").GetComponent<Text>().text, Is.EqualTo("512"));
                 Assert.That(back.Find("RecordValue1").GetComponent<Text>().text, Is.EqualTo("0.301"));
                 for (int y = 0; y < 4; y++)

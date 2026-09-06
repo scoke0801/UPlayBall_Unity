@@ -16,7 +16,7 @@ namespace Baseball.Presentation.SharedUI
         /// <summary>
         /// Compact Card의 기준 너비다.
         /// </summary>
-        public const float PreferredWidth = 156f;
+        public const float PreferredWidth = 151f;
 
         /// <summary>
         /// Compact Card의 기준 높이다.
@@ -29,16 +29,16 @@ namespace Baseball.Presentation.SharedUI
         /// <summary>Roster 역할 슬롯에서 사용하는 세로형 카드 높이다.</summary>
         public const float LineupSlotHeight = 148f;
 
-        private static Color NeutralSurface => CareerUiTheme.Surface;
-        private static Color HighlightedSurface => CareerUiTheme.SurfaceSelected;
-        private static Color SelectedSurface => CareerUiTheme.PrimaryAction;
-        private static Color WarningSurface => Color.Lerp(CareerUiTheme.Surface, CareerUiTheme.Warning, 0.2f);
-        private static Color PortraitSurface => CareerUiTheme.PanelDark;
+        private static Color NeutralSurface => new Color32(9, 12, 20, 255);
+        private static Color HighlightedSurface => new Color32(32, 44, 65, 255);
+        private static Color SelectedSurface => new Color32(41, 58, 81, 255);
+        private static Color WarningSurface => Color.Lerp(NeutralSurface, CareerUiTheme.Warning, 0.2f);
+        private static Color PortraitSurface => new Color32(17, 25, 48, 255);
         private static Color DefaultAccent => CareerUiTheme.PrimaryBright;
         private static Color Warning => CareerUiTheme.Warning;
-        private static Color TextPrimary => CareerUiTheme.TextPrimary;
-        private static Color TextSecondary => CareerUiTheme.TextSecondary;
-        private static Color TextMuted => CareerUiTheme.TextMuted;
+        private static Color TextPrimary => Color.white;
+        private static Color TextSecondary => new Color32(205, 215, 229, 255);
+        private static Color TextMuted => new Color32(173, 187, 207, 255);
 
         private static Font _defaultFont;
 
@@ -46,6 +46,8 @@ namespace Baseball.Presentation.SharedUI
         private Image _lineupFrame;
         private Image _accentStrip;
         private Image _portrait;
+        private Image _portraitBacking;
+        private RectTransform _nameBand;
         private Outline _outline;
         private Button _button;
         private CanvasGroup _canvasGroup;
@@ -154,13 +156,15 @@ namespace Baseball.Presentation.SharedUI
             RectTransform root = GetComponent<RectTransform>();
             root.sizeDelta = new Vector2(LineupSlotWidth, LineupSlotHeight);
             _lineupFrame.gameObject.SetActive(false);
+            _portraitBacking.gameObject.SetActive(false);
+            _nameBand.gameObject.SetActive(false);
             if (!_hasCompactSurfaces)
             {
                 // 얇은 프레임과 정보 행을 실제 UI 영역으로 분리해 작은 카드에서도 선명하게 표시한다.
-                AddCompactSurface("PortraitBacking", CareerUiTheme.RosterEmptySlot, 0.33f, 0.88f);
-                AddCompactSurface("NameBacking", CareerUiTheme.RosterHeader, 0.235f, 0.335f);
-                AddCompactSurface("DetailsBacking", CareerUiTheme.RosterPanel, 0.12f, 0.235f);
-                AddCompactSurface("RoleBacking", CareerUiTheme.RosterEmptySlot, 0.01f, 0.115f);
+                AddCompactSurface("LineupPortraitBacking", PortraitSurface, 0.33f, 0.88f);
+                AddCompactSurface("NameBacking", NeutralSurface, 0.235f, 0.335f);
+                AddCompactSurface("DetailsBacking", HighlightedSurface, 0.12f, 0.235f);
+                AddCompactSurface("RoleBacking", NeutralSurface, 0.01f, 0.115f);
                 _hasCompactSurfaces = true;
             }
             SetAnchors(_lineupFrame.rectTransform, new Vector2(0f, 0.10f), new Vector2(1f, 0.88f), Vector2.zero, Vector2.zero);
@@ -273,6 +277,14 @@ namespace Baseball.Presentation.SharedUI
             SetAnchors(_lineupFrame.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             _lineupFrame.gameObject.SetActive(false);
 
+            _portraitBacking = CreateImage("PortraitBacking", root, PortraitSurface);
+            SetAnchors(_portraitBacking.rectTransform, new Vector2(.025f, .38f), new Vector2(.975f, .975f), Vector2.zero, Vector2.zero);
+            var nameBand = new GameObject("NameBand", typeof(RectTransform), typeof(PlayerCardSurface));
+            nameBand.transform.SetParent(root, false);
+            _nameBand = (RectTransform)nameBand.transform;
+            SetAnchors(_nameBand, new Vector2(.025f, .23f), new Vector2(.975f, .39f), Vector2.zero, Vector2.zero);
+            nameBand.GetComponent<PlayerCardSurface>().SetColors(new Color32(74, 81, 94, 255), NeutralSurface);
+
             _accentStrip = CreateImage("TeamAccent", root, DefaultAccent);
             SetAnchors(_accentStrip.rectTransform, new Vector2(0f, 1f), Vector2.one,
                 Vector2.zero, new Vector2(0f, 4f));
@@ -281,21 +293,20 @@ namespace Baseball.Presentation.SharedUI
             SetAnchors(_portrait.rectTransform, new Vector2(0f, 0.38f), new Vector2(1f, 1f),
                 new Vector2(8f, 5f), new Vector2(-8f, -10f));
 
-            _yearText = CreateText("Year", root, 12, FontStyle.Bold, TextAnchor.UpperLeft, TextSecondary);
-            SetAnchors(_yearText.rectTransform, new Vector2(0f, 0.72f), new Vector2(0.55f, 0.96f),
-                new Vector2(13f, 0f), Vector2.zero);
-            _costText = CreateText("Cost", root, 12, FontStyle.Bold, TextAnchor.UpperRight, TextPrimary);
-            SetAnchors(_costText.rectTransform, new Vector2(0.45f, 0.72f), new Vector2(1f, 0.96f),
-                Vector2.zero, new Vector2(-13f, 0f));
+            _yearText = CreateText("Year", root, 11, FontStyle.Bold, TextAnchor.MiddleCenter, TextPrimary);
+            SetAnchors(_yearText.rectTransform, new Vector2(.76f, .23f), new Vector2(.97f, .39f), Vector2.zero, Vector2.zero);
+            _costText = CreateText("Cost", root, 12, FontStyle.Bold, TextAnchor.MiddleLeft, TextPrimary);
+            SetAnchors(_costText.rectTransform, new Vector2(.03f, .11f), new Vector2(.49f, .23f),
+                new Vector2(5f, 0f), Vector2.zero);
 
-            _nameText = CreateText("Name", root, 18, FontStyle.Bold, TextAnchor.MiddleLeft, TextPrimary);
-            SetAnchors(_nameText.rectTransform, new Vector2(0f, 0.23f), new Vector2(1f, 0.39f),
-                new Vector2(10f, 0f), new Vector2(-10f, 0f));
-            _positionText = CreateText("Position", root, 14, FontStyle.Bold, TextAnchor.MiddleLeft, DefaultAccent);
-            SetAnchors(_positionText.rectTransform, new Vector2(0f, 0.11f), new Vector2(0.35f, 0.24f),
-                new Vector2(10f, 0f), Vector2.zero);
+            _nameText = CreateText("Name", root, 18, FontStyle.Bold, TextAnchor.MiddleCenter, TextPrimary);
+            SetAnchors(_nameText.rectTransform, new Vector2(.03f, .23f), new Vector2(.75f, .39f),
+                new Vector2(3f, 0f), Vector2.zero);
+            _positionText = CreateText("Position", root, 14, FontStyle.Bold, TextAnchor.MiddleLeft, TextSecondary);
+            SetAnchors(_positionText.rectTransform, new Vector2(.03f, .85f), new Vector2(.74f, .97f),
+                new Vector2(5f, 0f), Vector2.zero);
             _editionText = CreateText("Edition", root, 12, FontStyle.Normal, TextAnchor.MiddleRight, TextMuted);
-            SetAnchors(_editionText.rectTransform, new Vector2(0.32f, 0.11f), new Vector2(1f, 0.24f),
+            SetAnchors(_editionText.rectTransform, new Vector2(0.50f, 0.11f), new Vector2(1f, 0.23f),
                 Vector2.zero, new Vector2(-10f, 0f));
             _statusText = CreateText("Status", root, 11, FontStyle.Bold, TextAnchor.MiddleLeft, TextSecondary);
             SetAnchors(_statusText.rectTransform, Vector2.zero, new Vector2(1f, 0.12f),
@@ -306,7 +317,7 @@ namespace Baseball.Presentation.SharedUI
         private void ApplyVisualState(PlayerMiniCardVisualState visualState, Color accent)
         {
             _accentStrip.color = accent;
-            _positionText.color = accent;
+            _positionText.color = TextSecondary;
             _statusText.color = visualState == PlayerMiniCardVisualState.Warning ? Warning : TextSecondary;
 
             if (_usesLineupSlotLayout)
@@ -347,23 +358,21 @@ namespace Baseball.Presentation.SharedUI
                 ? new Color(1f, 0.88f, 0.62f, 1f)
                 : isSelected ? new Color(0.72f, 0.86f, 1f, 1f) : Color.white;
             _surface.color = visualState == PlayerMiniCardVisualState.Warning
-                ? new Color(0.45f, 0.28f, 0.08f, 0.42f)
-                : isSelected ? new Color(0.65f, 0.81f, 0.92f, 1f) : new Color(0.96f, 0.97f, 0.97f, 1f);
+                ? new Color(0.45f, 0.28f, 0.08f, 1f)
+                : isSelected ? SelectedSurface : NeutralSurface;
             _outline.effectColor = visualState == PlayerMiniCardVisualState.Warning
                 ? CareerUiTheme.Warning
                 : isSelected ? accent : new Color(0.65f, 0.71f, 0.75f, 1f);
             _outline.effectDistance = isSelected ? new Vector2(2f, -2f) : new Vector2(1f, -1f);
 
-            Color primary = Color.white;
-            Color secondary = new Color(0.78f, 0.84f, 0.89f, 1f);
-            _nameText.color = primary;
-            _yearText.color = new Color(0.08f, 0.12f, 0.18f, 1f);
-            _costText.color = new Color(0.08f, 0.12f, 0.18f, 1f);
-            _editionText.color = new Color(0.08f, 0.12f, 0.18f, 1f);
-            _positionText.color = new Color(0.08f, 0.12f, 0.18f, 1f);
+            _nameText.color = Color.white;
+            _yearText.color = TextPrimary;
+            _costText.color = TextPrimary;
+            _editionText.color = TextSecondary;
+            _positionText.color = TextPrimary;
             _statusText.color = visualState == PlayerMiniCardVisualState.Warning
                 ? new Color(1f, 0.76f, 0.30f, 1f)
-                : new Color(0.08f, 0.12f, 0.18f, 1f);
+                : TextSecondary;
         }
 
         /// <summary>보유 목록에서 현재 배치된 카드를 초상화 위 배지로 구분한다.</summary>

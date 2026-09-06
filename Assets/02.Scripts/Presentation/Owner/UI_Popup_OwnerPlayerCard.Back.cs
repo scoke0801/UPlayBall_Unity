@@ -2,6 +2,7 @@ using Baseball.Core.Historical;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,29 +12,27 @@ namespace Baseball.Presentation.Owner
     {
         private void BuildReferenceBack(RectTransform parent, OwnerCollectionCardSnapshot card, bool pitcher)
         {
-            Image frame = Surface(parent, "NeutralFrame", Color.white, 0, 0, 1, 1).GetComponent<Image>();
-            frame.sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_Back_Neutral");
-            Image edition = Surface(parent, "EditionOverlay", Color.white, 0, 0, 1, 1).GetComponent<Image>();
-            edition.sprite = LoadEditionBack(card.Edition);
-            edition.enabled = edition.sprite != null;
-
-            Color paper = new Color(0.86f, 0.85f, 0.80f, 0.96f);
-            Color panel = new Color(0.055f, 0.085f, 0.13f, 0.94f);
-            Surface(parent, "IdentityBand", paper, 0.075f, 0.875f, 0.925f, 0.95f);
+            BuildCardBorder(parent);
+            Color paper = new Color32(107, 122, 143, 255);
+            Color panel = new Color32(26, 44, 65, 255);
+            Gradient(parent, "IdentityBand", GetEditionColor(card.Edition), Ink, .30f, .865f, .98f, .98f);
             Label(parent, "Identity", card.OriginYear + " · " + card.DisplayName,
-                0.10f, 0.88f, 0.90f, 0.945f, 22, Ink);
+                .32f, .895f, .96f, .97f, 21, Color.white);
+            Label(parent, "Edition", OwnerCollectionPresentationBuilder.FormatEdition(card.Edition),
+                .32f, .865f, .96f, .90f, 12, Gold);
             string roleText = pitcher && card.PitcherRole.HasValue
                 ? FormatPitcherRole(card.PitcherRole.Value)
                 : OwnerCollectionPresentationBuilder.FormatPosition(card.Position);
             string hands = FormatHands(card.Throws, card.Bats);
-            Surface(parent, "ProfileBand", panel, 0.075f, 0.795f, 0.925f, 0.87f);
-            Label(parent, "Profile", roleText + "  ·  " + hands + "  ·  COST " + card.Cost +
-                "  ·  " + OwnerCollectionPresentationBuilder.FormatEdition(card.Edition) +
-                "  ·  강화 +" + card.EnhancementLevel,
-                0.09f, 0.80f, 0.91f, 0.865f, 14, Color.white);
+            Gradient(parent, "ProfileBand", panel, Ink, .02f, .485f, .295f, .98f);
+            Image portrait = Surface(parent, "ProfilePortrait", Color.white, .035f, .735f, .28f, .97f).GetComponent<Image>();
+            portrait.sprite = PlayerPortraitSprites.GetDefault(card.Position);
+            portrait.preserveAspect = true;
+            Label(parent, "Profile", hands + "\n" + roleText + "\n비용 " + card.Cost + "\n강화 +" + card.EnhancementLevel,
+                .03f, .505f, .285f, .72f, 14, Color.white);
 
             BuildSeasonRecord(parent, card, paper, panel);
-            RectTransform role = Surface(parent, "RoleInformation", panel, 0.075f, 0.315f, 0.925f, 0.65f);
+            RectTransform role = Gradient(parent, "RoleInformation", new Color32(71, 105, 143, 255), panel, .30f, .485f, .98f, .86f);
             if (pitcher) BuildPitchRepertoire(role, card);
             else BuildDefenseDiagram(role, card.Position);
             BuildSkillBlockBoard(parent, paper, panel, card);
@@ -60,16 +59,16 @@ namespace Baseball.Presentation.Owner
                 Label(parent, "PositionLabel" + index, codes[index],
                     point.x-.065f, point.y-.055f, point.x+.065f, point.y+.055f, 12, selected ? Ink : Color.white);
             }
-            Label(parent, "PositionLegend", "금색: 주 포지션", 0, 0, 1, .07f, 10, Gold);
+            Label(parent, "PositionLegend", "밝은 칸: 주 포지션", 0, 0, 1, .09f, 10, Gold);
         }
 
         private static void BuildSkillBlockBoard(
             RectTransform parent, Color paper, Color panel, OwnerCollectionCardSnapshot card)
         {
-            Surface(parent, "SkillBoardTitle", paper, .075f, .255f, .925f, .31f);
-            Label(parent, "SkillBoardHeading", "스킬 블록 · 4×4", .09f, .26f, .91f, .305f, 12, Ink);
-            RectTransform section = Surface(parent, "SkillBoardInformation", panel, .075f, .075f, .925f, .255f);
-            RectTransform grid = Surface(section, "Grid", new Color(.035f, .055f, .075f, .96f), .035f, .08f, .29f, .92f);
+            Gradient(parent, "SkillBoardTitle", paper, panel, .02f, .29f, .98f, .33f);
+            Label(parent, "SkillBoardHeading", "스킬 블록 · 4×4", .04f, .29f, .96f, .33f, 12, Color.white);
+            RectTransform section = Surface(parent, "SkillBoardInformation", Ink, .02f, .02f, .98f, .285f);
+            RectTransform grid = Surface(section, "Grid", new Color32(131, 137, 148, 255), .015f, .06f, .355f, .96f);
             SkillBoardDefinition definition = SkillBoardDefinition.CreateDefault();
             const float gap = .025f;
             float cellSize = (1f - gap * (definition.Width + 1)) / definition.Width;
@@ -81,15 +80,15 @@ namespace Baseball.Presentation.Owner
                     float y1 = 1f - gap - y * (cellSize + gap);
                     bool traitSocket = HasTraitSocket(definition, x, y);
                     RectTransform cell = Surface(grid, "Cell_" + x + "_" + y,
-                        traitSocket ? new Color(.28f, .24f, .14f, 1f) : new Color(.10f, .14f, .18f, 1f),
+                        traitSocket ? new Color32(178, 191, 209, 255) : new Color32(43, 49, 61, 255),
                         x0, y1 - cellSize, x0 + cellSize, y1);
                     if (traitSocket)
-                        Label(cell, "TraitSocket", "◇", 0, 0, 1, 1, 12, Gold);
+                        Label(cell, "TraitSocket", "◇", 0, 0, 1, 1, 12, Ink);
                 }
             }
             Label(section, "State",
                 $"장착 {card.PlacedSkillBlockCount}개\n미장착 인벤토리 {card.AvailableSkillBlockCount}개\n\n보유 선수 > 카드훈련에서 배치 변경",
-                .33f, .16f, .96f, .84f,
+                .39f, .12f, .98f, .93f,
                 12, new Color(.72f, .75f, .78f));
         }
 
@@ -105,11 +104,11 @@ namespace Baseball.Presentation.Owner
 
         private static void BuildPitchRepertoire(RectTransform parent, OwnerCollectionCardSnapshot card)
         {
-            Label(parent, "Heading", "PITCH ARSENAL", 0, .86f, 1, 1, 15, Gold);
+            Label(parent, "Heading", "보유 구종", 0, .86f, 1, 1, 14, Gold);
             int count = card.Pitches.Count;
             if (count == 0)
             {
-                Label(parent, "PitchUnavailable", "Baked 구종 정보 없음", .05f, .1f, .95f, .8f, 13, Gold);
+                Label(parent, "PitchUnavailable", "구종 정보 없음", .05f, .1f, .95f, .8f, 13, Gold);
                 return;
             }
 
@@ -124,8 +123,8 @@ namespace Baseball.Presentation.Owner
                 float x = centeredLast ? .27f : .04f + (index % 2) * .48f;
                 float y1 = top - row * rowHeight;
                 float y0 = y1 - rowHeight + .018f;
-                RectTransform cell = Surface(parent, "PitchSlot" + index,
-                    new Color(.16f, .20f, .25f, .98f), x, y0, x + .44f, y1);
+                RectTransform cell = Gradient(parent, "PitchSlot" + index,
+                    new Color32(107, 134, 163, 255), new Color32(49, 77, 107, 255), x, y0, x + .44f, y1);
                 OwnerPitchCardSnapshot pitch = card.Pitches[index];
                 Label(cell, "PitchName", pitch.DisplayName, .03f, .48f, .63f, .95f, 13, Color.white);
                 Label(cell, "Grade", pitch.Grade, .64f, .40f, .97f, .97f, 21, Gold);
@@ -136,35 +135,23 @@ namespace Baseball.Presentation.Owner
 
         private static void BuildSeasonRecord(RectTransform parent, OwnerCollectionCardSnapshot card, Color paper, Color panel)
         {
-            Surface(parent, "RecordTitle", paper, .075f, .735f, .925f, .79f);
-            Label(parent, "RecordHeading", card.CurrentLeagueLabel, .09f, .74f, .91f, .785f, 12, Ink);
+            Gradient(parent, "RecordTitle", paper, panel, .02f, .44f, .98f, .48f);
+            Label(parent, "RecordHeading", card.CurrentLeagueLabel, .04f, .44f, .96f, .48f, 12, Color.white);
             int count = card.SeasonRecord.Count;
-            Surface(parent, "RecordPanel", panel, .075f, .655f, .925f, .735f);
+            Surface(parent, "RecordPanel", panel, .02f, .335f, .98f, .44f);
             if (count == 0)
             {
-                Label(parent, "RecordUnavailable", "확정 시즌 기록 없음", .10f, .66f, .90f, .73f, 12, Gold);
+                Label(parent, "RecordUnavailable", "확정 시즌 기록 없음", .04f, .34f, .96f, .435f, 12, Gold);
                 return;
             }
             for (int index = 0; index < count; index++)
             {
-                float x0 = .08f + .84f * index / count;
-                float x1 = .08f + .84f * (index + 1) / count;
+                float x0 = .03f + .94f * index / count;
+                float x1 = .03f + .94f * (index + 1) / count;
                 OwnerCardRecordFieldSnapshot field = card.SeasonRecord[index];
-                Label(parent, "RecordLabel" + index, field.Label, x0, .697f, x1, .73f, 10, Gold);
-                Label(parent, "RecordValue" + index, field.Value, x0, .66f, x1, .70f, 13, Color.white);
+                Label(parent, "RecordLabel" + index, field.Label, x0, .39f, x1, .435f, 11, Gold);
+                Label(parent, "RecordValue" + index, field.Value, x0, .34f, x1, .39f, 14, Color.white);
             }
-        }
-
-        private static Sprite LoadEditionBack(PlayerCardEdition edition)
-        {
-            string asset = edition switch
-            {
-                PlayerCardEdition.AllStar => "PlayerCard_AllStar_BackOverlay",
-                PlayerCardEdition.GoldenGlove => "PlayerCard_GoldenGlove_BackOverlay",
-                PlayerCardEdition.Mvp => "PlayerCard_MVP_BackOverlay",
-                _ => null
-            };
-            return asset == null ? null : Resources.Load<Sprite>("UI/PlayerCards/" + asset);
         }
 
         private static string FormatPitcherRole(PitcherRole role)
@@ -177,7 +164,7 @@ namespace Baseball.Presentation.Owner
                 PitcherRole.MiddleRelief => "중간계투",
                 PitcherRole.Setup => "셋업",
                 PitcherRole.Closer => "마무리",
-                _ => role.ToString()
+                _ => "역할 미정"
             };
         }
 
