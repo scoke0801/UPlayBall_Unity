@@ -293,7 +293,9 @@ namespace Baseball.Presentation.Career
                 new Vector2(210f, 24f),
                 new Vector2(-355f, 186f),
                 SecondaryTextColor);
-            int count = Mathf.Min(5, request.AvailablePitches.Count);
+            int count = request.AvailablePitches.Count;
+            float spacing = count > 5 ? 51f : 61f;
+            float height = count > 5 ? 47f : 55f;
             for (int index = 0; index < count; index++)
             {
                 PitchOption option = request.AvailablePitches[index];
@@ -302,11 +304,11 @@ namespace Baseball.Presentation.Career
                     "PitchType_" + option.PitchType,
                     panel,
                     $"{index + 1}  {GetPitchTypeLabel(option.PitchType)}  " +
-                    $"{option.MinimumVelocityMph:0}-{option.MaximumVelocityMph:0} mph\n" +
+                    $"{(option.MinimumVelocityMph + option.MaximumVelocityMph) * 0.5d * 1.609344d:0} km/h\n" +
                     $"{GetPitchMovementIcon(option)} · 난도 {GetPitchCommandDifficultyLabel(option.PitchType)} · " +
-                    $"숙련 {option.Proficiency}",
-                    new Vector2(245f, 55f),
-                    new Vector2(-350f, 146f - index * 61f),
+                    $"등급 {option.Grade}",
+                    new Vector2(245f, height),
+                    new Vector2(-350f, 146f - index * spacing),
                     selected ? CareerUiTheme.SurfaceSelected : PanelDarkColor,
                     selected ? PrimaryTextColor : SecondaryTextColor);
                 button.interactable = _pitchMiniGame.IsInputUnlocked;
@@ -581,6 +583,7 @@ namespace Baseball.Presentation.Career
                 else if (keyboard.digit3Key.wasPressedThisFrame) SelectPitchMiniGamePitchByIndex(2);
                 else if (keyboard.digit4Key.wasPressedThisFrame) SelectPitchMiniGamePitchByIndex(3);
                 else if (keyboard.digit5Key.wasPressedThisFrame) SelectPitchMiniGamePitchByIndex(4);
+                else if (keyboard.digit6Key.wasPressedThisFrame) SelectPitchMiniGamePitchByIndex(5);
                 else if (keyboard.qKey.wasPressedThisFrame) CyclePitchMiniGameApproach(-1);
                 else if (keyboard.eKey.wasPressedThisFrame) CyclePitchMiniGameApproach(1);
                 else if (keyboard.escapeKey.wasPressedThisFrame) ReturnPitchMiniGameToReady();

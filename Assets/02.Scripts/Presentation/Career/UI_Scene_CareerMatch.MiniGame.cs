@@ -801,6 +801,13 @@ namespace Baseball.Presentation.Career
                 PitchType.Changeup => "체인지업",
                 PitchType.Splitter => "스플리터",
                 PitchType.Sinker => "싱커",
+                PitchType.Sweeper => "스위퍼",
+                PitchType.Slurve => "슬러브",
+                PitchType.KnuckleCurve => "너클커브",
+                PitchType.CircleChangeup => "서클체인지업",
+                PitchType.Forkball => "포크볼",
+                PitchType.Screwball => "스크루볼",
+                PitchType.Knuckleball => "너클볼",
                 _ => pitchType.ToString()
             };
         }

@@ -95,6 +95,16 @@ namespace Baseball.Editor.HistoricalDatabase
             ValidateRequiredManifestText("sourceTeamSeasonIdentityPolicyVersion", sourceManifest.SourceTeamSeasonIdentityPolicyVersion, collector);
             ValidateRequiredManifestText("replacementGeneratorVersion", sourceManifest.ReplacementGeneratorVersion, collector);
             ValidateRequiredManifestText("replacementPopulationPolicyVersion", sourceManifest.ReplacementPopulationPolicyVersion, collector);
+            ValidateRequiredManifestText("pitchBalanceVersion", sourceManifest.PitchBalanceVersion, collector);
+            collector.Check(
+                sourceManifest.PitchGenerationSeed > 0,
+                "Manifest",
+                null,
+                "pitchGenerationSeed",
+                $"Pitch Generation Seed {sourceManifest.PitchGenerationSeed}를 확인했습니다.",
+                "pitchGenerationSeed는 양수여야 합니다.",
+                HistoricalNavigationKind.File,
+                "manifest.json");
             ValidateExpectedManifestText(
                 "referenceDataVersion",
                 ExpectedReferenceDataVersion,

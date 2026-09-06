@@ -114,8 +114,13 @@ namespace Baseball.Game.Historical
             var playerPlan = new PreGamePlanSnapshot(game.GameId, playerTeamKey, playerPreset, validation);
 
             string opponentKey = playerIsHome ? awayTeamKey : homeTeamKey;
-            LineupPresetState opponentPlan = CreateRosterRolePlan(runtime.GetRoster(opponentKey));
             PlayerIdMap playerIds = PlayerIdMap.Create(runtime.Rosters);
+
+            // 상대 구단이 실제 일정만큼 소모된 컨디션·투수 피로로 나오도록,
+            // 플레이어 경기가 열리는 라운드 이전의 AI 대진을 먼저 확정한다.
+            SimulateAiGamesThrough(runtime, playerIds, game.Round - 1);
+
+            LineupPresetState opponentPlan = CreateRosterRolePlan(runtime.GetRoster(opponentKey));
             TeamMatchBuild playerBuild = BuildTeam(runtime, playerTeamKey, playerPlan, game.Round, playerIds);
             TeamMatchBuild opponentBuild = BuildTeam(runtime, opponentKey, opponentPlan, game.Round, playerIds);
 
@@ -161,12 +166,84 @@ namespace Baseball.Game.Historical
             // 영수증 경계를 먼저 통과한 뒤 일정과 선수 상태를 확정한다.
             game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
             ApplyPostGameState(mode, playerBuild, opponentBuild, match);
+
+            // 같은 라운드의 나머지 대진까지 확정해야 순위표에서 플레이어 구단만 경기 수가 앞서가지 않는다.
+            SimulateAiGamesThrough(runtime, playerIds, game.Round);
+            // 홀수 구단 일정에서는 플레이어 구단이 마지막 라운드에 bye일 수 있어,
+            // 플레이어 일정이 끝난 뒤 남은 AI 대진을 시즌 마감 전에 함께 소진한다.
+            if (mode.LiveSeason.NextPlayerGame == null)
+                SimulateAiGamesThrough(runtime, playerIds, GetMaximumRound(mode.LiveSeason.Schedule.Games));
+
             return new ManagerModeMatchResult(
                 match,
                 playerPlan,
                 playerBuild.LineupChemistry,
                 finance,
                 financeStatus);
+        }
+
+        /// <summary>지정 라운드까지 남은 AI 구단 대진을 라운드·GameId 순서로 정확히 한 번 진행한다.</summary>
+        private void SimulateAiGamesThrough(
+            ManagerHistoricalRuntimeState runtime,
+            PlayerIdMap playerIds,
+            int throughRound)
+        {
+            if (throughRound <= 0) return;
+            ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
+            IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
+            for (int index = 0; index < games.Count; index++)
+            {
+                ScheduledGameState game = games[index];
+                if (game.IsCompleted || game.Round > throughRound) continue;
+                // 플레이어 구단 경기는 라인업·전술 확정을 거쳐야 하므로 자동 진행 대상이 아니다.
+                if (game.IncludesTeam(season.PlayerTeamId)) continue;
+                SimulateAiGame(runtime, playerIds, game);
+            }
+        }
+
+        /// <summary>AI 구단끼리의 한 경기를 플레이어 경기와 같은 엔진·Seed 계약으로 진행하고 상태에 반영한다.</summary>
+        private void SimulateAiGame(
+            ManagerHistoricalRuntimeState runtime,
+            PlayerIdMap playerIds,
+            ScheduledGameState game)
+        {
+            ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
+            string awayTeamKey = season.GetTeamSeasonKey(game.AwayTeamId);
+            string homeTeamKey = season.GetTeamSeasonKey(game.HomeTeamId);
+            TeamMatchBuild awayBuild = BuildTeam(
+                runtime,
+                awayTeamKey,
+                CreateRosterRolePlan(runtime.GetRoster(awayTeamKey)),
+                game.Round,
+                playerIds);
+            TeamMatchBuild homeBuild = BuildTeam(
+                runtime,
+                homeTeamKey,
+                CreateRosterRolePlan(runtime.GetRoster(homeTeamKey)),
+                game.Round,
+                playerIds);
+            var configuration = new HistoricalMatchConfiguration(
+                _balance.HistoricalAssignment.CreateRule(),
+                awayTacticLoadout: CreateConfirmedLoadout(Array.Empty<string>()),
+                homeTacticLoadout: CreateConfirmedLoadout(Array.Empty<string>()));
+            var input = new MatchInput(
+                season.OriginYear,
+                game.GameId,
+                game.RandomSeed,
+                awayBuild.Roster,
+                homeBuild.Roster,
+                MatchRules.CreateDefault(requiresWinner: false),
+                SimulationRulesVersion.DetailedV2,
+                SimulationVersionStamp.CreateCurrent(
+                    _balance.Version,
+                    _content.Manifest.ContentHash,
+                    (int)SimulationRulesVersion.DetailedV2),
+                configuration);
+            MatchResult match = new MatchSimulator(_balance, MatchRandomStreams.Create(game.RandomSeed))
+                .Simulate(input, NullMatchEventSink.Instance, MatchExecutionProfile.DetailedBackground);
+
+            game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
+            ApplyPostGameState(runtime.ManagerMode, awayBuild, homeBuild, match);
         }
 
         /// <summary>다음 홈 경기의 실제 관중 입력과 동일한 Seed·Context로 경기 전 예상 관중을 계산한다.</summary>
@@ -379,13 +456,19 @@ namespace Baseball.Game.Historical
             AbilityRatings source = season.CreateBaseAttributes();
             runtime.TryGetOwnedCard(entry.CardId, out OwnedPlayerCardState owned);
             bool usesOwnedEconomy = runtime.HasOwnedEconomy(teamSeasonKey);
-            int Get(PlayerAbility ability)
+            int GetRawPermanent(PlayerAbility ability)
             {
                 int training = usesOwnedEconomy && owned != null ? owned.Training.GetBonus(ability) : 0;
                 int enhancement = usesOwnedEconomy && owned != null ? owned.EnhancementLevel : 0;
-                int raw = checked(source.Get(ability) + card.GetModifier(ability) + training + enhancement +
-                                  teamColorBonuses.Get(entry.CardId, ability));
-                return raw < 1 ? 1 : raw > 100 ? 100 : raw;
+                return checked(source.Get(ability) + card.GetModifier(ability) + training + enhancement);
+            }
+            int GetPermanent(PlayerAbility ability) => Math.Max(1, Math.Min(100, GetRawPermanent(ability)));
+            double GetRawEffective(PlayerAbility ability) => Math.Max(1d, Math.Min(_balance.MatchRatingCurve.Caps.HardCap,
+                checked(GetRawPermanent(ability) + teamColorBonuses.Get(entry.CardId, ability))));
+            int Get(PlayerAbility ability)
+            {
+                int raw = checked(GetRawPermanent(ability) + teamColorBonuses.Get(entry.CardId, ability));
+                return MatchRatingCurve.ResolveMatchInput(raw, _balance.MatchRatingCurve);
             }
             var batter = new BatterAttributes(
                 Get(PlayerAbility.Contact),
@@ -409,7 +492,18 @@ namespace Baseball.Game.Historical
                 person.Throws,
                 batter,
                 pitcher,
-                nationality: season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty);
+                nationality: season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty,
+                pitchRepertoire: season.PitchRepertoire,
+                bakedPitcherAttributes: source.ToPitcherAttributes(),
+                permanentPitcherAttributes: new PitcherAttributes(
+                    GetPermanent(PlayerAbility.Stamina), GetPermanent(PlayerAbility.Velocity),
+                    GetPermanent(PlayerAbility.Stuff), GetPermanent(PlayerAbility.Breaking),
+                    GetPermanent(PlayerAbility.Control), GetPermanent(PlayerAbility.PitcherMental)),
+                hasResolvedMatchRatings: true,
+                uncurvedPitcherAttributes: new PitcherRatingValues(
+                    GetRawEffective(PlayerAbility.Stamina), GetRawEffective(PlayerAbility.Velocity),
+                    GetRawEffective(PlayerAbility.Stuff), GetRawEffective(PlayerAbility.Breaking),
+                    GetRawEffective(PlayerAbility.Control), GetRawEffective(PlayerAbility.PitcherMental)));
         }
 
         private PitcherRosterEntry CreatePitcherEntry(

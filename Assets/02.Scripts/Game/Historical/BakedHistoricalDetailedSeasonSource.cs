@@ -675,7 +675,8 @@ namespace Baseball.Game.Historical
                         person.Throws,
                         ratings.ToBatterAttributes(),
                         ratings.ToPitcherAttributes(),
-                        nationality: season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty);
+                        nationality: season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty,
+                        pitchRepertoire: season.PitchRepertoire);
                     ValidateCoreRole(team, rosterIndex, season);
                     rosterPlayers[rosterIndex] = player;
                     rosterSeasons[rosterIndex] = season;

@@ -224,9 +224,7 @@ namespace Baseball.Simulation.Historical
             int raw = checked(baseStat + editionModifier + cardTrainingBonus + enhancementBonus +
                               teamColorBonus + conditionBonus + tacticBonus);
             int rating = Math.Max(1, Math.Min(capTable.HardCap, raw));
-            double curveRating = rating <= capTable.SoftCap
-                ? rating
-                : capTable.SoftCap + (rating - capTable.SoftCap) * capTable.PostSoftCapSlope;
+            double curveRating = Baseball.Simulation.Match.MatchRatingCurve.Resolve(rating, capTable);
             return new EffectiveRatingResult(rating, curveRating);
         }
     }

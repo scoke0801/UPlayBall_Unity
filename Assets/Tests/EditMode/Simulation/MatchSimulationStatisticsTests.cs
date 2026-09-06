@@ -102,7 +102,9 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(strikeoutRate, Is.InRange(0.170d, 0.270d));
             // 최근 MLB의 HBP/PA는 약 1.1%다. 사구가 아예 없거나 볼넷 수준으로 흔해지면 실패한다.
             Assert.That(hitByPitchRate, Is.InRange(0.007d, 0.016d));
-            Assert.That(strongWinRate, Is.GreaterThan(0.58d));
+            // 표시 능력 56 대 48의 경기 분산은 .30 곡선으로 완화된다.
+            // 한 카드의 과도한 승률 효과를 막되 5,000경기에서 유의미한 팀 우위는 유지한다.
+            Assert.That(strongWinRate, Is.GreaterThan(0.53d));
         }
 
         [Test]

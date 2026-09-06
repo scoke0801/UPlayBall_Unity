@@ -107,6 +107,8 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private int sourceBackedPlayerSeasonCount;
         [SerializeField] private int replacementGeneratedPlayerPersonCount;
         [SerializeField] private int replacementGeneratedPlayerSeasonCount;
+        [SerializeField] private string pitchBalanceVersion;
+        [SerializeField] private long pitchGenerationSeed;
         [SerializeField] private string contentHash;
 
         public string ReferenceDataVersion => referenceDataVersion ?? string.Empty;
@@ -135,6 +137,8 @@ namespace Baseball.Editor.HistoricalDatabase
         public int SourceBackedPlayerSeasonCount => sourceBackedPlayerSeasonCount;
         public int ReplacementGeneratedPlayerPersonCount => replacementGeneratedPlayerPersonCount;
         public int ReplacementGeneratedPlayerSeasonCount => replacementGeneratedPlayerSeasonCount;
+        public string PitchBalanceVersion => pitchBalanceVersion ?? string.Empty;
+        public long PitchGenerationSeed => pitchGenerationSeed;
         public string ContentHash => contentHash ?? string.Empty;
     }
 
@@ -217,6 +221,10 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private int[] baseAttributes;
         [SerializeField] private int cost;
         [SerializeField] private int[] trainingCeiling;
+        [SerializeField] private HistoricalPitchEntry[] pitchRepertoire;
+        [SerializeField] private string pitchDataSourceKind;
+        [SerializeField] private string pitchBalanceVersion;
+        [SerializeField] private HistoricalPitchGenerationTrace pitchGenerationTrace;
         [SerializeField] private string rosterRole;
         [SerializeField] private double referenceSimilarityDistance;
         [SerializeField] private string[] sourceReferenceNames;
@@ -239,6 +247,10 @@ namespace Baseball.Editor.HistoricalDatabase
         public int[] BaseAttributes => baseAttributes ?? Array.Empty<int>();
         public int Cost => cost;
         public int[] TrainingCeiling => trainingCeiling ?? Array.Empty<int>();
+        public HistoricalPitchEntry[] PitchRepertoire => pitchRepertoire ?? Array.Empty<HistoricalPitchEntry>();
+        public string PitchDataSourceKind => pitchDataSourceKind ?? string.Empty;
+        public string PitchBalanceVersion => pitchBalanceVersion ?? string.Empty;
+        public HistoricalPitchGenerationTrace PitchGenerationTrace => pitchGenerationTrace;
         public string RosterRole => rosterRole ?? string.Empty;
         public double ReferenceSimilarityDistance => referenceSimilarityDistance;
         public string[] SourceReferenceNames => sourceReferenceNames ?? Array.Empty<string>();

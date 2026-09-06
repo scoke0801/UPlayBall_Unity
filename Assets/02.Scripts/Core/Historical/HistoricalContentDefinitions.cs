@@ -111,6 +111,7 @@ namespace Baseball.Core.Historical
     {
         private readonly AbilityRatings _baseAttributes;
         private readonly AbilityRatings _trainingCeiling;
+        private readonly IReadOnlyList<PitchRepertoireEntry> _pitchRepertoire;
 
         public PlayerSeasonDefinition(
             string playerSeasonId,
@@ -126,7 +127,10 @@ namespace Baseball.Core.Historical
             int cost,
             AbilityRatings trainingCeiling,
             PlayerDataProvenance dataProvenance = PlayerDataProvenance.SourceBacked,
-            PitcherRoleConfidence pitcherRoleConfidence = PitcherRoleConfidence.High)
+            PitcherRoleConfidence pitcherRoleConfidence = PitcherRoleConfidence.High,
+            IReadOnlyList<PitchRepertoireEntry> pitchRepertoire = null,
+            PitchDataSourceKind pitchDataSourceKind = PitchDataSourceKind.Synthetic,
+            string pitchBalanceVersion = "")
         {
             PlayerSeasonId = RequireId(playerSeasonId, nameof(playerSeasonId));
             PlayerPersonId = RequireId(playerPersonId, nameof(playerPersonId));
@@ -156,6 +160,28 @@ namespace Baseball.Core.Historical
             Cost = cost;
             DataProvenance = dataProvenance;
             PitcherRoleConfidence = pitcherRoleConfidence;
+            if (!Enum.IsDefined(typeof(PitchDataSourceKind), pitchDataSourceKind))
+                throw new ArgumentOutOfRangeException(nameof(pitchDataSourceKind));
+            var pitches = new PitchRepertoireEntry[pitchRepertoire?.Count ?? 0];
+            if (pitches.Length > 6 || (playerType != PlayerType.Pitcher && pitches.Length != 0))
+                throw new ArgumentException("투수만 최대 6구종을 보유할 수 있습니다.", nameof(pitchRepertoire));
+            int primaryCount = 0;
+            for (int index = 0; index < pitches.Length; index++)
+            {
+                PitchRepertoireEntry entry = pitchRepertoire[index];
+                if (entry.DevelopmentAffinity <= 0d || entry.UsagePreference <= 0d)
+                    throw new ArgumentException("구종 성장 적성과 사용 선호가 필요합니다.", nameof(pitchRepertoire));
+                for (int previous = 0; previous < index; previous++)
+                    if (pitches[previous].PitchType == entry.PitchType)
+                        throw new ArgumentException("구종이 중복되었습니다.", nameof(pitchRepertoire));
+                if (entry.IsPrimary) primaryCount++;
+                pitches[index] = entry;
+            }
+            if (pitches.Length != 0 && (pitches.Length < (cost >= 4 ? 3 : 2) || primaryCount != 1))
+                throw new ArgumentException("Cost별 최소 구종 수와 주력 구종 하나가 필요합니다.", nameof(pitchRepertoire));
+            _pitchRepertoire = Array.AsReadOnly(pitches);
+            PitchDataSourceKind = pitchDataSourceKind;
+            PitchBalanceVersion = pitchBalanceVersion ?? string.Empty;
         }
 
         public string PlayerSeasonId { get; }
@@ -170,6 +196,9 @@ namespace Baseball.Core.Historical
         public int Cost { get; }
         public PlayerDataProvenance DataProvenance { get; }
         public PitcherRoleConfidence PitcherRoleConfidence { get; }
+        public IReadOnlyList<PitchRepertoireEntry> PitchRepertoire => _pitchRepertoire;
+        public PitchDataSourceKind PitchDataSourceKind { get; }
+        public string PitchBalanceVersion { get; }
 
         public AbilityRatings CreateBaseAttributes() => _baseAttributes.Clone();
         public AbilityRatings CreateTrainingCeiling() => _trainingCeiling.Clone();
@@ -306,7 +335,9 @@ namespace Baseball.Core.Historical
             int replacementGeneratedPlayerSeasonCount = 0,
             bool generationSeedAffectsCanonicalBake = false,
             string sourceFranchiseIdentityPolicyVersion = "",
-            string sourceTeamSeasonIdentityPolicyVersion = "")
+            string sourceTeamSeasonIdentityPolicyVersion = "",
+            string pitchBalanceVersion = "",
+            ulong pitchGenerationSeed = 0)
         {
             ReferenceDataVersion = Require(referenceDataVersion, nameof(referenceDataVersion));
             GeneratorVersion = Require(generatorVersion, nameof(generatorVersion));
@@ -324,6 +355,8 @@ namespace Baseball.Core.Historical
             GenerationSeedAffectsCanonicalBake = generationSeedAffectsCanonicalBake;
             SourceFranchiseIdentityPolicyVersion = sourceFranchiseIdentityPolicyVersion?.Trim() ?? string.Empty;
             SourceTeamSeasonIdentityPolicyVersion = sourceTeamSeasonIdentityPolicyVersion?.Trim() ?? string.Empty;
+            PitchBalanceVersion = pitchBalanceVersion?.Trim() ?? string.Empty;
+            PitchGenerationSeed = pitchGenerationSeed;
         }
 
         public string ReferenceDataVersion { get; }
@@ -342,6 +375,8 @@ namespace Baseball.Core.Historical
         public bool GenerationSeedAffectsCanonicalBake { get; }
         public string SourceFranchiseIdentityPolicyVersion { get; }
         public string SourceTeamSeasonIdentityPolicyVersion { get; }
+        public string PitchBalanceVersion { get; }
+        public ulong PitchGenerationSeed { get; }
 
         private static string Require(string value, string parameterName)
         {

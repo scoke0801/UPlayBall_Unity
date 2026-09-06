@@ -27,7 +27,11 @@ namespace Baseball.Core.Players
             IReadOnlyList<PositionProficiency> secondaryPositions = null,
             string nationality = "",
             IReadOnlyList<PitchRepertoireEntry> pitchRepertoire = null,
-            IReadOnlyList<string> traitIds = null)
+            IReadOnlyList<string> traitIds = null,
+            PitcherAttributes? bakedPitcherAttributes = null,
+            PitcherAttributes? permanentPitcherAttributes = null,
+            bool hasResolvedMatchRatings = false,
+            PitcherRatingValues? uncurvedPitcherAttributes = null)
         {
             if (playerId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(playerId), "PlayerId는 양수여야 합니다.");
@@ -46,6 +50,10 @@ namespace Baseball.Core.Players
             ThrowingHand = throwingHand;
             BatterAttributes = batterAttributes;
             PitcherAttributes = pitcherAttributes;
+            BakedPitcherAttributes = bakedPitcherAttributes ?? pitcherAttributes;
+            PermanentPitcherAttributes = permanentPitcherAttributes ?? pitcherAttributes;
+            HasResolvedMatchRatings = hasResolvedMatchRatings;
+            UncurvedPitcherAttributes = uncurvedPitcherAttributes ?? new PitcherRatingValues(pitcherAttributes);
             _secondaryPositions = CopySecondaryPositions(secondaryPositions, primaryPosition);
             _pitchRepertoire = CopyPitchRepertoire(pitchRepertoire);
             _traitIds = CopyTraitIds(traitIds);
@@ -61,6 +69,10 @@ namespace Baseball.Core.Players
         public PitcherAttributes PitcherAttributes { get; }
         public IReadOnlyList<PositionProficiency> SecondaryPositions => _secondaryPositions;
         public IReadOnlyList<PitchRepertoireEntry> PitchRepertoire => _pitchRepertoire;
+        public PitcherAttributes BakedPitcherAttributes { get; }
+        public PitcherAttributes PermanentPitcherAttributes { get; }
+        public bool HasResolvedMatchRatings { get; }
+        public PitcherRatingValues UncurvedPitcherAttributes { get; }
         public IReadOnlyList<string> TraitIds => _traitIds;
 
         public bool HasTrait(string traitId)
@@ -88,7 +100,11 @@ namespace Baseball.Core.Players
                 _secondaryPositions,
                 Nationality,
                 pitchRepertoire,
-                _traitIds);
+                _traitIds,
+                BakedPitcherAttributes,
+                PermanentPitcherAttributes,
+                HasResolvedMatchRatings,
+                UncurvedPitcherAttributes);
         }
 
         private static string[] CopyTraitIds(IReadOnlyList<string> source)

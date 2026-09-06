@@ -45,7 +45,7 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(content.Manifest.ContentSchemaVersion, Is.EqualTo(5));
             Assert.That(
                 content.Manifest.AssetArchiveHash,
-                Is.EqualTo("a1c71bdc9a991b5c5bac09a185b61306ab8861a7cd86da6a71b4f06f7d687aa6"));
+                Is.EqualTo("71c42dc485fd44e45b370ddfa34f5762af2fdfb84a328f1aa68785cba0232e1a"));
             Assert.That(content.Manifest.ReferenceDataVersion, Is.EqualTo("kbo-normalized-v3"));
             Assert.That(content.Manifest.GeneratorVersion, Is.EqualTo("source-backed-runtime-bake-v2"));
             Assert.That(content.Manifest.BalanceVersion, Is.EqualTo("historical-source-backed-v2"));
@@ -63,9 +63,11 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(content.Manifest.SourceManifest.SourceBackedPlayerSeasonCount, Is.EqualTo(17333));
             Assert.That(content.Manifest.SourceManifest.ReplacementGeneratedPlayerPersonCount, Is.EqualTo(54));
             Assert.That(content.Manifest.SourceManifest.ReplacementGeneratedPlayerSeasonCount, Is.EqualTo(54));
+            Assert.That(content.Manifest.SourceManifest.PitchBalanceVersion, Is.EqualTo("pitch-arsenal-v1"));
+            Assert.That(content.Manifest.SourceManifest.PitchGenerationSeed, Is.EqualTo(20260906UL));
             Assert.That(
                 content.Manifest.ContentHash,
-                Is.EqualTo("bf89f8413044f110f753195a9fcca595aab4ba0775588aeb4a1fa041e338207e"));
+                Is.EqualTo("912531f3ecc7f6cd19b18b5cc9f93bb06f57fe1da2635147f5e6c8ab41c372f9"));
         }
 
         [Test]
@@ -202,8 +204,9 @@ namespace Baseball.Tests.EditMode.Game
         [Test]
         public void RuntimeContentProvider_RejectsInvalidContentHash()
         {
+            string contentHash = _provider.Load().Manifest.ContentHash;
             string invalidManifest = _catalog.Manifest.text.Replace(
-                "bf89f8413044f110f753195a9fcca595aab4ba0775588aeb4a1fa041e338207e",
+                contentHash,
                 new string('0', 64));
             TextAsset manifest = CreateTextAsset(invalidManifest);
             HistoricalRuntimeContentCatalog invalidCatalog = CreateCatalog(
@@ -313,14 +316,14 @@ namespace Baseball.Tests.EditMode.Game
         private string BuildSchemaV3ManifestText()
         {
             const string currentContentHash =
-                "bf89f8413044f110f753195a9fcca595aab4ba0775588aeb4a1fa041e338207e";
+                "912531f3ecc7f6cd19b18b5cc9f93bb06f57fe1da2635147f5e6c8ab41c372f9";
             const string schemaV5Tail =
                 "\"referenceDataVersion\":\"kbo-normalized-v3\"," +
                 "\"replacementGeneratedPlayerPersonCount\":54," +
                 "\"replacementGeneratedPlayerSeasonCount\":54," +
                 "\"replacementGeneratorVersion\":\"quota-fallback-percentile-v2\"," +
                 "\"replacementPopulationPolicyVersion\":\"quota-fallback-aggregate-percentile-v2\"," +
-                "\"rosterBuilderVersion\":\"position-first-core25-v2\"," +
+                "\"rosterBuilderVersion\":\"ability-fit-core25-v4\"," +
                 "\"sourceAllocationPolicyVersion\":\"source-team-season-one-to-one-v2\"," +
                 "\"sourceBackedPlayerPersonCount\":3510," +
                 "\"sourceBackedPlayerSeasonCount\":17333," +
@@ -329,7 +332,7 @@ namespace Baseball.Tests.EditMode.Game
                 "\"sourceTeamSeasonIdentityPolicyVersion\":\"source-team-season-identity-v1\"}";
             const string schemaV3Tail =
                 "\"referenceDataVersion\":\"kbo-normalized-v3\"," +
-                "\"rosterBuilderVersion\":\"position-first-core25-v2\"}";
+                "\"rosterBuilderVersion\":\"ability-fit-core25-v4\"}";
 
             string manifest = _catalog.Manifest.text
                 .Replace("\"contentSchemaVersion\":5", "\"contentSchemaVersion\":3")

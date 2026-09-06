@@ -16,19 +16,22 @@ namespace Baseball.Simulation.Match
             IMatchEventSink eventSink,
             PitcherFatigueResolver fatigueResolver,
             MatchExecutionProfile executionProfile,
-            MatchConditionRatingResolver conditionRatingResolver)
+            MatchConditionRatingResolver conditionRatingResolver,
+            MatchRatingCurveBalance ratingCurve)
         {
             Input = input;
             Away = new DetailedTeamGameState(
-                input.AwayRoster,
+                MatchRatingCurve.ProjectRoster(input.AwayRoster, ratingCurve),
                 fatigueResolver,
                 input.HistoricalConfiguration,
-                conditionRatingResolver);
+                conditionRatingResolver,
+                ratingCurve);
             Home = new DetailedTeamGameState(
-                input.HomeRoster,
+                MatchRatingCurve.ProjectRoster(input.HomeRoster, ratingCurve),
                 fatigueResolver,
                 input.HistoricalConfiguration,
-                conditionRatingResolver);
+                conditionRatingResolver,
+                ratingCurve);
             Tactics = new DetailedMatchTacticRuntime(input.HistoricalConfiguration);
             EventSink = eventSink;
             RecordsEvents = executionProfile.EventMode == MatchEventMode.Full;
@@ -81,16 +84,19 @@ namespace Baseball.Simulation.Match
         private readonly PositionAssignmentPenaltyResolver _assignmentPenaltyResolver;
         private readonly BullpenUsageResolver _bullpenUsageResolver;
         private readonly MatchConditionRatingResolver _conditionRatingResolver;
+        private readonly double _decisionRatingSlope;
 
         public DetailedTeamGameState(
             MatchRosterSnapshot roster,
             PitcherFatigueResolver fatigueResolver,
             HistoricalMatchConfiguration historicalConfiguration,
-            MatchConditionRatingResolver conditionRatingResolver = null)
+            MatchConditionRatingResolver conditionRatingResolver = null,
+            MatchRatingCurveBalance ratingCurve = null)
         {
             Roster = roster;
             _historicalConfiguration = historicalConfiguration;
             _conditionRatingResolver = conditionRatingResolver;
+            _decisionRatingSlope = ratingCurve?.Slope ?? 1d;
             if (historicalConfiguration?.PositionAssignmentRule != null)
                 _assignmentPenaltyResolver = new PositionAssignmentPenaltyResolver();
             if (historicalConfiguration?.BullpenUsagePolicy != null)
@@ -515,7 +521,8 @@ namespace Baseball.Simulation.Match
                 return false;
             Player current = _activeBatters[battingOrderIndex];
             double currentOffense = GetOffenseValue(current);
-            double bestGain = 8d;
+            // 선수 능력과 같은 단위로 기준도 투영해 압축 전 감독 교체 의도를 유지한다.
+            double bestGain = 8d * _decisionRatingSlope;
             for (int index = 0; index < _benchAvailable.Length; index++)
             {
                 if (!_benchAvailable[index]) continue;
@@ -529,7 +536,7 @@ namespace Baseball.Simulation.Match
                         candidate,
                         _activePositions[battingOrderIndex],
                         _historicalConfiguration.PositionAssignmentRule);
-                double gain = GetOffenseValue(candidate) - penalty.ConditionPenalty - currentOffense;
+                double gain = GetOffenseValue(candidate) - penalty.ConditionPenalty * _decisionRatingSlope - currentOffense;
                 if (gain > bestGain || Math.Abs(gain - bestGain) < 0.001d &&
                     (benchIndex < 0 || candidate.PlayerId < Roster.Bench[benchIndex].PlayerId))
                 {
@@ -544,7 +551,7 @@ namespace Baseball.Simulation.Match
         {
             benchIndex = -1;
             Player current = _activeBatters[battingOrderIndex];
-            int bestGain = 14;
+            double bestGain = 14d * _decisionRatingSlope;
             for (int index = 0; index < _benchAvailable.Length; index++)
             {
                 if (!_benchAvailable[index]) continue;
@@ -558,7 +565,7 @@ namespace Baseball.Simulation.Match
                         candidate,
                         _activePositions[battingOrderIndex],
                         _historicalConfiguration.PositionAssignmentRule);
-                int gain = candidate.BatterAttributes.Defense - penalty.ConditionPenalty -
+                double gain = candidate.BatterAttributes.Defense - penalty.ConditionPenalty * _decisionRatingSlope -
                            current.BatterAttributes.Defense;
                 if (gain > bestGain)
                 {
@@ -580,7 +587,7 @@ namespace Baseball.Simulation.Match
             if (inning < 7 || Math.Abs(scoreDifference) > 1 || leverage < LeverageTier.Medium)
                 return false;
             Player current = _activeBatters[battingOrderIndex];
-            int bestGain = 14;
+            double bestGain = 14d * _decisionRatingSlope;
             for (int index = 0; index < _benchAvailable.Length; index++)
             {
                 if (!_benchAvailable[index]) continue;
@@ -594,7 +601,7 @@ namespace Baseball.Simulation.Match
                         candidate,
                         _activePositions[battingOrderIndex],
                         _historicalConfiguration.PositionAssignmentRule);
-                int gain = candidate.BatterAttributes.Speed - penalty.ConditionPenalty -
+                double gain = candidate.BatterAttributes.Speed - penalty.ConditionPenalty * _decisionRatingSlope -
                            current.BatterAttributes.Speed;
                 if (gain > bestGain || gain == bestGain &&
                     (benchIndex < 0 || candidate.PlayerId < Roster.Bench[benchIndex].PlayerId))

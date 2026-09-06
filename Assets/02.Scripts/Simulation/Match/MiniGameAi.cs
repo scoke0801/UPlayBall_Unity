@@ -111,7 +111,7 @@ namespace Baseball.Simulation.Match
             return new PitchSelectionCommand(request.RequestId, pitchType, target, approach);
         }
 
-        private static int SelectPitchIndex(
+        private int SelectPitchIndex(
             in PitchSelectionAiContext request,
             PitchingApproach approach)
         {
@@ -119,26 +119,43 @@ namespace Baseball.Simulation.Match
             if (count == 1)
                 return 0;
 
-            bool strikeoutCount = request.Strikes == 2 && request.Balls < 3;
-            if (strikeoutCount || approach is PitchingApproach.Strikeout or PitchingApproach.Nibble)
+            double previousVelocity = 0d;
+            if (request.RecentPitchCount > 0)
             {
+                PitchType previous = request.RecentPitches[request.RecentPitchCount - 1];
                 for (int index = 0; index < count; index++)
-                {
-                    PitchType type = request.AvailablePitches[index].PitchType;
-                    if (type is PitchType.Slider or PitchType.Curveball or
-                        PitchType.Changeup or PitchType.Splitter)
-                    {
-                        if (!WasRepeatedTooOften(request, type))
-                            return index;
-                    }
-                }
+                    if (request.AvailablePitches[index].PitchType == previous)
+                        previousVelocity = request.AvailablePitches[index].MinimumVelocityMph;
             }
+            double total = 0d;
+            for (int index = 0; index < count; index++)
+                total += GetSelectionWeight(request, request.AvailablePitches[index], approach, previousVelocity);
+            double roll = _random.NextDouble() * total;
+            for (int index = 0; index < count; index++)
+            {
+                roll -= GetSelectionWeight(request, request.AvailablePitches[index], approach, previousVelocity);
+                if (roll <= 0d) return index;
+            }
+            return count - 1;
+        }
 
-            int deterministicIndex = Math.Abs(
-                request.BatterId * 17 + request.PitchNumber * 7 + request.Balls * 3 + request.Strikes) % count;
-            if (WasRepeatedTooOften(request, request.AvailablePitches[deterministicIndex].PitchType))
-                deterministicIndex = (deterministicIndex + 1) % count;
-            return deterministicIndex;
+        private static double GetSelectionWeight(in PitchSelectionAiContext request,
+            in PitchOption option, PitchingApproach approach, double previousVelocity)
+        {
+            // 실제 제구 타원과 품질은 이미 피로를 포함한다. 가장 높은 등급 하나에 고정하지 않는다.
+            double weight = option.UsagePreference * (0.5d + option.EffectiveQuality / 100d) *
+                option.BatterHandAffinity;
+            double controlRisk = option.CommandEllipse.RadiusX + option.CommandEllipse.RadiusY;
+            weight /= 1d + controlRisk * (request.Balls == 3 || approach == PitchingApproach.AttackZone ? 3d : 1d);
+            if (WasRepeatedTooOften(request, option.PitchType)) weight *= 0.35d;
+            if (previousVelocity > 0d)
+                weight *= 1d + Math.Min(0.25d, Math.Abs(option.MinimumVelocityMph - previousVelocity) / 100d);
+            bool chaseCount = request.Strikes == 2 && request.Balls < 3;
+            if (chaseCount || approach is PitchingApproach.Strikeout or PitchingApproach.Nibble)
+                weight *= 1d + Math.Abs(option.HorizontalBreak) + Math.Abs(option.VerticalBreak);
+            if (approach == PitchingApproach.GroundBall)
+                weight *= 1d + Math.Max(0d, -option.VerticalBreak);
+            return Math.Max(0.01d, weight);
         }
 
         private PlatePoint SelectTarget(
@@ -148,8 +165,7 @@ namespace Baseball.Simulation.Match
         {
             double choice = _random.NextDouble();
             double side = _random.NextDouble() < 0.5d ? -1d : 1d;
-            bool breakingPitch = pitchType is PitchType.Slider or PitchType.Curveball or
-                                 PitchType.Changeup or PitchType.Splitter or PitchType.Sinker;
+            bool breakingPitch = PitchTypeProfileCatalog.Get(pitchType).VerticalBreak < -0.1d;
             if (approach == PitchingApproach.PitchAround)
                 return CreateWasteTarget(side, breakingPitch);
             if (approach == PitchingApproach.Nibble)

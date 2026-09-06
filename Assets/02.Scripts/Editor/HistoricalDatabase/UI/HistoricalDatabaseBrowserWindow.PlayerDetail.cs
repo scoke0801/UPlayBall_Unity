@@ -2,6 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Baseball.Core.Balance;
+using Baseball.Core.Players;
+using Baseball.Game.Data;
+using Baseball.Simulation.Match;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -177,6 +181,8 @@ namespace Baseball.Editor.HistoricalDatabase
             if (trace != null)
             {
                 AddKeyValue(section, "연속 Season Value", $"{trace.ContinuousValue:0.0000} · {trace.RoleProfile}");
+                AddKeyValue(section, "능력 RoleAdjustedComposite", trace.AbilityContribution.Count > 0
+                    ? trace.LegacyAbilityComposite.ToString("0.0000") : "파생 근거 없음");
                 AddKeyValue(
                     section,
                     "동일 연도·유형 백분위 (참고)",
@@ -240,6 +246,7 @@ namespace Baseball.Editor.HistoricalDatabase
                 return;
             }
 
+            AddAbsent(section, "Cost 산출 Trace가 없어 OriginYear 백분위·RoleAdjustedComposite·적용 경계는 확인할 수 없습니다.");
             List<HistoricalPlayerRow> pool = _data.PlayerRows
                 .Where(candidate => candidate.OriginYear == row.OriginYear && string.Equals(candidate.PlayerType, row.PlayerType, StringComparison.Ordinal))
                 .ToList();
@@ -371,7 +378,84 @@ namespace Baseball.Editor.HistoricalDatabase
             if (!row.IsPitcher)
                 return;
             VisualElement pitches = CreateDetailSection("보유 구종");
-            AddAbsent(pitches, "보유 구종 데이터는 현재 아카이브 스키마에 Bake되지 않았습니다.");
+            HistoricalPitchEntry[] entries = row.Season.PitchRepertoire;
+            AddKeyValue(pitches, "Pitch Count", entries.Length.ToString());
+            AddKeyValue(pitches, "Source", string.IsNullOrEmpty(row.Season.PitchDataSourceKind)
+                ? "미제공" : row.Season.PitchDataSourceKind);
+            AddKeyValue(pitches, "Bake Balance", string.IsNullOrEmpty(row.Season.PitchBalanceVersion)
+                ? "미제공" : row.Season.PitchBalanceVersion);
+            if (entries.Length == 0)
+            {
+                AddAbsent(pitches, "이 선수 시즌에는 구종이 Bake되지 않았습니다. Editor에서 임의 생성하지 않습니다.");
+                return;
+            }
+            PitchArsenalBalance balance;
+            try { balance = PitchArsenalBalanceConfig.Load(); }
+            catch (Exception exception)
+            {
+                AddAbsent(pitches, "구종 계산표를 읽을 수 없습니다: " + exception.Message);
+                for (int index = 0; index < entries.Length; index++) AddPitchRawFields(pitches, entries[index]);
+                return;
+            }
+            bool hasMatchingBalance = string.Equals(row.Season.PitchBalanceVersion, balance.Version, StringComparison.Ordinal);
+            if (!hasMatchingBalance)
+                AddAbsent(pitches, "Bake와 현재 Balance 버전이 달라 계산 등급·구속·성장 효율을 표시하지 않습니다.");
+            for (int index = 0; index < entries.Length; index++)
+            {
+                HistoricalPitchEntry source = entries[index];
+                var detail = new Foldout { text = source.PitchType + (source.IsPrimary ? " · 주무기" : ""), value = true };
+                AddPitchRawFields(detail, source);
+                if (hasMatchingBalance) AddPitchCalculatedFields(detail, row, source, index, balance);
+                pitches.Add(detail);
+            }
+            HistoricalPitchGenerationTrace trace = row.Season.PitchGenerationTrace;
+            if (trace == null)
+            {
+                AddAbsent(pitches, "이 Archive에는 개별 Rare/Premium Generation Trace가 없습니다.");
+                return;
+            }
+            var generation = new Foldout { text = "Offline Generation Trace", value = false };
+            AddKeyValue(generation, "Source / Balance", trace.SourceKind + " / " + trace.BalanceVersion);
+            AddKeyValue(generation, "GenerationSeed", trace.GenerationSeed.ToString());
+            AddKeyValue(generation, "Seed Digest", trace.SeedDigest);
+            foreach (HistoricalPitchGenerationRoll roll in trace.Pitches)
+                AddKeyValue(generation, roll.PitchType,
+                    $"Rare {roll.Rare} · Premium {roll.PremiumRoll} · SampledMastery {roll.SampledMastery:0.000}");
+            pitches.Add(generation);
+        }
+
+        private void AddPitchRawFields(VisualElement section, HistoricalPitchEntry pitch)
+        {
+            AddKeyValue(section, "PitchType / BaseMastery", $"{pitch.PitchType} / {pitch.BaseMastery}");
+            AddKeyValue(section, "DevelopmentAffinity", pitch.DevelopmentAffinity.ToString("0.000"));
+            AddKeyValue(section, "UsagePreference", pitch.UsagePreference.ToString("0.000"));
+            AddKeyValue(section, "VelocityOffset", pitch.VelocityOffset.ToString("+0.00;-0.00;0.00") + " km/h");
+        }
+
+        private void AddPitchCalculatedFields(VisualElement detail, HistoricalPlayerRow row,
+            HistoricalPitchEntry source, int index, PitchArsenalBalance balance)
+        {
+            if (!Enum.TryParse(source.PitchType, out PitchType pitchType) || !Enum.IsDefined(typeof(PitchType), pitchType))
+            {
+                AddAbsent(detail, "알 수 없는 PitchType이므로 계산하지 않습니다.");
+                return;
+            }
+            PitchRepertoireEntry entry;
+            try { entry = source.ToEntry(); }
+            catch (ArgumentException exception) { AddAbsent(detail, "구종 저장값 오류: " + exception.Message); return; }
+            PitchTypeDefinition type = balance.Get(pitchType);
+            AddKeyValue(detail, "Base Grade", balance.Grade.GetGrade(entry.BaseMastery));
+            if (row.Season.BaseAttributes.Length == 12)
+                AddKeyValue(detail, "Calculated Velocity", PitchEffectivenessResolver.ResolveVelocityKph(
+                    entry, row.Season.BaseAttributes[7], balance).ToString("0.0") + " km/h");
+            else AddAbsent(detail, "구속 계산에 필요한 능력치가 없습니다.");
+            AddKeyValue(detail, "Velocity / Stuff 영향", $"{type.VelocityInfluence:0.000} / {type.StuffInfluence:0.000}");
+            AddKeyValue(detail, "Breaking / Control 영향", $"{type.BreakingInfluence:0.000} / {type.ControlInfluence:0.000}");
+            AddKeyValue(detail, "기본 가치 / 잠재 Bias", $"{type.IntrinsicValue:0.000} / {type.PotentialCeilingBias:0.000}");
+            AddKeyValue(detail, "성장 기본값 / 난이도", $"{type.BaseGrowthEfficiency:0.000} / {type.MasteryDifficulty:0.000}");
+            AddKeyValue(detail, "GrowthEfficiency", PitchGrowthResolver.ResolveEfficiency(
+                entry, row.Season.PitchRepertoire.Length, index, balance).ToString("0.000"));
+            AddKeyValue(detail, "GenerationWeight / Rare 정의", $"{type.GenerationWeight:0.000} / {(type.IsRare ? "희귀" : "일반")}");
         }
 
         private void AddSeasonStatisticsSection(HistoricalPlayerRow row)

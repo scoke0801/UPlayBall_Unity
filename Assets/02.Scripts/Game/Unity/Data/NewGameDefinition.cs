@@ -622,7 +622,9 @@ namespace Baseball.Game.Data
                 ownerExpansion.ClubOperation,
                 ownerExpansion.Staff,
                 ownerExpansion.ScoutingConfidence,
-                $"{common.ContentHash}:{ownerExpansion.ContentHash}");
+                $"{common.ContentHash}:{ownerExpansion.ContentHash}",
+                common.PitchArsenal,
+                common.MatchRatingCurve);
         }
 
         /// <summary>
@@ -645,6 +647,9 @@ namespace Baseball.Game.Data
             string contentHash = _growthBalance != null
                 ? _growthBalance.CreateContentHash()
                 : matchDefaults.ContentHash;
+            PitchArsenalBalance pitchBalance = PitchArsenalBalanceConfig.Load(out string pitchContentHash);
+            MatchRatingCurveBalance ratingCurve = MatchRatingCurveConfig.Load(out string curveContentHash);
+            contentHash = $"{contentHash}:{pitchContentHash}:{curveContentHash}";
             var balance = new BalanceTable(
                 version: 3,
                 matchDefaults.PlateDiscipline,
@@ -758,7 +763,9 @@ namespace Baseball.Game.Data
                     _cleanupLineupWeights.ToBalance(),
                     _lowerOrderLineupWeights.ToBalance()),
                 growth: growthBalance,
-                contentHash: contentHash);
+                contentHash: contentHash,
+                pitchArsenal: pitchBalance,
+                matchRatingCurve: ratingCurve);
 
             var bakedContentProvider = new HistoricalCareerBakedContentProvider(
                 CreateHistoricalContentProvider(),

@@ -11,7 +11,7 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Tools.SimulationDiagnostics
 {
-    internal static class Program
+    internal static partial class Program
     {
         private static readonly string[] DiagnosticTeamNames =
         {
@@ -36,6 +36,8 @@ namespace Baseball.Tools.SimulationDiagnostics
 
         private static int Run(string[] args)
         {
+            if (args.Length > 0 && string.Equals(args[0], "controlled-cost", StringComparison.Ordinal))
+                return RunControlledCost(args);
             if (args.Length > 0 && string.Equals(args[0], "--growth-cohort", StringComparison.Ordinal))
             {
                 int careerCount = args.Length > 1 && int.TryParse(args[1], out int parsedCareers)

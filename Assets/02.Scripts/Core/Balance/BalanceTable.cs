@@ -133,7 +133,9 @@ namespace Baseball.Core.Balance
             ClubOperationBalanceTable clubOperation = null,
             Baseball.Core.Historical.StaffBalanceTable staff = null,
             Baseball.Core.Historical.ScoutingConfidenceDefinition scoutingConfidence = null,
-            string contentHash = "builtin-career-content-v3")
+            string contentHash = "builtin-career-content-v3",
+            PitchArsenalBalance pitchArsenal = null,
+            MatchRatingCurveBalance matchRatingCurve = null)
         {
             if (string.IsNullOrWhiteSpace(contentHash))
                 throw new System.ArgumentException("ContentHash는 비어 있을 수 없습니다.", nameof(contentHash));
@@ -168,6 +170,8 @@ namespace Baseball.Core.Balance
             ScoutingConfidence = scoutingConfidence ?? Baseball.Core.Historical.ScoutingConfidenceDefinition.CreateInitial();
             SeasonAwards = SeasonAwardBalance.CreateDefault();
             SeasonSettlement = SeasonSettlementBalance.CreateDefault();
+            PitchArsenal = pitchArsenal ?? PitchArsenalBalance.CreateDefault();
+            MatchRatingCurve = matchRatingCurve ?? MatchRatingCurveBalance.CreateDefault();
         }
 
         public int Version { get; }
@@ -201,6 +205,8 @@ namespace Baseball.Core.Balance
         public Baseball.Core.Historical.ScoutingConfidenceDefinition ScoutingConfidence { get; }
         public SeasonAwardBalance SeasonAwards { get; }
         public SeasonSettlementBalance SeasonSettlement { get; }
+        public PitchArsenalBalance PitchArsenal { get; }
+        public MatchRatingCurveBalance MatchRatingCurve { get; }
 
         /// <summary>
         /// 현대 프로야구의 평균 타격 지표를 초기 가설로 삼은 프로토타입 값을 만든다.

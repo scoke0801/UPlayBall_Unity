@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from derivation_cost import composite_cost, resolve_value_cost
+import pitch_arsenal_generation as pitch_generation
+import source_backed_runtime_bake as pitch_source_identity
 
 from kbo_importer import IMPORTER_VERSION as NORMALIZED_IMPORTER_VERSION
 from kbo_importer import SCHEMA_VERSION as NORMALIZED_SCHEMA_VERSION
@@ -2600,6 +2602,17 @@ def build_editor_original_content(
 
         assign_origin_year_costs(seasons)
 
+        pitch_balance = pitch_generation.load_balance()
+        for pitch_season in seasons:
+            source_player = source_by_season_id[pitch_season["playerSeasonId"]]
+            runtime_proxy = dict(pitch_season)
+            runtime_proxy["playerSeasonId"] = pitch_source_identity.runtime_player_season_id(
+                str(source_player["sourcePlayerId"]), year)
+            pitch_generation.attach(runtime_proxy, pitch_balance)
+            for pitch_key in ("pitchRepertoire", "pitchDataSourceKind", "pitchBalanceVersion", "pitchGenerationTrace"):
+                if pitch_key in runtime_proxy:
+                    pitch_season[pitch_key] = runtime_proxy[pitch_key]
+
         teams: list[dict[str, Any]] = []
         for team_name in sorted(team_rows):
             rows = team_rows[team_name]
@@ -3176,6 +3189,7 @@ def create_runtime_safe_content(editor_content: dict[str, Any]) -> dict[str, Any
             season.pop("positionRoleDerivationTrace", None)
             season.pop("replacementGenerationTrace", None)
             season.pop("generationReason", None)
+            season.pop("pitchGenerationTrace", None)
         for team in year_content["teamSeasons"]:
             team.pop("rosterSelectionTrace", None)
             team.pop("validationWarnings", None)

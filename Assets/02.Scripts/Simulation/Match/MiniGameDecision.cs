@@ -71,7 +71,11 @@ namespace Baseball.Simulation.Match
             double horizontalBreak,
             double verticalBreak,
             double fatigueCost,
-            CommandEllipse commandEllipse)
+            CommandEllipse commandEllipse,
+            double usagePreference = 1d,
+            double effectiveQuality = 50d,
+            string grade = "",
+            double batterHandAffinity = 1d)
         {
             PitchType = pitchType;
             Proficiency = proficiency;
@@ -82,6 +86,10 @@ namespace Baseball.Simulation.Match
             VerticalBreak = verticalBreak;
             FatigueCost = fatigueCost;
             CommandEllipse = commandEllipse;
+            UsagePreference = usagePreference;
+            EffectiveQuality = effectiveQuality;
+            Grade = grade;
+            BatterHandAffinity = batterHandAffinity;
         }
 
         public PitchType PitchType { get; }
@@ -93,6 +101,10 @@ namespace Baseball.Simulation.Match
         public double VerticalBreak { get; }
         public double FatigueCost { get; }
         public CommandEllipse CommandEllipse { get; }
+        public double UsagePreference { get; }
+        public double EffectiveQuality { get; }
+        public string Grade { get; }
+        public double BatterHandAffinity { get; }
     }
 
     /// <summary>투수가 제출하는 구종·목표 위치·승부 방침 명령이다.</summary>

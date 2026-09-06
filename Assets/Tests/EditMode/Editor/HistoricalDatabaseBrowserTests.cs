@@ -165,6 +165,8 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(manifest.RosterBuilderVersion, Is.EqualTo("ability-fit-core25-v4"));
             Assert.That(manifest.CostFormulaVersion, Is.EqualTo("historical-season-value-v9"));
             Assert.That(manifest.DerivationBalanceVersion, Is.EqualTo("historical-derivation-balance-v12"));
+            Assert.That(manifest.PitchBalanceVersion, Is.EqualTo("pitch-arsenal-v1"));
+            Assert.That(manifest.PitchGenerationSeed, Is.EqualTo(20260906));
             Assert.That(manifest.SourceIdentityPolicyVersion, Is.EqualTo("editor-source-identity-v1"));
             Assert.That(manifest.SourceAllocationPolicyVersion, Is.EqualTo("official-source-team-audit-v1"));
             Assert.That(manifest.ReplacementGeneratorVersion, Is.EqualTo("quota-fallback-percentile-v2"));
@@ -422,7 +424,7 @@ namespace Baseball.Tests.EditMode.Editor
         }
 
         [Test]
-        public void Schema_DoesNotPretendUnavailableHiddenOrPitchDataExists()
+        public void Schema_ExposesBakedPitchSourceWithoutInventingHiddenPersonality()
         {
             string[] personProperties = typeof(HistoricalPlayerPerson).GetProperties()
                 .Select(property => property.Name)
@@ -434,7 +436,34 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(personProperties, Does.Not.Contain("HiddenStats"));
             Assert.That(personProperties, Does.Not.Contain("Personality"));
             Assert.That(seasonProperties, Does.Not.Contain("PitchArsenal"));
-            Assert.That(seasonProperties, Does.Not.Contain("PitchRepertoire"));
+            Assert.That(seasonProperties, Does.Contain("PitchRepertoire"));
+            Assert.That(seasonProperties, Does.Contain("PitchDataSourceKind"));
+        }
+
+        [Test]
+        public void PitchDto_PreservesSyntheticMasteryAndGrowthFields()
+        {
+            HistoricalPlayerSeason season = JsonUtility.FromJson<HistoricalPlayerSeason>(
+                "{\"pitchDataSourceKind\":\"Synthetic\",\"pitchBalanceVersion\":\"test-v1\",\"pitchRepertoire\":[{" +
+                "\"pitchType\":\"Slider\",\"baseMastery\":96,\"isPrimary\":true," +
+                "\"developmentAffinity\":0.75,\"usagePreference\":1.2,\"velocityOffset\":-1.5}]}");
+            Assert.That(season.PitchDataSourceKind, Is.EqualTo("Synthetic"));
+            Assert.That(season.PitchBalanceVersion, Is.EqualTo("test-v1"));
+            Assert.That(season.PitchRepertoire.Length, Is.EqualTo(1));
+            var pitch = season.PitchRepertoire[0].ToEntry();
+            Assert.That(pitch.BaseMastery, Is.EqualTo(96));
+            Assert.That(pitch.DevelopmentAffinity, Is.EqualTo(0.75));
+            Assert.That(pitch.UsagePreference, Is.EqualTo(1.2));
+            Assert.That(pitch.VelocityOffset, Is.EqualTo(-1.5));
+        }
+
+        [Test]
+        public void PitchDto_LegacyArchiveHasEmptySourceAndNeverGeneratesPitches()
+        {
+            HistoricalPlayerSeason season = JsonUtility.FromJson<HistoricalPlayerSeason>("{}");
+            Assert.That(season.PitchRepertoire, Is.Empty);
+            Assert.That(season.PitchDataSourceKind, Is.Empty);
+            Assert.That(season.PitchBalanceVersion, Is.Empty);
         }
 
         [Test]

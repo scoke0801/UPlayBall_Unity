@@ -99,7 +99,8 @@ namespace Baseball.Simulation.Match
                 eventSink,
                 _fatigueResolver,
                 _executionProfile,
-                _conditionRatingResolver);
+                _conditionRatingResolver,
+                _balance.MatchRatingCurve);
             int inning = 1;
             while (true)
             {

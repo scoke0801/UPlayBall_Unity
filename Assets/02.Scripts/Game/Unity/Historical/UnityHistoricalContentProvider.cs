@@ -442,6 +442,15 @@ namespace Baseball.Game.Historical
             }
             if (sourceManifest.GenerationSeed < 0)
                 throw new HistoricalContentLoadException("generationSeed는 음수일 수 없습니다.", "manifest.json");
+            if (sourceManifest.PitchGenerationSeed < 0)
+                throw new HistoricalContentLoadException("pitchGenerationSeed는 음수일 수 없습니다.", "manifest.json");
+            if (string.IsNullOrEmpty(sourceManifest.PitchBalanceVersion) !=
+                (sourceManifest.PitchGenerationSeed == 0))
+            {
+                throw new HistoricalContentLoadException(
+                    "pitchBalanceVersion과 pitchGenerationSeed는 함께 기록해야 합니다.",
+                    "manifest.json");
+            }
             if (!IsSha256(sourceManifest.ContentHash))
                 throw new HistoricalContentLoadException("contentHash가 64자리 SHA-256이 아닙니다.", "manifest.json");
 
@@ -461,7 +470,9 @@ namespace Baseball.Game.Historical
                 sourceManifest.ReplacementGeneratedPlayerSeasonCount,
                 sourceManifest.GenerationSeedAffectsCanonicalBake,
                 sourceManifest.SourceFranchiseIdentityPolicyVersion,
-                sourceManifest.SourceTeamSeasonIdentityPolicyVersion);
+                sourceManifest.SourceTeamSeasonIdentityPolicyVersion,
+                sourceManifest.PitchBalanceVersion,
+                (ulong)sourceManifest.PitchGenerationSeed);
             return new HistoricalContentManifest(
                 source.AssetFormatVersion,
                 source.ContentSchemaVersion,
@@ -734,7 +745,11 @@ namespace Baseball.Game.Historical
                     source.Cost,
                     new AbilityRatings(source.TrainingCeiling),
                     ParsePlayerDataProvenance(source.DataProvenance),
-                    ParsePitcherRoleConfidence(source.PitcherRoleConfidence));
+                    ParsePitcherRoleConfidence(source.PitcherRoleConfidence),
+                    MapPitchRepertoire(source),
+                    string.IsNullOrEmpty(source.PitchDataSourceKind) ? PitchDataSourceKind.Synthetic :
+                        (PitchDataSourceKind)Enum.Parse(typeof(PitchDataSourceKind), source.PitchDataSourceKind),
+                    source.PitchBalanceVersion);
             }
             catch (Exception exception)
             {
@@ -744,6 +759,16 @@ namespace Baseball.Game.Historical
                     year,
                     exception);
             }
+        }
+
+        private static PitchRepertoireEntry[] MapPitchRepertoire(HistoricalRuntimePlayerSeasonDto source)
+        {
+            var result = new PitchRepertoireEntry[source.PitchRepertoire.Length];
+            if (source.PlayerType == "Pitcher" && source.PitchBalanceVersion.Length != 0 && result.Length == 0)
+                throw new InvalidOperationException("구종 Bake 버전이 지정된 투수의 Arsenal이 없습니다.");
+            for (int index = 0; index < result.Length; index++)
+                result[index] = source.PitchRepertoire[index]?.Build() ?? throw new InvalidOperationException("구종 항목이 없습니다.");
+            return result;
         }
 
         private static PlayerCardDefinition MapCard(
@@ -1477,8 +1502,15 @@ namespace Baseball.Game.Historical
                 builder.Append("\",\"normalizedImporterVersion\":\"");
                 AppendJsonEscaped(builder, source.NormalizedImporterVersion);
                 builder.Append("\",\"normalizedSchemaVersion\":")
-                    .Append(source.NormalizedSchemaVersion.ToString(CultureInfo.InvariantCulture))
-                    .Append(",\"positionRoleClassifierVersion\":\"");
+                    .Append(source.NormalizedSchemaVersion.ToString(CultureInfo.InvariantCulture));
+                if (!string.IsNullOrEmpty(source.PitchBalanceVersion))
+                {
+                    builder.Append(",\"pitchBalanceVersion\":\"");
+                    AppendJsonEscaped(builder, source.PitchBalanceVersion);
+                    builder.Append("\",\"pitchGenerationSeed\":")
+                        .Append(source.PitchGenerationSeed.ToString(CultureInfo.InvariantCulture));
+                }
+                builder.Append(",\"positionRoleClassifierVersion\":\"");
                 AppendJsonEscaped(builder, source.PositionRoleClassifierVersion);
                 builder.Append("\",\"rawDataVersion\":\"");
                 AppendJsonEscaped(builder, source.RawDataVersion);

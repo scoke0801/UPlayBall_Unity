@@ -105,6 +105,8 @@ namespace Baseball.Game.Historical
         [SerializeField] private int sourceBackedPlayerSeasonCount;
         [SerializeField] private int replacementGeneratedPlayerPersonCount;
         [SerializeField] private int replacementGeneratedPlayerSeasonCount;
+        [SerializeField] private string pitchBalanceVersion;
+        [SerializeField] private long pitchGenerationSeed;
         [SerializeField] private string contentHash;
 
         public string ReferenceDataVersion => referenceDataVersion ?? string.Empty;
@@ -133,6 +135,8 @@ namespace Baseball.Game.Historical
         public int SourceBackedPlayerSeasonCount => sourceBackedPlayerSeasonCount;
         public int ReplacementGeneratedPlayerPersonCount => replacementGeneratedPlayerPersonCount;
         public int ReplacementGeneratedPlayerSeasonCount => replacementGeneratedPlayerSeasonCount;
+        public string PitchBalanceVersion => pitchBalanceVersion ?? string.Empty;
+        public long PitchGenerationSeed => pitchGenerationSeed;
         public string ContentHash => contentHash ?? string.Empty;
     }
 
@@ -230,6 +234,9 @@ namespace Baseball.Game.Historical
         [SerializeField] private int[] baseAttributes;
         [SerializeField] private int cost;
         [SerializeField] private int[] trainingCeiling;
+        [SerializeField] private HistoricalRuntimePitchEntryDto[] pitchRepertoire;
+        [SerializeField] private string pitchDataSourceKind;
+        [SerializeField] private string pitchBalanceVersion;
 
         public string PlayerSeasonId => playerSeasonId ?? string.Empty;
         public string PlayerPersonId => playerPersonId ?? string.Empty;
@@ -245,6 +252,27 @@ namespace Baseball.Game.Historical
         public int[] BaseAttributes => baseAttributes ?? Array.Empty<int>();
         public int Cost => cost;
         public int[] TrainingCeiling => trainingCeiling ?? Array.Empty<int>();
+        public HistoricalRuntimePitchEntryDto[] PitchRepertoire => pitchRepertoire ?? Array.Empty<HistoricalRuntimePitchEntryDto>();
+        public string PitchDataSourceKind => pitchDataSourceKind ?? string.Empty;
+        public string PitchBalanceVersion => pitchBalanceVersion ?? string.Empty;
+    }
+
+    [Serializable]
+    internal sealed class HistoricalRuntimePitchEntryDto
+    {
+        [SerializeField] private string pitchType;
+        [SerializeField] private int baseMastery;
+        [SerializeField] private bool isPrimary;
+        [SerializeField] private double developmentAffinity;
+        [SerializeField] private double usagePreference;
+        [SerializeField] private double velocityOffset;
+        public Baseball.Core.Players.PitchRepertoireEntry Build()
+        {
+            if (!Enum.TryParse(pitchType, out Baseball.Core.Players.PitchType type))
+                throw new InvalidOperationException("구종을 읽을 수 없습니다: " + pitchType);
+            return new Baseball.Core.Players.PitchRepertoireEntry(type, baseMastery, isPrimary,
+                developmentAffinity, usagePreference, velocityOffset);
+        }
     }
 
     [Serializable]

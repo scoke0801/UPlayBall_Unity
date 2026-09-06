@@ -9,6 +9,7 @@ from typing import Any, Mapping, Sequence
 
 import replacement_generation as replacement
 import source_backed_runtime_bake as source_plan
+import pitch_arsenal_generation as pitch_generation
 
 
 GENERATOR_VERSION = "source-backed-runtime-bake-v2"
@@ -50,6 +51,7 @@ def build_runtime_content(
         normalized_references,
     )
     del generation_seed
+    pitch_balance = pitch_generation.load_balance()
     source_plan.validate_source_backed_runtime_plan(plan)
     runtime = copy.deepcopy(plan.runtime_content)
     years_by_value = {int(row["year"]): row for row in runtime["years"]}
@@ -169,6 +171,8 @@ def build_runtime_content(
         for season in seasons:
             season["registrationType"] = "Domestic"
             _assign_training_ceiling(season, derivation)
+            pitch_generation.attach(season, pitch_balance)
+            pitch_generation.validate(season, pitch_balance)
         records = sorted(
             source_records_by_year[year]
             + [_replacement_record(row) for row in replacements_for_year],
@@ -259,6 +263,8 @@ def build_runtime_content(
         "replacementGeneratedPlayerPersonCount": len(generated.replacements),
         "replacementGeneratedPlayerSeasonCount": len(generated.replacements),
         "contentHash": "",
+        "pitchBalanceVersion": pitch_balance["version"],
+        "pitchGenerationSeed": pitch_balance["generation"]["seed"],
     }
     content = {
         "schemaVersion": derivation.CONTENT_SCHEMA_VERSION,

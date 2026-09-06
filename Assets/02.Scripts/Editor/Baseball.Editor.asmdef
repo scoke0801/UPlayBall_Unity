@@ -3,6 +3,7 @@
     "rootNamespace": "Baseball.Editor",
     "references": [
         "Baseball.Core",
+        "Baseball.Simulation",
         "Baseball.Game",
         "Baseball.Game.Unity",
         "Baseball.Presentation",

@@ -63,6 +63,20 @@ namespace Baseball.Simulation.Match
                     84d, 0.04d, -0.36d, 0.66d, 0.032d, 1.03d, 1.30d, 4d, 1.10d),
                 PitchType.Sinker => new PitchTypeProfile(
                     88d, 0.18d, -0.23d, 0.61d, 0.018d, 1.18d, 1.10d, 20d, 1.03d),
+                PitchType.Sweeper => new PitchTypeProfile(
+                    80d, -0.43d, -0.10d, 0.58d, 0.03d, 1.30d, 1.02d, -28d, 1.06d),
+                PitchType.Slurve => new PitchTypeProfile(
+                    78d, -0.27d, -0.29d, 0.55d, 0.03d, 1.15d, 1.18d, -15d, 1.06d),
+                PitchType.KnuckleCurve => new PitchTypeProfile(
+                    78d, -0.12d, -0.45d, 0.54d, 0.035d, 1.03d, 1.30d, 5d, 1.08d),
+                PitchType.CircleChangeup => new PitchTypeProfile(
+                    81d, 0.20d, -0.20d, 0.62d, 0.023d, 1.18d, 1.08d, 18d, 0.92d),
+                PitchType.Forkball => new PitchTypeProfile(
+                    80d, 0.03d, -0.43d, 0.64d, 0.038d, 1.05d, 1.32d, 0d, 1.12d),
+                PitchType.Screwball => new PitchTypeProfile(
+                    77d, 0.34d, -0.24d, 0.57d, 0.04d, 1.25d, 1.15d, 25d, 1.10d),
+                PitchType.Knuckleball => new PitchTypeProfile(
+                    68d, 0.17d, -0.28d, 0.48d, 0.055d, 1.30d, 1.35d, 0d, 0.85d),
                 _ => throw new ArgumentOutOfRangeException(nameof(pitchType))
             };
         }

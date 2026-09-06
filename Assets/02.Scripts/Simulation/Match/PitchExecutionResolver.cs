@@ -10,12 +10,15 @@ namespace Baseball.Simulation.Match
     public sealed class PitchExecutionResolver
     {
         private const int DerivedPitchOptionCount = 4;
+        private static readonly PitchRepertoireEntry[,] LegacyEntries = CreateLegacyEntries();
         private readonly MiniGameBalance _balance;
+        private readonly PitchArsenalBalance _arsenal;
         private readonly IRandomSource _random;
 
         public PitchExecutionResolver(BalanceTable balance, IRandomSource random)
         {
             _balance = balance?.MiniGame ?? throw new ArgumentNullException(nameof(balance));
+            _arsenal = balance.PitchArsenal;
             _random = random ?? throw new ArgumentNullException(nameof(random));
         }
 
@@ -57,7 +60,7 @@ namespace Baseball.Simulation.Match
                     matchup,
                     entry.PitchType,
                     entry.Proficiency,
-                    entry.IsPrimary);
+                    entry.IsPrimary, entry);
             }
             return count;
         }
@@ -74,8 +77,9 @@ namespace Baseball.Simulation.Match
             }
 
             PitchTypeProfile profile = PitchTypeProfileCatalog.Get(command.PitchType);
-            int proficiency = GetProficiency(matchup.Pitcher, command.PitchType);
-            CommandEllipse ellipse = CalculateCommandEllipse(matchup, profile, proficiency);
+            PitchRepertoireEntry entry = GetEntry(matchup.Pitcher, command.PitchType);
+            int proficiency = entry.Proficiency;
+            CommandEllipse ellipse = CalculateCommandEllipse(matchup, profile, proficiency, command.PitchType);
             double angle = ellipse.RotationDegrees * Math.PI / 180d;
             double localX = NextGaussian() * ellipse.RadiusX;
             double localY = NextGaussian() * ellipse.RadiusY;
@@ -85,28 +89,18 @@ namespace Baseball.Simulation.Match
                 Clamp(command.TargetPoint.X + errorX, -1.8d, 1.8d),
                 Clamp(command.TargetPoint.Y + errorY, -1.7d, 1.7d));
 
-            double velocity = Clamp(
-                profile.BaseVelocityMph +
-                (matchup.EffectiveVelocity - 50d) * 0.105d +
-                (proficiency - 50d) * 0.025d +
-                (_random.NextDouble() - 0.5d) * 2.4d,
-                68d,
-                104d);
-            double breakingScale = Clamp(
-                0.72d + matchup.EffectiveBreaking / 170d + (proficiency - 50d) * 0.003d,
-                0.55d,
-                1.45d);
+            double velocity = PitchEffectivenessResolver.ResolveVelocityKph(entry,
+                GetPhysicalVelocityRating(matchup), _arsenal) / 1.609344d +
+                (_random.NextDouble() - 0.5d) * 2.4d;
+            double breakingScale = PitchEffectivenessResolver.ResolveMovementScale(entry,
+                matchup.EffectiveBreaking, _arsenal);
             double handDirection = matchup.Pitcher.ThrowingHand == Handedness.Left ? -1d : 1d;
             double horizontalBreak = profile.HorizontalBreak * breakingScale * handDirection;
             double verticalBreak = profile.VerticalBreak * breakingScale;
             double arrivalMilliseconds = 41250d / velocity;
-            double quality = Clamp(
-                matchup.EffectiveStuff * 0.55d +
-                proficiency * 0.30d +
-                matchup.EffectiveBreaking * 0.15d -
-                Math.Sqrt(errorX * errorX + errorY * errorY) * 24d,
-                0d,
-                100d);
+            double quality = Clamp(PitchEffectivenessResolver.ResolvePlayerQuality(entry, matchup.Pitcher,
+                matchup.EffectiveStuff, matchup.EffectiveBreaking, matchup.EffectiveControl, _arsenal) -
+                Math.Sqrt(errorX * errorX + errorY * errorY) * 24d, 0d, 100d);
             double releaseX = matchup.Pitcher.ThrowingHand == Handedness.Left ? -0.42d : 0.42d;
             bool isHitByPitch = IsHitByPitch(matchup.Batter, actual);
             return new PitchFlightDescriptor(
@@ -130,7 +124,7 @@ namespace Baseball.Simulation.Match
             return CalculateCommandEllipse(
                 matchup,
                 PitchTypeProfileCatalog.Get(pitchType),
-                GetProficiency(matchup.Pitcher, pitchType));
+                GetEntry(matchup.Pitcher, pitchType).Proficiency, pitchType);
         }
 
         private int FillDerivedPitchOptions(
@@ -157,16 +151,16 @@ namespace Baseball.Simulation.Match
             in PlateAppearanceMatchup matchup,
             PitchType pitchType,
             int proficiency,
-            bool isPrimary)
+            bool isPrimary,
+            PitchRepertoireEntry? arsenalEntry = null)
         {
+            PitchRepertoireEntry entry = arsenalEntry ?? LegacyEntries[(int)pitchType,
+                isPrimary ? 0 : proficiency == 50 ? 1 : proficiency == 46 ? 2 : 3];
             PitchTypeProfile profile = PitchTypeProfileCatalog.Get(pitchType);
-            double centerVelocity = Clamp(
-                profile.BaseVelocityMph +
-                (matchup.EffectiveVelocity - 50d) * 0.105d +
-                (proficiency - 50d) * 0.025d,
-                68d,
-                104d);
-            double breakScale = Clamp(0.72d + matchup.EffectiveBreaking / 170d, 0.55d, 1.35d);
+            double centerVelocity = PitchEffectivenessResolver.ResolveVelocityKph(entry,
+                GetPhysicalVelocityRating(matchup), _arsenal) / 1.609344d;
+            double breakScale = PitchEffectivenessResolver.ResolveMovementScale(entry,
+                matchup.EffectiveBreaking, _arsenal);
             double handDirection = matchup.Pitcher.ThrowingHand == Handedness.Left ? -1d : 1d;
             return new PitchOption(
                 pitchType,
@@ -177,18 +171,28 @@ namespace Baseball.Simulation.Match
                 profile.HorizontalBreak * breakScale * handDirection,
                 profile.VerticalBreak * breakScale,
                 profile.FatigueCost,
-                CalculateCommandEllipse(matchup, profile, proficiency));
+                CalculateCommandEllipse(matchup, profile, proficiency, pitchType),
+                entry.UsagePreference,
+                PitchEffectivenessResolver.ResolvePlayerQuality(entry, matchup.Pitcher, matchup.EffectiveStuff,
+                    matchup.EffectiveBreaking, matchup.EffectiveControl, _arsenal),
+                _arsenal.Grade.GetGrade(PitchEffectivenessResolver.ResolveStableQuality(entry,
+                    matchup.Pitcher.PermanentPitcherAttributes, _arsenal, matchup.Pitcher.BakedPitcherAttributes,
+                    Math.Max(1, matchup.Pitcher.PitchRepertoire.Count),
+                    PitchEffectivenessResolver.GetPriority(entry, matchup.Pitcher))),
+                1d + Math.Max(0d, profile.HorizontalBreak * handDirection *
+                    (matchup.Batter.BattingHand == Handedness.Left ? -1d : 1d)));
         }
 
         private CommandEllipse CalculateCommandEllipse(
             in PlateAppearanceMatchup matchup,
             in PitchTypeProfile profile,
-            int proficiency)
+            int proficiency,
+            PitchType pitchType)
         {
             double deviation = _balance.BaseCommandDeviation -
                                (matchup.EffectiveControl - 50d) * _balance.ControlDeviationWeight -
                                (proficiency - 50d) * 0.0008d +
-                               profile.CommandDifficulty;
+                               _arsenal.Get(pitchType).ControlDifficulty;
             deviation = Clamp(
                 deviation,
                 _balance.MinimumCommandDeviation,
@@ -199,15 +203,39 @@ namespace Baseball.Simulation.Match
                 profile.ErrorRotationDegrees);
         }
 
-        private int GetProficiency(Player pitcher, PitchType pitchType)
+        private PitchRepertoireEntry GetEntry(Player pitcher, PitchType pitchType)
         {
             for (int index = 0; index < pitcher.PitchRepertoire.Count; index++)
             {
                 PitchRepertoireEntry entry = pitcher.PitchRepertoire[index];
                 if (entry.PitchType == pitchType)
-                    return entry.Proficiency;
+                    return entry;
             }
-            return pitchType == PitchType.FourSeamFastball ? 55 : 46;
+            if (pitcher.PitchRepertoire.Count > 0)
+                throw new ArgumentException("보유하지 않은 구종은 선택할 수 없습니다.", nameof(pitchType));
+            return LegacyEntries[(int)pitchType, pitchType == PitchType.FourSeamFastball ? 0 : 2];
+        }
+
+        private static double GetPhysicalVelocityRating(in PlateAppearanceMatchup matchup)
+        {
+            // 구속은 표시 단위이므로 분산 압축 전 값을 쓰되 현재 피로·컨디션 변화는 그대로 반영한다.
+            return matchup.Pitcher.UncurvedPitcherAttributes.Velocity +
+                matchup.EffectiveVelocity - matchup.Pitcher.PitcherAttributes.Velocity;
+        }
+
+        private static PitchRepertoireEntry[,] CreateLegacyEntries()
+        {
+            // 구종 없는 기존 테스트/세이브 경로도 반복 투구에서 enum 검증 박싱을 만들지 않는다.
+            int count = Enum.GetValues(typeof(PitchType)).Length;
+            var result = new PitchRepertoireEntry[count, DerivedPitchOptionCount];
+            for (int index = 0; index < count; index++)
+            {
+                result[index, 0] = new PitchRepertoireEntry((PitchType)index, 55, true);
+                result[index, 1] = new PitchRepertoireEntry((PitchType)index, 50, false);
+                result[index, 2] = new PitchRepertoireEntry((PitchType)index, 46, false);
+                result[index, 3] = new PitchRepertoireEntry((PitchType)index, 42, false);
+            }
+            return result;
         }
 
         private bool IsHitByPitch(Player batter, PlatePoint actual)
