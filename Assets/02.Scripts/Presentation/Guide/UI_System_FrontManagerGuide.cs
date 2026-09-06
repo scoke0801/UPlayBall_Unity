@@ -4,6 +4,7 @@ using Baseball.Game.Career;
 using Baseball.Game.Guide;
 using Baseball.Game.Manager;
 using Baseball.Presentation.Career;
+using Baseball.Presentation.Owner;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,12 +19,15 @@ namespace Baseball.Presentation.Guide
         private static readonly Color TextColor = CareerUiTheme.TextOnLight;
         [SerializeField, Range(0f, 1f)] private float _dialogueBottomAnchor = 0.25f;
         [SerializeField, Range(0f, 0.1f)] private float _dialogueRightMargin = 0.05f;
-        [SerializeField, Range(0f, 1f)] private float _backgroundDimAlpha = 0.56f;
+        [SerializeField, Range(0f, 1f)] private float _backgroundDimAlpha = 0.72f;
+        [SerializeField, Min(0f)] private float _dockGap = 4f;
         [SerializeField, Range(1f, 1.25f)] private float _dialogueScale = 1.25f;
         private readonly FrontManagerGuideCtaRouter _router = new();
         private readonly List<string> _suppressionContexts = new(2);
         private GuideManager _manager;
         private UI_Scene_CareerDashboard _careerDashboard;
+        private UI_Scene_OwnerHome _ownerHome;
+        private readonly Vector3[] _dockCorners = new Vector3[4];
         private GuideMessage _message;
         private Image _overlay;
         private RectTransform _panel;
@@ -142,6 +146,7 @@ namespace Baseball.Presentation.Guide
 
         private void Render(GuideMessage message)
         {
+            _ownerHome = FindFirstObjectByType<UI_Scene_OwnerHome>();
             // 알림 유형과 무관하게 배경을 낮추고, 뒤에 생성한 프레임과 초상화는 선명하게 유지한다.
             _overlay.color = new Color(0f, 0f, 0f, _backgroundDimAlpha);
             _overlay.raycastTarget = BlocksLowerInput;
@@ -235,6 +240,22 @@ namespace Baseball.Presentation.Guide
             // 프레임·캐릭터·글자·버튼을 같은 배율로 키우고 화면 가장자리 기준점은 유지한다.
             _panel.localScale = Vector3.one * _dialogueScale;
             _panel.anchoredPosition = Vector2.zero;
+            RectTransform dock = _ownerHome != null ? _ownerHome.GuideDockTarget : null;
+            if (dock != null && dock.gameObject.activeInHierarchy)
+            {
+                dock.GetWorldCorners(_dockCorners);
+                RectTransform root = (RectTransform)transform;
+                Vector3 topLeft = root.InverseTransformPoint(_dockCorners[1]);
+                Vector3 topRight = root.InverseTransformPoint(_dockCorners[2]);
+                float width = topRight.x - topLeft.x;
+                if (width > 0f)
+                {
+                    size.x = width / _dialogueScale;
+                    _panel.sizeDelta = size;
+                    _panel.anchorMin = _panel.anchorMax = root.pivot;
+                    _panel.anchoredPosition = new Vector2(topRight.x, topRight.y + _dockGap);
+                }
+            }
             // 프레임과 대사의 비율을 함께 바꿔 모든 안내 유형에서 오른쪽 초상화 영역을 비운다.
             SetContentRect(_messageText.rectTransform, new Vector2(0f, 1f),
                 new Vector2(36f, -40f), new Vector2(size.x * 0.64f, size.y - 120f));
@@ -250,6 +271,16 @@ namespace Baseball.Presentation.Guide
             _dismissLabel.fontSize = requiresAcknowledgement ? 15 : 26;
             Stretch(_ctaLabel.rectTransform);
             Stretch(_dismissLabel.rectTransform);
+        }
+
+        private void LateUpdate()
+        {
+            if (_message == null || !IsVisible)
+                return;
+
+            // 화면 크기가 바뀌어도 홈 패널의 실제 경계를 계속 따라간다.
+            ConfigureLayout(_message.PresentationType);
+            _overlay.color = new Color(0f, 0f, 0f, _backgroundDimAlpha);
         }
 
         private static void SetContentRect(RectTransform rect, Vector2 anchor, Vector2 position, Vector2 size)
