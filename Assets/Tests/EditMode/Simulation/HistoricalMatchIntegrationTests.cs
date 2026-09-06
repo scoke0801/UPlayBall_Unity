@@ -91,6 +91,27 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(penalty.ConditionPenalty, Is.EqualTo(5));
         }
 
+        [TestCase(true, 100, false)]
+        [TestCase(false, 35, true)]
+        public void AssignmentAdapter_결측과확인된DH를구분하고수비능력치는보존한다(
+            bool isMissing, int expectedProficiency, bool expectedOffPosition)
+        {
+            var player = new Player(71, "검증 선수", PlayerPosition.DesignatedHitter,
+                Handedness.Right, Handedness.Right, new BatterAttributes(60, 60, 60, 60, 60, 60),
+                new PitcherAttributes(20, 20, 20, 20, 20, 20), isPositionEvidenceMissing: isMissing);
+            Player projected = MatchRatingCurve.ProjectPlayer(player, BalanceTable.CreateDefault().MatchRatingCurve)
+                .WithPitchRepertoire(Array.Empty<PitchRepertoireEntry>());
+            var penalty = new Baseball.Simulation.Historical.PositionAssignmentPenaltyResolver()
+                .EvaluateHitter(projected, PlayerPosition.Shortstop, CreateAssignmentRule());
+            FieldingProfile profile = FieldingProfile.Derive(projected, PlayerPosition.Shortstop);
+            Assert.That(projected.IsPositionEvidenceMissing, Is.EqualTo(isMissing));
+            Assert.That(profile.PositionProficiency, Is.EqualTo(expectedProficiency));
+            Assert.That(penalty.IsOffPosition, Is.EqualTo(expectedOffPosition));
+            Assert.That(player.BatterAttributes.Defense, Is.EqualTo(60));
+            Assert.That(player.PrimaryPosition, Is.EqualTo(PlayerPosition.DesignatedHitter));
+            Assert.That(player.SecondaryPositions, Is.Empty);
+        }
+
         [Test]
         public void AssignmentAdapter_낮은NaturalRole신뢰도는경기비용을완화한다()
         {

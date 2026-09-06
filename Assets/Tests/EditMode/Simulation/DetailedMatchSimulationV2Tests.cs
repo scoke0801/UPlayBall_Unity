@@ -345,6 +345,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 BalanceTable.CreateDefault(), MatchRandomStreams.Create(tiedSeed)).Simulate(drawInput);
             Assert.That(draw.IsTie, Is.True);
             Assert.That(ContainsEvent(draw, MatchEventType.MatchEndedAsDraw), Is.True);
+            Assert.That(CountPitchingWins(draw), Is.Zero);
 
             MatchInput winnerInput = CreateDetailedInput(tiedSeed, new MatchRules(
                 regulationInnings: 1,
@@ -357,6 +358,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 BalanceTable.CreateDefault(), MatchRandomStreams.Create(tiedSeed)).Simulate(winnerInput);
             Assert.That(winner.IsTie, Is.False);
             Assert.That(ContainsEvent(winner, MatchEventType.MatchEndedAsDraw), Is.False);
+            Assert.That(CountPitchingWins(winner), Is.EqualTo(1));
         }
 
         private static PitcherFatigueResolver CreateFatigueResolver()
@@ -403,6 +405,22 @@ namespace Baseball.Tests.EditMode.Simulation
                 if (result.Events[index].EventType == type) return true;
             }
             return false;
+        }
+
+        private static int CountPitchingWins(MatchResult result)
+        {
+            return CountPitchingWins(result.AwayBoxScore) + CountPitchingWins(result.HomeBoxScore);
+        }
+
+        private static int CountPitchingWins(TeamBoxScore boxScore)
+        {
+            int count = 0;
+            for (int index = 0; index < boxScore.PitchingLines.Count; index++)
+            {
+                if (boxScore.PitchingLines[index].HasWin)
+                    count++;
+            }
+            return count;
         }
 
         private static int CountUsedPitchers(MatchResult result, int teamId)

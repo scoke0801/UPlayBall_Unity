@@ -167,7 +167,7 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void Build_우선순위대로세팀을만들고PlayerSeason중복과원본변조가없다()
+        public void Build_네종류후보팀을만들고PlayerSeason중복과원본변조가없다()
         {
             PlayerSeasonDefinition[] players = CreateCompositePool();
             WorldHistorySnapshot history = CreateCompositeHistory(players);
@@ -190,10 +190,11 @@ namespace Baseball.Tests.EditMode.Simulation
                 catalog,
                 new Pcg32Random(555UL));
 
-            Assert.That(first.Teams.Count, Is.EqualTo(3));
+            Assert.That(first.Teams.Count, Is.EqualTo(4));
             Assert.That(first.Get(SpecialCompositeTeamType.AllStarComposite).Roster.Count, Is.EqualTo(25));
             Assert.That(first.Get(SpecialCompositeTeamType.GoldenGloveComposite).Roster.Count, Is.EqualTo(25));
             Assert.That(first.Get(SpecialCompositeTeamType.YearSelectComposite).Roster.Count, Is.EqualTo(25));
+            Assert.That(first.Get(SpecialCompositeTeamType.RandomSelectComposite).Roster.Count, Is.EqualTo(25));
             var uniquePlayerSeasons = new HashSet<string>(StringComparer.Ordinal);
             for (int teamIndex = 0; teamIndex < first.Teams.Count; teamIndex++)
             {
@@ -247,6 +248,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 SpecialCompositeTeamType.AllStarComposite => PlayerCardEdition.AllStar,
                 SpecialCompositeTeamType.GoldenGloveComposite => PlayerCardEdition.GoldenGlove,
                 SpecialCompositeTeamType.YearSelectComposite => PlayerCardEdition.Normal,
+                SpecialCompositeTeamType.RandomSelectComposite => PlayerCardEdition.Normal,
                 _ => throw new ArgumentOutOfRangeException(nameof(teamType))
             };
             string preferredId = PlayerCardDefinition.CreateStableCardId(playerSeasonId, preferred);

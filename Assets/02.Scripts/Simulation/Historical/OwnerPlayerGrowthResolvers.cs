@@ -9,6 +9,31 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Historical
 {
+    /// <summary>구단주 카드의 영구 능력치를 표시·검증할 수 있도록 원본과 성장 출처별로 분해한다.</summary>
+    public readonly struct OwnerCardAbilityContribution
+    {
+        public OwnerCardAbilityContribution(
+            int baseCard,
+            int training,
+            int skillBlock,
+            int study,
+            int enhancement)
+        {
+            BaseCard = baseCard;
+            Training = training;
+            SkillBlock = skillBlock;
+            Study = study;
+            Enhancement = enhancement;
+        }
+
+        public int BaseCard { get; }
+        public int Training { get; }
+        public int SkillBlock { get; }
+        public int Study { get; }
+        public int Enhancement { get; }
+        public int Total => checked(BaseCard + Training + SkillBlock + Study + Enhancement);
+    }
+
     /// <summary>훈련·Edition·강화·카드별 성장판을 합치는 구단주 카드 능력치 단일 진입점이다.</summary>
     public sealed class OwnerCardAbilityResolver
     {
@@ -26,14 +51,34 @@ namespace Baseball.Simulation.Historical
             OwnedPlayerCardState owned,
             PlayerAbility ability)
         {
+            return ResolveContribution(season, card, owned, ability).Total;
+        }
+
+        /// <summary>TrainingCeiling을 적용한 후 훈련·유학·스킬 블록·강화 기여분을 반환한다.</summary>
+        public OwnerCardAbilityContribution ResolveContribution(
+            PlayerSeasonDefinition season,
+            PlayerCardDefinition card,
+            OwnedPlayerCardState owned,
+            PlayerAbility ability)
+        {
             if (season == null) throw new ArgumentNullException(nameof(season));
             if (card == null) throw new ArgumentNullException(nameof(card));
             int baseRating = season.CreateBaseAttributes().Get(ability);
-            if (owned == null) return checked(baseRating + card.GetModifier(ability));
+            int baseCard = checked(baseRating + card.GetModifier(ability));
+            if (owned == null)
+                return new OwnerCardAbilityContribution(baseCard, 0, 0, 0, 0);
             int ceiling = season.CreateTrainingCeiling().Get(ability);
             int development = Math.Min(ceiling, checked(baseRating + owned.Training.GetBonus(ability)));
+            int appliedGrowth = Math.Max(0, development - baseRating);
+            int study = Math.Min(appliedGrowth, owned.Training.GetStudyBonus(ability));
+            int training = appliedGrowth - study;
             int board = _skillBoardService.GetAbilityBonus(owned.SkillBoard.Placements, ability);
-            return checked(development + card.GetModifier(ability) + owned.EnhancementLevel + board);
+            return new OwnerCardAbilityContribution(
+                baseCard,
+                training,
+                board,
+                study,
+                owned.EnhancementLevel);
         }
 
         public AbilityRatings ResolvePermanent(
@@ -262,7 +307,7 @@ namespace Baseball.Simulation.Historical
                 int current = bases.Get(reward.Ability) + card.Training.GetBonus(reward.Ability);
                 int gained = Math.Min(reward.Amount, Math.Max(0, ceilings.Get(reward.Ability) - current));
                 if (gained <= 0) continue;
-                card.Training.AddBonus(reward.Ability, gained);
+                card.Training.AddStudyBonus(reward.Ability, gained);
                 applied.Add(new AbilityChange(reward.Ability, gained));
             }
             return new CardStudyCompletion(card.CardId, program.ProgramId, applied);

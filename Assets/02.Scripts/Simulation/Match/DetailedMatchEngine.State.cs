@@ -485,11 +485,27 @@ namespace Baseball.Simulation.Match
                 ActivePitchingLine.HasBlownSave = true;
         }
 
-        /// <summary>최종 리드와 등판 순서로 Save와 Hold를 확정한다.</summary>
-        public void FinalizeReliefDecisions(bool won, int runMargin)
+        /// <summary>최종 승패와 등판 순서로 Win, Save, Hold를 확정한다.</summary>
+        public void FinalizePitchingDecisions(bool won, int runMargin)
         {
             if (!won)
                 return;
+
+            PlayerPitchingLine starterLine = BoxScore.PitchingLines[0];
+            PlayerPitchingLine winningLine = null;
+            for (int index = 1; index < BoxScore.PitchingLines.Length; index++)
+            {
+                PlayerPitchingLine line = BoxScore.PitchingLines[index];
+                if (line.BattersFaced > 0)
+                    winningLine = line;
+            }
+            if (starterLine.BattersFaced > 0 && starterLine.OutsRecorded >= 15)
+                winningLine = starterLine;
+            else if (winningLine == null && starterLine.BattersFaced > 0)
+                winningLine = starterLine;
+            if (winningLine != null)
+                winningLine.HasWin = true;
+
             PlayerPitchingLine finalLine = ActivePitchingLine;
             if (ActivePitcherIndex > 0 &&
                 _enteredInSaveSituation[ActivePitcherIndex] &&

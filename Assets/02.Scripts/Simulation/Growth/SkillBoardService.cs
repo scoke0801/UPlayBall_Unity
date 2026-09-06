@@ -359,7 +359,7 @@ namespace Baseball.Simulation.Growth
             return GetActiveTraitIds(state.AppliedBlocks);
         }
 
-        /// <summary>카드별 배치 목록에서 Trait Socket을 덮은 고유 Trait만 반환한다.</summary>
+        /// <summary>배치 위치와 무관하게 장착된 블록의 고유 특성을 반환한다.</summary>
         public string[] GetActiveTraitIds(IReadOnlyList<PlacedSkillBlock> applied)
         {
             if (applied == null) throw new ArgumentNullException(nameof(applied));
@@ -370,8 +370,7 @@ namespace Baseball.Simulation.Growth
                 SkillBlockDefinition definition = FindDefinition(placement.Instance.DefinitionId);
                 if (string.IsNullOrEmpty(definition.TraitId))
                     continue;
-                if ((definition.TraitSocketRule == TraitSocketRule.None || CoversTraitSocket(definition, placement)) &&
-                    !traits.Contains(definition.TraitId))
+                if (!traits.Contains(definition.TraitId))
                 {
                     traits.Add(definition.TraitId);
                 }
@@ -466,23 +465,6 @@ namespace Baseball.Simulation.Growth
                 for (int cellIndex = 0; cellIndex < cells.Length; cellIndex++)
                 {
                     if (placed.OriginX + cells[cellIndex].X == x && placed.OriginY + cells[cellIndex].Y == y)
-                        return true;
-                }
-            }
-            return false;
-        }
-
-        private bool CoversTraitSocket(SkillBlockDefinition definition, PlacedSkillBlock placement)
-        {
-            BoardCell[] cells = GetNormalizedCells(definition, placement.RotationQuarterTurns);
-            for (int index = 0; index < cells.Length; index++)
-            {
-                int x = placement.OriginX + cells[index].X;
-                int y = placement.OriginY + cells[index].Y;
-                for (int socketIndex = 0; socketIndex < _boardDefinition.TraitSockets.Length; socketIndex++)
-                {
-                    if (_boardDefinition.TraitSockets[socketIndex].X == x &&
-                        _boardDefinition.TraitSockets[socketIndex].Y == y)
                         return true;
                 }
             }

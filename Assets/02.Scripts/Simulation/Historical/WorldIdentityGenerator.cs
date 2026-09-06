@@ -5,10 +5,10 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Historical
 {
-    /// <summary>Canonical ID에 World Seed별 고유 표시 이름을 결정론적으로 배정한다.</summary>
+    /// <summary>Canonical ID에 실제 연고지와 World Seed별 고유 선수명·구단 별칭을 결정론적으로 배정한다.</summary>
     public sealed class WorldIdentityGenerator
     {
-        public const string CurrentVersion = "world-identity-v1";
+        public const string CurrentVersion = "world-identity-v2";
 
         private const ulong DomesticPlayerStream = 0x504C415945524B52UL;
         private const ulong ForeignPlayerStream = 0x504C41594552464FUL;
@@ -57,13 +57,30 @@ namespace Baseball.Simulation.Historical
             string[] franchiseNames = Shuffle(names.FranchiseNames, worldSeed, FranchiseStream);
             var franchiseIdentities = new WorldFranchiseIdentity[franchiseIds.Length];
             for (int index = 0; index < franchiseIds.Length; index++)
-                franchiseIdentities[index] = new WorldFranchiseIdentity(franchiseIds[index], franchiseNames[index]);
+            {
+                string franchiseId = franchiseIds[index];
+                bool hasRegion = names.TryGetFranchiseRegion(franchiseId, out string region);
+                if (names.HasFranchiseRegions && !hasRegion)
+                    throw new InvalidOperationException($"Canonical Franchise의 실제 연고지 매핑이 없습니다: {franchiseId}");
+                string displayName = hasRegion
+                    ? ComposeFranchiseName(region, franchiseNames[index])
+                    : franchiseNames[index];
+                franchiseIdentities[index] = new WorldFranchiseIdentity(franchiseId, displayName);
+            }
 
             return new WorldIdentityRegistry(
                 CurrentVersion,
                 worldSeed,
                 playerIdentities,
                 franchiseIdentities);
+        }
+
+        private static string ComposeFranchiseName(string region, string nameCandidate)
+        {
+            int separatorIndex = nameCandidate.IndexOf(' ');
+            if (separatorIndex < 0 || separatorIndex == nameCandidate.Length - 1)
+                throw new InvalidOperationException($"구단 이름 후보에서 별칭을 찾을 수 없습니다: {nameCandidate}");
+            return region + nameCandidate.Substring(separatorIndex);
         }
 
         private static PlayerPersonDefinition[] CopyAndSortPersons(

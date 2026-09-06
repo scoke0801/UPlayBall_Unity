@@ -31,6 +31,7 @@ namespace Baseball.Simulation.Match
         public int GroundedIntoDoublePlays { get; internal set; }
         public int StolenBases { get; internal set; }
         public int CaughtStealing { get; internal set; }
+        public int BaserunningOuts { get; internal set; }
         public int SacrificeBunts { get; internal set; }
         public int IntentionalWalks { get; internal set; }
         public int ReachedOnErrors { get; internal set; }
@@ -62,6 +63,7 @@ namespace Baseball.Simulation.Match
         public int InheritedRunners { get; internal set; }
         public int InheritedRunnersScored { get; internal set; }
         public bool IsReliefAppearance { get; internal set; }
+        public bool HasWin { get; internal set; }
         public bool HasSave { get; internal set; }
         public bool HasHold { get; internal set; }
         public bool HasBlownSave { get; internal set; }

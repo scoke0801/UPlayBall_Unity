@@ -13,6 +13,27 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class TeamColorReferenceInspiredTests
     {
         [Test]
+        public void 자동선택은_순서에독립적이고_정체성중첩을_실제대상에게적용한다()
+        {
+            var roster = CreateRoster(index => CreateCard(index,
+                index < 14 ? PlayerRole.Hitter : PlayerRole.Pitcher));
+            var definitions = InitialTeamColorDefinitionFactory.CreateForRoster(roster).ToList();
+            var resolver = new TeamColorResolver();
+            var selected = resolver.SelectAutomatic(roster, definitions);
+            Assert.That(selected.All(value => value != null), Is.True);
+            Assert.That(selected.Select(value => value.TeamColorId).Distinct().Count(), Is.EqualTo(2));
+            var bonus = resolver.ApplyEquipped(roster, definitions, selected[0], selected[1]);
+            Assert.That(bonus.Get("card-0", PlayerAbility.Contact), Is.GreaterThan(0));
+            Assert.That(bonus.Get("card-24", PlayerAbility.Control), Is.GreaterThan(0));
+            roster.Reverse();
+            definitions.Reverse();
+            Assert.That(resolver.SelectAutomatic(roster, definitions).Select(value => value.TeamColorId),
+                Is.EqualTo(selected.Select(value => value.TeamColorId)));
+            Assert.That(resolver.SelectAutomatic(roster, Array.Empty<TeamColorDefinition>()),
+                Is.EqualTo(new TeamColorDefinition[2]));
+        }
+
+        [Test]
         public void 전체_팀컬러는_고유한_이름과_설명을_가진다()
         {
             IReadOnlyList<TeamColorDefinition> definitions =

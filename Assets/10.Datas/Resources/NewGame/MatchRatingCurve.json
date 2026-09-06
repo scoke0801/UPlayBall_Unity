@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "center": 50,
-  "slope": 0.3,
+  "center": 45,
+  "slope": 0.45,
   "softCap": 120,
   "hardCap": 140,
   "postSoftCapSlope": 0.5

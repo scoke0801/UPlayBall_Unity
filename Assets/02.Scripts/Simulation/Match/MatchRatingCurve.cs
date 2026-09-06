@@ -30,7 +30,8 @@ namespace Baseball.Simulation.Match
                     Map(b.Arm), Map(b.Defense), Map(b.Mental)),
                 new PitcherAttributes(Map(p.Stamina), Map(p.Velocity), Map(p.Stuff), Map(p.Breaking), Map(p.Control), Map(p.Mental)),
                 source.SecondaryPositions, source.Nationality, source.PitchRepertoire, source.TraitIds,
-                source.BakedPitcherAttributes, source.PermanentPitcherAttributes, true, source.UncurvedPitcherAttributes);
+                source.BakedPitcherAttributes, source.PermanentPitcherAttributes, true, source.UncurvedPitcherAttributes,
+                source.IsPositionEvidenceMissing);
         }
 
         /// <summary>교체 선수까지 같은 곡선을 거쳐 모든 DetailedMatch 소비를 일치시킨다.</summary>

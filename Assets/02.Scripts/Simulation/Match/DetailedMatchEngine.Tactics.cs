@@ -211,7 +211,9 @@ namespace Baseball.Simulation.Match
             else
             {
                 bases.First = default;
-                offense.BoxScore.GetBattingLine(runner.Player.PlayerId).CaughtStealing++;
+                PlayerBattingLine battingLine = offense.BoxScore.GetBattingLine(runner.Player.PlayerId);
+                battingLine.CaughtStealing++;
+                battingLine.BaserunningOuts++;
                 RecordOut(
                     state,
                     inning,

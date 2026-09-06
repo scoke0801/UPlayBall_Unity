@@ -7,7 +7,7 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Historical
 {
-    /// <summary>Award 확정 뒤 동일 OriginYear 선수풀에서 중복 없는 특수 합성팀 세 종류를 만든다.</summary>
+    /// <summary>Award 확정 뒤 동일 OriginYear 선수풀에서 중복 없는 특수 합성팀 후보를 만든다.</summary>
     public sealed class SpecialCompositeTeamBuilder
     {
         private readonly AwardScoringPolicy _scoringPolicy;
@@ -48,7 +48,8 @@ namespace Baseball.Simulation.Historical
             ValidateAwardPool(pool, goldenGloveAwardIds, WorldAwardType.GoldenGlove);
 
             var globallyAssigned = new HashSet<string>(StringComparer.Ordinal);
-            var teams = new SpecialCompositeTeamDefinition[3];
+            var teams = new SpecialCompositeTeamDefinition[
+                Enum.GetValues(typeof(SpecialCompositeTeamType)).Length];
             teams[0] = BuildTeam(
                 originYear,
                 SpecialCompositeTeamType.AllStarComposite,
@@ -68,6 +69,14 @@ namespace Baseball.Simulation.Historical
             teams[2] = BuildTeam(
                 originYear,
                 SpecialCompositeTeamType.YearSelectComposite,
+                pool,
+                EmptyAwardIds.Instance,
+                globallyAssigned,
+                cardCatalog,
+                useRandomAsPrimaryRank: true);
+            teams[3] = BuildTeam(
+                originYear,
+                SpecialCompositeTeamType.RandomSelectComposite,
                 pool,
                 EmptyAwardIds.Instance,
                 globallyAssigned,
@@ -180,6 +189,7 @@ namespace Baseball.Simulation.Historical
                 SpecialCompositeTeamType.AllStarComposite => PlayerCardEdition.AllStar,
                 SpecialCompositeTeamType.GoldenGloveComposite => PlayerCardEdition.GoldenGlove,
                 SpecialCompositeTeamType.YearSelectComposite => PlayerCardEdition.Normal,
+                SpecialCompositeTeamType.RandomSelectComposite => PlayerCardEdition.Normal,
                 _ => throw new ArgumentOutOfRangeException(nameof(teamType))
             };
             string preferredCardId = PlayerCardDefinition.CreateStableCardId(playerSeasonId, preferredEdition);
@@ -230,7 +240,7 @@ namespace Baseball.Simulation.Historical
             }
 
             if (best == null)
-                throw new InvalidOperationException("세 특수 합성팀의 공통 25인 역할 구성을 채울 적격 선수가 부족합니다.");
+            throw new InvalidOperationException("특수 합성팀의 공통 25인 역할 구성을 채울 적격 선수가 부족합니다.");
 
             selectedPlayerIds.Add(best.Player.PlayerSeasonId);
             selectedPersonIds.Add(best.Player.PlayerPersonId);

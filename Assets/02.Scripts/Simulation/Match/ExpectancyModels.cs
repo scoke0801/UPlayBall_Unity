@@ -7,6 +7,13 @@ namespace Baseball.Simulation.Match
     /// </summary>
     public sealed class RunExpectancy24
     {
+        // 외부로 배열을 노출하지 않는 불변 표이므로 모든 경기에서 공유해도 안전하다.
+        private static readonly RunExpectancy24 Default = new RunExpectancy24(new[]
+        {
+            0.48d, 0.86d, 1.10d, 1.43d, 1.34d, 1.78d, 1.98d, 2.25d,
+            0.25d, 0.51d, 0.66d, 0.91d, 0.92d, 1.16d, 1.37d, 1.55d,
+            0.10d, 0.22d, 0.32d, 0.43d, 0.36d, 0.50d, 0.59d, 0.76d
+        });
         private readonly double[] _values;
 
         public RunExpectancy24(double[] values)
@@ -28,12 +35,7 @@ namespace Baseball.Simulation.Match
         /// </summary>
         public static RunExpectancy24 CreateDefault()
         {
-            return new RunExpectancy24(new[]
-            {
-                0.48d, 0.86d, 1.10d, 1.43d, 1.34d, 1.78d, 1.98d, 2.25d,
-                0.25d, 0.51d, 0.66d, 0.91d, 0.92d, 1.16d, 1.37d, 1.55d,
-                0.10d, 0.22d, 0.32d, 0.43d, 0.36d, 0.50d, 0.59d, 0.76d
-            });
+            return Default;
         }
     }
 

@@ -26,17 +26,22 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(profile.HookSpeed, Is.EqualTo(50));
         }
 
-        [Test]
-        public void Configure_RejectsPolicyOutsideCurrentTrustRange()
+        [TestCase(0)]
+        [TestCase(4)]
+        public void Configure_AllowsExtremePoliciesBeforeAndAfterManagerChange(int level)
         {
             DugoutStaffCatalog catalog = DugoutStaffCatalog.CreateDefault();
             DugoutManagementState state = DugoutManagementState.CreateDefault();
 
-            Assert.Throws<System.InvalidOperationException>(() => state.Configure(
-                state.ManagerId,
-                state.HeadCoachId,
-                new DugoutPolicySettings(4, 2, 2, 2, 2, 2),
-                catalog));
+            var policy = new DugoutPolicySettings(level, level, level, level, level, level);
+            state.Configure(state.ManagerId, state.HeadCoachId, policy, catalog);
+            Assert.That(state.Policy, Is.EqualTo(policy));
+            Assert.That(state.AllowedPolicyOffset, Is.EqualTo(2));
+
+            state.Configure("MGR-ATTACK", state.HeadCoachId, policy, catalog);
+            Assert.That(state.Policy, Is.EqualTo(policy));
+            Assert.That(state.ManagerTrust, Is.EqualTo(DugoutManagementState.InitialTrust));
+            Assert.That(state.AllowedPolicyOffset, Is.EqualTo(2));
         }
 
         [Test]
@@ -55,7 +60,7 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void Trust_UnlocksSecondPolicyStepAfterFortyGames()
+        public void Trust_AccumulatesWithoutRestrictingPolicyRange()
         {
             DugoutManagementState state = DugoutManagementState.CreateDefault();
             for (int index = 0; index < 40; index++) state.RecordMatchCompleted();

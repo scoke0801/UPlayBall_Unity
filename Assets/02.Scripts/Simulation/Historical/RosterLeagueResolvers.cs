@@ -222,6 +222,14 @@ namespace Baseball.Simulation.Historical
         {
             if (player == null)
                 throw new ArgumentNullException(nameof(player));
+            if (player.IsPositionEvidenceMissing)
+            {
+                // 결측을 DH 전담으로 해석하면 오래된 시즌에만 컨디션·실책 비용이 누적된다.
+                if (!IsHitterPosition(assignedPosition))
+                    throw new ArgumentException("야수 수비 슬롯 또는 DH가 필요합니다.", nameof(assignedPosition));
+                if (rule == null) throw new ArgumentNullException(nameof(rule));
+                return PositionAssignmentPenalty.None;
+            }
             if (assignedPosition == PlayerPosition.DesignatedHitter || player.PrimaryPosition == assignedPosition)
                 return PositionAssignmentPenalty.None;
 

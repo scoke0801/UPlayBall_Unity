@@ -77,14 +77,15 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void Generate_후보가구단보다많으면Seed에따라연고지구성이달라진다()
+        public void Generate_Seed가달라도실제연고지는유지하고별칭만달라진다()
         {
             PlayerPersonDefinition[] persons = CreatePersons();
             TeamSeasonDefinition[] teams = CreateTeams();
             var names = new WorldIdentityNameCatalog(
                 new[] { "김도윤", "박현우", "이준혁", "최성민", "정재호" },
                 new[] { "Liam Carter", "Noah Bennett", "Ethan Foster" },
-                new[] { "서울 코멧츠", "부산 타이즈", "인천 하버스", "대구 포지", "광주 피닉스" });
+                new[] { "서울 코멧츠", "부산 타이즈", "인천 하버스", "대구 포지", "광주 피닉스" },
+                CreateFranchiseRegions());
             var generator = new WorldIdentityGenerator();
 
             WorldIdentityRegistry first = generator.Generate(persons, teams, names, 1UL);
@@ -92,7 +93,12 @@ namespace Baseball.Tests.EditMode.Simulation
             for (ulong seed = 2UL; seed <= 100UL; seed++)
             {
                 WorldIdentityRegistry other = generator.Generate(persons, teams, names, seed);
-                if (HasDifferentFranchiseNameSet(first, other))
+                Assert.That(other.GetFranchiseDisplayName("FRANCHISE-A"), Does.StartWith("서울 "));
+                Assert.That(other.GetFranchiseDisplayName("FRANCHISE-B"), Does.StartWith("서울 "));
+                if (!string.Equals(
+                        first.GetFranchiseDisplayName("FRANCHISE-A"),
+                        other.GetFranchiseDisplayName("FRANCHISE-A"),
+                        StringComparison.Ordinal))
                 {
                     foundDifferentSelection = true;
                     break;
@@ -128,18 +134,6 @@ namespace Baseball.Tests.EditMode.Simulation
                         StringComparison.Ordinal))
                     return true;
             }
-            return false;
-        }
-
-        private static bool HasDifferentFranchiseNameSet(
-            WorldIdentityRegistry first,
-            WorldIdentityRegistry second)
-        {
-            var names = new HashSet<string>(StringComparer.Ordinal);
-            for (int index = 0; index < first.FranchiseIdentities.Count; index++)
-                names.Add(first.FranchiseIdentities[index].DisplayName);
-            for (int index = 0; index < second.FranchiseIdentities.Count; index++)
-                if (!names.Contains(second.FranchiseIdentities[index].DisplayName)) return true;
             return false;
         }
 
@@ -190,7 +184,17 @@ namespace Baseball.Tests.EditMode.Simulation
             return new WorldIdentityNameCatalog(
                 new[] { "김도윤", "박현우", "이준혁", "최성민", "정재호" },
                 new[] { "Liam Carter", "Noah Bennett", "Ethan Foster" },
-                new[] { "서울 코멧츠", "부산 타이즈", "인천 하버스" });
+                new[] { "서울 코멧츠", "부산 타이즈", "인천 하버스" },
+                CreateFranchiseRegions());
+        }
+
+        private static WorldFranchiseRegionDefinition[] CreateFranchiseRegions()
+        {
+            return new[]
+            {
+                new WorldFranchiseRegionDefinition("FRANCHISE-A", "서울"),
+                new WorldFranchiseRegionDefinition("FRANCHISE-B", "서울")
+            };
         }
     }
 }

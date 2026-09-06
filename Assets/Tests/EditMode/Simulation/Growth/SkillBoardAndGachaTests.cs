@@ -235,7 +235,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
         }
 
         [Test]
-        public void PlaceBlock_회전과겹침을검증하고Socket위Trait만활성화한다()
+        public void PlaceBlock_회전과겹침을검증하고장착특성을활성화한다()
         {
             var trait = new SkillBlockDefinition(
                 "trait_l",
@@ -245,8 +245,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 true,
                 new[] { new AbilityChange(PlayerAbility.Contact, 2) },
                 120L,
-                "clutch_contact",
-                TraitSocketRule.CoversSocket);
+                "clutch_contact");
             var filler = new SkillBlockDefinition(
                 "filler",
                 SkillBlockRarity.Normal,
@@ -268,6 +267,24 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 service.PlaceBlock(state, fillerInstance.InstanceId, 0, 0, 0));
             Assert.That(service.GetAbilityBonus(state, PlayerAbility.Contact), Is.EqualTo(2));
             Assert.That(service.GetActiveTraitIds(state), Does.Contain("clutch_contact"));
+        }
+
+        [Test]
+        public void Trait_특수칸없이모든합법적위치에서같은효과를낸다()
+        {
+            var block = new SkillBlockDefinition("trait_o", SkillBlockRarity.Rare,
+                SkillBlockCategory.Contact, TetrominoShapeCatalog.CreateCells(TetrominoShape.O),
+                false, new[] { new AbilityChange(PlayerAbility.Contact, 2) }, 120L, "clutch_contact");
+            var service = new SkillBoardService(SkillBoardDefinition.CreateDefault(), new[] { block });
+            for (int y = 0; y <= 2; y++)
+            for (int x = 0; x <= 2; x++)
+            {
+                var state = new SkillBoardState("standard_4x4");
+                SkillBlockInstance instance = state.AddOwnedBlock(block.BlockId);
+                service.PlaceBlock(state, instance.InstanceId, x, y, 0);
+                Assert.That(service.GetActiveTraitIds(state), Is.EqualTo(new[] { "clutch_contact" }), $"{x},{y}");
+                Assert.That(service.GetAbilityBonus(state, PlayerAbility.Contact), Is.EqualTo(2));
+            }
         }
 
         [Test]

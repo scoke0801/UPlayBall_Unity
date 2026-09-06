@@ -8,6 +8,40 @@ namespace Baseball.Simulation.Historical
     /// <summary>검증된 25인 로스터에서 팀컬러 후보와 카드별 2슬롯 보너스를 계산한다.</summary>
     public sealed class TeamColorResolver
     {
+        /// <summary>현재 로스터의 실제 대상자별 능력치 가산 합계가 큰 팀컬러를 최대 두 개 선택한다.</summary>
+        public TeamColorDefinition[] SelectAutomatic(
+            IReadOnlyList<TeamColorRosterCard> roster,
+            IReadOnlyList<TeamColorDefinition> definitions)
+        {
+            var candidates = new List<TeamColorCandidate>(Resolve(roster, definitions));
+            // 동일 점수는 ID로 고정해 카탈로그·로스터 순서나 난수 소비에 영향을 받지 않는다.
+            candidates.Sort((left, right) =>
+            {
+                int comparison = CalculateRosterBonus(right.Definition, roster)
+                    .CompareTo(CalculateRosterBonus(left.Definition, roster));
+                return comparison != 0 ? comparison :
+                    string.CompareOrdinal(left.Definition.TeamColorId, right.Definition.TeamColorId);
+            });
+            var selected = new TeamColorDefinition[LineupPresetState.TeamColorSlotCount];
+            for (int index = 0; index < selected.Length && index < candidates.Count; index++)
+                selected[index] = candidates[index].Definition;
+            return selected;
+        }
+
+        private static int CalculateRosterBonus(TeamColorDefinition definition,
+            IReadOnlyList<TeamColorRosterCard> roster)
+        {
+            int total = 0;
+            for (int index = 0; index < roster.Count; index++)
+            {
+                if (!definition.IsEligible(roster[index])) continue;
+                TeamColorStatBonus bonus = definition.GetBonus(roster[index].Role);
+                for (int ability = 0; ability < PlayerAbilityCatalog.AbilityCount; ability++)
+                    total += bonus.Get((PlayerAbility)ability);
+            }
+            return total;
+        }
+
         public IReadOnlyList<TeamColorCandidate> Resolve(
             CurrentRosterState activeRoster,
             WorldCardCatalog catalog,

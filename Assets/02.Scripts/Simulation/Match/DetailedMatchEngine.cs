@@ -136,10 +136,10 @@ namespace Baseball.Simulation.Match
 
             Emit(state, MatchEventType.MatchEnded, inning, InningHalf.Bottom);
             int runMargin = Math.Abs(state.Away.BoxScore.Runs - state.Home.BoxScore.Runs);
-            state.Away.FinalizeReliefDecisions(
+            state.Away.FinalizePitchingDecisions(
                 state.Away.BoxScore.Runs > state.Home.BoxScore.Runs,
                 runMargin);
-            state.Home.FinalizeReliefDecisions(
+            state.Home.FinalizePitchingDecisions(
                 state.Home.BoxScore.Runs > state.Away.BoxScore.Runs,
                 runMargin);
             MatchEvent[] events = capturedEvents == null ||

@@ -251,7 +251,7 @@ namespace Baseball.Simulation.Match
                 }
                 else if (decision.ShouldAttempt)
                 {
-                    RecordRunnerThrownOut(state, inning, half, defense, second, 2, 4, tracker, ref outs);
+                    RecordRunnerThrownOut(state, inning, half, offense, defense, second, 2, 4, tracker, ref outs);
                 }
                 else
                 {
@@ -276,7 +276,7 @@ namespace Baseball.Simulation.Match
                 }
                 else if (!bases.Third.IsOccupied && decision.ShouldAttempt)
                 {
-                    RecordRunnerThrownOut(state, inning, half, defense, first, 1, 3, tracker, ref outs);
+                    RecordRunnerThrownOut(state, inning, half, offense, defense, first, 1, 3, tracker, ref outs);
                 }
                 else
                 {
@@ -338,7 +338,7 @@ namespace Baseball.Simulation.Match
                 }
                 else if (decision.ShouldAttempt)
                 {
-                    RecordRunnerThrownOut(state, inning, half, defense, first, 1, 4, tracker, ref outs);
+                    RecordRunnerThrownOut(state, inning, half, offense, defense, first, 1, 4, tracker, ref outs);
                 }
                 else
                 {
@@ -540,7 +540,7 @@ namespace Baseball.Simulation.Match
             {
                 DetailedBaseRunner runner = bases.Third;
                 bases.Third = default;
-                RecordRunnerThrownOut(state, inning, half, defense, runner, 3, 4, tracker, ref outs);
+                RecordRunnerThrownOut(state, inning, half, offense, defense, runner, 3, 4, tracker, ref outs);
             }
             return 0;
         }
@@ -588,7 +588,7 @@ namespace Baseball.Simulation.Match
                 battingLine.SacrificeFlies++;
                 return 1;
             }
-            RecordRunnerThrownOut(state, inning, half, defense, runner, 3, 4, tracker, ref outs);
+            RecordRunnerThrownOut(state, inning, half, offense, defense, runner, 3, 4, tracker, ref outs);
             battingLine.AtBats++;
             return 0;
         }
@@ -669,6 +669,7 @@ namespace Baseball.Simulation.Match
             DetailedMatchState state,
             int inning,
             InningHalf half,
+            DetailedTeamGameState offense,
             DetailedTeamGameState defense,
             DetailedBaseRunner runner,
             int fromBase,
@@ -676,6 +677,7 @@ namespace Baseball.Simulation.Match
             EarnedRunTracker tracker,
             ref int outs)
         {
+            offense.BoxScore.GetBattingLine(runner.Player.PlayerId).BaserunningOuts++;
             RecordOut(state, inning, half, defense, runner.Player.PlayerId,
                 PlateAppearanceResult.None, tracker, ref outs);
             Emit(state, MatchEventType.RunnerThrownOut, inning, half,
