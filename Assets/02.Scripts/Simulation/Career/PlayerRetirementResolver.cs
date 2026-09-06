@@ -15,7 +15,6 @@ namespace Baseball.Simulation.Career
             RetirementPersonality personality,
             int recentAbilityDecline = 0,
             double recentAppearanceRate = 1d,
-            bool hasLongTermInjury = false,
             bool hasContractRemaining = false,
             bool isMilestonePursuit = false,
             bool isChampionshipContender = false,
@@ -31,7 +30,6 @@ namespace Baseball.Simulation.Career
             Personality = personality;
             RecentAbilityDecline = recentAbilityDecline;
             RecentAppearanceRate = recentAppearanceRate;
-            HasLongTermInjury = hasLongTermInjury;
             HasContractRemaining = hasContractRemaining;
             IsMilestonePursuit = isMilestonePursuit;
             IsChampionshipContender = isChampionshipContender;
@@ -44,7 +42,6 @@ namespace Baseball.Simulation.Career
         public RetirementPersonality Personality { get; }
         public int RecentAbilityDecline { get; }
         public double RecentAppearanceRate { get; }
-        public bool HasLongTermInjury { get; }
         public bool HasContractRemaining { get; }
         public bool IsMilestonePursuit { get; }
         public bool IsChampionshipContender { get; }
@@ -114,7 +111,6 @@ namespace Baseball.Simulation.Career
             double playingTimeContribution = input.RecentAppearanceRate < 0.35d
                 ? (0.35d - input.RecentAppearanceRate) * 0.30d
                 : 0d;
-            double injuryContribution = input.HasLongTermInjury ? 0.12d : 0d;
             double contractContribution = input.HasContractRemaining ? -0.08d : 0d;
             double milestoneContribution = input.IsMilestonePursuit ? -0.07d : 0d;
             double contenderContribution = input.IsChampionshipContender ? -0.05d : 0d;
@@ -129,7 +125,7 @@ namespace Baseball.Simulation.Career
                 _ => 0d
             };
             double probability = ageContribution + abilityContribution + declineContribution +
-                playingTimeContribution + injuryContribution + contractContribution + milestoneContribution +
+                playingTimeContribution + contractContribution + milestoneContribution +
                 contenderContribution + franchiseContribution + demandContribution + personalityContribution;
             if (probability < 0d) probability = 0d;
             if (probability > 1d) probability = 1d;
@@ -140,13 +136,12 @@ namespace Baseball.Simulation.Career
                 CreateFactor(DecisionReasonCode.StableAbility, input.Overall, abilityContribution, 2),
                 CreateFactor(DecisionReasonCode.AbilityDecline, input.RecentAbilityDecline, declineContribution, 3),
                 CreateFactor(DecisionReasonCode.PlayingTime, input.RecentAppearanceRate, playingTimeContribution, 4),
-                CreateFactor(DecisionReasonCode.LongTermInjury, input.HasLongTermInjury ? 1d : 0d, injuryContribution, 5),
-                CreateFactor(DecisionReasonCode.ContractRemaining, input.HasContractRemaining ? 1d : 0d, contractContribution, 6),
-                CreateFactor(DecisionReasonCode.MilestonePursuit, input.IsMilestonePursuit ? 1d : 0d, milestoneContribution, 7),
-                CreateFactor(DecisionReasonCode.ChampionshipWindow, input.IsChampionshipContender ? 1d : 0d, contenderContribution, 8),
-                CreateFactor(DecisionReasonCode.FranchiseLoyalty, input.IsFranchiseTeam ? 1d : 0d, franchiseContribution, 9),
-                CreateFactor(DecisionReasonCode.VeteranDemand, input.HasVeteranDemand ? 1d : 0d, demandContribution, 10),
-                CreateFactor(DecisionReasonCode.Personality, (int)input.Personality, personalityContribution, 11)
+                CreateFactor(DecisionReasonCode.ContractRemaining, input.HasContractRemaining ? 1d : 0d, contractContribution, 5),
+                CreateFactor(DecisionReasonCode.MilestonePursuit, input.IsMilestonePursuit ? 1d : 0d, milestoneContribution, 6),
+                CreateFactor(DecisionReasonCode.ChampionshipWindow, input.IsChampionshipContender ? 1d : 0d, contenderContribution, 7),
+                CreateFactor(DecisionReasonCode.FranchiseLoyalty, input.IsFranchiseTeam ? 1d : 0d, franchiseContribution, 8),
+                CreateFactor(DecisionReasonCode.VeteranDemand, input.HasVeteranDemand ? 1d : 0d, demandContribution, 9),
+                CreateFactor(DecisionReasonCode.Personality, (int)input.Personality, personalityContribution, 10)
             };
             DecisionReasonCode summary = DecisionReasonCode.AgeCurve;
             double strongest = Math.Abs(ageContribution);

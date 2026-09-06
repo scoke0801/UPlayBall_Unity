@@ -209,7 +209,6 @@ namespace Baseball.Game.Career
             return reason switch
             {
                 RetirementReason.DeclaredFinalSeason => "declared_final_season",
-                RetirementReason.Medical => "medical",
                 RetirementReason.Unsigned => "unsigned",
                 _ => "voluntary"
             };

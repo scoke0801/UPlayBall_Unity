@@ -27,15 +27,14 @@ namespace Baseball.Game.Career
         }
 
         /// <summary>새 시즌 계약 역할을 열고 스프링캠프 경쟁 결과를 즉시 적용한다.</summary>
-        public CareerRoleEvaluationRecord BeginSeason(bool requiresInjuryReturnObservation)
+        public CareerRoleEvaluationRecord BeginSeason()
         {
             SeasonState season = _career.CurrentLeague.CurrentSeason;
             ExpectedRole contractedRole = _career.TradeState.CurrentTeamRole ??
                                           _career.CurrentContract.ExpectedRole;
             _career.RoleState.BeginSeason(
                 season.SeasonId,
-                contractedRole,
-                requiresInjuryReturnObservation);
+                contractedRole);
             return Evaluate(0, CareerRoleEvaluationTrigger.SpringCamp);
         }
 
@@ -157,10 +156,7 @@ namespace Baseball.Game.Career
                     return CalculatePerformance(previous.Statistics);
             }
 
-            // 부상 복귀 평가는 결장을 0점으로 보지 않고 중립 표본으로 처리한다.
-            return trigger == CareerRoleEvaluationTrigger.InjuryReturn
-                ? 55d
-                : _career.MyPlayer.ManagerEvaluation;
+            return _career.MyPlayer.ManagerEvaluation;
         }
 
         private double CalculatePerformance(PlayerSeasonStatisticsState statistics)

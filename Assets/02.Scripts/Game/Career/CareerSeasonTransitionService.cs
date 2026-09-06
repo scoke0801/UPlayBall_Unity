@@ -322,10 +322,8 @@ namespace Baseball.Game.Career
         {
             LeagueState completedLeague = _career.CurrentLeague;
             SeasonState completedSeason = completedLeague.CurrentSeason;
-            bool requiresInjuryReturnObservation = _career.CurrentOffseason.MandatoryRehabWeeks > 0;
             _career.CurrentOffseason.CompleteRemainingWeeks();
             _career.MyPlayer.GrowthState.ApplyOffseasonRecoveryBenefits(
-                _career.CurrentOffseason.NextSeasonInjuryRiskReduction,
                 _career.CurrentOffseason.PhysicalDeclineProtectionPoints);
             completedSeason.CompleteArchive();
 
@@ -518,7 +516,7 @@ namespace Baseball.Game.Career
             using (RoleEvaluationMarker.Auto())
             {
                 new CareerRoleEvaluationService(_career, _balance)
-                    .BeginSeason(requiresInjuryReturnObservation);
+                    .BeginSeason();
             }
             if (_career.MyPlayer.Age >= _balance.PlayerLifecycle.GuaranteedRetirementAge &&
                 !_career.Retirement.IsFinalSeasonDeclared)
@@ -1387,8 +1385,7 @@ namespace Baseball.Game.Career
             PlayerGrowthState growth = _career.MyPlayer.GrowthState;
             if (growth == null)
                 return 75d;
-            int injuryPenalty = Math.Min(20, growth.InjuryHistory.Count * 3);
-            return Clamp(growth.Durability - injuryPenalty, 0d, 100d);
+            return Clamp(growth.Durability, 0d, 100d);
         }
 
         private SeasonState RequireOffseasonSeason()

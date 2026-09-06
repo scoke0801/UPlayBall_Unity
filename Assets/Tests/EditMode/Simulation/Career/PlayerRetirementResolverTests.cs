@@ -93,8 +93,7 @@ namespace Baseball.Tests.EditMode.Simulation.Career
                 overall: 48,
                 RetirementPersonality.Ambitious,
                 recentAbilityDecline: 4,
-                recentAppearanceRate: 0.2d,
-                hasLongTermInjury: true);
+                recentAppearanceRate: 0.2d);
 
             RetirementEvaluationResult result = new PlayerRetirementResolver(
                     PlayerLifecycleBalance.CreateDefault(),
