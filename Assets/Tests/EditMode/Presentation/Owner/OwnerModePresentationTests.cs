@@ -38,6 +38,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(profile.Navigation.Entries[3].RouteId, Is.EqualTo(OwnerNavigationRoutes.Dugout));
             Assert.That(profile.Navigation.Entries[4].RouteId, Is.EqualTo(OwnerNavigationRoutes.Club));
             Assert.That(profile.Navigation.Entries[5].RouteId, Is.EqualTo(OwnerNavigationRoutes.League));
+            Assert.That(profile.Navigation.Entries[4].Children[0].RouteId,
+                Is.EqualTo(OwnerNavigationRoutes.ClubOwner));
+            Assert.That(profile.Navigation.Entries[4].Children[1].RouteId,
+                Is.EqualTo(OwnerNavigationRoutes.ClubInformation));
             Assert.That(profile.Navigation.FindEntry("Owner.Scout"), Is.Null);
             Assert.That(profile.Navigation.FindEntry("Owner.Development"), Is.Null);
             Assert.That(profile.Navigation.FindEntry("Owner.Tactic"), Is.Null);

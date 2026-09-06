@@ -13,6 +13,7 @@ namespace Baseball.Presentation.Owner
         public const string StaffOfficeRouteId = "Owner.Club.Staff";
         public const string RosterLineupRouteId = "Owner.Roster.Lineup";
         public const string CollectionRouteId = "Owner.Roster.Collection";
+        public const string ShopRouteId = "Owner.Shop";
 
         private SharedUI.SharedGameShellView _shell;
         private UI_Scene_OwnerPregame _pregameView;
@@ -22,6 +23,7 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerRosterLineup _rosterLineupView;
         private UI_Scene_OwnerCollection _collectionView;
         private UI_Scene_OwnerDugout _dugoutView;
+        private Shop.UI_Scene_Shop _shopView;
         private RectTransform _lockedWorkspaceRoot;
         private OwnerPregamePresentationModel _pregameModel;
         private OwnerStaffOfficePresentationModel _staffModel;
@@ -44,6 +46,8 @@ namespace Baseball.Presentation.Owner
         public event Action<string> LineupPresetSelected;
         public event Action<int> TeamColorSlotCycleRequested;
         public event Action<int> TacticSlotCycleRequested;
+        public event Action<string> ShopPurchaseRequested;
+        public event Action<string> ShopDetailsRequested;
 
         public string ActiveRouteId { get; private set; } = string.Empty;
 
@@ -102,6 +106,13 @@ namespace Baseball.Presentation.Owner
             _collectionView.Bind(snapshot);
         }
 
+        public void BindShop(Shop.ShopScreenSnapshot snapshot)
+        {
+            RequireInitialized();
+            EnsureShopView();
+            _shopView.Bind(snapshot);
+        }
+
         /// <summary>다음 경기 Snapshot이 없을 때 이전 경기 준비 화면을 다시 열지 않도록 폐기한다.</summary>
         public void ClearMatchPreparation()
         {
@@ -154,6 +165,13 @@ namespace Baseball.Presentation.Owner
             return false;
         }
 
+        /// <summary>상점 구매 결과를 상점 화면 안내 줄에 표시한다.</summary>
+        public void SetShopFeedback(string message, bool isError)
+        {
+            if (_shopView != null)
+                _shopView.SetFeedback(message, isError);
+        }
+
         /// <summary>Owner Route Registry가 승인한 Route만 현재 Shell 슬롯에 표시한다.</summary>
         public bool TryShowRoute(string routeId)
         {
@@ -175,6 +193,20 @@ namespace Baseball.Presentation.Owner
                 _shell.BindContext(new SharedUI.ShellContextModel(
                     navigationRouteId, "덕아웃", "작전 방침과 감독·코치 카드를 확인합니다.", "구단주 모드"));
                 _shell.SetContextHeaderVisible(false);
+                ActiveRouteId = navigationRouteId;
+                return true;
+            }
+            if (string.Equals(workspaceRouteId, ShopRouteId, StringComparison.Ordinal) && _shopView != null)
+            {
+                SetAllViewsVisible(false);
+                _shopView.SetVisible(true);
+                _shell.SetInspectorVisible(false);
+                _shell.SetActionBarVisible(false);
+                _shell.BindContext(new SharedUI.ShellContextModel(
+                    navigationRouteId,
+                    "상점",
+                    "선수 카드·스킬 블록·작전 카드를 구매합니다.",
+                    "구단주 모드"));
                 ActiveRouteId = navigationRouteId;
                 return true;
             }
@@ -351,6 +383,12 @@ namespace Baseball.Presentation.Owner
                 DestroyView(_collectionView);
             if (_dugoutView != null)
                 DestroyView(_dugoutView);
+            if (_shopView != null)
+            {
+                _shopView.PurchaseRequested -= HandleShopPurchaseRequested;
+                _shopView.DetailsRequested -= HandleShopDetailsRequested;
+                DestroyView(_shopView);
+            }
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_lockedWorkspaceRoot);
         }
 
@@ -413,6 +451,15 @@ namespace Baseball.Presentation.Owner
             _rosterLineupView.SetVisible(false);
         }
 
+        private void EnsureShopView()
+        {
+            if (_shopView != null) return;
+            _shopView = Shop.UI_Scene_Shop.CreateRuntime(_shell.MainWorkspaceHost);
+            _shopView.PurchaseRequested += HandleShopPurchaseRequested;
+            _shopView.DetailsRequested += HandleShopDetailsRequested;
+            _shopView.SetVisible(false);
+        }
+
         private void EnsureCollectionView()
         {
             if (_collectionView != null) return;
@@ -452,9 +499,12 @@ namespace Baseball.Presentation.Owner
             if (_rosterLineupView != null) _rosterLineupView.SetVisible(visible);
             if (_collectionView != null) _collectionView.SetVisible(visible);
             if (_dugoutView != null) _dugoutView.SetVisible(visible);
+            if (_shopView != null) _shopView.SetVisible(visible);
             if (_lockedWorkspaceRoot != null) _lockedWorkspaceRoot.gameObject.SetActive(visible);
         }
 
+        private void HandleShopPurchaseRequested(string productId) => ShopPurchaseRequested?.Invoke(productId);
+        private void HandleShopDetailsRequested(string productId) => ShopDetailsRequested?.Invoke(productId);
         private void HandlePresetSelected(string presetId) => PregamePresetSelected?.Invoke(presetId);
         private void HandleMatchStartRequested() => MatchStartRequested?.Invoke();
         private void HandleStaffOfferSelected(string offerId) => StaffOfferSelected?.Invoke(offerId);

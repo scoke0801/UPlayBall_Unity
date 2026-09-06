@@ -4,10 +4,14 @@ using Baseball.Core.Historical;
 using Baseball.Game.Career;
 using Baseball.Game.Diagnostics;
 using Baseball.Game.Historical;
+using Baseball.Core.Shop;
 using Baseball.Game.Manager;
+using Baseball.Game.Shop;
 using Baseball.Game.SceneFlow;
 using Baseball.Presentation.Career;
 using Baseball.Presentation.Match;
+using Baseball.Presentation.SharedScreens;
+using Baseball.Presentation.Shop;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
@@ -35,6 +39,9 @@ namespace Baseball.Presentation.Owner
         private OwnerExpansionWorkspaceCoordinator _expansionWorkspace;
         private OwnerSharedInformationWorkspaceCoordinator _sharedInformationWorkspace;
         private GameModeNavigationState _navigationState;
+        private readonly ShopPurchaseHistoryState _shopHistory = new ShopPurchaseHistoryState();
+        private readonly TacticCollectionState _tacticCollection = new TacticCollectionState();
+        private ShopService _shopService;
         private bool _hasAppliedExclusivePresentation;
         private bool _isOwnerMatchVisible;
         private bool _isTransitioningToOwnerMatch;
@@ -490,6 +497,8 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.LineupPresetSelected += HandlePresetSelected;
             _expansionWorkspace.TeamColorSlotCycleRequested += HandleTeamColorSlotCycleRequested;
             _expansionWorkspace.TacticSlotCycleRequested += HandleTacticSlotCycleRequested;
+            _expansionWorkspace.ShopPurchaseRequested += HandleShopPurchaseRequested;
+            _expansionWorkspace.ShopDetailsRequested += HandleShopDetailsRequested;
         }
 
         private void EnsureSharedInformationWorkspace()
@@ -520,12 +529,15 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.LineupPresetSelected -= HandlePresetSelected;
             _expansionWorkspace.TeamColorSlotCycleRequested -= HandleTeamColorSlotCycleRequested;
             _expansionWorkspace.TacticSlotCycleRequested -= HandleTacticSlotCycleRequested;
+            _expansionWorkspace.ShopPurchaseRequested -= HandleShopPurchaseRequested;
+            _expansionWorkspace.ShopDetailsRequested -= HandleShopDetailsRequested;
         }
 
         private void BindExpansionSnapshots()
         {
             _expansionWorkspace.BindRosterLineup(_snapshotFactory.CreateRosterLineup(_manager));
             _expansionWorkspace.BindCollection(_snapshotFactory.CreateCollection(_manager));
+            BindShopSnapshot();
             _expansionWorkspace.BindClubOperation(_snapshotFactory.CreateClubOperation(_manager));
             _expansionWorkspace.BindStaffOffice(_snapshotFactory.CreateStaffOffice(_manager));
             if (_manager.Runtime.ManagerMode.LiveSeason.NextPlayerGame != null)
@@ -542,14 +554,72 @@ namespace Baseball.Presentation.Owner
                 _navigationState.Navigate(HomeRouteId);
         }
 
+        /// <summary>구매로 재화·보유 상태가 바뀔 때마다 상점 타일을 다시 판정해 표시한다.</summary>
+        private void BindShopSnapshot()
+        {
+            _shopService = OwnerShopComposer.Create(_manager, _shopHistory, _tacticCollection);
+            _expansionWorkspace.BindShop(ShopPresentationModel.CreateSnapshot(_shopService));
+        }
+
+        private void HandleShopPurchaseRequested(string productId)
+        {
+            if (_shopService == null)
+                return;
+
+            ShopPurchaseResult result = _shopService.Purchase(productId);
+            BindShopSnapshot();
+            _expansionWorkspace.SetShopFeedback(
+                result.IsSuccess ? DescribePurchase(result) : result.FailureMessage,
+                !result.IsSuccess);
+        }
+
+        private void HandleShopDetailsRequested(string productId)
+        {
+            if (_shopService == null || !_shopService.TryGetQuote(productId, out ShopPurchaseQuote quote))
+                return;
+
+            _expansionWorkspace.SetShopFeedback(DescribeQuote(quote), false);
+        }
+
+        private static string DescribePurchase(ShopPurchaseResult result)
+        {
+            var builder = new System.Text.StringBuilder("획득: ");
+            for (int index = 0; index < result.Items.Length; index++)
+            {
+                if (index > 0)
+                    builder.Append(", ");
+                ShopGrantedItem item = result.Items[index];
+                builder.Append(item.DisplayName).Append('(').Append(item.GradeLabel).Append(')');
+                if (!item.IsNew)
+                    builder.Append(" 중복");
+            }
+            return builder.ToString();
+        }
+
+        private static string DescribeQuote(ShopPurchaseQuote quote)
+        {
+            ShopProductDefinition product = quote.Product;
+            var builder = new System.Text.StringBuilder();
+            builder.Append(product.DisplayName).Append(" · ").Append(product.DrawCount).Append("회 · ")
+                .Append(ShopCurrencyNames.GetSymbol(product.Currency)).Append(' ')
+                .Append(product.Price.ToString("N0"));
+            if (quote.RemainingPurchases != ShopPurchaseQuote.UnlimitedPurchases)
+                builder.Append(" · 남은 구매 ").Append(quote.RemainingPurchases).Append("회");
+            return builder.ToString();
+        }
+
         private void BindSharedInformationSnapshots()
         {
-            _sharedInformationWorkspace.BindSchedule(
-                _sharedInformationSnapshotFactory.CreateSchedule(_manager),
-                _profile.Capabilities);
+            ScheduleScreenSnapshot schedule = _sharedInformationSnapshotFactory.CreateSchedule(_manager);
+            _sharedInformationWorkspace.BindSchedule(schedule, _profile.Capabilities);
             _sharedInformationWorkspace.BindHistoricalRecords(
                 _sharedInformationSnapshotFactory.CreateHistoricalBattingRecords(_manager),
                 _profile.Capabilities);
+            _sharedInformationWorkspace.BindClubInformation(new OwnerClubInformationPresentationModel(
+                _snapshotFactory.CreateHome(_manager),
+                _snapshotFactory.CreateCollection(_manager),
+                _snapshotFactory.CreateClubOperation(_manager),
+                schedule));
         }
 
         private void HandleLineupSwapRequested(

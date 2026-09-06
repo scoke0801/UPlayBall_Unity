@@ -89,7 +89,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void NavigationState_MatchCenter종료시Home과Schedule진입점을복원한다()
+        public void NavigationState_MatchCenter종료시Home과LeagueTab진입점을복원한다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
             var state = new GameModeNavigationState(profile, OwnerNavigationRoutes.Home);
@@ -99,11 +99,11 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(state.TryBack(out string homeOrigin), Is.True);
             Assert.That(homeOrigin, Is.EqualTo(OwnerNavigationRoutes.Home));
 
-            state.Navigate(OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId);
+            state.Navigate(OwnerNavigationRoutes.LeagueStandings);
             state.OpenContext(OwnerNavigationRoutes.MatchCenterAnalysis);
             state.NavigateContext(OwnerNavigationRoutes.MatchCenterCondition);
-            Assert.That(state.TryBack(out string scheduleOrigin), Is.True);
-            Assert.That(scheduleOrigin, Is.EqualTo(OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId));
+            Assert.That(state.TryBack(out string leagueOrigin), Is.True);
+            Assert.That(leagueOrigin, Is.EqualTo(OwnerNavigationRoutes.LeagueStandings));
         }
 
         private static void AssertEnabled(GameModeUiProfile profile, string routeId)

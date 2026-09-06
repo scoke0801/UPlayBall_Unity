@@ -5,18 +5,29 @@ using UnityEngine;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>공용 Schedule/Records Snapshot과 Owner 전용 읽기 Action 정책을 Shell Workspace에 합성한다.</summary>
+    /// <summary>Owner 리그·구단 정보 Snapshot과 읽기 전용 Action 정책을 Shell Workspace에 합성한다.</summary>
     [DisallowMultipleComponent]
     public sealed class OwnerSharedInformationWorkspaceCoordinator : MonoBehaviour
     {
+        private static readonly string[] LeagueRouteIds =
+        {
+            OwnerNavigationRoutes.LeagueStandings,
+            OwnerNavigationRoutes.LeagueTeamResults,
+            OwnerNavigationRoutes.LeagueMatchups,
+            OwnerNavigationRoutes.LeagueRankHistory
+        };
+        private static readonly string[] LeagueTabLabels = { "순위표", "구단 성적", "대전 결과", "순위 변화" };
         public const string ScheduleRouteId = "Shared.League.Schedule";
         public const string RecordsRouteId = "Shared.League.Records";
 
         private SharedGameShellView _shell;
         private UI_Scene_OwnerSharedInformation _scheduleView;
         private UI_Scene_OwnerSharedInformation _recordsView;
+        private UI_Scene_OwnerLeague _leagueView;
+        private UI_Scene_OwnerClubInformation _clubInformationView;
         private SharedScreenPresentationModel<ScheduleScreenSnapshot> _scheduleModel;
         private SharedScreenPresentationModel<RecordsScreenSnapshot> _recordsModel;
+        private OwnerClubInformationPresentationModel _clubInformationModel;
 
         public event Action NextMatchAnalysisRequested;
 
@@ -51,6 +62,13 @@ namespace Baseball.Presentation.Owner
                 OwnerReadOnlySharedScreenActionProvider.Instance);
             EnsureScheduleView();
             _scheduleView.BindSchedule(_scheduleModel);
+            if (_leagueView == null)
+            {
+                _leagueView = UI_Scene_OwnerLeague.CreateRuntime(_shell.MainWorkspaceHost);
+                _leagueView.gameObject.SetActive(false);
+            }
+            if (snapshot != null)
+                _leagueView.Bind(new OwnerLeaguePresentationModel(snapshot));
         }
 
         /// <summary>확정 WorldHistory 기록 Snapshot을 읽기 전용 Action Provider와 합성한다.</summary>
@@ -78,10 +96,44 @@ namespace Baseball.Presentation.Owner
             _recordsView.BindRecords(_recordsModel);
         }
 
+        /// <summary>현재 구단의 구단주·구단 정보 화면을 실제 진행 Snapshot으로 갱신한다.</summary>
+        public void BindClubInformation(OwnerClubInformationPresentationModel model)
+        {
+            RequireInitialized();
+            _clubInformationModel = model ?? throw new ArgumentNullException(nameof(model));
+            if (_clubInformationView == null)
+            {
+                _clubInformationView = UI_Scene_OwnerClubInformation.CreateRuntime(_shell.MainWorkspaceHost);
+                _clubInformationView.gameObject.SetActive(false);
+            }
+            _clubInformationView.Bind(model);
+        }
+
         /// <summary>실제 Snapshot이 연결된 Owner 공용 정보 Route만 표시한다.</summary>
         public bool TryShowRoute(string routeId)
         {
             RequireInitialized();
+            if ((string.Equals(routeId, OwnerNavigationRoutes.ClubOwner, StringComparison.Ordinal) ||
+                 string.Equals(routeId, OwnerNavigationRoutes.ClubInformation, StringComparison.Ordinal)) &&
+                _clubInformationView != null && _clubInformationModel != null)
+            {
+                HideAll();
+                bool showOwner = string.Equals(routeId, OwnerNavigationRoutes.ClubOwner, StringComparison.Ordinal);
+                _clubInformationView.ShowTab(showOwner);
+                ShowContext(routeId, showOwner ? "구단주 정보" : "구단 정보",
+                    "현재 시즌 구단 구성과 성적을 확인합니다.");
+                ActiveRouteId = routeId;
+                return true;
+            }
+            int tab = Array.IndexOf(LeagueRouteIds, routeId);
+            if (tab >= 0 && _leagueView != null && _scheduleModel?.Snapshot != null)
+            {
+                HideAll();
+                _leagueView.ShowTab(tab);
+                ShowContext(routeId, LeagueTabLabels[tab], string.Empty);
+                ActiveRouteId = routeId;
+                return true;
+            }
             if (string.Equals(routeId, ScheduleRouteId, StringComparison.Ordinal) && _scheduleModel != null)
             {
                 HideAll();
@@ -110,6 +162,8 @@ namespace Baseball.Presentation.Owner
                 return;
             _scheduleView?.SetVisible(false);
             _recordsView?.SetVisible(false);
+            if (_leagueView != null) _leagueView.gameObject.SetActive(false);
+            if (_clubInformationView != null) _clubInformationView.gameObject.SetActive(false);
             ActiveRouteId = string.Empty;
         }
 

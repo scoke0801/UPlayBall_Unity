@@ -47,10 +47,12 @@ namespace Baseball.Presentation.Owner
                     game.Round.ToString(CultureInfo.InvariantCulture) + "라운드",
                     new ScheduleTeamSnapshot(
                         awayKey,
-                        teamDisplayNameResolver(awayKey)),
+                        teamDisplayNameResolver(awayKey),
+                        "TeamEmblem/" + game.AwayTeamId.ToString(CultureInfo.InvariantCulture)),
                     new ScheduleTeamSnapshot(
                         homeKey,
-                        teamDisplayNameResolver(homeKey)),
+                        teamDisplayNameResolver(homeKey),
+                        "TeamEmblem/" + game.HomeTeamId.ToString(CultureInfo.InvariantCulture)),
                     game.IsCompleted,
                     game.AwayRuns,
                     game.HomeRuns,

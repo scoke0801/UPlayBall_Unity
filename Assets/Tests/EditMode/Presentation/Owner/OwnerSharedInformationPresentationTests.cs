@@ -44,6 +44,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(snapshot.Games[0].HasCalendarDate, Is.False);
             Assert.That(snapshot.Games[0].PeriodLabel, Is.EqualTo("2라운드"));
             Assert.That(snapshot.Games[0].HomeRuns, Is.EqualTo(6));
+            Assert.That(snapshot.Games[0].AwayTeam.EmblemAssetKey, Is.EqualTo("TeamEmblem/1"));
+            Assert.That(snapshot.Games[0].HomeTeam.EmblemAssetKey, Is.EqualTo("TeamEmblem/2"));
             Assert.That(snapshot.Games[0].FocusOutcome, Is.EqualTo(ScheduleFocusOutcome.Pending));
         }
 
@@ -63,22 +65,18 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_일정과역사기록만열고현재순위는정확한사유로잠근다()
+        public void Profile_리그에네종류의읽기전용탭을제공한다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
             NavigationEntry league = profile.Navigation.FindEntry("Shared.League");
             NavigationEntry standings = profile.Navigation.FindEntry("Shared.League.Standings");
-            NavigationEntry schedule = profile.Navigation.FindEntry(
-                OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId);
-            NavigationEntry records = profile.Navigation.FindEntry(
-                OwnerSharedInformationWorkspaceCoordinator.RecordsRouteId);
-
             Assert.That(league.IsEnabled, Is.True);
-            Assert.That(schedule.IsEnabled, Is.True);
-            Assert.That(records.IsEnabled, Is.True);
-            Assert.That(standings.IsEnabled, Is.False);
-            Assert.That(standings.DisabledReason, Does.Contain("누적 승패"));
+            Assert.That(league.Children.Count, Is.EqualTo(4));
+            Assert.That(standings.IsEnabled, Is.True);
+            Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.LeagueTeamResults).IsEnabled, Is.True);
+            Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.LeagueMatchups).IsEnabled, Is.True);
+            Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.LeagueRankHistory).IsEnabled, Is.True);
         }
 
         [Test]

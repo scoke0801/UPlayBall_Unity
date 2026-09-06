@@ -22,10 +22,16 @@ namespace Baseball.Presentation.Owner
         public const string DugoutTactics = "Owner.Dugout.Tactics";
         public const string DugoutManagerPolicy = "Owner.Dugout.ManagerPolicy";
         public const string Club = "Owner.Club";
+        public const string ClubOwner = "Owner.Club.Owner";
+        public const string ClubInformation = "Owner.Club.Information";
         public const string ClubContract = "Owner.Club.Contract";
         public const string ClubTrade = "Owner.Club.Trade";
         public const string League = "Shared.League";
         public const string LeagueStandings = "Shared.League.Standings";
+        public const string LeagueTeamResults = "Shared.League.TeamResults";
+        public const string LeagueMatchups = "Shared.League.Matchups";
+        public const string LeagueRankHistory = "Shared.League.RankHistory";
+        public const string Shop = "Owner.Shop";
         public const string MatchCenter = "Owner.MatchCenter";
         public const string MatchCenterAnalysis = "Owner.MatchCenter.Analysis";
         public const string MatchCenterLineup = "Owner.MatchCenter.Lineup";
@@ -41,8 +47,6 @@ namespace Baseball.Presentation.Owner
             "실제 게임 기능과 이 화면의 연결이 아직 완료되지 않았습니다.";
         private const string ScoutBackendUnavailable =
             "스카우트 후보군·확률 조회·실행 기능이 아직 준비되지 않았습니다.";
-        private const string LiveStandingsUnavailable =
-            "현재 시즌의 구단별 누적 승패와 확정 순위 데이터가 아직 제공되지 않습니다.";
         private const string TeamColorBackendUnavailable =
             "라인업의 팀컬러 슬롯은 변경할 수 있지만 조건·적용 대상·중첩 결과를 보여주는 상세 화면은 아직 준비되지 않았습니다.";
         private const string TacticBackendUnavailable =
@@ -83,13 +87,15 @@ namespace Baseball.Presentation.Owner
             };
             var leagueTabs = new[]
             {
-                new NavigationEntry(OwnerNavigationRoutes.LeagueStandings, "순위", isEnabled: false,
-                    disabledReason: LiveStandingsUnavailable),
-                new NavigationEntry(OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId, "일정"),
-                new NavigationEntry(OwnerSharedInformationWorkspaceCoordinator.RecordsRouteId, "리그 기록")
+                new NavigationEntry(OwnerNavigationRoutes.LeagueStandings, "순위표"),
+                new NavigationEntry(OwnerNavigationRoutes.LeagueTeamResults, "구단 성적"),
+                new NavigationEntry(OwnerNavigationRoutes.LeagueMatchups, "대전 결과"),
+                new NavigationEntry(OwnerNavigationRoutes.LeagueRankHistory, "순위 변화")
             };
             var clubTabs = new[]
             {
+                new NavigationEntry(OwnerNavigationRoutes.ClubOwner, "구단주"),
+                new NavigationEntry(OwnerNavigationRoutes.ClubInformation, "구단"),
                 new NavigationEntry(OwnerManagementRoutes.ClubFinance, "재정"),
                 new NavigationEntry(OwnerManagementRoutes.ClubFacility, "시설"),
                 new NavigationEntry(OwnerExpansionWorkspaceCoordinator.StaffOfficeRouteId, "코칭스태프"),
@@ -120,7 +126,8 @@ namespace Baseball.Presentation.Owner
                     OwnerNavigationRoutes.League,
                     "리그",
                     UiCapability.CanViewLeagueInformation,
-                    children: leagueTabs)
+                    children: leagueTabs),
+                new NavigationEntry(OwnerNavigationRoutes.Shop, "상점")
             });
 
             var contextNavigation = new NavigationManifest(new[]

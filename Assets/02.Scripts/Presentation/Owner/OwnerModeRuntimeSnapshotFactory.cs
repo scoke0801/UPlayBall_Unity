@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Game.Career;
 using Baseball.Game.Historical;
 using Baseball.Presentation.SharedUI;
 using Baseball.Simulation.Historical;
+using Baseball.Simulation.Match;
 
 namespace Baseball.Presentation.Owner
 {
@@ -82,19 +85,7 @@ namespace Baseball.Presentation.Owner
                 OwnedPlayerCardState owned = runtime.OwnedCards[index];
                 if (!runtime.WorldCardCatalog.TryGetCard(owned.CardId, out PlayerCardDefinition card))
                     throw new InvalidOperationException($"CardId {owned.CardId} 원본이 없습니다.");
-                PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
-                ownedPlayers[index] = new OwnerCollectionCardSnapshot(
-                    owned.CardId,
-                    season.PlayerPersonId,
-                    runtime.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId),
-                    season.OriginYear,
-                    season.Position,
-                    season.Cost,
-                    card.Edition,
-                    owned.EnhancementLevel,
-                    owned.DuplicateCount,
-                    owned.IsLocked,
-                    owned.IsFavorite, season.CreateBaseAttributes());
+                ownedPlayers[index] = CreateCollectionCard(manager, runtime, owned, card);
             }
 
             ManagerPregamePreparation preparation = null;
@@ -154,22 +145,122 @@ namespace Baseball.Presentation.Owner
                 OwnedPlayerCardState owned = runtime.OwnedCards[index];
                 if (!runtime.WorldCardCatalog.TryGetCard(owned.CardId, out PlayerCardDefinition card))
                     throw new InvalidOperationException($"CardId {owned.CardId} 원본이 없습니다.");
-                PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
-                cards[index] = new OwnerCollectionCardSnapshot(
-                    owned.CardId,
-                    season.PlayerPersonId,
-                    runtime.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId),
-                    season.OriginYear,
-                    season.Position,
-                    season.Cost,
-                    card.Edition,
-                    owned.EnhancementLevel,
-                    owned.DuplicateCount,
-                    owned.IsLocked,
-                    owned.IsFavorite, season.CreateBaseAttributes());
+                cards[index] = CreateCollectionCard(manager, runtime, owned, card);
             }
             return new OwnerCollectionSnapshot(cards);
         }
+
+        private static OwnerCollectionCardSnapshot CreateCollectionCard(
+            OwnerModeManager manager,
+            ManagerHistoricalRuntimeState runtime,
+            OwnedPlayerCardState owned,
+            PlayerCardDefinition card)
+        {
+            PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+            manager.TryGetPlayerPerson(season.PlayerPersonId, out PlayerPersonDefinition person);
+            return new OwnerCollectionCardSnapshot(
+                owned.CardId,
+                season.PlayerPersonId,
+                runtime.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId),
+                season.OriginYear,
+                season.Position,
+                season.Cost,
+                card.Edition,
+                owned.EnhancementLevel,
+                owned.DuplicateCount,
+                owned.IsLocked,
+                owned.IsFavorite,
+                season.CreateBaseAttributes(),
+                season.OriginYear + " · 월드 기록",
+                season.PlayerSeasonId,
+                season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
+                person?.Throws,
+                person?.Bats,
+                CreatePitchSnapshots(manager, season, card, owned),
+                CreateSeasonRecord(runtime.WorldHistory, season));
+        }
+
+        private static OwnerPitchCardSnapshot[] CreatePitchSnapshots(
+            OwnerModeManager manager,
+            PlayerSeasonDefinition season,
+            PlayerCardDefinition card,
+            OwnedPlayerCardState owned)
+        {
+            if (season.PlayerType != PlayerType.Pitcher || season.PitchRepertoire.Count == 0)
+                return Array.Empty<OwnerPitchCardSnapshot>();
+            AbilityRatings source = season.CreateBaseAttributes();
+            int Stable(PlayerAbility ability) => Math.Min(100,
+                source.Get(ability) + card.GetModifier(ability) +
+                owned.Training.GetBonus(ability) + owned.EnhancementLevel);
+            var baked = new PitcherAttributes(
+                source.Get(PlayerAbility.Stamina), source.Get(PlayerAbility.Velocity),
+                source.Get(PlayerAbility.Stuff), source.Get(PlayerAbility.Breaking),
+                source.Get(PlayerAbility.Control), source.Get(PlayerAbility.PitcherMental));
+            var permanent = new PitcherAttributes(
+                Stable(PlayerAbility.Stamina), Stable(PlayerAbility.Velocity),
+                Stable(PlayerAbility.Stuff), Stable(PlayerAbility.Breaking),
+                Stable(PlayerAbility.Control), Stable(PlayerAbility.PitcherMental));
+            PitchArsenalBalance balance = manager.Balance.PitchArsenal;
+            var result = new OwnerPitchCardSnapshot[season.PitchRepertoire.Count];
+            for (int index = 0; index < result.Length; index++)
+            {
+                PitchRepertoireEntry entry = season.PitchRepertoire[index];
+                double quality = PitchEffectivenessResolver.ResolveStableQuality(
+                    entry,
+                    permanent,
+                    balance,
+                    baked,
+                    result.Length,
+                    index);
+                result[index] = new OwnerPitchCardSnapshot(
+                    entry.PitchType,
+                    balance.Get(entry.PitchType).DisplayName,
+                    balance.Grade.GetGrade(quality),
+                    PitchEffectivenessResolver.ResolveVelocityKph(entry, permanent.Velocity, balance));
+            }
+            return result;
+        }
+
+        private static OwnerCardRecordFieldSnapshot[] CreateSeasonRecord(
+            WorldHistorySnapshot history,
+            PlayerSeasonDefinition season)
+        {
+            SeasonStatistics record = null;
+            for (int index = 0; index < history.Statistics.Count; index++)
+            {
+                SeasonStatistics candidate = history.Statistics[index];
+                if (candidate.PlayerSeasonId == season.PlayerSeasonId &&
+                    !candidate.IsFirstHalf && !candidate.IsPostseason && !candidate.IsAllStarGame)
+                {
+                    record = candidate;
+                    break;
+                }
+            }
+            if (record == null) return Array.Empty<OwnerCardRecordFieldSnapshot>();
+            if (season.PlayerType == PlayerType.Pitcher)
+            {
+                return new[]
+                {
+                    new OwnerCardRecordFieldSnapshot("IP", FormatInnings(record.PitchingOuts)),
+                    new OwnerCardRecordFieldSnapshot("ERA", record.EarnedRunAverage.ToString("0.00", CultureInfo.InvariantCulture)),
+                    new OwnerCardRecordFieldSnapshot("SO", record.PitchingStrikeouts.ToString(CultureInfo.InvariantCulture))
+                };
+            }
+            return new[]
+            {
+                new OwnerCardRecordFieldSnapshot("PA", record.PlateAppearances.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("AVG", record.BattingAverage.ToString("0.000", CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("H", record.Hits.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("HR", record.HomeRuns.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("BB", record.Walks.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("SO", record.Strikeouts.ToString(CultureInfo.InvariantCulture)),
+                new OwnerCardRecordFieldSnapshot("SB", record.StolenBases.ToString(CultureInfo.InvariantCulture))
+            };
+        }
+
+        private static string FormatInnings(int pitchingOuts) =>
+            (pitchingOuts / 3).ToString(CultureInfo.InvariantCulture) + "." +
+            (pitchingOuts % 3).ToString(CultureInfo.InvariantCulture);
 
         public OwnerClubOperationSnapshot CreateClubOperation(OwnerModeManager manager)
         {
@@ -297,6 +388,7 @@ namespace Baseball.Presentation.Owner
             var displayTexts = new Dictionary<string, string>(StringComparer.Ordinal);
             AddRosterDisplayNames(runtime, runtime.GetRoster(runtime.PlayerTeamSeasonKey), displayTexts);
             AddRosterDisplayNames(runtime, runtime.GetRoster(preparation.OpponentTeamSeasonKey), displayTexts);
+            OwnerOpponentAnalysisData.Populate(manager, preparation, displayTexts);
             var tactics = new string[preset.DefaultTacticCardIds.Count];
             for (int index = 0; index < tactics.Length; index++)
                 tactics[index] = manager.GetTacticDisplayName(preset.DefaultTacticCardIds[index]);
