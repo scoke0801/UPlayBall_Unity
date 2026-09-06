@@ -130,19 +130,27 @@ Validation Error로 보고한다.
 
 ### Ability와 Cost
 
-현행 평가 코드는 **Ability v8 / Cost v12 / Balance v15 / Roster v5**이며 아래 설계 이력보다
-`BaseballManager_PROJECT.md` 42.13절과 `docs/reports/pm_final_review_20260906/결과.md`가 우선한다.
-공식 데이터 교체는 승인 대기이며 검증 후보는 `.tmp/pm-final-calibration/candidate/`에 있다.
+현행 평가 코드는 **Ability v8 / Cost v13 / Balance v16 / Roster v6**이며 아래 설계 이력보다
+`BaseballManager_PROJECT.md` 42.14절과 `docs/reports/pm_pitcher_position_review_20260906/결과.md`가 우선한다.
+공식 데이터는 사용자가 베이크한 v12/v15/v5 상태이며 새 코드의 반영에는 사용자 재베이크가 필요하다.
+v13은 `.tmp/pm-sk-calibration/final`에서 전체 검증과 10,000경기를 통과했다.
+공식 v12 적용 검증 이력은 `docs/reports/pm_live_review_20260906/검토.md`에 보존한다.
 체력은 역대 단일 시즌 이닝 기준, 구속은 실측 170km/h=100, 제구는 BB/9,
 구위·변화구·투수 멘탈은 ERA를 쓴다. 교타=타율, 장타=홈런·장타율,
 주력=도루 시도율 70%·성공률 30%, 타자 정신=출루율 70%·타율 30%,
 수비=수비율·실책이며 결측 지표는 Ability와 Cost의 평가 분모에서 제외한다.
-평가 범위와 TrainingCeiling 상한은 100이다. Cost의 출전량·역할·elite 자격은 v8 구조를 유지한다.
+평가 범위와 TrainingCeiling 상한은 100이다. Cost는 성적·출전량·역할과 상위 Cost 자격을 분리한다.
 실측 구속이 없는 Source의 구속 55는 중립값이며 실제 구속 추정치가 아니다.
 프로필 기준점은 근거가 있는 능력치에만 적용하며 전부 결측이면 여전히 55다.
-Cost 기본점은 야수 2.75·투수 1.25이고, 경기 공식이나 선수 이름별 예외 없이 JSON으로 조정한다.
+Cost 기본점은 야수 2.75·선발 역할군 1.75·구원 역할군 1.25이며 JSON으로 조정한다.
 타자 출전량 가중치는 4이며 유형별 Cost 경계·상위 자격은 `costValueModel`에서 조정한다.
+선발은 `pitcherRoleValueProfiles.Rotation`에서 ERA 90%·BB/9 10%, 출전량 배율 0.7과
+양의 성적×출전량 가산 2.0을 사용한다. 충분히 던진 중간 성적 투수와 에이스의 가격을 분리하고,
+Cost 8/9 경계 및 9/10 자격도 같은 역할 프로필에서 조정한다. 구원 공식은 유지하되 전체 투수의
+역할 백분위가 바뀌므로 일부 구원 Cost도 달라질 수 있다.
 주전은 PA·포지션 수비 이닝을 제한적으로 반영하며 Cost를 이용한 사후 교체는 하지 않는다.
+원본 수비 기록이 없을 때만 `season_position_evidence.json`의 시즌+Source ID+구단에 해당하는
+웹 포지션 근거를 사용한다. 실제 수비 기록을 우선하며 경기·이닝·능력치를 만들어 넣지 않는다.
 Cost의 원기록 근거는 `costMetricEvidence`로 독립 저장하여 능력치 프로필 변경에 가격이 간접 종속되지
 않게 한다. 이 근거는 Editor 전용이며 Runtime 변환 시 제거한다.
 수비 가격 기여도 `defensiveQualityProfiles`의 원기록 Z에서 계산한다. 수비 표시 기준점·변환 폭을
@@ -160,6 +168,13 @@ Cost의 원기록 근거는 `costMetricEvidence`로 독립 저장하여 능력�
 `report_pm_calibration.py`로 재실행한다. 기준 Bake와 Balance 파일 경로를 명시해야 하며,
 로컬 `Tools/PMReference/reports` 코퍼스와 `docs/reports/pm_reference_review_20260906/workbook_extracted.json`이
 필요하다. 원본 시점·카드 판본이 불명확한 관측은 최종 Normal의 정답으로 간주하지 않는다.
+
+SK 2007~2009 선발 15명의 원문 이미지 판독값은 새 보고서의 `sk_reference.json`에 보존한다.
+`study_pm_pitcher_cost.py`는 v12 기준 Archive와 `--balance balance_before.json`,
+`--focus-reference sk_reference.json`을 명시하는 연구 도구다. 최신 Archive에 반복 적용하는 자동
+보정기가 아니다. SK 표본은 후보 선택에 사용했으며, 독립 평가에서는 같은 인물을 모두 제외한다.
+이번 SK 평균 오차는 1.000→0.333이지만 별도 2013 투수 62건에서는 1.032→1.274로 악화됐다.
+관측 시점의 차이를 보존하며 모든 서비스 판본을 복원했다고 해석하지 않는다.
 
 아래는 기존 v5/v7 설계 이력이다.
 

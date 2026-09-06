@@ -12,6 +12,7 @@ from typing import Any, Iterable
 from derivation_cost import composite_cost, resolve_value_cost
 import pitch_arsenal_generation as pitch_generation
 import source_backed_runtime_bake as pitch_source_identity
+import source_position_evidence
 
 from kbo_importer import IMPORTER_VERSION as NORMALIZED_IMPORTER_VERSION
 from kbo_importer import SCHEMA_VERSION as NORMALIZED_SCHEMA_VERSION
@@ -226,6 +227,19 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
                 )
 
     value_model = config["costValueModel"]
+    role_profiles = value_model.get("pitcherRoleValueProfiles", {})
+    if not set(role_profiles).issubset({"Rotation", "Relief"}):
+        raise ValueError("투수 Cost 프로필은 선발·구원 역할군만 구분할 수 있습니다.")
+    for profile in role_profiles.values():
+        for key in ("baseScore", "qualityMultiplier", "workloadScale", "workloadExponent", "positiveQualityWorkloadWeight"):
+            value = float(profile[key])
+            if not math.isfinite(value) or value < 0.0 or (key in ("qualityMultiplier", "workloadScale", "workloadExponent") and value == 0.0):
+                raise ValueError("투수 Cost 계수는 유한하며 음수가 아니어야 합니다.")
+        weights = profile["qualityProfile"]
+        if (not weights or not set(weights).issubset(metric_names_by_type["Pitcher"])
+                or any(not math.isfinite(float(w)) or float(w) < 0.0 for w in weights.values())
+                or abs(sum(float(w) for w in weights.values()) - 1.0) > 1e-9):
+            raise ValueError("투수 Cost 성적 지표·가중치가 유효하지 않습니다.")
     for profile in value_model["hitterWorkload"].get("defensiveQualityProfiles", []):
         weights = profile["metrics"]
         if (not weights or not set(weights).issubset(metric_names_by_type["Hitter"])
@@ -252,6 +266,7 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
         if not set(value_model.get(key, {})).issubset(("Hitter", "Pitcher")):
             raise ValueError("Cost 보정은 선수 유형만 구분할 수 있습니다.")
     threshold_sets = [value_model["valueTierThresholds"]] + list(value_model.get("valueTierThresholdsByPlayerType", {}).values())
+    threshold_sets += [p["valueTierThresholds"] for p in role_profiles.values()]
     for value_thresholds in threshold_sets:
         if len(value_thresholds) != 10 or float(value_thresholds[-1]["upperExclusive"]) <= 10.0:
             raise ValueError("Season Value Cost 경계가 Cost 1~10을 덮지 않습니다.")
@@ -262,6 +277,7 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
                 raise ValueError("Season Value Cost 경계는 유한한 순증가 값이어야 합니다.")
             previous = upper
     gate_sets = [value_model["eliteEligibility"]] + list(value_model.get("eliteEligibilityByPlayerType", {}).values())
+    gate_sets += [p["eliteEligibility"] for p in role_profiles.values()]
     for gates in gate_sets:
         for cost_key in ("cost9", "cost10"):
             gate = gates[cost_key]
@@ -876,7 +892,7 @@ def derive_source_position(
     player: dict[str, Any],
     fallback: str,
 ) -> tuple[str, dict[str, Any]]:
-    """해당 시즌 수비 기록만 사용해 Natural Position과 근거를 만든다."""
+    """시즌 수비 기록을 우선하고 결측일 때만 출처가 있는 포지션 근거를 사용한다."""
     candidates: list[dict[str, Any]] = []
     for record in player.get("defenseRecords") or []:
         source_position_name = str(record.get("position") or "")
@@ -923,6 +939,12 @@ def derive_source_position(
     if is_inferred_dh:
         selected = "DH"
         reason = "충분한 타격 출전 대비 수비 이닝 비율이 낮아 DH 중심 시즌으로 추정; 주수비 위치 근거는 별도 보존"
+    supplemental = player.get("_supplementalPositionEvidence")
+    supplemental_applied = bool(supplemental) and not candidates
+    if supplemental_applied:
+        selected = supplemental["primaryPosition"]
+        primary_defensive_position = selected if selected != "DH" else ""
+        reason = "시즌 수비 기록 결측을 웹에서 확인한 해당 시즌 포지션으로 보강; 경기·이닝은 미상"
     return selected, {
         "classifierVersion": POSITION_ROLE_CLASSIFIER_VERSION,
         "positionCandidates": candidates,
@@ -931,6 +953,8 @@ def derive_source_position(
         "isDesignatedHitterInferred": is_inferred_dh,
         "defensiveInningsPerGame": round(defensive_outs / (3.0 * games), 8) if games > 0.0 else None,
         "reason": reason,
+        "supplementalPositionEvidence": supplemental,
+        "isSupplementalPositionApplied": supplemental_applied,
     }
 
 
@@ -1260,6 +1284,32 @@ def derive_defensive_value_signal(season: dict[str, Any], settings: dict[str, An
     return max(-1.0, min(1.0, (0.75 * defense + 0.25 * arm - 55.0) / 20.0))
 
 
+def pitcher_starter_share(season: dict[str, Any]) -> tuple[float, str]:
+    """선발 비율과 그 출처를 가격 프로필·출전량 계산에 공통으로 제공한다."""
+    inputs = season.get("_costValueInputs") or {}
+    games = max(0.0, safe_number(inputs.get("games")))
+    if inputs.get("gamesStartedAvailable") and games > 0.0:
+        return min(1.0, max(0.0, safe_number(inputs.get("gamesStarted"))) / games), "SourceGamesStartedRate"
+    if "inferredStarterRate" in inputs:
+        share = max(0.0, min(1.0, safe_number(inputs["inferredStarterRate"])))
+        return share, "Inferred:" + str(inputs.get("starterEvidenceMode") or "RoleClassifierProxy")
+    return (1.0 if season.get("pitcherRole") == "Starter" else 0.0), "NaturalRoleFallback"
+
+
+def pitcher_value_profile(player_type: str | None, role_group: str) -> dict[str, Any]:
+    """투수 역할군에 설정된 가격 프로필만 반환한다."""
+    if player_type != "Pitcher":
+        return {}
+    return DERIVATION_BALANCE["costValueModel"].get("pitcherRoleValueProfiles", {}).get(role_group, {})
+
+
+def value_cost_thresholds(player_type: str, role_group: str) -> list[dict[str, Any]]:
+    """역할별 경계가 없으면 기존 선수 유형별 경계를 사용한다."""
+    model = DERIVATION_BALANCE["costValueModel"]
+    fallback = model.get("valueTierThresholdsByPlayerType", {}).get(player_type, model["valueTierThresholds"])
+    return pitcher_value_profile(player_type, role_group).get("valueTierThresholds", fallback)
+
+
 def derive_player_value_components(
     season: dict[str, Any],
     legacy_composite: float,
@@ -1267,7 +1317,10 @@ def derive_player_value_components(
     """Source season의 quality·workload·수비를 Cost 단위로 분리한다."""
     settings = DERIVATION_BALANCE["costValueModel"]
     player_type = str(season["playerType"])
-    profile = settings["qualityProfiles"][player_type]
+    starter_share, starter_share_origin = pitcher_starter_share(season) if player_type == "Pitcher" else (0.0, "")
+    role_group = ("Rotation" if starter_share >= 0.35 else "Relief") if player_type == "Pitcher" else str(season.get("position") or "Default")
+    value_profile = pitcher_value_profile(player_type, role_group)
+    profile = value_profile.get("qualityProfile", settings["qualityProfiles"][player_type])
     metrics, reliabilities = cost_metric_evidence(season)
     available_profile = {metric: float(weight) for metric, weight in profile.items() if metric in metrics}
     total_weight = sum(available_profile.values())
@@ -1301,8 +1354,9 @@ def derive_player_value_components(
     inputs = season.get("_costValueInputs") or {}
     season_games = float(season.get("sourceSeasonGames", settings.get("referenceSeasonGames", 144.0)))
     season_scale = season_games / float(DERIVATION_BALANCE["costEligibility"]["referenceSeasonGames"])
-    base_score = float(settings.get("baseScoreByPlayerType", {}).get(player_type, settings["baseScore"]))
-    quality_score = quality * float(settings["qualityMultiplier"])
+    base_score = float(value_profile.get("baseScore", settings.get("baseScoreByPlayerType", {}).get(player_type, settings["baseScore"])))
+    quality_score = quality * float(value_profile.get("qualityMultiplier", settings["qualityMultiplier"]))
+    quality_workload_score = 0.0
     defensive_value = 0.0
     if player_type == "Hitter":
         hitter = settings["hitterWorkload"]
@@ -1337,20 +1391,6 @@ def derive_player_value_components(
         pitcher = settings["pitcherWorkload"]
         innings_outs = max(0.0, safe_number(inputs.get("inningsOuts"), safe_number(season.get("costEligibilitySample"))))
         innings = innings_outs / 3.0
-        games = max(0.0, safe_number(inputs.get("games")))
-        games_started = max(0.0, safe_number(inputs.get("gamesStarted")))
-        games_started_available = bool(inputs.get("gamesStartedAvailable"))
-        inferred_starter_rate = max(0.0, min(1.0, safe_number(inputs.get("inferredStarterRate"))))
-        if games_started_available and games > 0.0:
-            starter_share = min(1.0, games_started / games)
-            starter_share_origin = "SourceGamesStartedRate"
-        elif "inferredStarterRate" in inputs:
-            starter_share = inferred_starter_rate
-            evidence_mode = str(inputs.get("starterEvidenceMode") or "RoleClassifierProxy")
-            starter_share_origin = f"Inferred:{evidence_mode}"
-        else:
-            starter_share = 1.0 if str(season.get("pitcherRole")) == "Starter" else 0.0
-            starter_share_origin = "NaturalRoleFallback"
         role_target = (
             float(pitcher["reliefInningsTarget"])
             + float(pitcher["starterInningsIncrement"]) * starter_share
@@ -1359,11 +1399,14 @@ def derive_player_value_components(
         workload_ratio = innings / role_target if role_target > 0.0 else 0.0
         role_curve = workload_curve(innings, role_target)
         absolute_curve = workload_curve(innings, absolute_target)
+        exponent = float(value_profile.get("workloadExponent", 1.0))
         workload_score = (
-            role_curve * float(pitcher["roleTargetWeight"])
-            + absolute_curve * float(pitcher["absoluteTargetWeight"])
+            role_curve ** exponent * float(pitcher["roleTargetWeight"])
+            + absolute_curve ** exponent * float(pitcher["absoluteTargetWeight"])
             + starter_share * float(pitcher["starterShareWeight"])
-        )
+        ) * float(value_profile.get("workloadScale", 1.0))
+        # 프야매 참조에서 중간급 내구성과 검증된 에이스의 성적 가치를 분리한다.
+        quality_workload_score = max(0.0, quality) * min(1.0, absolute_curve ** 2) * float(value_profile.get("positiveQualityWorkloadWeight", 0.0))
         workload_trace = {
             "kind": "Innings",
             "sample": round(innings, 8),
@@ -1380,7 +1423,7 @@ def derive_player_value_components(
         }
         role_group = "Rotation" if starter_share >= 0.35 else "Relief"
 
-    raw_value = base_score + workload_score + quality_score + defensive_value
+    raw_value = base_score + workload_score + quality_score + quality_workload_score + defensive_value
     return {
         "quality": round(quality, 8),
         "qualityOrigin": quality_origin,
@@ -1389,6 +1432,7 @@ def derive_player_value_components(
         "reliability": round(reliability, 8),
         "baseScore": round(base_score, 8),
         "qualityScore": round(quality_score, 8),
+        "qualityWorkloadScore": round(quality_workload_score, 8),
         "workloadScore": round(workload_score, 8),
         "defensiveValue": round(defensive_value, 8),
         "workload": workload_trace,
@@ -1410,6 +1454,7 @@ def elite_cost_ceiling(components: dict[str, Any], player_type: str | None = Non
     """일반 Cost 1~8과 분리해 9/10의 quality·workload·reliability를 검사한다."""
     model = DERIVATION_BALANCE["costValueModel"]
     settings = model.get("eliteEligibilityByPlayerType", {}).get(player_type, model["eliteEligibility"])
+    settings = pitcher_value_profile(player_type, str(components.get("roleGroup") or "")).get("eliteEligibility", settings)
     quality = float(components["quality"])
     workload_ratio = float(components["workload"]["ratio"])
     reliability = float(components["reliability"])
@@ -1458,7 +1503,6 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
     maximum_role_adjustment = float(role_settings["maximumAdjustment"])
     for year, player_type in sorted(by_population):
         value_model = DERIVATION_BALANCE["costValueModel"]
-        value_thresholds = value_model.get("valueTierThresholdsByPlayerType", {}).get(player_type, value_model["valueTierThresholds"])
         population = by_population[(year, player_type)]
         raw_values = sorted(entry[1] for entry in population)
         role_values: dict[str, list[float]] = {}
@@ -1514,6 +1558,7 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
                 }
             )
         for zero_based_rank, (season, continuous_value, components, trace) in enumerate(ranked):
+            value_thresholds = value_cost_thresholds(player_type, str(components["roleGroup"]))
             percentile = (zero_based_rank + 0.5) / count
             raw_percentile_cost = percentile_cost(zero_based_rank, count)
             elite_ceiling, elite_trace = elite_cost_ceiling(components, player_type)
@@ -1899,6 +1944,9 @@ def eligible_source_positions(player: dict[str, Any]) -> set[str]:
     result: set[str] = set()
     _, position_trace = derive_source_position(player, "DH")
     primary = position_trace["primaryDefensivePosition"]
+    if position_trace["isSupplementalPositionApplied"]:
+        result.update(p for p in position_trace["supplementalPositionEvidence"]["positions"]
+                      if p in DEFENSIVE_HITTER_POSITIONS)
     for record in player.get("defenseRecords") or []:
         source_name = str(record.get("position") or "")
         if (
@@ -2411,6 +2459,9 @@ def build_editor_original_content(
         load_reference(input_dir / f"{year}.json", year)
         for year in sorted(years)
     ]
+    position_evidence = source_position_evidence.load_position_evidence()
+    for reference in references:
+        source_position_evidence.attach_position_evidence(reference, position_evidence)
     reference_manifest_fields = build_reference_manifest_fields(references)
     persons: dict[str, dict[str, Any]] = {}
     year_contents: list[dict[str, Any]] = []
@@ -2725,6 +2776,9 @@ def build_reference_manifest_fields(references: list[dict[str, Any]]) -> dict[st
     normalized_inputs = json.loads(json.dumps(ordered, ensure_ascii=False))
     for reference in normalized_inputs:
         reference.get("sourceMetadata", {}).pop("importedAtUtc", None)
+        # 포지션 보강은 파생 입력이며 수집된 Normalized 원본의 식별자는 바꾸지 않는다.
+        for player in reference["players"]:
+            player.pop("_supplementalPositionEvidence", None)
 
     return {
         "referenceDataVersion": REFERENCE_DATA_VERSION,
@@ -3027,8 +3081,7 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
             if eligibility_trace.get("tier") not in {"Full", "Regular", "Limited", "Tiny"}:
                 raise ValueError("Cost 자격 Tier 판정 근거가 없습니다.")
             elite_trace = cost_trace.get("eliteEligibility") or {}
-            value_model = DERIVATION_BALANCE["costValueModel"]
-            value_thresholds = value_model.get("valueTierThresholdsByPlayerType", {}).get(season["playerType"], value_model["valueTierThresholds"])
+            value_thresholds = value_cost_thresholds(season["playerType"], str(cost_trace["componentScores"]["roleGroup"]))
             expected_cost = resolve_value_cost(
                 float(cost_trace["continuousValue"]),
                 (
@@ -3134,6 +3187,9 @@ def bake_with_report(
         for year in sorted(years)
     ]
     editor_source_content = build_editor_original_content(input_dir, years)
+    position_evidence = source_position_evidence.load_position_evidence()
+    for reference in references:
+        source_position_evidence.attach_position_evidence(reference, position_evidence)
     return build_runtime_content(
         editor_source_content,
         references,

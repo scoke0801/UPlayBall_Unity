@@ -1,0 +1,22 @@
+{
+  "version": "web-season-position-evidence-v1",
+  "policy": "해당 시즌 수비 기록이 없을 때만 포지션 후보를 보강한다. 출전 경기·이닝·수비 능력치를 생성하지 않는다.",
+  "sources": [
+    {"id":"kbo_gg","url":"https://onlinemuseum.koreabaseball.com/GoldenGlove/GoldenGlove01.aspx","retrievedAt":"2026-09-06","scope":"1994 골든글러브의 C/1B/2B/3B 부문 확인"},
+    {"id":"lg_lineup","url":"https://v.daum.net/v/yrcSVbHla6","retrievedAt":"2026-09-06","scope":"1994 개막전 라인업 사진·당사자 인터뷰 및 시즌 기용 설명"},
+    {"id":"lg_outfield","url":"https://v.daum.net/v/qxUYxPaes3","retrievedAt":"2026-09-06","scope":"1994 우승 당시 LF 김재현·CF 노찬엽·RF 박준태 기용 설명"}
+  ],
+  "players": [
+    {"seasonYear":1994,"sourcePlayerId":"90419","sourceTeamName":"LG","displayName":"김동수","primaryPosition":"C","positions":["C"],"sourceIds":["kbo_gg","lg_lineup"]},
+    {"seasonYear":1994,"sourcePlayerId":"94162","sourceTeamName":"LG","displayName":"서용빈","primaryPosition":"1B","positions":["1B"],"sourceIds":["kbo_gg","lg_lineup"]},
+    {"seasonYear":1994,"sourcePlayerId":"92906","sourceTeamName":"LG","displayName":"박종호","primaryPosition":"2B","positions":["2B"],"sourceIds":["kbo_gg","lg_lineup"]},
+    {"seasonYear":1994,"sourcePlayerId":"83270","sourceTeamName":"LG","displayName":"한대화","primaryPosition":"3B","positions":["3B"],"sourceIds":["kbo_gg","lg_lineup"]},
+    {"seasonYear":1994,"sourcePlayerId":"94106","sourceTeamName":"LG","displayName":"류지현","primaryPosition":"SS","positions":["SS"],"sourceIds":["lg_lineup"]},
+    {"seasonYear":1994,"sourcePlayerId":"94107","sourceTeamName":"LG","displayName":"김재현","primaryPosition":"LF","positions":["LF"],"sourceIds":["lg_lineup","lg_outfield"]},
+    {"seasonYear":1994,"sourcePlayerId":"89175","sourceTeamName":"LG","displayName":"노찬엽","primaryPosition":"CF","positions":["CF"],"sourceIds":["lg_lineup","lg_outfield"]},
+    {"seasonYear":1994,"sourcePlayerId":"89331","sourceTeamName":"LG","displayName":"박준태","primaryPosition":"RF","positions":["RF"],"sourceIds":["lg_lineup","lg_outfield"]},
+    {"seasonYear":1994,"sourcePlayerId":"89142","sourceTeamName":"LG","displayName":"최훈재","primaryPosition":"DH","positions":["DH"],"sourceIds":["lg_lineup"]},
+    {"seasonYear":1994,"sourcePlayerId":"90415","sourceTeamName":"LG","displayName":"김선진","primaryPosition":"1B","positions":["1B"],"sourceIds":["lg_lineup"]},
+    {"seasonYear":1994,"sourcePlayerId":"91015","sourceTeamName":"LG","displayName":"이종열","primaryPosition":"2B","positions":["2B"],"sourceIds":["lg_lineup"]}
+  ]
+}

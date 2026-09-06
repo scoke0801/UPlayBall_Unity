@@ -10,6 +10,7 @@ from source_backed_runtime_bake import (
     CORE_HITTER_COUNT,
     CORE_PITCHER_COUNT,
     build_source_backed_runtime_plan,
+    build_world_identity_name_pool,
     canonical_json_bytes,
     canonical_source_team_season_id,
     editor_source_person_id,
@@ -23,6 +24,27 @@ from source_backed_runtime_bake import (
 
 
 class SourceBackedRuntimeBakeTests(unittest.TestCase):
+    def test_world_franchise_name_pool_preserves_source_regions_and_adds_ten_cities(self) -> None:
+        pool = build_world_identity_name_pool(
+            domestic_player_count=1,
+            foreign_player_count=0,
+            franchise_count=12,
+            forbidden_player_names=(),
+            forbidden_franchise_names=(),
+        )
+
+        franchise_names = pool["franchiseNames"]
+        regions = {name.split(" ", 1)[0] for name in franchise_names}
+
+        self.assertEqual(19, len(franchise_names))
+        self.assertEqual(19, len(regions))
+        self.assertTrue({
+            "서울", "부산", "인천", "대구", "대전", "광주", "수원", "창원", "전주",
+        }.issubset(regions))
+        self.assertTrue({
+            "강릉", "고양", "울산", "제주", "포항", "청주", "천안", "원주", "김해", "안양",
+        }.issubset(regions))
+
     def test_source_person_and_season_are_preserved_exactly_once(self) -> None:
         editor, normalized = _build_fixture({2012: (19, 13), 2013: (7, 5)}, repeat_person=True)
 

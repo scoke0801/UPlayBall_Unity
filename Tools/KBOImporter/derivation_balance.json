@@ -1,9 +1,9 @@
 {
-  "version": "historical-derivation-balance-v15",
+  "version": "historical-derivation-balance-v16",
   "abilityFormulaVersion": "historical-ability-v8",
-  "costFormulaVersion": "historical-season-value-v12",
-  "positionRoleClassifierVersion": "season-position-role-v5",
-  "rosterBuilderVersion": "ability-fit-core25-v5",
+  "costFormulaVersion": "historical-season-value-v13",
+  "positionRoleClassifierVersion": "season-position-role-v6",
+  "rosterBuilderVersion": "ability-fit-core25-v6",
   "ratingCalibrationNote": "2010 기사 연결 카드 452장 중 유일 Source 연결 438장. 선수 단위 분할로 공통 중심과 변환 폭을 비교. B 이상 수비·선별 투수 표본이며 전 리그·최종판 분포의 확정 복원이 아님.",
   "costPercentileThresholds": [
     {"upperExclusive": 0.05, "cost": 1},
@@ -35,10 +35,10 @@
     {"upperExclusive": 101.0, "cost": 10}
   ],
   "costValueModel": {
-    "version": "available-record-season-value-v2",
+    "version": "available-record-season-value-v3",
     "baseScore": 2.5,
     "baseScoreByPlayerType": {"Hitter": 2.75, "Pitcher": 1.25},
-    "calibrationNote": "타자는 인물 단위 분할로 기본점·출전량과 9/10 진입 경계를 보정했다. 투수 추가 후보는 2013 표본에서 악화되어 이전 보정을 유지한다. 초기 관측의 근사이며 최종판 복원이 아님.",
+    "calibrationNote": "선발은 2010 인벤의 2007~2009 SK 15장을 명시적 목표로 보정했다. 다른 인물의 학습 관측을 함께 사용한다. 초기 2010/2011 투수 오차는 줄지만 2013 관측 일부는 악화되므로 시점별 검증을 분리한다. 선수·구단별 가격 예외는 없다.",
     "qualityMultiplier": 2.0,
     "qualityProfiles": {
       "Hitter": {
@@ -154,6 +154,73 @@
         "minimumQuality": 0.65,
         "minimumWorkloadRatio": 1.0,
         "minimumReliability": 0.55
+      }
+    },
+    "pitcherRoleValueProfiles": {
+      "Rotation": {
+        "baseScore": 1.75,
+        "qualityMultiplier": 2,
+        "workloadScale": 0.7,
+        "workloadExponent": 1,
+        "positiveQualityWorkloadWeight": 2,
+        "qualityProfile": {
+          "NegativeEarnedRunAverage": 0.9,
+          "NegativeWalksPerNine": 0.1
+        },
+        "valueTierThresholds": [
+          {
+            "upperExclusive": 1.5,
+            "cost": 1
+          },
+          {
+            "upperExclusive": 2.5,
+            "cost": 2
+          },
+          {
+            "upperExclusive": 3.5,
+            "cost": 3
+          },
+          {
+            "upperExclusive": 4.5,
+            "cost": 4
+          },
+          {
+            "upperExclusive": 5.5,
+            "cost": 5
+          },
+          {
+            "upperExclusive": 6.5,
+            "cost": 6
+          },
+          {
+            "upperExclusive": 7.25,
+            "cost": 7
+          },
+          {
+            "upperExclusive": 8.25,
+            "cost": 8
+          },
+          {
+            "upperExclusive": 9,
+            "cost": 9
+          },
+          {
+            "upperExclusive": 100.0,
+            "cost": 10
+          }
+        ],
+        "eliteEligibility": {
+          "cost9": {
+            "minimumQuality": 0,
+            "minimumWorkloadRatio": 0.5,
+            "minimumReliability": 0.45
+          },
+          "cost10": {
+            "minimumQuality": 0.5,
+            "minimumWorkloadRatio": 0.75,
+            "minimumReliability": 0.55
+          }
+        }
       }
     }
   },

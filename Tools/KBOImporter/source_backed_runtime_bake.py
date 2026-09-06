@@ -20,7 +20,7 @@ FRANCHISE_ID_POLICY_VERSION = "source-franchise-identity-v1"
 TEAM_SEASON_ID_POLICY_VERSION = "source-team-season-identity-v1"
 ALLOCATION_POLICY_VERSION = "source-team-season-one-to-one-v2"
 REPLACEMENT_REQUEST_VERSION = "source-team-shortage-request-v2"
-WORLD_IDENTITY_NAME_POOL_VERSION = "world-identity-name-pool-v1"
+WORLD_IDENTITY_NAME_POOL_VERSION = "world-identity-name-pool-v2"
 
 EDITOR_SOURCE_PERSON_ID_VERSION = "editor-source-person-v1"
 EDITOR_SOURCE_SEASON_ID_VERSION = "editor-source-season-v1"
@@ -61,10 +61,13 @@ _FOREIGN_FAMILY_NAMES = (
     "톰슨", "로빈슨", "클라크", "루이스", "리", "워커", "홀", "엘리스",
     "영", "킹", "라이트", "터너", "힐", "그린", "베이커", "넬슨",
 )
-_FRANCHISE_REGIONS = (
-    "서울", "부산", "인천", "대구", "대전", "광주", "수원", "창원", "전주", "강릉",
-    "고양", "울산", "제주", "포항", "청주", "천안", "원주", "김해", "성남", "안양",
+_SOURCE_FRANCHISE_REGIONS = (
+    "서울", "부산", "인천", "대구", "대전", "광주", "수원", "창원", "전주",
 )
+_ADDITIONAL_FRANCHISE_REGIONS = (
+    "강릉", "고양", "울산", "제주", "포항", "청주", "천안", "원주", "김해", "안양",
+)
+_FRANCHISE_REGIONS = _SOURCE_FRANCHISE_REGIONS + _ADDITIONAL_FRANCHISE_REGIONS
 _FRANCHISE_NICKNAMES = (
     "코멧츠", "타이드", "하버스", "포지", "파이오니어스", "피닉스", "가디언즈", "마리너스",
     "스타즈", "웨이브즈", "팔콘즈", "파워스", "세이버즈", "볼트즈", "레이더스", "타이탄즈",
@@ -886,11 +889,13 @@ def build_world_identity_name_pool(
         for family in _FOREIGN_FAMILY_NAMES
         if given != family
     )
+    # 첫 순회에서 모든 연고지를 한 번씩 내보내야 작은 후보 수도 서울로 몰리지 않는다.
     franchise_candidates = (
-        f"{region} {nickname}"
-        for region in _FRANCHISE_REGIONS
-        for nickname in _FRANCHISE_NICKNAMES
+        f"{region} {_FRANCHISE_NICKNAMES[(region_index + round_index) % len(_FRANCHISE_NICKNAMES)]}"
+        for round_index in range(len(_FRANCHISE_NICKNAMES))
+        for region_index, region in enumerate(_FRANCHISE_REGIONS)
     )
+    franchise_candidate_count = max(franchise_count, len(_FRANCHISE_REGIONS))
     return {
         "version": WORLD_IDENTITY_NAME_POOL_VERSION,
         "domesticPlayerNames": _take_unique_candidates(
@@ -909,7 +914,7 @@ def build_world_identity_name_pool(
         ),
         "franchiseNames": _take_unique_candidates(
             franchise_candidates,
-            franchise_count,
+            franchise_candidate_count,
             forbidden_franchises,
             "Franchise",
             (),
