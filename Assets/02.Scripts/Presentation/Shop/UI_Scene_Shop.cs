@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using Baseball.Core.Shop;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
@@ -11,14 +10,14 @@ using UnityEngine.UI;
 namespace Baseball.Presentation.Shop
 {
     /// <summary>
-    /// 카드 상점 화면이다. 상단 탭으로 계열을 고르고 2열 격자로 상품 타일을 보여준다.
+    /// 카드 상점 화면이다. 목록 카테고리 탭과 좌측 상품 진열, 우측 선택 상품 상세를 한 화면에 보여준다.
     /// 구매 가능 여부는 <see cref="ShopPresentationModel"/>이 준 스냅샷을 표시만 하고 다시 판정하지 않는다.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed partial class UI_Scene_Shop : MonoBehaviour
     {
-        private const float TileHeight = 144f;
-        private const float ArtworkSize = 104f;
+        private const float TileHeight = 132f;
+        private const float ArtworkSize = 92f;
         private const int TileColumnCount = 2;
 
         private readonly List<Button> _tabButtons = new List<Button>();
@@ -29,10 +28,10 @@ namespace Baseball.Presentation.Shop
 
         private RectTransform _root;
         private RectTransform _tabBar;
+        private RectTransform _playerCardFilterBar;
         private RectTransform _gridContent;
         private GridLayoutGroup _gridLayout;
         private ScrollRect _scroll;
-        private Text _walletText;
         private Text _lockText;
         private RectTransform _revealRoot;
         private Text _revealTitle;
@@ -41,6 +40,12 @@ namespace Baseball.Presentation.Shop
         private ShopScreenSnapshot _snapshot;
         private int _selectedTabIndex;
         private bool _isProcessing;
+
+        /// <summary>구매 확인부터 연속 뽑기·최종 결과 확인을 마칠 때까지 가이드 개입을 보류한다.</summary>
+        public bool IsGuideSuppressed => _root != null && _root.gameObject.activeInHierarchy &&
+            (_isProcessing ||
+             (_confirmationRoot != null && _confirmationRoot.gameObject.activeInHierarchy) ||
+             (_revealRoot != null && _revealRoot.gameObject.activeInHierarchy));
 
         /// <summary>구입 전 최신 Quote를 확인 Overlay로 열어 달라는 요청이다.</summary>
         public event Action<string> PurchasePreviewRequested;
@@ -51,11 +56,14 @@ namespace Baseball.Presentation.Shop
         /// <summary>상세(확률·구성) 보기 요청이다.</summary>
         public event Action<string> DetailsRequested;
 
-        /// <summary>Reveal에서 같은 상품을 최신 Quote로 다시 확인하는 요청이다.</summary>
+        /// <summary>Reveal에서 같은 상품을 확인 팝업 없이 즉시 다시 구매하는 요청이다.</summary>
         public event Action<string> RepurchaseRequested;
 
         /// <summary>Reveal에서 상품 종류에 맞는 보관 화면으로 이동하는 요청이다.</summary>
         public event Action<string> InventoryRequested;
+
+        /// <summary>외부 SFX 시스템이 연출 단계에 맞는 소리를 선택할 수 있도록 Cue만 전달한다.</summary>
+        public event Action<ShopRevealAudioCue> RevealAudioRequested;
 
         public static UI_Scene_Shop CreateRuntime(RectTransform host)
         {
@@ -72,8 +80,8 @@ namespace Baseball.Presentation.Shop
             ShopTab? selectedTab = GetSelectedTab();
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             _selectedTabIndex = FindTabIndex(selectedTab);
-            _walletText.text = _snapshot.WalletSummary;
             RebuildTabs();
+            RebuildPlayerCardFilters();
             RefreshTiles();
         }
 
@@ -96,35 +104,13 @@ namespace Baseball.Presentation.Shop
         }
 
         /// <summary>확정 결과와 구매 상품 문맥을 함께 공개해 재구매·보관함 이동을 유지한다.</summary>
-        public void ShowReveal(ShopPurchaseResult result, ShopProductDetailsSnapshot details)
+        public void ShowReveal(ShopPurchaseResult result, ShopProductDetailsSnapshot details,
+            PlayerMiniCardModel[] playerCards = null)
         {
             if (!result.IsSuccess || result.Items == null || result.Items.Length == 0 || _revealRoot == null)
                 return;
-            _activeDetails = details;
-            _lastPurchasedProductId = details == null ? string.Empty : details.ProductId;
-            HideDecisionOverlays();
-            _revealTitle.text = result.Items.Length == 1 ? "획득 카드" : $"획득 카드 {result.Items.Length}장";
-            string artworkKey = result.Items[0].ArtworkKey;
-            if (string.IsNullOrEmpty(artworkKey) && details != null)
-                artworkKey = details.ArtworkKey;
-            Texture2D revealTexture = ShopArtwork.Load(artworkKey);
-            _revealArtwork.texture = revealTexture;
-            _revealArtwork.gameObject.SetActive(revealTexture != null);
-            var body = new StringBuilder();
-            for (int index = 0; index < result.Items.Length; index++)
-            {
-                ShopGrantedItem item = result.Items[index];
-                if (index > 0) body.AppendLine().AppendLine();
-                body.Append(string.IsNullOrEmpty(item.GradeLabel) ? "카드" : item.GradeLabel)
-                    .AppendLine()
-                    .Append(item.DisplayName)
-                    .AppendLine()
-                    .Append(item.IsNew ? "신규 · 첫 획득" : "중복 · 중복 재료");
-            }
-            _revealBody.text = body.ToString();
-            RefreshRevealActions();
-            _revealRoot.gameObject.SetActive(true);
-            _revealRoot.SetAsLastSibling();
+            _revealPlayerCards = playerCards;
+            StartRevealPlayback(result, details);
         }
 
         public void SetVisible(bool visible)
@@ -146,10 +132,7 @@ namespace Baseball.Presentation.Shop
                 new Vector2(-CareerUiTheme.Space4, -CareerUiTheme.Space4));
             OwnerWorkspaceUiFactory.AddVerticalLayout(panel.Content, CareerUiTheme.Space3);
 
-            BuildWalletBar(panel.Content);
-            BuildTabBar(panel.Content);
-            BuildLockNotice(panel.Content);
-            BuildGrid(panel.Content);
+            BuildReferenceStorefront(panel.Content);
             BuildRevealOverlay();
             BuildDecisionOverlays();
             SetFeedback("상품 정보를 불러오는 중입니다.", false);
@@ -165,90 +148,68 @@ namespace Baseball.Presentation.Shop
                 _revealRoot, "RevealBackground", ShopArtwork.RevealBackgroundKey, Color.white);
             OwnerRuntimeUiFactory.Stretch(revealBackground.rectTransform);
 
-            Image card = OwnerRuntimeUiFactory.CreateImage("RevealCard", _revealRoot, CareerUiTheme.ReferencePanel);
+            Image card = OwnerRuntimeUiFactory.CreateImage("RevealCard", _revealRoot, new Color(0.025f, 0.045f, 0.08f, .9f));
             RectTransform cardRoot = (RectTransform)card.transform;
             OwnerRuntimeUiFactory.SetAnchors(
                 cardRoot,
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f),
-                Vector2.zero,
-                new Vector2(620f, 480f));
-            cardRoot.anchoredPosition = Vector2.zero;
-            var outline = card.gameObject.AddComponent<Outline>();
-            outline.effectColor = CareerUiTheme.ReferenceAccent;
-            outline.effectDistance = new Vector2(2f, -2f);
-
-            VerticalLayoutGroup layout = OwnerWorkspaceUiFactory.AddVerticalLayout(cardRoot, CareerUiTheme.Space3);
-            layout.padding = new RectOffset(28, 28, 28, 28);
+                new Vector2(.06f, .08f), new Vector2(.94f, .92f), Vector2.zero, Vector2.zero);
+            _revealPanel = card;
             _revealTitle = OwnerRuntimeUiFactory.CreateText(
                 "RevealTitle", cardRoot, string.Empty, 24, FontStyle.Bold,
-                TextAnchor.MiddleCenter, CareerUiTheme.ReferenceAccent);
-            AddFixedHeight(_revealTitle.rectTransform, 40f);
+                TextAnchor.MiddleCenter, Color.white);
+            OwnerRuntimeUiFactory.SetAnchors(_revealTitle.rectTransform,
+                new Vector2(.2f, .91f), new Vector2(.8f, 1f), Vector2.zero, Vector2.zero);
+            RectTransform artworkFrame = OwnerRuntimeUiFactory.CreateRect("ArtworkFrame", cardRoot);
+            OwnerRuntimeUiFactory.SetAnchors(artworkFrame,
+                new Vector2(.3f, .38f), new Vector2(.7f, .86f), Vector2.zero, Vector2.zero);
             _revealArtwork = TacticCardArtwork.Create(
-                cardRoot, "RevealArtwork", TacticCardArtwork.CommonKey, Color.white);
-            AddFixedHeight(_revealArtwork.rectTransform, 176f);
+                artworkFrame, "RevealArtwork", TacticCardArtwork.CommonKey, Color.white);
+            var artworkAspect = _revealArtwork.gameObject.AddComponent<AspectRatioFitter>();
+            artworkAspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             _revealArtwork.gameObject.SetActive(false);
             _revealBody = OwnerRuntimeUiFactory.CreateText(
                 "RevealBody", cardRoot, string.Empty, 18, FontStyle.Bold,
-                TextAnchor.MiddleCenter, CareerUiTheme.ReferenceText);
-            OwnerWorkspaceUiFactory.SetFlexible(_revealBody.rectTransform, 1f);
+                TextAnchor.MiddleCenter, new Color32(211, 224, 241, 255));
+            OwnerRuntimeUiFactory.SetAnchors(_revealBody.rectTransform,
+                new Vector2(.12f, .12f), new Vector2(.88f, .85f), Vector2.zero, Vector2.zero);
             RectTransform actions = OwnerRuntimeUiFactory.CreateRect("RevealActions", cardRoot);
             HorizontalLayoutGroup actionLayout = OwnerWorkspaceUiFactory.AddHorizontalLayout(actions, CareerUiTheme.Space2);
             actionLayout.childAlignment = TextAnchor.MiddleCenter;
-            AddFixedHeight(actions, 42f);
+            OwnerRuntimeUiFactory.SetAnchors(actions,
+                new Vector2(.24f, 0f), new Vector2(.76f, 0f), new Vector2(0f, 0f), new Vector2(0f, 42f));
             _revealRepeatButton = OwnerWorkspaceUiFactory.CreateButton(
                 actions, "Repurchase", "다시 구입", HandleRepurchaseClicked);
             _revealInventoryButton = OwnerWorkspaceUiFactory.CreateButton(
                 actions, "OpenInventory", "보관함", HandleInventoryClicked);
             _revealCloseButton = OwnerWorkspaceUiFactory.CreateButton(
                 actions, "CloseReveal", "확인", () => _revealRoot.gameObject.SetActive(false));
+            foreach (Button button in new[] { _revealRepeatButton, _revealInventoryButton, _revealCloseButton })
+            {
+                button.GetComponent<Image>().color = new Color32(29, 48, 72, 255);
+                button.transform.Find("Label").GetComponent<Text>().color = Color.white;
+            }
+            BuildRevealPlaybackControls();
             _revealRoot.gameObject.SetActive(false);
-        }
-
-        private void BuildWalletBar(RectTransform parent)
-        {
-            _walletText = OwnerRuntimeUiFactory.CreateText(
-                "WalletSummary", parent, string.Empty, 16, FontStyle.Bold,
-                TextAnchor.MiddleRight, CareerUiTheme.ReferenceText);
-            AddFixedHeight(_walletText.rectTransform, 24f);
         }
 
         private void BuildTabBar(RectTransform parent)
         {
             _tabBar = OwnerRuntimeUiFactory.CreateRect("TabBar", parent);
             HorizontalLayoutGroup layout = OwnerWorkspaceUiFactory.AddHorizontalLayout(_tabBar, CareerUiTheme.Space2);
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childForceExpandWidth = false;
-            AddFixedHeight(_tabBar, 40f);
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childForceExpandWidth = true;
+            AddFixedHeight(_tabBar, 36f);
         }
 
         private void BuildLockNotice(RectTransform parent)
         {
             _lockText = OwnerRuntimeUiFactory.CreateText(
                 "LockNotice", parent, string.Empty, 14, FontStyle.Normal,
-                TextAnchor.MiddleCenter, CareerUiTheme.ReferenceTextSecondary);
-            AddFixedHeight(_lockText.rectTransform, 22f);
-        }
-
-        private void BuildGrid(RectTransform parent)
-        {
-            _scroll = OwnerRuntimeUiFactory.CreateVerticalScroll(
-                "ShopScroll", parent, out RectTransform scrollContent);
-            OwnerWorkspaceUiFactory.SetFlexible((RectTransform)_scroll.transform, 1f);
-
-            // 스크롤 Content에는 이미 세로 Layout이 붙어 있으므로, 격자는 그 아래 별도 자식에 만든다.
-            _gridContent = OwnerRuntimeUiFactory.CreateRect("Grid", scrollContent);
-            _gridLayout = _gridContent.gameObject.AddComponent<GridLayoutGroup>();
-            _gridLayout.padding = new RectOffset(
-                (int)CareerUiTheme.Space3, (int)CareerUiTheme.Space3,
-                (int)CareerUiTheme.Space3, (int)CareerUiTheme.Space3);
-            _gridLayout.spacing = new Vector2(CareerUiTheme.Space3, CareerUiTheme.Space3);
-            _gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            _gridLayout.constraintCount = TileColumnCount;
-            _gridLayout.cellSize = new Vector2(320f, TileHeight);
-
-            var fitter = _gridContent.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                TextAnchor.MiddleRight, CareerUiTheme.ReferenceTextSecondary);
+            var layout = _lockText.gameObject.AddComponent<LayoutElement>();
+            layout.flexibleWidth = 1f;
+            layout.minHeight = 0f;
+            layout.preferredHeight = 28f;
         }
 
         private void RebuildTabs()
@@ -264,8 +225,11 @@ namespace Baseball.Presentation.Shop
                 Button button = OwnerWorkspaceUiFactory.CreateButton(
                     _tabBar, "Tab_" + tab.Tab, tab.Title, () => SelectTab(tabIndex));
                 var layout = button.GetComponent<LayoutElement>();
-                layout.minWidth = 116f;
-                layout.preferredWidth = 116f;
+                layout.minWidth = 0f;
+                layout.preferredWidth = 0f;
+                layout.flexibleWidth = 1f;
+                layout.minHeight = 36f;
+                layout.preferredHeight = 36f;
                 button.interactable = !_isProcessing;
                 _tabButtons.Add(button);
                 _tabSurfaces.Add(button.GetComponent<Image>());
@@ -301,17 +265,34 @@ namespace Baseball.Presentation.Shop
             OwnerRuntimeUiFactory.ClearChildren(_gridContent);
             _tileActionButtons.Clear();
             _tileActionAvailability.Clear();
+            _productTileSurfaces.Clear();
+            _productTileIds.Clear();
             ShopTabSnapshot tab = _snapshot.Tabs[_selectedTabIndex];
+            if (_playerCardFilterBar != null)
+                _playerCardFilterBar.gameObject.SetActive(tab.Tab == ShopTab.PlayerCard);
             _lockText.text = tab.IsUnlocked ? string.Empty : tab.LockDescription;
             _lockText.color = CareerUiTheme.ReferenceTextSecondary;
 
-            if (tab.Tiles.Count == 0)
-                BuildEmptyTile(tab.IsUnlocked ? "현재 진열된 상품이 없습니다." : tab.LockDescription);
+            int visibleTileCount = CountVisibleTiles(tab);
+            if (visibleTileCount == 0)
+            {
+                BuildEmptyTile(tab.IsUnlocked
+                    ? "선택한 구단·연도에 해당하는 상품이 없습니다."
+                    : tab.LockDescription);
+                ClearSelectedProduct();
+            }
             else
-                for (int index = 0; index < tab.Tiles.Count; index++) BuildTile(tab.Tiles[index]);
+            {
+                EnsureSelectedProduct(tab);
+                for (int index = 0; index < tab.Tiles.Count; index++)
+                    if (MatchesPlayerCardFilters(tab, tab.Tiles[index])) BuildReferenceTile(tab.Tiles[index]);
+                RefreshSelectedProduct(tab);
+            }
 
-            UpdateGridCellSize();
+            RefreshPityGauge(tab.Tab);
             Canvas.ForceUpdateCanvases();
+            UpdateGridCellSize();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_gridContent);
             RestoreScrollPosition(tab.Tab);
         }
 
@@ -323,156 +304,6 @@ namespace Baseball.Presentation.Shop
                 "Label", surface.rectTransform, message, 14, FontStyle.Bold,
                 TextAnchor.MiddleCenter, CareerUiTheme.ReferenceTextSecondary);
             OwnerRuntimeUiFactory.Stretch(label.rectTransform, new Vector2(16f, 16f), new Vector2(-16f, -16f));
-        }
-
-        private void BuildTile(ShopProductTileSnapshot tile)
-        {
-            Image surface = OwnerRuntimeUiFactory.CreateImage(
-                "Tile_" + tile.ProductId, _gridContent, CareerUiTheme.ReferencePanel);
-            surface.raycastTarget = true;
-            Outline outline = surface.gameObject.AddComponent<Outline>();
-            outline.effectColor = tile.CanPurchase
-                ? CareerUiTheme.ReferenceBorder
-                : CareerUiTheme.ReferenceTextSecondary;
-            outline.effectDistance = new Vector2(1f, -1f);
-            outline.useGraphicAlpha = false;
-
-            var body = (RectTransform)surface.transform;
-            HorizontalLayoutGroup layout = OwnerWorkspaceUiFactory.AddHorizontalLayout(body, CareerUiTheme.Space2);
-            layout.padding = new RectOffset(
-                (int)CareerUiTheme.Space2, (int)CareerUiTheme.Space2,
-                (int)CareerUiTheme.Space2, (int)CareerUiTheme.Space2);
-            layout.childForceExpandWidth = false;
-
-            BuildArtwork(body, tile);
-            BuildTileDetails(body, tile);
-        }
-
-        private void BuildArtwork(RectTransform parent, ShopProductTileSnapshot tile)
-        {
-            Image artwork = OwnerRuntimeUiFactory.CreateImage(
-                "Artwork", parent, CareerUiTheme.ReferencePanelHeader);
-            var artworkLayout = artwork.gameObject.AddComponent<LayoutElement>();
-            artworkLayout.minWidth = ArtworkSize;
-            artworkLayout.preferredWidth = ArtworkSize;
-
-            Texture2D texture = ShopArtwork.Load(tile.ArtworkKey);
-            if (texture != null)
-            {
-                RawImage productArtwork = ShopArtwork.Create(
-                    artwork.transform, "ProductArtwork", tile.ArtworkKey, Color.white);
-                OwnerRuntimeUiFactory.Stretch(productArtwork.rectTransform, new Vector2(3f, 3f), new Vector2(-3f, -3f));
-                var aspect = productArtwork.gameObject.AddComponent<AspectRatioFitter>();
-                aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-                aspect.aspectRatio = texture.width / (float)texture.height;
-            }
-
-            Text countBadge = OwnerRuntimeUiFactory.CreateText(
-                "CountBadge", (RectTransform)artwork.transform, tile.CountBadgeText, 14, FontStyle.Bold,
-                TextAnchor.LowerCenter, texture == null ? CareerUiTheme.ReferenceTextSecondary : Color.white);
-            OwnerRuntimeUiFactory.Stretch(countBadge.rectTransform, new Vector2(4f, 4f), new Vector2(-4f, -4f));
-            if (texture != null)
-            {
-                var shadow = countBadge.gameObject.AddComponent<Shadow>();
-                shadow.effectColor = new Color(0f, 0f, 0f, 0.9f);
-                shadow.effectDistance = new Vector2(1f, -1f);
-            }
-
-            if (tile.BadgeText.Length == 0)
-                return;
-
-            Image badgeSurface = OwnerRuntimeUiFactory.CreateImage(
-                "Badge", (RectTransform)artwork.transform, CareerUiTheme.Warning);
-            OwnerRuntimeUiFactory.SetAnchors(
-                badgeSurface.rectTransform,
-                new Vector2(0f, 1f),
-                new Vector2(0f, 1f),
-                Vector2.zero,
-                new Vector2(44f, 18f));
-            badgeSurface.rectTransform.pivot = new Vector2(0f, 1f);
-            badgeSurface.rectTransform.anchoredPosition = Vector2.zero;
-            badgeSurface.rectTransform.sizeDelta = new Vector2(44f, 18f);
-            Text badgeText = OwnerRuntimeUiFactory.CreateText(
-                "Label", badgeSurface.rectTransform, tile.BadgeText, 11, FontStyle.Bold,
-                TextAnchor.MiddleCenter, Color.white);
-            OwnerRuntimeUiFactory.Stretch(badgeText.rectTransform);
-        }
-
-        private void BuildTileDetails(RectTransform parent, ShopProductTileSnapshot tile)
-        {
-            RectTransform details = OwnerRuntimeUiFactory.CreateRect("Details", parent);
-            OwnerWorkspaceUiFactory.AddVerticalLayout(details, CareerUiTheme.Space1);
-            OwnerWorkspaceUiFactory.SetFlexible(details, 1f);
-
-            Image titleBar = OwnerRuntimeUiFactory.CreateImage(
-                "TitleBar", details, CareerUiTheme.ReferencePanelHeader);
-            AddFixedHeight((RectTransform)titleBar.transform, 24f);
-            Text title = OwnerRuntimeUiFactory.CreateText(
-                "Title", (RectTransform)titleBar.transform, tile.Title, 16, FontStyle.Bold,
-                TextAnchor.MiddleCenter, CareerUiTheme.ReferenceText);
-            OwnerRuntimeUiFactory.Stretch(title.rectTransform);
-
-            Image subtitleBar = OwnerRuntimeUiFactory.CreateImage(
-                "SubtitleBar", details, CareerUiTheme.ReferenceAccent);
-            AddFixedHeight((RectTransform)subtitleBar.transform, 20f);
-            Text subtitle = OwnerRuntimeUiFactory.CreateText(
-                "Subtitle", (RectTransform)subtitleBar.transform, tile.Subtitle, 12, FontStyle.Normal,
-                TextAnchor.MiddleCenter, Color.white);
-            OwnerRuntimeUiFactory.Stretch(subtitle.rectTransform);
-
-            Text price = OwnerRuntimeUiFactory.CreateText(
-                "Price", details, tile.PriceText, 20, FontStyle.Bold,
-                TextAnchor.MiddleRight, CareerUiTheme.ReferenceText);
-            AddFixedHeight(price.rectTransform, 28f);
-
-            Text status = OwnerRuntimeUiFactory.CreateText(
-                "Status", details, tile.CanPurchase ? "구매 가능" : tile.BlockedReason, 11, FontStyle.Normal,
-                TextAnchor.MiddleRight,
-                tile.CanPurchase ? CareerUiTheme.ReferenceAccent : CareerUiTheme.Error);
-            AddFixedHeight(status.rectTransform, 16f);
-
-            BuildActionRow(details, tile);
-        }
-
-        private void BuildActionRow(RectTransform parent, ShopProductTileSnapshot tile)
-        {
-            RectTransform actions = OwnerRuntimeUiFactory.CreateRect("Actions", parent);
-            HorizontalLayoutGroup layout = OwnerWorkspaceUiFactory.AddHorizontalLayout(actions, CareerUiTheme.Space2);
-            layout.childAlignment = TextAnchor.MiddleRight;
-            layout.childForceExpandWidth = false;
-            AddFixedHeight(actions, 30f);
-
-            string productId = tile.ProductId;
-
-            // 원작의 "선물" 자리는 싱글 플레이에서 의미가 없어 확률·구성을 여는 "상세"로 대체한다.
-            Button details = OwnerWorkspaceUiFactory.CreateButton(
-                actions, "Details", "상세", () => DetailsRequested?.Invoke(productId));
-            SetActionButtonSize(details);
-            details.interactable = !_isProcessing;
-
-            Button purchase = OwnerWorkspaceUiFactory.CreateButton(
-                actions, "Purchase", "구입", () => PurchasePreviewRequested?.Invoke(productId));
-            SetActionButtonSize(purchase);
-            purchase.interactable = tile.CanPurchase && !_isProcessing;
-            purchase.GetComponent<Image>().color = tile.CanPurchase
-                ? CareerUiTheme.ReferenceAccentLight
-                : CareerUiTheme.ReferenceButton;
-            Text purchaseLabel = purchase.transform.Find("Label").GetComponent<Text>();
-            purchaseLabel.color = tile.CanPurchase ? Color.white : CareerUiTheme.ReferenceTextSecondary;
-            _tileActionButtons.Add(details);
-            _tileActionAvailability.Add(true);
-            _tileActionButtons.Add(purchase);
-            _tileActionAvailability.Add(tile.CanPurchase);
-        }
-
-        private static void SetActionButtonSize(Button button)
-        {
-            var layout = button.GetComponent<LayoutElement>();
-            layout.minHeight = 26f;
-            layout.preferredHeight = 26f;
-            layout.minWidth = 72f;
-            layout.preferredWidth = 72f;
-            button.transform.Find("Label").GetComponent<Text>().fontSize = 12;
         }
 
         private void RememberScrollPosition()
@@ -509,14 +340,26 @@ namespace Baseball.Presentation.Shop
             if (_gridLayout != null) UpdateGridCellSize();
         }
 
+        private void LateUpdate()
+        {
+            if (_revealRoot != null && _revealRoot.gameObject.activeInHierarchy) LayoutRevealCards();
+            // 상위 Shell의 레이아웃이 확정된 뒤 실제 Viewport 너비로 두 열을 맞춘다.
+            if (_gridLayout != null && _root != null && _root.gameObject.activeInHierarchy)
+                UpdateGridCellSize();
+        }
+
         private void UpdateGridCellSize()
         {
-            float width = _gridContent.rect.width;
+            float width = _scroll != null && _scroll.viewport != null
+                ? _scroll.viewport.rect.width
+                : 0f;
             if (width <= 1f && _scroll != null)
-                width = ((RectTransform)_scroll.transform).rect.width - 16f;
-            if (width <= 1f) width = 670f;
-            float usable = width - _gridLayout.padding.horizontal - _gridLayout.spacing.x;
-            _gridLayout.cellSize = new Vector2(Mathf.Max(280f, usable / TileColumnCount), TileHeight);
+                width = ((RectTransform)_scroll.transform).rect.width;
+            if (width <= 1f) return;
+            float usable = width - _gridLayout.padding.horizontal -
+                _gridLayout.spacing.x * (TileColumnCount - 1);
+            var size = new Vector2(Mathf.Max(1f, usable / TileColumnCount), TileHeight);
+            if (_gridLayout.cellSize != size) _gridLayout.cellSize = size;
         }
 
         private static void AddFixedHeight(RectTransform target, float height)
@@ -526,6 +369,8 @@ namespace Baseball.Presentation.Shop
                 layout = target.gameObject.AddComponent<LayoutElement>();
             layout.minHeight = height;
             layout.preferredHeight = height;
+            // LayoutGroup도 flexibleHeight를 제공하므로 미지정(-1)으로 두면 고정 높이가 늘어난다.
+            layout.flexibleHeight = 0f;
         }
     }
 }

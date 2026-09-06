@@ -71,6 +71,11 @@ namespace Baseball.Presentation.Shop
             for (int index = 0; index < _tileActionButtons.Count; index++)
                 _tileActionButtons[index].interactable = !isProcessing && _tileActionAvailability[index];
 
+            if (_previewDetailsButton != null)
+                _previewDetailsButton.interactable = !isProcessing && !string.IsNullOrEmpty(_selectedProductId);
+            if (_previewPurchaseButton != null)
+                _previewPurchaseButton.interactable = !isProcessing && _selectedProductCanPurchase;
+
             if (_confirmationPurchaseButton != null)
                 _confirmationPurchaseButton.interactable = !isProcessing &&
                     _activeDetails != null && _activeDetails.CanPurchase;
@@ -105,6 +110,11 @@ namespace Baseball.Presentation.Shop
             if (_isProcessing) return false;
             if (_revealRoot != null && _revealRoot.gameObject.activeSelf)
             {
+                if (_isRevealPlaying)
+                {
+                    SkipReveal();
+                    return true;
+                }
                 _revealRoot.gameObject.SetActive(false);
                 return true;
             }
@@ -278,6 +288,7 @@ namespace Baseball.Presentation.Shop
 
         private void HideAllOverlays()
         {
+            StopRevealPlayback();
             HideDecisionOverlays();
             if (_revealRoot != null) _revealRoot.gameObject.SetActive(false);
         }

@@ -12,10 +12,16 @@ namespace Baseball.Presentation.Shop
         public const string PlayerPackKey = "shop-player-pack";
         public const string SkillPackKey = "shop-skill-pack";
         public const string RevealBackgroundKey = "shop-reveal-background";
+        public const string ScoutReportRevealKey = "shop-reveal-scout-report-v2";
+        public const string SkillAnalysisRevealKey = "shop-reveal-skill-analysis-v2";
+        public const string TacticLabRevealKey = "shop-reveal-tactic-lab-v2";
 
         private static Texture2D _playerPack;
         private static Texture2D _skillPack;
         private static Texture2D _revealBackground;
+        private static Texture2D _scoutReportReveal;
+        private static Texture2D _skillAnalysisReveal;
+        private static Texture2D _tacticLabReveal;
 
         public static string GetProductKey(ShopProductKind kind, string sourceId)
         {
@@ -52,6 +58,18 @@ namespace Baseball.Presentation.Shop
                     return _revealBackground != null
                         ? _revealBackground
                         : _revealBackground = Resources.Load<Texture2D>("UI/Shop/shop_reveal_background");
+                case ScoutReportRevealKey:
+                    return _scoutReportReveal != null
+                        ? _scoutReportReveal
+                        : _scoutReportReveal = Resources.Load<Texture2D>("UI/Shop/reveal_scout_report_v2");
+                case SkillAnalysisRevealKey:
+                    return _skillAnalysisReveal != null
+                        ? _skillAnalysisReveal
+                        : _skillAnalysisReveal = Resources.Load<Texture2D>("UI/Shop/reveal_skill_analysis_v2");
+                case TacticLabRevealKey:
+                    return _tacticLabReveal != null
+                        ? _tacticLabReveal
+                        : _tacticLabReveal = Resources.Load<Texture2D>("UI/Shop/reveal_tactic_lab_v2");
                 default:
                     return TacticCardArtwork.Load(artworkKey);
             }

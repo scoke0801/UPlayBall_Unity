@@ -18,7 +18,10 @@ namespace Baseball.Presentation.Shop
             string countBadgeText,
             bool canPurchase,
             string blockedReason,
-            string artworkKey = null)
+            string artworkKey = null,
+            string targetFranchiseId = null,
+            string targetFranchiseName = null,
+            int? targetYear = null)
         {
             ProductId = productId;
             Title = title;
@@ -29,6 +32,9 @@ namespace Baseball.Presentation.Shop
             CanPurchase = canPurchase;
             BlockedReason = blockedReason;
             ArtworkKey = artworkKey ?? string.Empty;
+            TargetFranchiseId = targetFranchiseId ?? string.Empty;
+            TargetFranchiseName = targetFranchiseName ?? string.Empty;
+            TargetYear = targetYear;
         }
 
         public string ProductId { get; }
@@ -39,7 +45,7 @@ namespace Baseball.Presentation.Shop
 
         public string PriceText { get; }
 
-        /// <summary>NEW/SALE/BEST. 없으면 빈 문자열이다.</summary>
+        /// <summary>신규·할인 표시다. 인기 상품 배지는 빈 문자열로 숨긴다.</summary>
         public string BadgeText { get; }
 
         /// <summary>묶음 상품의 획득 횟수 배지를 만든다. 단품은 무작위 획득으로 표시한다.</summary>
@@ -50,6 +56,9 @@ namespace Baseball.Presentation.Shop
         /// <summary>구매할 수 없는 이유다. 구매 가능하면 빈 문자열이다.</summary>
         public string BlockedReason { get; }
         public string ArtworkKey { get; }
+        public string TargetFranchiseId { get; }
+        public string TargetFranchiseName { get; }
+        public int? TargetYear { get; }
     }
 
     /// <summary>탭 하나의 표시 상태다. 잠긴 탭도 사유를 달고 그대로 노출한다.</summary>
@@ -79,16 +88,27 @@ namespace Baseball.Presentation.Shop
     /// <summary>상점 화면 전체 스냅샷이다.</summary>
     public sealed class ShopScreenSnapshot
     {
-        public ShopScreenSnapshot(IReadOnlyList<ShopTabSnapshot> tabs, string walletSummary)
+        public ShopScreenSnapshot(
+            IReadOnlyList<ShopTabSnapshot> tabs,
+            string walletSummary,
+            int scoutPityGauge = 0,
+            int scoutPityThreshold = 100)
         {
             Tabs = tabs ?? throw new ArgumentNullException(nameof(tabs));
             WalletSummary = walletSummary ?? string.Empty;
+            if (scoutPityGauge < 0 || scoutPityThreshold < 1 || scoutPityGauge > scoutPityThreshold)
+                throw new ArgumentOutOfRangeException(nameof(scoutPityGauge));
+            ScoutPityGauge = scoutPityGauge;
+            ScoutPityThreshold = scoutPityThreshold;
         }
 
         public IReadOnlyList<ShopTabSnapshot> Tabs { get; }
 
         /// <summary>상단에 표시할 보유 재화 요약이다. 실제 존재하는 재화만 들어간다.</summary>
         public string WalletSummary { get; }
+        public int ScoutPityGauge { get; }
+        public int ScoutPityThreshold { get; }
+        public bool IsFocusedScoutReady => ScoutPityGauge >= ScoutPityThreshold;
     }
 
     /// <summary>상품 상세·구매 확인·Reveal 재진입이 함께 사용하는 최신 구매 Preview다.</summary>
@@ -158,7 +178,12 @@ namespace Baseball.Presentation.Shop
             var tabs = new List<ShopTabSnapshot>(TabOrder.Length);
             for (int index = 0; index < TabOrder.Length; index++)
                 tabs.Add(CreateTab(service, TabOrder[index]));
-            return new ShopScreenSnapshot(tabs, DescribeWallet(service.GetBalance()));
+            ShopProgressDetails progress = service.Progress;
+            return new ShopScreenSnapshot(
+                tabs,
+                DescribeWallet(service.GetBalance()),
+                progress.ScoutPityGauge,
+                progress.ScoutPityThreshold);
         }
 
         public static string DescribeTab(ShopTab tab)
@@ -180,7 +205,7 @@ namespace Baseball.Presentation.Shop
                 case ShopProductBadge.None: return string.Empty;
                 case ShopProductBadge.New: return "신규";
                 case ShopProductBadge.Sale: return "할인";
-                case ShopProductBadge.Best: return "인기";
+                case ShopProductBadge.Best: return string.Empty;
                 default: throw new ArgumentOutOfRangeException(nameof(badge));
             }
         }
@@ -255,7 +280,10 @@ namespace Baseball.Presentation.Shop
                 DescribeCountBadge(product),
                 quote.CanPurchase,
                 DescribeBlockedReason(service, product, quote),
-                DescribeArtworkKey(product));
+                DescribeArtworkKey(product),
+                product.TargetFranchiseId,
+                product.TargetFranchiseName,
+                product.TargetYear);
         }
 
         private static string DescribeArtworkKey(ShopProductDefinition product)
