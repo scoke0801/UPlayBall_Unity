@@ -8,7 +8,12 @@ namespace Baseball.Core.Shop
     /// </summary>
     public readonly struct ShopGrantedItem
     {
-        public ShopGrantedItem(string itemId, string displayName, string gradeLabel, bool isNew)
+        public ShopGrantedItem(
+            string itemId,
+            string displayName,
+            string gradeLabel,
+            bool isNew,
+            string artworkKey = null)
         {
             if (string.IsNullOrWhiteSpace(itemId))
                 throw new ArgumentException("ItemId는 비어 있을 수 없습니다.", nameof(itemId));
@@ -16,11 +21,13 @@ namespace Baseball.Core.Shop
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? itemId.Trim() : displayName.Trim();
             GradeLabel = gradeLabel == null ? string.Empty : gradeLabel.Trim();
             IsNew = isNew;
+            ArtworkKey = artworkKey == null ? string.Empty : artworkKey.Trim();
         }
 
         public string ItemId { get; }
         public string DisplayName { get; }
         public string GradeLabel { get; }
+        public string ArtworkKey { get; }
 
         /// <summary>이미 보유한 항목이면 false다. 중복 처리 UI가 이 값을 읽는다.</summary>
         public bool IsNew { get; }

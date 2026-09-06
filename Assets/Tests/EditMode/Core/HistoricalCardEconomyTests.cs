@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
@@ -71,6 +72,28 @@ namespace Baseball.Tests.EditMode.Core
 
             Assert.That(yearFranchise.All(value => value.StackPolicy == TeamColorStackPolicy.Stackable), Is.True);
             Assert.That(mvp.All(value => value.StackPolicy == TeamColorStackPolicy.Stackable), Is.True);
+        }
+
+        [Test]
+        public void InitialTeamColorDefinition_CreateAll은_여섯_Family를_모두_포함한다()
+        {
+            IReadOnlyList<TeamColorDefinition> definitions =
+                InitialTeamColorDefinitionFactory.CreateAll(2011, "COMETS");
+
+            CollectionAssert.AreEquivalent(
+                Enum.GetValues(typeof(TeamColorFamily)),
+                definitions.Select(value => value.Family).Distinct().ToArray());
+        }
+
+        [Test]
+        public void InitialTeamColorDefinition_CreateAll의_TeamColorId는_중복되지_않는다()
+        {
+            IReadOnlyList<TeamColorDefinition> definitions =
+                InitialTeamColorDefinitionFactory.CreateAll(2011, "COMETS");
+
+            Assert.That(
+                definitions.Select(value => value.TeamColorId).Distinct().Count(),
+                Is.EqualTo(definitions.Count));
         }
 
         [Test]

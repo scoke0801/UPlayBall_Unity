@@ -11,9 +11,6 @@ namespace Baseball.Game.Shop
     /// </summary>
     public static class ShopAvailabilityFactory
     {
-        private const string OwnerSkillBoardUnavailable =
-            "구단주 모드에는 스킬 블록을 장착할 카드 보드가 아직 없습니다.";
-
         public static ShopAvailabilityTable CreateFor(GameMode mode)
         {
             return mode == GameMode.PlayerCareer
@@ -40,9 +37,7 @@ namespace Baseball.Game.Shop
         }
 
         /// <summary>
-        /// 구단주 모드는 선수 카드·작전 카드를 연다. 스킬 블록은 진열은 하되,
-        /// 구단주 쪽 장착 보드가 생기기 전까지 사유를 밝혀 잠근다 — 살 수는 있는데
-        /// 쓸 데가 없는 상품을 파는 것이 플레이어를 속이는 일이기 때문이다.
+        /// 구단주 모드는 선수 카드·작전 카드와 카드별 성장판에 쓸 스킬 블록을 연다.
         /// </summary>
         private static ShopAvailabilityTable CreateOwnerCareerTable()
         {
@@ -51,10 +46,7 @@ namespace Baseball.Game.Shop
                 ShopCategoryAvailability.Unlocked(ShopTab.Featured),
                 ShopCategoryAvailability.Unlocked(ShopTab.PlayerCard),
                 ShopCategoryAvailability.Unlocked(ShopTab.TacticCard),
-                ShopCategoryAvailability.Locked(
-                    ShopTab.SkillBlock,
-                    ShopLockReason.LockedByProgress,
-                    OwnerSkillBoardUnavailable)
+                ShopCategoryAvailability.Unlocked(ShopTab.SkillBlock)
             };
             return new ShopAvailabilityTable(availabilities);
         }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Baseball.Core.Historical;
+using Baseball.Core.Growth;
 using Baseball.Core.Shop;
 using Baseball.Game.Career;
 using Baseball.Game.Historical;
@@ -17,24 +18,20 @@ namespace Baseball.Game.Shop
         /// <summary>상점 구매가 월드 시드와 겹치지 않도록 쓰는 고정 스트림 태그다.</summary>
         private const ulong ShopStreamTag = 0x5348_4F50_0000_0000UL;
 
-        public static ShopService Create(
-            OwnerModeManager manager,
-            ShopPurchaseHistoryState history,
-            TacticCollectionState tacticCollection)
+        public static ShopService Create(OwnerModeManager manager)
         {
             if (manager == null)
                 throw new System.ArgumentNullException(nameof(manager));
-            if (history == null)
-                throw new System.ArgumentNullException(nameof(history));
-            if (tacticCollection == null)
-                throw new System.ArgumentNullException(nameof(tacticCollection));
 
             ManagerHistoricalRuntimeState runtime = manager.Runtime
                 ?? throw new System.InvalidOperationException("구단주 런타임이 아직 준비되지 않았습니다.");
+            ShopPurchaseHistoryState history = runtime.ShopPurchaseHistory;
+            TacticCollectionState tacticCollection = runtime.TacticCollection;
 
             ScoutFeaturePolicy featurePolicy = ResolveFeaturePolicy(runtime.WorldCardCatalog);
             IReadOnlyList<ScoutPoolDefinition> scoutPools = ShopDefaultPools.CreateScoutPools(featurePolicy);
-            IReadOnlyList<TacticResearchPoolDefinition> tacticPools = ShopDefaultPools.CreateTacticResearchPools();
+            IReadOnlyList<TacticResearchPoolDefinition> tacticPools = ShopDefaultPools.CreateTacticResearchPools(
+                manager.GetFacilityEffects().TacticResearchEfficiencyModifier);
 
             ShopCatalog catalog = ShopCatalogBuilder.Build(
                 manager.Balance.Growth.SkillGacha, scoutPools, tacticPools);
@@ -54,9 +51,15 @@ namespace Baseball.Game.Shop
                 new TacticCardPackFulfillment(
                     new TacticResearchRoller(),
                     tacticPools,
-                    manager.GetAvailableTacticCards(),
+                    manager.GetTacticCardCatalog(),
                     wallet,
                     () => tacticCollection,
+                    () => CreateRandom(manager, history)),
+                new OwnerSkillBlockPackFulfillment(
+                    new OwnerSkillGachaResolver(manager.Balance.Growth),
+                    manager.Balance.Growth.SkillBlocks,
+                    wallet,
+                    () => manager.Runtime.PlayerGrowth.Inventory,
                     () => CreateRandom(manager, history))
             };
 

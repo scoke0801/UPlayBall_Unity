@@ -322,7 +322,9 @@ namespace Baseball.Core.Historical
             int duplicateCount = 0,
             bool isLocked = false,
             bool isFavorite = false,
-            CardTrainingState training = null)
+            CardTrainingState training = null,
+            OwnedCardSkillBoardState skillBoard = null,
+            int lastStudySeason = -1)
         {
             if (string.IsNullOrWhiteSpace(cardId))
                 throw new ArgumentException("CardId는 비어 있을 수 없습니다.", nameof(cardId));
@@ -336,6 +338,8 @@ namespace Baseball.Core.Historical
             IsLocked = isLocked;
             IsFavorite = isFavorite;
             Training = training ?? new CardTrainingState();
+            SkillBoard = skillBoard ?? new OwnedCardSkillBoardState();
+            LastStudySeason = lastStudySeason;
         }
 
         public string CardId { get; }
@@ -344,6 +348,14 @@ namespace Baseball.Core.Historical
         public bool IsLocked { get; set; }
         public bool IsFavorite { get; set; }
         public CardTrainingState Training { get; }
+        public OwnedCardSkillBoardState SkillBoard { get; }
+        public int LastStudySeason { get; private set; }
+
+        public void RecordStudySeason(int season)
+        {
+            if (season < 0) throw new ArgumentOutOfRangeException(nameof(season));
+            LastStudySeason = season;
+        }
 
         public void AddDuplicate(int count = 1)
         {

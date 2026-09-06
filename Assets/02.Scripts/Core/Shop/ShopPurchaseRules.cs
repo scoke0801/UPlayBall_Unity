@@ -96,8 +96,34 @@ namespace Baseball.Core.Shop
         private readonly Dictionary<string, int> _purchaseCounts;
 
         public ShopPurchaseHistoryState()
+            : this(null, 0)
+        {
+        }
+
+        /// <summary>세이브에서 상품별 구매 수와 전체 구매 순번을 복원한다.</summary>
+        public ShopPurchaseHistoryState(
+            IReadOnlyDictionary<string, int> purchaseCounts,
+            int totalPurchaseCount)
         {
             _purchaseCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (totalPurchaseCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(totalPurchaseCount));
+            if (purchaseCounts != null)
+            {
+                int periodTotal = 0;
+                foreach (KeyValuePair<string, int> pair in purchaseCounts)
+                {
+                    if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value < 1)
+                        throw new ArgumentException("상점 구매 이력 항목이 잘못되었습니다.", nameof(purchaseCounts));
+                    string productId = pair.Key.Trim();
+                    if (!_purchaseCounts.TryAdd(productId, pair.Value))
+                        throw new ArgumentException("상점 구매 이력에 중복 상품이 있습니다.", nameof(purchaseCounts));
+                    periodTotal = checked(periodTotal + pair.Value);
+                }
+                if (totalPurchaseCount < periodTotal)
+                    throw new ArgumentException("전체 구매 횟수는 현재 주기 구매 합계보다 작을 수 없습니다.", nameof(totalPurchaseCount));
+            }
+            TotalPurchaseCount = totalPurchaseCount;
         }
 
         public IReadOnlyDictionary<string, int> PurchaseCounts => _purchaseCounts;

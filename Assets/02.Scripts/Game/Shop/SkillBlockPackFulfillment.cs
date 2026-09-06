@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Growth;
+using Baseball.Core.Historical;
 using Baseball.Core.Shop;
 using Baseball.Simulation.Growth;
+using Baseball.Simulation.Historical;
 using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Shop
@@ -122,6 +124,63 @@ namespace Baseball.Game.Shop
                 case SkillBlockRarity.Legendary: return "전설";
                 default: throw new ArgumentOutOfRangeException(nameof(rarity));
             }
+        }
+    }
+
+    /// <summary>구단주 지갑을 한 번 결제하고 공유 스킬 블록 인벤토리에 결과를 지급한다.</summary>
+    public sealed class OwnerSkillBlockPackFulfillment : IShopProductFulfillment
+    {
+        private readonly OwnerSkillGachaResolver _resolver;
+        private readonly SkillBlockDefinition[] _definitions;
+        private readonly IShopWallet _wallet;
+        private readonly Func<OwnerSkillBlockInventoryState> _inventoryProvider;
+        private readonly Func<IRandomSource> _randomFactory;
+
+        public OwnerSkillBlockPackFulfillment(
+            OwnerSkillGachaResolver resolver,
+            SkillBlockDefinition[] definitions,
+            IShopWallet wallet,
+            Func<OwnerSkillBlockInventoryState> inventoryProvider,
+            Func<IRandomSource> randomFactory)
+        {
+            _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+            _definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
+            _wallet = wallet ?? throw new ArgumentNullException(nameof(wallet));
+            _inventoryProvider = inventoryProvider ?? throw new ArgumentNullException(nameof(inventoryProvider));
+            _randomFactory = randomFactory ?? throw new ArgumentNullException(nameof(randomFactory));
+        }
+
+        public ShopProductKind Kind => ShopProductKind.SkillBlockPack;
+
+        public ShopFulfillmentResult Fulfill(ShopProductDefinition product)
+        {
+            if (product == null) throw new ArgumentNullException(nameof(product));
+            if (product.Currency != ShopCurrency.Money ||
+                !Enum.TryParse(product.SourceId, out SkillGachaPurchaseTier tier))
+                return ShopFulfillmentResult.Failure("스킬 블록 상품 정의가 올바르지 않습니다.");
+            if (!_wallet.TrySpend(product.Currency, product.Price))
+                return ShopFulfillmentResult.Failure("스킬 블록 구매 자금이 부족합니다.");
+
+            SkillBlockInstance[] blocks = _resolver.Draw(
+                _inventoryProvider(), tier, product.DrawCount, _randomFactory());
+            var items = new ShopGrantedItem[blocks.Length];
+            for (int index = 0; index < items.Length; index++)
+            {
+                SkillBlockDefinition definition = FindDefinition(blocks[index].DefinitionId);
+                items[index] = new ShopGrantedItem(
+                    blocks[index].DefinitionId,
+                    blocks[index].DefinitionId,
+                    definition.Rarity.ToString(),
+                    true);
+            }
+            return ShopFulfillmentResult.Success(items);
+        }
+
+        private SkillBlockDefinition FindDefinition(string definitionId)
+        {
+            for (int index = 0; index < _definitions.Length; index++)
+                if (string.Equals(_definitions[index].BlockId, definitionId, StringComparison.Ordinal)) return _definitions[index];
+            throw new InvalidOperationException("지급된 스킬 블록 정의를 찾을 수 없습니다.");
         }
     }
 }

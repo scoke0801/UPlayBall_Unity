@@ -49,9 +49,18 @@ namespace Baseball.Game.Shop
         }
 
         /// <summary>전 계열 하나와 계열별 연구 풀을 진열한다. 계열 지정은 값이 큰 대신 더 비싸다.</summary>
-        public static IReadOnlyList<TacticResearchPoolDefinition> CreateTacticResearchPools()
+        public static IReadOnlyList<TacticResearchPoolDefinition> CreateTacticResearchPools(
+            double tacticResearchEfficiencyModifier = 0d)
         {
+            if (double.IsNaN(tacticResearchEfficiencyModifier) ||
+                double.IsInfinity(tacticResearchEfficiencyModifier) ||
+                tacticResearchEfficiencyModifier < 0d)
+                throw new System.ArgumentOutOfRangeException(nameof(tacticResearchEfficiencyModifier));
             double[] tierWeights = TacticResearchPoolDefinition.CreateInitialTierWeights();
+            double multiplier = 1d + tacticResearchEfficiencyModifier;
+            tierWeights[(int)TacticTier.Normal] /= multiplier;
+            tierWeights[(int)TacticTier.Rare] *= multiplier;
+            tierWeights[(int)TacticTier.Special] *= 1d + tacticResearchEfficiencyModifier * 2d;
             return new List<TacticResearchPoolDefinition>
             {
                 new TacticResearchPoolDefinition("general", tierWeights, GeneralTacticResearchPrice),

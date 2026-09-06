@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Shop;
 using Baseball.Game.Shop;
+using Baseball.Presentation.SharedUI;
 
 namespace Baseball.Presentation.Shop
 {
@@ -16,7 +17,8 @@ namespace Baseball.Presentation.Shop
             string badgeText,
             string countBadgeText,
             bool canPurchase,
-            string blockedReason)
+            string blockedReason,
+            string artworkKey = null)
         {
             ProductId = productId;
             Title = title;
@@ -26,6 +28,7 @@ namespace Baseball.Presentation.Shop
             CountBadgeText = countBadgeText;
             CanPurchase = canPurchase;
             BlockedReason = blockedReason;
+            ArtworkKey = artworkKey ?? string.Empty;
         }
 
         public string ProductId { get; }
@@ -46,6 +49,7 @@ namespace Baseball.Presentation.Shop
 
         /// <summary>구매할 수 없는 이유다. 구매 가능하면 빈 문자열이다.</summary>
         public string BlockedReason { get; }
+        public string ArtworkKey { get; }
     }
 
     /// <summary>탭 하나의 표시 상태다. 잠긴 탭도 사유를 달고 그대로 노출한다.</summary>
@@ -155,7 +159,19 @@ namespace Baseball.Presentation.Shop
                 DescribeBadge(product.Badge),
                 DescribeCountBadge(product),
                 quote.CanPurchase,
-                DescribeBlockedReason(service, product, quote));
+                DescribeBlockedReason(service, product, quote),
+                DescribeArtworkKey(product));
+        }
+
+        private static string DescribeArtworkKey(ShopProductDefinition product)
+        {
+            if (product.Kind != ShopProductKind.TacticCardPack)
+                return string.Empty;
+            if (string.Equals(product.SourceId, "batting", StringComparison.Ordinal))
+                return TacticCardArtwork.BattingKey;
+            if (string.Equals(product.SourceId, "pitching", StringComparison.Ordinal))
+                return TacticCardArtwork.PitchingKey;
+            return TacticCardArtwork.CommonKey;
         }
 
         private static string DescribeSubtitle(ShopProductDefinition product)

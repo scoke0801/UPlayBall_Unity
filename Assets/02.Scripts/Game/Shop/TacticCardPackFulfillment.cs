@@ -56,7 +56,11 @@ namespace Baseball.Game.Shop
                 TacticCardDefinition card = _roller.Roll(pool, _tacticCatalog, random);
                 bool isNew = collection.Acquire(card.CardId);
                 items[index] = new ShopGrantedItem(
-                    card.CardId, card.Name, DescribeTier(card.TacticTier), isNew);
+                    card.CardId,
+                    card.Name,
+                    DescribeTier(card.TacticTier),
+                    isNew,
+                    DescribeArtworkKey(card.Category));
             }
             return ShopFulfillmentResult.Success(items);
         }
@@ -84,6 +88,18 @@ namespace Baseball.Game.Shop
                 case TacticTier.Special: return "특수";
                 case TacticTier.Signature: return "시그니처";
                 default: throw new ArgumentOutOfRangeException(nameof(tier));
+            }
+        }
+
+        private static string DescribeArtworkKey(TacticCardCategory category)
+        {
+            switch (category)
+            {
+                case TacticCardCategory.Batting: return "tactic-batting";
+                case TacticCardCategory.Pitching: return "tactic-pitching";
+                case TacticCardCategory.Analysis:
+                case TacticCardCategory.Common: return "tactic-common";
+                default: throw new ArgumentOutOfRangeException(nameof(category));
             }
         }
     }

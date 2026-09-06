@@ -144,5 +144,24 @@ namespace Baseball.Core.Historical
             _cardIds.Add(id);
             return true;
         }
+
+        /// <summary>경기 확정에 사용한 카드 한 장을 보유 수량에서 제거한다.</summary>
+        public bool TryConsume(string cardId)
+        {
+            if (string.IsNullOrWhiteSpace(cardId))
+                return false;
+            string id = cardId.Trim();
+            if (!_countsByCardId.TryGetValue(id, out int count) || count <= 0)
+                return false;
+            if (count > 1)
+            {
+                _countsByCardId[id] = count - 1;
+                return true;
+            }
+
+            _countsByCardId.Remove(id);
+            _cardIds.Remove(id);
+            return true;
+        }
     }
 }

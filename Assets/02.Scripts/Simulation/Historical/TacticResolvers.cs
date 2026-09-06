@@ -3,9 +3,64 @@ using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Historical
 {
+    /// <summary>AI 구단이 리그 수준 안에서 서로 다른 계열의 전술 두 장을 결정론적으로 고른다.</summary>
+    public sealed class AiTacticSelectionResolver
+    {
+        public TacticCardDefinition[] Select(
+            IReadOnlyList<TacticCardDefinition> catalog,
+            LeagueGrade leagueGrade,
+            ulong gameSeed,
+            int teamId)
+        {
+            if (catalog == null) throw new ArgumentNullException(nameof(catalog));
+            if (teamId <= 0) throw new ArgumentOutOfRangeException(nameof(teamId));
+
+            TacticTier maximumTier = ResolveMaximumTier(leagueGrade);
+            var candidates = new TacticCardDefinition[catalog.Count];
+            int candidateCount = 0;
+            for (int index = 0; index < catalog.Count; index++)
+            {
+                TacticCardDefinition card = catalog[index];
+                if (card != null && card.TacticTier <= maximumTier && card.TacticTier != TacticTier.Signature)
+                    candidates[candidateCount++] = card;
+            }
+            if (candidateCount == 0)
+                return Array.Empty<TacticCardDefinition>();
+
+            ulong selectionSeed = DeterministicSeed.Derive(gameSeed, unchecked((ulong)teamId));
+            int firstIndex = (int)(selectionSeed % (ulong)candidateCount);
+            TacticCardDefinition first = candidates[firstIndex];
+            if (candidateCount == 1)
+                return new[] { first };
+
+            int secondIndex = -1;
+            int offset = (int)(DeterministicSeed.Derive(selectionSeed, 1UL) % (ulong)candidateCount);
+            for (int step = 0; step < candidateCount; step++)
+            {
+                int index = (offset + step) % candidateCount;
+                if (index != firstIndex && candidates[index].Category != first.Category)
+                {
+                    secondIndex = index;
+                    break;
+                }
+            }
+            if (secondIndex < 0)
+                secondIndex = (firstIndex + 1) % candidateCount;
+            return new[] { first, candidates[secondIndex] };
+        }
+
+        private static TacticTier ResolveMaximumTier(LeagueGrade leagueGrade)
+        {
+            if (leagueGrade <= LeagueGrade.Minor) return TacticTier.Normal;
+            if (leagueGrade <= LeagueGrade.World) return TacticTier.Rare;
+            return TacticTier.Special;
+        }
+    }
+
     /// <summary>공통 Trigger Evaluator가 읽는 한 판정 시점의 불변 경기 상태다.</summary>
     public readonly struct TacticGameState
     {

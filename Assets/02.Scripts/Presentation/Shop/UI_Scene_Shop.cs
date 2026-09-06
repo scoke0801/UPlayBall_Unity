@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Baseball.Core.Shop;
 using Baseball.Presentation.Owner;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,6 +29,10 @@ namespace Baseball.Presentation.Shop
         private RectTransform _gridContent;
         private Text _walletText;
         private Text _lockText;
+        private RectTransform _revealRoot;
+        private Text _revealTitle;
+        private RawImage _revealArtwork;
+        private Text _revealBody;
         private ShopScreenSnapshot _snapshot;
         private int _selectedTabIndex;
 
@@ -67,6 +73,31 @@ namespace Baseball.Presentation.Shop
             _lockText.color = isError ? CareerUiTheme.Error : CareerUiTheme.ReferenceAccent;
         }
 
+        /// <summary>이미 확정된 구매 결과를 전체 화면 카드 공개 패널로 보여준다.</summary>
+        public void ShowReveal(ShopPurchaseResult result)
+        {
+            if (!result.IsSuccess || result.Items == null || result.Items.Length == 0 || _revealRoot == null)
+                return;
+            _revealTitle.text = result.Items.Length == 1 ? "획득 카드" : $"획득 카드 {result.Items.Length}장";
+            Texture2D revealTexture = TacticCardArtwork.Load(result.Items[0].ArtworkKey);
+            _revealArtwork.texture = revealTexture;
+            _revealArtwork.gameObject.SetActive(revealTexture != null);
+            var body = new StringBuilder();
+            for (int index = 0; index < result.Items.Length; index++)
+            {
+                ShopGrantedItem item = result.Items[index];
+                if (index > 0) body.AppendLine().AppendLine();
+                body.Append(string.IsNullOrEmpty(item.GradeLabel) ? "CARD" : item.GradeLabel)
+                    .AppendLine()
+                    .Append(item.DisplayName)
+                    .AppendLine()
+                    .Append(item.IsNew ? "NEW · 첫 획득" : "DUPLICATE · 중복 재료");
+            }
+            _revealBody.text = body.ToString();
+            _revealRoot.gameObject.SetActive(true);
+            _revealRoot.SetAsLastSibling();
+        }
+
         public void SetVisible(bool visible)
         {
             if (_root != null)
@@ -86,6 +117,46 @@ namespace Baseball.Presentation.Shop
             BuildTabBar(panel.Content);
             BuildLockNotice(panel.Content);
             BuildGrid(panel.Content);
+            BuildRevealOverlay();
+        }
+
+        private void BuildRevealOverlay()
+        {
+            Image dim = OwnerRuntimeUiFactory.CreateImage("PurchaseReveal", _root, new Color(0.02f, 0.03f, 0.05f, 0.94f));
+            _revealRoot = (RectTransform)dim.transform;
+            OwnerRuntimeUiFactory.Stretch(_revealRoot);
+
+            Image card = OwnerRuntimeUiFactory.CreateImage("RevealCard", _revealRoot, CareerUiTheme.ReferencePanel);
+            RectTransform cardRoot = (RectTransform)card.transform;
+            OwnerRuntimeUiFactory.SetAnchors(
+                cardRoot,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                new Vector2(440f, 420f));
+            cardRoot.anchoredPosition = Vector2.zero;
+            var outline = card.gameObject.AddComponent<Outline>();
+            outline.effectColor = CareerUiTheme.ReferenceAccent;
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            VerticalLayoutGroup layout = OwnerWorkspaceUiFactory.AddVerticalLayout(cardRoot, CareerUiTheme.Space3);
+            layout.padding = new RectOffset(28, 28, 28, 28);
+            _revealTitle = OwnerRuntimeUiFactory.CreateText(
+                "RevealTitle", cardRoot, string.Empty, 24, FontStyle.Bold,
+                TextAnchor.MiddleCenter, CareerUiTheme.ReferenceAccent);
+            AddFixedHeight(_revealTitle.rectTransform, 40f);
+            _revealArtwork = TacticCardArtwork.Create(
+                cardRoot, "RevealArtwork", TacticCardArtwork.CommonKey, Color.white);
+            AddFixedHeight(_revealArtwork.rectTransform, 176f);
+            _revealArtwork.gameObject.SetActive(false);
+            _revealBody = OwnerRuntimeUiFactory.CreateText(
+                "RevealBody", cardRoot, string.Empty, 18, FontStyle.Bold,
+                TextAnchor.MiddleCenter, CareerUiTheme.ReferenceText);
+            OwnerWorkspaceUiFactory.SetFlexible(_revealBody.rectTransform, 1f);
+            Button close = OwnerWorkspaceUiFactory.CreateButton(
+                cardRoot, "CloseReveal", "확인", () => _revealRoot.gameObject.SetActive(false));
+            AddFixedHeight((RectTransform)close.transform, 42f);
+            _revealRoot.gameObject.SetActive(false);
         }
 
         private void BuildWalletBar(RectTransform parent)
@@ -219,11 +290,24 @@ namespace Baseball.Presentation.Shop
             artworkLayout.minWidth = ArtworkSize;
             artworkLayout.preferredWidth = ArtworkSize;
 
-            // 카드팩 일러스트가 준비되기 전까지는 수량 배지가 아트워크 자리를 대신한다.
+            Texture2D tacticTexture = TacticCardArtwork.Load(tile.ArtworkKey);
+            if (tacticTexture != null)
+            {
+                RawImage tacticArtwork = TacticCardArtwork.Create(
+                    artwork.transform, "TacticArtwork", tile.ArtworkKey, Color.white);
+                OwnerRuntimeUiFactory.Stretch(tacticArtwork.rectTransform);
+            }
+
             Text countBadge = OwnerRuntimeUiFactory.CreateText(
                 "CountBadge", (RectTransform)artwork.transform, tile.CountBadgeText, 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, CareerUiTheme.ReferenceTextSecondary);
-            OwnerRuntimeUiFactory.Stretch(countBadge.rectTransform);
+                TextAnchor.LowerCenter, tacticTexture == null ? CareerUiTheme.ReferenceTextSecondary : Color.white);
+            OwnerRuntimeUiFactory.Stretch(countBadge.rectTransform, new Vector2(4f, 4f), new Vector2(-4f, -4f));
+            if (tacticTexture != null)
+            {
+                var shadow = countBadge.gameObject.AddComponent<Shadow>();
+                shadow.effectColor = new Color(0f, 0f, 0f, 0.9f);
+                shadow.effectDistance = new Vector2(1f, -1f);
+            }
 
             if (tile.BadgeText.Length == 0)
                 return;
