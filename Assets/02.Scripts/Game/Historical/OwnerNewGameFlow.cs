@@ -1,0 +1,399 @@
+using System;
+using System.Collections.Generic;
+using Baseball.Core.Historical;
+using Baseball.Core.Players;
+using Baseball.Simulation.Historical;
+
+namespace Baseball.Game.Historical
+{
+    public enum OwnerNewGameStep
+    {
+        Team,
+        MainCards,
+        FrontManager,
+        Nickname,
+        StarterRosterReview,
+        Completed
+    }
+
+    /// <summary>효과가 없는 프런트 매니저 외형 선택의 안정 ID를 정의한다.</summary>
+    public static class FrontManagerIds
+    {
+        public const string DefaultAnalysis = "FRONT_MANAGER_DEFAULT_01";
+        public const string DefaultTest = "FRONT_MANAGER_DEFAULT_02";
+
+        public static bool IsSupported(string managerId) =>
+            string.Equals(managerId, DefaultAnalysis, StringComparison.Ordinal) ||
+            string.Equals(managerId, DefaultTest, StringComparison.Ordinal);
+    }
+
+    /// <summary>구단주 닉네임과 프런트 매니저 외형을 Save 범위로 보관한다.</summary>
+    public sealed class OwnerProfileState
+    {
+        public OwnerProfileState(string nickname, string frontManagerId)
+        {
+            if (string.IsNullOrWhiteSpace(nickname))
+                throw new ArgumentException("구단주 닉네임이 필요합니다.", nameof(nickname));
+            string trimmed = nickname.Trim();
+            if (trimmed.Length < 2 || trimmed.Length > 12)
+                throw new ArgumentOutOfRangeException(nameof(nickname), "닉네임은 2~12자로 입력해야 합니다.");
+            if (!FrontManagerIds.IsSupported(frontManagerId))
+                throw new ArgumentException("지원하지 않는 프런트 매니저입니다.", nameof(frontManagerId));
+            Nickname = trimmed;
+            FrontManagerId = frontManagerId.Trim();
+        }
+
+        public string Nickname { get; }
+        public string FrontManagerId { get; }
+
+        public static OwnerProfileState CreateLegacyDefault() =>
+            new OwnerProfileState("구단주", FrontManagerIds.DefaultAnalysis);
+    }
+
+    /// <summary>새 게임에서 실제 지급한 카드와 리롤 횟수를 이후 감사·문의에 남긴다.</summary>
+    public sealed class OwnerNewGameReceipt
+    {
+        private readonly string[] _mainCardIds;
+        private readonly string[] _fillerCardIds;
+
+        public OwnerNewGameReceipt(
+            IReadOnlyList<string> mainCardIds,
+            IReadOnlyList<string> fillerCardIds,
+            int fillerRerollCount,
+            ulong starterRosterSeed)
+        {
+            _mainCardIds = Copy(mainCardIds, nameof(mainCardIds));
+            _fillerCardIds = Copy(fillerCardIds, nameof(fillerCardIds));
+            if (_mainCardIds.Length + _fillerCardIds.Length != ActiveRosterCompositionRule.ActiveRosterSize)
+                throw new ArgumentException("새 게임 지급 카드는 정확히 25장이어야 합니다.");
+            if (fillerRerollCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(fillerRerollCount));
+            FillerRerollCount = fillerRerollCount;
+            StarterRosterSeed = starterRosterSeed;
+        }
+
+        public IReadOnlyList<string> MainCardIds => _mainCardIds;
+        public IReadOnlyList<string> FillerCardIds => _fillerCardIds;
+        public int FillerRerollCount { get; }
+        public ulong StarterRosterSeed { get; }
+
+        private static string[] Copy(IReadOnlyList<string> source, string name)
+        {
+            if (source == null) throw new ArgumentNullException(name);
+            var result = new string[source.Count];
+            for (int index = 0; index < result.Length; index++)
+            {
+                if (string.IsNullOrWhiteSpace(source[index]))
+                    throw new ArgumentException("CardId는 비어 있을 수 없습니다.", name);
+                result[index] = source[index].Trim();
+            }
+            return result;
+        }
+    }
+
+    /// <summary>프런트 매니저의 첫 로스터 배정 가이드 진행도를 Save 범위로 보관한다.</summary>
+    public sealed class OwnerOnboardingState
+    {
+        public OwnerOnboardingState(int currentStep, bool isCompleted)
+        {
+            if (currentStep < 0 || currentStep > 4)
+                throw new ArgumentOutOfRangeException(nameof(currentStep));
+            CurrentStep = currentStep;
+            IsCompleted = isCompleted;
+        }
+
+        public int CurrentStep { get; private set; }
+        public bool IsCompleted { get; private set; }
+
+        public void Advance()
+        {
+            if (IsCompleted) return;
+            CurrentStep++;
+            if (CurrentStep >= 4)
+            {
+                CurrentStep = 4;
+                IsCompleted = true;
+            }
+        }
+
+        public void Skip()
+        {
+            CurrentStep = 4;
+            IsCompleted = true;
+        }
+    }
+
+    public readonly struct OwnerNewGameTeamView
+    {
+        public OwnerNewGameTeamView(string teamSeasonKey, string franchiseId, string displayName, int originYear)
+        {
+            TeamSeasonKey = teamSeasonKey;
+            FranchiseId = franchiseId;
+            DisplayName = displayName;
+            OriginYear = originYear;
+        }
+
+        public string TeamSeasonKey { get; }
+        public string FranchiseId { get; }
+        public string DisplayName { get; }
+        public int OriginYear { get; }
+    }
+
+    public readonly struct OwnerNewGameCardView
+    {
+        public OwnerNewGameCardView(
+            string cardId,
+            string playerPersonId,
+            string displayName,
+            int originYear,
+            int cost,
+            PlayerType playerType,
+            PlayerPosition position,
+            bool isSelected)
+        {
+            CardId = cardId;
+            PlayerPersonId = playerPersonId;
+            DisplayName = displayName;
+            OriginYear = originYear;
+            Cost = cost;
+            PlayerType = playerType;
+            Position = position;
+            IsSelected = isSelected;
+        }
+
+        public string CardId { get; }
+        public string PlayerPersonId { get; }
+        public string DisplayName { get; }
+        public int OriginYear { get; }
+        public int Cost { get; }
+        public PlayerType PlayerType { get; }
+        public PlayerPosition Position { get; }
+        public bool IsSelected { get; }
+    }
+
+    /// <summary>화면 순서와 무관하게 구단·10장·매니저·닉네임·보충 로스터를 한 Draft로 관리한다.</summary>
+    public sealed class OwnerNewGameFlow
+    {
+        private readonly IHistoricalContentProvider _contentProvider;
+        private readonly HistoricalWorldRuntimeBuilder _worldBuilder;
+        private readonly int _originYear;
+        private readonly ulong _worldSeed;
+        private readonly OwnerStarterRosterRule _rule;
+        private readonly OwnerStarterRosterResolver _resolver;
+        private readonly List<string> _selectedMainCardIds = new List<string>();
+        private HistoricalBakedContent _content;
+        private HistoricalWorldRuntimeContent _world;
+        private HistoricalYearContentDefinition _year;
+        private TeamSeasonDefinition _selectedTeam;
+
+        public OwnerNewGameFlow(
+            IHistoricalContentProvider contentProvider,
+            HistoricalWorldRuntimeBuilder worldBuilder,
+            int originYear,
+            ulong worldSeed,
+            OwnerStarterRosterRule rule)
+        {
+            _contentProvider = contentProvider ?? throw new ArgumentNullException(nameof(contentProvider));
+            _worldBuilder = worldBuilder ?? throw new ArgumentNullException(nameof(worldBuilder));
+            if (originYear <= 0) throw new ArgumentOutOfRangeException(nameof(originYear));
+            if (worldSeed == 0UL) throw new ArgumentOutOfRangeException(nameof(worldSeed));
+            _originYear = originYear;
+            _worldSeed = worldSeed;
+            _rule = rule ?? throw new ArgumentNullException(nameof(rule));
+            _resolver = new OwnerStarterRosterResolver(rule);
+        }
+
+        public OwnerNewGameStep CurrentStep { get; private set; } = OwnerNewGameStep.Team;
+        public string SelectedTeamSeasonKey => _selectedTeam?.TeamSeasonKey ?? string.Empty;
+        public string SelectedFranchiseId => _selectedTeam?.FranchiseId ?? string.Empty;
+        public IReadOnlyList<string> SelectedMainCardIds => _selectedMainCardIds;
+        public string FrontManagerId { get; private set; } = FrontManagerIds.DefaultAnalysis;
+        public string Nickname { get; private set; } = string.Empty;
+        public OwnerStarterRosterResult StarterRoster { get; private set; }
+        public OwnerStarterRosterRule Rule => _rule;
+        public WorldIdentityRegistry Identities => EnsureWorld().IdentityRegistry;
+        public WorldCardCatalog CardCatalog => EnsureWorld().WorldCardCatalog;
+
+        public IReadOnlyList<OwnerNewGameTeamView> GetTeamCandidates()
+        {
+            EnsureWorld();
+            var result = new OwnerNewGameTeamView[_year.TeamSeasons.Count];
+            for (int index = 0; index < result.Length; index++)
+            {
+                TeamSeasonDefinition team = _year.TeamSeasons[index];
+                result[index] = new OwnerNewGameTeamView(
+                    team.TeamSeasonKey,
+                    team.FranchiseId,
+                    _world.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId),
+                    team.OriginYear);
+            }
+            Array.Sort(result, (left, right) => string.CompareOrdinal(left.DisplayName, right.DisplayName));
+            return result;
+        }
+
+        public void SelectTeam(string teamSeasonKey)
+        {
+            EnsureWorld();
+            _selectedTeam = null;
+            for (int index = 0; index < _year.TeamSeasons.Count; index++)
+            {
+                if (string.Equals(_year.TeamSeasons[index].TeamSeasonKey, teamSeasonKey, StringComparison.Ordinal))
+                {
+                    _selectedTeam = _year.TeamSeasons[index];
+                    break;
+                }
+            }
+            if (_selectedTeam == null)
+                throw new ArgumentException("선택 가능한 구단이 아닙니다.", nameof(teamSeasonKey));
+            _selectedMainCardIds.Clear();
+            StarterRoster = null;
+            CurrentStep = OwnerNewGameStep.MainCards;
+        }
+
+        public IReadOnlyList<OwnerNewGameCardView> GetMainCardCandidates()
+        {
+            EnsureSelectedTeam();
+            WorldCardCatalog catalog = CardCatalog;
+            var selected = new HashSet<string>(_selectedMainCardIds, StringComparer.Ordinal);
+            var result = new List<OwnerNewGameCardView>();
+            for (int index = 0; index < catalog.Cards.Count; index++)
+            {
+                PlayerCardDefinition card = catalog.Cards[index];
+                if (card.Edition != PlayerCardEdition.Normal)
+                    continue;
+                PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
+                if (!string.Equals(season.OriginFranchiseId, _selectedTeam.FranchiseId, StringComparison.Ordinal))
+                    continue;
+                result.Add(new OwnerNewGameCardView(
+                    card.CardId,
+                    season.PlayerPersonId,
+                    _world.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId),
+                    season.OriginYear,
+                    season.Cost,
+                    season.PlayerType,
+                    season.Position,
+                    selected.Contains(card.CardId)));
+            }
+            result.Sort((left, right) =>
+            {
+                int cost = right.Cost.CompareTo(left.Cost);
+                if (cost != 0) return cost;
+                int year = right.OriginYear.CompareTo(left.OriginYear);
+                return year != 0 ? year : string.CompareOrdinal(left.DisplayName, right.DisplayName);
+            });
+            return result;
+        }
+
+        public OwnerMainCardSelectionStatus ToggleMainCard(string cardId)
+        {
+            EnsureSelectedTeam();
+            int existing = _selectedMainCardIds.FindIndex(id => string.Equals(id, cardId, StringComparison.Ordinal));
+            if (existing >= 0)
+                _selectedMainCardIds.RemoveAt(existing);
+            else
+            {
+                if (_selectedMainCardIds.Count >= _rule.MainCardCount)
+                    throw new InvalidOperationException($"메인 카드는 {_rule.MainCardCount}장까지만 선택할 수 있습니다.");
+                _selectedMainCardIds.Add(cardId);
+            }
+            StarterRoster = null;
+            return GetMainCardSelectionStatus();
+        }
+
+        public OwnerMainCardSelectionStatus GetMainCardSelectionStatus()
+        {
+            EnsureSelectedTeam();
+            return _resolver.ValidateMainCards(_selectedTeam.FranchiseId, _selectedMainCardIds, CardCatalog);
+        }
+
+        public void ContinueFromMainCards()
+        {
+            OwnerMainCardSelectionStatus status = GetMainCardSelectionStatus();
+            if (!status.IsValid) throw new InvalidOperationException(status.Message);
+            CurrentStep = OwnerNewGameStep.FrontManager;
+        }
+
+        public void SelectFrontManager(string frontManagerId)
+        {
+            if (!FrontManagerIds.IsSupported(frontManagerId))
+                throw new ArgumentException("지원하지 않는 프런트 매니저입니다.", nameof(frontManagerId));
+            FrontManagerId = frontManagerId;
+            CurrentStep = OwnerNewGameStep.Nickname;
+        }
+
+        public void SetNickname(string nickname)
+        {
+            Nickname = new OwnerProfileState(nickname, FrontManagerId).Nickname;
+            CurrentStep = OwnerNewGameStep.StarterRosterReview;
+            GenerateStarterRoster(0);
+        }
+
+        public OwnerStarterRosterResult RerollFiller()
+        {
+            if (StarterRoster == null)
+                throw new InvalidOperationException("먼저 초기 보충 로스터를 생성해야 합니다.");
+            if (StarterRoster.RerollIndex >= _rule.MaximumFillerRerolls)
+                throw new InvalidOperationException("보충 선수 리롤 횟수를 모두 사용했습니다.");
+            return GenerateStarterRoster(StarterRoster.RerollIndex + 1);
+        }
+
+        public void GoBack()
+        {
+            CurrentStep = CurrentStep switch
+            {
+                OwnerNewGameStep.MainCards => OwnerNewGameStep.Team,
+                OwnerNewGameStep.FrontManager => OwnerNewGameStep.MainCards,
+                OwnerNewGameStep.Nickname => OwnerNewGameStep.FrontManager,
+                OwnerNewGameStep.StarterRosterReview => OwnerNewGameStep.Nickname,
+                _ => OwnerNewGameStep.Team
+            };
+        }
+
+        public OwnerProfileState CreateProfile() => new OwnerProfileState(Nickname, FrontManagerId);
+
+        public OwnerNewGameReceipt CreateReceipt()
+        {
+            if (StarterRoster == null)
+                throw new InvalidOperationException("확정할 스타터 로스터가 없습니다.");
+            return new OwnerNewGameReceipt(
+                StarterRoster.MainCardIds,
+                StarterRoster.FillerCardIds,
+                StarterRoster.RerollIndex,
+                StarterRoster.ResultSeed);
+        }
+
+        public void Complete()
+        {
+            if (StarterRoster == null) throw new InvalidOperationException("스타터 로스터가 없습니다.");
+            CurrentStep = OwnerNewGameStep.Completed;
+        }
+
+        private OwnerStarterRosterResult GenerateStarterRoster(int rerollIndex)
+        {
+            EnsureSelectedTeam();
+            StarterRoster = _resolver.Resolve(
+                _selectedTeam,
+                _selectedMainCardIds,
+                CardCatalog,
+                _worldSeed,
+                rerollIndex);
+            return StarterRoster;
+        }
+
+        private HistoricalWorldRuntimeContent EnsureWorld()
+        {
+            if (_world != null) return _world;
+            _content = _contentProvider.Load() ?? throw new InvalidOperationException("Historical Content가 없습니다.");
+            _year = _content.GetYear(_originYear);
+            _world = _worldBuilder.GetOrBuild(_content, WorldRecordMode.SimulatedHistory, _worldSeed);
+            return _world;
+        }
+
+        private void EnsureSelectedTeam()
+        {
+            EnsureWorld();
+            if (_selectedTeam == null)
+                throw new InvalidOperationException("먼저 구단을 선택해야 합니다.");
+        }
+    }
+}

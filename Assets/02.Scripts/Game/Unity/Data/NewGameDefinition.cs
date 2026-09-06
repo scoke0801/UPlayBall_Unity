@@ -24,7 +24,8 @@ namespace Baseball.Game.Data
             long initialMoney,
             int initialScoutingPoints,
             int initialDevelopmentPoints,
-            IReadOnlyList<TacticCardDefinition> starterTacticCards)
+            IReadOnlyList<TacticCardDefinition> starterTacticCards,
+            OwnerStarterRosterRule starterRosterRule = null)
         {
             if (worldSeed == 0UL) throw new ArgumentOutOfRangeException(nameof(worldSeed));
             if (originYear <= 0) throw new ArgumentOutOfRangeException(nameof(originYear));
@@ -42,8 +43,9 @@ namespace Baseball.Game.Data
             InitialMoney = initialMoney;
             InitialScoutingPoints = initialScoutingPoints;
             InitialDevelopmentPoints = initialDevelopmentPoints;
-            if (starterTacticCards == null || starterTacticCards.Count != LineupPresetState.MaximumTacticCardCount)
-                throw new ArgumentException("Starter Tactic은 정확히 두 장이어야 합니다.", nameof(starterTacticCards));
+            StarterRosterRule = starterRosterRule ?? OwnerStarterRosterRule.CreateInitial();
+            if (starterTacticCards == null || starterTacticCards.Count < 44)
+                throw new ArgumentException("초기 전술 카탈로그는 44장 이상이어야 합니다.", nameof(starterTacticCards));
             _starterTacticCards = new TacticCardDefinition[starterTacticCards.Count];
             for (int index = 0; index < _starterTacticCards.Length; index++)
             {
@@ -63,6 +65,7 @@ namespace Baseball.Game.Data
         public int InitialScoutingPoints { get; }
         public int InitialDevelopmentPoints { get; }
         public IReadOnlyList<TacticCardDefinition> StarterTacticCards => _starterTacticCards;
+        public OwnerStarterRosterRule StarterRosterRule { get; }
     }
 
     /// <summary>
@@ -109,6 +112,7 @@ namespace Baseball.Game.Data
             [SerializeField] private TacticTargetRule _target;
             [SerializeField] private OwnerTacticStatModifierData[] _statModifiers;
             [SerializeField] private TacticDurationRule _duration;
+            [SerializeField] private string[] _counterCardIds;
             [SerializeField] private bool _isDisruption;
 
             public TacticCardDefinition ToDefinition()
@@ -131,7 +135,7 @@ namespace Baseball.Game.Data
                     modifiers,
                     Array.Empty<TacticBehaviorModifier>(),
                     _duration,
-                    Array.Empty<string>(),
+                    _counterCardIds ?? Array.Empty<string>(),
                     _isDisruption);
             }
         }
@@ -242,6 +246,7 @@ namespace Baseball.Game.Data
         [SerializeField, Min(0)] private long _ownerInitialMoney = 1_000_000_000L;
         [SerializeField, Min(0)] private int _ownerInitialScoutingPoints = 100;
         [SerializeField, Min(0)] private int _ownerInitialDevelopmentPoints = 100;
+        [SerializeField, Range(0, 30)] private int _ownerMaximumFillerRerolls = 30;
         [SerializeField] private OwnerStarterTacticData[] _ownerStarterTactics = Array.Empty<OwnerStarterTacticData>();
         [SerializeField] private TeamIdentityData[] _teamIdentities =
         {
@@ -579,7 +584,8 @@ namespace Baseball.Game.Data
                 _ownerInitialMoney,
                 _ownerInitialScoutingPoints,
                 _ownerInitialDevelopmentPoints,
-                tactics);
+                tactics,
+                OwnerStarterRosterRule.CreateInitial(_ownerMaximumFillerRerolls));
         }
 
         /// <summary>공통 경기 Balance를 보존하면서 구단주 전용 시스템 표만 교체한다.</summary>
@@ -603,7 +609,6 @@ namespace Baseball.Game.Data
                 common.PlayerEvaluation,
                 common.CareerSeason,
                 common.Growth,
-                common.Injury,
                 common.ManagerRoleEvaluation,
                 common.ContractMarket,
                 common.RosterTurnover,
@@ -624,7 +629,8 @@ namespace Baseball.Game.Data
                 ownerExpansion.ScoutingConfidence,
                 $"{common.ContentHash}:{ownerExpansion.ContentHash}",
                 common.PitchArsenal,
-                common.MatchRatingCurve);
+                common.MatchRatingCurve,
+                ownerExpansion.LeaguePromotion);
         }
 
         /// <summary>

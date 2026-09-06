@@ -543,7 +543,7 @@ namespace Baseball.Game.Career
                 _configuration.Balance.CareerSeason.InitialCondition,
                 _configuration.Balance.CareerSeason.InitialManagerEvaluation);
             new CareerRoleEvaluationService(Career, _configuration.Balance)
-                .BeginSeason(requiresInjuryReturnObservation: false);
+                .BeginSeason();
             Career.CurrentLeague.CurrentSeason.SnapshotRookieEligibility(
                 Career.CurrentLeague.Teams,
                 Career.MyPlayer,

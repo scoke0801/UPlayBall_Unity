@@ -121,6 +121,12 @@ namespace Baseball.Presentation.Career
             _hitterPreview = null;
             _pitcherPreview = null;
 
+            if (OwnerModeManager.Instance != null && OwnerModeManager.Instance.NewGameFlow != null)
+            {
+                RenderOwnerNewGame();
+                return;
+            }
+
             if (_manager.IsAtTitle)
             {
                 RenderTitle();
@@ -208,6 +214,24 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleRight, new Vector2(420f, 28f), new Vector2(55f, -68f), AccentColor);
             ownerCareer.onClick.AddListener(() =>
             {
+                if (!ownerManager.HasActiveRuntime && !ownerManager.HasSave)
+                {
+                    try
+                    {
+                        ownerManager.BeginNewGameFlow();
+                        Render();
+                    }
+                    catch (Exception exception) when (
+                        exception is ArgumentException || exception is InvalidOperationException)
+                    {
+                        _titleNotice = string.IsNullOrWhiteSpace(exception.Message)
+                            ? "구단주 새 게임 준비에 실패했습니다."
+                            : exception.Message;
+                        Render();
+                    }
+                    return;
+                }
+
                 OwnerModeEntryProfiler.Begin($"구단주 모드 · {ownerAction.Replace("  →", string.Empty)}");
                 try
                 {
@@ -217,14 +241,6 @@ namespace Baseball.Presentation.Career
                         {
                             ownerManager.Load();
                             OwnerModeEntryProfiler.Mark("세이브 로드");
-                        }
-                        else if (!ownerManager.StartNewGame())
-                        {
-                            throw new InvalidOperationException(ownerManager.LastError);
-                        }
-                        else
-                        {
-                            OwnerModeEntryProfiler.Mark("신규 구단 생성");
                         }
                     }
                     else
