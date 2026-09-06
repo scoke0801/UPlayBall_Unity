@@ -147,6 +147,19 @@ namespace Baseball.Presentation.Career
             Render();
         }
 
+        /// <summary>경기 화면의 Cancel은 투구 선택만 되돌리고 Match Route 자체는 유지한다.</summary>
+        public override bool TryHandleCancel()
+        {
+            if (!IsVisible)
+                return false;
+            if (_pitchMiniGame.IsInputUnlocked &&
+                _pitchMiniGame.State != PitchMiniGamePresentationState.PrePitchReady)
+            {
+                ReturnPitchMiniGameToReady();
+            }
+            return true;
+        }
+
         protected override void OnDestroy()
         {
             if (_manager != null)
@@ -155,7 +168,7 @@ namespace Baseball.Presentation.Career
         }
 
         /// <summary>
-        /// 준비 단계의 Cancel만 홈 복귀로 처리하고 진행 중 경기가 화면 뒤로 숨지 않게 한다.
+        /// 명시적인 화면 버튼만 준비 취소·경기 결과 복귀를 수행하고 진행 중 경기는 숨기지 않는다.
         /// </summary>
         public override void Close()
         {
@@ -1915,7 +1928,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(118f, 118f), position);
             RectTransform emblem = CreateImage(
                 "Emblem", badge, Color.clear, new Vector2(108f, 108f), Vector2.zero);
-            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId))
+            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId, teamName))
             {
             string initial = string.IsNullOrEmpty(teamName) ? "구" : teamName.Substring(0, 1);
                 CreateText(

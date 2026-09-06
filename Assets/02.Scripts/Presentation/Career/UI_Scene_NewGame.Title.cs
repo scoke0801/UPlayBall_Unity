@@ -98,6 +98,13 @@ namespace Baseball.Presentation.Career
 
         protected override void OnShow() => Render();
 
+        /// <summary>타이틀에 노출된 저장 상태와 이어하기 문구를 디스크 상태에 맞게 갱신한다.</summary>
+        public void RefreshTitleSaveState()
+        {
+            if (IsVisible && _manager != null && _manager.IsAtTitle)
+                Render();
+        }
+
         protected override void OnDestroy()
         {
             if (_manager != null)

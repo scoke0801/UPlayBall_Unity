@@ -54,6 +54,7 @@ namespace Baseball.Presentation.Career
         private RosterFilter _rosterFilter;
         private PlayerPosition _selectedPosition;
         private int _renderedPlayerId;
+        private bool _isContentDirty = true;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Team;
@@ -79,7 +80,8 @@ namespace Baseball.Presentation.Career
 
         protected override void OnShow()
         {
-            Render();
+            if (_isContentDirty)
+                Render();
         }
 
         protected override void OnDestroy()
@@ -106,6 +108,8 @@ namespace Baseball.Presentation.Career
             }
             if (IsVisible)
                 Render();
+            else
+                _isContentDirty = true;
         }
 
         private void Render()
@@ -124,6 +128,7 @@ namespace Baseball.Presentation.Career
             }
             TeamOverviewSnapshot snapshot = CareerTeamOverviewSnapshotAdapter.Create(view);
 
+            _isContentDirty = false;
             ClearChildren(_content);
             RenderBackgroundAccents();
             RenderClubSummary(view);
@@ -222,7 +227,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(142f, 142f), Vector2.zero);
             RectTransform emblem = CreateImage(
                 "Emblem", badgeInner, Color.clear, new Vector2(132f, 132f), Vector2.zero);
-            bool hasEmblem = TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), view.EmblemId);
+            bool hasEmblem = TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), view.EmblemId, view.TeamName);
             CreateImage("TeamColor", badgeInner, teamColor, new Vector2(126f, 5f), new Vector2(0f, 64f));
             if (!hasEmblem)
             {

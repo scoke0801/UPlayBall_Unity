@@ -35,6 +35,7 @@ namespace Baseball.Presentation.Career
         private CareerManager _manager;
         private RectTransform _content;
         private PlayerDetailTab _selectedTab;
+        private bool _isContentDirty = true;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Player;
@@ -61,7 +62,8 @@ namespace Baseball.Presentation.Career
 
         protected override void OnShow()
         {
-            Render();
+            if (_isContentDirty)
+                Render();
         }
 
         protected override void OnDestroy()
@@ -89,6 +91,8 @@ namespace Baseball.Presentation.Career
             }
             if (IsVisible)
                 Render();
+            else
+                _isContentDirty = true;
         }
 
         private void Render()
@@ -108,6 +112,7 @@ namespace Baseball.Presentation.Career
                 growth);
             CurrentDetailSnapshot = CareerPlayerDetailSnapshotAdapter.Create(view);
 
+            _isContentDirty = false;
             ClearChildren(_content);
             RenderBackgroundAccents();
             RenderPlayerCard(view);

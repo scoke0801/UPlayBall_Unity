@@ -82,7 +82,9 @@ namespace Baseball.Presentation.Career
             if (!string.IsNullOrEmpty(_titleNotice))
                 CreateText("OwnerNotice", panel, _titleNotice, 15, FontStyle.Bold, TextAnchor.MiddleCenter,
                     new Vector2(1040f, 38f), new Vector2(0f, -410f), ErrorColor);
+            PreserveOwnerDarkSurfaceText(panel);
             CareerUiSkin.Apply(panel);
+            ApplyOwnerFilterDropdownVisuals(panel);
         }
 
         private void RenderOwnerTeams(RectTransform panel, OwnerNewGameFlow flow)
@@ -196,25 +198,56 @@ namespace Baseball.Presentation.Career
             IReadOnlyList<OwnerNewGameCardView> allCards,
             int filteredCount)
         {
-            Button year = CreateButton("OwnerCardYearFilter", panel,
-                "연도  " + (_ownerCardYearFilter?.ToString() ?? "전체"), new Vector2(205f, 42f),
-                new Vector2(-625f, 300f), CareerUiTheme.SecondaryAction, out Text yearLabel);
-            yearLabel.fontSize = 14;
-            year.onClick.AddListener(() => CycleOwnerCardYearFilter(allCards));
+            List<int> years = CollectOwnerCardYears(allCards);
+            List<string> yearOptions = new List<string>(years.Count + 1) { "연도 전체" };
+            int selectedYearIndex = 0;
+            for (int index = 0; index < years.Count; index++)
+            {
+                yearOptions.Add(years[index].ToString());
+                if (_ownerCardYearFilter == years[index]) selectedYearIndex = index + 1;
+            }
+            Dropdown year = CreateOwnerFilterDropdown("OwnerCardYearFilter", panel, yearOptions,
+                selectedYearIndex, new Vector2(205f, 42f), new Vector2(-625f, 300f));
+            year.onValueChanged.AddListener(index =>
+            {
+                _ownerCardYearFilter = index == 0 ? null : years[index - 1];
+                _ownerCardPage = 0;
+                Render();
+            });
 
-            Button position = CreateButton("OwnerCardPositionFilter", panel,
-                "포지션  " + (_ownerCardPositionFilter.HasValue
-                    ? GetPositionLabel(_ownerCardPositionFilter.Value)
-                    : "전체"), new Vector2(205f, 42f),
-                new Vector2(-400f, 300f), CareerUiTheme.SecondaryAction, out Text positionLabel);
-            positionLabel.fontSize = 14;
-            position.onClick.AddListener(() => CycleOwnerCardPositionFilter(allCards));
+            List<PlayerPosition> positions = CollectOwnerCardPositions(allCards);
+            List<string> positionOptions = new List<string>(positions.Count + 1) { "포지션 전체" };
+            int selectedPositionIndex = 0;
+            for (int index = 0; index < positions.Count; index++)
+            {
+                positionOptions.Add(GetPositionLabel(positions[index]));
+                if (_ownerCardPositionFilter == positions[index]) selectedPositionIndex = index + 1;
+            }
+            Dropdown position = CreateOwnerFilterDropdown("OwnerCardPositionFilter", panel, positionOptions,
+                selectedPositionIndex, new Vector2(225f, 42f), new Vector2(-400f, 300f));
+            position.onValueChanged.AddListener(index =>
+            {
+                _ownerCardPositionFilter = index == 0 ? null : positions[index - 1];
+                _ownerCardPage = 0;
+                Render();
+            });
 
-            Button cost = CreateButton("OwnerCardCostFilter", panel,
-                "비용  " + (_ownerCardCostFilter?.ToString() ?? "전체"), new Vector2(170f, 42f),
-                new Vector2(-192f, 300f), CareerUiTheme.SecondaryAction, out Text costLabel);
-            costLabel.fontSize = 14;
-            cost.onClick.AddListener(() => CycleOwnerCardCostFilter(allCards));
+            List<int> costs = CollectOwnerCardCosts(allCards);
+            List<string> costOptions = new List<string>(costs.Count + 1) { "비용 전체" };
+            int selectedCostIndex = 0;
+            for (int index = 0; index < costs.Count; index++)
+            {
+                costOptions.Add(costs[index].ToString());
+                if (_ownerCardCostFilter == costs[index]) selectedCostIndex = index + 1;
+            }
+            Dropdown cost = CreateOwnerFilterDropdown("OwnerCardCostFilter", panel, costOptions,
+                selectedCostIndex, new Vector2(170f, 42f), new Vector2(-192f, 300f));
+            cost.onValueChanged.AddListener(index =>
+            {
+                _ownerCardCostFilter = index == 0 ? null : costs[index - 1];
+                _ownerCardPage = 0;
+                Render();
+            });
 
             InputField nameSearch = CreateInputField("OwnerCardNameSearch", panel, "선수 이름 검색",
                 _ownerCardNameDraft, new Vector2(310f, 42f), new Vector2(65f, 300f));
@@ -270,8 +303,9 @@ namespace Baseball.Presentation.Career
                 "Portrait", button.transform, Color.white,
                 new Vector2(300f, 300f), new Vector2(0f, 28f));
             Image portrait = portraitRect.GetComponent<Image>();
-            portrait.sprite = FrontManagerPortraitSprites.Load(portraitKey);
+            portrait.sprite = FrontManagerPortraitSprites.Load(portraitKey, fallbackAssetKey: null);
             portrait.preserveAspect = true;
+            portrait.color = portrait.sprite != null ? Color.white : CareerUiTheme.Warning;
             portrait.raycastTarget = false;
             button.onClick.AddListener(() => RunOwnerFlowAction(() => flow.SelectFrontManager(managerId)));
         }
@@ -301,13 +335,15 @@ namespace Baseball.Presentation.Career
                 _titleNotice = "스타터 로스터가 생성되지 않았습니다.";
                 return;
             }
-            var summary = new StringBuilder(720);
-            summary.AppendLine("메인 카드");
-            AppendOwnerCardNames(summary, flow, roster.MainCardIds);
-            summary.AppendLine().AppendLine().AppendLine("자동 보충 카드");
-            AppendOwnerCardNames(summary, flow, roster.FillerCardIds);
-            CreateText("RosterSummary", panel, summary.ToString(), 17, FontStyle.Normal,
-                TextAnchor.UpperLeft, new Vector2(1360f, 560f), new Vector2(0f, 40f), PrimaryTextColor);
+            CreateText("MainRosterLabel", panel, "메인 카드 10장", 16, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(1400f, 28f), new Vector2(0f, 286f), GoldColor);
+            CreateOwnerRosterCardRow(panel, flow, roster.MainCardIds, 0, roster.MainCardIds.Count,
+                190f, true);
+            CreateText("FillerRosterLabel", panel, "자동 보충 카드 15장", 16, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(1400f, 28f), new Vector2(0f, 94f), GoldColor);
+            CreateOwnerRosterCardRow(panel, flow, roster.FillerCardIds, 0, 10, 5f, false);
+            CreateOwnerRosterCardRow(panel, flow, roster.FillerCardIds, 10,
+                roster.FillerCardIds.Count - 10, -145f, false);
             CreateText("RerollState", panel,
                 $"보충 리롤 {roster.RerollIndex}/{flow.Rule.MaximumFillerRerolls} · 확정 후 25인 로스터로 저장됩니다.",
                 15, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(900f, 36f),
@@ -331,70 +367,246 @@ namespace Baseball.Presentation.Career
             });
         }
 
-        private static void AppendOwnerCardNames(
-            StringBuilder builder,
+        private static void CreateOwnerRosterCardRow(
+            RectTransform panel,
             OwnerNewGameFlow flow,
-            IReadOnlyList<string> cardIds)
+            IReadOnlyList<string> cardIds,
+            int startIndex,
+            int count,
+            float positionY,
+            bool isMainCard)
         {
-            for (int index = 0; index < cardIds.Count; index++)
+            const float CardWidth = 132f;
+            const float CardHeight = 138f;
+            const float CardSpacing = 142f;
+            float firstX = -(count - 1) * CardSpacing * 0.5f;
+            for (int localIndex = 0; localIndex < count; localIndex++)
             {
-                string displayName = cardIds[index];
-                if (flow.CardCatalog.TryGetCard(cardIds[index], out PlayerCardDefinition card))
-                {
-                    PlayerSeasonDefinition season = flow.CardCatalog.GetPlayerSeason(card);
-                    displayName = flow.Identities.GetPlayerDisplayName(season.PlayerPersonId);
-                }
-                if (index > 0) builder.Append(index % 5 == 0 ? "\n" : "   ·   ");
-                builder.Append(displayName);
+                string cardId = cardIds[startIndex + localIndex];
+                if (!flow.CardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
+                    continue;
+                PlayerSeasonDefinition season = flow.CardCatalog.GetPlayerSeason(card);
+                var model = new PlayerMiniCardModel(
+                    cardId,
+                    flow.Identities.GetPlayerDisplayName(season.PlayerPersonId),
+                    GetPositionLabel(season.Position),
+                    season.OriginYear.ToString(),
+                    $"비용 {season.Cost}",
+                    isMainCard ? "MAIN" : "AUTO",
+                    isMainCard ? "메인" : "보충",
+                    visualState: isMainCard
+                        ? PlayerMiniCardVisualState.Highlighted
+                        : PlayerMiniCardVisualState.Normal, frameEdition: card.Edition, cost: season.Cost);
+                PlayerMiniCardView cardView = PlayerMiniCardView.CreateRuntime(
+                    panel, $"StarterRoster_{startIndex + localIndex}");
+                cardView.UseLineupSlotLayout();
+                cardView.Bind(model, PlayerPortraitSprites.GetDefault(season.Position));
+                RectTransform cardRect = cardView.GetComponent<RectTransform>();
+                cardRect.sizeDelta = new Vector2(CardWidth, CardHeight);
+                cardRect.anchoredPosition = new Vector2(firstX + localIndex * CardSpacing, positionY);
             }
         }
 
-        private void CycleOwnerCardYearFilter(IReadOnlyList<OwnerNewGameCardView> cards)
+        private static List<int> CollectOwnerCardYears(IReadOnlyList<OwnerNewGameCardView> cards)
         {
             var values = new List<int>();
             for (int index = 0; index < cards.Count; index++)
                 if (!values.Contains(cards[index].OriginYear)) values.Add(cards[index].OriginYear);
             values.Sort((left, right) => right.CompareTo(left));
-            _ownerCardYearFilter = GetNextOwnerFilterValue(values, _ownerCardYearFilter);
-            _ownerCardPage = 0;
-            Render();
+            return values;
         }
 
-        private void CycleOwnerCardPositionFilter(IReadOnlyList<OwnerNewGameCardView> cards)
+        private static List<PlayerPosition> CollectOwnerCardPositions(IReadOnlyList<OwnerNewGameCardView> cards)
         {
             var values = new List<PlayerPosition>();
             for (int index = 0; index < cards.Count; index++)
                 if (!values.Contains(cards[index].Position)) values.Add(cards[index].Position);
             values.Sort((left, right) => ((int)left).CompareTo((int)right));
-            _ownerCardPositionFilter = GetNextOwnerFilterValue(values, _ownerCardPositionFilter);
-            _ownerCardPage = 0;
-            Render();
+            return values;
         }
 
-        private void CycleOwnerCardCostFilter(IReadOnlyList<OwnerNewGameCardView> cards)
+        private static List<int> CollectOwnerCardCosts(IReadOnlyList<OwnerNewGameCardView> cards)
         {
             var values = new List<int>();
             for (int index = 0; index < cards.Count; index++)
                 if (!values.Contains(cards[index].Cost)) values.Add(cards[index].Cost);
             values.Sort((left, right) => right.CompareTo(left));
-            _ownerCardCostFilter = GetNextOwnerFilterValue(values, _ownerCardCostFilter);
-            _ownerCardPage = 0;
-            Render();
+            return values;
         }
 
-        private static T? GetNextOwnerFilterValue<T>(IReadOnlyList<T> values, T? current)
-            where T : struct
+        private static Dropdown CreateOwnerFilterDropdown(
+            string name,
+            Transform parent,
+            List<string> options,
+            int selectedIndex,
+            Vector2 size,
+            Vector2 position)
         {
-            if (values == null || values.Count == 0)
-                return null;
-            if (!current.HasValue)
-                return values[0];
-            for (int index = 0; index < values.Count; index++)
+            GameObject dropdownObject = DefaultControls.CreateDropdown(new DefaultControls.Resources());
+            dropdownObject.name = name;
+            dropdownObject.transform.SetParent(parent, false);
+            RectTransform rect = dropdownObject.GetComponent<RectTransform>();
+            rect.sizeDelta = size;
+            rect.anchoredPosition = position;
+
+            Image surface = dropdownObject.GetComponent<Image>();
+            surface.color = new Color(0.08f, 0.12f, 0.17f, 0.96f);
+            CareerUiVisualElement visual = dropdownObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(CareerUiVisualRole.FlatSurface);
+            dropdownObject.AddComponent<CareerUiPreserveTextColor>();
+
+            Dropdown dropdown = dropdownObject.GetComponent<Dropdown>();
+            dropdown.ClearOptions();
+            dropdown.AddOptions(options);
+            dropdown.SetValueWithoutNotify(Mathf.Clamp(selectedIndex, 0, options.Count - 1));
+
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Text[] labels = dropdownObject.GetComponentsInChildren<Text>(true);
+            for (int index = 0; index < labels.Length; index++)
             {
-                if (EqualityComparer<T>.Default.Equals(values[index], current.Value))
-                    return index + 1 < values.Count ? values[index + 1] : null;
+                labels[index].font = font;
+                labels[index].fontSize = 14;
+                labels[index].color = PrimaryTextColor;
             }
-            return values[0];
+            dropdown.captionText.alignment = TextAnchor.MiddleLeft;
+            dropdown.captionText.rectTransform.offsetMin = new Vector2(14f, 2f);
+            dropdown.captionText.rectTransform.offsetMax = new Vector2(-34f, -2f);
+            dropdown.itemText.alignment = TextAnchor.MiddleLeft;
+
+            RectTransform template = dropdown.template;
+            template.sizeDelta = new Vector2(0f, Mathf.Min(8, options.Count) * 32f + 8f);
+            template.anchoredPosition = new Vector2(0f, -2f);
+            Image templateImage = template.GetComponent<Image>();
+            if (templateImage != null)
+            {
+                templateImage.color = new Color(0.06f, 0.09f, 0.14f, 0.99f);
+                CareerUiVisualElement templateVisual = template.gameObject.AddComponent<CareerUiVisualElement>();
+                templateVisual.Initialize(CareerUiVisualRole.FlatSurface);
+            }
+            if (template.GetComponent<CareerUiPreserveTextColor>() == null)
+                template.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            RectTransform item = dropdown.itemText.transform.parent as RectTransform;
+            if (item != null) item.sizeDelta = new Vector2(item.sizeDelta.x, 32f);
+            Toggle itemToggle = dropdown.itemText.GetComponentInParent<Toggle>(true);
+            if (itemToggle != null)
+            {
+                if (itemToggle.targetGraphic is Image itemBackground)
+                    itemBackground.color = new Color(0.10f, 0.15f, 0.22f, 1f);
+                if (itemToggle.graphic != null)
+                    itemToggle.graphic.color = AccentColor;
+                ColorBlock itemColors = itemToggle.colors;
+                itemColors.normalColor = Color.white;
+                itemColors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
+                itemColors.selectedColor = itemColors.highlightedColor;
+                itemColors.pressedColor = new Color(0.78f, 0.84f, 0.92f, 1f);
+                itemToggle.colors = itemColors;
+            }
+            ScrollRect scroll = template.GetComponent<ScrollRect>();
+            if (scroll != null && scroll.viewport != null &&
+                scroll.viewport.TryGetComponent(out Image viewportImage))
+            {
+                // Mask는 알파로 표시 영역을 기록하므로 투명하게 만들면 자식 항목도 전부 가려진다.
+                viewportImage.color = Color.white;
+                scroll.viewport.GetComponent<Mask>().showMaskGraphic = false;
+            }
+
+            Transform arrow = dropdownObject.transform.Find("Arrow");
+            if (arrow != null && arrow.TryGetComponent(out Image arrowImage))
+                arrowImage.color = Color.clear;
+            Text arrowText = CreateText("ArrowLabel", dropdownObject.transform, "▼", 13, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(28f, 40f), new Vector2(size.x * 0.5f - 18f, 0f),
+                SecondaryTextColor);
+            arrowText.raycastTarget = false;
+            return dropdown;
+        }
+
+        /// <summary>공통 스킨 적용 뒤에도 펼침 목록이 높은 대비를 유지하도록 Dropdown 전용 팔레트를 확정한다.</summary>
+        private static void ApplyOwnerFilterDropdownVisuals(RectTransform panel)
+        {
+            Dropdown[] dropdowns = panel.GetComponentsInChildren<Dropdown>(true);
+            for (int index = 0; index < dropdowns.Length; index++)
+            {
+                Dropdown dropdown = dropdowns[index];
+                if (dropdown == null || !dropdown.name.StartsWith("OwnerCard", StringComparison.Ordinal))
+                    continue;
+
+                Image surface = dropdown.GetComponent<Image>();
+                if (surface != null)
+                    surface.color = new Color(0.08f, 0.12f, 0.17f, 1f);
+
+                if (dropdown.captionText != null)
+                {
+                    dropdown.captionText.color = PrimaryTextColor;
+                    dropdown.captionText.fontSize = 15;
+                }
+
+                RectTransform template = dropdown.template;
+                if (template == null)
+                    continue;
+
+                Image templateImage = template.GetComponent<Image>();
+                if (templateImage != null)
+                    templateImage.color = new Color(0.035f, 0.055f, 0.085f, 1f);
+
+                if (dropdown.itemText != null)
+                {
+                    dropdown.itemText.color = PrimaryTextColor;
+                    dropdown.itemText.fontSize = 15;
+                    dropdown.itemText.fontStyle = FontStyle.Bold;
+                    dropdown.itemText.alignment = TextAnchor.MiddleLeft;
+                    dropdown.itemText.rectTransform.offsetMin = new Vector2(12f, 1f);
+                    dropdown.itemText.rectTransform.offsetMax = new Vector2(-8f, -1f);
+                    if (dropdown.itemText.GetComponent<CareerUiPreserveTextColor>() == null)
+                        dropdown.itemText.gameObject.AddComponent<CareerUiPreserveTextColor>();
+                }
+
+                Toggle itemToggle = dropdown.itemText != null
+                    ? dropdown.itemText.GetComponentInParent<Toggle>(true)
+                    : null;
+                if (itemToggle != null)
+                {
+                    if (itemToggle.targetGraphic is Image itemBackground)
+                        itemBackground.color = new Color(0.08f, 0.12f, 0.18f, 1f);
+                    if (itemToggle.graphic != null)
+                        itemToggle.graphic.color = AccentColor;
+
+                    ColorBlock colors = itemToggle.colors;
+                    colors.normalColor = Color.white;
+                    colors.highlightedColor = new Color(1.35f, 1.35f, 1.35f, 1f);
+                    colors.selectedColor = new Color(1.2f, 1.2f, 1.2f, 1f);
+                    colors.pressedColor = new Color(0.76f, 0.86f, 1f, 1f);
+                    itemToggle.colors = colors;
+                }
+
+                ScrollRect scroll = template.GetComponent<ScrollRect>();
+                if (scroll != null && scroll.viewport != null &&
+                    scroll.viewport.TryGetComponent(out Image viewportImage))
+                    viewportImage.color = Color.white;
+
+                Scrollbar scrollbar = template.GetComponentInChildren<Scrollbar>(true);
+                if (scrollbar == null)
+                    continue;
+                Image scrollbarTrack = scrollbar.GetComponent<Image>();
+                if (scrollbarTrack != null)
+                    scrollbarTrack.color = new Color(0.025f, 0.04f, 0.065f, 1f);
+                if (scrollbar.targetGraphic != null)
+                    scrollbar.targetGraphic.color = new Color(0.34f, 0.48f, 0.62f, 1f);
+            }
+        }
+
+        private static void PreserveOwnerDarkSurfaceText(RectTransform panel)
+        {
+            Text[] texts = panel.GetComponentsInChildren<Text>(true);
+            for (int index = 0; index < texts.Length; index++)
+            {
+                Text text = texts[index];
+                if (text.GetComponentInParent<Button>() != null ||
+                    text.GetComponentInParent<InputField>() != null ||
+                    text.GetComponentInParent<Dropdown>() != null)
+                    continue;
+                if (text.GetComponent<CareerUiPreserveTextColor>() == null)
+                    text.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            }
         }
 
         private static string BuildOwnerSelectedCardSummary(IReadOnlyList<OwnerNewGameCardView> cards)

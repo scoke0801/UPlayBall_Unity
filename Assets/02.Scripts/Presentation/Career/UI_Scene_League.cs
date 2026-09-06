@@ -38,6 +38,7 @@ namespace Baseball.Presentation.Career
         private RectTransform _content;
         private LeagueBattingCategory _battingCategory = LeagueBattingCategory.BattingAverage;
         private LeaguePitchingCategory _pitchingCategory = LeaguePitchingCategory.EarnedRunAverage;
+        private bool _isContentDirty = true;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.League;
@@ -61,7 +62,8 @@ namespace Baseball.Presentation.Career
 
         protected override void OnShow()
         {
-            Render();
+            if (_isContentDirty)
+                Render();
         }
 
         protected override void OnDestroy()
@@ -88,6 +90,8 @@ namespace Baseball.Presentation.Career
             }
             if (IsVisible)
                 Render();
+            else
+                _isContentDirty = true;
         }
 
         private void Render()
@@ -95,6 +99,7 @@ namespace Baseball.Presentation.Career
             if (_content == null || _manager == null || !_manager.HasActiveCareer)
                 return;
 
+            _isContentDirty = false;
             ClearChildren(_content);
             LeagueHubView view = _manager.LeagueHub;
             RenderBackgroundAccents();
@@ -736,7 +741,7 @@ namespace Baseball.Presentation.Career
             MarkVisual(inner, CareerUiVisualRole.DataImage);
             RectTransform emblem = CreateImage(
                 "Emblem", inner, Color.clear, new Vector2(size - 7f, size - 7f), Vector2.zero);
-            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId))
+            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId, teamName))
             {
                 CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName),
                     Math.Max(9, (int)(size * 0.31f)), FontStyle.Bold, TextAnchor.MiddleCenter,

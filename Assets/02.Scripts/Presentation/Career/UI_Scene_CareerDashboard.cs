@@ -86,6 +86,44 @@ namespace Baseball.Presentation.Career
             _isSeasonFastForwardProgressVisible = false;
         }
 
+        /// <summary>진행·확인 Overlay의 Cancel을 Route 이동보다 먼저 처리한다.</summary>
+        public override bool TryHandleCancel()
+        {
+            if (!IsVisible || _manager == null || !_manager.HasActiveCareer)
+                return false;
+            if (_isSeasonFastForwardProgressVisible)
+            {
+                StopSeasonFastForward();
+                return true;
+            }
+
+            CareerDashboardView dashboard = _manager.Dashboard;
+            if (IsSeasonReviewOverlayVisible(dashboard))
+            {
+                if (_isSeasonReviewSkipConfirmationVisible)
+                {
+                    _isSeasonReviewSkipConfirmationVisible = false;
+                    Render();
+                }
+                else if (CanSkipSeasonReview(dashboard))
+                {
+                    _isSeasonReviewSkipConfirmationVisible = true;
+                    Render();
+                }
+                return true;
+            }
+
+            if (_isSeasonAutoCompletionConfirmationVisible)
+            {
+                _isSeasonAutoCompletionConfirmationVisible = false;
+                Render();
+                return true;
+            }
+
+            // 선택이 필요한 반응과 준비·진행 중 경기는 화면 뒤로 숨길 수 없다.
+            return dashboard.PendingReaction != null || _manager.HasActiveMatch;
+        }
+
         private void Update()
         {
             if (!IsVisible || _manager == null || !_manager.HasActiveCareer)
@@ -96,11 +134,6 @@ namespace Baseball.Presentation.Career
             Keyboard keyboard = Keyboard.current;
             if (_isSeasonFastForwardProgressVisible)
             {
-                if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
-                {
-                    StopSeasonFastForward();
-                    return;
-                }
                 AdvanceSeasonFastForwardFrame();
                 return;
             }
@@ -121,12 +154,7 @@ namespace Baseball.Presentation.Career
             {
                 if (_isSeasonReviewSkipConfirmationVisible)
                 {
-                    if (keyboard.escapeKey.wasPressedThisFrame)
-                    {
-                        _isSeasonReviewSkipConfirmationVisible = false;
-                        Render();
-                    }
-                    else if (IsConfirmKeyPressed(keyboard))
+                    if (IsConfirmKeyPressed(keyboard))
                     {
                         _isSeasonReviewSkipConfirmationVisible = false;
                         _manager.SkipSeasonReview();
@@ -134,12 +162,7 @@ namespace Baseball.Presentation.Career
                     return;
                 }
 
-                if (keyboard.escapeKey.wasPressedThisFrame && CanSkipSeasonReview(dashboard))
-                {
-                    _isSeasonReviewSkipConfirmationVisible = true;
-                    Render();
-                }
-                else if (IsConfirmKeyPressed(keyboard))
+                if (IsConfirmKeyPressed(keyboard))
                 {
                     _manager.AdvanceSeasonReview();
                 }
@@ -148,12 +171,7 @@ namespace Baseball.Presentation.Career
 
             if (_isSeasonAutoCompletionConfirmationVisible)
             {
-                if (keyboard.escapeKey.wasPressedThisFrame)
-                {
-                    _isSeasonAutoCompletionConfirmationVisible = false;
-                    Render();
-                }
-                else if (IsConfirmKeyPressed(keyboard))
+                if (IsConfirmKeyPressed(keyboard))
                 {
                     ConfirmSeasonAutoCompletion();
                 }
@@ -1444,7 +1462,7 @@ namespace Baseball.Presentation.Career
             }
             RectTransform emblem = CreateImage(
                 "Emblem", middle, Color.clear, new Vector2(size - 10f, size - 10f), Vector2.zero);
-            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId))
+            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId, teamName))
             {
                 CreateText(
                     "Monogram", middle, CareerTeamNameFormatter.GetMonogram(teamName),

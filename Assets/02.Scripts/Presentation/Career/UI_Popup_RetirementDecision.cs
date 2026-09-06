@@ -21,6 +21,16 @@ namespace Baseball.Presentation.Career
         private RectTransform _content;
         private bool _isConfirming;
 
+        /// <summary>은퇴 최종 확인 단계에서는 Popup을 닫기 전에 확인 상태만 취소한다.</summary>
+        public override bool TryHandleCancel()
+        {
+            if (!_isConfirming)
+                return false;
+            _isConfirming = false;
+            Render();
+            return true;
+        }
+
         public static UI_Popup_RetirementDecision ShowRuntime()
         {
             UI_Popup_RetirementDecision popup = Object.FindFirstObjectByType<UI_Popup_RetirementDecision>(

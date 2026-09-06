@@ -2,6 +2,8 @@ using Baseball.Core.Players;
 using Baseball.Game.Career;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
+using Baseball.Presentation.Match;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using DG.Tweening;
 using UnityEngine;
@@ -82,7 +84,33 @@ namespace Baseball.Presentation.Career
             _showInstantResultConfirmation = false;
             _persistenceConfirmation = PersistenceConfirmationAction.None;
             _persistenceMessage = string.Empty;
+            _showOwnerPersistenceAtTitle = false;
+            _hasChosenTitlePersistenceMode = false;
             Render();
+        }
+
+        /// <summary>설정 내부 확인 단계가 열려 있으면 Popup 전체를 닫기 전에 해당 작업만 취소한다.</summary>
+        public override bool TryHandleCancel()
+        {
+            if (_showTitleConfirmation)
+            {
+                _showTitleConfirmation = false;
+                Render();
+                return true;
+            }
+            if (_showInstantResultConfirmation)
+            {
+                _showInstantResultConfirmation = false;
+                Render();
+                return true;
+            }
+            if (_persistenceConfirmation != PersistenceConfirmationAction.None)
+            {
+                _persistenceConfirmation = PersistenceConfirmationAction.None;
+                Render();
+                return true;
+            }
+            return false;
         }
 
         protected override void OnHide()
@@ -153,6 +181,12 @@ namespace Baseball.Presentation.Career
 
         private void RenderGameSettings(RectTransform body)
         {
+            if (UiGameModeSession.IsSelected(UiGameMode.OwnerCareer))
+            {
+                RenderOwnerGameSettings(body);
+                return;
+            }
+
             if (_careerManager.CurrentCareer == null)
             {
                 CreateText("Unavailable", body,
@@ -227,6 +261,68 @@ namespace Baseball.Presentation.Career
                     : "선택한 설정은 다음 경기부터 사용됩니다.",
                 14, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(790f, 32f), new Vector2(0f, -300f), SecondaryTextColor);
+        }
+
+        private void RenderOwnerGameSettings(RectTransform body)
+        {
+            OwnerMatchPresentationOptions settings = OwnerMatchPresentationSettings.Load();
+            CreateHeading(body, "경기 진행 방식", 300f);
+            OwnerMatchViewingMode[] modes =
+            {
+                OwnerMatchViewingMode.EveryMoment,
+                OwnerMatchViewingMode.KeyMoments,
+                OwnerMatchViewingMode.ResultOnly
+            };
+            string[] labels = { "전체 자동 진행", "핵심 장면 자동 진행", "결과만 보기" };
+            for (int index = 0; index < modes.Length; index++)
+            {
+                OwnerMatchViewingMode mode = modes[index];
+                Button button = CreateButton(
+                    "OwnerMode_" + mode,
+                    body,
+                    labels[index],
+                    new Vector2(220f, 54f),
+                    new Vector2(-245f + index * 245f, 235f),
+                    settings.ViewingMode == mode ? SelectedColor : CardColor,
+                    out _);
+                button.onClick.AddListener(() =>
+                {
+                    OwnerMatchPresentationSettings.SetViewingMode(mode);
+                    Render();
+                });
+            }
+
+            CreateHeading(body, "경기 속도", 120f);
+            OwnerMatchPlaybackSpeed[] speeds =
+            {
+                OwnerMatchPlaybackSpeed.Normal,
+                OwnerMatchPlaybackSpeed.Fast,
+                OwnerMatchPlaybackSpeed.VeryFast
+            };
+            for (int index = 0; index < speeds.Length; index++)
+            {
+                OwnerMatchPlaybackSpeed speed = speeds[index];
+                Button button = CreateButton(
+                    "OwnerSpeed_" + (int)speed,
+                    body,
+                    (int)speed + "×",
+                    new Vector2(130f, 52f),
+                    new Vector2(-170f + index * 150f, 60f),
+                    settings.PlaybackSpeed == speed ? SelectedColor : CardColor,
+                    out _);
+                button.interactable = settings.ViewingMode != OwnerMatchViewingMode.ResultOnly;
+                button.onClick.AddListener(() =>
+                {
+                    OwnerMatchPresentationSettings.SetPlaybackSpeed(speed);
+                    Render();
+                });
+            }
+
+            string guide = settings.ViewingMode == OwnerMatchViewingMode.ResultOnly
+                ? "결과만 보기는 경기 중계와 사운드를 재생하지 않고 최종 결과와 기록으로 바로 이동합니다."
+                : "선택한 관전 방식과 배속은 다음 구단주 경기부터 적용됩니다. 경기 중에도 변경할 수 있습니다.";
+            CreateText("OwnerMatchGuide", body, guide, 17, FontStyle.Normal, TextAnchor.MiddleCenter,
+                new Vector2(790f, 72f), new Vector2(0f, -85f), SecondaryTextColor);
         }
 
         private void RenderBattingApproaches(RectTransform body, CareerGameSettings settings)
@@ -325,6 +421,28 @@ namespace Baseball.Presentation.Career
 
         private void RenderExitSettings(RectTransform body)
         {
+            if (!UiGameModeSession.CurrentMode.HasValue)
+            {
+                Button quit = CreateButton("QuitGame", body, "게임 종료",
+                    new Vector2(360f, 62f), Vector2.zero, DangerColor, out _);
+                quit.onClick.AddListener(Application.Quit);
+                return;
+            }
+
+            if (UiGameModeSession.IsSelected(UiGameMode.OwnerCareer))
+            {
+                CreateText("Title", body, "구단주 모드 종료", 28, FontStyle.Bold, TextAnchor.MiddleCenter,
+                    new Vector2(600f, 50f), new Vector2(0f, 190f), PrimaryTextColor);
+                CreateText("Guide", body,
+                    "타이틀로 이동해도 현재 구단주 진행은 유지됩니다.\n앱을 종료하기 전에는 저장·불러오기 탭에서 현재 진행을 저장해 주세요.",
+                    18, FontStyle.Normal, TextAnchor.MiddleCenter,
+                    new Vector2(720f, 70f), new Vector2(0f, 85f), SecondaryTextColor);
+                Button ownerTitle = CreateButton("ReturnToTitle", body, "타이틀 화면으로",
+                    new Vector2(360f, 62f), new Vector2(0f, -20f), DangerColor, out _);
+                ownerTitle.onClick.AddListener(OpenTitleConfirmation);
+                return;
+            }
+
             CreateText("Title", body, "선수 커리어 마무리", 28, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(600f, 50f), new Vector2(0f, 235f), PrimaryTextColor);
             CreateText("RetirementGuide", body,
@@ -340,11 +458,13 @@ namespace Baseball.Presentation.Career
                 new Vector2(720f, 70f), new Vector2(0f, -35f), SecondaryTextColor);
             Button title = CreateButton("ReturnToTitle", body, "타이틀 화면으로",
                 new Vector2(360f, 62f), new Vector2(0f, -125f), DangerColor, out _);
-            title.onClick.AddListener(() =>
-            {
-                _showTitleConfirmation = true;
-                Render();
-            });
+            title.onClick.AddListener(OpenTitleConfirmation);
+        }
+
+        private void OpenTitleConfirmation()
+        {
+            _showTitleConfirmation = true;
+            Render();
         }
 
         private void RenderPlaceholder(RectTransform body, string tab)
@@ -357,12 +477,18 @@ namespace Baseball.Presentation.Career
         private void RenderTitleConfirmation(RectTransform panel)
         {
             RectTransform modal = CreateModal(panel, "TitleConfirmation");
-            bool isInMatch = _careerManager.HasActiveMatch;
-            CreateText("Title", modal, isInMatch ? "경기와 커리어를 종료할까요?" : "커리어를 종료할까요?",
+            bool isOwnerMode = UiGameModeSession.IsSelected(UiGameMode.OwnerCareer);
+            bool isInMatch = !isOwnerMode && _careerManager.HasActiveMatch;
+            string title = isOwnerMode
+                ? "구단주 모드에서 나갈까요?"
+                : isInMatch ? "경기와 커리어를 종료할까요?" : "커리어를 종료할까요?";
+            CreateText("Title", modal, title,
                 27, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(620f, 48f), new Vector2(0f, 102f), PrimaryTextColor);
             CreateText("Message", modal,
-                isInMatch
+                isOwnerMode
+                    ? "현재 구단주 모드 진행을 유지한 채 타이틀로 이동합니다.\n앱을 종료하기 전에는 저장·불러오기 탭에서 저장해 주세요."
+                    : isInMatch
                     ? "진행 중인 경기와 현재 커리어가 모두 종료됩니다.\n저장되지 않은 모든 진행 내용이 사라집니다."
                     : "저장하지 않은 진행은 사라집니다.\n필요하면 저장·불러오기 탭에서 먼저 저장해 주세요.",
                 17, FontStyle.Normal, TextAnchor.MiddleCenter,
@@ -444,6 +570,7 @@ namespace Baseball.Presentation.Career
 
         private void ReturnToTitle()
         {
+            bool isOwnerMode = UiGameModeSession.IsSelected(UiGameMode.OwnerCareer);
             Time.timeScale = 1f;
             UI_Scene_CareerMatch match = Object.FindFirstObjectByType<UI_Scene_CareerMatch>(FindObjectsInactive.Include);
             UI_Scene_NewGame newGame = Object.FindFirstObjectByType<UI_Scene_NewGame>(FindObjectsInactive.Include);
@@ -452,7 +579,9 @@ namespace Baseball.Presentation.Career
             StopAllCoroutines();
             DOTween.KillAll();
 
-            _careerManager.EndCareer();
+            if (!isOwnerMode)
+                _careerManager.EndCareer();
+            UiGameModeSession.Clear();
             _newGameManager.DiscardDraftAndShowTitle();
             Close();
 

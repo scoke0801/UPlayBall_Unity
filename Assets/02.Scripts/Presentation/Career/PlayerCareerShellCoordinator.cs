@@ -41,7 +41,7 @@ namespace Baseball.Presentation.Career
             _workspaceAdapter = new PlayerCareerWorkspaceAdapter(_shell.MainWorkspaceHost);
             _workspaceAdapter.Synchronize();
             _shell.SettingsRequested += HandleSettingsRequested;
-            UIManager.Instance.NavigationBackRequested += HandleBackRequested;
+            UIManager.Instance.NavigationBackRequested += HandleCancelRequested;
 
             _manager.CareerChanged += HandleCareerChanged;
             CareerTabNavigation.TabChanged += HandleTabChanged;
@@ -86,7 +86,7 @@ namespace Baseball.Presentation.Career
             if (_shell != null)
                 _shell.SettingsRequested -= HandleSettingsRequested;
             if (UIManager.Instance != null)
-                UIManager.Instance.NavigationBackRequested -= HandleBackRequested;
+                UIManager.Instance.NavigationBackRequested -= HandleCancelRequested;
             _workspaceAdapter?.RestoreAll();
             _workspaceAdapter = null;
             if (_presenter != null)
@@ -242,6 +242,26 @@ namespace Baseball.Presentation.Career
                 return;
 
             ApplyInternalScreenRoute(routeId);
+            _workspaceAdapter?.Synchronize();
+            ShowContext(routeId);
+        }
+
+        private void HandleCancelRequested()
+        {
+            if (_shell == null || !_shell.gameObject.activeInHierarchy || _navigationState == null)
+                return;
+            if (_navigationState.IsAtRoot)
+            {
+                HandleSettingsRequested();
+                return;
+            }
+
+            string routeId = _navigationState.Navigate(PlayerCareerRoutes.Home);
+            _isRoutingNavigation = true;
+            bool wasShown = CareerTabNavigation.Show(CareerMainTab.Home);
+            _isRoutingNavigation = false;
+            if (!wasShown)
+                return;
             _workspaceAdapter?.Synchronize();
             ShowContext(routeId);
         }

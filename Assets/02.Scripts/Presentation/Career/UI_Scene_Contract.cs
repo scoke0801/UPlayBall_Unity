@@ -41,6 +41,7 @@ namespace Baseball.Presentation.Career
         private readonly PlayerContractPresentationModelBuilder _presentationBuilder = new();
         private RectTransform _content;
         private bool _isRetirementConfirming;
+        private bool _isContentDirty = true;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Contract;
@@ -72,8 +73,21 @@ namespace Baseball.Presentation.Career
 
         protected override void OnShow()
         {
+            bool wasRetirementConfirming = _isRetirementConfirming;
+            _isRetirementConfirming = false;
+            if (_isContentDirty || wasRetirementConfirming)
+                Render();
+        }
+
+        /// <summary>은퇴 확정 단계에서는 화면을 이탈하지 않고 확정 편집만 취소한다.</summary>
+        public override bool TryHandleCancel()
+        {
+            if (!_isRetirementConfirming)
+                return false;
+
             _isRetirementConfirming = false;
             Render();
+            return true;
         }
 
         protected override void OnDestroy()
@@ -101,6 +115,8 @@ namespace Baseball.Presentation.Career
             }
             if (IsVisible)
                 Render();
+            else
+                _isContentDirty = true;
         }
 
         private void Render()
@@ -108,6 +124,7 @@ namespace Baseball.Presentation.Career
             if (_content == null || _manager == null || !_manager.HasActiveCareer)
                 return;
 
+            _isContentDirty = false;
             ClearChildren(_content);
             CareerContractView view = _manager.Contract;
             CurrentPresentationModel = _presentationBuilder.Build(view);

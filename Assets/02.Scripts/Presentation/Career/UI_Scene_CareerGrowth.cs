@@ -105,6 +105,41 @@ namespace Baseball.Presentation.Career
             base.OnDestroy();
         }
 
+        /// <summary>성장 화면의 Overlay, 확인 단계, 보드 편집 순서로 현재 작업만 취소한다.</summary>
+        public override bool TryHandleCancel()
+        {
+            if (!IsVisible)
+                return false;
+            if (_isGachaOpen)
+            {
+                CloseGachaOverlay();
+                return true;
+            }
+            if (_confirmPlacedBlockRemoval || _confirmBoardRedesign || _confirmBoardCommit || _confirmBoardApply)
+            {
+                _confirmPlacedBlockRemoval = false;
+                _confirmBoardRedesign = false;
+                _confirmBoardCommit = false;
+                _confirmBoardApply = false;
+                Render();
+                return true;
+            }
+            if (_isBoardDraftDirty)
+            {
+                ResetBoardDraft(_manager.GrowthDashboard);
+                return true;
+            }
+            if (_selectedOwnedBlockId > 0 || _selectedPlacedBlockId > 0)
+            {
+                _selectedOwnedBlockId = 0;
+                _selectedPlacedBlockId = 0;
+                _selectedRotation = 0;
+                Render();
+                return true;
+            }
+            return false;
+        }
+
         private void Update()
         {
             if (UI_CareerPresentation.IsPlaying)
@@ -112,22 +147,6 @@ namespace Baseball.Presentation.Career
             if (!IsVisible || Keyboard.current == null || _manager?.HasActiveCareer != true)
                 return;
             Keyboard keyboard = Keyboard.current;
-            if (keyboard.escapeKey.wasPressedThisFrame)
-            {
-                if (_isGachaOpen)
-                {
-                    CloseGachaOverlay();
-                    return;
-                }
-                if (_selectedOwnedBlockId > 0 || _selectedPlacedBlockId > 0)
-                {
-                    _selectedOwnedBlockId = 0;
-                    _selectedPlacedBlockId = 0;
-                    _selectedRotation = 0;
-                    Render();
-                }
-                return;
-            }
             if (!keyboard.rKey.wasPressedThisFrame ||
                 _isGachaOpen ||
                 _growthSection != GrowthSection.Board ||

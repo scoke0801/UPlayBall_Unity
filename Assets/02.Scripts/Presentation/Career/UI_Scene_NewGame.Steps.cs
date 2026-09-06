@@ -628,7 +628,7 @@ namespace Baseball.Presentation.Career
                     $"{offer.EvaluationOpportunitySummary}  |  포지션 필요도 {offer.PositionNeed}  ·  경쟁자 {offer.CompetitorSummary}";
                 RectTransform emblem = CreateImage(
                     "Emblem", button.transform, Color.clear, new Vector2(82f, 82f), new Vector2(-550f, 0f));
-                if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), offer.EmblemId))
+                if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), offer.EmblemId, offer.TeamName))
                 {
                     CreateText("EmblemFallback", emblem, CareerTeamNameFormatter.GetMonogram(offer.TeamName),
                         24, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(82f, 82f), Vector2.zero,
@@ -650,7 +650,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(260f, 30f), new Vector2(0f, 190f), AccentColor);
             RectTransform emblem = CreateImage(
                 "TeamEmblem", card, Color.clear, new Vector2(112f, 112f), new Vector2(-330f, 120f));
-            TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), summary.EmblemId);
+            TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), summary.EmblemId, summary.TeamName);
             CreateText("Team", card, summary.TeamName, 34, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(610f, 62f), new Vector2(65f, 130f), PrimaryTextColor);
             CreateText("Contract", card,

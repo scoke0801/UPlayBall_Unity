@@ -329,7 +329,7 @@ namespace Baseball.Presentation.Career
             MarkVisual(inner, CareerUiVisualRole.DataImage);
             RectTransform emblem = CreateImage(
                 "Emblem", inner, Color.clear, new Vector2(size - 8f, size - 8f), Vector2.zero);
-            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId))
+            if (!TeamEmblemSprites.TryApply(emblem.GetComponent<Image>(), emblemId, teamName))
             {
                 CreateText("Monogram", inner, CareerTeamNameFormatter.GetMonogram(teamName),
                     Math.Max(9, (int)(size * 0.30f)), FontStyle.Bold, TextAnchor.MiddleCenter,

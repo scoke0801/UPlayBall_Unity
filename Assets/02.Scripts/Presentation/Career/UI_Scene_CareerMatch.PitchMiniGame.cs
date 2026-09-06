@@ -586,7 +586,6 @@ namespace Baseball.Presentation.Career
                 else if (keyboard.digit6Key.wasPressedThisFrame) SelectPitchMiniGamePitchByIndex(5);
                 else if (keyboard.qKey.wasPressedThisFrame) CyclePitchMiniGameApproach(-1);
                 else if (keyboard.eKey.wasPressedThisFrame) CyclePitchMiniGameApproach(1);
-                else if (keyboard.escapeKey.wasPressedThisFrame) ReturnPitchMiniGameToReady();
                 else if (keyboard.aKey.wasPressedThisFrame) AutoCompletePitchMiniGamePlateAppearance();
                 else if (IsPitchSubmitPressed(keyboard, gamepad)) SubmitPitchMiniGameCommand();
             }
@@ -601,8 +600,6 @@ namespace Baseball.Presentation.Career
                     CyclePitchMiniGamePitch(-1);
                 else if (gamepad.rightShoulder.wasPressedThisFrame)
                     CyclePitchMiniGameApproach(1);
-                else if (gamepad.buttonEast.wasPressedThisFrame)
-                    ReturnPitchMiniGameToReady();
             }
             return true;
         }

@@ -48,6 +48,7 @@ namespace Baseball.Presentation.Career
         private DateTime _visibleMonth;
         private int _visibleSeasonYear;
         private bool _hasVisibleMonth;
+        private bool _isContentDirty = true;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Schedule;
@@ -74,7 +75,8 @@ namespace Baseball.Presentation.Career
 
         protected override void OnShow()
         {
-            Render();
+            if (_isContentDirty)
+                Render();
         }
 
         protected override void OnDestroy()
@@ -115,6 +117,8 @@ namespace Baseball.Presentation.Career
             }
             if (IsVisible)
                 Render();
+            else
+                _isContentDirty = true;
         }
 
         private void Render()
@@ -132,6 +136,7 @@ namespace Baseball.Presentation.Career
                 _visibleMonth.Month,
                 _scope);
 
+            _isContentDirty = false;
             ClearChildren(_content);
             RenderBackgroundAccents();
             RenderViewControls(view);

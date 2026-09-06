@@ -107,9 +107,9 @@ namespace Baseball.Presentation.Career
             _portrait.preserveAspect = true;
 
             Color secondary = GetReadableSecondary(primary);
-            ApplyEmblem(_frontEmblem, view.TeamEmblemId, secondary);
+            ApplyEmblem(_frontEmblem, view.TeamEmblemId, secondary, view.TeamName);
             ApplyTopTeamEmblem(view.TeamEmblemId, view.TeamName);
-            ApplyEmblem(_backEmblem, view.TeamEmblemId, secondary);
+            ApplyEmblem(_backEmblem, view.TeamEmblemId, secondary, view.TeamName);
             ClearAwardMarks();
             BindAbilities(view.Abilities, primary);
             SetShowingBack(false);
@@ -171,7 +171,7 @@ namespace Baseball.Presentation.Career
         public void SetSpecialType(PlayerCardSpecialType specialType)
         {
             SpecialType = specialType;
-            Sprite backSprite = PlayerCardSprites.GetSpecialBack(specialType);
+            Sprite backSprite = null;
             _nameBand.SetColors(GetTopMetaColor(specialType), new Color32(8, 10, 16, 255));
             _frontSpecialOverlay.enabled = false;
             ApplySpecialOverlay(_backSpecialOverlay, backSprite);
@@ -220,25 +220,26 @@ namespace Baseball.Presentation.Career
 
         private void BuildFront()
         {
-            CreateFullImage("OuterBorder", _front, null, new Color32(8, 10, 16, 255));
-            CreateGradient("MetalBorder", _front, new Color32(145, 152, 170, 255), new Color32(58, 62, 74, 255),
-                8f, 8f, 1008f, 1520f);
+            CreateFullImage("ReferenceFrame", _front, PlayerCardSprites.FrontNeutral, Color.white);
+
             _photoBackground = CreateImage("TeamColorBackground", _front, null, Color.white,
-                18f, 18f, 988f, 895f);
+                18f, 100f, 988f, 620f);
+            _photoBackground.enabled = false;
             _frontTeamColorOverlay = CreateFullImage(
                 "TeamColorOverlay", _front, null, Color.clear);
             _frontTeamColorOverlay.enabled = false;
             CreateGradient("Header", _front, new Color32(52, 61, 78, 255), new Color32(8, 10, 16, 255),
                 18f, 18f, 988f, 70f);
             _nameBand = CreateGradient("NameBand", _front, new Color32(55, 60, 72, 255), new Color32(8, 10, 16, 255),
-                18f, 910f, 988f, 114f);
-            CreateImage("StatsBacking", _front, null, new Color32(8, 10, 16, 255), 18f, 1024f, 988f, 418f);
+                18f, 790f, 988f, 178f);
+            _nameBand.enabled = false;
+            CreateImage("StatsBacking", _front, null, new Color32(8, 10, 16, 255), 18f, 985f, 988f, 390f);
             CreateGradient("Footer", _front, new Color32(100, 107, 120, 255), new Color32(8, 10, 16, 255),
                 18f, 1442f, 988f, 76f);
             _frontSpecialOverlay = CreateFullImage("SpecialCardOverlay", _front, null, Color.clear);
             _frontSpecialOverlay.enabled = false;
             _portrait = CreateImage("Portrait", _front, null, Color.white,
-                92f, 76f, 840f, 820f);
+                92f, 76f, 840f, 690f);
             _portrait.preserveAspect = true;
             _commonTopMeta = CreateFullImage(
                 "CommonTopMeta", _front, null, Color.clear);
@@ -264,21 +265,21 @@ namespace Baseball.Presentation.Career
                 846f, 88f, 108f, 150f);
 
             _frontEmblem = CreateImage("TeamEmblem", _front, null, Color.white,
-                48f, 920f, 158f, 91f);
+                48f, 805f, 158f, 120f);
             _frontEmblem.preserveAspect = true;
             _playerName = CreateText("PlayerName", _front, 30, FontStyle.Bold,
-                TextAnchor.MiddleCenter, Color.white,
-                212f, 920f, 570f, 92f);
+                TextAnchor.MiddleCenter, new Color32(18, 18, 18, 255),
+                212f, 805f, 545f, 120f);
             _season = CreateText("Season", _front, 19, FontStyle.Bold,
                 TextAnchor.MiddleCenter, Color.white,
-                794f, 922f, 175f, 86f);
+                794f, 805f, 125f, 120f);
             _position = CreateText("Position", _front, 20, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Color32(228, 232, 234, 255),
                 58f, 82f, 92f, 52f);
 
             for (int index = 0; index < AbilityCount; index++)
             {
-                float rowTop = 1038f + index * 64f;
+                float rowTop = 993f + index * 60f;
                 _abilityLabels[index] = CreateText(
                     "StatLabel_" + index,
                     _front,
@@ -327,7 +328,7 @@ namespace Baseball.Presentation.Career
         private void BuildBack()
         {
             _backTeamColorOverlay = CreateFullImage(
-                "TeamColorOverlay", _back, PlayerCardSprites.BackTeamColorOverlay, Color.white);
+                "TeamColorOverlay", _back, null, Color.clear);
             CreateFullImage("NeutralFrame", _back, PlayerCardSprites.BackNeutral, Color.white);
             _backSpecialOverlay = CreateFullImage("SpecialCardOverlay", _back, null, Color.clear);
             _backSpecialOverlay.enabled = false;
@@ -358,9 +359,9 @@ namespace Baseball.Presentation.Career
             }
         }
 
-        private static void ApplyEmblem(Image image, int emblemId, Color fallbackColor)
+        private static void ApplyEmblem(Image image, int emblemId, Color fallbackColor, string teamName)
         {
-            if (TeamEmblemSprites.TryApply(image, emblemId))
+            if (TeamEmblemSprites.TryApply(image, emblemId, teamName))
                 return;
             image.sprite = null;
             image.color = new Color(fallbackColor.r, fallbackColor.g, fallbackColor.b, 0.18f);
@@ -368,7 +369,7 @@ namespace Baseball.Presentation.Career
 
         private void ApplyTopTeamEmblem(int emblemId, string teamName)
         {
-            if (TeamEmblemSprites.TryApply(_topTeamEmblem, emblemId))
+            if (TeamEmblemSprites.TryApply(_topTeamEmblem, emblemId, teamName))
             {
                 _topTeamFallback.text = string.Empty;
                 return;
@@ -595,59 +596,9 @@ namespace Baseball.Presentation.Career
     /// <summary>Resources의 공용 선수 카드 Sprite 레이어를 지연 로드한다.</summary>
     internal static class PlayerCardSprites
     {
-        private const string Root = "UI/PlayerCards/";
-        private static Sprite _frontNeutral;
-        private static Sprite _frontTeamColorOverlay;
-        private static Sprite _backNeutral;
-        private static Sprite _backTeamColorOverlay;
-        private static Sprite _topMetaCommon;
-        private static Sprite _allStarFront;
-        private static Sprite _allStarBack;
-        private static Sprite _mvpFront;
-        private static Sprite _mvpBack;
-        private static Sprite _goldenGloveFront;
-        private static Sprite _goldenGloveBack;
-
-        public static Sprite FrontNeutral =>
-            _frontNeutral ??= Resources.Load<Sprite>(Root + "PlayerCard_MainFrame_V2");
-
-        public static Sprite FrontTeamColorOverlay =>
-            _frontTeamColorOverlay ??= Resources.Load<Sprite>(Root + "PlayerCard_Front_TeamColorOverlay");
-
-        public static Sprite BackNeutral =>
-            _backNeutral ??= Resources.Load<Sprite>(Root + "PlayerCard_Back_Neutral");
-
-        public static Sprite BackTeamColorOverlay =>
-            _backTeamColorOverlay ??= Resources.Load<Sprite>(Root + "PlayerCard_Back_TeamColorOverlay");
-
-        public static Sprite TopMetaCommon =>
-            _topMetaCommon ??= Resources.Load<Sprite>(Root + "PlayerCard_TopMeta_Common");
-
-        public static Sprite GetSpecialFront(PlayerCardSpecialType specialType)
-        {
-            return specialType switch
-            {
-                PlayerCardSpecialType.AllStar => _allStarFront ??= Load("PlayerCard_AllStar_FrontOverlay"),
-                PlayerCardSpecialType.Mvp => _mvpFront ??= Load("PlayerCard_MVP_FrontOverlay"),
-                PlayerCardSpecialType.GoldenGlove => _goldenGloveFront ??= Load("PlayerCard_GoldenGlove_FrontOverlay"),
-                _ => null
-            };
-        }
-
-        public static Sprite GetSpecialBack(PlayerCardSpecialType specialType)
-        {
-            return specialType switch
-            {
-                PlayerCardSpecialType.AllStar => _allStarBack ??= Load("PlayerCard_AllStar_BackOverlay"),
-                PlayerCardSpecialType.Mvp => _mvpBack ??= Load("PlayerCard_MVP_BackOverlay"),
-                PlayerCardSpecialType.GoldenGlove => _goldenGloveBack ??= Load("PlayerCard_GoldenGlove_BackOverlay"),
-                _ => null
-            };
-        }
-
-        private static Sprite Load(string assetName)
-        {
-            return Resources.Load<Sprite>(Root + assetName);
-        }
+        private static Sprite _front;
+        private static Sprite _back;
+        public static Sprite FrontNeutral => _front ??= Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_Front_Reference");
+        public static Sprite BackNeutral => _back ??= Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_Back_Reference");
     }
 }

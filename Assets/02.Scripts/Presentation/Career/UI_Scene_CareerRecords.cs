@@ -40,6 +40,7 @@ namespace Baseball.Presentation.Career
         private CareerRecordViewMode _viewMode = CareerRecordViewMode.Expanded;
         private CompetitionScope _scope = CompetitionScope.RegularSeason;
         private bool _hasSelectedInitialCategory;
+        private bool _isContentDirty = true;
 
         public override bool BlocksLowerInput => true;
         public CareerMainTab MainTab => CareerMainTab.Records;
@@ -67,7 +68,8 @@ namespace Baseball.Presentation.Career
         protected override void OnShow()
         {
             SelectInitialCategory();
-            Render();
+            if (_isContentDirty)
+                Render();
         }
 
         protected override void OnDestroy()
@@ -105,6 +107,8 @@ namespace Baseball.Presentation.Career
             }
             if (IsVisible)
                 Render();
+            else
+                _isContentDirty = true;
         }
 
         private void Render()
@@ -112,6 +116,7 @@ namespace Baseball.Presentation.Career
             if (_content == null || _manager == null || !_manager.HasActiveCareer)
                 return;
 
+            _isContentDirty = false;
             ClearChildren(_content);
             CareerRecordsView view = _recordsService.Build(
                 _manager.CurrentCareer,

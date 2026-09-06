@@ -1815,18 +1815,18 @@ namespace Baseball.Presentation.Career
                 if (block.InstanceId > 0)
                 {
                     BoardCell[] localCells = BuildOccupiedCells(block.ShapeCells, 0, 0, rotation);
-                    for (int index = 0; index < localCells.Length; index++)
-                    {
-                        int candidateX = hoverX - localCells[index].X;
-                        int candidateY = hoverY - localCells[index].Y;
-                        if (GetDraftPlacementPreview(
-                                growth, instanceId, candidateX, candidateY, rotation).CanPlace)
-                        {
-                            originX = candidateX;
-                            originY = candidateY;
-                            return true;
-                        }
-                    }
+                    return SkillBlockPlacementTargetResolver.TryResolveOrigin(
+                        localCells,
+                        hoverX,
+                        hoverY,
+                        (candidateX, candidateY) => GetDraftPlacementPreview(
+                            growth,
+                            instanceId,
+                            candidateX,
+                            candidateY,
+                            rotation).CanPlace,
+                        out originX,
+                        out originY);
                 }
             }
             originX = hoverX;
