@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using Baseball.Game.Career;
 using Baseball.Presentation.Career;
+using Baseball.Presentation.Player;
 using Baseball.Presentation.SharedScreens;
 using NUnit.Framework;
 
@@ -40,11 +41,24 @@ namespace Baseball.Tests.EditMode.Presentation.Player
         [TestCase(CareerRecordMetric.Walks, "볼넷")]
         [TestCase(CareerRecordMetric.BattingStrikeouts, "삼진")]
         [TestCase(CareerRecordMetric.BattingAverage, "타율")]
-        [TestCase(CareerRecordMetric.OnBasePlusSlugging, "출루+장타")]
-        [TestCase(CareerRecordMetric.WalksHitsPerInningPitched, "이닝당출루")]
+        [TestCase(CareerRecordMetric.OnBasePlusSlugging, "출루율+장타율")]
+        [TestCase(CareerRecordMetric.EarnedRunAverage, "평균자책점")]
+        [TestCase(CareerRecordMetric.WalksHitsPerInningPitched, "이닝당 출루허용률")]
         public void 기록지표_사용자용한국어이름을제공한다(CareerRecordMetric metric, string expected)
         {
             Assert.That(CareerSharedSnapshotFormatters.FormatMetricLabel(metric), Is.EqualTo(expected));
+        }
+
+        [TestCase(LeagueLevel.Rookie, "루키", "루키 리그")]
+        [TestCase(LeagueLevel.AllStar, "올스타", "올스타 리그")]
+        [TestCase(LeagueLevel.Galaxy, "갤럭시", "갤럭시 리그")]
+        public void 리그등급_화면폭에맞는한글이름을제공한다(
+            LeagueLevel level,
+            string shortName,
+            string fullName)
+        {
+            Assert.That(CareerSharedSnapshotFormatters.FormatLeague(level), Is.EqualTo(shortName));
+            Assert.That(PlayerCareerText.FormatLeague(level), Is.EqualTo(fullName));
         }
 
         [Test]

@@ -259,16 +259,16 @@ namespace Baseball.Game.Career
                 throw new ArgumentOutOfRangeException(nameof(majorOverallBonus), "Galaxy 목표 Overall 88을 넘길 수 없습니다.");
             return new[]
             {
-                CreateDefinition(LeagueLevel.Rookie, "ROOKIE LEAGUE", "ROOKIE", 52, 1.00d, 0.25d, rookieMinimumAge, rookieMaximumAge, string.Empty, "기초 훈련"),
-                CreateDefinition(LeagueLevel.Minor, "MINOR LEAGUE", "MINOR", minorTarget, 1.25d, 0.35d, minorMinimumAge, minorMaximumAge, minorPrefix, "포지션 특화 훈련"),
-                CreateDefinition(LeagueLevel.Major, "MAJOR LEAGUE", "MAJOR", majorTarget, 1.60d, 0.50d, majorMinimumAge, majorMaximumAge, majorPrefix, "고급 타격·투구 프로그램"),
-                CreateDefinition(LeagueLevel.World, "WORLD LEAGUE", "WORLD", Math.Max(64, majorTarget + 4), 2.10d, 0.65d, 21, 33, "월드 ", "유명 코치 프로그램"),
-                CreateDefinition(LeagueLevel.AllStar, "ALL-STAR LEAGUE", "STAR", Math.Max(68, majorTarget + 8), 2.80d, 0.80d, 21, 35, "스타 ", "고급 훈련 파트너"),
-                CreateDefinition(LeagueLevel.Classic, "CLASSIC LEAGUE", "CLASSIC", Math.Max(72, majorTarget + 12), 3.70d, 1.00d, 22, 37, "클래식 ", "해외 유학 상위 과정"),
-                CreateDefinition(LeagueLevel.Winners, "WINNERS LEAGUE", "WINNERS", Math.Max(76, majorTarget + 16), 4.90d, 1.15d, 22, 38, "위너스 ", "정상급 선수 합동 훈련"),
-                CreateDefinition(LeagueLevel.Champion, "CHAMPION LEAGUE", "CHAMPION", Math.Max(80, majorTarget + 20), 6.50d, 1.35d, 23, 39, "챔피언 ", "최상급 기술 개조"),
-                CreateDefinition(LeagueLevel.Master, "MASTER LEAGUE", "MASTER", Math.Max(84, majorTarget + 24), 8.50d, 1.60d, 23, 40, "마스터 ", "개인 맞춤형 프로그램"),
-                CreateDefinition(LeagueLevel.Galaxy, "GALAXY LEAGUE", "GALAXY", Math.Max(88, majorTarget + 28), 11.00d, 2.00d, 23, 42, "갤럭시 ", "전성기 유지·레거시 훈련")
+                CreateDefinition(LeagueLevel.Rookie, "루키 리그", "루키", 52, 1.00d, 0.25d, rookieMinimumAge, rookieMaximumAge, string.Empty, "기초 훈련"),
+                CreateDefinition(LeagueLevel.Minor, "마이너 리그", "마이너", minorTarget, 1.25d, 0.35d, minorMinimumAge, minorMaximumAge, minorPrefix, "포지션 특화 훈련"),
+                CreateDefinition(LeagueLevel.Major, "메이저 리그", "메이저", majorTarget, 1.60d, 0.50d, majorMinimumAge, majorMaximumAge, majorPrefix, "고급 타격·투구 프로그램"),
+                CreateDefinition(LeagueLevel.World, "월드 리그", "월드", Math.Max(64, majorTarget + 4), 2.10d, 0.65d, 21, 33, "월드 ", "유명 코치 프로그램"),
+                CreateDefinition(LeagueLevel.AllStar, "올스타 리그", "올스타", Math.Max(68, majorTarget + 8), 2.80d, 0.80d, 21, 35, "스타 ", "고급 훈련 파트너"),
+                CreateDefinition(LeagueLevel.Classic, "클래식 리그", "클래식", Math.Max(72, majorTarget + 12), 3.70d, 1.00d, 22, 37, "클래식 ", "해외 유학 상위 과정"),
+                CreateDefinition(LeagueLevel.Winners, "위너스 리그", "위너스", Math.Max(76, majorTarget + 16), 4.90d, 1.15d, 22, 38, "위너스 ", "정상급 선수 합동 훈련"),
+                CreateDefinition(LeagueLevel.Champion, "챔피언 리그", "챔피언", Math.Max(80, majorTarget + 20), 6.50d, 1.35d, 23, 39, "챔피언 ", "최상급 기술 개조"),
+                CreateDefinition(LeagueLevel.Master, "마스터 리그", "마스터", Math.Max(84, majorTarget + 24), 8.50d, 1.60d, 23, 40, "마스터 ", "개인 맞춤형 프로그램"),
+                CreateDefinition(LeagueLevel.Galaxy, "갤럭시 리그", "갤럭시", Math.Max(88, majorTarget + 28), 11.00d, 2.00d, 23, 42, "갤럭시 ", "전성기 유지·레거시 훈련")
             };
         }
 

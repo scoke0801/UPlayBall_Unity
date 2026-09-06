@@ -112,20 +112,7 @@ namespace Baseball.Presentation.Player
         /// <summary>LeagueLevel을 사용자에게 노출할 정식 등급명으로 변환한다.</summary>
         public static string FormatLeague(LeagueLevel level)
         {
-            return level switch
-            {
-                LeagueLevel.Rookie => "Rookie League",
-                LeagueLevel.Minor => "Minor League",
-                LeagueLevel.Major => "Major League",
-                LeagueLevel.World => "World League",
-                LeagueLevel.AllStar => "All-Star League",
-                LeagueLevel.Classic => "Classic League",
-                LeagueLevel.Winners => "Winners League",
-                LeagueLevel.Champion => "Champion League",
-                LeagueLevel.Master => "Master League",
-                LeagueLevel.Galaxy => "Galaxy League",
-                _ => "리그 정보 없음"
-            };
+            return WorldGenerationConfiguration.GetDefaultDefinition(level).DisplayName;
         }
 
         /// <summary>개인 자금을 자리 구분이 있는 숫자로 표시한다.</summary>
