@@ -59,6 +59,7 @@ namespace Baseball.Editor.HistoricalDatabase
         private ScrollView _playerDetailScroll;
         private VisualElement _playerDetailContent;
         private TextField _playerRawJson;
+        private ScrollView _teamDetailScroll;
         private VisualElement _teamDetailContent;
 
         [MenuItem("Baseball/Historical Database Browser", priority = 10)]
@@ -113,7 +114,10 @@ namespace Baseball.Editor.HistoricalDatabase
             string previousSource = EditorPrefs.GetString(LastSourcePreference, string.Empty);
             _sourcePathField.SetValueWithoutNotify(previousSource);
             if (!string.IsNullOrWhiteSpace(previousSource))
-                BeginLoad(previousSource);
+            {
+                if (!TryRestoreSessionArchive(previousSource))
+                    BeginLoad(previousSource);
+            }
         }
 
         private void CacheVisualElements()
@@ -137,6 +141,7 @@ namespace Baseball.Editor.HistoricalDatabase
             _playerDetailScroll = Require<ScrollView>("player-detail-scroll");
             _playerDetailContent = Require<VisualElement>("player-detail-content");
             _playerRawJson = Require<TextField>("player-raw-json");
+            _teamDetailScroll = Require<ScrollView>("team-detail-scroll");
             _teamDetailContent = Require<VisualElement>("team-detail-content");
         }
 
@@ -326,6 +331,7 @@ namespace Baseball.Editor.HistoricalDatabase
             }
             string manifestPath = Path.Combine(_data.SourceFolder, "manifest.json");
             _loadedManifestWriteUtc = File.Exists(manifestPath) ? File.GetLastWriteTimeUtc(manifestPath) : DateTime.MinValue;
+            HistoricalDatabaseSessionCache.Store(_data, _loadedManifestWriteUtc);
             SetSourceControlsEnabled(true);
             EditorPrefs.SetString(LastSourcePreference, normalizedPath);
             _emptyState.AddToClassList("hidden");
@@ -336,6 +342,29 @@ namespace Baseball.Editor.HistoricalDatabase
             PopulateArchive();
             RestoreDetailsAfterReload();
             _statusLabel.text = $"로드 완료 · {_data.LoadElapsed.TotalMilliseconds:N0} ms · JSON 원본만 사용";
+        }
+
+        private bool TryRestoreSessionArchive(string sourcePath)
+        {
+            if (!HistoricalDatabaseSessionCache.TryGetCurrent(sourcePath, out HistoricalArchiveData archive))
+                return false;
+
+            _viewModel = new HistoricalDatabaseViewModel();
+            _viewModel.SetData(archive);
+            _data = archive;
+            _loadedManifestWriteUtc = File.GetLastWriteTimeUtc(Path.Combine(_data.SourceFolder, "manifest.json"));
+            _sourcePathField.SetValueWithoutNotify(_data.SourceFolder);
+            _sourceErrorBanner.AddToClassList("hidden");
+            _sourceChangedBanner.AddToClassList("hidden");
+            _emptyState.AddToClassList("hidden");
+            _workspace.RemoveFromClassList("hidden");
+            _workspace.SetEnabled(true);
+            SetSourceControlsEnabled(true);
+            _nextSourcePollTime = EditorApplication.timeSinceStartup + SourcePollIntervalSeconds;
+            PopulateArchive();
+            RestoreDetailsAfterReload();
+            _statusLabel.text = "세션 캐시에서 복원 · JSON 재파싱 생략";
+            return true;
         }
 
         private void CancelLoad()

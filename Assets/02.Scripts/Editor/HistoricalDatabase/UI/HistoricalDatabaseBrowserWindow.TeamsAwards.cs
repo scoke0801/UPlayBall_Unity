@@ -12,6 +12,13 @@ namespace Baseball.Editor.HistoricalDatabase
     {
         private ToolbarSearchField _teamSearch;
         private DropdownField _teamYearFilter;
+        private DropdownField _teamFranchiseFilter;
+        private ToolbarButton _teamRosterBackButton;
+        private ToolbarButton _openTeamPlayerTabButton;
+        private Label _teamDetailContextLabel;
+        private HistoricalPlayerRow _teamDetailPlayer;
+        private TeamSortField _teamSortField = TeamSortField.Year;
+        private SortDirection _teamSortDirection = SortDirection.Ascending;
         private ToolbarSearchField _awardSearch;
         private DropdownField _awardYearFilter;
         private DropdownField _awardTypeFilter;
@@ -22,6 +29,10 @@ namespace Baseball.Editor.HistoricalDatabase
         {
             _teamSearch = Require<ToolbarSearchField>("team-search");
             _teamYearFilter = Require<DropdownField>("team-year-filter");
+            _teamFranchiseFilter = Require<DropdownField>("team-franchise-filter");
+            _teamRosterBackButton = Require<ToolbarButton>("team-roster-back-button");
+            _openTeamPlayerTabButton = Require<ToolbarButton>("open-team-player-tab-button");
+            _teamDetailContextLabel = Require<Label>("team-detail-context-label");
             BindTextColumn(_teamList.columns["year"], index => GetTeam(index)?.OriginYear.ToString());
             BindTextColumn(_teamList.columns["franchise"], index => GetTeam(index)?.FranchiseId);
             BindTextColumn(_teamList.columns["team"], index => GetTeam(index)?.TeamSeasonKey);
@@ -33,12 +44,12 @@ namespace Baseball.Editor.HistoricalDatabase
             _teamList.selectionChanged += selection =>
             {
                 HistoricalTeamSeason team = selection.OfType<HistoricalTeamSeason>().FirstOrDefault();
-                if (team != null) SelectTeam(team);
+                if (team != null) SetSelectedTeam(team);
             };
             _teamList.itemsChosen += selection =>
             {
                 HistoricalTeamSeason team = selection.OfType<HistoricalTeamSeason>().FirstOrDefault();
-                if (team != null) SelectTeam(team, true);
+                if (team != null) SetSelectedTeam(team);
             };
             _teamList.AddManipulator(new ContextualMenuManipulator(evt =>
             {
@@ -55,18 +66,35 @@ namespace Baseball.Editor.HistoricalDatabase
             }));
             _teamSearch.RegisterValueChangedCallback(_ => ApplyTeamFilters());
             _teamYearFilter.RegisterValueChangedCallback(_ => ApplyTeamFilters());
+            _teamFranchiseFilter.RegisterValueChangedCallback(_ => ApplyTeamFilters());
+            _teamRosterBackButton.clicked += () =>
+            {
+                if (_selectedTeam != null)
+                    BuildTeamDetail(_selectedTeam);
+            };
+            _openTeamPlayerTabButton.clicked += () =>
+            {
+                if (_teamDetailPlayer != null)
+                    SelectPlayer(_teamDetailPlayer, true);
+            };
             ShowTeamEmptyState();
         }
 
         private void ConfigureTeamSort()
         {
-            _teamList.sortingMode = ColumnSortingMode.Default;
-            SetColumnComparison(_teamList.columns["year"], (left, right) => left.OriginYear.CompareTo(right.OriginYear), GetTeam);
-            SetColumnComparison(_teamList.columns["franchise"], (left, right) => string.Compare(left.FranchiseId, right.FranchiseId, StringComparison.Ordinal), GetTeam);
-            SetColumnComparison(_teamList.columns["team"], (left, right) => string.Compare(left.TeamSeasonKey, right.TeamSeasonKey, StringComparison.Ordinal), GetTeam);
-            SetColumnComparison(_teamList.columns["pool"], (left, right) => left.AllNormalCardIds.Length.CompareTo(right.AllNormalCardIds.Length), GetTeam);
-            SetColumnComparison(_teamList.columns["core"], (left, right) => left.Core25CardIds.Length.CompareTo(right.Core25CardIds.Length), GetTeam);
-            SetColumnComparison(_teamList.columns["strength"], (left, right) => left.ReferenceStrength.CompareTo(right.ReferenceStrength), GetTeam);
+            _teamList.sortingMode = ColumnSortingMode.Custom;
+            _teamList.columnSortingChanged += OnTeamSortingChanged;
+        }
+
+        private void OnTeamSortingChanged()
+        {
+            SortColumnDescription description = _teamList.sortedColumns.FirstOrDefault();
+            if (description?.column == null || !TryResolveTeamSortField(description.column.name, out TeamSortField field))
+                return;
+
+            _teamSortField = field;
+            _teamSortDirection = description.direction;
+            ApplyTeamFilters();
         }
 
         private void ApplyTeamFilters()
@@ -75,24 +103,74 @@ namespace Baseball.Editor.HistoricalDatabase
                 return;
             string query = _teamSearch.value?.Trim() ?? string.Empty;
             int? year = ParseChoiceInt(_teamYearFilter.value);
+            string franchise = ChoiceValue(_teamFranchiseFilter.value);
+            _teamList.SetSelectionWithoutNotify(Array.Empty<int>());
             _visibleTeams.Clear();
             for (int index = 0; index < _data.Teams.Count; index++)
             {
                 HistoricalTeamSeason team = _data.Teams[index];
                 if (year.HasValue && team.OriginYear != year.Value)
                     continue;
+                if (!MatchesChoice(team.FranchiseId, franchise))
+                    continue;
                 if (!Contains(team.FranchiseId, query) && !Contains(team.TeamSeasonKey, query))
                     continue;
                 _visibleTeams.Add(team);
             }
-            _visibleTeams.Sort((left, right) =>
-            {
-                int byYear = left.OriginYear.CompareTo(right.OriginYear);
-                return byYear != 0 ? byYear : string.CompareOrdinal(left.FranchiseId, right.FranchiseId);
-            });
+            SortVisibleTeams();
             _teamList.itemsSource = _visibleTeams;
             _teamList.Rebuild();
+            RestoreTeamSelection();
             SetLabel("team-result-count", $"{_visibleTeams.Count:N0}팀");
+        }
+
+        private void SortVisibleTeams()
+        {
+            _visibleTeams.Sort((left, right) =>
+            {
+                int order;
+                switch (_teamSortField)
+                {
+                    case TeamSortField.Franchise:
+                        order = string.CompareOrdinal(left.FranchiseId, right.FranchiseId);
+                        break;
+                    case TeamSortField.TeamSeasonKey:
+                        order = string.CompareOrdinal(left.TeamSeasonKey, right.TeamSeasonKey);
+                        break;
+                    case TeamSortField.PlayerPoolCount:
+                        order = left.AllNormalCardIds.Length.CompareTo(right.AllNormalCardIds.Length);
+                        break;
+                    case TeamSortField.CoreRosterCount:
+                        order = left.Core25CardIds.Length.CompareTo(right.Core25CardIds.Length);
+                        break;
+                    case TeamSortField.ReferenceStrength:
+                        order = left.ReferenceStrength.CompareTo(right.ReferenceStrength);
+                        break;
+                    default:
+                        order = left.OriginYear.CompareTo(right.OriginYear);
+                        break;
+                }
+
+                if (_teamSortDirection == SortDirection.Descending)
+                    order = -order;
+                return order != 0
+                    ? order
+                    : string.CompareOrdinal(left.TeamSeasonKey, right.TeamSeasonKey);
+            });
+        }
+
+        private static bool TryResolveTeamSortField(string columnName, out TeamSortField field)
+        {
+            switch (columnName)
+            {
+                case "year": field = TeamSortField.Year; return true;
+                case "franchise": field = TeamSortField.Franchise; return true;
+                case "team": field = TeamSortField.TeamSeasonKey; return true;
+                case "pool": field = TeamSortField.PlayerPoolCount; return true;
+                case "core": field = TeamSortField.CoreRosterCount; return true;
+                case "strength": field = TeamSortField.ReferenceStrength; return true;
+                default: field = default; return false;
+            }
         }
 
         private void SelectTeam(HistoricalTeamSeason team, bool switchTab = false)
@@ -102,25 +180,47 @@ namespace Baseball.Editor.HistoricalDatabase
             _selectedTeam = team;
             if (switchTab)
                 ShowTab(BrowserTab.Teams);
-            int index = _visibleTeams.IndexOf(team);
+            int index = _visibleTeams.FindIndex(candidate =>
+                string.Equals(candidate.TeamSeasonKey, team.TeamSeasonKey, StringComparison.Ordinal));
             if (index >= 0)
             {
                 _teamList.SetSelectionWithoutNotify(new[] { index });
                 _teamList.ScrollToItem(index);
             }
+            else
+            {
+                _teamList.SetSelectionWithoutNotify(Array.Empty<int>());
+            }
+            SetSelectedTeam(team);
+        }
+
+        private void SetSelectedTeam(HistoricalTeamSeason team)
+        {
+            _selectedTeam = team;
             BuildTeamDetail(team);
             _selectionLabel.text = $"{team.OriginYear} {team.FranchiseId} · {team.TeamSeasonKey}";
         }
 
+        private void RestoreTeamSelection()
+        {
+            int index = _selectedTeam == null
+                ? -1
+                : _visibleTeams.FindIndex(team => team.TeamSeasonKey == _selectedTeam.TeamSeasonKey);
+            _teamList.SetSelectionWithoutNotify(index >= 0 ? new[] { index } : Array.Empty<int>());
+        }
+
         private void ShowTeamEmptyState()
         {
+            SetTeamDetailPlayer(null);
             _teamDetailContent.Clear();
             AddAbsent(_teamDetailContent, "왼쪽 목록에서 팀 시즌을 선택하세요.");
         }
 
         private void BuildTeamDetail(HistoricalTeamSeason team)
         {
+            SetTeamDetailPlayer(null);
             _teamDetailContent.Clear();
+            _teamDetailScroll.scrollOffset = UnityEngine.Vector2.zero;
             var header = new Label($"{team.OriginYear} · {team.FranchiseId}");
             header.AddToClassList("detail-title");
             _teamDetailContent.Add(header);
@@ -164,7 +264,33 @@ namespace Baseball.Editor.HistoricalDatabase
             AddRosterSection("투수 · 불펜 4명", roster.Where(row => row.RosterRole.StartsWith("Bullpen", StringComparison.Ordinal)));
             AddRosterSection("투수 · 셋업", roster.Where(row => string.Equals(row.RosterRole, "Setup", StringComparison.Ordinal)));
             AddRosterSection("투수 · 마무리", roster.Where(row => string.Equals(row.RosterRole, "Closer", StringComparison.Ordinal)));
+
+            IReadOnlyList<HistoricalPlayerRow> reserveRoster = _viewModel.FindReserveRoster(team.TeamSeasonKey);
+            AddRosterSection("서브 선수 · 야수", reserveRoster.Where(row => row.IsHitter));
+            AddRosterSection("서브 선수 · 투수", reserveRoster.Where(row => row.IsPitcher));
             AddRosterSelectionTrace(team);
+        }
+
+        private void ShowTeamPlayerDetail(HistoricalPlayerRow player)
+        {
+            if (player == null)
+                return;
+
+            SetTeamDetailPlayer(player);
+            BuildPlayerDetail(_teamDetailContent, player, false);
+            _teamDetailScroll.scrollOffset = UnityEngine.Vector2.zero;
+            _selectionLabel.text = $"{player.OriginYear} {player.Name} · {_selectedTeam?.FranchiseId}";
+        }
+
+        private void SetTeamDetailPlayer(HistoricalPlayerRow player)
+        {
+            _teamDetailPlayer = player;
+            bool isPlayerDetail = player != null;
+            _teamRosterBackButton.EnableInClassList("hidden", !isPlayerDetail);
+            _openTeamPlayerTabButton.EnableInClassList("hidden", !isPlayerDetail);
+            _teamDetailContextLabel.text = isPlayerDetail
+                ? $"{player.Name} · 팀 내부 상세"
+                : _selectedTeam == null ? "팀 시즌 상세" : $"{_selectedTeam.OriginYear} {_selectedTeam.FranchiseId} 로스터";
         }
 
         private void AddRosterSelectionTrace(HistoricalTeamSeason team)
@@ -284,9 +410,14 @@ namespace Baseball.Editor.HistoricalDatabase
                 HistoricalPlayerRow player = roster[index];
                 var rosterRow = new VisualElement();
                 rosterRow.AddToClassList("timeline-row");
+                rosterRow.AddToClassList("team-roster-row");
                 var role = new Label(FormatRosterRole(player.RosterRole)) { tooltip = player.RosterRole };
                 role.AddToClassList("timeline-team");
-                var name = new Button(() => SelectPlayer(player, true)) { text = player.Name };
+                var name = new Button(() => ShowTeamPlayerDetail(player))
+                {
+                    text = player.Name,
+                    tooltip = "팀 탭 안에서 선수 상세 보기"
+                };
                 name.AddToClassList("link-button");
                 name.style.flexGrow = 1f;
                 var summary = new Label($"{FormatPosition(player.Position)}{FormatPlayerRoleSuffix(player)} · 비용 {player.Cost}");
@@ -301,6 +432,16 @@ namespace Baseball.Editor.HistoricalDatabase
         private HistoricalTeamSeason GetTeam(int index)
         {
             return index >= 0 && index < _visibleTeams.Count ? _visibleTeams[index] : null;
+        }
+
+        private enum TeamSortField
+        {
+            Year,
+            Franchise,
+            TeamSeasonKey,
+            PlayerPoolCount,
+            CoreRosterCount,
+            ReferenceStrength
         }
 
         private void ConfigureAwardBrowser()

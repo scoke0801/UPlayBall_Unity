@@ -7,6 +7,7 @@ using System.Reflection;
 using Baseball.Editor.HistoricalDatabase;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -149,6 +150,51 @@ namespace Baseball.Tests.EditMode.Editor
             Assert.That(
                 chaeByungYong.Season.PositionRoleDerivationTrace.SelectedNaturalPitcherRole,
                 Is.EqualTo("Starter"));
+        }
+
+        [Test]
+        public void ViewModel_ReserveRosterContainsOnlyPlayersOutsideCore25()
+        {
+            HistoricalTeamSeason team = _archive.Teams.First(candidate =>
+                candidate.AllNormalCardIds.Length > candidate.Core25CardIds.Length);
+            var viewModel = new HistoricalDatabaseViewModel();
+            viewModel.SetData(_archive);
+
+            IReadOnlyList<HistoricalPlayerRow> core = viewModel.FindCoreRoster(team.TeamSeasonKey);
+            IReadOnlyList<HistoricalPlayerRow> reserve = viewModel.FindReserveRoster(team.TeamSeasonKey);
+            string[] corePlayerSeasonIds = core.Select(player => player.PlayerSeasonId).ToArray();
+
+            Assert.That(reserve.Count, Is.EqualTo(team.AllNormalCardIds.Length - team.Core25CardIds.Length));
+            Assert.That(reserve, Is.Not.Empty);
+            Assert.That(reserve.All(player => !corePlayerSeasonIds.Contains(player.PlayerSeasonId)), Is.True);
+            Assert.That(reserve.All(player => player.OriginTeamSeasonKey == team.TeamSeasonKey), Is.True);
+        }
+
+        [Test]
+        public void SessionCache_ReusesOnlyAnUnchangedArchiveFromTheSameFolder()
+        {
+            string manifestPath = Path.Combine(_archive.SourceFolder, "manifest.json");
+            DateTime manifestWriteUtc = File.GetLastWriteTimeUtc(manifestPath);
+            try
+            {
+                HistoricalDatabaseSessionCache.Store(_archive, manifestWriteUtc);
+
+                bool found = HistoricalDatabaseSessionCache.TryGetCurrent(
+                    _archive.SourceFolder + Path.DirectorySeparatorChar,
+                    out HistoricalArchiveData cached);
+
+                Assert.That(found, Is.True);
+                Assert.That(cached, Is.SameAs(_archive));
+                Assert.That(HistoricalDatabaseSessionCache.TryGetCurrent(
+                    Path.Combine(_archive.SourceFolder, "다른 폴더"), out _), Is.False);
+
+                HistoricalDatabaseSessionCache.Store(_archive, DateTime.MinValue);
+                Assert.That(HistoricalDatabaseSessionCache.TryGetCurrent(_archive.SourceFolder, out _), Is.False);
+            }
+            finally
+            {
+                HistoricalDatabaseSessionCache.Clear();
+            }
         }
 
         [Test]
@@ -525,7 +571,13 @@ namespace Baseball.Tests.EditMode.Editor
                 window.CreateGUI();
 
                 Assert.That(window.rootVisualElement.Q<MultiColumnListView>("player-list"), Is.Not.Null);
+                Assert.That(
+                    window.rootVisualElement.Q<MultiColumnListView>("team-list").sortingMode,
+                    Is.EqualTo(ColumnSortingMode.Custom));
                 Assert.That(window.rootVisualElement.Q<DropdownField>("player-ability-filter"), Is.Not.Null);
+                Assert.That(window.rootVisualElement.Q<DropdownField>("team-franchise-filter"), Is.Not.Null);
+                Assert.That(window.rootVisualElement.Q<ToolbarButton>("team-roster-back-button"), Is.Not.Null);
+                Assert.That(window.rootVisualElement.Q<ToolbarButton>("open-team-player-tab-button"), Is.Not.Null);
                 Assert.That(window.rootVisualElement.Q<VisualElement>("season-statistics-summary"), Is.Not.Null);
                 Assert.That(window.rootVisualElement.Q<MultiColumnListView>("validation-list"), Is.Not.Null);
             }

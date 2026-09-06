@@ -193,6 +193,7 @@ namespace Baseball.Editor.HistoricalDatabase
             SetDropdownChoices(_playerAbilityFilter, HistoricalPlayerRow.AbilityNames);
 
             SetDropdownChoices(Require<DropdownField>("team-year-filter"), _data.Teams.Select(team => team.OriginYear.ToString()));
+            SetDropdownChoices(Require<DropdownField>("team-franchise-filter"), _data.Teams.Select(team => team.FranchiseId));
             SetDropdownChoices(Require<DropdownField>("award-year-filter"), _data.Awards.Select(award => award.SeasonYear.ToString()));
             SetDropdownChoices(Require<DropdownField>("award-type-filter"), _data.Awards.Select(award => award.AwardType));
             SetDropdownChoices(Require<DropdownField>("award-position-filter"), _data.Awards.Select(award => award.Position));
@@ -266,6 +267,9 @@ namespace Baseball.Editor.HistoricalDatabase
                 : ChoiceValue(_playerAwardFilter.value);
             _viewModel.ApplyQuery();
 
+            // BaseVerticalCollectionView는 선택을 숫자 index로 보관하므로 Source 교체 전에 지워야
+            // 스크롤 재활용 행이 이전 index의 선택 표시를 이어받지 않는다.
+            _playerList.SetSelectionWithoutNotify(Array.Empty<int>());
             _visiblePlayers.Clear();
             _visiblePlayers.AddRange(_viewModel.VisiblePlayers);
             _playerList.itemsSource = _visiblePlayers;
@@ -332,7 +336,7 @@ namespace Baseball.Editor.HistoricalDatabase
         {
             HistoricalPlayerRow row = selection.OfType<HistoricalPlayerRow>().FirstOrDefault();
             if (row != null)
-                SelectPlayer(row);
+                SetSelectedPlayer(row);
         }
 
         private void OnPlayerItemsChosen(IEnumerable<object> selection)
@@ -340,7 +344,7 @@ namespace Baseball.Editor.HistoricalDatabase
             HistoricalPlayerRow row = selection.OfType<HistoricalPlayerRow>().FirstOrDefault();
             if (row == null)
                 return;
-            SelectPlayer(row);
+            SetSelectedPlayer(row);
             SetPlayerRawMode(false);
         }
 
@@ -348,16 +352,26 @@ namespace Baseball.Editor.HistoricalDatabase
         {
             if (row == null)
                 return;
-            _selectedPlayer = row;
-            _playerRawJson.SetValueWithoutNotify(string.Empty);
             if (switchTab)
                 ShowTab(BrowserTab.Players);
-            int index = _visiblePlayers.IndexOf(row);
+            int index = _visiblePlayers.FindIndex(player =>
+                string.Equals(player.PlayerSeasonId, row.PlayerSeasonId, StringComparison.Ordinal));
             if (index >= 0)
             {
                 _playerList.SetSelectionWithoutNotify(new[] { index });
                 _playerList.ScrollToItem(index);
             }
+            else
+            {
+                _playerList.SetSelectionWithoutNotify(Array.Empty<int>());
+            }
+            SetSelectedPlayer(row);
+        }
+
+        private void SetSelectedPlayer(HistoricalPlayerRow row)
+        {
+            _selectedPlayer = row;
+            _playerRawJson.SetValueWithoutNotify(string.Empty);
             BuildPlayerDetail();
             if (_isRawMode)
                 LoadSelectedRawJson();
@@ -366,11 +380,11 @@ namespace Baseball.Editor.HistoricalDatabase
 
         private void RestorePlayerSelection()
         {
-            if (_selectedPlayer == null)
-                return;
-            int index = _visiblePlayers.FindIndex(row => row.PlayerSeasonId == _selectedPlayer.PlayerSeasonId);
-            if (index >= 0)
-                _playerList.SetSelectionWithoutNotify(new[] { index });
+            int index = _selectedPlayer == null
+                ? -1
+                : _visiblePlayers.FindIndex(row =>
+                    string.Equals(row.PlayerSeasonId, _selectedPlayer.PlayerSeasonId, StringComparison.Ordinal));
+            _playerList.SetSelectionWithoutNotify(index >= 0 ? new[] { index } : Array.Empty<int>());
         }
 
         private HistoricalPlayerRow GetPlayer(int index)

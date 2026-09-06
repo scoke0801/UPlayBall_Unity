@@ -13,6 +13,8 @@ namespace Baseball.Editor.HistoricalDatabase
 {
     public sealed partial class HistoricalDatabaseBrowserWindow
     {
+        private VisualElement _playerDetailBuildTarget;
+
         private void ShowPlayerEmptyState()
         {
             _playerDetailContent.Clear();
@@ -23,26 +25,45 @@ namespace Baseball.Editor.HistoricalDatabase
 
         private void BuildPlayerDetail()
         {
-            _playerDetailContent.Clear();
-            HistoricalPlayerRow row = _selectedPlayer;
+            BuildPlayerDetail(_playerDetailContent, _selectedPlayer, true);
+        }
+
+        private void BuildPlayerDetail(
+            VisualElement destination,
+            HistoricalPlayerRow row,
+            bool includeComparison)
+        {
+            destination.Clear();
             if (row == null)
             {
-                ShowPlayerEmptyState();
+                var message = new Label("선수 정보를 찾을 수 없습니다.");
+                message.AddToClassList("schema-absent");
+                destination.Add(message);
                 return;
             }
 
-            AddPlayerHeader(row);
-            AddPersonSection(row);
-            AddReferenceSourceSection(row);
-            AddOriginSection(row);
-            AddCostSection(row);
-            AddAbilitySection(row);
-            AddPotentialSection(row);
-            AddSchemaExtensionSections(row);
-            AddSeasonStatisticsSection(row);
-            AddAwardSection(row);
-            AddCareerSection(row);
-            AddCompareSection(row);
+            VisualElement previousTarget = _playerDetailBuildTarget;
+            _playerDetailBuildTarget = destination;
+            try
+            {
+                AddPlayerHeader(row);
+                AddPersonSection(row);
+                AddReferenceSourceSection(row);
+                AddOriginSection(row);
+                AddCostSection(row);
+                AddAbilitySection(row);
+                AddPotentialSection(row);
+                AddSchemaExtensionSections(row);
+                AddSeasonStatisticsSection(row);
+                AddAwardSection(row);
+                AddCareerSection(row);
+                if (includeComparison)
+                    AddCompareSection(row);
+            }
+            finally
+            {
+                _playerDetailBuildTarget = previousTarget;
+            }
         }
 
         private void AddPlayerHeader(HistoricalPlayerRow row)
@@ -69,7 +90,7 @@ namespace Baseball.Editor.HistoricalDatabase
             cost.AddToClassList("cost-chip");
             heading.Add(cost);
             header.Add(heading);
-            _playerDetailContent.Add(header);
+            _playerDetailBuildTarget.Add(header);
         }
 
         private void AddPersonSection(HistoricalPlayerRow row)
@@ -641,7 +662,7 @@ namespace Baseball.Editor.HistoricalDatabase
             var label = new Label(title);
             label.AddToClassList("detail-section-title");
             section.Add(label);
-            _playerDetailContent.Add(section);
+            _playerDetailBuildTarget.Add(section);
             return section;
         }
 

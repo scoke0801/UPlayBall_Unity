@@ -143,6 +143,28 @@ namespace Baseball.Editor.HistoricalDatabase
             return team == null ? Array.Empty<HistoricalPlayerRow>() : ResolveCards(team.AllNormalCardIds);
         }
 
+        /// <summary>Team의 전체 Normal Card Pool 중 Core25에 포함되지 않은 서브 선수를 JSON 순서대로 반환한다.</summary>
+        public IReadOnlyList<HistoricalPlayerRow> FindReserveRoster(string teamSeasonKey)
+        {
+            HistoricalTeamSeason team = FindTeam(teamSeasonKey);
+            if (team == null)
+                return Array.Empty<HistoricalPlayerRow>();
+
+            var coreCardIds = new HashSet<string>(team.Core25CardIds, StringComparer.Ordinal);
+            var result = new List<HistoricalPlayerRow>(Math.Max(0, team.AllNormalCardIds.Length - coreCardIds.Count));
+            for (int index = 0; index < team.AllNormalCardIds.Length; index++)
+            {
+                string cardId = team.AllNormalCardIds[index];
+                if (coreCardIds.Contains(cardId))
+                    continue;
+
+                HistoricalPlayerRow row = FindPlayerByCardId(cardId);
+                if (row != null)
+                    result.Add(row);
+            }
+            return result;
+        }
+
         /// <summary>선택한 Entity가 들어 있는 원본 파일에서 해당 JSON object만 정확히 추출한다.</summary>
         public bool TryGetRawJson(object entity, out string rawJson, out string error)
         {
@@ -305,6 +327,75 @@ namespace Baseball.Editor.HistoricalDatabase
                     result.Add(row);
             }
             return result;
+        }
+    }
+
+    /// <summary>Editor process가 유지되는 동안 마지막 Historical Archive의 파싱 결과를 재사용한다.</summary>
+    public static class HistoricalDatabaseSessionCache
+    {
+        private static HistoricalArchiveData _archive;
+        private static DateTime _manifestWriteUtc;
+
+        public static void Store(HistoricalArchiveData archive, DateTime manifestWriteUtc)
+        {
+            _archive = archive ?? throw new ArgumentNullException(nameof(archive));
+            _manifestWriteUtc = manifestWriteUtc;
+        }
+
+        public static bool TryGetCurrent(string sourceFolder, out HistoricalArchiveData archive)
+        {
+            archive = null;
+            if (_archive == null || !IsSameFolder(_archive.SourceFolder, sourceFolder))
+                return false;
+
+            try
+            {
+                string manifestPath = Path.Combine(_archive.SourceFolder, "manifest.json");
+                if (!File.Exists(manifestPath) || File.GetLastWriteTimeUtc(manifestPath) != _manifestWriteUtc)
+                    return false;
+
+                for (int index = 0; index < _archive.SourceFiles.Count; index++)
+                {
+                    HistoricalSourceFileInfo file = _archive.SourceFiles[index];
+                    if (!File.Exists(file.FullPath) || File.GetLastWriteTimeUtc(file.FullPath) != file.LastWriteUtc)
+                        return false;
+                }
+            }
+            catch (Exception exception) when (
+                exception is IOException
+                || exception is UnauthorizedAccessException
+                || exception is NotSupportedException)
+            {
+                return false;
+            }
+
+            archive = _archive;
+            return true;
+        }
+
+        public static void Clear()
+        {
+            _archive = null;
+            _manifestWriteUtc = default;
+        }
+
+        private static bool IsSameFolder(string left, string right)
+        {
+            if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+                return false;
+            try
+            {
+                string normalizedLeft = Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string normalizedRight = Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                return string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception exception) when (
+                exception is ArgumentException
+                || exception is NotSupportedException
+                || exception is PathTooLongException)
+            {
+                return false;
+            }
         }
     }
 }
