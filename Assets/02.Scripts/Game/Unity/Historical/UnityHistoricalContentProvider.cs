@@ -64,7 +64,7 @@ namespace Baseball.Game.Historical
         public const string SupportedNormalizedImporterVersion = "1.2.0";
         public const string SupportedGeneratorVersion = "source-backed-runtime-bake-v2";
         public const string SupportedBalanceVersion = "historical-source-backed-v2";
-        public const string SupportedNamePolicyVersion = "world-identity-name-pool-v1";
+        public const string SupportedNamePolicyVersion = "world-identity-name-pool-v2";
         public const string SupportedNameDataPolicy = "runtime-world-identity-pool-v3";
 
         private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);

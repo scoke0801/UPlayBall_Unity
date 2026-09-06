@@ -49,7 +49,7 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(content.Manifest.ReferenceDataVersion, Is.EqualTo("kbo-normalized-v3"));
             Assert.That(content.Manifest.GeneratorVersion, Is.EqualTo("source-backed-runtime-bake-v2"));
             Assert.That(content.Manifest.BalanceVersion, Is.EqualTo("historical-source-backed-v2"));
-            Assert.That(content.Manifest.NamePolicyVersion, Is.EqualTo("world-identity-name-pool-v1"));
+            Assert.That(content.Manifest.NamePolicyVersion, Is.EqualTo("world-identity-name-pool-v2"));
             Assert.That(content.Manifest.NameDataPolicy, Is.EqualTo("runtime-world-identity-pool-v3"));
             Assert.That(content.Manifest.GenerationSeed, Is.Zero);
             Assert.That(content.Manifest.SourceManifest.GenerationSeedAffectsCanonicalBake, Is.False);

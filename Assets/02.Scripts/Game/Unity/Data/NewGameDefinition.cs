@@ -246,6 +246,7 @@ namespace Baseball.Game.Data
         [SerializeField, Min(0)] private long _ownerInitialMoney = 1_000_000_000L;
         [SerializeField, Min(0)] private int _ownerInitialScoutingPoints = 100;
         [SerializeField, Min(0)] private int _ownerInitialDevelopmentPoints = 100;
+        [SerializeField, Min(10)] private int _ownerMaximumMainCost = 60;
         [SerializeField, Range(0, 30)] private int _ownerMaximumFillerRerolls = 30;
         [SerializeField] private OwnerStarterTacticData[] _ownerStarterTactics = Array.Empty<OwnerStarterTacticData>();
         [SerializeField] private TeamIdentityData[] _teamIdentities =
@@ -585,7 +586,9 @@ namespace Baseball.Game.Data
                 _ownerInitialScoutingPoints,
                 _ownerInitialDevelopmentPoints,
                 tactics,
-                OwnerStarterRosterRule.CreateInitial(_ownerMaximumFillerRerolls));
+                OwnerStarterRosterRule.CreateInitial(
+                    _ownerMaximumFillerRerolls,
+                    _ownerMaximumMainCost));
         }
 
         /// <summary>공통 경기 Balance를 보존하면서 구단주 전용 시스템 표만 교체한다.</summary>

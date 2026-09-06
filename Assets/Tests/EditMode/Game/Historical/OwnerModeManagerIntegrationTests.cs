@@ -1,7 +1,10 @@
+using System;
+using System.Collections.Generic;
 using Baseball.Game.Data;
 using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -13,7 +16,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
         public void TearDown()
         {
             if (GameManager.HasInstance)
-                Object.DestroyImmediate(GameManager.Instance.gameObject);
+                UnityEngine.Object.DestroyImmediate(GameManager.Instance.gameObject);
         }
 
         [Test]
@@ -69,6 +72,61 @@ namespace Baseball.Tests.EditMode.Game.Historical
             ManagerPregamePreparation preparation = manager.PrepareNextGame();
             Assert.That(preparation.PresetValidation.CanStartGame, Is.True);
             Assert.That(preparation.CanStartGame, Is.True);
+        }
+
+        [Test]
+        public void OwnerNewGameFlow_Production후보에서6타자4투수를고르면25인로스터까지진행한다()
+        {
+            GameBootstrap.EnsureRuntimeManagers();
+            GameManager.Instance.TryGetManager(out OwnerModeManager manager);
+            OwnerNewGameFlow flow = manager.BeginNewGameFlow();
+            IReadOnlyList<OwnerNewGameTeamView> teams = flow.GetTeamCandidates();
+
+            Assert.That(teams, Is.Not.Empty);
+            flow.SelectTeam(teams[0].TeamSeasonKey);
+            IReadOnlyList<OwnerNewGameCardView> candidates = flow.GetMainCardCandidates();
+            SelectLowestCostCards(flow, candidates, PlayerType.Batter, flow.Rule.MainHitterCount);
+            SelectLowestCostCards(flow, candidates, PlayerType.Pitcher, flow.Rule.MainPitcherCount);
+
+            OwnerMainCardSelectionStatus status = flow.GetMainCardSelectionStatus();
+            Assert.That(status.IsValid, Is.True, status.Message);
+            Assert.That(status.SelectedCount, Is.EqualTo(flow.Rule.MainCardCount));
+            Assert.That(status.TotalCost, Is.LessThanOrEqualTo(flow.Rule.MaximumMainCost));
+
+            Assert.DoesNotThrow(flow.ContinueFromMainCards);
+            flow.SelectFrontManager(FrontManagerIds.DefaultAnalysis);
+            Assert.DoesNotThrow(() => flow.SetNickname("테스트구단주"));
+            Assert.That(flow.StarterRoster, Is.Not.Null);
+            Assert.That(flow.StarterRoster.Roster.Entries.Count,
+                Is.EqualTo(ActiveRosterCompositionRule.ActiveRosterSize));
+            Assert.That(flow.CreateReceipt().MainCardIds.Count, Is.EqualTo(flow.Rule.MainCardCount));
+        }
+
+        private static void SelectLowestCostCards(
+            OwnerNewGameFlow flow,
+            IReadOnlyList<OwnerNewGameCardView> candidates,
+            PlayerType playerType,
+            int requiredCount)
+        {
+            int selectedCount = 0;
+            var usedPersons = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = candidates.Count - 1; index >= 0 && selectedCount < requiredCount; index--)
+            {
+                OwnerNewGameCardView candidate = candidates[index];
+                if (candidate.PlayerType != playerType || !usedPersons.Add(candidate.PlayerPersonId))
+                    continue;
+                try
+                {
+                    flow.ToggleMainCard(candidate.CardId);
+                    selectedCount++;
+                }
+                catch (InvalidOperationException)
+                {
+                    usedPersons.Remove(candidate.PlayerPersonId);
+                }
+            }
+            Assert.That(selectedCount, Is.EqualTo(requiredCount),
+                $"Production 후보에서 {playerType} 메인 카드 {requiredCount}장을 구성할 수 없습니다.");
         }
     }
 }

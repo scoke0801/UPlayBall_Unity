@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using Baseball.Game.Historical;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
@@ -15,6 +16,11 @@ namespace Baseball.Presentation.Career
         private const int OwnerCardPageSize = 24;
         private int _ownerCardPage;
         private string _ownerNicknameDraft = "구단주";
+        private int? _ownerCardYearFilter;
+        private PlayerPosition? _ownerCardPositionFilter;
+        private int? _ownerCardCostFilter;
+        private string _ownerCardNameDraft = string.Empty;
+        private string _ownerCardNameFilter = string.Empty;
 
         /// <summary>구단 선택부터 스타터 로스터 확인까지 기존 구단주 Draft를 단계별로 표시한다.</summary>
         private void RenderOwnerNewGame()
@@ -90,7 +96,7 @@ namespace Baseball.Presentation.Career
                 Button button = CreateButton(
                     "Team_" + team.TeamSeasonKey,
                     panel,
-                    $"{team.DisplayName}\n{team.OriginYear}",
+                    team.DisplayName,
                     new Vector2(350f, 128f),
                     new Vector2(-555f + column * 370f, 225f - row * 150f),
                     CardColor,
@@ -99,6 +105,7 @@ namespace Baseball.Presentation.Career
                 button.onClick.AddListener(() =>
                 {
                     _ownerCardPage = 0;
+                    ResetOwnerCardFilters();
                     RunOwnerFlowAction(() => flow.SelectTeam(teamSeasonKey));
                 });
             }
@@ -106,8 +113,15 @@ namespace Baseball.Presentation.Career
 
         private void RenderOwnerMainCards(RectTransform panel, OwnerNewGameFlow flow)
         {
-            IReadOnlyList<OwnerNewGameCardView> cards = flow.GetMainCardCandidates();
+            IReadOnlyList<OwnerNewGameCardView> allCards = flow.GetMainCardCandidates();
+            IReadOnlyList<OwnerNewGameCardView> cards = flow.GetMainCardCandidates(
+                new OwnerMainCardCandidateFilter(
+                    _ownerCardYearFilter,
+                    _ownerCardPositionFilter,
+                    _ownerCardCostFilter,
+                    _ownerCardNameFilter));
             OwnerMainCardSelectionStatus status = flow.GetMainCardSelectionStatus();
+            RenderOwnerCardFilters(panel, allCards, cards.Count);
             int pageCount = Math.Max(1, (cards.Count + OwnerCardPageSize - 1) / OwnerCardPageSize);
             _ownerCardPage = Math.Max(0, Math.Min(_ownerCardPage, pageCount - 1));
             int start = _ownerCardPage * OwnerCardPageSize;
@@ -118,44 +132,114 @@ namespace Baseball.Presentation.Career
                 int local = index - start;
                 int column = local % 6;
                 int row = local / 6;
-                string type = card.PlayerType == Baseball.Core.Players.PlayerType.Pitcher ? "투수" : "타자";
+                string selectionMark = card.IsSelected ? "✓ " : string.Empty;
                 Button button = CreateButton(
                     "MainCard_" + card.CardId,
                     panel,
-                $"{card.DisplayName}\n{card.OriginYear} · {type} · 비용 {card.Cost}",
-                    new Vector2(245f, 118f),
-                    new Vector2(-625f + column * 250f, 230f - row * 130f),
+                    $"{selectionMark}{card.DisplayName}\n{card.OriginYear} · {GetPositionLabel(card.Position)} · 비용 {card.Cost}",
+                    new Vector2(245f, 100f),
+                    new Vector2(-625f + column * 250f, 190f - row * 112f),
                     card.IsSelected ? SelectedColor : CardColor,
                     out Text label);
                 label.fontSize = 15;
+                label.color = card.IsSelected ? GoldColor : PrimaryTextColor;
                 string cardId = card.CardId;
                 button.onClick.AddListener(() => RunOwnerFlowAction(() => flow.ToggleMainCard(cardId)));
+            }
+
+            if (cards.Count == 0)
+            {
+                CreateText("NoFilteredCards", panel, "조건에 맞는 선수가 없습니다. 필터를 바꿔 보세요.", 17,
+                    FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(900f, 80f),
+                    new Vector2(0f, 35f), SecondaryTextColor);
             }
 
             CreateText("SelectionStatus", panel,
                 $"선택 {status.SelectedCount}/{flow.Rule.MainCardCount} · 타자 {status.HitterCount}/{flow.Rule.MainHitterCount} · " +
                 $"투수 {status.PitcherCount}/{flow.Rule.MainPitcherCount} · 비용 {status.TotalCost}/{flow.Rule.MaximumMainCost}",
                 16, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(1050f, 36f), new Vector2(0f, -315f),
+                new Vector2(1050f, 30f), new Vector2(0f, -255f),
                 status.IsValid ? AccentColor : SecondaryTextColor);
+            string ruleStatus = status.IsValid
+                ? "선택 조건을 충족했습니다."
+                : status.ErrorCode == "CARD_COUNT"
+                    ? "타자 6명·투수 4명을 선택하세요. 선택할 수 없는 카드는 즉시 사유를 알려드립니다."
+                    : status.Message;
+            CreateText("SelectionRuleStatus", panel, ruleStatus, 14, FontStyle.Normal,
+                TextAnchor.MiddleCenter, new Vector2(1200f, 26f), new Vector2(0f, -283f),
+                status.IsValid ? AccentColor : SecondaryTextColor);
+            CreateText("SelectedCardNames", panel, BuildOwnerSelectedCardSummary(allCards), 13,
+                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(1450f, 30f),
+                new Vector2(0f, -310f), GoldColor);
             if (_ownerCardPage > 0)
             {
                 Button previous = CreateButton("CardPagePrevious", panel, "◀", new Vector2(54f, 40f),
-                    new Vector2(-140f, -360f), CareerUiTheme.SecondaryAction, out _);
+                    new Vector2(-140f, -355f), CareerUiTheme.SecondaryAction, out _);
                 previous.onClick.AddListener(() => { _ownerCardPage--; Render(); });
             }
             CreateText("CardPage", panel, $"{_ownerCardPage + 1} / {pageCount}", 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(120f, 40f), new Vector2(0f, -360f), SecondaryTextColor);
+                TextAnchor.MiddleCenter, new Vector2(120f, 40f), new Vector2(0f, -355f), SecondaryTextColor);
             if (_ownerCardPage + 1 < pageCount)
             {
                 Button nextPage = CreateButton("CardPageNext", panel, "▶", new Vector2(54f, 40f),
-                    new Vector2(140f, -360f), CareerUiTheme.SecondaryAction, out _);
+                    new Vector2(140f, -355f), CareerUiTheme.SecondaryAction, out _);
                 nextPage.onClick.AddListener(() => { _ownerCardPage++; Render(); });
             }
             Button confirm = CreateButton("ConfirmMainCards", panel, "메인 카드 확정", new Vector2(220f, 48f),
-                new Vector2(620f, -360f), AccentColor, out _);
+                new Vector2(620f, -355f), AccentColor, out _);
             confirm.interactable = status.IsValid;
             confirm.onClick.AddListener(() => RunOwnerFlowAction(flow.ContinueFromMainCards));
+        }
+
+        private void RenderOwnerCardFilters(
+            RectTransform panel,
+            IReadOnlyList<OwnerNewGameCardView> allCards,
+            int filteredCount)
+        {
+            Button year = CreateButton("OwnerCardYearFilter", panel,
+                "연도  " + (_ownerCardYearFilter?.ToString() ?? "전체"), new Vector2(205f, 42f),
+                new Vector2(-625f, 300f), CareerUiTheme.SecondaryAction, out Text yearLabel);
+            yearLabel.fontSize = 14;
+            year.onClick.AddListener(() => CycleOwnerCardYearFilter(allCards));
+
+            Button position = CreateButton("OwnerCardPositionFilter", panel,
+                "포지션  " + (_ownerCardPositionFilter.HasValue
+                    ? GetPositionLabel(_ownerCardPositionFilter.Value)
+                    : "전체"), new Vector2(205f, 42f),
+                new Vector2(-400f, 300f), CareerUiTheme.SecondaryAction, out Text positionLabel);
+            positionLabel.fontSize = 14;
+            position.onClick.AddListener(() => CycleOwnerCardPositionFilter(allCards));
+
+            Button cost = CreateButton("OwnerCardCostFilter", panel,
+                "비용  " + (_ownerCardCostFilter?.ToString() ?? "전체"), new Vector2(170f, 42f),
+                new Vector2(-192f, 300f), CareerUiTheme.SecondaryAction, out Text costLabel);
+            costLabel.fontSize = 14;
+            cost.onClick.AddListener(() => CycleOwnerCardCostFilter(allCards));
+
+            InputField nameSearch = CreateInputField("OwnerCardNameSearch", panel, "선수 이름 검색",
+                _ownerCardNameDraft, new Vector2(310f, 42f), new Vector2(65f, 300f));
+            nameSearch.textComponent.fontSize = 15;
+            nameSearch.onValueChanged.AddListener(value => _ownerCardNameDraft = value);
+            Button search = CreateButton("ApplyOwnerCardNameSearch", panel, "검색", new Vector2(78f, 42f),
+                new Vector2(274f, 300f), CareerUiTheme.SecondaryAction, out Text searchLabel);
+            searchLabel.fontSize = 14;
+            search.onClick.AddListener(() =>
+            {
+                _ownerCardNameFilter = _ownerCardNameDraft.Trim();
+                _ownerCardPage = 0;
+                Render();
+            });
+            Button reset = CreateButton("ResetOwnerCardFilters", panel, "초기화", new Vector2(92f, 42f),
+                new Vector2(374f, 300f), CareerUiTheme.SecondaryAction, out Text resetLabel);
+            resetLabel.fontSize = 14;
+            reset.onClick.AddListener(() =>
+            {
+                ResetOwnerCardFilters();
+                Render();
+            });
+            CreateText("OwnerCardFilterResult", panel, $"{filteredCount} / {allCards.Count}명", 14,
+                FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(230f, 38f),
+                new Vector2(600f, 300f), SecondaryTextColor);
         }
 
         private void RenderOwnerFrontManager(RectTransform panel, OwnerNewGameFlow flow)
@@ -263,6 +347,83 @@ namespace Baseball.Presentation.Career
                 if (index > 0) builder.Append(index % 5 == 0 ? "\n" : "   ·   ");
                 builder.Append(displayName);
             }
+        }
+
+        private void CycleOwnerCardYearFilter(IReadOnlyList<OwnerNewGameCardView> cards)
+        {
+            var values = new List<int>();
+            for (int index = 0; index < cards.Count; index++)
+                if (!values.Contains(cards[index].OriginYear)) values.Add(cards[index].OriginYear);
+            values.Sort((left, right) => right.CompareTo(left));
+            _ownerCardYearFilter = GetNextOwnerFilterValue(values, _ownerCardYearFilter);
+            _ownerCardPage = 0;
+            Render();
+        }
+
+        private void CycleOwnerCardPositionFilter(IReadOnlyList<OwnerNewGameCardView> cards)
+        {
+            var values = new List<PlayerPosition>();
+            for (int index = 0; index < cards.Count; index++)
+                if (!values.Contains(cards[index].Position)) values.Add(cards[index].Position);
+            values.Sort((left, right) => ((int)left).CompareTo((int)right));
+            _ownerCardPositionFilter = GetNextOwnerFilterValue(values, _ownerCardPositionFilter);
+            _ownerCardPage = 0;
+            Render();
+        }
+
+        private void CycleOwnerCardCostFilter(IReadOnlyList<OwnerNewGameCardView> cards)
+        {
+            var values = new List<int>();
+            for (int index = 0; index < cards.Count; index++)
+                if (!values.Contains(cards[index].Cost)) values.Add(cards[index].Cost);
+            values.Sort((left, right) => right.CompareTo(left));
+            _ownerCardCostFilter = GetNextOwnerFilterValue(values, _ownerCardCostFilter);
+            _ownerCardPage = 0;
+            Render();
+        }
+
+        private static T? GetNextOwnerFilterValue<T>(IReadOnlyList<T> values, T? current)
+            where T : struct
+        {
+            if (values == null || values.Count == 0)
+                return null;
+            if (!current.HasValue)
+                return values[0];
+            for (int index = 0; index < values.Count; index++)
+            {
+                if (EqualityComparer<T>.Default.Equals(values[index], current.Value))
+                    return index + 1 < values.Count ? values[index + 1] : null;
+            }
+            return values[0];
+        }
+
+        private static string BuildOwnerSelectedCardSummary(IReadOnlyList<OwnerNewGameCardView> cards)
+        {
+            var summary = new StringBuilder(320);
+            summary.Append("선택 명단  ");
+            int selectedCount = 0;
+            for (int index = 0; index < cards.Count; index++)
+            {
+                if (!cards[index].IsSelected)
+                    continue;
+                if (selectedCount > 0)
+                    summary.Append("  ·  ");
+                summary.Append(cards[index].DisplayName).Append('(').Append(cards[index].OriginYear).Append(')');
+                selectedCount++;
+            }
+            if (selectedCount == 0)
+                summary.Append("없음");
+            return summary.ToString();
+        }
+
+        private void ResetOwnerCardFilters()
+        {
+            _ownerCardYearFilter = null;
+            _ownerCardPositionFilter = null;
+            _ownerCardCostFilter = null;
+            _ownerCardNameDraft = string.Empty;
+            _ownerCardNameFilter = string.Empty;
+            _ownerCardPage = 0;
         }
 
         private void RunOwnerFlowAction(Action action)

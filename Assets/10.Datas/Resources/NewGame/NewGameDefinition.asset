@@ -29,14 +29,15 @@ MonoBehaviour:
   _ownerInitialMoney: 1000000000
   _ownerInitialScoutingPoints: 100
   _ownerInitialDevelopmentPoints: 100
+  _ownerMaximumMainCost: 60
   _ownerMaximumFillerRerolls: 30
   _ownerStarterTactics:
   - _cardId: OWNER-TACTIC-EARLY-OFFENSIVE
-    _name: "초반 총공세"
+    _name: "\uCD08\uBC18 \uCD1D\uACF5\uC138"
     _category: 0
     _tier: 0
-    _referenceBehavior: "1~3회 공격 집중"
-    _projectBalanceValue: "Contact +2, Power +1"
+    _referenceBehavior: "1~3\uD68C \uACF5\uACA9 \uC9D1\uC911"
+    _projectBalanceValue: Contact +2, Power +1
     _triggers:
     - _field: 0
       _comparison: 4
@@ -52,11 +53,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-STRONG-HEART
-    _name: "강심장"
+    _name: "\uAC15\uC2EC\uC7A5"
     _category: 1
     _tier: 0
-    _referenceBehavior: "접전에서 투수 집중력 보조"
-    _projectBalanceValue: "Control +2, Mental +1"
+    _referenceBehavior: "\uC811\uC804\uC5D0\uC11C \uD22C\uC218 \uC9D1\uC911\uB825
+      \uBCF4\uC870"
+    _projectBalanceValue: Control +2, Mental +1
     _triggers:
     - _field: 2
       _comparison: 2
@@ -72,11 +74,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-LUCKY-SEVEN
-    _name: "럭키 세븐"
+    _name: "\uB7ED\uD0A4 \uC138\uBE10"
     _category: 0
     _tier: 1
-    _referenceBehavior: "7회 공격 강화"
-    _projectBalanceValue: "Contact +3, Power +2"
+    _referenceBehavior: "7\uD68C \uACF5\uACA9 \uAC15\uD654"
+    _projectBalanceValue: Contact +3, Power +2
     _triggers:
     - _field: 0
       _comparison: 0
@@ -92,11 +94,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-PROMISE-EIGHTH
-    _name: "약속의 8회"
+    _name: "\uC57D\uC18D\uC758 8\uD68C"
     _category: 0
     _tier: 2
-    _referenceBehavior: "8회 열세 공격 강화"
-    _projectBalanceValue: "Contact +6, Power +6, Mental +8"
+    _referenceBehavior: "8\uD68C \uC5F4\uC138 \uACF5\uACA9 \uAC15\uD654"
+    _projectBalanceValue: Contact +6, Power +6, Mental +8
     _triggers:
     - _field: 0
       _comparison: 0
@@ -118,11 +120,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-LAST-COMEBACK
-    _name: "마지막 반격"
+    _name: "\uB9C8\uC9C0\uB9C9 \uBC18\uACA9"
     _category: 0
     _tier: 2
-    _referenceBehavior: "9회 열세 공격 강화"
-    _projectBalanceValue: "Contact +5, Mental +7"
+    _referenceBehavior: "9\uD68C \uC5F4\uC138 \uACF5\uACA9 \uAC15\uD654"
+    _projectBalanceValue: Contact +5, Mental +7
     _triggers:
     - _field: 0
       _comparison: 0
@@ -142,11 +144,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-CLEANUP-EXPLOSION
-    _name: "클린업 폭발"
+    _name: "\uD074\uB9B0\uC5C5 \uD3ED\uBC1C"
     _category: 0
     _tier: 1
-    _referenceBehavior: "3~5번 타자 장타 강화"
-    _projectBalanceValue: "Power +4"
+    _referenceBehavior: "3~5\uBC88 \uD0C0\uC790 \uC7A5\uD0C0 \uAC15\uD654"
+    _projectBalanceValue: Power +4
     _triggers:
     - _field: 3
       _comparison: 4
@@ -160,11 +162,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-SECRET-PINCH-HITTER
-    _name: "비장의 대타"
+    _name: "\uBE44\uC7A5\uC758 \uB300\uD0C0"
     _category: 0
     _tier: 1
-    _referenceBehavior: "후반 대타의 집중력 강화"
-    _projectBalanceValue: "Contact +4, Mental +4"
+    _referenceBehavior: "\uD6C4\uBC18 \uB300\uD0C0\uC758 \uC9D1\uC911\uB825 \uAC15\uD654"
+    _projectBalanceValue: Contact +4, Mental +4
     _triggers:
     - _field: 0
       _comparison: 3
@@ -180,11 +182,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-QUALITY-START
-    _name: "퀄리티 스타트"
+    _name: "\uD004\uB9AC\uD2F0 \uC2A4\uD0C0\uD2B8"
     _category: 1
     _tier: 1
-    _referenceBehavior: "선발의 중반 운영 보조"
-    _projectBalanceValue: "Stamina +4, Control +2"
+    _referenceBehavior: "\uC120\uBC1C\uC758 \uC911\uBC18 \uC6B4\uC601 \uBCF4\uC870"
+    _projectBalanceValue: Stamina +4, Control +2
     _triggers:
     - _field: 0
       _comparison: 4
@@ -200,11 +202,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-COMPLETE-GAME
-    _name: "완투의 각오"
+    _name: "\uC644\uD22C\uC758 \uAC01\uC624"
     _category: 1
     _tier: 2
-    _referenceBehavior: "후반 선발 투수 유지"
-    _projectBalanceValue: "Stamina +6, Mental +4"
+    _referenceBehavior: "\uD6C4\uBC18 \uC120\uBC1C \uD22C\uC218 \uC720\uC9C0"
+    _projectBalanceValue: Stamina +6, Mental +4
     _triggers:
     - _field: 0
       _comparison: 3
@@ -221,11 +223,11 @@ MonoBehaviour:
     - OWNER-TACTIC-TOUGH-AT-BAT
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-ALL-BULLPEN
-    _name: "불펜 총동원"
+    _name: "\uBD88\uD39C \uCD1D\uB3D9\uC6D0"
     _category: 1
     _tier: 2
-    _referenceBehavior: "후반 불펜 전력 강화"
-    _projectBalanceValue: "Stuff +4, Control +4"
+    _referenceBehavior: "\uD6C4\uBC18 \uBD88\uD39C \uC804\uB825 \uAC15\uD654"
+    _projectBalanceValue: Stuff +4, Control +4
     _triggers:
     - _field: 0
       _comparison: 3
@@ -242,11 +244,11 @@ MonoBehaviour:
     - OWNER-TACTIC-BULLPEN-CRACK
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-CLOSE-THE-DOOR
-    _name: "문을 닫아라"
+    _name: "\uBB38\uC744 \uB2EB\uC544\uB77C"
     _category: 1
     _tier: 2
-    _referenceBehavior: "9회 리드 마무리 강화"
-    _projectBalanceValue: "Stuff +5, Mental +5"
+    _referenceBehavior: "9\uD68C \uB9AC\uB4DC \uB9C8\uBB34\uB9AC \uAC15\uD654"
+    _projectBalanceValue: Stuff +5, Mental +5
     _triggers:
     - _field: 0
       _comparison: 3
@@ -266,11 +268,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-HOLD-RUNNERS
-    _name: "주자를 묶어라"
+    _name: "\uC8FC\uC790\uB97C \uBB36\uC5B4\uB77C"
     _category: 1
     _tier: 1
-    _referenceBehavior: "득점권 위기 제구 강화"
-    _projectBalanceValue: "Control +4"
+    _referenceBehavior: "\uB4DD\uC810\uAD8C \uC704\uAE30 \uC81C\uAD6C \uAC15\uD654"
+    _projectBalanceValue: Control +4
     _triggers:
     - _field: 4
       _comparison: 0
@@ -284,11 +286,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-STARTER-ANALYSIS
-    _name: "선발 집중 분석"
+    _name: "\uC120\uBC1C \uC9D1\uC911 \uBD84\uC11D"
     _category: 2
     _tier: 0
-    _referenceBehavior: "초반 상대 선발 공략"
-    _projectBalanceValue: "Contact +2"
+    _referenceBehavior: "\uCD08\uBC18 \uC0C1\uB300 \uC120\uBC1C \uACF5\uB7B5"
+    _projectBalanceValue: Contact +2
     _triggers:
     - _field: 0
       _comparison: 4
@@ -302,11 +304,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-TOUGH-AT-BAT
-    _name: "끈질긴 승부"
+    _name: "\uB048\uC9C8\uAE34 \uC2B9\uBD80"
     _category: 2
     _tier: 0
-    _referenceBehavior: "후반 타자의 집중력 강화"
-    _projectBalanceValue: "Contact +2, Mental +2"
+    _referenceBehavior: "\uD6C4\uBC18 \uD0C0\uC790\uC758 \uC9D1\uC911\uB825 \uAC15\uD654"
+    _projectBalanceValue: Contact +2, Mental +2
     _triggers:
     - _field: 0
       _comparison: 3
@@ -323,11 +325,11 @@ MonoBehaviour:
     - OWNER-TACTIC-COMPLETE-GAME
     _isDisruption: 1
   - _cardId: OWNER-TACTIC-BULLPEN-CRACK
-    _name: "불펜 균열"
+    _name: "\uBD88\uD39C \uADE0\uC5F4"
     _category: 2
     _tier: 1
-    _referenceBehavior: "후반 상대 불펜을 흔든다"
-    _projectBalanceValue: "Opponent Control -3"
+    _referenceBehavior: "\uD6C4\uBC18 \uC0C1\uB300 \uBD88\uD39C\uC744 \uD754\uB4E0\uB2E4"
+    _projectBalanceValue: Opponent Control -3
     _triggers:
     - _field: 0
       _comparison: 3
@@ -342,11 +344,12 @@ MonoBehaviour:
     - OWNER-TACTIC-ALL-BULLPEN
     _isDisruption: 1
   - _cardId: OWNER-TACTIC-BREAK-LOSING-STREAK
-    _name: "연패 탈출"
+    _name: "\uC5F0\uD328 \uD0C8\uCD9C"
     _category: 3
     _tier: 3
-    _referenceBehavior: "3연패 뒤 경기의 집중력 강화"
-    _projectBalanceValue: "Mental +5"
+    _referenceBehavior: "3\uC5F0\uD328 \uB4A4 \uACBD\uAE30\uC758 \uC9D1\uC911\uB825
+      \uAC15\uD654"
+    _projectBalanceValue: Mental +5
     _triggers: []
     _target: 2
     _statModifiers:
@@ -356,11 +359,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-CHILI-SQUAD
-    _name: "고추가루 부대"
+    _name: "\uACE0\uCD94\uAC00\uB8E8 \uBD80\uB300"
     _category: 3
     _tier: 0
-    _referenceBehavior: "후반 접전에서 타선 집중력을 끌어올린다"
-    _projectBalanceValue: "Batter Mental +2"
+    _referenceBehavior: "\uD6C4\uBC18 \uC811\uC804\uC5D0\uC11C \uD0C0\uC120 \uC9D1\uC911\uB825\uC744
+      \uB04C\uC5B4\uC62C\uB9B0\uB2E4"
+    _projectBalanceValue: Batter Mental +2
     _triggers:
     - _field: 0
       _comparison: 3
@@ -378,11 +382,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-DROWNING-TOGETHER
-    _name: "물귀신 작전"
+    _name: "\uBB3C\uADC0\uC2E0 \uC791\uC804"
     _category: 3
     _tier: 1
-    _referenceBehavior: "후반 열세에서 출루와 집중력을 함께 보강한다"
-    _projectBalanceValue: "Contact +2, Batter Mental +3"
+    _referenceBehavior: "\uD6C4\uBC18 \uC5F4\uC138\uC5D0\uC11C \uCD9C\uB8E8\uC640
+      \uC9D1\uC911\uB825\uC744 \uD568\uAED8 \uBCF4\uAC15\uD55C\uB2E4"
+    _projectBalanceValue: Contact +2, Batter Mental +3
     _triggers:
     - _field: 0
       _comparison: 3
@@ -402,11 +407,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-CATCH-THE-LEADER
-    _name: "선두를 잡아라"
+    _name: "\uC120\uB450\uB97C \uC7A1\uC544\uB77C"
     _category: 3
     _tier: 0
-    _referenceBehavior: "경기 초반 타선의 출루 집중력을 보강한다"
-    _projectBalanceValue: "Contact +2"
+    _referenceBehavior: "\uACBD\uAE30 \uCD08\uBC18 \uD0C0\uC120\uC758 \uCD9C\uB8E8
+      \uC9D1\uC911\uB825\uC744 \uBCF4\uAC15\uD55C\uB2E4"
+    _projectBalanceValue: Contact +2
     _triggers:
     - _field: 0
       _comparison: 2
@@ -420,11 +426,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-RANKING-RACE
-    _name: "순위경쟁"
+    _name: "\uC21C\uC704\uACBD\uC7C1"
     _category: 3
     _tier: 0
-    _referenceBehavior: "두 점 이내 접전에서 타선의 집중력을 높인다"
-    _projectBalanceValue: "Batter Mental +2"
+    _referenceBehavior: "\uB450 \uC810 \uC774\uB0B4 \uC811\uC804\uC5D0\uC11C \uD0C0\uC120\uC758
+      \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: Batter Mental +2
     _triggers:
     - _field: 2
       _comparison: 2
@@ -438,11 +445,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-HUNGRY-SPIRIT
-    _name: "헝그리 정신"
+    _name: "\uD5DD\uADF8\uB9AC \uC815\uC2E0"
     _category: 3
     _tier: 1
-    _referenceBehavior: "동점 또는 열세에서 타선의 집중력을 높인다"
-    _projectBalanceValue: "Batter Mental +3"
+    _referenceBehavior: "\uB3D9\uC810 \uB610\uB294 \uC5F4\uC138\uC5D0\uC11C \uD0C0\uC120\uC758
+      \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: Batter Mental +3
     _triggers:
     - _field: 1
       _comparison: 2
@@ -456,11 +464,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-SLUGGER-INSTINCT
-    _name: "거포 본능"
+    _name: "\uAC70\uD3EC \uBCF8\uB2A5"
     _category: 0
     _tier: 0
-    _referenceBehavior: "득점권에서 현재 타자의 장타력을 높인다"
-    _projectBalanceValue: "Power +3"
+    _referenceBehavior: "\uB4DD\uC810\uAD8C\uC5D0\uC11C \uD604\uC7AC \uD0C0\uC790\uC758
+      \uC7A5\uD0C0\uB825\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: Power +3
     _triggers:
     - _field: 4
       _comparison: 0
@@ -474,11 +483,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-FEARLESS-ROOKIE
-    _name: "겁없는 신인"
+    _name: "\uAC81\uC5C6\uB294 \uC2E0\uC778"
     _category: 0
     _tier: 0
-    _referenceBehavior: "초반 타자의 컨택과 집중력을 높인다"
-    _projectBalanceValue: "Contact +2, Batter Mental +2"
+    _referenceBehavior: "\uCD08\uBC18 \uD0C0\uC790\uC758 \uCEE8\uD0DD\uACFC \uC9D1\uC911\uB825\uC744
+      \uB192\uC778\uB2E4"
+    _projectBalanceValue: Contact +2, Batter Mental +2
     _triggers:
     - _field: 0
       _comparison: 2
@@ -494,11 +504,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-VETERAN-FIGHT
-    _name: "노장의 투혼"
+    _name: "\uB178\uC7A5\uC758 \uD22C\uD63C"
     _category: 0
     _tier: 1
-    _referenceBehavior: "후반 타선의 집중력을 크게 높인다"
-    _projectBalanceValue: "Batter Mental +4"
+    _referenceBehavior: "\uD6C4\uBC18 \uD0C0\uC120\uC758 \uC9D1\uC911\uB825\uC744
+      \uD06C\uAC8C \uB192\uC778\uB2E4"
+    _projectBalanceValue: Batter Mental +4
     _triggers:
     - _field: 0
       _comparison: 3
@@ -512,11 +523,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-TRUST-THE-BATTER
-    _name: "믿음의 야구"
+    _name: "\uBBFF\uC74C\uC758 \uC57C\uAD6C"
     _category: 0
     _tier: 0
-    _referenceBehavior: "중심 타선의 컨택과 집중력을 보강한다"
-    _projectBalanceValue: "Contact +2, Batter Mental +1"
+    _referenceBehavior: "\uC911\uC2EC \uD0C0\uC120\uC758 \uCEE8\uD0DD\uACFC \uC9D1\uC911\uB825\uC744
+      \uBCF4\uAC15\uD55C\uB2E4"
+    _projectBalanceValue: Contact +2, Batter Mental +1
     _triggers:
     - _field: 3
       _comparison: 4
@@ -532,11 +544,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-IMMOVABLE-CLEANUP
-    _name: "부동의 4번타자"
+    _name: "\uBD80\uB3D9\uC758 4\uBC88\uD0C0\uC790"
     _category: 0
     _tier: 1
-    _referenceBehavior: "4번 타자의 장타력과 집중력을 높인다"
-    _projectBalanceValue: "Power +4, Batter Mental +2"
+    _referenceBehavior: "4\uBC88 \uD0C0\uC790\uC758 \uC7A5\uD0C0\uB825\uACFC \uC9D1\uC911\uB825\uC744
+      \uB192\uC778\uB2E4"
+    _projectBalanceValue: Power +4, Batter Mental +2
     _triggers:
     - _field: 3
       _comparison: 0
@@ -552,11 +565,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-WILL-TO-WIN
-    _name: "승리의 각오"
+    _name: "\uC2B9\uB9AC\uC758 \uAC01\uC624"
     _category: 0
     _tier: 1
-    _referenceBehavior: "열세에서 타선의 컨택과 집중력을 높인다"
-    _projectBalanceValue: "Contact +3, Batter Mental +3"
+    _referenceBehavior: "\uC5F4\uC138\uC5D0\uC11C \uD0C0\uC120\uC758 \uCEE8\uD0DD\uACFC
+      \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: Contact +3, Batter Mental +3
     _triggers:
     - _field: 1
       _comparison: 2
@@ -572,11 +586,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-HIT-STREAK
-    _name: "연속 안타"
+    _name: "\uC5F0\uC18D \uC548\uD0C0"
     _category: 0
     _tier: 0
-    _referenceBehavior: "득점권에서 현재 타자의 컨택을 높인다"
-    _projectBalanceValue: "Contact +3"
+    _referenceBehavior: "\uB4DD\uC810\uAD8C\uC5D0\uC11C \uD604\uC7AC \uD0C0\uC790\uC758
+      \uCEE8\uD0DD\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: Contact +3
     _triggers:
     - _field: 4
       _comparison: 0
@@ -590,11 +605,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-LEFTY-KILLER
-    _name: "좌완 킬러"
+    _name: "\uC88C\uC644 \uD0AC\uB7EC"
     _category: 0
     _tier: 1
-    _referenceBehavior: "좌완 투수를 상대하는 타자의 컨택과 장타력을 높인다"
-    _projectBalanceValue: "Contact +3, Power +2"
+    _referenceBehavior: "\uC88C\uC644 \uD22C\uC218\uB97C \uC0C1\uB300\uD558\uB294
+      \uD0C0\uC790\uC758 \uCEE8\uD0DD\uACFC \uC7A5\uD0C0\uB825\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: Contact +3, Power +2
     _triggers:
     - _field: 5
       _comparison: 0
@@ -610,11 +626,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-FIRST-PITCH-AMBUSH
-    _name: "초전박살"
+    _name: "\uCD08\uC804\uBC15\uC0B4"
     _category: 0
     _tier: 1
-    _referenceBehavior: "1회 타선의 컨택과 장타력을 높인다"
-    _projectBalanceValue: "Contact +3, Power +2"
+    _referenceBehavior: "1\uD68C \uD0C0\uC120\uC758 \uCEE8\uD0DD\uACFC \uC7A5\uD0C0\uB825\uC744
+      \uB192\uC778\uB2E4"
+    _projectBalanceValue: Contact +3, Power +2
     _triggers:
     - _field: 0
       _comparison: 0
@@ -630,11 +647,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-BOTTOM-ORDER-CONNECTION
-    _name: "하위타선 연결"
+    _name: "\uD558\uC704\uD0C0\uC120 \uC5F0\uACB0"
     _category: 0
     _tier: 0
-    _referenceBehavior: "7~9번 타자의 컨택과 주루를 높인다"
-    _projectBalanceValue: "Contact +3, Speed +2"
+    _referenceBehavior: "7~9\uBC88 \uD0C0\uC790\uC758 \uCEE8\uD0DD\uACFC \uC8FC\uB8E8\uB97C
+      \uB192\uC778\uB2E4"
+    _projectBalanceValue: Contact +3, Speed +2
     _triggers:
     - _field: 3
       _comparison: 4
@@ -650,11 +668,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-NEXT-UP
-    _name: "다음은 맡겨라"
+    _name: "\uB2E4\uC74C\uC740 \uB9E1\uACA8\uB77C"
     _category: 1
     _tier: 0
-    _referenceBehavior: "불펜 투수의 구위를 높인다"
-    _projectBalanceValue: "Stuff +3"
+    _referenceBehavior: "\uBD88\uD39C \uD22C\uC218\uC758 \uAD6C\uC704\uB97C \uB192\uC778\uB2E4"
+    _projectBalanceValue: Stuff +3
     _triggers:
     - _field: 6
       _comparison: 1
@@ -668,11 +686,11 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-STARTER-RESOLVE
-    _name: "선발의 각오"
+    _name: "\uC120\uBC1C\uC758 \uAC01\uC624"
     _category: 1
     _tier: 0
-    _referenceBehavior: "선발 투수의 제구를 높인다"
-    _projectBalanceValue: "Control +3"
+    _referenceBehavior: "\uC120\uBC1C \uD22C\uC218\uC758 \uC81C\uAD6C\uB97C \uB192\uC778\uB2E4"
+    _projectBalanceValue: Control +3
     _triggers:
     - _field: 6
       _comparison: 0
@@ -686,11 +704,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-IRON-BULLPEN
-    _name: "철벽 계투"
+    _name: "\uCCA0\uBCBD \uACC4\uD22C"
     _category: 1
     _tier: 1
-    _referenceBehavior: "중간 계투진의 구위와 제구를 높인다"
-    _projectBalanceValue: "Stuff +3, Control +2"
+    _referenceBehavior: "\uC911\uAC04 \uACC4\uD22C\uC9C4\uC758 \uAD6C\uC704\uC640
+      \uC81C\uAD6C\uB97C \uB192\uC778\uB2E4"
+    _projectBalanceValue: Stuff +3, Control +2
     _triggers:
     - _field: 6
       _comparison: 4
@@ -706,11 +725,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-PITCHER-DETERMINATION
-    _name: "투수의 결의"
+    _name: "\uD22C\uC218\uC758 \uACB0\uC758"
     _category: 1
     _tier: 1
-    _referenceBehavior: "현재 투수의 집중력을 높인다"
-    _projectBalanceValue: "Pitcher Mental +4"
+    _referenceBehavior: "\uD604\uC7AC \uD22C\uC218\uC758 \uC9D1\uC911\uB825\uC744
+      \uB192\uC778\uB2E4"
+    _projectBalanceValue: Pitcher Mental +4
     _triggers: []
     _target: 1
     _statModifiers:
@@ -720,11 +740,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-PITCHER-DUEL
-    _name: "투수의 정면 승부"
+    _name: "\uD22C\uC218\uC758 \uC815\uBA74 \uC2B9\uBD80"
     _category: 1
     _tier: 1
-    _referenceBehavior: "한 점 차 이내에서 구위와 집중력을 높인다"
-    _projectBalanceValue: "Stuff +3, Pitcher Mental +3"
+    _referenceBehavior: "\uD55C \uC810 \uCC28 \uC774\uB0B4\uC5D0\uC11C \uAD6C\uC704\uC640
+      \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: Stuff +3, Pitcher Mental +3
     _triggers:
     - _field: 2
       _comparison: 2
@@ -740,11 +761,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-ELITE-SETUP
-    _name: "특급 셋업맨"
+    _name: "\uD2B9\uAE09 \uC14B\uC5C5\uB9E8"
     _category: 1
     _tier: 1
-    _referenceBehavior: "셋업 투수의 구위와 제구를 높인다"
-    _projectBalanceValue: "Stuff +4, Control +2"
+    _referenceBehavior: "\uC14B\uC5C5 \uD22C\uC218\uC758 \uAD6C\uC704\uC640 \uC81C\uAD6C\uB97C
+      \uB192\uC778\uB2E4"
+    _projectBalanceValue: Stuff +4, Control +2
     _triggers:
     - _field: 6
       _comparison: 0
@@ -760,11 +782,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-ELITE-CLOSER
-    _name: "특급 소방수"
+    _name: "\uD2B9\uAE09 \uC18C\uBC29\uC218"
     _category: 1
     _tier: 1
-    _referenceBehavior: "마무리 투수의 제구와 집중력을 높인다"
-    _projectBalanceValue: "Control +3, Pitcher Mental +4"
+    _referenceBehavior: "\uB9C8\uBB34\uB9AC \uD22C\uC218\uC758 \uC81C\uAD6C\uC640
+      \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: Control +3, Pitcher Mental +4
     _triggers:
     - _field: 6
       _comparison: 0
@@ -780,11 +803,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-BOTTOM-ORDER-SHUTDOWN
-    _name: "하위타선 봉쇄"
+    _name: "\uD558\uC704\uD0C0\uC120 \uBD09\uC1C4"
     _category: 1
     _tier: 0
-    _referenceBehavior: "6~9번 타자를 상대로 제구를 높인다"
-    _projectBalanceValue: "Control +3"
+    _referenceBehavior: "6~9\uBC88 \uD0C0\uC790\uB97C \uC0C1\uB300\uB85C \uC81C\uAD6C\uB97C
+      \uB192\uC778\uB2E4"
+    _projectBalanceValue: Control +3
     _triggers:
     - _field: 3
       _comparison: 4
@@ -798,11 +822,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 0
   - _cardId: OWNER-TACTIC-ENDLESS-FOUL-TIPS
-    _name: "끊임없는 파울팁"
+    _name: "\uB04A\uC784\uC5C6\uB294 \uD30C\uC6B8\uD301"
     _category: 1
     _tier: 2
-    _referenceBehavior: "후반 상대 타선의 컨택을 떨어뜨린다"
-    _projectBalanceValue: "Opponent Contact -3"
+    _referenceBehavior: "\uD6C4\uBC18 \uC0C1\uB300 \uD0C0\uC120\uC758 \uCEE8\uD0DD\uC744
+      \uB5A8\uC5B4\uB728\uB9B0\uB2E4"
+    _projectBalanceValue: Opponent Contact -3
     _triggers:
     - _field: 0
       _comparison: 3
@@ -816,11 +841,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 1
   - _cardId: OWNER-TACTIC-STARTER-TEMPTATION
-    _name: "선발투수 유혹"
+    _name: "\uC120\uBC1C\uD22C\uC218 \uC720\uD639"
     _category: 1
     _tier: 1
-    _referenceBehavior: "초반 상대 선발의 집중력을 떨어뜨린다"
-    _projectBalanceValue: "Opponent Pitcher Mental -3"
+    _referenceBehavior: "\uCD08\uBC18 \uC0C1\uB300 \uC120\uBC1C\uC758 \uC9D1\uC911\uB825\uC744
+      \uB5A8\uC5B4\uB728\uB9B0\uB2E4"
+    _projectBalanceValue: Opponent Pitcher Mental -3
     _triggers:
     - _field: 0
       _comparison: 2
@@ -838,11 +864,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 1
   - _cardId: OWNER-TACTIC-RISP-ZERO
-    _name: "득점권타율 제로"
+    _name: "\uB4DD\uC810\uAD8C\uD0C0\uC728 \uC81C\uB85C"
     _category: 2
     _tier: 1
-    _referenceBehavior: "득점권에서 상대 타자의 집중력을 떨어뜨린다"
-    _projectBalanceValue: "Opponent Batter Mental -3"
+    _referenceBehavior: "\uB4DD\uC810\uAD8C\uC5D0\uC11C \uC0C1\uB300 \uD0C0\uC790\uC758
+      \uC9D1\uC911\uB825\uC744 \uB5A8\uC5B4\uB728\uB9B0\uB2E4"
+    _projectBalanceValue: Opponent Batter Mental -3
     _triggers:
     - _field: 4
       _comparison: 0
@@ -856,11 +883,12 @@ MonoBehaviour:
     _counterCardIds: []
     _isDisruption: 1
   - _cardId: OWNER-TACTIC-BATTER-NULLIFIER
-    _name: "야수 작전 무효"
+    _name: "\uC57C\uC218 \uC791\uC804 \uBB34\uD6A8"
     _category: 2
     _tier: 2
-    _referenceBehavior: "상대 야수 계열 핵심 작전을 무효화한다"
-    _projectBalanceValue: "명시된 야수 작전 Counter"
+    _referenceBehavior: "\uC0C1\uB300 \uC57C\uC218 \uACC4\uC5F4 \uD575\uC2EC \uC791\uC804\uC744
+      \uBB34\uD6A8\uD654\uD55C\uB2E4"
+    _projectBalanceValue: "\uBA85\uC2DC\uB41C \uC57C\uC218 \uC791\uC804 Counter"
     _triggers: []
     _target: 5
     _statModifiers: []
@@ -878,11 +906,12 @@ MonoBehaviour:
     - OWNER-TACTIC-WILL-TO-WIN
     _isDisruption: 1
   - _cardId: OWNER-TACTIC-PITCHER-NULLIFIER
-    _name: "투수 작전 무효"
+    _name: "\uD22C\uC218 \uC791\uC804 \uBB34\uD6A8"
     _category: 2
     _tier: 2
-    _referenceBehavior: "상대 투수 계열 핵심 작전을 무효화한다"
-    _projectBalanceValue: "명시된 투수 작전 Counter"
+    _referenceBehavior: "\uC0C1\uB300 \uD22C\uC218 \uACC4\uC5F4 \uD575\uC2EC \uC791\uC804\uC744
+      \uBB34\uD6A8\uD654\uD55C\uB2E4"
+    _projectBalanceValue: "\uBA85\uC2DC\uB41C \uD22C\uC218 \uC791\uC804 Counter"
     _triggers: []
     _target: 5
     _statModifiers: []

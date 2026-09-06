@@ -22,6 +22,24 @@ namespace Baseball.Simulation.Historical
             IReadOnlyList<string> cardIds,
             WorldCardCatalog catalog)
         {
+            return ValidateMainCards(franchiseId, cardIds, catalog, requireCompleteSelection: true);
+        }
+
+        /// <summary>선택 중인 카드가 이후 선택으로 복구할 수 없는 제한을 위반했는지 검사한다.</summary>
+        public OwnerMainCardSelectionStatus ValidatePartialMainCards(
+            string franchiseId,
+            IReadOnlyList<string> cardIds,
+            WorldCardCatalog catalog)
+        {
+            return ValidateMainCards(franchiseId, cardIds, catalog, requireCompleteSelection: false);
+        }
+
+        private OwnerMainCardSelectionStatus ValidateMainCards(
+            string franchiseId,
+            IReadOnlyList<string> cardIds,
+            WorldCardCatalog catalog,
+            bool requireCompleteSelection)
+        {
             if (string.IsNullOrWhiteSpace(franchiseId))
                 throw new ArgumentException("FranchiseId가 필요합니다.", nameof(franchiseId));
             if (cardIds == null)
@@ -74,16 +92,24 @@ namespace Baseball.Simulation.Historical
                 }
             }
 
-            if (cardIds.Count != _rule.MainCardCount)
-                return Invalid("CARD_COUNT", $"메인 선수 카드는 정확히 {_rule.MainCardCount}장을 선택해야 합니다.", cardIds.Count, hitters, pitchers, totalCost);
-            if (hitters != _rule.MainHitterCount || pitchers != _rule.MainPitcherCount)
-                return Invalid("PLAYER_TYPE_COUNT", $"타자 {_rule.MainHitterCount}명과 투수 {_rule.MainPitcherCount}명이 필요합니다.", cardIds.Count, hitters, pitchers, totalCost);
+            if (cardIds.Count > _rule.MainCardCount)
+                return Invalid("CARD_COUNT", $"메인 선수 카드는 {_rule.MainCardCount}장까지만 선택할 수 있습니다.", cardIds.Count, hitters, pitchers, totalCost);
+            if (hitters > _rule.MainHitterCount || pitchers > _rule.MainPitcherCount)
+                return Invalid("PLAYER_TYPE_COUNT", $"타자 {_rule.MainHitterCount}명과 투수 {_rule.MainPitcherCount}명까지만 선택할 수 있습니다.", cardIds.Count, hitters, pitchers, totalCost);
             if (totalCost > _rule.MaximumMainCost)
                 return Invalid("TOTAL_COST", $"메인 카드 Cost 합계는 {_rule.MaximumMainCost} 이하여야 합니다.", cardIds.Count, hitters, pitchers, totalCost);
             if (eliteCount > _rule.MaximumEliteCards)
                 return Invalid("ELITE_LIMIT", $"Cost {_rule.EliteCostThreshold} 이상 카드는 {_rule.MaximumEliteCards}장까지만 선택할 수 있습니다.", cardIds.Count, hitters, pitchers, totalCost);
             if (premiumCount > _rule.MaximumPremiumCards)
                 return Invalid("PREMIUM_LIMIT", $"Cost {_rule.PremiumCostThreshold} 이상 카드는 {_rule.MaximumPremiumCards}장까지만 선택할 수 있습니다.", cardIds.Count, hitters, pitchers, totalCost);
+
+            if (!requireCompleteSelection)
+                return new OwnerMainCardSelectionStatus(true, string.Empty, "선택할 수 있습니다.", cardIds.Count, hitters, pitchers, totalCost);
+
+            if (cardIds.Count != _rule.MainCardCount)
+                return Invalid("CARD_COUNT", $"메인 선수 카드는 정확히 {_rule.MainCardCount}장을 선택해야 합니다.", cardIds.Count, hitters, pitchers, totalCost);
+            if (hitters != _rule.MainHitterCount || pitchers != _rule.MainPitcherCount)
+                return Invalid("PLAYER_TYPE_COUNT", $"타자 {_rule.MainHitterCount}명과 투수 {_rule.MainPitcherCount}명이 필요합니다.", cardIds.Count, hitters, pitchers, totalCost);
 
             return new OwnerMainCardSelectionStatus(true, string.Empty, "선택 조건을 충족했습니다.", cardIds.Count, hitters, pitchers, totalCost);
         }

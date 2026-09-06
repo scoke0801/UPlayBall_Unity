@@ -94,8 +94,10 @@ namespace Baseball.Core.Historical
             return _fillerCountByCost[index];
         }
 
-        public static OwnerStarterRosterRule CreateInitial(int maximumFillerRerolls = 30) => new OwnerStarterRosterRule(
-            10, 6, 4, 50, 9, 2, 7, 4, 2,
+        public static OwnerStarterRosterRule CreateInitial(
+            int maximumFillerRerolls = 30,
+            int maximumMainCost = 60) => new OwnerStarterRosterRule(
+            10, 6, 4, maximumMainCost, 9, 2, 7, 4, 2,
             maximumFillerRerolls, 1, new[] { 5, 5, 5 }, 8, 7, 8);
     }
 

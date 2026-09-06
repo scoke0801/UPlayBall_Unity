@@ -125,18 +125,16 @@ namespace Baseball.Game.Historical
 
     public readonly struct OwnerNewGameTeamView
     {
-        public OwnerNewGameTeamView(string teamSeasonKey, string franchiseId, string displayName, int originYear)
+        public OwnerNewGameTeamView(string teamSeasonKey, string franchiseId, string displayName)
         {
             TeamSeasonKey = teamSeasonKey;
             FranchiseId = franchiseId;
             DisplayName = displayName;
-            OriginYear = originYear;
         }
 
         public string TeamSeasonKey { get; }
         public string FranchiseId { get; }
         public string DisplayName { get; }
-        public int OriginYear { get; }
     }
 
     public readonly struct OwnerNewGameCardView
@@ -169,6 +167,44 @@ namespace Baseball.Game.Historical
         public PlayerType PlayerType { get; }
         public PlayerPosition Position { get; }
         public bool IsSelected { get; }
+    }
+
+    /// <summary>구단주 새 게임 카드 Browser의 표시 범위를 정하는 순수 검색 조건이다.</summary>
+    public readonly struct OwnerMainCardCandidateFilter
+    {
+        public OwnerMainCardCandidateFilter(
+            int? originYear = null,
+            PlayerPosition? position = null,
+            int? cost = null,
+            string playerName = null)
+        {
+            if (originYear.HasValue && originYear.Value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(originYear));
+            if (cost.HasValue && cost.Value < 1)
+                throw new ArgumentOutOfRangeException(nameof(cost));
+            OriginYear = originYear;
+            Position = position;
+            Cost = cost;
+            PlayerName = playerName?.Trim() ?? string.Empty;
+        }
+
+        public int? OriginYear { get; }
+        public PlayerPosition? Position { get; }
+        public int? Cost { get; }
+        public string PlayerName { get; }
+
+        public bool Matches(OwnerNewGameCardView card)
+        {
+            if (OriginYear.HasValue && card.OriginYear != OriginYear.Value)
+                return false;
+            if (Position.HasValue && card.Position != Position.Value)
+                return false;
+            if (Cost.HasValue && card.Cost != Cost.Value)
+                return false;
+            return string.IsNullOrEmpty(PlayerName) ||
+                (!string.IsNullOrEmpty(card.DisplayName) &&
+                 card.DisplayName.IndexOf(PlayerName, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
     }
 
     /// <summary>화면 순서와 무관하게 구단·10장·매니저·닉네임·보충 로스터를 한 Draft로 관리한다.</summary>
@@ -224,8 +260,7 @@ namespace Baseball.Game.Historical
                 result[index] = new OwnerNewGameTeamView(
                     team.TeamSeasonKey,
                     team.FranchiseId,
-                    _world.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId),
-                    team.OriginYear);
+                    _world.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId));
             }
             Array.Sort(result, (left, right) => string.CompareOrdinal(left.DisplayName, right.DisplayName));
             return result;
@@ -252,6 +287,12 @@ namespace Baseball.Game.Historical
 
         public IReadOnlyList<OwnerNewGameCardView> GetMainCardCandidates()
         {
+            return GetMainCardCandidates(default);
+        }
+
+        /// <summary>선택 가능성은 바꾸지 않고 연도·포지션·Cost·이름에 맞는 카드만 반환한다.</summary>
+        public IReadOnlyList<OwnerNewGameCardView> GetMainCardCandidates(OwnerMainCardCandidateFilter filter)
+        {
             EnsureSelectedTeam();
             WorldCardCatalog catalog = CardCatalog;
             var selected = new HashSet<string>(_selectedMainCardIds, StringComparer.Ordinal);
@@ -264,7 +305,7 @@ namespace Baseball.Game.Historical
                 PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
                 if (!string.Equals(season.OriginFranchiseId, _selectedTeam.FranchiseId, StringComparison.Ordinal))
                     continue;
-                result.Add(new OwnerNewGameCardView(
+                var view = new OwnerNewGameCardView(
                     card.CardId,
                     season.PlayerPersonId,
                     _world.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId),
@@ -272,7 +313,9 @@ namespace Baseball.Game.Historical
                     season.Cost,
                     season.PlayerType,
                     season.Position,
-                    selected.Contains(card.CardId)));
+                    selected.Contains(card.CardId));
+                if (filter.Matches(view))
+                    result.Add(view);
             }
             result.Sort((left, right) =>
             {
@@ -287,14 +330,27 @@ namespace Baseball.Game.Historical
         public OwnerMainCardSelectionStatus ToggleMainCard(string cardId)
         {
             EnsureSelectedTeam();
-            int existing = _selectedMainCardIds.FindIndex(id => string.Equals(id, cardId, StringComparison.Ordinal));
+            if (string.IsNullOrWhiteSpace(cardId))
+                throw new ArgumentException("CardId가 필요합니다.", nameof(cardId));
+            string normalizedCardId = cardId.Trim();
+            int existing = _selectedMainCardIds.FindIndex(
+                id => string.Equals(id, normalizedCardId, StringComparison.Ordinal));
             if (existing >= 0)
                 _selectedMainCardIds.RemoveAt(existing);
             else
             {
                 if (_selectedMainCardIds.Count >= _rule.MainCardCount)
                     throw new InvalidOperationException($"메인 카드는 {_rule.MainCardCount}장까지만 선택할 수 있습니다.");
-                _selectedMainCardIds.Add(cardId);
+                _selectedMainCardIds.Add(normalizedCardId);
+                OwnerMainCardSelectionStatus partial = _resolver.ValidatePartialMainCards(
+                    _selectedTeam.FranchiseId,
+                    _selectedMainCardIds,
+                    CardCatalog);
+                if (!partial.IsValid)
+                {
+                    _selectedMainCardIds.RemoveAt(_selectedMainCardIds.Count - 1);
+                    throw new InvalidOperationException(partial.Message);
+                }
             }
             StarterRoster = null;
             return GetMainCardSelectionStatus();
