@@ -5,6 +5,7 @@ using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Diagnostics;
+using Baseball.Game.Career.Persistence;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
@@ -33,8 +34,8 @@ namespace Baseball.Game.Career
         private const ulong LeagueMovementStream = 0x4C45414755454D56UL;
 
         private readonly CareerState _career;
-        private readonly BalanceTable _balance;
-        private readonly SkillBoardService _skillBoardService;
+        [CareerSaveIgnore] private BalanceTable _balance;
+        [CareerSaveIgnore] private SkillBoardService _skillBoardService;
 
         private TeamState[] _nextTeams;
         private WorldOffseasonMarketPlan _marketPlan;
@@ -88,6 +89,15 @@ namespace Baseball.Game.Career
         public CareerSeasonTransitionResult? Result => _result;
         public int RookieTryoutAttemptCount { get; private set; }
         public bool IsUnsignedRetirementRequired { get; private set; }
+
+        /// <summary>세이브에서 제외한 현재 Balance 기반 서비스를 복원된 전환 상태에 다시 연결한다.</summary>
+        internal void RestoreRuntimeDependencies(CareerState career, BalanceTable balance)
+        {
+            if (!ReferenceEquals(_career, career))
+                throw new InvalidOperationException("시즌 전환 체크포인트가 다른 CareerState를 참조합니다.");
+            _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _skillBoardService = new SkillBoardService(balance.Growth.SkillBoard, balance.Growth.SkillBlocks);
+        }
 
         /// <summary>
         /// 승강 이동을 모두 반영한 다음 시즌 구단의 리그 단계를 반환한다.
