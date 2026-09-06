@@ -120,6 +120,8 @@ namespace Baseball.Presentation.SharedUI
             _model = model ?? throw new ArgumentNullException(nameof(model));
             EnsureHierarchy();
 
+            if (_costStars != null) _costStars.gameObject.SetActive(false);
+
             SetAssignmentBadge(null);
             _nameText.text = model.DisplayName;
             _positionText.text = model.PositionLabel;
@@ -146,7 +148,9 @@ namespace Baseball.Presentation.SharedUI
             EnsureHierarchy();
             _portrait.sprite = portrait;
             _portrait.preserveAspect = true;
-            _portrait.color = portrait == null ? PortraitSurface : Color.white;
+            _portrait.color = portrait == null
+                ? (_model?.FrameEdition.HasValue == true ? Color.clear : PortraitSurface)
+                : Color.white;
         }
 
         /// <summary>같은 선수 카드 정보를 Roster 역할표에 맞는 고밀도 세로 카드로 배치한다.</summary>
@@ -371,7 +375,8 @@ namespace Baseball.Presentation.SharedUI
             SetAnchors(_yearText.rectTransform, new Vector2(.77f, top * band.x), new Vector2(.94f, top * band.y), Vector2.zero, Vector2.zero);
             SetAnchors(_costText.rectTransform, new Vector2(.06f, top * .085f), new Vector2(.94f, top * .165f), Vector2.zero, Vector2.zero);
             SetAnchors(_statusText.rectTransform, new Vector2(.04f, .01f), new Vector2(.96f, top * .085f), Vector2.zero, Vector2.zero);
-            _nameText.color = _yearText.color = new Color32(18, 20, 24, 255);
+            _nameText.color = _yearText.color = _model.FrameEdition.Value == Baseball.Core.Historical.PlayerCardEdition.GoldenGlove
+                ? Color.white : new Color32(18, 20, 24, 255);
             _costText.alignment = _statusText.alignment = TextAnchor.MiddleCenter;
             if (_model.Cost.HasValue)
             {
