@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Growth;
+using Baseball.Core.Players;
+using Baseball.Core.Teams;
 
 namespace Baseball.Core.Historical
 {
@@ -11,7 +13,12 @@ namespace Baseball.Core.Historical
         Year,
         AllStar,
         GoldenGlove,
-        Mvp
+        Mvp,
+        Generation,
+        CostBand,
+        HitterProfile,
+        PitcherProfile,
+        RosterComposition
     }
 
     public enum TeamColorStackPolicy
@@ -56,20 +63,85 @@ namespace Baseball.Core.Historical
     /// <summary>팀컬러 판정용 1군 카드 입력이다.</summary>
     public readonly struct TeamColorRosterCard
     {
+        private readonly int[] _baseAttributes;
+
         public TeamColorRosterCard(string cardId, TeamColorEligibilityKey eligibility, PlayerRole role)
+            : this(
+                cardId,
+                eligibility,
+                role,
+                cost: null,
+                ageAtOriginSeason: null,
+                registrationType: null,
+                bats: null,
+                throws: null,
+                naturalPitcherRole: null,
+                activeRosterRole: null,
+                baseAttributes: null)
+        {
+        }
+
+        public TeamColorRosterCard(
+            string cardId,
+            TeamColorEligibilityKey eligibility,
+            PlayerRole role,
+            int? cost,
+            int? ageAtOriginSeason,
+            RegistrationType? registrationType,
+            Handedness? bats,
+            Handedness? throws,
+            PitcherRole? naturalPitcherRole,
+            ActiveRosterRole? activeRosterRole,
+            AbilityRatings baseAttributes)
         {
             if (string.IsNullOrWhiteSpace(cardId))
                 throw new ArgumentException("CardId는 비어 있을 수 없습니다.", nameof(cardId));
             if (role != PlayerRole.Hitter && role != PlayerRole.Pitcher)
                 throw new ArgumentOutOfRangeException(nameof(role));
+            if (cost.HasValue && (cost.Value < 1 || cost.Value > 10))
+                throw new ArgumentOutOfRangeException(nameof(cost));
+            if (ageAtOriginSeason.HasValue && ageAtOriginSeason.Value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(ageAtOriginSeason));
             CardId = cardId.Trim();
             Eligibility = eligibility;
             Role = role;
+            Cost = cost;
+            AgeAtOriginSeason = ageAtOriginSeason;
+            RegistrationType = registrationType;
+            Bats = bats;
+            Throws = throws;
+            NaturalPitcherRole = naturalPitcherRole;
+            ActiveRosterRole = activeRosterRole;
+            _baseAttributes = null;
+            if (baseAttributes != null)
+            {
+                _baseAttributes = new int[PlayerAbilityCatalog.AbilityCount];
+                for (int index = 0; index < _baseAttributes.Length; index++)
+                    _baseAttributes[index] = baseAttributes.Get((PlayerAbility)index);
+            }
         }
 
         public string CardId { get; }
         public TeamColorEligibilityKey Eligibility { get; }
         public PlayerRole Role { get; }
+        public int? Cost { get; }
+        public int? AgeAtOriginSeason { get; }
+        public RegistrationType? RegistrationType { get; }
+        public Handedness? Bats { get; }
+        public Handedness? Throws { get; }
+        public PitcherRole? NaturalPitcherRole { get; }
+        public ActiveRosterRole? ActiveRosterRole { get; }
+
+        public bool TryGetBaseAttribute(PlayerAbility ability, out int value)
+        {
+            if (_baseAttributes == null)
+            {
+                value = 0;
+                return false;
+            }
+            value = _baseAttributes[(int)ability];
+            return true;
+        }
     }
 
     /// <summary>한 역할에 적용할 능력치별 팀컬러 보너스다.</summary>
@@ -162,7 +234,10 @@ namespace Baseball.Core.Historical
             PlayerCardEdition? requiredEdition = null,
             string upgradeGroupId = null,
             TeamColorStackPolicy stackPolicy = TeamColorStackPolicy.Stackable,
-            int priority = 0)
+            int priority = 0,
+            TeamColorCardCriteria criteria = null,
+            string displayName = null,
+            string description = null)
         {
             if (string.IsNullOrWhiteSpace(teamColorId))
                 throw new ArgumentException("TeamColorId는 비어 있을 수 없습니다.", nameof(teamColorId));
@@ -186,6 +261,11 @@ namespace Baseball.Core.Historical
             UpgradeGroupId = Normalize(upgradeGroupId);
             StackPolicy = stackPolicy;
             Priority = priority;
+            Criteria = criteria ?? TeamColorCardCriteria.Any;
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? TeamColorId : displayName.Trim();
+            Description = string.IsNullOrWhiteSpace(description)
+                ? "조건을 만족한 선수에게 팀컬러 효과를 적용합니다."
+                : description.Trim();
         }
 
         public string TeamColorId { get; }
@@ -200,6 +280,9 @@ namespace Baseball.Core.Historical
         public string UpgradeGroupId { get; }
         public TeamColorStackPolicy StackPolicy { get; }
         public int Priority { get; }
+        public TeamColorCardCriteria Criteria { get; }
+        public string DisplayName { get; }
+        public string Description { get; }
 
         public bool IsEligible(TeamColorEligibilityKey key)
         {
@@ -212,6 +295,11 @@ namespace Baseball.Core.Historical
                 !string.Equals(OriginTeamSeasonKey, key.OriginTeamSeasonKey, StringComparison.Ordinal))
                 return false;
             return !RequiredEdition.HasValue || RequiredEdition.Value == key.Edition;
+        }
+
+        public bool IsEligible(TeamColorRosterCard card)
+        {
+            return IsEligible(card.Eligibility) && Criteria.IsMatch(card);
         }
 
         public TeamColorStatBonus GetBonus(PlayerRole role)
@@ -256,6 +344,12 @@ namespace Baseball.Core.Historical
                 case TeamColorFamily.Mvp:
                     RequireEdition(requiredEdition, PlayerCardEdition.Mvp);
                     break;
+                case TeamColorFamily.Generation:
+                case TeamColorFamily.CostBand:
+                case TeamColorFamily.HitterProfile:
+                case TeamColorFamily.PitcherProfile:
+                case TeamColorFamily.RosterComposition:
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(family));
             }
@@ -293,7 +387,7 @@ namespace Baseball.Core.Historical
     }
 
     /// <summary>2026-09-01 확정 수치를 TeamColorDefinition 데이터로 만드는 초기 밸런스 팩토리다.</summary>
-    public static class InitialTeamColorDefinitionFactory
+    public static partial class InitialTeamColorDefinitionFactory
     {
         public const string AllStarUpgradeGroupId = "AllStar_SamePool";
         public const string GoldenGloveUpgradeGroupId = "GoldenGlove_SamePool";
@@ -304,113 +398,157 @@ namespace Baseball.Core.Historical
         /// 명예 3계열(AllStar·GoldenGlove·Mvp)은 Edition만 보므로 구단과 무관하게 항상 포함한다.
         /// 어떤 TeamColor가 존재하는지는 밸런스 결정이므로 Unity 레이어가 아니라 여기서 소유한다.
         /// </summary>
-        public static IReadOnlyList<TeamColorDefinition> CreateAll(int originYear, string franchiseId)
+        public static IReadOnlyList<TeamColorDefinition> CreateAll(
+            int originYear,
+            string franchiseId,
+            TeamColorBalanceTable balance = null)
         {
+            balance ??= TeamColorBalanceTable.CreateInitial();
             var definitions = new List<TeamColorDefinition>();
-            definitions.AddRange(CreateYearFranchise(originYear, franchiseId));
-            definitions.AddRange(CreateFranchise(franchiseId));
-            definitions.Add(CreateYear(originYear));
-            definitions.AddRange(CreateAllStar(originYear));
-            definitions.AddRange(CreateGoldenGlove(originYear));
-            definitions.AddRange(CreateMvp());
+            definitions.AddRange(CreateYearFranchise(originYear, franchiseId, balance));
+            definitions.AddRange(CreateFranchise(franchiseId, balance));
+            definitions.Add(CreateYear(originYear, balance));
+            definitions.AddRange(CreateAllStar(originYear, balance));
+            definitions.AddRange(CreateGoldenGlove(originYear, balance));
+            definitions.AddRange(CreateMvp(balance));
+            definitions.AddRange(CreateReferenceInspiredProfiles(balance));
             return definitions;
         }
 
-        public static IReadOnlyList<TeamColorDefinition> CreateYearFranchise(int originYear, string franchiseId)
+        public static IReadOnlyList<TeamColorDefinition> CreateYearFranchise(
+            int originYear,
+            string franchiseId,
+            TeamColorBalanceTable balance = null)
         {
-            return new[]
+            balance ??= TeamColorBalanceTable.CreateInitial();
+            var result = new TeamColorDefinition[balance.YearFranchiseTiers.Count];
+            for (int index = 0; index < result.Length; index++)
             {
-                CreateAllDefinition("YearFranchise:" + originYear + ":" + franchiseId + ":10", TeamColorFamily.YearFranchise, 10, 5, 3, originYear, franchiseId),
-                CreateAllDefinition("YearFranchise:" + originYear + ":" + franchiseId + ":20", TeamColorFamily.YearFranchise, 20, 7, 5, originYear, franchiseId),
-                CreateAllDefinition("YearFranchise:" + originYear + ":" + franchiseId + ":25", TeamColorFamily.YearFranchise, 25, 10, 7, originYear, franchiseId)
-            };
+                TeamColorIdentityTierBalance tier = balance.YearFranchiseTiers[index];
+                string stage = tier.RequiredCount == 25 ? "완성된 연대기" :
+                    tier.RequiredCount == 20 ? "한 시즌의 중심" : "같은 계절의 시작";
+                result[index] = CreateAllDefinition(
+                    "YearFranchise:" + originYear + ":" + franchiseId + ":" + tier.RequiredCount,
+                    TeamColorFamily.YearFranchise,
+                    tier.RequiredCount,
+                    tier.HitterAll,
+                    tier.PitcherAll,
+                    originYear,
+                    franchiseId,
+                    $"{originYear} {franchiseId} · {stage}",
+                    $"{originYear}년 {franchiseId} 출신 {tier.RequiredCount}명이 모여 당시의 호흡을 되살립니다.");
+            }
+            return result;
         }
 
-        public static IReadOnlyList<TeamColorDefinition> CreateFranchise(string franchiseId)
+        public static IReadOnlyList<TeamColorDefinition> CreateFranchise(
+            string franchiseId,
+            TeamColorBalanceTable balance = null)
         {
-            return new[]
+            balance ??= TeamColorBalanceTable.CreateInitial();
+            var result = new TeamColorDefinition[balance.FranchiseTiers.Count];
+            for (int index = 0; index < result.Length; index++)
             {
-                CreateAllDefinition("Franchise:" + franchiseId + ":10", TeamColorFamily.Franchise, 10, 3, 2, null, franchiseId),
-                CreateAllDefinition("Franchise:" + franchiseId + ":20", TeamColorFamily.Franchise, 20, 4, 2, null, franchiseId),
-                CreateAllDefinition("Franchise:" + franchiseId + ":25", TeamColorFamily.Franchise, 25, 6, 3, null, franchiseId)
-            };
+                TeamColorIdentityTierBalance tier = balance.FranchiseTiers[index];
+                string stage = tier.RequiredCount == 25 ? "이어지는 유니폼 III" :
+                    tier.RequiredCount == 20 ? "이어지는 유니폼 II" : "이어지는 유니폼 I";
+                result[index] = CreateAllDefinition(
+                    "Franchise:" + franchiseId + ":" + tier.RequiredCount,
+                    TeamColorFamily.Franchise,
+                    tier.RequiredCount,
+                    tier.HitterAll,
+                    tier.PitcherAll,
+                    null,
+                    franchiseId,
+                    $"{franchiseId} · {stage}",
+                    $"서로 다른 시대를 건너 {franchiseId}의 계보를 잇는 선수 {tier.RequiredCount}명이 힘을 합칩니다.");
+            }
+            return result;
         }
 
-        public static TeamColorDefinition CreateYear(int originYear)
+        public static TeamColorDefinition CreateYear(int originYear, TeamColorBalanceTable balance = null)
         {
-            return CreateAllDefinition("Year:" + originYear + ":25", TeamColorFamily.Year, 25, 4, 2, originYear, null);
+            balance ??= TeamColorBalanceTable.CreateInitial();
+            TeamColorRuleBalance rule = balance.Year;
+            return new TeamColorDefinition(
+                "Year:" + originYear + ":" + rule.RequiredCount,
+                TeamColorFamily.Year,
+                rule.RequiredCount,
+                rule.HitterBonus,
+                rule.PitcherBonus,
+                originYear: originYear,
+                displayName: $"{originYear} · 동시대의 야구",
+                description: $"{originYear}년을 함께 통과한 {rule.RequiredCount}명이 그 시대의 경기 감각을 공유합니다.");
         }
 
-        public static IReadOnlyList<TeamColorDefinition> CreateAllStar(int originYear)
+        public static IReadOnlyList<TeamColorDefinition> CreateAllStar(
+            int originYear,
+            TeamColorBalanceTable balance = null)
         {
+            balance ??= TeamColorBalanceTable.CreateInitial();
             return new[]
             {
-                new TeamColorDefinition(
-                    "AllStar:Any:10", TeamColorFamily.AllStar, 10,
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Power, 2), new AbilityBonus(PlayerAbility.BatterMental, 2)),
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Velocity, 1), new AbilityBonus(PlayerAbility.Breaking, 2), new AbilityBonus(PlayerAbility.PitcherMental, 1)),
+                CreateRuleDefinition(
+                    "AllStar:Any:10", TeamColorFamily.AllStar, balance.AllStarAny10,
                     requiredEdition: PlayerCardEdition.AllStar, upgradeGroupId: AllStarUpgradeGroupId,
-                    stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 10),
-                new TeamColorDefinition(
-                    "AllStar:Any:20", TeamColorFamily.AllStar, 20,
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Power, 3), new AbilityBonus(PlayerAbility.BatterMental, 3)),
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Velocity, 1), new AbilityBonus(PlayerAbility.Breaking, 3), new AbilityBonus(PlayerAbility.PitcherMental, 1)),
+                    stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 10,
+                    displayName: "별빛의 합류", description: "시대를 가리지 않고 선택받은 별들이 모여 승부의 밀도를 높입니다."),
+                CreateRuleDefinition(
+                    "AllStar:Any:20", TeamColorFamily.AllStar, balance.AllStarAny20,
                     requiredEdition: PlayerCardEdition.AllStar, upgradeGroupId: AllStarUpgradeGroupId,
-                    stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 20),
-                new TeamColorDefinition(
-                    "AllStar:" + originYear + ":20", TeamColorFamily.AllStar, 20,
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Power, 5), new AbilityBonus(PlayerAbility.BatterMental, 5)),
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Velocity, 2), new AbilityBonus(PlayerAbility.Breaking, 5), new AbilityBonus(PlayerAbility.PitcherMental, 3)),
+                    stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 20,
+                    displayName: "별빛의 물결", description: "수많은 선정 선수가 한 로스터에 모여 경기의 흐름을 주도합니다."),
+                CreateRuleDefinition(
+                    "AllStar:" + originYear + ":20", TeamColorFamily.AllStar, balance.AllStarSameYear20,
                     originYear: originYear, requiredEdition: PlayerCardEdition.AllStar,
-                    upgradeGroupId: AllStarUpgradeGroupId, stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 30)
+                    upgradeGroupId: AllStarUpgradeGroupId, stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 30,
+                    displayName: $"{originYear} · 그해의 별자리", description: $"{originYear}년 선정 선수들이 다시 모여 당시의 빛나는 조합을 완성합니다.")
             };
         }
 
-        public static IReadOnlyList<TeamColorDefinition> CreateGoldenGlove(int originYear)
+        public static IReadOnlyList<TeamColorDefinition> CreateGoldenGlove(
+            int originYear,
+            TeamColorBalanceTable balance = null)
         {
+            balance ??= TeamColorBalanceTable.CreateInitial();
             return new[]
             {
-                new TeamColorDefinition(
-                    "GoldenGlove:Any:10", TeamColorFamily.GoldenGlove, 10,
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Contact, 2), new AbilityBonus(PlayerAbility.BatterMental, 2)),
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Stuff, 1), new AbilityBonus(PlayerAbility.Breaking, 1), new AbilityBonus(PlayerAbility.PitcherMental, 2)),
+                CreateRuleDefinition(
+                    "GoldenGlove:Any:10", TeamColorFamily.GoldenGlove, balance.GoldenGloveAny10,
                     requiredEdition: PlayerCardEdition.GoldenGlove, upgradeGroupId: GoldenGloveUpgradeGroupId,
-                    stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 10),
-                new TeamColorDefinition(
-                    "GoldenGlove:Any:20", TeamColorFamily.GoldenGlove, 20,
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Contact, 3), new AbilityBonus(PlayerAbility.BatterMental, 3)),
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Stuff, 2), new AbilityBonus(PlayerAbility.Breaking, 2), new AbilityBonus(PlayerAbility.PitcherMental, 3)),
+                    stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 10,
+                    displayName: "황금 궤적", description: "수비로 인정받은 선수들이 안정된 경기 흐름을 만듭니다."),
+                CreateRuleDefinition(
+                    "GoldenGlove:Any:20", TeamColorFamily.GoldenGlove, balance.GoldenGloveAny20,
                     requiredEdition: PlayerCardEdition.GoldenGlove, upgradeGroupId: GoldenGloveUpgradeGroupId,
-                    stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 20),
-                new TeamColorDefinition(
-                    "GoldenGlove:" + originYear + ":8", TeamColorFamily.GoldenGlove, 8,
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Contact, 4), new AbilityBonus(PlayerAbility.BatterMental, 4)),
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Stuff, 2), new AbilityBonus(PlayerAbility.Breaking, 2), new AbilityBonus(PlayerAbility.PitcherMental, 4)),
+                    stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 20,
+                    displayName: "황금 장벽", description: "수비의 기준이 된 선수들이 서로의 빈틈을 지웁니다."),
+                CreateRuleDefinition(
+                    "GoldenGlove:" + originYear + ":8", TeamColorFamily.GoldenGlove, balance.GoldenGloveSameYear8,
                     originYear: originYear, requiredEdition: PlayerCardEdition.GoldenGlove,
-                    upgradeGroupId: GoldenGloveUpgradeGroupId, stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 30),
-                new TeamColorDefinition(
-                    "GoldenGlove:" + originYear + ":10", TeamColorFamily.GoldenGlove, 10,
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Contact, 5), new AbilityBonus(PlayerAbility.BatterMental, 5)),
-                    TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Stuff, 3), new AbilityBonus(PlayerAbility.Breaking, 3), new AbilityBonus(PlayerAbility.PitcherMental, 5)),
+                    upgradeGroupId: GoldenGloveUpgradeGroupId, stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 30,
+                    displayName: $"{originYear} · 같은 해의 황금선", description: $"{originYear}년 수비 수상자 8명이 같은 리듬으로 실점을 억제합니다."),
+                CreateRuleDefinition(
+                    "GoldenGlove:" + originYear + ":10", TeamColorFamily.GoldenGlove, balance.GoldenGloveSameYear10,
                     originYear: originYear, requiredEdition: PlayerCardEdition.GoldenGlove,
-                    upgradeGroupId: GoldenGloveUpgradeGroupId, stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 40)
+                    upgradeGroupId: GoldenGloveUpgradeGroupId, stackPolicy: TeamColorStackPolicy.HighestOnly, priority: 40,
+                    displayName: $"{originYear} · 완성된 황금선", description: $"{originYear}년 수비 수상자 전원이 모여 한 단계 높은 안정감을 만듭니다.")
             };
         }
 
-        public static IReadOnlyList<TeamColorDefinition> CreateMvp()
+        public static IReadOnlyList<TeamColorDefinition> CreateMvp(TeamColorBalanceTable balance = null)
         {
+            balance ??= TeamColorBalanceTable.CreateInitial();
             return new[]
             {
-                new TeamColorDefinition(
-                    "Mvp:10", TeamColorFamily.Mvp, 10,
-                    TeamColorStatBonus.AllForRole(PlayerRole.Hitter, 2),
-                    TeamColorStatBonus.AllForRole(PlayerRole.Pitcher, 2),
-                    requiredEdition: PlayerCardEdition.Mvp),
-                new TeamColorDefinition(
-                    "Mvp:20", TeamColorFamily.Mvp, 20,
-                    TeamColorStatBonus.AllForRole(PlayerRole.Hitter, 3),
-                    TeamColorStatBonus.AllForRole(PlayerRole.Pitcher, 3),
-                    requiredEdition: PlayerCardEdition.Mvp)
+                CreateRuleDefinition(
+                    "Mvp:10", TeamColorFamily.Mvp, balance.Mvp10,
+                    requiredEdition: PlayerCardEdition.Mvp,
+                    displayName: "정상들의 회합", description: "최고의 시즌을 증명한 선수들이 서로의 기준을 끌어올립니다."),
+                CreateRuleDefinition(
+                    "Mvp:20", TeamColorFamily.Mvp, balance.Mvp20,
+                    requiredEdition: PlayerCardEdition.Mvp,
+                    displayName: "왕좌의 연쇄", description: "수많은 최정상 시즌이 한 로스터에서 이어져 압도적인 집중력을 만듭니다.")
             };
         }
 
@@ -421,7 +559,9 @@ namespace Baseball.Core.Historical
             int hitterAmount,
             int pitcherAmount,
             int? originYear,
-            string franchiseId)
+            string franchiseId,
+            string displayName,
+            string description)
         {
             return new TeamColorDefinition(
                 id,
@@ -430,7 +570,40 @@ namespace Baseball.Core.Historical
                 TeamColorStatBonus.AllForRole(PlayerRole.Hitter, hitterAmount),
                 TeamColorStatBonus.AllForRole(PlayerRole.Pitcher, pitcherAmount),
                 originYear: originYear,
-                originFranchiseId: franchiseId);
+                originFranchiseId: franchiseId,
+                displayName: displayName,
+                description: description);
+        }
+
+        private static TeamColorDefinition CreateRuleDefinition(
+            string id,
+            TeamColorFamily family,
+            TeamColorRuleBalance rule,
+            int? originYear = null,
+            string originFranchiseId = null,
+            PlayerCardEdition? requiredEdition = null,
+            string upgradeGroupId = null,
+            TeamColorStackPolicy stackPolicy = TeamColorStackPolicy.Stackable,
+            int priority = 0,
+            TeamColorCardCriteria criteria = null,
+            string displayName = null,
+            string description = null)
+        {
+            return new TeamColorDefinition(
+                id,
+                family,
+                rule.RequiredCount,
+                rule.HitterBonus,
+                rule.PitcherBonus,
+                originYear,
+                originFranchiseId,
+                requiredEdition: requiredEdition,
+                upgradeGroupId: upgradeGroupId,
+                stackPolicy: stackPolicy,
+                priority: priority,
+                criteria: criteria,
+                displayName: displayName,
+                description: description);
         }
     }
 

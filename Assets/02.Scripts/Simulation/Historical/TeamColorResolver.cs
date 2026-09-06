@@ -13,7 +13,7 @@ namespace Baseball.Simulation.Historical
             WorldCardCatalog catalog,
             IReadOnlyList<TeamColorDefinition> definitions)
         {
-            return Resolve(CreateValidatedInputs(activeRoster, catalog), definitions);
+            return Resolve(CreateRosterCards(activeRoster, catalog), definitions);
         }
 
         public IReadOnlyList<TeamColorCandidate> Resolve(
@@ -36,7 +36,7 @@ namespace Baseball.Simulation.Historical
                 for (int rosterIndex = 0; rosterIndex < activeRoster.Count; rosterIndex++)
                 {
                     TeamColorRosterCard card = activeRoster[rosterIndex];
-                    if (definition.IsEligible(card.Eligibility))
+                    if (definition.IsEligible(card))
                         eligibleCardIds.Add(card.CardId);
                 }
                 if (eligibleCardIds.Count >= definition.RequiredCount)
@@ -99,7 +99,7 @@ namespace Baseball.Simulation.Historical
             TeamColorDefinition slot0,
             TeamColorDefinition slot1)
         {
-            return ApplyEquipped(CreateValidatedInputs(activeRoster, catalog), definitions, slot0, slot1);
+            return ApplyEquipped(CreateRosterCards(activeRoster, catalog), definitions, slot0, slot1);
         }
 
         private static void ApplyCandidate(
@@ -113,7 +113,7 @@ namespace Baseball.Simulation.Historical
             for (int index = 0; index < activeRoster.Count; index++)
             {
                 TeamColorRosterCard rosterCard = activeRoster[index];
-                if (!definition.IsEligible(rosterCard.Eligibility))
+                if (!definition.IsEligible(rosterCard))
                     continue;
                 if (!bonuses.TryGetValue(rosterCard.CardId, out int[] values))
                 {
@@ -161,7 +161,8 @@ namespace Baseball.Simulation.Historical
                     throw new ArgumentException("ActiveRoster CardId는 중복될 수 없습니다.", nameof(activeRoster));
         }
 
-        private static IReadOnlyList<TeamColorRosterCard> CreateValidatedInputs(
+        /// <summary>공통 카드 원본과 PlayerPerson에서 TeamColor 판정용 25인 Snapshot을 만든다.</summary>
+        public static IReadOnlyList<TeamColorRosterCard> CreateRosterCards(
             CurrentRosterState activeRoster,
             WorldCardCatalog catalog)
         {
@@ -185,6 +186,20 @@ namespace Baseball.Simulation.Historical
                     entry.RegistrationType != season.RegistrationType)
                     throw new ArgumentException("ActiveRoster 항목과 공통 카드 원본이 일치하지 않습니다.", nameof(activeRoster));
 
+                int? ageAtOriginSeason = null;
+                Baseball.Core.Players.Handedness? bats = null;
+                Baseball.Core.Players.Handedness? throws = null;
+                if (catalog.TryGetPlayerPerson(entry.PlayerPersonId, out PlayerPersonDefinition person))
+                {
+                    int age = season.OriginYear - person.BirthYear;
+                    if (age <= 0)
+                        throw new ArgumentException("OriginYear보다 BirthYear가 빠르지 않습니다.", nameof(catalog));
+                    ageAtOriginSeason = age;
+                    bats = person.Bats;
+                    throws = person.Throws;
+                }
+
+                bool isHitter = season.PlayerType == Core.Players.PlayerType.Batter;
                 inputs[index] = new TeamColorRosterCard(
                     card.CardId,
                     new TeamColorEligibilityKey(
@@ -192,7 +207,15 @@ namespace Baseball.Simulation.Historical
                         season.OriginFranchiseId,
                         season.OriginTeamSeasonKey,
                         card.Edition),
-                    season.PlayerType == Core.Players.PlayerType.Batter ? PlayerRole.Hitter : PlayerRole.Pitcher);
+                    isHitter ? PlayerRole.Hitter : PlayerRole.Pitcher,
+                    season.Cost,
+                    ageAtOriginSeason,
+                    season.RegistrationType,
+                    bats,
+                    throws,
+                    isHitter ? null : (Core.Teams.PitcherRole?)season.PitcherRole,
+                    entry.Role,
+                    season.CreateBaseAttributes());
             }
             return inputs;
         }
