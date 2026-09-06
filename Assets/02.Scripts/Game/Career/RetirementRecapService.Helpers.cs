@@ -333,19 +333,6 @@ namespace Baseball.Game.Career
             if (best != null && !ContainsMemory(target, best.MemoryId)) target.Add(best);
         }
 
-        private static void AddAdversity(
-            List<CareerMemoryRecord> source,
-            List<CareerMemoryRecord> target)
-        {
-            for (int index = 0; index < source.Count; index++)
-            {
-                CareerMemoryType type = source[index].Type;
-                if (type is not (CareerMemoryType.Injury or CareerMemoryType.InjuryReturn)) continue;
-                if (!ContainsMemory(target, source[index].MemoryId)) target.Add(source[index]);
-                return;
-            }
-        }
-
         private static int CompareMemoryScore(CareerMemoryRecord left, CareerMemoryRecord right)
         {
             int score = right.MemoryScore.CompareTo(left.MemoryScore);
@@ -466,4 +453,3 @@ namespace Baseball.Game.Career
         }
     }
 }
-

@@ -105,26 +105,6 @@ namespace Baseball.Game.Career
             return start;
         }
 
-        private static InjurySeasonSnapshot BuildInjurySnapshot(PlayerState player, int year)
-        {
-            if (player.GrowthState == null)
-                return new InjurySeasonSnapshot(Array.Empty<InjuryRecordSnapshot>());
-            int count = 0;
-            for (int index = 0; index < player.GrowthState.InjuryHistory.Count; index++)
-            {
-                if (player.GrowthState.InjuryHistory[index].SeasonYear == year) count++;
-            }
-            var injuries = new InjuryRecordSnapshot[count];
-            int target = 0;
-            for (int index = 0; index < player.GrowthState.InjuryHistory.Count; index++)
-            {
-                InjuryRecord injury = player.GrowthState.InjuryHistory[index];
-                if (injury.SeasonYear == year)
-                    injuries[target++] = new InjuryRecordSnapshot(injury);
-            }
-            return new InjurySeasonSnapshot(injuries);
-        }
-
         private static PlayerGameRole SelectPrimaryRole(
             PlayerPosition position,
             CareerSeasonExperienceState experience,

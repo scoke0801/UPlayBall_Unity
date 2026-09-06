@@ -153,8 +153,6 @@ namespace Baseball.Game.Career
                 body += $"\n\nOverall {season.StartOverall} → {season.EndOverall}";
             if (season.Awards.Count > 0)
                 body += $"\n수상·우승 {season.Awards.Count}개";
-            if (season.Injuries.Injuries.Count > 0)
-                body += $"\n부상 {season.Injuries.Injuries.Count}회";
             return new RetirementRecapBeat(
                 RetirementRecapAct.SeasonTimeline,
                 eyebrow,
@@ -529,8 +527,6 @@ namespace Baseball.Game.Career
                 CareerMemoryType.Postseason => "가을의 경기",
                 CareerMemoryType.Championship => "우승",
                 CareerMemoryType.Award => "개인 수상",
-                CareerMemoryType.Injury => "멈춰야 했던 시간",
-                CareerMemoryType.InjuryReturn => "다시 경기장으로",
                 CareerMemoryType.Study => "새로운 환경에서의 훈련",
                 CareerMemoryType.ContractAccepted => "선택한 계약",
                 CareerMemoryType.ContractDeclined => "거절한 제안",
@@ -555,8 +551,6 @@ namespace Baseball.Game.Career
                 CareerMemoryType.ExceptionalGame => "그날만큼은 모든 승부가 선명했다.",
                 CareerMemoryType.Championship => "긴 시즌의 끝에서 팀과 함께 마지막 자리에 섰다.",
                 CareerMemoryType.Award => "한 시즌의 시간이 공식적인 기록으로 인정받았다.",
-                CareerMemoryType.Injury => "경기에 나서지 못한 시간도 커리어의 일부였다.",
-                CareerMemoryType.InjuryReturn => "멈췄던 시간을 지나 다시 출전 기록을 남겼다.",
                 CareerMemoryType.ContractAccepted => "어떤 유니폼을 입을지 직접 결정한 순간이었다.",
                 CareerMemoryType.ContractDeclined => "더 큰 금액보다 자신이 원하는 방향을 선택했다.",
                 CareerMemoryType.Transfer => "더 많은 기회를 찾아 새로운 팀으로 향했다.",
@@ -673,7 +667,6 @@ namespace Baseball.Game.Career
                 "saves" => "세이브",
                 "strikeouts" => "탈삼진",
                 "weeks" => "소요 주",
-                "injury_count" => "부상",
                 _ => key.Replace('_', ' ')
             };
         }

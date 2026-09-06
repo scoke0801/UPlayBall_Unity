@@ -82,7 +82,6 @@ namespace Baseball.Game.Career
                         Array.Empty<CareerNamedCount>(),
                         0L,
                         0),
-                    new InjurySeasonSnapshot(Array.Empty<InjuryRecordSnapshot>()),
                     new PlayStyleSeasonSnapshot(null),
                     new SkillBoardSeasonSnapshot(string.Empty, Array.Empty<SkillBlockArchiveSnapshot>()),
                     Array.Empty<string>()));
@@ -146,4 +145,3 @@ namespace Baseball.Game.Career
         }
     }
 }
-

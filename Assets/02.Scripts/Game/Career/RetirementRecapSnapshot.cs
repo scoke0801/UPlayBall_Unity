@@ -206,39 +206,6 @@ namespace Baseball.Game.Career
         public int StudyCount { get; }
     }
 
-    /// <summary>시즌 부상과 플레이어 치료 선택을 사실 그대로 고정한다.</summary>
-    public sealed class InjurySeasonSnapshot
-    {
-        private readonly InjuryRecordSnapshot[] _injuries;
-
-        public InjurySeasonSnapshot(InjuryRecordSnapshot[] injuries)
-        {
-            _injuries = injuries == null
-                ? Array.Empty<InjuryRecordSnapshot>()
-                : (InjuryRecordSnapshot[])injuries.Clone();
-        }
-
-        public IReadOnlyList<InjuryRecordSnapshot> Injuries => _injuries;
-    }
-
-    public readonly struct InjuryRecordSnapshot
-    {
-        public InjuryRecordSnapshot(InjuryRecord injury)
-        {
-            SourceId = injury?.SourceId ?? string.Empty;
-            Severity = injury?.Severity ?? InjurySeverity.Discomfort;
-            MinimumAbsenceDays = injury?.MinimumAbsenceDays ?? 0;
-            MaximumAbsenceDays = injury?.MaximumAbsenceDays ?? 0;
-            TreatmentChoice = injury?.TreatmentChoice;
-        }
-
-        public string SourceId { get; }
-        public InjurySeverity Severity { get; }
-        public int MinimumAbsenceDays { get; }
-        public int MaximumAbsenceDays { get; }
-        public InjuryTreatmentChoice? TreatmentChoice { get; }
-    }
-
     /// <summary>플레이어가 실제로 고른 타격·투구 방침과 구종 사용 횟수를 고정한다.</summary>
     public sealed class PlayStyleSeasonSnapshot
     {
@@ -314,7 +281,7 @@ namespace Baseball.Game.Career
         public IReadOnlyList<SkillBlockArchiveSnapshot> Blocks => _blocks;
     }
 
-    /// <summary>한 시즌 카드와 성장·계약·부상·선택 원본을 함께 보관한다.</summary>
+    /// <summary>한 시즌 카드와 성장·계약·선택 원본을 함께 보관한다.</summary>
     public sealed class CareerSeasonArchive
     {
         private readonly string[] _awards;
@@ -335,7 +302,6 @@ namespace Baseball.Game.Career
             string[] awards,
             ContractSeasonSnapshot contract,
             GrowthSeasonSnapshot growth,
-            InjurySeasonSnapshot injuries,
             PlayStyleSeasonSnapshot playStyle,
             SkillBoardSeasonSnapshot skillBoard,
             string[] memoryIds)
@@ -354,7 +320,6 @@ namespace Baseball.Game.Career
             _awards = awards == null ? Array.Empty<string>() : (string[])awards.Clone();
             Contract = contract;
             Growth = growth;
-            Injuries = injuries;
             PlayStyle = playStyle;
             SkillBoard = skillBoard;
             _memoryIds = memoryIds == null ? Array.Empty<string>() : (string[])memoryIds.Clone();
@@ -374,7 +339,6 @@ namespace Baseball.Game.Career
         public IReadOnlyList<string> Awards => _awards;
         public ContractSeasonSnapshot Contract { get; }
         public GrowthSeasonSnapshot Growth { get; }
-        public InjurySeasonSnapshot Injuries { get; }
         public PlayStyleSeasonSnapshot PlayStyle { get; }
         public SkillBoardSeasonSnapshot SkillBoard { get; }
         public IReadOnlyList<string> MemoryIds => _memoryIds;
@@ -403,7 +367,6 @@ namespace Baseball.Game.Career
             int transferCount,
             int trainingCount,
             int studyCount,
-            int injuryReturnCount,
             int postseasonCount,
             int championshipCount,
             CareerNamedCount mostUsedTraining,
@@ -425,7 +388,6 @@ namespace Baseball.Game.Career
             TransferCount = transferCount;
             TrainingCount = trainingCount;
             StudyCount = studyCount;
-            InjuryReturnCount = injuryReturnCount;
             PostseasonCount = postseasonCount;
             ChampionshipCount = championshipCount;
             MostUsedTraining = mostUsedTraining;
@@ -448,7 +410,6 @@ namespace Baseball.Game.Career
         public int TransferCount { get; }
         public int TrainingCount { get; }
         public int StudyCount { get; }
-        public int InjuryReturnCount { get; }
         public int PostseasonCount { get; }
         public int ChampionshipCount { get; }
         public CareerNamedCount MostUsedTraining { get; }

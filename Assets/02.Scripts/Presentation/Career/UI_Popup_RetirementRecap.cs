@@ -247,9 +247,7 @@ namespace Baseball.Presentation.Career
 
         private static Color GetBackdropLightColor(string assetKey, bool isHighlight)
         {
-            return assetKey.Contains("injury")
-                ? new Color(0.34f, 0.38f, 0.41f, 0.10f)
-                : assetKey.Contains("transfer") || assetKey.Contains("contract")
+            return assetKey.Contains("transfer") || assetKey.Contains("contract")
                     ? new Color(0.20f, 0.34f, 0.46f, 0.11f)
                     : isHighlight
                         ? new Color(0.78f, 0.57f, 0.24f, 0.12f)
@@ -263,8 +261,6 @@ namespace Baseball.Presentation.Career
 
         private static string ResolveBackdropResourceName(string assetKey)
         {
-            if (assetKey.Contains("injury") || assetKey.Contains("rehab") || assetKey.Contains("recovery"))
-                return "rehab";
             if (assetKey.Contains("contract") || assetKey.Contains("transfer") || assetKey.Contains("trade"))
                 return "contract";
             if (assetKey.Contains("lineup") || assetKey.Contains("starter") || assetKey.Contains("role"))

@@ -24,7 +24,6 @@ namespace Baseball.Game.Career
             AddFirstOfType(candidates, selected, CareerMemoryType.CareerDebut);
             AddFirstOfType(candidates, selected, CareerMemoryType.FinalAppearance);
             AddHighestAgency(candidates, selected);
-            AddAdversity(candidates, selected);
             for (int index = 0; index < candidates.Count && selected.Count < 7; index++)
             {
                 CareerMemoryRecord candidate = candidates[index];
@@ -92,30 +91,6 @@ namespace Baseball.Game.Career
             AddDerivedFirstBattingRecord(career, seasons, candidates, CareerMemoryType.FirstHomeRun);
             AddDerivedFirstPitchingRecord(career, seasons, candidates, CareerMemoryType.FirstPitchingWin);
             AddDerivedFirstPitchingRecord(career, seasons, candidates, CareerMemoryType.FirstSave);
-            for (int seasonIndex = 0; seasonIndex < seasons.Length; seasonIndex++)
-            {
-                CareerSeasonArchive season = seasons[seasonIndex];
-                if (season.Injuries.Injuries.Count == 0 || ContainsSeasonType(candidates, season.Season, CareerMemoryType.Injury))
-                    continue;
-                candidates.Add(new CareerMemoryRecord(
-                    $"derived:injury:{season.Season}", career.MyPlayerId, season.Season,
-                    OffseasonDateIndex - 60, season.TeamId, CareerMemoryType.Injury,
-                    "career.memory.injury.title", "career.memory.injury.narrative",
-                    0, string.Empty, 0, 72, 68, 20, 45, 82,
-                    new[] { new MemoryStatValue("injury_count", season.Injuries.Injuries.Count) },
-                    new[] { "adversity", "derived_fact" }, "career_injury"));
-
-                if (seasonIndex + 1 >= seasons.Length || seasons[seasonIndex + 1].Stats.Games == 0)
-                    continue;
-                CareerSeasonArchive returned = seasons[seasonIndex + 1];
-                candidates.Add(new CareerMemoryRecord(
-                    $"derived:return:{returned.Season}", career.MyPlayerId, returned.Season,
-                    1, returned.TeamId, CareerMemoryType.InjuryReturn,
-                    "career.memory.injury_return.title", "career.memory.injury_return.narrative",
-                    0, string.Empty, 0, 78, 80, 30, 55, 88,
-                    new[] { new MemoryStatValue("games", returned.Stats.Games) },
-                    new[] { "adversity", "recovery", "derived_fact" }, "career_return"));
-            }
             int bestIndex = SelectCareerBestSeason(career.MyPlayer.PrimaryPosition, seasons, returnIndex: true);
             if (bestIndex >= 0 && HasSeasonAppearance(seasons[bestIndex]))
             {
@@ -200,7 +175,6 @@ namespace Baseball.Game.Career
                         longestAcceptedContractYears = years;
                 }
             }
-            int injuryReturns = CountType(career.Retirement.MemoryLog, CareerMemoryType.InjuryReturn);
             CareerNamedCount mostTraining = SelectHighestCount(training);
             CareerNamedCount longestSkill = SelectHighestCount(skillDurations);
             int roleIndex = SelectHighestIndex(roleSeasons);
@@ -218,7 +192,6 @@ namespace Baseball.Game.Career
                 transfers,
                 trainingCount,
                 studyCount,
-                injuryReturns,
                 postseasonCount,
                 championshipCount,
                 mostTraining,
@@ -298,8 +271,6 @@ namespace Baseball.Game.Career
                 primary = "career.title.franchise_face";
             else if (HasLateBreakthrough(seasons))
                 primary = "career.title.late_bloomer";
-            else if (choices.InjuryReturnCount > 0)
-                primary = "career.title.rose_again";
             else if (IsLongTermReliever(career.MyPlayer.PrimaryPosition, seasons))
                 primary = "career.title.always_ready";
             else if (choices.TeamCount >= 3)
@@ -322,7 +293,6 @@ namespace Baseball.Game.Career
             CareerSeasonArchive[] seasons,
             CareerChoiceSnapshot choices)
         {
-            if (reason == RetirementReason.Medical) return "career.retirement.final.medical";
             if (reason == RetirementReason.Unsigned) return "career.retirement.final.unsigned";
             if (seasons.Length <= 3) return "career.retirement.final.short";
             if (choices.TeamCount == 1 && seasons.Length >= 7) return "career.retirement.final.franchise";
@@ -388,4 +358,3 @@ namespace Baseball.Game.Career
         }
     }
 }
-

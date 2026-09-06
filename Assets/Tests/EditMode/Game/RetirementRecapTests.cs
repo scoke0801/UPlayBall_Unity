@@ -32,7 +32,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void CreateSnapshot_필수순간과선택역경을포함하고동일유형은두개까지만선정한다()
+        public void CreateSnapshot_필수순간과선택을포함하고동일유형은두개까지만선정한다()
         {
             CreateCareer(out CareerState career, out BalanceTable balance);
             int year = career.CurrentLeague.CurrentSeason.Year;
@@ -51,10 +51,6 @@ namespace Baseball.Tests.EditMode.Game
                     emotion: 80));
             }
             log.Append(CreateMemory(
-                "injury", year, 10, CareerMemoryType.Injury,
-                importance: 40, impact: 45, emotion: 90,
-                tags: new[] { "adversity" }));
-            log.Append(CreateMemory(
                 "choice", year, 11, CareerMemoryType.ContractDeclined,
                 importance: 50, impact: 65, agency: 100,
                 tags: new[] { "player_choice" }));
@@ -70,7 +66,6 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(ContainsType(snapshot, CareerMemoryType.CareerDebut), Is.True);
             Assert.That(ContainsType(snapshot, CareerMemoryType.FinalAppearance), Is.True);
             Assert.That(ContainsId(snapshot, "choice"), Is.True);
-            Assert.That(ContainsId(snapshot, "injury"), Is.True);
             Assert.That(CountType(snapshot, CareerMemoryType.ExceptionalGame), Is.LessThanOrEqualTo(2));
             for (int index = 1; index < snapshot.FeaturedMemories.Count; index++)
             {

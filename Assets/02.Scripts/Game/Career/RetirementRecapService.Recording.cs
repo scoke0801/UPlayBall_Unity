@@ -131,30 +131,6 @@ namespace Baseball.Game.Career
                     "career_study"));
             }
 
-            if (result.InjuryResult != GrowthInjuryResult.None)
-            {
-                int injurySequence = CountType(log, CareerMemoryType.Injury) + 1;
-                log.Append(new CareerMemoryRecord(
-                    $"injury:{result.SeasonYear}:{injurySequence}",
-                    career.MyPlayerId,
-                    result.SeasonYear,
-                    activityDateIndex,
-                    career.MyPlayer.CurrentTeamId,
-                    CareerMemoryType.Injury,
-                    "career.memory.injury.title",
-                    "career.memory.injury.narrative",
-                    0,
-                    string.Empty,
-                    0,
-                    76,
-                    70,
-                    35,
-                    48,
-                    82,
-                    new[] { new MemoryStatValue("weeks", result.WeeksSpent) },
-                    new[] { "adversity", "growth" },
-                    "career_injury"));
-            }
         }
 
         /// <summary>계약 수락·거절처럼 플레이어가 직접 내린 결정을 회고 후보로 저장한다.</summary>
@@ -262,7 +238,7 @@ namespace Baseball.Game.Career
                 "career_contract"));
         }
 
-        /// <summary>시즌이 완전히 끝난 시점의 카드·성장판·계약·부상을 Archive에 고정한다.</summary>
+        /// <summary>시즌이 완전히 끝난 시점의 카드·성장판·계약을 Archive에 고정한다.</summary>
         public CareerSeasonArchive ArchiveCompletedSeason(CareerState career, TeamState team)
         {
             if (career == null) throw new ArgumentNullException(nameof(career));
@@ -300,7 +276,6 @@ namespace Baseball.Game.Career
                 BuildAwardKeys(career, season.Awards),
                 new ContractSeasonSnapshot(FindSeasonContract(career, season.Year)),
                 growth,
-                BuildInjurySnapshot(career.MyPlayer, season.Year),
                 new PlayStyleSeasonSnapshot(experience),
                 BuildSkillBoardSnapshot(career.MyPlayer.SkillBoardState),
                 BuildSeasonMemoryIds(career.Retirement.MemoryLog, season.Year));
@@ -311,4 +286,3 @@ namespace Baseball.Game.Career
         /// <summary>모든 대표 순간·통산 기록·칭호·유산을 은퇴 순간의 값으로 한 번만 확정한다.</summary>
     }
 }
-
