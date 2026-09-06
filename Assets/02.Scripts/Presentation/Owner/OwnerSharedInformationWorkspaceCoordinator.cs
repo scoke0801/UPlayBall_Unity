@@ -26,6 +26,37 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerSharedInformation _recordsView;
         private UI_Scene_OwnerSeasonRecords _seasonRecordsView;
         private UI_Scene_OwnerLeague _leagueView;
+        private UI_Scene_OwnerTeamLineup _teamLineupView;
+        private Func<string, OwnerTeamLineupSnapshot> _teamLineupResolver;
+
+        /// <summary>순위표 선택 시 현재 구단 데이터를 읽기 전용으로 조회한다.</summary>
+        public void SetTeamLineupResolver(Func<string, OwnerTeamLineupSnapshot> resolver) => _teamLineupResolver = resolver;
+
+        /// <summary>구단 상세를 닫고 선택 전 리그 탭을 복원한다.</summary>
+        public bool TryCloseTeamLineup()
+        {
+            if (_teamLineupView == null || !_teamLineupView.gameObject.activeSelf) return false;
+            _teamLineupView.SetVisible(false);
+            if (_leagueView != null) _leagueView.gameObject.SetActive(true);
+            return true;
+        }
+
+        private void ShowTeamLineup(string teamKey)
+        {
+            if (_teamLineupResolver == null) return;
+            var snapshot = _teamLineupResolver(teamKey);
+            if (snapshot == null) return;
+            if (_teamLineupView == null)
+            {
+                _teamLineupView = UI_Scene_OwnerTeamLineup.CreateRuntime(_shell.MainWorkspaceHost);
+                _teamLineupView.CloseRequested += HandleCloseTeamLineup;
+            }
+            _teamLineupView.Bind(snapshot, canClose: true);
+            _leagueView.gameObject.SetActive(false);
+            _teamLineupView.SetVisible(true);
+        }
+
+        private void HandleCloseTeamLineup() => TryCloseTeamLineup();
         private UI_Scene_OwnerClubInformation _clubInformationView;
         private SharedScreenPresentationModel<ScheduleScreenSnapshot> _scheduleModel;
         private SharedScreenPresentationModel<RecordsScreenSnapshot> _recordsModel;
@@ -67,20 +98,21 @@ namespace Baseball.Presentation.Owner
             if (_leagueView == null)
             {
                 _leagueView = UI_Scene_OwnerLeague.CreateRuntime(_shell.MainWorkspaceHost);
+                _leagueView.TeamSelected += ShowTeamLineup;
                 _leagueView.gameObject.SetActive(false);
             }
             if (snapshot != null)
                 _leagueView.Bind(new OwnerLeaguePresentationModel(snapshot));
         }
 
-        /// <summary>확정 WorldHistory 기록 Snapshot을 읽기 전용 Action Provider와 합성한다.</summary>
-        public void BindHistoricalRecords(RecordsScreenSnapshot snapshot, UiCapabilitySet capabilities)
+        /// <summary>현재 Save에서 실제 진행한 구단 시즌 이력을 읽기 전용 화면과 합성한다.</summary>
+        public void BindClubSeasonHistoryRecords(RecordsScreenSnapshot snapshot, UiCapabilitySet capabilities)
         {
             RequireInitialized();
             UiContentStateModel state = snapshot == null || snapshot.Table.Rows.Count == 0
                 ? UiContentStateModel.CreateEmpty(
-                    "역사 기록 없음",
-                    "현재 월드 히스토리에 확정된 정규 시즌 타격 기록이 없습니다.")
+                    "시즌 기록 없음",
+                    "현재 저장 데이터에 진행한 구단 시즌 기록이 없습니다.")
                 : UiContentStateModel.Ready;
             _recordsModel = new SharedScreenPresentationModel<RecordsScreenSnapshot>(
                 new SharedScreenProfile(
@@ -173,7 +205,7 @@ namespace Baseball.Presentation.Owner
                 HideAll();
                 _recordsView.SetVisible(true);
                 ShowContext(RecordsRouteId, "역사 기록",
-                    "현재 시즌 누적과 분리된 월드 히스토리 확정 기록을 확인합니다.");
+                    "현재 Save에서 직접 진행한 시즌별 구단 성적을 확인합니다.");
                 ActiveRouteId = RecordsRouteId;
                 return true;
             }
@@ -185,6 +217,7 @@ namespace Baseball.Presentation.Owner
         {
             if (_shell == null)
                 return;
+            _teamLineupView?.SetVisible(false);
             _scheduleView?.SetVisible(false);
             _recordsView?.SetVisible(false);
             _seasonRecordsView?.SetVisible(false);
@@ -205,6 +238,8 @@ namespace Baseball.Presentation.Owner
 
         private void OnDestroy()
         {
+            if (_leagueView != null) _leagueView.TeamSelected -= ShowTeamLineup;
+            if (_teamLineupView != null) _teamLineupView.CloseRequested -= HandleCloseTeamLineup;
             if (_scheduleView != null)
                 _scheduleView.NextMatchAnalysisRequested -= HandleNextMatchAnalysisRequested;
         }
@@ -219,7 +254,7 @@ namespace Baseball.Presentation.Owner
             if (_recordsView != null)
                 return;
             _recordsView = UI_Scene_OwnerSharedInformation.CreateRuntime(_shell.MainWorkspaceHost);
-            _recordsView.gameObject.name = "UI_Scene_OwnerHistoricalRecords";
+            _recordsView.gameObject.name = "UI_Scene_OwnerClubSeasonHistory";
             _recordsView.SetVisible(false);
         }
 
@@ -227,11 +262,14 @@ namespace Baseball.Presentation.Owner
         {
             _shell.SetInspectorVisible(false);
             _shell.SetActionBarVisible(false);
+            string eyebrow = routeId.StartsWith("Owner.Club.", StringComparison.Ordinal)
+                ? "구단"
+                : "구단주 모드";
             _shell.BindContext(new ShellContextModel(
                 routeId,
                 title,
                 description,
-                "구단주 모드"));
+                eyebrow));
         }
 
         private void RequireInitialized()

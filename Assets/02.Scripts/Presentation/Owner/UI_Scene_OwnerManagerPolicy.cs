@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Historical;
 using Baseball.Core.Teams;
+using Baseball.Presentation.UI;
 using Baseball.Simulation.Historical;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,7 +10,7 @@ namespace Baseball.Presentation.Owner
 {
     /// <summary>감독 인선을 건드리지 않고 여섯 경기 운영 축만 독립 편집하는 감독방침 화면이다.</summary>
     [DisallowMultipleComponent]
-    public sealed class UI_Scene_OwnerManagerPolicy : MonoBehaviour
+    public sealed class UI_Scene_OwnerManagerPolicy : MonoBehaviour, IUiCancelHandler
     {
         private static readonly string[] AxisNames =
         {
@@ -17,7 +18,7 @@ namespace Baseball.Presentation.Owner
         };
 
         private RectTransform _root;
-        private readonly Slider[] _sliders = new Slider[AxisNames.Length];
+        private readonly OwnerPolicyStepSelector[] _policySelectors = new OwnerPolicyStepSelector[AxisNames.Length];
         private readonly Text[] _valueLabels = new Text[AxisNames.Length];
         private Text _staff;
         private Text _profile;
@@ -41,11 +42,12 @@ namespace Baseball.Presentation.Owner
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             int minimum = DugoutPolicySettings.NeutralLevel - snapshot.AllowedPolicyOffset;
             int maximum = DugoutPolicySettings.NeutralLevel + snapshot.AllowedPolicyOffset;
-            for (int index = 0; index < _sliders.Length; index++)
+            for (int index = 0; index < _policySelectors.Length; index++)
             {
-                _sliders[index].minValue = minimum;
-                _sliders[index].maxValue = maximum;
-                _sliders[index].SetValueWithoutNotify(snapshot.Policy.GetLevel((DugoutPolicyAxis)index));
+                _policySelectors[index].SetRange(minimum, maximum);
+                _policySelectors[index].SetValue(
+                    snapshot.Policy.GetLevel((DugoutPolicyAxis)index),
+                    false);
                 RefreshAxis(index);
             }
             OwnerDugoutStaffCandidate manager = snapshot.GetManager(snapshot.SelectedManagerId);
@@ -69,14 +71,30 @@ namespace Baseball.Presentation.Owner
             _status.color = isError ? new Color(0.72f, 0.16f, 0.12f) : new Color(0.12f, 0.35f, 0.20f);
         }
 
+        /// <summary>저장되지 않은 감독방침이 있을 때만 저장값으로 되돌린다.</summary>
+        public bool TryHandleCancel()
+        {
+            if (_snapshot == null)
+                return false;
+            for (int index = 0; index < _policySelectors.Length; index++)
+            {
+                if (_policySelectors[index].Value != _snapshot.Policy.GetLevel((DugoutPolicyAxis)index))
+                {
+                    Restore();
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void Build()
         {
             _root = OwnerWorkspaceUiFactory.CreateRoot(transform, "OwnerManagerPolicyWorkspace", true);
             RectTransform policy = OwnerDugoutDetailUiFactory.CreatePanel(_root, "PolicyPanel", 0.02f, 0.10f, 0.61f, 0.975f);
             RectTransform context = OwnerDugoutDetailUiFactory.CreatePanel(_root, "ContextPanel", 0.63f, 0.10f, 0.98f, 0.975f);
             OwnerDugoutDetailUiFactory.CreateLabel(policy, "Title", "감독 작전 방침", 0.04f, 0.91f, 0.96f, 0.98f, 21, FontStyle.Bold);
-            OwnerDugoutDetailUiFactory.CreateLabel(policy, "Hint", "중앙 2 · 신뢰도에 따라 조정 범위 해금", 0.04f, 0.86f, 0.96f, 0.91f, 12);
-            for (int index = 0; index < _sliders.Length; index++) BuildAxis(policy, index);
+            OwnerDugoutDetailUiFactory.CreateLabel(policy, "Hint", "다섯 단계 · 신뢰도와 관계없이 ±2까지 선택 가능", 0.04f, 0.86f, 0.96f, 0.91f, 12);
+            for (int index = 0; index < _policySelectors.Length; index++) BuildAxis(policy, index);
             OwnerDugoutDetailUiFactory.CreateButton(policy, "Neutral", "모두 중립", 0.67f, 0.035f, 0.96f, 0.10f, ResetNeutral);
 
             OwnerDugoutDetailUiFactory.CreateLabel(context, "StaffTitle", "현재 인선", 0.06f, 0.91f, 0.94f, 0.98f, 19, FontStyle.Bold);
@@ -94,22 +112,17 @@ namespace Baseball.Presentation.Owner
         {
             float top = 0.83f - index * 0.12f;
             OwnerDugoutDetailUiFactory.CreateLabel(parent, "AxisName" + index, AxisNames[index], 0.04f, top - 0.065f, 0.23f, top, 14, FontStyle.Bold);
-            RectTransform sliderRect = OwnerDugoutDetailUiFactory.CreateRect(parent, "AxisSlider" + index, 0.25f, top - 0.055f, 0.82f, top - 0.005f);
-            Slider slider = sliderRect.gameObject.AddComponent<Slider>();
-            slider.wholeNumbers = true;
-            slider.minValue = 1f;
-            slider.maxValue = 3f;
-            slider.targetGraphic = sliderRect.gameObject.AddComponent<Image>();
-            slider.targetGraphic.color = new Color(0.72f, 0.75f, 0.76f);
-            RectTransform fill = OwnerDugoutDetailUiFactory.CreateRect(sliderRect, "Fill", 0f, 0.18f, 1f, 0.82f);
-            fill.gameObject.AddComponent<Image>().color = new Color(0.22f, 0.43f, 0.58f);
-            slider.fillRect = fill;
-            RectTransform handle = OwnerDugoutDetailUiFactory.CreateRect(sliderRect, "Handle", 0f, 0f, 0.05f, 1f);
-            handle.gameObject.AddComponent<Image>().color = Color.white;
-            slider.handleRect = handle;
-            _sliders[index] = slider;
+            RectTransform selectorRect = OwnerDugoutDetailUiFactory.CreateRect(
+                parent,
+                "AxisSteps" + index,
+                0.25f,
+                top - 0.055f,
+                0.82f,
+                top - 0.005f);
+            var selector = new OwnerPolicyStepSelector(selectorRect, new Color(0.22f, 0.43f, 0.58f));
+            _policySelectors[index] = selector;
             int axisIndex = index;
-            slider.onValueChanged.AddListener(_ => OnAxisChanged(axisIndex));
+            selector.ValueChanged += _ => OnAxisChanged(axisIndex);
             _valueLabels[index] = OwnerDugoutDetailUiFactory.CreateLabel(parent, "AxisValue" + index, "중립", 0.84f, top - 0.065f, 0.96f, top, 13, FontStyle.Bold, TextAnchor.MiddleCenter);
         }
 
@@ -122,13 +135,14 @@ namespace Baseball.Presentation.Owner
 
         private void RefreshAxis(int index)
         {
-            int value = Mathf.RoundToInt(_sliders[index].value);
+            int value = _policySelectors[index].Value;
             _valueLabels[index].text = value < DugoutPolicySettings.NeutralLevel ? "소극" : value > DugoutPolicySettings.NeutralLevel ? "적극" : "중립";
         }
 
         private void ResetNeutral()
         {
-            for (int index = 0; index < _sliders.Length; index++) _sliders[index].value = DugoutPolicySettings.NeutralLevel;
+            for (int index = 0; index < _policySelectors.Length; index++)
+                _policySelectors[index].SetValue(DugoutPolicySettings.NeutralLevel);
         }
 
         private void RefreshProfilePreview()
@@ -148,19 +162,19 @@ namespace Baseball.Presentation.Owner
         private DugoutPolicySettings CreateDraftPolicy()
         {
             return new DugoutPolicySettings(
-                Mathf.RoundToInt(_sliders[0].value),
-                Mathf.RoundToInt(_sliders[1].value),
-                Mathf.RoundToInt(_sliders[2].value),
-                Mathf.RoundToInt(_sliders[3].value),
-                Mathf.RoundToInt(_sliders[4].value),
-                Mathf.RoundToInt(_sliders[5].value));
+                _policySelectors[0].Value,
+                _policySelectors[1].Value,
+                _policySelectors[2].Value,
+                _policySelectors[3].Value,
+                _policySelectors[4].Value,
+                _policySelectors[5].Value);
         }
 
         private void Restore()
         {
             if (_snapshot == null) return;
-            for (int index = 0; index < _sliders.Length; index++)
-                _sliders[index].value = _snapshot.Policy.GetLevel((DugoutPolicyAxis)index);
+            for (int index = 0; index < _policySelectors.Length; index++)
+                _policySelectors[index].SetValue(_snapshot.Policy.GetLevel((DugoutPolicyAxis)index));
             SetFeedback("저장된 감독방침으로 되돌렸습니다.", false);
         }
 

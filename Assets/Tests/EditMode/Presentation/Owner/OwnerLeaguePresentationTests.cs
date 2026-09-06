@@ -3,6 +3,8 @@ using System.Linq;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedScreens;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
 {
@@ -64,6 +66,42 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(model.Standings.Sum(team => team.Wins), Is.EqualTo(model.Standings.Sum(team => team.Losses)));
             Assert.That(model.Standings.Sum(team => team.Games), Is.EqualTo(60));
             Assert.That(model.Rounds.Count, Is.EqualTo(30));
+        }
+
+        [Test]
+        public void RankHistoryView_그래프Mesh와CanvasRenderer를생성한다()
+        {
+            var root = new GameObject(
+                "OwnerLeagueRankHistoryTests_Root",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler));
+            try
+            {
+                Canvas canvas = root.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                var games = new ScheduleGameSnapshot[8];
+                for (int round = 1; round <= games.Length; round++)
+                    games[round - 1] = Game(round.ToString(), round, "a", "b", round % 4, (round + 1) % 4);
+
+                UI_Scene_OwnerLeague view = UI_Scene_OwnerLeague.CreateRuntime(
+                    root.GetComponent<RectTransform>());
+                view.Bind(Build(games));
+                view.ShowTab(3);
+                Canvas.ForceUpdateCanvases();
+
+                UILeagueRankChart chart = view.transform.Find("LeagueTable/RankHistory")
+                    .GetComponent<UILeagueRankChart>();
+                Mesh mesh = chart.canvasRenderer.GetMesh();
+
+                Assert.That(chart.GetComponent<CanvasRenderer>(), Is.Not.Null);
+                Assert.That(mesh, Is.Not.Null);
+                Assert.That(mesh.vertexCount, Is.GreaterThan(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
         }
 
         private static OwnerLeaguePresentationModel Build(params ScheduleGameSnapshot[] games) =>

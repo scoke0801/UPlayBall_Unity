@@ -75,10 +75,27 @@ namespace Baseball.Presentation.Owner
         /// <summary>현재 1군·선택 프리셋·Resolver 검증을 규칙 재계산 없이 선수단 화면에 투영한다.</summary>
         public OwnerRosterLineupSnapshot CreateRosterLineup(OwnerModeManager manager)
         {
+            return CreateRosterLineupInternal(manager, null);
+        }
+
+        /// <summary>저장 전 1군 교체 후보를 실제 카드·상태 정보와 함께 선수단 화면에 투영한다.</summary>
+        public OwnerRosterLineupSnapshot CreateRosterLineup(
+            OwnerModeManager manager,
+            OwnerActiveRosterChangePreview rosterChange)
+        {
+            if (rosterChange == null) throw new ArgumentNullException(nameof(rosterChange));
+            return CreateRosterLineupInternal(manager, rosterChange);
+        }
+
+        private OwnerRosterLineupSnapshot CreateRosterLineupInternal(
+            OwnerModeManager manager,
+            OwnerActiveRosterChangePreview rosterChange)
+        {
             ManagerHistoricalRuntimeState runtime = RequireRuntime(manager);
             ManagerModeRuntimeState mode = runtime.ManagerMode;
-            CurrentRosterState roster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
-            TeamSeasonPlayerStatusState statuses = mode.GetPlayerStatus(runtime.PlayerTeamSeasonKey);
+            CurrentRosterState roster = rosterChange?.Roster ?? runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            TeamSeasonPlayerStatusState statuses = rosterChange?.PlayerStatus ??
+                mode.GetPlayerStatus(runtime.PlayerTeamSeasonKey);
             var players = new OwnerRosterPlayerSnapshot[roster.Entries.Count];
             for (int index = 0; index < players.Length; index++)
             {
@@ -107,12 +124,17 @@ namespace Baseball.Presentation.Owner
             }
 
             var ownedPlayers = new OwnerCollectionCardSnapshot[runtime.OwnedCards.Count];
+            PerCardBonusMap teamColorBonuses = CreateCurrentTeamColorBonuses(
+                manager,
+                runtime,
+                roster,
+                rosterChange?.Preset ?? mode.GetSelectedLineupPreset());
             for (int index = 0; index < ownedPlayers.Length; index++)
             {
                 OwnedPlayerCardState owned = runtime.OwnedCards[index];
                 if (!runtime.WorldCardCatalog.TryGetCard(owned.CardId, out PlayerCardDefinition card))
                     throw new InvalidOperationException($"CardId {owned.CardId} 원본이 없습니다.");
-                ownedPlayers[index] = CreateCollectionCard(manager, runtime, owned, card);
+                ownedPlayers[index] = CreateCollectionCard(manager, runtime, owned, card, teamColorBonuses);
             }
 
             ManagerPregamePreparation preparation = null;
@@ -129,12 +151,20 @@ namespace Baseball.Presentation.Owner
             var presetSnapshots = new OwnerRosterPresetSnapshot[mode.LineupPresets.Count];
             for (int index = 0; index < presetSnapshots.Length; index++)
             {
-                LineupPresetState preset = mode.LineupPresets[index];
-                LineupPresetValidationResult validation = preparation == null
-                    ? null
-                    : string.Equals(preset.PresetId, mode.SelectedLineupPresetId, StringComparison.Ordinal)
-                        ? preparation.PresetValidation
-                        : manager.ValidateLineupPreset(preset);
+                bool isSelected = string.Equals(
+                    mode.LineupPresets[index].PresetId,
+                    mode.SelectedLineupPresetId,
+                    StringComparison.Ordinal);
+                LineupPresetState preset = rosterChange != null && isSelected
+                    ? rosterChange.Preset
+                    : mode.LineupPresets[index];
+                LineupPresetValidationResult validation = rosterChange != null && isSelected
+                    ? rosterChange.Validation
+                    : preparation == null
+                        ? null
+                        : isSelected
+                            ? preparation.PresetValidation
+                            : manager.ValidateLineupPreset(preset);
                 presetSnapshots[index] = new OwnerRosterPresetSnapshot(preset, validation, unavailableReason);
             }
 
@@ -161,7 +191,7 @@ namespace Baseball.Presentation.Owner
             }
 
             return new OwnerRosterLineupSnapshot(
-                manager.BuildRosterStatus(),
+                manager.BuildRosterStatus(roster),
                 players,
                 presetSnapshots,
                 mode.SelectedLineupPresetId,
@@ -175,12 +205,17 @@ namespace Baseball.Presentation.Owner
         {
             ManagerHistoricalRuntimeState runtime = RequireRuntime(manager);
             var cards = new OwnerCollectionCardSnapshot[runtime.OwnedCards.Count];
+            PerCardBonusMap teamColorBonuses = CreateCurrentTeamColorBonuses(
+                manager,
+                runtime,
+                runtime.GetRoster(runtime.PlayerTeamSeasonKey),
+                runtime.ManagerMode.GetSelectedLineupPreset());
             for (int index = 0; index < cards.Length; index++)
             {
                 OwnedPlayerCardState owned = runtime.OwnedCards[index];
                 if (!runtime.WorldCardCatalog.TryGetCard(owned.CardId, out PlayerCardDefinition card))
                     throw new InvalidOperationException($"CardId {owned.CardId} 원본이 없습니다.");
-                cards[index] = CreateCollectionCard(manager, runtime, owned, card);
+                cards[index] = CreateCollectionCard(manager, runtime, owned, card, teamColorBonuses);
             }
             return new OwnerCollectionSnapshot(cards);
         }
@@ -189,12 +224,33 @@ namespace Baseball.Presentation.Owner
             OwnerModeManager manager,
             ManagerHistoricalRuntimeState runtime,
             OwnedPlayerCardState owned,
-            PlayerCardDefinition card)
+            PlayerCardDefinition card,
+            PerCardBonusMap teamColorBonuses)
         {
             PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
             manager.TryGetPlayerPerson(season.PlayerPersonId, out PlayerPersonDefinition person);
-            AbilityRatings permanent = new OwnerCardAbilityResolver(manager.Balance.Growth)
-                .ResolvePermanent(season, card, owned);
+            var abilityResolver = new OwnerCardAbilityResolver(manager.Balance.Growth);
+            AbilityRatings permanent = abilityResolver.ResolvePermanent(season, card, owned);
+            var abilityBreakdowns = new OwnerAbilityBreakdownSnapshot[PlayerAbilityCatalog.AbilityCount];
+            for (int abilityIndex = 0; abilityIndex < abilityBreakdowns.Length; abilityIndex++)
+            {
+                var ability = (PlayerAbility)abilityIndex;
+                OwnerCardAbilityContribution contribution = abilityResolver.ResolveContribution(
+                    season, card, owned, ability);
+                abilityBreakdowns[abilityIndex] = new OwnerAbilityBreakdownSnapshot(
+                    contribution.BaseCard,
+                    contribution.Training,
+                    contribution.SkillBlock,
+                    teamColorBonuses.Get(owned.CardId, ability),
+                    contribution.Study,
+                    contribution.Enhancement);
+            }
+            TeamSeasonPlayerStatusState statuses = runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey);
+            int? condition = statuses.TryGetPlayer(season.PlayerPersonId, out TeamSeasonPlayerStatus playerStatus)
+                ? playerStatus.StoredBaseCondition : null;
+            string conditionLabel = condition.HasValue
+                ? FormatConditionLabel(manager.Balance.ConditionChemistry.Presentation.GetBand(condition.Value).LabelKey)
+                : "정보 없음";
             return new OwnerCollectionCardSnapshot(
                 owned.CardId,
                 season.PlayerPersonId,
@@ -208,18 +264,102 @@ namespace Baseball.Presentation.Owner
                 owned.IsLocked,
                 owned.IsFavorite,
                 permanent,
-                season.OriginYear + " · 월드 기록",
+                OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade) + " · 현재 시즌",
                 season.PlayerSeasonId,
                 season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
                 person?.Throws,
                 person?.Bats,
                 CreatePitchSnapshots(manager, season, permanent),
-                CreateSeasonRecord(runtime.WorldHistory, season),
+                CreateSeasonRecord(
+                    runtime.WorldHistory,
+                    season,
+                    runtime.PlayerTeamSeasonKey,
+                    runtime.ManagerMode.LiveSeason.OriginYear),
                 GetTrainingBonusTotal(owned),
                 owned.SkillBoard.Placements.Count,
                 CountAvailableSkillBlocks(runtime),
                 IsActiveRoster(runtime, owned.CardId),
-                GetStudyStatus(runtime, owned.CardId));
+                GetStudyStatus(runtime, owned.CardId),
+                manager.GetTeamDisplayName(season.OriginTeamSeasonKey),
+                CreateSkillBlockPlacements(manager.Balance.Growth.SkillBlocks, owned.SkillBoard.Placements),
+                condition,
+                conditionLabel,
+                abilityBreakdowns,
+                manager.Balance.MatchRatingCurve.Caps.HardCap);
+        }
+
+        private static PerCardBonusMap CreateCurrentTeamColorBonuses(
+            OwnerModeManager manager,
+            ManagerHistoricalRuntimeState runtime,
+            CurrentRosterState roster,
+            LineupPresetState preset)
+        {
+            IReadOnlyList<TeamColorDefinition> definitions = manager.GetTeamColorCatalog();
+            var resolver = new TeamColorResolver();
+            IReadOnlyList<TeamColorCandidate> active = resolver.Resolve(
+                roster,
+                runtime.WorldCardCatalog,
+                definitions);
+            TeamColorDefinition first = FindTeamColor(definitions, preset.TeamColorIds[0]);
+            TeamColorDefinition second = FindTeamColor(definitions, preset.TeamColorIds[1]);
+            // 1군 교체 Preview로 기존 팀컬러가 비활성화되면 저장 전 표시를 실제 적용 0으로 유지한다.
+            if (!ContainsTeamColor(active, first)) first = null;
+            if (!ContainsTeamColor(active, second)) second = null;
+            return resolver.ApplyEquipped(
+                roster, runtime.WorldCardCatalog, definitions, first, second);
+        }
+
+        private static bool ContainsTeamColor(
+            IReadOnlyList<TeamColorCandidate> active,
+            TeamColorDefinition definition)
+        {
+            if (definition == null) return false;
+            for (int index = 0; index < active.Count; index++)
+                if (string.Equals(
+                    active[index].Definition.TeamColorId,
+                    definition.TeamColorId,
+                    StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        private static TeamColorDefinition FindTeamColor(
+            IReadOnlyList<TeamColorDefinition> definitions,
+            string teamColorId)
+        {
+            if (string.IsNullOrWhiteSpace(teamColorId)) return null;
+            for (int index = 0; index < definitions.Count; index++)
+                if (string.Equals(definitions[index].TeamColorId, teamColorId, StringComparison.Ordinal))
+                    return definitions[index];
+            throw new InvalidOperationException($"TeamColor Definition {teamColorId}을 찾을 수 없습니다.");
+        }
+
+        private static OwnerSkillBlockPlacementSnapshot[] CreateSkillBlockPlacements(
+            IReadOnlyList<SkillBlockDefinition> definitions,
+            IReadOnlyList<PlacedSkillBlock> placements)
+        {
+            var result = new OwnerSkillBlockPlacementSnapshot[placements.Count];
+            for (int index = 0; index < placements.Count; index++)
+            {
+                PlacedSkillBlock placement = placements[index];
+                SkillBlockDefinition definition = FindSkillBlockDefinition(
+                    definitions, placement.Instance.DefinitionId);
+                result[index] = new OwnerSkillBlockPlacementSnapshot(
+                    definition.ShapeCells,
+                    placement.OriginX,
+                    placement.OriginY,
+                    placement.RotationQuarterTurns);
+            }
+            return result;
+        }
+
+        private static SkillBlockDefinition FindSkillBlockDefinition(
+            IReadOnlyList<SkillBlockDefinition> definitions,
+            string definitionId)
+        {
+            for (int index = 0; index < definitions.Count; index++)
+                if (string.Equals(definitions[index].BlockId, definitionId, StringComparison.Ordinal))
+                    return definitions[index];
+            throw new InvalidOperationException($"SkillBlock Definition {definitionId}을 찾을 수 없습니다.");
         }
 
         private static int GetTrainingBonusTotal(OwnedPlayerCardState owned)
@@ -314,13 +454,17 @@ namespace Baseball.Presentation.Owner
 
         private static OwnerCardRecordFieldSnapshot[] CreateSeasonRecord(
             WorldHistorySnapshot history,
-            PlayerSeasonDefinition season)
+            PlayerSeasonDefinition season,
+            string currentTeamSeasonKey,
+            int currentSeasonYear)
         {
             SeasonStatistics record = null;
             for (int index = 0; index < history.Statistics.Count; index++)
             {
                 SeasonStatistics candidate = history.Statistics[index];
                 if (candidate.PlayerSeasonId == season.PlayerSeasonId &&
+                    candidate.TeamSeasonKey == currentTeamSeasonKey &&
+                    candidate.SeasonYear == currentSeasonYear &&
                     !candidate.IsFirstHalf && !candidate.IsPostseason && !candidate.IsAllStarGame)
                 {
                     record = candidate;
@@ -450,6 +594,11 @@ namespace Baseball.Presentation.Owner
             ManagerHistoricalRuntimeState runtime = RequireRuntime(manager);
             ManagerPregamePreparation preparation = manager.CurrentPregame ?? manager.PrepareNextGame();
             ManagerModeRuntimeState mode = runtime.ManagerMode;
+            ScheduledGameState scheduledGame = preparation.ScheduledGame;
+            int ownTeamId = mode.LiveSeason.PlayerTeamId;
+            int opponentTeamId = scheduledGame.HomeTeamId == ownTeamId
+                ? scheduledGame.AwayTeamId
+                : scheduledGame.HomeTeamId;
             LineupPresetState preset = mode.GetSelectedLineupPreset();
             IReadOnlyList<OwnerModeConditionEntry> conditionEntries = manager.BuildConditionEntries();
             var conditions = new Dictionary<string, OwnerModeConditionEntry>(StringComparer.Ordinal);
@@ -468,12 +617,10 @@ namespace Baseball.Presentation.Owner
                     slot.CardId,
                     condition.DisplayName,
                     FormatPosition(slot.Position),
-                    OwnerConditionChemistryPresentationBuilder.FormatCondition(
-                        effective.StoredBaseCondition,
-                        presentation),
-                    FormatModifier(effective.LineupChemistryModifier),
-                    condition.IsPitcher ? FormatModifier(effective.BatteryChemistryModifier) : "해당 없음",
-                    OwnerConditionChemistryPresentationBuilder.FormatCondition(effective.Value, presentation));
+                    FormatConditionLabel(presentation.GetBand(effective.StoredBaseCondition).LabelKey),
+                    FormatChemistry(effective.LineupChemistryModifier),
+                    condition.IsPitcher ? FormatChemistry(effective.BatteryChemistryModifier) : "해당 없음",
+                    FormatConditionLabel(presentation.GetBand(effective.Value).LabelKey));
             }
 
             var displayTexts = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -511,7 +658,9 @@ namespace Baseball.Presentation.Owner
                 tactics,
                 displayTexts,
                 preparation.CanStartGame,
-                preparation.CanStartGame ? string.Empty : "현재 로스터·프리셋 검증을 통과하지 못했습니다.");
+                preparation.CanStartGame ? string.Empty : "현재 로스터·프리셋 검증을 통과하지 못했습니다.",
+                ownTeamId,
+                opponentTeamId);
         }
 
         public IReadOnlyList<OwnerConditionPlayerSnapshot> CreateConditionChemistry(OwnerModeManager manager)
@@ -646,19 +795,28 @@ namespace Baseball.Presentation.Owner
         {
             return position switch
             {
-                PlayerPosition.Catcher => "C",
-                PlayerPosition.FirstBase => "1B",
-                PlayerPosition.SecondBase => "2B",
-                PlayerPosition.ThirdBase => "3B",
-                PlayerPosition.Shortstop => "SS",
-                PlayerPosition.LeftField => "LF",
-                PlayerPosition.CenterField => "CF",
-                PlayerPosition.RightField => "RF",
-                PlayerPosition.DesignatedHitter => "DH",
-                PlayerPosition.StartingPitcher => "SP",
-                PlayerPosition.ReliefPitcher => "RP",
-                _ => "-"
+                PlayerPosition.Catcher => "포수",
+                PlayerPosition.FirstBase => "1루수",
+                PlayerPosition.SecondBase => "2루수",
+                PlayerPosition.ThirdBase => "3루수",
+                PlayerPosition.Shortstop => "유격수",
+                PlayerPosition.LeftField => "좌익수",
+                PlayerPosition.CenterField => "중견수",
+                PlayerPosition.RightField => "우익수",
+                PlayerPosition.DesignatedHitter => "지명타자",
+                PlayerPosition.StartingPitcher => "선발투수",
+                PlayerPosition.ReliefPitcher => "구원투수",
+                _ => "포지션 확인 필요"
             };
+        }
+
+        private static string FormatChemistry(int modifier)
+        {
+            if (modifier >= 2) return "매우 좋음";
+            if (modifier == 1) return "좋음";
+            if (modifier == 0) return "보통";
+            if (modifier == -1) return "다소 불안";
+            return "불안";
         }
 
         private static string FormatTeamColor(TeamColorDefinition definition)

@@ -59,21 +59,146 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     "C-H", "P-H", "가상타자", 2025, PlayerPosition.Shortstop, 8,
                     PlayerCardEdition.Normal, 0, 0, false, false,
                     CreateAbilities(), "2025 · 월드 기록", "PS-H", null,
-                    Handedness.Right, Handedness.Left, null, record);
+                    Handedness.Right, Handedness.Left, null, record, condition: 73, conditionLabel: "좋음");
                 UI_Popup_OwnerPlayerCard.Show(sourceObject.transform, card);
                 Transform back = canvasObject.transform.Find("UI_Popup_OwnerPlayerCard/CardDetail/Back");
                 Assert.That(back.Find("RecordValue0").GetComponent<Text>().text, Is.EqualTo("512"));
                 Assert.That(back.Find("RecordValue1").GetComponent<Text>().text, Is.EqualTo("0.301"));
                 for (int y = 0; y < 4; y++)
                 for (int x = 0; x < 4; x++)
-                    Assert.That(back.Find($"SkillBoardInformation/Grid/Cell_{x}_{y}"), Is.Not.Null);
-                Assert.That(back.Find("RoleInformation/Position4"), Is.Not.Null);
+                {
+                    Transform cell = back.Find($"SkillBoardInformation/Grid/Cell_{x}_{y}");
+                    Assert.That(cell, Is.Not.Null);
+                    Assert.That(cell.Find("TraitSocket"), Is.Null);
+                    Assert.That(cell.GetComponent<Image>().color,
+                        Is.EqualTo(back.Find("SkillBoardInformation/Grid/Cell_0_0").GetComponent<Image>().color));
+                }
+                Assert.That(back.Find("RoleInformation/DefenseDiagram/Field").GetComponent<UICardDefenseField>(), Is.Not.Null);
+                Assert.That(back.Find("RoleInformation/DefenseDiagram/Field/PositionLabel").GetComponent<Text>().text,
+                    Is.EqualTo("유격수"));
+                Assert.That(back.Find("RoleInformation/Position4"), Is.Null);
+                Assert.That(back.Find("RoleInformation/DefenseDiagram/Field/PositionBall").GetComponent<Image>().sprite,
+                    Is.Not.Null);
+                Transform front = back.parent.Find("Front");
+                Assert.That(front.Find("ConditionPanel/Value").GetComponent<Text>().text, Is.EqualTo("73"));
+                Assert.That(front.Find("ConditionPanel/State").GetComponent<Text>().text, Is.EqualTo("좋음"));
                 Assert.That(back.Find("RoleInformation/PitchSlot0"), Is.Null);
             }
             finally
             {
                 Object.DestroyImmediate(canvasObject);
             }
+        }
+
+        [Test]
+        public void SkillBoard_장착블록은공용중립TetrominoSprite로표시한다()
+        {
+            GameObject canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
+            GameObject sourceObject = new GameObject("Source", typeof(RectTransform));
+            sourceObject.transform.SetParent(canvasObject.transform, false);
+            try
+            {
+                var placement = new OwnerSkillBlockPlacementSnapshot(
+                    TetrominoShapeCatalog.CreateCells(TetrominoShape.T), 0, 0, 0);
+                var card = new OwnerCollectionCardSnapshot(
+                    "C-B", "P-B", "블록타자", 2025, PlayerPosition.Shortstop, 8,
+                    PlayerCardEdition.Normal, 0, 0, false, false,
+                    CreateAbilities(), "루키 리그 · 현재 시즌", "PS-B", null,
+                    Handedness.Right, Handedness.Right, null, null,
+                    placedSkillBlockCount: 1,
+                    skillBlockPlacements: new[] { placement });
+
+                UI_Popup_OwnerPlayerCard.Show(sourceObject.transform, card);
+
+                Image block = canvasObject.transform.Find(
+                    "UI_Popup_OwnerPlayerCard/CardDetail/Back/SkillBoardInformation/Grid/PlacedBlock_0")
+                    .GetComponent<Image>();
+                Assert.That(block.sprite, Is.Not.Null);
+                Assert.That(block.sprite.name, Is.EqualTo("SkillBlock_T"));
+                Assert.That(block.color, Is.EqualTo(Color.white));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvasObject);
+            }
+        }
+
+        [Test]
+        public void Navigation_첫카드와마지막카드에서바깥방향버튼을비활성화한다()
+        {
+            GameObject canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
+            GameObject sourceObject = new GameObject("Source", typeof(RectTransform));
+            sourceObject.transform.SetParent(canvasObject.transform, false);
+            try
+            {
+                OwnerCollectionCardSnapshot[] cards =
+                {
+                    CreateHitter("C-1", "1번 타자"),
+                    CreateHitter("C-2", "2번 타자"),
+                    CreateHitter("C-3", "벤치 5번")
+                };
+                UI_Popup_OwnerPlayerCard.Show(sourceObject.transform, cards, 0);
+                Transform popup = canvasObject.transform.Find("UI_Popup_OwnerPlayerCard");
+                Button previous = popup.Find("PreviousCard").GetComponent<Button>();
+                Button next = popup.Find("NextCard").GetComponent<Button>();
+
+                Assert.That(previous.interactable, Is.False);
+                Assert.That(next.interactable, Is.True);
+                next.onClick.Invoke();
+                next.onClick.Invoke();
+
+                Assert.That(popup.Find("CardDetail/Front/Name").GetComponent<Text>().text, Is.EqualTo("벤치 5번"));
+                Assert.That(previous.interactable, Is.True);
+                Assert.That(next.interactable, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvasObject);
+            }
+        }
+
+        [Test]
+        public void Detail_우측비모달패널에성장출처별막대를표시한다()
+        {
+            GameObject canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
+            GameObject sourceObject = new GameObject("Source", typeof(RectTransform));
+            sourceObject.transform.SetParent(canvasObject.transform, false);
+            try
+            {
+                var breakdowns = new OwnerAbilityBreakdownSnapshot[PlayerAbilityCatalog.AbilityCount];
+                for (int index = 0; index < breakdowns.Length; index++)
+                    breakdowns[index] = new OwnerAbilityBreakdownSnapshot(70, 2, 3, 1, 2, 2);
+                var card = new OwnerCollectionCardSnapshot(
+                    "C-G", "P-G", "성장타자", 2025, PlayerPosition.Shortstop, 8,
+                    PlayerCardEdition.Normal, 2, 0, false, false,
+                    CreateAbilities(), abilityBreakdowns: breakdowns, abilityGraphMaximum: 140);
+
+                UI_Popup_OwnerPlayerCard.Show(sourceObject.transform, card);
+
+                Transform popup = canvasObject.transform.Find("UI_Popup_OwnerPlayerCard");
+                Transform front = popup.Find("CardDetail/Front");
+                Assert.That(popup.GetComponent<Image>(), Is.Null);
+                Assert.That(popup.Find("DetailDrawer"), Is.Not.Null);
+                Assert.That(popup.GetComponent<UI_Popup_OwnerPlayerCard>().BlocksLowerInput, Is.False);
+                Assert.That(front.Find("TrainingFill0"), Is.Not.Null);
+                Assert.That(front.Find("SkillBlockFill0"), Is.Not.Null);
+                Assert.That(front.Find("TeamColorFill0"), Is.Not.Null);
+                Assert.That(front.Find("StudyFill0"), Is.Not.Null);
+                Assert.That(front.Find("EnhancementFill0"), Is.Not.Null);
+                Assert.That(front.Find("Value0").GetComponent<Text>().text, Is.EqualTo("80"));
+                Assert.That(front.Find("GrowthValue0").GetComponent<Text>().text, Is.EqualTo("+10"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvasObject);
+            }
+        }
+
+        private static OwnerCollectionCardSnapshot CreateHitter(string cardId, string displayName)
+        {
+            return new OwnerCollectionCardSnapshot(
+                cardId, "P-" + cardId, displayName, 2025, PlayerPosition.Shortstop, 8,
+                PlayerCardEdition.Normal, 0, 0, false, false, CreateAbilities());
         }
 
         private static OwnerCollectionCardSnapshot CreatePitcher(int pitchCount)

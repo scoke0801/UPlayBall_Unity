@@ -4,7 +4,10 @@ using Baseball.Game.Historical;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedScreens;
 using Baseball.Presentation.SharedUI;
+using Baseball.Presentation.UI;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
 {
@@ -56,6 +59,29 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId, "일정");
             AssertReachableLeagueTab(profile, league,
                 OwnerSharedInformationWorkspaceCoordinator.RecordsRouteId, "역사 기록");
+        }
+
+        [Test]
+        public void View_리그RefSkin과파란부문선택을사용한다()
+        {
+            var root = new GameObject("OwnerSeasonRecordsViewTests_Root", typeof(RectTransform));
+            try
+            {
+                UI_Scene_OwnerSeasonRecords view = UI_Scene_OwnerSeasonRecords.CreateRuntime(root.transform);
+                view.Bind(CreateModel(hasRecord: true));
+
+                RecordTableView table = view.transform.Find(
+                    "SeasonRecordTableHost/SeasonRecordTable").GetComponent<RecordTableView>();
+                Image selectedCategory = view.transform.Find(
+                    "CategoryBar/CategoryButton0").GetComponent<Image>();
+
+                Assert.That(table.VisualStyle, Is.EqualTo(RecordTableVisualStyle.ReferenceLight));
+                Assert.That(selectedCategory.color, Is.EqualTo(CareerUiTheme.ReferenceDataAccent));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
         }
 
         private static void AssertReachableLeagueTab(

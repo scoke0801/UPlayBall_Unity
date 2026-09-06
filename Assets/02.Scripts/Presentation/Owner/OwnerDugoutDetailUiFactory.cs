@@ -1,10 +1,149 @@
 using System;
+using Baseball.Core.Historical;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
+    /// <summary>감독 방침의 0~4 정수 단계를 이미지 없는 다섯 칸 선택기로 표시한다.</summary>
+    internal sealed class OwnerPolicyStepSelector
+    {
+        public const int MinimumLevel = 0;
+        public const int MaximumLevel = 4;
+
+        private const int StepCount = MaximumLevel - MinimumLevel + 1;
+        private const float StepGap = 0.012f;
+
+        private readonly Button[] _buttons = new Button[StepCount];
+        private readonly Image[] _surfaces = new Image[StepCount];
+        private readonly Text[] _labels = new Text[StepCount];
+        private readonly Color _accent;
+        private int _minimum = MinimumLevel;
+        private int _maximum = MaximumLevel;
+        private int _value = DugoutPolicySettings.NeutralLevel;
+
+        public OwnerPolicyStepSelector(RectTransform root, Color accent)
+        {
+            if (root == null) throw new ArgumentNullException(nameof(root));
+
+            _accent = accent;
+            float stepWidth = (1f - StepGap * (StepCount - 1)) / StepCount;
+            for (int index = 0; index < StepCount; index++)
+            {
+                float left = index * (stepWidth + StepGap);
+                RectTransform step = OwnerDugoutDetailUiFactory.CreateRect(
+                    root,
+                    "Step" + index,
+                    left,
+                    0f,
+                    left + stepWidth,
+                    1f);
+                Image surface = step.gameObject.AddComponent<Image>();
+                surface.sprite = null;
+                surface.type = Image.Type.Simple;
+                step.gameObject.AddComponent<CareerUiVisualElement>()
+                    .Initialize(CareerUiVisualRole.FlatSurface);
+
+                var outline = step.gameObject.AddComponent<Outline>();
+                outline.effectColor = CareerUiTheme.ReferenceBorder;
+                outline.effectDistance = new Vector2(1f, -1f);
+
+                Button button = step.gameObject.AddComponent<Button>();
+                button.targetGraphic = surface;
+                button.transition = Selectable.Transition.ColorTint;
+                ColorBlock colors = button.colors;
+                colors.normalColor = Color.white;
+                colors.highlightedColor = new Color(1.08f, 1.08f, 1.08f, 1f);
+                colors.selectedColor = colors.highlightedColor;
+                colors.pressedColor = new Color(0.84f, 0.87f, 0.90f, 1f);
+                colors.disabledColor = Color.white;
+                colors.colorMultiplier = 1f;
+                colors.fadeDuration = 0.06f;
+                button.colors = colors;
+
+                Text label = OwnerDugoutDetailUiFactory.CreateLabel(
+                    step,
+                    "Label",
+                    FormatLevel(index),
+                    0f,
+                    0f,
+                    1f,
+                    1f,
+                    12,
+                    FontStyle.Bold,
+                    TextAnchor.MiddleCenter);
+                label.raycastTarget = false;
+
+                int level = index;
+                button.onClick.AddListener(() => SetValue(level));
+                _buttons[index] = button;
+                _surfaces[index] = surface;
+                _labels[index] = label;
+                OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Detail);
+            }
+
+            RefreshVisuals();
+        }
+
+        public event Action<int> ValueChanged;
+
+        public int Value => _value;
+
+        public void SetRange(int minimum, int maximum)
+        {
+            int previous = _value;
+            _minimum = Mathf.Clamp(minimum, MinimumLevel, MaximumLevel);
+            _maximum = Mathf.Clamp(maximum, _minimum, MaximumLevel);
+            _value = Mathf.Clamp(_value, _minimum, _maximum);
+            RefreshVisuals();
+            if (_value != previous) ValueChanged?.Invoke(_value);
+        }
+
+        public void SetValue(int value, bool notify = true)
+        {
+            int next = Mathf.Clamp(value, _minimum, _maximum);
+            if (_value == next)
+            {
+                RefreshVisuals();
+                return;
+            }
+
+            _value = next;
+            RefreshVisuals();
+            if (notify) ValueChanged?.Invoke(_value);
+        }
+
+        public void RefreshVisuals()
+        {
+            for (int index = 0; index < StepCount; index++)
+            {
+                bool isAllowed = index >= _minimum && index <= _maximum;
+                bool isSelected = index == _value;
+                _buttons[index].interactable = isAllowed;
+                _surfaces[index].sprite = null;
+                _surfaces[index].type = Image.Type.Simple;
+                _surfaces[index].color = isSelected
+                    ? _accent
+                    : isAllowed
+                        ? CareerUiTheme.ReferenceButton
+                        : new Color(0.82f, 0.83f, 0.82f, 0.38f);
+                _labels[index].color = isSelected
+                    ? Color.white
+                    : isAllowed
+                        ? CareerUiTheme.ReferenceText
+                        : new Color(0.42f, 0.45f, 0.47f, 0.62f);
+            }
+        }
+
+        private static string FormatLevel(int level)
+        {
+            int offset = level - DugoutPolicySettings.NeutralLevel;
+            if (offset == 0) return "중립";
+            return offset > 0 ? "+" + offset : offset.ToString();
+        }
+    }
+
     /// <summary>덕아웃 상세 화면 세 장의 조밀한 패널·목록·액션 모양을 통일한다.</summary>
     internal static class OwnerDugoutDetailUiFactory
     {

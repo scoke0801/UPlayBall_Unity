@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Historical;
 using Baseball.Game.Career;
 using Baseball.Game.Historical;
 using Baseball.Presentation.Owner;
@@ -50,6 +51,63 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void ClubSeasonHistoryFactory_사전WorldHistory대신실제진행시즌만표시한다()
+        {
+            var teams = new[]
+            {
+                new ManagerTeamReference(1, "owner-team"),
+                new ManagerTeamReference(2, "rival-team")
+            };
+            var completedGame = new ScheduledGameState(1, 1, 101UL, 1, 2);
+            completedGame.Complete(5, 3);
+            var completedSeason = new ManagerLiveSeasonState(
+                "owner:2024:1",
+                1,
+                2024,
+                1,
+                1,
+                teams,
+                new SeasonScheduleState(new[] { completedGame }));
+            var completed = new ManagerCompletedSeasonState(completedSeason, LeagueGrade.Rookie);
+
+            var currentGame = new ScheduledGameState(2, 1, 201UL, 1, 2);
+            currentGame.Complete(1, 4);
+            var pendingGame = new ScheduledGameState(3, 2, 202UL, 2, 1);
+            var liveSeason = new ManagerLiveSeasonState(
+                "owner:2024:2",
+                2,
+                2024,
+                1,
+                1,
+                teams,
+                new SeasonScheduleState(new[] { currentGame, pendingGame }));
+
+            RecordsScreenSnapshot snapshot =
+                new OwnerSharedInformationSnapshotFactory().CreateClubSeasonHistoryRecords(
+                    liveSeason,
+                    new[] { completed },
+                    LeagueGrade.Minor,
+                    "내 구단");
+
+            Assert.That(snapshot.SeasonLabel, Is.EqualTo("구단 역사"));
+            Assert.That(snapshot.CategoryLabel, Is.EqualTo("시즌 성적"));
+            Assert.That(snapshot.QualificationText, Does.Contain("실제 진행 시즌만"));
+            Assert.That(snapshot.Table.Rows.Count, Is.EqualTo(2));
+            Assert.That(snapshot.Table.Columns.Count, Is.EqualTo(15));
+            Assert.That(snapshot.Table.Columns[0].ColumnId, Is.EqualTo("Season"));
+            Assert.That(snapshot.Table.Rows[0].RowId, Is.EqualTo("club-season:owner:2024:2"));
+            Assert.That(snapshot.FocusedRowId, Is.EqualTo(snapshot.Table.Rows[0].RowId));
+            Assert.That(snapshot.Table.Rows[0].FindCell("Status").DisplayValue, Is.EqualTo("진행 중"));
+            Assert.That(snapshot.Table.Rows[0].FindCell("Wins").DisplayValue, Is.EqualTo("0"));
+            Assert.That(snapshot.Table.Rows[0].FindCell("Losses").DisplayValue, Is.EqualTo("1"));
+            Assert.That(snapshot.Table.Rows[1].FindCell("Status").DisplayValue, Is.EqualTo("완료"));
+            Assert.That(snapshot.Table.Rows[1].FindCell("Wins").DisplayValue, Is.EqualTo("1"));
+            Assert.That(snapshot.Table.Rows[1].FindCell("RS").DisplayValue, Is.EqualTo("5"));
+            Assert.That(snapshot.Table.Rows[1].FindCell("League").DisplayValue, Is.EqualTo("루키 리그"));
+            Assert.That(snapshot.Table.Rows[0].FindCell("Player"), Is.Null);
+        }
+
+        [Test]
         public void ReadOnlyActionProvider_가짜OwnerCommand를노출하거나실행하지않는다()
         {
             var context = new SharedScreenContext(
@@ -65,18 +123,24 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_리그에네종류의읽기전용탭을제공한다()
+        public void Profile_리그에일정과기록을포함한일곱탭을제공한다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
             NavigationEntry league = profile.Navigation.FindEntry("Shared.League");
             NavigationEntry standings = profile.Navigation.FindEntry("Shared.League.Standings");
             Assert.That(league.IsEnabled, Is.True);
-            Assert.That(league.Children.Count, Is.EqualTo(4));
+            Assert.That(league.Children.Count, Is.EqualTo(7));
             Assert.That(standings.IsEnabled, Is.True);
             Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.LeagueTeamResults).IsEnabled, Is.True);
             Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.LeagueMatchups).IsEnabled, Is.True);
             Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.LeagueRankHistory).IsEnabled, Is.True);
+            Assert.That(profile.Navigation.FindEntry(
+                OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId).IsEnabled, Is.True);
+            Assert.That(profile.Navigation.FindEntry(
+                OwnerSharedInformationWorkspaceCoordinator.SeasonRecordsRouteId).IsEnabled, Is.True);
+            Assert.That(profile.Navigation.FindEntry(
+                OwnerSharedInformationWorkspaceCoordinator.RecordsRouteId).IsEnabled, Is.True);
         }
 
         [Test]
@@ -116,10 +180,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(coordinator.TryShowRoute(
                     OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId), Is.True);
                 Button button = shell.transform.Find(
-                    "MainWorkspaceHost/UI_Scene_OwnerSchedule/InformationHeader/ContentSafeRect/NextMatchAnalysisButton")
+                    "MainWorkspaceHost/UI_Scene_OwnerSchedule/InformationHeader/NextMatchAnalysisButton")
                     .GetComponent<Button>();
+                RecordTableView table = shell.transform.Find(
+                    "MainWorkspaceHost/UI_Scene_OwnerSchedule/RecordTableHost/SharedRecordTable")
+                    .GetComponent<RecordTableView>();
 
                 Assert.That(button.interactable, Is.True);
+                Assert.That(table.VisualStyle, Is.EqualTo(RecordTableVisualStyle.ReferenceLight));
                 button.onClick.Invoke();
                 Assert.That(requested, Is.True);
             }

@@ -137,14 +137,7 @@ namespace Baseball.Presentation.Owner
             var layout = rect.gameObject.AddComponent<LayoutElement>();
             layout.minHeight = 42f;
             layout.preferredHeight = 42f;
-            CareerUiSkin.ApplyButton(button);
-            ColorBlock colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = CareerUiTheme.ReferenceButtonHighlight;
-            colors.pressedColor = new Color(0.70f, 0.72f, 0.72f, 1f);
-            colors.disabledColor = new Color(0.72f, 0.73f, 0.72f, 0.55f);
-            colors.colorMultiplier = 1f;
-            button.colors = colors;
+            OwnerUiButtonSkin.Apply(button);
             return button;
         }
 

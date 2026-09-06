@@ -23,8 +23,17 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 view = UI_Scene_OwnerPregame.CreateRuntime(root, root, root);
                 var model = OwnerPregamePresentationBuilder.Build(CreatePregameSnapshot(CreateValidPresetValidation()));
                 view.Bind(model);
+                Assert.That(host.GetComponentsInChildren<UnityEngine.UI.Button>()
+                    .Any(button => button.name == "PreviousPresetButton" || button.name == "NextPresetButton"), Is.False);
+                string[] emblems = host.GetComponentsInChildren<UnityEngine.UI.Image>()
+                    .Where(image => image.name == "TeamEmblem")
+                    .Select(image => image.sprite != null ? image.sprite.name : string.Empty)
+                    .OrderBy(name => name)
+                    .ToArray();
+                Assert.That(emblems, Is.EqualTo(new[] { "TeamEmblem_007", "TeamEmblem_012" }));
                 var table = host.GetComponentsInChildren<UnityEngine.UI.ScrollRect>()
                     .Single(scroll => scroll.name == "RosterScroll0");
+                Assert.That(table.GetComponent<UnityEngine.UI.Image>().raycastTarget, Is.True);
                 Assert.That(table.content.childCount, Is.EqualTo(10));
                 var tab = table.transform.parent.Find("RecordTab1").GetComponent<UnityEngine.UI.Button>();
                 tab.onClick.Invoke();
@@ -81,6 +90,35 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(model.MatchStartDisabledReason, Does.Contain("출전"));
             Assert.That(model.Lineup[0].WarningText, Does.Contain("출전"));
             Assert.That(model.Presets.Single().StatusText, Is.EqualTo("수정 필요"));
+        }
+
+        [Test]
+        public void PregameBuilder_내부ValidationContext대신사용자용경고를표시한다()
+        {
+            var issue = new LineupPresetValidationIssue(
+                LineupPresetValidationIssueCode.OffPositionAssignment,
+                LineupPresetIssueSeverity.Warning,
+                LineupPresetAssignmentGroup.StartingLineup,
+                0,
+                "CARD_0",
+                "ThirdBase->FirstBase");
+            var validation = new LineupPresetValidationResult("preset:default", new[] { issue });
+
+            OwnerPregamePresentationModel model = OwnerPregamePresentationBuilder.Build(
+                CreatePregameSnapshot(validation));
+
+            Assert.That(model.Lineup[0].WarningText, Is.EqualTo("익숙하지 않은 포지션입니다"));
+            Assert.That(model.Lineup[0].WarningText, Does.Not.Contain("->"));
+        }
+
+        [Test]
+        public void PregameBuilder_상대예상라인업포지션을한글로표시한다()
+        {
+            OwnerPregamePresentationModel model = OwnerPregamePresentationBuilder.Build(
+                CreatePregameSnapshot(CreateValidPresetValidation(), CreateObservedReport()));
+
+            Assert.That(model.ExpectedLineup.Single(), Does.Contain("3루수"));
+            Assert.That(model.ExpectedLineup.Single(), Does.Not.Contain("3B"));
         }
 
         [Test]
@@ -151,7 +189,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(OwnerPregamePresentationBuilder.FormatIntelState(state), Is.EqualTo(expected));
         }
 
-        private static OwnerPregameSnapshot CreatePregameSnapshot(LineupPresetValidationResult validation)
+        private static OwnerPregameSnapshot CreatePregameSnapshot(
+            LineupPresetValidationResult validation,
+            OpponentScoutingReport report = null)
         {
             var players = new OwnerPregamePlayerSnapshot[9];
             for (int index = 0; index < players.Length; index++)
@@ -169,14 +209,16 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 UiContentStateModel.Ready,
                 "5월 3일 홈 경기",
                 "부산 마리너스",
-                CreateUnknownReport(),
+                report ?? CreateUnknownReport(),
                 new[] { new OwnerPregamePresetSnapshot("preset:default", "기본 라인업", validation) },
                 "preset:default",
                 players,
                 new[] { "기동력 야구", "철벽 수비" },
                 new[] { "초반 승부", "불펜 총력전" },
                 new Dictionary<string, string>(),
-                true);
+                true,
+                ownTeamEmblemId: 7,
+                opponentTeamEmblemId: 12);
         }
 
         private static LineupPresetValidationResult CreateValidPresetValidation()
@@ -193,6 +235,38 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 new ReportConfidenceSummary(IntelState.Unknown, 0d, 0),
                 ScoutedValue<ProbableStarterProjection>.Unknown(),
                 Array.Empty<ScoutedValue<ExpectedLineupEntry>>(),
+                Array.Empty<ScoutedValue<BullpenReadinessEntry>>(),
+                ScoutedValue<OpponentRecentForm>.Unknown(),
+                ScoutedValue<OpponentPerformanceProfile>.Unknown(),
+                ScoutedValue<OpponentPerformanceProfile>.Unknown(),
+                ScoutedValue<OpponentPerformanceProfile>.Unknown(),
+                ScoutedValue<ManagerTendencyEstimate>.Unknown(),
+                Array.Empty<ScoutedValue<RecentTacticPatternSummary>>(),
+                Array.Empty<ScoutingReportNote>(),
+                Array.Empty<ScoutingReportNote>(),
+                Array.Empty<ScoutingReportNote>());
+        }
+
+        private static OpponentScoutingReport CreateObservedReport()
+        {
+            return new OpponentScoutingReport(
+                101,
+                "OPPONENT_2026",
+                new DateTime(2026, 5, 3),
+                new ReportConfidenceSummary(IntelState.Estimated, 0.6d, 1),
+                ScoutedValue<ProbableStarterProjection>.Unknown(),
+                new[]
+                {
+                    new ScoutedValue<ExpectedLineupEntry>(
+                        new ExpectedLineupEntry(
+                            "OPPONENT_CARD",
+                            "OPPONENT_PERSON",
+                            1,
+                            Baseball.Core.Players.PlayerPosition.ThirdBase),
+                        IntelState.Estimated,
+                        0.6d,
+                        Array.Empty<string>())
+                },
                 Array.Empty<ScoutedValue<BullpenReadinessEntry>>(),
                 ScoutedValue<OpponentRecentForm>.Unknown(),
                 ScoutedValue<OpponentPerformanceProfile>.Unknown(),

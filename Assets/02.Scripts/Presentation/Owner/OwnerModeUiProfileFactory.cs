@@ -9,12 +9,17 @@ namespace Baseball.Presentation.Owner
         public const string Home = "Owner.Home";
         public const string Roster = "Owner.Roster";
         public const string RosterLineup = "Owner.Roster.Lineup";
+        public const string RosterTacticCards = "Owner.Roster.TacticCards";
+        public const string RosterSupportCards = "Owner.Roster.SupportCards";
+        public const string RosterTeamColor = "Owner.Roster.TeamColor";
         public const string RosterPitching = "Owner.Roster.Pitching";
         public const string RosterCollection = "Owner.Roster.Collection";
         public const string RosterCondition = "Owner.Roster.Condition";
         public const string PowerUp = "Owner.PowerUp";
         public const string PowerUpScout = "Owner.PowerUp.Scout";
         public const string PowerUpTraining = "Owner.PowerUp.Training";
+        public const string PowerUpSkills = "Owner.PowerUp.Skills";
+        public const string PowerUpStudy = "Owner.PowerUp.Study";
         public const string PowerUpEnhancementSale = "Owner.PowerUp.EnhancementSale";
         public const string Dugout = "Owner.Dugout";
         public const string DugoutLineupNotes = "Owner.Dugout.LineupNotes";
@@ -36,6 +41,7 @@ namespace Baseball.Presentation.Owner
         public const string MatchCenterAnalysis = "Owner.MatchCenter.Analysis";
         public const string MatchCenterLineup = "Owner.MatchCenter.Lineup";
         public const string MatchCenterCondition = "Owner.MatchCenter.Condition";
+        public const string MatchCenterOpponentLineup = "Owner.MatchCenter.OpponentLineup";
         public const string MatchCenterTactics = "Owner.MatchCenter.Tactics";
         public const string MatchSpectator = "Owner.Match.Spectator";
     }
@@ -43,27 +49,48 @@ namespace Baseball.Presentation.Owner
     /// <summary>구단주 모드에서 실제로 제공되는 Route와 권한을 공용 셸 계약으로 만든다.</summary>
     public static class OwnerModeUiProfileFactory
     {
+        /// <summary>상위 메뉴 요청을 이전 선택과 관계없이 첫 번째 사용 가능한 Local Route로 변환한다.</summary>
+        public static string ResolvePrimaryMenuRoute(GameModeUiProfile profile, string routeId)
+        {
+            if (profile == null)
+                throw new System.ArgumentNullException(nameof(profile));
+
+            string resolved = profile.ResolveRouteId(routeId);
+            NavigationEntry entry = profile.Navigation.FindEntry(resolved);
+            if (entry == null || entry.Children.Count == 0)
+                return resolved;
+
+            for (int index = 0; index < entry.Children.Count; index++)
+            {
+                NavigationEntry child = entry.Children[index];
+                if (child.IsEnabled && child.IsVisible(profile.Capabilities))
+                    return child.RouteId;
+            }
+
+            return resolved;
+        }
+
         /// <summary>현재 백엔드 연결 범위를 숨기거나 과장하지 않는 구단주 UI Profile을 만든다.</summary>
         public static GameModeUiProfile Create()
         {
             var rosterTabs = new[]
             {
-                new NavigationEntry(OwnerNavigationRoutes.RosterLineup, "라인업"),
-                new NavigationEntry(OwnerNavigationRoutes.RosterPitching, "투수진"),
-                new NavigationEntry(OwnerNavigationRoutes.RosterCollection, "보유선수"),
-                new NavigationEntry(OwnerNavigationRoutes.RosterCondition, "컨디션·궁합")
+                new NavigationEntry(OwnerNavigationRoutes.RosterLineup, "선수 오더"),
+                new NavigationEntry(OwnerNavigationRoutes.RosterTacticCards, "작전 카드"),
+                new NavigationEntry(OwnerNavigationRoutes.RosterSupportCards, "서포트 카드"),
+                new NavigationEntry(OwnerNavigationRoutes.RosterTeamColor, "팀 컬러")
             };
             var powerUpTabs = new[]
             {
                 new NavigationEntry(OwnerNavigationRoutes.PowerUpScout, "스카우트"),
                 new NavigationEntry(OwnerNavigationRoutes.PowerUpTraining, "카드훈련"),
-                new NavigationEntry(OwnerNavigationRoutes.PowerUpEnhancementSale, "강화·판매")
+                new NavigationEntry(OwnerNavigationRoutes.PowerUpEnhancementSale, "카드 합성"),
+                new NavigationEntry(OwnerNavigationRoutes.PowerUpSkills, "스킬 블록 배치"),
+                new NavigationEntry(OwnerNavigationRoutes.PowerUpStudy, "유학")
             };
             var dugoutTabs = new[]
             {
                 new NavigationEntry(OwnerNavigationRoutes.DugoutLineupNotes, "덕아웃"),
-                new NavigationEntry(OwnerNavigationRoutes.DugoutTeamColor, "팀컬러"),
-                new NavigationEntry(OwnerNavigationRoutes.DugoutTactics, "작전"),
                 new NavigationEntry(OwnerNavigationRoutes.DugoutManagerPolicy, "감독방침")
             };
             var leagueTabs = new[]
@@ -124,14 +151,18 @@ namespace Baseball.Presentation.Owner
                 {
                     new NavigationEntry(OwnerNavigationRoutes.MatchCenterAnalysis, "상대 분석"),
                     new NavigationEntry(OwnerNavigationRoutes.MatchCenterLineup, "우리 라인업"),
-                    new NavigationEntry(OwnerNavigationRoutes.MatchCenterCondition, "컨디션·궁합"),
+                    new NavigationEntry(OwnerNavigationRoutes.MatchCenterOpponentLineup, "상대 라인업"),
                     new NavigationEntry(OwnerNavigationRoutes.MatchCenterTactics, "전술카드")
                 }),
                 new NavigationEntry(OwnerNavigationRoutes.MatchSpectator, "경기 관전")
             });
             var migrations = new NavigationRouteMigrationMap(new Dictionary<string, string>
             {
+                [OwnerNavigationRoutes.MatchCenterCondition] = OwnerNavigationRoutes.MatchCenterOpponentLineup,
                 ["Owner.Roster.Active"] = OwnerNavigationRoutes.RosterLineup,
+                [OwnerNavigationRoutes.RosterPitching] = OwnerNavigationRoutes.RosterLineup,
+                [OwnerNavigationRoutes.RosterCollection] = OwnerNavigationRoutes.RosterLineup,
+                [OwnerNavigationRoutes.RosterCondition] = OwnerNavigationRoutes.RosterLineup,
                 ["Owner.Scout"] = OwnerNavigationRoutes.PowerUpScout,
                 ["Owner.Scout.General"] = OwnerNavigationRoutes.PowerUpScout,
                 ["Owner.Scout.Franchise"] = OwnerNavigationRoutes.PowerUpScout,
@@ -143,8 +174,10 @@ namespace Baseball.Presentation.Owner
                 ["Owner.Development.Enhancement"] = OwnerNavigationRoutes.PowerUpEnhancementSale,
                 ["Owner.Development.Sale"] = OwnerNavigationRoutes.PowerUpEnhancementSale,
                 ["Owner.Tactic"] = OwnerNavigationRoutes.DugoutLineupNotes,
-                ["Owner.Tactic.TeamColor"] = OwnerNavigationRoutes.DugoutTeamColor,
-                ["Owner.Tactic.Cards"] = OwnerNavigationRoutes.DugoutTactics,
+                [OwnerNavigationRoutes.DugoutTeamColor] = OwnerNavigationRoutes.RosterTeamColor,
+                [OwnerNavigationRoutes.DugoutTactics] = OwnerNavigationRoutes.RosterTacticCards,
+                ["Owner.Tactic.TeamColor"] = OwnerNavigationRoutes.RosterTeamColor,
+                ["Owner.Tactic.Cards"] = OwnerNavigationRoutes.RosterTacticCards,
                 ["Owner.Tactic.ManagerPolicy"] = OwnerNavigationRoutes.DugoutManagerPolicy,
                 [OwnerModeShellCoordinator.MatchRouteId] = OwnerNavigationRoutes.MatchCenterAnalysis,
                 [OwnerExpansionWorkspaceCoordinator.PregameRouteId] = OwnerNavigationRoutes.MatchCenterAnalysis

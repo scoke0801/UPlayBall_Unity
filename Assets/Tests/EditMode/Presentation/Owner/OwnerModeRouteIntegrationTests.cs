@@ -19,8 +19,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             AssertEnabled(profile, OwnerNavigationRoutes.Club);
             AssertEnabled(profile, OwnerNavigationRoutes.League);
             AssertEnabled(profile, OwnerExpansionWorkspaceCoordinator.RosterLineupRouteId);
-            AssertEnabled(profile, OwnerExpansionWorkspaceCoordinator.CollectionRouteId);
-            AssertEnabled(profile, OwnerManagementRoutes.RosterCondition);
+            AssertEnabled(profile, OwnerNavigationRoutes.RosterTacticCards);
+            AssertEnabled(profile, OwnerNavigationRoutes.RosterSupportCards);
+            AssertEnabled(profile, OwnerNavigationRoutes.RosterTeamColor);
             AssertEnabled(profile, OwnerNavigationRoutes.DugoutLineupNotes);
             AssertEnabled(profile, OwnerManagementRoutes.ClubFinance);
             AssertEnabled(profile, OwnerManagementRoutes.ClubFacility);
@@ -39,7 +40,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_전력보강의세업무와필요권한을모두연다()
+        public void Profile_전력보강의다섯업무와필요권한을모두연다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
             NavigationEntry powerUp = profile.Navigation.FindEntry(OwnerNavigationRoutes.PowerUp);
@@ -51,6 +52,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(powerUp.IsVisible(profile.Capabilities), Is.True);
             Assert.That(scout.IsEnabled, Is.True);
             Assert.That(scout.IsVisible(profile.Capabilities), Is.True);
+            Assert.That(powerUp.Children[2].DisplayName, Is.EqualTo("카드 합성"));
+            Assert.That(powerUp.Children.Count, Is.EqualTo(5));
+            Assert.That(powerUp.Children[3].RouteId, Is.EqualTo(OwnerNavigationRoutes.PowerUpSkills));
+            Assert.That(powerUp.Children[4].RouteId, Is.EqualTo(OwnerNavigationRoutes.PowerUpStudy));
             for (int index = 0; index < powerUp.Children.Count; index++)
             {
                 Assert.That(powerUp.Children[index].IsEnabled, Is.True, powerUp.Children[index].RouteId);
@@ -59,21 +64,20 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_TeamColor와Tactic슬롯권한은있지만상세Route는비활성이다()
+        public void Profile_선수단은레퍼런스의네SubTab을순서대로노출한다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
-            NavigationEntry dugout = profile.Navigation.FindEntry(OwnerNavigationRoutes.Dugout);
+            NavigationEntry roster = profile.Navigation.FindEntry(OwnerNavigationRoutes.Roster);
 
             Assert.That(profile.Capabilities.Has(UiCapability.CanEquipTeamColor), Is.True);
             Assert.That(profile.Capabilities.Has(UiCapability.CanEquipTacticCards), Is.True);
-            Assert.That(dugout.IsEnabled, Is.True);
-            Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.DugoutLineupNotes).IsEnabled, Is.True);
-            Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.DugoutTeamColor).DisabledReason,
-                Does.Contain("상세 화면"));
-            Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.DugoutTactics).DisabledReason,
-                Does.Contain("발동 조건"));
-            Assert.That(profile.Navigation.FindEntry(OwnerNavigationRoutes.DugoutManagerPolicy).DisabledReason,
-                Does.Contain("감독 방침"));
+            Assert.That(roster.Children.Count, Is.EqualTo(4));
+            Assert.That(roster.Children[0].DisplayName, Is.EqualTo("선수 오더"));
+            Assert.That(roster.Children[1].DisplayName, Is.EqualTo("작전 카드"));
+            Assert.That(roster.Children[2].DisplayName, Is.EqualTo("서포트 카드"));
+            Assert.That(roster.Children[3].DisplayName, Is.EqualTo("팀 컬러"));
+            for (int index = 0; index < roster.Children.Count; index++)
+                Assert.That(roster.Children[index].IsEnabled, Is.True, roster.Children[index].RouteId);
         }
 
         [Test]
@@ -83,7 +87,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(profile.ResolveRouteId("Owner.Roster.Active"), Is.EqualTo(OwnerNavigationRoutes.RosterLineup));
             Assert.That(profile.ResolveRouteId("Owner.Scout.Award"), Is.EqualTo(OwnerNavigationRoutes.PowerUpScout));
             Assert.That(profile.ResolveRouteId("Owner.Development.Training"), Is.EqualTo(OwnerNavigationRoutes.PowerUpTraining));
-            Assert.That(profile.ResolveRouteId("Owner.Tactic.Cards"), Is.EqualTo(OwnerNavigationRoutes.DugoutTactics));
+            Assert.That(profile.ResolveRouteId(OwnerNavigationRoutes.RosterPitching),
+                Is.EqualTo(OwnerNavigationRoutes.RosterLineup));
+            Assert.That(profile.ResolveRouteId(OwnerNavigationRoutes.RosterCollection),
+                Is.EqualTo(OwnerNavigationRoutes.RosterLineup));
+            Assert.That(profile.ResolveRouteId("Owner.Tactic.Cards"),
+                Is.EqualTo(OwnerNavigationRoutes.RosterTacticCards));
+            Assert.That(profile.ResolveRouteId("Owner.Tactic.TeamColor"),
+                Is.EqualTo(OwnerNavigationRoutes.RosterTeamColor));
             Assert.That(profile.ResolveRouteId(OwnerModeShellCoordinator.MatchRouteId),
                 Is.EqualTo(OwnerNavigationRoutes.MatchCenterAnalysis));
             Assert.That(profile.ResolveRouteId(OwnerExpansionWorkspaceCoordinator.PregameRouteId),
@@ -106,6 +117,37 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             state.NavigateContext(OwnerNavigationRoutes.MatchCenterCondition);
             Assert.That(state.TryBack(out string leagueOrigin), Is.True);
             Assert.That(leagueOrigin, Is.EqualTo(OwnerNavigationRoutes.LeagueStandings));
+        }
+
+        [Test]
+        public void NavigationState_상위메뉴를누르면각메뉴의첫LocalRoute를연다()
+        {
+            GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
+            var state = new GameModeNavigationState(profile, OwnerNavigationRoutes.Home);
+
+            AssertPrimaryOpensFirstLocal(state, profile, OwnerNavigationRoutes.Roster);
+            AssertPrimaryOpensFirstLocal(state, profile, OwnerNavigationRoutes.PowerUp);
+            AssertPrimaryOpensFirstLocal(state, profile, OwnerNavigationRoutes.Dugout);
+            AssertPrimaryOpensFirstLocal(state, profile, OwnerNavigationRoutes.Club);
+            AssertPrimaryOpensFirstLocal(state, profile, OwnerNavigationRoutes.League);
+            Assert.That(
+                OwnerModeUiProfileFactory.ResolvePrimaryMenuRoute(profile, OwnerNavigationRoutes.Home),
+                Is.EqualTo(OwnerNavigationRoutes.Home));
+            Assert.That(
+                OwnerModeUiProfileFactory.ResolvePrimaryMenuRoute(profile, OwnerNavigationRoutes.Shop),
+                Is.EqualTo(OwnerNavigationRoutes.Shop));
+        }
+
+        private static void AssertPrimaryOpensFirstLocal(
+            GameModeNavigationState state,
+            GameModeUiProfile profile,
+            string primaryRouteId)
+        {
+            NavigationEntry primary = profile.Navigation.FindEntry(primaryRouteId);
+            state.Navigate(primary.Children[primary.Children.Count - 1].RouteId);
+
+            string destination = OwnerModeUiProfileFactory.ResolvePrimaryMenuRoute(profile, primaryRouteId);
+            Assert.That(state.Navigate(destination), Is.EqualTo(primary.Children[0].RouteId));
         }
 
         private static void AssertEnabled(GameModeUiProfile profile, string routeId)

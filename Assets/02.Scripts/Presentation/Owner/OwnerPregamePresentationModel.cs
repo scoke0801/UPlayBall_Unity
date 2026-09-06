@@ -78,8 +78,12 @@ namespace Baseball.Presentation.Owner
             IReadOnlyList<string> tactics,
             IReadOnlyDictionary<string, string> displayTexts,
             bool isMatchStartAvailable,
-            string matchStartUnavailableReason = null)
+            string matchStartUnavailableReason = null,
+            int ownTeamEmblemId = 0,
+            int opponentTeamEmblemId = 0)
         {
+            if (ownTeamEmblemId < 0) throw new ArgumentOutOfRangeException(nameof(ownTeamEmblemId));
+            if (opponentTeamEmblemId < 0) throw new ArgumentOutOfRangeException(nameof(opponentTeamEmblemId));
             ContentState = contentState ?? throw new ArgumentNullException(nameof(contentState));
             NextMatchText = nextMatchText ?? string.Empty;
             OpponentName = opponentName ?? string.Empty;
@@ -92,6 +96,8 @@ namespace Baseball.Presentation.Owner
             SelectedPresetId = Normalize(selectedPresetId);
             IsMatchStartAvailable = isMatchStartAvailable;
             MatchStartUnavailableReason = matchStartUnavailableReason ?? string.Empty;
+            OwnTeamEmblemId = ownTeamEmblemId;
+            OpponentTeamEmblemId = opponentTeamEmblemId;
 
             if (ContentState.Kind == UiContentStateKind.Ready)
             {
@@ -117,6 +123,8 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<string> Tactics => _tactics;
         public bool IsMatchStartAvailable { get; }
         public string MatchStartUnavailableReason { get; }
+        public int OwnTeamEmblemId { get; }
+        public int OpponentTeamEmblemId { get; }
 
         public string ResolveText(string key, string fallback = null)
         {
@@ -414,17 +422,17 @@ namespace Baseball.Presentation.Owner
         {
             return position switch
             {
-                PlayerPosition.Catcher => "C",
-                PlayerPosition.FirstBase => "1B",
-                PlayerPosition.SecondBase => "2B",
-                PlayerPosition.ThirdBase => "3B",
-                PlayerPosition.Shortstop => "SS",
-                PlayerPosition.LeftField => "LF",
-                PlayerPosition.CenterField => "CF",
-                PlayerPosition.RightField => "RF",
-                PlayerPosition.DesignatedHitter => "DH",
-                PlayerPosition.StartingPitcher => "SP",
-                PlayerPosition.ReliefPitcher => "RP",
+                PlayerPosition.Catcher => "포수",
+                PlayerPosition.FirstBase => "1루수",
+                PlayerPosition.SecondBase => "2루수",
+                PlayerPosition.ThirdBase => "3루수",
+                PlayerPosition.Shortstop => "유격수",
+                PlayerPosition.LeftField => "좌익수",
+                PlayerPosition.CenterField => "중견수",
+                PlayerPosition.RightField => "우익수",
+                PlayerPosition.DesignatedHitter => "지명타자",
+                PlayerPosition.StartingPitcher => "선발투수",
+                PlayerPosition.ReliefPitcher => "구원투수",
                 _ => "포지션 확인 필요"
             };
         }
@@ -442,15 +450,40 @@ namespace Baseball.Presentation.Owner
         private static string FindWarning(IReadOnlyList<LineupPresetValidationIssue> issues, string cardId)
         {
             for (int index = 0; index < issues.Count; index++)
-                if (string.Equals(issues[index].CardId, cardId, StringComparison.Ordinal)) return issues[index].Context;
+                if (string.Equals(issues[index].CardId, cardId, StringComparison.Ordinal))
+                    return FormatLineupIssue(issues[index].Code);
             return string.Empty;
         }
 
         private static string BuildValidationReason(IReadOnlyList<LineupPresetValidationIssue> issues)
         {
             for (int index = 0; index < issues.Count; index++)
-                if (issues[index].Severity != LineupPresetIssueSeverity.Warning) return issues[index].Context;
+                if (issues[index].Severity != LineupPresetIssueSeverity.Warning)
+                    return FormatLineupIssue(issues[index].Code);
             return "현재 프리셋을 다시 확인해 주세요.";
+        }
+
+        private static string FormatLineupIssue(LineupPresetValidationIssueCode code)
+        {
+            return code switch
+            {
+                LineupPresetValidationIssueCode.ActiveRosterInvalid => "1군 등록을 확인해 주세요",
+                LineupPresetValidationIssueCode.MissingAssignment => "역할이 지정되지 않았습니다",
+                LineupPresetValidationIssueCode.CardNotOnActiveRoster => "1군 미등록 선수입니다",
+                LineupPresetValidationIssueCode.CardUnavailable => "현재 출전할 수 없습니다",
+                LineupPresetValidationIssueCode.DuplicateCard => "같은 선수가 중복 배치되었습니다",
+                LineupPresetValidationIssueCode.DuplicateDefensivePosition => "수비 위치가 겹칩니다",
+                LineupPresetValidationIssueCode.MissingDefensivePosition => "수비 위치가 비어 있습니다",
+                LineupPresetValidationIssueCode.BattingOrderMismatch => "타순과 수비 라인업이 다릅니다",
+                LineupPresetValidationIssueCode.NonHitterAssignment => "야수 자리에 투수가 배치되었습니다",
+                LineupPresetValidationIssueCode.NonPitcherAssignment => "투수 자리에 야수가 배치되었습니다",
+                LineupPresetValidationIssueCode.PlayerContextMissing => "선수 상태를 확인할 수 없습니다",
+                LineupPresetValidationIssueCode.OffPositionAssignment => "익숙하지 않은 포지션입니다",
+                LineupPresetValidationIssueCode.PitcherRoleMismatch => "익숙하지 않은 투수 역할입니다",
+                LineupPresetValidationIssueCode.TeamColorUnavailable => "사용할 수 없는 팀컬러입니다",
+                LineupPresetValidationIssueCode.TacticCardUnavailable => "사용할 수 없는 전술카드입니다",
+                _ => "라인업을 확인해 주세요"
+            };
         }
 
         private static OwnerPregamePresetSnapshot FindPreset(IReadOnlyList<OwnerPregamePresetSnapshot> presets, string presetId)

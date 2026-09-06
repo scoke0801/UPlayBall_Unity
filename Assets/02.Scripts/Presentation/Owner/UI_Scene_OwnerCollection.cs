@@ -10,9 +10,11 @@ namespace Baseball.Presentation.Owner
 {
     /// <summary>실제 보유 카드를 검색·정렬하고 공용 Mini Card로 선택하는 구단주 Collection 화면이다.</summary>
     [DisallowMultipleComponent]
-    public sealed class UI_Scene_OwnerCollection : MonoBehaviour
+    public sealed class UI_Scene_OwnerCollection : MonoBehaviour, IUiCancelHandler
     {
         private readonly List<PlayerMiniCardView> _cardViews = new List<PlayerMiniCardView>();
+        private readonly OwnerCardFilters _cardFilters = new OwnerCardFilters();
+        private RectTransform _originFilters;
         private RectTransform _workspaceRoot;
         private RectTransform _inspectorRoot;
         private RectTransform _actionRoot;
@@ -68,6 +70,8 @@ namespace Baseball.Presentation.Owner
         public void Bind(OwnerCollectionSnapshot snapshot)
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+            OwnerRuntimeUiFactory.ClearChildren(_originFilters);
+            _cardFilters.Build(_originFilters, snapshot.Cards, RefreshCards);
             _pendingEnhancementCardId = string.Empty;
             RefreshCards();
             OwnerCollectionCardSnapshot selected = GetSelectedCard();
@@ -87,6 +91,16 @@ namespace Baseball.Presentation.Owner
             if (_workspaceRoot != null) _workspaceRoot.gameObject.SetActive(visible);
             if (_inspectorRoot != null) _inspectorRoot.gameObject.SetActive(visible);
             if (_actionRoot != null) _actionRoot.gameObject.SetActive(visible);
+        }
+
+        /// <summary>두 번 누르기 방식의 강화 확인 단계가 있으면 해당 작업만 취소한다.</summary>
+        public bool TryHandleCancel()
+        {
+            if (string.IsNullOrEmpty(_pendingEnhancementCardId))
+                return false;
+            _pendingEnhancementCardId = string.Empty;
+            SetFeedback("강화 확인을 취소했습니다.", false);
+            return true;
         }
 
         public void SetFeedback(string message, bool isError)
@@ -164,6 +178,10 @@ namespace Baseball.Presentation.Owner
 
         private void BuildFilterBar(RectTransform parent)
         {
+            _originFilters = OwnerRuntimeUiFactory.CreateRect("OriginFilters", parent);
+            OwnerRuntimeUiFactory.SetAnchors(_originFilters, new Vector2(0, 1), Vector2.one,
+                new Vector2(0, -82), new Vector2(0, -50));
+            OwnerWorkspaceUiFactory.AddHorizontalLayout(_originFilters, 6);
             RectTransform filter = OwnerRuntimeUiFactory.CreateRect("FilterBar", parent);
             OwnerRuntimeUiFactory.SetAnchors(filter, new Vector2(0f, 1f), Vector2.one,
                 new Vector2(0f, -46f), Vector2.zero);
@@ -187,7 +205,7 @@ namespace Baseball.Presentation.Owner
         {
             Image surface = OwnerRuntimeUiFactory.CreateImage("CardScroll", parent, CareerUiTheme.PanelDark);
             OwnerRuntimeUiFactory.SetAnchors(surface.rectTransform, Vector2.zero, Vector2.one,
-                Vector2.zero, new Vector2(0f, -54f));
+                Vector2.zero, new Vector2(0f, -90f));
             _gridScroll = surface.gameObject.AddComponent<ScrollRect>();
             _gridScroll.horizontal = false;
             _gridScroll.vertical = true;
@@ -278,8 +296,11 @@ namespace Baseball.Presentation.Owner
 
         private void RefreshCards()
         {
-            _model = OwnerCollectionPresentationBuilder.Build(_snapshot, _searchInput?.text, _sort);
-            _countText.text = _model.CountText;
+            var visible = new List<OwnerCollectionCardSnapshot>();
+            foreach (OwnerCollectionCardSnapshot card in _snapshot.Cards)
+                if (_cardFilters.Matches(card)) visible.Add(card);
+            _model = OwnerCollectionPresentationBuilder.Build(new OwnerCollectionSnapshot(visible), _searchInput?.text, _sort);
+            _countText.text = $"표시 {_model.Cards.Count} / 보유 {_snapshot.Cards.Count}장";
             _emptyText.gameObject.SetActive(_model.Cards.Count == 0);
             bool selectedRemainsVisible = false;
             for (int index = 0; index < _model.Cards.Count; index++)
@@ -361,6 +382,7 @@ namespace Baseball.Presentation.Owner
                 cardView.name = $"Card_{card.CardId}";
                 bool selected = string.Equals(card.CardId, _selectedCardId, StringComparison.Ordinal);
                 cardView.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card, selected));
+                cardView.SetTeamIdentity(card.TeamDisplayName);
             }
         }
 
@@ -379,10 +401,10 @@ namespace Baseball.Presentation.Owner
 
         private void ShowCardDetail(PlayerMiniCardModel selected)
         {
-            foreach (var card in _snapshot.Cards)
-                if (card.CardId == selected.PlayerId)
+            for (int index = 0; index < _snapshot.Cards.Count; index++)
+                if (_snapshot.Cards[index].CardId == selected.PlayerId)
                 {
-                    UI_Popup_OwnerPlayerCard.Show(_workspaceRoot, card);
+                    UI_Popup_OwnerPlayerCard.Show(_workspaceRoot, _snapshot.Cards, index);
                     return;
                 }
         }
@@ -391,6 +413,7 @@ namespace Baseball.Presentation.Owner
         {
             _inspectorCard.gameObject.SetActive(true);
             _inspectorCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card, true));
+            _inspectorCard.SetTeamIdentity(card.TeamDisplayName);
             _inspectorText.text =
                 $"{card.DisplayName}\n\n" +
                 $"연도  {card.OriginYear}\n" +

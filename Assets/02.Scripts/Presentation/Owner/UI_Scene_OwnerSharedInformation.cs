@@ -7,13 +7,14 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>Owner 일정과 확정 역사 기록을 공용 가상화 기록표로 표시하는 읽기 전용 화면이다.</summary>
+    /// <summary>Owner 일정과 실제 진행 시즌 이력을 공용 가상화 기록표로 표시하는 읽기 전용 화면이다.</summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RectTransform))]
     public sealed class UI_Scene_OwnerSharedInformation : MonoBehaviour
     {
         private Text _title;
         private Text _context;
+        private Text _footer;
         private Button _nextMatchAnalysisButton;
         private RecordTableView _table;
         private bool _isBuilt;
@@ -41,6 +42,7 @@ namespace Baseball.Presentation.Owner
             _context.text = snapshot == null
                 ? string.Empty
                 : string.Concat(snapshot.CurrentPeriodLabel, " · 확정 라운드/점수");
+            _footer.text = "라운드 기준 · 완료 경기는 확정 점수, 예정 경기는 대진만 표시";
             RecordTableModel table = snapshot == null
                 ? null
                 : ScheduleRecordTableBuilder.CreateFocusedSchedule(snapshot);
@@ -50,7 +52,7 @@ namespace Baseball.Presentation.Owner
             _nextMatchAnalysisButton.interactable = hasNextMatch;
         }
 
-        /// <summary>현재 시즌과 구분된 WorldHistory 확정 기록과 콘텐츠 상태를 표시한다.</summary>
+        /// <summary>현재 Save에서 진행한 시즌별 구단 성적과 콘텐츠 상태를 표시한다.</summary>
         public void BindRecords(SharedScreenPresentationModel<RecordsScreenSnapshot> model)
         {
             if (model == null)
@@ -63,6 +65,7 @@ namespace Baseball.Presentation.Owner
             _context.text = snapshot == null
                 ? string.Empty
                 : string.Concat(snapshot.ScopeLabel, " · ", snapshot.QualificationText);
+            _footer.text = "현재 Save의 실제 진행 기록 · 강조 행은 현재 시즌 · 열 제목을 누르면 정렬";
             _table.Bind(
                 snapshot?.Table,
                 model.ContentState,
@@ -96,56 +99,75 @@ namespace Baseball.Presentation.Owner
             RectTransform root = GetComponent<RectTransform>();
             OwnerRuntimeUiFactory.Stretch(root);
             Image background = OwnerRuntimeUiFactory.CreateImage(
-                "Background", root, CareerUiTheme.Background);
+                "Background", root, CareerUiTheme.ReferenceDataCanvas);
             OwnerRuntimeUiFactory.Stretch(background.rectTransform);
 
-            OwnerWorkspaceUiFactory.Panel header = OwnerRuntimeUiFactory.CreatePanel(
-                "InformationHeader", root, "리그 정보");
+            RectTransform header = OwnerRuntimeUiFactory.CreateRect("InformationHeader", root);
             OwnerRuntimeUiFactory.SetAnchors(
-                header.Root,
+                header,
                 new Vector2(0f, 0.87f),
                 Vector2.one,
-                new Vector2(12f, 4f),
-                new Vector2(-12f, -12f));
+                new Vector2(34f, 0f),
+                new Vector2(-34f, 0f));
             _title = OwnerRuntimeUiFactory.CreateText(
-                "Title", header.Content, string.Empty, 21, FontStyle.Bold,
-                TextAnchor.MiddleLeft, CareerUiTheme.TextPrimary);
+                "Title", header, string.Empty, 18, FontStyle.Bold,
+                TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInk);
             OwnerRuntimeUiFactory.SetAnchors(
                 _title.rectTransform,
-                new Vector2(0f, 0.42f),
-                Vector2.one,
-                new Vector2(14f, 0f),
-                new Vector2(-220f, 0f));
-            _nextMatchAnalysisButton = OwnerRuntimeUiFactory.CreateButton(
+                new Vector2(0f, 0.44f),
+                new Vector2(0.74f, 1f),
+                Vector2.zero,
+                Vector2.zero);
+            _nextMatchAnalysisButton = OwnerRuntimeUiFactory.CreateReferenceButton(
                 "NextMatchAnalysisButton",
-                header.Content,
+                header,
                 "다음 경기 분석",
-                CareerUiTheme.PrimaryAction);
+                14);
             OwnerRuntimeUiFactory.SetAnchors(
                 _nextMatchAnalysisButton.GetComponent<RectTransform>(),
-                new Vector2(0.76f, 0.5f),
-                new Vector2(1f, 1f),
-                new Vector2(0f, 4f),
-                new Vector2(-14f, -4f));
+                new Vector2(0.78f, 0.25f),
+                new Vector2(1f, 0.84f),
+                Vector2.zero,
+                Vector2.zero);
             _nextMatchAnalysisButton.onClick.AddListener(() => NextMatchAnalysisRequested?.Invoke());
             _context = OwnerRuntimeUiFactory.CreateText(
-                "Context", header.Content, string.Empty, 13, FontStyle.Normal,
-                TextAnchor.MiddleLeft, CareerUiTheme.TextSecondary);
+                "Context", header, string.Empty, 13, FontStyle.Normal,
+                TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInkSecondary);
             OwnerRuntimeUiFactory.SetAnchors(
                 _context.rectTransform,
                 Vector2.zero,
-                new Vector2(1f, 0.42f),
-                new Vector2(14f, 0f),
-                new Vector2(-14f, 0f));
+                new Vector2(0.74f, 0.44f),
+                Vector2.zero,
+                Vector2.zero);
+
+            Image blueRule = OwnerRuntimeUiFactory.CreateImage(
+                "BlueRule", root, CareerUiTheme.ReferenceDataAccent);
+            OwnerRuntimeUiFactory.SetAnchors(
+                blueRule.rectTransform,
+                new Vector2(0.025f, 0.855f),
+                new Vector2(0.975f, 0.855f),
+                Vector2.zero,
+                new Vector2(0f, 3f));
 
             RectTransform tableHost = OwnerRuntimeUiFactory.CreateRect("RecordTableHost", root);
             OwnerRuntimeUiFactory.SetAnchors(
                 tableHost,
+                new Vector2(0.035f, 0.12f),
+                new Vector2(0.965f, 0.825f),
                 Vector2.zero,
-                new Vector2(1f, 0.87f),
-                new Vector2(12f, 12f),
-                new Vector2(-12f, -4f));
+                Vector2.zero);
             _table = RecordTableView.CreateRuntime(tableHost, "SharedRecordTable");
+            _table.SetVisualStyle(RecordTableVisualStyle.ReferenceLight);
+
+            _footer = OwnerRuntimeUiFactory.CreateText(
+                "Footer", root, string.Empty, 13, FontStyle.Normal,
+                TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInkSecondary);
+            OwnerRuntimeUiFactory.SetAnchors(
+                _footer.rectTransform,
+                new Vector2(0.035f, 0.025f),
+                new Vector2(0.8f, 0.095f),
+                Vector2.zero,
+                Vector2.zero);
         }
 
         private static bool HasNextFocusTeamMatch(ScheduleScreenSnapshot snapshot)

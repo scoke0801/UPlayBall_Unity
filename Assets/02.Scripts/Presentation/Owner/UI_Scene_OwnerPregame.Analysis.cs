@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,6 +16,7 @@ namespace Baseball.Presentation.Owner
         private static readonly Color OpponentRed = new Color32(186, 51, 62, 255);
         private readonly Text[] _teamNames = new Text[2];
         private readonly Text[] _teamMonograms = new Text[2];
+        private readonly Image[] _teamEmblems = new Image[2];
         private readonly Text[] _teamSides = new Text[2];
         private readonly Text[] _teamRecent = new Text[2];
         private readonly Text[][] _teamRecords = new Text[2][];
@@ -47,9 +49,18 @@ namespace Baseball.Presentation.Owner
                 float right = side == 0 ? .355f : .98f;
                 Color accent = side == 0 ? OwnBlue : OpponentRed;
                 RectTransform team = Surface(board, "Team" + side, Paper, left, .625f, right, .913f);
-                RectTransform badge = Surface(team, "TeamBadge", accent, side == 0 ? 0 : .76f, .15f, side == 0 ? .24f : 1, .9f);
-                _teamMonograms[side] = Label(badge, "BallMark", "", 36, 0, .30f, 1, .92f, TextAnchor.MiddleCenter, true, Color.white);
-                Label(badge, "ClubMark", side == 0 ? "우리 구단" : "상대 구단", 10, 0, .02f, 1, .32f, TextAnchor.MiddleCenter, true, Color.white);
+                RectTransform badge = Surface(team, "TeamBadge", new Color32(244, 246, 247, 255),
+                    side == 0 ? 0 : .76f, .15f, side == 0 ? .24f : 1, .9f);
+                Surface(badge, "AccentRail", accent, side == 0 ? 0 : .965f, 0, side == 0 ? .035f : 1, 1);
+                _teamEmblems[side] = Rect(badge, "TeamEmblem", .10f, .20f, .90f, .96f).gameObject.AddComponent<Image>();
+                _teamEmblems[side].color = Color.white;
+                _teamEmblems[side].preserveAspect = true;
+                _teamEmblems[side].raycastTarget = false;
+                _teamMonograms[side] = Label(badge, "EmblemFallback", "?", 28, .10f, .20f, .90f, .96f,
+                    TextAnchor.MiddleCenter, true, accent);
+                Surface(badge, "ClubMarkSurface", accent, .035f, 0, .965f, .18f);
+                Label(badge, "ClubMark", side == 0 ? "우리 구단" : "상대 구단", 10, .035f, 0, .965f, .18f,
+                    TextAnchor.MiddleCenter, true, Color.white);
                 float textLeft = side == 0 ? .27f : 0;
                 float textRight = side == 0 ? 1 : .73f;
                 _teamNames[side] = Label(team, "TeamName", "", 16, textLeft, .72f, textRight, 1, TextAnchor.MiddleLeft, true);
@@ -74,7 +85,7 @@ namespace Baseball.Presentation.Owner
             Surface(board, "StarterRule", Rule, .02f, .555f, .98f, .558f);
             _ownStarter = CreateStarter(board, "OwnStarter", .02f, .465f, OwnBlue);
             _opponentStarter = CreateStarter(board, "OpponentStarter", .535f, .98f, OpponentRed);
-            Label(board, "Versus", "대", 28, .465f, .38f, .535f, .55f, TextAnchor.MiddleCenter, true, Rule);
+            Label(board, "Versus", "VS", 28, .465f, .38f, .535f, .55f, TextAnchor.MiddleCenter, true, Rule);
             for (int side = 0; side < 2; side++)
             {
                 int teamIndex = side;
@@ -125,8 +136,13 @@ namespace Baseball.Presentation.Owner
             _analysisMatch.text = snapshot.NextMatchText;
             _teamNames[0].text = snapshot.ResolveText("analysis.own.name", "우리 구단");
             _teamNames[1].text = snapshot.OpponentName;
+            int[] emblemIds = { snapshot.OwnTeamEmblemId, snapshot.OpponentTeamEmblemId };
             for (int side = 0; side < 2; side++)
-                _teamMonograms[side].text = string.IsNullOrWhiteSpace(_teamNames[side].text) ? "?" : _teamNames[side].text.Substring(0, 1);
+            {
+                bool hasEmblem = TeamEmblemSprites.TryApply(_teamEmblems[side], emblemIds[side], _teamNames[side].text);
+                _teamEmblems[side].gameObject.SetActive(hasEmblem);
+                _teamMonograms[side].gameObject.SetActive(!hasEmblem);
+            }
             var values = new float[2][];
             for (int side = 0; side < 2; side++)
             {
@@ -168,13 +184,13 @@ namespace Baseball.Presentation.Owner
                 _recordTabs[side, tab].GetComponent<Image>().color = selected ? Color.white : new Color32(225, 224, 215, 255);
                 _recordTabs[side, tab].GetComponentInChildren<Text>().color = selected ? accent : Ink;
             }
-            AddTableRow(content, new[] { "선수", "포지션", "상태 / 관측 정보" }, accent, true, 0);
+            AddTableRow(content, new[] { "선수", "포지션", "컨디션 / 관측" }, accent, true, 0);
             var rows = new List<string[]>();
             if (side == 0 && !pitchers)
             {
                 foreach (var player in _model.Lineup)
                     rows.Add(new[] { player.DisplayName, player.PositionText, string.IsNullOrEmpty(player.WarningText)
-                        ? player.ExpectedConditionText + " · 궁합 " + player.LineupChemistryText : player.WarningText });
+                        ? "컨디션 " + player.ExpectedConditionText + " · 호흡 " + player.LineupChemistryText : player.WarningText });
             }
             else if (side == 0)
             {

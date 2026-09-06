@@ -56,9 +56,74 @@ namespace Baseball.Presentation.Owner
             return button;
         }
 
+        /// <summary>리그 Ref 표 화면에서 사용하는 흰 바탕·파란 라벨의 작은 직사각형 버튼을 만든다.</summary>
+        public static Button CreateReferenceButton(
+            string name,
+            Transform parent,
+            string label,
+            int fontSize = 14)
+        {
+            Button button = CreateButton(name, parent, label, Color.white, fontSize);
+            Image image = button.GetComponent<Image>();
+            Outline outline = image.GetComponent<Outline>() ?? image.gameObject.AddComponent<Outline>();
+            outline.effectColor = CareerUiTheme.ReferenceDataGrid;
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = false;
+            button.transform.Find("Label").GetComponent<Text>().color = CareerUiTheme.ReferenceDataAccent;
+            ColorBlock colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color32(231, 240, 250, 255);
+            colors.pressedColor = new Color32(210, 226, 244, 255);
+            colors.disabledColor = new Color32(220, 222, 225, 180);
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
+            button.GetComponent<OwnerUiButtonSkin>()?.Refresh();
+            return button;
+        }
+
         public static ScrollRect CreateVerticalScroll(string name, Transform parent, out RectTransform content)
         {
+            ScrollRect scroll = CreateVerticalScrollContainer(name, parent, out content);
+            var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = CareerUiTheme.Space2;
+            layout.padding = new RectOffset(8, 8, 8, 8);
+            layout.childControlHeight = true;
+            layout.childControlWidth = true;
+            layout.childForceExpandHeight = false;
+            layout.childForceExpandWidth = true;
+            AddVerticalContentSizeFitter(content);
+            return scroll;
+        }
+
+        /// <summary>중복 LayoutGroup 없이 고정 열 Grid를 사용하는 세로 Scroll을 만든다.</summary>
+        public static ScrollRect CreateVerticalGridScroll(
+            string name,
+            Transform parent,
+            int columns,
+            Vector2 cellSize,
+            float spacing,
+            out RectTransform content)
+        {
+            ScrollRect scroll = CreateVerticalScrollContainer(name, parent, out content);
+            var grid = content.gameObject.AddComponent<GridLayoutGroup>();
+            grid.cellSize = cellSize;
+            grid.spacing = new Vector2(spacing, spacing);
+            grid.padding = new RectOffset(8, 8, 8, 8);
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = columns;
+            grid.childAlignment = TextAnchor.UpperCenter;
+            AddVerticalContentSizeFitter(content);
+            return scroll;
+        }
+
+        private static ScrollRect CreateVerticalScrollContainer(
+            string name,
+            Transform parent,
+            out RectTransform content)
+        {
             Image scrollSurface = CreateImage(name, parent, CareerUiTheme.ReferencePanel);
+            // ScrollRect는 GraphicRaycaster가 맞힐 Graphic이 있어야 휠과 드래그 입력을 받을 수 있다.
+            scrollSurface.raycastTarget = true;
             Outline outline = scrollSurface.gameObject.AddComponent<Outline>();
             outline.effectColor = CareerUiTheme.ReferenceBorder;
             outline.effectDistance = new Vector2(1f, -1f);
@@ -79,18 +144,15 @@ namespace Baseball.Presentation.Owner
             content.pivot = new Vector2(0.5f, 1f);
             content.offsetMin = Vector2.zero;
             content.offsetMax = Vector2.zero;
-            var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = CareerUiTheme.Space2;
-            layout.padding = new RectOffset(8, 8, 8, 8);
-            layout.childControlHeight = true;
-            layout.childControlWidth = true;
-            layout.childForceExpandHeight = false;
-            layout.childForceExpandWidth = true;
-            var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.viewport = viewport;
             scroll.content = content;
             return scroll;
+        }
+
+        private static void AddVerticalContentSizeFitter(RectTransform content)
+        {
+            var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         }
 
         public static void SetAnchors(

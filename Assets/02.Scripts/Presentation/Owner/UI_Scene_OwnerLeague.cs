@@ -11,14 +11,15 @@ namespace Baseball.Presentation.Owner
     [RequireComponent(typeof(RectTransform))]
     public sealed class UI_Scene_OwnerLeague : MonoBehaviour
     {
-        private static readonly Color Ink = new Color32(35, 39, 45, 255);
-        private static readonly Color Blue = new Color32(25, 92, 184, 255);
+        private static Color Ink => CareerUiTheme.ReferenceDataInk;
+        private static Color Blue => CareerUiTheme.ReferenceDataAccent;
         private static readonly Color Red = new Color32(204, 44, 65, 255);
-        private static readonly Color Grid = new Color32(185, 190, 198, 255);
-        private static readonly Color Focus = new Color32(218, 245, 253, 255);
+        private static Color Grid => CareerUiTheme.ReferenceDataGrid;
+        private static Color Focus => CareerUiTheme.ReferenceDataFocus;
         private OwnerLeaguePresentationModel _model;
         private int _tab;
         private int _historyStart;
+        public event Action<string> TeamSelected;
 
         /// <summary>공용 셸의 리그 작업 영역에 화면을 만든다.</summary>
         public static UI_Scene_OwnerLeague CreateRuntime(RectTransform host)
@@ -48,7 +49,7 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.ClearChildren(transform);
             if (_model == null) return;
             var root = (RectTransform)transform;
-            Surface(root, "Paper", new Color32(248, 249, 250, 255), 0, 0, 1, 1);
+            Surface(root, "Paper", CareerUiTheme.ReferenceDataCanvas, 0, 0, 1, 1);
             Label(root, "Season", _model.SeasonLabel, .035f, .91f, .8f, .98f, 16, Ink, TextAnchor.MiddleLeft);
             Surface(root, "BlueRule", Blue, .025f, .897f, .975f, .9f);
             var table = OwnerRuntimeUiFactory.CreateRect("LeagueTable", root);
@@ -87,7 +88,13 @@ namespace Baseball.Presentation.Owner
                         team.Rank == 1 ? "—" : Rate(behind, "0.0"), team.Runs.ToString(), team.RunsAllowed.ToString() };
                 RectTransform row = DrawRow(host, "Team_" + i, values, widths, i + 1,
                     team.Id == _model.FocusTeamId, false, !metrics);
-                AddEmblem(row, team.EmblemId, .108f, .138f);
+                AddEmblem(row, team.Name, team.EmblemId, .108f, .138f);
+                var image = row.GetComponent<Image>();
+                image.raycastTarget = true;
+                var button = row.gameObject.AddComponent<Button>();
+                button.targetGraphic = image;
+                string teamId = team.Id;
+                button.onClick.AddListener(() => TeamSelected?.Invoke(teamId));
             }
         }
 
@@ -116,7 +123,7 @@ namespace Baseball.Presentation.Owner
                 }
                 RectTransform row = DrawRow(host, "Matchup_" + i, values, widths, i + 1,
                     team.Id == _model.FocusTeamId, false);
-                AddEmblem(row, team.EmblemId, .012f, .042f);
+                AddEmblem(row, team.Name, team.EmblemId, .012f, .042f);
                 Surface(row, "Self", new Color32(231, 233, 235, 255),
                     .24f + i * .76f / count, .025f, .24f + (i + 1) * .76f / count, .975f);
             }
@@ -144,7 +151,7 @@ namespace Baseball.Presentation.Owner
                 RectTransform row = DrawRow(list, "Team_" + i, new[] { team.Rank + "위", team.Name,
                     change == 0 ? "—" : (change > 0 ? "▲ " : "▼ ") + Math.Abs(change), streak }, widths,
                     i + 1, team.Id == _model.FocusTeamId, false);
-                AddEmblem(row, team.EmblemId, .178f, .218f);
+                AddEmblem(row, team.Name, team.EmblemId, .178f, .218f);
             }
             if (visible == 0)
                 Label(chart, "Empty", "첫 경기 종료 후\n순위 변화가 표시됩니다.", 0, .2f, 1, .8f, 18, Ink);
@@ -188,12 +195,12 @@ namespace Baseball.Presentation.Owner
 
         private static string Rate(double value, string format = "0.000") => value.ToString(format, CultureInfo.InvariantCulture);
 
-        private static void AddEmblem(Transform row, int emblemId, float x0, float x1)
+        private static void AddEmblem(Transform row, string teamName, int emblemId, float x0, float x1)
         {
-            if (emblemId <= 0) return;
+            if (TeamEmblemSprites.ResolveEmblemId(teamName, emblemId) <= 0) return;
             Image image = OwnerRuntimeUiFactory.CreateImage("Emblem", row, Color.white);
             Place(image.rectTransform, x0, .14f, x1, .86f);
-            TeamEmblemSprites.TryApply(image, emblemId);
+            TeamEmblemSprites.TryApply(image, emblemId, teamName);
         }
 
         private static RectTransform Surface(Transform parent, string name, Color color, float x0, float y0, float x1, float y1)

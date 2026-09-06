@@ -62,7 +62,7 @@ namespace Baseball.Presentation.Owner
             RectTransform emblemBox = Surface(card, "EmblemBox", new Color32(239, 241, 243, 255), .018f, .08f, .27f, .92f, true);
             Image emblem = OwnerRuntimeUiFactory.CreateImage("Emblem", emblemBox, Color.white);
             Place(emblem.rectTransform, .08f, .08f, .92f, .92f);
-            TeamEmblemSprites.TryApply(emblem, ResolveEmblemId(_model.TeamName));
+            TeamEmblemSprites.TryApply(emblem, 0, _model.TeamName);
             Label(card, "NameCaption", "구 단 명", .31f, .56f, .47f, .86f, 15, Lime, TextAnchor.MiddleLeft, FontStyle.Bold);
             Label(card, "TeamName", _model.TeamName, .47f, .56f, .96f, .86f, 22, White, TextAnchor.MiddleLeft, FontStyle.Bold);
             Surface(card, "Divider", new Color32(58, 61, 66, 255), .3f, .49f, .98f, .505f);
@@ -193,16 +193,6 @@ namespace Baseball.Presentation.Owner
         }
 
         private string RankText() => _model.Games == 0 || _model.Rank <= 0 ? "—" : _model.Rank + "위";
-
-        private static int ResolveEmblemId(string teamName)
-        {
-            unchecked
-            {
-                uint hash = 2166136261;
-                for (int index = 0; index < teamName.Length; index++) hash = (hash ^ teamName[index]) * 16777619;
-                return (int)(hash % TeamEmblemSprites.EmblemCount) + 1;
-            }
-        }
 
         private static RectTransform Surface(Transform parent, string name, Color color,
             float minX, float minY, float maxX, float maxY, bool outline = false)

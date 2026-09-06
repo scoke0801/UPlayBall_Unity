@@ -4,6 +4,7 @@ using UnityEngine.UI;
 namespace Baseball.Presentation.Owner
 {
     /// <summary>크기 변경에도 좌표가 일치하는 순위 추이 선과 점을 그린다.</summary>
+    [RequireComponent(typeof(RectTransform), typeof(CanvasRenderer))]
     public sealed class UILeagueRankChart : MaskableGraphic
     {
         private OwnerLeaguePresentationModel _model;
@@ -13,7 +14,7 @@ namespace Baseball.Presentation.Owner
         public void Bind(OwnerLeaguePresentationModel model, int start)
         {
             _model = model;
-            _start = start;
+            _start = Mathf.Max(0, start);
             raycastTarget = false;
             SetVerticesDirty();
         }
@@ -38,7 +39,7 @@ namespace Baseball.Presentation.Owner
                 bool focus = team.Id == _model.FocusTeamId;
                 if (focus != (pass == 1)) continue;
                 Color color = focus ? new Color32(246, 57, 69, 255) : new Color32(162, 167, 173, 255);
-                int count = Mathf.Min(6, team.RankHistory.Count - _start);
+                int count = Mathf.Clamp(team.RankHistory.Count - _start, 0, 6);
                 for (int i = 0; i < count; i++)
                 {
                     Vector2 point = Point(i, team.RankHistory[_start + i]);

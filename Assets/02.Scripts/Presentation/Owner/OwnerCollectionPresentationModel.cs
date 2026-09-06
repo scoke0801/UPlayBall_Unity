@@ -47,6 +47,65 @@ namespace Baseball.Presentation.Owner
         public string Value { get; }
     }
 
+    /// <summary>카드 능력치 하나의 원본과 영구·현재 적용 보너스를 출처별로 보관한다.</summary>
+    public readonly struct OwnerAbilityBreakdownSnapshot
+    {
+        public OwnerAbilityBreakdownSnapshot(
+            int baseCard,
+            int training,
+            int skillBlock,
+            int teamColor,
+            int study,
+            int enhancement)
+        {
+            if (baseCard < 0 || training < 0 || skillBlock < 0 || teamColor < 0 || study < 0 || enhancement < 0)
+                throw new ArgumentOutOfRangeException(nameof(baseCard));
+            BaseCard = baseCard;
+            Training = training;
+            SkillBlock = skillBlock;
+            TeamColor = teamColor;
+            Study = study;
+            Enhancement = enhancement;
+        }
+
+        public int BaseCard { get; }
+        public int Training { get; }
+        public int SkillBlock { get; }
+        public int TeamColor { get; }
+        public int Study { get; }
+        public int Enhancement { get; }
+        public int GrowthTotal => checked(Training + SkillBlock + TeamColor + Study + Enhancement);
+        public int Total => checked(BaseCard + GrowthTotal);
+    }
+
+    /// <summary>카드 뒷면 4×4 보드에 표시할 스킬 블록의 모양과 배치다.</summary>
+    public sealed class OwnerSkillBlockPlacementSnapshot
+    {
+        private readonly BoardCell[] _shapeCells;
+
+        public OwnerSkillBlockPlacementSnapshot(
+            IReadOnlyList<BoardCell> shapeCells,
+            int originX,
+            int originY,
+            int rotationQuarterTurns)
+        {
+            if (shapeCells == null || shapeCells.Count == 0)
+                throw new ArgumentException("스킬 블록 모양이 필요합니다.", nameof(shapeCells));
+            if (rotationQuarterTurns < 0 || rotationQuarterTurns > 3)
+                throw new ArgumentOutOfRangeException(nameof(rotationQuarterTurns));
+            _shapeCells = new BoardCell[shapeCells.Count];
+            for (int index = 0; index < _shapeCells.Length; index++) _shapeCells[index] = shapeCells[index];
+            OriginX = originX;
+            OriginY = originY;
+            RotationQuarterTurns = rotationQuarterTurns;
+        }
+
+        public int OriginX { get; }
+        public int OriginY { get; }
+        public int RotationQuarterTurns { get; }
+        public BoardCell[] CreateShapeCells() => (BoardCell[])_shapeCells.Clone();
+    }
+
     /// <summary>OwnedCards와 WorldCardCatalog에서 읽은 카드 한 장의 불변 표시 Snapshot이다.</summary>
     public sealed class OwnerCollectionCardSnapshot
     {
@@ -74,7 +133,13 @@ namespace Baseball.Presentation.Owner
             int placedSkillBlockCount = 0,
             int availableSkillBlockCount = 0,
             bool isActiveRoster = false,
-            string studyStatus = "")
+            string studyStatus = "",
+            string teamDisplayName = "",
+            IReadOnlyList<OwnerSkillBlockPlacementSnapshot> skillBlockPlacements = null,
+            int? condition = null,
+            string conditionLabel = "",
+            IReadOnlyList<OwnerAbilityBreakdownSnapshot> abilityBreakdowns = null,
+            int abilityGraphMaximum = AbilityRatings.Maximum)
         {
             CardId = RequireText(cardId, nameof(cardId));
             PlayerPersonId = RequireText(playerPersonId, nameof(playerPersonId));
@@ -100,6 +165,16 @@ namespace Baseball.Presentation.Owner
             AvailableSkillBlockCount = availableSkillBlockCount;
             IsActiveRoster = isActiveRoster;
             StudyStatus = studyStatus ?? string.Empty;
+            TeamDisplayName = teamDisplayName ?? string.Empty;
+            _skillBlockPlacements = Copy(skillBlockPlacements);
+            Condition = condition;
+            ConditionLabel = conditionLabel ?? string.Empty;
+            if (abilityGraphMaximum < AbilityRatings.Maximum)
+                throw new ArgumentOutOfRangeException(nameof(abilityGraphMaximum));
+            AbilityGraphMaximum = abilityGraphMaximum;
+            if (abilityBreakdowns != null && abilityBreakdowns.Count != PlayerAbilityCatalog.AbilityCount)
+                throw new ArgumentException("모든 능력치의 성장 출처가 필요합니다.", nameof(abilityBreakdowns));
+            _abilityBreakdowns = abilityBreakdowns == null ? null : Copy(abilityBreakdowns);
         }
 
         public string CardId { get; }
@@ -125,10 +200,22 @@ namespace Baseball.Presentation.Owner
         public int AvailableSkillBlockCount { get; }
         public bool IsActiveRoster { get; }
         public string StudyStatus { get; }
+        public string TeamDisplayName { get; }
+        public int? Condition { get; }
+        public string ConditionLabel { get; }
+        public int AbilityGraphMaximum { get; }
+        public IReadOnlyList<OwnerSkillBlockPlacementSnapshot> SkillBlockPlacements => _skillBlockPlacements;
         private readonly AbilityRatings _abilities;
         private readonly OwnerPitchCardSnapshot[] _pitches;
         private readonly OwnerCardRecordFieldSnapshot[] _seasonRecord;
+        private readonly OwnerSkillBlockPlacementSnapshot[] _skillBlockPlacements;
+        private readonly OwnerAbilityBreakdownSnapshot[] _abilityBreakdowns;
         public int? GetAbility(PlayerAbility ability) => _abilities?.Get(ability);
+        public int? GetEffectiveAbility(PlayerAbility ability) => _abilityBreakdowns == null
+            ? _abilities?.Get(ability)
+            : Math.Min(AbilityGraphMaximum, _abilityBreakdowns[(int)ability].Total);
+        public OwnerAbilityBreakdownSnapshot? GetAbilityBreakdown(PlayerAbility ability) =>
+            _abilityBreakdowns == null ? null : _abilityBreakdowns[(int)ability];
 
         private static T[] Copy<T>(IReadOnlyList<T> source)
         {
@@ -247,7 +334,7 @@ namespace Baseball.Presentation.Owner
                 FormatEdition(card.Edition),
                 status,
                 card.PlayerPersonId,
-                visualState: state);
+                visualState: state, frameEdition: card.Edition, cost: card.Cost);
         }
 
         public static string FormatPosition(PlayerPosition position)

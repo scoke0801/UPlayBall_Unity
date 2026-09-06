@@ -89,44 +89,54 @@ namespace Baseball.Presentation.Owner
                 seasonNumbers, selectedIndex);
         }
 
-        /// <summary>새 게임 생성 때 확정된 WorldHistory 정규 시즌 타격 기록을 현재 시즌 기록과 혼동되지 않게 복사한다.</summary>
-        public RecordsScreenSnapshot CreateHistoricalBattingRecords(OwnerModeManager manager)
+        /// <summary>현재 Save에서 실제로 진행한 구단 시즌 성적만 시즌 이력 표로 만든다.</summary>
+        public RecordsScreenSnapshot CreateClubSeasonHistoryRecords(OwnerModeManager manager)
         {
             ManagerHistoricalRuntimeState runtime = RequireRuntime(manager);
-            int originYear = runtime.ManagerMode.LiveSeason.OriginYear;
-            Dictionary<string, PlayerSeasonDefinition> seasons = IndexPlayerSeasons(runtime.WorldCardCatalog);
-            var rows = new List<RecordTableRowModel>();
-            IReadOnlyList<SeasonStatistics> statistics = runtime.WorldHistory.Statistics;
+            return CreateClubSeasonHistoryRecords(
+                runtime.ManagerMode.LiveSeason,
+                runtime.ManagerMode.CompletedSeasons,
+                runtime.League.Grade,
+                manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey));
+        }
 
-            for (int index = 0; index < statistics.Count; index++)
+        /// <summary>현재 시즌과 완료 시즌을 입력받아 사전 생성 역사를 섞지 않는 구단 시즌 이력을 만든다.</summary>
+        public RecordsScreenSnapshot CreateClubSeasonHistoryRecords(
+            ManagerLiveSeasonState liveSeason,
+            IReadOnlyList<ManagerCompletedSeasonState> completedSeasons,
+            LeagueGrade liveLeagueGrade,
+            string teamDisplayName)
+        {
+            if (liveSeason == null)
+                throw new ArgumentNullException(nameof(liveSeason));
+            if (completedSeasons == null)
+                throw new ArgumentNullException(nameof(completedSeasons));
+            if (!Enum.IsDefined(typeof(LeagueGrade), liveLeagueGrade))
+                throw new ArgumentOutOfRangeException(nameof(liveLeagueGrade));
+
+            string displayName = string.IsNullOrWhiteSpace(teamDisplayName)
+                ? liveSeason.GetTeamSeasonKey(liveSeason.PlayerTeamId)
+                : teamDisplayName.Trim();
+            var rows = new List<RecordTableRowModel>(completedSeasons.Count + 1);
+            for (int index = 0; index < completedSeasons.Count; index++)
             {
-                SeasonStatistics record = statistics[index];
-                if (record.SeasonYear != originYear ||
-                    record.IsFirstHalf ||
-                    record.IsPostseason ||
-                    record.IsAllStarGame ||
-                    record.PlateAppearances <= 0)
-                    continue;
-
-                if (!seasons.TryGetValue(record.PlayerSeasonId, out PlayerSeasonDefinition season))
-                    throw new InvalidOperationException(
-                        $"WorldHistory 기록의 PlayerSeasonId {record.PlayerSeasonId}가 카드 카탈로그에 없습니다.");
-
-                string playerName = runtime.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId);
-                string teamName = manager.GetTeamDisplayName(record.TeamSeasonKey);
-                rows.Add(CreateBattingRow(record, playerName, teamName,
-                    string.Equals(record.TeamSeasonKey, runtime.PlayerTeamSeasonKey, StringComparison.Ordinal)));
+                ManagerCompletedSeasonState completed = completedSeasons[index]
+                    ?? throw new ArgumentException("완료 시즌 이력에 null이 있습니다.", nameof(completedSeasons));
+                rows.Add(CreateClubSeasonRow(completed.Season, completed.LeagueGrade, displayName, false));
             }
+            rows.Add(CreateClubSeasonRow(liveSeason, liveLeagueGrade, displayName, true));
 
-            RecordTableModel table = new RecordTableModel(CreateBattingColumns(), rows)
-                .SortBy("Hits", RecordSortDirection.Descending);
+            RecordTableModel table = new RecordTableModel(CreateClubSeasonColumns(), rows)
+                .SortBy("Season", RecordSortDirection.Descending);
+            string currentRowId = CreateClubSeasonRowId(liveSeason);
             return new RecordsScreenSnapshot(
-                originYear.ToString(CultureInfo.InvariantCulture) + " 시즌",
-                OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
-                "월드 히스토리 확정 기록",
-                "정규 시즌 타격",
+                "구단 역사",
+                OwnerLeagueDisplayNameFormatter.FormatFull(liveLeagueGrade),
+                displayName,
+                "시즌 성적",
                 table,
-                "현재 Owner 시즌 누적이 아니라 새 게임 생성 시 확정된 역사 시뮬레이션 기록입니다.");
+                "실제 진행 시즌만 표시 · 현재 시즌 포함",
+                currentRowId);
         }
 
         private static ScheduleFocusSide ResolveFocusSide(ScheduledGameState game, int focusTeamId)
@@ -138,63 +148,114 @@ namespace Baseball.Presentation.Owner
             return ScheduleFocusSide.None;
         }
 
-        private static Dictionary<string, PlayerSeasonDefinition> IndexPlayerSeasons(WorldCardCatalog catalog)
-        {
-            var result = new Dictionary<string, PlayerSeasonDefinition>(StringComparer.Ordinal);
-            for (int index = 0; index < catalog.Cards.Count; index++)
-            {
-                PlayerCardDefinition card = catalog.Cards[index];
-                if (result.ContainsKey(card.PlayerSeasonId))
-                    continue;
-                PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
-                result.Add(season.PlayerSeasonId, season);
-            }
-            return result;
-        }
-
-        private static RecordTableColumnModel[] CreateBattingColumns()
+        private static RecordTableColumnModel[] CreateClubSeasonColumns()
         {
             return new[]
             {
                 new RecordTableColumnModel(
-                    "Player", "선수", RecordSortValueKind.Text, true,
-                    RecordSortDirection.Ascending, 2.2f, RecordCellAlignment.Left),
+                    "Season", "시즌", RecordSortValueKind.Number, true,
+                    RecordSortDirection.Descending, 1.65f, RecordCellAlignment.Left),
                 new RecordTableColumnModel(
-                    "Team", "구단", RecordSortValueKind.Text, true,
-                    RecordSortDirection.Ascending, 1.7f, RecordCellAlignment.Left),
-                new RecordTableColumnModel("PA", "타석", RecordSortValueKind.Number),
-                new RecordTableColumnModel("Hits", "안타", RecordSortValueKind.Number),
+                    "League", "리그", RecordSortValueKind.Text, true,
+                    RecordSortDirection.Ascending, 1.35f, RecordCellAlignment.Left),
+                new RecordTableColumnModel("Status", "상태", RecordSortValueKind.Text),
+                new RecordTableColumnModel("Rank", "순위", RecordSortValueKind.Number),
+                new RecordTableColumnModel("Games", "경기", RecordSortValueKind.Number),
+                new RecordTableColumnModel("Wins", "승", RecordSortValueKind.Number),
+                new RecordTableColumnModel("Losses", "패", RecordSortValueKind.Number),
+                new RecordTableColumnModel("Ties", "무", RecordSortValueKind.Number),
+                new RecordTableColumnModel("PCT", "승률", RecordSortValueKind.Number),
+                new RecordTableColumnModel("RS", "득점", RecordSortValueKind.Number),
+                new RecordTableColumnModel("RA", "실점", RecordSortValueKind.Number),
                 new RecordTableColumnModel("HR", "홈런", RecordSortValueKind.Number),
-                new RecordTableColumnModel("BB", "볼넷", RecordSortValueKind.Number),
-                new RecordTableColumnModel("SO", "삼진", RecordSortValueKind.Number),
-                new RecordTableColumnModel("AVG", "타율", RecordSortValueKind.Number)
+                new RecordTableColumnModel("SB", "도루", RecordSortValueKind.Number),
+                new RecordTableColumnModel("AVG", "타율", RecordSortValueKind.Number),
+                new RecordTableColumnModel("ERA", "평균자책", RecordSortValueKind.Number, true,
+                    RecordSortDirection.Ascending, 1.1f)
             };
         }
 
-        private static RecordTableRowModel CreateBattingRow(
-            SeasonStatistics record,
-            string playerName,
-            string teamName,
-            bool isPlayerTeam)
+        private RecordTableRowModel CreateClubSeasonRow(
+            ManagerLiveSeasonState season,
+            LeagueGrade leagueGrade,
+            string teamDisplayName,
+            bool isCurrentSeason)
         {
+            string teamSeasonKey = season.GetTeamSeasonKey(season.PlayerTeamId);
+            ScheduleScreenSnapshot schedule = CreateSchedule(
+                season,
+                OwnerLeagueDisplayNameFormatter.FormatFull(leagueGrade),
+                key => string.Equals(key, teamSeasonKey, StringComparison.Ordinal) ? teamDisplayName : key);
+            var league = new OwnerLeaguePresentationModel(schedule);
+            OwnerLeaguePresentationModel.TeamRecord team = FindTeamRecord(league, teamSeasonKey);
+            TeamBattingPitchingTotals totals = CalculateTeamTotals(
+                season.Statistics.RegularSeason,
+                season.PlayerTeamId);
+            bool hasGames = team.Games > 0;
+
             return new RecordTableRowModel(
-                string.Concat("history:", record.PlayerSeasonId, ":", record.TeamSeasonKey),
+                CreateClubSeasonRowId(season),
                 new[]
                 {
-                    TextCell("Player", playerName),
-                    TextCell("Team", teamName),
-                    NumberCell("PA", record.PlateAppearances),
-                    NumberCell("Hits", record.Hits),
-                    NumberCell("HR", record.HomeRuns),
-                    NumberCell("BB", record.Walks),
-                    NumberCell("SO", record.Strikeouts),
-                    new RecordTableCellModel(
-                        "AVG",
-                        record.BattingAverage.ToString("0.000", CultureInfo.InvariantCulture),
-                        RecordSortValue.FromNumber(record.BattingAverage))
+                    NumberCell(
+                        "Season",
+                        season.OriginYear.ToString(CultureInfo.InvariantCulture) + " 시즌 " +
+                        season.SeasonNumber.ToString(CultureInfo.InvariantCulture) + "년차",
+                        season.SeasonNumber),
+                    TextCell("League", OwnerLeagueDisplayNameFormatter.FormatFull(leagueGrade)),
+                    TextCell("Status", isCurrentSeason ? "진행 중" : "완료"),
+                    OptionalNumberCell("Rank", hasGames ? team.Rank.ToString(CultureInfo.InvariantCulture) + "위" : "—", team.Rank, hasGames),
+                    NumberCell("Games", team.Games),
+                    NumberCell("Wins", team.Wins),
+                    NumberCell("Losses", team.Losses),
+                    NumberCell("Ties", team.Ties),
+                    OptionalNumberCell("PCT", hasGames ? team.Percentage.ToString("0.000", CultureInfo.InvariantCulture) : "—", team.Percentage, hasGames),
+                    NumberCell("RS", team.Runs),
+                    NumberCell("RA", team.RunsAllowed),
+                    NumberCell("HR", totals.HomeRuns),
+                    NumberCell("SB", totals.StolenBases),
+                    OptionalNumberCell("AVG", totals.AtBats > 0 ? totals.BattingAverage.ToString("0.000", CultureInfo.InvariantCulture) : "—", totals.BattingAverage, totals.AtBats > 0),
+                    OptionalNumberCell("ERA", totals.OutsRecorded > 0 ? totals.EarnedRunAverage.ToString("0.00", CultureInfo.InvariantCulture) : "—", totals.EarnedRunAverage, totals.OutsRecorded > 0)
                 },
-                isPlayerTeam,
-                isPlayerTeam ? "현재 구단의 확정 역사 기록" : string.Empty);
+                isCurrentSeason,
+                isCurrentSeason ? "현재 진행 중인 시즌" : string.Empty);
+        }
+
+        private static OwnerLeaguePresentationModel.TeamRecord FindTeamRecord(
+            OwnerLeaguePresentationModel league,
+            string teamSeasonKey)
+        {
+            for (int index = 0; index < league.Standings.Count; index++)
+                if (string.Equals(league.Standings[index].Id, teamSeasonKey, StringComparison.Ordinal))
+                    return league.Standings[index];
+            throw new InvalidOperationException("시즌 일정에 플레이어 구단 기록이 없습니다.");
+        }
+
+        private static TeamBattingPitchingTotals CalculateTeamTotals(
+            CompetitionStatisticsState competition,
+            int teamId)
+        {
+            var totals = new TeamBattingPitchingTotals();
+            foreach (KeyValuePair<int, PlayerCompetitionStatisticsState> pair in competition.Players)
+            {
+                PlayerCompetitionStatisticsState player = pair.Value;
+                PlayerTeamStatisticsSplitState split = player.GetTeamSplit(teamId);
+                if (split != null)
+                {
+                    totals.Add(split.Batting, split.Pitching);
+                    continue;
+                }
+
+                // TeamSplit 도입 이전 기록은 현재 소속이 일치할 때만 시즌 합계를 안전하게 사용한다.
+                if (player.TeamId == teamId)
+                    totals.Add(player.Batting, player.Pitching);
+            }
+            return totals;
+        }
+
+        private static string CreateClubSeasonRowId(ManagerLiveSeasonState season)
+        {
+            return "club-season:" + season.SeasonId;
         }
 
         private static RecordTableCellModel TextCell(string columnId, string value)
@@ -208,6 +269,45 @@ namespace Baseball.Presentation.Owner
                 columnId,
                 value.ToString(CultureInfo.InvariantCulture),
                 RecordSortValue.FromNumber(value));
+        }
+
+        private static RecordTableCellModel NumberCell(string columnId, string displayValue, double value)
+        {
+            return new RecordTableCellModel(columnId, displayValue, RecordSortValue.FromNumber(value));
+        }
+
+        private static RecordTableCellModel OptionalNumberCell(
+            string columnId,
+            string displayValue,
+            double value,
+            bool hasValue)
+        {
+            return new RecordTableCellModel(
+                columnId,
+                displayValue,
+                hasValue ? RecordSortValue.FromNumber(value) : RecordSortValue.Empty());
+        }
+
+        private sealed class TeamBattingPitchingTotals
+        {
+            public int AtBats { get; private set; }
+            public int Hits { get; private set; }
+            public int HomeRuns { get; private set; }
+            public int StolenBases { get; private set; }
+            public int OutsRecorded { get; private set; }
+            public int EarnedRuns { get; private set; }
+            public double BattingAverage => AtBats == 0 ? 0d : Hits / (double)AtBats;
+            public double EarnedRunAverage => OutsRecorded == 0 ? 0d : EarnedRuns * 27d / OutsRecorded;
+
+            public void Add(BattingStatisticsState batting, PitchingStatisticsState pitching)
+            {
+                AtBats += batting.AtBats;
+                Hits += batting.Hits;
+                HomeRuns += batting.HomeRuns;
+                StolenBases += batting.StolenBases;
+                OutsRecorded += pitching.OutsRecorded;
+                EarnedRuns += pitching.EarnedRuns;
+            }
         }
 
         private static ManagerHistoricalRuntimeState RequireRuntime(OwnerModeManager manager)
@@ -230,7 +330,7 @@ namespace Baseball.Presentation.Owner
         {
         }
 
-        /// <summary>읽기 전용 Owner 일정·역사 기록 화면에는 Action을 공급하지 않는다.</summary>
+        /// <summary>읽기 전용 Owner 일정·구단 시즌 이력 화면에는 Action을 공급하지 않는다.</summary>
         public IReadOnlyList<SharedScreenActionModel> GetActions(SharedScreenContext context)
         {
             return Array.Empty<SharedScreenActionModel>();

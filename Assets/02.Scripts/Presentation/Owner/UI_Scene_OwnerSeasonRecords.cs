@@ -102,11 +102,11 @@ namespace Baseball.Presentation.Owner
                     continue;
                 _categoryLabels[index].text = _model.Categories[index].DisplayName;
                 _categoryButtons[index].GetComponent<Image>().color = index == _categoryIndex
-                    ? CareerUiTheme.PrimaryAction
-                    : CareerUiTheme.SecondaryAction;
+                    ? CareerUiTheme.ReferenceDataAccent
+                    : CareerUiTheme.ReferenceDataHeader;
                 _categoryLabels[index].color = index == _categoryIndex
-                    ? CareerUiTheme.TextPrimary
-                    : CareerUiTheme.TextSecondary;
+                    ? Color.white
+                    : CareerUiTheme.ReferenceDataInk;
             }
 
             _table.Bind(category.Table, category.ContentState, category.FocusedRowId);
@@ -121,62 +121,70 @@ namespace Baseball.Presentation.Owner
             RectTransform root = GetComponent<RectTransform>();
             OwnerRuntimeUiFactory.Stretch(root);
             Image background = OwnerRuntimeUiFactory.CreateImage(
-                "Background", root, CareerUiTheme.Background);
+                "Background", root, CareerUiTheme.ReferenceDataCanvas);
             OwnerRuntimeUiFactory.Stretch(background.rectTransform);
 
-            OwnerWorkspaceUiFactory.Panel header = OwnerRuntimeUiFactory.CreatePanel(
-                "SeasonRecordsHeader", root, "선수 기록");
+            RectTransform header = OwnerRuntimeUiFactory.CreateRect("SeasonRecordsHeader", root);
             OwnerRuntimeUiFactory.SetAnchors(
-                header.Root,
+                header,
                 new Vector2(0f, 0.84f),
                 Vector2.one,
-                new Vector2(12f, 4f),
-                new Vector2(-12f, -12f));
+                new Vector2(34f, 0f),
+                new Vector2(-34f, 0f));
             _title = OwnerRuntimeUiFactory.CreateText(
-                "Title", header.Content, string.Empty, 21, FontStyle.Bold,
-                TextAnchor.MiddleLeft, CareerUiTheme.TextPrimary);
+                "Title", header, string.Empty, 18, FontStyle.Bold,
+                TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInk);
             OwnerRuntimeUiFactory.SetAnchors(
                 _title.rectTransform,
-                new Vector2(0f, 0.55f),
-                new Vector2(0.7f, 1f),
-                new Vector2(14f, 0f),
-                new Vector2(-14f, 0f));
+                new Vector2(0f, 0.52f),
+                new Vector2(0.64f, 1f),
+                Vector2.zero,
+                Vector2.zero);
             _context = OwnerRuntimeUiFactory.CreateText(
-                "Context", header.Content, string.Empty, 13, FontStyle.Normal,
-                TextAnchor.MiddleLeft, CareerUiTheme.TextSecondary);
+                "Context", header, string.Empty, 13, FontStyle.Normal,
+                TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInkSecondary);
             OwnerRuntimeUiFactory.SetAnchors(
                 _context.rectTransform,
                 Vector2.zero,
-                new Vector2(0.7f, 0.55f),
-                new Vector2(14f, 0f),
-                new Vector2(-14f, 0f));
+                new Vector2(0.64f, 0.52f),
+                Vector2.zero,
+                Vector2.zero);
 
-            _previousSeason = OwnerRuntimeUiFactory.CreateButton(
-                "PreviousSeason", header.Content, "이전 시즌", CareerUiTheme.SecondaryAction);
+            _previousSeason = OwnerRuntimeUiFactory.CreateReferenceButton(
+                "PreviousSeason", header, "◀ 이전 시즌", 13);
             OwnerRuntimeUiFactory.SetAnchors(_previousSeason.GetComponent<RectTransform>(),
-                new Vector2(0.7f, 0.2f), new Vector2(0.85f, 0.8f), new Vector2(4f, 0f), new Vector2(-4f, 0f));
+                new Vector2(0.69f, 0.25f), new Vector2(0.84f, 0.78f), Vector2.zero, new Vector2(-5f, 0f));
             _previousSeason.onClick.AddListener(() => SelectSeason(1));
-            _nextSeason = OwnerRuntimeUiFactory.CreateButton(
-                "NextSeason", header.Content, "다음 시즌", CareerUiTheme.SecondaryAction);
+            _nextSeason = OwnerRuntimeUiFactory.CreateReferenceButton(
+                "NextSeason", header, "다음 시즌 ▶", 13);
             OwnerRuntimeUiFactory.SetAnchors(_nextSeason.GetComponent<RectTransform>(),
-                new Vector2(0.85f, 0.2f), new Vector2(1f, 0.8f), new Vector2(4f, 0f), new Vector2(-14f, 0f));
+                new Vector2(0.84f, 0.25f), new Vector2(1f, 0.78f), new Vector2(5f, 0f), Vector2.zero);
             _nextSeason.onClick.AddListener(() => SelectSeason(-1));
+
+            Image blueRule = OwnerRuntimeUiFactory.CreateImage(
+                "BlueRule", root, CareerUiTheme.ReferenceDataAccent);
+            OwnerRuntimeUiFactory.SetAnchors(
+                blueRule.rectTransform,
+                new Vector2(0.025f, 0.855f),
+                new Vector2(0.975f, 0.855f),
+                Vector2.zero,
+                new Vector2(0f, 3f));
 
             RectTransform categoryBar = OwnerRuntimeUiFactory.CreateRect("CategoryBar", root);
             OwnerRuntimeUiFactory.SetAnchors(
                 categoryBar,
-                new Vector2(0f, 0.775f),
-                new Vector2(1f, 0.84f),
-                new Vector2(12f, 2f),
-                new Vector2(-12f, -2f));
+                new Vector2(0.035f, 0.775f),
+                new Vector2(0.62f, 0.84f),
+                Vector2.zero,
+                Vector2.zero);
             for (int index = 0; index < _categoryButtons.Length; index++)
             {
                 int captured = index;
-                Button button = OwnerRuntimeUiFactory.CreateButton(
+                Button button = OwnerRuntimeUiFactory.CreateReferenceButton(
                     "CategoryButton" + index.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     categoryBar,
                     string.Empty,
-                    CareerUiTheme.SecondaryAction);
+                    14);
                 float width = 1f / _categoryButtons.Length;
                 OwnerRuntimeUiFactory.SetAnchors(
                     button.GetComponent<RectTransform>(),
@@ -192,11 +200,23 @@ namespace Baseball.Presentation.Owner
             RectTransform tableHost = OwnerRuntimeUiFactory.CreateRect("SeasonRecordTableHost", root);
             OwnerRuntimeUiFactory.SetAnchors(
                 tableHost,
+                new Vector2(0.035f, 0.12f),
+                new Vector2(0.965f, 0.75f),
                 Vector2.zero,
-                new Vector2(1f, 0.775f),
-                new Vector2(12f, 12f),
-                new Vector2(-12f, -4f));
+                Vector2.zero);
             _table = RecordTableView.CreateRuntime(tableHost, "SeasonRecordTable");
+            _table.SetVisualStyle(RecordTableVisualStyle.ReferenceLight);
+
+            Text footer = OwnerRuntimeUiFactory.CreateText(
+                "Footer", root, "정규시즌 누적 · 열 제목을 누르면 정렬 · 강조 행은 내 구단 선수",
+                13, FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInkSecondary);
+            OwnerRuntimeUiFactory.SetAnchors(
+                footer.rectTransform,
+                new Vector2(0.035f, 0.025f),
+                new Vector2(0.82f, 0.095f),
+                Vector2.zero,
+                Vector2.zero);
         }
+
     }
 }

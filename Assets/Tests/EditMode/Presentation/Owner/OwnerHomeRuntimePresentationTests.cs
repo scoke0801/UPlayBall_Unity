@@ -1,4 +1,5 @@
 using System.Linq;
+using Baseball.Game.Historical;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
@@ -53,12 +54,16 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             _view.OpponentAnalysisRequested += () => requests++;
             _view.MatchPreparationRequested += () => requests++;
             _view.PlayNextGameRequested += () => requests++;
+            _view.CompleteSeasonRequested += () => requests++;
             _view.SaveRequested += () => requests++;
             _view.NavigationRequested += value => route = value;
             _view.Bind(CreateModel(), true);
             foreach (string name in new[] { "OpponentAnalysisButton", "MatchPreparationButton", "PlayNextGameButton", "SaveButton" })
                 FindButton(name).onClick.Invoke();
-            Assert.That(requests, Is.EqualTo(4));
+            FindButton("CompleteSeasonButton").onClick.Invoke();
+            Assert.That(requests, Is.EqualTo(4), "첫 클릭은 시즌 일괄 진행 확인만 열어야 한다.");
+            FindButton("CompleteSeasonButton").onClick.Invoke();
+            Assert.That(requests, Is.EqualTo(5));
             FindButton("ScheduleButton").onClick.Invoke();
             Assert.That(route, Is.EqualTo(OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId));
             FindButton("ClubButton").onClick.Invoke();
@@ -70,6 +75,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         {
             _view.Bind(CreateModel(false), true);
             Assert.That(FindButton("PlayNextGameButton").interactable, Is.False);
+            Assert.That(FindButton("CompleteSeasonButton").interactable, Is.False);
             Assert.That(FindButton("MatchPreparationButton").interactable, Is.True);
             Assert.That(FindButton("OpponentAnalysisButton").interactable, Is.True);
             Assert.That(FindText("Feedback").text, Is.EqualTo("투수 1명이 부족합니다."));
@@ -78,12 +84,20 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         [Test]
         public void CompletedSchedule_경기행동은막고결과조회는유지한다()
         {
+            int advanceRequests = 0;
+            _view.AdvanceSeasonRequested += () => advanceRequests++;
             _view.Bind(CreateModel(), false);
             Assert.That(FindButton("PlayNextGameButton").interactable, Is.False);
             Assert.That(FindButton("MatchPreparationButton").interactable, Is.False);
             Assert.That(FindButton("OpponentAnalysisButton").interactable, Is.False);
             Assert.That(FindButton("ScheduleButton").interactable, Is.True);
+            Assert.That(FindButton("CompleteSeasonButton").interactable, Is.True);
+            Assert.That(FindButton("CompleteSeasonButton").GetComponentInChildren<Text>().text, Is.EqualTo("다음 시즌"));
             Assert.That(FindText("NextMatchValue").text, Is.EqualTo("남은 일정 없음"));
+            FindButton("CompleteSeasonButton").onClick.Invoke();
+            Assert.That(advanceRequests, Is.Zero);
+            FindButton("CompleteSeasonButton").onClick.Invoke();
+            Assert.That(advanceRequests, Is.EqualTo(1));
         }
 
         [Test]
@@ -132,6 +146,47 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             _view.SetVisible(true);
             Assert.That(_shell.transform.Find("ContextHeader").gameObject.activeSelf, Is.False);
             Assert.That(_view.GuideDockTarget.gameObject.activeInHierarchy, Is.True);
+        }
+
+        [Test]
+        public void SeasonSimulationPopup_현재라운드와대진진행률을구단주UI로표시한다()
+        {
+            UI_Popup_OwnerSeasonSimulation popup =
+                UI_Popup_OwnerSeasonSimulation.CreateRuntime(_shell.PopupHost);
+            var progress = new ManagerRegularSeasonSimulationProgress(
+                ManagerRegularSeasonSimulationStatus.Running,
+                18,
+                72,
+                45,
+                180,
+                18,
+                19,
+                "BUSAN",
+                "SEOUL",
+                11,
+                5,
+                2);
+            popup.Bind(progress, key => key == "BUSAN" ? "부산 마리너스" : "서울 웨이브스");
+            popup.Show();
+
+            Text[] texts = popup.GetComponentsInChildren<Text>(true);
+            Assert.That(texts.Any(text => text.name == "CurrentRound" && text.text == "19라운드 시뮬레이션"), Is.True);
+            Assert.That(texts.Any(text => text.name == "CurrentMatchup" &&
+                                         text.text.Contains("부산 마리너스  VS  서울 웨이브스")), Is.True);
+            Assert.That(texts.Any(text => text.name == "LeagueProgress" && text.text.Contains("45 / 180")), Is.True);
+            Assert.That(texts.Any(text => text.name == "PlayerProgress" && text.text.Contains("18 / 72")), Is.True);
+            Assert.That(texts.Any(text => text.name == "SeasonRecord" && text.text.Contains("11승  2무  5패")), Is.True);
+            Transform fill = popup.transform.Find("SeasonSimulationDialog/ProgressTrack/ProgressFill");
+            Assert.That(fill.localScale.x, Is.EqualTo(0.25f).Within(0.001f));
+
+            int stopRequests = 0;
+            popup.StopRequested += () => stopRequests++;
+            popup.GetComponentsInChildren<Button>(true).First(button => button.name == "StopSimulation")
+                .onClick.Invoke();
+            Assert.That(stopRequests, Is.EqualTo(1));
+            Assert.That(popup.GetComponentInChildren<OwnerUiButtonSkin>(true), Is.Not.Null);
+
+            Object.DestroyImmediate(popup.gameObject);
         }
 
         private static Rect Bounds(RectTransform rect, Transform relativeTo)

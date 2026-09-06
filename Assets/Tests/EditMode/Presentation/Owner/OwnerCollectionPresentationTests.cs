@@ -23,7 +23,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
             Assert.That(byPosition.CountText, Is.EqualTo("검색 결과 2/4장"));
             Assert.That(byPosition.Cards[0].Snapshot.DisplayName, Is.EqualTo("김마무리"));
-            Assert.That(byPosition.Cards[0].MiniCard.PositionLabel, Is.EqualTo("구원투수 (RP)"));
+            Assert.That(byPosition.Cards[0].MiniCard.PositionLabel, Is.EqualTo("구원투수"));
             Assert.That(byEdition.Cards[0].MiniCard.EditionLabel, Is.EqualTo("MVP"));
             Assert.That(byEdition.Cards[1].MiniCard.EditionLabel, Is.EqualTo("골든글러브"));
         }
@@ -43,7 +43,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void View_검색결과를공용MiniCard로그리고선택Inspector와미연결Action을표시한다()
+        public void View_검색결과를공용MiniCard로그리고선택카드Action을전달한다()
         {
             var root = new GameObject("OwnerCollectionTestRoot", typeof(RectTransform));
             UI_Scene_OwnerCollection view = null;
@@ -68,17 +68,19 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(inspector.text, Does.Contain("김마무리"));
                 Assert.That(inspector.text, Does.Contain("골든글러브"));
                 Button enhancement = FindButton(shell.transform,
-                    "ContextActionBar/OwnerCollectionActionBar/EnhancementDisabled");
+                    "ContextActionBar/OwnerCollectionActionBar/Enhancement");
                 Button sale = FindButton(shell.transform,
-                    "ContextActionBar/OwnerCollectionActionBar/SaleDisabled");
-                Button activeRoster = FindButton(shell.transform,
-                    "ContextActionBar/OwnerCollectionActionBar/ActiveRosterDisabled");
-                Assert.That(enhancement.interactable, Is.False);
-                Assert.That(enhancement.GetComponentInChildren<Text>().text, Does.Contain("미리보기·실행"));
-                Assert.That(sale.interactable, Is.False);
-                Assert.That(sale.GetComponentInChildren<Text>().text, Does.Contain("미리보기·실행"));
-                Assert.That(activeRoster.interactable, Is.False);
-                Assert.That(activeRoster.GetComponentInChildren<Text>().text, Does.Contain("변경 미제공"));
+                    "ContextActionBar/OwnerCollectionActionBar/Sale");
+                string enhancedId = null;
+                string soldId = null;
+                view.EnhancementRequested += id => enhancedId = id;
+                view.DuplicateSaleRequested += id => soldId = id;
+                enhancement.onClick.Invoke();
+                Assert.That(enhancedId, Is.Null, "첫 클릭은 미리보기다.");
+                enhancement.onClick.Invoke();
+                sale.onClick.Invoke();
+                Assert.That(enhancedId, Is.EqualTo("CARD-RP"));
+                Assert.That(soldId, Is.EqualTo("CARD-RP"));
             }
             finally
             {

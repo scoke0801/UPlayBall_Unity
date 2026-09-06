@@ -26,6 +26,10 @@ namespace Baseball.Presentation.Owner
         private Button _opponentAnalysisButton;
         private Button _matchPreparationButton;
         private Button _playNextGameButton;
+        private Button _completeSeasonButton;
+        private Text _completeSeasonButtonText;
+        private bool _hasRemainingGames;
+        private bool _isSeasonActionArmed;
 
         /// <summary>안내창을 경기 상태창 위에 도킹하는 실제 화면 경계다.</summary>
         public RectTransform GuideDockTarget => _dashboardBackplate;
@@ -33,6 +37,8 @@ namespace Baseball.Presentation.Owner
         public event Action OpponentAnalysisRequested;
         public event Action MatchPreparationRequested;
         public event Action PlayNextGameRequested;
+        public event Action CompleteSeasonRequested;
+        public event Action AdvanceSeasonRequested;
         public event Action<string> NavigationRequested;
         public event Action SaveRequested;
 
@@ -64,6 +70,10 @@ namespace Baseball.Presentation.Owner
             // 잘못된 로스터도 경기 준비 화면에서 수정할 수 있어야 한다.
             _matchPreparationButton.interactable = canPlayNextGame;
             _playNextGameButton.interactable = canPlayNextGame && snapshot.IsRosterValid;
+            _hasRemainingGames = canPlayNextGame;
+            _isSeasonActionArmed = false;
+            _completeSeasonButton.interactable = !canPlayNextGame || snapshot.IsRosterValid;
+            _completeSeasonButtonText.text = canPlayNextGame ? "시즌 완료" : "다음 시즌";
             _matchStateText.text = !canPlayNextGame ? "일정 종료" : snapshot.IsRosterValid ? "경기 준비 완료" : "선수단 확인 필요";
             _matchStateText.color = canPlayNextGame && snapshot.IsRosterValid ? CareerUiTheme.Number : CareerUiTheme.TextPrimary;
             _feedbackText.text = !snapshot.IsRosterValid ? snapshot.RosterValidationMessage
@@ -107,8 +117,11 @@ namespace Baseball.Presentation.Owner
                 new Vector2(16f, 34f), new Vector2(490f, 66f));
             _opponentText = Label(match, "OpponentStrength", "", 16, FontStyle.Normal, CareerUiTheme.TextSecondary,
                 new Vector2(16f, 8f), new Vector2(490f, 34f));
-            _playNextGameButton = CreateAction(match, "PlayNextGameButton", "다음 경기 진행",
-                () => PlayNextGameRequested?.Invoke(), new Vector2(516f, 22f), new Vector2(688f, 82f), true);
+            _playNextGameButton = CreateAction(match, "PlayNextGameButton", "다음 경기",
+                () => PlayNextGameRequested?.Invoke(), new Vector2(516f, 22f), new Vector2(600f, 82f), true);
+            _completeSeasonButton = CreateAction(match, "CompleteSeasonButton", "시즌 완료",
+                HandleSeasonActionRequested, new Vector2(604f, 22f), new Vector2(688f, 82f), true);
+            _completeSeasonButtonText = _completeSeasonButton.transform.Find("Label").GetComponent<Text>();
 
             RectTransform info = Surface(dock, "ClubInformationPanel", CareerUiTheme.ReferencePanel, 0f, 0f, DockWidth, DockHeight);
             RectTransform teamHeader = Surface(info, "TeamHeader", CareerUiTheme.ShellHeader, 2f, 234f, DockWidth - 2f, 290f);
@@ -179,7 +192,26 @@ namespace Baseball.Presentation.Owner
             text.fontSize = primary ? 18 : 17;
             text.resizeTextForBestFit = false;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            OwnerUiButtonSkin.Apply(button, primary ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
             return button;
+        }
+
+        private void HandleSeasonActionRequested()
+        {
+            if (!_isSeasonActionArmed)
+            {
+                _isSeasonActionArmed = true;
+                _completeSeasonButtonText.text = "진행 확인";
+                _feedbackText.text = _hasRemainingGames
+                    ? "남은 모든 경기를 기존 일정과 Seed로 진행합니다. 미리 배치한 작전카드는 해당 경기마다 사용됩니다. 한 번 더 누르면 시작합니다."
+                    : "계약과 급여를 마감하고 다음 시즌을 엽니다. 한 번 더 누르면 시작합니다.";
+                _feedbackText.color = CareerUiTheme.ReferenceAccent;
+                return;
+            }
+
+            _isSeasonActionArmed = false;
+            if (_hasRemainingGames) CompleteSeasonRequested?.Invoke();
+            else AdvanceSeasonRequested?.Invoke();
         }
 
         private static void SetRect(RectTransform rect, Vector2 min, Vector2 max)
