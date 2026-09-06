@@ -564,6 +564,10 @@ Assets/Editor Default Resources/*
 !Tools/KBOImporter/report_pm_lineups.py
 !Tools/KBOImporter/report_pm_final_calibration.py
 !Tools/KBOImporter/test_pm_final_calibration.py
+!Tools/KBOImporter/study_pm_pitcher_cost.py
+!Tools/KBOImporter/source_position_evidence.py
+!Tools/KBOImporter/season_position_evidence.json
+!Tools/KBOImporter/test_pm_pitcher_position.py
 !Tools/KBOImporter/study_pm_calibration.py
 !Tools/KBOImporter/study_pm_abilities.py
 !Tools/KBOImporter/report_pm_calibration.py
@@ -589,3 +593,4 @@ Assets/01.Scenes/GameLogic/InGame_Old.unity
 Assets/01.Scenes/GameLogic/InGame_Old.unity.meta
 docs/디자인/ref/
 Tools/PMReference/
+docs/reports/
