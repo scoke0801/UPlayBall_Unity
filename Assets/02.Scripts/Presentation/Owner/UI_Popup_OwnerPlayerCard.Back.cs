@@ -36,7 +36,7 @@ namespace Baseball.Presentation.Owner
             RectTransform role = Surface(parent, "RoleInformation", panel, 0.075f, 0.315f, 0.925f, 0.65f);
             if (pitcher) BuildPitchRepertoire(role, card);
             else BuildDefenseDiagram(role, card.Position);
-            BuildSkillBlockBoard(parent, paper, panel);
+            BuildSkillBlockBoard(parent, paper, panel, card);
         }
 
         private static void BuildDefenseDiagram(RectTransform parent, PlayerPosition position)
@@ -63,7 +63,8 @@ namespace Baseball.Presentation.Owner
             Label(parent, "PositionLegend", "금색: 주 포지션", 0, 0, 1, .07f, 10, Gold);
         }
 
-        private static void BuildSkillBlockBoard(RectTransform parent, Color paper, Color panel)
+        private static void BuildSkillBlockBoard(
+            RectTransform parent, Color paper, Color panel, OwnerCollectionCardSnapshot card)
         {
             Surface(parent, "SkillBoardTitle", paper, .075f, .255f, .925f, .31f);
             Label(parent, "SkillBoardHeading", "스킬 블록 · 4×4", .09f, .26f, .91f, .305f, 12, Ink);
@@ -86,7 +87,9 @@ namespace Baseball.Presentation.Owner
                         Label(cell, "TraitSocket", "◇", 0, 0, 1, 1, 12, Gold);
                 }
             }
-            Label(section, "State", "장착된 스킬 블록 정보 없음", .33f, .16f, .96f, .84f,
+            Label(section, "State",
+                $"장착 {card.PlacedSkillBlockCount}개\n미장착 인벤토리 {card.AvailableSkillBlockCount}개\n\n보유 선수 > 카드훈련에서 배치 변경",
+                .33f, .16f, .96f, .84f,
                 12, new Color(.72f, .75f, .78f));
         }
 
