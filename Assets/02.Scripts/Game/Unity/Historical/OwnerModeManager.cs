@@ -601,7 +601,9 @@ namespace Baseball.Game.Historical
                 candidateStatus,
                 candidatePreset,
                 validation,
-                previouslyClearedTeamColorCount + newlyClearedTeamColorCount);
+                Math.Min(
+                    LineupPresetState.TeamColorSlotCount,
+                    previouslyClearedTeamColorCount + newlyClearedTeamColorCount));
         }
 
         private static ActiveRosterEntry FindRosterEntry(CurrentRosterState roster, string cardId)

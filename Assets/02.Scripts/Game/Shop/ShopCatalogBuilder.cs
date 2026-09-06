@@ -193,9 +193,9 @@ namespace Baseball.Game.Shop
             switch (pool.ScoutType)
             {
                 case ScoutType.General: return "전 연도 균형";
-                case ScoutType.Franchise: return "연고 구단 집중";
-                case ScoutType.Year: return "현재 연도 집중";
-                case ScoutType.YearFranchise: return "연고·연도 정밀";
+                case ScoutType.Franchise: return "구단 집중";
+                case ScoutType.Year: return "연도 집중";
+                case ScoutType.YearFranchise: return "구단·연도 정밀";
                 case ScoutType.Award: return "수상 경력 집중";
                 default: throw new ArgumentOutOfRangeException(nameof(pool));
             }

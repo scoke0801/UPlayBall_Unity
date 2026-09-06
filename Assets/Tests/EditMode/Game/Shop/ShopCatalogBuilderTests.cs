@@ -105,7 +105,7 @@ namespace Baseball.Tests.EditMode.Game.Shop
             Assert.AreEqual(240L, precise.Price);
             Assert.That(franchise.ScopeLabel, Does.Contain("가상 서울 구단"));
             Assert.That(year.ScopeLabel, Does.Contain("2025년"));
-            Assert.That(precise.GradeLabel, Is.EqualTo("연고·연도 정밀"));
+            Assert.That(precise.GradeLabel, Is.EqualTo("구단·연도 정밀"));
             Assert.That(franchise.ScopeLabel, Does.Not.Contain("franchise-a"));
         }
 
