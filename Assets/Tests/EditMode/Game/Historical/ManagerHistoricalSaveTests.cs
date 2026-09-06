@@ -20,6 +20,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
             ManagerHistoricalRuntimeState original = fixture.State;
             ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            original.ManagerMode.LiveSeason.NextPlayerGame.PlanTactics(new[] { "TACTIC-SCHEDULED" });
 
             ManagerHistoricalSaveData saveData = adapter.CreateSaveData(original);
             ManagerHistoricalRuntimeState restored = adapter.Restore(saveData);
@@ -52,12 +53,36 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(restored.ManagerMode.PlayerContracts.Count, Is.EqualTo(25));
             Assert.That(saveData.managerMode.playerContracts.Length, Is.EqualTo(25));
             Assert.That(saveData.managerMode.tradeReceipts, Is.Empty);
+            Assert.That(restored.ManagerMode.LiveSeason.NextPlayerGame.HasTacticPlan, Is.True);
+            Assert.That(restored.ManagerMode.LiveSeason.NextPlayerGame.PlannedTacticCardIds,
+                Is.EqualTo(new[] { "TACTIC-SCHEDULED" }));
 
             Assert.That(restored.TryGetOwnedCard("PS-000:Normal", out OwnedPlayerCardState owned), Is.True);
             Assert.That(owned.EnhancementLevel, Is.EqualTo(3));
             Assert.That(owned.DuplicateCount, Is.EqualTo(2));
             Assert.That(owned.IsLocked, Is.True);
             Assert.That(owned.Training.GetBonus(PlayerAbility.Contact), Is.EqualTo(2));
+            Assert.That(owned.Training.GetDirectTrainingBonus(PlayerAbility.Contact), Is.EqualTo(1));
+            Assert.That(owned.Training.GetStudyBonus(PlayerAbility.Contact), Is.EqualTo(1));
+            Assert.That(saveData.ownedCards[0].studyBonuses[(int)PlayerAbility.Contact], Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Restore_V12훈련누적치는일반훈련출처로손실없이이행한다()
+        {
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
+            ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            ManagerHistoricalSaveData saveData = adapter.CreateSaveData(fixture.State);
+            saveData.saveVersion = 12;
+            for (int index = 0; index < saveData.ownedCards.Length; index++)
+                saveData.ownedCards[index].studyBonuses = null;
+
+            ManagerHistoricalRuntimeState restored = adapter.Restore(saveData);
+
+            Assert.That(restored.TryGetOwnedCard("PS-000:Normal", out OwnedPlayerCardState owned), Is.True);
+            Assert.That(owned.Training.GetBonus(PlayerAbility.Contact), Is.EqualTo(2));
+            Assert.That(owned.Training.GetDirectTrainingBonus(PlayerAbility.Contact), Is.EqualTo(2));
+            Assert.That(owned.Training.GetStudyBonus(PlayerAbility.Contact), Is.Zero);
         }
 
         [TestCase(WorldRecordMode.OriginalHistory)]
@@ -285,9 +310,10 @@ namespace Baseball.Tests.EditMode.Game.Historical
             ManagerHistoricalRuntimeState restored = loadService.Restore(save);
 
             Assert.That(fixture.Provider.LoadCount, Is.EqualTo(1));
-            Assert.That(restored.League.RegularFranchiseTeamCount, Is.EqualTo(10));
-            Assert.That(restored.League.SpecialCompositeTeams.Count, Is.EqualTo(3));
-            Assert.That(restored.Rosters.Count, Is.EqualTo(13));
+            Assert.That(restored.League.RegularFranchiseTeamCount, Is.EqualTo(6));
+            Assert.That(restored.League.SpecialCompositeTeams.Count, Is.EqualTo(4));
+            Assert.That(restored.League.ParticipantTeamCount, Is.EqualTo(10));
+            Assert.That(restored.Rosters.Count, Is.EqualTo(10));
             var assignedPlayerSeasons = new HashSet<string>(StringComparer.Ordinal);
             for (int teamIndex = 0; teamIndex < restored.League.SpecialCompositeTeams.Count; teamIndex++)
             {
@@ -320,7 +346,11 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     Assert.That(card.Edition, Is.EqualTo(expectedEdition));
                 }
             }
-            Assert.That(assignedPlayerSeasons.Count, Is.EqualTo(75));
+            Assert.That(
+                assignedPlayerSeasons.Count,
+                Is.EqualTo(
+                    restored.League.SpecialCompositeTeams.Count *
+                    ActiveRosterCompositionRule.ActiveRosterSize));
         }
 
         [Test]
@@ -362,6 +392,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 case SpecialCompositeTeamType.GoldenGloveComposite:
                     return PlayerCardEdition.GoldenGlove;
                 case SpecialCompositeTeamType.YearSelectComposite:
+                case SpecialCompositeTeamType.RandomSelectComposite:
                     return PlayerCardEdition.Normal;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(teamType));
@@ -415,7 +446,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 var seasons = new List<PlayerSeasonDefinition>(250);
                 var cards = new List<PlayerCardDefinition>(250);
                 var teamSeasons = new List<TeamSeasonDefinition>(10);
-                var rosters = new List<CurrentRosterState>(13);
+                var rosters = new List<CurrentRosterState>(10);
                 var owned = new List<OwnedPlayerCardState>(25);
                 var teamKeys = new string[10];
                 var zeroModifiers = new int[PlayerAbilityCatalog.AbilityCount];
@@ -481,8 +512,11 @@ namespace Baseball.Tests.EditMode.Game.Historical
                             if (rosterIndex == 0)
                             {
                                 var training = new int[PlayerAbilityCatalog.AbilityCount];
+                                var study = new int[PlayerAbilityCatalog.AbilityCount];
                                 training[(int)PlayerAbility.Contact] = 2;
-                                owned.Add(new OwnedPlayerCardState(cardId, 3, 2, true, true, new CardTrainingState(training)));
+                                study[(int)PlayerAbility.Contact] = 1;
+                                owned.Add(new OwnedPlayerCardState(
+                                    cardId, 3, 2, true, true, new CardTrainingState(training, study)));
                             }
                             else
                             {
@@ -497,13 +531,24 @@ namespace Baseball.Tests.EditMode.Game.Historical
                         teamCardIds,
                         teamCardIds,
                         50d));
-                    rosters.Add(new CurrentRosterState(teamKey, entries));
+                    if (!includeSpecialCompositeTeams || teamIndex < 6)
+                        rosters.Add(new CurrentRosterState(teamKey, entries));
                 }
 
                 var awards = new List<WorldAwardEntry>(50);
                 SpecialCompositeTeamRegistration[] specialTeams = includeSpecialCompositeTeams
                     ? AddSpecialCompositeTeams(seasons, rosters, awards)
                     : Array.Empty<SpecialCompositeTeamRegistration>();
+                string[] leagueRegularTeamKeys;
+                if (includeSpecialCompositeTeams)
+                {
+                    leagueRegularTeamKeys = new string[6];
+                    Array.Copy(teamKeys, leagueRegularTeamKeys, leagueRegularTeamKeys.Length);
+                }
+                else
+                {
+                    leagueRegularTeamKeys = teamKeys;
+                }
 
                 var historyStatistics = new[]
                 {
@@ -587,6 +632,12 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     Array.Empty<OriginalSeasonRecordDefinition>(),
                     Array.Empty<OriginalAwardRecordDefinition>());
                 var bakedContent = new HistoricalBakedContent(manifest, persons, new[] { year });
+                // 합성 Fixture의 FRANCHISE-00 계열은 실제 구단 연고지 매핑 대상이 아니다.
+                var fixtureNames = new WorldIdentityNameCatalog(
+                    bakedContent.IdentityNameCatalog.DomesticPlayerNames,
+                    bakedContent.IdentityNameCatalog.ForeignPlayerNames,
+                    bakedContent.IdentityNameCatalog.FranchiseNames);
+                bakedContent = new HistoricalBakedContent(manifest, persons, new[] { year }, fixtureNames);
                 var provider = new RecordingHistoricalContentProvider(bakedContent);
                 WorldIdentityRegistry identities = new WorldIdentityGenerator().Generate(
                     bakedContent.PlayerPersons,
@@ -603,7 +654,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     identities,
                     history,
                     catalog,
-                    new LeagueInstance("LEAGUE-01", LeagueGrade.Rookie, teamKeys, specialTeams),
+                    new LeagueInstance("LEAGUE-01", LeagueGrade.Rookie, leagueRegularTeamKeys, specialTeams),
                     rosters,
                     owned,
                     new ManagerEconomyState(125000L, 80, 30, 40));
@@ -619,7 +670,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 {
                     SpecialCompositeTeamType.AllStarComposite,
                     SpecialCompositeTeamType.GoldenGloveComposite,
-                    SpecialCompositeTeamType.YearSelectComposite
+                    SpecialCompositeTeamType.YearSelectComposite,
+                    SpecialCompositeTeamType.RandomSelectComposite
                 };
                 var definitions = new SpecialCompositeTeamDefinition[teamTypes.Length];
                 for (int teamIndex = 0; teamIndex < teamTypes.Length; teamIndex++)

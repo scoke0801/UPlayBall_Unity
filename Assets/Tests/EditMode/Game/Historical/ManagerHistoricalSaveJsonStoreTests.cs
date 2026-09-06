@@ -60,6 +60,28 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(json, Does.Not.Contain("pityGauge"));
         }
 
+        [Test]
+        public void Delete_RemovesExistingOwnerSave_AndIsIdempotent()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "UPlayBall", Guid.NewGuid().ToString("N"));
+            string path = Path.Combine(directory, "manager_historical.json");
+            try
+            {
+                var store = new ManagerHistoricalSaveJsonStore(path);
+                store.Save(CreateSaveData());
+
+                store.Delete();
+                Assert.That(store.Exists, Is.False);
+
+                Assert.DoesNotThrow(store.Delete);
+            }
+            finally
+            {
+                if (Directory.Exists(directory))
+                    Directory.Delete(directory, true);
+            }
+        }
+
         private static ManagerHistoricalSaveData CreateSaveData()
         {
             return new ManagerHistoricalSaveData

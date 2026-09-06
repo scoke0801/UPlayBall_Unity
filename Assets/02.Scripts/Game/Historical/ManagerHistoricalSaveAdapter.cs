@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 11;
+        public const int CurrentSaveVersion = 13;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
         // 개인 기록은 없으면 빈 상태로 복원되므로 별도 버전 분기가 필요 없다.
@@ -25,6 +25,8 @@ namespace Baseball.Game.Historical
         private const int DugoutManagementSaveVersion = 9;
         private const int CompletedSeasonsSaveVersion = 10;
         private const int OwnerPlayerMarketSaveVersion = 11;
+        private const int ScheduledTacticsSaveVersion = 12;
+        private const int GrowthSourceBreakdownSaveVersion = 13;
         private const int FirstSupportedSaveVersion = 1;
 
         private readonly IHistoricalContentProvider _contentProvider;
@@ -407,7 +409,7 @@ namespace Baseball.Game.Historical
                 source.selectedLineupPresetId,
                 RestorePlayerStatuses(Require(source.playerStatuses, nameof(source.playerStatuses))),
                 RestoreFamiliarities(Require(source.familiarities, nameof(source.familiarities))),
-                RestoreLiveSeason(Require(source.liveSeason, nameof(source.liveSeason))),
+                RestoreLiveSeason(Require(source.liveSeason, nameof(source.liveSeason)), saveVersion),
                 saveVersion < DugoutManagementSaveVersion || source.dugout == null
                     ? DugoutManagementState.CreateDefault()
                     : RestoreDugout(source.dugout),
@@ -481,7 +483,8 @@ namespace Baseball.Game.Historical
                 ManagerCompletedSeasonSaveData saved = Require(seasons[index], nameof(seasons));
                 ValidateEnum<LeagueGrade>(saved.leagueGrade, nameof(saved.leagueGrade));
                 result[index] = new ManagerCompletedSeasonState(
-                    RestoreLiveSeason(Require(saved.season, nameof(saved.season))), (LeagueGrade)saved.leagueGrade);
+                    RestoreLiveSeason(Require(saved.season, nameof(saved.season)), saveVersion),
+                    (LeagueGrade)saved.leagueGrade);
             }
             return result;
         }
@@ -922,7 +925,11 @@ namespace Baseball.Game.Historical
                     homeRuns = game.HomeRuns,
                     hasPlayerRolePlan = game.HasPlayerRolePlan,
                     plannedPlayerRole = (int)game.PlannedPlayerRole,
-                    hasPlayerRoleDecision = game.HasPlayerRoleDecision
+                    hasPlayerRoleDecision = game.HasPlayerRoleDecision,
+                    hasTacticPlan = game.HasTacticPlan,
+                    plannedTacticCardIds = game.HasTacticPlan
+                        ? CopyIds(game.PlannedTacticCardIds)
+                        : Array.Empty<string>()
                 };
                 if (game.HasPlayerRoleDecision)
                 {
@@ -947,7 +954,7 @@ namespace Baseball.Game.Historical
             };
         }
 
-        private static ManagerLiveSeasonState RestoreLiveSeason(ManagerLiveSeasonSaveData source)
+        private static ManagerLiveSeasonState RestoreLiveSeason(ManagerLiveSeasonSaveData source, int saveVersion)
         {
             ManagerTeamReferenceSaveData[] teamData = Require(source.teams, nameof(source.teams));
             var teams = new ManagerTeamReference[teamData.Length];
@@ -993,6 +1000,8 @@ namespace Baseball.Game.Historical
                 {
                     throw new InvalidOperationException("Player role decision에는 role plan이 필요합니다.");
                 }
+                if (saveVersion >= ScheduledTacticsSaveVersion && saved.hasTacticPlan)
+                    game.PlanTactics(Require(saved.plannedTacticCardIds, nameof(saved.plannedTacticCardIds)));
                 if (saved.isCompleted) game.Complete(saved.awayRuns, saved.homeRuns);
                 games[index] = game;
             }
@@ -1341,8 +1350,12 @@ namespace Baseball.Game.Historical
             {
                 OwnedPlayerCardState card = source[index];
                 var training = new int[PlayerAbilityCatalog.AbilityCount];
+                var study = new int[PlayerAbilityCatalog.AbilityCount];
                 for (int abilityIndex = 0; abilityIndex < training.Length; abilityIndex++)
+                {
                     training[abilityIndex] = card.Training.GetBonus((PlayerAbility)abilityIndex);
+                    study[abilityIndex] = card.Training.GetStudyBonus((PlayerAbility)abilityIndex);
+                }
                 result[index] = new OwnedPlayerCardSaveData
                 {
                     cardId = card.CardId,
@@ -1351,6 +1364,7 @@ namespace Baseball.Game.Historical
                     isLocked = card.IsLocked,
                     isFavorite = card.IsFavorite,
                     trainingBonuses = training,
+                    studyBonuses = study,
                     skillBoard = CreateSkillBoard(card.SkillBoard),
                     lastStudySeason = card.LastStudySeason
                 };
@@ -1371,7 +1385,11 @@ namespace Baseball.Game.Historical
                     card.duplicateCount,
                     card.isLocked,
                     card.isFavorite,
-                    new CardTrainingState(Require(card.trainingBonuses, nameof(card.trainingBonuses))),
+                    new CardTrainingState(
+                        Require(card.trainingBonuses, nameof(card.trainingBonuses)),
+                        saveVersion < GrowthSourceBreakdownSaveVersion
+                            ? null
+                            : Require(card.studyBonuses, nameof(card.studyBonuses))),
                     saveVersion < OwnerGrowthSaveVersion
                         ? new OwnedCardSkillBoardState()
                         : RestoreSkillBoard(card.skillBoard),

@@ -114,6 +114,7 @@ namespace Baseball.Game.Historical
         public bool isLocked;
         public bool isFavorite;
         public int[] trainingBonuses;
+        public int[] studyBonuses;
         public OwnerPlacedSkillBlockSaveData[] skillBoard;
         public int lastStudySeason;
     }
@@ -537,5 +538,7 @@ namespace Baseball.Game.Historical
         public double managerEvaluationAdjustment;
         public double decisionScore;
         public double requiredScore;
+        public bool hasTacticPlan;
+        public string[] plannedTacticCardIds;
     }
 }

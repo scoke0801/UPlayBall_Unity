@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using System.Threading;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
@@ -57,7 +58,8 @@ namespace Baseball.Game.Historical
     /// <summary>Baked Core25만으로 DetailedMatchEngine의 과거 정규시즌·올스타전·포스트시즌을 실행한다.</summary>
     public sealed class BakedHistoricalDetailedSeasonSource : IHistoricalDetailedSeasonSource
     {
-        public const int RegularSeasonGamesPerTeam = 80;
+        /// <summary>역사 생성도 인게임과 동일한 팀당 정규시즌 경기 수 설정을 사용한다.</summary>
+        public int RegularSeasonGamesPerTeam => _balance.CareerSeason.RegularSeasonGamesPerTeam;
 
         private const ulong ScheduleStream = 0x5343484544554C45UL;
         private const ulong RegularGameStream = 0x524547554C415200UL;
@@ -72,17 +74,23 @@ namespace Baseball.Game.Historical
         private readonly WorldIdentityRegistry _identityRegistry;
         private readonly AwardScoringPolicy _awardScoring;
         private readonly HistoricalMatchConfiguration _historicalConfiguration;
+        private readonly CancellationToken _cancellationToken;
+        private readonly bool _retainMatchResults;
 
         public BakedHistoricalDetailedSeasonSource(
             HistoricalBakedContent content,
             BalanceTable balance,
             WorldIdentityRegistry identityRegistry,
-            AwardScoringPolicy awardScoring = null)
+            AwardScoringPolicy awardScoring = null,
+            CancellationToken cancellationToken = default,
+            bool retainMatchResults = true)
         {
             _content = content ?? throw new ArgumentNullException(nameof(content));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _identityRegistry = identityRegistry ?? throw new ArgumentNullException(nameof(identityRegistry));
             _awardScoring = awardScoring ?? AwardScoringPolicy.CreateDefault();
+            _cancellationToken = cancellationToken;
+            _retainMatchResults = retainMatchResults;
             _historicalConfiguration = new HistoricalMatchConfiguration(
                 _balance.HistoricalAssignment.CreateRule());
         }
@@ -94,12 +102,13 @@ namespace Baseball.Game.Historical
             IReadOnlyList<TeamSeasonDefinition> regularFranchiseTeams)
         {
             long allocationBefore = AllocationCounter.Read();
+            _cancellationToken.ThrowIfCancellationRequested();
             long startedAt = Stopwatch.GetTimestamp();
             SeasonContext context = CreateContext(regularFranchiseTeams);
             ulong seasonSeed = DeterministicSeed.Derive(worldHistorySeed, unchecked((ulong)context.SeasonYear));
             int regularSeasonGamesPerTeam = ResolveRegularSeasonGamesPerTeam(context.Rosters.Count);
-            int regularGameCapacity = regularSeasonGamesPerTeam * context.Rosters.Count / 2;
-            var matches = new List<HistoricalDetailedMatchRecord>(regularGameCapacity + 16);
+            var matches = new DetailedMatchHistoricalSeasonAdapter.StatisticsCollector(
+                context.SeasonYear, context.Identities, context.TeamDefinitions, _retainMatchResults);
             var standings = new StandingsAccumulator(context.Rosters.Count, seasonSeed);
             var workloads = new PitchingWorkloadTracker();
             int[] teamIds = context.GetTeamIds();
@@ -122,15 +131,12 @@ namespace Baseball.Game.Historical
                     matches);
             }
 
-            HistoricalDetailedSeasonOutput firstHalfOutput = new HistoricalDetailedSeasonOutput(
-                context.SeasonYear,
-                matches,
-                context.Identities);
-            IReadOnlyList<SeasonStatistics> firstHalfStatistics =
-                DetailedMatchHistoricalSeasonAdapter.Aggregate(firstHalfOutput, context.TeamDefinitions);
+            IReadOnlyList<SeasonStatistics> firstHalfStatistics = matches.Build();
             IReadOnlyList<WorldAwardEntry> allStars = new AllStarSelectionResolver(_awardScoring)
                 .Resolve(firstHalfStatistics);
             string[] allStarGameEligibleIds = GetAllStarGameEligibleIds(allStars, context.SeasonYear);
+            matches.SetAllStarEligibility(allStarGameEligibleIds, AllStarTeamId);
+            _cancellationToken.ThrowIfCancellationRequested();
             MatchResult allStarResult = SimulateAllStarGame(
                 context,
                 allStars,
@@ -175,7 +181,7 @@ namespace Baseball.Game.Historical
                 AllocationCounter.UsesExactCounter);
             return new HistoricalDetailedSeasonOutput(
                 context.SeasonYear,
-                matches,
+                matches.Matches,
                 context.Identities,
                 allStarGameEligibleIds,
                 AllStarTeamId,
@@ -184,10 +190,11 @@ namespace Baseball.Game.Historical
                 new HistoricalPostseasonResult(
                     context.SeasonYear,
                     GetTeamSeasonKeys(context, postseasonTeamIds),
-                    context.GetTeamSeasonKey(postseasonRun.ChampionTeamId)));
+                    context.GetTeamSeasonKey(postseasonRun.ChampionTeamId)),
+                matches.Build());
         }
 
-        private static int ResolveRegularSeasonGamesPerTeam(int teamCount)
+        private int ResolveRegularSeasonGamesPerTeam(int teamCount)
         {
             if ((teamCount & 1) == 0)
                 return RegularSeasonGamesPerTeam;
@@ -256,7 +263,7 @@ namespace Baseball.Game.Historical
             ulong seasonSeed,
             PitchingWorkloadTracker workloads,
             StandingsAccumulator standings,
-            ICollection<HistoricalDetailedMatchRecord> matches)
+            DetailedMatchHistoricalSeasonAdapter.StatisticsCollector matches)
         {
             ulong gameSeed = DeterministicSeed.Derive(seasonSeed, RegularGameStream + unchecked((ulong)game.GameId));
             MatchResult result = SimulateMatch(
@@ -283,7 +290,7 @@ namespace Baseball.Game.Historical
         {
             SeasonRoster leadingTeam = context.GetRoster(standings.GetLeadingTeamId());
             MatchRosterSnapshot allStarRoster = BuildAllStarRoster(context, allStars, logicalDay, workloads);
-            MatchRosterSnapshot opponentRoster = BuildMatchRoster(leadingTeam, logicalDay, logicalDay, workloads);
+            MatchRosterSnapshot opponentRoster = BuildMatchRoster(leadingTeam, leadingTeam.NextStarterIndex, logicalDay, workloads);
             ulong gameSeed = DeterministicSeed.Derive(seasonSeed, AllStarGameStream);
             var input = new MatchInput(
                 context.SeasonYear,
@@ -307,7 +314,7 @@ namespace Baseball.Game.Historical
             ulong seasonSeed,
             int postseasonStartDay,
             PitchingWorkloadTracker workloads,
-            ICollection<HistoricalDetailedMatchRecord> matches)
+            DetailedMatchHistoricalSeasonAdapter.StatisticsCollector matches)
         {
             if (seeds == null || seeds.Length != _balance.Postseason.PlayoffTeamCount)
                 throw new ArgumentException("Postseason 시드가 설정된 진출 구단 수와 다릅니다.", nameof(seeds));
@@ -371,7 +378,7 @@ namespace Baseball.Game.Historical
             int maximumGames,
             ulong seasonSeed,
             PitchingWorkloadTracker workloads,
-            ICollection<HistoricalDetailedMatchRecord> matches,
+            DetailedMatchHistoricalSeasonAdapter.StatisticsCollector matches,
             ref int gameSequence,
             ref int logicalDay)
         {
@@ -415,21 +422,24 @@ namespace Baseball.Game.Historical
             SeasonContext context,
             int awayTeamId,
             int homeTeamId,
-            int rotationIndex,
+            int logicalDay,
             int gameId,
             ulong gameSeed,
             bool requiresWinner,
             PitchingWorkloadTracker workloads)
         {
+            SeasonRoster awayRoster = context.GetRoster(awayTeamId);
+            _cancellationToken.ThrowIfCancellationRequested();
+            SeasonRoster homeRoster = context.GetRoster(homeTeamId);
             MatchRosterSnapshot away = BuildMatchRoster(
-                context.GetRoster(awayTeamId),
-                rotationIndex,
-                rotationIndex,
+                awayRoster,
+                awayRoster.TakeNextStarterIndex(),
+                logicalDay,
                 workloads);
             MatchRosterSnapshot home = BuildMatchRoster(
-                context.GetRoster(homeTeamId),
-                rotationIndex,
-                rotationIndex,
+                homeRoster,
+                homeRoster.TakeNextStarterIndex(),
+                logicalDay,
                 workloads);
             var input = new MatchInput(
                 context.SeasonYear,
@@ -457,7 +467,7 @@ namespace Baseball.Game.Historical
 
             var bench = new Player[5];
             Array.Copy(roster.Players, 9, bench, 0, bench.Length);
-            int starterIndex = 14 + PositiveModulo(rotationIndex - 1, 5);
+            int starterIndex = 14 + rotationIndex;
             var bullpen = new PitcherRosterEntry[6];
             for (int index = 0; index < 4; index++)
             {
@@ -676,7 +686,8 @@ namespace Baseball.Game.Historical
                         ratings.ToBatterAttributes(),
                         ratings.ToPitcherAttributes(),
                         nationality: season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty,
-                        pitchRepertoire: season.PitchRepertoire);
+                        pitchRepertoire: season.PitchRepertoire,
+                        isPositionEvidenceMissing: season.IsPositionEvidenceMissing);
                     ValidateCoreRole(team, rosterIndex, season);
                     rosterPlayers[rosterIndex] = player;
                     rosterSeasons[rosterIndex] = season;
@@ -761,12 +772,6 @@ namespace Baseball.Game.Historical
             throw new InvalidOperationException("결승 진출팀의 정규시즌 Seed를 찾을 수 없습니다.");
         }
 
-        private static int PositiveModulo(int value, int modulus)
-        {
-            int result = value % modulus;
-            return result < 0 ? result + modulus : result;
-        }
-
         private sealed class SeasonContext
         {
             private readonly Dictionary<int, SeasonRoster> _rostersById;
@@ -840,6 +845,15 @@ namespace Baseball.Game.Historical
             public TeamSeasonDefinition Team { get; }
             public Player[] Players { get; }
             public PlayerSeasonDefinition[] Seasons { get; }
+            public int NextStarterIndex { get; private set; }
+
+            /// <summary>실제 팀 경기마다 1~5선발을 순환한다. 휴식일과 올스타는 순번을 소비하지 않는다.</summary>
+            public int TakeNextStarterIndex()
+            {
+                int selected = NextStarterIndex;
+                NextStarterIndex = (selected + 1) % 5;
+                return selected;
+            }
         }
 
         private readonly struct PlayerSeasonPair

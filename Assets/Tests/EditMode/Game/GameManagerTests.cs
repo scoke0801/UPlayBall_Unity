@@ -82,6 +82,33 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(inputManager.CurrentContext, Is.EqualTo(InputContext.Management));
         }
 
+        [Test]
+        public void InputContext_ActionMap은필요한Map만상태를변경한다()
+        {
+            InputManager inputManager = _gameManager.EnsureManager<InputManager>("InputManager_Test");
+            var uiMap = inputManager.Actions.FindActionMap("UI", true);
+            var matchMap = inputManager.Actions.FindActionMap("Match", true);
+
+            Assert.That(uiMap.enabled, Is.True);
+            Assert.That(matchMap.enabled, Is.False);
+
+            inputManager.SetBaseContext(InputContext.Match);
+            Assert.That(uiMap.enabled, Is.True);
+            Assert.That(matchMap.enabled, Is.True);
+
+            using (inputManager.PushContext(InputContext.Modal))
+            {
+                Assert.That(uiMap.enabled, Is.True);
+                Assert.That(matchMap.enabled, Is.False);
+            }
+
+            Assert.That(uiMap.enabled, Is.True);
+            Assert.That(matchMap.enabled, Is.True);
+            inputManager.SetBaseContext(InputContext.Disabled);
+            Assert.That(uiMap.enabled, Is.False);
+            Assert.That(matchMap.enabled, Is.False);
+        }
+
         private static void DestroyGameRoot()
         {
             if (GameManager.HasInstance)

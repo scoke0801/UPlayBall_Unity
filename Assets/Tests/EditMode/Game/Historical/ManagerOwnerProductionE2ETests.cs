@@ -16,6 +16,43 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class ManagerOwnerProductionE2ETests
     {
         [Test]
+        public void ScheduledTactics_다음경기준비와실제경기가같은계획을사용한다()
+        {
+            CreateRuntime(
+                out ManagerHistoricalRuntimeState runtime,
+                out ManagerHistoricalSaveAdapter adapter,
+                out IHistoricalContentProvider provider);
+            TacticCardDefinition[] tactics = CreateStarterTactics();
+            runtime.TacticCollection.Acquire(tactics[0].CardId);
+            runtime.TacticCollection.Acquire(tactics[1].CardId);
+            EquipOffPositionWarningPreset(runtime, tactics);
+            ScheduledGameState game = runtime.ManagerMode.LiveSeason.NextPlayerGame;
+            game.PlanTactics(new[] { tactics[1].CardId });
+
+            var pregameService = new ManagerPregameService(BalanceTable.CreateDefault(), provider);
+            ManagerPregamePreparation preparation = pregameService.PrepareNextGame(
+                runtime,
+                Array.Empty<string>(),
+                new[] { tactics[0].CardId, tactics[1].CardId });
+            ManagerModeMatchResult result = new ManagerModeMatchService(
+                provider,
+                BalanceTable.CreateDefault(),
+                tacticCards: tactics).PlayNextGame(runtime);
+
+            Assert.That(preparation.PlanSnapshot.TacticCardIds, Is.EqualTo(new[] { tactics[1].CardId }));
+            Assert.That(result.PlayerPlan.TacticCardIds, Is.EqualTo(new[] { tactics[1].CardId }));
+            Assert.That(game.IsCompleted, Is.True);
+            Assert.That(game.PlannedTacticCardIds, Is.EqualTo(new[] { tactics[1].CardId }));
+            ManagerHistoricalRuntimeState restored = adapter.Restore(adapter.CreateSaveData(runtime));
+            ScheduledGameState restoredGame = null;
+            for (int index = 0; index < restored.ManagerMode.LiveSeason.Schedule.Games.Count; index++)
+                if (restored.ManagerMode.LiveSeason.Schedule.Games[index].GameId == game.GameId)
+                    restoredGame = restored.ManagerMode.LiveSeason.Schedule.Games[index];
+            Assert.That(restoredGame, Is.Not.Null);
+            Assert.That(restoredGame.PlannedTacticCardIds, Is.EqualTo(new[] { tactics[1].CardId }));
+        }
+
+        [Test]
         public void OwnerLoop_OperationStaffPregameMatchFinanceAndLoad_RemainsOneTransactionChain()
         {
             CreateRuntime(

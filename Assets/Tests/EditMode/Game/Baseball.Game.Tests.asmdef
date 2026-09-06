@@ -5,7 +5,8 @@
         "Baseball.Core",
         "Baseball.Game",
         "Baseball.Game.Unity",
-        "Baseball.Simulation"
+        "Baseball.Simulation",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"

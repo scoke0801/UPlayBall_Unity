@@ -14,6 +14,154 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class ManagerModeMatchServiceTests
     {
         [Test]
+        public void AiTeamColor_공개선택이실제타자경기능력치에반영된다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var balance = BalanceTable.CreateDefault();
+            var match = new ManagerModeMatchService(provider, balance).PlayNextGame(runtime).Match;
+            var opponent = match.Input.AwayRoster.TeamId == runtime.ManagerMode.LiveSeason.PlayerTeamId
+                ? match.Input.HomeRoster : match.Input.AwayRoster;
+            var roster = runtime.GetRoster(runtime.ManagerMode.LiveSeason.GetTeamSeasonKey(opponent.TeamId));
+            var selected = ManagerModeMatchService.ResolveAiTeamColors(roster, runtime.WorldCardCatalog, balance.TeamColor);
+            Assert.That(selected[0], Is.Not.Null);
+            var definitions = new List<TeamColorDefinition>();
+            foreach (var color in selected) if (color != null) definitions.Add(color);
+            var bonuses = new Baseball.Simulation.Historical.TeamColorResolver().ApplyEquipped(
+                roster, runtime.WorldCardCatalog, definitions, selected[0], selected[1]);
+            var plan = ManagerModeMatchService.CreateRosterRolePlan(roster);
+            int positiveBonuses = 0;
+            for (int index = 0; index < plan.BattingOrderCardIds.Count; index++)
+            {
+                string id = plan.BattingOrderCardIds[index];
+                Assert.That(runtime.WorldCardCatalog.TryGetCard(id, out var card), Is.True);
+                var season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+                int bonus = bonuses.Get(id, Baseball.Core.Growth.PlayerAbility.Contact);
+                if (bonus > 0) positiveBonuses++;
+                int raw = new Baseball.Simulation.Historical.OwnerCardAbilityResolver(balance.Growth)
+                    .ResolveRawPermanent(season, card, null, Baseball.Core.Growth.PlayerAbility.Contact);
+                Assert.That(opponent.StartingLineup[index].Player.BatterAttributes.Contact,
+                    Is.EqualTo(MatchRatingCurve.ResolveMatchInput(raw + bonus, balance.MatchRatingCurve)));
+            }
+            Assert.That(positiveBonuses, Is.GreaterThan(0));
+            var replay = new MatchSimulator(balance,
+                Baseball.Simulation.Random.MatchRandomStreams.Create(match.Input.RandomSeed)).Simulate(match.Input);
+            Assert.That(replay.AwayBoxScore.Runs, Is.EqualTo(match.AwayBoxScore.Runs));
+            Assert.That(replay.HomeBoxScore.Runs, Is.EqualTo(match.HomeBoxScore.Runs));
+        }
+
+        [Test, Explicit("구단주 서비스가 만든 AI 팀컬러 적용 입력으로 10,000경기를 검증한다.")]
+        public void AiTeamColor_대량경기통계()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var balance = BalanceTable.CreateDefault();
+            var template = new ManagerModeMatchService(provider, balance).PlayNextGame(runtime).Match.Input;
+            long hits = 0, atBats = 0, runs = 0, earned = 0, outs = 0, homeRuns = 0, walks = 0, strikeouts = 0;
+            const int games = 10000;
+            for (int index = 0; index < games; index++)
+            {
+                var input = new MatchInput(template.SeasonId, index + 1, (ulong)(620000 + index),
+                    template.AwayRoster, template.HomeRoster, template.Rules,
+                    historicalConfiguration: template.HistoricalConfiguration);
+                var result = new MatchSimulator(balance,
+                    Baseball.Simulation.Random.MatchRandomStreams.Create(input.RandomSeed)).Simulate(input);
+                foreach (var box in new[] { result.AwayBoxScore, result.HomeBoxScore })
+                {
+                    runs += box.Runs;
+                    foreach (var line in box.BattingLines)
+                    {
+                        hits += line.Hits; atBats += line.AtBats; homeRuns += line.HomeRuns;
+                        walks += line.Walks; strikeouts += line.Strikeouts;
+                    }
+                    foreach (var line in box.PitchingLines) { earned += line.EarnedRuns; outs += line.OutsRecorded; }
+                }
+            }
+            Assert.That(outs, Is.GreaterThan(0));
+            TestContext.WriteLine($"AI 팀컬러 {games}경기: AVG={hits / (double)atBats:F3}, ERA={earned * 27d / outs:F3}, " +
+                $"팀 경기당 득점={runs / (2d * games):F3}, HR={homeRuns / (2d * games):F3}, BB/K={walks / (double)strikeouts:F3}");
+        }
+
+        [TestCase(0, -10)]
+        [TestCase(4, 10)]
+        public void Dugout_ExtremePoliciesReachDetailedMatchAtInitialTrust(int level, int modifier)
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider);
+            var state = runtime.ManagerMode.Dugout;
+            state.Configure(state.ManagerId, state.HeadCoachId,
+                new DugoutPolicySettings(level, level, level, level, level, level),
+                DugoutStaffCatalog.CreateDefault());
+            var result = new ManagerModeMatchService(provider, BalanceTable.CreateDefault()).PlayNextGame(runtime);
+            var input = result.Match.Input;
+            var profile = (input.AwayRoster.TeamId == runtime.ManagerMode.LiveSeason.PlayerTeamId
+                ? input.AwayRoster : input.HomeRoster).ManagerProfile;
+            Assert.That(profile.BattingApproach, Is.EqualTo(40 + modifier));
+            Assert.That(profile.RunningAggression, Is.EqualTo(50 + modifier));
+            Assert.That(profile.SmallBallPreference, Is.EqualTo(50 + modifier));
+            Assert.That(profile.PinchHitAggression, Is.EqualTo(53 + modifier));
+            Assert.That(profile.HookSpeed, Is.EqualTo(50 + modifier));
+            Assert.That(profile.BullpenAggression, Is.EqualTo(50 + modifier));
+        }
+
+        [Test, Explicit("동일한 구단주 경기 로스터로 방침별 1,000경기를 비교한다.")]
+        public void Dugout_PolicyBatchChangesMatchEventsAndRemainsDeterministic()
+        {
+            const int games = 1000;
+            var eventTotals = new long[3];
+            for (int variant = 0; variant < 3; variant++)
+            {
+                int level = variant * 2;
+                CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider);
+                var state = runtime.ManagerMode.Dugout;
+                state.Configure(state.ManagerId, state.HeadCoachId,
+                    new DugoutPolicySettings(level, level, level, level, level, level),
+                    DugoutStaffCatalog.CreateDefault());
+                var balance = BalanceTable.CreateDefault();
+                MatchInput template = new ManagerModeMatchService(provider, balance).PlayNextGame(runtime).Match.Input;
+                long runs = 0, hits = 0, atBats = 0, homeRuns = 0, walks = 0, strikeouts = 0;
+                long steals = 0, bunts = 0, substitutions = 0, earnedRuns = 0, outsRecorded = 0;
+                for (int game = 0; game < games; game++)
+                {
+                    var input = new MatchInput(template.SeasonId, game + 1, (ulong)(910000 + game),
+                        template.AwayRoster, template.HomeRoster, template.Rules,
+                        historicalConfiguration: template.HistoricalConfiguration);
+                    var result = new MatchSimulator(balance,
+                        Baseball.Simulation.Random.MatchRandomStreams.Create(input.RandomSeed)).Simulate(input);
+                    if (game == 0)
+                    {
+                        var replay = new MatchSimulator(balance,
+                            Baseball.Simulation.Random.MatchRandomStreams.Create(input.RandomSeed)).Simulate(input);
+                        Assert.That(replay.Events, Is.EqualTo(result.Events), "같은 방침과 Seed는 이벤트까지 같아야 한다.");
+                    }
+                    foreach (var box in new[] { result.AwayBoxScore, result.HomeBoxScore })
+                    {
+                        runs += box.Runs;
+                        foreach (var line in box.PitchingLines)
+                        {
+                            earnedRuns += line.EarnedRuns;
+                            outsRecorded += line.OutsRecorded;
+                        }
+                        foreach (var line in box.BattingLines)
+                        {
+                            hits += line.Hits; atBats += line.AtBats; homeRuns += line.HomeRuns;
+                            walks += line.Walks; strikeouts += line.Strikeouts;
+                        }
+                    }
+                    foreach (var item in result.Events)
+                    {
+                        if (item.EventType == MatchEventType.StealAttempted) steals++;
+                        if (item.EventType == MatchEventType.BuntAttempted) bunts++;
+                        if (item.EventType == MatchEventType.PitcherRemoved) substitutions++;
+                    }
+                    eventTotals[variant] += result.Events.Count;
+                }
+                TestContext.WriteLine($"방침 {level - 2}: {games}경기 AVG={hits / (double)atBats:F3}, " +
+                    $"ERA={earnedRuns * 27d / outsRecorded:F3}, 득점/경기={runs / (double)games:F3}, HR/경기={homeRuns / (double)games:F3}, " +
+                    $"BB/K={walks / (double)strikeouts:F3}, 도루시도={steals}, 번트시도={bunts}, 투수교체={substitutions}");
+            }
+            Assert.That(eventTotals[0], Is.Not.EqualTo(eventTotals[1]));
+            Assert.That(eventTotals[2], Is.Not.EqualTo(eventTotals[1]));
+        }
+
+        [Test]
         public void PlayNextGame_UsesDetailedPathAndUpdatesConditionFamiliarityAndSchedule()
         {
             CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider);
@@ -195,13 +343,42 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
+        public void 정규시즌세션은한Step만진행하고안전지점에서중단한다()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider);
+            ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
+            int firstRound = season.NextPlayerGame.Round;
+            var session = new ManagerRegularSeasonSimulationSession(
+                runtime,
+                new ManagerModeMatchService(provider, BalanceTable.CreateDefault()));
+
+            ManagerRegularSeasonSimulationProgress initial = session.CreateProgressSnapshot();
+            Assert.That(initial.Status, Is.EqualTo(ManagerRegularSeasonSimulationStatus.Ready));
+            Assert.That(initial.PlayerGamesSimulated, Is.Zero);
+            Assert.That(initial.LeagueGamesSimulated, Is.Zero);
+            Assert.That(initial.NextRound, Is.EqualTo(firstRound));
+
+            ManagerRegularSeasonSimulationStepResult step = session.AdvanceNextStep();
+
+            Assert.That(step.MatchResult, Is.Not.Null);
+            Assert.That(step.Progress.PlayerGamesSimulated, Is.EqualTo(1));
+            Assert.That(step.Progress.LeagueGamesSimulated, Is.GreaterThan(1));
+            Assert.That(step.Progress.LastCompletedRound, Is.EqualTo(firstRound));
+            Assert.That(season.NextPlayerGame.Round, Is.GreaterThan(firstRound));
+            ManagerRegularSeasonSimulationProgress stopped = session.StopByUser();
+            Assert.That(stopped.Status, Is.EqualTo(ManagerRegularSeasonSimulationStatus.StoppedByUser));
+            Assert.That(stopped.PlayerGamesSimulated, Is.EqualTo(1));
+            Assert.Throws<InvalidOperationException>(() => session.AdvanceNextStep());
+        }
+
+        [Test]
         public void 정규시즌을끝까지진행하면모든구단이같은경기수를치른다()
         {
             CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider);
             ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
             var service = new ManagerModeMatchService(provider, BalanceTable.CreateDefault());
 
-            while (season.NextPlayerGame != null) service.PlayNextGame(runtime);
+            ManagerRegularSeasonCompletionResult result = service.CompleteRegularSeason(runtime);
 
             var gamesByTeam = new Dictionary<int, int>();
             for (int index = 0; index < season.Teams.Count; index++) gamesByTeam.Add(season.Teams[index].TeamId, 0);
@@ -216,10 +393,43 @@ namespace Baseball.Tests.EditMode.Game.Historical
 
             int playerGames = gamesByTeam[season.PlayerTeamId];
             Assert.That(playerGames, Is.GreaterThan(0));
+            Assert.That(result.IsCompleted, Is.True);
+            Assert.That(result.PlayerGamesSimulated, Is.EqualTo(playerGames));
+            Assert.That(result.LeagueGamesSimulated, Is.EqualTo(games.Count));
+            Assert.That(result.SeasonWins + result.SeasonDraws + result.SeasonLosses, Is.EqualTo(playerGames));
             for (int index = 0; index < season.Teams.Count; index++)
             {
                 int teamId = season.Teams[index].TeamId;
                 Assert.That(gamesByTeam[teamId], Is.EqualTo(playerGames), $"TeamId {teamId}의 경기 수가 다르다.");
+            }
+
+            ManagerRegularSeasonCompletionResult repeated = service.CompleteRegularSeason(runtime);
+            Assert.That(repeated.IsCompleted, Is.True);
+            Assert.That(repeated.PlayerGamesSimulated, Is.Zero);
+            Assert.That(repeated.LeagueGamesSimulated, Is.Zero);
+        }
+
+        [Test]
+        public void 시즌일괄진행은단일경기반복과같은일정결과를낸다()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState batchRuntime, out IHistoricalContentProvider batchProvider);
+            CreateRuntime(out ManagerHistoricalRuntimeState stepRuntime, out IHistoricalContentProvider stepProvider);
+
+            new ManagerModeMatchService(batchProvider, BalanceTable.CreateDefault())
+                .CompleteRegularSeason(batchRuntime);
+            var stepService = new ManagerModeMatchService(stepProvider, BalanceTable.CreateDefault());
+            while (stepRuntime.ManagerMode.LiveSeason.NextPlayerGame != null)
+                stepService.PlayNextGame(stepRuntime);
+
+            IReadOnlyList<ScheduledGameState> batchGames = batchRuntime.ManagerMode.LiveSeason.Schedule.Games;
+            IReadOnlyList<ScheduledGameState> stepGames = stepRuntime.ManagerMode.LiveSeason.Schedule.Games;
+            Assert.That(stepGames.Count, Is.EqualTo(batchGames.Count));
+            for (int index = 0; index < batchGames.Count; index++)
+            {
+                Assert.That(stepGames[index].GameId, Is.EqualTo(batchGames[index].GameId));
+                Assert.That(stepGames[index].RandomSeed, Is.EqualTo(batchGames[index].RandomSeed));
+                Assert.That(stepGames[index].AwayRuns, Is.EqualTo(batchGames[index].AwayRuns));
+                Assert.That(stepGames[index].HomeRuns, Is.EqualTo(batchGames[index].HomeRuns));
             }
         }
 

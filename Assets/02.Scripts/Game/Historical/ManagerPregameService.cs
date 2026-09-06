@@ -130,7 +130,7 @@ namespace Baseball.Game.Historical
                 evidence,
                 confidenceContext.CombinedMultiplier);
 
-            LineupPresetState preset = mode.GetSelectedLineupPreset();
+            LineupPresetState preset = mode.GetSelectedLineupPresetForGame(game);
             LineupPresetValidationResult validation = ValidateLineupPreset(
                 runtime,
                 preset,
@@ -188,6 +188,37 @@ namespace Baseball.Game.Historical
             runtime.ContentReference.EnsureMatches(_content.Manifest);
 
             CurrentRosterState playerRoster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            TeamSeasonPlayerStatusState playerStatus =
+                runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey);
+            return ValidateLineupPreset(
+                runtime,
+                preset,
+                playerRoster,
+                playerStatus,
+                availableTeamColorIds,
+                availableTacticCardIds);
+        }
+
+        /// <summary>1군 변경 Preview를 저장 상태에 반영하지 않고 후보 로스터와 선수 상태로 검증한다.</summary>
+        public LineupPresetValidationResult ValidateLineupPreset(
+            ManagerHistoricalRuntimeState runtime,
+            LineupPresetState preset,
+            CurrentRosterState playerRoster,
+            TeamSeasonPlayerStatusState playerStatus,
+            IReadOnlyList<string> availableTeamColorIds,
+            IReadOnlyList<string> availableTacticCardIds)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (preset == null) throw new ArgumentNullException(nameof(preset));
+            if (playerRoster == null) throw new ArgumentNullException(nameof(playerRoster));
+            if (playerStatus == null) throw new ArgumentNullException(nameof(playerStatus));
+            if (availableTeamColorIds == null) throw new ArgumentNullException(nameof(availableTeamColorIds));
+            if (availableTacticCardIds == null) throw new ArgumentNullException(nameof(availableTacticCardIds));
+            if (!string.Equals(playerRoster.TeamSeasonKey, runtime.PlayerTeamSeasonKey, StringComparison.Ordinal) ||
+                !string.Equals(playerStatus.TeamSeasonKey, runtime.PlayerTeamSeasonKey, StringComparison.Ordinal))
+                throw new ArgumentException("Preview 로스터와 선수 상태가 플레이어 구단과 일치하지 않습니다.");
+            runtime.ContentReference.EnsureMatches(_content.Manifest);
+
             return _presetValidator.Validate(
                 preset,
                 new LineupPresetValidationContext(
@@ -195,7 +226,7 @@ namespace Baseball.Game.Historical
                     CreatePlayerContexts(
                         runtime,
                         playerRoster,
-                        runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey)),
+                        playerStatus),
                     _balance.HistoricalAssignment.CreateRule(),
                     availableTeamColorIds,
                     availableTacticCardIds));

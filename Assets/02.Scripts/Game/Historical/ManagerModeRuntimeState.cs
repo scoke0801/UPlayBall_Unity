@@ -228,6 +228,28 @@ namespace Baseball.Game.Historical
             throw new InvalidOperationException("선택된 LineupPreset이 없습니다.");
         }
 
+        /// <summary>경기별 계획이 있으면 기본 프리셋의 작전카드만 교체해 실제 경기 입력을 만든다.</summary>
+        public LineupPresetState GetSelectedLineupPresetForGame(ScheduledGameState game)
+        {
+            if (game == null) throw new ArgumentNullException(nameof(game));
+            if (!game.IncludesTeam(LiveSeason.PlayerTeamId))
+                throw new ArgumentException("플레이어 구단 경기에만 작전카드 계획을 적용할 수 있습니다.", nameof(game));
+            LineupPresetState source = GetSelectedLineupPreset();
+            if (!game.HasTacticPlan) return source;
+            return new LineupPresetState(
+                source.PresetId,
+                source.Name,
+                source.StartingLineupSlots,
+                source.BattingOrderCardIds,
+                source.BenchPriorityCardIds,
+                source.StarterRotationCardIds,
+                source.BullpenAssignmentCardIds,
+                source.SetupPitcherCardId,
+                source.CloserPitcherCardId,
+                source.TeamColorIds,
+                game.PlannedTacticCardIds);
+        }
+
         public void SelectLineupPreset(string presetId)
         {
             SelectedLineupPresetId = RequireSelectedPreset(presetId, _lineupPresets);

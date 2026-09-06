@@ -2,9 +2,14 @@ using System;
 using System.Collections.Generic;
 using Baseball.Game.Data;
 using Baseball.Game.Historical;
+using Baseball.Game.Guide;
 using Baseball.Game.Manager;
+using Baseball.Game.Shop;
+using Baseball.Game.Sound;
+using Baseball.Game.Unity.Persistence;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
+using Baseball.Core.Shop;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -27,8 +32,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(configuration.WorldSeed, Is.GreaterThan(0UL));
             Assert.That(configuration.OriginYear, Is.GreaterThan(0));
             Assert.That(configuration.InitialMoney, Is.GreaterThanOrEqualTo(0L));
-            Assert.That(configuration.InitialScoutingPoints, Is.GreaterThanOrEqualTo(0));
-            Assert.That(configuration.InitialDevelopmentPoints, Is.GreaterThanOrEqualTo(0));
+            Assert.That(configuration.InitialScoutingPoints, Is.EqualTo(10_000));
+            Assert.That(configuration.InitialDevelopmentPoints, Is.EqualTo(3_000));
             Assert.That(configuration.StarterTacticCards.Count, Is.EqualTo(2));
             Assert.That(configuration.StarterTacticCards[0].CardId,
                 Is.Not.EqualTo(configuration.StarterTacticCards[1].CardId));
@@ -48,12 +53,42 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
-        public void StartNewGame_같은Catalog의TeamColor두슬롯과Tactic두장을Pregame에전달한다()
+        public void BgmDirector_구단주관전생명주기에따라경기와로비Bgm을전환한다()
+        {
+            GameBootstrap.EnsureRuntimeManagers();
+            BgmDirector director = BgmDirector.Instance;
+            SoundManager soundManager = SoundManager.Instance;
+
+            director.SetOwnerMatchBroadcasting(true);
+            Assert.That(soundManager.CurrentSituation, Is.EqualTo(BgmSituation.MatchPlay));
+
+            director.SetOwnerMatchBroadcasting(false);
+            Assert.That(soundManager.CurrentSituation, Is.EqualTo(BgmSituation.Lobby));
+        }
+
+        [Test]
+        public void BgmDirector_결과만보기관전에서는Bgm을재생하지않는다()
+        {
+            GameBootstrap.EnsureRuntimeManagers();
+            BgmDirector director = BgmDirector.Instance;
+            SoundManager soundManager = SoundManager.Instance;
+
+            director.SetOwnerMatchBroadcasting(true, shouldPlayAudio: false);
+            Assert.That(soundManager.CurrentSituation, Is.Null);
+
+            director.SetOwnerMatchBroadcasting(false);
+            Assert.That(soundManager.CurrentSituation, Is.EqualTo(BgmSituation.Lobby));
+        }
+
+        [Test]
+        public void StartNewGame_초기자원과작전카드를지급하되작전카드는자동장착하지않는다()
         {
             GameBootstrap.EnsureRuntimeManagers();
             GameManager.Instance.TryGetManager(out OwnerModeManager manager);
 
             Assert.That(manager.StartNewGame(), Is.True, manager.LastError);
+            Assert.That(manager.Runtime.Economy.ScoutingPoints, Is.EqualTo(10_000));
+            Assert.That(manager.Runtime.Economy.DevelopmentPoints, Is.EqualTo(3_000));
             OwnerModeRosterStatus rosterStatus = manager.BuildRosterStatus();
             Assert.That(rosterStatus.Strength.PlayerCount, Is.EqualTo(25));
             Assert.That(rosterStatus.Strength.HitterCount, Is.EqualTo(14));
@@ -67,11 +102,148 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(preset.TeamColorIds[0], Is.Not.Null.And.Not.Empty);
             Assert.That(preset.TeamColorIds[1], Is.Not.Null.And.Not.Empty);
             Assert.That(preset.TeamColorIds[0], Is.Not.EqualTo(preset.TeamColorIds[1]));
-            Assert.That(preset.DefaultTacticCardIds.Count, Is.EqualTo(2));
+            Assert.That(preset.DefaultTacticCardIds, Is.Empty);
+            Assert.That(manager.GetAvailableTacticCards().Count, Is.EqualTo(2));
 
             ManagerPregamePreparation preparation = manager.PrepareNextGame();
             Assert.That(preparation.PresetValidation.CanStartGame, Is.True);
             Assert.That(preparation.CanStartGame, Is.True);
+        }
+
+        [Test]
+        public void PurchaseShopProduct_선수획득결과는Guide알림을추가하지않는다()
+        {
+            GameBootstrap.EnsureRuntimeManagers();
+            GameManager.Instance.TryGetManager(out OwnerModeManager manager);
+            Assert.That(manager.StartNewGame(), Is.True, manager.LastError);
+            GuideManager guide = GuideManager.Instance;
+            Assert.That(guide, Is.Not.Null);
+            Assert.That(guide.IsAvailable, Is.True, guide.LastError);
+
+            ShopService shop = manager.CreateShopService();
+            ShopProductDefinition scoutProduct = null;
+            for (int index = 0; index < shop.Catalog.Products.Count; index++)
+            {
+                ShopProductDefinition candidate = shop.Catalog.Products[index];
+                if (candidate.Kind != ShopProductKind.PlayerCardPack || !shop.GetQuote(candidate).CanPurchase)
+                    continue;
+                scoutProduct = candidate;
+                break;
+            }
+            Assert.That(scoutProduct, Is.Not.Null, "구매 가능한 선수 스카우트 상품이 필요합니다.");
+
+            int queuedBeforePurchase = guide.QueuedCount;
+            ShopPurchaseResult result = manager.PurchaseShopProduct(scoutProduct.ProductId);
+
+            Assert.That(result.IsSuccess, Is.True, result.FailureMessage);
+            Assert.That(guide.QueuedCount, Is.EqualTo(queuedBeforePurchase),
+                "선수별 획득 결과는 Reveal이 표시하므로 Front Manager Queue에 다시 넣지 않습니다.");
+        }
+
+        [Test]
+        public void ActiveRosterPreview_두선수교체를누적해한번에저장한다()
+        {
+            GameBootstrap.EnsureRuntimeManagers();
+            GameManager.Instance.TryGetManager(out OwnerModeManager manager);
+            Assert.That(manager.StartNewGame(), Is.True, manager.LastError);
+
+            ManagerHistoricalRuntimeState runtime = manager.Runtime;
+            CurrentRosterState roster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            var outgoing = new List<ActiveRosterEntry>(2);
+            for (int index = 0; index < roster.Entries.Count && outgoing.Count < 2; index++)
+            {
+                ActiveRosterEntry entry = roster.Entries[index];
+                if (entry.Role == ActiveRosterRole.BenchHitter &&
+                    entry.RegistrationType == RegistrationType.Domestic)
+                    outgoing.Add(entry);
+            }
+            Assert.That(outgoing.Count, Is.EqualTo(2));
+
+            var rosterPersonIds = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < roster.Entries.Count; index++)
+                rosterPersonIds.Add(roster.Entries[index].PlayerPersonId);
+            var incoming = new List<PlayerCardDefinition>(2);
+            for (int index = 0; index < runtime.WorldCardCatalog.Cards.Count && incoming.Count < 2; index++)
+            {
+                PlayerCardDefinition card = runtime.WorldCardCatalog.Cards[index];
+                PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+                if (card.Edition != PlayerCardEdition.Normal ||
+                    season.PlayerType != PlayerType.Batter ||
+                    season.RegistrationType != RegistrationType.Domestic ||
+                    rosterPersonIds.Contains(season.PlayerPersonId))
+                    continue;
+                incoming.Add(card);
+                rosterPersonIds.Add(season.PlayerPersonId);
+            }
+            Assert.That(incoming.Count, Is.EqualTo(2));
+            runtime.AcquireCard(incoming[0].CardId);
+            runtime.AcquireCard(incoming[1].CardId);
+
+            LineupPresetState firstPreset = ReplacePresetCard(
+                runtime.ManagerMode.GetSelectedLineupPreset(),
+                outgoing[0].CardId,
+                incoming[0].CardId);
+            OwnerActiveRosterChangePreview first = manager.PreviewActiveRosterChange(
+                outgoing[0].CardId,
+                incoming[0].CardId,
+                firstPreset);
+            LineupPresetState secondPreset = ReplacePresetCard(
+                first.Preset,
+                outgoing[1].CardId,
+                incoming[1].CardId);
+            OwnerActiveRosterChangePreview second = manager.AppendActiveRosterChange(
+                first,
+                outgoing[1].CardId,
+                incoming[1].CardId,
+                secondPreset);
+
+            Assert.That(second.ReplacementCount, Is.EqualTo(2));
+            Assert.That(ContainsCard(second.Roster, outgoing[0].CardId), Is.False);
+            Assert.That(ContainsCard(second.Roster, outgoing[1].CardId), Is.False);
+            Assert.That(ContainsCard(second.Roster, incoming[0].CardId), Is.True);
+            Assert.That(ContainsCard(second.Roster, incoming[1].CardId), Is.True);
+            Assert.That(second.Validation.Status, Is.EqualTo(LineupPresetValidationStatus.Valid));
+
+            manager.ApplyActiveRosterChange(second);
+
+            CurrentRosterState saved = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            Assert.That(ContainsCard(saved, incoming[0].CardId), Is.True);
+            Assert.That(ContainsCard(saved, incoming[1].CardId), Is.True);
+        }
+
+        [Test]
+        public void DeleteSaveAndDiscardRuntime_디스크와메모리진행을함께비운다()
+        {
+            GameBootstrap.EnsureRuntimeManagers();
+            GameManager.Instance.TryGetManager(out OwnerModeManager manager);
+            Assert.That(manager.StartNewGame(), Is.True, manager.LastError);
+            Assert.That(manager.PrepareNextGame(), Is.Not.Null);
+
+            string savePath = System.IO.Path.Combine(
+                Application.temporaryCachePath,
+                $"owner-delete-test-{Guid.NewGuid():N}.json");
+            System.IO.File.WriteAllText(savePath, "test");
+            var saveStoreField = typeof(OwnerModeManager).GetField(
+                "_saveStore",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(saveStoreField, Is.Not.Null);
+            saveStoreField.SetValue(manager, new ManagerHistoricalSaveJsonStore(savePath));
+
+            try
+            {
+                manager.DeleteSaveAndDiscardRuntime();
+
+                Assert.That(System.IO.File.Exists(savePath), Is.False);
+                Assert.That(manager.HasSave, Is.False);
+                Assert.That(manager.HasActiveRuntime, Is.False);
+                Assert.That(manager.Runtime, Is.Null);
+                Assert.That(manager.CurrentPregame, Is.Null);
+            }
+            finally
+            {
+                if (System.IO.File.Exists(savePath))
+                    System.IO.File.Delete(savePath);
+            }
         }
 
         [Test]
@@ -127,6 +299,56 @@ namespace Baseball.Tests.EditMode.Game.Historical
             }
             Assert.That(selectedCount, Is.EqualTo(requiredCount),
                 $"Production 후보에서 {playerType} 메인 카드 {requiredCount}장을 구성할 수 없습니다.");
+        }
+
+        private static LineupPresetState ReplacePresetCard(
+            LineupPresetState source,
+            string outgoingCardId,
+            string incomingCardId)
+        {
+            var defense = new LineupPresetSlot[source.StartingLineupSlots.Count];
+            for (int index = 0; index < defense.Length; index++)
+            {
+                LineupPresetSlot slot = source.StartingLineupSlots[index];
+                defense[index] = new LineupPresetSlot(
+                    ReplaceId(slot.CardId, outgoingCardId, incomingCardId),
+                    slot.Position);
+            }
+            return new LineupPresetState(
+                source.PresetId,
+                source.Name,
+                defense,
+                ReplaceIds(source.BattingOrderCardIds, outgoingCardId, incomingCardId),
+                ReplaceIds(source.BenchPriorityCardIds, outgoingCardId, incomingCardId),
+                ReplaceIds(source.StarterRotationCardIds, outgoingCardId, incomingCardId),
+                ReplaceIds(source.BullpenAssignmentCardIds, outgoingCardId, incomingCardId),
+                ReplaceId(source.SetupPitcherCardId, outgoingCardId, incomingCardId),
+                ReplaceId(source.CloserPitcherCardId, outgoingCardId, incomingCardId),
+                new string[LineupPresetState.TeamColorSlotCount],
+                source.DefaultTacticCardIds);
+        }
+
+        private static string[] ReplaceIds(
+            IReadOnlyList<string> source,
+            string outgoingCardId,
+            string incomingCardId)
+        {
+            var result = new string[source.Count];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = ReplaceId(source[index], outgoingCardId, incomingCardId);
+            return result;
+        }
+
+        private static string ReplaceId(string value, string outgoingCardId, string incomingCardId)
+        {
+            return string.Equals(value, outgoingCardId, StringComparison.Ordinal) ? incomingCardId : value;
+        }
+
+        private static bool ContainsCard(CurrentRosterState roster, string cardId)
+        {
+            for (int index = 0; index < roster.Entries.Count; index++)
+                if (string.Equals(roster.Entries[index].CardId, cardId, StringComparison.Ordinal)) return true;
+            return false;
         }
     }
 }

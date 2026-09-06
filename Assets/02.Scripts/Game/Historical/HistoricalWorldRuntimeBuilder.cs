@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 using Baseball.Core.Balance;
 using Baseball.Core.Historical;
 using Baseball.Simulation.Historical;
@@ -234,6 +235,7 @@ namespace Baseball.Game.Historical
         private readonly CardEditionBalanceTable _cardEditionBalance;
         private readonly IHistoricalSeasonSimulation _simulationOverride;
         private readonly IBakedWorldHistorySource _bakedHistorySource;
+        private readonly HistoricalWorldExecutionOptions _executionOptions;
         private readonly object _cacheLock = new object();
         private HistoricalBakedContent _cachedFor;
         private WorldRecordMode _cachedRecordMode;
@@ -245,13 +247,17 @@ namespace Baseball.Game.Historical
             AwardScoringPolicy awardScoring = null,
             CardEditionBalanceTable cardEditionBalance = null,
             IHistoricalSeasonSimulation simulationOverride = null,
-            IBakedWorldHistorySource bakedHistorySource = null)
+            IBakedWorldHistorySource bakedHistorySource = null,
+            HistoricalWorldExecutionOptions executionOptions = null)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _awardScoring = awardScoring ?? AwardScoringPolicy.CreateDefault();
             _cardEditionBalance = cardEditionBalance ?? CardEditionBalanceTable.CreateInitial();
             _simulationOverride = simulationOverride;
             _bakedHistorySource = bakedHistorySource;
+            _executionOptions = executionOptions ?? new HistoricalWorldExecutionOptions();
+            if (simulationOverride != null && _executionOptions.MaxDegreeOfParallelism != 1)
+                throw new ArgumentException("상태를 공유할 수 있는 검증용 실행기는 직렬로 실행해야 합니다.", nameof(executionOptions));
         }
 
         /// <summary>Bake 산출물을 만들거나 확인할 때 쓸, 지금 실행 조건 그대로의 Key다.</summary>
@@ -514,21 +520,55 @@ namespace Baseball.Game.Historical
             ICollection<HistoricalSeasonSimulationMetrics> metrics,
             CancellationToken cancellationToken)
         {
-            BakedHistoricalDetailedSeasonSource bakedSource = null;
-            IHistoricalSeasonSimulation simulation = _simulationOverride;
-            if (simulation == null)
+            var seasons = new WorldHistorySnapshot[content.Years.Count];
+            var seasonMetrics = new HistoricalSeasonSimulationMetrics[content.Years.Count];
+            var progressLock = new object();
+            int completedYears = 0;
+            int completedGames = 0;
+            void SimulateYear(int yearIndex)
             {
-                bakedSource = new BakedHistoricalDetailedSeasonSource(
-                    content,
-                    _balance,
-                    identityRegistry,
-                    _awardScoring);
-                simulation = new DetailedMatchHistoricalSeasonAdapter(bakedSource);
+                cancellationToken.ThrowIfCancellationRequested();
+                HistoricalYearContentDefinition year = content.Years[yearIndex];
+                // 실행기는 LastRunMetrics를 소유하므로 연도 간 공유하지 않는다.
+                var source = _simulationOverride == null
+                    ? new BakedHistoricalDetailedSeasonSource(content, _balance, identityRegistry,
+                        _awardScoring, cancellationToken, retainMatchResults: false)
+                    : null;
+                var initializer = new WorldHistoryInitializer(
+                    _simulationOverride ?? new DetailedMatchHistoricalSeasonAdapter(source),
+                    new WorldAwardResolver(_awardScoring), new OriginalHistoryLoader());
+                try
+                {
+                    seasons[yearIndex] = initializer.Initialize(new WorldHistoryInitializationRequest(
+                        WorldRecordMode.SimulatedHistory, worldHistorySeed, regularFranchiseTeams: year.TeamSeasons));
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception exception)
+                {
+                    throw new HistoricalWorldSeasonSimulationException(year.Year, exception);
+                }
+                seasonMetrics[yearIndex] = source?.LastRunMetrics;
+                lock (progressLock)
+                {
+                    completedYears++;
+                    completedGames += source?.LastRunMetrics?.TotalGameCount ?? 0;
+                    _executionOptions.Progress?.Invoke(new HistoricalWorldBuildProgress(
+                        year.Year, completedYears, seasons.Length, completedGames));
+                }
             }
-            var initializer = new WorldHistoryInitializer(
-                simulation,
-                new WorldAwardResolver(_awardScoring),
-                new OriginalHistoryLoader());
+            if (_executionOptions.MaxDegreeOfParallelism == 1)
+            {
+                for (int index = 0; index < seasons.Length; index++)
+                    SimulateYear(index);
+            }
+            else
+            {
+                Parallel.For(0, seasons.Length, new ParallelOptions
+                {
+                    MaxDegreeOfParallelism = _executionOptions.MaxDegreeOfParallelism,
+                    CancellationToken = cancellationToken
+                }, SimulateYear);
+            }
             var statistics = new List<SeasonStatistics>(content.PlayerSeasons.Count * 4);
             var teamStatistics = new List<TeamSeasonStatistics>(content.TeamSeasons.Count);
             var standings = new List<HistoricalStandingEntry>(content.TeamSeasons.Count);
@@ -536,30 +576,16 @@ namespace Baseball.Game.Historical
             var awards = new List<WorldAwardEntry>(content.Years.Count * 38);
             for (int yearIndex = 0; yearIndex < content.Years.Count; yearIndex++)
             {
-                // 44시즌은 수 분이 걸릴 수 있다. 사전 준비를 중단해야 할 때
-                // 한 시즌 안에 빠져나올 수 있어야 Editor Domain Reload를 막지 않는다.
                 cancellationToken.ThrowIfCancellationRequested();
-                HistoricalYearContentDefinition year = content.Years[yearIndex];
-                WorldHistorySnapshot season;
-                try
-                {
-                    season = initializer.Initialize(
-                        new WorldHistoryInitializationRequest(
-                            WorldRecordMode.SimulatedHistory,
-                            worldHistorySeed,
-                            regularFranchiseTeams: year.TeamSeasons));
-                }
-                catch (Exception exception)
-                {
-                    throw new HistoricalWorldSeasonSimulationException(year.Year, exception);
-                }
+                // 완료 순서와 무관하게 직렬 실행과 같은 순서로 합친다.
+                WorldHistorySnapshot season = seasons[yearIndex];
                 Append(statistics, season.Statistics);
                 Append(teamStatistics, season.TeamStatistics);
                 Append(standings, season.Standings);
                 Append(postseasonResults, season.PostseasonResults);
                 Append(awards, season.Awards.Entries);
-                if (bakedSource?.LastRunMetrics != null)
-                    metrics.Add(bakedSource.LastRunMetrics);
+                if (seasonMetrics[yearIndex] != null)
+                    metrics.Add(seasonMetrics[yearIndex]);
             }
             return new WorldHistorySnapshot(
                 WorldRecordMode.SimulatedHistory,

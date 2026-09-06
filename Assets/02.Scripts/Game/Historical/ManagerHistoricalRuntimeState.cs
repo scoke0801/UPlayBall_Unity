@@ -5,6 +5,7 @@ using Baseball.Core.Historical;
 using Baseball.Core.Shop;
 using Baseball.Game.Guide;
 using Baseball.Simulation.Historical;
+using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Historical
 {
@@ -236,7 +237,7 @@ namespace Baseball.Game.Historical
                 for (int rosterIndex = 0; rosterIndex < roster.Entries.Count; rosterIndex++)
                 {
                     if (!assignedPlayerSeasons.Add(roster.Entries[rosterIndex].PlayerSeasonId))
-                        throw new ArgumentException("세 특수 합성팀의 최종 로스터는 PlayerSeasonId가 겹칠 수 없습니다.", nameof(_rosters));
+                        throw new ArgumentException("특수 합성팀의 최종 로스터는 PlayerSeasonId가 겹칠 수 없습니다.", nameof(_rosters));
                 }
             }
         }
@@ -401,6 +402,8 @@ namespace Baseball.Game.Historical
     /// <summary>Baked Content부터 World Record, 합성팀, 저장 가능한 구단주 모드 상태까지 한 번에 조립한다.</summary>
     public sealed class ManagerHistoricalNewGameService
     {
+        private const ulong LeagueFillerSelectionStream = 0x4F574E5246494C4CUL;
+
         private readonly IHistoricalContentProvider _contentProvider;
         private readonly HistoricalWorldRuntimeBuilder _worldBuilder;
         private readonly BalanceTable _balance;
@@ -429,11 +432,14 @@ namespace Baseball.Game.Historical
                 bakedContent,
                 request.RecordMode,
                 request.WorldHistorySeed);
-            SpecialCompositeTeamSet composites = world.GetSpecialCompositeTeamSet(request.OriginYear);
-            LeagueInstance league = CreateLeague(request, year, composites);
+            SpecialCompositeTeamDefinition[] selectedComposites = SelectCompositeTeams(
+                year,
+                world,
+                request.WorldHistorySeed);
+            LeagueInstance league = CreateLeague(request, year, selectedComposites);
             CurrentRosterState[] rosters = CreateRosters(
                 year,
-                composites,
+                selectedComposites,
                 world.WorldCardCatalog,
                 request.PlayerTeamSeasonKey,
                 request.StarterRoster);
@@ -487,16 +493,16 @@ namespace Baseball.Game.Historical
         private static LeagueInstance CreateLeague(
             ManagerHistoricalNewGameRequest request,
             HistoricalYearContentDefinition year,
-            SpecialCompositeTeamSet composites)
+            IReadOnlyList<SpecialCompositeTeamDefinition> composites)
         {
             var regularKeys = new string[year.TeamSeasons.Count];
             for (int index = 0; index < regularKeys.Length; index++)
                 regularKeys[index] = year.TeamSeasons[index].TeamSeasonKey;
 
-            var registrations = new SpecialCompositeTeamRegistration[composites.Teams.Count];
+            var registrations = new SpecialCompositeTeamRegistration[composites.Count];
             for (int index = 0; index < registrations.Length; index++)
             {
-                SpecialCompositeTeamDefinition team = composites.Teams[index];
+                SpecialCompositeTeamDefinition team = composites[index];
                 registrations[index] = new SpecialCompositeTeamRegistration(
                     team.TeamSeasonKey,
                     team.OriginYear,
@@ -511,15 +517,61 @@ namespace Baseball.Game.Historical
                 registrations);
         }
 
+        /// <summary>실제 구단을 우선 배치하고 빈 슬롯만 World Seed 기반 특수팀으로 채운다.</summary>
+        private static SpecialCompositeTeamDefinition[] SelectCompositeTeams(
+            HistoricalYearContentDefinition year,
+            HistoricalWorldRuntimeContent world,
+            ulong worldSeed)
+        {
+            if (!LeagueInstance.IsSupportedRegularFranchiseTeamCount(year.TeamSeasons.Count))
+            {
+                throw new InvalidOperationException(
+                    $"{year.Year} 정규 Franchise 구단 수 {year.TeamSeasons.Count}개는 지원 범위가 아닙니다.");
+            }
+
+            int requiredCount = LeagueInstance.MaximumRegularFranchiseTeamCount - year.TeamSeasons.Count;
+            if (requiredCount == 0)
+                return Array.Empty<SpecialCompositeTeamDefinition>();
+
+            SpecialCompositeTeamSet set = world.GetSpecialCompositeTeamSet(year.Year);
+            if (set.Teams.Count < requiredCount)
+            {
+                throw new InvalidOperationException(
+                    $"{year.Year} 리그의 빈 슬롯 {requiredCount}개를 채울 특수 합성팀이 부족합니다.");
+            }
+
+            var candidates = new SpecialCompositeTeamDefinition[set.Teams.Count];
+            for (int index = 0; index < candidates.Length; index++)
+                candidates[index] = set.Teams[index];
+            Array.Sort(candidates, (left, right) => left.TeamType.CompareTo(right.TeamType));
+
+            ulong selectionSeed = DeterministicSeed.Derive(
+                DeterministicSeed.Derive(worldSeed, LeagueFillerSelectionStream),
+                unchecked((ulong)year.Year));
+            var random = new Pcg32Random(selectionSeed);
+            for (int index = candidates.Length - 1; index > 0; index--)
+            {
+                int selectedIndex = (int)(random.NextDouble() * (index + 1));
+                SpecialCompositeTeamDefinition selected = candidates[index];
+                candidates[index] = candidates[selectedIndex];
+                candidates[selectedIndex] = selected;
+            }
+
+            var result = new SpecialCompositeTeamDefinition[requiredCount];
+            Array.Copy(candidates, result, requiredCount);
+            Array.Sort(result, (left, right) => left.TeamType.CompareTo(right.TeamType));
+            return result;
+        }
+
         private static CurrentRosterState[] CreateRosters(
             HistoricalYearContentDefinition year,
-            SpecialCompositeTeamSet composites,
+            IReadOnlyList<SpecialCompositeTeamDefinition> composites,
             WorldCardCatalog catalog,
             string playerTeamSeasonKey,
             CurrentRosterState starterRoster)
         {
             var result = new CurrentRosterState[
-                year.TeamSeasons.Count + composites.Teams.Count];
+                year.TeamSeasons.Count + composites.Count];
             int outputIndex = 0;
             for (int index = 0; index < year.TeamSeasons.Count; index++)
             {
@@ -529,8 +581,8 @@ namespace Baseball.Game.Historical
                         ? starterRoster
                         : CreateRegularRoster(team, catalog);
             }
-            for (int index = 0; index < composites.Teams.Count; index++)
-                result[outputIndex++] = CreateCompositeRoster(composites.Teams[index], catalog);
+            for (int index = 0; index < composites.Count; index++)
+                result[outputIndex++] = CreateCompositeRoster(composites[index], catalog);
             return result;
         }
 

@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Threading;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Game.Historical;
@@ -9,6 +11,52 @@ namespace Baseball.Tests.EditMode.Game.Historical
     /// <summary>Bake 산출물이 World History를 값 손실 없이 왕복하는지 검증한다.</summary>
     public sealed class WorldHistoryBakeCodecTests
     {
+        [Test]
+        public void 완성파일은같은Key에서만재사용하고손상파일은재사용하지않는다()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "world-bake-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var payload = CreatePayload();
+                byte[] bytes = WorldHistoryBakeCodec.Encode(payload);
+                WorldHistoryBakeService.WriteAtomically(path, bytes);
+                Assert.That(WorldHistoryBakeService.TryReadCompleted(path, payload.Key, out byte[] restored), Is.True);
+                Assert.That(restored, Is.EqualTo(bytes));
+                var otherKey = new BakedWorldHistoryKey(payload.Key.RecordMode, payload.Key.WorldHistorySeed + 1,
+                    payload.Key.ContentHash, payload.Key.BalanceVersion, payload.Key.BalanceContentHash);
+                Assert.That(WorldHistoryBakeService.TryReadCompleted(path, otherKey, out _), Is.False);
+                var otherBalance = new BakedWorldHistoryKey(payload.Key.RecordMode, payload.Key.WorldHistorySeed,
+                    payload.Key.ContentHash, payload.Key.BalanceVersion, payload.Key.BalanceContentHash + "-changed");
+                Assert.That(WorldHistoryBakeService.TryReadCompleted(path, otherBalance, out _), Is.False);
+                var truncated = new byte[bytes.Length - 1];
+                Array.Copy(bytes, truncated, truncated.Length);
+                File.WriteAllBytes(path, truncated);
+                Assert.That(WorldHistoryBakeService.TryReadCompleted(path, payload.Key, out _), Is.False);
+                File.WriteAllBytes(path, new byte[] { 1, 2, 3 });
+                Assert.That(WorldHistoryBakeService.TryReadCompleted(path, payload.Key, out _), Is.False);
+                WorldHistoryBakeService.WriteAtomically(path, bytes);
+                Assert.That(WorldHistoryBakeService.TryReadCompleted(path, payload.Key, out _), Is.True);
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        [Test]
+        public void 취소한파일교체는기존파일을보존한다()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "world-bake-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                byte[] original = WorldHistoryBakeCodec.Encode(CreatePayload());
+                WorldHistoryBakeService.WriteAtomically(path, original);
+                using var cancellation = new CancellationTokenSource();
+                cancellation.Cancel();
+                Assert.Throws<OperationCanceledException>(() => WorldHistoryBakeService.WriteAtomically(path,
+                    new byte[] { 1 }, cancellation.Token));
+                Assert.That(File.ReadAllBytes(path), Is.EqualTo(original));
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
         [Test]
         public void Encode_Decode_WorldHistory를_그대로_복원한다()
         {

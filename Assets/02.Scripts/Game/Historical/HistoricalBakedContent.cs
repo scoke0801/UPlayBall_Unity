@@ -497,7 +497,11 @@ namespace Baseball.Game.Historical
                     secondSyllables[secondIndex]));
                 candidate++;
             }
-            return new WorldIdentityNameCatalog(domestic, foreign, CreateDefaultFranchiseNames());
+            return new WorldIdentityNameCatalog(
+                domestic,
+                foreign,
+                CreateDefaultFranchiseNames(),
+                CreateSourceFranchiseRegions());
         }
 
         private static string CreateForeignDevelopmentName(int index)
@@ -512,9 +516,28 @@ namespace Baseball.Game.Historical
             return new[]
             {
                 "서울 코멧츠", "부산 타이즈", "인천 하버스", "대구 포지", "대전 파이오니어스",
-                "광주 피닉스", "수원 가디언즈", "창원 세일러스", "전주 스타즈", "강릉 웨이브스",
-                "울산 오로라", "제주 윈드스", "춘천 레이븐스", "성남 볼츠", "청주 크레인스",
-                "포항 트라이던츠", "고양 스카이라인", "용인 스톰즈", "천안 브레이브스", "김해 팔콘스"
+                "광주 피닉스", "수원 가디언즈", "창원 세일러스", "전주 스타즈", "서울 웨이브스",
+                "부산 오로라", "인천 윈드스", "대구 레이븐스", "대전 볼츠", "광주 크레인스",
+                "수원 트라이던츠", "창원 스카이라인", "전주 스톰즈", "서울 브레이브스", "부산 팔콘스"
+            };
+        }
+
+        internal static WorldFranchiseRegionDefinition[] CreateSourceFranchiseRegions()
+        {
+            return new[]
+            {
+                new WorldFranchiseRegionDefinition("FRANCHISE_1b36b987034cef53c24a", "인천"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_35294c0c8039e3d5d238", "서울"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_4e35f22307ad52af5e1f", "수원"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_68951629be777590f3dd", "부산"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_75457eb26517b6708cde", "창원"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_76415bde64607643336a", "광주"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_854ea0d4133dc44b2eae", "서울"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_8d4c4aa7cff1444ab4f5", "수원"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_9c3e6defcfcca3d554fb", "서울"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_a23e5d3c82759518a0e1", "대구"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_c66296716a6d841d9cec", "전주"),
+                new WorldFranchiseRegionDefinition("FRANCHISE_d759ac5f30c5df8a5e19", "대전")
             };
         }
 

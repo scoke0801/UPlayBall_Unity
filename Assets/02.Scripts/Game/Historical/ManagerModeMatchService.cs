@@ -53,6 +53,39 @@ namespace Baseball.Game.Historical
         public string HeadCoachDisplayName { get; }
     }
 
+    /// <summary>남은 정규시즌을 기존 경기 경로로 완주한 경기 수와 최종 구단 성적을 반환한다.</summary>
+    public sealed class ManagerRegularSeasonCompletionResult
+    {
+        public ManagerRegularSeasonCompletionResult(
+            int playerGamesSimulated,
+            int leagueGamesSimulated,
+            int seasonWins,
+            int seasonLosses,
+            int seasonDraws,
+            bool isCompleted)
+        {
+            if (playerGamesSimulated < 0 || leagueGamesSimulated < 0 ||
+                seasonWins < 0 || seasonLosses < 0 || seasonDraws < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(playerGamesSimulated));
+            }
+
+            PlayerGamesSimulated = playerGamesSimulated;
+            LeagueGamesSimulated = leagueGamesSimulated;
+            SeasonWins = seasonWins;
+            SeasonLosses = seasonLosses;
+            SeasonDraws = seasonDraws;
+            IsCompleted = isCompleted;
+        }
+
+        public int PlayerGamesSimulated { get; }
+        public int LeagueGamesSimulated { get; }
+        public int SeasonWins { get; }
+        public int SeasonLosses { get; }
+        public int SeasonDraws { get; }
+        public bool IsCompleted { get; }
+    }
+
     /// <summary>검증된 프리셋을 DetailedMatchEngine 한 경로로 실행하고 경기 후 원본 상태를 갱신한다.</summary>
     public sealed class ManagerModeMatchService
     {
@@ -128,7 +161,7 @@ namespace Baseball.Game.Historical
             string playerTeamKey = runtime.PlayerTeamSeasonKey;
             bool playerIsHome = string.Equals(playerTeamKey, homeTeamKey, StringComparison.Ordinal);
 
-            LineupPresetState playerPreset = mode.GetSelectedLineupPreset();
+            LineupPresetState playerPreset = mode.GetSelectedLineupPresetForGame(game);
             // 다른 프리셋에서 이미 쓴 카드도 있으므로 UI의 준비 Snapshot을 신뢰하지 않는다.
             // AI 경기와 재무를 포함한 어떤 상태도 바꾸기 전에 전체 보유 수량을 검증한다.
             if (!runtime.TacticCollection.CanConsume(playerPreset.DefaultTacticCardIds))
@@ -216,6 +249,30 @@ namespace Baseball.Game.Historical
                 playerBuild.Roster.ManagerProfile,
                 _dugoutCatalog.GetManager(mode.Dugout.ManagerId).DisplayName,
                 _dugoutCatalog.GetHeadCoach(mode.Dugout.HeadCoachId).DisplayName);
+        }
+
+        /// <summary>남은 플레이어·AI 대진을 단일 Detailed 경기 공식과 저장 Seed로 모두 완료한다.</summary>
+        public ManagerRegularSeasonCompletionResult CompleteRegularSeason(
+            ManagerHistoricalRuntimeState runtime,
+            Action<ManagerModeMatchResult> playerGameCompleted = null)
+        {
+            var session = new ManagerRegularSeasonSimulationSession(runtime, this);
+            while (!session.IsCompleted)
+            {
+                ManagerRegularSeasonSimulationStepResult step = session.AdvanceNextStep();
+                if (step.MatchResult != null) playerGameCompleted?.Invoke(step.MatchResult);
+            }
+            return session.CreateCompletionResult();
+        }
+
+        /// <summary>플레이어 일정 뒤 남은 AI 대진을 동일 엔진과 Seed로 소진한다.</summary>
+        internal void CompleteRemainingAiGames(ManagerHistoricalRuntimeState runtime)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            SimulateAiGamesThrough(
+                runtime,
+                PlayerIdMap.Create(runtime.Rosters),
+                GetMaximumRound(runtime.ManagerMode.LiveSeason.Schedule.Games));
         }
 
         /// <summary>지정 라운드까지 남은 AI 구단 대진을 라운드·GameId 순서로 정확히 한 번 진행한다.</summary>
@@ -384,10 +441,18 @@ namespace Baseball.Game.Historical
             string closerCard = playerPlan?.CloserPitcherCardId ?? plan.CloserPitcherCardId;
             IReadOnlyList<string> equippedColors = playerPlan?.TeamColorIds ?? plan.TeamColorIds;
 
-            PerCardBonusMap teamColorBonuses = ResolveTeamColorBonuses(
-                activeRoster,
-                runtime.WorldCardCatalog,
-                equippedColors);
+            PerCardBonusMap teamColorBonuses;
+            if (runtime.HasOwnedEconomy(teamSeasonKey))
+                teamColorBonuses = ResolveTeamColorBonuses(activeRoster, runtime.WorldCardCatalog, equippedColors);
+            else
+            {
+                TeamColorDefinition[] selected = ResolveAiTeamColors(activeRoster, runtime.WorldCardCatalog, _balance.TeamColor);
+                var definitions = new List<TeamColorDefinition>();
+                foreach (TeamColorDefinition color in selected)
+                    if (color != null) definitions.Add(color);
+                teamColorBonuses = new TeamColorResolver().ApplyEquipped(
+                    activeRoster, runtime.WorldCardCatalog, definitions, selected[0], selected[1]);
+            }
             var playersByCard = new Dictionary<string, Player>(activeRoster.Entries.Count, StringComparer.Ordinal);
             var personByPlayerId = new Dictionary<int, string>(activeRoster.Entries.Count);
             for (int index = 0; index < activeRoster.Entries.Count; index++)
@@ -561,6 +626,7 @@ namespace Baseball.Game.Historical
                 pitcher,
                 nationality: season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty,
                 pitchRepertoire: season.PitchRepertoire,
+                isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
                 traitIds: usesOwnedEconomy
                     ? _ownerCardAbilityResolver.ResolveActiveTraitIds(owned)
                     : Array.Empty<string>(),
@@ -800,6 +866,15 @@ namespace Baseball.Game.Historical
                 rivalryStoryStrength: 0d);
         }
 
+        /// <summary>구단주 AI 경기와 공개 UI가 같은 현재 로스터·밸런스로 팀컬러를 조회한다.</summary>
+        public static TeamColorDefinition[] ResolveAiTeamColors(CurrentRosterState roster,
+            WorldCardCatalog catalog, TeamColorBalanceTable balance)
+        {
+            IReadOnlyList<TeamColorRosterCard> cards = TeamColorResolver.CreateRosterCards(roster, catalog);
+            return new TeamColorResolver().SelectAutomatic(cards,
+                InitialTeamColorDefinitionFactory.CreateForRoster(cards, balance));
+        }
+
         private PerCardBonusMap ResolveTeamColorBonuses(
             CurrentRosterState roster,
             WorldCardCatalog catalog,
@@ -876,7 +951,8 @@ namespace Baseball.Game.Historical
             return teamSeasonKey;
         }
 
-        private static LineupPresetState CreateRosterRolePlan(CurrentRosterState roster)
+        /// <summary>공개 등록 역할에서 경기와 구단 조회가 공유하는 AI 기본 라인업을 만든다. 상태와 난수는 변경하지 않는다.</summary>
+        public static LineupPresetState CreateRosterRolePlan(CurrentRosterState roster)
         {
             var starting = new LineupPresetSlot[9];
             var batting = new string[9];

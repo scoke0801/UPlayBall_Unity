@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Reflection;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
@@ -7,12 +9,130 @@ using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Historical;
 using Baseball.Simulation.Historical;
+using Baseball.Simulation.Match;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game.Historical
 {
     public sealed class HistoricalWorldRuntimeBuilderTests
     {
+        [Test]
+        public void Bake_직렬과병렬의전체산출물이일치한다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            var balance = BalanceTable.CreateDefault();
+            var serial = WorldHistoryBakeService.Create(content, balance, 20260905);
+            int completed = 0;
+            var parallel = WorldHistoryBakeService.Create(content, balance, 20260905,
+                new HistoricalWorldExecutionOptions(4, progress =>
+                {
+                    Assert.That(progress.CompletedYears, Is.EqualTo(++completed));
+                    Assert.That(progress.CompletedGames, Is.GreaterThan(0));
+                }));
+            Assert.That(completed, Is.EqualTo(content.Years.Count));
+            Assert.That(WorldHistoryBakeService.Encode(parallel.Payload),
+                Is.EqualTo(WorldHistoryBakeService.Encode(serial.Payload)));
+        }
+
+        [TestCase(1)]
+        [TestCase(4)]
+        public void Bake_취소하면완료산출물을반환하지않는다(int workers)
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            using var cancellation = new CancellationTokenSource();
+            Assert.Throws<OperationCanceledException>(() => WorldHistoryBakeService.Create(content,
+                BalanceTable.CreateDefault(), 20260905,
+                new HistoricalWorldExecutionOptions(workers, _ => cancellation.Cancel()), cancellation.Token));
+        }
+
+        [Test]
+        public void DetailedSeason_누적집계는경기원본재집계와일치하고원본보관을생략할수있다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent();
+            var balance = BalanceTable.CreateDefault();
+            var identities = new WorldIdentityGenerator().Generate(content.PlayerPersons, content.TeamSeasons,
+                content.IdentityNameCatalog, 20260905);
+            var retained = new BakedHistoricalDetailedSeasonSource(content, balance, identities)
+                .RunSeason(20260905, content.Years[0].TeamSeasons);
+            var compact = new BakedHistoricalDetailedSeasonSource(content, balance, identities, retainMatchResults: false)
+                .RunSeason(20260905, content.Years[0].TeamSeasons);
+            Assert.That(retained.Matches.Count, Is.GreaterThan(0));
+            Assert.That(compact.Matches, Is.Empty);
+            // 원본 경기 경로로 다시 집계해 캐시 자체를 비교하는 검증을 피한다.
+            var original = new HistoricalDetailedSeasonOutput(retained.SeasonYear, retained.Matches, retained.Players,
+                GetAllStarIds(retained), 20001, retained.TeamStatistics, retained.Standings, retained.Postseason);
+            var expected = AggregateForTest(original, content.Years[0].TeamSeasons);
+            var actual = AggregateForTest(compact, content.Years[0].TeamSeasons);
+            Assert.That(actual.Count, Is.EqualTo(expected.Count));
+            for (int index = 0; index < expected.Count; index++)
+            {
+                var left = new WorldHistorySnapshot(WorldRecordMode.SimulatedHistory, 20260905,
+                    new[] { expected[index] }, Array.Empty<TeamSeasonStatistics>(), Array.Empty<HistoricalStandingEntry>(),
+                    Array.Empty<HistoricalPostseasonResult>(), new WorldAwardRecord(Array.Empty<WorldAwardEntry>()));
+                var right = new WorldHistorySnapshot(WorldRecordMode.SimulatedHistory, 20260905,
+                    new[] { actual[index] }, Array.Empty<TeamSeasonStatistics>(), Array.Empty<HistoricalStandingEntry>(),
+                    Array.Empty<HistoricalPostseasonResult>(), new WorldAwardRecord(Array.Empty<WorldAwardEntry>()));
+                var key = HistoricalWorldRuntimeBuilder.CreateBakeKey(content, 20260905, balance);
+                Assert.That(WorldHistoryBakeCodec.Encode(new BakedWorldHistoryPayload(key, new WorldHistorySaveMapper().CreateSaveData(right))),
+                    Is.EqualTo(WorldHistoryBakeCodec.Encode(new BakedWorldHistoryPayload(key, new WorldHistorySaveMapper().CreateSaveData(left)))));
+            }
+        }
+
+        private static string[] GetAllStarIds(HistoricalDetailedSeasonOutput output)
+        {
+            var ids = new List<string>();
+            var isEligible = typeof(HistoricalDetailedSeasonOutput).GetMethod("IsAllStarGameEligible",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            foreach (var player in output.Players)
+                if ((bool)isEligible.Invoke(output, new object[] { player.PlayerSeasonId })) ids.Add(player.PlayerSeasonId);
+            return ids.ToArray();
+        }
+
+        private static IReadOnlyList<SeasonStatistics> AggregateForTest(HistoricalDetailedSeasonOutput output,
+            IReadOnlyList<TeamSeasonDefinition> teams) => (IReadOnlyList<SeasonStatistics>)
+            typeof(DetailedMatchHistoricalSeasonAdapter).GetMethod("Aggregate", BindingFlags.Static | BindingFlags.NonPublic)
+                .Invoke(null, new object[] { output, teams });
+
+        [TestCase(6)]
+        [TestCase(7)]
+        [TestCase(10)]
+        public void DetailedSeason_휴식일과올스타에도각팀은1부터5선발을순서대로기용한다(int teamCount)
+        {
+            HistoricalBakedContent content = Fixture.CreateContent(teamCount);
+            var identities = new WorldIdentityGenerator().Generate(content.PlayerPersons, content.TeamSeasons,
+                content.IdentityNameCatalog, 20260905);
+            var source = new BakedHistoricalDetailedSeasonSource(content, BalanceTable.CreateDefault(), identities);
+            HistoricalDetailedSeasonOutput result = source.RunSeason(20260905UL, content.Years[0].TeamSeasons);
+            var players = new Dictionary<int, HistoricalPlayerSeasonIdentity>();
+            var teams = new Dictionary<string, TeamSeasonDefinition>();
+            var gameCounts = new Dictionary<string, int>();
+            var regularStarts = new Dictionary<string, int[]>();
+            foreach (HistoricalPlayerSeasonIdentity player in result.Players) players.Add(player.PlayerId, player);
+            foreach (TeamSeasonDefinition team in content.Years[0].TeamSeasons)
+            {
+                teams.Add(team.TeamSeasonKey, team);
+                gameCounts.Add(team.TeamSeasonKey, 0);
+                regularStarts.Add(team.TeamSeasonKey, new int[5]);
+            }
+            foreach (HistoricalDetailedMatchRecord match in result.Matches)
+            {
+                if (match.Stage == HistoricalMatchStage.AllStarGame) continue;
+                foreach (MatchRosterSnapshot roster in new[] { match.Result.Input.AwayRoster, match.Result.Input.HomeRoster })
+                {
+                    HistoricalPlayerSeasonIdentity starter = players[roster.StartingPitcher.Player.PlayerId];
+                    int index = gameCounts[starter.TeamSeasonKey]++ % 5;
+                    Assert.That(starter.PlayerSeasonId + ":Normal", Is.EqualTo(teams[starter.TeamSeasonKey].Core25CardIds[14 + index]));
+                    if (match.Stage != HistoricalMatchStage.Postseason) regularStarts[starter.TeamSeasonKey][index]++;
+                }
+            }
+            foreach (int[] counts in regularStarts.Values)
+            {
+                Array.Sort(counts);
+                Assert.That(counts[4] - counts[0], Is.LessThanOrEqualTo(1));
+                Assert.That(counts[0], Is.EqualTo(CareerSeasonBalance.DefaultRegularSeasonGamesPerTeam / 5));
+            }
+        }
+
         [Test]
         public void LegacyBuilder_OriginalHistory는Simulation을실행하지않는다()
         {
@@ -94,6 +214,35 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 restored.WorldHistory.PostseasonResults[0].ChampionTeamSeasonKey,
                 Is.EqualTo(created.WorldHistory.PostseasonResults[0].ChampionTeamSeasonKey));
             Assert.That(restored.WorldAwardRecord.Entries.Count, Is.EqualTo(created.WorldAwardRecord.Entries.Count));
+        }
+
+        [TestCase(6, 4)]
+        [TestCase(9, 1)]
+        [TestCase(10, 0)]
+        public void ProductionNewGame_실제구단을우선하고부족분만특수팀으로채워10구단을만든다(
+            int regularTeamCount,
+            int expectedSpecialTeamCount)
+        {
+            HistoricalBakedContent content = Fixture.CreateContent(regularTeamCount);
+            var provider = new RecordingContentProvider(content);
+            var service = new ManagerHistoricalNewGameService(
+                provider,
+                CreateBuilder(new RecordingSeasonSimulation()));
+            string playerTeamSeasonKey = content.Years[0].TeamSeasons[0].TeamSeasonKey;
+
+            ManagerHistoricalRuntimeState result = service.Create(
+                new ManagerHistoricalNewGameRequest(
+                    WorldRecordMode.SimulatedHistory,
+                    7_091UL,
+                    content.Years[0].Year,
+                    "HISTORICAL-ROOKIE",
+                    playerTeamSeasonKey,
+                    new ManagerEconomyState()));
+
+            Assert.That(result.League.RegularFranchiseTeamCount, Is.EqualTo(regularTeamCount));
+            Assert.That(result.League.SpecialCompositeTeams.Count, Is.EqualTo(expectedSpecialTeamCount));
+            Assert.That(result.League.ParticipantTeamCount, Is.EqualTo(10));
+            Assert.That(result.Rosters.Count, Is.EqualTo(10));
         }
 
         [Test]
@@ -231,7 +380,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             for (int setIndex = 0; setIndex < result.SpecialCompositeTeams.Count; setIndex++)
             {
                 SpecialCompositeTeamSet set = result.SpecialCompositeTeams[setIndex];
-                Assert.That(set.Teams.Count, Is.EqualTo(3));
+                Assert.That(set.Teams.Count, Is.EqualTo(4));
                 for (int teamIndex = 0; teamIndex < set.Teams.Count; teamIndex++)
                 {
                     SpecialCompositeTeamDefinition team = set.Teams[teamIndex];
@@ -270,6 +419,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 SpecialCompositeTeamType.AllStarComposite => PlayerCardEdition.AllStar,
                 SpecialCompositeTeamType.GoldenGloveComposite => PlayerCardEdition.GoldenGlove,
                 SpecialCompositeTeamType.YearSelectComposite => PlayerCardEdition.Normal,
+                SpecialCompositeTeamType.RandomSelectComposite => PlayerCardEdition.Normal,
                 _ => throw new ArgumentOutOfRangeException(nameof(teamType))
             };
             string cardId = PlayerCardDefinition.CreateStableCardId(playerSeasonId, preferred);
@@ -303,7 +453,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(run.Metrics.Seasons.Count, Is.EqualTo(1));
             Assert.That(
                 run.Metrics.Seasons[0].RegularSeasonGameCount,
-                Is.EqualTo(BakedHistoricalDetailedSeasonSource.RegularSeasonGamesPerTeam * 5));
+                Is.EqualTo(BalanceTable.CreateDefault().CareerSeason.RegularSeasonGamesPerTeam * 5));
             Assert.That(run.Metrics.Seasons[0].AllStarGameCount, Is.EqualTo(1));
             Assert.That(run.Metrics.Seasons[0].PostseasonGameCount, Is.GreaterThan(0));
             Assert.That(run.Metrics.TotalElapsedTicks, Is.GreaterThan(0L));
@@ -662,17 +812,18 @@ namespace Baseball.Tests.EditMode.Game.Historical
         {
             private const int Year = 2024;
 
-            public static HistoricalBakedContent CreateContent()
+            public static HistoricalBakedContent CreateContent(int teamCount = 10)
             {
-                var persons = new List<PlayerPersonDefinition>(250);
-                var seasons = new List<PlayerSeasonDefinition>(250);
-                var cards = new List<PlayerCardDefinition>(250);
-                var teams = new List<TeamSeasonDefinition>(10);
-                var originalRecords = new List<OriginalSeasonRecordDefinition>(250);
+                int playerCount = checked(teamCount * ActiveRosterCompositionRule.ActiveRosterSize);
+                var persons = new List<PlayerPersonDefinition>(playerCount);
+                var seasons = new List<PlayerSeasonDefinition>(playerCount);
+                var cards = new List<PlayerCardDefinition>(playerCount);
+                var teams = new List<TeamSeasonDefinition>(teamCount);
+                var originalRecords = new List<OriginalSeasonRecordDefinition>(playerCount);
                 var originalAwards = new List<OriginalAwardRecordDefinition>(38);
                 int[] noModifiers = new int[PlayerAbilityCatalog.AbilityCount];
 
-                for (int teamIndex = 0; teamIndex < 10; teamIndex++)
+                for (int teamIndex = 0; teamIndex < teamCount; teamIndex++)
                 {
                     string teamKey = GetTeamKey(teamIndex);
                     string franchiseId = GetFranchiseId(teamIndex);
