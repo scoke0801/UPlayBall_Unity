@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: a4389f5ee72297040b309f22beaa5222
+guid: 9e8f153f8185b264194fc3493d8fe4c4
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 9217412139424550419
-    second: stadium_overlay_set_rl_0
+      213: 550723631386294837
+    second: stadium_overlay_pitch1_rr_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,7 +100,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: stadium_overlay_set_rl_0
+      name: stadium_overlay_pitch1_rr_0
       rect:
         serializedVersion: 2
         x: 0
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 31e06ce3183daef70800000000000000
-      internalID: 9217412139424550419
+      spriteID: 53a7132993094a700800000000000000
+      internalID: 550723631386294837
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      stadium_overlay_set_rl_0: 9217412139424550419
+      stadium_overlay_pitch1_rr_0: 550723631386294837
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

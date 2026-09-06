@@ -58,7 +58,7 @@ namespace Baseball.Presentation.Match
 
             _statusLabel.text = isComplete
                 ? "경기 종료"
-                : state.IsPaused ? "중계 일시정지" : "LIVE · 감독 AI 자동 진행";
+                : state.IsPaused ? "중계 일시정지" : "생중계 · 감독 AI 자동 진행";
             _homeButton.gameObject.SetActive(isComplete);
             _resultButton.gameObject.SetActive(isComplete);
             _resultToggleLabel.text = _showResults ? "경기 화면" : "경기 결과";
@@ -95,7 +95,7 @@ namespace Baseball.Presentation.Match
             if (visibleCount == 0)
             {
                 _commentary.text = "양 팀 선수들이 그라운드에 들어섭니다. 곧 경기가 시작됩니다.";
-                _announcement.text = "PLAY BALL";
+            _announcement.text = "경기 시작";
                 _announcementStartedAt = Time.unscaledTime;
                 return;
             }
@@ -116,7 +116,7 @@ namespace Baseball.Presentation.Match
             string away = CurrentModel?.AwayTeam.Name ?? "원정";
             string home = CurrentModel?.HomeTeam.Name ?? "홈";
             _resultHeading.text = match.IsTie ? "경기 종료 · 무승부" :
-                (match.WinnerTeamId == match.AwayBoxScore.TeamId ? "AWAY WIN" : "HOME WIN");
+                    (match.WinnerTeamId == match.AwayBoxScore.TeamId ? "원정팀 승리" : "홈팀 승리");
             Baseball.Core.Teams.ManagerTacticalProfile profile = _session.Result.EffectiveManagerProfile;
             _resultSummary.text = away + "  " + match.AwayBoxScore.Runs + "  :  " +
                                   match.HomeBoxScore.Runs + "  " + home + "\n" +
@@ -198,11 +198,11 @@ namespace Baseball.Presentation.Match
             for (int i = 0; i < innings; i++)
                 AddScoreCell(host, (i + 1).ToString(), teamWidth + i * inningWidth, 0, inningWidth, 38, Silver, Ink, TextAnchor.MiddleCenter);
             float totalsX = teamWidth + innings * inningWidth;
-            AddScoreCell(host, "R", totalsX, 0, statWidth, 38, Ink, Color.white, TextAnchor.MiddleCenter);
+            AddScoreCell(host, "득점", totalsX, 0, statWidth, 38, Ink, Color.white, TextAnchor.MiddleCenter);
             if (awayErrors >= 0)
             {
-                AddScoreCell(host, "H", totalsX + statWidth, 0, statWidth, 38, Ink, Color.white, TextAnchor.MiddleCenter);
-                AddScoreCell(host, "E", totalsX + statWidth * 2, 0, statWidth, 38, Ink, Color.white, TextAnchor.MiddleCenter);
+                AddScoreCell(host, "안타", totalsX + statWidth, 0, statWidth, 38, Ink, Color.white, TextAnchor.MiddleCenter);
+                AddScoreCell(host, "실책", totalsX + statWidth * 2, 0, statWidth, 38, Ink, Color.white, TextAnchor.MiddleCenter);
             }
             AddScoreRow(host, away, awayRuns, 38, innings, inningWidth, teamWidth, statWidth, awayHits, awayErrors);
             AddScoreRow(host, home, homeRuns, 81, innings, inningWidth, teamWidth, statWidth, homeHits, homeErrors);
@@ -241,7 +241,7 @@ namespace Baseball.Presentation.Match
             float y = 0;
             if (_showPitching)
             {
-                AddRecordRow(_recordContent, "선수", "IP", "H", "R", "BB", "SO", -1, true);
+                AddRecordRow(_recordContent, "선수", "이닝", "피안타", "실점", "볼넷", "탈삼진", -1, true);
                 for (int i = 0; i < box.PitchingLines.Count; i++)
                 {
                     PlayerPitchingLine line = box.PitchingLines[i];
@@ -389,8 +389,8 @@ namespace Baseball.Presentation.Match
 
         private static string FormatEventResult(MatchEvent matchEvent)
         {
-            if (matchEvent.EventType == MatchEventType.HalfInningEnded) return "CHANGE";
-            if (matchEvent.EventType is MatchEventType.MatchEnded or MatchEventType.MatchEndedAsDraw) return "GAME SET";
+            if (matchEvent.EventType == MatchEventType.HalfInningEnded) return "공수 교대";
+            if (matchEvent.EventType is MatchEventType.MatchEnded or MatchEventType.MatchEndedAsDraw) return "경기 종료";
             if (matchEvent.EventType == MatchEventType.Score) return "득점!";
             if (matchEvent.EventType == MatchEventType.PlayerSubstitution) return "선수 교체";
             if (matchEvent.EventType == MatchEventType.PitcherEntered) return "투수 교체";
