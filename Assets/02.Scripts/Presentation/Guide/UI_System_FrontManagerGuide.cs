@@ -7,6 +7,7 @@ using Baseball.Game.Manager;
 using Baseball.Presentation.Career;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
+using Baseball.Presentation.Shop;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -29,12 +30,14 @@ namespace Baseball.Presentation.Guide
         private GuideManager _manager;
         private UI_Scene_CareerDashboard _careerDashboard;
         private UI_Scene_OwnerHome _ownerHome;
+        private UI_Scene_Shop _shop;
         private readonly Vector3[] _dockCorners = new Vector3[4];
         private GuideMessage _message;
         private Image _overlay;
         private RectTransform _panel;
         private Image _portrait;
         private Text _expressionFallback;
+        private Text _managerLabel;
         private Text _messageText;
         private Button _ctaButton;
         private Text _ctaLabel;
@@ -84,8 +87,16 @@ namespace Baseball.Presentation.Guide
 
         private void Update()
         {
+            if (PauseForShopFlow())
+                return;
             if (_message != null)
             {
+                if (!IsVisible)
+                {
+                    float remaining = _remainingAutoDismiss;
+                    Show();
+                    _remainingAutoDismiss = remaining;
+                }
                 if (_remainingAutoDismiss > 0f)
                 {
                     _remainingAutoDismiss -= Time.unscaledDeltaTime;
@@ -174,6 +185,18 @@ namespace Baseball.Presentation.Guide
             _remainingAutoDismiss = message.RequiresAcknowledgement ? 0f : message.AutoDismissSeconds;
         }
 
+        private bool PauseForShopFlow()
+        {
+            if (_shop == null)
+                _shop = FindFirstObjectByType<UI_Scene_Shop>(FindObjectsInactive.Include);
+            if (_shop == null || !_shop.IsGuideSuppressed)
+                return false;
+
+            // 이미 표시한 안내도 보관한 채 숨긴다. 숨긴 동안 자동 닫힘 시간과 대기열을 소비하지 않는다.
+            Hide();
+            return true;
+        }
+
         private static string ResolveExpressionAssetKey(string legacyKey)
         {
             OwnerModeManager manager = OwnerModeManager.Instance;
@@ -216,8 +239,13 @@ namespace Baseball.Presentation.Guide
             _portrait.preserveAspect = true;
             _expressionFallback = CreateText("ExpressionFallback", _portrait.transform, "FM", 28,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(160f, 160f), Vector2.zero, TextColor);
+            _managerLabel = CreateText("ManagerLabel", _panel, "매니저", 17,
+                FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(180f, 28f), Vector2.zero, TextColor);
             _messageText = CreateText("Message", _panel, string.Empty, 20,
                 FontStyle.Normal, TextAnchor.UpperLeft, new Vector2(570f, 108f), new Vector2(96f, 4f), TextColor);
+            _messageText.lineSpacing = 1.25f;
+            // 글꼴의 기준선 여백 대신 실제 글자 영역을 탭 중앙에 맞춘다.
+            _managerLabel.alignByGeometry = true;
 
             _ctaButton = CreateButton("CTA", _panel, string.Empty, new Vector2(210f, 46f),
                 new Vector2(184f, -75f), AccentColor, out _ctaLabel);
@@ -275,8 +303,20 @@ namespace Baseball.Presentation.Guide
                 }
             }
             // 프레임과 대사의 비율을 함께 바꿔 모든 안내 유형에서 오른쪽 초상화 영역을 비운다.
+            // 원본 프레임(2048×682)의 탭 내부 경계다. 늘어난 프레임과 같은 비율로 정렬한다.
+            _managerLabel.rectTransform.anchorMin = new Vector2(32f / 2048f, 1f - 66f / 682f);
+            _managerLabel.rectTransform.anchorMax = new Vector2(408f / 2048f, 1f - 22f / 682f);
+            _managerLabel.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            _managerLabel.rectTransform.offsetMin = Vector2.zero;
+            _managerLabel.rectTransform.offsetMax = Vector2.zero;
+            _managerLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _managerLabel.verticalOverflow = VerticalWrapMode.Overflow;
             SetContentRect(_messageText.rectTransform, new Vector2(0f, 1f),
-                new Vector2(36f, -40f), new Vector2(size.x * 0.64f, size.y - 120f));
+                new Vector2(36f, -56f), new Vector2(size.x * 0.64f, size.y - 136f));
+            // 문장별 줄바꿈과 긴 선수 이름 때문에 늘어난 대사도 버튼 위에서 잘리지 않게 한다.
+            size.y = Mathf.Max(size.y, _messageText.preferredHeight + 136f);
+            _panel.sizeDelta = size;
+            _messageText.rectTransform.sizeDelta = new Vector2(size.x * 0.64f, size.y - 136f);
             SetContentRect(_portrait.rectTransform, new Vector2(1f, 0f),
                 new Vector2(-22f, 18f), new Vector2(size.x * 0.27f, size.y + 12f));
             SetContentRect((RectTransform)_ctaButton.transform, Vector2.zero,
@@ -293,6 +333,9 @@ namespace Baseball.Presentation.Guide
 
         private void LateUpdate()
         {
+            // 구매 버튼·코루틴이 Update 이후 연출을 열어도 렌더링 전에 안내와 입력 차단을 숨긴다.
+            if (PauseForShopFlow())
+                return;
             if (_message == null || !IsVisible)
                 return;
 

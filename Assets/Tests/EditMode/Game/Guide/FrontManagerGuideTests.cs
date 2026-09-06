@@ -26,14 +26,14 @@ namespace Baseball.Tests.EditMode.Game.Guide
         }
 
         [Test]
-        public void Dataset_100개Cue와300개Variation을검증한다()
+        public void Dataset_106개Cue와318개Variation을검증한다()
         {
-            Assert.AreEqual(100, _data.cueDefinitions.Length);
-            Assert.AreEqual(100, _data.factTypeIndex.Length);
+            Assert.AreEqual(106, _data.cueDefinitions.Length);
+            Assert.AreEqual(106, _data.factTypeIndex.Length);
             int variations = 0;
             for (int index = 0; index < _data.cueDefinitions.Length; index++)
                 variations += _data.cueDefinitions[index].variations.Length;
-            Assert.AreEqual(300, variations);
+            Assert.AreEqual(318, variations);
         }
 
         [Test]
@@ -129,6 +129,32 @@ namespace Baseball.Tests.EditMode.Game.Guide
         }
 
         [Test]
+        public void RosterValid_멤버교체로Revision이바뀌어도Save당한번만표시한다()
+        {
+            var guide = new FrontManagerGuide(_catalog);
+            GuideFact firstRoster = new GuideFactBuilder(
+                    GuideModeScope.Owner,
+                    "RosterValidated",
+                    Identity("roster-valid-1"))
+                .AddContext("rosterRevision", 1)
+                .Build();
+            GuideFact changedRoster = new GuideFactBuilder(
+                    GuideModeScope.Owner,
+                    "RosterValidated",
+                    Identity("roster-valid-2"))
+                .AddContext("rosterRevision", 2)
+                .Build();
+
+            Assert.AreEqual(1, guide.Enqueue(firstRoster).EnqueuedCount);
+            Assert.IsTrue(guide.TryDequeue(SafeContext(), out GuideMessage message));
+            Assert.AreEqual("ROSTER_VALID", message.CueId);
+
+            GuideEnqueueResult changedResult = guide.Enqueue(changedRoster);
+            Assert.AreEqual(0, changedResult.EnqueuedCount);
+            Assert.AreEqual(1, changedResult.DuplicateCount);
+        }
+
+        [Test]
         public void Suppression_차단중에는Queue를유지하고해제후표시한다()
         {
             var guide = new FrontManagerGuide(_catalog);
@@ -217,6 +243,81 @@ namespace Baseball.Tests.EditMode.Game.Guide
             Assert.AreEqual(1, guide.Enqueue(fact).DuplicateCount);
         }
 
+        [Test]
+        public void Tutorial_재진입과복원후에는숨기고새게임에서는다시표시한다()
+        {
+            foreach (GuideCueData cue in _data.cueDefinitions)
+            {
+                if (cue.repeatPolicy.cooldownScope != "Save")
+                    continue;
+
+                GuideModeScope mode = cue.modeScope == "Career" ? GuideModeScope.Career : GuideModeScope.Owner;
+                var payload = new Dictionary<string, string>();
+                foreach (string key in FindFactContract(cue.factType).requiredPayload)
+                    payload.Add(key, "1");
+                var firstEntry = new GuideFact(mode, cue.factType, Identity("first-entry"), payload);
+                var reentry = new GuideFact(mode, cue.factType, Identity("reentry"), payload);
+                var guide = new FrontManagerGuide(_catalog);
+                Assert.AreEqual(1, guide.Enqueue(firstEntry).EnqueuedCount, cue.cueId);
+                Assert.AreEqual(1, guide.Enqueue(reentry).DuplicateCount, cue.cueId);
+                Assert.IsTrue(guide.TryDequeue(SafeContext(), out _), cue.cueId);
+                Assert.AreEqual(1, guide.Enqueue(reentry).DuplicateCount, cue.cueId);
+
+                var restored = new GuideRepeatState();
+                restored.Restore(guide.RepeatState.Capture());
+                var loadedGuide = new FrontManagerGuide(_catalog, restored);
+                Assert.AreEqual(1, loadedGuide.Enqueue(reentry).DuplicateCount, cue.cueId);
+
+                // 같은 설정과 Seed로 시작한 새 게임도 이전 게임의 노출 이력을 물려받지 않는다.
+                restored.Restore(new GuideRepeatStateData());
+                Assert.AreEqual(1, loadedGuide.Enqueue(firstEntry).EnqueuedCount, cue.cueId);
+                Assert.IsTrue(loadedGuide.TryDequeue(SafeContext(), out _), cue.cueId);
+            }
+        }
+
+        [Test]
+        public void SkillBlock_연속뽑기는한개안내만보류하고이후획득은반복하지않는다()
+        {
+            var guide = new FrontManagerGuide(_catalog);
+            var revealContext = new GuideDisplayContext(new[] { "BlockingCinematic" }, false, false);
+            for (int index = 0; index < 30; index++)
+            {
+                GuideFact fact = new GuideFactBuilder(GuideModeScope.Owner, "SkillBlockAcquired",
+                        Identity("purchase-" + index))
+                    .AddPayload("definitionId", "block-" + index)
+                    .AddPayload("rarity", "일반")
+                    .Build();
+                Assert.AreEqual(index == 0 ? 1 : 0, guide.Enqueue(fact).EnqueuedCount);
+                Assert.IsFalse(guide.TryDequeue(revealContext, out _));
+            }
+
+            Assert.AreEqual(1, guide.QueuedCount);
+            Assert.IsTrue(guide.TryDequeue(SafeContext(), out GuideMessage message));
+            Assert.AreEqual("SKILL_BLOCK_ACQUIRED", message.CueId);
+            Assert.IsFalse(guide.TryDequeue(SafeContext(), out _));
+            var nextPurchase = new GuideFactBuilder(GuideModeScope.Owner, "SkillBlockAcquired",
+                    Identity("next-purchase"))
+                .AddPayload("definitionId", "another-block")
+                .AddPayload("rarity", "특수")
+                .Build();
+            Assert.AreEqual(1, guide.Enqueue(nextPurchase).DuplicateCount);
+        }
+
+        [Test]
+        public void ScoutNewCard_같은뽑기순번은한번만안내한다()
+        {
+            var guide = new FrontManagerGuide(_catalog);
+            GuideFact first = CreateScoutNewCardFact("CARD_A", "17");
+            GuideFact second = CreateScoutNewCardFact("CARD_B", "17");
+
+            Assert.That(guide.Enqueue(first).IsAccepted, Is.True);
+            GuideEnqueueResult duplicate = guide.Enqueue(second);
+
+            Assert.That(duplicate.IsAccepted, Is.True, duplicate.Error);
+            Assert.That(duplicate.DuplicateCount, Is.EqualTo(1));
+            Assert.That(guide.QueuedCount, Is.EqualTo(1));
+        }
+
         private GuideMessage ResolveForeignLimit(GuideFact fact)
         {
             var guide = new FrontManagerGuide(_catalog);
@@ -244,6 +345,19 @@ namespace Baseball.Tests.EditMode.Game.Guide
                 .AddPayload("current", 4)
                 .AddPayload("limit", 3)
                 .AddContext("rosterRevision", revision)
+                .Build();
+        }
+
+        private static GuideFact CreateScoutNewCardFact(string cardId, string scoutRollId)
+        {
+            return new GuideFactBuilder(
+                    GuideModeScope.Owner,
+                    "ScoutNewCardAcquired",
+                    Identity("scout-new-card:" + cardId))
+                .AddPayload("playerName", cardId)
+                .AddPayload("cost", 5)
+                .AddPayload("edition", "일반")
+                .AddContext("scoutRollId", scoutRollId)
                 .Build();
         }
 
