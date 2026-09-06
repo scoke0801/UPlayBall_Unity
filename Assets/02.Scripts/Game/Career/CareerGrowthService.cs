@@ -246,8 +246,7 @@ namespace Baseball.Game.Career
         /// </summary>
         public SeasonGrowthSettlementResult SettleSeasonAndBeginOffseason(
             SeasonUsageSummary usage,
-            long bonusIncome = 0L,
-            int mandatoryRehabWeeks = 0)
+            long bonusIncome = 0L)
         {
             if (usage == null)
                 throw new ArgumentNullException(nameof(usage));
@@ -262,9 +261,6 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("이미 진행 중인 오프시즌이 있습니다.");
 
             PlayerGrowthState growth = _career.MyPlayer.GrowthState;
-            mandatoryRehabWeeks = Math.Max(
-                mandatoryRehabWeeks,
-                CalculateMandatoryRehabilitationWeeks(growth, season.Year));
             int[] abilitiesBefore = growth.BaseAbilities.ToArray();
             ulong seasonStream = ((ulong)(uint)season.SeasonId << 32) | (uint)growth.PlayerId;
             ulong naturalSeed = DeterministicSeed.Derive(
@@ -303,7 +299,6 @@ namespace Baseball.Game.Career
                 season.Year,
                 _balance.Growth.OffseasonWeeks,
                 growth.Condition,
-                mandatoryRehabWeeks,
                 CareerTrainingAccess.GetAccessTier(
                     _career.Reputation.HighestReachedTier,
                     _balance.Growth.Progression),
@@ -318,7 +313,6 @@ namespace Baseball.Game.Career
                     ? FindDefaultMasterFocusAbility(growth)
                     : null,
                 _career.GrowthMilestones.IsLegacyTraitConversionUnlocked);
-            PlanMandatoryRehabilitation(offseason, growth, mandatoryRehabWeeks);
             _career.MyPlayer.SkillBoardState.UnlockForOffseason();
             if (season.Review?.Step == SeasonReviewStep.SeasonSummary)
                 season.Review.MarkIncomeSettlementReady();
@@ -470,41 +464,6 @@ namespace Baseball.Game.Career
                 throw new InvalidOperationException("진행 중인 오프시즌이 없습니다.");
             }
             return _career.CurrentOffseason;
-        }
-
-        private void PlanMandatoryRehabilitation(
-            OffseasonState offseason,
-            PlayerGrowthState growth,
-            int mandatoryWeeks)
-        {
-            for (int week = 1; week <= mandatoryWeeks; week++)
-            {
-                _offseasonScheduler.PlanActivity(
-                    offseason,
-                    _career.Economy,
-                    growth,
-                    "mandatory_rehab",
-                    week,
-                    TrainingIntensity.Standard);
-            }
-        }
-
-        private static int CalculateMandatoryRehabilitationWeeks(
-            PlayerGrowthState growth,
-            int seasonYear)
-        {
-            int maximumAbsenceDays = 0;
-            for (int index = growth.InjuryHistory.Count - 1; index >= 0; index--)
-            {
-                InjuryRecord injury = growth.InjuryHistory[index];
-                if (injury.SeasonYear < seasonYear)
-                    break;
-                if (injury.SeasonYear == seasonYear)
-                    maximumAbsenceDays = Math.Max(maximumAbsenceDays, injury.MaximumAbsenceDays);
-            }
-            if (maximumAbsenceDays < 21)
-                return 0;
-            return Math.Min(12, Math.Max(1, (int)Math.Ceiling(maximumAbsenceDays / 30d)));
         }
 
         private static PlayerAbility FindDefaultMasterFocusAbility(PlayerGrowthState growth)

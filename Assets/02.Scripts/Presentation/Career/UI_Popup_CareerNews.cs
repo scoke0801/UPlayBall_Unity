@@ -456,7 +456,6 @@ namespace Baseball.Presentation.Career
                 NewsCategory.MyPlayer => "내 선수",
                 NewsCategory.Club => "구단",
                 NewsCategory.League => "리그",
-                NewsCategory.Injury => "부상",
                 NewsCategory.TransferContract => "이적·계약",
                 NewsCategory.Postseason => "포스트시즌",
                 NewsCategory.RecordsAwards => "기록·수상",

@@ -489,12 +489,11 @@ namespace Baseball.Presentation.Career
 
         private static void RenderCareerSummary(Transform parent, PlayerProfileView view)
         {
-            string[] labels = { "프로 경력", "현재 리그", "현재 구단", "계약", "성장 단계", "부상 이력" };
+            string[] labels = { "프로 경력", "현재 리그", "현재 구단", "계약", "성장 단계" };
             string[] values =
             {
                 $"{view.ProfessionalYears}년차", GetLeagueLabel(view.LeagueLevel), view.TeamName,
-                $"{view.ContractEndYear}년까지", GetCareerPhaseLabel(view.CareerPhase),
-                view.InjuryHistoryCount == 0 ? "기록 없음" : $"{view.InjuryHistoryCount}회"
+                $"{view.ContractEndYear}년까지", GetCareerPhaseLabel(view.CareerPhase)
             };
             for (int index = 0; index < labels.Length; index++)
             {

@@ -7,7 +7,6 @@ namespace Baseball.Game.Career
         {
             return programId switch
             {
-                "mandatory_rehab" => "필수 재활",
                 "weight_batter" => "타격 웨이트 트레이닝",
                 "weight_pitcher" => "투수 웨이트 트레이닝",
                 "personal_batting" => "기초 타격 훈련",

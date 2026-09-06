@@ -67,7 +67,7 @@ namespace Baseball.Core.Growth
             double programPower,
             AbilityWeight[] targetAbilityWeights,
             int minimumCondition,
-            double injuryRisk,
+            double conditionSetbackRisk,
             int maxTotalGain,
             int maxGainPerAbility,
             int conditionChange,
@@ -89,8 +89,8 @@ namespace Baseball.Core.Growth
                 throw new ArgumentOutOfRangeException(nameof(moneyCost));
             if (minimumCondition < 0 || minimumCondition > 100)
                 throw new ArgumentOutOfRangeException(nameof(minimumCondition));
-            if (injuryRisk < 0d || injuryRisk > 1d)
-                throw new ArgumentOutOfRangeException(nameof(injuryRisk));
+            if (conditionSetbackRisk < 0d || conditionSetbackRisk > 1d)
+                throw new ArgumentOutOfRangeException(nameof(conditionSetbackRisk));
             if (maxTotalGain < 0 || maxGainPerAbility < 0 || minimumGuaranteedGain < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxTotalGain));
             if (minimumGuaranteedGain > maxTotalGain)
@@ -124,7 +124,7 @@ namespace Baseball.Core.Growth
             ProgramPower = programPower;
             TargetAbilityWeights = CopyWeights(targetAbilityWeights, programPower);
             MinimumCondition = minimumCondition;
-            InjuryRisk = injuryRisk;
+            ConditionSetbackRisk = conditionSetbackRisk;
             MaxTotalGain = maxTotalGain;
             MaxGainPerAbility = maxGainPerAbility;
             ConditionChange = conditionChange;
@@ -146,7 +146,7 @@ namespace Baseball.Core.Growth
         public double ProgramPower { get; }
         public AbilityWeight[] TargetAbilityWeights { get; }
         public int MinimumCondition { get; }
-        public double InjuryRisk { get; }
+        public double ConditionSetbackRisk { get; }
         public int MaxTotalGain { get; }
         public int MaxGainPerAbility { get; }
         public int ConditionChange { get; }
@@ -183,7 +183,7 @@ namespace Baseball.Core.Growth
                 ProgramPower,
                 TargetAbilityWeights,
                 MinimumCondition,
-                InjuryRisk,
+                ConditionSetbackRisk,
                 MaxTotalGain,
                 MaxGainPerAbility,
                 ConditionChange,

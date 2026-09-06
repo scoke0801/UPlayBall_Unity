@@ -1190,7 +1190,6 @@ namespace Baseball.Presentation.Career
                 NewsCategory.MyPlayer => "PLAYER",
                 NewsCategory.Club => "CLUB",
                 NewsCategory.League => "LEAGUE",
-                NewsCategory.Injury => "INJURY",
                 NewsCategory.TransferContract => "DEAL",
                 NewsCategory.Postseason => "POST",
                 NewsCategory.RecordsAwards => "RECORD",
@@ -1206,7 +1205,6 @@ namespace Baseball.Presentation.Career
             return article.Category switch
             {
                 NewsCategory.MyPlayer => BrightAccentColor,
-                NewsCategory.Injury => WarningColor,
                 NewsCategory.TransferContract => RoleColor,
                 NewsCategory.Postseason => GoldColor,
                 NewsCategory.RecordsAwards => GoldColor,

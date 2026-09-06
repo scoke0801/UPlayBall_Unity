@@ -143,7 +143,6 @@ namespace Baseball.Presentation.Career
                 GrowthSourceType.TrainingPartner => "훈련 파트너",
                 GrowthSourceType.Study => "유학",
                 GrowthSourceType.Aging => "노쇠",
-                GrowthSourceType.Injury => "부상 영향",
                 _ => record.SourceId
             };
         }
@@ -492,7 +491,9 @@ namespace Baseball.Presentation.Career
             string growthRange = program.MaxTotalGain > 0
                 ? $"예상 총 성장 +{program.MinimumGuaranteedGain}~{program.MaxTotalGain}"
                 : program.ConditionChange > 0 ? $"컨디션 +{program.ConditionChange}" : "회복 활동";
-            string risk = program.InjuryRisk <= 0d ? "부상 위험 없음" : $"불편감 위험 {program.InjuryRisk:P1}";
+            string risk = program.ConditionSetbackRisk <= 0d
+                ? "추가 컨디션 저하 없음"
+                : $"추가 컨디션 저하 {program.ConditionSetbackRisk:P1}";
             string breakthrough = program.CanRaisePotential
                 ? program.MinimumPotentialBreakthroughsWhenCapped > 0
                     ? $" · Potential {program.PotentialBreakthroughProbability:P0} · 정체 시 돌파 보장"

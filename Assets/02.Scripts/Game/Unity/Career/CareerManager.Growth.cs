@@ -632,14 +632,12 @@ namespace Baseball.Game.Career
                                               CurrentCareer.GrowthMilestones.AdditionalProgramCandidates,
                 RepetitionPenaltyWaivers = offseason?.RepetitionPenaltyWaivers ?? 0,
                 MasterFocusAbility = offseason?.MasterFocusAbility,
-                NextSeasonInjuryRiskReduction = offseason?.NextSeasonInjuryRiskReduction ?? 0d,
                 PhysicalDeclineProtectionPoints = offseason?.PhysicalDeclineProtectionPoints ?? 0,
                 CurrentRole = CurrentCareer.CurrentExpectedRole,
                 RoleScore = roleEvaluation?.PlayerScore ?? 0d,
                 CompetitorRoleScore = roleEvaluation?.CompetitorScore ?? 0d,
                 LatestRoleTrigger = roleEvaluation?.Trigger,
                 WasRoleCooldownProtected = roleEvaluation?.WasCooldownProtected ?? false,
-                WasInjuryReturnProtected = roleEvaluation?.WasInjuryReturnProtected ?? false,
                 RoleExplanation = roleEvaluation?.Explanation,
                 IsOffseason = IsOffseason(),
                 CanEditBoard = IsOffseason() || board.IsSeasonLocked,
@@ -1012,7 +1010,7 @@ namespace Baseball.Game.Career
                     "partner_batter_default", "private_batting_coach",
                     "japan_batting_camp", "usa_power_center", "usa_elite_batting_academy",
                     "caribbean_batting_league", "europe_batting_balance",
-                    "mandatory_rehab", "rehab_general", "sports_science_recovery", "recovery_break", "rest"
+                    "rehab_general", "sports_science_recovery", "recovery_break", "rest"
                 }
                 : new[]
                 {
@@ -1023,7 +1021,7 @@ namespace Baseball.Game.Career
                     "partner_pitcher_default", "private_pitching_coach",
                     "japan_pitch_design", "usa_velocity_center", "usa_elite_pitching_academy",
                     "caribbean_pitch_league", "europe_pitch_balance",
-                    "mandatory_rehab", "rehab_general", "sports_science_recovery", "recovery_break", "rest"
+                    "rehab_general", "sports_science_recovery", "recovery_break", "rest"
                 };
             TrainingAccessTier accessTier = CareerTrainingAccess.GetAccessTier(
                 CurrentCareer.Reputation.HighestReachedTier,
@@ -1245,7 +1243,7 @@ namespace Baseball.Game.Career
                 ranges,
                 preview.ConditionBefore,
                 preview.ConditionAfter,
-                preview.ConditionAfterWithDiscomfort,
+                preview.ConditionAfterWithSetback,
                 preview.PriorSelections,
                 preview.RepetitionMultiplier);
         }

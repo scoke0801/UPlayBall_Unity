@@ -274,9 +274,7 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "RoleGap", role, gap, 11, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(232f, 20f), new Vector2(0f, 5f), SecondaryTextColor);
-            string protection = growth.WasInjuryReturnProtected
-                ? "\n부상 복귀 보호로 역할 하락 보류"
-                : growth.WasRoleCooldownProtected
+            string protection = growth.WasRoleCooldownProtected
                     ? "\n역할 변경 쿨다운으로 현재 역할 유지"
                     : string.Empty;
             CreateText(
@@ -891,12 +889,10 @@ namespace Baseball.Presentation.Career
                 growth.IsOffseason ? GoldColor : WarningColor);
             string milestoneStatus = growth.MasterFocusAbility.HasValue
                 ? $"집중 {GetAbilityLabel(growth.MasterFocusAbility.Value)} · " +
-                  $"반복 면제 {growth.RepetitionPenaltyWaivers}회 · " +
-                  $"다음 시즌 부상 위험 -{growth.NextSeasonInjuryRiskReduction:P0}"
+                  $"반복 면제 {growth.RepetitionPenaltyWaivers}회"
                 : growth.RepetitionPenaltyWaivers > 0
-                    ? $"반복 페널티 면제 {growth.RepetitionPenaltyWaivers}회 · " +
-                      $"다음 시즌 부상 위험 -{growth.NextSeasonInjuryRiskReduction:P0}"
-                    : $"다음 시즌 부상 위험 -{growth.NextSeasonInjuryRiskReduction:P0}";
+                    ? $"반복 페널티 면제 {growth.RepetitionPenaltyWaivers}회"
+                    : "성장 마일스톤 보너스 없음";
             CreateText(
                 "EconomyGuide",
                 panel,

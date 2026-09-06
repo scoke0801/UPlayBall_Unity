@@ -19,8 +19,6 @@ namespace Baseball.Game.Career
         Postseason,
         Championship,
         Award,
-        Injury,
-        InjuryReturn,
         Training,
         Study,
         SkillBuild,
@@ -38,7 +36,6 @@ namespace Baseball.Game.Career
     {
         Voluntary,
         DeclaredFinalSeason,
-        Medical,
         Unsigned
     }
 

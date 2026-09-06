@@ -39,7 +39,7 @@ namespace Baseball.Game.Data
             [SerializeField, Min(0f)] private double _programPower;
             [SerializeField] private AbilityWeightData[] _targetAbilities;
             [SerializeField, Range(0, 100)] private int _minimumCondition;
-            [SerializeField, Range(0f, 1f)] private double _injuryRisk;
+            [SerializeField, Range(0f, 1f)] private double _conditionSetbackRisk;
             [SerializeField, Min(0)] private int _maxTotalGain;
             [SerializeField, Min(0)] private int _maxGainPerAbility;
             [SerializeField] private int _conditionChange;
@@ -65,7 +65,7 @@ namespace Baseball.Game.Data
                     _programPower,
                     weights,
                     _minimumCondition,
-                    _injuryRisk,
+                    _conditionSetbackRisk,
                     _maxTotalGain,
                     _maxGainPerAbility,
                     _conditionChange,
@@ -89,7 +89,7 @@ namespace Baseball.Game.Data
                     .Append(_moneyCost).Append('|');
                 GrowthContentHashFormatting.AppendDouble(builder, _programPower);
                 builder.Append('|').Append(_minimumCondition).Append('|');
-                GrowthContentHashFormatting.AppendDouble(builder, _injuryRisk);
+                GrowthContentHashFormatting.AppendDouble(builder, _conditionSetbackRisk);
                 builder.Append('|')
                     .Append(_maxTotalGain).Append('|').Append(_maxGainPerAbility).Append('|')
                     .Append(_conditionChange).Append('|').Append(_minimumGuaranteedGain).Append('|')

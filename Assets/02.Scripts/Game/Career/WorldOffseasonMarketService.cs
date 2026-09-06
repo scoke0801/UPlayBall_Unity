@@ -263,7 +263,6 @@ namespace Baseball.Game.Career
                 player.RetirementPersonality,
                 CalculateRecentAbilityDecline(player, nextYear - 1),
                 appearanceRate,
-                HasRecentLongTermInjury(player, nextYear - 1),
                 hasContractRemaining,
                 IsNearCareerMilestone(player),
                 isChampionshipContender,
@@ -298,21 +297,6 @@ namespace Baseball.Game.Career
                 }
             }
             return decline;
-        }
-
-        private static bool HasRecentLongTermInjury(PlayerState player, int seasonYear)
-        {
-            if (player.GrowthState == null)
-                return false;
-            for (int index = player.GrowthState.InjuryHistory.Count - 1; index >= 0; index--)
-            {
-                InjuryRecord injury = player.GrowthState.InjuryHistory[index];
-                if (injury.SeasonYear < seasonYear)
-                    break;
-                if (injury.SeasonYear == seasonYear && injury.Severity >= InjurySeverity.Serious)
-                    return true;
-            }
-            return false;
         }
 
         private static bool IsNearCareerMilestone(PlayerState player)

@@ -30,7 +30,7 @@ namespace Baseball.Presentation.Career
             return selected.Intensity switch
             {
                 TrainingIntensity.Safe => "기간을 더 쓰는 대신 비용과 컨디션 부담을 낮춘 안정 훈련입니다.",
-                TrainingIntensity.Intensive => "기간을 압축하는 대신 비용·컨디션·부상 위험을 감수하는 집중 훈련입니다.",
+                TrainingIntensity.Intensive => "기간을 압축하는 대신 비용과 컨디션 저하 위험을 감수하는 집중 훈련입니다.",
                 _ => "기간·비용·컨디션 부담이 기준값인 표준 훈련입니다."
             };
         }

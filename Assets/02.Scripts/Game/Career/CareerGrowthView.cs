@@ -282,8 +282,8 @@ namespace Baseball.Game.Career
             ConditionChange = definition.ConditionChange;
             ConditionBefore = preview.ConditionBefore;
             ConditionAfter = preview.ConditionAfter;
-            ConditionAfterWithDiscomfort = preview.ConditionAfterWithDiscomfort;
-            InjuryRisk = definition.InjuryRisk;
+            ConditionAfterWithSetback = preview.ConditionAfterWithSetback;
+            ConditionSetbackRisk = definition.ConditionSetbackRisk;
             MinimumGuaranteedGain = definition.MinimumGuaranteedGain;
             MaxTotalGain = definition.MaxTotalGain;
             MinimumCondition = definition.MinimumCondition;
@@ -330,8 +330,8 @@ namespace Baseball.Game.Career
         public int ConditionChange { get; }
         public int ConditionBefore { get; }
         public int ConditionAfter { get; }
-        public int ConditionAfterWithDiscomfort { get; }
-        public double InjuryRisk { get; }
+        public int ConditionAfterWithSetback { get; }
+        public double ConditionSetbackRisk { get; }
         public int MinimumGuaranteedGain { get; }
         public int MaxTotalGain { get; }
         public int MinimumCondition { get; }
@@ -395,14 +395,12 @@ namespace Baseball.Game.Career
         public int AdditionalProgramCandidates { get; internal set; }
         public int RepetitionPenaltyWaivers { get; internal set; }
         public PlayerAbility? MasterFocusAbility { get; internal set; }
-        public double NextSeasonInjuryRiskReduction { get; internal set; }
         public int PhysicalDeclineProtectionPoints { get; internal set; }
         public ExpectedRole CurrentRole { get; internal set; }
         public double RoleScore { get; internal set; }
         public double CompetitorRoleScore { get; internal set; }
         public CareerRoleEvaluationTrigger? LatestRoleTrigger { get; internal set; }
         public bool WasRoleCooldownProtected { get; internal set; }
-        public bool WasInjuryReturnProtected { get; internal set; }
         public DecisionExplanation RoleExplanation { get; internal set; }
         public bool IsOffseason { get; internal set; }
         public bool CanEditBoard { get; internal set; }

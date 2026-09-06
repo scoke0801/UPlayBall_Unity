@@ -75,7 +75,6 @@ namespace Baseball.Game.Career
                 Durability = growthState?.Durability ?? 0,
                 WorkEthic = growthState?.WorkEthic ?? WorkEthicGrade.Normal,
                 CareerPhase = growthState?.CareerPhase ?? PlayerGrowthState.GetCareerPhase(player.Age),
-                InjuryHistoryCount = growthState?.InjuryHistory.Count ?? 0,
                 JoinedYear = contract.SignedYear,
                 ProfessionalYears = Math.Max(1, season.Year - contract.SignedYear + 1),
                 ContractEndYear = contract.EndYear,

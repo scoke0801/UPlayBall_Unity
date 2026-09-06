@@ -263,8 +263,8 @@ namespace Baseball.Presentation.Career
                 selected.CanAfford,
                 selected.CanAfford ? string.Empty : $"{FormatMoney(selected.MoneyShortfall)} 부족");
             string conditionValue = selected.ActivityType == OffseasonActivityType.Study &&
-                                    selected.ConditionAfterWithDiscomfort != selected.ConditionAfter
-                ? $"{selected.CurrentCondition} → {selected.ConditionAfterWithDiscomfort}~{selected.ConditionAfter}"
+                                    selected.ConditionAfterWithSetback != selected.ConditionAfter
+                ? $"{selected.CurrentCondition} → {selected.ConditionAfterWithSetback}~{selected.ConditionAfter}"
                 : $"{selected.CurrentCondition}  →  {selected.ConditionAfter}";
             RenderSummaryCard(
                 "Summary_Condition",
@@ -584,8 +584,8 @@ namespace Baseball.Presentation.Career
             RenderFact(panel, "훈련 적합", GetFitLabel(selected.Fit), 48f, GetFitColor(selected.Fit));
             RenderFact(panel, "반복 효율", $"{selected.RepetitionMultiplier:P0}", 18f,
                 selected.RepetitionMultiplier < 1d ? WarningColor : CyanColor);
-            RenderFact(panel, "부상 위험", GetRiskLabel(selected.InjuryRisk), -12f,
-                GetRiskColor(selected.InjuryRisk));
+            RenderFact(panel, "컨디션 저하 위험", GetRiskLabel(selected.ConditionSetbackRisk), -12f,
+                GetRiskColor(selected.ConditionSetbackRisk));
             string guarantee = selected.MinimumGuaranteedGain > 0
                 ? $"총 +{selected.MinimumGuaranteedGain}"
                 : "없음";

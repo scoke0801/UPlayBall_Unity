@@ -94,7 +94,6 @@ namespace Baseball.Game.Career
         public int Durability { get; internal set; }
         public WorkEthicGrade WorkEthic { get; internal set; }
         public CareerPhase CareerPhase { get; internal set; }
-        public int InjuryHistoryCount { get; internal set; }
         public int JoinedYear { get; internal set; }
         public int ProfessionalYears { get; internal set; }
         public int ContractEndYear { get; internal set; }
