@@ -259,6 +259,8 @@ namespace Baseball.Presentation.SharedUI
 
             // 홈은 사무실 전체를 보여주고, 세부 화면으로 이동하면 기존 작업 프레임을 복원한다.
             bool isOwnerHome = _activeRouteId == Baseball.Presentation.Owner.OwnerNavigationRoutes.Home;
+            bool isOwner = _profile != null && _profile.Mode == UiGameMode.OwnerCareer;
+            float chromeHeight = ApplyReferenceChrome(isOwner);
             bool showContextHeader = !isOwnerHome && _isContextHeaderVisible;
             _contextHeader.gameObject.SetActive(showContextHeader);
             Image workspaceImage = _mainWorkspaceHost.GetComponent<Image>();
@@ -278,12 +280,12 @@ namespace Baseball.Presentation.SharedUI
             float right = _isInspectorVisible ? InspectorWidth + WorkspaceGap + 16f : 16f;
             _mainWorkspaceHost.offsetMin = new Vector2(16f, bottom);
             _mainWorkspaceHost.offsetMax = new Vector2(-right,
-                -(TopBarHeight + NavigationHeight + (showContextHeader ? ContextHeaderHeight : 0f) + 12f));
+                -(chromeHeight + (showContextHeader ? ContextHeaderHeight : 0f) + 12f));
 
             if (_rightInspectorHost != null)
             {
                 _rightInspectorHost.offsetMin = new Vector2(-(InspectorWidth + 16f), bottom);
-                _rightInspectorHost.offsetMax = new Vector2(-16f, -(TopBarHeight + NavigationHeight + ContextHeaderHeight + 12f));
+                _rightInspectorHost.offsetMax = new Vector2(-16f, -(chromeHeight + ContextHeaderHeight + 12f));
             }
         }
 

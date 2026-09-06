@@ -41,6 +41,7 @@ namespace Baseball.Presentation.Career
             _workspaceAdapter = new PlayerCareerWorkspaceAdapter(_shell.MainWorkspaceHost);
             _workspaceAdapter.Synchronize();
             _shell.SettingsRequested += HandleSettingsRequested;
+            UIManager.Instance.NavigationBackRequested += HandleBackRequested;
 
             _manager.CareerChanged += HandleCareerChanged;
             CareerTabNavigation.TabChanged += HandleTabChanged;
@@ -84,11 +85,14 @@ namespace Baseball.Presentation.Career
             UiGameModeSession.ModeChanged -= HandleModeChanged;
             if (_shell != null)
                 _shell.SettingsRequested -= HandleSettingsRequested;
+            if (UIManager.Instance != null)
+                UIManager.Instance.NavigationBackRequested -= HandleBackRequested;
             _workspaceAdapter?.RestoreAll();
             _workspaceAdapter = null;
             if (_presenter != null)
             {
                 _presenter.NavigationRequested -= HandleNavigationRequested;
+                _presenter.BackRequested -= HandleBackRequested;
                 _presenter.Dispose();
                 _presenter = null;
             }
@@ -124,12 +128,14 @@ namespace Baseball.Presentation.Career
                 _profile = PlayerCareerUiProfileFactory.Create();
                 _navigationState = new GameModeNavigationState(
                     _profile,
-                    GetDefaultRoute(CareerTabNavigation.CurrentTab));
+                    GetDefaultRoute(CareerTabNavigation.CurrentTab),
+                    PlayerCareerRoutes.Home);
                 _presenter = new SharedGameShellPresenter(
                     _shell,
                     _profile,
                     _statusProvider);
                 _presenter.NavigationRequested += HandleNavigationRequested;
+                _presenter.BackRequested += HandleBackRequested;
             }
             else
             {
@@ -214,13 +220,44 @@ namespace Baseball.Presentation.Career
             UI_Popup_CareerSettings.ShowRuntime();
         }
 
+        private void HandleBackRequested()
+        {
+            if (_shell == null || !_shell.gameObject.activeInHierarchy || _navigationState == null)
+                return;
+
+            if (!_navigationState.TryBack(out string routeId))
+            {
+                if (_navigationState.IsAtRoot)
+                    HandleSettingsRequested();
+                return;
+            }
+
+            if (!TryGetCareerTab(routeId, out CareerMainTab tab))
+                return;
+
+            _isRoutingNavigation = true;
+            bool wasShown = CareerTabNavigation.Show(tab);
+            _isRoutingNavigation = false;
+            if (!wasShown)
+                return;
+
+            ApplyInternalScreenRoute(routeId);
+            _workspaceAdapter?.Synchronize();
+            ShowContext(routeId);
+        }
+
         private void ShowContext(string routeId)
         {
             if (_presenter == null)
                 return;
 
             GetContextText(routeId, out string title, out string summary, out string eyebrow);
-            _presenter.ShowContext(new ShellContextModel(routeId, title, summary, eyebrow));
+            _presenter.ShowContext(new ShellContextModel(
+                routeId,
+                title,
+                summary,
+                eyebrow,
+                canGoBack: _navigationState.CanGoBack));
         }
 
         private static bool TryGetCareerTab(string routeId, out CareerMainTab tab)

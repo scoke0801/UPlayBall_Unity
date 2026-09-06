@@ -55,6 +55,48 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(_uiManager.VisibleCount, Is.EqualTo(1));
         }
 
+        [Test]
+        public void ProcessCancel_Popup을먼저닫고화면뒤로가기는요청하지않는다()
+        {
+            TestFirstPopup popup = CreateUi<TestFirstPopup>("UI_Popup_First");
+            int navigationRequestCount = 0;
+            _uiManager.NavigationBackRequested += () => navigationRequestCount++;
+            popup.Show();
+
+            _uiManager.ProcessCancel();
+
+            Assert.That(popup.IsVisible, Is.False);
+            Assert.That(navigationRequestCount, Is.Zero);
+        }
+
+        [Test]
+        public void ProcessCancel_닫을Popup이없으면화면뒤로가기를요청한다()
+        {
+            int navigationRequestCount = 0;
+            _uiManager.NavigationBackRequested += () => navigationRequestCount++;
+
+            _uiManager.ProcessCancel();
+
+            Assert.That(navigationRequestCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ProcessCancel_닫을수없는Modal뒤의화면으로입력을통과시키지않는다()
+        {
+            TestFirstPopup lowerPopup = CreateUi<TestFirstPopup>("UI_Popup_Lower");
+            TestBlockingPopup blockingPopup = CreateUi<TestBlockingPopup>("UI_Popup_Blocking");
+            int navigationRequestCount = 0;
+            _uiManager.NavigationBackRequested += () => navigationRequestCount++;
+            lowerPopup.Show();
+            blockingPopup.Show();
+
+            _uiManager.ProcessCancel();
+
+            Assert.That(blockingPopup.IsVisible, Is.True);
+            Assert.That(lowerPopup.IsVisible, Is.True);
+            Assert.That(navigationRequestCount, Is.Zero);
+        }
+
         private T CreateUi<T>(string objectName) where T : UIBase
         {
             var uiObject = new GameObject(
@@ -75,5 +117,10 @@ namespace Baseball.Tests.EditMode.Presentation
 
     public sealed class TestSecondPopup : UIPopupBase
     {
+    }
+
+    public sealed class TestBlockingPopup : UIPopupBase
+    {
+        public override bool CanCloseWithCancel => false;
     }
 }

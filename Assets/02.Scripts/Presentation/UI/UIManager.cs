@@ -30,6 +30,9 @@ namespace Baseball.Presentation.UI
         public UIRoot Root => _uiRoot;
         public int VisibleCount => _visibleStack.Count;
 
+        /// <summary>닫을 Popup이 없는 상태에서 Cancel 입력이 발생하면 현재 화면 Router에 전달한다.</summary>
+        public event Action NavigationBackRequested;
+
         protected override void OnInitialize()
         {
             CreateUiRoot();
@@ -149,14 +152,28 @@ namespace Baseball.Presentation.UI
             for (int i = _visibleStack.Count - 1; i >= 0; i--)
             {
                 UIBase ui = _visibleStack[i];
-                if (ui == null || !ui.IsVisible || !ui.CanCloseWithCancel)
+                if (ui == null || !ui.IsVisible)
                     continue;
+                if (!ui.CanCloseWithCancel)
+                {
+                    if (ui.BlocksLowerInput)
+                        return false;
+                    continue;
+                }
 
                 ui.Close();
                 return true;
             }
 
             return false;
+        }
+
+        /// <summary>Cancel 입력을 Popup 닫기부터 처리하고 남는 입력만 화면 Router에 전달한다.</summary>
+        public void ProcessCancel()
+        {
+            if (CloseTopmost() || HasVisibleBlockingUi())
+                return;
+            NavigationBackRequested?.Invoke();
         }
 
         internal void NotifyShown(UIBase ui)
@@ -299,9 +316,20 @@ namespace Baseball.Presentation.UI
             }
         }
 
+        private bool HasVisibleBlockingUi()
+        {
+            for (int i = _visibleStack.Count - 1; i >= 0; i--)
+            {
+                UIBase ui = _visibleStack[i];
+                if (ui != null && ui.IsVisible && ui.BlocksLowerInput)
+                    return true;
+            }
+            return false;
+        }
+
         private void HandleCancelPerformed()
         {
-            CloseTopmost();
+            ProcessCancel();
         }
     }
 }

@@ -163,6 +163,15 @@ namespace Baseball.Presentation.SharedUI
             ApplyModeBackground(profile.BackgroundResourcePath);
             RenderPrimaryNavigation();
             RenderSubTabs();
+            UpdateWorkspaceOffsets();
+        }
+
+        /// <summary>진행 상태에 따라 모드 배경 Resource를 즉시 교체한다.</summary>
+        public void SetModeBackgroundResourcePath(string resourcePath)
+        {
+            EnsureHierarchy();
+            ApplyModeBackground(resourcePath);
+            UpdateWorkspaceOffsets();
         }
 
         /// <summary>
@@ -326,6 +335,8 @@ namespace Baseball.Presentation.SharedUI
             Stretch(label.rectTransform);
             label.rectTransform.offsetMin = new Vector2(10f, 2f);
             label.rectTransform.offsetMax = new Vector2(-10f, -2f);
+            if (!isSubTab && _profile.Mode == UiGameMode.OwnerCareer)
+                AddOwnerNavigationIcon(rect, entry.RouteId, label);
 
             RectTransform selectionAccent = CreateAnchoredImage(
                 "SelectionAccent",
@@ -415,6 +426,13 @@ namespace Baseball.Presentation.SharedUI
                 ? Color.clear
                 : CareerUiTheme.ShellBackdropTint;
             _modeBackground.gameObject.SetActive(!_isChromeOverlayMode && _modeBackground.sprite != null);
+            if (_modeBackground.sprite != null)
+            {
+                var fitter = _modeBackground.GetComponent<AspectRatioFitter>();
+                if (fitter == null) fitter = _modeBackground.gameObject.AddComponent<AspectRatioFitter>();
+                fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+                fitter.aspectRatio = _modeBackground.sprite.rect.width / _modeBackground.sprite.rect.height;
+            }
         }
 
         private static string JoinStatus(ShellStatusModel status)
