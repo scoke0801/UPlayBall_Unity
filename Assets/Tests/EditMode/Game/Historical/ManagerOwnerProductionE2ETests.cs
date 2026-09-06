@@ -52,6 +52,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(runtime.Economy.Money, Is.EqualTo(moneyBeforeSalary - salary.TotalSalary));
 
             TacticCardDefinition[] tactics = CreateStarterTactics();
+            runtime.TacticCollection.Acquire(tactics[0].CardId);
+            runtime.TacticCollection.Acquire(tactics[1].CardId);
             EquipOffPositionWarningPreset(runtime, tactics);
             var pregameService = new ManagerPregameService(balance, provider);
             ManagerPregamePreparation preparation = pregameService.PrepareNextGame(
@@ -272,7 +274,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(inProgress.Status, Is.EqualTo(ManagerSeasonAdvanceStatus.SeasonInProgress));
             Assert.That(oneYear.LastSalaryPaidSeason, Is.Null);
 
-            CompletePlayerSchedule(runtime.ManagerMode.LiveSeason);
+            CompleteSeasonSchedule(runtime.ManagerMode.LiveSeason);
             SeasonFinanceSummary completedFinance = runtime.ManagerMode.ClubOperation.CurrentSeason;
             long moneyBefore = runtime.Economy.Money;
             ManagerSeasonAdvanceResult result = coordinator.AdvanceSeason(runtime);
@@ -339,7 +341,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 new TeamStaffAssignmentState(
                     runtime.PlayerTeamSeasonKey,
                     conditioningCoachStaffId: coach.StaffId));
-            CompletePlayerSchedule(runtime.ManagerMode.LiveSeason);
+            CompleteSeasonSchedule(runtime.ManagerMode.LiveSeason);
             ManagerHistoricalSaveData save = adapter.CreateSaveData(runtime);
             save.economy.money = 0L;
             runtime = adapter.Restore(save);
@@ -442,14 +444,14 @@ namespace Baseball.Tests.EditMode.Game.Historical
             return count;
         }
 
-        private static void CompletePlayerSchedule(ManagerLiveSeasonState season)
+        private static void CompleteSeasonSchedule(ManagerLiveSeasonState season)
         {
             for (int index = 0; index < season.Schedule.Games.Count; index++)
             {
                 ScheduledGameState game = season.Schedule.Games[index];
-                if (!game.IsCompleted && game.IncludesTeam(season.PlayerTeamId)) game.Complete(0, 0);
+                if (!game.IsCompleted) game.Complete(0, 0);
             }
-            Assert.That(season.NextPlayerGame, Is.Null);
+            Assert.That(season.IsCompleted, Is.True);
         }
 
         private static int ResolveCompatibleGamesPerTeam(int teamCount, int configuredGames)
