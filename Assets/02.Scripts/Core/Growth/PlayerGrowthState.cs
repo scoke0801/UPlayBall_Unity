@@ -13,7 +13,6 @@ namespace Baseball.Core.Growth
         private int[] _peakBonuses;
         private int[] _developmentProgress;
         private readonly List<GrowthResultRecord> _growthHistory;
-        private readonly List<InjuryRecord> _injuryHistory;
         private List<string> _legacyTraitIds;
 
         public PlayerGrowthState(
@@ -48,7 +47,6 @@ namespace Baseball.Core.Growth
                 _trainingAffinities[index] = TrainingFitGrade.Normal;
             MigratePotentialOverflowToPeakWithoutAbilityLoss();
             _growthHistory = new List<GrowthResultRecord>();
-            _injuryHistory = new List<InjuryRecord>();
             _legacyTraitIds = new List<string>();
         }
 
@@ -63,7 +61,6 @@ namespace Baseball.Core.Growth
         public int Fatigue { get; private set; }
         public int Durability { get; private set; }
         public IReadOnlyList<GrowthResultRecord> GrowthHistory => _growthHistory;
-        public IReadOnlyList<InjuryRecord> InjuryHistory => _injuryHistory;
         public IReadOnlyList<string> LegacyTraitIds
         {
             get
@@ -72,7 +69,6 @@ namespace Baseball.Core.Growth
                 return _legacyTraitIds;
             }
         }
-        public double SeasonInjuryRiskReduction { get; private set; }
         public int PhysicalDeclineProtectionPoints { get; private set; }
 
         public int GetPeakBonus(PlayerAbility ability)
@@ -185,16 +181,8 @@ namespace Baseball.Core.Growth
             _growthHistory.Add(record);
         }
 
-        public void RecordInjury(InjuryRecord record)
+        public void ApplyOffseasonRecoveryBenefits(int physicalDeclineProtectionPoints)
         {
-            _injuryHistory.Add(record ?? throw new ArgumentNullException(nameof(record)));
-        }
-
-        public void ApplyOffseasonRecoveryBenefits(
-            double injuryRiskReduction,
-            int physicalDeclineProtectionPoints)
-        {
-            SeasonInjuryRiskReduction = Math.Max(0d, Math.Min(0.50d, injuryRiskReduction));
             PhysicalDeclineProtectionPoints = Math.Max(0, physicalDeclineProtectionPoints);
         }
 

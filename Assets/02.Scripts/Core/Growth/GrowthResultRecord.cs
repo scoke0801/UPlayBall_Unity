@@ -63,7 +63,7 @@ namespace Baseball.Core.Growth
             int conditionChange,
             long moneySpent,
             int weeksSpent,
-            GrowthInjuryResult injuryResult = GrowthInjuryResult.None,
+            GrowthConditionSetbackResult conditionSetbackResult = GrowthConditionSetbackResult.None,
             TrainingIntensity intensity = TrainingIntensity.Standard,
             AbilityChange[] peakChanges = null,
             SimulationVersionStamp? versionStamp = null,
@@ -82,7 +82,7 @@ namespace Baseball.Core.Growth
             ConditionChange = conditionChange;
             MoneySpent = moneySpent;
             WeeksSpent = weeksSpent;
-            InjuryResult = injuryResult;
+            ConditionSetbackResult = conditionSetbackResult;
             Intensity = intensity;
             PeakChanges = peakChanges ?? Array.Empty<AbilityChange>();
             VersionStamp = versionStamp ?? SimulationVersionStamp.CreateCurrent(balanceVersion: 0);
@@ -100,7 +100,7 @@ namespace Baseball.Core.Growth
         public int ConditionChange { get; }
         public long MoneySpent { get; }
         public int WeeksSpent { get; }
-        public GrowthInjuryResult InjuryResult { get; }
+        public GrowthConditionSetbackResult ConditionSetbackResult { get; }
         public TrainingIntensity Intensity { get; }
         public AbilityChange[] PeakChanges { get; }
         public SimulationVersionStamp VersionStamp { get; }

@@ -34,8 +34,6 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
                 Is.EqualTo(MoneyAmount.FromTenThousandWon(300L)));
             Assert.That(growth.SkillBoardRedesignCost,
                 Is.EqualTo(MoneyAmount.FromTenThousandWon(1_500L)));
-            Assert.That(InjuryBalanceTable.CreateDefault().SpecialistTreatmentCost,
-                Is.EqualTo(MoneyAmount.FromTenThousandWon(500L)));
             Assert.That(SeasonSettlementBalance.CreateDefault().MinimumAwardMoney,
                 Is.EqualTo(MoneyAmount.FromTenThousandWon(100L)));
         }

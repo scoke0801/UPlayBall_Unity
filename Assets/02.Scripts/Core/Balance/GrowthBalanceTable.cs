@@ -572,13 +572,13 @@ namespace Baseball.Core.Balance
             double moneyMultiplier,
             double programPowerMultiplier,
             double conditionChangeMultiplier,
-            double injuryRiskMultiplier,
+            double conditionSetbackRiskMultiplier,
             int minimumConditionAdjustment,
             int maxTotalGainAdjustment,
             int maxGainPerAbilityAdjustment)
         {
             if (moneyMultiplier <= 0d || programPowerMultiplier <= 0d ||
-                conditionChangeMultiplier <= 0d || injuryRiskMultiplier < 0d)
+                conditionChangeMultiplier <= 0d || conditionSetbackRiskMultiplier < 0d)
             {
                 throw new ArgumentOutOfRangeException(nameof(moneyMultiplier));
             }
@@ -587,7 +587,7 @@ namespace Baseball.Core.Balance
             MoneyMultiplier = moneyMultiplier;
             ProgramPowerMultiplier = programPowerMultiplier;
             ConditionChangeMultiplier = conditionChangeMultiplier;
-            InjuryRiskMultiplier = injuryRiskMultiplier;
+            ConditionSetbackRiskMultiplier = conditionSetbackRiskMultiplier;
             MinimumConditionAdjustment = minimumConditionAdjustment;
             MaxTotalGainAdjustment = maxTotalGainAdjustment;
             MaxGainPerAbilityAdjustment = maxGainPerAbilityAdjustment;
@@ -597,7 +597,7 @@ namespace Baseball.Core.Balance
         public double MoneyMultiplier { get; }
         public double ProgramPowerMultiplier { get; }
         public double ConditionChangeMultiplier { get; }
-        public double InjuryRiskMultiplier { get; }
+        public double ConditionSetbackRiskMultiplier { get; }
         public int MinimumConditionAdjustment { get; }
         public int MaxTotalGainAdjustment { get; }
         public int MaxGainPerAbilityAdjustment { get; }
@@ -617,7 +617,9 @@ namespace Baseball.Core.Balance
                 program.MinimumCondition + MinimumConditionAdjustment,
                 0,
                 100);
-            double injuryRisk = Math.Min(1d, program.InjuryRisk * InjuryRiskMultiplier);
+            double conditionSetbackRisk = Math.Min(
+                1d,
+                program.ConditionSetbackRisk * ConditionSetbackRiskMultiplier);
             int maxTotalGain = Math.Max(0, program.MaxTotalGain + MaxTotalGainAdjustment);
             int maxGainPerAbility = Math.Max(
                 0,
@@ -637,7 +639,7 @@ namespace Baseball.Core.Balance
                 program.ProgramPower * ProgramPowerMultiplier,
                 program.TargetAbilityWeights,
                 minimumCondition,
-                injuryRisk,
+                conditionSetbackRisk,
                 maxTotalGain,
                 maxGainPerAbility,
                 conditionChange,
@@ -758,7 +760,7 @@ namespace Baseball.Core.Balance
             double minimumQualityRoll,
             double maximumQualityRoll,
             double potentialBreakthroughProbability,
-            int trainingInjuryConditionPenalty,
+            int trainingConditionSetbackPenalty,
             int defaultPotentialGap,
             int offseasonWeeks,
             TrainingProgramDefinition[] programs,
@@ -776,8 +778,8 @@ namespace Baseball.Core.Balance
                 throw new ArgumentOutOfRangeException(nameof(offseasonWeeks));
             if (potentialBreakthroughProbability < 0d || potentialBreakthroughProbability > 1d)
                 throw new ArgumentOutOfRangeException(nameof(potentialBreakthroughProbability));
-            if (trainingInjuryConditionPenalty < 0)
-                throw new ArgumentOutOfRangeException(nameof(trainingInjuryConditionPenalty));
+            if (trainingConditionSetbackPenalty < 0)
+                throw new ArgumentOutOfRangeException(nameof(trainingConditionSetbackPenalty));
             if (defaultPotentialGap <= 0)
                 throw new ArgumentOutOfRangeException(nameof(defaultPotentialGap));
             if (skillBoardRedesignCost < 0L)
@@ -796,7 +798,7 @@ namespace Baseball.Core.Balance
             MinimumQualityRoll = minimumQualityRoll;
             MaximumQualityRoll = maximumQualityRoll;
             PotentialBreakthroughProbability = potentialBreakthroughProbability;
-            TrainingInjuryConditionPenalty = trainingInjuryConditionPenalty;
+            TrainingConditionSetbackPenalty = trainingConditionSetbackPenalty;
             DefaultPotentialGap = defaultPotentialGap;
             OffseasonWeeks = offseasonWeeks;
             Programs = programs ?? throw new ArgumentNullException(nameof(programs));
@@ -821,7 +823,7 @@ namespace Baseball.Core.Balance
         public double MinimumQualityRoll { get; }
         public double MaximumQualityRoll { get; }
         public double PotentialBreakthroughProbability { get; }
-        public int TrainingInjuryConditionPenalty { get; }
+        public int TrainingConditionSetbackPenalty { get; }
         public int DefaultPotentialGap { get; }
         public int OffseasonWeeks { get; }
         public TrainingProgramDefinition[] Programs { get; }
@@ -860,7 +862,7 @@ namespace Baseball.Core.Balance
                 MinimumQualityRoll,
                 MaximumQualityRoll,
                 PotentialBreakthroughProbability,
-                TrainingInjuryConditionPenalty,
+                TrainingConditionSetbackPenalty,
                 DefaultPotentialGap,
                 OffseasonWeeks,
                 programs ?? Programs,
@@ -959,8 +961,6 @@ namespace Baseball.Core.Balance
                     1, 0L, 0d, Array.Empty<AbilityWeight>(), 0, 0d, 0, 0, 15),
                 new TrainingProgramDefinition("recovery_break", OffseasonActivityType.Rest, TrainingCategory.Rest, null,
                     2, 0L, 0d, Array.Empty<AbilityWeight>(), 0, 0d, 0, 0, 30),
-                new TrainingProgramDefinition("mandatory_rehab", OffseasonActivityType.Rehabilitation, TrainingCategory.Rehabilitation, null,
-                    1, 0L, 0d, Array.Empty<AbilityWeight>(), 0, 0d, 0, 0, 12),
                 new TrainingProgramDefinition("rehab_general", OffseasonActivityType.Rehabilitation, TrainingCategory.Rehabilitation, null,
                     2, MoneyAmount.FromTenThousandWon(200L), 0d, Array.Empty<AbilityWeight>(), 0, 0d, 0, 0, 25),
                 // 스포츠 사이언스는 성장량이 아니라 1주라는 시간 절약에 높은 비용을 지불하는 회복 선택이다.
@@ -983,7 +983,7 @@ namespace Baseball.Core.Balance
                     2, MoneyAmount.FromTenThousandWon(420L), 0.90d, new[] { new AbilityWeight(PlayerAbility.Contact, 0.70d), new AbilityWeight(PlayerAbility.BatterMental, 0.30d) }, 40, 0.0075d, 2, 2, -10, 1),
                 new TrainingProgramDefinition("bat_speed_defense_camp", OffseasonActivityType.PersonalTraining, TrainingCategory.Strength, PlayerType.Batter,
                     4, MoneyAmount.FromTenThousandWon(780L), 1.10d, new[] { new AbilityWeight(PlayerAbility.Speed, 0.45d), new AbilityWeight(PlayerAbility.Defense, 0.30d), new AbilityWeight(PlayerAbility.Arm, 0.15d), new AbilityWeight(PlayerAbility.BatterMental, 0.10d) }, 45, 0.01d, 3, 2, -14, 1),
-                // 엘리트 랩은 일반 캠프보다 짧지만 비용·컨디션·부상 부담이 커서 자금으로 시간을 사는 선택이다.
+                // 엘리트 랩은 일반 캠프보다 짧지만 비용과 컨디션 부담이 커서 자금으로 시간을 사는 선택이다.
                 new TrainingProgramDefinition("bat_elite_hitting_lab", OffseasonActivityType.PersonalTraining, TrainingCategory.Batting, PlayerType.Batter,
                     2, MoneyAmount.FromTenThousandWon(1_400L), 1.45d, new[] { new AbilityWeight(PlayerAbility.Contact, 0.45d), new AbilityWeight(PlayerAbility.Power, 0.35d), new AbilityWeight(PlayerAbility.BatterMental, 0.20d) }, 50, 0.025d, 4, 3, -22, 1,
                     canRaisePotential: true,

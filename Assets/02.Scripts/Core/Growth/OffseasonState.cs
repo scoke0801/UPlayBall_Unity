@@ -95,7 +95,6 @@ namespace Baseball.Core.Growth
             int seasonYear,
             int totalWeeks,
             int currentCondition,
-            int mandatoryRehabWeeks = 0,
             TrainingAccessTier knowledgeTier = TrainingAccessTier.Legacy,
             TrainingAccessTier facilityTier = TrainingAccessTier.Legacy,
             int additionalProgramCandidates = 0,
@@ -107,13 +106,10 @@ namespace Baseball.Core.Growth
                 throw new ArgumentOutOfRangeException(nameof(totalWeeks));
             if (currentCondition < 0 || currentCondition > 100)
                 throw new ArgumentOutOfRangeException(nameof(currentCondition));
-            if (mandatoryRehabWeeks < 0 || mandatoryRehabWeeks > totalWeeks)
-                throw new ArgumentOutOfRangeException(nameof(mandatoryRehabWeeks));
             SeasonYear = seasonYear;
             TotalWeeks = totalWeeks;
             CurrentWeek = 1;
             CurrentCondition = currentCondition;
-            MandatoryRehabWeeks = mandatoryRehabWeeks;
             KnowledgeTier = knowledgeTier;
             FacilityTier = facilityTier;
             AdditionalProgramCandidates = Math.Max(0, additionalProgramCandidates);
@@ -127,7 +123,6 @@ namespace Baseball.Core.Growth
         public int TotalWeeks { get; }
         public int CurrentWeek { get; private set; }
         public int CurrentCondition { get; private set; }
-        public int MandatoryRehabWeeks { get; }
         public TrainingAccessTier KnowledgeTier { get; }
         public TrainingAccessTier FacilityTier { get; }
         public int AdditionalProgramCandidates { get; }
@@ -136,9 +131,6 @@ namespace Baseball.Core.Growth
         public bool IsLegacyTraitConversionUnlocked { get; }
         public int CompletedRestWeeks { get; private set; }
         public int CompletedRehabilitationWeeks { get; private set; }
-        public double NextSeasonInjuryRiskReduction => Math.Min(
-            0.30d,
-            (CompletedRestWeeks >= 3 ? 0.08d : 0d) + CompletedRehabilitationWeeks * 0.04d);
         public int PhysicalDeclineProtectionPoints => CompletedRehabilitationWeeks >= 2 ? 1 : 0;
         public bool StudyUsed { get; private set; }
         public bool BoardRedesignUsed { get; private set; }
@@ -215,11 +207,6 @@ namespace Baseball.Core.Growth
             {
                 if (_activities[index].Status == OffseasonActivityStatus.InProgress)
                     throw new InvalidOperationException("진행 중인 활동이 있으면 오프시즌을 마감할 수 없습니다.");
-            }
-            if (CompletedRehabilitationWeeks < MandatoryRehabWeeks)
-            {
-                throw new InvalidOperationException(
-                    $"필수 재활 {MandatoryRehabWeeks - CompletedRehabilitationWeeks}주를 먼저 완료해야 합니다.");
             }
             AdvanceToWeek(TotalWeeks + 1);
         }

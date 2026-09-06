@@ -6,7 +6,6 @@ namespace Baseball.Core.Growth
     {
         ManagerRole,
         Growth,
-        Injury,
         Contract,
         Retirement,
         ContentAccess
@@ -38,10 +37,8 @@ namespace Baseball.Core.Growth
         Fatigue,
         Workload,
         TrainingIntensity,
-        ExistingInjury,
         AbilityDecline,
         PlayingTime,
-        LongTermInjury,
         ContractRemaining,
         MilestonePursuit,
         ChampionshipWindow,
@@ -254,15 +251,4 @@ namespace Baseball.Core.Growth
         public DecisionExplanation Explanation { get; }
     }
 
-    public readonly struct InjuryRiskEvaluationResult
-    {
-        public InjuryRiskEvaluationResult(double risk, DecisionExplanation explanation)
-        {
-            Risk = risk;
-            Explanation = explanation;
-        }
-
-        public double Risk { get; }
-        public DecisionExplanation Explanation { get; }
-    }
 }

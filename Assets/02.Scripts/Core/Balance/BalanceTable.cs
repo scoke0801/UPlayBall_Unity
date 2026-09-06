@@ -114,7 +114,6 @@ namespace Baseball.Core.Balance
             PlayerEvaluationBalance playerEvaluation,
             CareerSeasonBalance careerSeason,
             GrowthBalanceTable growth = null,
-            InjuryBalanceTable? injury = null,
             ManagerEvaluationWeightTable? managerRoleEvaluation = null,
             ContractMarketBalanceTable? contractMarket = null,
             RosterTurnoverBalance? rosterTurnover = null,
@@ -149,7 +148,6 @@ namespace Baseball.Core.Balance
             PlayerEvaluation = playerEvaluation;
             CareerSeason = careerSeason;
             Growth = growth ?? GrowthBalanceTable.CreateDefault();
-            Injury = injury ?? InjuryBalanceTable.CreateDefault();
             ManagerRoleEvaluation = managerRoleEvaluation ?? ManagerEvaluationWeightTable.CreateDefault();
             ContractMarket = contractMarket ?? ContractMarketBalanceTable.CreateDefault();
             RosterTurnover = rosterTurnover ?? RosterTurnoverBalance.CreateDefault();
@@ -184,7 +182,6 @@ namespace Baseball.Core.Balance
         public PlayerEvaluationBalance PlayerEvaluation { get; }
         public CareerSeasonBalance CareerSeason { get; }
         public GrowthBalanceTable Growth { get; }
-        public InjuryBalanceTable Injury { get; }
         public ManagerEvaluationWeightTable ManagerRoleEvaluation { get; }
         public ContractMarketBalanceTable ContractMarket { get; }
         public RosterTurnoverBalance RosterTurnover { get; }

@@ -249,7 +249,15 @@ namespace Baseball.Simulation.Growth
         public int GetAbilityBonus(SkillBoardState state, PlayerAbility ability)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
-            int[] bonuses = BuildEffectiveBonusArray(state);
+            int[] bonuses = BuildEffectiveBonusArray(state.AppliedBlocks);
+            return bonuses[(int)ability];
+        }
+
+        /// <summary>구단주 카드별 성장판처럼 배치 목록과 인벤토리를 분리한 호출자가 같은 보너스 규칙을 사용한다.</summary>
+        public int GetAbilityBonus(IReadOnlyList<PlacedSkillBlock> placements, PlayerAbility ability)
+        {
+            if (placements == null) throw new ArgumentNullException(nameof(placements));
+            int[] bonuses = BuildEffectiveBonusArray(placements);
             return bonuses[(int)ability];
         }
 
@@ -278,12 +286,11 @@ namespace Baseball.Simulation.Growth
             return value > AbilityRatings.Maximum ? AbilityRatings.Maximum : value;
         }
 
-        private int[] BuildEffectiveBonusArray(SkillBoardState state)
+        private int[] BuildEffectiveBonusArray(IReadOnlyList<PlacedSkillBlock> applied)
         {
             int abilityCount = PlayerAbilityCatalog.AbilityCount;
             var result = new int[abilityCount];
             var stackCounts = new int[abilityCount];
-            IReadOnlyList<PlacedSkillBlock> applied = state.AppliedBlocks;
             for (int blockIndex = 0; blockIndex < applied.Count; blockIndex++)
             {
                 SkillBlockDefinition definition = FindDefinition(
@@ -348,8 +355,15 @@ namespace Baseball.Simulation.Growth
 
         public string[] GetActiveTraitIds(SkillBoardState state)
         {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            return GetActiveTraitIds(state.AppliedBlocks);
+        }
+
+        /// <summary>카드별 배치 목록에서 Trait Socket을 덮은 고유 Trait만 반환한다.</summary>
+        public string[] GetActiveTraitIds(IReadOnlyList<PlacedSkillBlock> applied)
+        {
+            if (applied == null) throw new ArgumentNullException(nameof(applied));
             var traits = new List<string>();
-            IReadOnlyList<PlacedSkillBlock> applied = state.AppliedBlocks;
             for (int index = 0; index < applied.Count; index++)
             {
                 PlacedSkillBlock placement = applied[index];
@@ -546,7 +560,6 @@ namespace Baseball.Simulation.Growth
             int skillBonusEffective,
             int peakBonus,
             int conditionModifier,
-            int injuryModifier,
             int tacticalModifier)
         {
             BaseAbility = baseAbility;
@@ -555,11 +568,10 @@ namespace Baseball.Simulation.Growth
             SkillBonusEffective = skillBonusEffective;
             PeakBonus = peakBonus;
             ConditionModifier = conditionModifier;
-            InjuryModifier = injuryModifier;
             TacticalModifier = tacticalModifier;
             RosterAbility = Clamp(baseAbility + skillBonusEffective);
             CurrentAbility = Clamp(RosterAbility + peakBonus);
-            MatchAbility = Clamp(CurrentAbility + conditionModifier + injuryModifier + tacticalModifier);
+            MatchAbility = Clamp(CurrentAbility + conditionModifier + tacticalModifier);
         }
 
         public int BaseAbility { get; }
@@ -568,7 +580,6 @@ namespace Baseball.Simulation.Growth
         public int SkillBonusEffective { get; }
         public int PeakBonus { get; }
         public int ConditionModifier { get; }
-        public int InjuryModifier { get; }
         public int TacticalModifier { get; }
         public int RosterAbility { get; }
         public int CurrentAbility { get; }
@@ -584,17 +595,15 @@ namespace Baseball.Simulation.Growth
     /// <summary>경기 한정 보정을 명시적으로 전달해 안정 전력과 현재 기량의 혼용을 막는다.</summary>
     public readonly struct EffectiveAbilityContext
     {
-        public EffectiveAbilityContext(int conditionModifier, int injuryModifier, int tacticalModifier)
+        public EffectiveAbilityContext(int conditionModifier, int tacticalModifier)
         {
             ConditionModifier = conditionModifier;
-            InjuryModifier = injuryModifier;
             TacticalModifier = tacticalModifier;
         }
 
         public int ConditionModifier { get; }
-        public int InjuryModifier { get; }
         public int TacticalModifier { get; }
-        public static EffectiveAbilityContext Neutral => new EffectiveAbilityContext(0, 0, 0);
+        public static EffectiveAbilityContext Neutral => new EffectiveAbilityContext(0, 0);
     }
 
     /// <summary>경기·역할·계약·UI가 공유하는 최종 능력치 단일 계산 진입점이다.</summary>
@@ -622,7 +631,6 @@ namespace Baseball.Simulation.Growth
                 _skillBoardService.GetAbilityBonus(board, ability),
                 growth.GetPeakBonus(ability),
                 context.ConditionModifier,
-                context.InjuryModifier,
                 context.TacticalModifier);
         }
     }

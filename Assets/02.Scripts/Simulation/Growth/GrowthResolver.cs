@@ -22,7 +22,7 @@ namespace Baseball.Simulation.Growth
         }
 
         /// <summary>
-        /// 주입된 RNG만 사용해 한 활동의 성장·컨디션·경미한 부상 결과를 확정한다.
+        /// 주입된 RNG만 사용해 한 활동의 성장과 컨디션 결과를 확정한다.
         /// </summary>
         public GrowthResultRecord Resolve(
             PlayerGrowthState player,
@@ -79,12 +79,12 @@ namespace Baseball.Simulation.Growth
                     abilityChanges);
             }
 
-            GrowthInjuryResult injuryResult = GrowthInjuryResult.None;
+            GrowthConditionSetbackResult conditionSetbackResult = GrowthConditionSetbackResult.None;
             int conditionChange = program.ConditionChange;
-            if (program.InjuryRisk > 0d && random.NextDouble() < program.InjuryRisk)
+            if (program.ConditionSetbackRisk > 0d && random.NextDouble() < program.ConditionSetbackRisk)
             {
-                injuryResult = GrowthInjuryResult.Discomfort;
-                conditionChange -= _balance.TrainingInjuryConditionPenalty;
+                conditionSetbackResult = GrowthConditionSetbackResult.ConditionDrop;
+                conditionChange -= _balance.TrainingConditionSetbackPenalty;
             }
             int appliedConditionChange = player.ChangeCondition(conditionChange);
 
@@ -106,7 +106,7 @@ namespace Baseball.Simulation.Growth
                 appliedConditionChange,
                 program.MoneyCost,
                 program.DurationWeeks,
-                injuryResult,
+                conditionSetbackResult,
                 program.Intensity,
                 peakChanges.ToArray(),
                 _versionStamp,
@@ -428,7 +428,7 @@ namespace Baseball.Simulation.Growth
             {
                 OffseasonActivityType.TrainingPartner => GrowthSourceType.TrainingPartner,
                 OffseasonActivityType.Study => GrowthSourceType.Study,
-                OffseasonActivityType.Rehabilitation => GrowthSourceType.Injury,
+                OffseasonActivityType.Rehabilitation => GrowthSourceType.PersonalTraining,
                 _ => GrowthSourceType.PersonalTraining
             };
         }
@@ -465,7 +465,7 @@ namespace Baseball.Simulation.Growth
             AbilityGrowthRange[] abilityRanges,
             int conditionBefore,
             int conditionAfter,
-            int conditionAfterWithDiscomfort,
+            int conditionAfterWithSetback,
             int priorSelections,
             double repetitionMultiplier)
         {
@@ -473,7 +473,7 @@ namespace Baseball.Simulation.Growth
             AbilityRanges = abilityRanges ?? Array.Empty<AbilityGrowthRange>();
             ConditionBefore = conditionBefore;
             ConditionAfter = conditionAfter;
-            ConditionAfterWithDiscomfort = conditionAfterWithDiscomfort;
+            ConditionAfterWithSetback = conditionAfterWithSetback;
             PriorSelections = priorSelections;
             RepetitionMultiplier = repetitionMultiplier;
         }
@@ -482,7 +482,7 @@ namespace Baseball.Simulation.Growth
         public AbilityGrowthRange[] AbilityRanges { get; }
         public int ConditionBefore { get; }
         public int ConditionAfter { get; }
-        public int ConditionAfterWithDiscomfort { get; }
+        public int ConditionAfterWithSetback { get; }
         public int PriorSelections { get; }
         public double RepetitionMultiplier { get; }
     }
@@ -543,10 +543,10 @@ namespace Baseball.Simulation.Growth
                 trainingFit,
                 conditionBefore);
             int conditionAfter = Clamp(conditionBefore + program.ConditionChange, 0, 100);
-            int conditionAfterWithDiscomfort = program.InjuryRisk > 0d
+            int conditionAfterWithSetback = program.ConditionSetbackRisk > 0d
                 ? Clamp(
                     conditionBefore + program.ConditionChange -
-                    _balance.TrainingInjuryConditionPenalty,
+                    _balance.TrainingConditionSetbackPenalty,
                     0,
                     100)
                 : conditionAfter;
@@ -555,7 +555,7 @@ namespace Baseball.Simulation.Growth
                 ranges,
                 conditionBefore,
                 conditionAfter,
-                conditionAfterWithDiscomfort,
+                conditionAfterWithSetback,
                 priorSelections,
                 _balance.Repetition.GetMultiplier(priorSelections, program.IsStudy));
         }

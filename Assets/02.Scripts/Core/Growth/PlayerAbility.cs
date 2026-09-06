@@ -80,14 +80,13 @@ namespace Baseball.Core.Growth
         PersonalTraining,
         TrainingPartner,
         Study,
-        Aging,
-        Injury
+        Aging
     }
 
-    public enum GrowthInjuryResult
+    public enum GrowthConditionSetbackResult
     {
         None,
-        Discomfort
+        ConditionDrop
     }
 
     /// <summary>

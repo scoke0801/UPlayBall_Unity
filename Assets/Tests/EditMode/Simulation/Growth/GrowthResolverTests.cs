@@ -87,7 +87,7 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
             Assert.That(standard.ConditionChange, Is.EqualTo(-18));
             Assert.That(intensive.ConditionChange, Is.EqualTo(-28));
             Assert.That(intensive.ProgramPower, Is.GreaterThan(standard.ProgramPower));
-            Assert.That(intensive.InjuryRisk, Is.GreaterThan(standard.InjuryRisk));
+            Assert.That(intensive.ConditionSetbackRisk, Is.GreaterThan(standard.ConditionSetbackRisk));
         }
 
         [Test]

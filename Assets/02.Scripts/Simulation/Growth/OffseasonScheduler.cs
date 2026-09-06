@@ -332,7 +332,7 @@ namespace Baseball.Simulation.Growth
                 {
                     GrowthResultRecord record = player.GrowthHistory[index];
                     if (record.SeasonYear != year ||
-                        record.SourceType is GrowthSourceType.NaturalDevelopment or GrowthSourceType.Aging or GrowthSourceType.Injury)
+                        record.SourceType is GrowthSourceType.NaturalDevelopment or GrowthSourceType.Aging)
                     {
                         continue;
                     }
