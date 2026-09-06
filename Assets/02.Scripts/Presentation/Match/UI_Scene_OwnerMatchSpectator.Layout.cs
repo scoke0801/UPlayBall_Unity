@@ -24,14 +24,18 @@ namespace Baseball.Presentation.Match
         private readonly Image[] _strikes = new Image[3];
         private readonly Image[] _outs = new Image[3];
         private readonly Image[] _bases = new Image[3];
-        private RawImage _stadiumBackground, _actors, _actorsBlend;
-        private Texture2D _pitchBackground;
-        private readonly Texture2D[] _rightBatterOverlays = new Texture2D[8];
-        private readonly Texture2D[] _leftBatterOverlays = new Texture2D[8];
-        private Material _overlayMaterial;
+        private MatchGameCastConfig _gameCastConfig;
+        private MatchPlayVisualizer _playVisualizer;
+        private Text _pitchHistory, _decisionNote, _playDetail, _currentPitch, _miniLineScore;
+        private Text _pitcherRole, _batterRole;
+        private RectTransform _strikeZone;
+        private readonly Image[] _pitchDots = new Image[12];
+        private readonly Text[] _pitchNumbers = new Text[12];
+        private RectTransform _zoneBall;
         private RectTransform _scorePanel, _scoreRows, _resultPanel, _recordContent;
         private RectTransform _resultScoreRows;
         private ScrollRect _recordScroll;
+        private Scrollbar _recordScrollbar;
 
         private void Build()
         {
@@ -39,47 +43,20 @@ namespace Baseball.Presentation.Match
             _canvas.anchorMin = _canvas.anchorMax = new Vector2(0.5f, 0.5f);
             _canvas.pivot = new Vector2(0.5f, 0.5f);
             _canvas.anchoredPosition = Vector2.zero;
-            _pitchBackground = LoadStadiumTexture("UI/OwnerMatch/stadium_pitch_background");
-            LoadOverlaySet(_rightBatterOverlays, "rr");
-            LoadOverlaySet(_leftBatterOverlays, "rl");
-            Shader overlayShader = Resources.Load<Shader>("UI/OwnerMatch/OwnerMatchOverlayKey");
-            if (overlayShader != null)
-                _overlayMaterial = new Material(overlayShader) { name = "OwnerMatchOverlayMaterial" };
-            RectTransform field = Panel("Field", _canvas, new Color32(44, 75, 47, 255), 0, 62, 1440, 748);
+            _gameCastConfig = MatchGameCastConfig.Load();
+            _font ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            RectTransform field = Panel("Field", _canvas, new Color32(27, 56, 42, 255), 12, 124, 900, 552);
             field.gameObject.AddComponent<RectMask2D>();
-            var backdrop = new GameObject("StadiumBackground", typeof(RectTransform), typeof(RawImage));
-            backdrop.transform.SetParent(field, false);
-            _stadiumBackground = backdrop.GetComponent<RawImage>();
-            Place(_stadiumBackground.rectTransform, 0, 0, 1440, 748);
-            _stadiumBackground.raycastTarget = false;
-            SetLayerTexture(_stadiumBackground, _pitchBackground, false);
-            _actors = CreateActorLayer("StadiumActors", field);
-            _actorsBlend = CreateActorLayer("StadiumActorsBlend", field);
-            HideBlendLayer();
-            SetActorTexture(_rightBatterOverlays[0], false);
+            // 원본 3:2 비율을 유지하고 외곽만 여백 처리한다.
+            RectTransform ground = Panel("Ground", field, Color.clear, 36, 0, 828, 552);
+            _playVisualizer = new MatchPlayVisualizer(ground, _gameCastConfig, _font,
+                playerId => _session?.GetParticipantName(playerId) ?? string.Empty);
             BuildHeader();
             BuildFieldOverlay();
             BuildFooter();
             BuildResults();
+            SetCompletionControlVisibility(false);
             FitWorkspace();
-        }
-
-        private RawImage CreateActorLayer(string name, Transform parent)
-        {
-            var actorObject = new GameObject(name, typeof(RectTransform), typeof(RawImage));
-            actorObject.transform.SetParent(parent, false);
-            RawImage actor = actorObject.GetComponent<RawImage>();
-            Place(actor.rectTransform, 0, 0, 1440, 748);
-            actor.raycastTarget = false;
-            actor.material = _overlayMaterial;
-            return actor;
-        }
-
-        private static void LoadOverlaySet(Texture2D[] target, string suffix)
-        {
-            string[] names = { "set", "windup", "pitch1", "pitch2", "flight", "hit", "miss", "take" };
-            for (int index = 0; index < names.Length; index++)
-                target[index] = LoadStadiumTexture("UI/OwnerMatch/stadium_overlay_" + names[index] + "_" + suffix);
         }
 
         private void BuildHeader()
@@ -120,8 +97,8 @@ namespace Baseball.Presentation.Match
 
         private void BuildFieldOverlay()
         {
-            var badge = Panel("LiveBadge", _canvas, new Color(0.08f, 0.12f, 0.15f, 0.88f), 20, 80, 250, 36);
-            _statusLabel = Label("LiveStatus", badge, "경기 중계", 17, 12, 0, 226, 36, Color.white);
+            var badge = Panel("LiveBadge", _canvas, new Color(0.08f, 0.12f, 0.15f, 0.88f), 12, 74, 270, 38);
+            _statusLabel = Label("LiveStatus", badge, "경기 중계", 17, 12, 0, 246, 36, Color.white);
             _viewingModeButtons = new Button[3];
             var viewingModes = new[]
             {
@@ -137,32 +114,27 @@ namespace Baseball.Presentation.Match
                     "ViewingMode" + mode,
                     _canvas,
                     viewingLabels[index],
-                    282 + index * 112,
-                    79,
+                    294 + index * 112,
+                    74,
                     106,
                     () => HandleViewingModeRequested(mode));
             }
-            var runners = Panel("BaseOccupancy", _canvas, new Color(0.08f, 0.12f, 0.15f, 0.85f), 1300, 80, 120, 118);
-            Label("BaseTitle", runners, "주자 상황", 13, 0, 2, 120, 25, Color.white).alignment = TextAnchor.MiddleCenter;
+            var runners = Panel("BaseOccupancy", _canvas, new Color(0.08f, 0.12f, 0.15f, 0.85f), 782, 76, 124, 43);
+            Label("BaseTitle", runners, "주자 상황", 12, 0, 7, 52, 27, Color.white).alignment = TextAnchor.MiddleCenter;
             for (int i = 0; i < 3; i++)
             {
-                float x = i == 0 ? 83 : i == 1 ? 52 : 21;
-                float y = i == 1 ? 38 : 67;
-                var rect = Panel("Base" + (i + 1), runners, Muted, x, y, 16, 16);
+                float x = i == 0 ? 105 : i == 1 ? 84 : 63;
+                float y = i == 1 ? 7 : 25;
+                var rect = Panel("Base" + (i + 1), runners, Muted, x, y, 10, 10);
                 rect.localEulerAngles = new Vector3(0, 0, 45);
                 _bases[i] = rect.GetComponent<Image>();
             }
-            _announcement = Label("PlayAnnouncement", _canvas, "", 58, 300, 280, 840, 92, Color.white);
+            _announcement = Label("PlayAnnouncement", _canvas, "", 34, 210, 170, 510, 60, Color.white);
             _announcement.alignment = TextAnchor.MiddleCenter;
             var shadow = _announcement.gameObject.AddComponent<Shadow>();
             shadow.effectColor = new Color(0, 0, 0, 0.8f);
             shadow.effectDistance = new Vector2(3, -4);
-            var pitcher = ParticipantCard("PitcherCard", 20, PlayerPosition.StartingPitcher);
-            _pitcherLabel = Label("Name", pitcher, "투수", 22, 94, 30, 286, 36, Ink);
-            _pitcherDetail = Label("Detail", pitcher, "등판 대기", 15, 94, 69, 286, 27, Muted);
-            var batter = ParticipantCard("BatterCard", 1020, PlayerPosition.DesignatedHitter);
-            _batterLabel = Label("Name", batter, "타자", 22, 94, 30, 286, 36, Ink);
-            _batterDetail = Label("Detail", batter, "타석 대기", 15, 94, 69, 286, 27, Muted);
+            BuildGameCastSidebar();
             _scorePanel = Panel("InningOverlay", _canvas, new Color(0.06f, 0.09f, 0.13f, 0.83f), 140, 233, 1160, 226);
             _scoreCaption = Label("Caption", _scorePanel, "공수 교대", 31, 20, 8, 1120, 54, Color.white);
             _scoreCaption.alignment = TextAnchor.MiddleCenter;
@@ -170,16 +142,54 @@ namespace Baseball.Presentation.Match
             _scorePanel.gameObject.SetActive(false);
         }
 
-        private RectTransform ParticipantCard(string name, float x, PlayerPosition position)
+        private void BuildGameCastSidebar()
         {
-            var card = Panel(name, _canvas, Paper, x, 552, 400, 112);
-            Panel("Accent", card, Blue, 0, 0, 400, 3);
-            var portrait = Panel("Portrait", card, Silver, 8, 12, 76, 92).GetComponent<Image>();
-            portrait.sprite = PlayerPortraitSprites.GetDefault(position);
-            portrait.preserveAspect = true;
-            Label("Role", card, position == PlayerPosition.StartingPitcher ? "마운드 · 투수" : "타석 · 타자", 13,
-                94, 7, 286, 24, Blue);
-            return card;
+            Sprite baseballSprite = _gameCastConfig.LoadBaseballSprite();
+            var side = Panel("GameCastSidebar", _canvas, Paper, 924, 74, 504, 602);
+            Panel("Accent", side, Blue, 0, 0, 504, 3);
+            Label("Heading", side, "현재 승부", 15, 16, 8, 472, 27, Blue);
+            _pitcherRole = Label("PitcherRole", side, "마운드 · 투수", 12, 16, 42, 226, 23, Muted);
+            _batterRole = Label("BatterRole", side, "타석 · 타자", 12, 266, 42, 222, 23, Muted);
+            _pitcherLabel = Label("PitcherName", side, "등판 대기", 24, 16, 68, 226, 36, Ink);
+            _batterLabel = Label("BatterName", side, "타석 대기", 24, 266, 68, 222, 36, Ink);
+            _pitcherDetail = Label("PitcherDetail", side, "", 13, 16, 106, 226, 25, Muted);
+            _batterDetail = Label("BatterDetail", side, "", 13, 266, 106, 222, 25, Muted);
+            Panel("DuelRule", side, Silver, 16, 142, 472, 1);
+            _currentPitch = Label("CurrentPitch", side, "투구 기록", 16, 16, 152, 472, 28, Ink);
+            _strikeZone = Panel("StrikeZone", side, new Color32(231, 237, 241, 255), 16, 188, 200, 180);
+            _strikeZone.gameObject.AddComponent<RectMask2D>();
+            for (int index = 0; index <= 3; index++)
+            {
+                Panel("Vertical" + index, _strikeZone, Muted, 40 + index * 40, 30, 1, 120);
+                Panel("Horizontal" + index, _strikeZone, Muted, 40, 30 + index * 40, 120, 1);
+            }
+            for (int index = 0; index < _pitchDots.Length; index++)
+            {
+                Image dot = CirclePanel("Pitch" + index, _strikeZone, Blue, 21).GetComponent<Image>();
+                _pitchDots[index] = dot;
+                SpritePanel("Baseball", dot.transform, baseballSprite, 2, 2, 17, 17);
+                _pitchNumbers[index] = Label("Number", dot.transform, "", 11, 0, 0, 21, 21, Color.white);
+                _pitchNumbers[index].color = Ink;
+                _pitchNumbers[index].alignment = TextAnchor.MiddleCenter;
+                dot.gameObject.SetActive(false);
+            }
+            _zoneBall = SpritePanel("PitchInFlight", _strikeZone, baseballSprite, 0, 0,
+                _gameCastConfig.strikeZoneBallSize, _gameCastConfig.strikeZoneBallSize);
+            _zoneBall.gameObject.SetActive(false);
+            _pitchHistory = Label("PitchHistory", side, "첫 투구를 기다립니다.", 14, 232, 188, 256, 180, Ink);
+            _pitchHistory.alignment = TextAnchor.UpperLeft;
+            _pitchHistory.fontStyle = FontStyle.Normal;
+            Label("ZoneNote", side, "포수 시점 · 바깥 투구는 가장자리 표시", 11, 16, 370, 472, 20, Muted);
+            Panel("PlayRule", side, Silver, 16, 404, 472, 1);
+            Label("PlayTitle", side, "플레이 해설", 13, 16, 413, 472, 22, Blue);
+            _playDetail = Label("PlayDetail", side, "타구와 주자의 움직임을 함께 확인하세요.", 15, 16, 440, 472, 49, Ink);
+            _playDetail.fontStyle = FontStyle.Normal;
+            Panel("DecisionRule", side, Silver, 16, 504, 472, 1);
+            Label("DecisionTitle", side, "감독의 판단", 13, 16, 513, 472, 22, Blue);
+            _decisionNote = Label("DecisionNote", side, "경기 중 기용과 운영은 감독 AI가 결정합니다.", 14, 16, 541, 472, 50, Ink);
+            _decisionNote.fontStyle = FontStyle.Normal;
+            _miniLineScore = Label("CompactLineScore", _canvas, "", 13, 24, 634, 852, 40, Color.white);
+            _miniLineScore.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(1, -1);
         }
 
         private void BuildFooter()
@@ -189,7 +199,7 @@ namespace Baseball.Presentation.Match
             Label("CommentaryTitle", _canvas, "경기 중계", 16, 20, 692, 106, 28, Blue);
             _commentary = Label("Commentary", _canvas, "잠시 후 경기가 시작됩니다.", 17, 140, 692, 900, 108, Ink);
             _commentary.alignment = TextAnchor.UpperLeft;
-            _advanceButton = Control("Advance", _canvas, "다음 타석", 1070, 700, 160, HandleAdvanceRequested);
+            _advanceButton = Control("Advance", _canvas, "다음 장면", 1070, 700, 160, HandleAdvanceRequested);
             _resultButton = Control("Result", _canvas, "경기 결과", 1242, 700, 176, () =>
             {
                 _showResults = !_showResults;
@@ -217,32 +227,39 @@ namespace Baseball.Presentation.Match
             Control("PitchingRecords", _resultPanel, "투구 성적", 485, 342, 135, () => { _showPitching = true; RenderRecords(); });
             _recordHeader = Label("RecordHeader", _resultPanel, "", 17, 650, 342, 748, 38, Blue);
             _recordHeader.alignment = TextAnchor.MiddleRight;
-            var viewport = Panel("RecordViewport", _resultPanel, Silver, 40, 394, 1360, 202);
+            var viewport = Panel("RecordViewport", _resultPanel, Silver, 40, 394, 1334, 202);
+            viewport.GetComponent<Image>().raycastTarget = true;
             viewport.gameObject.AddComponent<RectMask2D>();
             _recordScroll = viewport.gameObject.AddComponent<ScrollRect>();
-            _recordContent = Panel("Records", viewport, Paper, 0, 0, 1360, 202);
+            _recordContent = Panel("Records", viewport, Paper, 0, 0, 1334, 202);
             _recordScroll.viewport = viewport;
             _recordScroll.content = _recordContent;
             _recordScroll.horizontal = false;
             _recordScroll.movementType = ScrollRect.MovementType.Clamped;
             _recordScroll.scrollSensitivity = 30;
+            _recordScrollbar = BuildRecordScrollbar();
+            _recordScroll.verticalScrollbar = _recordScrollbar;
+            _recordScroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
             _resultPanel.gameObject.SetActive(false);
         }
 
-        private static Texture2D LoadStadiumTexture(string path)
+        private Scrollbar BuildRecordScrollbar()
         {
-            Texture2D texture = Resources.Load<Texture2D>(path);
-            if (texture != null) return texture;
-
-            Sprite[] sprites = Resources.LoadAll<Sprite>(path);
-            if (sprites.Length == 0) return null;
-            Sprite largest = sprites[0];
-            for (int i = 1; i < sprites.Length; i++)
-            {
-                if (sprites[i].rect.width * sprites[i].rect.height > largest.rect.width * largest.rect.height)
-                    largest = sprites[i];
-            }
-            return largest.texture;
+            RectTransform track = Panel("RecordScrollbar", _resultPanel, Silver, 1380, 394, 20, 202);
+            Image trackImage = track.GetComponent<Image>();
+            trackImage.raycastTarget = true;
+            var scrollbar = track.gameObject.AddComponent<Scrollbar>();
+            RectTransform slidingArea = Panel("SlidingArea", track, Color.clear, 3, 3, 14, 196);
+            RectTransform handle = Panel("Handle", slidingArea, Blue, 0, 0, 14, 196);
+            handle.anchorMin = new Vector2(0f, 0f);
+            handle.anchorMax = new Vector2(1f, 1f);
+            handle.offsetMin = handle.offsetMax = Vector2.zero;
+            Image handleImage = handle.GetComponent<Image>();
+            handleImage.raycastTarget = true;
+            scrollbar.handleRect = handle;
+            scrollbar.targetGraphic = handleImage;
+            scrollbar.direction = Scrollbar.Direction.BottomToTop;
+            return scrollbar;
         }
 
         private static RectTransform Panel(string name, Transform parent, Color color, float x, float y, float width, float height)
@@ -253,6 +270,40 @@ namespace Baseball.Presentation.Match
             Place(rect, x, y, width, height);
             go.GetComponent<Image>().color = color;
             go.GetComponent<Image>().raycastTarget = false;
+            return rect;
+        }
+
+        private static RectTransform CirclePanel(string name, Transform parent, Color color, float size)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(UICircleGraphic));
+            go.transform.SetParent(parent, false);
+            var rect = go.GetComponent<RectTransform>();
+            Place(rect, 0, 0, size, size);
+            var graphic = go.GetComponent<UICircleGraphic>();
+            graphic.color = color;
+            graphic.raycastTarget = false;
+            return rect;
+        }
+
+        private static RectTransform SpritePanel(string name, Transform parent, Sprite sprite,
+            float x, float y, float width, float height)
+        {
+            if (sprite == null)
+            {
+                RectTransform fallback = CirclePanel(name, parent, Color.white, width);
+                Place(fallback, x, y, width, height);
+                return fallback;
+            }
+
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rect = go.GetComponent<RectTransform>();
+            Place(rect, x, y, width, height);
+            var image = go.GetComponent<Image>();
+            image.sprite = sprite;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
             return rect;
         }
 

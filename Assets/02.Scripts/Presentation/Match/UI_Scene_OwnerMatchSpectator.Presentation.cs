@@ -1,6 +1,8 @@
 using System;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Presentation.SharedScreens;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.PlateAppearance;
 using UnityEngine;
@@ -10,6 +12,17 @@ namespace Baseball.Presentation.Match
 {
     public sealed partial class UI_Scene_OwnerMatchSpectator
     {
+        private static readonly string[] BattingRecordHeaders =
+        {
+            "선수", "포지션", "타수", "득점", "1루타", "2루타", "3루타",
+            "홈런", "타점", "볼넷", "도루", "병살", "주루사"
+        };
+
+        private static readonly string[] PitchingRecordHeaders =
+        {
+            "선수", "보직", "이닝", "피안타", "실점", "볼넷", "탈삼진", "승리", "홀드", "세이브"
+        };
+
         private void RenderHud(MatchHudPresentationModel model)
         {
             if (_awayLabel == null) return;
@@ -26,6 +39,7 @@ namespace Baseball.Presentation.Match
             _batterLabel.text = ParticipantName(model.Batter, "타자 대기");
             _pitcherDetail.text = model.IsBetweenInnings ? "다음 수비 준비" : "현재 투구";
             _batterDetail.text = model.IsBetweenInnings ? "다음 공격 준비" : "현재 타석";
+            _playVisualizer?.PresentBases(model);
         }
 
         private void RefreshControls()
@@ -58,15 +72,19 @@ namespace Baseball.Presentation.Match
 
             _statusLabel.text = isComplete
                 ? "경기 종료"
-                : state.IsPaused ? "중계 일시정지" : "생중계 · 감독 AI 자동 진행";
-            _homeButton.gameObject.SetActive(isComplete);
-            _resultButton.gameObject.SetActive(isComplete);
+                : state.IsPaused
+                    ? "중계 일시정지"
+                    : state.ViewingMode == OwnerMatchViewingMode.KeyMoments
+                        ? "승부처 하이라이트 · 감독 AI 자동 진행"
+                        : "생중계 · 감독 AI 자동 진행";
+            SetCompletionControlVisibility(isComplete);
             _resultToggleLabel.text = _showResults ? "경기 화면" : "경기 결과";
             _resultPanel.gameObject.SetActive(isComplete && _showResults);
 
             if (isNewBoundary)
             {
                 UpdateEventPresentation();
+                RenderGameCastHistory();
                 _lastVisibleCount = state.VisibleEventCount;
             }
 
@@ -89,25 +107,35 @@ namespace Baseball.Presentation.Match
             }
         }
 
+        private void SetCompletionControlVisibility(bool isComplete)
+        {
+            // 구단주는 감독 AI가 확정한 경기를 관전하므로 관전 범위·배속·즉시 결과 외 진행 조작을 제공하지 않는다.
+            _pauseButton.gameObject.SetActive(false);
+            _revealAllButton.gameObject.SetActive(!isComplete);
+            _advanceButton.gameObject.SetActive(false);
+            _homeButton.gameObject.SetActive(isComplete);
+            _resultButton.gameObject.SetActive(isComplete);
+        }
+
         private void UpdateEventPresentation()
         {
             int visibleCount = _session.State.VisibleEventCount;
             if (visibleCount == 0)
             {
                 _commentary.text = "양 팀 선수들이 그라운드에 들어섭니다. 곧 경기가 시작됩니다.";
-            _announcement.text = "경기 시작";
-                _announcementStartedAt = Time.unscaledTime;
+                _announcement.text = "경기 시작";
                 return;
             }
 
             MatchEvent matchEvent = _session.GetVisibleEvent(visibleCount - 1);
-            StartStadiumAnimation(matchEvent);
+            RenderPlayDetail(matchEvent);
             string result = FormatEventResult(matchEvent);
             int runsScored = CountRunsSincePreviousBoundary(visibleCount);
-            _commentary.text = FormatCommentary(matchEvent, result, runsScored);
-            _announcement.text = IsEmphasized(matchEvent) ? result : string.Empty;
-            if (_announcement.text.Length > 0)
-                _announcementStartedAt = Time.unscaledTime;
+            if (result != "경기 진행")
+                _commentary.text = FormatCommentary(matchEvent, result, runsScored);
+            if (IsEmphasized(matchEvent)) _announcement.text = result;
+            else if (matchEvent.EventType is MatchEventType.Contact or MatchEventType.RunnerAdvance)
+                _announcement.text = string.Empty;
         }
 
         private void BuildFinalResult()
@@ -236,48 +264,129 @@ namespace Baseball.Presentation.Match
             ClearChildren(_recordContent);
             MatchResult match = _session.Result.Match;
             TeamBoxScore box = _showHomeRecords ? match.HomeBoxScore : match.AwayBoxScore;
+            MatchRosterSnapshot roster = _showHomeRecords ? match.Input.HomeRoster : match.Input.AwayRoster;
             string team = _showHomeRecords ? CurrentModel.HomeTeam.Name : CurrentModel.AwayTeam.Name;
             _recordHeader.text = team + " · " + (_showPitching ? "투구 기록" : "타격 기록");
             float y = 0;
             if (_showPitching)
             {
-                AddRecordRow(_recordContent, "선수", "이닝", "피안타", "실점", "볼넷", "탈삼진", -1, true);
+                AddRecordRow(_recordContent, PitchingRecordHeaders, -1, true);
                 for (int i = 0; i < box.PitchingLines.Count; i++)
                 {
                     PlayerPitchingLine line = box.PitchingLines[i];
                     if (line.BattersFaced == 0) continue;
-                    AddRecordRow(_recordContent, _session.GetParticipantName(line.PlayerId),
-                        FormatInnings(line.OutsRecorded), line.HitsAllowed.ToString(), line.RunsAllowed.ToString(),
-                        line.WalksAllowed.ToString(), line.Strikeouts.ToString(), y += 35, false);
+                    AddRecordRow(_recordContent,
+                        new[]
+                        {
+                            _session.GetParticipantName(line.PlayerId),
+                            FormatPitcherRole(FindPitcherRole(roster, line.PlayerId)),
+                            FormatInnings(line.OutsRecorded),
+                            line.HitsAllowed.ToString(),
+                            line.RunsAllowed.ToString(),
+                            line.WalksAllowed.ToString(),
+                            line.Strikeouts.ToString(),
+                            FormatDecision(line.HasWin),
+                            FormatDecision(line.HasHold),
+                            FormatDecision(line.HasSave)
+                        },
+                        y += 35,
+                        false);
                 }
             }
             else
             {
-                AddRecordRow(_recordContent, "선수", "타수", "득점", "안타", "타점", "홈런", -1, true);
+                AddRecordRow(_recordContent, BattingRecordHeaders, -1, true);
                 for (int i = 0; i < box.BattingLines.Count; i++)
                 {
                     PlayerBattingLine line = box.BattingLines[i];
                     if (line.PlateAppearances == 0) continue;
-                    AddRecordRow(_recordContent, _session.GetParticipantName(line.PlayerId),
-                        line.AtBats.ToString(), line.Runs.ToString(), line.Hits.ToString(),
-                        line.RunsBattedIn.ToString(), line.HomeRuns.ToString(), y += 35, false);
+                    int singles = line.Hits - line.Doubles - line.Triples - line.HomeRuns;
+                    AddRecordRow(_recordContent,
+                        new[]
+                        {
+                            _session.GetParticipantName(line.PlayerId),
+                            CareerSharedSnapshotFormatters.FormatPosition(
+                                FindBattingPosition(roster, line.PlayerId)),
+                            line.AtBats.ToString(),
+                            line.Runs.ToString(),
+                            singles.ToString(),
+                            line.Doubles.ToString(),
+                            line.Triples.ToString(),
+                            line.HomeRuns.ToString(),
+                            line.RunsBattedIn.ToString(),
+                            line.Walks.ToString(),
+                            line.StolenBases.ToString(),
+                            line.GroundedIntoDoublePlays.ToString(),
+                            line.BaserunningOuts.ToString()
+                        },
+                        y += 35,
+                        false);
                 }
             }
-            _recordContent.sizeDelta = new Vector2(1360, Mathf.Max(264, y + 42));
+            _recordContent.sizeDelta = new Vector2(1334, Mathf.Max(202, y + 42));
+            _recordScrollbar.gameObject.SetActive(_recordContent.sizeDelta.y > 202f);
             _recordScroll.verticalNormalizedPosition = 1;
         }
 
-        private static void AddRecordRow(RectTransform host, string name, string a, string b, string c,
-            string d, string e, float y, bool header)
+        private static PlayerPosition FindBattingPosition(MatchRosterSnapshot roster, int playerId)
         {
-            Color background = header ? Ink : ((int)(y / 35) % 2 == 0 ? Paper : new Color32(233, 239, 242, 255));
-            var row = Panel("Row", host, background, 0, Math.Max(0, y), 1360, 34);
-            Color color = header ? Color.white : Ink;
-            Label("Name", row, name, 14, 10, 0, 480, 34, color);
-            string[] values = { a, b, c, d, e };
-            for (int i = 0; i < values.Length; i++)
+            for (int index = 0; index < roster.StartingLineup.Count; index++)
             {
-                Text cell = Label("Value", row, values[i], 14, 500 + i * 160, 0, 150, 34, color);
+                LineupSlot slot = roster.StartingLineup[index];
+                if (slot.Player.PlayerId == playerId)
+                    return slot.FieldingPosition;
+            }
+            for (int index = 0; index < roster.Bench.Count; index++)
+            {
+                if (roster.Bench[index].PlayerId == playerId)
+                    return roster.Bench[index].PrimaryPosition;
+            }
+            return PlayerPosition.Unknown;
+        }
+
+        private static PitcherRole FindPitcherRole(MatchRosterSnapshot roster, int playerId)
+        {
+            if (roster.StartingPitcher.Player.PlayerId == playerId)
+                return PitcherRole.Starter;
+            for (int index = 0; index < roster.Bullpen.Count; index++)
+            {
+                if (roster.Bullpen[index].Player.PlayerId == playerId)
+                    return roster.Bullpen[index].Role;
+            }
+            return PitcherRole.MiddleRelief;
+        }
+
+        private static string FormatPitcherRole(PitcherRole role)
+        {
+            return role switch
+            {
+                PitcherRole.Starter => "선발",
+                PitcherRole.Setup => "셋업",
+                PitcherRole.Closer => "마무리",
+                _ => "불펜"
+            };
+        }
+
+        private static string FormatDecision(bool hasDecision)
+        {
+            return hasDecision ? "1" : "-";
+        }
+
+        private static void AddRecordRow(RectTransform host, string[] values, float y, bool header)
+        {
+            if (values == null || values.Length < 2)
+                throw new ArgumentException("기록 행에는 선수명과 하나 이상의 기록이 필요합니다.", nameof(values));
+
+            Color background = header ? Ink : ((int)(y / 35) % 2 == 0 ? Paper : new Color32(233, 239, 242, 255));
+            var row = Panel("Row", host, background, 0, Math.Max(0, y), 1334, 34);
+            Color color = header ? Color.white : Ink;
+            float nameWidth = values.Length > 8 ? 234f : 334f;
+            float valueWidth = (1334f - nameWidth) / (values.Length - 1);
+            Label("Name", row, values[0], 14, 10, 0, nameWidth - 20, 34, color);
+            for (int i = 1; i < values.Length; i++)
+            {
+                Text cell = Label("Value", row, values[i], 13,
+                    nameWidth + (i - 1) * valueWidth, 0, valueWidth, 34, color);
                 cell.alignment = TextAnchor.MiddleCenter;
             }
         }
@@ -389,6 +498,16 @@ namespace Baseball.Presentation.Match
 
         private static string FormatEventResult(MatchEvent matchEvent)
         {
+            if (matchEvent.EventType == MatchEventType.Contact) return "타구가 뻗어갑니다";
+            if (matchEvent.EventType == MatchEventType.RunnerAdvance)
+                return matchEvent.ToBase == 4 ? "주자가 홈에 들어옵니다" : matchEvent.ToBase + "루 진루";
+            if (matchEvent.EventType == MatchEventType.Out) return "아웃";
+            if (matchEvent.EventType == MatchEventType.DoublePlay) return "병살";
+            if (matchEvent.EventType == MatchEventType.RunnerThrownOut) return "주루 아웃";
+            if (matchEvent.EventType is MatchEventType.FieldingError or MatchEventType.ThrowingError) return "실책";
+            if (matchEvent.EventType == MatchEventType.StealSucceeded) return "도루 성공";
+            if (matchEvent.EventType == MatchEventType.CaughtStealing) return "도루 실패";
+            if (IsDecisionEvent(matchEvent.EventType)) return DescribeDecision(matchEvent.EventType);
             if (matchEvent.EventType == MatchEventType.HalfInningEnded) return "공수 교대";
             if (matchEvent.EventType is MatchEventType.MatchEnded or MatchEventType.MatchEndedAsDraw) return "경기 종료";
             if (matchEvent.EventType == MatchEventType.Score) return "득점!";
@@ -407,7 +526,7 @@ namespace Baseball.Presentation.Match
                     _ => "투구"
                 };
             }
-            if (matchEvent.EventType != MatchEventType.PlateAppearanceEnded)
+            if (matchEvent.EventType != MatchEventType.PlateAppearanceEnded && matchEvent.EventType != MatchEventType.Hit)
                 return "경기 진행";
             return matchEvent.PlateAppearanceResult switch
             {
@@ -432,10 +551,8 @@ namespace Baseball.Presentation.Match
 
         private static bool IsEmphasized(MatchEvent matchEvent)
         {
-            return matchEvent.EventType is MatchEventType.Pitch or MatchEventType.HalfInningEnded or MatchEventType.MatchEnded or
-                   MatchEventType.MatchEndedAsDraw || (matchEvent.EventType == MatchEventType.PlateAppearanceEnded &&
-                   matchEvent.PlateAppearanceResult is PlateAppearanceResult.Single or PlateAppearanceResult.Double or
-                       PlateAppearanceResult.Triple or PlateAppearanceResult.HomeRun or PlateAppearanceResult.Strikeout);
+            return matchEvent.EventType is MatchEventType.Pitch or MatchEventType.Score or MatchEventType.Out or MatchEventType.DoublePlay or MatchEventType.HalfInningEnded or MatchEventType.MatchEnded or
+                   MatchEventType.MatchEndedAsDraw or MatchEventType.PlateAppearanceEnded or MatchEventType.Hit;
         }
 
         private static string FormatInnings(int outs)

@@ -65,10 +65,16 @@ Shader "Baseball/UI/OwnerMatchOverlayKey"
             fixed4 frag(v2f input) : SV_Target
             {
                 fixed4 color = tex2D(_MainTex, input.uv) * input.color;
-                float maximum = max(color.r, max(color.g, color.b));
-                float minimum = min(color.r, min(color.g, color.b));
+                fixed3 keyColor = color.rgb;
+                #ifndef UNITY_COLORSPACE_GAMMA
+                // 키 임계값은 원본 PNG의 sRGB 픽셀값을 기준으로 잡았다. Linear 프로젝트에서도
+                // 같은 체크무늬만 제거되도록 판정용 색만 sRGB로 되돌리고 출력색은 변경하지 않는다.
+                keyColor = LinearToGammaSpace(keyColor);
+                #endif
+                float maximum = max(keyColor.r, max(keyColor.g, keyColor.b));
+                float minimum = min(keyColor.r, min(keyColor.g, keyColor.b));
                 float chroma = maximum - minimum;
-                float luminance = dot(color.rgb, float3(0.299, 0.587, 0.114));
+                float luminance = dot(keyColor, float3(0.299, 0.587, 0.114));
 
                 // ImageGen이 굽는 무채색 체크무늬만 제거하고 유니폼의 푸른 음영은 보존한다.
                 float neutral = 1.0 - smoothstep(0.018, 0.055, chroma);

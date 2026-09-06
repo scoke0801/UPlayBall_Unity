@@ -1,0 +1,23 @@
+{
+  "fieldTexture": "UI/OwnerMatch/gamecast_field_v1",
+  "baseballSprite": "UI/MiniGame/img_baseball_ball",
+  "homeY": 0.882,
+  "baseY": 0.665,
+  "secondY": 0.474,
+  "baseSpread": 0.173,
+  "outfieldY": 0.17,
+  "moundY": 0.667,
+  "catcherY": 0.925,
+  "fieldBallSize": 18.0,
+  "strikeZoneBallSize": 16.0,
+  "pitchSeconds": 0.30,
+  "runnerSecondsPerBase": 0.24,
+  "resultSeconds": 0.32,
+  "inningSeconds": 0.8,
+  "decisionSeconds": 0.6,
+  "highlightLateInning": 7,
+  "highlightCloseRunMargin": 2,
+  "highlightMultiRunThreshold": 2,
+  "highlightWinExpectancySwing": 0.10,
+  "highlightLateWinExpectancySwing": 0.055
+}

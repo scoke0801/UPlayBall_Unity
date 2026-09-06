@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace Baseball.Presentation.Match
 {
@@ -34,6 +35,77 @@ namespace Baseball.Presentation.Match
         EveryMoment = 0,
         KeyMoments = 1,
         ResultOnly = 2
+    }
+
+    /// <summary>구단주 경기 관전 화면에 적용할 로컬 사용자 설정 값이다.</summary>
+    public readonly struct OwnerMatchPresentationOptions
+    {
+        public OwnerMatchPresentationOptions(
+            OwnerMatchPlaybackSpeed playbackSpeed,
+            OwnerMatchViewingMode viewingMode)
+        {
+            if (!Enum.IsDefined(typeof(OwnerMatchPlaybackSpeed), playbackSpeed))
+                throw new ArgumentOutOfRangeException(nameof(playbackSpeed));
+            if (!Enum.IsDefined(typeof(OwnerMatchViewingMode), viewingMode))
+                throw new ArgumentOutOfRangeException(nameof(viewingMode));
+
+            PlaybackSpeed = playbackSpeed;
+            ViewingMode = viewingMode;
+        }
+
+        public OwnerMatchPlaybackSpeed PlaybackSpeed { get; }
+        public OwnerMatchViewingMode ViewingMode { get; }
+        public bool ShouldPlayMatchAudio => ViewingMode != OwnerMatchViewingMode.ResultOnly;
+    }
+
+    /// <summary>세이브 진행도와 독립적인 구단주 경기 관전 기본값을 보존한다.</summary>
+    public static class OwnerMatchPresentationSettings
+    {
+        private const string PlaybackSpeedKey = "Baseball.OwnerMatch.PlaybackSpeed";
+        private const string ViewingModeKey = "Baseball.OwnerMatch.ViewingMode";
+
+        private static readonly OwnerMatchPresentationOptions DefaultOptions =
+            new OwnerMatchPresentationOptions(
+                OwnerMatchPlaybackSpeed.Normal,
+                OwnerMatchViewingMode.EveryMoment);
+
+        public static OwnerMatchPresentationOptions Load()
+        {
+            var speed = (OwnerMatchPlaybackSpeed)PlayerPrefs.GetInt(
+                PlaybackSpeedKey,
+                (int)DefaultOptions.PlaybackSpeed);
+            if (!Enum.IsDefined(typeof(OwnerMatchPlaybackSpeed), speed))
+                speed = DefaultOptions.PlaybackSpeed;
+
+            var viewingMode = (OwnerMatchViewingMode)PlayerPrefs.GetInt(
+                ViewingModeKey,
+                (int)DefaultOptions.ViewingMode);
+            if (!Enum.IsDefined(typeof(OwnerMatchViewingMode), viewingMode))
+                viewingMode = DefaultOptions.ViewingMode;
+
+            return new OwnerMatchPresentationOptions(speed, viewingMode);
+        }
+
+        public static void SetPlaybackSpeed(OwnerMatchPlaybackSpeed speed)
+        {
+            if (!Enum.IsDefined(typeof(OwnerMatchPlaybackSpeed), speed))
+                throw new ArgumentOutOfRangeException(nameof(speed));
+            PlayerPrefs.SetInt(PlaybackSpeedKey, (int)speed);
+        }
+
+        public static void SetViewingMode(OwnerMatchViewingMode mode)
+        {
+            if (!Enum.IsDefined(typeof(OwnerMatchViewingMode), mode))
+                throw new ArgumentOutOfRangeException(nameof(mode));
+            PlayerPrefs.SetInt(ViewingModeKey, (int)mode);
+        }
+
+        /// <summary>테스트와 사용자 설정 초기화가 같은 기본값 계약을 사용한다.</summary>
+        public static void ResetToDefaults()
+        {
+            PlayerPrefs.DeleteKey(PlaybackSpeedKey);
+            PlayerPrefs.DeleteKey(ViewingModeKey);
+        }
     }
 
     /// <summary>선택 배속을 자동 중계의 실제 이벤트 공개 간격으로 변환한다.</summary>

@@ -1,10 +1,345 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Game.Historical;
 using Baseball.Simulation.Match;
+using Baseball.Simulation.PlateAppearance;
 using BaseballPlayer = Baseball.Core.Players.Player;
 
 namespace Baseball.Presentation.Match
 {
+    /// <summary>중요 순간 관전이 한 번에 재생할 공식 이벤트 구간이다.</summary>
+    public readonly struct OwnerMatchHighlightSegment
+    {
+        public OwnerMatchHighlightSegment(int startEventIndex, int endEventIndex)
+        {
+            if (startEventIndex < 0) throw new ArgumentOutOfRangeException(nameof(startEventIndex));
+            if (endEventIndex < startEventIndex) throw new ArgumentOutOfRangeException(nameof(endEventIndex));
+            StartEventIndex = startEventIndex;
+            EndEventIndex = endEventIndex;
+        }
+
+        public int StartEventIndex { get; }
+        public int EndEventIndex { get; }
+    }
+
+    /// <summary>확정 이벤트에서 승리 기대값 변화와 경기 맥락으로 중요 순간을 선별한다.</summary>
+    public static class OwnerMatchHighlightSelector
+    {
+        private const float DefaultWinExpectancySwing = 0.10f;
+        private const float DefaultLateWinExpectancySwing = 0.055f;
+
+        public static OwnerMatchHighlightSegment[] Select(
+            MatchEvent[] events,
+            MatchGameCastConfig config)
+        {
+            if (events == null) throw new ArgumentNullException(nameof(events));
+            if (config == null) throw new ArgumentNullException(nameof(config));
+            if (events.Length == 0) return Array.Empty<OwnerMatchHighlightSegment>();
+
+            int lateInning = Math.Max(1, config.highlightLateInning);
+            int closeRunMargin = Math.Max(0, config.highlightCloseRunMargin);
+            int multiRunThreshold = Math.Max(1, config.highlightMultiRunThreshold);
+            double standardSwing = config.highlightWinExpectancySwing > 0f
+                ? config.highlightWinExpectancySwing
+                : DefaultWinExpectancySwing;
+            double lateSwing = config.highlightLateWinExpectancySwing > 0f
+                ? config.highlightLateWinExpectancySwing
+                : DefaultLateWinExpectancySwing;
+
+            var result = new List<OwnerMatchHighlightSegment>(16);
+            var winExpectancy = new WinExpectancyModel(RunExpectancy24.CreateDefault());
+            int awayScore = 0;
+            int homeScore = 0;
+            int outs = 0;
+            int firstRunnerId = 0;
+            int secondRunnerId = 0;
+            int thirdRunnerId = 0;
+            int blockStartIndex = 0;
+            int firstContextIndex = -1;
+            int firstPitchIndex = -1;
+            int preludeIndex = -1;
+            int beforeAwayScore = 0;
+            int beforeHomeScore = 0;
+            int beforeOuts = 0;
+            int beforeOccupancyMask = 0;
+            bool hasBeforeState = false;
+            bool hasPivotalDecision = false;
+            bool hasPivotalDefense = false;
+            OwnerMatchHighlightSegment lastPlateAppearance = default;
+            bool hasLastPlateAppearance = false;
+            int matchEndIndex = -1;
+
+            for (int index = 0; index < events.Length; index++)
+            {
+                MatchEvent current = events[index];
+                if (IsPrelude(current.EventType))
+                {
+                    if (preludeIndex < 0) preludeIndex = index;
+                    hasPivotalDecision |= IsManagerDecision(current.EventType);
+                }
+                hasPivotalDefense |= IsPivotalDefense(current.EventType);
+
+                if (!hasBeforeState && IsPlateAppearanceContext(current.EventType))
+                {
+                    hasBeforeState = true;
+                    firstContextIndex = index;
+                    // 투구·작전 이벤트의 점수는 타석 결과 적용 전 상태이므로 재개 경기에도 안전하다.
+                    beforeAwayScore = current.AwayScore;
+                    beforeHomeScore = current.HomeScore;
+                    beforeOuts = outs;
+                    beforeOccupancyMask = CreateOccupancyMask(
+                        firstRunnerId,
+                        secondRunnerId,
+                        thirdRunnerId);
+                }
+                if (current.EventType == MatchEventType.Pitch && firstPitchIndex < 0)
+                    firstPitchIndex = index;
+
+                ApplyRunnerState(
+                    current,
+                    ref firstRunnerId,
+                    ref secondRunnerId,
+                    ref thirdRunnerId);
+                awayScore = current.AwayScore;
+                homeScore = current.HomeScore;
+                if (CarriesOutState(current.EventType)) outs = current.Outs;
+
+                if (current.EventType == MatchEventType.HalfInningEnded)
+                {
+                    firstRunnerId = secondRunnerId = thirdRunnerId = 0;
+                    outs = 0;
+                    if (!hasBeforeState) blockStartIndex = index + 1;
+                }
+
+                if (current.EventType == MatchEventType.PlateAppearanceEnded)
+                {
+                    if (!hasBeforeState)
+                    {
+                        beforeAwayScore = awayScore;
+                        beforeHomeScore = homeScore;
+                        beforeOuts = Math.Max(0, current.Outs - (IsOut(current.PlateAppearanceResult) ? 1 : 0));
+                        beforeOccupancyMask = 0;
+                    }
+
+                    int startIndex = preludeIndex >= blockStartIndex
+                        ? preludeIndex
+                        : firstPitchIndex >= blockStartIndex
+                            ? firstPitchIndex
+                            : firstContextIndex >= blockStartIndex
+                                ? firstContextIndex
+                                : blockStartIndex;
+                    var segment = new OwnerMatchHighlightSegment(startIndex, index);
+                    lastPlateAppearance = segment;
+                    hasLastPlateAppearance = true;
+                    int afterOccupancyMask = CreateOccupancyMask(
+                        firstRunnerId,
+                        secondRunnerId,
+                        thirdRunnerId);
+                    if (ShouldHighlight(
+                            current,
+                            beforeAwayScore,
+                            beforeHomeScore,
+                            beforeOuts,
+                            beforeOccupancyMask,
+                            afterOccupancyMask,
+                            hasPivotalDecision,
+                            hasPivotalDefense,
+                            lateInning,
+                            closeRunMargin,
+                            multiRunThreshold,
+                            standardSwing,
+                            lateSwing,
+                            winExpectancy))
+                    {
+                        AddSegment(result, segment);
+                    }
+
+                    blockStartIndex = index + 1;
+                    firstContextIndex = -1;
+                    firstPitchIndex = -1;
+                    preludeIndex = -1;
+                    hasBeforeState = false;
+                    hasPivotalDecision = false;
+                    hasPivotalDefense = false;
+                }
+                else if (current.EventType is MatchEventType.MatchEnded or MatchEventType.MatchEndedAsDraw)
+                {
+                    matchEndIndex = index;
+                }
+            }
+
+            // 점수 차와 무관하게 마지막 타석은 경기의 결말이므로 반드시 직접 보여 준다.
+            if (hasLastPlateAppearance) AddSegment(result, lastPlateAppearance);
+            if (matchEndIndex >= 0)
+                AddSegment(result, new OwnerMatchHighlightSegment(matchEndIndex, matchEndIndex));
+            return result.ToArray();
+        }
+
+        private static bool ShouldHighlight(
+            in MatchEvent plateAppearance,
+            int beforeAwayScore,
+            int beforeHomeScore,
+            int beforeOuts,
+            int beforeOccupancyMask,
+            int afterOccupancyMask,
+            bool hasPivotalDecision,
+            bool hasPivotalDefense,
+            int lateInning,
+            int closeRunMargin,
+            int multiRunThreshold,
+            double standardSwing,
+            double lateSwing,
+            WinExpectancyModel winExpectancy)
+        {
+            int beforeGameDifference = beforeAwayScore - beforeHomeScore;
+            int afterGameDifference = plateAppearance.AwayScore - plateAppearance.HomeScore;
+            int runsScored = Math.Abs(
+                plateAppearance.AwayScore + plateAppearance.HomeScore -
+                beforeAwayScore - beforeHomeScore);
+            bool isLate = plateAppearance.Inning >= lateInning;
+            bool isClose = Math.Min(Math.Abs(beforeGameDifference), Math.Abs(afterGameDifference)) <= closeRunMargin;
+            bool tiedGame = beforeGameDifference != 0 && afterGameDifference == 0;
+            bool leadReversed = beforeGameDifference != 0 && afterGameDifference != 0 &&
+                                Math.Sign(beforeGameDifference) != Math.Sign(afterGameDifference);
+            bool lateLeadTaken = isLate && beforeGameDifference == 0 && afterGameDifference != 0;
+            bool signaturePlay = plateAppearance.PlateAppearanceResult is
+                PlateAppearanceResult.HomeRun or PlateAppearanceResult.Triple;
+
+            int beforeOffenseDifference = plateAppearance.Half == InningHalf.Top
+                ? beforeGameDifference
+                : -beforeGameDifference;
+            int afterOffenseDifference = plateAppearance.Half == InningHalf.Top
+                ? afterGameDifference
+                : -afterGameDifference;
+            double before = GetOffenseWinExpectancy(
+                winExpectancy,
+                plateAppearance.Inning,
+                plateAppearance.Half,
+                beforeOffenseDifference,
+                Math.Min(beforeOuts, 2),
+                beforeOccupancyMask);
+            double after = GetOffenseWinExpectancy(
+                winExpectancy,
+                plateAppearance.Inning,
+                plateAppearance.Half,
+                afterOffenseDifference,
+                plateAppearance.Outs,
+                afterOccupancyMask);
+            double swing = Math.Abs(after - before);
+
+            if (signaturePlay || tiedGame || leadReversed || lateLeadTaken || runsScored >= multiRunThreshold)
+                return true;
+            if (swing >= standardSwing)
+                return true;
+            return isLate && isClose &&
+                   (swing >= lateSwing || runsScored > 0 || hasPivotalDecision || hasPivotalDefense);
+        }
+
+        private static double GetOffenseWinExpectancy(
+            WinExpectancyModel model,
+            int inning,
+            InningHalf half,
+            int offenseScoreDifference,
+            int outs,
+            int occupancyMask)
+        {
+            if (outs < 3)
+                return model.GetWinExpectancy(inning, half, offenseScoreDifference, outs, occupancyMask);
+
+            int nextInning = half == InningHalf.Bottom ? inning + 1 : inning;
+            InningHalf nextHalf = half == InningHalf.Top ? InningHalf.Bottom : InningHalf.Top;
+            return 1d - model.GetWinExpectancy(nextInning, nextHalf, -offenseScoreDifference, 0, 0);
+        }
+
+        private static void AddSegment(List<OwnerMatchHighlightSegment> segments, OwnerMatchHighlightSegment segment)
+        {
+            if (segments.Count > 0 && segments[segments.Count - 1].EndEventIndex == segment.EndEventIndex)
+                return;
+            segments.Add(segment);
+        }
+
+        private static bool IsPlateAppearanceContext(MatchEventType type) =>
+            type is MatchEventType.Pitch or MatchEventType.BattingApproachSelected or
+                MatchEventType.PitchingApproachSelected or MatchEventType.IntentionalWalk or
+                MatchEventType.BuntAttempted;
+
+        private static bool IsPrelude(MatchEventType type) =>
+            type == MatchEventType.HighLeverageSituationStarted || IsManagerDecision(type);
+
+        private static bool IsManagerDecision(MatchEventType type) =>
+            type is MatchEventType.PitcherEntered or MatchEventType.PinchHitterEntered or
+                MatchEventType.PinchRunnerEntered or MatchEventType.DefensiveReplacement or
+                MatchEventType.DefensiveAlignmentChanged or MatchEventType.IntentionalWalk or
+                MatchEventType.BuntAttempted or MatchEventType.StealAttempted;
+
+        private static bool IsPivotalDefense(MatchEventType type) =>
+            type is MatchEventType.FieldingError or MatchEventType.ThrowingError or
+                MatchEventType.DoublePlay or MatchEventType.RunnerThrownOut or
+                MatchEventType.CaughtStealing;
+
+        private static bool CarriesOutState(MatchEventType type) =>
+            type is MatchEventType.Pitch or MatchEventType.Out or MatchEventType.RunnerAdvance or
+                MatchEventType.RunnerThrownOut or MatchEventType.Score or
+                MatchEventType.PlateAppearanceEnded;
+
+        private static bool IsOut(PlateAppearanceResult result) =>
+            result is PlateAppearanceResult.Strikeout or PlateAppearanceResult.GroundOut or
+                PlateAppearanceResult.FlyOut or PlateAppearanceResult.BuntPopOut;
+
+        private static int CreateOccupancyMask(int firstRunnerId, int secondRunnerId, int thirdRunnerId)
+        {
+            return (firstRunnerId != 0 ? 1 : 0) |
+                   (secondRunnerId != 0 ? 2 : 0) |
+                   (thirdRunnerId != 0 ? 4 : 0);
+        }
+
+        private static void ApplyRunnerState(
+            in MatchEvent current,
+            ref int firstRunnerId,
+            ref int secondRunnerId,
+            ref int thirdRunnerId)
+        {
+            if (current.EventType == MatchEventType.RunnerAdvance)
+            {
+                ClearRunner(current.PlayerId, current.FromBase,
+                    ref firstRunnerId, ref secondRunnerId, ref thirdRunnerId);
+                if (current.ToBase == 1) firstRunnerId = current.PlayerId;
+                else if (current.ToBase == 2) secondRunnerId = current.PlayerId;
+                else if (current.ToBase == 3) thirdRunnerId = current.PlayerId;
+            }
+            else if (current.EventType is MatchEventType.Out or MatchEventType.RunnerThrownOut or
+                     MatchEventType.CaughtStealing)
+            {
+                ClearRunnerById(current.PlayerId,
+                    ref firstRunnerId, ref secondRunnerId, ref thirdRunnerId);
+            }
+        }
+
+        private static void ClearRunner(
+            int playerId,
+            int fromBase,
+            ref int firstRunnerId,
+            ref int secondRunnerId,
+            ref int thirdRunnerId)
+        {
+            if (fromBase == 1) firstRunnerId = 0;
+            else if (fromBase == 2) secondRunnerId = 0;
+            else if (fromBase == 3) thirdRunnerId = 0;
+            else ClearRunnerById(playerId, ref firstRunnerId, ref secondRunnerId, ref thirdRunnerId);
+        }
+
+        private static void ClearRunnerById(
+            int playerId,
+            ref int firstRunnerId,
+            ref int secondRunnerId,
+            ref int thirdRunnerId)
+        {
+            if (firstRunnerId == playerId) firstRunnerId = 0;
+            if (secondRunnerId == playerId) secondRunnerId = 0;
+            if (thirdRunnerId == playerId) thirdRunnerId = 0;
+        }
+    }
+
     /// <summary>구단주 경기를 감독 AI로 확정하고 그 이벤트를 관전용으로 재생한다.</summary>
     public sealed class OwnerMatchSpectatorSession : IOwnerMatchOverlay
     {
@@ -15,6 +350,7 @@ namespace Baseball.Presentation.Match
         private readonly MatchHudPresentationModelBuilder _hudBuilder = new MatchHudPresentationModelBuilder();
         private readonly IMatchHudView _hudView;
         private readonly int _playerTeamId;
+        private readonly OwnerMatchHighlightSegment[] _highlightSegments;
         private int _visibleEventCount;
         private bool _isPaused;
         private OwnerMatchPlaybackSpeed _speed = OwnerMatchPlaybackSpeed.Normal;
@@ -33,6 +369,7 @@ namespace Baseball.Presentation.Match
 
             _hudView = hudView;
             _playerTeamId = playerTeamId;
+            _highlightSegments = OwnerMatchHighlightSelector.Select(_events, MatchGameCastConfig.Load());
             CurrentHud = BuildHud();
             _hudView?.Present(CurrentHud);
         }
@@ -146,12 +483,20 @@ namespace Baseball.Presentation.Match
             if (!State.CanAdvance)
                 return false;
 
-            while (_visibleEventCount < _events.Length)
+            if (_viewingMode == OwnerMatchViewingMode.KeyMoments)
             {
-                MatchEvent matchEvent = _events[_visibleEventCount++];
-                if (IsAdvanceBoundary(matchEvent))
+                _visibleEventCount = TryFindNextHighlight(
+                    _visibleEventCount,
+                    out OwnerMatchHighlightSegment highlight)
+                    ? Math.Min(_events.Length, highlight.EndEventIndex + 1)
+                    : _events.Length;
+            }
+            else
+            {
+                while (_visibleEventCount < _events.Length)
                 {
-                    break;
+                    int eventIndex = _visibleEventCount++;
+                    if (IsEveryMomentBoundary(eventIndex)) break;
                 }
             }
 
@@ -159,39 +504,80 @@ namespace Baseball.Presentation.Match
             return true;
         }
 
-        private bool IsAdvanceBoundary(in MatchEvent matchEvent)
+        /// <summary>다음 관전 구간을 준비하되 마지막 사건의 점수와 판정은 아직 공개하지 않는다.</summary>
+        public bool TryPreparePlayback(out int lastEventIndex)
         {
+            lastEventIndex = _visibleEventCount;
+            if (!State.CanAdvance || _isPaused) return false;
+
+            if (_viewingMode == OwnerMatchViewingMode.KeyMoments)
+            {
+                if (!TryFindNextHighlight(_visibleEventCount, out OwnerMatchHighlightSegment highlight))
+                    return false;
+                lastEventIndex = highlight.EndEventIndex;
+                if (_visibleEventCount < highlight.StartEventIndex)
+                {
+                    _visibleEventCount = highlight.StartEventIndex;
+                    PresentCurrentHud();
+                }
+                return true;
+            }
+
+            while (lastEventIndex < _events.Length - 1 && !IsEveryMomentBoundary(lastEventIndex))
+                lastEventIndex++;
+            return true;
+        }
+
+        /// <summary>연출 준비에만 사용할 다음 사건이다. HUD와 기록은 GetVisibleEvent 경계를 따른다.</summary>
+        public MatchEvent PeekPlaybackEvent()
+        {
+            if (!State.CanAdvance) throw new InvalidOperationException("남은 경기 사건이 없습니다.");
+            return _events[_visibleEventCount];
+        }
+
+        /// <summary>타구 연출에 필요한 공식 담당 야수만 같은 투구의 결과에서 읽는다.</summary>
+        public BallInPlayEventData PeekBallInPlay()
+        {
+            BallInPlayEventData data = default;
+            for (int index = _visibleEventCount; index < _events.Length; index++)
+            {
+                MatchEvent current = _events[index];
+                if (index > _visibleEventCount && current.EventType == MatchEventType.Pitch) break;
+                if (current.BallInPlayData.HasValue) data = current.BallInPlayData;
+                if (current.EventType == MatchEventType.PlateAppearanceEnded) break;
+            }
+            return data;
+        }
+
+        /// <summary>연출이 끝난 사건 한 건만 공개한다. 일시정지 중에는 공개하지 않는다.</summary>
+        public bool TryRevealPlaybackEvent()
+        {
+            if (!State.CanAdvance || _isPaused) return false;
+            _visibleEventCount++;
+            PresentCurrentHud();
+            return true;
+        }
+
+        private bool IsEveryMomentBoundary(int eventIndex)
+        {
+            MatchEvent matchEvent = _events[eventIndex];
             if (matchEvent.EventType is MatchEventType.HalfInningEnded or MatchEventType.MatchEnded or
                 MatchEventType.MatchEndedAsDraw)
                 return true;
-
-            if (_viewingMode == OwnerMatchViewingMode.EveryMoment)
-                return matchEvent.EventType is MatchEventType.Pitch or MatchEventType.PlateAppearanceEnded;
-
-            if (_viewingMode != OwnerMatchViewingMode.KeyMoments)
-                return false;
-
-            if (matchEvent.EventType is MatchEventType.HighLeverageSituationStarted or
-                MatchEventType.PlayerSubstitution or MatchEventType.PitcherEntered or
-                MatchEventType.PinchHitterEntered or MatchEventType.PinchRunnerEntered or
-                MatchEventType.FieldingError or MatchEventType.ThrowingError)
-                return true;
-
-            return matchEvent.EventType == MatchEventType.PlateAppearanceEnded &&
-                   IsKeyPlateAppearance(matchEvent.PlateAppearanceResult);
+            return matchEvent.EventType is MatchEventType.Pitch or MatchEventType.PlateAppearanceEnded;
         }
 
-        private static bool IsKeyPlateAppearance(Baseball.Simulation.PlateAppearance.PlateAppearanceResult result)
+        private bool TryFindNextHighlight(int visibleEventCount, out OwnerMatchHighlightSegment highlight)
         {
-            return result is Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Single or
-                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Double or
-                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Triple or
-                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.HomeRun or
-                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Strikeout or
-                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.ReachedOnError or
-                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.SacrificeBunt or
-                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.BuntSingle or
-                Baseball.Simulation.PlateAppearance.PlateAppearanceResult.BuntPopOut;
+            for (int index = 0; index < _highlightSegments.Length; index++)
+            {
+                OwnerMatchHighlightSegment candidate = _highlightSegments[index];
+                if (candidate.EndEventIndex < visibleEventCount) continue;
+                highlight = candidate;
+                return true;
+            }
+            highlight = default;
+            return false;
         }
 
         public bool TryRevealAll()

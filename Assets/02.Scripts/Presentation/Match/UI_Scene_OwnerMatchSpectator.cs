@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Match
 {
-    /// <summary>확정 경기 이벤트를 야구장 이미지와 방송 UI로 재생하는 구단주 관전 화면이다.</summary>
+    /// <summary>공식 사건의 재생과 공개 시점을 맞추는 구단주 2D 경기 관전 화면이다.</summary>
     [DisallowMultipleComponent]
     public sealed partial class UI_Scene_OwnerMatchSpectator : MonoBehaviour, IMatchHudView
     {
@@ -13,7 +13,6 @@ namespace Baseball.Presentation.Match
         private RectTransform _canvas;
         private OwnerMatchSpectatorSession _session;
         private float _nextAutomaticAdvanceAt;
-        private float _announcementStartedAt;
         private bool _showResults;
         private bool _showPitching;
         private bool _showHomeRecords;
@@ -21,6 +20,7 @@ namespace Baseball.Presentation.Match
         private int _lastVisibleCount = -1;
 
         public event Action HomeRequested;
+        public event Action<bool> MatchAudioEnabledChanged;
         public bool IsPresenting { get; private set; }
         public bool IsComplete => _session?.State.IsComplete == true;
         public MatchHudPresentationModel CurrentModel { get; private set; }
@@ -49,8 +49,11 @@ namespace Baseball.Presentation.Match
             if (manager == null) throw new ArgumentNullException(nameof(manager));
             _showResults = _showPitching = _showHomeRecords = _wasComplete = false;
             _lastVisibleCount = -1;
-            _lastAnimatedPitchSequence = -1;
+            ResetGameCast();
             _session = OwnerMatchSpectatorSession.PlayNextGame(manager, this);
+            OwnerMatchPresentationOptions settings = OwnerMatchPresentationSettings.Load();
+            _session.TrySetPlaybackSpeed(settings.PlaybackSpeed);
+            _session.TrySetViewingMode(settings.ViewingMode);
             IsPresenting = true;
             SetVisible(true);
             ScheduleNextAutomaticAdvance();
@@ -81,15 +84,9 @@ namespace Baseball.Presentation.Match
         {
             FitWorkspace();
             if (!IsPresenting || _session == null) return;
-            UpdateStadiumAnimation();
-            float age = Time.unscaledTime - _announcementStartedAt;
-            _announcement.rectTransform.localScale = Vector3.one * (1f + 0.08f * Mathf.Exp(-age * 9f));
-            _announcement.color = new Color(1f, 1f, 1f, Mathf.Clamp01(2.2f - age));
             var state = _session.State;
             if (state.IsPaused || state.IsComplete || Time.unscaledTime < _nextAutomaticAdvanceAt) return;
-            _session.TryAdvance();
-            ScheduleNextAutomaticAdvance();
-            RefreshControls();
+            UpdateGameCast(Time.unscaledDeltaTime);
         }
 
         private void FitWorkspace()
@@ -109,6 +106,7 @@ namespace Baseball.Presentation.Match
         private void HandleSpeedRequested(OwnerMatchPlaybackSpeed speed)
         {
             if (_session?.TrySetPlaybackSpeed(speed) != true) return;
+            OwnerMatchPresentationSettings.SetPlaybackSpeed(speed);
             ScheduleNextAutomaticAdvance();
             RefreshControls();
         }
@@ -116,6 +114,11 @@ namespace Baseball.Presentation.Match
         private void HandleAdvanceRequested()
         {
             if (_session?.TryAdvance() != true) return;
+            _hasPendingEvent = false;
+            _playbackBoundary = -1;
+            _zoneBall.gameObject.SetActive(false);
+            _playVisualizer.Reset();
+            _playVisualizer.PresentBases(CurrentModel);
             ScheduleNextAutomaticAdvance();
             RefreshControls();
         }
@@ -123,12 +126,20 @@ namespace Baseball.Presentation.Match
         private void HandleRevealAllRequested()
         {
             if (_session?.TrySetViewingMode(OwnerMatchViewingMode.ResultOnly) != true) return;
+            MatchAudioEnabledChanged?.Invoke(false);
+            _hasPendingEvent = false;
+            _zoneBall.gameObject.SetActive(false);
             RefreshControls();
         }
 
         private void HandleViewingModeRequested(OwnerMatchViewingMode mode)
         {
             if (_session?.TrySetViewingMode(mode) != true) return;
+            OwnerMatchPresentationSettings.SetViewingMode(mode);
+            MatchAudioEnabledChanged?.Invoke(mode != OwnerMatchViewingMode.ResultOnly);
+            _hasPendingEvent = false;
+            _playbackBoundary = -1;
+            _zoneBall.gameObject.SetActive(false);
             ScheduleNextAutomaticAdvance();
             RefreshControls();
         }

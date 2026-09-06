@@ -1,9 +1,14 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Presentation.Match;
+using Baseball.Simulation.Match;
+using Baseball.Simulation.PlateAppearance;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Match
 {
@@ -21,15 +26,88 @@ namespace Baseball.Tests.EditMode.Presentation.Match
 
                 Transform canvas = view.transform.Find("BroadcastCanvas");
                 Assert.That(canvas, Is.Not.Null);
-                Assert.That(canvas.Find("Field/StadiumBackground"), Is.Not.Null);
-                Assert.That(canvas.Find("Field/StadiumActors"), Is.Not.Null);
-                Assert.That(canvas.Find("Field/StadiumActorsBlend"), Is.Not.Null);
+                Assert.That(canvas.Find("Field/Ground/StadiumBackground"), Is.Not.Null);
+                Transform fieldBall = canvas.Find("Field/Ground/Ball");
+                Assert.That(fieldBall, Is.Not.Null);
+                Assert.That(fieldBall.GetComponent<Image>().sprite, Is.Not.Null);
+                Assert.That(fieldBall.GetComponent<Baseball.Presentation.UI.UICircleGraphic>(), Is.Null);
+                Assert.That(canvas.Find("GameCastSidebar/StrikeZone"), Is.Not.Null);
+                Transform zoneBall = canvas.Find("GameCastSidebar/StrikeZone/PitchInFlight");
+                Assert.That(zoneBall.GetComponent<Image>().sprite, Is.Not.Null);
+                Assert.That(zoneBall.GetComponent<Baseball.Presentation.UI.UICircleGraphic>(), Is.Null);
+                Assert.That(canvas.Find("GameCastSidebar/StrikeZone/Pitch0/Baseball")
+                    .GetComponent<Image>().sprite, Is.Not.Null);
+                Assert.That(canvas.Find("Field/StadiumActors"), Is.Null);
                 Assert.That(canvas.Find("ViewingModeEveryMoment"), Is.Not.Null);
                 Assert.That(canvas.Find("ViewingModeKeyMoments"), Is.Not.Null);
                 Assert.That(canvas.Find("ViewingModeResultOnly"), Is.Not.Null);
                 Assert.That(canvas.Find("InningOverlay/LineScore"), Is.Not.Null);
                 Assert.That(canvas.Find("MatchResult/FinalLineScore"), Is.Not.Null);
-                Assert.That(canvas.Find("MatchResult/RecordViewport"), Is.Not.Null);
+                Transform recordViewport = canvas.Find("MatchResult/RecordViewport");
+                Transform recordScrollbar = canvas.Find("MatchResult/RecordScrollbar");
+                Assert.That(recordViewport, Is.Not.Null);
+                Assert.That(recordScrollbar, Is.Not.Null);
+                ScrollRect recordScroll = recordViewport.GetComponent<ScrollRect>();
+                Assert.That(recordViewport.GetComponent<Image>().raycastTarget, Is.True);
+                Assert.That(recordScroll.vertical, Is.True);
+                Assert.That(recordScroll.horizontal, Is.False);
+                Assert.That(recordScroll.verticalScrollbar, Is.SameAs(recordScrollbar.GetComponent<Scrollbar>()));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void 경기종료상태에서는다음타석버튼을숨긴다()
+        {
+            var hostObject = new GameObject("Host", typeof(RectTransform));
+            try
+            {
+                UI_Scene_OwnerMatchSpectator view =
+                    UI_Scene_OwnerMatchSpectator.CreateRuntime(hostObject.GetComponent<RectTransform>());
+                MethodInfo method = typeof(UI_Scene_OwnerMatchSpectator).GetMethod(
+                    "SetCompletionControlVisibility",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+
+                Assert.That(method, Is.Not.Null);
+                method.Invoke(view, new object[] { true });
+
+                Transform canvas = view.transform.Find("BroadcastCanvas");
+                Assert.That(canvas.Find("Pause").gameObject.activeSelf, Is.False);
+                Assert.That(canvas.Find("RevealAll").gameObject.activeSelf, Is.False);
+                Assert.That(canvas.Find("Advance").gameObject.activeSelf, Is.False);
+                Assert.That(canvas.Find("Result").gameObject.activeSelf, Is.True);
+                Assert.That(canvas.Find("ReturnHome").gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void 경기중에는관전범위와배속과즉시결과만조작할수있다()
+        {
+            var hostObject = new GameObject("Host", typeof(RectTransform));
+            try
+            {
+                UI_Scene_OwnerMatchSpectator view =
+                    UI_Scene_OwnerMatchSpectator.CreateRuntime(hostObject.GetComponent<RectTransform>());
+                Transform canvas = view.transform.Find("BroadcastCanvas");
+
+                Assert.That(canvas.Find("Pause").gameObject.activeSelf, Is.False);
+                Assert.That(canvas.Find("RevealAll").gameObject.activeSelf, Is.True);
+                Assert.That(canvas.Find("Advance").gameObject.activeSelf, Is.False);
+                Assert.That(canvas.Find("Result").gameObject.activeSelf, Is.False);
+                Assert.That(canvas.Find("ReturnHome").gameObject.activeSelf, Is.False);
+                Assert.That(canvas.Find("ViewingModeEveryMoment").gameObject.activeSelf, Is.True);
+                Assert.That(canvas.Find("ViewingModeKeyMoments").gameObject.activeSelf, Is.True);
+                Assert.That(canvas.Find("ViewingModeResultOnly").gameObject.activeSelf, Is.True);
+                Assert.That(canvas.Find("Speed1").gameObject.activeSelf, Is.True);
+                Assert.That(canvas.Find("Speed2").gameObject.activeSelf, Is.True);
+                Assert.That(canvas.Find("Speed5").gameObject.activeSelf, Is.True);
             }
             finally
             {
@@ -40,25 +118,48 @@ namespace Baseball.Tests.EditMode.Presentation.Match
         [Test]
         public void 관전용야구장이미지는Resources에서불러온다()
         {
-            string[] paths =
+            MatchGameCastConfig config = MatchGameCastConfig.Load();
+            Texture2D texture = Resources.Load<Texture2D>(config.fieldTexture);
+            Sprite baseball = config.LoadBaseballSprite();
+            Assert.That(texture, Is.Not.Null);
+            Assert.That(baseball, Is.Not.Null);
+            Assert.That((float)texture.width / texture.height, Is.EqualTo(1.5f).Within(0.01f));
+            Assert.That(Resources.Load<TextAsset>("UI/OwnerMatch/GameCastPresentation"), Is.Not.Null);
+        }
+
+        [Test]
+        public void 경기결과기록표는타자포지션과투수보직및결정을노출한다()
+        {
+            FieldInfo battingHeaders = typeof(UI_Scene_OwnerMatchSpectator).GetField(
+                "BattingRecordHeaders",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            FieldInfo pitchingHeaders = typeof(UI_Scene_OwnerMatchSpectator).GetField(
+                "PitchingRecordHeaders",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            Assert.That(battingHeaders, Is.Not.Null);
+            Assert.That(pitchingHeaders, Is.Not.Null);
+            Assert.That((string[])battingHeaders.GetValue(null), Does.Contain("포지션"));
+            Assert.That((string[])pitchingHeaders.GetValue(null), Is.EqualTo(new[]
             {
-                "stadium_pitch_background",
-                "stadium_overlay_set_rr", "stadium_overlay_windup_rr", "stadium_overlay_pitch1_rr",
-                "stadium_overlay_pitch2_rr", "stadium_overlay_flight_rr", "stadium_overlay_hit_rr",
-                "stadium_overlay_miss_rr", "stadium_overlay_take_rr",
-                "stadium_overlay_set_rl", "stadium_overlay_windup_rl", "stadium_overlay_pitch1_rl",
-                "stadium_overlay_pitch2_rl", "stadium_overlay_flight_rl", "stadium_overlay_hit_rl",
-                "stadium_overlay_miss_rl", "stadium_overlay_take_rl"
-            };
-            foreach (string path in paths)
-            {
-                Assert.That(
-                    Resources.LoadAll("UI/OwnerMatch/" + path)
-                        .Any(asset => asset is Texture2D or Sprite),
-                    Is.True,
-                    path);
-            }
-            Assert.That(Resources.Load<Shader>("UI/OwnerMatch/OwnerMatchOverlayKey"), Is.Not.Null);
+                "선수", "보직", "이닝", "피안타", "실점", "볼넷", "탈삼진", "승리", "홀드", "세이브"
+            }));
+        }
+
+        [TestCase(PitcherRole.Starter, "선발")]
+        [TestCase(PitcherRole.Swingman, "불펜")]
+        [TestCase(PitcherRole.LongRelief, "불펜")]
+        [TestCase(PitcherRole.MiddleRelief, "불펜")]
+        [TestCase(PitcherRole.Setup, "셋업")]
+        [TestCase(PitcherRole.Closer, "마무리")]
+        public void 경기결과투수보직은네가지표시범주로정리한다(PitcherRole role, string expected)
+        {
+            MethodInfo method = typeof(UI_Scene_OwnerMatchSpectator).GetMethod(
+                "FormatPitcherRole",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null);
+            Assert.That(method.Invoke(null, new object[] { role }), Is.EqualTo(expected));
         }
 
         [TestCase(Handedness.Right, Handedness.Right, false, false)]
@@ -85,6 +186,69 @@ namespace Baseball.Tests.EditMode.Presentation.Match
             var state = new OwnerMatchOverlayState(0, 10, false, OwnerMatchPlaybackSpeed.Normal, "안내", mode);
 
             Assert.That(state.ViewingMode, Is.EqualTo(mode));
+        }
+
+        [Test]
+        public void 중요순간은초반의평범한단타와삼진을제외한다()
+        {
+            MatchEvent[] events =
+            {
+                Event(0, MatchEventType.Pitch, 1, InningHalf.Top, outs: 0),
+                Event(1, MatchEventType.PlateAppearanceEnded, 1, InningHalf.Top,
+                    result: Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Single, outs: 0),
+                Event(2, MatchEventType.Pitch, 1, InningHalf.Top, outs: 0),
+                Event(3, MatchEventType.PlateAppearanceEnded, 1, InningHalf.Top,
+                    result: Baseball.Simulation.PlateAppearance.PlateAppearanceResult.Strikeout, outs: 1),
+                Event(4, MatchEventType.HalfInningEnded, 1, InningHalf.Top, outs: 3),
+                Event(5, MatchEventType.Pitch, 9, InningHalf.Bottom, outs: 2, awayScore: 3, homeScore: 3),
+                Event(6, MatchEventType.PlateAppearanceEnded, 9, InningHalf.Bottom,
+                    result: Baseball.Simulation.PlateAppearance.PlateAppearanceResult.GroundOut,
+                    outs: 3, awayScore: 3, homeScore: 3),
+                Event(7, MatchEventType.HalfInningEnded, 9, InningHalf.Bottom,
+                    outs: 3, awayScore: 3, homeScore: 3),
+                Event(8, MatchEventType.MatchEndedAsDraw, 9, InningHalf.Bottom,
+                    awayScore: 3, homeScore: 3)
+            };
+
+            OwnerMatchHighlightSegment[] highlights = OwnerMatchHighlightSelector.Select(
+                events,
+                new MatchGameCastConfig());
+
+            Assert.That(highlights.Select(value => value.EndEventIndex), Is.EqualTo(new[] { 6, 8 }));
+        }
+
+        [Test]
+        public void 중요순간은승부처표식부터역전타석끝까지한장면으로묶는다()
+        {
+            MatchEvent[] events =
+            {
+                Event(0, MatchEventType.RunnerAdvance, 8, InningHalf.Bottom,
+                    playerId: 31, fromBase: 0, toBase: 1, outs: 1, awayScore: 4, homeScore: 3),
+                Event(1, MatchEventType.HighLeverageSituationStarted, 8, InningHalf.Bottom,
+                    awayScore: 4, homeScore: 3),
+                Event(2, MatchEventType.Pitch, 8, InningHalf.Bottom,
+                    outs: 1, awayScore: 4, homeScore: 3),
+                Event(3, MatchEventType.RunnerAdvance, 8, InningHalf.Bottom,
+                    playerId: 31, fromBase: 1, toBase: 4, outs: 1, awayScore: 4, homeScore: 4),
+                Event(4, MatchEventType.Score, 8, InningHalf.Bottom,
+                    playerId: 31, fromBase: 1, toBase: 4, outs: 1, awayScore: 4, homeScore: 4),
+                Event(5, MatchEventType.RunnerAdvance, 8, InningHalf.Bottom,
+                    playerId: 11, fromBase: 0, toBase: 4, outs: 1, awayScore: 4, homeScore: 5),
+                Event(6, MatchEventType.Score, 8, InningHalf.Bottom,
+                    playerId: 11, fromBase: 0, toBase: 4, outs: 1, awayScore: 4, homeScore: 5),
+                Event(7, MatchEventType.PlateAppearanceEnded, 8, InningHalf.Bottom,
+                    result: Baseball.Simulation.PlateAppearance.PlateAppearanceResult.HomeRun,
+                    outs: 1, awayScore: 4, homeScore: 5),
+                Event(8, MatchEventType.MatchEnded, 9, InningHalf.Bottom,
+                    awayScore: 4, homeScore: 5)
+            };
+
+            OwnerMatchHighlightSegment[] highlights = OwnerMatchHighlightSelector.Select(
+                events,
+                new MatchGameCastConfig());
+
+            Assert.That(highlights[0].StartEventIndex, Is.EqualTo(1));
+            Assert.That(highlights[0].EndEventIndex, Is.EqualTo(7));
         }
 
         [Test]
@@ -136,6 +300,38 @@ namespace Baseball.Tests.EditMode.Presentation.Match
             Assert.That(
                 OwnerMatchSpectatorSession.FormatTeamDisplayName(teamName, isPlayerTeam),
                 Is.EqualTo(expected));
+        }
+
+        private static MatchEvent Event(
+            int sequence,
+            MatchEventType type,
+            int inning,
+            InningHalf half,
+            Baseball.Simulation.PlateAppearance.PlateAppearanceResult result = default,
+            int playerId = 11,
+            int fromBase = 0,
+            int toBase = 0,
+            int outs = 0,
+            int awayScore = 0,
+            int homeScore = 0)
+        {
+            return new MatchEvent(
+                sequence,
+                type,
+                inning,
+                half,
+                11,
+                21,
+                playerId,
+                PitchResult.None,
+                result,
+                fromBase,
+                toBase,
+                0,
+                0,
+                outs,
+                awayScore,
+                homeScore);
         }
     }
 }
