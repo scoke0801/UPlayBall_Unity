@@ -60,7 +60,8 @@ namespace Baseball.Game.Shop
                     card.Name,
                     DescribeTier(card.TacticTier),
                     isNew,
-                    DescribeArtworkKey(card.Category));
+                    DescribeArtworkKey(card.Category),
+                    DescribeTierIntensity(card.TacticTier));
             }
             return ShopFulfillmentResult.Success(items);
         }
@@ -100,6 +101,18 @@ namespace Baseball.Game.Shop
                 case TacticCardCategory.Analysis:
                 case TacticCardCategory.Common: return "tactic-common";
                 default: throw new ArgumentOutOfRangeException(nameof(category));
+            }
+        }
+
+        private static ShopRevealIntensity DescribeTierIntensity(TacticTier tier)
+        {
+            switch (tier)
+            {
+                case TacticTier.Normal: return ShopRevealIntensity.Standard;
+                case TacticTier.Rare: return ShopRevealIntensity.Notable;
+                case TacticTier.Special: return ShopRevealIntensity.Rare;
+                case TacticTier.Signature: return ShopRevealIntensity.Exceptional;
+                default: throw new ArgumentOutOfRangeException(nameof(tier));
             }
         }
     }

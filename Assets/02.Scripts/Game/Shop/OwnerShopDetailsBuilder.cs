@@ -83,7 +83,10 @@ namespace Baseball.Game.Shop
             }
             return new ShopProductDetails(
                 product.ProductId,
-                "현재 월드 카드 후보에서 Cost와 Edition을 함께 판정해 선수 카드 1장을 영입합니다.",
+                string.Concat(
+                    "현재 월드 카드 후보에서 Cost와 Edition을 함께 판정해 선수 카드 ",
+                    product.DrawCount.ToString(),
+                    "장을 영입합니다."),
                 probabilities,
                 string.Concat(
                     "각 결합 확률은 후보가 실제로 존재하는 Bucket만 재정규화한 값입니다. ",
@@ -109,7 +112,10 @@ namespace Baseball.Game.Shop
                 product.ProductId,
                 product.DrawCount == 1
                     ? "선택한 보장 등급을 기준으로 스킬 블록 1개를 획득합니다."
-                    : "같은 공개 확률로 스킬 블록 5개를 한 번에 획득합니다.",
+                    : string.Concat(
+                        "같은 공개 확률로 스킬 블록 ",
+                        product.DrawCount.ToString(),
+                        "개를 한 번에 획득합니다."),
                 probabilities,
                 "표시 확률은 각 뽑기의 등급 확률입니다. 획득한 블록은 카드훈련의 스킬 보드 인벤토리에 보관됩니다.");
         }
@@ -131,8 +137,14 @@ namespace Baseball.Game.Shop
             return new ShopProductDetails(
                 product.ProductId,
                 pool.CategoryFilter.HasValue
-                    ? "선택한 계열에서 경기 작전에 사용할 카드 1장을 연구합니다."
-                    : "공격·투수·분석·공용 계열에서 작전 카드 1장을 연구합니다.",
+                    ? string.Concat(
+                        "선택한 계열에서 경기 작전에 사용할 카드 ",
+                        product.DrawCount.ToString(),
+                        "장을 연구합니다.")
+                    : string.Concat(
+                        "공격·투수·분석·공용 계열에서 작전 카드 ",
+                        product.DrawCount.ToString(),
+                        "장을 연구합니다."),
                 probabilities,
                 "후보가 없는 등급을 제외한 실제 재정규화 확률입니다. Signature 작전은 업적 해금 전용이라 상점에서 나오지 않습니다.");
         }

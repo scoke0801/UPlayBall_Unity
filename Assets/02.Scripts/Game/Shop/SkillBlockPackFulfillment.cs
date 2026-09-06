@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
 using Baseball.Core.Shop;
@@ -92,25 +93,25 @@ namespace Baseball.Game.Shop
             for (int index = 0; index < pulled.Length; index++)
             {
                 SkillBlockInstance instance = pulled[index];
-                SkillBlockRarity rarity = FindRarity(instance.DefinitionId);
+                SkillBlockDefinition definition = FindDefinition(instance.DefinitionId);
                 items[index] = new ShopGrantedItem(
                     instance.DefinitionId,
-                    instance.DefinitionId,
-                    DescribeRarity(rarity),
+                    SkillBlockShopText.DescribeAbilityBonuses(definition),
+                    DescribeRarity(definition.Rarity),
                     // 스킬 블록은 같은 정의를 여러 개 보유할 수 있어 중복 개념이 없다. 항상 새 블록이다.
                     true);
             }
             return items;
         }
 
-        private SkillBlockRarity FindRarity(string definitionId)
+        private SkillBlockDefinition FindDefinition(string definitionId)
         {
             for (int index = 0; index < _definitions.Count; index++)
             {
                 if (string.Equals(_definitions[index].BlockId, definitionId, StringComparison.Ordinal))
-                    return _definitions[index].Rarity;
+                    return _definitions[index];
             }
-            return SkillBlockRarity.Normal;
+            throw new InvalidOperationException("지급된 스킬 블록 정의를 찾을 수 없습니다.");
         }
 
         private static string DescribeRarity(SkillBlockRarity rarity)
@@ -169,9 +170,10 @@ namespace Baseball.Game.Shop
                 SkillBlockDefinition definition = FindDefinition(blocks[index].DefinitionId);
                 items[index] = new ShopGrantedItem(
                     blocks[index].DefinitionId,
-                    blocks[index].DefinitionId,
-                    definition.Rarity.ToString(),
-                    true);
+                    SkillBlockShopText.DescribeAbilityBonuses(definition),
+                    DescribeRarity(definition.Rarity),
+                    true,
+                    primaryIntensity: DescribeRarityIntensity(definition.Rarity));
             }
             return ShopFulfillmentResult.Success(items);
         }
@@ -181,6 +183,98 @@ namespace Baseball.Game.Shop
             for (int index = 0; index < _definitions.Length; index++)
                 if (string.Equals(_definitions[index].BlockId, definitionId, StringComparison.Ordinal)) return _definitions[index];
             throw new InvalidOperationException("지급된 스킬 블록 정의를 찾을 수 없습니다.");
+        }
+
+        private static string DescribeRarity(SkillBlockRarity rarity)
+        {
+            switch (rarity)
+            {
+                case SkillBlockRarity.Normal: return "일반";
+                case SkillBlockRarity.Rare: return "희귀";
+                case SkillBlockRarity.Elite: return "정예";
+                case SkillBlockRarity.Unique: return "고유";
+                case SkillBlockRarity.Legendary: return "전설";
+                default: throw new ArgumentOutOfRangeException(nameof(rarity));
+            }
+        }
+
+        private static ShopRevealIntensity DescribeRarityIntensity(SkillBlockRarity rarity)
+        {
+            switch (rarity)
+            {
+                case SkillBlockRarity.Normal: return ShopRevealIntensity.Standard;
+                case SkillBlockRarity.Rare: return ShopRevealIntensity.Notable;
+                case SkillBlockRarity.Elite: return ShopRevealIntensity.Rare;
+                case SkillBlockRarity.Unique:
+                case SkillBlockRarity.Legendary: return ShopRevealIntensity.Exceptional;
+                default: throw new ArgumentOutOfRangeException(nameof(rarity));
+            }
+        }
+    }
+
+    /// <summary>내부 스킬 블록 ID를 노출하지 않고 실제 보너스를 한국어 능력치명으로 표시한다.</summary>
+    internal static class SkillBlockShopText
+    {
+        public static string DescribeAbilityBonuses(SkillBlockDefinition definition)
+        {
+            if (definition == null)
+                throw new ArgumentNullException(nameof(definition));
+            AbilityChange[] bonuses = definition.AbilityBonuses;
+            if (bonuses.Length == 0)
+                return DescribeCategory(definition.Category);
+
+            var builder = new StringBuilder(24);
+            for (int index = 0; index < bonuses.Length; index++)
+            {
+                if (index > 0)
+                    builder.Append(" · ");
+                builder.Append(DescribeAbility(bonuses[index].Ability));
+                builder.Append(' ');
+                if (bonuses[index].Amount > 0)
+                    builder.Append('+');
+                builder.Append(bonuses[index].Amount);
+            }
+            return builder.ToString();
+        }
+
+        private static string DescribeCategory(SkillBlockCategory category)
+        {
+            return category switch
+            {
+                SkillBlockCategory.Contact => "교타력",
+                SkillBlockCategory.Power => "장타력",
+                SkillBlockCategory.Baserunning => "주력",
+                SkillBlockCategory.Defense => "수비력",
+                SkillBlockCategory.BatterMental => "정신력",
+                SkillBlockCategory.Velocity => "구속",
+                SkillBlockCategory.Control => "제구력",
+                SkillBlockCategory.Breaking => "변화구",
+                SkillBlockCategory.PitcherPhysical => "체력",
+                SkillBlockCategory.PitcherMental => "위기관리",
+                SkillBlockCategory.Arm => "송구",
+                SkillBlockCategory.Stuff => "구위",
+                _ => throw new ArgumentOutOfRangeException(nameof(category))
+            };
+        }
+
+        private static string DescribeAbility(PlayerAbility ability)
+        {
+            return ability switch
+            {
+                PlayerAbility.Contact => "교타력",
+                PlayerAbility.Power => "장타력",
+                PlayerAbility.Speed => "주력",
+                PlayerAbility.Arm => "송구",
+                PlayerAbility.Defense => "수비력",
+                PlayerAbility.BatterMental => "정신력",
+                PlayerAbility.Stamina => "체력",
+                PlayerAbility.Velocity => "구속",
+                PlayerAbility.Stuff => "구위",
+                PlayerAbility.Breaking => "변화구",
+                PlayerAbility.Control => "제구력",
+                PlayerAbility.PitcherMental => "위기관리",
+                _ => throw new ArgumentOutOfRangeException(nameof(ability))
+            };
         }
     }
 }

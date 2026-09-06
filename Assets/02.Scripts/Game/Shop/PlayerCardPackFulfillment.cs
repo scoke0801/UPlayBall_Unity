@@ -64,13 +64,16 @@ namespace Baseball.Game.Shop
             for (int index = 0; index < product.DrawCount; index++)
             {
                 PlayerCardDefinition card = _roller.Roll(pool, runtime.WorldCardCatalog, _featurePolicy, random);
+                PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
                 bool isNew = runtime.AcquireCard(card.CardId);
                 runtime.Economy.AddPityGauge(_pityBalance.GaugeGainPerScout, _pityBalance.Threshold);
                 items[index] = new ShopGrantedItem(
                     card.CardId,
-                    DescribeCard(runtime, card),
+                    DescribeCard(season),
                     DescribeEdition(card.Edition),
-                    isNew);
+                    isNew,
+                    primaryIntensity: DescribeCostIntensity(season.Cost),
+                    secondaryIntensity: DescribeEditionIntensity(card.Edition));
             }
             return ShopFulfillmentResult.Success(items);
         }
@@ -89,9 +92,8 @@ namespace Baseball.Game.Shop
             return false;
         }
 
-        private string DescribeCard(ManagerHistoricalRuntimeState runtime, PlayerCardDefinition card)
+        private string DescribeCard(PlayerSeasonDefinition season)
         {
-            PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
             string name = _playerNameResolver == null
                 ? season.PlayerPersonId
                 : _playerNameResolver(season.PlayerPersonId);
@@ -106,6 +108,26 @@ namespace Baseball.Game.Shop
                 case PlayerCardEdition.AllStar: return "올스타";
                 case PlayerCardEdition.GoldenGlove: return "골든글러브";
                 case PlayerCardEdition.Mvp: return "MVP";
+                default: throw new ArgumentOutOfRangeException(nameof(edition));
+            }
+        }
+
+        private static ShopRevealIntensity DescribeCostIntensity(int cost)
+        {
+            if (cost >= 9) return ShopRevealIntensity.Exceptional;
+            if (cost >= 7) return ShopRevealIntensity.Rare;
+            if (cost >= 4) return ShopRevealIntensity.Notable;
+            return ShopRevealIntensity.Standard;
+        }
+
+        private static ShopRevealIntensity DescribeEditionIntensity(PlayerCardEdition edition)
+        {
+            switch (edition)
+            {
+                case PlayerCardEdition.Normal: return ShopRevealIntensity.Standard;
+                case PlayerCardEdition.AllStar: return ShopRevealIntensity.Notable;
+                case PlayerCardEdition.GoldenGlove: return ShopRevealIntensity.Rare;
+                case PlayerCardEdition.Mvp: return ShopRevealIntensity.Exceptional;
                 default: throw new ArgumentOutOfRangeException(nameof(edition));
             }
         }

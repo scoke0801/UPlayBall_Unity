@@ -16,6 +16,7 @@ namespace Baseball.Game.Shop
         private readonly Dictionary<ShopProductKind, IShopProductFulfillment> _fulfillments;
         private readonly ShopPurchaseHistoryState _history;
         private readonly Dictionary<string, ShopProductDetails> _detailsByProductId;
+        private readonly ShopProgressDetails _progress;
 
         public ShopService(
             ShopCatalog catalog,
@@ -23,12 +24,14 @@ namespace Baseball.Game.Shop
             IShopWallet wallet,
             IReadOnlyList<IShopProductFulfillment> fulfillments,
             ShopPurchaseHistoryState history,
-            IReadOnlyList<ShopProductDetails> details = null)
+            IReadOnlyList<ShopProductDetails> details = null,
+            ShopProgressDetails? progress = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _availability = availability ?? throw new ArgumentNullException(nameof(availability));
             _wallet = wallet ?? throw new ArgumentNullException(nameof(wallet));
             _history = history ?? throw new ArgumentNullException(nameof(history));
+            _progress = progress ?? new ShopProgressDetails(0, 100);
             if (fulfillments == null)
                 throw new ArgumentNullException(nameof(fulfillments));
 
@@ -60,6 +63,7 @@ namespace Baseball.Game.Shop
         public ShopCatalog Catalog => _catalog;
         public ShopAvailabilityTable Availability => _availability;
         public ShopPurchaseHistoryState History => _history;
+        public ShopProgressDetails Progress => _progress;
 
         public ShopWalletBalance GetBalance() => _wallet.GetBalance();
 
