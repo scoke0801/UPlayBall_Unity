@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>현재 시즌 리그 전체 선수 기록을 부문 탭과 공용 가상화 기록표로 표시하는 읽기 전용 화면이다.</summary>
+    /// <summary>현재·완료 시즌의 선수 기록을 시즌 선택과 부문 탭, 공용 기록표로 표시한다.</summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RectTransform))]
     public sealed class UI_Scene_OwnerSeasonRecords : MonoBehaviour
@@ -15,6 +15,9 @@ namespace Baseball.Presentation.Owner
 
         private Text _title;
         private Text _context;
+        private Button _previousSeason;
+        private Button _nextSeason;
+        private Action<int> _selectSeason;
         private readonly Button[] _categoryButtons = new Button[MaxCategoryButtons];
         private readonly Text[] _categoryLabels = new Text[MaxCategoryButtons];
         private RecordTableView _table;
@@ -31,9 +34,10 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>Game 레이어가 확정한 네 부문 기록으로 화면을 교체한다.</summary>
-        public void Bind(OwnerSeasonRecordsPresentationModel model)
+        public void Bind(OwnerSeasonRecordsPresentationModel model, Action<int> selectSeason = null)
         {
             _model = model ?? throw new ArgumentNullException(nameof(model));
+            _selectSeason = selectSeason;
             EnsureHierarchy();
             if (_categoryIndex >= _model.Categories.Count)
                 _categoryIndex = 0;
@@ -53,6 +57,9 @@ namespace Baseball.Presentation.Owner
 
         private void OnDestroy()
         {
+            _selectSeason = null;
+            if (_previousSeason != null) _previousSeason.onClick.RemoveAllListeners();
+            if (_nextSeason != null) _nextSeason.onClick.RemoveAllListeners();
             for (int index = 0; index < _categoryButtons.Length; index++)
                 if (_categoryButtons[index] != null)
                     _categoryButtons[index].onClick.RemoveAllListeners();
@@ -66,6 +73,13 @@ namespace Baseball.Presentation.Owner
             Render();
         }
 
+        private void SelectSeason(int direction)
+        {
+            if (_model == null || _selectSeason == null) return;
+            int index = _model.SelectedSeasonIndex + direction;
+            if (index >= 0 && index < _model.SeasonNumbers.Count) _selectSeason(_model.SeasonNumbers[index]);
+        }
+
         private void Render()
         {
             if (_model == null)
@@ -74,6 +88,11 @@ namespace Baseball.Presentation.Owner
             OwnerSeasonRecordsCategoryModel category = _model.Categories[_categoryIndex];
             _title.text = string.Concat(_model.SeasonLabel, " · ", category.DisplayName, " 기록");
             _context.text = string.Concat(_model.LeagueLabel, " · 정규시즌 · ", category.QualificationText);
+            bool canSelectSeason = _selectSeason != null && _model.SeasonNumbers.Count > 1;
+            _previousSeason.gameObject.SetActive(canSelectSeason);
+            _nextSeason.gameObject.SetActive(canSelectSeason);
+            _previousSeason.interactable = _model.SelectedSeasonIndex + 1 < _model.SeasonNumbers.Count;
+            _nextSeason.interactable = _model.SelectedSeasonIndex > 0;
 
             for (int index = 0; index < _categoryButtons.Length; index++)
             {
@@ -119,7 +138,7 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.SetAnchors(
                 _title.rectTransform,
                 new Vector2(0f, 0.55f),
-                Vector2.one,
+                new Vector2(0.7f, 1f),
                 new Vector2(14f, 0f),
                 new Vector2(-14f, 0f));
             _context = OwnerRuntimeUiFactory.CreateText(
@@ -128,9 +147,20 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.SetAnchors(
                 _context.rectTransform,
                 Vector2.zero,
-                new Vector2(1f, 0.55f),
+                new Vector2(0.7f, 0.55f),
                 new Vector2(14f, 0f),
                 new Vector2(-14f, 0f));
+
+            _previousSeason = OwnerRuntimeUiFactory.CreateButton(
+                "PreviousSeason", header.Content, "이전 시즌", CareerUiTheme.SecondaryAction);
+            OwnerRuntimeUiFactory.SetAnchors(_previousSeason.GetComponent<RectTransform>(),
+                new Vector2(0.7f, 0.2f), new Vector2(0.85f, 0.8f), new Vector2(4f, 0f), new Vector2(-4f, 0f));
+            _previousSeason.onClick.AddListener(() => SelectSeason(1));
+            _nextSeason = OwnerRuntimeUiFactory.CreateButton(
+                "NextSeason", header.Content, "다음 시즌", CareerUiTheme.SecondaryAction);
+            OwnerRuntimeUiFactory.SetAnchors(_nextSeason.GetComponent<RectTransform>(),
+                new Vector2(0.85f, 0.2f), new Vector2(1f, 0.8f), new Vector2(4f, 0f), new Vector2(-14f, 0f));
+            _nextSeason.onClick.AddListener(() => SelectSeason(-1));
 
             RectTransform categoryBar = OwnerRuntimeUiFactory.CreateRect("CategoryBar", root);
             OwnerRuntimeUiFactory.SetAnchors(

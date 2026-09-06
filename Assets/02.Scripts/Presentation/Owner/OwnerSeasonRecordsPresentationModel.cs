@@ -41,11 +41,14 @@ namespace Baseball.Presentation.Owner
     {
         private readonly OwnerSeasonRecordsCategoryModel[] _categories;
 
-        public OwnerSeasonRecordsPresentationModel(OwnerSeasonRecordsView view)
+        public OwnerSeasonRecordsPresentationModel(
+            OwnerSeasonRecordsView view, int[] seasonNumbers = null, int selectedSeasonIndex = 0)
         {
             if (view == null) throw new ArgumentNullException(nameof(view));
             SeasonLabel = view.SeasonLabel;
             LeagueLabel = view.LeagueLabel;
+            SeasonNumbers = Array.AsReadOnly(seasonNumbers == null ? Array.Empty<int>() : (int[])seasonNumbers.Clone());
+            SelectedSeasonIndex = selectedSeasonIndex;
             _categories = new OwnerSeasonRecordsCategoryModel[view.Categories.Count];
             for (int index = 0; index < _categories.Length; index++)
             {
@@ -73,6 +76,8 @@ namespace Baseball.Presentation.Owner
 
         public string SeasonLabel { get; }
         public string LeagueLabel { get; }
+        public IReadOnlyList<int> SeasonNumbers { get; }
+        public int SelectedSeasonIndex { get; }
         public IReadOnlyList<OwnerSeasonRecordsCategoryModel> Categories => _categories;
     }
 }

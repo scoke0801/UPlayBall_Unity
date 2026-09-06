@@ -122,7 +122,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             }
 
             return new OwnerSeasonRecordsPresentationModel(
-                new OwnerSeasonRecordsView("2028 시즌 1년차", "Rookie", 2, hasRecord, categories));
+                new OwnerSeasonRecordsView("2028 시즌 1년차", "루키 리그", 2, hasRecord, categories));
         }
 
         private static CareerRecordLeaderboardRow CreateRow(

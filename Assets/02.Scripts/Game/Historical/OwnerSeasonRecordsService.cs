@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Baseball.Game.Career;
+using Baseball.Core.Historical;
 
 namespace Baseball.Game.Historical
 {
@@ -76,7 +77,8 @@ namespace Baseball.Game.Historical
         public OwnerSeasonRecordsView Build(
             ManagerHistoricalRuntimeState runtime,
             Func<string, string> getTeamDisplayName,
-            int limit = LeagueLeaderboardService.DefaultLeaderboardLimit)
+            int limit = LeagueLeaderboardService.DefaultLeaderboardLimit,
+            int? seasonNumber = null)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
             if (getTeamDisplayName == null) throw new ArgumentNullException(nameof(getTeamDisplayName));
@@ -84,6 +86,13 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException("ManagerMode 상태가 없는 Runtime은 기록을 만들 수 없습니다.");
 
             ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
+            LeagueGrade grade = runtime.League.Grade;
+            if (seasonNumber.HasValue && seasonNumber.Value != season.SeasonNumber)
+            {
+                ManagerCompletedSeasonState completed = FindCompletedSeason(runtime.ManagerMode, seasonNumber.Value);
+                season = completed.Season;
+                grade = completed.LeagueGrade;
+            }
             CompetitionStatisticsState competition = season.Statistics.RegularSeason;
             int playerTeamId = season.PlayerTeamId;
 
@@ -103,11 +112,33 @@ namespace Baseball.Game.Historical
             return new OwnerSeasonRecordsView(
                 season.OriginYear.ToString(CultureInfo.InvariantCulture) + " 시즌 " +
                 season.SeasonNumber.ToString(CultureInfo.InvariantCulture) + "년차",
-                runtime.League.Grade.ToString(),
+                FormatLeagueName(grade),
                 playerTeamId,
                 competition.Players.Count > 0,
                 categories);
         }
+
+        private static ManagerCompletedSeasonState FindCompletedSeason(ManagerModeRuntimeState mode, int seasonNumber)
+        {
+            for (int index = 0; index < mode.CompletedSeasons.Count; index++)
+                if (mode.CompletedSeasons[index].Season.SeasonNumber == seasonNumber) return mode.CompletedSeasons[index];
+            throw new ArgumentException("저장된 기록이 없는 시즌입니다.", nameof(seasonNumber));
+        }
+
+        private static string FormatLeagueName(LeagueGrade grade) => grade switch
+        {
+            LeagueGrade.Rookie => "루키 리그",
+            LeagueGrade.Minor => "마이너 리그",
+            LeagueGrade.Major => "메이저 리그",
+            LeagueGrade.World => "월드 리그",
+            LeagueGrade.AllStar => "올스타 리그",
+            LeagueGrade.Classic => "클래식 리그",
+            LeagueGrade.Winners => "위너스 리그",
+            LeagueGrade.Champion => "챔피언 리그",
+            LeagueGrade.Master => "마스터 리그",
+            LeagueGrade.Galaxy => "갤럭시 리그",
+            _ => "리그 정보 없음"
+        };
 
         private static OwnerSeasonRecordsCategoryView BuildCategory(
             ManagerLiveSeasonState season,
