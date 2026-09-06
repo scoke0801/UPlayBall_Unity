@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Game.Career;
 using Baseball.Game.Data;
@@ -106,6 +107,27 @@ namespace Baseball.Game.Guide
             _guide.RepeatState.Restore(state);
         }
 
+        /// <summary>구단주 UI 진입처럼 Presentation 경계에서 확정되는 단순 Fact를 안정된 Save identity로 발행한다.</summary>
+        public GuideEnqueueResult PublishOwnerFact(string factType, string eventId)
+        {
+            return PublishOwnerFact(factType, eventId, null);
+        }
+
+        public GuideEnqueueResult PublishOwnerFact(
+            string factType,
+            string eventId,
+            IReadOnlyDictionary<string, string> payload)
+        {
+            if (_ownerModeManager == null || !_ownerModeManager.HasActiveRuntime)
+                return new GuideEnqueueResult(0, 0, "활성 구단주 Runtime이 없습니다.");
+            ManagerHistoricalRuntimeState runtime = _ownerModeManager.Runtime;
+            return Publish(new GuideFact(
+                GuideModeScope.Owner,
+                factType,
+                CreateOwnerIdentity(runtime, eventId),
+                payload));
+        }
+
         private void HandleCareerChanged()
         {
             if (_guide == null || _careerManager == null || !_careerManager.HasActiveCareer)
@@ -163,6 +185,11 @@ namespace Baseball.Game.Guide
                 ClearPendingIfNeeded();
                 _observedOwnerRuntime = runtime;
                 _publishedOwnerRosterRevision = UnknownRosterRevision;
+                Publish(new GuideFactBuilder(
+                        GuideModeScope.Owner,
+                        "OwnerModeFirstEntry",
+                        CreateOwnerIdentity(runtime, $"owner-first-entry:{runtime.PlayerTeamSeasonKey}"))
+                    .Build());
             }
 
             CurrentRosterState roster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);

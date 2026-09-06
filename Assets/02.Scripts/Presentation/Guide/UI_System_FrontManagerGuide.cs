@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using Baseball.Game.Career;
 using Baseball.Game.Guide;
+using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Presentation.Career;
 using Baseball.Presentation.Owner;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -152,7 +154,10 @@ namespace Baseball.Presentation.Guide
             _overlay.raycastTarget = BlocksLowerInput;
             _messageText.text = message.Text;
 
-            Sprite sprite = Resources.Load<Sprite>("FrontManager/" + message.ExpressionAssetKey);
+            string expressionAssetKey = ResolveExpressionAssetKey(message.ExpressionAssetKey);
+            Sprite sprite = FrontManagerPortraitSprites.Load(
+                expressionAssetKey,
+                message.ExpressionAssetKey);
             _portrait.sprite = sprite;
             _portrait.color = sprite != null ? Color.white : GetExpressionColor(message.Expression);
             _expressionFallback.gameObject.SetActive(sprite == null);
@@ -167,6 +172,19 @@ namespace Baseball.Presentation.Guide
             _dismissLabel.text = message.RequiresAcknowledgement ? "확인" : "×";
             ConfigureLayout(message.PresentationType);
             _remainingAutoDismiss = message.RequiresAcknowledgement ? 0f : message.AutoDismissSeconds;
+        }
+
+        private static string ResolveExpressionAssetKey(string legacyKey)
+        {
+            OwnerModeManager manager = OwnerModeManager.Instance;
+            if (manager == null || !manager.HasActiveRuntime || string.IsNullOrWhiteSpace(legacyKey))
+                return legacyKey;
+            string prefix = manager.Runtime.OwnerProfile.FrontManagerId == FrontManagerIds.DefaultTest
+                ? "FM_02_"
+                : "FM_01_";
+            return legacyKey.StartsWith("FM_", StringComparison.Ordinal)
+                ? prefix + legacyKey.Substring(3)
+                : legacyKey;
         }
 
         private void HandleCta()

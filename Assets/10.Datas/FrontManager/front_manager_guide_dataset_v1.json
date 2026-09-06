@@ -615,19 +615,19 @@
           "variationId": "TUTORIAL_OWNER_FIRST_ENTRY_A",
           "weight": 40,
           "tone": "Welcome",
-          "text": "처음 뵙겠습니다. 구단 운영에 필요한 변화와 중요한 소식은 제가 정리해서 알려드리겠습니다. 우선 선수단부터 확인해 보죠."
+          "text": "처음 뵙겠습니다. 우선 선수단 화면에서 제가 배정한 주전 9명과 벤치 5명, 선발 5명, 불펜 4명, 셋업·마무리를 함께 확인해 보죠."
         },
         {
           "variationId": "TUTORIAL_OWNER_FIRST_ENTRY_B",
           "weight": 35,
           "tone": "Friendly",
-          "text": "구단 운영을 시작하셨군요. 모든 메뉴를 한 번에 익히실 필요는 없습니다. 먼저 1군 구성을 확인해 보겠습니다."
+          "text": "구단 운영을 시작하셨군요. 메인 카드와 자동 보충 선수는 이미 25인 역할에 배정했습니다. 먼저 1군 구성과 각 선수의 역할을 확인하겠습니다."
         },
         {
           "variationId": "TUTORIAL_OWNER_FIRST_ENTRY_C",
           "weight": 25,
           "tone": "Calm",
-          "text": "앞으로 일정, 선수단, 스카우트, 계약과 주요 기록을 필요한 순간에 안내드리겠습니다. 첫 단계는 현재 선수단 확인입니다."
+          "text": "앞으로 일정과 선수단 운영을 필요한 순간에 안내드리겠습니다. 첫 단계로 선발 라인업·로테이션·불펜 배정이 적절한지 선수단에서 확인해 주세요."
         }
       ],
       "tags": [
@@ -4842,9 +4842,87 @@
         "News",
         "Season"
       ]
+    },
+    {
+      "cueId": "CARD_STUDY_SLOT_AVAILABLE", "factType": "CardStudySlotAvailable", "modeScope": "Owner",
+      "priority": "Normal", "presentationType": "ContextBubble", "expressionKey": "Analysis",
+      "requiredPayload": [],
+      "repeatPolicy": { "dedupeKeyTemplate": "CARD_STUDY_SLOT_AVAILABLE:{seasonId}:{eventId}", "cooldownScope": "Event", "maxDisplaysPerScope": 1 },
+      "cta": { "action": "OpenCardTraining", "label": "유학 선수 선택" }, "requiresAcknowledgement": false,
+      "variations": [
+        { "variationId": "CARD_STUDY_SLOT_AVAILABLE_A", "weight": 40, "tone": "Analysis", "text": "TrainingCenter 유학 정원에 빈자리가 있습니다. 1군 밖 보유 카드를 보낼 수 있습니다." },
+        { "variationId": "CARD_STUDY_SLOT_AVAILABLE_B", "weight": 35, "tone": "Friendly", "text": "유학을 시작할 수 있는 슬롯이 남아 있습니다. 장기 육성할 카드를 골라 보세요." },
+        { "variationId": "CARD_STUDY_SLOT_AVAILABLE_C", "weight": 25, "tone": "Calm", "text": "현재 유학 정원에 여유가 있습니다. 출전시키지 않을 카드의 성장 기회입니다." }
+      ], "tags": ["Card", "Study"]
+    },
+    {
+      "cueId": "CARD_TRAINING_COMPLETED", "factType": "CardTrainingCompleted", "modeScope": "Owner",
+      "priority": "Normal", "presentationType": "Toast", "expressionKey": "Celebrate",
+      "requiredPayload": ["cardId", "ability", "gained"],
+      "repeatPolicy": { "dedupeKeyTemplate": "CARD_TRAINING_COMPLETED:{cardId}:{eventId}", "cooldownScope": "Event", "maxDisplaysPerScope": 1 },
+      "cta": { "action": "OpenCardTraining", "label": "성장 결과" }, "requiresAcknowledgement": false,
+      "variations": [
+        { "variationId": "CARD_TRAINING_COMPLETED_A", "weight": 40, "tone": "Celebrate", "text": "훈련이 반영됐습니다. {ability}이(가) {gained} 올랐습니다." },
+        { "variationId": "CARD_TRAINING_COMPLETED_B", "weight": 35, "tone": "Analysis", "text": "카드 훈련 완료: {ability} +{gained}. 다음 투자 전 남은 상한을 확인하세요." },
+        { "variationId": "CARD_TRAINING_COMPLETED_C", "weight": 25, "tone": "Friendly", "text": "선수가 한 단계 성장했습니다. {ability} +{gained} 결과입니다." }
+      ], "tags": ["Card", "Training"]
+    },
+    {
+      "cueId": "CARD_STUDY_STARTED", "factType": "CardStudyStarted", "modeScope": "Owner",
+      "priority": "Normal", "presentationType": "Toast", "expressionKey": "Analysis",
+      "requiredPayload": ["cardId", "program"],
+      "repeatPolicy": { "dedupeKeyTemplate": "CARD_STUDY_STARTED:{cardId}:{seasonId}", "cooldownScope": "Season", "maxDisplaysPerScope": 1 },
+      "cta": { "action": "OpenCardTraining", "label": "유학 현황" }, "requiresAcknowledgement": false,
+      "variations": [
+        { "variationId": "CARD_STUDY_STARTED_A", "weight": 40, "tone": "Analysis", "text": "{program} 유학을 시작했습니다. 4주 동안 1군에 등록할 수 없습니다." },
+        { "variationId": "CARD_STUDY_STARTED_B", "weight": 35, "tone": "Calm", "text": "유학 일정이 확정됐습니다. 4주 뒤 성장 결과를 알려드리겠습니다." },
+        { "variationId": "CARD_STUDY_STARTED_C", "weight": 25, "tone": "Friendly", "text": "{program} 과정으로 출발했습니다. 남은 기간은 카드훈련 화면에서 확인할 수 있습니다." }
+      ], "tags": ["Card", "Study"]
+    },
+    {
+      "cueId": "CARD_STUDY_COMPLETED", "factType": "CardStudyCompleted", "modeScope": "Owner",
+      "priority": "High", "presentationType": "NotificationCard", "expressionKey": "Celebrate",
+      "requiredPayload": ["cardId"],
+      "repeatPolicy": { "dedupeKeyTemplate": "CARD_STUDY_COMPLETED:{cardId}:{eventId}", "cooldownScope": "Event", "maxDisplaysPerScope": 1 },
+      "cta": { "action": "OpenCardTraining", "label": "성장 결과" }, "requiresAcknowledgement": false,
+      "variations": [
+        { "variationId": "CARD_STUDY_COMPLETED_A", "weight": 40, "tone": "Celebrate", "text": "유학이 끝났습니다. 확정 성장량이 카드에 반영됐습니다." },
+        { "variationId": "CARD_STUDY_COMPLETED_B", "weight": 35, "tone": "Friendly", "text": "선수가 유학을 마치고 돌아왔습니다. 성장 결과를 확인해 보세요." },
+        { "variationId": "CARD_STUDY_COMPLETED_C", "weight": 25, "tone": "Analysis", "text": "4주 유학 과정이 완료됐습니다. TrainingCeiling 안에서 성장이 적용됐습니다." }
+      ], "tags": ["Card", "Study"]
+    },
+    {
+      "cueId": "SKILL_BLOCK_ACQUIRED", "factType": "SkillBlockAcquired", "modeScope": "Owner",
+      "priority": "Normal", "presentationType": "Toast", "expressionKey": "Surprised",
+      "requiredPayload": ["cardId", "definitionId", "rarity"],
+      "repeatPolicy": { "dedupeKeyTemplate": "SKILL_BLOCK_ACQUIRED:{definitionId}:{eventId}", "cooldownScope": "Event", "maxDisplaysPerScope": 1 },
+      "cta": { "action": "OpenCardTraining", "label": "블록 장착" }, "requiresAcknowledgement": false,
+      "variations": [
+        { "variationId": "SKILL_BLOCK_ACQUIRED_A", "weight": 40, "tone": "Surprised", "text": "{rarity} 스킬 블록을 획득했습니다. 카드 성장판에 장착할 수 있습니다." },
+        { "variationId": "SKILL_BLOCK_ACQUIRED_B", "weight": 35, "tone": "Analysis", "text": "새 스킬 블록이 공용 인벤토리에 들어왔습니다." },
+        { "variationId": "SKILL_BLOCK_ACQUIRED_C", "weight": 25, "tone": "Friendly", "text": "새 블록을 얻었습니다. 원하는 선수 카드의 빈 공간을 확인해 보세요." }
+      ], "tags": ["Card", "SkillBlock"]
+    },
+    {
+      "cueId": "SKILL_BOARD_TRAIT_ACTIVATED", "factType": "SkillBoardTraitActivated", "modeScope": "Owner",
+      "priority": "High", "presentationType": "Toast", "expressionKey": "Celebrate",
+      "requiredPayload": ["cardId", "traitId"],
+      "repeatPolicy": { "dedupeKeyTemplate": "SKILL_BOARD_TRAIT_ACTIVATED:{cardId}:{traitId}:{eventId}", "cooldownScope": "Event", "maxDisplaysPerScope": 1 },
+      "cta": { "action": "OpenCardTraining", "label": "Trait 확인" }, "requiresAcknowledgement": false,
+      "variations": [
+        { "variationId": "SKILL_BOARD_TRAIT_ACTIVATED_A", "weight": 40, "tone": "Celebrate", "text": "성장판 Trait이 활성화됐습니다: {traitId}." },
+        { "variationId": "SKILL_BOARD_TRAIT_ACTIVATED_B", "weight": 35, "tone": "Analysis", "text": "Trait Socket 조건을 만족해 {traitId} 효과가 경기 입력에 적용됩니다." },
+        { "variationId": "SKILL_BOARD_TRAIT_ACTIVATED_C", "weight": 25, "tone": "Friendly", "text": "블록 배치가 완성됐습니다. 새 Trait {traitId}이(가) 활성화됐습니다." }
+      ], "tags": ["Card", "SkillBlock", "Trait"]
     }
   ],
   "factTypeIndex": [
+    { "factType": "CardStudyCompleted", "requiredPayload": ["cardId"], "cueIds": ["CARD_STUDY_COMPLETED"], "modeScopes": ["Owner"] },
+    { "factType": "CardStudySlotAvailable", "requiredPayload": [], "cueIds": ["CARD_STUDY_SLOT_AVAILABLE"], "modeScopes": ["Owner"] },
+    { "factType": "CardStudyStarted", "requiredPayload": ["cardId", "program"], "cueIds": ["CARD_STUDY_STARTED"], "modeScopes": ["Owner"] },
+    { "factType": "CardTrainingCompleted", "requiredPayload": ["ability", "cardId", "gained"], "cueIds": ["CARD_TRAINING_COMPLETED"], "modeScopes": ["Owner"] },
+    { "factType": "SkillBlockAcquired", "requiredPayload": ["cardId", "definitionId", "rarity"], "cueIds": ["SKILL_BLOCK_ACQUIRED"], "modeScopes": ["Owner"] },
+    { "factType": "SkillBoardTraitActivated", "requiredPayload": ["cardId", "traitId"], "cueIds": ["SKILL_BOARD_TRAIT_ACTIVATED"], "modeScopes": ["Owner"] },
     {
       "factType": "AllStarGameMvpSelected",
       "requiredPayload": [
