@@ -402,7 +402,9 @@ namespace Baseball.Game.Career
                 currentBatterAttributes,
                 currentPitcherAttributes,
                 nationality: Nationality,
-                traitIds: traitIds);
+                traitIds: traitIds,
+                bakedPitcherAttributes: PitcherAttributes,
+                permanentPitcherAttributes: currentPitcherAttributes);
         }
 
         /// <summary>
@@ -440,6 +442,7 @@ namespace Baseball.Game.Career
                     : breakdown.RosterAbility;
             }
             var currentAbilities = new AbilityRatings(values);
+            PitcherAttributes permanentPitcherAttributes = GrowthState.BaseAbilities.ToPitcherAttributes();
             string[] traitIds = MergeTraitIds(
                 skillBoardService.GetActiveTraitIds(SkillBoardState),
                 GrowthState.LegacyTraitIds);
@@ -452,7 +455,9 @@ namespace Baseball.Game.Career
                 currentAbilities.ToBatterAttributes(),
                 currentAbilities.ToPitcherAttributes(),
                 nationality: Nationality,
-                traitIds: traitIds);
+                traitIds: traitIds,
+                bakedPitcherAttributes: PitcherAttributes,
+                permanentPitcherAttributes: permanentPitcherAttributes);
         }
 
         private static string[] MergeTraitIds(

@@ -38,17 +38,17 @@ namespace Baseball.Presentation.Career
                 new Vector2(310f, 50f), new Vector2(-800f, 5f), PrimaryTextColor);
             AddTextOutline(logo, new Color(0.05f, 0.34f, 0.62f, 0.9f), 1.5f);
             CreateText(
-                "LogoCaption", bar, "ULTIMATE BASEBALL", 9, FontStyle.Bold, TextAnchor.MiddleLeft,
+                "LogoCaption", bar, "최고의 야구 커리어", 9, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(230f, 18f), new Vector2(-796f, -23f), AccentColor);
 
-            string seasonLabel = growth.IsOffseason ? "OFF-SEASON" : GetSeasonPhaseLabel(dashboard.SeasonPhase);
+            string seasonLabel = growth.IsOffseason ? "오프시즌" : GetSeasonPhaseLabel(dashboard.SeasonPhase);
             CreateTopBarSegment(
                 bar, "시즌", $"{dashboard.SeasonYear}  {seasonLabel}",
                 new Vector2(-365f, 0f), new Vector2(420f, 64f));
             string period = growth.IsOffseason
                 ? $"남은 기간  {growth.RemainingWeeks}주"
                 : "정규 시즌 · 열람 모드";
-            CreateTopBarSegment(bar, "PERIOD", period, new Vector2(25f, 0f), new Vector2(330f, 64f));
+            CreateTopBarSegment(bar, "기간", period, new Vector2(25f, 0f), new Vector2(330f, 64f));
             CreateTopBarSegment(
                 bar, "보유 자금", FormatMoney(dashboard.AvailableMoney),
                 new Vector2(400f, 0f), new Vector2(390f, 64f));
@@ -60,7 +60,7 @@ namespace Baseball.Presentation.Career
         private void RenderPlayerPanel(CareerDashboardView dashboard, CareerGrowthView growth)
         {
             RectTransform panel = CreatePanel(
-                "PlayerPanel", "PLAYER INFO", "선수 정보",
+                "PlayerPanel", "선수", "선수 정보",
                 new Vector2(500f, 660f), new Vector2(-705f, 117f));
 
             RectTransform card = CreateSection(
@@ -103,7 +103,7 @@ namespace Baseball.Presentation.Career
                 "Overall", card, new Color(0.08f, 0.09f, 0.08f, 0.92f),
                 new Vector2(82f, 82f), new Vector2(178f, -53f));
             CreateText(
-                "Label", overall, "OVR", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Label", overall, "종합", 11, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(65f, 20f), new Vector2(0f, 20f), GoldColor);
             CreateText(
                 "Value", overall, dashboard.Overall.ToString(), 35, FontStyle.Bold,
@@ -124,6 +124,9 @@ namespace Baseball.Presentation.Career
                     new Vector2(0f, 25f - index * 31f));
             }
 
+            if (growth.PitchDevelopment != null && growth.PitchDevelopment.Length > 0)
+                RenderPitchDevelopment(panel, growth.PitchDevelopment);
+
             RectTransform condition = CreateSection(
                 "Condition", panel, new Vector2(224f, 64f), new Vector2(-117f, -237f), PanelDarkColor);
             CreateStatusValue(condition, "컨디션", dashboard.Condition);
@@ -139,10 +142,61 @@ namespace Baseball.Presentation.Career
                 dashboard.NextGame.HasValue ? GreenColor : MutedColor);
         }
 
+        private static void RenderPitchDevelopment(
+            Transform parent,
+            PitchDevelopmentView[] pitches)
+        {
+            RectTransform section = CreateSection(
+                "PitchDevelopment",
+                parent,
+                new Vector2(466f, 54f),
+                new Vector2(0f, -174f),
+                PanelDarkColor);
+            int visibleCount = Mathf.Min(3, pitches.Length);
+            float cellWidth = 438f / visibleCount;
+            for (int index = 0; index < visibleCount; index++)
+            {
+                PitchDevelopmentView pitch = pitches[index];
+                float x = -219f + cellWidth * (index + 0.5f);
+                string name = pitch.IsPrimary
+                    ? $"★ {pitch.DisplayName}  {pitch.CurrentGrade}"
+                    : $"{pitch.DisplayName}  {pitch.CurrentGrade}";
+                CreateText(
+                    "PitchName_" + pitch.PitchType,
+                    section,
+                    name,
+                    11,
+                    FontStyle.Bold,
+                    TextAnchor.MiddleCenter,
+                    new Vector2(cellWidth - 8f, 19f),
+                    new Vector2(x, 14f),
+                    pitch.IsPrimary ? GoldColor : PrimaryTextColor);
+                CreateProgressBar(
+                    section,
+                    (float)pitch.Progress01,
+                    new Vector2(cellWidth - 18f, 7f),
+                    new Vector2(x, -3f),
+                    GetRatingColor((int)System.Math.Round(pitch.StableQuality)));
+                string next = pitch.HasNextGrade
+                    ? $"{pitch.NextGrade}까지 {pitch.RemainingQualityToNext:F1}"
+                    : "최고 등급";
+                CreateText(
+                    "PitchNext_" + pitch.PitchType,
+                    section,
+                    next,
+                    9,
+                    FontStyle.Normal,
+                    TextAnchor.MiddleCenter,
+                    new Vector2(cellWidth - 8f, 16f),
+                    new Vector2(x, -17f),
+                    SecondaryTextColor);
+            }
+        }
+
         private void RenderGrowthLog(CareerGrowthView growth)
         {
             RectTransform panel = CreatePanel(
-                "GrowthLog", "HISTORY", "성장 로그",
+                "GrowthLog", "기록", "성장 로그",
                 new Vector2(500f, 190f), new Vector2(-705f, -328f));
             if (growth.RecentGrowth.Length == 0)
             {
@@ -183,7 +237,7 @@ namespace Baseball.Presentation.Career
                     ? "보드에 올려 미리보기 · 초록 가능 / 빨강 불가"
                     : "보유 블록을 선택한 뒤 빈 칸을 누르세요.";
             RectTransform panel = CreatePanel(
-                "SkillBoard", "GROWTH BOARD", "4×4 성장 보드",
+                "SkillBoard", "성장 보드", "4×4 성장 보드",
                 new Vector2(700f, 735f), new Vector2(-95f, 80f));
             CreateText(
                 "Guide", panel, editGuide, 13, FontStyle.Normal, TextAnchor.MiddleCenter,
@@ -448,7 +502,7 @@ namespace Baseball.Presentation.Career
         private void RenderSelectedBlockPanel(CareerGrowthView growth)
         {
             RectTransform panel = CreatePanel(
-                "SelectedBlock", "BLOCK CONTROL", "선택 블록",
+                "SelectedBlock", "블록 관리", "선택 블록",
                 new Vector2(700f, 130f), new Vector2(-95f, -358f));
             if (_selectedOwnedBlockId > 0)
             {
@@ -534,7 +588,7 @@ namespace Baseball.Presentation.Career
         private void RenderBlockShop(CareerGrowthView growth)
         {
             RectTransform panel = CreatePanel(
-                "BlockShop", "SKILL SHOP", "블록 상점",
+                "BlockShop", "스킬 상점", "블록 상점",
                 new Vector2(650f, 430f), new Vector2(613f, 232f));
             GrowthGachaOfferView standard = FindGachaOffer(
                 growth,
@@ -834,7 +888,7 @@ namespace Baseball.Presentation.Career
             CreateProgressBar(
                 parent, currentValue / 100f, new Vector2(190f, 10f), new Vector2(-25f, position.y),
                 GetRatingColor(currentValue));
-            string valueText = $"{currentValue}  B{baseValue}/P{potential}";
+            string valueText = $"{currentValue}  기초 {baseValue}/가능 {potential}";
             if (skillBonus > 0 || peakBonus > 0)
                 valueText += $" +{skillBonus}|{peakBonus}";
             CreateText(

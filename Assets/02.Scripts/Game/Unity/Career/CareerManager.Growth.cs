@@ -614,6 +614,10 @@ namespace Baseball.Game.Career
                 PeakBonuses = BuildPeakBonuses(growth),
                 RawBoardBonuses = BuildRawBoardBonuses(board),
                 BoardBonuses = BuildBoardBonuses(board),
+                PitchDevelopment = CareerPitchDevelopmentViewBuilder.Build(
+                    CurrentCareer.MyPlayer,
+                    CurrentCareer.CreationProfile.PitchRepertoire,
+                    _balance.PitchArsenal),
                 ActiveTraitIds = BuildActiveTraitIds(growth, board),
                 BoardWidth = boardDefinition.Width,
                 BoardHeight = boardDefinition.Height,

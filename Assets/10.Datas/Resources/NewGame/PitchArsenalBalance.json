@@ -24,7 +24,7 @@
                                  ]
               },
     "growth":  {
-                   "primaryFocus":  1.15,
+                   "primaryFocus":  1.5,
                    "sixPitchAuxiliaryModifier":  0.56,
                    "secondaryFocus":  1,
                    "auxiliaryFocus":  0.9,

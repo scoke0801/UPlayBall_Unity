@@ -4,6 +4,8 @@ using Baseball.Core.Players;
 using Baseball.Game.Career;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Match;
+using Baseball.Simulation.PlateAppearance;
+using Baseball.Simulation.Random;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game
@@ -90,6 +92,85 @@ namespace Baseball.Tests.EditMode.Game
                 "성장판 보너스가 영구 Base Ability를 바꾸면 안 됩니다.");
         }
 
+        [Test]
+        public void PlayerState_변화구성장이구종등급과경기품질에반영된다()
+        {
+            PitcherAttributes initialPitching = new PitcherAttributes(50, 50, 50, 50, 50, 50);
+            var identity = new Player(
+                2,
+                "구종 성장 테스트",
+                PlayerPosition.StartingPitcher,
+                Handedness.Right,
+                Handedness.Right,
+                new BatterAttributes(40, 40, 40, 40, 40, 40),
+                initialPitching);
+            var state = new PlayerState(
+                2, identity.PlayerId, identity.Name, "대한민국", 18,
+                identity.PrimaryPosition, identity.BattingHand, identity.ThrowingHand,
+                identity.BatterAttributes, identity.PitcherAttributes, 10);
+            int[] baseValues = new AbilityRatings(50).ToArray();
+            var growth = new PlayerGrowthState(
+                identity.PlayerId,
+                18,
+                PlayerType.Pitcher,
+                new AbilityRatings(baseValues),
+                new AbilityRatings(90),
+                WorkEthicGrade.Normal,
+                90,
+                0,
+                70);
+            state.AttachGrowthState(growth);
+            var repertoire = new[]
+            {
+                new PitchRepertoireEntry(PitchType.Slider, 60, true),
+                new PitchRepertoireEntry(PitchType.FourSeamFastball, 45, false),
+                new PitchRepertoireEntry(PitchType.Changeup, 45, false)
+            };
+            BalanceTable balance = BalanceTable.CreateDefault();
+
+            Player beforePlayer = state.ToPlayer().WithPitchRepertoire(repertoire);
+            PitchOption before = BuildPitchOption(beforePlayer, balance, PitchType.Slider);
+            PitchDevelopmentView beforeView = CareerPitchDevelopmentViewBuilder.Build(
+                state, repertoire, balance.PitchArsenal)[0];
+
+            growth.ApplyBaseAbilityChange(PlayerAbility.Breaking, 10);
+
+            Player afterPlayer = state.ToPlayer().WithPitchRepertoire(repertoire);
+            PitchOption after = BuildPitchOption(afterPlayer, balance, PitchType.Slider);
+            PitchDevelopmentView afterView = CareerPitchDevelopmentViewBuilder.Build(
+                state, repertoire, balance.PitchArsenal)[0];
+
+            var breakingBlock = new SkillBlockDefinition(
+                "breaking_bonus",
+                SkillBlockRarity.Normal,
+                SkillBlockCategory.Breaking,
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O),
+                false,
+                new[] { new AbilityChange(PlayerAbility.Breaking, 2) },
+                60L);
+            SkillBlockInstance breakingInstance = state.SkillBoardState.AddOwnedBlock(breakingBlock.BlockId);
+            var boardService = new SkillBoardService(
+                SkillBoardDefinition.CreateDefault(),
+                new[] { breakingBlock });
+            boardService.PlaceBlock(state.SkillBoardState, breakingInstance.InstanceId, 0, 0, 0);
+            growth.ApplyPeakBonusChange(PlayerAbility.Breaking, 2);
+            Player boostedPlayer = state.ToPlayer(boardService).WithPitchRepertoire(repertoire);
+            PitchOption boosted = BuildPitchOption(boostedPlayer, balance, PitchType.Slider);
+
+            Assert.That(afterPlayer.BakedPitcherAttributes.Breaking, Is.EqualTo(50));
+            Assert.That(afterPlayer.PermanentPitcherAttributes.Breaking, Is.EqualTo(60));
+            Assert.That(before.Grade, Is.EqualTo(beforeView.CurrentGrade));
+            Assert.That(after.Grade, Is.EqualTo(afterView.CurrentGrade));
+            Assert.That(after.EffectiveQuality, Is.GreaterThan(before.EffectiveQuality));
+            Assert.That(afterView.StableQuality, Is.GreaterThan(beforeView.StableQuality));
+            Assert.That(afterView.CurrentGrade, Is.Not.EqualTo(beforeView.CurrentGrade));
+            Assert.That(boostedPlayer.PitcherAttributes.Breaking, Is.EqualTo(64));
+            Assert.That(boostedPlayer.PermanentPitcherAttributes.Breaking, Is.EqualTo(60));
+            Assert.That(boosted.Grade, Is.EqualTo(after.Grade),
+                "성장판과 Peak는 현재 경기 품질만 바꾸고 영구 구종 등급을 올리면 안 됩니다.");
+            Assert.That(boosted.EffectiveQuality, Is.GreaterThan(after.EffectiveQuality));
+        }
+
         private static Player CreatePlayer()
         {
             return new Player(
@@ -151,6 +232,22 @@ namespace Baseball.Tests.EditMode.Game
                     return team.Lineup[index].Player;
             }
             return null;
+        }
+
+        private static PitchOption BuildPitchOption(
+            Player pitcher,
+            BalanceTable balance,
+            PitchType pitchType)
+        {
+            var matchup = new PlateAppearanceMatchup(pitcher, pitcher, 50d, false);
+            PitchOption[] options = new PitchExecutionResolver(balance, new Pcg32Random(17UL))
+                .BuildPitchOptions(matchup);
+            for (int index = 0; index < options.Length; index++)
+            {
+                if (options[index].PitchType == pitchType)
+                    return options[index];
+            }
+            throw new System.InvalidOperationException("테스트할 구종 옵션을 찾지 못했습니다.");
         }
     }
 }

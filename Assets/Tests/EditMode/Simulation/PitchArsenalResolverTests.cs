@@ -99,6 +99,19 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void 등급진행도는현재구간과다음경계사이에서계산한다()
+        {
+            PitchGradeBalance grade = PitchArsenalBalance.CreateDefault().Grade;
+            PitchGradeProgress progress = grade.GetProgress(57.5d);
+
+            Assert.That(progress.CurrentGrade, Is.EqualTo("B"));
+            Assert.That(progress.NextGrade, Is.EqualTo("A"));
+            Assert.That(progress.Progress01, Is.EqualTo(0.5d).Within(1e-9));
+            Assert.That(progress.RemainingToNext, Is.EqualTo(7.5d).Within(1e-9));
+            Assert.That(grade.GetProgress(95d).HasNextGrade, Is.False);
+        }
+
+        [Test]
         public void 구종성장분산은주력과현재품질을보호한다()
         {
             var balance = PitchArsenalBalance.CreateDefault();

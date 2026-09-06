@@ -4,6 +4,37 @@ using Baseball.Core.Players;
 
 namespace Baseball.Core.Balance
 {
+    /// <summary>현재 구종 등급과 다음 등급 경계까지의 진행 상태다.</summary>
+    public readonly struct PitchGradeProgress
+    {
+        public PitchGradeProgress(
+            string currentGrade,
+            string nextGrade,
+            double currentValue,
+            double currentThreshold,
+            double nextThreshold,
+            double progress01)
+        {
+            CurrentGrade = currentGrade;
+            NextGrade = nextGrade;
+            CurrentValue = currentValue;
+            CurrentThreshold = currentThreshold;
+            NextThreshold = nextThreshold;
+            Progress01 = progress01;
+        }
+
+        public string CurrentGrade { get; }
+        public string NextGrade { get; }
+        public double CurrentValue { get; }
+        public double CurrentThreshold { get; }
+        public double NextThreshold { get; }
+        public double Progress01 { get; }
+        public bool HasNextGrade => !string.IsNullOrEmpty(NextGrade);
+        public double RemainingToNext => HasNextGrade
+            ? Math.Max(0d, NextThreshold - CurrentValue)
+            : 0d;
+    }
+
     /// <summary>구종별 희소성·성장·실전 기여를 독립적으로 정의한다.</summary>
     public sealed class PitchTypeDefinition
     {
@@ -85,6 +116,44 @@ namespace Baseball.Core.Balance
             for (int i = _thresholds.Length - 1; i >= 0; i--)
                 if (mastery >= _thresholds[i]) return _labels[i];
             return _labels[0];
+        }
+
+        /// <summary>현재 등급 안에서 다음 등급 경계까지의 정규화 진행도를 반환한다.</summary>
+        public PitchGradeProgress GetProgress(double mastery)
+        {
+            if (double.IsNaN(mastery) || double.IsInfinity(mastery))
+                throw new ArgumentOutOfRangeException(nameof(mastery));
+
+            double value = Math.Max(0d, Math.Min(100d, mastery));
+            int currentIndex = 0;
+            for (int index = _thresholds.Length - 1; index >= 0; index--)
+            {
+                if (value < _thresholds[index]) continue;
+                currentIndex = index;
+                break;
+            }
+
+            if (currentIndex == _thresholds.Length - 1)
+            {
+                return new PitchGradeProgress(
+                    _labels[currentIndex],
+                    string.Empty,
+                    value,
+                    _thresholds[currentIndex],
+                    _thresholds[currentIndex],
+                    1d);
+            }
+
+            double currentThreshold = _thresholds[currentIndex];
+            double nextThreshold = _thresholds[currentIndex + 1];
+            double progress = (value - currentThreshold) / (nextThreshold - currentThreshold);
+            return new PitchGradeProgress(
+                _labels[currentIndex],
+                _labels[currentIndex + 1],
+                value,
+                currentThreshold,
+                nextThreshold,
+                progress);
         }
     }
 

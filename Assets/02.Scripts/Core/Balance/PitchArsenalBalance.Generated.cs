@@ -25,7 +25,7 @@ namespace Baseball.Core.Balance
                 new PitchTypeDefinition(PitchType.Screwball, "스크루볼", 1.2d, 0.1d, 2.0d, 0.8d, 1.5d, 0.18d, 0.1d, 0.4d, 0.18d, 0.024d, 22.0d, 0.0d, true, 1.0d, 1.0d, 1.0d, 1.0d),
                 new PitchTypeDefinition(PitchType.Knuckleball, "너클볼", 0.35d, 0.3d, 4.0d, 0.65d, 1.8d, 0.08d, 0.12d, 0.46d, 0.06d, 0.04d, 38.0d, 0.0d, true, 1.0d, 1.0d, 1.0d, 1.0d),
             }, new PitchGradeBalance(new[] { "D", "C", "B", "A", "S", "SS" }, new double[] { 0.0d, 35.0d, 50.0d, 65.0d, 80.0d, 95.0d }),
-                new PitchGrowthBalance(1.15d, 1.0d, 0.9d, 0.78d, 0.56d), 146.0d, 0.32d, 50.0d, 0.7d);
+                new PitchGrowthBalance(1.5d, 1.0d, 0.9d, 0.78d, 0.56d), 146.0d, 0.32d, 50.0d, 0.7d);
         }
     }
 }

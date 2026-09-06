@@ -6,6 +6,40 @@ using Baseball.Simulation.Growth;
 
 namespace Baseball.Game.Career
 {
+    /// <summary>성장 화면에 표시할 구종의 영구 등급과 다음 경계 진행도다.</summary>
+    public readonly struct PitchDevelopmentView
+    {
+        public PitchDevelopmentView(
+            PitchType pitchType,
+            string displayName,
+            bool isPrimary,
+            double stableQuality,
+            string currentGrade,
+            string nextGrade,
+            double progress01,
+            double remainingQualityToNext)
+        {
+            PitchType = pitchType;
+            DisplayName = displayName;
+            IsPrimary = isPrimary;
+            StableQuality = stableQuality;
+            CurrentGrade = currentGrade;
+            NextGrade = nextGrade;
+            Progress01 = progress01;
+            RemainingQualityToNext = remainingQualityToNext;
+        }
+
+        public PitchType PitchType { get; }
+        public string DisplayName { get; }
+        public bool IsPrimary { get; }
+        public double StableQuality { get; }
+        public string CurrentGrade { get; }
+        public string NextGrade { get; }
+        public double Progress01 { get; }
+        public double RemainingQualityToNext { get; }
+        public bool HasNextGrade => !string.IsNullOrEmpty(NextGrade);
+    }
+
     /// <summary>
     /// 성장판 한 칸의 소켓·점유 블록 정보를 Presentation에 전달한다.
     /// </summary>
@@ -378,6 +412,7 @@ namespace Baseball.Game.Career
         public int[] PeakBonuses { get; internal set; }
         public int[] RawBoardBonuses { get; internal set; }
         public int[] BoardBonuses { get; internal set; }
+        public PitchDevelopmentView[] PitchDevelopment { get; internal set; }
         public string[] ActiveTraitIds { get; internal set; }
         public int BoardWidth { get; internal set; }
         public int BoardHeight { get; internal set; }
