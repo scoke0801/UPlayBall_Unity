@@ -2,6 +2,15 @@ using System;
 
 namespace Baseball.Core.Shop
 {
+    /// <summary>확정 결과를 공개할 때 사용할 연출 강도다. 확률과 결과에는 영향을 주지 않는다.</summary>
+    public enum ShopRevealIntensity
+    {
+        Standard,
+        Notable,
+        Rare,
+        Exceptional
+    }
+
     /// <summary>
     /// 구매로 지급된 항목 하나를 표현 레이어가 읽을 수 있는 형태로 요약한다.
     /// 카드·블록 타입을 상점이 알 필요가 없도록 문자열 요약만 담는다.
@@ -13,21 +22,35 @@ namespace Baseball.Core.Shop
             string displayName,
             string gradeLabel,
             bool isNew,
-            string artworkKey = null)
+            string artworkKey = null,
+            ShopRevealIntensity primaryIntensity = ShopRevealIntensity.Standard,
+            ShopRevealIntensity secondaryIntensity = ShopRevealIntensity.Standard)
         {
             if (string.IsNullOrWhiteSpace(itemId))
                 throw new ArgumentException("ItemId는 비어 있을 수 없습니다.", nameof(itemId));
+            if (!Enum.IsDefined(typeof(ShopRevealIntensity), primaryIntensity))
+                throw new ArgumentOutOfRangeException(nameof(primaryIntensity));
+            if (!Enum.IsDefined(typeof(ShopRevealIntensity), secondaryIntensity))
+                throw new ArgumentOutOfRangeException(nameof(secondaryIntensity));
             ItemId = itemId.Trim();
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? itemId.Trim() : displayName.Trim();
             GradeLabel = gradeLabel == null ? string.Empty : gradeLabel.Trim();
             IsNew = isNew;
             ArtworkKey = artworkKey == null ? string.Empty : artworkKey.Trim();
+            PrimaryIntensity = primaryIntensity;
+            SecondaryIntensity = secondaryIntensity;
         }
 
         public string ItemId { get; }
         public string DisplayName { get; }
         public string GradeLabel { get; }
         public string ArtworkKey { get; }
+        public ShopRevealIntensity PrimaryIntensity { get; }
+        public ShopRevealIntensity SecondaryIntensity { get; }
+
+        /// <summary>Cost와 Edition처럼 분리된 신호 중 더 강한 연출 단계다.</summary>
+        public ShopRevealIntensity HighestIntensity =>
+            PrimaryIntensity >= SecondaryIntensity ? PrimaryIntensity : SecondaryIntensity;
 
         /// <summary>이미 보유한 항목이면 false다. 중복 처리 UI가 이 값을 읽는다.</summary>
         public bool IsNew { get; }

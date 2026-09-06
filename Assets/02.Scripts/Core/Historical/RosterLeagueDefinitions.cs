@@ -516,10 +516,11 @@ namespace Baseball.Core.Historical
     {
         AllStarComposite,
         GoldenGloveComposite,
-        YearSelectComposite
+        YearSelectComposite,
+        RandomSelectComposite
     }
 
-    /// <summary>수상 확정 뒤 해당 연도 정규 구단과 별도로 리그에 추가할 합성 참가팀이다.</summary>
+    /// <summary>수상 확정 뒤 해당 연도 정규 구단의 빈 슬롯을 채울 수 있는 합성 참가팀이다.</summary>
     public sealed class SpecialCompositeTeamRegistration
     {
         public SpecialCompositeTeamRegistration(
@@ -543,7 +544,7 @@ namespace Baseball.Core.Historical
         public SpecialCompositeTeamType TeamType { get; }
     }
 
-    /// <summary>연도별 정규 Franchise 6~10구단과 별도 특수 합성 참가팀을 구분해 보관한다.</summary>
+    /// <summary>연도별 정규 Franchise와 선택된 특수 합성 참가팀을 구분해 보관한다.</summary>
     public sealed class LeagueInstance
     {
         public const int MinimumRegularFranchiseTeamCount = 6;
@@ -606,8 +607,8 @@ namespace Baseball.Core.Historical
             if (source == null || source.Count == 0)
                 return Array.Empty<SpecialCompositeTeamRegistration>();
             int specialTeamTypeCount = Enum.GetValues(typeof(SpecialCompositeTeamType)).Length;
-            if (source.Count != specialTeamTypeCount)
-                throw new ArgumentException("특수 합성팀은 세 종류를 한 번에 등록해야 합니다.", nameof(source));
+            if (source.Count > specialTeamTypeCount)
+                throw new ArgumentException("등록 가능한 특수 합성팀 종류 수를 초과했습니다.", nameof(source));
 
             var result = new SpecialCompositeTeamRegistration[source.Count];
             var types = new HashSet<SpecialCompositeTeamType>();
@@ -620,10 +621,10 @@ namespace Baseball.Core.Historical
                 if (!types.Add(registration.TeamType) || !keys.Add(registration.TeamSeasonKey))
                     throw new ArgumentException("특수 합성팀 종류와 TeamSeasonKey는 중복될 수 없습니다.", nameof(source));
                 if (registration.OriginYear != originYear)
-                    throw new ArgumentException("세 특수 합성팀은 같은 OriginYear여야 합니다.", nameof(source));
+                    throw new ArgumentException("특수 합성팀은 같은 OriginYear여야 합니다.", nameof(source));
                 for (int regularIndex = 0; regularIndex < regularTeams.Count; regularIndex++)
                     if (string.Equals(regularTeams[regularIndex], registration.TeamSeasonKey, StringComparison.Ordinal))
-                        throw new ArgumentException("특수 합성팀은 정규 Franchise 슬롯을 점유할 수 없습니다.", nameof(source));
+                        throw new ArgumentException("특수 합성팀 TeamSeasonKey는 정규 Franchise와 겹칠 수 없습니다.", nameof(source));
                 result[index] = registration;
             }
             return result;

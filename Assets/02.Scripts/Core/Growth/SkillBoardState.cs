@@ -4,11 +4,11 @@ using System.Collections.Generic;
 namespace Baseball.Core.Growth
 {
     /// <summary>
-    /// 4×4 보드 크기와 Trait Socket 위치를 정의한다.
+    /// 특수 칸 없이 모든 위치가 동등한 4×4 보드 크기를 정의한다.
     /// </summary>
     public sealed class SkillBoardDefinition
     {
-        public SkillBoardDefinition(string boardDefinitionId, int width, int height, BoardCell[] traitSockets)
+        public SkillBoardDefinition(string boardDefinitionId, int width, int height)
         {
             if (string.IsNullOrWhiteSpace(boardDefinitionId))
                 throw new ArgumentException("BoardDefinitionId는 비어 있을 수 없습니다.", nameof(boardDefinitionId));
@@ -17,27 +17,18 @@ namespace Baseball.Core.Growth
             BoardDefinitionId = boardDefinitionId;
             Width = width;
             Height = height;
-            TraitSockets = traitSockets ?? Array.Empty<BoardCell>();
-            for (int index = 0; index < TraitSockets.Length; index++)
-            {
-                if (TraitSockets[index].X < 0 || TraitSockets[index].X >= width ||
-                    TraitSockets[index].Y < 0 || TraitSockets[index].Y >= height)
-                    throw new ArgumentOutOfRangeException(nameof(traitSockets));
-            }
         }
 
         public string BoardDefinitionId { get; }
         public int Width { get; }
         public int Height { get; }
-        public BoardCell[] TraitSockets { get; }
 
         public static SkillBoardDefinition CreateDefault()
         {
             return new SkillBoardDefinition(
                 "standard_4x4",
                 4,
-                4,
-                new[] { new BoardCell(1, 1), new BoardCell(2, 2) });
+                4);
         }
     }
 

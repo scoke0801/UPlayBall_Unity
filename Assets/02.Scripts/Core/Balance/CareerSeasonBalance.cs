@@ -7,6 +7,8 @@ namespace Baseball.Core.Balance
     /// </summary>
     public readonly struct CareerSeasonBalance
     {
+        public const int DefaultRegularSeasonGamesPerTeam = 144;
+
         public CareerSeasonBalance(
             int regularSeasonGamesPerTeam,
             int startingRotationSize,
@@ -176,14 +178,14 @@ namespace Baseball.Core.Balance
         public int GamesBetweenRestDays { get; }
 
         /// <summary>
-        /// 8구단 80경기 Rookie League의 첫 검증용 시즌 계수를 만든다.
+        /// 팀당 144경기를 기본으로 사용하는 시즌 계수를 만든다.
         /// </summary>
         public static CareerSeasonBalance CreateDefault()
         {
             // 평소 기용은 실력 경쟁으로 정하되, 2군이 없는 MVP에서 신인이 평가조차 받지 못하는 고착은
             // 역할별 1/2/3 로테이션 주기의 최소 평가 기회로 막는다. 무작위 폭은 비슷한 선수의 고정을 막는다.
             return new CareerSeasonBalance(
-                regularSeasonGamesPerTeam: 80,
+                regularSeasonGamesPerTeam: DefaultRegularSeasonGamesPerTeam,
                 startingRotationSize: 5,
                 reliefStartInning: 7,
                 managerDecisionVariance: 7d,

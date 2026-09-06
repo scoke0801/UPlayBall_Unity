@@ -265,7 +265,8 @@ namespace Baseball.Core.Historical
         public string HeadCoachId { get; private set; }
         public DugoutPolicySettings Policy { get; private set; }
         public int ManagerTrust { get; private set; }
-        public int AllowedPolicyOffset => ManagerTrust >= 60 ? 2 : 1;
+        // 구단주 방침은 첫 경기와 감독 교체 직후에도 다섯 단계를 모두 허용한다.
+        public int AllowedPolicyOffset => DugoutPolicySettings.MaximumLevel - DugoutPolicySettings.NeutralLevel;
 
         public static DugoutManagementState CreateDefault()
         {
@@ -282,7 +283,6 @@ namespace Baseball.Core.Historical
             ManagerDefinition manager = catalog.GetManager(managerId);
             HeadCoachDefinition headCoach = catalog.GetHeadCoach(headCoachId);
             bool changedManager = !string.Equals(ManagerId, manager.ManagerId, StringComparison.Ordinal);
-            ValidatePolicy(policy, changedManager ? 1 : AllowedPolicyOffset);
             ManagerId = manager.ManagerId;
             HeadCoachId = headCoach.HeadCoachId;
             Policy = policy;
@@ -294,13 +294,5 @@ namespace Baseball.Core.Historical
             if (ManagerTrust < 100) ManagerTrust++;
         }
 
-        private static void ValidatePolicy(DugoutPolicySettings policy, int allowedOffset)
-        {
-            foreach (DugoutPolicyAxis axis in Enum.GetValues(typeof(DugoutPolicyAxis)))
-            {
-                if (Math.Abs(policy.GetLevel(axis) - DugoutPolicySettings.NeutralLevel) > allowedOffset)
-                    throw new InvalidOperationException("현재 감독 신뢰도로는 ±2 단계 방침을 요청할 수 없습니다.");
-            }
-        }
     }
 }

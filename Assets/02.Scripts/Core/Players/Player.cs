@@ -31,7 +31,8 @@ namespace Baseball.Core.Players
             PitcherAttributes? bakedPitcherAttributes = null,
             PitcherAttributes? permanentPitcherAttributes = null,
             bool hasResolvedMatchRatings = false,
-            PitcherRatingValues? uncurvedPitcherAttributes = null)
+            PitcherRatingValues? uncurvedPitcherAttributes = null,
+            bool isPositionEvidenceMissing = false)
         {
             if (playerId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(playerId), "PlayerId는 양수여야 합니다.");
@@ -46,6 +47,7 @@ namespace Baseball.Core.Players
             Name = name;
             Nationality = nationality?.Trim() ?? string.Empty;
             PrimaryPosition = primaryPosition;
+            IsPositionEvidenceMissing = isPositionEvidenceMissing && primaryPosition <= PlayerPosition.DesignatedHitter;
             BattingHand = battingHand;
             ThrowingHand = throwingHand;
             BatterAttributes = batterAttributes;
@@ -63,6 +65,8 @@ namespace Baseball.Core.Players
         public string Name { get; }
         public string Nationality { get; }
         public PlayerPosition PrimaryPosition { get; }
+        /// <summary>수비 근거 결측 선수의 위치 적응도를 경기에서 중립으로 평가한다.</summary>
+        public bool IsPositionEvidenceMissing { get; }
         public Handedness BattingHand { get; }
         public Handedness ThrowingHand { get; }
         public BatterAttributes BatterAttributes { get; }
@@ -104,7 +108,8 @@ namespace Baseball.Core.Players
                 BakedPitcherAttributes,
                 PermanentPitcherAttributes,
                 HasResolvedMatchRatings,
-                UncurvedPitcherAttributes);
+                UncurvedPitcherAttributes,
+                IsPositionEvidenceMissing);
         }
 
         private static string[] CopyTraitIds(IReadOnlyList<string> source)
@@ -132,6 +137,9 @@ namespace Baseball.Core.Players
         /// </summary>
         public int GetPositionProficiency(PlayerPosition position)
         {
+            // 원기록 결측을 수비 부적격으로 단정하지 않는다. 수비 능력치 자체는 그대로 사용한다.
+            if (IsPositionEvidenceMissing && position >= PlayerPosition.Catcher && position <= PlayerPosition.DesignatedHitter)
+                return 100;
             if (position == PrimaryPosition)
                 return 100;
 

@@ -342,6 +342,7 @@ namespace Baseball.Core.Balance
         public double UniqueProbability { get; }
         public double LegendaryProbability { get; }
         public bool SupportsFivePull => MaxPurchasesPerOffseason == 0 || MaxPurchasesPerOffseason >= 5;
+        public bool SupportsTenPull => MaxPurchasesPerOffseason == 0 || MaxPurchasesPerOffseason >= 10;
 
         public double GetProbability(SkillBlockRarity rarity)
         {

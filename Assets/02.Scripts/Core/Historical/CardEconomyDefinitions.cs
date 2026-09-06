@@ -306,26 +306,40 @@ namespace Baseball.Core.Historical
     public sealed class CardTrainingState
     {
         private readonly int[] _bonuses;
+        private readonly int[] _studyBonuses;
 
         public CardTrainingState()
         {
             _bonuses = new int[PlayerAbilityCatalog.AbilityCount];
+            _studyBonuses = new int[PlayerAbilityCatalog.AbilityCount];
         }
 
-        public CardTrainingState(IReadOnlyList<int> bonuses)
+        public CardTrainingState(
+            IReadOnlyList<int> bonuses,
+            IReadOnlyList<int> studyBonuses = null)
         {
             if (bonuses == null || bonuses.Count != PlayerAbilityCatalog.AbilityCount)
                 throw new ArgumentException("모든 능력치의 훈련 누적치가 필요합니다.", nameof(bonuses));
+            if (studyBonuses != null && studyBonuses.Count != PlayerAbilityCatalog.AbilityCount)
+                throw new ArgumentException("모든 능력치의 유학 누적치가 필요합니다.", nameof(studyBonuses));
             _bonuses = new int[bonuses.Count];
+            _studyBonuses = new int[bonuses.Count];
             for (int index = 0; index < bonuses.Count; index++)
             {
                 if (bonuses[index] < 0)
                     throw new ArgumentOutOfRangeException(nameof(bonuses));
                 _bonuses[index] = bonuses[index];
+                int studyBonus = studyBonuses == null ? 0 : studyBonuses[index];
+                if (studyBonus < 0 || studyBonus > bonuses[index])
+                    throw new ArgumentOutOfRangeException(nameof(studyBonuses));
+                _studyBonuses[index] = studyBonus;
             }
         }
 
         public int GetBonus(PlayerAbility ability) => _bonuses[(int)ability];
+        public int GetStudyBonus(PlayerAbility ability) => _studyBonuses[(int)ability];
+        public int GetDirectTrainingBonus(PlayerAbility ability) =>
+            _bonuses[(int)ability] - _studyBonuses[(int)ability];
 
         public void AddBonus(PlayerAbility ability, int amount)
         {
@@ -334,6 +348,19 @@ namespace Baseball.Core.Historical
             if (amount < 0)
                 throw new ArgumentOutOfRangeException(nameof(amount));
             checked { _bonuses[(int)ability] += amount; }
+        }
+
+        public void AddStudyBonus(PlayerAbility ability, int amount)
+        {
+            if (ability < 0 || ability >= PlayerAbility.Count)
+                throw new ArgumentOutOfRangeException(nameof(ability));
+            if (amount < 0)
+                throw new ArgumentOutOfRangeException(nameof(amount));
+            checked
+            {
+                _bonuses[(int)ability] += amount;
+                _studyBonuses[(int)ability] += amount;
+            }
         }
     }
 

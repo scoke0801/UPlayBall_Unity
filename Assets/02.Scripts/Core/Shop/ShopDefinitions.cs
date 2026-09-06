@@ -56,7 +56,10 @@ namespace Baseball.Core.Shop
             ShopProductBadge badge = ShopProductBadge.None,
             bool isFeatured = false,
             int maxPurchasesPerPeriod = 0,
-            int sortOrder = 0)
+            int sortOrder = 0,
+            string targetFranchiseId = null,
+            string targetFranchiseName = null,
+            int? targetYear = null)
         {
             if (string.IsNullOrWhiteSpace(productId))
                 throw new ArgumentException("ProductId는 비어 있을 수 없습니다.", nameof(productId));
@@ -70,6 +73,8 @@ namespace Baseball.Core.Shop
                 throw new ArgumentOutOfRangeException(nameof(drawCount));
             if (maxPurchasesPerPeriod < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxPurchasesPerPeriod));
+            if (targetYear.HasValue && targetYear.Value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(targetYear));
 
             ProductId = productId.Trim();
             Kind = kind;
@@ -84,6 +89,13 @@ namespace Baseball.Core.Shop
             IsFeatured = isFeatured;
             MaxPurchasesPerPeriod = maxPurchasesPerPeriod;
             SortOrder = sortOrder;
+            TargetFranchiseId = string.IsNullOrWhiteSpace(targetFranchiseId)
+                ? string.Empty
+                : targetFranchiseId.Trim();
+            TargetFranchiseName = string.IsNullOrWhiteSpace(targetFranchiseName)
+                ? string.Empty
+                : targetFranchiseName.Trim();
+            TargetYear = targetYear;
         }
 
         public string ProductId { get; }
@@ -114,6 +126,15 @@ namespace Baseball.Core.Shop
         public int MaxPurchasesPerPeriod { get; }
 
         public int SortOrder { get; }
+
+        /// <summary>선수 카드 집중 상품의 원 구단 필터다. 다른 상품과 전국 상품은 빈 문자열이다.</summary>
+        public string TargetFranchiseId { get; }
+
+        /// <summary>원 구단 필터를 UI에 표시할 이름이다.</summary>
+        public string TargetFranchiseName { get; }
+
+        /// <summary>선수 카드 집중 상품의 원 연도 필터다.</summary>
+        public int? TargetYear { get; }
 
         public ShopTab Tab => GetTab(Kind);
 

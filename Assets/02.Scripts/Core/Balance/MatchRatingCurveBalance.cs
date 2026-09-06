@@ -16,6 +16,7 @@ namespace Baseball.Core.Balance
         public double Center { get; }
         public double Slope { get; }
         public EffectiveRatingCapTable Caps { get; }
-        public static MatchRatingCurveBalance CreateDefault() => new MatchRatingCurveBalance(50d, 0.3d);
+        // 원점수 70의 경기 입력 56을 유지하면서 선수 간 격차의 과도한 압축을 완화한다.
+        public static MatchRatingCurveBalance CreateDefault() => new MatchRatingCurveBalance(45d, 0.45d);
     }
 }

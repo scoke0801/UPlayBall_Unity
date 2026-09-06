@@ -77,24 +77,22 @@ namespace Baseball.Tests.EditMode.Core
         }
 
         [Test]
-        public void LeagueInstance_연도별정규Franchise6에서10개를허용하고특수팀은별도로센다()
+        public void LeagueInstance_정규Franchise와선택된특수팀일부를구분해보관한다()
         {
-            string[] regularTeams = CreateRegularTeams(10);
+            string[] regularTeams = CreateRegularTeams(8);
             var specialTeams = new[]
             {
                 new SpecialCompositeTeamRegistration(
                     "SPECIAL_ALLSTAR_2011", 2011, SpecialCompositeTeamType.AllStarComposite),
                 new SpecialCompositeTeamRegistration(
-                    "SPECIAL_GG_2011", 2011, SpecialCompositeTeamType.GoldenGloveComposite),
-                new SpecialCompositeTeamRegistration(
-                    "SPECIAL_YEAR_2011", 2011, SpecialCompositeTeamType.YearSelectComposite)
+                    "SPECIAL_GG_2011", 2011, SpecialCompositeTeamType.GoldenGloveComposite)
             };
 
             var league = new LeagueInstance("ROOKIE_2011", LeagueGrade.Rookie, regularTeams, specialTeams);
 
-            Assert.That(league.RegularFranchiseTeamCount, Is.EqualTo(10));
-            Assert.That(league.SpecialCompositeTeams.Count, Is.EqualTo(3));
-            Assert.That(league.ParticipantTeamCount, Is.EqualTo(13));
+            Assert.That(league.RegularFranchiseTeamCount, Is.EqualTo(8));
+            Assert.That(league.SpecialCompositeTeams.Count, Is.EqualTo(2));
+            Assert.That(league.ParticipantTeamCount, Is.EqualTo(10));
             Assert.DoesNotThrow(() =>
                 new LeagueInstance("SIX-TEAM", LeagueGrade.Rookie, CreateRegularTeams(6)));
             Assert.Throws<ArgumentException>(() =>

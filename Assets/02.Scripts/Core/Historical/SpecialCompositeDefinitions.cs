@@ -135,12 +135,13 @@ namespace Baseball.Core.Historical
                 SpecialCompositeTeamType.AllStarComposite => "올스타",
                 SpecialCompositeTeamType.GoldenGloveComposite => "골든글러브",
                 SpecialCompositeTeamType.YearSelectComposite => "올해의 선수",
+                SpecialCompositeTeamType.RandomSelectComposite => "랜덤 셀렉션",
                 _ => throw new ArgumentOutOfRangeException(nameof(teamType))
             };
         }
     }
 
-    /// <summary>AllStar, GoldenGlove, YearSelect 우선순위로 완성된 세 합성팀 묶음이다.</summary>
+    /// <summary>정규 구단 부족분을 채우기 위한 모든 특수 합성팀 후보 묶음이다.</summary>
     public sealed class SpecialCompositeTeamSet
     {
         private readonly SpecialCompositeTeamDefinition[] _teams;
@@ -149,8 +150,9 @@ namespace Baseball.Core.Historical
         {
             if (teams == null)
                 throw new ArgumentNullException(nameof(teams));
-            if (teams.Count != 3)
-                throw new ArgumentException("특수 합성팀 세 종류가 모두 필요합니다.", nameof(teams));
+            int requiredTeamCount = Enum.GetValues(typeof(SpecialCompositeTeamType)).Length;
+            if (teams.Count != requiredTeamCount)
+                throw new ArgumentException("특수 합성팀 종류가 모두 필요합니다.", nameof(teams));
 
             _teams = new SpecialCompositeTeamDefinition[teams.Count];
             var teamTypes = new HashSet<SpecialCompositeTeamType>();
@@ -161,13 +163,13 @@ namespace Baseball.Core.Historical
                 SpecialCompositeTeamDefinition team = teams[teamIndex]
                     ?? throw new ArgumentException("null 합성팀이 있습니다.", nameof(teams));
                 if (team.OriginYear != originYear)
-                    throw new ArgumentException("세 합성팀의 OriginYear가 같아야 합니다.", nameof(teams));
+                    throw new ArgumentException("합성팀의 OriginYear가 같아야 합니다.", nameof(teams));
                 if (!teamTypes.Add(team.TeamType))
                     throw new ArgumentException("같은 합성팀 종류를 중복 저장할 수 없습니다.", nameof(teams));
                 for (int rosterIndex = 0; rosterIndex < team.Roster.Count; rosterIndex++)
                 {
                     if (!playerIds.Add(team.Roster[rosterIndex].PlayerSeasonId))
-                        throw new ArgumentException("세 합성팀 사이에 같은 PlayerSeasonId를 중복 배치할 수 없습니다.", nameof(teams));
+                        throw new ArgumentException("합성팀 사이에 같은 PlayerSeasonId를 중복 배치할 수 없습니다.", nameof(teams));
                 }
                 _teams[teamIndex] = team;
             }

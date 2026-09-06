@@ -130,7 +130,8 @@ namespace Baseball.Core.Historical
             PitcherRoleConfidence pitcherRoleConfidence = PitcherRoleConfidence.High,
             IReadOnlyList<PitchRepertoireEntry> pitchRepertoire = null,
             PitchDataSourceKind pitchDataSourceKind = PitchDataSourceKind.Synthetic,
-            string pitchBalanceVersion = "")
+            string pitchBalanceVersion = "",
+            bool isPositionEvidenceMissing = false)
         {
             PlayerSeasonId = RequireId(playerSeasonId, nameof(playerSeasonId));
             PlayerPersonId = RequireId(playerPersonId, nameof(playerPersonId));
@@ -182,6 +183,7 @@ namespace Baseball.Core.Historical
             _pitchRepertoire = Array.AsReadOnly(pitches);
             PitchDataSourceKind = pitchDataSourceKind;
             PitchBalanceVersion = pitchBalanceVersion ?? string.Empty;
+            IsPositionEvidenceMissing = isPositionEvidenceMissing && playerType == PlayerType.Batter;
         }
 
         public string PlayerSeasonId { get; }
@@ -199,6 +201,8 @@ namespace Baseball.Core.Historical
         public IReadOnlyList<PitchRepertoireEntry> PitchRepertoire => _pitchRepertoire;
         public PitchDataSourceKind PitchDataSourceKind { get; }
         public string PitchBalanceVersion { get; }
+        /// <summary>시즌 수비 기록과 보조 출처가 모두 없어 임시 포지션을 사용했는지 나타낸다.</summary>
+        public bool IsPositionEvidenceMissing { get; }
 
         public AbilityRatings CreateBaseAttributes() => _baseAttributes.Clone();
         public AbilityRatings CreateTrainingCeiling() => _trainingCeiling.Clone();

@@ -3,6 +3,23 @@ using System.Collections.Generic;
 
 namespace Baseball.Core.Historical
 {
+    /// <summary>Canonical FranchiseId에 실제 계보 기준 연고지를 연결한다.</summary>
+    public readonly struct WorldFranchiseRegionDefinition
+    {
+        public WorldFranchiseRegionDefinition(string franchiseId, string region)
+        {
+            if (string.IsNullOrWhiteSpace(franchiseId))
+                throw new ArgumentException("FranchiseId는 비어 있을 수 없습니다.", nameof(franchiseId));
+            FranchiseId = franchiseId.Trim();
+            Region = WorldIdentityNameValidator.Validate(region, nameof(region));
+            if (Region.IndexOf(' ') >= 0)
+                throw new ArgumentException("구단 연고지는 공백 없는 지역명이어야 합니다.", nameof(region));
+        }
+
+        public string FranchiseId { get; }
+        public string Region { get; }
+    }
+
     /// <summary>한 World에서 PlayerPersonId에 확정된 표시 이름을 연결한다.</summary>
     public readonly struct WorldPlayerIdentity
     {
@@ -49,20 +66,51 @@ namespace Baseball.Core.Historical
         private readonly string[] _domesticPlayerNames;
         private readonly string[] _foreignPlayerNames;
         private readonly string[] _franchiseNames;
+        private readonly Dictionary<string, string> _franchiseRegionsById;
 
         public WorldIdentityNameCatalog(
             IReadOnlyList<string> domesticPlayerNames,
             IReadOnlyList<string> foreignPlayerNames,
-            IReadOnlyList<string> franchiseNames)
+            IReadOnlyList<string> franchiseNames,
+            IReadOnlyList<WorldFranchiseRegionDefinition> franchiseRegions = null)
         {
             _domesticPlayerNames = CopyUnique(domesticPlayerNames, nameof(domesticPlayerNames));
             _foreignPlayerNames = CopyUnique(foreignPlayerNames, nameof(foreignPlayerNames), allowEmpty: true);
             _franchiseNames = CopyUnique(franchiseNames, nameof(franchiseNames));
+            _franchiseRegionsById = CopyFranchiseRegions(franchiseRegions);
         }
 
         public IReadOnlyList<string> DomesticPlayerNames => _domesticPlayerNames;
         public IReadOnlyList<string> ForeignPlayerNames => _foreignPlayerNames;
         public IReadOnlyList<string> FranchiseNames => _franchiseNames;
+        public bool HasFranchiseRegions => _franchiseRegionsById.Count > 0;
+
+        /// <summary>FranchiseId에 고정된 실제 계보 연고지를 조회한다.</summary>
+        public bool TryGetFranchiseRegion(string franchiseId, out string region)
+        {
+            if (string.IsNullOrWhiteSpace(franchiseId))
+            {
+                region = string.Empty;
+                return false;
+            }
+            return _franchiseRegionsById.TryGetValue(franchiseId.Trim(), out region);
+        }
+
+        private static Dictionary<string, string> CopyFranchiseRegions(
+            IReadOnlyList<WorldFranchiseRegionDefinition> source)
+        {
+            int count = source?.Count ?? 0;
+            var result = new Dictionary<string, string>(count, StringComparer.Ordinal);
+            for (int index = 0; index < count; index++)
+            {
+                WorldFranchiseRegionDefinition definition = source[index];
+                if (!result.TryAdd(definition.FranchiseId, definition.Region))
+                    throw new ArgumentException(
+                        $"FranchiseId별 연고지는 하나만 존재해야 합니다: {definition.FranchiseId}",
+                        nameof(source));
+            }
+            return result;
+        }
 
         private static string[] CopyUnique(
             IReadOnlyList<string> source,

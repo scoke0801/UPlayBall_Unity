@@ -136,8 +136,7 @@ namespace Baseball.Core.Balance
                 canRotate: shape != TetrominoShape.O,
                 new[] { new AbilityChange(ability, bonus) },
                 sellValue,
-                hasTrait ? GetTraitId(category) : string.Empty,
-                hasTrait ? TraitSocketRule.CoversSocket : TraitSocketRule.None);
+                hasTrait ? GetTraitId(category) : string.Empty);
         }
 
         private static string GetTraitId(SkillBlockCategory category)

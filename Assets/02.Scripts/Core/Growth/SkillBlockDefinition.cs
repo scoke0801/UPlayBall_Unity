@@ -49,12 +49,6 @@ namespace Baseball.Core.Growth
         Stuff
     }
 
-    public enum TraitSocketRule
-    {
-        None,
-        CoversSocket
-    }
-
     public enum TetrominoShape
     {
         I,
@@ -143,7 +137,6 @@ namespace Baseball.Core.Growth
             AbilityChange[] abilityBonuses,
             long sellValue,
             string traitId = "",
-            TraitSocketRule traitSocketRule = TraitSocketRule.None,
             bool isUniqueReward = false)
         {
             if (string.IsNullOrWhiteSpace(blockId))
@@ -152,8 +145,6 @@ namespace Baseball.Core.Growth
                 throw new ArgumentException("블록은 정사각형 네 칸으로 구성된 테트로미노여야 합니다.", nameof(shapeCells));
             if (sellValue < 0L)
                 throw new ArgumentOutOfRangeException(nameof(sellValue));
-            if (traitSocketRule != TraitSocketRule.None && string.IsNullOrWhiteSpace(traitId))
-                throw new ArgumentException("Trait 규칙에는 TraitId가 필요합니다.", nameof(traitId));
             ValidateShape(shapeCells);
 
             BlockId = blockId.Trim();
@@ -164,7 +155,6 @@ namespace Baseball.Core.Growth
             AbilityBonuses = abilityBonuses ?? Array.Empty<AbilityChange>();
             SellValue = sellValue;
             TraitId = traitId?.Trim() ?? string.Empty;
-            TraitSocketRule = traitSocketRule;
             IsUniqueReward = isUniqueReward;
         }
 
@@ -176,7 +166,6 @@ namespace Baseball.Core.Growth
         public AbilityChange[] AbilityBonuses { get; }
         public long SellValue { get; }
         public string TraitId { get; }
-        public TraitSocketRule TraitSocketRule { get; }
         public bool IsUniqueReward { get; }
 
         private static void ValidateShape(BoardCell[] cells)

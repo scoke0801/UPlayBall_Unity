@@ -3,6 +3,26 @@ using System.Collections.Generic;
 
 namespace Baseball.Core.Shop
 {
+    /// <summary>상점 화면이 표시할 스카우트 누적 진행도다.</summary>
+    public readonly struct ShopProgressDetails
+    {
+        public ShopProgressDetails(int scoutPityGauge, int scoutPityThreshold)
+        {
+            if (scoutPityGauge < 0)
+                throw new ArgumentOutOfRangeException(nameof(scoutPityGauge));
+            if (scoutPityThreshold < 1)
+                throw new ArgumentOutOfRangeException(nameof(scoutPityThreshold));
+            if (scoutPityGauge > scoutPityThreshold)
+                throw new ArgumentOutOfRangeException(nameof(scoutPityGauge));
+            ScoutPityGauge = scoutPityGauge;
+            ScoutPityThreshold = scoutPityThreshold;
+        }
+
+        public int ScoutPityGauge { get; }
+        public int ScoutPityThreshold { get; }
+        public bool IsFocusedScoutReady => ScoutPityGauge >= ScoutPityThreshold;
+    }
+
     /// <summary>상품 상세 화면에 공개할 실제 결과군 하나의 확률과 후보 수다.</summary>
     public readonly struct ShopProbabilityEntry
     {
