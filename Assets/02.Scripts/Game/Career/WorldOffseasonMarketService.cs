@@ -78,42 +78,27 @@ namespace Baseball.Game.Career
             }
 
             var retiredPlayerIds = new List<int>();
-            int topIndex = leagueBuilders.Length - 1;
-            List<RosterVacancy> rookieVacancies;
+            var vacanciesByLeague = new List<RosterVacancy>[leagueBuilders.Length];
             using (RetireAndPromoteMarker.Auto())
             {
-                rookieVacancies = RetirePlayers(
-                    world,
-                    leagueBuilders[topIndex],
-                    world.Leagues[topIndex].LeagueId,
-                    nextYear,
-                    retiredPlayerIds);
-                for (int targetIndex = topIndex; targetIndex > 0; targetIndex--)
-                {
-                    rookieVacancies = FillVacancies(
-                        rookieVacancies,
-                        leagueBuilders[targetIndex],
-                        leagueBuilders[targetIndex - 1]);
-                    rookieVacancies.AddRange(RetirePlayers(
-                        world,
-                        leagueBuilders[targetIndex - 1],
-                        world.Leagues[targetIndex - 1].LeagueId,
-                        nextYear,
-                        retiredPlayerIds));
-                }
+                // 승격으로 원 소속의 은퇴 검사를 건너뛰지 않도록 모든 AI를 먼저 한 번씩 평가한다.
+                for (int index = 0; index < leagueBuilders.Length; index++)
+                    vacanciesByLeague[index] = RetirePlayers(world, leagueBuilders[index], nextYear, retiredPlayerIds);
             }
 
             int nextPlayerId = GetNextPlayerId(world);
-            var newPlayers = new List<PlayerState>(rookieVacancies.Count);
+            var newPlayers = new List<PlayerState>(retiredPlayerIds.Count);
             using (RecruitRookiesMarker.Auto())
             {
-                RecruitRookies(
-                    world,
-                    leagueBuilders[0],
-                    rookieVacancies,
-                    nextYear,
-                    ref nextPlayerId,
-                    newPlayers);
+                // 아래 리그부터 정원을 복원해야 대규모 동시 은퇴에도 비어 있는 후보군을 조회하지 않는다.
+                // 승격으로 새로 생긴 공석은 Rookie까지 내려 보내며 신인은 Rookie에서만 생성한다.
+                for (int targetIndex = 0; targetIndex < leagueBuilders.Length; targetIndex++)
+                {
+                    List<RosterVacancy> vacancies = vacanciesByLeague[targetIndex];
+                    for (int sourceIndex = targetIndex; sourceIndex > 0; sourceIndex--)
+                        vacancies = FillVacancies(vacancies, leagueBuilders[sourceIndex], leagueBuilders[sourceIndex - 1]);
+                    RecruitRookies(world, leagueBuilders[0], vacancies, nextYear, ref nextPlayerId, newPlayers);
+                }
             }
 
             var rosters = new LeagueRosterPlan[world.Leagues.Count];
@@ -199,7 +184,6 @@ namespace Baseball.Game.Career
         private List<RosterVacancy> RetirePlayers(
             WorldState world,
             TeamRosterBuilder[] league,
-            LeagueId leagueId,
             int nextYear,
             List<int> retiredPlayerIds)
         {
@@ -223,7 +207,6 @@ namespace Baseball.Game.Career
                             world,
                             player,
                             competitor,
-                            leagueId,
                             nextYear));
                     if (!shouldRetire)
                         continue;
@@ -240,10 +223,10 @@ namespace Baseball.Game.Career
             WorldState world,
             PlayerState player,
             RosterCompetitorState competitor,
-            LeagueId leagueId,
             int nextYear)
         {
-            LeagueState league = world.GetLeague(leagueId);
+            // 구단 승강 배치 이후라도 방금 마친 시즌의 출전·순위는 이전 소속 리그에 남아 있다.
+            LeagueState league = world.GetLeague(player.CurrentLeagueId);
             SeasonState season = league.CurrentSeason;
             PlayerCompetitionStatisticsState statistics =
                 season.LeagueStatistics.RegularSeason.GetPlayer(player.PlayerId);
