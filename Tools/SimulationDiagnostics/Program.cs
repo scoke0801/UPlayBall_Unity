@@ -36,6 +36,10 @@ namespace Baseball.Tools.SimulationDiagnostics
 
         private static int Run(string[] args)
         {
+            if (args.Length > 0 && string.Equals(args[0], "team-color-balance", StringComparison.Ordinal))
+                return RunTeamColorBalance(args);
+            if (args.Length > 0 && string.Equals(args[0], "historical-balance", StringComparison.Ordinal))
+                return RunHistoricalBalance(args);
             if (args.Length > 0 && string.Equals(args[0], "controlled-cost", StringComparison.Ordinal))
                 return RunControlledCost(args);
             if (args.Length > 0 && string.Equals(args[0], "--growth-cohort", StringComparison.Ordinal))
@@ -47,6 +51,15 @@ namespace Baseball.Tools.SimulationDiagnostics
                     ? parsedSeasons
                     : 20;
                 GrowthRoleCohortReport report = GrowthRoleCohortDiagnostics.Run(careerCount, maximumSeasons);
+                report.Validate();
+                Console.WriteLine(report.Format());
+                return 0;
+            }
+            if (args.Length > 0 && string.Equals(args[0], "--pitch-growth-cohort", StringComparison.Ordinal))
+            {
+                int careerCount = ParseCount(args, 1, 10000);
+                int maximumSeasons = ParseCount(args, 2, 15);
+                PitchGradeCareerReport report = PitchGradeCareerDiagnostics.Run(careerCount, maximumSeasons);
                 report.Validate();
                 Console.WriteLine(report.Format());
                 return 0;
@@ -500,6 +513,8 @@ namespace Baseball.Tools.SimulationDiagnostics
             private long _intentionalWalks;
             private long _doublePlays;
             private long _draws;
+            private long _earnedRuns;
+            private long _pitchingOuts;
             private int _maximumPitchersUsed;
 
             public void Add(MatchResult result)
@@ -535,6 +550,8 @@ namespace Baseball.Tools.SimulationDiagnostics
                 for (int index = 0; index < box.PitchingLines.Count; index++)
                 {
                     PlayerPitchingLine line = box.PitchingLines[index];
+                    _earnedRuns += line.EarnedRuns;
+                    _pitchingOuts += line.OutsRecorded;
                     if (line.PitchesThrown > 0) used++;
                     if (index == 0) _starterPitches += line.PitchesThrown;
                 }
@@ -568,6 +585,8 @@ namespace Baseball.Tools.SimulationDiagnostics
                 {
                     $"Games={games:N0}",
                     $"AVG={Ratio(_hits, _atBats):F3}",
+                    $"ERA={Ratio(_earnedRuns * 27d, _pitchingOuts):F3}",
+                    $"BB/K={Ratio(_walks, _strikeouts):F3}",
                     $"OBP={Ratio(_hits + _walks + _hitByPitches, obpDenominator):F3}",
                     $"SLG={Ratio(_totalBases, _atBats):F3}",
                     $"R/G(team)={Ratio(_runs, games * 2L):F3}",
