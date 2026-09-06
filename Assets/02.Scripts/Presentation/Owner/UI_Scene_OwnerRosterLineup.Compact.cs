@@ -10,6 +10,7 @@ namespace Baseball.Presentation.Owner
     public sealed partial class UI_Scene_OwnerRosterLineup
     {
         private static Sprite _rosterPortrait;
+        private readonly OwnerCardFilters _cardFilters = new OwnerCardFilters();
 
         private static Sprite GetRosterPortrait() => _rosterPortrait != null ? _rosterPortrait :
             _rosterPortrait = Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1");
@@ -35,6 +36,13 @@ namespace Baseball.Presentation.Owner
 
         private void RenderPositionFilters(RectTransform content, bool pitcher)
         {
+            RectTransform origins = OwnerRuntimeUiFactory.CreateRect("OriginFilters", content);
+            origins.gameObject.AddComponent<LayoutElement>().preferredHeight = 28;
+            var originLayout = origins.gameObject.AddComponent<HorizontalLayoutGroup>();
+            originLayout.spacing = 6;
+            originLayout.childControlWidth = true;
+            originLayout.childControlHeight = true;
+            _cardFilters.Build(origins, _model.Snapshot.OwnedPlayers, RenderActivePlayerGroup);
             string[] labels = pitcher ? new[] { "전체", "선발", "불펜", "셋업", "마무리" } :
                 new[] { "전체", "포수", "1루수", "2루수", "3루수", "유격수", "외야수", "지명타자" };
             RectTransform row = OwnerRuntimeUiFactory.CreateRect("PositionFilters", content);
@@ -60,7 +68,7 @@ namespace Baseball.Presentation.Owner
 
         private bool MatchesFilter(OwnerCollectionCardSnapshot card, bool pitcher)
         {
-            if (IsPitcher(card) != pitcher) return false;
+            if (IsPitcher(card) != pitcher || !_cardFilters.Matches(card)) return false;
             if (_positionFilter == 0) return true;
             if (pitcher)
             {

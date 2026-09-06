@@ -327,8 +327,40 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<OwnerLineupSlotModel> StarterRotation { get; }
         public IReadOnlyList<OwnerLineupSlotModel> ReliefPitching { get; }
         public string ValidationText { get; }
-        public bool CanSave => Snapshot.PresetValidation != null &&
+        public bool CanSave => Snapshot.RosterStatus.Validation.IsValid &&
+                               Snapshot.PresetValidation != null &&
                                Snapshot.PresetValidation.Status == LineupPresetValidationStatus.Valid;
+
+        /// <summary>내부 Validator 용어 없이 저장 전 배치에서 플레이어가 취할 행동만 안내한다.</summary>
+        public string CreatePendingChangeMessage(
+            int rosterReplacementCount = 0,
+            int clearedTeamColorCount = 0)
+        {
+            if (rosterReplacementCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(rosterReplacementCount));
+            if (clearedTeamColorCount < 0 || clearedTeamColorCount > LineupPresetState.TeamColorSlotCount)
+                throw new ArgumentOutOfRangeException(nameof(clearedTeamColorCount));
+            string rosterChange = rosterReplacementCount > 0
+                ? $"1군 교체 {rosterReplacementCount}건 · "
+                : string.Empty;
+            string teamColorChange = clearedTeamColorCount > 0
+                ? $"발동 조건을 잃은 팀컬러 {clearedTeamColorCount}개 해제 · "
+                : string.Empty;
+            return CanSave
+                ? rosterChange + teamColorChange + "변경 내용을 확인한 뒤 배치 저장을 눌러 주세요."
+                : rosterChange + teamColorChange + "저장할 수 없습니다. " + CreateCompactValidationText();
+        }
+
+        private string CreateCompactValidationText()
+        {
+            int firstLineBreak = ValidationText.IndexOf('\n');
+            if (firstLineBreak < 0) return ValidationText;
+            int additionalIssueCount = 1;
+            for (int index = firstLineBreak + 1; index < ValidationText.Length; index++)
+                if (ValidationText[index] == '\n') additionalIssueCount++;
+            return ValidationText.Substring(0, firstLineBreak) + $" 외 {additionalIssueCount}건";
+        }
+
         public string RosterSummaryText =>
             $"1군 {Snapshot.RosterStatus.ActiveRosterCount}/{Snapshot.RosterStatus.ActiveRosterCapacity} · " +
             $"야수 {Snapshot.RosterStatus.HitterCount}/{Snapshot.RosterStatus.RequiredHitterCount} · " +
@@ -498,8 +530,7 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < roster.Issues.Count; index++)
             {
                 RosterValidationIssue issue = roster.Issues[index];
-                string context = string.IsNullOrWhiteSpace(issue.Context) ? string.Empty : $" · {issue.Context}";
-                lines.Add($"1군 · {FormatRosterIssueCode(issue.Code)}{context} · 필요 {issue.Expected}, 현재 {issue.Actual}");
+                lines.Add($"1군 · {FormatRosterIssueCode(issue.Code)} · 필요 {issue.Expected}, 현재 {issue.Actual}");
             }
             if (snapshot.PresetValidation == null)
             {
@@ -509,10 +540,24 @@ namespace Baseball.Presentation.Owner
             }
             else
             {
-                for (int index = 0; index < snapshot.PresetValidation.Issues.Count; index++)
-                    lines.Add(FormatIssue(snapshot.PresetValidation.Issues[index]));
+                AddValidationIssues(lines, snapshot.PresetValidation.Issues, includeWarnings: false);
+                AddValidationIssues(lines, snapshot.PresetValidation.Issues, includeWarnings: true);
             }
             return lines.Count == 0 ? "현재 1군과 경기 프리셋이 구성 검증을 통과했습니다." : string.Join("\n", lines);
+        }
+
+        private static void AddValidationIssues(
+            ICollection<string> lines,
+            IReadOnlyList<LineupPresetValidationIssue> issues,
+            bool includeWarnings)
+        {
+            for (int index = 0; index < issues.Count; index++)
+            {
+                LineupPresetValidationIssue issue = issues[index];
+                bool isWarning = issue.Severity == LineupPresetIssueSeverity.Warning;
+                if (isWarning != includeWarnings) continue;
+                lines.Add(FormatIssue(issue));
+            }
         }
 
         private static string FormatIssue(LineupPresetValidationIssue issue)
@@ -520,9 +565,7 @@ namespace Baseball.Presentation.Owner
             string penalty = issue.ConditionPenalty > 0 ? $" · 컨디션 -{issue.ConditionPenalty}" : string.Empty;
             string errorRisk = issue.FieldingErrorProbabilityMultiplier > 1d
                 ? $" · 실책 위험 ×{issue.FieldingErrorProbabilityMultiplier:0.##}" : string.Empty;
-            string detail = string.IsNullOrWhiteSpace(issue.Context)
-                ? FormatLineupIssueCode(issue.Code)
-                : issue.Context;
+            string detail = FormatLineupIssueCode(issue.Code);
             return $"{FormatSeverity(issue.Severity)} · {detail}{penalty}{errorRisk}";
         }
 
@@ -561,8 +604,8 @@ namespace Baseball.Presentation.Owner
                 LineupPresetValidationIssueCode.NonHitterAssignment => "야수 슬롯에 투수 배치",
                 LineupPresetValidationIssueCode.NonPitcherAssignment => "투수 슬롯에 야수 배치",
                 LineupPresetValidationIssueCode.PlayerContextMissing => "선수 상태 정보 누락",
-                LineupPresetValidationIssueCode.OffPositionAssignment => "비주포지션 배치",
-                LineupPresetValidationIssueCode.PitcherRoleMismatch => "투수 역할 불일치",
+                LineupPresetValidationIssueCode.OffPositionAssignment => "익숙하지 않은 수비 위치",
+                LineupPresetValidationIssueCode.PitcherRoleMismatch => "익숙하지 않은 투수 역할",
                 LineupPresetValidationIssueCode.TeamColorUnavailable => "사용할 수 없는 팀컬러",
                 LineupPresetValidationIssueCode.TacticCardUnavailable => "사용할 수 없는 전술카드",
                 _ => "프리셋 확인 필요"
@@ -790,6 +833,63 @@ namespace Baseball.Presentation.Owner
                 bullpen, setup, closer, source.TeamColorIds, source.DefaultTacticCardIds);
         }
 
+        /// <summary>선택 슬롯에 이미 1군인 카드를 배치하며 기존 역할이 있으면 두 선수의 역할을 맞바꾼다.</summary>
+        public static LineupPresetState AssignCard(
+            LineupPresetState source,
+            OwnerLineupSwapGroup targetGroup,
+            int targetIndex,
+            string incomingCardId)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (string.IsNullOrWhiteSpace(incomingCardId))
+                throw new ArgumentException("배치할 CardId가 필요합니다.", nameof(incomingCardId));
+            string targetCardId = GetAssignedCardId(source, targetGroup, targetIndex);
+            string incomingId = incomingCardId.Trim();
+            if (string.Equals(targetCardId, incomingId, StringComparison.Ordinal)) return source;
+
+            if (TryFindAssignment(source, targetGroup, incomingId, out int sourceIndex))
+                return Swap(source, targetGroup, targetIndex, sourceIndex);
+            return SwapCardIdentities(source, targetCardId, incomingId);
+        }
+
+        /// <summary>1군에서 빠질 카드 ID를 새 보유 카드 ID로 모든 경기 역할에서 일관되게 교체한다.</summary>
+        public static LineupPresetState ReplaceCard(
+            LineupPresetState source,
+            string outgoingCardId,
+            string incomingCardId)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (string.IsNullOrWhiteSpace(outgoingCardId))
+                throw new ArgumentException("교체할 CardId가 필요합니다.", nameof(outgoingCardId));
+            if (string.IsNullOrWhiteSpace(incomingCardId))
+                throw new ArgumentException("등록할 CardId가 필요합니다.", nameof(incomingCardId));
+            string outgoingId = outgoingCardId.Trim();
+            string incomingId = incomingCardId.Trim();
+            if (string.Equals(outgoingId, incomingId, StringComparison.Ordinal)) return source;
+
+            LineupPresetState result = ReplaceCardIdentity(source, outgoingId, incomingId);
+            if (ReferenceEquals(result, source))
+                throw new InvalidOperationException("교체할 카드가 프리셋에 배치되어 있지 않습니다.");
+            return result;
+        }
+
+        public static string GetAssignedCardId(
+            LineupPresetState source,
+            OwnerLineupSwapGroup group,
+            int index)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            return group switch
+            {
+                OwnerLineupSwapGroup.DefensiveLineup => GetDefenseCardId(source.StartingLineupSlots, index),
+                OwnerLineupSwapGroup.BattingOrder => GetId(source.BattingOrderCardIds, index),
+                OwnerLineupSwapGroup.Bench => GetId(source.BenchPriorityCardIds, index),
+                OwnerLineupSwapGroup.StarterRotation => GetId(source.StarterRotationCardIds, index),
+                OwnerLineupSwapGroup.ReliefPitching => GetReliefCardId(source, index),
+                _ => throw new ArgumentOutOfRangeException(nameof(group))
+            };
+        }
+
         /// <summary>실제 활성 TeamColor 후보 안에서 한 슬롯만 순환하고 나머지 프리셋을 보존한다.</summary>
         public static LineupPresetState CycleTeamColor(
             LineupPresetState source,
@@ -900,6 +1000,144 @@ namespace Baseball.Presentation.Owner
         {
             if (firstIndex < 0 || firstIndex >= count) throw new ArgumentOutOfRangeException(nameof(firstIndex));
             if (secondIndex < 0 || secondIndex >= count) throw new ArgumentOutOfRangeException(nameof(secondIndex));
+        }
+
+        private static bool TryFindAssignment(
+            LineupPresetState source,
+            OwnerLineupSwapGroup group,
+            string cardId,
+            out int foundIndex)
+        {
+            int count = group switch
+            {
+                OwnerLineupSwapGroup.DefensiveLineup => source.StartingLineupSlots.Count,
+                OwnerLineupSwapGroup.BattingOrder => source.BattingOrderCardIds.Count,
+                OwnerLineupSwapGroup.Bench => source.BenchPriorityCardIds.Count,
+                OwnerLineupSwapGroup.StarterRotation => source.StarterRotationCardIds.Count,
+                OwnerLineupSwapGroup.ReliefPitching => source.BullpenAssignmentCardIds.Count + 2,
+                _ => throw new ArgumentOutOfRangeException(nameof(group))
+            };
+            for (int index = 0; index < count; index++)
+            {
+                if (!string.Equals(GetAssignedCardId(source, group, index), cardId, StringComparison.Ordinal))
+                    continue;
+                foundIndex = index;
+                return true;
+            }
+            foundIndex = -1;
+            return false;
+        }
+
+        private static LineupPresetState SwapCardIdentities(
+            LineupPresetState source,
+            string firstCardId,
+            string secondCardId)
+        {
+            var defense = new LineupPresetSlot[source.StartingLineupSlots.Count];
+            for (int index = 0; index < defense.Length; index++)
+            {
+                LineupPresetSlot slot = source.StartingLineupSlots[index];
+                defense[index] = new LineupPresetSlot(
+                    SwapIdentity(slot.CardId, firstCardId, secondCardId),
+                    slot.Position);
+            }
+            return new LineupPresetState(
+                source.PresetId,
+                source.Name,
+                defense,
+                SwapIdentities(source.BattingOrderCardIds, firstCardId, secondCardId),
+                SwapIdentities(source.BenchPriorityCardIds, firstCardId, secondCardId),
+                SwapIdentities(source.StarterRotationCardIds, firstCardId, secondCardId),
+                SwapIdentities(source.BullpenAssignmentCardIds, firstCardId, secondCardId),
+                SwapIdentity(source.SetupPitcherCardId, firstCardId, secondCardId),
+                SwapIdentity(source.CloserPitcherCardId, firstCardId, secondCardId),
+                source.TeamColorIds,
+                source.DefaultTacticCardIds);
+        }
+
+        private static LineupPresetState ReplaceCardIdentity(
+            LineupPresetState source,
+            string oldCardId,
+            string newCardId)
+        {
+            bool changed = false;
+            var defense = new LineupPresetSlot[source.StartingLineupSlots.Count];
+            for (int index = 0; index < defense.Length; index++)
+            {
+                LineupPresetSlot slot = source.StartingLineupSlots[index];
+                string cardId = ReplaceIdentity(slot.CardId, oldCardId, newCardId, ref changed);
+                defense[index] = new LineupPresetSlot(cardId, slot.Position);
+            }
+            string[] batting = ReplaceIdentities(source.BattingOrderCardIds, oldCardId, newCardId, ref changed);
+            string[] bench = ReplaceIdentities(source.BenchPriorityCardIds, oldCardId, newCardId, ref changed);
+            string[] starters = ReplaceIdentities(source.StarterRotationCardIds, oldCardId, newCardId, ref changed);
+            string[] bullpen = ReplaceIdentities(source.BullpenAssignmentCardIds, oldCardId, newCardId, ref changed);
+            string setup = ReplaceIdentity(source.SetupPitcherCardId, oldCardId, newCardId, ref changed);
+            string closer = ReplaceIdentity(source.CloserPitcherCardId, oldCardId, newCardId, ref changed);
+            if (!changed) return source;
+            return new LineupPresetState(source.PresetId, source.Name, defense, batting, bench, starters,
+                bullpen, setup, closer, source.TeamColorIds, source.DefaultTacticCardIds);
+        }
+
+        private static string GetDefenseCardId(IReadOnlyList<LineupPresetSlot> slots, int index)
+        {
+            ValidateIndices(slots.Count, index, index);
+            return slots[index].CardId;
+        }
+
+        private static string GetId(IReadOnlyList<string> values, int index)
+        {
+            ValidateIndices(values.Count, index, index);
+            return values[index];
+        }
+
+        private static string GetReliefCardId(LineupPresetState source, int index)
+        {
+            int bullpenCount = source.BullpenAssignmentCardIds.Count;
+            ValidateIndices(bullpenCount + 2, index, index);
+            if (index < bullpenCount) return source.BullpenAssignmentCardIds[index];
+            return index == bullpenCount ? source.SetupPitcherCardId : source.CloserPitcherCardId;
+        }
+
+        private static string[] SwapIdentities(
+            IReadOnlyList<string> source,
+            string firstCardId,
+            string secondCardId)
+        {
+            var result = new string[source.Count];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = SwapIdentity(source[index], firstCardId, secondCardId);
+            return result;
+        }
+
+        private static string SwapIdentity(string value, string firstCardId, string secondCardId)
+        {
+            if (string.Equals(value, firstCardId, StringComparison.Ordinal)) return secondCardId;
+            if (string.Equals(value, secondCardId, StringComparison.Ordinal)) return firstCardId;
+            return value;
+        }
+
+        private static string[] ReplaceIdentities(
+            IReadOnlyList<string> source,
+            string oldCardId,
+            string newCardId,
+            ref bool changed)
+        {
+            var result = new string[source.Count];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = ReplaceIdentity(source[index], oldCardId, newCardId, ref changed);
+            return result;
+        }
+
+        private static string ReplaceIdentity(
+            string value,
+            string oldCardId,
+            string newCardId,
+            ref bool changed)
+        {
+            if (!string.Equals(value, oldCardId, StringComparison.Ordinal)) return value;
+            changed = true;
+            return newCardId;
         }
     }
 }
