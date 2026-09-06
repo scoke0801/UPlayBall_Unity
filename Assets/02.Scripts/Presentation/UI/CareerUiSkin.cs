@@ -155,6 +155,11 @@ namespace Baseball.Presentation.UI
             if (slider == null || !EnsureLoaded())
                 return;
 
+            // 평면 컨트롤로 지정한 슬라이더는 계층 스킨 재적용 때도 기본 막대 표현을 유지한다.
+            CareerUiVisualElement visual = slider.GetComponent<CareerUiVisualElement>();
+            if (visual != null && visual.Role == CareerUiVisualRole.FlatSurface)
+                return;
+
             Image track = slider.GetComponent<Image>();
             Image fill = slider.fillRect != null ? slider.fillRect.GetComponent<Image>() : null;
             if (track != null)

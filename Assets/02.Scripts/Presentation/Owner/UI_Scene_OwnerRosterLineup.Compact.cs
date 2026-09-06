@@ -16,9 +16,12 @@ namespace Baseball.Presentation.Owner
 
         private static void CompactPanel(RectTransform panel)
         {
-            panel.Find("HeaderAccent").gameObject.SetActive(false);
+            RectTransform accent = (RectTransform)panel.Find("HeaderAccent");
+            accent.gameObject.SetActive(true);
+            accent.offsetMin = new Vector2(1f, -27f);
+            accent.offsetMax = new Vector2(-1f, -25f);
             RectTransform header = (RectTransform)panel.Find("HeaderSlot");
-            header.offsetMin = new Vector2(6f, -24f);
+            header.offsetMin = new Vector2(10f, -24f);
             header.offsetMax = new Vector2(-6f, -2f);
             header.GetComponent<Text>().fontSize = 12;
             RectTransform surface = (RectTransform)panel.Find("HeaderSurface");
@@ -51,8 +54,7 @@ namespace Baseball.Presentation.Owner
                 sizing.minWidth = 0; sizing.preferredWidth = 60; sizing.flexibleWidth = 1;
                 Text text = button.GetComponentInChildren<Text>();
                 text.fontSize = 11;
-                text.color = filter == _positionFilter ? Color.white : CareerUiTheme.ReferenceText;
-                button.image.color = filter == _positionFilter ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferenceButton;
+                SetPlayerGroupTabVisual(button, filter == _positionFilter);
             }
         }
 

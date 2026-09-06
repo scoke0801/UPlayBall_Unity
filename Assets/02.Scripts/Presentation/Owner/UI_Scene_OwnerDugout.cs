@@ -1,4 +1,5 @@
 using System;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,11 +9,11 @@ namespace Baseball.Presentation.Owner
     [DisallowMultipleComponent]
     public sealed class UI_Scene_OwnerDugout : MonoBehaviour
     {
-        private static readonly Color Paper = new Color(0.96f, 0.96f, 0.94f);
-        private static readonly Color Border = new Color(0.65f, 0.67f, 0.67f);
-        private static readonly Color Ink = new Color(0.18f, 0.22f, 0.25f);
-        private static readonly Color Blue = new Color(0.04f, 0.36f, 0.70f);
-        private static readonly Color Red = new Color(0.69f, 0.12f, 0.24f);
+        private static readonly Color Paper = new Color(0.02f, 0.045f, 0.08f, 0.72f);
+        private static readonly Color Border = CareerUiTheme.ShellGold;
+        private static readonly Color Ink = CareerUiTheme.TextPrimary;
+        private static readonly Color Blue = new Color(0.43f, 0.74f, 1f);
+        private static readonly Color Red = new Color(1f, 0.48f, 0.54f);
         private readonly Slider[] _sliders = new Slider[6];
         private RectTransform _root;
         private RectTransform _selectionOverlay;
@@ -42,6 +43,8 @@ namespace Baseball.Presentation.Owner
             _root.offsetMin = new Vector2(16f, 16f);
             _root.offsetMax = new Vector2(-16f, -16f);
             Surface(_root, Paper);
+            SetSkinRole(_root, CareerUiVisualRole.TexturedPanel);
+            _root.gameObject.AddComponent<CareerUiPreserveTextColor>();
 
             // 전체 참조의 40:15:45 열 비율을 유지하고 상세 참조의 여섯 방침 행을 넣는다.
             RectTransform board = Box(_root, "DugoutBoard", 0.015f, 0.10f, 0.985f, 0.975f, Paper);
@@ -57,8 +60,8 @@ namespace Baseball.Presentation.Owner
             Label(policy, "PolicyHint", "방침을 움직여 설명을 확인하세요.", 0.03f, 0.005f, 0.97f, 0.07f, 16, Ink);
 
             RectTransform staff = Box(board, "StaffColumn", 0.41f, 0f, 0.55f, 1f, Paper);
-            CreateStaff(staff, "Manager", "감독", 0.515f, 0.98f, new Color(0.98f, 0.92f, 0.73f));
-            CreateStaff(staff, "HeadCoach", "수석코치", 0.02f, 0.485f, new Color(0.91f, 0.87f, 0.95f));
+            CreateStaff(staff, "Manager", "감독", 0.515f, 0.98f, new Color(0.22f, 0.17f, 0.07f, 0.72f));
+            CreateStaff(staff, "HeadCoach", "수석코치", 0.02f, 0.485f, new Color(0.15f, 0.10f, 0.23f, 0.72f));
             RectTransform cards = Box(board, "CardSlots", 0.56f, 0f, 1f, 1f, Paper);
             for (int index = 0; index < 4; index++)
             {
@@ -80,13 +83,14 @@ namespace Baseball.Presentation.Owner
             sell.interactable = false;
             confirm.interactable = false;
             BuildSelectionOverlay();
+            CareerUiSkin.Apply(_root);
         }
 
         private void CreatePolicy(RectTransform parent, int index, string title, string low, string high,
             string lowDescription, string highDescription)
         {
             float top = 0.925f - index * 0.125f;
-            RectTransform row = Box(parent, "PolicyRow" + index, 0.02f, top - 0.12f, 0.98f, top, Color.white);
+            RectTransform row = Box(parent, "PolicyRow" + index, 0.02f, top - 0.12f, 0.98f, top, Paper);
             Color accent = index < 4 ? Blue : Red;
             Label(row, "Name", title, 0f, 0f, 0.22f, 1f, 20, accent);
             Label(row, "Low", low, 0.25f, 0.69f, 0.49f, 0.98f, 13, Ink, TextAnchor.MiddleLeft);
@@ -94,14 +98,19 @@ namespace Baseball.Presentation.Owner
             Text description = Label(row, "Description", "균형 잡힌 방침을 사용합니다.",
                 0.24f, 0.03f, 0.98f, 0.39f, 16, accent);
             RectTransform control = Rect(row, "PolicySlider", 0.27f, 0.42f, 0.94f, 0.72f);
-            Surface(control, new Color(0.94f, 0.94f, 0.94f));
+            Surface(control, Color.clear);
             var slider = control.gameObject.AddComponent<Slider>();
-            RectTransform track = Box(control, "Track", 0f, 0.30f, 1f, 0.70f, Border);
+            RectTransform track = Rect(control, "Track", 0f, 0.30f, 1f, 0.70f);
+            Surface(track, CareerUiTheme.ProgressTrack);
+            SetSkinRole(track, CareerUiVisualRole.DataImage);
             RectTransform fillArea = Rect(track, "FillArea", 0f, 0f, 1f, 1f);
             RectTransform fill = Rect(fillArea, "Fill", 0f, 0f, 1f, 1f);
             Surface(fill, accent);
+            SetSkinRole(fill, CareerUiVisualRole.DataImage);
             RectTransform handleArea = Rect(control, "HandleArea", 0f, 0f, 1f, 1f);
-            RectTransform handle = Box(handleArea, "Handle", 0f, 0f, 0f, 1f, Paper);
+            RectTransform handle = Rect(handleArea, "Handle", 0f, 0f, 0f, 1f);
+            Surface(handle, Color.white);
+            SetSkinRole(handle, CareerUiVisualRole.DataImage);
             handle.sizeDelta = new Vector2(12f, 0f);
             slider.fillRect = fill;
             slider.handleRect = handle;
@@ -121,7 +130,7 @@ namespace Baseball.Presentation.Owner
         private void CreateStaff(RectTransform parent, string name, string title, float bottom, float top, Color tint)
         {
             RectTransform panel = Box(parent, name, 0.06f, bottom, 0.94f, top, tint);
-            Label(panel, "Title", title, 0f, 0.85f, 1f, 1f, 21, name == "Manager" ? new Color(0.56f, 0.39f, 0.15f) : new Color(0.42f, 0.20f, 0.57f));
+            Label(panel, "Title", title, 0f, 0.85f, 1f, 1f, 21, name == "Manager" ? CareerUiTheme.AccentGold : new Color(0.78f, 0.65f, 0.94f));
             RectTransform card = Box(panel, "StaffCard", 0.17f, 0.27f, 0.83f, 0.81f, new Color(0.81f, 0.82f, 0.82f));
             CardBack(card);
             ActionButton(panel, "Select", title == "감독" ? "감독 선택" : "코치 선택",
@@ -132,12 +141,14 @@ namespace Baseball.Presentation.Owner
         {
             _selectionOverlay = Rect(_root, "StaffSelectionOverlay", 0f, 0f, 1f, 1f);
             Surface(_selectionOverlay, new Color(0f, 0f, 0f, 0.55f));
+            SetSkinRole(_selectionOverlay, CareerUiVisualRole.InputBlocker);
             RectTransform dialog = Box(_selectionOverlay, "StaffSelectionDialog", 0.17f, 0.08f, 0.83f, 0.92f, Paper);
+            SetSkinRole(dialog, CareerUiVisualRole.TexturedPanel);
             _selectionTitle = Label(dialog, "Title", "감독 선택", 0.025f, 0.92f, 0.85f, 0.995f, 24, Blue, TextAnchor.MiddleLeft);
             ActionButton(dialog, "Close", "×", 0.92f, 0.935f, 0.98f, 0.99f, CloseSelection);
             RectTransform preview = Box(dialog, "SelectedCard", 0.025f, 0.17f, 0.40f, 0.91f, new Color(0.90f, 0.86f, 0.72f));
             CardBack(preview);
-            RectTransform inventory = Box(dialog, "StaffInventory", 0.425f, 0.17f, 0.975f, 0.91f, Color.white);
+            RectTransform inventory = Box(dialog, "StaffInventory", 0.425f, 0.17f, 0.975f, 0.91f, Paper);
             _selectionEmpty = Label(inventory, "EmptyState", string.Empty, 0.08f, 0.12f, 0.92f, 0.88f, 22, Ink);
             Button confirm = ActionButton(dialog, "Confirm", "결정", 0.28f, 0.035f, 0.49f, 0.12f, null);
             confirm.interactable = false;
@@ -163,8 +174,9 @@ namespace Baseball.Presentation.Owner
 
         private static void CardBack(RectTransform parent)
         {
-            RectTransform inset = Box(parent, "CardBackInset", 0.06f, 0.04f, 0.94f, 0.96f, new Color(0.92f, 0.93f, 0.92f));
-            Label(inset, "CardBackLabel", "UPlayBall", 0.05f, 0.40f, 0.95f, 0.60f, 25, new Color(0.77f, 0.79f, 0.78f));
+            SetSkinRole(parent, CareerUiVisualRole.TexturedPanel);
+            RectTransform inset = Box(parent, "CardBackInset", 0.06f, 0.04f, 0.94f, 0.96f, Paper);
+            Label(inset, "CardBackLabel", "UPlayBall", 0.05f, 0.40f, 0.95f, 0.60f, 25, CareerUiTheme.AccentGold);
         }
 
         private static RectTransform Rect(Transform parent, string name, float left, float bottom, float right, float top)
@@ -186,6 +198,16 @@ namespace Baseball.Presentation.Owner
         private static void Surface(RectTransform rect, Color color)
         {
             rect.gameObject.AddComponent<Image>().color = color;
+            SetSkinRole(rect, CareerUiVisualRole.FlatSurface);
+        }
+
+        private static void SetSkinRole(RectTransform rect, CareerUiVisualRole role)
+        {
+            var visual = rect.GetComponent<CareerUiVisualElement>() ?? rect.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(role);
+            // 프레임 텍스처와 기존 Outline이 중복되지 않게 한다.
+            Outline outline = rect.GetComponent<Outline>();
+            if (outline != null) outline.enabled = false;
         }
 
         private static RectTransform Box(Transform parent, string name, float left, float bottom, float right, float top, Color color)
@@ -202,6 +224,7 @@ namespace Baseball.Presentation.Owner
             int size, Color color, TextAnchor alignment = TextAnchor.MiddleCenter)
         {
             Text label = OwnerWorkspaceUiFactory.CreateText(parent, name, text, size, FontStyle.Bold, alignment, color);
+            label.color = color;
             Place(label.rectTransform, left, bottom, right, top);
             label.resizeTextForBestFit = true;
             label.resizeTextMinSize = 10;
@@ -214,6 +237,8 @@ namespace Baseball.Presentation.Owner
         {
             Button button = OwnerWorkspaceUiFactory.CreateButton(parent, name, title, action);
             Place((RectTransform)button.transform, left, bottom, right, top);
+            button.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.TexturedAction);
+            button.transform.Find("Label").GetComponent<Text>().color = Ink;
             return button;
         }
 

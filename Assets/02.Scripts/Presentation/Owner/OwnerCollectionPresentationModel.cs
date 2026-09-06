@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Growth;
+using Baseball.Core.Teams;
 using Baseball.Presentation.SharedUI;
 
 namespace Baseball.Presentation.Owner
@@ -14,6 +15,36 @@ namespace Baseball.Presentation.Owner
         Position,
         Cost,
         Edition
+    }
+
+    /// <summary>카드 뒷면에 표시할 구종의 안정 프로필이다.</summary>
+    public readonly struct OwnerPitchCardSnapshot
+    {
+        public OwnerPitchCardSnapshot(PitchType pitchType, string displayName, string grade, double velocityKph)
+        {
+            PitchType = pitchType;
+            DisplayName = displayName ?? string.Empty;
+            Grade = grade ?? string.Empty;
+            VelocityKph = velocityKph;
+        }
+
+        public PitchType PitchType { get; }
+        public string DisplayName { get; }
+        public string Grade { get; }
+        public double VelocityKph { get; }
+    }
+
+    /// <summary>WorldHistory의 실제 집계 필드 하나를 카드용으로 복사한다.</summary>
+    public readonly struct OwnerCardRecordFieldSnapshot
+    {
+        public OwnerCardRecordFieldSnapshot(string label, string value)
+        {
+            Label = label ?? string.Empty;
+            Value = value ?? string.Empty;
+        }
+
+        public string Label { get; }
+        public string Value { get; }
     }
 
     /// <summary>OwnedCards와 WorldCardCatalog에서 읽은 카드 한 장의 불변 표시 Snapshot이다.</summary>
@@ -31,7 +62,14 @@ namespace Baseball.Presentation.Owner
             int duplicateCount,
             bool isLocked,
             bool isFavorite,
-            AbilityRatings abilities = null)
+            AbilityRatings abilities = null,
+            string currentLeagueLabel = null,
+            string playerSeasonId = null,
+            PitcherRole? pitcherRole = null,
+            Handedness? throws = null,
+            Handedness? bats = null,
+            IReadOnlyList<OwnerPitchCardSnapshot> pitches = null,
+            IReadOnlyList<OwnerCardRecordFieldSnapshot> seasonRecord = null)
         {
             CardId = RequireText(cardId, nameof(cardId));
             PlayerPersonId = RequireText(playerPersonId, nameof(playerPersonId));
@@ -45,6 +83,13 @@ namespace Baseball.Presentation.Owner
             IsLocked = isLocked;
             IsFavorite = isFavorite;
             _abilities = abilities?.Clone();
+            CurrentLeagueLabel = currentLeagueLabel ?? "현재 리그";
+            PlayerSeasonId = playerSeasonId ?? string.Empty;
+            PitcherRole = pitcherRole;
+            Throws = throws;
+            Bats = bats;
+            _pitches = Copy(pitches);
+            _seasonRecord = Copy(seasonRecord);
         }
 
         public string CardId { get; }
@@ -58,8 +103,25 @@ namespace Baseball.Presentation.Owner
         public int DuplicateCount { get; }
         public bool IsLocked { get; }
         public bool IsFavorite { get; }
+        public string CurrentLeagueLabel { get; }
+        public string PlayerSeasonId { get; }
+        public PitcherRole? PitcherRole { get; }
+        public Handedness? Throws { get; }
+        public Handedness? Bats { get; }
+        public IReadOnlyList<OwnerPitchCardSnapshot> Pitches => _pitches;
+        public IReadOnlyList<OwnerCardRecordFieldSnapshot> SeasonRecord => _seasonRecord;
         private readonly AbilityRatings _abilities;
+        private readonly OwnerPitchCardSnapshot[] _pitches;
+        private readonly OwnerCardRecordFieldSnapshot[] _seasonRecord;
         public int? GetAbility(PlayerAbility ability) => _abilities?.Get(ability);
+
+        private static T[] Copy<T>(IReadOnlyList<T> source)
+        {
+            if (source == null || source.Count == 0) return Array.Empty<T>();
+            var result = new T[source.Count];
+            for (int index = 0; index < result.Length; index++) result[index] = source[index];
+            return result;
+        }
 
         private static string RequireText(string value, string parameterName)
         {

@@ -80,6 +80,12 @@ namespace Baseball.Presentation.UI
         public static readonly Color ReferenceButton = new(0.82f, 0.83f, 0.82f, 1f);
         public static readonly Color ReferenceButtonHighlight = new(0.91f, 0.92f, 0.90f, 1f);
 
+        // 선수단의 고밀도 카드 목록은 밝은 본문과 어두운 제목 띠를 분리한다.
+        public static readonly Color RosterPanel = new(0.94f, 0.96f, 0.98f, 1f);
+        public static readonly Color RosterHeader = new(0.075f, 0.16f, 0.26f, 1f);
+        public static readonly Color RosterBorder = new(0.52f, 0.62f, 0.71f, 1f);
+        public static readonly Color RosterEmptySlot = new(0.86f, 0.89f, 0.92f, 1f);
+
         // Vector4 순서는 left, bottom, right, top이다.
         public static readonly Vector4 UniversalFramePadding = new(32f, 28f, 32f, 76f);
         public static readonly Vector4 HeroFramePadding = new(40f, 32f, 40f, 80f);

@@ -107,6 +107,18 @@ namespace Baseball.Game.Historical
         public string SaveFilePath => _saveStore?.FilePath ?? string.Empty;
         public bool HasSave => _saveStore != null && _saveStore.Exists;
 
+        /// <summary>표시 Snapshot이 Canonical 선수의 투타 손 정보를 읽도록 Baked Person을 제공한다.</summary>
+        public bool TryGetPlayerPerson(string playerPersonId, out PlayerPersonDefinition person)
+        {
+            HistoricalBakedContent content = _contentProvider?.Load();
+            if (content == null)
+            {
+                person = null;
+                return false;
+            }
+            return content.TryGetPlayerPerson(playerPersonId, out person);
+        }
+
         public event Action RuntimeChanged;
 
         protected override void OnInitialize()

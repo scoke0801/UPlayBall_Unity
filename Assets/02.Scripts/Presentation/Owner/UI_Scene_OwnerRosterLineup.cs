@@ -378,9 +378,9 @@ namespace Baseball.Presentation.Owner
             }
             for (int index = cardCount; index < slotCount; index++)
             {
-                RectTransform empty = CreateAnalysisSurface(gridRoot, "EmptySlot", new Color(0.78f, 0.79f, 0.80f));
+                RectTransform empty = CreateAnalysisSurface(gridRoot, "EmptySlot", CareerUiTheme.RosterEmptySlot);
                 var outline = empty.gameObject.AddComponent<Outline>();
-                outline.effectColor = Color.white;
+                outline.effectColor = CareerUiTheme.RosterBorder;
                 outline.effectDistance = Vector2.one;
             }
         }
@@ -497,7 +497,29 @@ namespace Baseball.Presentation.Owner
             PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(parent, $"Owned_{sourceIndex}");
             card.UseLineupSlotLayout();
             card.Bind(cardModel, GetRosterPortrait());
+            card.SetAssignmentBadge(FindOwnedCardAssignment(player.CardId));
             card.DetailRequested += ShowCardDetail;
+        }
+
+        private string FindOwnedCardAssignment(string cardId)
+        {
+            // 이름이나 본래 포지션이 아닌 현재 프리셋의 카드 ID로 배치 여부를 판정한다.
+            return FindAssignedSlotLabel(_model.BattingOrder, cardId)
+                ?? FindAssignedSlotLabel(_model.Bench, cardId)
+                ?? FindAssignedSlotLabel(_model.StarterRotation, cardId)
+                ?? FindAssignedSlotLabel(_model.ReliefPitching, cardId);
+        }
+
+        private static string FindAssignedSlotLabel(IReadOnlyList<OwnerLineupSlotModel> slots, string cardId)
+        {
+            foreach (OwnerLineupSlotModel slot in slots)
+            {
+                if (slot.Player == null || slot.Player.CardId != cardId) continue;
+                if (slot.Group == OwnerLineupSwapGroup.Bench) return $"벤치 {slot.Index + 1}";
+                if (slot.Group == OwnerLineupSwapGroup.StarterRotation) return $"선발 {slot.Index + 1}";
+                return slot.Label;
+            }
+            return null;
         }
 
         private void ShowCardDetail(PlayerMiniCardModel selected)
@@ -571,9 +593,11 @@ namespace Baseball.Presentation.Owner
         private static void SetPlayerGroupTabVisual(Button button, bool isSelected)
         {
             if (button == null) return;
+            if (button.GetComponent<CareerUiPreserveTextColor>() == null)
+                button.gameObject.AddComponent<CareerUiPreserveTextColor>();
             button.image.color = isSelected
                 ? CareerUiTheme.ReferenceAccent
-                : CareerUiTheme.ReferenceButton;
+                : CareerUiTheme.RosterEmptySlot;
             Text label = button.GetComponentInChildren<Text>();
             if (label != null)
                 label.color = isSelected ? Color.white : CareerUiTheme.ReferenceText;
@@ -644,11 +668,20 @@ namespace Baseball.Presentation.Owner
         private static void ApplyRoleBoardPalette(Transform panel)
         {
             if (panel == null) return;
-            SetImageColor(panel, RoleBoardSurface);
-            SetImageColor(panel.Find("HeaderSurface"), RoleBoardSurface);
-            SetImageColor(panel.Find("HeaderAccent"), RoleBoardBorder);
-            SetTextColor(panel.Find("HeaderSlot"), CareerUiTheme.ReferenceText);
-            SetImageColor(panel.Find("ContentSafeRect/RoleScroll"), CareerUiTheme.ReferencePanel);
+            SetImageColor(panel, CareerUiTheme.RosterPanel);
+            SetImageColor(panel.Find("HeaderSurface"), CareerUiTheme.RosterHeader);
+            SetImageColor(panel.Find("HeaderAccent"), CareerUiTheme.ShellGold);
+            Transform title = panel.Find("HeaderSlot");
+            if (title.GetComponent<CareerUiPreserveTextColor>() == null)
+                title.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            SetTextColor(title, Color.white);
+            // 불투명 표면으로 유지해 배경 구장 색이 본문 대비를 흐리지 않게 한다.
+            panel.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            panel.Find("HeaderSurface").GetComponent<CareerUiVisualElement>()
+                .Initialize(CareerUiVisualRole.DataImage);
+            SetImageColor(panel.Find("ContentSafeRect/RoleScroll"), CareerUiTheme.RosterPanel);
+            Outline border = panel.Find("ThinBorder").GetComponent<Outline>();
+            border.effectColor = CareerUiTheme.RosterBorder;
         }
 
         private static void ApplyInspectorPalette(Transform panel)

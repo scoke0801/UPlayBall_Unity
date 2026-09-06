@@ -11,6 +11,10 @@ namespace Baseball.Presentation.Owner
     public sealed class UI_Scene_OwnerHome : MonoBehaviour
     {
         private RectTransform _workspaceRoot;
+        private RectTransform _dashboardBackplate;
+
+        /// <summary>매니저 안내가 홈 패널의 실제 화면 경계에 맞춰 배치되는 기준이다.</summary>
+        public RectTransform GuideDockTarget => _dashboardBackplate;
         private Text _nextMatchText;
         private Text _feedbackText;
         private Button _opponentAnalysisButton;
@@ -82,12 +86,13 @@ namespace Baseball.Presentation.Owner
             columns.offsetMin = new Vector2(CareerUiTheme.Space4, CareerUiTheme.Space4);
             columns.offsetMax = new Vector2(-CareerUiTheme.Space4, -CareerUiTheme.Space4);
 
-            Image dashboard = OwnerRuntimeUiFactory.CreateImage("DashboardBackplate", columns, Color.white);
+            Image dashboard = OwnerRuntimeUiFactory.CreateImage("DashboardBackplate", columns, CareerUiTheme.ShellHeader);
+            _dashboardBackplate = dashboard.rectTransform;
             OwnerRuntimeUiFactory.SetAnchors(dashboard.rectTransform,
                 new Vector2(0.56f, 0f), new Vector2(1f, 0f),
                 new Vector2(-8f, -8f), new Vector2(8f, 206f));
             dashboard.gameObject.AddComponent<CareerUiVisualElement>()
-                .Initialize(CareerUiVisualRole.TexturedPanel);
+                .Initialize(CareerUiVisualRole.FlatSurface);
 
             OwnerWorkspaceUiFactory.Panel nextMatch = OwnerWorkspaceUiFactory.CreatePanel(
                 columns, "NextMatchPanel", "다음 경기", true);
@@ -148,13 +153,13 @@ namespace Baseball.Presentation.Owner
                 .Initialize(CareerUiVisualRole.FlatSurface);
             panel.Root.GetComponent<Image>().color = new Color(0.02f, 0.045f, 0.08f, 0.46f);
             CareerUiSkin.ApplyVisualElement(panel.Root.GetComponent<Image>());
-            // 외곽 프레임 하나 안에서 정보 구획만 나누어 중첩 장식을 피한다.
+            // 홈은 장식 테두리 없이 배경과 여백으로 정보 영역을 구분한다.
             panel.Root.Find("HeaderSurface").gameObject.SetActive(false);
             panel.Root.Find("HeaderAccent").gameObject.SetActive(false);
             panel.Root.Find("ThinBorder").gameObject.SetActive(false);
             panel.Root.gameObject.AddComponent<CareerUiPreserveTextColor>();
             Text header = panel.Root.Find("HeaderSlot").GetComponent<Text>();
-            header.color = CareerUiTheme.AccentGold;
+            header.color = CareerUiTheme.TextSecondary;
             header.fontSize = 14;
             header.rectTransform.offsetMin = new Vector2(20f, -32f);
             header.rectTransform.offsetMax = new Vector2(-20f, -6f);
@@ -170,7 +175,7 @@ namespace Baseball.Presentation.Owner
         private static void ApplyHomeButton(Button button, float width, bool isPrimary = false)
         {
             button.GetComponent<CareerUiVisualElement>()
-                .Initialize(CareerUiVisualRole.TexturedAction, isPrimary);
+                .Initialize(CareerUiVisualRole.FlatSurface);
             button.gameObject.AddComponent<CareerUiPreserveTextColor>();
             LayoutElement layout = button.GetComponent<LayoutElement>();
             layout.minWidth = width;
@@ -180,9 +185,13 @@ namespace Baseball.Presentation.Owner
             layout.preferredHeight = 42f;
             CareerUiSkin.ApplyButton(button);
             Text label = button.transform.Find("Label").GetComponent<Text>();
-            label.color = isPrimary ? CareerUiTheme.AccentGold : CareerUiTheme.TextPrimary;
+            label.color = CareerUiTheme.ReferenceText;
             label.fontSize = isPrimary ? 17 : 15;
             label.fontStyle = FontStyle.Bold;
+            label.rectTransform.offsetMin = new Vector2(18f, 6f);
+            label.rectTransform.offsetMax = new Vector2(-18f, -6f);
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.resizeTextForBestFit = false;
         }
 
         private void EnsureBuilt()

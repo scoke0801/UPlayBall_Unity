@@ -12,6 +12,43 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     public sealed class OwnerExpansionPresentationTests
     {
         [Test]
+        public void PregameView_투수탭전환과재바인딩에서도행과경기시작이유지된다()
+        {
+            var host = new UnityEngine.GameObject("PregameTest", typeof(UnityEngine.RectTransform));
+            UI_Scene_OwnerPregame view = null;
+            try
+            {
+                var root = host.GetComponent<UnityEngine.RectTransform>();
+                root.sizeDelta = new UnityEngine.Vector2(1100, 650);
+                view = UI_Scene_OwnerPregame.CreateRuntime(root, root, root);
+                var model = OwnerPregamePresentationBuilder.Build(CreatePregameSnapshot(CreateValidPresetValidation()));
+                view.Bind(model);
+                var table = host.GetComponentsInChildren<UnityEngine.UI.ScrollRect>()
+                    .Single(scroll => scroll.name == "RosterScroll0");
+                Assert.That(table.content.childCount, Is.EqualTo(10));
+                var tab = table.transform.parent.Find("RecordTab1").GetComponent<UnityEngine.UI.Button>();
+                tab.onClick.Invoke();
+                Assert.That(table.content.childCount, Is.EqualTo(2));
+                Assert.That(table.content.GetComponentsInChildren<UnityEngine.UI.Text>()
+                    .Any(text => text.text == "정보 부족"), Is.True);
+                view.Bind(model);
+                Assert.That(table.content.childCount, Is.EqualTo(2));
+                int starts = 0;
+                view.MatchStartRequested += () => starts++;
+                host.GetComponentsInChildren<UnityEngine.UI.Button>()
+                    .Single(button => button.name == "StartMatchButton").onClick.Invoke();
+                Assert.That(starts, Is.EqualTo(1));
+                view.SetVisible(false);
+                Assert.That(host.GetComponentsInChildren<UnityEngine.UI.ScrollRect>(), Is.Empty);
+            }
+            finally
+            {
+                if (view != null) UnityEngine.Object.DestroyImmediate(view.gameObject);
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
         public void PregameBuilder_Unknown정보를공백대신정보부족과확인불가로표시한다()
         {
             OwnerPregamePresentationModel model = OwnerPregamePresentationBuilder.Build(

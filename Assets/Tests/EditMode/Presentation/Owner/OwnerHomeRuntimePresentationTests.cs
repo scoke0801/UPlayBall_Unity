@@ -20,7 +20,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             _shell = SharedGameShellView.CreateRuntime(_root.transform);
             _view = UI_Scene_OwnerHome.CreateRuntime(
                 _shell.MainWorkspaceHost,
-                _shell.MainWorkspaceHost);
+                _shell.ContextActionBarHost);
         }
 
         [TearDown]
@@ -73,22 +73,21 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Skin_재적용해도버튼프레임과진행강조를유지한다()
+        public void Skin_재적용해도장식스킨없이기본버튼을유지한다()
         {
             _view.Bind(CreateModel(), true);
             Button play = FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/PlayNextGameButton");
             Button save = FindButton("MainWorkspaceHost/OwnerHomeWorkspace/DashboardColumns/NextMatchPanel/ContentSafeRect/NextMatchActions/OpponentAnalysisButton");
-            Sprite playSprite = play.GetComponent<Image>().sprite;
-            Sprite saveSprite = save.GetComponent<Image>().sprite;
-            Assert.That(playSprite, Is.Not.Null);
-            Assert.That(saveSprite, Is.Not.Null.And.Not.EqualTo(playSprite));
+            Assert.That(play.GetComponent<Image>().sprite, Is.Null);
+            Assert.That(save.GetComponent<Image>().sprite, Is.Null);
 
             Baseball.Presentation.UI.CareerUiSkin.Apply(_shell.MainWorkspaceHost);
             _view.Bind(CreateModel(), false);
 
-            Assert.That(play.GetComponent<Image>().sprite, Is.SameAs(playSprite));
-            Assert.That(save.GetComponent<Image>().sprite, Is.SameAs(saveSprite));
-            Assert.That(play.GetComponent<Image>().type, Is.EqualTo(Image.Type.Sliced));
+            Assert.That(play.GetComponent<Image>().sprite, Is.Null);
+            Assert.That(save.GetComponent<Image>().sprite, Is.Null);
+            Assert.That(play.GetComponent<Image>().type, Is.EqualTo(Image.Type.Simple));
+            Assert.That(_view.GuideDockTarget.GetComponent<Image>().sprite, Is.Null);
             Assert.That(play.interactable, Is.False);
             Assert.That(save.interactable, Is.False);
             Text saveLabel = save.transform.Find("Label").GetComponent<Text>();

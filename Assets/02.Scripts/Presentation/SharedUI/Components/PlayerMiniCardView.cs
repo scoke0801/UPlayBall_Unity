@@ -55,6 +55,8 @@ namespace Baseball.Presentation.SharedUI
         private Text _costText;
         private Text _editionText;
         private Text _statusText;
+        private Image _assignmentBadge;
+        private Text _assignmentText;
         private PlayerMiniCardModel _model;
         private bool _usesLineupSlotLayout;
         private bool _hasCompactSurfaces;
@@ -113,6 +115,7 @@ namespace Baseball.Presentation.SharedUI
             _model = model ?? throw new ArgumentNullException(nameof(model));
             EnsureHierarchy();
 
+            SetAssignmentBadge(null);
             _nameText.text = model.DisplayName;
             _positionText.text = model.PositionLabel;
             _yearText.text = model.YearLabel;
@@ -145,16 +148,19 @@ namespace Baseball.Presentation.SharedUI
         {
             EnsureHierarchy();
             _usesLineupSlotLayout = true;
+            CareerUiVisualElement visual = GetComponent<CareerUiVisualElement>();
+            if (visual == null) visual = gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(CareerUiVisualRole.FlatSurface);
             RectTransform root = GetComponent<RectTransform>();
             root.sizeDelta = new Vector2(LineupSlotWidth, LineupSlotHeight);
             _lineupFrame.gameObject.SetActive(false);
             if (!_hasCompactSurfaces)
             {
                 // 얇은 프레임과 정보 행을 실제 UI 영역으로 분리해 작은 카드에서도 선명하게 표시한다.
-                AddCompactSurface("PortraitBacking", new Color(0.87f, 0.90f, 0.92f), 0.33f, 0.88f);
-                AddCompactSurface("NameBacking", new Color(0.055f, 0.13f, 0.22f), 0.235f, 0.335f);
-                AddCompactSurface("DetailsBacking", new Color(0.98f, 0.98f, 0.96f), 0.12f, 0.235f);
-                AddCompactSurface("RoleBacking", new Color(0.80f, 0.87f, 0.89f), 0.01f, 0.115f);
+                AddCompactSurface("PortraitBacking", CareerUiTheme.RosterEmptySlot, 0.33f, 0.88f);
+                AddCompactSurface("NameBacking", CareerUiTheme.RosterHeader, 0.235f, 0.335f);
+                AddCompactSurface("DetailsBacking", CareerUiTheme.RosterPanel, 0.12f, 0.235f);
+                AddCompactSurface("RoleBacking", CareerUiTheme.RosterEmptySlot, 0.01f, 0.115f);
                 _hasCompactSurfaces = true;
             }
             SetAnchors(_lineupFrame.rectTransform, new Vector2(0f, 0.10f), new Vector2(1f, 0.88f), Vector2.zero, Vector2.zero);
@@ -358,6 +364,27 @@ namespace Baseball.Presentation.SharedUI
             _statusText.color = visualState == PlayerMiniCardVisualState.Warning
                 ? new Color(1f, 0.76f, 0.30f, 1f)
                 : new Color(0.08f, 0.12f, 0.18f, 1f);
+        }
+
+        /// <summary>보유 목록에서 현재 배치된 카드를 초상화 위 배지로 구분한다.</summary>
+        public void SetAssignmentBadge(string assignmentLabel)
+        {
+            bool isAssigned = !string.IsNullOrWhiteSpace(assignmentLabel);
+            if (_assignmentBadge == null && !isAssigned) return;
+            if (_assignmentBadge == null)
+            {
+                _assignmentBadge = CreateImage("AssignmentBadge", transform, new Color(0.04f, 0.36f, 0.65f, 0.97f));
+                SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, 0.57f),
+                    new Vector2(0.97f, 0.73f), Vector2.zero, Vector2.zero);
+                _assignmentText = CreateText("AssignmentLabel", _assignmentBadge.transform, 12,
+                    FontStyle.Bold, TextAnchor.MiddleCenter, Color.white);
+                SetAnchors(_assignmentText.rectTransform, Vector2.zero, Vector2.one,
+                    new Vector2(2f, 0f), new Vector2(-2f, 0f));
+                SetBestFitRange(_assignmentText, 8, 12);
+            }
+            _assignmentBadge.gameObject.SetActive(isAssigned);
+            _assignmentText.text = isAssigned ? "배치 중 · " + assignmentLabel : string.Empty;
+            _assignmentBadge.transform.SetAsLastSibling();
         }
 
         private void HandleSelected()
