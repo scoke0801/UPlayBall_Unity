@@ -103,7 +103,7 @@
 
 - 기존 `OwnerTeamColorSnapshot`과 `UI_Scene_OwnerTeamColor`를 재사용한다.
 - 상단에서 장착 후보, 사용 가능한 팀 컬러, 현재 저장된 적용 구성을 분리하고 하단에 조건·적용 대상을 표시한다.
-- 발동 인원, 효과 총량 기반 S/A/B/C 표시 등급, StackPolicy, 적용 선수와 효과를 비교한 뒤 두 슬롯을 명시적으로 확정한다.
+- 발동 인원, 효과 총량 기반 S/A/B/C 표시 등급, StackPolicy, 적용 선수와 대상 선수 1명당 역할별 실제 능력치 상승량을 비교한 뒤 두 슬롯을 명시적으로 확정한다. 상세 효과에 역할별 보너스 합계는 표시하지 않는다.
 - 결정 전 Draft와 현재 저장 구성을 동시에 보여 변경 결과를 오인하지 않게 한다.
 - TeamColor의 ID·UpgradeGroupId·FranchiseId·TeamSeasonKey는 화면에 직접 출력하지 않는다. World 표시명으로
   치환할 수 없는 값은 Family 기반 한국어 안전 이름으로 대체한다.
@@ -180,6 +180,7 @@ TeamColor 카드는 ImageGen으로 생성한 텍스트 없는 공통·타자·�
 - 슬롯·TeamColor·Tactic Preview/Validate/Confirm 완료
 - TeamColor 레퍼런스 3열 편성·하단 정보 Layout 완료
 - TeamColor 공통·타자·투수 효과별 ImageGen Plate 선택 완료
+- TeamColor 상세의 역할별 합계 제거 및 대상 타자·투수 1명당 능력치 효과 표시 완료
 - SupportCard 레퍼런스 편성 Layout과 명시적 Locked 상태 완료
 - PitchingWorkload·Condition 단계·구종·시즌 기록 Inspector 연결 완료
 - 큰 카드 Frame·초상·이름/연도·6개 능력 막대·Cost 구성, 작은 카드는 이름/연도·Cost·포지션 한 줄로 구분

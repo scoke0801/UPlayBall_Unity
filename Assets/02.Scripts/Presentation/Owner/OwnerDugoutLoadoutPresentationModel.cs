@@ -349,10 +349,20 @@ namespace Baseball.Presentation.Owner
             return rows;
         }
 
+        /// <summary>한 TeamColor가 적용 대상 선수 1명에게 주는 역할별 능력치 효과를 설명한다.</summary>
         public static string DescribeTeamColorEffect(TeamColorDefinition definition)
         {
-            return $"야수 보너스 합 {definition.HitterBonus.Total} · 투수 보너스 합 {definition.PitcherBonus.Total}\n" +
-                   $"중첩: {(definition.StackPolicy == TeamColorStackPolicy.Stackable ? "동시 적용" : "동일 계열 최고 단계만")}";
+            if (definition == null) throw new ArgumentNullException(nameof(definition));
+
+            var builder = new StringBuilder();
+            AppendPerPlayerBonus(builder, "타자", PlayerRole.Hitter, definition.HitterBonus);
+            builder.Append('\n');
+            AppendPerPlayerBonus(builder, "투수", PlayerRole.Pitcher, definition.PitcherBonus);
+            builder.Append("\n중첩: ").Append(
+                definition.StackPolicy == TeamColorStackPolicy.Stackable
+                    ? "동시 적용"
+                    : "동일 계열 최고 단계만");
+            return builder.ToString();
         }
 
         /// <summary>저장된 슬롯 가운데 실제 발동 중인 TeamColor의 능력치 효과를 역할별로 합산한다.</summary>
@@ -392,9 +402,9 @@ namespace Baseball.Presentation.Owner
                 builder.Append(activeNames[index]);
             }
             builder.Append('\n');
-            AppendRoleBonus(builder, "야수", hitterBonuses);
+            AppendRoleBonus(builder, "야수", PlayerRole.Hitter, hitterBonuses);
             builder.Append('\n');
-            AppendRoleBonus(builder, "투수", pitcherBonuses);
+            AppendRoleBonus(builder, "투수", PlayerRole.Pitcher, pitcherBonuses);
             return builder.ToString();
         }
 
@@ -417,8 +427,18 @@ namespace Baseball.Presentation.Owner
                 destination[abilityIndex] += source.Get((PlayerAbility)abilityIndex);
         }
 
-        private static void AppendRoleBonus(StringBuilder builder, string roleName, int[] bonuses)
+        private static void AppendRoleBonus(
+            StringBuilder builder,
+            string roleName,
+            PlayerRole role,
+            int[] bonuses)
         {
+            if (TryGetUniformRoleBonus(role, bonuses, out int uniformAmount))
+            {
+                builder.Append(roleName).Append(": 올 스탯 +").Append(uniformAmount);
+                return;
+            }
+
             builder.Append(roleName).Append(' ');
             int effectCount = 0;
             for (int abilityIndex = 0; abilityIndex < bonuses.Length; abilityIndex++)
@@ -428,6 +448,85 @@ namespace Baseball.Presentation.Owner
                     continue;
                 if (effectCount > 0) builder.Append(" · ");
                 builder.Append(GetAbilityName((PlayerAbility)abilityIndex)).Append(" +").Append(amount);
+                effectCount++;
+            }
+            if (effectCount == 0) builder.Append("효과 없음");
+        }
+
+        private static bool TryGetUniformRoleBonus(PlayerRole role, int[] bonuses, out int uniformAmount)
+        {
+            uniformAmount = 0;
+            bool hasRoleAbility = false;
+            for (int abilityIndex = 0; abilityIndex < bonuses.Length; abilityIndex++)
+            {
+                var ability = (PlayerAbility)abilityIndex;
+                bool belongsToRole = role == PlayerRole.Hitter
+                    ? PlayerAbilityCatalog.IsBatterAbility(ability)
+                    : PlayerAbilityCatalog.IsPitcherAbility(ability);
+                int amount = bonuses[abilityIndex];
+                if (!belongsToRole)
+                {
+                    if (amount != 0) return false;
+                    continue;
+                }
+
+                if (!hasRoleAbility)
+                {
+                    uniformAmount = amount;
+                    hasRoleAbility = true;
+                    continue;
+                }
+
+                if (amount != uniformAmount) return false;
+            }
+
+            return hasRoleAbility && uniformAmount > 0;
+        }
+
+        private static void AppendPerPlayerBonus(
+            StringBuilder builder,
+            string roleName,
+            PlayerRole role,
+            TeamColorStatBonus bonuses)
+        {
+            builder.Append(roleName).Append(" 1명당 ");
+            int uniformAmount = -1;
+            bool isUniform = true;
+            for (int abilityIndex = 0; abilityIndex < PlayerAbilityCatalog.AbilityCount; abilityIndex++)
+            {
+                var ability = (PlayerAbility)abilityIndex;
+                bool belongsToRole = role == PlayerRole.Hitter
+                    ? PlayerAbilityCatalog.IsBatterAbility(ability)
+                    : PlayerAbilityCatalog.IsPitcherAbility(ability);
+                if (!belongsToRole)
+                {
+                    if (bonuses.Get(ability) != 0)
+                        isUniform = false;
+                    continue;
+                }
+
+                int amount = bonuses.Get(ability);
+                if (uniformAmount < 0)
+                    uniformAmount = amount;
+                else if (uniformAmount != amount)
+                    isUniform = false;
+            }
+
+            if (isUniform && uniformAmount > 0)
+            {
+                builder.Append("전체 능력치 +").Append(uniformAmount);
+                return;
+            }
+
+            int effectCount = 0;
+            for (int abilityIndex = 0; abilityIndex < PlayerAbilityCatalog.AbilityCount; abilityIndex++)
+            {
+                var ability = (PlayerAbility)abilityIndex;
+                int amount = bonuses.Get(ability);
+                if (amount == 0)
+                    continue;
+                if (effectCount > 0) builder.Append(" · ");
+                builder.Append(GetAbilityName(ability)).Append(" +").Append(amount);
                 effectCount++;
             }
             if (effectCount == 0) builder.Append("효과 없음");

@@ -338,7 +338,7 @@ namespace Baseball.Presentation.Owner
     {
         // 세 생성 자산의 정규화된 상하 투명 여백을 제외한 공통 플레이트 영역이다.
         private static readonly Rect CardPlateUv = new Rect(0f, 0.25f, 1f, 0.50f);
-        private const float GradeCenterX = 0.182f;
+        private const float GradeCenterX = 0.192f;
         private const float TextSafeLeft = 0.34f;
 
         private RawImage _surface;
@@ -432,7 +432,7 @@ namespace Baseball.Presentation.Owner
                 TextAnchor.MiddleCenter);
             _grade.color = Color.white;
             _meta = OwnerDugoutDetailUiFactory.CreateLabel(
-                transform, "Meta", string.Empty, TextSafeLeft, 0.08f, 0.78f, 0.34f, 12, FontStyle.Normal, TextAnchor.MiddleLeft);
+                transform, "Meta", string.Empty, TextSafeLeft, 0.13f, 0.78f, 0.39f, 12, FontStyle.Normal, TextAnchor.MiddleLeft);
             _meta.color = new Color(0.80f, 0.82f, 0.84f, 1f);
             _state = OwnerDugoutDetailUiFactory.CreateLabel(
                 transform, "State", string.Empty, 0.80f, 0.20f, 0.95f, 0.80f, 11, FontStyle.Bold, TextAnchor.MiddleCenter);
