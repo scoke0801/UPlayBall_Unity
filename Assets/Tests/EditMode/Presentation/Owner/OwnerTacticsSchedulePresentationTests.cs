@@ -34,11 +34,18 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 workspace.Find("ScheduleTitle/NextGame").GetComponent<Button>().onClick.Invoke();
                 Transform editor = workspace.Find("CardSettingOverlay");
                 Assert.That(editor.Find("Detail/Equip"), Is.Null);
+                Assert.That(editor.Find("Loadout/Clear"), Is.Null);
+                RectTransform loadout = editor.Find("Loadout").GetComponent<RectTransform>();
+                RectTransform detail = editor.Find("Detail").GetComponent<RectTransform>();
+                Assert.That(loadout.anchorMax.y - loadout.anchorMin.y,
+                    Is.GreaterThan(detail.anchorMax.y - detail.anchorMin.y));
                 for (int index = 0; index < 2; index++)
                 {
                     Transform slot = editor.Find("Loadout/Slot" + index);
+                    RectTransform slotRect = slot.GetComponent<RectTransform>();
                     Assert.That(slot.Find("Label").GetComponent<Text>().text, Does.Contain("비어 있음"));
                     Assert.That(slot.Find("CardArtworkHolder").gameObject.activeSelf, Is.False);
+                    Assert.That(slotRect.anchorMax.y - slotRect.anchorMin.y, Is.GreaterThan(0.25f));
                 }
                 ScrollRect scroll = editor.Find("Detail/DescriptionScroll").GetComponent<ScrollRect>();
                 Text description = scroll.content.Find("Description").GetComponent<Text>();
@@ -58,6 +65,18 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 };
                 editor.Find("CardCatalog/Scroll/Viewport/Content/Card0").GetComponent<Button>().onClick.Invoke();
                 Assert.That(editor.Find("Loadout/Slot0/Label").GetComponent<Text>().text, Does.Contain("강심장"));
+                Transform artworkHolder = editor.Find("Loadout/Slot0/CardArtworkHolder");
+                Assert.That(artworkHolder.gameObject.activeSelf, Is.True);
+                Assert.That(artworkHolder.GetComponent<Image>(), Is.Not.Null);
+                Transform buttonFrame = artworkHolder.parent.Find("OwnerButtonFrame");
+                Assert.That(buttonFrame, Is.Not.Null);
+                Assert.That(artworkHolder.GetSiblingIndex(), Is.GreaterThan(buttonFrame.GetSiblingIndex()),
+                    "장착 카드 이미지는 불투명 버튼 배경 앞에 그려져야 한다.");
+                Assert.That(artworkHolder.Find("CardArtwork").GetComponent<RawImage>().texture,
+                    Is.EqualTo(TacticCardArtwork.Load(TacticCardArtwork.PitchingKey)));
+                editor.Find("CardCatalog/Scroll/Viewport/Content/Card0").GetComponent<Button>().onClick.Invoke();
+                Assert.That(editor.Find("Loadout/Slot0/Label").GetComponent<Text>().text, Does.Contain("비어 있음"));
+                editor.Find("CardCatalog/Scroll/Viewport/Content/Card0").GetComponent<Button>().onClick.Invoke();
                 editor.Find("Confirm").GetComponent<Button>().onClick.Invoke();
                 Assert.That(confirmed, Is.EqualTo(new[] { definition.CardId }));
                 Assert.That(confirmedGameId, Is.EqualTo(101));

@@ -127,8 +127,8 @@ namespace Baseball.Presentation.Owner
             OwnerDugoutDetailUiFactory.CreateButton(_editor, "Close", "닫기", 0.865f, 0.915f, 0.975f, 0.975f, CloseEditor);
 
             RectTransform catalog = OwnerDugoutDetailUiFactory.CreatePanel(_editor, "CardCatalog", 0.025f, 0.14f, 0.58f, 0.89f);
-            RectTransform loadout = OwnerDugoutDetailUiFactory.CreatePanel(_editor, "Loadout", 0.60f, 0.51f, 0.975f, 0.89f);
-            RectTransform detail = OwnerDugoutDetailUiFactory.CreatePanel(_editor, "Detail", 0.60f, 0.14f, 0.975f, 0.49f);
+            RectTransform loadout = OwnerDugoutDetailUiFactory.CreatePanel(_editor, "Loadout", 0.60f, 0.45f, 0.975f, 0.89f);
+            RectTransform detail = OwnerDugoutDetailUiFactory.CreatePanel(_editor, "Detail", 0.60f, 0.14f, 0.975f, 0.43f);
 
             OwnerDugoutDetailUiFactory.CreateLabel(catalog, "Title", "보유 작전카드", 0.03f, 0.91f, 0.33f, 0.98f, 20, FontStyle.Bold);
             CreateCategoryButton(catalog, "전체", null, 0.34f, 0.46f);
@@ -140,22 +140,19 @@ namespace Baseball.Presentation.Owner
 
             OwnerDugoutDetailUiFactory.CreateLabel(loadout, "Title", "선택 프리셋", 0.07f, 0.90f, 0.93f, 0.98f, 18, FontStyle.Bold);
             _selectedGameText = OwnerDugoutDetailUiFactory.CreateLabel(
-                loadout, "Preset", "카드를 클릭하면 선택 슬롯에 바로 장착됩니다.", 0.07f, 0.82f, 0.93f, 0.90f, 12);
+                loadout, "Preset", "카드 클릭: 장착 · 장착 카드 재클릭: 해제", 0.07f, 0.79f, 0.93f, 0.89f, 12);
             for (int index = 0; index < _slotLabels.Length; index++)
             {
                 int slotIndex = index;
                 Button button = OwnerDugoutDetailUiFactory.CreateButton(loadout, "Slot" + index, "슬롯 " + (index + 1),
-                    0.07f, 0.63f - index * 0.22f, 0.93f, 0.80f - index * 0.22f, () => SelectSlot(slotIndex));
+                    0.07f, 0.46f - index * 0.34f, 0.93f, 0.75f - index * 0.34f, () => SelectSlot(slotIndex));
                 _slotLabels[index] = button.transform.Find("Label").GetComponent<Text>();
                 _slotLabels[index].fontSize = 12;
-                OwnerDugoutDetailUiFactory.Place(_slotLabels[index].rectTransform, 0.30f, 0f, 0.96f, 1f);
+                OwnerDugoutDetailUiFactory.Place(_slotLabels[index].rectTransform, 0.32f, 0f, 0.96f, 1f);
                 _slotLabels[index].alignment = TextAnchor.MiddleLeft;
                 _slotArtworks[index] = CreateCardArtwork(button.transform, "CardArtwork", TacticCardArtwork.CommonKey,
-                    0.07f, 0.10f, 0.25f, 0.90f);
+                    0.025f, 0.06f, 0.29f, 0.94f, true);
             }
-            OwnerDugoutDetailUiFactory.CreateButton(loadout, "Clear", "선택 슬롯 해제", 0.07f, 0.30f, 0.93f, 0.37f, ClearSelectedSlot);
-            OwnerDugoutDetailUiFactory.CreateLabel(loadout, "Rule", "경기당 최대 2장\n같은 카드 중복 장착 불가\n방해카드는 최대 1장",
-                0.07f, 0.10f, 0.93f, 0.27f, 12, FontStyle.Normal, TextAnchor.UpperLeft);
 
             OwnerDugoutDetailUiFactory.CreateLabel(detail, "Title", "작전 상세", 0.06f, 0.90f, 0.94f, 0.98f, 20, FontStyle.Bold);
             RectTransform detailContent = OwnerDugoutDetailUiFactory.CreateScrollContent(
@@ -265,9 +262,19 @@ namespace Baseball.Presentation.Owner
             float left,
             float bottom,
             float right,
-            float top)
+            float top,
+            bool showFrame = false)
         {
             RectTransform holder = OwnerDugoutDetailUiFactory.CreateRect(parent, name + "Holder", left, bottom, right, top);
+            if (showFrame)
+            {
+                Image frame = holder.gameObject.AddComponent<Image>();
+                frame.color = new Color(0.82f, 0.86f, 0.88f, 0.62f);
+                frame.raycastTarget = false;
+                Outline outline = holder.gameObject.AddComponent<Outline>();
+                outline.effectColor = new Color(0.28f, 0.35f, 0.40f, 0.55f);
+                outline.effectDistance = new Vector2(1f, -1f);
+            }
             RawImage token = TacticCardArtwork.Create(holder, name, artworkKey, Color.white);
             OwnerWorkspaceUiFactory.Stretch(token.rectTransform);
             AspectRatioFitter fitter = token.gameObject.AddComponent<AspectRatioFitter>();
@@ -275,7 +282,8 @@ namespace Baseball.Presentation.Owner
             fitter.aspectRatio = token.texture != null
                 ? token.texture.width / (float)token.texture.height
                 : 2f / 3f;
-            holder.SetAsFirstSibling();
+            // 버튼 스킨의 불투명 배경보다 나중에 그려야 장착 카드가 가려지지 않는다.
+            holder.SetAsLastSibling();
             return token;
         }
 
@@ -320,7 +328,7 @@ namespace Baseball.Presentation.Owner
             if (row == null || !row.IsConfigurable) return;
             _editingGameId = row.GameId;
             _editorTitle.text = $"제 {row.Round}경기 작전 카드 설정";
-            _selectedGameText.text = $"제 {row.Round}경기 · 카드를 클릭하면 선택 슬롯에 바로 장착됩니다.";
+            _selectedGameText.text = $"제 {row.Round}경기 · 카드 클릭: 장착 · 재클릭: 해제";
             _editorScrim.gameObject.SetActive(true);
             _editor.gameObject.SetActive(true);
             _editorScrim.SetAsLastSibling();
@@ -384,7 +392,21 @@ namespace Baseball.Presentation.Owner
         private void SelectAndEquipCard(OwnerTacticCardSnapshot card)
         {
             SelectCard(card);
+            int equippedSlot = FindDraftSlot(card.Id);
+            if (equippedSlot >= 0)
+            {
+                _selectedSlot = equippedSlot;
+                ClearSelectedSlot();
+                return;
+            }
             EquipSelected();
+        }
+
+        private int FindDraftSlot(string cardId)
+        {
+            for (int index = 0; index < _draftCount; index++)
+                if (string.Equals(_draftIds[index], cardId, StringComparison.Ordinal)) return index;
+            return -1;
         }
 
         private void SelectCard(OwnerTacticCardSnapshot card)
