@@ -32,14 +32,26 @@ namespace Baseball.Presentation.Owner
             Image portrait = Surface(parent, "ProfilePortrait", Color.white, .025f, .695f, .265f, .97f).GetComponent<Image>();
             portrait.sprite = PlayerPortraitSprites.GetDefault(card.Position);
             portrait.preserveAspect = true;
-            Label(parent, "Profile", hands + "\n" + roleText + "\n비용 " + card.Cost + "\n강화 +" + card.EnhancementLevel,
+            string enhancement = card.IsOwnedCard ? "\n강화 +" + card.EnhancementLevel : string.Empty;
+            Label(parent, "Profile", hands + "\n" + roleText + "\n비용 " + card.Cost + enhancement,
                 .025f, .42f, .265f, .68f, 14, Ink);
 
             BuildSeasonRecord(parent, card, paper, panel);
             RectTransform role = Surface(parent, "RoleInformation", new Color(0.22f, .09f, .12f, .72f), .286f, .395f, .985f, .907f);
             if (pitcher) BuildPitchRepertoire(role, card);
             else BuildDefenseDiagram(role, card.Position);
-            BuildSkillBlockBoard(parent, paper, panel, card);
+            if (card.IsOwnedCard) BuildSkillBlockBoard(parent, paper, panel, card);
+            else BuildPublicLineupNotice(parent, paper, panel);
+        }
+
+        private static void BuildPublicLineupNotice(RectTransform parent, Color paper, Color panel)
+        {
+            Gradient(parent, "PublicInformationTitle", paper, panel, .012f, .245f, .988f, .28f);
+            Label(parent, "PublicInformationHeading", "상대 구단 공개 정보", .04f, .245f, .96f, .28f,
+                12, Color.white);
+            RectTransform section = Surface(parent, "PublicInformation", Ink, .012f, .012f, .988f, .24f);
+            Label(section, "State", "카드 기본 능력치와 공개 시즌 기록입니다.\n컨디션·훈련·스킬 블록 등 내부 정보는 공개하지 않습니다.",
+                .06f, .18f, .94f, .86f, 13, new Color(.72f, .75f, .78f));
         }
 
         private static void BuildDefenseDiagram(RectTransform parent, PlayerPosition position)
@@ -133,7 +145,8 @@ namespace Baseball.Presentation.Owner
                     new Vector2(-2f, -2f));
                 Image image = rect.gameObject.AddComponent<Image>();
                 image.sprite = sprite;
-                image.color = Color.white;
+                // 공용 아틀라스는 무채색이므로 정의의 등급 색상을 별도로 입힌다.
+                image.color = SkillBlockVisual.GetRarityColor(placement.Rarity);
                 image.preserveAspect = false;
                 image.raycastTarget = false;
                 rect.localEulerAngles = new Vector3(0f, 0f, placement.RotationQuarterTurns * 90f);

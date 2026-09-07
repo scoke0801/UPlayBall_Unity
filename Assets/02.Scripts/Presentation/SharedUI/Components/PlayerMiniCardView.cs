@@ -368,16 +368,20 @@ namespace Baseball.Presentation.SharedUI
             _accentStrip.gameObject.SetActive(false);
             _portrait.color = _portrait.sprite == null ? Color.clear : Color.white;
             float top = _usesLineupSlotLayout ? .89f : 1f;
-            Vector2 band = OwnerPlayerCardFrames.GetMiniNameBand(_model.FrameEdition.Value);
+            Vector2 band = OwnerPlayerCardFrames.MiniNameBand;
             SetAnchors(_lineupFrame.rectTransform, Vector2.zero, new Vector2(1f, top), Vector2.zero, Vector2.zero);
             SetAnchors(_portrait.rectTransform, new Vector2(.12f, top * (band.y + .03f)), new Vector2(.88f, top * .86f), Vector2.zero, Vector2.zero);
             SetAnchors(_nameText.rectTransform, new Vector2(.07f, top * band.x), new Vector2(.76f, top * band.y), Vector2.zero, Vector2.zero);
             SetAnchors(_yearText.rectTransform, new Vector2(.77f, top * band.x), new Vector2(.94f, top * band.y), Vector2.zero, Vector2.zero);
             SetAnchors(_costText.rectTransform, new Vector2(.06f, top * .085f), new Vector2(.94f, top * .165f), Vector2.zero, Vector2.zero);
             SetAnchors(_statusText.rectTransform, new Vector2(.04f, .01f), new Vector2(.96f, top * .085f), Vector2.zero, Vector2.zero);
-            _nameText.color = _yearText.color = _model.FrameEdition.Value == Baseball.Core.Historical.PlayerCardEdition.GoldenGlove
-                ? Color.white : new Color32(18, 20, 24, 255);
+            _nameText.color = _yearText.color = new Color32(18, 20, 24, 255);
             _costText.alignment = _statusText.alignment = TextAnchor.MiddleCenter;
+            // 80px 슬롯의 실제 텍스트 영역 높이에 맞춰 수치와 한국어 이름의 잘림을 막는다.
+            SetBestFitRange(_nameText, 6, _usesLineupSlotLayout ? 12 : 18);
+            SetBestFitRange(_yearText, 5, _usesLineupSlotLayout ? 9 : 12);
+            SetBestFitRange(_costText, 6, _usesLineupSlotLayout ? 10 : 14);
+            SetBestFitRange(_statusText, 5, _usesLineupSlotLayout ? 8 : 11);
             if (_model.Cost.HasValue)
             {
                 if (_costStars == null)
@@ -412,24 +416,24 @@ namespace Baseball.Presentation.SharedUI
             _yearText.color = TextPrimary;
             _costText.color = TextPrimary;
             _editionText.color = TextPrimary;
-            _positionText.color = new Color32(44, 44, 44, 255);
+            _positionText.color = isSelected || visualState == PlayerMiniCardVisualState.Warning
+                ? Color.white : new Color32(44, 44, 44, 255);
             _statusText.color = visualState == PlayerMiniCardVisualState.Warning
                 ? new Color(1f, 0.76f, 0.30f, 1f)
                 : TextSecondary;
         }
 
-        /// <summary>초상을 가리지 않는 상단 배지로 현재 배치 역할을 구분한다.</summary>
+        /// <summary>카드 중앙 배지로 현재 배치 역할을 구분한다.</summary>
         public void SetAssignmentBadge(string assignmentLabel)
         {
             bool isAssigned = !string.IsNullOrWhiteSpace(assignmentLabel);
-            // 배치 라벨과 본래 포지션이 같은 상단 영역에서 동시에 그려지지 않게 한다.
-            if (_positionText != null) _positionText.gameObject.SetActive(!isAssigned);
+            if (_positionText != null) _positionText.gameObject.SetActive(true);
             if (_assignmentBadge == null && !isAssigned) return;
             if (_assignmentBadge == null)
             {
                 _assignmentBadge = CreateImage("AssignmentBadge", transform, new Color(0.04f, 0.36f, 0.65f, 0.97f));
-                SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, 0.87f),
-                    new Vector2(0.97f, 0.985f), Vector2.zero, Vector2.zero);
+                SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, 0.44f),
+                    new Vector2(0.97f, 0.56f), Vector2.zero, Vector2.zero);
                 _assignmentText = CreateText("AssignmentLabel", _assignmentBadge.transform, 12,
                     FontStyle.Bold, TextAnchor.MiddleCenter, Color.white);
                 SetAnchors(_assignmentText.rectTransform, Vector2.zero, Vector2.one,

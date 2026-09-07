@@ -80,7 +80,11 @@ namespace Baseball.Presentation.Owner
             bool isMatchStartAvailable,
             string matchStartUnavailableReason = null,
             int ownTeamEmblemId = 0,
-            int opponentTeamEmblemId = 0)
+            int opponentTeamEmblemId = 0,
+            PlayerMiniCardModel ownStarterCard = null,
+            OwnerCollectionCardSnapshot ownStarterDetail = null,
+            PlayerMiniCardModel opponentStarterCard = null,
+            OwnerCollectionCardSnapshot opponentStarterDetail = null)
         {
             if (ownTeamEmblemId < 0) throw new ArgumentOutOfRangeException(nameof(ownTeamEmblemId));
             if (opponentTeamEmblemId < 0) throw new ArgumentOutOfRangeException(nameof(opponentTeamEmblemId));
@@ -98,6 +102,12 @@ namespace Baseball.Presentation.Owner
             MatchStartUnavailableReason = matchStartUnavailableReason ?? string.Empty;
             OwnTeamEmblemId = ownTeamEmblemId;
             OpponentTeamEmblemId = opponentTeamEmblemId;
+            ValidateStarterDetail(ownStarterCard, ownStarterDetail, nameof(ownStarterDetail));
+            ValidateStarterDetail(opponentStarterCard, opponentStarterDetail, nameof(opponentStarterDetail));
+            OwnStarterCard = ownStarterCard;
+            OwnStarterDetail = ownStarterDetail;
+            OpponentStarterCard = opponentStarterCard;
+            OpponentStarterDetail = opponentStarterDetail;
 
             if (ContentState.Kind == UiContentStateKind.Ready)
             {
@@ -125,6 +135,10 @@ namespace Baseball.Presentation.Owner
         public string MatchStartUnavailableReason { get; }
         public int OwnTeamEmblemId { get; }
         public int OpponentTeamEmblemId { get; }
+        public PlayerMiniCardModel OwnStarterCard { get; }
+        public OwnerCollectionCardSnapshot OwnStarterDetail { get; }
+        public PlayerMiniCardModel OpponentStarterCard { get; }
+        public OwnerCollectionCardSnapshot OpponentStarterDetail { get; }
 
         public string ResolveText(string key, string fallback = null)
         {
@@ -162,6 +176,17 @@ namespace Baseball.Presentation.Owner
                     result.Add(pair.Key.Trim(), pair.Value.Trim());
             }
             return result;
+        }
+
+        private static void ValidateStarterDetail(
+            PlayerMiniCardModel card,
+            OwnerCollectionCardSnapshot detail,
+            string parameterName)
+        {
+            if (card == null && detail == null) return;
+            if (card == null || detail == null ||
+                !string.Equals(card.PlayerId, detail.CardId, StringComparison.Ordinal))
+                throw new ArgumentException("선발 Mini Card와 상세 정보의 CardId가 같아야 합니다.", parameterName);
         }
 
         private static string Normalize(string value) => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();

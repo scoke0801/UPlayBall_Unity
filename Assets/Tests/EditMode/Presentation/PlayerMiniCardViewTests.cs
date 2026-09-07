@@ -28,13 +28,16 @@ namespace Baseball.Tests.EditMode.Presentation
         }
 
         [Test]
-        public void AssignmentBadge_상단포지션과겹치지않고해제시복원한다()
+        public void AssignmentBadge_카드중앙에표시하고포지션을유지한다()
         {
             _view.UseLineupSlotLayout();
             _view.Bind(new PlayerMiniCardModel("p", "최준욱", "유격수", "24", "★ 4", "", "유격수"));
             _view.SetAssignmentBadge("1번");
-            Assert.That(_view.transform.Find("Position").gameObject.activeSelf, Is.False);
-            Assert.That(_view.transform.Find("AssignmentBadge").gameObject.activeSelf, Is.True);
+            Assert.That(_view.transform.Find("Position").gameObject.activeSelf, Is.True);
+            Transform badge = _view.transform.Find("AssignmentBadge");
+            Assert.That(badge.gameObject.activeSelf, Is.True);
+            Assert.That(((RectTransform)badge).anchorMin, Is.EqualTo(new Vector2(.03f, .44f)));
+            Assert.That(((RectTransform)badge).anchorMax, Is.EqualTo(new Vector2(.97f, .56f)));
             Assert.That(_view.transform.Find("AssignmentBadge/AssignmentLabel").GetComponent<Text>().text,
                 Is.EqualTo("배치 중 · 1번"));
             _view.SetAssignmentBadge(null);

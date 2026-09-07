@@ -22,12 +22,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
             var opponent = match.Input.AwayRoster.TeamId == runtime.ManagerMode.LiveSeason.PlayerTeamId
                 ? match.Input.HomeRoster : match.Input.AwayRoster;
             var roster = runtime.GetRoster(runtime.ManagerMode.LiveSeason.GetTeamSeasonKey(opponent.TeamId));
-            var selected = ManagerModeMatchService.ResolveAiTeamColors(roster, runtime.WorldCardCatalog, balance.TeamColor);
+            var bonuses = ManagerModeMatchService.ResolveAiTeamColorBonuses(
+                roster, runtime.WorldCardCatalog, balance.TeamColor, out var selected);
             Assert.That(selected[0], Is.Not.Null);
-            var definitions = new List<TeamColorDefinition>();
-            foreach (var color in selected) if (color != null) definitions.Add(color);
-            var bonuses = new Baseball.Simulation.Historical.TeamColorResolver().ApplyEquipped(
-                roster, runtime.WorldCardCatalog, definitions, selected[0], selected[1]);
             var plan = ManagerModeMatchService.CreateRosterRolePlan(roster);
             int positiveBonuses = 0;
             for (int index = 0; index < plan.BattingOrderCardIds.Count; index++)

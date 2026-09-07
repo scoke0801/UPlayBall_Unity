@@ -60,15 +60,17 @@ namespace Baseball.Presentation.Owner
             Surface(board, "Header", new Color32(222, 227, 229, 255), 0, .92f, 1, 1);
             Label(board, "LineupName", "라인업 명칭   " + _snapshot.LineupName, .01f, .925f, .76f, .995f, 15);
             Label(board, "Cost", _snapshot.CostLabel, .79f, .925f, .99f, .995f, 15);
-            RenderRow(board, "Hitters", "야\n수", _snapshot.Hitters, .545f, .915f, false);
-            RenderRow(board, "Pitchers", "투\n수", _snapshot.Pitchers, .17f, .54f, true);
+            RenderRow(board, "Hitters", "야\n수", _snapshot.Hitters, _snapshot.HitterDetails, .545f, .915f, false);
+            RenderRow(board, "Pitchers", "투\n수", _snapshot.Pitchers, _snapshot.PitcherDetails, .17f, .54f, true);
             RenderTeamColors(board);
-            Label(root, "Disclosure", "공개 등록 기준 · 경기 중 교체에 따라 출전 선수가 달라질 수 있습니다.",
+            Label(root, "Disclosure", "카드 우클릭: 선수 상세 · 공개 등록 기준 · 경기 중 교체에 따라 출전 선수가 달라질 수 있습니다.",
                 .02f, .025f, .98f, .09f, 14);
         }
 
-        private static void RenderRow(RectTransform board, string name, string label,
-            IReadOnlyList<PlayerMiniCardModel> cards, float bottom, float top, bool pitcher)
+        private void RenderRow(RectTransform board, string name, string label,
+            IReadOnlyList<PlayerMiniCardModel> cards,
+            IReadOnlyList<OwnerCollectionCardSnapshot> details,
+            float bottom, float top, bool pitcher)
         {
             var row = Surface(board, name, Color.white, 0, bottom, 1, top);
             Label(row, "Role", label, 0, .1f, .028f, .9f, 14);
@@ -89,8 +91,27 @@ namespace Baseball.Presentation.Owner
                 var card = PlayerMiniCardView.CreateRuntime(inner, "Player_" + i);
                 card.Bind(cards[i], Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1"));
                 card.UseLineupSlotLayout();
+                card.DetailRequested += selected => ShowCardDetail(selected, details);
                 Place((RectTransform)card.transform, .035f, .025f, .965f, .985f);
             }
+        }
+
+        private void ShowCardDetail(
+            PlayerMiniCardModel selected,
+            IReadOnlyList<OwnerCollectionCardSnapshot> details)
+        {
+            var available = new List<OwnerCollectionCardSnapshot>(details.Count);
+            int selectedIndex = -1;
+            for (int index = 0; index < details.Count; index++)
+            {
+                OwnerCollectionCardSnapshot detail = details[index];
+                if (detail == null) continue;
+                if (string.Equals(detail.CardId, selected.PlayerId, StringComparison.Ordinal))
+                    selectedIndex = available.Count;
+                available.Add(detail);
+            }
+            if (selectedIndex >= 0)
+                UI_Popup_OwnerPlayerCard.Show(transform, available, selectedIndex);
         }
 
         private void RenderTeamColors(RectTransform board)

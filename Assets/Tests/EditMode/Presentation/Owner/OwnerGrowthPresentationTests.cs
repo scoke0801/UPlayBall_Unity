@@ -69,6 +69,53 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void Skills_선수유형에맞는블록만노출하고표시개수를맞춘다()
+        {
+            OwnerGrowthSnapshot source = CreateSnapshot();
+            var batterBlock = new SkillBlockDefinition(
+                "batter_arm", SkillBlockRarity.Normal, SkillBlockCategory.Arm,
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O), true,
+                new[] { new AbilityChange(PlayerAbility.Arm, 1) }, 100);
+            var pitcherBlock = new SkillBlockDefinition(
+                "pitcher_stamina", SkillBlockRarity.Normal, SkillBlockCategory.PitcherPhysical,
+                TetrominoShapeCatalog.CreateCells(TetrominoShape.O), true,
+                new[] { new AbilityChange(PlayerAbility.Stamina, 1) }, 100);
+            var cards = new List<OwnerGrowthCardSnapshot>(source.Cards)
+            {
+                new OwnerGrowthCardSnapshot(
+                    new OwnerCollectionCardSnapshot(
+                        "pitcher", "pitcher-person", "김투수", 2024,
+                        PlayerPosition.StartingPitcher, 5, PlayerCardEdition.Normal,
+                        0, 0, false, false, new AbilityRatings(65)),
+                    Array.Empty<PlacedSkillBlock>(),
+                    Array.Empty<OwnerStudyOption>())
+            };
+            _view.Bind(new OwnerGrowthSnapshot(
+                cards,
+                new[]
+                {
+                    new SkillBlockInstance(101, batterBlock.BlockId),
+                    new SkillBlockInstance(202, pitcherBlock.BlockId)
+                },
+                new[] { batterBlock, pitcherBlock },
+                source.Board,
+                source.DevelopmentPoints,
+                source.StudyCount,
+                source.StudyCapacity));
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpSkills);
+
+            Assert.That(FindOrNull<Button>("Block_101"), Is.Not.Null);
+            Assert.That(FindOrNull<Button>("Block_202"), Is.Null);
+            Assert.That(Find<Text>("InventoryHeading").text, Does.Contain("1개"));
+
+            Click("PitcherTab");
+
+            Assert.That(FindOrNull<Button>("Block_101"), Is.Null);
+            Assert.That(FindOrNull<Button>("Block_202"), Is.Not.Null);
+            Assert.That(Find<Text>("InventoryHeading").text, Does.Contain("1개"));
+        }
+
+        [Test]
         public void Study_비용확인후확정해야명령을전달하고취소하면확인을폐기한다()
         {
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
@@ -161,9 +208,16 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
         private T Find<T>(string name) where T : Component
         {
+            T component = FindOrNull<T>(name);
+            if (component != null) return component;
+            Assert.Fail("UI 요소를 찾을 수 없습니다: " + name);
+            return null;
+        }
+
+        private T FindOrNull<T>(string name) where T : Component
+        {
             foreach (T component in _root.GetComponentsInChildren<T>())
                 if (component.name == name) return component;
-            Assert.Fail("UI 요소를 찾을 수 없습니다: " + name);
             return null;
         }
 

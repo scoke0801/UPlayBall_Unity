@@ -16,6 +16,25 @@ namespace Baseball.Presentation.Owner
     /// <summary>Game에서 확정된 상태와 Resolver 결과를 A/B/C/D 불변 UI Snapshot으로 투영한다.</summary>
     public sealed partial class OwnerModeRuntimeSnapshotFactory
     {
+        /// <summary>진행 중인 구단 Runtime 없이 새 게임 후보의 기본 능력치와 원본 시즌 기록을 표시한다.</summary>
+        public static OwnerCollectionCardSnapshot CreateNewGameCard(OwnerModeManager manager, OwnerNewGameFlow flow, string cardId)
+        {
+            if (!flow.CardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
+                throw new ArgumentException("새 게임 후보 카드가 없습니다.", nameof(cardId));
+            PlayerSeasonDefinition season = flow.CardCatalog.GetPlayerSeason(card);
+            manager.TryGetPlayerPerson(season.PlayerPersonId, out PlayerPersonDefinition person);
+            AbilityRatings abilities = new OwnerCardAbilityResolver(manager.Balance.Growth)
+                .ResolvePermanent(season, card, null);
+            return new OwnerCollectionCardSnapshot(cardId, season.PlayerPersonId,
+                flow.Identities.GetPlayerDisplayName(season.PlayerPersonId), season.OriginYear,
+                season.Position, season.Cost, card.Edition, 0, 0, false, false, abilities,
+                season.OriginYear + "년 · 카드 시즌", season.PlayerSeasonId,
+                season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
+                person?.Throws, person?.Bats, CreatePitchSnapshots(manager, season, abilities),
+                CreateSeasonRecord(flow.WorldHistory, season, season.OriginTeamSeasonKey, season.OriginYear),
+                abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap, isOwnedCard: false);
+        }
+
         /// <summary>현재 감독·수석코치·방침과 실제 경기 적용값을 덕아웃 Snapshot으로 만든다.</summary>
         public OwnerDugoutSnapshot CreateDugout(OwnerModeManager manager)
         {
@@ -270,11 +289,7 @@ namespace Baseball.Presentation.Owner
                 person?.Throws,
                 person?.Bats,
                 CreatePitchSnapshots(manager, season, permanent),
-                CreateSeasonRecord(
-                    runtime.WorldHistory,
-                    season,
-                    runtime.PlayerTeamSeasonKey,
-                    runtime.ManagerMode.LiveSeason.OriginYear),
+                CreateCurrentSeasonRecord(runtime, season, runtime.PlayerTeamSeasonKey),
                 GetTrainingBonusTotal(owned),
                 owned.SkillBoard.Placements.Count,
                 CountAvailableSkillBlocks(runtime),
@@ -347,7 +362,8 @@ namespace Baseball.Presentation.Owner
                     definition.ShapeCells,
                     placement.OriginX,
                     placement.OriginY,
-                    placement.RotationQuarterTurns);
+                    placement.RotationQuarterTurns,
+                    definition.Rarity);
             }
             return result;
         }
@@ -450,6 +466,33 @@ namespace Baseball.Presentation.Owner
                     PitchEffectivenessResolver.ResolveVelocityKph(entry, permanent.Velocity, balance));
             }
             return result;
+        }
+
+        private static OwnerCardRecordFieldSnapshot[] CreateCurrentSeasonRecord(
+            ManagerHistoricalRuntimeState runtime, PlayerSeasonDefinition season, string teamSeasonKey)
+        {
+            PlayerCompetitionStatisticsState record = OwnerSeasonRecordsService.GetCurrentPlayerRecord(
+                runtime, teamSeasonKey, season.PlayerSeasonId);
+            if (record == null) return Array.Empty<OwnerCardRecordFieldSnapshot>();
+            bool pitcher = season.PlayerType == PlayerType.Pitcher;
+            if (pitcher ? record.Pitching.Appearances == 0 : record.Batting.PlateAppearances == 0)
+                return Array.Empty<OwnerCardRecordFieldSnapshot>();
+            CareerRecordMetric[] metrics = pitcher
+                ? new[] { CareerRecordMetric.OutsRecorded, CareerRecordMetric.EarnedRunAverage,
+                    CareerRecordMetric.PitchingStrikeouts }
+                : new[] { CareerRecordMetric.PlateAppearances, CareerRecordMetric.BattingAverage,
+                    CareerRecordMetric.Hits, CareerRecordMetric.HomeRuns, CareerRecordMetric.Walks,
+                    CareerRecordMetric.BattingStrikeouts, CareerRecordMetric.StolenBases };
+            var fields = new OwnerCardRecordFieldSnapshot[metrics.Length];
+            for (int index = 0; index < metrics.Length; index++)
+            {
+                CareerRecordMetric metric = metrics[index];
+                fields[index] = new OwnerCardRecordFieldSnapshot(
+                    SharedScreens.CareerSharedSnapshotFormatters.FormatMetricLabel(metric),
+                    SharedScreens.CareerSharedSnapshotFormatters.FormatMetricValue(
+                        metric, LeagueLeaderboardService.GetMetricValue(record, metric)));
+            }
+            return fields;
         }
 
         private static OwnerCardRecordFieldSnapshot[] CreateSeasonRecord(
@@ -627,6 +670,14 @@ namespace Baseball.Presentation.Owner
             AddRosterDisplayNames(runtime, runtime.GetRoster(runtime.PlayerTeamSeasonKey), displayTexts);
             AddRosterDisplayNames(runtime, runtime.GetRoster(preparation.OpponentTeamSeasonKey), displayTexts);
             OwnerOpponentAnalysisData.Populate(manager, preparation, displayTexts);
+            ResolvePregameStarterCards(
+                manager,
+                preparation,
+                preset,
+                out PlayerMiniCardModel ownStarterCard,
+                out OwnerCollectionCardSnapshot ownStarterDetail,
+                out PlayerMiniCardModel opponentStarterCard,
+                out OwnerCollectionCardSnapshot opponentStarterDetail);
             var tactics = new string[preset.DefaultTacticCardIds.Count];
             for (int index = 0; index < tactics.Length; index++)
                 tactics[index] = manager.GetTacticDisplayName(preset.DefaultTacticCardIds[index]);
@@ -660,8 +711,87 @@ namespace Baseball.Presentation.Owner
                 preparation.CanStartGame,
                 preparation.CanStartGame ? string.Empty : "현재 로스터·프리셋 검증을 통과하지 못했습니다.",
                 ownTeamId,
-                opponentTeamId);
+                opponentTeamId,
+                ownStarterCard,
+                ownStarterDetail,
+                opponentStarterCard,
+                opponentStarterDetail);
         }
+
+        private void ResolvePregameStarterCards(
+            OwnerModeManager manager,
+            ManagerPregamePreparation preparation,
+            LineupPresetState selectedPlan,
+            out PlayerMiniCardModel ownCard,
+            out OwnerCollectionCardSnapshot ownDetail,
+            out PlayerMiniCardModel opponentCard,
+            out OwnerCollectionCardSnapshot opponentDetail)
+        {
+            ManagerHistoricalRuntimeState runtime = manager.Runtime;
+            IReadOnlyList<string> rotation = preparation.PlanSnapshot?.StarterRotationCardIds;
+            int ownRotationIndex = rotation == null || rotation.Count == 0
+                ? -1
+                : (preparation.ScheduledGame.Round - 1) % rotation.Count;
+            string ownCardId = ownRotationIndex >= 0 ? rotation[ownRotationIndex] : null;
+            CurrentRosterState ownRoster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+            PerCardBonusMap ownBonuses = CreateCurrentTeamColorBonuses(
+                manager,
+                runtime,
+                ownRoster,
+                selectedPlan);
+            ownCard = CreatePublicLineupCard(
+                runtime,
+                ownRoster,
+                ownCardId,
+                FormatRotationOrder(ownRotationIndex),
+                "선발");
+            ownDetail = CreateLineupDetail(
+                manager,
+                runtime,
+                ownRoster,
+                ownCardId,
+                runtime.PlayerTeamSeasonKey,
+                true,
+                ownBonuses);
+
+            opponentCard = null;
+            opponentDetail = null;
+            if (!preparation.ScoutingReport.ProbableStarter.HasValue) return;
+
+            string opponentCardId = preparation.ScoutingReport.ProbableStarter.Value.Player.CardId;
+            CurrentRosterState opponentRoster = runtime.GetRoster(preparation.OpponentTeamSeasonKey);
+            LineupPresetState opponentPlan = ManagerModeMatchService.CreateRosterRolePlan(opponentRoster);
+            int opponentRotationIndex = FindCardIndex(opponentPlan.StarterRotationCardIds, opponentCardId);
+            PerCardBonusMap opponentBonuses = ManagerModeMatchService.ResolveAiTeamColorBonuses(
+                opponentRoster,
+                runtime.WorldCardCatalog,
+                manager.Balance.TeamColor,
+                out _);
+            opponentCard = CreatePublicLineupCard(
+                runtime,
+                opponentRoster,
+                opponentCardId,
+                FormatRotationOrder(opponentRotationIndex),
+                "선발");
+            opponentDetail = CreateLineupDetail(
+                manager,
+                runtime,
+                opponentRoster,
+                opponentCardId,
+                preparation.OpponentTeamSeasonKey,
+                false,
+                opponentBonuses);
+        }
+
+        private static int FindCardIndex(IReadOnlyList<string> cardIds, string cardId)
+        {
+            if (cardIds == null || string.IsNullOrWhiteSpace(cardId)) return -1;
+            for (int index = 0; index < cardIds.Count; index++)
+                if (string.Equals(cardIds[index], cardId, StringComparison.Ordinal)) return index;
+            return -1;
+        }
+
+        private static string FormatRotationOrder(int index) => index >= 0 ? (index + 1) + "선발" : "선발";
 
         public IReadOnlyList<OwnerConditionPlayerSnapshot> CreateConditionChemistry(OwnerModeManager manager)
         {

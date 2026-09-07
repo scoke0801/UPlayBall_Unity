@@ -1,4 +1,5 @@
 using System;
+using Baseball.Core.Players;
 
 namespace Baseball.Core.Growth
 {
@@ -47,6 +48,25 @@ namespace Baseball.Core.Growth
         PitcherMental,
         Arm,
         Stuff
+    }
+
+    /// <summary>스킬 블록 계통이 적용되는 선수 유형을 판정한다.</summary>
+    public static class SkillBlockCategoryCatalog
+    {
+        /// <summary>지정 계통을 해당 선수 유형이 사용할 수 있는지 반환한다.</summary>
+        public static bool IsAvailableTo(SkillBlockCategory category, PlayerType playerType)
+        {
+            return playerType switch
+            {
+                PlayerType.Batter =>
+                    (category >= SkillBlockCategory.Contact && category <= SkillBlockCategory.BatterMental) ||
+                    category == SkillBlockCategory.Arm,
+                PlayerType.Pitcher =>
+                    (category >= SkillBlockCategory.Velocity && category <= SkillBlockCategory.PitcherMental) ||
+                    category == SkillBlockCategory.Stuff,
+                _ => false
+            };
+        }
     }
 
     public enum TetrominoShape

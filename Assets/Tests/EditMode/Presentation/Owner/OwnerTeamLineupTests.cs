@@ -1,12 +1,15 @@
 using System;
 using System.IO;
 using System.Linq;
+using Baseball.Core.Growth;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedScreens;
 using Baseball.Presentation.SharedUI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Baseball.Tests.Presentation.Owner
@@ -82,6 +85,41 @@ namespace Baseball.Tests.Presentation.Owner
 
             Assert.That(result, Is.EqualTo("2024 인천 타이드 · 완성된 연대기"));
             Assert.That(result, Does.Not.Contain(franchiseId));
+        }
+
+        [Test]
+        public void PlayerCard_비활성카드도우클릭하면공개상세정보를연다()
+        {
+            var root = new GameObject("LineupCanvas", typeof(RectTransform), typeof(Canvas));
+            var eventObject = new GameObject("EventSystem", typeof(EventSystem));
+            try
+            {
+                var view = UI_Scene_OwnerTeamLineup.CreateRuntime((RectTransform)root.transform);
+                view.Bind(CreateSnapshot("부산 하버스"));
+                PlayerMiniCardView card = view.transform
+                    .Find("BoardHost/LineupBoard/Hitters/Slot_0/Inset/Player_0")
+                    .GetComponent<PlayerMiniCardView>();
+                Assert.That(card.Model.IsInteractable, Is.False);
+
+                card.OnPointerClick(new PointerEventData(eventObject.GetComponent<EventSystem>())
+                {
+                    button = PointerEventData.InputButton.Right
+                });
+
+                Transform popup = root.transform.Find("UI_Popup_OwnerPlayerCard");
+                Assert.That(popup, Is.Not.Null);
+                Assert.That(popup.Find("CardDetail/Front/Name").GetComponent<Text>().text, Is.EqualTo("김민준"));
+                Assert.That(popup.Find("CardDetail/Front/ConditionPanel"), Is.Null);
+                Assert.That(popup.Find("CardDetail/Back/PublicInformation"), Is.Not.Null);
+                Assert.That(popup.Find("CardDetail/Front/StatsPanel/TeamColorFill0"), Is.Not.Null);
+                Assert.That(popup.Find("CardDetail/Front/StatsPanel/GrowthValue0").GetComponent<Text>().text,
+                    Is.EqualTo("+3"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(eventObject);
+            }
         }
 
         [TestCase(1280, 720)]
@@ -160,8 +198,22 @@ namespace Baseball.Tests.Presentation.Owner
                 i < 5 ? (i + 1) + "선발" : i < 9 ? (i - 4) + "번" : i == 9 ? "셋업" : "마무리",
                 "24", "C 7", "", i < 5 ? "선발" : i < 9 ? "중계" : i == 9 ? "셋업" : "마무리",
                 teamAccentHex: "#B1A858", isInteractable: false)).ToArray();
+            var hitterDetails = hitters.Select((card, i) => new OwnerCollectionCardSnapshot(
+                card.PlayerId, card.PlayerId, card.DisplayName, 2024, PlayerPosition.Catcher, 5,
+                PlayerCardEdition.Normal, 0, 0, false, false, new AbilityRatings(65),
+                abilityBreakdowns: CreateAbilityBreakdowns(3), isOwnedCard: false)).ToArray();
+            var pitcherDetails = pitchers.Select((card, i) => new OwnerCollectionCardSnapshot(
+                card.PlayerId, card.PlayerId, card.DisplayName, 2024, PlayerPosition.StartingPitcher, 7,
+                PlayerCardEdition.Normal, 0, 0, false, false, new AbilityRatings(65), isOwnedCard: false)).ToArray();
             return new OwnerTeamLineupSnapshot(team, "공개 등록 기준 라인업", "편성 비용 137", hitters, pitchers,
-                new[] { "팀컬러 적용 없음", "팀컬러 적용 없음" });
+                new[] { "팀컬러 적용 없음", "팀컬러 적용 없음" }, hitterDetails, pitcherDetails);
+        }
+
+        private static OwnerAbilityBreakdownSnapshot[] CreateAbilityBreakdowns(int teamColorBonus)
+        {
+            return Enumerable.Range(0, PlayerAbilityCatalog.AbilityCount)
+                .Select(_ => new OwnerAbilityBreakdownSnapshot(65, 0, 0, teamColorBonus, 0, 0))
+                .ToArray();
         }
     }
 }

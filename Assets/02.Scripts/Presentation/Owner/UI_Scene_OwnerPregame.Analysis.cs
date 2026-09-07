@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,6 +24,8 @@ namespace Baseball.Presentation.Owner
         private readonly RectTransform[] _rosterTables = new RectTransform[2];
         private readonly Button[,] _recordTabs = new Button[2, 2];
         private readonly bool[] _showPitchers = new bool[2];
+        private readonly PlayerMiniCardView[] _starterCards = new PlayerMiniCardView[2];
+        private readonly OwnerCollectionCardSnapshot[] _starterDetails = new OwnerCollectionCardSnapshot[2];
         private Text _analysisLeague;
         private Text _analysisMatch;
         private Text _analysisIntel;
@@ -83,8 +86,8 @@ namespace Baseball.Presentation.Owner
             Label(chart, "Control", "제구", 10, 0, .51f, .24f, .68f, TextAnchor.MiddleCenter);
             _analysisIntel = Label(board, "Confidence", "", 10, .3f, .567f, .7f, .615f, TextAnchor.MiddleCenter);
             Surface(board, "StarterRule", Rule, .02f, .555f, .98f, .558f);
-            _ownStarter = CreateStarter(board, "OwnStarter", .02f, .465f, OwnBlue);
-            _opponentStarter = CreateStarter(board, "OpponentStarter", .535f, .98f, OpponentRed);
+            _ownStarter = CreateStarter(board, "OwnStarter", .02f, .465f, OwnBlue, 0);
+            _opponentStarter = CreateStarter(board, "OpponentStarter", .535f, .98f, OpponentRed, 1);
             Label(board, "Versus", "VS", 28, .465f, .38f, .535f, .55f, TextAnchor.MiddleCenter, true, Rule);
             for (int side = 0; side < 2; side++)
             {
@@ -112,14 +115,14 @@ namespace Baseball.Presentation.Owner
             _scoutingNotes = Label(board, "ScoutingNotes", "", 11, .025f, .01f, .975f, .07f);
         }
 
-        private Text CreateStarter(RectTransform board, string name, float left, float right, Color accent)
+        private Text CreateStarter(RectTransform board, string name, float left, float right, Color accent, int side)
         {
             RectTransform root = Rect(board, name, left, .395f, right, .55f);
-            RectTransform card = Surface(root, "PitcherCard", accent, 0, 0, .15f, 1);
-            Image portrait = Rect(card, "Portrait", .04f, .08f, .96f, .96f).gameObject.AddComponent<Image>();
-            portrait.sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1");
-            portrait.preserveAspect = true;
-            portrait.raycastTarget = false;
+            PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(root, "PitcherCard");
+            card.UseLineupSlotLayout();
+            card.DetailRequested += _ => ShowStarterDetail(side);
+            Place((RectTransform)card.transform, 0, 0, .15f, 1);
+            _starterCards[side] = card;
             Label(root, "StarterTitle", "선발 투수 정보", 12, .18f, .70f, 1, 1, TextAnchor.MiddleLeft, true, accent);
             Text value = Label(root, "StarterValue", "", 12, .18f, .48f, 1, .7f);
             RectTransform record = Rect(root, "PitchingRecord", .18f, 0, 1, .47f);
@@ -162,7 +165,36 @@ namespace Baseball.Presentation.Owner
             _analysisIntel.text = "정보 신뢰도  " + _model.IntelText;
             _ownStarter.text = snapshot.ResolveText("analysis.own.starter", "선발 확정 정보 없음");
             _opponentStarter.text = _model.ProbableStarterText;
+            BindStarterCard(0, snapshot.OwnStarterCard, snapshot.OwnStarterDetail);
+            BindStarterCard(1, snapshot.OpponentStarterCard, snapshot.OpponentStarterDetail);
             _scoutingNotes.text = "— 미집계   |   감독 성향  " + _model.ManagerTendencyText + "   |   " + string.Join(" · ", _model.KeyThreats);
+        }
+
+        private void BindStarterCard(
+            int side,
+            PlayerMiniCardModel card,
+            OwnerCollectionCardSnapshot detail)
+        {
+            _starterDetails[side] = detail;
+            PlayerMiniCardModel display = card ?? new PlayerMiniCardModel(
+                "pregame:unknown-starter:" + side,
+                "확인 불가",
+                "선발",
+                "—",
+                string.Empty,
+                string.Empty,
+                "정보 부족",
+                visualState: PlayerMiniCardVisualState.Disabled,
+                isInteractable: false);
+            _starterCards[side].Bind(
+                display,
+                Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1"));
+        }
+
+        private void ShowStarterDetail(int side)
+        {
+            OwnerCollectionCardSnapshot detail = _starterDetails[side];
+            if (detail != null) UI_Popup_OwnerPlayerCard.Show(transform, detail);
         }
 
         private void RenderRosterTable(int side)

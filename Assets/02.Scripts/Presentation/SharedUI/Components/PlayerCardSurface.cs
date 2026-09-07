@@ -11,18 +11,8 @@ namespace Baseball.Presentation.SharedUI
         private static readonly Sprite[] FullFrames = new Sprite[4];
         private static readonly Sprite[] CostStars = new Sprite[4];
 
-        /// <summary>미니 프레임 원화의 명찰 영역을 아래쪽 기준 정규화 좌표로 반환한다.</summary>
-        public static Vector2 GetMiniNameBand(PlayerCardEdition edition)
-        {
-            // 생성 원화의 명찰 위치를 보존하며 초상과 이름이 장식을 덮지 않게 한다.
-            return edition switch
-            {
-                PlayerCardEdition.AllStar => new Vector2(.335f, .455f),
-                PlayerCardEdition.GoldenGlove => new Vector2(.25f, .345f),
-                PlayerCardEdition.Mvp => new Vector2(.265f, .345f),
-                _ => new Vector2(.18f, .27f)
-            };
-        }
+        /// <summary>모든 등급 원화와 미니카드 텍스트가 공유하는 명찰 영역이다.</summary>
+        public static Vector2 MiniNameBand => new Vector2(.18f, .28f);
 
         /// <summary>실제 Cost만큼 밝은 별과 남은 어두운 별을 개별 Image로 배치한다.</summary>
         public static void SetCostStars(RectTransform row, PlayerCardEdition edition, int cost)

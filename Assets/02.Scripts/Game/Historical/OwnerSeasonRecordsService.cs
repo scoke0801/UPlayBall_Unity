@@ -73,6 +73,19 @@ namespace Baseball.Game.Historical
 
         private static readonly string[] CategoryNames = { "타격", "투구", "수비", "주루" };
 
+        /// <summary>카드의 현재 정규시즌 기록을 경기 집계와 동일한 선수 ID로 조회한다.</summary>
+        public static PlayerCompetitionStatisticsState GetCurrentPlayerRecord(
+            ManagerHistoricalRuntimeState runtime, string teamSeasonKey, string playerSeasonId)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (!runtime.HasManagerMode) return null;
+            // 카드 연도의 역사 기록은 현재 운영 시즌에 출전한 기록을 대신할 수 없다.
+            ManagerModeMatchService.PlayerIdMap ids = ManagerModeMatchService.PlayerIdMap.Create(runtime.Rosters);
+            return ids.TryGet(teamSeasonKey, playerSeasonId, out int playerId)
+                ? runtime.ManagerMode.LiveSeason.Statistics.RegularSeason.GetPlayer(playerId)
+                : null;
+        }
+
         /// <summary>네 부문 모두를 한 번에 확정해 화면이 부문 전환에서 다시 계산하지 않게 한다.</summary>
         public OwnerSeasonRecordsView Build(
             ManagerHistoricalRuntimeState runtime,

@@ -90,8 +90,15 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             }
         }
 
-        [Test]
-        public void SkillBoard_장착블록은공용중립TetrominoSprite로표시한다()
+        [TestCase(TetrominoShape.I, SkillBlockRarity.Normal, 99, 165, 68, 0)]
+        [TestCase(TetrominoShape.O, SkillBlockRarity.Rare, 61, 139, 210, 1)]
+        [TestCase(TetrominoShape.T, SkillBlockRarity.Elite, 177, 83, 185, 2)]
+        [TestCase(TetrominoShape.S, SkillBlockRarity.Unique, 224, 160, 44, 3)]
+        [TestCase(TetrominoShape.Z, SkillBlockRarity.Legendary, 217, 79, 102, 0)]
+        [TestCase(TetrominoShape.J, SkillBlockRarity.Normal, 99, 165, 68, 1)]
+        [TestCase(TetrominoShape.L, SkillBlockRarity.Rare, 61, 139, 210, 3)]
+        public void SkillBoard_장착블록의리소스와등급색상및회전을표시한다(
+            TetrominoShape shape, SkillBlockRarity rarity, int red, int green, int blue, int rotation)
         {
             GameObject canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
             GameObject sourceObject = new GameObject("Source", typeof(RectTransform));
@@ -99,7 +106,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             try
             {
                 var placement = new OwnerSkillBlockPlacementSnapshot(
-                    TetrominoShapeCatalog.CreateCells(TetrominoShape.T), 0, 0, 0);
+                    TetrominoShapeCatalog.CreateCells(shape), 0, 0, rotation, rarity);
                 var card = new OwnerCollectionCardSnapshot(
                     "C-B", "P-B", "블록타자", 2025, PlayerPosition.Shortstop, 8,
                     PlayerCardEdition.Normal, 0, 0, false, false,
@@ -114,8 +121,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     "UI_Popup_OwnerPlayerCard/CardDetail/Back/SkillBoardInformation/Grid/PlacedBlock_0")
                     .GetComponent<Image>();
                 Assert.That(block.sprite, Is.Not.Null);
-                Assert.That(block.sprite.name, Is.EqualTo("SkillBlock_T"));
-                Assert.That(block.color, Is.EqualTo(Color.white));
+                Assert.That(block.sprite.name, Is.EqualTo("SkillBlock_" + shape));
+                Assert.That(block.color, Is.EqualTo((Color)new Color32((byte)red, (byte)green, (byte)blue, 255)));
+                Assert.That(Mathf.DeltaAngle(block.rectTransform.localEulerAngles.z, rotation * 90f),
+                    Is.EqualTo(0f).Within(.01f));
             }
             finally
             {
@@ -141,9 +150,16 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Transform popup = canvasObject.transform.Find("UI_Popup_OwnerPlayerCard");
                 Button previous = popup.Find("PreviousCard").GetComponent<Button>();
                 Button next = popup.Find("NextCard").GetComponent<Button>();
+                var card = (RectTransform)popup.Find("CardDetail");
+                var close = (RectTransform)popup.Find("Close");
 
                 Assert.That(previous.interactable, Is.False);
                 Assert.That(next.interactable, Is.True);
+                Assert.That(popup.Find("FlipHint"), Is.Null);
+                Assert.That(previous.GetComponent<RectTransform>().anchoredPosition.x, Is.LessThan(-card.rect.width * .5f));
+                Assert.That(next.GetComponent<RectTransform>().anchoredPosition.x, Is.GreaterThan(card.rect.width * .5f));
+                Assert.That(close.anchoredPosition.x, Is.GreaterThanOrEqualTo(card.rect.width * .5f));
+                Assert.That(close.anchoredPosition.y, Is.GreaterThan(0f));
                 next.onClick.Invoke();
                 next.onClick.Invoke();
 
@@ -158,7 +174,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Detail_우측비모달패널에성장출처별막대를표시한다()
+        public void Detail_화면중앙모달에성장출처별막대를표시한다()
         {
             GameObject canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
             GameObject sourceObject = new GameObject("Source", typeof(RectTransform));
@@ -178,8 +194,12 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Transform popup = canvasObject.transform.Find("UI_Popup_OwnerPlayerCard");
                 Transform front = popup.Find("CardDetail/Front");
                 Assert.That(popup.GetComponent<Image>(), Is.Null);
-                Assert.That(popup.Find("DetailDrawer"), Is.Not.Null);
-                Assert.That(popup.GetComponent<UI_Popup_OwnerPlayerCard>().BlocksLowerInput, Is.False);
+                var backdrop = (RectTransform)popup.Find("DetailDrawer");
+                Assert.That(backdrop, Is.Not.Null);
+                Assert.That(backdrop.anchorMin, Is.EqualTo(Vector2.zero));
+                Assert.That(backdrop.anchorMax, Is.EqualTo(Vector2.one));
+                Assert.That(((RectTransform)front.parent).anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(popup.GetComponent<UI_Popup_OwnerPlayerCard>().BlocksLowerInput, Is.True);
                 Assert.That(front.Find("TrainingFill0"), Is.Not.Null);
                 Assert.That(front.Find("SkillBlockFill0"), Is.Not.Null);
                 Assert.That(front.Find("TeamColorFill0"), Is.Not.Null);

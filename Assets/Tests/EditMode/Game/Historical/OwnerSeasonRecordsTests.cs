@@ -14,6 +14,48 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class OwnerSeasonRecordsTests
     {
         [Test]
+        public void 카드기록조회는현재시즌의동일선수누적을반환한다()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider, out _);
+            foreach (CurrentRosterState roster in runtime.Rosters)
+            foreach (ActiveRosterEntry entry in roster.Entries)
+                Assert.That(OwnerSeasonRecordsService.GetCurrentPlayerRecord(
+                    runtime, roster.TeamSeasonKey, entry.PlayerSeasonId), Is.Null);
+
+            ManagerModeMatchResult result = new ManagerModeMatchService(provider, BalanceTable.CreateDefault())
+                .PlayNextGame(runtime);
+            int found = 0;
+            foreach (CurrentRosterState roster in runtime.Rosters)
+            foreach (ActiveRosterEntry entry in roster.Entries)
+            {
+                PlayerCompetitionStatisticsState record = OwnerSeasonRecordsService.GetCurrentPlayerRecord(
+                    runtime, roster.TeamSeasonKey, entry.PlayerSeasonId);
+                if (record == null) continue;
+                found++;
+                Assert.That(record.PlayerName,
+                    Is.EqualTo(runtime.IdentityRegistry.GetPlayerDisplayName(entry.PlayerPersonId)));
+                Assert.That(runtime.ManagerMode.LiveSeason.GetTeamSeasonKey(record.TeamId),
+                    Is.EqualTo(roster.TeamSeasonKey));
+                Assert.That(record, Is.SameAs(runtime.ManagerMode.LiveSeason.Statistics.RegularSeason
+                    .GetPlayer(record.PlayerId)));
+            }
+            Assert.That(found, Is.GreaterThan(0));
+            Assert.That(OwnerSeasonRecordsService.GetCurrentPlayerRecord(
+                runtime, runtime.PlayerTeamSeasonKey, "missing-season"), Is.Null);
+
+            foreach (PlayerPitchingLine line in result.Match.HomeBoxScore.PitchingLines)
+            {
+                PitchingStatisticsState pitching = runtime.ManagerMode.LiveSeason.Statistics.RegularSeason
+                    .GetPlayer(line.PlayerId).Pitching;
+                Assert.That(pitching.OutsRecorded, Is.EqualTo(line.OutsRecorded));
+                Assert.That(pitching.EarnedRuns, Is.EqualTo(line.EarnedRuns));
+                Assert.That(pitching.Strikeouts, Is.EqualTo(line.Strikeouts));
+                Assert.That(pitching.EarnedRunAverage, Is.EqualTo(line.OutsRecorded == 0
+                    ? 0d : line.EarnedRuns * 27d / line.OutsRecorded));
+            }
+        }
+
+        [Test]
         public void 경기를진행하면양구단선수기록이BoxScore합계와일치한다()
         {
             CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider, out _);

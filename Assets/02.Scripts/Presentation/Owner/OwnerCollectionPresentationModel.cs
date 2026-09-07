@@ -87,7 +87,8 @@ namespace Baseball.Presentation.Owner
             IReadOnlyList<BoardCell> shapeCells,
             int originX,
             int originY,
-            int rotationQuarterTurns)
+            int rotationQuarterTurns,
+            SkillBlockRarity rarity = SkillBlockRarity.Normal)
         {
             if (shapeCells == null || shapeCells.Count == 0)
                 throw new ArgumentException("스킬 블록 모양이 필요합니다.", nameof(shapeCells));
@@ -98,11 +99,13 @@ namespace Baseball.Presentation.Owner
             OriginX = originX;
             OriginY = originY;
             RotationQuarterTurns = rotationQuarterTurns;
+            Rarity = rarity;
         }
 
         public int OriginX { get; }
         public int OriginY { get; }
         public int RotationQuarterTurns { get; }
+        public SkillBlockRarity Rarity { get; }
         public BoardCell[] CreateShapeCells() => (BoardCell[])_shapeCells.Clone();
     }
 
@@ -139,7 +142,8 @@ namespace Baseball.Presentation.Owner
             int? condition = null,
             string conditionLabel = "",
             IReadOnlyList<OwnerAbilityBreakdownSnapshot> abilityBreakdowns = null,
-            int abilityGraphMaximum = AbilityRatings.Maximum)
+            int abilityGraphMaximum = AbilityRatings.Maximum,
+            bool isOwnedCard = true)
         {
             CardId = RequireText(cardId, nameof(cardId));
             PlayerPersonId = RequireText(playerPersonId, nameof(playerPersonId));
@@ -172,6 +176,7 @@ namespace Baseball.Presentation.Owner
             if (abilityGraphMaximum < AbilityRatings.Maximum)
                 throw new ArgumentOutOfRangeException(nameof(abilityGraphMaximum));
             AbilityGraphMaximum = abilityGraphMaximum;
+            IsOwnedCard = isOwnedCard;
             if (abilityBreakdowns != null && abilityBreakdowns.Count != PlayerAbilityCatalog.AbilityCount)
                 throw new ArgumentException("모든 능력치의 성장 출처가 필요합니다.", nameof(abilityBreakdowns));
             _abilityBreakdowns = abilityBreakdowns == null ? null : Copy(abilityBreakdowns);
@@ -204,6 +209,7 @@ namespace Baseball.Presentation.Owner
         public int? Condition { get; }
         public string ConditionLabel { get; }
         public int AbilityGraphMaximum { get; }
+        public bool IsOwnedCard { get; }
         public IReadOnlyList<OwnerSkillBlockPlacementSnapshot> SkillBlockPlacements => _skillBlockPlacements;
         private readonly AbilityRatings _abilities;
         private readonly OwnerPitchCardSnapshot[] _pitches;

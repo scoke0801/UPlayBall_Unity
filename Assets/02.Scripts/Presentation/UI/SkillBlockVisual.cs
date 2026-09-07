@@ -8,6 +8,16 @@ namespace Baseball.Presentation.UI
     /// <summary>ShapeCells의 크기와 회전을 유지하며 공용 테트로미노 Sprite를 Tint해 표시한다.</summary>
     internal static class SkillBlockVisual
     {
+        /// <summary>구단주 카드와 카드훈련에서 같은 등급 색상을 사용한다.</summary>
+        public static Color GetRarityColor(SkillBlockRarity rarity) => rarity switch
+        {
+            SkillBlockRarity.Normal => new Color32(99, 165, 68, 255),
+            SkillBlockRarity.Rare => new Color32(61, 139, 210, 255),
+            SkillBlockRarity.Elite => new Color32(177, 83, 185, 255),
+            SkillBlockRarity.Unique => new Color32(224, 160, 44, 255),
+            _ => new Color32(217, 79, 102, 255)
+        };
+
         /// <summary>주어진 표시 영역에 공용 Sprite와 회전·Tint를 적용한 블록 외형을 만든다.</summary>
         public static RectTransform Create(
             Transform parent,

@@ -445,14 +445,8 @@ namespace Baseball.Game.Historical
             if (runtime.HasOwnedEconomy(teamSeasonKey))
                 teamColorBonuses = ResolveTeamColorBonuses(activeRoster, runtime.WorldCardCatalog, equippedColors);
             else
-            {
-                TeamColorDefinition[] selected = ResolveAiTeamColors(activeRoster, runtime.WorldCardCatalog, _balance.TeamColor);
-                var definitions = new List<TeamColorDefinition>();
-                foreach (TeamColorDefinition color in selected)
-                    if (color != null) definitions.Add(color);
-                teamColorBonuses = new TeamColorResolver().ApplyEquipped(
-                    activeRoster, runtime.WorldCardCatalog, definitions, selected[0], selected[1]);
-            }
+                teamColorBonuses = ResolveAiTeamColorBonuses(
+                    activeRoster, runtime.WorldCardCatalog, _balance.TeamColor, out _);
             var playersByCard = new Dictionary<string, Player>(activeRoster.Entries.Count, StringComparer.Ordinal);
             var personByPlayerId = new Dictionary<int, string>(activeRoster.Entries.Count);
             for (int index = 0; index < activeRoster.Entries.Count; index++)
@@ -875,6 +869,21 @@ namespace Baseball.Game.Historical
                 InitialTeamColorDefinitionFactory.CreateForRoster(cards, balance));
         }
 
+        /// <summary>AI의 공개 팀컬러 선택과 선수별 실제 경기 보너스를 한 번의 조회로 반환한다.</summary>
+        public static PerCardBonusMap ResolveAiTeamColorBonuses(
+            CurrentRosterState roster,
+            WorldCardCatalog catalog,
+            TeamColorBalanceTable balance,
+            out TeamColorDefinition[] selected)
+        {
+            selected = ResolveAiTeamColors(roster, catalog, balance);
+            var definitions = new List<TeamColorDefinition>(selected.Length);
+            for (int index = 0; index < selected.Length; index++)
+                if (selected[index] != null) definitions.Add(selected[index]);
+            return new TeamColorResolver().ApplyEquipped(
+                roster, catalog, definitions, selected[0], selected[1]);
+        }
+
         private PerCardBonusMap ResolveTeamColorBonuses(
             CurrentRosterState roster,
             WorldCardCatalog catalog,
@@ -1101,7 +1110,7 @@ namespace Baseball.Game.Historical
             public LineupChemistryResult LineupChemistry { get; }
         }
 
-        private sealed class PlayerIdMap
+        internal sealed class PlayerIdMap
         {
             private readonly Dictionary<string, int> _ids;
 
@@ -1112,6 +1121,9 @@ namespace Baseball.Game.Historical
 
             public int Get(string teamSeasonKey, string playerSeasonId) =>
                 _ids[CreateKey(teamSeasonKey, playerSeasonId)];
+
+            public bool TryGet(string teamSeasonKey, string playerSeasonId, out int playerId) =>
+                _ids.TryGetValue(CreateKey(teamSeasonKey, playerSeasonId), out playerId);
 
             public static PlayerIdMap Create(IReadOnlyList<CurrentRosterState> rosters)
             {

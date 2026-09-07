@@ -22,9 +22,9 @@ namespace Baseball.Presentation.Owner
         private RectTransform _back;
         private OwnerCollectionCardSnapshot[] _cards;
         private int _cardIndex;
+        private RectTransform _closeButton;
         private Button _previousButton;
         private Button _nextButton;
-        private Text _navigationHint;
         private bool _isFlipping;
         private bool _isBack;
         private static readonly Color Ink = new Color32(8, 10, 16, 255);
@@ -35,7 +35,7 @@ namespace Baseball.Presentation.Owner
         private static readonly Color StudyColor = new Color32(230, 73, 167, 255);
         private static readonly Color EnhancementColor = new Color32(231, 92, 83, 255);
 
-        public override bool BlocksLowerInput => false;
+        public override bool BlocksLowerInput => true;
 
         /// <summary>한 번에 하나의 상세 팝업을 최상단 Canvas에 연다.</summary>
         public static void Show(Transform source, OwnerCollectionCardSnapshot card)
@@ -67,25 +67,23 @@ namespace Baseball.Presentation.Owner
             var layer = root.gameObject.AddComponent<Canvas>();
             layer.overrideSorting = true; layer.sortingOrder = 200;
             root.gameObject.AddComponent<GraphicRaycaster>();
-            view._drawerRoot = Surface(root, "DetailDrawer", new Color32(13, 16, 22, 250), .64f, 0, 1, 1);
+            view._drawerRoot = Surface(root, "DetailDrawer", new Color32(13, 16, 22, 220), 0, 0, 1, 1);
             view._drawerRoot.GetComponent<Image>().raycastTarget = true;
-            Surface(root, "DrawerShadow", new Color(0, 0, 0, .42f), .625f, 0, .64f, 1);
             RectTransform panel = Surface(root, "CardDetail", Ink, 0.5f, 0.5f, 0.5f, 0.5f);
             view._cardRoot = panel;
-            view.ResizeCard();
             panel.GetComponent<Image>().raycastTarget = true;
             Button flip = panel.gameObject.AddComponent<Button>();
             flip.transition = Selectable.Transition.None;
             flip.onClick.AddListener(view.Flip);
-            RectTransform close = Surface(root, "Close", Ink, 0.925f, 0.935f, 0.988f, 0.985f);
-            close.GetComponent<Image>().raycastTarget = true;
-            close.gameObject.AddComponent<Button>().onClick.AddListener(view.Close);
-            Label(close, "Label", "닫기 ×", 0, 0, 1, 1, 14, Color.white);
+            view._closeButton = Surface(root, "Close", Ink, .5f, .5f, .5f, .5f);
+            view._closeButton.GetComponent<Image>().raycastTarget = true;
+            view._closeButton.gameObject.AddComponent<Button>().onClick.AddListener(view.Close);
+            Label(view._closeButton, "Label", "닫기 ×", 0, 0, 1, 1, 14, Color.white);
             view._front = Surface(panel, "Front", Ink, 0, 0, 1, 1);
             view._back = Surface(panel, "Back", Ink, 0, 0, 1, 1);
-            view._previousButton = CreateNavigationButton(root, "PreviousCard", "<", .655f, .018f, .705f, .068f, view.ShowPrevious);
-            view._nextButton = CreateNavigationButton(root, "NextCard", ">", .94f, .018f, .99f, .068f, view.ShowNext);
-            view._navigationHint = Label(root, "FlipHint", string.Empty, .705f, .012f, .94f, .072f, 12, Color.white);
+            view._previousButton = CreateNavigationButton(root, "PreviousCard", "<", .5f, 0, .5f, 0, view.ShowPrevious);
+            view._nextButton = CreateNavigationButton(root, "NextCard", ">", .5f, 0, .5f, 0, view.ShowNext);
+            view.ResizeCard();
             view.RenderCard();
             view.Show();
         }
@@ -102,7 +100,6 @@ namespace Baseball.Presentation.Owner
             _back.gameObject.SetActive(_isBack);
             _previousButton.interactable = _cardIndex > 0;
             _nextButton.interactable = _cardIndex < _cards.Length - 1;
-            _navigationHint.text = $"{_cardIndex + 1} / {_cards.Length}  ·  카드 클릭: 앞/뒤  ·  ESC: 닫기";
         }
 
         private void ShowPrevious()
@@ -128,7 +125,8 @@ namespace Baseball.Presentation.Owner
                 card.Position == PlayerPosition.ReliefPitcher;
             BuildCardBorder(parent, card.Edition);
             RectTransform photoWindow = OwnerRuntimeUiFactory.CreateRect("PortraitWindow", parent);
-            OwnerRuntimeUiFactory.SetAnchors(photoWindow, new Vector2(.025f, .485f), new Vector2(.975f, .94f), Vector2.zero, Vector2.zero);
+            const float portraitBottom = .535f;
+            OwnerRuntimeUiFactory.SetAnchors(photoWindow, new Vector2(.025f, portraitBottom), new Vector2(.975f, .94f), Vector2.zero, Vector2.zero);
             photoWindow.gameObject.AddComponent<UICardPortraitMask>().raycastTarget = false;
             photoWindow.gameObject.AddComponent<Mask>().showMaskGraphic = false;
             // 무릎 아래까지 보이는 원본 초상을 확대해 상반신이 사진 창을 채우도록 자른다.
@@ -143,17 +141,20 @@ namespace Baseball.Presentation.Owner
                 Label(parent, "Enhancement", "+" + card.EnhancementLevel, .79f, .94f, .95f, .98f, 19, Gold);
             if (card.IsLocked) Label(parent, "Locked", "잠금", .04f, .85f, .23f, .90f, 12, Gold);
             RectTransform positionPlate = Gradient(parent, "PositionPlate", new Color32(58, 60, 63, 255),
-                new Color32(29, 30, 32, 255), .31f, .445f, .55f, .471f);
+                new Color32(29, 30, 32, 255), .04f, .91f, .24f, .94f);
             Label(positionPlate, "Position", OwnerCollectionPresentationBuilder.FormatPosition(card.Position),
                 .02f, 0, .98f, 1, 12, Color.white);
-            Label(parent, "Name", card.DisplayName, .13f, .375f, .73f, .435f, 28,
-                card.Edition == PlayerCardEdition.GoldenGlove ? Color.white : Ink);
-            Label(parent, "Year", (card.OriginYear % 100).ToString("00") + "′", .775f, .427f, .89f, .469f, 20, Color.white);
-            RectTransform conditionPanel = Gradient(parent, "ConditionPanel", new Color32(37, 25, 30, 235),
-                new Color32(15, 13, 17, 245), .045f, .548f, .195f, .647f);
-            Label(conditionPanel, "Title", "컨디션", .05f, .68f, .95f, .98f, 11, Gold);
-            Label(conditionPanel, "Value", card.Condition?.ToString() ?? "—", .05f, .26f, .95f, .70f, 25, Color.white);
-            Label(conditionPanel, "State", card.ConditionLabel, .02f, .02f, .98f, .28f, 10, Gold);
+            const float nameBottom = .415f;
+            Label(parent, "Name", card.DisplayName, .13f, nameBottom, .73f, nameBottom + .06f, 28, Ink);
+            Label(parent, "Year", (card.OriginYear % 100).ToString("00") + "′", .79f, nameBottom, .94f, nameBottom + .06f, 20, Ink);
+            if (card.IsOwnedCard)
+            {
+                RectTransform conditionPanel = Gradient(parent, "ConditionPanel", new Color32(37, 25, 30, 235),
+                    new Color32(15, 13, 17, 245), .045f, .548f, .195f, .647f);
+                Label(conditionPanel, "Title", "컨디션", .05f, .68f, .95f, .98f, 11, Gold);
+                Label(conditionPanel, "Value", card.Condition?.ToString() ?? "—", .05f, .26f, .95f, .70f, 25, Color.white);
+                Label(conditionPanel, "State", card.ConditionLabel, .02f, .02f, .98f, .28f, 10, Gold);
+            }
             // 프레임과 독립된 표면에 실제 능력치만 그린다.
             RectTransform statsPanel = Surface(
                 parent, "StatsPanel", new Color32(10, 10, 12, 255), .016f, .108f, .984f, .356f);
@@ -189,11 +190,13 @@ namespace Baseball.Presentation.Owner
                     : string.Empty;
                 Label(parent, "GrowthValue" + i, growth, .855f, y, .96f, y + .034f, 13, StudyColor);
             }
-            Label(parent, "CostLabel", "COST", .04f, .025f, .19f, .071f, 13, Gold);
+            const float costBottom = .014f;
+            const float costTop = .060f;
+            Label(parent, "CostLabel", "COST", .04f, costBottom, .19f, costTop, 13, Gold);
             RectTransform stars = OwnerRuntimeUiFactory.CreateRect("CostStars", parent);
-            OwnerRuntimeUiFactory.SetAnchors(stars, new Vector2(.20f, .025f), new Vector2(.81f, .071f), Vector2.zero, Vector2.zero);
+            OwnerRuntimeUiFactory.SetAnchors(stars, new Vector2(.20f, costBottom), new Vector2(.81f, costTop), Vector2.zero, Vector2.zero);
             OwnerPlayerCardFrames.SetCostStars(stars, card.Edition, card.Cost);
-            Label(parent, "Cost", card.Cost.ToString(), .83f, .02f, .96f, .077f, 23, Color.white);
+            Label(parent, "Cost", card.Cost.ToString(), .83f, costBottom, .96f, costTop, 23, Color.white);
         }
 
         private static void CreateAbilityLegend(Transform parent)
@@ -323,9 +326,36 @@ namespace Baseball.Presentation.Owner
             Rect bounds = _drawerRoot.rect;
             const float aspect = 2f / 3f;
             float height = Mathf.Min(bounds.height * 0.82f, bounds.width * 0.90f / aspect);
-            _cardRoot.sizeDelta = new Vector2(height * aspect, height);
-            Rect rootBounds = ((RectTransform)transform).rect;
-            _cardRoot.anchoredPosition = new Vector2(rootBounds.width * .32f, rootBounds.height * .015f);
+            float width = height * aspect;
+            _cardRoot.sizeDelta = new Vector2(width, height);
+            _cardRoot.anchoredPosition = Vector2.zero;
+            if (_closeButton == null || _previousButton == null || _nextButton == null) return;
+
+            const float navigationButtonWidth = 64f;
+            const float navigationHeight = 48f;
+            const float navigationGap = 12f;
+            PositionCardControl(
+                _previousButton.GetComponent<RectTransform>(),
+                new Vector2(-width * .5f - navigationGap - navigationButtonWidth * .5f, 0f),
+                new Vector2(navigationButtonWidth, navigationHeight));
+            PositionCardControl(
+                _nextButton.GetComponent<RectTransform>(),
+                new Vector2(width * .5f + navigationGap + navigationButtonWidth * .5f, 0f),
+                new Vector2(navigationButtonWidth, navigationHeight));
+            const float closeButtonWidth = 96f;
+            const float closeButtonHeight = 44f;
+            PositionCardControl(
+                _closeButton,
+                new Vector2(width * .5f + closeButtonWidth * .5f, height * .5f - closeButtonHeight * .5f),
+                new Vector2(closeButtonWidth, closeButtonHeight));
+        }
+
+        private static void PositionCardControl(RectTransform rect, Vector2 anchoredPosition, Vector2 size)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+            rect.pivot = new Vector2(.5f, .5f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = size;
         }
 
         private void Flip()

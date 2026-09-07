@@ -229,7 +229,7 @@ namespace Baseball.Presentation.Owner
             Label(_content, "BoardTitle", $"성장판  {_snapshot.Board.Width} × {_snapshot.Board.Height}", 14, 373, 247, 208, 24);
             RenderBoard(card);
             Frame(_content, "InventoryFrame", 605, 86, 475, 416);
-            Label(_content, "InventoryHeading", $"보유 스킬  {_snapshot.Inventory.Length}개", 14, 616, 91, 220, 24);
+            Label(_content, "InventoryHeading", $"보유 스킬  {CountAvailableBlocks()}개", 14, 616, 91, 220, 24);
             for (int index = -1; index < 5; index++)
             {
                 int rarity = index;
@@ -245,7 +245,8 @@ namespace Baseball.Presentation.Owner
             foreach (SkillBlockInstance block in _snapshot.Inventory)
             {
                 SkillBlockDefinition definition = FindDefinition(block.DefinitionId);
-                if (definition == null || (_rarity >= 0 && (int)definition.Rarity != _rarity)) continue;
+                if (definition == null || !IsAvailableToSelectedPlayerType(definition) ||
+                    (_rarity >= 0 && (int)definition.Rarity != _rarity)) continue;
                 string equipped = _snapshot.GetEquippedCardId(block.InstanceId);
                 int instanceId = block.InstanceId;
                 Button button = Tab(blocks, "Block_" + instanceId, "", () =>
@@ -265,6 +266,22 @@ namespace Baseball.Presentation.Owner
             if (count == 0) Label(_content, "NoBlocks", "보유 블록이 없습니다.\n상점에서 스킬 블록을 획득하세요.", 14, 630, 207, 410, 90);
             RenderSkillActions(card);
         }
+
+        private int CountAvailableBlocks()
+        {
+            int count = 0;
+            foreach (SkillBlockInstance block in _snapshot.Inventory)
+            {
+                SkillBlockDefinition definition = FindDefinition(block.DefinitionId);
+                if (definition != null && IsAvailableToSelectedPlayerType(definition)) count++;
+            }
+            return count;
+        }
+
+        private bool IsAvailableToSelectedPlayerType(SkillBlockDefinition definition) =>
+            SkillBlockCategoryCatalog.IsAvailableTo(
+                definition.Category,
+                _isPitcher ? PlayerType.Pitcher : PlayerType.Batter);
 
         private void RenderBoard(OwnerGrowthCardSnapshot card)
         {
@@ -460,14 +477,8 @@ namespace Baseball.Presentation.Owner
             SkillBlockRarity.Unique => "유니크", _ => "전설"
         };
 
-        private static Color BlockColor(SkillBlockDefinition definition) => definition.Rarity switch
-        {
-            SkillBlockRarity.Normal => new Color32(99, 165, 68, 255),
-            SkillBlockRarity.Rare => new Color32(61, 139, 210, 255),
-            SkillBlockRarity.Elite => new Color32(177, 83, 185, 255),
-            SkillBlockRarity.Unique => new Color32(224, 160, 44, 255),
-            _ => new Color32(217, 79, 102, 255)
-        };
+        private static Color BlockColor(SkillBlockDefinition definition) =>
+            SkillBlockVisual.GetRarityColor(definition.Rarity);
 
         private static bool IsPitcher(OwnerCollectionCardSnapshot card) =>
             card.Position == PlayerPosition.StartingPitcher || card.Position == PlayerPosition.ReliefPitcher;

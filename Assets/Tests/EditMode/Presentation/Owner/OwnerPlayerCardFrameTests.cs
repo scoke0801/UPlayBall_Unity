@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Baseball.Core.Historical;
+using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
@@ -53,8 +54,44 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(front.Find("MainFrame").GetComponent<Image>().sprite.name,
                     Is.EqualTo("PlayerCard_Full_" + Variant(edition) + "_v2"));
                 AssertCost(front, edition, 7);
+                RectTransform costLabel = (RectTransform)front.Find("CostLabel");
+                Assert.That(costLabel.anchorMin.y, Is.EqualTo(.014f).Within(.0001f));
+                Assert.That(costLabel.anchorMax.y, Is.EqualTo(.060f).Within(.0001f));
                 Assert.That(front.Find("Ability5"), Is.Not.Null);
                 Assert.That(front.parent.Find("Back/SkillBoardInformation/Grid/Cell_3_3"), Is.Not.Null);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void MiniCard_AllEditionsShareEveryContentRectangle()
+        {
+            var root = new GameObject("Alignment", typeof(RectTransform));
+            try
+            {
+                string[] names = { "LineupSubFrame", "Portrait", "Name", "Year", "Cost", "CostStars", "Status" };
+                var minimums = new Vector2[names.Length];
+                var maximums = new Vector2[names.Length];
+                foreach (PlayerCardEdition edition in Enum.GetValues(typeof(PlayerCardEdition)))
+                {
+                    var view = PlayerMiniCardView.CreateRuntime(root.transform);
+                    view.UseLineupSlotLayout();
+                    view.Bind(new PlayerMiniCardModel("p", "김하늘", "유격수", "26", "", "", frameEdition: edition, cost: 7));
+                    Assert.That(((RectTransform)view.transform).sizeDelta, Is.EqualTo(new Vector2(80, 120)));
+                    for (int index = 0; index < names.Length; index++)
+                    {
+                        var rect = (RectTransform)view.transform.Find(names[index]);
+                        if (edition == PlayerCardEdition.Normal)
+                        {
+                            minimums[index] = rect.anchorMin;
+                            maximums[index] = rect.anchorMax;
+                        }
+                        Assert.That(rect.anchorMin, Is.EqualTo(minimums[index]), edition + " " + names[index]);
+                        Assert.That(rect.anchorMax, Is.EqualTo(maximums[index]), edition + " " + names[index]);
+                        Assert.That(rect.offsetMin, Is.EqualTo(Vector2.zero));
+                        Assert.That(rect.offsetMax, Is.EqualTo(Vector2.zero));
+                    }
+                }
             }
             finally { Object.DestroyImmediate(root); }
         }
@@ -71,6 +108,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Capture(output, edition, 151, 212, true);
                 Capture(output, edition, 456, 640, false);
             }
+            Capture(output, PlayerCardEdition.Normal, 640, 240, true);
         }
 
         private static void Capture(string output, PlayerCardEdition edition, int width, int height, bool mini)
@@ -93,21 +131,25 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 canvas.planeDistance = 1;
                 if (mini)
                 {
-                    var view = PlayerMiniCardView.CreateRuntime(root.transform);
-                    if (width == 80) view.UseLineupSlotLayout();
-                    view.Bind(new PlayerMiniCardModel("p", "김하늘", "유격수", "26", "", "", "주전",
-                        frameEdition: edition, cost: 7), Resources.Load<Sprite>("UI/Portraits/img_hitter_default"));
-                    RectTransform rect = (RectTransform)view.transform;
-                    rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
-                    rect.offsetMin = rect.offsetMax = Vector2.zero;
+                    int count = width == 640 ? 4 : 1;
+                    for (int index = 0; index < count; index++)
+                    {
+                        var view = PlayerMiniCardView.CreateRuntime(root.transform);
+                        if (width == 80 || count == 4) view.UseLineupSlotLayout();
+                        view.Bind(new PlayerMiniCardModel("p", "김하늘", "유격수", "26", "", "", "주전",
+                            frameEdition: count == 4 ? (PlayerCardEdition)index : edition, cost: 7),
+                            Resources.Load<Sprite>("UI/Portraits/img_hitter_default"));
+                        RectTransform rect = (RectTransform)view.transform;
+                        rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
+                        rect.offsetMin = count == 4 ? new Vector2(7 + index * 158, 14) : Vector2.zero;
+                        rect.offsetMax = count == 4 ? new Vector2(7 + index * 158 + 151 - width, -14) : Vector2.zero;
+                    }
                 }
                 else
                 {
-                    var view = root.AddComponent<UI_Popup_OwnerPlayerCard>();
-                    view.enabled = false;
-                    typeof(UI_Popup_OwnerPlayerCard).GetMethod("BuildFront",
-                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                        .Invoke(view, new object[] { (RectTransform)root.transform, Fixture(edition), false });
+                    typeof(UI_Popup_OwnerPlayerCard).GetMethod("BuildFrontCard",
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+                        .Invoke(null, new object[] { (RectTransform)root.transform, Fixture(edition) });
                 }
                 Canvas.ForceUpdateCanvases();
                 camera.Render();
@@ -115,7 +157,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 capture = new Texture2D(width, height, TextureFormat.RGBA32, false);
                 capture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
                 capture.Apply();
-                File.WriteAllBytes(Path.Combine(output, (mini ? "Mini_" : "Full_") + Variant(edition) + "_" + width + ".png"), capture.EncodeToPNG());
+                string fileName = width == 640 ? "Mini_AllEditions_640.png"
+                    : (mini ? "Mini_" : "Full_") + Variant(edition) + "_" + width + ".png";
+                File.WriteAllBytes(Path.Combine(output, fileName), capture.EncodeToPNG());
             }
             finally
             {

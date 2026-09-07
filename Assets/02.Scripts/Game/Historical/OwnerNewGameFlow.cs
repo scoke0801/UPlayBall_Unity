@@ -249,6 +249,8 @@ namespace Baseball.Game.Historical
         public OwnerStarterRosterRule Rule => _rule;
         public WorldIdentityRegistry Identities => EnsureWorld().IdentityRegistry;
         public WorldCardCatalog CardCatalog => EnsureWorld().WorldCardCatalog;
+        /// <summary>후보 카드의 해당 연도 확정 기록을 상세 화면에 제공한다.</summary>
+        public WorldHistorySnapshot WorldHistory => EnsureWorld().WorldHistory;
 
         public IReadOnlyList<OwnerNewGameTeamView> GetTeamCandidates()
         {
