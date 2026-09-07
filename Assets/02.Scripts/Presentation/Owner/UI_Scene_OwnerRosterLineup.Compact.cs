@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Presentation.UI;
 using UnityEngine;
@@ -11,6 +12,14 @@ namespace Baseball.Presentation.Owner
     {
         private static Sprite _rosterPortrait;
         private readonly OwnerCardFilters _cardFilters = new OwnerCardFilters();
+        private enum CostSortOrder { Default, Descending, Ascending }
+        private CostSortOrder _costSortOrder;
+        private PlayerCardEdition? _editionFilter;
+        private static readonly PlayerCardEdition?[] EditionFilters =
+        {
+            null, PlayerCardEdition.GoldenGlove, PlayerCardEdition.Normal,
+            PlayerCardEdition.Mvp, PlayerCardEdition.AllStar
+        };
 
         private static Sprite GetRosterPortrait() => _rosterPortrait != null ? _rosterPortrait :
             _rosterPortrait = Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1");
@@ -43,6 +52,23 @@ namespace Baseball.Presentation.Owner
             originLayout.childControlWidth = true;
             originLayout.childControlHeight = true;
             _cardFilters.Build(origins, _model.Snapshot.OwnedPlayers, RenderActivePlayerGroup);
+            var editionLabels = new List<string> { "전체 종류" };
+            for (int index = 1; index < EditionFilters.Length; index++)
+                editionLabels.Add(OwnerCollectionPresentationBuilder.FormatEdition(EditionFilters[index].Value));
+            Dropdown editionDropdown = OwnerCardFilters.CreateDropdown(origins, "EditionFilter", editionLabels,
+                Array.IndexOf(EditionFilters, _editionFilter));
+            editionDropdown.onValueChanged.AddListener(index =>
+            {
+                _editionFilter = EditionFilters[index];
+                RenderActivePlayerGroup();
+            });
+            Dropdown costDropdown = OwnerCardFilters.CreateDropdown(origins, "CostSort",
+                new List<string> { "기본 순서", "코스트 높은 순", "코스트 낮은 순" }, (int)_costSortOrder);
+            costDropdown.onValueChanged.AddListener(index =>
+            {
+                _costSortOrder = (CostSortOrder)index;
+                RenderActivePlayerGroup();
+            });
             string[] labels = pitcher ? new[] { "전체", "선발", "불펜", "셋업", "마무리" } :
                 new[] { "전체", "포수", "1루수", "2루수", "3루수", "유격수", "외야수", "지명타자" };
             RectTransform row = OwnerRuntimeUiFactory.CreateRect("PositionFilters", content);
@@ -69,6 +95,7 @@ namespace Baseball.Presentation.Owner
         private bool MatchesFilter(OwnerCollectionCardSnapshot card, bool pitcher)
         {
             if (IsPitcher(card) != pitcher || !_cardFilters.Matches(card)) return false;
+            if (_editionFilter.HasValue && card.Edition != _editionFilter.Value) return false;
             if (_positionFilter == 0) return true;
             if (pitcher)
             {
@@ -89,6 +116,21 @@ namespace Baseball.Presentation.Owner
                 7 => card.Position == PlayerPosition.DesignatedHitter,
                 _ => true
             };
+        }
+
+        private List<OwnerCollectionCardSnapshot> GetFilteredOwnedPlayers(bool pitcher)
+        {
+            var cards = new List<OwnerCollectionCardSnapshot>();
+            foreach (OwnerCollectionCardSnapshot card in _model.Snapshot.OwnedPlayers)
+                if (MatchesFilter(card, pitcher)) cards.Add(card);
+            if (_costSortOrder != CostSortOrder.Default)
+                cards.Sort((left, right) =>
+                {
+                    int costComparison = _costSortOrder == CostSortOrder.Ascending
+                        ? left.Cost.CompareTo(right.Cost) : right.Cost.CompareTo(left.Cost);
+                    return costComparison != 0 ? costComparison : string.CompareOrdinal(left.CardId, right.CardId);
+                });
+            return cards;
         }
 
         private static void RenderRosterChart(RectTransform content, IReadOnlyList<OwnerLineupSlotModel> slots, bool pitcher)

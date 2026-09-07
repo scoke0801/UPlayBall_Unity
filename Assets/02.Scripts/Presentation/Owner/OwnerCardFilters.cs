@@ -40,7 +40,8 @@ namespace Baseball.Presentation.Owner
             teamDropdown.onValueChanged.AddListener(index => { _team = index == 0 ? string.Empty : teams[index - 1]; changed(); });
         }
 
-        private static Dropdown CreateDropdown(Transform parent, string name, List<string> options, int selected)
+        /// <summary>선수 카드 목록의 필터·정렬에 공통 드롭다운 모양을 적용한다.</summary>
+        internal static Dropdown CreateDropdown(Transform parent, string name, List<string> options, int selected)
         {
             GameObject root = DefaultControls.CreateDropdown(new DefaultControls.Resources());
             root.name = name;

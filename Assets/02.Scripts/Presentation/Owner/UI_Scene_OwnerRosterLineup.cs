@@ -464,18 +464,15 @@ namespace Baseball.Presentation.Owner
         private void RenderOwnedPlayers(RectTransform content, bool isPitcher, int columnCount)
         {
             RenderPositionFilters(content, isPitcher);
-            int cardCount = 0;
-            for (int index = 0; index < _model.Snapshot.OwnedPlayers.Count; index++)
-                if (MatchesFilter(_model.Snapshot.OwnedPlayers[index], isPitcher)) cardCount++;
+            List<OwnerCollectionCardSnapshot> cards = GetFilteredOwnedPlayers(isPitcher);
+            int cardCount = cards.Count;
 
             AddSectionTitle(content, $"{(isPitcher ? "보유 투수" : "보유 야수")} {cardCount}장");
             int slotCount = Math.Max(columnCount * 2, ((cardCount + columnCount - 1) / columnCount) * columnCount);
             RectTransform gridRoot = CreateCardGrid(content, "OwnedGrid", slotCount, columnCount);
-            for (int index = 0; index < _model.Snapshot.OwnedPlayers.Count; index++)
+            for (int index = 0; index < cards.Count; index++)
             {
-                OwnerCollectionCardSnapshot player = _model.Snapshot.OwnedPlayers[index];
-                if (!MatchesFilter(player, isPitcher)) continue;
-                CreateOwnedPlayerCard(gridRoot, player, index);
+                CreateOwnedPlayerCard(gridRoot, cards[index], index);
             }
             for (int index = cardCount; index < slotCount; index++)
             {
@@ -675,12 +672,7 @@ namespace Baseball.Presentation.Owner
             AppendAssignedCards(assigned, _model.ReliefPitching);
             if (ContainsCard(assigned, selectedCardId)) return assigned;
 
-            for (int index = 0; index < _model.Snapshot.OwnedPlayers.Count; index++)
-            {
-                OwnerCollectionCardSnapshot card = _model.Snapshot.OwnedPlayers[index];
-                if (MatchesFilter(card, _activePlayerGroup == PlayerGroupTab.Pitcher)) assigned.Add(card);
-            }
-            return assigned;
+            return GetFilteredOwnedPlayers(_activePlayerGroup == PlayerGroupTab.Pitcher);
         }
 
         private void AppendAssignedCards(
