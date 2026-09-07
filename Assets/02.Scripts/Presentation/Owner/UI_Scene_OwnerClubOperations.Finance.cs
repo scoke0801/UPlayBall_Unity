@@ -61,8 +61,6 @@ namespace Baseball.Presentation.Owner
             foreach (Button button in _ticketButtons.Values) button.transform.SetAsLastSibling();
             _weeklyStatement = new FinanceStatement(_weeklyFinanceText);
             _seasonStatement = new FinanceStatement(_seasonFinanceText);
-            PlaceFinanceAction(content, "FinanceSave", .55f, .66f, false);
-            PlaceFinanceAction(content, "FinanceLoad", .67f, .80f, false);
             PlaceFinanceAction(content, "FinanceAdvanceWeek", .82f, .99f, true);
         }
 

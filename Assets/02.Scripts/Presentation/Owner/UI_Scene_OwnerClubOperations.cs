@@ -40,8 +40,6 @@ namespace Baseball.Presentation.Owner
         public event Action<FacilityType> FacilityUpgradeRequested;
         public event Action StadiumUpgradeRequested;
         public event Action WeekAdvanceRequested;
-        public event Action SaveRequested;
-        public event Action LoadRequested;
 
         public void SetVisible(bool isVisible)
         {
@@ -213,14 +211,8 @@ namespace Baseball.Presentation.Owner
             _financeOnlyObjects.Add(_weeklyFinanceText.transform.parent.gameObject);
             _financeOnlyObjects.Add(_seasonFinanceText.transform.parent.gameObject);
             _financeOnlyObjects.Add(CreateOperationButton(
-                summary.Content, "FinanceAdvanceWeek", "주간 진행", 0f, 0.46f,
+                summary.Content, "FinanceAdvanceWeek", "결산", 0f, 0.46f,
                 () => WeekAdvanceRequested?.Invoke(), 0.01f, 0.07f).gameObject);
-            _financeOnlyObjects.Add(CreateOperationButton(
-                summary.Content, "FinanceSave", "저장", 0.47f, 0.72f,
-                () => SaveRequested?.Invoke(), 0.01f, 0.07f).gameObject);
-            _financeOnlyObjects.Add(CreateOperationButton(
-                summary.Content, "FinanceLoad", "불러오기", 0.73f, 1f,
-                () => LoadRequested?.Invoke(), 0.01f, 0.07f).gameObject);
         }
 
         private void BuildTicketButtons(Transform parent)
@@ -281,23 +273,18 @@ namespace Baseball.Presentation.Owner
                 new Vector2(-12f, -12f));
             Text help = OwnerRuntimeUiFactory.CreateText(
                 "Help", facilities.Content,
-                "시설 투자로 구단의 운영 환경을 개선하세요.\n스카우트·육성 포인트 생산 / 회복·분석·전술 지원",
+                "시설 투자로 스카우트·육성·회복·분석·전술 환경을 개선하세요.",
                 13, FontStyle.Normal, TextAnchor.MiddleLeft, UIClubOfficeStyle.Muted);
-            OwnerRuntimeUiFactory.SetAnchors(help.rectTransform, new Vector2(0f, 0.91f), new Vector2(0.54f, 1f),
+            OwnerRuntimeUiFactory.SetAnchors(help.rectTransform, new Vector2(0f, 0.94f), new Vector2(0.54f, 1f),
                 Vector2.zero, Vector2.zero);
-            CreateOperationButton(facilities.Content, "AdvanceWeek", "주간 진행", 0.55f, 0.70f,
-                () => WeekAdvanceRequested?.Invoke());
-            CreateOperationButton(facilities.Content, "Save", "저장", 0.71f, 0.84f,
-                () => SaveRequested?.Invoke());
-            CreateOperationButton(facilities.Content, "Load", "불러오기", 0.85f, 1f,
-                () => LoadRequested?.Invoke());
             ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalGridScroll(
-                "FacilityList", facilities.Content, 2, new Vector2(380f, 224f), 12f, out _facilityContent);
+                "FacilityList", facilities.Content, 2, new Vector2(380f, 244f), 12f, out _facilityContent);
             _facilityGrid = _facilityContent.GetComponent<GridLayoutGroup>();
             _facilityFeedbackText = UIClubOfficeStyle.Label("FacilityFeedback", facilities.Content,
                 "시설별 운영 효과와 투자 비용을 비교한 뒤 업그레이드하세요.", 13);
-            UIClubOfficeStyle.Place(_facilityFeedbackText.rectTransform, .01f, .855f, .99f, .905f);
-            OwnerRuntimeUiFactory.SetAnchors(scroll.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0.85f),
+            UIClubOfficeStyle.Place(_facilityFeedbackText.rectTransform, .55f, .94f, .99f, 1f);
+            _facilityFeedbackText.alignment = TextAnchor.MiddleRight;
+            OwnerRuntimeUiFactory.SetAnchors(scroll.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0.93f),
                 Vector2.zero, new Vector2(0f, -4f));
         }
 
@@ -454,7 +441,7 @@ namespace Baseball.Presentation.Owner
             if (_facilityGrid == null || !_facilityRoot.gameObject.activeInHierarchy) return;
             float width = _facilityContent.rect.width;
             int columns = width < 640f ? 1 : 2;
-            Vector2 size = new Vector2(Mathf.Max(240f, (width - 16f - (columns - 1) * 12f) / columns), 224f);
+            Vector2 size = new Vector2(Mathf.Max(240f, (width - 16f - (columns - 1) * 12f) / columns), 244f);
             if (_facilityGrid.constraintCount == columns && _facilityGrid.cellSize == size) return;
             _facilityGrid.constraintCount = columns;
             _facilityGrid.cellSize = size;
