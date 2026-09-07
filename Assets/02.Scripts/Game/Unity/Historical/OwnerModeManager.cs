@@ -1246,7 +1246,7 @@ namespace Baseball.Game.Historical
                         : 0;
                 result[index] = new OwnerModeConditionEntry(
                     entry.PlayerPersonId,
-                    runtime.IdentityRegistry.GetPlayerDisplayName(entry.PlayerPersonId),
+                    runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId),
                     season.Position,
                     isPitcher,
                     status.Availability,
@@ -1314,7 +1314,7 @@ namespace Baseball.Game.Historical
                 return teamSeasonKey ?? string.Empty;
             return Runtime == null
                 ? team.FranchiseId
-                : Runtime.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId);
+                : Runtime.IdentityRegistry.GetPresentationFranchiseName(team.FranchiseId);
         }
 
         public string GetTacticDisplayName(string tacticCardId)

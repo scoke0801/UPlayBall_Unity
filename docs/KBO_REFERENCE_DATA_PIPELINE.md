@@ -2,8 +2,9 @@
 
 ## 목적과 Runtime 경계
 
-KBO Source는 선수 능력치와 구단 선수 구성의 정본이다. 하지만 실제 선수명·구단명, 실제 시즌 결과와
-수상은 Runtime World의 표시 콘텐츠나 역사로 복사하지 않는다.
+KBO Source는 선수 능력치와 구단 선수 구성의 정본이다. 실제 시즌 결과와 수상은 Runtime World의
+표시 콘텐츠나 역사로 복사하지 않는다. 실제 선수명·구단명은 일반 배포 Build에서 표시하지 않으며,
+Editor와 Development Build의 명시적인 표시 옵션에서만 Stable ID 위에 개발용 오버레이로 제공한다.
 
 ```text
 Raw Snapshot
@@ -44,7 +45,9 @@ SourceFranchiseKey → FranchiseId
 
 PlayerSeason과 TeamSeason은 Source와 1:1이다. Archive에는 `BaseAttributes`, `Cost`,
 `TrainingCeiling`, Position/Role/RegistrationType, Origin, Source Team 내부 Core25를 넣는다.
-Person별 고정 `fictionalName`이나 실제 Source 이름은 넣지 않는다.
+Person별 고정 `fictionalName`이나 실제 Source 이름은 Canonical Runtime Archive에 넣지 않는다.
+개발용 실제 이름 카탈로그는 별도 Resources 파일로 생성하며 일반 배포 Build에서는 코드 정책으로
+항상 비활성화하고 설정 UI를 노출하지 않는다.
 
 World용 이름 후보 Catalog와 blacklist 검증 결과는 Canonical 선수 데이터와 분리해 배포할 수 있다.
 최종 Person/Franchise DisplayName은 World 생성 시 `WorldIdentityRegistry`에 확정한다.
@@ -58,7 +61,8 @@ World용 이름 후보 Catalog와 blacklist 검증 결과는 Canonical 선수 �
 - Source 누락을 다른 선수 시즌 연결로 보충하지 않는다.
 
 Offline Validation Report에는 Runtime Stable ID에서 원본으로 추적 가능한 1:1 provenance를 기록하되,
-그 원본 식별 정보 파일은 Player Build에 넣지 않는다.
+그 원본 Source ID는 Player Build에 넣지 않는다. Development Build의 실제 이름 카탈로그도
+Runtime-safe Stable ID만 키로 사용한다.
 
 ## Source TeamSeason 연결과 Core25
 

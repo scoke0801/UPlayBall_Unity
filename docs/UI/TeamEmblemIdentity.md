@@ -17,6 +17,11 @@
 `TeamEmblemSpritesTests`는 카탈로그 전체 이미지 로딩, 슬롯과 무관한 이름 매칭,
 지역·리그 접두사, 미등록 구단의 대체 ID, Image 재바인딩을 검증한다.
 
+Editor와 Development Build에서 실제 Identity가 켜지면
+`Assets/10.Datas/Resources/DevelopmentKboIdentities/DevelopmentRealIdentityCatalog.json`의 구단명과
+`Emblems/` Sprite를 먼저 조회한다. 현재 KBO 10개 구단의 2026 공식 경기 BI를 사용하며, 이 경로도
+기존 `EmblemId`를 수정하지 않는다. 일반 배포 Build에서는 설정을 강제로 끄고 옵션을 표시하지 않는다.
+
 검증: Unity 6000.3.21f1의 임시 분리 프로젝트에서 동일 코드·Resources·EditMode 테스트
 16건 통과. 전체 Presentation 보조 컴파일은 작업 중인 경기 연출과 구단 시설 코드의
 미해결 참조 19건으로 실패했다. 실제 게임 화면 Play Mode 검수는 수행하지 않았다.

@@ -44,6 +44,7 @@ namespace Baseball.Presentation.Career
             UIManager.Instance.NavigationBackRequested += HandleCancelRequested;
 
             _manager.CareerChanged += HandleCareerChanged;
+            DevelopmentRealIdentitySettings.Changed += RefreshCareerState;
             CareerTabNavigation.TabChanged += HandleTabChanged;
             UiGameModeSession.ModeChanged += HandleModeChanged;
             RefreshCareerState();
@@ -81,6 +82,7 @@ namespace Baseball.Presentation.Career
         {
             if (_manager != null)
                 _manager.CareerChanged -= HandleCareerChanged;
+            DevelopmentRealIdentitySettings.Changed -= RefreshCareerState;
             CareerTabNavigation.TabChanged -= HandleTabChanged;
             UiGameModeSession.ModeChanged -= HandleModeChanged;
             if (_shell != null)

@@ -167,6 +167,8 @@ namespace Baseball.Presentation.Career
                 RenderGameSettings(body);
             else if (_selectedTab == 1)
                 RenderPersistenceSettings(body);
+            else if (_selectedTab == 2)
+                RenderDisplaySettings(body);
             else if (_selectedTab == 5)
                 RenderExitSettings(body);
             else

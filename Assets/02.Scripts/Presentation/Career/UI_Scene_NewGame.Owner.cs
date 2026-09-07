@@ -100,7 +100,7 @@ namespace Baseball.Presentation.Career
                 Button button = CreateButton(
                     "Team_" + team.TeamSeasonKey,
                     panel,
-                    team.DisplayName,
+                    flow.Identities.GetPresentationFranchiseName(team.FranchiseId),
                     new Vector2(350f, 128f),
                     new Vector2(-555f + column * 370f, 225f - row * 150f),
                     CardColor,
@@ -122,8 +122,8 @@ namespace Baseball.Presentation.Career
                 new OwnerMainCardCandidateFilter(
                     _ownerCardYearFilter,
                     _ownerCardPositionFilter,
-                    _ownerCardCostFilter,
-                    _ownerCardNameFilter));
+                    _ownerCardCostFilter));
+            cards = FilterOwnerCardsByPresentationName(cards, flow.Identities, _ownerCardNameFilter);
             OwnerMainCardSelectionStatus status = flow.GetMainCardSelectionStatus();
             RenderOwnerCardFilters(panel, allCards, cards.Count);
             int pageCount = Math.Max(1, (cards.Count + OwnerCardPageSize - 1) / OwnerCardPageSize);
@@ -138,7 +138,10 @@ namespace Baseball.Presentation.Career
                 int row = local / 8;
                 string cardId = card.CardId;
                 flow.CardCatalog.TryGetCard(cardId, out PlayerCardDefinition definition);
-                var model = new PlayerMiniCardModel(cardId, card.DisplayName, GetPositionLabel(card.Position),
+                var model = new PlayerMiniCardModel(
+                    cardId,
+                    flow.Identities.GetPresentationPlayerName(card.PlayerPersonId),
+                    GetPositionLabel(card.Position),
                     card.OriginYear.ToString(), $"비용 {card.Cost}",
                     OwnerCollectionPresentationBuilder.FormatEdition(definition.Edition),
                     card.IsSelected ? "✓ 선택" : string.Empty, card.PlayerPersonId,
@@ -176,7 +179,7 @@ namespace Baseball.Presentation.Career
             CreateText("SelectionRuleStatus", panel, ruleStatus, 14, FontStyle.Normal,
                 TextAnchor.MiddleCenter, new Vector2(1200f, 26f), new Vector2(0f, -283f),
                 status.IsValid ? AccentColor : SecondaryTextColor);
-            CreateText("SelectedCardNames", panel, BuildOwnerSelectedCardSummary(allCards), 13,
+            CreateText("SelectedCardNames", panel, BuildOwnerSelectedCardSummary(allCards, flow.Identities), 13,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(1450f, 30f),
                 new Vector2(0f, -310f), GoldColor);
             CreateText("CardInputHint", panel, "좌클릭: 선택/해제 · 우클릭: 선수 상세정보", 14,
@@ -394,7 +397,7 @@ namespace Baseball.Presentation.Career
                 PlayerSeasonDefinition season = flow.CardCatalog.GetPlayerSeason(card);
                 var model = new PlayerMiniCardModel(
                     cardId,
-                    flow.Identities.GetPlayerDisplayName(season.PlayerPersonId),
+                    flow.Identities.GetPresentationPlayerName(season.PlayerPersonId),
                     GetPositionLabel(season.Position),
                     season.OriginYear.ToString(),
                     $"비용 {season.Cost}",
@@ -631,7 +634,29 @@ namespace Baseball.Presentation.Career
             }
         }
 
-        private static string BuildOwnerSelectedCardSummary(IReadOnlyList<OwnerNewGameCardView> cards)
+        private static IReadOnlyList<OwnerNewGameCardView> FilterOwnerCardsByPresentationName(
+            IReadOnlyList<OwnerNewGameCardView> cards,
+            WorldIdentityRegistry identities,
+            string playerName)
+        {
+            if (string.IsNullOrWhiteSpace(playerName))
+                return cards;
+
+            string query = playerName.Trim();
+            var result = new List<OwnerNewGameCardView>();
+            for (int index = 0; index < cards.Count; index++)
+            {
+                OwnerNewGameCardView card = cards[index];
+                string displayName = identities.GetPresentationPlayerName(card.PlayerPersonId);
+                if (displayName.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0)
+                    result.Add(card);
+            }
+            return result;
+        }
+
+        private static string BuildOwnerSelectedCardSummary(
+            IReadOnlyList<OwnerNewGameCardView> cards,
+            WorldIdentityRegistry identities)
         {
             var summary = new StringBuilder(320);
             summary.Append("선택 명단  ");
@@ -642,7 +667,8 @@ namespace Baseball.Presentation.Career
                     continue;
                 if (selectedCount > 0)
                     summary.Append("  ·  ");
-                summary.Append(cards[index].DisplayName).Append('(').Append(cards[index].OriginYear).Append(')');
+                summary.Append(identities.GetPresentationPlayerName(cards[index].PlayerPersonId))
+                    .Append('(').Append(cards[index].OriginYear).Append(')');
                 selectedCount++;
             }
             if (selectedCount == 0)

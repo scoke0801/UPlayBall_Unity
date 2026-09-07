@@ -248,7 +248,7 @@ namespace Baseball.Presentation.Owner
             IReadOnlyList<TeamColorCandidate> active = new TeamColorResolver().Resolve(rosterCards, definitions);
             var playersByCard = new Dictionary<string, string>(StringComparer.Ordinal);
             for (int index = 0; index < roster.Entries.Count; index++)
-                playersByCard[roster.Entries[index].CardId] = runtime.IdentityRegistry.GetPlayerDisplayName(roster.Entries[index].PlayerPersonId);
+                playersByCard[roster.Entries[index].CardId] = runtime.IdentityRegistry.GetPresentationPlayerName(roster.Entries[index].PlayerPersonId);
 
             var candidates = new OwnerTeamColorCandidateSnapshot[definitions.Count];
             for (int definitionIndex = 0; definitionIndex < definitions.Count; definitionIndex++)

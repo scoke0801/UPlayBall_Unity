@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Game.Historical;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -45,6 +46,8 @@ namespace Baseball.Presentation.UI
         private static readonly Texture2D[] Atlases = new Texture2D[AtlasCount];
         private static readonly Sprite[] Sprites = new Sprite[EmblemCount];
         private static Dictionary<string, int> _identityEmblems;
+        private static readonly Dictionary<string, Sprite> RealIdentitySprites =
+            new Dictionary<string, Sprite>(StringComparer.Ordinal);
         private static Texture2D _identityAtlas;
 
         [Serializable]
@@ -101,6 +104,8 @@ namespace Baseball.Presentation.UI
         /// <summary>구단 이름에 등록된 이미지를 우선 적용하고 미등록 구단은 지정 ID를 유지한다.</summary>
         public static bool TryApply(Image image, int emblemId, string teamName)
         {
+            if (TryGetRealIdentitySprite(teamName, out Sprite realIdentitySprite))
+                return Apply(image, realIdentitySprite);
             return TryApply(image, ResolveEmblemId(teamName, emblemId));
         }
 
@@ -110,6 +115,13 @@ namespace Baseball.Presentation.UI
             if (image == null)
                 return false;
             Sprite sprite = Get(emblemId);
+            return Apply(image, sprite);
+        }
+
+        private static bool Apply(Image image, Sprite sprite)
+        {
+            if (image == null)
+                return false;
             if (sprite == null)
             {
                 image.sprite = null;
@@ -122,6 +134,18 @@ namespace Baseball.Presentation.UI
             image.preserveAspect = true;
             image.raycastTarget = false;
             return true;
+        }
+
+        private static bool TryGetRealIdentitySprite(string teamName, out Sprite sprite)
+        {
+            sprite = null;
+            if (!DevelopmentRealIdentitySettings.TryGetEmblemResource(teamName, out string resourcePath))
+                return false;
+            if (RealIdentitySprites.TryGetValue(resourcePath, out sprite))
+                return sprite != null;
+            sprite = Resources.Load<Sprite>(resourcePath);
+            RealIdentitySprites.Add(resourcePath, sprite);
+            return sprite != null;
         }
 
         public static Sprite Get(int emblemId)

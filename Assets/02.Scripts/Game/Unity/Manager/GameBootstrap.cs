@@ -23,6 +23,7 @@ namespace Baseball.Game.Manager
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void EnsureRuntimeManagers()
         {
+            DevelopmentRealIdentitySettings.Initialize();
             RegisterUnityAdapters();
             GameManager gameManager = GameManager.EnsureExists();
             gameManager.EnsureManager<InputManager>("InputManager");

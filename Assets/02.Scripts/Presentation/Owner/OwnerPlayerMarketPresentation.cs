@@ -124,7 +124,7 @@ namespace Baseball.Presentation.Owner
                 PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
                 rows[index] = new OwnerContractPlayerRow(
                     contract.CardId,
-                    runtime.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId),
+                    runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId),
                     FormatRole(season),
                     season.Cost,
                     contract.RemainingSeasons,
@@ -211,7 +211,7 @@ namespace Baseball.Presentation.Owner
                     roster.TeamSeasonKey,
                     teamName,
                     entry.CardId,
-                    runtime.IdentityRegistry.GetPlayerDisplayName(entry.PlayerPersonId),
+                    runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId),
                     FormatRole(season),
                     season.Cost,
                     resolver.ResolveValue(runtime.WorldCardCatalog, entry.CardId, enhancement));

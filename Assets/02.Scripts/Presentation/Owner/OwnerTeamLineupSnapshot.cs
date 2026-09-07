@@ -145,7 +145,7 @@ namespace Baseball.Presentation.Owner
                 if (string.Equals(candidate.CardId, cardId, StringComparison.Ordinal)) { entry = candidate; break; }
             if (entry == null || !runtime.WorldCardCatalog.TryGetCard(cardId, out var definition)) return null;
             var season = runtime.WorldCardCatalog.GetPlayerSeason(definition);
-            return new PlayerMiniCardModel(cardId, runtime.IdentityRegistry.GetPlayerDisplayName(entry.PlayerPersonId),
+            return new PlayerMiniCardModel(cardId, runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId),
                 order, (season.OriginYear % 100).ToString("00"), "C " + season.Cost,
                 string.Empty, role, teamAccentHex: "#B1A858", isInteractable: false, frameEdition: definition.Edition, cost: season.Cost);
         }
@@ -189,7 +189,7 @@ namespace Baseball.Presentation.Owner
             return new OwnerCollectionCardSnapshot(
                 cardId,
                 season.PlayerPersonId,
-                runtime.IdentityRegistry.GetPlayerDisplayName(entry.PlayerPersonId),
+                runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId),
                 season.OriginYear,
                 season.Position,
                 season.Cost,
