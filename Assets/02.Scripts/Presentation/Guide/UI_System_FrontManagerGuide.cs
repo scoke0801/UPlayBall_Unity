@@ -1,11 +1,9 @@
-using System;
 using System.Collections.Generic;
 using Baseball.Game.Career;
 using Baseball.Game.Guide;
 using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Presentation.Career;
-using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.Shop;
 using Baseball.Presentation.UI;
@@ -20,18 +18,16 @@ namespace Baseball.Presentation.Guide
         private static readonly Color PanelColor = CareerUiTheme.ReferencePanel;
         private static readonly Color AccentColor = CareerUiTheme.PrimaryBright;
         private static readonly Color TextColor = CareerUiTheme.TextOnLight;
+        private static readonly Vector2 DialogueSize = new(1080f, 360f);
         [SerializeField, Range(0f, 1f)] private float _dialogueBottomAnchor = 0.25f;
         [SerializeField, Range(0f, 0.1f)] private float _dialogueRightMargin = 0.05f;
         [SerializeField, Range(0f, 1f)] private float _backgroundDimAlpha = 0.72f;
-        [SerializeField, Min(0f)] private float _dockGap = 4f;
         [SerializeField, Range(1f, 1.25f)] private float _dialogueScale = 1.25f;
         private readonly FrontManagerGuideCtaRouter _router = new();
         private readonly List<string> _suppressionContexts = new(2);
         private GuideManager _manager;
         private UI_Scene_CareerDashboard _careerDashboard;
-        private UI_Scene_OwnerHome _ownerHome;
         private UI_Scene_Shop _shop;
-        private readonly Vector3[] _dockCorners = new Vector3[4];
         private GuideMessage _message;
         private Image _overlay;
         private RectTransform _panel;
@@ -159,16 +155,16 @@ namespace Baseball.Presentation.Guide
 
         private void Render(GuideMessage message)
         {
-            _ownerHome = FindFirstObjectByType<UI_Scene_OwnerHome>();
             // 알림 유형과 무관하게 배경을 낮추고, 뒤에 생성한 프레임과 초상화는 선명하게 유지한다.
             _overlay.color = new Color(0f, 0f, 0f, _backgroundDimAlpha);
             _overlay.raycastTarget = BlocksLowerInput;
             _messageText.text = message.Text;
 
-            string expressionAssetKey = ResolveExpressionAssetKey(message.ExpressionAssetKey);
-            Sprite sprite = FrontManagerPortraitSprites.Load(
-                expressionAssetKey,
-                message.ExpressionAssetKey);
+            OwnerModeManager ownerManager = OwnerModeManager.Instance;
+            Sprite sprite = ownerManager != null && ownerManager.HasActiveRuntime
+                ? FrontManagerPortraitSprites.LoadForManager(
+                    ownerManager.Runtime.OwnerProfile.FrontManagerId, message.ExpressionAssetKey)
+                : FrontManagerPortraitSprites.Load(message.ExpressionAssetKey);
             _portrait.sprite = sprite;
             _portrait.color = sprite != null ? Color.white : GetExpressionColor(message.Expression);
             _expressionFallback.gameObject.SetActive(sprite == null);
@@ -181,7 +177,7 @@ namespace Baseball.Presentation.Guide
 
             _dismissButton.gameObject.SetActive(true);
             _dismissLabel.text = message.RequiresAcknowledgement ? "확인" : "×";
-            ConfigureLayout(message.PresentationType);
+            ConfigureLayout();
             _remainingAutoDismiss = message.RequiresAcknowledgement ? 0f : message.AutoDismissSeconds;
         }
 
@@ -195,19 +191,6 @@ namespace Baseball.Presentation.Guide
             // 이미 표시한 안내도 보관한 채 숨긴다. 숨긴 동안 자동 닫힘 시간과 대기열을 소비하지 않는다.
             Hide();
             return true;
-        }
-
-        private static string ResolveExpressionAssetKey(string legacyKey)
-        {
-            OwnerModeManager manager = OwnerModeManager.Instance;
-            if (manager == null || !manager.HasActiveRuntime || string.IsNullOrWhiteSpace(legacyKey))
-                return legacyKey;
-            string prefix = manager.Runtime.OwnerProfile.FrontManagerId == FrontManagerIds.DefaultTest
-                ? "FM_02_"
-                : "FM_01_";
-            return legacyKey.StartsWith("FM_", StringComparison.Ordinal)
-                ? prefix + legacyKey.Substring(3)
-                : legacyKey;
         }
 
         private void HandleCta()
@@ -244,6 +227,9 @@ namespace Baseball.Presentation.Guide
             _messageText = CreateText("Message", _panel, string.Empty, 20,
                 FontStyle.Normal, TextAnchor.UpperLeft, new Vector2(570f, 108f), new Vector2(96f, 4f), TextColor);
             _messageText.lineSpacing = 1.25f;
+            _messageText.resizeTextForBestFit = true;
+            _messageText.resizeTextMinSize = 15;
+            _messageText.resizeTextMaxSize = 20;
             // 글꼴의 기준선 여백 대신 실제 글자 영역을 탭 중앙에 맞춘다.
             _managerLabel.alignByGeometry = true;
 
@@ -256,52 +242,17 @@ namespace Baseball.Presentation.Guide
             gameObject.AddComponent<CareerUiPreserveTextColor>();
         }
 
-        private void ConfigureLayout(GuidePresentationType type)
+        private void ConfigureLayout()
         {
-            Vector2 size;
-            // 참고 화면처럼 오른쪽 중하단에 두고 하단 정보 영역이 프레임 아래로 보이게 한다.
+            Vector2 size = DialogueSize;
+            // 모든 화면과 안내 유형이 같은 외곽 프레임 계약을 사용한다.
             Vector2 anchor = new Vector2(1f - _dialogueRightMargin, _dialogueBottomAnchor);
-            switch (type)
-            {
-                case GuidePresentationType.Toast:
-                    size = new Vector2(780f, 260f);
-                    break;
-                case GuidePresentationType.NotificationCard:
-                    size = new Vector2(900f, 300f);
-                    break;
-                case GuidePresentationType.FullDialogue:
-                case GuidePresentationType.ModalCelebration:
-                    size = new Vector2(1080f, 360f);
-                    break;
-                case GuidePresentationType.Briefing:
-                    size = new Vector2(960f, 320f);
-                    break;
-                default:
-                    size = new Vector2(900f, 300f);
-                    break;
-            }
             _panel.anchorMin = _panel.anchorMax = anchor;
             _panel.pivot = new Vector2(1f, 0f);
             _panel.sizeDelta = size;
             // 프레임·캐릭터·글자·버튼을 같은 배율로 키우고 화면 가장자리 기준점은 유지한다.
             _panel.localScale = Vector3.one * _dialogueScale;
             _panel.anchoredPosition = Vector2.zero;
-            RectTransform dock = _ownerHome != null ? _ownerHome.GuideDockTarget : null;
-            if (dock != null && dock.gameObject.activeInHierarchy)
-            {
-                dock.GetWorldCorners(_dockCorners);
-                RectTransform root = (RectTransform)transform;
-                Vector3 topLeft = root.InverseTransformPoint(_dockCorners[1]);
-                Vector3 topRight = root.InverseTransformPoint(_dockCorners[2]);
-                float width = topRight.x - topLeft.x;
-                if (width > 0f)
-                {
-                    size.x = width / _dialogueScale;
-                    _panel.sizeDelta = size;
-                    _panel.anchorMin = _panel.anchorMax = root.pivot;
-                    _panel.anchoredPosition = new Vector2(topRight.x, topRight.y + _dockGap);
-                }
-            }
             // 프레임과 대사의 비율을 함께 바꿔 모든 안내 유형에서 오른쪽 초상화 영역을 비운다.
             // 원본 프레임(2048×682)의 탭 내부 경계다. 늘어난 프레임과 같은 비율로 정렬한다.
             _managerLabel.rectTransform.anchorMin = new Vector2(32f / 2048f, 1f - 66f / 682f);
@@ -313,10 +264,6 @@ namespace Baseball.Presentation.Guide
             _managerLabel.verticalOverflow = VerticalWrapMode.Overflow;
             SetContentRect(_messageText.rectTransform, new Vector2(0f, 1f),
                 new Vector2(36f, -56f), new Vector2(size.x * 0.64f, size.y - 136f));
-            // 문장별 줄바꿈과 긴 선수 이름 때문에 늘어난 대사도 버튼 위에서 잘리지 않게 한다.
-            size.y = Mathf.Max(size.y, _messageText.preferredHeight + 136f);
-            _panel.sizeDelta = size;
-            _messageText.rectTransform.sizeDelta = new Vector2(size.x * 0.64f, size.y - 136f);
             SetContentRect(_portrait.rectTransform, new Vector2(1f, 0f),
                 new Vector2(-22f, 18f), new Vector2(size.x * 0.27f, size.y + 12f));
             SetContentRect((RectTransform)_ctaButton.transform, Vector2.zero,
@@ -339,8 +286,8 @@ namespace Baseball.Presentation.Guide
             if (_message == null || !IsVisible)
                 return;
 
-            // 화면 크기가 바뀌어도 홈 패널의 실제 경계를 계속 따라간다.
-            ConfigureLayout(_message.PresentationType);
+            // 해상도가 바뀌어도 같은 정규화 위치와 기준 크기를 다시 적용한다.
+            ConfigureLayout();
             _overlay.color = new Color(0f, 0f, 0f, _backgroundDimAlpha);
         }
 

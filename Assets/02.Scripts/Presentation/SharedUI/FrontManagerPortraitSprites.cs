@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using Baseball.Game.Historical;
 using UnityEngine;
 
 namespace Baseball.Presentation.SharedUI
@@ -21,6 +23,21 @@ namespace Baseball.Presentation.SharedUI
             return sprite != null || string.IsNullOrWhiteSpace(fallbackAssetKey)
                 ? sprite
                 : LoadSingle(fallbackAssetKey);
+        }
+
+        /// <summary>선택한 매니저의 표정을 불러오고, 없으면 같은 매니저의 기본 표정을 사용한다.</summary>
+        public static Sprite LoadForManager(string managerId, string expressionAssetKey)
+        {
+            string prefix = managerId == FrontManagerIds.DefaultTest ? "FM_02_" : "FM_01_";
+            string expression = expressionAssetKey ?? string.Empty;
+            if (expression.StartsWith("FM_01_", StringComparison.Ordinal) ||
+                expression.StartsWith("FM_02_", StringComparison.Ordinal))
+                expression = expression.Substring(6);
+            else if (expression.StartsWith("FM_", StringComparison.Ordinal))
+                expression = expression.Substring(3);
+
+            // 누락된 표정 때문에 새 게임에서 선택한 인물 자체가 바뀌어서는 안 된다.
+            return Load(prefix + expression, prefix + "NEUTRAL");
         }
 
         private static Sprite LoadSingle(string assetKey)

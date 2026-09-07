@@ -100,10 +100,7 @@ namespace Baseball.Presentation.Owner
             Image shade = OwnerRuntimeUiFactory.CreateImage("Shade", office.transform, new Color(0f, 0f, 0f, .38f));
             OwnerRuntimeUiFactory.Stretch(shade.rectTransform);
             Image portrait = OwnerRuntimeUiFactory.CreateImage("Portrait", office.transform, Color.white);
-            string portraitKey = _model.FrontManagerId == "FRONT_MANAGER_DEFAULT_02"
-                ? "FM_02_WELCOME"
-                : "FM_01_WELCOME";
-            portrait.sprite = FrontManagerPortraitSprites.Load(portraitKey, "FM_WELCOME");
+            portrait.sprite = FrontManagerPortraitSprites.LoadForManager(_model.FrontManagerId, "FM_WELCOME");
             portrait.preserveAspect = true;
             Place(portrait.rectTransform, .45f, .02f, 1f, .98f);
             RectTransform speech = Surface(office.rectTransform, "Speech", new Color32(255, 255, 255, 242), .04f, .56f, .63f, .91f, true);
