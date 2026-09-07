@@ -128,7 +128,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void PregameView_양팀선발을선수오더MiniCard로표시하고우클릭상세를연다()
+        public void PregameView_양팀선발MiniCard좌클릭으로각상세를열고우클릭도유지한다()
         {
             var host = new GameObject("PregameStarterCards", typeof(RectTransform), typeof(Canvas));
             var eventObject = new GameObject("EventSystem", typeof(EventSystem));
@@ -157,20 +157,30 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     Is.EquivalentTo(new[] { "OWN_STARTER", "OPPONENT_STARTER" }));
                 Assert.That(cards.All(card => card.transform.Find("LineupSubFrame").gameObject.activeSelf), Is.True);
 
-                cards.Single(card => card.Model.PlayerId == "OWN_STARTER").OnPointerClick(
-                    CreateRightClick(eventObject));
+                PlayerMiniCardView ownStarter = cards.Single(card => card.Model.PlayerId == "OWN_STARTER");
+                PlayerMiniCardView opponentStarter = cards.Single(
+                    card => card.Model.PlayerId == "OPPONENT_STARTER");
+                Assert.That(ownStarter.GetComponent<Button>().interactable, Is.True);
+                Assert.That(opponentStarter.GetComponent<Button>().interactable, Is.True);
+
+                ownStarter.GetComponent<Button>().onClick.Invoke();
                 UI_Popup_OwnerPlayerCard popup = host.GetComponentsInChildren<UI_Popup_OwnerPlayerCard>(true)
                     .Single(candidate => candidate.IsVisible);
                 Assert.That(popup.transform.Find("CardDetail/Front/Name")
                     .GetComponent<Text>().text, Is.EqualTo("강지검"));
 
-                cards.Single(card => card.Model.PlayerId == "OPPONENT_STARTER").OnPointerClick(
-                    CreateRightClick(eventObject));
+                opponentStarter.GetComponent<Button>().onClick.Invoke();
                 popup = host.GetComponentsInChildren<UI_Popup_OwnerPlayerCard>(true)
                     .Single(candidate => candidate.IsVisible);
                 Assert.That(popup.transform.Find("CardDetail/Front/Name").GetComponent<Text>().text,
                     Is.EqualTo("김태규"));
                 Assert.That(popup.transform.Find("CardDetail/Front/ConditionPanel"), Is.Null);
+
+                ownStarter.OnPointerClick(CreateRightClick(eventObject));
+                popup = host.GetComponentsInChildren<UI_Popup_OwnerPlayerCard>(true)
+                    .Single(candidate => candidate.IsVisible);
+                Assert.That(popup.transform.Find("CardDetail/Front/Name").GetComponent<Text>().text,
+                    Is.EqualTo("강지검"));
             }
             finally
             {
