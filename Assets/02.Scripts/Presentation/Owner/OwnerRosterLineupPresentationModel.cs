@@ -217,6 +217,32 @@ namespace Baseball.Presentation.Owner
                 _ownedPlayers);
         }
 
+        private OwnerRosterLineupSnapshot(
+            OwnerModeRosterStatus rosterStatus,
+            OwnerRosterPlayerSnapshot[] players,
+            OwnerRosterPresetSnapshot[] presets,
+            string selectedPresetId,
+            OwnerLoadoutCandidateSnapshot[] teamColorCandidates,
+            OwnerLoadoutCandidateSnapshot[] tacticCandidates,
+            OwnerCollectionCardSnapshot[] ownedPlayers)
+        {
+            RosterStatus = rosterStatus ?? throw new ArgumentNullException(nameof(rosterStatus));
+            _players = players ?? throw new ArgumentNullException(nameof(players));
+            _presets = presets ?? throw new ArgumentNullException(nameof(presets));
+            _teamColorCandidates = teamColorCandidates ?? throw new ArgumentNullException(nameof(teamColorCandidates));
+            _tacticCandidates = tacticCandidates ?? throw new ArgumentNullException(nameof(tacticCandidates));
+            _ownedPlayers = ownedPlayers ?? throw new ArgumentNullException(nameof(ownedPlayers));
+
+            for (int index = 0; index < _presets.Length; index++)
+            {
+                if (!string.Equals(_presets[index].Preset.PresetId, selectedPresetId, StringComparison.Ordinal))
+                    continue;
+                SelectedPresetIndex = index;
+                return;
+            }
+            throw new ArgumentException("선택된 프리셋이 저장 목록에 없습니다.", nameof(selectedPresetId));
+        }
+
         private static T[] CopyRequired<T>(IReadOnlyList<T> source, string parameterName) where T : class
         {
             if (source == null) throw new ArgumentNullException(parameterName);

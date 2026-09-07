@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using Baseball.Game.Career;
 using Baseball.Game.Diagnostics;
 using Baseball.Game.Historical;
@@ -938,6 +939,7 @@ namespace Baseball.Presentation.Owner
 
             _expansionWorkspace = gameObject.AddComponent<OwnerExpansionWorkspaceCoordinator>();
             _expansionWorkspace.Initialize(_shell);
+            _expansionWorkspace.SpecialRecruitRouteRequested += HandleNavigationRequested;
             _expansionWorkspace.SetRosterCardDetailResolver(
                 cardIds => _snapshotFactory.CreateCollectionCardDetails(_manager, cardIds));
             _expansionWorkspace.MatchStartRequested += HandlePregameMatchStartRequested;
@@ -1040,6 +1042,7 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.EncyclopediaScoutRequested -= HandleEncyclopediaScoutRequested;
             _expansionWorkspace.EncyclopediaCardRequested -= HandleEncyclopediaCardRequested;
             _expansionWorkspace.EncyclopediaWishlistRequested -= HandleEncyclopediaWishlistRequested;
+            _expansionWorkspace.SpecialRecruitRouteRequested -= HandleNavigationRequested;
         }
 
         /// <summary>구매로 재화·보유 상태가 바뀔 때마다 상점 타일을 다시 판정해 표시한다.</summary>
@@ -1101,7 +1104,9 @@ namespace Baseball.Presentation.Owner
                 var season = _manager.Runtime.WorldCardCatalog.GetPlayerSeason(card);
                 models[index] = new PlayerMiniCardModel(item.ItemId,
                 _manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId),
-                    OwnerCollectionPresentationBuilder.FormatPosition(season.Position),
+                    OwnerCollectionPresentationBuilder.FormatPlayerRole(
+                        season.Position,
+                        season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null),
                     season.OriginYear.ToString(), "Cost " + season.Cost,
                     item.GradeLabel, item.IsNew ? "신규 영입" : "중복 획득",
                     portraitAssetKey: season.Position.ToString(), isInteractable: false, frameEdition: card.Edition, cost: season.Cost);
@@ -1454,11 +1459,12 @@ namespace Baseball.Presentation.Owner
             }
             LineupPresetValidationResult validation = _manager.ValidateLineupPreset(candidate);
             _pendingLineupPreset = candidate;
-            OwnerRosterLineupSnapshot live = _snapshotFactory.CreateRosterLineup(_manager);
+            OwnerRosterLineupSnapshot live = _expansionWorkspace.RosterLineupSnapshot ??
+                _snapshotFactory.CreateRosterLineup(_manager);
             OwnerRosterLineupSnapshot preview = live.CreatePreview(candidate, validation);
             OwnerRosterLineupPresentationModel previewModel = OwnerRosterLineupPresentationBuilder.Build(preview);
             _expansionWorkspace.BindRosterLineupPreview(
-                preview,
+                previewModel,
                 previewModel.CreatePendingChangeMessage());
         }
 
@@ -1466,10 +1472,13 @@ namespace Baseball.Presentation.Owner
         {
             _pendingActiveRosterChange = rosterChange ?? throw new ArgumentNullException(nameof(rosterChange));
             _pendingLineupPreset = rosterChange.Preset;
-            OwnerRosterLineupSnapshot preview = _snapshotFactory.CreateRosterLineup(_manager, rosterChange);
+            OwnerRosterLineupSnapshot preview = _snapshotFactory.CreateRosterLineup(
+                _manager,
+                rosterChange,
+                _expansionWorkspace.RosterLineupSnapshot?.OwnedPlayers);
             OwnerRosterLineupPresentationModel previewModel = OwnerRosterLineupPresentationBuilder.Build(preview);
             _expansionWorkspace.BindRosterLineupPreview(
-                preview,
+                previewModel,
                 previewModel.CreatePendingChangeMessage(
                     rosterChange.ReplacementCount,
                     rosterChange.ClearedTeamColorCount));

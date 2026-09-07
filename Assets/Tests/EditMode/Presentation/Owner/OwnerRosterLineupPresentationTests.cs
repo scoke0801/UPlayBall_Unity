@@ -370,7 +370,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/StarterRotation_0"),
                     Is.Not.Null);
 
-                coordinator.BindRosterLineupPreview(snapshot, "변경 내용을 확인해 주세요.");
+                coordinator.BindRosterLineupPreview(OwnerRosterLineupPresentationBuilder.Build(snapshot), "변경 내용을 확인해 주세요.");
 
                 Assert.That(lineupRoot.Find(
                     "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/StarterRotation_0"),
@@ -471,6 +471,115 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         private static Button FindButton(Transform root, string path) => root.Find(path).GetComponent<Button>();
+
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        public void View_포지션선택은수비슬롯을교환하고타순과저장값을보존한다(int width, int height)
+        {
+            var root = new GameObject("PositionCanvas", typeof(RectTransform), typeof(Canvas));
+            var cameraObject = new GameObject("PositionCamera", typeof(Camera));
+            var target = new RenderTexture(width, height, 24);
+            UI_Scene_OwnerRosterLineup view = null;
+            try
+            {
+                Camera camera = cameraObject.GetComponent<Camera>();
+                camera.orthographic = true;
+                camera.targetTexture = target;
+                Canvas canvas = root.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 10f;
+                SharedGameShellView shell = SharedGameShellView.CreateRuntime(root.transform);
+                shell.SetInspectorVisible(false);
+                shell.SetActionBarVisible(false);
+                view = UI_Scene_OwnerRosterLineup.CreateRuntime(
+                    shell.MainWorkspaceHost, shell.RightInspectorHost, shell.ContextActionBarHost);
+                var players = new OwnerRosterPlayerSnapshot[9];
+                for (int index = 0; index < players.Length; index++)
+                    players[index] = new OwnerRosterPlayerSnapshot($"H{index}", "선수" + index, 2026,
+                        (PlayerPosition)(index + 1), PitcherRole.Starter, PlayerCardEdition.Normal, 5,
+                        RegistrationType.Domestic, ActiveRosterRole.StartingCatcher, PlayerAvailabilityStatus.Available);
+                // 1번 타자가 수비 슬롯 8번에 있어도 타순 인덱스를 수비 인덱스로 오인하지 않아야 한다.
+                LineupPresetState preset = OwnerLineupPresetCommandBuilder.Swap(CreatePreset(),
+                    OwnerLineupSwapGroup.BattingOrder, 0, 8);
+                var snapshot = new OwnerRosterLineupSnapshot(CreateValidRosterStatus(), players, preset, Valid("default"), string.Empty);
+                view.Bind(OwnerRosterLineupPresentationBuilder.Build(snapshot));
+                int requests = 0;
+                LineupPresetState candidate = null;
+                view.SwapRequested += (group, first, second) =>
+                {
+                    requests++;
+                    Assert.That(group, Is.EqualTo(OwnerLineupSwapGroup.DefensiveLineup));
+                    Assert.That(first, Is.EqualTo(8));
+                    Assert.That(second, Is.EqualTo(0));
+                    candidate = OwnerLineupPresetCommandBuilder.Swap(preset, group, first, second);
+                    view.BindPreview(OwnerRosterLineupPresentationBuilder.Build(snapshot.CreatePreview(candidate, Valid("default"))), "배치 저장으로 확정하세요.");
+                };
+                Transform board = shell.transform.Find("MainWorkspaceHost/OwnerRosterLineupWorkspace/PlayerOrderBoard");
+                string positionPath = "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/DefensivePositions/Position_0";
+                FindButton(board, positionPath).onClick.Invoke();
+                Button choose = Array.Find(board.GetComponentsInChildren<Button>(), b => b.name == "ChoosePosition_0");
+                Button apply = Array.Find(board.GetComponentsInChildren<Button>(), b => b.name == "ApplyPosition");
+                Assert.That(apply.interactable, Is.False);
+                choose.onClick.Invoke();
+                Assert.That(requests, Is.Zero, "선택만으로 변경안을 반영하지 않습니다.");
+                Assert.That(apply.interactable, Is.True);
+                Canvas.ForceUpdateCanvases();
+                typeof(UI_Scene_OwnerRosterLineup).GetMethod("LateUpdate",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(view, null);
+                Canvas.ForceUpdateCanvases();
+                RectTransform positionRect = FindButton(board, positionPath).GetComponent<RectTransform>();
+                Assert.That(positionRect.rect.height, Is.GreaterThanOrEqualTo(24f));
+                var actionCorners = new Vector3[4];
+                apply.GetComponent<RectTransform>().GetWorldCorners(actionCorners);
+                RectTransform analysisPanel = (RectTransform)board.Find("ConditionAnalysisPanel");
+                Assert.That(analysisPanel.rect.Contains(analysisPanel.InverseTransformPoint(actionCorners[0])), Is.True,
+                    "적용 버튼은 스크롤 위치와 관계없이 분석 패널 안에 있어야 합니다.");
+                Assert.That(analysisPanel.rect.Contains(analysisPanel.InverseTransformPoint(actionCorners[2])), Is.True);
+                string output = Environment.GetEnvironmentVariable("BASEBALL_POSITION_CAPTURE");
+                if (!string.IsNullOrEmpty(output)) CapturePositionView(camera, target, output, width, height);
+                apply.onClick.Invoke();
+                Assert.That(requests, Is.EqualTo(1));
+                Assert.That(candidate.BattingOrderCardIds, Is.EqualTo(preset.BattingOrderCardIds));
+                Assert.That(candidate.StartingLineupSlots[0].CardId, Is.EqualTo("H8"));
+                Assert.That(preset.StartingLineupSlots[0].CardId, Is.EqualTo("H0"));
+                Assert.That(FindButton(board, positionPath).GetComponentInChildren<Text>().text, Does.Contain("포수"));
+                FindButton(board, positionPath).onClick.Invoke();
+                Assert.That(view.TryHandleCancel(), Is.True, "ESC는 열린 포지션 선택만 닫습니다.");
+                Assert.That(FindButton(board, "PlayerGroupTabs/ConfirmLineupPreview").interactable, Is.True,
+                    "포지션 선택 창 닫기는 기존 변경안을 버리지 않습니다.");
+                Assert.That(requests, Is.EqualTo(1));
+            }
+            finally
+            {
+                if (view != null) UnityEngine.Object.DestroyImmediate(view.gameObject);
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                target.Release();
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        private static void CapturePositionView(Camera camera, RenderTexture target, string output, int width, int height)
+        {
+            RenderTexture previous = RenderTexture.active;
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            try
+            {
+                camera.Render();
+                RenderTexture.active = target;
+                texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                texture.Apply();
+                System.IO.Directory.CreateDirectory(output);
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(output, $"positions-{width}.png"), texture.EncodeToPNG());
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
 
         private static OwnerRosterLineupSnapshot CreateSnapshot(LineupPresetValidationResult validation)
         {

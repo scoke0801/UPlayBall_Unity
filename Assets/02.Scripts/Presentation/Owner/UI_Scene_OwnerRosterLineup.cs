@@ -30,6 +30,7 @@ namespace Baseball.Presentation.Owner
         private static readonly Color RoleBoardSurface = new Color(0.92f, 0.93f, 0.93f, 1f);
         private static readonly Color RoleBoardBorder = new Color(0.31f, 0.38f, 0.44f, 1f);
         private static readonly Color InspectorMessage = new Color(0.94f, 0.95f, 0.93f, 1f);
+        private const int OwnedCardsPerPage = 18;
 
         private readonly List<Button> _slotButtons = new List<Button>();
         private readonly List<GridLayoutGroup> _responsiveGrids = new List<GridLayoutGroup>();
@@ -69,8 +70,10 @@ namespace Baseball.Presentation.Owner
         private string _selectedOwnedCardId;
         private string _selectedOwnedPlayerName;
         private int _positionFilter;
+        private int _ownedPageIndex;
         private bool _isPlacementEditMode;
         private bool _hasPreview;
+        private Func<IReadOnlyList<string>, IReadOnlyList<OwnerCollectionCardSnapshot>> _cardDetailResolver;
 
         public event Action<OwnerLineupSwapGroup, int, int> SwapRequested;
         public event Action<OwnerLineupSwapGroup, int, string> AssignmentRequested;
@@ -97,6 +100,7 @@ namespace Baseball.Presentation.Owner
             _model = model;
             _pitchingModel = OwnerRosterPitchingPresentationBuilder.Build(model);
             EnsureBuilt();
+            _ownedPageIndex = 0;
             ClearSelection();
             _summaryText.text = model.RosterSummaryText;
             _evaluationText.text = model.EvaluationText + "\n" + model.EvaluationBasisText;
@@ -121,7 +125,15 @@ namespace Baseball.Presentation.Owner
             _workspaceMode = mode;
             _activePlayerGroup = target;
             _positionFilter = 0;
+            _ownedPageIndex = 0;
             RenderActivePlayerGroup();
+        }
+
+        /// <summary>목록용 요약 카드의 상세 정보는 팝업을 열 때만 계산하도록 Resolver를 연결한다.</summary>
+        public void SetCardDetailResolver(
+            Func<IReadOnlyList<string>, IReadOnlyList<OwnerCollectionCardSnapshot>> resolver)
+        {
+            _cardDetailResolver = resolver;
         }
 
         /// <summary>저장 전 후보 배치를 화면에 표시하고 Validator가 허용한 경우에만 확정 CTA를 연다.</summary>
@@ -152,6 +164,7 @@ namespace Baseball.Presentation.Owner
 
         public void SetVisible(bool visible)
         {
+            if (!visible && _positionSourceIndex >= 0) ClosePositionEditor();
             if (_workspaceRoot != null) _workspaceRoot.gameObject.SetActive(visible);
             if (_inspectorRoot != null) _inspectorRoot.gameObject.SetActive(visible);
             if (_actionRoot != null) _actionRoot.gameObject.SetActive(visible);
@@ -160,6 +173,11 @@ namespace Baseball.Presentation.Owner
         /// <summary>배치 Preview와 선택 상태를 저장값으로 되돌리고 편집 모드를 끝낸다.</summary>
         public bool TryHandleCancel()
         {
+            if (_positionSourceIndex >= 0)
+            {
+                ClosePositionEditor();
+                return true;
+            }
             if (_hasPreview)
             {
                 _isPlacementEditMode = false;
@@ -369,6 +387,7 @@ namespace Baseball.Presentation.Owner
                 ? OwnerRosterWorkspaceMode.Pitching
                 : OwnerRosterWorkspaceMode.Lineup;
             _positionFilter = 0;
+            _ownedPageIndex = 0;
             RenderActivePlayerGroup();
         }
 
@@ -386,6 +405,10 @@ namespace Baseball.Presentation.Owner
             if (_model == null || _primaryAssignedContent == null || _secondaryAssignedContent == null ||
                 _ownedContent == null || _analysisContent == null) return;
             ClearSelection();
+            _positionSourceIndex = -1;
+            _positionButtons.Clear();
+            ResetPositionEditorLayout();
+            SetAnalysisTitle("컨디션 분석");
             _slotButtons.Clear();
             _slotCards.Clear();
             _responsiveGrids.Clear();
@@ -407,9 +430,11 @@ namespace Baseball.Presentation.Owner
             if (_activePlayerGroup == PlayerGroupTab.Hitter)
             {
                 RenderSlotGroup(_primaryAssignedContent, "선발 타순 9명", _model.BattingOrder, 9);
+                RenderPositionButtons(_primaryAssignedContent);
                 RenderSlotGroup(_secondaryAssignedContent, "벤치 5명", _model.Bench, 5);
                 RenderOwnedPlayers(_ownedContent, isPitcher: false, 9);
                 RenderRosterChart(_analysisContent, _model.BattingOrder, false);
+                RenderDefensiveWarnings();
             }
             else
             {
@@ -466,21 +491,54 @@ namespace Baseball.Presentation.Owner
             RenderPositionFilters(content, isPitcher);
             List<OwnerCollectionCardSnapshot> cards = GetFilteredOwnedPlayers(isPitcher);
             int cardCount = cards.Count;
+            int pageCount = Math.Max(1, (cardCount + OwnedCardsPerPage - 1) / OwnedCardsPerPage);
+            _ownedPageIndex = Math.Min(_ownedPageIndex, pageCount - 1);
+            int firstCardIndex = _ownedPageIndex * OwnedCardsPerPage;
+            int visibleCardCount = Math.Min(OwnedCardsPerPage, cardCount - firstCardIndex);
 
-            AddSectionTitle(content, $"{(isPitcher ? "보유 투수" : "보유 야수")} {cardCount}장");
-            int slotCount = Math.Max(columnCount * 2, ((cardCount + columnCount - 1) / columnCount) * columnCount);
+            AddSectionTitle(
+                content,
+                $"{(isPitcher ? "보유 투수" : "보유 야수")} {cardCount}장 · {_ownedPageIndex + 1}/{pageCount} 페이지");
+            if (pageCount > 1) RenderOwnedPageControls(content, pageCount);
+            int slotCount = columnCount * 2;
             RectTransform gridRoot = CreateCardGrid(content, "OwnedGrid", slotCount, columnCount);
-            for (int index = 0; index < cards.Count; index++)
+            for (int index = 0; index < visibleCardCount; index++)
             {
-                CreateOwnedPlayerCard(gridRoot, cards[index], index);
+                int sourceIndex = firstCardIndex + index;
+                CreateOwnedPlayerCard(gridRoot, cards[sourceIndex], sourceIndex);
             }
-            for (int index = cardCount; index < slotCount; index++)
+            for (int index = visibleCardCount; index < slotCount; index++)
             {
                 RectTransform empty = CreateAnalysisSurface(gridRoot, "EmptySlot", CareerUiTheme.RosterEmptySlot);
                 var outline = empty.gameObject.AddComponent<Outline>();
                 outline.effectColor = CareerUiTheme.RosterBorder;
                 outline.effectDistance = Vector2.one;
             }
+        }
+
+        private void RenderOwnedPageControls(Transform content, int pageCount)
+        {
+            RectTransform row = OwnerRuntimeUiFactory.CreateRect("OwnedPageControls", content);
+            row.gameObject.AddComponent<LayoutElement>().preferredHeight = 28f;
+            HorizontalLayoutGroup layout = OwnerWorkspaceUiFactory.AddHorizontalLayout(row, CareerUiTheme.Space1);
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+
+            Button previous = CreateToolbarButton(row, "PreviousOwnedPage", "이전", 72f, () => ChangeOwnedPage(-1));
+            previous.interactable = _ownedPageIndex > 0;
+            Text page = CreateToolbarText(
+                row, "OwnedPageState", 120f, 11, FontStyle.Bold);
+            page.alignment = TextAnchor.MiddleCenter;
+            page.text = $"{_ownedPageIndex + 1} / {pageCount}";
+            Button next = CreateToolbarButton(row, "NextOwnedPage", "다음", 72f, () => ChangeOwnedPage(1));
+            next.interactable = _ownedPageIndex + 1 < pageCount;
+        }
+
+        private void ChangeOwnedPage(int delta)
+        {
+            _ownedPageIndex = Math.Max(0, _ownedPageIndex + delta);
+            RenderActivePlayerGroup();
         }
 
 
@@ -545,7 +603,8 @@ namespace Baseball.Presentation.Owner
                 RectTransform board = (RectTransform)_workspaceRoot.Find("PlayerOrderBoard");
                 int orderCount = _activePlayerGroup == PlayerGroupTab.Pitcher ? 11 : 14;
                 float orderWidth = (board.rect.width - 100f) / orderCount;
-                float orderHeight = Mathf.Max(72f, board.rect.height * .28f - 38f);
+                float orderHeight = Mathf.Max(48f, board.rect.height * .28f - 38f -
+                    (_activePlayerGroup == PlayerGroupTab.Hitter ? 28f : 0f));
                 float width = Mathf.Max(1f, Mathf.Min(available / grid.constraintCount, orderWidth, orderHeight / 1.5f));
                 float height = width * 1.5f;
                 if (!Mathf.Approximately(grid.cellSize.x, width) ||
@@ -558,6 +617,14 @@ namespace Baseball.Presentation.Owner
                 LayoutElement layout = grid.GetComponent<LayoutElement>();
                 layout.minHeight = gridHeight;
                 layout.preferredHeight = gridHeight;
+                if (grid.transform.parent == _primaryAssignedContent)
+                    foreach (Button positionButton in _positionButtons)
+                    {
+                        if (positionButton == null) continue;
+                        LayoutElement sizing = positionButton.GetComponent<LayoutElement>();
+                        sizing.minWidth = width;
+                        sizing.preferredWidth = width;
+                    }
             }
         }
 
@@ -618,7 +685,8 @@ namespace Baseball.Presentation.Owner
                 FormatCompactYear(player.OriginYear),
                 $"★ {player.Cost}",
                 player.Edition == PlayerCardEdition.Normal ? string.Empty : OwnerRosterLineupPresentationBuilder.FormatEdition(player.Edition),
-                FormatPositionName(player.Position), frameEdition: player.Edition, cost: player.Cost);
+                OwnerCollectionPresentationBuilder.FormatPlayerRole(player.Position, player.PitcherRole),
+                frameEdition: player.Edition, cost: player.Cost);
             PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(parent, $"Owned_{sourceIndex}");
             card.UseLineupSlotLayout();
             card.Bind(cardModel, GetRosterPortrait());
@@ -652,12 +720,22 @@ namespace Baseball.Presentation.Owner
         private void ShowCardDetail(PlayerMiniCardModel selected)
         {
             List<OwnerCollectionCardSnapshot> cards = CreateDetailSequence(selected.PlayerId);
-            for (int index = 0; index < cards.Count; index++)
-                if (cards[index].CardId == selected.PlayerId)
+            IReadOnlyList<OwnerCollectionCardSnapshot> details = ResolveCardDetails(cards);
+            for (int index = 0; index < details.Count; index++)
+                if (details[index].CardId == selected.PlayerId)
                 {
-                    UI_Popup_OwnerPlayerCard.Show(_workspaceRoot, cards, index);
+                    UI_Popup_OwnerPlayerCard.Show(_workspaceRoot, details, index);
                     return;
                 }
+        }
+
+        private IReadOnlyList<OwnerCollectionCardSnapshot> ResolveCardDetails(
+            IReadOnlyList<OwnerCollectionCardSnapshot> cards)
+        {
+            if (_cardDetailResolver == null || cards.Count == 0) return cards;
+            var cardIds = new string[cards.Count];
+            for (int index = 0; index < cardIds.Length; index++) cardIds[index] = cards[index].CardId;
+            return _cardDetailResolver(cardIds);
         }
 
         private List<OwnerCollectionCardSnapshot> CreateDetailSequence(string selectedCardId)
@@ -672,7 +750,11 @@ namespace Baseball.Presentation.Owner
             AppendAssignedCards(assigned, _model.ReliefPitching);
             if (ContainsCard(assigned, selectedCardId)) return assigned;
 
-            return GetFilteredOwnedPlayers(_activePlayerGroup == PlayerGroupTab.Pitcher);
+            List<OwnerCollectionCardSnapshot> filtered =
+                GetFilteredOwnedPlayers(_activePlayerGroup == PlayerGroupTab.Pitcher);
+            int firstCardIndex = _ownedPageIndex * OwnedCardsPerPage;
+            int visibleCardCount = Math.Min(OwnedCardsPerPage, Math.Max(0, filtered.Count - firstCardIndex));
+            return filtered.GetRange(firstCardIndex, visibleCardCount);
         }
 
         private void AppendAssignedCards(
@@ -778,6 +860,7 @@ namespace Baseball.Presentation.Owner
 
         private void HandleSlotSelected(OwnerLineupSlotModel slot)
         {
+            if (_positionSourceIndex >= 0) ClosePositionEditor();
             Button clicked = FindButton(slot.Group, slot.Index);
             if (!string.IsNullOrEmpty(_selectedOwnedCardId))
             {
@@ -813,6 +896,7 @@ namespace Baseball.Presentation.Owner
 
         private void HandleOwnedCardSelected(PlayerMiniCardModel selected, PlayerMiniCardView card)
         {
+            if (_positionSourceIndex >= 0) ClosePositionEditor();
             if (!_isPlacementEditMode)
             {
                 ShowCardDetail(selected);
@@ -885,8 +969,8 @@ namespace Baseball.Presentation.Owner
         private string CreateDefaultInstruction()
         {
             return _isPlacementEditMode
-                ? "배치 슬롯과 보유 선수를 차례로 선택하세요. 배치된 선수끼리는 역할을 맞바꿉니다."
-                : "카드를 누르면 상세 정보를 확인할 수 있습니다. 교체하려면 배치 편집을 누르세요.";
+                ? "카드 선택은 선수·타순 교체, 카드 아래 포지션 버튼은 수비 위치 변경입니다."
+                : "카드는 선수 상세, 카드 아래 포지션 버튼은 수비 위치 변경입니다. 선수 교체는 배치 편집을 누르세요.";
         }
 
         private void SetSelectionVisual(Button button, bool isSelected)

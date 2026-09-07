@@ -32,6 +32,8 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_PlayerEncyclopedia _wishlistView;
         private UI_Scene_OwnerPowerUp _powerUpView;
         private UI_Scene_OwnerGrowth _growthView;
+        private UI_Scene_OwnerSpecialRecruit _specialRecruitView;
+        public event Action<string> SpecialRecruitRouteRequested;
         public event Action<string, int, int, int, int> CardSkillPlacementRequested;
         public event Action<string, int> CardSkillRemovalRequested;
         public event Action GrowthShopRequested;
@@ -47,6 +49,8 @@ namespace Baseball.Presentation.Owner
         private OwnerContractSnapshot _contractSnapshot;
         private OwnerTradeSnapshot _tradeSnapshot;
         private OwnerRosterLineupPresentationModel _rosterLineupModel;
+        private string _rosterLineupPreviewMessage = string.Empty;
+        private bool _hasRosterLineupPreview;
         private Func<string, Sprite> _staffPortraitResolver;
         private Func<IReadOnlyList<string>, IReadOnlyList<OwnerCollectionCardSnapshot>> _rosterCardDetailResolver;
         private UI_Scene_OwnerTeamLineup _opponentLineupView;
@@ -93,6 +97,7 @@ namespace Baseball.Presentation.Owner
         public event Action EncyclopediaWishlistRequested;
 
         public string ActiveRouteId { get; private set; } = string.Empty;
+        public OwnerRosterLineupSnapshot RosterLineupSnapshot => _rosterLineupModel?.Snapshot;
 
         public void Initialize(SharedUI.SharedGameShellView shell, Func<string, Sprite> staffPortraitResolver = null)
         {
@@ -176,6 +181,8 @@ namespace Baseball.Presentation.Owner
         {
             RequireInitialized();
             _rosterLineupModel = OwnerRosterLineupPresentationBuilder.Build(snapshot);
+            _rosterLineupPreviewMessage = string.Empty;
+            _hasRosterLineupPreview = false;
             EnsureRosterLineupView();
             _rosterLineupView.Bind(_rosterLineupModel);
             // 현재 선수 오더 안에 투수 필터가 있다. Legacy 투수진 Route는 실제 진입 시 생성한다.
@@ -183,15 +190,23 @@ namespace Baseball.Presentation.Owner
                 _rosterPitchingView.Bind(_rosterLineupModel);
         }
 
-        /// <summary>현재 Runtime은 유지한 채 검증된 후보 프리셋을 두 선수단 Route에 표시한다.</summary>
-        public void BindRosterLineupPreview(OwnerRosterLineupSnapshot preview, string message)
+        /// <summary>현재 Runtime은 유지한 채 검증된 후보 프리셋을 현재 열린 선수단 Route에만 표시한다.</summary>
+        public void BindRosterLineupPreview(OwnerRosterLineupPresentationModel model, string message)
         {
             RequireInitialized();
-            OwnerRosterLineupPresentationModel model = OwnerRosterLineupPresentationBuilder.Build(preview);
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            _rosterLineupModel = model;
+            _rosterLineupPreviewMessage = message ?? string.Empty;
+            _hasRosterLineupPreview = true;
+            if (string.Equals(ActiveRouteId, OwnerNavigationRoutes.RosterPitching, StringComparison.Ordinal))
+            {
+                EnsureRosterPitchingView();
+                _rosterPitchingView.BindPreview(model, message);
+                return;
+            }
+
             EnsureRosterLineupView();
-            EnsureRosterPitchingView();
             _rosterLineupView.BindPreview(model, message);
-            _rosterPitchingView.BindPreview(model, message);
         }
 
         public void BindCollection(OwnerCollectionSnapshot snapshot)
@@ -461,6 +476,7 @@ namespace Baseball.Presentation.Owner
                 _encyclopediaView,
                 _wishlistView,
                 _powerUpView,
+                _specialRecruitView,
                 _growthView,
                 _dugoutView,
                 _teamColorView,
@@ -487,6 +503,25 @@ namespace Baseball.Presentation.Owner
         public bool TryShowRoute(string workspaceRouteId, string navigationRouteId)
         {
             RequireInitialized();
+            if (workspaceRouteId == OwnerNavigationRoutes.SpecialRecruitLegend ||
+                workspaceRouteId == OwnerNavigationRoutes.SpecialRecruitCareerHigh)
+            {
+                if (_specialRecruitView == null)
+                {
+                    _specialRecruitView = UI_Scene_OwnerSpecialRecruit.CreateRuntime(_shell.MainWorkspaceHost);
+                    _specialRecruitView.RouteRequested += route => SpecialRecruitRouteRequested?.Invoke(route);
+                    _specialRecruitView.CloseRequested += () => SpecialRecruitRouteRequested?.Invoke(OwnerNavigationRoutes.Home);
+                }
+                SetAllViewsVisible(false);
+                _specialRecruitView.SetVisible(true);
+                _specialRecruitView.ShowRoute(workspaceRouteId);
+                _shell.SetInspectorVisible(false);
+                _shell.SetActionBarVisible(false);
+                _shell.BindContext(new SharedUI.ShellContextModel(navigationRouteId,
+                    "특수 영입", "레전드와 커리어하이 선수의 영입 재료를 확인합니다.", "전력보강"));
+                ActiveRouteId = navigationRouteId;
+                return true;
+            }
             if ((workspaceRouteId == OwnerNavigationRoutes.PowerUpSkills || workspaceRouteId == OwnerNavigationRoutes.PowerUpStudy) && _growthView != null)
             {
                 SetAllViewsVisible(false);
@@ -634,6 +669,10 @@ namespace Baseball.Presentation.Owner
                 _rosterLineupModel != null)
             {
                 EnsureRosterPitchingView();
+                if (_hasRosterLineupPreview)
+                    _rosterPitchingView.BindPreview(_rosterLineupModel, _rosterLineupPreviewMessage);
+                else
+                    _rosterPitchingView.Bind(_rosterLineupModel);
                 SetAllViewsVisible(false);
                 _rosterPitchingView.SetVisible(true);
                 _rosterPitchingView.SetWorkspaceMode(OwnerRosterWorkspaceMode.Pitching);
@@ -777,6 +816,8 @@ namespace Baseball.Presentation.Owner
         private bool ShowRosterLineup(string routeId, string title, bool canGoBack)
         {
             EnsureRosterLineupView();
+            if (_hasRosterLineupPreview)
+                _rosterLineupView.BindPreview(_rosterLineupModel, _rosterLineupPreviewMessage);
             SetAllViewsVisible(false);
             _rosterLineupView.SetVisible(true);
             _rosterLineupView.SetWorkspaceMode(OwnerRosterWorkspaceMode.Lineup);
@@ -1001,7 +1042,6 @@ namespace Baseball.Presentation.Owner
             _rosterPitchingView.PresetSelected += HandleLineupPresetSelected;
             _rosterPitchingView.LineupChangeConfirmed += HandleLineupChangeConfirmed;
             _rosterPitchingView.LineupChangeCancelled += HandleLineupChangeCancelled;
-            if (_rosterLineupModel != null) _rosterPitchingView.Bind(_rosterLineupModel);
             _rosterPitchingView.SetWorkspaceMode(OwnerRosterWorkspaceMode.Pitching);
             _rosterPitchingView.SetVisible(false);
         }
@@ -1160,6 +1200,7 @@ namespace Baseball.Presentation.Owner
 
         private void SetAllViewsVisible(bool visible)
         {
+            if (_specialRecruitView != null) _specialRecruitView.SetVisible(visible);
             if (_opponentLineupView != null) _opponentLineupView.SetVisible(visible);
             if (_pregameView != null) _pregameView.SetVisible(visible);
             if (_staffView != null) _staffView.SetVisible(visible);
