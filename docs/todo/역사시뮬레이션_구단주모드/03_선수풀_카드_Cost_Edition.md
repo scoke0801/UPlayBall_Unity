@@ -233,3 +233,10 @@ Cost는 종합 능력 평가, 구종은 전술적 개성, 성장 적성은 영�
 카드 기본 등급은 BaseMastery에 영구 성장분만 적용한다. Condition, TeamColor, 경기 Tactic은
 카드 기본 등급을 바꾸지 않고 현재 실전 품질에만 기여한다. 카드 뒷면은 동일 Record Provider와
 World Identity를 소비하며 Raw KBO 이름/구단명을 표시하지 않는다.
+
+## 선수 도감 Consumer 계약
+
+- `WorldCardCatalog`는 현재 월드에서 도감에 노출할 Card의 Source of Truth다.
+- `CardId`는 `WishlistState`와 `CardCollectionHistoryState`가 공유하는 Stable Key다.
+- 도감은 MVP·AllStar 등 Edition 자격을 다시 계산하거나 존재하지 않는 Edition 슬롯을 만들지 않는다.
+- 전체 선수 목록은 Core25가 아니라 Canonical `PlayerSeasonDefinition` 전체를 사용한다.
