@@ -12,6 +12,19 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class HistoricalTacticResolverTests
     {
         [Test]
+        public void AiSelection_챔피언까지미사용하고마스터부터결정론적으로선택한다()
+        {
+            var catalog = new[] { CreateCard("A", false), CreateCard("B", false) };
+            var resolver = new AiTacticSelectionResolver();
+            foreach (LeagueGrade grade in Enum.GetValues(typeof(LeagueGrade)))
+            {
+                var selected = resolver.Select(catalog, grade, 731UL, 1);
+                Assert.That(selected.Length, Is.EqualTo(grade <= LeagueGrade.Champion ? 0 : 2), grade.ToString());
+                Assert.That(resolver.Select(catalog, grade, 731UL, 1), Is.EqualTo(selected));
+            }
+        }
+
+        [Test]
         public void Loadout_슬롯과방해카드제약을강제한다()
         {
             TacticCardDefinition disruptionA = CreateCard("DISRUPT_A", true);

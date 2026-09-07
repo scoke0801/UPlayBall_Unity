@@ -19,6 +19,10 @@ namespace Baseball.Simulation.Historical
             if (catalog == null) throw new ArgumentNullException(nameof(catalog));
             if (teamId <= 0) throw new ArgumentOutOfRangeException(nameof(teamId));
 
+            // 챔피언까지는 카드 소모 없이 상대 전술에 대응할 수 있는 리그로 유지한다.
+            if (leagueGrade <= LeagueGrade.Champion)
+                return Array.Empty<TacticCardDefinition>();
+
             TacticTier maximumTier = ResolveMaximumTier(leagueGrade);
             var candidates = new TacticCardDefinition[catalog.Count];
             int candidateCount = 0;
