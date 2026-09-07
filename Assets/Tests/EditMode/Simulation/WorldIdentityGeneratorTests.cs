@@ -108,6 +108,60 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(foundDifferentSelection, Is.True);
         }
 
+        [Test]
+        public void Generate_연고지치환으로중복되는후보를건너뛰고입력순서와무관하게재현한다()
+        {
+            var names = new WorldIdentityNameCatalog(
+                CreateNames().DomesticPlayerNames, CreateNames().ForeignPlayerNames,
+                new[] { "부산 코멧츠", "대전 코멧츠", "인천 하버스" }, CreateFranchiseRegions());
+            PlayerPersonDefinition[] persons = CreatePersons();
+            TeamSeasonDefinition[] teams = CreateTeams();
+            TeamSeasonDefinition[] reversedTeams = CreateTeams();
+            Array.Reverse(reversedTeams);
+            var generator = new WorldIdentityGenerator();
+            for (ulong seed = 0; seed < 1000; seed++)
+            {
+                WorldIdentityRegistry first = generator.Generate(persons, teams, names, seed);
+                WorldIdentityRegistry replay = generator.Generate(persons, reversedTeams, names, seed);
+                var actual = new HashSet<string>(StringComparer.Ordinal);
+                foreach (WorldFranchiseIdentity identity in first.FranchiseIdentities)
+                {
+                    Assert.That(actual.Add(identity.DisplayName), Is.True, $"seed={seed}");
+                    Assert.That(replay.GetFranchiseDisplayName(identity.FranchiseId), Is.EqualTo(identity.DisplayName));
+                }
+                Assert.That(actual, Is.EquivalentTo(new[] { "서울 코멧츠", "서울 하버스" }));
+            }
+        }
+
+        [Test]
+        public void Generate_연고지별고유별칭이부족하면구단과연고지를보고한다()
+        {
+            var names = new WorldIdentityNameCatalog(
+                CreateNames().DomesticPlayerNames, CreateNames().ForeignPlayerNames,
+                new[] { "부산 코멧츠", "대전 코멧츠" }, CreateFranchiseRegions());
+            var error = Assert.Throws<InvalidOperationException>(() =>
+                new WorldIdentityGenerator().Generate(CreatePersons(), CreateTeams(), names, 71UL));
+            Assert.That(error.Message, Does.Contain("FRANCHISE-B"));
+            Assert.That(error.Message, Does.Contain("서울"));
+        }
+
+        [Test]
+        public void Generate_다른연고지에서는같은별칭을사용할수있다()
+        {
+            var names = new WorldIdentityNameCatalog(
+                CreateNames().DomesticPlayerNames, CreateNames().ForeignPlayerNames,
+                new[] { "부산 코멧츠", "대전 코멧츠" },
+                new[]
+                {
+                    new WorldFranchiseRegionDefinition("FRANCHISE-A", "서울"),
+                    new WorldFranchiseRegionDefinition("FRANCHISE-B", "인천")
+                });
+            WorldIdentityRegistry registry = new WorldIdentityGenerator().Generate(
+                CreatePersons(), CreateTeams(), names, 71UL);
+            Assert.That(registry.GetFranchiseDisplayName("FRANCHISE-A"), Is.EqualTo("서울 코멧츠"));
+            Assert.That(registry.GetFranchiseDisplayName("FRANCHISE-B"), Is.EqualTo("인천 코멧츠"));
+        }
+
         [TestCase("")]
         [TestCase("선수123")]
         [TestCase("선수\u0001")]

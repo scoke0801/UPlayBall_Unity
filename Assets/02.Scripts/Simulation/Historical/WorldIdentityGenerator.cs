@@ -8,7 +8,7 @@ namespace Baseball.Simulation.Historical
     /// <summary>Canonical ID에 실제 연고지와 World Seed별 고유 선수명·구단 별칭을 결정론적으로 배정한다.</summary>
     public sealed class WorldIdentityGenerator
     {
-        public const string CurrentVersion = "world-identity-v2";
+        public const string CurrentVersion = "world-identity-v3";
 
         private const ulong DomesticPlayerStream = 0x504C415945524B52UL;
         private const ulong ForeignPlayerStream = 0x504C41594552464FUL;
@@ -56,15 +56,15 @@ namespace Baseball.Simulation.Historical
                 throw new InvalidOperationException("검증된 구단 이름 후보가 Canonical Franchise 수보다 적습니다.");
             string[] franchiseNames = Shuffle(names.FranchiseNames, worldSeed, FranchiseStream);
             var franchiseIdentities = new WorldFranchiseIdentity[franchiseIds.Length];
+            var usedFranchiseNames = new HashSet<string>(StringComparer.Ordinal);
             for (int index = 0; index < franchiseIds.Length; index++)
             {
                 string franchiseId = franchiseIds[index];
                 bool hasRegion = names.TryGetFranchiseRegion(franchiseId, out string region);
                 if (names.HasFranchiseRegions && !hasRegion)
                     throw new InvalidOperationException($"Canonical Franchise의 실제 연고지 매핑이 없습니다: {franchiseId}");
-                string displayName = hasRegion
-                    ? ComposeFranchiseName(region, franchiseNames[index])
-                    : franchiseNames[index];
+                string displayName = SelectFranchiseName(
+                    franchiseNames, index, hasRegion ? region : null, franchiseId, usedFranchiseNames);
                 franchiseIdentities[index] = new WorldFranchiseIdentity(franchiseId, displayName);
             }
 
@@ -73,6 +73,24 @@ namespace Baseball.Simulation.Historical
                 worldSeed,
                 playerIdentities,
                 franchiseIdentities);
+        }
+
+        private static string SelectFranchiseName(
+            string[] candidates, int startIndex, string region, string franchiseId,
+            HashSet<string> usedNames)
+        {
+            // 연고지 치환으로 서로 다른 후보도 같은 이름이 된다. 원래 순열 위치부터
+            // 한 바퀴 탐색하여 충돌 없는 배정을 유지하고 후보 고갈 시 무한 재시도를 막는다.
+            // 다른 연고지에서는 같은 별칭을 사용할 수 있으므로 후보 자체는 소모하지 않는다.
+            for (int offset = 0; offset < candidates.Length; offset++)
+            {
+                string candidate = candidates[(startIndex + offset) % candidates.Length];
+                string displayName = region == null ? candidate : ComposeFranchiseName(region, candidate);
+                if (usedNames.Add(displayName))
+                    return displayName;
+            }
+            throw new InvalidOperationException(
+                $"연고지 적용 후 중복되지 않는 구단 이름 후보가 부족합니다: FranchiseId={franchiseId}, 연고지={region}");
         }
 
         private static string ComposeFranchiseName(string region, string nameCandidate)
