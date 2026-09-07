@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 14;
+        public const int CurrentSaveVersion = 15;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
         // 개인 기록은 없으면 빈 상태로 복원되므로 별도 버전 분기가 필요 없다.
@@ -28,6 +28,7 @@ namespace Baseball.Game.Historical
         private const int ScheduledTacticsSaveVersion = 12;
         private const int GrowthSourceBreakdownSaveVersion = 13;
         private const int ActiveRosterContractSyncSaveVersion = 14;
+        private const int CollectionWishlistSaveVersion = 15;
         private const int FirstSupportedSaveVersion = 1;
 
         private readonly IHistoricalContentProvider _contentProvider;
@@ -80,6 +81,8 @@ namespace Baseball.Game.Historical
                 league = CreateLeague(state.League),
                 rosters = CreateRosters(state.Rosters),
                 ownedCards = CreateOwnedCards(state.OwnedCards),
+                cardCollectionHistory = CreateCardCollectionHistory(state.CollectionHistory),
+                wishlist = CreateWishlist(state.Wishlist),
                 economy = new ManagerEconomySaveData
                 {
                     money = state.Economy.Money,
@@ -147,6 +150,13 @@ namespace Baseball.Game.Historical
             CurrentRosterState[] rosters = RestoreRosters(Require(saveData.rosters, nameof(saveData.rosters)));
             OwnedPlayerCardState[] ownedCards = RestoreOwnedCards(
                 Require(saveData.ownedCards, nameof(saveData.ownedCards)), saveData.saveVersion);
+            CardCollectionHistoryState collectionHistory = saveData.saveVersion < CollectionWishlistSaveVersion
+                ? CreateCollectionHistoryFromOwnedCards(ownedCards)
+                : RestoreCardCollectionHistory(
+                    Require(saveData.cardCollectionHistory, nameof(saveData.cardCollectionHistory)));
+            WishlistState wishlist = saveData.saveVersion < CollectionWishlistSaveVersion
+                ? new WishlistState()
+                : RestoreWishlist(Require(saveData.wishlist, nameof(saveData.wishlist)));
             ManagerEconomySaveData economyData = Require(saveData.economy, nameof(saveData.economy));
             ManagerModeRuntimeState managerMode = saveData.saveVersion < ManagerModeSaveVersion
                 ? CreateInitialManagerMode(
@@ -207,7 +217,9 @@ namespace Baseball.Game.Historical
                     : new OwnerOnboardingState(saveData.onboarding.currentStep, saveData.onboarding.isCompleted),
                 saveData.saveVersion < OwnerGrowthSaveVersion || saveData.playerGrowth == null
                     ? new OwnerPlayerGrowthState()
-                    : RestorePlayerGrowth(saveData.playerGrowth));
+                    : RestorePlayerGrowth(saveData.playerGrowth),
+                collectionHistory,
+                wishlist);
         }
 
         /// <summary>v11~v13의 1군 교체 누락으로 계약 수만 25인 상태를 해당 로스터 CardId에 맞춰 이행한다.</summary>
@@ -1464,6 +1476,63 @@ namespace Baseball.Game.Historical
                     saveVersion < OwnerGrowthSaveVersion ? -1 : card.lastStudySeason);
             }
             return result;
+        }
+
+        private static CardCollectionHistorySaveData CreateCardCollectionHistory(
+            CardCollectionHistoryState source)
+        {
+            var cardIds = new string[source.EverAcquiredCardIds.Count];
+            for (int index = 0; index < cardIds.Length; index++)
+                cardIds[index] = source.EverAcquiredCardIds[index];
+            Array.Sort(cardIds, StringComparer.Ordinal);
+            return new CardCollectionHistorySaveData { everAcquiredCardIds = cardIds };
+        }
+
+        private static CardCollectionHistoryState RestoreCardCollectionHistory(
+            CardCollectionHistorySaveData source)
+        {
+            return new CardCollectionHistoryState(
+                Require(source.everAcquiredCardIds, nameof(source.everAcquiredCardIds)));
+        }
+
+        private static CardCollectionHistoryState CreateCollectionHistoryFromOwnedCards(
+            IReadOnlyList<OwnedPlayerCardState> ownedCards)
+        {
+            var cardIds = new string[ownedCards.Count];
+            for (int index = 0; index < cardIds.Length; index++)
+                cardIds[index] = ownedCards[index].CardId;
+            return new CardCollectionHistoryState(cardIds);
+        }
+
+        private static WishlistSaveData CreateWishlist(WishlistState source)
+        {
+            WishlistEntry[] entries = source.GetOldestFirst();
+            var result = new WishlistEntrySaveData[entries.Length];
+            for (int index = 0; index < entries.Length; index++)
+            {
+                result[index] = new WishlistEntrySaveData
+                {
+                    cardId = entries[index].CardId,
+                    addedSequence = entries[index].AddedSequence
+                };
+            }
+            return new WishlistSaveData
+            {
+                entries = result,
+                nextAddedSequence = source.NextAddedSequence
+            };
+        }
+
+        private static WishlistState RestoreWishlist(WishlistSaveData source)
+        {
+            WishlistEntrySaveData[] savedEntries = Require(source.entries, nameof(source.entries));
+            var entries = new WishlistEntry[savedEntries.Length];
+            for (int index = 0; index < entries.Length; index++)
+            {
+                WishlistEntrySaveData entry = Require(savedEntries[index], nameof(source.entries));
+                entries[index] = new WishlistEntry(entry.cardId, entry.addedSequence);
+            }
+            return new WishlistState(entries, source.nextAddedSequence);
         }
 
         private static OwnerPlacedSkillBlockSaveData[] CreateSkillBoard(OwnedCardSkillBoardState source)

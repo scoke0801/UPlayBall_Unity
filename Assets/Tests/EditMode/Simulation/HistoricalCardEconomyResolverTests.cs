@@ -116,6 +116,37 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void ScoutRoller_후보표시판정은_실제Bucket의_구단연도Edition가중치와_같다()
+        {
+            PlayerSeasonDefinition comets = CreateSeason("comets", 5, 2011, "COMETS");
+            PlayerSeasonDefinition wolves = CreateSeason("wolves", 5, 2012, "WOLVES");
+            var awards = new WorldAwardRecord(new[]
+            {
+                new WorldAwardEntry(2011, WorldAwardType.AllStar, comets.PlayerSeasonId, PlayerPosition.Catcher)
+            });
+            WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(
+                new[] { comets, wolves }, awards, CardEditionBalanceTable.CreateInitial());
+            var pool = new ScoutPoolDefinition(
+                "comets-2011", ScoutType.YearFranchise,
+                ScoutPoolDefinition.CreateInitialCostWeights(),
+                ScoutPoolDefinition.CreateStandardEditionWeights(), 100,
+                franchiseFilter: "COMETS", yearFilter: 2011);
+
+            int displayedCount = catalog.Cards.Count(card =>
+                ScoutRoller.IsCandidate(pool, catalog, ScoutFeaturePolicy.FullWorldAwards, card));
+            int rolledBucketCount = new ScoutRoller().GetProbabilities(
+                pool, catalog, ScoutFeaturePolicy.FullWorldAwards).Sum(bucket => bucket.CandidateCount);
+
+            Assert.That(displayedCount, Is.EqualTo(rolledBucketCount));
+            Assert.That(displayedCount, Is.EqualTo(2));
+            Assert.That(ScoutRoller.IsCandidate(
+                pool,
+                catalog,
+                ScoutFeaturePolicy.FullWorldAwards,
+                FindCard(catalog, wolves.PlayerSeasonId, PlayerCardEdition.Normal)), Is.False);
+        }
+
+        [Test]
         public void ScoutRoller_빈_Bucket을_제거하고_남은_가중치를_재정규화한다()
         {
             WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(

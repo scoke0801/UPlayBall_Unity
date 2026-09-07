@@ -9,6 +9,19 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Historical
 {
+    /// <summary>카드 획득 Commit에서 확정된 신규·위시 상태를 후속 Presentation에 전달한다.</summary>
+    public readonly struct CardAcquisitionCommitResult
+    {
+        public CardAcquisitionCommitResult(bool isNew, bool wasWishlisted)
+        {
+            IsNew = isNew;
+            WasWishlisted = wasWishlisted;
+        }
+
+        public bool IsNew { get; }
+        public bool WasWishlisted { get; }
+    }
+
     /// <summary>구단주 모드 한 세이브가 소유하는 역사·리그·로스터·플레이어 구단 경제 상태다.</summary>
     public sealed partial class ManagerHistoricalRuntimeState
     {
@@ -34,7 +47,9 @@ namespace Baseball.Game.Historical
             OwnerProfileState ownerProfile = null,
             OwnerNewGameReceipt newGameReceipt = null,
             OwnerOnboardingState onboarding = null,
-            OwnerPlayerGrowthState playerGrowth = null)
+            OwnerPlayerGrowthState playerGrowth = null,
+            CardCollectionHistoryState collectionHistory = null,
+            WishlistState wishlist = null)
         {
             PlayerTeamSeasonKey = RequireId(playerTeamSeasonKey, nameof(playerTeamSeasonKey));
             ContentReference = contentReference ?? throw new ArgumentNullException(nameof(contentReference));
@@ -59,6 +74,8 @@ namespace Baseball.Game.Historical
             _rostersByTeamSeasonKey = IndexRosters(_rosters);
             _ownedCards = CopyAndValidateOwnedCards(ownedCards, worldCardCatalog);
             _ownedCardsById = IndexOwnedCards(_ownedCards);
+            CollectionHistory = collectionHistory ?? CreateCollectionHistory(_ownedCards);
+            Wishlist = wishlist ?? new WishlistState();
             ValidateSpecialEditionActivation();
             ValidatePlayerRosterOwnership();
             ValidatePlayerGrowth();
@@ -86,6 +103,8 @@ namespace Baseball.Game.Historical
         public OwnerNewGameReceipt NewGameReceipt { get; }
         public OwnerOnboardingState Onboarding { get; }
         public OwnerPlayerGrowthState PlayerGrowth { get; }
+        public CardCollectionHistoryState CollectionHistory { get; }
+        public WishlistState Wishlist { get; }
         public bool HasManagerMode => ManagerMode != null;
 
         /// <summary>GuideManager가 확정한 Save 범위 반복 상태를 저장 Aggregate에 동기화한다.</summary>
@@ -132,18 +151,38 @@ namespace Baseball.Game.Historical
         /// <returns>처음 획득한 카드면 true다.</returns>
         public bool AcquireCard(string cardId)
         {
+            return AcquireCardWithResult(cardId).IsNew;
+        }
+
+        /// <summary>보유·획득 이력·정확한 위시 해제를 한 Commit으로 확정하고 결과를 반환한다.</summary>
+        public CardAcquisitionCommitResult AcquireCardWithResult(string cardId)
+        {
             string id = RequireId(cardId, nameof(cardId));
             if (!WorldCardCatalog.TryGetCard(id, out _))
                 throw new ArgumentException("WorldCardCatalog에 없는 카드는 획득할 수 없습니다.", nameof(cardId));
+            bool wasWishlisted = Wishlist.Contains(id);
             if (_ownedCardsById.TryGetValue(id, out OwnedPlayerCardState owned))
             {
                 owned.AddDuplicate();
-                return false;
+                CollectionHistory.MarkAcquired(id);
+                Wishlist.Remove(id);
+                return new CardAcquisitionCommitResult(false, wasWishlisted);
             }
             var acquired = new OwnedPlayerCardState(id);
             _ownedCards.Add(acquired);
             _ownedCardsById.Add(id, acquired);
-            return true;
+            CollectionHistory.MarkAcquired(id);
+            Wishlist.Remove(id);
+            return new CardAcquisitionCommitResult(true, wasWishlisted);
+        }
+
+        private static CardCollectionHistoryState CreateCollectionHistory(
+            IReadOnlyList<OwnedPlayerCardState> ownedCards)
+        {
+            var cardIds = new string[ownedCards.Count];
+            for (int index = 0; index < ownedCards.Count; index++)
+                cardIds[index] = ownedCards[index].CardId;
+            return new CardCollectionHistoryState(cardIds);
         }
 
         /// <summary>AI 구단은 카드 소유 경제를 갖지 않으므로 플레이어 구단 여부만 명시적으로 반환한다.</summary>

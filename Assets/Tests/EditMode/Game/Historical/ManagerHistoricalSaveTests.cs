@@ -68,6 +68,74 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
+        public void AcquireCard_획득이력기록과정확한CardId위시해제를한Commit에서처리한다()
+        {
+            ManagerHistoricalRuntimeState state = Fixture.Create(WorldRecordMode.SimulatedHistory).State;
+            const string acquiredCardId = "PS-025:Normal";
+            const string otherCardId = "PS-026:Normal";
+            state.Wishlist.Add(acquiredCardId);
+            state.Wishlist.Add(otherCardId);
+
+            CardAcquisitionCommitResult acquisition = state.AcquireCardWithResult(acquiredCardId);
+
+            Assert.That(acquisition.IsNew, Is.True);
+            Assert.That(acquisition.WasWishlisted, Is.True);
+            Assert.That(state.TryGetOwnedCard(acquiredCardId, out _), Is.True);
+            Assert.That(state.CollectionHistory.WasEverAcquired(acquiredCardId), Is.True);
+            Assert.That(state.Wishlist.Contains(acquiredCardId), Is.False);
+            Assert.That(state.Wishlist.Contains(otherCardId), Is.True);
+
+            state.Wishlist.Add(acquiredCardId);
+            Assert.That(state.AcquireCard(acquiredCardId), Is.False);
+            Assert.That(state.TryGetOwnedCard(acquiredCardId, out OwnedPlayerCardState duplicate), Is.True);
+            Assert.That(duplicate.DuplicateCount, Is.EqualTo(1));
+            Assert.That(state.CollectionHistory.Count, Is.EqualTo(26));
+            Assert.That(state.Wishlist.Contains(acquiredCardId), Is.False);
+        }
+
+        [Test]
+        public void CreateSaveDataAndRestore_획득이력과위시순번및현재Catalog에없는Id를보존한다()
+        {
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
+            ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            fixture.State.CollectionHistory.MarkAcquired("REMOVED-CONTENT:CARD");
+            fixture.State.Wishlist.Add("REMOVED-CONTENT:WISH");
+            fixture.State.Wishlist.Add("PS-025:Normal");
+
+            ManagerHistoricalSaveData saveData = adapter.CreateSaveData(fixture.State);
+            ManagerHistoricalRuntimeState restored = adapter.Restore(saveData);
+
+            Assert.That(saveData.saveVersion, Is.EqualTo(15));
+            Assert.That(restored.CollectionHistory.WasEverAcquired("REMOVED-CONTENT:CARD"), Is.True);
+            Assert.That(restored.Wishlist.Contains("REMOVED-CONTENT:WISH"), Is.True);
+            Assert.That(restored.Wishlist.Contains("PS-025:Normal"), Is.True);
+            Assert.That(restored.Wishlist.NextAddedSequence, Is.EqualTo(2));
+            Assert.That(
+                restored.Wishlist.GetMostRecentFirst()[0].CardId,
+                Is.EqualTo("PS-025:Normal"));
+        }
+
+        [Test]
+        public void Restore_V14는현재보유CardId만획득이력으로이행하고위시는비운다()
+        {
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
+            ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            fixture.State.CollectionHistory.MarkAcquired("PAST-SOLD:CARD");
+            fixture.State.Wishlist.Add("PS-025:Normal");
+            ManagerHistoricalSaveData saveData = adapter.CreateSaveData(fixture.State);
+            saveData.saveVersion = 14;
+            saveData.cardCollectionHistory = null;
+            saveData.wishlist = null;
+
+            ManagerHistoricalRuntimeState restored = adapter.Restore(saveData);
+
+            Assert.That(restored.CollectionHistory.Count, Is.EqualTo(restored.OwnedCards.Count));
+            Assert.That(restored.CollectionHistory.WasEverAcquired("PS-000:Normal"), Is.True);
+            Assert.That(restored.CollectionHistory.WasEverAcquired("PAST-SOLD:CARD"), Is.False);
+            Assert.That(restored.Wishlist.Count, Is.Zero);
+        }
+
+        [Test]
         public void Restore_V12훈련누적치는일반훈련출처로손실없이이행한다()
         {
             FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);

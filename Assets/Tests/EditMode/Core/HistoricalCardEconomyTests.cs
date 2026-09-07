@@ -42,6 +42,40 @@ namespace Baseball.Tests.EditMode.Core
         }
 
         [Test]
+        public void CardCollectionHistoryState_같은CardId획득은한번만기록한다()
+        {
+            var history = new CardCollectionHistoryState();
+
+            Assert.That(history.MarkAcquired(" CARD-A "), Is.True);
+            Assert.That(history.MarkAcquired("CARD-A"), Is.False);
+
+            Assert.That(history.Count, Is.EqualTo(1));
+            Assert.That(history.WasEverAcquired("CARD-A"), Is.True);
+            Assert.That(history.WasEverAcquired("CARD-B"), Is.False);
+        }
+
+        [Test]
+        public void WishlistState_중복등록은순번을소비하지않고최근과오래된순서를결정론적으로반환한다()
+        {
+            var wishlist = new WishlistState();
+
+            Assert.That(wishlist.Add("CARD-A"), Is.True);
+            Assert.That(wishlist.Add("CARD-A"), Is.False);
+            Assert.That(wishlist.Add("CARD-B"), Is.True);
+            Assert.That(wishlist.Remove("CARD-A"), Is.True);
+            Assert.That(wishlist.Add("CARD-C"), Is.True);
+
+            Assert.That(wishlist.NextAddedSequence, Is.EqualTo(3));
+            Assert.That(
+                wishlist.GetOldestFirst().Select(entry => entry.CardId),
+                Is.EqualTo(new[] { "CARD-B", "CARD-C" }));
+            Assert.That(
+                wishlist.GetMostRecentFirst().Select(entry => entry.CardId),
+                Is.EqualTo(new[] { "CARD-C", "CARD-B" }));
+            Assert.That(wishlist.GetMostRecentFirst()[0].AddedSequence, Is.EqualTo(2));
+        }
+
+        [Test]
         public void ScoutFeaturePolicy_Phase4는_Normal만_허용하고_AwardScout를_막는다()
         {
             ScoutFeaturePolicy policy = ScoutFeaturePolicy.Phase4NormalOnly;

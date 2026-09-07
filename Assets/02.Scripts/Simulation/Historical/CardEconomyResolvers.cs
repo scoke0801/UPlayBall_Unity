@@ -166,6 +166,33 @@ namespace Baseball.Simulation.Historical
             return result;
         }
 
+        /// <summary>카드 한 장이 실제 Scout Bucket에 포함되는지 추첨과 같은 규칙으로 판정한다.</summary>
+        public static bool IsCandidate(
+            ScoutPoolDefinition pool,
+            WorldCardCatalog catalog,
+            ScoutFeaturePolicy featurePolicy,
+            PlayerCardDefinition card)
+        {
+            if (pool == null) throw new ArgumentNullException(nameof(pool));
+            if (catalog == null) throw new ArgumentNullException(nameof(catalog));
+            if (featurePolicy == null) throw new ArgumentNullException(nameof(featurePolicy));
+            if (card == null) throw new ArgumentNullException(nameof(card));
+            if (pool.ScoutType == ScoutType.Award && !featurePolicy.IsAwardScoutEnabled)
+                return false;
+            if (!featurePolicy.IsEditionEnabled(card.Edition))
+                return false;
+            if (pool.EditionFilter.HasValue && pool.EditionFilter.Value != card.Edition)
+                return false;
+
+            PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
+            if (pool.FranchiseFilter != null &&
+                !string.Equals(pool.FranchiseFilter, season.OriginFranchiseId, StringComparison.Ordinal))
+                return false;
+            if (pool.YearFilter.HasValue && pool.YearFilter.Value != season.OriginYear)
+                return false;
+            return pool.GetCostWeight(season.Cost) * pool.GetEditionWeight(card.Edition) > 0d;
+        }
+
         public PlayerCardDefinition Roll(
             ScoutPoolDefinition pool,
             WorldCardCatalog catalog,
@@ -286,16 +313,9 @@ namespace Baseball.Simulation.Historical
             for (int index = 0; index < cards.Count; index++)
             {
                 PlayerCardDefinition card = cards[index];
-                if (!featurePolicy.IsEditionEnabled(card.Edition))
-                    continue;
-                if (pool.EditionFilter.HasValue && pool.EditionFilter.Value != card.Edition)
+                if (!IsCandidate(pool, catalog, featurePolicy, card))
                     continue;
                 PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
-                if (pool.FranchiseFilter != null &&
-                    !string.Equals(pool.FranchiseFilter, season.OriginFranchiseId, StringComparison.Ordinal))
-                    continue;
-                if (pool.YearFilter.HasValue && pool.YearFilter.Value != season.OriginYear)
-                    continue;
 
                 double weight = pool.GetCostWeight(season.Cost) * pool.GetEditionWeight(card.Edition);
                 if (weight <= 0d)

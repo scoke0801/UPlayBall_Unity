@@ -24,7 +24,8 @@ namespace Baseball.Core.Shop
             bool isNew,
             string artworkKey = null,
             ShopRevealIntensity primaryIntensity = ShopRevealIntensity.Standard,
-            ShopRevealIntensity secondaryIntensity = ShopRevealIntensity.Standard)
+            ShopRevealIntensity secondaryIntensity = ShopRevealIntensity.Standard,
+            bool wasWishlisted = false)
         {
             if (string.IsNullOrWhiteSpace(itemId))
                 throw new ArgumentException("ItemId는 비어 있을 수 없습니다.", nameof(itemId));
@@ -39,6 +40,7 @@ namespace Baseball.Core.Shop
             ArtworkKey = artworkKey == null ? string.Empty : artworkKey.Trim();
             PrimaryIntensity = primaryIntensity;
             SecondaryIntensity = secondaryIntensity;
+            WasWishlisted = wasWishlisted;
         }
 
         public string ItemId { get; }
@@ -54,6 +56,7 @@ namespace Baseball.Core.Shop
 
         /// <summary>이미 보유한 항목이면 false다. 중복 처리 UI가 이 값을 읽는다.</summary>
         public bool IsNew { get; }
+        public bool WasWishlisted { get; }
     }
 
     /// <summary>지급 처리 결과다. 재화 차감까지 포함한 트랜잭션 전체의 결과를 나타낸다.</summary>

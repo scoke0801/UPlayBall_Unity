@@ -433,6 +433,180 @@ namespace Baseball.Core.Historical
         }
     }
 
+    /// <summary>한 Save에서 정상 획득한 적이 있는 CardId를 현재 보유 상태와 분리해 보존한다.</summary>
+    public sealed class CardCollectionHistoryState
+    {
+        private readonly List<string> _everAcquiredCardIds;
+        private readonly HashSet<string> _everAcquiredCardIdSet;
+
+        public CardCollectionHistoryState(IReadOnlyList<string> everAcquiredCardIds = null)
+        {
+            _everAcquiredCardIds = new List<string>();
+            _everAcquiredCardIdSet = new HashSet<string>(StringComparer.Ordinal);
+            if (everAcquiredCardIds == null)
+                return;
+
+            for (int index = 0; index < everAcquiredCardIds.Count; index++)
+                MarkAcquired(everAcquiredCardIds[index]);
+        }
+
+        public IReadOnlyList<string> EverAcquiredCardIds => _everAcquiredCardIds;
+        public int Count => _everAcquiredCardIds.Count;
+
+        public bool MarkAcquired(string cardId)
+        {
+            string id = RequireCardId(cardId);
+            if (!_everAcquiredCardIdSet.Add(id))
+                return false;
+            _everAcquiredCardIds.Add(id);
+            return true;
+        }
+
+        public bool WasEverAcquired(string cardId)
+        {
+            if (string.IsNullOrWhiteSpace(cardId))
+                return false;
+            return _everAcquiredCardIdSet.Contains(cardId.Trim());
+        }
+
+        private static string RequireCardId(string cardId)
+        {
+            if (string.IsNullOrWhiteSpace(cardId))
+                throw new ArgumentException("CardId는 비어 있을 수 없습니다.", nameof(cardId));
+            return cardId.Trim();
+        }
+    }
+
+    /// <summary>한 위시 카드의 Stable ID와 Save 내부 등록 순번을 보존한다.</summary>
+    public sealed class WishlistEntry
+    {
+        public WishlistEntry(string cardId, long addedSequence)
+        {
+            if (string.IsNullOrWhiteSpace(cardId))
+                throw new ArgumentException("CardId는 비어 있을 수 없습니다.", nameof(cardId));
+            if (addedSequence < 0)
+                throw new ArgumentOutOfRangeException(nameof(addedSequence));
+            CardId = cardId.Trim();
+            AddedSequence = addedSequence;
+        }
+
+        public string CardId { get; }
+        public long AddedSequence { get; }
+    }
+
+    /// <summary>Scout 확률과 독립적으로 정확한 CardId별 영입 목표와 등록 순서를 보존한다.</summary>
+    public sealed class WishlistState
+    {
+        private readonly List<WishlistEntry> _entries;
+        private readonly Dictionary<string, WishlistEntry> _entriesByCardId;
+        private long _nextAddedSequence;
+
+        public WishlistState(
+            IReadOnlyList<WishlistEntry> entries = null,
+            long nextAddedSequence = 0)
+        {
+            if (nextAddedSequence < 0)
+                throw new ArgumentOutOfRangeException(nameof(nextAddedSequence));
+
+            _entries = new List<WishlistEntry>();
+            _entriesByCardId = new Dictionary<string, WishlistEntry>(StringComparer.Ordinal);
+            long maximumSequence = -1;
+            if (entries != null)
+            {
+                for (int index = 0; index < entries.Count; index++)
+                {
+                    WishlistEntry entry = entries[index]
+                        ?? throw new ArgumentException("WishlistEntry는 null일 수 없습니다.", nameof(entries));
+                    if (_entriesByCardId.ContainsKey(entry.CardId))
+                        throw new ArgumentException("Wishlist에 같은 CardId를 중복 저장할 수 없습니다.", nameof(entries));
+                    _entries.Add(entry);
+                    _entriesByCardId.Add(entry.CardId, entry);
+                    if (entry.AddedSequence > maximumSequence)
+                        maximumSequence = entry.AddedSequence;
+                }
+            }
+
+            if (maximumSequence >= nextAddedSequence)
+                throw new ArgumentOutOfRangeException(
+                    nameof(nextAddedSequence),
+                    "다음 등록 순번은 저장된 모든 WishlistEntry보다 커야 합니다.");
+            _nextAddedSequence = nextAddedSequence;
+        }
+
+        public IReadOnlyList<WishlistEntry> Entries => _entries;
+        public int Count => _entries.Count;
+        public long NextAddedSequence => _nextAddedSequence;
+
+        public bool Add(string cardId)
+        {
+            string id = RequireCardId(cardId);
+            if (_entriesByCardId.ContainsKey(id))
+                return false;
+
+            var entry = new WishlistEntry(id, _nextAddedSequence);
+            _nextAddedSequence = checked(_nextAddedSequence + 1);
+            _entries.Add(entry);
+            _entriesByCardId.Add(id, entry);
+            return true;
+        }
+
+        public bool Remove(string cardId)
+        {
+            if (string.IsNullOrWhiteSpace(cardId))
+                return false;
+            string id = cardId.Trim();
+            if (!_entriesByCardId.TryGetValue(id, out WishlistEntry entry))
+                return false;
+            _entriesByCardId.Remove(id);
+            _entries.Remove(entry);
+            return true;
+        }
+
+        public bool Contains(string cardId)
+        {
+            if (string.IsNullOrWhiteSpace(cardId))
+                return false;
+            return _entriesByCardId.ContainsKey(cardId.Trim());
+        }
+
+        public WishlistEntry[] GetOldestFirst()
+        {
+            WishlistEntry[] result = _entries.ToArray();
+            Array.Sort(result, CompareOldestFirst);
+            return result;
+        }
+
+        public WishlistEntry[] GetMostRecentFirst()
+        {
+            WishlistEntry[] result = _entries.ToArray();
+            Array.Sort(result, CompareMostRecentFirst);
+            return result;
+        }
+
+        private static int CompareOldestFirst(WishlistEntry left, WishlistEntry right)
+        {
+            int comparison = left.AddedSequence.CompareTo(right.AddedSequence);
+            return comparison != 0
+                ? comparison
+                : StringComparer.Ordinal.Compare(left.CardId, right.CardId);
+        }
+
+        private static int CompareMostRecentFirst(WishlistEntry left, WishlistEntry right)
+        {
+            int comparison = right.AddedSequence.CompareTo(left.AddedSequence);
+            return comparison != 0
+                ? comparison
+                : StringComparer.Ordinal.Compare(left.CardId, right.CardId);
+        }
+
+        private static string RequireCardId(string cardId)
+        {
+            if (string.IsNullOrWhiteSpace(cardId))
+                throw new ArgumentException("CardId는 비어 있을 수 없습니다.", nameof(cardId));
+            return cardId.Trim();
+        }
+    }
+
     /// <summary>구단주 모드 플레이어 구단 전용 Money/SP/DP와 Pity 진행 상태다.</summary>
     public sealed class ManagerEconomyState
     {

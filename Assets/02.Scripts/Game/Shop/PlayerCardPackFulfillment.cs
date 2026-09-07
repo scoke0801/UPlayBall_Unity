@@ -65,15 +65,16 @@ namespace Baseball.Game.Shop
             {
                 PlayerCardDefinition card = _roller.Roll(pool, runtime.WorldCardCatalog, _featurePolicy, random);
                 PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
-                bool isNew = runtime.AcquireCard(card.CardId);
+                CardAcquisitionCommitResult acquisition = runtime.AcquireCardWithResult(card.CardId);
                 runtime.Economy.AddPityGauge(_pityBalance.GaugeGainPerScout, _pityBalance.Threshold);
                 items[index] = new ShopGrantedItem(
                     card.CardId,
                     DescribeCard(season),
                     DescribeEdition(card.Edition),
-                    isNew,
+                    acquisition.IsNew,
                     primaryIntensity: DescribeCostIntensity(season.Cost),
-                    secondaryIntensity: DescribeEditionIntensity(card.Edition));
+                    secondaryIntensity: DescribeEditionIntensity(card.Edition),
+                    wasWishlisted: acquisition.WasWishlisted);
             }
             return ShopFulfillmentResult.Success(items);
         }

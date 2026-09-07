@@ -14,6 +14,8 @@ namespace Baseball.Game.Historical
         public LeagueInstanceSaveData league;
         public CurrentRosterSaveData[] rosters;
         public OwnedPlayerCardSaveData[] ownedCards;
+        public CardCollectionHistorySaveData cardCollectionHistory;
+        public WishlistSaveData wishlist;
         public ManagerEconomySaveData economy;
         public ManagerModeSaveData managerMode;
         public TacticCollectionSaveData tacticCollection;
@@ -23,6 +25,26 @@ namespace Baseball.Game.Historical
         public OwnerNewGameReceiptSaveData newGameReceipt;
         public OwnerOnboardingSaveData onboarding;
         public OwnerPlayerGrowthSaveData playerGrowth;
+    }
+
+    [Serializable]
+    public sealed class CardCollectionHistorySaveData
+    {
+        public string[] everAcquiredCardIds;
+    }
+
+    [Serializable]
+    public sealed class WishlistSaveData
+    {
+        public WishlistEntrySaveData[] entries;
+        public long nextAddedSequence;
+    }
+
+    [Serializable]
+    public sealed class WishlistEntrySaveData
+    {
+        public string cardId;
+        public long addedSequence;
     }
 
     [Serializable]
