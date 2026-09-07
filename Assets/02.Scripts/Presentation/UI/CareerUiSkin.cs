@@ -98,6 +98,12 @@ namespace Baseball.Presentation.UI
                 ownerSkin.Refresh();
                 return;
             }
+            var titleSkin = button != null ? button.GetComponent<Baseball.Presentation.Career.TitleUiButtonSkin>() : null;
+            if (titleSkin != null && titleSkin.enabled)
+            {
+                titleSkin.Refresh();
+                return;
+            }
             if (button == null || !EnsureLoaded())
                 return;
 
@@ -398,6 +404,10 @@ namespace Baseball.Presentation.UI
 
             var ownerSkin = image.GetComponent<Baseball.Presentation.Owner.OwnerUiButtonSkin>();
             if (ownerSkin != null && ownerSkin.enabled)
+                return true;
+
+            var titleSkin = image.GetComponent<Baseball.Presentation.Career.TitleUiButtonSkin>();
+            if (titleSkin != null && titleSkin.enabled)
                 return true;
 
             CareerUiVisualElement visual = image.GetComponent<CareerUiVisualElement>();

@@ -4,6 +4,7 @@ using System.Text;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Game.Historical;
+using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
@@ -33,10 +34,11 @@ namespace Baseball.Presentation.Career
                 return;
             }
 
-            CreateImage("OwnerBackground", _content, BackgroundColor, new Vector2(1920f, 1080f), Vector2.zero);
+            RectTransform background = OwnerWorkspaceUiFactory.CreateRoot(_content, "OwnerBackground", true);
+            background.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             RectTransform panel = CreateImage(
-                "OwnerNewGamePanel", _content, PanelColor, new Vector2(1720f, 940f), Vector2.zero);
-            ApplyFramedCardSkin(panel);
+                "OwnerNewGamePanel", _content, CareerUiTheme.ReferencePanel, new Vector2(1720f, 940f), Vector2.zero);
+            panel.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             int step = Math.Min(5, (int)flow.CurrentStep + 1);
             CreateText("Eyebrow", panel, $"구단주 새 게임  {step}/5", 15, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(650f, 30f), new Vector2(-455f, 420f), GoldColor);
@@ -82,7 +84,7 @@ namespace Baseball.Presentation.Career
             if (!string.IsNullOrEmpty(_titleNotice))
                 CreateText("OwnerNotice", panel, _titleNotice, 15, FontStyle.Bold, TextAnchor.MiddleCenter,
                     new Vector2(1040f, 38f), new Vector2(0f, -410f), ErrorColor);
-            PreserveOwnerDarkSurfaceText(panel);
+            ApplyOwnerNewGameSkin(panel);
             CareerUiSkin.Apply(panel);
             ApplyOwnerFilterDropdownVisuals(panel);
         }
@@ -132,21 +134,25 @@ namespace Baseball.Presentation.Career
             {
                 OwnerNewGameCardView card = cards[index];
                 int local = index - start;
-                int column = local % 6;
-                int row = local / 6;
-                string selectionMark = card.IsSelected ? "✓ " : string.Empty;
-                Button button = CreateButton(
-                    "MainCard_" + card.CardId,
-                    panel,
-                    $"{selectionMark}{card.DisplayName}\n{card.OriginYear} · {GetPositionLabel(card.Position)} · 비용 {card.Cost}",
-                    new Vector2(245f, 100f),
-                    new Vector2(-625f + column * 250f, 190f - row * 112f),
-                    card.IsSelected ? SelectedColor : CardColor,
-                    out Text label);
-                label.fontSize = 15;
-                label.color = card.IsSelected ? GoldColor : PrimaryTextColor;
+                int column = local % 8;
+                int row = local / 8;
                 string cardId = card.CardId;
-                button.onClick.AddListener(() => RunOwnerFlowAction(() => flow.ToggleMainCard(cardId)));
+                flow.CardCatalog.TryGetCard(cardId, out PlayerCardDefinition definition);
+                var model = new PlayerMiniCardModel(cardId, card.DisplayName, GetPositionLabel(card.Position),
+                    card.OriginYear.ToString(), $"비용 {card.Cost}",
+                    OwnerCollectionPresentationBuilder.FormatEdition(definition.Edition),
+                    card.IsSelected ? "✓ 선택" : string.Empty, card.PlayerPersonId,
+                    visualState: card.IsSelected ? PlayerMiniCardVisualState.Selected : PlayerMiniCardVisualState.Normal,
+                    frameEdition: definition.Edition, cost: card.Cost);
+                PlayerMiniCardView view = PlayerMiniCardView.CreateRuntime(panel, "MainCard_" + cardId);
+                view.UseLineupSlotLayout();
+                view.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+                view.Bind(model, PlayerPortraitSprites.GetDefault(card.Position));
+                RectTransform rect = view.GetComponent<RectTransform>();
+                rect.sizeDelta = new Vector2(128f, 166f);
+                rect.anchoredPosition = new Vector2(-647.5f + column * 185f, 190f - row * 170f);
+                view.Selected += _ => RunOwnerFlowAction(() => flow.ToggleMainCard(cardId));
+                view.DetailRequested += _ => ShowOwnerNewGameCard(view.transform, flow, cardId);
             }
 
             if (cards.Count == 0)
@@ -173,6 +179,9 @@ namespace Baseball.Presentation.Career
             CreateText("SelectedCardNames", panel, BuildOwnerSelectedCardSummary(allCards), 13,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(1450f, 30f),
                 new Vector2(0f, -310f), GoldColor);
+            CreateText("CardInputHint", panel, "좌클릭: 선택/해제 · 우클릭: 선수 상세정보", 14,
+                FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(500f, 30f),
+                new Vector2(-480f, -355f), SecondaryTextColor);
             if (_ownerCardPage > 0)
             {
                 Button previous = CreateButton("CardPagePrevious", panel, "◀", new Vector2(54f, 40f),
@@ -296,14 +305,11 @@ namespace Baseball.Presentation.Career
             buttonLabel.alignment = TextAnchor.LowerCenter;
             buttonLabel.rectTransform.offsetMin = new Vector2(12f, 14f);
             buttonLabel.rectTransform.offsetMax = new Vector2(-12f, -325f);
-            string portraitKey = managerId == FrontManagerIds.DefaultTest
-                ? "FM_02_NEUTRAL"
-                : "FM_01_NEUTRAL";
             RectTransform portraitRect = CreateImage(
                 "Portrait", button.transform, Color.white,
                 new Vector2(300f, 300f), new Vector2(0f, 28f));
             Image portrait = portraitRect.GetComponent<Image>();
-            portrait.sprite = FrontManagerPortraitSprites.Load(portraitKey, fallbackAssetKey: null);
+            portrait.sprite = FrontManagerPortraitSprites.LoadForManager(managerId, "FM_NEUTRAL");
             portrait.preserveAspect = true;
             portrait.color = portrait.sprite != null ? Color.white : CareerUiTheme.Warning;
             portrait.raycastTarget = false;
@@ -400,7 +406,9 @@ namespace Baseball.Presentation.Career
                 PlayerMiniCardView cardView = PlayerMiniCardView.CreateRuntime(
                     panel, $"StarterRoster_{startIndex + localIndex}");
                 cardView.UseLineupSlotLayout();
+                cardView.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
                 cardView.Bind(model, PlayerPortraitSprites.GetDefault(season.Position));
+                cardView.DetailRequested += _ => ShowOwnerNewGameCard(cardView.transform, flow, cardId);
                 RectTransform cardRect = cardView.GetComponent<RectTransform>();
                 cardRect.sizeDelta = new Vector2(CardWidth, CardHeight);
                 cardRect.anchoredPosition = new Vector2(firstX + localIndex * CardSpacing, positionY);
@@ -594,8 +602,20 @@ namespace Baseball.Presentation.Career
             }
         }
 
-        private static void PreserveOwnerDarkSurfaceText(RectTransform panel)
+        private static void ShowOwnerNewGameCard(Transform source, OwnerNewGameFlow flow, string cardId)
         {
+            UI_Popup_OwnerPlayerCard.Show(source,
+                OwnerModeRuntimeSnapshotFactory.CreateNewGameCard(OwnerModeManager.Instance, flow, cardId));
+        }
+
+        private static void ApplyOwnerNewGameSkin(RectTransform panel)
+        {
+            foreach (Button button in panel.GetComponentsInChildren<Button>(true))
+            {
+                if (button.GetComponentInParent<PlayerMiniCardView>() != null) continue;
+                OwnerUiButtonSkin.Apply(button, button.GetComponent<Image>().color == AccentColor
+                    ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
+            }
             Text[] texts = panel.GetComponentsInChildren<Text>(true);
             for (int index = 0; index < texts.Length; index++)
             {
@@ -604,6 +624,8 @@ namespace Baseball.Presentation.Career
                     text.GetComponentInParent<InputField>() != null ||
                     text.GetComponentInParent<Dropdown>() != null)
                     continue;
+                if (text.color != ErrorColor)
+                    text.color = CareerUiTheme.ReferenceText;
                 if (text.GetComponent<CareerUiPreserveTextColor>() == null)
                     text.gameObject.AddComponent<CareerUiPreserveTextColor>();
             }

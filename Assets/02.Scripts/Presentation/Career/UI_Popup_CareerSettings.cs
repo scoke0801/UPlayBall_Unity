@@ -3,6 +3,7 @@ using Baseball.Game.Career;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
 using Baseball.Presentation.Match;
+using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using DG.Tweening;
@@ -17,15 +18,15 @@ namespace Baseball.Presentation.Career
     public sealed partial class UI_Popup_CareerSettings : UIPopupBase
     {
         private static readonly int[] GameSpeeds = { 1, 2, 3, 5 };
-        private static readonly Color BackdropColor = new(0.002f, 0.008f, 0.016f, 1f);
-        private static readonly Color PanelColor = new(0.018f, 0.046f, 0.075f, 1f);
-        private static readonly Color CardColor = new(0.035f, 0.075f, 0.11f, 1f);
-        private static readonly Color SelectedColor = new(0.025f, 0.32f, 0.52f, 1f);
-        private static readonly Color AccentColor = new(0.10f, 0.66f, 1f, 1f);
-        private static readonly Color PrimaryTextColor = new(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color SecondaryTextColor = new(0.60f, 0.70f, 0.80f, 1f);
-        private static readonly Color MutedTextColor = new(0.35f, 0.43f, 0.50f, 1f);
-        private static readonly Color DangerColor = new(0.70f, 0.12f, 0.14f, 1f);
+        private static readonly Color BackdropColor = CareerUiTheme.InputBlocker;
+        private static readonly Color PanelColor = CareerUiTheme.ReferencePanel;
+        private static readonly Color CardColor = CareerUiTheme.ReferenceButton;
+        private static readonly Color SelectedColor = CareerUiTheme.ReferenceAccent;
+        private static readonly Color AccentColor = CareerUiTheme.ReferenceAccentLight;
+        private static readonly Color PrimaryTextColor = CareerUiTheme.ReferenceText;
+        private static readonly Color SecondaryTextColor = CareerUiTheme.ReferenceTextSecondary;
+        private static readonly Color MutedTextColor = CareerUiTheme.ReferenceTextSecondary;
+        private static readonly Color DangerColor = CareerUiTheme.Loss;
 
         private CareerManager _careerManager;
         private NewGameManager _newGameManager;
@@ -133,11 +134,11 @@ namespace Baseball.Presentation.Career
             backdrop.GetComponent<Image>().raycastTarget = true;
             RectTransform panel = CreateImage(
                 "SettingsPanel", _content, PanelColor, new Vector2(1260f, 900f), Vector2.zero);
+            TitleUiButtonSkin.ApplyPanel(panel.GetComponent<Image>());
             CreateText("Title", panel, "설정", 36, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(380f, 56f), new Vector2(-310f, 352f), PrimaryTextColor);
             Button close = CreateButton("Close", panel, "닫기  ESC", new Vector2(180f, 52f),
                 new Vector2(500f, 370f), CardColor, out _);
-            CareerUiSkin.ApplyButton(close);
             close.onClick.AddListener(Close);
 
             string[] tabs = { "경기", "저장·불러오기", "화면", "사운드", "조작", "게임 종료" };
@@ -160,7 +161,7 @@ namespace Baseball.Presentation.Career
             }
 
             RectTransform body = CreateImage(
-                "Body", panel, new Color(0.01f, 0.027f, 0.045f, 1f),
+                "Body", panel, CareerUiTheme.ReferenceCanvas,
                 new Vector2(930f, 720f), new Vector2(120f, -30f));
             if (_selectedTab == 0)
                 RenderGameSettings(body);
@@ -622,8 +623,10 @@ namespace Baseball.Presentation.Career
                 name + "Shade", parent, new Color(0f, 0f, 0f, 0.74f),
                 new Vector2(1260f, 900f), Vector2.zero);
             shade.GetComponent<Image>().raycastTarget = true;
-            return CreateImage(name, parent, new Color(0.025f, 0.055f, 0.085f, 1f),
+            RectTransform modal = CreateImage(name, parent, PanelColor,
                 new Vector2(760f, 390f), Vector2.zero);
+            TitleUiButtonSkin.ApplyPanel(modal.GetComponent<Image>());
+            return modal;
         }
 
         private static RectTransform CreateRect(string name, Transform parent, Vector2 size, Vector2 position)
@@ -643,6 +646,8 @@ namespace Baseball.Presentation.Career
             RectTransform rect = CreateRect(name, parent, size, position);
             Image image = rect.gameObject.AddComponent<Image>();
             image.color = color;
+            // 동적 재렌더링 후에도 공통 스킨의 이름 추론이 명시한 표면 색을 바꾸지 않는다.
+            rect.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             image.raycastTarget = false;
             return rect;
         }
@@ -659,6 +664,7 @@ namespace Baseball.Presentation.Career
             text.fontStyle = style;
             text.alignment = alignment;
             text.color = color;
+            text.gameObject.AddComponent<CareerUiPreserveTextColor>();
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Truncate;
             text.raycastTarget = false;
@@ -680,6 +686,9 @@ namespace Baseball.Presentation.Career
             button.colors = colors;
             text = CreateText("Label", rect, label, 16, FontStyle.Bold, TextAnchor.MiddleCenter,
                 size - new Vector2(10f, 8f), Vector2.zero, PrimaryTextColor);
+            rect.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FramedControl);
+            OwnerUiButtonSkin.Apply(button);
+            OwnerUiButtonSkin.SetSelected(button, color == SelectedColor || color == DangerColor);
             return button;
         }
 

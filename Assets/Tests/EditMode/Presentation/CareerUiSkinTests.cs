@@ -212,6 +212,82 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(card.color, Is.EqualTo(firstTint));
         }
 
+        [TestCase(TitleButtonRole.Mode, "TitleFrame_mode")]
+        [TestCase(TitleButtonRole.Secondary, "TitleButton_secondary")]
+        [TestCase(TitleButtonRole.Primary, "TitleButton_primary")]
+        [TestCase(TitleButtonRole.Danger, "TitleButton_secondary")]
+        public void TitleSkin_역할별전용프레임이공용스킨재적용후에도유지된다(
+            TitleButtonRole role,
+            string spriteName)
+        {
+            Button button = CreateButton("TitleAction", new Vector2(580f, 190f));
+            CreateStretchLabel(button.transform, 18).text = role.ToString();
+
+            TitleUiButtonSkin.Apply(button, role);
+            CareerUiSkin.Apply(_root.transform);
+            CareerUiSkin.Apply(_root.transform);
+
+            Image frame = (Image)button.targetGraphic;
+            Assert.That(frame.sprite, Is.Not.Null);
+            Assert.That(frame.sprite.name, Is.EqualTo(spriteName));
+            Assert.That(frame.type, Is.EqualTo(Image.Type.Sliced));
+            Assert.That(frame.raycastTarget, Is.True);
+            Assert.That(button.transform.Find("TitleButtonFrame"), Is.Not.Null);
+        }
+
+        [Test]
+        public void TitleSkin_빈라벨모드카드도전체클릭프레임을사용한다()
+        {
+            Button button = CreateButton("OwnerCareer", new Vector2(580f, 190f));
+            CreateStretchLabel(button.transform, 18).text = string.Empty;
+
+            TitleUiButtonSkin.Apply(button, TitleButtonRole.Mode);
+
+            Assert.That(button.GetComponent<TitleUiButtonSkin>(), Is.Not.Null);
+            Assert.That(button.GetComponent<Image>().enabled, Is.False);
+            Assert.That(button.targetGraphic.gameObject.name, Is.EqualTo("TitleButtonFrame"));
+            Assert.That(button.targetGraphic.raycastTarget, Is.True);
+        }
+
+        [Test]
+        public void TitleSkin_적용후생성된모드문구도밝은카드용대비색을사용한다()
+        {
+            Button button = CreateButton("PlayerCareer", new Vector2(580f, 220f));
+            TitleUiButtonSkin.Apply(button, TitleButtonRole.Mode);
+            Text mode = CreateStretchLabel(button.transform, 30);
+            mode.gameObject.name = "Mode";
+            mode.color = CareerUiTheme.TextPrimary;
+            Text description = CreateStretchLabel(button.transform, 17);
+            description.gameObject.name = "Description";
+            description.color = CareerUiTheme.TextSecondary;
+            Text action = CreateStretchLabel(button.transform, 16);
+            action.gameObject.name = "Action";
+            action.color = CareerUiTheme.PrimaryBright;
+
+            CareerUiSkin.Apply(_root.transform);
+
+            Assert.That(CalculateLuminance(mode.color), Is.LessThan(0.20f));
+            Assert.That(CalculateLuminance(description.color), Is.LessThan(0.40f));
+            Assert.That(CalculateLuminance(action.color), Is.LessThan(0.40f));
+            Assert.That(action.color.g, Is.GreaterThan(action.color.r));
+        }
+
+        [Test]
+        public void TitleSkin_패널프레임을DataImage로보존한다()
+        {
+            Image panel = CreateSizedImage("ModePanel", _root.transform, new Vector2(720f, 1080f));
+
+            TitleUiButtonSkin.ApplyPanel(panel);
+            CareerUiSkin.Apply(_root.transform);
+
+            Assert.That(panel.sprite, Is.Not.Null);
+            Assert.That(panel.sprite.name, Is.EqualTo("TitleFrame_mode"));
+            Assert.That(panel.type, Is.EqualTo(Image.Type.Sliced));
+            Assert.That(panel.raycastTarget, Is.False);
+            Assert.That(panel.GetComponent<CareerUiVisualElement>().Role,
+                Is.EqualTo(CareerUiVisualRole.DataImage));
+        }
+
         [Test]
         public void OwnerFilterDropdown_비활성Template의항목배경에도어두운Palette를적용한다()
         {

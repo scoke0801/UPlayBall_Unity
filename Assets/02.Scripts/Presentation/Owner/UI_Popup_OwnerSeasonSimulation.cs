@@ -101,10 +101,12 @@ namespace Baseball.Presentation.Owner
             SetRect(header.rectTransform, new Vector2(0f, 344f), new Vector2(680f, 410f));
             Text title = Label(header.transform, "Title", "정규시즌 시뮬레이션", 23, FontStyle.Bold,
                 CareerUiTheme.TextPrimary, new Vector2(24f, 22f), new Vector2(470f, 62f));
+            title.color = CareerUiTheme.TextPrimary;
             title.alignment = TextAnchor.MiddleLeft;
             Text state = Label(header.transform, "State", "리그 일정 순서대로 진행 중", 15, FontStyle.Normal,
                 CareerUiTheme.Number, new Vector2(470f, 22f), new Vector2(656f, 62f));
             state.alignment = TextAnchor.MiddleRight;
+            header.gameObject.AddComponent<CareerUiPreserveTextColor>();
 
             _roundText = Label(modal, "CurrentRound", string.Empty, 22, FontStyle.Bold,
                 CareerUiTheme.ReferenceAccent, new Vector2(32f, 294f), new Vector2(648f, 336f));

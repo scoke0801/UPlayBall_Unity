@@ -176,6 +176,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(texts.Any(text => text.name == "LeagueProgress" && text.text.Contains("45 / 180")), Is.True);
             Assert.That(texts.Any(text => text.name == "PlayerProgress" && text.text.Contains("18 / 72")), Is.True);
             Assert.That(texts.Any(text => text.name == "SeasonRecord" && text.text.Contains("11승  2무  5패")), Is.True);
+            Text title = texts.First(text => text.name == "Title");
+            CareerUiSkin.Apply(popup.transform);
+            Assert.That(title.color, Is.EqualTo(CareerUiTheme.TextPrimary));
             Transform fill = popup.transform.Find("SeasonSimulationDialog/ProgressTrack/ProgressFill");
             Assert.That(fill.localScale.x, Is.EqualTo(0.25f).Within(0.001f));
 

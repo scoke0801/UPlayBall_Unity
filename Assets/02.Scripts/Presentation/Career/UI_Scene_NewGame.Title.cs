@@ -174,6 +174,7 @@ namespace Baseball.Presentation.Career
             RectTransform right = CreateImage(
                 "ModePanel", _content, CareerUiTheme.PanelDark,
                 new Vector2(720f, 1080f), new Vector2(600f, 0f));
+            TitleUiButtonSkin.ApplyPanel(right.GetComponent<Image>());
             CreateText("Eyebrow", right, "싱글 플레이 야구 커리어", 13, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(580f, 28f), new Vector2(0f, 430f), AccentColor);
             CreateText("Heading", right, "커리어를 선택하세요", 34, FontStyle.Bold,
@@ -182,6 +183,7 @@ namespace Baseball.Presentation.Career
             Button playerCareer = CreateButton(
                 "PlayerCareer", right, string.Empty, new Vector2(580f, 220f), new Vector2(0f, 220f),
                 CareerUiTheme.PrimaryAction, out _);
+            TitleUiButtonSkin.Apply(playerCareer, TitleButtonRole.Mode);
             CreateText("Mode", playerCareer.transform, "선수 모드", 30, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(420f, 45f), new Vector2(55f, 58f), PrimaryTextColor);
             CreateText("Description", playerCareer.transform,
@@ -205,10 +207,7 @@ namespace Baseball.Presentation.Career
             Button ownerCareer = CreateButton(
                 "OwnerCareer", right, string.Empty, new Vector2(580f, 190f), new Vector2(0f, -15f),
                 CareerUiTheme.SecondaryAction, out _);
-            // ApplyFramedCardSkin(FramedCard 역할)은 장식용 배경판을 가정해 raycastTarget을 끈다.
-            // Show()/Initialize()마다 CareerUiSkin.Apply가 재적용되며 다시 꺼버리므로,
-            // 실제 클릭을 받아야 하는 이 Button에는 적용하지 않고 CareerUiSkin.ApplyButton의
-            // 기본 버튼 스타일링(playerCareer 버튼과 동일한 경로)만 쓴다.
+            TitleUiButtonSkin.Apply(ownerCareer, TitleButtonRole.Mode);
             CreateText("Badge", ownerCareer.transform, "구단 운영", 12, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(420f, 24f), new Vector2(55f, 58f), GoldColor);
             CreateText("Mode", ownerCareer.transform, "구단주 모드", 27, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -275,7 +274,7 @@ namespace Baseball.Presentation.Career
             Button cardGallery = CreateButton(
                 "CardDesignGallery", right, "카드 디자인 보기", new Vector2(280f, 52f),
                 new Vector2(0f, -250f), CareerUiTheme.SecondaryAction, out _);
-            CareerUiSkin.ApplyButton(cardGallery);
+            TitleUiButtonSkin.Apply(cardGallery, TitleButtonRole.Secondary);
             cardGallery.onClick.AddListener(() =>
             {
                 _showCardGallery = true;
@@ -284,13 +283,14 @@ namespace Baseball.Presentation.Career
 #endif
             Button settings = CreateButton("TitleSettings", right, "설정", new Vector2(150f, 50f),
                 new Vector2(-180f, -445f), CareerUiTheme.SecondaryAction, out _);
-            CareerUiSkin.ApplyButton(settings);
+            TitleUiButtonSkin.Apply(settings, TitleButtonRole.Secondary);
             settings.onClick.AddListener(() =>
             {
                 UI_Popup_CareerSettings.ShowSaveLoadRuntime();
             });
             Button credits = CreateButton("Credits", right, "크레딧", new Vector2(150f, 42f),
                 new Vector2(0f, -445f), CareerUiTheme.SecondaryAction, out _);
+            TitleUiButtonSkin.Apply(credits, TitleButtonRole.Secondary);
             credits.onClick.AddListener(() =>
             {
             _titleNotice = "UPlayBall · 프로야구 선수 커리어";
@@ -298,6 +298,7 @@ namespace Baseball.Presentation.Career
             });
             Button quit = CreateButton("Quit", right, "게임 종료", new Vector2(150f, 42f),
                 new Vector2(180f, -445f), CareerUiTheme.Loss, out _);
+            TitleUiButtonSkin.Apply(quit, TitleButtonRole.Danger);
             quit.onClick.AddListener(() =>
             {
                 _showQuitConfirmation = true;
@@ -320,10 +321,12 @@ namespace Baseball.Presentation.Career
             RectTransform shade = CreateImage("NoticeShade", _content, new Color(0f, 0f, 0f, 0.70f),
                 new Vector2(1920f, 1080f), Vector2.zero);
             RectTransform modal = CreateImage("Notice", shade, PanelColor, new Vector2(680f, 300f), Vector2.zero);
+            TitleUiButtonSkin.ApplyPanel(modal.GetComponent<Image>());
             CreateText("Message", modal, _titleNotice, 21, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(580f, 90f), new Vector2(0f, 35f), PrimaryTextColor);
             Button close = CreateButton("Close", modal, "확인", new Vector2(220f, 54f),
                 new Vector2(0f, -85f), AccentColor, out _);
+            TitleUiButtonSkin.Apply(close, TitleButtonRole.Primary);
             close.onClick.AddListener(() =>
             {
                 _titleNotice = string.Empty;
@@ -341,7 +344,7 @@ namespace Baseball.Presentation.Career
             RectTransform gallery = CreateImage(
                 "CardDesignGalleryPopup", shade, new Color(0.012f, 0.032f, 0.052f, 0.99f),
                 new Vector2(1700f, 980f), Vector2.zero);
-            ApplyFramedCardSkin(gallery);
+            TitleUiButtonSkin.ApplyPanel(gallery.GetComponent<Image>());
 
             CreateText("Title", gallery, "선수 카드 디자인 테스트", 32, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(760f, 52f), new Vector2(-390f, 425f),
@@ -360,7 +363,7 @@ namespace Baseball.Presentation.Career
             Button close = CreateButton(
                 "Close", gallery, "닫기", new Vector2(220f, 52f), new Vector2(0f, -435f),
                 new Color(0.025f, 0.16f, 0.25f, 1f), out _);
-            CareerUiSkin.ApplyButton(close);
+            TitleUiButtonSkin.Apply(close, TitleButtonRole.Secondary);
             close.onClick.AddListener(() =>
             {
                 _showCardGallery = false;
@@ -405,10 +408,12 @@ namespace Baseball.Presentation.Career
                 new Vector2(1920f, 1080f), Vector2.zero);
             RectTransform modal = CreateImage("QuitConfirmation", shade, PanelColor,
                 new Vector2(680f, 330f), Vector2.zero);
+            TitleUiButtonSkin.ApplyPanel(modal.GetComponent<Image>());
             CreateText("Message", modal, "게임을 종료하시겠습니까?", 25, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(580f, 70f), new Vector2(0f, 55f), PrimaryTextColor);
             Button cancel = CreateButton("Cancel", modal, "취소", new Vector2(230f, 56f),
                 new Vector2(-130f, -82f), CardColor, out _);
+            TitleUiButtonSkin.Apply(cancel, TitleButtonRole.Secondary);
             cancel.onClick.AddListener(() =>
             {
                 _showQuitConfirmation = false;
@@ -416,6 +421,7 @@ namespace Baseball.Presentation.Career
             });
             Button confirm = CreateButton("Confirm", modal, "게임 종료", new Vector2(230f, 56f),
                 new Vector2(130f, -82f), new Color(0.62f, 0.10f, 0.12f, 1f), out _);
+            TitleUiButtonSkin.Apply(confirm, TitleButtonRole.Danger);
             confirm.onClick.AddListener(Application.Quit);
         }
 
@@ -474,6 +480,232 @@ namespace Baseball.Presentation.Career
         {
             Hide();
             CareerTabNavigation.Show(CareerMainTab.Home);
+        }
+    }
+
+    /// <summary>타이틀 화면 버튼의 정보 위계와 위험 동작을 구분한다.</summary>
+    public enum TitleButtonRole { Mode, Secondary, Primary, Danger }
+
+    /// <summary>타이틀 전용 ImageGen 프레임과 입력 상태를 기존 버튼 의미 색상에서 분리한다.</summary>
+    [DisallowMultipleComponent]
+    public sealed class TitleUiButtonSkin : MonoBehaviour
+    {
+        private const string ModeFramePath = "UI/TitleSkin/title_mode_frame_v1";
+        private const string SecondaryFramePath = "UI/TitleSkin/title_button_secondary_v1";
+        private const string PrimaryFramePath = "UI/TitleSkin/title_button_primary_v1";
+
+        private static readonly Color Ink = new Color32(28, 43, 62, 255);
+        private static readonly Color SecondaryInk = new Color32(69, 80, 92, 255);
+        private static readonly Color AccentInk = new Color32(38, 108, 75, 255);
+        private static readonly Color GoldInk = new Color32(128, 88, 28, 255);
+        private static readonly Color Ivory = new Color32(250, 247, 237, 255);
+        private static readonly Sprite[] Frames = new Sprite[3];
+        private Button _button;
+        private Image _source;
+        private Image _frame;
+        private Text _label;
+        private TitleButtonRole _role;
+        private bool _lastInteractable;
+        private bool _hasRendered;
+
+        /// <summary>빈 기본 라벨을 쓰는 모드 카드까지 타이틀 전용 프레임과 입력 상태를 연결한다.</summary>
+        public static void Apply(Button button, TitleButtonRole role)
+        {
+            if (button == null)
+                return;
+
+            Image source = button.GetComponent<Image>();
+            if (source == null)
+                return;
+
+            var skin = button.GetComponent<TitleUiButtonSkin>()
+                ?? button.gameObject.AddComponent<TitleUiButtonSkin>();
+            skin._role = role;
+            skin.enabled = true;
+            if (skin._frame == null)
+                skin.Initialize(button, source);
+            skin._frame.gameObject.SetActive(true);
+            skin.Refresh();
+        }
+
+        /// <summary>타이틀의 비대화형 패널에 모드 카드와 같은 시각 언어를 적용한다.</summary>
+        public static void ApplyPanel(Image image)
+        {
+            Sprite frame = LoadFrame(0);
+            if (image == null || frame == null)
+                return;
+
+            image.sprite = frame;
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = 10f;
+            image.color = Color.white;
+            image.raycastTarget = false;
+            var visual = image.GetComponent<CareerUiVisualElement>()
+                ?? image.gameObject.AddComponent<CareerUiVisualElement>();
+            visual.Initialize(CareerUiVisualRole.DataImage);
+        }
+
+        private void Initialize(Button button, Image source)
+        {
+            _button = button;
+            _source = source;
+            _label = button.transform.Find("Label")?.GetComponent<Text>();
+
+            var frameRect = new GameObject("TitleButtonFrame", typeof(RectTransform))
+                .GetComponent<RectTransform>();
+            frameRect.SetParent(transform, false);
+            frameRect.SetAsFirstSibling();
+            frameRect.anchorMin = Vector2.zero;
+            frameRect.anchorMax = Vector2.one;
+            frameRect.offsetMin = Vector2.zero;
+            frameRect.offsetMax = Vector2.zero;
+            frameRect.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            _frame = frameRect.gameObject.AddComponent<Image>();
+            _frame.raycastTarget = true;
+            frameRect.gameObject.AddComponent<CareerUiVisualElement>()
+                .Initialize(CareerUiVisualRole.DataImage);
+
+            Text[] texts = button.GetComponentsInChildren<Text>(true);
+            for (int index = 0; index < texts.Length; index++)
+            {
+                if (texts[index].GetComponent<CareerUiPreserveTextColor>() == null)
+                    texts[index].gameObject.AddComponent<CareerUiPreserveTextColor>();
+            }
+        }
+
+        private void LateUpdate()
+        {
+            if (_button == null || _frame == null)
+                return;
+            if (!_hasRendered || _button.IsInteractable() != _lastInteractable
+                || _button.targetGraphic != _frame)
+                Refresh();
+        }
+
+        /// <summary>공용 스킨 재적용 뒤에도 역할별 프레임과 라벨 대비를 보존한다.</summary>
+        public void Refresh()
+        {
+            if (_frame == null || !enabled)
+                return;
+
+            int frameIndex = _role == TitleButtonRole.Mode ? 0
+                : _role == TitleButtonRole.Primary ? 2 : 1;
+            Sprite frame = LoadFrame(frameIndex);
+            if (frame == null)
+                return;
+
+            _source.enabled = false;
+            Outline outline = _source.GetComponent<Outline>();
+            if (outline != null)
+                outline.enabled = false;
+            _frame.sprite = frame;
+            _frame.type = Image.Type.Sliced;
+            _frame.pixelsPerUnitMultiplier = 10f;
+            _frame.color = _role == TitleButtonRole.Danger
+                ? new Color(0.66f, 0.25f, 0.27f, 1f)
+                : Color.white;
+            _button.targetGraphic = _frame;
+            _button.transition = Selectable.Transition.ColorTint;
+
+            bool isDark = _role == TitleButtonRole.Primary || _role == TitleButtonRole.Danger;
+            ColorBlock colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = isDark
+                ? new Color(1.22f, 1.22f, 1.22f, 1f)
+                : new Color(0.86f, 0.93f, 1f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.pressedColor = new Color(0.70f, 0.77f, 0.85f, 1f);
+            colors.disabledColor = new Color(0.60f, 0.63f, 0.67f, 0.65f);
+            colors.fadeDuration = 0.10f;
+            _button.colors = colors;
+
+            RefreshDescendantTextColors(isDark);
+            if (_label != null && !string.IsNullOrEmpty(_label.text))
+                _label.color = _button.IsInteractable() ? isDark ? Ivory : Ink
+                    : isDark ? new Color32(207, 213, 220, 255) : new Color32(78, 87, 99, 255);
+            _lastInteractable = _button.IsInteractable();
+            _hasRendered = true;
+        }
+
+        private void RefreshDescendantTextColors(bool isDark)
+        {
+            Text[] texts = GetComponentsInChildren<Text>(true);
+            for (int index = 0; index < texts.Length; index++)
+            {
+                Text text = texts[index];
+                Color source = text.color;
+                if (isDark)
+                {
+                    if (IsNear(source, CareerUiTheme.TextPrimary) || IsBrightNeutral(source))
+                        text.color = WithAlpha(Ivory, source.a);
+                }
+                else if (IsNear(source, CareerUiTheme.TextSecondary)
+                    || IsNear(source, CareerUiTheme.TextMuted))
+                {
+                    text.color = WithAlpha(SecondaryInk, source.a);
+                }
+                else if (IsNear(source, CareerUiTheme.PrimaryBright))
+                {
+                    text.color = WithAlpha(AccentInk, source.a);
+                }
+                else if (IsNear(source, CareerUiTheme.AccentGold)
+                    || IsNear(source, CareerUiTheme.Number))
+                {
+                    text.color = WithAlpha(GoldInk, source.a);
+                }
+                else if (IsNear(source, CareerUiTheme.TextPrimary) || IsBrightNeutral(source))
+                {
+                    text.color = WithAlpha(Ink, source.a);
+                }
+
+                if (text.GetComponent<CareerUiPreserveTextColor>() == null)
+                    text.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            }
+        }
+
+        private static bool IsNear(Color first, Color second)
+        {
+            const float tolerance = 0.035f;
+            return Mathf.Abs(first.r - second.r) <= tolerance
+                && Mathf.Abs(first.g - second.g) <= tolerance
+                && Mathf.Abs(first.b - second.b) <= tolerance;
+        }
+
+        private static bool IsBrightNeutral(Color color)
+        {
+            float maximum = Mathf.Max(color.r, Mathf.Max(color.g, color.b));
+            float minimum = Mathf.Min(color.r, Mathf.Min(color.g, color.b));
+            return maximum >= 0.78f && maximum - minimum <= 0.14f;
+        }
+
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = alpha;
+            return color;
+        }
+
+        private static Sprite LoadFrame(int index)
+        {
+            if (Frames[index] != null)
+                return Frames[index];
+
+            string path = index == 0 ? ModeFramePath
+                : index == 1 ? SecondaryFramePath : PrimaryFramePath;
+            Texture2D texture = Resources.Load<Texture2D>(path);
+            if (texture == null)
+                return null;
+
+            Frames[index] = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                100f,
+                0,
+                SpriteMeshType.FullRect,
+                new Vector4(58f, 58f, 58f, 58f));
+            Frames[index].name = index == 0 ? "TitleFrame_mode"
+                : index == 1 ? "TitleButton_secondary" : "TitleButton_primary";
+            return Frames[index];
         }
     }
 }
