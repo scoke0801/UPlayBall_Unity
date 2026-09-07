@@ -22,12 +22,18 @@ namespace Baseball.Game.Shop
             SkillGachaBalanceTable skillGacha,
             IReadOnlyList<ScoutPoolDefinition> scoutPools,
             IReadOnlyList<TacticResearchPoolDefinition> tacticResearchPools,
-            Func<string, string> franchiseDisplayNameResolver = null)
+            Func<string, string> franchiseDisplayNameResolver = null,
+            ConditionChemistryBalanceTable conditionBalance = null)
         {
             var products = new List<ShopProductDefinition>();
             AppendPlayerCardProducts(products, scoutPools, franchiseDisplayNameResolver);
             AppendSkillBlockProducts(products, skillGacha);
             AppendTacticProducts(products, tacticResearchPools);
+            if (conditionBalance != null)
+                products.Add(new ShopProductDefinition(ConditionItemFulfillment.ProductId, ShopProductKind.ConditionItem,
+                    ConditionItemFulfillment.ProductId, "선수단 컨디션 키트", "등록 선수 전원 · 구매 즉시 사용",
+                    "컨디션 +" + conditionBalance.ConditionItemBoost, ShopCurrency.Money,
+                    conditionBalance.ConditionItemPrice, isFeatured: true, sortOrder: 90));
             return new ShopCatalog(products);
         }
 

@@ -194,7 +194,7 @@ namespace Baseball.Presentation.Shop
 
         private CanvasGroup CreateItemRevealFace(RectTransform slot, ShopGrantedItem item, Color accent)
         {
-            string faceName = _revealPlan.Theme == ShopRevealTheme.DevelopmentAnalysis
+            string faceName = _revealPlan.Theme == ShopRevealTheme.ConditionCare ? "ConditionItem" : _revealPlan.Theme == ShopRevealTheme.DevelopmentAnalysis
                 ? "SkillBlockCard"
                 : "TacticCard";
             Image face = OwnerRuntimeUiFactory.CreateImage(faceName, slot, new Color32(20, 31, 46, 255));
@@ -610,6 +610,7 @@ namespace Baseball.Presentation.Shop
             switch (_revealPlan.Theme)
             {
                 case ShopRevealTheme.ScoutingReport: return "선수 카드";
+                case ShopRevealTheme.ConditionCare: return "컨디션 키트";
                 case ShopRevealTheme.DevelopmentAnalysis: return "스킬 블록";
                 case ShopRevealTheme.TacticalLab: return "작전 카드";
                 default: return "획득 카드";
@@ -633,6 +634,7 @@ namespace Baseball.Presentation.Shop
             {
                 case ShopRevealTheme.ScoutingReport: return "선수 공개";
                 case ShopRevealTheme.DevelopmentAnalysis: return "스킬 블록 공개";
+                case ShopRevealTheme.ConditionCare: return "선수단 컨디션 적용";
                 case ShopRevealTheme.TacticalLab: return "작전 카드 공개";
                 default: return "결과 공개";
             }
@@ -648,6 +650,7 @@ namespace Baseball.Presentation.Shop
                 case ShopRevealTheme.DevelopmentAnalysis:
                     return "스킬 블록 획득 완료 · " + count + "개  |  카드 클릭: 블록 형상";
                 case ShopRevealTheme.TacticalLab: return "작전 카드 획득 완료 · " + count + "장";
+                case ShopRevealTheme.ConditionCare: return "선수단 컨디션 적용 완료";
                 default: return "획득 완료 · " + count + "개";
             }
         }
@@ -655,6 +658,7 @@ namespace Baseball.Presentation.Shop
         private string DescribeRevealItemStatus(ShopGrantedItem item)
         {
             if (_revealPlan.Theme == ShopRevealTheme.DevelopmentAnalysis) return "획득 완료";
+            if (_revealPlan.Theme == ShopRevealTheme.ConditionCare) return "즉시 적용 완료";
             return item.IsNew ? "신규 획득" : "중복 획득";
         }
 

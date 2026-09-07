@@ -39,7 +39,8 @@ namespace Baseball.Game.Shop
                 manager.Balance.Growth.SkillGacha,
                 scoutPools,
                 tacticPools,
-                runtime.IdentityRegistry.GetFranchiseDisplayName);
+                runtime.IdentityRegistry.GetFranchiseDisplayName,
+                manager.Balance.ConditionChemistry);
             var detailsResolver = OwnerShopDetailsBuilder.CreateResolver(
                 manager.Balance.Growth.SkillGacha,
                 scoutPools,
@@ -52,6 +53,7 @@ namespace Baseball.Game.Shop
 
             var fulfillments = new List<IShopProductFulfillment>
             {
+                new ConditionItemFulfillment(wallet, () => manager.Runtime, manager.Balance.ConditionChemistry),
                 new PlayerCardPackFulfillment(
                     new ScoutRoller(),
                     scoutPools,

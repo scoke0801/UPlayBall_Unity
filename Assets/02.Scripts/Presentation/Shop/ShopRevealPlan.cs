@@ -16,7 +16,8 @@ namespace Baseball.Presentation.Shop
     {
         ScoutingReport,
         DevelopmentAnalysis,
-        TacticalLab
+        TacticalLab,
+        ConditionCare
     }
 
     /// <summary>지급된 스킬 블록의 실제 테트로미노 형상을 결과 카드에 전달하는 표시 스냅샷이다.</summary>
@@ -104,14 +105,17 @@ namespace Baseball.Presentation.Shop
             for (int index = 0; index < items.Length; index++)
             {
                 ShopGrantedItem item = result.Items[index];
-                bool usesFullSequence = mode == ShopRevealPresentationMode.Full ||
+                bool usesFullSequence = details.Kind != ShopProductKind.ConditionItem && (mode == ShopRevealPresentationMode.Full ||
                     mode == ShopRevealPresentationMode.HighlightsOnly &&
-                    item.HighestIntensity >= ShopRevealIntensity.Rare;
+                    item.HighestIntensity >= ShopRevealIntensity.Rare);
                 items[index] = new ShopRevealItemPlan(item, usesFullSequence);
             }
 
             switch (details.Kind)
             {
+                case ShopProductKind.ConditionItem:
+                    return new ShopRevealPlan(ShopRevealTheme.ConditionCare, "선수단 컨디션 적용 완료",
+                        ShopArtwork.SkillAnalysisRevealKey, items);
                 case ShopProductKind.PlayerCardPack:
                     return new ShopRevealPlan(
                         ShopRevealTheme.ScoutingReport,

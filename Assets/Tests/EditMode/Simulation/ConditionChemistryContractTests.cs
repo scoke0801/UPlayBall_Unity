@@ -15,6 +15,31 @@ namespace Baseball.Tests.EditMode.Simulation
         private const string TeamSeasonKey = "condition-team-2026";
 
         [Test]
+        public void Condition_연속출전소모없이등락하고장기간중립을유지한다()
+        {
+            var balance = ConditionChemistryBalanceTable.CreateDefault();
+            var resolver = new ConditionFluctuationResolver();
+            var random = new Baseball.Simulation.Random.Pcg32Random(71831UL);
+            var replay = new Baseball.Simulation.Random.Pcg32Random(71831UL);
+            int condition = balance.NeutralMatchCondition, replayCondition = condition;
+            long total = 0;
+            bool increased = false, decreased = false;
+            for (int game = 0; game < 10000; game++)
+            {
+                int next = resolver.ResolveNextCondition(condition, balance, random);
+                replayCondition = resolver.ResolveNextCondition(replayCondition, balance, replay);
+                Assert.That(next, Is.EqualTo(replayCondition));
+                Assert.That(next, Is.InRange(0, 100));
+                increased |= next > condition;
+                decreased |= next < condition;
+                condition = next;
+                total += condition;
+            }
+            Assert.That(increased && decreased, Is.True);
+            Assert.That(total / 10000d, Is.InRange(78d, 82d));
+        }
+
+        [Test]
         public void PresentationLevel_0부터100까지열단계경계를정확히매핑한다()
         {
             ConditionPresentationTable presentation = ConditionChemistryBalanceTable.CreateDefault().Presentation;

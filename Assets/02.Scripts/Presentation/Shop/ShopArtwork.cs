@@ -30,6 +30,7 @@ namespace Baseball.Presentation.Shop
                 case ShopProductKind.PlayerCardPack:
                     return PlayerPackKey;
                 case ShopProductKind.SkillBlockPack:
+                case ShopProductKind.ConditionItem:
                     return SkillPackKey;
                 case ShopProductKind.TacticCardPack:
                     if (string.Equals(sourceId, "batting", StringComparison.Ordinal))

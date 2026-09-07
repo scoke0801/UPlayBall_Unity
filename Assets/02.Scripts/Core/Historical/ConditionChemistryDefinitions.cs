@@ -508,8 +508,11 @@ namespace Baseball.Core.Historical
             int conditionPointsPerRating = 10,
             int maximumConditionRatingModifier = 3,
             int weeklyBaseRecovery = 6,
-            int startingHitterConditionCost = 4,
-            int pitcherConditionCostPerThirtyPitches = 6)
+            int conditionFluctuation = 3,
+            double conditionMeanReversion = 0.1d,
+            int headCoachConditionBonus = 6,
+            int conditionItemBoost = 10,
+            long conditionItemPrice = 100000)
         {
             Presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
             if (familiarityCap <= 0) throw new ArgumentOutOfRangeException(nameof(familiarityCap));
@@ -537,10 +540,12 @@ namespace Baseball.Core.Historical
                 throw new ArgumentOutOfRangeException(nameof(maximumConditionRatingModifier));
             if (weeklyBaseRecovery < 0)
                 throw new ArgumentOutOfRangeException(nameof(weeklyBaseRecovery));
-            if (startingHitterConditionCost < 0)
-                throw new ArgumentOutOfRangeException(nameof(startingHitterConditionCost));
-            if (pitcherConditionCostPerThirtyPitches < 0)
-                throw new ArgumentOutOfRangeException(nameof(pitcherConditionCostPerThirtyPitches));
+            if (conditionFluctuation < 0 || conditionFluctuation > 100)
+                throw new ArgumentOutOfRangeException(nameof(conditionFluctuation));
+            if (double.IsNaN(conditionMeanReversion) || conditionMeanReversion <= 0d || conditionMeanReversion > 1d)
+                throw new ArgumentOutOfRangeException(nameof(conditionMeanReversion));
+            if (headCoachConditionBonus < 0 || headCoachConditionBonus > 100 || conditionItemBoost <= 0 || conditionItemBoost > 100 || conditionItemPrice <= 0)
+                throw new ArgumentOutOfRangeException(nameof(conditionItemBoost));
 
             FamiliarityCap = familiarityCap;
             LineupSharedStartGain = lineupSharedStartGain;
@@ -561,8 +566,11 @@ namespace Baseball.Core.Historical
             ConditionPointsPerRating = conditionPointsPerRating;
             MaximumConditionRatingModifier = maximumConditionRatingModifier;
             WeeklyBaseRecovery = weeklyBaseRecovery;
-            StartingHitterConditionCost = startingHitterConditionCost;
-            PitcherConditionCostPerThirtyPitches = pitcherConditionCostPerThirtyPitches;
+            ConditionFluctuation = conditionFluctuation;
+            ConditionMeanReversion = conditionMeanReversion;
+            HeadCoachConditionBonus = headCoachConditionBonus;
+            ConditionItemBoost = conditionItemBoost;
+            ConditionItemPrice = conditionItemPrice;
         }
 
         public ConditionPresentationTable Presentation { get; }
@@ -585,8 +593,11 @@ namespace Baseball.Core.Historical
         public int ConditionPointsPerRating { get; }
         public int MaximumConditionRatingModifier { get; }
         public int WeeklyBaseRecovery { get; }
-        public int StartingHitterConditionCost { get; }
-        public int PitcherConditionCostPerThirtyPitches { get; }
+        public int ConditionFluctuation { get; }
+        public double ConditionMeanReversion { get; }
+        public int HeadCoachConditionBonus { get; }
+        public int ConditionItemBoost { get; }
+        public long ConditionItemPrice { get; }
 
         public static ConditionChemistryBalanceTable CreateDefault()
         {

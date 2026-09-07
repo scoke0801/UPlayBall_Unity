@@ -246,7 +246,8 @@ namespace Baseball.Presentation.Shop
                 product.DisplayName,
                 DescribeSubtitle(product),
                 DescribePrice(product),
-                product.DrawCount == 1 ? "1회 획득" : product.DrawCount.ToString("N0") + "회 묶음",
+                product.Kind == ShopProductKind.ConditionItem ? "선수단 즉시 적용" :
+                    product.DrawCount == 1 ? "1회 획득" : product.DrawCount.ToString("N0") + "회 묶음",
                 details.Summary,
                 lines,
                 details.Notice,

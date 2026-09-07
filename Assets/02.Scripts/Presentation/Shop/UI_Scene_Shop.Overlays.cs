@@ -225,11 +225,11 @@ namespace Baseball.Presentation.Shop
             body.Append(details.Summary).AppendLine().AppendLine()
                 .Append(details.DrawCountText).Append(" / ").Append(details.PriceText)
                 .Append(" / ").AppendLine(details.PurchaseLimitText)
-                .AppendLine("획득 확률");
+                .AppendLine(details.Kind == ShopProductKind.ConditionItem ? "확정 효과" : "획득 확률");
             for (int index = 0; index < details.ProbabilityLines.Count; index++)
                 body.Append("  ").AppendLine(details.ProbabilityLines[index]);
             if (details.ProbabilityLines.Count == 0)
-                body.AppendLine("  공개 가능한 결과군이 없습니다.");
+                body.AppendLine(details.Kind == ShopProductKind.ConditionItem ? "  선수단 컨디션에 즉시 적용됩니다." : "  공개 가능한 결과군이 없습니다.");
             if (details.Notice.Length > 0)
                 body.AppendLine().AppendLine(details.Notice);
             if (!details.CanPurchase)
@@ -261,7 +261,7 @@ namespace Baseball.Presentation.Shop
         {
             bool hasProduct = _activeDetails != null && !string.IsNullOrEmpty(_lastPurchasedProductId);
             _revealRepeatButton.gameObject.SetActive(hasProduct);
-            _revealInventoryButton.gameObject.SetActive(hasProduct);
+            _revealInventoryButton.gameObject.SetActive(hasProduct && _activeDetails.Kind != ShopProductKind.ConditionItem);
             if (!hasProduct) return;
             string label = _activeDetails.Kind switch
             {

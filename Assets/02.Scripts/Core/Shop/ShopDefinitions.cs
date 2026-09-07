@@ -25,7 +25,8 @@ namespace Baseball.Core.Shop
     {
         PlayerCardPack,
         SkillBlockPack,
-        TacticCardPack
+        TacticCardPack,
+        ConditionItem
     }
 
     /// <summary>상품 타일 좌상단 강조 배지다. 표시 전용이며 가격·확률에 영향을 주지 않는다.</summary>
@@ -145,6 +146,7 @@ namespace Baseball.Core.Shop
                 case ShopProductKind.PlayerCardPack: return ShopTab.PlayerCard;
                 case ShopProductKind.SkillBlockPack: return ShopTab.SkillBlock;
                 case ShopProductKind.TacticCardPack: return ShopTab.TacticCard;
+                case ShopProductKind.ConditionItem: return ShopTab.Featured;
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
@@ -208,7 +210,7 @@ namespace Baseball.Core.Shop
             {
                 ShopProductDefinition product = products[index];
                 AddToBucket(buckets, product.Tab, product);
-                if (product.IsFeatured)
+                if (product.IsFeatured && product.Tab != ShopTab.Featured)
                     AddToBucket(buckets, ShopTab.Featured, product);
             }
 

@@ -55,6 +55,9 @@ namespace Baseball.Game.Shop
                 if (product == null) throw new ArgumentNullException(nameof(product));
                 switch (product.Kind)
                 {
+                    case ShopProductKind.ConditionItem:
+                        return new ShopProductDetails(product.ProductId, product.ScopeLabel + " · " + product.GradeLabel,
+                            Array.Empty<ShopProbabilityEntry>(), "구매 즉시 등록 선수 전원에게 적용됩니다. 최대 100이며 전원이 100이면 결제하지 않습니다.");
                     case ShopProductKind.PlayerCardPack:
                         return BuildScoutDetails(
                             product,

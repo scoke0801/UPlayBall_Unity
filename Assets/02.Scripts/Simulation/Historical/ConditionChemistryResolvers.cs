@@ -324,6 +324,24 @@ namespace Baseball.Simulation.Historical
         }
     }
 
+    /// <summary>출전 소모 없이 중립값 부근에서 오르내리는 컨디션을 계산한다.</summary>
+    public sealed class ConditionFluctuationResolver
+    {
+        /// <summary>출전량과 무관한 컨디션 등락을 별도 주입 난수로 계산한다.</summary>
+        public int ResolveNextCondition(int condition, ConditionChemistryBalanceTable balance, Baseball.Simulation.Random.IRandomSource random)
+        {
+            if (condition < 0 || condition > 100) throw new ArgumentOutOfRangeException(nameof(condition));
+            if (balance == null) throw new ArgumentNullException(nameof(balance));
+            if (random == null) throw new ArgumentNullException(nameof(random));
+            // 풀타임 출전을 기본으로 하므로 출전 소모가 없다. 중립 방향의 작은 복원력으로 장기 편향을 막는다.
+            int drift = (int)Math.Round((balance.NeutralMatchCondition - condition) * balance.ConditionMeanReversion,
+                MidpointRounding.AwayFromZero);
+            int change = (int)(random.NextDouble() * (2 * balance.ConditionFluctuation + 1)) - balance.ConditionFluctuation;
+            return Math.Max(0, Math.Min(100, condition + drift + change));
+        }
+
+    }
+
     /// <summary>시설·스태프 modifier를 한 번 합성해 실제 회복량을 계산한다.</summary>
     public sealed class ConditionRecoveryResolver
     {
