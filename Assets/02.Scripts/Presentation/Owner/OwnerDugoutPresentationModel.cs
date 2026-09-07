@@ -117,7 +117,8 @@ namespace Baseball.Presentation.Owner
                     item.DisplayName,
                     item.SpecialtyName,
                     item.Description,
-                    DescribeCoachEffect(item));
+                    DescribeCoachEffect(item) + (item.HasConditionSupport
+                        ? $" · 선수단 경기 컨디션 +{ownerManager.Balance.ConditionChemistry.HeadCoachConditionBonus}" : string.Empty));
             }
             return new OwnerDugoutSnapshot(
                 managers,

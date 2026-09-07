@@ -113,7 +113,8 @@ namespace Baseball.Core.Historical
             DugoutPolicyAxis primaryAxis,
             int primaryModifier,
             DugoutPolicyAxis secondaryAxis,
-            int secondaryModifier)
+            int secondaryModifier,
+            bool hasConditionSupport = false)
         {
             if (string.IsNullOrWhiteSpace(headCoachId))
                 throw new ArgumentException("HeadCoachId가 필요합니다.", nameof(headCoachId));
@@ -130,6 +131,7 @@ namespace Baseball.Core.Historical
             PrimaryModifier = primaryModifier;
             SecondaryAxis = secondaryAxis;
             SecondaryModifier = secondaryModifier;
+            HasConditionSupport = hasConditionSupport;
         }
 
         public string HeadCoachId { get; }
@@ -140,6 +142,7 @@ namespace Baseball.Core.Historical
         public int PrimaryModifier { get; }
         public DugoutPolicyAxis SecondaryAxis { get; }
         public int SecondaryModifier { get; }
+        public bool HasConditionSupport { get; }
 
         public int GetModifier(DugoutPolicyAxis axis)
         {
@@ -200,7 +203,7 @@ namespace Baseball.Core.Historical
                 Coach("HC-CONTACT", "오세진", "컨택 플랜", "강한 스윙보다 인플레이 타구가 필요한 상황을 선명하게 만듭니다.", DugoutPolicyAxis.BattingApproach, -10, DugoutPolicyAxis.PinchHitAggression, 3),
                 Coach("HC-RUNNING", "배준호", "주루 코디네이터", "접전에서 도루와 대주자 판단을 한 단계 빠르게 합니다.", DugoutPolicyAxis.RunningAggression, 10, DugoutPolicyAxis.PinchHitAggression, 2),
                 Coach("HC-SMALLBALL", "노경민", "스몰볼 코디네이터", "후반 한 점 승부에서 희생번트 선택을 보강합니다.", DugoutPolicyAxis.SmallBallPreference, 10, DugoutPolicyAxis.RunningAggression, 3),
-                Coach("HC-BENCH", "임수현", "벤치 코디네이터", "대타 후보의 우위를 더 일찍 포착합니다.", DugoutPolicyAxis.PinchHitAggression, 10, DugoutPolicyAxis.BattingApproach, -3),
+                Coach("HC-BENCH", "임수현", "선수단 컨디션 관리", "선수단 전체의 경기 컨디션을 높이고 대타 후보의 우위를 더 일찍 포착합니다.", DugoutPolicyAxis.PinchHitAggression, 10, DugoutPolicyAxis.BattingApproach, -3, hasConditionSupport: true),
                 Coach("HC-STARTER", "최도윤", "선발 코디네이터", "선발에게 위기를 넘길 여지를 주되 한계는 명확히 합니다.", DugoutPolicyAxis.HookSpeed, -10, DugoutPolicyAxis.BullpenAggression, -3),
                 Coach("HC-BULLPEN", "정해원", "불펜 코디네이터", "고레버리지에서 불펜 가동 시점을 앞당깁니다.", DugoutPolicyAxis.BullpenAggression, 10, DugoutPolicyAxis.HookSpeed, 5)
             };
@@ -219,10 +222,11 @@ namespace Baseball.Core.Historical
 
         private static HeadCoachDefinition Coach(
             string id, string name, string specialty, string description,
-            DugoutPolicyAxis primary, int primaryModifier, DugoutPolicyAxis secondary, int secondaryModifier)
+            DugoutPolicyAxis primary, int primaryModifier, DugoutPolicyAxis secondary, int secondaryModifier,
+            bool hasConditionSupport = false)
         {
             return new HeadCoachDefinition(id, name, specialty, description,
-                primary, primaryModifier, secondary, secondaryModifier);
+                primary, primaryModifier, secondary, secondaryModifier, hasConditionSupport);
         }
 
         private static T[] CopyUnique<T>(IReadOnlyList<T> source, Func<T, string> getId, string parameterName)
