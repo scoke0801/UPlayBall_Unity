@@ -461,7 +461,10 @@ namespace Baseball.Simulation.Match
                 batter.Player,
                 -hitterAssignmentPenalty.ConditionPenalty);
             contactBonus += historicalModifiers.GetBatter(PlayerAbility.Contact) + batterConditionRating;
-            hardHitBonus += historicalModifiers.GetBatter(PlayerAbility.Power) + batterConditionRating;
+            // HardHitAdjustment는 능력치 점수가 아니라 확률이다. Power 1점의 공통 계수로 변환해야
+            // 컨디션·전술의 작은 보정이 타구 품질을 상한/하한으로 밀어 버리지 않는다.
+            hardHitBonus += (historicalModifiers.GetBatter(PlayerAbility.Power) + batterConditionRating) *
+                            _balance.BattedBall.PowerHomeRunWeight;
             int balls = 0;
             int strikes = 0;
             int pitchNumber = 0;

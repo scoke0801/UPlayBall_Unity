@@ -77,6 +77,7 @@ namespace Baseball.Simulation.PlateAppearance
         public double EffectiveControl { get; }
         public double EffectiveMental { get; }
         public double BatterContactAdjustment { get; }
+        /// <summary>Power 능력치 점수가 아닌 강한 타구 확률의 가산량이다.</summary>
         public double HardHitAdjustment { get; }
         public PitchingApproach PitchingApproach { get; }
         public int Inning { get; }
