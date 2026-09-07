@@ -42,8 +42,7 @@ namespace Baseball.Game.Shop
                 scoutPools,
                 tacticPools,
                 runtime.IdentityRegistry.GetFranchiseDisplayName);
-            IReadOnlyList<ShopProductDetails> details = OwnerShopDetailsBuilder.Build(
-                catalog,
+            var detailsResolver = OwnerShopDetailsBuilder.CreateResolver(
                 manager.Balance.Growth.SkillGacha,
                 scoutPools,
                 featurePolicy,
@@ -85,8 +84,8 @@ namespace Baseball.Game.Shop
                 wallet,
                 fulfillments,
                 history,
-                details,
-                new ShopProgressDetails(runtime.Economy.PityGauge, pityBalance.Threshold));
+                progress: new ShopProgressDetails(runtime.Economy.PityGauge, pityBalance.Threshold),
+                detailsResolver: detailsResolver);
         }
 
         /// <summary>

@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Core.Shop;
 using Baseball.Game.Shop;
 using Baseball.Simulation.Growth;
@@ -12,6 +14,49 @@ namespace Baseball.Tests.EditMode.Game.Shop
 {
     public sealed class ShopCatalogBuilderTests
     {
+        [Test]
+        public void 선택상품상세는_다른구단연도를제외한_실제후보확률을_반환한다()
+        {
+            var ratings = new AbilityRatings(50);
+            var seasons = new PlayerSeasonDefinition[2];
+            var cards = new PlayerCardDefinition[2];
+            var targets = new ScoutMarketTarget[2];
+            for (int index = 0; index < 2; index++)
+            {
+                string id = "season" + index;
+                string franchise = "franchise" + index;
+                int year = 2023 + index;
+                seasons[index] = new PlayerSeasonDefinition(id, "person" + index, year,
+                    franchise, franchise + year, PlayerPosition.Catcher, PitcherRole.MiddleRelief,
+                    PlayerType.Batter, RegistrationType.Domestic, ratings, 3 + index * 5, ratings);
+                cards[index] = new PlayerCardDefinition(
+                    PlayerCardDefinition.CreateStableCardId(id, PlayerCardEdition.Normal),
+                    id, PlayerCardEdition.Normal, new int[PlayerAbilityCatalog.AbilityCount]);
+                targets[index] = new ScoutMarketTarget(franchise, year);
+            }
+            var world = new WorldCardCatalog(seasons, cards);
+            var policy = ScoutFeaturePolicy.Phase4NormalOnly;
+            var pools = ShopDefaultPools.CreateScoutPools(policy, targets);
+            var gacha = GrowthBalanceTable.CreateDefault().SkillGacha;
+            var tacticPools = new TacticResearchPoolDefinition[0];
+            var catalog = ShopCatalogBuilder.Build(gacha, pools, tacticPools);
+            var resolve = OwnerShopDetailsBuilder.CreateResolver(gacha, pools, policy, world,
+                tacticPools, new TacticCardDefinition[0], ScoutPityBalanceTable.CreateInitial());
+            int checkedProducts = 0;
+            foreach (ShopProductDefinition product in catalog.Products)
+            {
+                if (product.TargetFranchiseId != "franchise1" || product.TargetYear != 2024) continue;
+                ShopProductDetails details = resolve(product);
+                Assert.AreEqual(product.ProductId, details.ProductId);
+                Assert.AreEqual(1, details.Probabilities.Count);
+                Assert.AreEqual("Cost 8 · 일반", details.Probabilities[0].Label);
+                Assert.AreEqual(1d, details.Probabilities[0].Probability);
+                Assert.AreEqual(1, details.Probabilities[0].CandidateCount);
+                checkedProducts++;
+            }
+            Assert.AreEqual(2, checkedProducts, "단품과 10회 묶음 모두 같은 실제 후보를 사용한다.");
+        }
+
         [Test]
         public void 세_계열_상품이_모두_진열된다()
         {

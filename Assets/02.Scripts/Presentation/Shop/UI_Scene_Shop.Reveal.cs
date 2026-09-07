@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
+using Baseball.Core.Growth;
 using Baseball.Core.Shop;
 using Baseball.Core.Players;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.UI;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,9 +23,15 @@ namespace Baseball.Presentation.Shop
         private Image _revealPanel;
         private RectTransform _revealCardGrid;
         private PlayerMiniCardModel[] _revealPlayerCards;
+        private ShopSkillBlockRevealModel[] _revealSkillBlocks;
         private RectTransform[] _revealSlots = Array.Empty<RectTransform>();
         private CanvasGroup[] _revealFaces = Array.Empty<CanvasGroup>();
         private CanvasGroup[] _revealBacks = Array.Empty<CanvasGroup>();
+        private GameObject[] _revealBackCovers = Array.Empty<GameObject>();
+        private GameObject[] _revealSkillShapeBacks = Array.Empty<GameObject>();
+        private Button[] _revealCardButtons = Array.Empty<Button>();
+        private Sequence[] _revealCardFlipTweens = Array.Empty<Sequence>();
+        private bool[] _isRevealShapeBackVisible = Array.Empty<bool>();
         [SerializeField, Min(1)] private int _revealColumns = 5;
         [SerializeField, Min(0f)] private float _revealCardGap = 28f;
         [SerializeField, Min(.01f)] private float _revealFlipDuration = .36f;
@@ -32,6 +40,7 @@ namespace Baseball.Presentation.Shop
 
         private void PrepareRevealCards()
         {
+            KillRevealCardFlipTweens();
             if (_revealCardGrid != null)
             {
                 _revealCardGrid.gameObject.SetActive(false);
@@ -41,6 +50,11 @@ namespace Baseball.Presentation.Shop
             _revealSlots = Array.Empty<RectTransform>();
             _revealFaces = Array.Empty<CanvasGroup>();
             _revealBacks = Array.Empty<CanvasGroup>();
+            _revealBackCovers = Array.Empty<GameObject>();
+            _revealSkillShapeBacks = Array.Empty<GameObject>();
+            _revealCardButtons = Array.Empty<Button>();
+            _revealCardFlipTweens = Array.Empty<Sequence>();
+            _isRevealShapeBackVisible = Array.Empty<bool>();
             _revealPanel.color = Color.clear;
             _revealBody.gameObject.SetActive(false);
             _revealArtwork.gameObject.SetActive(false);
@@ -52,6 +66,11 @@ namespace Baseball.Presentation.Shop
             _revealSlots = new RectTransform[count];
             _revealFaces = new CanvasGroup[count];
             _revealBacks = new CanvasGroup[count];
+            _revealBackCovers = new GameObject[count];
+            _revealSkillShapeBacks = new GameObject[count];
+            _revealCardButtons = new Button[count];
+            _revealCardFlipTweens = new Sequence[count];
+            _isRevealShapeBackVisible = new bool[count];
             for (int index = 0; index < count; index++) CreateRevealCard(index);
             LayoutRevealCards();
         }
@@ -72,13 +91,76 @@ namespace Baseball.Presentation.Shop
                 GetRevealCardBackLabel() + "\n\n" + (index + 1).ToString("00"), 19, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Color32(174, 196, 219, 255));
             OwnerRuntimeUiFactory.Stretch(backLabel.rectTransform);
+            _revealBackCovers[index] = backLabel.gameObject;
             _revealBacks[index] = back.gameObject.AddComponent<CanvasGroup>();
+
+            ShopSkillBlockRevealModel skillBlock = GetRevealSkillBlock(index, item.ItemId);
+            if (skillBlock != null)
+                _revealSkillShapeBacks[index] = CreateSkillBlockShapeBack(back.rectTransform, skillBlock);
 
             _revealFaces[index] = IsPlayerReveal
                 ? CreatePlayerRevealFace(slot, item, accent, index)
                 : CreateItemRevealFace(slot, item, accent);
             _revealFaces[index].alpha = 0f;
             _revealFaces[index].blocksRaycasts = false;
+
+            if (skillBlock != null)
+                _revealCardButtons[index] = CreateRevealCardButton(slot, index);
+        }
+
+        private GameObject CreateSkillBlockShapeBack(
+            RectTransform parent,
+            ShopSkillBlockRevealModel skillBlock)
+        {
+            RectTransform root = OwnerRuntimeUiFactory.CreateRect("SkillBlockShapeBack", parent);
+            OwnerRuntimeUiFactory.Stretch(root);
+
+            Text heading = OwnerRuntimeUiFactory.CreateText(
+                "ShapeHeading", root, "블록 형상", 17, FontStyle.Bold,
+                TextAnchor.MiddleCenter, GetSkillBlockTint(skillBlock.Rarity));
+            OwnerRuntimeUiFactory.SetAnchors(
+                heading.rectTransform,
+                new Vector2(.08f, .82f), new Vector2(.92f, .96f), Vector2.zero, Vector2.zero);
+
+            Image shapePanel = OwnerRuntimeUiFactory.CreateImage(
+                "ShapePanel", root, new Color32(7, 16, 29, 245));
+            OwnerRuntimeUiFactory.SetAnchors(
+                shapePanel.rectTransform,
+                new Vector2(.12f, .24f), new Vector2(.88f, .80f), Vector2.zero, Vector2.zero);
+            var shapeOutline = shapePanel.gameObject.AddComponent<Outline>();
+            shapeOutline.effectColor = new Color32(75, 100, 130, 220);
+            shapeOutline.effectDistance = new Vector2(1f, -1f);
+            SkillBlockVisual.Create(
+                shapePanel.rectTransform,
+                skillBlock.ShapeCells,
+                0,
+                GetSkillBlockTint(skillBlock.Rarity),
+                Vector2.zero,
+                new Vector2(150f, 160f),
+                46f,
+                "RevealShape");
+
+            Text hint = OwnerRuntimeUiFactory.CreateText(
+                "FlipHint", root, "다시 클릭해 앞면 보기", 11, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Color32(174, 196, 219, 255));
+            OwnerRuntimeUiFactory.SetAnchors(
+                hint.rectTransform,
+                new Vector2(.08f, .06f), new Vector2(.92f, .20f), Vector2.zero, Vector2.zero);
+            root.gameObject.SetActive(false);
+            return root.gameObject;
+        }
+
+        private Button CreateRevealCardButton(RectTransform slot, int index)
+        {
+            Image hitSurface = slot.gameObject.AddComponent<Image>();
+            hitSurface.color = Color.clear;
+            hitSurface.raycastTarget = true;
+            Button button = slot.gameObject.AddComponent<Button>();
+            button.targetGraphic = hitSurface;
+            button.transition = Selectable.Transition.None;
+            button.interactable = false;
+            button.onClick.AddListener(() => FlipSkillBlockRevealCard(index));
+            return button;
         }
 
         private CanvasGroup CreatePlayerRevealFace(
@@ -93,18 +175,20 @@ namespace Baseball.Presentation.Shop
             // 표시 스냅샷이 없는 호출에서도 지급 결과를 보존하며 선수 능력이나 포지션을 만들어내지 않는다.
             model ??= new PlayerMiniCardModel(item.ItemId, item.DisplayName, string.Empty,
                 string.Empty, string.Empty, item.GradeLabel, item.IsNew ? "신규 영입" : "중복 획득",
-                isInteractable: false);
+                isInteractable: true);
             var styledModel = new PlayerMiniCardModel(model.PlayerId, model.DisplayName,
                 model.PositionLabel, model.YearLabel, model.CostLabel, model.EditionLabel,
                 item.IsNew ? "신규 영입" : "중복 획득", model.PortraitAssetKey,
                 "#" + ColorUtility.ToHtmlStringRGB(accent),
                 item.HighestIntensity >= ShopRevealIntensity.Rare
                     ? PlayerMiniCardVisualState.Highlighted : PlayerMiniCardVisualState.Normal,
-                isInteractable: false, stats: model.Stats, frameEdition: model.FrameEdition, cost: model.Cost);
+                isInteractable: true, stats: model.Stats, frameEdition: model.FrameEdition, cost: model.Cost);
             PlayerMiniCardView face = PlayerMiniCardView.CreateRuntime(slot, "PlayerCard");
             OwnerRuntimeUiFactory.Stretch((RectTransform)face.transform);
             Enum.TryParse(model.PortraitAssetKey, out PlayerPosition position);
             face.Bind(styledModel, PlayerPortraitSprites.GetDefault(position));
+            face.Selected += HandlePlayerCardDetailsRequested;
+            face.DetailRequested += HandlePlayerCardDetailsRequested;
             return face.GetComponent<CanvasGroup>();
         }
 
@@ -241,8 +325,121 @@ namespace Baseball.Presentation.Shop
         {
             _revealFaces[index].alpha = 1f;
             _revealFaces[index].transform.localScale = Vector3.one;
+            _revealFaces[index].blocksRaycasts = IsPlayerReveal && !_isRevealPlaying;
             _revealBacks[index].alpha = 0f;
             _revealBacks[index].transform.localScale = Vector3.one;
+            _revealBacks[index].blocksRaycasts = false;
+        }
+
+        private void EnableSkillBlockShapeBacks()
+        {
+            for (int index = 0; index < _revealSkillShapeBacks.Length; index++)
+            {
+                GameObject shapeBack = _revealSkillShapeBacks[index];
+                if (shapeBack == null) continue;
+                _revealBackCovers[index].SetActive(false);
+                shapeBack.SetActive(true);
+                _isRevealShapeBackVisible[index] = false;
+                _revealCardButtons[index].interactable = !_isProcessing;
+            }
+        }
+
+        private void FlipSkillBlockRevealCard(int index)
+        {
+            if (_isProcessing || _isRevealPlaying ||
+                index < 0 || index >= _revealCardButtons.Length ||
+                _revealCardButtons[index] == null || _revealSkillShapeBacks[index] == null ||
+                _revealCardFlipTweens[index] != null && _revealCardFlipTweens[index].IsActive())
+                return;
+
+            bool showShapeBack = !_isRevealShapeBackVisible[index];
+            CanvasGroup outgoing = showShapeBack ? _revealFaces[index] : _revealBacks[index];
+            CanvasGroup incoming = showShapeBack ? _revealBacks[index] : _revealFaces[index];
+            Transform outgoingTransform = outgoing.transform;
+            Transform incomingTransform = incoming.transform;
+            float halfDuration = Mathf.Max(.01f, _revealFlipDuration * .5f);
+            _revealCardButtons[index].interactable = false;
+            outgoing.blocksRaycasts = false;
+            incoming.blocksRaycasts = false;
+            outgoingTransform.localScale = Vector3.one;
+            incomingTransform.localScale = new Vector3(.015f, 1f, 1f);
+
+            Sequence sequence = DOTween.Sequence()
+                .SetUpdate(true)
+                .SetTarget(_revealSlots[index])
+                .SetLink(_revealSlots[index].gameObject, LinkBehaviour.KillOnDisable);
+            _revealCardFlipTweens[index] = sequence;
+            sequence.Append(outgoingTransform.DOScaleX(.015f, halfDuration).SetEase(Ease.InQuad));
+            sequence.AppendCallback(() =>
+            {
+                outgoing.alpha = 0f;
+                incoming.alpha = 1f;
+                RequestRevealAudio(ShopRevealAudioCue.CardReveal);
+            });
+            sequence.Append(incomingTransform.DOScaleX(1f, halfDuration).SetEase(Ease.OutQuad));
+            sequence.OnComplete(() =>
+            {
+                _isRevealShapeBackVisible[index] = showShapeBack;
+                _revealCardFlipTweens[index] = null;
+                _revealCardButtons[index].interactable = !_isProcessing;
+            });
+        }
+
+        private void SetRevealCardButtonsInteractable(bool interactable)
+        {
+            for (int index = 0; index < _revealCardButtons.Length; index++)
+            {
+                Button button = _revealCardButtons[index];
+                if (button == null) continue;
+                bool isTweening = _revealCardFlipTweens[index] != null &&
+                                  _revealCardFlipTweens[index].IsActive();
+                button.interactable = interactable && !_isRevealPlaying && !isTweening;
+            }
+        }
+
+        private void KillRevealCardFlipTweens()
+        {
+            for (int index = 0; index < _revealCardFlipTweens.Length; index++)
+            {
+                _revealCardFlipTweens[index]?.Kill();
+                _revealCardFlipTweens[index] = null;
+            }
+        }
+
+        private ShopSkillBlockRevealModel GetRevealSkillBlock(int itemIndex, string itemId)
+        {
+            if (_revealPlan.Theme != ShopRevealTheme.DevelopmentAnalysis ||
+                _revealSkillBlocks == null || _revealSkillBlocks.Length == 0)
+                return null;
+
+            if (itemIndex < _revealSkillBlocks.Length &&
+                _revealSkillBlocks[itemIndex] != null &&
+                string.Equals(_revealSkillBlocks[itemIndex].DefinitionId, itemId, StringComparison.Ordinal))
+                return _revealSkillBlocks[itemIndex];
+
+            for (int index = 0; index < _revealSkillBlocks.Length; index++)
+                if (_revealSkillBlocks[index] != null &&
+                    string.Equals(_revealSkillBlocks[index].DefinitionId, itemId, StringComparison.Ordinal))
+                    return _revealSkillBlocks[index];
+            return null;
+        }
+
+        private static Color GetSkillBlockTint(SkillBlockRarity rarity)
+        {
+            return rarity switch
+            {
+                SkillBlockRarity.Normal => new Color32(99, 165, 68, 255),
+                SkillBlockRarity.Rare => new Color32(61, 139, 210, 255),
+                SkillBlockRarity.Elite => new Color32(177, 83, 185, 255),
+                SkillBlockRarity.Unique => new Color32(224, 160, 44, 255),
+                _ => new Color32(217, 79, 102, 255)
+            };
+        }
+
+        private void HandlePlayerCardDetailsRequested(PlayerMiniCardModel model)
+        {
+            if (_isProcessing || _isRevealPlaying || model == null) return;
+            PlayerCardDetailsRequested?.Invoke(model.PlayerId);
         }
 
         private static Color GetRevealAccent(ShopRevealIntensity intensity)
@@ -342,6 +539,7 @@ namespace Baseball.Presentation.Shop
             _revealSkipButton.gameObject.SetActive(false);
             _revealModeButton.interactable = true;
             for (int index = 0; index < _revealFaces.Length; index++) SetCardRevealed(index);
+            EnableSkillBlockShapeBacks();
             _revealTitle.text = GetRevealCompletionTitle();
             RefreshRevealActions();
             SetRevealButtonsVisible(true);
@@ -386,6 +584,7 @@ namespace Baseball.Presentation.Shop
 
         private void StopRevealPlayback()
         {
+            KillRevealCardFlipTweens();
             if (_revealCoroutine != null)
             {
                 StopCoroutine(_revealCoroutine);
@@ -444,8 +643,10 @@ namespace Baseball.Presentation.Shop
             int count = _revealPlan.Items.Length;
             switch (_revealPlan.Theme)
             {
-                case ShopRevealTheme.ScoutingReport: return "선수 영입 완료 · " + count + "명";
-                case ShopRevealTheme.DevelopmentAnalysis: return "스킬 블록 획득 완료 · " + count + "개";
+                case ShopRevealTheme.ScoutingReport:
+                    return "선수 영입 완료 · " + count + "명  |  카드 클릭: 상세";
+                case ShopRevealTheme.DevelopmentAnalysis:
+                    return "스킬 블록 획득 완료 · " + count + "개  |  카드 클릭: 블록 형상";
                 case ShopRevealTheme.TacticalLab: return "작전 카드 획득 완료 · " + count + "장";
                 default: return "획득 완료 · " + count + "개";
             }

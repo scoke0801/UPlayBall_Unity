@@ -22,6 +22,25 @@ namespace Baseball.Game.Shop
             ScoutPityBalanceTable pityBalance)
         {
             if (catalog == null) throw new ArgumentNullException(nameof(catalog));
+            Func<ShopProductDefinition, ShopProductDetails> resolve = CreateResolver(
+                skillGacha, scoutPools, scoutFeaturePolicy, worldCardCatalog,
+                tacticPools, tacticCatalog, pityBalance);
+            var details = new List<ShopProductDetails>(catalog.Products.Count);
+            for (int index = 0; index < catalog.Products.Count; index++)
+                details.Add(resolve(catalog.Products[index]));
+            return details;
+        }
+
+        /// <summary>요청된 상품의 공개 확률만 계산하는 상점 수명 범위의 조회 함수를 만든다.</summary>
+        public static Func<ShopProductDefinition, ShopProductDetails> CreateResolver(
+            SkillGachaBalanceTable skillGacha,
+            IReadOnlyList<ScoutPoolDefinition> scoutPools,
+            ScoutFeaturePolicy scoutFeaturePolicy,
+            WorldCardCatalog worldCardCatalog,
+            IReadOnlyList<TacticResearchPoolDefinition> tacticPools,
+            IReadOnlyList<TacticCardDefinition> tacticCatalog,
+            ScoutPityBalanceTable pityBalance)
+        {
             if (scoutPools == null) throw new ArgumentNullException(nameof(scoutPools));
             if (scoutFeaturePolicy == null) throw new ArgumentNullException(nameof(scoutFeaturePolicy));
             if (worldCardCatalog == null) throw new ArgumentNullException(nameof(worldCardCatalog));
@@ -29,38 +48,33 @@ namespace Baseball.Game.Shop
             if (tacticCatalog == null) throw new ArgumentNullException(nameof(tacticCatalog));
             if (pityBalance == null) throw new ArgumentNullException(nameof(pityBalance));
 
-            var details = new List<ShopProductDetails>(catalog.Products.Count);
             var scoutRoller = new ScoutRoller();
             var tacticRoller = new TacticResearchRoller();
-            for (int index = 0; index < catalog.Products.Count; index++)
+            return product =>
             {
-                ShopProductDefinition product = catalog.Products[index];
+                if (product == null) throw new ArgumentNullException(nameof(product));
                 switch (product.Kind)
                 {
                     case ShopProductKind.PlayerCardPack:
-                        details.Add(BuildScoutDetails(
+                        return BuildScoutDetails(
                             product,
                             FindScoutPool(scoutPools, product.SourceId),
                             scoutFeaturePolicy,
                             worldCardCatalog,
                             scoutRoller,
-                            pityBalance));
-                        break;
+                            pityBalance);
                     case ShopProductKind.SkillBlockPack:
-                        details.Add(BuildSkillDetails(product, skillGacha));
-                        break;
+                        return BuildSkillDetails(product, skillGacha);
                     case ShopProductKind.TacticCardPack:
-                        details.Add(BuildTacticDetails(
+                        return BuildTacticDetails(
                             product,
                             FindTacticPool(tacticPools, product.SourceId),
                             tacticCatalog,
-                            tacticRoller));
-                        break;
+                            tacticRoller);
                     default:
                         throw new ArgumentOutOfRangeException(nameof(product.Kind));
                 }
-            }
-            return details;
+            };
         }
 
         private static ShopProductDetails BuildScoutDetails(

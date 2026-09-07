@@ -102,7 +102,7 @@ namespace Baseball.Presentation.Shop
         {
             if (_playerCardFilterBar == null || _snapshot == null)
                 return;
-            OwnerRuntimeUiFactory.ClearChildren(_playerCardFilterBar);
+            ClearStorefrontChildren(_playerCardFilterBar);
 
             ShopTabSnapshot playerTab = FindTab(ShopTab.PlayerCard);
             var franchiseNames = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -162,11 +162,15 @@ namespace Baseball.Presentation.Shop
             franchiseDropdown.onValueChanged.AddListener(index =>
             {
                 _playerCardFranchiseFilter = index == 0 ? string.Empty : franchises[index - 1].Key;
+                _selectedProductId = string.Empty;
+                _scrollByTab[ShopTab.PlayerCard] = 1f;
                 RefreshTiles();
             });
             yearDropdown.onValueChanged.AddListener(index =>
             {
                 _playerCardYearFilter = index == 0 ? (int?)null : years[index - 1];
+                _selectedProductId = string.Empty;
+                _scrollByTab[ShopTab.PlayerCard] = 1f;
                 RefreshTiles();
             });
         }
@@ -406,14 +410,31 @@ namespace Baseball.Presentation.Shop
                 if (MatchesPlayerCardFilters(tab, tile) &&
                     string.Equals(tile.ProductId, _selectedProductId, StringComparison.Ordinal)) return;
             }
+            int bestIndex = -1;
+            int bestSpecificity = -1;
             for (int index = 0; index < tab.Tiles.Count; index++)
             {
                 ShopProductTileSnapshot tile = tab.Tiles[index];
                 if (!MatchesPlayerCardFilters(tab, tile)) continue;
-                _selectedProductId = tile.ProductId;
-                return;
+                int specificity = GetPlayerCardFilterSpecificity(tab, tile);
+                if (specificity <= bestSpecificity) continue;
+                bestIndex = index;
+                bestSpecificity = specificity;
             }
-            _selectedProductId = string.Empty;
+            _selectedProductId = bestIndex >= 0 ? tab.Tiles[bestIndex].ProductId : string.Empty;
+        }
+
+        private int GetPlayerCardFilterSpecificity(ShopTabSnapshot tab, ShopProductTileSnapshot tile)
+        {
+            if (tab.Tab != ShopTab.PlayerCard)
+                return 0;
+            int specificity = 0;
+            if (_playerCardFranchiseFilter.Length > 0 &&
+                string.Equals(tile.TargetFranchiseId, _playerCardFranchiseFilter, StringComparison.Ordinal))
+                specificity++;
+            if (_playerCardYearFilter.HasValue && tile.TargetYear == _playerCardYearFilter)
+                specificity++;
+            return specificity;
         }
 
         private int CountVisibleTiles(ShopTabSnapshot tab)
@@ -422,6 +443,25 @@ namespace Baseball.Presentation.Shop
             for (int index = 0; index < tab.Tiles.Count; index++)
                 if (MatchesPlayerCardFilters(tab, tab.Tiles[index])) count++;
             return count;
+        }
+
+        private void BuildFilteredTiles(ShopTabSnapshot tab)
+        {
+            int selectedConditionCount = tab.Tab == ShopTab.PlayerCard
+                ? (_playerCardFranchiseFilter.Length > 0 ? 1 : 0) + (_playerCardYearFilter.HasValue ? 1 : 0)
+                : 0;
+            // 정밀 일치 → 단일 조건 일치 → 공통 상품. 같은 단계는 원래 순서를 유지해
+            // 단품과 10회 묶음이 항상 나란히 표시되도록 한다.
+            for (int specificity = selectedConditionCount; specificity >= 0; specificity--)
+            {
+                for (int index = 0; index < tab.Tiles.Count; index++)
+                {
+                    ShopProductTileSnapshot tile = tab.Tiles[index];
+                    if (MatchesPlayerCardFilters(tab, tile) &&
+                        GetPlayerCardFilterSpecificity(tab, tile) == specificity)
+                        BuildReferenceTile(tile);
+                }
+            }
         }
 
         /// <summary>

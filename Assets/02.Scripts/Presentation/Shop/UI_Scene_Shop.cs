@@ -62,6 +62,9 @@ namespace Baseball.Presentation.Shop
         /// <summary>Reveal에서 상품 종류에 맞는 보관 화면으로 이동하는 요청이다.</summary>
         public event Action<string> InventoryRequested;
 
+        /// <summary>Reveal에서 공개가 끝난 선수 카드의 상세 보기 요청이다.</summary>
+        public event Action<string> PlayerCardDetailsRequested;
+
         /// <summary>외부 SFX 시스템이 연출 단계에 맞는 소리를 선택할 수 있도록 Cue만 전달한다.</summary>
         public event Action<ShopRevealAudioCue> RevealAudioRequested;
 
@@ -105,11 +108,13 @@ namespace Baseball.Presentation.Shop
 
         /// <summary>확정 결과와 구매 상품 문맥을 함께 공개해 재구매·보관함 이동을 유지한다.</summary>
         public void ShowReveal(ShopPurchaseResult result, ShopProductDetailsSnapshot details,
-            PlayerMiniCardModel[] playerCards = null)
+            PlayerMiniCardModel[] playerCards = null,
+            ShopSkillBlockRevealModel[] skillBlocks = null)
         {
             if (!result.IsSuccess || result.Items == null || result.Items.Length == 0 || _revealRoot == null)
                 return;
             _revealPlayerCards = playerCards;
+            _revealSkillBlocks = skillBlocks;
             StartRevealPlayback(result, details);
         }
 
@@ -214,7 +219,7 @@ namespace Baseball.Presentation.Shop
 
         private void RebuildTabs()
         {
-            OwnerRuntimeUiFactory.ClearChildren(_tabBar);
+            ClearStorefrontChildren(_tabBar);
             _tabButtons.Clear();
             _tabSurfaces.Clear();
 
@@ -262,7 +267,8 @@ namespace Baseball.Presentation.Shop
 
         private void RefreshTiles()
         {
-            OwnerRuntimeUiFactory.ClearChildren(_gridContent);
+            _scroll.StopMovement();
+            ClearStorefrontChildren(_gridContent);
             _tileActionButtons.Clear();
             _tileActionAvailability.Clear();
             _productTileSurfaces.Clear();
@@ -284,16 +290,25 @@ namespace Baseball.Presentation.Shop
             else
             {
                 EnsureSelectedProduct(tab);
-                for (int index = 0; index < tab.Tiles.Count; index++)
-                    if (MatchesPlayerCardFilters(tab, tab.Tiles[index])) BuildReferenceTile(tab.Tiles[index]);
+                BuildFilteredTiles(tab);
                 RefreshSelectedProduct(tab);
             }
 
             RefreshPityGauge(tab.Tab);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_root);
             Canvas.ForceUpdateCanvases();
             UpdateGridCellSize();
             LayoutRebuilder.ForceRebuildLayoutImmediate(_gridContent);
             RestoreScrollPosition(tab.Tab);
+        }
+
+        private static void ClearStorefrontChildren(RectTransform parent)
+        {
+            // Play Mode의 Destroy는 프레임 끝에 실행된다. 이전 항목을 즉시 레이아웃에서
+            // 제외해야 새 목록 높이와 스크롤 최상단이 이전 목록에 영향을 받지 않는다.
+            for (int index = 0; index < parent.childCount; index++)
+                parent.GetChild(index).gameObject.SetActive(false);
+            OwnerRuntimeUiFactory.ClearChildren(parent);
         }
 
         private void BuildEmptyTile(string message)

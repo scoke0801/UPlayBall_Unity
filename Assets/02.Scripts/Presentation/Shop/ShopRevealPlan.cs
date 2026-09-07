@@ -1,4 +1,5 @@
 using System;
+using Baseball.Core.Growth;
 using Baseball.Core.Shop;
 
 namespace Baseball.Presentation.Shop
@@ -16,6 +17,26 @@ namespace Baseball.Presentation.Shop
         ScoutingReport,
         DevelopmentAnalysis,
         TacticalLab
+    }
+
+    /// <summary>지급된 스킬 블록의 실제 테트로미노 형상을 결과 카드에 전달하는 표시 스냅샷이다.</summary>
+    public sealed class ShopSkillBlockRevealModel
+    {
+        /// <summary>정적 블록 정의에서 결과 카드가 필요한 식별자·등급·형상만 복사한다.</summary>
+        public ShopSkillBlockRevealModel(SkillBlockDefinition definition)
+        {
+            if (definition == null)
+                throw new ArgumentNullException(nameof(definition));
+
+            DefinitionId = definition.BlockId;
+            Rarity = definition.Rarity;
+            ShapeCells = new BoardCell[definition.ShapeCells.Length];
+            Array.Copy(definition.ShapeCells, ShapeCells, ShapeCells.Length);
+        }
+
+        public string DefinitionId { get; }
+        public SkillBlockRarity Rarity { get; }
+        public BoardCell[] ShapeCells { get; }
     }
 
     /// <summary>SFX 시스템이 연결될 때 상품 연출 단계별 소리를 재생하기 위한 표시 계층 신호다.</summary>

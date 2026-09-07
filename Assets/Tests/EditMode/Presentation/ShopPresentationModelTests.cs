@@ -167,11 +167,31 @@ namespace Baseball.Tests.EditMode.Presentation
                 Dropdown franchiseFilter = FindDropdown(hostObject, "FranchiseFilter");
                 Dropdown yearFilter = FindDropdown(hostObject, "YearFilter");
                 franchiseFilter.value = 1;
+                Transform grid = FindTransform(hostObject.transform, "ProductGrid");
+                Assert.That(grid.GetChild(0).name, Is.EqualTo("Product_team-b"));
                 yearFilter.value = 1;
 
                 Assert.That(FindButton(hostObject, "Product_team-b-2023"), Is.Not.Null);
                 Assert.That(FindButton(hostObject, "Product_team-b"), Is.Not.Null);
                 Assert.That(FindButton(hostObject, "Product_year-2023"), Is.Not.Null);
+                Transform previewSubtitle = hostObject.transform.Find(
+                    "ShopWorkspace/ShopPanel/ContentSafeRect/Storefront/SelectedProduct/Subtitle");
+                Assert.That(previewSubtitle.GetComponent<Text>().text,
+                    Is.EqualTo("부산 웨일즈 · 2023년"));
+                Assert.That(grid.GetChild(0).name, Is.EqualTo("Product_team-b-2023"));
+                Assert.That(grid.GetChild(1).name, Is.EqualTo("Product_team-b"));
+                Assert.That(grid.GetChild(2).name, Is.EqualTo("Product_year-2023"));
+                Assert.That(grid.GetChild(3).name, Is.EqualTo("Product_general"));
+
+                view.Bind(new ShopScreenSnapshot(new[] { tab }, string.Empty));
+                Assert.That(FindDropdown(hostObject, "FranchiseFilter").value, Is.EqualTo(1));
+                Assert.That(FindDropdown(hostObject, "YearFilter").value, Is.EqualTo(1));
+                Assert.That(grid.GetChild(0).name, Is.EqualTo("Product_team-b-2023"));
+                FindDropdown(hostObject, "FranchiseFilter").value = 0;
+                Assert.That(grid.GetChild(0).name, Is.EqualTo("Product_year-2023"));
+                FindDropdown(hostObject, "YearFilter").value = 0;
+                Assert.That(grid.GetChild(0).name, Is.EqualTo("Product_general"));
+                Assert.That(FindButton(hostObject, "Product_team-b-2023"), Is.Null);
             }
             finally
             {
@@ -252,6 +272,8 @@ namespace Baseball.Tests.EditMode.Presentation
                 view.ShowReveal(ShopPurchaseResult.Success(items), details, models);
                 var cards = host.GetComponentsInChildren<PlayerMiniCardView>(false);
                 Assert.AreEqual(count, cards.Length);
+                string requestedCardId = null;
+                view.PlayerCardDetailsRequested += cardId => requestedCardId = cardId;
                 for (int index = 0; index < count; index++)
                 {
                     Assert.AreEqual(models[index].DisplayName, cards[index].Model.DisplayName);
@@ -263,6 +285,10 @@ namespace Baseball.Tests.EditMode.Presentation
                     Assert.AreEqual(count > 5 ? (index < 5 ? .75f : .25f) : .5f, slot.anchorMin.y);
                     if (count == 1) Assert.AreEqual(.5f, slot.anchorMin.x);
                 }
+                Assert.IsTrue(cards[0].Model.IsInteractable);
+                Assert.IsTrue(cards[0].GetComponent<CanvasGroup>().blocksRaycasts);
+                cards[0].GetComponent<Button>().onClick.Invoke();
+                Assert.AreEqual(models[0].PlayerId, requestedCardId);
                 Assert.IsTrue(FindButton(host, "CloseReveal").gameObject.activeInHierarchy);
                 Assert.IsFalse(FindButton(host, "Skip").gameObject.activeInHierarchy);
                 Assert.IsFalse(System.Array.Exists(host.GetComponentsInChildren<RawImage>(false),

@@ -16,6 +16,7 @@ namespace Baseball.Game.Shop
         private readonly Dictionary<ShopProductKind, IShopProductFulfillment> _fulfillments;
         private readonly ShopPurchaseHistoryState _history;
         private readonly Dictionary<string, ShopProductDetails> _detailsByProductId;
+        private readonly Func<ShopProductDefinition, ShopProductDetails> _detailsResolver;
         private readonly ShopProgressDetails _progress;
 
         public ShopService(
@@ -25,13 +26,15 @@ namespace Baseball.Game.Shop
             IReadOnlyList<IShopProductFulfillment> fulfillments,
             ShopPurchaseHistoryState history,
             IReadOnlyList<ShopProductDetails> details = null,
-            ShopProgressDetails? progress = null)
+            ShopProgressDetails? progress = null,
+            Func<ShopProductDefinition, ShopProductDetails> detailsResolver = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _availability = availability ?? throw new ArgumentNullException(nameof(availability));
             _wallet = wallet ?? throw new ArgumentNullException(nameof(wallet));
             _history = history ?? throw new ArgumentNullException(nameof(history));
             _progress = progress ?? new ShopProgressDetails(0, 100);
+            _detailsResolver = detailsResolver;
             if (fulfillments == null)
                 throw new ArgumentNullException(nameof(fulfillments));
 
@@ -75,7 +78,18 @@ namespace Baseball.Game.Shop
                 details = null;
                 return false;
             }
-            return _detailsByProductId.TryGetValue(productId, out details);
+            if (_detailsByProductId.TryGetValue(productId, out details))
+                return true;
+            if (_detailsResolver == null || !_catalog.TryGetProduct(productId, out ShopProductDefinition product))
+                return false;
+
+            // 전체 구단·연도 조합의 확률표를 구매와 화면 갱신마다 계산하지 않는다.
+            details = _detailsResolver(product);
+            if (details == null) return false;
+            if (!string.Equals(details.ProductId, productId, StringComparison.Ordinal))
+                throw new InvalidOperationException("요청 상품과 상세 정보의 ID가 다릅니다.");
+            _detailsByProductId.Add(productId, details);
+            return true;
         }
 
         public ShopPurchaseQuote GetQuote(ShopProductDefinition product)

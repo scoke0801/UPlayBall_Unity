@@ -11,6 +11,50 @@ namespace Baseball.Tests.EditMode.Game.Shop
     public sealed class ShopServiceTests
     {
         [Test]
+        public void 상점생성과구매는_상세확률을_미리계산하지않고_조회한상품만_재사용한다()
+        {
+            var product = CreateSkillProduct();
+            var wallet = new ShopWalletStub(1000L);
+            int calls = 0;
+            var service = new ShopService(
+                new ShopCatalog(new[] { product, CreatePlayerCardProduct() }),
+                ShopAvailabilityTable.AllUnlocked(), wallet,
+                new IShopProductFulfillment[] { new StubFulfillment(ShopProductKind.SkillBlockPack) },
+                new ShopPurchaseHistoryState(),
+                detailsResolver: requested =>
+                {
+                    calls++;
+                    return new ShopProductDetails(requested.ProductId, "설명",
+                        new[] { new ShopProbabilityEntry("일반", 1d, 1) }, string.Empty);
+                });
+
+            Assert.IsTrue(service.Purchase(product.ProductId).IsSuccess);
+            Assert.AreEqual(0, calls);
+            Assert.IsFalse(service.TryGetDetails("없는상품", out _));
+            Assert.AreEqual(0, calls);
+            Assert.IsTrue(service.TryGetDetails(product.ProductId, out var first));
+            Assert.IsTrue(service.TryGetDetails(product.ProductId, out var second));
+            Assert.AreSame(first, second);
+            Assert.AreEqual(1, calls, "선택하지 않은 상품의 확률까지 계산하면 안 된다.");
+
+            Assert.IsTrue(wallet.TrySpend(ShopCurrency.Money, 1000L));
+            Assert.IsFalse(service.GetQuote(product).CanPurchase,
+                "확률 캐시와 달리 구매 가능 여부는 최신 재화를 읽어야 한다.");
+        }
+
+        [Test]
+        public void 다른상품의상세를반환하는조회함수는_거부한다()
+        {
+            var service = new ShopService(
+                new ShopCatalog(new[] { CreateSkillProduct() }),
+                ShopAvailabilityTable.AllUnlocked(), new ShopWalletStub(1000L),
+                new IShopProductFulfillment[0], new ShopPurchaseHistoryState(),
+                detailsResolver: product => new ShopProductDetails("wrong", "설명",
+                    new ShopProbabilityEntry[0], string.Empty));
+            Assert.Throws<InvalidOperationException>(() => service.TryGetDetails("skill", out _));
+        }
+
+        [Test]
         public void 구매에_성공하면_지급_결과와_구매_횟수가_남는다()
         {
             var fulfillment = new StubFulfillment(ShopProductKind.SkillBlockPack);
@@ -89,13 +133,12 @@ namespace Baseball.Tests.EditMode.Game.Shop
         }
 
         [Test]
-        public void 구단주_모드_스킬블록은_장착_보드가_없어_진행도_사유로_잠긴다()
+        public void 구단주_모드_스킬블록은_카드훈련의_스킬보드용으로_열린다()
         {
             ShopAvailabilityTable table = ShopAvailabilityFactory.CreateFor(GameMode.OwnerCareer);
 
-            Assert.IsFalse(table.IsUnlocked(ShopTab.SkillBlock));
-            Assert.AreEqual(ShopLockReason.LockedByProgress, table.Get(ShopTab.SkillBlock).LockReason);
-            Assert.IsNotEmpty(table.Get(ShopTab.SkillBlock).LockDescription);
+            Assert.IsTrue(table.IsUnlocked(ShopTab.SkillBlock));
+            Assert.IsEmpty(table.Get(ShopTab.SkillBlock).LockDescription);
         }
 
         [Test]

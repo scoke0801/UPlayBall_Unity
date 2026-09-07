@@ -85,6 +85,7 @@ namespace Baseball.Presentation.Shop
                 _detailsPurchaseButton.interactable = !isProcessing &&
                     _activeDetails != null && _activeDetails.CanPurchase;
             SetRevealButtonsInteractable(!isProcessing);
+            SetRevealCardButtonsInteractable(!isProcessing);
 
             if (isProcessing)
             {
