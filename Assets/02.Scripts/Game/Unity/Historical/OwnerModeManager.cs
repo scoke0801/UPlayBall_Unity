@@ -534,7 +534,12 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException("현재 규칙을 통과하지 못한 1군 교체는 저장할 수 없습니다.");
 
             ManagerHistoricalRuntimeState runtime = RequireRuntime();
-            runtime.ApplyPlayerActiveRosterChange(validated.Roster, validated.PlayerStatus);
+            OwnerPlayerContractState[] playerContracts = RequirePlayerMarketService()
+                .CreateActiveRosterContracts(runtime, validated.Roster);
+            runtime.ApplyPlayerActiveRosterChange(
+                validated.Roster,
+                validated.PlayerStatus,
+                playerContracts);
             runtime.ManagerMode.UpsertLineupPreset(validated.Preset);
             ConfigureTeamColors(_contentProvider.Load(), runtime.PlayerTeamSeasonKey);
             InvalidatePregame();

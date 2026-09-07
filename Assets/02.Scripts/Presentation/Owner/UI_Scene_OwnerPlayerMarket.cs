@@ -31,6 +31,7 @@ namespace Baseball.Presentation.Owner
         private Text _detailBody;
         private Text _feedback;
         private Button _commitButton;
+        private Button _batchButton;
         private Button _partnerButton;
         private Button _partnerConfirmButton;
         private Image _background;
@@ -58,6 +59,7 @@ namespace Baseball.Presentation.Owner
 
         public event Action<string, int> ContractPreviewRequested;
         public event Action<string, int> ContractRenewalRequested;
+        public event Action<int> ContractBatchRenewalRequested;
         public event Action<string, string, string> TradePreviewRequested;
         public event Action<string, string, string> TradeRequested;
 
@@ -83,7 +85,14 @@ namespace Baseball.Presentation.Owner
             _leftSummary.text = $"만료 임박 우선\n보유 자금  {FormatMoney(snapshot.Money)}\n선수단 연봉  {FormatMoney(snapshot.AnnualSalaryTotal)}";
             _leftTitle.text = "선수 계약 현황";
             _rightTitle.text = "계약 협상";
-            _rightSummary.text = "계약 기간과 재정 부담을 비교하세요.";
+            var batch = snapshot.BatchPreview;
+            _rightSummary.text = batch == null ? "계약 기간과 재정 부담을 비교하세요." :
+                $"만료 임박 {batch.Renewals.Count}명 · {snapshot.SelectedTerm}년 일괄 연장\n" +
+                $"총계약금 {FormatMoney(batch.SigningCost)} · 변경 후 선수단 연봉 {FormatMoney(batch.AnnualSalaryTotal)}" +
+                (batch.CanCommit ? string.Empty : $"\n{batch.Reason}");
+            _batchButton.gameObject.SetActive(true);
+            _batchButton.interactable = batch?.CanCommit == true;
+            _batchButton.GetComponentInChildren<Text>().text = $"만료 임박 {batch?.Renewals.Count ?? 0}명 연장";
             SetContractOverviewVisible(true);
             EnsureButtons(_leftButtons, _leftLabels, _leftList, snapshot.Players.Count, SelectContract);
             SetButtonsActive(_rightButtons, 0);
@@ -103,7 +112,7 @@ namespace Baseball.Presentation.Owner
                 _termButtons[index].interactable = snapshot.SelectedTerm != index + 1;
                 UIClubOfficeStyle.Select(_termButtons[index], snapshot.SelectedTerm == index + 1);
             }
-            _commitButton.GetComponentInChildren<Text>().text = "계약 갱신";
+            _commitButton.GetComponentInChildren<Text>().text = "선택 선수 연장";
             RenderContractDetail();
         }
 
@@ -112,6 +121,7 @@ namespace Baseball.Presentation.Owner
             _trade = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             _contract = null;
             _isTrade = true;
+            _batchButton.gameObject.SetActive(false);
             ClosePartnerSelection();
             SetBackground("UI/Generated/bg_owner_trade_v1");
             _leftTitle.text = "우리 구단 · 제안 선수";
@@ -228,12 +238,18 @@ namespace Baseball.Presentation.Owner
             for (int term = 1; term <= 3; term++)
             {
                 int captured = term;
-                Button button = OwnerWorkspaceUiFactory.CreateButton(_actionRoot, $"Term{term}", $"{term}년", () => SelectTerm(captured));
+                Button button = OwnerWorkspaceUiFactory.CreateButton(_actionRoot, $"Term{term}", $"+{term}년", () => SelectTerm(captured));
                 _termButtons.Add(button);
                 UIClubOfficeStyle.SizeAction(button, 62f);
             }
             _commitButton = OwnerWorkspaceUiFactory.CreateButton(_actionRoot, "Commit", "확정", Commit);
             UIClubOfficeStyle.SizeAction(_commitButton, 140f, true);
+            _batchButton = OwnerWorkspaceUiFactory.CreateButton(_actionRoot, "RenewExpiring", "만료 임박 일괄 연장", () =>
+            {
+                if (_contract?.BatchPreview?.CanCommit == true)
+                    ContractBatchRenewalRequested?.Invoke(_contract.SelectedTerm);
+            });
+            UIClubOfficeStyle.SizeAction(_batchButton, 190f, true);
             BuildPartnerSelectionPopup();
             CareerUiSkin.Apply(_workspaceRoot);
             CareerUiSkin.Apply(_inspectorRoot);
@@ -491,13 +507,13 @@ namespace Baseball.Presentation.Owner
             _detailBody.text = preview == null || selected == null
                 ? "계약 목록이 비어 있습니다."
                 : $"현재 계약  {selected.RemainingSeasons}년 / {FormatMoney(selected.AnnualSalary)}\n" +
-                  $"갱신안  {preview.Seasons}년 / 연 {FormatMoney(preview.AnnualSalary)}\n" +
+                  $"연장 후  {selected.RemainingSeasons + preview.Seasons}년 / 연 {FormatMoney(preview.AnnualSalary)}\n" +
                   $"즉시 계약금  {FormatMoney(preview.SigningCost)}\n\n{preview.Reason}\n\n" +
-                  "장기 계약은 연봉을 조금 낮추지만, 향후 재정 유연성을 줄입니다.";
+                  "동일 선수의 중복·연도·등급 카드는 계약을 공유합니다. 카드 교체 시 잔여 기간과 연봉을 유지합니다.";
             _contractOverview.text = selected == null
                 ? "왼쪽 목록에서 갱신할 선수를 선택하세요.\n\n계약 기간을 선택하면 연봉과 즉시 계약금을 확인할 수 있습니다."
                 : $"{selected.Name} · {selected.Role}\n\n현재 잔여 계약  {selected.RemainingSeasons}년\n현재 연봉  {FormatMoney(selected.AnnualSalary)}\n\n" +
-                  $"제안 기간  {_contract.SelectedTerm}년\n" +
+                  $"연장 기간  +{_contract.SelectedTerm}년 → 잔여 {selected.RemainingSeasons + _contract.SelectedTerm}년\n" +
                   (preview == null ? "조건을 확인하고 있습니다." : $"제안 연봉  {FormatMoney(preview.AnnualSalary)}\n즉시 계약금  {FormatMoney(preview.SigningCost)}");
             _commitButton.interactable = preview?.CanCommit == true;
             _feedback.text = preview?.Reason ?? "계약 정보를 준비하고 있습니다.";
@@ -628,6 +644,7 @@ namespace Baseball.Presentation.Owner
             _partnerButton?.onClick.RemoveAllListeners();
             _partnerConfirmButton?.onClick.RemoveAllListeners();
             _commitButton?.onClick.RemoveAllListeners();
+            _batchButton?.onClick.RemoveAllListeners();
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_workspaceRoot);
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_inspectorRoot);
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_actionRoot);

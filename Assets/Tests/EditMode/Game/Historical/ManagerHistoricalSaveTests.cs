@@ -85,6 +85,35 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(owned.Training.GetStudyBonus(PlayerAbility.Contact), Is.Zero);
         }
 
+        [Test]
+        public void Restore_V13일군교체계약누락은현재25인CardId로이행한다()
+        {
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
+            ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            ManagerHistoricalSaveData saveData = adapter.CreateSaveData(fixture.State);
+            saveData.saveVersion = 13;
+            CurrentRosterSaveData playerRoster = Array.Find(
+                saveData.rosters,
+                roster => string.Equals(roster.teamSeasonKey, saveData.playerTeamSeasonKey, StringComparison.Ordinal));
+            Assert.That(playerRoster, Is.Not.Null);
+            string missingCardId = playerRoster.entries[0].cardId;
+            OwnerPlayerContractSaveData mismatched = Array.Find(
+                saveData.managerMode.playerContracts,
+                contract => string.Equals(contract.cardId, missingCardId, StringComparison.Ordinal));
+            Assert.That(mismatched, Is.Not.Null);
+            mismatched.cardId = "LEGACY-NOT-ON-ACTIVE-ROSTER";
+
+            ManagerHistoricalRuntimeState restored = adapter.Restore(saveData);
+
+            Assert.That(restored.ManagerMode.PlayerContracts.Count, Is.EqualTo(25));
+            Assert.That(restored.ManagerMode.GetPlayerContract(missingCardId), Is.Not.Null);
+            Assert.Throws<KeyNotFoundException>(() =>
+                restored.ManagerMode.GetPlayerContract("LEGACY-NOT-ON-ACTIVE-ROSTER"));
+            Assert.DoesNotThrow(() =>
+                new OwnerPlayerMarketService(Baseball.Core.Balance.BalanceTable.CreateDefault())
+                    .EnsureInitialized(restored));
+        }
+
         [TestCase(WorldRecordMode.OriginalHistory)]
         [TestCase(WorldRecordMode.SimulatedHistory)]
         public void Restore_LegacyOriginal또는SimulatedSnapshot은HistoricalSimulation을실행하지않는다(WorldRecordMode mode)

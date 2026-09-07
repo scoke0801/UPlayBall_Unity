@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 13;
+        public const int CurrentSaveVersion = 14;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
         // 개인 기록은 없으면 빈 상태로 복원되므로 별도 버전 분기가 필요 없다.
@@ -27,6 +27,7 @@ namespace Baseball.Game.Historical
         private const int OwnerPlayerMarketSaveVersion = 11;
         private const int ScheduledTacticsSaveVersion = 12;
         private const int GrowthSourceBreakdownSaveVersion = 13;
+        private const int ActiveRosterContractSyncSaveVersion = 14;
         private const int FirstSupportedSaveVersion = 1;
 
         private readonly IHistoricalContentProvider _contentProvider;
@@ -61,6 +62,13 @@ namespace Baseball.Game.Historical
                         state.WorldCardCatalog,
                         managerMode.LiveSeason.SeasonNumber),
                     managerMode.TradeReceipts);
+            }
+            else
+            {
+                RepairKnownActiveRosterContractMismatch(
+                    managerMode,
+                    state.GetRoster(state.PlayerTeamSeasonKey),
+                    state.WorldCardCatalog);
             }
             return new ManagerHistoricalSaveData
             {
@@ -153,6 +161,14 @@ namespace Baseball.Game.Historical
                     identityRegistry,
                     history.WorldHistorySeed,
                     saveData.saveVersion);
+            if (saveData.saveVersion >= OwnerPlayerMarketSaveVersion &&
+                saveData.saveVersion < ActiveRosterContractSyncSaveVersion)
+            {
+                RepairKnownActiveRosterContractMismatch(
+                    managerMode,
+                    FindRoster(rosters, saveData.playerTeamSeasonKey),
+                    catalog);
+            }
 
             return new ManagerHistoricalRuntimeState(
                 saveData.playerTeamSeasonKey,
@@ -192,6 +208,58 @@ namespace Baseball.Game.Historical
                 saveData.saveVersion < OwnerGrowthSaveVersion || saveData.playerGrowth == null
                     ? new OwnerPlayerGrowthState()
                     : RestorePlayerGrowth(saveData.playerGrowth));
+        }
+
+        /// <summary>v11~v13의 1군 교체 누락으로 계약 수만 25인 상태를 해당 로스터 CardId에 맞춰 이행한다.</summary>
+        private void RepairKnownActiveRosterContractMismatch(
+            ManagerModeRuntimeState managerMode,
+            CurrentRosterState roster,
+            WorldCardCatalog catalog)
+        {
+            if (managerMode.PlayerContracts.Count != roster.Entries.Count ||
+                HasContractCoverage(managerMode.PlayerContracts, roster))
+                return;
+
+            var resolver = new OwnerPlayerMarketResolver(_balance.OwnerPlayerMarket);
+            managerMode.ReplacePlayerMarketState(
+                resolver.CreateActiveRosterContracts(
+                    roster,
+                    catalog,
+                    managerMode.LiveSeason.SeasonNumber,
+                    managerMode.PlayerContracts),
+                managerMode.TradeReceipts);
+        }
+
+        private static bool HasContractCoverage(
+            IReadOnlyList<OwnerPlayerContractState> contracts,
+            CurrentRosterState roster)
+        {
+            for (int rosterIndex = 0; rosterIndex < roster.Entries.Count; rosterIndex++)
+            {
+                bool found = false;
+                for (int contractIndex = 0; contractIndex < contracts.Count; contractIndex++)
+                {
+                    if (!string.Equals(
+                            roster.Entries[rosterIndex].CardId,
+                            contracts[contractIndex].CardId,
+                            StringComparison.Ordinal))
+                        continue;
+                    found = true;
+                    break;
+                }
+                if (!found) return false;
+            }
+            return true;
+        }
+
+        private static CurrentRosterState FindRoster(
+            IReadOnlyList<CurrentRosterState> rosters,
+            string teamSeasonKey)
+        {
+            for (int index = 0; index < rosters.Count; index++)
+                if (string.Equals(rosters[index].TeamSeasonKey, teamSeasonKey, StringComparison.Ordinal))
+                    return rosters[index];
+            throw new KeyNotFoundException($"TeamSeasonKey {teamSeasonKey}의 로스터가 없습니다.");
         }
 
         private static TacticCollectionSaveData CreateTacticCollection(TacticCollectionState source)

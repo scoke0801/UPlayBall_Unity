@@ -35,7 +35,8 @@ namespace Baseball.Presentation.Owner
             int selectedTerm,
             long money,
             long annualSalaryTotal,
-            OwnerContractRenewalPreview preview)
+            OwnerContractRenewalPreview preview,
+            OwnerContractBatchPreview batchPreview = null)
         {
             Players = players ?? throw new ArgumentNullException(nameof(players));
             SelectedCardId = selectedCardId ?? string.Empty;
@@ -43,6 +44,7 @@ namespace Baseball.Presentation.Owner
             Money = money;
             AnnualSalaryTotal = annualSalaryTotal;
             Preview = preview;
+            BatchPreview = batchPreview;
         }
 
         public IReadOnlyList<OwnerContractPlayerRow> Players { get; }
@@ -51,6 +53,7 @@ namespace Baseball.Presentation.Owner
         public long Money { get; }
         public long AnnualSalaryTotal { get; }
         public OwnerContractRenewalPreview Preview { get; }
+        public OwnerContractBatchPreview BatchPreview { get; }
     }
 
     public sealed class OwnerTradePlayerRow
@@ -143,7 +146,8 @@ namespace Baseball.Presentation.Owner
                 term,
                 runtime.Economy.Money,
                 runtime.ManagerMode.GetAnnualPlayerSalaryTotal(),
-                preview);
+                preview,
+                manager.PreviewExpiringPlayerContractRenewals(term));
         }
 
         public OwnerTradeSnapshot CreatePlayerTrade(

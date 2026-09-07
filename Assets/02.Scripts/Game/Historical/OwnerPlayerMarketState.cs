@@ -81,7 +81,8 @@ namespace Baseball.Game.Historical
 
         public void RenewPlayerContract(string cardId, int season, int seasons, long annualSalary)
         {
-            GetPlayerContract(cardId).Renew(season, seasons, annualSalary);
+            OwnerPlayerContractState contract = GetPlayerContract(cardId);
+            contract.Renew(season, checked(contract.RemainingSeasons + seasons), annualSalary);
         }
 
         public void SettleAndAdvancePlayerContracts(int completedSeason)

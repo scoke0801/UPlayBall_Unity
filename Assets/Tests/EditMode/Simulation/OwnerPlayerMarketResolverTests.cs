@@ -104,6 +104,39 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(preview.CanCommit, Is.False);
         }
 
+        [Test]
+        public void CreateActiveRosterContracts_동일인물의다른카드로교체해도연장계약을보존한다()
+        {
+            CreateWorld(out CurrentRosterState roster, out _, out WorldCardCatalog catalog);
+            var resolver = new OwnerPlayerMarketResolver(OwnerPlayerMarketBalanceTable.CreateInitial());
+            var contracts = resolver.CreateInitialContracts(roster, catalog, 1);
+            var seasons = new List<PlayerSeasonDefinition>();
+            var cards = new List<PlayerCardDefinition>();
+            foreach (var entry in roster.Entries)
+            {
+                var card = GetCard(catalog, entry.CardId);
+                cards.Add(card);
+                seasons.Add(catalog.GetPlayerSeason(card));
+            }
+            ActiveRosterEntry previous = roster.Entries[0];
+            string replacementId = PlayerCardDefinition.CreateStableCardId(previous.PlayerSeasonId, PlayerCardEdition.Mvp);
+            cards.Add(new PlayerCardDefinition(replacementId, previous.PlayerSeasonId,
+                PlayerCardEdition.Mvp, new int[PlayerAbilityCatalog.AbilityCount]));
+            var entries = new List<ActiveRosterEntry>(roster.Entries);
+            entries[0] = new ActiveRosterEntry(replacementId, previous.PlayerSeasonId,
+                previous.PlayerPersonId, RegistrationType.Domestic, previous.Role);
+            OwnerPlayerContractState original = Array.Find(contracts, c => c.CardId == previous.CardId);
+            original.Renew(1, 4, 123456L);
+            var result = resolver.CreateActiveRosterContracts(new CurrentRosterState(roster.TeamSeasonKey, entries),
+                new WorldCardCatalog(seasons, cards), 1, contracts);
+            var inherited = Array.Find(result, c => c.CardId == replacementId);
+            Assert.That(inherited.RemainingSeasons, Is.EqualTo(4));
+            Assert.That(inherited.AnnualSalary, Is.EqualTo(123456L));
+            Assert.That(original.CardId, Is.EqualTo(previous.CardId));
+            var reverted = resolver.CreateActiveRosterContracts(roster, new WorldCardCatalog(seasons, cards), 1, result);
+            Assert.That(Array.Find(reverted, c => c.CardId == previous.CardId).RemainingSeasons, Is.EqualTo(4));
+        }
+
         private static void CreateWorld(
             out CurrentRosterState player,
             out CurrentRosterState partner,

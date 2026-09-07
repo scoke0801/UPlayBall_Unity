@@ -27,6 +27,18 @@ namespace Baseball.Game.Historical
             return result;
         }
 
+        /// <summary>만료 임박 선수의 일괄 연장 조건을 조회한다.</summary>
+        public OwnerContractBatchPreview PreviewExpiringPlayerContractRenewals(int seasons) =>
+            RequirePlayerMarketService().PreviewExpiringRenewals(RequireRuntime(), seasons);
+
+        /// <summary>만료 임박 선수의 계약을 일괄 연장하고 화면을 갱신한다.</summary>
+        public OwnerContractBatchPreview RenewExpiringPlayerContracts(int seasons)
+        {
+            OwnerContractBatchPreview result = RequirePlayerMarketService().RenewExpiringContracts(RequireRuntime(), seasons);
+            if (result.CanCommit) NotifyRuntimeChanged();
+            return result;
+        }
+
         public OwnerTradePreview PreviewPlayerTrade(
             string partnerTeamSeasonKey,
             string outgoingCardId,

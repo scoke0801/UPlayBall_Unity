@@ -85,7 +85,7 @@
   각각 탐색 경계로 삼아 바깥 방향 Button을 비활성화한다.
 - 프리셋은 상단 Toolbar에서 선택하고 같은 Preview 계약을 쓴다. TeamColor 2슬롯과 Tactic 2슬롯은
   각각 `Owner.Roster.TeamColor`, `Owner.Roster.TacticCards`에서 편집한다.
-- Active Roster 등록 변경은 선수 오더의 명시적 `배치 저장`으로만 확정하며 `ActiveRosterValidator`와 `ValidateLineupPreset`을 모두 통과해야 한다.
+- Active Roster 등록 변경은 선수 오더의 명시적 `배치 저장`으로만 확정하며 `ActiveRosterValidator`와 `ValidateLineupPreset`을 모두 통과해야 한다. 확정 시 기존 1군 계약은 보존하고 새 등록 선수의 1년 계약을 생성해 현재 25인과 계약 `CardId`를 같은 Aggregate에서 교체한다.
 
 ### 4.2 `Owner.Roster.TacticCards`
 

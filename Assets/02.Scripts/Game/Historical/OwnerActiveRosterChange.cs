@@ -219,10 +219,12 @@ namespace Baseball.Game.Historical
     {
         internal void ApplyPlayerActiveRosterChange(
             CurrentRosterState replacement,
-            TeamSeasonPlayerStatusState playerStatus)
+            TeamSeasonPlayerStatusState playerStatus,
+            IReadOnlyList<OwnerPlayerContractState> playerContracts)
         {
             if (replacement == null) throw new ArgumentNullException(nameof(replacement));
             if (playerStatus == null) throw new ArgumentNullException(nameof(playerStatus));
+            if (playerContracts == null) throw new ArgumentNullException(nameof(playerContracts));
             if (!string.Equals(replacement.TeamSeasonKey, PlayerTeamSeasonKey, StringComparison.Ordinal) ||
                 !string.Equals(playerStatus.TeamSeasonKey, PlayerTeamSeasonKey, StringComparison.Ordinal))
                 throw new InvalidOperationException("플레이어 구단의 1군만 이 경로에서 변경할 수 있습니다.");
@@ -239,6 +241,8 @@ namespace Baseball.Game.Historical
                 playerStatus.GetRequiredPlayer(entry.PlayerPersonId);
             }
 
+            // 로스터와 계약은 외부에서 어느 한쪽만 관찰할 수 없도록 같은 Aggregate 변경에서 교체한다.
+            ManagerMode.ReplacePlayerMarketState(playerContracts, ManagerMode.TradeReceipts);
             int rosterIndex = FindRosterIndex(PlayerTeamSeasonKey);
             _rosters[rosterIndex] = replacement;
             _rostersByTeamSeasonKey[PlayerTeamSeasonKey] = replacement;

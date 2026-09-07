@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Historical;
 
 namespace Baseball.Simulation.Historical
@@ -102,22 +103,87 @@ namespace Baseball.Simulation.Historical
             for (int index = 0; index < result.Length; index++)
             {
                 ActiveRosterEntry entry = roster.Entries[index];
-                PlayerCardDefinition card = GetCard(catalog, entry.CardId);
-                PlayerSeasonDefinition playerSeason = catalog.GetPlayerSeason(card);
-                // 첫 시즌은 기존 로스터를 평가할 시간으로 보장하고, 이후 만료 시점만 결정론적으로 분산한다.
-                int years = _balance.MaximumContractSeasons == 1
-                    ? 1
-                    : 2 + PositiveStableHash(entry.CardId) % (_balance.MaximumContractSeasons - 1);
-                long salary = _balance.GetAnnualSalary(playerSeason.Cost, card.Edition, years);
-                result[index] = new OwnerPlayerContractState(
-                    $"player-contract:{entry.CardId}:{season:D4}",
-                    entry.CardId,
-                    season,
-                    years,
-                    salary);
+                result[index] = CreateInitialContract(entry.CardId, catalog, season);
             }
             Array.Sort(result, (left, right) => string.CompareOrdinal(left.CardId, right.CardId));
             return result;
+        }
+
+        /// <summary>1군 등록 변경 뒤 기존 선수 계약은 보존하고 새 등록 선수만 1년 계약으로 채운다.</summary>
+        public OwnerPlayerContractState[] CreateActiveRosterContracts(
+            CurrentRosterState roster,
+            WorldCardCatalog catalog,
+            int season,
+            IReadOnlyList<OwnerPlayerContractState> existingContracts)
+        {
+            if (roster == null) throw new ArgumentNullException(nameof(roster));
+            if (catalog == null) throw new ArgumentNullException(nameof(catalog));
+            if (existingContracts == null) throw new ArgumentNullException(nameof(existingContracts));
+
+            var result = new OwnerPlayerContractState[roster.Entries.Count];
+            for (int rosterIndex = 0; rosterIndex < result.Length; rosterIndex++)
+            {
+                string cardId = roster.Entries[rosterIndex].CardId;
+                OwnerPlayerContractState existing = null;
+                for (int contractIndex = 0; contractIndex < existingContracts.Count; contractIndex++)
+                {
+                    OwnerPlayerContractState candidate = existingContracts[contractIndex] ??
+                        throw new ArgumentException("null 선수 계약이 있습니다.", nameof(existingContracts));
+                    if (string.Equals(candidate.CardId, cardId, StringComparison.Ordinal))
+                    {
+                        existing = candidate;
+                        break;
+                    }
+                    // 연도·Edition이 달라도 동일 인물의 계약은 카드 교체로 초기화하지 않는다.
+                    if (!catalog.TryGetCard(candidate.CardId, out PlayerCardDefinition previousCard) ||
+                        !catalog.TryGetCard(cardId, out PlayerCardDefinition nextCard) ||
+                        !string.Equals(catalog.GetPlayerSeason(previousCard).PlayerPersonId,
+                            catalog.GetPlayerSeason(nextCard).PlayerPersonId, StringComparison.Ordinal)) continue;
+                    existing = new OwnerPlayerContractState(candidate.ContractId, cardId,
+                        candidate.StartSeason, candidate.RemainingSeasons, candidate.AnnualSalary,
+                        candidate.LastSalaryPaidSeason);
+                    break;
+                }
+                result[rosterIndex] = existing ?? CreateRosterRegistrationContract(cardId, catalog, season);
+            }
+            Array.Sort(result, (left, right) => string.CompareOrdinal(left.CardId, right.CardId));
+            return result;
+        }
+
+        private OwnerPlayerContractState CreateInitialContract(
+            string cardId,
+            WorldCardCatalog catalog,
+            int season)
+        {
+            PlayerCardDefinition card = GetCard(catalog, cardId);
+            PlayerSeasonDefinition playerSeason = catalog.GetPlayerSeason(card);
+            // 첫 시즌은 기존 로스터를 평가할 시간으로 보장하고, 이후 만료 시점만 결정론적으로 분산한다.
+            int years = _balance.MaximumContractSeasons == 1
+                ? 1
+                : 2 + PositiveStableHash(cardId) % (_balance.MaximumContractSeasons - 1);
+            long salary = _balance.GetAnnualSalary(playerSeason.Cost, card.Edition, years);
+            return new OwnerPlayerContractState(
+                $"player-contract:{cardId}:{season:D4}",
+                cardId,
+                season,
+                years,
+                salary);
+        }
+
+        private OwnerPlayerContractState CreateRosterRegistrationContract(
+            string cardId,
+            WorldCardCatalog catalog,
+            int season)
+        {
+            PlayerCardDefinition card = GetCard(catalog, cardId);
+            PlayerSeasonDefinition playerSeason = catalog.GetPlayerSeason(card);
+            const int registrationContractSeasons = 1;
+            return new OwnerPlayerContractState(
+                $"player-contract:{cardId}:{season:D4}",
+                cardId,
+                season,
+                registrationContractSeasons,
+                _balance.GetAnnualSalary(playerSeason.Cost, card.Edition, registrationContractSeasons));
         }
 
         public OwnerContractRenewalPreview PreviewRenewal(
@@ -158,7 +224,7 @@ namespace Baseball.Simulation.Historical
                 contractSeasons,
                 annualSalary,
                 signingCost,
-                $"{contractSeasons}년 동안 연봉과 계약금을 구단 재정에 반영합니다.");
+                $"{contractSeasons}년 연장하여 잔여 {contract.RemainingSeasons + contractSeasons}년이 됩니다. 연봉은 즉시 변경됩니다.");
         }
 
         public OwnerTradePreview PreviewTrade(

@@ -209,6 +209,14 @@ namespace Baseball.Tests.EditMode.Game.Historical
             CurrentRosterState saved = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
             Assert.That(ContainsCard(saved, incoming[0].CardId), Is.True);
             Assert.That(ContainsCard(saved, incoming[1].CardId), Is.True);
+            Assert.That(runtime.ManagerMode.PlayerContracts.Count, Is.EqualTo(saved.Entries.Count));
+            Assert.That(runtime.ManagerMode.GetPlayerContract(incoming[0].CardId), Is.Not.Null);
+            Assert.That(runtime.ManagerMode.GetPlayerContract(incoming[1].CardId), Is.Not.Null);
+            Assert.That(runtime.ManagerMode.GetPlayerContract(incoming[0].CardId).RemainingSeasons, Is.EqualTo(1));
+            Assert.That(runtime.ManagerMode.GetPlayerContract(incoming[1].CardId).RemainingSeasons, Is.EqualTo(1));
+            Assert.Throws<KeyNotFoundException>(() =>
+                runtime.ManagerMode.GetPlayerContract(outgoing[0].CardId));
+            Assert.DoesNotThrow(() => manager.GetPlayerContracts());
         }
 
         [Test]
