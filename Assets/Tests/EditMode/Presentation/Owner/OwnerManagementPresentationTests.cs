@@ -9,6 +9,7 @@ using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
@@ -17,6 +18,51 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     public sealed class OwnerManagementPresentationTests
     {
         private GameObject _root;
+
+        [Test]
+        public void OwnerPowerUpView_대량상품도선택확률만조회하고페이지버튼수를제한한다()
+        {
+            int queries = 0;
+            var products = new OwnerScoutProductSnapshot[1200];
+            for (int index = 0; index < products.Length; index++)
+                products[index] = new OwnerScoutProductSnapshot(
+                    "product" + index, "스카우트", "범위" + index, "SP 100", true, "",
+                    1, 0, 100, 1, 8, null, () =>
+                    {
+                        queries++;
+                        return new[] { new OwnerScoutProbabilitySnapshot("Cost 5 · 일반", 1d) };
+                    });
+            Assert.That(queries, Is.Zero);
+            var view = UI_Scene_OwnerPowerUp.CreateRuntime(_root.GetComponent<RectTransform>());
+            var snapshot = new OwnerPowerUpSnapshot(
+                new OwnerScoutScreenSnapshot(products, "SP 1000"),
+                new OwnerCardTrainingScreenSnapshot(Array.Empty<OwnerCardTrainingTargetSnapshot>(), 0),
+                new OwnerEnhancementSaleScreenSnapshot(Array.Empty<OwnerEnhancementSaleTargetSnapshot>(), 0));
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            view.Bind(snapshot);
+            watch.Stop();
+            TestContext.WriteLine($"전력보강 1,200상품 Bind: {watch.Elapsed.TotalMilliseconds:F2} ms");
+            Assert.That(queries, Is.EqualTo(1));
+            Transform scout = _root.transform.Find(
+                "OwnerPowerUpWorkspace/PowerUpPanel/ContentSafeRect/ScoutContent/ScoutReference");
+            Transform pins = scout.Find("KoreaMap/ScoutProductPins");
+            Assert.That(pins.GetComponentsInChildren<Button>(true).Length, Is.EqualTo(8));
+            pins.Find("NextMapPage").GetComponent<Button>().onClick.Invoke();
+            Assert.That(pins.Find("Scout_product6"), Is.Not.Null);
+            pins.Find("Scout_product6").GetComponent<Button>().onClick.Invoke();
+            Assert.That(queries, Is.EqualTo(2));
+            Assert.That(products[6].Probabilities[0].Probability, Is.EqualTo(1d));
+            Assert.That(queries, Is.EqualTo(2));
+            scout.Find("ScoutPolicy").GetComponent<Button>().onClick.Invoke();
+            Transform options = scout.GetComponentInChildren<Transform>(true);
+            foreach (Transform child in scout.GetComponentsInChildren<Transform>(true))
+                if (child.name == "PolicyOptions") options = child;
+            Assert.That(options.GetComponentsInChildren<Button>(true).Length, Is.EqualTo(12));
+            options.Find("NextPolicyPage").GetComponent<Button>().onClick.Invoke();
+            Assert.That(options.Find("PolicyChoice10"), Is.Not.Null);
+            Assert.That(queries, Is.EqualTo(2));
+            UnityEngine.Object.DestroyImmediate(view.gameObject);
+        }
 
         [Test]
         public void TeamColorView_스킨재적용후에도슬롯과동적목록의카드대비를보존한다()
@@ -152,7 +198,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void ClubView_레퍼런스구장화면과선택팝업을표시하고기존Command의도를유지한다()
+        public void ClubView_시설작업면의중복Command를제거하고시설목록을확장한다()
         {
             UI_Scene_OwnerClubOperations view = UI_Scene_OwnerClubOperations.CreateRuntime(_root.transform);
             OwnerClubOperationPresentationModel model =
@@ -160,13 +206,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             FacilityType? requestedFacility = null;
             TicketPriceTier? requestedTicket = null;
             int weekAdvanceRequests = 0;
-            int saveRequests = 0;
-            int loadRequests = 0;
             view.FacilityUpgradeRequested += type => requestedFacility = type;
             view.TicketPolicyRequested += tier => requestedTicket = tier;
             view.WeekAdvanceRequested += () => weekAdvanceRequests++;
-            view.SaveRequested += () => saveRequests++;
-            view.LoadRequested += () => loadRequests++;
 
             view.Bind(model);
 
@@ -196,11 +238,16 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Is.EqualTo(CareerUiTheme.ReferenceCanvas.r).Within(0.001f));
             Assert.That(facility.GetComponent<Image>().color.r,
                 Is.EqualTo(CareerUiTheme.ReferencePanel.r).Within(0.001f));
+            Transform facilityContent = view.transform.Find("FacilityPanel/ContentSafeRect");
+            Assert.That(facilityContent.Find("AdvanceWeek"), Is.Null);
+            Assert.That(facilityContent.Find("Save"), Is.Null);
+            Assert.That(facilityContent.Find("Load"), Is.Null);
+            RectTransform facilityList = facilityContent.Find("FacilityList").GetComponent<RectTransform>();
+            Assert.That(facilityList.anchorMax.y, Is.EqualTo(0.93f).Within(0.001f));
+            GridLayoutGroup facilityGrid = facilityList.Find("Viewport/Content").GetComponent<GridLayoutGroup>();
+            Assert.That(facilityGrid.cellSize.y, Is.EqualTo(244f).Within(0.001f));
             facility.Find("Upgrade").GetComponent<Button>().onClick.Invoke();
             view.transform.Find("ClubSummaryPanel/ContentSafeRect/Ticket_Cheap").GetComponent<Button>().onClick.Invoke();
-            view.transform.Find("FacilityPanel/ContentSafeRect/AdvanceWeek").GetComponent<Button>().onClick.Invoke();
-            view.transform.Find("FacilityPanel/ContentSafeRect/Save").GetComponent<Button>().onClick.Invoke();
-            view.transform.Find("FacilityPanel/ContentSafeRect/Load").GetComponent<Button>().onClick.Invoke();
 
             view.ShowRoute(OwnerManagementRoutes.ClubFinance);
             Assert.That(view.transform.Find("FacilityPanel").gameObject.activeSelf, Is.False);
@@ -220,14 +267,15 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Is.EqualTo(model.SeasonFinance.AttendanceText));
             Assert.That(finance.Find("FanBaseMetric/MeterTrack/Fill").GetComponent<RectTransform>().anchorMax.x,
                 Is.EqualTo((float)model.Snapshot.FanBase / 100f).Within(.001f));
-            view.transform.Find("ClubSummaryPanel/ContentSafeRect/FinanceAdvanceWeek")
-                .GetComponent<Button>().onClick.Invoke();
+            Assert.That(finance.Find("FinanceSave"), Is.Null);
+            Assert.That(finance.Find("FinanceLoad"), Is.Null);
+            Button settlement = finance.Find("FinanceAdvanceWeek").GetComponent<Button>();
+            Assert.That(settlement.transform.Find("Label").GetComponent<Text>().text, Is.EqualTo("결산"));
+            settlement.onClick.Invoke();
 
             Assert.That(requestedFacility, Is.EqualTo(FacilityType.ScoutingCenter));
             Assert.That(requestedTicket, Is.EqualTo(TicketPriceTier.Cheap));
-            Assert.That(weekAdvanceRequests, Is.EqualTo(2));
-            Assert.That(saveRequests, Is.EqualTo(1));
-            Assert.That(loadRequests, Is.EqualTo(1));
+            Assert.That(weekAdvanceRequests, Is.EqualTo(1));
         }
 
         [Test]
@@ -356,8 +404,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(trainingCardGrid.GetComponent<VerticalLayoutGroup>(), Is.Null);
             Transform trainingProgramGrid = workspace.Find(
                 "TrainingContent/TrainingPrograms/ContentSafeRect/ProgramScroll/Viewport/Content");
-            Assert.That(trainingProgramGrid.GetComponent<GridLayoutGroup>(), Is.Not.Null);
-            Assert.That(trainingProgramGrid.GetComponent<VerticalLayoutGroup>(), Is.Null);
+            Assert.That(trainingProgramGrid.GetComponent<GridLayoutGroup>(), Is.Null);
+            Assert.That(trainingProgramGrid.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
             Assert.That(workspace.Find("EnhancementSaleContent/ReferenceReinforcement/RegistrationFrame/RegistrationSlot0/TargetCard")
                 .GetComponent<Baseball.Presentation.SharedUI.PlayerMiniCardView>(), Is.Not.Null);
             Assert.That(workspace.Find("EnhancementSaleContent/ReferenceReinforcement/RegistrationFrame/RegistrationSlot1/MaterialCard")
@@ -391,11 +439,16 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 "TrainingTargets/ContentSafeRect/CardScroll/Viewport/Content/Card_training-card");
             Transform selectedCard = training.Find(
                 "TrainingCard/ContentSafeRect/SelectedTrainingCard");
+            VerticalLayoutGroup selectedCardLayout = selectedCard.parent.GetComponent<VerticalLayoutGroup>();
 
             Assert.That(miniCard.GetComponent<PlayerMiniCardView>(), Is.Not.Null);
+            Assert.That(miniCard.Find("Portrait").GetComponent<Image>().sprite,
+                Is.Not.Null);
+            Assert.That(miniCard.Find("Portrait").gameObject.activeSelf, Is.True);
             Assert.That(miniCard.Find("LineupSubFrame").GetComponent<Image>().sprite.name,
                 Is.EqualTo("PlayerCard_Mini_Reference"));
             Assert.That(selectedCard.GetComponent<PlayerMiniCardView>(), Is.Null);
+            Assert.That(selectedCardLayout.padding.top, Is.EqualTo((int)(CareerUiTheme.Space4 * 3f)));
             Transform selectedCardFront = selectedCard.Find("CardFront");
             Assert.That(selectedCardFront.GetComponent<AspectRatioFitter>().aspectRatio, Is.EqualTo(2f / 3f));
             CareerUiSkin.Apply(training);
@@ -407,6 +460,55 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(selectedCardFront.Find("Ability0").GetComponent<Text>().color, Is.EqualTo(Color.white));
 
             UnityEngine.Object.DestroyImmediate(view.gameObject);
+        }
+
+        [Test]
+        public void OwnerPowerUpView_훈련비용과차단사유를표시하고확인후에만실행한다()
+        {
+            var card = new OwnerCollectionCardSnapshot("training-card", "person", "훈련선수", 2025,
+                PlayerPosition.Shortstop, 7, PlayerCardEdition.Normal, 1, 1, false, false);
+            var target = new OwnerCardTrainingTargetSnapshot(card, new[]
+            {
+                new OwnerCardTrainingProgramSnapshot("available", "교타력", default, 58, 61, 1, 12, true, ""),
+                new OwnerCardTrainingProgramSnapshot("blocked", "장타력", default, 70, 70, 0, 12, false, "훈련 상한 도달")
+            });
+            UI_Scene_OwnerPowerUp view = UI_Scene_OwnerPowerUp.CreateRuntime(_root.GetComponent<RectTransform>());
+            try
+            {
+                var scout = new OwnerScoutScreenSnapshot(Array.Empty<OwnerScoutProductSnapshot>(), "SP 0");
+                var enhancement = new OwnerEnhancementSaleScreenSnapshot(Array.Empty<OwnerEnhancementSaleTargetSnapshot>(), 0);
+                view.Bind(new OwnerPowerUpSnapshot(scout, new OwnerCardTrainingScreenSnapshot(new[] { target }, 100), enhancement));
+                view.ShowRoute(OwnerNavigationRoutes.PowerUpTraining);
+                Transform workspace = _root.transform.Find("OwnerPowerUpWorkspace");
+                Transform programs = workspace.Find("PowerUpPanel/ContentSafeRect/TrainingContent/TrainingPrograms/ContentSafeRect");
+                Transform list = programs.Find("ProgramScroll/Viewport/Content");
+                Assert.That(list.Find("Program_available/GrowthPreview").GetComponent<Text>().text, Does.Contain("58 → 59"));
+                Assert.That(list.Find("Program_available/TrainingCost").GetComponent<Text>().text, Does.Contain("12"));
+                Assert.That(list.Find("Program_blocked/TrainingCost").GetComponent<Text>().text, Is.EqualTo("훈련 상한 도달"));
+                var execute = programs.Find("TrainingExecute").GetComponent<Button>();
+                int requests = 0;
+                view.TrainingRequested += (cardId, programId) =>
+                {
+                    Assert.That(cardId, Is.EqualTo(card.CardId));
+                    Assert.That(programId, Is.EqualTo("available"));
+                    requests++;
+                };
+                execute.onClick.Invoke();
+                Assert.That(requests, Is.Zero);
+                workspace.Find("PowerUpConfirmation/ConfirmationCard/ConfirmationActions/Confirm")
+                    .GetComponent<Button>().onClick.Invoke();
+                Assert.That(requests, Is.EqualTo(1));
+                list.Find("Program_blocked").GetComponent<Button>().onClick.Invoke();
+                Assert.That(execute.interactable, Is.False);
+                view.Bind(new OwnerPowerUpSnapshot(scout,
+                    new OwnerCardTrainingScreenSnapshot(Array.Empty<OwnerCardTrainingTargetSnapshot>(), 0), enhancement));
+                Assert.That(list.childCount, Is.Zero);
+                Assert.That(execute.interactable, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+            }
         }
 
         [Test]
@@ -481,6 +583,89 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(enhance.interactable, Is.False);
             enhance.onClick.Invoke();
             Assert.That(requests, Is.EqualTo(1));
+            UnityEngine.Object.DestroyImmediate(view.gameObject);
+        }
+
+        [Test]
+        public void OwnerPowerUpView_합성목록카드를좌클릭하면즉시등록한다()
+        {
+            var card = new OwnerCollectionCardSnapshot("card", "person", "검증선수", 2025,
+                PlayerPosition.Shortstop, 7, PlayerCardEdition.Normal, 0, 1, false, false);
+            UI_Scene_OwnerPowerUp view = UI_Scene_OwnerPowerUp.CreateRuntime(_root.GetComponent<RectTransform>());
+            view.Bind(new OwnerPowerUpSnapshot(
+                new OwnerScoutScreenSnapshot(Array.Empty<OwnerScoutProductSnapshot>(), "SP 0"),
+                new OwnerCardTrainingScreenSnapshot(Array.Empty<OwnerCardTrainingTargetSnapshot>(), 0),
+                new OwnerEnhancementSaleScreenSnapshot(new[]
+                {
+                    new OwnerEnhancementSaleTargetSnapshot(card,
+                        new CardEnhancementPreview(0, 1, 1, CardEnhancementResult.Enhanced),
+                        Array.Empty<CardSalePreview>())
+                }, 0)));
+            view.ShowRoute(OwnerNavigationRoutes.PowerUpEnhancementSale);
+
+            Transform board = _root.transform.Find(
+                "OwnerPowerUpWorkspace/PowerUpPanel/ContentSafeRect/EnhancementSaleContent/ReferenceReinforcement");
+            PlayerMiniCardView inventoryCard = board.Find(
+                "EnhancementInventory/Viewport/Content/Card_card").GetComponent<PlayerMiniCardView>();
+
+            inventoryCard.GetComponent<Button>().onClick.Invoke();
+
+            Assert.That(board.Find("Enhance").GetComponent<Button>().interactable, Is.True);
+            Assert.That(board.Find("RegistrationFrame/RegistrationSlot0/TargetCard").gameObject.activeSelf, Is.True);
+            Assert.That(board.Find("RegistrationFrame/RegistrationSlot1/MaterialCard").gameObject.activeSelf, Is.True);
+            Assert.That(board.Find("EnhancementDetails").GetComponent<Text>().text, Does.Contain("+0 → +1"));
+            UnityEngine.Object.DestroyImmediate(view.gameObject);
+        }
+
+        [Test]
+        public void OwnerPowerUpView_합성카드에초상화를표시하고우클릭상세를연다()
+        {
+            _root.AddComponent<Canvas>();
+            var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem));
+            eventSystemObject.transform.SetParent(_root.transform, false);
+            var card = new OwnerCollectionCardSnapshot("card-face", "person-face", "얼굴검증선수", 2025,
+                PlayerPosition.Shortstop, 7, PlayerCardEdition.Normal, 0, 1, false, false);
+            UI_Scene_OwnerPowerUp view = UI_Scene_OwnerPowerUp.CreateRuntime(_root.GetComponent<RectTransform>());
+            view.Bind(new OwnerPowerUpSnapshot(
+                new OwnerScoutScreenSnapshot(Array.Empty<OwnerScoutProductSnapshot>(), "SP 0"),
+                new OwnerCardTrainingScreenSnapshot(Array.Empty<OwnerCardTrainingTargetSnapshot>(), 0),
+                new OwnerEnhancementSaleScreenSnapshot(new[]
+                {
+                    new OwnerEnhancementSaleTargetSnapshot(card,
+                        new CardEnhancementPreview(0, 1, 1, CardEnhancementResult.Enhanced),
+                        Array.Empty<CardSalePreview>())
+                }, 0)));
+            view.ShowRoute(OwnerNavigationRoutes.PowerUpEnhancementSale);
+
+            Transform board = _root.transform.Find(
+                "OwnerPowerUpWorkspace/PowerUpPanel/ContentSafeRect/EnhancementSaleContent/ReferenceReinforcement");
+            PlayerMiniCardView inventoryCard = board.Find(
+                "EnhancementInventory/Viewport/Content/Card_card-face").GetComponent<PlayerMiniCardView>();
+            Assert.That(inventoryCard.transform.Find("Portrait").GetComponent<Image>().sprite, Is.Not.Null);
+
+            var rightClick = new PointerEventData(eventSystemObject.GetComponent<EventSystem>())
+            {
+                button = PointerEventData.InputButton.Right
+            };
+            inventoryCard.OnPointerClick(rightClick);
+            Transform popup = _root.transform.Find(nameof(UI_Popup_OwnerPlayerCard));
+            Assert.That(popup, Is.Not.Null);
+            Assert.That(popup.Find("CardDetail/Front/Name").GetComponent<Text>().text, Is.EqualTo("얼굴검증선수"));
+
+            board.Find("RegistrationFrame/Register").GetComponent<Button>().onClick.Invoke();
+            PlayerMiniCardView targetCard = board.Find(
+                "RegistrationFrame/RegistrationSlot0/TargetCard").GetComponent<PlayerMiniCardView>();
+            PlayerMiniCardView materialCard = board.Find(
+                "RegistrationFrame/RegistrationSlot1/MaterialCard").GetComponent<PlayerMiniCardView>();
+            Assert.That(targetCard.transform.Find("Portrait").GetComponent<Image>().sprite, Is.Not.Null);
+            Assert.That(materialCard.transform.Find("Portrait").GetComponent<Image>().sprite, Is.Not.Null);
+            targetCard.OnPointerClick(rightClick);
+            Assert.That(_root.transform.Find(nameof(UI_Popup_OwnerPlayerCard)), Is.Not.Null);
+            materialCard.OnPointerClick(rightClick);
+            Assert.That(_root.transform.Find(nameof(UI_Popup_OwnerPlayerCard)), Is.Not.Null);
+
+            _root.transform.Find(nameof(UI_Popup_OwnerPlayerCard))
+                .GetComponent<UI_Popup_OwnerPlayerCard>().Close();
             UnityEngine.Object.DestroyImmediate(view.gameObject);
         }
 
@@ -586,6 +771,78 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(detail.text, Does.Contain("장타 +1"));
             Assert.That(detail.text, Does.Contain("제구 +3"));
             Assert.That(detail.text, Does.Not.Contain("구속 +9"));
+        }
+
+        [Test]
+        public void TeamColorSummary_역할의모든능력치가같이오르면올스탯으로축약한다()
+        {
+            var first = new TeamColorDefinition(
+                "ALL_STATS_FIRST",
+                TeamColorFamily.Year,
+                1,
+                TeamColorStatBonus.AllForRole(PlayerRole.Hitter, 5),
+                TeamColorStatBonus.AllForRole(PlayerRole.Pitcher, 2),
+                originYear: 2025,
+                displayName: "같은 계절의 시작");
+            var second = new TeamColorDefinition(
+                "ALL_STATS_SECOND",
+                TeamColorFamily.Generation,
+                1,
+                TeamColorStatBonus.AllForRole(PlayerRole.Hitter, 3),
+                TeamColorStatBonus.AllForRole(PlayerRole.Pitcher, 3),
+                displayName: "이어지는 유니폼");
+            var candidates = new[]
+            {
+                new OwnerTeamColorCandidateSnapshot(first, 1, new[] { "김선수" }, true),
+                new OwnerTeamColorCandidateSnapshot(second, 1, new[] { "이선수" }, true)
+            };
+
+            string result = OwnerDugoutLoadoutPresentationBuilder.DescribeActiveTeamColorEffects(
+                new[] { first.TeamColorId, second.TeamColorId },
+                candidates);
+
+            Assert.That(result, Does.Contain("야수: 올 스탯 +8"));
+            Assert.That(result, Does.Contain("투수: 올 스탯 +5"));
+            Assert.That(result, Does.Not.Contain("야수 체력"));
+            Assert.That(result, Does.Not.Contain("투수 체력"));
+        }
+
+        [Test]
+        public void TeamColorDetail_합계대신타자와투수1명당효과를표시한다()
+        {
+            var definition = new TeamColorDefinition(
+                "PER_PLAYER_EFFECT",
+                TeamColorFamily.Year,
+                25,
+                TeamColorStatBonus.AllForRole(PlayerRole.Hitter, 10),
+                TeamColorStatBonus.AllForRole(PlayerRole.Pitcher, 7),
+                originYear: 2004);
+
+            string result = OwnerDugoutLoadoutPresentationBuilder.DescribeTeamColorEffect(definition);
+
+            Assert.That(result, Does.Contain("타자 1명당 전체 능력치 +10"));
+            Assert.That(result, Does.Contain("투수 1명당 전체 능력치 +7"));
+            Assert.That(result, Does.Not.Contain("보너스 합"));
+            Assert.That(result, Does.Not.Contain("60"));
+            Assert.That(result, Does.Not.Contain("42"));
+        }
+
+        [Test]
+        public void TeamColorDetail_복합효과는능력치별상승량을표시한다()
+        {
+            var definition = new TeamColorDefinition(
+                "MIXED_PER_PLAYER_EFFECT",
+                TeamColorFamily.Generation,
+                6,
+                TeamColorStatBonus.Create(
+                    new AbilityBonus(PlayerAbility.Contact, 2),
+                    new AbilityBonus(PlayerAbility.Power, 1)),
+                TeamColorStatBonus.Create(new AbilityBonus(PlayerAbility.Control, 3)));
+
+            string result = OwnerDugoutLoadoutPresentationBuilder.DescribeTeamColorEffect(definition);
+
+            Assert.That(result, Does.Contain("타자 1명당 컨택 +2 · 장타 +1"));
+            Assert.That(result, Does.Contain("투수 1명당 제구 +3"));
         }
 
         [Test]

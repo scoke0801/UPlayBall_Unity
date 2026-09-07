@@ -64,6 +64,7 @@ namespace Baseball.Presentation.Owner
                     index == 0 ? "TargetCard" : "MaterialCard");
                 card.UseLineupSlotLayout();
                 OwnerRuntimeUiFactory.Stretch(card.GetComponent<RectTransform>(), new Vector2(3, 3), new Vector2(-3, -3));
+                card.DetailRequested += _ => ShowEnhancementCardDetail(_selectedEnhancementCardId);
                 if (index == 0) _enhancementCard = card;
                 else _enhancementMaterialCard = card;
             }

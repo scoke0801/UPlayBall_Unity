@@ -162,7 +162,7 @@ namespace Baseball.Presentation.Owner
         {
             if (_feedback == null) return;
             _feedback.text = message ?? string.Empty;
-            _feedback.color = isError ? CareerUiTheme.Error : CareerUiTheme.ReferenceAccent;
+            _feedback.color = isError ? CareerUiTheme.Error : new Color32(210, 225, 242, 255);
         }
 
         /// <summary>이미 확정된 Scout 결과를 신규·중복 상태와 함께 Reveal한다.</summary>
@@ -178,6 +178,7 @@ namespace Baseball.Presentation.Owner
             _root = OwnerWorkspaceUiFactory.CreateRoot(host, "OwnerPowerUpWorkspace", true);
             OwnerWorkspaceUiFactory.Panel panel = OwnerWorkspaceUiFactory.CreatePanel(
                 _root, "PowerUpPanel", "전력보강 센터");
+            panel.Root.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.TexturedPanel);
             OwnerRuntimeUiFactory.Stretch(panel.Root,
                 new Vector2(CareerUiTheme.Space4, CareerUiTheme.Space4),
                 new Vector2(-CareerUiTheme.Space4, -CareerUiTheme.Space4));
@@ -204,37 +205,96 @@ namespace Baseball.Presentation.Owner
         {
             HorizontalLayoutGroup columns = OwnerWorkspaceUiFactory.AddHorizontalLayout(_trainingRoot, CareerUiTheme.Space2);
             columns.padding = new RectOffset(0, 0, 0, 38);
-            RectTransform left = CreateColumn(_trainingRoot, "TrainingTargets", 0.35f, "보유 선수 카드");
+            _trainingRoot.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            RectTransform left = CreateTrainingColumn("TrainingTargets", 0.34f, "01  보유 선수 카드");
             OwnerWorkspaceUiFactory.AddVerticalLayout(left, CareerUiTheme.Space2);
             _trainingCardCount = CreateFixedText(left, "TrainingCardCount", 30f, 13, FontStyle.Bold, TextAnchor.MiddleRight);
-            _trainingCardList = CreateGridScrollContent(left, 3, new Vector2(82f, 150f));
-            RectTransform center = CreateColumn(_trainingRoot, "TrainingCard", 0.25f, "선택한 선수");
-            OwnerWorkspaceUiFactory.AddVerticalLayout(center, CareerUiTheme.Space2);
+            _trainingCardCount.color = new Color32(210, 220, 233, 255);
+            _trainingCardList = CreateGridScrollContent(left, 3, new Vector2(102f, 153f));
+            StyleTrainingScroll(_trainingCardList);
+            RectTransform center = CreateTrainingColumn("TrainingCard", 0.30f, "02  선택한 선수");
+            VerticalLayoutGroup centerLayout =
+                OwnerWorkspaceUiFactory.AddVerticalLayout(center, CareerUiTheme.Space2);
+            centerLayout.padding = new RectOffset(0, 0, (int)(CareerUiTheme.Space4 * 3f), 0);
             _trainingCard = OwnerRuntimeUiFactory.CreateRect("SelectedTrainingCard", center);
-            SetPreferred(_trainingCard, 420f);
+            SetPreferred(_trainingCard, 260f, 1f);
             _trainingCardFront = OwnerRuntimeUiFactory.CreateRect("CardFront", _trainingCard);
             OwnerRuntimeUiFactory.Stretch(_trainingCardFront);
             _trainingCardFront.gameObject.AddComponent<CareerUiPreserveTextColor>();
             var cardAspect = _trainingCardFront.gameObject.AddComponent<AspectRatioFitter>();
             cardAspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             cardAspect.aspectRatio = 2f / 3f;
-            _trainingDetails = CreateFlexibleText(center, "TrainingCardDetails");
-            RectTransform right = CreateColumn(_trainingRoot, "TrainingPrograms", 0.40f, "훈련 프로그램");
+            _trainingDetails = CreateFixedText(center, "TrainingCardDetails", 140f, 15, FontStyle.Normal, TextAnchor.UpperLeft);
+            _trainingDetails.color = Color.white;
+            RectTransform right = CreateTrainingColumn("TrainingPrograms", 0.36f, "03  훈련 프로그램");
             OwnerWorkspaceUiFactory.AddVerticalLayout(right, CareerUiTheme.Space2);
-            _trainingWallet = CreateFixedText(right, "TrainingWallet", 24f, 15, FontStyle.Bold, TextAnchor.MiddleRight);
-            ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalGridScroll(
-                "ProgramScroll", right, 2, new Vector2(150f, 66f), 8f, out _trainingProgramList);
+            _trainingWallet = CreateFixedText(right, "TrainingWallet", 36f, 16, FontStyle.Bold, TextAnchor.MiddleRight);
+            _trainingWallet.color = new Color32(241, 206, 132, 255);
+            Text hint = CreateFixedText(right, "TrainingHint", 26f, 12, FontStyle.Normal, TextAnchor.MiddleLeft);
+            hint.text = "성장 수치와 소모 포인트를 확인하고 훈련을 선택하세요.";
+            hint.color = new Color32(210, 220, 233, 255);
+            ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll(
+                "ProgramScroll", right, out _trainingProgramList);
+            StyleTrainingScroll(_trainingProgramList);
             SetPreferred(scroll.GetComponent<RectTransform>(), 230f, 1f);
             _trainingExecuteButton = OwnerWorkspaceUiFactory.CreateButton(
                 right, "TrainingExecute", "선택 훈련 적용", RequestTraining);
+            SetPreferred(_trainingExecuteButton.GetComponent<RectTransform>(), 54f);
+            OwnerUiButtonSkin.Apply(_trainingExecuteButton, OwnerButtonRole.Primary);
         }
 
+        private RectTransform CreateTrainingColumn(string name, float width, string title)
+        {
+            RectTransform content = CreateColumn(_trainingRoot, name, width, title);
+            Transform panel = content.parent;
+            panel.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.TexturedPanel);
+            panel.Find("HeaderSurface").gameObject.SetActive(false);
+            panel.GetComponent<CareerUiFrame>().HeaderRoot.GetComponent<Text>().color = Color.white;
+            return content;
+        }
+
+        private static void StyleTrainingScroll(RectTransform content)
+        {
+            Image surface = content.GetComponentInParent<ScrollRect>().GetComponent<Image>();
+            surface.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            surface.color = new Color32(15, 24, 37, 235);
+        }
+
+        private void CreateTrainingProgramButton(OwnerCardTrainingProgramSnapshot program, bool selected)
+        {
+            Button button = OwnerWorkspaceUiFactory.CreateButton(_trainingProgramList,
+                "Program_" + program.ProgramId, program.Title, () => SelectTrainingProgram(program.ProgramId));
+            RectTransform root = button.GetComponent<RectTransform>();
+            SetPreferred(root, 94f);
+            OwnerUiButtonSkin.SetSelected(button, selected);
+            Text title = button.transform.Find("Label").GetComponent<Text>();
+            OwnerRuntimeUiFactory.SetAnchors(title.rectTransform, new Vector2(0f, .61f), Vector2.one,
+                new Vector2(16f, 0f), new Vector2(-16f, -6f));
+            title.alignment = TextAnchor.MiddleLeft;
+            title.fontSize = 15;
+            title.text = (selected ? "●  " : string.Empty) + program.Title;
+            Color ink = selected ? Color.white : new Color32(28, 43, 62, 255);
+            Text preview = OwnerWorkspaceUiFactory.CreateText(root, "GrowthPreview",
+                $"{program.Current} → {program.Current + program.GainedPoints}   /   상한 {program.Ceiling}",
+                15, FontStyle.Bold, TextAnchor.MiddleLeft);
+            preview.color = ink;
+            OwnerRuntimeUiFactory.SetAnchors(preview.rectTransform, new Vector2(0f, .31f), new Vector2(1f, .62f),
+                new Vector2(16f, 0f), new Vector2(-16f, 0f));
+            Text cost = OwnerWorkspaceUiFactory.CreateText(root, "TrainingCost",
+                program.CanTrain ? $"육성 포인트 {program.DpCost:N0} 소모" : program.BlockedReason,
+                12, FontStyle.Normal, TextAnchor.MiddleLeft);
+            cost.color = program.CanTrain ? ink : selected ? new Color32(255, 210, 153, 255) : new Color32(140, 63, 38, 255);
+            OwnerRuntimeUiFactory.SetAnchors(cost.rectTransform, Vector2.zero, new Vector2(1f, .31f),
+                new Vector2(16f, 5f), new Vector2(-16f, 0f));
+        }
 
         private void BuildFeedback(RectTransform parent)
         {
             _feedback = OwnerWorkspaceUiFactory.CreateText(
                 parent, "PowerUpFeedback", "대상과 결과를 확인한 뒤 실행하세요.", 13,
                 FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.ReferenceTextSecondary);
+            _feedback.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            _feedback.color = new Color32(210, 225, 242, 255);
             OwnerRuntimeUiFactory.SetAnchors(
                 _feedback.rectTransform, Vector2.zero, new Vector2(1f, 0f),
                 Vector2.zero, new Vector2(0f, 32f));
@@ -296,23 +356,29 @@ namespace Baseball.Presentation.Owner
             int markerCount = 0;
             for (int index = 0; index < scout.Products.Count; index++)
                 if (scout.Products[index].DrawCount == 1) markerCount++;
+            _scoutMapPage = Math.Min(_scoutMapPage, Math.Max(0, (markerCount - 1) / ScoutMapPageSize));
             for (int index = 0; index < scout.Products.Count; index++)
             {
                 OwnerScoutProductSnapshot product = scout.Products[index];
                 if (product.DrawCount != 1) continue;
+                int position = markerIndex++ - _scoutMapPage * ScoutMapPageSize;
+                if (position < 0 || position >= ScoutMapPageSize) continue;
                 CreateScoutReferencePin(_scoutList, "Scout_" + product.ProductId,
                     product.Scope,
                     () => SelectScoutProduct(product.ProductId),
                     selectedScout != null && string.Equals(product.Scope, selectedScout.Scope, StringComparison.Ordinal),
-                    markerIndex++, markerCount);
+                    position, markerCount);
             }
+            BindScoutMapPagination(markerCount);
             RefreshScoutDetails();
         }
 
         private void BindTraining()
         {
             OwnerRuntimeUiFactory.ClearChildren(_trainingCardList);
+            OwnerRuntimeUiFactory.ClearChildren(_trainingProgramList);
             OwnerCardTrainingScreenSnapshot training = _snapshot.Training;
+            _trainingExecuteButton.transform.Find("Label").GetComponent<Text>().text = "선택 훈련 적용";
             _trainingWallet.text = $"보유 육성 포인트 {training.DevelopmentPoints:N0}";
             _trainingCardCount.text = $"전체 {training.Cards.Count:N0}장";
             if (training.State != OwnerPowerUpContentState.Ready)
@@ -331,6 +397,7 @@ namespace Baseball.Presentation.Owner
             {
                 OwnerCollectionCardSnapshot card = training.Cards[index].Card;
                 CreateCompactCardButton(_trainingCardList, card, () => SelectTrainingCard(card.CardId),
+                    null,
                     string.Equals(card.CardId, _selectedTrainingCardId, StringComparison.Ordinal));
             }
             RefreshTrainingTarget();
@@ -375,7 +442,8 @@ namespace Baseball.Presentation.Owner
             {
                 OwnerCollectionCardSnapshot card = sortedCards[index].Card;
                 if (_hideLockedCards && card.IsLocked) continue;
-                CreateCompactCardButton(_enhancementCardList, card, () => SelectEnhancementCard(card.CardId),
+                CreateCompactCardButton(_enhancementCardList, card, () => SelectAndRegisterEnhancementCard(card.CardId),
+                    () => ShowEnhancementCardDetail(card.CardId),
                     string.Equals(card.CardId, _selectedEnhancementCardId, StringComparison.Ordinal));
             }
             RefreshEnhancementTarget();
@@ -400,9 +468,20 @@ namespace Baseball.Presentation.Owner
                 .Append("1회당 +").Append(product.PityGainPerDraw)
                 .Append(" · 완성 시 비용 ").Append(product.GuaranteedMinimumCost).Append(" 이상 보장").AppendLine().AppendLine()
                 .AppendLine("실제 후보 Bucket 확률");
-            for (int index = 0; index < product.Probabilities.Count; index++)
-                text.Append(product.Probabilities[index].Label).Append("   ")
-                    .Append(product.Probabilities[index].ProbabilityText).AppendLine();
+            try
+            {
+                IReadOnlyList<OwnerScoutProbabilitySnapshot> probabilities = product.Probabilities;
+                for (int index = 0; index < probabilities.Count; index++)
+                    text.Append(probabilities[index].Label).Append("   ")
+                        .Append(probabilities[index].ProbabilityText).AppendLine();
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                _scoutDetails.text = exception.Message;
+                _scoutSummary.text = exception.Message;
+                _scoutPurchaseButton.interactable = false;
+                return;
+            }
             if (!product.CanPurchase) text.AppendLine().Append(product.BlockedReason);
             _scoutDetails.text = text.ToString();
             _scoutPurchaseButton.interactable = product.CanPurchase;
@@ -444,15 +523,13 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < target.Programs.Count; index++)
             {
                 OwnerCardTrainingProgramSnapshot program = target.Programs[index];
-                CreateListButton(_trainingProgramList, "Program_" + program.ProgramId,
-                    program.Title + $"\n{program.Current}  →  {program.Current + program.GainedPoints}  /  {program.Ceiling}",
-                    () => SelectTrainingProgram(program.ProgramId),
+                CreateTrainingProgramButton(program,
                     string.Equals(program.ProgramId, _selectedTrainingProgramId, StringComparison.Ordinal));
             }
             OwnerCardTrainingProgramSnapshot selected = FindTrainingProgram(target, _selectedTrainingProgramId);
             if (selected == null)
             {
-                _trainingDetails.text = target.Card.DisplayName + "\n적용 가능한 훈련 Program이 없습니다.";
+                _trainingDetails.text = target.Card.DisplayName + "\n적용 가능한 훈련이 없습니다.";
                 _trainingExecuteButton.interactable = false;
                 return;
             }
@@ -462,6 +539,8 @@ namespace Baseball.Presentation.Owner
                 " / 상한 " + selected.Ceiling + "\n육성 포인트 " + selected.DpCost.ToString("N0") +
                 (selected.CanTrain ? string.Empty : "\n" + selected.BlockedReason);
             _trainingExecuteButton.interactable = selected.CanTrain;
+            _trainingExecuteButton.transform.Find("Label").GetComponent<Text>().text =
+                selected.CanTrain ? $"{selected.Title} 훈련 · {selected.DpCost:N0} 포인트 사용" : "훈련 불가 · 조건을 확인하세요";
         }
 
         private void RequestTraining()
@@ -476,11 +555,11 @@ namespace Baseball.Presentation.Owner
                 () => TrainingRequested?.Invoke(target.Card.CardId, program.ProgramId));
         }
 
-        private void SelectEnhancementCard(string cardId)
+        private void SelectAndRegisterEnhancementCard(string cardId)
         {
-            _hasRegisteredEnhancement = false;
             _selectedEnhancementCardId = cardId;
             _saleCount = 1;
+            _hasRegisteredEnhancement = FindEnhancementTarget(cardId) != null;
             BindEnhancementSale();
         }
 
@@ -496,13 +575,17 @@ namespace Baseball.Presentation.Owner
         {
             OwnerEnhancementSaleTargetSnapshot target = FindEnhancementTarget(_selectedEnhancementCardId);
             if (target == null) return;
-            _enhancementCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(target.Card, true));
+            _enhancementCard.Bind(
+                OwnerCollectionPresentationBuilder.CreateMiniCard(target.Card, true),
+                PlayerPortraitSprites.GetDefault(target.Card.Position));
             _enhancementCard.gameObject.SetActive(_hasRegisteredEnhancement);
             bool hasMaterial = _hasRegisteredEnhancement && target.Card.DuplicateCount > 0;
             _enhancementMaterialCard.gameObject.SetActive(hasMaterial);
             _enhancementMaterialEmpty.gameObject.SetActive(!hasMaterial);
             if (hasMaterial)
-                _enhancementMaterialCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(target.Card, false));
+                _enhancementMaterialCard.Bind(
+                    OwnerCollectionPresentationBuilder.CreateMiniCard(target.Card, false),
+                    PlayerPortraitSprites.GetDefault(target.Card.Position));
             _saleCount = Mathf.Clamp(_saleCount, 1, Math.Max(1, target.Card.DuplicateCount));
             CardSalePreview sale = target.GetSalePreview(_saleCount);
             string enhancementReason = target.Enhancement.Result switch
@@ -602,6 +685,40 @@ namespace Baseball.Presentation.Owner
             return null;
         }
 
+        private void ShowEnhancementCardDetail(string cardId)
+        {
+            if (_snapshot == null) return;
+            var cards = new List<OwnerCollectionCardSnapshot>(_snapshot.EnhancementSale.Cards.Count);
+            for (int index = 0; index < _snapshot.EnhancementSale.Cards.Count; index++)
+            {
+                OwnerCollectionCardSnapshot card = _snapshot.EnhancementSale.Cards[index].Card;
+                if (_hideLockedCards && card.IsLocked) continue;
+                cards.Add(card);
+            }
+            cards.Sort((left, right) =>
+            {
+                int cost = left.Cost.CompareTo(right.Cost);
+                if (cost != 0) return _sortCostDescending ? -cost : cost;
+                return string.CompareOrdinal(left.CardId, right.CardId);
+            });
+            ShowCardDetail(cards, cardId);
+        }
+
+        private void ShowCardDetail(IReadOnlyList<OwnerCollectionCardSnapshot> cards, string cardId)
+        {
+            int selectedIndex = -1;
+            for (int index = 0; index < cards.Count; index++)
+            {
+                if (string.Equals(cards[index].CardId, cardId, StringComparison.Ordinal))
+                {
+                    selectedIndex = index;
+                    break;
+                }
+            }
+            if (selectedIndex >= 0)
+                UI_Popup_OwnerPlayerCard.Show(_root, cards, selectedIndex);
+        }
+
         private static RectTransform CreateRouteRoot(RectTransform parent, string name)
         {
             RectTransform root = OwnerRuntimeUiFactory.CreateRect(name, parent);
@@ -681,12 +798,16 @@ namespace Baseball.Presentation.Owner
             Transform parent,
             OwnerCollectionCardSnapshot card,
             Action action,
+            Action detailAction,
             bool selected)
         {
             PlayerMiniCardView view = PlayerMiniCardView.CreateRuntime(parent, "Card_" + card.CardId);
             view.UseLineupSlotLayout();
-            view.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card, selected));
+            view.Bind(
+                OwnerCollectionPresentationBuilder.CreateMiniCard(card, selected),
+                PlayerPortraitSprites.GetDefault(card.Position));
             view.Selected += _ => action?.Invoke();
+            view.DetailRequested += _ => detailAction?.Invoke();
             RectTransform rect = view.GetComponent<RectTransform>();
             LayoutElement element = rect.gameObject.AddComponent<LayoutElement>();
             element.minWidth = PlayerMiniCardView.LineupSlotWidth;

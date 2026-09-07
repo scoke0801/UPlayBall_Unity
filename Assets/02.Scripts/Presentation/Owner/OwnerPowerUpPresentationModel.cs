@@ -48,7 +48,7 @@ namespace Baseball.Presentation.Owner
     /// <summary>스카우트 상품의 Quote와 후보 범위, Pity를 표시하는 불변 Snapshot이다.</summary>
     public sealed class OwnerScoutProductSnapshot
     {
-        private readonly OwnerScoutProbabilitySnapshot[] _probabilities;
+        private readonly Lazy<OwnerScoutProbabilitySnapshot[]> _probabilities;
 
         public OwnerScoutProductSnapshot(
             string productId,
@@ -62,7 +62,8 @@ namespace Baseball.Presentation.Owner
             int pityThreshold,
             int pityGainPerDraw,
             int guaranteedMinimumCost,
-            IReadOnlyList<OwnerScoutProbabilitySnapshot> probabilities)
+            IReadOnlyList<OwnerScoutProbabilitySnapshot> probabilities,
+            Func<IReadOnlyList<OwnerScoutProbabilitySnapshot>> probabilityResolver = null)
         {
             ProductId = productId ?? string.Empty;
             Title = title ?? string.Empty;
@@ -75,7 +76,11 @@ namespace Baseball.Presentation.Owner
             PityThreshold = pityThreshold;
             PityGainPerDraw = pityGainPerDraw;
             GuaranteedMinimumCost = guaranteedMinimumCost;
-            _probabilities = OwnerPowerUpSnapshotCopy.Copy(probabilities);
+            // 월드의 모든 연도·구단 상품을 나열할 때 후보군 전체를 상품마다 순회하지 않는다.
+            // Resolver는 이 Snapshot과 수명이 같은 상점의 정적 카탈로그만 조회한다.
+            OwnerScoutProbabilitySnapshot[] copy = OwnerPowerUpSnapshotCopy.Copy(probabilities);
+            _probabilities = new Lazy<OwnerScoutProbabilitySnapshot[]>(() => probabilityResolver == null
+                ? copy : OwnerPowerUpSnapshotCopy.Copy(probabilityResolver()));
         }
 
         public string ProductId { get; }
@@ -89,7 +94,7 @@ namespace Baseball.Presentation.Owner
         public int PityThreshold { get; }
         public int PityGainPerDraw { get; }
         public int GuaranteedMinimumCost { get; }
-        public IReadOnlyList<OwnerScoutProbabilitySnapshot> Probabilities => _probabilities;
+        public IReadOnlyList<OwnerScoutProbabilitySnapshot> Probabilities => _probabilities.Value;
     }
 
     /// <summary>선수 카드 상품과 현재 Scout 지갑을 묶은 화면 Snapshot이다.</summary>
@@ -307,16 +312,6 @@ namespace Baseball.Presentation.Owner
             ShopProductDefinition product)
         {
             ShopPurchaseQuote quote = shop.GetQuote(product);
-            if (!shop.TryGetDetails(product.ProductId, out ShopProductDetails details))
-                throw new InvalidOperationException("스카우트 상품의 실제 확률 상세를 찾을 수 없습니다.");
-            var probabilities = new OwnerScoutProbabilitySnapshot[details.Probabilities.Count];
-            for (int index = 0; index < probabilities.Length; index++)
-            {
-                ShopProbabilityEntry bucket = details.Probabilities[index];
-                probabilities[index] = new OwnerScoutProbabilitySnapshot(
-                    bucket.Label + " · 후보 " + bucket.CandidateCount.ToString("N0") + "장",
-                    bucket.Probability);
-            }
             ScoutPityBalanceTable pity = ScoutPityBalanceTable.CreateInitial();
             return new OwnerScoutProductSnapshot(
                 product.ProductId,
@@ -330,7 +325,24 @@ namespace Baseball.Presentation.Owner
                 pity.Threshold,
                 pity.GaugeGainPerScout,
                 pity.GuaranteedMinimumCost,
-                probabilities);
+                null,
+                () => CreateScoutProbabilities(shop, product.ProductId));
+        }
+
+        private static IReadOnlyList<OwnerScoutProbabilitySnapshot> CreateScoutProbabilities(
+            ShopService shop, string productId)
+        {
+            if (!shop.TryGetDetails(productId, out ShopProductDetails details))
+                throw new InvalidOperationException("스카우트 상품의 실제 확률 상세를 찾을 수 없습니다.");
+            var probabilities = new OwnerScoutProbabilitySnapshot[details.Probabilities.Count];
+            for (int index = 0; index < probabilities.Length; index++)
+            {
+                ShopProbabilityEntry bucket = details.Probabilities[index];
+                probabilities[index] = new OwnerScoutProbabilitySnapshot(
+                    bucket.Label + " · 후보 " + bucket.CandidateCount.ToString("N0") + "장",
+                    bucket.Probability);
+            }
+            return probabilities;
         }
 
         private static OwnerCardTrainingScreenSnapshot BuildTraining(

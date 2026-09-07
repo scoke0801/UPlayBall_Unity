@@ -24,6 +24,11 @@ namespace Baseball.Presentation.Owner
         private RawImage _scoutGaugeFill;
         private Button _scoutPolicyConfirmButton;
         private string _scoutPreviewProductId = string.Empty;
+        // 고정 크기 지도와 방침 창에 실제로 들어가는 버튼 수만 생성한다.
+        private const int ScoutMapPageSize = 6;
+        private const int ScoutPolicyPageSize = 10;
+        private int _scoutMapPage;
+        private int _scoutPolicyPage;
         private static readonly Color ScoutInk = new Color32(36, 43, 51, 255);
         private static readonly Color ScoutBlue = new Color32(34, 72, 128, 255);
         private static readonly Color ScoutSilver = new Color32(239, 240, 239, 255);
@@ -46,8 +51,6 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.Stretch(_scoutList);
             ScoutSurface(map.transform, "Speech", 22, 14, 296, 63, new Color32(250, 251, 245, 248));
             ScoutLabel(map.transform, "MapGuide", "선수를 찾아보겠습니다.\n마커를 선택하면 영입 비용과\n획득 정보를 확인할 수 있습니다.", 13, 32, 19, 276, 53);
-            ScoutSurface(map.transform, "MapLegend", 174, 365, 156, 30, Color.white);
-            ScoutLabel(map.transform, "MapLegendText", "전국 스카우트", 16, 184, 366, 142, 28);
 
             ScoutSurface(_scoutCanvas, "ScoutColumn", 368, 40, 128, 408, Color.white);
             ScoutLabel(_scoutCanvas, "ScoutHeading", "스카우터", 14, 378, 42, 108, 24, ScoutBlue).alignment = TextAnchor.MiddleCenter;
@@ -147,6 +150,11 @@ namespace Baseball.Presentation.Owner
         private void OpenScoutPolicy()
         {
             _scoutPreviewProductId = _selectedScoutProductId;
+            _scoutPolicyPage = 0;
+            if (_snapshot != null)
+                for (int index = 0; index < _snapshot.Scout.Products.Count; index++)
+                    if (_snapshot.Scout.Products[index].ProductId == _scoutPreviewProductId)
+                        _scoutPolicyPage = index / ScoutPolicyPageSize;
             PreviewScoutPolicy(_scoutPreviewProductId);
             _scoutPolicyOverlay.gameObject.SetActive(true);
             _scoutPolicyOverlay.SetAsLastSibling();
@@ -159,12 +167,16 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.ClearChildren(_scoutPolicyOptions);
             if (_snapshot == null) return;
             IReadOnlyList<OwnerScoutProductSnapshot> products = _snapshot.Scout.Products;
-            for (int index = 0; index < products.Count; index++)
+            int pageCount = Math.Max(1, (products.Count + ScoutPolicyPageSize - 1) / ScoutPolicyPageSize);
+            _scoutPolicyPage = Math.Min(_scoutPolicyPage, pageCount - 1);
+            int start = _scoutPolicyPage * ScoutPolicyPageSize;
+            int end = Math.Min(products.Count, start + ScoutPolicyPageSize);
+            for (int index = start; index < end; index++)
             {
                 OwnerScoutProductSnapshot product = products[index];
                 int capturedIndex = index;
-                float x = index % 2 * 172;
-                float y = index / 2 * 55;
+                float x = (index - start) % 2 * 172;
+                float y = (index - start) / 2 * 55;
                 Button button = ReferenceButton(
                     _scoutPolicyOptions,
                     "PolicyChoice" + index,
@@ -182,6 +194,34 @@ namespace Baseball.Presentation.Owner
                 button.interactable = !string.Equals(
                     product.ProductId, _scoutPreviewProductId, StringComparison.Ordinal);
             }
+            ReferenceButton(_scoutPolicyOptions, "PreviousPolicyPage", "이전", () =>
+            {
+                _scoutPolicyPage--;
+                RebuildScoutPolicyOptions();
+            }, 0, 280, 70, 22).interactable = _scoutPolicyPage > 0;
+            ScoutLabel(_scoutPolicyOptions, "PolicyPage", $"{_scoutPolicyPage + 1} / {pageCount}",
+                12, 125, 280, 100, 22);
+            ReferenceButton(_scoutPolicyOptions, "NextPolicyPage", "다음", () =>
+            {
+                _scoutPolicyPage++;
+                RebuildScoutPolicyOptions();
+            }, 270, 280, 70, 22).interactable = _scoutPolicyPage + 1 < pageCount;
+        }
+
+        private void BindScoutMapPagination(int count)
+        {
+            int pageCount = Math.Max(1, (count + ScoutMapPageSize - 1) / ScoutMapPageSize);
+            ReferenceButton(_scoutList, "PreviousMapPage", "이전", () =>
+            {
+                _scoutMapPage--;
+                BindScout();
+            }, 20, 365, 60, 26).interactable = _scoutMapPage > 0;
+            ScoutLabel(_scoutList, "MapPage", $"{_scoutMapPage + 1}/{pageCount}", 11, 85, 365, 64, 26);
+            ReferenceButton(_scoutList, "NextMapPage", "다음", () =>
+            {
+                _scoutMapPage++;
+                BindScout();
+            }, 150, 365, 60, 26).interactable = _scoutMapPage + 1 < pageCount;
         }
 
         private void PreviewScoutPolicy(string productId)
