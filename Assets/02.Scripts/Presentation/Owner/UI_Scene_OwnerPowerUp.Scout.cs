@@ -82,6 +82,9 @@ namespace Baseball.Presentation.Owner
             _scoutSummary.alignment = TextAnchor.MiddleCenter;
             _scoutPurchaseButton = ReferenceButton(_scoutCanvas, "ScoutPurchase", "스카우트 파견", RequestScoutPurchase, 678, 425, 138, 26);
             OwnerUiButtonSkin.Apply(_scoutPurchaseButton, OwnerButtonRole.Primary);
+            Button wishlist = ReferenceButton(
+                _scoutCanvas, "OpenWishlist", "위시리스트", () => WishlistRequested?.Invoke(), 828, 425, 145, 26);
+            OwnerUiButtonSkin.Apply(wishlist, OwnerButtonRole.Secondary);
             BuildScoutProbabilityWindow();
             BuildScoutPolicyWindow();
         }
@@ -235,7 +238,9 @@ namespace Baseball.Presentation.Owner
             }
             _scoutPreviewProductId = product.ProductId;
             _scoutPolicyPreview.text = product.Title + "\n" + product.Scope + "\n" +
-                                       product.DrawCount + "명 탐색 · " + product.PriceText;
+                                       product.DrawCount + "명 탐색 · " + product.PriceText + "\n" +
+                                       "후보 " + product.CandidateCount.ToString("N0") + "장 · 위시 " +
+                                       product.WishlistCandidateCount.ToString("N0") + "장 포함";
             _scoutPolicyConfirmButton.interactable = true;
             RebuildScoutPolicyOptions();
         }
@@ -252,10 +257,12 @@ namespace Baseball.Presentation.Owner
         {
             _scoutCost.text = "비 용   " + product.PriceText;
             _scoutSummary.text = product.CanPurchase
-                ? product.Title + " · " + product.DrawCount + "장 영입 · 확정 시 즉시 지급됩니다."
+                ? product.Title + " · 후보 " + product.CandidateCount.ToString("N0") + "장 중 위시 " +
+                  product.WishlistCandidateCount.ToString("N0") + "장 · 확정 시 즉시 지급됩니다."
                 : product.BlockedReason;
             _scoutDispatch.text = "파견 범위\n" + product.Scope + "\n\n탐색 방침\n" +
-                                  DescribeScoutPolicy(product) + "\n\n탐색 인원  " + product.DrawCount + "명";
+                                  DescribeScoutPolicy(product) + "\n\n탐색 인원  " + product.DrawCount + "명\n" +
+                                  "위시 포함  " + product.WishlistCandidateCount.ToString("N0") + "장";
             _scoutGaugeLabel.text = product.PityGauge + " / " + product.PityThreshold;
             float fill = product.PityThreshold > 0 ? Mathf.Clamp01((float)product.PityGauge / product.PityThreshold) : 0;
             _scoutGaugeFill.rectTransform.sizeDelta = new Vector2(108 * fill, 12);
@@ -284,10 +291,13 @@ namespace Baseball.Presentation.Owner
                     card.UseLineupSlotLayout();
                     OwnerRuntimeUiFactory.Stretch(card.GetComponent<RectTransform>(), new Vector2(2, 2), new Vector2(-2, -2));
                     card.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(target.Card, false));
+                    OwnerCollectionCardSnapshot granted = target.Card;
+                    card.DetailRequested += _ => UI_Popup_OwnerPlayerCard.Show(transform, granted);
                 }
                 else
                     ScoutLabel(slot, "GrantedName", item.DisplayName + "\n" + item.GradeLabel, 12, 4, 15, 74, 90).alignment = TextAnchor.MiddleCenter;
-                ScoutLabel(slot, "NewStatus", item.IsNew ? "신규" : "중복", 10, 3, 0, 70, 16, ScoutBlue);
+                ScoutLabel(slot, "NewStatus", item.WasWishlisted ? "★ 위시 성공" : item.IsNew ? "신규" : "중복",
+                    10, 3, 0, 76, 16, ScoutBlue);
             }
         }
 

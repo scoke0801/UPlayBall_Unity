@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Core.Shop;
+using Baseball.Presentation.Encyclopedia;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,6 +28,8 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerRosterLineup _rosterLineupView;
         private UI_Scene_OwnerRosterLineup _rosterPitchingView;
         private UI_Scene_OwnerCollection _collectionView;
+        private UI_Scene_PlayerEncyclopedia _encyclopediaView;
+        private UI_Scene_PlayerEncyclopedia _wishlistView;
         private UI_Scene_OwnerPowerUp _powerUpView;
         private UI_Scene_OwnerGrowth _growthView;
         public event Action<string, int, int, int, int> CardSkillPlacementRequested;
@@ -45,6 +48,7 @@ namespace Baseball.Presentation.Owner
         private OwnerTradeSnapshot _tradeSnapshot;
         private OwnerRosterLineupPresentationModel _rosterLineupModel;
         private Func<string, Sprite> _staffPortraitResolver;
+        private Func<IReadOnlyList<string>, IReadOnlyList<OwnerCollectionCardSnapshot>> _rosterCardDetailResolver;
         private UI_Scene_OwnerTeamLineup _opponentLineupView;
 
         public event Action MatchStartRequested;
@@ -83,6 +87,10 @@ namespace Baseball.Presentation.Owner
         public event Action<string, string> CardStudyRequested;
         public event Action<string> CardSkillBlockAutoPlaceRequested;
         public event Action<string> CardSkillBlockRemoveRequested;
+        public event Action<string> WishlistToggleRequested;
+        public event Action<string> EncyclopediaScoutRequested;
+        public event Action<string> EncyclopediaCardRequested;
+        public event Action EncyclopediaWishlistRequested;
 
         public string ActiveRouteId { get; private set; } = string.Empty;
 
@@ -91,6 +99,15 @@ namespace Baseball.Presentation.Owner
             if (_shell != null) return;
             _shell = shell != null ? shell : throw new ArgumentNullException(nameof(shell));
             _staffPortraitResolver = staffPortraitResolver;
+        }
+
+        /// <summary>선수단 카드의 무거운 상세 Snapshot을 사용자가 열 때만 생성하는 Resolver를 연결한다.</summary>
+        public void SetRosterCardDetailResolver(
+            Func<IReadOnlyList<string>, IReadOnlyList<OwnerCollectionCardSnapshot>> resolver)
+        {
+            _rosterCardDetailResolver = resolver;
+            _rosterLineupView?.SetCardDetailResolver(resolver);
+            _rosterPitchingView?.SetCardDetailResolver(resolver);
         }
 
         public void BindPregame(OwnerPregameSnapshot snapshot)
@@ -182,6 +199,29 @@ namespace Baseball.Presentation.Owner
             RequireInitialized();
             EnsureCollectionView();
             _collectionView.Bind(snapshot);
+        }
+
+        /// <summary>같은 파생 Snapshot을 도감과 독립 위시 화면에 연결한다.</summary>
+        public void BindEncyclopedia(EncyclopediaScreenSnapshot snapshot)
+        {
+            RequireInitialized();
+            EnsureEncyclopediaViews();
+            _encyclopediaView.Bind(snapshot);
+            _wishlistView.Bind(snapshot);
+        }
+
+        /// <summary>도감에서 선택한 카드가 포함되는 Scout 상품을 명시적으로 연다.</summary>
+        public void SelectScoutProduct(string productId)
+        {
+            EnsurePowerUpView();
+            _powerUpView.SelectScoutProduct(productId);
+        }
+
+        /// <summary>위시 화면에서 넘어온 정확한 CardId를 도감 카드 탭에서 선택한다.</summary>
+        public void SelectEncyclopediaCard(string cardId)
+        {
+            EnsureEncyclopediaViews();
+            _encyclopediaView.SelectCard(cardId);
         }
 
         public void BindShop(Shop.ShopScreenSnapshot snapshot)
@@ -418,6 +458,8 @@ namespace Baseball.Presentation.Owner
                 _clubView,
                 _playerMarketView,
                 _collectionView,
+                _encyclopediaView,
+                _wishlistView,
                 _powerUpView,
                 _growthView,
                 _dugoutView,
@@ -602,6 +644,25 @@ namespace Baseball.Presentation.Owner
                     "투수진",
                 "선발진과 불펜 역할, 컨디션·최근 3일 투구 부하·구종을 함께 비교합니다.",
                     "구단주 모드"));
+                ActiveRouteId = navigationRouteId;
+                return true;
+            }
+            if ((string.Equals(workspaceRouteId, OwnerNavigationRoutes.RosterEncyclopedia, StringComparison.Ordinal) ||
+                 string.Equals(workspaceRouteId, OwnerNavigationRoutes.RosterWishlist, StringComparison.Ordinal)) &&
+                _encyclopediaView != null && _wishlistView != null)
+            {
+                SetAllViewsVisible(false);
+                bool isWishlist = string.Equals(workspaceRouteId, OwnerNavigationRoutes.RosterWishlist, StringComparison.Ordinal);
+                (isWishlist ? _wishlistView : _encyclopediaView).SetVisible(true);
+                _shell.SetInspectorVisible(true);
+                _shell.SetActionBarVisible(true);
+                _shell.BindContext(new SharedUI.ShellContextModel(
+                    navigationRouteId,
+                    isWishlist ? "위시리스트" : "선수 도감",
+                    isWishlist
+                        ? "영입 목표 카드를 비교하고 가능한 스카우트 경로를 확인합니다."
+                        : "월드의 전체 시즌 선수와 현재 발급 카드를 탐색합니다.",
+                    "선수단"));
                 ActiveRouteId = navigationRouteId;
                 return true;
             }
@@ -797,12 +858,15 @@ namespace Baseball.Presentation.Owner
                 _collectionView.SkillBlockRemoveRequested -= HandleCardSkillBlockRemoveRequested;
                 DestroyView(_collectionView);
             }
+            DestroyEncyclopediaView(_encyclopediaView);
+            DestroyEncyclopediaView(_wishlistView);
             if (_powerUpView != null)
             {
                 _powerUpView.ScoutPurchaseRequested -= HandleShopPurchaseRequested;
                 _powerUpView.TrainingRequested -= HandleCardTrainingRequested;
                 _powerUpView.EnhancementRequested -= HandleCardEnhancementRequested;
                 _powerUpView.DuplicateSaleRequested -= HandleCardDuplicateSaleRequested;
+                _powerUpView.WishlistRequested -= HandleEncyclopediaWishlistRequested;
                 DestroyView(_powerUpView);
             }
             if (_growthView != null)
@@ -913,6 +977,7 @@ namespace Baseball.Presentation.Owner
                 _shell.MainWorkspaceHost,
                 _shell.RightInspectorHost,
                 _shell.ContextActionBarHost);
+            _rosterLineupView.SetCardDetailResolver(_rosterCardDetailResolver);
             _rosterLineupView.SwapRequested += HandleLineupSwapRequested;
             _rosterLineupView.AssignmentRequested += HandleLineupAssignmentRequested;
             _rosterLineupView.PresetSelected += HandleLineupPresetSelected;
@@ -928,6 +993,7 @@ namespace Baseball.Presentation.Owner
                 _shell.MainWorkspaceHost,
                 _shell.RightInspectorHost,
                 _shell.ContextActionBarHost);
+            _rosterPitchingView.SetCardDetailResolver(_rosterCardDetailResolver);
             _rosterPitchingView.gameObject.name = "UI_Scene_OwnerRosterPitching";
             _rosterPitchingView.SetWorkspaceMode(OwnerRosterWorkspaceMode.Pitching);
             _rosterPitchingView.SwapRequested += HandleLineupSwapRequested;
@@ -969,6 +1035,42 @@ namespace Baseball.Presentation.Owner
             _collectionView.SetVisible(false);
         }
 
+        private void EnsureEncyclopediaViews()
+        {
+            if (_encyclopediaView == null)
+            {
+                _encyclopediaView = UI_Scene_PlayerEncyclopedia.CreateRuntime(
+                    _shell.MainWorkspaceHost, _shell.RightInspectorHost, _shell.ContextActionBarHost);
+                SubscribeEncyclopediaView(_encyclopediaView);
+                _encyclopediaView.SetVisible(false);
+            }
+            if (_wishlistView == null)
+            {
+                _wishlistView = UI_Scene_PlayerEncyclopedia.CreateRuntime(
+                    _shell.MainWorkspaceHost, _shell.RightInspectorHost, _shell.ContextActionBarHost, true);
+                SubscribeEncyclopediaView(_wishlistView);
+                _wishlistView.SetVisible(false);
+            }
+        }
+
+        private void SubscribeEncyclopediaView(UI_Scene_PlayerEncyclopedia view)
+        {
+            view.WishToggleRequested += HandleWishlistToggleRequested;
+            view.ScoutRequested += HandleEncyclopediaScoutRequested;
+            view.EncyclopediaRequested += HandleEncyclopediaCardRequested;
+            view.WishlistRequested += HandleEncyclopediaWishlistRequested;
+        }
+
+        private void DestroyEncyclopediaView(UI_Scene_PlayerEncyclopedia view)
+        {
+            if (view == null) return;
+            view.WishToggleRequested -= HandleWishlistToggleRequested;
+            view.ScoutRequested -= HandleEncyclopediaScoutRequested;
+            view.EncyclopediaRequested -= HandleEncyclopediaCardRequested;
+            view.WishlistRequested -= HandleEncyclopediaWishlistRequested;
+            DestroyView(view);
+        }
+
         private void EnsurePowerUpView()
         {
             if (_powerUpView != null) return;
@@ -977,6 +1079,7 @@ namespace Baseball.Presentation.Owner
             _powerUpView.TrainingRequested += HandleCardTrainingRequested;
             _powerUpView.EnhancementRequested += HandleCardEnhancementRequested;
             _powerUpView.DuplicateSaleRequested += HandleCardDuplicateSaleRequested;
+            _powerUpView.WishlistRequested += HandleEncyclopediaWishlistRequested;
             _powerUpView.SetVisible(false);
         }
 
@@ -1066,6 +1169,8 @@ namespace Baseball.Presentation.Owner
             if (_rosterLineupView != null) _rosterLineupView.SetVisible(visible);
             if (_rosterPitchingView != null) _rosterPitchingView.SetVisible(visible);
             if (_collectionView != null) _collectionView.SetVisible(visible);
+            if (_encyclopediaView != null) _encyclopediaView.SetVisible(visible);
+            if (_wishlistView != null) _wishlistView.SetVisible(visible);
             if (_powerUpView != null) _powerUpView.SetVisible(visible);
             if (_growthView != null) _growthView.SetVisible(visible);
             if (_dugoutView != null) _dugoutView.SetVisible(visible);
@@ -1079,6 +1184,10 @@ namespace Baseball.Presentation.Owner
 
         private void HandleShopPurchasePreviewRequested(string productId) =>
             ShopPurchasePreviewRequested?.Invoke(productId);
+        private void HandleWishlistToggleRequested(string cardId) => WishlistToggleRequested?.Invoke(cardId);
+        private void HandleEncyclopediaScoutRequested(string cardId) => EncyclopediaScoutRequested?.Invoke(cardId);
+        private void HandleEncyclopediaCardRequested(string cardId) => EncyclopediaCardRequested?.Invoke(cardId);
+        private void HandleEncyclopediaWishlistRequested() => EncyclopediaWishlistRequested?.Invoke();
         private void HandleShopPurchaseRequested(string productId) => ShopPurchaseRequested?.Invoke(productId);
         private void HandleShopDetailsRequested(string productId) => ShopDetailsRequested?.Invoke(productId);
         private void HandleShopRepurchaseRequested(string productId) => ShopRepurchaseRequested?.Invoke(productId);

@@ -70,8 +70,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
             Assert.That(model.IntelText, Is.EqualTo("정보 부족"));
             Assert.That(model.ProbableStarterText, Is.EqualTo("확인 불가"));
-            Assert.That(model.ExpectedLineup, Is.EqualTo(new[] { "정보 부족" }));
-            Assert.That(model.Bullpen, Is.EqualTo(new[] { "정보 부족" }));
+            Assert.That(model.OpponentHitterRows.Single().NameText, Is.EqualTo("정보 부족"));
+            Assert.That(model.OpponentHitterRows.Single().Detail, Is.Null);
+            Assert.That(model.OpponentPitcherRows.Single().NameText, Is.EqualTo("정보 부족"));
             Assert.That(model.ManagerTendencyText, Is.EqualTo("정보 부족"));
             Assert.That(model.CanStartMatch, Is.True);
         }
@@ -122,8 +123,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             OwnerPregamePresentationModel model = OwnerPregamePresentationBuilder.Build(
                 CreatePregameSnapshot(CreateValidPresetValidation(), CreateObservedReport()));
 
-            Assert.That(model.ExpectedLineup.Single(), Does.Contain("3루수"));
-            Assert.That(model.ExpectedLineup.Single(), Does.Not.Contain("3B"));
+            Assert.That(model.OpponentHitterRows.Single().PositionText, Is.EqualTo("3루수"));
+            Assert.That(model.OpponentHitterRows.Single().PositionText, Does.Not.Contain("3B"));
         }
 
         [Test]

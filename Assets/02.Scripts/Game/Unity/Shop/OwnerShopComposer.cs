@@ -28,10 +28,8 @@ namespace Baseball.Game.Shop
             ShopPurchaseHistoryState history = runtime.ShopPurchaseHistory;
             TacticCollectionState tacticCollection = runtime.TacticCollection;
 
-            ScoutFeaturePolicy featurePolicy = ResolveFeaturePolicy(runtime.WorldCardCatalog);
-            IReadOnlyList<ScoutPoolDefinition> scoutPools = ShopDefaultPools.CreateScoutPools(
-                featurePolicy,
-                ResolveScoutMarketTargets(runtime.WorldCardCatalog));
+            ScoutFeaturePolicy featurePolicy = ResolveScoutFeaturePolicy(runtime.WorldCardCatalog);
+            IReadOnlyList<ScoutPoolDefinition> scoutPools = CreateScoutPools(runtime.WorldCardCatalog, featurePolicy);
             IReadOnlyList<TacticResearchPoolDefinition> tacticPools = ShopDefaultPools.CreateTacticResearchPools(
                 manager.GetFacilityEffects().TacticResearchEfficiencyModifier);
             IReadOnlyList<TacticCardDefinition> tacticCatalog = manager.GetTacticCardCatalog();
@@ -62,7 +60,7 @@ namespace Baseball.Game.Shop
                     wallet,
                     () => manager.Runtime,
                     () => CreateRandom(manager, history),
-                    personId => manager.Runtime.IdentityRegistry.GetPlayerDisplayName(personId)),
+                personId => manager.Runtime.IdentityRegistry.GetPresentationPlayerName(personId)),
                 new TacticCardPackFulfillment(
                     new TacticResearchRoller(),
                     tacticPools,
@@ -99,6 +97,16 @@ namespace Baseball.Game.Shop
             return new Pcg32Random(seed);
         }
 
+        /// <summary>상점과 공개 UI가 함께 소비할 실제 월드 Scout 풀을 만든다.</summary>
+        public static IReadOnlyList<ScoutPoolDefinition> CreateScoutPools(
+            WorldCardCatalog catalog,
+            ScoutFeaturePolicy featurePolicy)
+        {
+            if (catalog == null) throw new System.ArgumentNullException(nameof(catalog));
+            if (featurePolicy == null) throw new System.ArgumentNullException(nameof(featurePolicy));
+            return ShopDefaultPools.CreateScoutPools(featurePolicy, ResolveScoutMarketTargets(catalog));
+        }
+
         /// <summary>Normal과 특수 Edition의 중복을 제거해 월드에 실재하는 구단·연도 Scout 대상만 만든다.</summary>
         private static IReadOnlyList<ScoutMarketTarget> ResolveScoutMarketTargets(WorldCardCatalog catalog)
         {
@@ -120,8 +128,9 @@ namespace Baseball.Game.Shop
         /// World에 특수 Edition 카드가 실제로 존재할 때만 수상 스카우트를 연다.
         /// Edition 활성화는 World 수상 기록이 결정하므로 카탈로그 내용이 곧 현재 Phase다.
         /// </summary>
-        private static ScoutFeaturePolicy ResolveFeaturePolicy(WorldCardCatalog catalog)
+        public static ScoutFeaturePolicy ResolveScoutFeaturePolicy(WorldCardCatalog catalog)
         {
+            if (catalog == null) throw new System.ArgumentNullException(nameof(catalog));
             for (int index = 0; index < catalog.Cards.Count; index++)
             {
                 if (catalog.Cards[index].Edition != PlayerCardEdition.Normal)

@@ -38,6 +38,39 @@ namespace Baseball.Presentation.Owner
         public string ExpectedConditionText { get; }
     }
 
+    /// <summary>
+    /// 상대 분석 로스터 표에 한 줄로 나오는 선수와 우클릭 상세 카드를 함께 전달한다.
+    /// 상대 구단은 Scouting Report가 공개한 선수만 담기므로, 정보가 없는 자리는 아예 들어오지 않는다.
+    /// </summary>
+    public sealed class OwnerPregameRosterCardSnapshot
+    {
+        public OwnerPregameRosterCardSnapshot(
+            string cardId,
+            string displayName,
+            string positionText,
+            bool isOwnTeam,
+            bool isPitcher,
+            OwnerCollectionCardSnapshot detail)
+        {
+            if (string.IsNullOrWhiteSpace(cardId)) throw new ArgumentException("CardId가 필요합니다.", nameof(cardId));
+            CardId = cardId.Trim();
+            DisplayName = displayName ?? string.Empty;
+            PositionText = positionText ?? string.Empty;
+            IsOwnTeam = isOwnTeam;
+            IsPitcher = isPitcher;
+            Detail = detail;
+        }
+
+        public string CardId { get; }
+        public string DisplayName { get; }
+        public string PositionText { get; }
+        public bool IsOwnTeam { get; }
+        public bool IsPitcher { get; }
+
+        /// <summary>상세 카드를 만들 수 없으면 null이며, 그 행은 우클릭해도 상세가 열리지 않는다.</summary>
+        public OwnerCollectionCardSnapshot Detail { get; }
+    }
+
     /// <summary>저장된 프리셋 하나와 현재 Runtime 재검증 결과를 함께 전달한다.</summary>
     public sealed class OwnerPregamePresetSnapshot
     {
@@ -65,6 +98,7 @@ namespace Baseball.Presentation.Owner
         private readonly string[] _teamColors;
         private readonly string[] _tactics;
         private readonly Dictionary<string, string> _displayTexts;
+        private readonly OwnerPregameRosterCardSnapshot[] _rosterCards;
 
         public OwnerPregameSnapshot(
             UiContentStateModel contentState,
@@ -84,7 +118,8 @@ namespace Baseball.Presentation.Owner
             PlayerMiniCardModel ownStarterCard = null,
             OwnerCollectionCardSnapshot ownStarterDetail = null,
             PlayerMiniCardModel opponentStarterCard = null,
-            OwnerCollectionCardSnapshot opponentStarterDetail = null)
+            OwnerCollectionCardSnapshot opponentStarterDetail = null,
+            IReadOnlyList<OwnerPregameRosterCardSnapshot> rosterCards = null)
         {
             if (ownTeamEmblemId < 0) throw new ArgumentOutOfRangeException(nameof(ownTeamEmblemId));
             if (opponentTeamEmblemId < 0) throw new ArgumentOutOfRangeException(nameof(opponentTeamEmblemId));
@@ -108,6 +143,7 @@ namespace Baseball.Presentation.Owner
             OwnStarterDetail = ownStarterDetail;
             OpponentStarterCard = opponentStarterCard;
             OpponentStarterDetail = opponentStarterDetail;
+            _rosterCards = CopyRequired(rosterCards, nameof(rosterCards));
 
             if (ContentState.Kind == UiContentStateKind.Ready)
             {
@@ -139,6 +175,19 @@ namespace Baseball.Presentation.Owner
         public OwnerCollectionCardSnapshot OwnStarterDetail { get; }
         public PlayerMiniCardModel OpponentStarterCard { get; }
         public OwnerCollectionCardSnapshot OpponentStarterDetail { get; }
+
+        /// <summary>상대 분석 표에 나오는 양 구단 로스터 선수를 표시 순서대로 담는다.</summary>
+        public IReadOnlyList<OwnerPregameRosterCardSnapshot> RosterCards => _rosterCards;
+
+        /// <summary>표 행이 우클릭 상세로 열 카드를 찾는다. 공개되지 않은 선수는 null이다.</summary>
+        public OwnerCollectionCardSnapshot FindRosterCardDetail(string cardId)
+        {
+            if (string.IsNullOrWhiteSpace(cardId)) return null;
+            for (int index = 0; index < _rosterCards.Length; index++)
+                if (string.Equals(_rosterCards[index].CardId, cardId, StringComparison.Ordinal))
+                    return _rosterCards[index].Detail;
+            return null;
+        }
 
         public string ResolveText(string key, string fallback = null)
         {
@@ -232,6 +281,32 @@ namespace Baseball.Presentation.Owner
         public string WarningText { get; }
     }
 
+    /// <summary>
+    /// 상대 분석 로스터 표 한 행의 문구와 우클릭 상세 대상을 함께 동결한다.
+    /// 표를 문자열로 넘기고 View가 다시 쪼개는 방식은 상세 카드를 붙일 CardId를 잃어버려서 쓰지 않는다.
+    /// </summary>
+    public sealed class OwnerPregameRosterRowModel
+    {
+        internal OwnerPregameRosterRowModel(
+            string nameText,
+            string positionText,
+            string statusText,
+            OwnerCollectionCardSnapshot detail)
+        {
+            NameText = nameText ?? string.Empty;
+            PositionText = positionText ?? string.Empty;
+            StatusText = statusText ?? string.Empty;
+            Detail = detail;
+        }
+
+        public string NameText { get; }
+        public string PositionText { get; }
+        public string StatusText { get; }
+
+        /// <summary>공개 정보가 없는 행은 null이며 우클릭해도 상세가 열리지 않는다.</summary>
+        public OwnerCollectionCardSnapshot Detail { get; }
+    }
+
     /// <summary>경기 준비 View가 표시만 수행하도록 모든 문구와 활성 상태를 동결한다.</summary>
     public sealed class OwnerPregamePresentationModel
     {
@@ -239,8 +314,10 @@ namespace Baseball.Presentation.Owner
             OwnerPregameSnapshot snapshot,
             IReadOnlyList<OwnerPregamePresetModel> presets,
             IReadOnlyList<OwnerPregamePlayerModel> lineup,
-            IReadOnlyList<string> expectedLineup,
-            IReadOnlyList<string> bullpen,
+            IReadOnlyList<OwnerPregameRosterRowModel> ownHitters,
+            IReadOnlyList<OwnerPregameRosterRowModel> ownPitchers,
+            IReadOnlyList<OwnerPregameRosterRowModel> opponentHitters,
+            IReadOnlyList<OwnerPregameRosterRowModel> opponentPitchers,
             IReadOnlyList<string> threats,
             string intelText,
             string probableStarterText,
@@ -252,8 +329,10 @@ namespace Baseball.Presentation.Owner
             Snapshot = snapshot;
             Presets = Copy(presets);
             Lineup = Copy(lineup);
-            ExpectedLineup = Copy(expectedLineup);
-            Bullpen = Copy(bullpen);
+            OwnHitterRows = Copy(ownHitters);
+            OwnPitcherRows = Copy(ownPitchers);
+            OpponentHitterRows = Copy(opponentHitters);
+            OpponentPitcherRows = Copy(opponentPitchers);
             KeyThreats = Copy(threats);
             IntelText = intelText;
             ProbableStarterText = probableStarterText;
@@ -266,8 +345,10 @@ namespace Baseball.Presentation.Owner
         public OwnerPregameSnapshot Snapshot { get; }
         public IReadOnlyList<OwnerPregamePresetModel> Presets { get; }
         public IReadOnlyList<OwnerPregamePlayerModel> Lineup { get; }
-        public IReadOnlyList<string> ExpectedLineup { get; }
-        public IReadOnlyList<string> Bullpen { get; }
+        public IReadOnlyList<OwnerPregameRosterRowModel> OwnHitterRows { get; }
+        public IReadOnlyList<OwnerPregameRosterRowModel> OwnPitcherRows { get; }
+        public IReadOnlyList<OwnerPregameRosterRowModel> OpponentHitterRows { get; }
+        public IReadOnlyList<OwnerPregameRosterRowModel> OpponentPitcherRows { get; }
         public IReadOnlyList<string> KeyThreats { get; }
         public string IntelText { get; }
         public string ProbableStarterText { get; }
@@ -275,6 +356,13 @@ namespace Baseball.Presentation.Owner
         public string ManagerTendencyText { get; }
         public bool CanStartMatch { get; }
         public string MatchStartDisabledReason { get; }
+
+        /// <summary>상대 분석 보드의 네 로스터 탭이 같은 행 모델을 쓰도록 한 곳에서 고른다.</summary>
+        public IReadOnlyList<OwnerPregameRosterRowModel> GetRosterRows(bool isOwnTeam, bool pitchers)
+        {
+            if (isOwnTeam) return pitchers ? OwnPitcherRows : OwnHitterRows;
+            return pitchers ? OpponentPitcherRows : OpponentHitterRows;
+        }
 
         private static T[] Copy<T>(IReadOnlyList<T> source)
         {
@@ -292,7 +380,9 @@ namespace Baseball.Presentation.Owner
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             if (snapshot.ContentState.Kind != UiContentStateKind.Ready)
                 return new OwnerPregamePresentationModel(snapshot, Array.Empty<OwnerPregamePresetModel>(),
-                    Array.Empty<OwnerPregamePlayerModel>(), Array.Empty<string>(), Array.Empty<string>(),
+                    Array.Empty<OwnerPregamePlayerModel>(),
+                    Array.Empty<OwnerPregameRosterRowModel>(), Array.Empty<OwnerPregameRosterRowModel>(),
+                    Array.Empty<OwnerPregameRosterRowModel>(), Array.Empty<OwnerPregameRosterRowModel>(),
                     Array.Empty<string>(), "정보 부족", "확인 불가", "확인 불가", "확인 불가", false,
                     snapshot.ContentState.Message);
 
@@ -323,8 +413,10 @@ namespace Baseball.Presentation.Owner
                 snapshot,
                 presets,
                 players,
-                BuildExpectedLineup(report, snapshot),
-                BuildBullpen(report, snapshot),
+                BuildOwnHitterRows(players, snapshot),
+                BuildOwnPitcherRows(snapshot),
+                BuildOpponentHitterRows(report, snapshot),
+                BuildOpponentPitcherRows(report, snapshot),
                 BuildNotes(report.KeyThreats, snapshot),
                 FormatConfidence(report.ReportConfidenceSummary.State, report.ReportConfidenceSummary.Confidence01),
                 FormatProbableStarter(report.ProbableStarter, snapshot),
@@ -376,34 +468,93 @@ namespace Baseball.Presentation.Owner
             return $"{string.Join(" · ", labels)} · {FormatIntelState(value.State)}";
         }
 
-        private static string[] BuildExpectedLineup(OpponentScoutingReport report, OwnerPregameSnapshot snapshot)
+        /// <summary>우리 야수 표는 이미 확정된 라인업이라 타순 그대로 컨디션·호흡을 보여준다.</summary>
+        private static OwnerPregameRosterRowModel[] BuildOwnHitterRows(
+            IReadOnlyList<OwnerPregamePlayerModel> lineup,
+            OwnerPregameSnapshot snapshot)
         {
-            if (report.ExpectedLineup.Count == 0) return new[] { "정보 부족" };
-            var rows = new string[report.ExpectedLineup.Count];
+            if (lineup.Count == 0) return new[] { CreateMissingRow("정보 부족", "등록 정보 없음") };
+            var rows = new OwnerPregameRosterRowModel[lineup.Count];
             for (int index = 0; index < rows.Length; index++)
             {
-                ScoutedValue<ExpectedLineupEntry> value = report.ExpectedLineup[index];
-                rows[index] = value.HasValue
-                    ? $"{value.Value.BattingOrder}. {snapshot.ResolveText(value.Value.Player.CardId, value.Value.Player.CardId)} · " +
-                      $"{FormatPosition(value.Value.Position)} · {FormatIntelState(value.State)}"
-                    : $"{index + 1}. 확인 불가";
+                OwnerPregamePlayerModel player = lineup[index];
+                rows[index] = new OwnerPregameRosterRowModel(
+                    player.DisplayName,
+                    player.PositionText,
+                    string.IsNullOrEmpty(player.WarningText)
+                        ? "컨디션 " + player.ExpectedConditionText + " · 호흡 " + player.LineupChemistryText
+                        : player.WarningText,
+                    snapshot.FindRosterCardDetail(player.CardId));
             }
             return rows;
         }
 
-        private static string[] BuildBullpen(OpponentScoutingReport report, OwnerPregameSnapshot snapshot)
+        private static OwnerPregameRosterRowModel[] BuildOwnPitcherRows(OwnerPregameSnapshot snapshot)
         {
-            if (report.BullpenReadiness.Count == 0) return new[] { "정보 부족" };
-            var rows = new string[report.BullpenReadiness.Count];
+            var rows = new List<OwnerPregameRosterRowModel>();
+            for (int index = 0; index < snapshot.RosterCards.Count; index++)
+            {
+                OwnerPregameRosterCardSnapshot card = snapshot.RosterCards[index];
+                if (!card.IsOwnTeam || !card.IsPitcher) continue;
+                rows.Add(new OwnerPregameRosterRowModel(
+                    card.DisplayName, card.PositionText, "등록 로스터", card.Detail));
+            }
+            if (rows.Count == 0) rows.Add(CreateMissingRow("정보 부족", "등록 정보 없음"));
+            return rows.ToArray();
+        }
+
+        /// <summary>상대 야수는 Scouting Report가 공개한 선수만 상세를 붙이고, 나머지는 확인 불가로 남긴다.</summary>
+        private static OwnerPregameRosterRowModel[] BuildOpponentHitterRows(
+            OpponentScoutingReport report,
+            OwnerPregameSnapshot snapshot)
+        {
+            if (report.ExpectedLineup.Count == 0) return new[] { CreateMissingRow("정보 부족", "등록 정보 없음") };
+            var rows = new OwnerPregameRosterRowModel[report.ExpectedLineup.Count];
+            for (int index = 0; index < rows.Length; index++)
+            {
+                ScoutedValue<ExpectedLineupEntry> value = report.ExpectedLineup[index];
+                if (!value.HasValue)
+                {
+                    rows[index] = CreateMissingRow($"{index + 1}. 확인 불가", "정보 부족");
+                    continue;
+                }
+                string cardId = value.Value.Player.CardId;
+                rows[index] = new OwnerPregameRosterRowModel(
+                    $"{value.Value.BattingOrder}. {snapshot.ResolveText(cardId, cardId)}",
+                    FormatPosition(value.Value.Position),
+                    FormatIntelState(value.State),
+                    snapshot.FindRosterCardDetail(cardId));
+            }
+            return rows;
+        }
+
+        private static OwnerPregameRosterRowModel[] BuildOpponentPitcherRows(
+            OpponentScoutingReport report,
+            OwnerPregameSnapshot snapshot)
+        {
+            if (report.BullpenReadiness.Count == 0) return new[] { CreateMissingRow("정보 부족", "등록 정보 없음") };
+            var rows = new OwnerPregameRosterRowModel[report.BullpenReadiness.Count];
             for (int index = 0; index < rows.Length; index++)
             {
                 ScoutedValue<BullpenReadinessEntry> value = report.BullpenReadiness[index];
-                rows[index] = value.HasValue
-                    ? $"{snapshot.ResolveText(value.Value.Player.CardId, value.Value.Player.CardId)} · " +
-                      $"{FormatReadiness(value.Value.Readiness)} · {FormatIntelState(value.State)}"
-                    : "확인 불가";
+                if (!value.HasValue)
+                {
+                    rows[index] = CreateMissingRow("확인 불가", "정보 부족");
+                    continue;
+                }
+                string cardId = value.Value.Player.CardId;
+                rows[index] = new OwnerPregameRosterRowModel(
+                    snapshot.ResolveText(cardId, cardId),
+                    FormatReadiness(value.Value.Readiness),
+                    FormatIntelState(value.State),
+                    snapshot.FindRosterCardDetail(cardId));
             }
             return rows;
+        }
+
+        private static OwnerPregameRosterRowModel CreateMissingRow(string nameText, string statusText)
+        {
+            return new OwnerPregameRosterRowModel(nameText, "—", statusText, null);
         }
 
         private static string[] BuildNotes(IReadOnlyList<ScoutingReportNote> notes, OwnerPregameSnapshot snapshot)

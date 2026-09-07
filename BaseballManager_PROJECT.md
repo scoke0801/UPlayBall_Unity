@@ -3546,6 +3546,30 @@ Win Expectancy 변화, 동점·역전, 후반 접전, 시그니처 플레이와 
 - 이 설정은 표시만 바꾸며 경기 입력, DetailedMatchEngine, 일정, 통계, 수상, 카드 경제와 세이브
   직렬화 결과에는 관여하지 않는다. 표시 전환 이벤트는 Player/Owner Shell Snapshot을 즉시 갱신한다.
 
+### 43.7 선수 도감·수집 이력·위시리스트 (2026-09-07)
+
+- 구단주 모드의 `선수` 메뉴에 `선수 도감`과 독립 `위시리스트` Route를 추가했다. 두 화면은
+  `SharedGameShellView`, 기존 Owner Skin, `PlayerMiniCardView`, 카드 상세 Popup을 재사용한다.
+  선수/카드/수집 현황 Tab, 표시 이름 검색, Origin 구단·연도·연대·Position·Role·Cost·Edition·
+  보유 상태 Filter와 Stable ID 동점 정렬을 제공한다.
+- 도감의 분모는 `HistoricalBakedContent.PlayerSeasons`와 해당 Save의 실제 `WorldCardCatalog.Cards`다.
+  Core25와 현재 리그 참가 연도로 제한하지 않고, SpecialComposite를 Origin Franchise로 취급하지 않는다.
+  World History 상세 기록은 전반기·포스트시즌·올스타 행과 구분된 정규시즌 전체 행만 사용한다.
+- 구단주 SaveVersion 15는 `CardCollectionHistoryState`와 `WishlistState`를 저장한다. v1~v14는 현재
+  Owned Card를 EverAcquired로 이행하고, 이미 사라진 과거 판매 기록은 추정하지 않는다. 현재 Catalog에
+  없는 Stable ID는 향후 콘텐츠 복귀를 위해 보존하되 도감 분모와 화면에서는 제외한다.
+- 카드 획득 Commit은 보유 갱신, EverAcquired 기록, 정확한 CardId 위시 자동 해제를 한 경계에서
+  처리하고 `WasWishlisted` 결과를 공개 연출에 전달한다. 위시 상태는 Scout 후보 수 표시와 Navigation에만
+  사용하며 Cost/Edition Weight, Pity, RNG Seed와 추첨 순서를 변경하지 않는다.
+- 카드 행은 Virtualized Grid로 표시하며 큰 카드·능력치·기록·획득 경로는 선택된 행에서 한 번만 만든다.
+  실제 Production Archive 19,044 Cards / 17,387 PlayerSeasons 계측에서 Index 420.80 ms,
+  전체 카드+시즌 Query 432.38 ms, 구단·연도·Edition 복합 Filter 1.91 ms였다. 이 수치는 Editor 배치
+  단일 실행값이며 Player Build 목표값으로 간주하지 않는다.
+- 구단주 Production Route는 연결됐지만 전체 완료는 아니다. 선수 커리어는 Owner 상태를 숨기는
+  읽기 전용 UI 계약만 있으며 동일 World History Seed를 Save/Load 뒤에도 복원하는 Production Route가
+  아직 없다. 또한 현행 카드 판매는 중복 수량만 판매하므로 기본 보유 카드가 0장이 되는 정식 경로,
+  16:9 실제 조작, Production E2E와 전체 Unity Test Runner 검증을 후속 Gate로 남긴다.
+
 ### 덕아웃 작전 방침 선택 범위 (2026-09-06)
 
 구단주 모드의 여섯 작전 방침은 감독 신뢰도와 관계없이 -2/-1/중립/+1/+2를 모두 허용한다.

@@ -14,6 +14,8 @@ namespace Baseball.Presentation.Owner
         public const string RosterTeamColor = "Owner.Roster.TeamColor";
         public const string RosterPitching = "Owner.Roster.Pitching";
         public const string RosterCollection = "Owner.Roster.Collection";
+        public const string RosterEncyclopedia = "Owner.Roster.Encyclopedia";
+        public const string RosterWishlist = "Owner.Roster.Wishlist";
         public const string RosterCondition = "Owner.Roster.Condition";
         public const string PowerUp = "Owner.PowerUp";
         public const string PowerUpScout = "Owner.PowerUp.Scout";
@@ -78,7 +80,9 @@ namespace Baseball.Presentation.Owner
                 new NavigationEntry(OwnerNavigationRoutes.RosterLineup, "선수 오더"),
                 new NavigationEntry(OwnerNavigationRoutes.RosterTacticCards, "작전 카드"),
                 new NavigationEntry(OwnerNavigationRoutes.RosterSupportCards, "서포트 카드"),
-                new NavigationEntry(OwnerNavigationRoutes.RosterTeamColor, "팀 컬러")
+                new NavigationEntry(OwnerNavigationRoutes.RosterTeamColor, "팀 컬러"),
+                new NavigationEntry(OwnerNavigationRoutes.RosterEncyclopedia, "선수 도감"),
+                new NavigationEntry(OwnerNavigationRoutes.RosterWishlist, "위시리스트")
             };
             var powerUpTabs = new[]
             {

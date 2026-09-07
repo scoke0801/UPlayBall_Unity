@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Baseball.Presentation.SharedUI;
@@ -217,32 +216,23 @@ namespace Baseball.Presentation.Owner
                 _recordTabs[side, tab].GetComponentInChildren<Text>().color = selected ? accent : Ink;
             }
             AddTableRow(content, new[] { "선수", "포지션", "컨디션 / 관측" }, accent, true, 0);
-            var rows = new List<string[]>();
-            if (side == 0 && !pitchers)
+            IReadOnlyList<OwnerPregameRosterRowModel> rows = _model.GetRosterRows(side == 0, pitchers);
+            for (int index = 0; index < rows.Count; index++)
             {
-                foreach (var player in _model.Lineup)
-                    rows.Add(new[] { player.DisplayName, player.PositionText, string.IsNullOrEmpty(player.WarningText)
-                        ? "컨디션 " + player.ExpectedConditionText + " · 호흡 " + player.LineupChemistryText : player.WarningText });
+                OwnerPregameRosterRowModel row = rows[index];
+                RectTransform rowRect = AddTableRow(
+                    content,
+                    new[] { row.NameText, row.PositionText, row.StatusText },
+                    Ink,
+                    false,
+                    index);
+                if (row.Detail == null) continue;
+                OwnerCollectionCardSnapshot detail = row.Detail;
+                UIRightClickDetailTrigger.Attach(rowRect, () => UI_Popup_OwnerPlayerCard.Show(transform, detail));
             }
-            else if (side == 0)
-            {
-                foreach (string name in _model.Snapshot.ResolveText("analysis.own.pitchers", "정보 부족").Split('\n'))
-                    rows.Add(new[] { name, "투수", "등록 로스터" });
-            }
-            else
-            {
-                IReadOnlyList<string> source = pitchers ? _model.Bullpen : _model.ExpectedLineup;
-                foreach (string row in source)
-                {
-                    string[] parts = row.Split(new[] { " · " }, StringSplitOptions.None);
-                    rows.Add(new[] { parts[0], parts.Length > 1 ? parts[1] : "—", parts.Length > 2 ? string.Join(" · ", parts, 2, parts.Length - 2) : "정보 부족" });
-                }
-            }
-            if (rows.Count == 0) rows.Add(new[] { "정보 부족", "—", "등록 정보 없음" });
-            for (int index = 0; index < rows.Count; index++) AddTableRow(content, rows[index], Ink, false, index);
         }
 
-        private static void AddTableRow(RectTransform content, string[] values, Color color, bool header, int index)
+        private static RectTransform AddTableRow(RectTransform content, string[] values, Color color, bool header, int index)
         {
             RectTransform row = Surface(content, header ? "TableHeader" : "PlayerRow" + index,
                 header ? new Color32(234, 237, 233, 255) : index % 2 == 0 ? Color.white : new Color32(242, 245, 246, 255), 0, 0, 1, 1);
@@ -258,6 +248,7 @@ namespace Baseball.Presentation.Owner
                 Surface(row, "ColumnRule" + cell, Rule, bounds[cell], 0, bounds[cell] + .002f, 1);
             }
             Surface(row, "RowRule", Rule, 0, 0, 1, .025f);
+            return row;
         }
 
         private static Text[] CreateCells(RectTransform parent, string[] labels, float bottom, float top, Color color, bool bold)

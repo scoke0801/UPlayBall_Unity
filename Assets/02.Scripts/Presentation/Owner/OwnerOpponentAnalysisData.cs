@@ -29,7 +29,7 @@ namespace Baseball.Presentation.Owner
             {
                 string cardId = rotation[(game.Round - 1) % rotation.Count];
                 if (runtime.WorldCardCatalog.TryGetCard(cardId, out var card))
-                    output["analysis.own.starter"] = runtime.IdentityRegistry.GetPlayerDisplayName(
+            output["analysis.own.starter"] = runtime.IdentityRegistry.GetPresentationPlayerName(
                         runtime.WorldCardCatalog.GetPlayerSeason(card).PlayerPersonId) + " · 예정 선발";
             }
             PopulateTeam(manager, runtime.PlayerTeamSeasonKey, live.PlayerTeamId, "own", output);
@@ -43,7 +43,6 @@ namespace Baseball.Presentation.Owner
             var roster = runtime.GetRoster(teamKey);
             var totals = new int[Axes.Length];
             var counts = new int[Axes.Length];
-            var pitchers = new List<string>();
             foreach (var entry in roster.Entries)
             {
                 if (!runtime.WorldCardCatalog.TryGetCard(entry.CardId, out var card)) continue;
@@ -56,13 +55,10 @@ namespace Baseball.Presentation.Owner
                     totals[axis] += ratings.Get(Axes[axis]);
                     counts[axis]++;
                 }
-                if (!isBatter)
-                    pitchers.Add(runtime.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId));
             }
             for (int axis = 0; axis < Axes.Length; axis++)
                 output[$"analysis.{side}.axis{axis}"] = counts[axis] == 0 ? "—" :
                     ((double)totals[axis] / counts[axis]).ToString("0.0", CultureInfo.InvariantCulture);
-            output[$"analysis.{side}.pitchers"] = string.Join("\n", pitchers);
 
             // 최근 전적은 Schedule의 완료 경기만 사용한다. 역사 시즌 기록과 현재 시즌을 섞지 않는다.
             var games = new List<Baseball.Game.Career.ScheduledGameState>();

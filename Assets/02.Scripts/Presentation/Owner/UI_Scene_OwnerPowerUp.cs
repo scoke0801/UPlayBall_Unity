@@ -57,6 +57,7 @@ namespace Baseball.Presentation.Owner
         public event Action<string, string> TrainingRequested;
         public event Action<string> EnhancementRequested;
         public event Action<string, int> DuplicateSaleRequested;
+        public event Action WishlistRequested;
 
         /// <summary>공용 Shell Workspace 아래에 전력보강 화면을 런타임 생성한다.</summary>
         public static UI_Scene_OwnerPowerUp CreateRuntime(RectTransform workspaceHost)
@@ -449,8 +450,10 @@ namespace Baseball.Presentation.Owner
             RefreshEnhancementTarget();
         }
 
-        private void SelectScoutProduct(string productId)
+        /// <summary>도감이 제안한 실제 Scout 상품을 사용자의 명시적 이동 뒤 선택한다.</summary>
+        public void SelectScoutProduct(string productId)
         {
+            if (FindScoutProduct(productId) == null) return;
             _selectedScoutProductId = productId;
             BindScout();
         }
@@ -850,33 +853,6 @@ namespace Baseball.Presentation.Owner
             Outline outline = image.GetComponent<Outline>() ?? image.gameObject.AddComponent<Outline>();
             outline.effectColor = selected ? new Color32(100, 205, 255, 255) : new Color32(156, 207, 242, 255);
             outline.effectDistance = selected ? new Vector2(2f, -2f) : new Vector2(1f, -1f);
-        }
-
-        private static PlayerMiniCardView CreateSynthesisCardSlot(
-            RectTransform parent,
-            string name,
-            string label,
-            float anchorMinX,
-            float anchorMaxX)
-        {
-            Image slot = OwnerRuntimeUiFactory.CreateImage(name + "Slot", parent, new Color32(235, 238, 240, 255));
-            OwnerRuntimeUiFactory.SetAnchors(
-                slot.rectTransform, new Vector2(anchorMinX, .02f), new Vector2(anchorMaxX, .98f),
-                Vector2.zero, Vector2.zero);
-            Outline outline = slot.gameObject.AddComponent<Outline>();
-            outline.effectColor = CareerUiTheme.ReferenceDataGrid;
-            outline.effectDistance = new Vector2(1f, -1f);
-            Text heading = OwnerWorkspaceUiFactory.CreateText(
-                slot.transform, "Heading", label, 13, FontStyle.Bold, TextAnchor.MiddleCenter,
-                CareerUiTheme.ReferenceDataAccent);
-            OwnerRuntimeUiFactory.SetAnchors(
-                heading.rectTransform, new Vector2(0f, .86f), Vector2.one,
-                new Vector2(4f, 0f), new Vector2(-4f, 0f));
-            PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(slot.transform, name);
-            OwnerRuntimeUiFactory.SetAnchors(
-                card.GetComponent<RectTransform>(), new Vector2(.18f, .04f), new Vector2(.82f, .84f),
-                Vector2.zero, Vector2.zero);
-            return card;
         }
 
         private static void CreateCardListButton(

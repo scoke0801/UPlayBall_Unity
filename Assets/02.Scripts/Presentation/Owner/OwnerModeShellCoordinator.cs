@@ -72,6 +72,7 @@ namespace Baseball.Presentation.Owner
             _shell.SettingsRequested += HandleSettingsRequested;
             UIManager.Instance.NavigationBackRequested += HandleCancelRequested;
             _manager.RuntimeChanged += HandleRuntimeChanged;
+            DevelopmentRealIdentitySettings.Changed += Refresh;
             FrontManagerGuideCtaRouter.OwnerRouteRequested -= HandleGuideRouteRequested;
             FrontManagerGuideCtaRouter.OwnerRouteRequested += HandleGuideRouteRequested;
             UiGameModeSession.ModeChanged += HandleModeChanged;
@@ -232,6 +233,7 @@ namespace Baseball.Presentation.Owner
             _manager?.AbortRegularSeasonSimulationForSceneUnload();
             if (_manager != null)
                 _manager.RuntimeChanged -= HandleRuntimeChanged;
+            DevelopmentRealIdentitySettings.Changed -= Refresh;
             UiGameModeSession.ModeChanged -= HandleModeChanged;
             FrontManagerGuideCtaRouter.OwnerRouteRequested -= HandleGuideRouteRequested;
             if (_shell != null)
@@ -277,6 +279,7 @@ namespace Baseball.Presentation.Owner
         private void HandleRuntimeChanged()
         {
             _boundSnapshotRoutes.Clear();
+            _shopService = null;
             _pendingLineupPreset = null;
             _pendingActiveRosterChange = null;
             Refresh();
@@ -488,6 +491,91 @@ namespace Baseball.Presentation.Owner
             if (string.Equals(navigationRouteId, OwnerNavigationRoutes.PowerUpTraining, StringComparison.Ordinal))
                 return OwnerNavigationRoutes.PowerUpTraining;
             return navigationRouteId;
+        }
+
+        private void HandleWishlistToggleRequested(string cardId)
+        {
+            try
+            {
+                bool isAdded = _manager.ToggleWishlist(cardId);
+                ShowFeedback(isAdded ? "위시리스트에 등록했습니다." : "위시리스트에서 해제했습니다.", false);
+            }
+            catch (Exception exception) when (
+                exception is ArgumentException || exception is InvalidOperationException)
+            {
+                ShowFeedback(exception.Message, true);
+            }
+        }
+
+        private void HandleEncyclopediaScoutRequested(string cardId)
+        {
+            if (!TryFindMostFocusedScoutProduct(cardId, out string productId))
+            {
+                ShowFeedback("현재 이 카드가 포함되는 스카우트 상품이 없습니다.", true);
+                return;
+            }
+            HandleNavigationRequested(OwnerNavigationRoutes.PowerUpScout);
+            _expansionWorkspace.SelectScoutProduct(productId);
+            ShowFeedback("선택한 카드가 포함되는 가장 좁은 현재 스카우트 풀을 열었습니다.", false);
+        }
+
+        private bool TryFindMostFocusedScoutProduct(string cardId, out string productId)
+        {
+            productId = string.Empty;
+            if (_manager?.Runtime == null ||
+                !_manager.Runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
+                return false;
+            _shopService ??= _manager.CreateShopService();
+
+            WorldCardCatalog catalog = _manager.Runtime.WorldCardCatalog;
+            ScoutFeaturePolicy featurePolicy = OwnerShopComposer.ResolveScoutFeaturePolicy(catalog);
+            IReadOnlyList<ScoutPoolDefinition> pools = OwnerShopComposer.CreateScoutPools(catalog, featurePolicy);
+            IReadOnlyList<ShopProductDefinition> products = _shopService.Catalog.GetProducts(ShopTab.PlayerCard);
+            int bestCandidateCount = int.MaxValue;
+            for (int poolIndex = 0; poolIndex < pools.Count; poolIndex++)
+            {
+                ScoutPoolDefinition pool = pools[poolIndex];
+                if (!ScoutRoller.IsCandidate(pool, catalog, featurePolicy, card)) continue;
+                ShopProductDefinition product = FindSingleDrawScoutProduct(products, pool.ScoutPoolId);
+                if (product == null || !_shopService.TryGetDetails(product.ProductId, out ShopProductDetails details))
+                    continue;
+                int candidateCount = 0;
+                for (int bucketIndex = 0; bucketIndex < details.Probabilities.Count; bucketIndex++)
+                    candidateCount += details.Probabilities[bucketIndex].CandidateCount;
+                if (candidateCount > bestCandidateCount ||
+                    (candidateCount == bestCandidateCount && string.CompareOrdinal(product.ProductId, productId) >= 0))
+                    continue;
+                bestCandidateCount = candidateCount;
+                productId = product.ProductId;
+            }
+            return productId.Length > 0;
+        }
+
+        private static ShopProductDefinition FindSingleDrawScoutProduct(
+            IReadOnlyList<ShopProductDefinition> products,
+            string scoutPoolId)
+        {
+            ShopProductDefinition fallback = null;
+            for (int index = 0; index < products.Count; index++)
+            {
+                ShopProductDefinition product = products[index];
+                if (!string.Equals(product.SourceId, scoutPoolId, StringComparison.Ordinal)) continue;
+                if (product.DrawCount == 1) return product;
+                if (fallback == null) fallback = product;
+            }
+            return fallback;
+        }
+
+        private void HandleEncyclopediaCardRequested(string cardId)
+        {
+            HandleNavigationRequested(OwnerNavigationRoutes.RosterEncyclopedia);
+            if (!string.IsNullOrWhiteSpace(cardId))
+                _expansionWorkspace.SelectEncyclopediaCard(cardId);
+        }
+
+        private void HandleEncyclopediaWishlistRequested()
+        {
+            HandleNavigationRequested(OwnerNavigationRoutes.RosterWishlist);
         }
 
         private void ShowHomeWithFeedback(string message)
@@ -850,6 +938,8 @@ namespace Baseball.Presentation.Owner
 
             _expansionWorkspace = gameObject.AddComponent<OwnerExpansionWorkspaceCoordinator>();
             _expansionWorkspace.Initialize(_shell);
+            _expansionWorkspace.SetRosterCardDetailResolver(
+                cardIds => _snapshotFactory.CreateCollectionCardDetails(_manager, cardIds));
             _expansionWorkspace.MatchStartRequested += HandlePregameMatchStartRequested;
             _expansionWorkspace.SignStaffRequested += HandleSignStaffRequested;
             _expansionWorkspace.ContractPreviewRequested += HandleContractPreviewRequested;
@@ -887,6 +977,10 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.GrowthShopRequested += HandleGrowthShopRequested;
             _expansionWorkspace.CardSkillBlockAutoPlaceRequested += HandleCardSkillBlockAutoPlaceRequested;
             _expansionWorkspace.CardSkillBlockRemoveRequested += HandleCardSkillBlockRemoveRequested;
+            _expansionWorkspace.WishlistToggleRequested += HandleWishlistToggleRequested;
+            _expansionWorkspace.EncyclopediaScoutRequested += HandleEncyclopediaScoutRequested;
+            _expansionWorkspace.EncyclopediaCardRequested += HandleEncyclopediaCardRequested;
+            _expansionWorkspace.EncyclopediaWishlistRequested += HandleEncyclopediaWishlistRequested;
         }
 
         private void EnsureSharedInformationWorkspace()
@@ -942,6 +1036,10 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.GrowthShopRequested -= HandleGrowthShopRequested;
             _expansionWorkspace.CardSkillBlockAutoPlaceRequested -= HandleCardSkillBlockAutoPlaceRequested;
             _expansionWorkspace.CardSkillBlockRemoveRequested -= HandleCardSkillBlockRemoveRequested;
+            _expansionWorkspace.WishlistToggleRequested -= HandleWishlistToggleRequested;
+            _expansionWorkspace.EncyclopediaScoutRequested -= HandleEncyclopediaScoutRequested;
+            _expansionWorkspace.EncyclopediaCardRequested -= HandleEncyclopediaCardRequested;
+            _expansionWorkspace.EncyclopediaWishlistRequested -= HandleEncyclopediaWishlistRequested;
         }
 
         /// <summary>구매로 재화·보유 상태가 바뀔 때마다 상점 타일을 다시 판정해 표시한다.</summary>
@@ -1002,7 +1100,7 @@ namespace Baseball.Presentation.Owner
                 if (!_manager.Runtime.WorldCardCatalog.TryGetCard(item.ItemId, out var card)) continue;
                 var season = _manager.Runtime.WorldCardCatalog.GetPlayerSeason(card);
                 models[index] = new PlayerMiniCardModel(item.ItemId,
-                    _manager.Runtime.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId),
+                _manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId),
                     OwnerCollectionPresentationBuilder.FormatPosition(season.Position),
                     season.OriginYear.ToString(), "Cost " + season.Cost,
                     item.GradeLabel, item.IsNew ? "신규 영입" : "중복 획득",

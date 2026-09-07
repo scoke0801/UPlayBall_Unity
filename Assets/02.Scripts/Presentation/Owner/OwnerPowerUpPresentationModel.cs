@@ -49,6 +49,7 @@ namespace Baseball.Presentation.Owner
     public sealed class OwnerScoutProductSnapshot
     {
         private readonly Lazy<OwnerScoutProbabilitySnapshot[]> _probabilities;
+        private readonly Lazy<OwnerScoutCandidateSummary> _candidateSummary;
 
         public OwnerScoutProductSnapshot(
             string productId,
@@ -63,7 +64,8 @@ namespace Baseball.Presentation.Owner
             int pityGainPerDraw,
             int guaranteedMinimumCost,
             IReadOnlyList<OwnerScoutProbabilitySnapshot> probabilities,
-            Func<IReadOnlyList<OwnerScoutProbabilitySnapshot>> probabilityResolver = null)
+            Func<IReadOnlyList<OwnerScoutProbabilitySnapshot>> probabilityResolver = null,
+            Func<OwnerScoutCandidateSummary> candidateSummaryResolver = null)
         {
             ProductId = productId ?? string.Empty;
             Title = title ?? string.Empty;
@@ -81,6 +83,8 @@ namespace Baseball.Presentation.Owner
             OwnerScoutProbabilitySnapshot[] copy = OwnerPowerUpSnapshotCopy.Copy(probabilities);
             _probabilities = new Lazy<OwnerScoutProbabilitySnapshot[]>(() => probabilityResolver == null
                 ? copy : OwnerPowerUpSnapshotCopy.Copy(probabilityResolver()));
+            _candidateSummary = new Lazy<OwnerScoutCandidateSummary>(() =>
+                candidateSummaryResolver == null ? default : candidateSummaryResolver());
         }
 
         public string ProductId { get; }
@@ -95,6 +99,21 @@ namespace Baseball.Presentation.Owner
         public int PityGainPerDraw { get; }
         public int GuaranteedMinimumCost { get; }
         public IReadOnlyList<OwnerScoutProbabilitySnapshot> Probabilities => _probabilities.Value;
+        public int CandidateCount => _candidateSummary.Value.CandidateCount;
+        public int WishlistCandidateCount => _candidateSummary.Value.WishlistCandidateCount;
+    }
+
+    /// <summary>Scout 후보군과 그 안에 포함된 위시 카드 수를 확률에 영향 없이 표시한다.</summary>
+    public readonly struct OwnerScoutCandidateSummary
+    {
+        public OwnerScoutCandidateSummary(int candidateCount, int wishlistCandidateCount)
+        {
+            CandidateCount = candidateCount;
+            WishlistCandidateCount = wishlistCandidateCount;
+        }
+
+        public int CandidateCount { get; }
+        public int WishlistCandidateCount { get; }
     }
 
     /// <summary>선수 카드 상품과 현재 Scout 지갑을 묶은 화면 Snapshot이다.</summary>
@@ -292,9 +311,17 @@ namespace Baseball.Presentation.Owner
             try
             {
                 IReadOnlyList<ShopProductDefinition> definitions = shop.Catalog.GetProducts(ShopTab.PlayerCard);
+                WorldCardCatalog cardCatalog = manager.Runtime.WorldCardCatalog;
+                ScoutFeaturePolicy featurePolicy = OwnerShopComposer.ResolveScoutFeaturePolicy(cardCatalog);
+                IReadOnlyList<ScoutPoolDefinition> scoutPools = OwnerShopComposer.CreateScoutPools(cardCatalog, featurePolicy);
                 var products = new OwnerScoutProductSnapshot[definitions.Count];
                 for (int index = 0; index < products.Length; index++)
-                    products[index] = CreateScoutProduct(manager, shop, definitions[index]);
+                    products[index] = CreateScoutProduct(
+                        manager,
+                        shop,
+                        definitions[index],
+                        FindScoutPool(scoutPools, definitions[index].SourceId),
+                        featurePolicy);
                 ShopWalletBalance wallet = shop.GetBalance();
                 return new OwnerScoutScreenSnapshot(
                     products,
@@ -309,7 +336,9 @@ namespace Baseball.Presentation.Owner
         private static OwnerScoutProductSnapshot CreateScoutProduct(
             OwnerModeManager manager,
             ShopService shop,
-            ShopProductDefinition product)
+            ShopProductDefinition product,
+            ScoutPoolDefinition scoutPool,
+            ScoutFeaturePolicy featurePolicy)
         {
             ShopPurchaseQuote quote = shop.GetQuote(product);
             ScoutPityBalanceTable pity = ScoutPityBalanceTable.CreateInitial();
@@ -326,7 +355,39 @@ namespace Baseball.Presentation.Owner
                 pity.GaugeGainPerScout,
                 pity.GuaranteedMinimumCost,
                 null,
-                () => CreateScoutProbabilities(shop, product.ProductId));
+                () => CreateScoutProbabilities(shop, product.ProductId),
+                () => CreateScoutCandidateSummary(manager.Runtime, scoutPool, featurePolicy));
+        }
+
+        private static ScoutPoolDefinition FindScoutPool(
+            IReadOnlyList<ScoutPoolDefinition> pools,
+            string sourceId)
+        {
+            for (int index = 0; index < pools.Count; index++)
+                if (string.Equals(pools[index].ScoutPoolId, sourceId, StringComparison.Ordinal))
+                    return pools[index];
+            throw new InvalidOperationException("스카우트 상품의 실제 후보 풀을 찾을 수 없습니다.");
+        }
+
+        private static OwnerScoutCandidateSummary CreateScoutCandidateSummary(
+            ManagerHistoricalRuntimeState runtime,
+            ScoutPoolDefinition pool,
+            ScoutFeaturePolicy featurePolicy)
+        {
+            int candidateCount = 0;
+            int wishlistCandidateCount = 0;
+            WorldCardCatalog catalog = runtime.WorldCardCatalog;
+            IReadOnlyList<PlayerCardDefinition> cards = catalog.Cards;
+            for (int index = 0; index < cards.Count; index++)
+            {
+                PlayerCardDefinition card = cards[index];
+                if (!ScoutRoller.IsCandidate(pool, catalog, featurePolicy, card))
+                    continue;
+                candidateCount++;
+                if (runtime.Wishlist.Contains(card.CardId))
+                    wishlistCandidateCount++;
+            }
+            return new OwnerScoutCandidateSummary(candidateCount, wishlistCandidateCount);
         }
 
         private static IReadOnlyList<OwnerScoutProbabilitySnapshot> CreateScoutProbabilities(

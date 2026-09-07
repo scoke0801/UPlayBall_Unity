@@ -32,6 +32,8 @@ namespace Baseball.Presentation.Owner
                     return OwnerNavigationRoutes.PowerUpScout;
                 case OwnerNavigationRoutes.PowerUpStudy:
                     return OwnerNavigationRoutes.PowerUpSkills;
+                case OwnerNavigationRoutes.RosterWishlist:
+                    return OwnerNavigationRoutes.RosterEncyclopedia;
                 case OwnerManagementRoutes.ClubFacility:
                     return OwnerManagementRoutes.ClubFinance;
                 case OwnerNavigationRoutes.ClubOwner:
@@ -66,6 +68,10 @@ namespace Baseball.Presentation.Owner
                     break;
                 case OwnerExpansionWorkspaceCoordinator.CollectionRouteId:
                     _expansionWorkspace.BindCollection(_snapshotFactory.CreateCollection(_manager));
+                    break;
+                case OwnerNavigationRoutes.RosterEncyclopedia:
+                case OwnerNavigationRoutes.RosterWishlist:
+                    _expansionWorkspace.BindEncyclopedia(_snapshotFactory.CreateEncyclopedia(_manager));
                     break;
                 case OwnerNavigationRoutes.PowerUpSkills:
                     _expansionWorkspace.BindGrowth(OwnerGrowthPresentationBuilder.Build(
