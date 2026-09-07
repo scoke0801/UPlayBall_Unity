@@ -21,6 +21,7 @@ namespace Baseball.Tests.EditMode.Presentation
         {
             _root = new GameObject("SharedGameShellViewTests_Root", typeof(RectTransform));
             _view = SharedGameShellView.CreateRuntime(_root.transform);
+            _ = _view.MainWorkspaceHost;
         }
 
         [TearDown]
@@ -28,6 +29,29 @@ namespace Baseball.Tests.EditMode.Presentation
         {
             if (_root != null)
                 Object.DestroyImmediate(_root);
+        }
+
+        [Test]
+        public void BindContext_동일업무영역의탭은버튼을재생성하지않고선택만바꾼다()
+        {
+            _view.BindProfile(OwnerModeUiProfileFactory.Create());
+            _view.BindContext(new ShellContextModel(OwnerNavigationRoutes.RosterLineup, "선수 오더", string.Empty));
+            Transform tabs = _view.transform.Find("ContextHeader/SubTabs");
+            Button[] before = tabs.GetComponentsInChildren<Button>();
+            int requests = 0;
+            _view.NavigationRequested += _ => requests++;
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            for (int index = 0; index < 100; index++)
+                _view.BindContext(new ShellContextModel(index % 2 == 0
+                    ? OwnerNavigationRoutes.RosterTeamColor : OwnerNavigationRoutes.RosterLineup,
+                    "선수단", string.Empty));
+            watch.Stop();
+            TestContext.WriteLine($"동일 업무 영역 100회 전환: {watch.Elapsed.TotalMilliseconds:F2} ms");
+            CollectionAssert.AreEqual(before, tabs.GetComponentsInChildren<Button>());
+            before[0].onClick.Invoke();
+            Assert.That(requests, Is.EqualTo(1));
+            _view.BindProfile(OwnerModeUiProfileFactory.Create());
+            Assert.That(tabs.GetComponentsInChildren<Button>()[0], Is.Not.SameAs(before[0]));
         }
 
         [Test]

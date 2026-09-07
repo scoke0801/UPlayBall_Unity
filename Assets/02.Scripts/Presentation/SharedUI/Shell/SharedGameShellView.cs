@@ -49,6 +49,7 @@ namespace Baseball.Presentation.SharedUI
         private RectTransform _subTabHost;
         private readonly List<NavigationButtonBinding> _primaryButtons = new List<NavigationButtonBinding>();
         private readonly List<NavigationButtonBinding> _subTabButtons = new List<NavigationButtonBinding>();
+        private NavigationEntry _renderedSubTabGroup;
         private GameModeUiProfile _profile;
         private string _activeRouteId = string.Empty;
         private bool _isInspectorVisible = true;
@@ -158,6 +159,7 @@ namespace Baseball.Presentation.SharedUI
         public void BindProfile(GameModeUiProfile profile)
         {
             _profile = profile ?? throw new ArgumentNullException(nameof(profile));
+            _renderedSubTabGroup = null;
             EnsureHierarchy();
             _modeNameText.text = profile.DisplayName;
             ApplyModeBackground(profile.BackgroundResourcePath);
@@ -286,12 +288,19 @@ namespace Baseball.Presentation.SharedUI
             if (_subTabHost == null)
                 return;
 
-            ClearChildren(_subTabHost);
-            _subTabButtons.Clear();
             if (_profile == null)
                 return;
 
             NavigationEntry primary = _profile.FindNavigationGroup(_activeRouteId);
+            // 같은 업무 영역에서는 선택 표시만 바꿔 레이아웃·Graphic 재등록과 할당을 피한다.
+            if (primary != null && ReferenceEquals(primary, _renderedSubTabGroup))
+            {
+                RefreshNavigationSelection(_subTabButtons);
+                return;
+            }
+            ClearChildren(_subTabHost);
+            _subTabButtons.Clear();
+            _renderedSubTabGroup = primary;
             if (primary == null)
             {
                 ConfigureSubTabStrip(false);
