@@ -519,7 +519,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
 
                 for (int week = 0; week < WeeksPerSeason; week++)
                 {
-                    ApplyRepresentativeWeeklyWorkload(state, random, conditionBalance);
+                    AdvanceRepresentativeWeeklyCondition(state, random, conditionBalance);
                     recoveryResolver.ApplyRecovery(state, recoveryContext);
                     for (int player = 0; player < state.Players.Count; player++)
                     {
@@ -967,33 +967,17 @@ namespace Baseball.Tests.EditMode.Game.Historical
             return salary;
         }
 
-        private static void ApplyRepresentativeWeeklyWorkload(
+        private static void AdvanceRepresentativeWeeklyCondition(
             TeamSeasonPlayerStatusState state,
             IRandomSource random,
             ConditionChemistryBalanceTable balance)
         {
             for (int index = 0; index < state.Players.Count; index++)
             {
-                int cost;
-                if (index < 9)
-                {
-                    int starts = 3 + NextInt(random, 4);
-                    cost = checked(starts * balance.StartingHitterConditionCost);
-                }
-                else if (index < 14)
-                {
-                    cost = NextInt(random, 3) == 0 ? balance.StartingHitterConditionCost : 0;
-                }
-                else if (index < 19)
-                {
-                    int rotationUse = NextInt(random, 5) == index - 14 ? 3 + NextInt(random, 2) : 0;
-                    cost = checked(rotationUse * balance.PitcherConditionCostPerThirtyPitches);
-                }
-                else
-                {
-                    cost = NextInt(random, 3) * balance.PitcherConditionCostPerThirtyPitches;
-                }
-                state.Players[index].ChangeCondition(-cost);
+                var resolver = new ConditionFluctuationResolver();
+                for (int game = 0; game < 6; game++)
+                    state.Players[index].SetCondition(resolver.ResolveNextCondition(
+                        state.Players[index].StoredBaseCondition, balance, random));
             }
         }
 
