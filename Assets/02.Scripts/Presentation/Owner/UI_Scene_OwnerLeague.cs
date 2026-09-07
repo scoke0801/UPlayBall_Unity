@@ -57,12 +57,15 @@ namespace Baseball.Presentation.Owner
             if (_model.Standings.Count == 0)
                 Label(table, "Empty", "표시할 리그 일정이 없습니다.", 0, 0, 1, 1, 20, Ink);
             else if (_tab == 2) RenderMatchups(table);
-            else if (_tab == 3) RenderHistory(table);
+            else if (_tab == 3) RenderHistory(table, root);
             else RenderStandings(table, _tab == 1);
-            Label(root, "Legend", _tab == 3 ? "라운드 종료 기준 · 동률은 공동 순위" :
+            bool hasHistoryNavigation = _tab == 3;
+            float legendBottom = hasHistoryNavigation ? .005f : .025f;
+            float legendTop = hasHistoryNavigation ? .045f : .095f;
+            Label(root, "Legend", hasHistoryNavigation ? "라운드 종료 기준 · 동률은 공동 순위" :
                 _tab == 2 ? "행 구단 기준  승 - 패 (무)" : "승률 = 승 / (승 + 패) · 동률은 공동 순위",
-                .035f, .025f, .75f, .095f, 14, Ink, TextAnchor.MiddleLeft);
-            Label(root, "FocusLegend", "■ 내 구단", .8f, .025f, .965f, .095f, 14, Blue);
+                .035f, legendBottom, .75f, legendTop, 14, Ink, TextAnchor.MiddleLeft);
+            Label(root, "FocusLegend", "■ 내 구단", .8f, legendBottom, .965f, legendTop, 14, Blue);
         }
 
         private void RenderStandings(RectTransform host, bool metrics)
@@ -129,7 +132,7 @@ namespace Baseball.Presentation.Owner
             }
         }
 
-        private void RenderHistory(RectTransform host)
+        private void RenderHistory(RectTransform host, RectTransform footerHost)
         {
             var chart = OwnerRuntimeUiFactory.CreateRect("RankHistory", host);
             Place(chart, 0, 0, .43f, 1);
@@ -155,13 +158,17 @@ namespace Baseball.Presentation.Owner
             }
             if (visible == 0)
                 Label(chart, "Empty", "첫 경기 종료 후\n순위 변화가 표시됩니다.", 0, .2f, 1, .8f, 18, Ink);
-            HistoryButton(host, "Previous", "◀", .01f, () => { _historyStart = Math.Max(0, _historyStart - 6); Render(); }, _historyStart > 0);
-            HistoryButton(host, "Next", "▶", .37f, () => { _historyStart = Math.Min(Math.Max(0, _model.Rounds.Count - 6), _historyStart + 6); Render(); }, _historyStart + 6 < _model.Rounds.Count);
+            HistoryButton(footerHost, "Previous", "◀", .045f,
+                () => { _historyStart = Math.Max(0, _historyStart - 6); Render(); },
+                _historyStart > 0);
+            HistoryButton(footerHost, "Next", "▶", .38f,
+                () => { _historyStart = Math.Min(Math.Max(0, _model.Rounds.Count - 6), _historyStart + 6); Render(); },
+                _historyStart + 6 < _model.Rounds.Count);
         }
 
         private void HistoryButton(RectTransform host, string name, string label, float x, UnityEngine.Events.UnityAction action, bool enabled)
         {
-            var surface = Surface(host, name, Color.white, x, -.09f, x + .05f, -.02f);
+            var surface = Surface(host, name, Color.white, x, .0525f, x + .0465f, .105f);
             surface.GetComponent<Image>().raycastTarget = true;
             var button = surface.gameObject.AddComponent<Button>();
             button.targetGraphic = surface.GetComponent<Image>();

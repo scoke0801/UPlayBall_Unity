@@ -104,6 +104,42 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             }
         }
 
+        [Test]
+        public void RankHistoryView_페이지이동버튼과하단범례영역이겹치지않는다()
+        {
+            var root = new GameObject(
+                "OwnerLeagueRankHistoryLayoutTests_Root",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler));
+            try
+            {
+                Canvas canvas = root.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                var games = new ScheduleGameSnapshot[8];
+                for (int round = 1; round <= games.Length; round++)
+                    games[round - 1] = Game(round.ToString(), round, "a", "b", round % 4, (round + 1) % 4);
+
+                UI_Scene_OwnerLeague view = UI_Scene_OwnerLeague.CreateRuntime(
+                    root.GetComponent<RectTransform>());
+                view.Bind(Build(games));
+                view.ShowTab(3);
+                Canvas.ForceUpdateCanvases();
+
+                RectTransform previous = (RectTransform)view.transform.Find("Previous");
+                RectTransform next = (RectTransform)view.transform.Find("Next");
+                RectTransform legend = (RectTransform)view.transform.Find("Legend");
+                RectTransform focusLegend = (RectTransform)view.transform.Find("FocusLegend");
+
+                AssertVerticalGap(legend, previous);
+                AssertVerticalGap(focusLegend, next);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
         private static OwnerLeaguePresentationModel Build(params ScheduleGameSnapshot[] games) =>
             new OwnerLeaguePresentationModel(new ScheduleScreenSnapshot("2028 시즌", "루키", "1주차", "a", games));
 
@@ -111,5 +147,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             bool completed = true) => new ScheduleGameSnapshot(id, round, round + "R",
                 new ScheduleTeamSnapshot(away, away + " 구단"), new ScheduleTeamSnapshot(home, home + " 구단"),
                 completed, awayRuns, homeRuns, ScheduleFocusSide.None);
+
+        private static void AssertVerticalGap(RectTransform lower, RectTransform upper)
+        {
+            var lowerCorners = new Vector3[4];
+            var upperCorners = new Vector3[4];
+            lower.GetWorldCorners(lowerCorners);
+            upper.GetWorldCorners(upperCorners);
+            Assert.That(lowerCorners[1].y, Is.LessThan(upperCorners[0].y));
+        }
     }
 }
