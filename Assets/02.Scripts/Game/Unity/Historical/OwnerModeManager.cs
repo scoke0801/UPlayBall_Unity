@@ -339,7 +339,11 @@ namespace Baseball.Game.Historical
         public ManagerSeasonAdvanceResult AdvanceSeason()
         {
             EnsureRegularSeasonSimulationIsNotRunning();
-            ManagerSeasonAdvanceResult result = _coordinator.AdvanceSeason(RequireRuntime());
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            // 구형 세이브의 완료 시즌에는 신규 월드 조의 경기가 아직 없으므로 같은 상세 경로로 마감한다.
+            if (runtime.ManagerMode.LiveSeason.IsCompleted && runtime.LeagueWorld != null && !runtime.LeagueWorld.IsCompleted)
+                _matchService.CompleteRegularSeason(runtime);
+            ManagerSeasonAdvanceResult result = _coordinator.AdvanceSeason(runtime);
             if (result.IsApplied)
             {
                 CurrentPregame = null;
@@ -1227,6 +1231,8 @@ namespace Baseball.Game.Historical
             LineupPresetState preset = runtime.ManagerMode.GetSelectedLineupPreset();
             string activePitcherCardId = ResolveActivePitcherCardId(preparation, preset);
             var resolver = new EffectiveMatchConditionResolver();
+            int headCoachBonus = ManagerModeMatchService.ResolveHeadCoachConditionBonus(
+                runtime, runtime.PlayerTeamSeasonKey, Balance.ConditionChemistry);
             var result = new OwnerModeConditionEntry[roster.Entries.Count];
             for (int index = 0; index < roster.Entries.Count; index++)
             {
@@ -1255,7 +1261,7 @@ namespace Baseball.Game.Historical
                         assignmentModifier,
                         lineupModifier,
                         batteryModifier,
-                        0));
+                        headCoachBonus));
             }
             return result;
         }
@@ -1315,6 +1321,21 @@ namespace Baseball.Game.Historical
             return Runtime == null
                 ? team.FranchiseId
                 : Runtime.IdentityRegistry.GetPresentationFranchiseName(team.FranchiseId);
+        }
+
+        /// <summary>정규 구단과 합성 참가팀의 원본 시즌 연도를 TeamSeasonKey에서 찾는다.</summary>
+        public int? GetTeamOriginYear(string teamSeasonKey)
+        {
+            if (SpecialCompositeTeamDefinition.TryParseTeamSeasonKey(
+                    teamSeasonKey,
+                    out int compositeOriginYear,
+                    out _))
+                return compositeOriginYear;
+
+            HistoricalBakedContent content = _contentProvider.Load();
+            return content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team)
+                ? team.OriginYear
+                : null;
         }
 
         public string GetTacticDisplayName(string tacticCardId)

@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 15;
+        public const int CurrentSaveVersion = 16;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
         // 개인 기록은 없으면 빈 상태로 복원되므로 별도 버전 분기가 필요 없다.
@@ -79,6 +79,7 @@ namespace Baseball.Game.Historical
                 identityRegistry = CreateIdentityRegistry(state.IdentityRegistry),
                 worldHistory = _worldHistoryMapper.CreateSaveData(state.WorldHistory),
                 league = CreateLeague(state.League),
+                leagueWorld = CreateLeagueWorld(state),
                 rosters = CreateRosters(state.Rosters),
                 ownedCards = CreateOwnedCards(state.OwnedCards),
                 cardCollectionHistory = CreateCardCollectionHistory(state.CollectionHistory),
@@ -180,7 +181,7 @@ namespace Baseball.Game.Historical
                     catalog);
             }
 
-            return new ManagerHistoricalRuntimeState(
+            var runtime = new ManagerHistoricalRuntimeState(
                 saveData.playerTeamSeasonKey,
                 contentReference,
                 identityRegistry,
@@ -220,6 +221,11 @@ namespace Baseball.Game.Historical
                     : RestorePlayerGrowth(saveData.playerGrowth),
                 collectionHistory,
                 wishlist);
+            if (saveData.saveVersion >= 16 && saveData.leagueWorld != null)
+                RestoreLeagueWorld(runtime, saveData.leagueWorld, saveData.saveVersion);
+            else
+                new OwnerLeagueWorldService(_balance).Initialize(runtime, bakedContent);
+            return runtime;
         }
 
         /// <summary>v11~v13의 1군 교체 누락으로 계약 수만 25인 상태를 해당 로스터 CardId에 맞춰 이행한다.</summary>
@@ -1322,6 +1328,58 @@ namespace Baseball.Game.Historical
             }
         }
 
+        private static OwnerLeagueWorldSaveData CreateLeagueWorld(ManagerHistoricalRuntimeState runtime)
+        {
+            if (runtime.LeagueWorld == null) return null;
+            var groups = new List<OwnerLeagueGroupSaveData>();
+            var localKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var roster in runtime.Rosters) localKeys.Add(roster.TeamSeasonKey);
+            var rosters = new List<CurrentRosterState>();
+            foreach (var roster in runtime.WorldRosters)
+                if (!localKeys.Contains(roster.TeamSeasonKey)) rosters.Add(roster);
+            foreach (var group in runtime.LeagueWorld.Groups)
+                if (!ReferenceEquals(group.Season, runtime.ManagerMode.LiveSeason))
+                    groups.Add(new OwnerLeagueGroupSaveData { league = CreateLeague(group.League), season = CreateLiveSeason(group.Season) });
+            var playerIds = new List<OwnerLeaguePlayerIdSaveData>();
+            foreach (var entry in ManagerModeMatchService.PlayerIdMap.Create(runtime).Entries)
+                playerIds.Add(new OwnerLeaguePlayerIdSaveData { key = entry.Key, playerId = entry.Value });
+            playerIds.Sort((a, b) => string.CompareOrdinal(a.key, b.key));
+            var history = new List<OwnerLeagueGroupSaveData>();
+            foreach (var group in runtime.LeagueWorld.CompletedGroups)
+                history.Add(new OwnerLeagueGroupSaveData { league = CreateLeague(group.League), season = CreateLiveSeason(group.Season) });
+            return new OwnerLeagueWorldSaveData { groups = groups.ToArray(), completedGroups = history.ToArray(), rosters = CreateRosters(rosters), playerIds = playerIds.ToArray() };
+        }
+
+        private static void RestoreLeagueWorld(ManagerHistoricalRuntimeState runtime, OwnerLeagueWorldSaveData source, int saveVersion)
+        {
+            var groups = new List<OwnerLeagueGroupState> { new OwnerLeagueGroupState(runtime.League, runtime.ManagerMode.LiveSeason) };
+            foreach (var group in Require(source.groups, nameof(source.groups)))
+                groups.Add(new OwnerLeagueGroupState(RestoreLeague(Require(group.league, nameof(group.league))),
+                    RestoreLiveSeason(Require(group.season, nameof(group.season)), saveVersion)));
+            var rosters = new List<CurrentRosterState>(runtime.Rosters);
+            var validator = new ActiveRosterValidator();
+            foreach (var roster in RestoreRosters(Require(source.rosters, nameof(source.rosters))))
+            {
+                if (!validator.Validate(roster).IsValid) throw new ArgumentException("월드 AI 로스터 구성이 올바르지 않습니다.");
+                ManagerHistoricalRuntimeState.ValidateRosterCards(roster, runtime.WorldCardCatalog);
+                runtime.ManagerMode.GetPlayerStatus(roster.TeamSeasonKey);
+                runtime.ManagerMode.GetFamiliarity(roster.TeamSeasonKey);
+                rosters.Add(roster);
+            }
+            var ids = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var entry in Require(source.playerIds, nameof(source.playerIds))) ids.Add(entry.key, entry.playerId);
+            var history = new List<OwnerLeagueGroupState>();
+            foreach (var group in Require(source.completedGroups, nameof(source.completedGroups)))
+                history.Add(new OwnerLeagueGroupState(RestoreLeague(Require(group.league, nameof(group.league))),
+                    RestoreLiveSeason(Require(group.season, nameof(group.season)), saveVersion)));
+            var world = new OwnerLeagueWorldState(groups, rosters, history) { PlayerIds = ManagerModeMatchService.PlayerIdMap.Restore(ids) };
+            foreach (var roster in world.Rosters)
+                foreach (var entry in roster.Entries)
+                    if (!world.PlayerIds.TryGet(roster.TeamSeasonKey, entry.PlayerSeasonId, out _))
+                        throw new ArgumentException("월드 선수 ID 원장에 로스터 선수가 없습니다.");
+            runtime.SetLeagueWorld(world);
+        }
+
         private static LeagueInstanceSaveData CreateLeague(LeagueInstance league)
         {
             var regular = new string[league.RegularTeamSeasonKeys.Count];
@@ -1342,6 +1400,7 @@ namespace Baseball.Game.Historical
             return new LeagueInstanceSaveData
             {
                 leagueInstanceId = league.LeagueInstanceId,
+                isPooledGroup = league.IsPooledGroup,
                 grade = (int)league.Grade,
                 regularTeamSeasonKeys = regular,
                 specialCompositeTeams = special
@@ -1365,7 +1424,7 @@ namespace Baseball.Game.Historical
                     registration.originYear,
                     (SpecialCompositeTeamType)registration.teamType);
             }
-            return new LeagueInstance(source.leagueInstanceId, (LeagueGrade)source.grade, regular, special);
+            return new LeagueInstance(source.leagueInstanceId, (LeagueGrade)source.grade, regular, special, source.isPooledGroup);
         }
 
         private static CurrentRosterSaveData[] CreateRosters(IReadOnlyList<CurrentRosterState> source)

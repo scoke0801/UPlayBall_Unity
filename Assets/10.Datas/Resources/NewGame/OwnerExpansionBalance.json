@@ -2,6 +2,19 @@
   "schemaVersion": 2,
   "contentId": "owner-expansion-09-12-v2",
   "leaguePromotion": {
+    "groupTeamCount": 10,
+    "rankRules": [
+      { "leagueGrade": 0, "promotionLastRank": 6, "promotionTarget": 1, "relegationFirstRank": 0, "relegationTarget": -1 },
+      { "leagueGrade": 1, "promotionLastRank": 6, "promotionTarget": 2, "relegationFirstRank": 9, "relegationTarget": 0 },
+      { "leagueGrade": 2, "promotionLastRank": 6, "promotionTarget": 3, "relegationFirstRank": 9, "relegationTarget": 1 },
+      { "leagueGrade": 3, "promotionLastRank": 4, "promotionTarget": 4, "relegationFirstRank": 9, "relegationTarget": 2 },
+      { "leagueGrade": 4, "promotionLastRank": 4, "promotionTarget": 5, "relegationFirstRank": 8, "relegationTarget": 3 },
+      { "leagueGrade": 5, "promotionLastRank": 4, "promotionTarget": 6, "relegationFirstRank": 7, "relegationTarget": 4 },
+      { "leagueGrade": 6, "promotionLastRank": 4, "promotionTarget": 7, "relegationFirstRank": 7, "relegationTarget": 5 },
+      { "leagueGrade": 7, "promotionLastRank": 4, "promotionTarget": 8, "relegationFirstRank": 7, "relegationTarget": 6 },
+      { "leagueGrade": 8, "promotionLastRank": 4, "promotionTarget": 9, "relegationFirstRank": 9, "relegationTarget": 7 },
+      { "leagueGrade": 9, "promotionLastRank": 0, "promotionTarget": -1, "relegationFirstRank": 7, "relegationTarget": 8 }
+    ],
     "rules": [
       { "leagueGrade": 0, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": false, "relegationWinningPercentage": 0.00 },
       { "leagueGrade": 1, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": true, "relegationWinningPercentage": 0.40 },
@@ -47,8 +60,11 @@
     "conditionPointsPerRating": 10,
     "maximumConditionRatingModifier": 3,
     "weeklyBaseRecovery": 6,
-    "startingHitterConditionCost": 4,
-    "pitcherConditionCostPerThirtyPitches": 6
+    "conditionFluctuation": 3,
+    "conditionMeanReversion": 0.1,
+    "headCoachConditionBonus": 6,
+    "conditionItemBoost": 10,
+    "conditionItemPrice": 100000
   },
   "clubOperation": {
     "attendance": {

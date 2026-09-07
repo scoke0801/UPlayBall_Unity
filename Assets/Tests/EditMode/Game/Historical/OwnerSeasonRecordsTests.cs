@@ -161,7 +161,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
 
             OwnerSeasonRecordsView view = new OwnerSeasonRecordsService().Build(
                 runtime,
-                teamSeasonKey => teamSeasonKey);
+                teamSeasonKey => teamSeasonKey,
+                playerPersonId => runtime.IdentityRegistry.GetPlayerDisplayName(playerPersonId));
 
             Assert.That(view.HasAnyRecord, Is.True);
             Assert.That(view.Categories.Count, Is.EqualTo(4));

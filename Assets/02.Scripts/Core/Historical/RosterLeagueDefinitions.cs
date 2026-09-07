@@ -461,10 +461,23 @@ namespace Baseball.Core.Historical
     public sealed class LeagueDefinition
     {
         private readonly LeagueGradeRule[] _rules;
+        private readonly OwnerLeagueRankRule[] _rankRules;
 
-        public LeagueDefinition(IReadOnlyList<LeagueGradeRule> rules)
+        public LeagueDefinition(IReadOnlyList<LeagueGradeRule> rules, int groupTeamCount = 10,
+            IReadOnlyList<OwnerLeagueRankRule> rankRules = null)
         {
+            if (groupTeamCount < 4)
+                throw new ArgumentOutOfRangeException(nameof(groupTeamCount));
+            GroupTeamCount = groupTeamCount;
             int gradeCount = Enum.GetValues(typeof(LeagueGrade)).Length;
+            IReadOnlyList<OwnerLeagueRankRule> rankSource = rankRules ?? OwnerLeagueRankRule.CreateInitial();
+            if (rankSource.Count != gradeCount) throw new ArgumentException("모든 리그의 순위 승강 규칙이 필요합니다.");
+            _rankRules = new OwnerLeagueRankRule[gradeCount];
+            foreach (var rule in rankSource)
+            {
+                if (rule == null || _rankRules[(int)rule.Grade] != null) throw new ArgumentException("리그 순위 규칙이 중복되거나 누락됐습니다.");
+                _rankRules[(int)rule.Grade] = rule;
+            }
             if (rules == null || rules.Count != gradeCount)
                 throw new ArgumentException("모든 LeagueGrade 규칙이 필요합니다.", nameof(rules));
 
@@ -484,6 +497,15 @@ namespace Baseball.Core.Historical
                 throw new ArgumentException("Rookie는 더 낮은 리그로 강등될 수 없습니다.", nameof(rules));
             if (_rules[(int)LeagueGrade.Galaxy].PromotionWinningPercentage.HasValue)
                 throw new ArgumentException("Galaxy는 더 높은 리그로 승격할 수 없습니다.", nameof(rules));
+        }
+
+        public int GroupTeamCount { get; }
+
+        /// <summary>구단주 시즌 전환에서 사용하는 순위 구간과 목적 등급을 반환한다.</summary>
+        public OwnerLeagueRankRule GetRankRule(LeagueGrade grade)
+        {
+            if (!Enum.IsDefined(typeof(LeagueGrade), grade)) throw new ArgumentOutOfRangeException(nameof(grade));
+            return _rankRules[(int)grade];
         }
 
         /// <summary>지정 등급의 승강 규칙을 반환한다.</summary>
@@ -556,22 +578,27 @@ namespace Baseball.Core.Historical
             string leagueInstanceId,
             LeagueGrade grade,
             IReadOnlyList<string> regularTeamSeasonKeys,
-            IReadOnlyList<SpecialCompositeTeamRegistration> specialCompositeTeams = null)
+            IReadOnlyList<SpecialCompositeTeamRegistration> specialCompositeTeams = null,
+            bool isPooledGroup = false)
         {
             if (string.IsNullOrWhiteSpace(leagueInstanceId))
                 throw new ArgumentException("LeagueInstanceId는 비어 있을 수 없습니다.", nameof(leagueInstanceId));
             if (!Enum.IsDefined(typeof(LeagueGrade), grade))
                 throw new ArgumentOutOfRangeException(nameof(grade));
-            if (regularTeamSeasonKeys == null || !IsSupportedRegularFranchiseTeamCount(regularTeamSeasonKeys.Count))
+            if (regularTeamSeasonKeys == null || (!isPooledGroup && !IsSupportedRegularFranchiseTeamCount(regularTeamSeasonKeys.Count)))
                 throw new ArgumentException("정규 Franchise 구단은 6~10개여야 합니다.", nameof(regularTeamSeasonKeys));
+            if (isPooledGroup && regularTeamSeasonKeys.Count + (specialCompositeTeams?.Count ?? 0) < 2)
+                throw new ArgumentException("재편성 조에는 최소 두 구단이 필요합니다.", nameof(regularTeamSeasonKeys));
 
             LeagueInstanceId = leagueInstanceId.Trim();
             Grade = grade;
+            IsPooledGroup = isPooledGroup;
             _regularTeamSeasonKeys = CopyRegularTeams(regularTeamSeasonKeys);
             _specialCompositeTeams = CopySpecialTeams(specialCompositeTeams, _regularTeamSeasonKeys);
         }
 
         public string LeagueInstanceId { get; }
+        public bool IsPooledGroup { get; }
         public LeagueGrade Grade { get; }
         public int RegularFranchiseTeamCount => _regularTeamSeasonKeys.Length;
         public IReadOnlyList<string> RegularTeamSeasonKeys => _regularTeamSeasonKeys;

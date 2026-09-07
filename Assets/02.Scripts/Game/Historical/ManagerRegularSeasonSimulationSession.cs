@@ -101,9 +101,9 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException("ManagerMode 상태가 없는 Save는 시즌을 진행할 수 없습니다.");
 
             _season = runtime.ManagerMode.LiveSeason;
-            _completedLeagueGamesBefore = CountCompletedGames(_season.Schedule.Games);
+            _completedLeagueGamesBefore = CountWorldGames(runtime, completedOnly: true);
             _totalPlayerGames = CountRemainingPlayerGames(_season);
-            _totalLeagueGames = _season.Schedule.Games.Count - _completedLeagueGamesBefore;
+            _totalLeagueGames = CountWorldGames(runtime, completedOnly: false) - _completedLeagueGamesBefore;
             _status = _totalLeagueGames == 0
                 ? ManagerRegularSeasonSimulationStatus.Completed
                 : ManagerRegularSeasonSimulationStatus.Ready;
@@ -141,7 +141,7 @@ namespace Baseball.Game.Historical
                 if (_season.NextPlayerGame == null)
                 {
                     _matchService.CompleteRemainingAiGames(_runtime);
-                    if (!_season.IsCompleted)
+                    if (!_season.IsCompleted || _runtime.LeagueWorld != null && !_runtime.LeagueWorld.IsCompleted)
                         throw new InvalidOperationException("플레이어 일정 종료 뒤에도 미완료 AI 대진이 남아 있습니다.");
                     _status = ManagerRegularSeasonSimulationStatus.Completed;
                 }
@@ -164,7 +164,7 @@ namespace Baseball.Game.Historical
                 _status,
                 _playerGamesSimulated,
                 _totalPlayerGames,
-                CountCompletedGames(_season.Schedule.Games) - _completedLeagueGamesBefore,
+                CountWorldGames(_runtime, completedOnly: true) - _completedLeagueGamesBefore,
                 _totalLeagueGames,
                 _lastCompletedRound,
                 nextGame?.Round ?? 0,
@@ -213,6 +213,16 @@ namespace Baseball.Game.Historical
             IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
             for (int index = 0; index < games.Count; index++)
                 if (!games[index].IsCompleted && games[index].IncludesTeam(season.PlayerTeamId)) count++;
+            return count;
+        }
+
+        private static int CountWorldGames(ManagerHistoricalRuntimeState runtime, bool completedOnly)
+        {
+            if (runtime.LeagueWorld == null)
+                return completedOnly ? CountCompletedGames(runtime.ManagerMode.LiveSeason.Schedule.Games) : runtime.ManagerMode.LiveSeason.Schedule.Games.Count;
+            int count = 0;
+            foreach (var group in runtime.LeagueWorld.Groups)
+                count += completedOnly ? CountCompletedGames(group.Season.Schedule.Games) : group.Season.Schedule.Games.Count;
             return count;
         }
 

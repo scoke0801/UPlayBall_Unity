@@ -243,9 +243,7 @@ namespace Baseball.Game.Historical
 
             // 로스터와 계약은 외부에서 어느 한쪽만 관찰할 수 없도록 같은 Aggregate 변경에서 교체한다.
             ManagerMode.ReplacePlayerMarketState(playerContracts, ManagerMode.TradeReceipts);
-            int rosterIndex = FindRosterIndex(PlayerTeamSeasonKey);
-            _rosters[rosterIndex] = replacement;
-            _rostersByTeamSeasonKey[PlayerTeamSeasonKey] = replacement;
+            ReplaceCurrentRoster(replacement);
             ManagerMode.ReplacePlayerStatusState(playerStatus);
         }
     }

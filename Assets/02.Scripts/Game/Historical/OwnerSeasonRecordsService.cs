@@ -80,7 +80,7 @@ namespace Baseball.Game.Historical
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
             if (!runtime.HasManagerMode) return null;
             // 카드 연도의 역사 기록은 현재 운영 시즌에 출전한 기록을 대신할 수 없다.
-            ManagerModeMatchService.PlayerIdMap ids = ManagerModeMatchService.PlayerIdMap.Create(runtime.Rosters);
+            ManagerModeMatchService.PlayerIdMap ids = ManagerModeMatchService.PlayerIdMap.Create(runtime);
             return ids.TryGet(teamSeasonKey, playerSeasonId, out int playerId)
                 ? runtime.ManagerMode.LiveSeason.Statistics.RegularSeason.GetPlayer(playerId)
                 : null;
@@ -90,11 +90,13 @@ namespace Baseball.Game.Historical
         public OwnerSeasonRecordsView Build(
             ManagerHistoricalRuntimeState runtime,
             Func<string, string> getTeamDisplayName,
+            Func<string, string> getPlayerDisplayName,
             int limit = LeagueLeaderboardService.DefaultLeaderboardLimit,
             int? seasonNumber = null)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
             if (getTeamDisplayName == null) throw new ArgumentNullException(nameof(getTeamDisplayName));
+            if (getPlayerDisplayName == null) throw new ArgumentNullException(nameof(getPlayerDisplayName));
             if (!runtime.HasManagerMode)
                 throw new InvalidOperationException("ManagerMode 상태가 없는 Runtime은 기록을 만들 수 없습니다.");
 
@@ -108,6 +110,7 @@ namespace Baseball.Game.Historical
             }
             CompetitionStatisticsState competition = season.Statistics.RegularSeason;
             int playerTeamId = season.PlayerTeamId;
+            IReadOnlyDictionary<int, string> playerPersonIds = BuildPlayerPersonIds(runtime);
 
             var categories = new OwnerSeasonRecordsCategoryView[Categories.Length];
             for (int index = 0; index < Categories.Length; index++)
@@ -119,6 +122,8 @@ namespace Baseball.Game.Historical
                     CategoryNames[index],
                     playerTeamId,
                     getTeamDisplayName,
+                    getPlayerDisplayName,
+                    playerPersonIds,
                     limit);
             }
 
@@ -160,6 +165,8 @@ namespace Baseball.Game.Historical
             string displayName,
             int playerTeamId,
             Func<string, string> getTeamDisplayName,
+            Func<string, string> getPlayerDisplayName,
+            IReadOnlyDictionary<int, string> playerPersonIds,
             int limit)
         {
             CareerRecordMetric[] columns = LeagueLeaderboardService.GetBasicColumns(category);
@@ -175,6 +182,7 @@ namespace Baseball.Game.Historical
                 teamId => getTeamDisplayName(season.GetTeamSeasonKey(teamId)),
                 player => player.TeamId == playerTeamId,
                 limit);
+            ApplyPlayerDisplayNames(leaderboard, playerPersonIds, getPlayerDisplayName);
 
             return new OwnerSeasonRecordsCategoryView(
                 category,
@@ -185,6 +193,43 @@ namespace Baseball.Game.Historical
                 competition.Players.Count == 0
                     ? "아직 진행한 경기가 없습니다."
                     : "규정 충족 " + qualified.Count.ToString(CultureInfo.InvariantCulture) + "명");
+        }
+
+        private static IReadOnlyDictionary<int, string> BuildPlayerPersonIds(
+            ManagerHistoricalRuntimeState runtime)
+        {
+            ManagerModeMatchService.PlayerIdMap playerIds =
+                ManagerModeMatchService.PlayerIdMap.Create(runtime);
+            var result = new Dictionary<int, string>();
+            foreach (var entry in playerIds.Entries)
+            {
+                string seasonId = entry.Key.Substring(entry.Key.LastIndexOf('|') + 1);
+                string cardId = PlayerCardDefinition.CreateStableCardId(seasonId, PlayerCardEdition.Normal);
+                if (runtime.WorldCardCatalog.TryGetCard(cardId, out var card))
+                    result[entry.Value] = runtime.WorldCardCatalog.GetPlayerSeason(card).PlayerPersonId;
+            }
+            return result;
+        }
+
+        private static void ApplyPlayerDisplayNames(
+            CareerRecordLeaderboardRow[] leaderboard,
+            IReadOnlyDictionary<int, string> playerPersonIds,
+            Func<string, string> getPlayerDisplayName)
+        {
+            for (int index = 0; index < leaderboard.Length; index++)
+            {
+                CareerRecordLeaderboardRow row = leaderboard[index];
+                if (!playerPersonIds.TryGetValue(row.PlayerId, out string playerPersonId))
+                    continue;
+                leaderboard[index] = new CareerRecordLeaderboardRow(
+                    row.Rank,
+                    row.PlayerId,
+                    getPlayerDisplayName(playerPersonId),
+                    row.TeamId,
+                    row.TeamName,
+                    row.IsMyPlayer,
+                    row.Metrics);
+            }
         }
     }
 }

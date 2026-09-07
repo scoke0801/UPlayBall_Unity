@@ -90,6 +90,7 @@ namespace Baseball.Game.Historical
     public sealed class ManagerModeMatchService
     {
         private const ulong AttendanceRandomStream = 0x415454454E44414EUL;
+        private const ulong ConditionRandomStream = 0x434F4E444954494FUL;
 
         private readonly HistoricalBakedContent _content;
         private readonly BalanceTable _balance;
@@ -174,7 +175,7 @@ namespace Baseball.Game.Historical
             var playerPlan = new PreGamePlanSnapshot(game.GameId, playerTeamKey, playerPreset, validation);
 
             string opponentKey = playerIsHome ? awayTeamKey : homeTeamKey;
-            PlayerIdMap playerIds = PlayerIdMap.Create(runtime.Rosters);
+            PlayerIdMap playerIds = PlayerIdMap.Create(runtime);
 
             // 상대 구단이 실제 일정만큼 소모된 컨디션·투수 피로로 나오도록,
             // 플레이어 경기가 열리는 라운드 이전의 AI 대진을 먼저 확정한다.
@@ -236,7 +237,7 @@ namespace Baseball.Game.Historical
             // 홀수 구단 일정에서는 플레이어 구단이 마지막 라운드에 bye일 수 있어,
             // 플레이어 일정이 끝난 뒤 남은 AI 대진을 시즌 마감 전에 함께 소진한다.
             if (mode.LiveSeason.NextPlayerGame == null)
-                SimulateAiGamesThrough(runtime, playerIds, GetMaximumRound(mode.LiveSeason.Schedule.Games));
+                SimulateAiGamesThrough(runtime, playerIds, int.MaxValue);
 
             return new ManagerModeMatchResult(
                 match,
@@ -271,8 +272,8 @@ namespace Baseball.Game.Historical
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
             SimulateAiGamesThrough(
                 runtime,
-                PlayerIdMap.Create(runtime.Rosters),
-                GetMaximumRound(runtime.ManagerMode.LiveSeason.Schedule.Games));
+                PlayerIdMap.Create(runtime),
+                int.MaxValue);
         }
 
         /// <summary>지정 라운드까지 남은 AI 구단 대진을 라운드·GameId 순서로 정확히 한 번 진행한다.</summary>
@@ -282,15 +283,26 @@ namespace Baseball.Game.Historical
             int throughRound)
         {
             if (throughRound <= 0) return;
-            ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
+            if (runtime.LeagueWorld == null)
+            {
+                SimulateGroupThrough(runtime, playerIds, runtime.ManagerMode.LiveSeason, throughRound);
+                return;
+            }
+            foreach (var group in runtime.LeagueWorld.Groups)
+                SimulateGroupThrough(runtime, playerIds, group.Season, throughRound);
+        }
+
+        private void SimulateGroupThrough(ManagerHistoricalRuntimeState runtime, PlayerIdMap playerIds,
+            ManagerLiveSeasonState season, int throughRound)
+        {
             IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
             for (int index = 0; index < games.Count; index++)
             {
                 ScheduledGameState game = games[index];
                 if (game.IsCompleted || game.Round > throughRound) continue;
                 // 플레이어 구단 경기는 라인업·전술 확정을 거쳐야 하므로 자동 진행 대상이 아니다.
-                if (game.IncludesTeam(season.PlayerTeamId)) continue;
-                SimulateAiGame(runtime, playerIds, game);
+                if (ReferenceEquals(season, runtime.ManagerMode.LiveSeason) && game.IncludesTeam(season.PlayerTeamId)) continue;
+                SimulateAiGame(runtime, playerIds, game, season);
             }
         }
 
@@ -298,9 +310,9 @@ namespace Baseball.Game.Historical
         private void SimulateAiGame(
             ManagerHistoricalRuntimeState runtime,
             PlayerIdMap playerIds,
-            ScheduledGameState game)
+            ScheduledGameState game,
+            ManagerLiveSeasonState season)
         {
-            ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
             string awayTeamKey = season.GetTeamSeasonKey(game.AwayTeamId);
             string homeTeamKey = season.GetTeamSeasonKey(game.HomeTeamId);
             TeamMatchBuild awayBuild = BuildTeam(
@@ -337,7 +349,8 @@ namespace Baseball.Game.Historical
 
             game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
             ApplyPostGameState(runtime.ManagerMode, awayBuild, homeBuild, match);
-            RecordStatistics(runtime.ManagerMode, game, match);
+            new LeagueStatisticsService(season.Statistics).RecordMatch(match, CompetitionScope.RegularSeason,
+                game.Round, isChampionship: false, isSeriesClinching: false);
         }
 
         /// <summary>플레이어 경기와 AI 경기를 같은 집계 경로에 넣어 리그 기록이 한쪽으로 치우치지 않게 한다.</summary>
@@ -430,6 +443,9 @@ namespace Baseball.Game.Historical
             PlayerIdMap playerIds)
         {
             CurrentRosterState activeRoster = runtime.GetRoster(teamSeasonKey);
+            int restRounds = ResolveRestRounds(runtime, teamSeasonKey, rotationIndex);
+            var pitcherIds = new List<int>(ActiveRosterCompositionRule.PitcherCount);
+            int conditionBonus = ResolveHeadCoachConditionBonus(runtime, teamSeasonKey, _balance.ConditionChemistry);
             PreGamePlanSnapshot playerPlan = planSource as PreGamePlanSnapshot;
             LineupPresetState plan = playerPlan == null ? (LineupPresetState)planSource : null;
             IReadOnlyList<LineupPresetSlot> lineupSlots = playerPlan?.StartingLineupSlots ?? plan.StartingLineupSlots;
@@ -460,6 +476,8 @@ namespace Baseball.Game.Historical
                     playerIds.Get(teamSeasonKey, entry.PlayerSeasonId));
                 playersByCard.Add(entry.CardId, player);
                 personByPlayerId.Add(player.PlayerId, entry.PlayerPersonId);
+                if (runtime.WorldCardCatalog.GetPlayerSeason(GetCard(runtime, entry.CardId)).PlayerType == PlayerType.Pitcher)
+                    pitcherIds.Add(player.PlayerId);
             }
 
             var positionByCard = new Dictionary<string, PlayerPosition>(StringComparer.Ordinal);
@@ -489,7 +507,8 @@ namespace Baseball.Game.Historical
                 rotation[starterIndex],
                 playersByCard,
                 PitcherRole.Starter,
-                null);
+                null,
+                restRounds, conditionBonus);
             var bullpen = new PitcherRosterEntry[bullpenCards.Count + 2];
             for (int index = 0; index < bullpenCards.Count; index++)
             {
@@ -500,7 +519,8 @@ namespace Baseball.Game.Historical
                     bullpenCards[index],
                     playersByCard,
                     PitcherRole.MiddleRelief,
-                    (ActiveRosterRole)((int)ActiveRosterRole.Bullpen1 + index));
+                    (ActiveRosterRole)((int)ActiveRosterRole.Bullpen1 + index),
+                    restRounds, conditionBonus);
             }
             bullpen[bullpenCards.Count] = CreatePitcherEntry(
                 runtime,
@@ -509,7 +529,8 @@ namespace Baseball.Game.Historical
                 setupCard,
                 playersByCard,
                 PitcherRole.Setup,
-                ActiveRosterRole.Setup);
+                ActiveRosterRole.Setup,
+                restRounds, conditionBonus);
             bullpen[bullpenCards.Count + 1] = CreatePitcherEntry(
                 runtime,
                 teamSeasonKey,
@@ -517,7 +538,8 @@ namespace Baseball.Game.Historical
                 closerCard,
                 playersByCard,
                 PitcherRole.Closer,
-                ActiveRosterRole.Closer);
+                ActiveRosterRole.Closer,
+                restRounds, conditionBonus);
 
             TeamChemistryFamiliarityState familiarity = runtime.ManagerMode.GetFamiliarity(teamSeasonKey);
             LineupChemistryResult lineupChemistry = _lineupChemistryResolver.Resolve(
@@ -537,7 +559,8 @@ namespace Baseball.Game.Historical
                 activeRoster,
                 playersByCard,
                 matchPlayerIds,
-                lineupChemistry);
+                lineupChemistry,
+                conditionBonus);
             MatchBatteryConditionEntry[] battery = CreateBatteryEntries(
                 teamSeasonKey,
                 activeRoster,
@@ -546,8 +569,8 @@ namespace Baseball.Game.Historical
                 starter,
                 bullpen,
                 familiarity);
-            int teamId = runtime.ManagerMode.LiveSeason.Teams[
-                FindTeamReferenceIndex(runtime.ManagerMode.LiveSeason.Teams, teamSeasonKey)].TeamId;
+            int teamId = runtime.LeagueWorld != null ? runtime.LeagueWorld.GetTeam(teamSeasonKey).TeamId :
+                runtime.ManagerMode.LiveSeason.Teams[FindTeamReferenceIndex(runtime.ManagerMode.LiveSeason.Teams, teamSeasonKey)].TeamId;
             DugoutManagementState dugout = string.Equals(
                     teamSeasonKey,
                     runtime.PlayerTeamSeasonKey,
@@ -566,7 +589,38 @@ namespace Baseball.Game.Historical
                 RunningApproach.Balanced,
                 playerConditions: conditions,
                 batteryConditions: battery);
-            return new TeamMatchBuild(roster, lineupPeople, personByPlayerId, lineupChemistry);
+            return new TeamMatchBuild(teamSeasonKey, roster, lineupPeople, personByPlayerId, lineupChemistry,
+                pitcherIds.ToArray(), restRounds);
+        }
+
+        private static int ResolveRestRounds(ManagerHistoricalRuntimeState runtime, string teamSeasonKey, int round)
+        {
+            ManagerLiveSeasonState season = runtime.LeagueWorld?.GetGroup(teamSeasonKey).Season ?? runtime.ManagerMode.LiveSeason;
+            int teamId = season.Teams[FindTeamReferenceIndex(season.Teams, teamSeasonKey)].TeamId;
+            int lastRound = 0;
+            foreach (ScheduledGameState game in season.Schedule.Games)
+                if (game.IsCompleted && game.Round < round && game.IncludesTeam(teamId))
+                    lastRound = Math.Max(lastRound, game.Round);
+            // 최근 부하는 3일까지만 남는다. 일정에서 파생해 재시도·불러오기 때 중복 회복하지 않는다.
+            return Math.Min(3, Math.Max(0, round - lastRound - 1));
+        }
+
+        /// <summary>수석코치의 선수단 컨디션 효과를 경기와 공개 조회에서 같은 값으로 계산한다.</summary>
+        public static int ResolveHeadCoachConditionBonus(ManagerHistoricalRuntimeState runtime, string teamSeasonKey,
+            ConditionChemistryBalanceTable balance)
+        {
+            var catalog = DugoutStaffCatalog.CreateDefault();
+            ManagerLiveSeasonState season = runtime.LeagueWorld?.GetGroup(teamSeasonKey).Season ?? runtime.ManagerMode.LiveSeason;
+            int teamId = season.Teams[FindTeamReferenceIndex(season.Teams, teamSeasonKey)].TeamId;
+            var dugout = runtime.HasOwnedEconomy(teamSeasonKey) ? runtime.ManagerMode.Dugout :
+                new DugoutTacticalProfileResolver().CreateAiState(teamId, catalog);
+            return catalog.GetHeadCoach(dugout.HeadCoachId).HasConditionSupport ? balance.HeadCoachConditionBonus : 0;
+        }
+
+        private static PitchingWorkloadState ApplyRestRounds(PitchingWorkloadState workload, int restRounds)
+        {
+            for (int index = 0; index < restRounds; index++) workload = workload.AdvanceDay(0);
+            return workload;
         }
 
         private Player CreatePlayer(
@@ -643,7 +697,9 @@ namespace Baseball.Game.Historical
             string cardId,
             IReadOnlyDictionary<string, Player> players,
             PitcherRole assignedRole,
-            ActiveRosterRole? activeRosterRole)
+            ActiveRosterRole? activeRosterRole,
+            int restRounds,
+            int conditionBonus)
         {
             ActiveRosterEntry entry = FindEntry(roster, cardId);
             PlayerCardDefinition card = GetCard(runtime, cardId);
@@ -651,11 +707,11 @@ namespace Baseball.Game.Historical
             TeamSeasonPlayerStatus playerStatus = runtime.ManagerMode
                 .GetPlayerStatus(teamSeasonKey)
                 .GetRequiredPlayer(entry.PlayerPersonId);
-            PitchingWorkloadState load = playerStatus.PitchingWorkload;
+            PitchingWorkloadState load = ApplyRestRounds(playerStatus.PitchingWorkload, restRounds);
             return new PitcherRosterEntry(
                 players[cardId],
                 assignedRole,
-                playerStatus.StoredBaseCondition,
+                Math.Min(100, playerStatus.StoredBaseCondition + conditionBonus),
                 new RecentPitchingWorkload(
                     load.PreviousDayPitches,
                     load.TwoDaysAgoPitches,
@@ -671,7 +727,8 @@ namespace Baseball.Game.Historical
             CurrentRosterState roster,
             IReadOnlyDictionary<string, Player> players,
             ISet<int> matchPlayerIds,
-            LineupChemistryResult lineupChemistry)
+            LineupChemistryResult lineupChemistry,
+            int conditionBonus)
         {
             var result = new MatchPlayerConditionEntry[matchPlayerIds.Count];
             int resultIndex = 0;
@@ -688,7 +745,7 @@ namespace Baseball.Game.Historical
                         assignmentModifier: 0,
                         lineupChemistryModifier: lineupModifier,
                         batteryChemistryModifier: 0,
-                        temporaryModifier: 0));
+                        temporaryModifier: conditionBonus));
             }
             return result;
         }
@@ -743,23 +800,27 @@ namespace Baseball.Game.Historical
             TeamMatchBuild second,
             MatchResult match)
         {
-            ApplyTeamPostGame(mode, first, match.PitcherUsage, match.BatteryUsage);
-            ApplyTeamPostGame(mode, second, match.PitcherUsage, match.BatteryUsage);
+            ApplyTeamPostGame(mode, first, match.PitcherUsage, match.BatteryUsage, match.Input.RandomSeed);
+            ApplyTeamPostGame(mode, second, match.PitcherUsage, match.BatteryUsage, match.Input.RandomSeed);
         }
 
         private void ApplyTeamPostGame(
             ManagerModeRuntimeState mode,
             TeamMatchBuild team,
             IReadOnlyList<PitcherUsageReport> usage,
-            IReadOnlyList<BatteryUsageReport> batteryUsage)
+            IReadOnlyList<BatteryUsageReport> batteryUsage,
+            ulong gameSeed)
         {
-            string teamKey = mode.LiveSeason.GetTeamSeasonKey(team.Roster.TeamId);
+            string teamKey = team.TeamSeasonKey;
             TeamSeasonPlayerStatusState status = mode.GetPlayerStatus(teamKey);
             TeamChemistryFamiliarityState familiarity = mode.GetFamiliarity(teamKey);
-            for (int index = 0; index < team.StartingLineupPersonIds.Length; index++)
+            var conditionResolver = new ConditionFluctuationResolver();
+            ulong conditionSeed = DeterministicSeed.Derive(gameSeed, ConditionRandomStream);
+            foreach (var entry in team.PersonByPlayerId)
             {
-                status.GetRequiredPlayer(team.StartingLineupPersonIds[index]).ChangeCondition(
-                    -_balance.ConditionChemistry.StartingHitterConditionCost);
+                TeamSeasonPlayerStatus player = status.GetRequiredPlayer(entry.Value);
+                var random = new Pcg32Random(DeterministicSeed.Derive(conditionSeed, (ulong)entry.Key));
+                player.SetCondition(conditionResolver.ResolveNextCondition(player.StoredBaseCondition, _balance.ConditionChemistry, random));
             }
             _familiarityRecorder.RecordStartingLineup(familiarity, team.StartingLineupPersonIds);
 
@@ -768,9 +829,9 @@ namespace Baseball.Game.Historical
                 if (team.PersonByPlayerId.ContainsKey(usage[index].PlayerId))
                     pitchesByPlayerId[usage[index].PlayerId] = usage[index];
 
-            AdvancePitcher(team.Roster.StartingPitcher.Player.PlayerId);
-            for (int index = 0; index < team.Roster.Bullpen.Count; index++)
-                AdvancePitcher(team.Roster.Bullpen[index].Player.PlayerId);
+            // 당일 엔트리 밖의 선발도 휴식일 0구를 기록해야 다음 등판에 과거 부하가 남지 않는다.
+            for (int index = 0; index < team.PitcherIds.Length; index++)
+                AdvancePitcher(team.PitcherIds[index]);
 
             void AdvancePitcher(int playerId)
             {
@@ -778,10 +839,8 @@ namespace Baseball.Game.Historical
                 bool used = pitchesByPlayerId.TryGetValue(playerId, out PitcherUsageReport report);
                 int pitchCount = used ? report.PitchCount : 0;
                 TeamSeasonPlayerStatus player = status.GetRequiredPlayer(personId);
+                for (int index = 0; index < team.RestRounds; index++) player.AdvancePitchingWorkload(0);
                 player.AdvancePitchingWorkload(pitchCount);
-                if (!used || pitchCount <= 0) return;
-                int units = (pitchCount + 29) / 30;
-                player.ChangeCondition(-checked(units * _balance.ConditionChemistry.PitcherConditionCostPerThirtyPitches));
             }
 
             for (int index = 0; index < batteryUsage.Count; index++)
@@ -921,7 +980,7 @@ namespace Baseball.Game.Historical
         {
             TacticCardDefinition[] cards = _aiTacticSelectionResolver.Select(
                 _tacticCards,
-                runtime.League.Grade,
+                runtime.LeagueWorld?.GetGrade(teamId) ?? runtime.League.Grade,
                 game.RandomSeed,
                 teamId);
             var loadout = new TacticLoadoutState(cards);
@@ -1093,26 +1152,36 @@ namespace Baseball.Game.Historical
         private sealed class TeamMatchBuild
         {
             public TeamMatchBuild(
+                string teamSeasonKey,
                 MatchRosterSnapshot roster,
                 string[] startingLineupPersonIds,
                 Dictionary<int, string> personByPlayerId,
-                LineupChemistryResult lineupChemistry)
+                LineupChemistryResult lineupChemistry,
+                int[] pitcherIds,
+                int restRounds)
             {
+                TeamSeasonKey = teamSeasonKey;
                 Roster = roster;
                 StartingLineupPersonIds = startingLineupPersonIds;
                 PersonByPlayerId = personByPlayerId;
                 LineupChemistry = lineupChemistry;
+                PitcherIds = pitcherIds;
+                RestRounds = restRounds;
             }
 
+            public string TeamSeasonKey { get; }
             public MatchRosterSnapshot Roster { get; }
             public string[] StartingLineupPersonIds { get; }
             public Dictionary<int, string> PersonByPlayerId { get; }
             public LineupChemistryResult LineupChemistry { get; }
+            public int[] PitcherIds { get; }
+            public int RestRounds { get; }
         }
 
         internal sealed class PlayerIdMap
         {
             private readonly Dictionary<string, int> _ids;
+            internal IReadOnlyDictionary<string, int> Entries => _ids;
 
             private PlayerIdMap(Dictionary<string, int> ids)
             {
@@ -1124,6 +1193,42 @@ namespace Baseball.Game.Historical
 
             public bool TryGet(string teamSeasonKey, string playerSeasonId, out int playerId) =>
                 _ids.TryGetValue(CreateKey(teamSeasonKey, playerSeasonId), out playerId);
+
+            /// <summary>조 편성·트레이드로 기존 기록의 선수 ID가 바뀌지 않게 월드 원장을 사용한다.</summary>
+            public static PlayerIdMap Create(ManagerHistoricalRuntimeState runtime)
+            {
+                if (runtime.LeagueWorld == null) return Create(runtime.Rosters);
+                // 현재 조의 교체 결과가 월드 목록에 누락된 진행 중 상태도 경기 입력과 일치시킨다.
+                foreach (CurrentRosterState roster in runtime.Rosters)
+                    runtime.LeagueWorld.ReplaceRoster(roster);
+                PlayerIdMap map = runtime.LeagueWorld.PlayerIds ?? Create(runtime.WorldRosters);
+                map.EnsureRosters(runtime.WorldRosters);
+                runtime.LeagueWorld.PlayerIds = map;
+                return map;
+            }
+
+            internal static PlayerIdMap Restore(IReadOnlyDictionary<string, int> entries)
+            {
+                var ids = new Dictionary<string, int>(StringComparer.Ordinal);
+                var numbers = new HashSet<int>();
+                foreach (var entry in entries)
+                {
+                    if (string.IsNullOrWhiteSpace(entry.Key) || entry.Value <= 0 || !numbers.Add(entry.Value))
+                        throw new ArgumentException("월드 선수 ID 원장이 올바르지 않습니다.");
+                    ids.Add(entry.Key, entry.Value);
+                }
+                return new PlayerIdMap(ids);
+            }
+
+            internal void EnsureRosters(IReadOnlyList<CurrentRosterState> rosters)
+            {
+                PlayerIdMap candidates = Create(rosters);
+                var keys = new List<string>(candidates._ids.Keys);
+                keys.Sort(StringComparer.Ordinal);
+                int nextId = 1;
+                foreach (int id in _ids.Values) nextId = Math.Max(nextId, checked(id + 1));
+                foreach (string key in keys) if (!_ids.ContainsKey(key)) _ids.Add(key, nextId++);
+            }
 
             public static PlayerIdMap Create(IReadOnlyList<CurrentRosterState> rosters)
             {

@@ -19,14 +19,16 @@ namespace Baseball.Presentation.Owner
             return CreateSchedule(
                 liveSeason,
                 OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
-                teamSeasonKey => manager.GetTeamDisplayName(teamSeasonKey));
+                teamSeasonKey => manager.GetTeamDisplayName(teamSeasonKey),
+                teamSeasonKey => manager.GetTeamOriginYear(teamSeasonKey));
         }
 
         /// <summary>Owner 일정 원본과 이름 Resolver를 날짜 없는 공용 Round Snapshot으로 복사한다.</summary>
         public ScheduleScreenSnapshot CreateSchedule(
             ManagerLiveSeasonState liveSeason,
             string leagueLabel,
-            Func<string, string> teamDisplayNameResolver)
+            Func<string, string> teamDisplayNameResolver,
+            Func<string, int?> teamOriginYearResolver = null)
         {
             if (liveSeason == null)
                 throw new ArgumentNullException(nameof(liveSeason));
@@ -34,6 +36,8 @@ namespace Baseball.Presentation.Owner
                 throw new ArgumentNullException(nameof(teamDisplayNameResolver));
             IReadOnlyList<ScheduledGameState> source = liveSeason.Schedule.Games;
             var games = new ScheduleGameSnapshot[source.Count];
+            string focusTeamKey = liveSeason.GetTeamSeasonKey(liveSeason.PlayerTeamId);
+            var teamDisplayNames = new Dictionary<string, string>(StringComparer.Ordinal);
 
             for (int index = 0; index < games.Length; index++)
             {
@@ -47,11 +51,21 @@ namespace Baseball.Presentation.Owner
                     game.Round.ToString(CultureInfo.InvariantCulture) + "라운드",
                     new ScheduleTeamSnapshot(
                         awayKey,
-                        teamDisplayNameResolver(awayKey),
+                        FormatLeagueTeamDisplayName(
+                            awayKey,
+                            focusTeamKey,
+                            teamDisplayNameResolver,
+                            teamOriginYearResolver,
+                            teamDisplayNames),
                         "TeamEmblem/" + game.AwayTeamId.ToString(CultureInfo.InvariantCulture)),
                     new ScheduleTeamSnapshot(
                         homeKey,
-                        teamDisplayNameResolver(homeKey),
+                        FormatLeagueTeamDisplayName(
+                            homeKey,
+                            focusTeamKey,
+                            teamDisplayNameResolver,
+                            teamOriginYearResolver,
+                            teamDisplayNames),
                         "TeamEmblem/" + game.HomeTeamId.ToString(CultureInfo.InvariantCulture)),
                     game.IsCompleted,
                     game.AwayRuns,
@@ -66,6 +80,39 @@ namespace Baseball.Presentation.Owner
                 (liveSeason.CurrentWeekIndex + 1).ToString(CultureInfo.InvariantCulture) + "주차",
                 liveSeason.GetTeamSeasonKey(liveSeason.PlayerTeamId),
                 games);
+        }
+
+        private static string FormatLeagueTeamDisplayName(
+            string teamSeasonKey,
+            string focusTeamSeasonKey,
+            Func<string, string> teamDisplayNameResolver,
+            Func<string, int?> teamOriginYearResolver,
+            IDictionary<string, string> teamDisplayNames)
+        {
+            if (teamDisplayNames.TryGetValue(teamSeasonKey, out string cachedDisplayName))
+                return cachedDisplayName;
+
+            string displayName = teamDisplayNameResolver(teamSeasonKey);
+            if (teamOriginYearResolver == null ||
+                string.Equals(teamSeasonKey, focusTeamSeasonKey, StringComparison.Ordinal))
+            {
+                teamDisplayNames.Add(teamSeasonKey, displayName);
+                return displayName;
+            }
+
+            int? originYear = teamOriginYearResolver(teamSeasonKey);
+            if (!originYear.HasValue || originYear.Value <= 0)
+            {
+                teamDisplayNames.Add(teamSeasonKey, displayName);
+                return displayName;
+            }
+
+            string yearPrefix = originYear.Value.ToString(CultureInfo.InvariantCulture) + " ";
+            string formattedDisplayName = displayName.StartsWith(yearPrefix, StringComparison.Ordinal)
+                ? displayName
+                : yearPrefix + displayName;
+            teamDisplayNames.Add(teamSeasonKey, formattedDisplayName);
+            return formattedDisplayName;
         }
 
         /// <summary>현재 시즌 누적 개인 기록을 네 부문 모두 확정해 화면이 부문 전환에서 재계산하지 않게 한다.</summary>
@@ -85,6 +132,7 @@ namespace Baseball.Presentation.Owner
                 new OwnerSeasonRecordsService().Build(
                     runtime,
                     teamSeasonKey => manager.GetTeamDisplayName(teamSeasonKey),
+                    playerPersonId => runtime.IdentityRegistry.GetPresentationPlayerName(playerPersonId),
                     seasonNumber: seasonNumbers[selectedIndex]),
                 seasonNumbers, selectedIndex);
         }

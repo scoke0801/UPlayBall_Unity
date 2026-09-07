@@ -142,8 +142,8 @@ namespace Baseball.Game.Historical
     {
         private readonly List<StaffContractState> _staffContracts;
         private readonly List<LineupPresetState> _lineupPresets;
-        private readonly TeamSeasonPlayerStatusState[] _playerStatuses;
-        private readonly TeamChemistryFamiliarityState[] _familiarities;
+        private TeamSeasonPlayerStatusState[] _playerStatuses;
+        private TeamChemistryFamiliarityState[] _familiarities;
         private readonly List<ManagerCompletedSeasonState> _completedSeasons;
 
         public ManagerModeRuntimeState(
@@ -209,6 +209,26 @@ namespace Baseball.Game.Historical
         public ManagerLiveSeasonState LiveSeason { get; private set; }
         public DugoutManagementState Dugout { get; }
         public IReadOnlyList<ManagerCompletedSeasonState> CompletedSeasons { get; }
+
+        /// <summary>새로 월드에 등록한 AI 구단 상태를 추가하며 기존 구단의 피로·친밀도는 보존한다.</summary>
+        internal void EnsureWorldTeamStates(IReadOnlyList<CurrentRosterState> rosters, int initialCondition)
+        {
+            var statuses = new List<TeamSeasonPlayerStatusState>(_playerStatuses);
+            var familiarities = new List<TeamChemistryFamiliarityState>(_familiarities);
+            var existing = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var status in statuses) existing.Add(status.TeamSeasonKey);
+            foreach (var roster in rosters)
+            {
+                if (!existing.Add(roster.TeamSeasonKey)) continue;
+                var players = new TeamSeasonPlayerStatus[roster.Entries.Count];
+                for (int index = 0; index < players.Length; index++)
+                    players[index] = new TeamSeasonPlayerStatus(roster.Entries[index].PlayerPersonId, initialCondition);
+                statuses.Add(new TeamSeasonPlayerStatusState(roster.TeamSeasonKey, players));
+                familiarities.Add(new TeamChemistryFamiliarityState(roster.TeamSeasonKey));
+            }
+            _playerStatuses = statuses.ToArray();
+            _familiarities = familiarities.ToArray();
+        }
 
         /// <summary>한 경기용 전술 장착 해제를 UI가 아닌 진행 상태에서 확정한다.</summary>
         public void ClearSelectedTactics()
@@ -386,23 +406,17 @@ namespace Baseball.Game.Historical
             IReadOnlyList<TeamSeasonPlayerStatusState> source,
             IReadOnlyList<ManagerTeamReference> teams)
         {
-            if (source == null || source.Count != teams.Count)
+            if (source == null || source.Count < teams.Count)
                 throw new ArgumentException("모든 참가 구단의 Player Status가 필요합니다.", nameof(source));
             var result = new TeamSeasonPlayerStatusState[source.Count];
-            for (int index = 0; index < result.Length; index++)
+            var unique = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < source.Count; index++)
             {
-                string key = teams[index].TeamSeasonKey;
-                for (int candidate = 0; candidate < source.Count; candidate++)
-                {
-                    if (string.Equals(source[candidate]?.TeamSeasonKey, key, StringComparison.Ordinal))
-                    {
-                        result[index] = source[candidate];
-                        break;
-                    }
-                }
-                if (result[index] == null)
-                    throw new ArgumentException($"{key} Player Status가 없습니다.", nameof(source));
+                if (source[index] == null || !unique.Add(source[index].TeamSeasonKey))
+                    throw new ArgumentException("Player Status 구단이 중복되거나 누락됐습니다.");
+                result[index] = source[index];
             }
+            foreach (var team in teams) if (!unique.Contains(team.TeamSeasonKey)) throw new ArgumentException("참가팀 상태가 없습니다.");
             return result;
         }
 
@@ -410,23 +424,17 @@ namespace Baseball.Game.Historical
             IReadOnlyList<TeamChemistryFamiliarityState> source,
             IReadOnlyList<ManagerTeamReference> teams)
         {
-            if (source == null || source.Count != teams.Count)
+            if (source == null || source.Count < teams.Count)
                 throw new ArgumentException("모든 참가 구단의 Familiarity가 필요합니다.", nameof(source));
             var result = new TeamChemistryFamiliarityState[source.Count];
-            for (int index = 0; index < result.Length; index++)
+            var unique = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < source.Count; index++)
             {
-                string key = teams[index].TeamSeasonKey;
-                for (int candidate = 0; candidate < source.Count; candidate++)
-                {
-                    if (string.Equals(source[candidate]?.TeamSeasonKey, key, StringComparison.Ordinal))
-                    {
-                        result[index] = source[candidate];
-                        break;
-                    }
-                }
-                if (result[index] == null)
-                    throw new ArgumentException($"{key} Familiarity가 없습니다.", nameof(source));
+                if (source[index] == null || !unique.Add(source[index].TeamSeasonKey))
+                    throw new ArgumentException("Familiarity 구단이 중복되거나 누락됐습니다.");
+                result[index] = source[index];
             }
+            foreach (var team in teams) if (!unique.Contains(team.TeamSeasonKey)) throw new ArgumentException("참가팀 친밀도가 없습니다.");
             return result;
         }
 
@@ -434,18 +442,9 @@ namespace Baseball.Game.Historical
             ManagerLiveSeasonState current,
             ManagerLiveSeasonState next)
         {
-            if (current.PlayerTeamId != next.PlayerTeamId || current.Teams.Count != next.Teams.Count)
+            if (current.PlayerTeamId != next.PlayerTeamId ||
+                current.GetTeamSeasonKey(current.PlayerTeamId) != next.GetTeamSeasonKey(next.PlayerTeamId))
                 throw new ArgumentException("다음 시즌 참가 구단 구성이 달라졌습니다.", nameof(next));
-            for (int index = 0; index < current.Teams.Count; index++)
-            {
-                ManagerTeamReference left = current.Teams[index];
-                ManagerTeamReference right = next.Teams[index];
-                if (left.TeamId != right.TeamId ||
-                    !string.Equals(left.TeamSeasonKey, right.TeamSeasonKey, StringComparison.Ordinal))
-                {
-                    throw new ArgumentException("다음 시즌 Team reference가 현재 Historical snapshot과 다릅니다.", nameof(next));
-                }
-            }
         }
     }
 
@@ -574,7 +573,7 @@ namespace Baseball.Game.Historical
                 new SeasonFinanceSummary(nextSeasonId));
         }
 
-        private static SeasonScheduleState CreateSchedule(
+        internal static SeasonScheduleState CreateSchedule(
             IReadOnlyList<ManagerTeamReference> teams,
             ulong worldSeed,
             int seasonNumber,

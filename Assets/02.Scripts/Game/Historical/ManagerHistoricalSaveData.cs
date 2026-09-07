@@ -12,6 +12,7 @@ namespace Baseball.Game.Historical
         public WorldIdentityRegistrySaveData identityRegistry;
         public WorldHistorySaveData worldHistory;
         public LeagueInstanceSaveData league;
+        public OwnerLeagueWorldSaveData leagueWorld;
         public CurrentRosterSaveData[] rosters;
         public OwnedPlayerCardSaveData[] ownedCards;
         public CardCollectionHistorySaveData cardCollectionHistory;
@@ -96,6 +97,7 @@ namespace Baseball.Game.Historical
     [Serializable]
     public sealed class LeagueInstanceSaveData
     {
+        public bool isPooledGroup;
         public string leagueInstanceId;
         public int grade;
         public string[] regularTeamSeasonKeys;
@@ -139,6 +141,29 @@ namespace Baseball.Game.Historical
         public int[] studyBonuses;
         public OwnerPlacedSkillBlockSaveData[] skillBoard;
         public int lastStudySeason;
+    }
+
+    [Serializable]
+    public sealed class OwnerLeagueWorldSaveData
+    {
+        public OwnerLeagueGroupSaveData[] groups;
+        public OwnerLeagueGroupSaveData[] completedGroups;
+        public CurrentRosterSaveData[] rosters;
+        public OwnerLeaguePlayerIdSaveData[] playerIds;
+    }
+
+    [Serializable]
+    public sealed class OwnerLeaguePlayerIdSaveData
+    {
+        public string key;
+        public int playerId;
+    }
+
+    [Serializable]
+    public sealed class OwnerLeagueGroupSaveData
+    {
+        public LeagueInstanceSaveData league;
+        public ManagerLiveSeasonSaveData season;
     }
 
     [Serializable]

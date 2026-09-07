@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Baseball.Presentation.SharedScreens;
+using Baseball.Simulation.Historical;
 
 namespace Baseball.Presentation.Owner
 {
@@ -120,15 +121,17 @@ namespace Baseball.Presentation.Owner
 
         private void RankTeams()
         {
-            // 승률이 같으면 공동 순위다. 표시 순서만 ID로 고정하여 임의의 우열을 만들지 않는다.
-            _standings.Sort((a, b) =>
+            var input = new List<OwnerLeagueStanding>(_standings.Count);
+            foreach (var team in _standings)
+                input.Add(new OwnerLeagueStanding(team.Id, team.Wins, team.Losses, team.Runs - team.RunsAllowed));
+            OwnerLeagueStanding[] ranked = new OwnerLeagueAllocationResolver().Rank(input);
+            _standings.Clear();
+            for (int index = 0; index < ranked.Length; index++)
             {
-                int order = b.Percentage.CompareTo(a.Percentage);
-                return order != 0 ? order : string.CompareOrdinal(a.Id, b.Id);
-            });
-            for (int i = 0; i < _standings.Count; i++)
-                _standings[i].Rank = i > 0 && _standings[i].Percentage == _standings[i - 1].Percentage
-                    ? _standings[i - 1].Rank : i + 1;
+                TeamRecord team = _teams[ranked[index].TeamKey];
+                team.Rank = index + 1;
+                _standings.Add(team);
+            }
         }
 
         private static int ParseEmblemId(string assetKey)

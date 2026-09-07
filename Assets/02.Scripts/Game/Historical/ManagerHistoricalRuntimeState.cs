@@ -25,7 +25,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 한 세이브가 소유하는 역사·리그·로스터·플레이어 구단 경제 상태다.</summary>
     public sealed partial class ManagerHistoricalRuntimeState
     {
-        private readonly CurrentRosterState[] _rosters;
+        private CurrentRosterState[] _rosters;
         private readonly List<OwnedPlayerCardState> _ownedCards;
         private readonly Dictionary<string, CurrentRosterState> _rostersByTeamSeasonKey;
         private readonly Dictionary<string, OwnedPlayerCardState> _ownedCardsById;
@@ -93,7 +93,33 @@ namespace Baseball.Game.Historical
         public WorldCardCatalog WorldCardCatalog { get; }
         public LeagueInstance League { get; private set; }
         public IReadOnlyList<CurrentRosterState> Rosters => _rosters;
+        public OwnerLeagueWorldState LeagueWorld { get; private set; }
+        public IReadOnlyList<CurrentRosterState> WorldRosters => LeagueWorld?.Rosters ?? Rosters;
+
+        /// <summary>검증한 전체 구단 월드와 플레이어 소속 조를 함께 교체한다.</summary>
+        internal void SetLeagueWorld(OwnerLeagueWorldState world)
+        {
+            if (world == null) throw new ArgumentNullException(nameof(world));
+            OwnerLeagueGroupState group = world.GetGroup(PlayerTeamSeasonKey);
+            if (!ReferenceEquals(group.Season, ManagerMode.LiveSeason))
+                throw new ArgumentException("플레이어 시즌과 월드 소속 조가 다릅니다.");
+            var rosters = new List<CurrentRosterState>();
+            _rostersByTeamSeasonKey.Clear();
+            foreach (var roster in world.Rosters) _rostersByTeamSeasonKey.Add(roster.TeamSeasonKey, roster);
+            foreach (var team in group.Season.Teams) rosters.Add(_rostersByTeamSeasonKey[team.TeamSeasonKey]);
+            _rosters = rosters.ToArray();
+            League = group.League;
+            LeagueWorld = world;
+        }
         public IReadOnlyList<OwnedPlayerCardState> OwnedCards => _ownedCards;
+        /// <summary>검증된 로스터 교체를 현재 조·조회 인덱스·월드 목록에 함께 반영한다.</summary>
+        private void ReplaceCurrentRoster(CurrentRosterState roster)
+        {
+            int index = FindRosterIndex(roster.TeamSeasonKey);
+            LeagueWorld?.ReplaceRoster(roster);
+            _rosters[index] = roster;
+            _rostersByTeamSeasonKey[roster.TeamSeasonKey] = roster;
+        }
         public ManagerEconomyState Economy { get; }
         public ManagerModeRuntimeState ManagerMode { get; }
         public TacticCollectionState TacticCollection { get; }
@@ -120,11 +146,14 @@ namespace Baseball.Game.Historical
                 throw new ArgumentOutOfRangeException(nameof(nextGrade));
             if (League.Grade == nextGrade)
                 return;
+            if (LeagueWorld != null)
+                throw new InvalidOperationException("영속 월드의 승강은 모든 조의 순위에 따라 시즌 전환에서만 적용합니다.");
             League = new LeagueInstance(
                 League.LeagueInstanceId,
                 nextGrade,
                 League.RegularTeamSeasonKeys,
-                League.SpecialCompositeTeams);
+                League.SpecialCompositeTeams,
+                League.IsPooledGroup);
         }
 
         public CurrentRosterState GetRoster(string teamSeasonKey)
@@ -313,7 +342,7 @@ namespace Baseball.Game.Historical
             return result;
         }
 
-        private static void ValidateRosterCards(CurrentRosterState roster, WorldCardCatalog catalog)
+        internal static void ValidateRosterCards(CurrentRosterState roster, WorldCardCatalog catalog)
         {
             for (int index = 0; index < roster.Entries.Count; index++)
             {
@@ -495,7 +524,7 @@ namespace Baseball.Game.Historical
                 staffCatalog,
                 _balance);
 
-            return new ManagerHistoricalRuntimeState(
+            var runtime = new ManagerHistoricalRuntimeState(
                 request.PlayerTeamSeasonKey,
                 world.ContentReference,
                 world.IdentityRegistry,
@@ -509,6 +538,8 @@ namespace Baseball.Game.Historical
                 ownerProfile: request.OwnerProfile,
                 newGameReceipt: request.NewGameReceipt,
                 onboarding: new OwnerOnboardingState(0, false));
+            new OwnerLeagueWorldService(_balance).Initialize(runtime, bakedContent);
+            return runtime;
         }
 
         private StaffCatalog CreateStaffCatalog(WorldIdentityRegistry identities, ulong worldSeed)
@@ -625,7 +656,7 @@ namespace Baseball.Game.Historical
             return result;
         }
 
-        private static CurrentRosterState CreateRegularRoster(
+        internal static CurrentRosterState CreateRegularRoster(
             TeamSeasonDefinition team,
             WorldCardCatalog catalog)
         {

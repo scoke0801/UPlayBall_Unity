@@ -4,15 +4,281 @@ using System.Reflection;
 using Baseball.Core.Balance;
 using Baseball.Core.Historical;
 using Baseball.Core.Rules;
+using Baseball.Core.Shop;
+using Baseball.Game.Shop;
 using Baseball.Game.Career;
 using Baseball.Game.Historical;
 using Baseball.Simulation.Match;
+using Baseball.Simulation.PlateAppearance;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game.Historical
 {
     public sealed class ManagerModeMatchServiceTests
     {
+        [TestCase(60)]
+        [TestCase(100)]
+        public void Condition_능력치보정을강한타구확률단위로변환한다(int condition)
+        {
+            CreateRuntime(out var runtime, out var provider);
+            foreach (var roster in runtime.Rosters)
+                foreach (var player in runtime.ManagerMode.GetPlayerStatus(roster.TeamSeasonKey).Players)
+                    player.SetCondition(condition);
+            var balance = BalanceTable.CreateDefault();
+            var input = new ManagerModeMatchService(provider, balance).PlayNextGame(runtime).Match.Input;
+            var recorder = new ConditionMatchupRecorder();
+            new MatchSimulator(balance, new Baseball.Simulation.Random.Pcg32Random(input.RandomSeed), recorder).Simulate(input);
+            Assert.That(input.AwayRoster.TryGetEffectiveCondition(recorder.First.Batter.PlayerId, out var effective), Is.True);
+            int rating = new Baseball.Simulation.Historical.MatchConditionRatingResolver(balance.ConditionChemistry)
+                .ResolveRatingModifier(effective.Value);
+            Assert.That(rating, Is.Not.Zero);
+            Assert.That(recorder.First.HardHitAdjustment, Is.EqualTo(rating * balance.BattedBall.PowerHomeRunWeight).Within(1e-12));
+            Assert.That(recorder.First.BatterContactAdjustment, Is.EqualTo(rating));
+        }
+
+        private sealed class ConditionMatchupRecorder : IPlateAppearanceSimulator
+        {
+            private bool _hasFirst;
+            public PlateAppearanceMatchup First { get; private set; }
+
+            public PitchResult SimulatePitch(in PlateAppearanceMatchup matchup, int balls, int strikes, int pitchNumber,
+                Baseball.Core.Players.BattingApproach approach)
+            {
+                if (!_hasFirst) { First = matchup; _hasFirst = true; }
+                return PitchResult.CalledStrike;
+            }
+
+            public PlateAppearanceResult ResolveBallInPlay(in PlateAppearanceMatchup matchup,
+                Baseball.Core.Players.BattingApproach approach) => throw new InvalidOperationException("인플레이 없는 단위 검증이다.");
+        }
+
+        [Test]
+        public void HeadCoach_선수단경기컨디션을높이고저장원본에는중복가산하지않는다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var balance = BalanceTable.CreateDefault();
+            var state = runtime.ManagerMode.Dugout;
+            var catalog = DugoutStaffCatalog.CreateDefault();
+            HeadCoachDefinition coach = null;
+            foreach (var candidate in catalog.HeadCoaches)
+                if (candidate.HasConditionSupport) coach = candidate;
+            Assert.That(coach, Is.Not.Null);
+            state.Configure(state.ManagerId, coach.HeadCoachId, state.Policy, catalog);
+            var match = new ManagerModeMatchService(provider, balance).PlayNextGame(runtime).Match;
+            var roster = match.Input.HomeRoster.TeamId == runtime.ManagerMode.LiveSeason.PlayerTeamId
+                ? match.Input.HomeRoster : match.Input.AwayRoster;
+            for (int index = 0; index < roster.StartingLineup.Count; index++)
+            {
+                var slot = roster.StartingLineup[index];
+                Assert.That(roster.TryGetEffectiveCondition(slot.Player.PlayerId, out var condition), Is.True);
+                Assert.That(condition.StoredBaseCondition, Is.EqualTo(balance.ConditionChemistry.NeutralMatchCondition));
+                Assert.That(condition.TemporaryModifier, Is.EqualTo(balance.ConditionChemistry.HeadCoachConditionBonus));
+            }
+            Assert.That(roster.StartingPitcher.Condition,
+                Is.EqualTo(balance.ConditionChemistry.NeutralMatchCondition + balance.ConditionChemistry.HeadCoachConditionBonus));
+            foreach (var player in runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey).Players)
+                Assert.That(player.StoredBaseCondition, Is.InRange(77, 83));
+        }
+
+        [TestCase(80, true)]
+        [TestCase(97, true)]
+        [TestCase(100, false)]
+        public void ConditionItem_전원에게즉시적용하고결제와저장을일치시킨다(int initialCondition, bool succeeds)
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var balance = BalanceTable.CreateDefault();
+            foreach (var player in runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey).Players)
+                player.SetCondition(initialCondition);
+            var wallet = new ManagerEconomyShopWallet(runtime.Economy);
+            var catalog = ShopCatalogBuilder.Build(balance.Growth.SkillGacha, null, null, conditionBalance: balance.ConditionChemistry);
+            int featuredCount = 0;
+            foreach (var product in catalog.GetProducts(ShopTab.Featured))
+                if (product.Kind == ShopProductKind.ConditionItem) featuredCount++;
+            Assert.That(featuredCount, Is.EqualTo(1));
+            var shop = new ShopService(catalog, ShopAvailabilityTable.AllUnlocked(), wallet,
+                new IShopProductFulfillment[] { new ConditionItemFulfillment(wallet, () => runtime, balance.ConditionChemistry) },
+                runtime.ShopPurchaseHistory);
+            long before = runtime.Economy.Money;
+            Assert.That(shop.Purchase(ConditionItemFulfillment.ProductId).IsSuccess, Is.EqualTo(succeeds));
+            Assert.That(runtime.Economy.Money, Is.EqualTo(before - (succeeds ? balance.ConditionChemistry.ConditionItemPrice : 0)));
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+            var restored = adapter.Restore(adapter.CreateSaveData(runtime));
+            foreach (var player in restored.ManagerMode.GetPlayerStatus(restored.PlayerTeamSeasonKey).Players)
+                Assert.That(player.StoredBaseCondition, Is.EqualTo(Math.Min(100, initialCondition + (succeeds ? balance.ConditionChemistry.ConditionItemBoost : 0))));
+            Assert.That(restored.ShopPurchaseHistory.GetPurchaseCount(ConditionItemFulfillment.ProductId), Is.EqualTo(succeeds ? 1 : 0));
+        }
+
+        [Test]
+        public void ConditionItem_잔액부족이면컨디션과구매횟수를보존한다()
+        {
+            CreateRuntime(out var runtime, out _);
+            Assert.That(runtime.Economy.TrySpendMoney(runtime.Economy.Money), Is.True);
+            var balance = BalanceTable.CreateDefault();
+            var wallet = new ManagerEconomyShopWallet(runtime.Economy);
+            var shop = new ShopService(
+                ShopCatalogBuilder.Build(balance.Growth.SkillGacha, null, null, conditionBalance: balance.ConditionChemistry),
+                ShopAvailabilityTable.AllUnlocked(), wallet,
+                new IShopProductFulfillment[] { new ConditionItemFulfillment(wallet, () => runtime, balance.ConditionChemistry) },
+                runtime.ShopPurchaseHistory);
+            Assert.That(shop.Purchase(ConditionItemFulfillment.ProductId).IsSuccess, Is.False);
+            Assert.That(runtime.ShopPurchaseHistory.GetPurchaseCount(ConditionItemFulfillment.ProductId), Is.Zero);
+            foreach (var player in runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey).Players)
+                Assert.That(player.StoredBaseCondition, Is.EqualTo(balance.ConditionChemistry.NeutralMatchCondition));
+        }
+
+        [TestCase(LeagueGrade.Champion, 0)]
+        [TestCase(LeagueGrade.Master, 1)]
+        public void AiTactics_리그경계가경기입력에반영되고플레이어카드는유지된다(LeagueGrade grade, int aiCards)
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+            var save = adapter.CreateSaveData(runtime);
+            save.league.grade = (int)grade;
+            runtime = adapter.Restore(save);
+            var card = new TacticCardDefinition("AUDIT_CONTACT", "컨택 작전", TacticCardCategory.Common,
+                TacticTier.Normal, "테스트", "테스트", Array.Empty<TacticTriggerCondition>(),
+                TacticTargetRule.BattingTeam,
+                new[] { new TacticStatModifier(Baseball.Core.Growth.PlayerAbility.Contact, 1) },
+                Array.Empty<TacticBehaviorModifier>(), TacticDurationRule.UntilInningEnd,
+                Array.Empty<string>(), false);
+            runtime.TacticCollection.Acquire(card.CardId);
+            runtime.ManagerMode.LiveSeason.NextPlayerGame.PlanTactics(new[] { card.CardId });
+            var match = new ManagerModeMatchService(provider, BalanceTable.CreateDefault(),
+                tacticCards: new[] { card }).PlayNextGame(runtime).Match;
+            bool playerIsHome = match.Input.HomeRoster.TeamId == runtime.ManagerMode.LiveSeason.PlayerTeamId;
+            var configuration = match.Input.HistoricalConfiguration;
+            Assert.That((playerIsHome ? configuration.HomeTacticLoadout : configuration.AwayTacticLoadout).Cards.Count,
+                Is.EqualTo(1));
+            Assert.That((playerIsHome ? configuration.AwayTacticLoadout : configuration.HomeTacticLoadout).Cards.Count,
+                Is.EqualTo(aiCards));
+            Assert.That(runtime.TacticCollection.Contains(card.CardId), Is.False);
+        }
+
+        [Test]
+        public void PitchingWorkload_AI대AI를포함한모든휴식선발이하루씩갱신된다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            foreach (var roster in runtime.Rosters)
+                foreach (var entry in roster.Entries)
+                    if (entry.Role == ActiveRosterRole.StartingPitcher2)
+                    {
+                        var player = runtime.ManagerMode.GetPlayerStatus(roster.TeamSeasonKey).GetRequiredPlayer(entry.PlayerPersonId);
+                        player.AdvancePitchingWorkload(30);
+                        player.AdvancePitchingWorkload(60);
+                        player.AdvancePitchingWorkload(90);
+                    }
+            new ManagerModeMatchService(provider, BalanceTable.CreateDefault()).PlayNextGame(runtime);
+            int checkedTeams = 0;
+            foreach (var roster in runtime.Rosters)
+                foreach (var entry in roster.Entries)
+                    if (entry.Role == ActiveRosterRole.StartingPitcher2)
+                    {
+                        var load = runtime.ManagerMode.GetPlayerStatus(roster.TeamSeasonKey).GetRequiredPlayer(entry.PlayerPersonId).PitchingWorkload;
+                        Assert.That(load.PreviousDayPitches, Is.Zero, roster.TeamSeasonKey);
+                        Assert.That(load.TwoDaysAgoPitches, Is.EqualTo(90), roster.TeamSeasonKey);
+                        Assert.That(load.ThreeDaysAgoPitches, Is.EqualTo(60), roster.TeamSeasonKey);
+                        checkedTeams++;
+                    }
+            Assert.That(checkedTeams, Is.EqualTo(10));
+        }
+
+        [TestCase(0), TestCase(6), Explicit("회복 없음과 6경기마다 주간 회복을 비교해 각각 10,000경기 이상을 검증한다.")]
+        public void PitchingWorkload_대량시즌통계(int recoveryInterval)
+        {
+            long games = 0, runs = 0, hits = 0, atBats = 0, homeRuns = 0, walks = 0, strikeouts = 0, earned = 0, outs = 0;
+            int seasons = 0;
+            while (games < 10000)
+            {
+                CreateRuntime(out var runtime, out var provider);
+                var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+                var save = adapter.CreateSaveData(runtime);
+                foreach (var game in save.managerMode.liveSeason.games)
+                    game.randomSeed = (ulong)(71000000 + seasons * 10000 + game.gameId);
+                runtime = adapter.Restore(save);
+                var coordinator = new ManagerModeCoordinator(BalanceTable.CreateDefault());
+                int completedPlayerGames = 0;
+                var result = new ManagerModeMatchService(provider, BalanceTable.CreateDefault()).CompleteRegularSeason(runtime, _ =>
+                {
+                    completedPlayerGames++;
+                    if (recoveryInterval > 0 && completedPlayerGames % recoveryInterval == 0)
+                        Assert.That(coordinator.AdvanceWeek(runtime).Status, Is.EqualTo(ManagerModeTransactionStatus.Applied));
+                });
+                Assert.That(result.IsCompleted, Is.True);
+                games += result.LeagueGamesSimulated;
+                foreach (var player in runtime.ManagerMode.LiveSeason.Statistics.RegularSeason.Players.Values)
+                {
+                    var batting = player.Batting;
+                    var pitching = player.Pitching;
+                    runs += batting.Runs; hits += batting.Hits; atBats += batting.AtBats;
+                    homeRuns += batting.HomeRuns; walks += batting.Walks; strikeouts += batting.Strikeouts;
+                    earned += pitching.EarnedRuns; outs += pitching.OutsRecorded;
+                }
+                seasons++;
+            }
+            Assert.That(outs, Is.GreaterThan(0));
+            Assert.That(hits / (double)atBats, Is.InRange(0.22d, 0.33d), "컨디션 등락이 장기 타율을 확률 상한·하한으로 밀면 안 된다.");
+            Assert.That(earned * 27d / outs, Is.InRange(2d, 6d));
+            TestContext.WriteLine($"주간 회복 간격={recoveryInterval}, 피로 누적 {seasons}시즌 {games}경기: AVG={hits / (double)atBats:F3}, ERA={earned * 27d / outs:F3}, " +
+                $"팀 경기당 득점={runs / (2d * games):F3}, HR={homeRuns / (2d * games):F3}, BB/K={walks / (double)strikeouts:F3}");
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(5)]
+        public void PitchingWorkload_휴식선발과빈라운드를반영하고불러와도같다(int roundSpacing)
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+            var save = adapter.CreateSaveData(runtime);
+            foreach (var game in save.managerMode.liveSeason.games)
+                game.round = (game.round - 1) * roundSpacing + 1;
+            runtime = adapter.Restore(save);
+            var service = new ManagerModeMatchService(provider, BalanceTable.CreateDefault());
+            string teamKey = runtime.PlayerTeamSeasonKey;
+            var firstRoster = runtime.GetRoster(teamKey);
+            ActiveRosterEntry firstStarter = null;
+            foreach (var entry in firstRoster.Entries)
+                if (entry.Role == ActiveRosterRole.StartingPitcher1) firstStarter = entry;
+            Assert.That(firstStarter, Is.Not.Null);
+            int firstPitches = 0;
+            for (int gameIndex = 0; gameIndex < 6; gameIndex++)
+            {
+                var replay = adapter.Restore(adapter.CreateSaveData(runtime));
+                var match = service.PlayNextGame(runtime).Match;
+                var repeated = service.PlayNextGame(replay).Match;
+                Assert.That(repeated.AwayBoxScore.Runs, Is.EqualTo(match.AwayBoxScore.Runs));
+                Assert.That(repeated.HomeBoxScore.Runs, Is.EqualTo(match.HomeBoxScore.Runs));
+                var roster = match.Input.AwayRoster.TeamId == runtime.ManagerMode.LiveSeason.PlayerTeamId
+                    ? match.Input.AwayRoster : match.Input.HomeRoster;
+                if (gameIndex == 0)
+                {
+                    foreach (var usage in match.PitcherUsage)
+                        if (usage.PlayerId == roster.StartingPitcher.Player.PlayerId) firstPitches = usage.PitchCount;
+                    Assert.That(firstPitches, Is.GreaterThan(0));
+                }
+                if (gameIndex == 1 && roundSpacing == 1)
+                {
+                    var load = runtime.ManagerMode.GetPlayerStatus(teamKey)
+                        .GetRequiredPlayer(firstStarter.PlayerPersonId).PitchingWorkload;
+                    Assert.That(load.PreviousDayPitches, Is.Zero);
+                    Assert.That(load.TwoDaysAgoPitches, Is.EqualTo(firstPitches));
+                }
+                // 연속 일정의 두 번째 로테이션, 또는 3일 이상 쉬고 재등판하는 입력을 직접 확인한다.
+                if (gameIndex == 5 && roundSpacing == 1 || gameIndex > 0 && roundSpacing == 5)
+                {
+                    Assert.That(roster.StartingPitcher.RecentWorkload.PreviousDayPitches, Is.Zero);
+                    Assert.That(roster.StartingPitcher.RecentWorkload.TwoDaysAgoPitches, Is.Zero);
+                    Assert.That(roster.StartingPitcher.RecentWorkload.ThreeDaysAgoPitches, Is.Zero);
+                }
+                foreach (var entry in runtime.GetRoster(teamKey).Entries)
+                {
+                    var actual = runtime.ManagerMode.GetPlayerStatus(teamKey).GetRequiredPlayer(entry.PlayerPersonId).PitchingWorkload;
+                    var restored = replay.ManagerMode.GetPlayerStatus(teamKey).GetRequiredPlayer(entry.PlayerPersonId).PitchingWorkload;
+                    Assert.That(restored, Is.EqualTo(actual));
+                }
+            }
+        }
+
         [Test]
         public void AiTeamColor_공개선택이실제타자경기능력치에반영된다()
         {
@@ -174,7 +440,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(result.Match.Input.RulesVersion, Is.EqualTo(SimulationRulesVersion.DetailedV2));
             Assert.That(result.Match.Input.GameId, Is.EqualTo(scheduled.GameId));
             Assert.That(scheduled.IsCompleted, Is.True);
-            Assert.That(firstHitter.StoredBaseCondition, Is.LessThan(conditionBefore));
+            Assert.That(Math.Abs(firstHitter.StoredBaseCondition - conditionBefore),
+                Is.LessThanOrEqualTo(BalanceTable.CreateDefault().ConditionChemistry.ConditionFluctuation));
             Assert.That(
                 runtime.ManagerMode.GetFamiliarity(runtime.PlayerTeamSeasonKey).Entries.Count,
                 Is.GreaterThan(0));

@@ -62,8 +62,8 @@ namespace Baseball.Presentation.Owner
             bool hasHistoryNavigation = _tab == 3;
             float legendBottom = hasHistoryNavigation ? .005f : .025f;
             float legendTop = hasHistoryNavigation ? .045f : .095f;
-            Label(root, "Legend", hasHistoryNavigation ? "라운드 종료 기준 · 동률은 공동 순위" :
-                _tab == 2 ? "행 구단 기준  승 - 패 (무)" : "승률 = 승 / (승 + 패) · 동률은 공동 순위",
+            Label(root, "Legend", hasHistoryNavigation ? "라운드 종료 기준 · 승률 → 득실차 순" :
+                _tab == 2 ? "행 구단 기준  승 - 패 (무)" : "순위: 승률 → 득실차 → 구단 고유 순서",
                 .035f, legendBottom, .75f, legendTop, 14, Ink, TextAnchor.MiddleLeft);
             Label(root, "FocusLegend", "■ 내 구단", .8f, legendBottom, .965f, legendTop, 14, Blue);
         }

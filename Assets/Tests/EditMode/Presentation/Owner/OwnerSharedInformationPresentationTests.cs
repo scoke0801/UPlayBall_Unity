@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Baseball.Core.Historical;
 using Baseball.Game.Career;
 using Baseball.Game.Historical;
@@ -48,6 +49,67 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(snapshot.Games[0].AwayTeam.EmblemAssetKey, Is.EqualTo("TeamEmblem/1"));
             Assert.That(snapshot.Games[0].HomeTeam.EmblemAssetKey, Is.EqualTo("TeamEmblem/2"));
             Assert.That(snapshot.Games[0].FocusOutcome, Is.EqualTo(ScheduleFocusOutcome.Pending));
+        }
+
+        [Test]
+        public void ScheduleFactory_비플레이어구단에만원본연도를붙인다()
+        {
+            var game = new ScheduledGameState(1, 1, 10UL, 1, 2);
+            var liveSeason = new ManagerLiveSeasonState(
+                "owner:2028:1",
+                1,
+                2028,
+                0,
+                2,
+                new[]
+                {
+                    new ManagerTeamReference(1, "rival-team"),
+                    new ManagerTeamReference(2, "owner-team")
+                },
+                new SeasonScheduleState(new[] { game }));
+
+            ScheduleScreenSnapshot snapshot = new OwnerSharedInformationSnapshotFactory().CreateSchedule(
+                liveSeason,
+                "루키 리그",
+                teamId => teamId == "owner-team" ? "서울 마리너스" : "LG 트윈스",
+                teamId => teamId == "owner-team" ? 2023 : 2024);
+
+            Assert.That(snapshot.Games[0].AwayTeam.DisplayName, Is.EqualTo("2024 LG 트윈스"));
+            Assert.That(snapshot.Games[0].HomeTeam.DisplayName, Is.EqualTo("서울 마리너스"));
+
+            var league = new OwnerLeaguePresentationModel(snapshot);
+            Assert.That(
+                league.Standings.Single(team => team.Id == "rival-team").Name,
+                Is.EqualTo("2024 LG 트윈스"));
+            Assert.That(
+                league.Standings.Single(team => team.Id == "owner-team").Name,
+                Is.EqualTo("서울 마리너스"));
+        }
+
+        [Test]
+        public void ScheduleFactory_이미연도가포함된합성팀이름을중복하지않는다()
+        {
+            var game = new ScheduledGameState(1, 1, 10UL, 1, 2);
+            var liveSeason = new ManagerLiveSeasonState(
+                "owner:2028:1",
+                1,
+                2028,
+                0,
+                2,
+                new[]
+                {
+                    new ManagerTeamReference(1, "composite-team"),
+                    new ManagerTeamReference(2, "owner-team")
+                },
+                new SeasonScheduleState(new[] { game }));
+
+            ScheduleScreenSnapshot snapshot = new OwnerSharedInformationSnapshotFactory().CreateSchedule(
+                liveSeason,
+                "루키 리그",
+                teamId => teamId == "owner-team" ? "서울 마리너스" : "2024 올스타",
+                _ => 2024);
+
+            Assert.That(snapshot.Games[0].AwayTeam.DisplayName, Is.EqualTo("2024 올스타"));
         }
 
         [Test]

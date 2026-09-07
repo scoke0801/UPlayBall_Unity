@@ -116,7 +116,9 @@ namespace Baseball.Game.Data
     [Serializable]
     internal sealed class LeaguePromotionBalanceData
     {
+        public int groupTeamCount = 10;
         public LeaguePromotionRuleData[] rules;
+        public OwnerLeagueRankRuleData[] rankRules;
 
         public LeagueDefinition Build()
         {
@@ -128,8 +130,26 @@ namespace Baseball.Game.Data
                 definitions[index] = rules[index]?.Build() ??
                     throw new InvalidOperationException("LeaguePromotion.rules에 null 행이 있습니다.");
             }
-            return new LeagueDefinition(definitions);
+            if (rankRules == null) throw new InvalidOperationException("LeaguePromotion.rankRules가 없습니다.");
+            var ranks = new OwnerLeagueRankRule[rankRules.Length];
+            for (int index = 0; index < ranks.Length; index++)
+                ranks[index] = rankRules[index]?.Build() ?? throw new InvalidOperationException("rankRules에 null 행이 있습니다.");
+            return new LeagueDefinition(definitions, groupTeamCount, ranks);
         }
+    }
+
+    [Serializable]
+    internal sealed class OwnerLeagueRankRuleData
+    {
+        public int leagueGrade;
+        public int promotionLastRank;
+        public int promotionTarget = -1;
+        public int relegationFirstRank;
+        public int relegationTarget = -1;
+
+        public OwnerLeagueRankRule Build() => new OwnerLeagueRankRule((LeagueGrade)leagueGrade,
+            promotionLastRank, promotionTarget < 0 ? null : (LeagueGrade?)promotionTarget,
+            relegationFirstRank, relegationTarget < 0 ? null : (LeagueGrade?)relegationTarget);
     }
 
     [Serializable]
@@ -188,8 +208,11 @@ namespace Baseball.Game.Data
         public int conditionPointsPerRating;
         public int maximumConditionRatingModifier;
         public int weeklyBaseRecovery;
-        public int startingHitterConditionCost;
-        public int pitcherConditionCostPerThirtyPitches;
+        public int conditionFluctuation = 3;
+        public double conditionMeanReversion = 0.1d;
+        public int headCoachConditionBonus = 6;
+        public int conditionItemBoost = 10;
+        public long conditionItemPrice = 100000;
 
         public ConditionChemistryBalanceTable Build()
         {
@@ -222,8 +245,11 @@ namespace Baseball.Game.Data
                 conditionPointsPerRating,
                 maximumConditionRatingModifier,
                 weeklyBaseRecovery,
-                startingHitterConditionCost,
-                pitcherConditionCostPerThirtyPitches);
+                conditionFluctuation,
+                conditionMeanReversion,
+                headCoachConditionBonus,
+                conditionItemBoost,
+                conditionItemPrice);
         }
     }
 

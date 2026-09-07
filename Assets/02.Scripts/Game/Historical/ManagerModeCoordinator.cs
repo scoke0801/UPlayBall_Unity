@@ -340,7 +340,7 @@ namespace Baseball.Game.Historical
                     AiStaffSeasonStream),
                 unchecked((ulong)mode.LiveSeason.SeasonNumber));
             return _aiStaffProfileResolver.Resolve(
-                runtime.League.Grade,
+                runtime.LeagueWorld?.GetGroup(teamSeasonKey).League.Grade ?? runtime.League.Grade,
                 NeutralAiManagerQuality,
                 CreateNeutralClubState(teamSeasonKey),
                 seasonSeed,
@@ -476,11 +476,11 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException("선수 유형에 맞는 능력치만 카드 훈련할 수 있습니다.");
         }
 
-        /// <summary>플레이어의 연봉·계약을 마감한 뒤 같은 Historical roster snapshot으로 다음 운영 시즌을 연다.</summary>
+        /// <summary>연봉·계약 마감 후 전체 구단의 순위 승강과 조 재추첨을 적용하고 다음 시즌을 연다.</summary>
         public ManagerSeasonAdvanceResult AdvanceSeason(ManagerHistoricalRuntimeState runtime)
         {
             ManagerModeRuntimeState mode = RequireMode(runtime);
-            if (!mode.LiveSeason.IsCompleted)
+            if (!mode.LiveSeason.IsCompleted || runtime.LeagueWorld != null && !runtime.LeagueWorld.IsCompleted)
             {
                 return new ManagerSeasonAdvanceResult(
                     ManagerSeasonAdvanceStatus.SeasonInProgress,
@@ -546,22 +546,16 @@ namespace Baseball.Game.Historical
                     null);
             }
 
-            ManagerLiveSeasonState nextSeason = ManagerModeRuntimeFactory.CreateNextSeason(
-                mode.LiveSeason,
-                runtime.WorldHistory.WorldHistorySeed,
-                _balance.CareerSeason.RegularSeasonGamesPerTeam);
+            OwnerLeagueWorldState nextWorld = new OwnerLeagueWorldService(_balance).PlanNextSeason(runtime);
+            OwnerLeagueGroupState nextGroup = nextWorld.GetGroup(runtime.PlayerTeamSeasonKey);
+            ManagerLiveSeasonState nextSeason = nextGroup.Season;
             ClubOperationState nextOperation = ManagerModeRuntimeFactory.CreateNextClubOperation(
                 mode.ClubOperation,
                 nextSeason.SeasonId);
             SeasonFinanceSummary completedFinance = mode.ClubOperation.CurrentSeason;
             LeagueGrade previousGrade = runtime.League.Grade;
             var completedSeasonState = new ManagerCompletedSeasonState(mode.LiveSeason, previousGrade);
-            ResolvePlayerSeasonRecord(mode.LiveSeason, out int wins, out int losses);
-            LeagueGrade nextGrade = new LeaguePromotionResolver().ResolveNextGrade(
-                previousGrade,
-                wins,
-                losses,
-                _balance.LeaguePromotion);
+            LeagueGrade nextGrade = nextGroup.League.Grade;
 
             long playerSalary = mode.GetAnnualPlayerSalaryTotal();
             long totalSalary = checked(salary.TotalSalary + playerSalary);
@@ -583,7 +577,7 @@ namespace Baseball.Game.Historical
                 staffAdvance.Contracts,
                 staffAdvance.Assignment,
                 completedSeasonState);
-            runtime.MoveLeagueTo(nextGrade);
+            runtime.SetLeagueWorld(nextWorld);
             runtime.ShopPurchaseHistory.ResetPeriod();
             return new ManagerSeasonAdvanceResult(
                 ManagerSeasonAdvanceStatus.Applied,
@@ -593,27 +587,6 @@ namespace Baseball.Game.Historical
                 nextSeason,
                 previousGrade,
                 nextGrade);
-        }
-
-        private static void ResolvePlayerSeasonRecord(
-            ManagerLiveSeasonState season,
-            out int wins,
-            out int losses)
-        {
-            wins = 0;
-            losses = 0;
-            IReadOnlyList<Baseball.Game.Career.ScheduledGameState> games = season.Schedule.Games;
-            for (int index = 0; index < games.Count; index++)
-            {
-                Baseball.Game.Career.ScheduledGameState game = games[index];
-                if (!game.IsCompleted || !game.IncludesTeam(season.PlayerTeamId) || game.AwayRuns == game.HomeRuns)
-                    continue;
-                bool isWin = game.AwayTeamId == season.PlayerTeamId
-                    ? game.AwayRuns > game.HomeRuns
-                    : game.HomeRuns > game.AwayRuns;
-                if (isWin) wins++;
-                else losses++;
-            }
         }
 
         public ManagerModeTransactionStatus ApplyHomeGameFinance(
@@ -744,10 +717,10 @@ namespace Baseball.Game.Historical
             ManagerHistoricalRuntimeState runtime,
             ManagerModeRuntimeState mode)
         {
-            var results = new ManagerTeamRecoveryResult[mode.LiveSeason.Teams.Count];
-            for (int index = 0; index < mode.LiveSeason.Teams.Count; index++)
+            var results = new ManagerTeamRecoveryResult[runtime.WorldRosters.Count];
+            for (int index = 0; index < runtime.WorldRosters.Count; index++)
             {
-                string teamSeasonKey = mode.LiveSeason.Teams[index].TeamSeasonKey;
+                string teamSeasonKey = runtime.WorldRosters[index].TeamSeasonKey;
                 bool isPlayerTeam = runtime.HasOwnedEconomy(teamSeasonKey);
                 ConditionRecoveryContext context = isPlayerTeam
                     ? CreateRecoveryContext(mode)

@@ -217,10 +217,8 @@ namespace Baseball.Game.Historical
                 partnerRoster.TeamSeasonKey,
                 incomingContract,
                 receipt);
-            _rosters[playerIndex] = playerRoster;
-            _rosters[partnerIndex] = partnerRoster;
-            _rostersByTeamSeasonKey[playerRoster.TeamSeasonKey] = playerRoster;
-            _rostersByTeamSeasonKey[partnerRoster.TeamSeasonKey] = partnerRoster;
+            ReplaceCurrentRoster(playerRoster);
+            ReplaceCurrentRoster(partnerRoster);
         }
 
         private int FindRosterIndex(string teamSeasonKey)
