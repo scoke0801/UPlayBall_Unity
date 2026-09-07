@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from derivation_cost import composite_cost, resolve_value_cost
+from record_calibration import evaluate_model, resolve_model_cost, validate_models
 import pitch_arsenal_generation as pitch_generation
 import source_backed_runtime_bake as pitch_source_identity
 import source_position_evidence
@@ -64,6 +65,9 @@ HITTER_METRIC_NAMES = (
     "CaughtStealingRate",
     "HomeRuns",
     "StolenBases",
+    "RunsBattedIn",
+    "Runs",
+    "Hits",
 )
 PITCHER_METRIC_NAMES = (
     "NegativeEarnedRunAverage",
@@ -76,6 +80,10 @@ PITCHER_METRIC_NAMES = (
     "HoldRate",
     "SeasonInnings",
     "FastballVelocityKph",
+    "Wins",
+    "Saves",
+    "Holds",
+    "PitchingGames",
 )
 ABILITY_INDEX = {name: index for index, name in enumerate(ABILITY_NAMES)}
 SOURCE_POSITION_MAP = {
@@ -163,6 +171,7 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
         "Hitter": set(HITTER_METRIC_NAMES),
         "Pitcher": set(PITCHER_METRIC_NAMES),
     }
+    validate_models(config.get("referenceRecordModels", {}), metric_names_by_type)
     for player_type, profiles in config["ratingProfiles"].items():
         for attribute, profile in profiles.items():
             weights = profile["metrics"]
@@ -417,6 +426,10 @@ def hitter_metric_evidence(player: dict[str, Any]) -> list[dict[str, Any]]:
         metric_evidence("NegativeStrikeoutRate", -ratio(stats.get("strikeouts"), plate_appearances), -safe_number(stats.get("strikeouts")), plate_appearances, plate_appearances, pa_constant, plate_appearances > 0.0 and stats.get("strikeouts") is not None),
         metric_evidence("HomeRuns", safe_number(stats.get("homeRuns")), safe_number(stats.get("homeRuns")), 1.0, plate_appearances, pa_constant, stats.get("homeRuns") is not None),
     ]
+    # 가격 학습에 누적 성적을 제공한다. 기존 능력치 가중치에는 추가하지 않는다.
+    for metric, field in (("RunsBattedIn", "runsBattedIn"), ("Runs", "runs"), ("Hits", "hits")):
+        count = safe_number(stats.get(field))
+        result.append(metric_evidence(metric, count, count, 1.0, plate_appearances, pa_constant, stats.get(field) is not None))
 
     has_attempts = False
     attempts = 0.0
@@ -597,7 +610,10 @@ def pitcher_metric_evidence(
         metric_evidence("HoldRate", ratio(stats.get("holds"), games), safe_number(stats.get("holds")), games, batters_faced, tbf_constant, holds_available and games > 0.0),
         metric_evidence("SeasonInnings", innings, outs, 3.0, outs, 0.0, stats.get("inningsOuts") is not None),
         metric_evidence("FastballVelocityKph", velocity, velocity, 1.0, 1.0, 0.0, has_velocity),
-    ]
+    ] + [metric_evidence(metric, safe_number(stats.get(field)), safe_number(stats.get(field)),
+                         1.0, batters_faced, tbf_constant,
+                         stats.get(field) is not None and (field != "holds" or holds_available))
+         for metric, field in (("Wins", "wins"), ("Saves", "saves"), ("Holds", "holds"), ("PitchingGames", "games"))]
 
 
 def derivation_group_key(
@@ -1061,6 +1077,13 @@ def to_ratings_with_trace(
             rating_before_clamp = sum(float(component["absoluteRating"]) * component["weight"]
                                      for component in absolute_components)
         rating_after_clamp = clamp_rating(rating_before_clamp)
+        calibration_trace = None
+        if components is not None and available_weight > 0.0:
+            model = DERIVATION_BALANCE.get("referenceRecordModels", {}).get(player_type, {}).get(attribute)
+            calibrated, calibration_trace = evaluate_model(model, components, rating_after_clamp)
+            if calibration_trace is not None:
+                rating_before_clamp = calibrated
+                rating_after_clamp = clamp_rating(calibrated)
         values[ABILITY_NAMES.index(attribute)] = rating_after_clamp
         traces.append(
             {
@@ -1074,7 +1097,8 @@ def to_ratings_with_trace(
                 "ratingCenter": effective_center,
                 "ratingBeforeClamp": round(rating_before_clamp, 8),
                 "ratingAfterClamp": rating_after_clamp,
-                "evaluationMethod": "AbsoluteRecordAnchor" if absolute_components else (
+                "referenceCalibration": calibration_trace,
+                "evaluationMethod": "ReferenceRecordRidge" if calibration_trace is not None else "AbsoluteRecordAnchor" if absolute_components else (
                     "AvailableMetrics" if available_weight > 0.0 else "NeutralWithoutEvidence"
                 ),
             }
@@ -1234,6 +1258,11 @@ def build_cost_metric_evidence(player_type: str, components: dict[str, Any]) -> 
     """공격·투구 품질과 수비 가격이 요구하는 기록의 합집합을 보존한다."""
     settings = DERIVATION_BALANCE["costValueModel"]
     required = set(settings["qualityProfiles"][player_type])
+    model = DERIVATION_BALANCE.get("referenceRecordModels", {}).get(player_type, {}).get("Cost", {})
+    for feature in model.get("features", []):
+        source = feature["source"]
+        if source != "baseline" and not source.startswith(("value.", "role.")):
+            required.add(source.split(".")[0])
     if player_type == "Hitter":
         for profile in settings["hitterWorkload"].get("defensiveQualityProfiles", []):
             required.update(profile["metrics"])
@@ -1570,6 +1599,12 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
                 ((float(row["upperExclusive"]), int(row["cost"])) for row in value_thresholds),
                 elite_ceiling,
             )
+            model = DERIVATION_BALANCE.get("referenceRecordModels", {}).get(player_type, {}).get("Cost")
+            calibrated, calibration_trace = evaluate_model(
+                model, {c["metric"]: c for c in season.get("costMetricEvidence", [])}, cost, components,
+            )
+            if calibration_trace is not None:
+                cost = resolve_model_cost(calibrated, model, elite_ceiling)
             eligibility_trace = cost_eligibility_tier(season)
             eligibility_trace["maximumCost"] = elite_ceiling
             eligibility_trace["affectsCost"] = True
@@ -1589,7 +1624,8 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
             trace["rank"] = zero_based_rank + 1
             trace["percentile"] = round(percentile, 8)
             trace["rawPercentileCost"] = raw_percentile_cost
-            trace["costMethod"] = "SeasonValueOrdinalWithEliteGate"
+            trace["referenceCalibration"] = calibration_trace
+            trace["costMethod"] = "ReferenceRecordRidgeWithEliteGate" if calibration_trace is not None else "SeasonValueOrdinalWithEliteGate"
             trace["compositeThresholds"] = value_thresholds
             trace["costEligibility"] = eligibility_trace
             trace["eliteEligibility"] = elite_trace
@@ -3129,8 +3165,21 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
                 ),
                 int(elite_trace.get("maximumCost", 0)),
             )
+            expected_method = "SeasonValueOrdinalWithEliteGate"
+            expected_value, expected_calibration = evaluate_model(
+                DERIVATION_BALANCE.get("referenceRecordModels", {}).get(season["playerType"], {}).get("Cost"),
+                {c["metric"]: c for c in season.get("costMetricEvidence", [])},
+                expected_cost, cost_trace["componentScores"],
+            )
+            if expected_calibration is not None:
+                expected_cost = resolve_model_cost(expected_value,
+                    DERIVATION_BALANCE["referenceRecordModels"][season["playerType"]]["Cost"],
+                    int(elite_trace["maximumCost"]))
+                expected_method = "ReferenceRecordRidgeWithEliteGate"
+            if cost_trace.get("referenceCalibration") != expected_calibration:
+                raise ValueError("COST_CALIBRATION_MISMATCH: 기록 회귀 근거가 재계산과 다릅니다.")
             if (int(season["cost"]) != expected_cost
-                    or cost_trace.get("costMethod") != "SeasonValueOrdinalWithEliteGate"
+                    or cost_trace.get("costMethod") != expected_method
                     or eligibility_trace.get("affectsCost") is not True):
                 raise ValueError("COST_VALUE_MISMATCH: 시즌 가치와 Cost가 일치하지 않습니다.")
             metric_influence_audit = cost_trace.get("metricInfluenceAudit") or {}

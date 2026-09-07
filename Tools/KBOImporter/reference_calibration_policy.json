@@ -1,0 +1,186 @@
+{
+  "version": "annual-reference-policy-v1",
+  "maximumCardYear": 2013,
+  "maximumObservationYear": 2013,
+  "splitSalt": "pm-annual-player-v1",
+  "ridgeCandidates": [
+    0.1,
+    1,
+    10,
+    100
+  ],
+  "minimumTrainingRows": 80,
+  "minimumValidationRows": 30,
+  "minimumValidationImprovement": 0.05,
+  "costFrequencyWeightExponent": 0.5,
+  "costBoundaryFrequencyWeightExponent": 0.5,
+  "upperCostValidationWeight": 0.5,
+  "minimumEditionPairCount": 5,
+  "nonnegativeFeatureSources": [
+    "baseline",
+    "value.quality",
+    "value.workloadScore",
+    "value.workload.ratio"
+  ],
+  "nonnegativeFeatureFields": [
+    "adjustedZ",
+    "rawValue"
+  ],
+  "clipQuantiles": [
+    0.005,
+    0.995
+  ],
+  "features": {
+    "Hitter": {
+      "Contact": [
+        "baseline",
+        "BattingAverage.reliability"
+      ],
+      "Power": [
+        "baseline",
+        "SluggingPercentage.adjustedZ",
+        "HomeRuns.rawValue",
+        "SluggingPercentage.reliability"
+      ],
+      "Speed": [
+        "baseline",
+        "StolenBases.adjustedZ",
+        "StolenBaseAttemptRate.reliability"
+      ],
+      "Arm": [
+        "baseline",
+        "AssistsPerNine.adjustedZ",
+        "CaughtStealingRate.adjustedZ",
+        "BattingAverage.reliability"
+      ],
+      "Defense": [
+        "baseline",
+        "FieldingPercentage.adjustedZ",
+        "NegativeErrorsPerNine.adjustedZ",
+        "BattingAverage.reliability"
+      ],
+      "BatterMental": [
+        "baseline",
+        "OnBasePercentage.adjustedZ",
+        "BattingAverage.adjustedZ",
+        "BattingAverage.reliability"
+      ],
+      "Cost": [
+        "baseline",
+        "value.quality",
+        {
+          "source": "value.quality",
+          "transform": "positiveSquare"
+        },
+        "value.workloadScore",
+        "value.workload.ratio",
+        "value.defensiveValue",
+        "HomeRuns.rawValue",
+        "role.C",
+        "role.1B",
+        "role.2B",
+        "role.3B",
+        "role.SS",
+        "role.LF",
+        "role.CF",
+        "role.RF",
+        "role.DH",
+        "BattingAverage.rawValue",
+        "BattingAverage.adjustedZ",
+        "OnBasePercentage.rawValue",
+        "OnBasePercentage.adjustedZ",
+        "SluggingPercentage.rawValue",
+        "SluggingPercentage.adjustedZ",
+        "StolenBases.rawValue",
+        "StolenBases.adjustedZ",
+        "NegativeStrikeoutRate.rawValue",
+        "NegativeStrikeoutRate.adjustedZ",
+        {
+          "source": "value.workload.ratio",
+          "transform": "sqrt"
+        },
+        {
+          "source": "baseline",
+          "transform": "positiveSquare"
+        },
+        "RunsBattedIn.rawValue",
+        "Runs.rawValue",
+        "Hits.rawValue"
+      ]
+    },
+    "Pitcher": {
+      "Stamina": [
+        "baseline",
+        {
+          "source": "SeasonInnings.rawValue",
+          "transform": "sqrt"
+        },
+        "InningsPerGame.rawValue"
+      ],
+      "Stuff": [
+        "baseline",
+        "NegativeEarnedRunAverage.adjustedZ",
+        "NegativeEarnedRunAverage.reliability",
+        "StrikeoutsPerNine.adjustedZ"
+      ],
+      "Breaking": [
+        "baseline",
+        "StrikeoutsPerNine.adjustedZ",
+        "NegativeEarnedRunAverage.reliability"
+      ],
+      "Control": [
+        "baseline",
+        "NegativeWalksPerNine.adjustedZ",
+        "NegativeWalksPerNine.reliability"
+      ],
+      "PitcherMental": [
+        "baseline",
+        "NegativeEarnedRunAverage.reliability",
+        "SaveRate.adjustedZ"
+      ],
+      "Cost": [
+        "baseline",
+        "value.quality",
+        {
+          "source": "value.quality",
+          "transform": "positiveSquare"
+        },
+        "value.workloadScore",
+        "value.workload.ratio",
+        "value.workload.starterShare",
+        "value.reliability",
+        "SaveRate.adjustedZ",
+        "HoldRate.adjustedZ",
+        "NegativeEarnedRunAverage.rawValue",
+        "NegativeEarnedRunAverage.adjustedZ",
+        "NegativeWhip.rawValue",
+        "NegativeWhip.adjustedZ",
+        "StrikeoutsPerNine.rawValue",
+        "StrikeoutsPerNine.adjustedZ",
+        "NegativeWalksPerNine.rawValue",
+        "NegativeWalksPerNine.adjustedZ",
+        "SeasonInnings.rawValue",
+        "SeasonInnings.adjustedZ",
+        "SaveRate.rawValue",
+        "HoldRate.rawValue",
+        {
+          "source": "value.workload.ratio",
+          "transform": "sqrt"
+        },
+        {
+          "source": "baseline",
+          "transform": "positiveSquare"
+        },
+        "Wins.rawValue",
+        "Saves.rawValue",
+        "Holds.rawValue",
+        "PitchingGames.rawValue"
+      ]
+    }
+  },
+  "note": "2013? ?? ?? ??. ???? ?? ??, Cost? ?? ?? ? DB ?? ??? ?? ???? ??? ???? ??. ???2014 ?? ??. ?? ?? 60/20/20 ??. ??? ?? ?? ??? ??? ?? ?? ??.",
+  "costBoundaryMethods": [
+    "WeightedAbsoluteError",
+    "TrainingFrequency"
+  ]
+}

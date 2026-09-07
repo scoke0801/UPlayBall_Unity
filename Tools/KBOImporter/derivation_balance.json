@@ -1,43 +1,106 @@
 {
-  "version": "historical-derivation-balance-v18",
-  "abilityFormulaVersion": "historical-ability-v8",
-  "costFormulaVersion": "historical-season-value-v13",
+  "version": "historical-derivation-balance-v20",
+  "abilityFormulaVersion": "historical-ability-v9",
+  "costFormulaVersion": "historical-season-value-v15",
   "positionRoleClassifierVersion": "season-position-role-v6",
   "rosterBuilderVersion": "ability-fit-core25-v8",
-  "ratingCalibrationNote": "2010 기사 연결 카드 452장 중 유일 Source 연결 438장. 선수 단위 분할로 공통 중심과 변환 폭을 비교. B 이상 수비·선별 투수 표본이며 전 리그·최종판 분포의 확정 복원이 아님.",
+  "ratingCalibrationNote": "2013년 이하 연도 카드 3387개를 캐시 기록과 연결. 일반 카드 및 가격 동등성을 검증한 올스타 Cost. 선수 단위 분리·단조 제약·희귀도 가중 회귀와 학습된 가격 경계. 월별/판본 충돌 제외. 후기 서비스 최종판의 복원은 아님.",
   "costPercentileThresholds": [
-    {"upperExclusive": 0.05, "cost": 1},
-    {"upperExclusive": 0.15, "cost": 2},
-    {"upperExclusive": 0.30, "cost": 3},
-    {"upperExclusive": 0.45, "cost": 4},
-    {"upperExclusive": 0.60, "cost": 5},
-    {"upperExclusive": 0.72, "cost": 6},
-    {"upperExclusive": 0.82, "cost": 7},
-    {"upperExclusive": 0.90, "cost": 8},
-    {"upperExclusive": 0.97, "cost": 9},
-    {"upperExclusive": 1.01, "cost": 10}
+    {
+      "upperExclusive": 0.05,
+      "cost": 1
+    },
+    {
+      "upperExclusive": 0.15,
+      "cost": 2
+    },
+    {
+      "upperExclusive": 0.3,
+      "cost": 3
+    },
+    {
+      "upperExclusive": 0.45,
+      "cost": 4
+    },
+    {
+      "upperExclusive": 0.6,
+      "cost": 5
+    },
+    {
+      "upperExclusive": 0.72,
+      "cost": 6
+    },
+    {
+      "upperExclusive": 0.82,
+      "cost": 7
+    },
+    {
+      "upperExclusive": 0.9,
+      "cost": 8
+    },
+    {
+      "upperExclusive": 0.97,
+      "cost": 9
+    },
+    {
+      "upperExclusive": 1.01,
+      "cost": 10
+    }
   ],
   "replacementGeneration": {
     "version": "quota-fallback-percentile-v2",
-    "baselinePercentile": 0.20,
+    "baselinePercentile": 0.2,
     "minimumGroupPopulation": 6
   },
   "costCompositeThresholds": [
-    {"upperExclusive": 32.0, "cost": 1},
-    {"upperExclusive": 36.0, "cost": 2},
-    {"upperExclusive": 40.0, "cost": 3},
-    {"upperExclusive": 44.0, "cost": 4},
-    {"upperExclusive": 48.0, "cost": 5},
-    {"upperExclusive": 52.0, "cost": 6},
-    {"upperExclusive": 56.0, "cost": 7},
-    {"upperExclusive": 60.0, "cost": 8},
-    {"upperExclusive": 64.0, "cost": 9},
-    {"upperExclusive": 101.0, "cost": 10}
+    {
+      "upperExclusive": 32.0,
+      "cost": 1
+    },
+    {
+      "upperExclusive": 36.0,
+      "cost": 2
+    },
+    {
+      "upperExclusive": 40.0,
+      "cost": 3
+    },
+    {
+      "upperExclusive": 44.0,
+      "cost": 4
+    },
+    {
+      "upperExclusive": 48.0,
+      "cost": 5
+    },
+    {
+      "upperExclusive": 52.0,
+      "cost": 6
+    },
+    {
+      "upperExclusive": 56.0,
+      "cost": 7
+    },
+    {
+      "upperExclusive": 60.0,
+      "cost": 8
+    },
+    {
+      "upperExclusive": 64.0,
+      "cost": 9
+    },
+    {
+      "upperExclusive": 101.0,
+      "cost": 10
+    }
   ],
   "costValueModel": {
     "version": "available-record-season-value-v3",
     "baseScore": 2.5,
-    "baseScoreByPlayerType": {"Hitter": 2.75, "Pitcher": 1.25},
+    "baseScoreByPlayerType": {
+      "Hitter": 2.75,
+      "Pitcher": 1.25
+    },
     "calibrationNote": "선발은 2010 인벤의 2007~2009 SK 15장을 명시적 목표로 보정했다. 다른 인물의 학습 관측을 함께 사용한다. 초기 2010/2011 투수 오차는 줄지만 2013 관측 일부는 악화되므로 시점별 검증을 분리한다. 선수·구단별 가격 예외는 없다.",
     "qualityMultiplier": 2.0,
     "qualityProfiles": {
@@ -58,8 +121,20 @@
       "defensiveValueMaximum": 0.5,
       "defensiveInningsTargetPerGame": 7.5,
       "defensiveQualityProfiles": [
-        {"weight": 0.525, "metrics": {"FieldingPercentage": 0.65, "NegativeErrorsPerNine": 0.35}},
-        {"weight": 0.125, "metrics": {"AssistsPerNine": 0.7, "CaughtStealingRate": 0.3}}
+        {
+          "weight": 0.525,
+          "metrics": {
+            "FieldingPercentage": 0.65,
+            "NegativeErrorsPerNine": 0.35
+          }
+        },
+        {
+          "weight": 0.125,
+          "metrics": {
+            "AssistsPerNine": 0.7,
+            "CaughtStealingRate": 0.3
+          }
+        }
       ]
     },
     "pitcherWorkload": {
@@ -75,16 +150,46 @@
       "maximumAdjustment": 0.5
     },
     "valueTierThresholds": [
-      {"upperExclusive": 1.5, "cost": 1},
-      {"upperExclusive": 2.5, "cost": 2},
-      {"upperExclusive": 3.5, "cost": 3},
-      {"upperExclusive": 4.5, "cost": 4},
-      {"upperExclusive": 5.5, "cost": 5},
-      {"upperExclusive": 6.5, "cost": 6},
-      {"upperExclusive": 7.25, "cost": 7},
-      {"upperExclusive": 9.4, "cost": 8},
-      {"upperExclusive": 9.5, "cost": 9},
-      {"upperExclusive": 100.0, "cost": 10}
+      {
+        "upperExclusive": 1.5,
+        "cost": 1
+      },
+      {
+        "upperExclusive": 2.5,
+        "cost": 2
+      },
+      {
+        "upperExclusive": 3.5,
+        "cost": 3
+      },
+      {
+        "upperExclusive": 4.5,
+        "cost": 4
+      },
+      {
+        "upperExclusive": 5.5,
+        "cost": 5
+      },
+      {
+        "upperExclusive": 6.5,
+        "cost": 6
+      },
+      {
+        "upperExclusive": 7.25,
+        "cost": 7
+      },
+      {
+        "upperExclusive": 9.4,
+        "cost": 8
+      },
+      {
+        "upperExclusive": 9.5,
+        "cost": 9
+      },
+      {
+        "upperExclusive": 100.0,
+        "cost": 10
+      }
     ],
     "valueTierThresholdsByPlayerType": {
       "Hitter": [
@@ -224,7 +329,10 @@
       }
     }
   },
-  "trainingHeadroom": {"minimum": 3, "maximum": 3},
+  "trainingHeadroom": {
+    "minimum": 3,
+    "maximum": 3
+  },
   "positionClassifier": {
     "minimumDesignatedHitterPlateAppearances": 100.0,
     "maximumDefensiveInningsPerGame": 4.5
@@ -232,7 +340,13 @@
   "samplePrior": {
     "performanceZ": -1.0,
     "maximumAbsoluteZ": 3.0,
-    "neutralMetrics": ["FieldingPercentage", "NegativeErrorsPerNine", "DefensiveOpportunitiesPerNine", "AssistsPerNine", "CaughtStealingRate"]
+    "neutralMetrics": [
+      "FieldingPercentage",
+      "NegativeErrorsPerNine",
+      "DefensiveOpportunitiesPerNine",
+      "AssistsPerNine",
+      "CaughtStealingRate"
+    ]
   },
   "reliability": {
     "plateAppearances": 250.0,
@@ -251,8 +365,16 @@
     "version": "weighted-robust-reference-v1",
     "minimumEffectiveSampleCount": 8.0,
     "winsorizeTailQuantile": 0.05,
-    "positionMetrics": ["FieldingPercentage", "NegativeErrorsPerNine", "DefensiveOpportunitiesPerNine", "AssistsPerNine", "CaughtStealingRate"],
-    "pitcherFamilyMetrics": ["InningsPerGame"],
+    "positionMetrics": [
+      "FieldingPercentage",
+      "NegativeErrorsPerNine",
+      "DefensiveOpportunitiesPerNine",
+      "AssistsPerNine",
+      "CaughtStealingRate"
+    ],
+    "pitcherFamilyMetrics": [
+      "InningsPerGame"
+    ],
     "positionFamilies": {
       "C": "Battery",
       "1B": "Infield",
@@ -276,17 +398,29 @@
   "costEligibility": {
     "version": "season-workload-diagnostic-v2",
     "referenceSeasonGames": 144.0,
-    "hitterSampleThresholds": {"Full": 400.0, "Regular": 250.0, "Limited": 100.0},
+    "hitterSampleThresholds": {
+      "Full": 400.0,
+      "Regular": 250.0,
+      "Limited": 100.0
+    },
     "pitcherSampleThresholds": {
-      "Rotation": {"Full": 560.0, "Regular": 350.0, "Limited": 110.0},
-      "Relief": {"Full": 190.0, "Regular": 110.0, "Limited": 40.0}
+      "Rotation": {
+        "Full": 560.0,
+        "Regular": 350.0,
+        "Limited": 110.0
+      },
+      "Relief": {
+        "Full": 190.0,
+        "Regular": 110.0,
+        "Limited": 40.0
+      }
     }
   },
   "validation": {
-    "abilityLowSampleReliabilityMaximum": 0.20,
-    "abilityDominantContributionShareMinimum": 0.50,
+    "abilityLowSampleReliabilityMaximum": 0.2,
+    "abilityDominantContributionShareMinimum": 0.5,
     "abilityDominantContributionAbsoluteMinimum": 0.25,
-    "maximumRawMetricCompositeInfluence": 0.80
+    "maximumRawMetricCompositeInfluence": 0.8
   },
   "rating": {
     "center": 55.0,
@@ -294,8 +428,20 @@
     "maximum": 100
   },
   "absoluteRatingAnchors": {
-    "SeasonInnings": {"minimumValue": 0.0, "maximumValue": 427.3333333333333, "minimumRating": 25.0, "maximumRating": 100.0, "source": "KBO Normalized 1982~2025 단일 시즌 최다 1282아웃"},
-    "FastballVelocityKph": {"minimumValue": 110.0, "maximumValue": 170.0, "minimumRating": 25.0, "maximumRating": 100.0, "source": "사용자 지정 170km/h=100; 110km/h=25 선형 분배"}
+    "SeasonInnings": {
+      "minimumValue": 0.0,
+      "maximumValue": 427.3333333333333,
+      "minimumRating": 25.0,
+      "maximumRating": 100.0,
+      "source": "KBO Normalized 1982~2025 단일 시즌 최다 1282아웃"
+    },
+    "FastballVelocityKph": {
+      "minimumValue": 110.0,
+      "maximumValue": 170.0,
+      "minimumRating": 25.0,
+      "maximumRating": 100.0,
+      "source": "사용자 지정 170km/h=100; 110km/h=25 선형 분배"
+    }
   },
   "ratingProfiles": {
     "Hitter": {
@@ -396,25 +542,144 @@
   },
   "roleCompositeProfiles": {
     "Hitter": {
-      "Default": [0.35, 0.30, 0.08, 0.04, 0.10, 0.13],
-      "C": [0.30, 0.25, 0.04, 0.10, 0.18, 0.13],
-      "1B": [0.35, 0.36, 0.03, 0.02, 0.10, 0.14],
-      "2B": [0.34, 0.27, 0.08, 0.04, 0.13, 0.14],
-      "3B": [0.34, 0.32, 0.04, 0.04, 0.12, 0.14],
-      "SS": [0.32, 0.24, 0.10, 0.06, 0.14, 0.14],
-      "LF": [0.35, 0.34, 0.07, 0.03, 0.07, 0.14],
-      "CF": [0.32, 0.28, 0.12, 0.04, 0.10, 0.14],
-      "RF": [0.35, 0.34, 0.05, 0.05, 0.07, 0.14],
-      "DH": [0.42, 0.40, 0.04, 0.0, 0.0, 0.14]
+      "Default": [
+        0.35,
+        0.3,
+        0.08,
+        0.04,
+        0.1,
+        0.13
+      ],
+      "C": [
+        0.3,
+        0.25,
+        0.04,
+        0.1,
+        0.18,
+        0.13
+      ],
+      "1B": [
+        0.35,
+        0.36,
+        0.03,
+        0.02,
+        0.1,
+        0.14
+      ],
+      "2B": [
+        0.34,
+        0.27,
+        0.08,
+        0.04,
+        0.13,
+        0.14
+      ],
+      "3B": [
+        0.34,
+        0.32,
+        0.04,
+        0.04,
+        0.12,
+        0.14
+      ],
+      "SS": [
+        0.32,
+        0.24,
+        0.1,
+        0.06,
+        0.14,
+        0.14
+      ],
+      "LF": [
+        0.35,
+        0.34,
+        0.07,
+        0.03,
+        0.07,
+        0.14
+      ],
+      "CF": [
+        0.32,
+        0.28,
+        0.12,
+        0.04,
+        0.1,
+        0.14
+      ],
+      "RF": [
+        0.35,
+        0.34,
+        0.05,
+        0.05,
+        0.07,
+        0.14
+      ],
+      "DH": [
+        0.42,
+        0.4,
+        0.04,
+        0.0,
+        0.0,
+        0.14
+      ]
     },
     "Pitcher": {
-      "Default": [0.06, 0.12, 0.28, 0.22, 0.18, 0.14],
-      "Starter": [0.18, 0.10, 0.24, 0.20, 0.16, 0.12],
-      "LongRelief": [0.12, 0.10, 0.26, 0.22, 0.18, 0.12],
-      "MiddleRelief": [0.06, 0.12, 0.28, 0.22, 0.18, 0.14],
-      "Bullpen": [0.06, 0.12, 0.28, 0.22, 0.18, 0.14],
-      "Setup": [0.06, 0.12, 0.28, 0.22, 0.18, 0.14],
-      "Closer": [0.06, 0.12, 0.28, 0.22, 0.18, 0.14]
+      "Default": [
+        0.06,
+        0.12,
+        0.28,
+        0.22,
+        0.18,
+        0.14
+      ],
+      "Starter": [
+        0.18,
+        0.1,
+        0.24,
+        0.2,
+        0.16,
+        0.12
+      ],
+      "LongRelief": [
+        0.12,
+        0.1,
+        0.26,
+        0.22,
+        0.18,
+        0.12
+      ],
+      "MiddleRelief": [
+        0.06,
+        0.12,
+        0.28,
+        0.22,
+        0.18,
+        0.14
+      ],
+      "Bullpen": [
+        0.06,
+        0.12,
+        0.28,
+        0.22,
+        0.18,
+        0.14
+      ],
+      "Setup": [
+        0.06,
+        0.12,
+        0.28,
+        0.22,
+        0.18,
+        0.14
+      ],
+      "Closer": [
+        0.06,
+        0.12,
+        0.28,
+        0.22,
+        0.18,
+        0.14
+      ]
     }
   },
   "pitcherRoleClassifier": {
@@ -431,17 +696,31 @@
       "Low": 0.25
     },
     "starterTargetInningsPerStart": 6.0,
-    "setupTargetHoldsPerRelief": 0.30,
-    "closerTargetSavesPerRelief": 0.30,
+    "setupTargetHoldsPerRelief": 0.3,
+    "closerTargetSavesPerRelief": 0.3,
     "legacyStarterMinimumInningsPerGame": 3.5,
     "legacyStarterCompleteGameMinimum": 1.0,
     "legacyStarterCompleteGameInningsPerGame": 2.5,
     "legacyStarterTargetInningsPerGame": 5.5,
     "roleScoreWeights": {
-      "Starter": {"gamesStartedRate": 0.70, "inningsPerStart": 0.30},
-      "Bullpen": {"reliefRate": 0.70, "inningsPerGame": 0.30},
-      "Setup": {"holdsPerRelief": 0.55, "reliefRate": 0.30, "gamesFinishedRate": 0.15},
-      "Closer": {"savesPerRelief": 0.50, "gamesFinishedRate": 0.30, "reliefRate": 0.20}
+      "Starter": {
+        "gamesStartedRate": 0.7,
+        "inningsPerStart": 0.3
+      },
+      "Bullpen": {
+        "reliefRate": 0.7,
+        "inningsPerGame": 0.3
+      },
+      "Setup": {
+        "holdsPerRelief": 0.55,
+        "reliefRate": 0.3,
+        "gamesFinishedRate": 0.15
+      },
+      "Closer": {
+        "savesPerRelief": 0.5,
+        "gamesFinishedRate": 0.3,
+        "reliefRate": 0.2
+      }
     }
   },
   "rosterSelection": {
@@ -460,22 +739,1083 @@
       "positionWeight": 6.0
     },
     "positionStarterAttributeWeights": {
-      "C": {"Contact": 0.20, "Power": 0.15, "Arm": 0.25, "Defense": 0.30, "BatterMental": 0.10},
-      "1B": {"Contact": 0.30, "Power": 0.35, "Arm": 0.05, "Defense": 0.15, "BatterMental": 0.15},
-      "2B": {"Contact": 0.25, "Power": 0.15, "Speed": 0.15, "Arm": 0.10, "Defense": 0.25, "BatterMental": 0.10},
-      "3B": {"Contact": 0.25, "Power": 0.25, "Arm": 0.20, "Defense": 0.20, "BatterMental": 0.10},
-      "SS": {"Contact": 0.20, "Power": 0.10, "Speed": 0.15, "Arm": 0.20, "Defense": 0.25, "BatterMental": 0.10},
-      "LF": {"Contact": 0.25, "Power": 0.30, "Speed": 0.10, "Arm": 0.10, "Defense": 0.15, "BatterMental": 0.10},
-      "CF": {"Contact": 0.20, "Power": 0.15, "Speed": 0.20, "Arm": 0.15, "Defense": 0.20, "BatterMental": 0.10},
-      "RF": {"Contact": 0.20, "Power": 0.30, "Speed": 0.10, "Arm": 0.15, "Defense": 0.15, "BatterMental": 0.10}
+      "C": {
+        "Contact": 0.2,
+        "Power": 0.15,
+        "Arm": 0.25,
+        "Defense": 0.3,
+        "BatterMental": 0.1
+      },
+      "1B": {
+        "Contact": 0.3,
+        "Power": 0.35,
+        "Arm": 0.05,
+        "Defense": 0.15,
+        "BatterMental": 0.15
+      },
+      "2B": {
+        "Contact": 0.25,
+        "Power": 0.15,
+        "Speed": 0.15,
+        "Arm": 0.1,
+        "Defense": 0.25,
+        "BatterMental": 0.1
+      },
+      "3B": {
+        "Contact": 0.25,
+        "Power": 0.25,
+        "Arm": 0.2,
+        "Defense": 0.2,
+        "BatterMental": 0.1
+      },
+      "SS": {
+        "Contact": 0.2,
+        "Power": 0.1,
+        "Speed": 0.15,
+        "Arm": 0.2,
+        "Defense": 0.25,
+        "BatterMental": 0.1
+      },
+      "LF": {
+        "Contact": 0.25,
+        "Power": 0.3,
+        "Speed": 0.1,
+        "Arm": 0.1,
+        "Defense": 0.15,
+        "BatterMental": 0.1
+      },
+      "CF": {
+        "Contact": 0.2,
+        "Power": 0.15,
+        "Speed": 0.2,
+        "Arm": 0.15,
+        "Defense": 0.2,
+        "BatterMental": 0.1
+      },
+      "RF": {
+        "Contact": 0.2,
+        "Power": 0.3,
+        "Speed": 0.1,
+        "Arm": 0.15,
+        "Defense": 0.15,
+        "BatterMental": 0.1
+      }
     },
-    "designatedHitterAttributeWeights": {"Contact": 0.40, "Power": 0.40, "BatterMental": 0.20},
-    "benchAttributeWeights": {"Contact": 0.20, "Power": 0.20, "Speed": 0.20, "Arm": 0.10, "Defense": 0.20, "BatterMental": 0.10},
+    "designatedHitterAttributeWeights": {
+      "Contact": 0.4,
+      "Power": 0.4,
+      "BatterMental": 0.2
+    },
+    "benchAttributeWeights": {
+      "Contact": 0.2,
+      "Power": 0.2,
+      "Speed": 0.2,
+      "Arm": 0.1,
+      "Defense": 0.2,
+      "BatterMental": 0.1
+    },
     "pitcherAssignmentAttributeWeights": {
-      "Starter": {"Stamina": 0.30, "Velocity": 0.10, "Stuff": 0.20, "Breaking": 0.15, "Control": 0.15, "PitcherMental": 0.10},
-      "Bullpen": {"Stamina": 0.05, "Velocity": 0.20, "Stuff": 0.30, "Breaking": 0.20, "Control": 0.15, "PitcherMental": 0.10},
-      "Setup": {"Stamina": 0.05, "Velocity": 0.20, "Stuff": 0.30, "Breaking": 0.20, "Control": 0.15, "PitcherMental": 0.10},
-      "Closer": {"Stamina": 0.05, "Velocity": 0.25, "Stuff": 0.30, "Breaking": 0.15, "Control": 0.15, "PitcherMental": 0.10}
+      "Starter": {
+        "Stamina": 0.3,
+        "Velocity": 0.1,
+        "Stuff": 0.2,
+        "Breaking": 0.15,
+        "Control": 0.15,
+        "PitcherMental": 0.1
+      },
+      "Bullpen": {
+        "Stamina": 0.05,
+        "Velocity": 0.2,
+        "Stuff": 0.3,
+        "Breaking": 0.2,
+        "Control": 0.15,
+        "PitcherMental": 0.1
+      },
+      "Setup": {
+        "Stamina": 0.05,
+        "Velocity": 0.2,
+        "Stuff": 0.3,
+        "Breaking": 0.2,
+        "Control": 0.15,
+        "PitcherMental": 0.1
+      },
+      "Closer": {
+        "Stamina": 0.05,
+        "Velocity": 0.25,
+        "Stuff": 0.3,
+        "Breaking": 0.15,
+        "Control": 0.15,
+        "PitcherMental": 0.1
+      }
     }
+  },
+  "referenceRecordModels": {
+    "Hitter": {
+      "Contact": {
+        "intercept": 57.19480519480519,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 56.608246753246746,
+            "scale": 9.080248705062646,
+            "minimum": 43.0,
+            "maximum": 84.61500000000001,
+            "coefficient": 7.279442129005303,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "BattingAverage.reliability",
+            "mean": 0.3751807271706864,
+            "scale": 0.23961713508751425,
+            "minimum": 0.00455063,
+            "maximum": 0.72042378,
+            "coefficient": 2.7248069934469203
+          }
+        ],
+        "ridge": 10,
+        "trainingCount": 1078
+      },
+      "Power": {
+        "intercept": 54.11510128913444,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 56.45897790055248,
+            "scale": 8.812645057279283,
+            "minimum": 48.0,
+            "maximum": 91.57500000000005,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "SluggingPercentage.adjustedZ",
+            "mean": -0.6588428137680891,
+            "scale": 0.5566360233398895,
+            "minimum": -1.4249448487,
+            "maximum": 1.2997429367000009,
+            "coefficient": 2.2914984196677213,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "HomeRuns.rawValue",
+            "mean": 4.32914364640884,
+            "scale": 6.576104361706161,
+            "minimum": 0.0,
+            "maximum": 35.575000000000045,
+            "coefficient": 5.68969851383658,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "SluggingPercentage.reliability",
+            "mean": 0.37518072717068646,
+            "scale": 0.23961713508751425,
+            "minimum": 0.00455063,
+            "maximum": 0.72042378,
+            "coefficient": 3.2310511912438327
+          }
+        ],
+        "ridge": 10,
+        "trainingCount": 1086
+      },
+      "Speed": {
+        "intercept": 56.3061855670103,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 60.75853092783505,
+            "scale": 5.189820729833194,
+            "minimum": 56.0,
+            "maximum": 84.15499999999997,
+            "coefficient": 7.011428019528521,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "StolenBases.adjustedZ",
+            "mean": -0.6364217028376288,
+            "scale": 0.5698506799008782,
+            "minimum": -0.99926093,
+            "maximum": 1.8297034334999998,
+            "coefficient": 0.11109100636656137,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "StolenBaseAttemptRate.reliability",
+            "mean": 0.3727388335850515,
+            "scale": 0.24070959716171647,
+            "minimum": 0.00455063,
+            "maximum": 0.7204761854999999,
+            "coefficient": 2.205570405822032
+          }
+        ],
+        "ridge": 10,
+        "trainingCount": 970
+      },
+      "Arm": {
+        "intercept": 60.845263157894735,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 54.776078947368426,
+            "scale": 3.837665342788633,
+            "minimum": 45.0,
+            "maximum": 67.255,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "AssistsPerNine.adjustedZ",
+            "mean": -0.02033429503394736,
+            "scale": 0.38931671556128344,
+            "minimum": -1.0084234601,
+            "maximum": 1.30424288965,
+            "coefficient": 0.42020979493245203,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "CaughtStealingRate.adjustedZ",
+            "mean": -0.09510485736260163,
+            "scale": 0.3980354091221963,
+            "minimum": -0.9700683030999999,
+            "maximum": 1.1981656975000001,
+            "coefficient": 0.7694878436316263,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "BattingAverage.reliability",
+            "mean": 0.378350287608811,
+            "scale": 0.23828931382924554,
+            "minimum": 0.00455063,
+            "maximum": 0.7205235194999999,
+            "coefficient": 6.256504958630884
+          }
+        ],
+        "ridge": 1,
+        "trainingCount": 950
+      },
+      "Defense": {
+        "intercept": 60.40210526315789,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 72.77578947368421,
+            "scale": 2.849790972555289,
+            "minimum": 63.0,
+            "maximum": 79.0,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "FieldingPercentage.adjustedZ",
+            "mean": -0.02816005766738661,
+            "scale": 0.34895608517318877,
+            "minimum": -1.14799148625,
+            "maximum": 0.80257155625,
+            "coefficient": 0.6205211738182304,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeErrorsPerNine.adjustedZ",
+            "mean": -0.013802710463421058,
+            "scale": 0.38934101792471915,
+            "minimum": -1.413213221,
+            "maximum": 0.8624078029499996,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "BattingAverage.reliability",
+            "mean": 0.378350287608811,
+            "scale": 0.23828931382924554,
+            "minimum": 0.00455063,
+            "maximum": 0.7205235194999999,
+            "coefficient": 6.876979784055081
+          }
+        ],
+        "ridge": 0.1,
+        "trainingCount": 950
+      },
+      "BatterMental": {
+        "intercept": 57.752548656163114,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 59.790546802594996,
+            "scale": 4.54211714438075,
+            "minimum": 53.0,
+            "maximum": 75.0,
+            "coefficient": 0.21056398781323846,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "OnBasePercentage.adjustedZ",
+            "mean": -0.638564633836181,
+            "scale": 0.5883665395231436,
+            "minimum": -1.528458215,
+            "maximum": 1.4934436975999992,
+            "coefficient": 2.997259796579974,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "BattingAverage.adjustedZ",
+            "mean": -0.6496448043995361,
+            "scale": 0.5665741231141269,
+            "minimum": -1.5130835008,
+            "maximum": 1.0771893553500005,
+            "coefficient": 0.740023104863951,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "BattingAverage.reliability",
+            "mean": 0.3751807271706864,
+            "scale": 0.23961713508751425,
+            "minimum": 0.00455063,
+            "maximum": 0.72042378,
+            "coefficient": 4.739156039603967
+          }
+        ],
+        "ridge": 10,
+        "trainingCount": 1079
+      },
+      "Cost": {
+        "intercept": 4.383041708574627,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 3.8342391304347827,
+            "scale": 2.3387616259073165,
+            "minimum": 1.0,
+            "maximum": 9.0,
+            "coefficient": 0.15748215001303378,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.quality",
+            "mean": -0.6322028151472826,
+            "scale": 0.547570539389455,
+            "minimum": -1.29650386545,
+            "maximum": 1.1674565033499982,
+            "coefficient": 0.16121982857465006,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.quality",
+            "transform": "positiveSquare",
+            "mean": 0.045986947030562,
+            "scale": 0.1783970881806919,
+            "minimum": 0.0,
+            "maximum": 1.3630428372899033,
+            "coefficient": 0.14753136481644225,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.workloadScore",
+            "mean": 2.342210589628624,
+            "scale": 1.3309024675714185,
+            "minimum": 0.0,
+            "maximum": 4.47213595,
+            "coefficient": 0.16917195880426425,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.workload.ratio",
+            "mean": 0.45410977204085146,
+            "scale": 0.4054281688791873,
+            "minimum": 0.0,
+            "maximum": 1.2916366938499997,
+            "coefficient": 0.024053758713421736,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.defensiveValue",
+            "mean": -0.002712532399184786,
+            "scale": 0.06354803355386023,
+            "minimum": -0.2398107106,
+            "maximum": 0.19850135914999945,
+            "coefficient": 0.0019780228260570312
+          },
+          {
+            "source": "HomeRuns.rawValue",
+            "mean": 4.554266304347826,
+            "scale": 6.847965307652091,
+            "minimum": 0.0,
+            "maximum": 35.4849999999999,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "role.C",
+            "mean": 0.10869565217391304,
+            "scale": 0.31125697963644244,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": 0.020495379208706237
+          },
+          {
+            "source": "role.1B",
+            "mean": 0.08423913043478261,
+            "scale": 0.27774610589236765,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": -0.02326357409115035
+          },
+          {
+            "source": "role.2B",
+            "mean": 0.11413043478260869,
+            "scale": 0.31796961905021903,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": -0.06835821342596174
+          },
+          {
+            "source": "role.3B",
+            "mean": 0.08242753623188406,
+            "scale": 0.27501497686967064,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": -0.0233299705828532
+          },
+          {
+            "source": "role.SS",
+            "mean": 0.06884057971014493,
+            "scale": 0.25318284755353415,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": 0.03865550045280264
+          },
+          {
+            "source": "role.LF",
+            "mean": 0.11594202898550725,
+            "scale": 0.3201553918025293,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": 0.030111023694026195
+          },
+          {
+            "source": "role.CF",
+            "mean": 0.0661231884057971,
+            "scale": 0.24849730855856075,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": 0.01005141202702311
+          },
+          {
+            "source": "role.RF",
+            "mean": 0.1068840579710145,
+            "scale": 0.3089657847119375,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": 0.09495868943901954
+          },
+          {
+            "source": "role.DH",
+            "mean": 0.25271739130434784,
+            "scale": 0.43457026064455095,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": -0.05299115259796772
+          },
+          {
+            "source": "BattingAverage.rawValue",
+            "mean": 0.2275374087591241,
+            "scale": 0.08580982020095665,
+            "minimum": 0.0,
+            "maximum": 0.5,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "BattingAverage.adjustedZ",
+            "mean": -0.6276182256815692,
+            "scale": 0.5894394955624376,
+            "minimum": -1.511489608,
+            "maximum": 1.191946588500007,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "OnBasePercentage.rawValue",
+            "mean": 0.29944801579466923,
+            "scale": 0.09984669725002991,
+            "minimum": 0.0,
+            "maximum": 0.6651399999999982,
+            "coefficient": 0.03701188793599096,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "OnBasePercentage.adjustedZ",
+            "mean": -0.6149814726764067,
+            "scale": 0.6122707515291408,
+            "minimum": -1.5250124876,
+            "maximum": 1.5254599873999994,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "SluggingPercentage.rawValue",
+            "mean": 0.3301411929881476,
+            "scale": 0.14257454350925364,
+            "minimum": 0.0,
+            "maximum": 0.812100000000004,
+            "coefficient": 0.0012560454611303545,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "SluggingPercentage.adjustedZ",
+            "mean": -0.635103069160584,
+            "scale": 0.5846706689030576,
+            "minimum": -1.4226576445,
+            "maximum": 1.355156784500002,
+            "coefficient": 0.18238311159785972,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "StolenBases.rawValue",
+            "mean": 3.8685015290519877,
+            "scale": 6.695810662296908,
+            "minimum": 0.0,
+            "maximum": 42.0,
+            "coefficient": 0.1833608938588886,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "StolenBases.adjustedZ",
+            "mean": -0.6360589781243629,
+            "scale": 0.5701727589771868,
+            "minimum": -1.0,
+            "maximum": 1.8291897500000003,
+            "coefficient": 0.06149680848123344,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeStrikeoutRate.rawValue",
+            "mean": -0.20043872425405793,
+            "scale": 0.13071331858114302,
+            "minimum": -1.0,
+            "maximum": -0.0,
+            "coefficient": 0.02475604943661974,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeStrikeoutRate.adjustedZ",
+            "mean": -0.5990200820521224,
+            "scale": 0.5825675124113858,
+            "minimum": -1.680116357,
+            "maximum": 0.8694941521999978,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.workload.ratio",
+            "transform": "sqrt",
+            "mean": 0.5857886938096974,
+            "scale": 0.33310865646754007,
+            "minimum": 0.0,
+            "maximum": 1.1365018553295367,
+            "coefficient": 0.174576340367717,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "baseline",
+            "transform": "positiveSquare",
+            "mean": 20.171195652173914,
+            "scale": 21.612459587931706,
+            "minimum": 1.0,
+            "maximum": 81.0,
+            "coefficient": 0.20371319609567629,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "RunsBattedIn.rawValue",
+            "mean": 22.926467391304346,
+            "scale": 25.379602745668066,
+            "minimum": 0.0,
+            "maximum": 105.9699999999998,
+            "coefficient": 0.27814843733733835,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "Runs.rawValue",
+            "mean": 24.65019927536232,
+            "scale": 25.28354851486965,
+            "minimum": 0.0,
+            "maximum": 97.9699999999998,
+            "coefficient": 0.12613113149204314,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "Hits.rawValue",
+            "mean": 47.61124999999999,
+            "scale": 46.968958312863094,
+            "minimum": 0.0,
+            "maximum": 165.9699999999998,
+            "coefficient": 0.01041465412699466,
+            "minimumCoefficient": 0.0
+          }
+        ],
+        "ridge": 100,
+        "trainingCount": 1104,
+        "costBoundaryMethod": "WeightedAbsoluteError",
+        "costBoundaries": [
+          1.2526770750361522,
+          2.5945374061147386,
+          3.3883852179239553,
+          4.498553526341998,
+          5.7471614273780425,
+          6.445116136588121,
+          7.119624397750075,
+          7.896086224754995,
+          8.74138520677594
+        ]
+      }
+    },
+    "Pitcher": {
+      "Stamina": {
+        "intercept": 57.33870967741935,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 36.1494623655914,
+            "scale": 8.899451761003771,
+            "minimum": 25.0,
+            "maximum": 61.0,
+            "coefficient": 2.636360280441468,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "SeasonInnings.rawValue",
+            "transform": "sqrt",
+            "mean": 7.243208861557362,
+            "scale": 3.336550326160788,
+            "minimum": 0.816496580927726,
+            "maximum": 14.249287954840643,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "InningsPerGame.rawValue",
+            "mean": 2.5190639231304446,
+            "scale": 1.713072663520458,
+            "minimum": 0.3333333333333333,
+            "maximum": 6.788534858387802,
+            "coefficient": 7.3277633814807945,
+            "minimumCoefficient": 0.0
+          }
+        ],
+        "ridge": 10,
+        "trainingCount": 930
+      },
+      "Stuff": {
+        "intercept": 65.35268817204302,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 57.7675,
+            "scale": 14.575789261446051,
+            "minimum": 25.645,
+            "maximum": 92.71000000000004,
+            "coefficient": 0.40710516458565754,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeEarnedRunAverage.adjustedZ",
+            "mean": -0.46876136407822583,
+            "scale": 0.6077668714590085,
+            "minimum": -1.8347497337,
+            "maximum": 0.9975447411500015,
+            "coefficient": 3.766924373031786,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeEarnedRunAverage.reliability",
+            "mean": 0.5115972743991937,
+            "scale": 0.2202618444298748,
+            "minimum": 0.01685393,
+            "maximum": 0.82598534425,
+            "coefficient": 0.8503005744745882
+          },
+          {
+            "source": "StrikeoutsPerNine.adjustedZ",
+            "mean": -0.497093223763172,
+            "scale": 0.5966790484094819,
+            "minimum": -1.7521470202999998,
+            "maximum": 1.4738619663500003,
+            "coefficient": 3.730491047568736,
+            "minimumCoefficient": 0.0
+          }
+        ],
+        "ridge": 1,
+        "trainingCount": 930
+      },
+      "Breaking": {
+        "intercept": 62.75268817204301,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 61.63763440860215,
+            "scale": 12.153605765930322,
+            "minimum": 34.29,
+            "maximum": 90.71000000000004,
+            "coefficient": 6.001752506627882,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "StrikeoutsPerNine.adjustedZ",
+            "mean": -0.497093223763172,
+            "scale": 0.5966790484094819,
+            "minimum": -1.7521470202999998,
+            "maximum": 1.4738619663500003,
+            "coefficient": 0.7180267820439686,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeEarnedRunAverage.reliability",
+            "mean": 0.5115972743991937,
+            "scale": 0.2202618444298748,
+            "minimum": 0.01685393,
+            "maximum": 0.82598534425,
+            "coefficient": 2.2303218542441132
+          }
+        ],
+        "ridge": 100,
+        "trainingCount": 930
+      },
+      "Control": {
+        "intercept": 63.61720430107526,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 73.15352150537633,
+            "scale": 4.739761017984138,
+            "minimum": 62.0,
+            "maximum": 84.35500000000002,
+            "coefficient": 2.4599426595104026,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeWalksPerNine.adjustedZ",
+            "mean": -0.4836840063615591,
+            "scale": 0.5930688998068393,
+            "minimum": -1.9110380323499998,
+            "maximum": 0.9549150591000012,
+            "coefficient": 3.0444282734667127,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeWalksPerNine.reliability",
+            "mean": 0.5115972743991937,
+            "scale": 0.2202618444298748,
+            "minimum": 0.01685393,
+            "maximum": 0.82598534425,
+            "coefficient": 2.5713797779570724
+          }
+        ],
+        "ridge": 1,
+        "trainingCount": 930
+      },
+      "PitcherMental": {
+        "intercept": 62.18709677419355,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 57.63763440860215,
+            "scale": 12.153605765930322,
+            "minimum": 30.29,
+            "maximum": 86.71000000000004,
+            "coefficient": 7.102491619774475,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeEarnedRunAverage.reliability",
+            "mean": 0.5115972743991937,
+            "scale": 0.2202618444298748,
+            "minimum": 0.01685393,
+            "maximum": 0.82598534425,
+            "coefficient": -0.6830433968663913
+          },
+          {
+            "source": "SaveRate.adjustedZ",
+            "mean": -0.4736792739663978,
+            "scale": 0.5960980106707905,
+            "minimum": -0.99024379,
+            "maximum": 1.8411809022500005,
+            "coefficient": 0.8805012810655165,
+            "minimumCoefficient": 0.0
+          }
+        ],
+        "ridge": 10,
+        "trainingCount": 930
+      },
+      "Cost": {
+        "intercept": 4.701788988733694,
+        "features": [
+          {
+            "source": "baseline",
+            "mean": 4.372307692307692,
+            "scale": 2.5094390644416844,
+            "minimum": 1.0,
+            "maximum": 10.0,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.quality",
+            "mean": -0.4283351829846154,
+            "scale": 0.595063107864641,
+            "minimum": -1.7256751223,
+            "maximum": 0.9562441262999998,
+            "coefficient": 0.21272024359986955,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.quality",
+            "transform": "positiveSquare",
+            "mean": 0.05155402845554684,
+            "scale": 0.14719719759156683,
+            "minimum": 0.0,
+            "maximum": 0.9146349359352665,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.workloadScore",
+            "mean": 3.5820593749215384,
+            "scale": 1.343961326455159,
+            "minimum": 0.46889623,
+            "maximum": 5.999373907699999,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.workload.ratio",
+            "mean": 0.6481803321697435,
+            "scale": 0.4162494712613441,
+            "minimum": 0.0087796855,
+            "maximum": 1.8540679056,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.workload.starterShare",
+            "mean": 0.3499492157333333,
+            "scale": 0.38552840946108347,
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "coefficient": 0.023089483621426824
+          },
+          {
+            "source": "value.reliability",
+            "mean": 0.5213818823989744,
+            "scale": 0.2211504049436695,
+            "minimum": 0.01685393,
+            "maximum": 0.8357767457999999,
+            "coefficient": -0.008388898284926182
+          },
+          {
+            "source": "SaveRate.adjustedZ",
+            "mean": -0.44461839086461535,
+            "scale": 0.631742154315813,
+            "minimum": -0.99024379,
+            "maximum": 1.9374134273999999,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "HoldRate.adjustedZ",
+            "mean": -0.4936896556210774,
+            "scale": 0.5849503656072845,
+            "minimum": -0.99488305,
+            "maximum": 1.648732879250001,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeEarnedRunAverage.rawValue",
+            "mean": -4.842105128205128,
+            "scale": 2.630264091347124,
+            "minimum": -18.2925,
+            "maximum": 0.0,
+            "coefficient": 0.11099749294919593,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeEarnedRunAverage.adjustedZ",
+            "mean": -0.4176538659348718,
+            "scale": 0.6422444223999374,
+            "minimum": -1.8187614722,
+            "maximum": 1.1372068829,
+            "coefficient": 0.22314981963159403,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeWhip.rawValue",
+            "mean": -1.3950461538461536,
+            "scale": 0.6302673205122727,
+            "minimum": -3.75,
+            "maximum": 0.0,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeWhip.adjustedZ",
+            "mean": -0.4463032604928205,
+            "scale": 0.5973795008222881,
+            "minimum": -1.7477168942,
+            "maximum": 1.1018552281,
+            "coefficient": 0.00854286674542933,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "StrikeoutsPerNine.rawValue",
+            "mean": 6.124909507753066,
+            "scale": 2.1953706451512534,
+            "minimum": 0.0,
+            "maximum": 14.71642105263157,
+            "coefficient": 0.11600945890411875,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "StrikeoutsPerNine.adjustedZ",
+            "mean": -0.4619705450835897,
+            "scale": 0.6223761701822981,
+            "minimum": -1.7336214518,
+            "maximum": 1.4930331764999998,
+            "coefficient": 0.046438002795066845,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeWalksPerNine.rawValue",
+            "mean": -4.12672625220934,
+            "scale": 2.378226249515751,
+            "minimum": -19.41107142857143,
+            "maximum": 0.0,
+            "coefficient": 0.04226989768338102,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "NegativeWalksPerNine.adjustedZ",
+            "mean": -0.4539423095266667,
+            "scale": 0.6074636094326662,
+            "minimum": -1.9090907541,
+            "maximum": 1.0572122664,
+            "coefficient": 0.039887918184479954,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "SeasonInnings.rawValue",
+            "mean": 67.18904273504273,
+            "scale": 53.73963693058618,
+            "minimum": 0.6666666666666666,
+            "maximum": 225.13,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "SeasonInnings.adjustedZ",
+            "mean": 0.2976928878666667,
+            "scale": 1.0842266252008526,
+            "minimum": -1.05340425,
+            "maximum": 3.0,
+            "coefficient": 0.20879331254327066,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "SaveRate.rawValue",
+            "mean": 0.04964887648693174,
+            "scale": 0.12577817329473157,
+            "minimum": 0.0,
+            "maximum": 0.6936332819722649,
+            "coefficient": 0.16399228780119351,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "HoldRate.rawValue",
+            "mean": 0.04825953681707782,
+            "scale": 0.07800451824533856,
+            "minimum": 0.0,
+            "maximum": 0.3668872549019608,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "value.workload.ratio",
+            "transform": "sqrt",
+            "mean": 0.7512243474455378,
+            "scale": 0.2895551130559029,
+            "minimum": 0.09354657513345951,
+            "maximum": 1.3616415373291202,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "baseline",
+            "transform": "positiveSquare",
+            "mean": 25.414358974358976,
+            "scale": 25.43610595448029,
+            "minimum": 1.0,
+            "maximum": 100.0,
+            "coefficient": 0.7557030405695577,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "Wins.rawValue",
+            "mean": 3.9175897435897435,
+            "scale": 4.388640679205448,
+            "minimum": 0.0,
+            "maximum": 18.129999999999995,
+            "coefficient": 0.2410123165865529,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "Saves.rawValue",
+            "mean": 2.2581025641025643,
+            "scale": 6.422575007975411,
+            "minimum": 0.0,
+            "maximum": 39.129999999999995,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "Holds.rawValue",
+            "mean": 1.9446914225941423,
+            "scale": 3.874377893640446,
+            "minimum": 0.0,
+            "maximum": 22.225000000000023,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          },
+          {
+            "source": "PitchingGames.rawValue",
+            "mean": 27.234512820512823,
+            "scale": 17.08393346718999,
+            "minimum": 1.0,
+            "maximum": 73.13,
+            "coefficient": 0.0,
+            "minimumCoefficient": 0.0
+          }
+        ],
+        "ridge": 10,
+        "trainingCount": 975,
+        "costBoundaryMethod": "WeightedAbsoluteError",
+        "costBoundaries": [
+          0.7488511808056364,
+          2.3291987393434685,
+          3.598693512357369,
+          4.808916894640043,
+          5.700695251473791,
+          6.385447790530252,
+          7.735029265183895,
+          8.187811119356034,
+          10.800477014055005
+        ]
+      }
+    }
+  },
+  "referenceCalibration": {
+    "policyVersion": "annual-reference-policy-v1",
+    "maximumCardYear": 2013,
+    "splitSalt": "pm-annual-player-v1",
+    "policySha256": "498235167cddaf34f7a9b7ac6cc59a91393016125f2c37c12f1635e9636d6eb3",
+    "fitSource": "NormalizedCacheRecordFeatures",
+    "note": "일반 연도 카드의 선수 단위 학습/검증 분리. DB 우선, 충돌/월별/2014 이후 제외. 구속 결측은 55 유지."
   }
 }

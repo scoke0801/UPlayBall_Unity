@@ -541,6 +541,12 @@ Assets/Editor Default Resources/*
 !Tools/KBOImporter/README.md
 !Tools/KBOImporter/derivation_balance.json
 !Tools/KBOImporter/derivation_cost.py
+!Tools/KBOImporter/record_calibration.py
+!Tools/KBOImporter/reference_calibration_policy.json
+!Tools/KBOImporter/calibrate_annual_reference.py
+!Tools/KBOImporter/verify_annual_calibration.py
+!Tools/KBOImporter/test_record_calibration.py
+!Tools/KBOImporter/test_annual_reference_policy.py
 !Tools/KBOImporter/replacement_generation.py
 !Tools/KBOImporter/source_backed_final_bake.py
 !Tools/KBOImporter/source_backed_runtime_bake.py

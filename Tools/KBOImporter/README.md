@@ -130,6 +130,23 @@ Validation Error로 보고한다.
 
 ### Ability와 Cost
 
+현재 산출 코드는 **Ability v9 / Cost v14 / DerivationBalance v19**다. 아래 v8/v13 설명은
+회귀 보정의 기준식으로 남는다. 기준식 뒤에 `record_calibration.py`의 공통 기록 회귀를 적용하며
+학습 계수는 `derivation_balance.json`의 `referenceRecordModels`에 저장한다. 원본 캐시 성적은
+수정하지 않는다. 선수명·팀·연도별 카드 수치를 직접 입력하거나 Runtime에서 연구 DB를 읽지 않는다.
+
+레퍼런스는 **2013년 이하 일반 연도 카드**만 사용하고 월별·특수·판본 불명·초과 연도는 제외한다.
+특징·범위·정규화 후보·Cost 희귀도 가중·단조 제약은 `reference_calibration_policy.json`에 있다.
+`calibrate_annual_reference.py --baseline <v18 Archive> --baseline-balance <v18 JSON> --output <폴더>`로
+후보를 만들며 학습 도구에만 NumPy가 필요하다. 같은 인물의 여러 시즌을 하나의 분할에 묶는다.
+`verify_annual_calibration.py`로 후보의 실제 베이크와 예측을 대조한다. 기준식이나 특징을 수정하면
+계수도 다시 학습·검증한다. 구속 결측 55와 상위 Cost 자격 상한은 유지한다.
+
+새 설정으로 생성한 17,333개 Source 후보는 `.tmp/pm-annual-calibration/candidate`에 보관했다.
+공식 Archive와 WorldHistory는 이번 보정 작업에서 교체하지 않았다. 상세 오차, 28,000경기 비교,
+Cost1·10의 분포 한계, 기존 테스트/시즌 진단 빌드 실패는
+`Research/PyaMaeCardDb/Calibration/README.md`에 기록했다.
+
 현행 평가 코드는 **Ability v8 / Cost v13 / Balance v16 / Roster v6**이며 아래 설계 이력보다
 `BaseballManager_PROJECT.md` 42.14절과 `docs/reports/pm_pitcher_position_review_20260906/결과.md`가 우선한다.
 공식 데이터는 사용자가 베이크한 v12/v15/v5 상태이며 새 코드의 반영에는 사용자 재베이크가 필요하다.
