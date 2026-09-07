@@ -345,6 +345,7 @@ namespace Baseball.Presentation.Owner
                 owned.DuplicateCount,
                 owned.IsLocked,
                 owned.IsFavorite,
+                pitcherRole: season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
                 teamDisplayName: teamDisplayName);
         }
 

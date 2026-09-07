@@ -222,7 +222,9 @@ namespace Baseball.Presentation.Owner
                 preview.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card.Card, false));
                 preview.SetPortrait(PlayerPortraitSprites.GetDefault(card.Card.Position));
                 FitCompactCardText(preview);
-                string detail = OwnerCollectionPresentationBuilder.FormatPosition(card.Card.Position) + "\n" +
+                string detail = OwnerCollectionPresentationBuilder.FormatPlayerRole(
+                        card.Card.Position,
+                        card.Card.PitcherRole) + "\n" +
                     card.Card.OriginYear + "년\n코스트 " + card.Card.Cost + "\n장착 " + card.Placements.Length + "개";
                 Label(_content, "SelectedDetails", detail, 13, 465, 127, 117, 106);
             }

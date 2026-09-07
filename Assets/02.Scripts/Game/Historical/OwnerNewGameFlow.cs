@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Simulation.Historical;
 
 namespace Baseball.Game.Historical
@@ -147,7 +148,8 @@ namespace Baseball.Game.Historical
             int cost,
             PlayerType playerType,
             PlayerPosition position,
-            bool isSelected)
+            bool isSelected,
+            PitcherRole? pitcherRole = null)
         {
             CardId = cardId;
             PlayerPersonId = playerPersonId;
@@ -157,6 +159,7 @@ namespace Baseball.Game.Historical
             PlayerType = playerType;
             Position = position;
             IsSelected = isSelected;
+            PitcherRole = pitcherRole;
         }
 
         public string CardId { get; }
@@ -167,6 +170,7 @@ namespace Baseball.Game.Historical
         public PlayerType PlayerType { get; }
         public PlayerPosition Position { get; }
         public bool IsSelected { get; }
+        public PitcherRole? PitcherRole { get; }
     }
 
     /// <summary>구단주 새 게임 카드 Browser의 표시 범위를 정하는 순수 검색 조건이다.</summary>
@@ -176,7 +180,8 @@ namespace Baseball.Game.Historical
             int? originYear = null,
             PlayerPosition? position = null,
             int? cost = null,
-            string playerName = null)
+            string playerName = null,
+            PitcherRole? pitcherRole = null)
         {
             if (originYear.HasValue && originYear.Value <= 0)
                 throw new ArgumentOutOfRangeException(nameof(originYear));
@@ -186,12 +191,14 @@ namespace Baseball.Game.Historical
             Position = position;
             Cost = cost;
             PlayerName = playerName?.Trim() ?? string.Empty;
+            PitcherRole = pitcherRole;
         }
 
         public int? OriginYear { get; }
         public PlayerPosition? Position { get; }
         public int? Cost { get; }
         public string PlayerName { get; }
+        public PitcherRole? PitcherRole { get; }
 
         public bool Matches(OwnerNewGameCardView card)
         {
@@ -200,6 +207,8 @@ namespace Baseball.Game.Historical
             if (Position.HasValue && card.Position != Position.Value)
                 return false;
             if (Cost.HasValue && card.Cost != Cost.Value)
+                return false;
+            if (PitcherRole.HasValue && card.PitcherRole != PitcherRole)
                 return false;
             return string.IsNullOrEmpty(PlayerName) ||
                 (!string.IsNullOrEmpty(card.DisplayName) &&
@@ -315,7 +324,8 @@ namespace Baseball.Game.Historical
                     season.Cost,
                     season.PlayerType,
                     season.Position,
-                    selected.Contains(card.CardId));
+                    selected.Contains(card.CardId),
+                    season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null);
                 if (filter.Matches(view))
                     result.Add(view);
             }

@@ -3,6 +3,7 @@ using System.IO;
 using Baseball.Core.Historical;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using NUnit.Framework;
@@ -59,6 +60,26 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(costLabel.anchorMax.y, Is.EqualTo(.060f).Within(.0001f));
                 Assert.That(front.Find("Ability5"), Is.Not.Null);
                 Assert.That(front.parent.Find("Back/SkillBoardInformation/Grid/Cell_3_3"), Is.Not.Null);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [TestCase(PitcherRole.Setup, "셋업")]
+        [TestCase(PitcherRole.Closer, "마무리")]
+        public void FullCard_투수NaturalRole을앞면에표시한다(PitcherRole role, string label)
+        {
+            var root = new GameObject("Fixture", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var card = new OwnerCollectionCardSnapshot(
+                    "c", "p", "가상투수", 2025, PlayerPosition.ReliefPitcher, 7,
+                    PlayerCardEdition.Normal, 0, 0, false, false, pitcherRole: role);
+
+                UI_Popup_OwnerPlayerCard.Show(root.transform, card);
+
+                Text position = root.transform.Find(
+                    "UI_Popup_OwnerPlayerCard/CardDetail/Front/PositionPlate/Position").GetComponent<Text>();
+                Assert.That(position.text, Is.EqualTo(label));
             }
             finally { Object.DestroyImmediate(root); }
         }

@@ -188,6 +188,7 @@ namespace Baseball.Presentation.Owner
             _starterCards[side].Bind(
                 display,
                 Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1"));
+            _starterCards[side].SetPrimaryClickForDetail(detail != null);
         }
 
         private void ShowStarterDetail(int side)

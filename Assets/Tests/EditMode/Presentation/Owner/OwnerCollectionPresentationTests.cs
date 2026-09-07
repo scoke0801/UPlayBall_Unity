@@ -1,5 +1,6 @@
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using NUnit.Framework;
@@ -23,9 +24,26 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
             Assert.That(byPosition.CountText, Is.EqualTo("검색 결과 2/4장"));
             Assert.That(byPosition.Cards[0].Snapshot.DisplayName, Is.EqualTo("김마무리"));
-            Assert.That(byPosition.Cards[0].MiniCard.PositionLabel, Is.EqualTo("구원투수"));
+            Assert.That(byPosition.Cards[0].MiniCard.PositionLabel, Is.EqualTo("마무리"));
             Assert.That(byEdition.Cards[0].MiniCard.EditionLabel, Is.EqualTo("MVP"));
             Assert.That(byEdition.Cards[1].MiniCard.EditionLabel, Is.EqualTo("골든글러브"));
+        }
+
+        [TestCase(PitcherRole.Setup, "셋업")]
+        [TestCase(PitcherRole.Closer, "마무리")]
+        public void Builder_투수NaturalRole을카드와검색에노출한다(PitcherRole role, string label)
+        {
+            var snapshot = new OwnerCollectionSnapshot(new[]
+            {
+                new OwnerCollectionCardSnapshot(
+                    "CARD", "PERSON", "가상투수", 2025, PlayerPosition.ReliefPitcher, 7,
+                    PlayerCardEdition.Normal, 0, 0, false, false, pitcherRole: role)
+            });
+
+            OwnerCollectionPresentationModel model = OwnerCollectionPresentationBuilder.Build(snapshot, label);
+
+            Assert.That(model.Cards, Has.Count.EqualTo(1));
+            Assert.That(model.Cards[0].MiniCard.PositionLabel, Is.EqualTo(label));
         }
 
         [Test]
@@ -109,10 +127,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     PlayerCardEdition.Normal, 0, 0, false, false),
                 new OwnerCollectionCardSnapshot(
                     "CARD-SP", "P-SP", "이선발", 2023, PlayerPosition.StartingPitcher, 6,
-                    PlayerCardEdition.AllStar, 1, 1, false, false),
+                    PlayerCardEdition.AllStar, 1, 1, false, false, pitcherRole: PitcherRole.Starter),
                 new OwnerCollectionCardSnapshot(
                     "CARD-RP", "P-RP", "김마무리", 2025, PlayerPosition.ReliefPitcher, 9,
-                    PlayerCardEdition.GoldenGlove, 2, 3, true, true),
+                    PlayerCardEdition.GoldenGlove, 2, 3, true, true, pitcherRole: PitcherRole.Closer),
                 new OwnerCollectionCardSnapshot(
                     "CARD-MVP", "P-MVP", "최거포", 2022, PlayerPosition.FirstBase, 10,
                     PlayerCardEdition.Mvp, 0, 0, false, false)

@@ -23,6 +23,8 @@ namespace Baseball.Presentation.Owner
         public const string PowerUpSkills = "Owner.PowerUp.Skills";
         public const string PowerUpStudy = "Owner.PowerUp.Study";
         public const string PowerUpEnhancementSale = "Owner.PowerUp.EnhancementSale";
+        public const string SpecialRecruitLegend = "Owner.SpecialRecruit.Legend";
+        public const string SpecialRecruitCareerHigh = "Owner.SpecialRecruit.CareerHigh";
         public const string Dugout = "Owner.Dugout";
         public const string DugoutLineupNotes = "Owner.Dugout.LineupNotes";
         public const string DugoutTeamColor = "Owner.Dugout.TeamColor";
@@ -90,7 +92,9 @@ namespace Baseball.Presentation.Owner
                 new NavigationEntry(OwnerNavigationRoutes.PowerUpTraining, "카드훈련"),
                 new NavigationEntry(OwnerNavigationRoutes.PowerUpEnhancementSale, "카드 합성"),
                 new NavigationEntry(OwnerNavigationRoutes.PowerUpSkills, "스킬 블록 배치"),
-                new NavigationEntry(OwnerNavigationRoutes.PowerUpStudy, "유학")
+                new NavigationEntry(OwnerNavigationRoutes.PowerUpStudy, "유학"),
+                new NavigationEntry(OwnerNavigationRoutes.SpecialRecruitLegend, "레전드 영입"),
+                new NavigationEntry(OwnerNavigationRoutes.SpecialRecruitCareerHigh, "커리어하이 영입")
             };
             var dugoutTabs = new[]
             {

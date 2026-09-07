@@ -142,7 +142,8 @@ namespace Baseball.Presentation.Owner
             if (card.IsLocked) Label(parent, "Locked", "잠금", .04f, .85f, .23f, .90f, 12, Gold);
             RectTransform positionPlate = Gradient(parent, "PositionPlate", new Color32(58, 60, 63, 255),
                 new Color32(29, 30, 32, 255), .04f, .91f, .24f, .94f);
-            Label(positionPlate, "Position", OwnerCollectionPresentationBuilder.FormatPosition(card.Position),
+            Label(positionPlate, "Position",
+                OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole),
                 .02f, 0, .98f, 1, 12, Color.white);
             const float nameBottom = .415f;
             Label(parent, "Name", card.DisplayName, .13f, nameBottom, .73f, nameBottom + .06f, 28, Ink);

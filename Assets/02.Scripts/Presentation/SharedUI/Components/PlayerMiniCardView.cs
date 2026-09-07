@@ -63,6 +63,7 @@ namespace Baseball.Presentation.SharedUI
         private Image _teamEmblem;
         private PlayerMiniCardModel _model;
         private bool _usesLineupSlotLayout;
+        private bool _usesPrimaryClickForDetail;
 
         /// <summary>
         /// 사용자가 상세 보기 대상으로 카드를 선택했을 때 현재 모델을 전달한다.
@@ -81,6 +82,14 @@ namespace Baseball.Presentation.SharedUI
         /// 현재 카드에 바인딩된 순수 표시 모델이다.
         /// </summary>
         public PlayerMiniCardModel Model => _model;
+
+        /// <summary>선택 기능이 없는 읽기 전용 카드에서 좌클릭도 상세 보기 입력으로 사용한다.</summary>
+        public void SetPrimaryClickForDetail(bool enabled)
+        {
+            EnsureHierarchy();
+            _usesPrimaryClickForDetail = enabled;
+            UpdateButtonInteractable();
+        }
 
         /// <summary>
         /// 프리팹 통합 전에도 부모 아래에 Compact Card 계층을 생성한다.
@@ -134,7 +143,7 @@ namespace Baseball.Presentation.SharedUI
             _portrait.preserveAspect = true;
             _portrait.color = portrait == null ? PortraitSurface : Color.white;
             if (_teamEmblem != null) _teamEmblem.gameObject.SetActive(false);
-            _button.interactable = model.IsInteractable;
+            UpdateButtonInteractable();
             _canvasGroup.alpha = model.VisualState == PlayerMiniCardVisualState.Disabled ? 0.48f : 1f;
 
             ApplyVisualState(model.VisualState, ParseAccent(model.TeamAccentHex));
@@ -461,8 +470,19 @@ namespace Baseball.Presentation.SharedUI
 
         private void HandleSelected()
         {
-            if (_model != null && _model.IsInteractable)
-                Selected?.Invoke(_model);
+            if (_model == null) return;
+            if (_usesPrimaryClickForDetail)
+            {
+                DetailRequested?.Invoke(_model);
+                return;
+            }
+            if (_model.IsInteractable) Selected?.Invoke(_model);
+        }
+
+        private void UpdateButtonInteractable()
+        {
+            if (_button != null)
+                _button.interactable = _model != null && (_model.IsInteractable || _usesPrimaryClickForDetail);
         }
 
         private static Color ParseAccent(string htmlColor)

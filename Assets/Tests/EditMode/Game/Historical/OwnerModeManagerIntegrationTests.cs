@@ -265,6 +265,11 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(teams, Is.Not.Empty);
             flow.SelectTeam(teams[0].TeamSeasonKey);
             IReadOnlyList<OwnerNewGameCardView> candidates = flow.GetMainCardCandidates();
+            for (int index = 0; index < candidates.Count; index++)
+            {
+                if (candidates[index].PlayerType == PlayerType.Pitcher)
+                    Assert.That(candidates[index].PitcherRole, Is.Not.Null);
+            }
             SelectLowestCostCards(flow, candidates, PlayerType.Batter, flow.Rule.MainHitterCount);
             SelectLowestCostCards(flow, candidates, PlayerType.Pitcher, flow.Rule.MainPitcherCount);
 

@@ -1,4 +1,5 @@
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Game.Historical;
 using NUnit.Framework;
 
@@ -20,6 +21,21 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(new OwnerMainCardCandidateFilter(position: PlayerPosition.Catcher).Matches(card), Is.False);
             Assert.That(new OwnerMainCardCandidateFilter(cost: 6).Matches(card), Is.False);
             Assert.That(new OwnerMainCardCandidateFilter(playerName: "다른 이름").Matches(card), Is.False);
+        }
+
+        [Test]
+        public void Matches_투수NaturalRole을필터링한다()
+        {
+            var setup = new OwnerNewGameCardView(
+                "SETUP", "PERSON-SU", "김셋업", 2024, 7,
+                PlayerType.Pitcher, PlayerPosition.ReliefPitcher, false, PitcherRole.Setup);
+            var closer = new OwnerNewGameCardView(
+                "CLOSER", "PERSON-CP", "이마무리", 2024, 8,
+                PlayerType.Pitcher, PlayerPosition.ReliefPitcher, false, PitcherRole.Closer);
+            var filter = new OwnerMainCardCandidateFilter(pitcherRole: PitcherRole.Setup);
+
+            Assert.That(filter.Matches(setup), Is.True);
+            Assert.That(filter.Matches(closer), Is.False);
         }
     }
 }

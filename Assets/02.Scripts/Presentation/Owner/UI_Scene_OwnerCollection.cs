@@ -417,7 +417,7 @@ namespace Baseball.Presentation.Owner
             _inspectorText.text =
                 $"{card.DisplayName}\n\n" +
                 $"연도  {card.OriginYear}\n" +
-                $"포지션  {OwnerCollectionPresentationBuilder.FormatPosition(card.Position)}\n" +
+                $"포지션  {OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole)}\n" +
                     $"비용  {card.Cost}\n" +
                 $"카드 종류  {OwnerCollectionPresentationBuilder.FormatEdition(card.Edition)}\n\n" +
                 $"강화  +{card.EnhancementLevel}\n" +

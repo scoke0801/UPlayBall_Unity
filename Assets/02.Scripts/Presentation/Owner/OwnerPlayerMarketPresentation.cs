@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using Baseball.Game.Historical;
 using Baseball.Simulation.Historical;
 
@@ -227,7 +228,9 @@ namespace Baseball.Presentation.Owner
         }
 
         private static string FormatRole(PlayerSeasonDefinition season) =>
-            OwnerCollectionPresentationBuilder.FormatPosition(season.Position);
+            OwnerCollectionPresentationBuilder.FormatPlayerRole(
+                season.Position,
+                season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null);
 
         private static string ResolveSelection(IReadOnlyList<OwnerContractPlayerRow> rows, string requested)
         {

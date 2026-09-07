@@ -10,7 +10,7 @@ namespace Baseball.Presentation.Owner
 {
     public sealed partial class UI_Popup_OwnerPlayerCard
     {
-        private void BuildReferenceBack(RectTransform parent, OwnerCollectionCardSnapshot card, bool pitcher)
+        internal static void BuildReferenceBack(RectTransform parent, OwnerCollectionCardSnapshot card, bool pitcher)
         {
             Image frame = Surface(parent, "BackFrame", Color.white, 0, 0, 1, 1).GetComponent<Image>();
             frame.sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_Back_Reference");
@@ -25,7 +25,7 @@ namespace Baseball.Presentation.Owner
             Label(parent, "Edition", teamAndEdition,
                 .32f, .912f, .96f, .945f, 12, Ink);
             string roleText = pitcher && card.PitcherRole.HasValue
-                ? FormatPitcherRole(card.PitcherRole.Value)
+                ? OwnerCollectionPresentationBuilder.FormatPitcherRole(card.PitcherRole.Value)
                 : OwnerCollectionPresentationBuilder.FormatPosition(card.Position);
             string hands = FormatHands(card.Throws, card.Bats);
             Gradient(parent, "ProfileBand", new Color32(218, 215, 202, 255), paper, .012f, .395f, .277f, .985f);
@@ -250,20 +250,6 @@ namespace Baseball.Presentation.Owner
                 Label(parent, "RecordLabel" + index, field.Label, x0, .318f, x1, .349f, 11, Gold);
                 Label(parent, "RecordValue" + index, field.Value, x0, .285f, x1, .317f, 14, Color.white);
             }
-        }
-
-        private static string FormatPitcherRole(PitcherRole role)
-        {
-            return role switch
-            {
-                PitcherRole.Starter => "선발",
-                PitcherRole.Swingman => "스윙맨",
-                PitcherRole.LongRelief => "롱릴리프",
-                PitcherRole.MiddleRelief => "중간계투",
-                PitcherRole.Setup => "셋업",
-                PitcherRole.Closer => "마무리",
-                _ => "역할 미정"
-            };
         }
 
         private static string FormatHands(Handedness? throws, Handedness? bats)

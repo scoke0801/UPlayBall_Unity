@@ -125,7 +125,9 @@ namespace Baseball.Presentation.Owner
                 MiniCard = new PlayerMiniCardModel(
                     entry.CardId,
                     playerDisplayName,
-                    OwnerCollectionPresentationBuilder.FormatPosition(entry.Position),
+                    OwnerCollectionPresentationBuilder.FormatPlayerRole(
+                        entry.Position,
+                        entry.PlayerType == PlayerType.Pitcher ? entry.PitcherRole : null),
                     entry.OriginYear.ToString(),
                     "COST " + entry.Cost,
                     metadata.DisplayName,
@@ -166,7 +168,9 @@ namespace Baseball.Presentation.Owner
                 MiniCard = new PlayerMiniCardModel(
                     entry.PlayerSeasonId,
                     playerDisplayName,
-                    OwnerCollectionPresentationBuilder.FormatPosition(entry.Position),
+                    OwnerCollectionPresentationBuilder.FormatPlayerRole(
+                        entry.Position,
+                        entry.PlayerType == PlayerType.Pitcher ? entry.PitcherRole : null),
                     entry.OriginYear.ToString(),
                     "COST " + entry.Cost,
                     "카드 " + entry.CollectibleCardCount + "종",
@@ -382,16 +386,7 @@ namespace Baseball.Presentation.Owner
         private static string FormatPitcherRole(PlayerType playerType, PitcherRole role)
         {
             if (playerType != PlayerType.Pitcher) return "타자";
-            return role switch
-            {
-                PitcherRole.Starter => "선발",
-                PitcherRole.Swingman => "스윙맨",
-                PitcherRole.LongRelief => "롱릴리프",
-                PitcherRole.MiddleRelief => "중간계투",
-                PitcherRole.Setup => "셋업",
-                PitcherRole.Closer => "마무리",
-                _ => "투수"
-            };
+            return OwnerCollectionPresentationBuilder.FormatPitcherRole(role);
         }
     }
 }

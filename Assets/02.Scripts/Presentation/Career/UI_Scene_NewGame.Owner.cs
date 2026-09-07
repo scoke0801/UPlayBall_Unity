@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
 using Baseball.Game.Historical;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
@@ -19,6 +20,7 @@ namespace Baseball.Presentation.Career
         private string _ownerNicknameDraft = "구단주";
         private int? _ownerCardYearFilter;
         private PlayerPosition? _ownerCardPositionFilter;
+        private PitcherRole? _ownerCardPitcherRoleFilter;
         private int? _ownerCardCostFilter;
         private string _ownerCardNameDraft = string.Empty;
         private string _ownerCardNameFilter = string.Empty;
@@ -122,7 +124,8 @@ namespace Baseball.Presentation.Career
                 new OwnerMainCardCandidateFilter(
                     _ownerCardYearFilter,
                     _ownerCardPositionFilter,
-                    _ownerCardCostFilter));
+                    _ownerCardCostFilter,
+                    pitcherRole: _ownerCardPitcherRoleFilter));
             cards = FilterOwnerCardsByPresentationName(cards, flow.Identities, _ownerCardNameFilter);
             OwnerMainCardSelectionStatus status = flow.GetMainCardSelectionStatus();
             RenderOwnerCardFilters(panel, allCards, cards.Count);
@@ -141,7 +144,7 @@ namespace Baseball.Presentation.Career
                 var model = new PlayerMiniCardModel(
                     cardId,
                     flow.Identities.GetPresentationPlayerName(card.PlayerPersonId),
-                    GetPositionLabel(card.Position),
+                    OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole),
                     card.OriginYear.ToString(), $"비용 {card.Cost}",
                     OwnerCollectionPresentationBuilder.FormatEdition(definition.Edition),
                     card.IsSelected ? "✓ 선택" : string.Empty, card.PlayerPersonId,
@@ -219,7 +222,7 @@ namespace Baseball.Presentation.Career
                 if (_ownerCardYearFilter == years[index]) selectedYearIndex = index + 1;
             }
             Dropdown year = CreateOwnerFilterDropdown("OwnerCardYearFilter", panel, yearOptions,
-                selectedYearIndex, new Vector2(205f, 42f), new Vector2(-625f, 300f));
+                selectedYearIndex, new Vector2(165f, 42f), new Vector2(-650f, 300f));
             year.onValueChanged.AddListener(index =>
             {
                 _ownerCardYearFilter = index == 0 ? null : years[index - 1];
@@ -236,10 +239,32 @@ namespace Baseball.Presentation.Career
                 if (_ownerCardPositionFilter == positions[index]) selectedPositionIndex = index + 1;
             }
             Dropdown position = CreateOwnerFilterDropdown("OwnerCardPositionFilter", panel, positionOptions,
-                selectedPositionIndex, new Vector2(225f, 42f), new Vector2(-400f, 300f));
+                selectedPositionIndex, new Vector2(165f, 42f), new Vector2(-475f, 300f));
             position.onValueChanged.AddListener(index =>
             {
                 _ownerCardPositionFilter = index == 0 ? null : positions[index - 1];
+                _ownerCardPage = 0;
+                Render();
+            });
+
+            List<PitcherRole> pitcherRoles = CollectOwnerCardPitcherRoles(allCards);
+            List<string> pitcherRoleOptions = new List<string>(pitcherRoles.Count + 1) { "투수 보직 전체" };
+            int selectedPitcherRoleIndex = 0;
+            for (int index = 0; index < pitcherRoles.Count; index++)
+            {
+                pitcherRoleOptions.Add(OwnerCollectionPresentationBuilder.FormatPitcherRole(pitcherRoles[index]));
+                if (_ownerCardPitcherRoleFilter == pitcherRoles[index]) selectedPitcherRoleIndex = index + 1;
+            }
+            Dropdown pitcherRole = CreateOwnerFilterDropdown(
+                "OwnerCardPitcherRoleFilter",
+                panel,
+                pitcherRoleOptions,
+                selectedPitcherRoleIndex,
+                new Vector2(165f, 42f),
+                new Vector2(-300f, 300f));
+            pitcherRole.onValueChanged.AddListener(index =>
+            {
+                _ownerCardPitcherRoleFilter = index == 0 ? null : pitcherRoles[index - 1];
                 _ownerCardPage = 0;
                 Render();
             });
@@ -253,7 +278,7 @@ namespace Baseball.Presentation.Career
                 if (_ownerCardCostFilter == costs[index]) selectedCostIndex = index + 1;
             }
             Dropdown cost = CreateOwnerFilterDropdown("OwnerCardCostFilter", panel, costOptions,
-                selectedCostIndex, new Vector2(170f, 42f), new Vector2(-192f, 300f));
+                selectedCostIndex, new Vector2(135f, 42f), new Vector2(-137f, 300f));
             cost.onValueChanged.AddListener(index =>
             {
                 _ownerCardCostFilter = index == 0 ? null : costs[index - 1];
@@ -262,11 +287,11 @@ namespace Baseball.Presentation.Career
             });
 
             InputField nameSearch = CreateInputField("OwnerCardNameSearch", panel, "선수 이름 검색",
-                _ownerCardNameDraft, new Vector2(310f, 42f), new Vector2(65f, 300f));
+                _ownerCardNameDraft, new Vector2(260f, 42f), new Vector2(75f, 300f));
             nameSearch.textComponent.fontSize = 15;
             nameSearch.onValueChanged.AddListener(value => _ownerCardNameDraft = value);
-            Button search = CreateButton("ApplyOwnerCardNameSearch", panel, "검색", new Vector2(78f, 42f),
-                new Vector2(274f, 300f), CareerUiTheme.SecondaryAction, out Text searchLabel);
+            Button search = CreateButton("ApplyOwnerCardNameSearch", panel, "검색", new Vector2(72f, 42f),
+                new Vector2(250f, 300f), CareerUiTheme.SecondaryAction, out Text searchLabel);
             searchLabel.fontSize = 14;
             search.onClick.AddListener(() =>
             {
@@ -274,8 +299,8 @@ namespace Baseball.Presentation.Career
                 _ownerCardPage = 0;
                 Render();
             });
-            Button reset = CreateButton("ResetOwnerCardFilters", panel, "초기화", new Vector2(92f, 42f),
-                new Vector2(374f, 300f), CareerUiTheme.SecondaryAction, out Text resetLabel);
+            Button reset = CreateButton("ResetOwnerCardFilters", panel, "초기화", new Vector2(84f, 42f),
+                new Vector2(340f, 300f), CareerUiTheme.SecondaryAction, out Text resetLabel);
             resetLabel.fontSize = 14;
             reset.onClick.AddListener(() =>
             {
@@ -284,7 +309,7 @@ namespace Baseball.Presentation.Career
             });
             CreateText("OwnerCardFilterResult", panel, $"{filteredCount} / {allCards.Count}명", 14,
                 FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(230f, 38f),
-                new Vector2(600f, 300f), SecondaryTextColor);
+                new Vector2(520f, 300f), SecondaryTextColor);
         }
 
         private void RenderOwnerFrontManager(RectTransform panel, OwnerNewGameFlow flow)
@@ -398,7 +423,9 @@ namespace Baseball.Presentation.Career
                 var model = new PlayerMiniCardModel(
                     cardId,
                     flow.Identities.GetPresentationPlayerName(season.PlayerPersonId),
-                    GetPositionLabel(season.Position),
+                    OwnerCollectionPresentationBuilder.FormatPlayerRole(
+                        season.Position,
+                        season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null),
                     season.OriginYear.ToString(),
                     $"비용 {season.Cost}",
                     isMainCard ? "MAIN" : "AUTO",
@@ -432,6 +459,18 @@ namespace Baseball.Presentation.Career
             var values = new List<PlayerPosition>();
             for (int index = 0; index < cards.Count; index++)
                 if (!values.Contains(cards[index].Position)) values.Add(cards[index].Position);
+            values.Sort((left, right) => ((int)left).CompareTo((int)right));
+            return values;
+        }
+
+        private static List<PitcherRole> CollectOwnerCardPitcherRoles(IReadOnlyList<OwnerNewGameCardView> cards)
+        {
+            var values = new List<PitcherRole>();
+            for (int index = 0; index < cards.Count; index++)
+            {
+                PitcherRole? role = cards[index].PitcherRole;
+                if (role.HasValue && !values.Contains(role.Value)) values.Add(role.Value);
+            }
             values.Sort((left, right) => ((int)left).CompareTo((int)right));
             return values;
         }
@@ -680,6 +719,7 @@ namespace Baseball.Presentation.Career
         {
             _ownerCardYearFilter = null;
             _ownerCardPositionFilter = null;
+            _ownerCardPitcherRoleFilter = null;
             _ownerCardCostFilter = null;
             _ownerCardNameDraft = string.Empty;
             _ownerCardNameFilter = string.Empty;

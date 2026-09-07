@@ -18,14 +18,15 @@ namespace Baseball.Presentation.Owner
 
         public void Build(Transform parent, IReadOnlyList<OwnerCollectionCardSnapshot> cards, Action changed)
         {
-            var years = new List<int>();
-            var teams = new List<string>();
+            var yearSet = new HashSet<int>();
+            var teamSet = new HashSet<string>(StringComparer.Ordinal);
             foreach (OwnerCollectionCardSnapshot card in cards)
             {
-                if (!years.Contains(card.OriginYear)) years.Add(card.OriginYear);
-                if (!string.IsNullOrWhiteSpace(card.TeamDisplayName) && !teams.Contains(card.TeamDisplayName))
-                    teams.Add(card.TeamDisplayName);
+                yearSet.Add(card.OriginYear);
+                if (!string.IsNullOrWhiteSpace(card.TeamDisplayName)) teamSet.Add(card.TeamDisplayName);
             }
+            var years = new List<int>(yearSet);
+            var teams = new List<string>(teamSet);
             years.Sort((a, b) => b.CompareTo(a));
             teams.Sort(StringComparer.CurrentCulture);
             if (!years.Contains(_year)) _year = 0;

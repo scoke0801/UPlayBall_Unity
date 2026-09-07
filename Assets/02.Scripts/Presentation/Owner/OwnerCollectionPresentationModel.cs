@@ -334,7 +334,7 @@ namespace Baseball.Presentation.Owner
             return new PlayerMiniCardModel(
                 card.CardId,
                 card.DisplayName,
-                FormatPosition(card.Position),
+                FormatPlayerRole(card.Position, card.PitcherRole),
                 card.OriginYear.ToString(),
                 $"비용 {card.Cost}",
                 FormatEdition(card.Edition),
@@ -362,6 +362,31 @@ namespace Baseball.Presentation.Owner
             };
         }
 
+        /// <summary>투수는 시즌의 Natural Role을, 야수는 주 포지션을 카드 표기로 반환한다.</summary>
+        public static string FormatPlayerRole(PlayerPosition position, PitcherRole? pitcherRole)
+        {
+            bool isPitcher = position == PlayerPosition.StartingPitcher ||
+                             position == PlayerPosition.ReliefPitcher;
+            return isPitcher && pitcherRole.HasValue
+                ? FormatPitcherRole(pitcherRole.Value)
+                : FormatPosition(position);
+        }
+
+        /// <summary>투수 시즌의 Natural Role을 플레이어용 한국어 표기로 반환한다.</summary>
+        public static string FormatPitcherRole(PitcherRole role)
+        {
+            return role switch
+            {
+                PitcherRole.Starter => "선발",
+                PitcherRole.Swingman => "스윙맨",
+                PitcherRole.LongRelief => "롱릴리프",
+                PitcherRole.MiddleRelief => "중간계투",
+                PitcherRole.Setup => "셋업",
+                PitcherRole.Closer => "마무리",
+                _ => "역할 미정"
+            };
+        }
+
         public static string FormatEdition(PlayerCardEdition edition)
         {
             return edition switch
@@ -378,6 +403,7 @@ namespace Baseball.Presentation.Owner
         {
             if (string.IsNullOrEmpty(query)) return true;
             return Contains(card.DisplayName, query) ||
+                   Contains(FormatPlayerRole(card.Position, card.PitcherRole), query) ||
                    Contains(FormatPosition(card.Position), query) ||
                    Contains(FormatEdition(card.Edition), query) ||
                    Contains(card.OriginYear.ToString(), query) ||
