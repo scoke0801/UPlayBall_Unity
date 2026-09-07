@@ -3,7 +3,10 @@ using System.Linq;
 using System.Reflection;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
+using Baseball.Game.Historical;
+using Baseball.Game.Manager;
 using Baseball.Presentation.Match;
+using Baseball.Presentation.SharedScreens;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.PlateAppearance;
 using NUnit.Framework;
@@ -116,6 +119,39 @@ namespace Baseball.Tests.EditMode.Presentation.Match
         }
 
         [Test]
+        public void 즉시결과는경기오디오상태를변경하지않는다()
+        {
+            var hostObject = new GameObject("Host", typeof(RectTransform));
+            OwnerMatchPresentationOptions originalSettings = OwnerMatchPresentationSettings.Load();
+            try
+            {
+                OwnerMatchPresentationSettings.ResetToDefaults();
+                GameBootstrap.EnsureRuntimeManagers();
+                Assert.That(GameManager.Instance.TryGetManager(out OwnerModeManager manager), Is.True);
+                Assert.That(manager.StartNewGame(), Is.True, manager.LastError);
+                UI_Scene_OwnerMatchSpectator view =
+                    UI_Scene_OwnerMatchSpectator.CreateRuntime(hostObject.GetComponent<RectTransform>());
+                int audioStateChangeCount = 0;
+                view.MatchAudioEnabledChanged += _ => audioStateChangeCount++;
+                view.PlayNextGame(manager);
+                Assert.That(view.IsComplete, Is.False);
+
+                view.transform.Find("BroadcastCanvas/RevealAll").GetComponent<Button>().onClick.Invoke();
+
+                Assert.That(view.IsComplete, Is.True);
+                Assert.That(audioStateChangeCount, Is.Zero);
+            }
+            finally
+            {
+                OwnerMatchPresentationSettings.SetPlaybackSpeed(originalSettings.PlaybackSpeed);
+                OwnerMatchPresentationSettings.SetViewingMode(originalSettings.ViewingMode);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                if (GameManager.HasInstance)
+                    UnityEngine.Object.DestroyImmediate(GameManager.Instance.gameObject);
+            }
+        }
+
+        [Test]
         public void 관전용야구장이미지는Resources에서불러온다()
         {
             MatchGameCastConfig config = MatchGameCastConfig.Load();
@@ -142,8 +178,22 @@ namespace Baseball.Tests.EditMode.Presentation.Match
             Assert.That((string[])battingHeaders.GetValue(null), Does.Contain("포지션"));
             Assert.That((string[])pitchingHeaders.GetValue(null), Is.EqualTo(new[]
             {
-                "선수", "보직", "이닝", "피안타", "실점", "볼넷", "탈삼진", "승리", "홀드", "세이브"
+                "선수", "보직", "이닝", "피안타", "실점", "볼넷", "탈삼진", "승리", "패전", "홀드", "세이브"
             }));
+        }
+
+        [TestCase(PlayerPosition.Catcher, "포수")]
+        [TestCase(PlayerPosition.FirstBase, "1루수")]
+        [TestCase(PlayerPosition.SecondBase, "2루수")]
+        [TestCase(PlayerPosition.ThirdBase, "3루수")]
+        [TestCase(PlayerPosition.Shortstop, "유격수")]
+        [TestCase(PlayerPosition.LeftField, "좌익수")]
+        [TestCase(PlayerPosition.CenterField, "중견수")]
+        [TestCase(PlayerPosition.RightField, "우익수")]
+        [TestCase(PlayerPosition.DesignatedHitter, "지명타자")]
+        public void 경기결과타자포지션은한글로표시한다(PlayerPosition position, string expected)
+        {
+            Assert.That(CareerSharedSnapshotFormatters.FormatPositionName(position), Is.EqualTo(expected));
         }
 
         [TestCase(PitcherRole.Starter, "선발")]

@@ -51,6 +51,26 @@ namespace Baseball.Presentation.SharedScreens
             };
         }
 
+        /// <summary>선수 포지션을 약어가 아닌 한국어 정식 명칭으로 표시한다.</summary>
+        public static string FormatPositionName(PlayerPosition position)
+        {
+            return position switch
+            {
+                PlayerPosition.Catcher => "포수",
+                PlayerPosition.FirstBase => "1루수",
+                PlayerPosition.SecondBase => "2루수",
+                PlayerPosition.ThirdBase => "3루수",
+                PlayerPosition.Shortstop => "유격수",
+                PlayerPosition.LeftField => "좌익수",
+                PlayerPosition.CenterField => "중견수",
+                PlayerPosition.RightField => "우익수",
+                PlayerPosition.DesignatedHitter => "지명타자",
+                PlayerPosition.StartingPitcher => "선발투수",
+                PlayerPosition.ReliefPitcher => "구원투수",
+                _ => "-"
+            };
+        }
+
         public static string FormatRosterRole(TeamRosterRole role)
         {
             return role switch

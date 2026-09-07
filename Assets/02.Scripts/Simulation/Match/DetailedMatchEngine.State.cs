@@ -485,33 +485,29 @@ namespace Baseball.Simulation.Match
                 ActivePitchingLine.HasBlownSave = true;
         }
 
-        /// <summary>최종 승패와 등판 순서로 Win, Save, Hold를 확정한다.</summary>
-        public void FinalizePitchingDecisions(bool won, int runMargin)
+        /// <summary>최종 득실차와 등판 순서로 Win, Loss, Save, Hold를 확정한다.</summary>
+        public void FinalizePitchingDecisions(int runDifferential)
         {
-            if (!won)
+            if (runDifferential == 0)
                 return;
 
-            PlayerPitchingLine starterLine = BoxScore.PitchingLines[0];
-            PlayerPitchingLine winningLine = null;
-            for (int index = 1; index < BoxScore.PitchingLines.Length; index++)
+            PlayerPitchingLine decisionLine = SelectDecisionPitcher();
+            if (runDifferential < 0)
             {
-                PlayerPitchingLine line = BoxScore.PitchingLines[index];
-                if (line.BattersFaced > 0)
-                    winningLine = line;
+                if (decisionLine != null)
+                    decisionLine.HasLoss = true;
+                return;
             }
-            if (starterLine.BattersFaced > 0 && starterLine.OutsRecorded >= 15)
-                winningLine = starterLine;
-            else if (winningLine == null && starterLine.BattersFaced > 0)
-                winningLine = starterLine;
-            if (winningLine != null)
-                winningLine.HasWin = true;
+
+            if (decisionLine != null)
+                decisionLine.HasWin = true;
 
             PlayerPitchingLine finalLine = ActivePitchingLine;
             if (ActivePitcherIndex > 0 &&
                 _enteredInSaveSituation[ActivePitcherIndex] &&
                 !finalLine.HasBlownSave &&
                 finalLine.OutsRecorded >= 3 &&
-                runMargin <= 3)
+                runDifferential <= 3)
             {
                 finalLine.HasSave = true;
             }
@@ -524,6 +520,22 @@ namespace Baseball.Simulation.Match
                 if (line.BattersFaced > 0 && !line.HasBlownSave)
                     line.HasHold = true;
             }
+        }
+
+        private PlayerPitchingLine SelectDecisionPitcher()
+        {
+            PlayerPitchingLine starterLine = BoxScore.PitchingLines[0];
+            if (starterLine.BattersFaced > 0 && starterLine.OutsRecorded >= 15)
+                return starterLine;
+
+            PlayerPitchingLine reliefLine = null;
+            for (int index = 1; index < BoxScore.PitchingLines.Length; index++)
+            {
+                PlayerPitchingLine line = BoxScore.PitchingLines[index];
+                if (line.BattersFaced > 0)
+                    reliefLine = line;
+            }
+            return reliefLine ?? (starterLine.BattersFaced > 0 ? starterLine : null);
         }
 
         public bool TryFindPinchHitter(

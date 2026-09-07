@@ -75,7 +75,6 @@ namespace Baseball.Game.Career
             var players = new List<PlayerGameStatistics>(24);
             AppendTeam(players, result.Input.AwayRoster, result.AwayBoxScore);
             AppendTeam(players, result.Input.HomeRoster, result.HomeBoxScore);
-            ApplyPitchingLoss(players, result);
             for (int index = 0; index < players.Count; index++)
             {
                 PlayerGameStatistics player = players[index];
@@ -167,6 +166,7 @@ namespace Baseball.Game.Career
                     InheritedRunners = line.InheritedRunners,
                     InheritedRunnersScored = line.InheritedRunnersScored,
                     Wins = line.HasWin ? 1 : 0,
+                    Losses = line.HasLoss ? 1 : 0,
                     Saves = line.HasSave ? 1 : 0,
                     Holds = line.HasHold ? 1 : 0,
                     BlownSaves = line.HasBlownSave ? 1 : 0,
@@ -229,34 +229,6 @@ namespace Baseball.Game.Career
                     return box.FieldingLines[index];
             }
             return null;
-        }
-
-        private static void ApplyPitchingLoss(List<PlayerGameStatistics> players, MatchResult result)
-        {
-            if (result.IsTie) return;
-
-            int winnerTeamId = result.WinnerTeamId;
-            int loserTeamId = winnerTeamId == result.HomeBoxScore.TeamId
-                ? result.AwayBoxScore.TeamId
-                : result.HomeBoxScore.TeamId;
-            PlayerGameStatistics losingPitcher = SelectDecisionPitcher(players, loserTeamId);
-            if (losingPitcher != null) losingPitcher.Losses = 1;
-        }
-
-        private static PlayerGameStatistics SelectDecisionPitcher(
-            List<PlayerGameStatistics> players,
-            int teamId)
-        {
-            PlayerGameStatistics starter = null;
-            PlayerGameStatistics reliever = null;
-            for (int index = 0; index < players.Count; index++)
-            {
-                PlayerGameStatistics player = players[index];
-                if (player.TeamId != teamId || !player.HasPitchingLine) continue;
-                if (player.StartedPitching) starter = player;
-                else reliever = player;
-            }
-            return starter != null && starter.OutsRecorded >= 15 ? starter : reliever ?? starter;
         }
 
         private static double CalculateContribution(PlayerGameStatistics player)

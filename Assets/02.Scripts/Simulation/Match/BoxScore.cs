@@ -64,6 +64,7 @@ namespace Baseball.Simulation.Match
         public int InheritedRunnersScored { get; internal set; }
         public bool IsReliefAppearance { get; internal set; }
         public bool HasWin { get; internal set; }
+        public bool HasLoss { get; internal set; }
         public bool HasSave { get; internal set; }
         public bool HasHold { get; internal set; }
         public bool HasBlownSave { get; internal set; }

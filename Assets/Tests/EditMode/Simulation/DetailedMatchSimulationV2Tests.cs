@@ -346,6 +346,7 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(draw.IsTie, Is.True);
             Assert.That(ContainsEvent(draw, MatchEventType.MatchEndedAsDraw), Is.True);
             Assert.That(CountPitchingWins(draw), Is.Zero);
+            Assert.That(CountPitchingLosses(draw), Is.Zero);
 
             MatchInput winnerInput = CreateDetailedInput(tiedSeed, new MatchRules(
                 regulationInnings: 1,
@@ -359,6 +360,7 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(winner.IsTie, Is.False);
             Assert.That(ContainsEvent(winner, MatchEventType.MatchEndedAsDraw), Is.False);
             Assert.That(CountPitchingWins(winner), Is.EqualTo(1));
+            Assert.That(CountPitchingLosses(winner), Is.EqualTo(1));
         }
 
         private static PitcherFatigueResolver CreateFatigueResolver()
@@ -418,6 +420,22 @@ namespace Baseball.Tests.EditMode.Simulation
             for (int index = 0; index < boxScore.PitchingLines.Count; index++)
             {
                 if (boxScore.PitchingLines[index].HasWin)
+                    count++;
+            }
+            return count;
+        }
+
+        private static int CountPitchingLosses(MatchResult result)
+        {
+            return CountPitchingLosses(result.AwayBoxScore) + CountPitchingLosses(result.HomeBoxScore);
+        }
+
+        private static int CountPitchingLosses(TeamBoxScore boxScore)
+        {
+            int count = 0;
+            for (int index = 0; index < boxScore.PitchingLines.Count; index++)
+            {
+                if (boxScore.PitchingLines[index].HasLoss)
                     count++;
             }
             return count;

@@ -135,13 +135,9 @@ namespace Baseball.Simulation.Match
             }
 
             Emit(state, MatchEventType.MatchEnded, inning, InningHalf.Bottom);
-            int runMargin = Math.Abs(state.Away.BoxScore.Runs - state.Home.BoxScore.Runs);
-            state.Away.FinalizePitchingDecisions(
-                state.Away.BoxScore.Runs > state.Home.BoxScore.Runs,
-                runMargin);
-            state.Home.FinalizePitchingDecisions(
-                state.Home.BoxScore.Runs > state.Away.BoxScore.Runs,
-                runMargin);
+            int awayRunDifferential = state.Away.BoxScore.Runs - state.Home.BoxScore.Runs;
+            state.Away.FinalizePitchingDecisions(awayRunDifferential);
+            state.Home.FinalizePitchingDecisions(-awayRunDifferential);
             MatchEvent[] events = capturedEvents == null ||
                                   _executionProfile.EventMode == MatchEventMode.None
                 ? Array.Empty<MatchEvent>()

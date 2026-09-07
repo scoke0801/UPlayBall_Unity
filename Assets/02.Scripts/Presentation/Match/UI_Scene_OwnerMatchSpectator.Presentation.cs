@@ -20,7 +20,7 @@ namespace Baseball.Presentation.Match
 
         private static readonly string[] PitchingRecordHeaders =
         {
-            "선수", "보직", "이닝", "피안타", "실점", "볼넷", "탈삼진", "승리", "홀드", "세이브"
+            "선수", "보직", "이닝", "피안타", "실점", "볼넷", "탈삼진", "승리", "패전", "홀드", "세이브"
         };
 
         private void RenderHud(MatchHudPresentationModel model)
@@ -286,6 +286,7 @@ namespace Baseball.Presentation.Match
                             line.WalksAllowed.ToString(),
                             line.Strikeouts.ToString(),
                             FormatDecision(line.HasWin),
+                            FormatDecision(line.HasLoss),
                             FormatDecision(line.HasHold),
                             FormatDecision(line.HasSave)
                         },
@@ -305,7 +306,7 @@ namespace Baseball.Presentation.Match
                         new[]
                         {
                             _session.GetParticipantName(line.PlayerId),
-                            CareerSharedSnapshotFormatters.FormatPosition(
+                            CareerSharedSnapshotFormatters.FormatPositionName(
                                 FindBattingPosition(roster, line.PlayerId)),
                             line.AtBats.ToString(),
                             line.Runs.ToString(),

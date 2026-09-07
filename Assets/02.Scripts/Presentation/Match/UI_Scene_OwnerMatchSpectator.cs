@@ -126,7 +126,6 @@ namespace Baseball.Presentation.Match
         private void HandleRevealAllRequested()
         {
             if (_session?.TrySetViewingMode(OwnerMatchViewingMode.ResultOnly) != true) return;
-            MatchAudioEnabledChanged?.Invoke(false);
             _hasPendingEvent = false;
             _zoneBall.gameObject.SetActive(false);
             RefreshControls();
