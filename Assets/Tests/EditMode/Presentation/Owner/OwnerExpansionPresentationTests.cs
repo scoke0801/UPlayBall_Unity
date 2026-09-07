@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Baseball.Core.Growth;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
 {
@@ -122,6 +127,58 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void PregameView_양팀선발을선수오더MiniCard로표시하고우클릭상세를연다()
+        {
+            var host = new GameObject("PregameStarterCards", typeof(RectTransform), typeof(Canvas));
+            var eventObject = new GameObject("EventSystem", typeof(EventSystem));
+            try
+            {
+                PlayerMiniCardModel ownCard = CreateStarterMiniCard("OWN_STARTER", "강지검");
+                PlayerMiniCardModel opponentCard = CreateStarterMiniCard("OPPONENT_STARTER", "김태규");
+                OwnerCollectionCardSnapshot ownDetail = CreateStarterDetail("OWN_STARTER", "강지검", true);
+                OwnerCollectionCardSnapshot opponentDetail = CreateStarterDetail(
+                    "OPPONENT_STARTER", "김태규", false);
+                OwnerPregameSnapshot snapshot = CreatePregameSnapshot(
+                    CreateValidPresetValidation(),
+                    CreateObservedReport(),
+                    ownCard,
+                    ownDetail,
+                    opponentCard,
+                    opponentDetail);
+                UI_Scene_OwnerPregame view = UI_Scene_OwnerPregame.CreateRuntime(
+                    host.GetComponent<RectTransform>(),
+                    host.GetComponent<RectTransform>(),
+                    host.GetComponent<RectTransform>());
+                view.Bind(OwnerPregamePresentationBuilder.Build(snapshot));
+
+                PlayerMiniCardView[] cards = view.GetComponentsInChildren<PlayerMiniCardView>();
+                Assert.That(cards.Select(card => card.Model.PlayerId),
+                    Is.EquivalentTo(new[] { "OWN_STARTER", "OPPONENT_STARTER" }));
+                Assert.That(cards.All(card => card.transform.Find("LineupSubFrame").gameObject.activeSelf), Is.True);
+
+                cards.Single(card => card.Model.PlayerId == "OWN_STARTER").OnPointerClick(
+                    CreateRightClick(eventObject));
+                UI_Popup_OwnerPlayerCard popup = host.GetComponentsInChildren<UI_Popup_OwnerPlayerCard>(true)
+                    .Single(candidate => candidate.IsVisible);
+                Assert.That(popup.transform.Find("CardDetail/Front/Name")
+                    .GetComponent<Text>().text, Is.EqualTo("강지검"));
+
+                cards.Single(card => card.Model.PlayerId == "OPPONENT_STARTER").OnPointerClick(
+                    CreateRightClick(eventObject));
+                popup = host.GetComponentsInChildren<UI_Popup_OwnerPlayerCard>(true)
+                    .Single(candidate => candidate.IsVisible);
+                Assert.That(popup.transform.Find("CardDetail/Front/Name").GetComponent<Text>().text,
+                    Is.EqualTo("김태규"));
+                Assert.That(popup.transform.Find("CardDetail/Front/ConditionPanel"), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+                UnityEngine.Object.DestroyImmediate(eventObject);
+            }
+        }
+
+        [Test]
         public void StaffOfficeBuilder_항상5역할을표시하고BaseStat버프가아닌운영효율을표현한다()
         {
             StaffCatalog catalog = CreateStaffCatalog();
@@ -191,7 +248,11 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
         private static OwnerPregameSnapshot CreatePregameSnapshot(
             LineupPresetValidationResult validation,
-            OpponentScoutingReport report = null)
+            OpponentScoutingReport report = null,
+            PlayerMiniCardModel ownStarterCard = null,
+            OwnerCollectionCardSnapshot ownStarterDetail = null,
+            PlayerMiniCardModel opponentStarterCard = null,
+            OwnerCollectionCardSnapshot opponentStarterDetail = null)
         {
             var players = new OwnerPregamePlayerSnapshot[9];
             for (int index = 0; index < players.Length; index++)
@@ -218,7 +279,56 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 new Dictionary<string, string>(),
                 true,
                 ownTeamEmblemId: 7,
-                opponentTeamEmblemId: 12);
+                opponentTeamEmblemId: 12,
+                ownStarterCard: ownStarterCard,
+                ownStarterDetail: ownStarterDetail,
+                opponentStarterCard: opponentStarterCard,
+                opponentStarterDetail: opponentStarterDetail);
+        }
+
+        private static PlayerMiniCardModel CreateStarterMiniCard(string cardId, string displayName)
+        {
+            return new PlayerMiniCardModel(
+                cardId,
+                displayName,
+                "1선발",
+                "24",
+                "C 7",
+                string.Empty,
+                "선발",
+                isInteractable: false,
+                frameEdition: PlayerCardEdition.Normal,
+                cost: 7);
+        }
+
+        private static OwnerCollectionCardSnapshot CreateStarterDetail(
+            string cardId,
+            string displayName,
+            bool isOwnedCard)
+        {
+            return new OwnerCollectionCardSnapshot(
+                cardId,
+                cardId + ":PERSON",
+                displayName,
+                2024,
+                PlayerPosition.StartingPitcher,
+                7,
+                PlayerCardEdition.Normal,
+                0,
+                0,
+                false,
+                false,
+                new AbilityRatings(65),
+                conditionLabel: isOwnedCard ? "좋음" : "비공개",
+                isOwnedCard: isOwnedCard);
+        }
+
+        private static PointerEventData CreateRightClick(GameObject eventObject)
+        {
+            return new PointerEventData(eventObject.GetComponent<EventSystem>())
+            {
+                button = PointerEventData.InputButton.Right
+            };
         }
 
         private static LineupPresetValidationResult CreateValidPresetValidation()
@@ -254,7 +364,11 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 "OPPONENT_2026",
                 new DateTime(2026, 5, 3),
                 new ReportConfidenceSummary(IntelState.Estimated, 0.6d, 1),
-                ScoutedValue<ProbableStarterProjection>.Unknown(),
+                new ScoutedValue<ProbableStarterProjection>(
+                    new ProbableStarterProjection("OPPONENT_STARTER", "OPPONENT_PERSON", Handedness.Right),
+                    IntelState.Estimated,
+                    0.6d,
+                    Array.Empty<string>()),
                 new[]
                 {
                     new ScoutedValue<ExpectedLineupEntry>(

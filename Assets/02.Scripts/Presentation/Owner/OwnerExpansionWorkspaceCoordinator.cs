@@ -52,14 +52,13 @@ namespace Baseball.Presentation.Owner
         public event Action<string> SignStaffRequested;
         public event Action<string, int> ContractPreviewRequested;
         public event Action<string, int> ContractRenewalRequested;
+        public event Action<int> ContractBatchRenewalRequested;
         public event Action<string, string, string> TradePreviewRequested;
         public event Action<string, string, string> TradeRequested;
         public event Action<TicketPriceTier> TicketPolicyRequested;
         public event Action<FacilityType> FacilityUpgradeRequested;
         public event Action StadiumUpgradeRequested;
         public event Action WeekAdvanceRequested;
-        public event Action SaveRequested;
-        public event Action LoadRequested;
         public event Action<string> ConditionPlayerSelected;
         public event Action<OwnerLineupSwapGroup, int, int> LineupSwapRequested;
         public event Action<OwnerLineupSwapGroup, int, string> LineupAssignmentRequested;
@@ -74,6 +73,7 @@ namespace Baseball.Presentation.Owner
         public event Action<string> ShopDetailsRequested;
         public event Action<string> ShopRepurchaseRequested;
         public event Action<string> ShopInventoryRequested;
+        public event Action<string> ShopPlayerCardDetailsRequested;
         public event Action<string> CardEnhancementRequested;
         public event Action<string, int> CardDuplicateSaleRequested;
         public event Action<OwnerDugoutConfigurationCommand> DugoutConfigurationConfirmed;
@@ -160,11 +160,9 @@ namespace Baseball.Presentation.Owner
             RequireInitialized();
             _rosterLineupModel = OwnerRosterLineupPresentationBuilder.Build(snapshot);
             EnsureRosterLineupView();
-            // 두 Route 모두 같은 Snapshot을 쓰므로 입력 전에 만들어 첫 투수진 진입의 UI 생성 hitch를 없앤다.
-            bool wasPitchingViewReady = _rosterPitchingView != null;
-            EnsureRosterPitchingView();
             _rosterLineupView.Bind(_rosterLineupModel);
-            if (wasPitchingViewReady)
+            // 현재 선수 오더 안에 투수 필터가 있다. Legacy 투수진 Route는 실제 진입 시 생성한다.
+            if (_rosterPitchingView != null)
                 _rosterPitchingView.Bind(_rosterLineupModel);
         }
 
@@ -361,20 +359,28 @@ namespace Baseball.Presentation.Owner
         }
 
         public void ShowShopReveal(ShopPurchaseResult result, Shop.ShopProductDetailsSnapshot details,
-            SharedUI.PlayerMiniCardModel[] playerCards = null)
+            SharedUI.PlayerMiniCardModel[] playerCards = null,
+            Shop.ShopSkillBlockRevealModel[] skillBlocks = null)
         {
             if (string.Equals(ActiveRouteId, OwnerNavigationRoutes.PowerUpScout, StringComparison.Ordinal) &&
                 _powerUpView != null)
                 _powerUpView.ShowScoutReveal(result);
             else if (_shopView != null)
             {
-                _shopView.ShowReveal(result, details, playerCards);
+                _shopView.ShowReveal(result, details, playerCards, skillBlocks);
             }
         }
 
         public void ShowShopDetails(Shop.ShopProductDetailsSnapshot details)
         {
             _shopView?.ShowDetails(details);
+        }
+
+        /// <summary>상점 View가 닫히면 함께 닫히도록 Reveal 선수 상세의 수명을 상점에 묶는다.</summary>
+        public void ShowShopPlayerCardDetails(OwnerCollectionCardSnapshot card)
+        {
+            if (_shopView != null && card != null)
+                UI_Popup_OwnerPlayerCard.Show(_shopView.transform, card);
         }
 
         public void ShowShopPurchaseConfirmation(Shop.ShopProductDetailsSnapshot details)
@@ -746,14 +752,13 @@ namespace Baseball.Presentation.Owner
                 _clubView.FacilityUpgradeRequested -= HandleFacilityUpgradeRequested;
                 _clubView.StadiumUpgradeRequested -= HandleStadiumUpgradeRequested;
                 _clubView.WeekAdvanceRequested -= HandleWeekAdvanceRequested;
-                _clubView.SaveRequested -= HandleSaveRequested;
-                _clubView.LoadRequested -= HandleLoadRequested;
                 DestroyView(_clubView);
             }
             if (_playerMarketView != null)
             {
                 _playerMarketView.ContractPreviewRequested -= HandleContractPreviewRequested;
                 _playerMarketView.ContractRenewalRequested -= HandleContractRenewalRequested;
+                _playerMarketView.ContractBatchRenewalRequested -= HandleContractBatchRenewalRequested;
                 _playerMarketView.TradePreviewRequested -= HandleTradePreviewRequested;
                 _playerMarketView.TradeRequested -= HandleTradeRequested;
                 DestroyView(_playerMarketView);
@@ -837,6 +842,7 @@ namespace Baseball.Presentation.Owner
                 _shopView.DetailsRequested -= HandleShopDetailsRequested;
                 _shopView.RepurchaseRequested -= HandleShopRepurchaseRequested;
                 _shopView.InventoryRequested -= HandleShopInventoryRequested;
+                _shopView.PlayerCardDetailsRequested -= HandleShopPlayerCardDetailsRequested;
                 DestroyView(_shopView);
             }
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_lockedWorkspaceRoot);
@@ -873,8 +879,6 @@ namespace Baseball.Presentation.Owner
             _clubView.FacilityUpgradeRequested += HandleFacilityUpgradeRequested;
             _clubView.StadiumUpgradeRequested += HandleStadiumUpgradeRequested;
             _clubView.WeekAdvanceRequested += HandleWeekAdvanceRequested;
-            _clubView.SaveRequested += HandleSaveRequested;
-            _clubView.LoadRequested += HandleLoadRequested;
             _clubView.SetVisible(false);
         }
 
@@ -887,6 +891,7 @@ namespace Baseball.Presentation.Owner
                 _shell.ContextActionBarHost);
             _playerMarketView.ContractPreviewRequested += HandleContractPreviewRequested;
             _playerMarketView.ContractRenewalRequested += HandleContractRenewalRequested;
+            _playerMarketView.ContractBatchRenewalRequested += HandleContractBatchRenewalRequested;
             _playerMarketView.TradePreviewRequested += HandleTradePreviewRequested;
             _playerMarketView.TradeRequested += HandleTradeRequested;
             _playerMarketView.SetVisible(false);
@@ -944,6 +949,7 @@ namespace Baseball.Presentation.Owner
             _shopView.DetailsRequested += HandleShopDetailsRequested;
             _shopView.RepurchaseRequested += HandleShopRepurchaseRequested;
             _shopView.InventoryRequested += HandleShopInventoryRequested;
+            _shopView.PlayerCardDetailsRequested += HandleShopPlayerCardDetailsRequested;
             _shopView.SetVisible(false);
         }
 
@@ -1077,6 +1083,8 @@ namespace Baseball.Presentation.Owner
         private void HandleShopDetailsRequested(string productId) => ShopDetailsRequested?.Invoke(productId);
         private void HandleShopRepurchaseRequested(string productId) => ShopRepurchaseRequested?.Invoke(productId);
         private void HandleShopInventoryRequested(string productId) => ShopInventoryRequested?.Invoke(productId);
+        private void HandleShopPlayerCardDetailsRequested(string cardId) =>
+            ShopPlayerCardDetailsRequested?.Invoke(cardId);
         private void HandleCardEnhancementRequested(string cardId) => CardEnhancementRequested?.Invoke(cardId);
         private void HandleCardDuplicateSaleRequested(string cardId) => CardDuplicateSaleRequested?.Invoke(cardId, 1);
         private void HandleCardDuplicateSaleRequested(string cardId, int count) =>
@@ -1095,6 +1103,7 @@ namespace Baseball.Presentation.Owner
         private void HandleSignStaffRequested(string offerId) => SignStaffRequested?.Invoke(offerId);
         private void HandleContractPreviewRequested(string cardId, int seasons) =>
             ContractPreviewRequested?.Invoke(cardId, seasons);
+        private void HandleContractBatchRenewalRequested(int seasons) => ContractBatchRenewalRequested?.Invoke(seasons);
         private void HandleContractRenewalRequested(string cardId, int seasons) =>
             ContractRenewalRequested?.Invoke(cardId, seasons);
         private void HandleTradePreviewRequested(string teamSeasonKey, string outgoingCardId, string incomingCardId) =>
@@ -1105,8 +1114,6 @@ namespace Baseball.Presentation.Owner
         private void HandleFacilityUpgradeRequested(FacilityType type) => FacilityUpgradeRequested?.Invoke(type);
         private void HandleStadiumUpgradeRequested() => StadiumUpgradeRequested?.Invoke();
         private void HandleWeekAdvanceRequested() => WeekAdvanceRequested?.Invoke();
-        private void HandleSaveRequested() => SaveRequested?.Invoke();
-        private void HandleLoadRequested() => LoadRequested?.Invoke();
         private void HandleConditionPlayerSelected(string playerId) => ConditionPlayerSelected?.Invoke(playerId);
         private void HandleConditionLineupRequested() => ConditionLineupRequested?.Invoke();
         private void HandleLineupSwapRequested(OwnerLineupSwapGroup group, int firstIndex, int secondIndex) =>
