@@ -10,6 +10,10 @@
     <NoWarn>$(NoWarn);CS0168;CS0219;CS0414</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Unity에서는 같은 Game 어셈블리인 로더를 콘솔 진단에서 연결할 때만 내부 API 접근을 허용한다. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>HistoricalSeasonDiagnostics</_Parameter1>
+    </AssemblyAttribute>
     <Compile Include="..\..\Assets\02.Scripts\Game\**\*.cs"
              Exclude="..\..\Assets\02.Scripts\Game\Unity\**\*.cs" />
     <ProjectReference Include="Baseball.Core.Headless.csproj" />

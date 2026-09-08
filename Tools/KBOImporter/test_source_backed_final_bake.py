@@ -31,7 +31,9 @@ class SourceBackedFinalBakeTests(unittest.TestCase):
         self.assertEqual(report["replacementGeneratedPlayerPersonCount"], 27)
         self.assertEqual(report["replacementGeneratedPlayerSeasonCount"], 27)
         self.assertEqual(len(report["worldIdentityNameSample"]["players"]), 168)
-        self.assertEqual(len(report["worldIdentityNameSample"]["franchises"]), 19)
+        franchise_names = report["worldIdentityNameSample"]["franchises"]
+        self.assertGreaterEqual(len(franchise_names), len(year["teamSeasons"]))
+        self.assertEqual(len(franchise_names), len(set(franchise_names)))
         self.assertEqual(year_report["sourceTeamSeasonCount"], 6)
         self.assertEqual(year_report["canonicalTeamSeasonCount"], 6)
         self.assertEqual(

@@ -547,6 +547,11 @@ Assets/Editor Default Resources/*
 !Tools/KBOImporter/verify_annual_calibration.py
 !Tools/KBOImporter/test_record_calibration.py
 !Tools/KBOImporter/test_annual_reference_policy.py
+!Tools/KBOImporter/audit_annual_focus.py
+!Tools/KBOImporter/test_annual_focus.py
+!Tools/KBOImporter/record_tree_calibration.py
+!Tools/KBOImporter/fit_record_trees.py
+!Tools/KBOImporter/test_record_tree_calibration.py
 !Tools/KBOImporter/replacement_generation.py
 !Tools/KBOImporter/source_backed_final_bake.py
 !Tools/KBOImporter/source_backed_runtime_bake.py

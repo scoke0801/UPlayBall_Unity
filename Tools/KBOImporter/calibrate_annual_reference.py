@@ -37,6 +37,17 @@ def split_person(person, policy):
     return 'Train' if bucket < 6 else 'Validation' if bucket < 8 else 'Holdout'
 
 
+def match_record_candidates(candidates, seasons, players, year, team, kind, record_counts):
+    """동명이인·개명 연결은 가격이 아닌 같은 구단 시즌의 다중 기록으로 확인한다."""
+    stats_key='hitterStats' if kind=='Hitter' else 'pitcherStats'
+    record_ids={bake.pitch_source_identity.editor_source_season_id(str(p['sourcePlayerId']),year)
+                for p in players if all((p.get(stats_key) or {}).get(k)==v for k,v in record_counts.items())}
+    if not candidates and len(record_counts)>=5 and sum(v>0 for v in record_counts.values())>=3:
+        candidates=[s for s in seasons if s['originYear']==year and s['playerType']==kind
+                    and normalize_team(s['originFranchiseId'])==normalize_team(team)]
+    return [s for s in candidates if s['playerSeasonId'] in record_ids]
+
+
 def load_labels(seasons, policy):
     """DB를 우선하고 중복·충돌·미확정 연결은 학습과 분리한다."""
     exact, without_team = defaultdict(list), defaultdict(list)
@@ -46,12 +57,17 @@ def load_labels(seasons, policy):
             without_team[(s['originYear'], name, s['playerType'])].append(s)
     labels, rejected, seen = [], [], {}
 
-    def add(year, team, name, kind, edition, values, origin, text='', observation_year=None):
+    def add(year, team, name, kind, edition, values, origin, text='', observation_year=None, record_counts=None):
         if not is_annual_reference(year, edition, text, policy) or (observation_year and observation_year > policy['maximumObservationYear']):
             rejected.append(dict(origin=origin, name=name, year=year, reason='OutOfScope')); return
         kinds = (kind,) if kind else ('Hitter', 'Pitcher')
         candidates = [s for k in kinds for s in (exact[(year, normalize_team(team), name, k)] if team else without_team[(year, name, k)])]
         candidates = list({s['playerSeasonId']:s for s in candidates}.values())
+        join_method='YearTeamNameType'
+        if len(candidates)!=1 and record_counts:
+            join_method='NameAndRecordCounts' if candidates else 'TeamAndRecordCounts'
+            source=read(ROOT/f'Tools/KBOImporter/.cache/KBOImport/Normalized/{year}.json')
+            candidates=match_record_candidates(candidates,seasons.values(),source['players'],year,team,kind,record_counts)
         if len(candidates) != 1:
             rejected.append(dict(origin=origin, name=name, year=year, reason='Identity', candidates=len(candidates))); return
         s = candidates[0]
@@ -63,6 +79,7 @@ def load_labels(seasons, policy):
             seen[identity] = expected
             labels.append(dict(id=s['playerSeasonId'], person=s['playerPersonId'], year=year,
                                kind=s['playerType'], target=target, expected=expected, origin=origin,
+                               joinMethod=join_method,referenceName=name,
                                split=split_person(s['playerPersonId'], policy)))
 
     for table, kind in (('ta','Hitter'), ('too','Pitcher')):
@@ -73,7 +90,11 @@ def load_labels(seasons, policy):
                 values = {NAMES[kind][k]:int(r[k]) for k in NAMES[kind] if r[k].strip()}
                 values['Cost'] = int(r['코스트'])
                 add(2000+int(r['년도']), r['팀'], r['이름'], kind, r['카드종류'], values,
-                    f'Database:{table}:{r["ID"]}', observation_year=2011)
+                    f'Database:{table}:{r["ID"]}', observation_year=2011,
+                    record_counts={k:int(r[v]) for k,v in (
+                        (('games','시합수'),('atBats','타수'),('hits','안타'),('homeRuns','홈런'),('strikeouts','삼진'),('walks','4구')) if kind=='Hitter' else
+                        (('games','시합수'),('wins','승리'),('losses','패전'),('saves','세이브'),('strikeouts','탈삼진')))
+                        if r.get(v,'').strip()})
         # 일반/올스타 짝으로 동일 Cost를 먼저 검증한다. 일반 카드가 없는 스타도 가격 학습에서 누락하지 않는다.
         normal=defaultdict(list)
         for r in database:
@@ -101,6 +122,13 @@ def load_labels(seasons, policy):
         c=r['Cells']
         add(int(c['A']),c.get('B',''),c['C'],None,c.get('F',''),{'Cost':int(c['E'])},
             f'ArticleCost:{c["K"]}',text=c.get('J',''),observation_year=int(c['G'][:4]))
+    # 사용자가 이번 검증 목표로 지정한 기준표는 웹 검증 자료와 출처를 구분한다.
+    for path in policy.get('userReferenceFixtures',[]):
+        fixture=read(ROOT/path)
+        for card in fixture['Cards']:
+            kind='Hitter' if card['Slot'].startswith(('StartingHitter','Bench')) else 'Pitcher'
+            add(fixture['SourceYear'],fixture['SourceTeam'],card['PlayerName'],kind,'Normal',
+                {'Cost':card['Cost']},f'UserCostReference:{fixture["FixtureId"]}',text='사용자가 지정한 연도 카드 Cost 기준')
     return labels, rejected
 
 
@@ -211,6 +239,7 @@ def main():
     parser.add_argument('--rebuild-baseline',action='store_true',help='보존한 기준 설정으로 캐시에서 새 기준 Archive를 만든다. 기존 경로는 덮어쓰지 않는다.')
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--policy',type=Path,default=Path(__file__).with_name('reference_calibration_policy.json'))
+    parser.add_argument('--export-cost-rows',type=Path)
     args=parser.parse_args(); args.output.mkdir(parents=True,exist_ok=True)
     policy=read(args.policy)
     bake.DERIVATION_BALANCE.clear()
@@ -250,6 +279,8 @@ def main():
         row['before']=s['cost'] if row['target']=='Cost' else s['baseAttributes'][bake.ABILITY_INDEX[row['target']]]
         row['value']=s['costDerivationTrace']['componentScores'];row['ceiling']=s['costDerivationTrace']['eliteEligibility']['maximumCost']
         row['canCalibrate']=has_observed_sample(row['evidence']) and (row['target']=='Cost' or any(row['evidence'].get(metric,{}).get('isAvailable',False) for metric in bake.DERIVATION_BALANCE['ratingProfiles'][row['kind']][row['target']]['metrics']))
+    if args.export_cost_rows:
+        args.export_cost_rows.write_text(json.dumps([r for r in labels if r['target']=='Cost'],ensure_ascii=False),encoding='utf-8')
     models={}; reports=[]
     for kind, targets in policy['features'].items():
         models[kind]={}
@@ -281,6 +312,7 @@ def main():
         'note':'일반 연도 카드의 선수 단위 학습/검증 분리. DB 우선, 충돌/월별/2014 이후 제외. 구속 결측은 55 유지.'}
     (args.output/'derivation_balance.json').write_text(json.dumps(config,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     report={'policy':policy,'labelCount':len(labels),'cardCount':len({r['id'] for r in labels}),
+            'joinMethods':dict(Counter(r['joinMethod'] for r in labels if r['target']=='Cost')),
             'baselineBalanceSha256':hashlib.sha256(args.baseline_balance.read_bytes()).hexdigest(),
             'baselineArchiveHashes':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((args.baseline/'Years').glob('*.json'))},
             'byYear':dict(sorted(Counter(r['year'] for r in labels if r['target']=='Cost').items())),
@@ -288,10 +320,11 @@ def main():
     source_paths=[ROOT/'Research/PyaMaeCardDb'/name for name in ('ta.csv','too.csv')]
     source_paths += [ROOT/'docs/reports/pm_threshold_review_20260906'/name for name in ('hitter_card_readings.json','pitch_card_readings.json')]
     source_paths += [ROOT/'docs/reports/pm_reference_review_20260906/workbook_extracted.json']
+    source_paths += [ROOT/path for path in policy.get('userReferenceFixtures',[])]
     source_paths += [ROOT/f'Tools/KBOImporter/.cache/KBOImport/Normalized/{year}.json' for year in sorted({r['year'] for r in labels})]
     report['sourceHashes']={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in source_paths}
     (args.output/'fit_report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    fields=['id','person','year','kind','target','expected','origin','split','before','after']
+    fields=['id','person','year','kind','target','expected','origin','joinMethod','referenceName','split','before','after']
     with (args.output/'comparison.csv').open('w',encoding='utf-8-sig',newline='') as stream:
         writer=csv.DictWriter(stream,fieldnames=fields);writer.writeheader()
         for r in labels:

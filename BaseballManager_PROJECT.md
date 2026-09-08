@@ -3259,40 +3259,31 @@ World History Bake는 순수 데이터 로딩을 메인 스레드에서 완료�
 표를 공유해 반복 초기화 할당을 줄인다. 검증 결과와 실행 환경의 한계는
 `docs/reports/world_history_bake_performance_20260906/결과.md`에 기록한다.
 
-### 42.19 캐시 기록 기반 연도 카드 회귀 보정
+### 42.19 캐시 기록 기반 연도 카드 평가 보정
 
-현행 산출 코드는 **Ability v9 / Cost v14 / DerivationBalance v19**다. 이전 능력치·시즌 가치
-공식을 기준값으로 유지하고, Source 캐시 기록 특징의 공통 회귀 계수를 학습해 적용한다.
-선수·구단·특정 연도별 수치 예외와 원본 성적 변경은 없다. Runtime은 레퍼런스 DB를 읽지 않는다.
-코드·설정은 수정했으며 검증용 Source/Runtime Archive는 `.tmp/pm-annual-calibration/candidate`에
-있다. 공식 카드 Archive와 WorldHistory는 이 작업에서 교체하지 않았다.
+현행 **Ability v9 / Cost v16 / DerivationBalance v22**를 공식 Editor Source·Runtime과 게임 Runtime에
+반영했다. 캐시 성적을 입력으로 능력치는 ridge 회귀, Cost는 기록 Gradient Boosting 회귀 나무를
+적용한다. 선수명·팀·연도·인물 ID 입력, 선수별 가격 조회표, 수치 예외는 없다. 원본 성적은 보존한다.
 
-레퍼런스 카드 연도와 출처 시점은 2013년 이하로 제한하고 월별·특수·판본 불명 자료를 제외했다.
-DB 일반 카드가 우선이며 중복·판본 충돌을 분리한다. 3,381개 선수 시즌·23,061개 유효 평가 필드를
-연결했고, 동일 인물의 여러 시즌은 Train/Validation/Holdout 중 하나에만 속한다. 2014~2025년
-캐시는 콘텐츠 생성·외삽 검증용이며 해당 연도 레퍼런스 라벨을 학습하지 않는다.
+카드 연도는 2013년 이하이며 월별 카드는 제외한다. DB 일반 카드가 우선이고 일반/AS 387쌍의
+Cost 동등성을 확인한 뒤 일반 판본이 없는 경우 AS Cost만 보충한다. 2012 SK 사용자 fixture의
+판본/날짜 미확정 상태는 별도로 기록한다. 동명이인·개명은 원본 다중 기록의 유일한 일치로 연결한다.
 
-특징·후보·Cost 빈도 가중·단조 제약은 `reference_calibration_policy.json`, 학습 계수는
-`derivation_balance.json`에 둔다. 부족한 표본의 타율을 무보정으로 사용하지 않으며, 기록 성과축의
-계수 부호와 학습 범위 밖의 외삽을 제한한다. 체력은 기존 이닝 척도와 등판당 이닝을 함께 평가한다.
-실측 없는 구속 55는 유지한다. Cost는 표시 능력치와 독립된 기록 근거 및 기존 상위 자격을 쓴다.
-기존 Trace는 기준식의 근거이며 추가 회귀 기여는 Editor의 `referenceCalibration`에 기록한다.
+확보한 Cost 3,494장과 10Cost 46장 모두 최종 과소·과대평가 0건이다. SK 집중 대상은
+2008년 50장, 2009년 52장, 2012년 25장으로 총 127장이다. 미확보 카드의 정확도를 의미하지 않는다.
+기존 상위 자격 상한은 학습 Cost에 중복 적용하지 않으며 출전량·역할·신뢰도를 모델이 함께 평가한다.
+모델 설정과 학습 후보는 `reference_calibration_policy.json`, 학습 계수는 `derivation_balance.json`에 둔다.
 
-보류 그룹 Cost MAE는 타자 0.997→0.492, 투수 1.181→0.766이며 ±1 이내 일치율은
-각각 95.2%·88.3%다. 실제 베이크와 연구 예측의 23,061개 필드 불일치는 0건이다.
-하지만 저Cost coverage가 약해 전체 Source 출력에 Cost1이 없고 Cost10은 22장이다.
-양 끝 가격대와 스카우트 경제의 최종 밸런스까지 검증한 것으로 보지 않는다.
+선수 분리 검증으로 구조를 선택한 후 전체 Cost 근거에 재적합했다. 전체 일치는 자료 재현 성적이며
+재적합 전 보류 Cost MAE는 타자 0.417, 투수 0.509다. 능력치 보류 오차는 별도 보고하며 구속 결측 55를
+유지한다. 학습 예측↔실제 베이크 23,672필드 불일치 0건, 동일 입력 재학습과 Seed 독립성도 통과했다.
 
-동일 DetailedMatchEngine 바이너리의 전후 각 10,000경기에서 타율 .269→.274,
-ERA 3.257→3.389, 구단 경기당 득점 3.364→3.503, 홈런 .656→.667, BB/K .453→.468이다.
-추가 8,000경기의 고Cost 구단 승률은 56.6~60.8%다. 44개 연도 경기 결정론과 3개 연도의
-서로 다른 Seed 베이크 동일성을 확인했다. 이 진단은 매 경기 피로를 초기화한다.
-
-Python 관련 99건 중 98건 통과, 기존 구단 이름 표본 수 기대값 불일치 1건은 v18에서도
-재현했다. Headless 경기 EditMode 27건과 진단 러너 빌드는 통과했다. 별도 역사 시즌 진단은
-기존 `CreateSourceFranchiseRegions` 참조 오류로 빌드되지 않아 연속 시즌 추가 검증은 미수행이다.
-Unity Test Runner·Play Mode·Player Build도 미수행이다. 재현 명령·계수·표본·제한은
-`Research/PyaMaeCardDb/Calibration/README.md`를 따른다.
+Python 111건·Headless EditMode 62건 통과, 중립 10,000경기·고/저Cost 대결 8,000경기를 확인했다.
+실제 연속 시즌 경로에서 2008/2009/2012 각 32회, 전후 56,259/56,268경기를 검증했다.
+역사 러너의 내부 접근과 테스트 fixture를 수정해 이전 빌드/테스트 실패를 해소했다.
+Unity Test Runner·Play Mode·Player Build는 미실행이다. 이전 WorldHistory 캐시는 콘텐츠 해시가 달라
+재사용되지 않으며 일반 생성 경로를 쓴다. 실행 중인 콘텐츠 확인은 Play 재시작·새 게임이 필요하다.
+자료별 출처·전체 오차·경기 지표·재현 명령은 `Research/PyaMaeCardDb/Calibration/README.md`를 따른다.
 
 ## 43. Player/Owner 공용 UI Shell 계약 (2026-09-05)
 

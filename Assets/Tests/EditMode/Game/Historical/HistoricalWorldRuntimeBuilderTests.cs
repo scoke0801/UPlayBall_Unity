@@ -901,7 +901,16 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     teams,
                     originalRecords,
                     originalAwards);
-                return new HistoricalBakedContent(manifest, persons, new[] { year });
+                var content = new HistoricalBakedContent(manifest, persons, new[] { year });
+                WorldIdentityNameCatalog names = content.IdentityNameCatalog;
+                // 테스트 구단 ID에도 연고지를 명시해 실제 Source 전용 기본 매핑과 섞이지 않게 한다.
+                var regions = new WorldFranchiseRegionDefinition[teamCount];
+                for (int teamIndex = 0; teamIndex < teamCount; teamIndex++)
+                    regions[teamIndex] = new WorldFranchiseRegionDefinition(
+                        GetFranchiseId(teamIndex), "지역" + (char)('가' + teamIndex));
+                return new HistoricalBakedContent(manifest, persons, new[] { year },
+                    new WorldIdentityNameCatalog(names.DomesticPlayerNames, names.ForeignPlayerNames,
+                        names.FranchiseNames, regions));
             }
 
             public static IReadOnlyList<SeasonStatistics> CreateSimulationStatistics(

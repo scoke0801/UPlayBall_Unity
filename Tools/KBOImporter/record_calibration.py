@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 from typing import Any, Mapping
+from record_tree_calibration import MODEL_TYPE, predict_trees, validate_trees
 
 
 def read_feature(feature: Mapping[str, Any], evidence: Mapping[str, Any], baseline: float,
@@ -45,6 +46,14 @@ def has_observed_sample(evidence: Mapping[str, Any]) -> bool:
 def evaluate_model(model: Mapping[str, Any] | None, evidence: Mapping[str, Any], baseline: float,
                    value: Mapping[str, Any] | None = None) -> tuple[float, dict[str, Any] | None]:
     """학습 범위 밖의 외삽을 제한하고 항목별 기여를 추적한다."""
+    if model and model.get('modelType')==MODEL_TYPE:
+        if not any(c.get('isAvailable',False) and c.get('rawValue') is not None for c in evidence.values()):
+            return baseline,None
+        observed=[read_feature(f,evidence,baseline,value) for f in model['features']]
+        prediction=predict_trees(model,observed)
+        return prediction,dict(method=MODEL_TYPE,baseline=baseline,prediction=prediction,
+            treeCount=len(model['trees']),modelSha256=model['modelSha256'],
+            imputedSources=[f['source'] for f,v in zip(model['features'],observed) if v is None])
     if not model or not has_observed_sample(evidence):
         return baseline, None
     contributions = []
@@ -67,6 +76,9 @@ def evaluate_model(model: Mapping[str, Any] | None, evidence: Mapping[str, Any],
 def resolve_model_cost(prediction: float, model: Mapping[str, Any] | None, ceiling: int) -> int:
     """가격은 학습한 순서형 경계로 분류하며 숫자 회귀의 중앙 집중을 피한다."""
     boundaries = (model or {}).get("costBoundaries")
+    # 나무 모델은 출전량·신뢰도를 함께 학습한다. 이전 고정 상한을 중복 적용하지 않는다.
+    if (model or {}).get('modelType')==MODEL_TYPE:
+        ceiling=10
     cost = 1 + sum(prediction >= boundary for boundary in boundaries) if boundaries is not None else round(prediction)
     return max(1, min(ceiling, cost))
 
@@ -85,6 +97,8 @@ def validate_models(models: Mapping[str, Any], metric_names: Mapping[str, set[st
                 raise ValueError("회귀 대상 능력치가 유효하지 않습니다. 실측 구속은 보정 대상이 아닙니다.")
             if not model.get("features") or not math.isfinite(float(model["intercept"])):
                 raise ValueError("회귀 절편 또는 입력 목록이 유효하지 않습니다.")
+            if model.get('modelType')==MODEL_TYPE:
+                validate_trees(model)
             if "costBoundaries" in model:
                 boundaries = model["costBoundaries"]
                 if target != "Cost" or len(boundaries) != 9 or any(not math.isfinite(float(x)) for x in boundaries) or list(boundaries) != sorted(boundaries):

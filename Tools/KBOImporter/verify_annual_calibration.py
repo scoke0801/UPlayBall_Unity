@@ -34,6 +34,7 @@ def main():
                     before=metrics([(int(r['expected']),int(r['before'])) for r in part]),
                     after=metrics([(int(r['expected']),r['actual']) for r in part])))
     result={'evaluatedFields':len(rows),'cards':len({r['id'] for r in rows}),'mismatches':mismatches,
+            'evaluationScope':'DeploymentReferenceReplay',
             'maximumReferenceYear':max(int(r['year']) for r in rows),'scores':scores,
             'generatedCostDistribution':dict(sorted(Counter(s['cost'] for s in seasons.values()).items()))}
     cost_rows=[r for r in rows if r['target']=='Cost']

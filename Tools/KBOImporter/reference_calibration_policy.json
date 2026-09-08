@@ -182,5 +182,20 @@
   "costBoundaryMethods": [
     "WeightedAbsoluteError",
     "TrainingFrequency"
-  ]
+  ],
+  "userReferenceFixtures": [
+    "Tools/PMReference/corpus/user_fixtures.json"
+  ],
+  "recordTreeTraining": {
+    "maximumDepthCandidates": [
+      3,
+      5,
+      7
+    ],
+    "estimatorCount": 800,
+    "minimumLeafSamples": 1,
+    "learningRate": 0.05,
+    "randomSeed": 20260908,
+    "validationMaeTolerance": 0.02
+  }
 }

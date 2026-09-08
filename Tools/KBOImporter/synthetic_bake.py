@@ -11,6 +11,7 @@ from typing import Any, Iterable
 
 from derivation_cost import composite_cost, resolve_value_cost
 from record_calibration import evaluate_model, resolve_model_cost, validate_models
+from record_tree_calibration import MODEL_TYPE as RECORD_TREE_MODEL_TYPE
 import pitch_arsenal_generation as pitch_generation
 import source_backed_runtime_bake as pitch_source_identity
 import source_position_evidence
@@ -1605,11 +1606,15 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
             )
             if calibration_trace is not None:
                 cost = resolve_model_cost(calibrated, model, elite_ceiling)
+            has_learned_eligibility = calibration_trace is not None and model.get("modelType") == RECORD_TREE_MODEL_TYPE
             eligibility_trace = cost_eligibility_tier(season)
-            eligibility_trace["maximumCost"] = elite_ceiling
+            eligibility_trace["maximumCost"] = 10 if has_learned_eligibility else elite_ceiling
             eligibility_trace["affectsCost"] = True
             eligibility_trace["workloadRatio"] = components["workload"]["ratio"]
             eligibility_trace["reason"] = "시즌 workload는 연속 SeasonValue와 9/10 자격에 반영됩니다."
+            if has_learned_eligibility:
+                eligibility_trace["reason"] = "출전량·성과·신뢰도를 함께 학습한 가격 모델을 사용합니다. 이전 고정 상한은 진단용입니다."
+                elite_trace["affectsCost"] = False
             season["cost"] = cost
             trace["legacyAbilityComposite"] = trace.pop("composite")
             trace["componentScores"] = components
@@ -1626,6 +1631,8 @@ def assign_origin_year_costs(seasons: list[dict[str, Any]]) -> None:
             trace["rawPercentileCost"] = raw_percentile_cost
             trace["referenceCalibration"] = calibration_trace
             trace["costMethod"] = "ReferenceRecordRidgeWithEliteGate" if calibration_trace is not None else "SeasonValueOrdinalWithEliteGate"
+            if has_learned_eligibility:
+                trace["costMethod"] = RECORD_TREE_MODEL_TYPE
             trace["compositeThresholds"] = value_thresholds
             trace["costEligibility"] = eligibility_trace
             trace["eliteEligibility"] = elite_trace
@@ -3176,6 +3183,8 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
                     DERIVATION_BALANCE["referenceRecordModels"][season["playerType"]]["Cost"],
                     int(elite_trace["maximumCost"]))
                 expected_method = "ReferenceRecordRidgeWithEliteGate"
+                if expected_calibration.get("method") == RECORD_TREE_MODEL_TYPE:
+                    expected_method = RECORD_TREE_MODEL_TYPE
             if cost_trace.get("referenceCalibration") != expected_calibration:
                 raise ValueError("COST_CALIBRATION_MISMATCH: 기록 회귀 근거가 재계산과 다릅니다.")
             if (int(season["cost"]) != expected_cost
