@@ -64,6 +64,9 @@
     "conditionMeanReversion": 0.1,
     "headCoachConditionBonus": 6,
     "conditionItemBoost": 10,
+    "preferredOrderConditionFloor": 40,
+    "mismatchedOrderDeclineProbability": 0.65,
+    "mismatchedOrderConditionDecline": 3,
     "conditionItemPrice": 100000
   },
   "clubOperation": {

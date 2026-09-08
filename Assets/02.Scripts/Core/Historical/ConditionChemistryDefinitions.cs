@@ -512,9 +512,21 @@ namespace Baseball.Core.Historical
             double conditionMeanReversion = 0.1d,
             int headCoachConditionBonus = 6,
             int conditionItemBoost = 10,
-            long conditionItemPrice = 100000)
+            long conditionItemPrice = 100000,
+            int preferredOrderConditionFloor = 40,
+            double mismatchedOrderDeclineProbability = 0.65d,
+            int mismatchedOrderConditionDecline = 3)
         {
             Presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
+            if (preferredOrderConditionFloor < 0 || preferredOrderConditionFloor > 100)
+                throw new ArgumentOutOfRangeException(nameof(preferredOrderConditionFloor));
+            if (double.IsNaN(mismatchedOrderDeclineProbability) || mismatchedOrderDeclineProbability < 0d || mismatchedOrderDeclineProbability > 1d)
+                throw new ArgumentOutOfRangeException(nameof(mismatchedOrderDeclineProbability));
+            if (mismatchedOrderConditionDecline < 0 || mismatchedOrderConditionDecline > 100)
+                throw new ArgumentOutOfRangeException(nameof(mismatchedOrderConditionDecline));
+            PreferredOrderConditionFloor = preferredOrderConditionFloor;
+            MismatchedOrderDeclineProbability = mismatchedOrderDeclineProbability;
+            MismatchedOrderConditionDecline = mismatchedOrderConditionDecline;
             if (familiarityCap <= 0) throw new ArgumentOutOfRangeException(nameof(familiarityCap));
             if (lineupSharedStartGain <= 0) throw new ArgumentOutOfRangeException(nameof(lineupSharedStartGain));
             if (batterySharedInningGain <= 0) throw new ArgumentOutOfRangeException(nameof(batterySharedInningGain));
@@ -598,6 +610,9 @@ namespace Baseball.Core.Historical
         public int HeadCoachConditionBonus { get; }
         public int ConditionItemBoost { get; }
         public long ConditionItemPrice { get; }
+        public int PreferredOrderConditionFloor { get; }
+        public double MismatchedOrderDeclineProbability { get; }
+        public int MismatchedOrderConditionDecline { get; }
 
         public static ConditionChemistryBalanceTable CreateDefault()
         {

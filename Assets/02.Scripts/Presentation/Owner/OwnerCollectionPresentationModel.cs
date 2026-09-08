@@ -143,7 +143,8 @@ namespace Baseball.Presentation.Owner
             string conditionLabel = "",
             IReadOnlyList<OwnerAbilityBreakdownSnapshot> abilityBreakdowns = null,
             int abilityGraphMaximum = AbilityRatings.Maximum,
-            bool isOwnedCard = true)
+            bool isOwnedCard = true,
+            PreferredBattingOrder preferredBattingOrder = PreferredBattingOrder.None)
         {
             CardId = RequireText(cardId, nameof(cardId));
             PlayerPersonId = RequireText(playerPersonId, nameof(playerPersonId));
@@ -177,6 +178,7 @@ namespace Baseball.Presentation.Owner
                 throw new ArgumentOutOfRangeException(nameof(abilityGraphMaximum));
             AbilityGraphMaximum = abilityGraphMaximum;
             IsOwnedCard = isOwnedCard;
+            PreferredBattingOrder = preferredBattingOrder;
             if (abilityBreakdowns != null && abilityBreakdowns.Count != PlayerAbilityCatalog.AbilityCount)
                 throw new ArgumentException("모든 능력치의 성장 출처가 필요합니다.", nameof(abilityBreakdowns));
             _abilityBreakdowns = abilityBreakdowns == null ? null : Copy(abilityBreakdowns);
@@ -208,6 +210,7 @@ namespace Baseball.Presentation.Owner
         public string TeamDisplayName { get; }
         public int? Condition { get; }
         public string ConditionLabel { get; }
+        public PreferredBattingOrder PreferredBattingOrder { get; }
         public int AbilityGraphMaximum { get; }
         public bool IsOwnedCard { get; }
         public IReadOnlyList<OwnerSkillBlockPlacementSnapshot> SkillBlockPlacements => _skillBlockPlacements;

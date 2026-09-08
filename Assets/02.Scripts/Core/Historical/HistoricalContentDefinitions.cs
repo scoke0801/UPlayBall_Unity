@@ -233,7 +233,8 @@ namespace Baseball.Core.Historical
             string cardId,
             string playerSeasonId,
             PlayerCardEdition edition,
-            IReadOnlyList<int> editionStatModifiers)
+            IReadOnlyList<int> editionStatModifiers,
+            PreferredBattingOrder preferredBattingOrder = PreferredBattingOrder.None)
         {
             if (string.IsNullOrWhiteSpace(cardId))
                 throw new ArgumentException("CardId는 비어 있을 수 없습니다.", nameof(cardId));
@@ -245,6 +246,7 @@ namespace Baseball.Core.Historical
             CardId = cardId.Trim();
             PlayerSeasonId = playerSeasonId.Trim();
             Edition = edition;
+            PreferredBattingOrder = preferredBattingOrder;
             _editionStatModifiers = new int[editionStatModifiers.Count];
             for (int index = 0; index < editionStatModifiers.Count; index++)
                 _editionStatModifiers[index] = editionStatModifiers[index];
@@ -253,6 +255,7 @@ namespace Baseball.Core.Historical
         public string CardId { get; }
         public string PlayerSeasonId { get; }
         public PlayerCardEdition Edition { get; }
+        public PreferredBattingOrder PreferredBattingOrder { get; }
         public int GetModifier(PlayerAbility ability) => _editionStatModifiers[(int)ability];
 
         public static string CreateStableCardId(string playerSeasonId, PlayerCardEdition edition)

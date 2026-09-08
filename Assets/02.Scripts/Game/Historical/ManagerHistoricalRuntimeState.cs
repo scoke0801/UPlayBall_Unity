@@ -522,7 +522,7 @@ namespace Baseball.Game.Historical
                 league,
                 rosters,
                 staffCatalog,
-                _balance);
+                _balance, world.WorldCardCatalog);
 
             var runtime = new ManagerHistoricalRuntimeState(
                 request.PlayerTeamSeasonKey,

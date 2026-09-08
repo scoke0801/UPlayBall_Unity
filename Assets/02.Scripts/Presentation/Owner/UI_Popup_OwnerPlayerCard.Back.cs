@@ -39,9 +39,32 @@ namespace Baseball.Presentation.Owner
             BuildSeasonRecord(parent, card, paper, panel);
             RectTransform role = Surface(parent, "RoleInformation", new Color(0.22f, .09f, .12f, .72f), .286f, .395f, .985f, .907f);
             if (pitcher) BuildPitchRepertoire(role, card);
-            else BuildDefenseDiagram(role, card.Position);
+            else
+            {
+                BuildDefenseDiagram(role, card.Position);
+                BuildPreferredBattingOrderBadge(role, card.PreferredBattingOrder);
+            }
             if (card.IsOwnedCard) BuildSkillBlockBoard(parent, paper, panel, card);
             else BuildPublicLineupNotice(parent, paper, panel);
+        }
+
+        private static void BuildPreferredBattingOrderBadge(RectTransform parent, PreferredBattingOrder preference)
+        {
+            if (preference == PreferredBattingOrder.None) return;
+            string label = preference == PreferredBattingOrder.Upper ? "상위"
+                : preference == PreferredBattingOrder.Cleanup ? "클린업" : "하위";
+            string order = preference == PreferredBattingOrder.Upper ? "1·2번"
+                : preference == PreferredBattingOrder.Cleanup ? "3·4·5번" : "6~9번";
+            // 레퍼런스의 은색 이중 테두리 명판을 기존 프레임 위에 덧붙인다.
+            RectTransform badge = Surface(parent, "PreferredBattingOrderBadge", new Color32(216, 212, 203, 255),
+                .035f, .105f, .285f, .355f);
+            RectTransform inset = Surface(badge, "Inset", Ink, .025f, .025f, .975f, .975f);
+            Gradient(inset, "HeadingBand", new Color32(124, 119, 113, 255), new Color32(58, 55, 55, 255),
+                .035f, .65f, .965f, .96f);
+            Label(inset, "Heading", "선호타선", .025f, .64f, .975f, .98f, 12, Color.white);
+            Surface(inset, "Divider", new Color32(194, 188, 180, 255), .03f, .63f, .97f, .65f);
+            Label(inset, "Preference", label, .035f, .23f, .965f, .64f, 17, Color.white);
+            Label(inset, "Order", order, .025f, .025f, .975f, .25f, 10, Gold);
         }
 
         private static void BuildPublicLineupNotice(RectTransform parent, Color paper, Color panel)

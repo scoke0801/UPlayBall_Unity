@@ -213,6 +213,9 @@ namespace Baseball.Game.Data
         public int headCoachConditionBonus = 6;
         public int conditionItemBoost = 10;
         public long conditionItemPrice = 100000;
+        public int preferredOrderConditionFloor = 40;
+        public double mismatchedOrderDeclineProbability = 0.65d;
+        public int mismatchedOrderConditionDecline = 3;
 
         public ConditionChemistryBalanceTable Build()
         {
@@ -249,7 +252,10 @@ namespace Baseball.Game.Data
                 conditionMeanReversion,
                 headCoachConditionBonus,
                 conditionItemBoost,
-                conditionItemPrice);
+                conditionItemPrice,
+                preferredOrderConditionFloor,
+                mismatchedOrderDeclineProbability,
+                mismatchedOrderConditionDecline);
         }
     }
 

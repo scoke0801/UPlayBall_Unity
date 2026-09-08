@@ -12,6 +12,15 @@ namespace Baseball.Tests.EditMode.Game
     public sealed class OwnerExpansionBalanceConfigTests
     {
         [Test]
+        public void PreferredOrder_저작값과보통하한을실제게임설정으로읽는다()
+        {
+            var balance = NewGameDefinition.LoadOwnerModeBalanceTable().ConditionChemistry;
+            Assert.That(balance.Presentation.GetBand(balance.PreferredOrderConditionFloor).LabelKey, Is.EqualTo("condition.normal"));
+            Assert.That(balance.MismatchedOrderDeclineProbability, Is.EqualTo(.65d));
+            Assert.That(balance.MismatchedOrderConditionDecline, Is.EqualTo(3));
+        }
+
+        [Test]
         public void OwnerModeBalance_InjectsAllAuthoredOwnerExpansionBalances()
         {
             var balance = NewGameDefinition.LoadOwnerModeBalanceTable();

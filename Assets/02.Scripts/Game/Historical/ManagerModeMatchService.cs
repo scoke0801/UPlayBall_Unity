@@ -181,7 +181,7 @@ namespace Baseball.Game.Historical
             // 플레이어 경기가 열리는 라운드 이전의 AI 대진을 먼저 확정한다.
             SimulateAiGamesThrough(runtime, playerIds, game.Round - 1);
 
-            LineupPresetState opponentPlan = CreateRosterRolePlan(runtime.GetRoster(opponentKey));
+            LineupPresetState opponentPlan = CreateRosterRolePlan(runtime.GetRoster(opponentKey), runtime.WorldCardCatalog);
             TeamMatchBuild playerBuild = BuildTeam(runtime, playerTeamKey, playerPlan, game.Round, playerIds);
             TeamMatchBuild opponentBuild = BuildTeam(runtime, opponentKey, opponentPlan, game.Round, playerIds);
 
@@ -318,13 +318,13 @@ namespace Baseball.Game.Historical
             TeamMatchBuild awayBuild = BuildTeam(
                 runtime,
                 awayTeamKey,
-                CreateRosterRolePlan(runtime.GetRoster(awayTeamKey)),
+                CreateRosterRolePlan(runtime.GetRoster(awayTeamKey), runtime.WorldCardCatalog),
                 game.Round,
                 playerIds);
             TeamMatchBuild homeBuild = BuildTeam(
                 runtime,
                 homeTeamKey,
-                CreateRosterRolePlan(runtime.GetRoster(homeTeamKey)),
+                CreateRosterRolePlan(runtime.GetRoster(homeTeamKey), runtime.WorldCardCatalog),
                 game.Round,
                 playerIds);
             var configuration = new HistoricalMatchConfiguration(
@@ -486,11 +486,14 @@ namespace Baseball.Game.Historical
             var lineup = new LineupSlot[battingOrder.Count];
             var lineupPeople = new string[battingOrder.Count];
             var chemistryPlayers = new LineupChemistryPlayer[battingOrder.Count];
+            var battingOrderFits = new Dictionary<int, BattingOrderFit>();
             for (int index = 0; index < battingOrder.Count; index++)
             {
                 string cardId = battingOrder[index];
                 Player player = playersByCard[cardId];
                 lineup[index] = new LineupSlot(player, positionByCard[cardId]);
+                battingOrderFits.Add(player.PlayerId,
+                    PreferredBattingOrderRule.GetFit(GetCard(runtime, cardId).PreferredBattingOrder, index + 1));
                 lineupPeople[index] = personByPlayerId[player.PlayerId];
                 chemistryPlayers[index] = new LineupChemistryPlayer(
                     lineupPeople[index],
@@ -560,7 +563,7 @@ namespace Baseball.Game.Historical
                 playersByCard,
                 matchPlayerIds,
                 lineupChemistry,
-                conditionBonus);
+                conditionBonus, battingOrderFits);
             MatchBatteryConditionEntry[] battery = CreateBatteryEntries(
                 teamSeasonKey,
                 activeRoster,
@@ -590,7 +593,7 @@ namespace Baseball.Game.Historical
                 playerConditions: conditions,
                 batteryConditions: battery);
             return new TeamMatchBuild(teamSeasonKey, roster, lineupPeople, personByPlayerId, lineupChemistry,
-                pitcherIds.ToArray(), restRounds);
+                pitcherIds.ToArray(), restRounds, battingOrderFits);
         }
 
         private static int ResolveRestRounds(ManagerHistoricalRuntimeState runtime, string teamSeasonKey, int round)
@@ -728,7 +731,7 @@ namespace Baseball.Game.Historical
             IReadOnlyDictionary<string, Player> players,
             ISet<int> matchPlayerIds,
             LineupChemistryResult lineupChemistry,
-            int conditionBonus)
+            int conditionBonus, IReadOnlyDictionary<int, BattingOrderFit> battingOrderFits)
         {
             var result = new MatchPlayerConditionEntry[matchPlayerIds.Count];
             int resultIndex = 0;
@@ -738,11 +741,15 @@ namespace Baseball.Game.Historical
                 Player player = players[entry.CardId];
                 if (!matchPlayerIds.Contains(player.PlayerId)) continue;
                 int lineupModifier = lineupChemistry.GetConditionModifier(entry.PlayerPersonId);
+                battingOrderFits.TryGetValue(player.PlayerId, out BattingOrderFit fit);
+                int storedCondition = status.GetRequiredPlayer(entry.PlayerPersonId).StoredBaseCondition;
+                int preferenceModifier = ConditionFluctuationResolver.ResolvePreferredOrderModifier(
+                    storedCondition, lineupModifier + conditionBonus, fit, _balance.ConditionChemistry);
                 result[resultIndex++] = new MatchPlayerConditionEntry(
                     player.PlayerId,
                     new EffectiveMatchCondition(
                         status.GetRequiredPlayer(entry.PlayerPersonId).StoredBaseCondition,
-                        assignmentModifier: 0,
+                        assignmentModifier: preferenceModifier,
                         lineupChemistryModifier: lineupModifier,
                         batteryChemistryModifier: 0,
                         temporaryModifier: conditionBonus));
@@ -820,7 +827,8 @@ namespace Baseball.Game.Historical
             {
                 TeamSeasonPlayerStatus player = status.GetRequiredPlayer(entry.Value);
                 var random = new Pcg32Random(DeterministicSeed.Derive(conditionSeed, (ulong)entry.Key));
-                player.SetCondition(conditionResolver.ResolveNextCondition(player.StoredBaseCondition, _balance.ConditionChemistry, random));
+                team.BattingOrderFits.TryGetValue(entry.Key, out BattingOrderFit fit);
+                player.SetCondition(conditionResolver.ResolveNextCondition(player.StoredBaseCondition, _balance.ConditionChemistry, random, fit));
             }
             _familiarityRecorder.RecordStartingLineup(familiarity, team.StartingLineupPersonIds);
 
@@ -1020,7 +1028,7 @@ namespace Baseball.Game.Historical
         }
 
         /// <summary>공개 등록 역할에서 경기와 구단 조회가 공유하는 AI 기본 라인업을 만든다. 상태와 난수는 변경하지 않는다.</summary>
-        public static LineupPresetState CreateRosterRolePlan(CurrentRosterState roster)
+        public static LineupPresetState CreateRosterRolePlan(CurrentRosterState roster, WorldCardCatalog catalog = null)
         {
             var starting = new LineupPresetSlot[9];
             var batting = new string[9];
@@ -1052,7 +1060,7 @@ namespace Baseball.Game.Historical
                 "runtime:" + roster.TeamSeasonKey,
                 "AI 기본 운용",
                 starting,
-                batting,
+                catalog == null ? batting : PreferredBattingOrderEvaluator.CreateBattingOrder(batting, catalog),
                 bench,
                 rotation,
                 bullpen,
@@ -1158,7 +1166,7 @@ namespace Baseball.Game.Historical
                 Dictionary<int, string> personByPlayerId,
                 LineupChemistryResult lineupChemistry,
                 int[] pitcherIds,
-                int restRounds)
+                int restRounds, Dictionary<int, BattingOrderFit> battingOrderFits)
             {
                 TeamSeasonKey = teamSeasonKey;
                 Roster = roster;
@@ -1167,6 +1175,7 @@ namespace Baseball.Game.Historical
                 LineupChemistry = lineupChemistry;
                 PitcherIds = pitcherIds;
                 RestRounds = restRounds;
+                BattingOrderFits = battingOrderFits;
             }
 
             public string TeamSeasonKey { get; }
@@ -1176,6 +1185,7 @@ namespace Baseball.Game.Historical
             public LineupChemistryResult LineupChemistry { get; }
             public int[] PitcherIds { get; }
             public int RestRounds { get; }
+            public IReadOnlyDictionary<int, BattingOrderFit> BattingOrderFits { get; }
         }
 
         internal sealed class PlayerIdMap

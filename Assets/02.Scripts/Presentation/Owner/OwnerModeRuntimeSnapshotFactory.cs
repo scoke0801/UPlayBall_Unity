@@ -32,7 +32,8 @@ namespace Baseball.Presentation.Owner
                 season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
                 person?.Throws, person?.Bats, CreatePitchSnapshots(manager, season, abilities),
                 CreateSeasonRecord(flow.WorldHistory, season, season.OriginTeamSeasonKey, season.OriginYear),
-                abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap, isOwnedCard: false);
+                abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap, isOwnedCard: false,
+                preferredBattingOrder: card.PreferredBattingOrder);
         }
 
         /// <summary>현재 감독·수석코치·방침과 실제 경기 적용값을 덕아웃 Snapshot으로 만든다.</summary>
@@ -346,7 +347,7 @@ namespace Baseball.Presentation.Owner
                 owned.IsLocked,
                 owned.IsFavorite,
                 pitcherRole: season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
-                teamDisplayName: teamDisplayName);
+                teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder);
         }
 
         private static OwnerCollectionCardSnapshot CreateCollectionCard(
@@ -427,7 +428,7 @@ namespace Baseball.Presentation.Owner
                 condition,
                 conditionLabel,
                 abilityBreakdowns,
-                manager.Balance.MatchRatingCurve.Caps.HardCap);
+                manager.Balance.MatchRatingCurve.Caps.HardCap, preferredBattingOrder: card.PreferredBattingOrder);
         }
 
         private static PerCardBonusMap CreateCurrentTeamColorBonuses(
@@ -922,7 +923,7 @@ namespace Baseball.Presentation.Owner
             if (!report.ProbableStarter.HasValue) return result;
 
             string opponentCardId = report.ProbableStarter.Value.Player.CardId;
-            LineupPresetState opponentPlan = ManagerModeMatchService.CreateRosterRolePlan(opponentRoster);
+            LineupPresetState opponentPlan = ManagerModeMatchService.CreateRosterRolePlan(opponentRoster, runtime.WorldCardCatalog);
             int opponentRotationIndex = FindCardIndex(opponentPlan.StarterRotationCardIds, opponentCardId);
             result.OpponentStarterCard = CreatePublicLineupCard(
                 runtime,

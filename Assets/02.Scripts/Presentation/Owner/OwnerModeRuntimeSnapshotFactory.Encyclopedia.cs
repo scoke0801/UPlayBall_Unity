@@ -239,7 +239,7 @@ namespace Baseball.Presentation.Owner
                 CreateSeasonRecord(runtime.WorldHistory, entry.Season, entry.OriginTeamSeasonKey, entry.OriginYear),
                 teamDisplayName: runtime.IdentityRegistry.GetPresentationFranchiseName(entry.OriginFranchiseId),
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,
-                isOwnedCard: false);
+                isOwnedCard: false, preferredBattingOrder: entry.Card.PreferredBattingOrder);
         }
 
         private static EncyclopediaProgressCell[] CreateProgressCells(

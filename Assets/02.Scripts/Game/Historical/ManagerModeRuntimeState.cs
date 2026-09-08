@@ -460,7 +460,8 @@ namespace Baseball.Game.Historical
             LeagueInstance league,
             IReadOnlyList<CurrentRosterState> rosters,
             StaffCatalog staffCatalog,
-            BalanceTable balance)
+            BalanceTable balance,
+            WorldCardCatalog catalog = null)
         {
             if (league == null) throw new ArgumentNullException(nameof(league));
             if (rosters == null) throw new ArgumentNullException(nameof(rosters));
@@ -484,7 +485,7 @@ namespace Baseball.Game.Historical
                 teams,
                 schedule);
             ClubOperationState operation = CreateClubOperation(playerTeamSeasonKey, seasonId, balance.ClubOperation);
-            LineupPresetState defaultPreset = CreateDefaultPreset(FindRoster(rosters, playerTeamSeasonKey));
+            LineupPresetState defaultPreset = CreateDefaultPreset(FindRoster(rosters, playerTeamSeasonKey), catalog);
             CreateTeamStates(rosters, balance.ConditionChemistry.NeutralMatchCondition,
                 out TeamSeasonPlayerStatusState[] statuses,
                 out TeamChemistryFamiliarityState[] familiarities);
@@ -642,7 +643,7 @@ namespace Baseball.Game.Historical
                 new SeasonFinanceSummary(seasonId));
         }
 
-        private static LineupPresetState CreateDefaultPreset(CurrentRosterState roster)
+        private static LineupPresetState CreateDefaultPreset(CurrentRosterState roster, WorldCardCatalog catalog)
         {
             var starting = new LineupPresetSlot[ActiveRosterCompositionRule.StartingHitterCount];
             var batting = new string[starting.Length];
@@ -669,7 +670,7 @@ namespace Baseball.Game.Historical
                 "preset:default",
                 "기본 라인업",
                 starting,
-                batting,
+                catalog == null ? batting : PreferredBattingOrderEvaluator.CreateBattingOrder(batting, catalog),
                 bench,
                 starters,
                 bullpen,

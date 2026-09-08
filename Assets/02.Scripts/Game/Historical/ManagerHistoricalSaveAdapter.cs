@@ -146,7 +146,7 @@ namespace Baseball.Game.Historical
                 bakedContent.PlayerSeasons,
                 history.Awards,
                 _cardEditionBalance,
-                bakedContent.PlayerPersons);
+                bakedContent.PlayerPersons, bakedContent.TeamSeasons);
             LeagueInstance league = RestoreLeague(Require(saveData.league, nameof(saveData.league)));
             CurrentRosterState[] rosters = RestoreRosters(Require(saveData.rosters, nameof(saveData.rosters)));
             OwnedPlayerCardState[] ownedCards = RestoreOwnedCards(

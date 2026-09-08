@@ -14,7 +14,8 @@ namespace Baseball.Simulation.Historical
             IReadOnlyList<PlayerSeasonDefinition> playerSeasons,
             WorldAwardRecord awards,
             CardEditionBalanceTable balance,
-            IReadOnlyList<PlayerPersonDefinition> playerPersons = null)
+            IReadOnlyList<PlayerPersonDefinition> playerPersons = null,
+            IReadOnlyList<TeamSeasonDefinition> teamSeasons = null)
         {
             if (playerSeasons == null)
                 throw new ArgumentNullException(nameof(playerSeasons));
@@ -27,18 +28,19 @@ namespace Baseball.Simulation.Historical
             sortedSeasons.Sort((left, right) => string.CompareOrdinal(left.PlayerSeasonId, right.PlayerSeasonId));
 
             var cards = new List<PlayerCardDefinition>(sortedSeasons.Count * 2);
+            var preferences = PreferredBattingOrderEvaluator.Evaluate(sortedSeasons, teamSeasons);
             for (int index = 0; index < sortedSeasons.Count; index++)
             {
                 PlayerSeasonDefinition season = sortedSeasons[index];
-                AddCard(cards, season, PlayerCardEdition.Normal, balance);
+                AddCard(cards, season, PlayerCardEdition.Normal, balance, preferences[season.PlayerSeasonId]);
                 if (awards == null)
                     continue;
                 if (awards.HasAward(season.PlayerSeasonId, WorldAwardType.AllStar))
-                    AddCard(cards, season, PlayerCardEdition.AllStar, balance);
+                    AddCard(cards, season, PlayerCardEdition.AllStar, balance, preferences[season.PlayerSeasonId]);
                 if (awards.HasAward(season.PlayerSeasonId, WorldAwardType.GoldenGlove))
-                    AddCard(cards, season, PlayerCardEdition.GoldenGlove, balance);
+                    AddCard(cards, season, PlayerCardEdition.GoldenGlove, balance, preferences[season.PlayerSeasonId]);
                 if (HasMvpAward(awards, season.PlayerSeasonId))
-                    AddCard(cards, season, PlayerCardEdition.Mvp, balance);
+                    AddCard(cards, season, PlayerCardEdition.Mvp, balance, preferences[season.PlayerSeasonId]);
             }
             return new WorldCardCatalog(sortedSeasons, cards, playerPersons);
         }
@@ -54,13 +56,14 @@ namespace Baseball.Simulation.Historical
             List<PlayerCardDefinition> cards,
             PlayerSeasonDefinition season,
             PlayerCardEdition edition,
-            CardEditionBalanceTable balance)
+            CardEditionBalanceTable balance,
+            PreferredBattingOrder preference)
         {
             cards.Add(new PlayerCardDefinition(
                 PlayerCardDefinition.CreateStableCardId(season.PlayerSeasonId, edition),
                 season.PlayerSeasonId,
                 edition,
-                CreateModifiers(season, edition, balance)));
+                CreateModifiers(season, edition, balance), preference));
         }
 
         private static int[] CreateModifiers(

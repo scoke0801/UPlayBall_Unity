@@ -60,7 +60,7 @@ namespace Baseball.Presentation.Owner
             var roster = runtime.GetRoster(teamSeasonKey);
             bool isOwnTeam = string.Equals(teamSeasonKey, runtime.PlayerTeamSeasonKey, StringComparison.Ordinal);
             var plan = isOwnTeam ? runtime.ManagerMode.GetSelectedLineupPreset() :
-                ManagerModeMatchService.CreateRosterRolePlan(roster);
+                ManagerModeMatchService.CreateRosterRolePlan(roster, runtime.WorldCardCatalog);
             TeamColorDefinition[] aiTeamColors = null;
             PerCardBonusMap teamColorBonuses = isOwnTeam
                 ? CreateCurrentTeamColorBonuses(manager, runtime, roster, plan)
@@ -210,7 +210,7 @@ namespace Baseball.Presentation.Owner
                 conditionLabel: "비공개",
                 abilityBreakdowns: abilityBreakdowns,
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,
-                isOwnedCard: false);
+                isOwnedCard: false, preferredBattingOrder: card.PreferredBattingOrder);
         }
     }
 }

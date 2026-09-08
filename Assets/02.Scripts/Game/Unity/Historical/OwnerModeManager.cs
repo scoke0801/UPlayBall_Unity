@@ -1245,6 +1245,12 @@ namespace Baseball.Game.Historical
                 bool isPitcher = season.PlayerType == PlayerType.Pitcher;
                 int assignmentModifier = ResolveAssignmentModifier(preparation.PresetValidation, entry.CardId);
                 int lineupModifier = preparation.LineupChemistry?.GetConditionModifier(entry.PlayerPersonId) ?? 0;
+                int battingOrder = 0;
+                for (int slot = 0; slot < preset.BattingOrderCardIds.Count; slot++)
+                    if (preset.BattingOrderCardIds[slot] == entry.CardId) battingOrder = slot + 1;
+                assignmentModifier += ConditionFluctuationResolver.ResolvePreferredOrderModifier(
+                    status.StoredBaseCondition, assignmentModifier + lineupModifier + headCoachBonus,
+                    PreferredBattingOrderRule.GetFit(card.PreferredBattingOrder, battingOrder), Balance.ConditionChemistry);
                 int batteryModifier = isPitcher &&
                     string.Equals(activePitcherCardId, entry.CardId, StringComparison.Ordinal) &&
                     preparation.BatteryChemistry.HasValue

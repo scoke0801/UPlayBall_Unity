@@ -16,6 +16,122 @@ namespace Baseball.Tests.EditMode.Game.Historical
 {
     public sealed class ManagerModeMatchServiceTests
     {
+        [Test]
+        public void PreferredOrder_전체원본주전배정과AI조회및저장복원을공유한다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+            var replay = adapter.Restore(adapter.CreateSaveData(runtime));
+            foreach (var card in runtime.WorldCardCatalog.Cards)
+            {
+                Assert.That(replay.WorldCardCatalog.TryGetCard(card.CardId, out var repeated), Is.True);
+                Assert.That(repeated.PreferredBattingOrder, Is.EqualTo(card.PreferredBattingOrder));
+                var season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+                string normalId = PlayerCardDefinition.CreateStableCardId(season.PlayerSeasonId, PlayerCardEdition.Normal);
+                runtime.WorldCardCatalog.TryGetCard(normalId, out var normal);
+                Assert.That(card.PreferredBattingOrder, Is.EqualTo(normal.PreferredBattingOrder));
+            }
+            foreach (var roster in runtime.Rosters)
+            {
+                var plan = ManagerModeMatchService.CreateRosterRolePlan(roster, runtime.WorldCardCatalog);
+                for (int index = 0; index < 9; index++)
+                {
+                    runtime.WorldCardCatalog.TryGetCard(plan.BattingOrderCardIds[index], out var card);
+                    Assert.That(PreferredBattingOrderRule.IsMatch(card.PreferredBattingOrder, index + 1), Is.True, card.CardId);
+                }
+            }
+        }
+
+        [Test]
+        public void PreferredOrder_선호배치는첫경기부터하한을지키고저장컨디션도재현된다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            SetPreferredOrder(runtime, false);
+            foreach (var roster in runtime.Rosters)
+                foreach (var status in runtime.ManagerMode.GetPlayerStatus(roster.TeamSeasonKey).Players)
+                    status.SetCondition(0);
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+            var replay = adapter.Restore(adapter.CreateSaveData(runtime));
+            var balance = BalanceTable.CreateDefault();
+            var match = new ManagerModeMatchService(provider, balance).PlayNextGame(runtime).Match;
+            var repeated = new ManagerModeMatchService(provider, balance).PlayNextGame(replay).Match;
+            Assert.That(repeated.HomeBoxScore.Runs, Is.EqualTo(match.HomeBoxScore.Runs));
+            Assert.That(repeated.AwayBoxScore.Runs, Is.EqualTo(match.AwayBoxScore.Runs));
+            foreach (var roster in new[] { match.Input.HomeRoster, match.Input.AwayRoster })
+                for (int index = 0; index < 9; index++)
+                {
+                    Assert.That(roster.TryGetEffectiveCondition(roster.StartingLineup[index].Player.PlayerId, out var condition), Is.True);
+                    Assert.That(condition.Value, Is.GreaterThanOrEqualTo(balance.ConditionChemistry.PreferredOrderConditionFloor));
+                }
+            foreach (var roster in runtime.Rosters)
+                foreach (var status in runtime.ManagerMode.GetPlayerStatus(roster.TeamSeasonKey).Players)
+                    Assert.That(replay.ManagerMode.GetPlayerStatus(roster.TeamSeasonKey).GetRequiredPlayer(status.PlayerPersonId).StoredBaseCondition,
+                        Is.EqualTo(status.StoredBaseCondition));
+        }
+
+        [TestCase(false), TestCase(true), Explicit("선호 일치와 전원 불일치 라인업을 각각 10,080경기로 비교한다.")]
+        public void PreferredOrder_대량시즌통계(bool mismatch)
+        {
+            long games = 0, runs = 0, hits = 0, atBats = 0, homeRuns = 0, walks = 0, strikeouts = 0, earned = 0, outs = 0;
+            long conditions = 0, conditionSamples = 0;
+            for (int seasonIndex = 0; games < 10000; seasonIndex++)
+            {
+                CreateRuntime(out var runtime, out var provider);
+                SetPreferredOrder(runtime, mismatch);
+                var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+                var save = adapter.CreateSaveData(runtime);
+                foreach (var game in save.managerMode.liveSeason.games)
+                    game.randomSeed = (ulong)(72000000 + seasonIndex * 10000 + game.gameId);
+                runtime = adapter.Restore(save);
+                var result = new ManagerModeMatchService(provider, BalanceTable.CreateDefault()).CompleteRegularSeason(runtime, _ =>
+                {
+                    var preset = runtime.ManagerMode.GetSelectedLineupPreset();
+                    foreach (var cardId in preset.BattingOrderCardIds)
+                    {
+                        runtime.WorldCardCatalog.TryGetCard(cardId, out var card);
+                        var personId = runtime.WorldCardCatalog.GetPlayerSeason(card).PlayerPersonId;
+                        conditions += runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey).GetRequiredPlayer(personId).StoredBaseCondition;
+                        conditionSamples++;
+                    }
+                });
+                Assert.That(result.IsCompleted, Is.True);
+                games += result.LeagueGamesSimulated;
+                foreach (var record in runtime.ManagerMode.LiveSeason.Statistics.RegularSeason.Players.Values)
+                {
+                    var batting = record.Batting;
+                    var pitching = record.Pitching;
+                    runs += batting.Runs; hits += batting.Hits; atBats += batting.AtBats;
+                    homeRuns += batting.HomeRuns; walks += batting.Walks; strikeouts += batting.Strikeouts;
+                    earned += pitching.EarnedRuns; outs += pitching.OutsRecorded;
+                }
+            }
+            Assert.That(hits / (double)atBats, Is.InRange(.22d, .33d));
+            Assert.That(earned * 27d / outs, Is.InRange(2d, 6d));
+            TestContext.WriteLine($"선호 불일치={mismatch}, {games}경기: AVG={hits / (double)atBats:F3}, ERA={earned * 27d / outs:F3}, 팀 경기당 득점={runs / (2d * games):F3}, HR={homeRuns / (2d * games):F3}, BB/K={walks / (double)strikeouts:F3}, 플레이어 주전 평균 컨디션={conditions / (double)conditionSamples:F2}");
+        }
+
+        private static void SetPreferredOrder(ManagerHistoricalRuntimeState runtime, bool mismatch)
+        {
+            var original = runtime.ManagerMode.GetSelectedLineupPreset();
+            var order = Baseball.Simulation.Historical.PreferredBattingOrderEvaluator.CreateBattingOrder(original.BattingOrderCardIds, runtime.WorldCardCatalog);
+            if (mismatch)
+            {
+                var aligned = (string[])order.Clone();
+                // 2/3/4 구간은 네 칸 순환하면 모든 선수가 다른 선호 구간으로 이동한다.
+                for (int index = 0; index < 9; index++) order[index] = aligned[(index + 4) % 9];
+            }
+            for (int index = 0; index < 9; index++)
+            {
+                runtime.WorldCardCatalog.TryGetCard(order[index], out var card);
+                Assert.That(PreferredBattingOrderRule.IsMatch(card.PreferredBattingOrder, index + 1), Is.EqualTo(!mismatch));
+            }
+            var preset = new LineupPresetState("preferred-test", "선호 타순 검증", original.StartingLineupSlots, order,
+                original.BenchPriorityCardIds, original.StarterRotationCardIds, original.BullpenAssignmentCardIds,
+                original.SetupPitcherCardId, original.CloserPitcherCardId, original.TeamColorIds, original.DefaultTacticCardIds);
+            runtime.ManagerMode.UpsertLineupPreset(preset);
+            runtime.ManagerMode.SelectLineupPreset(preset.PresetId);
+        }
+
         [TestCase(60)]
         [TestCase(100)]
         public void Condition_능력치보정을강한타구확률단위로변환한다(int condition)
