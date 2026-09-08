@@ -1,202 +1,72 @@
 using System;
 using Baseball.Core.Growth;
+using Baseball.Core.Historical;
 using Baseball.Core.Players;
-using Baseball.Core.Teams;
 using Baseball.Game.Career;
-using Baseball.Presentation.UI;
-using Baseball.Presentation.SharedUI;
+using Baseball.Presentation.Owner;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Baseball.Presentation.Career
 {
-    /// <summary>선수 카드에서 한 번에 하나만 선택하는 대표 특수 카드 유형이다.</summary>
-    public enum PlayerCardSpecialType
-    {
-        None,
-        AllStar,
-        Mvp,
-        GoldenGlove
-    }
+    /// <summary>선수 카드에 표시할 대표 수상 프레임을 구분한다.</summary>
+    public enum PlayerCardSpecialType { None, AllStar, Mvp, GoldenGlove }
 
-    /// <summary>Neutral Frame·구단색·특수 카드·선수 데이터·등급 효과를 분리해 표시하는 재사용 선수 카드다.</summary>
+    /// <summary>선수 커리어 읽기 모델을 현행 공용 카드 앞면·뒷면으로 연결한다.</summary>
     [DisallowMultipleComponent]
     public sealed class UIPlayerCard : MonoBehaviour
     {
-        private const float SourceWidth = 1024f;
-        private const float SourceHeight = 1536f;
-        private const int AbilityCount = 6;
-
-        private readonly Text[] _abilityLabels = new Text[AbilityCount];
-        private readonly Text[] _abilityValues = new Text[AbilityCount];
-        private readonly RectTransform[] _abilityFills = new RectTransform[AbilityCount];
-        private readonly Text[] _awardMarks = new Text[3];
-
         private RectTransform _front;
         private RectTransform _back;
-        private Image _frontTeamColorOverlay;
-        private Image _backTeamColorOverlay;
-        private Image _frontSpecialOverlay;
-        private Image _backSpecialOverlay;
-        private Image _commonTopMeta;
-        private PlayerCardSurface _nameBand;
-        private Image _photoBackground;
-        private Image _portrait;
-        private Image _frontEmblem;
-        private Image _backEmblem;
-        private Image _frontGradeEffect;
-        private Image _backGradeEffect;
-        private Image _topTeamEmblem;
-        private readonly Image[] _awardSlots = new Image[3];
-        private Text _playerName;
-        private Text _season;
-        private Text _position;
-        private Text _role;
-        private Text _overall;
-        private Text _backTeamName;
-        private Text _topTeamFallback;
-        private Button _flipButton;
+        private PlayerProfileView _profile;
+        private string _roleLabel;
 
         public bool IsShowingBack { get; private set; }
         public PlayerCardSpecialType SpecialType { get; private set; }
 
-        /// <summary>프리팹 없이도 같은 4레이어 카드 구조를 생성한다.</summary>
-        public static UIPlayerCard CreateRuntime(
-            Transform parent,
-            Vector2 size,
-            Vector2 position)
+        /// <summary>현행 카드 렌더러를 사용하는 클릭 가능한 선수 카드를 생성한다.</summary>
+        public static UIPlayerCard CreateRuntime(Transform parent, Vector2 size, Vector2 position)
         {
-            var cardObject = new GameObject(
-                "Card",
-                typeof(RectTransform),
-                typeof(Image),
-                typeof(Button),
-                typeof(UIPlayerCard));
-            var rect = cardObject.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = position;
-
-            Image inputSurface = cardObject.GetComponent<Image>();
-            inputSurface.color = Color.clear;
-            inputSurface.raycastTarget = true;
-
-            UIPlayerCard card = cardObject.GetComponent<UIPlayerCard>();
-            card.BuildHierarchy();
+            if (parent == null) throw new ArgumentNullException(nameof(parent));
+            RectTransform root = OwnerRuntimeUiFactory.CreateRect("Card", parent);
+            root.anchorMin = root.anchorMax = new Vector2(.5f, .5f);
+            root.sizeDelta = size;
+            root.anchoredPosition = position;
+            Image input = root.gameObject.AddComponent<Image>();
+            input.color = Color.clear;
+            input.raycastTarget = true;
+            var card = root.gameObject.AddComponent<UIPlayerCard>();
+            card._front = OwnerRuntimeUiFactory.CreateRect("Front", root);
+            card._back = OwnerRuntimeUiFactory.CreateRect("Back", root);
+            OwnerRuntimeUiFactory.Stretch(card._front);
+            OwnerRuntimeUiFactory.Stretch(card._back);
+            Button flip = root.gameObject.AddComponent<Button>();
+            flip.targetGraphic = input;
+            flip.transition = Selectable.Transition.None;
+            flip.onClick.AddListener(() => card.SetShowingBack(!card.IsShowingBack));
+            card.SetShowingBack(false);
             return card;
         }
 
-        /// <summary>현재 선수 읽기 모델을 카드의 동적 데이터 레이어에 투영한다.</summary>
+        /// <summary>현재 선수의 실제 능력치·시즌 기록·투타를 카드에 표시한다.</summary>
         public void Bind(PlayerProfileView view, string roleLabel)
         {
-            if (view == null)
-                throw new ArgumentNullException(nameof(view));
-
-            Color primary = ToColor(view.TeamColor);
-            ApplyTeamColor(primary);
-            _playerName.text = view.PlayerName;
-            _season.text = view.SeasonYear.ToString();
-            _position.text = GetPositionCode(view.Position);
-            _role.text = roleLabel ?? string.Empty;
-            _overall.text = view.Overall.ToString();
-            _backTeamName.text = view.TeamName;
-
-            _portrait.sprite = PlayerPortraitSprites.GetDefault(view.Position);
-            _portrait.color = Color.white;
-            _portrait.preserveAspect = true;
-
-            Color secondary = GetReadableSecondary(primary);
-            ApplyEmblem(_frontEmblem, view.TeamEmblemId, secondary, view.TeamName);
-            ApplyTopTeamEmblem(view.TeamEmblemId, view.TeamName);
-            ApplyEmblem(_backEmblem, view.TeamEmblemId, secondary, view.TeamName);
-            ClearAwardMarks();
-            BindAbilities(view.Abilities, primary);
+            _profile = view ?? throw new ArgumentNullException(nameof(view));
+            _roleLabel = roleLabel ?? string.Empty;
+            Render();
             SetShowingBack(false);
         }
 
-#if UNITY_EDITOR
-        /// <summary>타이틀의 개발용 갤러리에서 게임 상태를 만들지 않고 카드 레이어만 검수한다.</summary>
-        public void BindArtPreview(Color primary, PlayerPosition position)
-        {
-            ApplyTeamColor(primary);
-            _portrait.sprite = PlayerPortraitSprites.GetDefault(position);
-            _portrait.color = Color.white;
-            _portrait.preserveAspect = true;
-            _frontEmblem.sprite = null;
-            _frontEmblem.color = Color.clear;
-            _backEmblem.sprite = null;
-            _backEmblem.color = Color.clear;
-            if (!TeamEmblemSprites.TryApply(_topTeamEmblem, 0))
-            {
-                _topTeamEmblem.sprite = null;
-                _topTeamEmblem.color = Color.clear;
-                _topTeamFallback.text = "◆";
-            }
-            else
-                _topTeamFallback.text = string.Empty;
-            SetAwardMarks("★", "최", "골");
-            _playerName.text = "디자인 샘플";
-            _season.text = "20XX";
-            _position.text = GetPositionCode(position);
-            _role.text = "카드 미리보기";
-            _overall.text = "--";
-            _backTeamName.text = "팀컬러 미리보기";
-
-            string[] labels = { "컨택", "장타", "주루", "송구", "수비", "정신력" };
-            int[] values = { 72, 64, 68, 76, 82, 70 };
-            for (int index = 0; index < AbilityCount; index++)
-            {
-                _abilityLabels[index].text = labels[index];
-                _abilityValues[index].text = values[index].ToString();
-                _abilityFills[index].gameObject.SetActive(true);
-                _abilityFills[index].anchorMax = new Vector2(
-                    (238f + 540f * values[index] / 100f) / SourceWidth,
-                    _abilityFills[index].anchorMax.y);
-                _abilityFills[index].GetComponent<Image>().color = Color.white;
-            }
-
-            SetShowingBack(false);
-        }
-#endif
-
-        /// <summary>향후 카드 등급 시스템이 Team Color와 독립된 효과 Sprite를 주입한다.</summary>
-        public void SetGradeEffect(Sprite sprite, Color color)
-        {
-            ApplyGradeEffect(_frontGradeEffect, sprite, color);
-            ApplyGradeEffect(_backGradeEffect, sprite, color);
-        }
-
-        /// <summary>구단색과 등급 효과를 유지한 채 대표 특수 카드 Overlay만 교체한다.</summary>
+        /// <summary>별도 장식 없이 현행 수상 Edition 프레임을 선택한다.</summary>
         public void SetSpecialType(PlayerCardSpecialType specialType)
         {
+            if (!Enum.IsDefined(typeof(PlayerCardSpecialType), specialType))
+                throw new ArgumentOutOfRangeException(nameof(specialType));
             SpecialType = specialType;
-            Sprite backSprite = null;
-            _nameBand.SetColors(GetTopMetaColor(specialType), new Color32(8, 10, 16, 255));
-            _frontSpecialOverlay.enabled = false;
-            ApplySpecialOverlay(_backSpecialOverlay, backSprite);
-            _commonTopMeta.color = GetTopMetaColor(specialType);
+            if (_profile != null) Render();
         }
 
-        /// <summary>우측 공통 Medal에 표시할 구단 엠블럼 Sprite를 주입한다.</summary>
-        public void SetTopTeamEmblem(Sprite sprite)
-        {
-            ApplySlotSprite(_topTeamEmblem, sprite);
-            _topTeamFallback.text = sprite == null ? "◆" : string.Empty;
-        }
-
-        /// <summary>대표 카드 외의 수상 이력은 최대 세 개의 작은 동적 아이콘으로 표시한다.</summary>
-        public void SetAwardIcons(params Sprite[] sprites)
-        {
-            for (int index = 0; index < _awardSlots.Length; index++)
-            {
-                Sprite sprite = sprites != null && index < sprites.Length ? sprites[index] : null;
-                ApplySlotSprite(_awardSlots[index], sprite);
-                _awardMarks[index].text = string.Empty;
-            }
-        }
-
-        /// <summary>동일 크기의 Front와 Back을 전환한다.</summary>
+        /// <summary>카드 앞면과 뒷면 중 하나를 표시한다.</summary>
         public void SetShowingBack(bool isShowingBack)
         {
             IsShowingBack = isShowingBack;
@@ -204,401 +74,85 @@ namespace Baseball.Presentation.Career
             _back.gameObject.SetActive(isShowingBack);
         }
 
-        private void BuildHierarchy()
+        private void Render()
         {
-            _front = CreateRect("Front", transform, stretch: true);
-            _back = CreateRect("Back", transform, stretch: true);
-            BuildFront();
-            BuildBack();
-            SetSpecialType(PlayerCardSpecialType.None);
-
-            _flipButton = GetComponent<Button>();
-            _flipButton.transition = Selectable.Transition.None;
-            _flipButton.onClick.AddListener(ToggleSide);
-            SetShowingBack(false);
+            OwnerRuntimeUiFactory.ClearChildren(_front);
+            OwnerRuntimeUiFactory.ClearChildren(_back);
+            bool pitcher = _profile.PlayerType == PlayerType.Pitcher;
+            OwnerCollectionCardSnapshot snapshot = CreateSnapshot(_profile, pitcher);
+            UI_Popup_OwnerPlayerCard.BuildFrontCard(_front, snapshot);
+            UI_Popup_OwnerPlayerCard.BuildReferenceBack(_back, snapshot, pitcher);
+            // 선수 커리어에는 카드 Cost가 없으므로 같은 푸터에 실제 종합 능력치를 표시한다.
+            _front.Find("CostStars")?.gameObject.SetActive(false);
+            SetText(_front, "CostLabel", "OVR");
+            SetText(_front, "Cost", _profile.Overall.ToString());
+            SetText(_back, "Profile", GetHands(_profile) + "\n" + _roleLabel + "\nOVR " + _profile.Overall);
+            SetText(_back, "PublicInformationHeading", "선수 커리어");
+            SetText(_back, "PublicInformation/State", _profile.TeamName + "\n" + _roleLabel +
+                "\n성장 계획에서 훈련과 스킬 블록을 확인할 수 있습니다.");
+            SetShowingBack(IsShowingBack);
         }
 
-        private void BuildFront()
+        private OwnerCollectionCardSnapshot CreateSnapshot(PlayerProfileView view, bool pitcher)
         {
-            CreateFullImage("ReferenceFrame", _front, PlayerCardSprites.FrontNeutral, Color.white);
+            var values = new int[PlayerAbilityCatalog.AbilityCount];
+            for (int index = 0; index < values.Length; index++) values[index] = AbilityRatings.Minimum;
+            if (view.Abilities != null)
+                for (int index = 0; index < view.Abilities.Length; index++)
+                {
+                    PlayerProfileAbilityView ability = view.Abilities[index];
+                    values[(int)ability.Ability] = Mathf.Clamp(ability.StableValue, AbilityRatings.Minimum, AbilityRatings.Maximum);
+                }
+            string playerId = view.PlayerId.ToString();
+            return new OwnerCollectionCardSnapshot(
+                "Career:" + playerId, playerId, view.PlayerName, view.SeasonYear, view.Position,
+                0, GetEdition(), 0, 0, false, false, new AbilityRatings(values),
+                currentLeagueLabel: view.SeasonYear + " 시즌 기록",
+                throws: view.ThrowingHand, bats: view.BattingHand,
+                seasonRecord: CreateSeasonRecord(view.SeasonStatistics, pitcher),
+                teamDisplayName: view.TeamName, isOwnedCard: false);
+        }
 
-            _photoBackground = CreateImage("TeamColorBackground", _front, null, Color.white,
-                18f, 100f, 988f, 620f);
-            _photoBackground.enabled = false;
-            _frontTeamColorOverlay = CreateFullImage(
-                "TeamColorOverlay", _front, null, Color.clear);
-            _frontTeamColorOverlay.enabled = false;
-            CreateGradient("Header", _front, new Color32(52, 61, 78, 255), new Color32(8, 10, 16, 255),
-                18f, 18f, 988f, 70f);
-            _nameBand = CreateGradient("NameBand", _front, new Color32(55, 60, 72, 255), new Color32(8, 10, 16, 255),
-                18f, 790f, 988f, 178f);
-            _nameBand.enabled = false;
-            CreateImage("StatsBacking", _front, null, new Color32(8, 10, 16, 255), 18f, 985f, 988f, 390f);
-            CreateGradient("Footer", _front, new Color32(100, 107, 120, 255), new Color32(8, 10, 16, 255),
-                18f, 1442f, 988f, 76f);
-            _frontSpecialOverlay = CreateFullImage("SpecialCardOverlay", _front, null, Color.clear);
-            _frontSpecialOverlay.enabled = false;
-            _portrait = CreateImage("Portrait", _front, null, Color.white,
-                92f, 76f, 840f, 690f);
-            _portrait.preserveAspect = true;
-            _commonTopMeta = CreateFullImage(
-                "CommonTopMeta", _front, null, Color.clear);
-            _commonTopMeta.enabled = false;
-
-            for (int index = 0; index < _awardSlots.Length; index++)
+        private PlayerCardEdition GetEdition()
+        {
+            return SpecialType switch
             {
-                _awardSlots[index] = CreateImage(
-                    "AwardSlot_" + index, _front, null, Color.clear,
-                    168f + index * 70f, 84f, 50f, 50f);
-                _awardMarks[index] = CreateText(
-                    "AwardMark_" + index, _front, 22, FontStyle.Bold,
-                    TextAnchor.MiddleCenter, new Color32(232, 236, 238, 255),
-                    168f + index * 70f, 84f, 50f, 50f);
-            }
-
-            _topTeamEmblem = CreateImage("TopTeamEmblem", _front, null, Color.clear,
-                846f, 88f, 108f, 150f);
-            _topTeamEmblem.preserveAspect = true;
-            _topTeamFallback = CreateText(
-                "TopTeamFallback", _front, 34, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Color32(226, 232, 236, 245),
-                846f, 88f, 108f, 150f);
-
-            _frontEmblem = CreateImage("TeamEmblem", _front, null, Color.white,
-                48f, 805f, 158f, 120f);
-            _frontEmblem.preserveAspect = true;
-            _playerName = CreateText("PlayerName", _front, 30, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Color32(18, 18, 18, 255),
-                212f, 805f, 545f, 120f);
-            _season = CreateText("Season", _front, 19, FontStyle.Bold,
-                TextAnchor.MiddleCenter, Color.white,
-                794f, 805f, 125f, 120f);
-            _position = CreateText("Position", _front, 20, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Color32(228, 232, 234, 255),
-                58f, 82f, 92f, 52f);
-
-            for (int index = 0; index < AbilityCount; index++)
-            {
-                float rowTop = 993f + index * 60f;
-                _abilityLabels[index] = CreateText(
-                    "StatLabel_" + index,
-                    _front,
-                    18,
-                    FontStyle.Bold,
-                    TextAnchor.MiddleCenter,
-                    Color.white,
-                    48f,
-                    rowTop,
-                    164f,
-                    56f);
-                CreateGradient("StatTrack_" + index, _front, new Color32(93, 97, 107, 255), new Color32(44, 47, 55, 255),
-                    238f, rowTop + 19f, 540f, 22f);
-                _abilityFills[index] = CreateImage(
-                    "StatFill_" + index,
-                    _front,
-                    null,
-                    Color.white,
-                    238f,
-                    rowTop + 19f,
-                    0f,
-                    22f).rectTransform;
-                _abilityValues[index] = CreateText(
-                    "StatValue_" + index,
-                    _front,
-                    18,
-                    FontStyle.Bold,
-                    TextAnchor.MiddleCenter,
-                    Color.white,
-                    812f,
-                    rowTop,
-                    164f,
-                    56f);
-            }
-
-            _role = CreateText("Role", _front, 17, FontStyle.Bold,
-                TextAnchor.MiddleLeft, Color.white,
-                104f, 1448f, 656f, 55f);
-            _overall = CreateText("Overall", _front, 24, FontStyle.Bold,
-                TextAnchor.MiddleRight, Color.white,
-                810f, 1444f, 150f, 62f);
-            _frontGradeEffect = CreateFullImage("GradeEffect", _front, null, Color.clear);
-            _frontGradeEffect.enabled = false;
-        }
-
-        private void BuildBack()
-        {
-            _backTeamColorOverlay = CreateFullImage(
-                "TeamColorOverlay", _back, null, Color.clear);
-            CreateFullImage("NeutralFrame", _back, PlayerCardSprites.BackNeutral, Color.white);
-            _backSpecialOverlay = CreateFullImage("SpecialCardOverlay", _back, null, Color.clear);
-            _backSpecialOverlay.enabled = false;
-            _backEmblem = CreateImage("TeamEmblem", _back, null, Color.white,
-                318f, 470f, 388f, 388f);
-            _backEmblem.preserveAspect = true;
-            _backTeamName = CreateText("TeamName", _back, 28, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Color32(50, 52, 53, 255),
-                210f, 910f, 604f, 82f);
-            _backGradeEffect = CreateFullImage("GradeEffect", _back, null, Color.clear);
-            _backGradeEffect.enabled = false;
-        }
-
-        private void BindAbilities(PlayerProfileAbilityView[] abilities, Color primary)
-        {
-            for (int index = 0; index < AbilityCount; index++)
-            {
-                bool hasAbility = abilities != null && index < abilities.Length;
-                PlayerProfileAbilityView ability = hasAbility ? abilities[index] : default;
-                int value = hasAbility ? Mathf.Clamp(ability.StableValue, 0, 100) : 0;
-                _abilityLabels[index].text = hasAbility ? GetAbilityLabel(ability.Ability) : string.Empty;
-                _abilityValues[index].text = hasAbility ? value.ToString() : string.Empty;
-                _abilityFills[index].gameObject.SetActive(hasAbility);
-                _abilityFills[index].anchorMax = new Vector2(
-                    (238f + 540f * value / 100f) / SourceWidth,
-                    _abilityFills[index].anchorMax.y);
-                _abilityFills[index].GetComponent<Image>().color = Color.white;
-            }
-        }
-
-        private static void ApplyEmblem(Image image, int emblemId, Color fallbackColor, string teamName)
-        {
-            if (TeamEmblemSprites.TryApply(image, emblemId, teamName))
-                return;
-            image.sprite = null;
-            image.color = new Color(fallbackColor.r, fallbackColor.g, fallbackColor.b, 0.18f);
-        }
-
-        private void ApplyTopTeamEmblem(int emblemId, string teamName)
-        {
-            if (TeamEmblemSprites.TryApply(_topTeamEmblem, emblemId, teamName))
-            {
-                _topTeamFallback.text = string.Empty;
-                return;
-            }
-
-            _topTeamEmblem.sprite = null;
-            _topTeamEmblem.color = Color.clear;
-            _topTeamFallback.text = string.IsNullOrWhiteSpace(teamName)
-                ? "◆"
-                : teamName.Substring(0, 1);
-        }
-
-        private static void ApplyGradeEffect(Image image, Sprite sprite, Color color)
-        {
-            image.sprite = sprite;
-            image.color = color;
-            image.enabled = sprite != null && color.a > 0f;
-        }
-
-        private static void ApplySpecialOverlay(Image image, Sprite sprite)
-        {
-            image.sprite = sprite;
-            image.color = Color.white;
-            image.enabled = sprite != null;
-        }
-
-        private static void ApplySlotSprite(Image image, Sprite sprite)
-        {
-            image.sprite = sprite;
-            image.color = sprite == null ? Color.clear : Color.white;
-        }
-
-        private void SetAwardMarks(params string[] marks)
-        {
-            for (int index = 0; index < _awardMarks.Length; index++)
-            {
-                _awardSlots[index].sprite = null;
-                _awardSlots[index].color = Color.clear;
-                _awardMarks[index].text = marks != null && index < marks.Length
-                    ? marks[index]
-                    : string.Empty;
-            }
-        }
-
-        private void ClearAwardMarks()
-        {
-            for (int index = 0; index < _awardMarks.Length; index++)
-                _awardMarks[index].text = string.Empty;
-        }
-
-        private void ToggleSide()
-        {
-            SetShowingBack(!IsShowingBack);
-        }
-
-        private static RectTransform CreateRect(string name, Transform parent, bool stretch)
-        {
-            var gameObject = new GameObject(name, typeof(RectTransform));
-            var rect = gameObject.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            if (stretch)
-            {
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = Vector2.zero;
-                rect.offsetMax = Vector2.zero;
-            }
-            return rect;
-        }
-
-        private static Image CreateFullImage(string name, Transform parent, Sprite sprite, Color color)
-        {
-            RectTransform rect = CreateRect(name, parent, stretch: true);
-            Image image = rect.gameObject.AddComponent<Image>();
-            image.sprite = sprite;
-            image.color = color;
-            image.preserveAspect = false;
-            image.raycastTarget = false;
-            return image;
-        }
-
-        private static PlayerCardSurface CreateGradient(string name, Transform parent, Color topColor, Color bottomColor,
-            float left, float top, float width, float height)
-        {
-            RectTransform rect = CreateRect(name, parent, stretch: false);
-            ApplySourceRect(rect, left, top, width, height);
-            PlayerCardSurface surface = rect.gameObject.AddComponent<PlayerCardSurface>();
-            surface.SetColors(topColor, bottomColor);
-            return surface;
-        }
-
-        private static Image CreateImage(
-            string name,
-            Transform parent,
-            Sprite sprite,
-            Color color,
-            float left,
-            float top,
-            float width,
-            float height)
-        {
-            RectTransform rect = CreateRect(name, parent, stretch: false);
-            ApplySourceRect(rect, left, top, width, height);
-            Image image = rect.gameObject.AddComponent<Image>();
-            image.sprite = sprite;
-            image.color = color;
-            image.raycastTarget = false;
-            return image;
-        }
-
-        private static Text CreateText(
-            string name,
-            Transform parent,
-            int fontSize,
-            FontStyle style,
-            TextAnchor alignment,
-            Color color,
-            float left,
-            float top,
-            float width,
-            float height)
-        {
-            RectTransform rect = CreateRect(name, parent, stretch: false);
-            ApplySourceRect(rect, left, top, width, height);
-            Text text = rect.gameObject.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.fontSize = fontSize;
-            text.fontStyle = style;
-            text.alignment = alignment;
-            text.color = color;
-            text.resizeTextForBestFit = true;
-            text.resizeTextMinSize = 8;
-            text.resizeTextMaxSize = fontSize;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Truncate;
-            text.raycastTarget = false;
-            return text;
-        }
-
-        private static void ApplySourceRect(
-            RectTransform rect,
-            float left,
-            float top,
-            float width,
-            float height)
-        {
-            rect.anchorMin = new Vector2(left / SourceWidth, 1f - (top + height) / SourceHeight);
-            rect.anchorMax = new Vector2((left + width) / SourceWidth, 1f - top / SourceHeight);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-        }
-
-        private static Color ToColor(TeamColor color)
-        {
-            return new Color32(color.Red, color.Green, color.Blue, 255);
-        }
-
-        private void ApplyTeamColor(Color primary)
-        {
-            _frontTeamColorOverlay.color = primary;
-            _backTeamColorOverlay.color = primary;
-            _photoBackground.color = Color.Lerp(new Color32(12, 19, 40, 255), primary, .18f);
-        }
-
-        private static Color GetReadableSecondary(Color primary)
-        {
-            float luminance = primary.r * 0.2126f + primary.g * 0.7152f + primary.b * 0.0722f;
-            return luminance > 0.58f
-                ? new Color32(43, 45, 46, 255)
-                : new Color32(236, 230, 214, 255);
-        }
-
-        private static Color GetTopMetaColor(PlayerCardSpecialType specialType)
-        {
-            return specialType switch
-            {
-                PlayerCardSpecialType.AllStar => new Color32(220, 232, 240, 242),
-                PlayerCardSpecialType.Mvp => new Color32(222, 188, 122, 242),
-                PlayerCardSpecialType.GoldenGlove => new Color32(166, 106, 60, 242),
-                _ => new Color32(55, 60, 72, 255)
+                PlayerCardSpecialType.AllStar => PlayerCardEdition.AllStar,
+                PlayerCardSpecialType.Mvp => PlayerCardEdition.Mvp,
+                PlayerCardSpecialType.GoldenGlove => PlayerCardEdition.GoldenGlove,
+                _ => PlayerCardEdition.Normal
             };
         }
 
-        private static string GetPositionCode(PlayerPosition position)
+        private static OwnerCardRecordFieldSnapshot[] CreateSeasonRecord(PlayerProfileStatisticsView stats, bool pitcher)
         {
-            return position switch
-            {
-                PlayerPosition.Catcher => "C",
-                PlayerPosition.FirstBase => "1B",
-                PlayerPosition.SecondBase => "2B",
-                PlayerPosition.ThirdBase => "3B",
-                PlayerPosition.Shortstop => "SS",
-                PlayerPosition.LeftField => "LF",
-                PlayerPosition.CenterField => "CF",
-                PlayerPosition.RightField => "RF",
-                PlayerPosition.DesignatedHitter => "DH",
-                PlayerPosition.StartingPitcher => "SP",
-                PlayerPosition.ReliefPitcher => "RP",
-                _ => "-"
-            };
+            return pitcher
+                ? new[] {
+                    new OwnerCardRecordFieldSnapshot("등판", stats.PitchingAppearances.ToString()),
+                    new OwnerCardRecordFieldSnapshot("승", stats.Wins.ToString()),
+                    new OwnerCardRecordFieldSnapshot("패", stats.Losses.ToString()),
+                    new OwnerCardRecordFieldSnapshot("ERA", stats.EarnedRunAverage.ToString("0.00")),
+                    new OwnerCardRecordFieldSnapshot("삼진", stats.PitchingStrikeouts.ToString()) }
+                : new[] {
+                    new OwnerCardRecordFieldSnapshot("경기", stats.GamesPlayed.ToString()),
+                    new OwnerCardRecordFieldSnapshot("타율", stats.BattingAverage.ToString("0.000")),
+                    new OwnerCardRecordFieldSnapshot("홈런", stats.HomeRuns.ToString()),
+                    new OwnerCardRecordFieldSnapshot("타점", stats.RunsBattedIn.ToString()),
+                    new OwnerCardRecordFieldSnapshot("OPS", stats.OnBasePlusSlugging.ToString("0.000")) };
         }
 
-        private static string GetAbilityLabel(PlayerAbility ability)
+        private static string GetHands(PlayerProfileView view)
         {
-            return ability switch
-            {
-                PlayerAbility.Contact => "컨택",
-                PlayerAbility.Power => "장타",
-                PlayerAbility.Speed => "주루",
-                PlayerAbility.Arm => "송구",
-                PlayerAbility.Defense => "수비",
-                PlayerAbility.BatterMental => "정신력",
-                PlayerAbility.Stamina => "체력",
-                PlayerAbility.Velocity => "구속",
-                PlayerAbility.Stuff => "구위",
-                PlayerAbility.Breaking => "변화구",
-                PlayerAbility.Control => "제구",
-                PlayerAbility.PitcherMental => "위기관리",
-                _ => "능력치 미정"
-            };
+            string throwing = view.ThrowingHand == Handedness.Left ? "좌투" : "우투";
+            string batting = view.BattingHand == Handedness.Left ? "좌타" :
+                view.BattingHand == Handedness.Right ? "우타" : "양타";
+            return throwing + " " + batting;
         }
-    }
 
-    /// <summary>Resources의 공용 선수 카드 Sprite 레이어를 지연 로드한다.</summary>
-    internal static class PlayerCardSprites
-    {
-        private static Sprite _front;
-        private static Sprite _back;
-        public static Sprite FrontNeutral => _front ??= Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_Front_Reference");
-        public static Sprite BackNeutral => _back ??= Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_Back_Reference");
+        private static void SetText(Transform parent, string path, string value)
+        {
+            Text text = parent.Find(path)?.GetComponent<Text>();
+            if (text != null) text.text = value;
+        }
     }
 }

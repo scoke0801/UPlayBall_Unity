@@ -32,7 +32,6 @@ namespace Baseball.Presentation.Career
 
         private const float LockedCardAlpha = 0.72f;
 #if UNITY_EDITOR
-        private static readonly Color CardPreviewTeamColor = new(0.07f, 0.23f, 0.35f, 1f);
         private bool _showCardGallery;
 #endif
 
@@ -334,73 +333,6 @@ namespace Baseball.Presentation.Career
             });
         }
 
-#if UNITY_EDITOR
-        /// <summary>타이틀에서 일반·특수 선수 카드의 실제 런타임 합성을 비교한다.</summary>
-        private void RenderCardDesignGallery()
-        {
-            RectTransform shade = CreateImage(
-                "CardDesignGalleryShade", _content, new Color(0f, 0f, 0f, 0.84f),
-                new Vector2(1920f, 1080f), Vector2.zero);
-            RectTransform gallery = CreateImage(
-                "CardDesignGalleryPopup", shade, new Color(0.012f, 0.032f, 0.052f, 0.99f),
-                new Vector2(1700f, 980f), Vector2.zero);
-            TitleUiButtonSkin.ApplyPanel(gallery.GetComponent<Image>());
-
-            CreateText("Title", gallery, "선수 카드 디자인 테스트", 32, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Vector2(760f, 52f), new Vector2(-390f, 425f),
-                PrimaryTextColor);
-            CreateText("Guide", gallery,
-                "동일한 네이비 Team Color 기준 · 카드를 클릭하면 앞/뒤가 전환됩니다.",
-                16, FontStyle.Normal, TextAnchor.MiddleRight,
-                new Vector2(760f, 40f), new Vector2(390f, 425f), SecondaryTextColor);
-
-            CreateCardPreview(gallery, "Normal", "일반", PlayerCardSpecialType.None, -600f);
-            CreateCardPreview(gallery, "AllStar", "올스타", PlayerCardSpecialType.AllStar, -200f);
-            CreateCardPreview(gallery, "MVP", "MVP", PlayerCardSpecialType.Mvp, 200f);
-            CreateCardPreview(
-                gallery, "GoldenGlove", "골든글러브", PlayerCardSpecialType.GoldenGlove, 600f);
-
-            Button close = CreateButton(
-                "Close", gallery, "닫기", new Vector2(220f, 52f), new Vector2(0f, -435f),
-                new Color(0.025f, 0.16f, 0.25f, 1f), out _);
-            TitleUiButtonSkin.Apply(close, TitleButtonRole.Secondary);
-            close.onClick.AddListener(() =>
-            {
-                _showCardGallery = false;
-                Render();
-            });
-        }
-
-        private void CreateCardPreview(
-            Transform parent,
-            string objectName,
-            string label,
-            PlayerCardSpecialType specialType,
-            float positionX)
-        {
-            RectTransform slot = CreateRect(
-                "CardPreview_" + objectName, parent, new Vector2(360f, 780f),
-                new Vector2(positionX, -8f));
-            CreateText("Label", slot, label, 22, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(320f, 40f), new Vector2(0f, 350f), PrimaryTextColor);
-
-            UIPlayerCard card = UIPlayerCard.CreateRuntime(
-                slot, new Vector2(320f, 480f), new Vector2(0f, 45f));
-            card.BindArtPreview(CardPreviewTeamColor, PlayerPosition.Shortstop);
-            card.SetSpecialType(specialType);
-
-            string description = specialType switch
-            {
-                PlayerCardSpecialType.AllStar => "은색 · 별빛",
-                PlayerCardSpecialType.Mvp => "샴페인 · 조명",
-                PlayerCardSpecialType.GoldenGlove => "가죽 · 수비",
-                _ => "기본 · 구단 색상"
-            };
-            CreateText("Description", slot, description, 14, FontStyle.Normal,
-                TextAnchor.MiddleCenter, new Vector2(330f, 34f), new Vector2(0f, -225f),
-                SecondaryTextColor);
-        }
-#endif
 
         private void RenderQuitConfirmation()
         {
