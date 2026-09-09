@@ -1,5 +1,8 @@
 # 구단주 선수 카드 프레임과 COST 별
 
+올스타·골든글러브의 최신 v3 원화와 골든글러브 줄기·잎 금색 예외는
+[v3 제작 기록](OwnerPlayerCardFrames-v3.md)을 따른다. 아래 v2 프롬프트는 이전 제작 기록이다.
+
 ImageGen 내장 도구로 제작했다. 최종 프레임은 사용자 지시에 따라 무채색이며, 모든 등급의 내부 영역 높이를 통일했다. SF형 장식과 유색 배경을 적용하지 않는다. 올스타 상단 리본은 제거했다.
 
 - 프레임: `Assets/Resources/UI/PlayerCards/PlayerCard_{Mini|Full}_{Normal|AllStar|GoldenGlove|MVP}_v2.png` 8종, 모두 1060×1484.
@@ -74,4 +77,3 @@ Use case: stylized-concept. Generate ONE separate tiny COST star icon sprite for
 ### MVP
 
 Use case: stylized-concept. Generate ONE separate tiny COST star icon sprite for a 2010s Korean baseball manager card UI. A classic compact symmetrical five-point star facing straight forward, pale champagne gold fill, a fine darker gold inset line, restrained pearl-like center highlight. Faithfully understated like the tiny star cost indicators at bottom of the baseball card references in the conversation. 2D hand-painted UI icon with only very subtle shading; clean silhouette readable at 8 to 16 pixels. No sci-fi, no badge, no surrounding circle, no wings, no laurel, no glow, no sparks, no text, no number, no extra stars. Exactly one star centered with minimal padding occupying 90% canvas. Square PNG with genuinely transparent background and actual alpha channel outside star. Asset variation MVP.
-
