@@ -28,10 +28,15 @@ namespace Baseball.Presentation.SharedUI
         /// <summary>선택한 매니저의 표정을 불러오고, 없으면 같은 매니저의 기본 표정을 사용한다.</summary>
         public static Sprite LoadForManager(string managerId, string expressionAssetKey)
         {
-            string prefix = managerId == FrontManagerIds.DefaultTest ? "FM_02_" : "FM_01_";
+            string prefix = managerId switch
+            {
+                FrontManagerIds.DefaultTest => "FM_02_",
+                FrontManagerIds.DefaultEnergetic => "FM_03_",
+                _ => "FM_01_"
+            };
             string expression = expressionAssetKey ?? string.Empty;
-            if (expression.StartsWith("FM_01_", StringComparison.Ordinal) ||
-                expression.StartsWith("FM_02_", StringComparison.Ordinal))
+            if (expression.Length >= 6 && expression.StartsWith("FM_", StringComparison.Ordinal) &&
+                char.IsDigit(expression[3]) && char.IsDigit(expression[4]) && expression[5] == '_')
                 expression = expression.Substring(6);
             else if (expression.StartsWith("FM_", StringComparison.Ordinal))
                 expression = expression.Substring(3);

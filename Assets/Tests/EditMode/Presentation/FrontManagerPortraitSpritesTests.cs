@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Baseball.Tests.EditMode.Presentation
 {
-    /// <summary>새 게임에서 두 프런트 매니저가 서로 다른 전용 초상화를 사용하는지 검증한다.</summary>
+    /// <summary>선택한 프런트 매니저의 전용 초상화가 모든 표정에서 유지되는지 검증한다.</summary>
     public sealed class FrontManagerPortraitSpritesTests
     {
         [TestCase("NEUTRAL")]
@@ -25,6 +25,33 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(actual, Is.SameAs(expected));
         }
 
+        [TestCase("NEUTRAL")]
+        [TestCase("WELCOME")]
+        [TestCase("ANALYSIS")]
+        [TestCase("CONCERNED")]
+        [TestCase("WARNING")]
+        [TestCase("CELEBRATE")]
+        [TestCase("SURPRISED")]
+        [TestCase("CALM")]
+        public void LoadForManager_활력형프로필의모든표정이전용사진을쓴다(string expression)
+        {
+            var profile = new OwnerProfileState("구단주", FrontManagerIds.DefaultEnergetic);
+            Sprite expected = Resources.Load<Sprite>("FrontManager/FM_03_" + expression);
+            Assert.That(expected, Is.Not.Null, "활력형 표정은 Sprite로 Import되어야 합니다.");
+            Assert.That(FrontManagerPortraitSprites.LoadForManager(profile.FrontManagerId, "FM_" + expression),
+                Is.SameAs(expected));
+        }
+
+        [TestCase("FM_MISSING")]
+        [TestCase(null)]
+        public void LoadForManager_활력형누락표정에서도선택한인물을유지한다(string expression)
+        {
+            Sprite expected = Resources.Load<Sprite>("FrontManager/FM_03_NEUTRAL");
+            Assert.That(expected, Is.Not.Null);
+            Assert.That(FrontManagerPortraitSprites.LoadForManager(FrontManagerIds.DefaultEnergetic, expression),
+                Is.SameAs(expected));
+        }
+
         [TestCase("FM_MISSING")]
         [TestCase(null)]
         public void LoadForManager_누락된표정은선택한매니저의기본표정을쓴다(string expression)
@@ -35,6 +62,10 @@ namespace Baseball.Tests.EditMode.Presentation
 
         [TestCase(FrontManagerIds.DefaultTest, "FM_01_WELCOME", "FM_02_WELCOME")]
         [TestCase(FrontManagerIds.DefaultAnalysis, "FM_02_WELCOME", "FM_01_WELCOME")]
+        [TestCase(FrontManagerIds.DefaultEnergetic, "FM_01_WELCOME", "FM_03_WELCOME")]
+        [TestCase(FrontManagerIds.DefaultEnergetic, "FM_02_WELCOME", "FM_03_WELCOME")]
+        [TestCase(FrontManagerIds.DefaultAnalysis, "FM_03_WELCOME", "FM_01_WELCOME")]
+        [TestCase(FrontManagerIds.DefaultTest, "FM_03_WELCOME", "FM_02_WELCOME")]
         public void LoadForManager_이미접두사가있는표정도현재선택을따른다(
             string managerId, string expression, string expected)
         {

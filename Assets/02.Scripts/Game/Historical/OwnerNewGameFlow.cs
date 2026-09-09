@@ -22,10 +22,12 @@ namespace Baseball.Game.Historical
     {
         public const string DefaultAnalysis = "FRONT_MANAGER_DEFAULT_01";
         public const string DefaultTest = "FRONT_MANAGER_DEFAULT_02";
+        public const string DefaultEnergetic = "FRONT_MANAGER_DEFAULT_03";
 
         public static bool IsSupported(string managerId) =>
             string.Equals(managerId, DefaultAnalysis, StringComparison.Ordinal) ||
-            string.Equals(managerId, DefaultTest, StringComparison.Ordinal);
+            string.Equals(managerId, DefaultTest, StringComparison.Ordinal) ||
+            string.Equals(managerId, DefaultEnergetic, StringComparison.Ordinal);
     }
 
     /// <summary>구단주 닉네임과 프런트 매니저 외형을 Save 범위로 보관한다.</summary>

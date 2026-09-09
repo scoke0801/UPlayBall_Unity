@@ -110,7 +110,9 @@ namespace Baseball.Presentation.Career
                 OwnerNewGameTeamView team = teams[index];
                 int column = index % 5;
                 int row = index / 5;
-                string displayName = flow.Identities.GetPresentationFranchiseName(team.FranchiseId);
+                string displayName = flow.Identities.GetPresentationTeamSeasonName(
+                    team.TeamSeasonKey,
+                    team.FranchiseId);
                 Button button = CreateOwnerTeamCard(
                     panel,
                     team.TeamSeasonKey,
@@ -433,8 +435,9 @@ namespace Baseball.Presentation.Career
             CreateText("Guide", panel, "프런트 매니저 외형은 능력치 효과가 없는 연출 선택입니다.", 18,
                 FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(1000f, 48f),
                 new Vector2(0f, 250f), SecondaryTextColor);
-            CreateOwnerManagerChoice(panel, flow, FrontManagerIds.DefaultAnalysis, "분석형 매니저", -245f);
-            CreateOwnerManagerChoice(panel, flow, FrontManagerIds.DefaultTest, "현장형 매니저", 245f);
+            CreateOwnerManagerChoice(panel, flow, FrontManagerIds.DefaultAnalysis, "분석형 매니저", -350f);
+            CreateOwnerManagerChoice(panel, flow, FrontManagerIds.DefaultTest, "현장형 매니저", 0f);
+            CreateOwnerManagerChoice(panel, flow, FrontManagerIds.DefaultEnergetic, "활력형 매니저", 350f);
         }
 
         private void CreateOwnerManagerChoice(
@@ -445,7 +448,7 @@ namespace Baseball.Presentation.Career
             float positionX)
         {
             Button button = CreateButton("FrontManager_" + managerId, panel, label,
-                new Vector2(420f, 390f), new Vector2(positionX, 5f), CardColor, out Text buttonLabel);
+                new Vector2(320f, 390f), new Vector2(positionX, 5f), CardColor, out Text buttonLabel);
             buttonLabel.alignment = TextAnchor.LowerCenter;
             buttonLabel.rectTransform.offsetMin = new Vector2(12f, 14f);
             buttonLabel.rectTransform.offsetMax = new Vector2(-12f, -325f);
