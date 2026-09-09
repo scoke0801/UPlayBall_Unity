@@ -1,0 +1,30 @@
+{
+  "styleVersion": "figurine-v1",
+  "AppearanceId": "",
+  "AppearanceFamilyId": "",
+  "UniformId": "",
+  "revision": 1,
+  "status": "draft",
+  "generator": "built-in ImageGen",
+  "references": [],
+  "referenceSha256": [],
+  "promptFile": "",
+  "promptSha256": "",
+  "rawFile": "",
+  "finalFile": "",
+  "backgroundRemovalCommand": "",
+  "protectionPolygonFile": "",
+  "width": 0,
+  "height": 0,
+  "checks": {
+    "style": false,
+    "identityOrUniformPreserved": false,
+    "framing": false,
+    "actualAlpha": false,
+    "foregroundPreserved": false,
+    "lightAndDarkComposite": false,
+    "thumbnailReadability": false,
+    "actualCardPreview": false
+  },
+  "notes": ""
+}

@@ -1,0 +1,15 @@
+{
+  "styleVersion": "figurine-v1",
+  "status": "draft",
+  "uniforms": [
+    {"UniformId":"uniform-neutral-v1","cap":"navy #293B75","jersey":"white #F5F3F6","sleeves":"white #F5F3F6","undershirt":"navy #293B75","piping":"navy #293B75","pattern":"none"},
+    {"UniformId":"uniform-burgundy-v1","cap":"burgundy #74334C","jersey":"ivory #F5F0E5","sleeves":"ivory #F5F0E5","undershirt":"burgundy #74334C","piping":"burgundy #74334C","pattern":"none"},
+    {"UniformId":"uniform-teal-v1","cap":"deep teal #235C60","jersey":"white #F5F3F6","sleeves":"deep teal #235C60","undershirt":"deep teal #235C60","piping":"muted gold #C2A66A","pattern":"solid contrast sleeves"}
+  ],
+  "appearances": [
+    {"AppearanceId":"appearance-001","AppearanceFamilyId":"family-001","age":24,"face":"rounded oval, full cheeks","eyes":"round medium brown","brows":"medium straight","nose":"small rounded","ears":"medium rounded","skin":"warm light","hair":"short dark brown side fringe","expression":"small symmetrical smile"},
+    {"AppearanceId":"appearance-002","AppearanceFamilyId":"family-002","age":29,"face":"broad rounded square, wide jaw","eyes":"slightly narrow brown","brows":"thick horizontal","nose":"broad rounded","ears":"slightly larger","skin":"warm medium","hair":"short black crew cut","expression":"calm neutral"},
+    {"AppearanceId":"appearance-003","AppearanceFamilyId":"family-003","age":33,"face":"longer oval, defined rounded cheeks","eyes":"slightly hooded brown","brows":"soft arch","nose":"medium straight bridge, round tip","ears":"small close-set","skin":"neutral light-medium","hair":"neat short black side part","expression":"focused neutral"},
+    {"AppearanceId":"appearance-004","AppearanceFamilyId":"family-004","age":37,"face":"wide oval, substantial rounded chin","eyes":"compact brown with subtle mature eyelids","brows":"thick slightly uneven","nose":"wide soft bridge","ears":"medium prominent","skin":"warm lightly tanned","hair":"short black with subtle gray temples","expression":"small symmetrical smile"}
+  ]
+}

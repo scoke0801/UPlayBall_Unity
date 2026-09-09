@@ -1,0 +1,14 @@
+Use case: stylized-concept. Asset type: baseball player card profile.
+STYLE VERSION: figurine-v1. PROMPT VERSION: single-chroma-v2. This block is immutable across the production batch.
+Create or edit ONE fictional adult Korean male baseball player depicted as a rounded collectible figurine.
+The supplied approved player-figurine anchor is the authoritative rendering and proportion reference.
+Match its oversized rounded head, compact torso, softly sculpted cheeks, warm painted skin, rounded brown eyes, curved sculpted hair clumps, smooth matte-to-satin vinyl/resin material, gentle highlights and soft studio lighting.
+Keep the reference's head-to-body ratio, camera distance, eye level, face placement, cap silhouette, framing and overall color rendering consistent.
+Square canvas. Entire cap visible with headroom. Both ears and shoulders visible. Straight front-facing card profile. Head upright, shoulders level, arms resting down, hands outside the upper-body crop. No gesture, head tilt, torso turn, action pose or props.
+Calm neutral expression or a very small symmetrical closed-mouth smile as specified. No smirk, sneer, raised one-sided mouth corner or exaggerated grin.
+Short dark hair under a baseball cap. Baseball jersey and undershirt. Clothing cut, buttons and sleeve length follow the anchor unless the supplied production specification explicitly changes them.
+Only change the attributes authorized in the task block and variation data. Retain all other visual properties.
+Use a perfectly uniform solid chroma-key green background (#00FF00) for later removal. If this color occurs in the foreground, use a non-overlapping solid key color such as magenta (#FF00FF) and state the selected key color in the appended record. No background texture, gradient, shadow, checkerboard or scene. No green or key-color spill, reflections or tint on the subject. White clothing and eye whites remain opaque. Do not request transparency for this generation source.
+No text, letters, numbers, branding, logos, packaging, display stand, border or UI.
+Avoid sharp black contours, spiky angular shapes, hard polygonal facial shadows, realistic pores, stubble, gritty skin, live-action realism, flat vector rendering, adult realistic body proportions, fashion posing and ornate hair.
+Preserve the soft rounded figurine aesthetic. This is a stylized adult athlete collectible, not a child portrait.

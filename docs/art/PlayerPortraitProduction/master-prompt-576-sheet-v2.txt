@@ -1,0 +1,13 @@
+Use case: stylized-concept. Asset type: baseball player portrait production sheet.
+ART VERSION: figurine-v1. PROMPT VERSION: sheet-576-v2.
+Create exactly SIXTEEN different fictional adult Korean male baseball player collectible figurine portraits in FOUR columns and FOUR rows.
+The supplied approved player-figurine-anchor-v1 is the only style reference. Match its oversized rounded head, compact torso, soft rounded cheeks and jaw, sculpted curved hair clumps, warm painted skin, rounded brown eyes, matte-to-satin resin/vinyl finish and gentle studio lighting.
+Preserve this soft rounded figurine style across every cell. No realistic skin pores, stubble, sharp black outlines, polygonal shadows, adult realistic proportions or flat vector art.
+Square sheet, requested 2048x2048 or larger. Equal square cells with approximately 6-8 percent clear margin inside every cell. Entire cap, ears, shoulders and upper chest visible, no clipping or overlap. Identical cap height, eye line, bust baseline and scale. No grid lines or labels.
+Every portrait is straight front-facing, head upright, shoulders level, arms down, hands outside crop. No pose, props, head tilt, torso turn or gesture. Calm neutral expression or tiny symmetrical closed-mouth smile only. No smirk, sneer, exaggerated grin or flirting.
+All characters wear the same plain navy cap, white button-front baseball jersey, navy undershirt and navy piping. Keep uniform design, material and lighting constant.
+Use the supplied sixteen appearance data records in row-major order, left to right, top to bottom. Distinguish face structure, eye shape, brows, nose, ears and short hair. Do not use only hair or skin color to distinguish people. Keep all age cues subtly stylized as adult athletes, not elderly realistic faces or children.
+Use a perfectly uniform solid chroma-key green background (#00FF00) for later removal. If this color occurs in the foreground, use a non-overlapping solid key color such as magenta (#FF00FF) and state the selected key color in the appended record. No background texture, gradient, shadow, checkerboard or scene. No green or key-color spill, reflections or tint on the subject. White clothing and eye whites remain opaque. Do not request transparency for this generation source.
+No logo, text, number, real team branding, real player likeness, packaging, display stand, card border or UI.
+Change only the appearance parameters below. Keep all production invariants above.
+APPEARANCE RECORDS (exactly sixteen, append JSON array):

@@ -1,0 +1,21 @@
+# 구단주 시즌 연출 UI 시안 프롬프트
+
+2026-09-08. 내장 ImageGen 사용. 3개 화면을 포함한 콘셉트 보드이며 실제 Unity UI 자산이 아니다.
+최종 채택: `assets/season-ui-concepts-v2.png`. 최초안은 `assets/season-ui-concepts.png`에 보존했다.
+생성 문구와 대진의 정확성은 HTML 명세를 우선한다. 이미지의 8팀 표·좌측 메뉴·팀 승리 기여도는 채택하지 않는다.
+
+## 실제 구현 배경 v1
+
+2026-09-09. 내장 ImageGen 사용. 최종 자산:
+`Assets/Resources/UI/Generated/bg_owner_season_review_v1.png`.
+문구·수치·버튼은 이미지에 굽지 않고 Native uGUI가 표시한다.
+
+Use case: stylized-concept. Asset type: Unity game season-review modal background. Primary request: premium baseball postseason and season-finale presentation backdrop for a Korean PC baseball management game. Scene/backdrop: night baseball stadium seen from a quiet luxury front-office suite, subtle field lights, distant crowd bokeh, faint championship confetti and a restrained metallic trophy silhouette. Style/medium: polished realistic game UI background art, cinematic but practical for overlaying native interface panels. Composition/framing: 16:9 landscape; broad dark negative space across the center and left for UI text and data cards; trophy and brighter stadium lights concentrated on the far right; no hard panel borders. Lighting/mood: decisive end-of-season ceremony, deep navy shadows, warm antique-gold highlights, cool steel-blue stadium light. Color palette: midnight navy, charcoal, muted ivory, antique gold. Materials/textures: brushed metal, smoked glass, subtle paper grain. Constraints: background decoration only; no text, no letters, no numbers, no team logos, no trademarks, no watermark; avoid bright white empty areas; maintain strong readability under translucent dark UI panels.
+
+## 최초 생성
+
+Use case: ui-mockup. Asset type: high fidelity Korean baseball club owner management game UI concept board for an HTML design proposal. Create ONE landscape 3-panel contact sheet, three equally sized widescreen game screens stacked vertically on a clean neutral background, overall canvas 1536x2048 or similar tall high resolution. Each screen must be distinct and internally coherent. Existing game visual language: nostalgic premium Korean PC baseball management, off-white/ivory dense workspaces, thin blue-gray table rules, black and silver narrow global status bar, six small rectangular navy navigation tabs labeled 홈 선수단 전력보강 덕아웃 구단 리그. Navy primary buttons with restrained champagne hairline, tiny squared corners, no sci-fi, no neon, no mobile rounded cards. All club identities fictional: 서울 블레이즈, 인천 웨이브, 수원 폭스, 대전 스톰. Screen 1: 페넌트레이스, a season final regular-season standings briefing, large 1위 and 84승 56패 4무 .600, dense standings left, elegant small rank progression line on right, limited navy pennant decoration, CTA 포스트시즌 대진 확인. Screen 2: 포스트시즌, ivory tournament bracket with semifinals 1위 vs 4위 and 2위 vs 3위 flowing to final, one restrained stadium panorama strip, final match series 서울 2 : 1 인천, CTA 다음 경기 준비. Screen 3: 시즌 결산, the emotional champion reveal with a beautifully rendered small silver baseball trophy on the left in a floodlit stadium at dusk, subtle champagne confetti ONLY inside hero region; right ivory report listing 정규시즌 1위, 포스트시즌 우승, 승격, and concise team statistics, bottom clear navy CTA 다음 시즌 준비. Keep text in Korean and legible; no real teams, no real players, no monetization banners. This is a concept board, not production UI assets. Prioritize mature information hierarchy, restrained celebration, lots of readable rows and authentic desktop game proportions.
+
+## 수정
+
+Edit this concept board, preserve the ivory dense desktop UI style, navy rectangular buttons, trophy and three-screen composition. Correct product and baseball labels everywhere: replace KBO DREAMS with UPLAYBALL, replace all KBL or KOREA BASEBALL LEAGUE with fictional 리그, remove ALL calendar dates and month labels use 시즌 3 and 라운드. Middle screen: exactly TWO parallel semifinals titled 준결승, 1위 서울 vs 4위 대전 and 2위 인천 vs 3위 수원, both connect to ONE final titled 챔피언십. Final explicitly 5전 3선승, current 서울 2 : 1 인천, series is ongoing. Bottom screen championship final record 서울 3 : 1 인천, team batting average .278, label 다음 시즌 등급 승격 예정 instead of 확정. Top and bottom regular record 84승 56패 4무, .600. Do not add real-world league names or logos. Small mockup text may be simplified, prioritize correct tournament semantics.

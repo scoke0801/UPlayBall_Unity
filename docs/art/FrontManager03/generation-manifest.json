@@ -1,0 +1,51 @@
+{
+  "tool": "image_gen (내장 도구)",
+  "reference": "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Neutral.png",
+  "basePrompt": "Use case: identity-preserve. Edit the supplied manager character to make ONE situational expression/pose variant for the same game sprite set. Reference is the exact character identity and outfit to preserve. Keep precisely the same adult woman face shape, amber-brown eyes, long brown high ponytail with loose bangs, small stud earrings, white short-sleeve polo with navy collar and mint edging and navy wing chest emblem, navy lanyard and ID badge, high-waisted navy trousers. Keep the polished anime style, body proportions, palette, lighting, centered standing head-to-above-knees framing, 1024x1536 canvas, full head and hair visible with margin. Change only expression and arm pose as specified; do not redesign the woman. background: \"transparent\". Preserve actual alpha transparency, output RGBA PNG with background pixels alpha 0. No colored backdrop, no gradient, no halo, no checkerboard pixels, no text, no watermarks, no extra characters or panels. Clothing must remain opaque. Variant: ",
+  "variants": {
+    "Analysis": "Focused analytical expression, attentive eyes looking slightly down at a thin dark tablet held in left hand around chest/waist; right index finger points at a simple baseball diamond diagram on tablet. Small composed closed-mouth smile.",
+    "Calm": "Calm reassuring expression, relaxed eyebrows and a small gentle closed-mouth smile. Both hands hold a thin dark tablet gently against lower torso at waist; shoulders relaxed.",
+    "Celebrate": "Joyful victory celebration, bright happy open-mouth smile and slightly narrowed happy eyes; right hand raised in a small clenched-fist cheer beside shoulder, left hand relaxed at waist. No confetti or other floating decorations.",
+    "Concerned": "Visibly concerned empathetic expression: inner eyebrows raised, slight worried frown, mouth gently closed, gaze at viewer. Right hand rests lightly near upper chest/lanyard, left hand supports right elbow near waist. No tears.",
+    "Surprised": "Clearly surprised expression: eyes widened, eyebrows raised, lips parted in a small surprised O rather than a smile. Right open hand lightly at upper chest, left hand relaxed near waist. Natural believable reaction.",
+    "Warning": "Serious but caring caution expression, eyebrows slightly drawn together, direct attentive gaze, lips slightly parted as if explaining an important warning. Right index finger raised beside shoulder, other fingers curled naturally; left hand relaxed at waist. No angry shouting.",
+    "Welcome": "Warm welcoming broad smile at viewer, right arm extends forward with open palm facing slightly up in a friendly inviting gesture, left hand rests lightly at waist. Natural foreshortening, entire hand inside frame."
+  },
+  "backgroundRemoval": {
+    "tool": "Tools/ImageBackground/Remove-ImageBackground.ps1",
+    "MaxChroma": 12,
+    "MinBrightness": 105,
+    "RemoveEnclosedBackground": true,
+    "protection": "각 상황명-protection.json",
+    "sourceImages": [
+      {
+        "name": "Analysis",
+        "path": "C:\\Users\\scoke\\.codex\\generated_images\\01a080e5-7100-7b42-b81b-0b74d10277d4\\exec-96b1a845-61b5-40c7-8270-c136aaf95279.png"
+      },
+      {
+        "name": "Calm",
+        "path": "C:\\Users\\scoke\\.codex\\generated_images\\01a080e5-7100-7b42-b81b-0b74d10277d4\\exec-9e8b942c-dd4c-43c2-a73a-8d5e5633f849.png"
+      },
+      {
+        "name": "Celebrate",
+        "path": "C:\\Users\\scoke\\.codex\\generated_images\\01a080e5-7100-7b42-b81b-0b74d10277d4\\exec-5f9c9da2-b58e-411d-8947-9e12c5a74b8e.png"
+      },
+      {
+        "name": "Concerned",
+        "path": "C:\\Users\\scoke\\.codex\\generated_images\\01a080e5-7100-7b42-b81b-0b74d10277d4\\exec-8c7dad97-4252-4dd8-9af3-4c32e5a9edbb.png"
+      },
+      {
+        "name": "Surprised",
+        "path": "C:\\Users\\scoke\\.codex\\generated_images\\01a080e5-7100-7b42-b81b-0b74d10277d4\\exec-2b0441a1-c329-44cc-bc0f-addf3e0d0cae.png"
+      },
+      {
+        "name": "Warning",
+        "path": "C:\\Users\\scoke\\.codex\\generated_images\\01a080e5-7100-7b42-b81b-0b74d10277d4\\exec-0d2b063d-f2c4-442f-bee3-ee2e002fbd22.png"
+      },
+      {
+        "name": "Welcome",
+        "path": "C:\\Users\\scoke\\.codex\\generated_images\\01a080e5-7100-7b42-b81b-0b74d10277d4\\exec-4ada062b-2752-44af-be9b-11c99d8da797.png"
+      }
+    ]
+  }
+}

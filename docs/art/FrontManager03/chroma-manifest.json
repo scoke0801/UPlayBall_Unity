@@ -1,0 +1,66 @@
+﻿{
+    "version":  1,
+    "keyColor":  "#FF00FF",
+    "keyTolerance":  48,
+    "keyOpaqueDistance":  255,
+    "keyEdgeRadius":  12,
+    "prompt":  "chroma-prompt.txt",
+    "images":  [
+                   {
+                       "name":  "Neutral",
+                       "source":  "docs/art/FrontManager03/sources/Neutral-chroma.png",
+                       "sourceSha256":  "2DC6592F9CC0A5ED20726B03F96A4D6A568D6DA526321E0AE381E84D686C79FC",
+                       "output":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Neutral.png",
+                       "outputSha256":  "EC4085FC26A5D99D98C7FEDF7A2FD43ED1F00647B7C85D3F039D49E67EF48E5B"
+                   },
+                   {
+                       "name":  "Analysis",
+                       "source":  "docs/art/FrontManager03/sources/Analysis-chroma.png",
+                       "sourceSha256":  "B3DDD7C76D31D3C476C030E8F8B9A0EFD612CDF70187D1212F1820710093D16F",
+                       "output":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Analysis.png",
+                       "outputSha256":  "1C1D6FCFC617089498ACAC963D4629EFFEE50C82D2E9749FD10B4BDAEC7DA1ED"
+                   },
+                   {
+                       "name":  "Calm",
+                       "source":  "docs/art/FrontManager03/sources/Calm-chroma.png",
+                       "sourceSha256":  "1C94E739D8449021B30E6AE499685EA8A37FE607A3DA32F5B01B14D49BE10B4B",
+                       "output":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Calm.png",
+                       "outputSha256":  "E7F139F926EE532FFA3A758944B79AE5F46184B0EC3EA4CF7F9E1E3BC2C5A823"
+                   },
+                   {
+                       "name":  "Celebrate",
+                       "source":  "docs/art/FrontManager03/sources/Celebrate-chroma.png",
+                       "sourceSha256":  "5D1D5F2DCC41739082873EA4DC20AC47AE26165EC6D8A85A3E69E662CF2C22D6",
+                       "output":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Celebrate.png",
+                       "outputSha256":  "B2D7FEBF1B008C608516F46126E70AA31230C04349A0C9DAF323CA90BD46ADF5"
+                   },
+                   {
+                       "name":  "Surprised",
+                       "source":  "docs/art/FrontManager03/sources/Surprised-chroma.png",
+                       "sourceSha256":  "EB6DA4095F896EB2218E00590E5DE4B9EFD6E77CFB202014D1B8CF0AF61A00FE",
+                       "output":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Surprised.png",
+                       "outputSha256":  "897947C7AFA39B55138AEE62361ECABC5ED497F6044B4D09748547FE386230FB"
+                   },
+                   {
+                       "name":  "Warning",
+                       "source":  "docs/art/FrontManager03/sources/Warning-chroma.png",
+                       "sourceSha256":  "F254D39B3CC4185EB3A4120871004CF2F8D773285A8BF88DD1812F2A41FDE9B2",
+                       "output":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Warning.png",
+                       "outputSha256":  "DF91F30D6ECE1646C93B6371C1EB2D58F1C2AB571F1EF0BC331BCF6FE0890686"
+                   },
+                   {
+                       "name":  "Welcome",
+                       "source":  "docs/art/FrontManager03/sources/Welcome-chroma.png",
+                       "sourceSha256":  "7773D6C70073D0D0AC4502BCDEAD6AA0F3E126D74C0D4F146C80BCD21F022376",
+                       "output":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Welcome.png",
+                       "outputSha256":  "56ED283A5DA879CF97CF2AFD6AA170F2BFC268E000973F839F943471B5B660D1"
+                   },
+                   {
+                       "name":  "Concerned",
+                       "source":  "docs/art/FrontManager03/sources/Concerned-chroma.png",
+                       "sourceSha256":  "0BA0927FF916352CE85DC9E4382FE642A36582D45644F64089B0288EC02B00F5",
+                       "output":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Concerned.png",
+                       "outputSha256":  "EF2C6D7FB94DF5F155D8D919AB3CF81E9B8971F574E7C518440BE03943DC8774"
+                   }
+               ]
+}

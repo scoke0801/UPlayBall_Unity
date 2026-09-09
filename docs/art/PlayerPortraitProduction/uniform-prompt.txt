@@ -1,0 +1,8 @@
+TASK: UNIFORM VARIATION ONLY.
+Image 1 is the edit target and authority for character identity, head, face, eyes, skin, hair, expression, pose, proportions, lighting and framing. Preserve them unchanged.
+If image 2 is supplied, it is ONLY an approved clothing design reference. Never copy its face or body proportions.
+Change only cap colors and jersey/undershirt colors, piping and the simple pattern described in the following uniform JSON.
+Keep the same cap geometry, garment cut, button positions and sleeve length. Preserve rounded material shading.
+Hex values are target base colors under neutral lighting, not a demand for flat unshaded surfaces.
+Do not add lettering, logos, badges, accessories or extra patterns.
+UNIFORM DATA:

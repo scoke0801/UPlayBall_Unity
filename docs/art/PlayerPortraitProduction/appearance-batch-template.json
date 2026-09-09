@@ -1,0 +1,23 @@
+{
+  "PromptVersion": "sheet-576-v1",
+  "SheetId": "sheet-001",
+  "note": "셀 정의를 서로 다른 16개 항목으로 확장하고 records 배열만 마스터 끝에 추가한다. 현재 파일은 한 셀의 예시다.",
+  "records": [
+    {
+      "AppearanceId": "face-0001",
+      "row": 0,
+      "column": 0,
+      "adultAge": 26,
+      "faceShape": "wide rounded oval",
+      "jaw": "substantial rounded lower jaw",
+      "eyes": "medium round brown eyes, slightly downward outer corners",
+      "eyebrows": "medium-thick straight eyebrows",
+      "nose": "medium broad rounded nose",
+      "ears": "slightly prominent rounded ears",
+      "hair": "short black cropped side part under cap",
+      "skinTone": "warm light-medium painted skin",
+      "build": "compact sturdy figurine torso",
+      "expression": "calm neutral closed mouth"
+    }
+  ]
+}

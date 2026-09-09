@@ -1,0 +1,8 @@
+TASK: APPEARANCE VARIATION ONLY.
+Use image 1 as the authority for figurine style, camera, framing, head-to-body scale, lighting and base uniform.
+Create the distinct fictional adult Korean player's appearance defined below. Do not copy the anchor's identity unchanged.
+Change only the specified face structure, eyes, brows, nose, ears, skin tone, short hair, subtle adult age cues and expression.
+Keep cap and jersey colors, garment design, material rendering, pose and profile layout unchanged.
+Keep facial shapes rounded and readable at thumbnail size; do not express age through realistic rough skin or deep wrinkles.
+For an age variant of an existing AppearanceFamilyId, use that family's approved portrait as image 2 for identity, preserving its facial landmarks.
+APPEARANCE DATA:
