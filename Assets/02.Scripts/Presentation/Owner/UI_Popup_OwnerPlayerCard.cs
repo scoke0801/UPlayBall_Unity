@@ -133,10 +133,12 @@ namespace Baseball.Presentation.Owner
             Image portrait = Surface(photoWindow, "Silhouette", Color.white, -.10f, -.32f, 1.10f, 1.06f).GetComponent<Image>();
             portrait.sprite = PlayerPortraitSprites.GetDefault(card.Position);
             portrait.preserveAspect = true;
-            string header = string.IsNullOrWhiteSpace(card.TeamDisplayName)
-                ? OwnerCollectionPresentationBuilder.FormatEdition(card.Edition)
-                : card.TeamDisplayName;
-            Label(parent, "Edition", header, .28f, .945f, .73f, .99f, 16, Color.white);
+            if (!string.IsNullOrWhiteSpace(card.TeamDisplayName))
+                Label(parent, "Team", card.TeamDisplayName, .28f, .94f, .73f, .98f, 14, Color.white);
+            RectTransform editionPlate = Gradient(parent, "EditionPlate", new Color32(58, 60, 63, 255),
+                new Color32(29, 30, 32, 255), .72f, .895f, .95f, .933f);
+            Label(editionPlate, "Edition", OwnerCollectionPresentationBuilder.FormatEdition(card.Edition),
+                .03f, 0, .97f, 1, 12, Gold);
             if (card.EnhancementLevel > 0)
                 Label(parent, "Enhancement", "+" + card.EnhancementLevel, .79f, .94f, .95f, .98f, 19, Gold);
             if (card.IsLocked) Label(parent, "Locked", "잠금", .04f, .85f, .23f, .90f, 12, Gold);

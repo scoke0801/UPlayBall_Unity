@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using Baseball.Core.Historical;
+using System.Collections.Generic;
 
 namespace Baseball.Presentation.SharedUI
 {
@@ -9,7 +10,7 @@ namespace Baseball.Presentation.SharedUI
     {
         private static readonly Sprite[] MiniFrames = new Sprite[4];
         private static readonly Sprite[] FullFrames = new Sprite[4];
-        private static readonly Sprite[] CostStars = new Sprite[4];
+        private static readonly Dictionary<string, Sprite> CostStars = new Dictionary<string, Sprite>();
 
         /// <summary>모든 등급 원화와 미니카드 텍스트가 공유하는 명찰 영역이다.</summary>
         public static Vector2 MiniNameBand => new Vector2(.18f, .28f);
@@ -17,10 +18,14 @@ namespace Baseball.Presentation.SharedUI
         /// <summary>실제 Cost만큼 밝은 별과 남은 어두운 별을 개별 Image로 배치한다.</summary>
         public static void SetCostStars(RectTransform row, PlayerCardEdition edition, int cost)
         {
-            int index = Mathf.Clamp((int)edition, 0, CostStars.Length - 1);
-            string variant = index == (int)PlayerCardEdition.Mvp ? "MVP" : ((PlayerCardEdition)index).ToString();
-            if (CostStars[index] == null)
-                CostStars[index] = Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_CostStar_" + variant + "_v2");
+            string variant = edition == PlayerCardEdition.Mvp ? "MVP" : edition.ToString();
+            SetCostStars(row, variant, cost);
+        }
+
+        /// <summary>발급 여부와 무관하게 디자인 등급에 맞는 Cost 별을 배치한다.</summary>
+        public static void SetCostStars(RectTransform row, string variant, int cost)
+        {
+            Sprite sprite = GetCostStar(variant);
             int slots = Mathf.Max(10, cost);
             for (int slot = 0; slot < Mathf.Max(slots, row.childCount); slot++)
             {
@@ -33,7 +38,7 @@ namespace Baseball.Presentation.SharedUI
                     star = item.GetComponent<Image>();
                 }
                 star.gameObject.SetActive(slot < slots);
-                star.sprite = CostStars[index];
+                star.sprite = sprite;
                 star.color = slot < cost ? Color.white : new Color(.16f, .16f, .16f, .7f);
                 star.preserveAspect = true;
                 star.raycastTarget = false;
@@ -44,6 +49,20 @@ namespace Baseball.Presentation.SharedUI
             }
         }
 
+        /// <summary>카드와 확대 원화 보기에서 같은 등급별 Cost 별을 사용한다.</summary>
+        public static Sprite GetCostStar(string variant)
+        {
+            if (!CostStars.TryGetValue(variant, out Sprite sprite) || sprite == null)
+            {
+                string path = "UI/PlayerCards/PlayerCard_CostStar_" + variant;
+                sprite = Resources.Load<Sprite>(path + "_v3") ?? Resources.Load<Sprite>(path + "_v2");
+                if (sprite == null)
+                    sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_CostStar_Normal_v2");
+                CostStars[variant] = sprite;
+            }
+            return sprite;
+        }
+
         /// <summary>미니카드 또는 전체 카드의 등급별 프레임을 가져온다.</summary>
         public static Sprite Get(PlayerCardEdition edition, bool isMini)
         {
@@ -51,8 +70,14 @@ namespace Baseball.Presentation.SharedUI
             if (index < 0 || index >= MiniFrames.Length) index = 0;
             Sprite[] frames = isMini ? MiniFrames : FullFrames;
             string variant = index == (int)PlayerCardEdition.Mvp ? "MVP" : ((PlayerCardEdition)index).ToString();
-            return frames[index] != null ? frames[index] : frames[index] = Resources.Load<Sprite>(
-                "UI/PlayerCards/PlayerCard_" + (isMini ? "Mini_" : "Full_") + variant + "_v2");
+            return frames[index] != null ? frames[index] : frames[index] = Get(variant, isMini);
+        }
+
+        /// <summary>미발급 디자인도 동일한 리소스 규칙으로 선택하며 개선 원화를 우선한다.</summary>
+        public static Sprite Get(string variant, bool isMini)
+        {
+            string path = "UI/PlayerCards/PlayerCard_" + (isMini ? "Mini_" : "Full_") + variant;
+            return Resources.Load<Sprite>(path + "_v3") ?? Resources.Load<Sprite>(path + "_v2");
         }
     }
 
