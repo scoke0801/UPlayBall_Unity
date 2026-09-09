@@ -249,13 +249,14 @@ namespace Baseball.Game.Historical
             HistoricalContentManifest manifest,
             IReadOnlyList<PlayerPersonDefinition> playerPersons,
             IReadOnlyList<HistoricalYearContentDefinition> years,
-            WorldIdentityNameCatalog identityNameCatalog = null)
+            WorldIdentityNameCatalog identityNameCatalog = null,
+            BakedSpecialCardContent specialCards = null)
             : this(
                 manifest,
                 playerPersons,
                 new InMemoryHistoricalYearContentSource(
                     years ?? throw new ArgumentNullException(nameof(years))),
-                identityNameCatalog)
+                identityNameCatalog, specialCards)
         {
             // 이미 메모리에 있는 입력이면 미룰 이유가 없고, 기존 호출자는 생성 시점 검증을 기대한다.
             EnsureFullyMaterialized();
@@ -265,8 +266,10 @@ namespace Baseball.Game.Historical
             HistoricalContentManifest manifest,
             IReadOnlyList<PlayerPersonDefinition> playerPersons,
             IHistoricalYearContentSource yearSource,
-            WorldIdentityNameCatalog identityNameCatalog = null)
+            WorldIdentityNameCatalog identityNameCatalog = null,
+            BakedSpecialCardContent specialCards = null)
         {
+            SpecialCards = specialCards;
             Manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));
             _yearSource = yearSource ?? throw new ArgumentNullException(nameof(yearSource));
             _playerPersons = Copy(playerPersons, nameof(playerPersons));
@@ -294,6 +297,7 @@ namespace Baseball.Game.Historical
         }
 
         public HistoricalContentManifest Manifest { get; }
+        public BakedSpecialCardContent SpecialCards { get; }
         public WorldIdentityNameCatalog IdentityNameCatalog { get; }
         public IReadOnlyList<PlayerPersonDefinition> PlayerPersons => _playerPersonsView;
 

@@ -1480,6 +1480,15 @@ namespace Baseball.Game.Historical
                 var builder = new StringBuilder(768);
                 builder.Append("{\"abilityFormulaVersion\":\"");
                 AppendJsonEscaped(builder, source.AbilityFormulaVersion);
+                if (!string.IsNullOrEmpty(source.AnnualReferenceOverrideVersion))
+                {
+                    builder.Append("\",\"annualReferenceOverrideCardCount\":")
+                        .Append(source.AnnualReferenceOverrideCardCount.ToString(CultureInfo.InvariantCulture))
+                        .Append(",\"annualReferenceOverrideHash\":\"");
+                    AppendJsonEscaped(builder, source.AnnualReferenceOverrideHash);
+                    builder.Append("\",\"annualReferenceOverrideVersion\":\"");
+                    AppendJsonEscaped(builder, source.AnnualReferenceOverrideVersion);
+                }
                 builder.Append("\",\"balanceVersion\":\"");
                 AppendJsonEscaped(builder, source.BalanceVersion);
                 builder.Append("\",\"contentHash\":\"\",\"costFormulaVersion\":\"");

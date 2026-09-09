@@ -455,7 +455,7 @@ namespace Baseball.Game.Historical
                         _content.PlayerSeasons,
                         _history.Awards,
                         _owner._cardEditionBalance,
-                        _content.PlayerPersons, _content.TeamSeasons);
+                        _content.PlayerPersons, _content.TeamSeasons, _content.SpecialCards);
                 }
             }
 

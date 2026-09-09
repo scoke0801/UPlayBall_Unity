@@ -15,12 +15,15 @@ namespace Baseball.Core.Historical
         public WorldCardCatalog(
             IReadOnlyList<PlayerSeasonDefinition> playerSeasons,
             IReadOnlyList<PlayerCardDefinition> cards,
-            IReadOnlyList<PlayerPersonDefinition> playerPersons = null)
+            IReadOnlyList<PlayerPersonDefinition> playerPersons = null,
+            TeamColorLineageMap teamColorLineages = null,
+            IReadOnlyList<SpecialRecruitRecipe> specialRecruitRecipes = null)
         {
             if (playerSeasons == null)
                 throw new ArgumentNullException(nameof(playerSeasons));
             if (cards == null)
                 throw new ArgumentNullException(nameof(cards));
+            TeamColorLineages = teamColorLineages;
 
             _personsById = new Dictionary<string, PlayerPersonDefinition>(StringComparer.Ordinal);
             if (playerPersons != null)
@@ -54,7 +57,15 @@ namespace Baseball.Core.Historical
                     ?? throw new ArgumentException("null 카드가 있습니다.", nameof(cards));
                 if (!_seasonsById.ContainsKey(card.PlayerSeasonId))
                     throw new ArgumentException("카드가 존재하지 않는 PlayerSeason을 참조합니다.", nameof(cards));
-                string stableCardId = PlayerCardDefinition.CreateStableCardId(card.PlayerSeasonId, card.Edition);
+                PlayerSeasonDefinition sourceSeason = _seasonsById[card.PlayerSeasonId];
+                if (card.IsFranchiseWildcard && (teamColorLineages == null || specialRecruitRecipes == null ||
+                    teamColorLineages.GetRequired(sourceSeason.OriginFranchiseId) != card.TeamColorLineageId))
+                    throw new ArgumentException("특수 영입 카드에는 일치하는 사전 Bake 계보와 레시피가 필요합니다.", nameof(cards));
+                if ((card.Edition == PlayerCardEdition.Ex && sourceSeason.Cost != 10) ||
+                    (card.Edition == PlayerCardEdition.Rare && sourceSeason.Cost != 4 && sourceSeason.Cost != 5) ||
+                    (card.IsFranchiseWildcard && sourceSeason.Cost < 9))
+                    throw new ArgumentException("특수 카드의 원본 Cost가 발급 조건을 충족하지 않습니다.", nameof(cards));
+                string stableCardId = PlayerCardDefinition.CreateStableCardId(card.PlayerSeasonId, card.Edition, card.TeamColorLineageId);
                 if (!string.Equals(card.CardId, stableCardId, StringComparison.Ordinal))
                     throw new ArgumentException("CardId가 Stable CardId 규칙과 일치하지 않습니다.", nameof(cards));
                 if (!_cardsById.TryAdd(card.CardId, card))
@@ -66,9 +77,13 @@ namespace Baseball.Core.Historical
 
             if (normalSeasonIds.Count != _seasonsById.Count)
                 throw new ArgumentException("모든 PlayerSeason에는 Normal 카드가 있어야 합니다.", nameof(cards));
+            if (specialRecruitRecipes != null)
+                SpecialCards = new SpecialCardCatalog(this, teamColorLineages, specialRecruitRecipes);
         }
 
         public IReadOnlyList<PlayerCardDefinition> Cards => _cards;
+        public TeamColorLineageMap TeamColorLineages { get; }
+        public SpecialCardCatalog SpecialCards { get; }
 
         public bool TryGetCard(string cardId, out PlayerCardDefinition card)
         {
@@ -220,7 +235,8 @@ namespace Baseball.Core.Historical
 
         public double GetEditionWeight(PlayerCardEdition edition)
         {
-            return _editionWeights[(int)edition];
+            int index = (int)edition;
+            return index >= 0 && index < _editionWeights.Length ? _editionWeights[index] : 0d;
         }
 
         public static double[] CreateInitialCostWeights()

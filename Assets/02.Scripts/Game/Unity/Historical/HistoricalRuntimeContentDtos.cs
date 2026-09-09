@@ -85,6 +85,9 @@ namespace Baseball.Game.Historical
         [SerializeField] private string normalizedImporterVersion;
         [SerializeField] private string normalizedContentHash;
         [SerializeField] private string abilityFormulaVersion;
+        [SerializeField] private int annualReferenceOverrideCardCount;
+        [SerializeField] private string annualReferenceOverrideHash;
+        [SerializeField] private string annualReferenceOverrideVersion;
         [SerializeField] private string positionRoleClassifierVersion;
         [SerializeField] private string rosterBuilderVersion;
         [SerializeField] private string costFormulaVersion;
@@ -115,6 +118,9 @@ namespace Baseball.Game.Historical
         public string NormalizedImporterVersion => normalizedImporterVersion ?? string.Empty;
         public string NormalizedContentHash => normalizedContentHash ?? string.Empty;
         public string AbilityFormulaVersion => abilityFormulaVersion ?? string.Empty;
+        public int AnnualReferenceOverrideCardCount => annualReferenceOverrideCardCount;
+        public string AnnualReferenceOverrideHash => annualReferenceOverrideHash ?? string.Empty;
+        public string AnnualReferenceOverrideVersion => annualReferenceOverrideVersion ?? string.Empty;
         public string PositionRoleClassifierVersion => positionRoleClassifierVersion ?? string.Empty;
         public string RosterBuilderVersion => rosterBuilderVersion ?? string.Empty;
         public string CostFormulaVersion => costFormulaVersion ?? string.Empty;

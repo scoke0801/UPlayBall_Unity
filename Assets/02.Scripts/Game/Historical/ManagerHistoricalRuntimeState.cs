@@ -186,18 +186,27 @@ namespace Baseball.Game.Historical
         /// <summary>보유·획득 이력·정확한 위시 해제를 한 Commit으로 확정하고 결과를 반환한다.</summary>
         public CardAcquisitionCommitResult AcquireCardWithResult(string cardId)
         {
+            if (!WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card) || !card.CanAcquireFromScout)
+                throw new ArgumentException("특수 카드는 전용 합성·영입 경로에서만 획득할 수 있습니다.", nameof(cardId));
+            return CommitCardAcquisition(cardId);
+        }
+
+        private CardAcquisitionCommitResult CommitCardAcquisition(string cardId)
+        {
             string id = RequireId(cardId, nameof(cardId));
-            if (!WorldCardCatalog.TryGetCard(id, out _))
+            if (!WorldCardCatalog.TryGetCard(id, out PlayerCardDefinition definition))
                 throw new ArgumentException("WorldCardCatalog에 없는 카드는 획득할 수 없습니다.", nameof(cardId));
             bool wasWishlisted = Wishlist.Contains(id);
             if (_ownedCardsById.TryGetValue(id, out OwnedPlayerCardState owned))
             {
+                if (definition.IsUniqueOwnedCard)
+                    throw new InvalidOperationException("같은 특수 영입 카드는 중복 소유할 수 없습니다.");
                 owned.AddDuplicate();
                 CollectionHistory.MarkAcquired(id);
                 Wishlist.Remove(id);
                 return new CardAcquisitionCommitResult(false, wasWishlisted);
             }
-            var acquired = new OwnedPlayerCardState(id);
+            var acquired = new OwnedPlayerCardState(id, isLocked: definition.Edition != PlayerCardEdition.Normal);
             _ownedCards.Add(acquired);
             _ownedCardsById.Add(id, acquired);
             CollectionHistory.MarkAcquired(id);
@@ -273,6 +282,10 @@ namespace Baseball.Game.Historical
                 switch (card.Edition)
                 {
                     case PlayerCardEdition.Normal:
+                    case PlayerCardEdition.Rare:
+                    case PlayerCardEdition.Ex:
+                    case PlayerCardEdition.CareerHigh:
+                    case PlayerCardEdition.Legend:
                         continue;
                     case PlayerCardEdition.AllStar:
                         isActivated = WorldAwardRecord.HasAward(card.PlayerSeasonId, WorldAwardType.AllStar);
@@ -371,8 +384,10 @@ namespace Baseball.Game.Historical
             {
                 OwnedPlayerCardState owned = source[index]
                     ?? throw new ArgumentException("null OwnedPlayerCardState가 있습니다.", nameof(source));
-                if (!catalog.TryGetCard(owned.CardId, out _))
+                if (!catalog.TryGetCard(owned.CardId, out var definition))
                     throw new ArgumentException("OwnedPlayerCardState가 WorldCardCatalog에 없는 카드를 참조합니다.", nameof(source));
+                if (definition.IsUniqueOwnedCard && (owned.DuplicateCount != 0 || owned.EnhancementLevel != 0 || !owned.IsLocked))
+                    throw new ArgumentException("특수 영입 카드는 중복·강화 없이 잠금 상태여야 합니다.", nameof(source));
                 if (!cardIds.Add(owned.CardId))
                     throw new ArgumentException("카드 소유 상태는 CardId별 하나만 존재해야 합니다.", nameof(source));
                 result.Add(owned);

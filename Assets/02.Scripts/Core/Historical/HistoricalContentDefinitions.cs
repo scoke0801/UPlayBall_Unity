@@ -215,13 +215,17 @@ namespace Baseball.Core.Historical
         }
     }
 
-    /// <summary>선수 카드가 가질 수 있는 유일한 네 Edition을 정의한다.</summary>
+    /// <summary>저장된 기존 숫자를 유지하면서 선수 카드 Edition을 정의한다.</summary>
     public enum PlayerCardEdition
     {
         Normal,
         AllStar,
         GoldenGlove,
-        Mvp
+        Mvp,
+        Rare,
+        Ex,
+        CareerHigh,
+        Legend
     }
 
     /// <summary>한 PlayerSeason과 Edition의 안정 ID 및 고정 능력치 보정을 보관한다.</summary>
@@ -234,7 +238,8 @@ namespace Baseball.Core.Historical
             string playerSeasonId,
             PlayerCardEdition edition,
             IReadOnlyList<int> editionStatModifiers,
-            PreferredBattingOrder preferredBattingOrder = PreferredBattingOrder.None)
+            PreferredBattingOrder preferredBattingOrder = PreferredBattingOrder.None,
+            string teamColorLineageId = "")
         {
             if (string.IsNullOrWhiteSpace(cardId))
                 throw new ArgumentException("CardId는 비어 있을 수 없습니다.", nameof(cardId));
@@ -243,6 +248,12 @@ namespace Baseball.Core.Historical
             if (editionStatModifiers == null || editionStatModifiers.Count != PlayerAbilityCatalog.AbilityCount)
                 throw new ArgumentException("모든 능력치의 Edition 보정값이 필요합니다.", nameof(editionStatModifiers));
 
+            if (!Enum.IsDefined(typeof(PlayerCardEdition), edition))
+                throw new ArgumentOutOfRangeException(nameof(edition));
+            bool isWildcard = edition == PlayerCardEdition.CareerHigh || edition == PlayerCardEdition.Legend;
+            if (isWildcard && string.IsNullOrWhiteSpace(teamColorLineageId))
+                throw new ArgumentException("특수 영입 카드에는 사전 Bake한 팀컬러 계보가 필요합니다.", nameof(teamColorLineageId));
+            TeamColorLineageId = teamColorLineageId?.Trim() ?? string.Empty;
             CardId = cardId.Trim();
             PlayerSeasonId = playerSeasonId.Trim();
             Edition = edition;
@@ -255,14 +266,26 @@ namespace Baseball.Core.Historical
         public string CardId { get; }
         public string PlayerSeasonId { get; }
         public PlayerCardEdition Edition { get; }
+        public string TeamColorLineageId { get; }
+        public bool IsFranchiseWildcard => Edition == PlayerCardEdition.CareerHigh || Edition == PlayerCardEdition.Legend;
+        public bool IsUniqueOwnedCard => IsFranchiseWildcard;
+        public double SkillBlockEffectMultiplier => Edition == PlayerCardEdition.Rare || Edition == PlayerCardEdition.Ex ? 2d : 1d;
+        public bool CanAcquireFromScout => Edition != PlayerCardEdition.Ex && !IsFranchiseWildcard;
         public PreferredBattingOrder PreferredBattingOrder { get; }
         public int GetModifier(PlayerAbility ability) => _editionStatModifiers[(int)ability];
 
-        public static string CreateStableCardId(string playerSeasonId, PlayerCardEdition edition)
+        public static string CreateStableCardId(string playerSeasonId, PlayerCardEdition edition, string teamColorLineageId = "")
         {
             if (string.IsNullOrWhiteSpace(playerSeasonId))
                 throw new ArgumentException("PlayerSeasonId는 비어 있을 수 없습니다.", nameof(playerSeasonId));
-            return playerSeasonId.Trim() + ":" + edition;
+            string id = playerSeasonId.Trim() + ":" + edition;
+            if (edition == PlayerCardEdition.CareerHigh || edition == PlayerCardEdition.Legend)
+            {
+                if (string.IsNullOrWhiteSpace(teamColorLineageId))
+                    throw new ArgumentException("특수 영입 카드의 계보가 필요합니다.", nameof(teamColorLineageId));
+                id += ":" + teamColorLineageId.Trim();
+            }
+            return id;
         }
     }
 

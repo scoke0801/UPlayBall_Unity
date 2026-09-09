@@ -15,7 +15,8 @@ namespace Baseball.Simulation.Historical
             WorldAwardRecord awards,
             CardEditionBalanceTable balance,
             IReadOnlyList<PlayerPersonDefinition> playerPersons = null,
-            IReadOnlyList<TeamSeasonDefinition> teamSeasons = null)
+            IReadOnlyList<TeamSeasonDefinition> teamSeasons = null,
+            BakedSpecialCardContent specialCards = null)
         {
             if (playerSeasons == null)
                 throw new ArgumentNullException(nameof(playerSeasons));
@@ -42,7 +43,9 @@ namespace Baseball.Simulation.Historical
                 if (HasMvpAward(awards, season.PlayerSeasonId))
                     AddCard(cards, season, PlayerCardEdition.Mvp, balance, preferences[season.PlayerSeasonId]);
             }
-            return new WorldCardCatalog(sortedSeasons, cards, playerPersons);
+            if (specialCards != null)
+                foreach (var card in specialCards.Cards) cards.Add(card);
+            return new WorldCardCatalog(sortedSeasons, cards, playerPersons, specialCards?.Lineages, specialCards?.Recipes);
         }
 
         private static bool HasMvpAward(WorldAwardRecord awards, string playerSeasonId)
@@ -180,6 +183,8 @@ namespace Baseball.Simulation.Historical
             if (catalog == null) throw new ArgumentNullException(nameof(catalog));
             if (featurePolicy == null) throw new ArgumentNullException(nameof(featurePolicy));
             if (card == null) throw new ArgumentNullException(nameof(card));
+            if (!card.CanAcquireFromScout)
+                return false;
             if (pool.ScoutType == ScoutType.Award && !featurePolicy.IsAwardScoutEnabled)
                 return false;
             if (!featurePolicy.IsEditionEnabled(card.Edition))
@@ -279,7 +284,8 @@ namespace Baseball.Simulation.Historical
             {
                 PlayerCardDefinition card = cards[index];
                 PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
-                if (season.Cost < pityBalance.GuaranteedMinimumCost || !featurePolicy.IsEditionEnabled(card.Edition))
+                if (!card.CanAcquireFromScout || card.Edition == PlayerCardEdition.Rare ||
+                    season.Cost < pityBalance.GuaranteedMinimumCost || !featurePolicy.IsEditionEnabled(card.Edition))
                     continue;
                 if (!string.IsNullOrWhiteSpace(franchiseFilter) &&
                     !string.Equals(franchiseFilter.Trim(), season.OriginFranchiseId, StringComparison.Ordinal))
@@ -323,7 +329,7 @@ namespace Baseball.Simulation.Historical
                 double weight = pool.GetCostWeight(season.Cost) * pool.GetEditionWeight(card.Edition);
                 if (weight <= 0d)
                     continue;
-                int key = season.Cost * 4 + (int)card.Edition;
+                int key = season.Cost * 8 + (int)card.Edition;
                 if (!byKey.TryGetValue(key, out Bucket bucket))
                 {
                     bucket = new Bucket { Cost = season.Cost, Edition = card.Edition, RawWeight = weight };
