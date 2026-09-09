@@ -89,7 +89,11 @@ namespace Baseball.Presentation.Owner
                     continue;
                 }
                 var card = PlayerMiniCardView.CreateRuntime(inner, "Player_" + i);
-                card.Bind(cards[i], Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1"));
+                OwnerCollectionCardSnapshot detail = i < details.Count ? details[i] : null;
+                card.Bind(cards[i], PlayerPortraitSprites.GetDefault(
+                    detail?.Position ?? (pitcher
+                        ? Baseball.Core.Players.PlayerPosition.StartingPitcher
+                        : Baseball.Core.Players.PlayerPosition.DesignatedHitter)));
                 card.UseLineupSlotLayout();
                 card.DetailRequested += selected => ShowCardDetail(selected, details);
                 Place((RectTransform)card.transform, .035f, .025f, .965f, .985f);

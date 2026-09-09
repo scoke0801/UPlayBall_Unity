@@ -366,15 +366,24 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Transform lineupRoot = shell.transform.Find(
                     "MainWorkspaceHost/OwnerRosterLineupWorkspace/PlayerOrderBoard");
                 FindButton(lineupRoot, "PlayerGroupTabs/PitcherTab").onClick.Invoke();
-                Assert.That(lineupRoot.Find(
-                    "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/StarterRotation_0"),
-                    Is.Not.Null);
+                const string StarterPath =
+                    "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/StarterRotation_0";
+                Transform starterBeforePreview = lineupRoot.Find(StarterPath);
+                Assert.That(starterBeforePreview, Is.Not.Null);
 
                 coordinator.BindRosterLineupPreview(OwnerRosterLineupPresentationBuilder.Build(snapshot), "변경 내용을 확인해 주세요.");
 
+                Assert.That(lineupRoot.Find(StarterPath), Is.SameAs(starterBeforePreview),
+                    "Preview마다 작은 카드 계층을 파괴·재생성하면 편집 입력이 지연됩니다.");
                 Assert.That(lineupRoot.Find(
-                    "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/StarterRotation_0"),
-                    Is.Not.Null);
+                    "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/BattingOrder_0"),
+                    Is.Null);
+
+                coordinator.BindRosterLineup(snapshot);
+                Assert.That(coordinator.TryShowRoute(
+                    OwnerExpansionWorkspaceCoordinator.RosterLineupRouteId), Is.True);
+                Assert.That(lineupRoot.Find(StarterPath), Is.SameAs(starterBeforePreview),
+                    "저장 후 같은 Route를 Refresh할 때 투수 탭과 카드 인스턴스를 유지해야 합니다.");
                 Assert.That(lineupRoot.Find(
                     "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/BattingOrder_0"),
                     Is.Null);
@@ -451,6 +460,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(owned().Length, Is.EqualTo(1));
                 PlayerMiniCardView assigned = owned()[0];
                 Assert.That(assigned.Model.PlayerId, Is.EqualTo("H0"));
+                Sprite portrait = assigned.transform.Find("Portrait").GetComponent<Image>().sprite;
+                Assert.That(portrait, Is.Not.Null);
+                Assert.That(portrait.name, Does.Not.Contain("Silhouette"),
+                    "Lineup 작은 카드도 선수 타입별 초상화를 표시해야 합니다.");
                 Assert.That(assigned.transform.Find("AssignmentBadge/AssignmentLabel").GetComponent<Text>().text,
                     Does.StartWith("배치 중 · "));
                 Assert.That(assigned.transform.Find("TeamEmblem").GetComponent<Image>().sprite, Is.Not.Null);

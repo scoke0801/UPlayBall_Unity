@@ -187,7 +187,8 @@ namespace Baseball.Presentation.Owner
                 isInteractable: false);
             _starterCards[side].Bind(
                 display,
-                Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1"));
+                PlayerPortraitSprites.GetDefault(
+                    detail?.Position ?? Baseball.Core.Players.PlayerPosition.StartingPitcher));
             _starterCards[side].SetPrimaryClickForDetail(detail != null);
         }
 

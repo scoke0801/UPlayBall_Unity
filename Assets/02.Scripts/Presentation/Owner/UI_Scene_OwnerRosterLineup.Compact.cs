@@ -12,7 +12,6 @@ namespace Baseball.Presentation.Owner
 {
     public sealed partial class UI_Scene_OwnerRosterLineup
     {
-        private static Sprite _rosterPortrait;
         private readonly OwnerCardFilters _cardFilters = new OwnerCardFilters();
         private enum CostSortOrder { Default, Descending, Ascending }
         private CostSortOrder _costSortOrder;
@@ -35,9 +34,10 @@ namespace Baseball.Presentation.Owner
             layout.childForceExpandWidth = false;
             foreach (OwnerLineupSlotModel slot in _model.BattingOrder)
             {
-                string cardId = slot.Player?.CardId;
+                int battingOrderIndex = slot.Index;
                 Button button = OwnerWorkspaceUiFactory.CreateButton(row, "Position_" + slot.Index,
-                    FormatPositionButton(FindAssignedPosition(slot.Player)) + " ▾", () => OpenPositionEditor(cardId));
+                    FormatPositionButton(FindAssignedPosition(slot.Player)) + " ▾",
+                    () => OpenPositionEditorAtBattingOrderIndex(battingOrderIndex));
                 button.interactable = slot.Player != null;
                 var sizing = button.GetComponent<LayoutElement>();
                 sizing.minWidth = sizing.preferredWidth = PlayerMiniCardView.LineupSlotWidth;
@@ -47,6 +47,26 @@ namespace Baseball.Presentation.Owner
                 label.fontSize = 11;
                 _positionButtons.Add(button);
             }
+        }
+
+        private void RefreshPositionButtons()
+        {
+            if (_activePlayerGroup != PlayerGroupTab.Hitter) return;
+            if (_positionButtons.Count != _model.BattingOrder.Count) return;
+            for (int index = 0; index < _positionButtons.Count; index++)
+            {
+                Button button = _positionButtons[index];
+                OwnerLineupSlotModel slot = _model.BattingOrder[index];
+                button.interactable = slot.Player != null;
+                button.GetComponentInChildren<Text>().text =
+                    FormatPositionButton(FindAssignedPosition(slot.Player)) + " ▾";
+            }
+        }
+
+        private void OpenPositionEditorAtBattingOrderIndex(int battingOrderIndex)
+        {
+            if (battingOrderIndex < 0 || battingOrderIndex >= _model.BattingOrder.Count) return;
+            OpenPositionEditor(_model.BattingOrder[battingOrderIndex].Player?.CardId);
         }
 
         private void OpenPositionEditor(string cardId)
@@ -192,9 +212,6 @@ namespace Baseball.Presentation.Owner
             null, PlayerCardEdition.GoldenGlove, PlayerCardEdition.Normal,
             PlayerCardEdition.Mvp, PlayerCardEdition.AllStar
         };
-
-        private static Sprite GetRosterPortrait() => _rosterPortrait != null ? _rosterPortrait :
-            _rosterPortrait = Resources.Load<Sprite>("UI/PlayerCards/PlayerPortrait_UpperSilhouette_V1");
 
         private static void CompactPanel(RectTransform panel)
         {
