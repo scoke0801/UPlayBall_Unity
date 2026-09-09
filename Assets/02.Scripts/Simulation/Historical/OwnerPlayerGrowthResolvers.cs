@@ -73,6 +73,8 @@ namespace Baseball.Simulation.Historical
             int study = Math.Min(appliedGrowth, owned.Training.GetStudyBonus(ability));
             int training = appliedGrowth - study;
             int board = _skillBoardService.GetAbilityBonus(owned.SkillBoard.Placements, ability);
+            // Edition 배율은 스킬블록 숫자 기여에만 한 번 적용한다. 훈련·강화·특성은 배율 대상이 아니다.
+            board = checked((int)(board * card.SkillBlockEffectMultiplier));
             return new OwnerCardAbilityContribution(
                 baseCard,
                 training,

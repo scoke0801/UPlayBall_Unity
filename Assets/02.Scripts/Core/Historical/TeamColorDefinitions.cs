@@ -40,7 +40,8 @@ namespace Baseball.Core.Historical
             int originYear,
             string originFranchiseId,
             string originTeamSeasonKey,
-            PlayerCardEdition edition)
+            PlayerCardEdition edition,
+            IReadOnlyList<string> wildcardFranchiseIds = null)
         {
             if (originYear <= 0)
                 throw new ArgumentOutOfRangeException(nameof(originYear));
@@ -52,10 +53,13 @@ namespace Baseball.Core.Historical
             OriginFranchiseId = originFranchiseId.Trim();
             OriginTeamSeasonKey = originTeamSeasonKey.Trim();
             Edition = edition;
+            WildcardFranchiseIds = wildcardFranchiseIds == null ? Array.Empty<string>() :
+                new List<string>(wildcardFranchiseIds).AsReadOnly();
         }
 
         public int OriginYear { get; }
         public string OriginFranchiseId { get; }
+        public IReadOnlyList<string> WildcardFranchiseIds { get; }
         public string OriginTeamSeasonKey { get; }
         public PlayerCardEdition Edition { get; }
     }
@@ -286,6 +290,14 @@ namespace Baseball.Core.Historical
 
         public bool IsEligible(TeamColorEligibilityKey key)
         {
+            if ((Family == TeamColorFamily.Franchise || Family == TeamColorFamily.YearFranchise) &&
+                (key.Edition == PlayerCardEdition.CareerHigh || key.Edition == PlayerCardEdition.Legend) &&
+                key.WildcardFranchiseIds != null)
+            {
+                foreach (string franchiseId in key.WildcardFranchiseIds)
+                    if (string.Equals(franchiseId, OriginFranchiseId, StringComparison.Ordinal))
+                        return !RequiredEdition.HasValue || RequiredEdition.Value == key.Edition;
+            }
             if (OriginYear.HasValue && OriginYear.Value != key.OriginYear)
                 return false;
             if (OriginFranchiseId != null &&
