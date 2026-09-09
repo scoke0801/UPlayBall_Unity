@@ -16,6 +16,8 @@ namespace Baseball.Presentation.Owner
         private Text _leagueProgressText;
         private Text _playerProgressText;
         private Text _recordText;
+        private Text _titleText;
+        private Text _stateText;
 
         public event Action StopRequested;
 
@@ -46,11 +48,11 @@ namespace Baseball.Presentation.Owner
             {
                 string away = ResolveTeamName(progress.NextAwayTeamSeasonKey, teamDisplayNameResolver, "원정 구단");
                 string home = ResolveTeamName(progress.NextHomeTeamSeasonKey, teamDisplayNameResolver, "홈 구단");
-                _matchupText.text = $"{away}  VS  {home}\n같은 라운드의 AI 구단 대진도 함께 처리합니다.";
+                _matchupText.text = $"{away}  VS  {home}\n내 구단 조는 상세 · 다른 조는 간이 계산으로 진행합니다.";
             }
             else
             {
-                _matchupText.text = "모든 대진을 완료했습니다. 최종 기록을 확인하고 있습니다.";
+                _matchupText.text = "남은 다른 조 경기와 최종 기록을 정리하고 있습니다.";
             }
 
             _leagueProgressText.text =
@@ -59,6 +61,27 @@ namespace Baseball.Presentation.Owner
                 $"내 구단 경기  {progress.PlayerGamesSimulated:N0} / {progress.TotalPlayerGames:N0}";
             _recordText.text =
                 $"현재 성적  {progress.SeasonWins}승  {progress.SeasonDraws}무  {progress.SeasonLosses}패";
+            _titleText.text = "정규시즌 시뮬레이션";
+            _stateText.text = "리그 일정 순서대로 진행 중";
+        }
+
+        public void Bind(OwnerPostseasonSimulationProgress progress)
+        {
+            float ratio = progress.MaximumGames <= 0
+                ? 1f
+                : Mathf.Clamp01((float)progress.CompletedGames / progress.MaximumGames);
+            _progressFill.rectTransform.localScale = new Vector3(ratio, 1f, 1f);
+            _titleText.text = "포스트시즌 시뮬레이션";
+            _stateText.text = "조별 단기전 진행 중";
+            _roundText.text = string.IsNullOrEmpty(progress.NextSeriesId)
+                ? "포스트시즌 결과 집계"
+                : progress.NextSeriesId == "championship" ? "챔피언십" : "준결승";
+            _matchupText.text = string.IsNullOrEmpty(progress.NextLeagueGroupId)
+                ? "모든 조의 우승 구단을 확인하고 있습니다."
+                : progress.NextLeagueGroupId + "\n내 구단 조는 상세 · 다른 조는 간이 계산으로 진행합니다.";
+            _leagueProgressText.text = $"전체 경기  {progress.CompletedGames:N0} / 최대 {progress.MaximumGames:N0}";
+            _playerProgressText.text = $"완료 조  {progress.CompletedGroups:N0} / {progress.TotalGroups:N0}";
+            _recordText.text = "시리즈가 일찍 끝나면 최대 경기 수보다 적게 완료됩니다.";
         }
 
         public void Show()
@@ -99,13 +122,13 @@ namespace Baseball.Presentation.Owner
             Image header = OwnerRuntimeUiFactory.CreateImage(
                 "Header", modal, new Color(0.035f, 0.07f, 0.12f, 1f));
             SetRect(header.rectTransform, new Vector2(0f, 344f), new Vector2(680f, 410f));
-            Text title = Label(header.transform, "Title", "정규시즌 시뮬레이션", 23, FontStyle.Bold,
+            _titleText = Label(header.transform, "Title", "정규시즌 시뮬레이션", 23, FontStyle.Bold,
                 CareerUiTheme.TextPrimary, new Vector2(24f, 22f), new Vector2(470f, 62f));
-            title.color = CareerUiTheme.TextPrimary;
-            title.alignment = TextAnchor.MiddleLeft;
-            Text state = Label(header.transform, "State", "리그 일정 순서대로 진행 중", 15, FontStyle.Normal,
+            _titleText.color = CareerUiTheme.TextPrimary;
+            _titleText.alignment = TextAnchor.MiddleLeft;
+            _stateText = Label(header.transform, "State", "리그 일정 순서대로 진행 중", 15, FontStyle.Normal,
                 CareerUiTheme.Number, new Vector2(470f, 22f), new Vector2(656f, 62f));
-            state.alignment = TextAnchor.MiddleRight;
+            _stateText.alignment = TextAnchor.MiddleRight;
             header.gameObject.AddComponent<CareerUiPreserveTextColor>();
 
             _roundText = Label(modal, "CurrentRound", string.Empty, 22, FontStyle.Bold,
@@ -140,7 +163,7 @@ namespace Baseball.Presentation.Owner
             _recordText.alignment = TextAnchor.MiddleCenter;
 
             Button stopButton = OwnerWorkspaceUiFactory.CreateButton(
-                modal, "StopSimulation", "현재 라운드 완료 후 중단", () => StopRequested?.Invoke());
+                modal, "StopSimulation", "완료한 경기까지 유지하고 중단", () => StopRequested?.Invoke());
             SetRect(stopButton.GetComponent<RectTransform>(), new Vector2(202f, 28f), new Vector2(478f, 82f));
             OwnerUiButtonSkin.Apply(stopButton, OwnerButtonRole.Secondary);
         }

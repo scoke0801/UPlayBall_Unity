@@ -28,6 +28,9 @@ namespace Baseball.Presentation.Owner
     [DisallowMultipleComponent]
     public sealed partial class OwnerModeShellCoordinator : MonoBehaviour
     {
+        private const double SeasonSimulationFrameBudgetMilliseconds = 8d;
+        // 간이 경기가 빨라져도 프레임당 8경기 제한에 묶이지 않도록 시간 예산을 주 제한으로 쓴다.
+        private const int MaximumSeasonSimulationStepsPerFrame = 256;
         public const string HomeRouteId = "Owner.Home";
         public const string MatchRouteId = "Owner.Match";
 
@@ -42,6 +45,7 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerHome _homeView;
         private UI_Scene_OwnerMatchSpectator _matchSpectatorView;
         private UI_Popup_OwnerSeasonSimulation _seasonSimulationPopup;
+        private UI_Popup_OwnerSeasonReview _seasonReviewPopup;
         private OwnerExpansionWorkspaceCoordinator _expansionWorkspace;
         private OwnerSharedInformationWorkspaceCoordinator _sharedInformationWorkspace;
         private GameModeNavigationState _navigationState;
@@ -50,9 +54,6 @@ namespace Baseball.Presentation.Owner
         private OwnerActiveRosterChangePreview _pendingActiveRosterChange;
         private string _selectedContractCardId = string.Empty;
         private int _selectedContractTerm = 1;
-        private string _selectedTradePartnerId = string.Empty;
-        private string _selectedTradeOutgoingCardId = string.Empty;
-        private string _selectedTradeIncomingCardId = string.Empty;
         private string _pendingTrainingCardId = string.Empty;
         private int? _selectedRecordsSeason;
         private string _pendingTrainingProgramId = string.Empty;
@@ -60,6 +61,8 @@ namespace Baseball.Presentation.Owner
         private bool _isOwnerMatchVisible;
         private bool _isTransitioningToOwnerMatch;
         private bool _isSeasonSimulationVisible;
+        private bool _isPostseasonSimulationVisible;
+        private string _reviewedSeasonId = string.Empty;
         private int _seasonSimulationStartedFrame = -1;
 
         public void Initialize(SharedGameShellView shell, OwnerModeManager manager)
@@ -178,7 +181,15 @@ namespace Baseball.Presentation.Owner
             _matchSpectatorView?.SetVisible(false);
             _shell.SetInspectorVisible(false);
             _shell.SetActionBarVisible(false);
-            _homeView.Bind(home, _manager.Runtime.ManagerMode.LiveSeason.NextPlayerGame != null);
+            ManagerHistoricalRuntimeState runtime = _manager.Runtime;
+            bool regularCompleted = runtime.LeagueWorld.IsRegularSeasonCompleted;
+            bool postseasonCompleted = runtime.LeagueWorld.IsPostseasonCompleted;
+            bool playerPostseasonCompleted = runtime.LeagueWorld
+                .GetGroup(runtime.PlayerTeamSeasonKey).Postseason?.IsCompleted == true;
+            _homeView.Bind(home, runtime.ManagerMode.LiveSeason.NextPlayerGame != null,
+                regularCompleted, postseasonCompleted,
+                string.Equals(_reviewedSeasonId, runtime.ManagerMode.LiveSeason.SeasonId, StringComparison.Ordinal),
+                playerPostseasonCompleted);
             _homeView.SetVisible(true);
             _presenter.ShowContext(new ShellContextModel(
                 HomeRouteId,
@@ -207,25 +218,59 @@ namespace Baseball.Presentation.Owner
         {
             if (!_isSeasonSimulationVisible || _manager == null)
                 return;
-            if (!_manager.IsRegularSeasonSimulationRunning)
+            bool isRunning = _isPostseasonSimulationVisible
+                ? _manager.IsPostseasonSimulationRunning
+                : _manager.IsRegularSeasonSimulationRunning;
+            if (!isRunning)
             {
                 FinishSeasonSimulation();
                 return;
             }
 
-            _seasonSimulationPopup.Bind(
-                _manager.RegularSeasonSimulationProgress,
-                _manager.GetTeamDisplayName);
+            if (_isPostseasonSimulationVisible)
+                _seasonSimulationPopup.Bind(_manager.PostseasonSimulationProgress);
+            else
+                _seasonSimulationPopup.Bind(_manager.RegularSeasonSimulationProgress, _manager.GetTeamDisplayName);
             // 확인 클릭과 같은 Frame에 계산을 시작하면 Popup이 한 번도 그려지지 않는다.
             if (Time.frameCount <= _seasonSimulationStartedFrame)
                 return;
 
-            bool succeeded = _manager.AdvanceRegularSeasonSimulationFrame();
-            _seasonSimulationPopup.Bind(
-                _manager.RegularSeasonSimulationProgress,
-                _manager.GetTeamDisplayName);
-            if (!succeeded || !_manager.IsRegularSeasonSimulationRunning)
+            bool succeeded = AdvanceSeasonSimulationWithinFrameBudget();
+            if (_isPostseasonSimulationVisible)
+                _seasonSimulationPopup.Bind(_manager.PostseasonSimulationProgress);
+            else
+                _seasonSimulationPopup.Bind(_manager.RegularSeasonSimulationProgress, _manager.GetTeamDisplayName);
+            bool continues = _isPostseasonSimulationVisible
+                ? _manager.IsPostseasonSimulationRunning
+                : _manager.IsRegularSeasonSimulationRunning;
+            if (!succeeded || !continues)
                 FinishSeasonSimulation();
+        }
+
+        private bool AdvanceSeasonSimulationWithinFrameBudget()
+        {
+            if (_isPostseasonSimulationVisible)
+                return _manager.AdvancePostseasonSimulationFrame();
+
+            long frameStart = System.Diagnostics.Stopwatch.GetTimestamp();
+            bool succeeded;
+            int completedSteps = 0;
+            do
+            {
+                succeeded = _manager.AdvanceRegularSeasonSimulationFrame();
+                completedSteps++;
+            }
+            while (succeeded &&
+                   _manager.IsRegularSeasonSimulationRunning &&
+                   completedSteps < MaximumSeasonSimulationStepsPerFrame &&
+                   GetElapsedMilliseconds(frameStart) < SeasonSimulationFrameBudgetMilliseconds);
+            return succeeded;
+        }
+
+        private static double GetElapsedMilliseconds(long startedTimestamp)
+        {
+            return (System.Diagnostics.Stopwatch.GetTimestamp() - startedTimestamp) * 1000d /
+                   System.Diagnostics.Stopwatch.Frequency;
         }
 
         private void OnDestroy()
@@ -263,6 +308,13 @@ namespace Baseball.Presentation.Owner
                 if (Application.isPlaying) Destroy(_seasonSimulationPopup.gameObject);
                 else DestroyImmediate(_seasonSimulationPopup.gameObject);
             }
+            if (_seasonReviewPopup != null)
+            {
+                _seasonReviewPopup.PostseasonRequested -= HandlePostseasonRequested;
+                _seasonReviewPopup.CloseRequested -= HandleSeasonReviewClosed;
+                if (Application.isPlaying) Destroy(_seasonReviewPopup.gameObject);
+                else DestroyImmediate(_seasonReviewPopup.gameObject);
+            }
             if (_homeView != null)
             {
                 _homeView.OpponentAnalysisRequested -= HandleOpponentAnalysisRequested;
@@ -289,7 +341,7 @@ namespace Baseball.Presentation.Owner
         private void HandleModeChanged(UiGameMode? mode)
         {
             if (mode != UiGameMode.OwnerCareer && _manager != null &&
-                _manager.IsRegularSeasonSimulationRunning)
+                (_manager.IsRegularSeasonSimulationRunning || _manager.IsPostseasonSimulationRunning))
             {
                 _manager.AbortRegularSeasonSimulationForSceneUnload();
                 _isSeasonSimulationVisible = false;
@@ -301,6 +353,8 @@ namespace Baseball.Presentation.Owner
                 _isOwnerMatchVisible = false;
                 SetOwnerMatchBgm(false);
             }
+            if (mode != UiGameMode.OwnerCareer)
+                _seasonReviewPopup?.Hide();
             Refresh();
         }
 
@@ -407,6 +461,11 @@ namespace Baseball.Presentation.Owner
             if (_shell == null || !_shell.gameObject.activeInHierarchy ||
                 _isOwnerMatchVisible || _isTransitioningToOwnerMatch)
                 return;
+            if (_seasonReviewPopup != null && _seasonReviewPopup.gameObject.activeInHierarchy)
+            {
+                HandleSeasonReviewClosed();
+                return;
+            }
             if (_isSeasonSimulationVisible)
             {
                 HandleStopSeasonSimulationRequested();
@@ -608,6 +667,7 @@ namespace Baseball.Presentation.Owner
 
             EnsureSeasonSimulationPopup();
             _isSeasonSimulationVisible = true;
+            _isPostseasonSimulationVisible = false;
             _seasonSimulationStartedFrame = Time.frameCount;
             _seasonSimulationPopup.Bind(
                 _manager.RegularSeasonSimulationProgress,
@@ -619,6 +679,17 @@ namespace Baseball.Presentation.Owner
         {
             if (!_isSeasonSimulationVisible)
                 return;
+            if (_isPostseasonSimulationVisible)
+            {
+                OwnerPostseasonSimulationProgress postseasonProgress = _manager.PostseasonSimulationProgress;
+                _isSeasonSimulationVisible = false;
+                _isPostseasonSimulationVisible = false;
+                _seasonSimulationPopup?.Hide();
+                _manager.StopPostseasonSimulation();
+                Refresh();
+                ShowFeedback($"포스트시즌 {postseasonProgress.CompletedGames}경기까지 완료하고 중단했습니다.", false);
+                return;
+            }
             ManagerRegularSeasonSimulationProgress progress = _manager.RegularSeasonSimulationProgress;
             _isSeasonSimulationVisible = false;
             _seasonSimulationPopup?.Hide();
@@ -632,16 +703,28 @@ namespace Baseball.Presentation.Owner
 
         private void FinishSeasonSimulation()
         {
+            bool wasPostseason = _isPostseasonSimulationVisible;
             _isSeasonSimulationVisible = false;
+            _isPostseasonSimulationVisible = false;
             _seasonSimulationPopup?.Hide();
             Refresh();
+            if (wasPostseason)
+            {
+                if (_manager.Runtime.LeagueWorld.IsPostseasonCompleted)
+                {
+                    ShowSeasonReview(1);
+                    return;
+                }
+                ShowFeedback(string.IsNullOrWhiteSpace(_manager.LastError)
+                    ? "포스트시즌 시뮬레이션을 완료하지 못했습니다."
+                    : _manager.LastError, true);
+                return;
+            }
             ManagerRegularSeasonCompletionResult result = _manager.LastRegularSeasonCompletion;
             if (result != null && result.IsCompleted)
             {
-                ShowFeedback(
-                    $"남은 {result.PlayerGamesSimulated}경기를 진행해 시즌을 완료했습니다. " +
-                    $"최종 {result.SeasonWins}승 {result.SeasonDraws}무 {result.SeasonLosses}패입니다.",
-                    false);
+                _manager.InitializePostseasonReview();
+                ShowSeasonReview(0);
                 return;
             }
 
@@ -654,11 +737,31 @@ namespace Baseball.Presentation.Owner
 
         private void HandleAdvanceSeasonRequested()
         {
+            ManagerHistoricalRuntimeState runtime = _manager.Runtime;
+            if (!runtime.LeagueWorld.IsRegularSeasonCompleted)
+            {
+                HandleCompleteSeasonRequested();
+                return;
+            }
+            if (!runtime.LeagueWorld.IsPostseasonCompleted)
+            {
+                OwnerLeagueGroupState playerGroup = runtime.LeagueWorld.GetGroup(runtime.PlayerTeamSeasonKey);
+                if (playerGroup.Postseason == null)
+                    _manager.InitializePostseasonReview();
+                ShowSeasonReview(playerGroup.Postseason?.IsCompleted == true ? 1 : 0);
+                return;
+            }
+            if (!string.Equals(_reviewedSeasonId, runtime.ManagerMode.LiveSeason.SeasonId, StringComparison.Ordinal))
+            {
+                ShowSeasonReview(2);
+                return;
+            }
             ExecuteOperation(() =>
             {
                 ManagerSeasonAdvanceResult result = _manager.AdvanceSeason();
                 if (result.IsApplied)
                 {
+                    _reviewedSeasonId = string.Empty;
                     ShowFeedback(
                         $"{result.NextSeason.SeasonNumber}번째 시즌을 시작했습니다. " +
                         $"리그 등급: {OwnerLeagueDisplayNameFormatter.FormatFull(result.PreviousLeagueGrade.Value)} → " +
@@ -679,6 +782,37 @@ namespace Baseball.Presentation.Owner
                 };
                 ShowFeedback(message, true);
             });
+        }
+
+        private void HandlePostseasonRequested()
+        {
+            _seasonReviewPopup?.Hide();
+            if (!_manager.BeginPostseasonSimulation())
+            {
+                ShowFeedback(_manager.LastError, true);
+                return;
+            }
+            EnsureSeasonSimulationPopup();
+            _isSeasonSimulationVisible = true;
+            _isPostseasonSimulationVisible = true;
+            _seasonSimulationStartedFrame = Time.frameCount;
+            _seasonSimulationPopup.Bind(_manager.PostseasonSimulationProgress);
+            _seasonSimulationPopup.Show();
+        }
+
+        private void HandleSeasonReviewClosed()
+        {
+            if (_manager.Runtime.LeagueWorld.IsPostseasonCompleted)
+                _reviewedSeasonId = _manager.Runtime.ManagerMode.LiveSeason.SeasonId;
+            _seasonReviewPopup?.Hide();
+            Refresh();
+        }
+
+        private void ShowSeasonReview(int initialPage)
+        {
+            EnsureSeasonReviewPopup();
+            _seasonReviewPopup.Bind(_manager.CreateSeasonReview(), _manager.GetTeamDisplayName, initialPage);
+            _seasonReviewPopup.Show();
         }
 
         private void HandlePregameMatchStartRequested()
@@ -730,32 +864,6 @@ namespace Baseball.Presentation.Owner
                 ShowFeedback(result.CanCommit
                     ? $"{result.Renewals.Count}명의 계약을 {seasons}년 연장했습니다."
                     : result.Reason, !result.CanCommit);
-            });
-        }
-
-        private void HandleTradePreviewRequested(string teamSeasonKey, string outgoingCardId, string incomingCardId)
-        {
-            _selectedTradePartnerId = teamSeasonKey ?? string.Empty;
-            _selectedTradeOutgoingCardId = outgoingCardId ?? string.Empty;
-            _selectedTradeIncomingCardId = incomingCardId ?? string.Empty;
-            _expansionWorkspace.BindPlayerTrade(_snapshotFactory.CreatePlayerTrade(
-                _manager,
-                _selectedTradePartnerId,
-                _selectedTradeOutgoingCardId,
-                _selectedTradeIncomingCardId));
-        }
-
-        private void HandleTradeRequested(string teamSeasonKey, string outgoingCardId, string incomingCardId)
-        {
-            ExecuteOperation(() =>
-            {
-                OwnerTradePreview result = _manager.CommitPlayerTrade(teamSeasonKey, outgoingCardId, incomingCardId);
-                if (result.CanCommit)
-                {
-                    _selectedTradeOutgoingCardId = result.IncomingCardId;
-                    _selectedTradeIncomingCardId = string.Empty;
-                }
-                ShowFeedback(result.CanCommit ? "1:1 트레이드를 확정했습니다." : result.Reason, !result.CanCommit);
             });
         }
 
@@ -855,6 +963,14 @@ namespace Baseball.Presentation.Owner
             _seasonSimulationPopup.StopRequested += HandleStopSeasonSimulationRequested;
         }
 
+        private void EnsureSeasonReviewPopup()
+        {
+            if (_seasonReviewPopup != null) return;
+            _seasonReviewPopup = UI_Popup_OwnerSeasonReview.CreateRuntime(_shell.PopupHost);
+            _seasonReviewPopup.PostseasonRequested += HandlePostseasonRequested;
+            _seasonReviewPopup.CloseRequested += HandleSeasonReviewClosed;
+        }
+
         private void StartOwnerMatchSpectator()
         {
             if (_isOwnerMatchVisible || _isTransitioningToOwnerMatch)
@@ -947,8 +1063,6 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.ContractPreviewRequested += HandleContractPreviewRequested;
             _expansionWorkspace.ContractRenewalRequested += HandleContractRenewalRequested;
             _expansionWorkspace.ContractBatchRenewalRequested += HandleContractBatchRenewalRequested;
-            _expansionWorkspace.TradePreviewRequested += HandleTradePreviewRequested;
-            _expansionWorkspace.TradeRequested += HandleTradeRequested;
             _expansionWorkspace.TicketPolicyRequested += HandleTicketPolicyRequested;
             _expansionWorkspace.FacilityUpgradeRequested += HandleFacilityUpgradeRequested;
             _expansionWorkspace.StadiumUpgradeRequested += HandleStadiumUpgradeRequested;
@@ -1006,8 +1120,6 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.ContractPreviewRequested -= HandleContractPreviewRequested;
             _expansionWorkspace.ContractRenewalRequested -= HandleContractRenewalRequested;
             _expansionWorkspace.ContractBatchRenewalRequested -= HandleContractBatchRenewalRequested;
-            _expansionWorkspace.TradePreviewRequested -= HandleTradePreviewRequested;
-            _expansionWorkspace.TradeRequested -= HandleTradeRequested;
             _expansionWorkspace.TicketPolicyRequested -= HandleTicketPolicyRequested;
             _expansionWorkspace.FacilityUpgradeRequested -= HandleFacilityUpgradeRequested;
             _expansionWorkspace.StadiumUpgradeRequested -= HandleStadiumUpgradeRequested;

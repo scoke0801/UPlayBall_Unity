@@ -89,6 +89,12 @@ namespace Baseball.Game.Historical
     /// <summary>검증된 프리셋을 DetailedMatchEngine 한 경로로 실행하고 경기 후 원본 상태를 갱신한다.</summary>
     public sealed class ManagerModeMatchService
     {
+        private enum AiScheduleAdvanceMode
+        {
+            ThroughPlayerRound,
+            Deferred
+        }
+
         private const ulong AttendanceRandomStream = 0x415454454E44414EUL;
         private const ulong ConditionRandomStream = 0x434F4E444954494FUL;
 
@@ -107,15 +113,21 @@ namespace Baseball.Game.Historical
         private readonly OwnerCardAbilityResolver _ownerCardAbilityResolver;
         private readonly DugoutStaffCatalog _dugoutCatalog;
         private readonly DugoutTacticalProfileResolver _dugoutResolver;
+        private readonly MatchExecutionProfile _offscreenExecutionProfile;
 
         public ManagerModeMatchService(
             HistoricalBakedContent content,
             BalanceTable balance,
             IReadOnlyList<TeamColorDefinition> teamColors = null,
-            IReadOnlyList<TacticCardDefinition> tacticCards = null)
+            IReadOnlyList<TacticCardDefinition> tacticCards = null,
+            MatchExecutionProfile? offscreenExecutionProfile = null)
         {
             _content = content ?? throw new ArgumentNullException(nameof(content));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            _offscreenExecutionProfile = offscreenExecutionProfile ?? MatchExecutionProfile.AggregateBackground;
+            if (!_offscreenExecutionProfile.Equals(MatchExecutionProfile.AggregateBackground) &&
+                !_offscreenExecutionProfile.Equals(MatchExecutionProfile.DetailedBackground))
+                throw new ArgumentException("다른 조에는 백그라운드 계산 프로필만 사용할 수 있습니다.", nameof(offscreenExecutionProfile));
             _teamColors = CopyDefinitions(teamColors);
             _tacticCards = CopyDefinitions(tacticCards);
             _teamColorsById = Index(_teamColors, item => item.TeamColorId, "TeamColorId");
@@ -150,7 +162,38 @@ namespace Baseball.Game.Historical
             IMatchEventSink eventSink = null,
             MatchExecutionProfile? executionProfile = null)
         {
+            return PlayNextGame(
+                runtime,
+                PlayerIdMap.Create(runtime),
+                eventSink,
+                executionProfile,
+                AiScheduleAdvanceMode.ThroughPlayerRound);
+        }
+
+        /// <summary>시즌 진행 UI가 AI 대진을 프레임별로 나눌 수 있도록 플레이어 경기 한 건만 확정한다.</summary>
+        internal ManagerModeMatchResult PlayNextPlayerGameForSeasonSimulation(
+            ManagerHistoricalRuntimeState runtime,
+            PlayerIdMap playerIds)
+        {
+            return PlayNextGame(
+                runtime,
+                playerIds,
+                NullMatchEventSink.Instance,
+                MatchExecutionProfile.DetailedBackground,
+                AiScheduleAdvanceMode.Deferred);
+        }
+
+        private ManagerModeMatchResult PlayNextGame(
+            ManagerHistoricalRuntimeState runtime,
+            PlayerIdMap playerIds,
+            IMatchEventSink eventSink,
+            MatchExecutionProfile? executionProfile,
+            AiScheduleAdvanceMode aiAdvanceMode)
+        {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (playerIds == null) throw new ArgumentNullException(nameof(playerIds));
+            if (executionProfile.HasValue && executionProfile.Value.EngineKind != SimulationEngineKind.Detailed)
+                throw new InvalidOperationException("플레이어 조의 경기는 상세 계산을 사용해야 합니다.");
             if (!runtime.HasManagerMode)
                 throw new InvalidOperationException("ManagerMode v4 상태가 없는 Save는 경기 전에 migration해야 합니다.");
 
@@ -175,11 +218,10 @@ namespace Baseball.Game.Historical
             var playerPlan = new PreGamePlanSnapshot(game.GameId, playerTeamKey, playerPreset, validation);
 
             string opponentKey = playerIsHome ? awayTeamKey : homeTeamKey;
-            PlayerIdMap playerIds = PlayerIdMap.Create(runtime);
-
             // 상대 구단이 실제 일정만큼 소모된 컨디션·투수 피로로 나오도록,
             // 플레이어 경기가 열리는 라운드 이전의 AI 대진을 먼저 확정한다.
-            SimulateAiGamesThrough(runtime, playerIds, game.Round - 1);
+            if (aiAdvanceMode == AiScheduleAdvanceMode.ThroughPlayerRound)
+                SimulateAiGamesThrough(runtime, playerIds, game.Round - 1);
 
             LineupPresetState opponentPlan = CreateRosterRolePlan(runtime.GetRoster(opponentKey), runtime.WorldCardCatalog);
             TeamMatchBuild playerBuild = BuildTeam(runtime, playerTeamKey, playerPlan, game.Round, playerIds);
@@ -233,10 +275,12 @@ namespace Baseball.Game.Historical
             mode.Dugout.RecordMatchCompleted();
 
             // 같은 라운드의 나머지 대진까지 확정해야 순위표에서 플레이어 구단만 경기 수가 앞서가지 않는다.
-            SimulateAiGamesThrough(runtime, playerIds, game.Round);
+            if (aiAdvanceMode == AiScheduleAdvanceMode.ThroughPlayerRound)
+                SimulateAiGamesThrough(runtime, playerIds, game.Round);
             // 홀수 구단 일정에서는 플레이어 구단이 마지막 라운드에 bye일 수 있어,
             // 플레이어 일정이 끝난 뒤 남은 AI 대진을 시즌 마감 전에 함께 소진한다.
-            if (mode.LiveSeason.NextPlayerGame == null)
+            if (aiAdvanceMode == AiScheduleAdvanceMode.ThroughPlayerRound &&
+                mode.LiveSeason.NextPlayerGame == null)
                 SimulateAiGamesThrough(runtime, playerIds, int.MaxValue);
 
             return new ManagerModeMatchResult(
@@ -252,7 +296,7 @@ namespace Baseball.Game.Historical
                 _dugoutCatalog.GetHeadCoach(mode.Dugout.HeadCoachId).DisplayName);
         }
 
-        /// <summary>남은 플레이어·AI 대진을 단일 Detailed 경기 공식과 저장 Seed로 모두 완료한다.</summary>
+        /// <summary>남은 대진을 조별 경기 해상도와 저장 Seed로 모두 완료한다.</summary>
         public ManagerRegularSeasonCompletionResult CompleteRegularSeason(
             ManagerHistoricalRuntimeState runtime,
             Action<ManagerModeMatchResult> playerGameCompleted = null)
@@ -266,6 +310,139 @@ namespace Baseball.Game.Historical
             return session.CreateCompletionResult();
         }
 
+        /// <summary>조별 포스트시즌 한 경기를 정규시즌과 같은 로스터·상태·해상도로 확정한다.</summary>
+        public MatchResult PlayPostseasonGame(
+            ManagerHistoricalRuntimeState runtime,
+            OwnerLeagueGroupState group,
+            OwnerPostseasonSeriesState series,
+            ScheduledGameState game,
+            IMatchEventSink eventSink,
+            MatchExecutionProfile? executionProfile,
+            out ManagerModeMatchResult playerResult)
+        {
+            if (runtime == null || group == null || series == null || game == null)
+                throw new ArgumentNullException();
+            if (!ReferenceEquals(group.Postseason.CurrentSeries, series) || game.IsCompleted ||
+                series.Games.Count == 0 || !ReferenceEquals(series.Games[series.Games.Count - 1], game))
+                throw new InvalidOperationException("현재 포스트시즌 대진의 미완료 경기가 필요합니다.");
+
+            ManagerLiveSeasonState season = group.Season;
+            string awayTeamKey = season.GetTeamSeasonKey(game.AwayTeamId);
+            string homeTeamKey = season.GetTeamSeasonKey(game.HomeTeamId);
+            bool includesPlayer = game.IncludesTeam(season.PlayerTeamId) &&
+                string.Equals(season.GetTeamSeasonKey(season.PlayerTeamId), runtime.PlayerTeamSeasonKey, StringComparison.Ordinal);
+            if (includesPlayer && executionProfile.HasValue && executionProfile.Value.EngineKind != SimulationEngineKind.Detailed)
+                throw new InvalidOperationException("플레이어 조의 포스트시즌은 상세 계산을 사용해야 합니다.");
+            bool playerIsHome = includesPlayer && game.HomeTeamId == season.PlayerTeamId;
+            PreGamePlanSnapshot playerPlan = null;
+            TeamMatchBuild awayBuild;
+            TeamMatchBuild homeBuild;
+            TacticLoadoutState awayTactics;
+            TacticLoadoutState homeTactics;
+            int rotationIndex = GetMaximumRound(season.Schedule.Games) + CountPostseasonGames(group.Postseason);
+            int restRounds = series.Games.Count == 1 ? 1 : 0;
+            PlayerIdMap playerIds = PlayerIdMap.Create(runtime);
+
+            if (includesPlayer)
+            {
+                LineupPresetState preset = runtime.ManagerMode.GetSelectedLineupPresetForGame(game);
+                if (!runtime.TacticCollection.CanConsume(preset.DefaultTacticCardIds))
+                    throw new InvalidOperationException("장착한 전술 카드의 보유 수량이 부족합니다.");
+                LineupPresetValidationResult validation = _presetValidator.Validate(
+                    preset, CreateValidationContext(runtime, runtime.PlayerTeamSeasonKey));
+                if (!validation.CanStartGame)
+                    throw new InvalidOperationException("현재 선수단과 라인업으로 포스트시즌 경기를 시작할 수 없습니다.");
+                playerPlan = new PreGamePlanSnapshot(game.GameId, runtime.PlayerTeamSeasonKey, preset, validation);
+                string opponentKey = playerIsHome ? awayTeamKey : homeTeamKey;
+                TeamMatchBuild playerBuild = BuildTeam(runtime, runtime.PlayerTeamSeasonKey, playerPlan,
+                    rotationIndex, playerIds, restRounds);
+                TeamMatchBuild opponentBuild = BuildTeam(runtime, opponentKey,
+                    CreateRosterRolePlan(runtime.GetRoster(opponentKey), runtime.WorldCardCatalog),
+                    rotationIndex, playerIds, restRounds);
+                awayBuild = playerIsHome ? opponentBuild : playerBuild;
+                homeBuild = playerIsHome ? playerBuild : opponentBuild;
+                TacticLoadoutState playerTactics = CreateConfirmedLoadout(playerPlan.TacticCardIds);
+                TacticLoadoutState opponentTactics = CreateAiLoadout(runtime, game,
+                    playerIsHome ? game.AwayTeamId : game.HomeTeamId);
+                awayTactics = playerIsHome ? opponentTactics : playerTactics;
+                homeTactics = playerIsHome ? playerTactics : opponentTactics;
+            }
+            else
+            {
+                awayBuild = BuildTeam(runtime, awayTeamKey,
+                    CreateRosterRolePlan(runtime.GetRoster(awayTeamKey), runtime.WorldCardCatalog),
+                    rotationIndex, playerIds, restRounds);
+                homeBuild = BuildTeam(runtime, homeTeamKey,
+                    CreateRosterRolePlan(runtime.GetRoster(homeTeamKey), runtime.WorldCardCatalog),
+                    rotationIndex, playerIds, restRounds);
+                awayTactics = CreateAiLoadout(runtime, game, game.AwayTeamId);
+                homeTactics = CreateAiLoadout(runtime, game, game.HomeTeamId);
+            }
+
+            var configuration = new HistoricalMatchConfiguration(
+                _balance.HistoricalAssignment.CreateRule(),
+                awayTacticLoadout: awayTactics,
+                homeTacticLoadout: homeTactics);
+            var input = new MatchInput(
+                season.OriginYear,
+                game.GameId,
+                game.RandomSeed,
+                awayBuild.Roster,
+                homeBuild.Roster,
+                MatchRules.CreateDefault(requiresWinner: true),
+                SimulationRulesVersion.DetailedV2,
+                SimulationVersionStamp.CreateCurrent(_balance.Version, _content.Manifest.ContentHash,
+                    (int)SimulationRulesVersion.DetailedV2),
+                configuration);
+            MatchResult match = new MatchSimulator(_balance, MatchRandomStreams.Create(game.RandomSeed)).Simulate(
+                input,
+                includesPlayer ? eventSink ?? NullMatchEventSink.Instance : NullMatchEventSink.Instance,
+                includesPlayer ? executionProfile ?? MatchExecutionProfile.DetailedBackground :
+                    ResolveBackgroundExecutionProfile(runtime, season));
+
+            HomeGameFinanceResult finance = null;
+            ManagerModeTransactionStatus financeStatus = ManagerModeTransactionStatus.Rejected;
+            if (includesPlayer)
+            {
+                financeStatus = ApplyHomeFinance(runtime, game, homeTeamKey, awayTeamKey, match, playerIsHome, out finance);
+                if (financeStatus == ManagerModeTransactionStatus.InsufficientMoney)
+                    throw new InvalidOperationException("홈 경기 운영비를 지불할 수 없어 포스트시즌 결과를 확정할 수 없습니다.");
+            }
+            game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
+            ApplyPostGameState(runtime.ManagerMode, awayBuild, homeBuild, match);
+            int winnerTeamId = match.AwayBoxScore.Runs > match.HomeBoxScore.Runs ? game.AwayTeamId : game.HomeTeamId;
+            bool clinching = winnerTeamId == series.HigherSeedTeamId
+                ? series.HigherSeedWins + 1 >= series.WinsRequired
+                : series.LowerSeedWins + 1 >= series.WinsRequired;
+            new LeagueStatisticsService(season.Statistics).RecordMatch(match, CompetitionScope.Postseason,
+                CountPostseasonGames(group.Postseason),
+                series.Round == OwnerPostseasonRound.Championship,
+                clinching);
+            if (!includesPlayer)
+            {
+                playerResult = null;
+                return match;
+            }
+
+            ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
+            runtime.ManagerMode.ClearSelectedTactics();
+            runtime.ManagerMode.Dugout.RecordMatchCompleted();
+            TeamMatchBuild ownedBuild = playerIsHome ? homeBuild : awayBuild;
+            playerResult = new ManagerModeMatchResult(match, playerPlan, ownedBuild.LineupChemistry,
+                finance, financeStatus, runtime.ManagerMode.Dugout.ManagerId, runtime.ManagerMode.Dugout.HeadCoachId,
+                ownedBuild.Roster.ManagerProfile,
+                _dugoutCatalog.GetManager(runtime.ManagerMode.Dugout.ManagerId).DisplayName,
+                _dugoutCatalog.GetHeadCoach(runtime.ManagerMode.Dugout.HeadCoachId).DisplayName);
+            return match;
+        }
+
+        private static int CountPostseasonGames(OwnerPostseasonState postseason)
+        {
+            int count = 0;
+            for (int index = 0; index < postseason.Series.Count; index++) count += postseason.Series[index].Games.Count;
+            return count;
+        }
+
         /// <summary>플레이어 일정 뒤 남은 AI 대진을 동일 엔진과 Seed로 소진한다.</summary>
         internal void CompleteRemainingAiGames(ManagerHistoricalRuntimeState runtime)
         {
@@ -276,37 +453,27 @@ namespace Baseball.Game.Historical
                 int.MaxValue);
         }
 
-        /// <summary>지정 라운드까지 남은 AI 구단 대진을 라운드·GameId 순서로 정확히 한 번 진행한다.</summary>
-        private void SimulateAiGamesThrough(
+        /// <summary>지정 라운드까지 가장 앞선 AI 대진 한 건만 찾아 확정한다.</summary>
+        internal bool TrySimulateNextAiGameThrough(
             ManagerHistoricalRuntimeState runtime,
             PlayerIdMap playerIds,
-            int throughRound)
+            AiScheduleCursor cursor,
+            int throughRound,
+            out int completedRound)
         {
-            if (throughRound <= 0) return;
-            if (runtime.LeagueWorld == null)
-            {
-                SimulateGroupThrough(runtime, playerIds, runtime.ManagerMode.LiveSeason, throughRound);
-                return;
-            }
-            foreach (var group in runtime.LeagueWorld.Groups)
-                SimulateGroupThrough(runtime, playerIds, group.Season, throughRound);
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (playerIds == null) throw new ArgumentNullException(nameof(playerIds));
+            if (cursor == null) throw new ArgumentNullException(nameof(cursor));
+            completedRound = 0;
+            if (throughRound <= 0) return false;
+            if (!cursor.TryTakeNext(runtime, throughRound, out ManagerLiveSeasonState season,
+                    out ScheduledGameState game))
+                return false;
+            SimulateAiGame(runtime, playerIds, game, season);
+            completedRound = game.Round;
+            return true;
         }
 
-        private void SimulateGroupThrough(ManagerHistoricalRuntimeState runtime, PlayerIdMap playerIds,
-            ManagerLiveSeasonState season, int throughRound)
-        {
-            IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
-            for (int index = 0; index < games.Count; index++)
-            {
-                ScheduledGameState game = games[index];
-                if (game.IsCompleted || game.Round > throughRound) continue;
-                // 플레이어 구단 경기는 라인업·전술 확정을 거쳐야 하므로 자동 진행 대상이 아니다.
-                if (ReferenceEquals(season, runtime.ManagerMode.LiveSeason) && game.IncludesTeam(season.PlayerTeamId)) continue;
-                SimulateAiGame(runtime, playerIds, game, season);
-            }
-        }
-
-        /// <summary>AI 구단끼리의 한 경기를 플레이어 경기와 같은 엔진·Seed 계약으로 진행하고 상태에 반영한다.</summary>
         private void SimulateAiGame(
             ManagerHistoricalRuntimeState runtime,
             PlayerIdMap playerIds,
@@ -345,12 +512,51 @@ namespace Baseball.Game.Historical
                     (int)SimulationRulesVersion.DetailedV2),
                 configuration);
             MatchResult match = new MatchSimulator(_balance, MatchRandomStreams.Create(game.RandomSeed))
-                .Simulate(input, NullMatchEventSink.Instance, MatchExecutionProfile.DetailedBackground);
+                .Simulate(input, NullMatchEventSink.Instance, ResolveBackgroundExecutionProfile(runtime, season));
 
             game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
             ApplyPostGameState(runtime.ManagerMode, awayBuild, homeBuild, match);
             new LeagueStatisticsService(season.Statistics).RecordMatch(match, CompetitionScope.RegularSeason,
                 game.Round, isChampionship: false, isSeriesClinching: false);
+        }
+
+        /// <summary>같은 순위표를 겨루는 조 전체에 같은 경기 해상도를 적용한다.</summary>
+        internal MatchExecutionProfile ResolveBackgroundExecutionProfile(
+            ManagerHistoricalRuntimeState runtime, ManagerLiveSeasonState season)
+        {
+            return string.Equals(runtime.ManagerMode.LiveSeason.SeasonId, season.SeasonId, StringComparison.Ordinal)
+                ? MatchExecutionProfile.DetailedBackground
+                : _offscreenExecutionProfile;
+        }
+
+        /// <summary>지정 라운드까지 남은 AI 구단 대진을 라운드·GameId 순서로 정확히 한 번 진행한다.</summary>
+        private void SimulateAiGamesThrough(
+            ManagerHistoricalRuntimeState runtime,
+            PlayerIdMap playerIds,
+            int throughRound)
+        {
+            if (throughRound <= 0) return;
+            if (runtime.LeagueWorld == null)
+            {
+                SimulateGroupThrough(runtime, playerIds, runtime.ManagerMode.LiveSeason, throughRound);
+                return;
+            }
+            foreach (var group in runtime.LeagueWorld.Groups)
+                SimulateGroupThrough(runtime, playerIds, group.Season, throughRound);
+        }
+
+        private void SimulateGroupThrough(ManagerHistoricalRuntimeState runtime, PlayerIdMap playerIds,
+            ManagerLiveSeasonState season, int throughRound)
+        {
+            IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
+            for (int index = 0; index < games.Count; index++)
+            {
+                ScheduledGameState game = games[index];
+                if (game.IsCompleted || game.Round > throughRound) continue;
+                // 플레이어 구단 경기는 라인업·전술 확정을 거쳐야 하므로 자동 진행 대상이 아니다.
+                if (ReferenceEquals(season, runtime.ManagerMode.LiveSeason) && game.IncludesTeam(season.PlayerTeamId)) continue;
+                SimulateAiGame(runtime, playerIds, game, season);
+            }
         }
 
         /// <summary>플레이어 경기와 AI 경기를 같은 집계 경로에 넣어 리그 기록이 한쪽으로 치우치지 않게 한다.</summary>
@@ -440,10 +646,11 @@ namespace Baseball.Game.Historical
             string teamSeasonKey,
             object planSource,
             int rotationIndex,
-            PlayerIdMap playerIds)
+            PlayerIdMap playerIds,
+            int? restRoundsOverride = null)
         {
             CurrentRosterState activeRoster = runtime.GetRoster(teamSeasonKey);
-            int restRounds = ResolveRestRounds(runtime, teamSeasonKey, rotationIndex);
+            int restRounds = restRoundsOverride ?? ResolveRestRounds(runtime, teamSeasonKey, rotationIndex);
             var pitcherIds = new List<int>(ActiveRosterCompositionRule.PitcherCount);
             int conditionBonus = ResolveHeadCoachConditionBonus(runtime, teamSeasonKey, _balance.ConditionChemistry);
             PreGamePlanSnapshot playerPlan = planSource as PreGamePlanSnapshot;
@@ -1204,7 +1411,7 @@ namespace Baseball.Game.Historical
             public bool TryGet(string teamSeasonKey, string playerSeasonId, out int playerId) =>
                 _ids.TryGetValue(CreateKey(teamSeasonKey, playerSeasonId), out playerId);
 
-            /// <summary>조 편성·트레이드로 기존 기록의 선수 ID가 바뀌지 않게 월드 원장을 사용한다.</summary>
+            /// <summary>조 편성·1군 등록 변경으로 기존 기록의 선수 ID가 바뀌지 않게 월드 원장을 사용한다.</summary>
             public static PlayerIdMap Create(ManagerHistoricalRuntimeState runtime)
             {
                 if (runtime.LeagueWorld == null) return Create(runtime.Rosters);
@@ -1262,6 +1469,63 @@ namespace Baseball.Game.Historical
 
             private static string CreateKey(string teamSeasonKey, string playerSeasonId) =>
                 string.Concat(teamSeasonKey, "|", playerSeasonId);
+        }
+
+        /// <summary>긴 시즌에서 완료된 Schedule 앞부분을 매 Step 다시 훑지 않는 결정론적 AI 대진 Cursor다.</summary>
+        internal sealed class AiScheduleCursor
+        {
+            private readonly ManagerLiveSeasonState[] _seasons;
+            private readonly int[] _nextGameIndexes;
+
+            private AiScheduleCursor(ManagerLiveSeasonState[] seasons)
+            {
+                _seasons = seasons;
+                _nextGameIndexes = new int[seasons.Length];
+            }
+
+            public static AiScheduleCursor Create(ManagerHistoricalRuntimeState runtime)
+            {
+                if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+                if (runtime.LeagueWorld == null)
+                    return new AiScheduleCursor(new[] { runtime.ManagerMode.LiveSeason });
+                var seasons = new ManagerLiveSeasonState[runtime.LeagueWorld.Groups.Count];
+                for (int index = 0; index < seasons.Length; index++)
+                    seasons[index] = runtime.LeagueWorld.Groups[index].Season;
+                return new AiScheduleCursor(seasons);
+            }
+
+            public bool TryTakeNext(
+                ManagerHistoricalRuntimeState runtime,
+                int throughRound,
+                out ManagerLiveSeasonState season,
+                out ScheduledGameState game)
+            {
+                for (int seasonIndex = 0; seasonIndex < _seasons.Length; seasonIndex++)
+                {
+                    season = _seasons[seasonIndex];
+                    IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
+                    int gameIndex = _nextGameIndexes[seasonIndex];
+                    while (gameIndex < games.Count)
+                    {
+                        game = games[gameIndex];
+                        if (game.Round > throughRound)
+                        {
+                            _nextGameIndexes[seasonIndex] = gameIndex;
+                            break;
+                        }
+                        gameIndex++;
+                        _nextGameIndexes[seasonIndex] = gameIndex;
+                        if (game.IsCompleted) continue;
+                        if (ReferenceEquals(season, runtime.ManagerMode.LiveSeason) &&
+                            game.IncludesTeam(season.PlayerTeamId))
+                            continue;
+                        return true;
+                    }
+                }
+                season = null;
+                game = null;
+                return false;
+            }
         }
     }
 }

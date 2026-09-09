@@ -7,7 +7,8 @@ namespace Baseball.Game.Historical
     /// <summary>한 조의 소속과 실제 경기 결과를 함께 보관한다.</summary>
     public sealed class OwnerLeagueGroupState
     {
-        public OwnerLeagueGroupState(LeagueInstance league, ManagerLiveSeasonState season)
+        public OwnerLeagueGroupState(LeagueInstance league, ManagerLiveSeasonState season,
+            OwnerPostseasonState postseason = null)
         {
             League = league ?? throw new ArgumentNullException(nameof(league));
             Season = season ?? throw new ArgumentNullException(nameof(season));
@@ -17,10 +18,23 @@ namespace Baseball.Game.Historical
             foreach (var special in league.SpecialCompositeTeams) keys.Add(special.TeamSeasonKey);
             foreach (var team in season.Teams)
                 if (!keys.Remove(team.TeamSeasonKey)) throw new ArgumentException("조 소속과 일정 구단이 다릅니다.");
+            if (postseason != null && !string.Equals(postseason.SeasonId, season.SeasonId, StringComparison.Ordinal))
+                throw new ArgumentException("포스트시즌과 정규시즌의 SeasonId가 다릅니다.", nameof(postseason));
+            Postseason = postseason;
         }
 
         public LeagueInstance League { get; }
         public ManagerLiveSeasonState Season { get; }
+        public OwnerPostseasonState Postseason { get; private set; }
+
+        /// <summary>정규시즌 종료 뒤 이 조의 포스트시즌 상태를 한 번만 연결한다.</summary>
+        internal void SetPostseason(OwnerPostseasonState postseason)
+        {
+            if (Postseason != null) throw new InvalidOperationException("포스트시즌이 이미 생성됐습니다.");
+            if (postseason == null || !string.Equals(postseason.SeasonId, Season.SeasonId, StringComparison.Ordinal))
+                throw new ArgumentException("현재 시즌의 포스트시즌이 필요합니다.", nameof(postseason));
+            Postseason = postseason;
+        }
     }
 
     /// <summary>모든 연도별 구단의 소속 조·시즌과 로스터를 영속적으로 보관한다.</summary>
@@ -78,7 +92,7 @@ namespace Baseball.Game.Historical
         public IReadOnlyList<OwnerLeagueGroupState> Groups { get; }
         public IReadOnlyList<CurrentRosterState> Rosters { get; }
         public IReadOnlyList<OwnerLeagueGroupState> CompletedGroups { get; }
-        /// <summary>1군 교체와 트레이드 결과를 경기 ID 원장·저장이 읽는 월드 로스터에도 반영한다.</summary>
+        /// <summary>1군 등록 변경 결과를 경기 ID 원장·저장이 읽는 월드 로스터에도 반영한다.</summary>
         internal void ReplaceRoster(CurrentRosterState roster)
         {
             if (roster == null) throw new ArgumentNullException(nameof(roster));
@@ -92,10 +106,15 @@ namespace Baseball.Game.Historical
             throw new KeyNotFoundException(roster.TeamSeasonKey);
         }
         internal ManagerModeMatchService.PlayerIdMap PlayerIds { get; set; }
-        public bool IsCompleted
+        public bool IsRegularSeasonCompleted
         {
             get { foreach (var group in Groups) if (!group.Season.IsCompleted) return false; return true; }
         }
+        public bool IsPostseasonCompleted
+        {
+            get { foreach (var group in Groups) if (group.Postseason == null || !group.Postseason.IsCompleted) return false; return true; }
+        }
+        public bool IsCompleted => IsRegularSeasonCompleted && IsPostseasonCompleted;
 
         /// <summary>소속 조가 바뀌어도 유지되는 구단 식별자를 반환한다.</summary>
         public ManagerTeamReference GetTeam(string key) => _teams.TryGetValue(key, out var team)

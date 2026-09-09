@@ -62,7 +62,7 @@ namespace Baseball.Game.Historical
         {
             OwnerLeagueWorldState world = runtime.LeagueWorld ?? new OwnerLeagueWorldState(
                 new[] { new OwnerLeagueGroupState(runtime.League, runtime.ManagerMode.LiveSeason) }, runtime.Rosters);
-            if (!world.IsCompleted) throw new InvalidOperationException("모든 조의 정규시즌 종료가 필요합니다.");
+            if (!world.IsCompleted) throw new InvalidOperationException("모든 조의 정규시즌과 포스트시즌 종료가 필요합니다.");
             var previous = new Dictionary<string, LeagueGrade>(StringComparer.Ordinal);
             var next = new Dictionary<string, LeagueGrade>(StringComparer.Ordinal);
             var references = new Dictionary<string, ManagerTeamReference>(StringComparer.Ordinal);

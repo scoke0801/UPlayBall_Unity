@@ -101,6 +101,17 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void PlayerPostseasonCompleted_전체월드마감행동을다음시즌과구분한다()
+        {
+            _view.Bind(CreateModel(), false, true, false, false, true);
+
+            Assert.That(FindText("MatchState").text, Is.EqualTo("타 리그 진행 중"));
+            Assert.That(FindButton("CompleteSeasonButton").GetComponentInChildren<Text>().text,
+                Is.EqualTo("남은 리그 마감"));
+            Assert.That(FindText("Feedback").text, Does.Contain("우리 조 결과는 확정"));
+        }
+
+        [Test]
         public void Skin_재적용해도밝은정보창과텍스트대비를유지한다()
         {
             _view.Bind(CreateModel(), true);

@@ -23,7 +23,8 @@ namespace Baseball.Game.Historical
             return new LeagueSeasonStatisticsSaveData
             {
                 schemaVersion = state.StatisticsSchemaVersion,
-                regularSeason = CreatePlayers(state.RegularSeason)
+                regularSeason = CreatePlayers(state.RegularSeason),
+                postseason = CreatePlayers(state.Postseason)
             };
         }
 
@@ -33,11 +34,19 @@ namespace Baseball.Game.Historical
             if (source?.regularSeason == null)
                 return state;
 
-            for (int index = 0; index < source.regularSeason.Length; index++)
+            RestorePlayers(state.RegularSeason, source.regularSeason);
+            RestorePlayers(state.Postseason, source.postseason);
+            return state;
+        }
+
+        private static void RestorePlayers(CompetitionStatisticsState target, PlayerSeasonRecordSaveData[] source)
+        {
+            if (source == null) return;
+            for (int index = 0; index < source.Length; index++)
             {
-                PlayerSeasonRecordSaveData saved = source.regularSeason[index]
+                PlayerSeasonRecordSaveData saved = source[index]
                     ?? throw new InvalidOperationException("null 선수 기록이 있습니다.");
-                PlayerCompetitionStatisticsState player = state.RegularSeason.GetOrCreate(
+                PlayerCompetitionStatisticsState player = target.GetOrCreate(
                     saved.playerId,
                     saved.playerName ?? string.Empty,
                     saved.teamId,
@@ -47,7 +56,6 @@ namespace Baseball.Game.Historical
                 RestorePitching(player.Pitching, saved.pitching);
                 RestoreFielding(player, saved.fielding);
             }
-            return state;
         }
 
         private static PlayerSeasonRecordSaveData[] CreatePlayers(CompetitionStatisticsState competition)

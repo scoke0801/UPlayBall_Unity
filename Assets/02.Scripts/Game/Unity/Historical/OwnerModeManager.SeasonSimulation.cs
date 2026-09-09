@@ -7,12 +7,86 @@ namespace Baseball.Game.Historical
         private ManagerRegularSeasonSimulationSession _regularSeasonSimulationSession;
         private ManagerRegularSeasonSimulationProgress _regularSeasonSimulationProgress;
         private ManagerRegularSeasonCompletionResult _lastRegularSeasonCompletion;
+        private OwnerPostseasonSimulationSession _postseasonSimulationSession;
+        private OwnerPostseasonSimulationProgress _postseasonSimulationProgress;
 
         public bool IsRegularSeasonSimulationRunning => _regularSeasonSimulationSession != null;
         public ManagerRegularSeasonSimulationProgress RegularSeasonSimulationProgress =>
             _regularSeasonSimulationProgress;
         public ManagerRegularSeasonCompletionResult LastRegularSeasonCompletion =>
             _lastRegularSeasonCompletion;
+        public bool IsPostseasonSimulationRunning => _postseasonSimulationSession != null;
+        public OwnerPostseasonSimulationProgress PostseasonSimulationProgress => _postseasonSimulationProgress;
+
+        /// <summary>모든 정규시즌을 확정하고 프레임 단위 포스트시즌 진행 세션을 연다.</summary>
+        public bool BeginPostseasonSimulation()
+        {
+            if (Runtime == null || _matchService == null)
+            {
+                LastError = "진행 중인 구단주 시즌이 없습니다.";
+                return false;
+            }
+            if (_regularSeasonSimulationSession != null || _postseasonSimulationSession != null)
+            {
+                LastError = "이미 시즌 시뮬레이션이 진행 중입니다.";
+                return false;
+            }
+            try
+            {
+                if (!Runtime.LeagueWorld.IsRegularSeasonCompleted)
+                    _matchService.CompleteRegularSeason(Runtime);
+                _postseasonSimulationSession = new OwnerPostseasonSimulationSession(Runtime, _matchService, _balance);
+                _postseasonSimulationProgress = _postseasonSimulationSession.CreateProgressSnapshot();
+                LastError = string.Empty;
+                return true;
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                _postseasonSimulationSession = null;
+                LastError = exception.Message;
+                return false;
+            }
+        }
+
+        /// <summary>한 프레임에 포스트시즌 상세 경기 한 건만 확정한다.</summary>
+        public bool AdvancePostseasonSimulationFrame()
+        {
+            if (_postseasonSimulationSession == null)
+            {
+                LastError = "진행 중인 포스트시즌이 없습니다.";
+                return false;
+            }
+            try
+            {
+                OwnerPostseasonAdvanceResult result = _postseasonSimulationSession.AdvanceNextStep();
+                if (result.PlayerMatch != null) LastMatch = result.PlayerMatch;
+                _postseasonSimulationProgress = _postseasonSimulationSession.CreateProgressSnapshot();
+                if (!_postseasonSimulationSession.IsCompleted) return true;
+                _postseasonSimulationSession = null;
+                CurrentPregame = null;
+                LastError = string.Empty;
+                NotifyRuntimeChanged();
+                return true;
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                _postseasonSimulationProgress = _postseasonSimulationSession.CreateProgressSnapshot();
+                _postseasonSimulationSession = null;
+                LastError = $"포스트시즌 시뮬레이션 중 오류가 발생했습니다. {exception.Message}";
+                NotifyRuntimeChanged();
+                return false;
+            }
+        }
+
+        public bool StopPostseasonSimulation()
+        {
+            if (_postseasonSimulationSession == null) return false;
+            _postseasonSimulationProgress = _postseasonSimulationSession.CreateProgressSnapshot();
+            _postseasonSimulationSession = null;
+            LastError = string.Empty;
+            NotifyRuntimeChanged();
+            return true;
+        }
 
         /// <summary>진행 팝업을 먼저 그릴 수 있도록 계산하지 않은 정규시즌 자동 진행 세션만 연다.</summary>
         public bool BeginRegularSeasonSimulation()
@@ -27,19 +101,16 @@ namespace Baseball.Game.Historical
                 LastError = "이미 정규시즌 시뮬레이션이 진행 중입니다.";
                 return false;
             }
-            if (Runtime.ManagerMode.LiveSeason.NextPlayerGame == null)
-            {
-                LastError = "플레이어 구단의 남은 정규시즌 경기가 없습니다.";
-                return false;
-            }
-
             try
             {
-                ManagerPregamePreparation preparation = CurrentPregame ?? PrepareNextGame();
-                if (!preparation.CanStartGame)
+                if (Runtime.ManagerMode.LiveSeason.NextPlayerGame != null)
                 {
-                    LastError = "현재 선수단과 라인업으로 시즌 시뮬레이션을 시작할 수 없습니다.";
-                    return false;
+                    ManagerPregamePreparation preparation = CurrentPregame ?? PrepareNextGame();
+                    if (!preparation.CanStartGame)
+                    {
+                        LastError = "현재 선수단과 라인업으로 시즌 시뮬레이션을 시작할 수 없습니다.";
+                        return false;
+                    }
                 }
 
                 _regularSeasonSimulationSession = new ManagerRegularSeasonSimulationSession(Runtime, _matchService);
@@ -58,7 +129,7 @@ namespace Baseball.Game.Historical
             }
         }
 
-        /// <summary>메인 스레드 한 프레임에서 플레이어 경기와 같은 라운드의 AI 대진만 진행한다.</summary>
+        /// <summary>메인 스레드가 양보할 수 있도록 정규시즌 Detailed 경기를 최대 한 건 진행한다.</summary>
         public bool AdvanceRegularSeasonSimulationFrame()
         {
             if (_regularSeasonSimulationSession == null)
@@ -121,17 +192,19 @@ namespace Baseball.Game.Historical
         /// <summary>화면 종료 시 완료한 라운드까지만 유지하고 세션 참조를 정리한다.</summary>
         public void AbortRegularSeasonSimulationForSceneUnload()
         {
-            if (_regularSeasonSimulationSession == null)
-                return;
-            _regularSeasonSimulationProgress = _regularSeasonSimulationSession.AbortBySceneUnload();
-            _regularSeasonSimulationSession = null;
-            CurrentPregame = null;
-            RefreshAvailableTacticCards();
+            if (_regularSeasonSimulationSession != null)
+            {
+                _regularSeasonSimulationProgress = _regularSeasonSimulationSession.AbortBySceneUnload();
+                _regularSeasonSimulationSession = null;
+                CurrentPregame = null;
+                RefreshAvailableTacticCards();
+            }
+            _postseasonSimulationSession = null;
         }
 
         private void EnsureRegularSeasonSimulationIsNotRunning()
         {
-            if (_regularSeasonSimulationSession != null)
+            if (_regularSeasonSimulationSession != null || _postseasonSimulationSession != null)
                 throw new InvalidOperationException("정규시즌 시뮬레이션이 진행 중입니다.");
         }
     }

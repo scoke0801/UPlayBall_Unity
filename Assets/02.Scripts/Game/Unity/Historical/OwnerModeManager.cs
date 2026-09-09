@@ -652,6 +652,23 @@ namespace Baseball.Game.Historical
             return result;
         }
 
+        /// <summary>정규시즌·포스트시즌·다음 등급을 같은 확정 상태에서 조회한다.</summary>
+        public OwnerSeasonReviewSnapshot CreateSeasonReview()
+        {
+            return OwnerSeasonReviewService.Create(RequireRuntime(), _balance);
+        }
+
+        /// <summary>최종 순위를 고정해 포스트시즌 대진을 만들고 시즌 검토 화면에 제공한다.</summary>
+        public OwnerSeasonReviewSnapshot InitializePostseasonReview()
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            if (!runtime.LeagueWorld.IsRegularSeasonCompleted)
+                throw new InvalidOperationException("모든 조의 정규시즌 종료가 필요합니다.");
+            new OwnerPostseasonService(_balance).EnsureInitialized(runtime);
+            NotifyRuntimeChanged();
+            return OwnerSeasonReviewService.Create(runtime, _balance);
+        }
+
         /// <summary>현재 구단주 Save가 실제 경기에서 장착할 수 있는 전술카드 Definition을 반환한다.</summary>
         public IReadOnlyList<TacticCardDefinition> GetAvailableTacticCards()
         {

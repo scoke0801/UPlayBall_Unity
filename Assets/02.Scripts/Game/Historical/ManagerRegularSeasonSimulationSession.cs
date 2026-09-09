@@ -77,17 +77,20 @@ namespace Baseball.Game.Historical
         public ManagerModeMatchResult MatchResult { get; }
     }
 
-    /// <summary>남은 정규시즌을 플레이어 경기와 같은 라운드의 AI 대진 단위로 재개 가능하게 실행한다.</summary>
+    /// <summary>남은 정규시즌을 Detailed 경기 단위로 잘라 재개 가능하게 실행한다.</summary>
     public sealed class ManagerRegularSeasonSimulationSession
     {
         private readonly ManagerHistoricalRuntimeState _runtime;
         private readonly ManagerModeMatchService _matchService;
+        private readonly ManagerModeMatchService.PlayerIdMap _playerIds;
+        private readonly ManagerModeMatchService.AiScheduleCursor _aiScheduleCursor;
         private readonly ManagerLiveSeasonState _season;
         private readonly int _completedLeagueGamesBefore;
         private readonly int _totalPlayerGames;
         private readonly int _totalLeagueGames;
         private ManagerRegularSeasonSimulationStatus _status;
         private int _playerGamesSimulated;
+        private int _leagueGamesSimulated;
         private int _lastCompletedRound;
         private Exception _fault;
 
@@ -101,6 +104,8 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException("ManagerMode 상태가 없는 Save는 시즌을 진행할 수 없습니다.");
 
             _season = runtime.ManagerMode.LiveSeason;
+            _playerIds = ManagerModeMatchService.PlayerIdMap.Create(runtime);
+            _aiScheduleCursor = ManagerModeMatchService.AiScheduleCursor.Create(runtime);
             _completedLeagueGamesBefore = CountWorldGames(runtime, completedOnly: true);
             _totalPlayerGames = CountRemainingPlayerGames(_season);
             _totalLeagueGames = CountWorldGames(runtime, completedOnly: false) - _completedLeagueGamesBefore;
@@ -115,7 +120,7 @@ namespace Baseball.Game.Historical
         public bool IsStopped => _status is ManagerRegularSeasonSimulationStatus.StoppedByUser or
             ManagerRegularSeasonSimulationStatus.AbortedBySceneUnload;
 
-        /// <summary>플레이어 경기 한 건과 같은 라운드의 AI 대진을 기존 Detailed 경로로 확정한다.</summary>
+        /// <summary>UI가 매 프레임 양보할 수 있도록 Detailed 경기를 최대 한 건만 확정한다.</summary>
         public ManagerRegularSeasonSimulationStepResult AdvanceNextStep()
         {
             if (IsCompleted)
@@ -130,20 +135,43 @@ namespace Baseball.Game.Historical
             {
                 ScheduledGameState nextGame = _season.NextPlayerGame;
                 ManagerModeMatchResult matchResult = null;
-                if (nextGame != null)
+                bool didAdvanceGame = false;
+                int aiThroughRound = nextGame == null ? int.MaxValue : nextGame.Round - 1;
+                if (_matchService.TrySimulateNextAiGameThrough(
+                    _runtime, _playerIds, _aiScheduleCursor, aiThroughRound, out int completedAiRound))
+                {
+                    _lastCompletedRound = completedAiRound;
+                    didAdvanceGame = true;
+                    _leagueGamesSimulated++;
+                }
+                else if (nextGame != null)
                 {
                     int completedRound = nextGame.Round;
-                    matchResult = _matchService.PlayNextGame(_runtime);
+                    matchResult = _matchService.PlayNextPlayerGameForSeasonSimulation(_runtime, _playerIds);
                     _lastCompletedRound = completedRound;
                     _playerGamesSimulated++;
+                    didAdvanceGame = true;
+                    _leagueGamesSimulated++;
                 }
 
-                if (_season.NextPlayerGame == null)
+                if (_season.NextPlayerGame == null && !didAdvanceGame)
                 {
-                    _matchService.CompleteRemainingAiGames(_runtime);
-                    if (!_season.IsCompleted || _runtime.LeagueWorld != null && !_runtime.LeagueWorld.IsCompleted)
+                    bool hasRemainingAiGame = _matchService.TrySimulateNextAiGameThrough(
+                        _runtime, _playerIds, _aiScheduleCursor, int.MaxValue, out int remainingAiRound);
+                    if (hasRemainingAiGame)
+                    {
+                        _lastCompletedRound = remainingAiRound;
+                        _leagueGamesSimulated++;
+                    }
+                    else if (!_season.IsCompleted ||
+                             _runtime.LeagueWorld != null && !_runtime.LeagueWorld.IsRegularSeasonCompleted)
+                    {
                         throw new InvalidOperationException("플레이어 일정 종료 뒤에도 미완료 AI 대진이 남아 있습니다.");
-                    _status = ManagerRegularSeasonSimulationStatus.Completed;
+                    }
+                    else
+                    {
+                        _status = ManagerRegularSeasonSimulationStatus.Completed;
+                    }
                 }
 
                 return new ManagerRegularSeasonSimulationStepResult(CreateProgressSnapshot(), matchResult);
@@ -164,7 +192,7 @@ namespace Baseball.Game.Historical
                 _status,
                 _playerGamesSimulated,
                 _totalPlayerGames,
-                CountWorldGames(_runtime, completedOnly: true) - _completedLeagueGamesBefore,
+                _leagueGamesSimulated,
                 _totalLeagueGames,
                 _lastCompletedRound,
                 nextGame?.Round ?? 0,

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Linq;
 using Baseball.Core.Balance;
 using Baseball.Core.Historical;
 using Baseball.Core.Rules;
@@ -16,6 +17,42 @@ namespace Baseball.Tests.EditMode.Game.Historical
 {
     public sealed class ManagerModeMatchServiceTests
     {
+        [Test]
+        public void 다른조간이진행은중간저장뒤에도전체일정결과를재현한다()
+        {
+            CreateRuntime(out var source, out var provider);
+            var rosters = source.Rosters.Take(6).ToArray();
+            var isolated = new ManagerHistoricalRuntimeState(source.PlayerTeamSeasonKey, source.ContentReference,
+                source.IdentityRegistry, source.WorldHistory, source.WorldCardCatalog,
+                new LeagueInstance("검증-내조", LeagueGrade.Rookie, rosters.Select(r => r.TeamSeasonKey).ToArray(),
+                    Array.Empty<SpecialCompositeTeamRegistration>()), rosters, source.OwnedCards, source.Economy);
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+            var first = adapter.Restore(adapter.CreateSaveData(isolated));
+            Assert.That(first.LeagueWorld.Groups.Count, Is.GreaterThan(1));
+            var service = new ManagerModeMatchService(provider, BalanceTable.CreateDefault());
+            Assert.Throws<InvalidOperationException>(() => service.PlayNextGame(first,
+                NullMatchEventSink.Instance, MatchExecutionProfile.AggregateBackground));
+            service.PlayNextGame(first);
+            var second = adapter.Restore(adapter.CreateSaveData(first));
+            service.CompleteRegularSeason(first);
+            new ManagerModeMatchService(provider, BalanceTable.CreateDefault()).CompleteRegularSeason(second);
+            Assert.That(first.LeagueWorld.IsRegularSeasonCompleted, Is.True);
+            var resolve = typeof(ManagerModeMatchService).GetMethod("ResolveBackgroundExecutionProfile", BindingFlags.NonPublic | BindingFlags.Instance);
+            for (int group = 0; group < first.LeagueWorld.Groups.Count; group++)
+            {
+                var season = first.LeagueWorld.Groups[group].Season;
+                var repeated = second.LeagueWorld.Groups[group].Season;
+                var profile = (MatchExecutionProfile)resolve.Invoke(service, new object[] { first, season });
+                bool isPlayerGroup = season.SeasonId == first.ManagerMode.LiveSeason.SeasonId;
+                Assert.That(profile, Is.EqualTo(isPlayerGroup ? MatchExecutionProfile.DetailedBackground : MatchExecutionProfile.AggregateBackground));
+                for (int game = 0; game < season.Schedule.Games.Count; game++)
+                {
+                    Assert.That(repeated.Schedule.Games[game].AwayRuns, Is.EqualTo(season.Schedule.Games[game].AwayRuns));
+                    Assert.That(repeated.Schedule.Games[game].HomeRuns, Is.EqualTo(season.Schedule.Games[game].HomeRuns));
+                }
+            }
+        }
+
         [Test]
         public void PreferredOrder_전체원본주전배정과AI조회및저장복원을공유한다()
         {
@@ -723,7 +760,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
-        public void 정규시즌세션은한Step만진행하고안전지점에서중단한다()
+        public void 정규시즌세션은한Step당한경기만진행하고안전지점에서중단한다()
         {
             CreateRuntime(out ManagerHistoricalRuntimeState runtime, out IHistoricalContentProvider provider);
             ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
@@ -738,11 +775,19 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(initial.LeagueGamesSimulated, Is.Zero);
             Assert.That(initial.NextRound, Is.EqualTo(firstRound));
 
-            ManagerRegularSeasonSimulationStepResult step = session.AdvanceNextStep();
+            ManagerRegularSeasonSimulationStepResult step;
+            int previousLeagueGames = 0;
+            do
+            {
+                step = session.AdvanceNextStep();
+                Assert.That(step.Progress.LeagueGamesSimulated - previousLeagueGames, Is.EqualTo(1),
+                    "한 프레임 Step에서 Detailed 경기를 여러 건 실행하면 UI가 다시 멈춥니다.");
+                previousLeagueGames = step.Progress.LeagueGamesSimulated;
+            }
+            while (step.MatchResult == null);
 
-            Assert.That(step.MatchResult, Is.Not.Null);
             Assert.That(step.Progress.PlayerGamesSimulated, Is.EqualTo(1));
-            Assert.That(step.Progress.LeagueGamesSimulated, Is.GreaterThan(1));
+            Assert.That(step.Progress.LeagueGamesSimulated, Is.GreaterThanOrEqualTo(1));
             Assert.That(step.Progress.LastCompletedRound, Is.EqualTo(firstRound));
             Assert.That(season.NextPlayerGame.Round, Is.GreaterThan(firstRound));
             ManagerRegularSeasonSimulationProgress stopped = session.StopByUser();
@@ -833,6 +878,42 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 Assert.That(secondGames[index].AwayRuns, Is.EqualTo(firstGames[index].AwayRuns));
                 Assert.That(secondGames[index].HomeRuns, Is.EqualTo(firstGames[index].HomeRuns));
             }
+        }
+
+        [Test]
+        public void 포스트시즌은같은Seed와입력에서시드대진경기결과를재현한다()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState first, out IHistoricalContentProvider firstProvider);
+            CreateRuntime(out ManagerHistoricalRuntimeState second, out IHistoricalContentProvider secondProvider);
+            BalanceTable balance = BalanceTable.CreateDefault();
+            var firstMatchService = new ManagerModeMatchService(firstProvider, balance);
+            var secondMatchService = new ManagerModeMatchService(secondProvider, balance);
+            firstMatchService.CompleteRegularSeason(first);
+            secondMatchService.CompleteRegularSeason(second);
+
+            int firstGames = new OwnerPostseasonService(balance).Complete(first, firstMatchService);
+            int secondGames = new OwnerPostseasonService(balance).Complete(second, secondMatchService);
+
+            OwnerPostseasonState firstPostseason = first.LeagueWorld.GetGroup(first.PlayerTeamSeasonKey).Postseason;
+            OwnerPostseasonState secondPostseason = second.LeagueWorld.GetGroup(second.PlayerTeamSeasonKey).Postseason;
+            Assert.That(secondGames, Is.EqualTo(firstGames));
+            Assert.That(secondPostseason.SeedTeamIds, Is.EqualTo(firstPostseason.SeedTeamIds));
+            Assert.That(secondPostseason.ChampionTeamId, Is.EqualTo(firstPostseason.ChampionTeamId));
+            Assert.That(secondPostseason.Series.Count, Is.EqualTo(firstPostseason.Series.Count));
+            for (int seriesIndex = 0; seriesIndex < firstPostseason.Series.Count; seriesIndex++)
+            {
+                OwnerPostseasonSeriesState expected = firstPostseason.Series[seriesIndex];
+                OwnerPostseasonSeriesState actual = secondPostseason.Series[seriesIndex];
+                Assert.That(actual.Games.Count, Is.EqualTo(expected.Games.Count));
+                for (int gameIndex = 0; gameIndex < expected.Games.Count; gameIndex++)
+                {
+                    Assert.That(actual.Games[gameIndex].RandomSeed, Is.EqualTo(expected.Games[gameIndex].RandomSeed));
+                    Assert.That(actual.Games[gameIndex].AwayRuns, Is.EqualTo(expected.Games[gameIndex].AwayRuns));
+                    Assert.That(actual.Games[gameIndex].HomeRuns, Is.EqualTo(expected.Games[gameIndex].HomeRuns));
+                    Assert.That(actual.Games[gameIndex].AwayRuns, Is.Not.EqualTo(actual.Games[gameIndex].HomeRuns));
+                }
+            }
+            Assert.That(first.LeagueWorld.IsCompleted, Is.True);
         }
 
         private static void CreateRuntime(

@@ -312,6 +312,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(oneYear.LastSalaryPaidSeason, Is.Null);
 
             CompleteSeasonSchedule(runtime.ManagerMode.LiveSeason);
+            CompleteOwnerPostseason(runtime, balance);
             SeasonFinanceSummary completedFinance = runtime.ManagerMode.ClubOperation.CurrentSeason;
             long moneyBefore = runtime.Economy.Money;
             ManagerSeasonAdvanceResult result = coordinator.AdvanceSeason(runtime);
@@ -379,6 +380,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     runtime.PlayerTeamSeasonKey,
                     conditioningCoachStaffId: coach.StaffId));
             CompleteSeasonSchedule(runtime.ManagerMode.LiveSeason);
+            CompleteOwnerPostseason(runtime, BalanceTable.CreateDefault());
             ManagerHistoricalSaveData save = adapter.CreateSaveData(runtime);
             save.economy.money = 0L;
             runtime = adapter.Restore(save);
@@ -489,6 +491,31 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 if (!game.IsCompleted) game.Complete(0, 0);
             }
             Assert.That(season.IsCompleted, Is.True);
+        }
+
+        private static void CompleteOwnerPostseason(ManagerHistoricalRuntimeState runtime, BalanceTable balance)
+        {
+            new OwnerPostseasonService(balance).EnsureInitialized(runtime);
+            int gameId = 1_900_000;
+            for (int groupIndex = 0; groupIndex < runtime.LeagueWorld.Groups.Count; groupIndex++)
+            {
+                OwnerPostseasonState postseason = runtime.LeagueWorld.Groups[groupIndex].Postseason;
+                while (!postseason.IsCompleted)
+                {
+                    OwnerPostseasonSeriesState series = postseason.EnsureCurrentSeries(
+                        balance.Postseason.SemifinalSeriesGames,
+                        balance.Postseason.ChampionshipSeriesGames);
+                    while (!series.IsCompleted)
+                    {
+                        ScheduledGameState game = series.AppendNextGame(gameId, (ulong)gameId);
+                        gameId++;
+                        bool higherSeedIsHome = game.HomeTeamId == series.HigherSeedTeamId;
+                        game.Complete(higherSeedIsHome ? 0 : 1, higherSeedIsHome ? 1 : 0);
+                        series.RecordCompletedGame(game);
+                    }
+                }
+            }
+            Assert.That(runtime.LeagueWorld.IsPostseasonCompleted, Is.True);
         }
 
         private static int ResolveCompatibleGamesPerTeam(int teamCount, int configuredGames)

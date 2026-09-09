@@ -258,6 +258,9 @@ namespace Baseball.Game.Historical
             string cardId)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (runtime.IsCardReserved(cardId) ||
+                (runtime.WorldCardCatalog.TryGetCard(cardId, out var definition) && definition.IsUniqueOwnedCard))
+                throw new InvalidOperationException("예약 재료와 특수 영입 카드는 강화할 수 없습니다.");
             if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState ownedCard))
                 throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 강화할 수 없습니다.");
             return CardEnhancementResolver.Enhance(ownedCard);
@@ -281,6 +284,9 @@ namespace Baseball.Game.Historical
             int count)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (runtime.IsCardReserved(cardId) ||
+                (runtime.WorldCardCatalog.TryGetCard(cardId, out var definition) && definition.IsUniqueOwnedCard))
+                throw new InvalidOperationException("예약 재료와 특수 영입 카드는 판매할 수 없습니다.");
             if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState ownedCard))
                 throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 판매할 수 없습니다.");
             if (!runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
