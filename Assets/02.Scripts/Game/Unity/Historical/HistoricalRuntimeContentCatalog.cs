@@ -52,11 +52,22 @@ namespace Baseball.Game.Historical
     {
         [SerializeField] private TextAsset _manifest;
         [SerializeField] private HistoricalRuntimeContentFile _playerPersons;
+        [SerializeField] private TextAsset _specialCards;
+        [SerializeField] private string _specialCardsSha256;
         [SerializeField] private HistoricalRuntimeYearContentFile[] _years =
             Array.Empty<HistoricalRuntimeYearContentFile>();
 
         public TextAsset Manifest => _manifest;
         public HistoricalRuntimeContentFile PlayerPersons => _playerPersons;
+        public TextAsset SpecialCards => _specialCards;
+        public string SpecialCardsSha256 => _specialCardsSha256;
+
+        /// <summary>검증된 특수 카드 파일과 파일 해시를 함께 등록한다.</summary>
+        public void ConfigureSpecialCards(TextAsset content, string sha256)
+        {
+            _specialCards = content ?? throw new ArgumentNullException(nameof(content));
+            _specialCardsSha256 = sha256 ?? throw new ArgumentNullException(nameof(sha256));
+        }
         public IReadOnlyList<HistoricalRuntimeYearContentFile> Years =>
             _years ?? Array.Empty<HistoricalRuntimeYearContentFile>();
 

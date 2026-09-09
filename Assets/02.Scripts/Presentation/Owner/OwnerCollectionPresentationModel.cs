@@ -342,7 +342,7 @@ namespace Baseball.Presentation.Owner
                 $"비용 {card.Cost}",
                 FormatEdition(card.Edition),
                 status,
-                card.PlayerPersonId,
+                string.IsNullOrEmpty(card.PlayerSeasonId) ? card.PlayerPersonId : card.PlayerSeasonId,
                 visualState: state, frameEdition: card.Edition, cost: card.Cost);
         }
 
@@ -392,14 +392,7 @@ namespace Baseball.Presentation.Owner
 
         public static string FormatEdition(PlayerCardEdition edition)
         {
-            return edition switch
-            {
-                PlayerCardEdition.Normal => "일반",
-                PlayerCardEdition.AllStar => "올스타",
-                PlayerCardEdition.GoldenGlove => "골든글러브",
-                PlayerCardEdition.Mvp => "MVP",
-                _ => "카드 종류 미확인"
-            };
+            return Baseball.Game.Historical.PlayerCardEditionText.Get(edition);
         }
 
         private static bool Matches(OwnerCollectionCardSnapshot card, string query)

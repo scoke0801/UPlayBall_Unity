@@ -210,7 +210,8 @@ namespace Baseball.Presentation.Owner
         private static readonly PlayerCardEdition?[] EditionFilters =
         {
             null, PlayerCardEdition.GoldenGlove, PlayerCardEdition.Normal,
-            PlayerCardEdition.Mvp, PlayerCardEdition.AllStar
+            PlayerCardEdition.Mvp, PlayerCardEdition.AllStar, PlayerCardEdition.Rare,
+            PlayerCardEdition.Ex, PlayerCardEdition.CareerHigh, PlayerCardEdition.Legend
         };
 
         private static void CompactPanel(RectTransform panel)

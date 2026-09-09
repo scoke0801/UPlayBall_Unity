@@ -1343,7 +1343,9 @@ namespace Baseball.Game.Historical
                 return teamSeasonKey ?? string.Empty;
             return Runtime == null
                 ? team.FranchiseId
-                : Runtime.IdentityRegistry.GetPresentationFranchiseName(team.FranchiseId);
+                : Runtime.IdentityRegistry.GetPresentationTeamSeasonName(
+                    team.TeamSeasonKey,
+                    team.FranchiseId);
         }
 
         /// <summary>정규 구단과 합성 참가팀의 원본 시즌 연도를 TeamSeasonKey에서 찾는다.</summary>

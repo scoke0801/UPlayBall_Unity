@@ -14,6 +14,16 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed partial class ManagerHistoricalSaveTests
     {
         [Test]
+        public void SpecialCards_MaterialAvailabilityMatchesReservationProtection()
+        {
+            var state = CreateSpecialCardRuntime(out string target, out string[] materials);
+            Assert.That(state.CanUseSpecialRecruitMaterial(materials[0]), Is.True);
+            state.ReserveSpecialRecruit("availability", target, materials);
+            Assert.That(state.CanUseSpecialRecruitMaterial(materials[0]), Is.False);
+            state.CancelSpecialRecruit("availability");
+            Assert.That(state.CanUseSpecialRecruitMaterial(materials[0]), Is.True);
+        }
+        [Test]
         public void SpecialCards_RecruitReservesConsumesOnceAndRestoresReceipt()
         {
             var state = CreateSpecialCardRuntime(out string target, out string[] materials);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Core.Shop;
+using Baseball.Game.Historical;
 using Baseball.Presentation.Encyclopedia;
 using Baseball.Presentation.UI;
 using UnityEngine;
@@ -33,6 +34,10 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerPowerUp _powerUpView;
         private UI_Scene_OwnerGrowth _growthView;
         private UI_Scene_OwnerSpecialRecruit _specialRecruitView;
+        private OwnerModeManager _specialRecruitManager;
+
+        /// <summary>특수 영입의 조회·확정을 구단주 Game 경계에 연결한다.</summary>
+        public void SetSpecialRecruitManager(OwnerModeManager manager) => _specialRecruitManager = manager;
         public event Action<string> SpecialRecruitRouteRequested;
         public event Action<string, int, int, int, int> CardSkillPlacementRequested;
         public event Action<string, int> CardSkillRemovalRequested;
@@ -501,6 +506,7 @@ namespace Baseball.Presentation.Owner
                 SetAllViewsVisible(false);
                 _specialRecruitView.SetVisible(true);
                 _specialRecruitView.ShowRoute(workspaceRouteId);
+                _specialRecruitView.Bind(_specialRecruitManager);
                 _shell.SetInspectorVisible(false);
                 _shell.SetActionBarVisible(false);
                 _shell.BindContext(new SharedUI.ShellContextModel(navigationRouteId,

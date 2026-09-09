@@ -21,6 +21,24 @@ namespace Baseball.Game.Historical
         private readonly Dictionary<string, SpecialCardTransactionSaveData> _specialCardTransactions =
             new Dictionary<string, SpecialCardTransactionSaveData>(StringComparer.Ordinal);
 
+        /// <summary>영입 화면과 확정 거래가 동일한 재료 보호 규칙을 사용한다.</summary>
+        public bool CanUseSpecialRecruitMaterial(string cardId)
+        {
+            return TryGetOwnedCard(cardId, out var card) && !card.IsLocked && !card.IsFavorite &&
+                !Wishlist.Contains(cardId) && !IsCardInUse(cardId) && !IsCardReserved(cardId);
+        }
+
+        /// <summary>현재 콘텐츠에서 특수 영입할 수 있는 카드를 ID 순으로 조회한다.</summary>
+        public IReadOnlyList<PlayerCardDefinition> GetSpecialRecruitTargets(PlayerCardEdition edition)
+        {
+            var result = new List<PlayerCardDefinition>();
+            if (WorldCardCatalog.SpecialCards == null) return result;
+            foreach (var card in WorldCardCatalog.Cards)
+                if (card.IsUniqueOwnedCard && card.Edition == edition) result.Add(card);
+            result.Sort((a, b) => string.CompareOrdinal(a.CardId, b.CardId));
+            return result.AsReadOnly();
+        }
+
         /// <summary>사용자가 선택한 8장을 검증한 뒤 확정 전까지 카드 사용을 예약한다.</summary>
         public void ReserveSpecialRecruit(string transactionId, string targetCardId,
             IReadOnlyList<string> materials, SpecialCardCatalog content = null)

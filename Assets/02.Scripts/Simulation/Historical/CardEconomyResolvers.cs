@@ -44,7 +44,14 @@ namespace Baseball.Simulation.Historical
                     AddCard(cards, season, PlayerCardEdition.Mvp, balance, preferences[season.PlayerSeasonId]);
             }
             if (specialCards != null)
-                foreach (var card in specialCards.Cards) cards.Add(card);
+                foreach (var card in specialCards.Cards)
+                {
+                    var modifiers = new int[PlayerAbilityCatalog.AbilityCount];
+                    for (int index = 0; index < modifiers.Length; index++)
+                        modifiers[index] = card.GetModifier((PlayerAbility)index);
+                    cards.Add(new PlayerCardDefinition(card.CardId, card.PlayerSeasonId, card.Edition, modifiers,
+                        preferences[card.PlayerSeasonId], card.TeamColorLineageId));
+                }
             return new WorldCardCatalog(sortedSeasons, cards, playerPersons, specialCards?.Lineages, specialCards?.Recipes);
         }
 

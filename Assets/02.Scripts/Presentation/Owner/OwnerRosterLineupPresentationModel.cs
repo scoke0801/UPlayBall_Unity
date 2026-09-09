@@ -651,14 +651,7 @@ namespace Baseball.Presentation.Owner
 
         public static string FormatEdition(PlayerCardEdition edition)
         {
-            return edition switch
-            {
-                PlayerCardEdition.Normal => "일반",
-                PlayerCardEdition.AllStar => "올스타",
-                PlayerCardEdition.GoldenGlove => "골든글러브",
-                PlayerCardEdition.Mvp => "MVP",
-                _ => "카드 종류 확인 필요"
-            };
+            return Baseball.Game.Historical.PlayerCardEditionText.Get(edition);
         }
 
         public static string FormatPosition(PlayerPosition position)

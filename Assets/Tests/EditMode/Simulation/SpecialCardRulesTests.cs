@@ -15,6 +15,20 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class SpecialCardRulesTests
     {
         [Test]
+        public void SpecialCards_SalaryAndSaleTablesSupportAllIssuedEditions()
+        {
+            var salary = OwnerPlayerMarketBalanceTable.CreateInitial();
+            var sale = CardSaleBalanceTable.CreateInitial();
+            foreach (PlayerCardEdition edition in Enum.GetValues(typeof(PlayerCardEdition)))
+            {
+                Assert.That(salary.GetAnnualSalary(5, edition, 1), Is.GreaterThan(0));
+                Assert.That(sale.GetEditionMultiplier(edition), Is.GreaterThanOrEqualTo(0));
+            }
+            Assert.That(salary.GetAnnualSalary(5, PlayerCardEdition.Rare, 1),
+                Is.EqualTo(salary.GetAnnualSalary(5, PlayerCardEdition.Normal, 1)));
+            Assert.That(sale.GetEditionMultiplier(PlayerCardEdition.Rare), Is.EqualTo(1d));
+        }
+        [Test]
         public void ExCostGateRejectsNineWithoutChangingSource()
         {
             var season = Season(9);

@@ -95,6 +95,13 @@ namespace Baseball.Core.Historical
             return _cardsById.TryGetValue(cardId, out card);
         }
 
+        /// <summary>명시적인 카드 ID 참조가 존재하지 않으면 즉시 실패한다.</summary>
+        public PlayerCardDefinition GetRequiredCard(string cardId)
+        {
+            if (!TryGetCard(cardId, out var card)) throw new ArgumentException("등록되지 않은 카드입니다.", nameof(cardId));
+            return card;
+        }
+
         public PlayerSeasonDefinition GetPlayerSeason(PlayerCardDefinition card)
         {
             if (card == null)
@@ -216,7 +223,9 @@ namespace Baseball.Core.Historical
             YearFilter = yearFilter;
             EditionFilter = editionFilter;
             _costWeights = CopyWeights(costWeights, 11, nameof(costWeights));
-            _editionWeights = CopyWeights(editionWeights, 4, nameof(editionWeights));
+            if (editionWeights == null || (editionWeights.Count != 4 && editionWeights.Count != 8))
+                throw new ArgumentException("Edition 가중치는 기존 4종 또는 전체 8종이어야 합니다.", nameof(editionWeights));
+            _editionWeights = CopyWeights(editionWeights, editionWeights.Count, nameof(editionWeights));
         }
 
         public string ScoutPoolId { get; }
@@ -251,7 +260,8 @@ namespace Baseball.Core.Historical
 
         public static double[] CreateStandardEditionWeights()
         {
-            return new[] { 97d, 2d, 0.7d, 0.3d };
+            // 레어는 중저코스트 특화 슬롯을 제공하며 EX·특수 영입은 스카우트에서 제외한다.
+            return new[] { 96d, 2d, 0.7d, 0.3d, 1d, 0d, 0d, 0d };
         }
 
         private static double[] CopyWeights(IReadOnlyList<double> weights, int count, string parameterName)
@@ -726,22 +736,25 @@ namespace Baseball.Core.Historical
         {
             if (baseSaleSpByCost == null || baseSaleSpByCost.Count != 11)
                 throw new ArgumentException("Cost 1~10 판매가가 필요합니다.", nameof(baseSaleSpByCost));
-            if (editionMultipliers == null || editionMultipliers.Count != 4)
-                throw new ArgumentException("네 Edition의 판매 배율이 필요합니다.", nameof(editionMultipliers));
+            if (editionMultipliers == null || (editionMultipliers.Count != 4 && editionMultipliers.Count != 8))
+                throw new ArgumentException("기존 4종 또는 전체 8종의 판매 배율이 필요합니다.", nameof(editionMultipliers));
             _baseSaleSpByCost = new int[11];
-            _editionMultipliers = new double[4];
+            _editionMultipliers = new double[8];
             for (int index = 0; index < 11; index++)
             {
                 if (baseSaleSpByCost[index] < 0)
                     throw new ArgumentOutOfRangeException(nameof(baseSaleSpByCost));
                 _baseSaleSpByCost[index] = baseSaleSpByCost[index];
             }
-            for (int index = 0; index < 4; index++)
+            for (int index = 0; index < editionMultipliers.Count; index++)
             {
                 if (editionMultipliers[index] < 0d || double.IsNaN(editionMultipliers[index]))
                     throw new ArgumentOutOfRangeException(nameof(editionMultipliers));
                 _editionMultipliers[index] = editionMultipliers[index];
             }
+            // 이전 4종 데이터에서도 새 등급은 동일 Cost의 일반 카드 가격으로 평가한다.
+            for (int index = editionMultipliers.Count; index < _editionMultipliers.Length; index++)
+                _editionMultipliers[index] = editionMultipliers[0];
         }
 
         public int GetBaseSaleSp(int cost)
@@ -757,7 +770,7 @@ namespace Baseball.Core.Historical
         {
             return new CardSaleBalanceTable(
                 new[] { 0, 3, 4, 6, 8, 10, 14, 20, 28, 40, 55 },
-                new[] { 1d, 1.2d, 1.4d, 1.8d });
+                new[] { 1d, 1.2d, 1.4d, 1.8d, 1d, 1d, 0d, 0d });
         }
     }
 

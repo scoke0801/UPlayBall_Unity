@@ -103,14 +103,7 @@ namespace Baseball.Game.Shop
 
         private static string DescribeEdition(PlayerCardEdition edition)
         {
-            switch (edition)
-            {
-                case PlayerCardEdition.Normal: return "일반";
-                case PlayerCardEdition.AllStar: return "올스타";
-                case PlayerCardEdition.GoldenGlove: return "골든글러브";
-                case PlayerCardEdition.Mvp: return "MVP";
-                default: throw new ArgumentOutOfRangeException(nameof(edition));
-            }
+            return Baseball.Game.Historical.PlayerCardEditionText.Get(edition);
         }
 
         private static ShopRevealIntensity DescribeCostIntensity(int cost)
@@ -129,6 +122,10 @@ namespace Baseball.Game.Shop
                 case PlayerCardEdition.AllStar: return ShopRevealIntensity.Notable;
                 case PlayerCardEdition.GoldenGlove: return ShopRevealIntensity.Rare;
                 case PlayerCardEdition.Mvp: return ShopRevealIntensity.Exceptional;
+                case PlayerCardEdition.Rare: return ShopRevealIntensity.Rare;
+                case PlayerCardEdition.Ex:
+                case PlayerCardEdition.CareerHigh:
+                case PlayerCardEdition.Legend: return ShopRevealIntensity.Exceptional;
                 default: throw new ArgumentOutOfRangeException(nameof(edition));
             }
         }

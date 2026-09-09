@@ -18,8 +18,8 @@ namespace Baseball.Core.Historical
         {
             if (annualSalaryByCost == null || annualSalaryByCost.Count != 10)
                 throw new ArgumentException("Cost 1~10의 연봉표가 필요합니다.", nameof(annualSalaryByCost));
-            if (editionSalaryMultipliers == null || editionSalaryMultipliers.Count != 4)
-                throw new ArgumentException("네 Edition의 연봉 배율이 필요합니다.", nameof(editionSalaryMultipliers));
+            if (editionSalaryMultipliers == null || (editionSalaryMultipliers.Count != 4 && editionSalaryMultipliers.Count != 8))
+                throw new ArgumentException("기존 4종 또는 전체 8종의 연봉 배율이 필요합니다.", nameof(editionSalaryMultipliers));
             if (renewalSigningCostRate < 0d || renewalSigningCostRate > 1d)
                 throw new ArgumentOutOfRangeException(nameof(renewalSigningCostRate));
             if (multiYearSalaryDiscount < 0d || multiYearSalaryDiscount > 0.2d)
@@ -34,13 +34,16 @@ namespace Baseball.Core.Historical
                     throw new ArgumentOutOfRangeException(nameof(annualSalaryByCost));
                 _annualSalaryByCost[index] = annualSalaryByCost[index];
             }
-            _editionSalaryMultipliers = new double[editionSalaryMultipliers.Count];
-            for (int index = 0; index < _editionSalaryMultipliers.Length; index++)
+            _editionSalaryMultipliers = new double[8];
+            for (int index = 0; index < editionSalaryMultipliers.Count; index++)
             {
                 if (editionSalaryMultipliers[index] <= 0d || double.IsNaN(editionSalaryMultipliers[index]))
                     throw new ArgumentOutOfRangeException(nameof(editionSalaryMultipliers));
                 _editionSalaryMultipliers[index] = editionSalaryMultipliers[index];
             }
+            // 특별 등급의 추가 연봉 규약이 없는 기존 데이터에는 같은 Cost의 일반 배율을 유지한다.
+            for (int index = editionSalaryMultipliers.Count; index < _editionSalaryMultipliers.Length; index++)
+                _editionSalaryMultipliers[index] = editionSalaryMultipliers[0];
 
             RenewalSigningCostRate = renewalSigningCostRate;
             MultiYearSalaryDiscount = multiYearSalaryDiscount;
@@ -68,7 +71,7 @@ namespace Baseball.Core.Historical
         public static OwnerPlayerMarketBalanceTable CreateInitial() => new OwnerPlayerMarketBalanceTable(
             new long[] { 2_000_000L, 3_000_000L, 5_000_000L, 8_000_000L, 12_000_000L,
                 17_000_000L, 23_000_000L, 30_000_000L, 38_000_000L, 47_000_000L },
-            new double[] { 1d, 1.08d, 1.12d, 1.2d },
+            new double[] { 1d, 1.08d, 1.12d, 1.2d, 1d, 1d, 1d, 1d },
             renewalSigningCostRate: 0.2d,
             multiYearSalaryDiscount: 0.025d,
             maximumContractSeasons: 3);

@@ -7,6 +7,67 @@ using UnityEngine;
 namespace Baseball.Game.Historical
 {
     [Serializable]
+    internal sealed class HistoricalSpecialCardContentDto
+    {
+        public int schemaVersion;
+        public string baseContentHash;
+        public HistoricalSpecialCardDto[] cards;
+        public HistoricalSpecialLineageDto[] lineages;
+        public HistoricalSpecialRecipeDto[] recipes;
+
+        public Baseball.Core.Historical.BakedSpecialCardContent Build(string expectedHash)
+        {
+            if (schemaVersion != 1 || cards == null || lineages == null || recipes == null)
+                throw new HistoricalContentLoadException("특수 카드 스키마가 올바르지 않습니다. schemaVersion=" + schemaVersion);
+            if (baseContentHash != expectedHash)
+                throw new HistoricalContentLoadException(
+                    "특수 카드의 원본 콘텐츠가 일치하지 않습니다. 역사 콘텐츠 파이프라인 2단계에서 재발급하세요. " +
+                    "expected=" + expectedHash + ", actual=" + baseContentHash);
+            var definitions = new System.Collections.Generic.List<Baseball.Core.Historical.PlayerCardDefinition>();
+            foreach (var card in cards)
+            {
+                if (!Enum.TryParse(card.edition, out Baseball.Core.Historical.PlayerCardEdition edition) ||
+                    edition < Baseball.Core.Historical.PlayerCardEdition.Rare || edition > Baseball.Core.Historical.PlayerCardEdition.Legend)
+                    throw new HistoricalContentLoadException("특수 카드 등급이 유효하지 않습니다.");
+                definitions.Add(new Baseball.Core.Historical.PlayerCardDefinition(card.cardId, card.playerSeasonId,
+                    edition, card.editionStatModifiers, teamColorLineageId: card.teamColorLineageId));
+            }
+            var map = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var lineage in lineages) map.Add(lineage.franchiseId, lineage.lineageId);
+            var result = new System.Collections.Generic.List<Baseball.Core.Historical.SpecialRecruitRecipe>();
+            foreach (var recipe in recipes)
+            {
+                var groups = new System.Collections.Generic.List<Baseball.Core.Historical.SpecialRecruitMaterialGroup>();
+                foreach (var group in recipe.materialGroups)
+                    groups.Add(new Baseball.Core.Historical.SpecialRecruitMaterialGroup(group.groupId, group.candidateCardIds));
+                result.Add(new Baseball.Core.Historical.SpecialRecruitRecipe(recipe.targetCardId, groups));
+            }
+            return new Baseball.Core.Historical.BakedSpecialCardContent(definitions,
+                new Baseball.Core.Historical.TeamColorLineageMap(map), result);
+        }
+    }
+
+    [Serializable]
+    internal sealed class HistoricalSpecialCardDto
+    {
+        public string cardId, playerSeasonId, edition, teamColorLineageId;
+        public int[] editionStatModifiers;
+    }
+
+    [Serializable]
+    internal sealed class HistoricalSpecialLineageDto { public string franchiseId, lineageId; }
+
+    [Serializable]
+    internal sealed class HistoricalSpecialRecipeDto
+    {
+        public string targetCardId;
+        public HistoricalSpecialMaterialDto[] materialGroups;
+    }
+
+    [Serializable]
+    internal sealed class HistoricalSpecialMaterialDto { public string groupId; public string[] candidateCardIds; }
+
+    [Serializable]
     internal sealed class HistoricalRuntimeManifestDto
     {
         [SerializeField] private int assetFormatVersion;
@@ -88,6 +149,9 @@ namespace Baseball.Game.Historical
         [SerializeField] private int annualReferenceOverrideCardCount;
         [SerializeField] private string annualReferenceOverrideHash;
         [SerializeField] private string annualReferenceOverrideVersion;
+        [SerializeField] private int researchRosterSupplementCount;
+        [SerializeField] private string researchRosterSupplementHash;
+        [SerializeField] private string researchRosterSupplementVersion;
         [SerializeField] private string positionRoleClassifierVersion;
         [SerializeField] private string rosterBuilderVersion;
         [SerializeField] private string costFormulaVersion;
@@ -121,6 +185,9 @@ namespace Baseball.Game.Historical
         public int AnnualReferenceOverrideCardCount => annualReferenceOverrideCardCount;
         public string AnnualReferenceOverrideHash => annualReferenceOverrideHash ?? string.Empty;
         public string AnnualReferenceOverrideVersion => annualReferenceOverrideVersion ?? string.Empty;
+        public int ResearchRosterSupplementCount => researchRosterSupplementCount;
+        public string ResearchRosterSupplementHash => researchRosterSupplementHash ?? string.Empty;
+        public string ResearchRosterSupplementVersion => researchRosterSupplementVersion ?? string.Empty;
         public string PositionRoleClassifierVersion => positionRoleClassifierVersion ?? string.Empty;
         public string RosterBuilderVersion => rosterBuilderVersion ?? string.Empty;
         public string CostFormulaVersion => costFormulaVersion ?? string.Empty;
@@ -228,6 +295,8 @@ namespace Baseball.Game.Historical
     {
         [SerializeField] private bool isPositionEvidenceMissing;
         public bool IsPositionEvidenceMissing => isPositionEvidenceMissing;
+        [SerializeField] private HistoricalRuntimePositionProficiencyDto[] secondaryPositions;
+        public HistoricalRuntimePositionProficiencyDto[] SecondaryPositions => secondaryPositions ?? Array.Empty<HistoricalRuntimePositionProficiencyDto>();
         [SerializeField] private string playerSeasonId;
         [SerializeField] private string playerPersonId;
         [SerializeField] private int originYear;
@@ -263,6 +332,15 @@ namespace Baseball.Game.Historical
         public HistoricalRuntimePitchEntryDto[] PitchRepertoire => pitchRepertoire ?? Array.Empty<HistoricalRuntimePitchEntryDto>();
         public string PitchDataSourceKind => pitchDataSourceKind ?? string.Empty;
         public string PitchBalanceVersion => pitchBalanceVersion ?? string.Empty;
+    }
+
+    [Serializable]
+    internal sealed class HistoricalRuntimePositionProficiencyDto
+    {
+        [SerializeField] private string position;
+        [SerializeField] private int proficiency;
+        public string Position => position ?? string.Empty;
+        public int Proficiency => proficiency;
     }
 
     [Serializable]

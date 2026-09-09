@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Security.Cryptography;
 using Baseball.Editor.Tools;
 using Baseball.Game.Data;
 using Baseball.Game.Historical;
+using Baseball.Core.Historical;
+using Baseball.Simulation.Historical;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -63,10 +66,12 @@ namespace Baseball.Editor.HistoricalDatabase
                     $"actual={archive.Manifest.SourceManifest?.NameDataPolicy ?? "<missing>"}");
             }
 
+            ValidateSourcePayload(SourceRoot, archive);
             Directory.CreateDirectory(RuntimeRoot);
             Directory.CreateDirectory(RuntimeRoot + "/Years");
             CopyIfChanged(SourceRoot + "/manifest.json", RuntimeRoot + "/manifest.json");
             CopyIfChanged(SourceRoot + "/player_persons.json", RuntimeRoot + "/player_persons.json");
+            CopyIfChanged(SourceRoot + "/BakedSpecialCards.json", RuntimeRoot + "/BakedSpecialCards.json");
             for (int index = 0; index < archive.Manifest.Years.Count; index++)
             {
                 HistoricalArchiveYearEntry year = archive.Manifest.Years[index];
@@ -104,6 +109,7 @@ namespace Baseball.Editor.HistoricalDatabase
                 manifest,
                 new HistoricalRuntimeContentFile(archive.Manifest.PlayerPersons.Path, persons),
                 years);
+            BindSpecialCards(catalog);
             EditorUtility.SetDirty(catalog);
             BindCatalogToNewGameDefinition(catalog);
             AssetDatabase.SaveAssets();
@@ -142,6 +148,7 @@ namespace Baseball.Editor.HistoricalDatabase
                 manifest,
                 new HistoricalRuntimeContentFile("player_persons.json", persons),
                 years);
+            BindSpecialCards(catalog);
             EditorUtility.SetDirty(catalog);
             BindCatalogToNewGameDefinition(catalog);
             AssetDatabase.SaveAssets();
@@ -234,6 +241,57 @@ namespace Baseball.Editor.HistoricalDatabase
                 detailCount++;
             }
             return builder.ToString();
+        }
+
+        /// <summary>배포 파일을 바꾸기 전에 특수 카드를 포함한 정제본을 실제 로더로 검증한다.</summary>
+        public static void ValidateSourcePayload(string sourceRoot, HistoricalArchiveData archive)
+        {
+            var assets = new List<TextAsset>();
+            var catalog = ScriptableObject.CreateInstance<HistoricalRuntimeContentCatalog>();
+            TextAsset Read(string relativePath)
+            {
+                string path = Path.Combine(sourceRoot, NormalizeAssetRelativePath(relativePath));
+                if (!File.Exists(path))
+                    throw new InvalidDataException("내보내기 원본이 없습니다. 역사 콘텐츠 파이프라인 2단계를 실행하세요: " + path);
+                var asset = new TextAsset(File.ReadAllText(path));
+                assets.Add(asset);
+                return asset;
+            }
+            try
+            {
+                var years = new HistoricalRuntimeYearContentFile[archive.Manifest.Years.Count];
+                for (int index = 0; index < years.Length; index++)
+                {
+                    HistoricalArchiveYearEntry year = archive.Manifest.Years[index];
+                    years[index] = new HistoricalRuntimeYearContentFile(year.Year,
+                        new HistoricalRuntimeContentFile(year.Path, Read(year.Path)));
+                }
+                catalog.Configure(Read("manifest.json"),
+                    new HistoricalRuntimeContentFile(archive.Manifest.PlayerPersons.Path,
+                        Read(archive.Manifest.PlayerPersons.Path)), years);
+                TextAsset specialCards = Read("BakedSpecialCards.json");
+                using var sha = SHA256.Create();
+                string hash = BitConverter.ToString(sha.ComputeHash(specialCards.bytes)).Replace("-", string.Empty);
+                catalog.ConfigureSpecialCards(specialCards, hash);
+                HistoricalBakedContent content = new UnityHistoricalContentProvider(catalog).Load();
+                WorldCardCatalogBuilder.Build(content.PlayerSeasons, null, CardEditionBalanceTable.CreateInitial(),
+                    content.PlayerPersons, content.TeamSeasons, content.SpecialCards);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(catalog);
+                foreach (TextAsset asset in assets)
+                    UnityEngine.Object.DestroyImmediate(asset);
+            }
+        }
+
+        private static void BindSpecialCards(HistoricalRuntimeContentCatalog catalog)
+        {
+            string path = RuntimeRoot + "/BakedSpecialCards.json";
+            if (!File.Exists(path)) return;
+            using var sha = SHA256.Create();
+            string hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", string.Empty);
+            catalog.ConfigureSpecialCards(LoadTextAsset(path), hash);
         }
 
         private static bool AreEqual(IReadOnlyList<byte> left, IReadOnlyList<byte> right)

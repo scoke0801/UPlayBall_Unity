@@ -92,6 +92,7 @@ namespace Baseball.Game.Historical
         public void CacheAssetBytesOnMainThread()
         {
             _byteReader.Cache(_catalog.Manifest);
+            if (_catalog.SpecialCards != null) _byteReader.Cache(_catalog.SpecialCards);
             if (_catalog.PlayerPersons != null)
                 _byteReader.Cache(_catalog.PlayerPersons.Content);
             IReadOnlyList<HistoricalRuntimeYearContentFile> years = _catalog.Years;
@@ -160,6 +161,7 @@ namespace Baseball.Game.Historical
                 personPayload,
                 personsPayload);
             Dictionary<int, HistoricalRuntimeYearContentFile> catalogYears = IndexCatalogYears();
+            BakedSpecialCardContent specialCards = LoadSpecialCards(manifest.ContentHash);
 
             if (_verificationMode == HistoricalContentVerificationMode.Full)
             {
@@ -169,13 +171,26 @@ namespace Baseball.Game.Historical
                     personsPayload,
                     persons.Length,
                     _byteReader);
-                return new HistoricalBakedContent(manifest, persons, years, identityNames);
+                return new HistoricalBakedContent(manifest, persons, years, identityNames, specialCards);
             }
 
             // 연도 하나가 평균 500KB이고 44개가 전부 필요한 화면은 역대 기록뿐이다.
             // 새 게임 시작은 한두 해만 읽으므로 나머지는 실제로 요구될 때 파싱한다.
             var yearSource = new LazyRuntimeYearContentSource(manifestDto, catalogYears, _byteReader);
-            return new HistoricalBakedContent(manifest, persons, yearSource, identityNames);
+            return new HistoricalBakedContent(manifest, persons, yearSource, identityNames, specialCards);
+        }
+
+        private BakedSpecialCardContent LoadSpecialCards(string baseContentHash)
+        {
+            if (_catalog.SpecialCards == null) return null;
+            byte[] bytes = _byteReader.Read(_catalog.SpecialCards);
+            using var sha = SHA256.Create();
+            string actual = BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", string.Empty);
+            if (!string.Equals(actual, _catalog.SpecialCardsSha256, StringComparison.OrdinalIgnoreCase))
+                throw new HistoricalContentLoadException("특수 카드 파일 해시가 일치하지 않습니다.", "BakedSpecialCards.json");
+            var dto = ParseJson<HistoricalSpecialCardContentDto>(Decode(bytes, "BakedSpecialCards.json", null),
+                "BakedSpecialCards.json", null);
+            return dto.Build(baseContentHash);
         }
 
         private static HistoricalYearContentDefinition[] MaterializeAllYearsVerified(
@@ -721,6 +736,18 @@ namespace Baseball.Game.Historical
             }
         }
 
+        private static PositionProficiency[] MapSecondaryPositions(HistoricalRuntimePlayerSeasonDto source)
+        {
+            var result = new PositionProficiency[source.SecondaryPositions.Length];
+            for (int index = 0; index < result.Length; index++)
+            {
+                var entry = source.SecondaryPositions[index];
+                if (entry == null) throw new ArgumentException("null 부포지션 항목이 있습니다.");
+                result[index] = new PositionProficiency(ParsePosition(entry.Position, PitcherRole.Starter), entry.Proficiency);
+            }
+            return result;
+        }
+
         private static PlayerSeasonDefinition MapPlayerSeason(
             HistoricalRuntimePlayerSeasonDto source,
             string relativePath,
@@ -751,7 +778,8 @@ namespace Baseball.Game.Historical
                     string.IsNullOrEmpty(source.PitchDataSourceKind) ? PitchDataSourceKind.Synthetic :
                         (PitchDataSourceKind)Enum.Parse(typeof(PitchDataSourceKind), source.PitchDataSourceKind),
                     source.PitchBalanceVersion,
-                    source.IsPositionEvidenceMissing);
+                    source.IsPositionEvidenceMissing,
+                    MapSecondaryPositions(source));
             }
             catch (Exception exception)
             {
@@ -1537,6 +1565,15 @@ namespace Baseball.Game.Historical
                     AppendJsonEscaped(builder, source.ReplacementGeneratorVersion);
                     builder.Append("\",\"replacementPopulationPolicyVersion\":\"");
                     AppendJsonEscaped(builder, source.ReplacementPopulationPolicyVersion);
+                }
+                if (!string.IsNullOrEmpty(source.ResearchRosterSupplementVersion))
+                {
+                    builder.Append("\",\"researchRosterSupplementCount\":")
+                        .Append(source.ResearchRosterSupplementCount.ToString(CultureInfo.InvariantCulture))
+                        .Append(",\"researchRosterSupplementHash\":\"");
+                    AppendJsonEscaped(builder, source.ResearchRosterSupplementHash);
+                    builder.Append("\",\"researchRosterSupplementVersion\":\"");
+                    AppendJsonEscaped(builder, source.ResearchRosterSupplementVersion);
                 }
                 builder.Append("\",\"rosterBuilderVersion\":\"");
                 AppendJsonEscaped(builder, source.RosterBuilderVersion);

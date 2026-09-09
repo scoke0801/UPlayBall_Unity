@@ -186,14 +186,7 @@ namespace Baseball.Game.Shop
 
         private static string DescribeEdition(PlayerCardEdition edition)
         {
-            return edition switch
-            {
-                PlayerCardEdition.Normal => "일반",
-                PlayerCardEdition.AllStar => "올스타",
-                PlayerCardEdition.GoldenGlove => "골든글러브",
-                PlayerCardEdition.Mvp => "MVP",
-                _ => throw new ArgumentOutOfRangeException(nameof(edition))
-            };
+            return Baseball.Game.Historical.PlayerCardEditionText.Get(edition);
         }
 
         private static string DescribeRarity(SkillBlockRarity rarity)
