@@ -633,7 +633,8 @@ namespace Baseball.Game.Data
                 $"{common.ContentHash}:{ownerExpansion.ContentHash}",
                 common.PitchArsenal,
                 common.MatchRatingCurve,
-                ownerExpansion.LeaguePromotion);
+                ownerExpansion.LeaguePromotion,
+                aggregateMatch: ownerExpansion.AggregateMatch);
         }
 
         /// <summary>

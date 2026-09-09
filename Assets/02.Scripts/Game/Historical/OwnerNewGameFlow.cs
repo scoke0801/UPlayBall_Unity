@@ -391,9 +391,11 @@ namespace Baseball.Game.Historical
 
         public void SetNickname(string nickname)
         {
-            Nickname = new OwnerProfileState(nickname, FrontManagerId).Nickname;
+            string validatedNickname = new OwnerProfileState(nickname, FrontManagerId).Nickname;
+            OwnerStarterRosterResult starterRoster = ResolveStarterRoster(0);
+            Nickname = validatedNickname;
+            StarterRoster = starterRoster;
             CurrentStep = OwnerNewGameStep.StarterRosterReview;
-            GenerateStarterRoster(0);
         }
 
         public OwnerStarterRosterResult RerollFiller()
@@ -438,14 +440,19 @@ namespace Baseball.Game.Historical
 
         private OwnerStarterRosterResult GenerateStarterRoster(int rerollIndex)
         {
+            StarterRoster = ResolveStarterRoster(rerollIndex);
+            return StarterRoster;
+        }
+
+        private OwnerStarterRosterResult ResolveStarterRoster(int rerollIndex)
+        {
             EnsureSelectedTeam();
-            StarterRoster = _resolver.Resolve(
+            return _resolver.Resolve(
                 _selectedTeam,
                 _selectedMainCardIds,
                 CardCatalog,
                 _worldSeed,
                 rerollIndex);
-            return StarterRoster;
         }
 
         private HistoricalWorldRuntimeContent EnsureWorld()

@@ -51,7 +51,8 @@ namespace Baseball.Game.Data
                     data.clubOperation.Build(),
                     data.staff.Build(),
                     data.scoutingConfidence.Build(),
-                    CreateContentHash(json));
+                    CreateContentHash(json),
+                    data.aggregateMatch?.Build() ?? AggregateMatchBalance.CreateDefault());
             }
             catch (Exception exception) when (!(exception is InvalidOperationException))
             {
@@ -81,19 +82,22 @@ namespace Baseball.Game.Data
             ClubOperationBalanceTable clubOperation,
             StaffBalanceTable staff,
             ScoutingConfidenceDefinition scoutingConfidence,
-            string contentHash)
+            string contentHash,
+            AggregateMatchBalance aggregateMatch = null)
         {
             LeaguePromotion = leaguePromotion ?? throw new ArgumentNullException(nameof(leaguePromotion));
             ConditionChemistry = conditionChemistry ?? throw new ArgumentNullException(nameof(conditionChemistry));
             ClubOperation = clubOperation ?? throw new ArgumentNullException(nameof(clubOperation));
             Staff = staff ?? throw new ArgumentNullException(nameof(staff));
             ScoutingConfidence = scoutingConfidence ?? throw new ArgumentNullException(nameof(scoutingConfidence));
+            AggregateMatch = aggregateMatch ?? AggregateMatchBalance.CreateDefault();
             ContentHash = string.IsNullOrWhiteSpace(contentHash)
                 ? throw new ArgumentException("ContentHash가 필요합니다.", nameof(contentHash))
                 : contentHash.Trim();
         }
 
         public LeagueDefinition LeaguePromotion { get; }
+        public AggregateMatchBalance AggregateMatch { get; }
         public ConditionChemistryBalanceTable ConditionChemistry { get; }
         public ClubOperationBalanceTable ClubOperation { get; }
         public StaffBalanceTable Staff { get; }
@@ -111,6 +115,24 @@ namespace Baseball.Game.Data
         public ClubOperationBalanceData clubOperation;
         public StaffBalanceData staff;
         public ScoutingConfidenceBalanceData scoutingConfidence;
+        public AggregateMatchBalanceData aggregateMatch;
+    }
+
+    [Serializable]
+    internal sealed class AggregateMatchBalanceData
+    {
+        public double walkRate = 0.09, strikeoutRate = 0.18, hitByPitchRate = 0.008;
+        public double controlWalkWeight = 0.022, mentalWalkWeight = 0.01;
+        public double contactStrikeoutWeight = 0.06, stuffStrikeoutWeight = 0.014, velocityStrikeoutWeight = 0.007;
+        public double ballQualityAdjustment = 9, homeRunMultiplier = 0.5;
+        public double inPlayPitchMean = 2.65, strikeoutPitchMean = 4.8, walkPitchMean = 5.6;
+        public double controlHitByPitchWeight = 0.17;
+        public double maximumHitByPitchRate = 0.04;
+
+        public AggregateMatchBalance Build() => new AggregateMatchBalance(walkRate, strikeoutRate,
+            hitByPitchRate, controlWalkWeight, mentalWalkWeight, contactStrikeoutWeight,
+            stuffStrikeoutWeight, velocityStrikeoutWeight, ballQualityAdjustment, homeRunMultiplier,
+            inPlayPitchMean, strikeoutPitchMean, walkPitchMean, controlHitByPitchWeight, maximumHitByPitchRate);
     }
 
     [Serializable]

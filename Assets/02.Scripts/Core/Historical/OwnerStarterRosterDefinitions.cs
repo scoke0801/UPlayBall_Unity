@@ -98,7 +98,7 @@ namespace Baseball.Core.Historical
             int maximumFillerRerolls = 30,
             int maximumMainCost = 60) => new OwnerStarterRosterRule(
             10, 6, 4, maximumMainCost, 9, 2, 7, 4, 2,
-            maximumFillerRerolls, 1, new[] { 5, 5, 5 }, 8, 7, 8);
+            maximumFillerRerolls, 2, new[] { 10, 5 }, 8, 7, 8);
     }
 
     /// <summary>메인 카드 선택 검증 결과를 UI가 그대로 표시할 수 있게 보관한다.</summary>

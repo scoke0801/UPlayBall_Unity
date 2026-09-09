@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
@@ -14,6 +15,39 @@ namespace Baseball.Tests.EditMode.Simulation
         public void CreateInitial_메인카드비용상한은60이다()
         {
             Assert.That(OwnerStarterRosterRule.CreateInitial().MaximumMainCost, Is.EqualTo(60));
+        }
+
+        [Test]
+        public void CreateInitial_CostV16저가치구간은Cost2열장과Cost3다섯장이다()
+        {
+            OwnerStarterRosterRule rule = OwnerStarterRosterRule.CreateInitial();
+
+            Assert.That(rule.FillerMinimumCost, Is.EqualTo(2));
+            Assert.That(rule.FillerMaximumCost, Is.EqualTo(3));
+            Assert.That(rule.GetFillerCount(2), Is.EqualTo(10));
+            Assert.That(rule.GetFillerCount(3), Is.EqualTo(5));
+        }
+
+        [Test]
+        public void Resolve_CostV16저가치Pool로유효한25인로스터를생성한다()
+        {
+            WorldCardCatalog catalog = CreateStarterCatalog(out TeamSeasonDefinition team, out string[] mainCardIds);
+            var resolver = new OwnerStarterRosterResolver(OwnerStarterRosterRule.CreateInitial());
+
+            OwnerStarterRosterResult result = resolver.Resolve(team, mainCardIds, catalog, 20260905UL, 0);
+
+            Assert.That(result.Roster.Entries.Count, Is.EqualTo(ActiveRosterCompositionRule.ActiveRosterSize));
+            Assert.That(new ActiveRosterValidator().Validate(result.Roster).IsValid, Is.True);
+            var fillerCountByCost = new Dictionary<int, int>();
+            for (int index = 0; index < result.FillerCardIds.Count; index++)
+            {
+                Assert.That(catalog.TryGetCard(result.FillerCardIds[index], out PlayerCardDefinition card), Is.True);
+                int cost = catalog.GetPlayerSeason(card).Cost;
+                fillerCountByCost.TryGetValue(cost, out int count);
+                fillerCountByCost[cost] = count + 1;
+            }
+            Assert.That(fillerCountByCost[2], Is.EqualTo(10));
+            Assert.That(fillerCountByCost[3], Is.EqualTo(5));
         }
 
         [Test]
@@ -113,6 +147,104 @@ namespace Baseball.Tests.EditMode.Simulation
                 cardIds[index] = cardId;
             }
             return new WorldCardCatalog(seasons, cards);
+        }
+
+        private static WorldCardCatalog CreateStarterCatalog(
+            out TeamSeasonDefinition team,
+            out string[] mainCardIds)
+        {
+            const string FranchiseId = "FRANCHISE";
+            const string TeamSeasonKey = "FRANCHISE_2024";
+            var seasons = new List<PlayerSeasonDefinition>();
+            var cards = new List<PlayerCardDefinition>();
+            var rosterCardIds = new List<string>(25);
+            mainCardIds = new string[10];
+
+            for (int index = 0; index < 10; index++)
+            {
+                PlayerType playerType = index < 6 ? PlayerType.Batter : PlayerType.Pitcher;
+                mainCardIds[index] = AddStarterCard(
+                    seasons,
+                    cards,
+                    $"MAIN_{index:00}",
+                    FranchiseId,
+                    TeamSeasonKey,
+                    playerType,
+                    4);
+                rosterCardIds.Add(mainCardIds[index]);
+            }
+
+            int fillerIndex = 0;
+            for (int cost = 2; cost <= 3; cost++)
+            {
+                int cardCount = cost == 2 ? 10 : 5;
+                int hitterCount = cost == 2 ? 5 : 3;
+                int pitcherCount = cardCount - hitterCount;
+                for (int index = 0; index < hitterCount; index++)
+                {
+                    rosterCardIds.Add(AddStarterCard(
+                        seasons,
+                        cards,
+                        $"FILLER_H_{fillerIndex++:00}",
+                        "FILLER_FRANCHISE",
+                        "FILLER_2024",
+                        PlayerType.Batter,
+                        cost));
+                }
+                for (int index = 0; index < pitcherCount; index++)
+                {
+                    rosterCardIds.Add(AddStarterCard(
+                        seasons,
+                        cards,
+                        $"FILLER_P_{fillerIndex++:00}",
+                        "FILLER_FRANCHISE",
+                        "FILLER_2024",
+                        PlayerType.Pitcher,
+                        cost));
+                }
+            }
+
+            team = new TeamSeasonDefinition(
+                TeamSeasonKey,
+                FranchiseId,
+                2024,
+                rosterCardIds,
+                rosterCardIds,
+                50d);
+            return new WorldCardCatalog(seasons, cards);
+        }
+
+        private static string AddStarterCard(
+            List<PlayerSeasonDefinition> seasons,
+            List<PlayerCardDefinition> cards,
+            string id,
+            string franchiseId,
+            string teamSeasonKey,
+            PlayerType playerType,
+            int cost)
+        {
+            string seasonId = "SEASON_" + id;
+            string cardId = PlayerCardDefinition.CreateStableCardId(seasonId, PlayerCardEdition.Normal);
+            var ratings = new AbilityRatings(50);
+            seasons.Add(new PlayerSeasonDefinition(
+                seasonId,
+                "PERSON_" + id,
+                2024,
+                franchiseId,
+                teamSeasonKey,
+                playerType == PlayerType.Pitcher ? PlayerPosition.StartingPitcher : PlayerPosition.Catcher,
+                playerType == PlayerType.Pitcher ? PitcherRole.Starter : PitcherRole.MiddleRelief,
+                playerType,
+                RegistrationType.Domestic,
+                ratings,
+                cost,
+                ratings));
+            cards.Add(new PlayerCardDefinition(
+                cardId,
+                seasonId,
+                PlayerCardEdition.Normal,
+                new int[PlayerAbilityCatalog.AbilityCount]));
+            return cardId;
         }
     }
 }

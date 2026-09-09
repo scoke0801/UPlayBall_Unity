@@ -94,19 +94,31 @@ namespace Baseball.Presentation.Career
         private void RenderOwnerTeams(RectTransform panel, OwnerNewGameFlow flow)
         {
             IReadOnlyList<OwnerNewGameTeamView> teams = flow.GetTeamCandidates();
+            bool usesRealIdentities = DevelopmentRealIdentitySettings.IsEnabled;
+            CreateText(
+                "TeamSelectionGuide",
+                panel,
+                "구단의 엠블렘과 이름을 확인한 뒤 운영할 팀을 선택하세요.",
+                15,
+                FontStyle.Normal,
+                TextAnchor.MiddleLeft,
+                new Vector2(760f, 28f),
+                new Vector2(-400f, 318f),
+                SecondaryTextColor);
             for (int index = 0; index < teams.Count; index++)
             {
                 OwnerNewGameTeamView team = teams[index];
-                int column = index % 4;
-                int row = index / 4;
-                Button button = CreateButton(
-                    "Team_" + team.TeamSeasonKey,
+                int column = index % 5;
+                int row = index / 5;
+                string displayName = flow.Identities.GetPresentationFranchiseName(team.FranchiseId);
+                Button button = CreateOwnerTeamCard(
                     panel,
-                    flow.Identities.GetPresentationFranchiseName(team.FranchiseId),
-                    new Vector2(350f, 128f),
-                    new Vector2(-555f + column * 370f, 225f - row * 150f),
-                    CardColor,
-                    out _);
+                    team.TeamSeasonKey,
+                    displayName,
+                    team.DisplayName,
+                    index + 1,
+                    usesRealIdentities,
+                    new Vector2(-624f + column * 312f, 160f - row * 270f));
                 string teamSeasonKey = team.TeamSeasonKey;
                 button.onClick.AddListener(() =>
                 {
@@ -115,6 +127,110 @@ namespace Baseball.Presentation.Career
                     RunOwnerFlowAction(() => flow.SelectTeam(teamSeasonKey));
                 });
             }
+        }
+
+        /// <summary>실제·가상 Identity가 같은 선택 경험을 쓰도록 구단 엠블렘 카드 한 장을 구성한다.</summary>
+        private static Button CreateOwnerTeamCard(
+            RectTransform panel,
+            string teamSeasonKey,
+            string displayName,
+            string virtualDisplayName,
+            int clubNumber,
+            bool usesRealIdentities,
+            Vector2 position)
+        {
+            Button button = CreateButton(
+                "Team_" + teamSeasonKey,
+                panel,
+                displayName,
+                new Vector2(296f, 248f),
+                position,
+                CardColor,
+                out Text teamName);
+
+            teamName.fontSize = 18;
+            teamName.alignment = TextAnchor.MiddleCenter;
+            teamName.rectTransform.anchorMin = teamName.rectTransform.anchorMax = new Vector2(.5f, .5f);
+            teamName.rectTransform.sizeDelta = new Vector2(260f, 40f);
+            teamName.rectTransform.anchoredPosition = new Vector2(0f, -66f);
+
+            RectTransform topBand = CreateImage(
+                "ClubHeaderBand",
+                button.transform,
+                new Color(0.055f, 0.13f, 0.24f, .98f),
+                new Vector2(272f, 26f),
+                new Vector2(0f, 105f));
+            ConfigureOwnerTeamDecoration(topBand.GetComponent<Image>());
+            CreateText(
+                "ClubNumber",
+                topBand,
+                $"KBO  {clubNumber:00}",
+                11,
+                FontStyle.Bold,
+                TextAnchor.MiddleLeft,
+                new Vector2(104f, 22f),
+                new Vector2(-76f, 0f),
+                new Color32(226, 233, 240, 255));
+            CreateText(
+                "IdentityMode",
+                topBand,
+                usesRealIdentities ? "실제 구단" : "가상 구단",
+                11,
+                FontStyle.Bold,
+                TextAnchor.MiddleRight,
+                new Vector2(104f, 22f),
+                new Vector2(76f, 0f),
+                new Color32(184, 203, 222, 255));
+
+            RectTransform emblemPlate = CreateImage(
+                "EmblemPlate",
+                button.transform,
+                new Color(0.92f, 0.935f, 0.93f, .96f),
+                new Vector2(126f, 126f),
+                new Vector2(0f, 28f));
+            Image plateImage = emblemPlate.GetComponent<Image>();
+            ConfigureOwnerTeamDecoration(plateImage);
+            var plateOutline = emblemPlate.gameObject.AddComponent<Outline>();
+            plateOutline.effectColor = new Color(0.31f, 0.39f, 0.47f, .72f);
+            plateOutline.effectDistance = new Vector2(1f, -1f);
+            plateOutline.useGraphicAlpha = false;
+
+            RectTransform emblemRect = CreateImage(
+                "TeamEmblem",
+                emblemPlate,
+                Color.white,
+                new Vector2(108f, 108f),
+                Vector2.zero);
+            Image emblem = emblemRect.GetComponent<Image>();
+            ConfigureOwnerTeamDecoration(emblem);
+            int virtualEmblemId = TeamEmblemSprites.ResolveEmblemId(virtualDisplayName);
+            TeamEmblemSprites.TryApply(emblem, virtualEmblemId, displayName);
+
+            RectTransform divider = CreateImage(
+                "NameDivider",
+                button.transform,
+                new Color(0.16f, 0.39f, 0.62f, .82f),
+                new Vector2(226f, 2f),
+                new Vector2(0f, -42f));
+            ConfigureOwnerTeamDecoration(divider.GetComponent<Image>());
+            Text selectHint = CreateText(
+                "SelectHint",
+                button.transform,
+                "구단 선택  ›",
+                12,
+                FontStyle.Bold,
+                TextAnchor.MiddleCenter,
+                new Vector2(160f, 22f),
+                new Vector2(0f, -103f),
+                CareerUiTheme.ReferenceTextSecondary);
+            selectHint.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            return button;
+        }
+
+        private static void ConfigureOwnerTeamDecoration(Image image)
+        {
+            image.raycastTarget = false;
+            image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
         }
 
         private void RenderOwnerMainCards(RectTransform panel, OwnerNewGameFlow flow)
@@ -366,7 +482,8 @@ namespace Baseball.Presentation.Career
             OwnerStarterRosterResult roster = flow.StarterRoster;
             if (roster == null)
             {
-                _titleNotice = "스타터 로스터가 생성되지 않았습니다.";
+                if (string.IsNullOrEmpty(_titleNotice))
+                    _titleNotice = "스타터 로스터가 생성되지 않았습니다.";
                 return;
             }
             CreateText("MainRosterLabel", panel, "메인 카드 10장", 16, FontStyle.Bold,
