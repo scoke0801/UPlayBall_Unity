@@ -7,7 +7,8 @@ namespace Baseball.Core.Rules
     /// </summary>
     public enum SimulationRulesVersion
     {
-        DetailedV2 = 2
+        DetailedV2 = 2,
+        AggregateV1 = 3
     }
 
     /// <summary>

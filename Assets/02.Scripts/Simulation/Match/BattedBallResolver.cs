@@ -29,11 +29,24 @@ namespace Baseball.Simulation.Match
             in PlateAppearanceMatchup matchup,
             BattingApproach battingApproach)
         {
+            return ResolveCategorical(matchup, battingApproach, 0, 1);
+        }
+
+        /// <summary>간이 타석의 컨택 분포를 보정하되 야수·주루 판정은 상세 경기와 공유한다.</summary>
+        public BattedBallDescriptor ResolveAggregate(in PlateAppearanceMatchup matchup,
+            BattingApproach battingApproach, AggregateMatchBalance tuning)
+        {
+            return ResolveCategorical(matchup, battingApproach, tuning.BallQualityAdjustment, tuning.HomeRunMultiplier);
+        }
+
+        private BattedBallDescriptor ResolveCategorical(in PlateAppearanceMatchup matchup,
+            BattingApproach battingApproach, double qualityAdjustment, double homeRunMultiplier)
+        {
             BatterAttributes batter = matchup.Batter.BatterAttributes;
             if (battingApproach == BattingApproach.Bunt)
                 return ResolveBunt(matchup.Batter);
 
-            double qualityMean = 48d +
+            double qualityMean = 48d + qualityAdjustment +
                                  (batter.Contact - matchup.EffectiveStuff) * 0.20d +
                                  (batter.Power - matchup.EffectiveBreaking) * 0.22d +
                                  matchup.HardHitAdjustment * 170d +
@@ -46,7 +59,7 @@ namespace Baseball.Simulation.Match
                 (quality - 50d) * 0.0010d,
                 0.002d,
                 0.18d);
-            bool isHomeRun = _random.NextDouble() < homeRunProbability;
+            bool isHomeRun = _random.NextDouble() < homeRunProbability * homeRunMultiplier;
             BattedBallType type = ResolveType(matchup, quality);
             BattedBallDirection direction = ResolveDirection(matchup.Batter);
             FieldZone zone = ResolveZone(matchup.Batter, type, direction);

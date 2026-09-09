@@ -138,7 +138,8 @@ namespace Baseball.Core.Balance
             Baseball.Core.Historical.LeagueDefinition leaguePromotion = null,
             Baseball.Core.Historical.OwnerCardGrowthBalanceTable ownerCardGrowth = null,
             Baseball.Core.Historical.TeamColorBalanceTable teamColor = null,
-            Baseball.Core.Historical.OwnerPlayerMarketBalanceTable ownerPlayerMarket = null)
+            Baseball.Core.Historical.OwnerPlayerMarketBalanceTable ownerPlayerMarket = null,
+            AggregateMatchBalance aggregateMatch = null)
         {
             if (string.IsNullOrWhiteSpace(contentHash))
                 throw new System.ArgumentException("ContentHash는 비어 있을 수 없습니다.", nameof(contentHash));
@@ -178,9 +179,11 @@ namespace Baseball.Core.Balance
             OwnerCardGrowth = ownerCardGrowth ?? Baseball.Core.Historical.OwnerCardGrowthBalanceTable.CreateDefault();
             TeamColor = teamColor ?? Baseball.Core.Historical.TeamColorBalanceTable.CreateInitial();
             OwnerPlayerMarket = ownerPlayerMarket ?? Baseball.Core.Historical.OwnerPlayerMarketBalanceTable.CreateInitial();
+            AggregateMatch = aggregateMatch ?? AggregateMatchBalance.CreateDefault();
         }
 
         public int Version { get; }
+        public AggregateMatchBalance AggregateMatch { get; }
         public string ContentHash { get; }
         public PlateDisciplineBalance PlateDiscipline { get; }
         public BattedBallBalance BattedBall { get; }

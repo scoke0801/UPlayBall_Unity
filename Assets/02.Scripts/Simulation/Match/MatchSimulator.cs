@@ -276,8 +276,22 @@ namespace Baseball.Simulation.Match
         {
             if (input == null)
                 throw new ArgumentNullException(nameof(input));
-            if (executionProfile.EngineKind != SimulationEngineKind.Detailed)
+            if (executionProfile.EngineKind != SimulationEngineKind.Detailed &&
+                executionProfile.EngineKind != SimulationEngineKind.AggregatePlateAppearance)
                 throw new InvalidOperationException("지원하지 않는 경기 엔진입니다.");
+            if (executionProfile.EngineKind == SimulationEngineKind.AggregatePlateAppearance &&
+                !executionProfile.Equals(MatchExecutionProfile.AggregateBackground))
+                throw new InvalidOperationException("간이 타석 경기는 백그라운드 전용입니다.");
+            if (executionProfile.EngineKind == SimulationEngineKind.AggregatePlateAppearance)
+            {
+                SimulationVersionStamp stamp = input.VersionStamp;
+                input = new MatchInput(input.SeasonId, input.GameId, input.RandomSeed,
+                    input.AwayRoster, input.HomeRoster, input.Rules, SimulationRulesVersion.AggregateV1,
+                    new SimulationVersionStamp(stamp.BalanceVersion, stamp.EngineVersion, stamp.ContentHash,
+                        stamp.RngAlgorithmVersion, (int)SimulationRulesVersion.AggregateV1), input.HistoricalConfiguration);
+            }
+            else if (input.RulesVersion == SimulationRulesVersion.AggregateV1)
+                throw new InvalidOperationException("간이 경기 입력은 간이 프로필로만 재생할 수 있습니다.");
             return new DetailedMatchEngine(
                     _balance,
                     _randomStreams,

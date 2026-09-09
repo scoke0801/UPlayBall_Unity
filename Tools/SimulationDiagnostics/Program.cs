@@ -36,6 +36,12 @@ namespace Baseball.Tools.SimulationDiagnostics
 
         private static int Run(string[] args)
         {
+            if (args.Length > 0 && string.Equals(args[0], "aggregate-match", StringComparison.Ordinal))
+                return RunAggregateMatchComparison(args);
+            if (args.Length > 0 && string.Equals(args[0], "aggregate-historical", StringComparison.Ordinal))
+                return RunAggregateHistoricalComparison(args);
+            if (args.Length > 0 && string.Equals(args[0], "aggregate-match", StringComparison.Ordinal))
+                return RunAggregateMatchComparison(args);
             if (args.Length > 0 && string.Equals(args[0], "team-color-balance", StringComparison.Ordinal))
                 return RunTeamColorBalance(args);
             if (args.Length > 0 && string.Equals(args[0], "historical-balance", StringComparison.Ordinal))
@@ -606,6 +612,19 @@ namespace Baseball.Tools.SimulationDiagnostics
                     $"GIDP/Team={Ratio(_doublePlays, games * 2L):F3}",
                     $"Draw%={Ratio(_draws, games) * 100d:F2}"
                 });
+            }
+
+            public void ValidateAggregateAgainst(AggregateStatistics detailed, int games)
+            {
+                if (games < 1000) return;
+                if (Math.Abs(Ratio(_hits, _atBats) - Ratio(detailed._hits, detailed._atBats)) > 0.02 ||
+                    Math.Abs(Ratio(_earnedRuns * 27d, _pitchingOuts) - Ratio(detailed._earnedRuns * 27d, detailed._pitchingOuts)) > 0.6 ||
+                    Math.Abs(Ratio(_runs - detailed._runs, games * 2d)) > 0.6 ||
+                    Math.Abs(Ratio(_homeRuns - detailed._homeRuns, games * 2d)) > 0.2 ||
+                    Math.Abs(Ratio(_walks, _plateAppearances) - Ratio(detailed._walks, detailed._plateAppearances)) > 0.02 ||
+                    Math.Abs(Ratio(_strikeouts, _plateAppearances) - Ratio(detailed._strikeouts, detailed._plateAppearances)) > 0.03 ||
+                    Math.Abs(Ratio(_pitchersUsed - detailed._pitchersUsed, games * 2d)) > 0.5)
+                    throw new InvalidOperationException("간이 경기가 상세 대비 통계 허용 오차를 벗어났습니다.");
             }
 
             private static double Ratio(double numerator, double denominator)

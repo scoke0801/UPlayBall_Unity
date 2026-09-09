@@ -18,6 +18,7 @@ namespace Baseball.Simulation.Match
         private readonly BalanceTable _balance;
         private readonly MatchRandomStreams _random;
         private readonly IPlateAppearanceSimulator _plateAppearanceSimulator;
+        private readonly AggregatePlateAppearanceSimulator _aggregatePlateAppearanceSimulator;
         private readonly IMatchDecisionSource _recordedDecisionSource;
         private readonly IMatchPitchingDecisionSource _recordedPitchingDecisionSource;
         private readonly IPitchSelectionDecisionSource _pitchSelectionDecisionSource;
@@ -58,6 +59,8 @@ namespace Baseball.Simulation.Match
             _swingExecutionDecisionSource = swingExecutionDecisionSource;
             _decisionCoordinator = decisionCoordinator ?? MatchDecisionCoordinator.CreateAutomatic();
             _executionProfile = executionProfile;
+            if (executionProfile.EngineKind == SimulationEngineKind.AggregatePlateAppearance)
+                _aggregatePlateAppearanceSimulator = new AggregatePlateAppearanceSimulator(balance, random.PitchOutcome);
             if (executionProfile.DecisionMode == MatchDecisionMode.InternalAiOnly &&
                 (recordedDecisionSource != null ||
                  recordedPitchingDecisionSource != null ||
@@ -581,7 +584,18 @@ namespace Baseball.Simulation.Match
                 PitchPlayData pitchPlayData = default;
                 ContactProfile contactProfile = default;
                 PitchResult pitchResult;
-                if (_plateAppearanceSimulator is PlateAppearanceSimulator)
+                int pitchesToRecord = 1;
+                if (_aggregatePlateAppearanceSimulator != null)
+                {
+                    PlateAppearanceOutcome aggregate = _aggregatePlateAppearanceSimulator.Simulate(matchup, pitchApproach);
+                    pitchesToRecord = aggregate.PitchCount;
+                    balls = aggregate.Result == PlateAppearanceResult.Walk ? BaseballRules.BallsForWalk - 1 : 0;
+                    strikes = aggregate.Result == PlateAppearanceResult.Strikeout ? BaseballRules.StrikesForStrikeout - 1 : 0;
+                    pitchResult = aggregate.Result == PlateAppearanceResult.Walk ? PitchResult.Ball :
+                        aggregate.Result == PlateAppearanceResult.Strikeout ? PitchResult.SwingingStrike :
+                        aggregate.Result == PlateAppearanceResult.HitByPitch ? PitchResult.HitByPitch : PitchResult.InPlay;
+                }
+                else if (_plateAppearanceSimulator is PlateAppearanceSimulator)
                 {
                     pitchResult = ResolveCommandPitch(
                         state,
@@ -617,10 +631,13 @@ namespace Baseball.Simulation.Match
                         pitchNumber,
                         pitchApproach);
                 }
-                defense.ActivePitcherState.RecordPitch();
-                defense.ActivePitchingLine.PitchesThrown++;
-                if (defense.ActivePitcherState.FatigueRatio >= 1.05d)
-                    defense.RecordOverloadPitch();
+                for (int recorded = 0; recorded < pitchesToRecord; recorded++)
+                {
+                    defense.ActivePitcherState.RecordPitch();
+                    defense.ActivePitchingLine.PitchesThrown++;
+                    if (defense.ActivePitcherState.FatigueRatio >= 1.05d)
+                        defense.RecordOverloadPitch();
+                }
                 PitcherFatigueBand bandAfter = _fatigueResolver.GetBand(defense.ActivePitcherState.FatigueRatio);
                 if (bandAfter != bandBefore)
                 {
@@ -685,7 +702,9 @@ namespace Baseball.Simulation.Match
                     PlateAppearanceResult scripted = preResolved.ResolveBallInPlay(matchup, pitchApproach);
                     return new DetailedPlateAppearanceOutcome(scripted, default, default);
                 }
-                BattedBallDescriptor ball = pitchPlayData.HasValue
+                BattedBallDescriptor ball = _aggregatePlateAppearanceSimulator != null
+                    ? _battedBallResolver.ResolveAggregate(matchup, pitchApproach, _balance.AggregateMatch)
+                    : pitchPlayData.HasValue
                     ? _battedBallResolver.Resolve(matchup, pitchApproach, contactProfile)
                     : _battedBallResolver.Resolve(matchup, pitchApproach);
                 if (ball.IsHomeRun)

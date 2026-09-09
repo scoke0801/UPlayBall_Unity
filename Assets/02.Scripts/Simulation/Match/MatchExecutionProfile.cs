@@ -4,7 +4,8 @@ namespace Baseball.Simulation.Match
 {
     public enum SimulationEngineKind
     {
-        Detailed = 0
+        Detailed = 0,
+        AggregatePlateAppearance = 1
     }
 
     public enum MatchDecisionMode
@@ -64,6 +65,14 @@ namespace Baseball.Simulation.Match
 
         public static MatchExecutionProfile DetailedBackground => new MatchExecutionProfile(
             SimulationEngineKind.Detailed,
+            MatchDecisionMode.InternalAiOnly,
+            MatchEventMode.None,
+            MatchDecisionTraceMode.None,
+            MatchStatisticsMode.FullBoxScore);
+
+        /// <summary>다른 조 전용 타석 단위 계산. 중계와 외부 입력은 제공하지 않는다.</summary>
+        public static MatchExecutionProfile AggregateBackground => new MatchExecutionProfile(
+            SimulationEngineKind.AggregatePlateAppearance,
             MatchDecisionMode.InternalAiOnly,
             MatchEventMode.None,
             MatchDecisionTraceMode.None,
