@@ -20,11 +20,22 @@ def main():
     seasons={s['playerSeasonId']:s for p in sorted((args.candidate/'Years').glob('*.json'))
              for s in json.loads(p.read_text(encoding='utf-8'))['playerSeasons']}
     with (args.fit/'comparison.csv').open(encoding='utf-8-sig',newline='') as stream:rows=list(csv.DictReader(stream))
-    mismatches=[]
+    synchronization_mismatches=[]
+    formula_mismatches=[]
     for r in rows:
         s=seasons[r['id']]
+        reference=s.get('annualReferenceOverride')
         r['actual']=s['cost'] if r['target']=='Cost' else s['baseAttributes'][ABILITY_INDEX[r['target']]]
-        if r['actual']!=int(r['after']):mismatches.append({k:r[k] for k in ('id','kind','target','expected','after','actual')})
+        if reference is None:
+            synchronization_mismatches.append({**{k:r[k] for k in ('id','kind','target','expected','after','actual')},
+                'reason':'AnnualReferenceOverride 누락'})
+            continue
+        r['formulaActual']=(reference['formulaCost'] if r['target']=='Cost'
+            else reference['formulaBaseAttributes'][ABILITY_INDEX[r['target']]])
+        if r['actual']!=int(r['expected']):
+            synchronization_mismatches.append({k:r[k] for k in ('id','kind','target','expected','after','actual')})
+        if r['formulaActual']!=int(r['after']):
+            formula_mismatches.append({k:r[k] for k in ('id','kind','target','expected','after','formulaActual')})
     scores=[]
     for kind in ('Hitter','Pitcher'):
         for target in sorted({r['target'] for r in rows if r['kind']==kind}):
@@ -32,15 +43,18 @@ def main():
                 part=[r for r in rows if r['kind']==kind and r['target']==target and (split=='All' or r['split']==split)]
                 scores.append(dict(kind=kind,target=target,split=split,
                     before=metrics([(int(r['expected']),int(r['before'])) for r in part]),
-                    after=metrics([(int(r['expected']),r['actual']) for r in part])))
-    result={'evaluatedFields':len(rows),'cards':len({r['id'] for r in rows}),'mismatches':mismatches,
-            'evaluationScope':'DeploymentReferenceReplay',
+                    formula=metrics([(int(r['expected']),r['formulaActual']) for r in part]),
+                    synchronized=metrics([(int(r['expected']),r['actual']) for r in part])))
+    result={'evaluatedFields':len(rows),'cards':len({r['id'] for r in rows}),
+            'synchronizationMismatches':synchronization_mismatches,'formulaMismatches':formula_mismatches,
+            'evaluationScope':'AnnualReferenceSynchronizationAndFormulaReplay',
             'maximumReferenceYear':max(int(r['year']) for r in rows),'scores':scores,
             'generatedCostDistribution':dict(sorted(Counter(s['cost'] for s in seasons.values()).items()))}
     cost_rows=[r for r in rows if r['target']=='Cost']
     result['referenceCostTiers']=[dict(cost=cost,count=len(part),
         before=metrics([(cost,int(r['before'])) for r in part]),
-        after=metrics([(cost,r['actual']) for r in part]),
+        formula=metrics([(cost,r['formulaActual']) for r in part]),
+        synchronized=metrics([(cost,r['actual']) for r in part]),
         predictedDistribution=dict(sorted(Counter(r['actual'] for r in part).items())))
         for cost in range(1,11) if (part:=[r for r in cost_rows if int(r['expected'])==cost])]
     result['matchedCostDistribution']=dict(sorted(Counter(r['actual'] for r in cost_rows).items()))
@@ -53,8 +67,10 @@ def main():
         if hashes[0]!=hashes[1]:raise ValueError('Source 기반 출력이 World Seed에 따라 변경됐습니다.')
         result['seedVerification']={'years':[2000,2013,2025],'seeds':[20260901,20260902],'hashes':hashes}
     (args.fit/'actual_verification.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    print('FIELDS',len(rows),'MISMATCHES',len(mismatches),'MAX_REFERENCE_YEAR',result['maximumReferenceYear'])
-    if mismatches:raise ValueError('연구 예측과 실제 베이크가 다릅니다. actual_verification.json을 확인하세요.')
+    print('FIELDS',len(rows),'SYNC_MISMATCHES',len(synchronization_mismatches),
+        'FORMULA_MISMATCHES',len(formula_mismatches),'MAX_REFERENCE_YEAR',result['maximumReferenceYear'])
+    if synchronization_mismatches or formula_mismatches:
+        raise ValueError('정본 동기화 또는 산출식 재현 결과가 실제 베이크와 다릅니다. actual_verification.json을 확인하세요.')
 
 
 if __name__=='__main__':main()

@@ -136,6 +136,7 @@ def build_runtime_content(
             ]
             team_rows.extend(replacements_by_team.get(team_key, []))
             team_rows.sort(key=lambda row: row["playerSeasonId"])
+            derivation.limit_team_season_pitcher_roles(team_rows)
             core, roster_trace = derivation.assign_source_team_roles(team_rows, proxy_by_season_id)
             roster_trace["teamSeasonKey"] = team_key
             teams.append(
@@ -274,6 +275,7 @@ def build_runtime_content(
         "manifest": manifest,
     }
     _validate_source_costs_unchanged(content, source_cost_snapshot)
+    derivation.validate_pitcher_role_limits(content)
     validate_runtime_content(content, editor_source_content, plan, derivation)
     derivation.refresh_content_hash(content)
     report = {
@@ -310,8 +312,11 @@ def _source_manifest(editor_manifest: Mapping[str, Any]) -> dict[str, Any]:
         "rosterBuilderVersion",
         "costFormulaVersion",
         "derivationBalanceVersion",
+        "annualReferenceOverrideVersion",
+        "annualReferenceOverrideHash",
+        "annualReferenceOverrideCardCount",
     )
-    return {field: editor_manifest[field] for field in fields}
+    return {field: editor_manifest[field] for field in fields if field in editor_manifest}
 
 
 def _index_normalized_sources(
@@ -342,11 +347,12 @@ def _attach_source_role_traces(
     for season in source_seasons:
         source = normalized_by_runtime_season[season["playerSeasonId"]]
         if season["playerType"] == "Pitcher":
-            _, trace = derivation.derive_source_pitcher_role(
+            natural_role, trace = derivation.derive_source_pitcher_role(
                 source,
                 availability_by_year[int(season["originYear"])],
             )
             trace["selectedNaturalPosition"] = "P"
+            trace["uncappedNaturalPitcherRole"] = natural_role
             trace["positionCandidates"] = []
         else:
             _, trace = derivation.derive_source_position(source, "DH")

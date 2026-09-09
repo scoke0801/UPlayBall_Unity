@@ -1,5 +1,10 @@
 # KBO Reference Data Extractor / Canonical Baker
 
+특수 카드 후속 발급 도구는 `bake_special_cards.py`다. `--evaluation`, `--policy`, `--output`을
+지정하며 입력 해시·EX Cost Gate·커리어 하이·레전드 레시피를 검증한 뒤에만 발급 파일을 쓴다.
+현재 실제 정본은 EX 조건 미달 52건과 레전드 큐레이션 누락으로 차단된다. 게임 Runtime 연결은
+미완료이며 `docs/reports/특수카드_발급_획득_구현.md`에 진행 상태와 테스트를 기록한다.
+
 KBO 공개 기록을 Offline에서 수집·정규화하고 Source와 1:1인 Runtime-safe Canonical Content로 Bake한다.
 실제 선수·구단 이름은 Editor 검수와 blacklist에만 사용한다. Runtime Game Flow는 이 도구를 호출하지
 않으며 Baked Archive만 읽는다.
@@ -118,6 +123,12 @@ Similarity Reject 재생성은 Production Player Bake에서 금지한다.
 
 ### TeamSeason 1:1
 
+투수 카드의 마무리·셋업 보직은 같은 원본 구단·연도 전체 선수풀에서 각각 최대 2명이다.
+기존 보직 후보 중 세이브(마무리)·홀드(셋업) 내림차순, 동률은 PlayerSeasonId 오름차순으로 남긴다.
+초과 후보는 MiddleRelief로 발급하며 후보가 부족해도 충원하지 않는다.
+상한은 `derivation_balance.json`의 `pitcherRoleClassifier`에서 조정하고, 제한 후 기본 Core25를 배치한다.
+`test_pitcher_role_limits.py`와 전체 아카이브 검증이 예비 선수를 포함해 이 규칙을 검사한다.
+
 - Source TeamSeason 한 건 → Canonical `TeamSeasonDefinition` 한 건
 - 같은 Source Franchise의 연도별 TeamSeason → 같은 Stable `FranchiseId`
 - Core25 후보 → 해당 Source TeamSeason에 실제 등록된 PlayerSeason만
@@ -130,21 +141,29 @@ Validation Error로 보고한다.
 
 ### Ability와 Cost
 
-현재 산출 코드는 **Ability v9 / Cost v16 / DerivationBalance v22**이며 공식 카드 Archive에도 반영했다.
-캐시 기록에서 능력치는 ridge 회귀, Cost는 Gradient Boosting 회귀 나무로 산출한다. 학습 계수는
-`derivation_balance.json`에 저장하고, 선수명·팀·연도·인물 ID 입력이나 선수별 가격 조회표는 쓰지 않는다.
-원본 캐시 성적을 변경하지 않으며 Runtime은 연구 DB나 학습 라이브러리를 읽지 않는다.
+현재 산출 코드는 **Ability v10 / Cost v17 / DerivationBalance v23**이며 공식 Editor Source·Runtime과
+게임 Runtime에 반영했다. 레퍼런스가 있는 연도 일반 카드는 canonical reference 데이터의 Cost와
+기본 능력치를 stable Source ID로 동기화하고, 미수록 카드는 공통 기록 산식으로 생성한다.
 
-2013년 이하 연도 카드만 근거로 쓰고 월별 카드는 제외한다. DB 일반 카드가 우선이며 일반/AS
-Cost 동등성 확인 후 일반 판본 없는 카드의 Cost만 보충한다. 2012 SK 사용자 기준은 판본 미확정
-출처로 구분한다. 동명이인·개명 연결은 원본 다중 기록의 일치로 검증한다.
+canonical reference는 `annual_reference_overrides.json`에 둔다. 선수명·팀별 코드 분기나 수치 예외가
+아니라 카드 ID, 필드별 출처, 값, 버전, SHA-256을 가진 생성 산출물이다. Editor Source는 동기화 전
+`formulaCost`·`formulaBaseAttributes`와 최종값을 함께 보존하고 Runtime에는 최종값만 전달한다.
+Runtime은 연구 DB나 학습 라이브러리를 읽지 않는다.
 
-`calibrate_annual_reference.py`가 기준 기록과 능력치를 적합하고, `fit_record_trees.py`가 Cost를 학습한다.
-선수 분리 검증으로 구조를 선택한 후 확보 근거 전체를 재적합한다. 확보 Cost 3,494장, SK 127장의
-과소·과대평가가 모두 0건이다. `audit_annual_focus.py --require-exact-cost`가 카드별 양방향 오차를 검사한다.
-Cost 학습 경로는 출전량·역할·신뢰도를 입력으로 다루므로 과거 상위 자격 상한을 중복 적용하지 않는다.
-설정은 `reference_calibration_policy.json`, 실제 베이크 대조는 `verify_annual_calibration.py`를 사용한다.
-학습에만 NumPy/scikit-learn/SciPy가 필요하다. 상세 보류 오차·능력치 비교·대량 경기 검증·재현 명령은
+2013년 이하 연도 카드만 사용하고 월별 카드는 제외한다. 1989~1999·2010~2013 웹 아카이브의 일반
+카드와 2000~2009 DB 일반 카드를 포함해 7,526장을 연결했다. 일반/AS Cost 동등성을 확인한 뒤 일반
+판본이 없는 13장의 Cost만 AS에서 보충한다. 동명이인·개명은 원본 다중 기록과 포지션으로 구분한다.
+
+`calibrate_annual_reference.py`가 레퍼런스 연결·능력치 산식 적합·override 생성을 담당하고,
+`fit_record_trees.py`가 Cost 공통 산식을 학습한다. 선수 분리 검증으로 구조를 선택한 후 확보 근거
+전체를 재적합한다. `verify_annual_calibration.py`는 공식 bake의 7,526 Cost와 42,554 능력치 필드를
+검사하며 개별 과소·과대평가가 하나라도 있으면 실패한다. `audit_all_reference.py`는 전체 18개 구단
+표기의 현재 동기화와 미수록 카드 산식 일반화 성능을 분리해 보고한다.
+
+공식 bake는 50,080필드 정확 일치, Cost 과소 0·과대 0이며 10Cost 129장도 전부 일치한다.
+1994 LG 이상훈은 Cost 10과 투수 능력치 `89/72/85/87/87/85`로 반영되고, 동명이인 1994 삼성
+이상훈 Cost 5와 별도 Source ID를 쓴다. 학습에만 NumPy/scikit-learn/SciPy가 필요하다. 상세 출처,
+전체 구단 감사, 산식 보류 오차, 대량 경기 검증과 재현 명령은
 `Research/PyaMaeCardDb/Calibration/README.md`와 `BaseballManager_PROJECT.md` 42.19절을 따른다.
 
 아래 v8/v13 설명은 회귀 입력으로 사용하는 **과거 기준식 이력**이다. 현행 버전과 충돌하면 위 계약이 우선한다.

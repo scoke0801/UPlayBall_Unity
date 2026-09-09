@@ -69,6 +69,9 @@ HITTER_METRIC_NAMES = (
     "RunsBattedIn",
     "Runs",
     "Hits",
+    "HitterGames",
+    "AtBats",
+    "NegativeSourceRank",
 )
 PITCHER_METRIC_NAMES = (
     "NegativeEarnedRunAverage",
@@ -99,6 +102,67 @@ SOURCE_POSITION_MAP = {
     "외야수": "CF",
     "지명타자": "DH",
 }
+
+
+def load_annual_reference_overrides() -> dict[str, dict[str, Any]]:
+    """검증된 일반 연도 카드의 정적 값을 Hash 확인 후 읽는다."""
+    config=DERIVATION_BALANCE.get("annualReferenceOverride") or {}
+    if not config.get("enabled",False):
+        return {}
+    path=DERIVATION_BALANCE_PATH.with_name(str(config["relativePath"]))
+    data=path.read_bytes()
+    if hashlib.sha256(data).hexdigest()!=config.get("contentSha256"):
+        raise ValueError("연도 카드 Reference Override Hash가 일치하지 않습니다.")
+    payload=json.loads(data.decode("utf-8-sig"))
+    if (payload.get("version")!=config.get("version")
+            or int(payload.get("maximumCardYear",-1))!=int(config.get("maximumCardYear",-2))):
+        raise ValueError("연도 카드 Reference Override 버전 또는 범위가 일치하지 않습니다.")
+    by_id={}
+    for card in payload.get("cards") or []:
+        season_id=str(card.get("playerSeasonId") or "")
+        values=card.get("values") or {}
+        if not season_id or season_id in by_id or "Cost" not in values:
+            raise ValueError("연도 카드 Reference Override ID 또는 Cost가 유효하지 않습니다.")
+        if not 1<=int(values["Cost"])<=10:
+            raise ValueError("연도 카드 Reference Cost는 1~10이어야 합니다.")
+        if any(target!="Cost" and (target not in ABILITY_INDEX or not 1<=int(value)<=100)
+               for target,value in values.items()):
+            raise ValueError("연도 카드 Reference Ability가 유효하지 않습니다.")
+        by_id[season_id]=card
+    if len(by_id)!=int(config.get("cardCount",-1)):
+        raise ValueError("연도 카드 Reference Override 카드 수가 일치하지 않습니다.")
+    return by_id
+
+
+def apply_annual_reference_overrides(seasons: list[dict[str, Any]], overrides: dict[str, dict[str, Any]]) -> None:
+    """확보한 카드 값은 정본 데이터로 동기화하고 산출식 결과는 비교 Trace로 보존한다."""
+    for season in seasons:
+        card=overrides.get(season["playerSeasonId"])
+        if card is None:
+            continue
+        if (card["playerType"]!=season["playerType"]
+                or int(card["originYear"])!=int(season["originYear"])):
+            raise ValueError("연도 카드 Reference Override 대상이 Source 시즌과 일치하지 않습니다.")
+        values=card["values"]
+        before_attributes=list(season["baseAttributes"])
+        for target,value in values.items():
+            if target!="Cost":
+                season["baseAttributes"][ABILITY_INDEX[target]]=int(value)
+        trace=season["costDerivationTrace"]
+        formula_cost=int(trace["cost"])
+        season["cost"]=int(values["Cost"])
+        trace["formulaCost"]=formula_cost
+        trace["cost"]=season["cost"]
+        trace["costMethod"]="AnnualReferenceOverride"
+        trace["costEligibility"]["affectsCost"]=False
+        trace["eliteEligibility"]["affectsCost"]=False
+        season["annualReferenceOverride"]={
+            "version":str((DERIVATION_BALANCE.get("annualReferenceOverride") or {}).get("version","")),
+            "formulaCost":formula_cost,
+            "formulaBaseAttributes":before_attributes,
+            "values":dict(values),
+            "sources":dict(card.get("sources") or {}),
+        }
 PITCHER_ROLE_CLASSIFIER_CONFIG = DERIVATION_BALANCE["pitcherRoleClassifier"]
 ROSTER_SELECTION_CONFIG = DERIVATION_BALANCE["rosterSelection"]
 POSITION_STARTER_ATTRIBUTE_WEIGHTS = ROSTER_SELECTION_CONFIG["positionStarterAttributeWeights"]
@@ -431,6 +495,13 @@ def hitter_metric_evidence(player: dict[str, Any]) -> list[dict[str, Any]]:
     for metric, field in (("RunsBattedIn", "runsBattedIn"), ("Runs", "runs"), ("Hits", "hits")):
         count = safe_number(stats.get(field))
         result.append(metric_evidence(metric, count, count, 1.0, plate_appearances, pa_constant, stats.get(field) is not None))
+    # 타석이 거의 없는 선수도 확인된 출장·타수·공식 조회 순위로 서로 구분한다.
+    # 선수 식별자가 아니라 KBO 시즌 기록 필드이며 기존 능력치 가중치에는 사용하지 않는다.
+    for metric, field, sign in (("HitterGames", "games", 1.0), ("AtBats", "atBats", 1.0),
+                                ("NegativeSourceRank", "sourceRank", -1.0)):
+        available=stats.get(field) is not None
+        value=sign*safe_number(stats.get(field))
+        result.append(metric_evidence(metric,value,value,1.0,max(1.0,plate_appearances),pa_constant,available))
 
     has_attempts = False
     attempts = 0.0
@@ -2355,6 +2426,43 @@ def select_hitter_bench(
     return selected, traces, warnings
 
 
+def limit_team_season_pitcher_roles(team_rows: list[dict[str, Any]]) -> None:
+    """원본 구단·연도의 세이브·홀드 상위 후보만 한정 보직으로 발급한다."""
+    limits = {
+        "Closer": ("saves", int(PITCHER_ROLE_CLASSIFIER_CONFIG["maximumClosersPerTeamSeason"])),
+        "Setup": ("holds", int(PITCHER_ROLE_CLASSIFIER_CONFIG["maximumSetupPitchersPerTeamSeason"])),
+    }
+    groups: dict[tuple[int, str, str], list[dict[str, Any]]] = {}
+    for row in team_rows:
+        if row["playerType"] != "Pitcher":
+            continue
+        trace = row.get("positionRoleDerivationTrace") or {}
+        # 재배치·재검증에서도 최초 후보 보직으로 비교해 입력 순서에 의존하지 않는다.
+        role = trace.get("uncappedNaturalPitcherRole", row["pitcherRole"])
+        if role in limits:
+            key = (int(row["originYear"]), row["originTeamSeasonKey"], role)
+            groups.setdefault(key, []).append(row)
+    for (_, _, role), candidates in sorted(groups.items()):
+        statistic, maximum = limits[role]
+        if maximum < 0:
+            raise ValueError("구단·연도 투수 보직 상한은 음수일 수 없습니다.")
+        candidates.sort(key=lambda row: (
+            -safe_number((row.get("positionRoleDerivationTrace") or {}).get(
+                "pitcherRoleEvidence", {}).get(statistic)),
+            row["playerSeasonId"],
+        ))
+        for index, row in enumerate(candidates):
+            selected = role if index < maximum else "MiddleRelief"
+            row["pitcherRole"] = selected
+            trace = row.setdefault("positionRoleDerivationTrace", {})
+            trace["uncappedNaturalPitcherRole"] = role
+            trace["selectedNaturalPitcherRole"] = selected
+            trace["teamSeasonRoleLimit"] = {
+                "maximum": maximum, "rank": index + 1, "statistic": statistic,
+                "isLimited": index >= maximum,
+            }
+
+
 def assign_source_team_roles(
     team_rows: list[dict[str, Any]],
     source_by_season_id: dict[str, dict[str, Any]],
@@ -2538,6 +2646,7 @@ def build_editor_original_content(
         for year in sorted(years)
     ]
     position_evidence = source_position_evidence.load_position_evidence()
+    annual_reference_overrides=load_annual_reference_overrides()
     for reference in references:
         source_position_evidence.attach_position_evidence(reference, position_evidence)
     reference_manifest_fields = build_reference_manifest_fields(references)
@@ -2711,6 +2820,7 @@ def build_editor_original_content(
                     person["primaryPosition"] = position
 
         assign_origin_year_costs(seasons)
+        apply_annual_reference_overrides(seasons,annual_reference_overrides)
 
         pitch_balance = pitch_generation.load_balance()
         for pitch_season in seasons:
@@ -2726,6 +2836,7 @@ def build_editor_original_content(
         teams: list[dict[str, Any]] = []
         for team_name in sorted(team_rows):
             rows = team_rows[team_name]
+            limit_team_season_pitcher_roles(rows)
             core, roster_selection_trace = assign_source_team_roles(rows, source_by_season_id)
             team_key = team_key_by_name[team_name]
             roster_selection_trace["teamSeasonKey"] = team_key
@@ -2862,7 +2973,7 @@ def build_reference_manifest_fields(references: list[dict[str, Any]]) -> dict[st
         for player in reference["players"]:
             player.pop("_supplementalPositionEvidence", None)
 
-    return {
+    result = {
         "referenceDataVersion": REFERENCE_DATA_VERSION,
         "rawDataVersion": hashlib.sha256(canonical_json_bytes(raw_provenance)).hexdigest(),
         "normalizedSchemaVersion": NORMALIZED_SCHEMA_VERSION,
@@ -2874,6 +2985,12 @@ def build_reference_manifest_fields(references: list[dict[str, Any]]) -> dict[st
         "costFormulaVersion": COST_FORMULA_VERSION,
         "derivationBalanceVersion": DERIVATION_BALANCE_VERSION,
     }
+    override=DERIVATION_BALANCE.get("annualReferenceOverride") or {}
+    if override.get("enabled",False):
+        result["annualReferenceOverrideVersion"]=override["version"]
+        result["annualReferenceOverrideHash"]=override["contentSha256"]
+        result["annualReferenceOverrideCardCount"]=int(override["cardCount"])
+    return result
 
 
 def validate_derivation_manifest(manifest: dict[str, Any]) -> None:
@@ -2887,6 +3004,11 @@ def validate_derivation_manifest(manifest: dict[str, Any]) -> None:
         "costFormulaVersion": COST_FORMULA_VERSION,
         "derivationBalanceVersion": DERIVATION_BALANCE_VERSION,
     }
+    override=DERIVATION_BALANCE.get("annualReferenceOverride") or {}
+    if override.get("enabled",False):
+        expected["annualReferenceOverrideVersion"]=override["version"]
+        expected["annualReferenceOverrideHash"]=override["contentSha256"]
+        expected["annualReferenceOverrideCardCount"]=int(override["cardCount"])
     mismatches = [
         f"{field}=expected:{expected_value},actual:{manifest.get(field)}"
         for field, expected_value in expected.items()
@@ -3049,6 +3171,7 @@ def validate_bake(content: dict[str, Any]) -> None:
 
 def validate_editor_original_content(content: dict[str, Any]) -> None:
     """Editor 원본 Archive가 실명 선수·시즌을 합성 없이 1:1로 보존하는지 검증한다."""
+    annual_reference_overrides=load_annual_reference_overrides()
     policy = str(content.get("manifest", {}).get("nameDataPolicy") or "")
     if policy != EDITOR_ORIGINAL_NAME_POLICY:
         raise ValueError(f"Editor 원본 이름 정책이 아닙니다: {policy}")
@@ -3124,6 +3247,17 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
                 raise ValueError("원본에 없는 TrainingCeiling을 Editor 원본 Archive에 만들 수 없습니다.")
             if not 1 <= int(season["cost"]) <= 10:
                 raise ValueError("Editor 원본 파생 Cost는 1~10이어야 합니다.")
+            reference_override=annual_reference_overrides.get(season["playerSeasonId"])
+            reference_trace=season.get("annualReferenceOverride")
+            if (reference_override is None)!=(reference_trace is None):
+                raise ValueError("연도 카드 Reference Override Trace 적용 여부가 일치하지 않습니다.")
+            if reference_override is not None:
+                if (reference_trace.get("values")!=reference_override["values"]
+                        or reference_trace.get("sources")!=(reference_override.get("sources") or {})):
+                    raise ValueError("연도 카드 Reference Override Trace가 정본과 일치하지 않습니다.")
+                for target,value in reference_override["values"].items():
+                    if target!="Cost" and season["baseAttributes"][ABILITY_INDEX[target]]!=int(value):
+                        raise ValueError("연도 카드 Reference Ability가 정본과 일치하지 않습니다.")
             record = record_by_id[season["playerSeasonId"]]
             if (
                 int(record["seasonYear"]) != year
@@ -3185,11 +3319,16 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
                 expected_method = "ReferenceRecordRidgeWithEliteGate"
                 if expected_calibration.get("method") == RECORD_TREE_MODEL_TYPE:
                     expected_method = RECORD_TREE_MODEL_TYPE
+            if reference_override is not None:
+                if int(cost_trace.get("formulaCost",-1))!=expected_cost:
+                    raise ValueError("연도 카드 Reference 적용 전 Formula Cost가 재계산과 일치하지 않습니다.")
+                expected_cost=int(reference_override["values"]["Cost"])
+                expected_method="AnnualReferenceOverride"
             if cost_trace.get("referenceCalibration") != expected_calibration:
                 raise ValueError("COST_CALIBRATION_MISMATCH: 기록 회귀 근거가 재계산과 다릅니다.")
             if (int(season["cost"]) != expected_cost
                     or cost_trace.get("costMethod") != expected_method
-                    or eligibility_trace.get("affectsCost") is not True):
+                    or eligibility_trace.get("affectsCost") is not (reference_override is None)):
                 raise ValueError("COST_VALUE_MISMATCH: 시즌 가치와 Cost가 일치하지 않습니다.")
             metric_influence_audit = cost_trace.get("metricInfluenceAudit") or {}
             if not metric_influence_audit or metric_influence_audit.get("hasViolation"):
@@ -3262,6 +3401,7 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
 
 
 def validate_archive_content(content: dict[str, Any]) -> None:
+    validate_pitcher_role_limits(content)
     manifest = content.get("manifest", {})
     validate_derivation_manifest(manifest)
     policy = str(manifest.get("nameDataPolicy") or "")
@@ -3269,6 +3409,24 @@ def validate_archive_content(content: dict[str, Any]) -> None:
         validate_editor_original_content(content)
         return
     validate_bake(content)
+
+
+def validate_pitcher_role_limits(content: dict[str, Any]) -> None:
+    """Core25 밖의 예비 선수까지 구단·연도별 보직 상한을 검사한다."""
+    limits = {
+        "Closer": int(PITCHER_ROLE_CLASSIFIER_CONFIG["maximumClosersPerTeamSeason"]),
+        "Setup": int(PITCHER_ROLE_CLASSIFIER_CONFIG["maximumSetupPitchersPerTeamSeason"]),
+    }
+    counts: dict[tuple[int, str, str], int] = {}
+    for year in content["years"]:
+        for row in year["playerSeasons"]:
+            role = row["pitcherRole"]
+            if row["playerType"] != "Pitcher" or role not in limits:
+                continue
+            key = (int(row["originYear"]), row["originTeamSeasonKey"], role)
+            counts[key] = counts.get(key, 0) + 1
+            if counts[key] > limits[role]:
+                raise ValueError(f"구단·연도 투수 카드 보직 상한 초과: {key}, 최대 {limits[role]}명")
 
 
 def bake_with_report(
@@ -3322,6 +3480,7 @@ def create_runtime_safe_content(editor_content: dict[str, Any]) -> dict[str, Any
             season.pop("replacementGenerationTrace", None)
             season.pop("generationReason", None)
             season.pop("pitchGenerationTrace", None)
+            season.pop("annualReferenceOverride", None)
         for team in year_content["teamSeasons"]:
             team.pop("rosterSelectionTrace", None)
             team.pop("validationWarnings", None)

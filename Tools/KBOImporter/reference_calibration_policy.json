@@ -1,7 +1,6 @@
 {
-  "version": "annual-reference-policy-v1",
+  "version": "annual-reference-policy-v2",
   "maximumCardYear": 2013,
-  "maximumObservationYear": 2013,
   "splitSalt": "pm-annual-player-v1",
   "ridgeCandidates": [
     0.1,

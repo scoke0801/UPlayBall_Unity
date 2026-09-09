@@ -16,6 +16,10 @@ from study_pm_calibration import metrics
 ROOT = Path(__file__).resolve().parents[2]
 NAMES = {'Hitter': {'교타': 'Contact', '장타': 'Power', '주력': 'Speed', '어깨': 'Arm', '수비': 'Defense', '정신력': 'BatterMental'},
          'Pitcher': {'체력': 'Stamina', '구속': 'Velocity', '구위': 'Stuff', '변화구': 'Breaking', '제구력': 'Control', '정신력': 'PitcherMental'}}
+ARCHIVE_NAMES = {
+    'Hitter': {'교타력': 'Contact', '장타력': 'Power', '주력': 'Speed', '수비력': 'Defense', '정신력': 'BatterMental'},
+    'Pitcher': {'체력': 'Stamina', '구속': 'Velocity', '구위': 'Stuff', '변화구': 'Breaking', '제구력': 'Control', '정신력': 'PitcherMental'},
+}
 
 
 def read(path):
@@ -48,6 +52,21 @@ def match_record_candidates(candidates, seasons, players, year, team, kind, reco
     return [s for s in candidates if s['playerSeasonId'] in record_ids]
 
 
+def archive_kind(position):
+    """웹 카드의 포지션을 선수 타입으로 변환한다."""
+    return 'Pitcher' if position in ('선발','중계','셋업','마무리') else 'Hitter'
+
+
+def filter_position_candidates(candidates, kind, position):
+    """동명이인은 카드에 표시된 포지션과 역할로만 추가 구분한다."""
+    if kind=='Hitter':
+        expected={'포수':{'C'},'1루수':{'1B'},'2루수':{'2B'},'3루수':{'3B'},'유격수':{'SS'},
+                  '외야수':{'LF','CF','RF','DH'}}.get(position,set())
+        return [s for s in candidates if s.get('position') in expected]
+    expected={'선발':{'Starter'},'중계':{'LongRelief','MiddleRelief'},'셋업':{'Setup'},'마무리':{'Closer'}}.get(position,set())
+    return [s for s in candidates if s.get('pitcherRole') in expected]
+
+
 def load_labels(seasons, policy):
     """DB를 우선하고 중복·충돌·미확정 연결은 학습과 분리한다."""
     exact, without_team = defaultdict(list), defaultdict(list)
@@ -57,13 +76,18 @@ def load_labels(seasons, policy):
             without_team[(s['originYear'], name, s['playerType'])].append(s)
     labels, rejected, seen = [], [], {}
 
-    def add(year, team, name, kind, edition, values, origin, text='', observation_year=None, record_counts=None):
-        if not is_annual_reference(year, edition, text, policy) or (observation_year and observation_year > policy['maximumObservationYear']):
+    def add(year, team, name, kind, edition, values, origin, text='', record_counts=None,
+            reference_position=None):
+        if not is_annual_reference(year, edition, text, policy):
             rejected.append(dict(origin=origin, name=name, year=year, reason='OutOfScope')); return
         kinds = (kind,) if kind else ('Hitter', 'Pitcher')
         candidates = [s for k in kinds for s in (exact[(year, normalize_team(team), name, k)] if team else without_team[(year, name, k)])]
         candidates = list({s['playerSeasonId']:s for s in candidates}.values())
         join_method='YearTeamNameType'
+        if len(candidates)>1 and kind and reference_position:
+            positioned=filter_position_candidates(candidates,kind,reference_position)
+            if len(positioned)==1:
+                candidates=positioned;join_method='YearTeamNameTypePosition'
         if len(candidates)!=1 and record_counts:
             join_method='NameAndRecordCounts' if candidates else 'TeamAndRecordCounts'
             source=read(ROOT/f'Tools/KBOImporter/.cache/KBOImport/Normalized/{year}.json')
@@ -90,7 +114,7 @@ def load_labels(seasons, policy):
                 values = {NAMES[kind][k]:int(r[k]) for k in NAMES[kind] if r[k].strip()}
                 values['Cost'] = int(r['코스트'])
                 add(2000+int(r['년도']), r['팀'], r['이름'], kind, r['카드종류'], values,
-                    f'Database:{table}:{r["ID"]}', observation_year=2011,
+                    f'Database:{table}:{r["ID"]}',
                     record_counts={k:int(r[v]) for k,v in (
                         (('games','시합수'),('atBats','타수'),('hits','안타'),('homeRuns','홈런'),('strikeouts','삼진'),('walks','4구')) if kind=='Hitter' else
                         (('games','시합수'),('wins','승리'),('losses','패전'),('saves','세이브'),('strikeouts','탈삼진')))
@@ -106,7 +130,21 @@ def load_labels(seasons, policy):
         for r in database:
             if r['카드종류']!='올스타':continue
             add(2000+int(r['년도']),r['팀'],r['이름'],kind,'Normal',{'Cost':int(r['코스트'])},
-                f'DatabaseAllStarCostEquivalent:{table}:{r["ID"]}',observation_year=2011)
+                f'DatabaseAllStarCostEquivalent:{table}:{r["ID"]}')
+    for relative in ('Research/PyaMaeCardDb/1989-1999/archive-cards.csv',
+                     'Research/PyaMaeCardDb/2010-2016/archive-cards.csv'):
+        with (ROOT/relative).open(encoding='utf-8-sig',newline='') as stream:
+            for r in csv.DictReader(stream):
+                year=int(r['SeasonYear'])
+                if r['CardType']!='일반' or r['CardTypeCss']!='playerCard1':
+                    continue
+                if 'SourceYearLabel' in r and r['SourceYearLabel']!=f"{year%100:02d}'":
+                    continue
+                kind=archive_kind(r['Position'])
+                values={target:int(r[source]) for source,target in ARCHIVE_NAMES[kind].items() if r.get(source,'').strip()}
+                values['Cost']=int(r['Cost'])
+                add(year,r['Team'],r['Name'],kind,'일반',values,f'ArchivedWebCard:{relative}:{r["CardId"]}',
+                    text=r.get('SourceYearLabel',''),reference_position=r['Position'])
     folder = ROOT/'docs/reports/pm_threshold_review_20260906'
     for file, kind in (('hitter_card_readings.json','Hitter'), ('pitch_card_readings.json','Pitcher')):
         data = read(folder/file)
@@ -116,12 +154,12 @@ def load_labels(seasons, policy):
             values={k:int(v) for k,v in zip(columns,r['attributes']) if k!='Bunt'}
             values['Cost']=int(r.get('articleCost',r.get('cost')))
             add(r['year'],r.get('team',''),r['name'],kind,r.get('variant',''),values,
-                f'ArticleImage:{r["cardId"]}',text=r.get('note',''),observation_year=int(r.get('articleDate','2010')[:4]))
+                f'ArticleImage:{r["cardId"]}',text=r.get('note',''))
     workbook=read(ROOT/'docs/reports/pm_reference_review_20260906/workbook_extracted.json')
     for r in next(s['Rows'] for s in workbook['Sheets'] if s['Name']=='Cost_근거')[1:]:
         c=r['Cells']
         add(int(c['A']),c.get('B',''),c['C'],None,c.get('F',''),{'Cost':int(c['E'])},
-            f'ArticleCost:{c["K"]}',text=c.get('J',''),observation_year=int(c['G'][:4]))
+            f'ArticleCost:{c["K"]}',text=c.get('J',''))
     # 사용자가 이번 검증 목표로 지정한 기준표는 웹 검증 자료와 출처를 구분한다.
     for path in policy.get('userReferenceFixtures',[]):
         fixture=read(ROOT/path)
@@ -240,6 +278,7 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--policy',type=Path,default=Path(__file__).with_name('reference_calibration_policy.json'))
     parser.add_argument('--export-cost-rows',type=Path)
+    parser.add_argument('--export-reference-overrides',type=Path)
     args=parser.parse_args(); args.output.mkdir(parents=True,exist_ok=True)
     policy=read(args.policy)
     bake.DERIVATION_BALANCE.clear()
@@ -281,6 +320,16 @@ def main():
         row['canCalibrate']=has_observed_sample(row['evidence']) and (row['target']=='Cost' or any(row['evidence'].get(metric,{}).get('isAvailable',False) for metric in bake.DERIVATION_BALANCE['ratingProfiles'][row['kind']][row['target']]['metrics']))
     if args.export_cost_rows:
         args.export_cost_rows.write_text(json.dumps([r for r in labels if r['target']=='Cost'],ensure_ascii=False),encoding='utf-8')
+    if args.export_reference_overrides:
+        cards={}
+        for row in labels:
+            card=cards.setdefault(row['id'],dict(playerSeasonId=row['id'],playerType=row['kind'],
+                originYear=row['year'],values={},sources={}))
+            card['values'][row['target']]=row['expected'];card['sources'][row['target']]=row['origin']
+        payload=dict(version='annual-general-reference-v1',maximumCardYear=policy['maximumCardYear'],
+            policyVersion=policy['version'],cards=sorted(cards.values(),key=lambda c:c['playerSeasonId']))
+        args.export_reference_overrides.write_text(json.dumps(payload,ensure_ascii=False,sort_keys=True,
+            separators=(',',':'))+'\n',encoding='utf-8')
     models={}; reports=[]
     for kind, targets in policy['features'].items():
         models[kind]={}
@@ -305,7 +354,7 @@ def main():
                 if split=='Holdout':print(kind,target,selected,round(scores['before']['mae'],3),round(scores['after']['mae'],3),flush=True)
     validate_models(models,{'Hitter':set(bake.HITTER_METRIC_NAMES),'Pitcher':set(bake.PITCHER_METRIC_NAMES)})
     config=copy.deepcopy(bake.DERIVATION_BALANCE)
-    config.update(version='historical-derivation-balance-v20',abilityFormulaVersion='historical-ability-v9',costFormulaVersion='historical-season-value-v15',referenceRecordModels=models)
+    config.update(version='historical-derivation-balance-v23-candidate',abilityFormulaVersion='historical-ability-v10',costFormulaVersion='historical-season-value-v17-candidate',referenceRecordModels=models)
     config['ratingCalibrationNote']='2013년 이하 연도 카드 '+str(len({r['id'] for r in labels}))+'개를 캐시 기록과 연결. 일반 카드 및 가격 동등성을 검증한 올스타 Cost. 선수 단위 분리·단조 제약·희귀도 가중 회귀와 학습된 가격 경계. 월별/판본 충돌 제외. 후기 서비스 최종판의 복원은 아님.'
     config['referenceCalibration']={'policyVersion':policy['version'],'maximumCardYear':policy['maximumCardYear'],'splitSalt':policy['splitSalt'],
         'policySha256':hashlib.sha256(args.policy.read_bytes()).hexdigest(),'fitSource':'NormalizedCacheRecordFeatures',
@@ -318,6 +367,7 @@ def main():
             'byYear':dict(sorted(Counter(r['year'] for r in labels if r['target']=='Cost').items())),
             'rejections':rejected,'scores':reports,'splitPeople':{split:len({r['person'] for r in labels if r['split']==split}) for split in ('Train','Validation','Holdout')}}
     source_paths=[ROOT/'Research/PyaMaeCardDb'/name for name in ('ta.csv','too.csv')]
+    source_paths += [ROOT/'Research/PyaMaeCardDb'/folder/'archive-cards.csv' for folder in ('1989-1999','2010-2016')]
     source_paths += [ROOT/'docs/reports/pm_threshold_review_20260906'/name for name in ('hitter_card_readings.json','pitch_card_readings.json')]
     source_paths += [ROOT/'docs/reports/pm_reference_review_20260906/workbook_extracted.json']
     source_paths += [ROOT/path for path in policy.get('userReferenceFixtures',[])]

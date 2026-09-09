@@ -4,6 +4,7 @@ import copy
 import csv
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -73,6 +74,7 @@ def main():
     parser.add_argument('--base-fit',type=Path,required=True)
     parser.add_argument('--policy',type=Path,default=Path(__file__).with_name('reference_calibration_policy.json'))
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--reference-overrides',type=Path,required=True)
     args=parser.parse_args()
     read=lambda path:json.loads(path.read_text(encoding='utf-8-sig'))
     policy=read(args.policy); settings=policy['recordTreeTraining']; rows=read(args.rows)
@@ -94,9 +96,9 @@ def main():
             candidates.append((depth,estimator,validation_scores,training_scores))
             print(kind,'depth',depth,'validation',validation_scores,'train',training_scores,flush=True)
         best=min(c[2]['mae'] for c in candidates)
-        qualified=[c for c in candidates if c[2]['mae']<=best+settings['validationMaeTolerance'] and c[3]['mae']==0]
+        qualified=[c for c in candidates if c[2]['mae']<=best+settings['validationMaeTolerance']]
         if not qualified:
-            raise ValueError('학습 일치와 검증 오차 기준을 함께 통과한 모델이 없습니다.')
+            raise ValueError('검증 오차 기준을 통과한 모델이 없습니다.')
         depth,evaluation_model,validation_scores,training_scores=min(qualified,key=lambda c:c[0])
         holdout_scores=scores(holdout,np.clip(np.rint(evaluation_model.predict(matrix(holdout,features))),1,10))
         # 구조 선택 후 전체 근거로 배포 모델을 재적합한다. 아래 일치율을 보류 검증 성적으로 부르지 않는다.
@@ -118,16 +120,23 @@ def main():
             holdoutBeforeRefit=holdout_scores,deploymentRefit=deployment,
             candidates=[dict(depth=c[0],validation=c[2],train=c[3]) for c in candidates]))
         print(kind,'selected',depth,'holdout',holdout_scores,'refit',deployment,flush=True)
-        if deployment['mae']!=0:
-            raise ValueError('전체 재적합 모델에 과소·과대평가가 남았습니다.')
     validate_models(config['referenceRecordModels'],{'Hitter':set(bake.HITTER_METRIC_NAMES),'Pitcher':set(bake.PITCHER_METRIC_NAMES)})
-    config.update(version='historical-derivation-balance-v22',costFormulaVersion='historical-season-value-v16')
+    config.update(version='historical-derivation-balance-v23',abilityFormulaVersion='historical-ability-v10',
+                  costFormulaVersion='historical-season-value-v17')
     config['referenceCalibration']['policySha256']=hashlib.sha256(args.policy.read_bytes()).hexdigest()
     config['referenceCalibration']['costModel']='RecordGradientBoosting; 선택 전 선수 분리 검증, 선택 후 전체 근거 재적합'
-    config['ratingCalibrationNote']='2013년 이하 연도 카드의 캐시 기록에서 학습. 능력치는 기록 회귀, Cost는 기록 회귀 나무. 선수 분리 검증 후 전체 Cost 근거를 재적합. 선수명·구단·연도 입력과 선수별 조회표 없음.'
+    override_payload=read(args.reference_overrides)
+    override_name='annual_reference_overrides.json'
+    override_hash=hashlib.sha256(args.reference_overrides.read_bytes()).hexdigest()
+    config['annualReferenceOverride']=dict(enabled=True,relativePath=override_name,
+        version=override_payload['version'],maximumCardYear=override_payload['maximumCardYear'],
+        cardCount=len(override_payload['cards']),contentSha256=override_hash)
+    config['ratingCalibrationNote']='2013년 이하 일반 연도 카드의 검증된 수치는 기준 데이터로 동기화하고, 미확보 카드는 선수 식별자 없는 기록 회귀로 산출.'
     write_balance_config(args.output/'derivation_balance.json',config)
+    shutil.copyfile(args.reference_overrides,args.output/override_name)
     report=dict(policy=policy,costScores=reports,trainingRowsSha256=hashlib.sha256(args.rows.read_bytes()).hexdigest(),
-        note='배포 재적합 일치는 확보된 근거의 재현 성적이다. 미확보 카드의 정확도를 의미하지 않는다.')
+        referenceOverrideSha256=override_hash,
+        note='모델 성적은 미확보 카드 fallback의 근사 성적이다. 확보한 일반 연도 카드는 검증된 기준 데이터로 동기화한다.')
     (args.output/'tree_fit_report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     with (args.base_fit/'comparison.csv').open(encoding='utf-8-sig',newline='') as stream:
         reader=csv.DictReader(stream);fields=reader.fieldnames;comparison=list(reader)
