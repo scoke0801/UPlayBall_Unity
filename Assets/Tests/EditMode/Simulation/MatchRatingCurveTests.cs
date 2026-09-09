@@ -10,6 +10,30 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class MatchRatingCurveTests
     {
         [Test]
+        public void PitcherCurve_투수능력만별도로변환하고기본값은보존한다()
+        {
+            var baseline = Baseball.Core.Balance.MatchRatingCurveBalance.CreateDefault();
+            var candidate = new Baseball.Core.Balance.MatchRatingCurveBalance(45d, 1d,
+                inputOffset: -13.75d, pitcherSlope: 1.5d, pitcherInputOffset: -26.25d);
+            Assert.That(MatchRatingCurve.ResolveMatchInput(80, Baseball.Core.Growth.PlayerAbility.Contact, candidate), Is.EqualTo(66));
+            Assert.That(MatchRatingCurve.ResolveMatchInput(80, Baseball.Core.Growth.PlayerAbility.Stamina, candidate), Is.EqualTo(71));
+            Assert.That(MatchRatingCurve.ResolveMatchInput(80, Baseball.Core.Growth.PlayerAbility.Stamina, baseline),
+                Is.EqualTo(MatchRatingCurve.ResolveMatchInput(80, baseline)));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new Baseball.Core.Balance.MatchRatingCurveBalance(45, .45, pitcherSlope: double.NaN));
+        }
+
+        [Test]
+        public void InputOffset_기준점을유지하면서격차만확장한다()
+        {
+            var baseline = Baseball.Core.Balance.MatchRatingCurveBalance.CreateDefault();
+            var wider = new Baseball.Core.Balance.MatchRatingCurveBalance(45d, 1d, inputOffset: -13.75d);
+            Assert.That(MatchRatingCurve.ResolveMatchInput(70, baseline), Is.EqualTo(56));
+            Assert.That(MatchRatingCurve.ResolveMatchInput(70, wider), Is.EqualTo(56));
+            Assert.That(MatchRatingCurve.ResolveMatchInput(80, wider) - MatchRatingCurve.ResolveMatchInput(60, wider), Is.EqualTo(20));
+            Assert.That(MatchRatingCurve.ResolveMatchInput(1, wider), Is.EqualTo(0));
+        }
+
+        [Test]
         public void EndgameLayersPreserveOrderingUntilSharedHardCap()
         {
             var caps = EffectiveRatingCapTable.CreateInitial();

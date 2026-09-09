@@ -1,6 +1,7 @@
 using System;
 using Baseball.Core.Historical;
 using Baseball.Core.Balance;
+using Baseball.Core.Growth;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 
@@ -11,11 +12,19 @@ namespace Baseball.Simulation.Match
     {
         /// <summary>HardCap와 SoftCap을 거친 값의 효과 분산만 압축한다.</summary>
         public static int ResolveMatchInput(double effectiveRating, MatchRatingCurveBalance balance)
+            => ResolveMatchInput(effectiveRating, balance, false);
+
+        /// <summary>타자·투수 능력의 서로 다른 분포를 같은 경기 소비 경로에서 변환한다.</summary>
+        public static int ResolveMatchInput(double effectiveRating, PlayerAbility ability, MatchRatingCurveBalance balance)
+            => ResolveMatchInput(effectiveRating, balance, ability >= PlayerAbility.Stamina);
+
+        private static int ResolveMatchInput(double effectiveRating, MatchRatingCurveBalance balance, bool isPitcherAbility)
         {
             if (balance == null) throw new ArgumentNullException(nameof(balance));
             double curved = Resolve(effectiveRating, balance.Caps);
             return (int)Math.Round(Math.Max(0d, Math.Min(100d,
-                balance.Center + (curved - balance.Center) * balance.Slope)), MidpointRounding.AwayFromZero);
+                balance.Center + (curved - balance.Center) * (isPitcherAbility ? balance.PitcherSlope : balance.Slope) +
+                (isPitcherAbility ? balance.PitcherInputOffset : balance.InputOffset))), MidpointRounding.AwayFromZero);
         }
 
         /// <summary>원본 선수는 보존하고 경기 시작 때만 별도 입력 스냅샷을 만든다.</summary>
@@ -23,12 +32,13 @@ namespace Baseball.Simulation.Match
         {
             if (source.HasResolvedMatchRatings) return source;
             int Map(int rating) => ResolveMatchInput(rating, balance);
+            int MapPitcher(int rating) => ResolveMatchInput(rating, balance, true);
             BatterAttributes b = source.BatterAttributes;
             PitcherAttributes p = source.PitcherAttributes;
             return new Player(source.PlayerId, source.Name, source.PrimaryPosition, source.BattingHand,
                 source.ThrowingHand, new BatterAttributes(Map(b.Contact), Map(b.Power), Map(b.Speed),
                     Map(b.Arm), Map(b.Defense), Map(b.Mental)),
-                new PitcherAttributes(Map(p.Stamina), Map(p.Velocity), Map(p.Stuff), Map(p.Breaking), Map(p.Control), Map(p.Mental)),
+                new PitcherAttributes(MapPitcher(p.Stamina), MapPitcher(p.Velocity), MapPitcher(p.Stuff), MapPitcher(p.Breaking), MapPitcher(p.Control), MapPitcher(p.Mental)),
                 source.SecondaryPositions, source.Nationality, source.PitchRepertoire, source.TraitIds,
                 source.BakedPitcherAttributes, source.PermanentPitcherAttributes, true, source.UncurvedPitcherAttributes,
                 source.IsPositionEvidenceMissing);

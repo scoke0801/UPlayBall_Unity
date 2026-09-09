@@ -30,7 +30,9 @@ namespace Baseball.Game.Data
             MatchRatingCurveData data = JsonUtility.FromJson<MatchRatingCurveData>(json);
             if (data == null || data.schemaVersion != 1) throw new ArgumentException("경기 곡선 Schema가 다릅니다.");
             return new MatchRatingCurveBalance(data.center, data.slope,
-                new EffectiveRatingCapTable(data.softCap, data.hardCap, data.postSoftCapSlope));
+                new EffectiveRatingCapTable(data.softCap, data.hardCap, data.postSoftCapSlope), data.inputOffset,
+                data.usePitcherCurve ? (double?)data.pitcherSlope : null,
+                data.usePitcherCurve ? (double?)data.pitcherInputOffset : null);
         }
     }
 #pragma warning disable 0649
@@ -38,6 +40,9 @@ namespace Baseball.Game.Data
     {
         public int schemaVersion, softCap, hardCap;
         public double center, slope, postSoftCapSlope;
+        public double inputOffset;
+        public bool usePitcherCurve;
+        public double pitcherSlope, pitcherInputOffset;
     }
 #pragma warning restore 0649
 }
