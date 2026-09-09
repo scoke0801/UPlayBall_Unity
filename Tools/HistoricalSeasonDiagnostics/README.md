@@ -39,6 +39,13 @@ dotnet run --project Tools/HistoricalSeasonDiagnostics -c Release -- `
 ```
 
 마지막에 `45 0.45`처럼 Rating Curve의 center와 slope를 지정해 후보를 비교할 수 있다.
+추가 인수는 `[inputOffset [pitcherSlope pitcherInputOffset]]`이며 타자/투수 격차를 분리 검증한다.
+생산용 기본값은 변경하지 않는다. `verify_strength.py`는 실제 승률 ±.03·최소 32시드와
+동년 최강 대상의 평균 1위를 잠정 기준으로 검사하며 실패하면 0이 아닌 코드로 종료한다.
+전체 대상 중 실행하지 않은 연도도 실패한다. 단계 검증은 `--years 1985,1992,2010`을 명시한다.
+공동 실제 선두는 최상위 묶음, 나머지 동년 대상은 실제 상대 순서를 확인한다.
+이 기준의 허용 오차와 동년 복수 대상 해석은 사용자 확정 전이며 매 시즌 우승 보장이 아니다.
+이번 개선의 미통과 결과와 공식 게시 보류 사유는 `Tools/KBOImporter/PositionRepair.md`를 따른다.
 생략하면 `BalanceTable.CreateDefault()`다. Unity의 다른 SO/JSON이나 전술 효과를 자동 로드하지 않는다.
 실제 게임에서 밸런스 자산을 별도로 변경했다면 그 변경을 포함한 검증을 추가해야 한다.
 
@@ -67,3 +74,20 @@ uv run --project Tools/KBOImporter python Tools/HistoricalSeasonDiagnostics/comp
 모든 시즌의 각 경기 입력에서 실제 선발이 Core25의 1~5선발 순서인지 검증한다.
 올스타를 제외하고 정규시즌에서 포스트시즌까지 팀별 순번을 이어서 검사한다.
 각 결과의 `rotations.regularStarts`에 정규시즌 선발별 등판 횟수를 기록한다.
+
+## 로스터 단일 요인 대조
+
+`--roster-ablation <Runtime> <출력 JSON> <반복 수> <TeamSeasonKey,Key>`는 실제 시즌의 경기 전 입력을
+잠그고 기준·대상 타순 AI·양팀 타순 AI·대상 수비 적응도100·대상 보직 불일치 제거를 각각 재생한다.
+기준 재생은 원 경기 전체 직렬화와 일치해야 한다. 수비 실험은 주 포지션을 유지하고 부포지션
+적응도만 추가한다. 투수·선수·배치·경기 전 피로·Seed를 바꾸는 실험과 혼합하지 않는다.
+
+변경된 경기 결과의 투구 수를 다음 날에 전달하지 않으므로 이는 경기 단위 직접 효과 실험이지
+수정 후 전체 시즌을 재현한 결과가 아니다. `BothOrder`도 대상 경기에서 양팀 타순을 바꿀 뿐
+모든 구단의 별도 시즌을 완성하는 것은 아니다. 능력치·Cost·생산용 Archive는 수정하지 않는다.
+
+```powershell
+dotnet run --project Tools/HistoricalSeasonDiagnostics -c Release -- --roster-ablation Assets/10.Datas/HistoricalSimulation/1982-2025 .tmp/research-roster/precision-roster.json 32 FRANCHISE_a23e5d3c82759518a0e1_1985,FRANCHISE_d759ac5f30c5df8a5e19_1992,FRANCHISE_1b36b987034cef53c24a_2010
+```
+
+상세 검토와 적용하지 않은 후보는 `docs/reports/historical-strength-precision/README.md`를 따른다.
