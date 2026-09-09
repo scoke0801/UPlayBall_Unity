@@ -18,6 +18,41 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class ManagerModeMatchServiceTests
     {
         [Test]
+        public void AI준비캐시는로스터교체뒤새서비스와같은경기를만든다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var service = new ManagerModeMatchService(provider, BalanceTable.CreateDefault());
+            service.PlayNextGame(runtime);
+            var replace = typeof(ManagerHistoricalRuntimeState).GetMethod("ReplaceCurrentRoster",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            foreach (var roster in runtime.Rosters.ToArray())
+            {
+                if (roster.TeamSeasonKey == runtime.PlayerTeamSeasonKey) continue;
+                var entries = roster.Entries.Select(entry => new ActiveRosterEntry(
+                    entry.CardId, entry.PlayerSeasonId, entry.PlayerPersonId, entry.RegistrationType,
+                    entry.Role == ActiveRosterRole.StartingPitcher1 ? ActiveRosterRole.StartingPitcher2 :
+                    entry.Role == ActiveRosterRole.StartingPitcher2 ? ActiveRosterRole.StartingPitcher1 : entry.Role)).ToArray();
+                replace.Invoke(runtime, new object[] { new CurrentRosterState(roster.TeamSeasonKey, entries) });
+            }
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+            var restored = adapter.Restore(adapter.CreateSaveData(runtime));
+            var expected = new ManagerModeMatchService(provider, BalanceTable.CreateDefault()).PlayNextGame(restored).Match;
+            var actual = service.PlayNextGame(runtime).Match;
+            Assert.That(actual.Input.AwayRoster.StartingPitcher.Player.PlayerId,
+                Is.EqualTo(expected.Input.AwayRoster.StartingPitcher.Player.PlayerId));
+            Assert.That(actual.Input.HomeRoster.StartingPitcher.Player.PlayerId,
+                Is.EqualTo(expected.Input.HomeRoster.StartingPitcher.Player.PlayerId));
+            var games = runtime.ManagerMode.LiveSeason.Schedule.Games;
+            var repeated = restored.ManagerMode.LiveSeason.Schedule.Games;
+            for (int index = 0; index < games.Count; index++)
+            {
+                Assert.That(games[index].IsCompleted, Is.EqualTo(repeated[index].IsCompleted));
+                Assert.That(games[index].AwayRuns, Is.EqualTo(repeated[index].AwayRuns));
+                Assert.That(games[index].HomeRuns, Is.EqualTo(repeated[index].HomeRuns));
+            }
+        }
+
+        [Test]
         public void 다른조간이진행은중간저장뒤에도전체일정결과를재현한다()
         {
             CreateRuntime(out var source, out var provider);

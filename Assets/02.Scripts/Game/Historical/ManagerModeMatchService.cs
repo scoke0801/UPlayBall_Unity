@@ -114,6 +114,37 @@ namespace Baseball.Game.Historical
         private readonly DugoutStaffCatalog _dugoutCatalog;
         private readonly DugoutTacticalProfileResolver _dugoutResolver;
         private readonly MatchExecutionProfile _offscreenExecutionProfile;
+        private readonly Dictionary<string, AiRosterPreparation> _aiRosterPreparations =
+            new Dictionary<string, AiRosterPreparation>(StringComparer.Ordinal);
+
+        // 로스터는 교체로 갱신된다. 카드 정의까지 같은 경우에만 정적 준비 결과를 재사용한다.
+        private AiRosterPreparation GetAiRosterPreparation(ManagerHistoricalRuntimeState runtime, string teamSeasonKey)
+        {
+            CurrentRosterState roster = runtime.GetRoster(teamSeasonKey);
+            if (_aiRosterPreparations.TryGetValue(teamSeasonKey, out AiRosterPreparation preparation) &&
+                ReferenceEquals(preparation.Roster, roster) &&
+                ReferenceEquals(preparation.Catalog, runtime.WorldCardCatalog))
+                return preparation;
+            preparation = new AiRosterPreparation(roster, runtime.WorldCardCatalog, _balance.TeamColor);
+            _aiRosterPreparations[teamSeasonKey] = preparation;
+            return preparation;
+        }
+
+        private sealed class AiRosterPreparation
+        {
+            public AiRosterPreparation(CurrentRosterState roster, WorldCardCatalog catalog, TeamColorBalanceTable balance)
+            {
+                Roster = roster;
+                Catalog = catalog;
+                Plan = CreateRosterRolePlan(roster, catalog);
+                Bonuses = ResolveAiTeamColorBonuses(roster, catalog, balance, out _);
+            }
+
+            public CurrentRosterState Roster { get; }
+            public WorldCardCatalog Catalog { get; }
+            public LineupPresetState Plan { get; }
+            public PerCardBonusMap Bonuses { get; }
+        }
 
         public ManagerModeMatchService(
             HistoricalBakedContent content,
@@ -223,7 +254,7 @@ namespace Baseball.Game.Historical
             if (aiAdvanceMode == AiScheduleAdvanceMode.ThroughPlayerRound)
                 SimulateAiGamesThrough(runtime, playerIds, game.Round - 1);
 
-            LineupPresetState opponentPlan = CreateRosterRolePlan(runtime.GetRoster(opponentKey), runtime.WorldCardCatalog);
+            LineupPresetState opponentPlan = GetAiRosterPreparation(runtime, opponentKey).Plan;
             TeamMatchBuild playerBuild = BuildTeam(runtime, playerTeamKey, playerPlan, game.Round, playerIds);
             TeamMatchBuild opponentBuild = BuildTeam(runtime, opponentKey, opponentPlan, game.Round, playerIds);
 
@@ -357,7 +388,7 @@ namespace Baseball.Game.Historical
                 TeamMatchBuild playerBuild = BuildTeam(runtime, runtime.PlayerTeamSeasonKey, playerPlan,
                     rotationIndex, playerIds, restRounds);
                 TeamMatchBuild opponentBuild = BuildTeam(runtime, opponentKey,
-                    CreateRosterRolePlan(runtime.GetRoster(opponentKey), runtime.WorldCardCatalog),
+                    GetAiRosterPreparation(runtime, opponentKey).Plan,
                     rotationIndex, playerIds, restRounds);
                 awayBuild = playerIsHome ? opponentBuild : playerBuild;
                 homeBuild = playerIsHome ? playerBuild : opponentBuild;
@@ -370,10 +401,10 @@ namespace Baseball.Game.Historical
             else
             {
                 awayBuild = BuildTeam(runtime, awayTeamKey,
-                    CreateRosterRolePlan(runtime.GetRoster(awayTeamKey), runtime.WorldCardCatalog),
+                    GetAiRosterPreparation(runtime, awayTeamKey).Plan,
                     rotationIndex, playerIds, restRounds);
                 homeBuild = BuildTeam(runtime, homeTeamKey,
-                    CreateRosterRolePlan(runtime.GetRoster(homeTeamKey), runtime.WorldCardCatalog),
+                    GetAiRosterPreparation(runtime, homeTeamKey).Plan,
                     rotationIndex, playerIds, restRounds);
                 awayTactics = CreateAiLoadout(runtime, game, game.AwayTeamId);
                 homeTactics = CreateAiLoadout(runtime, game, game.HomeTeamId);
@@ -485,13 +516,13 @@ namespace Baseball.Game.Historical
             TeamMatchBuild awayBuild = BuildTeam(
                 runtime,
                 awayTeamKey,
-                CreateRosterRolePlan(runtime.GetRoster(awayTeamKey), runtime.WorldCardCatalog),
+                GetAiRosterPreparation(runtime, awayTeamKey).Plan,
                 game.Round,
                 playerIds);
             TeamMatchBuild homeBuild = BuildTeam(
                 runtime,
                 homeTeamKey,
-                CreateRosterRolePlan(runtime.GetRoster(homeTeamKey), runtime.WorldCardCatalog),
+                GetAiRosterPreparation(runtime, homeTeamKey).Plan,
                 game.Round,
                 playerIds);
             var configuration = new HistoricalMatchConfiguration(
@@ -652,7 +683,8 @@ namespace Baseball.Game.Historical
             CurrentRosterState activeRoster = runtime.GetRoster(teamSeasonKey);
             int restRounds = restRoundsOverride ?? ResolveRestRounds(runtime, teamSeasonKey, rotationIndex);
             var pitcherIds = new List<int>(ActiveRosterCompositionRule.PitcherCount);
-            int conditionBonus = ResolveHeadCoachConditionBonus(runtime, teamSeasonKey, _balance.ConditionChemistry);
+            int conditionBonus = ResolveHeadCoachConditionBonus(runtime, teamSeasonKey, _balance.ConditionChemistry,
+                _dugoutCatalog, _dugoutResolver);
             PreGamePlanSnapshot playerPlan = planSource as PreGamePlanSnapshot;
             LineupPresetState plan = playerPlan == null ? (LineupPresetState)planSource : null;
             IReadOnlyList<LineupPresetSlot> lineupSlots = playerPlan?.StartingLineupSlots ?? plan.StartingLineupSlots;
@@ -668,8 +700,7 @@ namespace Baseball.Game.Historical
             if (runtime.HasOwnedEconomy(teamSeasonKey))
                 teamColorBonuses = ResolveTeamColorBonuses(activeRoster, runtime.WorldCardCatalog, equippedColors);
             else
-                teamColorBonuses = ResolveAiTeamColorBonuses(
-                    activeRoster, runtime.WorldCardCatalog, _balance.TeamColor, out _);
+                teamColorBonuses = GetAiRosterPreparation(runtime, teamSeasonKey).Bonuses;
             var playersByCard = new Dictionary<string, Player>(activeRoster.Entries.Count, StringComparer.Ordinal);
             var personByPlayerId = new Dictionary<int, string>(activeRoster.Entries.Count);
             for (int index = 0; index < activeRoster.Entries.Count; index++)
@@ -819,11 +850,17 @@ namespace Baseball.Game.Historical
         public static int ResolveHeadCoachConditionBonus(ManagerHistoricalRuntimeState runtime, string teamSeasonKey,
             ConditionChemistryBalanceTable balance)
         {
-            var catalog = DugoutStaffCatalog.CreateDefault();
+            return ResolveHeadCoachConditionBonus(runtime, teamSeasonKey, balance,
+                DugoutStaffCatalog.CreateDefault(), new DugoutTacticalProfileResolver());
+        }
+
+        private static int ResolveHeadCoachConditionBonus(ManagerHistoricalRuntimeState runtime, string teamSeasonKey,
+            ConditionChemistryBalanceTable balance, DugoutStaffCatalog catalog, DugoutTacticalProfileResolver resolver)
+        {
             ManagerLiveSeasonState season = runtime.LeagueWorld?.GetGroup(teamSeasonKey).Season ?? runtime.ManagerMode.LiveSeason;
             int teamId = season.Teams[FindTeamReferenceIndex(season.Teams, teamSeasonKey)].TeamId;
             var dugout = runtime.HasOwnedEconomy(teamSeasonKey) ? runtime.ManagerMode.Dugout :
-                new DugoutTacticalProfileResolver().CreateAiState(teamId, catalog);
+                resolver.CreateAiState(teamId, catalog);
             return catalog.GetHeadCoach(dugout.HeadCoachId).HasConditionSupport ? balance.HeadCoachConditionBonus : 0;
         }
 
@@ -858,7 +895,7 @@ namespace Baseball.Game.Historical
             int Get(PlayerAbility ability)
             {
                 int raw = checked(GetRawPermanent(ability) + teamColorBonuses.Get(entry.CardId, ability));
-                return MatchRatingCurve.ResolveMatchInput(raw, _balance.MatchRatingCurve);
+                return MatchRatingCurve.ResolveMatchInput(raw, ability, _balance.MatchRatingCurve);
             }
             var batter = new BatterAttributes(
                 Get(PlayerAbility.Contact),
@@ -885,6 +922,7 @@ namespace Baseball.Game.Historical
                 nationality: season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty,
                 pitchRepertoire: season.PitchRepertoire,
                 isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
+                secondaryPositions: season.SecondaryPositions,
                 traitIds: usesOwnedEconomy
                     ? _ownerCardAbilityResolver.ResolveActiveTraitIds(owned)
                     : Array.Empty<string>(),

@@ -93,6 +93,10 @@ namespace Baseball.Game.Historical
         private int _leagueGamesSimulated;
         private int _lastCompletedRound;
         private Exception _fault;
+        private int _seasonWins;
+        private int _seasonLosses;
+        private int _seasonDraws;
+        private ScheduledGameState _nextPlayerGame;
 
         public ManagerRegularSeasonSimulationSession(
             ManagerHistoricalRuntimeState runtime,
@@ -104,6 +108,8 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException("ManagerMode 상태가 없는 Save는 시즌을 진행할 수 없습니다.");
 
             _season = runtime.ManagerMode.LiveSeason;
+            _nextPlayerGame = _season.NextPlayerGame;
+            ResolvePlayerSeasonRecord(_season, out _seasonWins, out _seasonLosses, out _seasonDraws);
             _playerIds = ManagerModeMatchService.PlayerIdMap.Create(runtime);
             _aiScheduleCursor = ManagerModeMatchService.AiScheduleCursor.Create(runtime);
             _completedLeagueGamesBefore = CountWorldGames(runtime, completedOnly: true);
@@ -133,7 +139,7 @@ namespace Baseball.Game.Historical
             _status = ManagerRegularSeasonSimulationStatus.Running;
             try
             {
-                ScheduledGameState nextGame = _season.NextPlayerGame;
+                ScheduledGameState nextGame = _nextPlayerGame;
                 ManagerModeMatchResult matchResult = null;
                 bool didAdvanceGame = false;
                 int aiThroughRound = nextGame == null ? int.MaxValue : nextGame.Round - 1;
@@ -148,13 +154,16 @@ namespace Baseball.Game.Historical
                 {
                     int completedRound = nextGame.Round;
                     matchResult = _matchService.PlayNextPlayerGameForSeasonSimulation(_runtime, _playerIds);
+                    // 다른 조 수만 경기를 처리할 때 내 구단 일정을 반복 집계하지 않는다.
+                    ResolvePlayerSeasonRecord(_season, out _seasonWins, out _seasonLosses, out _seasonDraws);
+                    _nextPlayerGame = _season.NextPlayerGame;
                     _lastCompletedRound = completedRound;
                     _playerGamesSimulated++;
                     didAdvanceGame = true;
                     _leagueGamesSimulated++;
                 }
 
-                if (_season.NextPlayerGame == null && !didAdvanceGame)
+                if (_nextPlayerGame == null && !didAdvanceGame)
                 {
                     bool hasRemainingAiGame = _matchService.TrySimulateNextAiGameThrough(
                         _runtime, _playerIds, _aiScheduleCursor, int.MaxValue, out int remainingAiRound);
@@ -186,8 +195,7 @@ namespace Baseball.Game.Historical
 
         public ManagerRegularSeasonSimulationProgress CreateProgressSnapshot()
         {
-            ScheduledGameState nextGame = _season.NextPlayerGame;
-            ResolvePlayerSeasonRecord(_season, out int wins, out int losses, out int draws);
+            ScheduledGameState nextGame = _nextPlayerGame;
             return new ManagerRegularSeasonSimulationProgress(
                 _status,
                 _playerGamesSimulated,
@@ -198,9 +206,9 @@ namespace Baseball.Game.Historical
                 nextGame?.Round ?? 0,
                 nextGame == null ? string.Empty : _season.GetTeamSeasonKey(nextGame.AwayTeamId),
                 nextGame == null ? string.Empty : _season.GetTeamSeasonKey(nextGame.HomeTeamId),
-                wins,
-                losses,
-                draws);
+                _seasonWins,
+                _seasonLosses,
+                _seasonDraws);
         }
 
         public ManagerRegularSeasonCompletionResult CreateCompletionResult()
