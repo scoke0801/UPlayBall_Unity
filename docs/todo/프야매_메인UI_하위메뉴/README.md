@@ -4,7 +4,7 @@
 > [`docs/지침/Owner_Roster_UI_Guidelines_UPlayBall.md`](../../지침/Owner_Roster_UI_Guidelines_UPlayBall.md)로
 > 정규화했다. 이 폴더의 01~04 문서는 레퍼런스 조사와 완료 이력을 보존한다.
 >
-> 구단 12~18도 2026-09-06 구현을 마치고
+> 구단 12~17은 2026-09-06 구현을 마쳤고, 18 트레이드는 2026-09-08 제품 범위에서 제거했다.
 > [`docs/지침/Owner_Club_UI_Guidelines_UPlayBall.md`](../../지침/Owner_Club_UI_Guidelines_UPlayBall.md)로
 > 정규화했다. 이 폴더의 12~18 문서는 레퍼런스 조사와 완료 이력을 보존한다.
 
@@ -53,7 +53,6 @@
 | 15 | 구단 | 시설 | Owner.Club.Facility | 구현됨 | [15_구단_시설.md](./15_구단_시설.md) |
 | 16 | 구단 | 코칭스태프 | Owner.Club.Staff | 구현됨 | [16_구단_코칭스태프.md](./16_구단_코칭스태프.md) |
 | 17 | 구단 | 계약 | Owner.Club.Contract | 구현됨 — 계약 조회/Preview/갱신/시즌 연봉/Save v11 | [17_구단_계약.md](./17_구단_계약.md) |
-| 18 | 구단 | 트레이드 | Owner.Club.Trade | 구현됨 — 1:1 제안/가치·로스터 검증/확정/Save v11 | [18_구단_트레이드.md](./18_구단_트레이드.md) |
 | 19 | 리그 | 순위표 | Shared.League.Standings | 구현됨 | [19_리그_순위표.md](./19_리그_순위표.md) |
 | 20 | 리그 | 구단 성적 | Shared.League.TeamResults | 구현됨 | [20_리그_구단성적.md](./20_리그_구단성적.md) |
 | 21 | 리그 | 대전 결과 | Shared.League.Matchups | 구현됨 | [21_리그_대전결과.md](./21_리그_대전결과.md) |
@@ -78,7 +77,7 @@
 ## 덕아웃 08~11 구현 검증 기록
 
 - `Baseball.Simulation`, `Baseball.Game.Unity`, `Baseball.Presentation`에서 이번 변경 파일을 포함한 보조 컴파일은 각각 오류 0개로 통과했다.
-- 마지막 전체 의존성 재컴파일은 동시에 추가 중인 선수 계약·트레이드 코드의 `OwnerPlayerMarketResolver`, `OwnerContractRenewalPreview`, `OwnerTradePreview`가 생성 csproj에 아직 포함되지 않아 중단됐다. 덕아웃 변경 파일의 컴파일 오류는 아니다.
+- 마지막 전체 의존성 재컴파일은 당시 추가 중이던 선수 계약 코드가 생성 csproj에 아직 포함되지 않아 중단됐다. 덕아웃 변경 파일의 컴파일 오류는 아니다.
 - 사용자 지시에 따라 EditMode, PlayMode, 렌더링, 대량 시뮬레이션 테스트는 실행하지 않았다. 따라서 화면 육안 QA와 밸런스 통계 검증은 완료로 간주하지 않는다.
 
 ## 구단 12~18 구현 검증 기록
