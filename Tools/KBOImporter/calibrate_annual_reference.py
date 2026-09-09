@@ -131,7 +131,8 @@ def load_labels(seasons, policy):
             if r['카드종류']!='올스타':continue
             add(2000+int(r['년도']),r['팀'],r['이름'],kind,'Normal',{'Cost':int(r['코스트'])},
                 f'DatabaseAllStarCostEquivalent:{table}:{r["ID"]}')
-    for relative in ('Research/PyaMaeCardDb/1989-1999/archive-cards.csv',
+    for relative in ('Research/PyaMaeCardDb/1985-Samsung/archive-cards.csv',
+                     'Research/PyaMaeCardDb/1989-1999/archive-cards.csv',
                      'Research/PyaMaeCardDb/2010-2016/archive-cards.csv'):
         with (ROOT/relative).open(encoding='utf-8-sig',newline='') as stream:
             for r in csv.DictReader(stream):
@@ -156,8 +157,17 @@ def load_labels(seasons, policy):
             add(r['year'],r.get('team',''),r['name'],kind,r.get('variant',''),values,
                 f'ArticleImage:{r["cardId"]}',text=r.get('note',''))
     workbook=read(ROOT/'docs/reports/pm_reference_review_20260906/workbook_extracted.json')
+    rejected_cost_labels = set()
+    for entry in bake.DERIVATION_BALANCE.get('annualReferenceOverride', {}).get('rejectedCards', []):
+        card = entry['card']
+        season = seasons.get(card['playerSeasonId'])
+        for name in season['sourceReferenceNames'] if season else []:
+            rejected_cost_labels.add((card['originYear'], name, card['sources'].get('Cost')))
     for r in next(s['Rows'] for s in workbook['Sheets'] if s['Name']=='Cost_근거')[1:]:
         c=r['Cells']
+        if (int(c['A']), c['C'], f'ArticleCost:{c["K"]}') in rejected_cost_labels:
+            rejected.append(dict(origin=f'ArticleCost:{c["K"]}', name=c['C'], year=int(c['A']), reason='RejectedSourceGame'))
+            continue
         add(int(c['A']),c.get('B',''),c['C'],None,c.get('F',''),{'Cost':int(c['E'])},
             f'ArticleCost:{c["K"]}',text=c.get('J',''))
     # 사용자가 이번 검증 목표로 지정한 기준표는 웹 검증 자료와 출처를 구분한다.

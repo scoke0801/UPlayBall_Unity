@@ -15,6 +15,8 @@ from record_tree_calibration import MODEL_TYPE as RECORD_TREE_MODEL_TYPE
 import pitch_arsenal_generation as pitch_generation
 import source_backed_runtime_bake as pitch_source_identity
 import source_position_evidence
+import velocity_estimation
+import elite_cost
 
 from kbo_importer import IMPORTER_VERSION as NORMALIZED_IMPORTER_VERSION
 from kbo_importer import SCHEMA_VERSION as NORMALIZED_SCHEMA_VERSION
@@ -109,6 +111,24 @@ def load_annual_reference_overrides() -> dict[str, dict[str, Any]]:
     config=DERIVATION_BALANCE.get("annualReferenceOverride") or {}
     if not config.get("enabled",False):
         return {}
+    result = load_annual_reference_file(config)
+    for rejected in config.get("rejectedCards", []):
+        identity = rejected["card"]["playerSeasonId"]
+        if result.get(identity) != rejected["card"] or not rejected.get("reason"):
+            raise ValueError("제외한 기준 카드의 기존 값·출처 또는 제외 사유가 유효하지 않습니다.")
+        del result[identity]
+    for additional in config.get("additionalSources", []):
+        cards = load_annual_reference_file(additional)
+        for identity in result.keys() & cards.keys():
+            previous = result[identity]
+            if cards[identity].get("supersedes") != previous:
+                raise ValueError("추가 연도 카드 자료의 중복은 기존 값·출처를 명시적으로 검토해야 합니다.")
+        result.update(cards)
+    return result
+
+
+def load_annual_reference_file(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """출처 파일별 해시·카드 범위·수치 계약을 검증한다."""
     path=DERIVATION_BALANCE_PATH.with_name(str(config["relativePath"]))
     data=path.read_bytes()
     if hashlib.sha256(data).hexdigest()!=config.get("contentSha256"):
@@ -237,6 +257,9 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
         "Pitcher": set(PITCHER_METRIC_NAMES),
     }
     validate_models(config.get("referenceRecordModels", {}), metric_names_by_type)
+    velocity_estimation.load_model(config.get("missingVelocityEstimation"), DERIVATION_BALANCE_PATH.parent)
+    if "runtimePersonMetadata" in config and not str(config["runtimePersonMetadata"].get("seedSalt", "")).strip():
+        raise ValueError("Runtime 선수 신원 생성의 고정 Seed Salt가 필요합니다.")
     for player_type, profiles in config["ratingProfiles"].items():
         for attribute, profile in profiles.items():
             weights = profile["metrics"]
@@ -1150,12 +1173,19 @@ def to_ratings_with_trace(
                                      for component in absolute_components)
         rating_after_clamp = clamp_rating(rating_before_clamp)
         calibration_trace = None
+        velocity_trace = None
         if components is not None and available_weight > 0.0:
             model = DERIVATION_BALANCE.get("referenceRecordModels", {}).get(player_type, {}).get(attribute)
             calibrated, calibration_trace = evaluate_model(model, components, rating_after_clamp)
             if calibration_trace is not None:
                 rating_before_clamp = calibrated
                 rating_after_clamp = clamp_rating(calibrated)
+        if player_type == "Pitcher" and attribute == "Velocity" and components is not None and available_weight == 0.0:
+            model = velocity_estimation.load_model(DERIVATION_BALANCE.get("missingVelocityEstimation"), DERIVATION_BALANCE_PATH.parent)
+            if model is not None:
+                # 표시 구속의 추정값이다. FastballVelocityKph의 관측 여부나 원기록은 바꾸지 않는다.
+                rating_before_clamp, velocity_trace = velocity_estimation.estimate(components, model)
+                rating_after_clamp = clamp_rating(rating_before_clamp)
         values[ABILITY_NAMES.index(attribute)] = rating_after_clamp
         traces.append(
             {
@@ -1170,7 +1200,8 @@ def to_ratings_with_trace(
                 "ratingBeforeClamp": round(rating_before_clamp, 8),
                 "ratingAfterClamp": rating_after_clamp,
                 "referenceCalibration": calibration_trace,
-                "evaluationMethod": "ReferenceRecordRidge" if calibration_trace is not None else "AbsoluteRecordAnchor" if absolute_components else (
+                **({"velocityEstimation": velocity_trace} if velocity_trace is not None else {}),
+                "evaluationMethod": velocity_trace["method"] if velocity_trace is not None else "ReferenceRecordRidge" if calibration_trace is not None else "AbsoluteRecordAnchor" if absolute_components else (
                     "AvailableMetrics" if available_weight > 0.0 else "NeutralWithoutEvidence"
                 ),
             }
@@ -2757,6 +2788,7 @@ def build_editor_original_content(
                 if "inferredStarterRate" in pitcher_evidence:
                     cost_value_inputs["inferredStarterRate"] = pitcher_evidence["inferredStarterRate"]
                     cost_value_inputs["starterEvidenceMode"] = pitcher_evidence.get("starterEvidenceMode", "")
+            secondary_positions = eligible_source_positions(player) if player_type == "Hitter" else set()
             season = {
                 "playerSeasonId": season_id,
                 "playerPersonId": person_id,
@@ -2765,6 +2797,11 @@ def build_editor_original_content(
                 "originTeamSeasonKey": team_key,
                 "position": position,
                 "pitcherRole": natural_pitcher_role,
+                "secondaryPositions": [
+                    {"position": candidate, "proficiency": int(ROSTER_SELECTION_CONFIG["qualifiedSecondaryPositionProficiency"])}
+                    for candidate in DEFENSIVE_HITTER_POSITIONS
+                    if candidate != position and candidate in secondary_positions
+                ],
                 "pitcherRoleConfidence": position_role_trace["pitcherRoleConfidence"],
                 "dataProvenance": "SourceBacked",
                 "positionRoleDerivationTrace": position_role_trace,
@@ -2821,6 +2858,7 @@ def build_editor_original_content(
 
         assign_origin_year_costs(seasons)
         apply_annual_reference_overrides(seasons,annual_reference_overrides)
+        elite_cost.apply_cost_floors(seasons)
 
         pitch_balance = pitch_generation.load_balance()
         for pitch_season in seasons:
@@ -3148,7 +3186,14 @@ def validate_bake(content: dict[str, Any]) -> None:
             raise ValueError("모든 PlayerSeason은 정확히 한 Team Pool에 배치되어야 합니다.")
 
         record_ids = [record["playerSeasonId"] for record in year_content["originalSeasonRecords"]]
-        if len(record_ids) != len(set(record_ids)) or set(record_ids) != set(season_by_id):
+        research_seasons = {
+            season["playerSeasonId"] for season in seasons
+            if season.get("sourceDataKind") == "ResearchCardSupplement"
+        }
+        if any(season.get("sourceRecordAvailability") != "Unavailable" for season in seasons
+               if season["playerSeasonId"] in research_seasons):
+            raise ValueError("Research 보충 선수의 원기록은 미확보 상태여야 합니다.")
+        if len(record_ids) != len(set(record_ids)) or set(record_ids) != set(season_by_id) - research_seasons:
             raise ValueError("PlayerSeason과 Baked record는 1:1이어야 합니다.")
         if any(int(record["seasonYear"]) != year for record in year_content["originalSeasonRecords"]):
             raise ValueError("SEASON_RECORD_CROSS_YEAR_REFERENCE")
@@ -3157,6 +3202,10 @@ def validate_bake(content: dict[str, Any]) -> None:
 
     if source_count != int(manifest.get("sourceBackedPlayerSeasonCount", -1)):
         raise ValueError("Manifest SourceBacked PlayerSeason 수가 실제와 다릅니다.")
+    research_count = sum(season.get("sourceDataKind") == "ResearchCardSupplement"
+                         for year in content["years"] for season in year["playerSeasons"])
+    if research_count != int(manifest.get("researchRosterSupplementCount", 0)):
+        raise ValueError("Manifest Research 보충 선수 수가 실제와 다릅니다.")
     if len(source_person_ids) != int(manifest.get("sourceBackedPlayerPersonCount", -1)):
         raise ValueError("Manifest SourceBacked PlayerPerson 수가 실제와 다릅니다.")
     if replacement_count != int(manifest.get("replacementGeneratedPlayerSeasonCount", -1)):
@@ -3201,6 +3250,7 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
     for year_content in content["years"]:
         year = int(year_content["year"])
         seasons = year_content["playerSeasons"]
+        elite_floors = elite_cost.build_cost_floors(seasons)
         if any(season.get("dataProvenance") != "SourceBacked" for season in seasons):
             raise ValueError("Editor Source Audit에는 SourceBacked PlayerSeason만 있어야 합니다.")
         season_by_id = {season["playerSeasonId"]: season for season in seasons}
@@ -3324,6 +3374,15 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
                     raise ValueError("연도 카드 Reference 적용 전 Formula Cost가 재계산과 일치하지 않습니다.")
                 expected_cost=int(reference_override["values"]["Cost"])
                 expected_method="AnnualReferenceOverride"
+            floor, reason = elite_floors.get(season["playerSeasonId"], (1, "Unchanged"))
+            expected_adjustment = None
+            if floor > expected_cost:
+                expected_adjustment = dict(version=elite_cost.POLICY['version'], previousCost=expected_cost,
+                    previousMethod=expected_method, floor=floor, reason=reason)
+                expected_cost = floor
+                expected_method = "EliteSeasonFloor"
+            if cost_trace.get("eliteCostAdjustment") != expected_adjustment:
+                raise ValueError("ELITE_COST_MISMATCH: 고코스트 성과 하한의 근거가 재계산과 다릅니다.")
             if cost_trace.get("referenceCalibration") != expected_calibration:
                 raise ValueError("COST_CALIBRATION_MISMATCH: 기록 회귀 근거가 재계산과 다릅니다.")
             if (int(season["cost"]) != expected_cost
@@ -3433,6 +3492,7 @@ def bake_with_report(
     input_dir: Path,
     years: list[int],
     generation_seed: int,
+    research_supplement_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Source Player/Season 1:1 정본에서 최종 Runtime과 검증 보고서를 만든다."""
     from source_backed_final_bake import build_runtime_content
@@ -3445,12 +3505,22 @@ def bake_with_report(
     position_evidence = source_position_evidence.load_position_evidence()
     for reference in references:
         source_position_evidence.attach_position_evidence(reference, position_evidence)
-    return build_runtime_content(
+    content, report = build_runtime_content(
         editor_source_content,
         references,
         generation_seed,
         derivation=__import__(__name__),
     )
+    if research_supplement_path is not None:
+        from research_roster_supplement import apply_supplement, load_supplement
+        supplement = load_supplement(research_supplement_path)
+        for year in years:
+            expected = supplement["normalizedFileHashes"].get(str(year))
+            actual = hashlib.sha256((input_dir / f"{year}.json").read_bytes()).hexdigest()
+            if expected != actual:
+                raise ValueError(f"Research 보충의 KBO 입력이 변경되었습니다. 대조표를 다시 생성하세요: {year}")
+        report["researchRosterSupplement"] = apply_supplement(content, supplement, __import__(__name__))
+    return content, report
 
 
 def bake(input_dir: Path, years: list[int], generation_seed: int) -> dict[str, Any]:
@@ -3711,6 +3781,8 @@ def main() -> int:
     parser.add_argument("--input-dir", type=Path, required=True)
     parser.add_argument("--years", type=parse_years, required=True)
     parser.add_argument("--seed", type=int, default=20260901)
+    parser.add_argument("--research-supplement", type=Path,
+                        help="검증된 연구 보충 정본 JSON을 전체 선수풀에 추가합니다. Core25는 유지합니다.")
     output_group = parser.add_mutually_exclusive_group(required=True)
     output_group.add_argument(
         "--output",
@@ -3728,7 +3800,7 @@ def main() -> int:
         help="분할 Editor Asset을 다시 읽어 파일 Hash와 Bake 규칙을 검증합니다.",
     )
     args = parser.parse_args()
-    runtime_content, validation_report = bake_with_report(args.input_dir, args.years, args.seed)
+    runtime_content, validation_report = bake_with_report(args.input_dir, args.years, args.seed, args.research_supplement)
     if args.output is not None:
         content = create_runtime_safe_content(runtime_content)
         args.output.parent.mkdir(parents=True, exist_ok=True)

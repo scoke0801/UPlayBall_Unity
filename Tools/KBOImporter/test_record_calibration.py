@@ -55,13 +55,16 @@ class RecordCalibrationTests(unittest.TestCase):
         base['Hitter']['Contact']['features'][0]['coefficient']=-1
         with self.assertRaises(ValueError):bake.validate_derivation_balance({**bake.DERIVATION_BALANCE,'referenceRecordModels':base})
 
-    def test_all_missing_abilities_and_unobserved_velocity_remain_neutral(self):
+    def test_missing_velocity_is_an_explicit_estimate_not_a_measured_record(self):
         components={metric:{'isAvailable':False} for metric in bake.PITCHER_METRIC_NAMES}
-        values,_=bake.to_ratings_with_trace('Pitcher',(0,)*len(components),components)
-        self.assertEqual(values[6:],[55]*6)
+        values,traces=bake.to_ratings_with_trace('Pitcher',(0,)*len(components),components)
+        self.assertEqual([values[i] for i in (6,8,9,10,11)],[55]*5)
+        velocity=next(t for t in traces if t['attribute']=='Velocity')
+        self.assertEqual(velocity['evaluationMethod'],'EstimatedVelocityPrior')
+        self.assertFalse(velocity['velocityEstimation']['measuredVelocity'])
         components['SeasonInnings']={'isAvailable':True,'rawValue':200,'adjustedZ':0,'reliability':1}
-        values,_=bake.to_ratings_with_trace('Pitcher',(0,)*len(components),components)
-        self.assertEqual(values[7],55)
+        values,traces=bake.to_ratings_with_trace('Pitcher',(0,)*len(components),components)
+        self.assertFalse(components['FastballVelocityKph']['isAvailable'])
 
     def test_cost_prediction_ignores_displayed_attributes(self):
         model=bake.DERIVATION_BALANCE['referenceRecordModels']['Hitter']['Cost']

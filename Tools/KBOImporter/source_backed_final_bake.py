@@ -595,7 +595,9 @@ def _materialize_persons(
         career_start = int(person["careerStartYear"])
         identity_seed = derivation.stable_seed(
             "runtime-person-metadata-v2",
-            derivation.DERIVATION_BALANCE_VERSION,
+            # 능력치 평가식의 버전 변경으로 생년·손잡이·잠재 특성을 다시 추첨하지 않는다.
+            derivation.DERIVATION_BALANCE.get("runtimePersonMetadata", {}).get(
+                "seedSalt", derivation.DERIVATION_BALANCE_VERSION),
             person_id,
         )
         rng = random.Random(identity_seed)

@@ -1,0 +1,1824 @@
+{
+  "version": "special-card-bake-v3",
+  "evaluationPolicyVersion": "special-card-evaluation-v1",
+  "supportedYears": [
+    1982,
+    1983,
+    1984,
+    1985,
+    1986,
+    1987,
+    1988,
+    1989,
+    1990,
+    1991,
+    1992,
+    1993,
+    1994,
+    1995,
+    1996,
+    1997,
+    1998,
+    1999,
+    2000,
+    2001,
+    2002,
+    2003,
+    2004,
+    2005,
+    2006,
+    2007,
+    2008,
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "careerHighAllBonus": 2,
+  "legendAllBonus": 2,
+  "legends": [
+    {
+      "playerPersonId": "PERSON_4a3fcc50cff949ae4f3f",
+      "lineage": "DoosanLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "ResearchLegend",
+        "LongTenure",
+        "LineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_04f5b621daa193598415:Normal",
+            "SEASON_fe4d03a15f60337b870c:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_db99f876cafc815c0ac9:Normal",
+            "SEASON_ff3d2d9a341793a947e1:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_4b95b2c0b702a37c4167:Normal",
+            "SEASON_5c17486e7a65e7b22615:Normal",
+            "SEASON_b3b0a3f9e9275704774e:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_ec7ed5d6e1b1d35611e9:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_3164de777eb30b32d242:Normal",
+            "SEASON_986c491ba7cd7e9d46d8:Normal",
+            "SEASON_bf1aeb9f698201f73dcb:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_35b94377bf486338e24e:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_881d3504696c9d32c5b9:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_21a948447e0448b2c537:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_737e8166b3aeacaace41",
+      "lineage": "DoosanLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "LineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_24469291cda68430bd77:Normal",
+            "SEASON_d3c668d80c3bbf1245d4:Normal",
+            "SEASON_e640606b39baa76ad2ca:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_576b2e57fb506b6a08f1:Normal",
+            "SEASON_9d8abb51ec42c746259e:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_4b95b2c0b702a37c4167:Normal",
+            "SEASON_5c17486e7a65e7b22615:Normal",
+            "SEASON_b3b0a3f9e9275704774e:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_2ba75f1d1e46d84400a5:Normal",
+            "SEASON_573acb762067058d4778:Normal",
+            "SEASON_97c5c669c07a406241a9:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_79c05683755691f3d3d5:Normal",
+            "SEASON_b3492048d79b2e1b518c:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_35b94377bf486338e24e:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_26a85862473f07fa70d9:Normal",
+            "SEASON_c4d3f990c0e7cd506640:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_21a948447e0448b2c537:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_b823d605186d965dde60",
+      "lineage": "HanwhaLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "ResearchLegend",
+        "LongTenure",
+        "LineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_1370a56585522139abe9:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_063baef08221fa0de611:Normal",
+            "SEASON_67d6ca1460a430f7b3de:Normal",
+            "SEASON_8dc2a17ef2742477fdb3:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_00cf7bd09bfed0a60afb:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_00de4c448ca30b29217d:Normal",
+            "SEASON_41a495261ed3fbeebede:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_1e57d342a22f611c1dd7:Normal",
+            "SEASON_9f1e44fa462a2c810239:Normal",
+            "SEASON_ef1e76d5b3f078cbb6d3:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_15f3bbacc1e73fa0d426:Normal",
+            "SEASON_d0e9ca3d6f8d4d7d062d:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_c3b91b7d752c31775800:Normal",
+            "SEASON_ecd88d89b7806555a612:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_a2e4b15765ca563495de:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_e4cd09b748c0c5ccd5cc",
+      "lineage": "HanwhaLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "ResearchLegend",
+        "LongTenure",
+        "LineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_1370a56585522139abe9:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_063baef08221fa0de611:Normal",
+            "SEASON_67d6ca1460a430f7b3de:Normal",
+            "SEASON_8dc2a17ef2742477fdb3:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_00cf7bd09bfed0a60afb:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_00de4c448ca30b29217d:Normal",
+            "SEASON_41a495261ed3fbeebede:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_2b3187962a4757570ec4:Normal",
+            "SEASON_5ba88accdeffdc9560c4:Normal",
+            "SEASON_98d6f9343a20b05bb227:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_15f3bbacc1e73fa0d426:Normal",
+            "SEASON_d0e9ca3d6f8d4d7d062d:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_c3b91b7d752c31775800:Normal",
+            "SEASON_ecd88d89b7806555a612:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_0a3a4877debb8e951259:Normal",
+            "SEASON_72f765005612e2989311:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_29b299e53159f23fafde",
+      "lineage": "KiaLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "LineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_060a4e7c02f272d50849:Normal",
+            "SEASON_7c04420b5f7cdb62922e:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_02b596978519341b9c2e:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_9fb7e06560b7eb699e59:Normal",
+            "SEASON_d508cfb2a1433eae149d:Normal",
+            "SEASON_e392cd71029611959807:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_29722a5ed8d96d20590f:Normal",
+            "SEASON_2d6fb1573204d0066938:Normal",
+            "SEASON_3b8048b722e389215be9:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_06310903e88cab5058ee:Normal",
+            "SEASON_726167f30f5f396916eb:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_ec539cb327db8fb48377:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_129e0684a7c4fef0a242:Normal",
+            "SEASON_a19d5e09f1670ed5317e:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_75f014cfba92538060c3:Normal",
+            "SEASON_cddb56d345effe981b9b:Normal",
+            "SEASON_df0100b5a7e9c22404d7:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_505329cdadae2f1267b8",
+      "lineage": "KiaLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "ResearchLegend",
+        "LongTenure",
+        "LineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_3ac3c73fa237bf33d3bc:Normal",
+            "SEASON_94f60f08995eb275f731:Normal",
+            "SEASON_969a14e4c0dee07be379:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_02b596978519341b9c2e:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_dafd681885f43355eaa9:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_016095e777a6933cad59:Normal",
+            "SEASON_052a615d9dd92ef63571:Normal",
+            "SEASON_2d6fb1573204d0066938:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_3aae2944266a6782b8ca:Normal",
+            "SEASON_986f6a1274d9ed53739a:Normal",
+            "SEASON_e2282266220916efe558:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_ec539cb327db8fb48377:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_129e0684a7c4fef0a242:Normal",
+            "SEASON_a19d5e09f1670ed5317e:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_75f014cfba92538060c3:Normal",
+            "SEASON_cddb56d345effe981b9b:Normal",
+            "SEASON_df0100b5a7e9c22404d7:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_5760787578c05c4d4314",
+      "lineage": "KiwoomLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "LineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_5ba5c3a86598430d58d3:Normal",
+            "SEASON_846f372516e1c8ab6039:Normal",
+            "SEASON_94333654347141d73239:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_861b40ad51bfee7a9458:Normal",
+            "SEASON_c3fb537d5b84e07faa67:Normal",
+            "SEASON_f7b1ca6eb463c5b2838a:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_2f2fa0bcd4de6bf81ecd:Normal",
+            "SEASON_dee663e5f182318fafd8:Normal",
+            "SEASON_f7e3e5f1ef3f13670916:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_ce4529748bb5e147c13e:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_3e1f562cb100903e3573:Normal",
+            "SEASON_3e2f8353a0d9ea99f58e:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_3ce62b1f5d1ca0aab9c4:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_19129772798e5687ba52:Normal",
+            "SEASON_c5e2ee1d2131dbebb9ea:Normal",
+            "SEASON_ced33a4a6378f4539033:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_995f489850af98ebf001:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_9071b0c1bf6787d16fb4",
+      "lineage": "KiwoomLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "ResearchLegend",
+        "LongTenure",
+        "LineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_5ba5c3a86598430d58d3:Normal",
+            "SEASON_846f372516e1c8ab6039:Normal",
+            "SEASON_94333654347141d73239:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_861b40ad51bfee7a9458:Normal",
+            "SEASON_c3fb537d5b84e07faa67:Normal",
+            "SEASON_f7b1ca6eb463c5b2838a:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_2f2fa0bcd4de6bf81ecd:Normal",
+            "SEASON_dee663e5f182318fafd8:Normal",
+            "SEASON_f7e3e5f1ef3f13670916:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_ce4529748bb5e147c13e:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_3e1f562cb100903e3573:Normal",
+            "SEASON_3e2f8353a0d9ea99f58e:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_3ce62b1f5d1ca0aab9c4:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_19129772798e5687ba52:Normal",
+            "SEASON_c5e2ee1d2131dbebb9ea:Normal",
+            "SEASON_ced33a4a6378f4539033:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_995f489850af98ebf001:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_59aeacebb554c67bf123",
+      "lineage": "KtLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "ExpansionLineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_5898d7d8ac34186237de:Normal",
+            "SEASON_5ae99c487684bae2375d:Normal",
+            "SEASON_61b2be8f94c946a268e9:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_06d161dab288a9440589:Normal",
+            "SEASON_5076fc908cf6dd6afbb3:Normal",
+            "SEASON_f52af9a56e673e77de1b:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_38411aa2f34b89ca2973:Normal",
+            "SEASON_3f755b327337130c1c8a:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_887694a01ad5c8a87eec:Normal",
+            "SEASON_9d3b1c0d1fd0175fd447:Normal",
+            "SEASON_9ed3ed231c287da85f41:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_5d76fbad69002d5796b4:Normal",
+            "SEASON_f7eaab46076e93e98d2f:Normal",
+            "SEASON_fc0527b93fcc6ba96f02:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_63ef1f9b82f66eddb252:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_62f810a27f7f6ba489ad:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_70fe45b50308d3da32b3:Normal",
+            "SEASON_ee056418eb5dc00708f3:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_6d60fd2a7571f9caf138",
+      "lineage": "KtLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "ExpansionLineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_5898d7d8ac34186237de:Normal",
+            "SEASON_5ae99c487684bae2375d:Normal",
+            "SEASON_61b2be8f94c946a268e9:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_06d161dab288a9440589:Normal",
+            "SEASON_5076fc908cf6dd6afbb3:Normal",
+            "SEASON_f52af9a56e673e77de1b:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_38411aa2f34b89ca2973:Normal",
+            "SEASON_3f755b327337130c1c8a:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_21e1054906e4b246bf36:Normal",
+            "SEASON_97bfd055c79ea5ba893e:Normal",
+            "SEASON_eeadb98cb050e9a9b6df:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_9f87a9bacaad4e38ad02:Normal",
+            "SEASON_bc3af3535a7a72b930ec:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_63ef1f9b82f66eddb252:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_62f810a27f7f6ba489ad:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_3aee3e6a8620612e4861:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_661971e90faa693308d4",
+      "lineage": "LgLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "LineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_43945eadeeef9d71ada3:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_58564b3f189f8fdf2dac:Normal",
+            "SEASON_5f5492752adbe19603ce:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_468d4d5a64adba714411:Normal",
+            "SEASON_625bbb15a91cd9c42a19:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_30e602dc79e0cfe77c62:Normal",
+            "SEASON_9122389145ae89a658ec:Normal",
+            "SEASON_d6a04a4f5215538009b2:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_7e83994812b1e610c1b9:Normal",
+            "SEASON_d05eb9f9516bc99bc2ba:Normal",
+            "SEASON_ed2b48b7609ef5c9974c:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_6344012219d03a1d4549:Normal",
+            "SEASON_73278b5d84fb845f9415:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_61bf036958d812beb18e:Normal",
+            "SEASON_9785d92fdf87a01f21e6:Normal",
+            "SEASON_c126565e4ea08eeb789a:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_a2ac298fcf1a418d8b4c:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_c4374fee09119b40acc2",
+      "lineage": "LgLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "ResearchLegend",
+        "LineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_43945eadeeef9d71ada3:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_58564b3f189f8fdf2dac:Normal",
+            "SEASON_5f5492752adbe19603ce:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_468d4d5a64adba714411:Normal",
+            "SEASON_625bbb15a91cd9c42a19:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_30e602dc79e0cfe77c62:Normal",
+            "SEASON_9122389145ae89a658ec:Normal",
+            "SEASON_d6a04a4f5215538009b2:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_7e83994812b1e610c1b9:Normal",
+            "SEASON_d05eb9f9516bc99bc2ba:Normal",
+            "SEASON_ed2b48b7609ef5c9974c:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_6344012219d03a1d4549:Normal",
+            "SEASON_73278b5d84fb845f9415:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_be5ba57928e97937fb19:Normal",
+            "SEASON_ef33514f390e4a5f4cfd:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_a2ac298fcf1a418d8b4c:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_467156db5f37425c596d",
+      "lineage": "LotteLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_6736c1cc7efbd85d93cc:Normal",
+            "SEASON_9062a97a1f80b769bffe:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_31e2e27c00f70ef44c58:Normal",
+            "SEASON_88743e6d2870a59f7a34:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_1dc1ead15a7f8199618b:Normal",
+            "SEASON_d42f6d76ea10fcfe44a2:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_696e23baf6ed355f6f1b:Normal",
+            "SEASON_6cfb9e371220cf47ee5d:Normal",
+            "SEASON_7a63f88bd1717fb0e22e:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_a09321d89a405f30b10c:Normal",
+            "SEASON_c598ffc7073a9ef566fe:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_8e4affd67b753f548067:Normal",
+            "SEASON_a12576fc60ad070fe75d:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_2ec8d8357a127a0bc993:Normal",
+            "SEASON_846c765ee365114cd989:Normal",
+            "SEASON_8be01861612ff004a016:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_be26fd75e60c258cb67f:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_cd3a685de60e35423ca0",
+      "lineage": "LotteLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "LineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_2f62b7be8302ba386acf:Normal",
+            "SEASON_5511cacddd3de50c00eb:Normal",
+            "SEASON_62a7526dc3dd827a6aa6:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_31e2e27c00f70ef44c58:Normal",
+            "SEASON_88743e6d2870a59f7a34:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_648c6f9668c873868e90:Normal",
+            "SEASON_64f4af9b756ad1c26953:Normal",
+            "SEASON_8ce3e681b1ecea603ba8:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_22babc6954559c463a7d:Normal",
+            "SEASON_d38a3bde9a206623f269:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_66f57c7c5ae27b17c755:Normal",
+            "SEASON_a87db2de027d3257176b:Normal",
+            "SEASON_f2ac1ced780cb6a3fa6b:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_be1c398c743073302a1c:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_2ec8d8357a127a0bc993:Normal",
+            "SEASON_846c765ee365114cd989:Normal",
+            "SEASON_8be01861612ff004a016:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_be26fd75e60c258cb67f:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_0786e91443e1d7d74bb9",
+      "lineage": "NcLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "ExpansionLineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_410968d2bdfb018599a2:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_00a2110e0619c2313f76:Normal",
+            "SEASON_a32b6a1a114438b59a2d:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_239bbce7ba5f2ec3c43c:Normal",
+            "SEASON_693f35d6987cc198756d:Normal",
+            "SEASON_950b91bfef3cec8deeb8:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_4606548e7c3c886cdb44:Normal",
+            "SEASON_60495fa9f1f817aaffe2:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_ab876b4fecfd037c845d:Normal",
+            "SEASON_ccb2935b1d253285814b:Normal",
+            "SEASON_d020e66959f8dba2325c:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_c74dcc53577327c7cbf7:Normal",
+            "SEASON_d84b0c3ccb1e003e14b6:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_bad95581e1a4c0bbd30d:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_83c9efcfd67e6916bbc4:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_50f4501d4c2288cf7f48",
+      "lineage": "NcLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "ExpansionLineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_410968d2bdfb018599a2:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_00a2110e0619c2313f76:Normal",
+            "SEASON_a32b6a1a114438b59a2d:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_239bbce7ba5f2ec3c43c:Normal",
+            "SEASON_693f35d6987cc198756d:Normal",
+            "SEASON_950b91bfef3cec8deeb8:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_8959a219197c4df60a45:Normal",
+            "SEASON_e29c031dbe4092f76a49:Normal",
+            "SEASON_f86c151bd8ec6796dbec:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_f2d887603695a43cc8a3:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_173dba802e3ec1bbdd3c:Normal",
+            "SEASON_7a6c8ffa6ba0dac0e28a:Normal",
+            "SEASON_cc6470185c716fc593de:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_4dfb58a520befb75a6c7:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_83c9efcfd67e6916bbc4:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_00391148ded7fec69156",
+      "lineage": "SamsungLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "LineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_2a16fd9f7be36bb3cb61:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_41bf1b5aa89690f2f732:Normal",
+            "SEASON_76389bcc33627662ca2c:Normal",
+            "SEASON_eea879f2ab9498cf18bb:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_4e85536b305f34db83dc:Normal",
+            "SEASON_bdf983102db07c24a699:Normal",
+            "SEASON_da98f49a336fd098cf63:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_0cb0da227217796c7801:Normal",
+            "SEASON_980df96b200741bff803:Normal",
+            "SEASON_bef4bb09c12ef273de6c:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_27fa33a747009bf8d733:Normal",
+            "SEASON_6c9a567b4cc40601a912:Normal",
+            "SEASON_f29ed81977bd284dabf6:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_1135be011cfd66efd45a:Normal",
+            "SEASON_58160f0d54131ba56427:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_80346ff8b93d9e616884:Normal",
+            "SEASON_efc0c56d1e9aaae06687:Normal",
+            "SEASON_f70af668c384017e221b:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_0d96e6b3794326b79a2b:Normal",
+            "SEASON_588b723decc37042f23f:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_4e8160276d47ee5dcf23",
+      "lineage": "SamsungLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "LineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_2a16fd9f7be36bb3cb61:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_41bf1b5aa89690f2f732:Normal",
+            "SEASON_76389bcc33627662ca2c:Normal",
+            "SEASON_eea879f2ab9498cf18bb:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_4e85536b305f34db83dc:Normal",
+            "SEASON_bdf983102db07c24a699:Normal",
+            "SEASON_da98f49a336fd098cf63:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_0cb0da227217796c7801:Normal",
+            "SEASON_980df96b200741bff803:Normal",
+            "SEASON_bef4bb09c12ef273de6c:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_27fa33a747009bf8d733:Normal",
+            "SEASON_6c9a567b4cc40601a912:Normal",
+            "SEASON_f29ed81977bd284dabf6:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_1135be011cfd66efd45a:Normal",
+            "SEASON_58160f0d54131ba56427:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_25444f7e7c6c79527ee9:Normal",
+            "SEASON_3d223bd0ce6b4ad7f7cf:Normal",
+            "SEASON_46f6bb6ae5bb0497a249:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_0d96e6b3794326b79a2b:Normal",
+            "SEASON_588b723decc37042f23f:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_23586b9c07dbb48aaf93",
+      "lineage": "SsgLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "ResearchLegend",
+        "LongTenure",
+        "LineagePitcherRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_aa9b5333803501b605f2:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_caff333ef7128407918f:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_108aad4d09587cd5ca93:Normal",
+            "SEASON_2cb58a54711d0ab2696e:Normal",
+            "SEASON_efeb0fa53b51169928a7:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_4f5696b76b4c6cb13eb4:Normal",
+            "SEASON_ce98e04a8283199143fd:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_528837dbba75037cbfad:Normal",
+            "SEASON_9709d1d61eb3c3aff328:Normal",
+            "SEASON_cf5ed87b23029e077cb2:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_a53750d02bae101be6f5:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_dab4b5db2bb0bf57677b:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_42d0ebdbe588d87aa714:Normal"
+          ]
+        }
+      ]
+    },
+    {
+      "playerPersonId": "PERSON_580bb458c7bc5ff419e8",
+      "lineage": "SsgLineage",
+      "enabled": true,
+      "curatedReasonTags": [
+        "LongTenure",
+        "LineageHitterRepresentative"
+      ],
+      "allowTargetPersonMaterials": false,
+      "requireDistinctMaterialPersons": true,
+      "materialGroups": [
+        {
+          "groupId": "hitter-1",
+          "candidateCardIds": [
+            "SEASON_3625b7e93be3a38f4806:Normal",
+            "SEASON_4e5a74f8678c19aab95c:Normal",
+            "SEASON_980cff2ad3d6b67f9dd8:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-1",
+          "candidateCardIds": [
+            "SEASON_0abd5db3983a596c9a66:Normal",
+            "SEASON_a5ca998a0bc410144903:Normal",
+            "SEASON_b6e9f036164af003b4f8:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-2",
+          "candidateCardIds": [
+            "SEASON_108aad4d09587cd5ca93:Normal",
+            "SEASON_2cb58a54711d0ab2696e:Normal",
+            "SEASON_efeb0fa53b51169928a7:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-2",
+          "candidateCardIds": [
+            "SEASON_17f98ede5ebe8b0a3a0d:Normal",
+            "SEASON_94fc83093b649f656946:Normal",
+            "SEASON_be335bb4bef7cd2b36ef:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-3",
+          "candidateCardIds": [
+            "SEASON_0609ae207d520bf1f201:Normal",
+            "SEASON_2eec58e2b1eeb82ee1b6:Normal",
+            "SEASON_92dfe292a24c16b44e26:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-3",
+          "candidateCardIds": [
+            "SEASON_a53750d02bae101be6f5:Normal"
+          ]
+        },
+        {
+          "groupId": "hitter-4",
+          "candidateCardIds": [
+            "SEASON_2969004749e79e4b28cc:Normal",
+            "SEASON_9b128417191ab0fb784b:Normal"
+          ]
+        },
+        {
+          "groupId": "pitcher-4",
+          "candidateCardIds": [
+            "SEASON_42d0ebdbe588d87aa714:Normal"
+          ]
+        }
+      ]
+    }
+  ],
+  "legendCurationVersion": "legend-curation-v1",
+  "legendCurationSha256": "f8b2dc0a5c16ab929fc128e4d0e1f1a35b0d7e723c8cb3a5dfae0e8040ab4939",
+  "legendMaterialInputHash": "a019136d5b861cf1feec776fee8346841a63185277a10e20b08e9d586fb3797d",
+  "legendCompilerSha256": "04c55be31aca6322fc0bef6abad5d08e772d622e566c5e71456e2f79e5f116de",
+  "rarePlayerSeasonIds": [
+    "SEASON_001c6c16a3033379180b",
+    "SEASON_01dc17d8b9d03d199f92",
+    "SEASON_02638f6002e485f30739",
+    "SEASON_028f22710491f5aba965",
+    "SEASON_036cf81c5b05cffa3eb5",
+    "SEASON_03a0922d592df2915064",
+    "SEASON_03f9d1829ad7a3e4bb29",
+    "SEASON_05a9799ea31513d0260f",
+    "SEASON_063baef08221fa0de611",
+    "SEASON_06a09c01f5886f791219",
+    "SEASON_06b2c8c4bfe230696547",
+    "SEASON_077b9e1bde56496df4a7",
+    "SEASON_077d08d526fe7101cc70",
+    "SEASON_0808a264bbe7aa65b3da",
+    "SEASON_08e86ea4d8cf001cb2b0",
+    "SEASON_090ffd66668a5127f219",
+    "SEASON_09d51be7d7052d32db31",
+    "SEASON_0a398dd7945ea809c098",
+    "SEASON_0a5d090e69173d075a12",
+    "SEASON_0b56801ae6d60c3b7858",
+    "SEASON_0d1e79b24aeedf79ca32",
+    "SEASON_0de43258abc30ae8e4dd",
+    "SEASON_0e6e2ce1491d6524ded6",
+    "SEASON_0fce660f8b25063a9094",
+    "SEASON_108e4c56c8d85f9596ce",
+    "SEASON_133a4375469281803d4e",
+    "SEASON_14ba7a9c745f610d69f6",
+    "SEASON_15503eaab34c7f6b886f",
+    "SEASON_1581968a0cffac0abb36",
+    "SEASON_172000ad1a5464eec20a",
+    "SEASON_1727281414425155d0d6",
+    "SEASON_1734d32cef443bc48528",
+    "SEASON_182f2b61401c488a027b",
+    "SEASON_19d541b29a0e9fb25038",
+    "SEASON_1ac2acc1e1dca7e45326",
+    "SEASON_1b0ac3be5cf2b6b41238",
+    "SEASON_1bcb056ad46e803426f9",
+    "SEASON_1c3d40144339ebcef140",
+    "SEASON_1c68cb5084ae6735ed8f",
+    "SEASON_1c98896efa94f17eadc6",
+    "SEASON_1d23791ea372b5bf0a40",
+    "SEASON_1d435952491027046974",
+    "SEASON_1e4a1a31a609699cc0f5",
+    "SEASON_20b54ae8d30cded97908",
+    "SEASON_20f186f3a10d560e26fa",
+    "SEASON_222062e26d8761a9bcdd",
+    "SEASON_225f70b0e6091faf3812",
+    "SEASON_22e99a9f91fdcf720daa",
+    "SEASON_22f305680bc5586cede8",
+    "SEASON_23f48f98e610ebee7ddf",
+    "SEASON_24acb7c222d8130034c1",
+    "SEASON_253f0588e91075a3f016",
+    "SEASON_25e9167532208fbe6689",
+    "SEASON_263ead7ca8f70330c340",
+    "SEASON_268b39384254f0ee6106",
+    "SEASON_26df03d94220d6760272",
+    "SEASON_26f63d534532981a4a10",
+    "SEASON_27182c4477caedf738c3",
+    "SEASON_274a130c5093b6a20187",
+    "SEASON_28753a36950866120258",
+    "SEASON_2987ea2dbd697fb54cc0",
+    "SEASON_2acd91903bc378b6ab93",
+    "SEASON_2b5624f329d98ddd99ae",
+    "SEASON_2b9e85f39082e704f980",
+    "SEASON_2d3e8f3f4286118a5c92",
+    "SEASON_2d785f87cdd60af2c1aa",
+    "SEASON_2db56540a9de8d27bb2c",
+    "SEASON_2e7f5777a71f2d2a078c",
+    "SEASON_30049b6a0b3b693205d5",
+    "SEASON_30b511595514e9082701",
+    "SEASON_312db9335591b8043e98",
+    "SEASON_31883197fcf2e8aaba99",
+    "SEASON_318c918f15ef04b62e41",
+    "SEASON_324e7ecd3601f371ef36",
+    "SEASON_3511367c90bb406d0ed6",
+    "SEASON_35600371de2b9efe8965",
+    "SEASON_36028b7702d3f0cd11b9",
+    "SEASON_361e3a08ab7a4d11d9df",
+    "SEASON_3625b7e93be3a38f4806",
+    "SEASON_37de93aafb0c11b23425",
+    "SEASON_38800146b560a141198f",
+    "SEASON_39a8b380fcaef781d1e2",
+    "SEASON_3a655b1594891cae976f",
+    "SEASON_3ac3c73fa237bf33d3bc",
+    "SEASON_3ae486649141c1273f5c",
+    "SEASON_3b9f861d429b90e137c5",
+    "SEASON_3bb749a3a5e99fd64d31",
+    "SEASON_3c45362218df036637b8",
+    "SEASON_3c62ca88eedc198beac3",
+    "SEASON_3caa81c9e7de53ce8646",
+    "SEASON_3ea85307b279d1b2e62a",
+    "SEASON_3f2e9668d2d7767e4408",
+    "SEASON_3f3f24eaeb5b82872800",
+    "SEASON_4075280c5db446bf176a",
+    "SEASON_40dfd0fb0a685a33264a",
+    "SEASON_41187179863a4379acb3",
+    "SEASON_41eeac7a4644aa041355",
+    "SEASON_425dd90daaea930e512e",
+    "SEASON_42f9d67e6b834801a8ea",
+    "SEASON_440d1dfc5001365904b6",
+    "SEASON_448b0cf0fd67ac2639d1",
+    "SEASON_44e496d8a93a2cc93bb8",
+    "SEASON_4581f75454b1567aed22",
+    "SEASON_482a90641d25aafa616b",
+    "SEASON_483dafdaa437d59fbaf6",
+    "SEASON_4aa958cd5c9e3d3c7e85",
+    "SEASON_4c5da75075f8762627cc",
+    "SEASON_4d8a6d154bd6a715b38b",
+    "SEASON_4f19aa831f7312c283ed",
+    "SEASON_5071333ccf48c66eb258",
+    "SEASON_5076fc908cf6dd6afbb3",
+    "SEASON_520acd20866a5a972dbe",
+    "SEASON_547b62e3225b71c25246",
+    "SEASON_54810783431cacb703f7",
+    "SEASON_54ba49e679a8026066fe",
+    "SEASON_54c78da9104acced0da8",
+    "SEASON_5574f0c580e0eee51cd9",
+    "SEASON_56f49870189e23ed3d30",
+    "SEASON_576b2e57fb506b6a08f1",
+    "SEASON_57aecaedfbd002dcb11c",
+    "SEASON_57f8f1e7b1fddb84fcf1",
+    "SEASON_5857bf22243e5e24a566",
+    "SEASON_587c1d1838185aca015f",
+    "SEASON_5898d7d8ac34186237de",
+    "SEASON_5a01d8db16bee1d92984",
+    "SEASON_5a1c939a559774e9369c",
+    "SEASON_5b4a0abf8540fd4c8019",
+    "SEASON_5ba82ac2991c6d075b33",
+    "SEASON_5c5d6ec8839ac33a8f5e",
+    "SEASON_5cdd51691b4df8670cc7",
+    "SEASON_5e0ae135a1e79d668aae",
+    "SEASON_5eb6e19a10b9f43949e1",
+    "SEASON_5f5492752adbe19603ce",
+    "SEASON_5fedf6e907efc9573ec4",
+    "SEASON_5ffbfb53e0e99b00d9e8",
+    "SEASON_611c1c1f411d7a86593d",
+    "SEASON_615b015ab6b94cbd8c19",
+    "SEASON_61ae5b469d5194f21756",
+    "SEASON_61eb56e2b8ef20e8c28e",
+    "SEASON_629e4fec0b2564976e59",
+    "SEASON_650f2779e0c8f4c4a9d4",
+    "SEASON_65601aef1505280d2e85",
+    "SEASON_658e97cd485bbacf9872",
+    "SEASON_65bfd821d602e470661e",
+    "SEASON_6654da9087f23551496b",
+    "SEASON_68c1d0138db58649af5b",
+    "SEASON_69d4605f0377478ecbf7",
+    "SEASON_6a5fd3f8712ad3f0f47e",
+    "SEASON_6bcc0df1b895799451cf",
+    "SEASON_6cf11006697ba7bfaad0",
+    "SEASON_6d17771fbea2e229cb7d",
+    "SEASON_6df23cafe3fb3cfe55c7",
+    "SEASON_6e38c65aa688eaf3a1e6",
+    "SEASON_6ef2a69e73a8d031fc5c",
+    "SEASON_6f1e757f52d93ac5533a",
+    "SEASON_7008dc12eff725ed0955",
+    "SEASON_719aa0a6141671fe94d9",
+    "SEASON_7230d59f9cd4bcba823a",
+    "SEASON_729cb052c0c122a08e4e",
+    "SEASON_72b8ef11301ece29e1ab",
+    "SEASON_734ac8d0c9124954bf72",
+    "SEASON_739ad483b9ca1c025d4f",
+    "SEASON_7417bc0e2536577965ae",
+    "SEASON_748ca059ad8fc47e22ec",
+    "SEASON_74de830caf2b77ec8122",
+    "SEASON_7563db9d08b78eb0e3fe",
+    "SEASON_76f6e2efd9a3797c0e2f",
+    "SEASON_7794ec0149f4f1d08564",
+    "SEASON_7854f3fc674471eec832",
+    "SEASON_785e2b0b301b1b5aa563",
+    "SEASON_78fbe40fbe6b72edfffb",
+    "SEASON_79620d3020d981afc029",
+    "SEASON_79d5cf77537ac0906ddf",
+    "SEASON_7b6f2ab3c397d3ad16e0",
+    "SEASON_7bf3cecb7cd60f67408c",
+    "SEASON_7d15f9893edea7872b2c",
+    "SEASON_7d9fdbc63d1f4965fa7d",
+    "SEASON_7e542fd28b30626db29c",
+    "SEASON_817512e57e03f14b45ca",
+    "SEASON_81e7c1c410601e1f3fa1",
+    "SEASON_82aba43d6b216d895ddb",
+    "SEASON_833532d9b074d3a1bdb0",
+    "SEASON_83e34331c962754dcc8a",
+    "SEASON_8446306c0c157bb08ac7",
+    "SEASON_84a6ef0c8682a3499178",
+    "SEASON_84be3c59de1a8c21840a",
+    "SEASON_851dc6929e1bf92c991a",
+    "SEASON_8656b1aa1e65f523f581",
+    "SEASON_886d63a9c5f1ca328cc7",
+    "SEASON_8952375d3b8c9fb21ffc",
+    "SEASON_897debb3b4d720142c35",
+    "SEASON_8981f6569e80ba4b992e",
+    "SEASON_89ea6c983249163fdfef",
+    "SEASON_8a04ae9859c920b1d6f5",
+    "SEASON_8a35dd90e2d896fe5eb5",
+    "SEASON_8c4f134567f9dfa1185d",
+    "SEASON_8c6fd265571fe66e0da5",
+    "SEASON_8d2991a1ae9df58d30a9",
+    "SEASON_8d83e2f8dc32d9cda314",
+    "SEASON_8ffbbf41f4539d40bc11",
+    "SEASON_9062a97a1f80b769bffe",
+    "SEASON_9140cac33bff8a43c281",
+    "SEASON_91c84c3de1b9d8382a08",
+    "SEASON_9207fb2bfe01786cdc89",
+    "SEASON_925c03ce33cfbd604a0a",
+    "SEASON_928af6b277df3433eb2e",
+    "SEASON_933955a1ba79afdc30ca",
+    "SEASON_936cd3129a0c83061951",
+    "SEASON_93af019905226eec87af",
+    "SEASON_93d3ab65ace77787a0a4",
+    "SEASON_9444d9e7083684bf4766",
+    "SEASON_94f60f08995eb275f731",
+    "SEASON_95026dc5bd332c3fa5a9",
+    "SEASON_96c281d01f45fffc4a92",
+    "SEASON_97d3ea52a9b274ef9d07",
+    "SEASON_9831d8d618ecd481316a",
+    "SEASON_99d0374b3ad6e0a86dd6",
+    "SEASON_99f88a0a9f9e1d837831",
+    "SEASON_9a1cec63d55aa2d2c504",
+    "SEASON_9a4a0e5f29f090058b96",
+    "SEASON_9b4bc2af9409df551284",
+    "SEASON_9bd9b0f10daa777577dc",
+    "SEASON_9e4e2be0338d4d34da15",
+    "SEASON_a0d4bc3093a473a6480f",
+    "SEASON_a267e5e56b3c3b772bfb",
+    "SEASON_a291eb7f9ba57595182d",
+    "SEASON_a328d3211bc63519a06f",
+    "SEASON_a32b6a1a114438b59a2d",
+    "SEASON_a379d8849d5d28a02a46",
+    "SEASON_a4f125a2ecbb47a0e206",
+    "SEASON_a59775aa089550842e1d",
+    "SEASON_a5d50c39232a96bcfee0",
+    "SEASON_a64eaed756048c8de40c",
+    "SEASON_a787d8b826f07dd20be7",
+    "SEASON_a80804eadb08030ed30a",
+    "SEASON_a9b0b5116883d4fe1535",
+    "SEASON_aa7a2c2e9f27d8561916",
+    "SEASON_abf2852814a69014be57",
+    "SEASON_ace3b916b4f718fd1a07",
+    "SEASON_ad39b27ffa40ac98c3fc",
+    "SEASON_ae419b0a7f4608c51165",
+    "SEASON_af5356ea9f8281e9e2a1",
+    "SEASON_af593bc15766b892e8eb",
+    "SEASON_af82188611e3b9078d38",
+    "SEASON_afc8ed85cdd2ee47a7a4",
+    "SEASON_b0b47b1bf0d9d68bda3b",
+    "SEASON_b24a5f4a7a30ea36a08f",
+    "SEASON_b2799d723157e7c9f71e",
+    "SEASON_b37d7ecea3569349e789",
+    "SEASON_b5272899703c438054dd",
+    "SEASON_b53fb6c57e6dde01ee90",
+    "SEASON_b630604b5506481d1432",
+    "SEASON_b71cc1367f33889b752d",
+    "SEASON_b794dc62ffac2afe0efd",
+    "SEASON_b9c49bd5ee6aa0e8f45a",
+    "SEASON_b9defd884f47b4da5072",
+    "SEASON_ba334801439c3622c724",
+    "SEASON_ba3db996536f05c1c871",
+    "SEASON_ba5d0716276e9fa49dd6",
+    "SEASON_bac854fce451041dbdd8",
+    "SEASON_bad375fed356d9d0fbab",
+    "SEASON_bd08a71a47e8fb8b37db",
+    "SEASON_bdc6dc2ad9f9c11e6b86",
+    "SEASON_be1c945701fdad1ebea4",
+    "SEASON_c0c541cd730fe468446f",
+    "SEASON_c14aed4a3462e1765587",
+    "SEASON_c2b227c20fd7322a112d",
+    "SEASON_c36308f93c7762d92353",
+    "SEASON_c37554607ac4ffb125b4",
+    "SEASON_c380c02715d52e5de8c5",
+    "SEASON_c3907c2f8337f3d9268d",
+    "SEASON_c3fb537d5b84e07faa67",
+    "SEASON_c4f25baf362a2471d13b",
+    "SEASON_c500d7cb42eab9fcf773",
+    "SEASON_c5e1e232e3fc5fac7820",
+    "SEASON_c61cc9d2961d798795ff",
+    "SEASON_c9087abd3c145331f354",
+    "SEASON_c919bc73e37a7075f3ce",
+    "SEASON_ca2e202228b6a81112b1",
+    "SEASON_ca69edb7d27d9a3c671a",
+    "SEASON_cb14d0c08be178030e88",
+    "SEASON_cbd952cad96ad620b626",
+    "SEASON_ccaa2189c8e56b222c7b",
+    "SEASON_cdd5a88b611706a8681e",
+    "SEASON_ce1b122b1a5e90a4d037",
+    "SEASON_ce417271308decce0302",
+    "SEASON_ce6c2b6f863919fa4ecd",
+    "SEASON_ce7772e1c3fa8b600baf",
+    "SEASON_cf6740e56bdca9c1f083",
+    "SEASON_d0147c6709be3284d6ba",
+    "SEASON_d120816a0cbf34323b62",
+    "SEASON_d152314457e2f86bfaf3",
+    "SEASON_d1fbd63db04b17f71244",
+    "SEASON_d264e1b650641b786546",
+    "SEASON_d29c9748e85bc594add0",
+    "SEASON_d3085c063abab9580d97",
+    "SEASON_d4778eed00bbceab6c86",
+    "SEASON_d56ee723e24164cb1545",
+    "SEASON_d58952ac895ac707c32a",
+    "SEASON_d5b4e1681be8ba03405c",
+    "SEASON_d5ea89728593a070edb7",
+    "SEASON_d6b3b8b7d94f439d71d3",
+    "SEASON_d7ab66a5296fa75304a9",
+    "SEASON_d83dcb8e1dc8738750e5",
+    "SEASON_d898d3f11e701ef6f71d",
+    "SEASON_d9b8eecebf2b6e23cdb1",
+    "SEASON_da8a6ec370ae22e34370",
+    "SEASON_dad7794b97c18eb39153",
+    "SEASON_daf4883a6edcc2b33779",
+    "SEASON_db72cc652781b49b9a4b",
+    "SEASON_db824c429f2eec0b592c",
+    "SEASON_dc18d76b817b4e60f446",
+    "SEASON_dd7be429c99d3da45055",
+    "SEASON_de292462c5956cde55cb",
+    "SEASON_df9bb0bdf58b63d7731b",
+    "SEASON_dfdd30055c9c19b0d22c",
+    "SEASON_e0f9a10e7d5ad7281ab3",
+    "SEASON_e15e8a42b3d99d226707",
+    "SEASON_e18a68b9b6bcfd890af5",
+    "SEASON_e2b6e950ffd5323449d3",
+    "SEASON_e3b5f38037ba216bbcad",
+    "SEASON_e4061ad6e463c4f76ee8",
+    "SEASON_e46ac3112061669d3e20",
+    "SEASON_e48378051a238b82df7a",
+    "SEASON_e50cb70896ea3e8f5079",
+    "SEASON_e5f8fa40bce3f9f5162a",
+    "SEASON_e6938aa3ad0cd1430b09",
+    "SEASON_e6eec6224f691fa02890",
+    "SEASON_e7b2b0d6e7b94704fc89",
+    "SEASON_e87472211a3ddc093bab",
+    "SEASON_e8b9033b307a1dc6117a",
+    "SEASON_eb488c75dd3709efb10f",
+    "SEASON_eb6e2ed1b2fff849fc42",
+    "SEASON_eb91620c35633d54c8b3",
+    "SEASON_ebc72f4f985fdcd30916",
+    "SEASON_ec9a6fd823d059a1aaf9",
+    "SEASON_ed1b8847169150a1cbfc",
+    "SEASON_eea879f2ab9498cf18bb",
+    "SEASON_f03c3abd186e29849e92",
+    "SEASON_f185f58e61b25db7ff40",
+    "SEASON_f1df67418d0dc88f873b",
+    "SEASON_f2095fb44aa249bf1d75",
+    "SEASON_f2198a7926bd80c6fb67",
+    "SEASON_f2606a86e62e66632485",
+    "SEASON_f26d905b604305427994",
+    "SEASON_f34b64740f725b5a4af4",
+    "SEASON_f3793177eddc1b592dd9",
+    "SEASON_f4bf9f9a926e483c80a8",
+    "SEASON_f51d67039f7a3bf049e2",
+    "SEASON_f59c9729ebb05e0b0b84",
+    "SEASON_f5d8a1e4c589a0328abb",
+    "SEASON_f60b3ef2c5d037ad7740",
+    "SEASON_fa7359c4de6fe0a7ce6f",
+    "SEASON_fa73629201d70d52bad5",
+    "SEASON_fad26896880b6b470b85",
+    "SEASON_fafb56def0b4f30ee41a",
+    "SEASON_fb27ac68648f2984e9f5",
+    "SEASON_fbfa2955e99a4ade76a3",
+    "SEASON_fcc7eb04ca9a0bb16814",
+    "SEASON_fda766aa979e4a4570ca",
+    "SEASON_fdb4c7c25adff80431fc",
+    "SEASON_fede4d2452bd0d1663db",
+    "SEASON_ffac37565987d7113a98"
+  ],
+  "rareSelectionInputHash": "a019136d5b861cf1feec776fee8346841a63185277a10e20b08e9d586fb3797d",
+  "rareSelectionRule": "구단·연도당 1장: 유효 표본의 Cost 4~5 중 기존 Rare 관측 우선, 발급 전력·신뢰도·표본·연도·ID 순"
+}

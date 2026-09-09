@@ -1,0 +1,142 @@
+{
+  "version": "normal-card-velocity-estimation-v1",
+  "target": "NormalCardVelocityRating",
+  "measuredVelocity": false,
+  "intercept": 59.64077287066246,
+  "features": [
+    {
+      "source": "StrikeoutsPerNine.rawValue",
+      "transform": "identity",
+      "mean": 5.726916788458347,
+      "scale": 2.307496428482947,
+      "minimum": 0.0,
+      "maximum": 12.0,
+      "coefficient": 2.207455850895317
+    },
+    {
+      "source": "NegativeWalksPerNine.rawValue",
+      "transform": "identity",
+      "mean": -4.116717483198229,
+      "scale": 2.5115982986917254,
+      "minimum": -18.0,
+      "maximum": -0.0,
+      "coefficient": -0.5131033226063365
+    },
+    {
+      "source": "NegativeEarnedRunAverage.rawValue",
+      "transform": "identity",
+      "mean": -5.107334384858045,
+      "scale": 3.42230129122706,
+      "minimum": -24.0,
+      "maximum": -0.0,
+      "coefficient": -0.3473888774887265
+    },
+    {
+      "source": "InningsPerGame.rawValue",
+      "transform": "identity",
+      "mean": 2.595086656422942,
+      "scale": 1.705015781753198,
+      "minimum": 0.3888888888888889,
+      "maximum": 6.735632183908046,
+      "coefficient": 0.8582779760114214
+    },
+    {
+      "source": "SaveRate.rawValue",
+      "transform": "identity",
+      "mean": 0.046045268331572194,
+      "scale": 0.11177506039694522,
+      "minimum": 0.0,
+      "maximum": 0.5901639344262295,
+      "coefficient": 0.91564547734932
+    },
+    {
+      "source": "HoldRate.rawValue",
+      "transform": "identity",
+      "mean": 0.04997553822925951,
+      "scale": 0.07893651271354088,
+      "minimum": 0.0,
+      "maximum": 0.34375,
+      "coefficient": 0.23989829184163095
+    },
+    {
+      "source": "SeasonInnings.rawValue",
+      "transform": "log1p",
+      "mean": 3.65292695009547,
+      "scale": 1.2019785964020844,
+      "minimum": 0.6931471805599453,
+      "maximum": 5.304961909266705,
+      "coefficient": 0.8101772542772839
+    },
+    {
+      "source": "PitchingGames.rawValue",
+      "transform": "log1p",
+      "mean": 2.9472118318433096,
+      "scale": 0.8848745557646635,
+      "minimum": 0.6931471805599453,
+      "maximum": 4.276666119016055,
+      "coefficient": 0.4215007882489528
+    }
+  ],
+  "minimumRating": 22,
+  "maximumRating": 92,
+  "ridge": 0.1,
+  "trainingCount": 2536,
+  "validation": {
+    "labelCount": 3159,
+    "splitCounts": {
+      "Train": 2000,
+      "Validation": 536,
+      "Holdout": 623
+    },
+    "candidates": [
+      [
+        6.639925373134329,
+        0.1
+      ],
+      [
+        6.643656716417911,
+        1.0
+      ],
+      [
+        6.649253731343284,
+        10.0
+      ],
+      [
+        6.6585820895522385,
+        100.0
+      ],
+      [
+        6.7611940298507465,
+        1000.0
+      ]
+    ],
+    "baseline": {
+      "count": 623,
+      "mae": 8.202247191011235,
+      "bias": -4.048154093097914,
+      "within5": 0.45585874799357945
+    },
+    "holdout": {
+      "count": 623,
+      "mae": 7.221508828250402,
+      "bias": 0.39646869983948635,
+      "within5": 0.420545746388443
+    },
+    "temporal": {
+      "baseline": {
+        "count": 543,
+        "mae": 11.151012891344383,
+        "bias": -9.456721915285451,
+        "within5": 0.2523020257826888
+      },
+      "estimated": {
+        "count": 543,
+        "mae": 8.289134438305709,
+        "bias": -5.957642725598527,
+        "within5": 0.3720073664825046
+      }
+    },
+    "personLeakage": false,
+    "specialCardsUsed": false
+  }
+}

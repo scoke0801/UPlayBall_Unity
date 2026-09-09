@@ -1,9 +1,24 @@
 # KBO Reference Data Extractor / Canonical Baker
 
+고코스트 평가의 최신 정본은 Cost v18 / Balance v25다. 전체 분포를 보존하면서 189장의 Cost를
+보정하고 EX 88·레전드 20·커리어하이 122·레어 363장을 발급해 Unity에 등록했다.
+아래 EX 차단·부분 발급 설명은 이전 기록이며 `docs/reports/고코스트_평가_특수카드_연결.md`를
+우선한다. `elite_cost_policy.json`이 연도 최고 성과·불펜 가격 하한을, `special_card_bake_policy.json`이
+명시적 레어·레전드 선정과 레시피를 소유한다.
+
+역사 강팀의 포지션 근거·부포지션 전달 개선은 [포지션 복원 검토](PositionRepair.md)를 따른다.
+Research/코드 보강 상태이며 강팀 승률 통과 전이다. 이 후보의 공식 Runtime·캐시는 미게시다.
+
+구속 결측은 [표시 구속 추정](VelocityEstimation.md)으로 보완한다. 실측이 없는 투수만 검증된
+일반 카드 기록 모델을 사용하며, 확보된 일반 카드 표시값은 유지한다. Ability v11 / Balance v24이며
+신원 생성 Seed는 평가식 버전과 분리한다. 검증 수치와 전체 베이크 절차는 해당 문서를 따른다.
+
 특수 카드 후속 발급 도구는 `bake_special_cards.py`다. `--evaluation`, `--policy`, `--output`을
 지정하며 입력 해시·EX Cost Gate·커리어 하이·레전드 레시피를 검증한 뒤에만 발급 파일을 쓴다.
-현재 실제 정본은 EX 조건 미달 52건과 레전드 큐레이션 누락으로 차단된다. 게임 Runtime 연결은
-미완료이며 `docs/reports/특수카드_발급_획득_구현.md`에 진행 상태와 테스트를 기록한다.
+레전드는 `legend_curation_v1.json`의 명시적 선정 20명과 재료 160그룹을 확정했다.
+`--editions Legend CareerHigh`로 132장·132개 레시피의 부분 Bake를 검증했으며 전체 Bake는
+EX Cost 조건 미달 52건으로 차단된다. 게임 Runtime 연결은 미완료다.
+선정 근거·EX 충돌 분석·실행 명령은 `docs/design/SpecialCardCuration.md`를 따른다.
 
 KBO 공개 기록을 Offline에서 수집·정규화하고 Source와 1:1인 Runtime-safe Canonical Content로 Bake한다.
 실제 선수·구단 이름은 Editor 검수와 blacklist에만 사용한다. Runtime Game Flow는 이 도구를 호출하지
@@ -95,6 +110,16 @@ Source 실제 Statistics/Standings/Award는 Offline 검증 자료다. 정식 Run
 복사하지 않는다.
 
 ## Canonical Bake
+
+연구 카드 보충을 포함하는 공식 재생성은 아래 명령에
+`--research-supplement research_roster_supplement.json`을 추가한다. KBO 원본 Archive는 유지하고
+최종 Runtime에 연구 기반 예비 카드풀을 확장한다. 939개 시즌·120개 구단·연도를 보충했으며
+기존 Core25와 원기록은 바꾸지 않는다. 연구 시즌의 원기록은 미확보로 남겨 행 자체를 만들지 않는다.
+구체적인 입력·검증·게시 절차는 `ResearchRosterSupplement.md`를 따른다.
+
+1985 삼성 일반 카드 추가 근거·타 게임 출처 오류 정정·전후 대량 경기 검증은
+`Historical1985Samsung.md`를 따른다. `annualReferenceOverride.additionalSources`는 파일별
+해시를 검사하며 기존 기준 교체·제외에는 검토한 원본 값과 출처의 정확한 일치를 요구한다.
 
 ```powershell
 uv run python synthetic_bake.py `

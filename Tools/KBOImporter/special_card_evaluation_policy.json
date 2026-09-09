@@ -1,0 +1,12 @@
+{
+  "version": "special-card-evaluation-v1",
+  "status": "ReviewProposalNotProductionApproval",
+  "minimumReliability": 0.45,
+  "minimumWorkloadRatio": 0.25,
+  "rareTargetPerTeamSeason": 1,
+  "legendShortlistPerLineageRole": 3,
+  "qualificationReason": "현재 역할별 표본 신뢰도와 역할 목표 출장량의 25% 이상을 함께 요구하는 검토용 초기값. 최종 Bake 전 기획 확정 필요.",
+  "exPerformance": "현재 Editor costDerivationTrace.continuousValue의 시대·역할·표본 보정 Source 성과를 재사용. Cost 예측값으로 순위를 대체하지 않음.",
+  "peakStrength": "현재 Runtime BaseAttributes에 기존 Editor roleWeights를 적용한 가중평균. Cost와 별도로 Peak를 먼저 결정.",
+  "legendReason": "원작 관측이 없을 때 같은 계보 유효 시즌 수, 누적 Source 성과, Peak 순으로 검수 후보만 제안. 역사성 승인이나 Recipe 생성 아님."
+}

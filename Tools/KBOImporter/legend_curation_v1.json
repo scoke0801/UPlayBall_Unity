@@ -1,0 +1,39 @@
+{
+  "version": "legend-curation-v1",
+  "scope": "InitialTwentyLineageRepresentatives",
+  "selectionReason": "초기 콘텐츠는 현대 10개 게임 계보별 타자·투수 각 1명이다. 원작 관측만으로 후보가 제한되는 문제를 피하고 전체 Canonical 경력에서 명시적으로 선정한다. Peak는 기존 발급 전력 기준을 유지하며 Cost 미달 선수를 임의 승격하지 않는다.",
+  "allowTargetPersonMaterials": false,
+  "maximumCandidatesPerGroup": 3,
+  "materialGroups": [
+    {"groupId": "hitter-1", "role": "Hitter", "cost": 5},
+    {"groupId": "pitcher-1", "role": "Pitcher", "cost": 5},
+    {"groupId": "hitter-2", "role": "Hitter", "cost": 6},
+    {"groupId": "pitcher-2", "role": "Pitcher", "cost": 6},
+    {"groupId": "hitter-3", "role": "Hitter", "cost": 7},
+    {"groupId": "pitcher-3", "role": "Pitcher", "cost": 7},
+    {"groupId": "hitter-4", "role": "Hitter", "cost": 8},
+    {"groupId": "pitcher-4", "role": "Pitcher", "cost": 8}
+  ],
+  "legends": [
+    {"lineage": "KiaLineage", "playerPersonId": "PERSON_505329cdadae2f1267b8", "sourceReferenceName": "이종범", "role": "Hitter", "curatedReasonTags": ["ResearchLegend", "LongTenure", "LineageHitterRepresentative"]},
+    {"lineage": "KiaLineage", "playerPersonId": "PERSON_29b299e53159f23fafde", "sourceReferenceName": "선동열", "role": "Pitcher", "curatedReasonTags": ["LongTenure", "LineagePitcherRepresentative"]},
+    {"lineage": "LgLineage", "playerPersonId": "PERSON_661971e90faa693308d4", "sourceReferenceName": "이병규", "role": "Hitter", "curatedReasonTags": ["LongTenure", "LineageHitterRepresentative"]},
+    {"lineage": "LgLineage", "playerPersonId": "PERSON_c4374fee09119b40acc2", "sourceReferenceName": "이상훈", "role": "Pitcher", "curatedReasonTags": ["ResearchLegend", "LineagePitcherRepresentative"]},
+    {"lineage": "SsgLineage", "playerPersonId": "PERSON_580bb458c7bc5ff419e8", "sourceReferenceName": "최정", "role": "Hitter", "curatedReasonTags": ["LongTenure", "LineageHitterRepresentative"]},
+    {"lineage": "SsgLineage", "playerPersonId": "PERSON_23586b9c07dbb48aaf93", "sourceReferenceName": "김원형", "role": "Pitcher", "curatedReasonTags": ["ResearchLegend", "LongTenure", "LineagePitcherRepresentative"]},
+    {"lineage": "DoosanLineage", "playerPersonId": "PERSON_737e8166b3aeacaace41", "sourceReferenceName": "김동주", "role": "Hitter", "curatedReasonTags": ["LongTenure", "LineageHitterRepresentative"]},
+    {"lineage": "DoosanLineage", "playerPersonId": "PERSON_4a3fcc50cff949ae4f3f", "sourceReferenceName": "김상진", "role": "Pitcher", "curatedReasonTags": ["ResearchLegend", "LongTenure", "LineagePitcherRepresentative"]},
+    {"lineage": "LotteLineage", "playerPersonId": "PERSON_cd3a685de60e35423ca0", "sourceReferenceName": "이대호", "role": "Hitter", "curatedReasonTags": ["LongTenure", "LineageHitterRepresentative"]},
+    {"lineage": "LotteLineage", "playerPersonId": "PERSON_467156db5f37425c596d", "sourceReferenceName": "최동원", "role": "Pitcher", "curatedReasonTags": ["LineagePitcherRepresentative"]},
+    {"lineage": "SamsungLineage", "playerPersonId": "PERSON_4e8160276d47ee5dcf23", "sourceReferenceName": "이승엽", "role": "Hitter", "curatedReasonTags": ["LongTenure", "LineageHitterRepresentative"]},
+    {"lineage": "SamsungLineage", "playerPersonId": "PERSON_00391148ded7fec69156", "sourceReferenceName": "임창용", "role": "Pitcher", "curatedReasonTags": ["LongTenure", "LineagePitcherRepresentative"]},
+    {"lineage": "HanwhaLineage", "playerPersonId": "PERSON_e4cd09b748c0c5ccd5cc", "sourceReferenceName": "장종훈", "role": "Hitter", "curatedReasonTags": ["ResearchLegend", "LongTenure", "LineageHitterRepresentative"]},
+    {"lineage": "HanwhaLineage", "playerPersonId": "PERSON_b823d605186d965dde60", "sourceReferenceName": "정민철", "role": "Pitcher", "curatedReasonTags": ["ResearchLegend", "LongTenure", "LineagePitcherRepresentative"]},
+    {"lineage": "KiwoomLineage", "playerPersonId": "PERSON_5760787578c05c4d4314", "sourceReferenceName": "박병호", "role": "Hitter", "curatedReasonTags": ["LongTenure", "LineageHitterRepresentative"]},
+    {"lineage": "KiwoomLineage", "playerPersonId": "PERSON_9071b0c1bf6787d16fb4", "sourceReferenceName": "정민태", "role": "Pitcher", "curatedReasonTags": ["ResearchLegend", "LongTenure", "LineagePitcherRepresentative"]},
+    {"lineage": "NcLineage", "playerPersonId": "PERSON_0786e91443e1d7d74bb9", "sourceReferenceName": "나성범", "role": "Hitter", "curatedReasonTags": ["LongTenure", "ExpansionLineageHitterRepresentative"]},
+    {"lineage": "NcLineage", "playerPersonId": "PERSON_50f4501d4c2288cf7f48", "sourceReferenceName": "이재학", "role": "Pitcher", "curatedReasonTags": ["LongTenure", "ExpansionLineagePitcherRepresentative"]},
+    {"lineage": "KtLineage", "playerPersonId": "PERSON_59aeacebb554c67bf123", "sourceReferenceName": "강백호", "role": "Hitter", "curatedReasonTags": ["LongTenure", "ExpansionLineageHitterRepresentative"]},
+    {"lineage": "KtLineage", "playerPersonId": "PERSON_6d60fd2a7571f9caf138", "sourceReferenceName": "고영표", "role": "Pitcher", "curatedReasonTags": ["LongTenure", "ExpansionLineagePitcherRepresentative"]}
+  ]
+}

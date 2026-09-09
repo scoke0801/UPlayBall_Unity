@@ -1,0 +1,14 @@
+{
+  "version": "research-roster-supplement-v1",
+  "maximumIdentityYearDistance": 5,
+  "unobservedAttributeBaseline": 35,
+  "outfieldFallbackPosition": "LF",
+  "reviewedResearchPersons": [
+    {
+      "sourcePersonKey": "research-person:ArchivedWebCard:11900",
+      "references": ["ArchivedWebCard:11900", "ArchivedWebCard:11308", "ArchivedWebCard:9910"],
+      "evidenceUrl": "https://www.osen.co.kr/article/G0612130013",
+      "note": "1992 LG 입단·1994 프런트 전환 기사로 인물을 확인했다. 1992~1994 일반 카드는 같은 연구 인물로 연결하되 해당 시즌 출장 기록은 미확보로 유지한다."
+    }
+  ]
+}

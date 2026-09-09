@@ -1,7 +1,7 @@
 {
-  "version": "historical-derivation-balance-v23",
-  "abilityFormulaVersion": "historical-ability-v10",
-  "costFormulaVersion": "historical-season-value-v17",
+  "version": "historical-derivation-balance-v25",
+  "abilityFormulaVersion": "historical-ability-v11",
+  "costFormulaVersion": "historical-season-value-v18",
   "positionRoleClassifierVersion": "season-position-role-v6",
   "rosterBuilderVersion": "ability-fit-core25-v8",
   "ratingCalibrationNote": "2013년 이하 일반 연도 카드의 검증된 수치는 기준 데이터로 동기화하고, 미확보 카드는 선수 식별자 없는 기록 회귀로 산출.",
@@ -732,6 +732,7 @@
     "unknownPositionPenalty": 8.0,
     "secondaryPositionMinimumGames": 5.0,
     "secondaryPositionMinimumOuts": 45.0,
+    "qualifiedSecondaryPositionProficiency": 100,
     "benchCoverageBonus": 6.0,
     "starterUsage": {
       "plateAppearancesPerGame": 3.5,
@@ -4178,7 +4179,7 @@
     "splitSalt": "pm-annual-player-v1",
     "policySha256": "8221424fc2cd86f13350287e78545f932c546267376fd407b5a4df4824430a86",
     "fitSource": "NormalizedCacheRecordFeatures",
-    "note": "일반 연도 카드의 선수 단위 학습/검증 분리. DB 우선, 충돌/월별/2014 이후 제외. 구속 결측은 55 유지.",
+    "note": "일반 연도 카드의 선수 단위 학습/검증 분리. DB 우선, 충돌/월별/2014 이후 제외. 구속 결측은 별도 일반 카드 표시 구속 추정 모델로 보완.",
     "costModel": "RecordGradientBoosting; 선택 전 선수 분리 검증, 선택 후 전체 근거 재적합"
   },
   "annualReferenceOverride": {
@@ -4187,6 +4188,41 @@
     "version": "annual-general-reference-v1",
     "maximumCardYear": 2013,
     "cardCount": 7526,
-    "contentSha256": "877276dcd2c5f3c096d5702fe3768d319f81fd291071d43ef55cb418ac09cc6d"
+    "contentSha256": "877276dcd2c5f3c096d5702fe3768d319f81fd291071d43ef55cb418ac09cc6d",
+    "rejectedCards": [
+      {
+        "reason": "김시진 1985 Cost 8의 출처 news=107123은 프야매가 아니라 MVP 베이스볼 온라인이다. 일반 카드 수치 확보 전에는 기존 기록 산식을 사용한다. EX 카드 수치를 대입하지 않는다.",
+        "card": {
+          "originYear": 1985,
+          "playerSeasonId": "SEASON_6840de0aeb942aea0991",
+          "playerType": "Pitcher",
+          "sources": {
+            "Cost": "ArticleCost:https://www.inven.co.kr/webzine/news/?news=107123"
+          },
+          "values": {
+            "Cost": 8
+          }
+        }
+      }
+    ],
+    "additionalSources": [
+      {
+        "relativePath": "annual_reference_1985_samsung.json",
+        "version": "annual-general-reference-v1",
+        "maximumCardYear": 2013,
+        "cardCount": 19,
+        "contentSha256": "be026c252377449e555fbdea02911f840a3852b2174da3016bc94a5562ba2a4d"
+      }
+    ]
+  },
+  "missingVelocityEstimation": {
+    "enabled": true,
+    "relativePath": "velocity_estimation.json",
+    "sha256": "74e1d13b124316a532f6f88d0316290242071662d3afa3403fbabf437676e11e",
+    "note": "실측 구속 결측에만 일반 카드 표시 구속 추정 적용. 확보된 일반 카드 표시값은 기존 Reference Override로 유지."
+  },
+  "runtimePersonMetadata": {
+    "seedSalt": "historical-derivation-balance-v23",
+    "note": "평가식 버전과 분리한 고정 신원 Seed. 기존 v23 콘텐츠의 생년·손잡이·잠재 특성을 보존한다."
   }
 }
