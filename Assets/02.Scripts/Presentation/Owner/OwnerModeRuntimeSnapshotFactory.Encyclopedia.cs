@@ -98,7 +98,9 @@ namespace Baseball.Presentation.Owner
             CardEditionPresentationMetadata metadata =
                 CardEditionPresentationMetadataCatalog.Resolve(entry.Edition);
             string playerDisplayName = identities.GetPresentationPlayerName(entry.PlayerPersonId);
-            string franchiseDisplayName = identities.GetPresentationFranchiseName(entry.OriginFranchiseId);
+            string franchiseDisplayName = identities.GetPresentationTeamSeasonName(
+                entry.OriginTeamSeasonKey,
+                entry.OriginFranchiseId);
             return new EncyclopediaScreenEntry
             {
                 CardId = entry.CardId,
@@ -131,7 +133,7 @@ namespace Baseball.Presentation.Owner
                     entry.OriginYear.ToString(),
                     "COST " + entry.Cost,
                     metadata.DisplayName,
-                    portraitAssetKey: entry.PlayerPersonId,
+                    portraitAssetKey: entry.PlayerSeasonId,
                     frameEdition: entry.Edition,
                     cost: entry.Cost),
                 CardInformation = CreateCardInformation(entry, metadata, franchiseDisplayName),
@@ -143,7 +145,9 @@ namespace Baseball.Presentation.Owner
             WorldIdentityRegistry identities)
         {
             string playerDisplayName = identities.GetPresentationPlayerName(entry.PlayerPersonId);
-            string franchiseDisplayName = identities.GetPresentationFranchiseName(entry.OriginFranchiseId);
+            string franchiseDisplayName = identities.GetPresentationTeamSeasonName(
+                entry.OriginTeamSeasonKey,
+                entry.OriginFranchiseId);
             return new EncyclopediaScreenEntry
             {
                 PlayerSeasonId = entry.PlayerSeasonId,
@@ -174,7 +178,7 @@ namespace Baseball.Presentation.Owner
                     entry.OriginYear.ToString(),
                     "COST " + entry.Cost,
                     "카드 " + entry.CollectibleCardCount + "종",
-                    portraitAssetKey: entry.PlayerPersonId,
+                    portraitAssetKey: entry.PlayerSeasonId,
                     cost: entry.Cost),
                 CardInformation = $"현재 활성 카드 {entry.CollectibleCardCount}종 · 보유 {entry.OwnedCardCount} · 획득 {entry.EverAcquiredCardCount}"
             };
@@ -237,7 +241,9 @@ namespace Baseball.Presentation.Owner
                 entry.Bats,
                 CreatePitchSnapshots(manager, entry.Season, abilities),
                 CreateSeasonRecord(runtime.WorldHistory, entry.Season, entry.OriginTeamSeasonKey, entry.OriginYear),
-                teamDisplayName: runtime.IdentityRegistry.GetPresentationFranchiseName(entry.OriginFranchiseId),
+                teamDisplayName: runtime.IdentityRegistry.GetPresentationTeamSeasonName(
+                    entry.OriginTeamSeasonKey,
+                    entry.OriginFranchiseId),
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,
                 isOwnedCard: false, preferredBattingOrder: entry.Card.PreferredBattingOrder);
         }
@@ -254,7 +260,11 @@ namespace Baseball.Presentation.Owner
                 {
                     HasTeamSeason = entry.HasTeamSeason,
                     FranchiseId = entry.FranchiseId,
-                    FranchiseDisplayName = identities.GetPresentationFranchiseName(entry.FranchiseId),
+                    FranchiseDisplayName = identities.GetPresentationTeamSeasonName(
+                        entry.HasTeamSeason
+                            ? entry.FranchiseId + "_" + entry.OriginYear
+                            : string.Empty,
+                        entry.FranchiseId),
                     OriginYear = entry.OriginYear,
                     CollectibleCardCount = entry.CollectibleCardCount,
                     EverAcquiredCardCount = entry.EverAcquiredCardCount,
@@ -353,7 +363,9 @@ namespace Baseball.Presentation.Owner
             WorldIdentityRegistry identities)
         {
             var text = new StringBuilder();
-            string franchiseDisplayName = identities.GetPresentationFranchiseName(entry.OriginFranchiseId);
+            string franchiseDisplayName = identities.GetPresentationTeamSeasonName(
+                entry.OriginTeamSeasonKey,
+                entry.OriginFranchiseId);
             for (int index = 0; index < scoutPools.Count; index++)
             {
                 ScoutPoolDefinition pool = scoutPools[index];

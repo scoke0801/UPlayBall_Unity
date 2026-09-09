@@ -204,7 +204,7 @@ namespace Baseball.Presentation.Owner
 
         private static void AddEmblem(Transform row, string teamName, int emblemId, float x0, float x1)
         {
-            if (TeamEmblemSprites.ResolveEmblemId(teamName, emblemId) <= 0) return;
+            if (!TeamEmblemSprites.CanResolve(teamName, emblemId)) return;
             Image image = OwnerRuntimeUiFactory.CreateImage("Emblem", row, Color.white);
             Place(image.rectTransform, x0, .14f, x1, .86f);
             TeamEmblemSprites.TryApply(image, emblemId, teamName);

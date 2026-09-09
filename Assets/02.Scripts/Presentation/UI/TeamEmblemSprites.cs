@@ -109,6 +109,13 @@ namespace Baseball.Presentation.UI
             return TryApply(image, ResolveEmblemId(teamName, emblemId));
         }
 
+        /// <summary>실제 Identity 또는 가상 별칭에서 표시 가능한 엠블렘이 있는지 확인한다.</summary>
+        public static bool CanResolve(string teamName, int emblemId)
+        {
+            return DevelopmentRealIdentitySettings.TryGetEmblemResource(teamName, out _) ||
+                ResolveEmblemId(teamName, emblemId) > 0;
+        }
+
         /// <summary>유효한 엠블럼을 찾으면 Image에 적용하고 true를 반환한다.</summary>
         public static bool TryApply(Image image, int emblemId)
         {

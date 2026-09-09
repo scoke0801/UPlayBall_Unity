@@ -15,6 +15,7 @@ namespace Baseball.Game.Historical
         private static Dictionary<string, string> _emblemResourcesByTeamName;
         private static Dictionary<string, string> _playerNamesById;
         private static Dictionary<string, string> _franchiseNamesById;
+        private static Dictionary<string, string> _teamSeasonNamesByKey;
         private static bool _isInitialized;
         private static bool _isEnabled;
 
@@ -56,6 +57,7 @@ namespace Baseball.Game.Historical
                 _emblemResourcesByTeamName = null;
                 _playerNamesById = null;
                 _franchiseNamesById = null;
+                _teamSeasonNamesByKey = null;
                 _isEnabled = false;
                 return;
             }
@@ -64,7 +66,8 @@ namespace Baseball.Game.Historical
             if (asset == null)
                 throw new InvalidOperationException("개발용 실제 Identity 카탈로그가 없습니다.");
             Catalog catalog = JsonUtility.FromJson<Catalog>(asset.text);
-            if (catalog == null || catalog.players == null || catalog.teams == null)
+            if (catalog == null || catalog.players == null || catalog.teams == null ||
+                catalog.teamSeasons == null)
                 throw new InvalidOperationException("개발용 실제 Identity 카탈로그 형식이 올바르지 않습니다.");
 
             var playerNames = new Dictionary<string, string>(catalog.players.Length, StringComparer.Ordinal);
@@ -86,9 +89,30 @@ namespace Baseball.Game.Historical
                     AddUnique(emblemResources, team.aliases[aliasIndex], team.emblemResource, "구단 엠블렘");
             }
 
+            var teamSeasonNames = new Dictionary<string, string>(
+                catalog.teamSeasons.Length,
+                StringComparer.Ordinal);
+            for (int index = 0; index < catalog.teamSeasons.Length; index++)
+            {
+                TeamSeasonEntry teamSeason = catalog.teamSeasons[index];
+                if (teamSeason == null || string.IsNullOrWhiteSpace(teamSeason.emblemResource))
+                    throw new InvalidOperationException("개발용 실제 TeamSeason 엠블렘 경로가 비어 있습니다.");
+                AddUnique(
+                    teamSeasonNames,
+                    teamSeason.teamSeasonKey,
+                    teamSeason.name,
+                    "TeamSeason");
+                AddOrMatch(
+                    emblemResources,
+                    teamSeason.name,
+                    teamSeason.emblemResource,
+                    "TeamSeason 엠블렘");
+            }
+
             _emblemResourcesByTeamName = emblemResources;
             _playerNamesById = playerNames;
             _franchiseNamesById = franchiseNames;
+            _teamSeasonNamesByKey = teamSeasonNames;
             _isEnabled = PlayerPrefs.GetInt(PlayerPrefsKey, 1) != 0;
         }
 
@@ -142,14 +166,54 @@ namespace Baseball.Game.Historical
             return ResolveFranchiseName(registry, franchiseId);
         }
 
+        /// <summary>실제 표시에서는 최신 Franchise명이 아니라 원본 연도의 TeamSeason명을 사용한다.</summary>
+        public static string ResolveTeamSeasonName(
+            WorldIdentityRegistry registry,
+            string teamSeasonKey,
+            string franchiseId)
+        {
+            if (registry == null)
+                throw new ArgumentNullException(nameof(registry));
+            Initialize();
+            if (IsEnabled && !string.IsNullOrWhiteSpace(teamSeasonKey) &&
+                _teamSeasonNamesByKey.TryGetValue(teamSeasonKey.Trim(), out string realName))
+                return realName;
+            return ResolveFranchiseName(registry, franchiseId);
+        }
+
+        /// <summary>Presentation Snapshot이 연도별 실제 구단 이름 오버레이를 요청한다.</summary>
+        public static string GetPresentationTeamSeasonName(
+            this WorldIdentityRegistry registry,
+            string teamSeasonKey,
+            string franchiseId)
+        {
+            return ResolveTeamSeasonName(registry, teamSeasonKey, franchiseId);
+        }
+
         /// <summary>활성화된 실제 구단명에 대응하는 Resources 엠블렘 경로를 조회한다.</summary>
         public static bool TryGetEmblemResource(string teamName, out string resourcePath)
         {
             Initialize();
             if (IsEnabled && !string.IsNullOrWhiteSpace(teamName) && _emblemResourcesByTeamName != null)
-                return _emblemResourcesByTeamName.TryGetValue(teamName.Trim(), out resourcePath);
+                return _emblemResourcesByTeamName.TryGetValue(
+                    RemoveSeasonYearPrefix(teamName),
+                    out resourcePath);
             resourcePath = null;
             return false;
+        }
+
+        private static string RemoveSeasonYearPrefix(string teamName)
+        {
+            string normalized = teamName.Trim();
+            int separator = normalized.IndexOf(' ');
+            if (separator <= 0)
+                return normalized;
+            string prefix = normalized.Substring(0, separator);
+            if (prefix.EndsWith("년", StringComparison.Ordinal))
+                prefix = prefix.Substring(0, prefix.Length - 1);
+            return prefix.Length == 4 && int.TryParse(prefix, out _)
+                ? normalized.Substring(separator + 1).TrimStart()
+                : normalized;
         }
 
         private static void AddUnique(
@@ -164,12 +228,32 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException($"개발용 실제 {entryType} 키가 중복됩니다: {key}");
         }
 
+        private static void AddOrMatch(
+            Dictionary<string, string> destination,
+            string key,
+            string value,
+            string entryType)
+        {
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+                throw new InvalidOperationException($"개발용 실제 {entryType} 항목이 비어 있습니다.");
+            string normalizedKey = key.Trim();
+            string normalizedValue = value.Trim();
+            if (destination.TryGetValue(normalizedKey, out string existing))
+            {
+                if (!string.Equals(existing, normalizedValue, StringComparison.Ordinal))
+                    throw new InvalidOperationException($"개발용 실제 {entryType} 키가 충돌합니다: {key}");
+                return;
+            }
+            destination.Add(normalizedKey, normalizedValue);
+        }
+
         [Serializable]
         private sealed class Catalog
         {
             public int version;
             public PlayerEntry[] players;
             public TeamEntry[] teams;
+            public TeamSeasonEntry[] teamSeasons;
         }
 
         [Serializable]
@@ -185,6 +269,14 @@ namespace Baseball.Game.Historical
             public string id;
             public string name;
             public string[] aliases;
+            public string emblemResource;
+        }
+
+        [Serializable]
+        private sealed class TeamSeasonEntry
+        {
+            public string teamSeasonKey;
+            public string name;
             public string emblemResource;
         }
     }

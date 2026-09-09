@@ -366,8 +366,10 @@ namespace Baseball.Presentation.Owner
             {
                 PlayerCardDefinition card = catalog.Cards[index];
                 PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
-            string franchiseName = manager.Runtime.IdentityRegistry.GetPresentationFranchiseName(season.OriginFranchiseId);
-            string playerName = manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId);
+                string franchiseName = manager.Runtime.IdentityRegistry.GetPresentationTeamSeasonName(
+                    season.OriginTeamSeasonKey,
+                    season.OriginFranchiseId);
+                string playerName = manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId);
                 string label = $"{season.OriginYear} · {franchiseName} · {playerName} · {DescribeEdition(card.Edition)} · {card.CardId}";
                 _cardOptions.Add(new CardOption(card, label));
                 AddYear(season.OriginYear);
@@ -596,14 +598,7 @@ namespace Baseball.Presentation.Owner
 
         private static string DescribeEdition(PlayerCardEdition edition)
         {
-            return edition switch
-            {
-                PlayerCardEdition.Normal => "일반",
-                PlayerCardEdition.AllStar => "올스타",
-                PlayerCardEdition.GoldenGlove => "골든글러브",
-                PlayerCardEdition.Mvp => "MVP",
-                _ => edition.ToString()
-            };
+            return Baseball.Game.Historical.PlayerCardEditionText.Get(edition);
         }
 
         private static string DescribeRarity(SkillBlockRarity rarity)
