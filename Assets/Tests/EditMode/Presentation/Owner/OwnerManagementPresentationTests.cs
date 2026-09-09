@@ -1026,57 +1026,6 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(overlay.gameObject.activeSelf, Is.False);
         }
 
-        [Test]
-        public void OwnerPlayerMarket_상대구단변경은전체구단을보여주고확정한구단을요청한다()
-        {
-            RectTransform host = _root.GetComponent<RectTransform>();
-            UI_Scene_OwnerPlayerMarket view = UI_Scene_OwnerPlayerMarket.CreateRuntime(host, host, host);
-            var owned = new[]
-            {
-                new OwnerTradePlayerRow("TEAM_HOME", "서울 히어로즈", "HOME_01", "김선수", "선발투수", 10, 1000)
-            };
-            var targets = new[]
-            {
-                new OwnerTradePlayerRow("TEAM_A", "부산 웨이브", "A_01", "박선수", "3루수", 8, 820),
-                new OwnerTradePlayerRow("TEAM_A", "부산 웨이브", "A_02", "이선수", "유격수", 7, 710),
-                new OwnerTradePlayerRow("TEAM_B", "대전 팔콘스", "B_01", "최선수", "구원투수", 9, 900),
-                new OwnerTradePlayerRow("TEAM_C", "인천 마리너스", "C_01", "정선수", "포수", 6, 640)
-            };
-            view.BindTrade(new OwnerTradeSnapshot(
-                owned, targets, "TEAM_A", "HOME_01", "A_01", 0, 3, null));
-            string requestedPartner = null;
-            string requestedOutgoing = null;
-            string requestedIncoming = null;
-            view.TradePreviewRequested += (partner, outgoing, incoming) =>
-            {
-                requestedPartner = partner;
-                requestedOutgoing = outgoing;
-                requestedIncoming = incoming;
-            };
-
-            _root.transform.Find("OwnerPlayerMarketActionBar/CyclePartner")
-                .GetComponent<Button>().onClick.Invoke();
-
-            Transform overlay = _root.transform.Find("OwnerPlayerMarketWorkspace/PartnerSelectionOverlay");
-            Transform choices = overlay.Find("PartnerSelectionDialog/PartnerScroll/Viewport/Content");
-            Assert.That(overlay.gameObject.activeSelf, Is.True);
-            Assert.That(choices.childCount, Is.EqualTo(3));
-            Assert.That(choices.GetChild(0).Find("Label").GetComponent<Text>().text,
-                Does.Contain("부산 웨이브").And.Contain("영입 후보 2명"));
-            Assert.That(choices.GetChild(0).Find("SelectionMark").gameObject.activeSelf, Is.True);
-
-            choices.GetChild(2).GetComponent<Button>().onClick.Invoke();
-            Assert.That(overlay.Find("PartnerSelectionDialog/SelectionSummary/CurrentSelection")
-                .GetComponent<Text>().text, Does.Contain("인천 마리너스"));
-            overlay.Find("PartnerSelectionDialog/Confirm").GetComponent<Button>().onClick.Invoke();
-
-            Assert.That(overlay.gameObject.activeSelf, Is.False);
-            Assert.That(requestedPartner, Is.EqualTo("TEAM_C"));
-            Assert.That(requestedOutgoing, Is.EqualTo("HOME_01"));
-            Assert.That(requestedIncoming, Is.Empty);
-            UnityEngine.Object.DestroyImmediate(view.gameObject);
-        }
-
         private static OwnerClubOperationSnapshot CreateClubSnapshot()
         {
             return new OwnerClubOperationSnapshot(

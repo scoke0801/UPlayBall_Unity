@@ -213,6 +213,14 @@ namespace Baseball.Game.Historical
             int index = FindStatusIndex(replacement.TeamSeasonKey);
             _playerStatuses[index] = replacement;
         }
+
+        private int FindStatusIndex(string teamSeasonKey)
+        {
+            for (int index = 0; index < _playerStatuses.Length; index++)
+                if (string.Equals(_playerStatuses[index].TeamSeasonKey, teamSeasonKey, StringComparison.Ordinal))
+                    return index;
+            throw new KeyNotFoundException($"TeamSeasonKey {teamSeasonKey}의 선수 상태가 없습니다.");
+        }
     }
 
     public sealed partial class ManagerHistoricalRuntimeState
@@ -236,15 +244,25 @@ namespace Baseball.Game.Historical
             for (int index = 0; index < replacement.Entries.Count; index++)
             {
                 ActiveRosterEntry entry = replacement.Entries[index];
+                if (IsCardReserved(entry.CardId))
+                    throw new InvalidOperationException("특수 영입에 예약된 카드는 1군에 등록할 수 없습니다.");
                 if (!TryGetOwnedCard(entry.CardId, out _))
                     throw new InvalidOperationException("보유하지 않은 카드는 1군에 등록할 수 없습니다.");
                 playerStatus.GetRequiredPlayer(entry.PlayerPersonId);
             }
 
             // 로스터와 계약은 외부에서 어느 한쪽만 관찰할 수 없도록 같은 Aggregate 변경에서 교체한다.
-            ManagerMode.ReplacePlayerMarketState(playerContracts, ManagerMode.TradeReceipts);
+            ManagerMode.ReplacePlayerContractState(playerContracts);
             ReplaceCurrentRoster(replacement);
             ManagerMode.ReplacePlayerStatusState(playerStatus);
+        }
+
+        private int FindRosterIndex(string teamSeasonKey)
+        {
+            for (int index = 0; index < _rosters.Length; index++)
+                if (string.Equals(_rosters[index].TeamSeasonKey, teamSeasonKey, StringComparison.Ordinal))
+                    return index;
+            throw new KeyNotFoundException($"TeamSeasonKey {teamSeasonKey}의 로스터가 없습니다.");
         }
     }
 }

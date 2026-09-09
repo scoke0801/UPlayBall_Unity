@@ -8,9 +8,6 @@ namespace Baseball.Simulation.Historical
     {
         Available,
         InvalidSelection,
-        RosterViolation,
-        InsufficientValue,
-        SeasonalLimitReached,
         InsufficientMoney,
         ContractExpired
     }
@@ -43,49 +40,10 @@ namespace Baseball.Simulation.Historical
         public bool CanCommit => Status == OwnerPlayerMarketStatus.Available;
     }
 
-    /// <summary>두 구단의 25인 로스터를 바꾸지 않은 채 1:1 트레이드 결과를 미리 계산한다.</summary>
-    public sealed class OwnerTradePreview
-    {
-        public OwnerTradePreview(
-            OwnerPlayerMarketStatus status,
-            string partnerTeamSeasonKey,
-            string outgoingCardId,
-            string incomingCardId,
-            int outgoingValue,
-            int incomingValue,
-            CurrentRosterState playerRoster,
-            CurrentRosterState partnerRoster,
-            string reason)
-        {
-            Status = status;
-            PartnerTeamSeasonKey = partnerTeamSeasonKey ?? string.Empty;
-            OutgoingCardId = outgoingCardId ?? string.Empty;
-            IncomingCardId = incomingCardId ?? string.Empty;
-            OutgoingValue = outgoingValue;
-            IncomingValue = incomingValue;
-            PlayerRoster = playerRoster;
-            PartnerRoster = partnerRoster;
-            Reason = reason ?? string.Empty;
-        }
-
-        public OwnerPlayerMarketStatus Status { get; }
-        public string PartnerTeamSeasonKey { get; }
-        public string OutgoingCardId { get; }
-        public string IncomingCardId { get; }
-        public int OutgoingValue { get; }
-        public int IncomingValue { get; }
-        public int ValueDifference => OutgoingValue - IncomingValue;
-        public CurrentRosterState PlayerRoster { get; }
-        public CurrentRosterState PartnerRoster { get; }
-        public string Reason { get; }
-        public bool CanCommit => Status == OwnerPlayerMarketStatus.Available;
-    }
-
-    /// <summary>구단주 모드 계약 비용과 AI 트레이드 수락을 순수 C#로 계산한다.</summary>
+    /// <summary>구단주 모드 선수 계약 비용을 순수 C#로 계산한다.</summary>
     public sealed class OwnerPlayerMarketResolver
     {
         private readonly OwnerPlayerMarketBalanceTable _balance;
-        private readonly ActiveRosterValidator _rosterValidator = new ActiveRosterValidator();
 
         public OwnerPlayerMarketResolver(OwnerPlayerMarketBalanceTable balance)
         {
@@ -227,128 +185,11 @@ namespace Baseball.Simulation.Historical
                 $"{contractSeasons}년 연장하여 잔여 {contract.RemainingSeasons + contractSeasons}년이 됩니다. 연봉은 즉시 변경됩니다.");
         }
 
-        public OwnerTradePreview PreviewTrade(
-            CurrentRosterState playerRoster,
-            CurrentRosterState partnerRoster,
-            string outgoingCardId,
-            string incomingCardId,
-            WorldCardCatalog catalog,
-            int outgoingEnhancementLevel = 0)
-        {
-            if (playerRoster == null || partnerRoster == null || catalog == null)
-                throw new ArgumentNullException(nameof(playerRoster));
-            ActiveRosterEntry outgoing = Find(playerRoster, outgoingCardId);
-            ActiveRosterEntry incoming = Find(partnerRoster, incomingCardId);
-            if (outgoing == null || incoming == null)
-                return Invalid(playerRoster, partnerRoster, outgoingCardId, incomingCardId, "양 구단의 1군 선수를 각각 선택해야 합니다.");
-
-            bool outgoingIsHitter = ActiveRosterCompositionRule.Standard.IsHitterRole(outgoing.Role);
-            bool incomingIsHitter = ActiveRosterCompositionRule.Standard.IsHitterRole(incoming.Role);
-            if (outgoingIsHitter != incomingIsHitter)
-                return Invalid(playerRoster, partnerRoster, outgoingCardId, incomingCardId, "야수와 투수는 서로 교환할 수 없습니다.");
-
-            CurrentRosterState proposedPlayer = Replace(playerRoster, outgoing, incoming);
-            CurrentRosterState proposedPartner = Replace(partnerRoster, incoming, outgoing);
-            RosterValidationResult playerValidation = _rosterValidator.Validate(proposedPlayer);
-            RosterValidationResult partnerValidation = _rosterValidator.Validate(proposedPartner);
-            int outgoingValue = ResolveValue(catalog, outgoing.CardId, outgoingEnhancementLevel);
-            int incomingValue = ResolveValue(catalog, incoming.CardId, 0);
-            if (!playerValidation.IsValid || !partnerValidation.IsValid)
-            {
-                return new OwnerTradePreview(
-                    OwnerPlayerMarketStatus.RosterViolation,
-                    partnerRoster.TeamSeasonKey,
-                    outgoing.CardId,
-                    incoming.CardId,
-                    outgoingValue,
-                    incomingValue,
-                    proposedPlayer,
-                    proposedPartner,
-                    "25인 구성·외국인 제한·중복 선수 규칙을 통과하지 못했습니다.");
-            }
-            if (outgoingValue < incomingValue * _balance.MinimumTradeAcceptanceRatio)
-            {
-                return new OwnerTradePreview(
-                    OwnerPlayerMarketStatus.InsufficientValue,
-                    partnerRoster.TeamSeasonKey,
-                    outgoing.CardId,
-                    incoming.CardId,
-                    outgoingValue,
-                    incomingValue,
-                    proposedPlayer,
-                    proposedPartner,
-                    "상대 구단이 받는 가치가 부족합니다.");
-            }
-            return new OwnerTradePreview(
-                OwnerPlayerMarketStatus.Available,
-                partnerRoster.TeamSeasonKey,
-                outgoing.CardId,
-                incoming.CardId,
-                outgoingValue,
-                incomingValue,
-                proposedPlayer,
-                proposedPartner,
-                "양 구단의 전력 가치와 로스터 규칙을 통과했습니다.");
-        }
-
-        public int ResolveValue(WorldCardCatalog catalog, string cardId, int enhancementLevel)
-        {
-            PlayerCardDefinition card = GetCard(catalog, cardId);
-            PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
-            return checked(season.Cost * 100 + (int)card.Edition * 35 + Math.Max(0, enhancementLevel) * 12);
-        }
-
-        private static CurrentRosterState Replace(
-            CurrentRosterState source,
-            ActiveRosterEntry removed,
-            ActiveRosterEntry added)
-        {
-            var entries = new ActiveRosterEntry[source.Entries.Count];
-            for (int index = 0; index < entries.Length; index++)
-            {
-                ActiveRosterEntry entry = source.Entries[index];
-                entries[index] = ReferenceEquals(entry, removed)
-                    ? new ActiveRosterEntry(
-                        added.CardId,
-                        added.PlayerSeasonId,
-                        added.PlayerPersonId,
-                        added.RegistrationType,
-                        removed.Role)
-                    : entry;
-            }
-            return new CurrentRosterState(source.TeamSeasonKey, entries);
-        }
-
-        private static ActiveRosterEntry Find(CurrentRosterState roster, string cardId)
-        {
-            if (string.IsNullOrWhiteSpace(cardId)) return null;
-            for (int index = 0; index < roster.Entries.Count; index++)
-                if (string.Equals(roster.Entries[index].CardId, cardId.Trim(), StringComparison.Ordinal))
-                    return roster.Entries[index];
-            return null;
-        }
-
         private static PlayerCardDefinition GetCard(WorldCardCatalog catalog, string cardId)
         {
             if (catalog.TryGetCard(cardId, out PlayerCardDefinition card)) return card;
             throw new ArgumentException($"CardId {cardId}를 찾을 수 없습니다.", nameof(cardId));
         }
-
-        private static OwnerTradePreview Invalid(
-            CurrentRosterState playerRoster,
-            CurrentRosterState partnerRoster,
-            string outgoingCardId,
-            string incomingCardId,
-            string reason) => new OwnerTradePreview(
-                OwnerPlayerMarketStatus.InvalidSelection,
-                partnerRoster?.TeamSeasonKey,
-                outgoingCardId,
-                incomingCardId,
-                0,
-                0,
-                playerRoster,
-                partnerRoster,
-                reason);
 
         private static int PositiveStableHash(string value)
         {

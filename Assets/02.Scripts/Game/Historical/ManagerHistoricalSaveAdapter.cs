@@ -15,7 +15,8 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 16;
+        public const int CurrentSaveVersion = 19;
+        private const int OwnerPostseasonSaveVersion = 18;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
         // 개인 기록은 없으면 빈 상태로 복원되므로 별도 버전 분기가 필요 없다.
@@ -24,7 +25,7 @@ namespace Baseball.Game.Historical
         private const int OwnerGrowthSaveVersion = 8;
         private const int DugoutManagementSaveVersion = 9;
         private const int CompletedSeasonsSaveVersion = 10;
-        private const int OwnerPlayerMarketSaveVersion = 11;
+        private const int OwnerPlayerContractSaveVersion = 11;
         private const int ScheduledTacticsSaveVersion = 12;
         private const int GrowthSourceBreakdownSaveVersion = 13;
         private const int ActiveRosterContractSyncSaveVersion = 14;
@@ -57,12 +58,11 @@ namespace Baseball.Game.Historical
             if (managerMode.PlayerContracts.Count == 0)
             {
                 var marketResolver = new OwnerPlayerMarketResolver(_balance.OwnerPlayerMarket);
-                managerMode.ReplacePlayerMarketState(
+                managerMode.ReplacePlayerContractState(
                     marketResolver.CreateInitialContracts(
                         state.GetRoster(state.PlayerTeamSeasonKey),
                         state.WorldCardCatalog,
-                        managerMode.LiveSeason.SeasonNumber),
-                    managerMode.TradeReceipts);
+                        managerMode.LiveSeason.SeasonNumber));
             }
             else
             {
@@ -84,6 +84,7 @@ namespace Baseball.Game.Historical
                 ownedCards = CreateOwnedCards(state.OwnedCards),
                 cardCollectionHistory = CreateCardCollectionHistory(state.CollectionHistory),
                 wishlist = CreateWishlist(state.Wishlist),
+                specialCardTransactions = state.CreateSpecialCardTransactionsSave(),
                 economy = new ManagerEconomySaveData
                 {
                     money = state.Economy.Money,
@@ -146,7 +147,7 @@ namespace Baseball.Game.Historical
                 bakedContent.PlayerSeasons,
                 history.Awards,
                 _cardEditionBalance,
-                bakedContent.PlayerPersons, bakedContent.TeamSeasons);
+                bakedContent.PlayerPersons, bakedContent.TeamSeasons, bakedContent.SpecialCards);
             LeagueInstance league = RestoreLeague(Require(saveData.league, nameof(saveData.league)));
             CurrentRosterState[] rosters = RestoreRosters(Require(saveData.rosters, nameof(saveData.rosters)));
             OwnedPlayerCardState[] ownedCards = RestoreOwnedCards(
@@ -172,7 +173,7 @@ namespace Baseball.Game.Historical
                     identityRegistry,
                     history.WorldHistorySeed,
                     saveData.saveVersion);
-            if (saveData.saveVersion >= OwnerPlayerMarketSaveVersion &&
+            if (saveData.saveVersion >= OwnerPlayerContractSaveVersion &&
                 saveData.saveVersion < ActiveRosterContractSyncSaveVersion)
             {
                 RepairKnownActiveRosterContractMismatch(
@@ -221,6 +222,9 @@ namespace Baseball.Game.Historical
                     : RestorePlayerGrowth(saveData.playerGrowth),
                 collectionHistory,
                 wishlist);
+            runtime.RestoreSpecialCardTransactions(saveData.saveVersion < 19
+                ? Array.Empty<SpecialCardTransactionSaveData>()
+                : Require(saveData.specialCardTransactions, nameof(saveData.specialCardTransactions)));
             if (saveData.saveVersion >= 16 && saveData.leagueWorld != null)
                 RestoreLeagueWorld(runtime, saveData.leagueWorld, saveData.saveVersion);
             else
@@ -239,13 +243,12 @@ namespace Baseball.Game.Historical
                 return;
 
             var resolver = new OwnerPlayerMarketResolver(_balance.OwnerPlayerMarket);
-            managerMode.ReplacePlayerMarketState(
+            managerMode.ReplacePlayerContractState(
                 resolver.CreateActiveRosterContracts(
                     roster,
                     catalog,
                     managerMode.LiveSeason.SeasonNumber,
-                    managerMode.PlayerContracts),
-                managerMode.TradeReceipts);
+                    managerMode.PlayerContracts));
         }
 
         private static bool HasContractCoverage(
@@ -401,8 +404,7 @@ namespace Baseball.Game.Historical
                 liveSeason = CreateLiveSeason(source.LiveSeason),
                 completedSeasons = CreateCompletedSeasons(source.CompletedSeasons),
                 dugout = CreateDugout(source.Dugout),
-                playerContracts = CreatePlayerContracts(source.PlayerContracts),
-                tradeReceipts = CreateTradeReceipts(source.TradeReceipts)
+                playerContracts = CreatePlayerContracts(source.PlayerContracts)
             };
         }
 
@@ -422,26 +424,6 @@ namespace Baseball.Game.Historical
                     annualSalary = contract.AnnualSalary,
                     hasLastSalaryPaidSeason = contract.LastSalaryPaidSeason.HasValue,
                     lastSalaryPaidSeason = contract.LastSalaryPaidSeason ?? 0
-                };
-            }
-            return result;
-        }
-
-        private static OwnerTradeReceiptSaveData[] CreateTradeReceipts(IReadOnlyList<OwnerTradeReceipt> source)
-        {
-            var result = new OwnerTradeReceiptSaveData[source.Count];
-            for (int index = 0; index < result.Length; index++)
-            {
-                OwnerTradeReceipt receipt = source[index];
-                result[index] = new OwnerTradeReceiptSaveData
-                {
-                    receiptId = receipt.ReceiptId,
-                    season = receipt.Season,
-                    partnerTeamSeasonKey = receipt.PartnerTeamSeasonKey,
-                    outgoingCardId = receipt.OutgoingCardId,
-                    incomingCardId = receipt.IncomingCardId,
-                    outgoingValue = receipt.OutgoingValue,
-                    incomingValue = receipt.IncomingValue
                 };
             }
             return result;
@@ -500,11 +482,10 @@ namespace Baseball.Game.Historical
                     ? DugoutManagementState.CreateDefault()
                     : RestoreDugout(source.dugout),
                 RestoreCompletedSeasons(source.completedSeasons, saveVersion));
-            if (saveVersion >= OwnerPlayerMarketSaveVersion)
+            if (saveVersion >= OwnerPlayerContractSaveVersion)
             {
-                result.ReplacePlayerMarketState(
-                    RestorePlayerContracts(Require(source.playerContracts, nameof(source.playerContracts))),
-                    RestoreTradeReceipts(Require(source.tradeReceipts, nameof(source.tradeReceipts))));
+                result.ReplacePlayerContractState(
+                    RestorePlayerContracts(Require(source.playerContracts, nameof(source.playerContracts))));
             }
             return result;
         }
@@ -522,24 +503,6 @@ namespace Baseball.Game.Historical
                     contract.remainingSeasons,
                     contract.annualSalary,
                     contract.hasLastSalaryPaidSeason ? contract.lastSalaryPaidSeason : (int?)null);
-            }
-            return result;
-        }
-
-        private static OwnerTradeReceipt[] RestoreTradeReceipts(OwnerTradeReceiptSaveData[] source)
-        {
-            var result = new OwnerTradeReceipt[source.Length];
-            for (int index = 0; index < result.Length; index++)
-            {
-                OwnerTradeReceiptSaveData receipt = Require(source[index], nameof(source));
-                result[index] = new OwnerTradeReceipt(
-                    receipt.receiptId,
-                    receipt.season,
-                    receipt.partnerTeamSeasonKey,
-                    receipt.outgoingCardId,
-                    receipt.incomingCardId,
-                    receipt.outgoingValue,
-                    receipt.incomingValue);
             }
             return result;
         }
@@ -1339,23 +1302,46 @@ namespace Baseball.Game.Historical
                 if (!localKeys.Contains(roster.TeamSeasonKey)) rosters.Add(roster);
             foreach (var group in runtime.LeagueWorld.Groups)
                 if (!ReferenceEquals(group.Season, runtime.ManagerMode.LiveSeason))
-                    groups.Add(new OwnerLeagueGroupSaveData { league = CreateLeague(group.League), season = CreateLiveSeason(group.Season) });
+                    groups.Add(new OwnerLeagueGroupSaveData
+                    {
+                        league = CreateLeague(group.League),
+                        season = CreateLiveSeason(group.Season),
+                        postseason = CreateOwnerPostseason(group.Postseason)
+                    });
             var playerIds = new List<OwnerLeaguePlayerIdSaveData>();
             foreach (var entry in ManagerModeMatchService.PlayerIdMap.Create(runtime).Entries)
                 playerIds.Add(new OwnerLeaguePlayerIdSaveData { key = entry.Key, playerId = entry.Value });
             playerIds.Sort((a, b) => string.CompareOrdinal(a.key, b.key));
             var history = new List<OwnerLeagueGroupSaveData>();
             foreach (var group in runtime.LeagueWorld.CompletedGroups)
-                history.Add(new OwnerLeagueGroupSaveData { league = CreateLeague(group.League), season = CreateLiveSeason(group.Season) });
-            return new OwnerLeagueWorldSaveData { groups = groups.ToArray(), completedGroups = history.ToArray(), rosters = CreateRosters(rosters), playerIds = playerIds.ToArray() };
+                history.Add(new OwnerLeagueGroupSaveData
+                {
+                    league = CreateLeague(group.League),
+                    season = CreateLiveSeason(group.Season),
+                    postseason = CreateOwnerPostseason(group.Postseason)
+                });
+            OwnerLeagueGroupState playerGroup = runtime.LeagueWorld.GetGroup(runtime.PlayerTeamSeasonKey);
+            return new OwnerLeagueWorldSaveData
+            {
+                groups = groups.ToArray(),
+                completedGroups = history.ToArray(),
+                playerPostseason = CreateOwnerPostseason(playerGroup.Postseason),
+                rosters = CreateRosters(rosters),
+                playerIds = playerIds.ToArray()
+            };
         }
 
         private static void RestoreLeagueWorld(ManagerHistoricalRuntimeState runtime, OwnerLeagueWorldSaveData source, int saveVersion)
         {
-            var groups = new List<OwnerLeagueGroupState> { new OwnerLeagueGroupState(runtime.League, runtime.ManagerMode.LiveSeason) };
+            var groups = new List<OwnerLeagueGroupState>
+            {
+                new OwnerLeagueGroupState(runtime.League, runtime.ManagerMode.LiveSeason,
+                    saveVersion < OwnerPostseasonSaveVersion ? null : RestoreOwnerPostseason(source.playerPostseason))
+            };
             foreach (var group in Require(source.groups, nameof(source.groups)))
                 groups.Add(new OwnerLeagueGroupState(RestoreLeague(Require(group.league, nameof(group.league))),
-                    RestoreLiveSeason(Require(group.season, nameof(group.season)), saveVersion)));
+                    RestoreLiveSeason(Require(group.season, nameof(group.season)), saveVersion),
+                    saveVersion < OwnerPostseasonSaveVersion ? null : RestoreOwnerPostseason(group.postseason)));
             var rosters = new List<CurrentRosterState>(runtime.Rosters);
             var validator = new ActiveRosterValidator();
             foreach (var roster in RestoreRosters(Require(source.rosters, nameof(source.rosters))))
@@ -1371,13 +1357,81 @@ namespace Baseball.Game.Historical
             var history = new List<OwnerLeagueGroupState>();
             foreach (var group in Require(source.completedGroups, nameof(source.completedGroups)))
                 history.Add(new OwnerLeagueGroupState(RestoreLeague(Require(group.league, nameof(group.league))),
-                    RestoreLiveSeason(Require(group.season, nameof(group.season)), saveVersion)));
+                    RestoreLiveSeason(Require(group.season, nameof(group.season)), saveVersion),
+                    saveVersion < OwnerPostseasonSaveVersion ? null : RestoreOwnerPostseason(group.postseason)));
             var world = new OwnerLeagueWorldState(groups, rosters, history) { PlayerIds = ManagerModeMatchService.PlayerIdMap.Restore(ids) };
             foreach (var roster in world.Rosters)
                 foreach (var entry in roster.Entries)
                     if (!world.PlayerIds.TryGet(roster.TeamSeasonKey, entry.PlayerSeasonId, out _))
                         throw new ArgumentException("월드 선수 ID 원장에 로스터 선수가 없습니다.");
             runtime.SetLeagueWorld(world);
+        }
+
+        private static OwnerPostseasonSaveData CreateOwnerPostseason(OwnerPostseasonState source)
+        {
+            if (source == null) return null;
+            var series = new OwnerPostseasonSeriesSaveData[source.Series.Count];
+            for (int index = 0; index < series.Length; index++)
+            {
+                OwnerPostseasonSeriesState item = source.Series[index];
+                var games = new ManagerScheduledGameSaveData[item.Games.Count];
+                for (int gameIndex = 0; gameIndex < games.Length; gameIndex++)
+                {
+                    ScheduledGameState game = item.Games[gameIndex];
+                    games[gameIndex] = new ManagerScheduledGameSaveData
+                    {
+                        gameId = game.GameId,
+                        round = game.Round,
+                        randomSeed = game.RandomSeed,
+                        awayTeamId = game.AwayTeamId,
+                        homeTeamId = game.HomeTeamId,
+                        isCompleted = game.IsCompleted,
+                        awayRuns = game.AwayRuns,
+                        homeRuns = game.HomeRuns
+                    };
+                }
+                series[index] = new OwnerPostseasonSeriesSaveData
+                {
+                    seriesId = item.SeriesId,
+                    round = (int)item.Round,
+                    higherSeedTeamId = item.HigherSeedTeamId,
+                    lowerSeedTeamId = item.LowerSeedTeamId,
+                    seriesGames = item.SeriesGames,
+                    higherSeedWins = item.HigherSeedWins,
+                    lowerSeedWins = item.LowerSeedWins,
+                    games = games
+                };
+            }
+            var seeds = new int[source.SeedTeamIds.Count];
+            for (int index = 0; index < seeds.Length; index++) seeds[index] = source.SeedTeamIds[index];
+            return new OwnerPostseasonSaveData { seasonId = source.SeasonId, seedTeamIds = seeds, series = series };
+        }
+
+        private static OwnerPostseasonState RestoreOwnerPostseason(OwnerPostseasonSaveData source)
+        {
+            if (source == null) return null;
+            int[] seeds = Require(source.seedTeamIds, nameof(source.seedTeamIds));
+            OwnerPostseasonSeriesSaveData[] savedSeries = Require(source.series, nameof(source.series));
+            var series = new OwnerPostseasonSeriesState[savedSeries.Length];
+            for (int index = 0; index < series.Length; index++)
+            {
+                OwnerPostseasonSeriesSaveData saved = Require(savedSeries[index], nameof(source.series));
+                ValidateEnum<OwnerPostseasonRound>(saved.round, nameof(saved.round));
+                ManagerScheduledGameSaveData[] savedGames = Require(saved.games, nameof(saved.games));
+                var games = new ScheduledGameState[savedGames.Length];
+                for (int gameIndex = 0; gameIndex < games.Length; gameIndex++)
+                {
+                    ManagerScheduledGameSaveData savedGame = Require(savedGames[gameIndex], nameof(saved.games));
+                    var game = new ScheduledGameState(savedGame.gameId, savedGame.round, savedGame.randomSeed,
+                        savedGame.awayTeamId, savedGame.homeTeamId);
+                    if (savedGame.isCompleted) game.Complete(savedGame.awayRuns, savedGame.homeRuns);
+                    games[gameIndex] = game;
+                }
+                series[index] = new OwnerPostseasonSeriesState(saved.seriesId,
+                    (OwnerPostseasonRound)saved.round, saved.higherSeedTeamId, saved.lowerSeedTeamId,
+                    saved.seriesGames, games, saved.higherSeedWins, saved.lowerSeedWins);
+            }
+            return new OwnerPostseasonState(source.seasonId, seeds, series);
         }
 
         private static LeagueInstanceSaveData CreateLeague(LeagueInstance league)

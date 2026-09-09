@@ -5,7 +5,7 @@ using Baseball.Simulation.Historical;
 
 namespace Baseball.Game.Historical
 {
-    /// <summary>구단주 화면이 선수 계약·트레이드 Preview와 Command를 호출하는 공개 경계다.</summary>
+    /// <summary>구단주 화면이 선수 계약 Preview와 Command를 호출하는 공개 경계다.</summary>
     public sealed partial class OwnerModeManager
     {
         private OwnerPlayerMarketService _playerMarketService;
@@ -36,28 +36,6 @@ namespace Baseball.Game.Historical
         {
             OwnerContractBatchPreview result = RequirePlayerMarketService().RenewExpiringContracts(RequireRuntime(), seasons);
             if (result.CanCommit) NotifyRuntimeChanged();
-            return result;
-        }
-
-        public OwnerTradePreview PreviewPlayerTrade(
-            string partnerTeamSeasonKey,
-            string outgoingCardId,
-            string incomingCardId) => RequirePlayerMarketService().PreviewTrade(
-                RequireRuntime(), partnerTeamSeasonKey, outgoingCardId, incomingCardId);
-
-        public OwnerTradePreview CommitPlayerTrade(
-            string partnerTeamSeasonKey,
-            string outgoingCardId,
-            string incomingCardId)
-        {
-            OwnerTradePreview result = RequirePlayerMarketService().CommitTrade(
-                RequireRuntime(), partnerTeamSeasonKey, outgoingCardId, incomingCardId);
-            if (!result.CanCommit) return result;
-
-            CurrentPregame = null;
-            ConfigureTeamColors(_contentProvider.Load(), Runtime.PlayerTeamSeasonKey);
-            RefreshAvailableTacticCards();
-            NotifyRuntimeChanged();
             return result;
         }
 

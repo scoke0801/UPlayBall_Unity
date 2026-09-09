@@ -117,8 +117,6 @@ namespace Baseball.Game.Guide
         OpenTeamColorCoverage,
         OpenTodayLineup,
         OpenTradeInquiry,
-        OpenTradeOffer,
-        OpenTradeRosterImpact,
         StartMatch
     }
 

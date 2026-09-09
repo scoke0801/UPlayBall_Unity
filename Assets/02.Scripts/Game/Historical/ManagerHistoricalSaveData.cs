@@ -17,6 +17,7 @@ namespace Baseball.Game.Historical
         public OwnedPlayerCardSaveData[] ownedCards;
         public CardCollectionHistorySaveData cardCollectionHistory;
         public WishlistSaveData wishlist;
+        public SpecialCardTransactionSaveData[] specialCardTransactions;
         public ManagerEconomySaveData economy;
         public ManagerModeSaveData managerMode;
         public TacticCollectionSaveData tacticCollection;
@@ -148,6 +149,7 @@ namespace Baseball.Game.Historical
     {
         public OwnerLeagueGroupSaveData[] groups;
         public OwnerLeagueGroupSaveData[] completedGroups;
+        public OwnerPostseasonSaveData playerPostseason;
         public CurrentRosterSaveData[] rosters;
         public OwnerLeaguePlayerIdSaveData[] playerIds;
     }
@@ -164,6 +166,28 @@ namespace Baseball.Game.Historical
     {
         public LeagueInstanceSaveData league;
         public ManagerLiveSeasonSaveData season;
+        public OwnerPostseasonSaveData postseason;
+    }
+
+    [Serializable]
+    public sealed class OwnerPostseasonSaveData
+    {
+        public string seasonId;
+        public int[] seedTeamIds;
+        public OwnerPostseasonSeriesSaveData[] series;
+    }
+
+    [Serializable]
+    public sealed class OwnerPostseasonSeriesSaveData
+    {
+        public string seriesId;
+        public int round;
+        public int higherSeedTeamId;
+        public int lowerSeedTeamId;
+        public int seriesGames;
+        public int higherSeedWins;
+        public int lowerSeedWins;
+        public ManagerScheduledGameSaveData[] games;
     }
 
     [Serializable]
@@ -263,7 +287,6 @@ namespace Baseball.Game.Historical
         public ManagerCompletedSeasonSaveData[] completedSeasons;
         public DugoutManagementSaveData dugout;
         public OwnerPlayerContractSaveData[] playerContracts;
-        public OwnerTradeReceiptSaveData[] tradeReceipts;
     }
 
     [Serializable]
@@ -276,18 +299,6 @@ namespace Baseball.Game.Historical
         public long annualSalary;
         public bool hasLastSalaryPaidSeason;
         public int lastSalaryPaidSeason;
-    }
-
-    [Serializable]
-    public sealed class OwnerTradeReceiptSaveData
-    {
-        public string receiptId;
-        public int season;
-        public string partnerTeamSeasonKey;
-        public string outgoingCardId;
-        public string incomingCardId;
-        public int outgoingValue;
-        public int incomingValue;
     }
 
     /// <summary>운영 이력을 생성 당시 WorldHistory와 분리해 저장하는 완료 시즌 DTO다.</summary>
@@ -477,6 +488,7 @@ namespace Baseball.Game.Historical
     {
         public int schemaVersion;
         public PlayerSeasonRecordSaveData[] regularSeason;
+        public PlayerSeasonRecordSaveData[] postseason;
     }
 
     [Serializable]

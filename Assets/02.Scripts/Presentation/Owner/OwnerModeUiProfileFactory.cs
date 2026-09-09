@@ -34,7 +34,6 @@ namespace Baseball.Presentation.Owner
         public const string ClubOwner = "Owner.Club.Owner";
         public const string ClubInformation = "Owner.Club.Information";
         public const string ClubContract = "Owner.Club.Contract";
-        public const string ClubTrade = "Owner.Club.Trade";
         public const string League = "Shared.League";
         public const string LeagueStandings = "Shared.League.Standings";
         public const string LeagueTeamResults = "Shared.League.TeamResults";
@@ -127,11 +126,7 @@ namespace Baseball.Presentation.Owner
                 new NavigationEntry(
                     OwnerNavigationRoutes.ClubContract,
                     "계약",
-                    UiCapability.CanManagePlayerContracts),
-                new NavigationEntry(
-                    OwnerNavigationRoutes.ClubTrade,
-                    "트레이드",
-                    UiCapability.CanProposeTrades)
+                    UiCapability.CanManagePlayerContracts)
             };
 
             var manifest = new NavigationManifest(new[]
@@ -200,8 +195,7 @@ namespace Baseball.Presentation.Owner
                 UiCapability.CanManageFinance |
                 UiCapability.CanViewLeagueInformation |
                 UiCapability.CanViewSeasonRecords |
-                UiCapability.CanManagePlayerContracts |
-                UiCapability.CanProposeTrades);
+                UiCapability.CanManagePlayerContracts);
 
             return new GameModeUiProfile(
                 UiGameMode.OwnerCareer,

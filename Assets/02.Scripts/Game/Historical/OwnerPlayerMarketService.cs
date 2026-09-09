@@ -25,7 +25,7 @@ namespace Baseball.Game.Historical
         public bool CanCommit => Renewals.Count > 0 && string.IsNullOrEmpty(Reason);
     }
 
-    /// <summary>구단주 선수 계약과 1:1 트레이드를 Preview/Validate/Command 경계로 조정한다.</summary>
+    /// <summary>구단주 선수 계약을 Preview/Validate/Command 경계로 조정한다.</summary>
     public sealed class OwnerPlayerMarketService
     {
         private readonly BalanceTable _balance;
@@ -47,19 +47,18 @@ namespace Baseball.Game.Historical
                     playerRoster,
                     runtime.WorldCardCatalog,
                     mode.LiveSeason.SeasonNumber);
-                mode.ReplacePlayerMarketState(contracts, mode.TradeReceipts);
+                mode.ReplacePlayerContractState(contracts);
             }
             else if (mode.PlayerContracts.Count == playerRoster.Entries.Count &&
                 !HasContractCoverage(mode, playerRoster))
             {
                 // 구버전 1군 등록 Command가 만든 정확히 25개짜리 불일치만 안전하게 복구한다.
-                mode.ReplacePlayerMarketState(
+                mode.ReplacePlayerContractState(
                     _resolver.CreateActiveRosterContracts(
                         playerRoster,
                         runtime.WorldCardCatalog,
                         mode.LiveSeason.SeasonNumber,
-                        mode.PlayerContracts),
-                    mode.TradeReceipts);
+                        mode.PlayerContracts));
             }
 
             ValidateContractCoverage(mode, playerRoster);
@@ -149,91 +148,6 @@ namespace Baseball.Game.Historical
             return preview;
         }
 
-        public OwnerTradePreview PreviewTrade(
-            ManagerHistoricalRuntimeState runtime,
-            string partnerTeamSeasonKey,
-            string outgoingCardId,
-            string incomingCardId)
-        {
-            EnsureInitialized(runtime);
-            ManagerModeRuntimeState mode = runtime.ManagerMode;
-            CurrentRosterState playerRoster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
-            CurrentRosterState partnerRoster = FindPartnerRoster(runtime, partnerTeamSeasonKey);
-            if (partnerRoster == null)
-            {
-                return new OwnerTradePreview(
-                    OwnerPlayerMarketStatus.InvalidSelection,
-                    partnerTeamSeasonKey,
-                    outgoingCardId,
-                    incomingCardId,
-                    0,
-                    0,
-                    playerRoster,
-                    null,
-                    "같은 리그의 상대 구단을 선택해야 합니다.");
-            }
-            if (mode.CountTrades(mode.LiveSeason.SeasonNumber) >= _balance.OwnerPlayerMarket.MaximumTradesPerSeason)
-            {
-                return new OwnerTradePreview(
-                    OwnerPlayerMarketStatus.SeasonalLimitReached,
-                    partnerTeamSeasonKey,
-                    outgoingCardId,
-                    incomingCardId,
-                    0,
-                    0,
-                    playerRoster,
-                    partnerRoster,
-                    "이번 시즌 트레이드 횟수를 모두 사용했습니다.");
-            }
-            int enhancement = runtime.TryGetOwnedCard(outgoingCardId, out OwnedPlayerCardState owned)
-                ? owned.EnhancementLevel
-                : 0;
-            return _resolver.PreviewTrade(
-                playerRoster,
-                partnerRoster,
-                outgoingCardId,
-                incomingCardId,
-                runtime.WorldCardCatalog,
-                enhancement);
-        }
-
-        public OwnerTradePreview CommitTrade(
-            ManagerHistoricalRuntimeState runtime,
-            string partnerTeamSeasonKey,
-            string outgoingCardId,
-            string incomingCardId)
-        {
-            OwnerTradePreview preview = PreviewTrade(
-                runtime,
-                partnerTeamSeasonKey,
-                outgoingCardId,
-                incomingCardId);
-            if (!preview.CanCommit) return preview;
-
-            ManagerModeRuntimeState mode = runtime.ManagerMode;
-            if (!runtime.WorldCardCatalog.TryGetCard(preview.IncomingCardId, out PlayerCardDefinition incomingCard))
-                throw new InvalidOperationException("교환 대상 카드 원본이 없습니다.");
-            PlayerSeasonDefinition incomingSeason = runtime.WorldCardCatalog.GetPlayerSeason(incomingCard);
-            int contractSeasons = Math.Min(2, _balance.OwnerPlayerMarket.MaximumContractSeasons);
-            var contract = new OwnerPlayerContractState(
-                $"player-contract:{incomingCard.CardId}:{mode.LiveSeason.SeasonNumber:D4}",
-                incomingCard.CardId,
-                mode.LiveSeason.SeasonNumber,
-                contractSeasons,
-                _balance.OwnerPlayerMarket.GetAnnualSalary(incomingSeason.Cost, incomingCard.Edition, contractSeasons));
-            int sequence = mode.CountTrades(mode.LiveSeason.SeasonNumber) + 1;
-            var receipt = new OwnerTradeReceipt(
-                $"trade:{mode.LiveSeason.SeasonNumber:D4}:{sequence:D2}:{preview.OutgoingCardId}:{preview.IncomingCardId}",
-                mode.LiveSeason.SeasonNumber,
-                preview.PartnerTeamSeasonKey,
-                preview.OutgoingCardId,
-                preview.IncomingCardId,
-                preview.OutgoingValue,
-                preview.IncomingValue);
-            runtime.ApplyRosterTrade(preview.PlayerRoster, preview.PartnerRoster, contract, receipt);
-            return preview;
-        }
-
         private static ManagerModeRuntimeState RequireMode(ManagerHistoricalRuntimeState runtime)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
@@ -287,22 +201,5 @@ namespace Baseball.Game.Historical
             return true;
         }
 
-        private static CurrentRosterState FindPartnerRoster(
-            ManagerHistoricalRuntimeState runtime,
-            string partnerTeamSeasonKey)
-        {
-            if (string.IsNullOrWhiteSpace(partnerTeamSeasonKey) ||
-                string.Equals(partnerTeamSeasonKey.Trim(), runtime.PlayerTeamSeasonKey, StringComparison.Ordinal))
-                return null;
-
-            string key = partnerTeamSeasonKey.Trim();
-            for (int index = 0; index < runtime.Rosters.Count; index++)
-            {
-                CurrentRosterState roster = runtime.Rosters[index];
-                if (string.Equals(roster.TeamSeasonKey, key, StringComparison.Ordinal))
-                    return roster;
-            }
-            return null;
-        }
     }
 }

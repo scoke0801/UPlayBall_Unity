@@ -61,7 +61,6 @@
       "offerBoardId",
       "tradeInquiryId",
       "transactionId",
-      "tradeOfferId",
       "contractId",
       "newsId"
     ]
@@ -3903,138 +3902,6 @@
       ]
     },
     {
-      "cueId": "OWNER_TRADE_OFFER",
-      "factType": "OwnerTradeOfferArrived",
-      "modeScope": "Owner",
-      "priority": "High",
-      "presentationType": "NotificationCard",
-      "expressionKey": "Analysis",
-      "requiredPayload": [
-        "teamName"
-      ],
-      "repeatPolicy": {
-        "dedupeKeyTemplate": "OWNER_TRADE_OFFER:{tradeOfferId}",
-        "cooldownScope": "Event",
-        "maxDisplaysPerScope": 1
-      },
-      "cta": {
-        "action": "OpenTradeOffer",
-        "label": "제안 보기"
-      },
-      "requiresAcknowledgement": false,
-      "variations": [
-        {
-          "variationId": "OWNER_TRADE_OFFER_A",
-          "weight": 40,
-          "tone": "Calm",
-          "text": "{teamName}에서 트레이드 제안을 보냈습니다.\n주고받는 선수와 로스터 영향을 확인할 수 있습니다."
-        },
-        {
-          "variationId": "OWNER_TRADE_OFFER_B",
-          "weight": 35,
-          "tone": "Friendly",
-          "text": "새 트레이드 제안이 도착했습니다.\n전력 보강이 될지 한 번 비교해 보죠."
-        },
-        {
-          "variationId": "OWNER_TRADE_OFFER_C",
-          "weight": 25,
-          "tone": "Analysis",
-          "text": "트레이드 오퍼가 도착했습니다.\n현재 25인 구성과 포지션 공백까지 함께 확인하는 것이 좋습니다."
-        }
-      ],
-      "tags": [
-        "Owner",
-        "Trade"
-      ]
-    },
-    {
-      "cueId": "OWNER_TRADE_ROSTER_RISK",
-      "factType": "OwnerTradeRosterRisk",
-      "modeScope": "Owner",
-      "priority": "Critical",
-      "presentationType": "ContextBubble",
-      "expressionKey": "Warning",
-      "requiredPayload": [
-        "reasonSummary"
-      ],
-      "repeatPolicy": {
-        "dedupeKeyTemplate": "OWNER_TRADE_ROSTER_RISK:{tradeOfferId}:{rosterRevision}",
-        "cooldownScope": "Revision",
-        "maxDisplaysPerScope": 1
-      },
-      "cta": {
-        "action": "OpenTradeRosterImpact",
-        "label": "로스터 영향 보기"
-      },
-      "requiresAcknowledgement": true,
-      "variations": [
-        {
-          "variationId": "OWNER_TRADE_ROSTER_RISK_A",
-          "weight": 40,
-          "tone": "Warning",
-          "text": "이 트레이드를 그대로 수락하면 1군 구성에 문제가 생깁니다.\n{reasonSummary}"
-        },
-        {
-          "variationId": "OWNER_TRADE_ROSTER_RISK_B",
-          "weight": 35,
-          "tone": "Concerned",
-          "text": "전력뿐 아니라 등록 규칙도 확인해야 합니다.\n{reasonSummary}"
-        },
-        {
-          "variationId": "OWNER_TRADE_ROSTER_RISK_C",
-          "weight": 25,
-          "tone": "Analysis",
-          "text": "거래 후 예상 선수단이 공통 로스터 규칙을 만족하지 않습니다.\n{reasonSummary}"
-        }
-      ],
-      "tags": [
-        "Owner",
-        "Trade",
-        "Roster"
-      ]
-    },
-    {
-      "cueId": "OWNER_TRADE_FAILED",
-      "factType": "OwnerTradeNegotiationFailed",
-      "modeScope": "Owner",
-      "priority": "Low",
-      "presentationType": "Toast",
-      "expressionKey": "Calm",
-      "requiredPayload": [],
-      "repeatPolicy": {
-        "dedupeKeyTemplate": "OWNER_TRADE_FAILED:{tradeOfferId}",
-        "cooldownScope": "Event",
-        "maxDisplaysPerScope": 1
-      },
-      "cta": null,
-      "requiresAcknowledgement": false,
-      "variations": [
-        {
-          "variationId": "OWNER_TRADE_FAILED_A",
-          "weight": 40,
-          "tone": "Calm",
-          "text": "트레이드 협상이 결렬됐습니다.\n현재 선수 구성에는 변화가 없습니다."
-        },
-        {
-          "variationId": "OWNER_TRADE_FAILED_B",
-          "weight": 35,
-          "tone": "Friendly",
-          "text": "이번 거래는 성사되지 않았습니다.\n기존 선수단으로 계속 진행합니다."
-        },
-        {
-          "variationId": "OWNER_TRADE_FAILED_C",
-          "weight": 25,
-          "tone": "Analysis",
-          "text": "협상이 종료됐습니다.\n현재 선수단과 보유 카드는 그대로 유지됩니다."
-        }
-      ],
-      "tags": [
-        "Owner",
-        "Trade"
-      ],
-      "autoDismissSec": 6
-    },
-    {
       "cueId": "CONTRACT_COMPLETED",
       "factType": "ContractCompleted",
       "modeScope": "Common",
@@ -5686,40 +5553,6 @@
       "requiredPayload": [],
       "cueIds": [
         "TUTORIAL_OWNER_FIRST_ENTRY"
-      ],
-      "modeScopes": [
-        "Owner"
-      ]
-    },
-    {
-      "factType": "OwnerTradeNegotiationFailed",
-      "requiredPayload": [],
-      "cueIds": [
-        "OWNER_TRADE_FAILED"
-      ],
-      "modeScopes": [
-        "Owner"
-      ]
-    },
-    {
-      "factType": "OwnerTradeOfferArrived",
-      "requiredPayload": [
-        "teamName"
-      ],
-      "cueIds": [
-        "OWNER_TRADE_OFFER"
-      ],
-      "modeScopes": [
-        "Owner"
-      ]
-    },
-    {
-      "factType": "OwnerTradeRosterRisk",
-      "requiredPayload": [
-        "reasonSummary"
-      ],
-      "cueIds": [
-        "OWNER_TRADE_ROSTER_RISK"
       ],
       "modeScopes": [
         "Owner"

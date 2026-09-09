@@ -47,7 +47,6 @@ namespace Baseball.Presentation.Owner
         private OwnerPregamePresentationModel _pregameModel;
         private OwnerStaffOfficePresentationModel _staffModel;
         private OwnerContractSnapshot _contractSnapshot;
-        private OwnerTradeSnapshot _tradeSnapshot;
         private OwnerRosterLineupPresentationModel _rosterLineupModel;
         private string _rosterLineupPreviewMessage = string.Empty;
         private bool _hasRosterLineupPreview;
@@ -61,8 +60,6 @@ namespace Baseball.Presentation.Owner
         public event Action<string, int> ContractPreviewRequested;
         public event Action<string, int> ContractRenewalRequested;
         public event Action<int> ContractBatchRenewalRequested;
-        public event Action<string, string, string> TradePreviewRequested;
-        public event Action<string, string, string> TradeRequested;
         public event Action<TicketPriceTier> TicketPolicyRequested;
         public event Action<FacilityType> FacilityUpgradeRequested;
         public event Action StadiumUpgradeRequested;
@@ -157,15 +154,6 @@ namespace Baseball.Presentation.Owner
             EnsurePlayerMarketView();
             if (string.Equals(ActiveRouteId, OwnerNavigationRoutes.ClubContract, StringComparison.Ordinal))
                 _playerMarketView.BindContract(_contractSnapshot);
-        }
-
-        public void BindPlayerTrade(OwnerTradeSnapshot snapshot)
-        {
-            RequireInitialized();
-            _tradeSnapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
-            EnsurePlayerMarketView();
-            if (string.Equals(ActiveRouteId, OwnerNavigationRoutes.ClubTrade, StringComparison.Ordinal))
-                _playerMarketView.BindTrade(_tradeSnapshot);
         }
 
         public void BindConditionChemistry(
@@ -358,8 +346,7 @@ namespace Baseball.Presentation.Owner
                 _clubView.SetFeedback(message, isError);
                 return true;
             }
-            if ((string.Equals(ActiveRouteId, OwnerNavigationRoutes.ClubContract, StringComparison.Ordinal) ||
-                 string.Equals(ActiveRouteId, OwnerNavigationRoutes.ClubTrade, StringComparison.Ordinal)) &&
+            if (string.Equals(ActiveRouteId, OwnerNavigationRoutes.ClubContract, StringComparison.Ordinal) &&
                 _playerMarketView != null)
             {
                 _playerMarketView.SetFeedback(message, isError);
@@ -471,7 +458,6 @@ namespace Baseball.Presentation.Owner
                 _rosterLineupView,
                 _rosterPitchingView,
                 _clubView,
-                _playerMarketView,
                 _collectionView,
                 _encyclopediaView,
                 _wishlistView,
@@ -738,23 +724,18 @@ namespace Baseball.Presentation.Owner
                 ActiveRouteId = navigationRouteId;
                 return true;
             }
-            if ((string.Equals(workspaceRouteId, OwnerNavigationRoutes.ClubContract, StringComparison.Ordinal) ||
-                 string.Equals(workspaceRouteId, OwnerNavigationRoutes.ClubTrade, StringComparison.Ordinal)) &&
+            if (string.Equals(workspaceRouteId, OwnerNavigationRoutes.ClubContract, StringComparison.Ordinal) &&
                 _playerMarketView != null)
             {
                 SetAllViewsVisible(false);
                 _playerMarketView.SetVisible(true);
                 _shell.SetInspectorVisible(true);
                 _shell.SetActionBarVisible(true);
-                bool isContract = string.Equals(workspaceRouteId, OwnerNavigationRoutes.ClubContract, StringComparison.Ordinal);
-                if (isContract && _contractSnapshot != null) _playerMarketView.BindContract(_contractSnapshot);
-                if (!isContract && _tradeSnapshot != null) _playerMarketView.BindTrade(_tradeSnapshot);
+                if (_contractSnapshot != null) _playerMarketView.BindContract(_contractSnapshot);
                 _shell.BindContext(new SharedUI.ShellContextModel(
                     navigationRouteId,
-                    isContract ? "선수 계약" : "트레이드",
-                    isContract
-                        ? "잔여 계약과 연봉 부담을 비교하고 갱신안을 확정합니다."
-                        : "두 구단의 가치와 25인 규칙을 비교한 뒤 1:1 제안을 확정합니다.",
+                    "선수 계약",
+                    "잔여 계약과 연봉 부담을 비교하고 갱신안을 확정합니다.",
                     "구단"));
                 ActiveRouteId = navigationRouteId;
                 return true;
@@ -816,11 +797,14 @@ namespace Baseball.Presentation.Owner
         private bool ShowRosterLineup(string routeId, string title, bool canGoBack)
         {
             EnsureRosterLineupView();
+            bool isReturningToRoute = string.Equals(ActiveRouteId, routeId, StringComparison.Ordinal);
             if (_hasRosterLineupPreview)
                 _rosterLineupView.BindPreview(_rosterLineupModel, _rosterLineupPreviewMessage);
             SetAllViewsVisible(false);
             _rosterLineupView.SetVisible(true);
-            _rosterLineupView.SetWorkspaceMode(OwnerRosterWorkspaceMode.Lineup);
+            // 저장으로 RuntimeChanged가 발생한 Refresh에서는 사용자가 보던 투수 탭을 유지한다.
+            if (!isReturningToRoute)
+                _rosterLineupView.SetWorkspaceMode(OwnerRosterWorkspaceMode.Lineup);
             _shell.SetInspectorVisible(false);
             _shell.SetActionBarVisible(false);
             _shell.BindContext(new SharedUI.ShellContextModel(
@@ -861,8 +845,6 @@ namespace Baseball.Presentation.Owner
                 _playerMarketView.ContractPreviewRequested -= HandleContractPreviewRequested;
                 _playerMarketView.ContractRenewalRequested -= HandleContractRenewalRequested;
                 _playerMarketView.ContractBatchRenewalRequested -= HandleContractBatchRenewalRequested;
-                _playerMarketView.TradePreviewRequested -= HandleTradePreviewRequested;
-                _playerMarketView.TradeRequested -= HandleTradeRequested;
                 DestroyView(_playerMarketView);
             }
             if (_conditionView != null)
@@ -997,8 +979,6 @@ namespace Baseball.Presentation.Owner
             _playerMarketView.ContractPreviewRequested += HandleContractPreviewRequested;
             _playerMarketView.ContractRenewalRequested += HandleContractRenewalRequested;
             _playerMarketView.ContractBatchRenewalRequested += HandleContractBatchRenewalRequested;
-            _playerMarketView.TradePreviewRequested += HandleTradePreviewRequested;
-            _playerMarketView.TradeRequested += HandleTradeRequested;
             _playerMarketView.SetVisible(false);
         }
 
@@ -1256,10 +1236,6 @@ namespace Baseball.Presentation.Owner
         private void HandleContractBatchRenewalRequested(int seasons) => ContractBatchRenewalRequested?.Invoke(seasons);
         private void HandleContractRenewalRequested(string cardId, int seasons) =>
             ContractRenewalRequested?.Invoke(cardId, seasons);
-        private void HandleTradePreviewRequested(string teamSeasonKey, string outgoingCardId, string incomingCardId) =>
-            TradePreviewRequested?.Invoke(teamSeasonKey, outgoingCardId, incomingCardId);
-        private void HandleTradeRequested(string teamSeasonKey, string outgoingCardId, string incomingCardId) =>
-            TradeRequested?.Invoke(teamSeasonKey, outgoingCardId, incomingCardId);
         private void HandleTicketPolicyRequested(TicketPriceTier tier) => TicketPolicyRequested?.Invoke(tier);
         private void HandleFacilityUpgradeRequested(FacilityType type) => FacilityUpgradeRequested?.Invoke(type);
         private void HandleStadiumUpgradeRequested() => StadiumUpgradeRequested?.Invoke();

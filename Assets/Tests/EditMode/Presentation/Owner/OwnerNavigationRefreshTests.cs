@@ -169,7 +169,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 OwnerNavigationRoutes.DugoutManagerPolicy, OwnerManagementRoutes.ClubFinance,
                 OwnerManagementRoutes.ClubFacility, OwnerNavigationRoutes.ClubOwner,
                 OwnerNavigationRoutes.ClubInformation, OwnerNavigationRoutes.ClubContract,
-                OwnerNavigationRoutes.ClubTrade, OwnerNavigationRoutes.LeagueStandings,
+                OwnerNavigationRoutes.LeagueStandings,
                 OwnerNavigationRoutes.LeagueTeamResults, OwnerNavigationRoutes.LeagueMatchups,
                 OwnerNavigationRoutes.LeagueRankHistory,
                 OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId,

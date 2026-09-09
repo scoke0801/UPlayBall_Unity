@@ -95,10 +95,6 @@ namespace Baseball.Presentation.Owner
                     _expansionWorkspace.BindPlayerContracts(_snapshotFactory.CreatePlayerContracts(
                         _manager, _selectedContractCardId, _selectedContractTerm));
                     break;
-                case OwnerNavigationRoutes.ClubTrade:
-                    _expansionWorkspace.BindPlayerTrade(_snapshotFactory.CreatePlayerTrade(
-                        _manager, _selectedTradePartnerId, _selectedTradeOutgoingCardId, _selectedTradeIncomingCardId));
-                    break;
                 case OwnerExpansionWorkspaceCoordinator.PregameRouteId:
                 case OwnerNavigationRoutes.MatchCenterOpponentLineup:
                     if (_manager.Runtime.ManagerMode.LiveSeason.NextPlayerGame == null)

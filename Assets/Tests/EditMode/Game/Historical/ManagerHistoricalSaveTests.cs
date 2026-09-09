@@ -12,7 +12,7 @@ using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game.Historical
 {
-    public sealed class ManagerHistoricalSaveTests
+    public sealed partial class ManagerHistoricalSaveTests
     {
         [Test]
         public void CreateSaveDataAndRestore_PreservesManagerHistoricalState()
@@ -52,7 +52,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(restored.Economy.PityGauge, Is.EqualTo(40));
             Assert.That(restored.ManagerMode.PlayerContracts.Count, Is.EqualTo(25));
             Assert.That(saveData.managerMode.playerContracts.Length, Is.EqualTo(25));
-            Assert.That(saveData.managerMode.tradeReceipts, Is.Empty);
+            Assert.That(typeof(ManagerModeSaveData).GetField("tradeReceipts"), Is.Null);
             Assert.That(restored.ManagerMode.LiveSeason.NextPlayerGame.HasTacticPlan, Is.True);
             Assert.That(restored.ManagerMode.LiveSeason.NextPlayerGame.PlannedTacticCardIds,
                 Is.EqualTo(new[] { "TACTIC-SCHEDULED" }));
@@ -65,6 +65,40 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(owned.Training.GetDirectTrainingBonus(PlayerAbility.Contact), Is.EqualTo(1));
             Assert.That(owned.Training.GetStudyBonus(PlayerAbility.Contact), Is.EqualTo(1));
             Assert.That(saveData.ownedCards[0].studyBonuses[(int)PlayerAbility.Contact], Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CreateSaveDataAndRestore_진행중포스트시즌대진과승수를보존한다()
+        {
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
+            ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            ManagerHistoricalRuntimeState runtime = adapter.Restore(adapter.CreateSaveData(fixture.State));
+            for (int groupIndex = 0; groupIndex < runtime.LeagueWorld.Groups.Count; groupIndex++)
+            {
+                IReadOnlyList<ScheduledGameState> games = runtime.LeagueWorld.Groups[groupIndex].Season.Schedule.Games;
+                for (int gameIndex = 0; gameIndex < games.Count; gameIndex++)
+                    if (!games[gameIndex].IsCompleted) games[gameIndex].Complete(2, 1);
+            }
+            new OwnerPostseasonService(Baseball.Core.Balance.BalanceTable.CreateDefault())
+                .EnsureInitialized(runtime);
+            OwnerLeagueGroupState group = runtime.LeagueWorld.GetGroup(runtime.PlayerTeamSeasonKey);
+            OwnerPostseasonState postseason = group.Postseason;
+            OwnerPostseasonSeriesState series = postseason.CurrentSeries;
+            ScheduledGameState game = series.AppendNextGame(1_800_001, 8822UL);
+            bool higherSeedIsHome = game.HomeTeamId == series.HigherSeedTeamId;
+            game.Complete(higherSeedIsHome ? 0 : 4, higherSeedIsHome ? 4 : 0);
+            series.RecordCompletedGame(game);
+
+            ManagerHistoricalRuntimeState restored = adapter.Restore(adapter.CreateSaveData(runtime));
+            OwnerPostseasonState restoredPostseason = restored.LeagueWorld
+                .GetGroup(restored.PlayerTeamSeasonKey).Postseason;
+
+            Assert.That(restoredPostseason, Is.Not.Null);
+            Assert.That(restoredPostseason.SeedTeamIds, Is.EqualTo(postseason.SeedTeamIds));
+            Assert.That(restoredPostseason.Series.Count, Is.EqualTo(postseason.Series.Count));
+            Assert.That(restoredPostseason.CurrentSeries.HigherSeedWins, Is.EqualTo(1));
+            Assert.That(restoredPostseason.CurrentSeries.Games[0].RandomSeed, Is.EqualTo(8822UL));
+            Assert.That(restoredPostseason.CurrentSeries.Games[0].IsCompleted, Is.True);
         }
 
         [Test]
@@ -105,7 +139,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             ManagerHistoricalSaveData saveData = adapter.CreateSaveData(fixture.State);
             ManagerHistoricalRuntimeState restored = adapter.Restore(saveData);
 
-            Assert.That(saveData.saveVersion, Is.EqualTo(15));
+            Assert.That(saveData.saveVersion, Is.EqualTo(ManagerHistoricalSaveAdapter.CurrentSaveVersion));
             Assert.That(restored.CollectionHistory.WasEverAcquired("REMOVED-CONTENT:CARD"), Is.True);
             Assert.That(restored.Wishlist.Contains("REMOVED-CONTENT:WISH"), Is.True);
             Assert.That(restored.Wishlist.Contains("PS-025:Normal"), Is.True);

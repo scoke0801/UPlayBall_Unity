@@ -77,34 +77,6 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void PreviewTrade_EqualHitterValue_PreservesBothRosterContracts()
-        {
-            CreateWorld(out CurrentRosterState player, out CurrentRosterState partner, out WorldCardCatalog catalog);
-            var resolver = new OwnerPlayerMarketResolver(OwnerPlayerMarketBalanceTable.CreateInitial());
-
-            OwnerTradePreview preview = resolver.PreviewTrade(
-                player, partner, player.Entries[0].CardId, partner.Entries[0].CardId, catalog);
-
-            Assert.That(preview.Status, Is.EqualTo(OwnerPlayerMarketStatus.Available));
-            Assert.That(new ActiveRosterValidator().Validate(preview.PlayerRoster).IsValid, Is.True);
-            Assert.That(new ActiveRosterValidator().Validate(preview.PartnerRoster).IsValid, Is.True);
-            Assert.That(player.Entries[0].CardId, Is.Not.EqualTo(preview.PlayerRoster.Entries[0].CardId));
-        }
-
-        [Test]
-        public void PreviewTrade_HitterForPitcher_IsRejectedBeforeCommit()
-        {
-            CreateWorld(out CurrentRosterState player, out CurrentRosterState partner, out WorldCardCatalog catalog);
-            var resolver = new OwnerPlayerMarketResolver(OwnerPlayerMarketBalanceTable.CreateInitial());
-
-            OwnerTradePreview preview = resolver.PreviewTrade(
-                player, partner, player.Entries[0].CardId, partner.Entries[14].CardId, catalog);
-
-            Assert.That(preview.Status, Is.EqualTo(OwnerPlayerMarketStatus.InvalidSelection));
-            Assert.That(preview.CanCommit, Is.False);
-        }
-
-        [Test]
         public void CreateActiveRosterContracts_동일인물의다른카드로교체해도연장계약을보존한다()
         {
             CreateWorld(out CurrentRosterState roster, out _, out WorldCardCatalog catalog);

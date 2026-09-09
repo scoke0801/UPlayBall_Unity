@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Baseball.Core.Historical
 {
-    /// <summary>구단주 모드 선수 계약과 1:1 트레이드의 조정 가능 비용·가치 계약이다.</summary>
+    /// <summary>구단주 모드 선수 계약의 조정 가능 비용 계약이다.</summary>
     public sealed class OwnerPlayerMarketBalanceTable
     {
         private readonly long[] _annualSalaryByCost;
@@ -14,9 +14,7 @@ namespace Baseball.Core.Historical
             IReadOnlyList<double> editionSalaryMultipliers,
             double renewalSigningCostRate,
             double multiYearSalaryDiscount,
-            double minimumTradeAcceptanceRatio,
-            int maximumContractSeasons,
-            int maximumTradesPerSeason)
+            int maximumContractSeasons)
         {
             if (annualSalaryByCost == null || annualSalaryByCost.Count != 10)
                 throw new ArgumentException("Cost 1~10의 연봉표가 필요합니다.", nameof(annualSalaryByCost));
@@ -26,12 +24,8 @@ namespace Baseball.Core.Historical
                 throw new ArgumentOutOfRangeException(nameof(renewalSigningCostRate));
             if (multiYearSalaryDiscount < 0d || multiYearSalaryDiscount > 0.2d)
                 throw new ArgumentOutOfRangeException(nameof(multiYearSalaryDiscount));
-            if (minimumTradeAcceptanceRatio < 0.5d || minimumTradeAcceptanceRatio > 2d)
-                throw new ArgumentOutOfRangeException(nameof(minimumTradeAcceptanceRatio));
             if (maximumContractSeasons < 1 || maximumContractSeasons > 10)
                 throw new ArgumentOutOfRangeException(nameof(maximumContractSeasons));
-            if (maximumTradesPerSeason < 0 || maximumTradesPerSeason > 20)
-                throw new ArgumentOutOfRangeException(nameof(maximumTradesPerSeason));
 
             _annualSalaryByCost = new long[annualSalaryByCost.Count];
             for (int index = 0; index < _annualSalaryByCost.Length; index++)
@@ -50,16 +44,12 @@ namespace Baseball.Core.Historical
 
             RenewalSigningCostRate = renewalSigningCostRate;
             MultiYearSalaryDiscount = multiYearSalaryDiscount;
-            MinimumTradeAcceptanceRatio = minimumTradeAcceptanceRatio;
             MaximumContractSeasons = maximumContractSeasons;
-            MaximumTradesPerSeason = maximumTradesPerSeason;
         }
 
         public double RenewalSigningCostRate { get; }
         public double MultiYearSalaryDiscount { get; }
-        public double MinimumTradeAcceptanceRatio { get; }
         public int MaximumContractSeasons { get; }
-        public int MaximumTradesPerSeason { get; }
 
         public long GetAnnualSalary(int cost, PlayerCardEdition edition, int seasons)
         {
@@ -81,9 +71,7 @@ namespace Baseball.Core.Historical
             new double[] { 1d, 1.08d, 1.12d, 1.2d },
             renewalSigningCostRate: 0.2d,
             multiYearSalaryDiscount: 0.025d,
-            minimumTradeAcceptanceRatio: 1d,
-            maximumContractSeasons: 3,
-            maximumTradesPerSeason: 3);
+            maximumContractSeasons: 3);
     }
 
     /// <summary>구단주 모드 한 선수 카드의 시즌 단위 계약 원본이다.</summary>
@@ -144,42 +132,4 @@ namespace Baseball.Core.Historical
         }
     }
 
-    /// <summary>시즌별 트레이드 횟수와 교환 근거를 보존하는 저장 원본이다.</summary>
-    public sealed class OwnerTradeReceipt
-    {
-        public OwnerTradeReceipt(
-            string receiptId,
-            int season,
-            string partnerTeamSeasonKey,
-            string outgoingCardId,
-            string incomingCardId,
-            int outgoingValue,
-            int incomingValue)
-        {
-            ReceiptId = RequireId(receiptId, nameof(receiptId));
-            PartnerTeamSeasonKey = RequireId(partnerTeamSeasonKey, nameof(partnerTeamSeasonKey));
-            OutgoingCardId = RequireId(outgoingCardId, nameof(outgoingCardId));
-            IncomingCardId = RequireId(incomingCardId, nameof(incomingCardId));
-            if (season <= 0 || outgoingValue <= 0 || incomingValue <= 0)
-                throw new ArgumentOutOfRangeException(nameof(season));
-            Season = season;
-            OutgoingValue = outgoingValue;
-            IncomingValue = incomingValue;
-        }
-
-        public string ReceiptId { get; }
-        public int Season { get; }
-        public string PartnerTeamSeasonKey { get; }
-        public string OutgoingCardId { get; }
-        public string IncomingCardId { get; }
-        public int OutgoingValue { get; }
-        public int IncomingValue { get; }
-
-        private static string RequireId(string value, string parameterName)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                throw new ArgumentException("식별자는 비어 있을 수 없습니다.", parameterName);
-            return value.Trim();
-        }
-    }
 }

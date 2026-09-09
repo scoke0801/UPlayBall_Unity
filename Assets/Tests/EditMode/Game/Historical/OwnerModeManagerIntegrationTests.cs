@@ -285,6 +285,17 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(flow.StarterRoster.Roster.Entries.Count,
                 Is.EqualTo(ActiveRosterCompositionRule.ActiveRosterSize));
             Assert.That(flow.CreateReceipt().MainCardIds.Count, Is.EqualTo(flow.Rule.MainCardCount));
+            var fillerCountByCost = new Dictionary<int, int>();
+            for (int index = 0; index < flow.StarterRoster.FillerCardIds.Count; index++)
+            {
+                string cardId = flow.StarterRoster.FillerCardIds[index];
+                Assert.That(flow.CardCatalog.TryGetCard(cardId, out PlayerCardDefinition card), Is.True);
+                int cost = flow.CardCatalog.GetPlayerSeason(card).Cost;
+                fillerCountByCost.TryGetValue(cost, out int count);
+                fillerCountByCost[cost] = count + 1;
+            }
+            Assert.That(fillerCountByCost[2], Is.EqualTo(10));
+            Assert.That(fillerCountByCost[3], Is.EqualTo(5));
         }
 
         private static void SelectLowestCostCards(
