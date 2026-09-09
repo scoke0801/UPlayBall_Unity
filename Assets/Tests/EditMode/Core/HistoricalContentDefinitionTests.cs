@@ -12,6 +12,33 @@ namespace Baseball.Tests.EditMode.Core
     public sealed class HistoricalContentDefinitionTests
     {
         [Test]
+        public void PlayerSeason_부포지션을복사하고경기선수에전달한다()
+        {
+            var positions = new[] { new PositionProficiency(PlayerPosition.RightField, 100) };
+            var season = new PlayerSeasonDefinition("s", "p", 2010, "f", "f_2010",
+                PlayerPosition.LeftField, PitcherRole.MiddleRelief, PlayerType.Batter,
+                RegistrationType.Domestic, new AbilityRatings(60), 5, new AbilityRatings(70),
+                secondaryPositions: positions);
+            positions[0] = new PositionProficiency(PlayerPosition.Catcher, 35);
+            var player = new Player(1, "검증 선수", season.Position, Handedness.Left, Handedness.Right,
+                season.CreateBaseAttributes().ToBatterAttributes(), season.CreateBaseAttributes().ToPitcherAttributes(),
+                secondaryPositions: season.SecondaryPositions);
+            Assert.That(player.GetPositionProficiency(PlayerPosition.RightField), Is.EqualTo(100));
+            Assert.That(player.GetPositionProficiency(PlayerPosition.Catcher), Is.EqualTo(35));
+        }
+
+        [TestCase(PlayerPosition.LeftField)]
+        [TestCase(PlayerPosition.StartingPitcher)]
+        [TestCase(PlayerPosition.Unknown)]
+        public void PlayerSeason_부적격부포지션을거부한다(PlayerPosition position)
+        {
+            Assert.Throws<ArgumentException>(() => new PlayerSeasonDefinition("s", "p", 2010, "f", "f_2010",
+                PlayerPosition.LeftField, PitcherRole.MiddleRelief, PlayerType.Batter,
+                RegistrationType.Domestic, new AbilityRatings(60), 5, new AbilityRatings(70),
+                secondaryPositions: new[] { new PositionProficiency(position, 100) }));
+        }
+
+        [Test]
         public void PlayerCardEdition_정확히네종만존재한다()
         {
             Assert.That(Enum.GetValues(typeof(PlayerCardEdition)).Length, Is.EqualTo(4));

@@ -112,6 +112,7 @@ namespace Baseball.Core.Historical
         private readonly AbilityRatings _baseAttributes;
         private readonly AbilityRatings _trainingCeiling;
         private readonly IReadOnlyList<PitchRepertoireEntry> _pitchRepertoire;
+        private readonly IReadOnlyList<PositionProficiency> _secondaryPositions;
 
         public PlayerSeasonDefinition(
             string playerSeasonId,
@@ -131,7 +132,8 @@ namespace Baseball.Core.Historical
             IReadOnlyList<PitchRepertoireEntry> pitchRepertoire = null,
             PitchDataSourceKind pitchDataSourceKind = PitchDataSourceKind.Synthetic,
             string pitchBalanceVersion = "",
-            bool isPositionEvidenceMissing = false)
+            bool isPositionEvidenceMissing = false,
+            IReadOnlyList<PositionProficiency> secondaryPositions = null)
         {
             PlayerSeasonId = RequireId(playerSeasonId, nameof(playerSeasonId));
             PlayerPersonId = RequireId(playerPersonId, nameof(playerPersonId));
@@ -184,6 +186,19 @@ namespace Baseball.Core.Historical
             PitchDataSourceKind = pitchDataSourceKind;
             PitchBalanceVersion = pitchBalanceVersion ?? string.Empty;
             IsPositionEvidenceMissing = isPositionEvidenceMissing && playerType == PlayerType.Batter;
+            var positions = new PositionProficiency[secondaryPositions?.Count ?? 0];
+            for (int index = 0; index < positions.Length; index++)
+            {
+                PositionProficiency entry = secondaryPositions[index];
+                if (playerType != PlayerType.Batter || entry.Position < PlayerPosition.Catcher ||
+                    entry.Position > PlayerPosition.RightField || entry.Position == position)
+                    throw new ArgumentException("부포지션은 주 포지션과 다른 야수 수비 위치여야 합니다.", nameof(secondaryPositions));
+                for (int previous = 0; previous < index; previous++)
+                    if (positions[previous].Position == entry.Position)
+                        throw new ArgumentException("부포지션은 중복될 수 없습니다.", nameof(secondaryPositions));
+                positions[index] = entry;
+            }
+            _secondaryPositions = Array.AsReadOnly(positions);
         }
 
         public string PlayerSeasonId { get; }
@@ -203,6 +218,8 @@ namespace Baseball.Core.Historical
         public string PitchBalanceVersion { get; }
         /// <summary>시즌 수비 기록과 보조 출처가 모두 없어 임시 포지션을 사용했는지 나타낸다.</summary>
         public bool IsPositionEvidenceMissing { get; }
+        /// <summary>원기록으로 검증된 부포지션 적응도를 경기 입력까지 보존한다.</summary>
+        public IReadOnlyList<PositionProficiency> SecondaryPositions => _secondaryPositions;
 
         public AbilityRatings CreateBaseAttributes() => _baseAttributes.Clone();
         public AbilityRatings CreateTrainingCeiling() => _trainingCeiling.Clone();

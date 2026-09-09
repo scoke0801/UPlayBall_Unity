@@ -685,6 +685,7 @@ namespace Baseball.Game.Historical
                         person.Throws,
                         ratings.ToBatterAttributes(),
                         ratings.ToPitcherAttributes(),
+                        secondaryPositions: season.SecondaryPositions,
                         nationality: season.RegistrationType == RegistrationType.Foreign ? "외국인" : string.Empty,
                         pitchRepertoire: season.PitchRepertoire,
                         isPositionEvidenceMissing: season.IsPositionEvidenceMissing);
