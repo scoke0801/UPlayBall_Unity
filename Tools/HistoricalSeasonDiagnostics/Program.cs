@@ -17,6 +17,8 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--owner-world-performance")
+            return OwnerWorldPerformance.Run(args);
         if (args.Length > 0 && args[0] == "--bake-performance")
             return BakePerformance.Run(args);
         if ((args.Length != 4 && args.Length != 6) || !int.TryParse(args[2], out int repeats) || repeats < 1)
