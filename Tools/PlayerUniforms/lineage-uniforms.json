@@ -1,0 +1,15 @@
+{
+  "artVersion": "uniforms-v3",
+  "lineages": [
+    { "id": "DoosanLineage", "name": "OB → 두산", "uniform": "uniform-01", "franchises": ["FRANCHISE_854ea0d4133dc44b2eae"] },
+    { "id": "KiaLineage", "name": "해태 → KIA", "uniform": "uniform-02", "franchises": ["FRANCHISE_76415bde64607643336a"] },
+    { "id": "NcLineage", "name": "NC", "uniform": "uniform-03", "franchises": ["FRANCHISE_75457eb26517b6708cde"] },
+    { "id": "HanwhaLineage", "name": "빙그레 → 한화", "uniform": "uniform-04", "franchises": ["FRANCHISE_d759ac5f30c5df8a5e19"] },
+    { "id": "SamsungLineage", "name": "삼성", "uniform": "uniform-05", "franchises": ["FRANCHISE_a23e5d3c82759518a0e1"] },
+    { "id": "LgLineage", "name": "MBC → LG", "uniform": "uniform-06", "franchises": ["FRANCHISE_35294c0c8039e3d5d238"] },
+    { "id": "SsgLineage", "name": "쌍방울 → SK → SSG", "uniform": "uniform-07", "franchises": ["FRANCHISE_c66296716a6d841d9cec", "FRANCHISE_1b36b987034cef53c24a"] },
+    { "id": "KiwoomLineage", "name": "삼미 → 청보 → 태평양 → 현대 → 우리·히어로즈 → 넥센 → 키움", "uniform": "uniform-08", "franchises": ["FRANCHISE_8d4c4aa7cff1444ab4f5", "FRANCHISE_9c3e6defcfcca3d554fb"] },
+    { "id": "LotteLineage", "name": "롯데", "uniform": "uniform-09", "franchises": ["FRANCHISE_68951629be777590f3dd"] },
+    { "id": "KtLineage", "name": "KT", "uniform": "uniform-10", "franchises": ["FRANCHISE_4e35f22307ad52af5e1f"] }
+  ]
+}

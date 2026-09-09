@@ -30,7 +30,9 @@ namespace Baseball.Presentation.Owner
             string hands = FormatHands(card.Throws, card.Bats);
             Gradient(parent, "ProfileBand", new Color32(218, 215, 202, 255), paper, .012f, .395f, .277f, .985f);
             Image portrait = Surface(parent, "ProfilePortrait", Color.white, .025f, .695f, .265f, .97f).GetComponent<Image>();
-            portrait.sprite = PlayerPortraitSprites.GetDefault(card.Position);
+            portrait.sprite = PlayerPortraitSprites.GetAssigned(card.PlayerSeasonId)
+                ?? PlayerPortraitSprites.GetAssigned(card.CardId)
+                ?? PlayerPortraitSprites.GetForPlayer(card.PlayerPersonId, card.Position);
             portrait.preserveAspect = true;
             string enhancement = card.IsOwnedCard ? "\n강화 +" + card.EnhancementLevel : string.Empty;
             Label(parent, "Profile", hands + "\n" + roleText + "\n비용 " + card.Cost + enhancement,

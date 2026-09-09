@@ -18,14 +18,14 @@ namespace Baseball.Presentation.Career
         /// 기본 초상 스프라이트를 쓰고, 리소스가 없을 때만 이름 첫 글자로 대체한다.
         /// </summary>
         private static void CreatePlayerPortrait(
-            RectTransform parent, string playerName, PlayerPosition position, Vector2 anchoredPosition)
+            RectTransform parent, int playerId, string playerName, PlayerPosition position, Vector2 anchoredPosition)
         {
             RectTransform frame = CreateImage(
                 "Portrait", parent, CareerUiTheme.PortraitBackdrop,
                 new Vector2(116f, 116f), anchoredPosition);
             CreateImage("PortraitBorder", frame, BorderColor, new Vector2(116f, 2f), new Vector2(0f, 57f));
 
-            Sprite portrait = PlayerPortraitSprites.GetDefault(position);
+            Sprite portrait = PlayerPortraitSprites.GetForPlayer(playerId, position);
             if (portrait != null)
             {
                 RectTransform portraitRect = CreateImage(

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>선수 유니폼 10종</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101722;color:#edf1f7;font:16px system-ui,sans-serif}main{max-width:1400px;margin:40px auto;padding:0 24px}h1{margin-bottom:8px}p{color:#a5b4c7}nav{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:24px 0}button,input{font:inherit;padding:9px 14px;border:1px solid #48566c;border-radius:6px;background:#243247;color:#fff}input{width:100px}button{cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px}article{border:1px solid #334258;border-radius:12px;overflow:hidden}figure{margin:0;background:#182337;display:grid;place-items:center;min-height:220px}body.light figure{background:#f5f2eb}img{width:100%;max-width:280px;height:auto}h2{font-size:16px;padding:0 16px}small{display:block;color:#a5b4c7;padding:0 16px 16px}
+</style>
+<main>
+<h1>선수 유니폼 10종</h1>
+<p>선수를 바꿔 같은 얼굴의 구단별 유니폼을 비교하세요.</p>
+<nav><button id="previous">← 이전 선수</button><label>선수 <input id="number" type="number" min="1" max="576" value="1"></label><span>/ 576</span><button id="next">다음 선수 →</button><button id="background">밝은 배경</button></nav>
+<section class="grid" id="grid"></section>
+</main>
+<script>
+const uniforms = __UNIFORMS_JSON__;
+const grid=document.getElementById('grid'), number=document.getElementById('number');
+for(const uniform of uniforms){const card=document.createElement('article');const figure=document.createElement('figure');const img=document.createElement('img');img.alt=uniform.Name;figure.append(img);const title=document.createElement('h2');title.textContent=uniform.Name;const label=document.createElement('small');label.textContent=uniform.Id;card.append(figure,title,label);grid.append(card)}
+function show(value){const n=Math.max(1,Math.min(576,Number(value)||1));number.value=n;const face='face-'+String(n).padStart(4,'0');grid.querySelectorAll('img').forEach((img,i)=>{const id=uniforms[i].Id;img.src=`portraits/${id}/${face}__${id}.png`})}
+number.addEventListener('change',()=>show(number.value));document.getElementById('previous').onclick=()=>show(Number(number.value)-1);document.getElementById('next').onclick=()=>show(Number(number.value)+1);document.getElementById('background').onclick=event=>{const light=document.body.classList.toggle('light');event.target.textContent=light?'어두운 배경':'밝은 배경'};show(1);
+</script>
+</html>

@@ -203,7 +203,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(112f, 132f),
                 new Vector2(-96f, 0f));
             Image portraitImage = portrait.GetComponent<Image>();
-            portraitImage.sprite = PlayerPortraitSprites.GetDefault(dashboard.Position);
+            portraitImage.sprite = PlayerPortraitSprites.GetForPlayer(_manager.CurrentCareer.MyPlayer.PlayerId, dashboard.Position);
             portraitImage.preserveAspect = true;
             CreateText(
                 "Name", panel, dashboard.PlayerName, 25, FontStyle.Bold, TextAnchor.MiddleLeft,

@@ -147,7 +147,7 @@ namespace Baseball.Presentation.Owner
             var season = runtime.WorldCardCatalog.GetPlayerSeason(definition);
             return new PlayerMiniCardModel(cardId, runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId),
                 order, (season.OriginYear % 100).ToString("00"), "C " + season.Cost,
-                string.Empty, role, teamAccentHex: "#B1A858", isInteractable: false, frameEdition: definition.Edition, cost: season.Cost);
+                string.Empty, role, portraitAssetKey: season.PlayerSeasonId, teamAccentHex: "#B1A858", isInteractable: false, frameEdition: definition.Edition, cost: season.Cost);
         }
 
         private static OwnerCollectionCardSnapshot CreateLineupDetail(

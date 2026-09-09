@@ -1,0 +1,12 @@
+[
+  {"Id":"uniform-01","Name":"네이비 홈","Cap":"#293B75","Jersey":"#F7F7FC","Trim":"#293B75","Pinstripes":false},
+  {"Id":"uniform-02","Name":"버건디 아이보리","Cap":"#74334C","Jersey":"#F4ECDD","Trim":"#74334C","Pinstripes":false},
+  {"Id":"uniform-03","Name":"틸 골드","Cap":"#235C60","Jersey":"#F6F6F0","Trim":"#BD994D","Pinstripes":false},
+  {"Id":"uniform-04","Name":"블랙 오렌지","Cap":"#292B30","Jersey":"#F6F5F2","Trim":"#DC7434","Pinstripes":false},
+  {"Id":"uniform-05","Name":"로열블루 원정","Cap":"#285DC0","Jersey":"#285DC0","Trim":"#E8EFFB","Pinstripes":false},
+  {"Id":"uniform-06","Name":"레드 핀스트라이프","Cap":"#AC3040","Jersey":"#FCF5F3","Trim":"#AC3040","Pinstripes":true},
+  {"Id":"uniform-07","Name":"포레스트 크림","Cap":"#28533E","Jersey":"#F2E6C9","Trim":"#D6B34D","Pinstripes":false},
+  {"Id":"uniform-08","Name":"퍼플 라벤더","Cap":"#513E78","Jersey":"#C5B2DE","Trim":"#F1ECF9","Pinstripes":false},
+  {"Id":"uniform-09","Name":"네이비 스카이","Cap":"#293B75","Jersey":"#83BDDF","Trim":"#293B75","Pinstripes":false},
+  {"Id":"uniform-10","Name":"브라운 샌드","Cap":"#553C30","Jersey":"#CEB18A","Trim":"#F1E2BF","Pinstripes":false}
+]

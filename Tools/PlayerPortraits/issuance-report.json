@@ -1,0 +1,15 @@
+{
+  "persons": 3565,
+  "seasons": 18326,
+  "portraits": 576,
+  "minimumUsage": 6,
+  "maximumUsage": 7,
+  "usageHistogram": {
+    "6": 467,
+    "7": 109
+  },
+  "uniquenessScope": "team-season",
+  "verifiedGroups": 363,
+  "maximumLineagePopulation": 586,
+  "assignmentSha256": "68eca5132495a7d68e3fc2e14d04e485b8086d40f1d91f112d1b32d663998e49"
+}

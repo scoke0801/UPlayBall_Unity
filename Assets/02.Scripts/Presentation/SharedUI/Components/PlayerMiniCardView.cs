@@ -127,6 +127,8 @@ namespace Baseball.Presentation.SharedUI
         public void Bind(PlayerMiniCardModel model, Sprite portrait)
         {
             _model = model ?? throw new ArgumentNullException(nameof(model));
+            portrait = PlayerPortraitSprites.GetAssigned(model.PlayerId)
+                ?? PlayerPortraitSprites.GetAssigned(model.PortraitAssetKey) ?? portrait;
             EnsureHierarchy();
 
             if (_costStars != null) _costStars.gameObject.SetActive(false);
@@ -155,6 +157,8 @@ namespace Baseball.Presentation.SharedUI
         public void SetPortrait(Sprite portrait)
         {
             EnsureHierarchy();
+            portrait = PlayerPortraitSprites.GetAssigned(_model?.PlayerId)
+                ?? PlayerPortraitSprites.GetAssigned(_model?.PortraitAssetKey) ?? portrait;
             _portrait.sprite = portrait;
             _portrait.preserveAspect = true;
             _portrait.color = portrait == null

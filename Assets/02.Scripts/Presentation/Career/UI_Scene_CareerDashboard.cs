@@ -426,7 +426,7 @@ namespace Baseball.Presentation.Career
             RenderPlayerStatus(panel.ContentSafeArea, view);
         }
 
-        private static void RenderPlayerCard(RectTransform panel, CareerDashboardView view)
+        private void RenderPlayerCard(RectTransform panel, CareerDashboardView view)
         {
             RectTransform card = CreateSection(
                 "PlayerCard", panel, new Vector2(400f, 144f), new Vector2(0f, 144f),
@@ -449,7 +449,7 @@ namespace Baseball.Presentation.Career
             RectTransform portrait = CreateImage(
                 "PlayerPortrait", portraitFrame, Color.white, new Vector2(124f, 74f), Vector2.zero);
             Image portraitImage = portrait.GetComponent<Image>();
-            portraitImage.sprite = PlayerPortraitSprites.GetDefault(view.Position);
+            portraitImage.sprite = PlayerPortraitSprites.GetForPlayer(_manager.CurrentCareer.MyPlayer.PlayerId, view.Position);
             portraitImage.preserveAspect = true;
             MarkVisual(portrait, CareerUiVisualRole.DataImage);
             CreateTeamBadge(

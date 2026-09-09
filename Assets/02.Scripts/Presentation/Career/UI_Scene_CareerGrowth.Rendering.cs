@@ -72,7 +72,7 @@ namespace Baseball.Presentation.Career
                 "PlayerPortrait", card, Color.white,
                 new Vector2(190f, 191f), new Vector2(-130f, 0f));
             Image portraitImage = portrait.GetComponent<Image>();
-            portraitImage.sprite = PlayerPortraitSprites.GetDefault(dashboard.Position);
+            portraitImage.sprite = PlayerPortraitSprites.GetForPlayer(_manager.CurrentCareer.MyPlayer.PlayerId, dashboard.Position);
             portraitImage.preserveAspect = true;
             if (portraitImage.sprite == null)
             {

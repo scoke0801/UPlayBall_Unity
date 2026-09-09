@@ -229,7 +229,7 @@ namespace Baseball.Presentation.Career
             RectTransform portrait = CreateImage(
                 "Portrait", card, Color.white, new Vector2(180f, 200f), new Vector2(62f, 28f));
             Image portraitImage = portrait.GetComponent<Image>();
-            portraitImage.sprite = PlayerPortraitSprites.GetDefault(view.Position);
+            portraitImage.sprite = PlayerPortraitSprites.GetForPlayer(_manager.CurrentCareer.MyPlayer.PlayerId, view.Position);
             portraitImage.preserveAspect = true;
             CreateText(
                 "Position", card, GetPositionCode(view.Position), 20, FontStyle.Bold,

@@ -129,9 +129,11 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.SetAnchors(photoWindow, new Vector2(.025f, portraitBottom), new Vector2(.975f, .94f), Vector2.zero, Vector2.zero);
             photoWindow.gameObject.AddComponent<UICardPortraitMask>().raycastTarget = false;
             photoWindow.gameObject.AddComponent<Mask>().showMaskGraphic = false;
-            // 무릎 아래까지 보이는 원본 초상을 확대해 상반신이 사진 창을 채우도록 자른다.
-            Image portrait = Surface(photoWindow, "Silhouette", Color.white, -.10f, -.32f, 1.10f, 1.06f).GetComponent<Image>();
-            portrait.sprite = PlayerPortraitSprites.GetDefault(card.Position);
+            // 정면 상반신 초상의 모자와 어깨가 사진 창 안에 들어오도록 원본 비율을 유지한다.
+            Image portrait = Surface(photoWindow, "Silhouette", Color.white, 0f, 0f, 1f, 1f).GetComponent<Image>();
+            portrait.sprite = PlayerPortraitSprites.GetAssigned(card.PlayerSeasonId)
+                ?? PlayerPortraitSprites.GetAssigned(card.CardId)
+                ?? PlayerPortraitSprites.GetForPlayer(card.PlayerPersonId, card.Position);
             portrait.preserveAspect = true;
             if (!string.IsNullOrWhiteSpace(card.TeamDisplayName))
                 Label(parent, "Team", card.TeamDisplayName, .28f, .94f, .73f, .98f, 14, Color.white);

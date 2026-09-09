@@ -597,7 +597,7 @@ namespace Baseball.Presentation.Career
             MatchProgressViewState view)
         {
             PlayerState player = _manager.CurrentCareer.MyPlayer;
-            CreatePlayerPortrait(panel, player.Name, player.PrimaryPosition, new Vector2(0f, 326f));
+            CreatePlayerPortrait(panel, player.PlayerId, player.Name, player.PrimaryPosition, new Vector2(0f, 326f));
             CreateText(
                 "Name", panel, player.Name, 27, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(320f, 42f), new Vector2(0f, 244f), PrimaryTextColor);
