@@ -227,10 +227,6 @@ namespace Baseball.Presentation.Owner
                 return;
             }
 
-            if (_isPostseasonSimulationVisible)
-                _seasonSimulationPopup.Bind(_manager.PostseasonSimulationProgress);
-            else
-                _seasonSimulationPopup.Bind(_manager.RegularSeasonSimulationProgress, _manager.GetTeamDisplayName);
             // 확인 클릭과 같은 Frame에 계산을 시작하면 Popup이 한 번도 그려지지 않는다.
             if (Time.frameCount <= _seasonSimulationStartedFrame)
                 return;
@@ -249,19 +245,20 @@ namespace Baseball.Presentation.Owner
 
         private bool AdvanceSeasonSimulationWithinFrameBudget()
         {
-            if (_isPostseasonSimulationVisible)
-                return _manager.AdvancePostseasonSimulationFrame();
-
             long frameStart = System.Diagnostics.Stopwatch.GetTimestamp();
             bool succeeded;
             int completedSteps = 0;
             do
             {
-                succeeded = _manager.AdvanceRegularSeasonSimulationFrame();
+                succeeded = _isPostseasonSimulationVisible
+                    ? _manager.AdvancePostseasonSimulationFrame()
+                    : _manager.AdvanceRegularSeasonSimulationFrame();
                 completedSteps++;
             }
             while (succeeded &&
-                   _manager.IsRegularSeasonSimulationRunning &&
+                   (_isPostseasonSimulationVisible
+                       ? _manager.IsPostseasonSimulationRunning
+                       : _manager.IsRegularSeasonSimulationRunning) &&
                    completedSteps < MaximumSeasonSimulationStepsPerFrame &&
                    GetElapsedMilliseconds(frameStart) < SeasonSimulationFrameBudgetMilliseconds);
             return succeeded;
@@ -1055,6 +1052,7 @@ namespace Baseball.Presentation.Owner
 
             _expansionWorkspace = gameObject.AddComponent<OwnerExpansionWorkspaceCoordinator>();
             _expansionWorkspace.Initialize(_shell);
+            _expansionWorkspace.SetSpecialRecruitManager(_manager);
             _expansionWorkspace.SpecialRecruitRouteRequested += HandleNavigationRequested;
             _expansionWorkspace.SetRosterCardDetailResolver(
                 cardIds => _snapshotFactory.CreateCollectionCardDetails(_manager, cardIds));
@@ -1221,7 +1219,7 @@ namespace Baseball.Presentation.Owner
                         season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null),
                     season.OriginYear.ToString(), "Cost " + season.Cost,
                     item.GradeLabel, item.IsNew ? "신규 영입" : "중복 획득",
-                    portraitAssetKey: season.Position.ToString(), isInteractable: false, frameEdition: card.Edition, cost: season.Cost);
+                portraitAssetKey: season.PlayerSeasonId, isInteractable: false, frameEdition: card.Edition, cost: season.Cost);
             }
             return models;
         }
