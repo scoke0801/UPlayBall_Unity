@@ -535,6 +535,23 @@ namespace Baseball.Presentation.Match
             return _events[_visibleEventCount];
         }
 
+        /// <summary>송구 원인과 아웃 결과를 HUD 공개 없이 함께 준비한다.</summary>
+        public OwnerMatchPlaybackGroup PeekPlaybackGroup()
+        {
+            MatchEvent current = PeekPlaybackEvent();
+            MatchEvent next = _visibleEventCount + 1 < _events.Length ? _events[_visibleEventCount + 1] : default;
+            return OwnerMatchPlaybackGroup.Resolve(current, next);
+        }
+
+        /// <summary>연출이 끝난 묶음만 원래 기록 순서 그대로 한 번에 공개한다.</summary>
+        public bool TryRevealPlaybackGroup(int eventCount)
+        {
+            if (!State.CanAdvance || _isPaused || PeekPlaybackGroup().EventCount != eventCount) return false;
+            _visibleEventCount += eventCount;
+            PresentCurrentHud();
+            return true;
+        }
+
         /// <summary>타구 연출에 필요한 공식 담당 야수만 같은 투구의 결과에서 읽는다.</summary>
         public BallInPlayEventData PeekBallInPlay()
         {

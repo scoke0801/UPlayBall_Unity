@@ -56,7 +56,7 @@ namespace Baseball.Presentation.Match
             {
                 OwnerMatchPlaybackSpeed speed = i == 0
                     ? OwnerMatchPlaybackSpeed.Normal
-                    : i == 1 ? OwnerMatchPlaybackSpeed.Fast : OwnerMatchPlaybackSpeed.VeryFast;
+                    : i == 1 ? OwnerMatchPlaybackSpeed.Fast : OwnerMatchPlaybackSpeed.FourTimes;
                 _speedButtons[i].interactable = state.CanChangeSpeed;
                 _speedButtons[i].targetGraphic.color = state.Speed == speed ? Blue : Silver;
                 _speedButtons[i].GetComponentInChildren<Text>().color = state.Speed == speed ? Color.white : Ink;

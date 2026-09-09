@@ -29,8 +29,10 @@ namespace Baseball.Tests.EditMode.Presentation.Match
 
                 Transform canvas = view.transform.Find("BroadcastCanvas");
                 Assert.That(canvas, Is.Not.Null);
-                Assert.That(canvas.Find("Field/Ground/StadiumBackground"), Is.Not.Null);
-                Transform fieldBall = canvas.Find("Field/Ground/Ball");
+                Transform markers = canvas.Find("Field/Ground/GameCastMarkers");
+                Assert.That(markers, Is.Not.Null);
+                Assert.That(markers.Find("StadiumBackground"), Is.Not.Null);
+                Transform fieldBall = markers.Find("Ball");
                 Assert.That(fieldBall, Is.Not.Null);
                 Assert.That(fieldBall.GetComponent<Image>().sprite, Is.Not.Null);
                 Assert.That(fieldBall.GetComponent<Baseball.Presentation.UI.UICircleGraphic>(), Is.Null);
@@ -110,7 +112,9 @@ namespace Baseball.Tests.EditMode.Presentation.Match
                 Assert.That(canvas.Find("ViewingModeResultOnly").gameObject.activeSelf, Is.True);
                 Assert.That(canvas.Find("Speed1").gameObject.activeSelf, Is.True);
                 Assert.That(canvas.Find("Speed2").gameObject.activeSelf, Is.True);
-                Assert.That(canvas.Find("Speed5").gameObject.activeSelf, Is.True);
+                Assert.That(canvas.Find("Speed4").gameObject.activeSelf, Is.True);
+                Assert.That(canvas.Find("Speed4").GetComponentInChildren<Text>().text, Is.EqualTo("4배"));
+                Assert.That(canvas.Find("Speed5"), Is.Null);
             }
             finally
             {
@@ -306,10 +310,12 @@ namespace Baseball.Tests.EditMode.Presentation.Match
         {
             float normal = OwnerMatchPlaybackTiming.GetAdvanceIntervalSeconds(OwnerMatchPlaybackSpeed.Normal);
             float fast = OwnerMatchPlaybackTiming.GetAdvanceIntervalSeconds(OwnerMatchPlaybackSpeed.Fast);
+            float fourTimes = OwnerMatchPlaybackTiming.GetAdvanceIntervalSeconds(OwnerMatchPlaybackSpeed.FourTimes);
             float veryFast = OwnerMatchPlaybackTiming.GetAdvanceIntervalSeconds(OwnerMatchPlaybackSpeed.VeryFast);
 
             Assert.That(normal, Is.EqualTo(0.8f));
             Assert.That(fast, Is.EqualTo(0.4f));
+            Assert.That(fourTimes, Is.EqualTo(0.2f));
             Assert.That(veryFast, Is.EqualTo(0.16f));
         }
 

@@ -13,6 +13,7 @@ namespace Baseball.Presentation.Match
         private int _playbackBoundary = -1;
         private bool _hasPendingEvent;
         private MatchEvent _pendingEvent;
+        private int _pendingEventCount;
         private float _eventElapsed, _eventDuration;
         private readonly MatchEvent[] _recentPitches = new MatchEvent[12];
         private readonly StringBuilder _historyText = new StringBuilder(256);
@@ -45,11 +46,14 @@ namespace Baseball.Presentation.Match
                         if (!_session.TryPreparePlayback(out _playbackBoundary)) return;
                         RefreshControls();
                     }
-                    _pendingEvent = _session.PeekPlaybackEvent();
+                    OwnerMatchPlaybackGroup group = _session.PeekPlaybackGroup();
+                    _pendingEvent = group.VisualEvent;
+                    _pendingEventCount = group.EventCount;
                     _eventDuration = _gameCastConfig.GetDuration(_pendingEvent);
                     _eventElapsed = 0f;
                     _hasPendingEvent = true;
                     _playVisualizer.Begin(_pendingEvent, _session.PeekBallInPlay());
+                    _eventDuration = _playVisualizer.GetDuration(_pendingEvent, _eventDuration);
                     if (_pendingEvent.EventType == MatchEventType.Pitch)
                     {
                         _scorePanel.gameObject.SetActive(false);
@@ -69,7 +73,7 @@ namespace Baseball.Presentation.Match
 
                 _zoneBall.gameObject.SetActive(false);
                 _hasPendingEvent = false;
-                if (!_session.TryRevealPlaybackEvent()) return;
+                if (!_session.TryRevealPlaybackGroup(_pendingEventCount)) return;
                 RefreshControls();
                 if (remaining <= 0f && _eventDuration > 0f) return;
             }

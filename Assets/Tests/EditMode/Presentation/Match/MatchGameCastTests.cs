@@ -44,18 +44,22 @@ namespace Baseball.Tests.EditMode.Presentation.Match
                 var config = MatchGameCastConfig.Load();
                 var visualizer = new MatchPlayVisualizer(rect, config,
                     Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"), id => "검증 주자");
-                int count = rect.childCount;
+                int count = host.GetComponentsInChildren<Transform>(true).Length;
                 var value = new MatchEvent(1, MatchEventType.RunnerAdvance, 1, InningHalf.Top,
                     1, 2, 1, default, default, 0, 2, 0, 0, 0, 0, 0);
                 visualizer.Begin(value, default);
                 visualizer.Render(0.5f);
-                var runner = (RectTransform)rect.Find("Runner0");
+                Transform markers = rect.Find("GameCastMarkers");
+                Assert.That(markers, Is.Not.Null);
+                Assert.That(markers.gameObject.activeSelf, Is.True);
+                var runner = (RectTransform)markers.Find("Runner0");
+                Assert.That(runner, Is.Not.Null);
                 Vector2 first = config.ToTexturePoint(PlayResolutionFieldLayout.GetBasePoint(1));
                 Assert.That(runner.anchoredPosition.x, Is.EqualTo(first.x * 828).Within(0.01f));
                 Assert.That(runner.anchoredPosition.y, Is.EqualTo(-first.y * 552).Within(0.01f));
                 Assert.That(config.GetDuration(value), Is.EqualTo(config.runnerSecondsPerBase * 2));
                 visualizer.Render(1f);
-                Assert.That(rect.childCount, Is.EqualTo(count));
+                Assert.That(host.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(count));
                 visualizer.Reset();
                 Assert.That(runner.gameObject.activeSelf, Is.False);
             }

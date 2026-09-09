@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d62d7ddd54d89d45b481d46c6d9a9e9, type: 3}
+  m_Name: AnimationCatalog
+  m_EditorClassIdentifier: Baseball.Presentation::Baseball.Presentation.Match.Sprites.SpriteAnimationCatalog
+  clips: []
+  fieldLayout: {fileID: 11400000, guid: 3ea7ebbc20077654fac24a6011127fea, type: 2}

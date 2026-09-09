@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 309ed0a9fad17524b806b36581e97050, type: 3}
+  m_Name: FieldLayout
+  m_EditorClassIdentifier: Baseball.Presentation::Baseball.Presentation.Match.Sprites.FieldLayoutDefinition
+  background: {fileID: 2800000, guid: 875f44a6045eca145abf9358a562787f, type: 3}
+  anchors: []
+  foregroundHeight: 300
+  depthScale: 0.2
+  ballHeightScale: 0.25
+  duelZoom: 1
+  fieldZoom: 1.08
+  highlightZoom: 1.25
+  pitcherReleaseOffset: {x: 0, y: 0.055}
+  batContactOffset: {x: 0, y: 0.04}

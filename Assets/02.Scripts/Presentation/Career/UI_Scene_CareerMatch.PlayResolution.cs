@@ -150,6 +150,8 @@ namespace Baseball.Presentation.Career
                 : string.Empty;
             _playResolutionPresenter.SetBattingHand(
                 ResolveBattingSide(session.Input, sequence.BatterId, sequence.PitcherId));
+            _playResolutionPresenter.SetThrowingHand(
+                FindPlayer(session.Input, sequence.PitcherId)?.ThrowingHand ?? Handedness.Right);
             _playResolution.Begin(sequence);
             _playResolutionPresenter.Begin(sequence, snapshot, fielderName);
             SetPlayResolutionInputLocked(true);

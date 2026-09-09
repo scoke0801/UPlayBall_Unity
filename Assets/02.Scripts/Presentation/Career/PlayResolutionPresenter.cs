@@ -24,7 +24,7 @@ namespace Baseball.Presentation.Career
     }
 
     /// <summary>공통 PlayResolutionSequence를 Plate View와 2D Field View에 투영한다.</summary>
-    public sealed class PlayResolutionPresenter
+    public sealed partial class PlayResolutionPresenter
     {
         private const float SwingStartAngleDegrees = 58f;
         private const float SwingEndAngleDegrees = -34f;
@@ -93,6 +93,7 @@ namespace Baseball.Presentation.Career
                 throw new ArgumentException("주자 표시 요소 수가 일치하지 않습니다.");
             _runnerIds = new int[_runners.Length];
             _runnerInitialBases = new int[_runners.Length];
+            InitializeSpriteStage();
             Hide();
         }
 
@@ -117,6 +118,7 @@ namespace Baseball.Presentation.Career
             slot = RegisterRunner(snapshot.SecondRunnerId, 2, slot);
             slot = RegisterRunner(snapshot.ThirdRunnerId, 3, slot);
             RegisterRunner(sequence.BatterId, 0, slot);
+            PrepareSpriteStage();
             _root.gameObject.SetActive(true);
             Render(sequence, 0d);
         }
@@ -127,6 +129,15 @@ namespace Baseball.Presentation.Career
                 return;
 
             bool showField = sequence.IsBallInPlay && elapsedSeconds >= sequence.FieldTransitionSeconds;
+            if (_spriteStage != null && _spriteStage.IsAvailable)
+            {
+                _plateView.gameObject.SetActive(false);
+                _fieldView.gameObject.SetActive(false);
+                RenderSpriteSequence(sequence, elapsedSeconds);
+                _phaseText.text = showField ? "필드 화면 · 인플레이" : "타석 화면 · 타석 승부";
+                UpdateCallText(sequence, elapsedSeconds, showField);
+                return;
+            }
             _plateView.gameObject.SetActive(!showField);
             _fieldView.gameObject.SetActive(showField);
             _phaseText.text = showField ? "필드 화면 · 인플레이" : "타석 화면 · 타석 승부";

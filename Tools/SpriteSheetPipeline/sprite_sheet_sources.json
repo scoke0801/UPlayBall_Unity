@@ -1,0 +1,800 @@
+{
+  "schemaVersion": 1,
+  "importSettings": {
+    "pixelsPerUnit": 100,
+    "compression": "Uncompressed",
+    "filterMode": "Bilinear"
+  },
+  "sheets": [
+    {
+      "reviewStatus": "NeedsReview",
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "objectMasks": [
+        {
+          "cellIndex": 7,
+          "rect": [
+            294,
+            77,
+            48,
+            47
+          ],
+          "reason": "Release 이후 분리된 공만 제거"
+        },
+        {
+          "cellIndex": 4,
+          "rect": [
+            0,
+            358,
+            362,
+            4
+          ],
+          "reason": "다음 행 모자 침범 제거, 발은 위쪽에 있음"
+        },
+        {
+          "cellIndex": 6,
+          "rect": [
+            0,
+            358,
+            362,
+            4
+          ],
+          "reason": "다음 행 모자 침범 제거, 발은 위쪽에 있음"
+        },
+        {
+          "cellIndex": 7,
+          "rect": [
+            0,
+            358,
+            362,
+            4
+          ],
+          "reason": "다음 행 모자 침범 제거, 발은 위쪽에 있음"
+        }
+      ],
+      "cols": 4,
+      "sourceFile": "docs/design/sprite_sheet_ingame/우투수_피치.png",
+      "excludedFrames": [],
+      "handedness": "R",
+      "events": [
+        {
+          "name": "BallRelease",
+          "frameIndex": 7,
+          "sourcePositionNormalized": {
+            "x": 0.7458563535911602,
+            "y": 0.39502762430939226
+          }
+        }
+      ],
+      "pivot": {
+        "groundY": 0.96,
+        "x": 0.5
+      },
+      "rows": 3,
+      "sheetId": "Pitcher.Pitch.R",
+      "sourceHash": "4ba4f4d2b3a3f8a29ffe72847221eba7736b1530287459ca3a96307e96651b68",
+      "role": "Pitcher",
+      "loop": false,
+      "durationsMs": [
+        180,
+        150,
+        150,
+        110,
+        90,
+        70,
+        55,
+        55,
+        90,
+        110,
+        140,
+        160
+      ],
+      "cameraRole": "FieldFront",
+      "embeddedBallPolicy": "EventControlled",
+      "reviewNotes": []
+    },
+    {
+      "reviewStatus": "NeedsReview",
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "objectMasks": [
+        {
+          "cellIndex": 7,
+          "rect": [
+            304,
+            36,
+            39,
+            54
+          ],
+          "reason": "Release 이후 분리된 공만 제거"
+        }
+      ],
+      "cols": 4,
+      "sourceFile": "docs/design/sprite_sheet_ingame/좌투수_피치.png",
+      "excludedFrames": [],
+      "handedness": "L",
+      "events": [
+        {
+          "name": "BallRelease",
+          "frameIndex": 7,
+          "sourcePositionNormalized": {
+            "x": 0.7900552486187845,
+            "y": 0.2513812154696133
+          }
+        }
+      ],
+      "pivot": {
+        "groundY": 0.96,
+        "x": 0.5
+      },
+      "rows": 3,
+      "sheetId": "Pitcher.Pitch.L",
+      "sourceHash": "d6c3e4ada7bebf1a1f2692f0b728ecb8f8c59f72f593b81fdfa10b97f4f6348f",
+      "role": "Pitcher",
+      "loop": false,
+      "durationsMs": [
+        180,
+        150,
+        150,
+        110,
+        90,
+        70,
+        55,
+        55,
+        90,
+        110,
+        140,
+        160
+      ],
+      "cameraRole": "FieldFront",
+      "embeddedBallPolicy": "EventControlled",
+      "reviewNotes": []
+    },
+    {
+      "reviewStatus": "NeedsReview",
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "objectMasks": [],
+      "cols": 4,
+      "sourceFile": "docs/design/sprite_sheet_ingame/우투수_준비.png",
+      "excludedFrames": [],
+      "handedness": "R",
+      "events": [],
+      "pivot": {
+        "groundY": 0.96,
+        "x": 0.5
+      },
+      "rows": 2,
+      "sheetId": "Pitcher.FollowReady.R",
+      "sourceHash": "5e674c4e278a3fa07a28c24748b02fab55923dadc043269e6554b858e4cdd677",
+      "role": "Pitcher",
+      "loop": false,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "cameraRole": "FieldFront",
+      "embeddedBallPolicy": "EventControlled",
+      "reviewNotes": []
+    },
+    {
+      "reviewStatus": "NeedsReview",
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "objectMasks": [],
+      "cols": 4,
+      "sourceFile": "docs/design/sprite_sheet_ingame/좌투수_준비.png",
+      "excludedFrames": [],
+      "handedness": "NeedsReview",
+      "events": [],
+      "pivot": {
+        "groundY": 0.96,
+        "x": 0.5
+      },
+      "rows": 2,
+      "sheetId": "Pitcher.Idle.Unreviewed",
+      "sourceHash": "84897e790480cc341e498d1d7f976eb3ca0f318202202577ee4d762981117ecf",
+      "role": "Pitcher",
+      "loop": false,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "cameraRole": "FieldFront",
+      "embeddedBallPolicy": "EventControlled",
+      "reviewNotes": []
+    },
+    {
+      "reviewStatus": "NeedsReview",
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "objectMasks": [],
+      "cols": 4,
+      "sourceFile": "docs/design/sprite_sheet_ingame/투수_수비.png",
+      "excludedFrames": [],
+      "handedness": "L",
+      "events": [],
+      "pivot": {
+        "groundY": 0.96,
+        "x": 0.5
+      },
+      "rows": 2,
+      "sheetId": "Pitcher.FollowReady.L",
+      "sourceHash": "0f11910311905d3da892005f8f4900102a810fd222e60977893338a88c915d75",
+      "role": "Pitcher",
+      "loop": false,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "cameraRole": "FieldFront",
+      "embeddedBallPolicy": "EventControlled",
+      "reviewNotes": []
+    },
+    {
+      "reviewStatus": "NeedsReview",
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "objectMasks": [
+        {
+          "cellIndex": 2,
+          "rect": [
+            250,
+            292,
+            51,
+            52
+          ],
+          "reason": "포구 전 외부 공 사용"
+        },
+        {
+          "cellIndex": 10,
+          "rect": [
+            69,
+            120,
+            53,
+            57
+          ],
+          "reason": "송구 후 외부 공 사용"
+        }
+      ],
+      "cols": 4,
+      "sourceFile": "docs/design/sprite_sheet_ingame/수비.png",
+      "excludedFrames": [],
+      "handedness": "R",
+      "events": [
+        {
+          "name": "GloveContact",
+          "frameIndex": 3,
+          "sourcePositionNormalized": {
+            "x": 0.5607734806629834,
+            "y": 0.8756906077348067
+          }
+        },
+        {
+          "name": "Transfer",
+          "frameIndex": 6
+        },
+        {
+          "name": "ThrowRelease",
+          "frameIndex": 10,
+          "sourcePositionNormalized": {
+            "x": 0.4861878453038674,
+            "y": 0.4585635359116022
+          }
+        }
+      ],
+      "pivot": {
+        "groundY": 0.96,
+        "x": 0.5
+      },
+      "rows": 3,
+      "sheetId": "Fielder.InfieldGrounder",
+      "sourceHash": "0f4a0bba94a1d2c5505d4ad79a2216581422d296c32f01d1b3363c32fcdd10c4",
+      "role": "Fielder",
+      "loop": false,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "cameraRole": "FieldFront",
+      "embeddedBallPolicy": "EventControlled",
+      "reviewNotes": []
+    },
+    {
+      "reviewStatus": "NeedsReview",
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "objectMasks": [
+        {
+          "cellIndex": 5,
+          "rect": [
+            207,
+            0,
+            55,
+            42
+          ],
+          "reason": "포구 전 외부 공 사용"
+        }
+      ],
+      "cols": 5,
+      "sourceFile": "docs/design/sprite_sheet_ingame/플라이수비.png",
+      "excludedFrames": [],
+      "handedness": "R",
+      "events": [
+        {
+          "name": "GloveContact",
+          "frameIndex": 6,
+          "sourcePositionNormalized": {
+            "x": 0.6591549295774648,
+            "y": 0.1580135440180587
+          }
+        },
+        {
+          "name": "ThrowReady",
+          "frameIndex": 9
+        }
+      ],
+      "pivot": {
+        "groundY": 0.96,
+        "x": 0.5
+      },
+      "rows": 2,
+      "sheetId": "Fielder.OutfieldFlyCatch",
+      "sourceHash": "c9c4cafe2ca0f194a2aca1d68470ca7fd5b02078f49dd9f20bcfa93397967b20",
+      "role": "Fielder",
+      "loop": false,
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "cameraRole": "FieldFront",
+      "embeddedBallPolicy": "EventControlled",
+      "reviewNotes": []
+    },
+    {
+      "sheetId": "Batter.HitToRun",
+      "sourceFile": "docs/design/ChatGPT Image 2026년 9월 9일 오후 09_27_54.png",
+      "sourceHash": "32655c6e3e86bf70d727e3ef2116880ff2cc0094c5766ac937da78e5541a756b",
+      "rows": 2,
+      "cols": 4,
+      "handedness": "NeedsReview",
+      "reviewStatus": "NeedsReview",
+      "role": "Batter",
+      "cameraRole": "HighlightFront",
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "excludedFrames": [],
+      "pivot": {
+        "x": 0.5,
+        "groundY": 0.96
+      },
+      "events": [
+        {
+          "name": "BatDrop",
+          "frameIndex": 3
+        },
+        {
+          "name": "RunStart",
+          "frameIndex": 4
+        }
+      ],
+      "objectMasks": [],
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "loop": false,
+      "embeddedBallPolicy": "None",
+      "reviewNotes": [
+        "Highlight/Run 전환의 방향과 손잡이 검수 필요."
+      ]
+    },
+    {
+      "sheetId": "Batter.HighlightReaction",
+      "sourceFile": "docs/design/ChatGPT Image 2026년 9월 9일 오후 09_27_51.png",
+      "sourceHash": "c6bb5eb2441d027b190c3c88afbc92fcb3eb2ef2352fa4875039f636d777030d",
+      "rows": 2,
+      "cols": 5,
+      "handedness": "NeedsReview",
+      "reviewStatus": "NeedsReview",
+      "role": "Batter",
+      "cameraRole": "HighlightFront",
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "excludedFrames": [],
+      "pivot": {
+        "x": 0.5,
+        "groundY": 0.96
+      },
+      "events": [
+        {
+          "name": "Miss",
+          "frameIndex": 7
+        },
+        {
+          "name": "Reaction",
+          "frameIndex": 9
+        }
+      ],
+      "objectMasks": [],
+      "durationsMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "loop": false,
+      "embeddedBallPolicy": "None",
+      "reviewNotes": [
+        "Highlight/Run 전환의 방향과 손잡이 검수 필요."
+      ]
+    },
+    {
+      "sheetId": "Batter.DuelSwing.R",
+      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v4/batter-duel-right-source.png",
+      "sourceHash": "ab067d3cb298fa855ddd9873599196b8f2c9255bae3e0df9782ef9ecd67b4d7a",
+      "role": "Batter",
+      "handedness": "R",
+      "reviewStatus": "NeedsReview",
+      "cameraRole": "DuelRearThreeQuarter",
+      "rows": 2,
+      "cols": 3,
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "excludedFrames": [],
+      "durationsMs": [
+        180,
+        120,
+        70,
+        55,
+        80,
+        160
+      ],
+      "pivot": {
+        "x": 0.5,
+        "groundY": 0.91
+      },
+      "events": [
+        {
+          "name": "SwingWindowOpen",
+          "frameIndex": 2
+        },
+        {
+          "name": "BatContact",
+          "frameIndex": 3,
+          "sourcePositionNormalized": {
+            "x": 0.830078125,
+            "y": 0.48046875
+          }
+        }
+      ],
+      "objectMasks": [],
+      "loop": false,
+      "embeddedBallPolicy": "None",
+      "reviewNotes": [
+        "Generated v4. Reference camera corrected to look away toward mound. No runtime approval until full motion and joint review."
+      ],
+      "framePivots": {
+        "3": {
+          "x": 0.5,
+          "groundY": 0.835
+        },
+        "4": {
+          "x": 0.5,
+          "groundY": 0.835
+        },
+        "5": {
+          "x": 0.5,
+          "groundY": 0.835
+        }
+      }
+    },
+    {
+      "sheetId": "Batter.DuelSwing.L",
+      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v4/batter-duel-left-source.png",
+      "sourceHash": "714b15d628d071cfb04dd89e917aad1d05919b63a8909eb3f33554263bf92d73",
+      "role": "Batter",
+      "handedness": "L",
+      "reviewStatus": "NeedsReview",
+      "cameraRole": "DuelRearThreeQuarter",
+      "rows": 2,
+      "cols": 3,
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "excludedFrames": [],
+      "durationsMs": [
+        180,
+        120,
+        70,
+        55,
+        80,
+        160
+      ],
+      "pivot": {
+        "x": 0.5,
+        "groundY": 0.91
+      },
+      "events": [
+        {
+          "name": "SwingWindowOpen",
+          "frameIndex": 2
+        },
+        {
+          "name": "BatContact",
+          "frameIndex": 3,
+          "sourcePositionNormalized": {
+            "x": 0.205078125,
+            "y": 0.48046875
+          }
+        }
+      ],
+      "objectMasks": [],
+      "loop": false,
+      "embeddedBallPolicy": "None",
+      "reviewNotes": [
+        "Generated v4. Reference camera corrected to look away toward mound. No runtime approval until full motion and joint review."
+      ],
+      "framePivots": {
+        "3": {
+          "x": 0.5,
+          "groundY": 0.835
+        },
+        "4": {
+          "x": 0.5,
+          "groundY": 0.835
+        },
+        "5": {
+          "x": 0.5,
+          "groundY": 0.835
+        }
+      }
+    },
+    {
+      "sheetId": "Catcher.Idle",
+      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v4/catcher-idle-source.png",
+      "sourceHash": "f723d453da75411718d231bc6b1eb8799bcc0003c4733896ed6e0ca2770b6e8c",
+      "role": "Catcher",
+      "handedness": "NeedsReview",
+      "reviewStatus": "NeedsReview",
+      "cameraRole": "FieldRearThreeQuarter",
+      "rows": 2,
+      "cols": 4,
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "excludedFrames": [],
+      "durationsMs": [
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90
+      ],
+      "pivot": {
+        "x": 0.5,
+        "groundY": 0.94
+      },
+      "events": [],
+      "objectMasks": [],
+      "loop": true,
+      "embeddedBallPolicy": "None",
+      "reviewNotes": [
+        "Generated v4. Reference camera corrected to look away toward mound. No runtime approval until full motion and joint review."
+      ]
+    },
+    {
+      "sheetId": "Runner.Run",
+      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v4/runner-loop-source.png",
+      "sourceHash": "fc45687335f3747d4c63b3d0e59f0f2dd1bbed61fb29985e0acb25bfb7113e4d",
+      "role": "Runner",
+      "handedness": "Shared",
+      "reviewStatus": "NeedsReview",
+      "cameraRole": "FieldRearThreeQuarter",
+      "rows": 2,
+      "cols": 4,
+      "frameOrder": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "excludedFrames": [],
+      "durationsMs": [
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90
+      ],
+      "pivot": {
+        "x": 0.5,
+        "groundY": 0.94
+      },
+      "events": [],
+      "objectMasks": [],
+      "loop": true,
+      "embeddedBallPolicy": "None",
+      "reviewNotes": [
+        "Generated v4. Reference camera corrected to look away toward mound. No runtime approval until full motion and joint review."
+      ]
+    }
+  ],
+  "chroma": {
+    "borderFraction": 0.025,
+    "hueMin": 0.24,
+    "hueMax": 0.43,
+    "saturationMin": 0.6,
+    "valueMin": 0.55,
+    "dominanceMin": 60,
+    "coreDistance": 80,
+    "keyTolerance": 48,
+    "keyOpaqueDistance": 255,
+    "keyEdgeRadius": 12,
+    "spillTolerance": 8
+  }
+}

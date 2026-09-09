@@ -50,7 +50,8 @@ namespace Baseball.Presentation.Match
             // 원본 3:2 비율을 유지하고 외곽만 여백 처리한다.
             RectTransform ground = Panel("Ground", field, Color.clear, 36, 0, 828, 552);
             _playVisualizer = new MatchPlayVisualizer(ground, _gameCastConfig, _font,
-                playerId => _session?.GetParticipantName(playerId) ?? string.Empty);
+                playerId => _session?.GetParticipantName(playerId) ?? string.Empty,
+                (pitcherId, batterId) => _session.GetHandedness(pitcherId, batterId));
             BuildHeader();
             BuildFieldOverlay();
             BuildFooter();
@@ -74,7 +75,7 @@ namespace Baseball.Presentation.Match
             _pauseButton = Control("Pause", _canvas, "일시정지", 1050, 12, 110, HandlePauseRequested);
             _pauseLabel = _pauseButton.GetComponentInChildren<Text>();
             _speedButtons = new Button[3];
-            var speeds = new[] { OwnerMatchPlaybackSpeed.Normal, OwnerMatchPlaybackSpeed.Fast, OwnerMatchPlaybackSpeed.VeryFast };
+            var speeds = new[] { OwnerMatchPlaybackSpeed.Normal, OwnerMatchPlaybackSpeed.Fast, OwnerMatchPlaybackSpeed.FourTimes };
             for (int i = 0; i < speeds.Length; i++)
             {
                 OwnerMatchPlaybackSpeed speed = speeds[i];

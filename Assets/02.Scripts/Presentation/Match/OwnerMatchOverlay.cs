@@ -26,6 +26,7 @@ namespace Baseball.Presentation.Match
     {
         Normal = 1,
         Fast = 2,
+        FourTimes = 4,
         VeryFast = 5
     }
 

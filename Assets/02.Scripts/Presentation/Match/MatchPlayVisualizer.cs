@@ -3,6 +3,7 @@ using Baseball.Core.Players;
 using Baseball.Presentation.Career;
 using Baseball.Presentation.UI;
 using Baseball.Simulation.Match;
+using Baseball.Presentation.Match.Sprites;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,21 +28,32 @@ namespace Baseball.Presentation.Match
         private readonly Image[] _runners = new Image[4];
         private readonly Text[] _runnerNames = new Text[4];
         private readonly int[] _runnerIds = new int[4];
+        private readonly int[] _runnerBases = new int[4];
         private readonly RectTransform[] _trail = new RectTransform[24];
         private readonly Func<int, string> _getName;
+        private readonly Func<int, int, OwnerMatchHandedness> _getHands;
+        private readonly SpriteMatchStage _spriteStage;
         private MatchEvent _event;
         private BallInPlayEventData _play;
         private Vector2 _ballStart, _ballEnd, _fielderStart;
         private int _activeFielder = -1, _activeRunner = -1;
+        private int _batterId, _firstVisibleId, _secondVisibleId, _thirdVisibleId;
+        private int _throwDestination, _throwOriginBase, _ballHeldAtBase, _runnerFromBase, _runnerToBase;
 
         /// <summary>고정 수의 공·야수·주자 표시 부품을 한 번 생성한다.</summary>
-        public MatchPlayVisualizer(RectTransform field, MatchGameCastConfig config, Font font, Func<int, string> getName)
+        public MatchPlayVisualizer(RectTransform field, MatchGameCastConfig config, Font font, Func<int, string> getName,
+            Func<int, int, OwnerMatchHandedness> getHands = null)
         {
-            _field = field;
+            _field = new GameObject("GameCastMarkers", typeof(RectTransform)).GetComponent<RectTransform>();
+            _field.SetParent(field, false);
+            _field.anchorMin = Vector2.zero;
+            _field.anchorMax = Vector2.one;
+            _field.offsetMin = _field.offsetMax = Vector2.zero;
             _config = config;
             _getName = getName;
+            _getHands = getHands;
             var background = new GameObject("StadiumBackground", typeof(RectTransform), typeof(RawImage));
-            background.transform.SetParent(field, false);
+            background.transform.SetParent(_field, false);
             RectTransform backgroundRect = (RectTransform)background.transform;
             backgroundRect.anchorMin = Vector2.zero;
             backgroundRect.anchorMax = Vector2.one;
@@ -63,12 +75,19 @@ namespace Baseball.Presentation.Match
                 _runnerNames[index].gameObject.AddComponent<Shadow>().effectDistance = new Vector2(1, -1);
             }
             _ball = CreateBaseballMarker("Ball", config.fieldBallSize, config.LoadBaseballSprite()).rectTransform;
+            SpriteAnimationCatalog catalog = Resources.Load<SpriteAnimationCatalog>("UI/SpriteMatch/AnimationCatalog");
+            if (catalog != null && catalog.fieldLayout != null && catalog.fieldLayout.background != null)
+                _spriteStage = new SpriteMatchStage(field, catalog, config.LoadBaseballSprite());
             Reset();
         }
 
         /// <summary>다음 경기 또는 이닝의 초기 위치로 돌아간다.</summary>
         public void Reset()
         {
+            _play = default;
+            _batterId = _firstVisibleId = _secondVisibleId = _thirdVisibleId = _ballHeldAtBase = _throwDestination = 0;
+            _spriteStage?.SetVisible(false);
+            _field.gameObject.SetActive(true);
             _activeFielder = _activeRunner = -1;
             ResetFielders();
             _ball.gameObject.SetActive(false);
@@ -83,6 +102,10 @@ namespace Baseball.Presentation.Match
         /// <summary>이미 공개된 베이스 상태만 주자 이름과 위치에 반영한다.</summary>
         public void PresentBases(MatchHudPresentationModel hud)
         {
+            _firstVisibleId = hud.Bases.First.PlayerId;
+            _secondVisibleId = hud.Bases.Second.PlayerId;
+            _thirdVisibleId = hud.Bases.Third.PlayerId;
+            _spriteStage?.ClearRunners();
             for (int index = 0; index < _runners.Length; index++)
             {
                 _runnerIds[index] = 0;
@@ -97,10 +120,28 @@ namespace Baseball.Presentation.Match
         public void Begin(in MatchEvent value, in BallInPlayEventData play)
         {
             _event = value;
-            _play = play;
+            if (value.EventType == MatchEventType.Pitch || play.HasValue) _play = play;
             _activeRunner = -1;
+            _runnerFromBase = value.FromBase;
+            _runnerToBase = value.ToBase;
+            _throwDestination = OwnerMatchPlaybackGroup.ResolveOutBase(value, _batterId, _firstVisibleId, _secondVisibleId, _thirdVisibleId);
+            _throwOriginBase = _ballHeldAtBase;
             if (value.EventType == MatchEventType.Pitch)
             {
+                _batterId = value.BatterId;
+                _ballHeldAtBase = 0;
+                if (_spriteStage != null && _getHands != null)
+                {
+                    OwnerMatchHandedness hands = _getHands(value.PitcherId, value.BatterId);
+                    bool available = _spriteStage.SetHands(hands.ThrowingHand, hands.BattingHand);
+                    _field.gameObject.SetActive(!available);
+                    if (available)
+                    {
+                        _spriteStage.Reset();
+                        for (int i = 0; i < _runnerIds.Length; i++)
+                            if (_runnerIds[i] > 0) _spriteStage.RenderRunner(i, _runnerBases[i], _runnerBases[i], 1);
+                    }
+                }
                 ResetFielders();
                 foreach (RectTransform dot in _trail) dot.gameObject.SetActive(false);
                 _ballStart = _fielders[0].rectTransform.anchoredPosition;
@@ -108,6 +149,7 @@ namespace Baseball.Presentation.Match
             }
             else if (value.EventType == MatchEventType.Contact && play.HasValue)
             {
+                _ballHeldAtBase = 0;
                 _ballStart = Point(PlayResolutionFieldLayout.Home);
                 _ballEnd = Point(PlayResolutionFieldLayout.GetBattedBallTarget(play.BattedBall));
                 _activeFielder = Array.IndexOf(Positions, NormalizePosition(play.Fielding.FielderPosition));
@@ -127,15 +169,66 @@ namespace Baseball.Presentation.Match
                     _ballEnd = BasePoint(value.ToBase);
                 }
             }
+            else if (value.EventType == MatchEventType.Out && _throwDestination > 0)
+            {
+                _runnerFromBase = value.PlayerId == _batterId ? 0 : _throwDestination - 1;
+                _runnerToBase = _throwDestination;
+                _activeRunner = Register(value.PlayerId, _runnerFromBase);
+                _ballStart = _ball.anchoredPosition;
+                _ballEnd = BasePoint(_throwDestination);
+            }
             Render(0f);
         }
+
+        /// <summary>모션의 프레임 체류 시간을 보존하도록 투구의 최소 재생 시간을 정한다.</summary>
+        public float GetDuration(in MatchEvent value, float fallback) =>
+            _spriteStage != null && _spriteStage.IsAvailable && !_field.gameObject.activeSelf && value.EventType == MatchEventType.Pitch
+                ? Mathf.Max(fallback, _spriteStage.PitchDuration) : fallback;
 
         /// <summary>공식 사건의 진행률에 맞춰 이동 경로를 그린다.</summary>
         public void Render(float progress)
         {
             progress = Mathf.Clamp01(progress);
-            if (_event.EventType == MatchEventType.Pitch || _event.EventType == MatchEventType.RunnerThrownOut)
+            if (_spriteStage != null && _spriteStage.IsAvailable && !_field.gameObject.activeSelf)
+            {
+                switch (_event.EventType)
+                {
+                    case MatchEventType.Pitch:
+                        _spriteStage.RenderPitch(progress, _event.PitchPlayData.HasValue
+                            ? _event.PitchPlayData.Swing.DidSwing
+                            : _event.PitchResult is Baseball.Simulation.PlateAppearance.PitchResult.InPlay or
+                                Baseball.Simulation.PlateAppearance.PitchResult.SwingingStrike or
+                                Baseball.Simulation.PlateAppearance.PitchResult.Foul,
+                            _event.PitchResult is Baseball.Simulation.PlateAppearance.PitchResult.InPlay or
+                                Baseball.Simulation.PlateAppearance.PitchResult.Foul);
+                        break;
+                    case MatchEventType.Contact:
+                        _spriteStage.RenderContact(_play, progress);
+                        break;
+                    case MatchEventType.RunnerAdvance:
+                        _spriteStage.RenderRunner(_activeRunner, _event.FromBase, _event.ToBase, progress);
+                        break;
+                    case MatchEventType.RunnerThrownOut:
+                    case MatchEventType.Out:
+                        if (_throwDestination > 0 && _play.HasValue && _play.Fielding.HasValue)
+                        {
+                            _spriteStage.RenderRunner(_activeRunner, _runnerFromBase, _runnerToBase, progress);
+                            bool hasThrowMotion = true;
+                            if (_throwOriginBase > 0)
+                                _spriteStage.RenderBallFlight(_spriteStage.Projection.GetBase(_throwOriginBase),
+                                    _spriteStage.Projection.GetBase(_throwDestination), progress, 0.025f);
+                            else
+                                hasThrowMotion = _spriteStage.RenderFieldThrow(_play, _spriteStage.Projection.GetBase(_throwDestination), progress);
+                            if (progress >= 1 && hasThrowMotion) _ballHeldAtBase = _throwDestination;
+                        }
+                        break;
+                }
+                return;
+            }
+            if (_event.EventType == MatchEventType.Pitch || _event.EventType == MatchEventType.RunnerThrownOut ||
+                (_event.EventType == MatchEventType.Out && _throwDestination > 0))
                 MoveBall(Vector2.Lerp(_ballStart, _ballEnd, progress));
+            if (_throwDestination > 0 && progress >= 1) _ballHeldAtBase = _throwDestination;
             if (_event.EventType == MatchEventType.Contact && _play.HasValue)
             {
                 Vector2 point = FlightPoint(progress);
@@ -156,8 +249,8 @@ namespace Baseball.Presentation.Match
             }
             if (_activeRunner >= 0)
             {
-                int from = Mathf.Clamp(_event.FromBase, 0, 3);
-                int to = Mathf.Clamp(_event.ToBase, from + 1, 4);
+                int from = Mathf.Clamp(_runnerFromBase, 0, 3);
+                int to = Mathf.Clamp(_runnerToBase, from + 1, 4);
                 float position = Mathf.Lerp(from, to, progress);
                 int segment = Math.Min(to - 1, (int)position);
                 _runners[_activeRunner].rectTransform.anchoredPosition =
@@ -196,9 +289,12 @@ namespace Baseball.Presentation.Match
             if (slot < 0) slot = Array.IndexOf(_runnerIds, 0);
             if (slot < 0) return -1;
             _runnerIds[slot] = playerId;
+            _runnerBases[slot] = baseNumber;
             _runners[slot].gameObject.SetActive(true);
             _runners[slot].rectTransform.anchoredPosition = BasePoint(baseNumber);
             _runnerNames[slot].text = _getName(playerId);
+            if (_spriteStage != null && !_field.gameObject.activeSelf)
+                _spriteStage.RenderRunner(slot, baseNumber, baseNumber, 1);
             return slot;
         }
 
