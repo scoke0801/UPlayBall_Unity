@@ -35,6 +35,26 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void Fatigue_역사투구량배율은경기용량과최근부하를각각보존한다()
+        {
+            PitcherFatigueResolver resolver = CreateFatigueResolver();
+            Player pitcher = CreatePitcher(101, stamina: 50);
+            var workload = new RecentPitchingWorkload(40, 20, 10);
+            double baseline = resolver.CalculateEffectiveCapacity(new PitcherRosterEntry(
+                pitcher,
+                PitcherRole.MiddleRelief,
+                recentWorkload: workload));
+            double durable = resolver.CalculateEffectiveCapacity(new PitcherRosterEntry(
+                pitcher,
+                PitcherRole.MiddleRelief,
+                recentWorkload: workload,
+                capacityMultiplier: 2d,
+                recoveryMultiplier: 2d));
+
+            Assert.That(durable, Is.GreaterThan(baseline * 2d));
+        }
+
+        [Test]
         public void Fatigue_55퍼센트이하는하락없고한계에서는제구가더크게하락한다()
         {
             PitcherFatigueResolver resolver = CreateFatigueResolver();
@@ -144,6 +164,38 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void Fielding_외야도달실패가항상2루타가되지않고Power와Speed를소비한다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            var ball = new BattedBallDescriptor(
+                BattedBallType.FlyBall,
+                BattedBallDirection.Center,
+                FieldZone.CenterField,
+                quality: 65d,
+                BallFlightBand.Medium,
+                BallPaceBand.Fast,
+                isHomeRun: false);
+            Player fielder = CreateBatter(981, 50, 50, 50);
+
+            PlateAppearanceResult triple = new FieldingPlayResolver(
+                balance.Match.Fielding, new SequenceRandom(0.999d, 0.01d)).Resolve(
+                ball, fielder, PlayerPosition.CenterField, DefensiveAlignment.Standard,
+                batterSpeed: 75, leadRunnerSpeed: 50, canAttemptDoublePlay: false, batterPower: 50).Result;
+            PlateAppearanceResult extraBaseHit = new FieldingPlayResolver(
+                balance.Match.Fielding, new SequenceRandom(0.999d, 0.25d)).Resolve(
+                ball, fielder, PlayerPosition.CenterField, DefensiveAlignment.Standard,
+                batterSpeed: 50, leadRunnerSpeed: 50, canAttemptDoublePlay: false, batterPower: 70).Result;
+            PlateAppearanceResult single = new FieldingPlayResolver(
+                balance.Match.Fielding, new SequenceRandom(0.999d, 0.90d)).Resolve(
+                ball, fielder, PlayerPosition.CenterField, DefensiveAlignment.Standard,
+                batterSpeed: 50, leadRunnerSpeed: 50, canAttemptDoublePlay: false, batterPower: 70).Result;
+
+            Assert.That(triple, Is.EqualTo(PlateAppearanceResult.Triple));
+            Assert.That(extraBaseHit, Is.EqualTo(PlateAppearanceResult.Double));
+            Assert.That(single, Is.EqualTo(PlateAppearanceResult.Single));
+        }
+
+        [Test]
         public void Fielding_송구능력은Defense와독립적으로Arm프로필에반영된다()
         {
             Player weakArm = CreateBatter(99, 50, 60, 50, arm: 20);
@@ -181,6 +233,27 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(normalDecision.ShouldAttempt, Is.False);
             Assert.That(traitDecision.ShouldAttempt, Is.True);
             Assert.That(traitDecision.SuccessChance, Is.EqualTo(normalDecision.SuccessChance));
+        }
+
+        [Test]
+        public void Baserunning_목표진루율과송구세이프율을분리한다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            Player runner = CreateBatter(910, 50, 50, 50);
+            var holdResolver = new BaserunningResolver(balance.BaseRunning, new SequenceRandom(0.99d));
+            var safeResolver = new BaserunningResolver(balance.BaseRunning, new SequenceRandom(0d, 0d));
+            var outResolver = new BaserunningResolver(balance.BaseRunning, new SequenceRandom(0d, 0.99d));
+
+            ExtraBaseOutcome hold = holdResolver.ResolveExtraBase(
+                0.58d, runner, 50, 0, 5, 0, RunningApproach.Balanced);
+            ExtraBaseOutcome safe = safeResolver.ResolveExtraBase(
+                0.58d, runner, 50, 0, 5, 0, RunningApproach.Balanced);
+            ExtraBaseOutcome thrownOut = outResolver.ResolveExtraBase(
+                0.58d, runner, 50, 0, 5, 0, RunningApproach.Balanced);
+
+            Assert.That(hold, Is.EqualTo(ExtraBaseOutcome.Hold));
+            Assert.That(safe, Is.EqualTo(ExtraBaseOutcome.Safe));
+            Assert.That(thrownOut, Is.EqualTo(ExtraBaseOutcome.Out));
         }
 
         [Test]

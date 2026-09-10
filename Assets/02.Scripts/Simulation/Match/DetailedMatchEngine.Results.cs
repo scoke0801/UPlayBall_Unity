@@ -236,7 +236,7 @@ namespace Baseball.Simulation.Match
             }
             if (second.IsOccupied && !IsWalkOffComplete(state, inning, half))
             {
-                BaserunningDecision decision = _baserunningResolver.DecideExtraBase(
+                ExtraBaseOutcome advance = _baserunningResolver.ResolveExtraBase(
                     _balance.BaseRunning.SingleFromSecondScoreProbability,
                     second.Player,
                     arm,
@@ -244,12 +244,12 @@ namespace Baseball.Simulation.Match
                     inning,
                     offense.BoxScore.Runs - defense.BoxScore.Runs,
                     offense.Roster.RunningApproach);
-                if (decision.ShouldAttempt && _baserunningResolver.Resolve(decision))
+                if (advance == ExtraBaseOutcome.Safe)
                 {
                     ScoreRunner(state, inning, half, offense, defense, batter.Player.PlayerId, second, 2, tracker, outs);
                     runs++;
                 }
-                else if (decision.ShouldAttempt)
+                else if (advance == ExtraBaseOutcome.Out)
                 {
                     RecordRunnerThrownOut(state, inning, half, offense, defense, second, 2, 4, tracker, ref outs);
                 }
@@ -261,7 +261,7 @@ namespace Baseball.Simulation.Match
             }
             if (first.IsOccupied && outs < 3)
             {
-                BaserunningDecision decision = _baserunningResolver.DecideExtraBase(
+                ExtraBaseOutcome advance = _baserunningResolver.ResolveExtraBase(
                     _balance.BaseRunning.SingleFromFirstToThirdProbability,
                     first.Player,
                     arm,
@@ -269,12 +269,12 @@ namespace Baseball.Simulation.Match
                     inning,
                     offense.BoxScore.Runs - defense.BoxScore.Runs,
                     offense.Roster.RunningApproach);
-                if (!bases.Third.IsOccupied && decision.ShouldAttempt && _baserunningResolver.Resolve(decision))
+                if (!bases.Third.IsOccupied && advance == ExtraBaseOutcome.Safe)
                 {
                     MoveRunner(state, inning, half, defense, batter.Player.PlayerId, first, 1, 3, outs);
                     bases.Third = first;
                 }
-                else if (!bases.Third.IsOccupied && decision.ShouldAttempt)
+                else if (!bases.Third.IsOccupied && advance == ExtraBaseOutcome.Out)
                 {
                     RecordRunnerThrownOut(state, inning, half, offense, defense, first, 1, 3, tracker, ref outs);
                 }
@@ -323,7 +323,7 @@ namespace Baseball.Simulation.Match
             }
             if (first.IsOccupied && !IsWalkOffComplete(state, inning, half))
             {
-                BaserunningDecision decision = _baserunningResolver.DecideExtraBase(
+                ExtraBaseOutcome advance = _baserunningResolver.ResolveExtraBase(
                     _balance.BaseRunning.DoubleFromFirstScoreProbability,
                     first.Player,
                     GetFielderArm(defense, fielding),
@@ -331,12 +331,12 @@ namespace Baseball.Simulation.Match
                     inning,
                     offense.BoxScore.Runs - defense.BoxScore.Runs,
                     offense.Roster.RunningApproach);
-                if (decision.ShouldAttempt && _baserunningResolver.Resolve(decision))
+                if (advance == ExtraBaseOutcome.Safe)
                 {
                     ScoreRunner(state, inning, half, offense, defense, batter.Player.PlayerId, first, 1, tracker, outs);
                     runs++;
                 }
-                else if (decision.ShouldAttempt)
+                else if (advance == ExtraBaseOutcome.Out)
                 {
                     RecordRunnerThrownOut(state, inning, half, offense, defense, first, 1, 4, tracker, ref outs);
                 }
@@ -519,30 +519,83 @@ namespace Baseball.Simulation.Match
             int outsBefore = outs;
             RecordOut(state, inning, half, defense, batter.Player.PlayerId,
                 PlateAppearanceResult.GroundOut, tracker, ref outs);
-            if (outsBefore >= 2 || !bases.Third.IsOccupied)
+            if (outsBefore >= 2)
                 return 0;
-            BaserunningDecision decision = _baserunningResolver.DecideExtraBase(
-                _balance.BaseRunning.GroundOutFromThirdScoreProbability,
-                bases.Third.Player,
-                GetFielderArm(defense, outcome.Fielding),
-                outsBefore,
-                inning,
-                offense.BoxScore.Runs - defense.BoxScore.Runs,
-                offense.Roster.RunningApproach);
-            if (decision.ShouldAttempt && _baserunningResolver.Resolve(decision))
+            int runs = 0;
+            int arm = GetFielderArm(defense, outcome.Fielding);
+            if (bases.Third.IsOccupied)
             {
-                ScoreRunner(state, inning, half, offense, defense, batter.Player.PlayerId,
-                    bases.Third, 3, tracker, outs);
-                bases.Third = default;
-                return 1;
+                ExtraBaseOutcome advance = _baserunningResolver.ResolveExtraBase(
+                    _balance.BaseRunning.GroundOutFromThirdScoreProbability,
+                    bases.Third.Player,
+                    arm,
+                    outsBefore,
+                    inning,
+                    offense.BoxScore.Runs - defense.BoxScore.Runs,
+                    offense.Roster.RunningApproach);
+                if (advance == ExtraBaseOutcome.Safe)
+                {
+                    ScoreRunner(state, inning, half, offense, defense, batter.Player.PlayerId,
+                        bases.Third, 3, tracker, outs);
+                    bases.Third = default;
+                    runs++;
+                }
+                else if (advance == ExtraBaseOutcome.Out)
+                {
+                    DetailedBaseRunner runner = bases.Third;
+                    bases.Third = default;
+                    RecordRunnerThrownOut(state, inning, half, offense, defense, runner, 3, 4, tracker, ref outs);
+                }
             }
-            if (decision.ShouldAttempt)
+            if (outs >= 3) return runs;
+            if (bases.Second.IsOccupied && !bases.Third.IsOccupied)
             {
-                DetailedBaseRunner runner = bases.Third;
-                bases.Third = default;
-                RecordRunnerThrownOut(state, inning, half, offense, defense, runner, 3, 4, tracker, ref outs);
+                ExtraBaseOutcome advance = _baserunningResolver.ResolveExtraBase(
+                    _balance.BaseRunning.GroundOutAdvanceProbability,
+                    bases.Second.Player,
+                    arm,
+                    outsBefore,
+                    inning,
+                    offense.BoxScore.Runs - defense.BoxScore.Runs,
+                    offense.Roster.RunningApproach);
+                if (advance == ExtraBaseOutcome.Safe)
+                {
+                    MoveRunner(state, inning, half, defense, batter.Player.PlayerId, bases.Second, 2, 3, outs);
+                    bases.Third = bases.Second;
+                    bases.Second = default;
+                }
+                else if (advance == ExtraBaseOutcome.Out)
+                {
+                    DetailedBaseRunner runner = bases.Second;
+                    bases.Second = default;
+                    RecordRunnerThrownOut(state, inning, half, offense, defense, runner, 2, 3, tracker, ref outs);
+                }
             }
-            return 0;
+            if (outs >= 3) return runs;
+            if (bases.First.IsOccupied && !bases.Second.IsOccupied)
+            {
+                ExtraBaseOutcome advance = _baserunningResolver.ResolveExtraBase(
+                    _balance.BaseRunning.GroundOutAdvanceProbability,
+                    bases.First.Player,
+                    arm,
+                    outsBefore,
+                    inning,
+                    offense.BoxScore.Runs - defense.BoxScore.Runs,
+                    offense.Roster.RunningApproach);
+                if (advance == ExtraBaseOutcome.Safe)
+                {
+                    MoveRunner(state, inning, half, defense, batter.Player.PlayerId, bases.First, 1, 2, outs);
+                    bases.Second = bases.First;
+                    bases.First = default;
+                }
+                else if (advance == ExtraBaseOutcome.Out)
+                {
+                    DetailedBaseRunner runner = bases.First;
+                    bases.First = default;
+                    RecordRunnerThrownOut(state, inning, half, offense, defense, runner, 1, 2, tracker, ref outs);
+                }
+            }
+            return runs;
         }
 
         private int ApplyFlyOut(
@@ -566,7 +619,7 @@ namespace Baseball.Simulation.Match
                 battingLine.AtBats++;
                 return 0;
             }
-            BaserunningDecision decision = _baserunningResolver.DecideExtraBase(
+            ExtraBaseOutcome advance = _baserunningResolver.ResolveExtraBase(
                 _balance.BaseRunning.SacrificeFlyProbability,
                 bases.Third.Player,
                 GetFielderArm(defense, outcome.Fielding),
@@ -574,14 +627,14 @@ namespace Baseball.Simulation.Match
                 inning,
                 offense.BoxScore.Runs - defense.BoxScore.Runs,
                 offense.Roster.RunningApproach);
-            if (!decision.ShouldAttempt)
+            if (advance == ExtraBaseOutcome.Hold)
             {
                 battingLine.AtBats++;
                 return 0;
             }
             DetailedBaseRunner runner = bases.Third;
             bases.Third = default;
-            if (_baserunningResolver.Resolve(decision))
+            if (advance == ExtraBaseOutcome.Safe)
             {
                 ScoreRunner(state, inning, half, offense, defense, batter.Player.PlayerId,
                     runner, 3, tracker, outs);

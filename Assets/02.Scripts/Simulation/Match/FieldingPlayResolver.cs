@@ -161,7 +161,8 @@ namespace Baseball.Simulation.Match
             bool canAttemptDoublePlay,
             int defenseAbilityBonus = 0,
             int armAbilityBonus = 0,
-            double fieldingErrorProbabilityMultiplier = 1d)
+            double fieldingErrorProbabilityMultiplier = 1d,
+            int batterPower = 50)
         {
             if (fielder == null) throw new ArgumentNullException(nameof(fielder));
             if (fieldingErrorProbabilityMultiplier < 1d || double.IsNaN(fieldingErrorProbabilityMultiplier))
@@ -179,7 +180,7 @@ namespace Baseball.Simulation.Match
             if (_random.NextDouble() >= reachChance)
             {
                 return new FieldingPlayOutcome(
-                    ResolveHit(ball, batterSpeed),
+                    ResolveHit(ball, batterSpeed, batterPower),
                     position,
                     fielder.PlayerId,
                     FieldingFailureType.Reach,
@@ -197,7 +198,7 @@ namespace Baseball.Simulation.Match
             {
                 PlateAppearanceResult result = routine
                     ? PlateAppearanceResult.ReachedOnError
-                    : ResolveHit(ball, batterSpeed);
+                    : ResolveHit(ball, batterSpeed, batterPower);
                 return new FieldingPlayOutcome(
                     result,
                     position,
@@ -329,17 +330,31 @@ namespace Baseball.Simulation.Match
                 0.78d);
         }
 
-        private static PlateAppearanceResult ResolveHit(in BattedBallDescriptor ball, int batterSpeed)
+        private PlateAppearanceResult ResolveHit(
+            in BattedBallDescriptor ball,
+            int batterSpeed,
+            int batterPower)
         {
             if (ball.Type == BattedBallType.Bunt)
                 return PlateAppearanceResult.BuntSingle;
             if (ball.Type == BattedBallType.GroundBall)
                 return PlateAppearanceResult.Single;
-            if (ball.Type == BattedBallType.LineDrive && ball.Quality < 58d)
-                return PlateAppearanceResult.Single;
-            if (ball.Quality >= 78d && batterSpeed >= 72)
+            double tripleProbability = Clamp(
+                _balance.AirBallTripleProbability +
+                (batterSpeed - 50d) * _balance.SpeedTripleWeight,
+                0.002d,
+                0.10d);
+            double doubleProbability = Clamp(
+                _balance.AirBallDoubleProbability +
+                (batterPower - 50d) * _balance.PowerDoubleWeight,
+                0.12d,
+                0.78d);
+            double roll = _random.NextDouble();
+            if (roll < tripleProbability)
                 return PlateAppearanceResult.Triple;
-            return PlateAppearanceResult.Double;
+            if (roll < tripleProbability + doubleProbability)
+                return PlateAppearanceResult.Double;
+            return PlateAppearanceResult.Single;
         }
 
         private static double GetAlignmentReachAdjustment(

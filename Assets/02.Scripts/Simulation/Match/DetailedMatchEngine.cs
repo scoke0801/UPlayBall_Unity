@@ -743,7 +743,8 @@ namespace Baseball.Simulation.Match
                     defense.GetConditionRatingModifier(fielder, -fielderAssignmentPenalty.ConditionPenalty),
                     historicalModifiers.GetDefense(PlayerAbility.Arm) +
                     defense.GetConditionRatingModifier(fielder, -fielderAssignmentPenalty.ConditionPenalty),
-                    fielderAssignmentPenalty.FieldingErrorProbabilityMultiplier);
+                    fielderAssignmentPenalty.FieldingErrorProbabilityMultiplier,
+                    batter.Player.BatterAttributes.Power);
                 return new DetailedPlateAppearanceOutcome(fielding.Result, ball, fielding);
             }
         }

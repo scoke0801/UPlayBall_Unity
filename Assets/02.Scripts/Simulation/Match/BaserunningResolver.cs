@@ -6,6 +6,13 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Simulation.Match
 {
+    public enum ExtraBaseOutcome
+    {
+        Hold = 0,
+        Safe = 1,
+        Out = 2
+    }
+
     public readonly struct BaserunningDecision
     {
         public BaserunningDecision(bool shouldAttempt, double successChance)
@@ -69,6 +76,47 @@ namespace Baseball.Simulation.Match
         public bool Resolve(in BaserunningDecision decision)
         {
             return decision.ShouldAttempt && _random.NextDouble() < decision.SuccessChance;
+        }
+
+        /// <summary>목표 진루율과 송구 발생 시 세이프율을 분리해 보류·진루·주루사를 판정한다.</summary>
+        public ExtraBaseOutcome ResolveExtraBase(
+            double baseAdvanceProbability,
+            Player runner,
+            int fielderArm,
+            int outs,
+            int inning,
+            int scoreDifference,
+            RunningApproach approach)
+        {
+            double advanceProbability = Clamp(
+                baseAdvanceProbability +
+                (runner.BatterAttributes.Speed - 50d) * _balance.RunnerSpeedWeight +
+                (runner.BatterAttributes.Mental - 50d) * 0.0012d -
+                (fielderArm - 50d) * _balance.DefenseWeight,
+                0.02d,
+                0.95d);
+            double safeProbability = Clamp(
+                _balance.ExtraBaseSafeProbability +
+                (runner.BatterAttributes.Speed - 50d) * _balance.ExtraBaseSafeSpeedWeight -
+                (fielderArm - 50d) * _balance.ExtraBaseSafeDefenseWeight,
+                0.82d,
+                0.985d);
+            double attemptProbability = advanceProbability / safeProbability;
+            if (approach == RunningApproach.Conservative)
+                attemptProbability *= _balance.ConservativeAttemptMultiplier;
+            else if (approach == RunningApproach.Aggressive)
+                attemptProbability *= _balance.AggressiveAttemptMultiplier;
+            if (outs == 2) attemptProbability *= 1.08d;
+            if (inning >= 8 && scoreDifference == 0) attemptProbability *= 1.05d;
+            if (runner.HasTrait(SkillTraitIds.AggressiveBaserunning))
+                attemptProbability *= 1d + _skillTraits.AggressiveRunningThresholdReduction;
+            attemptProbability = Clamp(attemptProbability, 0.01d, 1d);
+
+            if (_random.NextDouble() >= attemptProbability)
+                return ExtraBaseOutcome.Hold;
+            return _random.NextDouble() < safeProbability
+                ? ExtraBaseOutcome.Safe
+                : ExtraBaseOutcome.Out;
         }
 
         private static double Clamp(double value, double minimum, double maximum)
