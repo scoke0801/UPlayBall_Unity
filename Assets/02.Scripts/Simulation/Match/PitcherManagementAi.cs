@@ -53,7 +53,8 @@ namespace Baseball.Simulation.Match
         public PitcherChangeDecision Evaluate(
             in DecisionContext context,
             int availableRelieverCount,
-            double bullpenFreshness)
+            double bullpenFreshness,
+            double bullpenQualityAdvantage = 0d)
         {
             PitcherGameState pitcher = context.PitcherState;
             if (availableRelieverCount <= 0)
@@ -82,7 +83,10 @@ namespace Baseball.Simulation.Match
                 : 0d;
             double bullpenConservation = (1d - Clamp01(bullpenFreshness)) *
                                          _balance.MaximumBullpenConservation;
-            double pullScore = fatigueRisk + currentDanger + ttoRisk + performanceDamage + leverageMismatch -
+            double qualityAdvantage = Math.Min(
+                _balance.MaximumBullpenQualityAdvantage,
+                Math.Max(0d, bullpenQualityAdvantage) * _balance.BullpenQualityAdvantageWeight);
+            double pullScore = fatigueRisk + currentDanger + ttoRisk + performanceDamage + leverageMismatch + qualityAdvantage -
                                starterTrust - bullpenConservation;
             double threshold = _balance.PullThreshold -
                                (context.ManagerProfile.HookSpeed - 50d) * 0.20d -
@@ -92,7 +96,8 @@ namespace Baseball.Simulation.Match
                 fatigueRisk,
                 ttoRisk,
                 performanceDamage,
-                leverageMismatch);
+                leverageMismatch,
+                qualityAdvantage);
             return new PitcherChangeDecision(pullScore >= threshold, reason, pullScore, threshold);
         }
 
@@ -113,6 +118,7 @@ namespace Baseball.Simulation.Match
                                 _balance.RecentLoadDayTwoWeight +
                                 candidate.RosterEntry.RecentWorkload.ThreeDaysAgoPitches *
                                 _balance.RecentLoadDayThreeWeight;
+            recentLoad /= candidate.RosterEntry.RecoveryMultiplier;
             double futureUsageCost = candidate.Role == PitcherRole.Closer && leverage < LeverageTier.High
                 ? _balance.LowLeverageCloserPenalty
                 : 0d;
@@ -137,13 +143,15 @@ namespace Baseball.Simulation.Match
             double fatigue,
             double tto,
             double performance,
-            double leverage)
+            double leverage,
+            double qualityAdvantage)
         {
             double maximum = fatigue;
             PitcherChangeReason reason = PitcherChangeReason.Fatigue;
             if (tto > maximum) { maximum = tto; reason = PitcherChangeReason.TimesThroughOrder; }
             if (performance > maximum) { maximum = performance; reason = PitcherChangeReason.Performance; }
-            if (leverage > maximum) reason = PitcherChangeReason.HighLeverage;
+            if (leverage > maximum) { maximum = leverage; reason = PitcherChangeReason.HighLeverage; }
+            if (qualityAdvantage > maximum) reason = PitcherChangeReason.Matchup;
             return reason;
         }
 

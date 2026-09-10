@@ -1,5 +1,39 @@
 namespace Baseball.Core.Balance
 {
+    /// <summary>역사 원기록의 투구량을 경기별 용량·시즌 회복력으로 변환한다.</summary>
+    public sealed class HistoricalPitcherUsageBalance
+    {
+        public HistoricalPitcherUsageBalance(
+            double starterInningsPerAppearance,
+            double relieverInningsPerAppearance,
+            double starterInningsPerTeamGame,
+            double relieverInningsPerTeamGame,
+            double minimumMultiplier,
+            double maximumMultiplier)
+        {
+            if (starterInningsPerAppearance <= 0d || relieverInningsPerAppearance <= 0d ||
+                starterInningsPerTeamGame <= 0d || relieverInningsPerTeamGame <= 0d ||
+                minimumMultiplier <= 0d || maximumMultiplier < minimumMultiplier)
+                throw new System.ArgumentOutOfRangeException(nameof(starterInningsPerAppearance));
+            StarterInningsPerAppearance = starterInningsPerAppearance;
+            RelieverInningsPerAppearance = relieverInningsPerAppearance;
+            StarterInningsPerTeamGame = starterInningsPerTeamGame;
+            RelieverInningsPerTeamGame = relieverInningsPerTeamGame;
+            MinimumMultiplier = minimumMultiplier;
+            MaximumMultiplier = maximumMultiplier;
+        }
+
+        public double StarterInningsPerAppearance { get; }
+        public double RelieverInningsPerAppearance { get; }
+        public double StarterInningsPerTeamGame { get; }
+        public double RelieverInningsPerTeamGame { get; }
+        public double MinimumMultiplier { get; }
+        public double MaximumMultiplier { get; }
+
+        public static HistoricalPitcherUsageBalance CreateDefault() =>
+            new HistoricalPitcherUsageBalance(6d, 1.2d, 1.2d, 0.5d, 0.8d, 2.5d);
+    }
+
     /// <summary>비주포지션과 Natural PitcherRole 불일치 비용을 한곳에 보관한다.</summary>
     public sealed class HistoricalAssignmentBalance
     {
@@ -139,7 +173,8 @@ namespace Baseball.Core.Balance
             Baseball.Core.Historical.OwnerCardGrowthBalanceTable ownerCardGrowth = null,
             Baseball.Core.Historical.TeamColorBalanceTable teamColor = null,
             Baseball.Core.Historical.OwnerPlayerMarketBalanceTable ownerPlayerMarket = null,
-            AggregateMatchBalance aggregateMatch = null)
+            AggregateMatchBalance aggregateMatch = null,
+            HistoricalPitcherUsageBalance historicalPitcherUsage = null)
         {
             if (string.IsNullOrWhiteSpace(contentHash))
                 throw new System.ArgumentException("ContentHash는 비어 있을 수 없습니다.", nameof(contentHash));
@@ -180,10 +215,12 @@ namespace Baseball.Core.Balance
             TeamColor = teamColor ?? Baseball.Core.Historical.TeamColorBalanceTable.CreateInitial();
             OwnerPlayerMarket = ownerPlayerMarket ?? Baseball.Core.Historical.OwnerPlayerMarketBalanceTable.CreateInitial();
             AggregateMatch = aggregateMatch ?? AggregateMatchBalance.CreateDefault();
+            HistoricalPitcherUsage = historicalPitcherUsage ?? HistoricalPitcherUsageBalance.CreateDefault();
         }
 
         public int Version { get; }
         public AggregateMatchBalance AggregateMatch { get; }
+        public HistoricalPitcherUsageBalance HistoricalPitcherUsage { get; }
         public string ContentHash { get; }
         public PlateDisciplineBalance PlateDiscipline { get; }
         public BattedBallBalance BattedBall { get; }
@@ -282,7 +319,14 @@ namespace Baseball.Core.Balance
                 runnerSpeedWeight: 0.0040d,
                 defenseWeight: 0.0030d,
                 doublePlayRunnerSpeedWeight: 0.0030d,
-                doublePlayDefenseWeight: 0.0020d);
+                doublePlayDefenseWeight: 0.0020d,
+                // 기존 진루율은 '성공 확률'인데 Detailed 경로가 이를 송구 시 세이프 확률로도
+                // 재사용해 진루를 막았다. 시도율과 송구 결과를 분리해 원래 진루율을 보존한다.
+                extraBaseSafeProbability: 0.94d,
+                extraBaseSafeSpeedWeight: 0.0010d,
+                extraBaseSafeDefenseWeight: 0.0008d,
+                conservativeAttemptMultiplier: 0.82d,
+                aggressiveAttemptMultiplier: 1.18d);
 
             return new BalanceTable(
                 3,

@@ -43,8 +43,9 @@ namespace Baseball.Simulation.Match
                 capacity *= _fatigue.LongReliefMultiplier;
             else if (entry.Role == PitcherRole.Closer)
                 capacity *= _fatigue.CloserMultiplier;
+            capacity *= entry.CapacityMultiplier;
 
-            double recentLoad = CalculateRecentLoad(entry.RecentWorkload);
+            double recentLoad = CalculateRecentLoad(entry.RecentWorkload) / entry.RecoveryMultiplier;
             double staminaMitigation = 1d - ratings.Stamina * 0.003d;
             double workloadPenalty = recentLoad * staminaMitigation * 0.28d;
             double conditionMultiplier = 0.85d + entry.Condition * 0.0015d;

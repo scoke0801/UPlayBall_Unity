@@ -23,7 +23,8 @@ namespace Baseball.Simulation.Match
             PitcherChangeDecision decision = _pitcherManagementAi.Evaluate(
                 context,
                 available,
-                defense.CalculateBullpenFreshness(balance));
+                defense.CalculateBullpenFreshness(balance),
+                defense.CalculateBullpenQualityAdvantage(balance));
             if (!decision.ShouldChange)
                 return;
 

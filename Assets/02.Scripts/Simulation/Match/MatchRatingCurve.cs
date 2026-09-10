@@ -62,7 +62,8 @@ namespace Baseball.Simulation.Match
         private static PitcherRosterEntry ProjectPitcher(PitcherRosterEntry source, MatchRatingCurveBalance balance) =>
             new PitcherRosterEntry(ProjectPlayer(source.Player, balance), source.Role, source.Condition,
                 source.RecentWorkload, source.PitchLimit, source.NaturalRole, source.ActiveRosterRole,
-                source.PlayerSeasonId, source.NaturalRoleConfidence);
+                source.PlayerSeasonId, source.NaturalRoleConfidence,
+                source.CapacityMultiplier, source.RecoveryMultiplier);
 
         /// <summary>상한 이후 기울기만 줄인다. 반환값은 확률이나 백분율이 아닌 Resolver 입력이다.</summary>
         public static double Resolve(double effectiveRating, EffectiveRatingCapTable caps)

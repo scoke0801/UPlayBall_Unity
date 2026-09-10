@@ -19,7 +19,12 @@ namespace Baseball.Core.Balance
             double runnerSpeedWeight,
             double defenseWeight,
             double doublePlayRunnerSpeedWeight,
-            double doublePlayDefenseWeight)
+            double doublePlayDefenseWeight,
+            double extraBaseSafeProbability = 0.94d,
+            double extraBaseSafeSpeedWeight = 0.0010d,
+            double extraBaseSafeDefenseWeight = 0.0008d,
+            double conservativeAttemptMultiplier = 0.82d,
+            double aggressiveAttemptMultiplier = 1.18d)
         {
             SingleFromSecondScoreProbability = singleFromSecondScoreProbability;
             SingleFromFirstToThirdProbability = singleFromFirstToThirdProbability;
@@ -32,6 +37,11 @@ namespace Baseball.Core.Balance
             DefenseWeight = defenseWeight;
             DoublePlayRunnerSpeedWeight = doublePlayRunnerSpeedWeight;
             DoublePlayDefenseWeight = doublePlayDefenseWeight;
+            ExtraBaseSafeProbability = extraBaseSafeProbability;
+            ExtraBaseSafeSpeedWeight = extraBaseSafeSpeedWeight;
+            ExtraBaseSafeDefenseWeight = extraBaseSafeDefenseWeight;
+            ConservativeAttemptMultiplier = conservativeAttemptMultiplier;
+            AggressiveAttemptMultiplier = aggressiveAttemptMultiplier;
         }
 
         public double SingleFromSecondScoreProbability { get; }
@@ -45,5 +55,10 @@ namespace Baseball.Core.Balance
         public double DefenseWeight { get; }
         public double DoublePlayRunnerSpeedWeight { get; }
         public double DoublePlayDefenseWeight { get; }
+        public double ExtraBaseSafeProbability { get; }
+        public double ExtraBaseSafeSpeedWeight { get; }
+        public double ExtraBaseSafeDefenseWeight { get; }
+        public double ConservativeAttemptMultiplier { get; }
+        public double AggressiveAttemptMultiplier { get; }
     }
 }

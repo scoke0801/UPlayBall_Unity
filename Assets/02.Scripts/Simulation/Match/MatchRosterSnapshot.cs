@@ -72,13 +72,18 @@ namespace Baseball.Simulation.Match
             PitcherRole? naturalRole = null,
             ActiveRosterRole? activeRosterRole = null,
             string playerSeasonId = null,
-            PitcherRoleConfidence naturalRoleConfidence = PitcherRoleConfidence.High)
+            PitcherRoleConfidence naturalRoleConfidence = PitcherRoleConfidence.High,
+            double capacityMultiplier = 1d,
+            double recoveryMultiplier = 1d)
         {
             Player = player ?? throw new ArgumentNullException(nameof(player));
             if (condition < 0 || condition > 100)
                 throw new ArgumentOutOfRangeException(nameof(condition));
             if (pitchLimit < 0)
                 throw new ArgumentOutOfRangeException(nameof(pitchLimit));
+            if (double.IsNaN(capacityMultiplier) || capacityMultiplier <= 0d ||
+                double.IsNaN(recoveryMultiplier) || recoveryMultiplier <= 0d)
+                throw new ArgumentOutOfRangeException(nameof(capacityMultiplier));
             if (player.PrimaryPosition != PlayerPosition.StartingPitcher &&
                 player.PrimaryPosition != PlayerPosition.ReliefPitcher)
             {
@@ -105,6 +110,8 @@ namespace Baseball.Simulation.Match
             Condition = condition;
             RecentWorkload = recentWorkload;
             PitchLimit = pitchLimit;
+            CapacityMultiplier = capacityMultiplier;
+            RecoveryMultiplier = recoveryMultiplier;
         }
 
         public Player Player { get; }
@@ -116,6 +123,10 @@ namespace Baseball.Simulation.Match
         public int Condition { get; }
         public RecentPitchingWorkload RecentWorkload { get; }
         public int PitchLimit { get; }
+        /// <summary>카드 Stamina와 독립적으로 실제 역할의 한 경기 투구량을 보존한다.</summary>
+        public double CapacityMultiplier { get; }
+        /// <summary>최근 투구 부하를 실제 시즌 내구도에 맞게 환산한다.</summary>
+        public double RecoveryMultiplier { get; }
     }
 
     /// <summary>

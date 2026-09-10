@@ -134,7 +134,9 @@ namespace Baseball.Core.Balance
             double recentLoadDayTwoWeight,
             double recentLoadDayThreeWeight,
             double unavailableRecentLoad,
-            int lowLeverageCloserPenalty)
+            int lowLeverageCloserPenalty,
+            double bullpenQualityAdvantageWeight = 0.8d,
+            double maximumBullpenQualityAdvantage = 12d)
         {
             PullThreshold = pullThreshold;
             MaximumFatigueRisk = maximumFatigueRisk;
@@ -148,6 +150,8 @@ namespace Baseball.Core.Balance
             RecentLoadDayThreeWeight = recentLoadDayThreeWeight;
             UnavailableRecentLoad = unavailableRecentLoad;
             LowLeverageCloserPenalty = lowLeverageCloserPenalty;
+            BullpenQualityAdvantageWeight = bullpenQualityAdvantageWeight;
+            MaximumBullpenQualityAdvantage = maximumBullpenQualityAdvantage;
         }
 
         public double PullThreshold { get; }
@@ -162,6 +166,9 @@ namespace Baseball.Core.Balance
         public double RecentLoadDayThreeWeight { get; }
         public double UnavailableRecentLoad { get; }
         public int LowLeverageCloserPenalty { get; }
+        /// <summary>현재 투수보다 좋은 가용 불펜을 보유했을 때 교체 점수에 반영하는 비율이다.</summary>
+        public double BullpenQualityAdvantageWeight { get; }
+        public double MaximumBullpenQualityAdvantage { get; }
     }
 
     /// <summary>
@@ -182,7 +189,11 @@ namespace Baseball.Core.Balance
             double normalFlyHandleFailure,
             double normalThrowFailure,
             double difficultThrowFailure,
-            double handsErrorWeight)
+            double handsErrorWeight,
+            double airBallDoubleProbability = 0.45d,
+            double powerDoubleWeight = 0.0025d,
+            double airBallTripleProbability = 0.025d,
+            double speedTripleWeight = 0.0008d)
         {
             RangeProbabilityWeight = rangeProbabilityWeight;
             MaximumRangeAdjustment = maximumRangeAdjustment;
@@ -197,6 +208,10 @@ namespace Baseball.Core.Balance
             NormalThrowFailure = normalThrowFailure;
             DifficultThrowFailure = difficultThrowFailure;
             HandsErrorWeight = handsErrorWeight;
+            AirBallDoubleProbability = airBallDoubleProbability;
+            PowerDoubleWeight = powerDoubleWeight;
+            AirBallTripleProbability = airBallTripleProbability;
+            SpeedTripleWeight = speedTripleWeight;
         }
 
         public double RangeProbabilityWeight { get; }
@@ -212,6 +227,10 @@ namespace Baseball.Core.Balance
         public double NormalThrowFailure { get; }
         public double DifficultThrowFailure { get; }
         public double HandsErrorWeight { get; }
+        public double AirBallDoubleProbability { get; }
+        public double PowerDoubleWeight { get; }
+        public double AirBallTripleProbability { get; }
+        public double SpeedTripleWeight { get; }
     }
 
     /// <summary>
@@ -309,10 +328,13 @@ namespace Baseball.Core.Balance
                     0.55d, 0.25d, 55d, 20),
                 new DetailedFieldingBalance(
                     0.0008d, 0.04d, 0.0007d, 0.735d, 0.42d, 0.79d, 0.96d,
-                    0.0032d, 0.015d, 0.008d, 0.007d, 0.020d, 0.012d),
+                    0.0032d, 0.015d, 0.008d, 0.007d, 0.020d, 0.012d,
+                    // 외야·라인드라이브 도달 실패가 전부 2루타가 되던 경로를 실제 XBH 비중에 맞춘다.
+                    0.27d, 0.0025d, 0.025d, 0.0008d),
                 new TacticalMatchBalance(
                     0.68d, 0.004d, 0.0015d, 0.003d, 0.0015d, 0.35d, 0.92d,
-                    0.58d, 0.004d, 0.001d, -0.025d, 0.005d, 0.08d));
+                    // 음수 문턱은 평균 이하 주자까지 손익분기 미달 도루를 반복시켰다.
+                    0.58d, 0.004d, 0.001d, -0.008d, 0.005d, 0.08d));
         }
     }
 }

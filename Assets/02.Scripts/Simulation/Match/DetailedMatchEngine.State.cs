@@ -271,6 +271,7 @@ namespace Baseball.Simulation.Match
                                     balance.RecentLoadDayTwoWeight +
                                     pitcher.RosterEntry.RecentWorkload.ThreeDaysAgoPitches *
                                     balance.RecentLoadDayThreeWeight;
+                recentLoad /= pitcher.RosterEntry.RecoveryMultiplier;
                 if (allowEmergency || recentLoad < balance.UnavailableRecentLoad)
                     count++;
             }
@@ -291,10 +292,41 @@ namespace Baseball.Simulation.Match
                               balance.RecentLoadDayTwoWeight +
                               pitcher.RosterEntry.RecentWorkload.ThreeDaysAgoPitches *
                               balance.RecentLoadDayThreeWeight;
+                load /= pitcher.RosterEntry.RecoveryMultiplier;
                 total += Math.Max(0d, 1d - load / balance.UnavailableRecentLoad);
                 count++;
             }
             return count == 0 ? 0d : total / count;
+        }
+
+        /// <summary>가용 불펜의 최고 핵심 구위가 현재 투수보다 얼마나 높은지 계산한다.</summary>
+        public double CalculateBullpenQualityAdvantage(BullpenManagementBalance balance)
+        {
+            double activeQuality = CalculatePitcherQuality(ActivePitcherState);
+            double bestQuality = activeQuality;
+            bool hasNormallyAvailable = CountAvailableRelievers(balance, allowEmergency: false) > 0;
+            for (int index = 1; index < _pitchers.Length; index++)
+            {
+                PitcherGameState candidate = _pitchers[index];
+                if (candidate.HasEntered || candidate.HasBeenRemoved)
+                    continue;
+                double recentLoad = candidate.RosterEntry.RecentWorkload.PreviousDayPitches +
+                                    candidate.RosterEntry.RecentWorkload.TwoDaysAgoPitches * balance.RecentLoadDayTwoWeight +
+                                    candidate.RosterEntry.RecentWorkload.ThreeDaysAgoPitches * balance.RecentLoadDayThreeWeight;
+                recentLoad /= candidate.RosterEntry.RecoveryMultiplier;
+                if (hasNormallyAvailable && recentLoad >= balance.UnavailableRecentLoad)
+                    continue;
+                double quality = CalculatePitcherQuality(candidate);
+                if (quality > bestQuality) bestQuality = quality;
+            }
+            return bestQuality - activeQuality;
+        }
+
+        private static double CalculatePitcherQuality(PitcherGameState pitcher)
+        {
+            return (pitcher.Player.PitcherAttributes.Stuff +
+                    pitcher.Player.PitcherAttributes.Breaking +
+                    pitcher.Player.PitcherAttributes.Control) / 3d;
         }
 
         public int SelectReliever(
@@ -322,6 +354,7 @@ namespace Baseball.Simulation.Match
                                     balance.RecentLoadDayTwoWeight +
                                     candidate.RosterEntry.RecentWorkload.ThreeDaysAgoPitches *
                                     balance.RecentLoadDayThreeWeight;
+                recentLoad /= candidate.RosterEntry.RecoveryMultiplier;
                 if (hasNormallyAvailable && recentLoad >= balance.UnavailableRecentLoad)
                     continue;
                 double score = ai.ScoreReliever(candidate, leverage, remainingInnings, Roster.ManagerProfile);
@@ -418,6 +451,7 @@ namespace Baseball.Simulation.Match
                 double recentLoad = entry.RecentWorkload.PreviousDayPitches +
                                     entry.RecentWorkload.TwoDaysAgoPitches * balance.RecentLoadDayTwoWeight +
                                     entry.RecentWorkload.ThreeDaysAgoPitches * balance.RecentLoadDayThreeWeight;
+                recentLoad /= entry.RecoveryMultiplier;
                 bool isAvailable = !pitcher.HasEntered && !pitcher.HasBeenRemoved &&
                                    (!hasNormallyAvailable || recentLoad < balance.UnavailableRecentLoad);
                 candidates[candidateCount++] = new BullpenCandidateState(

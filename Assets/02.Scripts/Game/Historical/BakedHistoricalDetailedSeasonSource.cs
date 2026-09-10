@@ -494,6 +494,9 @@ namespace Baseball.Game.Historical
                 ActiveRosterRole.Closer,
                 logicalDay,
                 workloads);
+            PitcherUsageMultipliers starterUsage = ResolvePitcherUsage(
+                roster.Seasons[starterIndex],
+                PitcherRole.Starter);
 
             return new MatchRosterSnapshot(
                 roster.TeamId,
@@ -505,14 +508,16 @@ namespace Baseball.Game.Historical
                     recentWorkload: workloads.Get(roster.Players[starterIndex].PlayerId, logicalDay),
                     naturalRole: roster.Seasons[starterIndex].PitcherRole,
                     playerSeasonId: roster.Seasons[starterIndex].PlayerSeasonId,
-                    naturalRoleConfidence: roster.Seasons[starterIndex].PitcherRoleConfidence),
+                    naturalRoleConfidence: roster.Seasons[starterIndex].PitcherRoleConfidence,
+                    capacityMultiplier: starterUsage.Capacity,
+                    recoveryMultiplier: starterUsage.Recovery),
                 bullpen,
                 bench,
                 ManagerTacticalProfile.Balanced,
                 RunningApproach.Balanced);
         }
 
-        private static PitcherRosterEntry CreatePitcherEntry(
+        private PitcherRosterEntry CreatePitcherEntry(
             SeasonRoster roster,
             int playerIndex,
             PitcherRole assignedRole,
@@ -522,6 +527,7 @@ namespace Baseball.Game.Historical
         {
             Player player = roster.Players[playerIndex];
             PlayerSeasonDefinition season = roster.Seasons[playerIndex];
+            PitcherUsageMultipliers usage = ResolvePitcherUsage(season, assignedRole);
             return new PitcherRosterEntry(
                 player,
                 assignedRole,
@@ -529,7 +535,9 @@ namespace Baseball.Game.Historical
                 naturalRole: season.PitcherRole,
                 activeRosterRole: activeRosterRole,
                 playerSeasonId: season.PlayerSeasonId,
-                naturalRoleConfidence: season.PitcherRoleConfidence);
+                naturalRoleConfidence: season.PitcherRoleConfidence,
+                capacityMultiplier: usage.Capacity,
+                recoveryMultiplier: usage.Recovery);
         }
 
         private MatchRosterSnapshot BuildAllStarRoster(
@@ -583,6 +591,7 @@ namespace Baseball.Game.Historical
                 PitcherRole role = index < 4
                     ? PitcherRole.MiddleRelief
                     : index == 4 ? PitcherRole.Setup : PitcherRole.Closer;
+                PitcherUsageMultipliers usage = ResolvePitcherUsage(pair.Season, role);
                 bullpen[index] = new PitcherRosterEntry(
                     pair.Player,
                     role,
@@ -590,9 +599,12 @@ namespace Baseball.Game.Historical
                     naturalRole: pair.Season.PitcherRole,
                     activeRosterRole: rosterRole,
                     playerSeasonId: pair.Season.PlayerSeasonId,
-                    naturalRoleConfidence: pair.Season.PitcherRoleConfidence);
+                    naturalRoleConfidence: pair.Season.PitcherRoleConfidence,
+                    capacityMultiplier: usage.Capacity,
+                    recoveryMultiplier: usage.Recovery);
             }
             PlayerSeasonPair starting = starters[0];
+            PitcherUsageMultipliers startingUsage = ResolvePitcherUsage(starting.Season, PitcherRole.Starter);
             return new MatchRosterSnapshot(
                 AllStarTeamId,
                 context.SeasonYear + " 올스타",
@@ -603,11 +615,42 @@ namespace Baseball.Game.Historical
                     recentWorkload: workloads.Get(starting.Player.PlayerId, logicalDay),
                     naturalRole: starting.Season.PitcherRole,
                     playerSeasonId: starting.Season.PlayerSeasonId,
-                    naturalRoleConfidence: starting.Season.PitcherRoleConfidence),
+                    naturalRoleConfidence: starting.Season.PitcherRoleConfidence,
+                    capacityMultiplier: startingUsage.Capacity,
+                    recoveryMultiplier: startingUsage.Recovery),
                 bullpen,
                 bench,
                 ManagerTacticalProfile.Balanced,
                 RunningApproach.Balanced);
+        }
+
+        /// <summary>원기록 투구량을 역할별 기준에 대한 경기 용량·회복 배율로 변환한다.</summary>
+        private PitcherUsageMultipliers ResolvePitcherUsage(
+            PlayerSeasonDefinition season,
+            PitcherRole assignedRole)
+        {
+            if (season.HistoricalPitchingAppearances <= 0 || season.HistoricalPitchingOuts <= 0 ||
+                season.HistoricalTeamGames <= 0)
+                return PitcherUsageMultipliers.Default;
+
+            HistoricalPitcherUsageBalance usage = _balance.HistoricalPitcherUsage;
+            bool isStarter = assignedRole == PitcherRole.Starter;
+            double innings = season.HistoricalPitchingOuts / 3d;
+            double capacityBaseline = isStarter
+                ? usage.StarterInningsPerAppearance
+                : usage.RelieverInningsPerAppearance;
+            double recoveryBaseline = isStarter
+                ? usage.StarterInningsPerTeamGame
+                : usage.RelieverInningsPerTeamGame;
+            return new PitcherUsageMultipliers(
+                ClampUsageMultiplier(innings / season.HistoricalPitchingAppearances / capacityBaseline, usage),
+                ClampUsageMultiplier(innings / season.HistoricalTeamGames / recoveryBaseline, usage));
+        }
+
+        private static double ClampUsageMultiplier(double value, HistoricalPitcherUsageBalance balance)
+        {
+            if (value < balance.MinimumMultiplier) return balance.MinimumMultiplier;
+            return value > balance.MaximumMultiplier ? balance.MaximumMultiplier : value;
         }
 
         private SeasonContext CreateContext(IReadOnlyList<TeamSeasonDefinition> inputTeams)
@@ -867,6 +910,19 @@ namespace Baseball.Game.Historical
 
             public Player Player { get; }
             public PlayerSeasonDefinition Season { get; }
+        }
+
+        private readonly struct PitcherUsageMultipliers
+        {
+            public PitcherUsageMultipliers(double capacity, double recovery)
+            {
+                Capacity = capacity;
+                Recovery = recovery;
+            }
+
+            public double Capacity { get; }
+            public double Recovery { get; }
+            public static PitcherUsageMultipliers Default => new PitcherUsageMultipliers(1d, 1d);
         }
 
         private sealed class StandingsAccumulator
