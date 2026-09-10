@@ -2820,6 +2820,10 @@ def build_editor_original_content(
                 "_costValueInputs": cost_value_inputs,
                 "sourceSeasonGames": season_games,
                 "sourceSeasonGamesOrigin": season_games_origin,
+                # 카드 Stamina가 표현하지 못하는 시대별 선발·소방수 투구량을 경기 입력까지 보존한다.
+                "historicalPitchingAppearances": int(max(0.0, safe_number(pitcher_stats.get("games")))) if player_type == "Pitcher" else 0,
+                "historicalPitchingOuts": int(max(0.0, safe_number(pitcher_stats.get("inningsOuts")))) if player_type == "Pitcher" else 0,
+                "historicalTeamGames": int(max(0.0, safe_number(season_games))),
                 "cost": 0,
                 "trainingCeiling": [],
                 "rosterRole": "",

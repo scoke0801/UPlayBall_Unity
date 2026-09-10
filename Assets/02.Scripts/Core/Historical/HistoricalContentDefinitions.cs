@@ -133,7 +133,10 @@ namespace Baseball.Core.Historical
             PitchDataSourceKind pitchDataSourceKind = PitchDataSourceKind.Synthetic,
             string pitchBalanceVersion = "",
             bool isPositionEvidenceMissing = false,
-            IReadOnlyList<PositionProficiency> secondaryPositions = null)
+            IReadOnlyList<PositionProficiency> secondaryPositions = null,
+            int historicalPitchingAppearances = 0,
+            int historicalPitchingOuts = 0,
+            int historicalTeamGames = 0)
         {
             PlayerSeasonId = RequireId(playerSeasonId, nameof(playerSeasonId));
             PlayerPersonId = RequireId(playerPersonId, nameof(playerPersonId));
@@ -145,6 +148,11 @@ namespace Baseball.Core.Historical
                 throw new ArgumentException("본래 포지션이 필요합니다.", nameof(position));
             if (cost < 1 || cost > 10)
                 throw new ArgumentOutOfRangeException(nameof(cost), "Cost는 1~10이어야 합니다.");
+            if (historicalPitchingAppearances < 0 || historicalPitchingOuts < 0 || historicalTeamGames < 0)
+                throw new ArgumentOutOfRangeException(nameof(historicalPitchingAppearances));
+            if (playerType != PlayerType.Pitcher &&
+                (historicalPitchingAppearances != 0 || historicalPitchingOuts != 0))
+                throw new ArgumentException("야수 PlayerSeason에는 투구량 근거를 지정할 수 없습니다.", nameof(historicalPitchingAppearances));
 
             _baseAttributes = (baseAttributes ?? throw new ArgumentNullException(nameof(baseAttributes))).Clone();
             _trainingCeiling = (trainingCeiling ?? throw new ArgumentNullException(nameof(trainingCeiling))).Clone();
@@ -199,6 +207,9 @@ namespace Baseball.Core.Historical
                 positions[index] = entry;
             }
             _secondaryPositions = Array.AsReadOnly(positions);
+            HistoricalPitchingAppearances = historicalPitchingAppearances;
+            HistoricalPitchingOuts = historicalPitchingOuts;
+            HistoricalTeamGames = historicalTeamGames;
         }
 
         public string PlayerSeasonId { get; }
@@ -220,6 +231,12 @@ namespace Baseball.Core.Historical
         public bool IsPositionEvidenceMissing { get; }
         /// <summary>원기록으로 검증된 부포지션 적응도를 경기 입력까지 보존한다.</summary>
         public IReadOnlyList<PositionProficiency> SecondaryPositions => _secondaryPositions;
+        /// <summary>현대 역할명과 별개로 실제 시즌의 경기당 투구량을 복원하는 원기록 등판수다.</summary>
+        public int HistoricalPitchingAppearances { get; }
+        /// <summary>실제 시즌의 경기당·시즌당 투구량을 복원하는 원기록 투구 아웃 수다.</summary>
+        public int HistoricalPitchingOuts { get; }
+        /// <summary>서로 다른 시즌 길이에서 투구 비중을 정규화하는 원기록 구단 경기 수다.</summary>
+        public int HistoricalTeamGames { get; }
 
         public AbilityRatings CreateBaseAttributes() => _baseAttributes.Clone();
         public AbilityRatings CreateTrainingCeiling() => _trainingCeiling.Clone();

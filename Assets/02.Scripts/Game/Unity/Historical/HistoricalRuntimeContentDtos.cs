@@ -314,6 +314,9 @@ namespace Baseball.Game.Historical
         [SerializeField] private HistoricalRuntimePitchEntryDto[] pitchRepertoire;
         [SerializeField] private string pitchDataSourceKind;
         [SerializeField] private string pitchBalanceVersion;
+        [SerializeField] private int historicalPitchingAppearances;
+        [SerializeField] private int historicalPitchingOuts;
+        [SerializeField] private int historicalTeamGames;
 
         public string PlayerSeasonId => playerSeasonId ?? string.Empty;
         public string PlayerPersonId => playerPersonId ?? string.Empty;
@@ -332,6 +335,9 @@ namespace Baseball.Game.Historical
         public HistoricalRuntimePitchEntryDto[] PitchRepertoire => pitchRepertoire ?? Array.Empty<HistoricalRuntimePitchEntryDto>();
         public string PitchDataSourceKind => pitchDataSourceKind ?? string.Empty;
         public string PitchBalanceVersion => pitchBalanceVersion ?? string.Empty;
+        public int HistoricalPitchingAppearances => historicalPitchingAppearances;
+        public int HistoricalPitchingOuts => historicalPitchingOuts;
+        public int HistoricalTeamGames => historicalTeamGames;
     }
 
     [Serializable]

@@ -231,6 +231,9 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private HistoricalAbilityDerivationTrace[] abilityDerivationTrace;
         [SerializeField] private HistoricalCostDerivationTrace costDerivationTrace;
         [SerializeField] private HistoricalPositionRoleDerivationTrace positionRoleDerivationTrace;
+        [SerializeField] private int historicalPitchingAppearances;
+        [SerializeField] private int historicalPitchingOuts;
+        [SerializeField] private int historicalTeamGames;
         [NonSerialized] private string _sourcePath;
 
         public string PlayerSeasonId => playerSeasonId ?? string.Empty;
@@ -258,6 +261,9 @@ namespace Baseball.Editor.HistoricalDatabase
             abilityDerivationTrace ?? Array.Empty<HistoricalAbilityDerivationTrace>();
         public HistoricalCostDerivationTrace CostDerivationTrace => costDerivationTrace;
         public HistoricalPositionRoleDerivationTrace PositionRoleDerivationTrace => positionRoleDerivationTrace;
+        public int HistoricalPitchingAppearances => historicalPitchingAppearances;
+        public int HistoricalPitchingOuts => historicalPitchingOuts;
+        public int HistoricalTeamGames => historicalTeamGames;
         public string SourcePath => _sourcePath ?? string.Empty;
 
         internal void SetSourcePath(string sourcePath) => _sourcePath = sourcePath;

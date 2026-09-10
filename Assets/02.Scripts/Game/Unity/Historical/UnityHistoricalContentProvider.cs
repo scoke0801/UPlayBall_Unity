@@ -779,7 +779,10 @@ namespace Baseball.Game.Historical
                         (PitchDataSourceKind)Enum.Parse(typeof(PitchDataSourceKind), source.PitchDataSourceKind),
                     source.PitchBalanceVersion,
                     source.IsPositionEvidenceMissing,
-                    MapSecondaryPositions(source));
+                    MapSecondaryPositions(source),
+                    source.HistoricalPitchingAppearances,
+                    source.HistoricalPitchingOuts,
+                    source.HistoricalTeamGames);
             }
             catch (Exception exception)
             {

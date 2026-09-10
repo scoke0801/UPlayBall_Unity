@@ -107,6 +107,15 @@ class SyntheticBakeTests(unittest.TestCase):
             self.assertTrue(all(len(team["core25CardIds"]) == 25 for team in year["teamSeasons"]))
             self.assertTrue(all(len(team["allNormalCardIds"]) == 25 for team in year["teamSeasons"]))
             self.assertEqual(year["originalAwardRecords"], [])
+            source_pitchers = [
+                season for season in year["playerSeasons"]
+                if season["dataProvenance"] == "SourceBacked" and season["playerType"] == "Pitcher"
+            ]
+            self.assertEqual(
+                {(season["historicalPitchingAppearances"], season["historicalPitchingOuts"], season["historicalTeamGames"])
+                 for season in source_pitchers},
+                {(30, 450, 30), (30, 270, 30)},
+            )
             serialized = json.dumps(first, ensure_ascii=False)
             self.assertNotIn("originalName", serialized)
             self.assertNotIn("sourceReferenceNames", serialized)
