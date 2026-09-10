@@ -22,7 +22,7 @@ namespace Baseball.Editor.Tools
         /// <summary>KBO 정규화 캐시 → Editor 원본 Archive + Runtime 정제본(파이썬).</summary>
         CanonicalArchiveBake = 0,
 
-        /// <summary>Runtime 정제본 → Player Build용 TextAsset·Catalog.</summary>
+        /// <summary>Runtime 정제본 기준 특수 카드 재발급 → Player Build용 TextAsset·Catalog.</summary>
         RuntimeContentExport = 1,
 
         /// <summary>확정된 콘텐츠·밸런스로 44시즌 역사를 미리 시뮬레이션해 굽기.</summary>
@@ -83,7 +83,7 @@ namespace Baseball.Editor.Tools
 
     /// <summary>
     /// 세 단계를 선택한 것만 순서대로 실행한다. 파이썬 단계는 외부 프로세스라 에디터를 멈추지 않도록
-    /// EditorApplication.update에서 폴링하고, 나머지 두 단계는 기존 도구를 그대로 호출한다.
+    /// EditorApplication.update에서 폴링한다. 특수 카드 재발급이 성공한 뒤 내보내기 도구를 호출한다.
     /// </summary>
     public sealed class HistoricalContentPipelineRunner
     {
@@ -103,7 +103,7 @@ namespace Baseball.Editor.Tools
             new HistoricalContentPipelineStep(
                 HistoricalContentPipelineStepId.RuntimeContentExport,
                 "2. Runtime 콘텐츠 내보내기",
-                "정제본을 검증하고 Player Build용 TextAsset·Catalog로 묶어 NewGameDefinition에 연결합니다.",
+                "새 정제본으로 특수 카드를 재발급하고 전체 묶음을 검증한 뒤 Player Build에 연결합니다.",
                 HistoricalRuntimeContentExporter.SourceRoot,
                 HistoricalRuntimeContentExporter.RuntimeRoot),
             new HistoricalContentPipelineStep(
@@ -226,18 +226,16 @@ namespace Baseball.Editor.Tools
             AppendLog("--- " + step.Title + " 시작 ---");
             Changed?.Invoke();
 
-            if (step.Id == HistoricalContentPipelineStepId.CanonicalArchiveBake)
+            if (step.Id == HistoricalContentPipelineStepId.CanonicalArchiveBake ||
+                step.Id == HistoricalContentPipelineStepId.RuntimeContentExport)
             {
-                StartCanonicalBakeProcess(step);
+                StartContentBakeProcess(step);
                 return;
             }
 
             try
             {
-                if (step.Id == HistoricalContentPipelineStepId.RuntimeContentExport)
-                    HistoricalRuntimeContentExporter.ExportFromToolLauncher();
-                else
-                    WorldHistoryBakeTool.BakeAll();
+                WorldHistoryBakeTool.BakeAll();
                 SucceedStep(step);
             }
             catch (Exception exception)
@@ -247,7 +245,7 @@ namespace Baseball.Editor.Tools
             }
         }
 
-        private void StartCanonicalBakeProcess(HistoricalContentPipelineStep step)
+        private void StartContentBakeProcess(HistoricalContentPipelineStep step)
         {
             string workingDirectory = Path.GetFullPath(ImporterDirectory);
             if (!Directory.Exists(workingDirectory))
@@ -255,7 +253,8 @@ namespace Baseball.Editor.Tools
                 FailStep(step, "임포터 디렉터리가 없습니다: " + workingDirectory);
                 return;
             }
-            if (!Directory.Exists(Path.GetFullPath(NormalizedCacheDirectory)))
+            if (step.Id == HistoricalContentPipelineStepId.CanonicalArchiveBake &&
+                !Directory.Exists(Path.GetFullPath(NormalizedCacheDirectory)))
             {
                 FailStep(
                     step,
@@ -266,7 +265,10 @@ namespace Baseball.Editor.Tools
             var startInfo = new ProcessStartInfo
             {
                 FileName = _options.UvExecutablePath,
-                Arguments = BuildCanonicalBakeArguments(),
+                Arguments = step.Id == HistoricalContentPipelineStepId.CanonicalArchiveBake
+                    ? BuildCanonicalBakeArguments()
+                    : "run python bake_pipeline_special_cards.py --editor-root \"../../" +
+                      HistoricalContentPipelineStatus.EditorArchiveRoot + "\"",
                 WorkingDirectory = workingDirectory,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -301,6 +303,7 @@ namespace Baseball.Editor.Tools
         {
             return "run python " + CanonicalBakeScript +
                    " --input-dir .cache/KBOImport/Normalized" +
+                   " --research-supplement research_roster_supplement.json" +
                    " --years " + _options.Years +
                    " --seed " + _options.GenerationSeed.ToString(CultureInfo.InvariantCulture) +
                    " --editor-assets-dir \"../../" + HistoricalContentPipelineStatus.EditorArchiveRoot + "\"" +
@@ -348,7 +351,17 @@ namespace Baseball.Editor.Tools
 
             // 외부 프로세스가 Assets 아래 파일을 바꿨으므로 다음 단계가 읽기 전에 임포트해야 한다.
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-            SucceedStep(step);
+            try
+            {
+                if (step.Id == HistoricalContentPipelineStepId.RuntimeContentExport)
+                    HistoricalRuntimeContentExporter.ExportFromToolLauncher();
+                SucceedStep(step);
+            }
+            catch (Exception exception)
+            {
+                AppendLog(exception.ToString());
+                FailStep(step, exception.Message);
+            }
         }
 
         private void DisposeProcess()

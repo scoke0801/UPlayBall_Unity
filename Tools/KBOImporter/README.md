@@ -352,6 +352,12 @@ Bake한 WorldHistory를 새 콘텐츠의 경기 결과로 재사용하지 않는
 
 ## Manifest와 검증
 
+역사 콘텐츠 파이프라인 2단계는 `bake_pipeline_special_cards.py`로 현재 Editor `Runtime/` 정제본의
+EX·레전드·커리어하이·레어와 레시피를 먼저 재발급한다. 평가는 `Research/PyaMaeCardDb/PipelineSpecialCardEvaluation`
+아래에 남고, 저작 정책 원본은 유지한다. 내보내기는 일반 파일과 `BakedSpecialCards.json`의 해시·스키마·
+모든 카드 재료 참조를 복사 전에 검증한다. 일반 Archive를 다시 구운 뒤 예전 특수 카드의 해시만 바꾸지 않는다.
+단독 Export 또는 Player Build에서 재발급이 필요하다는 오류가 나오면 파이프라인 2단계를 실행한다.
+
 Manifest는 Source/Normalization/Balance/Generator Version, Content/Archive Hash, 파일별 SHA-256,
 Count와 Validation Report를 기록한다. `--verify-editor-assets`는 저장 직후 모든 파일을 다시 읽어
 다음을 검증한다.

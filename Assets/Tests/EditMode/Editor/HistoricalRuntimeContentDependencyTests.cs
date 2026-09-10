@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.IO;
 using Baseball.Editor.HistoricalDatabase;
 using Baseball.Game.Data;
 using Baseball.Game.Historical;
@@ -23,6 +24,46 @@ namespace Baseball.Tests.EditMode.Editor
                 _catalog,
                 Is.Not.Null,
                 "Historical Runtime exporter를 먼저 실행해야 합니다.");
+        }
+
+        [Test]
+        public void Exporter_ValidatesFreshSpecialCardsBeforePublishing()
+        {
+            string source = Path.GetFullPath(HistoricalRuntimeContentExporter.SourceRoot);
+            var archive = new HistoricalArchiveRepository().Load(source);
+            Assert.DoesNotThrow(() => HistoricalRuntimeContentExporter.ValidateSourcePayload(source, archive));
+        }
+
+        [Test]
+        public void Exporter_RejectsStaleSpecialCardsWithoutChangingProduction()
+        {
+            string source = Path.GetFullPath(HistoricalRuntimeContentExporter.SourceRoot);
+            string temporary = Path.Combine(Path.GetTempPath(), "HistoricalExport-" + Guid.NewGuid().ToString("N"));
+            byte[] original = File.ReadAllBytes(HistoricalRuntimeContentExporter.RuntimeRoot + "/manifest.json");
+            try
+            {
+                var archive = new HistoricalArchiveRepository().Load(source);
+                foreach (string path in Directory.GetFiles(source, "*.json", SearchOption.AllDirectories))
+                {
+                    string target = Path.Combine(temporary, path.Substring(source.Length + 1));
+                    Directory.CreateDirectory(Path.GetDirectoryName(target));
+                    File.Copy(path, target);
+                }
+                string specialPath = Path.Combine(temporary, "BakedSpecialCards.json");
+                string special = File.ReadAllText(specialPath);
+                string hash = archive.Manifest.SourceManifest.ContentHash;
+                Assert.That(special, Does.Contain(hash));
+                File.WriteAllText(specialPath, special.Replace(hash, "stale-content"));
+                var error = Assert.Throws<HistoricalContentLoadException>(() =>
+                    HistoricalRuntimeContentExporter.ValidateSourcePayload(temporary, archive));
+                Assert.That(error.Message, Does.Contain("expected="));
+                Assert.That(File.ReadAllBytes(HistoricalRuntimeContentExporter.RuntimeRoot + "/manifest.json"),
+                    Is.EqualTo(original));
+            }
+            finally
+            {
+                if (Directory.Exists(temporary)) Directory.Delete(temporary, true);
+            }
         }
 
         [Test]
@@ -57,7 +98,7 @@ namespace Baseball.Tests.EditMode.Editor
             int runtimeJsonCount = dependencies.Count(path =>
                 path.StartsWith(HistoricalRuntimeContentExporter.RuntimeRoot + "/", StringComparison.Ordinal) &&
                 path.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
-            Assert.That(runtimeJsonCount, Is.EqualTo(46));
+            Assert.That(runtimeJsonCount, Is.EqualTo(47));
         }
 
         [Test]

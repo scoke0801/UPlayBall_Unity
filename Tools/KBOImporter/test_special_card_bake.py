@@ -101,7 +101,8 @@ class SpecialCardBakeTests(unittest.TestCase):
         evaluation, policy = self.fixture()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            relative = 'Assets/10.Datas/HistoricalSimulation/Test/Years/2000.json'
+            relative = 'Assets/Editor Default Resources/HistoricalSimulation/Test/Runtime/Years/2000.json'
+            evaluation['runtimeArchiveRoot'] = 'Assets/Editor Default Resources/HistoricalSimulation/Test/Runtime'
             path = root / relative
             path.parent.mkdir(parents=True)
             ids = ['ps-peak', 'ps-pitcher'] + [f'ps-{year}' for year in range(2000, 2008)] + [f'legend-{i}' for i in range(8)]
