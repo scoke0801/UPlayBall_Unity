@@ -167,7 +167,7 @@ namespace Baseball.Core.Balance
                 homeRunMinimumExitVelocity: 90d,
                 homeRunMinimumLaunchAngle: 15d,
                 homeRunMaximumLaunchAngle: 42d,
-                homeRunProbabilityMultiplier: 1.70d,
+                homeRunProbabilityMultiplier: 2.20d,
                 repeatRecognitionBase: 0.12d,
                 repeatRecognitionMentalWeight: 0.002d,
                 repeatChaseReduction: 0.18d,
