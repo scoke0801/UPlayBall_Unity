@@ -140,9 +140,13 @@ internal static class Program
             value.Triples += line.Triples;
             value.HomeRuns += line.HomeRuns;
             value.Walks += line.Walks;
+            value.HitByPitches += line.HitByPitches;
             value.Strikeouts += line.Strikeouts;
+            value.SacrificeFlies += line.SacrificeFlies;
+            value.GroundedIntoDoublePlays += line.GroundedIntoDoublePlays;
             value.StolenBases += line.StolenBases;
             value.CaughtStealing += line.CaughtStealing;
+            value.BaserunningOuts += line.BaserunningOuts;
         }
         for (int index = 0; index < boxScore.PitchingLines.Count; index++)
         {
@@ -163,13 +167,15 @@ internal static class Program
 
     private sealed class TeamMetricAccumulator
     {
-        public int Games, Runs, PlateAppearances, AtBats, Hits, Doubles, Triples, HomeRuns, Walks, Strikeouts;
-        public int StolenBases, CaughtStealing, StarterOuts, StarterEarnedRuns, ReliefOuts, ReliefEarnedRuns;
+        public int Games, Runs, PlateAppearances, AtBats, Hits, Doubles, Triples, HomeRuns, Walks, HitByPitches;
+        public int Strikeouts, SacrificeFlies, GroundedIntoDoublePlays, StolenBases, CaughtStealing, BaserunningOuts;
+        public int StarterOuts, StarterEarnedRuns, ReliefOuts, ReliefEarnedRuns;
 
         public object Report(string teamSeasonKey) => new
         {
             teamSeasonKey, Games, Runs, PlateAppearances, AtBats, Hits, Doubles, Triples, HomeRuns,
-            Walks, Strikeouts, StolenBases, CaughtStealing, StarterOuts, StarterEarnedRuns,
+            Walks, HitByPitches, Strikeouts, SacrificeFlies, GroundedIntoDoublePlays,
+            StolenBases, CaughtStealing, BaserunningOuts, StarterOuts, StarterEarnedRuns,
             ReliefOuts, ReliefEarnedRuns
         };
     }

@@ -26,6 +26,8 @@ def correlation(left, right):
 def centered_correlation(rows, actual_name, simulated_name):
     by_year = defaultdict(list)
     for row in rows:
+        if row[actual_name] is None:
+            continue
         by_year[row["year"]].append(row)
     actual, simulated = [], []
     for group in by_year.values():
@@ -72,14 +74,20 @@ def actual_metrics(team, players):
     doubles = hitting["doubles"] if hitting else summed("hitterStats", "doubles")
     triples = hitting["triples"] if hitting else summed("hitterStats", "triples")
     runs = hitting["runs"] if hitting else summed("hitterStats", "runs")
-    stolen_bases = running["stolenBases"] if running else summed("runningStats", "stolenBases")
+    walks = hitting["walks"] if hitting else summed("hitterStats", "walks")
+    strikeouts = hitting["strikeouts"] if hitting else summed("hitterStats", "strikeouts")
+    has_running_evidence = running is not None or any(p.get("runningStats") is not None for p in players)
+    stolen_bases = (running["stolenBases"] if running else summed("runningStats", "stolenBases")) \
+        if has_running_evidence else None
     earned_runs = pitching["earnedRuns"] if pitching else summed("pitcherStats", "earnedRuns")
     innings_outs = pitching["inningsOuts"] if pitching else summed("pitcherStats", "inningsOuts")
     return dict(actualAverage=hits/at_bats,
         actualHomeRunsPerGame=home_runs/games,
         actualExtraBaseHitsPerGame=(doubles+triples+home_runs)/games,
-        actualStolenBasesPerGame=stolen_bases/games,
+        actualStolenBasesPerGame=stolen_bases/games if stolen_bases is not None else None,
         actualRunsPerGame=runs/games,
+        actualWalksPerGame=walks/games,
+        actualStrikeoutsPerGame=strikeouts/games,
         actualEra=27*earned_runs/innings_outs)
 
 
@@ -92,6 +100,13 @@ def simulated_metrics(items):
         simulatedExtraBaseHitsPerGame=(total("Doubles")+total("Triples")+total("HomeRuns"))/games,
         simulatedStolenBasesPerGame=total("StolenBases")/games,
         simulatedRunsPerGame=total("Runs")/games,
+        simulatedWalksPerGame=total("Walks")/games,
+        simulatedHitByPitchesPerGame=total("HitByPitches")/games,
+        simulatedStrikeoutsPerGame=total("Strikeouts")/games,
+        simulatedSacrificeFliesPerGame=total("SacrificeFlies")/games,
+        simulatedDoublePlaysPerGame=total("GroundedIntoDoublePlays")/games,
+        simulatedCaughtStealingPerGame=total("CaughtStealing")/games,
+        simulatedBaserunningOutsPerGame=total("BaserunningOuts")/games,
         simulatedEra=27*(total("StarterEarnedRuns")+total("ReliefEarnedRuns"))/pitching_outs,
         simulatedStarterEra=27*total("StarterEarnedRuns")/total("StarterOuts"),
         simulatedReliefEra=27*total("ReliefEarnedRuns")/total("ReliefOuts"))
@@ -100,9 +115,13 @@ def simulated_metrics(items):
 def summarize(simulation_path, runtime_root, normalized_root):
     simulation = read(simulation_path)
     metric_rows = defaultdict(list)
+    win_rate_rows = defaultdict(list)
     for run in simulation["rows"]:
         for metric in run["teamMetrics"]:
             metric_rows[(run["year"], metric["teamSeasonKey"])].append(metric)
+        for team in run["teams"]:
+            decisions = team["Wins"] + team["Losses"]
+            win_rate_rows[(run["year"], team["TeamSeasonKey"])].append(team["Wins"] / decisions)
     mappings = {}
     rows = []
     for (year, key), metrics in sorted(metric_rows.items()):
@@ -110,6 +129,7 @@ def summarize(simulation_path, runtime_root, normalized_root):
             mappings[year] = map_teams(runtime_root, normalized_root, year)
         team, source_players, definition, seasons = mappings[year][key]
         row = dict(year=year, team=team["sourceTeamName"], teamSeasonKey=key)
+        row["simulatedWinRate"] = statistics.mean(win_rate_rows[(year, key)])
         row.update(actual_metrics(team, source_players))
         row.update(simulated_metrics(metrics))
         hitters = [seasons[c.rsplit(":", 1)[0]]["baseAttributes"] for c in definition["core25CardIds"][:9]]
@@ -117,17 +137,27 @@ def summarize(simulation_path, runtime_root, normalized_root):
         row.update(contact=statistics.mean(a[0] for a in hitters), power=statistics.mean(a[1] for a in hitters),
             speed=statistics.mean(a[2] for a in hitters), pitcherQuality=statistics.mean(statistics.mean(a[7:12]) for a in pitchers))
         rows.append(row)
+    for year in {row["year"] for row in rows}:
+        year_rows = [row for row in rows if row["year"] == year]
+        for row in year_rows:
+            row["simulatedRank"] = 1 + sum(
+                peer["simulatedWinRate"] > row["simulatedWinRate"] + 1e-12 for peer in year_rows
+            )
     pairs = (("average", "actualAverage", "simulatedAverage"),
         ("homeRuns", "actualHomeRunsPerGame", "simulatedHomeRunsPerGame"),
         ("extraBaseHits", "actualExtraBaseHitsPerGame", "simulatedExtraBaseHitsPerGame"),
         ("stolenBases", "actualStolenBasesPerGame", "simulatedStolenBasesPerGame"),
         ("runs", "actualRunsPerGame", "simulatedRunsPerGame"),
+        ("walks", "actualWalksPerGame", "simulatedWalksPerGame"),
+        ("strikeouts", "actualStrikeoutsPerGame", "simulatedStrikeoutsPerGame"),
         ("era", "actualEra", "simulatedEra"))
     metrics = {}
     for label, actual, simulated in pairs:
-        metrics[label] = dict(correlation=centered_correlation(rows, actual, simulated),
-            meanActual=statistics.mean(r[actual] for r in rows), meanSimulated=statistics.mean(r[simulated] for r in rows),
-            meanAbsoluteError=statistics.mean(abs(r[actual]-r[simulated]) for r in rows))
+        valid = [r for r in rows if r[actual] is not None]
+        metrics[label] = dict(correlation=centered_correlation(valid, actual, simulated),
+            sampleCount=len(valid), meanActual=statistics.mean(r[actual] for r in valid),
+            meanSimulated=statistics.mean(r[simulated] for r in valid),
+            meanAbsoluteError=statistics.mean(abs(r[actual]-r[simulated]) for r in valid))
     return dict(experiment=simulation_path.stem, contentHash=simulation["contentHash"], games=simulation["games"],
         repeats=simulation["repeatCount"], center=simulation["center"], slope=simulation["slope"],
         pitcherSlope=simulation["pitcherSlope"], metrics=metrics, teams=rows)
