@@ -1,0 +1,34 @@
+[
+  {
+    "clipId": "Batter.DuelSwing.R",
+    "frames": 6,
+    "minimumCellPaddingPixels": 42,
+    "backgroundAlphaMean": 0.0,
+    "edgeGreenDominanceMax": 8,
+    "allFramesRGBA": true
+  },
+  {
+    "clipId": "Batter.DuelSwing.L",
+    "frames": 6,
+    "minimumCellPaddingPixels": 34,
+    "backgroundAlphaMean": 0.0,
+    "edgeGreenDominanceMax": 8,
+    "allFramesRGBA": true
+  },
+  {
+    "clipId": "Catcher.Idle",
+    "frames": 8,
+    "minimumCellPaddingPixels": 26,
+    "backgroundAlphaMean": 0.0,
+    "edgeGreenDominanceMax": 8,
+    "allFramesRGBA": true
+  },
+  {
+    "clipId": "Runner.Run",
+    "frames": 8,
+    "minimumCellPaddingPixels": 25,
+    "backgroundAlphaMean": 0.0,
+    "edgeGreenDominanceMax": 8,
+    "allFramesRGBA": true
+  }
+]
