@@ -1,7 +1,7 @@
 # Unity UI 제작 지침 — UPlayBall
 
-> 문서 버전: 1.2
-> 기준일: 2026-09-04
+> 문서 버전: 1.3
+> 기준일: 2026-09-11
 > 대상: UI 기획자, UI 디자이너, Unity 클라이언트 개발자, AI 코딩 에이전트  
 > 엔진 기준: Unity 6
 
@@ -18,6 +18,11 @@
 - 중립 graphite/off-white/muted navy를 Base로 사용하고 Team Color는 작은 Accent에만 사용한다.
 - 기존 청록 Glow·절삭 금속 Frame은 자동 보존 대상이 아니다. 정보 계층과 고밀도 배치를 방해하면 교체한다.
 - ImageGen 자산은 텍스트 없는 환경 배경과 장식에만 사용하며 Panel/Button/Table은 Native UI로 만든다.
+
+## 2026-09-11 추가 우선 규칙
+
+- **디버그성 정보는 요청이 없는 한 플레이어 UI에 표시하지 않는다.** 내부 ID(`PlayerId`·`TeamId`·`GameId`), Seed, 원시 계수·확률값, 판단 트레이스, 개발용 상태 문자열, 로그성 텍스트가 해당한다. 개발 확인이 필요하면 에디터 도구·통합 툴 런처·로그로 보내며, 플레이어 화면에 임시로 넣었다가 남기지 않는다. 플레이어에게 결과 설명이 필요하면 원시 값이 아니라 한국어 설명·등급·비교 표현으로 번역해 보여준다.
+- **UI/UX 사용성을 완료 기준에 포함한다.** 화면은 "정보가 다 떠 있는가"가 아니라 플레이어가 다음 행동을 바로 알 수 있는가로 평가한다. 핵심 정보 우선 배치, 적은 클릭 수, 선택 결과와 비활성 사유의 명시, 되돌리기·취소 경로, 로딩·빈 상태·오류 상태 구분, 키보드·게임패드 포커스 흐름을 확인한다.
 
 ---
 
@@ -1168,6 +1173,7 @@ Metrics          : Header / Bottom Navigation / Panel Gap / Content Inset 기준
 - 데이터 없음과 로딩 중의 동일 처리
 - 전체 목록의 반복 파괴·생성
 - 의미 없는 장식, 그래프, 애니메이션 추가
+- 요청 없이 내부 ID·Seed·원시 계수·판단 트레이스 등 디버그성 정보를 플레이어 UI에 노출
 - 기존 공통 컴포넌트 확인 없이 유사 Prefab 복제
 - Skin이 있는 Panel/Button/Tab/Card/Popup을 `Image + Color`로 대체
 - 검토 없이 공용 Theme/Skin을 화면별로 제거·복제
@@ -1191,3 +1197,4 @@ Metrics          : Header / Bottom Navigation / Panel Gap / Content Inset 기준
 | 1.0 | 2026-08-28 | 최초 작성. 공통 셸, 메뉴 구조, 시각 토큰, 입력, 코드 구조, 완료 조건 정의 |
 | 1.1 | 2026-08-30 | Theme/Skin/Layout 개념 분리. Skin 적용 규칙(5.5), Content Safe Bounds(4.5), Screen Slot 구조(4.6), Responsive 우선순위(4.7) 추가. AI 작업 지침과 완료 조건에 Skin 검증·Layout Bounds 검증 추가 |
 | 1.2 | 2026-09-04 | Player/Owner 공용 `SharedGameShell`, Mode Profile Navigation, 중립 Theme, 선택 Inspector/Action Bar와 Legacy 하단 8탭 폐기 기준 반영 |
+| 1.3 | 2026-09-11 | 디버그성 정보 비노출 규칙과 UI/UX 사용성 완료 기준 추가 |

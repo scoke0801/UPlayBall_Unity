@@ -193,6 +193,13 @@ BalanceTable                          MatchState
 - **통계 테스트:** N경기 대량 시뮬레이션 후 리그 지표가 목표 범위 안에 드는지. 능력치가 높은 팀의 승률이 유의미하게 높은지.
 - **기록 집계 테스트:** BoxScore 합계와 선수 시즌 누적 기록이 일치.
 
+## UI 작성
+
+UI 화면·프리팹·UI 코드를 만들거나 고칠 때는 [docs/지침/Unity_UI_Production_Guidelines_UPlayBall.md](docs/지침/Unity_UI_Production_Guidelines_UPlayBall.md)를 먼저 읽고 그대로 따른다. 공통 셸(`SharedGameShell`)·Mode Profile 내비게이션·Theme/Skin·Content Safe Bounds·완료 조건(17절)이 모두 이 문서에 있다.
+
+- **디버그성 정보는 요청이 없는 한 UI에 표시하지 않는다.** 내부 ID(`PlayerId`·`TeamId`·`GameId`), Seed, 원시 계수·확률값, 판단 트레이스, 개발용 상태 문자열이 해당한다. 개발 확인용 정보는 에디터 도구·통합 툴 런처·로그로 보낸다. 결과 설명이 필요하면 원시 값 대신 한국어 설명·등급·비교 표현으로 번역한다.
+- **UI/UX 사용성을 완료 기준으로 삼는다.** 플레이어가 화면을 보고 다음 행동을 바로 알 수 있어야 한다 — 핵심 정보 우선 배치, 적은 클릭 수, 비활성 사유 명시, 취소·뒤로 가기 경로, 로딩·빈 상태·오류 상태 구분, 키보드·게임패드 포커스 흐름을 확인한다. 컴파일 성공이나 "정보가 다 떠 있음"만으로 UI 작업을 완료 처리하지 않는다.
+
 ## 이미지 생성
 
 인물 일러스트(프런트 매니저·선수 초상화 등)를 만들 때는 [docs/지침/Image_Generation_Guidelines_UPlayBall.md](docs/지침/Image_Generation_Guidelines_UPlayBall.md)의 프롬프트와 절차를 그대로 따른다.
