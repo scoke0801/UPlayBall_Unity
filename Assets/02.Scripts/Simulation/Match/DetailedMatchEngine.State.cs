@@ -154,11 +154,14 @@ namespace Baseball.Simulation.Match
         /// <summary>현재 선수의 동결 Condition과 실제 배치 비용을 한 번 합성해 능력치 변경량으로 변환한다.</summary>
         public int GetConditionRatingModifier(Player player, int assignmentConditionModifier = 0)
         {
-            if (player == null || _conditionRatingResolver == null ||
-                !Roster.TryGetEffectiveCondition(player.PlayerId, out EffectiveMatchCondition condition))
+            if (player == null || _conditionRatingResolver == null)
             {
                 return 0;
             }
+
+            // 역사·커리어 입력에는 구단주 Condition 스냅샷이 없다. 현재 배치의 비용까지 없애지는 않는다.
+            if (!Roster.TryGetEffectiveCondition(player.PlayerId, out EffectiveMatchCondition condition))
+                return _conditionRatingResolver.ResolveAssignmentRatingModifier(assignmentConditionModifier);
 
             if (player.PlayerId == ActivePitcher.PlayerId)
             {

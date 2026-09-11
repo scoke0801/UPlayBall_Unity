@@ -84,11 +84,14 @@ namespace Baseball.Tests.EditMode.Simulation
             var state = new DetailedTeamGameState(
                 mismatchRoster,
                 new PitcherFatigueResolver(BalanceTable.CreateDefault().Match),
-                new HistoricalMatchConfiguration(positionAssignmentRule: rule));
+                new HistoricalMatchConfiguration(positionAssignmentRule: rule),
+                new Baseball.Simulation.Historical.MatchConditionRatingResolver(BalanceTable.CreateDefault().ConditionChemistry));
 
             PositionAssignmentPenalty penalty = state.GetActivePitcherAssignmentPenalty();
             Assert.That(penalty.IsAllowed, Is.True);
             Assert.That(penalty.ConditionPenalty, Is.EqualTo(5));
+            Assert.That(state.GetConditionRatingModifier(state.ActivePitcher, -penalty.ConditionPenalty),
+                Is.EqualTo(-1), "보직 비용이 Condition 스냅샷 없는 역사 경기에서도 경기 능력치에 도달해야 한다.");
         }
 
         [TestCase(true, 100, false)]

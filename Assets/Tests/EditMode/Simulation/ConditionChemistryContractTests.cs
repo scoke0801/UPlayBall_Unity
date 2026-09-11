@@ -376,6 +376,35 @@ namespace Baseball.Tests.EditMode.Simulation
                 Is.EqualTo(balance.FamiliarityCap));
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void MatchSnapshot_배치비용은중립스냅샷유무와무관하게한번만적용한다(bool includeConditions)
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            MatchRosterSnapshot roster = CreateConditionRoster(includeConditions);
+            var resolver = new MatchConditionRatingResolver(balance.ConditionChemistry);
+            var state = new DetailedTeamGameState(roster, new PitcherFatigueResolver(balance.Match),
+                historicalConfiguration: null, conditionRatingResolver: resolver);
+            Player catcher = roster.StartingLineup[0].Player;
+
+            Assert.That(state.GetConditionRatingModifier(catcher, -20), Is.EqualTo(-2));
+            Assert.That(state.GetConditionRatingModifier(catcher, -20), Is.EqualTo(-2));
+            Assert.That(state.GetConditionRatingModifier(catcher), Is.Zero,
+                "배치 비용 조회가 원본 또는 다음 조회에 누적되면 안 된다.");
+        }
+
+        [Test]
+        public void MatchSnapshot_Condition없는투수도배치비용을반영한다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            MatchRosterSnapshot roster = CreateConditionRoster(false);
+            var state = new DetailedTeamGameState(roster, new PitcherFatigueResolver(balance.Match),
+                historicalConfiguration: null,
+                conditionRatingResolver: new MatchConditionRatingResolver(balance.ConditionChemistry));
+            Assert.That(state.GetConditionRatingModifier(roster.StartingPitcher.Player, -20), Is.EqualTo(-2));
+            Assert.That(state.GetConditionRatingModifier(roster.StartingPitcher.Player), Is.Zero);
+        }
+
         private static LineupChemistryPlayer[] CreateChemistryLineup(Func<int, BatterAttributes> createAttributes)
         {
             var result = new LineupChemistryPlayer[9];

@@ -310,6 +310,13 @@ namespace Baseball.Simulation.Historical
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
         }
 
+        /// <summary>저장 컨디션이 없는 경기에서도 중립값을 기준으로 실제 배치 비용만 반영한다.</summary>
+        public int ResolveAssignmentRatingModifier(int assignmentConditionModifier)
+        {
+            long condition = (long)_balance.NeutralMatchCondition + assignmentConditionModifier;
+            return ResolveRatingModifier((int)Math.Max(0L, Math.Min(100L, condition)));
+        }
+
         public int ResolveRatingModifier(int effectiveMatchCondition)
         {
             if (effectiveMatchCondition < 0 || effectiveMatchCondition > 100)
