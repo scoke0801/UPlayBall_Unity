@@ -101,6 +101,33 @@ namespace Baseball.Presentation.Owner
         public string ActiveRouteId { get; private set; } = string.Empty;
         public OwnerRosterLineupSnapshot RosterLineupSnapshot => _rosterLineupModel?.Snapshot;
 
+        /// <summary>적용 전 변경안을 안내 이동이 버리거나 덮어쓰지 않도록 공개한다.</summary>
+        public bool HasGuideBlockingPreview => _hasRosterLineupPreview;
+        public bool IsGuideSuppressed => _shopView != null && _shopView.IsGuideSuppressed;
+        public bool HasGuideBlockingEditor => (_teamColorView != null && _teamColorView.HasUnappliedGuideChanges) ||
+            (_tacticsView != null && _tacticsView.HasGuideEditor);
+
+        /// <summary>현재 표시된 실제 View만 안내 대상으로 제공한다.</summary>
+        public bool TrySelectGuideTarget(Baseball.Game.Guide.GuideGoal goal, out RectTransform target)
+        {
+            target = null;
+            if (goal.Target == Baseball.Game.Guide.GuideTargetKind.Analysis)
+                target = _pregameView?.GuideAnalysisTarget;
+            else if (goal.Target == Baseball.Game.Guide.GuideTargetKind.PlanConfirmation)
+                target = _pregameView?.GuideStartTarget;
+            else if (goal.Target == Baseball.Game.Guide.GuideTargetKind.TeamColor)
+                target = _teamColorView?.GuideTarget;
+            else if (goal.Target == Baseball.Game.Guide.GuideTargetKind.Tactic)
+                target = _tacticsView?.GuideTarget;
+            else if (goal.Target == Baseball.Game.Guide.GuideTargetKind.Roster || goal.Target == Baseball.Game.Guide.GuideTargetKind.Condition ||
+                     goal.Target == Baseball.Game.Guide.GuideTargetKind.PresetSlot)
+            {
+                if (_rosterLineupView != null && _rosterLineupView.TrySelectGuideTarget(goal, out target)) return true;
+                if (_rosterPitchingView != null && _rosterPitchingView.TrySelectGuideTarget(goal, out target)) return true;
+            }
+            return target != null;
+        }
+
         public void Initialize(SharedUI.SharedGameShellView shell, Func<string, Sprite> staffPortraitResolver = null)
         {
             if (_shell != null) return;

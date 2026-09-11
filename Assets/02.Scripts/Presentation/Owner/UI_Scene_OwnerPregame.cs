@@ -30,6 +30,12 @@ namespace Baseball.Presentation.Owner
 
         public event Action MatchStartRequested;
 
+        /// <summary>리포트 본문을 실제로 표시한 경우에만 안내 도착 대상으로 제공한다.</summary>
+        public RectTransform GuideAnalysisTarget => _workspaceRoot != null && _workspaceRoot.gameObject.activeInHierarchy &&
+            _model != null && _model.Snapshot.ContentState.Kind == UiContentStateKind.Ready ? _workspaceRoot : null;
+        public RectTransform GuideStartTarget => _startButton != null && _startButton.gameObject.activeInHierarchy &&
+            _startButton.interactable ? (RectTransform)_startButton.transform : null;
+
         public static UI_Scene_OwnerPregame CreateRuntime(
             RectTransform workspaceHost,
             RectTransform inspectorHost,

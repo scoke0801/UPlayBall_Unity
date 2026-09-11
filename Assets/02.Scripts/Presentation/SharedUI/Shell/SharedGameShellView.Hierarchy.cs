@@ -278,6 +278,7 @@ namespace Baseball.Presentation.SharedUI
                 _modeBackground.color = isOwnerHome ? Color.white : CareerUiTheme.ShellBackdropTint;
 
             float bottom = _isActionBarVisible ? ActionBarHeight + 12f : 12f;
+            bottom = ApplyGuideReservation(bottom);
             float right = _isInspectorVisible ? InspectorWidth + WorkspaceGap + 16f : 16f;
             _mainWorkspaceHost.offsetMin = new Vector2(16f, bottom);
             _mainWorkspaceHost.offsetMax = new Vector2(-right,

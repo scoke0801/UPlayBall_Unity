@@ -39,6 +39,8 @@ namespace Baseball.Presentation.Owner
             { "구분", "경기", "일정", "점수 및 결과", "상대 구단", "장소", "작전 카드", "설정" };
 
         public event Action<int, string[]> SelectionConfirmed;
+        public RectTransform GuideTarget => _root != null && _root.gameObject.activeInHierarchy && _snapshot != null ? _root : null;
+        public bool HasGuideEditor => _editor != null && _editor.gameObject.activeInHierarchy;
 
         public static UI_Scene_OwnerTactics CreateRuntime(Transform parent)
         {

@@ -79,6 +79,7 @@ namespace Baseball.Presentation.Owner
             DevelopmentRealIdentitySettings.Changed += Refresh;
             FrontManagerGuideCtaRouter.OwnerRouteRequested -= HandleGuideRouteRequested;
             FrontManagerGuideCtaRouter.OwnerRouteRequested += HandleGuideRouteRequested;
+            FrontManagerGuideCtaRouter.OwnerRouteAvailability += CanRouteGuideAction;
             UiGameModeSession.ModeChanged += HandleModeChanged;
             EnsureExpansionWorkspace();
             EnsureSharedInformationWorkspace();
@@ -142,6 +143,7 @@ namespace Baseball.Presentation.Owner
             if (!_isOwnerMatchVisible && !_isTransitioningToOwnerMatch)
                 EnsureRouteSnapshots(ActiveRouteId);
             OwnerModeEntryProfiler.Mark("현재 화면 스냅샷 바인딩");
+            RefreshOwnerGuide();
             if (_isOwnerMatchVisible || _isTransitioningToOwnerMatch)
             {
                 ShowOwnerMatchSpectator();
@@ -201,6 +203,7 @@ namespace Baseball.Presentation.Owner
 
         private void LateUpdate()
         {
+            UpdateGuideSuppression();
             if (_shell == null || !_shell.gameObject.activeSelf)
                 return;
 
@@ -272,6 +275,7 @@ namespace Baseball.Presentation.Owner
 
         private void OnDestroy()
         {
+            DestroyOwnerGuide();
             SetOwnerMatchBgm(false);
             _manager?.AbortRegularSeasonSimulationForSceneUnload();
             if (_manager != null)
@@ -279,6 +283,7 @@ namespace Baseball.Presentation.Owner
             DevelopmentRealIdentitySettings.Changed -= Refresh;
             UiGameModeSession.ModeChanged -= HandleModeChanged;
             FrontManagerGuideCtaRouter.OwnerRouteRequested -= HandleGuideRouteRequested;
+            FrontManagerGuideCtaRouter.OwnerRouteAvailability -= CanRouteGuideAction;
             if (_shell != null)
                 _shell.SettingsRequested -= HandleSettingsRequested;
             if (UIManager.Instance != null)
@@ -328,6 +333,8 @@ namespace Baseball.Presentation.Owner
 
         private void HandleRuntimeChanged()
         {
+            _guideRequest++;
+            ClearGuideTarget();
             _boundSnapshotRoutes.Clear();
             _shopService = null;
             _pendingLineupPreset = null;
@@ -377,26 +384,10 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>프런트 매니저의 첫 선수 배정 안내 CTA를 실제 선수단 화면에 연결한다.</summary>
-        private void HandleGuideRouteRequested(GuideCtaAction action, string eventId)
+        private bool HandleGuideRouteRequested(GuideCtaAction action, string eventId)
         {
-            string routeId = action switch
-            {
-                GuideCtaAction.OpenRoster or GuideCtaAction.OpenLineup or GuideCtaAction.OpenTodayLineup =>
-                    OwnerNavigationRoutes.RosterLineup,
-                GuideCtaAction.OpenPitchingRole or GuideCtaAction.OpenPitchingStaff or GuideCtaAction.OpenBullpen =>
-                    OwnerNavigationRoutes.RosterPitching,
-                GuideCtaAction.OpenScout or GuideCtaAction.OpenFocusScout => OwnerNavigationRoutes.PowerUpScout,
-                GuideCtaAction.OpenTactics => OwnerNavigationRoutes.RosterTacticCards,
-                _ => HomeRouteId
-            };
-            HandleNavigationRequested(routeId);
-            if (_manager.HasActiveRuntime &&
-                !_manager.Runtime.Onboarding.IsCompleted &&
-                !string.IsNullOrWhiteSpace(eventId) &&
-                eventId.IndexOf("owner-first-entry", StringComparison.Ordinal) >= 0)
-            {
-                _manager.SkipOnboarding();
-            }
+            if (!CanRouteGuideAction(action)) return false;
+            return NavigateGuideRoute(ResolveGuideRoute(action));
         }
 
         private void HandleOpponentAnalysisRequested()
@@ -468,6 +459,11 @@ namespace Baseball.Presentation.Owner
                 HandleStopSeasonSimulationRequested();
                 return;
             }
+            if (_ownerGuide != null && _ownerGuide.IsOpen)
+            {
+                _ownerGuide.SetOpen(false);
+                return;
+            }
             if (_sharedInformationWorkspace != null && _sharedInformationWorkspace.TryCloseTeamLineup())
                 return;
             if (_expansionWorkspace != null && _expansionWorkspace.TryHandleCancel())
@@ -486,6 +482,9 @@ namespace Baseball.Presentation.Owner
 
         private void ShowSelectedRoute(string routeId)
         {
+            _guideRequest++;
+            ClearGuideTarget();
+            _ownerGuide?.SetOpen(false, false);
             if (string.Equals(routeId, HomeRouteId, StringComparison.Ordinal))
             {
                 ShowHome(OwnerHomePresentationBuilder.Build(_snapshotFactory.CreateHome(_manager)));
@@ -762,7 +761,10 @@ namespace Baseball.Presentation.Owner
                     ShowFeedback(
                         $"{result.NextSeason.SeasonNumber}번째 시즌을 시작했습니다. " +
                         $"리그 등급: {OwnerLeagueDisplayNameFormatter.FormatFull(result.PreviousLeagueGrade.Value)} → " +
-                        OwnerLeagueDisplayNameFormatter.FormatFull(result.NextLeagueGrade.Value),
+                        OwnerLeagueDisplayNameFormatter.FormatFull(result.NextLeagueGrade.Value) +
+                        (runtime.Economy.ContractArrears > 0L
+                            ? $" · 미지급금 {OwnerMoneyFormatter.Format(runtime.Economy.ContractArrears)}은 이후 수입에서 상환합니다."
+                            : string.Empty),
                         false);
                     return;
                 }
@@ -903,6 +905,8 @@ namespace Baseball.Presentation.Owner
             try
             {
                 _manager.Save();
+                _hasUnsavedGuideChange = false;
+                RefreshOwnerGuide();
                 ShowFeedback("구단주 진행 데이터를 저장했습니다.", false);
             }
             catch (Exception exception) when (
@@ -1028,6 +1032,7 @@ namespace Baseball.Presentation.Owner
                 return;
 
             _matchSpectatorView.EndPresentation();
+            ExecuteOperation(() => _manager.PublishGuideMatchResult());
             _isOwnerMatchVisible = false;
             SetOwnerMatchBgm(false);
             _navigationState.Navigate(HomeRouteId);
@@ -1599,12 +1604,24 @@ namespace Baseball.Presentation.Owner
             if (_pendingLineupPreset == null) return;
             ExecuteOperation(() =>
             {
-                if (_pendingActiveRosterChange != null)
-                    _manager.ApplyActiveRosterChange(_pendingActiveRosterChange);
-                else
-                    _manager.UpsertLineupPreset(_pendingLineupPreset);
+                _hasUnsavedGuideChange = true;
+                try
+                {
+                    if (_pendingActiveRosterChange != null)
+                        _manager.ApplyActiveRosterChange(_pendingActiveRosterChange);
+                    else
+                        _manager.UpsertLineupPreset(_pendingLineupPreset);
+                }
+                catch
+                {
+                    _hasUnsavedGuideChange = false;
+                    throw;
+                }
                 _pendingLineupPreset = null;
                 _pendingActiveRosterChange = null;
+                _manager.Save();
+                _hasUnsavedGuideChange = false;
+                RefreshOwnerGuide();
                 ShowFeedback("검증된 배치를 저장했습니다.", false);
             });
         }

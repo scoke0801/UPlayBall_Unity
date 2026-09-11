@@ -32,6 +32,17 @@ namespace Baseball.Presentation.Owner
         private bool _showOnlyActive;
 
         public event Action<string[]> SelectionConfirmed;
+        public RectTransform GuideTarget => _root != null && _root.gameObject.activeInHierarchy && _snapshot != null ? _root : null;
+        public bool HasUnappliedGuideChanges
+        {
+            get
+            {
+                if (GuideTarget == null) return false;
+                for (int index = 0; index < _draftIds.Length; index++)
+                    if (!string.Equals(_draftIds[index], _snapshot.EquippedIds[index], StringComparison.Ordinal)) return true;
+                return false;
+            }
+        }
 
         public static UI_Scene_OwnerTeamColor CreateRuntime(Transform parent)
         {

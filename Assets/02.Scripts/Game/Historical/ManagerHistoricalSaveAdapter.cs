@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 19;
+        public const int CurrentSaveVersion = 23;
         private const int OwnerPostseasonSaveVersion = 18;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
@@ -88,6 +88,7 @@ namespace Baseball.Game.Historical
                 economy = new ManagerEconomySaveData
                 {
                     money = state.Economy.Money,
+                    contractArrears = state.Economy.ContractArrears,
                     scoutingPoints = state.Economy.ScoutingPoints,
                     developmentPoints = state.Economy.DevelopmentPoints,
                     pityGauge = state.Economy.PityGauge
@@ -96,8 +97,10 @@ namespace Baseball.Game.Historical
                 tacticCollection = CreateTacticCollection(state.TacticCollection),
                 shopPurchaseHistory = CreateShopPurchaseHistory(state.ShopPurchaseHistory),
                 guideRepeatState = state.GuideRepeatState,
+                guideProgress = state.GuideProgress.Capture(),
                 ownerProfile = new OwnerProfileSaveData
                 {
+                    clubName = state.OwnerProfile.ClubName,
                     nickname = state.OwnerProfile.Nickname,
                     frontManagerId = state.OwnerProfile.FrontManagerId
                 },
@@ -195,7 +198,8 @@ namespace Baseball.Game.Historical
                     economyData.money,
                     economyData.scoutingPoints,
                     economyData.developmentPoints,
-                    economyData.pityGauge),
+                    economyData.pityGauge,
+                    economyData.contractArrears),
                 managerMode,
                 saveData.saveVersion < TacticAndShopSaveVersion
                     ? new TacticCollectionState()
@@ -206,7 +210,12 @@ namespace Baseball.Game.Historical
                 saveData.guideRepeatState ?? new Baseball.Game.Guide.GuideRepeatStateData(),
                 saveData.saveVersion < OwnerProfileSaveVersion || saveData.ownerProfile == null
                     ? OwnerProfileState.CreateLegacyDefault()
-                    : new OwnerProfileState(saveData.ownerProfile.nickname, saveData.ownerProfile.frontManagerId),
+                    : new OwnerProfileState(
+                        saveData.ownerProfile.nickname,
+                        saveData.ownerProfile.frontManagerId,
+                        string.IsNullOrWhiteSpace(saveData.ownerProfile.clubName)
+                            ? null
+                            : saveData.ownerProfile.clubName),
                 saveData.saveVersion < OwnerProfileSaveVersion || saveData.newGameReceipt == null
                     ? null
                     : new OwnerNewGameReceipt(
@@ -222,6 +231,7 @@ namespace Baseball.Game.Historical
                     : RestorePlayerGrowth(saveData.playerGrowth),
                 collectionHistory,
                 wishlist);
+            runtime.RestoreGuideProgress(saveData.guideProgress);
             runtime.RestoreSpecialCardTransactions(saveData.saveVersion < 19
                 ? Array.Empty<SpecialCardTransactionSaveData>()
                 : Require(saveData.specialCardTransactions, nameof(saveData.specialCardTransactions)));
@@ -1410,6 +1420,11 @@ namespace Baseball.Game.Historical
         private static OwnerPostseasonState RestoreOwnerPostseason(OwnerPostseasonSaveData source)
         {
             if (source == null) return null;
+            // JsonUtility는 아직 생성하지 않은 중첩 상태의 null을 빈 DTO로 복원할 수 있다.
+            // 내용이 있는 잘못된 포스트시즌은 아래 검증에서 계속 거부한다.
+            if (string.IsNullOrEmpty(source.seasonId) &&
+                (source.seedTeamIds == null || source.seedTeamIds.Length == 0) &&
+                (source.series == null || source.series.Length == 0)) return null;
             int[] seeds = Require(source.seedTeamIds, nameof(source.seedTeamIds));
             OwnerPostseasonSeriesSaveData[] savedSeries = Require(source.series, nameof(source.series));
             var series = new OwnerPostseasonSeriesState[savedSeries.Length];

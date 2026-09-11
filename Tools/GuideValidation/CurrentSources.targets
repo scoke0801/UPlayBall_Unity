@@ -1,0 +1,23 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Unity가 재생성하기 전에도 실제 Assets 전체를 보조 컴파일한다. -->
+  <Target Name="CompileCurrentBaseballSources" BeforeTargets="CoreCompile" Condition="'$(AssemblyName)' == 'Baseball.Core' Or '$(AssemblyName)' == 'Baseball.Simulation' Or '$(AssemblyName)' == 'Baseball.Game' Or '$(AssemblyName)' == 'Baseball.Game.Unity' Or '$(AssemblyName)' == 'Baseball.Presentation'">
+    <PropertyGroup>
+      <GuideSourceLayer Condition="'$(AssemblyName)' == 'Baseball.Core'">Core</GuideSourceLayer>
+      <GuideSourceLayer Condition="'$(AssemblyName)' == 'Baseball.Simulation'">Simulation</GuideSourceLayer>
+      <GuideSourceLayer Condition="'$(AssemblyName)' == 'Baseball.Game'">Game</GuideSourceLayer>
+      <GuideSourceLayer Condition="'$(AssemblyName)' == 'Baseball.Game.Unity'">Game/Unity</GuideSourceLayer>
+      <GuideSourceLayer Condition="'$(AssemblyName)' == 'Baseball.Presentation'">Presentation</GuideSourceLayer>
+    </PropertyGroup>
+    <ItemGroup>
+      <Compile Remove="@(Compile)" />
+      <Compile Include="$(MSBuildProjectDirectory)/Assets/02.Scripts/$(GuideSourceLayer)/**/*.cs" Condition="'$(AssemblyName)' != 'Baseball.Game'" />
+      <Compile Include="$(MSBuildProjectDirectory)/Assets/02.Scripts/Game/**/*.cs" Exclude="$(MSBuildProjectDirectory)/Assets/02.Scripts/Game/Unity/**/*.cs" Condition="'$(AssemblyName)' == 'Baseball.Game'" />
+    </ItemGroup>
+  </Target>
+  <Target Name="CompileCurrentGuidePresentationTests" BeforeTargets="CoreCompile" Condition="'$(AssemblyName)' == 'Baseball.Presentation.Tests'">
+    <ItemGroup>
+      <Compile Remove="@(Compile)" />
+      <Compile Include="$(MSBuildProjectDirectory)/Assets/Tests/EditMode/Presentation/**/*.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

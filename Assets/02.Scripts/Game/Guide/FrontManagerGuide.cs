@@ -13,17 +13,19 @@ namespace Baseball.Game.Guide
             IReadOnlyCollection<string> suppressionContexts,
             bool isMatchInProgress,
             bool isSafePoint,
-            string homeEntryId = "")
+            string homeEntryId = "", GuideModeScope? mode = null)
         {
             _suppressionContexts = suppressionContexts ?? Array.Empty<string>();
             IsMatchInProgress = isMatchInProgress;
             IsSafePoint = isSafePoint;
             HomeEntryId = homeEntryId ?? string.Empty;
+            Mode = mode;
         }
 
         public bool IsMatchInProgress { get; }
         public bool IsSafePoint { get; }
         public string HomeEntryId { get; }
+        public GuideModeScope? Mode { get; }
 
         public bool ContainsSuppression(string context) =>
             _suppressionContexts.Contains(context);
@@ -229,6 +231,7 @@ namespace Baseball.Game.Guide
             for (int index = 0; index < _queue.Count; index++)
             {
                 QueuedGuideMessage candidate = _queue[index];
+                if (context.Mode.HasValue && candidate.Message.Mode != context.Mode.Value) continue;
                 if (!CanDisplay(candidate.Cue, context))
                     continue;
                 if (selectedIndex < 0 || ComesBefore(candidate, _queue[selectedIndex]))

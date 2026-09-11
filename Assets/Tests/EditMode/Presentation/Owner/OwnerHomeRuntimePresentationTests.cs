@@ -168,15 +168,17 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 ManagerRegularSeasonSimulationStatus.Running,
                 18,
                 72,
-                45,
-                180,
+                894,
+                25421,
                 18,
                 19,
                 "BUSAN",
                 "SEOUL",
                 11,
                 5,
-                2);
+                2,
+                45,
+                180);
             popup.Bind(progress, key => key == "BUSAN" ? "부산 마리너스" : "서울 웨이브스");
             popup.Show();
 
@@ -193,12 +195,75 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Transform fill = popup.transform.Find("SeasonSimulationDialog/ProgressTrack/ProgressFill");
             Assert.That(fill.localScale.x, Is.EqualTo(0.25f).Within(0.001f));
 
+            var advancedProgress = new ManagerRegularSeasonSimulationProgress(
+                ManagerRegularSeasonSimulationStatus.Running,
+                36,
+                72,
+                1788,
+                25421,
+                36,
+                37,
+                "SEOUL",
+                "BUSAN",
+                22,
+                10,
+                4,
+                90,
+                180);
+            popup.Bind(advancedProgress, key => key);
+            Assert.That(fill.localScale.x, Is.EqualTo(0.25f).Within(0.001f),
+                "새 진행값을 Bind한 프레임에서 진행 바가 즉시 점프하면 안 된다.");
+
+            popup.SendMessage("AdvanceProgressAnimation", 0.05f);
+            Assert.That(fill.localScale.x, Is.GreaterThan(0.25f).And.LessThan(0.5f));
+            for (int index = 0; index < 40; index++)
+                popup.SendMessage("AdvanceProgressAnimation", 0.05f);
+            Assert.That(fill.localScale.x, Is.EqualTo(0.5f).Within(0.001f));
+
             int stopRequests = 0;
             popup.StopRequested += () => stopRequests++;
             popup.GetComponentsInChildren<Button>(true).First(button => button.name == "StopSimulation")
                 .onClick.Invoke();
             Assert.That(stopRequests, Is.EqualTo(1));
             Assert.That(popup.GetComponentInChildren<OwnerUiButtonSkin>(true), Is.Not.Null);
+
+            Object.DestroyImmediate(popup.gameObject);
+        }
+
+        [Test]
+        public void SeasonSimulationPopup_내구단일정완료후에는남은리그진행을표시한다()
+        {
+            UI_Popup_OwnerSeasonSimulation popup =
+                UI_Popup_OwnerSeasonSimulation.CreateRuntime(_shell.PopupHost);
+            var progress = new ManagerRegularSeasonSimulationProgress(
+                ManagerRegularSeasonSimulationStatus.Running,
+                0,
+                0,
+                150,
+                600,
+                92,
+                0,
+                string.Empty,
+                string.Empty,
+                92,
+                52,
+                0,
+                0,
+                0);
+
+            popup.Bind(progress, key => key);
+
+            Text[] texts = popup.GetComponentsInChildren<Text>(true);
+            Assert.That(texts.Any(text => text.name == "CurrentRound" &&
+                                          text.text == "남은 리그 정규시즌 마감"), Is.True);
+            Assert.That(texts.Any(text => text.name == "CurrentMatchup" &&
+                                          text.text.Contains("다른 리그의 남은 경기")), Is.True);
+            Assert.That(texts.Any(text => text.name == "LeagueProgress" &&
+                                          text.text.Contains("남은 리그 경기  150 / 600")), Is.True);
+            Assert.That(texts.Any(text => text.name == "PlayerProgress" &&
+                                          text.text == "내 구단 일정 완료"), Is.True);
+            Transform fill = popup.transform.Find("SeasonSimulationDialog/ProgressTrack/ProgressFill");
+            Assert.That(fill.localScale.x, Is.EqualTo(0.25f).Within(0.001f));
 
             Object.DestroyImmediate(popup.gameObject);
         }
@@ -215,12 +280,22 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         private Text FindText(string name) => _shell.MainWorkspaceHost.GetComponentsInChildren<Text>(true).First(t => t.name == name);
         private Button FindButton(string name) => _shell.MainWorkspaceHost.GetComponentsInChildren<Button>(true).First(b => b.name == name);
 
-        private static OwnerHomePresentationModel CreateModel(bool isValid = true)
+        [Test]
+        public void Bind_미지급금을안내하면서다음시즌행동을유지한다()
+        {
+            _view.Bind(CreateModel(contractArrears: 1_000_000L), false, true, true, true);
+            Assert.That(FindText("Feedback").text, Does.Contain("미지급 급여·계약금"));
+            Assert.That(FindText("Feedback").text, Does.Contain("우선 상환"));
+            Assert.That(FindButton("CompleteSeasonButton").interactable, Is.True);
+            Assert.That(FindButton("CompleteSeasonButton").GetComponentInChildren<Text>().text, Is.EqualTo("다음 시즌"));
+        }
+
+        private static OwnerHomePresentationModel CreateModel(bool isValid = true, long contractArrears = 0L)
         {
             return OwnerHomePresentationBuilder.Build(new OwnerHomeSnapshot(
                 "2028 시즌", "3주차", "루키 리그", "서울 웨이브스", string.Empty,
                 "R3 · 부산 마리너스 · 홈", 1250000, 420, 185, 12, 25, 25, 14, 14, 11, 11, 3, 3, 61,
-                isValid, isValid ? "" : "투수 1명이 부족합니다."));
+                isValid, isValid ? "" : "투수 1명이 부족합니다.", contractArrears: contractArrears));
         }
     }
 }

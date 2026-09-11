@@ -125,6 +125,10 @@ namespace Baseball.Game.Historical
         public TacticCollectionState TacticCollection { get; }
         public ShopPurchaseHistoryState ShopPurchaseHistory { get; }
         public GuideRepeatStateData GuideRepeatState { get; private set; }
+        public GuideProgressState GuideProgress { get; private set; } = new GuideProgressState();
+
+        /// <summary>저장 복원·실패 복구에서 과제 이력을 원본 게임 상태와 분리해 교체한다.</summary>
+        public void RestoreGuideProgress(GuideProgressData data) => GuideProgress = GuideProgressState.Restore(data);
         public OwnerProfileState OwnerProfile { get; }
         public OwnerNewGameReceipt NewGameReceipt { get; }
         public OwnerOnboardingState Onboarding { get; }
@@ -283,6 +287,13 @@ namespace Baseball.Game.Historical
         private void ValidatePlayerRosterOwnership()
         {
             CurrentRosterState playerRoster = GetRoster(PlayerTeamSeasonKey);
+            RosterValidationResult validation = new OwnerActiveRosterValidator().Validate(
+                playerRoster,
+                WorldCardCatalog);
+            if (!validation.IsValid)
+                throw new ArgumentException(
+                    $"플레이어 구단의 1군이 등록 규칙을 위반했습니다: {validation.Issues[0].Code}",
+                    nameof(_rosters));
             for (int index = 0; index < playerRoster.Entries.Count; index++)
             {
                 string cardId = playerRoster.Entries[index].CardId;

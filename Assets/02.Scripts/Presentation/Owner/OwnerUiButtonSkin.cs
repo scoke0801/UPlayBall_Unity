@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace Baseball.Presentation.Owner
 {
     /// <summary>구단주 버튼의 정보 위계에 맞는 프레임 종류다.</summary>
-    public enum OwnerButtonRole { Secondary, Primary, Navigation, Tab, Detail }
+    public enum OwnerButtonRole { Secondary, Primary, Navigation, Tab, Detail, Quiet }
 
     /// <summary>구단주 전용 ImageGen 프레임과 입력 상태를 기존 버튼의 의미 색상에서 분리한다.</summary>
     [DisallowMultipleComponent]
@@ -96,6 +96,26 @@ namespace Baseball.Presentation.Owner
         public void Refresh()
         {
             if (_frame == null || !enabled) return;
+            if (_role == OwnerButtonRole.Quiet)
+            {
+                _source.enabled = false;
+                _frame.sprite = null;
+                _frame.type = Image.Type.Simple;
+                _frame.color = Color.white;
+                _button.targetGraphic = _frame;
+                _button.transition = Selectable.Transition.ColorTint;
+                var quietColors = ColorBlock.defaultColorBlock;
+                quietColors.normalColor = Color.clear;
+                quietColors.highlightedColor = CareerUiTheme.Surface;
+                quietColors.selectedColor = CareerUiTheme.SurfaceSelected;
+                quietColors.pressedColor = CareerUiTheme.PanelDark;
+                quietColors.disabledColor = Color.clear;
+                _button.colors = quietColors;
+                _label.color = _button.IsInteractable() ? CareerUiTheme.TextSecondary : CareerUiTheme.TextMuted;
+                _lastSource = _source.color; _lastLabel = _label.color;
+                _lastInteractable = _button.IsInteractable(); _hasRendered = true;
+                return;
+            }
             Color semantic = _source.color;
             bool isRed = semantic.r > semantic.b + .15f && semantic.r > semantic.g + .15f;
             bool isAccent = semantic.b > semantic.r + .12f || isRed;

@@ -29,6 +29,16 @@ namespace Baseball.Presentation.UI
         public override int InitializationOrder => 100;
         public UIRoot Root => _uiRoot;
         public int VisibleCount => _visibleStack.Count;
+        /// <summary>자발적 안내가 기존 모달 입력과 충돌하지 않도록 현재 차단 상태를 제공한다.</summary>
+        public bool HasBlockingOverlay
+        {
+            get
+            {
+                foreach (UIBase ui in _visibleStack)
+                    if (ui != null && ui.IsVisible && ui.BlocksLowerInput && ui.Layer != UILayer.Scene) return true;
+                return false;
+            }
+        }
 
         /// <summary>닫을 Popup이 없는 상태에서 Cancel 입력이 발생하면 현재 화면 Router에 전달한다.</summary>
         public event Action NavigationBackRequested;

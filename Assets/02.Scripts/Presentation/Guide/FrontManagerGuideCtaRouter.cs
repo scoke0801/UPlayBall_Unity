@@ -10,7 +10,8 @@ namespace Baseball.Presentation.Guide
     /// <summary>Guide CTA를 현재 존재하는 Career UI와 향후 Owner UI 진입점으로 연결한다.</summary>
     public sealed class FrontManagerGuideCtaRouter
     {
-        public static event Action<GuideCtaAction, string> OwnerRouteRequested;
+        public static event Func<GuideCtaAction, string, bool> OwnerRouteRequested;
+        public static event Func<GuideCtaAction, bool> OwnerRouteAvailability;
 
         public bool CanRoute(GuideMessage message)
         {
@@ -18,7 +19,7 @@ namespace Baseball.Presentation.Guide
                 return false;
             return message.Mode == GuideModeScope.Career
                 ? IsCareerAction(message.Cta.Value.Action)
-                : OwnerRouteRequested != null;
+                : OwnerRouteRequested != null && OwnerRouteAvailability?.Invoke(message.Cta.Value.Action) == true;
         }
 
         public bool TryRoute(GuideMessage message)
@@ -28,8 +29,7 @@ namespace Baseball.Presentation.Guide
             GuideCtaAction action = message.Cta.Value.Action;
             if (message.Mode == GuideModeScope.Owner)
             {
-                OwnerRouteRequested?.Invoke(action, message.EventId);
-                return true;
+                return OwnerRouteRequested?.Invoke(action, message.EventId) == true;
             }
 
             switch (action)

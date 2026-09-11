@@ -23,6 +23,7 @@ namespace Baseball.Game.Historical
         public TacticCollectionSaveData tacticCollection;
         public ShopPurchaseHistorySaveData shopPurchaseHistory;
         public Baseball.Game.Guide.GuideRepeatStateData guideRepeatState;
+        public Baseball.Game.Guide.GuideProgressData guideProgress;
         public OwnerProfileSaveData ownerProfile;
         public OwnerNewGameReceiptSaveData newGameReceipt;
         public OwnerOnboardingSaveData onboarding;
@@ -52,6 +53,7 @@ namespace Baseball.Game.Historical
     [Serializable]
     public sealed class OwnerProfileSaveData
     {
+        public string clubName;
         public string nickname;
         public string frontManagerId;
     }
@@ -237,6 +239,7 @@ namespace Baseball.Game.Historical
     public sealed class ManagerEconomySaveData
     {
         public long money;
+        public long contractArrears;
         public int scoutingPoints;
         public int developmentPoints;
         public int pityGauge;

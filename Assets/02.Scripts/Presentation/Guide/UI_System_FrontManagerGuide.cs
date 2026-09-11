@@ -83,6 +83,8 @@ namespace Baseball.Presentation.Guide
 
         private void Update()
         {
+            // 구단주 안내는 셸 예약 공간에서 소비한다. 선수 커리어의 기존 표현은 유지한다.
+            if (UiGameModeSession.IsSelected(UiGameMode.OwnerCareer)) { Hide(); return; }
             if (PauseForShopFlow())
                 return;
             if (_message != null)
@@ -137,7 +139,7 @@ namespace Baseball.Presentation.Guide
                 _suppressionContexts,
                 isMatchInProgress,
                 isSafePoint: !isPlayerInput && !UI_CareerPresentation.IsPlaying,
-                homeEntryId);
+                homeEntryId, GuideModeScope.Career);
         }
 
         private void UpdateHomeEntryState()
