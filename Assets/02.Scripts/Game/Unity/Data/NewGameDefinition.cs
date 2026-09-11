@@ -659,8 +659,10 @@ namespace Baseball.Game.Data
                 : matchDefaults.ContentHash;
             PitchArsenalBalance pitchBalance = PitchArsenalBalanceConfig.Load(out string pitchContentHash);
             MatchRatingCurveBalance ratingCurve = MatchRatingCurveConfig.Load(out string curveContentHash);
+            MiniGameBalance miniGameBalance = MiniGameBalanceConfig.Load(out string miniGameContentHash,
+                out TacticalMatchBalance tacticalBalance, out BullpenManagementBalance bullpenBalance);
             // 일정 길이가 달라지면 이전 경기 수로 만든 WorldHistory를 재사용하지 않는다.
-            contentHash = $"{contentHash}:{pitchContentHash}:{curveContentHash}:season-games-{_regularSeasonGamesPerTeam.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+            contentHash = $"{contentHash}:{pitchContentHash}:{curveContentHash}:{miniGameContentHash}:season-games-{_regularSeasonGamesPerTeam.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
             var balance = new BalanceTable(
                 version: 3,
                 matchDefaults.PlateDiscipline,
@@ -776,6 +778,8 @@ namespace Baseball.Game.Data
                 growth: growthBalance,
                 contentHash: contentHash,
                 pitchArsenal: pitchBalance,
+                miniGame: miniGameBalance,
+                match: matchDefaults.Match.WithTactical(tacticalBalance).WithBullpen(bullpenBalance),
                 matchRatingCurve: ratingCurve);
 
             var bakedContentProvider = new HistoricalCareerBakedContentProvider(

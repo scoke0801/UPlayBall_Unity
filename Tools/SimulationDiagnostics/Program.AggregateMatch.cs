@@ -54,11 +54,11 @@ namespace Baseball.Tools.SimulationDiagnostics
                 }
                 timer.Stop();
                 if (detailedStats == null) detailedStats = stats;
-                else stats.ValidateAggregateAgainst(detailedStats, gameId);
                 rates.Add(Enumerable.Range(0, teams.Length).Select(i => (double)wins[i] / (wins[i] + losses[i])).ToArray());
                 Console.WriteLine($"Engine={profile.EngineKind} ms/game={timer.Elapsed.TotalMilliseconds / gameId:F3}");
                 Console.WriteLine(stats.Format(gameId));
                 for (int i = 0; i < teams.Length; i++) Console.WriteLine($"{teams[i].Key} W={wins[i]} L={losses[i]} Win%={rates.Last()[i] * 100:F2}");
+                if (!ReferenceEquals(stats, detailedStats)) stats.ValidateAggregateAgainst(detailedStats, gameId);
             }
             double maxDifference = rates[0].Zip(rates[1], (a, b) => Math.Abs(a - b)).Max();
             int[] detailedOrder = Enumerable.Range(0, teams.Length).OrderByDescending(i => rates[0][i]).ToArray();

@@ -106,8 +106,8 @@ namespace Baseball.Simulation.Match
                 : (zoneDistance - 1d) * _balance.OutOfZoneQualityPenalty;
             double quality = Clamp(
                 _balance.ContactQualityBase + positionQuality * 42d + timingQuality * 30d +
-                (batter.Contact - 50d) * 0.10d -
-                (pitch.Quality - 50d) * 0.08d -
+                (batter.Contact - 50d) * _balance.ContactBatterQualityWeight -
+                (pitch.Quality - 50d) * _balance.ContactPitchQualityWeight -
                 zonePenalty,
                 0d,
                 100d);

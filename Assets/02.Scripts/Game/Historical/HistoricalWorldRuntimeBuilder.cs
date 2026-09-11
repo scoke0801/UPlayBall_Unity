@@ -284,7 +284,9 @@ namespace Baseball.Game.Historical
                 worldHistorySeed,
                 content.Manifest.ContentHash,
                 balance.Version,
-                balance.ContentHash);
+                // 계수가 같아도 경기 로직이 바뀌면 이전 결과를 재사용하지 않는다.
+                balance.ContentHash + ":engine-" +
+                Baseball.Core.Rules.SimulationVersionStamp.CurrentEngineVersion.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
         public HistoricalWorldRuntimeContent Build(

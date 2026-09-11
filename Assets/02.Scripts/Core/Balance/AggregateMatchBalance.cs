@@ -5,11 +5,11 @@ namespace Baseball.Core.Balance
     /// <summary>다른 조의 타석 결과·추정 투구 수를 상세 엔진 분포에 맞추는 독립 보정표다.</summary>
     public sealed class AggregateMatchBalance
     {
-        public AggregateMatchBalance(double walkRate = 0.09, double strikeoutRate = 0.18,
+        public AggregateMatchBalance(double walkRate = 0.09, double strikeoutRate = 0.178,
             double hitByPitchRate = 0.008, double controlWalkWeight = 0.022,
             double mentalWalkWeight = 0.01, double contactStrikeoutWeight = 0.06,
             double stuffStrikeoutWeight = 0.014, double velocityStrikeoutWeight = 0.007,
-            double ballQualityAdjustment = 9, double homeRunMultiplier = 0.5,
+            double ballQualityAdjustment = 15, double homeRunMultiplier = 0.75,
             double inPlayPitchMean = 2.65, double strikeoutPitchMean = 4.8,
             double walkPitchMean = 5.6, double controlHitByPitchWeight = 0.17,
             double maximumHitByPitchRate = 0.04)

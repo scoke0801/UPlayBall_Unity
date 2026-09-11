@@ -136,7 +136,8 @@ namespace Baseball.Core.Balance
             double unavailableRecentLoad,
             int lowLeverageCloserPenalty,
             double bullpenQualityAdvantageWeight = 0.8d,
-            double maximumBullpenQualityAdvantage = 12d)
+            double maximumBullpenQualityAdvantage = 12d,
+            double relieverQualityWeight = 2d)
         {
             PullThreshold = pullThreshold;
             MaximumFatigueRisk = maximumFatigueRisk;
@@ -152,6 +153,9 @@ namespace Baseball.Core.Balance
             LowLeverageCloserPenalty = lowLeverageCloserPenalty;
             BullpenQualityAdvantageWeight = bullpenQualityAdvantageWeight;
             MaximumBullpenQualityAdvantage = maximumBullpenQualityAdvantage;
+            if (!(relieverQualityWeight > 0d) || double.IsInfinity(relieverQualityWeight))
+                throw new System.ArgumentOutOfRangeException(nameof(relieverQualityWeight));
+            RelieverQualityWeight = relieverQualityWeight;
         }
 
         public double PullThreshold { get; }
@@ -169,6 +173,14 @@ namespace Baseball.Core.Balance
         /// <summary>현재 투수보다 좋은 가용 불펜을 보유했을 때 교체 점수에 반영하는 비율이다.</summary>
         public double BullpenQualityAdvantageWeight { get; }
         public double MaximumBullpenQualityAdvantage { get; }
+        public double RelieverQualityWeight { get; }
+
+        /// <summary>보직 선호 대비 실제 투구 능력의 중요도를 저작 설정으로 바꾼다.</summary>
+        public BullpenManagementBalance WithRelieverQualityWeight(double weight) => new BullpenManagementBalance(
+            PullThreshold, MaximumFatigueRisk, MaximumCurrentDanger, MaximumTimesThroughOrderRisk,
+            MaximumPerformanceDamage, MaximumLeverageMismatch, MaximumStarterTrust, MaximumBullpenConservation,
+            RecentLoadDayTwoWeight, RecentLoadDayThreeWeight, UnavailableRecentLoad, LowLeverageCloserPenalty,
+            BullpenQualityAdvantageWeight, MaximumBullpenQualityAdvantage, weight);
     }
 
     /// <summary>
@@ -251,7 +263,8 @@ namespace Baseball.Core.Balance
             double buntMentalWeight,
             double stealAttemptUtilityThreshold,
             double buntUtilityThreshold,
-            double intentionalWalkUtilityThreshold)
+            double intentionalWalkUtilityThreshold,
+            double stealAttemptUtilityScale = 16d)
         {
             StealBaseSuccess = stealBaseSuccess;
             StealSpeedWeight = stealSpeedWeight;
@@ -266,6 +279,9 @@ namespace Baseball.Core.Balance
             StealAttemptUtilityThreshold = stealAttemptUtilityThreshold;
             BuntUtilityThreshold = buntUtilityThreshold;
             IntentionalWalkUtilityThreshold = intentionalWalkUtilityThreshold;
+            if (!(stealAttemptUtilityScale > 0d) || double.IsInfinity(stealAttemptUtilityScale))
+                throw new System.ArgumentOutOfRangeException(nameof(stealAttemptUtilityScale));
+            StealAttemptUtilityScale = stealAttemptUtilityScale;
         }
 
         public double StealBaseSuccess { get; }
@@ -281,6 +297,13 @@ namespace Baseball.Core.Balance
         public double StealAttemptUtilityThreshold { get; }
         public double BuntUtilityThreshold { get; }
         public double IntentionalWalkUtilityThreshold { get; }
+        public double StealAttemptUtilityScale { get; }
+
+        /// <summary>기대이득의 도루 시도 빈도 변환만 자산 설정으로 교체한다.</summary>
+        public TacticalMatchBalance WithStealAttemptUtilityScale(double scale) => new TacticalMatchBalance(
+            StealBaseSuccess, StealSpeedWeight, StealMentalWeight, CatcherArmWeight, PitcherHoldWeight,
+            MinimumStealSuccess, MaximumStealSuccess, FairBuntBase, BuntAbilityWeight, BuntMentalWeight,
+            StealAttemptUtilityThreshold, BuntUtilityThreshold, IntentionalWalkUtilityThreshold, scale);
     }
 
     /// <summary>
@@ -310,6 +333,13 @@ namespace Baseball.Core.Balance
         public BullpenManagementBalance BullpenManagement { get; }
         public DetailedFieldingBalance Fielding { get; }
         public TacticalMatchBalance Tactical { get; }
+
+        public MatchBalanceTable WithTactical(TacticalMatchBalance tactical) => new MatchBalanceTable(
+            PitcherFatigue, PitcherStress, TimesThroughOrder, BullpenManagement, Fielding, tactical);
+
+        /// <summary>다른 경기 규칙을 보존하고 불펜 기용 계수만 교체한다.</summary>
+        public MatchBalanceTable WithBullpen(BullpenManagementBalance bullpen) => new MatchBalanceTable(
+            PitcherFatigue, PitcherStress, TimesThroughOrder, bullpen, Fielding, Tactical);
 
         public static MatchBalanceTable CreateDefault()
         {

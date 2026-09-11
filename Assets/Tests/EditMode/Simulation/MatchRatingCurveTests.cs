@@ -10,9 +10,46 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class MatchRatingCurveTests
     {
         [Test]
+        public void LowerSpread_저능력동급대결의입력을보존하고경계에서역전하지않는다()
+        {
+            var curve = Baseball.Core.Balance.MatchRatingCurveBalance.CreateDefault();
+            Assert.That(MatchRatingCurve.ResolveMatchInput(50, curve), Is.InRange(45, 50));
+            Assert.That(MatchRatingCurve.ResolveMatchInput(64, curve),
+                Is.LessThanOrEqualTo(MatchRatingCurve.ResolveMatchInput(65, curve)));
+            Assert.That(MatchRatingCurve.ResolveMatchInput(65, curve),
+                Is.LessThanOrEqualTo(MatchRatingCurve.ResolveMatchInput(66, curve)));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new Baseball.Core.Balance.MatchRatingCurveBalance(
+                45, 1.4, upperSpreadStart: 80, lowerSpreadEnd: 81));
+        }
+
+        [Test]
+        public void UpperSpread_일반카드격차를확대해도고능력성장여유를보존한다()
+        {
+            var curve = new Baseball.Core.Balance.MatchRatingCurveBalance(45, 1.5,
+                inputOffset: -21.25, pitcherSlope: 1.5, pitcherInputOffset: -18.75,
+                upperSpreadStart: 80);
+            foreach (var ability in new[] { Baseball.Core.Growth.PlayerAbility.Contact, Baseball.Core.Growth.PlayerAbility.Stuff })
+            {
+                int previous = 0;
+                for (int rating = 1; rating <= 140; rating++)
+                {
+                    int input = MatchRatingCurve.ResolveMatchInput(rating, ability, curve);
+                    Assert.That(input, Is.GreaterThanOrEqualTo(previous));
+                    previous = input;
+                }
+                Assert.That(MatchRatingCurve.ResolveMatchInput(120, ability, curve), Is.LessThan(100));
+                Assert.That(MatchRatingCurve.ResolveMatchInput(140, ability, curve), Is.EqualTo(100));
+                Assert.That(MatchRatingCurve.ResolveMatchInput(100, ability, curve),
+                    Is.GreaterThan(MatchRatingCurve.ResolveMatchInput(90, ability, curve)));
+            }
+            Assert.Throws<ArgumentOutOfRangeException>(() => new Baseball.Core.Balance.MatchRatingCurveBalance(
+                45, 2, upperSpreadStart: 90));
+        }
+
+        [Test]
         public void PitcherCurve_투수능력만별도로변환하고기본값은보존한다()
         {
-            var baseline = Baseball.Core.Balance.MatchRatingCurveBalance.CreateDefault();
+            var baseline = new Baseball.Core.Balance.MatchRatingCurveBalance(45d, .45d);
             var candidate = new Baseball.Core.Balance.MatchRatingCurveBalance(45d, 1d,
                 inputOffset: -13.75d, pitcherSlope: 1.5d, pitcherInputOffset: -26.25d);
             Assert.That(MatchRatingCurve.ResolveMatchInput(80, Baseball.Core.Growth.PlayerAbility.Contact, candidate), Is.EqualTo(66));
@@ -25,7 +62,7 @@ namespace Baseball.Tests.EditMode.Simulation
         [Test]
         public void InputOffset_기준점을유지하면서격차만확장한다()
         {
-            var baseline = Baseball.Core.Balance.MatchRatingCurveBalance.CreateDefault();
+            var baseline = new Baseball.Core.Balance.MatchRatingCurveBalance(45d, .45d);
             var wider = new Baseball.Core.Balance.MatchRatingCurveBalance(45d, 1d, inputOffset: -13.75d);
             Assert.That(MatchRatingCurve.ResolveMatchInput(70, baseline), Is.EqualTo(56));
             Assert.That(MatchRatingCurve.ResolveMatchInput(70, wider), Is.EqualTo(56));

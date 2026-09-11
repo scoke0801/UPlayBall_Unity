@@ -14,6 +14,7 @@ namespace Baseball.Simulation.Match
         private readonly BattedBallBalance _balance;
         private readonly MiniGameBalance _miniGame;
         private readonly TacticalMatchBalance _tactical;
+        private readonly PitchArsenalBalance _pitchArsenal;
         private readonly IRandomSource _random;
 
         public BattedBallResolver(BalanceTable balance, IRandomSource random)
@@ -22,6 +23,7 @@ namespace Baseball.Simulation.Match
             _balance = balance.BattedBall;
             _miniGame = balance.MiniGame;
             _tactical = balance.Match.Tactical;
+            _pitchArsenal = balance.PitchArsenal;
             _random = random ?? throw new ArgumentNullException(nameof(random));
         }
 
@@ -36,7 +38,27 @@ namespace Baseball.Simulation.Match
         public BattedBallDescriptor ResolveAggregate(in PlateAppearanceMatchup matchup,
             BattingApproach battingApproach, AggregateMatchBalance tuning)
         {
-            return ResolveCategorical(matchup, battingApproach, tuning.BallQualityAdjustment, tuning.HomeRunMultiplier);
+            double relativeQuality = (matchup.Batter.BatterAttributes.Contact - 50d) *
+                _miniGame.ContactBatterQualityWeight - (CalculatePitchQuality(matchup) - 50d) *
+                _miniGame.ContactPitchQualityWeight;
+            return ResolveCategorical(matchup, battingApproach,
+                tuning.BallQualityAdjustment + relativeQuality, tuning.HomeRunMultiplier);
+        }
+
+        private double CalculatePitchQuality(in PlateAppearanceMatchup matchup)
+        {
+            double weighted = 0d;
+            double totalWeight = 0d;
+            for (int index = 0; index < matchup.Pitcher.PitchRepertoire.Count; index++)
+            {
+                PitchRepertoireEntry entry = matchup.Pitcher.PitchRepertoire[index];
+                weighted += entry.UsagePreference * PitchEffectivenessResolver.ResolvePlayerQuality(entry,
+                    matchup.Pitcher, matchup.EffectiveStuff, matchup.EffectiveBreaking,
+                    matchup.EffectiveControl, _pitchArsenal);
+                totalWeight += entry.UsagePreference;
+            }
+            return totalWeight > 0d ? weighted / totalWeight :
+                (matchup.EffectiveStuff + matchup.EffectiveBreaking + matchup.EffectiveControl) / 3d;
         }
 
         private BattedBallDescriptor ResolveCategorical(in PlateAppearanceMatchup matchup,

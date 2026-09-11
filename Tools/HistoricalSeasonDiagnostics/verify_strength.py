@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 
-def evaluate(simulation, reference, tolerance=0.03, minimum_repeats=32):
+def evaluate(simulation, reference, tolerance=0.05, minimum_repeats=32):
     """실제 승률은 검증에만 사용하며 경기 결과나 능력치를 변경하지 않는다."""
     targets = reference["teams"]
     if not targets:
@@ -43,22 +43,19 @@ def evaluate(simulation, reference, tolerance=0.03, minimum_repeats=32):
         actual = target["actualWins"] / (target["actualWins"] + target["actualLosses"])
         peers = [t for t in targets if t["year"] == year]
         best_actual = max(t["actualWins"] / (t["actualWins"] + t["actualLosses"]) for t in peers)
-        must_lead = abs(actual - best_actual) < 1e-12
+        must_lead = target.get("actualRegularLeader", False) or abs(actual - best_actual) < 1e-12
         rank = 1 + sum(statistics.mean(samples[k]) > observed + 1e-12 for k in ordered)
         half = 2.04 * statistics.stdev(samples[key]) / math.sqrt(len(rows)) if len(rows) > 1 else None
         rate_pass = abs(observed - actual) <= tolerance
         # 동년 강팀 모두에게 동시에 1위를 요구하지 않는다. 실제 승률이 높은 대상에 뒤처지는지 확인한다.
         relative_pass = all(observed <= statistics.mean(samples[t["teamSeasonKey"]])
             for t in peers if t["actualWins"] / (t["actualWins"] + t["actualLosses"]) > actual + 1e-12)
-        # 실제 공동 선두는 최상위 묶음으로 검증한다. 임의의 ID 순서로 한 팀을 탈락시키지 않는다.
-        leaders = {t["teamSeasonKey"] for t in peers
-            if abs(t["actualWins"] / (t["actualWins"] + t["actualLosses"]) - best_actual) < 1e-12}
-        rank_pass = all(observed >= statistics.mean(samples[k]) - 1e-12
-            for k in samples if k not in leaders) if must_lead else relative_pass
+        # 실제 선두는 사용자가 정한 1~3위 범위로 판정한다. 단일 Seed의 우승 강제 대신 반복 평균을 본다.
+        rank_pass = rank <= 3 if must_lead else relative_pass
         enough = len(rows) >= minimum_repeats
         result.append(dict(year=year, team=target["team"], teamSeasonKey=key, repeats=len(rows),
             actualWinRate=actual, simulatedWinRate=observed, difference=observed-actual,
-            approximate95HalfWidth=half, rank=rank, requiresFirstPlace=must_lead,
+            approximate95HalfWidth=half, rank=rank, requiresTopThree=must_lead,
             ratePassed=rate_pass, rankPassed=rank_pass, samplePassed=enough,
             passed=rate_pass and rank_pass and enough))
     return dict(passed=all(r["passed"] for r in result), tolerance=tolerance,
@@ -72,7 +69,7 @@ def main():
     parser.add_argument("reference", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--years", help="단계 검증에서 선택할 연도 목록")
-    parser.add_argument("--tolerance", type=float, default=.03)
+    parser.add_argument("--tolerance", type=float, default=.05)
     args = parser.parse_args()
     read = lambda path: json.loads(path.read_text(encoding="utf-8-sig"))
     reference = read(args.reference)

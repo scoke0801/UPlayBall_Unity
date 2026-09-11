@@ -53,8 +53,11 @@ namespace Baseball.Simulation.Match
 
         public bool ShouldIntentionalWalk(DecisionContext context)
         {
+            // 빈 베이스에서 단순 능력치 차이만으로 출루를 헌납하면 강타자 타석이 사라진다.
+            // 이 기본 정책은 득점권 주자를 두고 1루가 빈 중요한 승부만 회피 후보로 삼는다.
             if (context.Bases.HasRunnerOnFirst ||
-                context.Bases.HasRunnerOnFirst && context.Bases.HasRunnerOnSecond && context.Bases.HasRunnerOnThird)
+                !context.Bases.HasRunnerOnSecond && !context.Bases.HasRunnerOnThird ||
+                context.Leverage < LeverageTier.High)
             {
                 return false;
             }
@@ -80,12 +83,14 @@ namespace Baseball.Simulation.Match
             Player runner,
             Player catcher)
         {
-            if (!context.Bases.HasRunnerOnFirst || context.Bases.HasRunnerOnSecond || context.Outs >= 2)
+            if (!context.Bases.HasRunnerOnFirst || context.Bases.HasRunnerOnSecond)
                 return new TacticalDecision(false, double.MinValue, _balance.StealAttemptUtilityThreshold);
             double success = CalculateStealSuccess(runner, catcher, context.Pitcher);
             double current = _runExpectancy.Get(context.Outs, context.Bases.OccupancyMask);
-            double successValue = _runExpectancy.Get(context.Outs, 2);
-            double failureValue = context.Outs == 2 ? 0d : _runExpectancy.Get(context.Outs + 1, 0);
+            // 1루 주자의 이동만 반영한다. 3루 주자는 성공·실패 어느 쪽에서도 사라지지 않는다.
+            int remainingMask = context.Bases.OccupancyMask & ~1;
+            double successValue = _runExpectancy.Get(context.Outs, remainingMask | 2);
+            double failureValue = context.Outs == 2 ? 0d : _runExpectancy.Get(context.Outs + 1, remainingMask);
             double utility = success * successValue + (1d - success) * failureValue - current;
             utility += (context.ManagerProfile.RunningAggression - 50d) * 0.0015d;
             if (context.Inning >= 8 && context.ScoreDifference == 0)
@@ -99,6 +104,14 @@ namespace Baseball.Simulation.Match
         public bool ShouldSacrificeBunt(DecisionContext context)
         {
             return EvaluateSacrificeBunt(context).ShouldAct;
+        }
+
+        /// <summary>손익분기 직전의 미세한 이득이 매 출루마다 자동 도루를 만들지 않도록 빈도로 변환한다.</summary>
+        public double CalculateStealAttemptProbability(TacticalDecision decision)
+        {
+            return decision.ShouldAct
+                ? Clamp((decision.Score - decision.Threshold) * _balance.StealAttemptUtilityScale, 0d, 1d)
+                : 0d;
         }
 
         /// <summary>번트 기대값에 감독의 SmallBall 성향을 더한 최종 판단값을 반환한다.</summary>

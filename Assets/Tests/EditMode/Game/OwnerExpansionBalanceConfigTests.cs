@@ -12,6 +12,22 @@ namespace Baseball.Tests.EditMode.Game
     public sealed class OwnerExpansionBalanceConfigTests
     {
         [Test]
+        public void CommonMatch_공통경기JSON을구단주설정과캐시해시에반영한다()
+        {
+            var authored = MiniGameBalanceConfig.Load(out string hash, out var tactical);
+            var defaults = Baseball.Core.Balance.MiniGameBalance.CreateDefault();
+            var owner = NewGameDefinition.LoadOwnerModeBalanceTable();
+            foreach (PropertyInfo property in typeof(Baseball.Core.Balance.MiniGameBalance).GetProperties())
+            {
+                Assert.That(property.GetValue(authored), Is.EqualTo(property.GetValue(defaults)), property.Name);
+                Assert.That(property.GetValue(owner.MiniGame), Is.EqualTo(property.GetValue(authored)), property.Name);
+            }
+            Assert.That(owner.Match.Tactical.StealAttemptUtilityScale, Is.EqualTo(tactical.StealAttemptUtilityScale));
+            Assert.That(owner.ContentHash, Does.Contain(hash));
+            Assert.Throws<ArgumentException>(() => MiniGameBalanceConfig.Parse("{\"schemaVersion\":1}"));
+        }
+
+        [Test]
         public void PreferredOrder_저작값과보통하한을실제게임설정으로읽는다()
         {
             var balance = NewGameDefinition.LoadOwnerModeBalanceTable().ConditionChemistry;

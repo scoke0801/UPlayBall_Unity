@@ -36,6 +36,13 @@ namespace Baseball.Tools.SimulationDiagnostics
 
         private static int Run(string[] args)
         {
+            if (args.Length > 0 && string.Equals(args[0], "verify-match-balance", StringComparison.Ordinal))
+            {
+                Baseball.Tools.CommonMatchBalanceInput.VerifyDefaults();
+                return 0;
+            }
+            if (args.Length > 0 && string.Equals(args[0], "ability-response", StringComparison.Ordinal))
+                return RunAbilityResponse(args);
             if (args.Length > 0 && string.Equals(args[0], "aggregate-match", StringComparison.Ordinal))
                 return RunAggregateMatchComparison(args);
             if (args.Length > 0 && string.Equals(args[0], "aggregate-historical", StringComparison.Ordinal))

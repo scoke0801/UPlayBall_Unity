@@ -44,8 +44,21 @@ def main():
     parser.add_argument('--after', type=Path, required=True)
     parser.add_argument('--normalized', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--maximum-repeats', type=int,
+        help='연도별 앞쪽 시드를 같은 수만 남겨 반복 수가 다른 실행을 짝지어 비교한다.')
     args = parser.parse_args()
     before, after = read(args.before), read(args.after)
+    if args.maximum_repeats is not None:
+        if args.maximum_repeats < 2:
+            raise ValueError('짝지은 비교는 최소 2회 반복이 필요합니다.')
+        for data in (before, after):
+            selected = []
+            for year in sorted({row['year'] for row in data['rows']}):
+                rows = sorted((row for row in data['rows'] if row['year'] == year), key=lambda row: row['seed'])
+                if len(rows) < args.maximum_repeats:
+                    raise ValueError('요청한 반복 수보다 적은 연도가 있습니다.')
+                selected.extend(rows[:args.maximum_repeats])
+            data['rows'] = selected
     keys = lambda data: {(r['year'], r['seed']) for r in data['rows']}
     if keys(before) != keys(after) or len(keys(before)) != len(before['rows']) or len(keys(after)) != len(after['rows']):
         raise ValueError('전후의 연도·시드가 일치하고 중복이 없어야 합니다.')
@@ -89,7 +102,8 @@ def main():
     metadata = {phase: dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
                            **{k: v for k, v in data.items() if k != 'rows'})
                 for phase, data, path in [('before', before, args.before), ('after', after, args.after)]}
-    result = dict(metadata=metadata, agreement=agreement,
+    result = dict(metadata=metadata, comparedSeasons=len(before['rows']),
+                  maximumRepeats=args.maximum_repeats, agreement=agreement,
                   leagues={'before': league_stats(before), 'after': league_stats(after)}, teams=teams)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')

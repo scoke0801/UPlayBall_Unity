@@ -168,6 +168,17 @@ namespace Baseball.Simulation.Match
             bool breakingPitch = PitchTypeProfileCatalog.Get(pitchType).VerticalBreak < -0.1d;
             if (approach == PitchingApproach.PitchAround)
                 return CreateWasteTarget(side, breakingPitch);
+            // 고의적인 승부 회피를 제외하면 볼넷 직전에는 카운트가 기본 접근법보다 우선한다.
+            if (request.Balls == 3)
+            {
+                return choice < _balance.AiThreeBallChallengeProbability
+                    ? new PlatePoint(side * _balance.AiThreeBallTargetHorizontal, -0.18d)
+                    : CreateWasteTarget(side, breakingPitch);
+            }
+            // 고제구 투수의 존 공략도 2스트라이크 유인구를 생략하지 않는다.
+            // 접근법 분기가 앞서면 AttackZone의 사사구가 사실상 0으로 붕괴한다.
+            if (request.Strikes == 2 && choice < _balance.AiTwoStrikeWasteProbability)
+                return CreateWasteTarget(side, breakingPitch);
             if (approach == PitchingApproach.Nibble)
                 return new PlatePoint(side * 0.96d, breakingPitch ? -0.72d : 0.58d);
             if (approach == PitchingApproach.Strikeout)
@@ -178,14 +189,6 @@ namespace Baseball.Simulation.Match
                 return new PlatePoint(side * 0.52d, -0.73d);
             if (approach == PitchingApproach.AttackZone)
                 return new PlatePoint(side * 0.55d, choice < 0.5d ? -0.48d : 0.48d);
-            if (request.Balls == 3)
-            {
-                return choice < _balance.AiThreeBallChallengeProbability
-                    ? new PlatePoint(side * 0.28d, -0.18d)
-                    : CreateWasteTarget(side, breakingPitch);
-            }
-            if (request.Strikes == 2 && choice < _balance.AiTwoStrikeWasteProbability)
-                return CreateWasteTarget(side, breakingPitch);
             if (choice < _balance.AiWastePitchProbability)
                 return CreateWasteTarget(side, breakingPitch);
             return new PlatePoint(side * 0.72d, breakingPitch ? -0.55d : 0.42d);
@@ -272,7 +275,7 @@ namespace Baseball.Simulation.Match
                     request.DefaultIntent == BattingApproach.Bunt);
             }
 
-            double pitchDifficulty = (request.Pitch.Quality - 50d) * 0.0030d +
+            double pitchDifficulty = (request.Pitch.Quality - 50d) * _balance.MiniGame.AiPitchQualityDifficultyWeight +
                                      (request.Pitch.VelocityMph - 88d) * 0.006d;
             double recognition = (batter.Contact - 50d) * 0.0060d +
                                  (batter.Mental - 50d) * 0.0035d;

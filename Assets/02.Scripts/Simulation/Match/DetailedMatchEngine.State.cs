@@ -74,6 +74,7 @@ namespace Baseball.Simulation.Match
         private readonly int[] _battingLineIndices;
         private readonly bool[] _benchAvailable;
         private readonly PitcherGameState[] _pitchers;
+        private readonly BullpenCandidateState[] _bullpenCandidates;
         private readonly int[] _highLeverageBatters;
         private readonly int[] _overloadPitches;
         private readonly bool[] _enteredInSaveSituation;
@@ -85,6 +86,7 @@ namespace Baseball.Simulation.Match
         private readonly BullpenUsageResolver _bullpenUsageResolver;
         private readonly MatchConditionRatingResolver _conditionRatingResolver;
         private readonly double _decisionRatingSlope;
+        private readonly PitcherFatigueResolver _fatigueResolver;
 
         public DetailedTeamGameState(
             MatchRosterSnapshot roster,
@@ -94,6 +96,7 @@ namespace Baseball.Simulation.Match
             MatchRatingCurveBalance ratingCurve = null)
         {
             Roster = roster;
+            _fatigueResolver = fatigueResolver;
             _historicalConfiguration = historicalConfiguration;
             _conditionRatingResolver = conditionRatingResolver;
             _decisionRatingSlope = ratingCurve?.Slope ?? 1d;
@@ -120,6 +123,7 @@ namespace Baseball.Simulation.Match
                 _benchAvailable[index] = true;
 
             _pitchers = new PitcherGameState[1 + roster.Bullpen.Count];
+            _bullpenCandidates = new BullpenCandidateState[roster.Bullpen.Count];
             _pitchers[0] = fatigueResolver.CreateState(roster.StartingPitcher);
             _pitchers[0].HasEntered = true;
             for (int index = 0; index < roster.Bullpen.Count; index++)
@@ -299,34 +303,16 @@ namespace Baseball.Simulation.Match
             return count == 0 ? 0d : total / count;
         }
 
-        /// <summary>가용 불펜의 최고 핵심 구위가 현재 투수보다 얼마나 높은지 계산한다.</summary>
-        public double CalculateBullpenQualityAdvantage(BullpenManagementBalance balance)
+        /// <summary>실제 선택한 다음 투수와 현재 투수의 피로 반영 구위 차이를 계산한다.</summary>
+        public double CalculateRelieverQualityAdvantage(int candidateIndex)
         {
-            double activeQuality = CalculatePitcherQuality(ActivePitcherState);
-            double bestQuality = activeQuality;
-            bool hasNormallyAvailable = CountAvailableRelievers(balance, allowEmergency: false) > 0;
-            for (int index = 1; index < _pitchers.Length; index++)
-            {
-                PitcherGameState candidate = _pitchers[index];
-                if (candidate.HasEntered || candidate.HasBeenRemoved)
-                    continue;
-                double recentLoad = candidate.RosterEntry.RecentWorkload.PreviousDayPitches +
-                                    candidate.RosterEntry.RecentWorkload.TwoDaysAgoPitches * balance.RecentLoadDayTwoWeight +
-                                    candidate.RosterEntry.RecentWorkload.ThreeDaysAgoPitches * balance.RecentLoadDayThreeWeight;
-                recentLoad /= candidate.RosterEntry.RecoveryMultiplier;
-                if (hasNormallyAvailable && recentLoad >= balance.UnavailableRecentLoad)
-                    continue;
-                double quality = CalculatePitcherQuality(candidate);
-                if (quality > bestQuality) bestQuality = quality;
-            }
-            return bestQuality - activeQuality;
+            return CalculatePitcherQuality(_pitchers[candidateIndex]) - CalculatePitcherQuality(ActivePitcherState);
         }
 
-        private static double CalculatePitcherQuality(PitcherGameState pitcher)
+        private double CalculatePitcherQuality(PitcherGameState pitcher)
         {
-            return (pitcher.Player.PitcherAttributes.Stuff +
-                    pitcher.Player.PitcherAttributes.Breaking +
-                    pitcher.Player.PitcherAttributes.Control) / 3d;
+            EffectivePitcherRatings ratings = _fatigueResolver.Resolve(pitcher, PitchingApproach.Balanced);
+            return (ratings.Stuff + ratings.Breaking + ratings.Control) / 3d;
         }
 
         public int SelectReliever(
@@ -435,7 +421,9 @@ namespace Baseball.Simulation.Match
             if (!hasMatchingBand)
                 return int.MinValue;
 
-            var candidates = new BullpenCandidateState[_pitchers.Length - 1];
+            // 교체 여부를 판단하는 매 타석마다 후보 배열을 새로 할당하지 않는다.
+            BullpenCandidateState[] candidates = _bullpenCandidates;
+            Array.Clear(candidates, 0, candidates.Length);
             int candidateCount = 0;
             bool hasNormallyAvailable = CountAvailableRelievers(balance, allowEmergency: false) > 0;
             for (int index = 1; index < _pitchers.Length; index++)
@@ -463,8 +451,7 @@ namespace Baseball.Simulation.Match
 
             if (candidateCount == 0)
                 return -1;
-            if (candidateCount != candidates.Length)
-                Array.Resize(ref candidates, candidateCount);
+            // 비어 있는 버퍼 항목은 IsAvailable=false이므로 정책 선택에서 제외된다.
             BullpenCandidateState? selected = _bullpenUsageResolver.SelectCandidate(
                 _historicalConfiguration.BullpenUsagePolicy,
                 context,

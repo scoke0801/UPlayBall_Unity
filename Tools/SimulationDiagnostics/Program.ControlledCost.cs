@@ -119,6 +119,7 @@ namespace Baseball.Tools.SimulationDiagnostics
         {
             private long _ab, _pa, _hits, _tb, _bb, _hbp, _sf, _hr, _k, _rbi, _runs;
             private long _outs, _allowed, _wins, _draws, _difference;
+            private long _earned, _stolenBases, _caughtStealing;
             public void Add(MatchResult result, int playerId, bool pitcher)
             {
                 int margin = result.AwayBoxScore.Runs - result.HomeBoxScore.Runs;
@@ -131,6 +132,7 @@ namespace Baseball.Tools.SimulationDiagnostics
                         {
                             _outs += line.OutsRecorded; _hits += line.HitsAllowed; _bb += line.WalksAllowed;
                             _k += line.Strikeouts; _hr += line.HomeRunsAllowed; _allowed += line.RunsAllowed;
+                            _earned += line.EarnedRuns;
                         }
                     return;
                 }
@@ -141,13 +143,14 @@ namespace Baseball.Tools.SimulationDiagnostics
                         _tb += line.Hits + line.Doubles + 2 * line.Triples + 3 * line.HomeRuns;
                         _bb += line.Walks; _hbp += line.HitByPitches; _sf += line.SacrificeFlies;
                         _hr += line.HomeRuns; _k += line.Strikeouts; _rbi += line.RunsBattedIn; _runs += line.Runs;
+                        _stolenBases += line.StolenBases; _caughtStealing += line.CaughtStealing;
                     }
             }
             public string Format(int count, bool pitcher)
             {
                 string team = $" RD/G={_difference / (double)count:F3} Win%={100d * _wins / count:F2} Draw%={100d * _draws / count:F2}";
-                return pitcher ? $"K/9={27d * _k / _outs:F3} BB/9={27d * _bb / _outs:F3} HR/9={27d * _hr / _outs:F3} WHIP={3d * (_hits + _bb) / _outs:F3} RA/G={_allowed / (double)count:F3}" + team :
-                    $"AVG={_hits / (double)_ab:F3} OBP={(_hits + _bb + _hbp) / (double)(_ab + _bb + _hbp + _sf):F3} SLG={_tb / (double)_ab:F3} HR={_hr} K%={100d * _k / _pa:F2} RBI/G={_rbi / (double)count:F3} R/G={_runs / (double)count:F3}" + team;
+                return pitcher ? $"K/9={27d * _k / _outs:F3} BB/9={27d * _bb / _outs:F3} HR/9={27d * _hr / _outs:F3} WHIP={3d * (_hits + _bb) / _outs:F3} ERA={27d * _earned / _outs:F3} IP/G={_outs / (3d * count):F3} RA/G={_allowed / (double)count:F3}" + team :
+                    $"AVG={_hits / (double)_ab:F3} OBP={(_hits + _bb + _hbp) / (double)(_ab + _bb + _hbp + _sf):F3} SLG={_tb / (double)_ab:F3} HR={_hr} K%={100d * _k / _pa:F2} SB/G={_stolenBases / (double)count:F3} CS/G={_caughtStealing / (double)count:F3} RBI/G={_rbi / (double)count:F3} R/G={_runs / (double)count:F3}" + team;
             }
         }
     }

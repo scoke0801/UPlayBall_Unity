@@ -13,6 +13,64 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class MiniGameSimulationTests
     {
         [Test]
+        public void PitchSelection_존공략과땅볼유도도투스트라이크유인구를사용한다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            var resolver = new PitchExecutionResolver(balance, new Pcg32Random(7UL));
+            var request = new PitchSelectionRequest(1, 1, 1, 1, InningHalf.Top,
+                1, 2, 6, 0, 2, 0, 0, 0, default, 0d, LeverageTier.Medium,
+                resolver.BuildPitchOptions(CreateMatchup(50, 80)),
+                System.Array.Empty<PitchType>(), default);
+            foreach (PitchingApproach approach in new[] { PitchingApproach.AttackZone, PitchingApproach.GroundBall })
+            {
+                var ai = new PitchSelectionAi(balance, new Pcg32Random(90210UL));
+                int wasteTargets = 0;
+                for (int index = 0; index < 10000; index++)
+                {
+                    PlatePoint target = ai.Select(request, approach).TargetPoint;
+                    if (System.Math.Max(System.Math.Abs(target.X), System.Math.Abs(target.Y)) > 1d)
+                        wasteTargets++;
+                }
+                Assert.That(wasteTargets / 10000d,
+                    Is.EqualTo(balance.MiniGame.AiTwoStrikeWasteProbability).Within(0.02d), approach.ToString());
+            }
+        }
+
+        [Test]
+        public void PitchSelection_삼볼에서는승부회피외접근법도존공략비율을따른다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            var resolver = new PitchExecutionResolver(balance, new Pcg32Random(7UL));
+            var request = new PitchSelectionRequest(1, 1, 1, 1, InningHalf.Top,
+                1, 2, 6, 3, 2, 0, 0, 0, default, 0d, LeverageTier.Medium,
+                resolver.BuildPitchOptions(CreateMatchup(50, 60)),
+                System.Array.Empty<PitchType>(), default);
+            foreach (PitchingApproach approach in new[] { PitchingApproach.Balanced,
+                  PitchingApproach.Strikeout, PitchingApproach.Nibble, PitchingApproach.GroundBall, PitchingApproach.AttackZone })
+            {
+                var ai = new PitchSelectionAi(balance, new Pcg32Random(90210UL));
+                int zoneTargets = 0;
+                for (int i = 0; i < 10000; i++)
+                {
+                    PlatePoint target = ai.Select(request, approach).TargetPoint;
+                    if (System.Math.Abs(target.X) <= 1d && System.Math.Abs(target.Y) <= 1d)
+                    {
+                        zoneTargets++;
+                        Assert.That(System.Math.Abs(target.X), Is.EqualTo(balance.MiniGame.AiThreeBallTargetHorizontal));
+                    }
+                }
+                Assert.That(zoneTargets / 10000d,
+                    Is.EqualTo(balance.MiniGame.AiThreeBallChallengeProbability).Within(0.02d), approach.ToString());
+            }
+            var pitchAround = new PitchSelectionAi(balance, new Pcg32Random(90210UL));
+            for (int i = 0; i < 100; i++)
+            {
+                PlatePoint target = pitchAround.Select(request, PitchingApproach.PitchAround).TargetPoint;
+                Assert.That(System.Math.Max(System.Math.Abs(target.X), System.Math.Abs(target.Y)), Is.GreaterThan(1d));
+            }
+        }
+
+        [Test]
         public void PitchExecution_같은Seed와명령은같은실제궤적을만든다()
         {
             PlateAppearanceMatchup matchup = CreateMatchup(55, 62);
@@ -147,6 +205,25 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(contact.PitchResult, Is.EqualTo(PitchResult.InPlay));
             Assert.That(contact.Grade, Is.GreaterThanOrEqualTo(ContactGrade.Solid));
             Assert.That(contact.ExitVelocityMph, Is.GreaterThan(0d));
+        }
+
+        [Test]
+        public void SwingContact_좋은투구는같은정확한스윙에서도타구품질을낮춘다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            var resolver = new SwingContactResolver(balance);
+            PlateAppearanceMatchup matchup = CreateMatchup(60, 55);
+            PitchFlightDescriptor ordinary = CreatePitch(new PlatePoint(0, 0), 50);
+            PitchFlightDescriptor excellent = CreatePitch(new PlatePoint(0, 0), 80);
+            var command = new SwingCommand(0, true, ordinary.PlatePoint,
+                resolver.GetIdealSwingTime01(ordinary), BattingApproach.Balanced);
+            ContactProfile first = resolver.Resolve(matchup, ordinary, command, 1);
+            ContactProfile second = resolver.Resolve(matchup, excellent, command, 1);
+            Assert.That(first.PitchResult, Is.EqualTo(PitchResult.InPlay));
+            Assert.That(second.PitchResult, Is.EqualTo(PitchResult.InPlay));
+            Assert.That(first.Quality - second.Quality,
+                Is.EqualTo(30 * balance.MiniGame.ContactPitchQualityWeight).Within(1e-9));
+            Assert.That(second.ExitVelocityMph, Is.LessThan(first.ExitVelocityMph));
         }
 
         [Test]
@@ -403,7 +480,7 @@ namespace Baseball.Tests.EditMode.Simulation
             return new PlateAppearanceMatchup(batter, pitcher, 50d, false);
         }
 
-        private static PitchFlightDescriptor CreatePitch(PlatePoint platePoint)
+        private static PitchFlightDescriptor CreatePitch(PlatePoint platePoint, double quality = 50d)
         {
             return new PitchFlightDescriptor(
                 PitchType.FourSeamFastball,
@@ -415,7 +492,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 0.10d,
                 0.72d,
                 453d,
-                50d,
+                quality,
                 false);
         }
 

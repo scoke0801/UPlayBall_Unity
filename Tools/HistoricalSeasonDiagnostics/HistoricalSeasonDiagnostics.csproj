@@ -6,6 +6,7 @@
     <NoWarn>CS0649;CS0169</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../SimulationDiagnostics/CommonMatchBalanceInput.cs" Link="CommonMatchBalanceInput.cs" />
     <ProjectReference Include="../HeadlessRegression/Baseball.Game.Headless.csproj" />
     <Compile Include="../../Assets/02.Scripts/Game/Unity/Historical/HistoricalRuntimeContentDtos.cs" Link="HistoricalRuntimeContentDtos.cs" />
     <Compile Include="../../Assets/02.Scripts/Game/Unity/Historical/HistoricalRuntimeContentCatalog.cs" Link="HistoricalRuntimeContentCatalog.cs" />

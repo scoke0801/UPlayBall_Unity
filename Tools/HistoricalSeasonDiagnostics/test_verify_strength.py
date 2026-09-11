@@ -40,6 +40,29 @@ class StrengthGateTests(unittest.TestCase):
         self.assertTrue(result['passed'])
         self.assertEqual([1, 1], [t['rank'] for t in result['teams']])
 
+    def test_actual_leader_passes_at_third_but_fails_at_fourth(self):
+        for row in self.simulation['rows']:
+            row['teams'] = [
+                dict(TeamSeasonKey='a', Wins=65, Losses=35),
+                dict(TeamSeasonKey='b', Wins=68, Losses=32),
+                dict(TeamSeasonKey='c', Wins=67, Losses=33),
+                dict(TeamSeasonKey='d', Wins=64, Losses=36),
+            ]
+        self.assertTrue(evaluate(self.simulation, self.reference, tolerance=.05)['passed'])
+        for row in self.simulation['rows']:
+            row['teams'][3].update(Wins=66, Losses=34)
+        self.assertFalse(evaluate(self.simulation, self.reference, tolerance=.05)['passed'])
+
+    def test_official_leader_is_not_lost_when_tie_rules_differ(self):
+        self.reference['teams'][0].update(actualRegularLeader=True, actualWins=69, actualLosses=31)
+        self.reference['teams'].append(dict(year=1985, team='승패 기준 선두',
+            teamSeasonKey='b', actualWins=70, actualLosses=30, actualRegularLeader=False))
+        for row in self.simulation['rows']:
+            row['teams'][1].update(Wins=69, Losses=31)
+        result = evaluate(self.simulation, self.reference)
+        self.assertTrue(result['passed'])
+        self.assertTrue(all(team['requiresTopThree'] for team in result['teams']))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -461,10 +461,6 @@ namespace Baseball.Game.Historical
             int logicalDay,
             PitchingWorkloadTracker workloads)
         {
-            var lineup = new LineupSlot[9];
-            for (int index = 0; index < lineup.Length; index++)
-                lineup[index] = new LineupSlot(roster.Players[index], (PlayerPosition)(index + 1));
-
             var bench = new Player[5];
             Array.Copy(roster.Players, 9, bench, 0, bench.Length);
             int starterIndex = 14 + rotationIndex;
@@ -501,7 +497,7 @@ namespace Baseball.Game.Historical
             return new MatchRosterSnapshot(
                 roster.TeamId,
                 roster.Team.FranchiseId,
-                new Lineup(lineup),
+                roster.BattingOrder,
                 new PitcherRosterEntry(
                     roster.Players[starterIndex],
                     PitcherRole.Starter,
@@ -608,7 +604,7 @@ namespace Baseball.Game.Historical
             return new MatchRosterSnapshot(
                 AllStarTeamId,
                 context.SeasonYear + " 올스타",
-                new Lineup(lineup),
+                new ManagerLineupAi(_balance.ManagerLineup).BuildLineup(lineup),
                 new PitcherRosterEntry(
                     starting.Player,
                     PitcherRole.Starter,
@@ -742,7 +738,7 @@ namespace Baseball.Game.Historical
                         ResolveAssignedSeasonPosition(rosterIndex, season.Position)));
                     players.Add(season.PlayerSeasonId, new PlayerSeasonPair(player, season));
                 }
-                rosters[teamIndex] = new SeasonRoster(teamIndex + 1, team, rosterPlayers, rosterSeasons);
+                rosters[teamIndex] = new SeasonRoster(teamIndex + 1, team, rosterPlayers, rosterSeasons, _balance.ManagerLineup);
             }
             identities.Sort((left, right) => left.PlayerId.CompareTo(right.PlayerId));
             return new SeasonContext(year, teams, rosters, identities, players);
@@ -877,18 +873,25 @@ namespace Baseball.Game.Historical
                 int teamId,
                 TeamSeasonDefinition team,
                 Player[] players,
-                PlayerSeasonDefinition[] seasons)
+                PlayerSeasonDefinition[] seasons,
+                ManagerLineupBalance lineupBalance)
             {
                 TeamId = teamId;
                 Team = team;
                 Players = players;
                 Seasons = seasons;
+                // Core25의 수비 슬롯 순서는 타순이 아니다. 다른 경기 경로와 같은 감독 AI로 한 번 편성한다.
+                var fielding = new LineupSlot[9];
+                for (int index = 0; index < fielding.Length; index++)
+                    fielding[index] = new LineupSlot(players[index], (PlayerPosition)(index + 1));
+                BattingOrder = new ManagerLineupAi(lineupBalance).BuildLineup(fielding);
             }
 
             public int TeamId { get; }
             public TeamSeasonDefinition Team { get; }
             public Player[] Players { get; }
             public PlayerSeasonDefinition[] Seasons { get; }
+            public Lineup BattingOrder { get; }
             public int NextStarterIndex { get; private set; }
 
             /// <summary>실제 팀 경기마다 1~5선발을 순환한다. 휴식일과 올스타는 순번을 소비하지 않는다.</summary>

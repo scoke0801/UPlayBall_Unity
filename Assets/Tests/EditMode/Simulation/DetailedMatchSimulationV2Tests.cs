@@ -592,7 +592,85 @@ namespace Baseball.Tests.EditMode.Simulation
                 RunningApproach.Balanced);
         }
 
-        private static DecisionContext CreateDecisionContext(int outs, BaseStateSnapshot bases)
+        [Test]
+        public void TacticalAi_2아웃도루도성공확률의기대값으로판단한다()
+        {
+            var balance = BalanceTable.CreateDefault().Match.Tactical;
+            var expectancy = RunExpectancy24.CreateDefault();
+            var ai = new TacticalAiResolver(balance, expectancy);
+            DecisionContext context = CreateDecisionContext(2, new BaseStateSnapshot(true, false, false));
+            Player runner = CreateBatter(301, 100, 50, 100);
+            Player catcher = CreateBatter(302, 50, 50, 50, PlayerPosition.Catcher);
+            TacticalDecision decision = ai.EvaluateSteal(context, runner, catcher);
+            double success = ai.CalculateStealSuccess(runner, catcher, context.Pitcher);
+            Assert.That(decision.Score, Is.EqualTo(success * expectancy.Get(2, 2) - expectancy.Get(2, 1) + 0.035d).Within(1e-12));
+            Assert.That(decision.ShouldAct, Is.True);
+        }
+
+        [Test]
+        public void TacticalAi_경계도루는항상실행되지않고이득에따라빈도가증가한다()
+        {
+            var balance = BalanceTable.CreateDefault().Match.Tactical;
+            var ai = new TacticalAiResolver(balance, RunExpectancy24.CreateDefault());
+            double threshold = balance.StealAttemptUtilityThreshold;
+            Assert.That(ai.CalculateStealAttemptProbability(new TacticalDecision(false, threshold - 1d, threshold)), Is.Zero);
+            double small = ai.CalculateStealAttemptProbability(new TacticalDecision(true, threshold + 0.01d, threshold));
+            double large = ai.CalculateStealAttemptProbability(new TacticalDecision(true, threshold + 0.08d, threshold));
+            Assert.That(small, Is.InRange(0.01d, 0.99d));
+            Assert.That(large, Is.GreaterThan(small));
+            Assert.That(ai.CalculateStealAttemptProbability(new TacticalDecision(true, threshold + 10d, threshold)), Is.EqualTo(1d));
+        }
+
+        [Test]
+        public void TacticalAi_1루도루기대값에서3루주자를보존한다()
+        {
+            var balance = BalanceTable.CreateDefault().Match.Tactical;
+            var expectancy = RunExpectancy24.CreateDefault();
+            var ai = new TacticalAiResolver(balance, expectancy);
+            DecisionContext context = CreateDecisionContext(0, new BaseStateSnapshot(true, false, true));
+            Player runner = CreateBatter(301, 85, 50, 85);
+            Player catcher = CreateBatter(302, 50, 50, 50, PlayerPosition.Catcher);
+            double success = ai.CalculateStealSuccess(runner, catcher, context.Pitcher);
+            double expected = success * expectancy.Get(0, 6) + (1d - success) * expectancy.Get(1, 4) - expectancy.Get(0, 5) + 0.035d;
+            Assert.That(ai.EvaluateSteal(context, runner, catcher).Score, Is.EqualTo(expected).Within(1e-12));
+        }
+
+        [Test]
+        public void PitcherChange_더약한불펜으로교체하는비용도평가한다()
+        {
+            var ai = new PitcherManagementAi(BalanceTable.CreateDefault().Match.BullpenManagement);
+            DecisionContext context = CreateDecisionContext(1, new BaseStateSnapshot(true, false, false));
+            double weaker = ai.Evaluate(context, 3, 1d, -15d).PullScore;
+            double equal = ai.Evaluate(context, 3, 1d, 0d).PullScore;
+            double stronger = ai.Evaluate(context, 3, 1d, 15d).PullScore;
+            Assert.That(weaker, Is.LessThan(equal));
+            Assert.That(stronger, Is.GreaterThan(equal));
+        }
+
+        [Test]
+        public void RelieverSelection_다이닝회복여유가있으면마무리보존비용이낮다()
+        {
+            var ai = new PitcherManagementAi(BalanceTable.CreateDefault().Match.BullpenManagement);
+            Player pitcher = CreatePitcher(90, 60);
+            var normal = new PitcherGameState(new PitcherRosterEntry(pitcher, PitcherRole.Closer), 30);
+            var durable = new PitcherGameState(new PitcherRosterEntry(pitcher, PitcherRole.Closer,
+                capacityMultiplier: 2, recoveryMultiplier: 2), 60);
+            Assert.That(ai.ScoreReliever(durable, LeverageTier.Medium, 3, ManagerTacticalProfile.Balanced),
+                Is.GreaterThan(ai.ScoreReliever(normal, LeverageTier.Medium, 3, ManagerTacticalProfile.Balanced)));
+            Assert.That(ai.ScoreReliever(durable, LeverageTier.Critical, 1, ManagerTacticalProfile.Balanced),
+                Is.EqualTo(ai.ScoreReliever(normal, LeverageTier.Critical, 1, ManagerTacticalProfile.Balanced)));
+        }
+
+        [Test]
+        public void TacticalAi_빈베이스에서는강타자라는이유만으로고의사구를주지않는다()
+        {
+            var ai = new TacticalAiResolver(BalanceTable.CreateDefault().Match.Tactical,
+                RunExpectancy24.CreateDefault());
+            Assert.That(ai.ShouldIntentionalWalk(CreateDecisionContext(2, new BaseStateSnapshot(false, false, false),
+                CreateThreatBatter(91, 100, 100))), Is.False);
+        }
+
+        private static DecisionContext CreateDecisionContext(int outs, BaseStateSnapshot bases, Player batter = null)
         {
             Player pitcher = CreatePitcher(90, 50);
             PitcherFatigueResolver resolver = CreateFatigueResolver();
@@ -603,7 +681,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 scoreDifference: 0,
                 outs,
                 bases,
-                CreateBatter(91, 45, 50, 45),
+                batter ?? CreateBatter(91, 45, 50, 45),
                 pitcher,
                 CreateBatter(92, 40, 50, 40),
                 LeverageTier.High,

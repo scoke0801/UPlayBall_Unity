@@ -1,6 +1,6 @@
 {
     "schemaVersion":  1,
-    "version":  "pitch-arsenal-v1",
+    "version":  "pitch-arsenal-v2",
     "velocityReferenceKph":  146,
     "velocityKphPerRating":  0.32,
     "ratingCenter":  50,
@@ -31,7 +31,7 @@
                    "fivePitchAuxiliaryModifier":  0.78
                },
     "generation":  {
-                       "breakingMeanInfluence":  0.55,
+                       "masteryAbilityInfluence":  0.55,
                        "maxPitchCount":  6,
                        "starterCountWeights":  [
                                                    5,
@@ -43,7 +43,7 @@
                        "premiumProbability":  0.002,
                        "masteryMean":  55,
                        "affinityStrength":  0.35,
-                       "masteryStdDev":  13,
+                       "masteryStdDev":  6,
                        "developmentMin":  0.65,
                        "developmentMax":  1.45,
                        "seed":  20260906,

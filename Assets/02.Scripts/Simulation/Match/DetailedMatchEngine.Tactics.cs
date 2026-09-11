@@ -20,12 +20,7 @@ namespace Baseball.Simulation.Match
                 return;
             BullpenManagementBalance balance = _balance.Match.BullpenManagement;
             int available = defense.CountAvailableRelievers(balance, allowEmergency: true);
-            PitcherChangeDecision decision = _pitcherManagementAi.Evaluate(
-                context,
-                available,
-                defense.CalculateBullpenFreshness(balance),
-                defense.CalculateBullpenQualityAdvantage(balance));
-            if (!decision.ShouldChange)
+            if (available == 0)
                 return;
 
             int remainingInnings = Math.Max(1, state.Input.Rules.RegulationInnings - inning + 1);
@@ -37,6 +32,15 @@ namespace Baseball.Simulation.Match
                 inning,
                 -context.ScoreDifference);
             if (candidateIndex < 0)
+                return;
+
+            // 교체를 유도한 우수 불펜 대신 다른 보직의 약한 투수가 등판하는 판단 불일치를 막는다.
+            PitcherChangeDecision decision = _pitcherManagementAi.Evaluate(
+                context,
+                available,
+                defense.CalculateBullpenFreshness(balance),
+                defense.CalculateRelieverQualityAdvantage(candidateIndex));
+            if (!decision.ShouldChange)
                 return;
 
             PitcherGameState removed = defense.ChangePitcher(
@@ -166,6 +170,9 @@ namespace Baseball.Simulation.Match
             Player catcher = defense.GetCatcher();
             TacticalDecision decision = _tacticalAi.EvaluateSteal(context, bases.First.Player, catcher);
             if (!decision.ShouldAct)
+                return false;
+
+            if (_random.Baserunning.NextDouble() >= _tacticalAi.CalculateStealAttemptProbability(decision))
                 return false;
 
             DetailedBaseRunner runner = bases.First;

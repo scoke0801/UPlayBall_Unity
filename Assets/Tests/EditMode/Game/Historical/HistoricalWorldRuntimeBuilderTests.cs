@@ -8,6 +8,7 @@ using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Historical;
+using Baseball.Simulation.Career;
 using Baseball.Simulation.Historical;
 using Baseball.Simulation.Match;
 using NUnit.Framework;
@@ -16,6 +17,59 @@ namespace Baseball.Tests.EditMode.Game.Historical
 {
     public sealed class HistoricalWorldRuntimeBuilderTests
     {
+        [Test]
+        public void BakeKey_밸런스가같아도엔진세대를식별한다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent(6);
+            BalanceTable balance = BalanceTable.CreateDefault();
+            BakedWorldHistoryKey current = HistoricalWorldRuntimeBuilder.CreateBakeKey(content, 20260905, balance);
+            var legacy = new BakedWorldHistoryKey(WorldRecordMode.SimulatedHistory, 20260905,
+                content.Manifest.ContentHash, balance.Version, balance.ContentHash);
+            Assert.That(current, Is.Not.EqualTo(legacy));
+            Assert.That(current.BalanceContentHash, Does.EndWith(":engine-" +
+                Baseball.Core.Rules.SimulationVersionStamp.CurrentEngineVersion));
+            BakedWorldHistoryPayload decoded = WorldHistoryBakeCodec.Decode(WorldHistoryBakeCodec.Encode(
+                new BakedWorldHistoryPayload(current, new WorldHistorySaveData
+                {
+                    recordMode = (int)WorldRecordMode.SimulatedHistory,
+                    worldHistorySeed = 20260905
+                })));
+            Assert.That(decoded.Key, Is.EqualTo(current));
+        }
+
+        [Test]
+        public void DetailedSeason_수비배치를보존하고공통감독Ai로타순을편성한다()
+        {
+            HistoricalBakedContent content = Fixture.CreateContent(6);
+            BalanceTable balance = BalanceTable.CreateDefault();
+            var identities = new WorldIdentityGenerator().Generate(content.PlayerPersons, content.TeamSeasons,
+                content.IdentityNameCatalog, 20260905);
+            var result = new BakedHistoricalDetailedSeasonSource(content, balance, identities)
+                .RunSeason(20260905, content.Years[0].TeamSeasons);
+            var ai = new ManagerLineupAi(balance.ManagerLineup);
+            int reordered = 0;
+            foreach (HistoricalDetailedMatchRecord match in result.Matches)
+            {
+                foreach (MatchRosterSnapshot roster in new[] { match.Result.Input.AwayRoster, match.Result.Input.HomeRoster })
+                {
+                    var fielding = new LineupSlot[9];
+                    for (int index = 0; index < 9; index++)
+                    {
+                        LineupSlot slot = roster.StartingLineup[index];
+                        fielding[(int)slot.FieldingPosition - 1] = slot;
+                        if ((int)slot.FieldingPosition != index + 1) reordered++;
+                    }
+                    Lineup expected = ai.BuildLineup(fielding);
+                    for (int index = 0; index < 9; index++)
+                    {
+                        Assert.That(roster.StartingLineup[index].Player.PlayerId, Is.EqualTo(expected[index].Player.PlayerId));
+                        Assert.That(roster.StartingLineup[index].FieldingPosition, Is.EqualTo(expected[index].FieldingPosition));
+                    }
+                }
+            }
+            Assert.That(reordered, Is.GreaterThan(0), "수비 위치 순서가 그대로 타순이 되는 회귀를 검출해야 한다.");
+        }
+
         [Test]
         public void Bake_직렬과병렬의전체산출물이일치한다()
         {

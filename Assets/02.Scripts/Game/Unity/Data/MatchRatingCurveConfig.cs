@@ -32,7 +32,11 @@ namespace Baseball.Game.Data
             return new MatchRatingCurveBalance(data.center, data.slope,
                 new EffectiveRatingCapTable(data.softCap, data.hardCap, data.postSoftCapSlope), data.inputOffset,
                 data.usePitcherCurve ? (double?)data.pitcherSlope : null,
-                data.usePitcherCurve ? (double?)data.pitcherInputOffset : null);
+                data.usePitcherCurve ? (double?)data.pitcherInputOffset : null,
+                data.useUpperSpreadLimit ? (double?)data.upperSpreadStart : null,
+                data.useLowerSpreadLimit ? (double?)data.lowerSpreadEnd : null,
+                data.useLowerSpreadLimit ? data.lowerSlope : .45d,
+                data.usePitcherUpperSpreadLimit ? (double?)data.pitcherUpperSpreadStart : null);
         }
     }
 #pragma warning disable 0649
@@ -43,6 +47,12 @@ namespace Baseball.Game.Data
         public double inputOffset;
         public bool usePitcherCurve;
         public double pitcherSlope, pitcherInputOffset;
+        public bool useUpperSpreadLimit;
+        public double upperSpreadStart;
+        public bool useLowerSpreadLimit;
+        public double lowerSpreadEnd, lowerSlope;
+        public bool usePitcherUpperSpreadLimit;
+        public double pitcherUpperSpreadStart;
     }
 #pragma warning restore 0649
 }

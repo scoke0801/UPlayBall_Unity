@@ -83,9 +83,10 @@ namespace Baseball.Simulation.Match
                 : 0d;
             double bullpenConservation = (1d - Clamp01(bullpenFreshness)) *
                                          _balance.MaximumBullpenConservation;
-            double qualityAdvantage = Math.Min(
-                _balance.MaximumBullpenQualityAdvantage,
-                Math.Max(0d, bullpenQualityAdvantage) * _balance.BullpenQualityAdvantageWeight);
+            // 더 약한 불펜으로 바꾸는 비용도 대칭으로 평가한다. 투구 한계의 강제 교체는 위에서 우선한다.
+            double qualityAdvantage = Math.Max(-_balance.MaximumBullpenQualityAdvantage,
+                Math.Min(_balance.MaximumBullpenQualityAdvantage,
+                    bullpenQualityAdvantage * _balance.BullpenQualityAdvantageWeight));
             double pullScore = fatigueRisk + currentDanger + ttoRisk + performanceDamage + leverageMismatch + qualityAdvantage -
                                starterTrust - bullpenConservation;
             double threshold = _balance.PullThreshold -
@@ -120,9 +121,13 @@ namespace Baseball.Simulation.Match
                                 _balance.RecentLoadDayThreeWeight;
             recentLoad /= candidate.RosterEntry.RecoveryMultiplier;
             double futureUsageCost = candidate.Role == PitcherRole.Closer && leverage < LeverageTier.High
-                ? _balance.LowLeverageCloserPenalty
-                : 0d;
-            return quality + freshness + roleFit * (0.6d + rigidity * 0.8d) -
+                  ? _balance.LowLeverageCloserPenalty
+                  : 0d;
+            // 여러 이닝을 소화하고 빨리 회복하는 투수까지 1이닝 마무리처럼 묶어 두지 않는다.
+            // 보직 선호는 유지하되 실제 카드의 용량·회복 여유만큼 보존 비용을 낮춘다.
+            futureUsageCost /= Math.Max(1d,
+                candidate.RosterEntry.CapacityMultiplier * candidate.RosterEntry.RecoveryMultiplier);
+            return quality * _balance.RelieverQualityWeight + freshness + roleFit * (0.6d + rigidity * 0.8d) -
                    recentLoad * 0.35d - futureUsageCost;
         }
 

@@ -18,6 +18,18 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        string balancePath = Baseball.Tools.CommonMatchBalanceInput.DefaultPath;
+        double? upperSpreadStart = null;
+        if (args.Length >= 2 && args[0] == "--upper-spread-start")
+        {
+            upperSpreadStart = double.Parse(args[1], CultureInfo.InvariantCulture);
+            args = args.Skip(2).ToArray();
+        }
+        if (args.Length >= 2 && args[0] == "--balance")
+        {
+            balancePath = args[1];
+            args = args.Skip(2).ToArray();
+        }
         if (args.Length > 0 && args[0] == "--roster-ablation")
             return RosterAblation.Run(args);
         if (args.Length > 0 && args[0] == "--owner-world-performance")
@@ -43,17 +55,20 @@ internal static class Program
                     ReadEntry(year.GetProperty("path").GetString()))).ToArray());
 
         var content = new UnityHistoricalContentProvider(catalog, HistoricalContentVerificationMode.Full).Load();
-        var balance = BalanceTable.CreateDefault();
+        var balance = Baseball.Tools.CommonMatchBalanceInput.Load(balancePath);
         if (args.Length >= 6)
         {
             balance = new BalanceTable(balance.Version, balance.PlateDiscipline, balance.BattedBall,
                 balance.BaseRunning, balance.ContractOffer, balance.TeamGeneration, balance.PlayerEvaluation,
-                balance.CareerSeason, contentHash: "diagnostic-rating-curve-" + string.Join("-", args.Skip(4)),
+                balance.CareerSeason, miniGame: balance.MiniGame, match: balance.Match,
+                contentHash: balance.ContentHash + ":diagnostic-rating-curve-" + string.Join("-", args.Skip(4)) +
+                    ":upper-" + upperSpreadStart?.ToString(CultureInfo.InvariantCulture),
                 matchRatingCurve: new MatchRatingCurveBalance(double.Parse(args[4], CultureInfo.InvariantCulture),
                     double.Parse(args[5], CultureInfo.InvariantCulture),
                     inputOffset: args.Length >= 7 ? double.Parse(args[6], CultureInfo.InvariantCulture) : 0d,
                     pitcherSlope: args.Length == 9 ? double.Parse(args[7], CultureInfo.InvariantCulture) : null,
-                    pitcherInputOffset: args.Length == 9 ? double.Parse(args[8], CultureInfo.InvariantCulture) : null));
+                    pitcherInputOffset: args.Length == 9 ? double.Parse(args[8], CultureInfo.InvariantCulture) : null,
+                    upperSpreadStart: upperSpreadStart));
         }
 
         var identities = new WorldIdentityGenerator().Generate(content.PlayerPersons, content.TeamSeasons,
@@ -89,9 +104,11 @@ internal static class Program
         File.WriteAllText(output, JsonSerializer.Serialize(new
         {
             contentHash = content.Manifest.ContentHash, balanceHash = balance.ContentHash,
+            engineVersion = Baseball.Core.Rules.SimulationVersionStamp.CurrentEngineVersion,
             center = balance.MatchRatingCurve.Center, slope = balance.MatchRatingCurve.Slope,
             inputOffset = balance.MatchRatingCurve.InputOffset,
             pitcherSlope = balance.MatchRatingCurve.PitcherSlope, pitcherInputOffset = balance.MatchRatingCurve.PitcherInputOffset,
+            balanceInputs = new { miniGame = balance.MiniGame, match = balance.Match, ratingCurve = balance.MatchRatingCurve },
             regularSeasonGamesPerTeam = balance.CareerSeason.RegularSeasonGamesPerTeam,
             repeatCount = repeats, games, determinismChecks = years.Length, rotationPolicy = "FixedFive", rows
         }, JsonOptions));

@@ -67,7 +67,9 @@ def actual_metrics(team, players):
     def summed(section, field):
         return sum((p.get(section) or {}).get(field, 0) or 0 for p in players)
     hitting, pitching, running = team["hitterStats"], team["pitcherStats"], team["runningStats"]
-    games = team["rankStats"]["games"]
+    rank = team["rankStats"]
+    games = rank["games"]
+    decisions = (rank.get("wins") or 0) + (rank.get("losses") or 0)
     at_bats = hitting["atBats"] if hitting else summed("hitterStats", "atBats")
     hits = hitting["hits"] if hitting else summed("hitterStats", "hits")
     home_runs = hitting["homeRuns"] if hitting else summed("hitterStats", "homeRuns")
@@ -81,7 +83,9 @@ def actual_metrics(team, players):
         if has_running_evidence else None
     earned_runs = pitching["earnedRuns"] if pitching else summed("pitcherStats", "earnedRuns")
     innings_outs = pitching["inningsOuts"] if pitching else summed("pitcherStats", "inningsOuts")
-    return dict(actualAverage=hits/at_bats,
+    return dict(actualWinRate=(rank.get("wins") or 0)/decisions if decisions else None,
+        actualSourceRank=rank.get("rank"),
+        actualAverage=hits/at_bats,
         actualHomeRunsPerGame=home_runs/games,
         actualExtraBaseHitsPerGame=(doubles+triples+home_runs)/games,
         actualStolenBasesPerGame=stolen_bases/games if stolen_bases is not None else None,
@@ -142,6 +146,9 @@ def summarize(simulation_path, runtime_root, normalized_root):
         for row in year_rows:
             row["simulatedRank"] = 1 + sum(
                 peer["simulatedWinRate"] > row["simulatedWinRate"] + 1e-12 for peer in year_rows
+            )
+            row["actualRank"] = 1 + sum(
+                peer["actualWinRate"] > row["actualWinRate"] + 1e-12 for peer in year_rows
             )
     pairs = (("average", "actualAverage", "simulatedAverage"),
         ("homeRuns", "actualHomeRunsPerGame", "simulatedHomeRunsPerGame"),

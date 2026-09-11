@@ -10,7 +10,7 @@ namespace Baseball.Simulation.Match
     /// <summary>능력 표시값을 변경하지 않고 기존 SoftCap/HardCap 표로 경기 효과 입력을 변환한다.</summary>
     public static class MatchRatingCurve
     {
-        /// <summary>HardCap와 SoftCap을 거친 값의 효과 분산만 압축한다.</summary>
+        /// <summary>HardCap와 SoftCap을 거친 값의 효과 분산을 저작된 구간별 곡선으로 변환한다.</summary>
         public static int ResolveMatchInput(double effectiveRating, MatchRatingCurveBalance balance)
             => ResolveMatchInput(effectiveRating, balance, false);
 
@@ -22,9 +22,28 @@ namespace Baseball.Simulation.Match
         {
             if (balance == null) throw new ArgumentNullException(nameof(balance));
             double curved = Resolve(effectiveRating, balance.Caps);
+            double slope = isPitcherAbility ? balance.PitcherSlope : balance.Slope;
+            double offset = isPitcherAbility ? balance.PitcherInputOffset : balance.InputOffset;
+            double input = balance.Center + (curved - balance.Center) * slope + offset;
+            if (balance.LowerSpreadEnd.HasValue && curved < balance.LowerSpreadEnd.Value)
+            {
+                // 신인·하위 리그까지 높은 분산을 외삽하면 동급 대결도 과도한 삼진전이 된다.
+                double pivot = balance.LowerSpreadEnd.Value;
+                input = balance.Center + (pivot - balance.Center) * slope + offset +
+                    (curved - pivot) * balance.LowerSlope;
+            }
+            double? upperSpreadStart = isPitcherAbility ? balance.PitcherUpperSpreadStart : balance.UpperSpreadStart;
+            if (upperSpreadStart.HasValue && curved > upperSpreadStart.Value)
+            {
+                // 일반 카드의 격차를 넓혀도 강화·성장이 중도에 100으로 포화되지 않게 한다.
+                double pivot = upperSpreadStart.Value;
+                double pivotInput = balance.Center + (pivot - balance.Center) * slope + offset;
+                double maximum = Resolve(balance.Caps.HardCap, balance.Caps);
+                double upperSlope = Math.Min(slope, Math.Max(0d, 100d - pivotInput) / (maximum - pivot));
+                input = pivotInput + (curved - pivot) * upperSlope;
+            }
             return (int)Math.Round(Math.Max(0d, Math.Min(100d,
-                balance.Center + (curved - balance.Center) * (isPitcherAbility ? balance.PitcherSlope : balance.Slope) +
-                (isPitcherAbility ? balance.PitcherInputOffset : balance.InputOffset))), MidpointRounding.AwayFromZero);
+                input)), MidpointRounding.AwayFromZero);
         }
 
         /// <summary>원본 선수는 보존하고 경기 시작 때만 별도 입력 스냅샷을 만든다.</summary>

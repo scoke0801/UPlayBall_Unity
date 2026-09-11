@@ -44,8 +44,19 @@ namespace Baseball.Core.Balance
             double repeatRecognitionBase,
             double repeatRecognitionMentalWeight,
             double repeatChaseReduction,
-            double repeatExecutionErrorReduction)
+            double repeatExecutionErrorReduction,
+            double aiThreeBallTargetHorizontal = 0.96d,
+            double aiPitchQualityDifficultyWeight = .003d,
+            double contactPitchQualityWeight = .75d, double contactBatterQualityWeight = .65d)
         {
+            ValidateProbability(aiThreeBallChallengeProbability, nameof(aiThreeBallChallengeProbability));
+            ValidateProbability(aiWastePitchProbability, nameof(aiWastePitchProbability));
+            ValidateProbability(aiTwoStrikeWasteProbability, nameof(aiTwoStrikeWasteProbability));
+            ValidateProbability(aiInsideWasteProbability, nameof(aiInsideWasteProbability));
+            ValidateProbability(aiThreeBallTargetHorizontal, nameof(aiThreeBallTargetHorizontal));
+            if (!(minimumCommandDeviation > 0d) || !(maximumCommandDeviation >= minimumCommandDeviation) ||
+                !(baseBatRadiusX > 0d) || !(baseBatRadiusY > 0d) || !(aiTimingErrorMilliseconds > 0d))
+                throw new System.ArgumentException("제구·타격 오차와 접촉 범위는 양수여야 합니다.");
             TargetHorizontalLimit = targetHorizontalLimit;
             TargetVerticalLimit = targetVerticalLimit;
             BaseCommandDeviation = baseCommandDeviation;
@@ -85,6 +96,16 @@ namespace Baseball.Core.Balance
             RepeatRecognitionMentalWeight = repeatRecognitionMentalWeight;
             RepeatChaseReduction = repeatChaseReduction;
             RepeatExecutionErrorReduction = repeatExecutionErrorReduction;
+            AiThreeBallTargetHorizontal = aiThreeBallTargetHorizontal;
+            if (!(aiPitchQualityDifficultyWeight > 0d) || double.IsInfinity(aiPitchQualityDifficultyWeight))
+                throw new System.ArgumentOutOfRangeException(nameof(aiPitchQualityDifficultyWeight));
+            AiPitchQualityDifficultyWeight = aiPitchQualityDifficultyWeight;
+            if (!(contactPitchQualityWeight >= 0d) || double.IsInfinity(contactPitchQualityWeight))
+                throw new System.ArgumentOutOfRangeException(nameof(contactPitchQualityWeight));
+            ContactPitchQualityWeight = contactPitchQualityWeight;
+            if (!(contactBatterQualityWeight >= 0d) || double.IsInfinity(contactBatterQualityWeight))
+                throw new System.ArgumentOutOfRangeException(nameof(contactBatterQualityWeight));
+            ContactBatterQualityWeight = contactBatterQualityWeight;
         }
 
         public double TargetHorizontalLimit { get; }
@@ -111,6 +132,10 @@ namespace Baseball.Core.Balance
         public double AiWastePitchProbability { get; }
         public double AiTwoStrikeWasteProbability { get; }
         public double AiThreeBallChallengeProbability { get; }
+        public double AiThreeBallTargetHorizontal { get; }
+        public double AiPitchQualityDifficultyWeight { get; }
+        public double ContactPitchQualityWeight { get; }
+        public double ContactBatterQualityWeight { get; }
         public double AiWastePitchDistance { get; }
         public double AiInsideWasteProbability { get; }
         public double AiLocationErrorScale { get; }
@@ -126,6 +151,12 @@ namespace Baseball.Core.Balance
         public double RepeatRecognitionMentalWeight { get; }
         public double RepeatChaseReduction { get; }
         public double RepeatExecutionErrorReduction { get; }
+
+        private static void ValidateProbability(double value, string name)
+        {
+            if (double.IsNaN(value) || value < 0d || value > 1d)
+                throw new System.ArgumentOutOfRangeException(name);
+        }
 
         /// <summary>표준 난도의 평균 입력이 자동 진행과 가까워지도록 잡은 최초 검증값을 만든다.</summary>
         public static MiniGameBalance CreateDefault()
@@ -156,18 +187,18 @@ namespace Baseball.Core.Balance
                 outOfZoneQualityPenalty: 18d,
                 aiWastePitchProbability: 0.48d,
                 aiTwoStrikeWasteProbability: 0.45d,
-                aiThreeBallChallengeProbability: 0.14d,
+                aiThreeBallChallengeProbability: 0.70d,
                 aiWastePitchDistance: 1.14d,
                 aiInsideWasteProbability: 0.40d,
-                aiLocationErrorScale: 0.89d,
+                aiLocationErrorScale: 0.92d,
                 aiTimingErrorMilliseconds: 63d,
-                contactQualityBase: 14.5d,
+                contactQualityBase: 16.75d,
                 launchAngleBaseDegrees: 10d,
                 launchAngleLocationScale: 145d,
                 homeRunMinimumExitVelocity: 90d,
                 homeRunMinimumLaunchAngle: 15d,
                 homeRunMaximumLaunchAngle: 42d,
-                homeRunProbabilityMultiplier: 2.20d,
+                homeRunProbabilityMultiplier: 2.60d,
                 repeatRecognitionBase: 0.12d,
                 repeatRecognitionMentalWeight: 0.002d,
                 repeatChaseReduction: 0.18d,

@@ -23,8 +23,10 @@ namespace Baseball.Tools.PureSimulationTests
                 typeof(Baseball.Tests.EditMode.Game.MatchNarrativeServiceTests),
                 typeof(Baseball.Tests.EditMode.Game.PlayerGrowthIntegrationTests),
                 typeof(Baseball.Tests.EditMode.Simulation.MatchSimulatorTests),
+                typeof(Baseball.Tests.EditMode.Simulation.MatchRatingCurveTests),
                 typeof(Baseball.Tests.EditMode.Simulation.AggregateMatchSimulationTests),
                 typeof(Baseball.Tests.EditMode.Game.Historical.ManagerModeMatchServiceTests),
+                typeof(Baseball.Tests.EditMode.Game.Historical.HistoricalWorldRuntimeBuilderTests),
                 typeof(Baseball.Tests.EditMode.Game.Historical.OwnerPostseasonStateTests),
                 typeof(Baseball.Tests.EditMode.Simulation.OwnerPostseasonBracketTests),
                 typeof(Baseball.Tests.EditMode.Simulation.DetailedMatchSimulationV2Tests),
@@ -88,7 +90,8 @@ namespace Baseball.Tools.PureSimulationTests
                 }
             }
             Console.WriteLine($"Passed={passed}, Failed={failed}");
-            return failed == 0 ? 0 : 1;
+            // 필터 오타나 등록 누락으로 아무것도 실행하지 않은 결과를 통과로 보고하지 않는다.
+            return failed == 0 && passed > 0 ? 0 : 1;
         }
 
         private static MethodInfo FindAttributedMethod<TAttribute>(Type type)
