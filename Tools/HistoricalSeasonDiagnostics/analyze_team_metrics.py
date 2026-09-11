@@ -77,6 +77,11 @@ def actual_metrics(team, players):
     triples = hitting["triples"] if hitting else summed("hitterStats", "triples")
     runs = hitting["runs"] if hitting else summed("hitterStats", "runs")
     walks = hitting["walks"] if hitting else summed("hitterStats", "walks")
+    has_hbp_evidence = (hitting or {}).get("hitByPitch") is not None or any(
+        (p.get("hitterStats") or {}).get("hitByPitch") is not None for p in players)
+    hit_by_pitches = (hitting or {}).get("hitByPitch")
+    if hit_by_pitches is None and has_hbp_evidence:
+        hit_by_pitches = summed("hitterStats", "hitByPitch")
     strikeouts = hitting["strikeouts"] if hitting else summed("hitterStats", "strikeouts")
     has_running_evidence = running is not None or any(p.get("runningStats") is not None for p in players)
     stolen_bases = (running["stolenBases"] if running else summed("runningStats", "stolenBases")) \
@@ -91,6 +96,7 @@ def actual_metrics(team, players):
         actualStolenBasesPerGame=stolen_bases/games if stolen_bases is not None else None,
         actualRunsPerGame=runs/games,
         actualWalksPerGame=walks/games,
+        actualHitByPitchesPerGame=hit_by_pitches/games if hit_by_pitches is not None else None,
         actualStrikeoutsPerGame=strikeouts/games,
         actualEra=27*earned_runs/innings_outs)
 
@@ -156,15 +162,16 @@ def summarize(simulation_path, runtime_root, normalized_root):
         ("stolenBases", "actualStolenBasesPerGame", "simulatedStolenBasesPerGame"),
         ("runs", "actualRunsPerGame", "simulatedRunsPerGame"),
         ("walks", "actualWalksPerGame", "simulatedWalksPerGame"),
+        ("hitByPitches", "actualHitByPitchesPerGame", "simulatedHitByPitchesPerGame"),
         ("strikeouts", "actualStrikeoutsPerGame", "simulatedStrikeoutsPerGame"),
         ("era", "actualEra", "simulatedEra"))
     metrics = {}
     for label, actual, simulated in pairs:
         valid = [r for r in rows if r[actual] is not None]
         metrics[label] = dict(correlation=centered_correlation(valid, actual, simulated),
-            sampleCount=len(valid), meanActual=statistics.mean(r[actual] for r in valid),
-            meanSimulated=statistics.mean(r[simulated] for r in valid),
-            meanAbsoluteError=statistics.mean(abs(r[actual]-r[simulated]) for r in valid))
+            sampleCount=len(valid), meanActual=statistics.mean(r[actual] for r in valid) if valid else None,
+            meanSimulated=statistics.mean(r[simulated] for r in valid) if valid else None,
+            meanAbsoluteError=statistics.mean(abs(r[actual]-r[simulated]) for r in valid) if valid else None)
     return dict(experiment=simulation_path.stem, contentHash=simulation["contentHash"], games=simulation["games"],
         repeats=simulation["repeatCount"], center=simulation["center"], slope=simulation["slope"],
         pitcherSlope=simulation["pitcherSlope"], metrics=metrics, teams=rows)

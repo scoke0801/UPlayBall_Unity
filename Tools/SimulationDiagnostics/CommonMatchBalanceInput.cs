@@ -43,7 +43,7 @@ namespace Baseball.Tools
             Console.WriteLine("PASS 공통 경기 JSON과 Core 기본값 일치: " + loaded.ContentHash);
         }
 
-        public static BalanceTable Load(string path = DefaultPath)
+        public static BalanceTable Load(string path = DefaultPath, string ratingCurvePath = RatingCurvePath)
         {
             byte[] bytes = File.ReadAllBytes(path);
             using JsonDocument document = JsonDocument.Parse(bytes);
@@ -58,7 +58,7 @@ namespace Baseball.Tools
                 document.RootElement.TryGetProperty("relieverQualityWeight", out var qualityWeight)
                     ? qualityWeight.GetDouble() : baseline.Match.BullpenManagement.RelieverQualityWeight);
             string hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-            byte[] curveBytes = File.ReadAllBytes(RatingCurvePath);
+            byte[] curveBytes = File.ReadAllBytes(ratingCurvePath);
             using JsonDocument curveDocument = JsonDocument.Parse(curveBytes);
             JsonElement curve = curveDocument.RootElement;
             if (curve.GetProperty("schemaVersion").GetInt32() != 1)

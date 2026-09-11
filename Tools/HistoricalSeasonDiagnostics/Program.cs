@@ -19,6 +19,12 @@ internal static class Program
     private static int Main(string[] args)
     {
         string balancePath = Baseball.Tools.CommonMatchBalanceInput.DefaultPath;
+        string ratingCurvePath = Baseball.Tools.CommonMatchBalanceInput.RatingCurvePath;
+        if (args.Length >= 2 && args[0] == "--rating-curve")
+        {
+            ratingCurvePath = args[1];
+            args = args.Skip(2).ToArray();
+        }
         double? upperSpreadStart = null;
         if (args.Length >= 2 && args[0] == "--upper-spread-start")
         {
@@ -55,7 +61,7 @@ internal static class Program
                     ReadEntry(year.GetProperty("path").GetString()))).ToArray());
 
         var content = new UnityHistoricalContentProvider(catalog, HistoricalContentVerificationMode.Full).Load();
-        var balance = Baseball.Tools.CommonMatchBalanceInput.Load(balancePath);
+        var balance = Baseball.Tools.CommonMatchBalanceInput.Load(balancePath, ratingCurvePath);
         if (args.Length >= 6)
         {
             balance = new BalanceTable(balance.Version, balance.PlateDiscipline, balance.BattedBall,

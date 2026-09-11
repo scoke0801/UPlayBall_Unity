@@ -150,7 +150,7 @@ namespace Baseball.Tools.SimulationDiagnostics
             {
                 string team = $" RD/G={_difference / (double)count:F3} Win%={100d * _wins / count:F2} Draw%={100d * _draws / count:F2}";
                 return pitcher ? $"K/9={27d * _k / _outs:F3} BB/9={27d * _bb / _outs:F3} HR/9={27d * _hr / _outs:F3} WHIP={3d * (_hits + _bb) / _outs:F3} ERA={27d * _earned / _outs:F3} IP/G={_outs / (3d * count):F3} RA/G={_allowed / (double)count:F3}" + team :
-                    $"AVG={_hits / (double)_ab:F3} OBP={(_hits + _bb + _hbp) / (double)(_ab + _bb + _hbp + _sf):F3} SLG={_tb / (double)_ab:F3} HR={_hr} K%={100d * _k / _pa:F2} SB/G={_stolenBases / (double)count:F3} CS/G={_caughtStealing / (double)count:F3} RBI/G={_rbi / (double)count:F3} R/G={_runs / (double)count:F3}" + team;
+                    $"AVG={_hits / (double)_ab:F3} OBP={(_hits + _bb + _hbp) / (double)(_ab + _bb + _hbp + _sf):F3} SLG={_tb / (double)_ab:F3} HR={_hr} BB%={100d * _bb / _pa:F2} HBP%={100d * _hbp / _pa:F2} K%={100d * _k / _pa:F2} SB/G={_stolenBases / (double)count:F3} CS/G={_caughtStealing / (double)count:F3} RBI/G={_rbi / (double)count:F3} R/G={_runs / (double)count:F3}" + team;
             }
         }
     }

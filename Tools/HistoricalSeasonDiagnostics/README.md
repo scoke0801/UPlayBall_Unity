@@ -76,12 +76,25 @@ Core25의 선수별 원기록·능력치·합성 여부를 읽기 전용으로 �
 
 ## 단일 능력치 반응 검증
 
+연도별 선두 비교는 `summarize_leaders.py <시뮬레이션 JSON> <선두 참조 JSON> <출력.md>`로 만든다.
+`--supplement <보충 JSON>`을 주면 같은 콘텐츠·밸런스·엔진·회전 규칙과 공통 시드 checksum이
+같은 실행만 합친다. 실제 승률은 검증 전용이며 최소 32시드 게이트를 낮추지 않는다.
+여러 연도 묶음은 `--supplement`를 반복해서 지정한다. 겹치는 연도의 시드를 줄이는 보충은 거부한다.
+Markdown과 같은 이름의 JSON에 개별 판정·입력 SHA-256을 기록한다.
+44개 연도 예비 진단과 4개 연도 보충의 최신 결과는 `docs/reports/historical-leaders-hbp-20260911.md`를 따른다.
+
 `dotnet run --project Tools/SimulationDiagnostics -- ability-response 3000`은 동일 상대·시드·구종에서
 한 선수의 Contact/Power/Speed/Mental/Control/Stuff/Breaking/Velocity를 각각 30·50·80으로 바꾼다.
 선택적으로 뒤에 `Control`처럼 능력치 이름과 후보 공통 경기 JSON 경로를 지정할 수 있다.
 투수는 ERA·BB/9·K/9·HR/9·IP/G를 함께 읽어야 한다. 더 긴 이닝을 맡은 투수의 경기당 실점만
-보고 능력치 역전으로 결론 내리지 않는다. 타자는 AVG·SLG·HR·삼진·SB/G·CS/G를 분리한다.
+보고 능력치 역전으로 결론 내리지 않는다. 타자는 AVG·OBP·SLG·HR·BB%·HBP%·삼진·SB/G·CS/G를 분리한다.
 `verify-match-balance` 명령은 공통 경기 JSON과 Core 기본값의 일치를 검사한다.
+`MiniGameBalance.json`의 `hitByPitchMinimumInsideLocation`, `hitByPitchMaximumHeight`,
+`hitByPitchContactProbability`는 몸쪽 위험구 영역과 접촉 확률을, `aiMentalChaseWeight`는
+상세 경기 AI의 Mental별 추격 확률을 저작한다. 능력치 반응·중립 전력·역사 로스터·간이 경로를 함께 검증한다.
+`analyze_team_metrics.py`는 실제/시뮬레이션 팀 경기당 사구와 연도 내 상관도 비교한다.
+원본 사구 0과 기록 미확보는 구분하며, 미확보는 평균·상관 표본에서 제외한다.
+사구 조정의 전후 근거와 채택하지 않은 Mental 후보는 `docs/reports/plate-discipline-20260911.md`에 기록한다.
 
 같은 시드 집합으로 실행한 전후 결과를 비교하려면 프로젝트 루트에서 다음을 실행한다.
 
