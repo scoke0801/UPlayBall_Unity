@@ -1,0 +1,14 @@
+{
+  "durationSeconds": 0.9,
+  "minimumDurationSeconds": 0.5,
+  "fadeSeconds": 0.10,
+  "heading": "하이라이트",
+  "images": [
+    { "kind": 1, "resourcePath": "UI/OwnerMatch/Highlights/bat-contact", "caption": "배트에 맞는 순간" },
+    { "kind": 2, "resourcePath": "UI/OwnerMatch/Highlights/glove-catch", "caption": "글러브 속으로" },
+    { "kind": 3, "resourcePath": "UI/OwnerMatch/Highlights/home-run", "caption": "담장을 넘기는 홈런" },
+    { "kind": 4, "resourcePath": "UI/OwnerMatch/Highlights/slide", "caption": "베이스를 향한 슬라이딩" },
+    { "kind": 5, "resourcePath": "UI/OwnerMatch/Highlights/great-catch", "caption": "낮은 타구를 잡아내는 호수비" },
+    { "kind": 6, "resourcePath": "UI/OwnerMatch/Highlights/power-throw", "caption": "아웃으로 이어진 송구" }
+  ]
+}

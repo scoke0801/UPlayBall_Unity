@@ -70,6 +70,7 @@ namespace Baseball.Presentation.Match
         /// <summary>관전 화면의 표시 여부를 변경한다.</summary>
         public void SetVisible(bool isVisible)
         {
+            if (!isVisible) ClearHighlightInset();
             if (_root != null) _root.gameObject.SetActive(isVisible);
         }
 
@@ -114,6 +115,7 @@ namespace Baseball.Presentation.Match
         private void HandleAdvanceRequested()
         {
             if (_session?.TryAdvance() != true) return;
+            ClearHighlightInset();
             _hasPendingEvent = false;
             _playbackBoundary = -1;
             _zoneBall.gameObject.SetActive(false);
@@ -126,6 +128,7 @@ namespace Baseball.Presentation.Match
         private void HandleRevealAllRequested()
         {
             if (_session?.TrySetViewingMode(OwnerMatchViewingMode.ResultOnly) != true) return;
+            ClearHighlightInset();
             _hasPendingEvent = false;
             _zoneBall.gameObject.SetActive(false);
             RefreshControls();
@@ -134,6 +137,7 @@ namespace Baseball.Presentation.Match
         private void HandleViewingModeRequested(OwnerMatchViewingMode mode)
         {
             if (_session?.TrySetViewingMode(mode) != true) return;
+            ClearHighlightInset();
             OwnerMatchPresentationSettings.SetViewingMode(mode);
             MatchAudioEnabledChanged?.Invoke(mode != OwnerMatchViewingMode.ResultOnly);
             _hasPendingEvent = false;

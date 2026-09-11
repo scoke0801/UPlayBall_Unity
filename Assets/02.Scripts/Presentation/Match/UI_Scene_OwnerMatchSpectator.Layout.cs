@@ -26,7 +26,10 @@ namespace Baseball.Presentation.Match
         private readonly Image[] _bases = new Image[3];
         private MatchGameCastConfig _gameCastConfig;
         private MatchPlayVisualizer _playVisualizer;
-        private Text _pitchHistory, _decisionNote, _playDetail, _currentPitch, _miniLineScore;
+        private Text _pitchHistory, _decisionNote, _playDetail, _currentPitch;
+        private RectTransform _miniLineScore;
+        private Text _miniAwayTeam, _miniHomeTeam;
+        private readonly System.Collections.Generic.List<Text[]> _miniInningColumns = new();
         private Text _pitcherRole, _batterRole;
         private RectTransform _strikeZone;
         private readonly Image[] _pitchDots = new Image[12];
@@ -156,8 +159,9 @@ namespace Baseball.Presentation.Match
             _pitcherDetail = Label("PitcherDetail", side, "", 13, 16, 106, 226, 25, Muted);
             _batterDetail = Label("BatterDetail", side, "", 13, 266, 106, 222, 25, Muted);
             Panel("DuelRule", side, Silver, 16, 142, 472, 1);
-            _currentPitch = Label("CurrentPitch", side, "투구 기록", 16, 16, 152, 472, 28, Ink);
-            _strikeZone = Panel("StrikeZone", side, new Color32(231, 237, 241, 255), 16, 188, 200, 180);
+            RectTransform detail = BuildPitchContext(side);
+            _currentPitch = Label("CurrentPitch", detail, "투구 기록", 16, 16, 152, 472, 28, Ink);
+            _strikeZone = Panel("StrikeZone", detail, new Color32(231, 237, 241, 255), 16, 188, 200, 180);
             _strikeZone.gameObject.AddComponent<RectMask2D>();
             for (int index = 0; index <= 3; index++)
             {
@@ -177,20 +181,26 @@ namespace Baseball.Presentation.Match
             _zoneBall = SpritePanel("PitchInFlight", _strikeZone, baseballSprite, 0, 0,
                 _gameCastConfig.strikeZoneBallSize, _gameCastConfig.strikeZoneBallSize);
             _zoneBall.gameObject.SetActive(false);
-            _pitchHistory = Label("PitchHistory", side, "첫 투구를 기다립니다.", 14, 232, 188, 256, 180, Ink);
+            _pitchHistory = Label("PitchHistory", detail, "첫 투구를 기다립니다.", 14, 232, 188, 256, 180, Ink);
             _pitchHistory.alignment = TextAnchor.UpperLeft;
             _pitchHistory.fontStyle = FontStyle.Normal;
-            Label("ZoneNote", side, "포수 시점 · 바깥 투구는 가장자리 표시", 11, 16, 370, 472, 20, Muted);
-            Panel("PlayRule", side, Silver, 16, 404, 472, 1);
-            Label("PlayTitle", side, "플레이 해설", 13, 16, 413, 472, 22, Blue);
-            _playDetail = Label("PlayDetail", side, "타구와 주자의 움직임을 함께 확인하세요.", 15, 16, 440, 472, 49, Ink);
+            Label("ZoneNote", detail, "포수 시점 · 바깥 투구는 가장자리 표시", 11, 16, 370, 472, 20, Muted);
+            Panel("PlayRule", detail, Silver, 16, 404, 472, 1);
+            Label("PlayTitle", detail, "플레이 해설", 13, 16, 413, 472, 22, Blue);
+            _playDetail = Label("PlayDetail", detail, "타구와 주자의 움직임을 함께 확인하세요.", 15, 16, 440, 472, 49, Ink);
             _playDetail.fontStyle = FontStyle.Normal;
             Panel("DecisionRule", side, Silver, 16, 504, 472, 1);
             Label("DecisionTitle", side, "감독의 판단", 13, 16, 513, 472, 22, Blue);
             _decisionNote = Label("DecisionNote", side, "경기 중 기용과 운영은 감독 AI가 결정합니다.", 14, 16, 541, 472, 50, Ink);
             _decisionNote.fontStyle = FontStyle.Normal;
-            _miniLineScore = Label("CompactLineScore", _canvas, "", 13, 24, 634, 852, 40, Color.white);
-            _miniLineScore.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(1, -1);
+            BuildHighlightInset(side);
+            _miniLineScore = Panel("CompactLineScore", _canvas, Color.clear, 24, 622, 852, 54);
+            Label("Title", _miniLineScore, "이닝별 득점", 13, 0, 0, 180, 18, Color.white);
+            _miniAwayTeam = Label("AwayTeam", _miniLineScore, "", 13, 0, 18, 180, 18, Color.white);
+            _miniHomeTeam = Label("HomeTeam", _miniLineScore, "", 13, 0, 36, 180, 18, Color.white);
+            _miniAwayTeam.resizeTextForBestFit = _miniHomeTeam.resizeTextForBestFit = true;
+            _miniAwayTeam.resizeTextMinSize = _miniHomeTeam.resizeTextMinSize = 10;
+            _miniAwayTeam.resizeTextMaxSize = _miniHomeTeam.resizeTextMaxSize = 13;
         }
 
         private void BuildFooter()

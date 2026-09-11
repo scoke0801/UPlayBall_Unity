@@ -21,7 +21,7 @@ MonoBehaviour:
   - id: 14
     normalizedPosition: {x: 0.5, y: 1.005}
   - id: 3
-    normalizedPosition: {x: 0.5, y: 0.486}
+    normalizedPosition: {x: 0.5, y: 0.457}
   - id: 7
     normalizedPosition: {x: 0.2, y: 0.355}
   - id: 8
@@ -43,8 +43,8 @@ MonoBehaviour:
   baseReceiverOffset: {x: 0.02, y: 0.01}
   depthScale: 0.06
   depthExponent: 1.6
-  ballDiameter: 8
-  minimumBallDiameter: 1.5
+  ballDiameter: 22
+  minimumBallDiameter: 14
   ballHeightScale: 0.25
   duelZoom: 1
   fieldZoom: 1.08

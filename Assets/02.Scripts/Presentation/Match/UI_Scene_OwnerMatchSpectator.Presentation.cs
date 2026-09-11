@@ -1,5 +1,6 @@
 using System;
 using Baseball.Core.Players;
+using Baseball.Core.Rules;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
 using Baseball.Presentation.SharedScreens;
@@ -47,6 +48,7 @@ namespace Baseball.Presentation.Match
             if (_session == null) return;
             OwnerMatchOverlayState state = _session.State;
             bool isComplete = state.IsComplete;
+            if (isComplete) ClearHighlightInset();
             bool isNewBoundary = _lastVisibleCount != state.VisibleEventCount;
             _pauseButton.interactable = state.CanTogglePause;
             _pauseLabel.text = state.IsPaused ? "계속 보기" : "일시정지";
@@ -129,6 +131,8 @@ namespace Baseball.Presentation.Match
 
             MatchEvent matchEvent = _session.GetVisibleEvent(visibleCount - 1);
             RenderPlayDetail(matchEvent);
+            // Out은 아웃 수 갱신 사건이다. 타자 결과는 타석 종료에서 한 번만 중계한다.
+            if (matchEvent.EventType == MatchEventType.Out) return;
             string result = FormatEventResult(matchEvent);
             int runsScored = CountRunsSincePreviousBoundary(visibleCount);
             if (result != "경기 진행")
@@ -521,6 +525,11 @@ namespace Baseball.Presentation.Match
             {
                 return matchEvent.PitchResult switch
                 {
+                    // Pitch의 카운트는 투구 처리 이후 값이다. 일반 2스트라이크 파울은 3이 되지 않는다.
+                    PitchResult.Ball when matchEvent.Balls >= BaseballRules.BallsForWalk => "볼넷",
+                    PitchResult.CalledStrike when matchEvent.Strikes >= BaseballRules.StrikesForStrikeout => "삼진 아웃",
+                    PitchResult.SwingingStrike when matchEvent.Strikes >= BaseballRules.StrikesForStrikeout => "삼진 아웃",
+                    PitchResult.Foul when matchEvent.Strikes >= BaseballRules.StrikesForStrikeout => "삼진 아웃",
                     PitchResult.Ball => "볼",
                     PitchResult.CalledStrike => "스트라이크",
                     PitchResult.SwingingStrike => "헛스윙",
@@ -535,7 +544,7 @@ namespace Baseball.Presentation.Match
             return matchEvent.PlateAppearanceResult switch
             {
                 PlateAppearanceResult.Walk => "볼넷",
-                PlateAppearanceResult.Strikeout => "삼진",
+                PlateAppearanceResult.Strikeout => "삼진 아웃",
                 PlateAppearanceResult.GroundOut => "땅볼 아웃",
                 PlateAppearanceResult.FlyOut => "플라이 아웃",
                 PlateAppearanceResult.Single => "안타!",
@@ -555,7 +564,7 @@ namespace Baseball.Presentation.Match
 
         private static bool IsEmphasized(MatchEvent matchEvent)
         {
-            return matchEvent.EventType is MatchEventType.Pitch or MatchEventType.Score or MatchEventType.Out or MatchEventType.DoublePlay or MatchEventType.HalfInningEnded or MatchEventType.MatchEnded or
+            return matchEvent.EventType is MatchEventType.Pitch or MatchEventType.Score or MatchEventType.RunnerThrownOut or MatchEventType.CaughtStealing or MatchEventType.DoublePlay or MatchEventType.HalfInningEnded or MatchEventType.MatchEnded or
                    MatchEventType.MatchEndedAsDraw or MatchEventType.PlateAppearanceEnded or MatchEventType.Hit;
         }
 

@@ -33,8 +33,9 @@ namespace Baseball.Presentation.Match.Sprites
         public Vector2 baseReceiverOffset = new Vector2(0.02f, 0.01f);
         public float depthScale = 0.2f;
         public float depthExponent = 1.6f;
-        public float ballDiameter = 8f;
-        public float minimumBallDiameter = 1.5f;
+        // 빠르게 이동하는 공은 원근 비율보다 식별성을 우선하며, 552 높이 구장 기준으로 저작한다.
+        [Min(1f)] public float ballDiameter = 22f;
+        [Min(1f)] public float minimumBallDiameter = 14f;
         public float ballHeightScale = 0.25f;
         public float duelZoom = 1f;
         public float fieldZoom = 1.08f;

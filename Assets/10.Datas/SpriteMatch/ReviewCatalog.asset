@@ -41,7 +41,7 @@ MonoBehaviour:
     eventAnchors:
     - marker: 2
       frameIndex: 3
-      sourcePositionNormalized: {x: 0.20507812, y: 0.48046875}
+      sourcePositionNormalized: {x: 0.20507812, y: 0.4296875}
       sourceCellSize: {x: 512, y: 512}
       sourceRootNormalized: {x: 0.5, y: 0.835}
   - clipId: Batter.DuelSwing.R
@@ -72,7 +72,7 @@ MonoBehaviour:
     eventAnchors:
     - marker: 2
       frameIndex: 3
-      sourcePositionNormalized: {x: 0.8300781, y: 0.48046875}
+      sourcePositionNormalized: {x: 0.8300781, y: 0.4296875}
       sourceCellSize: {x: 512, y: 512}
       sourceRootNormalized: {x: 0.5, y: 0.835}
   - clipId: Batter.HighlightReaction

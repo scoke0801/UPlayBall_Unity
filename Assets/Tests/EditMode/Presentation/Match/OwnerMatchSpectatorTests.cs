@@ -29,6 +29,14 @@ namespace Baseball.Tests.EditMode.Presentation.Match
 
                 Transform canvas = view.transform.Find("BroadcastCanvas");
                 Assert.That(canvas, Is.Not.Null);
+                Transform compact = canvas.Find("CompactLineScore");
+                RectTransform awayName = (RectTransform)compact.Find("AwayTeam");
+                RectTransform homeName = (RectTransform)compact.Find("HomeTeam");
+                Assert.That(compact.Find("Title").GetComponent<Text>().text, Is.EqualTo("이닝별 득점"));
+                Assert.That(awayName.anchoredPosition.x, Is.EqualTo(homeName.anchoredPosition.x));
+                Assert.That(awayName.sizeDelta.x, Is.EqualTo(homeName.sizeDelta.x));
+                Assert.That(awayName.anchoredPosition.y, Is.LessThan(0));
+                Assert.That(homeName.anchoredPosition.y, Is.LessThan(awayName.anchoredPosition.y));
                 Transform markers = canvas.Find("Field/Ground/GameCastMarkers");
                 Assert.That(markers, Is.Not.Null);
                 Assert.That(markers.Find("StadiumBackground"), Is.Not.Null);
@@ -36,11 +44,11 @@ namespace Baseball.Tests.EditMode.Presentation.Match
                 Assert.That(fieldBall, Is.Not.Null);
                 Assert.That(fieldBall.GetComponent<Image>().sprite, Is.Not.Null);
                 Assert.That(fieldBall.GetComponent<Baseball.Presentation.UI.UICircleGraphic>(), Is.Null);
-                Assert.That(canvas.Find("GameCastSidebar/StrikeZone"), Is.Not.Null);
-                Transform zoneBall = canvas.Find("GameCastSidebar/StrikeZone/PitchInFlight");
+                Assert.That(canvas.Find("GameCastSidebar/PitchContext/StrikeZone"), Is.Not.Null);
+                Transform zoneBall = canvas.Find("GameCastSidebar/PitchContext/StrikeZone/PitchInFlight");
                 Assert.That(zoneBall.GetComponent<Image>().sprite, Is.Not.Null);
                 Assert.That(zoneBall.GetComponent<Baseball.Presentation.UI.UICircleGraphic>(), Is.Null);
-                Assert.That(canvas.Find("GameCastSidebar/StrikeZone/Pitch0/Baseball")
+                Assert.That(canvas.Find("GameCastSidebar/PitchContext/StrikeZone/Pitch0/Baseball")
                     .GetComponent<Image>().sprite, Is.Not.Null);
                 Assert.That(canvas.Find("Field/StadiumActors"), Is.Null);
                 Assert.That(canvas.Find("ViewingModeEveryMoment"), Is.Not.Null);
@@ -356,6 +364,15 @@ namespace Baseball.Tests.EditMode.Presentation.Match
             Assert.That(
                 OwnerMatchSpectatorSession.FormatTeamDisplayName(teamName, isPlayerTeam),
                 Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void 타자아웃은타석결과에서만강조하고주루아웃은별도로강조한다()
+        {
+            var method = typeof(UI_Scene_OwnerMatchSpectator).GetMethod("IsEmphasized", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method.Invoke(null, new object[] { Event(1, MatchEventType.Out, 1, InningHalf.Top) }), Is.False);
+            Assert.That(method.Invoke(null, new object[] { Event(2, MatchEventType.PlateAppearanceEnded, 1, InningHalf.Top, PlateAppearanceResult.FlyOut) }), Is.True);
+            Assert.That(method.Invoke(null, new object[] { Event(3, MatchEventType.RunnerThrownOut, 1, InningHalf.Top) }), Is.True);
         }
 
         private static MatchEvent Event(

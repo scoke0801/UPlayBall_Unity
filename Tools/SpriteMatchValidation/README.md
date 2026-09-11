@@ -15,6 +15,15 @@ HUD 공개 경계, 일시정지 중 사건·재생 시간 정지, 최종 BoxScor
 EditMode에서 갱신 함수를 직접 호출하므로 실제 입력·Unity Update를 사용하는 Play Mode와 구분한다.
 이닝 점수표의 자식 정리는 EditMode에서는 즉시 삭제해 반복 재생 중 객체가 누적되지 않게 한다.
 
+하이라이트 삽입 이미지 6종의 리소스·공개 사건 매핑·배속·표시 해제 검증도 기본 필터에 포함한다.
+현재 기본 필터는 74/74 통과했다. `highlight-inset-replay.csv`는 실제 경기에서 6종이 발생한
+공개 사건을 기록하며, 공개 이전 결과 누출·일시정지·즉시 결과 전환·종료 후 잔류 여부를 검사한다.
+`inset-replay-*.png`는 실제 사건 재생 화면이고 `inset-<종류>-<해상도>.png` 24개는
+4개 해상도에서 우측 영역 경계·상세 정보 숨김을 확인하는 고정 합성이다.
+`python Tools/SpriteMatchValidation/verify_highlight_assets.py`는 6종 원본과 런타임 PNG의
+해시·비율·불투명 알파를 검사해 `highlight-image-qa.json`을 만든다(Pillow 필요).
+자세한 근거는 [하이라이트 적용 기록](../../docs/design/sprite_sheet_ingame/highlight-insets-v1/README.md)을 따른다.
+
 열려 있는 원본 Unity 프로젝트와 씬·Library를 공유하지 않고 Unity 6의 실제 엔진에서 검증한다.
 `output/sprite-sheet-validation/UnityProject`에 코드·플러그인·테스트를 복사하고 설치된 로컬 패키지 캐시를 참조한다.
 원본 프로젝트의 PackageCache가 준비되어 있어야 한다.

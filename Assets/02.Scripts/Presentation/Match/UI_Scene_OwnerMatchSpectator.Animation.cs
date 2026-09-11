@@ -5,6 +5,7 @@ using Baseball.Presentation.Career;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.PlateAppearance;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Baseball.Presentation.Match
 {
@@ -15,12 +16,14 @@ namespace Baseball.Presentation.Match
         private MatchEvent _pendingEvent;
         private int _pendingEventCount;
         private float _eventElapsed, _eventDuration;
+        private bool _pendingEventRevealed;
         private readonly MatchEvent[] _recentPitches = new MatchEvent[12];
         private readonly OwnerMatchRunnerRoute[] _upcomingRunnerRoutes = new OwnerMatchRunnerRoute[3];
         private readonly StringBuilder _historyText = new StringBuilder(256);
 
         private void ResetGameCast()
         {
+            ClearHighlightInset();
             _playbackBoundary = -1;
             _hasPendingEvent = false;
             _eventElapsed = 0f;
@@ -36,6 +39,8 @@ namespace Baseball.Presentation.Match
         private void UpdateGameCast(float deltaSeconds)
         {
             if (_session.State.IsPaused || _session.State.IsComplete) return;
+            // 확정된 사건의 삽입 컷을 읽는 동안 다음 사건 공개만 잠시 기다린다. 경기 시뮬레이션에는 관여하지 않는다.
+            if (AdvanceHighlightInset(deltaSeconds)) return;
             float remaining = deltaSeconds * (int)_session.State.Speed;
             // 배속이 높아도 영시간 사건은 같은 프레임에 순서대로 소비한다.
             for (int iteration = 0; iteration < 64 && !_session.State.IsComplete; iteration++)
@@ -53,6 +58,7 @@ namespace Baseball.Presentation.Match
                     _eventDuration = _gameCastConfig.GetDuration(_pendingEvent);
                     _eventElapsed = 0f;
                     _hasPendingEvent = true;
+                    _pendingEventRevealed = false;
                     if (_pendingEvent.EventType == MatchEventType.Contact)
                     {
                         int count = _session.CopyUpcomingRunnerRoutes(_upcomingRunnerRoutes);
@@ -60,6 +66,13 @@ namespace Baseball.Presentation.Match
                     }
                     _playVisualizer.Begin(_pendingEvent, _session.PeekBallInPlay());
                     _eventDuration = _playVisualizer.GetDuration(_pendingEvent, _eventDuration);
+                    // 타석 결과는 표시한 뒤 읽는 시간을 준다. 대기 후 공개하면 다음 투구가 같은 프레임에 지운다.
+                    if (_pendingEvent.EventType == MatchEventType.PlateAppearanceEnded)
+                    {
+                        if (!_session.TryRevealPlaybackGroup(_pendingEventCount)) return;
+                        _pendingEventRevealed = true;
+                        RefreshControls();
+                    }
                     if (_pendingEvent.EventType == MatchEventType.Pitch)
                     {
                         _scorePanel.gameObject.SetActive(false);
@@ -79,8 +92,9 @@ namespace Baseball.Presentation.Match
 
                 _zoneBall.gameObject.SetActive(false);
                 _hasPendingEvent = false;
-                if (!_session.TryRevealPlaybackGroup(_pendingEventCount)) return;
+                if (!_pendingEventRevealed && !_session.TryRevealPlaybackGroup(_pendingEventCount)) return;
                 RefreshControls();
+                if (TryShowHighlightInset(_pendingEvent)) return;
                 if (remaining <= 0f && _eventDuration > 0f) return;
             }
         }
@@ -166,19 +180,43 @@ namespace Baseball.Presentation.Match
             }
             _pitchHistory.text = pitchCount == 0 ? "첫 투구를 기다립니다." : _historyText.ToString();
             var score = _session.CreateVisibleLineScore();
-            _miniLineScore.text = "이닝별 득점  " + BuildInningSummary(score, true) + "\n" + BuildInningSummary(score, false);
+            RenderCompactLineScore(score);
         }
 
-        private string BuildInningSummary(Baseball.Game.Career.MatchLineScore score, bool away)
+        private void RenderCompactLineScore(Baseball.Game.Career.MatchLineScore score)
         {
-            var text = new StringBuilder(96);
-            text.Append(away ? CurrentModel.AwayTeam.Name : CurrentModel.HomeTeam.Name).Append("   ");
-            for (int inning = 1; inning <= score.InningCount; inning++)
+            _miniAwayTeam.text = CurrentModel.AwayTeam.Name;
+            _miniHomeTeam.text = CurrentModel.HomeTeam.Name;
+            int innings = Math.Max(9, score.InningCount);
+            float width = Mathf.Min(32f, (_miniLineScore.rect.width - 180f) / innings);
+            for (int index = 0; index < innings; index++)
             {
-                int value = away ? score.GetAwayRuns(inning) : score.GetHomeRuns(inning);
-                text.Append(value < 0 ? "–" : value.ToString()).Append("  ");
+                if (index == _miniInningColumns.Count)
+                {
+                    var column = new Text[3];
+                    for (int row = 0; row < column.Length; row++)
+                    {
+                        column[row] = Label("Inning" + (index + 1) + "Row" + row, _miniLineScore,
+                            "", 13, 0, row * 18, width, 18, Color.white);
+                        column[row].alignment = TextAnchor.MiddleCenter;
+                    }
+                    _miniInningColumns.Add(column);
+                }
+                Text[] cells = _miniInningColumns[index];
+                for (int row = 0; row < cells.Length; row++)
+                {
+                    cells[row].gameObject.SetActive(true);
+                    cells[row].rectTransform.anchoredPosition = new Vector2(180f + index * width, -row * 18);
+                    cells[row].rectTransform.sizeDelta = new Vector2(width, 18);
+                }
+                cells[0].text = (index + 1).ToString();
+                int away = index < score.InningCount ? score.GetAwayRuns(index + 1) : -1;
+                int home = index < score.InningCount ? score.GetHomeRuns(index + 1) : -1;
+                cells[1].text = away < 0 ? "–" : away.ToString();
+                cells[2].text = home < 0 ? "–" : home.ToString();
             }
-            return text.ToString();
+            for (int index = innings; index < _miniInningColumns.Count; index++)
+                foreach (Text cell in _miniInningColumns[index]) cell.gameObject.SetActive(false);
         }
 
         private static bool IsDecisionEvent(MatchEventType type) =>

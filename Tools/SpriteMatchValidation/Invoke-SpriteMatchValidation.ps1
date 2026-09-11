@@ -1,6 +1,6 @@
 param(
     [ValidateSet('Tests', 'Visual')][string]$Mode = 'Tests',
-    [string]$TestFilter = 'SpriteMatchPresentationTests;SpriteSheetImporterTests;MatchGameCastTests;OwnerMatchSpectatorTests.관전화면은중계와결과에필요한계층을구성한다;OwnerMatchSpectatorTests.관전용야구장이미지는Resources에서불러온다',
+    [string]$TestFilter = 'SpriteMatchPresentationTests;SpriteSheetImporterTests;MatchGameCastTests;OwnerMatchHighlightInsetTests;OwnerMatchSpectatorTests.관전화면은중계와결과에필요한계층을구성한다;OwnerMatchSpectatorTests.관전용야구장이미지는Resources에서불러온다',
     [string]$UnityPath = 'C:/Program Files/Unity/Hub/Editor/6000.3.21f1/Editor/Unity.exe'
 )
 $ErrorActionPreference = 'Stop'
@@ -17,6 +17,7 @@ Copy-Item "$repoRoot/ProjectSettings/ProjectVersion.txt" "$validationRoot/Projec
 New-Item -ItemType Directory -Path "$validationRoot/Assets/Resources/UI" -Force | Out-Null
 Copy-Item "$repoRoot/Assets/Resources/UI/MiniGame" "$validationRoot/Assets/Resources/UI" -Recurse -Force
 Copy-Item "$repoRoot/Assets/10.Datas/Resources/UI/OwnerMatch" "$validationRoot/Assets/Resources/UI" -Recurse -Force
+Copy-Item "$repoRoot/Assets/10.Datas/Resources/DevelopmentKboIdentities" "$validationRoot/Assets/Resources" -Recurse -Force
 New-Item -ItemType Directory -Path "$validationRoot/Assets/04.Images", "$validationRoot/Assets/10.Datas" -Force | Out-Null
 Copy-Item "$repoRoot/Assets/04.Images/SpriteMatch" "$validationRoot/Assets/04.Images" -Recurse -Force
 Copy-Item "$repoRoot/Assets/10.Datas/SpriteMatch" "$validationRoot/Assets/10.Datas" -Recurse -Force

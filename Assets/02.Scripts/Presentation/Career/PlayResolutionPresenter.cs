@@ -434,6 +434,9 @@ namespace Baseball.Presentation.Career
         {
             return type switch
             {
+                PlayResolutionCueType.SwingAndMiss or PlayResolutionCueType.PlateCall
+                    when sequence.FinalResult is PlateAppearanceResult.Strikeout or PlateAppearanceResult.Walk =>
+                    GetFinalResultLabel(sequence),
                 PlayResolutionCueType.SwingAndMiss => "헛스윙",
                 PlayResolutionCueType.PlateCall => GetPitchCallLabel(sequence.PitchPlay.Contact.PitchResult),
                 PlayResolutionCueType.FieldingError => "실책",
@@ -515,7 +518,7 @@ namespace Baseball.Presentation.Career
             {
                 PlateAppearanceResult.Walk => "볼넷",
                 PlateAppearanceResult.IntentionalWalk => "고의4구",
-                PlateAppearanceResult.Strikeout => "삼진",
+                PlateAppearanceResult.Strikeout => "삼진 아웃",
                 PlateAppearanceResult.GroundOut => "땅볼 아웃",
                 PlateAppearanceResult.FlyOut or PlateAppearanceResult.BuntPopOut => "플라이 아웃",
                 PlateAppearanceResult.Single or PlateAppearanceResult.BuntSingle => "안타",

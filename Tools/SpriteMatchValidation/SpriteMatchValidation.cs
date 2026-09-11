@@ -265,10 +265,14 @@ namespace Baseball.Tools.SpriteMatchValidation
                 HomeGameFinanceResult.CreateNotHomeGame("replay-game"), default, "manager", "coach",
                 ManagerTacticalProfile.Balanced, "감독", "수석 코치");
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-            ConstructorInfo constructor = typeof(OwnerMatchSpectatorSession).GetConstructors(flags).Single();
+            ConstructorInfo constructor = typeof(OwnerMatchSpectatorSession).GetConstructors(flags).Single(value => value.GetParameters().Length == 4);
             MethodInfo update = typeof(UI_Scene_OwnerMatchSpectator).GetMethod("UpdateGameCast", flags);
             MethodInfo refresh = typeof(UI_Scene_OwnerMatchSpectator).GetMethod("RefreshControls", flags);
             FieldInfo eventElapsed = typeof(UI_Scene_OwnerMatchSpectator).GetField("_eventElapsed", flags);
+            FieldInfo insetKind = typeof(UI_Scene_OwnerMatchSpectator).GetField("_highlightKind", flags);
+            FieldInfo insetElapsed = typeof(UI_Scene_OwnerMatchSpectator).GetField("_highlightElapsed", flags);
+            var insetCaptures = new HashSet<OwnerMatchHighlightKind>();
+            var insetReport = new System.Text.StringBuilder("mode,speed,kind,visibleEvent,type\n");
             var summary = new System.Text.StringBuilder("mode,speed,frames,visibleEvents,pauseVerified,awayScore,homeScore\n");
             foreach (OwnerMatchViewingMode mode in Enum.GetValues(typeof(OwnerMatchViewingMode)))
             foreach (int speed in new[] { 1, 2, 4 })
@@ -294,19 +298,36 @@ namespace Baseball.Tools.SpriteMatchValidation
                         session.PeekBallInPlay();
                         if (visible != session.State.VisibleEventCount || !ReferenceEquals(hud, session.CurrentHud))
                             throw new InvalidOperationException("연출 경로 조회가 HUD 공개 상태를 변경했습니다.");
-                        if (!pauseVerified && visible > 10)
+                        if (!pauseVerified && (OwnerMatchHighlightKind)insetKind.GetValue(view) != OwnerMatchHighlightKind.None)
                         {
                             float elapsedBeforePause = (float)eventElapsed.GetValue(view);
+                            float insetBeforePause = (float)insetElapsed.GetValue(view);
                             session.TryTogglePause();
                             update.Invoke(view, new object[] { 1f });
                             if (visible != session.State.VisibleEventCount) throw new InvalidOperationException("일시정지 중 사건 공개");
                             if ((float)eventElapsed.GetValue(view) != elapsedBeforePause)
                                 throw new InvalidOperationException("일시정지 중 스프라이트 재생 시간이 진행했습니다.");
+                            if ((float)insetElapsed.GetValue(view) != insetBeforePause)
+                                throw new InvalidOperationException("일시정지 중 삽입 컷 표시 시간이 진행했습니다.");
                             session.TryTogglePause();
                             pauseVerified = true;
                         }
                         update.Invoke(view, new object[] { 1f / 24f });
                         int last = session.State.VisibleEventCount - 1;
+                        var kind = (OwnerMatchHighlightKind)insetKind.GetValue(view);
+                        if (kind != OwnerMatchHighlightKind.None)
+                        {
+                            if (last < 0 || OwnerMatchHighlightCue.Resolve(events[last]) != kind)
+                                throw new InvalidOperationException("삽입 컷이 공개 사건보다 앞서거나 다른 결과를 표시합니다.");
+                            if (view.transform.Find("BroadcastCanvas/GameCastSidebar/PitchContext").gameObject.activeSelf)
+                                throw new InvalidOperationException("삽입 컷과 투구 상세가 겹쳐 표시됩니다.");
+                            if (mode == OwnerMatchViewingMode.EveryMoment && speed == 1 &&
+                                (float)insetElapsed.GetValue(view) >= 0.15f && insetCaptures.Add(kind))
+                            {
+                                Save(camera, target, pixels, Path.Combine(directory, "inset-replay-" + kind + ".png"));
+                                insetReport.AppendLine($"{mode},{speed},{kind},{last},{events[last].EventType}");
+                            }
+                        }
                         if (last >= 0 && (session.CurrentHud.AwayTeam.Score != events[last].AwayScore ||
                             session.CurrentHud.HomeTeam.Score != events[last].HomeScore))
                             throw new InvalidOperationException("HUD 점수가 공개 사건 경계와 다릅니다.");
@@ -322,6 +343,8 @@ namespace Baseball.Tools.SpriteMatchValidation
                     if (!session.State.IsComplete || session.State.VisibleEventCount != events.Length)
                         throw new InvalidOperationException("관전 화면이 경기 종료에 도달하지 못했습니다: " + mode);
                     refresh.Invoke(view, null);
+                    if ((OwnerMatchHighlightKind)insetKind.GetValue(view) != OwnerMatchHighlightKind.None)
+                        throw new InvalidOperationException("경기 종료 후 삽입 컷이 남았습니다.");
                     if (session.CurrentHud.AwayTeam.Score != match.AwayBoxScore.Runs ||
                         session.CurrentHud.HomeTeam.Score != match.HomeBoxScore.Runs)
                         throw new InvalidOperationException("관전 최종 점수가 공식 BoxScore와 다릅니다.");
@@ -335,6 +358,33 @@ namespace Baseball.Tools.SpriteMatchValidation
                 finally { UnityEngine.Object.DestroyImmediate(view.gameObject); }
             }
             File.WriteAllText(Path.Combine(directory, "owner-session-replay.csv"), summary.ToString());
+            File.WriteAllText(Path.Combine(directory, "highlight-inset-replay.csv"), insetReport.ToString());
+            VerifyInsetCancellation(parent, result, events);
+        }
+
+        private static void VerifyInsetCancellation(RectTransform parent, ManagerModeMatchResult result, MatchEvent[] events)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var view = UI_Scene_OwnerMatchSpectator.CreateRuntime(parent);
+            try
+            {
+                var session = (OwnerMatchSpectatorSession)typeof(OwnerMatchSpectatorSession)
+                    .GetConstructors(flags).Single(value => value.GetParameters().Length == 4).Invoke(new object[] { result, events, view, 1 });
+                typeof(UI_Scene_OwnerMatchSpectator).GetField("_session", flags).SetValue(view, session);
+                view.SetVisible(true);
+                var update = typeof(UI_Scene_OwnerMatchSpectator).GetMethod("UpdateGameCast", flags);
+                var kind = typeof(UI_Scene_OwnerMatchSpectator).GetField("_highlightKind", flags);
+                int frames = 0;
+                while ((OwnerMatchHighlightKind)kind.GetValue(view) == OwnerMatchHighlightKind.None && frames++ < 5000)
+                    update.Invoke(view, new object[] { 1f / 24f });
+                if ((OwnerMatchHighlightKind)kind.GetValue(view) == OwnerMatchHighlightKind.None)
+                    throw new InvalidOperationException("즉시 결과 취소 검증용 삽입 컷이 시작되지 않았습니다.");
+                view.transform.Find("BroadcastCanvas/RevealAll").GetComponent<Button>().onClick.Invoke();
+                if (!session.State.IsComplete || (OwnerMatchHighlightKind)kind.GetValue(view) != OwnerMatchHighlightKind.None ||
+                    !view.transform.Find("BroadcastCanvas/MatchResult").gameObject.activeSelf)
+                    throw new InvalidOperationException("삽입 컷 중 즉시 결과 전환 실패");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(view.gameObject); }
         }
 
         private static Team CreateReplayTeam(int id, Dictionary<int, Player> players)
@@ -379,9 +429,11 @@ namespace Baseball.Tools.SpriteMatchValidation
                 UI_Scene_OwnerMatchSpectator view = UI_Scene_OwnerMatchSpectator.CreateRuntime(rect);
                 view.SetVisible(true);
                 view.Present(new MatchHudPresentationModelBuilder().Build(1, MatchHudHalf.Top,
-                    new MatchHudTeamModel("서울 마리너스", 0, true), new MatchHudTeamModel("서울 하버스", 0, false),
+                    new MatchHudTeamModel("LG 트윈스", 0, true), new MatchHudTeamModel("한화 이글스", 0, false),
                     new MatchHudCountModel(1, 1, 0), MatchHudBaseStateModel.Empty,
                     new MatchHudParticipantModel(1, "김원준"), new MatchHudParticipantModel(2, "김성찬"), false));
+                typeof(UI_Scene_OwnerMatchSpectator).GetMethod("RenderCompactLineScore", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .Invoke(view, new object[] { Baseball.Game.Career.MatchLineScore.Create(Array.Empty<MatchEvent>(), 0) });
                 Canvas.ForceUpdateCanvases();
                 typeof(UI_Scene_OwnerMatchSpectator).GetMethod("FitWorkspace", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(view, null);
                 // 화면 자체의 무대를 사용한다. 입력·경기 진행 검증과 구분되는 정적 합성이다.
@@ -399,6 +451,7 @@ namespace Baseball.Tools.SpriteMatchValidation
                     BattedBallDirection.Center, FieldZone.Shortstop, 0.5, BallFlightBand.Medium, BallPaceBand.Medium, false), default);
                 stage.RenderContact(contact, stage.Projection.Layout.contactCameraPeakProgress);
                 Save(camera, target, pixels, Path.Combine(directory, $"owner-contact-{size.x}x{size.y}.png"));
+                CaptureHighlightInsets(view, camera, target, pixels, directory, size);
             }
             finally
             {
@@ -407,6 +460,37 @@ namespace Baseball.Tools.SpriteMatchValidation
                 UnityEngine.Object.DestroyImmediate(cameraObject);
                 UnityEngine.Object.DestroyImmediate(target);
                 UnityEngine.Object.DestroyImmediate(pixels);
+            }
+        }
+
+        private static void CaptureHighlightInsets(UI_Scene_OwnerMatchSpectator view, Camera camera,
+            RenderTexture target, Texture2D pixels, string directory, Vector2Int size)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            MethodInfo show = typeof(UI_Scene_OwnerMatchSpectator).GetMethod("TryPresentHighlightInset", flags);
+            MethodInfo advance = typeof(UI_Scene_OwnerMatchSpectator).GetMethod("AdvanceHighlightInset", flags);
+            var sidebar = (RectTransform)view.transform.Find("BroadcastCanvas/GameCastSidebar");
+            var inset = (RectTransform)sidebar.Find("HighlightInset");
+            var corners = new Vector3[4];
+            foreach (OwnerMatchHighlightKind kind in Enum.GetValues(typeof(OwnerMatchHighlightKind)))
+            {
+                if (kind == OwnerMatchHighlightKind.None) continue;
+                if (!(bool)show.Invoke(view, new object[] { kind, OwnerMatchPlaybackSpeed.Normal }))
+                    throw new InvalidOperationException("삽입 컷 리소스 누락: " + kind);
+                advance.Invoke(view, new object[] { 0.15f });
+                Canvas.ForceUpdateCanvases();
+                inset.GetWorldCorners(corners);
+                foreach (Vector3 corner in corners)
+                    if (!sidebar.rect.Contains(sidebar.InverseTransformPoint(corner)))
+                        throw new InvalidOperationException("삽입 컷이 상세 영역을 침범했습니다: " + size);
+                if (sidebar.Find("PitchContext").gameObject.activeSelf)
+                    throw new InvalidOperationException("투구 상세와 삽입 컷 중첩");
+                if (inset.GetComponent<CanvasGroup>().blocksRaycasts || inset.Find("Picture").GetComponent<Image>().raycastTarget)
+                    throw new InvalidOperationException("삽입 컷이 조작 입력을 가로챕니다.");
+                Save(camera, target, pixels, Path.Combine(directory, $"inset-{kind}-{size.x}x{size.y}.png"));
+                advance.Invoke(view, new object[] { 2f });
+                if (inset.gameObject.activeSelf || !sidebar.Find("PitchContext").gameObject.activeSelf)
+                    throw new InvalidOperationException("삽입 컷 종료 후 투구 상세 복귀 실패");
             }
         }
 
