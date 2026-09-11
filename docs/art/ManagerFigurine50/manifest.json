@@ -1,0 +1,254 @@
+﻿{
+    "intensityPercent":  50,
+    "canvas":  "1024x1536",
+    "chroma":  {
+                   "mode":  "ChromaKey",
+                   "keyColor":  "#FF00FF",
+                   "keyTolerance":  48,
+                   "keyOpaqueDistance":  255,
+                   "keyEdgeRadius":  12
+               },
+    "materialReference":  "references/material-reference-383.jpg",
+    "assets":  [
+                   {
+                       "manager":  1,
+                       "expression":  "Analysis",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_01_Analysis-source.png",
+                       "generatedSourceSha256":  "AE4DCF64F667B66FA38E562B7E98E778277B009125F399E95C7963139005C163",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_01_Analysis.png",
+                       "finalSha256":  "D948B902FB1CA6B02BCB9F2F314917071EA5633CCE784E32F53850AD27F2C64B",
+                       "priorArtSha256":  "9F56D2C2F894C5837073F1BFDB06743E7BAA330D9F6DDE8A68C8C5E3409D3D48",
+                       "priorResourceSha256":  "9F56D2C2F894C5837073F1BFDB06743E7BAA330D9F6DDE8A68C8C5E3409D3D48"
+                   },
+                   {
+                       "manager":  1,
+                       "expression":  "Calm",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_01_Calm-source.png",
+                       "generatedSourceSha256":  "AA1B04247E7690B16982E8F989F926FE7E47308DE87ED0A29817652E414FFEDE",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_01_Calm.png",
+                       "finalSha256":  "8F003B5F76235BDFB7BB25CA7CA01A37370B5D649855A704F4BF4E6AD7C72185",
+                       "priorArtSha256":  "EA6E79DADF2A25FCA05627E474AA8B867D871E2A41A1F9BF90D5DEC9566340BA",
+                       "priorResourceSha256":  "EA6E79DADF2A25FCA05627E474AA8B867D871E2A41A1F9BF90D5DEC9566340BA"
+                   },
+                   {
+                       "manager":  1,
+                       "expression":  "Celebrate",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_01_Celebrate-source.png",
+                       "generatedSourceSha256":  "93128B0373461027BFA283812F4971BE07E9CFBEFF9222AE3378FAD6FC740CC7",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_01_Celebrate.png",
+                       "finalSha256":  "140C5EFBC06B3D5F0C096C7D069DFA80F03D546880AA972107DEE2052FA1815A",
+                       "priorArtSha256":  "AE10DE6F759E81E601A2BEF36C5BC03948015823DD4809271EFFED69F3D8352B",
+                       "priorResourceSha256":  "AE10DE6F759E81E601A2BEF36C5BC03948015823DD4809271EFFED69F3D8352B"
+                   },
+                   {
+                       "manager":  1,
+                       "expression":  "Concerned",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_01_Concerned-source.png",
+                       "generatedSourceSha256":  "AB056AD6B1899F9B5E5F8BE643AC47742DBBCD38E0BE84F339E7DAB5476ACD9C",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_01_Concerned.png",
+                       "finalSha256":  "35FA1C87D5DA2CA228FAB315F1B0ACF4F51E497A21A19AFC0F188DDCE448143D",
+                       "priorArtSha256":  "4F08BB96A83648AB3839B6DA91C742AAC2E22A2F4ABF77B3C2417D7E7CE4D680",
+                       "priorResourceSha256":  "4F08BB96A83648AB3839B6DA91C742AAC2E22A2F4ABF77B3C2417D7E7CE4D680"
+                   },
+                   {
+                       "manager":  1,
+                       "expression":  "Neutral",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_01_Neutral-source.png",
+                       "generatedSourceSha256":  "82D461945716634B5FB399EE9CE1D848097168FC419133EDDABE6E4379BB5782",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_01_Neutral.png",
+                       "finalSha256":  "620AE7853FDDDB12C7AD74A632B08A853597FF634D28CE039287041F10E623FE",
+                       "priorArtSha256":  "9A94D82BB366AD4BFD16239DD415583A2D4F5A6F11727997478671E074A0947F",
+                       "priorResourceSha256":  "9A94D82BB366AD4BFD16239DD415583A2D4F5A6F11727997478671E074A0947F"
+                   },
+                   {
+                       "manager":  1,
+                       "expression":  "Surprised",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_01_Surprised-source.png",
+                       "generatedSourceSha256":  "4FA72DB6CEFB253346D8B821A703752E42282F2B8DDA2FEE3BC781BC14513A72",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_01_Surprised.png",
+                       "finalSha256":  "D908AF78495193C9931AF7E7B2E6977BADCC75154D3E454B9DDB87C522F33BE4",
+                       "priorArtSha256":  "1E8226857576A6D14381B247718265FCBBE26F38C0C64B66FFE68C186BCB9675",
+                       "priorResourceSha256":  "1E8226857576A6D14381B247718265FCBBE26F38C0C64B66FFE68C186BCB9675"
+                   },
+                   {
+                       "manager":  1,
+                       "expression":  "Warning",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_01_Warning-source.png",
+                       "generatedSourceSha256":  "844EC2D4DC770CCF1CCE8B9FB4D287CBF6FF94FD577C78C2EAFA65CD3B0F0A72",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_01_Warning.png",
+                       "finalSha256":  "047E4D1D5F593D8F0983E3EABEB3B526F5908C2A5B171B5C9B7AAE409A3DE4E1",
+                       "priorArtSha256":  "DBCF8E919C3333943FC04040517660D0D854C71A84FE37E90CC7A670E0409C15",
+                       "priorResourceSha256":  "DBCF8E919C3333943FC04040517660D0D854C71A84FE37E90CC7A670E0409C15"
+                   },
+                   {
+                       "manager":  1,
+                       "expression":  "Welcome",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_01_Welcome-source.png",
+                       "generatedSourceSha256":  "138B798EF04BCAD27B81E641F175AA0E0D9D4FDCD849E66A81E6DED160CAB632",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_01_Welcome.png",
+                       "finalSha256":  "49AD70381AD0B8502CB18E1F052CCB0A692F790098BE152BE5514AD0C20594FA",
+                       "priorArtSha256":  "7F0249CED17F3B7EAF916DA9A5DF63261F6B81F15C70B6B47EDD0AD2E88716CF",
+                       "priorResourceSha256":  "7F0249CED17F3B7EAF916DA9A5DF63261F6B81F15C70B6B47EDD0AD2E88716CF"
+                   },
+                   {
+                       "manager":  2,
+                       "expression":  "Analysis",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_02_Analysis-source.png",
+                       "generatedSourceSha256":  "3C7E6AA255062C31E7FA42639F5D48E7B3AF24B527996902BAC4F117AC425B23",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_02_Analysis.png",
+                       "finalSha256":  "3FEDAB6EC605066048B22FC398509CDE4E4D5AE01A980220AFA7DFAAC0435FA6",
+                       "priorArtSha256":  "07AB068F972BECAB0C785632E626D6EA9C086F3965D720E4678BDCA1A7A1EB8E",
+                       "priorResourceSha256":  "07AB068F972BECAB0C785632E626D6EA9C086F3965D720E4678BDCA1A7A1EB8E"
+                   },
+                   {
+                       "manager":  2,
+                       "expression":  "Calm",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_02_Calm-source.png",
+                       "generatedSourceSha256":  "44EE2099733B78EC5947FA1DFDBD713639D7033BB71FB5A655574B60C1D133FD",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_02_Calm.png",
+                       "finalSha256":  "4DF6A0B60C5EFBF187239A72E5402A49732C998732073A967D15FA9F65D59991",
+                       "priorArtSha256":  "E26A8DD8D8F77A9CCFFF7D87EF70EC002610E1E5B9E7BA3B8C890C15B103ED90",
+                       "priorResourceSha256":  "E26A8DD8D8F77A9CCFFF7D87EF70EC002610E1E5B9E7BA3B8C890C15B103ED90"
+                   },
+                   {
+                       "manager":  2,
+                       "expression":  "Celebrate",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_02_Celebrate-source.png",
+                       "generatedSourceSha256":  "30878E9EA4645540271E320B7F2B2875FDD9188B337B7EB6F3C507B1164A4878",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_02_Celebrate.png",
+                       "finalSha256":  "0ADA1600D880577D67239BDC38EEC1E29024BB03CF3F7A2016F9CB05A8CAD80F",
+                       "priorArtSha256":  "9B37C6DB652FD2D99A5A43C7CE0058EBA985CC7CBB33A97B7A2F06EB92C85CC6",
+                       "priorResourceSha256":  "9B37C6DB652FD2D99A5A43C7CE0058EBA985CC7CBB33A97B7A2F06EB92C85CC6"
+                   },
+                   {
+                       "manager":  2,
+                       "expression":  "Concerned",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_02_Concerned-source.png",
+                       "generatedSourceSha256":  "42F48D636F55ABCD56D3129865C0E185A5DC4305FD27E601531C079D0FBE2193",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_02_Concerned.png",
+                       "finalSha256":  "35EDF64DBFF854BC805E42F038774014FAD2908BCDC1B0984800E8FFD80872D2",
+                       "priorArtSha256":  "9DA10EB3C6E93E15984E155F3B2A586F6D627B4A942BF2E06D38C0BF700BC7CE",
+                       "priorResourceSha256":  "9DA10EB3C6E93E15984E155F3B2A586F6D627B4A942BF2E06D38C0BF700BC7CE"
+                   },
+                   {
+                       "manager":  2,
+                       "expression":  "Neutral",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_02_Neutral-source.png",
+                       "generatedSourceSha256":  "3CDF61F475447D9CBF4127874D475F059C6EEA57F7840201BBA656EC454B712B",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_02_Neutral.png",
+                       "finalSha256":  "5E7224EC05C3B0200F236955FD13321308A845B7352159CB43F8D1E538667A23",
+                       "priorArtSha256":  "2D81887E31395C95CD1C6ED78F93161AFBC97115451EC10E35C151880D43F201",
+                       "priorResourceSha256":  "2D81887E31395C95CD1C6ED78F93161AFBC97115451EC10E35C151880D43F201"
+                   },
+                   {
+                       "manager":  2,
+                       "expression":  "Surprised",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_02_Surprised-source.png",
+                       "generatedSourceSha256":  "4C4091E598FB4FA5561A0AC6FAACD695E2F86162AF9BCE5AB790154818A787D9",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_02_Surprised.png",
+                       "finalSha256":  "9255A39DA6576E56DC8EAF9E887D6C31F438F318B11B2D66B40F54D20F497FA4",
+                       "priorArtSha256":  "F30A3895ABC4F8BEF313B7655E910C27B4F50578217B6D0152D7B54A19E4D9A6",
+                       "priorResourceSha256":  "F30A3895ABC4F8BEF313B7655E910C27B4F50578217B6D0152D7B54A19E4D9A6"
+                   },
+                   {
+                       "manager":  2,
+                       "expression":  "Warning",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_02_Warning-source.png",
+                       "generatedSourceSha256":  "48FFFE060EE6DE8FF7C988B0880F6BE6950D7467F869E386EAACEB650B7800C4",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_02_Warning.png",
+                       "finalSha256":  "3D2F9D448DCB25002CA751C040286829E57EBECDA0F636726808D20133F91914",
+                       "priorArtSha256":  "8CDD2D6522388033676D4DD9B7C9C60C1A30C3E5D8EE09D01F4F816E38D9F6B4",
+                       "priorResourceSha256":  "8CDD2D6522388033676D4DD9B7C9C60C1A30C3E5D8EE09D01F4F816E38D9F6B4"
+                   },
+                   {
+                       "manager":  2,
+                       "expression":  "Welcome",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_02_Welcome-source.png",
+                       "generatedSourceSha256":  "F4B5F5E1624D5A48A21926F6BF0C1EDFE96C73E5F579BEE4AE14F318092EE617",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_02_Welcome.png",
+                       "finalSha256":  "3B5FEDB6888D0B43CC942CAA88DF1F5E28892961540DB2FAB2CA46345FA2ED5C",
+                       "priorArtSha256":  "E279F15BFAB5857DCA11237B66EACFDBA691D900B454F89FBB2C4428C2D8A79C",
+                       "priorResourceSha256":  "E279F15BFAB5857DCA11237B66EACFDBA691D900B454F89FBB2C4428C2D8A79C"
+                   },
+                   {
+                       "manager":  3,
+                       "expression":  "Analysis",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_03_Analysis-source.png",
+                       "generatedSourceSha256":  "DB346AF262DE4D2153384C618D23732E6119A4C8A4EBB6A741CDEFB732588E74",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Analysis.png",
+                       "finalSha256":  "7E929B2D5E4E30E7B76D2186A702221A99A2AAC56BB33727409F4BDF09733558",
+                       "priorArtSha256":  "1C1D6FCFC617089498ACAC963D4629EFFEE50C82D2E9749FD10B4BDAEC7DA1ED",
+                       "priorResourceSha256":  "1C1D6FCFC617089498ACAC963D4629EFFEE50C82D2E9749FD10B4BDAEC7DA1ED"
+                   },
+                   {
+                       "manager":  3,
+                       "expression":  "Calm",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_03_Calm-source.png",
+                       "generatedSourceSha256":  "C6E42CE5E3F2FB66A3FE935B1F182A22D67F385930671802C00C7C03B405DE5B",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Calm.png",
+                       "finalSha256":  "76FE106F4BE88B19C04597ED76C0883158364263BB616B9234AE59F79A4BA8D8",
+                       "priorArtSha256":  "E7F139F926EE532FFA3A758944B79AE5F46184B0EC3EA4CF7F9E1E3BC2C5A823",
+                       "priorResourceSha256":  "E7F139F926EE532FFA3A758944B79AE5F46184B0EC3EA4CF7F9E1E3BC2C5A823"
+                   },
+                   {
+                       "manager":  3,
+                       "expression":  "Celebrate",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_03_Celebrate-source.png",
+                       "generatedSourceSha256":  "7B176EE9025C84381F54CBCC8E8067E2577B652CEE61FBC109C2AB53860B93B9",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Celebrate.png",
+                       "finalSha256":  "F3124AA02A0F4B5B2C7976192A3F64DC95D4A8F48E5CF02A5EDC91852381D1A2",
+                       "priorArtSha256":  "B2D7FEBF1B008C608516F46126E70AA31230C04349A0C9DAF323CA90BD46ADF5",
+                       "priorResourceSha256":  "B2D7FEBF1B008C608516F46126E70AA31230C04349A0C9DAF323CA90BD46ADF5"
+                   },
+                   {
+                       "manager":  3,
+                       "expression":  "Concerned",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_03_Concerned-source.png",
+                       "generatedSourceSha256":  "882E31BB64AD02486E88F8C4BC822E360405F860408710E7FEEE3DBFCC7270E7",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Concerned.png",
+                       "finalSha256":  "542A1305A5D570F1AD0540A7B421085F43BEA49752CAACC8D3D1E9C0E8FE867B",
+                       "priorArtSha256":  "EF2C6D7FB94DF5F155D8D919AB3CF81E9B8971F574E7C518440BE03943DC8774",
+                       "priorResourceSha256":  "EF2C6D7FB94DF5F155D8D919AB3CF81E9B8971F574E7C518440BE03943DC8774"
+                   },
+                   {
+                       "manager":  3,
+                       "expression":  "Neutral",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_03_Neutral-source.png",
+                       "generatedSourceSha256":  "ADEEAC9C77189EBEC8194D0ED7B1CC02C99008930218CED07B4C653DDAE24CF8",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Neutral.png",
+                       "finalSha256":  "8A3A8F1D72B1BF55094858A29EA5DD990DA1F3BD22A82DF672C3DDA79DD1B577",
+                       "priorArtSha256":  "EC4085FC26A5D99D98C7FEDF7A2FD43ED1F00647B7C85D3F039D49E67EF48E5B",
+                       "priorResourceSha256":  "EC4085FC26A5D99D98C7FEDF7A2FD43ED1F00647B7C85D3F039D49E67EF48E5B"
+                   },
+                   {
+                       "manager":  3,
+                       "expression":  "Surprised",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_03_Surprised-source.png",
+                       "generatedSourceSha256":  "EA3C46898FEB57B8A69F73A0D02D5B8162743538484233BA9DDC21140A6CE49E",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Surprised.png",
+                       "finalSha256":  "433927756ECFCB9B5588FE3A45A20D980E02E34421FE089E4F8B9FF532FA772E",
+                       "priorArtSha256":  "897947C7AFA39B55138AEE62361ECABC5ED497F6044B4D09748547FE386230FB",
+                       "priorResourceSha256":  "897947C7AFA39B55138AEE62361ECABC5ED497F6044B4D09748547FE386230FB"
+                   },
+                   {
+                       "manager":  3,
+                       "expression":  "Warning",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_03_Warning-source.png",
+                       "generatedSourceSha256":  "AF654714437D3AAC01303F2FB54CBA6780378D290D23120C56CB6A03DBD00700",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Warning.png",
+                       "finalSha256":  "8364AB6A387D84A8AAB3FC8A8D8997BD99779C29616D0C6CA0541A91EE1193E9",
+                       "priorArtSha256":  "DF91F30D6ECE1646C93B6371C1EB2D58F1C2AB571F1EF0BC331BCF6FE0890686",
+                       "priorResourceSha256":  "DF91F30D6ECE1646C93B6371C1EB2D58F1C2AB571F1EF0BC331BCF6FE0890686"
+                   },
+                   {
+                       "manager":  3,
+                       "expression":  "Welcome",
+                       "generatedSource":  "docs/art/ManagerFigurine50/sources/FrontManager_Default_03_Welcome-source.png",
+                       "generatedSourceSha256":  "0CE268DF39D78D7EFCA6ACD34B3FDD879400B252008A16841CBB6AB683B32FAC",
+                       "final":  "Assets/10.Datas/FrontManager/Art/FrontManager_Default_03_Welcome.png",
+                       "finalSha256":  "B37051ECB67376D6920C0458B8A7ED331F7E537D114C3CBE1FE60B41DA8DD03D",
+                       "priorArtSha256":  "56ED283A5DA879CF97CF2AFD6AA170F2BFC268E000973F839F943471B5B660D1",
+                       "priorResourceSha256":  "56ED283A5DA879CF97CF2AFD6AA170F2BFC268E000973F839F943471B5B660D1"
+                   }
+               ]
+}

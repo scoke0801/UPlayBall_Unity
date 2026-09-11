@@ -1,0 +1,74 @@
+﻿[
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\docs\\art\\ManagerFigurine50\\final\\FrontManager_Default_02_Analysis.png",
+        "Width":  1024,
+        "Height":  1536,
+        "Transparent":  911461,
+        "Partial":  27968,
+        "Opaque":  633435,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\docs\\art\\ManagerFigurine50\\final\\FrontManager_Default_02_Calm.png",
+        "Width":  1024,
+        "Height":  1536,
+        "Transparent":  935252,
+        "Partial":  12119,
+        "Opaque":  625493,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\docs\\art\\ManagerFigurine50\\final\\FrontManager_Default_02_Celebrate.png",
+        "Width":  1024,
+        "Height":  1536,
+        "Transparent":  883074,
+        "Partial":  17214,
+        "Opaque":  672576,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\docs\\art\\ManagerFigurine50\\final\\FrontManager_Default_02_Concerned.png",
+        "Width":  1024,
+        "Height":  1536,
+        "Transparent":  891954,
+        "Partial":  19815,
+        "Opaque":  661095,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\docs\\art\\ManagerFigurine50\\final\\FrontManager_Default_02_Neutral.png",
+        "Width":  1024,
+        "Height":  1536,
+        "Transparent":  879775,
+        "Partial":  15028,
+        "Opaque":  678061,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\docs\\art\\ManagerFigurine50\\final\\FrontManager_Default_02_Surprised.png",
+        "Width":  1024,
+        "Height":  1536,
+        "Transparent":  880660,
+        "Partial":  13739,
+        "Opaque":  678465,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\docs\\art\\ManagerFigurine50\\final\\FrontManager_Default_02_Warning.png",
+        "Width":  1024,
+        "Height":  1536,
+        "Transparent":  888282,
+        "Partial":  17549,
+        "Opaque":  667033,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\docs\\art\\ManagerFigurine50\\final\\FrontManager_Default_02_Welcome.png",
+        "Width":  1024,
+        "Height":  1536,
+        "Transparent":  889728,
+        "Partial":  17191,
+        "Opaque":  665945,
+        "TransparentCorners":  true
+    }
+]

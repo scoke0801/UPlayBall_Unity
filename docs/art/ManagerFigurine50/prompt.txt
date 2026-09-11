@@ -1,0 +1,21 @@
+Use case: identity-preserve / style-transfer / background-extraction
+Asset type: UPlayBall Unity front-manager dialogue portrait sprite
+Input images: Image 1 is the ONLY edit target and identity/composition source. Image 2 is ONLY a material and shading reference for soft premium hand-painted resin; never copy its person, cap, costume, pose, or chibi geometry.
+Primary request: Edit Image 1 at exactly the documented 50 PERCENT material influence—a balanced blend of the original illustration and premium resin figurine rendering.
+Subject invariants: Preserve the exact same adult female identity, slender adult body proportions, original head and eye sizes, [CHARACTER BLOCK], exact [EXPRESSION] facial expression, exact pose, hands and gesture, all original colors, and the original above-knee 2:3 framing. Fully contain hair, hands, and props.
+Material treatment: Apply chiefly to face, exposed skin, and hair. Smooth satin-matte skin, moderately rounded sculptural cheek/nose/eyelid shading, delicate painted facial details, restrained broad highlights, soft ambient occlusion, and softly sculpted hair locks. Retain some original linework and natural adult facial proportions. Harmonize exposed skin without redesigning clothing or props.
+Backdrop: Replace the entire background and every gap between hair, arms, fingers, clothing, and props with perfectly uniform opaque vivid MAGENTA #FF00FF (RGB 255,0,255), suitable for chroma-key removal. No gradient, texture, shadow, glow, checkerboard, floor, or background color spill.
+Constraints: 1024x1536 portrait, one character only, no labels, no new text, no watermark. Preserve exact expression and pose.
+Avoid: enlarged head or eyes, baby face, SD/chibi, character merging, new objects, cap, wet/waxy gloss, toy joints, seams, pedestal, altered hands, altered costume, altered props.
+
+[CHARACTER BLOCK: 01]
+dark-brown high ponytail and loose hair silhouette, white rolled-sleeve shirt, blue knitted sweater draped over the shoulders, beige trousers, brown belt, navy lanyard and blue ID card, wristwatch, and any original tablet/prop with its baseball-field graphics
+
+[CHARACTER BLOCK: 02]
+short swept dark-brown hair silhouette, stud earrings, navy-and-white zip jacket with purple trim, dark inner shirt, white trousers, navy belt, silver stylus, and the original tablet with its colorful analytics graphics
+
+[CHARACTER BLOCK: 03]
+long brown high ponytail and hair silhouette, golden-brown eyes, white short-sleeved shirt with navy collar and mint piping, navy emblems, lanyard and ID badge, navy trousers, and any original tablet/prop
+
+[EXPRESSION]
+Analysis / Calm / Celebrate / Concerned / Neutral / Surprised / Warning / Welcome
