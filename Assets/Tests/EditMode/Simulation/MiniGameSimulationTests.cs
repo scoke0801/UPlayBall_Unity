@@ -12,6 +12,39 @@ namespace Baseball.Tests.EditMode.Simulation
     /// <summary>직접 투구·타격 명령이 공통 Resolver와 결정론적 경기 세션을 통과하는지 검증한다.</summary>
     public sealed class MiniGameSimulationTests
     {
+        [TestCase(Handedness.Left, Handedness.Left)]
+        [TestCase(Handedness.Left, Handedness.Right)]
+        [TestCase(Handedness.Right, Handedness.Left)]
+        [TestCase(Handedness.Right, Handedness.Right)]
+        public void PitchExecution_스위치타자의사구영역은상대투수의손으로정한다(
+            Handedness pitcherHand, Handedness batterThrowingHand)
+        {
+            PlateAppearanceMatchup baseline = CreateMatchup(50, 50);
+            Player CreateBatter(Handedness battingHand) => new Player(1, "타자", PlayerPosition.Shortstop,
+                battingHand, batterThrowingHand, baseline.Batter.BatterAttributes, baseline.Batter.PitcherAttributes);
+            var pitcher = new Player(2, "투수", PlayerPosition.StartingPitcher, Handedness.Right, pitcherHand,
+                baseline.Pitcher.BatterAttributes, baseline.Pitcher.PitcherAttributes);
+            Handedness expectedHand = pitcherHand == Handedness.Left ? Handedness.Right : Handedness.Left;
+            var switchMatchup = new PlateAppearanceMatchup(CreateBatter(Handedness.Switch), pitcher, 50d, false);
+            var fixedMatchup = new PlateAppearanceMatchup(CreateBatter(expectedHand), pitcher, 50d, false);
+            double inside = expectedHand == Handedness.Right ? 1.3d : -1.3d;
+            var command = new PitchSelectionCommand(0, PitchType.FourSeamFastball, new PlatePoint(inside, .3d));
+            BalanceTable balance = BalanceTable.CreateDefault();
+            int hitBatters = 0;
+            for (ulong seed = 1; seed <= 1000; seed++)
+            {
+                PitchFlightDescriptor expected = new PitchExecutionResolver(balance, new Pcg32Random(seed))
+                    .Resolve(fixedMatchup, command);
+                PitchFlightDescriptor actual = new PitchExecutionResolver(balance, new Pcg32Random(seed))
+                    .Resolve(switchMatchup, command);
+                Assert.That(actual.PlatePoint, Is.EqualTo(expected.PlatePoint));
+                Assert.That(actual.IsHitByPitch, Is.EqualTo(expected.IsHitByPitch), $"Seed={seed}");
+                if (actual.IsHitByPitch) hitBatters++;
+            }
+            Assert.That(hitBatters, Is.GreaterThan(0));
+            Assert.That(hitBatters, Is.LessThan(1000));
+        }
+
         [Test]
         public void PitchSelection_존공략과땅볼유도도투스트라이크유인구를사용한다()
         {

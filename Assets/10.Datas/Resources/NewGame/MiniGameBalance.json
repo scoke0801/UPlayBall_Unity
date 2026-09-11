@@ -1,5 +1,9 @@
 {
   "schemaVersion": 1,
+  "hitByPitchMinimumInsideLocation": 1.18,
+  "hitByPitchMaximumHeight": 1.05,
+  "hitByPitchContactProbability": 0.18,
+  "aiMentalChaseWeight": 0.002,
   "relieverQualityWeight": 2.0,
   "aiPitchQualityDifficultyWeight": 0.003,
   "contactPitchQualityWeight": 0.75,

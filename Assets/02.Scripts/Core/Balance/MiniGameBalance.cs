@@ -47,8 +47,25 @@ namespace Baseball.Core.Balance
             double repeatExecutionErrorReduction,
             double aiThreeBallTargetHorizontal = 0.96d,
             double aiPitchQualityDifficultyWeight = .003d,
-            double contactPitchQualityWeight = .75d, double contactBatterQualityWeight = .65d)
+            double contactPitchQualityWeight = .75d, double contactBatterQualityWeight = .65d,
+            // 제구가 높은 역사 로스터의 사구 부족을 줄이되 중립 전력의 과다 사구를 피한 대량 검증값이다.
+            // 근거: docs/reports/plate-discipline-20260911.md. 팀별 실적은 계수에 입력하지 않는다.
+            double hitByPitchMinimumInsideLocation = 1.18d,
+            double hitByPitchMaximumHeight = 1.05d,
+            double hitByPitchContactProbability = .18d,
+            double aiMentalChaseWeight = .002d)
         {
+            if (!(aiMentalChaseWeight >= 0d) || aiMentalChaseWeight > .05d)
+                throw new System.ArgumentOutOfRangeException(nameof(aiMentalChaseWeight));
+            AiMentalChaseWeight = aiMentalChaseWeight;
+            if (!(hitByPitchMinimumInsideLocation > 1d) || hitByPitchMinimumInsideLocation > 1.8d)
+                throw new System.ArgumentOutOfRangeException(nameof(hitByPitchMinimumInsideLocation));
+            if (!(hitByPitchMaximumHeight > 0d) || hitByPitchMaximumHeight > 1.7d)
+                throw new System.ArgumentOutOfRangeException(nameof(hitByPitchMaximumHeight));
+            ValidateProbability(hitByPitchContactProbability, nameof(hitByPitchContactProbability));
+            HitByPitchMinimumInsideLocation = hitByPitchMinimumInsideLocation;
+            HitByPitchMaximumHeight = hitByPitchMaximumHeight;
+            HitByPitchContactProbability = hitByPitchContactProbability;
             ValidateProbability(aiThreeBallChallengeProbability, nameof(aiThreeBallChallengeProbability));
             ValidateProbability(aiWastePitchProbability, nameof(aiWastePitchProbability));
             ValidateProbability(aiTwoStrikeWasteProbability, nameof(aiTwoStrikeWasteProbability));
@@ -151,6 +168,12 @@ namespace Baseball.Core.Balance
         public double RepeatRecognitionMentalWeight { get; }
         public double RepeatChaseReduction { get; }
         public double RepeatExecutionErrorReduction { get; }
+        /// <summary>몸쪽 위험구 영역과 그 안에서 회피하지 못할 확률을 분리해 사구를 저작한다.</summary>
+        public double HitByPitchMinimumInsideLocation { get; }
+        public double HitByPitchMaximumHeight { get; }
+        public double HitByPitchContactProbability { get; }
+        /// <summary>Mental 1점당 AI 타자가 존 밖 공을 쫓는 확률의 감소량이다.</summary>
+        public double AiMentalChaseWeight { get; }
 
         private static void ValidateProbability(double value, string name)
         {

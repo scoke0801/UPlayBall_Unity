@@ -253,7 +253,7 @@ namespace Baseball.Simulation.Match
             else
             {
                 swingProbability = _balance.PlateDiscipline.ChaseProbability -
-                                   (batter.Mental - 50d) * _balance.PlateDiscipline.MentalChaseWeight +
+                                   (batter.Mental - 50d) * _balance.MiniGame.AiMentalChaseWeight +
                                    (matchup.EffectiveStuff - 50d) * _balance.PlateDiscipline.StuffChaseWeight +
                                    (matchup.EffectiveVelocity - 50d) * _balance.PlateDiscipline.VelocityChaseWeight +
                                    approach.ChaseAdjustment;

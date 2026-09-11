@@ -89,7 +89,11 @@ namespace Baseball.Game.Data
                 aiThreeBallTargetHorizontal: data.aiThreeBallTargetHorizontal,
                 aiPitchQualityDifficultyWeight: data.aiPitchQualityDifficultyWeight,
                 contactPitchQualityWeight: data.contactPitchQualityWeight,
-                contactBatterQualityWeight: data.contactBatterQualityWeight);
+                contactBatterQualityWeight: data.contactBatterQualityWeight,
+                hitByPitchMinimumInsideLocation: data.hitByPitchMinimumInsideLocation,
+                hitByPitchMaximumHeight: data.hitByPitchMaximumHeight,
+                hitByPitchContactProbability: data.hitByPitchContactProbability,
+                aiMentalChaseWeight: data.aiMentalChaseWeight);
         }
     }
 
@@ -97,6 +101,10 @@ namespace Baseball.Game.Data
     [Serializable] internal sealed class MiniGameBalanceData
     {
         public int schemaVersion;
+        public double hitByPitchMinimumInsideLocation = 1.18d;
+        public double hitByPitchMaximumHeight = 1.05d;
+        public double hitByPitchContactProbability = .18d;
+        public double aiMentalChaseWeight = .002d;
         public double stealAttemptUtilityScale;
         public double relieverQualityWeight = 2d;
         public double aiPitchQualityDifficultyWeight = .003d;

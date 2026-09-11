@@ -102,7 +102,7 @@ namespace Baseball.Simulation.Match
                 matchup.EffectiveStuff, matchup.EffectiveBreaking, matchup.EffectiveControl, _arsenal) -
                 Math.Sqrt(errorX * errorX + errorY * errorY) * 24d, 0d, 100d);
             double releaseX = matchup.Pitcher.ThrowingHand == Handedness.Left ? -0.42d : 0.42d;
-            bool isHitByPitch = IsHitByPitch(matchup.Batter, actual);
+            bool isHitByPitch = IsHitByPitch(matchup.Batter, matchup.Pitcher.ThrowingHand, actual);
             return new PitchFlightDescriptor(
                 command.PitchType,
                 new PlatePoint(releaseX, 1.22d),
@@ -238,16 +238,17 @@ namespace Baseball.Simulation.Match
             return result;
         }
 
-        private bool IsHitByPitch(Player batter, PlatePoint actual)
+        private bool IsHitByPitch(Player batter, Handedness pitcherHand, PlatePoint actual)
         {
-            if (actual.Y < -1.05d || actual.Y > 1.05d)
+            if (Math.Abs(actual.Y) > _balance.HitByPitchMaximumHeight)
                 return false;
             double batterSide = batter.BattingHand == Handedness.Left ? -1d : 1d;
+            // 스위치 타자의 타석은 자신의 송구 손이 아니라 상대 투수의 손으로 결정된다.
             if (batter.BattingHand == Handedness.Switch)
-                batterSide = batter.ThrowingHand == Handedness.Left ? 1d : -1d;
-            if (actual.X * batterSide < 1.34d)
+                batterSide = pitcherHand == Handedness.Left ? 1d : -1d;
+            if (actual.X * batterSide < _balance.HitByPitchMinimumInsideLocation)
                 return false;
-            return _random.NextDouble() < 0.72d;
+            return _random.NextDouble() < _balance.HitByPitchContactProbability;
         }
 
         private double NextGaussian()
