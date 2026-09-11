@@ -68,7 +68,7 @@ namespace Baseball.Presentation.Owner
                 mode.LiveSeason.OriginYear + " 시즌",
                 $"{mode.LiveSeason.CurrentWeekIndex + 1}주차",
                 OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
-                FormatTeamDisplayName(manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey), "내 구단"),
+                FormatTeamDisplayName(manager.GetClubDisplayName(runtime.PlayerTeamSeasonKey), "내 구단"),
                 string.Empty,
                 nextMatch,
                 runtime.Economy.Money,
@@ -89,7 +89,8 @@ namespace Baseball.Presentation.Owner
                 roster.Strength,
                 roster.Cost,
                 game == null ? string.Empty : CreateOpponentStrengthText(manager, mode, game),
-                runtime.League.Grade);
+                runtime.League.Grade,
+                runtime.Economy.ContractArrears);
         }
 
         /// <summary>현재 1군·선택 프리셋·Resolver 검증을 규칙 재계산 없이 선수단 화면에 투영한다.</summary>
@@ -732,7 +733,8 @@ namespace Baseball.Presentation.Owner
                     season.ScoutingPointProduction,
                     season.DevelopmentPointProduction,
                     season.HomeGames,
-                    season.Attendance));
+                    season.Attendance),
+                runtime.Economy.ContractArrears);
         }
 
         public OwnerStaffOfficeSnapshot CreateStaffOffice(OwnerModeManager manager)
@@ -822,7 +824,7 @@ namespace Baseball.Presentation.Owner
             return new OwnerPregameSnapshot(
                 UiContentStateModel.Ready,
                 CreateNextMatchText(manager, mode, preparation.ScheduledGame),
-                FormatTeamDisplayName(manager.GetTeamDisplayName(preparation.OpponentTeamSeasonKey), "상대 구단"),
+                FormatTeamDisplayName(manager.GetClubDisplayName(preparation.OpponentTeamSeasonKey), "상대 구단"),
                 preparation.ScoutingReport,
                 presetSnapshots,
                 preset.PresetId,
@@ -1035,7 +1037,7 @@ namespace Baseball.Presentation.Owner
             string opponentKey = mode.LiveSeason.GetTeamSeasonKey(opponentId);
             bool isHome = game.HomeTeamId == mode.LiveSeason.PlayerTeamId;
             string opponentName = FormatTeamDisplayName(
-                manager.GetTeamDisplayName(opponentKey),
+                manager.GetClubDisplayName(opponentKey),
                 "상대 구단");
             return $"{game.Round}라운드 · {(isHome ? "홈" : "원정")} · {opponentName}";
         }
@@ -1199,6 +1201,9 @@ namespace Baseball.Presentation.Owner
                 RosterValidationIssueCode.SetupPitcherCount => "셋업 투수 인원",
                 RosterValidationIssueCode.CloserPitcherCount => "마무리 투수 인원",
                 RosterValidationIssueCode.ForeignPlayerCount => "외국인 등록",
+                RosterValidationIssueCode.SpecialCardCount => "레전드·커리어 하이 카드",
+                RosterValidationIssueCode.SpecialHitterCardCount => "레전드·커리어 하이 타자",
+                RosterValidationIssueCode.SpecialPitcherCardCount => "레전드·커리어 하이 투수",
                 RosterValidationIssueCode.DuplicatePlayerPersonId => "동일 선수 중복",
                 RosterValidationIssueCode.FixedRoleCount => "고정 역할 인원",
                 _ => "로스터 구성"

@@ -195,7 +195,13 @@ namespace Baseball.Presentation.Owner
         private void ShowStarterDetail(int side)
         {
             OwnerCollectionCardSnapshot detail = _starterDetails[side];
-            if (detail != null) UI_Popup_OwnerPlayerCard.Show(transform, detail);
+            ShowCardDetail(detail);
+        }
+
+        /// <summary>Canvas 아래의 실제 Workspace를 기준으로 선수 카드 상세를 연다.</summary>
+        private void ShowCardDetail(OwnerCollectionCardSnapshot detail)
+        {
+            if (detail != null) UI_Popup_OwnerPlayerCard.Show(_workspaceRoot, detail);
         }
 
         private void RenderRosterTable(int side)
@@ -230,7 +236,7 @@ namespace Baseball.Presentation.Owner
                     index);
                 if (row.Detail == null) continue;
                 OwnerCollectionCardSnapshot detail = row.Detail;
-                UIRightClickDetailTrigger.Attach(rowRect, () => UI_Popup_OwnerPlayerCard.Show(transform, detail));
+                UIRightClickDetailTrigger.Attach(rowRect, () => ShowCardDetail(detail));
             }
         }
 

@@ -20,13 +20,15 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<OwnerCollectionCardSnapshot> HitterDetails { get; }
         public IReadOnlyList<OwnerCollectionCardSnapshot> PitcherDetails { get; }
         public IReadOnlyList<string> TeamColors { get; }
+        public IReadOnlyList<OwnerTeamColorCandidateSnapshot> TeamColorCards { get; }
 
         /// <summary>원본 목록을 복사하여 화면 밖의 변경과 분리한다.</summary>
         public OwnerTeamLineupSnapshot(string teamName, string lineupName, string costLabel,
             IReadOnlyList<PlayerMiniCardModel> hitters, IReadOnlyList<PlayerMiniCardModel> pitchers,
             IReadOnlyList<string> teamColors,
             IReadOnlyList<OwnerCollectionCardSnapshot> hitterDetails = null,
-            IReadOnlyList<OwnerCollectionCardSnapshot> pitcherDetails = null)
+            IReadOnlyList<OwnerCollectionCardSnapshot> pitcherDetails = null,
+            IReadOnlyList<OwnerTeamColorCandidateSnapshot> teamColorCards = null)
         {
             TeamName = teamName ?? string.Empty;
             LineupName = lineupName ?? string.Empty;
@@ -36,6 +38,7 @@ namespace Baseball.Presentation.Owner
             HitterDetails = CopyDetails(hitterDetails, Hitters.Count, nameof(hitterDetails));
             PitcherDetails = CopyDetails(pitcherDetails, Pitchers.Count, nameof(pitcherDetails));
             TeamColors = Array.AsReadOnly(new List<string>(teamColors).ToArray());
+            TeamColorCards = CopyTeamColorCards(teamColorCards, TeamColors.Count);
         }
 
         private static IReadOnlyList<OwnerCollectionCardSnapshot> CopyDetails(
@@ -48,6 +51,17 @@ namespace Baseball.Presentation.Owner
             if (source.Count != expectedCount)
                 throw new ArgumentException("카드 표시와 상세 정보의 수가 같아야 합니다.", parameterName);
             return Array.AsReadOnly(new List<OwnerCollectionCardSnapshot>(source).ToArray());
+        }
+
+        private static IReadOnlyList<OwnerTeamColorCandidateSnapshot> CopyTeamColorCards(
+            IReadOnlyList<OwnerTeamColorCandidateSnapshot> source,
+            int expectedCount)
+        {
+            if (source == null)
+                return Array.AsReadOnly(new OwnerTeamColorCandidateSnapshot[expectedCount]);
+            if (source.Count != expectedCount)
+                throw new ArgumentException("팀컬러 문구와 카드 정보의 수가 같아야 합니다.", nameof(source));
+            return Array.AsReadOnly(new List<OwnerTeamColorCandidateSnapshot>(source).ToArray());
         }
     }
 
@@ -110,30 +124,88 @@ namespace Baseball.Presentation.Owner
                 manager, runtime, roster, plan.CloserPitcherCardId, teamSeasonKey,
                 isOwnTeam, teamColorBonuses));
             var cost = new RosterCostResolver().Resolve(roster, runtime.WorldCardCatalog);
-            string[] colors = isOwnTeam ? CreateSelectedTeamColorTexts(manager, plan) :
-                CreateAiTeamColorTexts(manager, aiTeamColors);
-            return new OwnerTeamLineupSnapshot(manager.GetTeamDisplayName(teamSeasonKey),
+            OwnerTeamColorCandidateSnapshot[] teamColorCards = isOwnTeam
+                ? CreateSelectedTeamColorCards(manager, plan)
+                : CreateAiTeamColorCards(manager, runtime, roster, aiTeamColors);
+            string[] colors = CreateLineupTeamColorTexts(plan.TeamColorIds, teamColorCards, isOwnTeam);
+            return new OwnerTeamLineupSnapshot(manager.GetClubDisplayName(teamSeasonKey),
                 isOwnTeam ? plan.Name : "공개 등록 기준 라인업", OwnerRosterEvaluationFormatter.FormatCost(cost),
-                hitters, pitchers, colors, hitterDetails, pitcherDetails);
+                hitters, pitchers, colors, hitterDetails, pitcherDetails, teamColorCards);
         }
 
-        private static string[] CreateAiTeamColorTexts(
+        private OwnerTeamColorCandidateSnapshot[] CreateSelectedTeamColorCards(
             OwnerModeManager manager,
+            LineupPresetState preset)
+        {
+            OwnerTeamColorSnapshot teamColors = CreateTeamColor(manager);
+            var result = new OwnerTeamColorCandidateSnapshot[LineupPresetState.TeamColorSlotCount];
+            for (int slotIndex = 0; slotIndex < result.Length; slotIndex++)
+            {
+                string selectedId = preset.TeamColorIds[slotIndex];
+                for (int candidateIndex = 0; candidateIndex < teamColors.Candidates.Count; candidateIndex++)
+                {
+                    OwnerTeamColorCandidateSnapshot candidate = teamColors.Candidates[candidateIndex];
+                    if (!string.Equals(candidate.Id, selectedId, StringComparison.Ordinal)) continue;
+                    result[slotIndex] = candidate;
+                    break;
+                }
+            }
+            return result;
+        }
+
+        private static OwnerTeamColorCandidateSnapshot[] CreateAiTeamColorCards(
+            OwnerModeManager manager,
+            ManagerHistoricalRuntimeState runtime,
+            CurrentRosterState roster,
             IReadOnlyList<TeamColorDefinition> selected)
         {
-            var texts = new string[selected.Count];
-            for (int index = 0; index < selected.Count; index++)
+            var result = new OwnerTeamColorCandidateSnapshot[LineupPresetState.TeamColorSlotCount];
+            IReadOnlyList<TeamColorRosterCard> rosterCards = TeamColorResolver.CreateRosterCards(
+                roster,
+                runtime.WorldCardCatalog);
+            int selectedCount = Math.Min(selected?.Count ?? 0, result.Length);
+            for (int index = 0; index < selectedCount; index++)
             {
                 TeamColorDefinition definition = selected[index];
-                texts[index] = definition == null
-                    ? "팀컬러 적용 없음"
-                    : OwnerTeamColorDisplayFormatter.FormatWorldName(
+                if (definition == null) continue;
+                int eligibleCount = 0;
+                for (int cardIndex = 0; cardIndex < rosterCards.Count; cardIndex++)
+                    if (definition.IsEligible(rosterCards[cardIndex])) eligibleCount++;
+                result[index] = new OwnerTeamColorCandidateSnapshot(
+                    definition,
+                    eligibleCount,
+                    Array.Empty<string>(),
+                    true,
+                    OwnerTeamColorDisplayFormatter.FormatWorldName(
                         definition,
                         definition.DisplayName,
                         manager.Runtime.IdentityRegistry.GetFranchiseDisplayName,
-                        manager.GetTeamDisplayName);
+                        manager.GetTeamDisplayName),
+                    OwnerTeamColorDisplayFormatter.FormatWorldDescription(
+                        definition,
+                        definition.Description,
+                        manager.Runtime.IdentityRegistry.GetFranchiseDisplayName,
+                        manager.GetTeamDisplayName));
             }
-            return texts;
+            return result;
+        }
+
+        private static string[] CreateLineupTeamColorTexts(
+            IReadOnlyList<string> selectedIds,
+            IReadOnlyList<OwnerTeamColorCandidateSnapshot> cards,
+            bool isOwnTeam)
+        {
+            var result = new string[LineupPresetState.TeamColorSlotCount];
+            for (int index = 0; index < result.Length; index++)
+            {
+                if (cards[index] != null)
+                    result[index] = cards[index].Name;
+                else if (isOwnTeam && !string.IsNullOrEmpty(selectedIds[index]))
+                    result[index] = "사용할 수 없는 팀컬러";
+                else
+                    result[index] = isOwnTeam ? "선택 없음" : "팀컬러 적용 없음";
+            }
+            return result;
         }
 
         private static PlayerMiniCardModel CreatePublicLineupCard(ManagerHistoricalRuntimeState runtime,

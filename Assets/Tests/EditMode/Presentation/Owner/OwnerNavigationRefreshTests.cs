@@ -19,7 +19,7 @@ using Object = UnityEngine.Object;
 namespace Baseball.Tests.EditMode.Presentation.Owner
 {
     /// <summary>화면 왕복의 재사용과 Runtime 변경 이후의 조회 무효화를 검증한다.</summary>
-    public sealed class OwnerNavigationRefreshTests
+    public sealed partial class OwnerNavigationRefreshTests
     {
         private GameObject _root;
         private SharedGameShellView _shell;
@@ -214,6 +214,32 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void OwnTeamLineup_장착한TeamColor의카드정보를전용Skin에전달한다()
+        {
+            var provider = (IHistoricalContentProvider)GetField(_manager, "_contentProvider");
+            Invoke(
+                _manager,
+                "ConfigureTeamColors",
+                provider.Load(),
+                _manager.Runtime.PlayerTeamSeasonKey);
+            IReadOnlyList<TeamColorDefinition> available = _manager.GetAvailableTeamColors();
+            Assert.That(available, Is.Not.Empty);
+            _manager.ConfigureSelectedPresetTeamColors(new[] { available[0].TeamColorId, null });
+
+            var factory = new OwnerModeRuntimeSnapshotFactory();
+            OwnerTeamLineupSnapshot snapshot = factory.CreateTeamLineup(
+                _manager,
+                _manager.Runtime.PlayerTeamSeasonKey);
+
+            Assert.That(snapshot.TeamColorCards[0], Is.Not.Null);
+            Assert.That(snapshot.TeamColorCards[0].Id, Is.EqualTo(available[0].TeamColorId));
+            Assert.That(snapshot.TeamColors[0], Is.EqualTo(snapshot.TeamColorCards[0].Name));
+            Assert.That(snapshot.TeamColorCards[0].Grade, Is.Not.Empty);
+            Assert.That(snapshot.TeamColorCards[0].EligibleCount,
+                Is.GreaterThanOrEqualTo(snapshot.TeamColorCards[0].Definition.RequiredCount));
+        }
+
+        [Test]
         public void Contract_연장직후목록과상세에증가한잔여기간을표시한다()
         {
             Navigate(OwnerNavigationRoutes.ClubContract);
@@ -296,9 +322,12 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Array.Empty<SeasonStatistics>(), awards);
             var identities = new WorldIdentityGenerator().Generate(persons, teams, content.IdentityNameCatalog, 77123UL);
             var catalog = WorldCardCatalogBuilder.Build(seasons, awards, CardEditionBalanceTable.CreateInitial());
+            var starterCards = new List<string>();
+            foreach (var card in owned) starterCards.Add(card.CardId);
             var runtime = new ManagerHistoricalRuntimeState(teamKeys[0], HistoricalContentReference.FromManifest(manifest),
                 identities, history, catalog, new LeagueInstance("TEST", LeagueGrade.Rookie, teamKeys,
-                    Array.Empty<SpecialCompositeTeamRegistration>()), rosters, owned, new ManagerEconomyState(100000000L, 10000, 3000));
+                    Array.Empty<SpecialCompositeTeamRegistration>()), rosters, owned, new ManagerEconomyState(100000000L, 10000, 3000),
+                newGameReceipt: new OwnerNewGameReceipt(starterCards, Array.Empty<string>(), 0, 77123UL));
             var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
             return adapter.Restore(adapter.CreateSaveData(runtime));
         }

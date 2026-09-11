@@ -55,6 +55,8 @@ namespace Baseball.Tests.Presentation.Owner
                 Assert.That(view.Snapshot.TeamName, Is.Not.EqualTo(first));
                 Assert.That(view.GetComponentsInChildren<PlayerMiniCardView>().Length, Is.EqualTo(25));
                 Assert.That(view.GetComponentsInChildren<PlayerMiniCardView>().All(card => !card.Model.IsInteractable), Is.True);
+                Assert.That(view.transform.Find("BoardHost/LineupBoard/TeamColors/TeamColor_0/Artwork")
+                    .GetComponent<RawImage>().texture.name, Does.Contain("team_color_card_plate_common_v2"));
                 Assert.That(coordinator.TryCloseTeamLineup(), Is.True);
                 Assert.That(coordinator.TryCloseTeamLineup(), Is.False);
                 coordinator.TryShowRoute(OwnerNavigationRoutes.LeagueStandings);
@@ -125,6 +127,7 @@ namespace Baseball.Tests.Presentation.Owner
         [TestCase(1280, 720)]
         [TestCase(1920, 1080)]
         [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
         public void Visual_카드25장을겹침없이출력한다(int width, int height)
         {
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
@@ -163,7 +166,8 @@ namespace Baseball.Tests.Presentation.Owner
                         previousRight = corners[2].x;
                     }
                 }
-                Assert.That(board.Find("TeamColors/TeamColor_0").GetComponent<RawImage>().texture, Is.Not.Null);
+                Assert.That(board.Find("TeamColors/TeamColor_0/Artwork").GetComponent<RawImage>().texture,
+                    Is.Not.Null);
                 camera.Render();
                 var previous = RenderTexture.active;
                 RenderTexture.active = target;
@@ -205,8 +209,31 @@ namespace Baseball.Tests.Presentation.Owner
             var pitcherDetails = pitchers.Select((card, i) => new OwnerCollectionCardSnapshot(
                 card.PlayerId, card.PlayerId, card.DisplayName, 2024, PlayerPosition.StartingPitcher, 7,
                 PlayerCardEdition.Normal, 0, 0, false, false, new AbilityRatings(65), isOwnedCard: false)).ToArray();
+            var yearFranchise = new TeamColorDefinition(
+                "TEST_YEAR_FRANCHISE",
+                TeamColorFamily.YearFranchise,
+                25,
+                TeamColorStatBonus.AllForRole(PlayerRole.Hitter, 3),
+                TeamColorStatBonus.AllForRole(PlayerRole.Pitcher, 3),
+                originYear: 2024,
+                originFranchiseId: "TEST_FRANCHISE",
+                displayName: "2024 수원 가디언즈 · 완성된 연대기");
+            var year = new TeamColorDefinition(
+                "TEST_YEAR",
+                TeamColorFamily.Year,
+                20,
+                TeamColorStatBonus.AllForRole(PlayerRole.Hitter, 2),
+                TeamColorStatBonus.AllForRole(PlayerRole.Pitcher, 2),
+                originYear: 2024,
+                displayName: "2024 동시대의 야구");
+            var teamColorCards = new[]
+            {
+                new OwnerTeamColorCandidateSnapshot(yearFranchise, 25, names, true),
+                new OwnerTeamColorCandidateSnapshot(year, 20, names, true)
+            };
             return new OwnerTeamLineupSnapshot(team, "공개 등록 기준 라인업", "편성 비용 137", hitters, pitchers,
-                new[] { "팀컬러 적용 없음", "팀컬러 적용 없음" }, hitterDetails, pitcherDetails);
+                new[] { teamColorCards[0].Name, teamColorCards[1].Name }, hitterDetails, pitcherDetails,
+                teamColorCards);
         }
 
         private static OwnerAbilityBreakdownSnapshot[] CreateAbilityBreakdowns(int teamColorBonus)

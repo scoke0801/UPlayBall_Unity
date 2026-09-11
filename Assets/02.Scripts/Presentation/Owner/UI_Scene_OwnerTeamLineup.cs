@@ -122,18 +122,27 @@ namespace Baseball.Presentation.Owner
         {
             var row = Surface(board, "TeamColors", Color.white, 0, 0, 1, .165f);
             Label(row, "Role", "팀\n컬\n러", 0, .04f, .028f, .96f, 12);
-            Texture2D artwork = Resources.Load<Texture2D>("UI/TeamLineup/team_color_banner");
             for (int i = 0; i < _snapshot.TeamColors.Count; i++)
             {
                 float x = .12f + i * .47f;
-                var rect = OwnerRuntimeUiFactory.CreateRect("TeamColor_" + i, row);
-                Place(rect, x, .08f, x + .34f, .92f);
-                var image = rect.gameObject.AddComponent<RawImage>();
-                image.texture = artwork;
-                image.color = artwork != null ? Color.white : new Color32(43, 39, 53, 255);
-                image.raycastTarget = false;
-                var text = Label(rect, "Name", _snapshot.TeamColors[i], .25f, .12f, .94f, .88f, 15);
-                text.color = Color.white;
+                Button button = OwnerDugoutDetailUiFactory.CreateButton(
+                    row,
+                    "TeamColor_" + i,
+                    string.Empty,
+                    x,
+                    .08f,
+                    x + .34f,
+                    .92f,
+                    null);
+                button.interactable = false;
+                OwnerTeamColorCandidateSnapshot candidate = i < _snapshot.TeamColorCards.Count
+                    ? _snapshot.TeamColorCards[i]
+                    : null;
+                OwnerTeamColorCardView.Attach(button).Bind(
+                    candidate,
+                    candidate != null ? candidate.ProgressText : _snapshot.TeamColors[i],
+                    false,
+                    candidate != null);
             }
         }
 

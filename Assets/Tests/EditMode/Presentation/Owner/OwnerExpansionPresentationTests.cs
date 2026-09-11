@@ -176,7 +176,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     Is.EqualTo("김태규"));
                 Assert.That(popup.transform.Find("CardDetail/Front/ConditionPanel"), Is.Null);
 
-                ownStarter.OnPointerClick(CreateRightClick(eventObject));
+                ExecuteEvents.Execute(
+                    ownStarter.gameObject,
+                    CreateRightClick(eventObject),
+                    ExecuteEvents.pointerClickHandler);
                 popup = host.GetComponentsInChildren<UI_Popup_OwnerPlayerCard>(true)
                     .Single(candidate => candidate.IsVisible);
                 Assert.That(popup.transform.Find("CardDetail/Front/Name").GetComponent<Text>().text,
