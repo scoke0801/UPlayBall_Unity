@@ -128,7 +128,8 @@ namespace Baseball.Presentation.SharedUI
         public static Sprite Get(string variant, bool isMini)
         {
             string path = "UI/PlayerCards/PlayerCard_" + (isMini ? "Mini_" : "Full_") + variant;
-            return Resources.Load<Sprite>(path + "_v5")
+            return Resources.Load<Sprite>(path + "_v6")
+                ?? Resources.Load<Sprite>(path + "_v5")
                 ?? Resources.Load<Sprite>(path + "_v4")
                 ?? Resources.Load<Sprite>(path + "_v3")
                 ?? Resources.Load<Sprite>(path + "_v2");
@@ -143,7 +144,6 @@ namespace Baseball.Presentation.SharedUI
         private bool _isMini;
         private static Material _decorationMaterial;
         private float _islandMode;
-        private float _verticalOffset;
         public override Texture mainTexture => _sprite != null ? _sprite.texture : base.mainTexture;
 
         /// <summary>배경과 동일한 원화의 UV를 사용해 장식 경계의 색과 위치를 보존한다.</summary>
@@ -168,7 +168,6 @@ namespace Baseball.Presentation.SharedUI
             mesh.Clear();
             if (_sprite == null) return;
             _islandMode = 0;
-            _verticalOffset = 0;
             // 전체 사각형을 덮으면 초상이 사라진다. 사진 창을 비워 둔 네 가장자리만 그린다.
             AddRect(mesh, 0, 0, 1, _isMini ? .31f : .51f);
             AddRect(mesh, 0, .98f, 1, 1);
@@ -179,12 +178,11 @@ namespace Baseball.Presentation.SharedUI
             {
                 case PlayerCardEdition.AllStar:
                     _islandMode = 2;
-                    AddRect(mesh, .31f, _isMini ? .905f : .842f, .69f, _isMini ? .985f : .905f);
+                    AddRect(mesh, .35f, _isMini ? .278f : .495f, .65f, _isMini ? .335f : .555f);
                     break;
                 case PlayerCardEdition.Ex:
                     _islandMode = 1;
-                    AddRect(mesh, _isMini ? .11f : .35f, _isMini ? .93f : .838f,
-                        _isMini ? .89f : .65f, _isMini ? .997f : .895f);
+                    AddRect(mesh, .345f, _isMini ? .315f : .485f, .655f, _isMini ? .37f : .55f);
                     break;
                 case PlayerCardEdition.Mvp:
                     _islandMode = 1;
@@ -196,9 +194,9 @@ namespace Baseball.Presentation.SharedUI
                     AddRect(mesh, .22f, _isMini ? .31f : .455f, .78f, _isMini ? .37f : .535f);
                     break;
                 case PlayerCardEdition.Rare:
-                    // 공통 구단 명찰과 겹치는 기존 상단 배지를 사진 창 쪽으로 내린다.
-                    if (!_isMini) { _islandMode = 3; _verticalOffset = -.06f; }
-                    AddRect(mesh, .25f, .905f, .75f, .995f);
+                    // 원화에서 상단 마크를 제거했으므로 이름표 위의 유일한 마크만 덧그린다.
+                    _islandMode = 3;
+                    AddRect(mesh, .385f, _isMini ? .325f : .495f, .615f, _isMini ? .395f : .555f);
                     break;
             }
         }
@@ -219,7 +217,7 @@ namespace Baseball.Presentation.SharedUI
         private void AddVertex(VertexHelper mesh, Rect bounds, Vector4 uv, float x, float y)
         {
             UIVertex vertex = UIVertex.simpleVert;
-            vertex.position = new Vector3(bounds.xMin + bounds.width * x, bounds.yMin + bounds.height * (y + _verticalOffset));
+            vertex.position = new Vector3(bounds.xMin + bounds.width * x, bounds.yMin + bounds.height * y);
             vertex.color = color;
             vertex.uv0 = new Vector2(Mathf.Lerp(uv.x, uv.z, x), Mathf.Lerp(uv.y, uv.w, y));
             vertex.uv1 = new Vector2(_islandMode, 0);

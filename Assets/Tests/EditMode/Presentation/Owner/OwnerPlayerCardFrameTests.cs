@@ -305,6 +305,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
         private static int ExpectedFrameVersion(PlayerCardEdition edition, bool isMini = true)
         {
+            if (edition == PlayerCardEdition.Rare || edition == PlayerCardEdition.AllStar || edition == PlayerCardEdition.Ex) return 6;
             if (edition == PlayerCardEdition.Mvp || edition == PlayerCardEdition.Ex ||
                 (!isMini && edition == PlayerCardEdition.AllStar)) return 5;
             return edition == PlayerCardEdition.Normal ? 2 : 4;
