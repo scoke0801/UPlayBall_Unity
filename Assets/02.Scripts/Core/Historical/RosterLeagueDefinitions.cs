@@ -472,11 +472,14 @@ namespace Baseball.Core.Historical
         private readonly OwnerLeagueRankRule[] _rankRules;
 
         public LeagueDefinition(IReadOnlyList<LeagueGradeRule> rules, int groupTeamCount = 10,
-            IReadOnlyList<OwnerLeagueRankRule> rankRules = null)
+            IReadOnlyList<OwnerLeagueRankRule> rankRules = null, double groupRepeatAvoidanceChance = DefaultGroupRepeatAvoidanceChance)
         {
             if (groupTeamCount < 4)
                 throw new ArgumentOutOfRangeException(nameof(groupTeamCount));
+            if (groupRepeatAvoidanceChance < 0d || groupRepeatAvoidanceChance > 1d || double.IsNaN(groupRepeatAvoidanceChance))
+                throw new ArgumentOutOfRangeException(nameof(groupRepeatAvoidanceChance));
             GroupTeamCount = groupTeamCount;
+            GroupRepeatAvoidanceChance = groupRepeatAvoidanceChance;
             int gradeCount = Enum.GetValues(typeof(LeagueGrade)).Length;
             IReadOnlyList<OwnerLeagueRankRule> rankSource = rankRules ?? OwnerLeagueRankRule.CreateInitial();
             if (rankSource.Count != gradeCount) throw new ArgumentException("모든 리그의 순위 승강 규칙이 필요합니다.");
@@ -507,7 +510,14 @@ namespace Baseball.Core.Historical
                 throw new ArgumentException("Galaxy는 더 높은 리그로 승격할 수 없습니다.", nameof(rules));
         }
 
+        /// <summary>
+        /// 승강 후 조 추첨에서 구단마다 직전 시즌 조 동료가 가장 적은 조를 고를 확률이다.
+        /// 1에 가깝게 두어 매 시즌 새 상대를 만나게 하되, 가끔 재회하는 우연은 남긴다.
+        /// </summary>
+        public const double DefaultGroupRepeatAvoidanceChance = 0.9d;
+
         public int GroupTeamCount { get; }
+        public double GroupRepeatAvoidanceChance { get; }
 
         /// <summary>구단주 시즌 전환에서 사용하는 순위 구간과 목적 등급을 반환한다.</summary>
         public OwnerLeagueRankRule GetRankRule(LeagueGrade grade)

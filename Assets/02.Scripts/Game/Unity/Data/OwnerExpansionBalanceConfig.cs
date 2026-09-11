@@ -139,6 +139,7 @@ namespace Baseball.Game.Data
     internal sealed class LeaguePromotionBalanceData
     {
         public int groupTeamCount = 10;
+        public double groupRepeatAvoidanceChance = LeagueDefinition.DefaultGroupRepeatAvoidanceChance;
         public LeaguePromotionRuleData[] rules;
         public OwnerLeagueRankRuleData[] rankRules;
 
@@ -156,7 +157,7 @@ namespace Baseball.Game.Data
             var ranks = new OwnerLeagueRankRule[rankRules.Length];
             for (int index = 0; index < ranks.Length; index++)
                 ranks[index] = rankRules[index]?.Build() ?? throw new InvalidOperationException("rankRules에 null 행이 있습니다.");
-            return new LeagueDefinition(definitions, groupTeamCount, ranks);
+            return new LeagueDefinition(definitions, groupTeamCount, ranks, groupRepeatAvoidanceChance);
         }
     }
 

@@ -67,15 +67,18 @@ namespace Baseball.Game.Historical
             var next = new Dictionary<string, LeagueGrade>(StringComparer.Ordinal);
             var references = new Dictionary<string, ManagerTeamReference>(StringComparer.Ordinal);
             var specials = new Dictionary<string, SpecialCompositeTeamRegistration>(StringComparer.Ordinal);
+            var previousGroups = new Dictionary<string, int>(StringComparer.Ordinal);
             var orderedKeys = new List<string>();
-            foreach (var group in world.Groups)
+            for (int groupIndex = 0; groupIndex < world.Groups.Count; groupIndex++)
             {
+                var group = world.Groups[groupIndex];
                 foreach (var special in group.League.SpecialCompositeTeams) specials.Add(special.TeamSeasonKey, special);
                 OwnerLeagueStanding[] ranking = Rank(group.Season);
                 for (int index = 0; index < ranking.Length; index++)
                 {
                     string key = ranking[index].TeamKey;
                     previous.Add(key, group.League.Grade);
+                    previousGroups.Add(key, groupIndex);
                     next.Add(key, _resolver.ResolveGrade(group.League.Grade, index + 1, ranking.Length, _balance.LeaguePromotion));
                     orderedKeys.Add(key);
                 }
@@ -99,7 +102,8 @@ namespace Baseball.Game.Historical
                 foreach (string key in orderedKeys) if ((int)next[key] == grade) keys.Add(key);
                 ulong seed = DeterministicSeed.Derive(DeterministicSeed.Derive(runtime.WorldHistory.WorldHistorySeed, DrawStream),
                     ((ulong)(uint)seasonNumber << 32) | (uint)grade);
-                string[][] drawn = _resolver.DrawGroups(keys, _balance.LeaguePromotion.GroupTeamCount, new Pcg32Random(seed));
+                string[][] drawn = _resolver.DrawGroups(keys, _balance.LeaguePromotion.GroupTeamCount, new Pcg32Random(seed),
+                    previousGroups, _balance.LeaguePromotion.GroupRepeatAvoidanceChance);
                 for (int index = 0; index < drawn.Length; index++)
                     groups.Add(CreateGroup(runtime, (LeagueGrade)grade, index, drawn[index], references, specials, seasonNumber));
             }

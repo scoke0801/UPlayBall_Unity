@@ -20,6 +20,7 @@
   "contentId": "owner-expansion-09-12-v2",
   "leaguePromotion": {
     "groupTeamCount": 10,
+    "groupRepeatAvoidanceChance": 0.9,
     "rankRules": [
       { "leagueGrade": 0, "promotionLastRank": 6, "promotionTarget": 1, "relegationFirstRank": 0, "relegationTarget": -1 },
       { "leagueGrade": 1, "promotionLastRank": 6, "promotionTarget": 2, "relegationFirstRank": 9, "relegationTarget": 0 },

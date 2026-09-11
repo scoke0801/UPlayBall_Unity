@@ -59,6 +59,15 @@ namespace Baseball.Simulation.Historical
 
         /// <summary>정렬한 전체 후보를 Fisher–Yates로 섞은 뒤 한 구단만 남는 조 없이 배분한다.</summary>
         public string[][] DrawGroups(IReadOnlyList<string> teamKeys, int targetSize, IRandomSource random)
+            => DrawGroups(teamKeys, targetSize, random, null, 0d);
+
+        /// <summary>
+        /// 직전 시즌 같은 조였던 구단끼리 다시 묶이는 것을 확률적으로 피하며 조를 추첨한다.
+        /// 섞은 순서대로 구단을 배치하되 <paramref name="repeatAvoidanceChance"/> 확률로 직전 조 동료가 가장 적은 조만
+        /// 후보로 삼는다. 조 수와 크기는 기존 추첨과 같으므로 한 조뿐인 등급처럼 선택지가 없으면 재회를 피하지 못한다.
+        /// </summary>
+        public string[][] DrawGroups(IReadOnlyList<string> teamKeys, int targetSize, IRandomSource random,
+            IReadOnlyDictionary<string, int> previousGroupByTeam, double repeatAvoidanceChance)
         {
             if (teamKeys == null || random == null) throw new ArgumentNullException();
             if (targetSize < 2 || teamKeys.Count == 1) throw new ArgumentException("한 구단만으로 조를 만들 수 없습니다.");
@@ -72,17 +81,82 @@ namespace Baseball.Simulation.Historical
                 int selected = (int)(random.NextDouble() * (index + 1));
                 (shuffled[index], shuffled[selected]) = (shuffled[selected], shuffled[index]);
             }
-            var groups = new List<string[]>();
             int count = (shuffled.Count + targetSize - 1) / targetSize;
             if (count > 1 && shuffled.Count / count < 2) count--;
-            int offset = 0;
+            var sizes = new int[count];
             for (int index = 0; index < count; index++)
+                sizes[index] = shuffled.Count / count + (index < shuffled.Count % count ? 1 : 0);
+            if (previousGroupByTeam == null || count == 1 || repeatAvoidanceChance <= 0d)
+                return SliceGroups(shuffled, sizes);
+            return AssignAvoidingRepeats(shuffled, sizes, random, previousGroupByTeam, repeatAvoidanceChance);
+        }
+
+        private static string[][] SliceGroups(List<string> shuffled, int[] sizes)
+        {
+            var groups = new string[sizes.Length][];
+            int offset = 0;
+            for (int index = 0; index < sizes.Length; index++)
             {
-                int size = shuffled.Count / count + (index < shuffled.Count % count ? 1 : 0);
-                groups.Add(shuffled.GetRange(offset, size).ToArray());
-                offset += size;
+                groups[index] = shuffled.GetRange(offset, sizes[index]).ToArray();
+                offset += sizes[index];
             }
-            return groups.ToArray();
+            return groups;
+        }
+
+        private static string[][] AssignAvoidingRepeats(List<string> shuffled, int[] sizes, IRandomSource random,
+            IReadOnlyDictionary<string, int> previousGroupByTeam, double repeatAvoidanceChance)
+        {
+            var members = new List<string>[sizes.Length];
+            for (int index = 0; index < members.Length; index++) members[index] = new List<string>(sizes[index]);
+            var candidates = new List<int>(sizes.Length);
+            foreach (string team in OrderCohortTeamsFirst(shuffled, previousGroupByTeam))
+            {
+                bool isAvoiding = random.NextDouble() < repeatAvoidanceChance;
+                bool hasPrevious = previousGroupByTeam.TryGetValue(team, out int previousGroup);
+                int fewestRepeats = int.MaxValue;
+                candidates.Clear();
+                for (int group = 0; group < members.Length; group++)
+                {
+                    if (members[group].Count >= sizes[group]) continue;
+                    int repeats = isAvoiding && hasPrevious ? CountRepeats(members[group], previousGroup, previousGroupByTeam) : 0;
+                    if (repeats > fewestRepeats) continue;
+                    if (repeats < fewestRepeats) { fewestRepeats = repeats; candidates.Clear(); }
+                    candidates.Add(group);
+                }
+                members[candidates[(int)(random.NextDouble() * candidates.Count)]].Add(team);
+            }
+            var groups = new string[members.Length][];
+            for (int index = 0; index < members.Length; index++) groups[index] = members[index].ToArray();
+            return groups;
+        }
+
+        /// <summary>
+        /// 직전 조 동료가 같은 후보에 있는 구단을 먼저 배치한다. 동료 없는 구단이 조 정원을 먼저 채우면
+        /// 뒤늦게 남은 동료끼리 빈 조 하나에 강제로 몰리기 때문이다. 각 무리 안의 순서는 섞은 순서를 유지한다.
+        /// </summary>
+        private static List<string> OrderCohortTeamsFirst(List<string> shuffled, IReadOnlyDictionary<string, int> previousGroupByTeam)
+        {
+            var cohortSizes = new Dictionary<int, int>();
+            foreach (string team in shuffled)
+                if (previousGroupByTeam.TryGetValue(team, out int group))
+                    cohortSizes[group] = cohortSizes.TryGetValue(group, out int size) ? size + 1 : 1;
+            var ordered = new List<string>(shuffled.Count);
+            var solos = new List<string>();
+            foreach (string team in shuffled)
+            {
+                bool hasCohort = previousGroupByTeam.TryGetValue(team, out int group) && cohortSizes[group] > 1;
+                (hasCohort ? ordered : solos).Add(team);
+            }
+            ordered.AddRange(solos);
+            return ordered;
+        }
+
+        private static int CountRepeats(List<string> members, int previousGroup, IReadOnlyDictionary<string, int> previousGroupByTeam)
+        {
+            int repeats = 0;
+            foreach (string member in members)
+                if (previousGroupByTeam.TryGetValue(member, out int group) && group == previousGroup) repeats++;
+            return repeats;
         }
     }
 }
