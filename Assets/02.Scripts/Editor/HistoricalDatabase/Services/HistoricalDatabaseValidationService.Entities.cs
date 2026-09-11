@@ -467,13 +467,25 @@ namespace Baseball.Editor.HistoricalDatabase
                     HistoricalPlayerRow row = archive.PlayerRows[index];
                     if (row?.Season == null) continue;
                     recordCounts.TryGetValue(row.Season.PlayerSeasonId, out int count);
+                    // 연구 보충은 실측 기록이 없으며, 0경기 원기록을 만들어 연결해서도 안 된다.
+                    bool isResearchSupplement = row.Season.SourceDataKind == "ResearchCardSupplement";
+                    int expectedCount = isResearchSupplement ? 0 : 1;
+                    if (isResearchSupplement)
+                    {
+                        collector.Check(
+                            row.Season.SourceRecordAvailability == "Unavailable",
+                            "Join", row.Season.OriginYear, row.Season.PlayerSeasonId,
+                            "연구 보충 선수의 원기록 미확보 상태가 명시되었습니다.",
+                            "연구 보충 선수의 SourceRecordAvailability는 Unavailable이어야 합니다.",
+                            HistoricalNavigationKind.Player, row.Season.PlayerSeasonId);
+                    }
                     collector.Check(
-                        count == 1,
+                        count == expectedCount,
                         "Join",
                         row.Season.OriginYear,
                         row.Season.PlayerSeasonId,
-                        "PlayerSeason에 Original Record가 정확히 하나 연결됩니다.",
-                        $"PlayerSeason의 Original Record 수는 1이어야 합니다. actual={count}",
+                        $"PlayerSeason의 Original Record 수가 {expectedCount}개입니다.",
+                        $"PlayerSeason의 Original Record 수는 {expectedCount}이어야 합니다. actual={count}",
                         HistoricalNavigationKind.Player,
                         row.Season.PlayerSeasonId);
                 }

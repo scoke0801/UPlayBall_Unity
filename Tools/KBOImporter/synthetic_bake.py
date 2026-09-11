@@ -2314,8 +2314,45 @@ def select_defensive_starters(
 
 
 def pitcher_assignment_score(row: dict[str, Any], assigned_group: str) -> float:
-    """적격 후보의 우열은 보직별 능력치로 정한다."""
-    return weighted_rating(row, PITCHER_ASSIGNMENT_ATTRIBUTE_WEIGHTS[assigned_group])
+    """역사 Core11은 보직별 능력과 실제 시즌 기여량을 함께 보존한다."""
+    ability_score = weighted_rating(row, PITCHER_ASSIGNMENT_ATTRIBUTE_WEIGHTS[assigned_group])
+    return ability_score + pitcher_assignment_workload_score(row, assigned_group)
+
+
+def pitcher_assignment_workload_score(row: dict[str, Any], assigned_group: str) -> float:
+    """소표본 고평가 투수가 실제 주력 투수를 Core11 밖으로 밀어내지 않게 한다."""
+    settings = ROSTER_SELECTION_CONFIG["pitcherUsage"]
+    season_games = safe_number(
+        row.get("historicalTeamGames"),
+        safe_number(row.get("sourceSeasonGames")),
+    )
+    if season_games <= 0.0:
+        return 0.0
+    inputs = row.get("_costValueInputs") or {}
+    innings_outs = safe_number(
+        row.get("historicalPitchingOuts"),
+        safe_number(inputs.get("inningsOuts")),
+    )
+    appearances = safe_number(
+        row.get("historicalPitchingAppearances"),
+        safe_number(inputs.get("games")),
+    )
+    evidence = (row.get("positionRoleDerivationTrace") or {}).get("pitcherRoleEvidence") or {}
+    starts = safe_number(evidence.get("gamesStarted"), safe_number(inputs.get("gamesStarted")))
+    innings_per_team_game = innings_outs / 3.0 / season_games
+    appearances_per_team_game = appearances / season_games
+    if assigned_group == "Starter":
+        score = (
+            innings_per_team_game * settings["starterInningsPerTeamGameWeight"]
+            + starts / season_games
+            * settings["starterStartsPerTeamGameWeight"]
+        )
+    else:
+        score = (
+            innings_per_team_game * settings["bullpenInningsPerTeamGameWeight"]
+            + appearances_per_team_game * settings["bullpenAppearancesPerTeamGameWeight"]
+        )
+    return min(float(settings["maximumBonus"]), score)
 
 
 def select_pitcher_group(
@@ -2346,13 +2383,16 @@ def select_pitcher_group(
     remaining[:] = [row for row in remaining if row["playerSeasonId"] not in selected_ids]
     return selected, {
         "assignedRole": assigned_group,
-        "reason": "Natural Role 적격 후보와 팀 내 최다 세이브 후보의 보직별 능력치 순위",
+        "reason": "Natural Role 적격 후보와 팀 내 최다 세이브 후보의 보직별 능력·실사용량 순위",
         "candidates": [
             {
                 "playerSeasonId": row["playerSeasonId"],
                 "naturalPitcherRole": row["pitcherRole"],
                 "isEligible": row["playerSeasonId"] in eligible_ids,
                 "score": round(pitcher_assignment_score(row, assigned_group), 6),
+                "abilityScore": round(weighted_rating(
+                    row, PITCHER_ASSIGNMENT_ATTRIBUTE_WEIGHTS[assigned_group]), 6),
+                "workloadScore": round(pitcher_assignment_workload_score(row, assigned_group), 6),
             }
             for row in candidates
         ],
@@ -3069,6 +3109,21 @@ def validate_derivation_manifest(manifest: dict[str, Any]) -> None:
         raise ValueError("DERIVED_CACHE_VERSION_MISMATCH: " + "; ".join(mismatches))
 
 
+def is_valid_roster_role(value: str) -> bool:
+    """Editor 내보내기와 같은 역할·순번 계약을 굽기 단계에서 검사한다."""
+    if value in ("Setup", "Closer"):
+        return True
+    if value.startswith("StartingHitter:"):
+        return value.removeprefix("StartingHitter:") in (*DEFENSIVE_HITTER_POSITIONS, "DH")
+    for prefix, maximum in (("BenchHitter:", 5), ("StartingPitcher:", 5),
+                            ("ReserveHitter:", 2147483647), ("ReservePitcher:", 2147483647),
+                            ("Bullpen", 4)):
+        if value.startswith(prefix):
+            suffix = value[len(prefix):]
+            return suffix.isascii() and suffix.isdecimal() and 1 <= int(suffix) <= maximum
+    return False
+
+
 def validate_bake(content: dict[str, Any]) -> None:
     """Runtime-safe SourceBacked/Replacement Archive의 독립 구조 계약을 검증한다."""
     manifest = content.get("manifest", {})
@@ -3127,6 +3182,9 @@ def validate_bake(content: dict[str, Any]) -> None:
         if len(team_keys) != len(set(team_keys)):
             raise ValueError("Canonical TeamSeasonKey가 중복됩니다.")
         for season in seasons:
+            if not is_valid_roster_role(season.get("rosterRole", "")):
+                raise ValueError(f"지원하지 않는 RosterRole입니다: {season.get('rosterRole')} "
+                                 f"({season['playerSeasonId']})")
             provenance = season.get("dataProvenance")
             if provenance == "SourceBacked":
                 source_count += 1

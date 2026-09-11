@@ -16,6 +16,7 @@ from synthetic_bake import (
     derive_source_position,
     derive_source_pitcher_role,
     load_and_validate_editor_asset_archive,
+    is_valid_roster_role,
     percentile_cost,
     select_defensive_starters,
     select_hitter_bench,
@@ -25,6 +26,16 @@ from synthetic_bake import (
 
 
 class SyntheticBakeTests(unittest.TestCase):
+
+    def test_roster_role_matches_editor_contract(self) -> None:
+        for role in ("StartingHitter:C", "StartingHitter:DH", "BenchHitter:5", "StartingPitcher:5",
+                     "ReserveHitter:1", "ReservePitcher:100", "Bullpen4", "Setup", "Closer"):
+            with self.subTest(role=role):
+                self.assertTrue(is_valid_roster_role(role))
+        for role in ("", "StartingHitter:P", "BenchHitter:6", "StartingPitcher:0", "Bullpen5",
+                     "ReserveHitter:Research", "ReservePitcher:Research", "ReservePitcher:2147483648"):
+            with self.subTest(role=role):
+                self.assertFalse(is_valid_roster_role(role))
 
     def test_joint_starting_assignment_preserves_strong_bat_for_dh(self) -> None:
         """수비 점수만 먼저 확정해서 DH의 공격 기회비용을 놓치지 않는다."""
@@ -325,6 +336,37 @@ class SyntheticBakeTests(unittest.TestCase):
             warning["code"] == "PITCHER_ROLE_FALLBACK"
             for warning in trace["validationWarnings"]
         ))
+
+    def test_pitcher_core_selection_prefers_meaningful_workload_over_small_sample_rating(self) -> None:
+        small_sample = self._pitcher_rows()[5]
+        small_sample["playerSeasonId"] = "small-sample"
+        small_sample["baseAttributes"] = [90] * 12
+        small_sample["sourceSeasonGames"] = 144
+        small_sample["_costValueInputs"] = {
+            "inningsOuts": 30,
+            "games": 8,
+            "gamesStarted": 0,
+        }
+        regular = self._pitcher_rows()[6]
+        regular["playerSeasonId"] = "regular"
+        regular["baseAttributes"] = [74] * 12
+        regular["sourceSeasonGames"] = 144
+        regular["_costValueInputs"] = {
+            "inningsOuts": 210,
+            "games": 55,
+            "gamesStarted": 0,
+        }
+
+        remaining = [small_sample, regular]
+        selected, trace = select_pitcher_group(remaining, 1, "Bullpen", set())
+
+        self.assertEqual(selected[0]["playerSeasonId"], "regular")
+        candidate = next(
+            row for row in trace["candidates"]
+            if row["playerSeasonId"] == "regular"
+        )
+        self.assertGreater(candidate["workloadScore"], 20)
+        self.assertEqual(candidate["abilityScore"], 74)
 
     def test_pitcher_role_uses_cg_and_innings_fallback_when_league_gs_is_unavailable(self) -> None:
         legacy_ace = self._pitcher_source(games=36, innings_outs=674, complete_games=15)

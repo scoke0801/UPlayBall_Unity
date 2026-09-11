@@ -166,13 +166,18 @@ def apply_supplement(content, supplement, derivation):
             count = sum(s["originFranchiseId"] == franchise and s["pitcherRole"] == role for s in year_content["playerSeasons"])
             if count >= maximum:
                 role = "MiddleRelief"
+        # 출처는 sourceDataKind에 보존하고, 기존 예비 순번은 바꾸지 않는다.
+        reserve_prefix = "ReservePitcher:" if card["playerType"] == "Pitcher" else "ReserveHitter:"
+        reserve_number = 1 + max((int(s["rosterRole"][len(reserve_prefix):])
+            for s in year_content["playerSeasons"]
+            if s["originFranchiseId"] == franchise and s["rosterRole"].startswith(reserve_prefix)), default=0)
         season = dict(playerSeasonId=season_id, playerPersonId=person_id, originYear=year,
             originFranchiseId=franchise, originTeamSeasonKey=team["teamSeasonKey"],
             playerType=card["playerType"], position=card["position"], pitcherRole=role,
             pitcherRoleConfidence="Low", registrationType="Domestic", cost=card["cost"],
             baseAttributes=list(card["baseAttributes"]), dataProvenance="SourceBacked", sourceDataKind=SOURCE_KIND,
             sourceRecordAvailability="Unavailable", observedAttributeIndices=card["observedAttributeIndices"],
-            rosterRole="ReservePitcher:Research" if card["playerType"] == "Pitcher" else "ReserveHitter:Research")
+            rosterRole=f"{reserve_prefix}{reserve_number}")
         _assign_training_ceiling(season, derivation)
         pitch.attach(season, pitch_balance)
         pitch.validate(season, pitch_balance)

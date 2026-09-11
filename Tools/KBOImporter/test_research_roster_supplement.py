@@ -52,6 +52,29 @@ class ResearchRosterSupplementTests(unittest.TestCase):
             self.assertEqual("Unavailable", season["sourceRecordAvailability"])
             self.assertNotIn(identity, records)
 
+    def test_reserve_numbers_append_without_duplicates(self):
+        for old, new in zip(self.before["years"], self.after["years"]):
+            for team in new["teamSeasons"]:
+                for prefix in ("ReserveHitter:", "ReservePitcher:"):
+                    def numbers(year):
+                        return [int(s["rosterRole"][len(prefix):]) for s in year["playerSeasons"]
+                                if s["originFranchiseId"] == team["franchiseId"]
+                                and s["rosterRole"].startswith(prefix)]
+                    before = numbers(old)
+                    after = numbers(new)
+                    self.assertEqual(len(after), len(set(after)))
+                    self.assertEqual(sorted(after), sorted(before) + list(range(
+                        max(before, default=0) + 1, max(before, default=0) + 1 + len(after) - len(before))))
+
+    def test_bake_rejects_research_label_in_roster_role(self):
+        content = copy.deepcopy(self.after)
+        season = next(s for y in content["years"] for s in y["playerSeasons"]
+                      if s.get("sourceDataKind") == supplement.SOURCE_KIND)
+        for role in ("ReserveHitter:Research", "ReservePitcher:Research"):
+            season["rosterRole"] = role
+            with self.assertRaisesRegex(ValueError, "RosterRole"):
+                bake.validate_bake(content)
+
     def test_missing_record_status_and_fake_zero_record_are_rejected(self):
         content = copy.deepcopy(self.after)
         year = next(y for y in content["years"] if any(s.get("sourceDataKind") == supplement.SOURCE_KIND for s in y["playerSeasons"]))

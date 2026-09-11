@@ -217,6 +217,8 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private string pitcherRoleConfidence;
         [SerializeField] private string playerType;
         [SerializeField] private string dataProvenance;
+        [SerializeField] private string sourceDataKind;
+        [SerializeField] private string sourceRecordAvailability;
         [SerializeField] private string registrationType;
         [SerializeField] private int[] baseAttributes;
         [SerializeField] private int cost;
@@ -246,6 +248,8 @@ namespace Baseball.Editor.HistoricalDatabase
         public string PitcherRoleConfidence => pitcherRoleConfidence ?? string.Empty;
         public string PlayerType => playerType ?? string.Empty;
         public string DataProvenance => dataProvenance ?? string.Empty;
+        public string SourceDataKind => sourceDataKind ?? string.Empty;
+        public string SourceRecordAvailability => sourceRecordAvailability ?? string.Empty;
         public string RegistrationType => registrationType ?? string.Empty;
         public int[] BaseAttributes => baseAttributes ?? Array.Empty<int>();
         public int Cost => cost;

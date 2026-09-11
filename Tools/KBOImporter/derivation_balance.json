@@ -850,6 +850,13 @@
         "Control": 0.15,
         "PitcherMental": 0.1
       }
+    },
+    "pitcherUsage": {
+      "starterInningsPerTeamGameWeight": 18.0,
+      "starterStartsPerTeamGameWeight": 10.0,
+      "bullpenInningsPerTeamGameWeight": 40.0,
+      "bullpenAppearancesPerTeamGameWeight": 15.0,
+      "maximumBonus": 30.0
     }
   },
   "referenceRecordModels": {

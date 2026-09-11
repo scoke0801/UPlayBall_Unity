@@ -34,6 +34,22 @@
 
 ## 재현
 
+### Runtime 내보내기 역할·원기록 계약
+
+보충 선수도 `ReserveHitter:숫자` / `ReservePitcher:숫자`를 사용한다. 같은 연도·구단·타입의
+기존 최대 예비 번호 다음부터 안정 PlayerSeasonId 순으로 부여하며, 기존 선수와 Core25는 보존한다.
+연구 출처는 `sourceDataKind=ResearchCardSupplement`로 구분하고 역할 문자열에 넣지 않는다.
+Python은 전체 선수의 RosterRole을 검증해 잘못된 문자열을 굽기 단계에서 차단한다.
+
+Editor 검증은 연구 보충에 `sourceRecordAvailability=Unavailable`과 원기록 0건을 요구한다.
+상태 누락·Available·가짜 0경기 기록 연결을 거부하며 일반 선수는 여전히 원기록 1건이 필수다.
+이 두 계약 누락이 보충 939명에 각각 발생해 내보내기의 1,878개 오류를 만들었다.
+
+수정 후 1982~2025 재굽기, Python 24개, 실제 Editor 검증 소스 전체 검사(오류 0·경고 34),
+원기록 회귀 5건과 Runtime 로더의 특수 카드 594장·레시피 143개 참조·해시 검증을 통과했다.
+Editor 검증과 C# 회귀는 Headless JSON 어댑터로 실행했으며 Unity Test Runner 실행을 대체하지 않는다.
+밸런스 계수·능력치·Cost 변경은 없다. Editor 정제본 재생성 후 Unity에서 2단계부터 재개한다.
+
 프로젝트 루트에서:
 
 ```powershell
