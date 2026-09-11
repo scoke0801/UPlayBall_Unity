@@ -6,13 +6,21 @@ from pathlib import Path
 from typing import Any
 
 EVIDENCE_PATH = Path(__file__).with_name("season_position_evidence.json")
+SEASON_ROSTER_PATH = Path(__file__).with_name("season_position_research_all.json")
 POSITIONS = {"C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"}
 
 
 def load_position_evidence(path: Path = EVIDENCE_PATH) -> dict[tuple[int, str], dict[str, Any]]:
     """출처·시즌·선수 ID가 없는 보강 자료와 중복 선언을 거부한다."""
     document = json.loads(path.read_text(encoding="utf-8"))
+    if path == EVIDENCE_PATH:
+        supplemental = json.loads(SEASON_ROSTER_PATH.read_text(encoding="utf-8"))
+        document["sources"].extend(supplemental["sources"])
+        document["players"].extend(supplemental["players"])
+        document["version"] += "+" + supplemental["version"]
     sources = {row["id"]: row for row in document["sources"]}
+    if len(sources) != len(document["sources"]):
+        raise ValueError("시즌 포지션 근거의 출처 ID가 중복됩니다.")
     result = {}
     for row in document["players"]:
         key = (int(row["seasonYear"]), str(row["sourcePlayerId"]))

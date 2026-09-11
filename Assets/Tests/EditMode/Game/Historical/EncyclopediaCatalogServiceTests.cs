@@ -13,6 +13,19 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class EncyclopediaCatalogServiceTests
     {
         [Test]
+        public void Query_결측포지션을DH필터와구분한다()
+        {
+            Fixture fixture = Fixture.Create();
+            var designated = fixture.Service.QueryPlayerSeasons(new EncyclopediaFilter
+                { OriginYear = 2000, Position = PlayerPosition.DesignatedHitter });
+            var unknown = fixture.Service.QueryPlayerSeasons(new EncyclopediaFilter
+                { OriginYear = 2000, Position = PlayerPosition.Unknown });
+
+            Assert.That(designated.Select(entry => entry.PlayerSeasonId), Is.EqualTo(new[] { "PS-2000-01" }));
+            Assert.That(unknown.Select(entry => entry.PlayerSeasonId), Is.EqualTo(new[] { "PS-2000-02" }));
+        }
+
+        [Test]
         public void Query_전체Archive와WorldCatalog을Core25제한없이노출한다()
         {
             Fixture fixture = Fixture.Create();
@@ -265,6 +278,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     string personId = isShared ? "PP-SHARED" : $"PP-{year}-{index:D2}";
                     string seasonId = isShared ? $"PS-SHARED-{year}" : $"PS-{year}-{index:D2}";
                     PlayerPosition position = isShared ? PlayerPosition.Shortstop : PlayerPosition.FirstBase;
+                    if (index == 1 || index == 2) position = PlayerPosition.DesignatedHitter;
                     int cost = isShared ? 7 : 5;
                     if (personIds.Add(personId))
                     {
@@ -291,7 +305,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                         RegistrationType.Domestic,
                         new AbilityRatings(50),
                         cost,
-                        new AbilityRatings(70));
+                        new AbilityRatings(70), isPositionEvidenceMissing: index == 2);
                     string cardId = PlayerCardDefinition.CreateStableCardId(
                         seasonId, PlayerCardEdition.Normal);
                     cards[index] = new PlayerCardDefinition(

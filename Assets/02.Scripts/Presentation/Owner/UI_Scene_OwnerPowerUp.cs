@@ -539,7 +539,7 @@ namespace Baseball.Presentation.Owner
             _trainingDetails.text = target.Card.DisplayName + "\n" +
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(
                     target.Card.Position,
-                    target.Card.PitcherRole) + " · 비용 " + target.Card.Cost + "\n\n" +
+                    target.Card.PitcherRole, target.Card.IsPositionEvidenceMissing) + " · 비용 " + target.Card.Cost + "\n\n" +
                 selected.Title + "\n" + selected.Current + " → " + (selected.Current + selected.GainedPoints) +
                 " / 상한 " + selected.Ceiling + "\n육성 포인트 " + selected.DpCost.ToString("N0") +
                 (selected.CanTrain ? string.Empty : "\n" + selected.BlockedReason);
@@ -866,7 +866,7 @@ namespace Baseball.Presentation.Owner
             CreateListButton(parent, "Card_" + card.CardId,
                 card.DisplayName + "   " + OwnerCollectionPresentationBuilder.FormatPlayerRole(
                     card.Position,
-                    card.PitcherRole) + "\n" +
+                    card.PitcherRole, card.IsPositionEvidenceMissing) + "\n" +
                 card.OriginYear + " · 비용 " + card.Cost + " · +" + card.EnhancementLevel + " · 중복 " + card.DuplicateCount,
                 action, selected);
         }

@@ -150,7 +150,7 @@ namespace Baseball.Presentation.Owner
             RectTransform positionPlate = Gradient(parent, "PositionPlate", new Color32(58, 60, 63, 255),
                 new Color32(29, 30, 32, 255), .04f, .91f, .24f, .94f);
             Label(positionPlate, "Position",
-                OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole),
+                OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole, card.IsPositionEvidenceMissing),
                 .02f, 0, .98f, 1, 12, Color.white);
             Rect name = OwnerPlayerCardFrames.GetNameRect(card.Edition, false);
             Color nameColor = OwnerPlayerCardFrames.GetNameColor(card.Edition);

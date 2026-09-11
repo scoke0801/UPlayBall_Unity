@@ -35,7 +35,8 @@ namespace Baseball.Presentation.Owner
             int condition = 100,
             int conditionLevel = 10,
             string conditionLabel = "절정",
-            PitchingWorkloadState pitchingWorkload = default)
+            PitchingWorkloadState pitchingWorkload = default,
+            bool isPositionEvidenceMissing = false)
         {
             if (condition < 0 || condition > 100)
                 throw new ArgumentOutOfRangeException(nameof(condition));
@@ -45,6 +46,7 @@ namespace Baseball.Presentation.Owner
             DisplayName = displayName ?? string.Empty;
             OriginYear = originYear;
             NaturalPosition = naturalPosition;
+            IsPositionEvidenceMissing = isPositionEvidenceMissing;
             PitcherRole = pitcherRole;
             Edition = edition;
             Cost = cost;
@@ -61,6 +63,7 @@ namespace Baseball.Presentation.Owner
         public string DisplayName { get; }
         public int OriginYear { get; }
         public PlayerPosition NaturalPosition { get; }
+        public bool IsPositionEvidenceMissing { get; }
         public PitcherRole PitcherRole { get; }
         public PlayerCardEdition Edition { get; }
         public int Cost { get; }
@@ -272,7 +275,8 @@ namespace Baseball.Presentation.Owner
                     0,
                     0,
                     false,
-                    false);
+                    false,
+                    isPositionEvidenceMissing: player.IsPositionEvidenceMissing);
             }
             return result;
         }
@@ -523,7 +527,7 @@ namespace Baseball.Presentation.Owner
             if (!string.IsNullOrEmpty(cardId) && players.TryGetValue(cardId, out player))
             {
                 string foreign = player.RegistrationType == RegistrationType.Foreign ? " · 외국인" : string.Empty;
-                playerText = $"{player.DisplayName} · {player.OriginYear} · {FormatPosition(player.NaturalPosition)} · " +
+                playerText = $"{player.DisplayName} · {player.OriginYear} · {OwnerCollectionPresentationBuilder.FormatPosition(player.NaturalPosition, player.IsPositionEvidenceMissing)} · " +
                 $"비용 {player.Cost} · {FormatEdition(player.Edition)}{foreign}";
             }
             return new OwnerLineupSlotModel(group, index, label, playerText,

@@ -1,5 +1,9 @@
 # KBO Reference Data Extractor / Canonical Baker
 
+전체 역사 포지션 결측 보완은 [전체 시즌 포지션 재저작](SeasonPositionRevision.md)을 따른다.
+3,199건 중 3,121건에 시즌별 근거를 추가하며, 미확인 78건은 실제 DH와 구분한다.
+포지션 전용 수정은 기존 발급 가치 평가를 유지하는 `prepare_position_revision.py`를 거쳐 게시한다.
+
 고코스트 평가의 최신 정본은 Cost v18 / Balance v25다. 전체 분포를 보존하면서 189장의 Cost를
 보정하고 EX 88·레전드 20·커리어하이 122·레어 363장을 발급해 Unity에 등록했다.
 아래 EX 차단·부분 발급 설명은 이전 기록이며 `docs/reports/고코스트_평가_특수카드_연결.md`를

@@ -224,7 +224,7 @@ namespace Baseball.Presentation.Owner
                 FitCompactCardText(preview);
                 string detail = OwnerCollectionPresentationBuilder.FormatPlayerRole(
                         card.Card.Position,
-                        card.Card.PitcherRole) + "\n" +
+                        card.Card.PitcherRole, card.Card.IsPositionEvidenceMissing) + "\n" +
                     card.Card.OriginYear + "년\n코스트 " + card.Card.Cost + "\n장착 " + card.Placements.Length + "개";
                 Label(_content, "SelectedDetails", detail, 13, 465, 127, 117, 106);
             }

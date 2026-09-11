@@ -26,7 +26,7 @@ namespace Baseball.Presentation.Owner
                 .32f, .912f, .96f, .945f, 12, Ink);
             string roleText = pitcher && card.PitcherRole.HasValue
                 ? OwnerCollectionPresentationBuilder.FormatPitcherRole(card.PitcherRole.Value)
-                : OwnerCollectionPresentationBuilder.FormatPosition(card.Position);
+                : OwnerCollectionPresentationBuilder.FormatPosition(card.Position, card.IsPositionEvidenceMissing);
             string hands = FormatHands(card.Throws, card.Bats);
             Gradient(parent, "ProfileBand", new Color32(218, 215, 202, 255), paper, .012f, .395f, .277f, .985f);
             Image portrait = Surface(parent, "ProfilePortrait", Color.white, .025f, .695f, .265f, .97f).GetComponent<Image>();
@@ -43,7 +43,7 @@ namespace Baseball.Presentation.Owner
             if (pitcher) BuildPitchRepertoire(role, card);
             else
             {
-                BuildDefenseDiagram(role, card.Position);
+                BuildDefenseDiagram(role, card.Position, card.IsPositionEvidenceMissing);
                 BuildPreferredBattingOrderBadge(role, card.PreferredBattingOrder);
             }
             if (card.IsOwnedCard) BuildSkillBlockBoard(parent, paper, panel, card);
@@ -79,8 +79,13 @@ namespace Baseball.Presentation.Owner
                 .06f, .18f, .94f, .86f, 13, new Color(.72f, .75f, .78f));
         }
 
-        private static void BuildDefenseDiagram(RectTransform parent, PlayerPosition position)
+        private static void BuildDefenseDiagram(RectTransform parent, PlayerPosition position, bool isPositionEvidenceMissing)
         {
+            if (isPositionEvidenceMissing)
+            {
+                Label(parent, "PositionUnknown", "포지션 미확인", 0, .4f, 1, .6f, 15, Gold);
+                return;
+            }
             Label(parent, "Heading", "수비 위치", 0, .88f, 1, 1, 15, Gold);
             RectTransform area = Surface(parent, "DefenseDiagram", Color.clear, .07f, .10f, .93f, .86f);
             RectTransform field = OwnerRuntimeUiFactory.CreateRect("Field", area);

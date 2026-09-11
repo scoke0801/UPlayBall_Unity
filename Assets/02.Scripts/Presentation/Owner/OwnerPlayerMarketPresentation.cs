@@ -106,7 +106,7 @@ namespace Baseball.Presentation.Owner
         private static string FormatRole(PlayerSeasonDefinition season) =>
             OwnerCollectionPresentationBuilder.FormatPlayerRole(
                 season.Position,
-                season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null);
+                season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null, season.IsPositionEvidenceMissing);
 
         private static string ResolveSelection(IReadOnlyList<OwnerContractPlayerRow> rows, string requested)
         {

@@ -1216,7 +1216,7 @@ namespace Baseball.Presentation.Owner
                 _manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId),
                     OwnerCollectionPresentationBuilder.FormatPlayerRole(
                         season.Position,
-                        season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null),
+                        season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null, season.IsPositionEvidenceMissing),
                     season.OriginYear.ToString(), "Cost " + season.Cost,
                     item.GradeLabel, item.IsNew ? "신규 영입" : "중복 획득",
                 portraitAssetKey: season.PlayerSeasonId, isInteractable: false, frameEdition: card.Edition, cost: season.Cost);

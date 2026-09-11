@@ -13,6 +13,28 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     public sealed class OwnerCollectionPresentationTests
     {
         [Test]
+        public void Builder_결측포지션은실제지명타자와표시및검색을구분한다()
+        {
+            var snapshot = new OwnerCollectionSnapshot(new[]
+            {
+                new OwnerCollectionCardSnapshot("UNKNOWN", "PERSON-1", "가상미확인", 1994,
+                    PlayerPosition.DesignatedHitter, 3, PlayerCardEdition.Normal, 0, 0, false, false,
+                    isPositionEvidenceMissing: true),
+                new OwnerCollectionCardSnapshot("DH", "PERSON-2", "가상지명", 1994,
+                    PlayerPosition.DesignatedHitter, 3, PlayerCardEdition.Normal, 0, 0, false, false)
+            });
+
+            var unknown = OwnerCollectionPresentationBuilder.Build(snapshot, "미확인");
+            var designated = OwnerCollectionPresentationBuilder.Build(snapshot, "지명타자");
+
+            Assert.That(unknown.Cards.Count, Is.EqualTo(1));
+            Assert.That(unknown.Cards[0].Snapshot.CardId, Is.EqualTo("UNKNOWN"));
+            Assert.That(unknown.Cards[0].MiniCard.PositionLabel, Is.EqualTo("포지션 미확인"));
+            Assert.That(designated.Cards.Count, Is.EqualTo(1));
+            Assert.That(designated.Cards[0].Snapshot.CardId, Is.EqualTo("DH"));
+        }
+
+        [Test]
         public void Builder_이름포지션CostEdition을검색하고정렬한다()
         {
             OwnerCollectionSnapshot snapshot = CreateSnapshot();

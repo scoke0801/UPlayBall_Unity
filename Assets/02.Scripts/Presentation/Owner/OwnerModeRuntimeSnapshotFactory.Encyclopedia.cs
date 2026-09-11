@@ -111,7 +111,7 @@ namespace Baseball.Presentation.Owner
                 DisplayName = playerDisplayName,
                 OriginYear = entry.OriginYear,
                 Cost = entry.Cost,
-                Position = OwnerCollectionPresentationBuilder.FormatPosition(entry.Position),
+                Position = OwnerCollectionPresentationBuilder.FormatPosition(entry.Position, entry.Season.IsPositionEvidenceMissing),
                 PitcherRole = FormatPitcherRole(entry.PlayerType, entry.PitcherRole),
                 Bats = CareerSharedSnapshotFormatters.FormatHandedness(entry.Bats),
                 Throws = CareerSharedSnapshotFormatters.FormatHandedness(entry.Throws),
@@ -129,7 +129,7 @@ namespace Baseball.Presentation.Owner
                     playerDisplayName,
                     OwnerCollectionPresentationBuilder.FormatPlayerRole(
                         entry.Position,
-                        entry.PlayerType == PlayerType.Pitcher ? entry.PitcherRole : null),
+                        entry.PlayerType == PlayerType.Pitcher ? entry.PitcherRole : null, entry.Season.IsPositionEvidenceMissing),
                     entry.OriginYear.ToString(),
                     "COST " + entry.Cost,
                     metadata.DisplayName,
@@ -157,7 +157,7 @@ namespace Baseball.Presentation.Owner
                 DisplayName = playerDisplayName,
                 OriginYear = entry.OriginYear,
                 Cost = entry.Cost,
-                Position = OwnerCollectionPresentationBuilder.FormatPosition(entry.Position),
+                Position = OwnerCollectionPresentationBuilder.FormatPosition(entry.Position, entry.Season.IsPositionEvidenceMissing),
                 PitcherRole = FormatPitcherRole(entry.PlayerType, entry.PitcherRole),
                 Bats = CareerSharedSnapshotFormatters.FormatHandedness(entry.Bats),
                 Throws = CareerSharedSnapshotFormatters.FormatHandedness(entry.Throws),
@@ -174,7 +174,7 @@ namespace Baseball.Presentation.Owner
                     playerDisplayName,
                     OwnerCollectionPresentationBuilder.FormatPlayerRole(
                         entry.Position,
-                        entry.PlayerType == PlayerType.Pitcher ? entry.PitcherRole : null),
+                        entry.PlayerType == PlayerType.Pitcher ? entry.PitcherRole : null, entry.Season.IsPositionEvidenceMissing),
                     entry.OriginYear.ToString(),
                     "COST " + entry.Cost,
                     "카드 " + entry.CollectibleCardCount + "종",
@@ -245,7 +245,7 @@ namespace Baseball.Presentation.Owner
                     entry.OriginTeamSeasonKey,
                     entry.OriginFranchiseId),
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,
-                isOwnedCard: false, preferredBattingOrder: entry.Card.PreferredBattingOrder);
+                isOwnedCard: false, preferredBattingOrder: entry.Card.PreferredBattingOrder, isPositionEvidenceMissing: entry.Season.IsPositionEvidenceMissing);
         }
 
         private static EncyclopediaProgressCell[] CreateProgressCells(

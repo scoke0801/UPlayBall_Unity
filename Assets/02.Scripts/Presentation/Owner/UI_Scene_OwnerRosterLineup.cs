@@ -806,7 +806,7 @@ namespace Baseball.Presentation.Owner
                 player.Edition == PlayerCardEdition.Normal
                     ? string.Empty
                     : OwnerRosterLineupPresentationBuilder.FormatEdition(player.Edition),
-                OwnerCollectionPresentationBuilder.FormatPlayerRole(player.Position, player.PitcherRole),
+                OwnerCollectionPresentationBuilder.FormatPlayerRole(player.Position, player.PitcherRole, player.IsPositionEvidenceMissing),
                 frameEdition: player.Edition,
                 cost: player.Cost);
             card.Bind(model, PlayerPortraitSprites.GetDefault(player.Position));
@@ -915,7 +915,7 @@ namespace Baseball.Presentation.Owner
             if (player == null) return "미지정";
             foreach (var slot in _model.Snapshot.Preset.StartingLineupSlots)
                 if (slot.CardId == player.CardId) return FormatPositionName(slot.Position);
-            return FormatPositionName(player.NaturalPosition);
+            return OwnerCollectionPresentationBuilder.FormatPosition(player.NaturalPosition, player.IsPositionEvidenceMissing);
         }
 
         private static string FormatCompactYear(int year)

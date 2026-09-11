@@ -262,7 +262,7 @@ namespace Baseball.Presentation.Career
                 var model = new PlayerMiniCardModel(
                     cardId,
                     flow.Identities.GetPresentationPlayerName(card.PlayerPersonId),
-                    OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole),
+                    OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole, flow.CardCatalog.GetPlayerSeason(definition).IsPositionEvidenceMissing),
                     card.OriginYear.ToString(), $"비용 {card.Cost}",
                     OwnerCollectionPresentationBuilder.FormatEdition(definition.Edition),
                     card.IsSelected ? "✓ 선택" : string.Empty, card.PlayerPersonId,
@@ -545,7 +545,7 @@ namespace Baseball.Presentation.Career
                     flow.Identities.GetPresentationPlayerName(season.PlayerPersonId),
                     OwnerCollectionPresentationBuilder.FormatPlayerRole(
                         season.Position,
-                        season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null),
+                        season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null, season.IsPositionEvidenceMissing),
                     season.OriginYear.ToString(),
                     $"비용 {season.Cost}",
                     isMainCard ? "MAIN" : "AUTO",

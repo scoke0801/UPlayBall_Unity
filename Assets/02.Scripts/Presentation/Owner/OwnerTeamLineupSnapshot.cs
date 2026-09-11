@@ -210,7 +210,7 @@ namespace Baseball.Presentation.Owner
                 conditionLabel: "비공개",
                 abilityBreakdowns: abilityBreakdowns,
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,
-                isOwnedCard: false, preferredBattingOrder: card.PreferredBattingOrder);
+                isOwnedCard: false, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing);
         }
     }
 }

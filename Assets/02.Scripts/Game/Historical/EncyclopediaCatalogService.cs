@@ -565,7 +565,9 @@ namespace Baseball.Game.Historical
                 return false;
             if (filter.PlayerType.HasValue && season.PlayerType != filter.PlayerType.Value)
                 return false;
-            if (filter.Position.HasValue && season.Position != filter.Position.Value)
+            PlayerPosition displayedPosition = season.IsPositionEvidenceMissing
+                ? PlayerPosition.Unknown : season.Position;
+            if (filter.Position.HasValue && displayedPosition != filter.Position.Value)
                 return false;
             if (filter.PitcherRole.HasValue &&
                 (season.PlayerType != PlayerType.Pitcher || season.PitcherRole != filter.PitcherRole.Value))

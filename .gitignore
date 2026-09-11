@@ -595,6 +595,11 @@ Assets/Editor Default Resources/*
 !Tools/KBOImporter/season_position_evidence.json
 !Tools/KBOImporter/season_position_research_1985_1992.json
 !Tools/KBOImporter/season_position_research_1985_1992_audit.json
+!Tools/KBOImporter/research_season_positions.py
+!Tools/KBOImporter/prepare_position_revision.py
+!Tools/KBOImporter/SeasonPositionRevision.md
+!Tools/KBOImporter/season_position_research_all.json
+!Tools/KBOImporter/test_research_season_positions.py
 !Tools/KBOImporter/test_secondary_positions.py
 !Tools/KBOImporter/publish_position_repair.py
 !Tools/KBOImporter/PositionRepair.md

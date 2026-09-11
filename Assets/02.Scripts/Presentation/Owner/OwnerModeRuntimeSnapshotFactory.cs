@@ -33,7 +33,7 @@ namespace Baseball.Presentation.Owner
                 person?.Throws, person?.Bats, CreatePitchSnapshots(manager, season, abilities),
                 CreateSeasonRecord(flow.WorldHistory, season, season.OriginTeamSeasonKey, season.OriginYear),
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap, isOwnedCard: false,
-                preferredBattingOrder: card.PreferredBattingOrder);
+                preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing);
         }
 
         /// <summary>현재 감독·수석코치·방침과 실제 경기 적용값을 덕아웃 Snapshot으로 만든다.</summary>
@@ -151,7 +151,7 @@ namespace Baseball.Presentation.Owner
                     playerStatus.StoredBaseCondition,
                     conditionPresentation.GetLevel(playerStatus.StoredBaseCondition),
                     FormatConditionLabel(conditionBand.LabelKey),
-                    playerStatus.PitchingWorkload);
+                    playerStatus.PitchingWorkload, season.IsPositionEvidenceMissing);
             }
 
             var ownedPlayers = new OwnerCollectionCardSnapshot[runtime.OwnedCards.Count];
@@ -347,7 +347,7 @@ namespace Baseball.Presentation.Owner
                 owned.IsLocked,
                 owned.IsFavorite,
                 pitcherRole: season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
-                teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder);
+                teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing);
         }
 
         private static OwnerCollectionCardSnapshot CreateCollectionCard(
@@ -428,7 +428,8 @@ namespace Baseball.Presentation.Owner
                 condition,
                 conditionLabel,
                 abilityBreakdowns,
-                manager.Balance.MatchRatingCurve.Caps.HardCap, preferredBattingOrder: card.PreferredBattingOrder);
+                manager.Balance.MatchRatingCurve.Caps.HardCap, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
+                conditionLevel: condition.HasValue ? manager.Balance.ConditionChemistry.Presentation.GetLevel(condition.Value) : (int?)null);
         }
 
         private static PerCardBonusMap CreateCurrentTeamColorBonuses(
@@ -961,7 +962,7 @@ namespace Baseball.Presentation.Owner
             return new OwnerPregameRosterCardSnapshot(
                 cardId,
                 runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId),
-                isPitcher ? "투수" : FormatPosition(season.Position),
+                isPitcher ? "투수" : OwnerCollectionPresentationBuilder.FormatPosition(season.Position, season.IsPositionEvidenceMissing),
                 isOwnTeam,
                 isPitcher,
                 CreateLineupDetail(manager, runtime, roster, cardId, teamSeasonKey, isOwnTeam, teamColorBonuses));
@@ -998,7 +999,7 @@ namespace Baseball.Presentation.Owner
                 result[index] = new OwnerConditionPlayerSnapshot(
                     entry.PlayerPersonId,
                     entry.DisplayName,
-                    FormatPosition(entry.NaturalPosition),
+                    OwnerCollectionPresentationBuilder.FormatPosition(entry.NaturalPosition, entry.IsPositionEvidenceMissing),
                     entry.IsPitcher,
                     entry.Availability,
                     entry.EffectiveCondition,

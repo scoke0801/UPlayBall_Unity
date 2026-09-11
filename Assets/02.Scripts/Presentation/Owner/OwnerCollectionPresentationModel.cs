@@ -144,13 +144,16 @@ namespace Baseball.Presentation.Owner
             IReadOnlyList<OwnerAbilityBreakdownSnapshot> abilityBreakdowns = null,
             int abilityGraphMaximum = AbilityRatings.Maximum,
             bool isOwnedCard = true,
-            PreferredBattingOrder preferredBattingOrder = PreferredBattingOrder.None)
+            PreferredBattingOrder preferredBattingOrder = PreferredBattingOrder.None,
+            bool isPositionEvidenceMissing = false,
+            int? conditionLevel = null)
         {
             CardId = RequireText(cardId, nameof(cardId));
             PlayerPersonId = RequireText(playerPersonId, nameof(playerPersonId));
             DisplayName = RequireText(displayName, nameof(displayName));
             OriginYear = originYear;
             Position = position;
+            IsPositionEvidenceMissing = isPositionEvidenceMissing;
             Cost = cost;
             Edition = edition;
             EnhancementLevel = enhancementLevel;
@@ -190,6 +193,7 @@ namespace Baseball.Presentation.Owner
         public int OriginYear { get; }
         public PlayerPosition Position { get; }
         public int Cost { get; }
+        public bool IsPositionEvidenceMissing { get; }
         public PlayerCardEdition Edition { get; }
         public int EnhancementLevel { get; }
         public int DuplicateCount { get; }
@@ -337,7 +341,7 @@ namespace Baseball.Presentation.Owner
             return new PlayerMiniCardModel(
                 card.CardId,
                 card.DisplayName,
-                FormatPlayerRole(card.Position, card.PitcherRole),
+                FormatPlayerRole(card.Position, card.PitcherRole, card.IsPositionEvidenceMissing),
                 card.OriginYear.ToString(),
                 $"비용 {card.Cost}",
                 FormatEdition(card.Edition),
@@ -346,7 +350,7 @@ namespace Baseball.Presentation.Owner
                 visualState: state, frameEdition: card.Edition, cost: card.Cost);
         }
 
-        public static string FormatPosition(PlayerPosition position)
+        public static string FormatPosition(PlayerPosition position, bool isPositionEvidenceMissing = false)
         {
             return position switch
             {
@@ -359,6 +363,8 @@ namespace Baseball.Presentation.Owner
                 PlayerPosition.CenterField => "중견수",
                 PlayerPosition.RightField => "우익수",
                 PlayerPosition.DesignatedHitter => "지명타자",
+            if (isPositionEvidenceMissing && position <= PlayerPosition.DesignatedHitter)
+                return "포지션 미확인";
                 PlayerPosition.StartingPitcher => "선발투수",
                 PlayerPosition.ReliefPitcher => "구원투수",
                 _ => "포지션 미확인"
@@ -366,13 +372,14 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>투수는 시즌의 Natural Role을, 야수는 주 포지션을 카드 표기로 반환한다.</summary>
-        public static string FormatPlayerRole(PlayerPosition position, PitcherRole? pitcherRole)
+        public static string FormatPlayerRole(PlayerPosition position, PitcherRole? pitcherRole,
+            bool isPositionEvidenceMissing = false)
         {
             bool isPitcher = position == PlayerPosition.StartingPitcher ||
                              position == PlayerPosition.ReliefPitcher;
             return isPitcher && pitcherRole.HasValue
                 ? FormatPitcherRole(pitcherRole.Value)
-                : FormatPosition(position);
+                : FormatPosition(position, isPositionEvidenceMissing);
         }
 
         /// <summary>투수 시즌의 Natural Role을 플레이어용 한국어 표기로 반환한다.</summary>
@@ -399,8 +406,8 @@ namespace Baseball.Presentation.Owner
         {
             if (string.IsNullOrEmpty(query)) return true;
             return Contains(card.DisplayName, query) ||
-                   Contains(FormatPlayerRole(card.Position, card.PitcherRole), query) ||
-                   Contains(FormatPosition(card.Position), query) ||
+                   Contains(FormatPlayerRole(card.Position, card.PitcherRole, card.IsPositionEvidenceMissing), query) ||
+                   Contains(FormatPosition(card.Position, card.IsPositionEvidenceMissing), query) ||
                    Contains(FormatEdition(card.Edition), query) ||
                    Contains(card.OriginYear.ToString(), query) ||
                    Contains(card.Cost.ToString(), query);

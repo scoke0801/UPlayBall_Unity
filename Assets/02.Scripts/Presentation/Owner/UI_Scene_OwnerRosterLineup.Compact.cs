@@ -149,8 +149,8 @@ namespace Baseball.Presentation.Owner
             string from = FormatPositionName(slots[_positionSourceIndex].Position);
             string to = FormatPositionName(slots[targetIndex].Position);
             _positionChangeText.text =
-                $"{source.Player.DisplayName}  {from} → {to}  (주 포지션: {FormatPositionName(source.Player.NaturalPosition)})\n" +
-                $"{target.Player.DisplayName}  {to} → {from}  (주 포지션: {FormatPositionName(target.Player.NaturalPosition)})\n" +
+                $"{source.Player.DisplayName}  {from} → {to}  (주 포지션: {OwnerCollectionPresentationBuilder.FormatPosition(source.Player.NaturalPosition, source.Player.IsPositionEvidenceMissing)})\n" +
+                $"{target.Player.DisplayName}  {to} → {from}  (주 포지션: {OwnerCollectionPresentationBuilder.FormatPosition(target.Player.NaturalPosition, target.Player.IsPositionEvidenceMissing)})\n" +
                 "적용 후 수비 배치 경고를 확인하고 상단 ‘배치 저장’으로 확정하세요.";
             foreach (Button button in _analysisContent.GetComponentsInChildren<Button>())
                 if (button.name.StartsWith("ChoosePosition_", StringComparison.Ordinal))
@@ -260,7 +260,7 @@ namespace Baseball.Presentation.Owner
                 HandleOwnedPlayerFilterChanged();
             });
             string[] labels = pitcher ? new[] { "전체", "선발", "불펜", "셋업", "마무리" } :
-                new[] { "전체", "포수", "1루수", "2루수", "3루수", "유격수", "외야수", "지명타자" };
+                new[] { "전체", "포수", "1루수", "2루수", "3루수", "유격수", "외야수", "지명타자", "미확인" };
             RectTransform row = OwnerRuntimeUiFactory.CreateRect("PositionFilters", content);
             row.gameObject.AddComponent<LayoutElement>().preferredHeight = 26;
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
@@ -301,6 +301,8 @@ namespace Baseball.Presentation.Owner
                 if (_positionFilter == 4) return card.PitcherRole == PitcherRole.Closer;
                 return card.Position == PlayerPosition.ReliefPitcher;
             }
+            if (_positionFilter == 8) return card.IsPositionEvidenceMissing;
+            if (card.IsPositionEvidenceMissing) return false;
             return _positionFilter switch
             {
                 1 => card.Position == PlayerPosition.Catcher,

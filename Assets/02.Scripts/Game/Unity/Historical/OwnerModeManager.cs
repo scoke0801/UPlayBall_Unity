@@ -27,11 +27,13 @@ namespace Baseball.Game.Historical
             PlayerPosition naturalPosition,
             bool isPitcher,
             PlayerAvailabilityStatus availability,
-            EffectiveMatchCondition effectiveCondition)
+            EffectiveMatchCondition effectiveCondition,
+            bool isPositionEvidenceMissing = false)
         {
             PlayerPersonId = playerPersonId ?? throw new ArgumentNullException(nameof(playerPersonId));
             DisplayName = displayName ?? throw new ArgumentNullException(nameof(displayName));
             NaturalPosition = naturalPosition;
+            IsPositionEvidenceMissing = isPositionEvidenceMissing;
             IsPitcher = isPitcher;
             Availability = availability;
             EffectiveCondition = effectiveCondition;
@@ -40,6 +42,7 @@ namespace Baseball.Game.Historical
         public string PlayerPersonId { get; }
         public string DisplayName { get; }
         public PlayerPosition NaturalPosition { get; }
+        public bool IsPositionEvidenceMissing { get; }
         public bool IsPitcher { get; }
         public PlayerAvailabilityStatus Availability { get; }
         public EffectiveMatchCondition EffectiveCondition { get; }
@@ -1284,7 +1287,7 @@ namespace Baseball.Game.Historical
                         assignmentModifier,
                         lineupModifier,
                         batteryModifier,
-                        headCoachBonus));
+                        headCoachBonus), season.IsPositionEvidenceMissing);
             }
             return result;
         }
