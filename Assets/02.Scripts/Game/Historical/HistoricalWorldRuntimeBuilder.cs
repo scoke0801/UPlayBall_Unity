@@ -1133,6 +1133,7 @@ namespace Baseball.Game.Historical
             Add(ref hash, value.SeasonYear);
             Add(ref hash, (int)value.Position);
             Add(ref hash, value.PlateAppearances);
+            Add(ref hash, value.AtBats);
             Add(ref hash, value.Hits);
             Add(ref hash, value.HomeRuns);
             Add(ref hash, value.Walks);

@@ -254,6 +254,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     2000,
                     PlayerPosition.Shortstop,
                     plateAppearances: plateAppearances,
+                    atBats: plateAppearances,
                     isFirstHalf: isFirstHalf,
                     isPostseason: isPostseason,
                     isAllStarGame: isAllStarGame);

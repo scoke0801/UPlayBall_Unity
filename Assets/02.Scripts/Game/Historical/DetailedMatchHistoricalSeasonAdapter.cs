@@ -545,6 +545,7 @@ namespace Baseball.Game.Historical
 
             public HistoricalPlayerSeasonIdentity Identity { get; }
             public int PlateAppearances { get; private set; }
+            public int AtBats { get; private set; }
             public int Hits { get; private set; }
             public int HomeRuns { get; private set; }
             public int Walks { get; private set; }
@@ -560,6 +561,7 @@ namespace Baseball.Game.Historical
             public void AddBatting(PlayerBattingLine line)
             {
                 PlateAppearances += line.PlateAppearances;
+                AtBats += line.AtBats;
                 Hits += line.Hits;
                 HomeRuns += line.HomeRuns;
                 Walks += line.Walks;
@@ -588,6 +590,7 @@ namespace Baseball.Game.Historical
                     Identity.TeamSeasonKey,
                     seasonYear,
                     Identity.Position,
+                    AtBats,
                     PlateAppearances,
                     Hits,
                     HomeRuns,

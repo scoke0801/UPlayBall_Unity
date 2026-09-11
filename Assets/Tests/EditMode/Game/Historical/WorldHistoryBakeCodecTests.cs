@@ -217,6 +217,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 seasonYear = seasonYear,
                 position = (int)position,
                 plateAppearances = 512,
+                atBats = 450,
                 hits = 141,
                 homeRuns = 22,
                 walks = 51,
@@ -248,6 +249,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 Assert.That(right.seasonYear, Is.EqualTo(left.seasonYear));
                 Assert.That(right.position, Is.EqualTo(left.position));
                 Assert.That(right.plateAppearances, Is.EqualTo(left.plateAppearances));
+                Assert.That(right.atBats, Is.EqualTo(left.atBats));
                 Assert.That(right.hits, Is.EqualTo(left.hits));
                 Assert.That(right.homeRuns, Is.EqualTo(left.homeRuns));
                 Assert.That(right.walks, Is.EqualTo(left.walks));

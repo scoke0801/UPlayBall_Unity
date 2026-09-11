@@ -58,6 +58,7 @@ namespace Baseball.Game.Historical
         public int seasonYear;
         public int position;
         public int plateAppearances;
+        public int atBats;
         public int hits;
         public int homeRuns;
         public int walks;

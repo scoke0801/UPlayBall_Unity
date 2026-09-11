@@ -877,6 +877,7 @@ namespace Baseball.Game.Historical
                     source.TeamSeasonKey,
                     source.SeasonYear,
                     ParsePosition(source.Position, PitcherRole.Starter),
+                    source.AtBats,
                     source.PlateAppearances,
                     source.Hits,
                     source.HomeRuns,

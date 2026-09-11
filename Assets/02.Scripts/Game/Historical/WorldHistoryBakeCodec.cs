@@ -24,7 +24,7 @@ namespace Baseball.Game.Historical
     public static class WorldHistoryBakeCodec
     {
         /// <summary>포맷이 바뀌면 올린다. 값이 다르면 Bake를 무시하고 실제 시뮬레이션으로 되돌아간다.</summary>
-        public const int FormatVersion = 1;
+        public const int FormatVersion = 2;
 
         private const uint Magic = 0x48575055u; // "UPWH"
 
@@ -161,6 +161,7 @@ namespace Baseball.Game.Historical
                 WriteVarInt(writer, row.seasonYear);
                 WriteVarInt(writer, row.position);
                 WriteVarInt(writer, row.plateAppearances);
+                WriteVarInt(writer, row.atBats);
                 WriteVarInt(writer, row.hits);
                 WriteVarInt(writer, row.homeRuns);
                 WriteVarInt(writer, row.walks);
@@ -251,6 +252,7 @@ namespace Baseball.Game.Historical
                     seasonYear = ReadVarInt(reader),
                     position = ReadVarInt(reader),
                     plateAppearances = ReadVarInt(reader),
+                    atBats = ReadVarInt(reader),
                     hits = ReadVarInt(reader),
                     homeRuns = ReadVarInt(reader),
                     walks = ReadVarInt(reader),

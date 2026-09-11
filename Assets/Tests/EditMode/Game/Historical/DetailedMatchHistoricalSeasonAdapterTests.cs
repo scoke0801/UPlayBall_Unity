@@ -13,6 +13,20 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class DetailedMatchHistoricalSeasonAdapterTests
     {
         [Test]
+        public void SeasonStatistics_UsesOfficialAtBatsAndPreservesThemInSave()
+        {
+            var row = new SeasonStatistics("PS-1", "TEAM-1", 2024, PlayerPosition.Shortstop,
+                atBats: 400, plateAppearances: 500, hits: 120, walks: 70);
+            Assert.That(row.BattingAverage, Is.EqualTo(0.3d));
+            var history = new WorldHistorySnapshot(WorldRecordMode.SimulatedHistory, 123UL,
+                new[] { row }, new WorldAwardRecord(System.Array.Empty<WorldAwardEntry>()));
+            var mapper = new WorldHistorySaveMapper();
+            WorldHistorySnapshot restored = mapper.Restore(mapper.CreateSaveData(history));
+            Assert.That(restored.Statistics[0].AtBats, Is.EqualTo(400));
+            Assert.That(restored.Statistics[0].BattingAverage, Is.EqualTo(0.3d));
+        }
+
+        [Test]
         public void Simulate_AggregatesActualDetailedBoxScoreIntoFirstHalfAndRegularStatistics()
         {
             IReadOnlyList<TeamSeasonDefinition> regularTeams = CreateRegularTeams();
@@ -26,6 +40,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(firstHalf.PlateAppearances, Is.GreaterThan(0));
             Assert.That(regular.PlateAppearances, Is.EqualTo(firstHalf.PlateAppearances));
             Assert.That(regular.Hits, Is.EqualTo(firstHalf.Hits));
+            Assert.That(firstHalf.AtBats, Is.GreaterThan(0));
+            Assert.That(regular.AtBats, Is.EqualTo(firstHalf.AtBats));
+            Assert.That(regular.AtBats, Is.LessThanOrEqualTo(regular.PlateAppearances));
             Assert.That(regular.IsPostseason, Is.False);
             Assert.That(regular.IsAllStarGame, Is.False);
             Assert.That(simulation.TeamStatistics.Count, Is.EqualTo(10));

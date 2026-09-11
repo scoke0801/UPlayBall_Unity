@@ -407,6 +407,7 @@ namespace Baseball.Game.Historical
         [SerializeField] private int seasonYear;
         [SerializeField] private string position;
         [SerializeField] private int plateAppearances;
+        [SerializeField] private int atBats;
         [SerializeField] private int hits;
         [SerializeField] private int homeRuns;
         [SerializeField] private int walks;
@@ -422,6 +423,7 @@ namespace Baseball.Game.Historical
         public int SeasonYear => seasonYear;
         public string Position => position ?? string.Empty;
         public int PlateAppearances => plateAppearances;
+        public int AtBats => atBats;
         public int Hits => hits;
         public int HomeRuns => homeRuns;
         public int Walks => walks;
