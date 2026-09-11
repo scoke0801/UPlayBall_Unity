@@ -9,24 +9,46 @@ namespace Baseball.Game.Historical
     /// <summary>개발 환경에서 지급한 카드·스킬 블록 수를 UI에 반환한다.</summary>
     public readonly struct OwnerCheatGrantResult
     {
-        public OwnerCheatGrantResult(int definitionCount, int itemCount, int newCardCount = 0)
+        public OwnerCheatGrantResult(int definitionCount, int itemCount, int newCardCount = 0, int skippedCardCount = 0)
         {
-            if (definitionCount < 0 || itemCount < 0 || newCardCount < 0 || newCardCount > itemCount)
+            if (definitionCount < 0 || itemCount < 0 || newCardCount < 0 || newCardCount > itemCount || skippedCardCount < 0)
                 throw new ArgumentOutOfRangeException(nameof(definitionCount));
             DefinitionCount = definitionCount;
             ItemCount = itemCount;
             NewCardCount = newCardCount;
+            SkippedCardCount = skippedCardCount;
         }
 
         public int DefinitionCount { get; }
         public int ItemCount { get; }
         public int NewCardCount { get; }
+        public int SkippedCardCount { get; }
         public int DuplicateCardCount => ItemCount - NewCardCount;
     }
 
     /// <summary>구단주 개발 치트를 실제 저장 Aggregate의 공개 변경 경로로 적용한다.</summary>
     public sealed class OwnerCheatService
     {
+        /// <summary>지급 가능한 카드에서 선택 연도의 구단별 원본 시즌을 하나씩 반환한다.</summary>
+        public static IReadOnlyList<PlayerSeasonDefinition> GetCardOrigins(WorldCardCatalog catalog, int originYear)
+        {
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
+            if (originYear <= 0)
+                throw new ArgumentOutOfRangeException(nameof(originYear));
+
+            var origins = new List<PlayerSeasonDefinition>();
+            var franchiseIds = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < catalog.Cards.Count; index++)
+            {
+                PlayerSeasonDefinition season = catalog.GetPlayerSeason(catalog.Cards[index]);
+                if (season.OriginYear == originYear && franchiseIds.Add(season.OriginFranchiseId))
+                    origins.Add(season);
+            }
+            origins.Sort((left, right) => string.CompareOrdinal(left.OriginFranchiseId, right.OriginFranchiseId));
+            return origins;
+        }
+
         /// <summary>Money, SP, DP를 한 번에 검증한 뒤 증가시켜 일부만 적용되는 상태를 막는다.</summary>
         public void IncreaseResources(
             ManagerHistoricalRuntimeState runtime,
@@ -62,8 +84,8 @@ namespace Baseball.Game.Historical
             RequireRuntime(runtime);
             if (string.IsNullOrWhiteSpace(cardId) || !runtime.WorldCardCatalog.TryGetCard(cardId.Trim(), out _))
                 throw new ArgumentException("월드에 존재하는 CardId가 필요합니다.", nameof(cardId));
-            bool isNew = runtime.AcquireCard(cardId);
-            return new OwnerCheatGrantResult(1, 1, isNew ? 1 : 0);
+            string id = cardId.Trim();
+            return AcquireMatchingCards(runtime, 1, (card, _) => string.Equals(card.CardId, id, StringComparison.Ordinal));
         }
 
         /// <summary>원 연도와 원 구단이 모두 일치하는 활성 카드 정의를 N장씩 지급한다.</summary>
@@ -152,25 +174,34 @@ namespace Baseball.Game.Historical
             if (selected.Count == 0)
                 return new OwnerCheatGrantResult(0, 0);
 
-            int itemCount = checked(selected.Count * countPerCard);
+            int requestedCount = checked(selected.Count * countPerCard);
+            int itemCount = 0;
+            int definitionCount = 0;
+            var grantCounts = new int[selected.Count];
             for (int index = 0; index < selected.Count; index++)
             {
+                int grantCount = runtime.GetDevelopmentCardGrantCount(selected[index], countPerCard);
+                grantCounts[index] = grantCount;
+                itemCount += grantCount;
+                if (grantCount == 0)
+                    continue;
+                definitionCount++;
                 if (!runtime.TryGetOwnedCard(selected[index].CardId, out OwnedPlayerCardState owned))
                     continue;
-                if (countPerCard > int.MaxValue - owned.DuplicateCount)
+                if (grantCount > int.MaxValue - owned.DuplicateCount)
                     throw new OverflowException("카드 중복 수가 저장 가능한 최대값을 넘습니다.");
             }
 
             int newCardCount = 0;
             for (int index = 0; index < selected.Count; index++)
             {
-                for (int count = 0; count < countPerCard; count++)
+                for (int count = 0; count < grantCounts[index]; count++)
                 {
-                    if (runtime.AcquireCard(selected[index].CardId))
+                    if (runtime.AcquireCardForDevelopment(selected[index].CardId))
                         newCardCount++;
                 }
             }
-            return new OwnerCheatGrantResult(selected.Count, itemCount, newCardCount);
+            return new OwnerCheatGrantResult(definitionCount, itemCount, newCardCount, requestedCount - itemCount);
         }
 
         private static OwnerCheatGrantResult AcquireMatchingSkillBlocks(

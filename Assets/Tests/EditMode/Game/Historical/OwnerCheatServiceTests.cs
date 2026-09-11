@@ -5,6 +5,7 @@ using System.Reflection;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using Baseball.Game.Historical;
 using NUnit.Framework;
 
@@ -13,6 +14,95 @@ namespace Baseball.Tests.EditMode.Game.Historical
     /// <summary>개발 치트가 실제 구단주 저장 Aggregate에 정확한 수량만 지급하는지 검증한다.</summary>
     public sealed class OwnerCheatServiceTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AcquireCards_WithExAndUniqueEdition_CompletesBatchAndRepeatedGrants(bool isLegend)
+        {
+            ManagerHistoricalRuntimeState runtime = CreateSpecialRuntime(isLegend, out string target, out string[] materials);
+            var service = new OwnerCheatService();
+            runtime.Wishlist.Add(target);
+            Assert.Throws<ArgumentException>(() => runtime.AcquireCard(target));
+            Assert.Throws<ArgumentException>(() => runtime.AcquireCard("SPECIAL-0:Ex"));
+
+            OwnerCheatGrantResult first = service.AcquireCards(runtime, 2000, "FRANCHISE-00", 3);
+            Assert.That(first.ItemCount, Is.EqualTo(7));
+            Assert.That(first.NewCardCount, Is.EqualTo(2));
+            Assert.That(first.SkippedCardCount, Is.EqualTo(2));
+            Assert.That(runtime.TryGetOwnedCard(target, out var unique), Is.True);
+            Assert.That(unique.DuplicateCount, Is.Zero);
+            Assert.That(unique.IsLocked, Is.True);
+            Assert.That(runtime.Wishlist.Contains(target), Is.False);
+            Assert.That(runtime.TryGetOwnedCard("SPECIAL-0:Ex", out var ex), Is.True);
+            Assert.That(ex.DuplicateCount, Is.EqualTo(2));
+
+            OwnerCheatGrantResult repeated = service.AcquireCards(runtime, 2000, "FRANCHISE-00", 3);
+            Assert.That(repeated.ItemCount, Is.EqualTo(6));
+            Assert.That(repeated.SkippedCardCount, Is.EqualTo(3));
+            Assert.That(unique.DuplicateCount, Is.Zero);
+            Assert.That(ex.DuplicateCount, Is.EqualTo(5));
+            Assert.That(service.AcquireCard(runtime, target).SkippedCardCount, Is.EqualTo(1));
+            Assert.That(service.AcquireCard(runtime, " SPECIAL-0:Ex ").ItemCount, Is.EqualTo(1));
+            Assert.That(service.AcquireAllCards(runtime).ItemCount, Is.EqualTo(runtime.WorldCardCatalog.Cards.Count - 1));
+            Assert.That(runtime.CreateSpecialCardTransactionsSave(), Is.Empty);
+            Assert.Throws<ArgumentException>(() => runtime.AcquireCard(target));
+        }
+
+        [Test]
+        public void AcquireAllCards_PendingRecruit_PreservesReservationAndCanCommitAfterGrant()
+        {
+            ManagerHistoricalRuntimeState runtime = CreateSpecialRuntime(false, out string target, out string[] materials);
+            runtime.ReserveSpecialRecruit("pending", target, materials);
+            OwnerCheatGrantResult result = new OwnerCheatService().AcquireAllCards(runtime);
+            Assert.That(result.SkippedCardCount, Is.EqualTo(1));
+            Assert.That(runtime.TryGetOwnedCard(target, out _), Is.False);
+            Assert.That(runtime.IsCardReserved(materials[0]), Is.True);
+            Assert.That(runtime.CommitSpecialRecruit("pending"), Is.EqualTo(target));
+        }
+
+        private static ManagerHistoricalRuntimeState CreateSpecialRuntime(bool isLegend, out string target, out string[] materials)
+        {
+            var args = new object[] { null, null, isLegend };
+            var method = typeof(ManagerHistoricalSaveTests).GetMethod("CreateSpecialCardRuntime",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            var runtime = (ManagerHistoricalRuntimeState)method.Invoke(null, args);
+            target = (string)args[0];
+            materials = (string[])args[1];
+            return runtime;
+        }
+
+        [Test]
+        public void GetCardOrigins_YearChange_SelectsThatYearsTeamSeasonAndExcludesAbsentTeams()
+        {
+            ManagerHistoricalRuntimeState runtime = CreateRuntime();
+            PlayerSeasonDefinition template = runtime.WorldCardCatalog.GetPlayerSeason(runtime.WorldCardCatalog.Cards[0]);
+            PlayerSeasonDefinition[] seasons =
+            {
+                CreateSeason("past", 1989, "franchise-a"),
+                CreateSeason("current", 1994, "franchise-a"),
+                CreateSeason("teammate", 1994, "franchise-a"),
+                CreateSeason("past-only", 1989, "franchise-b")
+            };
+            var cards = new List<PlayerCardDefinition>();
+            for (int index = 0; index < seasons.Length; index++)
+                cards.Add(new PlayerCardDefinition(seasons[index].PlayerSeasonId + ":Normal",
+                    seasons[index].PlayerSeasonId, PlayerCardEdition.Normal, new int[PlayerAbilityCatalog.AbilityCount]));
+            var catalog = new WorldCardCatalog(seasons, cards);
+
+            IReadOnlyList<PlayerSeasonDefinition> current = OwnerCheatService.GetCardOrigins(catalog, 1994);
+            Assert.That(current.Count, Is.EqualTo(1));
+            Assert.That(current[0].OriginFranchiseId, Is.EqualTo("franchise-a"));
+            Assert.That(current[0].OriginTeamSeasonKey, Is.EqualTo("franchise-a_1994"));
+            IReadOnlyList<PlayerSeasonDefinition> past = OwnerCheatService.GetCardOrigins(catalog, 1989);
+            Assert.That(past.Count, Is.EqualTo(2));
+            Assert.That(past[0].OriginTeamSeasonKey, Is.EqualTo("franchise-a_1989"));
+            Assert.That(OwnerCheatService.GetCardOrigins(catalog, 1990), Is.Empty);
+
+            PlayerSeasonDefinition CreateSeason(string id, int year, string franchiseId) =>
+                new PlayerSeasonDefinition(id, template.PlayerPersonId, year, franchiseId,
+                    franchiseId + "_" + year, template.Position, template.PitcherRole, template.PlayerType,
+                    template.RegistrationType, template.CreateBaseAttributes(), template.Cost, template.CreateTrainingCeiling());
+        }
+
         [Test]
         public void IncreaseResources_ValidAmounts_UpdatesCanonicalEconomy()
         {

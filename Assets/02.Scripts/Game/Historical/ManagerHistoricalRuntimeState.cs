@@ -191,6 +191,24 @@ namespace Baseball.Game.Historical
             return CommitCardAcquisition(cardId);
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        /// <summary>개발 지급에서도 단일 소유와 진행 중인 영입 예약을 보존한다.</summary>
+        internal int GetDevelopmentCardGrantCount(PlayerCardDefinition card, int requestedCount)
+        {
+            if (!card.IsUniqueOwnedCard)
+                return requestedCount;
+            if (_ownedCardsById.ContainsKey(card.CardId))
+                return 0;
+            foreach (var transaction in _specialCardTransactions.Values)
+                if (!transaction.isCommitted && string.Equals(transaction.targetCardId, card.CardId, StringComparison.Ordinal))
+                    return 0;
+            return 1;
+        }
+
+        /// <summary>개발 치트만 획득 경로 제한을 건너뛰고 공통 소유·이력·위시 Commit을 사용한다.</summary>
+        internal bool AcquireCardForDevelopment(string cardId) => CommitCardAcquisition(cardId).IsNew;
+#endif
+
         private CardAcquisitionCommitResult CommitCardAcquisition(string cardId)
         {
             string id = RequireId(cardId, nameof(cardId));

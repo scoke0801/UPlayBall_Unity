@@ -185,7 +185,10 @@ namespace Baseball.Presentation.Owner
 
             GUILayout.Space(8f);
             GUILayout.BeginHorizontal();
+            int previousYearIndex = _selectedYearIndex;
             DrawCycleSelector("원 연도", _years, ref _selectedYearIndex, year => year + "년", 210f);
+            if (_selectedYearIndex != previousYearIndex)
+                RefreshFranchiseOptions();
             DrawCycleSelector("원 구단", _franchiseOptions, ref _selectedFranchiseIndex, option => option.DisplayName, 340f);
             DrawTextField("장씩 (1~1,000)", ref _cardBatchCount, 130f);
             GUI.enabled = _years.Count > 0 && _franchiseOptions.Count > 0;
@@ -326,6 +329,14 @@ namespace Baseball.Presentation.Owner
             Execute(() =>
             {
                 OwnerCheatGrantResult result = action();
+                string skipped = result.SkippedCardCount > 0
+                    ? $" · 단일 소유·영입 예약 규칙으로 {result.SkippedCardCount:N0}장 제외"
+                    : string.Empty;
+                if (result.ItemCount == 0 && result.SkippedCardCount > 0)
+                {
+                    SetStatus(subject + ": 추가 지급 대상이 없습니다." + skipped, false);
+                    return;
+                }
                 if (result.ItemCount == 0)
                 {
                     SetStatus(subject + " 조건에 맞는 정의가 없습니다.", true);
@@ -335,7 +346,7 @@ namespace Baseball.Presentation.Owner
                     ? $" (신규 {result.NewCardCount:N0}, 중복 {result.DuplicateCardCount:N0})"
                     : string.Empty;
                 SetStatus(
-                    $"{subject} 획득 완료: {result.DefinitionCount:N0}종, 총 {result.ItemCount:N0}개{cardBreakdown}",
+                    $"{subject} 획득 완료: {result.DefinitionCount:N0}종, 총 {result.ItemCount:N0}개{cardBreakdown}{skipped}",
                     false);
             });
         }
@@ -373,11 +384,9 @@ namespace Baseball.Presentation.Owner
                 string label = $"{season.OriginYear} · {franchiseName} · {playerName} · {DescribeEdition(card.Edition)} · {card.CardId}";
                 _cardOptions.Add(new CardOption(card, label));
                 AddYear(season.OriginYear);
-                AddFranchise(season.OriginFranchiseId, franchiseName);
             }
             _cardOptions.Sort(CardOption.Compare);
             _years.Sort((left, right) => right.CompareTo(left));
-            _franchiseOptions.Sort(FranchiseOption.Compare);
 
             SkillBlockDefinition[] definitions = manager.Balance.Growth.SkillBlocks;
             for (int index = 0; index < definitions.Length; index++)
@@ -386,6 +395,8 @@ namespace Baseball.Presentation.Owner
 
             _selectedCardIndex = ClampIndex(_selectedCardIndex, _cardOptions.Count);
             _selectedSkillIndex = ClampIndex(_selectedSkillIndex, _skillOptions.Count);
+            _selectedYearIndex = ClampIndex(_selectedYearIndex, _years.Count);
+            RefreshFranchiseOptions();
             SelectCurrentTeamOrigin(manager.Runtime);
         }
 
@@ -398,11 +409,33 @@ namespace Baseball.Presentation.Owner
             PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
             int yearIndex = _years.IndexOf(season.OriginYear);
             if (yearIndex >= 0) _selectedYearIndex = yearIndex;
+            RefreshFranchiseOptions(season.OriginFranchiseId);
+        }
+
+        private void RefreshFranchiseOptions(string preferredFranchiseId = null)
+        {
+            if (preferredFranchiseId == null && _franchiseOptions.Count > 0)
+                preferredFranchiseId = _franchiseOptions[_selectedFranchiseIndex].FranchiseId;
+            _franchiseOptions.Clear();
+            _selectedFranchiseIndex = 0;
+            if (_years.Count == 0)
+                return;
+
+            IReadOnlyList<PlayerSeasonDefinition> origins = OwnerCheatService.GetCardOrigins(
+                _boundRuntime.WorldCardCatalog, _years[_selectedYearIndex]);
+            for (int index = 0; index < origins.Count; index++)
+            {
+                PlayerSeasonDefinition season = origins[index];
+                string name = _boundRuntime.IdentityRegistry.GetPresentationTeamSeasonName(
+                    season.OriginTeamSeasonKey, season.OriginFranchiseId);
+                _franchiseOptions.Add(new FranchiseOption(season.OriginFranchiseId, name));
+            }
+            _franchiseOptions.Sort(FranchiseOption.Compare);
             for (int index = 0; index < _franchiseOptions.Count; index++)
             {
                 if (!string.Equals(
                         _franchiseOptions[index].FranchiseId,
-                        season.OriginFranchiseId,
+                        preferredFranchiseId,
                         StringComparison.Ordinal))
                     continue;
                 _selectedFranchiseIndex = index;
@@ -414,14 +447,6 @@ namespace Baseball.Presentation.Owner
         {
             if (!_years.Contains(year))
                 _years.Add(year);
-        }
-
-        private void AddFranchise(string franchiseId, string displayName)
-        {
-            for (int index = 0; index < _franchiseOptions.Count; index++)
-                if (string.Equals(_franchiseOptions[index].FranchiseId, franchiseId, StringComparison.Ordinal))
-                    return;
-            _franchiseOptions.Add(new FranchiseOption(franchiseId, displayName));
         }
 
         private void SetVisible(bool isVisible)
