@@ -750,7 +750,7 @@ namespace Baseball.Presentation.Owner
                 status,
                 visualState: PlayerMiniCardVisualState.Normal,
                 frameEdition: player?.Edition,
-                cost: player?.Cost);
+                cost: player?.Cost, conditionLevel: player?.ConditionLevel);
             card.Bind(model, player == null ? null : PlayerPortraitSprites.GetDefault(player.NaturalPosition));
             card.SetTeamIdentity(FindOwnedCard(player?.CardId)?.TeamDisplayName);
         }
@@ -808,7 +808,7 @@ namespace Baseball.Presentation.Owner
                     : OwnerRosterLineupPresentationBuilder.FormatEdition(player.Edition),
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(player.Position, player.PitcherRole, player.IsPositionEvidenceMissing),
                 frameEdition: player.Edition,
-                cost: player.Cost);
+                cost: player.Cost, conditionLevel: player.ConditionLevel);
             card.Bind(model, PlayerPortraitSprites.GetDefault(player.Position));
             card.SetTeamIdentity(player.TeamDisplayName);
             card.SetAssignmentBadge(FindOwnedCardAssignment(player.CardId));

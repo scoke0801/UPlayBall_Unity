@@ -13,6 +13,7 @@ namespace Baseball.Presentation.Career
     {
         private int _selectedCardDesign;
         private bool _showCardArtworkOnly;
+        private bool _showPitcherCardPreview;
         private bool _showFullCardDesignGrid;
         private bool _showCardGalleryFx = true;
         private static readonly string[] CardDesignVariants =
@@ -34,7 +35,8 @@ namespace Baseball.Presentation.Career
 
             CreateText("SelectedEdition", gallery, CardDesignLabels[_selectedCardDesign], 24, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(480, 44), new Vector2(-550, 308), PrimaryTextColor);
-            RectTransform full = CreateRect("FullCard", gallery, new Vector2(300, 420), new Vector2(-620, 20));
+            RectTransform full = CreateRect("FullCard", gallery, new Vector2(456, 640), new Vector2(-620, 20));
+            full.localScale = Vector3.one * (300f / 456f);
             BuildGalleryFullCard(full, _selectedCardDesign);
             CreateText("FullCaption", gallery, "일반 카드", 15, FontStyle.Normal,
                 TextAnchor.MiddleCenter, new Vector2(300, 32), new Vector2(-620, -220), SecondaryTextColor);
@@ -68,6 +70,10 @@ namespace Baseball.Presentation.Career
             Button close = CreateButton("Close", gallery, "닫기", new Vector2(190, 52),
                 new Vector2(310, -435), CardColor, out _);
             close.onClick.AddListener(() => { _showCardGallery = false; Render(); });
+            Button roleToggle = CreateButton("TogglePlayerRole", gallery,
+                _showPitcherCardPreview ? "타자 스탯 보기" : "투수 스탯 보기", new Vector2(230, 52),
+                new Vector2(560, -435), CardColor, out _);
+            roleToggle.onClick.AddListener(() => { _showPitcherCardPreview = !_showPitcherCardPreview; Render(); });
         }
 
         private void BuildGalleryFullCard(RectTransform full, int index)
@@ -78,8 +84,9 @@ namespace Baseball.Presentation.Career
             else
             {
                 var snapshot = new OwnerCollectionCardSnapshot("gallery", "gallery-person", "김하늘", 2025,
-                    PlayerPosition.Shortstop, PreviewCost(index), PreviewEdition(index),
-                    0, 0, false, false, teamDisplayName: "서울 스타즈", isOwnedCard: false);
+                    _showPitcherCardPreview ? PlayerPosition.StartingPitcher : PlayerPosition.Shortstop, PreviewCost(index), PreviewEdition(index),
+                    0, 0, false, false, teamDisplayName: "서울 스타즈", condition: 90,
+                    conditionLabel: "컨디션", conditionLevel: 10 - index % 5 * 2);
                 UI_Popup_OwnerPlayerCard.BuildFrontCard(full, snapshot);
                 full.Find("MainFrame").GetComponent<Image>().sprite = LoadGalleryFrame(variant, false);
                 full.Find("EditionPlate/Edition").GetComponent<Text>().text = CardDesignLabels[index];
@@ -122,8 +129,9 @@ namespace Baseball.Presentation.Career
             rect.sizeDelta = actualSize
                 ? new Vector2(PlayerMiniCardView.LineupSlotWidth, PlayerMiniCardView.LineupSlotHeight)
                 : new Vector2(151, 212);
-            mini.Bind(new PlayerMiniCardModel("gallery-" + index, "김하늘", "유격수", "25", "", "",
-                frameEdition: PreviewEdition(index), cost: PreviewCost(index)), PlayerPortraitSprites.GetDefault(PlayerPosition.Shortstop));
+            PlayerPosition playerPosition = _showPitcherCardPreview ? PlayerPosition.StartingPitcher : PlayerPosition.Shortstop;
+            mini.Bind(new PlayerMiniCardModel("gallery-" + index, "김하늘", _showPitcherCardPreview ? "선발투수" : "유격수", "25", "", "",
+                frameEdition: PreviewEdition(index), cost: PreviewCost(index), conditionLevel: 10 - index % 5 * 2), PlayerPortraitSprites.GetDefault(playerPosition));
             mini.transform.Find("LineupSubFrame").GetComponent<Image>().sprite = LoadGalleryFrame(CardDesignVariants[index], true);
             OwnerPlayerCardFrames.SetCostStars((RectTransform)mini.transform.Find("CostStars"),
                 CardDesignVariants[index], PreviewCost(index));

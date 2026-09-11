@@ -6,6 +6,49 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.SharedUI
 {
+    /// <summary>정본 컨디션 10단계를 두 단계씩 묶어 한 장의 화살표 시트로 표시한다.</summary>
+    internal static class PlayerCardConditionSprites
+    {
+        private static readonly Sprite[] Arrows = new Sprite[5];
+
+        public static Sprite Get(int? level)
+        {
+            if (!level.HasValue || level < 1 || level > 10) return null;
+            int index = 4 - (level.Value - 1) / 2;
+            if (Arrows[index] != null) return Arrows[index];
+            Texture2D texture = Resources.Load<Texture2D>("UI/PlayerCards/PlayerCard_ConditionArrows_v1");
+            if (texture == null) return null;
+            float cell = texture.width / 5f;
+            // 시트의 위아래 여백을 제외해 작은 카드에서도 화살표가 크게 보이게 한다.
+            Arrows[index] = Sprite.Create(texture,
+                new Rect(index * cell, texture.height * .22f, cell, texture.height * .56f),
+                new Vector2(.5f, .5f), 100, 0, SpriteMeshType.FullRect);
+            Arrows[index].name = "ConditionArrow" + index;
+            return Arrows[index];
+        }
+
+        public static Image Bind(Transform parent, int? level, Vector2 min, Vector2 max)
+        {
+            Transform existing = parent.Find("ConditionArrow");
+            Image icon = existing != null ? existing.GetComponent<Image>() : null;
+            if (icon == null)
+            {
+                var item = new GameObject("ConditionArrow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                item.transform.SetParent(parent, false);
+                icon = item.GetComponent<Image>();
+            }
+            icon.sprite = Get(level);
+            icon.gameObject.SetActive(icon.sprite != null);
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            icon.rectTransform.anchorMin = min;
+            icon.rectTransform.anchorMax = max;
+            icon.rectTransform.offsetMin = icon.rectTransform.offsetMax = Vector2.zero;
+            icon.transform.SetAsLastSibling();
+            return icon;
+        }
+    }
+
     /// <summary>표시 문자열과 무관하게 카드의 정본 등급으로 생성 프레임을 선택한다.</summary>
     internal static class OwnerPlayerCardFrames
     {
@@ -18,10 +61,24 @@ namespace Baseball.Presentation.SharedUI
         public static Rect GetNameRect(PlayerCardEdition edition, bool isMini)
         {
             // 원화마다 리본 높이가 다르므로 프레임 전체 기준의 정규 좌표를 사용한다.
-            if (!isMini) return new Rect(.23f, .415f, .54f, .045f);
+            if (!isMini)
+            {
+                // 문장이 명찰 안으로 들어오는 레전드는 문장 아래의 빈 영역을 기준으로 한다.
+                float center;
+                switch (edition)
+                {
+                    case PlayerCardEdition.Mvp: center = .454f; break;
+                    case PlayerCardEdition.Rare: center = .453f; break;
+                    case PlayerCardEdition.GoldenGlove: center = .449f; break;
+                    case PlayerCardEdition.Legend: center = .424f; break;
+                    case PlayerCardEdition.CareerHigh: center = .437f; break;
+                    case PlayerCardEdition.Ex: center = .443f; break;
+                    default: center = .440f; break;
+                }
+                return new Rect(.23f, center - .0225f, .54f, .045f);
+            }
             switch (edition)
             {
-                case PlayerCardEdition.Mvp:
                 case PlayerCardEdition.Ex:
                 case PlayerCardEdition.Legend:
                 case PlayerCardEdition.Rare:
@@ -128,7 +185,8 @@ namespace Baseball.Presentation.SharedUI
         public static Sprite Get(string variant, bool isMini)
         {
             string path = "UI/PlayerCards/PlayerCard_" + (isMini ? "Mini_" : "Full_") + variant;
-            return Resources.Load<Sprite>(path + "_v6")
+            return Resources.Load<Sprite>(path + "_v7")
+                ?? Resources.Load<Sprite>(path + "_v6")
                 ?? Resources.Load<Sprite>(path + "_v5")
                 ?? Resources.Load<Sprite>(path + "_v4")
                 ?? Resources.Load<Sprite>(path + "_v3")
@@ -186,8 +244,8 @@ namespace Baseball.Presentation.SharedUI
                     break;
                 case PlayerCardEdition.Mvp:
                     _islandMode = 1;
-                    AddRect(mesh, _isMini ? .40f : .42f, _isMini ? .325f : .505f,
-                        _isMini ? .60f : .58f, _isMini ? .398f : .57f);
+                    AddRect(mesh, _isMini ? .40f : .42f, _isMini ? .278f : .505f,
+                        _isMini ? .60f : .58f, _isMini ? .35f : .57f);
                     break;
                 case PlayerCardEdition.Legend:
                     _islandMode = 1;

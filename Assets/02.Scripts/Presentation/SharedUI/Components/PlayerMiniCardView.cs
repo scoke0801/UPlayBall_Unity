@@ -149,6 +149,9 @@ namespace Baseball.Presentation.SharedUI
             _canvasGroup.alpha = model.VisualState == PlayerMiniCardVisualState.Disabled ? 0.48f : 1f;
 
             ApplyVisualState(model.VisualState, ParseAccent(model.TeamAccentHex));
+            float conditionTop = _usesLineupSlotLayout ? .89f : 1f;
+            PlayerCardConditionSprites.Bind(transform, model.ConditionLevel,
+                new Vector2(.035f, .38f * conditionTop), new Vector2(.24f, .53f * conditionTop));
         }
 
         /// <summary>

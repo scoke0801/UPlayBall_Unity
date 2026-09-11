@@ -215,9 +215,66 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Capture(output, edition, 456, 640, false);
             }
             Capture(output, PlayerCardEdition.Normal, 640, 240, true);
+            Capture(output, PlayerCardEdition.Normal, 800, 240, true);
+            Capture(output, PlayerCardEdition.Normal, 456, 640, false, true);
         }
 
-        private static void Capture(string output, PlayerCardEdition edition, int width, int height, bool mini)
+        [Test]
+        public void ConditionArrow_RebindsAllLevelsAndHidesUnknown()
+        {
+            var root = new GameObject("Conditions", typeof(RectTransform));
+            try
+            {
+                var view = PlayerMiniCardView.CreateRuntime(root.transform);
+                view.UseLineupSlotLayout();
+                string[] expected = { "ConditionArrow4", "ConditionArrow4", "ConditionArrow3", "ConditionArrow3",
+                    "ConditionArrow2", "ConditionArrow2", "ConditionArrow1", "ConditionArrow1", "ConditionArrow0", "ConditionArrow0" };
+                for (int level = 1; level <= 10; level++)
+                {
+                    view.Bind(new PlayerMiniCardModel("p", "김하늘", "유격수", "26", "", "",
+                        frameEdition: PlayerCardEdition.Normal, conditionLevel: level));
+                    var arrow = view.transform.Find("ConditionArrow").GetComponent<Image>();
+                    Assert.That(arrow.sprite, Is.Not.Null);
+                    Assert.That(arrow.sprite.name, Is.EqualTo(expected[level - 1]));
+                    Assert.That(arrow.raycastTarget, Is.False);
+                }
+                view.Bind(new PlayerMiniCardModel("p", "김하늘", "유격수", "26", "", ""));
+                Assert.That(view.transform.Find("ConditionArrow").gameObject.activeSelf, Is.False);
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FullCard_UsesRoleSpecificLabelsAndValues(bool pitcher)
+        {
+            var root = new GameObject("Role", typeof(RectTransform));
+            try
+            {
+                var card = new OwnerCollectionCardSnapshot("c", "p", "김하늘", 2026,
+                    pitcher ? PlayerPosition.StartingPitcher : PlayerPosition.Shortstop, 7,
+                    PlayerCardEdition.Normal, 0, 0, false, false, CreateAbilities());
+                typeof(UI_Popup_OwnerPlayerCard).GetMethod("BuildFrontCard",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(null, new object[] { (RectTransform)root.transform, card });
+                string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화구", "제구력", "정신력" }
+                    : new[] { "교타력", "장타력", "주력", "번트", "수비력", "정신력" };
+                PlayerAbility[] abilities = pitcher ? new[] { PlayerAbility.Stamina, PlayerAbility.Velocity,
+                    PlayerAbility.Stuff, PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental }
+                    : new[] { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed,
+                        PlayerAbility.Arm, PlayerAbility.Defense, PlayerAbility.BatterMental };
+                for (int i = 0; i < 6; i++)
+                {
+                    Assert.That(root.transform.Find("Ability" + i).GetComponent<Text>().text, Is.EqualTo(labels[i]));
+                    Assert.That(root.transform.Find("Value" + i).GetComponent<Text>().text,
+                        Is.EqualTo(!pitcher && i == 3 ? CreateAbilities().ToBatterAttributes().Bunt.ToString()
+                            : card.GetEffectiveAbility(abilities[i]).ToString()));
+                }
+            }
+            finally { Object.DestroyImmediate(root); }
+        }
+
+        private static void Capture(string output, PlayerCardEdition edition, int width, int height, bool mini, bool pitcher = false)
         {
             var cameraObject = new GameObject("Camera", typeof(Camera));
             var root = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
@@ -237,25 +294,26 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 canvas.planeDistance = 1;
                 if (mini)
                 {
-                    int count = width == 640 ? 4 : 1;
+                    int count = width == 800 ? 5 : width == 640 ? 4 : 1;
                     for (int index = 0; index < count; index++)
                     {
                         var view = PlayerMiniCardView.CreateRuntime(root.transform);
-                        if (width == 80 || count == 4) view.UseLineupSlotLayout();
+                        if (width == 80 || count > 1) view.UseLineupSlotLayout();
                         view.Bind(new PlayerMiniCardModel("p", "김하늘", "유격수", "26", "", "", "주전",
-                            frameEdition: count == 4 ? (PlayerCardEdition)index : edition, cost: 7),
+                            frameEdition: count == 4 ? (PlayerCardEdition)index : edition, cost: 7,
+                            conditionLevel: 10 - index * 2),
                             Resources.Load<Sprite>("UI/Portraits/img_hitter_default"));
                         RectTransform rect = (RectTransform)view.transform;
                         rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
-                        rect.offsetMin = count == 4 ? new Vector2(7 + index * 158, 14) : Vector2.zero;
-                        rect.offsetMax = count == 4 ? new Vector2(7 + index * 158 + 151 - width, -14) : Vector2.zero;
+                        rect.offsetMin = count > 1 ? new Vector2(7 + index * 158, 14) : Vector2.zero;
+                        rect.offsetMax = count > 1 ? new Vector2(7 + index * 158 + 151 - width, -14) : Vector2.zero;
                     }
                 }
                 else
                 {
                     typeof(UI_Popup_OwnerPlayerCard).GetMethod("BuildFrontCard",
                         System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
-                        .Invoke(null, new object[] { (RectTransform)root.transform, Fixture(edition) });
+                        .Invoke(null, new object[] { (RectTransform)root.transform, Fixture(edition, pitcher) });
                 }
                 Canvas.ForceUpdateCanvases();
                 camera.Render();
@@ -263,8 +321,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 capture = new Texture2D(width, height, TextureFormat.RGBA32, false);
                 capture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
                 capture.Apply();
-                string fileName = width == 640 ? "Mini_AllEditions_640.png"
-                    : (mini ? "Mini_" : "Full_") + Variant(edition) + "_" + width + ".png";
+                string fileName = width == 800 ? "Mini_Conditions_800.png" : width == 640 ? "Mini_AllEditions_640.png"
+                    : (mini ? "Mini_" : pitcher ? "Pitcher_" : "Full_") + Variant(edition) + "_" + width + ".png";
                 File.WriteAllBytes(Path.Combine(output, fileName), capture.EncodeToPNG());
             }
             finally
@@ -277,10 +335,11 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             }
         }
 
-        private static OwnerCollectionCardSnapshot Fixture(PlayerCardEdition edition) =>
-            new OwnerCollectionCardSnapshot("c", "p", "김하늘", 2026, PlayerPosition.Shortstop, 7,
+        private static OwnerCollectionCardSnapshot Fixture(PlayerCardEdition edition, bool pitcher = false) =>
+            new OwnerCollectionCardSnapshot("c", "p", "김하늘", 2026,
+                pitcher ? PlayerPosition.StartingPitcher : PlayerPosition.Shortstop, 7,
                 edition, 0, 0, false, false, CreateAbilities(),
-                teamDisplayName: "서울 스타즈", condition: 73, conditionLabel: "좋음");
+                teamDisplayName: "서울 스타즈", condition: 73, conditionLabel: "좋음", conditionLevel: 8);
 
         private static AbilityRatings CreateAbilities()
         {
@@ -305,9 +364,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
         private static int ExpectedFrameVersion(PlayerCardEdition edition, bool isMini = true)
         {
+            if (isMini && edition == PlayerCardEdition.Mvp) return 7;
             if (edition == PlayerCardEdition.Rare || edition == PlayerCardEdition.AllStar || edition == PlayerCardEdition.Ex) return 6;
-            if (edition == PlayerCardEdition.Mvp || edition == PlayerCardEdition.Ex ||
-                (!isMini && edition == PlayerCardEdition.AllStar)) return 5;
+            if (edition == PlayerCardEdition.Mvp) return 5;
             return edition == PlayerCardEdition.Normal ? 2 : 4;
         }
 

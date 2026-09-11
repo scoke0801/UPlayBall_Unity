@@ -161,7 +161,10 @@ namespace Baseball.Presentation.Owner
                 RectTransform conditionPanel = Gradient(parent, "ConditionPanel", new Color32(37, 25, 30, 235),
                     new Color32(15, 13, 17, 245), .045f, .548f, .195f, .647f);
                 Label(conditionPanel, "Title", "컨디션", .05f, .68f, .95f, .98f, 11, Gold);
-                Label(conditionPanel, "Value", card.Condition?.ToString() ?? "—", .05f, .26f, .95f, .70f, 25, Color.white);
+                PlayerCardConditionSprites.Bind(conditionPanel, card.ConditionLevel,
+                    new Vector2(.02f, .27f), new Vector2(.46f, .70f));
+                Label(conditionPanel, "Value", card.Condition?.ToString() ?? "—",
+                    card.ConditionLevel.HasValue ? .47f : .05f, .26f, .98f, .70f, 22, Color.white);
                 Label(conditionPanel, "State", card.ConditionLabel, .02f, .02f, .98f, .28f, 10, Gold);
             }
             // 프레임과 독립된 표면에 실제 능력치만 그린다.
@@ -171,7 +174,7 @@ namespace Baseball.Presentation.Owner
                 .Initialize(CareerUiVisualRole.DataImage);
             CreateAbilityLegend(parent);
             string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화구", "제구력", "정신력" } :
-                new[] { "교타력", "장타력", "주력", "송구력", "수비력", "정신력" };
+                new[] { "교타력", "장타력", "주력", "번트", "수비력", "정신력" };
             PlayerAbility[] abilities = pitcher ? new[] { PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff,
                 PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental } :
                 new[] { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Arm, PlayerAbility.Defense, PlayerAbility.BatterMental };
@@ -180,11 +183,13 @@ namespace Baseball.Presentation.Owner
                 float y = .297f - i * .036f;
                 Surface(parent, "RowRule" + i, new Color(0.48f, 0.64f, 0.79f, .16f),
                     .045f, y - .001f, .95f, y);
-                int? value = card.GetEffectiveAbility(abilities[i]);
+                bool isBunt = !pitcher && i == 3;
+                int? value = isBunt ? card.GetBuntAbility() : card.GetEffectiveAbility(abilities[i]);
                 Label(parent, "Ability" + i, labels[i], .035f, y, .20f, y + .034f, 14, Color.white);
                 Gradient(parent, "Track" + i, new Color32(93, 97, 107, 255), new Color32(44, 47, 55, 255),
                     .205f, y + .010f, .77f, y + .023f);
-                OwnerAbilityBreakdownSnapshot? breakdown = card.GetAbilityBreakdown(abilities[i]);
+                // 파생 번트에 송구력의 성장 출처가 표시되지 않도록 별도 처리한다.
+                OwnerAbilityBreakdownSnapshot? breakdown = isBunt ? null : card.GetAbilityBreakdown(abilities[i]);
                 if (breakdown.HasValue)
                     BuildAbilitySegments(parent, i, y, breakdown.Value, card.AbilityGraphMaximum);
                 else if (value.HasValue)

@@ -28,6 +28,9 @@ namespace Baseball.Core.Players
         /// <summary>
         /// 번트는 별도 성장축으로 두지 않고 배트 컨트롤과 상황 판단에서 파생한다.
         /// </summary>
-        public int Bunt => (Contact * 3 + Mental * 2 + 2) / 5;
+        public int Bunt => CalculateBunt(Contact, Mental);
+
+        /// <summary>경기 능력치와 100 초과 카드 표시가 같은 번트 파생식을 사용한다.</summary>
+        public static int CalculateBunt(int contact, int mental) => (contact * 3 + mental * 2 + 2) / 5;
     }
 }

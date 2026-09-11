@@ -176,6 +176,7 @@ namespace Baseball.Presentation.Owner
             TeamDisplayName = teamDisplayName ?? string.Empty;
             _skillBlockPlacements = Copy(skillBlockPlacements);
             Condition = condition;
+            ConditionLevel = isOwnedCard ? conditionLevel : null;
             ConditionLabel = conditionLabel ?? string.Empty;
             if (abilityGraphMaximum < AbilityRatings.Maximum)
                 throw new ArgumentOutOfRangeException(nameof(abilityGraphMaximum));
@@ -192,8 +193,8 @@ namespace Baseball.Presentation.Owner
         public string DisplayName { get; }
         public int OriginYear { get; }
         public PlayerPosition Position { get; }
-        public int Cost { get; }
         public bool IsPositionEvidenceMissing { get; }
+        public int Cost { get; }
         public PlayerCardEdition Edition { get; }
         public int EnhancementLevel { get; }
         public int DuplicateCount { get; }
@@ -214,6 +215,7 @@ namespace Baseball.Presentation.Owner
         public string TeamDisplayName { get; }
         public int? Condition { get; }
         public string ConditionLabel { get; }
+        public int? ConditionLevel { get; }
         public PreferredBattingOrder PreferredBattingOrder { get; }
         public int AbilityGraphMaximum { get; }
         public bool IsOwnedCard { get; }
@@ -229,6 +231,15 @@ namespace Baseball.Presentation.Owner
             : Math.Min(AbilityGraphMaximum, _abilityBreakdowns[(int)ability].Total);
         public OwnerAbilityBreakdownSnapshot? GetAbilityBreakdown(PlayerAbility ability) =>
             _abilityBreakdowns == null ? null : _abilityBreakdowns[(int)ability];
+
+        /// <summary>번트는 송구력 대신 교타력과 정신력의 정본 파생값을 표시한다.</summary>
+        public int? GetBuntAbility()
+        {
+            int? contact = GetEffectiveAbility(PlayerAbility.Contact);
+            int? mental = GetEffectiveAbility(PlayerAbility.BatterMental);
+            return contact.HasValue && mental.HasValue
+                ? BatterAttributes.CalculateBunt(contact.Value, mental.Value) : (int?)null;
+        }
 
         private static T[] Copy<T>(IReadOnlyList<T> source)
         {
@@ -347,11 +358,13 @@ namespace Baseball.Presentation.Owner
                 FormatEdition(card.Edition),
                 status,
                 string.IsNullOrEmpty(card.PlayerSeasonId) ? card.PlayerPersonId : card.PlayerSeasonId,
-                visualState: state, frameEdition: card.Edition, cost: card.Cost);
+                visualState: state, frameEdition: card.Edition, cost: card.Cost, conditionLevel: card.ConditionLevel);
         }
 
         public static string FormatPosition(PlayerPosition position, bool isPositionEvidenceMissing = false)
         {
+            if (isPositionEvidenceMissing && position <= PlayerPosition.DesignatedHitter)
+                return "포지션 미확인";
             return position switch
             {
                 PlayerPosition.Catcher => "포수",
@@ -363,8 +376,6 @@ namespace Baseball.Presentation.Owner
                 PlayerPosition.CenterField => "중견수",
                 PlayerPosition.RightField => "우익수",
                 PlayerPosition.DesignatedHitter => "지명타자",
-            if (isPositionEvidenceMissing && position <= PlayerPosition.DesignatedHitter)
-                return "포지션 미확인";
                 PlayerPosition.StartingPitcher => "선발투수",
                 PlayerPosition.ReliefPitcher => "구원투수",
                 _ => "포지션 미확인"

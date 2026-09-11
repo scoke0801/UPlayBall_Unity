@@ -39,13 +39,16 @@ namespace Baseball.Tests.EditMode.Core
         }
 
         [Test]
-        public void PlayerCardEdition_정확히네종만존재한다()
+        public void PlayerCardEdition_기본네종의저장값뒤에특수카드를추가한다()
         {
-            Assert.That(Enum.GetValues(typeof(PlayerCardEdition)).Length, Is.EqualTo(4));
-            Assert.That(Enum.IsDefined(typeof(PlayerCardEdition), PlayerCardEdition.Normal), Is.True);
-            Assert.That(Enum.IsDefined(typeof(PlayerCardEdition), PlayerCardEdition.AllStar), Is.True);
-            Assert.That(Enum.IsDefined(typeof(PlayerCardEdition), PlayerCardEdition.GoldenGlove), Is.True);
-            Assert.That(Enum.IsDefined(typeof(PlayerCardEdition), PlayerCardEdition.Mvp), Is.True);
+            Assert.That((int)PlayerCardEdition.Normal, Is.EqualTo(0));
+            Assert.That((int)PlayerCardEdition.AllStar, Is.EqualTo(1));
+            Assert.That((int)PlayerCardEdition.GoldenGlove, Is.EqualTo(2));
+            Assert.That((int)PlayerCardEdition.Mvp, Is.EqualTo(3));
+            Assert.That((int)PlayerCardEdition.Rare, Is.EqualTo(4));
+            Assert.That((int)PlayerCardEdition.Ex, Is.EqualTo(5));
+            Assert.That((int)PlayerCardEdition.CareerHigh, Is.EqualTo(6));
+            Assert.That((int)PlayerCardEdition.Legend, Is.EqualTo(7));
         }
 
         [Test]

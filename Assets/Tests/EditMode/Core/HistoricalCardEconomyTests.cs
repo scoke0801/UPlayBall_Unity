@@ -10,7 +10,7 @@ namespace Baseball.Tests.EditMode.Core
     public sealed class HistoricalCardEconomyTests
     {
         [Test]
-        public void PlayerCardEdition_정확히_네_종류만_존재한다()
+        public void PlayerCardEdition_기본과특수카드여덟종을지원한다()
         {
             CollectionAssert.AreEqual(
                 new[]
@@ -18,7 +18,11 @@ namespace Baseball.Tests.EditMode.Core
                     PlayerCardEdition.Normal,
                     PlayerCardEdition.AllStar,
                     PlayerCardEdition.GoldenGlove,
-                    PlayerCardEdition.Mvp
+                    PlayerCardEdition.Mvp,
+                    PlayerCardEdition.Rare,
+                    PlayerCardEdition.Ex,
+                    PlayerCardEdition.CareerHigh,
+                    PlayerCardEdition.Legend
                 },
                 Enum.GetValues(typeof(PlayerCardEdition)));
         }
