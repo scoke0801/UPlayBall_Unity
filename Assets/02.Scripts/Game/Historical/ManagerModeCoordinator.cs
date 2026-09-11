@@ -517,16 +517,8 @@ namespace Baseball.Game.Historical
                 runtime.Economy.Money);
             StaffSalarySettlementResult salary = _staffContractService.SettleSalaries(
                 salaryCommand,
-                mode.StaffContracts);
-            if (salary.Status == StaffServiceStatus.InsufficientMoney)
-            {
-                return new ManagerSeasonAdvanceResult(
-                    ManagerSeasonAdvanceStatus.InsufficientMoney,
-                    mode.ClubOperation.CurrentSeason,
-                    salary,
-                    null,
-                    null);
-            }
+                mode.StaffContracts,
+                ContractPaymentMode.AllowArrears);
             if (!salary.IsSuccess)
             {
                 return new ManagerSeasonAdvanceResult(
@@ -565,17 +557,7 @@ namespace Baseball.Game.Historical
 
             long playerSalary = mode.GetAnnualPlayerSalaryTotal();
             long totalSalary = checked(salary.TotalSalary + playerSalary);
-            if (runtime.Economy.Money < totalSalary)
-            {
-                return new ManagerSeasonAdvanceResult(
-                    ManagerSeasonAdvanceStatus.InsufficientMoney,
-                    mode.ClubOperation.CurrentSeason,
-                    salary,
-                    staffAdvance,
-                    null);
-            }
-            if (totalSalary > 0L && !runtime.Economy.TrySpendMoney(totalSalary))
-                throw new InvalidOperationException("검증된 시즌 급여를 반영할 수 없습니다.");
+            runtime.Economy.SettleContractPayment(totalSalary);
             mode.SettleAndAdvancePlayerContracts(completedSeasonNumber);
             mode.AdvanceSeason(
                 nextOperation,
@@ -657,11 +639,11 @@ namespace Baseball.Game.Historical
                 runtime.PlayerTeamSeasonKey,
                 mode.LiveSeason.SeasonNumber,
                 runtime.Economy.Money);
-            StaffSalarySettlementResult result = _staffContractService.SettleSalaries(command, mode.StaffContracts);
+            StaffSalarySettlementResult result = _staffContractService.SettleSalaries(
+                command, mode.StaffContracts, ContractPaymentMode.AllowArrears);
             if (!result.IsSuccess || result.Status == StaffServiceStatus.NoChange)
                 return result;
-            if (!runtime.Economy.TrySpendMoney(result.MoneyCommand.Amount))
-                throw new InvalidOperationException("검증된 Staff 급여를 반영할 수 없습니다.");
+            runtime.Economy.SettleContractPayment(result.MoneyCommand.Amount);
             mode.ReplaceStaffState(result.Contracts, mode.StaffAssignment);
             return result;
         }

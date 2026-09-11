@@ -114,7 +114,9 @@ namespace Baseball.Presentation.Owner
                     ? "우리 조 결과는 확정됐습니다. 남은 리그 결과를 마감하면 시즌 결산이 열립니다."
                     : "최종 순위와 대진을 확인한 뒤 포스트시즌을 진행하세요."
                 : !isSeasonReviewAcknowledged ? "시즌 성과와 다음 등급을 결산에서 확인하세요."
-                : "계약과 급여를 확인한 뒤 다음 시즌을 시작하세요.";
+                : "만료 임박 계약을 갱신하세요. 부족한 급여·갱신비는 이월됩니다.";
+            if (snapshot.IsRosterValid && snapshot.ContractArrears > 0L)
+                _feedbackText.text = $"미지급 급여·계약금 {OwnerMoneyFormatter.Format(snapshot.ContractArrears)} · 수입에서 우선 상환합니다.";
             _feedbackText.color = snapshot.IsRosterValid ? CareerUiTheme.ReferenceTextSecondary : CareerUiTheme.Loss;
         }
 

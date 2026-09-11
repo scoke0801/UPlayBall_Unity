@@ -130,7 +130,8 @@ namespace Baseball.Presentation.Owner
             TicketPriceTier ticketPriceTier,
             IReadOnlyList<OwnerFacilitySnapshot> facilities,
             OwnerFinanceSnapshot weeklyFinance,
-            OwnerFinanceSnapshot seasonFinance)
+            OwnerFinanceSnapshot seasonFinance,
+            long contractArrears = 0L)
         {
             if (stadiumLevel <= 0 || stadiumCapacity <= 0 || nextStadiumUpgradeMoneyCost < 0L)
                 throw new ArgumentOutOfRangeException(nameof(stadiumLevel));
@@ -159,6 +160,7 @@ namespace Baseball.Presentation.Owner
             _facilities = CopyFacilities(facilities);
             WeeklyFinance = weeklyFinance ?? throw new ArgumentNullException(nameof(weeklyFinance));
             SeasonFinance = seasonFinance ?? throw new ArgumentNullException(nameof(seasonFinance));
+            ContractArrears = contractArrears;
         }
 
         public int StadiumLevel { get; }
@@ -174,6 +176,7 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<OwnerFacilitySnapshot> Facilities => _facilities;
         public OwnerFinanceSnapshot WeeklyFinance { get; }
         public OwnerFinanceSnapshot SeasonFinance { get; }
+        public long ContractArrears { get; }
 
         private static OwnerFacilitySnapshot[] CopyFacilities(IReadOnlyList<OwnerFacilitySnapshot> source)
         {

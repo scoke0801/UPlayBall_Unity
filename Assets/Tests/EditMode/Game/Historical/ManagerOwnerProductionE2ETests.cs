@@ -368,7 +368,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
-        public void AdvanceSeason_WhenSalaryCannotBePaid_LeavesEveryStateUntouched()
+        public void AdvanceSeason_WhenSalaryCannotBePaid_CarriesArrearsAndRestoresWithoutDuplicateCharges()
         {
             CreateRuntime(
                 out ManagerHistoricalRuntimeState runtime,
@@ -393,18 +393,105 @@ namespace Baseball.Tests.EditMode.Game.Historical
             save.economy.money = 0L;
             runtime = adapter.Restore(save);
             ClubOperationState operationBefore = runtime.ManagerMode.ClubOperation;
+            long expectedArrears = runtime.ManagerMode.GetAnnualPlayerSalaryTotal() + contract.AnnualSalary;
 
             ManagerSeasonAdvanceResult result = new ManagerModeCoordinator(BalanceTable.CreateDefault())
                 .AdvanceSeason(runtime);
 
-            Assert.That(result.Status, Is.EqualTo(ManagerSeasonAdvanceStatus.InsufficientMoney));
+            Assert.That(result.Status, Is.EqualTo(ManagerSeasonAdvanceStatus.Applied));
             Assert.That(runtime.Economy.Money, Is.Zero);
-            Assert.That(runtime.ManagerMode.LiveSeason.SeasonNumber, Is.EqualTo(1));
-            Assert.That(runtime.ManagerMode.ClubOperation, Is.SameAs(operationBefore));
+            Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(expectedArrears));
+            Assert.That(runtime.ManagerMode.LiveSeason.SeasonNumber, Is.EqualTo(2));
+            Assert.That(runtime.ManagerMode.ClubOperation, Is.Not.SameAs(operationBefore));
             StaffContractState unchanged = FindContract(runtime, contract.ContractId);
-            Assert.That(unchanged.RemainingSeasons, Is.EqualTo(1));
-            Assert.That(unchanged.LastSalaryPaidSeason, Is.Null);
-            Assert.That(runtime.ManagerMode.StaffAssignment.ConditioningCoachStaffId, Is.EqualTo(coach.StaffId));
+            Assert.That(unchanged.RemainingSeasons, Is.Zero);
+            Assert.That(unchanged.LastSalaryPaidSeason, Is.EqualTo(1));
+            Assert.That(runtime.ManagerMode.StaffAssignment.ConditioningCoachStaffId, Is.Null);
+            runtime = adapter.Restore(adapter.CreateSaveData(runtime));
+            var coordinator = new ManagerModeCoordinator(BalanceTable.CreateDefault());
+            Assert.That(coordinator.AdvanceSeason(runtime).Status, Is.EqualTo(ManagerSeasonAdvanceStatus.SeasonInProgress));
+            Assert.That(coordinator.SettleStaffSalary(runtime).Status, Is.EqualTo(StaffServiceStatus.NoChange));
+            Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(expectedArrears));
+            runtime.Economy.AddMoney(expectedArrears + 123L);
+            Assert.That(runtime.Economy.ContractArrears, Is.Zero);
+            Assert.That(runtime.Economy.Money, Is.EqualTo(123L));
+        }
+
+        [Test]
+        public void AdvanceSeason_TwentySeasonsWithoutCash_RenewalAndSalaryRemainPayableAsArrears()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out ManagerHistoricalSaveAdapter adapter, out _);
+            var balance = BalanceTable.CreateDefault();
+            var coordinator = new ManagerModeCoordinator(balance);
+            var market = new OwnerPlayerMarketService(balance);
+            runtime.Economy.TrySpendMoney(runtime.Economy.Money);
+            long expectedArrears = 0L;
+            for (int season = 1; season <= 20; season++)
+            {
+                for (int group = 0; group < runtime.LeagueWorld.Groups.Count; group++)
+                    CompleteSeasonSchedule(runtime.LeagueWorld.Groups[group].Season);
+                CompleteOwnerPostseason(runtime, balance);
+                if (runtime.ManagerMode.HasExpiringPlayerContracts())
+                {
+                    OwnerContractBatchPreview preview = market.PreviewExpiringRenewals(runtime, 1);
+                    Assert.That(preview.CanCommit, Is.True, preview.Reason);
+                    Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(expectedArrears));
+                    Assert.That(preview.DeferredSigningCost, Is.EqualTo(preview.SigningCost));
+                    expectedArrears += preview.SigningCost;
+                    Assert.That(market.RenewExpiringContracts(runtime, 1).CanCommit, Is.True);
+                    Assert.That(market.RenewExpiringContracts(runtime, 1).CanCommit, Is.False);
+                }
+                long salary = runtime.ManagerMode.GetAnnualPlayerSalaryTotal();
+                ManagerSeasonAdvanceResult result = coordinator.AdvanceSeason(runtime);
+                Assert.That(result.IsApplied, Is.True, $"시즌 {season}: {result.Status}");
+                expectedArrears += salary + result.SalarySettlement.TotalSalary;
+                Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(expectedArrears));
+                Assert.That(runtime.Economy.Money, Is.Zero);
+                Assert.That(runtime.ManagerMode.LiveSeason.SeasonNumber, Is.EqualTo(season + 1));
+                runtime = adapter.Restore(adapter.CreateSaveData(runtime));
+                Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(expectedArrears));
+            }
+        }
+
+        [Test]
+        public void HomeGameRevenue_WithArrears_RepaysBeforeIncreasingAvailableMoney()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out _, out IHistoricalContentProvider provider);
+            runtime.Economy.TrySpendMoney(runtime.Economy.Money);
+            const long arrears = 1_000_000_000_000L;
+            runtime.Economy.SettleContractPayment(arrears);
+            var balance = BalanceTable.CreateDefault();
+            var matchService = new ManagerModeMatchService(provider, balance);
+            ManagerModeMatchResult result = PlayThroughNextPlayerHomeGame(runtime, matchService);
+            long income = result.HomeFinance.Receipt.ResourceDelta.Money;
+            Assert.That(income, Is.GreaterThan(0L));
+            Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(arrears - income));
+            Assert.That(runtime.Economy.Money, Is.Zero);
+        }
+
+        [Test]
+        public void RenewalArrears_OnlyCompletedSeasonExpiringContracts_CanDeferAndCannotBorrowTwice()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out ManagerHistoricalSaveAdapter adapter, out _);
+            var balance = BalanceTable.CreateDefault();
+            var market = new OwnerPlayerMarketService(balance);
+            OwnerPlayerContractState contract = runtime.ManagerMode.PlayerContracts[0];
+            contract.Renew(1, 1, contract.AnnualSalary);
+            runtime.Economy.TrySpendMoney(runtime.Economy.Money - 123L);
+            Assert.That(market.Renew(runtime, contract.CardId, 1).CanCommit, Is.False);
+            Assert.That(runtime.Economy.ContractArrears, Is.Zero);
+            CompleteSeasonSchedule(runtime.ManagerMode.LiveSeason);
+            CompleteOwnerPostseason(runtime, balance);
+            var preview = market.PreviewRenewal(runtime, contract.CardId, 1);
+            Assert.That(preview.CanCommit, Is.True);
+            Assert.That(preview.DeferredSigningCost, Is.EqualTo(preview.SigningCost - 123L));
+            Assert.That(runtime.Economy.Money, Is.EqualTo(123L));
+            Assert.That(market.Renew(runtime, contract.CardId, 1).CanCommit, Is.True);
+            Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(preview.DeferredSigningCost));
+            Assert.That(market.Renew(runtime, contract.CardId, 1).CanCommit, Is.False);
+            var restored = adapter.Restore(adapter.CreateSaveData(runtime));
+            Assert.That(restored.Economy.ContractArrears, Is.EqualTo(preview.DeferredSigningCost));
+            Assert.That(restored.ManagerMode.GetPlayerContract(contract.CardId).RemainingSeasons, Is.EqualTo(2));
         }
 
         private static void UpgradeAllInitialFacilities(

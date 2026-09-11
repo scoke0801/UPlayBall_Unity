@@ -21,7 +21,8 @@ namespace Baseball.Simulation.Historical
             int seasons,
             long annualSalary,
             long signingCost,
-            string reason)
+            string reason,
+            long deferredSigningCost = 0L)
         {
             Status = status;
             CardId = cardId ?? string.Empty;
@@ -29,6 +30,7 @@ namespace Baseball.Simulation.Historical
             AnnualSalary = annualSalary;
             SigningCost = signingCost;
             Reason = reason ?? string.Empty;
+            DeferredSigningCost = deferredSigningCost;
         }
 
         public OwnerPlayerMarketStatus Status { get; }
@@ -36,6 +38,7 @@ namespace Baseball.Simulation.Historical
         public int Seasons { get; }
         public long AnnualSalary { get; }
         public long SigningCost { get; }
+        public long DeferredSigningCost { get; }
         public string Reason { get; }
         public bool CanCommit => Status == OwnerPlayerMarketStatus.Available;
     }
@@ -150,7 +153,8 @@ namespace Baseball.Simulation.Historical
             PlayerSeasonDefinition season,
             int currentSeason,
             int contractSeasons,
-            long availableMoney)
+            long availableMoney,
+            ContractPaymentMode paymentMode = ContractPaymentMode.RequireCash)
         {
             if (contract == null || card == null || season == null ||
                 !string.Equals(contract.CardId, card.CardId, StringComparison.Ordinal))
@@ -166,7 +170,7 @@ namespace Baseball.Simulation.Historical
             long signingCost = (long)Math.Round(
                 annualSalary * contractSeasons * _balance.RenewalSigningCostRate,
                 MidpointRounding.AwayFromZero);
-            if (availableMoney < signingCost)
+            if (availableMoney < signingCost && paymentMode == ContractPaymentMode.RequireCash)
             {
                 return new OwnerContractRenewalPreview(
                     OwnerPlayerMarketStatus.InsufficientMoney,
@@ -182,7 +186,9 @@ namespace Baseball.Simulation.Historical
                 contractSeasons,
                 annualSalary,
                 signingCost,
-                $"{contractSeasons}년 연장하여 잔여 {contract.RemainingSeasons + contractSeasons}년이 됩니다. 연봉은 즉시 변경됩니다.");
+                $"{contractSeasons}년 연장하여 잔여 {contract.RemainingSeasons + contractSeasons}년이 됩니다. 연봉은 즉시 변경됩니다." +
+                (signingCost > availableMoney ? " 부족한 계약금은 미지급금으로 이월하여 이후 수입에서 우선 상환합니다." : string.Empty),
+                Math.Max(0L, signingCost - availableMoney));
         }
 
         private static PlayerCardDefinition GetCard(WorldCardCatalog catalog, string cardId)

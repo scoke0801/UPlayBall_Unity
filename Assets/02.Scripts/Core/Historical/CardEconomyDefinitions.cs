@@ -633,20 +633,42 @@ namespace Baseball.Core.Historical
         }
     }
 
+    /// <summary>현금 결제와 필수 계약 비용의 미지급 이월을 구분한다.</summary>
+    public enum ContractPaymentMode
+    {
+        RequireCash,
+        AllowArrears
+    }
+
     /// <summary>구단주 모드 플레이어 구단 전용 Money/SP/DP와 Pity 진행 상태다.</summary>
     public sealed class ManagerEconomyState
     {
-        public ManagerEconomyState(long money = 0, int scoutingPoints = 0, int developmentPoints = 0, int pityGauge = 0)
+        public ManagerEconomyState(long money = 0, int scoutingPoints = 0, int developmentPoints = 0, int pityGauge = 0,
+            long contractArrears = 0)
         {
-            if (money < 0 || scoutingPoints < 0 || developmentPoints < 0 || pityGauge < 0)
+            if (money < 0 || scoutingPoints < 0 || developmentPoints < 0 || pityGauge < 0 || contractArrears < 0)
                 throw new ArgumentOutOfRangeException(nameof(money));
+            if (money > 0 && contractArrears > 0)
+                throw new ArgumentException("가용 현금과 미지급 계약 비용은 동시에 남을 수 없습니다.");
             Money = money;
+            ContractArrears = contractArrears;
             ScoutingPoints = scoutingPoints;
             DevelopmentPoints = developmentPoints;
             PityGauge = pityGauge;
         }
 
         public long Money { get; private set; }
+        public long ContractArrears { get; private set; }
+
+        /// <summary>필수 급여·갱신 비용을 현금으로 지급하고 부족액만 이월한다. 일반 구매에는 사용하지 않는다.</summary>
+        public void SettleContractPayment(long amount)
+        {
+            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount));
+            long paid = Math.Min(Money, amount);
+            long nextArrears = checked(ContractArrears + amount - paid);
+            Money -= paid;
+            ContractArrears = nextArrears;
+        }
         public int ScoutingPoints { get; private set; }
         public int DevelopmentPoints { get; private set; }
         public int PityGauge { get; private set; }
@@ -692,7 +714,11 @@ namespace Baseball.Core.Historical
         {
             if (amount < 0)
                 throw new ArgumentOutOfRangeException(nameof(amount));
-            checked { Money += amount; }
+            // 모든 현금 수입이 같은 경계를 거쳐야 보상·경기 수입으로 상환을 우회할 수 없다.
+            long repaid = Math.Min(ContractArrears, amount);
+            long nextMoney = checked(Money + amount - repaid);
+            ContractArrears -= repaid;
+            Money = nextMoney;
         }
 
         public void AddDevelopmentPoints(int amount)

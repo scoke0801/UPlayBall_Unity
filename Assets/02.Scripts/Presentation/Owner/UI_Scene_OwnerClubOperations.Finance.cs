@@ -86,6 +86,7 @@ namespace Baseball.Presentation.Owner
             _popularityFill.rectTransform.anchorMax = new Vector2((float)model.Snapshot.Popularity / 100f, 1f);
             _weeklyStatement.Bind(model.WeeklyFinance, model.Snapshot.WeeklyFinance);
             _seasonStatement.Bind(model.SeasonFinance, model.Snapshot.SeasonFinance);
+            _feedbackText.text = $"미지급 급여·계약금 {OwnerMoneyFormatter.Format(model.Snapshot.ContractArrears)} · 수입에서 우선 상환";
         }
 
         private static void PlaceFinanceAction(Transform parent, string name, float x, float right, bool primary)

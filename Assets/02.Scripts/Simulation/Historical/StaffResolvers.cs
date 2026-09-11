@@ -577,7 +577,8 @@ namespace Baseball.Simulation.Historical
 
         public StaffSalarySettlementResult SettleSalaries(
             StaffSalarySettlementCommand command,
-            IReadOnlyList<StaffContractState> contracts)
+            IReadOnlyList<StaffContractState> contracts,
+            ContractPaymentMode paymentMode = ContractPaymentMode.RequireCash)
         {
             if (command == null)
                 throw new ArgumentNullException(nameof(command));
@@ -603,7 +604,7 @@ namespace Baseball.Simulation.Historical
             }
             if (!hasUnsettledContract)
                 return new StaffSalarySettlementResult(StaffServiceStatus.NoChange, contracts, 0L, null);
-            if (command.AvailableMoney < totalSalary)
+            if (paymentMode == ContractPaymentMode.RequireCash && command.AvailableMoney < totalSalary)
                 return new StaffSalarySettlementResult(StaffServiceStatus.InsufficientMoney, contracts, totalSalary, null);
 
             var updatedContracts = new StaffContractState[contracts.Count];

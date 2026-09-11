@@ -59,6 +59,7 @@ namespace Baseball.Presentation.Owner
             _rightSummary.text = batch == null ? "계약 기간과 재정 부담을 비교하세요." :
                 $"만료 임박 {batch.Renewals.Count}명 · {snapshot.SelectedTerm}년 일괄 연장\n" +
                 $"총계약금 {FormatMoney(batch.SigningCost)} · 변경 후 선수단 연봉 {FormatMoney(batch.AnnualSalaryTotal)}" +
+                (batch.DeferredSigningCost > 0L ? $"\n미지급 이월 {FormatMoney(batch.DeferredSigningCost)} · 이후 수입에서 상환" : string.Empty) +
                 (batch.CanCommit ? string.Empty : $"\n{batch.Reason}");
             _batchButton.gameObject.SetActive(true);
             _batchButton.interactable = batch?.CanCommit == true;
@@ -193,13 +194,13 @@ namespace Baseball.Presentation.Owner
                 ? "계약 목록이 비어 있습니다."
                 : $"현재 계약  {selected.RemainingSeasons}년 / {FormatMoney(selected.AnnualSalary)}\n" +
                   $"연장 후  {selected.RemainingSeasons + preview.Seasons}년 / 연 {FormatMoney(preview.AnnualSalary)}\n" +
-                  $"즉시 계약금  {FormatMoney(preview.SigningCost)}\n\n{preview.Reason}\n\n" +
+                  $"계약금  {FormatMoney(preview.SigningCost)} · 미지급 이월 {FormatMoney(preview.DeferredSigningCost)}\n\n{preview.Reason}\n\n" +
                   "동일 선수의 중복·연도·등급 카드는 계약을 공유합니다. 카드 교체 시 잔여 기간과 연봉을 유지합니다.";
             _contractOverview.text = selected == null
                 ? "왼쪽 목록에서 갱신할 선수를 선택하세요.\n\n계약 기간을 선택하면 연봉과 즉시 계약금을 확인할 수 있습니다."
                 : $"{selected.Name} · {selected.Role}\n\n현재 잔여 계약  {selected.RemainingSeasons}년\n현재 연봉  {FormatMoney(selected.AnnualSalary)}\n\n" +
                   $"연장 기간  +{_contract.SelectedTerm}년 → 잔여 {selected.RemainingSeasons + _contract.SelectedTerm}년\n" +
-                  (preview == null ? "조건을 확인하고 있습니다." : $"제안 연봉  {FormatMoney(preview.AnnualSalary)}\n즉시 계약금  {FormatMoney(preview.SigningCost)}");
+                  (preview == null ? "조건을 확인하고 있습니다." : $"제안 연봉  {FormatMoney(preview.AnnualSalary)}\n계약금  {FormatMoney(preview.SigningCost)} · 이월 {FormatMoney(preview.DeferredSigningCost)}");
             _commitButton.interactable = preview?.CanCommit == true;
             _feedback.text = preview?.Reason ?? "계약 정보를 준비하고 있습니다.";
             _feedback.color = preview?.CanCommit == true ? CareerUiTheme.Success : CareerUiTheme.Warning;

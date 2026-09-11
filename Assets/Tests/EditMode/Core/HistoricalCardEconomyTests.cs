@@ -10,6 +10,36 @@ namespace Baseball.Tests.EditMode.Core
     public sealed class HistoricalCardEconomyTests
     {
         [Test]
+        public void ContractArrears_PartialPaymentAndIncome_PreserveMoneyAndPreventBorrowedPurchases()
+        {
+            var economy = new ManagerEconomyState(40L);
+            economy.SettleContractPayment(100L);
+            Assert.That(economy.Money, Is.Zero);
+            Assert.That(economy.ContractArrears, Is.EqualTo(60L));
+            Assert.That(economy.TrySpendMoney(1L), Is.False);
+            economy.AddMoney(25L);
+            Assert.That(economy.ContractArrears, Is.EqualTo(35L));
+            Assert.That(economy.Money, Is.Zero);
+            economy.AddMoney(50L);
+            Assert.That(economy.ContractArrears, Is.Zero);
+            Assert.That(economy.Money, Is.EqualTo(15L));
+            Assert.That(economy.TrySpendMoney(15L), Is.True);
+        }
+
+        [Test]
+        public void ContractArrears_InvalidStateAndOverflow_DoNotPartiallyMutateEconomy()
+        {
+            Assert.Throws<ArgumentException>(() => new ManagerEconomyState(1L, contractArrears: 1L));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new ManagerEconomyState(contractArrears: -1L));
+            var economy = new ManagerEconomyState(contractArrears: long.MaxValue);
+            Assert.Throws<OverflowException>(() => economy.SettleContractPayment(1L));
+            Assert.That(economy.ContractArrears, Is.EqualTo(long.MaxValue));
+            Assert.That(economy.Money, Is.Zero);
+            economy.AddMoney(long.MaxValue);
+            Assert.That(economy.ContractArrears, Is.Zero);
+        }
+
+        [Test]
         public void PlayerCardEdition_기본과특수카드여덟종을지원한다()
         {
             CollectionAssert.AreEqual(

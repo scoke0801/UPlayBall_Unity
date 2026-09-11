@@ -34,7 +34,8 @@ namespace Baseball.Presentation.Owner
             RosterStrengthBreakdown rosterStrength = null,
             RosterCostBreakdown? rosterCost = null,
             string opponentStrengthText = null,
-            LeagueGrade leagueGrade = LeagueGrade.Rookie)
+            LeagueGrade leagueGrade = LeagueGrade.Rookie,
+            long contractArrears = 0L)
         {
             if (money < 0)
                 throw new ArgumentOutOfRangeException(nameof(money));
@@ -78,6 +79,7 @@ namespace Baseball.Presentation.Owner
             RankText = rankText ?? string.Empty;
             NextMatchText = nextMatchText ?? string.Empty;
             Money = money;
+            ContractArrears = contractArrears;
             ScoutingPoints = scoutingPoints;
             DevelopmentPoints = developmentPoints;
             PityGauge = pityGauge;
@@ -105,6 +107,7 @@ namespace Baseball.Presentation.Owner
         public string RankText { get; }
         public string NextMatchText { get; }
         public long Money { get; }
+        public long ContractArrears { get; }
         public int ScoutingPoints { get; }
         public int DevelopmentPoints { get; }
         public int PityGauge { get; }
