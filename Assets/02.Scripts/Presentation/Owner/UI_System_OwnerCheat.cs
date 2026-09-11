@@ -29,6 +29,9 @@ namespace Baseball.Presentation.Owner
         private readonly List<FranchiseOption> _franchiseOptions = new List<FranchiseOption>();
         private readonly List<int> _years = new List<int>();
         private readonly List<SkillBlockDefinition> _skillOptions = new List<SkillBlockDefinition>();
+        private readonly List<string> _skillLabels = new List<string>();
+        private readonly List<int> _visibleCardIndices = new List<int>();
+        private readonly List<int> _visibleSkillIndices = new List<int>();
 
         private ManagerHistoricalRuntimeState _boundRuntime;
         private InputContextLease _inputLease;
@@ -45,6 +48,9 @@ namespace Baseball.Presentation.Owner
         private int _selectedRarityIndex;
         private string _cardSearch = string.Empty;
         private string _skillSearch = string.Empty;
+        private string _filteredCardSearch;
+        private string _filteredSkillSearch;
+        private string _yearInput = string.Empty;
         private string _moneyAmount = "100000000";
         private string _scoutingPointAmount = "10000";
         private string _developmentPointAmount = "10000";
@@ -185,10 +191,7 @@ namespace Baseball.Presentation.Owner
 
             GUILayout.Space(8f);
             GUILayout.BeginHorizontal();
-            int previousYearIndex = _selectedYearIndex;
-            DrawCycleSelector("원 연도", _years, ref _selectedYearIndex, year => year + "년", 210f);
-            if (_selectedYearIndex != previousYearIndex)
-                RefreshFranchiseOptions();
+            DrawYearSelector(210f);
             DrawCycleSelector("원 구단", _franchiseOptions, ref _selectedFranchiseIndex, option => option.DisplayName, 340f);
             DrawTextField("장씩 (1~1,000)", ref _cardBatchCount, 130f);
             GUI.enabled = _years.Count > 0 && _franchiseOptions.Count > 0;
@@ -213,7 +216,7 @@ namespace Baseball.Presentation.Owner
 
             GUILayout.BeginHorizontal();
             GUILayout.Label(
-                _skillOptions.Count == 0 ? "선택 가능한 스킬 블록 없음" : "선택: " + DescribeSkillBlock(_skillOptions[_selectedSkillIndex]),
+                _skillOptions.Count == 0 ? "선택 가능한 스킬 블록 없음" : "선택: " + _skillLabels[_selectedSkillIndex],
                 GUILayout.ExpandWidth(true));
             GUI.enabled = _skillOptions.Count > 0;
             if (GUILayout.Button("선택 블록 1개 획득", GUILayout.Width(180f), GUILayout.Height(30f)))
@@ -240,22 +243,71 @@ namespace Baseball.Presentation.Owner
             GUILayout.EndHorizontal();
         }
 
+        /// <summary>◀▶ 순환과 직접 입력을 함께 받는 연도 선택기다. 카탈로그에 있는 연도를 입력한 경우에만 선택을 바꾼다.</summary>
+        private void DrawYearSelector(float width)
+        {
+            GUILayout.BeginVertical(GUILayout.Width(width));
+            GUILayout.Label("원 연도 (직접 입력 가능)");
+            GUILayout.BeginHorizontal();
+            GUI.enabled = _years.Count > 0;
+            if (GUILayout.Button("◀", GUILayout.Width(30f), GUILayout.Height(24f)))
+                SelectYearIndex(_selectedYearIndex <= 0 ? _years.Count - 1 : _selectedYearIndex - 1);
+            string typed = GUILayout.TextField(_yearInput ?? string.Empty, 4, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
+            if (!string.Equals(typed, _yearInput, StringComparison.Ordinal))
+            {
+                _yearInput = typed;
+                ApplyTypedYear();
+            }
+            if (GUILayout.Button("▶", GUILayout.Width(30f), GUILayout.Height(24f)))
+                SelectYearIndex((_selectedYearIndex + 1) % _years.Count);
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+            GUILayout.Label(DescribeYearInputState(), _mutedStyle);
+            GUILayout.EndVertical();
+        }
+
+        private void ApplyTypedYear()
+        {
+            if (!TryParseNonNegativeInt(_yearInput, out int year))
+                return;
+            int yearIndex = _years.IndexOf(year);
+            if (yearIndex < 0 || yearIndex == _selectedYearIndex)
+                return;
+            _selectedYearIndex = yearIndex;
+            RefreshFranchiseOptions();
+        }
+
+        private string DescribeYearInputState()
+        {
+            if (_years.Count == 0)
+                return "카드 연도 없음";
+            if (TryParseNonNegativeInt(_yearInput, out int year) && _years.Contains(year))
+                return $"{_years[_years.Count - 1]}~{_years[0]}년";
+            return $"없는 연도 · 현재 {_years[_selectedYearIndex]}년 ({_years[_years.Count - 1]}~{_years[0]})";
+        }
+
+        private void SelectYearIndex(int yearIndex)
+        {
+            if (_years.Count == 0)
+                return;
+            _selectedYearIndex = ClampIndex(yearIndex, _years.Count);
+            _yearInput = _years[_selectedYearIndex].ToString(CultureInfo.InvariantCulture);
+            RefreshFranchiseOptions();
+        }
+
         private void DrawCardSearchResults()
         {
             if (_cardOptions.Count == 0)
                 return;
-            int visibleCount = 0;
-            for (int index = 0; index < _cardOptions.Count && visibleCount < MaximumVisibleSearchResults; index++)
+            RefreshVisibleCardsIfSearchChanged();
+            for (int visible = 0; visible < _visibleCardIndices.Count; visible++)
             {
-                CardOption option = _cardOptions[index];
-                if (!MatchesSearch(option.SearchText, _cardSearch))
-                    continue;
+                int index = _visibleCardIndices[visible];
                 bool isSelected = index == _selectedCardIndex;
-                if (GUILayout.Button((isSelected ? "● " : "○ ") + option.Label, GUILayout.Height(24f)))
+                if (GUILayout.Button((isSelected ? "● " : "○ ") + _cardOptions[index].Label, GUILayout.Height(24f)))
                     _selectedCardIndex = index;
-                visibleCount++;
             }
-            if (visibleCount == 0)
+            if (_visibleCardIndices.Count == 0)
                 GUILayout.Label("일치하는 카드가 없습니다.", _mutedStyle);
         }
 
@@ -263,20 +315,48 @@ namespace Baseball.Presentation.Owner
         {
             if (_skillOptions.Count == 0)
                 return;
-            int visibleCount = 0;
-            for (int index = 0; index < _skillOptions.Count && visibleCount < MaximumVisibleSearchResults; index++)
+            RefreshVisibleSkillsIfSearchChanged();
+            for (int visible = 0; visible < _visibleSkillIndices.Count; visible++)
             {
-                SkillBlockDefinition definition = _skillOptions[index];
-                string label = DescribeSkillBlock(definition);
-                if (!MatchesSearch(label, _skillSearch))
-                    continue;
+                int index = _visibleSkillIndices[visible];
                 bool isSelected = index == _selectedSkillIndex;
-                if (GUILayout.Button((isSelected ? "● " : "○ ") + label, GUILayout.Height(24f)))
+                if (GUILayout.Button((isSelected ? "● " : "○ ") + _skillLabels[index], GUILayout.Height(24f)))
                     _selectedSkillIndex = index;
-                visibleCount++;
             }
-            if (visibleCount == 0)
+            if (_visibleSkillIndices.Count == 0)
                 GUILayout.Label("일치하는 스킬 블록이 없습니다.", _mutedStyle);
+        }
+
+        /// <summary>
+        /// OnGUI는 한 프레임에 Layout·Repaint·입력 이벤트마다 여러 번 호출되므로, 전체 카드 필터링은
+        /// 검색어가 바뀐 순간에만 수행하고 표시 인덱스를 캐시한다.
+        /// </summary>
+        private void RefreshVisibleCardsIfSearchChanged()
+        {
+            if (string.Equals(_filteredCardSearch, _cardSearch, StringComparison.Ordinal))
+                return;
+            _filteredCardSearch = _cardSearch;
+            _visibleCardIndices.Clear();
+            string query = NormalizeQuery(_cardSearch);
+            for (int index = 0; index < _cardOptions.Count && _visibleCardIndices.Count < MaximumVisibleSearchResults; index++)
+            {
+                if (MatchesSearch(_cardOptions[index].SearchText, query))
+                    _visibleCardIndices.Add(index);
+            }
+        }
+
+        private void RefreshVisibleSkillsIfSearchChanged()
+        {
+            if (string.Equals(_filteredSkillSearch, _skillSearch, StringComparison.Ordinal))
+                return;
+            _filteredSkillSearch = _skillSearch;
+            _visibleSkillIndices.Clear();
+            string query = NormalizeQuery(_skillSearch);
+            for (int index = 0; index < _skillOptions.Count && _visibleSkillIndices.Count < MaximumVisibleSearchResults; index++)
+            {
+                if (MatchesSearch(_skillLabels[index].ToLowerInvariant(), query))
+                    _visibleSkillIndices.Add(index);
+            }
         }
 
         private void IncreaseResources(OwnerModeManager manager)
@@ -371,8 +451,12 @@ namespace Baseball.Presentation.Owner
             _franchiseOptions.Clear();
             _years.Clear();
             _skillOptions.Clear();
+            _skillLabels.Clear();
+            _filteredCardSearch = null;
+            _filteredSkillSearch = null;
 
             WorldCardCatalog catalog = manager.Runtime.WorldCardCatalog;
+            var yearSet = new HashSet<int>();
             for (int index = 0; index < catalog.Cards.Count; index++)
             {
                 PlayerCardDefinition card = catalog.Cards[index];
@@ -383,7 +467,8 @@ namespace Baseball.Presentation.Owner
                 string playerName = manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId);
                 string label = $"{season.OriginYear} · {franchiseName} · {playerName} · {DescribeEdition(card.Edition)} · {card.CardId}";
                 _cardOptions.Add(new CardOption(card, label));
-                AddYear(season.OriginYear);
+                if (yearSet.Add(season.OriginYear))
+                    _years.Add(season.OriginYear);
             }
             _cardOptions.Sort(CardOption.Compare);
             _years.Sort((left, right) => right.CompareTo(left));
@@ -392,11 +477,12 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < definitions.Length; index++)
                 _skillOptions.Add(definitions[index]);
             _skillOptions.Sort(CompareSkillBlocks);
+            for (int index = 0; index < _skillOptions.Count; index++)
+                _skillLabels.Add(DescribeSkillBlock(_skillOptions[index]));
 
             _selectedCardIndex = ClampIndex(_selectedCardIndex, _cardOptions.Count);
             _selectedSkillIndex = ClampIndex(_selectedSkillIndex, _skillOptions.Count);
-            _selectedYearIndex = ClampIndex(_selectedYearIndex, _years.Count);
-            RefreshFranchiseOptions();
+            SelectYearIndex(_selectedYearIndex);
             SelectCurrentTeamOrigin(manager.Runtime);
         }
 
@@ -408,7 +494,11 @@ namespace Baseball.Presentation.Owner
                 return;
             PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
             int yearIndex = _years.IndexOf(season.OriginYear);
-            if (yearIndex >= 0) _selectedYearIndex = yearIndex;
+            if (yearIndex >= 0)
+            {
+                _selectedYearIndex = yearIndex;
+                _yearInput = season.OriginYear.ToString(CultureInfo.InvariantCulture);
+            }
             RefreshFranchiseOptions(season.OriginFranchiseId);
         }
 
@@ -443,12 +533,6 @@ namespace Baseball.Presentation.Owner
             }
         }
 
-        private void AddYear(int year)
-        {
-            if (!_years.Contains(year))
-                _years.Add(year);
-        }
-
         private void SetVisible(bool isVisible)
         {
             if (_isVisible == isVisible)
@@ -466,8 +550,12 @@ namespace Baseball.Presentation.Owner
         private void RefreshCatalogIfPossible()
         {
             OwnerModeManager manager = OwnerModeManager.Instance;
+            // 월드 카드 카탈로그는 런타임 수명 동안 바뀌지 않으므로 같은 런타임이면 재생성하지 않는다.
             if (HasActiveOwnerRuntime(manager))
-                RefreshCatalog(manager);
+            {
+                if (!ReferenceEquals(_boundRuntime, manager.Runtime))
+                    RefreshCatalog(manager);
+            }
             else
                 _boundRuntime = null;
         }
@@ -602,10 +690,16 @@ namespace Baseball.Presentation.Owner
             return int.TryParse(normalized, NumberStyles.None, CultureInfo.InvariantCulture, out result) && result >= 0;
         }
 
-        private static bool MatchesSearch(string source, string query)
+        private static string NormalizeQuery(string query)
         {
-            return string.IsNullOrWhiteSpace(query) ||
-                   source.IndexOf(query.Trim(), StringComparison.CurrentCultureIgnoreCase) >= 0;
+            return string.IsNullOrWhiteSpace(query) ? string.Empty : query.Trim().ToLowerInvariant();
+        }
+
+        /// <summary>source와 query는 모두 소문자로 정규화된 값이어야 한다. culture 비교는 수만 장 카탈로그에서 느리므로 ordinal을 쓴다.</summary>
+        private static bool MatchesSearch(string source, string normalizedQuery)
+        {
+            return normalizedQuery.Length == 0 ||
+                   source.IndexOf(normalizedQuery, StringComparison.Ordinal) >= 0;
         }
 
         private static int ClampIndex(int index, int count)
@@ -656,7 +750,7 @@ namespace Baseball.Presentation.Owner
             {
                 Definition = definition;
                 Label = label;
-                SearchText = label;
+                SearchText = label.ToLowerInvariant();
             }
 
             public PlayerCardDefinition Definition { get; }
@@ -664,7 +758,7 @@ namespace Baseball.Presentation.Owner
             public string SearchText { get; }
 
             public static int Compare(CardOption left, CardOption right) =>
-                string.Compare(left.Label, right.Label, StringComparison.CurrentCulture);
+                string.CompareOrdinal(left.Label, right.Label);
         }
 
         private sealed class FranchiseOption
