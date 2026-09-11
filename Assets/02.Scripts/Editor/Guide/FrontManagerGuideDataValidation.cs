@@ -29,7 +29,8 @@ namespace Baseball.Editor.Guide
             string[] errors = Validate();
             if (errors.Length == 0)
             {
-                Debug.Log("[FrontManagerGuideValidation] 오류 없음 — 106 Cue / 318 Variation");
+                Debug.Log($"[FrontManagerGuideValidation] 오류 없음 — {GuideDatasetValidator.ExpectedCueCount} Cue / " +
+                    $"{GuideDatasetValidator.ExpectedCueCount * GuideDatasetValidator.ExpectedVariationCountPerCue} Variation");
                 return;
             }
             for (int index = 0; index < errors.Length; index++)

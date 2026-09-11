@@ -26,14 +26,14 @@ namespace Baseball.Tests.EditMode.Game.Guide
         }
 
         [Test]
-        public void Dataset_106개Cue와318개Variation을검증한다()
+        public void Dataset_103개Cue와309개Variation을검증한다()
         {
-            Assert.AreEqual(106, _data.cueDefinitions.Length);
-            Assert.AreEqual(106, _data.factTypeIndex.Length);
+            Assert.AreEqual(103, _data.cueDefinitions.Length);
+            Assert.AreEqual(103, _data.factTypeIndex.Length);
             int variations = 0;
             for (int index = 0; index < _data.cueDefinitions.Length; index++)
                 variations += _data.cueDefinitions[index].variations.Length;
-            Assert.AreEqual(318, variations);
+            Assert.AreEqual(309, variations);
         }
 
         [Test]
