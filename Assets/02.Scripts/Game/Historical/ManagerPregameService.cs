@@ -229,7 +229,8 @@ namespace Baseball.Game.Historical
                         playerStatus),
                     _balance.HistoricalAssignment.CreateRule(),
                     availableTeamColorIds,
-                    availableTacticCardIds));
+                    availableTacticCardIds,
+                    runtime.WorldCardCatalog));
         }
 
         private OpponentScoutingReportEvidence CreateReportEvidence(

@@ -63,10 +63,12 @@ namespace Baseball.Simulation.Historical
             IReadOnlyList<LineupPresetPlayerContext> players,
             PositionAssignmentRule positionAssignmentRule,
             IReadOnlyList<string> availableTeamColorIds = null,
-            IReadOnlyList<string> availableTacticCardIds = null)
+            IReadOnlyList<string> availableTacticCardIds = null,
+            WorldCardCatalog cardCatalog = null)
         {
             ActiveRoster = activeRoster ?? throw new ArgumentNullException(nameof(activeRoster));
             PositionAssignmentRule = positionAssignmentRule ?? throw new ArgumentNullException(nameof(positionAssignmentRule));
+            CardCatalog = cardCatalog;
             _players = CopyPlayers(players);
             _availableTeamColorIds = CopyOptionalIds(availableTeamColorIds, nameof(availableTeamColorIds));
             _availableTacticCardIds = CopyOptionalIds(availableTacticCardIds, nameof(availableTacticCardIds));
@@ -75,6 +77,7 @@ namespace Baseball.Simulation.Historical
         }
 
         public CurrentRosterState ActiveRoster { get; }
+        public WorldCardCatalog CardCatalog { get; }
         public IReadOnlyList<LineupPresetPlayerContext> Players => _players;
         public PositionAssignmentRule PositionAssignmentRule { get; }
         public IReadOnlyList<string> AvailableTeamColorIds => _availableTeamColorIds;
@@ -132,7 +135,7 @@ namespace Baseball.Simulation.Historical
             var issues = new List<LineupPresetValidationIssue>();
             var rosterByCardId = BuildRosterIndex(context.ActiveRoster, issues);
             var playerByCardId = BuildPlayerIndex(context.Players, issues);
-            AddActiveRosterIssues(context.ActiveRoster, issues);
+            AddActiveRosterIssues(context, issues);
 
             var startingIds = new HashSet<string>(StringComparer.Ordinal);
             var startingPositions = new bool[ActiveRosterCompositionRule.StartingHitterCount];
@@ -320,10 +323,13 @@ namespace Baseball.Simulation.Historical
         }
 
         private void AddActiveRosterIssues(
-            CurrentRosterState roster,
+            LineupPresetValidationContext context,
             ICollection<LineupPresetValidationIssue> issues)
         {
-            RosterValidationResult rosterResult = _activeRosterValidator.Validate(roster);
+            RosterValidationResult rosterResult = context.CardCatalog == null
+                ? _activeRosterValidator.Validate(context.ActiveRoster)
+                : new OwnerActiveRosterValidator(_activeRosterValidator, _rosterRule)
+                    .Validate(context.ActiveRoster, context.CardCatalog);
             for (int index = 0; index < rosterResult.Issues.Count; index++)
             {
                 RosterValidationIssue issue = rosterResult.Issues[index];

@@ -115,6 +115,14 @@ namespace Baseball.Core.Historical
         }
     }
 
+    /// <summary>구단주 1군에 등록할 수 있는 Legend·CareerHigh 카드의 구성 상한이다.</summary>
+    public static class OwnerSpecialCardRosterRule
+    {
+        public const int MaxTotalCount = 4;
+        public const int MaxHitterCount = 3;
+        public const int MaxPitcherCount = 3;
+    }
+
     /// <summary>현재 1군의 카드·선수 인물·등록 슬롯을 연결하는 저장 가능 항목이다.</summary>
     public sealed class ActiveRosterEntry
     {

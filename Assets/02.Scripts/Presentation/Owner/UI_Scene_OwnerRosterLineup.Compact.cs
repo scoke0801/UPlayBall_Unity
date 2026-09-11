@@ -276,6 +276,8 @@ namespace Baseball.Presentation.Owner
                 });
                 var sizing = button.GetComponent<LayoutElement>();
                 sizing.minWidth = 0; sizing.preferredWidth = 60; sizing.flexibleWidth = 1;
+                sizing.minHeight = sizing.preferredHeight = 32f;
+                sizing.flexibleHeight = 0f;
                 Text text = button.GetComponentInChildren<Text>();
                 text.fontSize = 11;
                 SetPlayerGroupTabVisual(button, filter == _positionFilter);
@@ -354,7 +356,7 @@ namespace Baseball.Presentation.Owner
                     10, FontStyle.Bold, TextAnchor.MiddleCenter);
                 OwnerRuntimeUiFactory.SetAnchors(value.rectTransform, new Vector2(left, 0.08f), new Vector2(right, 0.18f), Vector2.zero, Vector2.zero);
             }
-            graphic.Bind(values, valid, pitcher);
+            graphic.Bind(values, valid);
             string[] bands = { "주의", "보통", "좋음" };
             float[] lows = { 0, 0.6f, 0.8f };
             float[] highs = { 0.6f, 0.8f, 1 };

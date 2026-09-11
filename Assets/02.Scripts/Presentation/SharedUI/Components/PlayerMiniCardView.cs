@@ -459,8 +459,21 @@ namespace Baseball.Presentation.SharedUI
                 SetBestFitRange(_assignmentText, 8, 12);
             }
             _assignmentBadge.gameObject.SetActive(isAssigned);
+            _assignmentBadge.color = CareerUiTheme.ReferenceAccent;
+            SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, 0.44f),
+                new Vector2(0.97f, 0.56f), Vector2.zero, Vector2.zero);
             _assignmentText.text = isAssigned ? "배치 중 · " + assignmentLabel : string.Empty;
             _assignmentBadge.transform.SetAsLastSibling();
+        }
+
+        /// <summary>상세 조회는 유지하면서 배치할 수 없는 사유를 카드에 표시한다.</summary>
+        public void SetUnavailableBadge(string reason)
+        {
+            SetAssignmentBadge(reason);
+            _assignmentBadge.color = CareerUiTheme.ReferenceText;
+            _assignmentText.text = "사용 불가\n" + reason;
+            SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, 0.40f),
+                new Vector2(0.97f, 0.60f), Vector2.zero, Vector2.zero);
         }
 
         /// <summary>원 소속 구단의 정본 엠블럼을 초상 왼쪽에 표시한다.</summary>

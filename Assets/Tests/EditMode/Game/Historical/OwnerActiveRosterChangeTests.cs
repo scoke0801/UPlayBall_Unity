@@ -10,8 +10,11 @@ namespace Baseball.Tests.EditMode.Game.Historical
     /// <summary>1군 카드 교체 후보가 역할과 저장 상태를 일관되게 바꾸는지 검증한다.</summary>
     public sealed class OwnerActiveRosterChangeTests
     {
-        [Test]
-        public void ReplaceCard_기존1군역할을보존하고새카드원본을사용한다()
+        [TestCase("person-new", PlayerCardEdition.Normal)]
+        [TestCase("person-old", PlayerCardEdition.Normal)]
+        [TestCase("person-old", PlayerCardEdition.Legend)]
+        public void ReplaceCard_기존1군역할을보존하고새카드원본을사용한다(
+            string incomingPersonId, PlayerCardEdition edition)
         {
             var roster = new CurrentRosterState("team", new[]
             {
@@ -21,11 +24,12 @@ namespace Baseball.Tests.EditMode.Game.Historical
             var card = new PlayerCardDefinition(
                 "NEW",
                 "season-new",
-                PlayerCardEdition.Normal,
-                new int[PlayerAbilityCatalog.AbilityCount]);
+                edition,
+                new int[PlayerAbilityCatalog.AbilityCount],
+                teamColorLineageId: edition == PlayerCardEdition.Legend ? "lineage" : null);
             var season = new PlayerSeasonDefinition(
                 "season-new",
-                "person-new",
+                incomingPersonId,
                 2025,
                 "franchise",
                 "team-2025",
@@ -44,8 +48,23 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 season);
 
             Assert.That(result.Entries[0].CardId, Is.EqualTo("NEW"));
-            Assert.That(result.Entries[0].PlayerPersonId, Is.EqualTo("person-new"));
+            Assert.That(result.Entries[0].PlayerPersonId, Is.EqualTo(incomingPersonId));
             Assert.That(result.Entries[0].Role, Is.EqualTo(ActiveRosterRole.StartingCatcher));
+        }
+
+        [Test]
+        public void ReplacePlayerStatus_동일선수카드교체는기존컨디션을보존한다()
+        {
+            var status = new TeamSeasonPlayerStatusState("team", new[]
+            {
+                new TeamSeasonPlayerStatus("person", 62)
+            });
+
+            TeamSeasonPlayerStatusState result = OwnerActiveRosterChangeBuilder.ReplacePlayerStatus(
+                status, "person", "person", 80);
+
+            Assert.That(result, Is.SameAs(status));
+            Assert.That(result.GetRequiredPlayer("person").StoredBaseCondition, Is.EqualTo(62));
         }
 
         [Test]

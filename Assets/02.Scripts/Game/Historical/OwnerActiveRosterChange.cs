@@ -237,7 +237,9 @@ namespace Baseball.Game.Historical
                 !string.Equals(playerStatus.TeamSeasonKey, PlayerTeamSeasonKey, StringComparison.Ordinal))
                 throw new InvalidOperationException("플레이어 구단의 1군만 이 경로에서 변경할 수 있습니다.");
 
-            RosterValidationResult validation = new ActiveRosterValidator().Validate(replacement);
+            RosterValidationResult validation = new OwnerActiveRosterValidator().Validate(
+                replacement,
+                WorldCardCatalog);
             if (!validation.IsValid)
                 throw new InvalidOperationException($"1군 등록 규칙을 위반했습니다: {validation.Issues[0].Code}");
             ValidateRosterCards(replacement, WorldCardCatalog);

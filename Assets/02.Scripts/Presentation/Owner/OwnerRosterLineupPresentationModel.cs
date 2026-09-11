@@ -394,8 +394,31 @@ namespace Baseball.Presentation.Owner
         public string RosterSummaryText =>
             $"1군 {Snapshot.RosterStatus.ActiveRosterCount}/{Snapshot.RosterStatus.ActiveRosterCapacity} · " +
             $"야수 {Snapshot.RosterStatus.HitterCount}/{Snapshot.RosterStatus.RequiredHitterCount} · " +
-            $"투수 {Snapshot.RosterStatus.PitcherCount}/{Snapshot.RosterStatus.RequiredPitcherCount} · " +
-            $"외국인 {Snapshot.RosterStatus.ForeignPlayerCount}/{Snapshot.RosterStatus.ForeignPlayerLimit}";
+            $"투수 {Snapshot.RosterStatus.PitcherCount}/{Snapshot.RosterStatus.RequiredPitcherCount}";
+
+        public string RosterCardAndTeamColorSummaryText
+        {
+            get
+            {
+                int legendCount = 0;
+                int careerHighCount = 0;
+                for (int index = 0; index < Snapshot.Players.Count; index++)
+                {
+                    switch (Snapshot.Players[index].Edition)
+                    {
+                        case PlayerCardEdition.Legend:
+                            legendCount++;
+                            break;
+                        case PlayerCardEdition.CareerHigh:
+                            careerHighCount++;
+                            break;
+                    }
+                }
+
+                return $"레전드 {legendCount}장 · 커리어 하이 {careerHighCount}장 · 합계 {legendCount + careerHighCount}/{OwnerSpecialCardRosterRule.MaxTotalCount}\n" +
+                       CreateTeamColorSummaryText();
+            }
+        }
 
         public string EvaluationText =>
             OwnerRosterEvaluationFormatter.FormatStrength(Snapshot.RosterStatus.Strength) + "\n" +
@@ -418,6 +441,34 @@ namespace Baseball.Presentation.Owner
             slotIndex,
             Snapshot.Preset.DefaultTacticCardIds,
             Snapshot.TacticCandidates);
+
+        private string CreateTeamColorSummaryText()
+        {
+            string first = ResolveTeamColorDisplayName(0);
+            string second = ResolveTeamColorDisplayName(1);
+            if (string.IsNullOrEmpty(first) && string.IsNullOrEmpty(second)) return "팀컬러 · 선택 없음";
+            if (string.IsNullOrEmpty(first)) return "팀컬러 · " + second;
+            if (string.IsNullOrEmpty(second)) return "팀컬러 · " + first;
+            return $"팀컬러 · {first} / {second}";
+        }
+
+        private string ResolveTeamColorDisplayName(int slotIndex)
+        {
+            if (slotIndex >= Snapshot.Preset.TeamColorIds.Count) return string.Empty;
+            string selectedId = Snapshot.Preset.TeamColorIds[slotIndex];
+            if (string.IsNullOrWhiteSpace(selectedId)) return string.Empty;
+            for (int index = 0; index < Snapshot.TeamColorCandidates.Count; index++)
+                if (string.Equals(Snapshot.TeamColorCandidates[index].Id, selectedId, StringComparison.Ordinal))
+                    return CreateCompactTeamColorName(Snapshot.TeamColorCandidates[index].DisplayName);
+            return "사용 불가";
+        }
+
+        private static string CreateCompactTeamColorName(string displayName)
+        {
+            const string effectSeparator = " · 효과 ";
+            int effectIndex = displayName.IndexOf(effectSeparator, StringComparison.Ordinal);
+            return effectIndex < 0 ? displayName : displayName.Substring(0, effectIndex);
+        }
 
         private static string FormatLoadoutSlot(
             string prefix,
@@ -599,7 +650,7 @@ namespace Baseball.Presentation.Owner
             return $"{FormatSeverity(issue.Severity)} · {detail}{penalty}{errorRisk}";
         }
 
-        private static string FormatRosterIssueCode(RosterValidationIssueCode code)
+        internal static string FormatRosterIssueCode(RosterValidationIssueCode code)
         {
             return code switch
             {
@@ -613,13 +664,16 @@ namespace Baseball.Presentation.Owner
                 RosterValidationIssueCode.SetupPitcherCount => "셋업 투수 인원",
                 RosterValidationIssueCode.CloserPitcherCount => "마무리 투수 인원",
                 RosterValidationIssueCode.ForeignPlayerCount => "외국인 등록",
+                RosterValidationIssueCode.SpecialCardCount => "레전드·커리어 하이 카드",
+                RosterValidationIssueCode.SpecialHitterCardCount => "레전드·커리어 하이 타자",
+                RosterValidationIssueCode.SpecialPitcherCardCount => "레전드·커리어 하이 투수",
                 RosterValidationIssueCode.DuplicatePlayerPersonId => "동일 선수 중복",
                 RosterValidationIssueCode.FixedRoleCount => "고정 역할 인원",
                 _ => "로스터 구성"
             };
         }
 
-        private static string FormatLineupIssueCode(LineupPresetValidationIssueCode code)
+        internal static string FormatLineupIssueCode(LineupPresetValidationIssueCode code)
         {
             return code switch
             {

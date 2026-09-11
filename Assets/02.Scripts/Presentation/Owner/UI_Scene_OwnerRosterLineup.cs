@@ -31,6 +31,9 @@ namespace Baseball.Presentation.Owner
         private static readonly Color RoleBoardBorder = new Color(0.31f, 0.38f, 0.44f, 1f);
         private static readonly Color InspectorMessage = new Color(0.94f, 0.95f, 0.93f, 1f);
         private const int OwnedCardsPerPage = 18;
+        private static readonly string[] AssignedPanelNames =
+            { "PrimaryAssignedPanel", "SecondaryAssignedPanel", "SetupPanel", "CloserPanel" };
+        private static readonly string[] LowerPanelNames = { "OwnedPlayerPanel", "ConditionAnalysisPanel" };
 
         private readonly List<Button> _slotButtons = new List<Button>();
         private readonly List<GridLayoutGroup> _responsiveGrids = new List<GridLayoutGroup>();
@@ -49,6 +52,7 @@ namespace Baseball.Presentation.Owner
         private RectTransform _primaryAssignedContent;
         private RectTransform _secondaryAssignedContent;
         private RectTransform _ownedContent;
+        private RectTransform _ownedHeader;
         private RectTransform _analysisContent;
         private RectTransform _setupContent;
         private RectTransform _closerContent;
@@ -156,7 +160,7 @@ namespace Baseball.Presentation.Owner
             _evaluationText.text = preview.EvaluationText + "\n" + preview.EvaluationBasisText;
             _validationText.text = preview.ValidationText;
             _validationText.color = preview.CanSave ? InspectorMessage : CareerUiTheme.Warning;
-            RenderActivePlayerGroup();
+            RefreshOrRenderActivePlayerGroup();
             _presetIndex = FindSelectedPreset(preview);
             RenderPresetControls();
             SetPreviewState(message, preview.CanSave, true);
@@ -235,7 +239,7 @@ namespace Baseball.Presentation.Owner
             _hitterTabButton = CreatePlayerGroupTab(tabs, "HitterTab", "타자", PlayerGroupTab.Hitter);
             _pitcherTabButton = CreatePlayerGroupTab(tabs, "PitcherTab", "투수", PlayerGroupTab.Pitcher);
             _summaryText = CreateToolbarText(tabs, "RosterSummary", 280f, 12, FontStyle.Bold);
-            _presetStateText = CreateToolbarText(tabs, "PresetState", 190f, 12, FontStyle.Bold);
+            _presetStateText = CreateToolbarText(tabs, "RosterRuleSummary", 260f, 11, FontStyle.Bold);
             _evaluationText = CreateToolbarText(tabs, "RosterEvaluation", 0f, 10, FontStyle.Normal);
             _evaluationText.gameObject.SetActive(false);
             _placementEditButton = CreateToolbarButton(tabs, "PlacementEditMode", "배치 편집", 96f,
@@ -289,6 +293,7 @@ namespace Baseball.Presentation.Owner
             UpdatePlayerGroupTabs();
             foreach (Transform panel in board)
                 if (panel.name.EndsWith("Panel", StringComparison.Ordinal)) CompactPanel((RectTransform)panel);
+            BuildOwnedPlayerHeader(ownedPanel);
             OwnerRuntimeUiFactory.SetAnchors(ownedPanel, Vector2.zero, new Vector2(0.64f, 0.60f), Vector2.zero, Vector2.zero);
             OwnerRuntimeUiFactory.SetAnchors(analysisPanel, new Vector2(0.65f, 0f), new Vector2(1f, 0.60f), Vector2.zero, Vector2.zero);
         }
@@ -335,8 +340,7 @@ namespace Baseball.Presentation.Owner
         private void RenderPresetControls()
         {
             bool hasMultiplePresets = _model != null && _model.Presets.Count > 1;
-            OwnerRosterPresetChoiceModel preset = _model.Presets[_presetIndex];
-            _presetStateText.text = $"{preset.Name} · {preset.StatusText}";
+            _presetStateText.text = _model.RosterCardAndTeamColorSummaryText;
             _previousPresetButton.interactable = hasMultiplePresets;
             _nextPresetButton.interactable = hasMultiplePresets;
         }
@@ -359,6 +363,28 @@ namespace Baseball.Presentation.Owner
             ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("RoleScroll", panel.Content, out RectTransform content);
             OwnerRuntimeUiFactory.Stretch(scroll.GetComponent<RectTransform>());
             return content;
+        }
+
+        private void BuildOwnedPlayerHeader(RectTransform panel)
+        {
+            var safe = (RectTransform)panel.Find("ContentSafeRect");
+            var layout = safe.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = CareerUiTheme.Space1;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            _ownedHeader = CreateAnalysisSurface(safe, "OwnedPlayerHeader", CareerUiTheme.RosterPanel);
+            _ownedHeader.SetAsFirstSibling();
+            // 필터 행의 LayoutGroup이 보고하는 flexibleHeight가 고정 헤더를 늘리지 않게 한다.
+            _ownedHeader.gameObject.AddComponent<LayoutElement>().flexibleHeight = 0f;
+            var headerLayout = _ownedHeader.gameObject.AddComponent<VerticalLayoutGroup>();
+            headerLayout.spacing = CareerUiTheme.Space1;
+            headerLayout.childControlWidth = headerLayout.childControlHeight = true;
+            headerLayout.childForceExpandWidth = true;
+            headerLayout.childForceExpandHeight = false;
+            var sizing = safe.Find("RoleScroll").gameObject.AddComponent<LayoutElement>();
+            sizing.minHeight = sizing.preferredHeight = 0f;
+            sizing.flexibleHeight = 1f;
         }
 
         private static RectTransform CreateInspectorControlRow(Transform parent, string name)
@@ -425,6 +451,7 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.ClearChildren(_primaryAssignedContent);
             OwnerRuntimeUiFactory.ClearChildren(_secondaryAssignedContent);
             OwnerRuntimeUiFactory.ClearChildren(_ownedContent);
+            OwnerRuntimeUiFactory.ClearChildren(_ownedHeader);
             OwnerRuntimeUiFactory.ClearChildren(_analysisContent);
             OwnerRuntimeUiFactory.ClearChildren(_setupContent);
             OwnerRuntimeUiFactory.ClearChildren(_closerContent);
@@ -462,13 +489,26 @@ namespace Baseball.Presentation.Owner
             _renderedOwnedCount = GetFilteredOwnedPlayers(isPitcher).Count;
             _renderedOwnedPageIndex = _ownedPageIndex;
             _hasRenderedPlayerGroup = true;
+            ScrollRect scroll = _ownedContent.GetComponentInParent<ScrollRect>(true);
+            scroll.StopMovement();
+            _ownedContent.anchoredPosition = Vector2.zero;
         }
 
         /// <summary>Preview 갱신에서는 카드 계층을 재생성하지 않고 데이터와 분석만 다시 바인딩한다.</summary>
         private void RefreshOrRenderActivePlayerGroup()
         {
+            bool canPreserveScroll = _hasRenderedPlayerGroup && _renderedPlayerGroup == _activePlayerGroup &&
+                _renderedOwnedPageIndex == _ownedPageIndex;
+            Vector2 position = _ownedContent == null ? Vector2.zero : _ownedContent.anchoredPosition;
             if (!TryRefreshActivePlayerGroup())
+            {
                 RenderActivePlayerGroup();
+                if (canPreserveScroll)
+                {
+                    Canvas.ForceUpdateCanvases();
+                    _ownedContent.anchoredPosition = position;
+                }
+            }
         }
 
         private bool TryRefreshActivePlayerGroup()
@@ -574,7 +614,7 @@ namespace Baseball.Presentation.Owner
 
         private void RenderOwnedPlayers(RectTransform content, bool isPitcher, int columnCount)
         {
-            RenderPositionFilters(content, isPitcher);
+            RenderPositionFilters(_ownedHeader, isPitcher);
             List<OwnerCollectionCardSnapshot> cards = GetFilteredOwnedPlayers(isPitcher);
             int cardCount = cards.Count;
             int pageCount = Math.Max(1, (cardCount + OwnedCardsPerPage - 1) / OwnedCardsPerPage);
@@ -582,10 +622,9 @@ namespace Baseball.Presentation.Owner
             int firstCardIndex = _ownedPageIndex * OwnedCardsPerPage;
             int visibleCardCount = Math.Min(OwnedCardsPerPage, cardCount - firstCardIndex);
 
-            AddSectionTitle(
-                content,
-                $"{(isPitcher ? "보유 투수" : "보유 야수")} {cardCount}장 · {_ownedPageIndex + 1}/{pageCount} 페이지");
-            if (pageCount > 1) RenderOwnedPageControls(content, pageCount);
+            string summary = $"{(isPitcher ? "보유 투수" : "보유 야수")} {cardCount}장";
+            if (pageCount > 1) RenderOwnedPageControls(_ownedHeader, pageCount, summary);
+            else AddSectionTitle(_ownedHeader, summary);
             int slotCount = columnCount * 2;
             RectTransform gridRoot = CreateCardGrid(content, "OwnedGrid", slotCount, columnCount);
             for (int index = 0; index < visibleCardCount; index++)
@@ -602,23 +641,33 @@ namespace Baseball.Presentation.Owner
             }
         }
 
-        private void RenderOwnedPageControls(Transform content, int pageCount)
+        private void RenderOwnedPageControls(Transform content, int pageCount, string summary)
         {
             RectTransform row = OwnerRuntimeUiFactory.CreateRect("OwnedPageControls", content);
-            row.gameObject.AddComponent<LayoutElement>().preferredHeight = 28f;
+            row.gameObject.AddComponent<LayoutElement>().preferredHeight = 32f;
             HorizontalLayoutGroup layout = OwnerWorkspaceUiFactory.AddHorizontalLayout(row, CareerUiTheme.Space1);
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
 
+            Text count = CreateToolbarText(row, "OwnedPlayerCount", 100f, 12, FontStyle.Bold);
+            count.text = summary;
+            count.GetComponent<LayoutElement>().flexibleWidth = 1f;
+
             Button previous = CreateToolbarButton(row, "PreviousOwnedPage", "이전", 72f, () => ChangeOwnedPage(-1));
             previous.interactable = _ownedPageIndex > 0;
             Text page = CreateToolbarText(
-                row, "OwnedPageState", 120f, 11, FontStyle.Bold);
+                row, "OwnedPageState", 44f, 11, FontStyle.Bold);
             page.alignment = TextAnchor.MiddleCenter;
             page.text = $"{_ownedPageIndex + 1} / {pageCount}";
             Button next = CreateToolbarButton(row, "NextOwnedPage", "다음", 72f, () => ChangeOwnedPage(1));
             next.interactable = _ownedPageIndex + 1 < pageCount;
+            foreach (Button button in new[] { previous, next })
+            {
+                LayoutElement sizing = button.GetComponent<LayoutElement>();
+                sizing.minHeight = sizing.preferredHeight = 32f;
+                sizing.flexibleHeight = 0f;
+            }
         }
 
         private void ChangeOwnedPage(int delta)
@@ -679,20 +728,21 @@ namespace Baseball.Presentation.Owner
 
         private void LateUpdate()
         {
+            float orderWidth = FitAssignedPanelsToCards();
             // 실제 Canvas 폭을 기준으로 계산해 좁은 셋업·마무리 구역에서도 카드가 잘리지 않게 한다.
             foreach (GridLayoutGroup grid in _responsiveGrids)
             {
                 if (grid == null) continue;
-                float available = ((RectTransform)grid.transform).rect.width - grid.padding.horizontal -
-                                  grid.spacing.x * (grid.constraintCount - 1);
-                // 배치 영역의 높이와 전체 슬롯 수로 공통 크기를 정해 셋업 카드만 확대되지 않게 한다.
-                RectTransform board = (RectTransform)_workspaceRoot.Find("PlayerOrderBoard");
-                int orderCount = _activePlayerGroup == PlayerGroupTab.Pitcher ? 11 : 14;
-                float orderWidth = (board.rect.width - 100f) / orderCount;
-                float orderHeight = Mathf.Max(48f, board.rect.height * .28f - 38f -
-                    (_activePlayerGroup == PlayerGroupTab.Hitter ? 28f : 0f));
-                float width = Mathf.Max(1f, Mathf.Min(available / grid.constraintCount, orderWidth, orderHeight / 1.5f));
+                float innerWidth = ((RectTransform)grid.transform).rect.width - grid.padding.horizontal;
+                float available = innerWidth - CareerUiTheme.Space1 * (grid.constraintCount - 1);
+                float width = Mathf.Max(1f, Mathf.Min(available / grid.constraintCount, orderWidth));
                 float height = width * 1.5f;
+                bool isAssignedGrid = grid.transform.parent != _ownedContent;
+                float spacing = isAssignedGrid && grid.constraintCount > 1
+                    ? Mathf.Max(CareerUiTheme.Space1, (innerWidth - width * grid.constraintCount) / (grid.constraintCount - 1))
+                    : CareerUiTheme.Space1;
+                grid.spacing = new Vector2(spacing, grid.spacing.y);
+                grid.childAlignment = grid.constraintCount == 1 ? TextAnchor.UpperCenter : TextAnchor.UpperLeft;
                 if (!Mathf.Approximately(grid.cellSize.x, width) ||
                     !Mathf.Approximately(grid.cellSize.y, height))
                     grid.cellSize = new Vector2(width, height);
@@ -704,6 +754,9 @@ namespace Baseball.Presentation.Owner
                 layout.minHeight = gridHeight;
                 layout.preferredHeight = gridHeight;
                 if (grid.transform.parent == _primaryAssignedContent)
+                {
+                    Transform positions = _primaryAssignedContent.Find("DefensivePositions");
+                    if (positions != null) positions.GetComponent<HorizontalLayoutGroup>().spacing = spacing;
                     foreach (Button positionButton in _positionButtons)
                     {
                         if (positionButton == null) continue;
@@ -711,7 +764,38 @@ namespace Baseball.Presentation.Owner
                         sizing.minWidth = width;
                         sizing.preferredWidth = width;
                     }
+                }
             }
+        }
+
+        private float FitAssignedPanelsToCards()
+        {
+            if (_workspaceRoot == null || _responsiveGrids.Count == 0) return PlayerMiniCardView.LineupSlotWidth;
+            float width = float.MaxValue;
+            foreach (GridLayoutGroup grid in _responsiveGrids)
+            {
+                if (grid == null || grid.transform.parent == _ownedContent) continue;
+                float available = ((RectTransform)grid.transform).rect.width - grid.padding.horizontal -
+                    CareerUiTheme.Space1 * (grid.constraintCount - 1);
+                if (available > 0f) width = Mathf.Min(width, available / grid.constraintCount);
+            }
+            if (width == float.MaxValue) return PlayerMiniCardView.LineupSlotWidth;
+            var board = (RectTransform)_workspaceRoot.Find("PlayerOrderBoard");
+            if (board.rect.height <= 0f) return width;
+            // 카드 폭에서 패널 높이를 계산해 카드 비율과 포지션 버튼 공간을 함께 확보한다.
+            float chromeHeight = 40f + (_activePlayerGroup == PlayerGroupTab.Hitter ? 29f : 0f);
+            float bottom = .89f - (width * 1.5f + chromeHeight) / board.rect.height;
+            foreach (string name in AssignedPanelNames)
+            {
+                var panel = (RectTransform)board.Find(name);
+                panel.anchorMin = new Vector2(panel.anchorMin.x, bottom);
+            }
+            foreach (string name in LowerPanelNames)
+            {
+                var panel = (RectTransform)board.Find(name);
+                panel.anchorMax = new Vector2(panel.anchorMax.x, bottom - .01f);
+            }
+            return width;
         }
 
         private void CreateSlotButton(Transform parent, OwnerLineupSlotModel slot)
@@ -797,10 +881,12 @@ namespace Baseball.Presentation.Owner
 
         private void BindOwnedPlayerCard(PlayerMiniCardView card, OwnerCollectionCardSnapshot player)
         {
+            string assignment = FindOwnedCardAssignment(player.CardId);
+            bool hasOtherCardAssigned = IsOtherCardAssigned(player);
             var model = new PlayerMiniCardModel(
                 player.CardId,
                 player.DisplayName,
-                "미배치",
+                hasOtherCardAssigned ? "동일 선수와 교체 가능" : assignment ?? "미배치",
                 FormatCompactYear(player.OriginYear),
                 $"★ {player.Cost}",
                 player.Edition == PlayerCardEdition.Normal
@@ -811,7 +897,19 @@ namespace Baseball.Presentation.Owner
                 cost: player.Cost, conditionLevel: player.ConditionLevel);
             card.Bind(model, PlayerPortraitSprites.GetDefault(player.Position));
             card.SetTeamIdentity(player.TeamDisplayName);
-            card.SetAssignmentBadge(FindOwnedCardAssignment(player.CardId));
+            card.SetAssignmentBadge(hasOtherCardAssigned ? "동일 선수와 교체 가능" : assignment);
+        }
+
+        private bool IsOtherCardAssigned(OwnerCollectionCardSnapshot player)
+        {
+            if (player == null) return false;
+            // 미리보기 프리셋을 기준으로 연도·종류가 다른 카드도 동일 인물로 구분한다.
+            foreach (OwnerCollectionCardSnapshot other in _model.Snapshot.OwnedPlayers)
+                if (other.CardId != player.CardId &&
+                    string.Equals(other.PlayerPersonId, player.PlayerPersonId, StringComparison.Ordinal) &&
+                    FindOwnedCardAssignment(other.CardId) != null)
+                    return true;
+            return false;
         }
 
         private string FindOwnedCardAssignment(string cardId)
@@ -1040,7 +1138,9 @@ namespace Baseball.Presentation.Owner
             _selectedOwnedCardId = selected.PlayerId;
             _selectedOwnedPlayerName = selected.DisplayName;
             _selectedOwnedCard.SetVisualState(PlayerMiniCardVisualState.Selected);
-            _previewStateText.text = $"{_selectedOwnedPlayerName} 선택 · 배치할 슬롯을 선택하세요.";
+            _previewStateText.text = IsOtherCardAssigned(FindOwnedCard(selected.PlayerId))
+                ? $"{_selectedOwnedPlayerName} 선택 · 배치된 동일 선수의 슬롯을 선택해 교체하세요."
+                : $"{_selectedOwnedPlayerName} 선택 · 배치할 슬롯을 선택하세요.";
             _previewStateText.color = CareerUiTheme.ReferenceAccent;
         }
 

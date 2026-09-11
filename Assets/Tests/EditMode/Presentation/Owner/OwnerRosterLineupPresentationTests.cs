@@ -30,7 +30,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             OwnerRosterLineupPresentationModel model = OwnerRosterLineupPresentationBuilder.Build(
                 CreateSnapshot(new LineupPresetValidationResult("default", new[] { issue })));
 
-            Assert.That(model.RosterSummaryText, Is.EqualTo("1군 25/25 · 야수 14/14 · 투수 11/11 · 외국인 3/3"));
+            Assert.That(model.RosterSummaryText, Is.EqualTo("1군 25/25 · 야수 14/14 · 투수 11/11"));
             Assert.That(model.DefensiveLineup.Count, Is.EqualTo(9));
             Assert.That(model.Bench.Count, Is.EqualTo(5));
             Assert.That(model.StarterRotation.Count, Is.EqualTo(5));
@@ -40,6 +40,55 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(model.CanSave, Is.True, "Warning만 있는 배치는 저장할 수 있어야 합니다.");
             Assert.That(model.CreatePendingChangeMessage(), Does.Contain("배치 저장"));
             Assert.That(model.CreatePendingChangeMessage(), Does.Not.Contain("저장할 수 없습니다"));
+        }
+
+        [Test]
+        public void Builder_레전드와커리어하이사용수및선택팀컬러를요약한다()
+        {
+            OwnerRosterLineupSnapshot source = CreateSnapshot(Valid("default"));
+            LineupPresetState preset = source.Preset;
+            var selectedPreset = new LineupPresetState(
+                preset.PresetId,
+                preset.Name,
+                preset.StartingLineupSlots,
+                preset.BattingOrderCardIds,
+                preset.BenchPriorityCardIds,
+                preset.StarterRotationCardIds,
+                preset.BullpenAssignmentCardIds,
+                preset.SetupPitcherCardId,
+                preset.CloserPitcherCardId,
+                new[] { "TC_A", "TC_B" },
+                preset.DefaultTacticCardIds);
+            var players = new[]
+            {
+                new OwnerRosterPlayerSnapshot("H0", "레전드 선수", 2024, PlayerPosition.Catcher,
+                    PitcherRole.Starter, PlayerCardEdition.Legend, 10, RegistrationType.Domestic,
+                    ActiveRosterRole.StartingCatcher, PlayerAvailabilityStatus.Available),
+                new OwnerRosterPlayerSnapshot("H1", "커리어 하이 선수", 2023, PlayerPosition.FirstBase,
+                    PitcherRole.Starter, PlayerCardEdition.CareerHigh, 10, RegistrationType.Domestic,
+                    ActiveRosterRole.StartingFirstBase, PlayerAvailabilityStatus.Available),
+                new OwnerRosterPlayerSnapshot("H2", "일반 선수", 2022, PlayerPosition.SecondBase,
+                    PitcherRole.Starter, PlayerCardEdition.Normal, 5, RegistrationType.Domestic,
+                    ActiveRosterRole.StartingSecondBase, PlayerAvailabilityStatus.Available)
+            };
+            var snapshot = new OwnerRosterLineupSnapshot(
+                source.RosterStatus,
+                players,
+                new[] { new OwnerRosterPresetSnapshot(selectedPreset, Valid(selectedPreset.PresetId)) },
+                selectedPreset.PresetId,
+                new[]
+                {
+                    new OwnerLoadoutCandidateSnapshot("TC_A", "연도·구단 20명 · 효과 4"),
+                    new OwnerLoadoutCandidateSnapshot("TC_B", "구단 20명 · 효과 3")
+                },
+                source.TacticCandidates);
+
+            OwnerRosterLineupPresentationModel model = OwnerRosterLineupPresentationBuilder.Build(snapshot);
+
+            Assert.That(model.RosterCardAndTeamColorSummaryText,
+                Is.EqualTo("레전드 1장 · 커리어 하이 1장 · 합계 2/4\n" +
+                           "팀컬러 · 연도·구단 20명 / 구단 20명"));
+            Assert.That(model.RosterCardAndTeamColorSummaryText, Does.Not.Contain("기본 프리셋"));
         }
 
         [Test]
@@ -421,10 +470,12 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     .onClick.Invoke();
 
                 Assert.That(selectedPresetId, Is.EqualTo("alternate"));
-                Assert.That(shell.transform.Find(
-                        "MainWorkspaceHost/OwnerRosterLineupWorkspace/PlayerOrderBoard/PlayerGroupTabs/PresetState")
-                    .GetComponent<Text>().text,
-                    Does.Contain("기본 프리셋 · 사용 가능"));
+                Text summary = shell.transform.Find(
+                        "MainWorkspaceHost/OwnerRosterLineupWorkspace/PlayerOrderBoard/PlayerGroupTabs/RosterRuleSummary")
+                    .GetComponent<Text>();
+                Assert.That(summary.text, Does.Contain("레전드 0장 · 커리어 하이 0장 · 합계 0/4"));
+                Assert.That(summary.text, Does.Contain("팀컬러 · 선택 없음"));
+                Assert.That(summary.text, Does.Not.Contain("기본 프리셋").And.Not.Contain("사용 가능"));
             }
             finally
             {
@@ -480,6 +531,119 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             {
                 if (view != null) UnityEngine.Object.DestroyImmediate(view.gameObject);
                 UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
+        public void View_필터고정과교체스크롤유지및동일선수사용불가를검증한다(int width, int height)
+        {
+            var root = new GameObject("RosterScrollCanvas", typeof(RectTransform), typeof(Canvas));
+            var cameraObject = new GameObject("RosterScrollCamera", typeof(Camera));
+            var target = new RenderTexture(width, height, 24);
+            UI_Scene_OwnerRosterLineup view = null;
+            try
+            {
+                Camera camera = cameraObject.GetComponent<Camera>();
+                camera.orthographic = true;
+                camera.targetTexture = target;
+                Canvas canvas = root.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 10f;
+                SharedGameShellView shell = SharedGameShellView.CreateRuntime(root.transform);
+                shell.SetInspectorVisible(false);
+                shell.SetActionBarVisible(false);
+                view = UI_Scene_OwnerRosterLineup.CreateRuntime(shell.MainWorkspaceHost, shell.RightInspectorHost, shell.ContextActionBarHost);
+                OwnerRosterLineupSnapshot source = CreateSnapshot(Valid("default"));
+                var cards = new OwnerCollectionCardSnapshot[36];
+                for (int i = 0; i < cards.Length; i++)
+                    cards[i] = new OwnerCollectionCardSnapshot(i == 0 ? "H0" : "owned" + i,
+                        i == 1 ? "P0" : "P" + i, "동명이인 선수", 2024, PlayerPosition.Catcher, 5,
+                        i == 1 ? PlayerCardEdition.CareerHigh : PlayerCardEdition.Normal, 0, 0, false, false);
+                var snapshot = new OwnerRosterLineupSnapshot(source.RosterStatus, source.Players, source.Presets,
+                    source.Preset.PresetId, source.TeamColorCandidates, source.TacticCandidates, cards);
+                view.Bind(OwnerRosterLineupPresentationBuilder.Build(snapshot));
+                Transform board = shell.transform.Find("MainWorkspaceHost/OwnerRosterLineupWorkspace/PlayerOrderBoard");
+                Transform safe = board.Find("OwnedPlayerPanel/ContentSafeRect");
+                ScrollRect scroll = safe.Find("RoleScroll").GetComponent<ScrollRect>();
+                RectTransform header = (RectTransform)safe.Find("OwnedPlayerHeader");
+                Action layout = () =>
+                {
+                    Canvas.ForceUpdateCanvases();
+                    typeof(UI_Scene_OwnerRosterLineup).GetMethod("LateUpdate",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(view, null);
+                    Canvas.ForceUpdateCanvases();
+                };
+                layout(); layout();
+                Text rosterRuleSummary = board.Find("PlayerGroupTabs/RosterRuleSummary").GetComponent<Text>();
+                RectTransform rosterRuleRect = rosterRuleSummary.rectTransform;
+                Assert.That(rosterRuleSummary.preferredHeight, Is.LessThanOrEqualTo(rosterRuleRect.rect.height + 1f),
+                    $"{width}px에서 특수 카드·팀컬러 요약이 잘려서는 안 됩니다.");
+                var summaryBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(board, rosterRuleRect);
+                Rect boardRect = board.GetComponent<RectTransform>().rect;
+                Assert.That(summaryBounds.min.x, Is.GreaterThanOrEqualTo(boardRect.xMin - 1f));
+                Assert.That(summaryBounds.min.y, Is.GreaterThanOrEqualTo(boardRect.yMin - 1f));
+                Assert.That(summaryBounds.max.x, Is.LessThanOrEqualTo(boardRect.xMax + 1f));
+                Assert.That(summaryBounds.max.y, Is.LessThanOrEqualTo(boardRect.yMax + 1f));
+                Assert.That(header.Find("OriginFilters"), Is.Not.Null);
+                Assert.That(header.IsChildOf(scroll.content), Is.False);
+                Assert.That(scroll.content.childCount, Is.EqualTo(1), "카드 Grid만 스크롤해야 합니다.");
+                var headerBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(safe, header);
+                var scrollBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(safe, scroll.transform);
+                Assert.That(headerBounds.min.y, Is.GreaterThanOrEqualTo(scrollBounds.max.y - 1f));
+                Assert.That(scroll.viewport.rect.height, Is.GreaterThan(40f));
+                Transform duplicate = scroll.content.Find("OwnedGrid/Owned_1");
+                Assert.That(duplicate.Find("AssignmentBadge/AssignmentLabel").GetComponent<Text>().text,
+                    Does.Contain("교체 가능").And.Contain("동일 선수"));
+                Assert.That(scroll.content.Find("OwnedGrid/Owned_2").GetComponent<PlayerMiniCardView>().Model.PositionLabel,
+                    Is.EqualTo("미배치"), "동명이인을 막아서는 안 됩니다.");
+                int requests = 0;
+                view.AssignmentRequested += (_, __, ___) => requests++;
+                FindButton(board, "PlayerGroupTabs/PlacementEditMode").onClick.Invoke();
+                FindButton(board, "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/BattingOrder_0").onClick.Invoke();
+                duplicate.GetComponent<Button>().onClick.Invoke();
+                Assert.That(requests, Is.EqualTo(1), "배치된 동일 선수의 다른 카드를 교체할 수 있어야 합니다.");
+                FindButton(board, "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/BattingOrder_0").onClick.Invoke();
+                scroll.content.Find("OwnedGrid/Owned_2").GetComponent<Button>().onClick.Invoke();
+                Assert.That(requests, Is.EqualTo(2));
+                scroll.verticalNormalizedPosition = 0.25f;
+                Vector3 headerPosition = header.position;
+                float offset = scroll.content.anchoredPosition.y;
+                var preview = snapshot.CreatePreview(OwnerLineupPresetCommandBuilder.Swap(snapshot.Preset,
+                    OwnerLineupSwapGroup.BattingOrder, 0, 1), Valid("default"));
+                view.BindPreview(OwnerRosterLineupPresentationBuilder.Build(preview), "교체 확인");
+                layout();
+                Assert.That(scroll.content.Find("OwnedGrid/Owned_1"), Is.SameAs(duplicate));
+                Assert.That(scroll.content.anchoredPosition.y, Is.EqualTo(offset).Within(1f));
+                Assert.That(header.position, Is.EqualTo(headerPosition));
+                camera.Render();
+                CapturePositionView(camera, target, System.IO.Path.Combine(Application.dataPath, "../RosterScreenshots/Hitters"), width, height);
+                view.BindPreview(OwnerRosterLineupPresentationBuilder.Build(snapshot.CreatePreview(
+                    OwnerLineupPresetCommandBuilder.ReplaceCard(snapshot.Preset, "H0", "owned2"), Valid("default"))), "동일 선수 제외");
+                Assert.That(duplicate.GetComponent<PlayerMiniCardView>().Model.PositionLabel, Is.EqualTo("미배치"));
+                Assert.That(duplicate.Find("AssignmentBadge").gameObject.activeSelf, Is.False);
+                FindButton(header, "OwnedPageControls/NextOwnedPage").onClick.Invoke();
+                layout();
+                Transform secondPage = scroll.content.Find("OwnedGrid/Owned_18");
+                Assert.That(secondPage, Is.Not.Null);
+                view.BindPreview(OwnerRosterLineupPresentationBuilder.Build(preview), "교체 확인");
+                Assert.That(scroll.content.Find("OwnedGrid/Owned_18"), Is.SameAs(secondPage));
+                view.SetWorkspaceMode(OwnerRosterWorkspaceMode.Pitching);
+                layout(); layout();
+                Assert.That(header.Find("OriginFilters"), Is.Not.Null);
+                Assert.That(scroll.content.childCount, Is.EqualTo(1));
+                camera.Render();
+                CapturePositionView(camera, target, System.IO.Path.Combine(Application.dataPath, "../RosterScreenshots/Pitchers"), width, height);
+            }
+            finally
+            {
+                if (view != null) UnityEngine.Object.DestroyImmediate(view.gameObject);
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(target);
             }
         }
 

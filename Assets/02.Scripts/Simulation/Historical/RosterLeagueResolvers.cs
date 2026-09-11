@@ -19,6 +19,9 @@ namespace Baseball.Simulation.Historical
         SetupPitcherCount,
         CloserPitcherCount,
         ForeignPlayerCount,
+        SpecialCardCount,
+        SpecialHitterCardCount,
+        SpecialPitcherCardCount,
         DuplicatePlayerPersonId,
         FixedRoleCount
     }
@@ -60,6 +63,65 @@ namespace Baseball.Simulation.Historical
 
         public bool IsValid => _issues.Length == 0;
         public IReadOnlyList<RosterValidationIssue> Issues => _issues;
+    }
+
+    /// <summary>공통 25인 계약과 구단주 Legend·CareerHigh 등록 상한을 함께 검증한다.</summary>
+    public sealed class OwnerActiveRosterValidator
+    {
+        private readonly ActiveRosterValidator _compositionValidator;
+
+        public OwnerActiveRosterValidator(
+            ActiveRosterValidator compositionValidator = null,
+            ActiveRosterCompositionRule rule = null)
+        {
+            ActiveRosterCompositionRule resolvedRule = rule ?? ActiveRosterCompositionRule.Standard;
+            _compositionValidator = compositionValidator ?? new ActiveRosterValidator(resolvedRule);
+        }
+
+        /// <summary>Legend·CareerHigh 합계와 타자·투수별 상한을 카드 원본 기준으로 검증한다.</summary>
+        public RosterValidationResult Validate(CurrentRosterState roster, WorldCardCatalog catalog)
+        {
+            if (roster == null) throw new ArgumentNullException(nameof(roster));
+            if (catalog == null) throw new ArgumentNullException(nameof(catalog));
+
+            RosterValidationResult composition = _compositionValidator.Validate(roster);
+            var issues = new List<RosterValidationIssue>(composition.Issues.Count + 3);
+            for (int index = 0; index < composition.Issues.Count; index++)
+                issues.Add(composition.Issues[index]);
+
+            int specialHitters = 0;
+            int specialPitchers = 0;
+            for (int index = 0; index < roster.Entries.Count; index++)
+            {
+                ActiveRosterEntry entry = roster.Entries[index];
+                if (!catalog.TryGetCard(entry.CardId, out PlayerCardDefinition card))
+                    throw new ArgumentException("1군 카드 원본을 찾을 수 없습니다.", nameof(roster));
+                if (!card.IsFranchiseWildcard) continue;
+
+                PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
+                if (season.PlayerType == PlayerType.Batter) specialHitters++;
+                else if (season.PlayerType == PlayerType.Pitcher) specialPitchers++;
+            }
+
+            int total = specialHitters + specialPitchers;
+            AddMaximumIssue(issues, RosterValidationIssueCode.SpecialCardCount,
+                OwnerSpecialCardRosterRule.MaxTotalCount, total);
+            AddMaximumIssue(issues, RosterValidationIssueCode.SpecialHitterCardCount,
+                OwnerSpecialCardRosterRule.MaxHitterCount, specialHitters);
+            AddMaximumIssue(issues, RosterValidationIssueCode.SpecialPitcherCardCount,
+                OwnerSpecialCardRosterRule.MaxPitcherCount, specialPitchers);
+            return new RosterValidationResult(issues);
+        }
+
+        private static void AddMaximumIssue(
+            ICollection<RosterValidationIssue> issues,
+            RosterValidationIssueCode code,
+            int maximum,
+            int actual)
+        {
+            if (actual > maximum)
+                issues.Add(new RosterValidationIssue(code, maximum, actual));
+        }
     }
 
     /// <summary>포지션 적합성과 무관하게 공통 25인 구성만 검증한다.</summary>

@@ -62,6 +62,35 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(HasIssue(result, RosterValidationIssueCode.FixedRoleCount), Is.True);
         }
 
+        [TestCase(3, 1)]
+        [TestCase(1, 3)]
+        public void OwnerActiveRosterValidator_특수카드4장을타자투수혼합으로허용한다(
+            int specialHitterCount,
+            int specialPitcherCount)
+        {
+            RosterValidationResult result = ValidateSpecialRoster(
+                specialHitterCount,
+                specialPitcherCount);
+
+            Assert.That(result.IsValid, Is.True);
+        }
+
+        [TestCase(4, 0, RosterValidationIssueCode.SpecialHitterCardCount)]
+        [TestCase(0, 4, RosterValidationIssueCode.SpecialPitcherCardCount)]
+        [TestCase(3, 2, RosterValidationIssueCode.SpecialCardCount)]
+        public void OwnerActiveRosterValidator_특수카드전체및포지션별상한을거부한다(
+            int specialHitterCount,
+            int specialPitcherCount,
+            RosterValidationIssueCode expectedIssue)
+        {
+            RosterValidationResult result = ValidateSpecialRoster(
+                specialHitterCount,
+                specialPitcherCount);
+
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(HasIssue(result, expectedIssue), Is.True);
+        }
+
         [Test]
         public void RosterCostResolver_벤치는제외하고주전교체와투수내역할교체를구분한다()
         {
@@ -352,6 +381,135 @@ namespace Baseball.Tests.EditMode.Simulation
                     role);
             }
             return new CurrentRosterState(roster.TeamSeasonKey, entries);
+        }
+
+        private static RosterValidationResult ValidateSpecialRoster(
+            int specialHitterCount,
+            int specialPitcherCount)
+        {
+            CurrentRosterState baseline = CreateValidRoster(0);
+            var entries = new ActiveRosterEntry[baseline.Entries.Count];
+            var seasons = new List<PlayerSeasonDefinition>();
+            var cards = new List<PlayerCardDefinition>();
+            var recipes = new List<SpecialRecruitRecipe>();
+            var ratings = new AbilityRatings(50);
+            var modifiers = new int[PlayerAbilityCatalog.AbilityCount];
+            int specialIndex = 0;
+            for (int index = 0; index < entries.Length; index++)
+            {
+                ActiveRosterEntry source = baseline.Entries[index];
+                bool isPitcher = ActiveRosterCompositionRule.Standard.IsPitcherRole(source.Role);
+                bool isSpecial = isPitcher
+                    ? index - ActiveRosterCompositionRule.HitterCount < specialPitcherCount
+                    : index < specialHitterCount;
+                PlayerCardEdition edition = isSpecial && specialIndex++ % 2 != 0
+                    ? PlayerCardEdition.CareerHigh
+                    : isSpecial ? PlayerCardEdition.Legend : PlayerCardEdition.Normal;
+                string normalCardId = PlayerCardDefinition.CreateStableCardId(
+                    source.PlayerSeasonId,
+                    PlayerCardEdition.Normal);
+                string cardId = PlayerCardDefinition.CreateStableCardId(
+                    source.PlayerSeasonId,
+                    edition,
+                    isSpecial ? "COMETS" : string.Empty);
+                entries[index] = new ActiveRosterEntry(
+                    cardId,
+                    source.PlayerSeasonId,
+                    source.PlayerPersonId,
+                    source.RegistrationType,
+                    source.Role);
+                seasons.Add(new PlayerSeasonDefinition(
+                    source.PlayerSeasonId,
+                    source.PlayerPersonId,
+                    2011,
+                    "COMETS",
+                    baseline.TeamSeasonKey,
+                    isPitcher ? PlayerPosition.StartingPitcher : PlayerPosition.Catcher,
+                    isPitcher ? PitcherRole.Starter : PitcherRole.MiddleRelief,
+                    isPitcher ? PlayerType.Pitcher : PlayerType.Batter,
+                    RegistrationType.Domestic,
+                    ratings,
+                    10,
+                    ratings));
+                cards.Add(new PlayerCardDefinition(
+                    normalCardId,
+                    source.PlayerSeasonId,
+                    PlayerCardEdition.Normal,
+                    modifiers));
+                if (!isSpecial) continue;
+
+                cards.Add(new PlayerCardDefinition(
+                    cardId,
+                    source.PlayerSeasonId,
+                    edition,
+                    modifiers,
+                    teamColorLineageId: "COMETS"));
+                IReadOnlyList<string> materialPool = edition == PlayerCardEdition.CareerHigh
+                    ? CreateCareerHighMaterials(
+                        source.PlayerSeasonId,
+                        source.PlayerPersonId,
+                        normalCardId,
+                        seasons,
+                        cards,
+                        ratings,
+                        modifiers)
+                    : new[] { normalCardId };
+                var groups = new SpecialRecruitMaterialGroup[SpecialRecruitRecipe.RequiredMaterialCount];
+                for (int groupIndex = 0; groupIndex < groups.Length; groupIndex++)
+                    groups[groupIndex] = new SpecialRecruitMaterialGroup(
+                        $"{cardId}:slot:{groupIndex}",
+                        materialPool);
+                recipes.Add(new SpecialRecruitRecipe(cardId, groups));
+            }
+
+            var roster = new CurrentRosterState(baseline.TeamSeasonKey, entries);
+            var lineages = new TeamColorLineageMap(
+                new Dictionary<string, string> { ["COMETS"] = "COMETS" });
+            var catalog = new WorldCardCatalog(
+                seasons,
+                cards,
+                teamColorLineages: lineages,
+                specialRecruitRecipes: recipes);
+            return new OwnerActiveRosterValidator().Validate(roster, catalog);
+        }
+
+        private static IReadOnlyList<string> CreateCareerHighMaterials(
+            string sourceSeasonId,
+            string playerPersonId,
+            string sourceNormalCardId,
+            ICollection<PlayerSeasonDefinition> seasons,
+            ICollection<PlayerCardDefinition> cards,
+            AbilityRatings ratings,
+            IReadOnlyList<int> modifiers)
+        {
+            var materialCardIds = new List<string> { sourceNormalCardId };
+            for (int index = 0; index < SpecialRecruitRecipe.RequiredMaterialCount - 1; index++)
+            {
+                string seasonId = $"{sourceSeasonId}:material:{index}";
+                string cardId = PlayerCardDefinition.CreateStableCardId(
+                    seasonId,
+                    PlayerCardEdition.Normal);
+                seasons.Add(new PlayerSeasonDefinition(
+                    seasonId,
+                    playerPersonId,
+                    2000 + index,
+                    "COMETS",
+                    "COMETS_2011",
+                    PlayerPosition.Catcher,
+                    PitcherRole.MiddleRelief,
+                    PlayerType.Batter,
+                    RegistrationType.Domestic,
+                    ratings,
+                    10,
+                    ratings));
+                cards.Add(new PlayerCardDefinition(
+                    cardId,
+                    seasonId,
+                    PlayerCardEdition.Normal,
+                    modifiers));
+                materialCardIds.Add(cardId);
+            }
+            return materialCardIds;
         }
 
         private static WorldCardCatalog CreateCatalog(CurrentRosterState roster, IReadOnlyList<int> costs)

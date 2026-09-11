@@ -27,6 +27,10 @@
 - Panel, Button, Table, Plot, 상태 문구는 Native uGUI와 공용 `CareerUiSkin`으로 만든다.
 - 선수 카드에는 공용 `PlayerMiniCardView`, `PlayerCardSurface`, `UI_Popup_OwnerPlayerCard`를 사용한다.
 - 목록 선택·검색·정렬·Scroll은 Route를 벗어났다가 돌아와도 해당 View 인스턴스가 보존한다.
+- 선수 오더는 교체 Preview에서도 카드와 스크롤 위치·페이지를 유지한다. 보유 선수의 필터·정렬·역할 탭·목록 요약·페이지 이동은 고정하고 카드 Grid만 스크롤한다.
+- 동일 `PlayerPersonId`의 다른 카드가 현재 Preview에 배치되어 있으면 `사용 불가 · 동일 선수 배치 중`을 표시하고 배치 선택을 차단한다. 조회 모드의 상세 보기는 유지한다.
+- 타순·벤치·투수 카드는 패널 폭에서 공통 크기를 정하고 비율을 보존한다. 상단 패널 높이와 하단 목록 시작점을 함께 조절해 오른쪽에 큰 빈 공간을 남기지 않는다.
+- 구단 운영 안내 버튼과 패널은 메인(홈)에만 표시하며, 다른 Route에서는 안내 공간을 반환한다. 선수 오더 상단 인원 요약에는 외국인 수를 표시하지 않는다.
 - 변경 Command는 `Preview → Validate → Confirm → Runtime 재조회` 순서를 지킨다. Presentation은
   규칙을 재계산하지 않는다.
 - `Loading / Empty / Locked / Invalid / Error`는 빈 화면이나 Console 오류가 아니라 같은 Content 영역의
