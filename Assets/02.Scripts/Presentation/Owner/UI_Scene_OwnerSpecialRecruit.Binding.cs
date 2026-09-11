@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Game.Historical;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -118,7 +119,7 @@ namespace Baseball.Presentation.Owner
             _portrait.sprite = PlayerPortraitSprites.GetAssigned(_selectedTarget.PlayerSeasonId);
             _portrait.enabled = _portrait.sprite != null;
             var image = _content.Find("TargetPreview/CardFrame").GetComponent<Image>();
-            image.sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_Full_" + _selectedTarget.Edition + "_v2");
+            image.sprite = OwnerPlayerCardFrames.Get(_selectedTarget.Edition, false);
             var recipe = _manager.Runtime.WorldCardCatalog.SpecialCards.GetRequiredRecipe(_selectedTarget.CardId);
             for (int slot = 0; slot < 8; slot++)
             {

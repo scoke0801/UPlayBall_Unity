@@ -79,7 +79,7 @@ namespace Baseball.Presentation.Career
             {
                 var snapshot = new OwnerCollectionCardSnapshot("gallery", "gallery-person", "김하늘", 2025,
                     PlayerPosition.Shortstop, PreviewCost(index), PreviewEdition(index),
-                    0, 0, false, false, isOwnedCard: false);
+                    0, 0, false, false, teamDisplayName: "서울 스타즈", isOwnedCard: false);
                 UI_Popup_OwnerPlayerCard.BuildFrontCard(full, snapshot);
                 full.Find("MainFrame").GetComponent<Image>().sprite = LoadGalleryFrame(variant, false);
                 full.Find("EditionPlate/Edition").GetComponent<Text>().text = CardDesignLabels[index];
@@ -98,7 +98,10 @@ namespace Baseball.Presentation.Career
                 new Vector2(200, 35), new Vector2(0, 120), index == _selectedCardDesign ? AccentColor : PrimaryTextColor);
             if (_showFullCardDesignGrid)
             {
-                RectTransform full = CreateRect("FullPreview", slot, new Vector2(151, 212), new Vector2(0, -8));
+                // 작은 Rect에서 글자 최소 크기만 유지하면 이름·능력치가 통째로 잘린다.
+                // 실제 카드 기준 크기로 구성한 뒤 카드 전체를 같은 비율로 축소한다.
+                RectTransform full = CreateRect("FullPreview", slot, new Vector2(456, 640), new Vector2(0, -8));
+                full.localScale = Vector3.one * (151f / 456f);
                 BuildGalleryFullCard(full, index);
             }
             else CreateGalleryMiniCard(slot, index, new Vector2(0, -8), false);
@@ -154,7 +157,8 @@ namespace Baseball.Presentation.Career
             fx.Initialize(CardDesignVariants[index], isCompact, index == _selectedCardDesign);
         }
 
-        private static PlayerCardEdition PreviewEdition(int index) => index < 4 ? (PlayerCardEdition)index : PlayerCardEdition.Normal;
+        private static PlayerCardEdition PreviewEdition(int index) =>
+            (PlayerCardEdition)System.Enum.Parse(typeof(PlayerCardEdition), CardDesignVariants[index], true);
         private static int PreviewCost(int index) => index == 4 ? 5 : 10;
         private static Sprite LoadGalleryFrame(string variant, bool mini) => OwnerPlayerCardFrames.Get(variant, mini);
 
@@ -164,6 +168,7 @@ namespace Baseball.Presentation.Career
             image.sprite = LoadGalleryFrame(variant, mini);
             image.preserveAspect = true;
             image.raycastTarget = false;
+            if (!mini) UI_Popup_OwnerPlayerCard.BuildTeamPlate(parent);
         }
     }
 }

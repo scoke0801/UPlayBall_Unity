@@ -381,14 +381,16 @@ namespace Baseball.Presentation.SharedUI
             _accentStrip.gameObject.SetActive(false);
             _portrait.color = _portrait.sprite == null ? Color.clear : Color.white;
             float top = _usesLineupSlotLayout ? .89f : 1f;
-            Vector2 band = OwnerPlayerCardFrames.MiniNameBand;
+            Rect name = OwnerPlayerCardFrames.GetNameRect(_model.FrameEdition.Value, true);
             SetAnchors(_lineupFrame.rectTransform, Vector2.zero, new Vector2(1f, top), Vector2.zero, Vector2.zero);
-            SetAnchors(_portrait.rectTransform, new Vector2(.12f, top * (band.y + .03f)), new Vector2(.88f, top * .86f), Vector2.zero, Vector2.zero);
-            SetAnchors(_nameText.rectTransform, new Vector2(.07f, top * band.x), new Vector2(.76f, top * band.y), Vector2.zero, Vector2.zero);
-            SetAnchors(_yearText.rectTransform, new Vector2(.77f, top * band.x), new Vector2(.94f, top * band.y), Vector2.zero, Vector2.zero);
+            SetAnchors(_portrait.rectTransform, new Vector2(.12f, top * OwnerPlayerCardFrames.GetPortraitBottom(_model.FrameEdition.Value, true)), new Vector2(.88f, top * .86f), Vector2.zero, Vector2.zero);
+            OwnerPlayerCardFrames.SetDecoration((RectTransform)transform, frame, _model.FrameEdition.Value,
+                true, top, _portrait.transform.GetSiblingIndex() + 1);
+            SetAnchors(_nameText.rectTransform, new Vector2(name.xMin, top * name.yMin), new Vector2(name.xMax, top * name.yMax), Vector2.zero, Vector2.zero);
+            SetAnchors(_yearText.rectTransform, new Vector2(.77f, top * name.yMin), new Vector2(.91f, top * name.yMax), Vector2.zero, Vector2.zero);
             SetAnchors(_costText.rectTransform, new Vector2(.06f, top * .085f), new Vector2(.94f, top * .165f), Vector2.zero, Vector2.zero);
             SetAnchors(_statusText.rectTransform, new Vector2(.04f, .01f), new Vector2(.96f, top * .085f), Vector2.zero, Vector2.zero);
-            _nameText.color = _yearText.color = new Color32(18, 20, 24, 255);
+            _nameText.color = _yearText.color = OwnerPlayerCardFrames.GetNameColor(_model.FrameEdition.Value);
             _costText.alignment = _statusText.alignment = TextAnchor.MiddleCenter;
             // 80px 슬롯의 실제 텍스트 영역 높이에 맞춰 수치와 한국어 이름의 잘림을 막는다.
             SetBestFitRange(_nameText, 6, _usesLineupSlotLayout ? 12 : 18);

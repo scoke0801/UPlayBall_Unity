@@ -1,5 +1,11 @@
 # Single Baseball Manager
 
+> **카드 초상·장식 레이어 정리:** Full/Mini 각각 등급 공통 초상 크기를 사용하고,
+> 배경 → 초상 → 장식 → 정보 순서로 합성한다. EX·MVP도 공통 구단 명찰을 제공한다.
+> 작은 Full 갤러리는 기준 크기로 작성 후 축소해 정보 잘림을 방지한다.
+> 독립 Unity 프로젝트의 실제 16장 렌더와 검증 범위는
+> `docs/reports/card-layer-validation/README.md`를 따른다.
+
 > **2026-09-11 연구 보충 Runtime 검증 복구:** 보충 939명의 `RosterRole`을 출처 문자열 대신
 > 기존 예비 번호 다음의 결정론적 순번으로 생성한다. Editor DTO에 출처·원기록 확보 상태를 읽고,
 > `ResearchCardSupplement`는 `Unavailable`과 기록 0건을 요구하며 일반 선수는 기록 1건을 유지한다.
@@ -3494,14 +3500,19 @@ Home 또는 일정에서 들어온 원점을 보존해 Back 시 복귀한다. �
 실사 선수 사진은 이 작업에 포함하지 않으며 기존 초상화 자산을 사용한다. 검증 현황은
 `docs/reports/선수카드_인벤레퍼런스_UI.md`를 따른다.
 
-구단주 카드에는 일반·올스타·골든글러브·MVP별 미니/전체 프레임 8종을 사용한다.
-원본 레퍼런스의 얇은 테두리와 은은한 장식을 유지하고 SF형 금속 장식은 사용하지 않는다.
-배경은 특정 구단의 색으로 읽히지 않는 무채색으로 통일한다. 모든 등급에서 초상·명찰·연도·COST의
-위치와 영역 높이를 동일하게 유지하며 올스타 상단 리본은 사용하지 않는다.
-골든글러브 v3는 사용자 지정에 따라 양옆의 가는 줄기·잎에만 은은한 금색을 허용한다.
-올스타·골든글러브의 원작 참고와 최종 생성 프롬프트는 `docs/art/OwnerPlayerCardFrames-v3.md`를 따른다.
+구단주 카드에는 Normal·AllStar·GoldenGlove·MVP·Rare·Ex·Legend·CareerHigh 8개 등급의
+미니/전체 프레임 16종을 사용한다.
+원본 레퍼런스의 얇은 테두리와 등급별 장식을 유지하고, 모든 등급에서 초상·명찰·연도·COST의
+런타임 배치 좌표를 동일하게 유지한다. v4는 사용자 지정에 따라 `ALL STAR`, `Golden Glove`,
+`MVP`, `RARE`, `EX`, `LEGEND`, `CAREER HIGH` 등급명을 프레임 장식에 포함한다. 이 문자열은 카드 데이터가
+아니며, 선수명·구단명·연도·능력치·COST는 계속 런타임 UI가 표시한다. 일반은 v2를 유지하고
+올스타·골든글러브·MVP와 개발용 디자인 갤러리의 Rare/EX/Legend/CareerHigh는 v4를 우선한다.
+특수 영입의 Legend/CareerHigh 대상 프리뷰도 같은 공통 프레임 로더를 사용한다. 원작 참고와 최종
+생성 프롬프트는 `docs/art/OwnerPlayerCardFrames-v4.md`를 따른다.
 등급은 `PlayerCardEdition`으로 프레임에 전달하며 이름에 수상 명칭을 붙여 구분하지 않는다.
-COST 별도 등급별 투명 Sprite 4종을 개별 배치하여 실제 비용만큼 밝게 표시한다.
+COST 별은 한 장의 4×2 마스터에서 자른 Normal/Rare/AllStar/GoldenGlove/MVP/Ex/Legend/CareerHigh
+투명 Sprite 8종을 개별 배치하여 실제 비용만큼 밝게 표시한다. 마스터·프롬프트·분할 규칙은
+`docs/art/PlayerCardCostStars-v4/README.md`를 따른다.
 능력치·성적·성장판·구종 데이터와 계산은 그대로 유지한다. 생성 규약과 프롬프트는
 `docs/art/OwnerPlayerCardFrames.md`를 따른다.
 
@@ -3882,6 +3893,7 @@ Win Expectancy 변화, 동점·역전, 후반 접전, 시그니처 플레이와 
 
 사용자 확정에 따라 챔피언 챌린지는 두지 않는다. 챔피언 1~4위는 별도 조건 없이 마스터로
 자동 승격하며, 마스터 9~10위는 챔피언으로 강등된다.
+
 ### 공통 경기 성적 재현 검증 계약
 
 실제 선수 기록은 카드 능력치·구종·로스터를 만드는 근거이며, 실제 구단 승률·득점·ERA를

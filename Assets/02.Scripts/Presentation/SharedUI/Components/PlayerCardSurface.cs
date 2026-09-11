@@ -1,19 +1,64 @@
+using System;
+using System.Collections.Generic;
+using Baseball.Core.Historical;
 using UnityEngine;
 using UnityEngine.UI;
-using Baseball.Core.Historical;
-using System.Collections.Generic;
 
 namespace Baseball.Presentation.SharedUI
 {
     /// <summary>표시 문자열과 무관하게 카드의 정본 등급으로 생성 프레임을 선택한다.</summary>
     internal static class OwnerPlayerCardFrames
     {
-        private static readonly Sprite[] MiniFrames = new Sprite[4];
-        private static readonly Sprite[] FullFrames = new Sprite[4];
+        private static readonly int EditionCount = Enum.GetValues(typeof(PlayerCardEdition)).Length;
+        private static readonly Sprite[] MiniFrames = new Sprite[EditionCount];
+        private static readonly Sprite[] FullFrames = new Sprite[EditionCount];
         private static readonly Dictionary<string, Sprite> CostStars = new Dictionary<string, Sprite>();
 
-        /// <summary>모든 등급 원화와 미니카드 텍스트가 공유하는 명찰 영역이다.</summary>
-        public static Vector2 MiniNameBand => new Vector2(.18f, .28f);
+        /// <summary>원화의 명찰 안쪽에서 문장과 테두리를 피하는 이름 영역을 반환한다.</summary>
+        public static Rect GetNameRect(PlayerCardEdition edition, bool isMini)
+        {
+            // 원화마다 리본 높이가 다르므로 프레임 전체 기준의 정규 좌표를 사용한다.
+            if (!isMini) return new Rect(.23f, .415f, .54f, .045f);
+            switch (edition)
+            {
+                case PlayerCardEdition.Mvp:
+                case PlayerCardEdition.Ex:
+                case PlayerCardEdition.Legend:
+                case PlayerCardEdition.Rare:
+                case PlayerCardEdition.CareerHigh: return new Rect(.23f, .24f, .54f, .065f);
+                default: return new Rect(.23f, .19f, .54f, .075f);
+            }
+        }
+
+        /// <summary>이름과 연도가 어두운 명찰에서도 읽히도록 원화에 맞는 대비를 사용한다.</summary>
+        public static Color GetNameColor(PlayerCardEdition edition) =>
+            edition == PlayerCardEdition.CareerHigh ? Color.white : new Color32(18, 20, 24, 255);
+
+        /// <summary>등급 장식과 무관한 공통 초상 하단이다. 장식은 초상 위의 별도 메시로 그린다.</summary>
+        public static float GetPortraitBottom(PlayerCardEdition edition, bool isMini) => isMini ? .35f : .535f;
+
+        /// <summary>동일한 초상 Sprite가 모든 등급에서 같은 크기로 표시되는 공통 상단이다.</summary>
+        public static float GetPortraitTop(PlayerCardEdition edition) => .94f;
+
+        /// <summary>배경 원화의 장식 부분만 다시 그려 초상보다 앞에 배치한다.</summary>
+        public static void SetDecoration(RectTransform parent, Sprite frame, PlayerCardEdition edition,
+            bool isMini, float top, int siblingIndex)
+        {
+            Transform existing = parent.Find("CardDecoration");
+            var decoration = existing != null ? existing.GetComponent<PlayerCardDecorationGraphic>() : null;
+            if (decoration == null)
+            {
+                var item = new GameObject("CardDecoration", typeof(RectTransform), typeof(CanvasRenderer), typeof(PlayerCardDecorationGraphic));
+                item.transform.SetParent(parent, false);
+                decoration = item.GetComponent<PlayerCardDecorationGraphic>();
+            }
+            RectTransform rect = decoration.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = new Vector2(1, top);
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            rect.SetSiblingIndex(siblingIndex);
+            decoration.Bind(frame, edition, isMini);
+        }
 
         /// <summary>실제 Cost만큼 밝은 별과 남은 어두운 별을 개별 Image로 배치한다.</summary>
         public static void SetCostStars(RectTransform row, PlayerCardEdition edition, int cost)
@@ -55,7 +100,9 @@ namespace Baseball.Presentation.SharedUI
             if (!CostStars.TryGetValue(variant, out Sprite sprite) || sprite == null)
             {
                 string path = "UI/PlayerCards/PlayerCard_CostStar_" + variant;
-                sprite = Resources.Load<Sprite>(path + "_v3") ?? Resources.Load<Sprite>(path + "_v2");
+                sprite = Resources.Load<Sprite>(path + "_v4")
+                    ?? Resources.Load<Sprite>(path + "_v3")
+                    ?? Resources.Load<Sprite>(path + "_v2");
                 if (sprite == null)
                     sprite = Resources.Load<Sprite>("UI/PlayerCards/PlayerCard_CostStar_Normal_v2");
                 CostStars[variant] = sprite;
@@ -67,17 +114,116 @@ namespace Baseball.Presentation.SharedUI
         public static Sprite Get(PlayerCardEdition edition, bool isMini)
         {
             int index = (int)edition;
-            if (index < 0 || index >= MiniFrames.Length) index = 0;
             Sprite[] frames = isMini ? MiniFrames : FullFrames;
-            string variant = index == (int)PlayerCardEdition.Mvp ? "MVP" : ((PlayerCardEdition)index).ToString();
+            if (index < 0 || index >= frames.Length)
+            {
+                edition = PlayerCardEdition.Normal;
+                index = (int)edition;
+            }
+            string variant = edition == PlayerCardEdition.Mvp ? "MVP" : edition.ToString();
             return frames[index] != null ? frames[index] : frames[index] = Get(variant, isMini);
         }
 
-        /// <summary>미발급 디자인도 동일한 리소스 규칙으로 선택하며 개선 원화를 우선한다.</summary>
+        /// <summary>미발급 디자인도 동일한 리소스 규칙으로 선택하며 최신 원화를 우선한다.</summary>
         public static Sprite Get(string variant, bool isMini)
         {
             string path = "UI/PlayerCards/PlayerCard_" + (isMini ? "Mini_" : "Full_") + variant;
-            return Resources.Load<Sprite>(path + "_v3") ?? Resources.Load<Sprite>(path + "_v2");
+            return Resources.Load<Sprite>(path + "_v5")
+                ?? Resources.Load<Sprite>(path + "_v4")
+                ?? Resources.Load<Sprite>(path + "_v3")
+                ?? Resources.Load<Sprite>(path + "_v2");
+        }
+    }
+
+    /// <summary>불투명 원화를 복제하지 않고 UV 메시로 외곽·명찰·문장 부분만 초상 위에 그린다.</summary>
+    internal sealed class PlayerCardDecorationGraphic : MaskableGraphic
+    {
+        private Sprite _sprite;
+        private PlayerCardEdition _edition;
+        private bool _isMini;
+        private static Material _decorationMaterial;
+        private float _islandMode;
+        private float _verticalOffset;
+        public override Texture mainTexture => _sprite != null ? _sprite.texture : base.mainTexture;
+
+        /// <summary>배경과 동일한 원화의 UV를 사용해 장식 경계의 색과 위치를 보존한다.</summary>
+        public void Bind(Sprite sprite, PlayerCardEdition edition, bool isMini)
+        {
+            _sprite = sprite;
+            _edition = edition;
+            _isMini = isMini;
+            if (_decorationMaterial == null)
+            {
+                Shader shader = Resources.Load<Shader>("UI/PlayerCards/PlayerCardDecoration");
+                if (shader != null) _decorationMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            }
+            material = _decorationMaterial;
+            if (canvas != null) canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
+            raycastTarget = false;
+            SetAllDirty();
+        }
+
+        protected override void OnPopulateMesh(VertexHelper mesh)
+        {
+            mesh.Clear();
+            if (_sprite == null) return;
+            _islandMode = 0;
+            _verticalOffset = 0;
+            // 전체 사각형을 덮으면 초상이 사라진다. 사진 창을 비워 둔 네 가장자리만 그린다.
+            AddRect(mesh, 0, 0, 1, _isMini ? .31f : .51f);
+            AddRect(mesh, 0, .98f, 1, 1);
+            AddRect(mesh, 0, _isMini ? .31f : .51f, .025f, .98f);
+            AddRect(mesh, .975f, _isMini ? .31f : .51f, 1, .98f);
+            // 장식 윤곽은 원화 기준이다. 초상 크기를 바꾸는 레이아웃 분기로 사용하지 않는다.
+            switch (_edition)
+            {
+                case PlayerCardEdition.AllStar:
+                    _islandMode = 2;
+                    AddRect(mesh, .31f, _isMini ? .905f : .842f, .69f, _isMini ? .985f : .905f);
+                    break;
+                case PlayerCardEdition.Ex:
+                    _islandMode = 1;
+                    AddRect(mesh, _isMini ? .11f : .35f, _isMini ? .93f : .838f,
+                        _isMini ? .89f : .65f, _isMini ? .997f : .895f);
+                    break;
+                case PlayerCardEdition.Mvp:
+                    _islandMode = 1;
+                    AddRect(mesh, _isMini ? .40f : .42f, _isMini ? .325f : .505f,
+                        _isMini ? .60f : .58f, _isMini ? .398f : .57f);
+                    break;
+                case PlayerCardEdition.Legend:
+                    _islandMode = 1;
+                    AddRect(mesh, .22f, _isMini ? .31f : .455f, .78f, _isMini ? .37f : .535f);
+                    break;
+                case PlayerCardEdition.Rare:
+                    // 공통 구단 명찰과 겹치는 기존 상단 배지를 사진 창 쪽으로 내린다.
+                    if (!_isMini) { _islandMode = 3; _verticalOffset = -.06f; }
+                    AddRect(mesh, .25f, .905f, .75f, .995f);
+                    break;
+            }
+        }
+
+        private void AddRect(VertexHelper mesh, float x0, float y0, float x1, float y1)
+        {
+            Rect bounds = GetPixelAdjustedRect();
+            Vector4 uv = UnityEngine.Sprites.DataUtility.GetOuterUV(_sprite);
+            int start = mesh.currentVertCount;
+            AddVertex(mesh, bounds, uv, x0, y0);
+            AddVertex(mesh, bounds, uv, x0, y1);
+            AddVertex(mesh, bounds, uv, x1, y1);
+            AddVertex(mesh, bounds, uv, x1, y0);
+            mesh.AddTriangle(start, start + 1, start + 2);
+            mesh.AddTriangle(start + 2, start + 3, start);
+        }
+
+        private void AddVertex(VertexHelper mesh, Rect bounds, Vector4 uv, float x, float y)
+        {
+            UIVertex vertex = UIVertex.simpleVert;
+            vertex.position = new Vector3(bounds.xMin + bounds.width * x, bounds.yMin + bounds.height * (y + _verticalOffset));
+            vertex.color = color;
+            vertex.uv0 = new Vector2(Mathf.Lerp(uv.x, uv.z, x), Mathf.Lerp(uv.y, uv.w, y));
+            vertex.uv1 = new Vector2(_islandMode, 0);
+            mesh.AddVert(vertex);
         }
     }
 

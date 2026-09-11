@@ -125,8 +125,8 @@ namespace Baseball.Presentation.Owner
                 card.Position == PlayerPosition.ReliefPitcher;
             BuildCardBorder(parent, card.Edition);
             RectTransform photoWindow = OwnerRuntimeUiFactory.CreateRect("PortraitWindow", parent);
-            const float portraitBottom = .535f;
-            OwnerRuntimeUiFactory.SetAnchors(photoWindow, new Vector2(.025f, portraitBottom), new Vector2(.975f, .94f), Vector2.zero, Vector2.zero);
+            float portraitBottom = OwnerPlayerCardFrames.GetPortraitBottom(card.Edition, false);
+            OwnerRuntimeUiFactory.SetAnchors(photoWindow, new Vector2(.025f, portraitBottom), new Vector2(.975f, OwnerPlayerCardFrames.GetPortraitTop(card.Edition)), Vector2.zero, Vector2.zero);
             photoWindow.gameObject.AddComponent<UICardPortraitMask>().raycastTarget = false;
             photoWindow.gameObject.AddComponent<Mask>().showMaskGraphic = false;
             // 정면 상반신 초상의 모자와 어깨가 사진 창 안에 들어오도록 원본 비율을 유지한다.
@@ -135,8 +135,11 @@ namespace Baseball.Presentation.Owner
                 ?? PlayerPortraitSprites.GetAssigned(card.CardId)
                 ?? PlayerPortraitSprites.GetForPlayer(card.PlayerPersonId, card.Position);
             portrait.preserveAspect = true;
+            OwnerPlayerCardFrames.SetDecoration(parent, parent.Find("MainFrame").GetComponent<Image>().sprite,
+                card.Edition, false, 1f, photoWindow.GetSiblingIndex() + 1);
+            RectTransform teamPlate = BuildTeamPlate(parent);
             if (!string.IsNullOrWhiteSpace(card.TeamDisplayName))
-                Label(parent, "Team", card.TeamDisplayName, .28f, .94f, .73f, .98f, 14, Color.white);
+                Label(teamPlate, "Team", card.TeamDisplayName, .04f, .02f, .96f, .98f, 14, Color.white);
             RectTransform editionPlate = Gradient(parent, "EditionPlate", new Color32(58, 60, 63, 255),
                 new Color32(29, 30, 32, 255), .72f, .895f, .95f, .933f);
             Label(editionPlate, "Edition", OwnerCollectionPresentationBuilder.FormatEdition(card.Edition),
@@ -149,9 +152,10 @@ namespace Baseball.Presentation.Owner
             Label(positionPlate, "Position",
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole),
                 .02f, 0, .98f, 1, 12, Color.white);
-            const float nameBottom = .415f;
-            Label(parent, "Name", card.DisplayName, .13f, nameBottom, .73f, nameBottom + .06f, 28, Ink);
-            Label(parent, "Year", (card.OriginYear % 100).ToString("00") + "′", .79f, nameBottom, .94f, nameBottom + .06f, 20, Ink);
+            Rect name = OwnerPlayerCardFrames.GetNameRect(card.Edition, false);
+            Color nameColor = OwnerPlayerCardFrames.GetNameColor(card.Edition);
+            Label(parent, "Name", card.DisplayName, name.xMin, name.yMin, name.xMax, name.yMax, 28, nameColor);
+            Label(parent, "Year", (card.OriginYear % 100).ToString("00") + "′", .79f, name.yMin, .91f, name.yMax, 20, nameColor);
             if (card.IsOwnedCard)
             {
                 RectTransform conditionPanel = Gradient(parent, "ConditionPanel", new Color32(37, 25, 30, 235),
@@ -272,6 +276,13 @@ namespace Baseball.Presentation.Owner
             Image frame = Surface(parent, "MainFrame", Color.white, 0, 0, 1, 1).GetComponent<Image>();
             frame.sprite = OwnerPlayerCardFrames.Get(edition, false);
             frame.preserveAspect = false;
+        }
+
+        /// <summary>등급별 배경에 의존하지 않는 상단 구단 정보 표면이다.</summary>
+        internal static RectTransform BuildTeamPlate(RectTransform parent)
+        {
+            return Gradient(parent, "TeamPlate", new Color32(58, 60, 63, 255),
+                new Color32(29, 30, 32, 255), .28f, .944f, .73f, .985f);
         }
 
         private static Button CreateNavigationButton(

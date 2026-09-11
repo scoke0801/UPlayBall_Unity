@@ -50,7 +50,6 @@ namespace Baseball.Game.Historical
         {
             if (_isInitialized)
                 return;
-            _isInitialized = true;
 
             if (!IsAvailable)
             {
@@ -59,6 +58,7 @@ namespace Baseball.Game.Historical
                 _franchiseNamesById = null;
                 _teamSeasonNamesByKey = null;
                 _isEnabled = false;
+                _isInitialized = true;
                 return;
             }
 
@@ -76,6 +76,7 @@ namespace Baseball.Game.Historical
 
             var franchiseNames = new Dictionary<string, string>(catalog.teams.Length, StringComparer.Ordinal);
             var emblemResources = new Dictionary<string, string>(StringComparer.Ordinal);
+            var emblemAliases = new Dictionary<string, string>(StringComparer.Ordinal);
             for (int index = 0; index < catalog.teams.Length; index++)
             {
                 TeamEntry team = catalog.teams[index];
@@ -86,7 +87,7 @@ namespace Baseball.Game.Historical
                 if (team.aliases == null)
                     continue;
                 for (int aliasIndex = 0; aliasIndex < team.aliases.Length; aliasIndex++)
-                    AddUnique(emblemResources, team.aliases[aliasIndex], team.emblemResource, "구단 엠블렘");
+                    AddUnique(emblemAliases, team.aliases[aliasIndex], team.emblemResource, "구단 엠블렘 별칭");
             }
 
             var teamSeasonNames = new Dictionary<string, string>(
@@ -109,11 +110,16 @@ namespace Baseball.Game.Historical
                     "TeamSeason 엠블렘");
             }
 
+            // 현재 구단 별칭이 과거 정식 구단명과 같으면 당시의 정식 엠블렘을 우선한다.
+            foreach (KeyValuePair<string, string> alias in emblemAliases)
+                emblemResources.TryAdd(alias.Key, alias.Value);
+
             _emblemResourcesByTeamName = emblemResources;
             _playerNamesById = playerNames;
             _franchiseNamesById = franchiseNames;
             _teamSeasonNamesByKey = teamSeasonNames;
             _isEnabled = PlayerPrefs.GetInt(PlayerPrefsKey, 1) != 0;
+            _isInitialized = true;
         }
 
         /// <summary>개발용 실제 Identity 표시 여부를 저장하고 즉시 적용한다.</summary>

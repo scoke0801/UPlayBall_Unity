@@ -54,6 +54,10 @@ namespace Baseball.Tests.EditMode.Presentation
         [TestCase("1991년 빙그레 이글스", "BinggraeEagles")]
         [TestCase("1989 MBC 청룡", "MbcChungyong")]
         [TestCase("1986 청보 핀토스", "ChungboPintos")]
+        [TestCase("2009 히어로즈", "HeroesWordmark")]
+        [TestCase("2009년 히어로즈", "HeroesWordmark")]
+        [TestCase("히어로즈", "HeroesWordmark")]
+        [TestCase("키움", "KiwoomHeroes")]
         public void Editor_CatalogLoadsHistoricalEmblemAfterSeasonYearPrefix(
             string teamName,
             string fileName)

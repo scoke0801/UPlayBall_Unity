@@ -1,0 +1,74 @@
+﻿[
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\Resources\\UI\\PlayerCards\\PlayerCard_CostStar_AllStar_v4.png",
+        "Width":  443,
+        "Height":  443,
+        "Transparent":  139974,
+        "Partial":  5284,
+        "Opaque":  50991,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\Resources\\UI\\PlayerCards\\PlayerCard_CostStar_CareerHigh_v4.png",
+        "Width":  443,
+        "Height":  443,
+        "Transparent":  138438,
+        "Partial":  1107,
+        "Opaque":  56704,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\Resources\\UI\\PlayerCards\\PlayerCard_CostStar_Ex_v4.png",
+        "Width":  443,
+        "Height":  443,
+        "Transparent":  138288,
+        "Partial":  1041,
+        "Opaque":  56920,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\Resources\\UI\\PlayerCards\\PlayerCard_CostStar_GoldenGlove_v4.png",
+        "Width":  443,
+        "Height":  443,
+        "Transparent":  164056,
+        "Partial":  1822,
+        "Opaque":  30371,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\Resources\\UI\\PlayerCards\\PlayerCard_CostStar_Legend_v4.png",
+        "Width":  443,
+        "Height":  443,
+        "Transparent":  138223,
+        "Partial":  1191,
+        "Opaque":  56835,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\Resources\\UI\\PlayerCards\\PlayerCard_CostStar_MVP_v4.png",
+        "Width":  443,
+        "Height":  443,
+        "Transparent":  138421,
+        "Partial":  1076,
+        "Opaque":  56752,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\Resources\\UI\\PlayerCards\\PlayerCard_CostStar_Normal_v4.png",
+        "Width":  443,
+        "Height":  443,
+        "Transparent":  139209,
+        "Partial":  1611,
+        "Opaque":  55429,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\Resources\\UI\\PlayerCards\\PlayerCard_CostStar_Rare_v4.png",
+        "Width":  443,
+        "Height":  443,
+        "Transparent":  139012,
+        "Partial":  1522,
+        "Opaque":  55715,
+        "TransparentCorners":  true
+    }
+]
