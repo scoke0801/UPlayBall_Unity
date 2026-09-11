@@ -1267,6 +1267,10 @@ namespace Baseball.Game.Historical
             // 합성 참가팀은 Franchise TeamSeason 정의가 없으므로 Key에서 직접 이름을 만든다.
             if (SpecialCompositeTeamDefinition.TryCreateDisplayName(teamSeasonKey, out string compositeName))
                 return compositeName;
+            if (LeagueFillerTeamKey.TryParse(teamSeasonKey, out LeagueFillerDeckType deck, out string source))
+                return (deck == LeagueFillerDeckType.YearTeam
+                    ? GetTeamDisplayName(runtime, source)
+                    : LeagueFillerTeamKey.GetDeckTeamName(deck)) + LeagueFillerTeamKey.DisplaySuffix;
             if (_content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
                 return runtime.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId);
             return teamSeasonKey;

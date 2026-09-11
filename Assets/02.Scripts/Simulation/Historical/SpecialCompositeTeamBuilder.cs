@@ -356,14 +356,15 @@ namespace Baseball.Simulation.Historical
             }
         }
 
-        private static bool CanFillRole(PlayerSeasonDefinition player, ActiveRosterRole role)
+        internal static bool CanFillRole(PlayerSeasonDefinition player, ActiveRosterRole role)
         {
             return ActiveRosterCompositionRule.Standard.IsHitterRole(role)
                 ? player.PlayerType == PlayerType.Batter
                 : player.PlayerType == PlayerType.Pitcher;
         }
 
-        private static int GetRoleFit(PlayerSeasonDefinition player, ActiveRosterRole role)
+        /// <summary>2는 원래 포지션·보직, 1은 대체 가능, 0은 등록은 되지만 맞지 않는 배치다.</summary>
+        internal static int GetRoleFit(PlayerSeasonDefinition player, ActiveRosterRole role)
         {
             if (role == ActiveRosterRole.BenchHitter)
                 return 1;

@@ -57,7 +57,10 @@ namespace Baseball.Simulation.Historical
             return grade;
         }
 
-        /// <summary>정렬한 전체 후보를 Fisher–Yates로 섞은 뒤 한 구단만 남는 조 없이 배분한다.</summary>
+        /// <summary>
+        /// 정렬한 전체 후보를 Fisher–Yates로 섞은 뒤 조마다 균등하게 배분한다. 조의 빈 자리는 호출자가 CPU 임시 구단으로
+        /// 채우므로 한 구단뿐인 등급도 한 조로 만든다. 조가 여럿이면 한 구단만 남는 조는 만들지 않는다.
+        /// </summary>
         public string[][] DrawGroups(IReadOnlyList<string> teamKeys, int targetSize, IRandomSource random)
             => DrawGroups(teamKeys, targetSize, random, null, 0d);
 
@@ -70,7 +73,8 @@ namespace Baseball.Simulation.Historical
             IReadOnlyDictionary<string, int> previousGroupByTeam, double repeatAvoidanceChance)
         {
             if (teamKeys == null || random == null) throw new ArgumentNullException();
-            if (targetSize < 2 || teamKeys.Count == 1) throw new ArgumentException("한 구단만으로 조를 만들 수 없습니다.");
+            if (targetSize < 2) throw new ArgumentException("조 목표 크기는 2 이상이어야 합니다.", nameof(targetSize));
+            if (teamKeys.Count == 0) return Array.Empty<string[]>();
             var shuffled = new List<string>(teamKeys);
             shuffled.Sort(StringComparer.Ordinal);
             for (int index = 0; index < shuffled.Count; index++)

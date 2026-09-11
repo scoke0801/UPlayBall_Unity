@@ -210,11 +210,20 @@ namespace Baseball.Game.Historical
         public DugoutManagementState Dugout { get; }
         public IReadOnlyList<ManagerCompletedSeasonState> CompletedSeasons { get; }
 
-        /// <summary>새로 월드에 등록한 AI 구단 상태를 추가하며 기존 구단의 피로·친밀도는 보존한다.</summary>
-        internal void EnsureWorldTeamStates(IReadOnlyList<CurrentRosterState> rosters, int initialCondition)
+        /// <summary>
+        /// 구단 상태를 월드 로스터 목록과 맞춘다. 새 구단은 추가하고 기존 구단의 피로·친밀도는 보존하며,
+        /// 월드에서 빠진 특수 합성팀·CPU 임시 구단의 상태는 버린다.
+        /// </summary>
+        internal void SyncWorldTeamStates(IReadOnlyList<CurrentRosterState> rosters, int initialCondition)
         {
-            var statuses = new List<TeamSeasonPlayerStatusState>(_playerStatuses);
-            var familiarities = new List<TeamChemistryFamiliarityState>(_familiarities);
+            var worldKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var roster in rosters) worldKeys.Add(roster.TeamSeasonKey);
+            var statuses = new List<TeamSeasonPlayerStatusState>();
+            var familiarities = new List<TeamChemistryFamiliarityState>();
+            foreach (var status in _playerStatuses)
+                if (worldKeys.Contains(status.TeamSeasonKey)) statuses.Add(status);
+            foreach (var familiarity in _familiarities)
+                if (worldKeys.Contains(familiarity.TeamSeasonKey)) familiarities.Add(familiarity);
             var existing = new HashSet<string>(StringComparer.Ordinal);
             foreach (var status in statuses) existing.Add(status.TeamSeasonKey);
             foreach (var roster in rosters)
@@ -509,6 +518,8 @@ namespace Baseball.Game.Historical
                 keys[index++] = league.RegularTeamSeasonKeys[regular];
             for (int special = 0; special < league.SpecialCompositeTeams.Count; special++)
                 keys[index++] = league.SpecialCompositeTeams[special].TeamSeasonKey;
+            for (int filler = 0; filler < league.FillerTeamSeasonKeys.Count; filler++)
+                keys[index++] = league.FillerTeamSeasonKeys[filler];
             Array.Sort(keys, StringComparer.Ordinal);
             var result = new ManagerTeamReference[keys.Length];
             for (int teamIndex = 0; teamIndex < keys.Length; teamIndex++)

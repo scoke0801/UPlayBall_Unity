@@ -544,7 +544,8 @@ namespace Baseball.Game.Historical
                     null);
             }
 
-            OwnerLeagueWorldState nextWorld = new OwnerLeagueWorldService(_balance).PlanNextSeason(runtime);
+            var worldService = new OwnerLeagueWorldService(_balance);
+            OwnerLeagueWorldState nextWorld = worldService.PlanNextSeason(runtime);
             OwnerLeagueGroupState nextGroup = nextWorld.GetGroup(runtime.PlayerTeamSeasonKey);
             ManagerLiveSeasonState nextSeason = nextGroup.Season;
             ClubOperationState nextOperation = ManagerModeRuntimeFactory.CreateNextClubOperation(
@@ -565,7 +566,7 @@ namespace Baseball.Game.Historical
                 staffAdvance.Contracts,
                 staffAdvance.Assignment,
                 completedSeasonState);
-            runtime.SetLeagueWorld(nextWorld);
+            worldService.CommitNextSeason(runtime, nextWorld);
             runtime.ShopPurchaseHistory.ResetPeriod();
             return new ManagerSeasonAdvanceResult(
                 ManagerSeasonAdvanceStatus.Applied,

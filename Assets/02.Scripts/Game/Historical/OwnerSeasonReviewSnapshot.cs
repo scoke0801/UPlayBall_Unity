@@ -152,8 +152,7 @@ namespace Baseball.Game.Historical
             }
             LeagueGrade? nextGrade = null;
             if (runtime.LeagueWorld.IsPostseasonCompleted)
-                nextGrade = new OwnerLeagueWorldService(balance).PlanNextSeason(runtime)
-                    .GetGroup(runtime.PlayerTeamSeasonKey).League.Grade;
+                nextGrade = new OwnerLeagueWorldService(balance).ResolveNextGrade(runtime, runtime.PlayerTeamSeasonKey);
             int completedGroups = 0;
             for (int index = 0; index < runtime.LeagueWorld.Groups.Count; index++)
                 if (runtime.LeagueWorld.Groups[index].Postseason?.IsCompleted == true) completedGroups++;

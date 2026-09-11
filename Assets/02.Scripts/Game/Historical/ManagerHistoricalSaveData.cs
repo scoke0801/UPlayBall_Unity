@@ -105,6 +105,7 @@ namespace Baseball.Game.Historical
         public int grade;
         public string[] regularTeamSeasonKeys;
         public SpecialCompositeTeamRegistrationSaveData[] specialCompositeTeams;
+        public string[] fillerTeamSeasonKeys;
     }
 
     [Serializable]

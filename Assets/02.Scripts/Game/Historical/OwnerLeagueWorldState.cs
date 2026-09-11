@@ -16,6 +16,7 @@ namespace Baseball.Game.Historical
                 throw new ArgumentException("조 소속과 시즌 참가팀 수가 다릅니다.");
             var keys = new HashSet<string>(league.RegularTeamSeasonKeys, StringComparer.Ordinal);
             foreach (var special in league.SpecialCompositeTeams) keys.Add(special.TeamSeasonKey);
+            foreach (string filler in league.FillerTeamSeasonKeys) keys.Add(filler);
             foreach (var team in season.Teams)
                 if (!keys.Remove(team.TeamSeasonKey)) throw new ArgumentException("조 소속과 일정 구단이 다릅니다.");
             if (postseason != null && !string.Equals(postseason.SeasonId, season.SeasonId, StringComparison.Ordinal))

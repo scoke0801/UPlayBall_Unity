@@ -43,73 +43,77 @@ namespace Baseball.Game.Historical
                 references.Add(definition.TeamSeasonKey, new ManagerTeamReference(nextId++, definition.TeamSeasonKey));
                 added.Add(definition.TeamSeasonKey);
             }
-            if (added.Count == 1)
-                throw new InvalidOperationException("현재 조를 보존하면서 추가할 구단이 한 개뿐이어서 월드를 편성할 수 없습니다.");
+            int seasonNumber = runtime.ManagerMode.LiveSeason.SeasonNumber;
+            var fillers = new OwnerLeagueFillerFactory(_balance.LeaguePromotion, runtime.WorldCardCatalog,
+                runtime.WorldHistory.WorldHistorySeed, rosters, references, nextId);
             string[][] drawn = _resolver.DrawGroups(added, _balance.LeaguePromotion.GroupTeamCount,
                 new Pcg32Random(DeterministicSeed.Derive(runtime.WorldHistory.WorldHistorySeed, DrawStream)));
             for (int index = 0; index < drawn.Length; index++)
-                groups.Add(CreateGroup(runtime, LeagueGrade.Rookie, index + 1, drawn[index], references,
-                    new Dictionary<string, SpecialCompositeTeamRegistration>(), runtime.ManagerMode.LiveSeason.SeasonNumber));
+                groups.Add(CreateGroup(runtime, LeagueGrade.Rookie, index + 1,
+                    fillers.Fill(LeagueGrade.Rookie, index + 1, seasonNumber, drawn[index]), references,
+                    new Dictionary<string, SpecialCompositeTeamRegistration>(), seasonNumber));
             var world = new OwnerLeagueWorldState(groups, rosters);
             world.PlayerIds = ManagerModeMatchService.PlayerIdMap.Create(runtime.Rosters);
             world.PlayerIds.EnsureRosters(world.Rosters);
-            runtime.ManagerMode.EnsureWorldTeamStates(world.Rosters, _balance.ConditionChemistry.NeutralMatchCondition);
+            runtime.ManagerMode.SyncWorldTeamStates(world.Rosters, _balance.ConditionChemistry.NeutralMatchCondition);
             runtime.SetLeagueWorld(world);
         }
 
-        /// <summary>완료한 모든 조의 순위를 먼저 확정하고 승강·재추첨된 다음 시즌 계획을 반환한다.</summary>
+        /// <summary>
+        /// 완료한 모든 조의 순위를 먼저 확정하고 승강·재추첨된 다음 시즌 계획을 반환한다. 런타임 상태는 바꾸지 않는다.
+        /// 특수 합성팀과 CPU 임시 구단은 이번 시즌으로 끝나며, 다음 시즌 조의 빈 자리는 새 CPU 임시 구단이 채운다.
+        /// </summary>
         public OwnerLeagueWorldState PlanNextSeason(ManagerHistoricalRuntimeState runtime)
         {
-            OwnerLeagueWorldState world = runtime.LeagueWorld ?? new OwnerLeagueWorldState(
-                new[] { new OwnerLeagueGroupState(runtime.League, runtime.ManagerMode.LiveSeason) }, runtime.Rosters);
-            if (!world.IsCompleted) throw new InvalidOperationException("모든 조의 정규시즌과 포스트시즌 종료가 필요합니다.");
-            var previous = new Dictionary<string, LeagueGrade>(StringComparer.Ordinal);
-            var next = new Dictionary<string, LeagueGrade>(StringComparer.Ordinal);
-            var references = new Dictionary<string, ManagerTeamReference>(StringComparer.Ordinal);
-            var specials = new Dictionary<string, SpecialCompositeTeamRegistration>(StringComparer.Ordinal);
-            var previousGroups = new Dictionary<string, int>(StringComparer.Ordinal);
-            var orderedKeys = new List<string>();
-            for (int groupIndex = 0; groupIndex < world.Groups.Count; groupIndex++)
-            {
-                var group = world.Groups[groupIndex];
-                foreach (var special in group.League.SpecialCompositeTeams) specials.Add(special.TeamSeasonKey, special);
-                OwnerLeagueStanding[] ranking = Rank(group.Season);
-                for (int index = 0; index < ranking.Length; index++)
-                {
-                    string key = ranking[index].TeamKey;
-                    previous.Add(key, group.League.Grade);
-                    previousGroups.Add(key, groupIndex);
-                    next.Add(key, _resolver.ResolveGrade(group.League.Grade, index + 1, ranking.Length, _balance.LeaguePromotion));
-                    orderedKeys.Add(key);
-                }
-                foreach (var team in group.Season.Teams) references.Add(team.TeamSeasonKey, team);
-            }
-            orderedKeys.Sort(StringComparer.Ordinal);
-            // 새로 생긴 등급에 한 팀만 진입하면 상대가 없다. 해당 팀만 기존 등급에 잔류시킨다.
-            // 각 조에 최소 두 팀을 남기므로 돌려보내는 원래 등급에는 항상 상대가 있다.
-            for (int grade = 0; grade <= (int)LeagueGrade.Galaxy; grade++)
-            {
-                string single = null;
-                int count = 0;
-                foreach (string key in orderedKeys) if ((int)next[key] == grade) { single = key; count++; }
-                if (count == 1) next[single] = previous[single];
-            }
+            OwnerLeagueWorldState world = RequireCompletedWorld(runtime);
+            NextSeasonAllocation allocation = ResolveAllocation(world);
             int seasonNumber = checked(runtime.ManagerMode.LiveSeason.SeasonNumber + 1);
+
+            var rosters = new List<CurrentRosterState>();
+            foreach (CurrentRosterState roster in world.Rosters)
+                if (allocation.NextGrades.ContainsKey(roster.TeamSeasonKey)) rosters.Add(roster);
+            var fillers = new OwnerLeagueFillerFactory(_balance.LeaguePromotion, runtime.WorldCardCatalog,
+                runtime.WorldHistory.WorldHistorySeed, rosters, allocation.References, GetNextTeamId(world));
+
             var groups = new List<OwnerLeagueGroupState>();
+            var noSpecials = new Dictionary<string, SpecialCompositeTeamRegistration>();
             for (int grade = 0; grade <= (int)LeagueGrade.Galaxy; grade++)
             {
                 var keys = new List<string>();
-                foreach (string key in orderedKeys) if ((int)next[key] == grade) keys.Add(key);
+                foreach (string key in allocation.OrderedKeys) if ((int)allocation.NextGrades[key] == grade) keys.Add(key);
                 ulong seed = DeterministicSeed.Derive(DeterministicSeed.Derive(runtime.WorldHistory.WorldHistorySeed, DrawStream),
                     ((ulong)(uint)seasonNumber << 32) | (uint)grade);
                 string[][] drawn = _resolver.DrawGroups(keys, _balance.LeaguePromotion.GroupTeamCount, new Pcg32Random(seed),
-                    previousGroups, _balance.LeaguePromotion.GroupRepeatAvoidanceChance);
+                    allocation.PreviousGroups, _balance.LeaguePromotion.GroupRepeatAvoidanceChance);
                 for (int index = 0; index < drawn.Length; index++)
-                    groups.Add(CreateGroup(runtime, (LeagueGrade)grade, index, drawn[index], references, specials, seasonNumber));
+                    groups.Add(CreateGroup(runtime, (LeagueGrade)grade, index,
+                        fillers.Fill((LeagueGrade)grade, index, seasonNumber, drawn[index]), allocation.References,
+                        noSpecials, seasonNumber));
             }
             var history = new List<OwnerLeagueGroupState>(world.CompletedGroups);
             history.AddRange(world.Groups);
-            return new OwnerLeagueWorldState(groups, world.Rosters, history) { PlayerIds = world.PlayerIds ?? ManagerModeMatchService.PlayerIdMap.Create(world.Rosters) };
+            return new OwnerLeagueWorldState(groups, rosters, history) { PlayerIds = world.PlayerIds ?? ManagerModeMatchService.PlayerIdMap.Create(world.Rosters) };
+        }
+
+        /// <summary>시즌 결산 화면용으로 CPU 임시 구단 생성 없이 한 구단의 다음 시즌 등급만 계산한다.</summary>
+        public LeagueGrade ResolveNextGrade(ManagerHistoricalRuntimeState runtime, string teamSeasonKey)
+        {
+            NextSeasonAllocation allocation = ResolveAllocation(RequireCompletedWorld(runtime));
+            return allocation.NextGrades.TryGetValue(teamSeasonKey, out LeagueGrade grade)
+                ? grade
+                : throw new KeyNotFoundException(teamSeasonKey);
+        }
+
+        /// <summary>
+        /// 계획한 다음 시즌 월드를 확정한다. 사라진 임시 구단의 컨디션·친밀도는 버리고 새 임시 구단 상태를 만든다.
+        /// 선수 ID 원장은 지난 시즌 기록이 계속 참조하므로 지우지 않는다.
+        /// </summary>
+        public void CommitNextSeason(ManagerHistoricalRuntimeState runtime, OwnerLeagueWorldState nextWorld)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (nextWorld == null) throw new ArgumentNullException(nameof(nextWorld));
+            runtime.ManagerMode.SyncWorldTeamStates(nextWorld.Rosters, _balance.ConditionChemistry.NeutralMatchCondition);
+            runtime.SetLeagueWorld(nextWorld);
         }
 
         /// <summary>화면과 승강 판정이 공유하는 정규시즌 최종 순위를 반환한다.</summary>
@@ -136,22 +140,71 @@ namespace Baseball.Game.Historical
             return _resolver.Rank(standings);
         }
 
+        private static OwnerLeagueWorldState RequireCompletedWorld(ManagerHistoricalRuntimeState runtime)
+        {
+            OwnerLeagueWorldState world = runtime.LeagueWorld ?? new OwnerLeagueWorldState(
+                new[] { new OwnerLeagueGroupState(runtime.League, runtime.ManagerMode.LiveSeason) }, runtime.Rosters);
+            if (!world.IsCompleted) throw new InvalidOperationException("모든 조의 정규시즌과 포스트시즌 종료가 필요합니다.");
+            return world;
+        }
+
+        /// <summary>
+        /// 순위표에 보이는 순위 그대로 승강을 판정한다. CPU 임시 구단도 순위를 차지하므로 CPU가 승격 순위에 들면
+        /// 그 승격 자리는 사라지고, 실제 구단은 자기 순위가 가리키는 결과만 받는다.
+        /// </summary>
+        private NextSeasonAllocation ResolveAllocation(OwnerLeagueWorldState world)
+        {
+            var allocation = new NextSeasonAllocation();
+            for (int groupIndex = 0; groupIndex < world.Groups.Count; groupIndex++)
+            {
+                OwnerLeagueGroupState group = world.Groups[groupIndex];
+                OwnerLeagueStanding[] ranking = Rank(group.Season);
+                for (int index = 0; index < ranking.Length; index++)
+                {
+                    string key = ranking[index].TeamKey;
+                    if (!group.League.IsPermanentParticipant(key)) continue;
+                    allocation.PreviousGroups.Add(key, groupIndex);
+                    allocation.NextGrades.Add(key, _resolver.ResolveGrade(group.League.Grade, index + 1, ranking.Length,
+                        _balance.LeaguePromotion));
+                    allocation.OrderedKeys.Add(key);
+                }
+                foreach (var team in group.Season.Teams)
+                    if (group.League.IsPermanentParticipant(team.TeamSeasonKey))
+                        allocation.References.Add(team.TeamSeasonKey, team);
+            }
+            allocation.OrderedKeys.Sort(StringComparer.Ordinal);
+            return allocation;
+        }
+
+        /// <summary>임시 구단 TeamId가 지난 시즌 기록의 구단과 겹치지 않도록 이력 전체의 최댓값 다음부터 발급한다.</summary>
+        private static int GetNextTeamId(OwnerLeagueWorldState world)
+        {
+            int maximum = 0;
+            foreach (var group in world.Groups)
+                foreach (var team in group.Season.Teams) maximum = Math.Max(maximum, team.TeamId);
+            foreach (var group in world.CompletedGroups)
+                foreach (var team in group.Season.Teams) maximum = Math.Max(maximum, team.TeamId);
+            return checked(maximum + 1);
+        }
+
         private OwnerLeagueGroupState CreateGroup(ManagerHistoricalRuntimeState runtime, LeagueGrade grade, int groupIndex,
             string[] keys, IReadOnlyDictionary<string, ManagerTeamReference> references,
             IReadOnlyDictionary<string, SpecialCompositeTeamRegistration> specials, int seasonNumber)
         {
             var regular = new List<string>();
             var composite = new List<SpecialCompositeTeamRegistration>();
+            var fillers = new List<string>();
             var teams = new List<ManagerTeamReference>();
             foreach (string key in keys)
             {
                 teams.Add(references[key]);
-                if (specials.TryGetValue(key, out var special)) composite.Add(special);
+                if (LeagueFillerTeamKey.IsFillerKey(key)) fillers.Add(key);
+                else if (specials.TryGetValue(key, out var special)) composite.Add(special);
                 else regular.Add(key);
             }
             teams.Sort((a, b) => a.TeamId.CompareTo(b.TeamId));
             string id = $"owner:{(int)grade:D2}:{groupIndex:D4}";
-            var league = new LeagueInstance(id, grade, regular, composite, isPooledGroup: true);
+            var league = new LeagueInstance(id, grade, regular, composite, isPooledGroup: true, fillerTeamSeasonKeys: fillers);
             ManagerLiveSeasonState current = runtime.ManagerMode.LiveSeason;
             int focusTeam = references[runtime.PlayerTeamSeasonKey].TeamId;
             bool hasPlayer = Array.IndexOf(keys, runtime.PlayerTeamSeasonKey) >= 0;
@@ -161,6 +214,15 @@ namespace Baseball.Game.Historical
             var season = new ManagerLiveSeasonState($"manager:{current.OriginYear}:{seasonNumber}:{id}", seasonNumber,
                 current.OriginYear, 0, hasPlayer ? focusTeam : teams[0].TeamId, teams, schedule);
             return new OwnerLeagueGroupState(league, season);
+        }
+
+        private sealed class NextSeasonAllocation
+        {
+            public readonly Dictionary<string, LeagueGrade> NextGrades = new Dictionary<string, LeagueGrade>(StringComparer.Ordinal);
+            public readonly Dictionary<string, int> PreviousGroups = new Dictionary<string, int>(StringComparer.Ordinal);
+            public readonly Dictionary<string, ManagerTeamReference> References =
+                new Dictionary<string, ManagerTeamReference>(StringComparer.Ordinal);
+            public readonly List<string> OrderedKeys = new List<string>();
         }
     }
 }

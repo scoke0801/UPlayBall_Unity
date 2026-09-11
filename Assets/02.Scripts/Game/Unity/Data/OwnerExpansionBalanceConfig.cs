@@ -169,10 +169,17 @@ namespace Baseball.Game.Data
         public int promotionTarget = -1;
         public int relegationFirstRank;
         public int relegationTarget = -1;
+        public string fillerDeck;
 
-        public OwnerLeagueRankRule Build() => new OwnerLeagueRankRule((LeagueGrade)leagueGrade,
-            promotionLastRank, promotionTarget < 0 ? null : (LeagueGrade?)promotionTarget,
-            relegationFirstRank, relegationTarget < 0 ? null : (LeagueGrade?)relegationTarget);
+        public OwnerLeagueRankRule Build()
+        {
+            if (!Enum.TryParse(fillerDeck, false, out LeagueFillerDeckType deck) ||
+                !Enum.IsDefined(typeof(LeagueFillerDeckType), deck))
+                throw new InvalidOperationException($"rankRules의 LeagueGrade {leagueGrade} fillerDeck '{fillerDeck}'가 잘못되었습니다.");
+            return new OwnerLeagueRankRule((LeagueGrade)leagueGrade,
+                promotionLastRank, promotionTarget < 0 ? null : (LeagueGrade?)promotionTarget,
+                relegationFirstRank, relegationTarget < 0 ? null : (LeagueGrade?)relegationTarget, deck);
+        }
     }
 
     [Serializable]

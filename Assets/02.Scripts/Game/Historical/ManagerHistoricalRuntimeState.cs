@@ -157,7 +157,8 @@ namespace Baseball.Game.Historical
                 nextGrade,
                 League.RegularTeamSeasonKeys,
                 League.SpecialCompositeTeams,
-                League.IsPooledGroup);
+                League.IsPooledGroup,
+                League.FillerTeamSeasonKeys);
         }
 
         public CurrentRosterState GetRoster(string teamSeasonKey)
@@ -442,7 +443,8 @@ namespace Baseball.Game.Historical
 
         private static bool IsParticipant(LeagueInstance league, string teamSeasonKey)
         {
-            if (Contains(league.RegularTeamSeasonKeys, teamSeasonKey))
+            if (Contains(league.RegularTeamSeasonKeys, teamSeasonKey) ||
+                Contains(league.FillerTeamSeasonKeys, teamSeasonKey))
                 return true;
             for (int index = 0; index < league.SpecialCompositeTeams.Count; index++)
                 if (string.Equals(league.SpecialCompositeTeams[index].TeamSeasonKey, teamSeasonKey, StringComparison.Ordinal))

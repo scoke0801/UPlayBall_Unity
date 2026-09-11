@@ -591,13 +591,15 @@ namespace Baseball.Core.Historical
         public const int MaximumRegularFranchiseTeamCount = 10;
         private readonly string[] _regularTeamSeasonKeys;
         private readonly SpecialCompositeTeamRegistration[] _specialCompositeTeams;
+        private readonly string[] _fillerTeamSeasonKeys;
 
         public LeagueInstance(
             string leagueInstanceId,
             LeagueGrade grade,
             IReadOnlyList<string> regularTeamSeasonKeys,
             IReadOnlyList<SpecialCompositeTeamRegistration> specialCompositeTeams = null,
-            bool isPooledGroup = false)
+            bool isPooledGroup = false,
+            IReadOnlyList<string> fillerTeamSeasonKeys = null)
         {
             if (string.IsNullOrWhiteSpace(leagueInstanceId))
                 throw new ArgumentException("LeagueInstanceId는 비어 있을 수 없습니다.", nameof(leagueInstanceId));
@@ -605,7 +607,10 @@ namespace Baseball.Core.Historical
                 throw new ArgumentOutOfRangeException(nameof(grade));
             if (regularTeamSeasonKeys == null || (!isPooledGroup && !IsSupportedRegularFranchiseTeamCount(regularTeamSeasonKeys.Count)))
                 throw new ArgumentException("정규 Franchise 구단은 6~10개여야 합니다.", nameof(regularTeamSeasonKeys));
-            if (isPooledGroup && regularTeamSeasonKeys.Count + (specialCompositeTeams?.Count ?? 0) < 2)
+            if (!isPooledGroup && fillerTeamSeasonKeys != null && fillerTeamSeasonKeys.Count > 0)
+                throw new ArgumentException("CPU 임시 구단은 재편성 조에만 배정한다.", nameof(fillerTeamSeasonKeys));
+            if (isPooledGroup && regularTeamSeasonKeys.Count + (specialCompositeTeams?.Count ?? 0) +
+                (fillerTeamSeasonKeys?.Count ?? 0) < 2)
                 throw new ArgumentException("재편성 조에는 최소 두 구단이 필요합니다.", nameof(regularTeamSeasonKeys));
 
             LeagueInstanceId = leagueInstanceId.Trim();
@@ -613,6 +618,7 @@ namespace Baseball.Core.Historical
             IsPooledGroup = isPooledGroup;
             _regularTeamSeasonKeys = CopyRegularTeams(regularTeamSeasonKeys);
             _specialCompositeTeams = CopySpecialTeams(specialCompositeTeams, _regularTeamSeasonKeys);
+            _fillerTeamSeasonKeys = CopyFillerTeams(fillerTeamSeasonKeys, _regularTeamSeasonKeys, _specialCompositeTeams);
         }
 
         public string LeagueInstanceId { get; }
@@ -621,7 +627,19 @@ namespace Baseball.Core.Historical
         public int RegularFranchiseTeamCount => _regularTeamSeasonKeys.Length;
         public IReadOnlyList<string> RegularTeamSeasonKeys => _regularTeamSeasonKeys;
         public IReadOnlyList<SpecialCompositeTeamRegistration> SpecialCompositeTeams => _specialCompositeTeams;
-        public int ParticipantTeamCount => _regularTeamSeasonKeys.Length + _specialCompositeTeams.Length;
+        /// <summary>이번 시즌에만 존재하고 승강 없이 사라지는 CPU 임시 구단이다.</summary>
+        public IReadOnlyList<string> FillerTeamSeasonKeys => _fillerTeamSeasonKeys;
+        public int ParticipantTeamCount =>
+            _regularTeamSeasonKeys.Length + _specialCompositeTeams.Length + _fillerTeamSeasonKeys.Length;
+
+        /// <summary>승강 대상인 실제 구단인지 반환한다. 특수 합성팀과 CPU 임시 구단은 시즌이 끝나면 월드에서 빠진다.</summary>
+        public bool IsPermanentParticipant(string teamSeasonKey)
+        {
+            for (int index = 0; index < _regularTeamSeasonKeys.Length; index++)
+                if (string.Equals(_regularTeamSeasonKeys[index], teamSeasonKey, StringComparison.Ordinal))
+                    return true;
+            return false;
+        }
 
         public static bool IsSupportedRegularFranchiseTeamCount(int teamCount)
         {
@@ -671,6 +689,28 @@ namespace Baseball.Core.Historical
                     if (string.Equals(regularTeams[regularIndex], registration.TeamSeasonKey, StringComparison.Ordinal))
                         throw new ArgumentException("특수 합성팀 TeamSeasonKey는 정규 Franchise와 겹칠 수 없습니다.", nameof(source));
                 result[index] = registration;
+            }
+            return result;
+        }
+
+        private static string[] CopyFillerTeams(
+            IReadOnlyList<string> source,
+            IReadOnlyList<string> regularTeams,
+            IReadOnlyList<SpecialCompositeTeamRegistration> specialTeams)
+        {
+            if (source == null || source.Count == 0)
+                return Array.Empty<string>();
+            var taken = new HashSet<string>(regularTeams, StringComparer.Ordinal);
+            for (int index = 0; index < specialTeams.Count; index++) taken.Add(specialTeams[index].TeamSeasonKey);
+            var result = new string[source.Count];
+            for (int index = 0; index < source.Count; index++)
+            {
+                string key = source[index]?.Trim();
+                if (!LeagueFillerTeamKey.TryParse(key, out _, out _))
+                    throw new ArgumentException("CPU 임시 구단 TeamSeasonKey 형식이 올바르지 않습니다.", nameof(source));
+                if (!taken.Add(key))
+                    throw new ArgumentException("CPU 임시 구단 TeamSeasonKey는 다른 참가팀과 겹칠 수 없습니다.", nameof(source));
+                result[index] = key;
             }
             return result;
         }

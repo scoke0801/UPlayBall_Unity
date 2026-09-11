@@ -1402,6 +1402,11 @@ namespace Baseball.Game.Historical
             // 합성 참가팀은 Franchise TeamSeason 정의가 없으므로 Key에서 직접 이름을 만든다.
             if (SpecialCompositeTeamDefinition.TryCreateDisplayName(teamSeasonKey, out string compositeName))
                 return compositeName;
+            // CPU 임시 구단은 로스터가 사라진 뒤에도 이력에서 읽히도록 Key에 담긴 덱과 원본 구단으로 이름을 만든다.
+            if (LeagueFillerTeamKey.TryParse(teamSeasonKey, out LeagueFillerDeckType deck, out string source))
+                return (deck == LeagueFillerDeckType.YearTeam
+                    ? GetTeamDisplayName(source)
+                    : LeagueFillerTeamKey.GetDeckTeamName(deck)) + LeagueFillerTeamKey.DisplaySuffix;
 
             HistoricalBakedContent content = _contentProvider.Load();
             if (!content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
@@ -1443,6 +1448,8 @@ namespace Baseball.Game.Historical
 
         public string GetTacticDisplayName(string tacticCardId)
         {
+            if (LeagueFillerTeamKey.TryParse(teamSeasonKey, out LeagueFillerDeckType deck, out string source))
+                return deck == LeagueFillerDeckType.YearTeam ? GetTeamOriginYear(source) : null;
             for (int index = 0; index < _tacticCards.Length; index++)
                 if (string.Equals(_tacticCards[index].CardId, tacticCardId, StringComparison.Ordinal))
                     return _tacticCards[index].Name;

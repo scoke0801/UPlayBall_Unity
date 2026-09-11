@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 23;
+        public const int CurrentSaveVersion = 24;
         private const int OwnerPostseasonSaveVersion = 18;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
@@ -1472,7 +1472,8 @@ namespace Baseball.Game.Historical
                 isPooledGroup = league.IsPooledGroup,
                 grade = (int)league.Grade,
                 regularTeamSeasonKeys = regular,
-                specialCompositeTeams = special
+                specialCompositeTeams = special,
+                fillerTeamSeasonKeys = CopyStrings(league.FillerTeamSeasonKeys)
             };
         }
 
@@ -1493,7 +1494,16 @@ namespace Baseball.Game.Historical
                     registration.originYear,
                     (SpecialCompositeTeamType)registration.teamType);
             }
-            return new LeagueInstance(source.leagueInstanceId, (LeagueGrade)source.grade, regular, special, source.isPooledGroup);
+            // CPU 임시 구단 이전 저장본은 이 필드가 없으므로 임시 구단이 없는 조로 복원한다.
+            return new LeagueInstance(source.leagueInstanceId, (LeagueGrade)source.grade, regular, special,
+                source.isPooledGroup, source.fillerTeamSeasonKeys ?? Array.Empty<string>());
+        }
+
+        private static string[] CopyStrings(IReadOnlyList<string> source)
+        {
+            var result = new string[source.Count];
+            for (int index = 0; index < result.Length; index++) result[index] = source[index];
+            return result;
         }
 
         private static CurrentRosterSaveData[] CreateRosters(IReadOnlyList<CurrentRosterState> source)
