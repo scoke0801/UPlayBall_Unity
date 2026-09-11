@@ -524,6 +524,7 @@ Assets/04.Images/UI/*
 **/AddressableAssetsData
 **/External
 **/Models
+!Assets/02.Scripts/**/Models/
 **/Editor Default Resources
 !Assets/Editor Default Resources/
 Assets/Editor Default Resources/*
