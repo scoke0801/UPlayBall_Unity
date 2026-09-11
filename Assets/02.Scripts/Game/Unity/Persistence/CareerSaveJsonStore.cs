@@ -14,18 +14,24 @@ namespace Baseball.Game.Unity.Persistence
         private readonly string _primaryPath;
         private readonly string _backupPath;
         private readonly string _temporaryPath;
+        private string _slotOnePath;
 
         public CareerSaveJsonStore(string primaryPath)
         {
             if (string.IsNullOrWhiteSpace(primaryPath))
                 throw new ArgumentException("세이브 파일 경로는 비어 있을 수 없습니다.", nameof(primaryPath));
             _primaryPath = Path.GetFullPath(primaryPath);
+            _slotOnePath = _primaryPath;
             string directory = Path.GetDirectoryName(_primaryPath) ?? string.Empty;
             string name = Path.GetFileNameWithoutExtension(_primaryPath);
             string extension = Path.GetExtension(_primaryPath);
             _backupPath = Path.Combine(directory, name + ".backup" + extension);
             _temporaryPath = Path.Combine(directory, name + ".temporary" + extension);
         }
+
+        /// <summary>동일 모드의 독립 저장 슬롯을 연다.</summary>
+        public CareerSaveJsonStore ForSlot(int slot) =>
+            new CareerSaveJsonStore(SaveSlotPaths.GetFilePath(_slotOnePath, slot)) { _slotOnePath = _slotOnePath };
 
         public bool Exists => File.Exists(_primaryPath);
         public bool BackupExists => File.Exists(_backupPath);

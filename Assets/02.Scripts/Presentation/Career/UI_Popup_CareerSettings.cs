@@ -87,6 +87,8 @@ namespace Baseball.Presentation.Career
             _persistenceMessage = string.Empty;
             _showOwnerPersistenceAtTitle = false;
             _hasChosenTitlePersistenceMode = false;
+            _selectedPlayerSlot = _careerManager.ActiveSaveSlot;
+            _selectedOwnerSlot = EnsureOwnerModeManager().ActiveSaveSlot;
             Render();
         }
 
@@ -127,6 +129,7 @@ namespace Baseball.Presentation.Career
 
         private void Render()
         {
+            string focusPath = GetSettingsFocusPath();
             ClearChildren(_content);
             RectTransform backdrop = CreateImage(
                 "Backdrop", _content, BackdropColor, new Vector2(1920f, 1080f), Vector2.zero);
@@ -180,6 +183,31 @@ namespace Baseball.Presentation.Career
                 RenderTitleConfirmation(panel);
             else if (_showInstantResultConfirmation)
                 RenderInstantResultConfirmation(panel);
+            else if (_selectedTab == 1)
+            {
+                Transform focus = string.IsNullOrEmpty(focusPath) ? null : _content.Find(focusPath);
+                if (focus == null || !focus.TryGetComponent(out Button focusedButton) || !focusedButton.interactable)
+                {
+                    bool owner = UiGameModeSession.IsSelected(UiGameMode.OwnerCareer) ||
+                        (!UiGameModeSession.CurrentMode.HasValue && _showOwnerPersistenceAtTitle);
+                    focus = _content.Find("SettingsPanel/Body/SaveSlot_" +
+                        (owner ? _selectedOwnerSlot : _selectedPlayerSlot));
+                }
+                if (focus != null) EventSystem.current?.SetSelectedGameObject(focus.gameObject);
+            }
+        }
+
+        private string GetSettingsFocusPath()
+        {
+            Transform selected = EventSystem.current?.currentSelectedGameObject?.transform;
+            if (selected == null || !selected.IsChildOf(_content)) return string.Empty;
+            string path = selected.name;
+            while (selected.parent != _content)
+            {
+                selected = selected.parent;
+                path = selected.name + "/" + path;
+            }
+            return path;
         }
 
         private void RenderGameSettings(RectTransform body)

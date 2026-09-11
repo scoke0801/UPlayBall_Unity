@@ -273,19 +273,41 @@ namespace Baseball.Game.Historical
             _ = world.GetSpecialCompositeTeamSet(_newGameConfiguration.OriginYear);
         }
 
-        public void Save()
+        public void Save() => Save(ActiveSaveSlot);
+
+        /// <summary>선택한 슬롯에 저장하고 이후 저장 대상으로 연결한다.</summary>
+        public void Save(int slot)
         {
+            EnsureRegularSeasonSimulationIsNotRunning();
+            var store = _saveStore.ForSlot(slot);
             ManagerHistoricalRuntimeState runtime = RequireRuntime();
             if (GuideManager.Instance != null && GuideManager.Instance.IsAvailable)
                 runtime.SetGuideRepeatState(GuideManager.Instance.CaptureRepeatState());
-            _saveStore.Save(_saveAdapter.CreateSaveData(Runtime));
+            GuideProgressData previousGuide = runtime.GuideProgress.Capture();
+            try
+            {
+                RefreshGuideProgress();
+                store.Save(_saveAdapter.CreateSaveData(Runtime));
+                _saveStore = store;
+                ActiveSaveSlot = slot;
+            }
+            catch
+            {
+                runtime.RestoreGuideProgress(previousGuide);
+                throw;
+            }
             LastError = string.Empty;
             NotifyRuntimeChanged();
         }
 
-        public void Load()
+        public void Load() => Load(ActiveSaveSlot);
+
+        /// <summary>선택한 슬롯을 복원하고 이후 저장 대상으로 연결한다.</summary>
+        public void Load(int slot)
         {
-            ManagerHistoricalSaveData saveData = _saveStore.Load();
+            EnsureRegularSeasonSimulationIsNotRunning();
+            var store = _saveStore.ForSlot(slot);
+            ManagerHistoricalSaveData saveData = store.Load();
             OwnerModeEntryProfiler.Mark("세이브 파일 읽기·역직렬화");
 
             Runtime = new ManagerHistoricalLoadService(_saveAdapter).Restore(saveData);
@@ -301,22 +323,30 @@ namespace Baseball.Game.Historical
             CurrentPregame = null;
             LastMatch = null;
             LastError = string.Empty;
+            _saveStore = store;
+            ActiveSaveSlot = slot;
             OwnerModeEntryProfiler.Mark("팀 컬러 적용");
             NotifyRuntimeChanged();
         }
 
         /// <summary>사용자 확인을 받은 구단주 모드 디스크 저장을 삭제한다. 현재 Runtime은 별도의 진행 상태이므로 유지한다.</summary>
-        public void DeleteSave()
+        public void DeleteSave() => DeleteSave(ActiveSaveSlot);
+
+        /// <summary>선택한 슬롯만 삭제한다.</summary>
+        public void DeleteSave(int slot)
         {
-            _saveStore.Delete();
+            _saveStore.ForSlot(slot).Delete();
             LastError = string.Empty;
             NotifyRuntimeChanged();
         }
 
         /// <summary>타이틀의 구단주 저장 슬롯을 삭제하고 메모리에 남은 진행 세션도 함께 폐기한다.</summary>
-        public void DeleteSaveAndDiscardRuntime()
+        public void DeleteSaveAndDiscardRuntime() => DeleteSaveAndDiscardRuntime(ActiveSaveSlot);
+
+        /// <summary>타이틀에서 선택한 저장을 삭제하고 남은 진행 세션을 정리한다.</summary>
+        public void DeleteSaveAndDiscardRuntime(int slot)
         {
-            _saveStore.Delete();
+            _saveStore.ForSlot(slot).Delete();
             Runtime = null;
             NewGameFlow = null;
             CurrentPregame = null;
@@ -810,8 +840,14 @@ namespace Baseball.Game.Historical
         }
 
         /// <summary>구단 선택부터 25인 스타터 로스터 확인까지 새 게임 Draft를 시작한다.</summary>
-        public OwnerNewGameFlow BeginNewGameFlow()
+        public OwnerNewGameFlow BeginNewGameFlow() => BeginNewGameFlow(FindEmptySaveSlot());
+
+        /// <summary>타이틀에서 선택한 빈 슬롯에 새 구단 진행을 준비한다.</summary>
+        public OwnerNewGameFlow BeginNewGameFlow(int slot)
         {
+            if (HasSaveInSlot(slot))
+                throw new InvalidOperationException("새 구단은 빈 슬롯에서 시작해 주세요.");
+            _newGameSaveSlot = slot;
             LastError = string.Empty;
             NewGameFlow = new OwnerNewGameFlow(
                 _contentProvider,
@@ -837,12 +873,16 @@ namespace Baseball.Game.Historical
             {
                 OwnerNewGameFlow flow = NewGameFlow
                     ?? throw new InvalidOperationException("진행 중인 구단주 새 게임 Draft가 없습니다.");
+                if (HasSaveInSlot(_newGameSaveSlot))
+                    throw new InvalidOperationException("선택한 슬롯에 저장이 생겼습니다. 다른 빈 슬롯에서 시작해 주세요.");
                 OwnerStarterRosterResult starter = flow.StarterRoster
                     ?? throw new InvalidOperationException("스타터 로스터를 먼저 확인해야 합니다.");
                 OwnerProfileState profile = flow.CreateProfile();
                 OwnerNewGameReceipt receipt = flow.CreateReceipt();
                 HistoricalBakedContent content = _contentProvider.Load()
                     ?? throw new InvalidOperationException("Historical Content가 없습니다.");
+                int startingYear = flow.StartingYear;
+                string startingTeamSeasonKey = flow.SelectedTeamSeasonKey;
 
                 var service = new ManagerHistoricalNewGameService(
                     _contentProvider,
@@ -851,9 +891,9 @@ namespace Baseball.Game.Historical
                 Runtime = service.Create(new ManagerHistoricalNewGameRequest(
                     WorldRecordMode.SimulatedHistory,
                     _newGameConfiguration.WorldSeed,
-                    _newGameConfiguration.OriginYear,
+                    startingYear,
                     _newGameConfiguration.LeagueInstanceId,
-                    flow.SelectedTeamSeasonKey,
+                    startingTeamSeasonKey,
                     new ManagerEconomyState(
                         _newGameConfiguration.InitialMoney,
                         _newGameConfiguration.InitialScoutingPoints,
@@ -865,7 +905,7 @@ namespace Baseball.Game.Historical
                 RosterValidationResult validation = new ActiveRosterValidator().Validate(starter.Roster);
                 if (!validation.IsValid)
                     throw new InvalidOperationException("생성한 25인 스타터 로스터가 ActiveRoster 계약을 위반했습니다.");
-                ConfigureTeamColors(content, flow.SelectedTeamSeasonKey);
+                ConfigureTeamColors(content, startingTeamSeasonKey);
                 EnsureStarterTacticCollection();
                 RefreshAvailableTacticCards();
                 ApplyStarterLoadout(Runtime.ManagerMode);
@@ -875,6 +915,8 @@ namespace Baseball.Game.Historical
                 LastError = string.Empty;
                 flow.Complete();
                 NewGameFlow = null;
+                _saveStore = _saveStore.ForSlot(_newGameSaveSlot);
+                ActiveSaveSlot = _newGameSaveSlot;
                 if (GuideManager.Instance != null && GuideManager.Instance.IsAvailable)
                     GuideManager.Instance.RestoreRepeatState(Runtime.GuideRepeatState);
                 NotifyRuntimeChanged();
@@ -929,6 +971,7 @@ namespace Baseball.Game.Historical
             if (!preparation.CanStartGame)
                 throw new InvalidOperationException("현재 경기 준비 상태로 경기를 시작할 수 없습니다.");
             LastMatch = _matchService.PlayNextGame(RequireRuntime(), eventSink, executionProfile);
+            Runtime.GuideProgress.RecordPlanConfirmed();
             LastUnlockedSignatureCardId = TryUnlockLosingStreakSignature()
                 ? LosingStreakSignatureCardId
                 : string.Empty;
@@ -1323,7 +1366,9 @@ namespace Baseball.Game.Historical
                 hitters,
                 pitchers,
                 foreignPlayers,
-                new ActiveRosterValidator(rule).Validate(roster),
+                new OwnerActiveRosterValidator(
+                    new ActiveRosterValidator(rule),
+                    rule).Validate(roster, runtime.WorldCardCatalog),
                 new RosterStrengthResolver().Resolve(roster, runtime.WorldCardCatalog),
                 new RosterCostResolver(rule).Resolve(roster, runtime.WorldCardCatalog));
         }
@@ -1333,6 +1378,23 @@ namespace Baseball.Game.Historical
         {
             ManagerHistoricalRuntimeState runtime = RequireRuntime();
             return new RosterStrengthResolver().Resolve(runtime.GetRoster(teamSeasonKey), runtime.WorldCardCatalog);
+        }
+
+        /// <summary>경기 ID를 현재 표시 설정의 선수명에 연결하며 시뮬레이션 원본 이름은 보존한다.</summary>
+        public System.Collections.Generic.IReadOnlyDictionary<int, string> CreateMatchParticipantNames(
+            Baseball.Simulation.Match.MatchInput input)
+        {
+            var names = new System.Collections.Generic.Dictionary<int, string>();
+            var ids = ManagerModeMatchService.PlayerIdMap.Create(Runtime);
+            var season = Runtime.ManagerMode.LiveSeason;
+            foreach (int teamId in new[] { input.AwayRoster.TeamId, input.HomeRoster.TeamId })
+            {
+                string key = season.GetTeamSeasonKey(teamId);
+                foreach (var entry in Runtime.GetRoster(key).Entries)
+                    names[ids.Get(key, entry.PlayerSeasonId)] =
+                        Runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId);
+            }
+            return names;
         }
 
         public string GetTeamDisplayName(string teamSeasonKey)
@@ -1349,6 +1411,19 @@ namespace Baseball.Game.Historical
                 : Runtime.IdentityRegistry.GetPresentationTeamSeasonName(
                     team.TeamSeasonKey,
                     team.FranchiseId);
+        }
+
+        /// <summary>현재 진행의 내 구단명과 연도가 붙은 상대 구단명을 경기·운영 화면에 제공한다.</summary>
+        public string GetClubDisplayName(string teamSeasonKey)
+        {
+            string displayName = GetTeamDisplayName(teamSeasonKey);
+            bool isPlayerTeam = Runtime != null &&
+                string.Equals(teamSeasonKey, Runtime.PlayerTeamSeasonKey, StringComparison.Ordinal);
+            return OwnerClubDisplayNameFormatter.Format(
+                displayName,
+                GetTeamOriginYear(teamSeasonKey),
+                isPlayerTeam,
+                Runtime?.OwnerProfile.ClubName);
         }
 
         /// <summary>정규 구단과 합성 참가팀의 원본 시즌 연도를 TeamSeasonKey에서 찾는다.</summary>

@@ -2,6 +2,7 @@ using System;
 using Baseball.Game.Career.Persistence;
 using Baseball.Game.Historical;
 using Baseball.Game.Manager;
+using Baseball.Game.Unity.Persistence;
 using Baseball.Presentation.SharedUI;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -23,20 +24,32 @@ namespace Baseball.Presentation.Career
             OwnerDelete
         }
 
+        private int _selectedPlayerSlot = 1;
+        private int _selectedOwnerSlot = 1;
         private OwnerModeManager _ownerModeManager;
         private PersistenceConfirmationAction _persistenceConfirmation;
         private string _persistenceMessage = string.Empty;
         private bool _showOwnerPersistenceAtTitle;
         private bool _hasChosenTitlePersistenceMode;
 
+        /// <summary>타이틀에서 지정 모드의 슬롯 선택을 연다.</summary>
+        public static UI_Popup_CareerSettings ShowSaveLoadRuntime(UiGameMode mode)
+        {
+            var popup = ShowSaveLoadRuntime();
+            popup._showOwnerPersistenceAtTitle = mode == UiGameMode.OwnerCareer;
+            popup._hasChosenTitlePersistenceMode = true;
+            popup.Render();
+            return popup;
+        }
+
         private void RenderPersistenceSettings(RectTransform body)
         {
             bool isTitle = !UiGameModeSession.CurrentMode.HasValue;
             if (isTitle && !_hasChosenTitlePersistenceMode)
             {
-                CareerSaveSlotView playerSlot = _careerManager.InspectCareerSave();
+                CareerSaveSlotView playerSlot = _careerManager.InspectCareerSave(_selectedPlayerSlot);
                 bool hasPlayerSave = playerSlot.Status != CareerSaveSlotStatus.Empty || playerSlot.HasBackup;
-                _showOwnerPersistenceAtTitle = !hasPlayerSave && EnsureOwnerModeManager().HasSave;
+                _showOwnerPersistenceAtTitle = !hasPlayerSave && EnsureOwnerModeManager().HasAnySave;
                 _hasChosenTitlePersistenceMode = true;
             }
 
@@ -50,11 +63,13 @@ namespace Baseball.Presentation.Career
                 return;
             }
 
-            CareerSaveSlotView slot = _careerManager.InspectCareerSave();
-            CreateHeading(body, "선수 커리어 슬롯 1", 295f);
+            CareerSaveSlotView slot = _careerManager.InspectCareerSave(_selectedPlayerSlot);
+            CreateSaveSlotHeading(body, $"선수 모드 · 슬롯 {_selectedPlayerSlot}");
+            RenderSaveSlotSelector(body, false);
 
             RectTransform card = CreateImage(
-                "SaveSlot", body, CardColor, new Vector2(790f, 238f), new Vector2(0f, 145f));
+                "SaveSlot", body, CardColor, new Vector2(790f, 210f), new Vector2(0f, 115f));
+            TitleUiButtonSkin.ApplyPanel(card.GetComponent<Image>());
             string status = slot.Status switch
             {
                 CareerSaveSlotStatus.Ready => "저장됨",
@@ -97,7 +112,7 @@ namespace Baseball.Presentation.Career
             bool hasPrimary = slot.Status != CareerSaveSlotStatus.Empty;
             Button save = CreateButton(
                 "SaveCareer", body, hasPrimary ? "현재 진행 덮어쓰기" : "현재 진행 저장",
-                new Vector2(240f, 58f), new Vector2(-260f, -20f), SelectedColor, out _);
+                new Vector2(240f, 58f), new Vector2(-260f, -45f), SelectedColor, out _);
             save.interactable = canSave;
             save.onClick.AddListener(() =>
             {
@@ -109,20 +124,20 @@ namespace Baseball.Presentation.Career
 
             Button load = CreateButton(
                 "LoadCareer", body, "저장 불러오기",
-                new Vector2(240f, 58f), new Vector2(0f, -20f), CardColor, out _);
+                new Vector2(240f, 58f), new Vector2(0f, -45f), CardColor, out _);
             load.interactable = slot.CanLoad && !_careerManager.IsSeasonFastForwardRunning;
             load.onClick.AddListener(() => OpenPersistenceConfirmation(PersistenceConfirmationAction.Load));
 
             Button backup = CreateButton(
                 "RecoverBackup", body, "자동 백업 복구",
-                new Vector2(240f, 58f), new Vector2(260f, -20f), CardColor, out _);
+                new Vector2(240f, 58f), new Vector2(260f, -45f), CardColor, out _);
             backup.interactable = slot.HasBackup && !_careerManager.IsSeasonFastForwardRunning;
             backup.onClick.AddListener(() =>
                 OpenPersistenceConfirmation(PersistenceConfirmationAction.RecoverBackup));
 
             Button delete = CreateButton(
                 "DeleteSave", body, "저장 데이터 삭제",
-                new Vector2(240f, 54f), new Vector2(260f, -95f), DangerColor, out _);
+                new Vector2(240f, 54f), new Vector2(260f, -120f), DangerColor, out _);
             delete.interactable = hasPrimary || slot.HasBackup;
             delete.onClick.AddListener(() => OpenPersistenceConfirmation(PersistenceConfirmationAction.Delete));
 
@@ -134,7 +149,7 @@ namespace Baseball.Presentation.Career
                         ? "경기 준비·진행 중에는 저장할 수 없습니다. 경기를 마친 뒤 저장해 주세요."
                         : "시즌 자동 진행이 끝난 뒤 저장할 수 있습니다.";
             CreateText("Availability", body, availability, 15, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(790f, 48f), new Vector2(0f, -170f), SecondaryTextColor);
+                new Vector2(790f, 48f), new Vector2(0f, -184f), SecondaryTextColor);
 
             string feedback = string.IsNullOrWhiteSpace(_persistenceMessage)
                 ? slot.Status is CareerSaveSlotStatus.Incompatible or CareerSaveSlotStatus.Damaged
@@ -147,6 +162,44 @@ namespace Baseball.Presentation.Career
                 feedback.StartsWith("자동 백업을", StringComparison.Ordinal)
                     ? AccentColor
                     : SecondaryTextColor);
+        }
+
+        private static void CreateSaveSlotHeading(RectTransform body, string title)
+        {
+            CreateText("SaveSlotHeading", body, title, 17, FontStyle.Bold, TextAnchor.MiddleLeft,
+                new Vector2(350f, 30f), new Vector2(-220f, 315f), AccentColor);
+        }
+
+        private static string GetSaveSlotStatusLabel(CareerSaveSlotStatus status) => status switch
+        {
+            CareerSaveSlotStatus.Ready => "저장됨",
+            CareerSaveSlotStatus.Incompatible => "호환 불가",
+            CareerSaveSlotStatus.Damaged => "손상됨",
+            _ => "빈 슬롯"
+        };
+
+        private void RenderSaveSlotSelector(RectTransform body, bool isOwner)
+        {
+            int selected = isOwner ? _selectedOwnerSlot : _selectedPlayerSlot;
+            for (int index = 1; index <= SaveSlotPaths.SlotCount; index++)
+            {
+                int slot = index;
+                bool occupied = isOwner ? EnsureOwnerModeManager().HasSaveInSlot(slot)
+                    : _careerManager.HasCareerSaveInSlot(slot);
+                Button button = CreateButton("SaveSlot_" + slot, body,
+                    $"{(slot == selected ? "선택 · " : string.Empty)}{slot} · {(occupied ? "저장됨" : "비어 있음")}",
+                    new Vector2(148f, 42f), new Vector2((slot - 3) * 160f, 260f),
+                    slot == selected ? SelectedColor : CardColor, out _);
+                button.onClick.AddListener(() =>
+                {
+                    if (isOwner) _selectedOwnerSlot = slot;
+                    else _selectedPlayerSlot = slot;
+                    _persistenceMessage = string.Empty;
+                    Render();
+                    Transform target = _content.Find("SettingsPanel/Body/SaveSlot_" + slot);
+                    if (target != null) EventSystem.current?.SetSelectedGameObject(target.gameObject);
+                });
+            }
         }
 
         private void RenderTitlePersistenceModeSelector(RectTransform body)
@@ -179,32 +232,38 @@ namespace Baseball.Presentation.Career
         private void RenderOwnerPersistenceSettings(RectTransform body)
         {
             OwnerModeManager manager = EnsureOwnerModeManager();
-            bool hasSave = manager.HasSave;
-            CreateHeading(body, "구단주 모드 슬롯 1", 295f);
+            bool hasSave = manager.HasSaveInSlot(_selectedOwnerSlot);
+            CareerSaveSlotView slot = manager.InspectSave(_selectedOwnerSlot);
+            CreateSaveSlotHeading(body, $"구단주 모드 · 슬롯 {_selectedOwnerSlot}");
+            RenderSaveSlotSelector(body, true);
 
             RectTransform card = CreateImage(
-                "OwnerSaveSlot", body, CardColor, new Vector2(790f, 238f), new Vector2(0f, 145f));
-            CreateText("Status", card, hasSave ? "저장됨" : "빈 슬롯", 16, FontStyle.Bold,
+                "OwnerSaveSlot", body, CardColor, new Vector2(790f, 210f), new Vector2(0f, 115f));
+            TitleUiButtonSkin.ApplyPanel(card.GetComponent<Image>());
+            CreateText("Status", card, GetSaveSlotStatusLabel(slot.Status), 16, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(180f, 30f), new Vector2(-280f, 80f),
                 hasSave ? AccentColor : MutedTextColor);
             CreateText("SlotTitle", card,
-                hasSave ? "구단주 모드 진행 데이터" : "저장된 구단주 진행이 없습니다.",
+                slot.Summary != null ? (string.IsNullOrWhiteSpace(slot.Summary.teamName) ? "구단주 진행" : slot.Summary.teamName)
+                    + " · " + slot.Summary.playerName
+                    : hasSave ? "저장 데이터를 확인해 주세요." : "비어 있는 구단주 슬롯",
                 23, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(700f, 38f), new Vector2(0f, 30f), PrimaryTextColor);
-            CreateText("CurrentProgress", card, GetOwnerCurrentProgressLabel(manager),
+            CreateText("CurrentProgress", card, slot.Summary != null
+                    ? $"{slot.Summary.year} 시즌 · {slot.Summary.seasonPhase}" : slot.Message,
                 16, FontStyle.Normal, TextAnchor.MiddleLeft,
-                new Vector2(700f, 48f), new Vector2(0f, -20f), SecondaryTextColor);
+                new Vector2(700f, 40f), new Vector2(0f, -10f), SecondaryTextColor);
             CreateText("SlotGuide", card,
-                hasSave
-                    ? "홈·구단 운영 화면에서 저장한 데이터와 같은 슬롯입니다."
+                slot.Summary != null ? "저장 시각  " + FormatSavedAt(slot.Summary.savedAtUtcTicks)
                     : "현재 진행을 저장하면 이 슬롯에 구단 전체 상태가 기록됩니다.",
                 14, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(700f, 30f), new Vector2(0f, -65f), MutedTextColor);
 
             Button save = CreateButton(
                 "SaveOwnerCareer", body, hasSave ? "현재 진행 덮어쓰기" : "현재 진행 저장",
-                new Vector2(280f, 58f), new Vector2(-155f, -20f), SelectedColor, out _);
-            save.interactable = manager.HasActiveRuntime;
+                new Vector2(280f, 58f), new Vector2(-155f, -45f), SelectedColor, out _);
+            bool isBusy = manager.IsRegularSeasonSimulationRunning || manager.IsPostseasonSimulationRunning;
+            save.interactable = manager.HasActiveRuntime && !isBusy;
             save.onClick.AddListener(() =>
             {
                 if (hasSave)
@@ -215,29 +274,51 @@ namespace Baseball.Presentation.Career
 
             Button load = CreateButton(
                 "LoadOwnerCareer", body, "저장 불러오기",
-                new Vector2(280f, 58f), new Vector2(155f, -20f), CardColor, out _);
-            load.interactable = hasSave;
+                new Vector2(280f, 58f), new Vector2(155f, -45f), CardColor, out _);
+            load.interactable = slot.CanLoad && !isBusy;
             load.onClick.AddListener(() => OpenPersistenceConfirmation(PersistenceConfirmationAction.OwnerLoad));
+
+            if (!UiGameModeSession.CurrentMode.HasValue && !hasSave)
+            {
+                Button start = CreateButton("NewOwnerCareer", body, "이 슬롯에서 새 구단 시작",
+                    new Vector2(280f, 54f), new Vector2(-155f, -120f), CardColor, out _);
+                start.onClick.AddListener(() =>
+                {
+                    try
+                    {
+                        manager.BeginNewGameFlow(_selectedOwnerSlot);
+                        Close();
+                        UnityEngine.Object.FindFirstObjectByType<UI_Scene_NewGame>(
+                            FindObjectsInactive.Include)?.RefreshTitleSaveState();
+                    }
+                    catch (Exception exception) when (IsExpectedOwnerPersistenceException(exception))
+                    {
+                        _persistenceMessage = exception.Message;
+                        Render();
+                    }
+                });
+            }
 
             Button delete = CreateButton(
                 "DeleteOwnerSave", body, "저장 데이터 삭제",
-                new Vector2(280f, 54f), new Vector2(155f, -95f), DangerColor, out _);
+                new Vector2(280f, 54f), new Vector2(155f, -120f), DangerColor, out _);
             delete.interactable = hasSave;
             delete.onClick.AddListener(() =>
                 OpenPersistenceConfirmation(PersistenceConfirmationAction.OwnerDelete));
 
-            string availability = manager.HasActiveRuntime
-                ? "구단주 모드는 별도 단일 슬롯을 사용합니다. 저장하면 구단·리그·로스터·시즌 진행이 함께 기록됩니다."
+            string availability = isBusy ? "시즌 자동 진행이 끝난 뒤 저장하거나 불러올 수 있습니다."
+                : manager.HasActiveRuntime
+                ? $"홈·구단 운영 저장 대상: 슬롯 {manager.ActiveSaveSlot}. 다른 슬롯에 저장하면 이후 저장 대상도 바뀝니다."
                 : "현재 구단주 진행이 없어 저장할 수 없습니다. 저장된 슬롯은 불러올 수 있습니다.";
             CreateText("Availability", body, availability, 15, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(790f, 44f), new Vector2(0f, -165f), SecondaryTextColor);
+                new Vector2(790f, 44f), new Vector2(0f, -182f), SecondaryTextColor);
             CreateText("BackupGuide", body,
-                "구단주 모드는 단일 슬롯을 사용하며 현재 자동 백업은 지원하지 않습니다.",
+                "슬롯마다 구단·리그·시즌 진행을 별도로 보관합니다. 구단주 모드 자동 백업은 지원하지 않습니다.",
                 14, FontStyle.Normal, TextAnchor.MiddleCenter,
-                new Vector2(790f, 32f), new Vector2(0f, -215f), MutedTextColor);
+                new Vector2(790f, 40f), new Vector2(0f, -239f), MutedTextColor);
 
-            CreateText("Feedback", body, _persistenceMessage, 15, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Vector2(790f, 54f), new Vector2(0f, -270f),
+            CreateText("Feedback", body, string.IsNullOrEmpty(_persistenceMessage) ? slot.Message : _persistenceMessage, 15, FontStyle.Bold,
+                TextAnchor.MiddleCenter, new Vector2(790f, 54f), new Vector2(0f, -307f),
                 _persistenceMessage.Contains("저장했습니다") ||
                 _persistenceMessage.Contains("불러왔습니다") ||
                 _persistenceMessage.Contains("삭제했습니다")
@@ -254,6 +335,8 @@ namespace Baseball.Presentation.Career
         private void RenderPersistenceConfirmation(RectTransform panel)
         {
             RectTransform modal = CreateModal(panel, "PersistenceConfirmation");
+            foreach (Button button in panel.GetComponentsInChildren<Button>())
+                if (!button.transform.IsChildOf(modal)) button.interactable = false;
             string title = _persistenceConfirmation switch
             {
                 PersistenceConfirmationAction.Overwrite => "기존 저장을 덮어쓸까요?",
@@ -280,11 +363,14 @@ namespace Baseball.Presentation.Career
                 PersistenceConfirmationAction.OwnerLoad =>
                     "현재 저장하지 않은 구단주 진행은 사라지고 저장 시점으로 돌아갑니다.",
                 PersistenceConfirmationAction.OwnerDelete =>
-                    "구단·선수단·재정·시즌 진행을 포함한 단일 슬롯을 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
+                    "구단·선수단·재정·시즌 진행을 포함한 선택 슬롯을 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
                 _ => string.Empty
             };
             CreateText("Title", modal, title, 27, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(620f, 48f), new Vector2(0f, 95f), PrimaryTextColor);
+            bool isOwnerAction = _persistenceConfirmation is PersistenceConfirmationAction.OwnerOverwrite or
+                PersistenceConfirmationAction.OwnerLoad or PersistenceConfirmationAction.OwnerDelete;
+            message = $"{(isOwnerAction ? "구단주 모드" : "선수 모드")} · 슬롯 {(isOwnerAction ? _selectedOwnerSlot : _selectedPlayerSlot)}\n" + message;
             CreateText("Message", modal, message, 17, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(650f, 70f), new Vector2(0f, 25f), SecondaryTextColor);
             Button cancel = CreateButton("Cancel", modal, "취소", new Vector2(250f, 58f),
@@ -303,6 +389,10 @@ namespace Baseball.Presentation.Career
                     PersistenceConfirmationAction.OwnerDelete ? DangerColor : SelectedColor,
                 out _);
             confirm.onClick.AddListener(ExecutePersistenceConfirmation);
+            cancel.navigation = new Navigation { mode = Navigation.Mode.Explicit,
+                selectOnLeft = confirm, selectOnRight = confirm, selectOnUp = confirm, selectOnDown = confirm };
+            confirm.navigation = new Navigation { mode = Navigation.Mode.Explicit,
+                selectOnLeft = cancel, selectOnRight = cancel, selectOnUp = cancel, selectOnDown = cancel };
             EventSystem.current?.SetSelectedGameObject(cancel.gameObject);
         }
 
@@ -312,10 +402,10 @@ namespace Baseball.Presentation.Career
             _persistenceConfirmation = PersistenceConfirmationAction.None;
             CareerSaveCommandResult result = action switch
             {
-                PersistenceConfirmationAction.Overwrite => _careerManager.SaveCareer(),
-                PersistenceConfirmationAction.Load => _careerManager.LoadCareer(),
-                PersistenceConfirmationAction.RecoverBackup => _careerManager.RecoverCareerSaveBackup(),
-                PersistenceConfirmationAction.Delete => _careerManager.DeleteCareerSave(),
+                PersistenceConfirmationAction.Overwrite => _careerManager.SaveCareer(_selectedPlayerSlot),
+                PersistenceConfirmationAction.Load => _careerManager.LoadCareer(_selectedPlayerSlot),
+                PersistenceConfirmationAction.RecoverBackup => _careerManager.RecoverCareerSaveBackup(_selectedPlayerSlot),
+                PersistenceConfirmationAction.Delete => _careerManager.DeleteCareerSave(_selectedPlayerSlot),
                 PersistenceConfirmationAction.OwnerOverwrite => SaveOwnerCareer(),
                 PersistenceConfirmationAction.OwnerLoad => LoadOwnerCareer(),
                 PersistenceConfirmationAction.OwnerDelete => DeleteOwnerCareer(),
@@ -347,7 +437,7 @@ namespace Baseball.Presentation.Career
         {
             try
             {
-                EnsureOwnerModeManager().Save();
+                EnsureOwnerModeManager().Save(_selectedOwnerSlot);
                 return CareerSaveCommandResult.Success("구단주 진행 데이터를 저장했습니다.");
             }
             catch (Exception exception) when (IsExpectedOwnerPersistenceException(exception))
@@ -360,7 +450,7 @@ namespace Baseball.Presentation.Career
         {
             try
             {
-                EnsureOwnerModeManager().Load();
+                EnsureOwnerModeManager().Load(_selectedOwnerSlot);
                 return CareerSaveCommandResult.Success("구단주 진행 데이터를 불러왔습니다.");
             }
             catch (Exception exception) when (IsExpectedOwnerPersistenceException(exception))
@@ -375,9 +465,9 @@ namespace Baseball.Presentation.Career
             {
                 OwnerModeManager manager = EnsureOwnerModeManager();
                 if (!UiGameModeSession.CurrentMode.HasValue)
-                    manager.DeleteSaveAndDiscardRuntime();
+                    manager.DeleteSaveAndDiscardRuntime(_selectedOwnerSlot);
                 else
-                    manager.DeleteSave();
+                    manager.DeleteSave(_selectedOwnerSlot);
                 UnityEngine.Object.FindFirstObjectByType<UI_Scene_NewGame>(
                     FindObjectsInactive.Include)?.RefreshTitleSaveState();
                 return CareerSaveCommandResult.Success("구단주 모드 저장 데이터를 삭제했습니다.");
@@ -394,6 +484,7 @@ namespace Baseball.Presentation.Career
         private void OpenRestoredOwnerCareer()
         {
             Time.timeScale = 1f;
+            UnityEngine.Object.FindFirstObjectByType<UI_Scene_NewGame>(FindObjectsInactive.Include)?.Hide();
             UiGameModeSession.Select(UiGameMode.OwnerCareer);
             Close();
         }
@@ -408,30 +499,18 @@ namespace Baseball.Presentation.Career
             return _ownerModeManager;
         }
 
-        private static string GetOwnerCurrentProgressLabel(OwnerModeManager manager)
-        {
-            if (!manager.HasActiveRuntime)
-                return "현재 실행 중인 구단주 진행이 없습니다.";
-
-            ManagerLiveSeasonState liveSeason = manager.Runtime.ManagerMode?.LiveSeason;
-            if (liveSeason == null)
-                return "현재 구단주 진행을 저장할 수 있습니다.";
-
-            return $"현재 진행  ·  {liveSeason.OriginYear} 시즌  ·  " +
-                   $"{liveSeason.SeasonNumber}년차  ·  {liveSeason.CurrentWeekIndex + 1}주차";
-        }
-
         private static bool IsExpectedOwnerPersistenceException(Exception exception)
         {
             return exception is ArgumentException ||
                    exception is InvalidOperationException ||
                    exception is System.IO.IOException ||
+                   exception is System.IO.InvalidDataException ||
                    exception is UnauthorizedAccessException;
         }
 
         private void ExecuteSave()
         {
-            CareerSaveCommandResult result = _careerManager.SaveCareer();
+            CareerSaveCommandResult result = _careerManager.SaveCareer(_selectedPlayerSlot);
             _persistenceMessage = result.Message;
             Render();
         }

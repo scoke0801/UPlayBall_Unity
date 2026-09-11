@@ -202,7 +202,7 @@ namespace Baseball.Presentation.Career
                 .EnsureManager<OwnerModeManager>("OwnerModeManager");
             string ownerAction = ownerManager.HasActiveRuntime
                 ? "계속하기  →"
-                : ownerManager.HasSave ? "저장 불러오기  →" : "새 구단 시작  →";
+                : ownerManager.HasAnySave ? "저장 슬롯 선택  →" : "새 구단 시작  →";
             Button ownerCareer = CreateButton(
                 "OwnerCareer", right, string.Empty, new Vector2(580f, 190f), new Vector2(0f, -15f),
                 CareerUiTheme.SecondaryAction, out _);
@@ -219,10 +219,17 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleRight, new Vector2(420f, 28f), new Vector2(55f, -68f), AccentColor);
             ownerCareer.onClick.AddListener(() =>
             {
-                if (!ownerManager.HasActiveRuntime && !ownerManager.HasSave)
+                if (!ownerManager.HasActiveRuntime && ownerManager.HasAnySave)
+                {
+                    UI_Popup_CareerSettings.ShowSaveLoadRuntime(UiGameMode.OwnerCareer);
+                    return;
+                }
+                if (!ownerManager.HasActiveRuntime && !ownerManager.HasAnySave)
                 {
                     try
                     {
+                        _ownerClubNameDraft = string.Empty;
+                        _ownerNicknameDraft = "구단주";
                         ownerManager.BeginNewGameFlow();
                         Render();
                     }

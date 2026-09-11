@@ -10,13 +10,22 @@ namespace Baseball.Game.Unity.Persistence
     public sealed class ManagerHistoricalSaveJsonStore
     {
         private readonly string _filePath;
+        private string _slotOnePath;
 
         public ManagerHistoricalSaveJsonStore(string filePath)
         {
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentException("세이브 파일 경로는 비어 있을 수 없습니다.", nameof(filePath));
             _filePath = Path.GetFullPath(filePath);
+            _slotOnePath = _filePath;
         }
+
+        /// <summary>주입된 슬롯 1 경로를 유지하면서 독립 슬롯을 연다.</summary>
+        public ManagerHistoricalSaveJsonStore ForSlot(int slot) =>
+            new ManagerHistoricalSaveJsonStore(SaveSlotPaths.GetFilePath(_slotOnePath, slot))
+                { _slotOnePath = _slotOnePath };
+
+        public long SavedAtUtcTicks => Exists ? File.GetLastWriteTimeUtc(_filePath).Ticks : 0;
 
         public string FilePath => _filePath;
         public bool Exists => File.Exists(_filePath);
@@ -29,7 +38,24 @@ namespace Baseball.Game.Unity.Persistence
             string directory = Path.GetDirectoryName(_filePath);
             if (!string.IsNullOrEmpty(directory))
                 Directory.CreateDirectory(directory);
-            File.WriteAllText(_filePath, Serialize(saveData), new UTF8Encoding(false));
+            string temporaryPath = _filePath + ".temporary";
+            try
+            {
+                byte[] bytes = new UTF8Encoding(false).GetBytes(Serialize(saveData));
+                using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    stream.Write(bytes, 0, bytes.Length);
+                    stream.Flush(true);
+                }
+                if (Exists)
+                    File.Replace(temporaryPath, _filePath, null);
+                else
+                    File.Move(temporaryPath, _filePath);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            }
         }
 
         public ManagerHistoricalSaveData Load()
@@ -39,7 +65,7 @@ namespace Baseball.Game.Unity.Persistence
             return Deserialize(File.ReadAllText(_filePath, Encoding.UTF8));
         }
 
-        /// <summary>사용자 확인이 끝난 구단주 모드 단일 저장 슬롯을 삭제한다.</summary>
+        /// <summary>사용자 확인이 끝난 구단주 모드 선택한 저장 슬롯을 삭제한다.</summary>
         public void Delete()
         {
             if (File.Exists(_filePath))
