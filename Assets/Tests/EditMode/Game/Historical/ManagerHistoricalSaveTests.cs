@@ -691,6 +691,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                         2024,
                         PlayerPosition.Catcher,
                         plateAppearances: 500,
+                        atBats: 460,
                         hits: 150,
                         homeRuns: 20,
                         walks: 40,

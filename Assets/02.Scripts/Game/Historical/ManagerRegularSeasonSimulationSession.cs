@@ -29,7 +29,9 @@ namespace Baseball.Game.Historical
             string nextHomeTeamSeasonKey,
             int seasonWins,
             int seasonLosses,
-            int seasonDraws)
+            int seasonDraws,
+            int playerLeagueGamesSimulated,
+            int totalPlayerLeagueGames)
         {
             Status = status;
             PlayerGamesSimulated = playerGamesSimulated;
@@ -43,6 +45,8 @@ namespace Baseball.Game.Historical
             SeasonWins = seasonWins;
             SeasonLosses = seasonLosses;
             SeasonDraws = seasonDraws;
+            PlayerLeagueGamesSimulated = playerLeagueGamesSimulated;
+            TotalPlayerLeagueGames = totalPlayerLeagueGames;
         }
 
         public ManagerRegularSeasonSimulationStatus Status { get; }
@@ -50,6 +54,10 @@ namespace Baseball.Game.Historical
         public int TotalPlayerGames { get; }
         public int LeagueGamesSimulated { get; }
         public int TotalLeagueGames { get; }
+        /// <summary>이번 자동 진행에서 완료한 내 구단 소속 조의 경기 수.</summary>
+        public int PlayerLeagueGamesSimulated { get; }
+        /// <summary>자동 진행 시작 시 내 구단 소속 조에 남아 있던 경기 수.</summary>
+        public int TotalPlayerLeagueGames { get; }
         public int LastCompletedRound { get; }
         public int NextRound { get; }
         public string NextAwayTeamSeasonKey { get; }
@@ -88,6 +96,8 @@ namespace Baseball.Game.Historical
         private readonly int _completedLeagueGamesBefore;
         private readonly int _totalPlayerGames;
         private readonly int _totalLeagueGames;
+        private readonly int _completedPlayerLeagueGamesBefore;
+        private readonly int _totalPlayerLeagueGames;
         private ManagerRegularSeasonSimulationStatus _status;
         private int _playerGamesSimulated;
         private int _leagueGamesSimulated;
@@ -114,6 +124,8 @@ namespace Baseball.Game.Historical
             _aiScheduleCursor = ManagerModeMatchService.AiScheduleCursor.Create(runtime);
             _completedLeagueGamesBefore = CountWorldGames(runtime, completedOnly: true);
             _totalPlayerGames = CountRemainingPlayerGames(_season);
+            _completedPlayerLeagueGamesBefore = CountCompletedGames(_season.Schedule.Games);
+            _totalPlayerLeagueGames = _season.Schedule.Games.Count - _completedPlayerLeagueGamesBefore;
             _totalLeagueGames = CountWorldGames(runtime, completedOnly: false) - _completedLeagueGamesBefore;
             _status = _totalLeagueGames == 0
                 ? ManagerRegularSeasonSimulationStatus.Completed
@@ -208,7 +220,9 @@ namespace Baseball.Game.Historical
                 nextGame == null ? string.Empty : _season.GetTeamSeasonKey(nextGame.HomeTeamId),
                 _seasonWins,
                 _seasonLosses,
-                _seasonDraws);
+                _seasonDraws,
+                CountCompletedGames(_season.Schedule.Games) - _completedPlayerLeagueGamesBefore,
+                _totalPlayerLeagueGames);
         }
 
         public ManagerRegularSeasonCompletionResult CreateCompletionResult()

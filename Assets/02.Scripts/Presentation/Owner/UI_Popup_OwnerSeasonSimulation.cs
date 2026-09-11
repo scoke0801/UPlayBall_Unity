@@ -10,6 +10,9 @@ namespace Baseball.Presentation.Owner
     [DisallowMultipleComponent]
     public sealed class UI_Popup_OwnerSeasonSimulation : MonoBehaviour
     {
+        private const float ProgressAnimationSmoothTime = 0.18f;
+        private const float ProgressAnimationSnapThreshold = 0.0005f;
+
         private Image _progressFill;
         private Text _roundText;
         private Text _matchupText;
@@ -18,6 +21,10 @@ namespace Baseball.Presentation.Owner
         private Text _recordText;
         private Text _titleText;
         private Text _stateText;
+        private float _displayedProgress;
+        private float _targetProgress;
+        private float _progressVelocity;
+        private bool _hasProgressValue;
 
         public event Action StopRequested;
 
@@ -36,29 +43,39 @@ namespace Baseball.Presentation.Owner
             if (teamDisplayNameResolver == null)
                 throw new ArgumentNullException(nameof(teamDisplayNameResolver));
 
-            float ratio = progress.TotalLeagueGames <= 0
-                ? 1f
-                : Mathf.Clamp01((float)progress.LeagueGamesSimulated / progress.TotalLeagueGames);
-            _progressFill.rectTransform.localScale = new Vector3(ratio, 1f, 1f);
+            bool isCompletingOtherLeagues = progress.TotalPlayerLeagueGames <= 0 &&
+                                            progress.TotalLeagueGames > 0;
+            float ratio = progress.TotalPlayerLeagueGames > 0
+                ? Mathf.Clamp01((float)progress.PlayerLeagueGamesSimulated / progress.TotalPlayerLeagueGames)
+                : progress.TotalLeagueGames > 0
+                    ? Mathf.Clamp01((float)progress.LeagueGamesSimulated / progress.TotalLeagueGames)
+                    : 1f;
+            SetProgressTarget(ratio);
             _roundText.text = progress.NextRound > 0
                 ? $"{progress.NextRound}라운드 시뮬레이션"
-                : "정규시즌 기록 집계";
+                : isCompletingOtherLeagues ? "남은 리그 정규시즌 마감" : "정규시즌 기록 집계";
 
             if (progress.NextRound > 0)
             {
                 string away = ResolveTeamName(progress.NextAwayTeamSeasonKey, teamDisplayNameResolver, "원정 구단");
                 string home = ResolveTeamName(progress.NextHomeTeamSeasonKey, teamDisplayNameResolver, "홈 구단");
-                _matchupText.text = $"{away}  VS  {home}\n내 구단 조는 상세 · 다른 조는 간이 계산으로 진행합니다.";
+                _matchupText.text = $"{away}  VS  {home}";
             }
             else
             {
-                _matchupText.text = "남은 다른 조 경기와 최종 기록을 정리하고 있습니다.";
+                _matchupText.text = isCompletingOtherLeagues
+                    ? "내 구단 일정은 완료됐습니다. 다른 리그의 남은 경기를 진행하고 있습니다."
+                    : "정규시즌 최종 기록을 정리하고 있습니다.";
             }
 
-            _leagueProgressText.text =
-                $"리그 경기  {progress.LeagueGamesSimulated:N0} / {progress.TotalLeagueGames:N0}";
-            _playerProgressText.text =
-                $"내 구단 경기  {progress.PlayerGamesSimulated:N0} / {progress.TotalPlayerGames:N0}";
+            _leagueProgressText.text = progress.TotalPlayerLeagueGames > 0
+                ? $"내 리그 경기  {progress.PlayerLeagueGamesSimulated:N0} / {progress.TotalPlayerLeagueGames:N0}"
+                : progress.TotalLeagueGames > 0
+                    ? $"남은 리그 경기  {progress.LeagueGamesSimulated:N0} / {progress.TotalLeagueGames:N0}"
+                    : "정규시즌 경기 완료";
+            _playerProgressText.text = progress.TotalPlayerGames > 0
+                ? $"내 구단 경기  {progress.PlayerGamesSimulated:N0} / {progress.TotalPlayerGames:N0}"
+                : "내 구단 일정 완료";
             _recordText.text =
                 $"현재 성적  {progress.SeasonWins}승  {progress.SeasonDraws}무  {progress.SeasonLosses}패";
             _titleText.text = "정규시즌 시뮬레이션";
@@ -70,7 +87,7 @@ namespace Baseball.Presentation.Owner
             float ratio = progress.MaximumGames <= 0
                 ? 1f
                 : Mathf.Clamp01((float)progress.CompletedGames / progress.MaximumGames);
-            _progressFill.rectTransform.localScale = new Vector3(ratio, 1f, 1f);
+            SetProgressTarget(ratio);
             _titleText.text = "포스트시즌 시뮬레이션";
             _stateText.text = "조별 단기전 진행 중";
             _roundText.text = string.IsNullOrEmpty(progress.NextSeriesId)
@@ -90,12 +107,71 @@ namespace Baseball.Presentation.Owner
             transform.SetAsLastSibling();
         }
 
-        public void Hide() => gameObject.SetActive(false);
+        public void Hide()
+        {
+            gameObject.SetActive(false);
+            _hasProgressValue = false;
+            _progressVelocity = 0f;
+        }
 
         private void Awake()
         {
             Build();
             Hide();
+        }
+
+        private void Update()
+        {
+            AdvanceProgressAnimation(Time.unscaledDeltaTime);
+        }
+
+        private void SetProgressTarget(float ratio)
+        {
+            ratio = Mathf.Clamp01(ratio);
+            if (!_hasProgressValue)
+            {
+                _hasProgressValue = true;
+                _displayedProgress = ratio;
+                _targetProgress = ratio;
+                _progressVelocity = 0f;
+                ApplyDisplayedProgress();
+                return;
+            }
+
+            // 진행 바는 확정된 경기 결과를 표현하므로 같은 세션 안에서 뒤로 움직이지 않는다.
+            _targetProgress = Mathf.Max(_targetProgress, ratio);
+        }
+
+        private void AdvanceProgressAnimation(float deltaTime)
+        {
+            if (!_hasProgressValue || deltaTime <= 0f ||
+                _targetProgress - _displayedProgress <= ProgressAnimationSnapThreshold)
+            {
+                if (_hasProgressValue && _displayedProgress != _targetProgress)
+                {
+                    _displayedProgress = _targetProgress;
+                    _progressVelocity = 0f;
+                    ApplyDisplayedProgress();
+                }
+                return;
+            }
+
+            float previousProgress = _displayedProgress;
+            _displayedProgress = Mathf.SmoothDamp(
+                _displayedProgress,
+                _targetProgress,
+                ref _progressVelocity,
+                ProgressAnimationSmoothTime,
+                Mathf.Infinity,
+                deltaTime);
+            _displayedProgress = Mathf.Clamp(_displayedProgress, previousProgress, _targetProgress);
+            ApplyDisplayedProgress();
+        }
+
+        private void ApplyDisplayedProgress()
+        {
+            if (_progressFill != null)
+                _progressFill.rectTransform.localScale = new Vector3(_displayedProgress, 1f, 1f);
         }
 
         private void Build()

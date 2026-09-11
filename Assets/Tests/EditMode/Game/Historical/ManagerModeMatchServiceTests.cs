@@ -808,6 +808,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(initial.Status, Is.EqualTo(ManagerRegularSeasonSimulationStatus.Ready));
             Assert.That(initial.PlayerGamesSimulated, Is.Zero);
             Assert.That(initial.LeagueGamesSimulated, Is.Zero);
+            Assert.That(initial.PlayerLeagueGamesSimulated, Is.Zero);
+            Assert.That(initial.TotalPlayerLeagueGames,
+                Is.EqualTo(season.Schedule.Games.Count(game => !game.IsCompleted)));
             Assert.That(initial.NextRound, Is.EqualTo(firstRound));
 
             ManagerRegularSeasonSimulationStepResult step;
@@ -818,6 +821,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 Assert.That(step.Progress.LeagueGamesSimulated - previousLeagueGames, Is.EqualTo(1),
                     "한 프레임 Step에서 Detailed 경기를 여러 건 실행하면 UI가 다시 멈춥니다.");
                 previousLeagueGames = step.Progress.LeagueGamesSimulated;
+                Assert.That(step.Progress.PlayerLeagueGamesSimulated,
+                    Is.EqualTo(season.Schedule.Games.Count(game => game.IsCompleted)));
             }
             while (step.MatchResult == null);
 

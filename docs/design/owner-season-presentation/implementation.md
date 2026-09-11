@@ -54,3 +54,25 @@
 - ImageGen 시안: `docs/design/owner-season-presentation/assets/season-ui-concepts-v2.png`
 - 실제 구현 배경: `Assets/Resources/UI/Generated/bg_owner_season_review_v1.png`
 - ImageGen 프롬프트 기록: `docs/design/owner-season-presentation/imagegen-prompts.md`
+
+## 2026-09-11 결과 화면 겹침·조작성 보완
+
+- 오른쪽 기록 카드와 다음 단계 안내가 같은 좌표를 쓰던 문제를 수정했다. 기록은 80px 카드와
+  16px 간격으로 배치하고, 안내는 별도 `NextStep` 영역 안에서 제목 위·본문 아래 순서로 표시한다.
+- 빈 라벨로 생성되어 `OwnerUiButtonSkin.Apply` 대상에서 빠지던 대표 버튼을 유효한 초기 라벨로
+  생성한다. 공통 스킨 재적용 후에도 밝은 글자와 네이비 프레임을 유지한다.
+- 진행률·소제목을 한국어로 정리하고, 엔진 설명을 정규시즌 순위·진출·승강 안내로 바꿨다.
+  시즌 결산 잠금 조건을 하단에 표시하며, 미진출 상태는 `남은 리그 마감`으로 안내한다.
+- 팝업 크기를 호스트 안에 맞추고 탭·닫기·대표 버튼 사이의 명시적 포커스 이동,
+  Cancel 입력과 이전 선택 복원을 연결했다. 비활성 호스트와 EditMode에서도 생성 시 초기화한다.
+- 기존 트로피 배경과 공통 버튼 자산을 재사용했으며 새 이미지는 생성하지 않았다.
+
+검증은 `Tools/SeasonReviewValidation/Invoke-SeasonReviewValidation.ps1`로 재현한다.
+격리 Unity 6000.3.21f1에서 최신 소스 컴파일 및 EditMode **7/7 통과**를 확인했다.
+1280×720 / 1920×1080 / 2560×1440 / 3440×1440의 세 페이지, 총 12장을 실제 uGUI로 렌더하고
+텍스트 부모 영역 이탈·세로 잘림, 기록과 안내 중첩, 버튼 스킨·대비를 자동 검사했다.
+긴 구단명·세 시리즈·세 자리 승수 fixture를 사용했으며 네 해상도의 대표 화면도 육안 확인했다.
+결과는 `output/season-review-validation/editmode-results.xml`, `season-{해상도}-page{0~2}.png`에 있다.
+
+이는 격리 EditMode 렌더 검증이다. 메인 프로젝트 Play Mode의 실제 시즌 진행 및 물리 입력 장치를
+통한 조작은 별도 수동 확인 항목이다. 경기 엔진과 밸런스 수치는 이 UI 작업에서 변경하지 않았다.
