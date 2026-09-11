@@ -663,5 +663,10 @@ docs/ref/프로야구매니저_연도_Cost_스탯_웹복원_자료.xlsx
 !Tools/KBOImporter/publish_velocity_estimation.py
 !Tools/KBOImporter/test_velocity_estimation.py
 !Tools/KBOImporter/VelocityEstimation.md
+!Tools/KBOImporter/elite_cost.py
+!Tools/KBOImporter/elite_cost_policy.json
+!Tools/KBOImporter/test_elite_cost.py
+!Tools/KBOImporter/audit_issued_ability_cost.py
+!Tools/KBOImporter/FinalIssuedAbilityCost.md
 /Assets/Resources/UI/Portraits/Players
 /Assets/Resources/UI/Portraits/Uniforms

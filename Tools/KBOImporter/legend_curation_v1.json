@@ -21,7 +21,7 @@
     {"lineage": "LgLineage", "playerPersonId": "PERSON_c4374fee09119b40acc2", "sourceReferenceName": "이상훈", "role": "Pitcher", "curatedReasonTags": ["ResearchLegend", "LineagePitcherRepresentative"]},
     {"lineage": "SsgLineage", "playerPersonId": "PERSON_580bb458c7bc5ff419e8", "sourceReferenceName": "최정", "role": "Hitter", "curatedReasonTags": ["LongTenure", "LineageHitterRepresentative"]},
     {"lineage": "SsgLineage", "playerPersonId": "PERSON_23586b9c07dbb48aaf93", "sourceReferenceName": "김원형", "role": "Pitcher", "curatedReasonTags": ["ResearchLegend", "LongTenure", "LineagePitcherRepresentative"]},
-    {"lineage": "DoosanLineage", "playerPersonId": "PERSON_737e8166b3aeacaace41", "sourceReferenceName": "김동주", "role": "Hitter", "curatedReasonTags": ["LongTenure", "LineageHitterRepresentative"]},
+    {"lineage": "DoosanLineage", "playerPersonId": "PERSON_737e8166b3aeacaace41", "sourceReferenceName": "김동주", "role": "Hitter", "basePlayerSeasonId": "SEASON_3639b8eccf1aa6e49fec", "curatedReasonTags": ["UserConfirmedRepresentativeSeason", "LongTenure", "LineageHitterRepresentative"]},
     {"lineage": "DoosanLineage", "playerPersonId": "PERSON_4a3fcc50cff949ae4f3f", "sourceReferenceName": "김상진", "role": "Pitcher", "curatedReasonTags": ["ResearchLegend", "LongTenure", "LineagePitcherRepresentative"]},
     {"lineage": "LotteLineage", "playerPersonId": "PERSON_cd3a685de60e35423ca0", "sourceReferenceName": "이대호", "role": "Hitter", "curatedReasonTags": ["LongTenure", "LineageHitterRepresentative"]},
     {"lineage": "LotteLineage", "playerPersonId": "PERSON_467156db5f37425c596d", "sourceReferenceName": "최동원", "role": "Pitcher", "curatedReasonTags": ["LineagePitcherRepresentative"]},

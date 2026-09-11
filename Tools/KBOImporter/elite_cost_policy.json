@@ -1,0 +1,29 @@
+{
+  "version": "elite-season-cost-v3",
+  "issuedAbility": {
+    "minimumReliability": 0.45,
+    "minimumWorkloadRatio": 0.25,
+    "basis": "1982~2025 현행 Cost 7~10의 최종 역할 전력 중앙값을 보수적으로 반올림한 미관측 카드의 가격 하한. DB에서 확인된 일반 카드 Cost는 모든 하한보다 우선한다.",
+    "tiers": {
+      "Hitter": [
+        {"minimumStrength": 69, "cost": 7},
+        {"minimumStrength": 72, "cost": 8},
+        {"minimumStrength": 75, "cost": 9},
+        {"minimumStrength": 79, "cost": 10}
+      ],
+      "Pitcher": [
+        {"minimumStrength": 74, "cost": 7},
+        {"minimumStrength": 76, "cost": 8},
+        {"minimumStrength": 79, "cost": 9},
+        {"minimumStrength": 81, "cost": 10}
+      ]
+    }
+  },
+  "annualLeaders": {"minimumReliability": 0.45, "minimumWorkloadRatio": 0.25, "cost": 10},
+  "reliefStarterShareMaximum": 0.35,
+  "reliefTiers": [
+    {"minimumQuality": 0.25, "minimumReliability": 0.50, "minimumWorkloadRatio": 0.75, "cost": 8},
+    {"minimumQuality": 0.45, "minimumReliability": 0.55, "minimumWorkloadRatio": 0.85, "cost": 9},
+    {"minimumQuality": 0.65, "minimumReliability": 0.55, "minimumWorkloadRatio": 1.00, "cost": 10}
+  ]
+}

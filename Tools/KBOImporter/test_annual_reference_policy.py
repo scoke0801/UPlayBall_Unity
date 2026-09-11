@@ -6,6 +6,13 @@ from calibrate_annual_reference import (is_annual_reference, read, split_person,
 
 
 class AnnualReferencePolicyTests(unittest.TestCase):
+    def test_reevaluated_reference_supersedes_older_cost_only(self):
+        card = bake.load_annual_reference_overrides()['SEASON_2736a3e7d92c19f4c4a0']
+        self.assertEqual(10, card['values']['Cost'])
+        self.assertEqual(8, card['supersedes']['values']['Cost'])
+        self.assertEqual({k: v for k, v in card['values'].items() if k != 'Cost'},
+                         {k: v for k, v in card['supersedes']['values'].items() if k != 'Cost'})
+
     def setUp(self):
         self.policy=read(Path(__file__).with_name('reference_calibration_policy.json'))
 

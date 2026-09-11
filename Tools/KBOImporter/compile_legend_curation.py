@@ -31,6 +31,13 @@ def compile_curation(evaluation, curation):
             raise BakeValidationError([f'InvalidCuratedPerson:{key}'])
         seen.add(key)
         peak = peaks[key]
+        selected_id = entry.get('basePlayerSeasonId')
+        if selected_id:
+            selected = next((row for row in seasons if row['playerSeasonId'] == selected_id), None)
+            if (selected is None or (selected['playerPersonId'], selected['lineage']) != key
+                    or not selected['qualified']):
+                raise BakeValidationError([f'InvalidCuratedBase:{key}:{selected_id}'])
+            peak = dict(selected, qualifiedDistinctYears=peak['qualifiedDistinctYears'])
         if peak['cost'] not in (9, 10) or peak['role'] != entry['role']:
             raise BakeValidationError([f'CuratedPeakGate:{key}:{peak["cost"]}'])
         if entry['sourceReferenceName'] not in peak['sourceNames']:
@@ -65,6 +72,7 @@ def compile_curation(evaluation, curation):
                                      sourceNames=representative['sourceNames'], role=profile['role'], cost=profile['cost'],
                                      years=sorted(row['year'] for row in selected)))
         results.append(dict(playerPersonId=key[0], lineage=key[1], enabled=True,
+                            basePlayerSeasonId=peak['playerSeasonId'],
                             curatedReasonTags=entry['curatedReasonTags'],
                             allowTargetPersonMaterials=curation['allowTargetPersonMaterials'],
                             requireDistinctMaterialPersons=True, materialGroups=groups))

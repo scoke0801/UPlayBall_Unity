@@ -116,6 +116,7 @@ namespace Baseball.Editor.Tools
 
         private readonly ConcurrentQueue<string> _pendingOutput = new ConcurrentQueue<string>();
         private readonly StringBuilder _log = new StringBuilder();
+        private readonly Queue<string> _processOutputTail = new Queue<string>();
         private readonly HashSet<HistoricalContentPipelineStepId> _requested =
             new HashSet<HistoricalContentPipelineStepId>();
 
@@ -278,6 +279,10 @@ namespace Baseball.Editor.Tools
                 StandardErrorEncoding = Encoding.UTF8
             };
             AppendLog("$ " + startInfo.FileName + " " + startInfo.Arguments);
+            _processOutputTail.Clear();
+            // Python 자식 프로세스까지 수신 측과 동일한 인코딩을 사용한다.
+            startInfo.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+            startInfo.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
 
             try
             {
@@ -322,6 +327,9 @@ namespace Baseball.Editor.Tools
             while (_pendingOutput.TryDequeue(out string line))
             {
                 _log.AppendLine(line);
+                _processOutputTail.Enqueue(line);
+                if (_processOutputTail.Count > 30)
+                    _processOutputTail.Dequeue();
                 hasOutput = true;
             }
             if (hasOutput)
@@ -330,6 +338,8 @@ namespace Baseball.Editor.Tools
 
         private void CompleteProcessStep()
         {
+            // HasExited 뒤에도 비동기 출력 콜백은 남을 수 있으므로 마지막 오류까지 수신한다.
+            _process.WaitForExit();
             int exitCode = _process.ExitCode;
             DrainProcessOutput();
             DisposeProcess();
@@ -345,7 +355,8 @@ namespace Baseball.Editor.Tools
             }
             if (exitCode != 0)
             {
-                FailStep(step, "프로세스가 코드 " + exitCode.ToString(CultureInfo.InvariantCulture) + "로 끝났습니다.");
+                FailStep(step, "프로세스가 코드 " + exitCode.ToString(CultureInfo.InvariantCulture) +
+                               "로 끝났습니다.\n" + string.Join("\n", _processOutputTail));
                 return;
             }
 

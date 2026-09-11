@@ -52,7 +52,8 @@ class ArchivedReferenceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bake.load_annual_reference_overrides()
         new = dict(values={'Cost': 10}, supersedes=old)
-        with patch.object(bake, 'load_annual_reference_file', side_effect=[copy.deepcopy(base), {'S': new}]):
+        with patch.object(bake, 'load_annual_reference_file', side_effect=[copy.deepcopy(base), {'S': new}]
+                          + [{} for _ in config['additionalSources'][1:]]):
             self.assertEqual(new, bake.load_annual_reference_overrides()['S'])
         self.assertEqual(config, bake.DERIVATION_BALANCE['annualReferenceOverride'])
 

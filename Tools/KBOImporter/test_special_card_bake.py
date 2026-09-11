@@ -60,6 +60,15 @@ class SpecialCardBakeTests(unittest.TestCase):
             build_catalog(evaluation, policy)
         self.assertTrue(any('ExCostGate' in entry for entry in error.exception.errors))
 
+    def test_ex_below_ten_is_cancelled_without_promoting_runner_up(self):
+        evaluation, policy = self.fixture()
+        evaluation['ex'][0] = dict(evaluation['ex'][0], cost=8, status='BlockedCost', runnerUpCost=10)
+        result = build_catalog(evaluation, policy)
+        self.assertEqual(1, len(result['cancelledEx']))
+        self.assertEqual(8, result['cancelledEx'][0]['cost'])
+        ex = [card for card in result['cards'] if card['edition'] == 'Ex']
+        self.assertEqual(['ps-pitcher'], [card['playerSeasonId'] for card in ex])
+
     def test_missing_ex_and_duplicate_role_fail(self):
         evaluation, policy = self.fixture()
         evaluation['ex'][1] = dict(evaluation['ex'][0])

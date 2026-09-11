@@ -31,7 +31,7 @@ def verify_inputs(evaluation, root=ROOT):
 
 def build_catalog(evaluation, policy, editions=('Ex', 'CareerHigh', 'Legend', 'Rare')):
     """평가 순위를 바꾸거나 Cost를 승격하지 않고 통과한 사전 발급 내용만 만든다."""
-    errors, cards, recipes = [], [], []
+    errors, cards, recipes, cancelled_ex = [], [], [], []
     if not editions or len(set(editions)) != len(editions) or set(editions) - {'Ex', 'CareerHigh', 'Legend', 'Rare'}:
         raise BakeValidationError(['InvalidEditionScope'])
     if policy.get('version') is None:
@@ -75,6 +75,11 @@ def build_catalog(evaluation, policy, editions=('Ex', 'CareerHigh', 'Legend', 'R
             row = ex_by_key.get((year, role))
             if row is None:
                 errors.append(f'MissingEx:{year}:{role}')
+            elif row.get('cost') in range(1, 10) and row.get('status') == 'BlockedCost':
+                # 성과 1위·원본 10코스트 규약은 유지한다. 미달 연도는 발급을 취소하며
+                # 차순위 승격이나 전체 발급 실패로 다른 정상 카드를 막지 않는다.
+                cancelled_ex.append(dict(year=year, role=role,
+                    playerSeasonId=row['playerSeasonId'], cost=row['cost'], reason='SourceCostBelowTen'))
             elif row.get('cost') != 10 or row.get('status') != 'Eligible':
                 errors.append(f'ExCostGate:{year}:{role}:{row.get("cost")}:{row.get("playerSeasonId")}')
             else:
@@ -104,6 +109,11 @@ def build_catalog(evaluation, policy, editions=('Ex', 'CareerHigh', 'Legend', 'R
     for entry in enabled_legends:
         key = (entry['playerPersonId'], entry['lineage'])
         row = shortlist.get(key)
+        if entry.get('basePlayerSeasonId'):
+            row = next((candidate for candidate in evaluation.get('seasons', [])
+                if candidate['playerSeasonId'] == entry['basePlayerSeasonId']), None)
+            if row is not None and ((row['playerPersonId'], row['lineage']) != key or not row.get('qualified')):
+                row = None
         groups = entry.get('materialGroups', [])
         if key in seen or row is None or not entry.get('curatedReasonTags'):
             errors.append(f'InvalidLegendCuration:{key}')
@@ -127,6 +137,7 @@ def build_catalog(evaluation, policy, editions=('Ex', 'CareerHigh', 'Legend', 'R
         raise BakeValidationError(['DuplicateCardId'])
     result = dict(schemaVersion=1, policyVersion=policy['version'], inputHash=evaluation.get('inputHash'),
                   editionScope=sorted(editions),
+                  cancelledEx=cancelled_ex,
                   cards=cards, recipes=recipes,
                   policyHash=hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
     result['contentHash'] = hashlib.sha256(json.dumps(result, sort_keys=True, separators=(',', ':')).encode()).hexdigest()

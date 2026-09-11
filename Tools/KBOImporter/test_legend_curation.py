@@ -66,9 +66,37 @@ class LegendCurationTests(unittest.TestCase):
         with self.assertRaises(BakeValidationError):
             compile_curation(evaluation, curation)
 
+    def test_eligible_peak_does_not_hide_identity_or_role_errors(self):
+        evaluation, curation = self.fixture()
+        evaluation['careerHigh'][0]['sourceNames'] = ['다른 이름']
+        with self.assertRaises(BakeValidationError):
+            compile_curation(evaluation, curation)
+        evaluation['careerHigh'][0]['sourceNames'] = ['검수 이름']
+        evaluation['careerHigh'][0]['role'] = 'Pitcher'
+        with self.assertRaises(BakeValidationError):
+            compile_curation(evaluation, curation)
+
     def test_research_tag_requires_actual_evidence(self):
         evaluation, curation = self.fixture()
         curation['legends'][0]['curatedReasonTags'] = ['ResearchLegend']
+        with self.assertRaises(BakeValidationError):
+            compile_curation(evaluation, curation)
+
+    def test_explicit_representative_season_keeps_cost_and_identity_gates(self):
+        evaluation, curation = self.fixture()
+        selected = dict(evaluation['careerHigh'][0], playerSeasonId='representative', cost=10,
+                        year=2000, qualified=True)
+        evaluation['seasons'].append(selected)
+        evaluation['careerHigh'][0]['cost'] = 7
+        curation['legends'][0]['basePlayerSeasonId'] = 'representative'
+        entries, report = compile_curation(evaluation, curation)
+        self.assertEqual('representative', entries[0]['basePlayerSeasonId'])
+        self.assertEqual(2000, report[0]['peakYear'])
+        selected['cost'] = 8
+        with self.assertRaises(BakeValidationError):
+            compile_curation(evaluation, curation)
+        selected['cost'] = 10
+        selected['playerPersonId'] = 'different-person'
         with self.assertRaises(BakeValidationError):
             compile_curation(evaluation, curation)
 

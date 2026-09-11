@@ -1,5 +1,19 @@
 # KBO Reference Data Extractor / Canonical Baker
 
+최신 가격 산식은 **Cost v20 / Balance v28**이다. 확인된 일반 카드 가격은 모든 추정 하한보다
+우선하며 재평가 확인값은 `annual_reference_reevaluations.json`에서 이전 값·출처를 명시해 대체한다.
+2000년 김동주는 일반 10코스트·레전드 기준 시즌 2000으로 반영했다. 원본 10코스트 미달 EX 19장은
+취소하며 발급 규약을 완화하지 않는다. 501장 가격 정정·566장 특수 카드 발급·검증 결과는
+[관측 코스트 복원 기록](../../docs/reports/observed-cost-restoration-20260911.md)을 따른다.
+아래 v19 설명은 이전 이력이다.
+
+최신 가격 산식은 **Cost v19 / Balance v27**이다. `elite_cost_policy.json`의 `issuedAbility`는
+능력치 보정·참조값 적용 이후 최종 역할 전력에 가격 하한을 적용한다. 원기록 평가와 참조 가격은
+근거로 유지하지만 최종 전력 하한을 낮출 수 없다. 일반 카드 531장만 변경했고 레전드 20명·
+커리어하이 148명을 포함한 619장·168레시피를 발급했다. 아래 v18 수치는 이전 이력이다.
+전후 각 정규시즌 11,520경기와 보존 범위 검증은
+`Tools/KBOImporter/FinalIssuedAbilityCost.md`를 따른다.
+
 전체 역사 포지션 결측 보완은 [전체 시즌 포지션 재저작](SeasonPositionRevision.md)을 따른다.
 3,199건 중 3,121건에 시즌별 근거를 추가하며, 미확인 78건은 실제 DH와 구분한다.
 포지션 전용 수정은 기존 발급 가치 평가를 유지하는 `prepare_position_revision.py`를 거쳐 게시한다.
