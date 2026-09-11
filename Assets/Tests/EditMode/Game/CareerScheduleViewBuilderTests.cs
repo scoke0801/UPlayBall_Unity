@@ -26,7 +26,9 @@ namespace Baseball.Tests.EditMode.Game
                 view.CurrentDate.Month,
                 CareerScheduleScope.EntireLeague);
 
-            Assert.That(view.Games.Count, Is.EqualTo(320));
+            int expectedGames = career.CurrentLeague.CurrentSeason.TeamRecords.Count *
+                configuration.Balance.CareerSeason.RegularSeasonGamesPerTeam / 2;
+            Assert.That(view.Games.Count, Is.EqualTo(expectedGames));
             Assert.That(view.RecentGames.Count, Is.EqualTo(4));
             Assert.That(view.UpcomingGames.Count, Is.EqualTo(5));
             Assert.That(view.NextGame.HasValue, Is.True);

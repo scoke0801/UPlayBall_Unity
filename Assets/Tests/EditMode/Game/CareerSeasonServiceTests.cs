@@ -206,7 +206,9 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(step.CompletedSteps, Is.EqualTo(1));
             Assert.That(step.LastCompletedRound, Is.EqualTo(1));
             Assert.That(step.ProcessedWorldGames, Is.EqualTo(40));
-            Assert.That(step.TotalWorldGames, Is.EqualTo(3200));
+            int expectedWorldGames = career.World.Teams.Count *
+                configuration.Balance.CareerSeason.RegularSeasonGamesPerTeam / 2;
+            Assert.That(step.TotalWorldGames, Is.EqualTo(expectedWorldGames));
             Assert.That(career.CurrentLeague.CurrentSeason.PlayerStatistics.TeamGames, Is.EqualTo(1));
         }
 

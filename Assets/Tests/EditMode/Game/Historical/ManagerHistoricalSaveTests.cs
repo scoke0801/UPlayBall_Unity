@@ -18,8 +18,10 @@ namespace Baseball.Tests.EditMode.Game.Historical
         public void CreateSaveDataAndRestore_PreservesManagerHistoricalState()
         {
             FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
-            ManagerHistoricalRuntimeState original = fixture.State;
             ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            // Fixture는 콘텐츠 상태만 만든다. 실제 새 게임과 같은 복원 경로로 경기 상태를 초기화한다.
+            ManagerHistoricalRuntimeState original = adapter.Restore(adapter.CreateSaveData(fixture.State));
+            Assert.That(original.ManagerMode.LiveSeason.NextPlayerGame, Is.Not.Null);
             original.ManagerMode.LiveSeason.NextPlayerGame.PlanTactics(new[] { "TACTIC-SCHEDULED" });
 
             ManagerHistoricalSaveData saveData = adapter.CreateSaveData(original);

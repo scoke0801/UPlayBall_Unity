@@ -75,8 +75,9 @@ namespace Baseball.Tests.EditMode.Game.News
         [Test]
         public void NewsFactKey_새키는기존직렬화값뒤에만추가한다()
         {
-            Assert.That((int)NewsFactKey.CoverageReason, Is.EqualTo(47));
-            Assert.That((int)NewsFactKey.GamePlateAppearances, Is.GreaterThan(47));
+            // 미배포 포맷에서 부상 전용 두 키를 제거한 현재 저장 계약을 고정한다.
+            Assert.That((int)NewsFactKey.CoverageReason, Is.EqualTo(45));
+            Assert.That((int)NewsFactKey.GamePlateAppearances, Is.EqualTo(46));
         }
 
         [Test]

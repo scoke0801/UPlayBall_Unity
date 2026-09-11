@@ -14,7 +14,8 @@ namespace Baseball.Tests.EditMode.Simulation
         [Test]
         public void 경기곡선은원본을보존하고상한이후에효과분산만줄인다()
         {
-            var curve = MatchRatingCurveBalance.CreateDefault();
+            // 상한·원본 보존 계약은 기획 기본값 변경과 독립된 명시적 곡선으로 검증한다.
+            var curve = new MatchRatingCurveBalance(50d, .3d);
             Assert.That(MatchRatingCurve.ResolveMatchInput(30, curve), Is.EqualTo(44));
             Assert.That(MatchRatingCurve.ResolveMatchInput(100, curve), Is.EqualTo(65));
             Assert.That(MatchRatingCurve.ResolveMatchInput(120, curve), Is.EqualTo(71));

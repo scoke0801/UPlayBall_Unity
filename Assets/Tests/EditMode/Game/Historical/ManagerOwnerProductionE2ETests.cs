@@ -135,7 +135,10 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 .GetRequiredPlayer(recoveryTarget.PlayerPersonId).StoredBaseCondition, Is.EqualTo(conditionAtSave));
             Assert.That(restored.ManagerMode.GetFamiliarity(restored.PlayerTeamSeasonKey).Entries.Count,
                 Is.EqualTo(familiarityCountAtSave));
-            Assert.That(restored.ManagerMode.GetSelectedLineupPreset().DefaultTacticCardIds.Count, Is.EqualTo(2));
+            // 한 경기용 작전카드는 사용 후 소비·해제되며 로드로 되살아나지 않는다.
+            Assert.That(runtime.ManagerMode.GetSelectedLineupPreset().DefaultTacticCardIds, Is.Empty);
+            Assert.That(restored.ManagerMode.GetSelectedLineupPreset().DefaultTacticCardIds, Is.Empty);
+            Assert.That(restored.TacticCollection.CanConsume(new[] { tactics[0].CardId, tactics[1].CardId }), Is.False);
             Assert.That(restored.ManagerMode.ClubOperation.TryApplyHomeGame(homeMatch.HomeFinance), Is.False);
             Assert.That(restored.Economy.Money, Is.EqualTo(moneyAtSave));
 
@@ -315,12 +318,16 @@ namespace Baseball.Tests.EditMode.Game.Historical
             CompleteOwnerPostseason(runtime, balance);
             SeasonFinanceSummary completedFinance = runtime.ManagerMode.ClubOperation.CurrentSeason;
             long moneyBefore = runtime.Economy.Money;
+            long playerSalary = 0L;
+            foreach (var contract in runtime.ManagerMode.PlayerContracts)
+                playerSalary += contract.AnnualSalary;
+            Assert.That(playerSalary, Is.GreaterThan(0L));
             ManagerSeasonAdvanceResult result = coordinator.AdvanceSeason(runtime);
 
             Assert.That(result.IsApplied, Is.True);
             Assert.That(result.CompletedFinance, Is.SameAs(completedFinance));
             Assert.That(result.SalarySettlement.TotalSalary, Is.EqualTo(3_000L));
-            Assert.That(runtime.Economy.Money, Is.EqualTo(moneyBefore - 3_000L));
+            Assert.That(runtime.Economy.Money, Is.EqualTo(moneyBefore - 3_000L - playerSalary));
             Assert.That(runtime.ManagerMode.LiveSeason.SeasonNumber, Is.EqualTo(2));
             Assert.That(runtime.ManagerMode.LiveSeason.CurrentWeekIndex, Is.Zero);
             Assert.That(runtime.ManagerMode.ClubOperation.CurrentSeason.SeasonId,
@@ -335,6 +342,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(FindContract(runtime, twoYear.ContractId).RemainingSeasons, Is.EqualTo(1));
             Assert.That(coordinator.AdvanceSeason(runtime).Status,
                 Is.EqualTo(ManagerSeasonAdvanceStatus.SeasonInProgress));
+            Assert.That(runtime.Economy.Money, Is.EqualTo(moneyBefore - 3_000L - playerSalary));
 
             long moneyBeforeSecondSeasonSalary = runtime.Economy.Money;
             StaffSalarySettlementResult secondSeasonSalary = coordinator.SettleStaffSalary(runtime);
