@@ -16,6 +16,7 @@ namespace Baseball.Presentation.Match
         private int _pendingEventCount;
         private float _eventElapsed, _eventDuration;
         private readonly MatchEvent[] _recentPitches = new MatchEvent[12];
+        private readonly OwnerMatchRunnerRoute[] _upcomingRunnerRoutes = new OwnerMatchRunnerRoute[3];
         private readonly StringBuilder _historyText = new StringBuilder(256);
 
         private void ResetGameCast()
@@ -52,6 +53,11 @@ namespace Baseball.Presentation.Match
                     _eventDuration = _gameCastConfig.GetDuration(_pendingEvent);
                     _eventElapsed = 0f;
                     _hasPendingEvent = true;
+                    if (_pendingEvent.EventType == MatchEventType.Contact)
+                    {
+                        int count = _session.CopyUpcomingRunnerRoutes(_upcomingRunnerRoutes);
+                        _playVisualizer.PrepareRunnerRoutes(_upcomingRunnerRoutes, count);
+                    }
                     _playVisualizer.Begin(_pendingEvent, _session.PeekBallInPlay());
                     _eventDuration = _playVisualizer.GetDuration(_pendingEvent, _eventDuration);
                     if (_pendingEvent.EventType == MatchEventType.Pitch)

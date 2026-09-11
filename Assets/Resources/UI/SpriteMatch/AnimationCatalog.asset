@@ -12,5 +12,322 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d62d7ddd54d89d45b481d46c6d9a9e9, type: 3}
   m_Name: AnimationCatalog
   m_EditorClassIdentifier: Baseball.Presentation::Baseball.Presentation.Match.Sprites.SpriteAnimationCatalog
-  clips: []
+  clips:
+  - clipId: Batter.DuelSwing.L
+    sourceHash: 714b15d628d071cfb04dd89e917aad1d05919b63a8909eb3f33554263bf92d73
+    handedness: 2
+    approved: 1
+    loop: 0
+    referenceHeightPixels: 512
+    frames:
+    - sprite: {fileID: 21300000, guid: 2b273ac4f5d60a14d83fcef3baa06a76, type: 3}
+      durationMs: 180
+      events: 
+    - sprite: {fileID: 21300000, guid: c683da9cedd3d49468caac6e9a20c09d, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: 6a8b1685344e77247b4af60d0203734d, type: 3}
+      durationMs: 70
+      events: 01000000
+    - sprite: {fileID: 21300000, guid: faa4e5cf2a7122e438aec929badf919e, type: 3}
+      durationMs: 55
+      events: 02000000
+    - sprite: {fileID: 21300000, guid: efbcb29870695b445812f66f98e81675, type: 3}
+      durationMs: 80
+      events: 
+    - sprite: {fileID: 21300000, guid: 639042b197bdc9447a9d3bf9c02bf499, type: 3}
+      durationMs: 160
+      events: 
+    eventAnchors:
+    - marker: 2
+      frameIndex: 3
+      sourcePositionNormalized: {x: 0.20507812, y: 0.48046875}
+      sourceCellSize: {x: 512, y: 512}
+      sourceRootNormalized: {x: 0.5, y: 0.835}
+  - clipId: Batter.DuelSwing.R
+    sourceHash: ab067d3cb298fa855ddd9873599196b8f2c9255bae3e0df9782ef9ecd67b4d7a
+    handedness: 3
+    approved: 1
+    loop: 0
+    referenceHeightPixels: 512
+    frames:
+    - sprite: {fileID: 21300000, guid: c1da586ab2fda4d4a844713300cd8031, type: 3}
+      durationMs: 180
+      events: 
+    - sprite: {fileID: 21300000, guid: 79f4cc0da4895c24eb268e1f4a0c7687, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: 4034d50e6e669194c9645db462e5bc65, type: 3}
+      durationMs: 70
+      events: 01000000
+    - sprite: {fileID: 21300000, guid: d23cc85098eee404e8137473fed792fd, type: 3}
+      durationMs: 55
+      events: 02000000
+    - sprite: {fileID: 21300000, guid: 72a24342191f22e4b94e00e98654897d, type: 3}
+      durationMs: 80
+      events: 
+    - sprite: {fileID: 21300000, guid: c23ed98d7e46fc74eb15ac5e714a9a4f, type: 3}
+      durationMs: 160
+      events: 
+    eventAnchors:
+    - marker: 2
+      frameIndex: 3
+      sourcePositionNormalized: {x: 0.8300781, y: 0.48046875}
+      sourceCellSize: {x: 512, y: 512}
+      sourceRootNormalized: {x: 0.5, y: 0.835}
+  - clipId: Catcher.Idle
+    sourceHash: dad6d2c35728b090f5f81a5680a4a6312d4d551790baafabbe1bbb7a1bb88a5a
+    handedness: 3
+    approved: 1
+    loop: 1
+    referenceHeightPixels: 444
+    frames:
+    - sprite: {fileID: 21300000, guid: 992e2a412d9243c49b4b11d5d9b55816, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: 99ec985201fe75e44b07104cb3755ee8, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: 0cef6da43d038bf4f90b769ec8184342, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: 13b465851bebbe74f922d3d9ad6f6a17, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: 46ac5a152d3fb2244b8791b9cc2922f6, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: bc148de26c6b7c4499db501695cba8b3, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: cfab7b679cea2aa44b5c1dc4ea25a87a, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: afe43095e4d67a74f8ddcffa4564dbca, type: 3}
+      durationMs: 150
+      events: 
+    eventAnchors: []
+  - clipId: Fielder.InfieldGrounder
+    sourceHash: aac3f77c34fe8eb87d0f7ddb78c80ca02c2d26a0ac128b346d6ba038f2a21982
+    handedness: 3
+    approved: 1
+    loop: 0
+    referenceHeightPixels: 444
+    frames:
+    - sprite: {fileID: 21300000, guid: deeccd18cd9681e43896644e9679a7d0, type: 3}
+      durationMs: 140
+      events: 
+    - sprite: {fileID: 21300000, guid: 2cb248b9723e12e4aa20c476db30279e, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: 980d84bf987c2ac42b98afc7750abd7e, type: 3}
+      durationMs: 100
+      events: 03000000
+    - sprite: {fileID: 21300000, guid: 013ba735b521ebd42afb78fd10ed7416, type: 3}
+      durationMs: 100
+      events: 
+    - sprite: {fileID: 21300000, guid: 915674b6f8619634b9ecf595bd2afe1a, type: 3}
+      durationMs: 100
+      events: 04000000
+    - sprite: {fileID: 21300000, guid: 709eb6f5b9a0546498ccd65aa942691c, type: 3}
+      durationMs: 90
+      events: 
+    - sprite: {fileID: 21300000, guid: b8758bb2767653849a8e14d737e81693, type: 3}
+      durationMs: 70
+      events: 05000000
+    - sprite: {fileID: 21300000, guid: 98f8fff8d2c28bc47bcd1f876b42c40e, type: 3}
+      durationMs: 160
+      events: 
+    eventAnchors:
+    - marker: 3
+      frameIndex: 2
+      sourcePositionNormalized: {x: 0.5, y: 0.877}
+      sourceCellSize: {x: 443, y: 444}
+      sourceRootNormalized: {x: 0.5, y: 0.92}
+    - marker: 5
+      frameIndex: 6
+      sourcePositionNormalized: {x: 0.35, y: 0.5}
+      sourceCellSize: {x: 443, y: 443}
+      sourceRootNormalized: {x: 0.5, y: 0.92}
+  - clipId: Fielder.OutfieldFlyCatch
+    sourceHash: c9c4cafe2ca0f194a2aca1d68470ca7fd5b02078f49dd9f20bcfa93397967b20
+    handedness: 3
+    approved: 1
+    loop: 0
+    referenceHeightPixels: 444
+    frames:
+    - sprite: {fileID: 21300000, guid: 4768a3e2605e97d4482bde812bb7b030, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: 40dc92afb2d72454fbc8cc781365285a, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: d5898adbe72b8564abac72e9ef0424ed, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: 10a282d21f65aea41bb254aa1c8b01f2, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: afb6fad913d38c64a9cabd88603ce85d, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: 9817a81bb002c9347b0aa94f339d6787, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: b43edaf1b3c7a97418edc17cd56419d1, type: 3}
+      durationMs: 120
+      events: 03000000
+    - sprite: {fileID: 21300000, guid: c43deea18cf626c428afd5c0f568cb89, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: 70e615217b3c6e045a6db05f92bca2d1, type: 3}
+      durationMs: 120
+      events: 
+    - sprite: {fileID: 21300000, guid: c8d147182ecfe7f43b75722d111c1133, type: 3}
+      durationMs: 120
+      events: 06000000
+    eventAnchors:
+    - marker: 3
+      frameIndex: 6
+      sourcePositionNormalized: {x: 0.65915495, y: 0.15801354}
+      sourceCellSize: {x: 355, y: 443}
+      sourceRootNormalized: {x: 0.5, y: 0.96}
+  - clipId: Pitcher.Pitch.L
+    sourceHash: d6c3e4ada7bebf1a1f2692f0b728ecb8f8c59f72f593b81fdfa10b97f4f6348f
+    handedness: 2
+    approved: 1
+    loop: 0
+    referenceHeightPixels: 362
+    frames:
+    - sprite: {fileID: 21300000, guid: c7dde56c4fc24894f863acf9dd6a39db, type: 3}
+      durationMs: 180
+      events: 
+    - sprite: {fileID: 21300000, guid: 5c18b1d582d097d40a12a32ec5a8b11f, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: 93d5896e4d0c60e40b7d330f08d27354, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: 6694d1b5744ab454b982f13cc205c9fa, type: 3}
+      durationMs: 110
+      events: 
+    - sprite: {fileID: 21300000, guid: 0cdb10253494ad4428de371716d281d5, type: 3}
+      durationMs: 90
+      events: 
+    - sprite: {fileID: 21300000, guid: e6ad6be06269c2e4c8a1d3ac0e13d461, type: 3}
+      durationMs: 70
+      events: 
+    - sprite: {fileID: 21300000, guid: ac13ea354f366244b8a837bb92924f33, type: 3}
+      durationMs: 55
+      events: 
+    - sprite: {fileID: 21300000, guid: e831288da1d48e040ab3a634af9ffb57, type: 3}
+      durationMs: 55
+      events: 00000000
+    - sprite: {fileID: 21300000, guid: 256d6acb623dfb04c8d98f8535f9c763, type: 3}
+      durationMs: 90
+      events: 
+    - sprite: {fileID: 21300000, guid: aabe98eb1f3a9dc4d88d2521d3ad942d, type: 3}
+      durationMs: 110
+      events: 
+    - sprite: {fileID: 21300000, guid: 10b6b351a78870140b619440f9e289aa, type: 3}
+      durationMs: 140
+      events: 
+    - sprite: {fileID: 21300000, guid: e45aa85fb7314d845a32f19b5666a105, type: 3}
+      durationMs: 160
+      events: 
+    eventAnchors:
+    - marker: 0
+      frameIndex: 7
+      sourcePositionNormalized: {x: 0.7900553, y: 0.25138122}
+      sourceCellSize: {x: 362, y: 362}
+      sourceRootNormalized: {x: 0.5, y: 0.96}
+  - clipId: Pitcher.Pitch.R
+    sourceHash: 4ba4f4d2b3a3f8a29ffe72847221eba7736b1530287459ca3a96307e96651b68
+    handedness: 3
+    approved: 1
+    loop: 0
+    referenceHeightPixels: 362
+    frames:
+    - sprite: {fileID: 21300000, guid: 1f7c60981d8685f4181e925dbbcb0fc9, type: 3}
+      durationMs: 180
+      events: 
+    - sprite: {fileID: 21300000, guid: 2b1440615691ca941bca12107bcab93c, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: 558a8ac87b42692458b9ef2b809b08a0, type: 3}
+      durationMs: 150
+      events: 
+    - sprite: {fileID: 21300000, guid: 95d4a6d04a7d03c428a985239142b1de, type: 3}
+      durationMs: 110
+      events: 
+    - sprite: {fileID: 21300000, guid: 9242267fdc1626a40893e7bd01464a20, type: 3}
+      durationMs: 90
+      events: 
+    - sprite: {fileID: 21300000, guid: 3c79fce95bedb344ca0e8c3d59ade479, type: 3}
+      durationMs: 70
+      events: 
+    - sprite: {fileID: 21300000, guid: 856311dafd4ca7f44b9c116fab717990, type: 3}
+      durationMs: 55
+      events: 
+    - sprite: {fileID: 21300000, guid: c0aaf3a49dd2fd04aac4476066891792, type: 3}
+      durationMs: 55
+      events: 00000000
+    - sprite: {fileID: 21300000, guid: 4c21ed6df9c6217478dbcfb9ce626139, type: 3}
+      durationMs: 90
+      events: 
+    - sprite: {fileID: 21300000, guid: a9ea41fe69b659a46b6a38090c47d1f8, type: 3}
+      durationMs: 110
+      events: 
+    - sprite: {fileID: 21300000, guid: ecda275c44d22814f81fe057047c66f5, type: 3}
+      durationMs: 140
+      events: 
+    - sprite: {fileID: 21300000, guid: 2e5b155e99160ac4f8ec6cff96efddc2, type: 3}
+      durationMs: 160
+      events: 
+    eventAnchors:
+    - marker: 0
+      frameIndex: 7
+      sourcePositionNormalized: {x: 0.74585634, y: 0.39502764}
+      sourceCellSize: {x: 362, y: 362}
+      sourceRootNormalized: {x: 0.5, y: 0.96}
+  - clipId: Runner.Idle
+    sourceHash: c3e546844e59e3a3ae40eb8a1d489a91f0b255bb355336c16f490014bdac685e
+    handedness: 1
+    approved: 1
+    loop: 1
+    referenceHeightPixels: 627
+    frames:
+    - sprite: {fileID: 21300000, guid: f52e832e24f30b54fae6f5f40d12317b, type: 3}
+      durationMs: 240
+      events: 
+    - sprite: {fileID: 21300000, guid: 905278f79984cc14aa6b40ab8db9b41b, type: 3}
+      durationMs: 240
+      events: 
+    - sprite: {fileID: 21300000, guid: 070c0e64d562f9542b2aaa1c784549cc, type: 3}
+      durationMs: 240
+      events: 
+    - sprite: {fileID: 21300000, guid: 2bb06f77d0e6bb346947b609711e2651, type: 3}
+      durationMs: 240
+      events: 
+    eventAnchors: []
+  - clipId: Runner.Run
+    sourceHash: 6675f28994a6fd641feb4a3cbb175915e0afd9e345997ee8c1f806c9201fa27c
+    handedness: 1
+    approved: 1
+    loop: 1
+    referenceHeightPixels: 627
+    frames:
+    - sprite: {fileID: 21300000, guid: 6a570afe7415f1f4dbccd806338d7919, type: 3}
+      durationMs: 110
+      events: 
+    - sprite: {fileID: 21300000, guid: 72a8a740aa50412488e594d625793ba8, type: 3}
+      durationMs: 110
+      events: 
+    - sprite: {fileID: 21300000, guid: 4c70fbb3668c87746b4a8eb88397bd1e, type: 3}
+      durationMs: 110
+      events: 
+    - sprite: {fileID: 21300000, guid: 1a22bb004c35f2341ad10d7148cba41a, type: 3}
+      durationMs: 110
+      events: 
+    eventAnchors: []
   fieldLayout: {fileID: 11400000, guid: 3ea7ebbc20077654fac24a6011127fea, type: 2}

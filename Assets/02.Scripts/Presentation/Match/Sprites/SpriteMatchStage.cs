@@ -28,9 +28,11 @@ namespace Baseball.Presentation.Match.Sprites
         private readonly SpriteActor[] _sorted = new SpriteActor[14];
         private readonly BallVisualController _ball;
         private readonly BaseballCameraDirector _camera;
-        private SpriteClipDefinition _pitch, _swing, _ground, _fly, _run, _catcher;
+        private SpriteClipDefinition _pitch, _swing, _ground, _fly, _run, _runnerIdle, _catcher;
         private Handedness _batting;
         private bool _canPresent;
+        private int _receivingFielder = -1;
+        private Vector2 _receiverOrigin;
         public bool IsAvailable => _canPresent;
         public FieldProjection Projection => _projection;
 
@@ -51,7 +53,8 @@ namespace Baseball.Presentation.Match.Sprites
             _content.GetComponent<RawImage>().texture = catalog.fieldLayout.background;
             _content.GetComponent<RawImage>().raycastTarget = false;
             for (int i = 0; i < _fielders.Length; i++)
-                _sorted[i] = _fielders[i] = new SpriteActor(_content, _projection, "Fielder" + Positions[i]);
+                _sorted[i] = _fielders[i] = new SpriteActor(_content, _projection, "Fielder" + Positions[i],
+                    i == 1 ? catalog.fieldLayout.catcherScale : 1f);
             _sorted[9] = _batter = new SpriteActor(_content, _projection, "Batter");
             _catcherMarker = SpriteActor.CreateImage(_content, "CatcherMarker", true);
             _catcherMarker.color = new Color32(33, 77, 106, 255);
@@ -59,13 +62,13 @@ namespace Baseball.Presentation.Match.Sprites
             _catcherMarker.rectTransform.sizeDelta = new Vector2(14, 14);
             for (int i = 0; i < _runners.Length; i++)
             {
-                _sorted[10 + i] = _runners[i] = new SpriteActor(_content, _projection, "Runner" + i);
+                _sorted[10 + i] = _runners[i] = new SpriteActor(_content, _projection, "Runner" + i, catalog.fieldLayout.runnerScale);
                 _runnerMarkers[i] = SpriteActor.CreateImage(_content, "RunnerMarker" + i, true);
                 _runnerMarkers[i].color = new Color32(255, 195, 72, 255);
                 _runnerMarkers[i].rectTransform.anchorMin = _runnerMarkers[i].rectTransform.anchorMax = new Vector2(0, 1);
                 _runnerMarkers[i].rectTransform.sizeDelta = new Vector2(14, 14);
             }
-            _ball = new BallVisualController(_content, ballSprite);
+            _ball = new BallVisualController(_content, ballSprite, _projection);
             _camera = new BaseballCameraDirector(_content, catalog.fieldLayout);
             SetHands(Handedness.Right, Handedness.Right);
             SetVisible(false);
@@ -81,7 +84,8 @@ namespace Baseball.Presentation.Match.Sprites
             _catalog.TryGetClip(BaseballVisualSequenceResolver.SwingClip(batting), out _swing);
             _catalog.TryGetClip("Fielder.InfieldGrounder", out _ground);
             _catalog.TryGetClip("Fielder.OutfieldFlyCatch", out _fly);
-            _catalog.TryGetClip("Batter.HitToRun", out _run);
+            _catalog.TryGetClip("Runner.Run", out _run);
+            _catalog.TryGetClip("Runner.Idle", out _runnerIdle);
             _catalog.TryGetClip("Catcher.Idle", out _catcher);
             return true;
         }
@@ -94,6 +98,7 @@ namespace Baseball.Presentation.Match.Sprites
         {
             if (!_canPresent) return;
             SetVisible(true);
+            _receivingFielder = -1;
             FitBackground();
             _camera.Render(BaseballCameraShot.Duel, new Vector2(0.5f, 0.5f), 1f);
             for (int i = 0; i < _fielders.Length; i++)
@@ -121,11 +126,13 @@ namespace Baseball.Presentation.Match.Sprites
             float pitchTime = t * _pitch.DurationSeconds;
             float releaseProgress = release / _pitch.DurationSeconds;
             _fielders[0].Render(_pitch, pitchTime, _projection.GetFielder(PlayerPosition.StartingPitcher));
+            _fielders[1].Render(_catcher, t * PitchDuration, _projection.GetFielder(PlayerPosition.Catcher));
             // 헛스윙은 공이 도착하기 전에 배트가 지나가며, 타격 접점으로 공을 끌어오지 않는다.
             float swingTime = didContact ? Mathf.Max(0, contact - (1f - t) * _swing.DurationSeconds) : t * _swing.DurationSeconds;
             _batter.Render(_swing, didSwing ? swingTime : 0, BatterPoint());
             if (t < releaseProgress) _ball.Hide();
             else _ball.Render(ReleasePoint(), didSwing && didContact ? ContactPoint() : PlatePoint(), Mathf.InverseLerp(releaseProgress, 1, t), 0);
+            if (t >= 1f && !didContact) _ball.Hide();
             _camera.Render(BaseballCameraShot.Duel, new Vector2(0.5f, 0.5f), 1);
             SortActors();
         }
@@ -156,7 +163,13 @@ namespace Baseball.Presentation.Match.Sprites
             if (caught && t >= 1f) _ball.Hide();
             else _ball.Render(ContactPoint(), ballTarget, t,
                 BaseballVisualSequenceResolver.GetBallHeight(play.BattedBall.Type, _catalog.fieldLayout.ballHeightScale));
-            _camera.Render(play.BattedBall.IsHomeRun ? BaseballCameraShot.Highlight : BaseballCameraShot.Field, target, t);
+            float peak = Mathf.Clamp(_catalog.fieldLayout.contactCameraPeakProgress, 0.01f, 0.9f);
+            if (t <= peak)
+                _camera.Render(BaseballCameraShot.Contact, ContactPoint(), t / peak);
+            else
+                _camera.RenderTransition(BaseballCameraShot.Contact, ContactPoint(),
+                    play.BattedBall.IsHomeRun ? BaseballCameraShot.Highlight : BaseballCameraShot.Field,
+                    target, Mathf.InverseLerp(peak, 1f, t));
             SortActors();
         }
 
@@ -164,13 +177,20 @@ namespace Baseball.Presentation.Match.Sprites
         public void RenderRunner(int slot, int fromBase, int toBase, float progress)
         {
             if (!_canPresent || slot < 0 || slot >= _runners.Length) return;
+            if (fromBase == 0 && toBase > 0 && progress > 0) _batter.SetVisible(false);
             int from = Mathf.Clamp(fromBase, 0, 3), to = Mathf.Clamp(toBase, from, 4);
             float position = Mathf.Lerp(from, to, Mathf.Clamp01(progress));
             int segment = Mathf.Min(3, (int)position);
-            Vector2 point = Vector2.Lerp(_projection.GetBase(segment), _projection.GetBase(segment + 1), position - segment);
+            Vector2 origin = fromBase == 0 && segment == 0 ? BatterPoint() : _projection.GetBase(segment);
+            Vector2 point = Vector2.Lerp(origin, _projection.GetBase(segment + 1), position - segment);
             // 주루 전용 모션이 없으면 배트를 든 타격 그림을 주자로 재활용하지 않는다.
             if (_run != null)
-                _runners[slot].Render(_run, progress * _run.DurationSeconds, point);
+            {
+                float elapsed = progress * (to - from) * _catalog.fieldLayout.runnerSecondsPerBase;
+                bool isWaiting = from == to || progress >= 1f;
+                _runners[slot].Render(isWaiting && _runnerIdle != null ? _runnerIdle : _run, elapsed, point);
+                _runners[slot].SetFacingLeft(_projection.GetBase(segment + 1).x < _projection.GetBase(segment).x);
+            }
             else
             {
                 _runnerMarkers[slot].gameObject.SetActive(true);
@@ -185,6 +205,11 @@ namespace Baseball.Presentation.Match.Sprites
             if (!_canPresent || !play.Fielding.HasValue) return false;
             SpriteClipDefinition clip = play.BattedBall.Type is BattedBallType.GroundBall or BattedBallType.Bunt ? _ground : _fly;
             Vector2 start = _projection.Project(PlayResolutionFieldLayout.GetBattedBallTarget(play.BattedBall));
+            return RenderThrowFromActor(FindFielder(play.Fielding.FielderPosition), clip, start, destination, progress);
+        }
+
+        private bool RenderThrowFromActor(int index, SpriteClipDefinition clip, Vector2 start, Vector2 destination, float progress)
+        {
             if (!clip.TryGetEventTime(SpriteAnimationEvent.GloveContact, out float catchTime) ||
                 !clip.TryGetEventTime(SpriteAnimationEvent.ThrowRelease, out float releaseTime))
             {
@@ -193,16 +218,76 @@ namespace Baseball.Presentation.Match.Sprites
                 return false;
             }
             float time = Mathf.Lerp(catchTime, clip.DurationSeconds, Mathf.Clamp01(progress));
-            _fielders[FindFielder(play.Fielding.FielderPosition)].Render(clip, time, start);
-            if (time < releaseTime) _ball.Hide();
+            _fielders[index].Render(clip, time, start);
+            if (time < releaseTime || progress >= 1f) _ball.Hide();
             else
             {
-                Vector2 release = _fielders[FindFielder(play.Fielding.FielderPosition)].TryProjectEvent(
+                Vector2 release = _fielders[index].TryProjectEvent(
                     clip, SpriteAnimationEvent.ThrowRelease, start, out Vector2 handPoint) ? handPoint : start;
                 _ball.Render(release, destination, Mathf.InverseLerp(releaseTime, clip.DurationSeconds, time), 0.025f);
             }
             SortActors();
             return true;
+        }
+
+        /// <summary>공식 주자 아웃 사건의 목적 베이스로 송구한다.</summary>
+        public bool RenderFieldThrowToBase(in BallInPlayEventData play, int toBase, float progress)
+        {
+            if (!_canPresent || !play.Fielding.HasValue || toBase < 1 || toBase > 4) return false;
+            int receiver = GetBaseReceiverIndex(toBase);
+            Vector2 destination = _projection.GetBase(toBase);
+            float t = Mathf.Clamp01(progress);
+            _ground.TryGetEventTime(SpriteAnimationEvent.GloveContact, out float receiveTime);
+            if (receiver == FindFielder(play.Fielding.FielderPosition))
+            {
+                // 자기 자신에게 공을 던지는 대신 공을 가진 야수가 확정 목적 베이스로 이동한다.
+                Vector2 pickup = _projection.Project(PlayResolutionFieldLayout.GetBattedBallTarget(play.BattedBall));
+                _fielders[receiver].Render(_ground, receiveTime, Vector2.Lerp(pickup, destination, t));
+                _ball.Hide();
+                SortActors();
+                return true;
+            }
+            return RenderFieldThrow(play, RenderBaseReceiver(toBase, t), t);
+        }
+
+        /// <summary>직전 베이스에서 공을 받은 야수의 손 이탈부터 다음 베이스의 포구까지 잇는다.</summary>
+        public bool RenderRelayThrow(int fromBase, int toBase, float progress)
+        {
+            if (!_canPresent || fromBase < 1 || fromBase > 3 || toBase < 1 || toBase > 4 || fromBase == toBase)
+            {
+                _ball.Hide();
+                return false;
+            }
+            int sender = GetBaseReceiverIndex(fromBase);
+            Vector2 start = _fielders[sender].Position;
+            return RenderThrowFromActor(sender, _ground, start, RenderBaseReceiver(toBase, progress), progress);
+        }
+
+        private static int GetBaseReceiverIndex(int baseNumber) => baseNumber switch { 1 => 2, 2 => 3, 3 => 4, _ => 1 };
+
+        private Vector2 RenderBaseReceiver(int toBase, float progress)
+        {
+            int receiver = GetBaseReceiverIndex(toBase);
+            Vector2 destination = _projection.GetBase(toBase);
+            float t = Mathf.Clamp01(progress);
+            _ground.TryGetEventTime(SpriteAnimationEvent.GloveContact, out float receiveTime);
+            // 송구 도착 전에 수신 야수가 베이스를 커버한다. 포수는 전용 장비 시트를 유지한다.
+            if (_receivingFielder != receiver || t <= 0)
+            {
+                _receivingFielder = receiver;
+                _receiverOrigin = _fielders[receiver].Position;
+            }
+            SpriteClipDefinition receiveClip = receiver == 1 ? _catcher : _ground;
+            Vector2 offset = _catalog.fieldLayout.baseReceiverOffset;
+            Vector2 receivePosition = receiver == 1 ? destination : destination +
+                new Vector2(toBase == 1 ? -offset.x : offset.x, -offset.y);
+            Vector2 receiverPoint = Vector2.Lerp(_receiverOrigin, receivePosition,
+                Mathf.SmoothStep(0, 1, Mathf.Clamp01(t * 2f)));
+            _fielders[receiver].Render(receiveClip, receiveTime * t, receiverPoint);
+            Vector2 glove = destination;
+            if (receiveClip != null)
+                _fielders[receiver].TryProjectEvent(receiveClip, SpriteAnimationEvent.GloveContact, receivePosition, out glove);
+            return glove;
         }
 
         /// <summary>공식 주자 아웃 사건의 목적 베이스로 송구한다.</summary>
@@ -214,6 +299,12 @@ namespace Baseball.Presentation.Match.Sprites
 
         /// <summary>공식 판정 이후 남아 있는 공 표시를 닫는다.</summary>
         public void HideBall() => _ball.Hide();
+
+        /// <summary>타석 결과 표시 구간의 카메라 복귀 출발점을 저장한다.</summary>
+        public void BeginReturnToDuel() => _camera.BeginReturnToDuel();
+
+        /// <summary>다음 투구 전에 기본 구도로 부드럽게 돌아간다.</summary>
+        public void RenderReturnToDuel(float progress) => _camera.RenderReturnToDuel(progress);
 
         /// <summary>이미 공개된 새 베이스 상태를 그리기 전에 이전 주자를 숨긴다.</summary>
         public void ClearRunners()

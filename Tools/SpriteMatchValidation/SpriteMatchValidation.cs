@@ -2,10 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using Baseball.Core.Players;
+using Baseball.Core.Teams;
+using Baseball.Core.Balance;
+using Baseball.Core.Historical;
+using Baseball.Game.Historical;
+using Baseball.Simulation.Historical;
+using Baseball.Simulation.Random;
 using Baseball.Editor.SpriteSheets;
 using Baseball.Presentation.Match.Sprites;
+using Baseball.Presentation.Match;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.PlateAppearance;
 using UnityEditor;
@@ -38,6 +46,14 @@ namespace Baseball.Tools.SpriteMatchValidation
                 comparedFiles = first.Count, isIdempotent = true,
                 isRuntimeReady = BaseballVisualSequenceResolver.CanPresent(production, Handedness.Right, Handedness.Right)
             }, true));
+            if (BaseballVisualSequenceResolver.CanPresent(production, Handedness.Right, Handedness.Right))
+            {
+                Capture(production, report);
+                foreach (Vector2Int size in new[] { new Vector2Int(1280, 720), new Vector2Int(1920, 1080),
+                    new Vector2Int(2560, 1440), new Vector2Int(3440, 1440) })
+                    CaptureOwnerLayout(size, report);
+                return;
+            }
             // 검수 합성은 비저장 복사본만 사용한다. NeedsReview 원본을 경기용으로 승인하지 않는다.
             SpriteAnimationCatalog preview = UnityEngine.Object.Instantiate(review);
             try
@@ -87,6 +103,13 @@ namespace Baseball.Tools.SpriteMatchValidation
                         stage.RenderPitch(progress, true, true);
                         Save(camera, target, pixels, Path.Combine(directory, "review-" + hand + "-pitch-" + Mathf.RoundToInt(progress * 100) + ".png"));
                     }
+                    string frames = Path.Combine(directory, "motion-" + hand);
+                    Directory.CreateDirectory(frames);
+                    for (int frame = 0; frame < 36; frame++)
+                    {
+                        stage.RenderPitch(frame / 35f, true, true);
+                        Save(camera, target, pixels, Path.Combine(frames, $"{frame:D3}.png"));
+                    }
                 }
                 foreach (BattedBallType type in new[] { BattedBallType.GroundBall, BattedBallType.FlyBall })
                 {
@@ -102,6 +125,7 @@ namespace Baseball.Tools.SpriteMatchValidation
                     stage.RenderRunner(0, 0, 1, 0.5f);
                     Save(camera, target, pixels, Path.Combine(directory, "review-" + type + ".png"));
                     stage.RenderContact(play, 1f);
+                    stage.RenderRunner(0, 0, 1, 0.5f);
                     Save(camera, target, pixels, Path.Combine(directory, "review-" + type + "-catch.png"));
                     if (type == BattedBallType.GroundBall)
                     {
@@ -114,6 +138,267 @@ namespace Baseball.Tools.SpriteMatchValidation
                     }
                 }
                 MeasureUpdates(stage, directory);
+                stage.SetVisible(false);
+                CaptureMatchReplay(rect, camera, target, pixels, directory);
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(target);
+                UnityEngine.Object.DestroyImmediate(pixels);
+            }
+        }
+
+        private static void CaptureMatchReplay(RectTransform parent, Camera camera, RenderTexture target, Texture2D pixels, string directory)
+        {
+            const ulong seed = 20260911;
+            var players = new Dictionary<int, Player>();
+            Team away = CreateReplayTeam(1, players), home = CreateReplayTeam(2, players);
+            var input = new MatchInput(1, 1, seed, away, home);
+            var buffer = new MatchEventBuffer();
+            MatchResult match = new MatchSimulator(BalanceTable.CreateDefault(), MatchRandomStreams.Create(seed)).Simulate(input, buffer);
+            var repeated = new MatchEventBuffer();
+            new MatchSimulator(BalanceTable.CreateDefault(), MatchRandomStreams.Create(seed)).Simulate(input, repeated);
+            if (!buffer.ToArray().SequenceEqual(repeated.ToArray())) throw new InvalidOperationException("재생 검증 경기의 결정론 불일치");
+            var host = new GameObject("실제 경기 이벤트 재생", typeof(RectTransform));
+            var rect = (RectTransform)host.transform;
+            rect.SetParent(parent, false);
+            rect.sizeDelta = parent.rect.size;
+            var config = MatchGameCastConfig.Load();
+            var visualizer = new MatchPlayVisualizer(rect, config, Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"),
+                id => players.TryGetValue(id, out Player player) ? player.Name : "선수",
+                (pitcher, batter) => new OwnerMatchHandedness(players[pitcher].ThrowingHand, players[batter].BattingHand));
+            var samples = new HashSet<string>();
+            MatchEvent[] replayEvents = buffer.ToArray();
+            var runnerRoutes = new OwnerMatchRunnerRoute[3];
+            var report = new System.Text.StringBuilder("speed,sequence,type,result,sample,frame,ballVisible,groupCount\n");
+            foreach (int speed in new[] { 1, 2, 4 })
+            {
+                visualizer.Reset();
+                var bases = new int[4];
+                string sample = null;
+                int frame = 0;
+                for (int i = 0; i < buffer.Count; i++)
+                {
+                    OwnerMatchPlaybackGroup group = OwnerMatchPlaybackGroup.Resolve(buffer[i], i + 1 < buffer.Count ? buffer[i + 1] : default);
+                    MatchEvent value = group.VisualEvent;
+                    BallInPlayEventData play = value.BallInPlayData;
+                    for (int next = i + 1; next < buffer.Count; next++)
+                    {
+                        if (buffer[next].EventType == MatchEventType.Pitch) break;
+                        if (buffer[next].BallInPlayData.HasValue) play = buffer[next].BallInPlayData;
+                        if (buffer[next].EventType == MatchEventType.PlateAppearanceEnded) break;
+                    }
+                    if (speed == 1 && value.EventType == MatchEventType.Pitch && play.HasValue)
+                    {
+                        string kind = play.Fielding.IsDoublePlay ? "DoublePlay" :
+                            play.BattedBall.IsHomeRun ? "HomeRun" : play.BattedBall.Type.ToString();
+                        if (samples.Add(kind))
+                        {
+                            sample = "replay-" + kind;
+                            frame = 0;
+                            Directory.CreateDirectory(Path.Combine(directory, sample));
+                        }
+                    }
+                    if (value.EventType == MatchEventType.Contact)
+                    {
+                        int routeCount = OwnerMatchRunnerRoute.Collect(replayEvents, i, value.BatterId,
+                            bases[1], bases[2], bases[3], runnerRoutes);
+                        visualizer.PrepareRunnerRoutes(runnerRoutes, routeCount);
+                    }
+                    visualizer.Begin(value, play);
+                    float duration = visualizer.GetDuration(value, config.GetDuration(value));
+                    int steps = Math.Max(1, Mathf.CeilToInt(duration * 24 / speed));
+                    for (int step = 1; step <= steps; step++)
+                    {
+                        visualizer.Render((float)step / steps);
+                        if (sample != null)
+                            Save(camera, target, pixels, Path.Combine(directory, sample, $"{frame++:D4}.png"));
+                    }
+                    Transform ball = rect.Find("SpriteMatchStage/FieldCamera/BallVisual");
+                    bool visible = ball != null && ball.gameObject.activeInHierarchy;
+                    if (value.EventType is MatchEventType.PlateAppearanceEnded or MatchEventType.HalfInningEnded or MatchEventType.MatchEnded)
+                    {
+                        if (visible) throw new InvalidOperationException("사건 종료 뒤 공이 남았습니다: " + value.Sequence);
+                    }
+                    report.AppendLine($"{speed},{value.Sequence},{value.EventType},{value.PlateAppearanceResult},{sample},{frame},{visible},{group.EventCount}");
+                    // 기록이 공개된 뒤에만 베이스 상태를 갱신한다. 검증용 HUD는 화면에 표시하지 않는다.
+                    if (value.EventType is MatchEventType.RunnerAdvance or MatchEventType.RunnerThrownOut or MatchEventType.Out or MatchEventType.Score)
+                    {
+                        for (int b = 1; b <= 3; b++) if (bases[b] == value.PlayerId) bases[b] = 0;
+                        if (value.EventType == MatchEventType.RunnerAdvance && value.ToBase is >= 1 and <= 3)
+                            bases[value.ToBase] = value.PlayerId;
+                    }
+                    if (value.EventType == MatchEventType.HalfInningEnded) Array.Clear(bases, 0, bases.Length);
+                    MatchHudParticipantModel Runner(int b) => bases[b] == 0 ? null : new MatchHudParticipantModel(bases[b], "주자");
+                    visualizer.PresentBases(new MatchHudPresentationModelBuilder().Build(value.Inning, (MatchHudHalf)value.Half,
+                        new MatchHudTeamModel(away.Name, value.AwayScore, value.Half == InningHalf.Top),
+                        new MatchHudTeamModel(home.Name, value.HomeScore, value.Half == InningHalf.Bottom),
+                        new MatchHudCountModel(value.Balls, value.Strikes, value.Outs),
+                        new MatchHudBaseStateModel(Runner(1), Runner(2), Runner(3)), null, null, false));
+                    if (value.EventType == MatchEventType.PlateAppearanceEnded) sample = null;
+                    i += group.EventCount - 1;
+                }
+            }
+            File.WriteAllText(Path.Combine(directory, "real-match-replay.csv"), report.ToString());
+            File.WriteAllText(Path.Combine(directory, "real-match-replay.txt"),
+                $"Seed={seed}\nEvents={buffer.Count}\nSpeeds=1,2,4\nDeterministic=True\nSamples={string.Join(",", samples)}\n검증 범위: 실제 시뮬레이션 이벤트와 MatchPlayVisualizer. 관전 세션 입력 및 결과 UI 검증은 별도.\n");
+            UnityEngine.Object.DestroyImmediate(host);
+            CaptureOwnerSession(parent, camera, target, pixels, directory, match, replayEvents);
+        }
+
+        private static void CaptureOwnerSession(RectTransform parent, Camera camera, RenderTexture target, Texture2D pixels,
+            string directory, MatchResult match, MatchEvent[] events)
+        {
+            string[] Ids(string prefix, int count) => Enumerable.Range(1, count).Select(index => prefix + index).ToArray();
+            string[] batting = Ids("batter-", 9);
+            var lineup = batting.Select((id, index) => new LineupPresetSlot(id, (PlayerPosition)(index + 1))).ToArray();
+            var preset = new LineupPresetState("replay", "관전 검증", lineup, batting,
+                Ids("bench-", ActiveRosterCompositionRule.BenchHitterCount), Ids("starter-", ActiveRosterCompositionRule.StartingPitcherCount),
+                Ids("bullpen-", ActiveRosterCompositionRule.BullpenPitcherCount), "setup", "closer", new string[2], Array.Empty<string>());
+            var plan = new PreGamePlanSnapshot(1, "replay-team", preset,
+                new LineupPresetValidationResult("replay", Array.Empty<LineupPresetValidationIssue>()));
+            var result = new ManagerModeMatchResult(match, plan,
+                new LineupChemistryResult(Array.Empty<LineupChemistryEdge>(), Array.Empty<LineupChemistryPlayerResult>()),
+                HomeGameFinanceResult.CreateNotHomeGame("replay-game"), default, "manager", "coach",
+                ManagerTacticalProfile.Balanced, "감독", "수석 코치");
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            ConstructorInfo constructor = typeof(OwnerMatchSpectatorSession).GetConstructors(flags).Single();
+            MethodInfo update = typeof(UI_Scene_OwnerMatchSpectator).GetMethod("UpdateGameCast", flags);
+            MethodInfo refresh = typeof(UI_Scene_OwnerMatchSpectator).GetMethod("RefreshControls", flags);
+            FieldInfo eventElapsed = typeof(UI_Scene_OwnerMatchSpectator).GetField("_eventElapsed", flags);
+            var summary = new System.Text.StringBuilder("mode,speed,frames,visibleEvents,pauseVerified,awayScore,homeScore\n");
+            foreach (OwnerMatchViewingMode mode in Enum.GetValues(typeof(OwnerMatchViewingMode)))
+            foreach (int speed in new[] { 1, 2, 4 })
+            {
+                UI_Scene_OwnerMatchSpectator view = UI_Scene_OwnerMatchSpectator.CreateRuntime(parent);
+                try
+                {
+                    var session = (OwnerMatchSpectatorSession)constructor.Invoke(new object[] { result, events, view, 1 });
+                    typeof(UI_Scene_OwnerMatchSpectator).GetField("_session", flags).SetValue(view, session);
+                    session.TrySetPlaybackSpeed((OwnerMatchPlaybackSpeed)speed);
+                    session.TrySetViewingMode(mode);
+                    view.SetVisible(true);
+                    Canvas.ForceUpdateCanvases();
+                    typeof(UI_Scene_OwnerMatchSpectator).GetMethod("FitWorkspace", flags).Invoke(view, null);
+                    bool pauseVerified = false, contactCaptured = false;
+                    int frames = 0;
+                    var routes = new OwnerMatchRunnerRoute[3];
+                    while (!session.State.IsComplete && frames++ < 50000)
+                    {
+                        int visible = session.State.VisibleEventCount;
+                        MatchHudPresentationModel hud = session.CurrentHud;
+                        session.CopyUpcomingRunnerRoutes(routes);
+                        session.PeekBallInPlay();
+                        if (visible != session.State.VisibleEventCount || !ReferenceEquals(hud, session.CurrentHud))
+                            throw new InvalidOperationException("연출 경로 조회가 HUD 공개 상태를 변경했습니다.");
+                        if (!pauseVerified && visible > 10)
+                        {
+                            float elapsedBeforePause = (float)eventElapsed.GetValue(view);
+                            session.TryTogglePause();
+                            update.Invoke(view, new object[] { 1f });
+                            if (visible != session.State.VisibleEventCount) throw new InvalidOperationException("일시정지 중 사건 공개");
+                            if ((float)eventElapsed.GetValue(view) != elapsedBeforePause)
+                                throw new InvalidOperationException("일시정지 중 스프라이트 재생 시간이 진행했습니다.");
+                            session.TryTogglePause();
+                            pauseVerified = true;
+                        }
+                        update.Invoke(view, new object[] { 1f / 24f });
+                        int last = session.State.VisibleEventCount - 1;
+                        if (last >= 0 && (session.CurrentHud.AwayTeam.Score != events[last].AwayScore ||
+                            session.CurrentHud.HomeTeam.Score != events[last].HomeScore))
+                            throw new InvalidOperationException("HUD 점수가 공개 사건 경계와 다릅니다.");
+                        var pending = (MatchEvent)typeof(UI_Scene_OwnerMatchSpectator).GetField("_pendingEvent", flags).GetValue(view);
+                        float elapsed = (float)typeof(UI_Scene_OwnerMatchSpectator).GetField("_eventElapsed", flags).GetValue(view);
+                        if (!contactCaptured && mode == OwnerMatchViewingMode.EveryMoment && speed == 1 &&
+                            pending.EventType == MatchEventType.Contact && elapsed > 0.08f)
+                        {
+                            Save(camera, target, pixels, Path.Combine(directory, "owner-session-contact.png"));
+                            contactCaptured = true;
+                        }
+                    }
+                    if (!session.State.IsComplete || session.State.VisibleEventCount != events.Length)
+                        throw new InvalidOperationException("관전 화면이 경기 종료에 도달하지 못했습니다: " + mode);
+                    refresh.Invoke(view, null);
+                    if (session.CurrentHud.AwayTeam.Score != match.AwayBoxScore.Runs ||
+                        session.CurrentHud.HomeTeam.Score != match.HomeBoxScore.Runs)
+                        throw new InvalidOperationException("관전 최종 점수가 공식 BoxScore와 다릅니다.");
+                    Transform broadcast = view.transform.Find("BroadcastCanvas");
+                    if (!broadcast.Find("MatchResult").gameObject.activeSelf ||
+                        !broadcast.Find("ReturnHome").gameObject.activeSelf)
+                        throw new InvalidOperationException("경기 종료 후 결과와 홈 복귀 경로가 표시되지 않았습니다.");
+                    if (speed == 1) Save(camera, target, pixels, Path.Combine(directory, "owner-session-result-" + mode + ".png"));
+                    summary.AppendLine($"{mode},{speed},{frames},{session.State.VisibleEventCount},{pauseVerified},{session.CurrentHud.AwayTeam.Score},{session.CurrentHud.HomeTeam.Score}");
+                }
+                finally { UnityEngine.Object.DestroyImmediate(view.gameObject); }
+            }
+            File.WriteAllText(Path.Combine(directory, "owner-session-replay.csv"), summary.ToString());
+        }
+
+        private static Team CreateReplayTeam(int id, Dictionary<int, Player> players)
+        {
+            var slots = new LineupSlot[9];
+            for (int index = 0; index < slots.Length; index++)
+            {
+                var player = new Player(id * 100 + index + 1, "검증 타자 " + (index + 1), (PlayerPosition)(index + 1),
+                    index % 2 == 0 ? Handedness.Right : Handedness.Left, Handedness.Right,
+                    new BatterAttributes(60, 60, 60, 60, 60, 60), new PitcherAttributes(20, 20, 20, 20, 20, 20));
+                players.Add(player.PlayerId, player);
+                slots[index] = new LineupSlot(player, player.PrimaryPosition);
+            }
+            var pitcher = new Player(id * 100 + 99, "검증 투수", PlayerPosition.StartingPitcher, Handedness.Right,
+                id == 1 ? Handedness.Right : Handedness.Left, new BatterAttributes(20, 20, 20, 20, 20, 20),
+                new PitcherAttributes(50, 50, 50, 50, 50, 50));
+            players.Add(pitcher.PlayerId, pitcher);
+            return new Team(id, "검증 " + id + "팀", new Lineup(slots), pitcher);
+        }
+
+        private static void CaptureOwnerLayout(Vector2Int size, string directory)
+        {
+            var root = new GameObject("관전 화면 검증", typeof(RectTransform), typeof(Canvas));
+            var cameraObject = new GameObject("관전 Camera", typeof(Camera));
+            var target = new RenderTexture(size.x, size.y, 24);
+            var pixels = new Texture2D(size.x, size.y, TextureFormat.RGBA32, false);
+            RenderTexture previous = RenderTexture.active;
+            try
+            {
+                var rect = (RectTransform)root.transform;
+                rect.sizeDelta = size;
+                var canvas = root.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.WorldSpace;
+                Camera camera = cameraObject.GetComponent<Camera>();
+                camera.transform.position = new Vector3(0, 0, -10);
+                camera.orthographic = true;
+                camera.orthographicSize = size.y * 0.5f;
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = Color.black;
+                camera.targetTexture = target;
+                canvas.worldCamera = camera;
+                UI_Scene_OwnerMatchSpectator view = UI_Scene_OwnerMatchSpectator.CreateRuntime(rect);
+                view.SetVisible(true);
+                view.Present(new MatchHudPresentationModelBuilder().Build(1, MatchHudHalf.Top,
+                    new MatchHudTeamModel("서울 마리너스", 0, true), new MatchHudTeamModel("서울 하버스", 0, false),
+                    new MatchHudCountModel(1, 1, 0), MatchHudBaseStateModel.Empty,
+                    new MatchHudParticipantModel(1, "김원준"), new MatchHudParticipantModel(2, "김성찬"), false));
+                Canvas.ForceUpdateCanvases();
+                typeof(UI_Scene_OwnerMatchSpectator).GetMethod("FitWorkspace", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(view, null);
+                // 화면 자체의 무대를 사용한다. 입력·경기 진행 검증과 구분되는 정적 합성이다.
+                var visualizer = (MatchPlayVisualizer)typeof(UI_Scene_OwnerMatchSpectator)
+                    .GetField("_playVisualizer", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(view);
+                var stage = (SpriteMatchStage)typeof(MatchPlayVisualizer)
+                    .GetField("_spriteStage", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(visualizer);
+                if (stage == null || !stage.SetHands(Handedness.Right, Handedness.Right))
+                    throw new InvalidOperationException("실제 관전 화면의 경기용 무대가 연결되지 않았습니다.");
+                view.transform.Find("BroadcastCanvas/Field/Ground/GameCastMarkers").gameObject.SetActive(false);
+                stage.Reset();
+                stage.RenderPitch(1, true, true);
+                Save(camera, target, pixels, Path.Combine(directory, $"owner-{size.x}x{size.y}.png"));
+                var contact = new BallInPlayEventData(new BattedBallDescriptor(BattedBallType.GroundBall,
+                    BattedBallDirection.Center, FieldZone.Shortstop, 0.5, BallFlightBand.Medium, BallPaceBand.Medium, false), default);
+                stage.RenderContact(contact, stage.Projection.Layout.contactCameraPeakProgress);
+                Save(camera, target, pixels, Path.Combine(directory, $"owner-contact-{size.x}x{size.y}.png"));
             }
             finally
             {
@@ -166,7 +451,7 @@ namespace Baseball.Tools.SpriteMatchValidation
             Canvas.ForceUpdateCanvases();
             camera.Render();
             RenderTexture.active = target;
-            pixels.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0);
+            pixels.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0);
             pixels.Apply();
             File.WriteAllBytes(path, pixels.EncodeToPNG());
         }

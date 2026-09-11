@@ -13,12 +13,43 @@ MonoBehaviour:
   m_Name: FieldLayout
   m_EditorClassIdentifier: Baseball.Presentation::Baseball.Presentation.Match.Sprites.FieldLayoutDefinition
   background: {fileID: 2800000, guid: 875f44a6045eca145abf9358a562787f, type: 3}
-  anchors: []
+  anchors:
+  - id: 1
+    normalizedPosition: {x: 0.61, y: 0.81}
+  - id: 2
+    normalizedPosition: {x: 0.39, y: 0.81}
+  - id: 14
+    normalizedPosition: {x: 0.5, y: 1.005}
+  - id: 3
+    normalizedPosition: {x: 0.5, y: 0.486}
+  - id: 7
+    normalizedPosition: {x: 0.2, y: 0.355}
+  - id: 8
+    normalizedPosition: {x: 0.5, y: 0.33}
+  - id: 9
+    normalizedPosition: {x: 0.8, y: 0.355}
+  - id: 10
+    normalizedPosition: {x: 0.33, y: 0.405}
+  - id: 11
+    normalizedPosition: {x: 0.67, y: 0.405}
   foregroundHeight: 300
-  depthScale: 0.2
+  actorShadowSize: {x: 110, y: 18}
+  catcherScale: 0.82
+  runnerScale: 0.86
+  runnerSecondsPerBase: 0.9
+  batterRunStartProgress: 0.25
+  batterRunLeadProgress: 0.45
+  runnerPendingProgress: 0.85
+  baseReceiverOffset: {x: 0.02, y: 0.01}
+  depthScale: 0.06
+  depthExponent: 1.6
+  ballDiameter: 8
+  minimumBallDiameter: 1.5
   ballHeightScale: 0.25
   duelZoom: 1
   fieldZoom: 1.08
   highlightZoom: 1.25
+  contactZoom: 1.35
+  contactCameraPeakProgress: 0.18
   pitcherReleaseOffset: {x: 0, y: 0.055}
   batContactOffset: {x: 0, y: 0.04}

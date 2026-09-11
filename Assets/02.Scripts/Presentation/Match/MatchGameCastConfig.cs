@@ -70,6 +70,10 @@ namespace Baseball.Presentation.Match
         }
 
         /// <summary>공식 사건 한 건의 읽을 수 있는 재생 시간을 반환한다.</summary>
+        public float GetContactDuration(in BallInPlayEventData play) => play.HasValue
+            ? (float)_playTiming.ResolveBattedBallFlightSeconds(play.BattedBall) : resultSeconds;
+
+        /// <summary>공식 사건 한 건의 읽을 수 있는 재생 시간을 반환한다.</summary>
         public float GetDuration(in MatchEvent value)
         {
             return value.EventType switch

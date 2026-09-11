@@ -17,6 +17,10 @@ Copy-Item "$repoRoot/ProjectSettings/ProjectVersion.txt" "$validationRoot/Projec
 New-Item -ItemType Directory -Path "$validationRoot/Assets/Resources/UI" -Force | Out-Null
 Copy-Item "$repoRoot/Assets/Resources/UI/MiniGame" "$validationRoot/Assets/Resources/UI" -Recurse -Force
 Copy-Item "$repoRoot/Assets/10.Datas/Resources/UI/OwnerMatch" "$validationRoot/Assets/Resources/UI" -Recurse -Force
+New-Item -ItemType Directory -Path "$validationRoot/Assets/04.Images", "$validationRoot/Assets/10.Datas" -Force | Out-Null
+Copy-Item "$repoRoot/Assets/04.Images/SpriteMatch" "$validationRoot/Assets/04.Images" -Recurse -Force
+Copy-Item "$repoRoot/Assets/10.Datas/SpriteMatch" "$validationRoot/Assets/10.Datas" -Recurse -Force
+Copy-Item "$repoRoot/Assets/Resources/UI/SpriteMatch" "$validationRoot/Assets/Resources/UI" -Recurse -Force
 $dependencies = [ordered]@{}
 Get-ChildItem "$repoRoot/Library/PackageCache" -Directory | ForEach-Object {
     $packagePath = Join-Path $_.FullName 'package.json'

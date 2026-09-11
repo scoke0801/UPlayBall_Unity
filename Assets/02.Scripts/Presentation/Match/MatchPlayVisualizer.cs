@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace Baseball.Presentation.Match
 {
     /// <summary>모드와 무관하게 공식 사건을 상공 구장의 공·야수·주자에 투영한다.</summary>
-    public sealed class MatchPlayVisualizer
+    public sealed partial class MatchPlayVisualizer
     {
         private static readonly PlayerPosition[] Positions =
         {
@@ -39,6 +39,8 @@ namespace Baseball.Presentation.Match
         private int _activeFielder = -1, _activeRunner = -1;
         private int _batterId, _firstVisibleId, _secondVisibleId, _thirdVisibleId;
         private int _throwDestination, _throwOriginBase, _ballHeldAtBase, _runnerFromBase, _runnerToBase;
+        private float _batterApproachProgress;
+        private bool _isBatterApproaching;
 
         /// <summary>고정 수의 공·야수·주자 표시 부품을 한 번 생성한다.</summary>
         public MatchPlayVisualizer(RectTransform field, MatchGameCastConfig config, Font font, Func<int, string> getName,
@@ -85,6 +87,9 @@ namespace Baseball.Presentation.Match
         public void Reset()
         {
             _play = default;
+            _runnerRouteCount = 0;
+            _batterApproachProgress = 0;
+            _isBatterApproaching = false;
             _batterId = _firstVisibleId = _secondVisibleId = _thirdVisibleId = _ballHeldAtBase = _throwDestination = 0;
             _spriteStage?.SetVisible(false);
             _field.gameObject.SetActive(true);
@@ -114,12 +119,21 @@ namespace Baseball.Presentation.Match
             Register(hud.Bases.First.PlayerId, 1);
             Register(hud.Bases.Second.PlayerId, 2);
             Register(hud.Bases.Third.PlayerId, 3);
+            if (_isBatterApproaching && _batterId != _firstVisibleId && _batterId != _secondVisibleId && _batterId != _thirdVisibleId)
+            {
+                int slot = Register(_batterId, 0);
+                _spriteStage?.RenderRunner(slot, 0, 1, _batterApproachProgress);
+            }
+            RestoreUpcomingRunners();
         }
 
         /// <summary>같은 투구의 공식 수비 데이터로 다음 사건의 이동만 준비한다.</summary>
         public void Begin(in MatchEvent value, in BallInPlayEventData play)
         {
             _event = value;
+            if (value.EventType == MatchEventType.PlateAppearanceEnded) _spriteStage?.BeginReturnToDuel();
+            _batterEventStart = _batterApproachProgress;
+            for (int index = 0; index < _runnerRouteCount; index++) _routeEventStart[index] = _routeProgress[index];
             if (value.EventType == MatchEventType.Pitch || play.HasValue) _play = play;
             _activeRunner = -1;
             _runnerFromBase = value.FromBase;
@@ -129,6 +143,9 @@ namespace Baseball.Presentation.Match
             if (value.EventType == MatchEventType.Pitch)
             {
                 _batterId = value.BatterId;
+                _runnerRouteCount = 0;
+                _batterApproachProgress = 0;
+                _isBatterApproaching = false;
                 _ballHeldAtBase = 0;
                 if (_spriteStage != null && _getHands != null)
                 {
@@ -181,9 +198,21 @@ namespace Baseball.Presentation.Match
         }
 
         /// <summary>모션의 프레임 체류 시간을 보존하도록 투구의 최소 재생 시간을 정한다.</summary>
-        public float GetDuration(in MatchEvent value, float fallback) =>
-            _spriteStage != null && _spriteStage.IsAvailable && !_field.gameObject.activeSelf && value.EventType == MatchEventType.Pitch
-                ? Mathf.Max(fallback, _spriteStage.PitchDuration) : fallback;
+        public float GetDuration(in MatchEvent value, float fallback)
+        {
+            if (_spriteStage == null || !_spriteStage.IsAvailable || _field.gameObject.activeSelf) return fallback;
+            // Contact의 완성된 타구 데이터는 같은 타석의 종료 사건에 있다.
+            // 세션이 제공한 데이터를 사용해 뜬공이 짧은 판정 시간으로 압축되지 않게 한다.
+            return value.EventType switch
+            {
+                MatchEventType.Pitch => Mathf.Max(fallback, _spriteStage.PitchDuration),
+                MatchEventType.Contact => Mathf.Max(fallback, _config.GetContactDuration(_play)),
+                MatchEventType.RunnerAdvance or MatchEventType.RunnerThrownOut => Mathf.Max(fallback,
+                    _spriteStage.Projection.Layout.runnerSecondsPerBase * Mathf.Max(1, value.ToBase - value.FromBase)),
+                MatchEventType.Out when _throwDestination > 0 => Mathf.Max(fallback, _spriteStage.Projection.Layout.runnerSecondsPerBase),
+                _ => fallback
+            };
+        }
 
         /// <summary>공식 사건의 진행률에 맞춰 이동 경로를 그린다.</summary>
         public void Render(float progress)
@@ -201,28 +230,63 @@ namespace Baseball.Presentation.Match
                                 Baseball.Simulation.PlateAppearance.PitchResult.Foul,
                             _event.PitchResult is Baseball.Simulation.PlateAppearance.PitchResult.InPlay or
                                 Baseball.Simulation.PlateAppearance.PitchResult.Foul);
+                        // 파울에는 별도의 Contact 사건이 없다. 다음 투구까지 접점에 공을 남기지 않는다.
+                        if (progress >= 1f && _event.PitchResult == Baseball.Simulation.PlateAppearance.PitchResult.Foul)
+                            _spriteStage.HideBall();
                         break;
                     case MatchEventType.Contact:
                         _spriteStage.RenderContact(_play, progress);
+                        if (_play.HasValue)
+                        {
+                            // 페어 타구 뒤 출발은 세이프·아웃 판정과 무관하다. 결과 공개 전에는 1루에 도착시키지 않는다.
+                            FieldLayoutDefinition layout = _spriteStage.Projection.Layout;
+                            _batterApproachProgress = Mathf.Clamp(layout.batterRunLeadProgress, 0f, 0.95f) *
+                                Mathf.InverseLerp(layout.batterRunStartProgress, 1f, progress);
+                            _isBatterApproaching = _batterApproachProgress > 0;
+                            if (_isBatterApproaching)
+                                _spriteStage.RenderRunner(Register(_batterId, 0), 0, 1, _batterApproachProgress);
+                        }
                         break;
                     case MatchEventType.RunnerAdvance:
-                        _spriteStage.RenderRunner(_activeRunner, _event.FromBase, _event.ToBase, progress);
+                        _spriteStage.RenderRunner(_activeRunner, _event.FromBase, _event.ToBase,
+                            ContinueRunnerRun(_event.PlayerId, _event.FromBase, _event.ToBase, progress));
+                        if (progress >= 1 && _event.PlayerId == _batterId) _isBatterApproaching = false;
                         break;
                     case MatchEventType.RunnerThrownOut:
                     case MatchEventType.Out:
+                        if (_activeRunner >= 0)
+                            _spriteStage.RenderRunner(_activeRunner, _runnerFromBase, _runnerToBase,
+                                ContinueRunnerRun(_event.PlayerId, _runnerFromBase, _runnerToBase, progress));
                         if (_throwDestination > 0 && _play.HasValue && _play.Fielding.HasValue)
                         {
-                            _spriteStage.RenderRunner(_activeRunner, _runnerFromBase, _runnerToBase, progress);
                             bool hasThrowMotion = true;
                             if (_throwOriginBase > 0)
-                                _spriteStage.RenderBallFlight(_spriteStage.Projection.GetBase(_throwOriginBase),
-                                    _spriteStage.Projection.GetBase(_throwDestination), progress, 0.025f);
+                                hasThrowMotion = _spriteStage.RenderRelayThrow(_throwOriginBase, _throwDestination, progress);
                             else
-                                hasThrowMotion = _spriteStage.RenderFieldThrow(_play, _spriteStage.Projection.GetBase(_throwDestination), progress);
-                            if (progress >= 1 && hasThrowMotion) _ballHeldAtBase = _throwDestination;
+                                hasThrowMotion = _spriteStage.RenderFieldThrowToBase(_play, _throwDestination, progress);
+                            if (progress >= 1 && hasThrowMotion)
+                            {
+                                _ballHeldAtBase = _throwDestination;
+                                _spriteStage.HideBall();
+                            }
                         }
+                        if (progress >= 1 && _event.PlayerId == _batterId) _isBatterApproaching = false;
+                        break;
+                    case MatchEventType.PlateAppearanceEnded:
+                        _spriteStage.RenderReturnToDuel(progress);
+                        _spriteStage.HideBall();
+                        _isBatterApproaching = false;
+                        _runnerRouteCount = 0;
+                        break;
+                    case MatchEventType.HalfInningEnded:
+                    case MatchEventType.MatchEnded:
+                    case MatchEventType.MatchEndedAsDraw:
+                        _spriteStage.HideBall();
+                        _isBatterApproaching = false;
+                        _runnerRouteCount = 0;
                         break;
                 }
+                RenderUpcomingRunners(progress);
                 return;
             }
             if (_event.EventType == MatchEventType.Pitch || _event.EventType == MatchEventType.RunnerThrownOut ||
@@ -256,6 +320,15 @@ namespace Baseball.Presentation.Match
                 _runners[_activeRunner].rectTransform.anchoredPosition =
                     Vector2.Lerp(BasePoint(segment), BasePoint(segment + 1), position - segment);
             }
+        }
+
+        private float ContinueRunnerRun(int playerId, int fromBase, int toBase, float progress)
+        {
+            for (int index = 0; index < _runnerRouteCount; index++)
+                if (_runnerRoutes[index].PlayerId == playerId && _runnerRoutes[index].FromBase == fromBase && toBase > fromBase)
+                    return Mathf.Lerp(_routeProgress[index] / (toBase - fromBase), 1f, progress);
+            if (playerId != _batterId || fromBase != 0 || toBase <= 0) return progress;
+            return Mathf.Lerp(_batterApproachProgress / toBase, 1f, progress);
         }
 
         private Vector2 FlightPoint(float progress)

@@ -12,14 +12,16 @@ namespace Baseball.Presentation.Match.Sprites
         private readonly Image _image;
         private readonly RectTransform _shadow;
         private readonly FieldProjection _projection;
+        private readonly float _sizeScale;
         public Vector2 Position { get; private set; }
         public bool IsVisible => _root.gameObject.activeSelf;
 
         /// <summary>재사용할 선수 그림과 그림자를 한 번 생성한다.</summary>
-        public SpriteActor(RectTransform parent, FieldProjection projection, string name)
+        public SpriteActor(RectTransform parent, FieldProjection projection, string name, float sizeScale = 1f)
         {
             _parent = parent;
             _projection = projection;
+            _sizeScale = sizeScale;
             _root = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             _root.SetParent(parent, false);
             _root.anchorMin = _root.anchorMax = new Vector2(0, 1);
@@ -38,7 +40,8 @@ namespace Baseball.Presentation.Match.Sprites
             Position = position;
             SetVisible(true);
             _root.anchoredPosition = FieldProjection.ToScreen(position, _parent.rect.size);
-            _root.localScale = Vector3.one * _projection.DepthScale(position.y);
+            _root.localScale = Vector3.one * (_projection.DepthScale(position.y) * _sizeScale);
+            _shadow.sizeDelta = _projection.Layout.actorShadowSize * (_parent.rect.height / 552f);
             Sprite sprite = frame.sprite;
             _image.sprite = sprite;
             _image.rectTransform.pivot = new Vector2(sprite.pivot.x / sprite.rect.width, sprite.pivot.y / sprite.rect.height);
@@ -52,7 +55,7 @@ namespace Baseball.Presentation.Match.Sprites
             Vector2 size = _parent.rect.size;
             if (size.x <= 0 || size.y <= 0) return actorPosition;
             Vector2 sourceOffset = Vector2.Scale(sourcePositionNormalized - sourceRootNormalized, sourceCellSize);
-            Vector2 screenOffset = sourceOffset * (GetPixelScale(clip) * _projection.DepthScale(actorPosition.y));
+            Vector2 screenOffset = sourceOffset * (GetPixelScale(clip) * _projection.DepthScale(actorPosition.y) * _sizeScale);
             // 원본 셀과 구장 좌표가 모두 아래쪽을 양수로 사용하므로 Y 부호를 뒤집지 않는다.
             return actorPosition + new Vector2(screenOffset.x / size.x, screenOffset.y / size.y);
         }
@@ -72,6 +75,8 @@ namespace Baseball.Presentation.Match.Sprites
 
         /// <summary>그림과 지면 그림자의 노출을 함께 바꾼다.</summary>
         public void SetVisible(bool value) => _root.gameObject.SetActive(value);
+        /// <summary>손잡이가 없는 주루 전용 그림만 진행 방향에 맞춰 좌우로 돌린다.</summary>
+        public void SetFacingLeft(bool isLeft) => _image.rectTransform.localScale = new Vector3(isLeft ? -1f : 1f, 1f, 1f);
         /// <summary>무대의 깊이 정렬 결과를 적용한다.</summary>
         public void SetSiblingIndex(int index) => _root.SetSiblingIndex(index);
 

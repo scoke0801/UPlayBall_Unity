@@ -329,6 +329,33 @@ namespace Baseball.Presentation.Tests
                 Vector3 expected = BallVisualController.Evaluate(release, destination, flightProgress, 0.025f);
                 Assert.That(Vector2.Distance(ball.anchoredPosition,
                     FieldProjection.ToScreen(new Vector2(expected.x, expected.y), field.rect.size, expected.z)), Is.LessThan(0.001f));
+                stage.RenderFieldThrow(play, destination, 1f);
+                Assert.That(ball.gameObject.activeSelf, Is.False, "송구가 도착한 뒤 외부 공이 베이스에 남지 않아야 한다.");
+                stage.Reset();
+                stage.RenderFieldThrowToBase(play, 1, 1f);
+                var receiver = (RectTransform)field.Find("FielderFirstBase");
+                Vector2 receivePosition = destination - _layout.baseReceiverOffset;
+                Assert.That(Vector2.Distance(receiver.anchoredPosition,
+                    FieldProjection.ToScreen(receivePosition, field.rect.size)), Is.LessThan(0.001f),
+                    "송구 수신 야수가 실제 베이스를 커버해야 한다.");
+                Assert.That(ball.gameObject.activeSelf, Is.False);
+                var unassisted = new BallInPlayEventData(play.BattedBall,
+                    new FieldingPlayOutcome(Baseball.Simulation.PlateAppearance.PlateAppearanceResult.GroundOut,
+                        PlayerPosition.FirstBase, 9, FieldingFailureType.None, true, false, 1));
+                stage.Reset();
+                stage.RenderFieldThrowToBase(unassisted, 1, 0.7f);
+                Assert.That(ball.gameObject.activeSelf, Is.False, "베이스를 직접 커버하는 야수는 자신에게 송구하지 않는다.");
+                stage.Reset();
+                stage.RenderFieldThrowToBase(play, 2, 1f);
+                var relayFielder = (RectTransform)field.Find("FielderSecondBase");
+                Vector2 relayPosition = relayFielder.anchoredPosition;
+                Assert.That(stage.RenderRelayThrow(2, 1, 0), Is.True);
+                Assert.That(ball.gameObject.activeSelf, Is.False, "중계 송구도 손 이탈 전에는 외부 공을 숨긴다.");
+                stage.RenderRelayThrow(2, 1, 0.7f);
+                Assert.That(ball.gameObject.activeSelf, Is.True);
+                Assert.That(relayFielder.anchoredPosition, Is.EqualTo(relayPosition), "중계 야수가 최초 타구 위치로 되돌아가지 않는다.");
+                stage.RenderRelayThrow(2, 1, 1f);
+                Assert.That(ball.gameObject.activeSelf, Is.False);
             }
             finally { Object.DestroyImmediate(host); }
         }
@@ -368,6 +395,57 @@ namespace Baseball.Presentation.Tests
                 Object.DestroyImmediate(host);
                 Object.DestroyImmediate(anchoredSprite);
             }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ContactCameraKeepsContinuityAndReturnsBeforeNextPitch(bool isHomeRun)
+        {
+            _catalog.clips = new[]
+            {
+                Clip("Pitcher.Pitch.R", SpriteHandedness.Right), Clip("Batter.DuelSwing.R", SpriteHandedness.Right),
+                Clip("Fielder.InfieldGrounder", SpriteHandedness.Shared), Clip("Fielder.OutfieldFlyCatch", SpriteHandedness.Shared)
+            };
+            var host = new GameObject("CameraTest", typeof(RectTransform));
+            try
+            {
+                var rect = host.GetComponent<RectTransform>();
+                rect.sizeDelta = new Vector2(1280, 720);
+                var stage = new SpriteMatchStage(rect, _catalog, _sprite);
+                stage.Reset();
+                var field = (RectTransform)host.transform.Find("SpriteMatchStage/FieldCamera");
+                var play = new BallInPlayEventData(new BattedBallDescriptor(BattedBallType.FlyBall, default,
+                    FieldZone.CenterField, 100, default, default, isHomeRun), default);
+                stage.RenderPitch(1, true, true);
+                Vector3 pitchScale = field.localScale;
+                Vector2 pitchPosition = field.anchoredPosition;
+                stage.RenderContact(play, 0);
+                Assert.That(field.localScale, Is.EqualTo(pitchScale));
+                Assert.That(field.anchoredPosition, Is.EqualTo(pitchPosition));
+
+                stage.RenderContact(play, _layout.contactCameraPeakProgress);
+                Vector2 peakPosition = field.anchoredPosition;
+                Assert.That(field.localScale.x, Is.EqualTo(_layout.contactZoom).Within(0.00001f));
+                stage.RenderContact(play, _layout.contactCameraPeakProgress + 0.00001f);
+                Assert.That(Vector2.Distance(field.anchoredPosition, peakPosition), Is.LessThan(0.01f),
+                    "타격 확대에서 타구 추적으로 바뀌는 경계에 화면 점프가 없어야 한다.");
+                stage.RenderContact(play, 1);
+                Vector3 resultScale = field.localScale;
+                Vector2 resultPosition = field.anchoredPosition;
+                Assert.That(resultScale.x, Is.EqualTo(isHomeRun ? _layout.highlightZoom : _layout.fieldZoom).Within(0.00001f));
+                stage.BeginReturnToDuel();
+                stage.RenderReturnToDuel(0);
+                Assert.That(field.localScale, Is.EqualTo(resultScale));
+                Assert.That(field.anchoredPosition, Is.EqualTo(resultPosition));
+                stage.RenderReturnToDuel(0.5f);
+                Vector2 midpoint = field.anchoredPosition;
+                stage.RenderReturnToDuel(0.5f);
+                Assert.That(field.anchoredPosition, Is.EqualTo(midpoint), "같은 진행률을 다시 그려도 카메라가 이동하지 않아야 한다.");
+                stage.RenderReturnToDuel(1);
+                Assert.That(field.localScale, Is.EqualTo(pitchScale));
+                Assert.That(field.anchoredPosition, Is.EqualTo(pitchPosition));
+            }
+            finally { Object.DestroyImmediate(host); }
         }
 
         private SpriteClipDefinition Clip(string id, SpriteHandedness hand) => new SpriteClipDefinition

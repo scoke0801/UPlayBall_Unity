@@ -23,11 +23,24 @@ namespace Baseball.Presentation.Match.Sprites
         public Texture2D background;
         public FieldAnchorDefinition[] anchors = Array.Empty<FieldAnchorDefinition>();
         public float foregroundHeight = 300f;
+        public Vector2 actorShadowSize = new Vector2(110f, 18f);
+        public float catcherScale = 0.82f;
+        public float runnerScale = 0.86f;
+        public float runnerSecondsPerBase = 0.9f;
+        public float batterRunStartProgress = 0.25f;
+        public float batterRunLeadProgress = 0.45f;
+        public float runnerPendingProgress = 0.85f;
+        public Vector2 baseReceiverOffset = new Vector2(0.02f, 0.01f);
         public float depthScale = 0.2f;
+        public float depthExponent = 1.6f;
+        public float ballDiameter = 8f;
+        public float minimumBallDiameter = 1.5f;
         public float ballHeightScale = 0.25f;
         public float duelZoom = 1f;
         public float fieldZoom = 1.08f;
         public float highlightZoom = 1.25f;
+        public float contactZoom = 1.35f;
+        public float contactCameraPeakProgress = 0.18f;
         public Vector2 pitcherReleaseOffset = new Vector2(0, 0.055f);
         public Vector2 batContactOffset = new Vector2(0, 0.04f);
 

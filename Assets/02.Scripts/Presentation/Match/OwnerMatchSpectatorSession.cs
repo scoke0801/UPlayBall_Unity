@@ -566,6 +566,14 @@ namespace Baseball.Presentation.Match
             return data;
         }
 
+        /// <summary>HUD를 공개하지 않고 같은 타구의 기존 주자 이동만 연출 버퍼에 복사한다.</summary>
+        public int CopyUpcomingRunnerRoutes(OwnerMatchRunnerRoute[] destination)
+        {
+            MatchHudBaseStateModel bases = CurrentHud.Bases;
+            return OwnerMatchRunnerRoute.Collect(_events, _visibleEventCount, CurrentHud.Batter.PlayerId,
+                bases.First.PlayerId, bases.Second.PlayerId, bases.Third.PlayerId, destination);
+        }
+
         /// <summary>연출이 끝난 사건 한 건만 공개한다. 일시정지 중에는 공개하지 않는다.</summary>
         public bool TryRevealPlaybackEvent()
         {

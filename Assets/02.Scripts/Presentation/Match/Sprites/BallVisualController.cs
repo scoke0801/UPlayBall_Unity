@@ -9,12 +9,14 @@ namespace Baseball.Presentation.Match.Sprites
         private readonly RectTransform _parent;
         private readonly RectTransform _ball;
         private readonly RectTransform _shadow;
+        private readonly FieldProjection _projection;
         public bool IsVisible => _ball.gameObject.activeSelf;
 
         /// <summary>독립 공과 그림자를 한 번 생성한다.</summary>
-        public BallVisualController(RectTransform parent, Sprite sprite)
+        public BallVisualController(RectTransform parent, Sprite sprite, FieldProjection projection = null)
         {
             _parent = parent;
+            _projection = projection;
             _shadow = SpriteActor.CreateImage(parent, "BallShadow", true).rectTransform;
             _shadow.GetComponent<Image>().color = new Color(0, 0, 0, 0.3f);
             _shadow.sizeDelta = new Vector2(12, 5);
@@ -38,6 +40,13 @@ namespace Baseball.Presentation.Match.Sprites
         public void Render(Vector2 start, Vector2 end, float progress, float peakHeight)
         {
             Vector3 point = Evaluate(start, end, progress, peakHeight);
+            if (_projection != null)
+            {
+                float diameter = Mathf.Max(_projection.Layout.minimumBallDiameter,
+                    _projection.Layout.ballDiameter * _projection.DepthScale(point.y)) * _parent.rect.height / 552f;
+                _ball.sizeDelta = new Vector2(diameter, diameter);
+                _shadow.sizeDelta = new Vector2(diameter, diameter * 0.4f);
+            }
             _ball.gameObject.SetActive(true);
             _shadow.gameObject.SetActive(true);
             _ball.anchoredPosition = FieldProjection.ToScreen(new Vector2(point.x, point.y), _parent.rect.size, point.z);

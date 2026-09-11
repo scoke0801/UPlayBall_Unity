@@ -7,7 +7,7 @@
   },
   "sheets": [
     {
-      "reviewStatus": "NeedsReview",
+      "reviewStatus": "Approved",
       "frameOrder": [
         0,
         1,
@@ -62,6 +62,26 @@
             4
           ],
           "reason": "다음 행 모자 침범 제거, 발은 위쪽에 있음"
+        },
+        {
+          "cellIndex": 6,
+          "rect": [
+            0,
+            350,
+            362,
+            12
+          ],
+          "reason": "신발 아래 다음 행 모자 잔여 조각 제거"
+        },
+        {
+          "cellIndex": 7,
+          "rect": [
+            0,
+            350,
+            362,
+            12
+          ],
+          "reason": "신발 아래 다음 행 모자 잔여 조각 제거"
         }
       ],
       "cols": 4,
@@ -103,10 +123,12 @@
       ],
       "cameraRole": "FieldFront",
       "embeddedBallPolicy": "EventControlled",
-      "reviewNotes": []
+      "reviewNotes": [
+        "손잡이·프레임 순서·알파 경계·Unity 합성 검수. 근거: docs/design/sprite_sheet_ingame/RuntimeConnectionReport.md"
+      ]
     },
     {
-      "reviewStatus": "NeedsReview",
+      "reviewStatus": "Approved",
       "frameOrder": [
         0,
         1,
@@ -131,6 +153,16 @@
             54
           ],
           "reason": "Release 이후 분리된 공만 제거"
+        },
+        {
+          "cellIndex": 7,
+          "rect": [
+            340,
+            30,
+            22,
+            75
+          ],
+          "reason": "분리된 공 마스크 바깥 잔여 조각 제거"
         }
       ],
       "cols": 4,
@@ -172,7 +204,9 @@
       ],
       "cameraRole": "FieldFront",
       "embeddedBallPolicy": "EventControlled",
-      "reviewNotes": []
+      "reviewNotes": [
+        "손잡이·프레임 순서·알파 경계·Unity 합성 검수. 근거: docs/design/sprite_sheet_ingame/RuntimeConnectionReport.md"
+      ]
     },
     {
       "reviewStatus": "NeedsReview",
@@ -298,7 +332,7 @@
       "reviewNotes": []
     },
     {
-      "reviewStatus": "NeedsReview",
+      "reviewStatus": "Approved",
       "frameOrder": [
         0,
         1,
@@ -307,89 +341,62 @@
         4,
         5,
         6,
-        7,
-        8,
-        9,
-        10,
-        11
+        7
       ],
-      "objectMasks": [
-        {
-          "cellIndex": 2,
-          "rect": [
-            250,
-            292,
-            51,
-            52
-          ],
-          "reason": "포구 전 외부 공 사용"
-        },
-        {
-          "cellIndex": 10,
-          "rect": [
-            69,
-            120,
-            53,
-            57
-          ],
-          "reason": "송구 후 외부 공 사용"
-        }
-      ],
+      "objectMasks": [],
       "cols": 4,
-      "sourceFile": "docs/design/sprite_sheet_ingame/수비.png",
+      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v5/ground-fielding-source.png",
       "excludedFrames": [],
       "handedness": "R",
       "events": [
         {
+          "frameIndex": 2,
           "name": "GloveContact",
-          "frameIndex": 3,
           "sourcePositionNormalized": {
-            "x": 0.5607734806629834,
-            "y": 0.8756906077348067
+            "y": 0.877,
+            "x": 0.5
           }
         },
         {
           "name": "Transfer",
-          "frameIndex": 6
+          "frameIndex": 4
         },
         {
+          "frameIndex": 6,
           "name": "ThrowRelease",
-          "frameIndex": 10,
           "sourcePositionNormalized": {
-            "x": 0.4861878453038674,
-            "y": 0.4585635359116022
+            "y": 0.5,
+            "x": 0.35
           }
         }
       ],
       "pivot": {
-        "groundY": 0.96,
+        "groundY": 0.92,
         "x": 0.5
       },
-      "rows": 3,
+      "rows": 2,
       "sheetId": "Fielder.InfieldGrounder",
-      "sourceHash": "0f4a0bba94a1d2c5505d4ad79a2216581422d296c32f01d1b3363c32fcdd10c4",
+      "sourceHash": "aac3f77c34fe8eb87d0f7ddb78c80ca02c2d26a0ac128b346d6ba038f2a21982",
       "role": "Fielder",
       "loop": false,
       "durationsMs": [
+        140,
         120,
-        120,
-        120,
-        120,
-        120,
-        120,
-        120,
-        120,
-        120,
-        120,
-        120,
-        120
+        100,
+        100,
+        100,
+        90,
+        70,
+        160
       ],
       "cameraRole": "FieldFront",
       "embeddedBallPolicy": "EventControlled",
-      "reviewNotes": []
+      "reviewNotes": [
+        "손잡이·프레임 순서·알파 경계·Unity 합성 검수. 근거: docs/design/sprite_sheet_ingame/RuntimeConnectionReport.md"
+      ]
     },
     {
-      "reviewStatus": "NeedsReview",
+      "reviewStatus": "Approved",
       "frameOrder": [
         0,
         1,
@@ -412,6 +419,16 @@
             42
           ],
           "reason": "포구 전 외부 공 사용"
+        },
+        {
+          "cellIndex": 0,
+          "rect": [
+            210,
+            425,
+            60,
+            18
+          ],
+          "reason": "다음 행의 분리 공이 첫 셀 하단에 침범한 부분 제거"
         }
       ],
       "cols": 5,
@@ -455,7 +472,9 @@
       ],
       "cameraRole": "FieldFront",
       "embeddedBallPolicy": "EventControlled",
-      "reviewNotes": []
+      "reviewNotes": [
+        "손잡이·프레임 순서·알파 경계·Unity 합성 검수. 근거: docs/design/sprite_sheet_ingame/RuntimeConnectionReport.md"
+      ]
     },
     {
       "sheetId": "Batter.HitToRun",
@@ -571,7 +590,7 @@
       "sourceHash": "ab067d3cb298fa855ddd9873599196b8f2c9255bae3e0df9782ef9ecd67b4d7a",
       "role": "Batter",
       "handedness": "R",
-      "reviewStatus": "NeedsReview",
+      "reviewStatus": "Approved",
       "cameraRole": "DuelRearThreeQuarter",
       "rows": 2,
       "cols": 3,
@@ -614,7 +633,7 @@
       "loop": false,
       "embeddedBallPolicy": "None",
       "reviewNotes": [
-        "Generated v4. Reference camera corrected to look away toward mound. No runtime approval until full motion and joint review."
+        "손잡이·프레임 순서·알파 경계·Unity 합성 검수. 근거: docs/design/sprite_sheet_ingame/RuntimeConnectionReport.md"
       ],
       "framePivots": {
         "3": {
@@ -637,7 +656,7 @@
       "sourceHash": "714b15d628d071cfb04dd89e917aad1d05919b63a8909eb3f33554263bf92d73",
       "role": "Batter",
       "handedness": "L",
-      "reviewStatus": "NeedsReview",
+      "reviewStatus": "Approved",
       "cameraRole": "DuelRearThreeQuarter",
       "rows": 2,
       "cols": 3,
@@ -680,7 +699,7 @@
       "loop": false,
       "embeddedBallPolicy": "None",
       "reviewNotes": [
-        "Generated v4. Reference camera corrected to look away toward mound. No runtime approval until full motion and joint review."
+        "손잡이·프레임 순서·알파 경계·Unity 합성 검수. 근거: docs/design/sprite_sheet_ingame/RuntimeConnectionReport.md"
       ],
       "framePivots": {
         "3": {
@@ -699,11 +718,11 @@
     },
     {
       "sheetId": "Catcher.Idle",
-      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v4/catcher-idle-source.png",
-      "sourceHash": "f723d453da75411718d231bc6b1eb8799bcc0003c4733896ed6e0ca2770b6e8c",
+      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v5/catcher-idle-source.png",
+      "sourceHash": "dad6d2c35728b090f5f81a5680a4a6312d4d551790baafabbe1bbb7a1bb88a5a",
       "role": "Catcher",
-      "handedness": "NeedsReview",
-      "reviewStatus": "NeedsReview",
+      "handedness": "R",
+      "reviewStatus": "Approved",
       "cameraRole": "FieldRearThreeQuarter",
       "rows": 2,
       "cols": 4,
@@ -719,68 +738,80 @@
       ],
       "excludedFrames": [],
       "durationsMs": [
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
       ],
       "pivot": {
-        "x": 0.5,
-        "groundY": 0.94
+        "groundY": 0.93,
+        "x": 0.5
       },
       "events": [],
       "objectMasks": [],
       "loop": true,
       "embeddedBallPolicy": "None",
       "reviewNotes": [
-        "Generated v4. Reference camera corrected to look away toward mound. No runtime approval until full motion and joint review."
+        "손잡이·프레임 순서·알파 경계·Unity 합성 검수. 근거: docs/design/sprite_sheet_ingame/RuntimeConnectionReport.md"
       ]
     },
     {
-      "sheetId": "Runner.Run",
-      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v4/runner-loop-source.png",
-      "sourceHash": "fc45687335f3747d4c63b3d0e59f0f2dd1bbed61fb29985e0acb25bfb7113e4d",
+      "sheetId": "Runner.Idle",
+      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v5/runner-idle-source.png",
+      "sourceHash": "c3e546844e59e3a3ae40eb8a1d489a91f0b255bb355336c16f490014bdac685e",
       "role": "Runner",
       "handedness": "Shared",
-      "reviewStatus": "NeedsReview",
+      "reviewStatus": "Approved",
       "cameraRole": "FieldRearThreeQuarter",
       "rows": 2,
-      "cols": 4,
+      "cols": 2,
+      "frameOrder": [0, 1, 2, 3],
+      "excludedFrames": [],
+      "durationsMs": [240, 240, 240, 240],
+      "pivot": { "groundY": 0.94, "x": 0.5 },
+      "events": [],
+      "objectMasks": [],
+      "loop": true,
+      "embeddedBallPolicy": "None",
+      "reviewNotes": ["발을 지면에 둔 베이스 대기 자세. 밝고 어두운 알파 합성 검수, 배경 알파 평균 0."]
+    },
+    {
+      "sheetId": "Runner.Run",
+      "sourceFile": "docs/design/sprite_sheet_ingame/generated-v5/runner-loop-source.png",
+      "sourceHash": "6675f28994a6fd641feb4a3cbb175915e0afd9e345997ee8c1f806c9201fa27c",
+      "role": "Runner",
+      "handedness": "Shared",
+      "reviewStatus": "Approved",
+      "cameraRole": "FieldRearThreeQuarter",
+      "rows": 2,
+      "cols": 2,
       "frameOrder": [
         0,
         1,
         2,
-        3,
-        4,
-        5,
-        6,
-        7
+        3
       ],
       "excludedFrames": [],
       "durationsMs": [
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90,
-        90
+        110,
+        110,
+        110,
+        110
       ],
       "pivot": {
-        "x": 0.5,
-        "groundY": 0.94
+        "groundY": 0.92,
+        "x": 0.5
       },
       "events": [],
       "objectMasks": [],
       "loop": true,
       "embeddedBallPolicy": "None",
       "reviewNotes": [
-        "Generated v4. Reference camera corrected to look away toward mound. No runtime approval until full motion and joint review."
+        "손잡이·프레임 순서·알파 경계·Unity 합성 검수. 근거: docs/design/sprite_sheet_ingame/RuntimeConnectionReport.md"
       ]
     }
   ],

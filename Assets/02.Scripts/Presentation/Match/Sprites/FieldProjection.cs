@@ -58,7 +58,7 @@ namespace Baseball.Presentation.Match.Sprites
         public float DepthScale(float imageY)
         {
             float depth = Mathf.InverseLerp(Layout.GetAnchor(FieldAnchor.CenterField).y, Layout.GetAnchor(FieldAnchor.HomePlate).y, imageY);
-            return Mathf.Lerp(Layout.depthScale, 1f, depth * depth);
+            return Mathf.Lerp(Layout.depthScale, 1f, Mathf.Pow(depth, Layout.depthExponent));
         }
 
         /// <summary>지면 위치와 독립 높이를 UI 좌표로 변환한다.</summary>

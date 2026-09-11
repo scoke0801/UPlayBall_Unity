@@ -404,8 +404,11 @@ namespace Baseball.Presentation.Match
         {
             for (int i = host.childCount - 1; i >= 0; i--)
             {
-                host.GetChild(i).gameObject.SetActive(false);
-                Destroy(host.GetChild(i).gameObject);
+                GameObject child = host.GetChild(i).gameObject;
+                child.SetActive(false);
+                // 관전 전체 재생을 EditMode에서도 검증하므로 프레임 종료에 의존하지 않고 정리한다.
+                if (Application.isPlaying) Destroy(child);
+                else DestroyImmediate(child);
             }
         }
 

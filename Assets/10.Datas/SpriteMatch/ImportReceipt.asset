@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: acbfb20a52ce4bc8bd2ae47e12452dd6, type: 3}
   m_Name: ImportReceipt
   m_EditorClassIdentifier: Baseball.Editor::Baseball.Editor.SpriteSheets.SpriteSheetImportReceipt
-  fingerprint: b9316bc607f0ebdf9ce6b0baa457bab3cada6363728d92f1d324f2d98e969e46
+  fingerprint: d133268a5e9d9bc750c36e4e3d9374ff18ee731e97d635af4494b5d1466ddaac
