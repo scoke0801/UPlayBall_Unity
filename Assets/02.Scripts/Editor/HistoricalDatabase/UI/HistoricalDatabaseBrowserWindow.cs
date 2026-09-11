@@ -62,7 +62,6 @@ namespace Baseball.Editor.HistoricalDatabase
         private ScrollView _teamDetailScroll;
         private VisualElement _teamDetailContent;
 
-        [MenuItem("Baseball/Historical Database Browser", priority = 10)]
         [BaseballEditorTool(
             "데이터",
             "Historical Database Browser",

@@ -1,16 +1,21 @@
 using System;
 using System.Diagnostics;
 using Baseball.Core.Historical;
+using Baseball.Editor.Tools;
 using Baseball.Game.Data;
 using Baseball.Game.Historical;
-using UnityEditor;
 
 namespace Baseball.Editor.Historical
 {
     /// <summary>Production 역사 Archive에서 도감 Index·조회 시간과 할당량을 재현 가능하게 측정한다.</summary>
     public static class EncyclopediaPerformanceAudit
     {
-        [MenuItem("Baseball/Historical/Measure Encyclopedia Performance")]
+        [BaseballEditorTool(
+            "검증",
+            "도감 성능 측정",
+            "Production 역사 Archive로 도감 Index 생성·조회 시간과 할당량을 측정합니다. 데이터는 변경하지 않습니다.",
+            order: 40,
+            impact: ToolImpact.ReadOnly)]
         public static void Run()
         {
             var total = Stopwatch.StartNew();
