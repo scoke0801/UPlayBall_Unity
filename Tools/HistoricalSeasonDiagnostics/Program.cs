@@ -18,6 +18,25 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        try { return Run(args); }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            return 1;
+        }
+    }
+
+    private static int Run(string[] args)
+    {
+        int workers = 1;
+        if (args.Length >= 2 && args[0] == "--workers")
+        {
+            workers = int.Parse(args[1], CultureInfo.InvariantCulture);
+            if (workers < 1 || workers > 16) throw new ArgumentOutOfRangeException(nameof(workers));
+            args = args.Skip(2).ToArray();
+        }
+        if (args.Length == 2 && args[0] == "--validate-content")
+            return ContentValidation.Run(args[1]);
         string balancePath = Baseball.Tools.CommonMatchBalanceInput.DefaultPath;
         string ratingCurvePath = Baseball.Tools.CommonMatchBalanceInput.RatingCurvePath;
         if (args.Length >= 2 && args[0] == "--rating-curve")
@@ -79,21 +98,34 @@ internal static class Program
 
         var identities = new WorldIdentityGenerator().Generate(content.PlayerPersons, content.TeamSeasons,
             content.IdentityNameCatalog, 20260905);
-        var source = new BakedHistoricalDetailedSeasonSource(content, balance, identities);
         MethodInfo aggregate = typeof(DetailedMatchHistoricalSeasonAdapter).GetMethod("Aggregate",
             BindingFlags.NonPublic | BindingFlags.Static)
             ?? throw new MissingMethodException("시즌 기록 집계 함수가 변경되어 진단 도구 갱신이 필요합니다.");
-        var rows = new List<object>();
+        var checkpoints = new SeasonDiagnosticCheckpoint(output, content.Manifest.ContentHash,
+            balance.ContentHash, Baseball.Core.Rules.SimulationVersionStamp.CurrentEngineVersion,
+            repeats, balance.CareerSeason.RegularSeasonGamesPerTeam, JsonOptions);
         long games = 0;
-        foreach (int year in years)
+        Parallel.ForEach(years, new ParallelOptions { MaxDegreeOfParallelism = workers }, year =>
         {
+            // 연도별 가변 시즌 상태를 공유하지 않고 결과는 마지막에 연도·시드 순서로 합친다.
+            var source = new BakedHistoricalDetailedSeasonSource(content, balance, identities);
+            var rows = new List<object>();
+            long yearGames = 0;
             var teams = content.GetYear(year).TeamSeasons;
+            if (checkpoints.TryRead(year, out yearGames, out string firstChecksum))
+            {
+                if (HashMatches(source.RunSeason(20260905UL, teams)) != firstChecksum)
+                    throw new InvalidOperationException($"중간 저장 재실행 결정론 실패: {year}");
+                Interlocked.Add(ref games, yearGames);
+                Console.WriteLine($"{year}: 검증된 {repeats}시즌 중간 저장 재사용");
+                return;
+            }
             for (int run = 0; run < repeats; run++)
             {
                 // 공통 시드를 사용하는 전후 비교다. 실제 경기 Seed는 Production 경로에서 파생한다.
                 ulong seed = 20260905UL + (ulong)run * 104729UL;
                 var result = source.RunSeason(seed, teams);
-                games += source.LastRunMetrics.TotalGameCount;
+                yearGames += source.LastRunMetrics.TotalGameCount;
                 var rotations = ValidateRotation(result, teams);
                 var statistics = aggregate.Invoke(null, new object[] { result, teams });
                 string checksum = HashMatches(result);
@@ -103,11 +135,14 @@ internal static class Program
                     teamMetrics = SummarizeTeamMetrics(result, teams),
                     standings = result.Standings, statistics, rotations });
             }
-            Console.WriteLine($"{year}: {repeats}시즌 완료, 누적 {games}경기");
-        }
+            checkpoints.Write(year, yearGames, rows);
+            long completedGames = Interlocked.Add(ref games, yearGames);
+            Console.WriteLine($"{year}: {repeats}시즌 완료, 누적 {completedGames}경기");
+        });
+        var rows = years.SelectMany(checkpoints.ReadRows);
 
         Directory.CreateDirectory(Path.GetDirectoryName(output));
-        File.WriteAllText(output, JsonSerializer.Serialize(new
+        SeasonDiagnosticCheckpoint.WriteAtomically(output, new
         {
             contentHash = content.Manifest.ContentHash, balanceHash = balance.ContentHash,
             engineVersion = Baseball.Core.Rules.SimulationVersionStamp.CurrentEngineVersion,
@@ -117,7 +152,7 @@ internal static class Program
             balanceInputs = new { miniGame = balance.MiniGame, match = balance.Match, ratingCurve = balance.MatchRatingCurve },
             regularSeasonGamesPerTeam = balance.CareerSeason.RegularSeasonGamesPerTeam,
             repeatCount = repeats, games, determinismChecks = years.Length, rotationPolicy = "FixedFive", rows
-        }, JsonOptions));
+        }, JsonOptions);
         return 0;
     }
 
@@ -209,6 +244,9 @@ internal static class Program
         var byKey = teams.ToDictionary(t => t.TeamSeasonKey);
         var games = teams.ToDictionary(t => t.TeamSeasonKey, _ => 0);
         var starts = teams.ToDictionary(t => t.TeamSeasonKey, _ => new int[5]);
+        var wins = teams.ToDictionary(t => t.TeamSeasonKey, _ => new int[5]);
+        var losses = teams.ToDictionary(t => t.TeamSeasonKey, _ => new int[5]);
+        var draws = teams.ToDictionary(t => t.TeamSeasonKey, _ => new int[5]);
         foreach (var match in result.Matches)
         {
             if (match.Stage == HistoricalMatchStage.AllStarGame) continue;
@@ -218,10 +256,20 @@ internal static class Program
                 int index = games[starter.TeamSeasonKey]++ % 5;
                 if (starter.PlayerSeasonId + ":Normal" != byKey[starter.TeamSeasonKey].Core25CardIds[14 + index])
                     throw new InvalidOperationException($"1~5선발 순환 위반: {starter.TeamSeasonKey}");
-                if (match.Stage != HistoricalMatchStage.Postseason) starts[starter.TeamSeasonKey][index]++;
+                if (match.Stage == HistoricalMatchStage.Postseason) continue;
+                starts[starter.TeamSeasonKey][index]++;
+                bool isAway = roster == match.Result.Input.AwayRoster;
+                int runDifference = match.Result.AwayBoxScore.Runs - match.Result.HomeBoxScore.Runs;
+                int teamDifference = isAway ? runDifference : -runDifference;
+                // 선발 개인의 승패가 아니라 해당 순번이 등판한 경기의 팀 승패다.
+                if (teamDifference > 0) wins[starter.TeamSeasonKey][index]++;
+                else if (teamDifference < 0) losses[starter.TeamSeasonKey][index]++;
+                else draws[starter.TeamSeasonKey][index]++;
             }
         }
         return teams.Select(t => (object)new { teamSeasonKey = t.TeamSeasonKey,
-            regularStarts = starts[t.TeamSeasonKey] }).ToArray();
+            regularStarts = starts[t.TeamSeasonKey],
+            regularTeamWins = wins[t.TeamSeasonKey], regularTeamLosses = losses[t.TeamSeasonKey],
+            regularTeamDraws = draws[t.TeamSeasonKey] }).ToArray();
     }
 }

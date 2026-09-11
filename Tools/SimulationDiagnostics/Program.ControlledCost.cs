@@ -18,12 +18,17 @@ namespace Baseball.Tools.SimulationDiagnostics
             int count = ParseCount(args, 1, 10000);
             string path = args.Length > 2 ? args[2] :
                 "Assets/Editor Default Resources/HistoricalSimulation/1982-2025/Runtime/Years/2025.json";
+            int lowCost = args.Length > 3 ? int.Parse(args[3]) : 1;
+            if (lowCost < 1 || lowCost >= 10) throw new ArgumentOutOfRangeException(nameof(lowCost));
+            BalanceTable balance = args.Length > 4
+                ? Baseball.Tools.CommonMatchBalanceInput.Load(args[4]) : BalanceTable.CreateDefault();
             using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
             Console.WriteLine($"ControlledCost GamesPerScenario={count} Source={path}");
+            Console.WriteLine($"BalanceHash={balance.ContentHash}");
             Console.WriteLine("동일 상대·Seed·중립 구단의 한 슬롯만 교체. 현재 코드 비교이며 변경 전 엔진과 비교하지 않음.");
             foreach (bool pitcher in new[] { false, true })
             {
-                foreach (int cost in new[] { 1, 10 })
+                foreach (int cost in new[] { lowCost, 10 })
                 {
                     JsonElement season = SelectControlledSeason(document.RootElement.GetProperty("playerSeasons"), pitcher, cost);
                     Player selected = CreateControlledPlayer(season, pitcher);
@@ -37,7 +42,6 @@ namespace Baseball.Tools.SimulationDiagnostics
                         baseline.Bullpen, Array.Empty<Player>(), ManagerTacticalProfile.Balanced, RunningApproach.Balanced);
                     MatchRosterSnapshot opponent = CreateRoster(2, 50, 50, 50);
                     var aggregate = new ControlledStatistics();
-                    BalanceTable balance = BalanceTable.CreateDefault();
                     for (int i = 0; i < count; i++)
                     {
                         ulong seed = DeterministicSeed.Derive(0xC051UL, (ulong)i);

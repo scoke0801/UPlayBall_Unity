@@ -1,6 +1,5 @@
 """같은 연도·시드의 실제 시즌 결과를 KBO 정규시즌 성적과 비교한다."""
 import argparse
-import hashlib
 import json
 import statistics
 import sys
@@ -8,10 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'KBOImporter'))
 from source_backed_runtime_bake import runtime_team_season_key
-
-
-def read(path):
-    return json.loads(Path(path).read_text(encoding='utf-8'))
+from simulation_report import read, file_hash
 
 
 def summarize(rows, key):
@@ -25,8 +21,13 @@ def summarize(rows, key):
 
 def league_stats(data):
     teams = [t for row in data['rows'] for t in row['teams']]
-    players = [p for row in data['rows'] for p in row['statistics']
-               if not p['IsFirstHalf'] and not p['IsPostseason'] and not p['IsAllStarGame']]
+    players = []
+    for row in data['rows']:
+        if 'regularTotals' in row:
+            players.append(row['regularTotals'])
+        else:
+            players.extend(p for p in row['statistics']
+                           if not p['IsFirstHalf'] and not p['IsPostseason'] and not p['IsAllStarGame'])
     games = sum(t['Games'] for t in teams) // 2
     walks, strikeouts = sum(p['Walks'] for p in players), sum(p['Strikeouts'] for p in players)
     return dict(regularGames=games, AVG=sum(t['Hits'] for t in teams) / sum(t['AtBats'] for t in teams),
@@ -99,7 +100,7 @@ def main():
             winRateMae=statistics.mean(abs(t['actualWinRate'] - t[phase]['winRate']) for t in teams),
             withinYearCorrelation=statistics.correlation(actual, predicted),
             actualFirstPlaceAlsoPredictedFirst=sum(t['actualRank'] == 1 and t[phase]['rank'] == 1 for t in teams))
-    metadata = {phase: dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+    metadata = {phase: dict(path=str(path), sha256=file_hash(path),
                            **{k: v for k, v in data.items() if k != 'rows'})
                 for phase, data, path in [('before', before, args.before), ('after', after, args.after)]}
     result = dict(metadata=metadata, comparedSeasons=len(before['rows']),

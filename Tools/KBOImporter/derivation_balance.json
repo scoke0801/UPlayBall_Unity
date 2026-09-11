@@ -1,6 +1,6 @@
 {
-  "version": "historical-derivation-balance-v25",
-  "abilityFormulaVersion": "historical-ability-v11",
+  "version": "historical-derivation-balance-v26",
+  "abilityFormulaVersion": "historical-ability-v12",
   "costFormulaVersion": "historical-season-value-v18",
   "positionRoleClassifierVersion": "season-position-role-v6",
   "rosterBuilderVersion": "ability-fit-core25-v8",
@@ -4231,5 +4231,49 @@
   "runtimePersonMetadata": {
     "seedSalt": "historical-derivation-balance-v23",
     "note": "평가식 버전과 분리한 고정 신원 Seed. 기존 v23 콘텐츠의 생년·손잡이·잠재 특성을 보존한다."
+  },
+  "hitterRecordCalibration": {
+    "version": "individual-hitting-candidate-v3",
+    "description": "개인 타격 기록을 100기회 사전 표본으로 수축하고 300타수·타석까지 기존 추정을 혼합한다. 관측 카드 속성은 보존하며 팀 성적·순위는 사용하지 않는다.",
+    "metrics": [
+      {
+        "index": 0,
+        "denominator": "atBats",
+        "numerator": {
+          "hits": 1
+        },
+        "prior": 100,
+        "blendWithExisting": true,
+        "fullSample": 300,
+        "center": 68,
+        "scale": 6
+      },
+      {
+        "index": 1,
+        "denominator": "atBats",
+        "numerator": {
+          "doubles": 1,
+          "triples": 2,
+          "homeRuns": 3
+        },
+        "prior": 100,
+        "blendWithExisting": true,
+        "fullSample": 300,
+        "center": 65,
+        "scale": 8
+      },
+      {
+        "index": 5,
+        "denominator": "plateAppearances",
+        "numerator": {
+          "walks": 1
+        },
+        "prior": 100,
+        "blendWithExisting": true,
+        "fullSample": 300,
+        "center": 65,
+        "scale": 8
+      }
+    ]
   }
 }

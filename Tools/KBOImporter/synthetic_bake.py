@@ -17,6 +17,7 @@ import source_backed_runtime_bake as pitch_source_identity
 import source_position_evidence
 import velocity_estimation
 import elite_cost
+import hitter_record_calibration
 
 from kbo_importer import IMPORTER_VERSION as NORMALIZED_IMPORTER_VERSION
 from kbo_importer import SCHEMA_VERSION as NORMALIZED_SCHEMA_VERSION
@@ -2901,6 +2902,13 @@ def build_editor_original_content(
                     person["primaryPosition"] = position
 
         assign_origin_year_costs(seasons)
+        hitting_calibration = DERIVATION_BALANCE.get("hitterRecordCalibration")
+        if hitting_calibration is not None:
+            hitter_record_calibration.apply_to_seasons(seasons,
+                {key: player.get("hitterStats") or {} for key, player in source_by_season_id.items()},
+                hitting_calibration["metrics"], clamp_rating)
+            for season in seasons:
+                season["derivationWarnings"] = build_ability_validation_warnings(season["abilityDerivationTrace"])
         apply_annual_reference_overrides(seasons,annual_reference_overrides)
         elite_cost.apply_cost_floors(seasons)
 

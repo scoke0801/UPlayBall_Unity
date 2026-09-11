@@ -60,6 +60,25 @@ namespace Baseball.Editor.HistoricalDatabase
         public double Contribution => contribution;
     }
 
+    /// <summary>개인 타격 기록 추정과 기존 능력치를 표본 신뢰도로 혼합한 근거다.</summary>
+    [Serializable]
+    public sealed class HistoricalHittingRecordCalibrationTrace
+    {
+        [SerializeField] private double denominator;
+        [SerializeField] private double priorSample;
+        [SerializeField] private double rating;
+        [SerializeField] private double previousRating;
+        [SerializeField] private double ratingReliability;
+        [SerializeField] private double fullSample;
+
+        public double SampleSize => denominator;
+        public double PriorSample => priorSample;
+        public double RecordRating => rating;
+        public double PreviousRating => previousRating;
+        public double RatingReliability => ratingReliability;
+        public double FullSample => fullSample;
+    }
+
     /// <summary>BaseAttribute 하나가 Rating으로 변환된 전 과정을 보관한다.</summary>
     [Serializable]
     public sealed class HistoricalAbilityDerivationTrace
@@ -72,6 +91,7 @@ namespace Baseball.Editor.HistoricalDatabase
         [SerializeField] private double combinedZ;
         [SerializeField] private double ratingBeforeClamp;
         [SerializeField] private int ratingAfterClamp;
+        [SerializeField] private HistoricalHittingRecordCalibrationTrace recordCalibration;
 
         public string PlayerSeasonId => playerSeasonId ?? string.Empty;
         public int SeasonYear => seasonYear;
@@ -82,6 +102,7 @@ namespace Baseball.Editor.HistoricalDatabase
         public double CombinedZ => combinedZ;
         public double RatingBeforeClamp => ratingBeforeClamp;
         public int RatingAfterClamp => ratingAfterClamp;
+        public HistoricalHittingRecordCalibrationTrace RecordCalibration => recordCalibration;
     }
 
     /// <summary>역할 보정 Composite에 적용한 능력치별 Weight를 보관한다.</summary>

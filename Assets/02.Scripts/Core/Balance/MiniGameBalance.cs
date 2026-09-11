@@ -53,7 +53,7 @@ namespace Baseball.Core.Balance
             double hitByPitchMinimumInsideLocation = 1.18d,
             double hitByPitchMaximumHeight = 1.05d,
             double hitByPitchContactProbability = .18d,
-            double aiMentalChaseWeight = .002d)
+            double aiMentalChaseWeight = .0045d)
         {
             if (!(aiMentalChaseWeight >= 0d) || aiMentalChaseWeight > .05d)
                 throw new System.ArgumentOutOfRangeException(nameof(aiMentalChaseWeight));
@@ -173,6 +173,7 @@ namespace Baseball.Core.Balance
         public double HitByPitchMaximumHeight { get; }
         public double HitByPitchContactProbability { get; }
         /// <summary>Mental 1점당 AI 타자가 존 밖 공을 쫓는 확률의 감소량이다.</summary>
+        // 기본값 .0045는 역사 개인 기록의 팀당 볼넷 3.372를 목표로 검증했다. 팀 승률은 입력하지 않는다.
         public double AiMentalChaseWeight { get; }
 
         private static void ValidateProbability(double value, string name)

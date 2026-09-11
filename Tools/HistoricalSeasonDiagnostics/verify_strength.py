@@ -5,6 +5,7 @@ import math
 import statistics
 from collections import defaultdict
 from pathlib import Path
+from simulation_report import read
 
 
 def evaluate(simulation, reference, tolerance=0.05, minimum_repeats=32):
@@ -71,7 +72,6 @@ def main():
     parser.add_argument("--years", help="단계 검증에서 선택할 연도 목록")
     parser.add_argument("--tolerance", type=float, default=.05)
     args = parser.parse_args()
-    read = lambda path: json.loads(path.read_text(encoding="utf-8-sig"))
     reference = read(args.reference)
     if args.years:
         years = set(map(int, args.years.split(',')))

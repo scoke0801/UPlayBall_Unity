@@ -1,11 +1,11 @@
 """연도별 선두의 실제 승률과 시뮬레이션 승률을 검증 전용 보고서로 만든다."""
 import argparse
-import hashlib
 import json
 import statistics
 from pathlib import Path
 
 from verify_strength import evaluate
+from simulation_report import read, file_hash
 
 
 def main():
@@ -15,7 +15,6 @@ def main():
     parser.add_argument('output', type=Path)
     parser.add_argument('--supplement', type=Path, action='append', default=[])
     args = parser.parse_args()
-    read = lambda path: json.loads(path.read_text(encoding='utf-8-sig'))
     reference = read(args.reference)
     source = read(args.simulation)
     selected = dict(source)
@@ -42,7 +41,7 @@ def main():
     if any('difference' not in team for team in teams):
         raise ValueError('누락된 연도가 있어 완전한 선두 보고서를 만들 수 없습니다.')
     result['gamesDefinition'] = '선택한 연도·시드의 정규시즌 경기, 중복 제외'
-    result['inputs'] = [{'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+    result['inputs'] = [{'path': str(path), 'sha256': file_hash(path)}
                         for path in inputs + [args.reference]]
     result['meanAbsoluteDifference'] = statistics.mean(abs(team['difference']) for team in teams)
     result['ratePassedCount'] = sum(team['ratePassed'] for team in teams)

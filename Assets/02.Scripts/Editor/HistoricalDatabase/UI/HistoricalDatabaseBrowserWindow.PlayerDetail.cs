@@ -350,6 +350,15 @@ namespace Baseball.Editor.HistoricalDatabase
                 detail,
                 "최종 변환",
                 $"Combined Z {trace.CombinedZ:0.0000} → {trace.RatingBeforeClamp:0.00} → {trace.RatingAfterClamp}");
+            if (trace.RecordCalibration != null)
+            {
+                HistoricalHittingRecordCalibrationTrace calibration = trace.RecordCalibration;
+                AddKeyValue(detail, "개인 기록·표본 혼합",
+                    $"기존 추정 {calibration.PreviousRating:0.00} · 기록 추정 {calibration.RecordRating:0.00} · " +
+                    $"기록 반영 {calibration.RatingReliability:P1} · 표본 {calibration.SampleSize:0.##} · " +
+                    $"사전 표본 {calibration.PriorSample:0.##}" +
+                    (calibration.FullSample > 0 ? $" · 완전 반영 표본 {calibration.FullSample:0.##}" : string.Empty));
+            }
             for (int index = 0; index < trace.Components.Count; index++)
             {
                 HistoricalAbilityComponentTrace component = trace.Components[index];

@@ -14,6 +14,10 @@ namespace Baseball.Tools.SimulationDiagnostics
         private static int RunAggregateHistoricalComparison(string[] args)
         {
             int gamesPerPair = ParseCount(args, 2, 200);
+            var balance = args.Length > 3
+                ? Baseball.Tools.CommonMatchBalanceInput.Load(args[3])
+                : BalanceTable.CreateDefault();
+            Console.WriteLine($"balanceHash={balance.ContentHash}");
             var all = new List<StrengthTeam>();
             foreach (string path in Directory.GetFiles(Path.Combine(args[1], "Years"), "*.json").OrderBy(p => p, StringComparer.Ordinal))
                 all.AddRange(ReadStrengthTeams(args[1], int.Parse(Path.GetFileNameWithoutExtension(path))).Values);
@@ -32,7 +36,6 @@ namespace Baseball.Tools.SimulationDiagnostics
                 int[] wins = new int[teams.Length], losses = new int[teams.Length];
                 int gameId = 0;
                 var timer = Stopwatch.StartNew();
-                var balance = BalanceTable.CreateDefault();
                 for (int left = 0; left < teams.Length; left++)
                 for (int right = left + 1; right < teams.Length; right++)
                 for (int sample = 0; sample < gamesPerPair; sample++)

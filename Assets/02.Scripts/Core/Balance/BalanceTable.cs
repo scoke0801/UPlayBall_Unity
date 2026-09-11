@@ -166,7 +166,7 @@ namespace Baseball.Core.Balance
             ClubOperationBalanceTable clubOperation = null,
             Baseball.Core.Historical.StaffBalanceTable staff = null,
             Baseball.Core.Historical.ScoutingConfidenceDefinition scoutingConfidence = null,
-            string contentHash = "builtin-career-content-v5",
+            string contentHash = "builtin-career-content-v6",
             PitchArsenalBalance pitchArsenal = null,
             MatchRatingCurveBalance matchRatingCurve = null,
             Baseball.Core.Historical.LeagueDefinition leaguePromotion = null,

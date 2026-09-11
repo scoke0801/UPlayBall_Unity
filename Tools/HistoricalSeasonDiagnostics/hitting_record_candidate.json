@@ -1,0 +1,36 @@
+{
+  "version": "individual-hitting-candidate-v3",
+  "description": "미채택 연구 후보. 기록 비율은 100기회 사전 표본으로 수축하고, 300타수·타석까지 기존 개인 기록 추정을 남긴다. 관측 카드 속성을 보존하며 팀 성적·순위는 사용하지 않는다.",
+  "metrics": [
+    {
+      "index": 0,
+      "denominator": "atBats",
+      "numerator": { "hits": 1 },
+      "prior": 100,
+      "blendWithExisting": true,
+      "fullSample": 300,
+      "center": 68,
+      "scale": 6
+    },
+    {
+      "index": 1,
+      "denominator": "atBats",
+      "numerator": { "doubles": 1, "triples": 2, "homeRuns": 3 },
+      "prior": 100,
+      "blendWithExisting": true,
+      "fullSample": 300,
+      "center": 65,
+      "scale": 8
+    },
+    {
+      "index": 5,
+      "denominator": "plateAppearances",
+      "numerator": { "walks": 1 },
+      "prior": 100,
+      "blendWithExisting": true,
+      "fullSample": 300,
+      "center": 65,
+      "scale": 8
+    }
+  ]
+}

@@ -6,10 +6,7 @@ import math
 import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
-
-
-def read(path):
-    return json.loads(path.read_text(encoding="utf-8-sig"))
+from simulation_report import read
 
 
 def season_id(source_player_id, year):

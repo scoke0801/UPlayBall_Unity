@@ -104,7 +104,7 @@ namespace Baseball.Game.Data
         public double hitByPitchMinimumInsideLocation = 1.18d;
         public double hitByPitchMaximumHeight = 1.05d;
         public double hitByPitchContactProbability = .18d;
-        public double aiMentalChaseWeight = .002d;
+        public double aiMentalChaseWeight = .0045d;
         public double stealAttemptUtilityScale;
         public double relieverQualityWeight = 2d;
         public double aiPitchQualityDifficultyWeight = .003d;
