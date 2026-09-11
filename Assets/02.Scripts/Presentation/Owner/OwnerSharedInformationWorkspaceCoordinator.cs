@@ -75,7 +75,10 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>현재 Owner 일정 Snapshot을 읽기 전용 Action Provider와 합성한다.</summary>
-        public void BindSchedule(ScheduleScreenSnapshot snapshot, UiCapabilitySet capabilities)
+        public void BindSchedule(
+            ScheduleScreenSnapshot snapshot,
+            UiCapabilitySet capabilities,
+            string focusOwnerName = null)
         {
             RequireInitialized();
             UiContentStateModel state = snapshot == null || snapshot.Games.Count == 0
@@ -102,7 +105,7 @@ namespace Baseball.Presentation.Owner
                 _leagueView.gameObject.SetActive(false);
             }
             if (snapshot != null)
-                _leagueView.Bind(new OwnerLeaguePresentationModel(snapshot));
+                _leagueView.Bind(new OwnerLeaguePresentationModel(snapshot, focusOwnerName));
         }
 
         /// <summary>현재 Save에서 실제 진행한 구단 시즌 이력을 읽기 전용 화면과 합성한다.</summary>

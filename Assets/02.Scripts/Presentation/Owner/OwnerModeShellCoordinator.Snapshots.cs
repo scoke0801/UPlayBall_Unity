@@ -106,7 +106,9 @@ namespace Baseball.Presentation.Owner
                     break;
                 case OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId:
                     _sharedInformationWorkspace.BindSchedule(
-                        _sharedInformationSnapshotFactory.CreateSchedule(_manager), _profile.Capabilities);
+                        _sharedInformationSnapshotFactory.CreateSchedule(_manager),
+                        _profile.Capabilities,
+                        _manager.Runtime.OwnerProfile.Nickname);
                     break;
                 case OwnerSharedInformationWorkspaceCoordinator.RecordsRouteId:
                     _sharedInformationWorkspace.BindClubSeasonHistoryRecords(

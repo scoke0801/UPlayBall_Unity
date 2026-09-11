@@ -81,12 +81,13 @@ namespace Baseball.Presentation.Owner
             {
                 var team = _model.Standings[i];
                 double behind = ((leader.Wins - leader.Losses) - (team.Wins - team.Losses)) / 2d;
+                string teamName = FormatStandingTeamName(team);
                 string[] values = metrics
-                    ? new[] { team.Rank + "위", team.Name, team.Games.ToString(), team.Runs.ToString(),
+                    ? new[] { team.Rank + "위", teamName, team.Games.ToString(), team.Runs.ToString(),
                         team.RunsAllowed.ToString(), (team.Runs - team.RunsAllowed).ToString("+0;-0;0"),
                         team.Games == 0 ? "—" : Rate((double)team.Runs / team.Games, "0.00"),
                         team.Games == 0 ? "—" : Rate((double)team.RunsAllowed / team.Games, "0.00") }
-                    : new[] { team.Rank + "위", team.Name, team.Games.ToString(), team.Wins.ToString(),
+                    : new[] { team.Rank + "위", teamName, team.Games.ToString(), team.Wins.ToString(),
                         team.Losses.ToString(), team.Ties.ToString(), team.Wins + team.Losses == 0 ? "—" : Rate(team.Percentage),
                         team.Rank == 1 ? "—" : Rate(behind, "0.0"), team.Runs.ToString(), team.RunsAllowed.ToString() };
                 RectTransform row = DrawRow(host, "Team_" + i, values, widths, i + 1,
@@ -99,6 +100,13 @@ namespace Baseball.Presentation.Owner
                 string teamId = team.Id;
                 button.onClick.AddListener(() => TeamSelected?.Invoke(teamId));
             }
+        }
+
+        private string FormatStandingTeamName(OwnerLeaguePresentationModel.TeamRecord team)
+        {
+            if (team.Id != _model.FocusTeamId || string.IsNullOrEmpty(_model.FocusOwnerName))
+                return team.Name;
+            return team.Name + " · 구단주 " + _model.FocusOwnerName;
         }
 
         private void RenderMatchups(RectTransform host)

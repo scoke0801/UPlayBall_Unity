@@ -19,7 +19,7 @@ namespace Baseball.Presentation.Owner
             return CreateSchedule(
                 liveSeason,
                 OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
-                teamSeasonKey => manager.GetTeamDisplayName(teamSeasonKey),
+                teamSeasonKey => manager.GetClubDisplayName(teamSeasonKey),
                 teamSeasonKey => manager.GetTeamOriginYear(teamSeasonKey));
         }
 
@@ -145,7 +145,7 @@ namespace Baseball.Presentation.Owner
                 runtime.ManagerMode.LiveSeason,
                 runtime.ManagerMode.CompletedSeasons,
                 runtime.League.Grade,
-                manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey));
+                manager.GetClubDisplayName(runtime.PlayerTeamSeasonKey));
         }
 
         /// <summary>현재 시즌과 완료 시즌을 입력받아 사전 생성 역사를 섞지 않는 구단 시즌 이력을 만든다.</summary>

@@ -277,11 +277,18 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(status.IsValid, Is.True, status.Message);
             Assert.That(status.SelectedCount, Is.EqualTo(flow.Rule.MainCardCount));
             Assert.That(status.TotalCost, Is.LessThanOrEqualTo(flow.Rule.MaximumMainCost));
+            PlayerSeasonDefinition expectedStartingSeason = OwnerStartingSeasonResolver.Resolve(
+                flow.SelectedMainCardIds,
+                flow.CardCatalog);
 
             Assert.DoesNotThrow(flow.ContinueFromMainCards);
+            Assert.That(flow.StartingYear, Is.EqualTo(expectedStartingSeason.OriginYear));
+            Assert.That(flow.SelectedTeamSeasonKey, Is.EqualTo(expectedStartingSeason.OriginTeamSeasonKey));
             flow.SelectFrontManager(FrontManagerIds.DefaultAnalysis);
-            Assert.DoesNotThrow(() => flow.SetNickname("테스트구단주"));
+            Assert.DoesNotThrow(() => flow.SetProfile("서울 불사조", "테스트구단주"));
             Assert.That(flow.StarterRoster, Is.Not.Null);
+            Assert.That(flow.StarterRoster.Roster.TeamSeasonKey,
+                Is.EqualTo(expectedStartingSeason.OriginTeamSeasonKey));
             Assert.That(flow.StarterRoster.Roster.Entries.Count,
                 Is.EqualTo(ActiveRosterCompositionRule.ActiveRosterSize));
             Assert.That(flow.CreateReceipt().MainCardIds.Count, Is.EqualTo(flow.Rule.MainCardCount));
@@ -296,6 +303,45 @@ namespace Baseball.Tests.EditMode.Game.Historical
             }
             Assert.That(fillerCountByCost[2], Is.EqualTo(10));
             Assert.That(fillerCountByCost[3], Is.EqualTo(5));
+
+            string savePath = System.IO.Path.Combine(
+                Application.temporaryCachePath,
+                $"owner-starting-year-test-{Guid.NewGuid():N}.json");
+            var saveStoreField = typeof(OwnerModeManager).GetField(
+                "_saveStore",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(saveStoreField, Is.Not.Null);
+            saveStoreField.SetValue(manager, new ManagerHistoricalSaveJsonStore(savePath));
+            try
+            {
+                Assert.That(manager.CompleteNewGameFlow(), Is.True, manager.LastError);
+                Assert.That(manager.Runtime.ManagerMode.LiveSeason.OriginYear,
+                    Is.EqualTo(expectedStartingSeason.OriginYear));
+                Assert.That(manager.Runtime.PlayerTeamSeasonKey,
+                    Is.EqualTo(expectedStartingSeason.OriginTeamSeasonKey));
+                Assert.That(manager.Runtime.OwnerProfile.ClubName, Is.EqualTo("서울 불사조"));
+                Assert.That(manager.GetClubDisplayName(manager.Runtime.PlayerTeamSeasonKey),
+                    Is.EqualTo("서울 불사조"));
+                string opponentTeamSeasonKey = string.Empty;
+                for (int index = 0; index < manager.Runtime.League.RegularTeamSeasonKeys.Count; index++)
+                {
+                    string candidate = manager.Runtime.League.RegularTeamSeasonKeys[index];
+                    if (string.Equals(candidate, manager.Runtime.PlayerTeamSeasonKey, StringComparison.Ordinal))
+                        continue;
+                    opponentTeamSeasonKey = candidate;
+                    break;
+                }
+                int opponentYear = manager.GetTeamOriginYear(opponentTeamSeasonKey) ?? 0;
+                Assert.That(manager.GetClubDisplayName(opponentTeamSeasonKey),
+                    Is.EqualTo(opponentYear + " " + manager.GetTeamDisplayName(opponentTeamSeasonKey)));
+                manager.Load();
+                Assert.That(manager.Runtime.OwnerProfile.ClubName, Is.EqualTo("서울 불사조"));
+            }
+            finally
+            {
+                if (System.IO.File.Exists(savePath))
+                    System.IO.File.Delete(savePath);
+            }
         }
 
         private static void SelectLowestCostCards(

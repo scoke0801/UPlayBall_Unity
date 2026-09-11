@@ -30,10 +30,10 @@ namespace Baseball.Game.Historical
             string.Equals(managerId, DefaultEnergetic, StringComparison.Ordinal);
     }
 
-    /// <summary>구단주 닉네임과 프런트 매니저 외형을 Save 범위로 보관한다.</summary>
+    /// <summary>구단명·구단주 닉네임과 프런트 매니저 외형을 Save 범위로 보관한다.</summary>
     public sealed class OwnerProfileState
     {
-        public OwnerProfileState(string nickname, string frontManagerId)
+        public OwnerProfileState(string nickname, string frontManagerId, string clubName = null)
         {
             if (string.IsNullOrWhiteSpace(nickname))
                 throw new ArgumentException("구단주 닉네임이 필요합니다.", nameof(nickname));
@@ -42,15 +42,45 @@ namespace Baseball.Game.Historical
                 throw new ArgumentOutOfRangeException(nameof(nickname), "닉네임은 2~12자로 입력해야 합니다.");
             if (!FrontManagerIds.IsSupported(frontManagerId))
                 throw new ArgumentException("지원하지 않는 프런트 매니저입니다.", nameof(frontManagerId));
+            if (clubName != null)
+            {
+                string trimmedClubName = clubName.Trim();
+                if (trimmedClubName.Length < 2 || trimmedClubName.Length > 16)
+                    throw new ArgumentOutOfRangeException(nameof(clubName), "구단명은 2~16자로 입력해야 합니다.");
+                ClubName = trimmedClubName;
+            }
             Nickname = trimmed;
             FrontManagerId = frontManagerId.Trim();
         }
 
         public string Nickname { get; }
         public string FrontManagerId { get; }
+        public string ClubName { get; } = string.Empty;
 
         public static OwnerProfileState CreateLegacyDefault() =>
             new OwnerProfileState("구단주", FrontManagerIds.DefaultAnalysis);
+    }
+
+    /// <summary>현재 진행의 사용자 구단명과 시대가 다른 참가 구단명을 같은 규칙으로 표시한다.</summary>
+    public static class OwnerClubDisplayNameFormatter
+    {
+        public static string Format(
+            string identityName,
+            int? originYear,
+            bool isPlayerTeam,
+            string playerClubName)
+        {
+            string displayName = identityName?.Trim() ?? string.Empty;
+            if (isPlayerTeam)
+                return string.IsNullOrWhiteSpace(playerClubName) ? displayName : playerClubName.Trim();
+            if (!originYear.HasValue || originYear.Value <= 0 || displayName.Length == 0)
+                return displayName;
+
+            string yearPrefix = originYear.Value + " ";
+            return displayName.StartsWith(yearPrefix, StringComparison.Ordinal)
+                ? displayName
+                : yearPrefix + displayName;
+        }
     }
 
     /// <summary>새 게임에서 실제 지급한 카드와 리롤 횟수를 이후 감사·문의에 남긴다.</summary>
@@ -218,6 +248,38 @@ namespace Baseball.Game.Historical
         }
     }
 
+    /// <summary>선택한 메인 카드에서 첫 시즌의 기준이 될 최고 Cost 선수 시즌을 결정론적으로 고른다.</summary>
+    public static class OwnerStartingSeasonResolver
+    {
+        public static PlayerSeasonDefinition Resolve(
+            IReadOnlyList<string> mainCardIds,
+            WorldCardCatalog catalog)
+        {
+            if (mainCardIds == null) throw new ArgumentNullException(nameof(mainCardIds));
+            if (catalog == null) throw new ArgumentNullException(nameof(catalog));
+            if (mainCardIds.Count == 0)
+                throw new ArgumentException("첫 시즌을 정할 메인 카드가 필요합니다.", nameof(mainCardIds));
+
+            PlayerSeasonDefinition selectedSeason = null;
+            string selectedCardId = string.Empty;
+            for (int index = 0; index < mainCardIds.Count; index++)
+            {
+                PlayerCardDefinition card = catalog.GetRequiredCard(mainCardIds[index]);
+                PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
+                if (selectedSeason == null ||
+                    season.Cost > selectedSeason.Cost ||
+                    (season.Cost == selectedSeason.Cost && season.OriginYear > selectedSeason.OriginYear) ||
+                    (season.Cost == selectedSeason.Cost && season.OriginYear == selectedSeason.OriginYear &&
+                     string.CompareOrdinal(card.CardId, selectedCardId) < 0))
+                {
+                    selectedSeason = season;
+                    selectedCardId = card.CardId;
+                }
+            }
+            return selectedSeason;
+        }
+    }
+
     /// <summary>화면 순서와 무관하게 구단·10장·매니저·닉네임·보충 로스터를 한 Draft로 관리한다.</summary>
     public sealed class OwnerNewGameFlow
     {
@@ -232,6 +294,7 @@ namespace Baseball.Game.Historical
         private HistoricalWorldRuntimeContent _world;
         private HistoricalYearContentDefinition _year;
         private TeamSeasonDefinition _selectedTeam;
+        private PlayerSeasonDefinition _startingPlayerSeason;
 
         public OwnerNewGameFlow(
             IHistoricalContentProvider contentProvider,
@@ -251,11 +314,14 @@ namespace Baseball.Game.Historical
         }
 
         public OwnerNewGameStep CurrentStep { get; private set; } = OwnerNewGameStep.Team;
-        public string SelectedTeamSeasonKey => _selectedTeam?.TeamSeasonKey ?? string.Empty;
+        public string SelectedTeamSeasonKey =>
+            _startingPlayerSeason?.OriginTeamSeasonKey ?? _selectedTeam?.TeamSeasonKey ?? string.Empty;
         public string SelectedFranchiseId => _selectedTeam?.FranchiseId ?? string.Empty;
         public IReadOnlyList<string> SelectedMainCardIds => _selectedMainCardIds;
+        public int StartingYear => GetStartingPlayerSeason().OriginYear;
         public string FrontManagerId { get; private set; } = FrontManagerIds.DefaultAnalysis;
         public string Nickname { get; private set; } = string.Empty;
+        public string ClubName { get; private set; } = string.Empty;
         public OwnerStarterRosterResult StarterRoster { get; private set; }
         public OwnerStarterRosterRule Rule => _rule;
         public WorldIdentityRegistry Identities => EnsureWorld().IdentityRegistry;
@@ -294,6 +360,7 @@ namespace Baseball.Game.Historical
             if (_selectedTeam == null)
                 throw new ArgumentException("선택 가능한 구단이 아닙니다.", nameof(teamSeasonKey));
             _selectedMainCardIds.Clear();
+            _startingPlayerSeason = null;
             StarterRoster = null;
             CurrentStep = OwnerNewGameStep.MainCards;
         }
@@ -366,6 +433,7 @@ namespace Baseball.Game.Historical
                     throw new InvalidOperationException(partial.Message);
                 }
             }
+            _startingPlayerSeason = null;
             StarterRoster = null;
             return GetMainCardSelectionStatus();
         }
@@ -380,6 +448,8 @@ namespace Baseball.Game.Historical
         {
             OwnerMainCardSelectionStatus status = GetMainCardSelectionStatus();
             if (!status.IsValid) throw new InvalidOperationException(status.Message);
+            _startingPlayerSeason = OwnerStartingSeasonResolver.Resolve(_selectedMainCardIds, CardCatalog);
+            GetStartingTeam();
             CurrentStep = OwnerNewGameStep.FrontManager;
         }
 
@@ -396,6 +466,17 @@ namespace Baseball.Game.Historical
             string validatedNickname = new OwnerProfileState(nickname, FrontManagerId).Nickname;
             OwnerStarterRosterResult starterRoster = ResolveStarterRoster(0);
             Nickname = validatedNickname;
+            StarterRoster = starterRoster;
+            CurrentStep = OwnerNewGameStep.StarterRosterReview;
+        }
+
+        /// <summary>새 진행에서 사용할 구단명과 구단주 이름을 함께 확정한다.</summary>
+        public void SetProfile(string clubName, string nickname)
+        {
+            var profile = new OwnerProfileState(nickname, FrontManagerId, clubName);
+            OwnerStarterRosterResult starterRoster = ResolveStarterRoster(0);
+            ClubName = profile.ClubName;
+            Nickname = profile.Nickname;
             StarterRoster = starterRoster;
             CurrentStep = OwnerNewGameStep.StarterRosterReview;
         }
@@ -421,7 +502,10 @@ namespace Baseball.Game.Historical
             };
         }
 
-        public OwnerProfileState CreateProfile() => new OwnerProfileState(Nickname, FrontManagerId);
+        public OwnerProfileState CreateProfile() => new OwnerProfileState(
+            Nickname,
+            FrontManagerId,
+            string.IsNullOrWhiteSpace(ClubName) ? null : ClubName);
 
         public OwnerNewGameReceipt CreateReceipt()
         {
@@ -450,11 +534,48 @@ namespace Baseball.Game.Historical
         {
             EnsureSelectedTeam();
             return _resolver.Resolve(
-                _selectedTeam,
+                GetStartingTeam(),
                 _selectedMainCardIds,
                 CardCatalog,
                 _worldSeed,
                 rerollIndex);
+        }
+
+        private PlayerSeasonDefinition GetStartingPlayerSeason()
+        {
+            EnsureSelectedTeam();
+            if (_startingPlayerSeason != null)
+                return _startingPlayerSeason;
+            OwnerMainCardSelectionStatus status = GetMainCardSelectionStatus();
+            if (!status.IsValid)
+                throw new InvalidOperationException(status.Message);
+            _startingPlayerSeason = OwnerStartingSeasonResolver.Resolve(_selectedMainCardIds, CardCatalog);
+            return _startingPlayerSeason;
+        }
+
+        private TeamSeasonDefinition GetStartingTeam()
+        {
+            PlayerSeasonDefinition startingSeason = GetStartingPlayerSeason();
+            if (!string.Equals(
+                    startingSeason.OriginFranchiseId,
+                    _selectedTeam.FranchiseId,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("첫 시즌 기준 선수와 선택 구단의 계보가 다릅니다.");
+            }
+
+            HistoricalYearContentDefinition startingYear = _content.GetYear(startingSeason.OriginYear);
+            for (int index = 0; index < startingYear.TeamSeasons.Count; index++)
+            {
+                TeamSeasonDefinition team = startingYear.TeamSeasons[index];
+                if (string.Equals(
+                        team.TeamSeasonKey,
+                        startingSeason.OriginTeamSeasonKey,
+                        StringComparison.Ordinal))
+                    return team;
+            }
+            throw new InvalidOperationException(
+                $"{startingSeason.OriginYear}년 첫 시즌 구단을 Historical Content에서 찾을 수 없습니다.");
         }
 
         private HistoricalWorldRuntimeContent EnsureWorld()

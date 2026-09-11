@@ -19,7 +19,7 @@ namespace Baseball.Presentation.Owner
             var live = runtime.ManagerMode.LiveSeason;
             var game = preparation.ScheduledGame;
             int opponentId = game.HomeTeamId == live.PlayerTeamId ? game.AwayTeamId : game.HomeTeamId;
-            output["analysis.own.name"] = manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey);
+            output["analysis.own.name"] = manager.GetClubDisplayName(runtime.PlayerTeamSeasonKey);
             output["analysis.own.side"] = game.HomeTeamId == live.PlayerTeamId ? "홈" : "원정";
             output["analysis.opponent.side"] = game.HomeTeamId == opponentId ? "홈" : "원정";
             output["analysis.league"] = OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade) +

@@ -350,6 +350,8 @@ namespace Baseball.Presentation.Match
         private readonly MatchHudPresentationModelBuilder _hudBuilder = new MatchHudPresentationModelBuilder();
         private readonly IMatchHudView _hudView;
         private readonly int _playerTeamId;
+        private readonly Func<int, string> _teamNameResolver;
+        private readonly IReadOnlyDictionary<int, string> _participantNames;
         private readonly OwnerMatchHighlightSegment[] _highlightSegments;
         private int _visibleEventCount;
         private bool _isPaused;
@@ -361,6 +363,11 @@ namespace Baseball.Presentation.Match
             MatchEvent[] events,
             IMatchHudView hudView,
             int playerTeamId)
+            : this(result, events, hudView, playerTeamId, null, null) { }
+
+        private OwnerMatchSpectatorSession(
+            ManagerModeMatchResult result, MatchEvent[] events, IMatchHudView hudView,
+            int playerTeamId, Func<int, string> teamNameResolver, IReadOnlyDictionary<int, string> participantNames)
         {
             Result = result ?? throw new ArgumentNullException(nameof(result));
             _events = events ?? throw new ArgumentNullException(nameof(events));
@@ -369,6 +376,8 @@ namespace Baseball.Presentation.Match
 
             _hudView = hudView;
             _playerTeamId = playerTeamId;
+            _teamNameResolver = teamNameResolver;
+            _participantNames = participantNames;
             _highlightSegments = OwnerMatchHighlightSelector.Select(_events, MatchGameCastConfig.Load());
             CurrentHud = BuildHud();
             _hudView?.Present(CurrentHud);
@@ -443,7 +452,10 @@ namespace Baseball.Presentation.Match
             ManagerModeMatchResult result = manager.PlayNextGame(
                 eventBuffer,
                 CreateSpectatorExecutionProfile());
-            return new OwnerMatchSpectatorSession(result, eventBuffer.ToArray(), hudView, playerTeamId);
+            var season = manager.Runtime.ManagerMode.LiveSeason;
+            return new OwnerMatchSpectatorSession(result, eventBuffer.ToArray(), hudView, playerTeamId,
+                teamId => manager.GetClubDisplayName(season.GetTeamSeasonKey(teamId)),
+                manager.CreateMatchParticipantNames(result.Match.Input));
         }
 
         public bool TryTogglePause()
@@ -680,11 +692,11 @@ namespace Baseball.Presentation.Match
                 Math.Max(1, latest.Inning),
                 isTop ? MatchHudHalf.Top : MatchHudHalf.Bottom,
                 new MatchHudTeamModel(
-                    FormatTeamDisplayName(input.AwayRoster.TeamName, input.AwayRoster.TeamId == _playerTeamId),
+                    FormatTeamDisplayName(_teamNameResolver?.Invoke(input.AwayRoster.TeamId) ?? input.AwayRoster.TeamName, input.AwayRoster.TeamId == _playerTeamId),
                     latest.AwayScore,
                     isTop),
                 new MatchHudTeamModel(
-                    FormatTeamDisplayName(input.HomeRoster.TeamName, input.HomeRoster.TeamId == _playerTeamId),
+                    FormatTeamDisplayName(_teamNameResolver?.Invoke(input.HomeRoster.TeamId) ?? input.HomeRoster.TeamName, input.HomeRoster.TeamId == _playerTeamId),
                     latest.HomeScore,
                     !isTop),
                 new MatchHudCountModel(latest.Balls, latest.Strikes, latest.Outs),
@@ -706,10 +718,13 @@ namespace Baseball.Presentation.Match
             return isPlayerTeam ? "우리 구단" : "상대 구단";
         }
 
-        private static MatchHudParticipantModel CreateParticipant(MatchInput input, int playerId)
+        private MatchHudParticipantModel CreateParticipant(MatchInput input, int playerId)
         {
             if (playerId <= 0)
                 return MatchHudParticipantModel.Empty;
+
+            if (_participantNames != null && _participantNames.TryGetValue(playerId, out string name))
+                return new MatchHudParticipantModel(playerId, name);
 
             BaseballPlayer player = FindPlayer(input.AwayRoster, playerId) ?? FindPlayer(input.HomeRoster, playerId);
             return new MatchHudParticipantModel(playerId, player?.Name ?? string.Empty);

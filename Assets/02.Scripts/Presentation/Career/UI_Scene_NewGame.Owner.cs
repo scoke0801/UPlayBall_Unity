@@ -17,6 +17,7 @@ namespace Baseball.Presentation.Career
     {
         private const int OwnerCardPageSize = 24;
         private int _ownerCardPage;
+        private string _ownerClubNameDraft = string.Empty;
         private string _ownerNicknameDraft = "구단주";
         private int? _ownerCardYearFilter;
         private PlayerPosition? _ownerCardPositionFilter;
@@ -53,6 +54,8 @@ namespace Baseball.Presentation.Career
             cancel.onClick.AddListener(() =>
             {
                 ownerManager.CancelNewGameFlow();
+                _ownerClubNameDraft = string.Empty;
+                _ownerNicknameDraft = "구단주";
                 _titleNotice = string.Empty;
                 Render();
             });
@@ -465,16 +468,25 @@ namespace Baseball.Presentation.Career
 
         private void RenderOwnerNickname(RectTransform panel, OwnerNewGameFlow flow)
         {
-            CreateText("Guide", panel, "구단 기사와 프런트 매니저 대화에서 사용할 이름입니다. (2~12자)", 18,
+            CreateText("Guide", panel, "경기와 구단 화면에 표시할 구단명과 구단주 이름을 정하세요.", 18,
                 FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(1000f, 48f),
-                new Vector2(0f, 155f), SecondaryTextColor);
-            InputField input = CreateInputField("OwnerNickname", panel, "구단주 닉네임",
-                _ownerNicknameDraft, new Vector2(560f, 64f), new Vector2(0f, 55f));
-            input.characterLimit = 12;
-            input.onValueChanged.AddListener(value => _ownerNicknameDraft = value);
+                new Vector2(0f, 190f), SecondaryTextColor);
+            CreateText("ClubNameLabel", panel, "구단명  2~16자", 15, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(560f, 28f), new Vector2(0f, 126f), GoldColor);
+            InputField clubNameInput = CreateInputField("OwnerClubName", panel, "예: 서울 타이드",
+                _ownerClubNameDraft, new Vector2(560f, 58f), new Vector2(0f, 78f));
+            clubNameInput.characterLimit = 16;
+            clubNameInput.onValueChanged.AddListener(value => _ownerClubNameDraft = value);
+            CreateText("NicknameLabel", panel, "구단주 이름  2~12자", 15, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(560f, 28f), new Vector2(0f, 14f), GoldColor);
+            InputField nicknameInput = CreateInputField("OwnerNickname", panel, "구단주 닉네임",
+                _ownerNicknameDraft, new Vector2(560f, 58f), new Vector2(0f, -34f));
+            nicknameInput.characterLimit = 12;
+            nicknameInput.onValueChanged.AddListener(value => _ownerNicknameDraft = value);
             Button confirm = CreateButton("ConfirmNickname", panel, "스타터 로스터 생성",
-                new Vector2(260f, 54f), new Vector2(0f, -70f), AccentColor, out _);
-            confirm.onClick.AddListener(() => RunOwnerFlowAction(() => flow.SetNickname(_ownerNicknameDraft)));
+                new Vector2(260f, 54f), new Vector2(0f, -135f), AccentColor, out _);
+            confirm.onClick.AddListener(() => RunOwnerFlowAction(() =>
+                flow.SetProfile(_ownerClubNameDraft, _ownerNicknameDraft)));
         }
 
         private void RenderOwnerStarterRoster(
@@ -489,7 +501,7 @@ namespace Baseball.Presentation.Career
                     _titleNotice = "스타터 로스터가 생성되지 않았습니다.";
                 return;
             }
-            CreateText("MainRosterLabel", panel, "메인 카드 10장", 16, FontStyle.Bold,
+            CreateText("MainRosterLabel", panel, $"메인 카드 10장 · 첫 시즌 {flow.StartingYear}년", 16, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(1400f, 28f), new Vector2(0f, 286f), GoldColor);
             CreateOwnerRosterCardRow(panel, flow, roster.MainCardIds, 0, roster.MainCardIds.Count,
                 190f, true);
@@ -499,7 +511,7 @@ namespace Baseball.Presentation.Career
             CreateOwnerRosterCardRow(panel, flow, roster.FillerCardIds, 10,
                 roster.FillerCardIds.Count - 10, -145f, false);
             CreateText("RerollState", panel,
-                $"보충 리롤 {roster.RerollIndex}/{flow.Rule.MaximumFillerRerolls} · 확정 후 25인 로스터로 저장됩니다.",
+                $"최고 Cost 메인 카드의 연도를 첫 시즌으로 사용합니다. · 보충 리롤 {roster.RerollIndex}/{flow.Rule.MaximumFillerRerolls}",
                 15, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(900f, 36f),
                 new Vector2(0f, -280f), SecondaryTextColor);
             Button reroll = CreateButton("RerollFiller", panel, "보충 선수 다시 뽑기",
@@ -868,7 +880,7 @@ namespace Baseball.Presentation.Career
                 OwnerNewGameStep.Team => "운영할 구단을 선택하세요",
                 OwnerNewGameStep.MainCards => "팀의 중심이 될 메인 카드 10장을 고르세요",
                 OwnerNewGameStep.FrontManager => "프런트 매니저를 선택하세요",
-                OwnerNewGameStep.Nickname => "구단주 이름을 정하세요",
+                OwnerNewGameStep.Nickname => "구단명과 구단주 이름을 정하세요",
                 OwnerNewGameStep.StarterRosterReview => "첫 시즌 25인 로스터를 확인하세요",
                 _ => "구단주 새 게임"
             };

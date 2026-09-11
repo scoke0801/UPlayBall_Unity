@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedScreens;
@@ -53,6 +54,34 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(model.Standings.All(team => team.Games == 0 && team.Rank == 1), Is.True);
             Assert.That(model.Rounds, Is.Empty);
             Assert.That(Build().Standings, Is.Empty);
+        }
+
+        [Test]
+        public void Standings_내구단행에만구단주명을표시한다()
+        {
+            var root = new GameObject("OwnerLeagueOwnerNameTests_Root", typeof(RectTransform));
+            try
+            {
+                var schedule = new ScheduleScreenSnapshot(
+                    "2028 시즌",
+                    "루키",
+                    "1주차",
+                    "a",
+                    new[] { Game("1", 1, "a", "b", 5, 2) });
+                UI_Scene_OwnerLeague view = UI_Scene_OwnerLeague.CreateRuntime(
+                    root.GetComponent<RectTransform>());
+                view.Bind(new OwnerLeaguePresentationModel(schedule, "승리요정"));
+                view.ShowTab(0);
+
+                string focusName = view.transform.Find("LeagueTable/Team_0/Cell_1").GetComponent<Text>().text;
+                string rivalName = view.transform.Find("LeagueTable/Team_1/Cell_1").GetComponent<Text>().text;
+                Assert.That(focusName, Is.EqualTo("a 구단 · 구단주 승리요정"));
+                Assert.That(rivalName, Is.EqualTo("b 구단"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
         }
 
         [Test]
@@ -137,6 +166,83 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             finally
             {
                 UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
+        public void Visual_최대길이구단주명이있는순위표를출력한다(int width, int height)
+        {
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+                Assert.Ignore("그래픽 장치가 필요합니다.");
+            var root = new GameObject(
+                "OwnerLeagueVisualTests_Root",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler));
+            var cameraObject = new GameObject("OwnerLeagueVisualTests_Camera", typeof(Camera));
+            var target = new RenderTexture(width, height, 24);
+            Texture2D texture = null;
+            try
+            {
+                Camera camera = cameraObject.GetComponent<Camera>();
+                camera.orthographic = true;
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = Color.white;
+                camera.targetTexture = target;
+                Canvas canvas = root.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 1;
+                CanvasScaler scaler = root.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+
+                var games = new[]
+                {
+                    Game("1", 1, "a", "b", 5, 2),
+                    Game("2", 1, "c", "d", 4, 1),
+                    Game("3", 1, "e", "f", 3, 2),
+                    Game("4", 1, "g", "h", 2, 1),
+                    Game("5", 1, "i", "j", 1, 0)
+                };
+                var schedule = new ScheduleScreenSnapshot(
+                    "2028 시즌",
+                    "루키",
+                    "1주차",
+                    "a",
+                    games);
+                UI_Scene_OwnerLeague view = UI_Scene_OwnerLeague.CreateRuntime(
+                    root.GetComponent<RectTransform>());
+                view.Bind(new OwnerLeaguePresentationModel(schedule, "가나다라마바사아자차카타"));
+                view.ShowTab(0);
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(root.GetComponent<RectTransform>());
+                Canvas.ForceUpdateCanvases();
+
+                camera.Render();
+                RenderTexture previous = RenderTexture.active;
+                RenderTexture.active = target;
+                texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                texture.Apply();
+                RenderTexture.active = previous;
+                string output = Environment.GetEnvironmentVariable("BASEBALL_LEAGUE_VISUAL_OUTPUT")
+                    ?? Path.GetFullPath("docs/reports/owner-league");
+                Directory.CreateDirectory(output);
+                File.WriteAllBytes(Path.Combine(output, "standings-" + width + "x" + height + ".png"),
+                    texture.EncodeToPNG());
+            }
+            finally
+            {
+                if (texture != null) UnityEngine.Object.DestroyImmediate(texture);
+                cameraObject.GetComponent<Camera>().targetTexture = null;
+                target.Release();
+                UnityEngine.Object.DestroyImmediate(target);
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
             }
         }
 

@@ -47,13 +47,15 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<TeamRecord> Standings => _standings;
         public IReadOnlyList<int> Rounds => _rounds;
         public string FocusTeamId { get; }
+        public string FocusOwnerName { get; }
         public string SeasonLabel { get; }
 
         /// <summary>입력 순서와 무관하게 라운드 단위로 집계하고 미완료 경기는 제외한다.</summary>
-        public OwnerLeaguePresentationModel(ScheduleScreenSnapshot snapshot)
+        public OwnerLeaguePresentationModel(ScheduleScreenSnapshot snapshot, string focusOwnerName = null)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             FocusTeamId = snapshot.FocusTeamId;
+            FocusOwnerName = string.IsNullOrWhiteSpace(focusOwnerName) ? string.Empty : focusOwnerName.Trim();
             SeasonLabel = snapshot.SeasonLabel + " · " + snapshot.LeagueLabel;
             var games = new List<ScheduleGameSnapshot>();
             foreach (var game in snapshot.Games)
