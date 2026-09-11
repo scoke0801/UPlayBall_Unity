@@ -259,7 +259,8 @@ namespace Baseball.Simulation.Match
                     bases.Third = second;
                 }
             }
-            if (first.IsOccupied && outs < 3)
+            // 끝내기 득점 뒤 후속 주자의 선택 진루로 아웃과 투수 이닝이 추가되어서는 안 된다.
+            if (first.IsOccupied && outs < 3 && !IsWalkOffComplete(state, inning, half))
             {
                 ExtraBaseOutcome advance = _baserunningResolver.ResolveExtraBase(
                     _balance.BaseRunning.SingleFromFirstToThirdProbability,
@@ -547,7 +548,7 @@ namespace Baseball.Simulation.Match
                     RecordRunnerThrownOut(state, inning, half, offense, defense, runner, 3, 4, tracker, ref outs);
                 }
             }
-            if (outs >= 3) return runs;
+            if (outs >= 3 || IsWalkOffComplete(state, inning, half)) return runs;
             if (bases.Second.IsOccupied && !bases.Third.IsOccupied)
             {
                 ExtraBaseOutcome advance = _baserunningResolver.ResolveExtraBase(

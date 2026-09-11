@@ -15,6 +15,51 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class MatchSimulatorTests
     {
         [Test]
+        public void Simulate_끝내기득점뒤에는후속주자의추가진루와주루사를만들지않는다()
+        {
+            var balance = BalanceTable.CreateDefault();
+            var away = SimulationTestFactory.CreateDetailedRoster(SimulationTestFactory.CreateTeam(1, 50, 50));
+            var home = SimulationTestFactory.CreateDetailedRoster(SimulationTestFactory.CreateTeam(2, 50, 50));
+            var rules = new Baseball.Core.Rules.MatchRules(1, 0,
+                Baseball.Core.Rules.ExtraInningPolicy.DrawAtLimit, 2, true, 0);
+            int walkOffs = 0;
+            for (ulong seed = 1; seed <= 2000; seed++)
+            {
+                var input = new MatchInput(1, (int)seed, seed, away, home, rules);
+                var simulator = new MatchSimulator(balance, MatchRandomStreams.Create(seed));
+                var events = new MatchEventBuffer();
+                var profile = new MatchExecutionProfile(
+                    SimulationEngineKind.Detailed,
+                    MatchDecisionMode.InternalAiOnly, MatchEventMode.Full,
+                    MatchDecisionTraceMode.None, MatchStatisticsMode.FullBoxScore);
+                simulator.Simulate(input, events, profile);
+                MatchEvent[] stream = events.ToArray();
+                PlateAppearanceResult finalResult = stream.Last(entry =>
+                    entry.EventType == MatchEventType.PlateAppearanceEnded).PlateAppearanceResult;
+                if (finalResult != PlateAppearanceResult.Single && finalResult != PlateAppearanceResult.BuntSingle &&
+                    finalResult != PlateAppearanceResult.GroundOut)
+                    continue;
+                bool ended = false;
+                foreach (MatchEvent entry in stream)
+                {
+                    if (ended)
+                    {
+                        Assert.That(entry.EventType, Is.Not.EqualTo(MatchEventType.Out), $"Seed={seed}");
+                        Assert.That(entry.EventType == MatchEventType.RunnerAdvance &&
+                            entry.FromBase > 0 && entry.ToBase > 2, Is.False, $"Seed={seed}");
+                    }
+                    if (entry.EventType == MatchEventType.Score && entry.Half == InningHalf.Bottom &&
+                        entry.HomeScore > entry.AwayScore)
+                    {
+                        ended = true;
+                        walkOffs++;
+                    }
+                }
+            }
+            Assert.That(walkOffs, Is.GreaterThan(0));
+        }
+
+        [Test]
         public void Simulate_세Out마다HalfInning을종료한다()
         {
             MatchInput input = CreateInput();
