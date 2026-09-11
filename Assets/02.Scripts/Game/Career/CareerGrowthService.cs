@@ -146,13 +146,16 @@ namespace Baseball.Game.Career
                     break;
             }
 
-            double total = contact + power + speed + arm + defense + mental;
+            // 송구 성장 가중치를 통합 수비에 합치고 번트에는 일반 기술 성장 가중치를 준다.
+            defense += arm;
+            double bunt = _playerEvaluation.GeneralAttributeWeight;
+            double total = contact + power + speed + bunt + defense + mental;
             return new[]
             {
                 new AbilityWeight(PlayerAbility.Contact, contact / total),
                 new AbilityWeight(PlayerAbility.Power, power / total),
                 new AbilityWeight(PlayerAbility.Speed, speed / total),
-                new AbilityWeight(PlayerAbility.Arm, arm / total),
+                new AbilityWeight(PlayerAbility.Bunt, bunt / total),
                 new AbilityWeight(PlayerAbility.Defense, defense / total),
                 new AbilityWeight(PlayerAbility.BatterMental, mental / total)
             };

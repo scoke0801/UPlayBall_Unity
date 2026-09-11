@@ -15,7 +15,7 @@ ABILITY_NAMES = (
     "Contact",
     "Power",
     "Speed",
-    "Arm",
+    "Bunt",
     "Defense",
     "BatterMental",
     "Stamina",

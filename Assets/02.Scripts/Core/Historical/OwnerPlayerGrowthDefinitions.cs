@@ -90,7 +90,8 @@ namespace Baseball.Core.Historical
             {
                 Study("study_contact", "정교 타격 아카데미", PlayerType.Batter, PlayerAbility.Contact, PlayerAbility.BatterMental),
                 Study("study_power", "장타 강화 캠프", PlayerType.Batter, PlayerAbility.Power, PlayerAbility.Speed),
-                Study("study_defense", "수비 전문 학교", PlayerType.Batter, PlayerAbility.Defense, PlayerAbility.Arm),
+                new CardStudyProgramDefinition("study_defense", "수비 전문 학교", PlayerType.Batter, 100, 4,
+                    new[] { new AbilityChange(PlayerAbility.Defense, 3) }),
                 Study("study_batter_allround", "야수 실전 리그", PlayerType.Batter, PlayerAbility.Contact, PlayerAbility.Defense),
                 Study("study_velocity", "구속 연구소", PlayerType.Pitcher, PlayerAbility.Velocity, PlayerAbility.Stuff),
                 Study("study_command", "제구 아카데미", PlayerType.Pitcher, PlayerAbility.Control, PlayerAbility.PitcherMental),

@@ -173,8 +173,8 @@ class AbilityCostDerivationTests(unittest.TestCase):
             self.assertEqual(small["rawZ"], large["rawZ"])
             self.assertLess(abs(small["adjustedZ"] - small["priorZ"]), abs(large["adjustedZ"] - large["priorZ"]))
 
-    def test_arm_and_defense_use_independent_evidence(self) -> None:
-        arm_metrics = set(DERIVATION_BALANCE["ratingProfiles"]["Hitter"]["Arm"]["metrics"])
+    def test_bunt_does_not_use_fielding_evidence(self) -> None:
+        arm_metrics = set(DERIVATION_BALANCE["ratingProfiles"]["Hitter"]["Bunt"]["metrics"])
         defense_metrics = set(DERIVATION_BALANCE["ratingProfiles"]["Hitter"]["Defense"]["metrics"])
         self.assertNotIn("FieldingPercentage", arm_metrics)
         self.assertTrue(arm_metrics.isdisjoint(defense_metrics))
@@ -187,7 +187,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
         ratings, ability_trace = to_ratings_with_trace(
             "Hitter", vectors["no_defense"], traces["no_defense"], "NO_DEFENSE", 2099, groups["no_defense"]
         )
-        arm_trace = next(trace for trace in ability_trace if trace["attribute"] == "Arm")
+        arm_trace = next(trace for trace in ability_trace if trace["attribute"] == "Bunt")
         self.assertEqual(ratings[3], int(DERIVATION_BALANCE["rating"]["center"]))
         self.assertTrue(all(not component["isAvailable"] for component in arm_trace["components"]))
 
@@ -198,9 +198,9 @@ class AbilityCostDerivationTests(unittest.TestCase):
                 self.assertFalse(audit["hasViolation"], f"{player_type}/{profile_name}")
 
         invalid = copy.deepcopy(DERIVATION_BALANCE)
-        invalid["ratingProfiles"]["Hitter"]["Arm"]["metrics"] = {"FieldingPercentage": 1.0}
+        invalid["ratingProfiles"]["Hitter"]["Power"]["metrics"] = {"FieldingPercentage": 1.0}
         invalid["ratingProfiles"]["Hitter"]["Defense"]["metrics"] = {"FieldingPercentage": 1.0}
-        invalid["roleCompositeProfiles"]["Hitter"]["SS"] = [0.0, 0.0, 0.0, 0.5, 0.5, 0.0]
+        invalid["roleCompositeProfiles"]["Hitter"]["SS"] = [0.0, 0.5, 0.0, 0.0, 0.5, 0.0]
         invalid_audit = metric_composite_influence_audit("Hitter", "SS", invalid)
         self.assertEqual(
             [warning["code"] for warning in build_metric_influence_warnings(invalid_audit)],
@@ -501,7 +501,7 @@ class AbilityCostDerivationTests(unittest.TestCase):
         self.assertTrue(all(season["costDerivationTrace"]["rank"] > 0 for season in audited))
         by_name = {person_names[season["playerPersonId"]]: season for season in audited}
         oh_ji_hwan = by_name["오지환"]
-        arm = next(trace for trace in oh_ji_hwan["abilityDerivationTrace"] if trace["attribute"] == "Arm")
+        arm = next(trace for trace in oh_ji_hwan["abilityDerivationTrace"] if trace["attribute"] == "Bunt")
         defense = next(trace for trace in oh_ji_hwan["abilityDerivationTrace"] if trace["attribute"] == "Defense")
         self.assertNotIn("FieldingPercentage", {component["metric"] for component in arm["components"]})
         self.assertIn("FieldingPercentage", {component["metric"] for component in defense["components"]})

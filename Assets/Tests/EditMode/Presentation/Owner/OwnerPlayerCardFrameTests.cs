@@ -262,7 +262,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 PlayerAbility[] abilities = pitcher ? new[] { PlayerAbility.Stamina, PlayerAbility.Velocity,
                     PlayerAbility.Stuff, PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental }
                     : new[] { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed,
-                        PlayerAbility.Arm, PlayerAbility.Defense, PlayerAbility.BatterMental };
+                        PlayerAbility.Bunt, PlayerAbility.Defense, PlayerAbility.BatterMental };
                 for (int i = 0; i < 6; i++)
                 {
                     Assert.That(root.transform.Find("Ability" + i).GetComponent<Text>().text, Is.EqualTo(labels[i]));

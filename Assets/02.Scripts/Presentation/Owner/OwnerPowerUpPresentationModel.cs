@@ -513,7 +513,7 @@ namespace Baseball.Presentation.Owner
             return ability switch
             {
                 PlayerAbility.Contact => "교타력", PlayerAbility.Power => "장타력",
-                PlayerAbility.Speed => "주력", PlayerAbility.Arm => "송구력",
+                PlayerAbility.Speed => "주력", PlayerAbility.Bunt => "번트력",
                 PlayerAbility.Defense => "수비력", PlayerAbility.BatterMental => "타자 정신력",
                 PlayerAbility.Stamina => "체력", PlayerAbility.Velocity => "구속",
                 PlayerAbility.Stuff => "구위", PlayerAbility.Breaking => "변화구",

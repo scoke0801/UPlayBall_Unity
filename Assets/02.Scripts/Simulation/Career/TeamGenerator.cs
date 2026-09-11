@@ -233,9 +233,13 @@ namespace Baseball.Simulation.Career
         {
             if (position < PlayerPosition.Catcher || position > PlayerPosition.DesignatedHitter)
                 throw new ArgumentOutOfRangeException(nameof(position));
-            int[] values = Generate(
-                overall,
-                PlayerValueEvaluator.GetBatterWeights(_evaluationBalance, position));
+            PlayerValueEvaluator.AttributeWeightProfile weights =
+                PlayerValueEvaluator.GetBatterWeights(_evaluationBalance, position);
+            // 평가에서 합산한 송구·수비 가중치를 생성 편차로 쓰면 수비가 두 배로 치우친다.
+            var generationWeights = new PlayerValueEvaluator.AttributeWeightProfile(
+                weights.First, weights.Second, weights.Third, _evaluationBalance.GeneralAttributeWeight,
+                weights.Fifth / 2d, weights.Sixth);
+            int[] values = Generate(overall, weights, generationWeights);
             return new BatterAttributes(
                 values[0], values[1], values[2], values[3], values[4], values[5]);
         }
@@ -254,19 +258,21 @@ namespace Baseball.Simulation.Career
 
         private int[] Generate(
             int overall,
-            PlayerValueEvaluator.AttributeWeightProfile weights)
+            PlayerValueEvaluator.AttributeWeightProfile weights,
+            PlayerValueEvaluator.AttributeWeightProfile? generationWeights = null)
         {
             if (overall < MinimumAttribute || overall > MaximumAttribute)
                 throw new ArgumentOutOfRangeException(nameof(overall));
 
             var values = new int[AttributeCount];
-            double weightedMean = CalculateWeightedMean(weights);
+            PlayerValueEvaluator.AttributeWeightProfile profileWeights = generationWeights ?? weights;
+            double weightedMean = CalculateWeightedMean(profileWeights);
             double weightRange = Math.Max(
                 0.0001d,
                 _evaluationBalance.KeyAttributeWeight - _evaluationBalance.GeneralAttributeWeight);
             for (int index = 0; index < values.Length; index++)
             {
-                double profileOffset = (weights.Get(index) - weightedMean) / weightRange *
+                double profileOffset = (profileWeights.Get(index) - weightedMean) / weightRange *
                                        _generationBalance.CompetitorAttributeProfileSpread;
                 double variance = (_random.NextDouble() * 2d - 1d) *
                                   _generationBalance.CompetitorAttributeVariance;

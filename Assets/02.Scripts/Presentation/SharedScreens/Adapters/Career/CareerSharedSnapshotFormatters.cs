@@ -113,7 +113,7 @@ namespace Baseball.Presentation.SharedScreens
                 PlayerAbility.Contact => "컨택",
                 PlayerAbility.Power => "장타",
                 PlayerAbility.Speed => "주루",
-                PlayerAbility.Arm => "송구",
+                PlayerAbility.Bunt => "번트",
                 PlayerAbility.Defense => "수비",
                 PlayerAbility.BatterMental => "정신력",
                 PlayerAbility.Stamina => "체력",

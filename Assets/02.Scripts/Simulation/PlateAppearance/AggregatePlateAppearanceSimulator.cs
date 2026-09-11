@@ -23,6 +23,8 @@ namespace Baseball.Simulation.PlateAppearance
             AggregateMatchBalance tuning = _balance.AggregateMatch;
             BatterAttributes batter = matchup.Batter.BatterAttributes;
             BattingApproachModifier modifier = _balance.BattingApproach.GetModifier(approach);
+            double contactAbility = approach == BattingApproach.Bunt
+                ? matchup.BuntAbility : batter.Contact + matchup.BatterContactAdjustment;
             double platoon = matchup.Batter.BattingHand == Handedness.Switch ||
                              matchup.Batter.BattingHand != matchup.Pitcher.ThrowingHand
                 ? _balance.PlateDiscipline.OppositeHandedContactBonus
@@ -32,7 +34,7 @@ namespace Baseball.Simulation.PlateAppearance
                 (50 - matchup.EffectiveControl) * tuning.ControlWalkWeight +
                 (batter.Mental - 50) * tuning.MentalWalkWeight);
             double strikeout = tuning.StrikeoutRate * Math.Exp(
-                (50 - batter.Contact - matchup.BatterContactAdjustment - platoon) * tuning.ContactStrikeoutWeight +
+                (50 - contactAbility - platoon) * tuning.ContactStrikeoutWeight +
                 (matchup.EffectiveStuff - 50) * tuning.StuffStrikeoutWeight +
                 (matchup.EffectiveVelocity - 50) * tuning.VelocityStrikeoutWeight -
                 modifier.ContactAdjustment);

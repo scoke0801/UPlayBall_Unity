@@ -56,7 +56,7 @@ namespace Baseball.Simulation.Match
             PitcherAttributes p = source.PitcherAttributes;
             return new Player(source.PlayerId, source.Name, source.PrimaryPosition, source.BattingHand,
                 source.ThrowingHand, new BatterAttributes(Map(b.Contact), Map(b.Power), Map(b.Speed),
-                    Map(b.Arm), Map(b.Defense), Map(b.Mental)),
+                    Map(b.Bunt), Map(b.Defense), Map(b.Mental)),
                 new PitcherAttributes(MapPitcher(p.Stamina), MapPitcher(p.Velocity), MapPitcher(p.Stuff), MapPitcher(p.Breaking), MapPitcher(p.Control), MapPitcher(p.Mental)),
                 source.SecondaryPositions, source.Nationality, source.PitchRepertoire, source.TraitIds,
                 source.BakedPitcherAttributes, source.PermanentPitcherAttributes, true, source.UncurvedPitcherAttributes,

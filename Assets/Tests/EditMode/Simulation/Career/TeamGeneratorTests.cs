@@ -97,7 +97,7 @@ namespace Baseball.Tests.EditMode.Simulation.Career
                 shortstop,
                 new PitcherAttributes(20, 20, 20, 20, 20, 20));
 
-            Assert.That(shortstop.Arm, Is.GreaterThan(shortstop.Power));
+            Assert.That(shortstop.Defense, Is.GreaterThan(shortstop.Power));
             Assert.That(shortstop.Defense, Is.GreaterThan(shortstop.Power));
             Assert.That(
                 new PlayerValueEvaluator(evaluationBalance).CalculatePositionValue(player),

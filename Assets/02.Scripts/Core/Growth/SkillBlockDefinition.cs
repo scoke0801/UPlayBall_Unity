@@ -46,7 +46,7 @@ namespace Baseball.Core.Growth
         Breaking,
         PitcherPhysical,
         PitcherMental,
-        Arm,
+        Bunt,
         Stuff
     }
 
@@ -60,7 +60,7 @@ namespace Baseball.Core.Growth
             {
                 PlayerType.Batter =>
                     (category >= SkillBlockCategory.Contact && category <= SkillBlockCategory.BatterMental) ||
-                    category == SkillBlockCategory.Arm,
+                    category == SkillBlockCategory.Bunt,
                 PlayerType.Pitcher =>
                     (category >= SkillBlockCategory.Velocity && category <= SkillBlockCategory.PitcherMental) ||
                     category == SkillBlockCategory.Stuff,

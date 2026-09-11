@@ -1,0 +1,10 @@
+{
+  "version": "bunt-primary-stat-v1",
+  "missingWeights": {"Contact": 3, "BatterMental": 2},
+  "basis": "번트 미관측 선수는 이전 파생값을 저작 시 초기 추정값으로 보존한다. 실제 번트 관측이나 성공률로 간주하지 않으며 이후 독립 성장한다.",
+  "archivePaths": [
+    "Research/PyaMaeCardDb/1985-Samsung/archive-cards.csv",
+    "Research/PyaMaeCardDb/1989-1999/archive-cards.csv",
+    "Research/PyaMaeCardDb/2010-2016/archive-cards.csv"
+  ]
+}

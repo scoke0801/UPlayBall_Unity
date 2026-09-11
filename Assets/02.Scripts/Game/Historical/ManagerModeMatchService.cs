@@ -901,7 +901,7 @@ namespace Baseball.Game.Historical
                 Get(PlayerAbility.Contact),
                 Get(PlayerAbility.Power),
                 Get(PlayerAbility.Speed),
-                Get(PlayerAbility.Arm),
+                Get(PlayerAbility.Bunt),
                 Get(PlayerAbility.Defense),
                 Get(PlayerAbility.BatterMental));
             var pitcher = new PitcherAttributes(

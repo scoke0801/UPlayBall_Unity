@@ -66,7 +66,7 @@ namespace Baseball.Simulation.Match
         {
             BatterAttributes batter = matchup.Batter.BatterAttributes;
             if (battingApproach == BattingApproach.Bunt)
-                return ResolveBunt(matchup.Batter);
+                return ResolveBunt(matchup);
 
             double qualityMean = 48d + qualityAdjustment +
                                  (batter.Contact - matchup.EffectiveStuff) * 0.20d +
@@ -159,12 +159,12 @@ namespace Baseball.Simulation.Match
                 contact.SpinRateRpm);
         }
 
-        private BattedBallDescriptor ResolveBunt(Player batter)
+        private BattedBallDescriptor ResolveBunt(in PlateAppearanceMatchup matchup)
         {
             double fairChance = Clamp(
                 _tactical.FairBuntBase +
-                (batter.BatterAttributes.Bunt - 50d) * _tactical.BuntAbilityWeight +
-                (batter.BatterAttributes.Mental - 50d) * _tactical.BuntMentalWeight,
+                (matchup.BuntAbility - 50d) * _tactical.BuntAbilityWeight +
+                (matchup.Batter.BatterAttributes.Mental - 50d) * _tactical.BuntMentalWeight,
                 0.20d,
                 0.90d);
             double quality = _random.NextDouble() < fairChance

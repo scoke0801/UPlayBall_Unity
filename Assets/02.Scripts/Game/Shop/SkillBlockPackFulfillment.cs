@@ -251,7 +251,7 @@ namespace Baseball.Game.Shop
                 SkillBlockCategory.Breaking => "변화구",
                 SkillBlockCategory.PitcherPhysical => "체력",
                 SkillBlockCategory.PitcherMental => "위기관리",
-                SkillBlockCategory.Arm => "송구",
+                SkillBlockCategory.Bunt => "번트",
                 SkillBlockCategory.Stuff => "구위",
                 _ => throw new ArgumentOutOfRangeException(nameof(category))
             };
@@ -264,7 +264,7 @@ namespace Baseball.Game.Shop
                 PlayerAbility.Contact => "교타력",
                 PlayerAbility.Power => "장타력",
                 PlayerAbility.Speed => "주력",
-                PlayerAbility.Arm => "송구",
+                PlayerAbility.Bunt => "번트",
                 PlayerAbility.Defense => "수비력",
                 PlayerAbility.BatterMental => "정신력",
                 PlayerAbility.Stamina => "체력",

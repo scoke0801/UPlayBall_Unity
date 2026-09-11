@@ -54,7 +54,7 @@ namespace Baseball.Simulation.Career
                 value.Contact, weights.First,
                 value.Power, weights.Second,
                 value.Speed, weights.Third,
-                value.Arm, weights.Fourth,
+                value.Bunt, weights.Fourth,
                 value.Defense, weights.Fifth,
                 value.Mental, weights.Sixth);
         }
@@ -131,7 +131,8 @@ namespace Baseball.Simulation.Career
                     break;
             }
 
-            return new AttributeWeightProfile(contact, power, speed, arm, defense, mental);
+            // 기존 송구의 포지션 가치는 통합 수비에 보존한다. 번트는 상황별 전술 판단에서 평가한다.
+            return new AttributeWeightProfile(contact, power, speed, 0d, defense + arm, mental);
         }
 
         internal static AttributeWeightProfile GetPitcherWeights(

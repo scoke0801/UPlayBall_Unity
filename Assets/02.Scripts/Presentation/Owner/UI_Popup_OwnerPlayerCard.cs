@@ -177,7 +177,7 @@ namespace Baseball.Presentation.Owner
                 new[] { "교타력", "장타력", "주력", "번트", "수비력", "정신력" };
             PlayerAbility[] abilities = pitcher ? new[] { PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff,
                 PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental } :
-                new[] { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Arm, PlayerAbility.Defense, PlayerAbility.BatterMental };
+                new[] { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Bunt, PlayerAbility.Defense, PlayerAbility.BatterMental };
             for (int i = 0; i < labels.Length; i++)
             {
                 float y = .297f - i * .036f;
@@ -188,8 +188,8 @@ namespace Baseball.Presentation.Owner
                 Label(parent, "Ability" + i, labels[i], .035f, y, .20f, y + .034f, 14, Color.white);
                 Gradient(parent, "Track" + i, new Color32(93, 97, 107, 255), new Color32(44, 47, 55, 255),
                     .205f, y + .010f, .77f, y + .023f);
-                // 파생 번트에 송구력의 성장 출처가 표시되지 않도록 별도 처리한다.
-                OwnerAbilityBreakdownSnapshot? breakdown = isBunt ? null : card.GetAbilityBreakdown(abilities[i]);
+                OwnerAbilityBreakdownSnapshot? breakdown = isBunt
+                    ? card.GetBuntAbilityBreakdown() : card.GetAbilityBreakdown(abilities[i]);
                 if (breakdown.HasValue)
                     BuildAbilitySegments(parent, i, y, breakdown.Value, card.AbilityGraphMaximum);
                 else if (value.HasValue)

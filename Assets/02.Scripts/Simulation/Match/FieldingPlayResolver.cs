@@ -16,7 +16,7 @@ namespace Baseball.Simulation.Match
     }
 
     /// <summary>
-    /// Defense에서 Range·Hands를, Arm에서 송구 강점을 파생해 각 수비 역할을 분리한다.
+    /// 통합 수비 능력치에서 Range·Hands·Arm을 파생해 수비 역할별 판정에 사용한다.
     /// </summary>
     public readonly struct FieldingProfile
     {
@@ -36,15 +36,14 @@ namespace Baseball.Simulation.Match
         public static FieldingProfile Derive(
             Player player,
             PlayerPosition position,
-            int defenseAbilityBonus = 0,
-            int armAbilityBonus = 0)
+            int defenseAbilityBonus = 0)
         {
             uint hash = StableHash(player.PlayerId);
             int defense = ClampRating(player.BatterAttributes.Defense + defenseAbilityBonus);
             int range = ClampRating(defense + (int)(hash % 7U) - 3);
             int hands = ClampRating(defense + (int)((hash >> 5) % 7U) - 3);
             int arm = ClampRating(
-                player.BatterAttributes.Arm + armAbilityBonus + (int)((hash >> 11) % 7U) - 3);
+                defense + (int)((hash >> 11) % 7U) - 3);
             return new FieldingProfile(range, hands, arm, player.GetPositionProficiency(position));
         }
 
@@ -160,7 +159,6 @@ namespace Baseball.Simulation.Match
             int leadRunnerSpeed,
             bool canAttemptDoublePlay,
             int defenseAbilityBonus = 0,
-            int armAbilityBonus = 0,
             double fieldingErrorProbabilityMultiplier = 1d,
             int batterPower = 50)
         {
@@ -173,8 +171,7 @@ namespace Baseball.Simulation.Match
             FieldingProfile profile = FieldingProfile.Derive(
                 fielder,
                 position,
-                traitBonus + defenseAbilityBonus,
-                armAbilityBonus);
+                traitBonus + defenseAbilityBonus);
             double reachChance = CalculateReachChance(ball, profile, alignment);
             bool routine = reachChance >= 0.68d && ball.Quality <= 62d;
             if (_random.NextDouble() >= reachChance)

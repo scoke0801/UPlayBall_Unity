@@ -1482,7 +1482,7 @@ namespace Baseball.Game.Career
                     SkillBlockCategory.Contact,
                     SkillBlockCategory.Power,
                     SkillBlockCategory.Baserunning,
-                    SkillBlockCategory.Arm,
+                    SkillBlockCategory.Bunt,
                     SkillBlockCategory.Defense,
                     SkillBlockCategory.BatterMental
                 }

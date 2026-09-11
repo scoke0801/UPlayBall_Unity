@@ -73,9 +73,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         {
             OwnerGrowthSnapshot source = CreateSnapshot();
             var batterBlock = new SkillBlockDefinition(
-                "batter_arm", SkillBlockRarity.Normal, SkillBlockCategory.Arm,
+                "batter_bunt", SkillBlockRarity.Normal, SkillBlockCategory.Bunt,
                 TetrominoShapeCatalog.CreateCells(TetrominoShape.O), true,
-                new[] { new AbilityChange(PlayerAbility.Arm, 1) }, 100);
+                new[] { new AbilityChange(PlayerAbility.Bunt, 1) }, 100);
             var pitcherBlock = new SkillBlockDefinition(
                 "pitcher_stamina", SkillBlockRarity.Normal, SkillBlockCategory.PitcherPhysical,
                 TetrominoShapeCatalog.CreateCells(TetrominoShape.O), true,

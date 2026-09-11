@@ -575,7 +575,8 @@ namespace Baseball.Simulation.Match
                     contactBonus,
                     hardHitBonus,
                     pitchingApproach,
-                    inning);
+                    inning,
+                    historicalModifiers.GetBatter(PlayerAbility.Bunt) + batterConditionRating);
                 BattingApproach pitchApproach = GetPitchBattingApproach(
                     selectedApproach,
                     balls,
@@ -740,8 +741,6 @@ namespace Baseball.Simulation.Match
                     leadRunnerSpeed,
                     bases.First.IsOccupied && outs < 2,
                     historicalModifiers.GetDefense(PlayerAbility.Defense) +
-                    defense.GetConditionRatingModifier(fielder, -fielderAssignmentPenalty.ConditionPenalty),
-                    historicalModifiers.GetDefense(PlayerAbility.Arm) +
                     defense.GetConditionRatingModifier(fielder, -fielderAssignmentPenalty.ConditionPenalty),
                     fielderAssignmentPenalty.FieldingErrorProbabilityMultiplier,
                     batter.Player.BatterAttributes.Power);

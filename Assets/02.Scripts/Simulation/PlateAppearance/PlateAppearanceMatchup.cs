@@ -50,7 +50,8 @@ namespace Baseball.Simulation.PlateAppearance
             double batterContactAdjustment,
             double hardHitAdjustment,
             PitchingApproach pitchingApproach,
-            int inning = 1)
+            int inning = 1,
+            int buntAbilityBonus = 0)
         {
             Batter = batter ?? throw new ArgumentNullException(nameof(batter));
             Pitcher = pitcher ?? throw new ArgumentNullException(nameof(pitcher));
@@ -62,6 +63,7 @@ namespace Baseball.Simulation.PlateAppearance
             EffectiveControl = effectiveControl;
             EffectiveMental = effectiveMental;
             BatterContactAdjustment = batterContactAdjustment;
+            BuntAbility = Math.Max(0, Math.Min(100, batter.BatterAttributes.Bunt + buntAbilityBonus));
             HardHitAdjustment = hardHitAdjustment;
             PitchingApproach = pitchingApproach;
             Inning = Math.Max(1, inning);
@@ -77,6 +79,7 @@ namespace Baseball.Simulation.PlateAppearance
         public double EffectiveControl { get; }
         public double EffectiveMental { get; }
         public double BatterContactAdjustment { get; }
+        public int BuntAbility { get; }
         /// <summary>Power 능력치 점수가 아닌 강한 타구 확률의 가산량이다.</summary>
         public double HardHitAdjustment { get; }
         public PitchingApproach PitchingApproach { get; }

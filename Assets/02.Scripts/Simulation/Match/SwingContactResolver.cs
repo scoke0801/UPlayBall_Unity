@@ -37,7 +37,8 @@ namespace Baseball.Simulation.Match
 
             BatterAttributes batter = matchup.Batter.BatterAttributes;
             double intentRadius = GetIntentRadiusMultiplier(command.Intent, command.IsBunt);
-            double ratingRadius = 1d + (batter.Contact - 50d) * _balance.ContactRadiusWeight;
+            int contactAbility = command.IsBunt ? matchup.BuntAbility : batter.Contact;
+            double ratingRadius = 1d + (contactAbility - 50d) * _balance.ContactRadiusWeight;
             double radiusX = _balance.BaseBatRadiusX * ratingRadius * intentRadius;
             double radiusY = _balance.BaseBatRadiusY * ratingRadius * intentRadius;
             if (command.IsBunt)
@@ -54,7 +55,7 @@ namespace Baseball.Simulation.Match
             double idealTime = GetIdealSwingTime01(pitch);
             double timingError = (command.SwingInputTime01 - idealTime) *
                                  pitch.PlateArrivalMilliseconds;
-            double timingRating = (batter.Contact - 50d) * _balance.ContactTimingWeight +
+            double timingRating = (contactAbility - 50d) * _balance.ContactTimingWeight +
                                   (batter.Mental - 50d) * _balance.ContactTimingWeight * 0.55d;
             double validTiming = Math.Max(42d, _balance.ValidTimingMilliseconds + timingRating);
             double foulTiming = Math.Max(validTiming + 25d, _balance.FoulTimingMilliseconds + timingRating * 0.75d);
@@ -112,7 +113,7 @@ namespace Baseball.Simulation.Match
                 0d,
                 100d);
             if (command.IsBunt)
-                quality = Clamp(26d + positionQuality * 30d + (batter.Bunt - 50d) * 0.20d, 5d, 70d);
+                quality = Clamp(26d + positionQuality * 30d + (matchup.BuntAbility - 50d) * 0.20d, 5d, 70d);
             ContactGrade grade = ResolveGrade(quality, normalizedLocationError, absoluteTiming);
             double intentVelocity = command.Intent switch
             {

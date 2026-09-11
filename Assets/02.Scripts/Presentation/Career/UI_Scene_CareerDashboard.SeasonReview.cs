@@ -872,7 +872,7 @@ namespace Baseball.Presentation.Career
                 PlayerAbility.Contact => "교타력",
                 PlayerAbility.Power => "장타력",
                 PlayerAbility.Speed => "주력",
-                PlayerAbility.Arm => "송구",
+                PlayerAbility.Bunt => "번트",
                 PlayerAbility.Defense => "수비력",
                 PlayerAbility.BatterMental or PlayerAbility.PitcherMental => "정신력",
                 PlayerAbility.Stamina => "체력",

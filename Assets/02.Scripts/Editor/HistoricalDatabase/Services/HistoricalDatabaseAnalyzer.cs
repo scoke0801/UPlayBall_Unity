@@ -184,7 +184,7 @@ namespace Baseball.Editor.HistoricalDatabase
             "컨택",
             "장타력",
             "주력",
-            "송구",
+            "번트",
             "수비",
             "타자 멘탈",
             "체력",

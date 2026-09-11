@@ -132,7 +132,9 @@ namespace Baseball.Core.Balance
                             $"{block.Rarity} 블록의 능력치 보너스는 +{expectedBonus}를 넘을 수 없습니다.");
                     }
                 }
-                if (block.Rarity >= SkillBlockRarity.Unique && string.IsNullOrEmpty(block.TraitId))
+                // 번트 계통은 독립 능력치만 제공한다. 수비·일반 타격 Trait을 붙이면 역할 경계가 깨진다.
+                if (block.Rarity >= SkillBlockRarity.Unique && block.Category != SkillBlockCategory.Bunt &&
+                    string.IsNullOrEmpty(block.TraitId))
                 {
                     AddError(
                         issues,

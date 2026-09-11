@@ -173,8 +173,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             }
         }
 
-        [Test]
-        public void Detail_화면중앙모달에성장출처별막대를표시한다()
+        [TestCase(1)]
+        [TestCase(17)]
+        public void Detail_화면중앙모달에성장출처별막대를표시한다(int teamColor)
         {
             GameObject canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
             GameObject sourceObject = new GameObject("Source", typeof(RectTransform));
@@ -183,7 +184,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             {
                 var breakdowns = new OwnerAbilityBreakdownSnapshot[PlayerAbilityCatalog.AbilityCount];
                 for (int index = 0; index < breakdowns.Length; index++)
-                    breakdowns[index] = new OwnerAbilityBreakdownSnapshot(70, 2, 3, 1, 2, 2);
+                    breakdowns[index] = new OwnerAbilityBreakdownSnapshot(70, 2, 3, teamColor, 2, 2);
                 var card = new OwnerCollectionCardSnapshot(
                     "C-G", "P-G", "성장타자", 2025, PlayerPosition.Shortstop, 8,
                     PlayerCardEdition.Normal, 2, 0, false, false,
@@ -205,13 +206,37 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(front.Find("TeamColorFill0"), Is.Not.Null);
                 Assert.That(front.Find("StudyFill0"), Is.Not.Null);
                 Assert.That(front.Find("EnhancementFill0"), Is.Not.Null);
-                Assert.That(front.Find("Value0").GetComponent<Text>().text, Is.EqualTo("80"));
-                Assert.That(front.Find("GrowthValue0").GetComponent<Text>().text, Is.EqualTo("+10"));
+                Assert.That(front.Find("Value0").GetComponent<Text>().text, Is.EqualTo((79 + teamColor).ToString()));
+                Assert.That(front.Find("GrowthValue0").GetComponent<Text>().text, Is.EqualTo("+" + (9 + teamColor)));
+                Assert.That(front.Find("TeamColorFill3"), Is.Not.Null);
+                Assert.That(front.Find("Value3").GetComponent<Text>().text, Is.EqualTo((79 + teamColor).ToString()));
+                Assert.That(front.Find("GrowthValue3").GetComponent<Text>().text, Is.EqualTo("+" + (9 + teamColor)));
+                Assert.That(card.GetBuntAbilityBreakdown().Value.TeamColor, Is.EqualTo(teamColor));
             }
             finally
             {
                 Object.DestroyImmediate(canvasObject);
             }
+        }
+
+        [TestCase(55, 17, 140, 72)]
+        [TestCase(55, 0, 140, 55)]
+        [TestCase(98, 17, 100, 100)]
+        public void 번트_자체보너스만적용하고표시상한을지킨다(
+            int rating, int bonus, int maximum, int expectedTotal)
+        {
+            var breakdowns = new OwnerAbilityBreakdownSnapshot[PlayerAbilityCatalog.AbilityCount];
+            breakdowns[(int)PlayerAbility.Contact] = new OwnerAbilityBreakdownSnapshot(90, 0, 0, 10, 0, 0);
+            breakdowns[(int)PlayerAbility.BatterMental] = new OwnerAbilityBreakdownSnapshot(90, 0, 0, 10, 0, 0);
+            breakdowns[(int)PlayerAbility.Bunt] = new OwnerAbilityBreakdownSnapshot(rating, 0, 0, bonus, 0, 0);
+            var card = new OwnerCollectionCardSnapshot(
+                "C-B", "P-B", "번트타자", 2025, PlayerPosition.Shortstop, 8,
+                PlayerCardEdition.Normal, 0, 0, false, false, CreateAbilities(),
+                abilityBreakdowns: breakdowns, abilityGraphMaximum: maximum);
+            OwnerAbilityBreakdownSnapshot bunt = card.GetBuntAbilityBreakdown().Value;
+            Assert.That(bunt.TeamColor, Is.EqualTo(bonus));
+            Assert.That(bunt.Total, Is.EqualTo(rating + bonus));
+            Assert.That(card.GetBuntAbility(), Is.EqualTo(expectedTotal));
         }
 
         private static OwnerCollectionCardSnapshot CreateHitter(string cardId, string displayName)

@@ -18,6 +18,7 @@ import source_position_evidence
 import velocity_estimation
 import elite_cost
 import hitter_record_calibration
+import bunt_primary_stat
 
 from kbo_importer import IMPORTER_VERSION as NORMALIZED_IMPORTER_VERSION
 from kbo_importer import SCHEMA_VERSION as NORMALIZED_SCHEMA_VERSION
@@ -25,7 +26,7 @@ from kbo_importer.validation import validate_saved_document
 
 
 REFERENCE_DATA_VERSION = f"kbo-normalized-v{NORMALIZED_SCHEMA_VERSION}"
-CONTENT_SCHEMA_VERSION = 5
+CONTENT_SCHEMA_VERSION = 6
 EDITOR_ORIGINAL_NAME_POLICY = "editor-original-source-v2"
 RUNTIME_NAME_POLICY = "runtime-world-identity-pool-v3"
 EDITOR_ASSET_FORMAT_VERSION = 1
@@ -42,7 +43,7 @@ ABILITY_NAMES = (
     "Contact",
     "Power",
     "Speed",
-    "Arm",
+    "Bunt",
     "Defense",
     "BatterMental",
     "Stamina",
@@ -146,7 +147,7 @@ def load_annual_reference_file(config: dict[str, Any]) -> dict[str, dict[str, An
             raise ValueError("연도 카드 Reference Override ID 또는 Cost가 유효하지 않습니다.")
         if not 1<=int(values["Cost"])<=10:
             raise ValueError("연도 카드 Reference Cost는 1~10이어야 합니다.")
-        if any(target!="Cost" and (target not in ABILITY_INDEX or not 1<=int(value)<=100)
+        if any(target!="Cost" and (target not in (*ABILITY_INDEX, "Arm") or not 1<=int(value)<=100)
                for target,value in values.items()):
             raise ValueError("연도 카드 Reference Ability가 유효하지 않습니다.")
         by_id[season_id]=card
@@ -167,7 +168,7 @@ def apply_annual_reference_overrides(seasons: list[dict[str, Any]], overrides: d
         values=card["values"]
         before_attributes=list(season["baseAttributes"])
         for target,value in values.items():
-            if target!="Cost":
+            if target not in ("Cost", "Arm"):
                 season["baseAttributes"][ABILITY_INDEX[target]]=int(value)
         trace=season["costDerivationTrace"]
         formula_cost=int(trace["cost"])
@@ -266,7 +267,9 @@ def validate_derivation_balance(config: dict[str, Any]) -> None:
             weights = profile["metrics"]
             if attribute not in ABILITY_NAMES or not set(weights).issubset(metric_names_by_type[player_type]):
                 raise ValueError(f"알 수 없는 Ability/Metric 설정입니다: {player_type}/{attribute}")
-            if abs(sum(float(weight) for weight in weights.values()) - 1.0) > 1e-9:
+            if attribute == "Bunt" and (weights or float(profile["scale"]) != 0.0):
+                raise ValueError("번트 결측을 수비·타격 원기록 관측으로 바꿀 수 없습니다.")
+            if attribute != "Bunt" and abs(sum(float(weight) for weight in weights.values()) - 1.0) > 1e-9:
                 raise ValueError(f"Ability metric weight 합은 1이어야 합니다: {player_type}/{attribute}")
 
     reference = config["referencePopulation"]
@@ -1416,8 +1419,7 @@ def derive_defensive_value_signal(season: dict[str, Any], settings: dict[str, An
         return max(-1.0, min(1.0, signal))
     # 과거 입력과 작은 단위 fixture의 호환 경로. 새 Source Bake에는 항상 가격 전용 근거가 있다.
     defense = float(season["baseAttributes"][ABILITY_INDEX["Defense"]])
-    arm = float(season["baseAttributes"][ABILITY_INDEX["Arm"]])
-    return max(-1.0, min(1.0, (0.75 * defense + 0.25 * arm - 55.0) / 20.0))
+    return max(-1.0, min(1.0, (defense - 55.0) / 20.0))
 
 
 def pitcher_starter_share(season: dict[str, Any]) -> tuple[float, str]:
@@ -2910,6 +2912,7 @@ def build_editor_original_content(
             for season in seasons:
                 season["derivationWarnings"] = build_ability_validation_warnings(season["abilityDerivationTrace"])
         apply_annual_reference_overrides(seasons,annual_reference_overrides)
+        bunt_primary_stat.apply(seasons, annual_reference_overrides)
         elite_cost.apply_cost_floors(seasons)
 
         pitch_balance = pitch_generation.load_balance()
@@ -3376,7 +3379,7 @@ def validate_editor_original_content(content: dict[str, Any]) -> None:
                         or reference_trace.get("sources")!=(reference_override.get("sources") or {})):
                     raise ValueError("연도 카드 Reference Override Trace가 정본과 일치하지 않습니다.")
                 for target,value in reference_override["values"].items():
-                    if target!="Cost" and season["baseAttributes"][ABILITY_INDEX[target]]!=int(value):
+                    if target not in ("Cost", "Arm") and season["baseAttributes"][ABILITY_INDEX[target]]!=int(value):
                         raise ValueError("연도 카드 Reference Ability가 정본과 일치하지 않습니다.")
             record = record_by_id[season["playerSeasonId"]]
             if (
@@ -3637,8 +3640,9 @@ def canonical_json_bytes(value: object) -> bytes:
 
 def verify_content_hash(content: dict[str, Any]) -> None:
     expected_hash = str(content["manifest"]["contentHash"])
-    hash_source = json.loads(json.dumps(content, ensure_ascii=False))
-    hash_source["manifest"]["contentHash"] = ""
+    # 44년 원본을 깊은 복사하면 검증 중 수 GB의 동일 객체가 추가로 생긴다.
+    # 바뀌는 Manifest만 복사하고 나머지는 읽기 전용으로 직렬화한다.
+    hash_source = dict(content, manifest=dict(content["manifest"], contentHash=""))
     canonical = json.dumps(hash_source, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     actual_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     if actual_hash != expected_hash:
@@ -3775,6 +3779,13 @@ def build_archive_validation_snapshot(manifest: dict[str, Any]) -> dict[str, Any
 
 def load_and_validate_editor_asset_archive(output_dir: Path) -> dict[str, Any]:
     """분할 Asset의 파일 Hash와 공통 Bake 규칙을 다시 검증한다."""
+    content = load_editor_asset_archive(output_dir)
+    validate_archive_content(content)
+    return content
+
+
+def load_editor_asset_archive(output_dir: Path) -> dict[str, Any]:
+    """구버전 재저작 입력도 파일·전체 Hash로 검사하며 현재 산식 검증은 호출자가 수행한다."""
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
     if manifest["assetFormatVersion"] != EDITOR_ASSET_FORMAT_VERSION:
         raise ValueError("지원하지 않는 Editor Asset Format입니다.")
@@ -3825,7 +3836,6 @@ def load_and_validate_editor_asset_archive(output_dir: Path) -> dict[str, Any]:
     }
     if world_identity_name_pool is not None:
         content["worldIdentityNamePool"] = world_identity_name_pool
-    validate_archive_content(content)
     verify_content_hash(content)
     return content
 

@@ -221,7 +221,7 @@ namespace Baseball.Presentation.Career
             CareerAttributeAllocationRule rule = _manager.CurrentCreationAttributeRule;
             string[] names = _manager.PlayerType == PlayerType.Pitcher
                 ? new[] { "구위", "제구", "변화", "체력" }
-                : new[] { "컨택", "파워", "선구안", "주루", "수비", "송구" };
+                : new[] { "컨택", "파워", "선구안", "주루", "수비", "번트" };
             int remaining = GetRemainingCreationPoints(rule);
 
             RectTransform player = CreateImage("Player", _body, CardColor,

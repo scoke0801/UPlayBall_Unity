@@ -29,6 +29,7 @@ namespace Baseball.Core.Historical
             string teamSeasonKey,
             int seasonYear,
             PlayerPosition position,
+            int atBats,
             int plateAppearances = 0,
             int hits = 0,
             int homeRuns = 0,
@@ -53,7 +54,7 @@ namespace Baseball.Core.Historical
                 throw new ArgumentException("기록 포지션이 필요합니다.", nameof(position));
             int[] counts =
             {
-                plateAppearances, hits, homeRuns, walks, strikeouts, stolenBases,
+                atBats, plateAppearances, hits, homeRuns, walks, strikeouts, stolenBases,
                 pitchingOuts, earnedRuns, pitchingStrikeouts, defensiveChances, fieldingErrors
             };
             for (int index = 0; index < counts.Length; index++)
@@ -62,6 +63,7 @@ namespace Baseball.Core.Historical
             SeasonYear = seasonYear;
             Position = position;
             PlateAppearances = plateAppearances;
+            AtBats = atBats;
             Hits = hits;
             HomeRuns = homeRuns;
             Walks = walks;
@@ -83,6 +85,7 @@ namespace Baseball.Core.Historical
         public int SeasonYear { get; }
         public PlayerPosition Position { get; }
         public int PlateAppearances { get; }
+        public int AtBats { get; }
         public int Hits { get; }
         public int HomeRuns { get; }
         public int Walks { get; }
@@ -98,7 +101,8 @@ namespace Baseball.Core.Historical
         public bool IsPostseason { get; }
         public bool IsAllStarGame { get; }
 
-        public double BattingAverage => PlateAppearances == 0 ? 0d : (double)Hits / PlateAppearances;
+        // 볼넷·희생번트가 포함된 타석 수와 구분해 공식 기록의 타수를 사용한다.
+        public double BattingAverage => AtBats == 0 ? 0d : (double)Hits / AtBats;
         public double EarnedRunAverage => PitchingOuts == 0 ? 0d : EarnedRuns * 27d / PitchingOuts;
 
         private static string RequireId(string value, string parameterName)

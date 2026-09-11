@@ -188,7 +188,7 @@ namespace Baseball.Editor.HistoricalDatabase
         Contact,
         Power,
         Speed,
-        Arm,
+        Bunt,
         Defense,
         BatterMental,
         Stamina,
@@ -311,7 +311,7 @@ namespace Baseball.Editor.HistoricalDatabase
                 HistoricalPlayerSortField.Contact => CompareAbility(left, right, 0),
                 HistoricalPlayerSortField.Power => CompareAbility(left, right, 1),
                 HistoricalPlayerSortField.Speed => CompareAbility(left, right, 2),
-                HistoricalPlayerSortField.Arm => CompareAbility(left, right, 3),
+                HistoricalPlayerSortField.Bunt => CompareAbility(left, right, 3),
                 HistoricalPlayerSortField.Defense => CompareAbility(left, right, 4),
                 HistoricalPlayerSortField.BatterMental => CompareAbility(left, right, 5),
                 HistoricalPlayerSortField.Stamina => CompareAbility(left, right, 6),
@@ -350,7 +350,7 @@ namespace Baseball.Editor.HistoricalDatabase
                 case HistoricalPlayerSortField.Contact:
                 case HistoricalPlayerSortField.Power:
                 case HistoricalPlayerSortField.Speed:
-                case HistoricalPlayerSortField.Arm:
+                case HistoricalPlayerSortField.Bunt:
                 case HistoricalPlayerSortField.Defense:
                 case HistoricalPlayerSortField.BatterMental:
                     return !row.IsHitter;

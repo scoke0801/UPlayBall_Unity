@@ -232,14 +232,11 @@ namespace Baseball.Presentation.Owner
         public OwnerAbilityBreakdownSnapshot? GetAbilityBreakdown(PlayerAbility ability) =>
             _abilityBreakdowns == null ? null : _abilityBreakdowns[(int)ability];
 
-        /// <summary>번트는 송구력 대신 교타력과 정신력의 정본 파생값을 표시한다.</summary>
-        public int? GetBuntAbility()
-        {
-            int? contact = GetEffectiveAbility(PlayerAbility.Contact);
-            int? mental = GetEffectiveAbility(PlayerAbility.BatterMental);
-            return contact.HasValue && mental.HasValue
-                ? BatterAttributes.CalculateBunt(contact.Value, mental.Value) : (int?)null;
-        }
+        /// <summary>독립 번트 능력치에 실제 적용된 보너스를 포함해 표시한다.</summary>
+        public int? GetBuntAbility() => GetEffectiveAbility(PlayerAbility.Bunt);
+
+        /// <summary>번트 자체에 적용된 성장·강화·팀컬러의 출처를 표시한다.</summary>
+        public OwnerAbilityBreakdownSnapshot? GetBuntAbilityBreakdown() => GetAbilityBreakdown(PlayerAbility.Bunt);
 
         private static T[] Copy<T>(IReadOnlyList<T> source)
         {

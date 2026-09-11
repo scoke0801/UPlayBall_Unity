@@ -118,7 +118,10 @@ def main():
                 continue
             attributes = current['baseAttributes']
             denominator = sum(w['weight'] for w in weights)
-            strength = sum(attributes[ABILITIES.index(w['ability'])] * w['weight'] for w in weights) / denominator
+            # 번트 전환은 특수 카드의 기존 기준 시즌을 재선정하는 가격 재평가가 아니다.
+            strength = sum((trace['legacyThrowingRating']
+                if w['ability'] == 'Arm' and 'legacyThrowingRating' in trace
+                else attributes[ABILITIES.index(w['ability'])]) * w['weight'] for w in weights) / denominator
             names = source.get('sourceReferenceNames', [])
             row = dict(playerSeasonId=sid, editorPlayerSeasonId=editor_id, playerPersonId=current['playerPersonId'],
                        year=year, sourceFranchise=franchise, lineage=lineage, normalCardId=normal_cards.get(sid),

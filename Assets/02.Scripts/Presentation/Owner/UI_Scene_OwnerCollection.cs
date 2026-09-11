@@ -39,7 +39,7 @@ namespace Baseball.Presentation.Owner
         private Vector2 _lastViewportSize;
 
         private static readonly PlayerAbility[] BatterTrainingAbilities =
-            { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Arm, PlayerAbility.Defense, PlayerAbility.BatterMental };
+            { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Bunt, PlayerAbility.Defense, PlayerAbility.BatterMental };
         private static readonly PlayerAbility[] PitcherTrainingAbilities =
             { PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff, PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental };
         private static readonly string[] BatterStudyPrograms =
@@ -482,7 +482,7 @@ namespace Baseball.Presentation.Owner
         private static string DescribeAbility(PlayerAbility ability) => ability switch
         {
             PlayerAbility.Contact => "교타력", PlayerAbility.Power => "장타력", PlayerAbility.Speed => "주력",
-            PlayerAbility.Arm => "송구력", PlayerAbility.Defense => "수비력", PlayerAbility.BatterMental => "타자 정신력",
+            PlayerAbility.Bunt => "번트력", PlayerAbility.Defense => "수비력", PlayerAbility.BatterMental => "타자 정신력",
             PlayerAbility.Stamina => "체력", PlayerAbility.Velocity => "구속", PlayerAbility.Stuff => "구위",
             PlayerAbility.Breaking => "변화구", PlayerAbility.Control => "제구력", _ => "투수 정신력"
         };

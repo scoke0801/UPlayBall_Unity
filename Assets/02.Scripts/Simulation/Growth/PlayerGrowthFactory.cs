@@ -90,7 +90,7 @@ namespace Baseball.Simulation.Growth
                 PlayerPosition.Shortstop or PlayerPosition.CenterField;
             if (defensePosition && ability == PlayerAbility.Defense)
                 return 3;
-            return ability is PlayerAbility.Power or PlayerAbility.Speed or PlayerAbility.Arm or PlayerAbility.Defense
+            return ability is PlayerAbility.Power or PlayerAbility.Speed or PlayerAbility.Bunt or PlayerAbility.Defense
                 ? 1
                 : 0;
         }
@@ -102,7 +102,7 @@ namespace Baseball.Simulation.Growth
                 Clamp(player.BatterAttributes.Contact),
                 Clamp(player.BatterAttributes.Power),
                 Clamp(player.BatterAttributes.Speed),
-                Clamp(player.BatterAttributes.Arm),
+                Clamp(player.BatterAttributes.Bunt),
                 Clamp(player.BatterAttributes.Defense),
                 Clamp(player.BatterAttributes.Mental),
                 Clamp(player.PitcherAttributes.Stamina),

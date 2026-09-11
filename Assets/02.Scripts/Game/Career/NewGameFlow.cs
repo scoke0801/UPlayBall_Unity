@@ -15,7 +15,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 16;
+        public const int CurrentSaveVersion = 17;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
@@ -330,7 +330,7 @@ namespace Baseball.Game.Career
                 attributes.Mental,
                 attributes.Speed,
                 attributes.Defense,
-                attributes.Arm
+                attributes.Bunt
             };
             CareerAttributeAllocationRule rule = _configuration.CareerCreationRules.Batter;
             if (!IsCompleteAllocation(rule, values))
@@ -341,7 +341,7 @@ namespace Baseball.Game.Career
                     Math.Max(1, attributes.Mental - rule.BaseValue + 1),
                     Math.Max(1, attributes.Speed - rule.BaseValue + 1),
                     Math.Max(1, attributes.Defense - rule.BaseValue + 1),
-                    Math.Max(1, attributes.Arm - rule.BaseValue + 1));
+                    Math.Max(1, attributes.Bunt - rule.BaseValue + 1));
             }
             SubmitCreationAttributes(values);
             CompletePlayerCard();

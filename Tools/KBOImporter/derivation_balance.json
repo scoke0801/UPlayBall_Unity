@@ -1,7 +1,7 @@
 {
-  "version": "historical-derivation-balance-v26",
-  "abilityFormulaVersion": "historical-ability-v12",
-  "costFormulaVersion": "historical-season-value-v18",
+  "version": "historical-derivation-balance-v29",
+  "abilityFormulaVersion": "historical-ability-v13",
+  "costFormulaVersion": "historical-season-value-v20",
   "positionRoleClassifierVersion": "season-position-role-v6",
   "rosterBuilderVersion": "ability-fit-core25-v8",
   "ratingCalibrationNote": "2013년 이하 일반 연도 카드의 검증된 수치는 기준 데이터로 동기화하고, 미확보 카드는 선수 식별자 없는 기록 회귀로 산출.",
@@ -468,12 +468,10 @@
           "StolenBaseSuccessRate": 0.3
         }
       },
-      "Arm": {
-        "scale": 10.0,
-        "metrics": {
-          "AssistsPerNine": 0.7,
-          "CaughtStealingRate": 0.3
-        }
+      "Bunt": {
+        "center": 50.0,
+        "scale": 0.0,
+        "metrics": {}
       },
       "Defense": {
         "center": 73.0,
@@ -745,62 +743,54 @@
       "C": {
         "Contact": 0.2,
         "Power": 0.15,
-        "Arm": 0.25,
-        "Defense": 0.3,
+        "Defense": 0.55,
         "BatterMental": 0.1
       },
       "1B": {
         "Contact": 0.3,
         "Power": 0.35,
-        "Arm": 0.05,
-        "Defense": 0.15,
+        "Defense": 0.2,
         "BatterMental": 0.15
       },
       "2B": {
         "Contact": 0.25,
         "Power": 0.15,
         "Speed": 0.15,
-        "Arm": 0.1,
-        "Defense": 0.25,
+        "Defense": 0.35,
         "BatterMental": 0.1
       },
       "3B": {
         "Contact": 0.25,
         "Power": 0.25,
-        "Arm": 0.2,
-        "Defense": 0.2,
+        "Defense": 0.4,
         "BatterMental": 0.1
       },
       "SS": {
         "Contact": 0.2,
         "Power": 0.1,
         "Speed": 0.15,
-        "Arm": 0.2,
-        "Defense": 0.25,
+        "Defense": 0.45,
         "BatterMental": 0.1
       },
       "LF": {
         "Contact": 0.25,
         "Power": 0.3,
         "Speed": 0.1,
-        "Arm": 0.1,
-        "Defense": 0.15,
+        "Defense": 0.25,
         "BatterMental": 0.1
       },
       "CF": {
         "Contact": 0.2,
         "Power": 0.15,
         "Speed": 0.2,
-        "Arm": 0.15,
-        "Defense": 0.2,
+        "Defense": 0.35,
         "BatterMental": 0.1
       },
       "RF": {
         "Contact": 0.2,
         "Power": 0.3,
         "Speed": 0.1,
-        "Arm": 0.15,
-        "Defense": 0.15,
+        "Defense": 0.3,
         "BatterMental": 0.1
       }
     },
@@ -813,8 +803,7 @@
       "Contact": 0.2,
       "Power": 0.2,
       "Speed": 0.2,
-      "Arm": 0.1,
-      "Defense": 0.2,
+      "Defense": 0.3,
       "BatterMental": 0.1
     },
     "pitcherAssignmentAttributeWeights": {
@@ -4213,6 +4202,13 @@
       }
     ],
     "additionalSources": [
+      {
+        "relativePath": "annual_reference_reevaluations.json",
+        "version": "annual-reevaluation-reference-v1",
+        "maximumCardYear": 2013,
+        "cardCount": 1,
+        "contentSha256": "481ae11201850023de561203741a5d965dfc8ddc183030c6ac1e0b3f6a62a287"
+      },
       {
         "relativePath": "annual_reference_1985_samsung.json",
         "version": "annual-general-reference-v1",

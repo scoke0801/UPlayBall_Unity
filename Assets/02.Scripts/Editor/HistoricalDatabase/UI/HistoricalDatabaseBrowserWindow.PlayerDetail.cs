@@ -737,7 +737,7 @@ namespace Baseball.Editor.HistoricalDatabase
                 0 => "컨택",
                 1 => "장타력",
                 2 => "주력",
-                3 => "송구",
+                3 => "번트",
                 4 => "수비",
                 5 => "타자 멘탈",
                 6 => "체력",

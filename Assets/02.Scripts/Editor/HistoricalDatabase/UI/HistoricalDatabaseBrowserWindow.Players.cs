@@ -105,7 +105,7 @@ namespace Baseball.Editor.HistoricalDatabase
             AddPlayerColumn("contact", "컨택", 72, HistoricalPlayerSortField.Contact, row => FormatAbility(row, 0, false));
             AddPlayerColumn("power", "장타력", 65, HistoricalPlayerSortField.Power, row => FormatAbility(row, 1, false));
             AddPlayerColumn("speed", "주력", 65, HistoricalPlayerSortField.Speed, row => FormatAbility(row, 2, false));
-            AddPlayerColumn("arm", "송구", 58, HistoricalPlayerSortField.Arm, row => FormatAbility(row, 3, false));
+            AddPlayerColumn("bunt", "번트", 58, HistoricalPlayerSortField.Bunt, row => FormatAbility(row, 3, false));
             AddPlayerColumn("defense", "수비", 72, HistoricalPlayerSortField.Defense, row => FormatAbility(row, 4, false));
             AddPlayerColumn("batter-mental", "타자 멘탈", 82, HistoricalPlayerSortField.BatterMental, row => FormatAbility(row, 5, false));
             AddPlayerColumn("stamina", "체력", 72, HistoricalPlayerSortField.Stamina, row => FormatAbility(row, 6, true));

@@ -13,7 +13,7 @@ namespace Baseball.Game.Career
             PlayerAbility.Contact,
             PlayerAbility.Power,
             PlayerAbility.Speed,
-            PlayerAbility.Arm,
+            PlayerAbility.Bunt,
             PlayerAbility.Defense,
             PlayerAbility.BatterMental
         };
@@ -134,7 +134,7 @@ namespace Baseball.Game.Career
             values[(int)PlayerAbility.Contact] = batter.Contact;
             values[(int)PlayerAbility.Power] = batter.Power;
             values[(int)PlayerAbility.Speed] = batter.Speed;
-            values[(int)PlayerAbility.Arm] = batter.Arm;
+            values[(int)PlayerAbility.Bunt] = batter.Bunt;
             values[(int)PlayerAbility.Defense] = batter.Defense;
             values[(int)PlayerAbility.BatterMental] = batter.Mental;
             values[(int)PlayerAbility.Stamina] = pitcher.Stamina;

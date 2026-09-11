@@ -196,17 +196,42 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void Fielding_송구능력은Defense와독립적으로Arm프로필에반영된다()
+        public void Fielding_번트차이는수비프로필에영향을주지않는다()
         {
-            Player weakArm = CreateBatter(99, 50, 60, 50, arm: 20);
-            Player strongArm = CreateBatter(99, 50, 60, 50, arm: 90);
+            Player weakArm = CreateBatter(99, 50, 60, 50, bunt: 20);
+            Player strongArm = CreateBatter(99, 50, 60, 50, bunt: 90);
 
             FieldingProfile weakProfile = FieldingProfile.Derive(weakArm, PlayerPosition.Shortstop);
             FieldingProfile strongProfile = FieldingProfile.Derive(strongArm, PlayerPosition.Shortstop);
 
             Assert.That(strongProfile.Range, Is.EqualTo(weakProfile.Range));
             Assert.That(strongProfile.Hands, Is.EqualTo(weakProfile.Hands));
-            Assert.That(strongProfile.Arm, Is.GreaterThan(weakProfile.Arm));
+            Assert.That(strongProfile.Arm, Is.EqualTo(weakProfile.Arm));
+        }
+
+        [Test]
+        public void Fielding_수비보너스는송구에한번만적용되고번트는보존된다()
+        {
+            Player player = CreateBatter(99, 50, 60, 50, bunt: 20);
+            FieldingProfile baseline = FieldingProfile.Derive(player, PlayerPosition.Shortstop);
+            FieldingProfile enhanced = FieldingProfile.Derive(player, PlayerPosition.Shortstop, 7);
+            Assert.That(enhanced.Range - baseline.Range, Is.EqualTo(7));
+            Assert.That(enhanced.Hands - baseline.Hands, Is.EqualTo(7));
+            Assert.That(enhanced.Arm - baseline.Arm, Is.EqualTo(7));
+            Assert.That(player.BatterAttributes.Bunt, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void Bunt_수비차이는번트타구에영향을주지않는다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            Player pitcher = CreatePitcher(100, 60);
+            var weak = new PlateAppearanceMatchup(CreateBatter(99, 50, 20, 50, bunt: 70), pitcher, 50, false);
+            var strong = new PlateAppearanceMatchup(CreateBatter(99, 50, 90, 50, bunt: 70), pitcher, 50, false);
+            var left = new BattedBallResolver(balance, new Pcg32Random(8123UL));
+            var right = new BattedBallResolver(balance, new Pcg32Random(8123UL));
+            for (int index = 0; index < 1000; index++)
+                Assert.That(left.Resolve(weak, BattingApproach.Bunt), Is.EqualTo(right.Resolve(strong, BattingApproach.Bunt)));
         }
 
         [Test]
@@ -708,7 +733,7 @@ namespace Baseball.Tests.EditMode.Simulation
             int defense,
             int mental,
             PlayerPosition position = PlayerPosition.Shortstop,
-            int arm = 40,
+            int bunt = 40,
             string[] traitIds = null)
         {
             return new Player(
@@ -717,7 +742,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 position,
                 Handedness.Right,
                 Handedness.Right,
-                new BatterAttributes(50, 50, speed, arm, defense, mental),
+                new BatterAttributes(50, 50, speed, bunt, defense, mental),
                 new PitcherAttributes(20, 20, 20, 20, 20, 20),
                 traitIds: traitIds);
         }

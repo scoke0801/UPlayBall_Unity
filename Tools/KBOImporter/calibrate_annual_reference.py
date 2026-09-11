@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 NAMES = {'Hitter': {'교타': 'Contact', '장타': 'Power', '주력': 'Speed', '어깨': 'Arm', '수비': 'Defense', '정신력': 'BatterMental'},
          'Pitcher': {'체력': 'Stamina', '구속': 'Velocity', '구위': 'Stuff', '변화구': 'Breaking', '제구력': 'Control', '정신력': 'PitcherMental'}}
 ARCHIVE_NAMES = {
-    'Hitter': {'교타력': 'Contact', '장타력': 'Power', '주력': 'Speed', '수비력': 'Defense', '정신력': 'BatterMental'},
+    'Hitter': {'교타력': 'Contact', '장타력': 'Power', '주력': 'Speed', '번트': 'Bunt', '수비력': 'Defense', '정신력': 'BatterMental'},
     'Pitcher': {'체력': 'Stamina', '구속': 'Velocity', '구위': 'Stuff', '변화구': 'Breaking', '제구력': 'Control', '정신력': 'PitcherMental'},
 }
 
@@ -152,7 +152,7 @@ def load_labels(seasons, policy):
         for r in data['readings'] if isinstance(data, dict) else data:
             # 타자 막대의 네 번째 열은 번트이며 Arm이 아니다.
             columns = ('Contact','Power','Speed','Bunt','Defense','BatterMental') if kind=='Hitter' else bake.ABILITY_NAMES[6:]
-            values={k:int(v) for k,v in zip(columns,r['attributes']) if k!='Bunt'}
+            values={k:int(v) for k,v in zip(columns,r['attributes'])}
             values['Cost']=int(r.get('articleCost',r.get('cost')))
             add(r['year'],r.get('team',''),r['name'],kind,r.get('variant',''),values,
                 f'ArticleImage:{r["cardId"]}',text=r.get('note',''))

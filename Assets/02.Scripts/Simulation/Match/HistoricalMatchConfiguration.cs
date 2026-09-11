@@ -316,7 +316,7 @@ namespace Baseball.Simulation.Match
 
         private static bool AffectsDefense(TacticTargetRule target, bool affectsOffense, PlayerAbility ability)
         {
-            if (affectsOffense || ability is not (PlayerAbility.Defense or PlayerAbility.Arm))
+            if (affectsOffense || ability != PlayerAbility.Defense)
                 return false;
             return target is TacticTargetRule.PitchingTeam or TacticTargetRule.Opponent;
         }

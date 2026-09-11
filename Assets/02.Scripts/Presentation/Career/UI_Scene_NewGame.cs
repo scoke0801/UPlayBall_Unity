@@ -229,7 +229,7 @@ namespace Baseball.Presentation.Career
             CareerAttributeAllocationRule rule = _manager.CurrentCreationAttributeRule;
             string[] names = _manager.PlayerType == PlayerType.Pitcher
                 ? new[] { "구위", "제구", "변화구", "체력" }
-                : new[] { "컨택", "장타", "선구안", "주루", "수비", "송구" };
+                : new[] { "컨택", "장타", "선구안", "주루", "수비", "번트" };
             int remaining = rule.BonusPoints - GetSpentPoints(rule);
             CreateText(
                 "Remaining", _body,
@@ -456,7 +456,7 @@ namespace Baseball.Presentation.Career
             if (_manager.BatterAttributes.HasValue)
             {
                 BatterAttributes value = _manager.BatterAttributes.Value;
-                CopyValues(value.Contact, value.Power, value.Speed, value.Arm, value.Defense, value.Mental);
+                CopyValues(value.Contact, value.Power, value.Speed, value.Bunt, value.Defense, value.Mental);
             }
             else if (_manager.PitcherAttributes.HasValue)
             {
@@ -536,7 +536,7 @@ namespace Baseball.Presentation.Career
             {
                 BatterAttributes value = _manager.BatterAttributes.Value;
                 return $"컨택 {value.Contact}     장타 {value.Power}     주루 {value.Speed}\n\n" +
-                       $"송구 {value.Arm}     수비 {value.Defense}     정신력 {value.Mental}";
+                       $"번트 {value.Bunt}     수비 {value.Defense}     정신력 {value.Mental}";
             }
             PitcherAttributes pitcher = _manager.PitcherAttributes.Value;
             return $"체력 {pitcher.Stamina}     구속 {pitcher.Velocity}     구위 {pitcher.Stuff}\n\n" +

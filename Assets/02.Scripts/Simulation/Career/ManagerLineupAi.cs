@@ -92,7 +92,7 @@ namespace Baseball.Simulation.Career
             BatterAttributes attributes,
             BattingOrderScoreWeights weights)
         {
-            // Arm·Defense는 수비 가치이고 파생 Bunt는 상황 전술용이므로 일반 타순 평가에서 제외한다.
+            // Defense는 수비 가치이고 Bunt는 상황 전술용이므로 일반 타순 평가에서 제외한다.
             return attributes.Contact * weights.Contact +
                    attributes.Power * weights.Power +
                    attributes.Speed * weights.Speed +

@@ -172,18 +172,18 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void GuidedBatterAttributes_송구와선구안을각각Arm과Mental에연결한다()
+        public void GuidedBatterAttributes_번트와선구안을각각Bunt과Mental에연결한다()
         {
             var flow = new NewGameFlow(NewGameConfiguration.CreateDefault(), 441UL);
-            flow.SubmitBasicInformation("송구 테스트", PlayerType.Batter, Handedness.Right, Handedness.Right);
+            flow.SubmitBasicInformation("번트 테스트", PlayerType.Batter, Handedness.Right, Handedness.Right);
             flow.SubmitCreationPosition(PlayerPosition.ThirdBase, PitcherRole.Starter);
 
             flow.SubmitCreationAttributes(new[] { 55, 55, 55, 55, 65, 75 });
 
             BatterAttributes attributes = flow.State.BatterAttributes.Value;
             Assert.That(attributes.Mental, Is.EqualTo(55));
-            Assert.That(attributes.Arm, Is.EqualTo(75));
-            Assert.That(attributes.Bunt, Is.EqualTo(55), "송구가 번트 능력으로 재사용되면 안 됩니다.");
+            Assert.That(attributes.Bunt, Is.EqualTo(75));
+            Assert.That(attributes.Defense, Is.EqualTo(65), "번트 배분은 수비 능력치를 바꾸지 않습니다.");
         }
 
         [Test]
@@ -211,13 +211,13 @@ namespace Baseball.Tests.EditMode.Game
 
             Assert.That(value.Contact, Is.EqualTo(worldPlayer.BatterAttributes.Contact));
             Assert.That(value.Power, Is.EqualTo(worldPlayer.BatterAttributes.Power));
-            Assert.That(value.Arm, Is.EqualTo(worldPlayer.BatterAttributes.Arm));
+            Assert.That(value.Bunt, Is.EqualTo(worldPlayer.BatterAttributes.Bunt));
             Assert.That(value.Defense, Is.EqualTo(worldPlayer.BatterAttributes.Defense));
             Assert.That(
                 value.Contact == value.Power &&
                 value.Power == value.Speed &&
-                value.Speed == value.Arm &&
-                value.Arm == value.Defense &&
+                value.Speed == value.Bunt &&
+                value.Bunt == value.Defense &&
                 value.Defense == value.Mental,
                 Is.False,
                 "NPC 능력치가 단일 OVR로 평탄화되면 안 됩니다.");

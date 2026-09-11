@@ -44,7 +44,7 @@ namespace Baseball.Editor.HistoricalDatabase
             "Contact",
             "Power",
             "Speed",
-            "Arm",
+            "Bunt",
             "Defense",
             "BatterMental",
             "Stamina",
