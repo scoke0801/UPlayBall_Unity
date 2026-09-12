@@ -127,8 +127,11 @@ namespace Baseball.Presentation.Match.Sprites
             float releaseProgress = release / _pitch.DurationSeconds;
             _fielders[0].Render(_pitch, pitchTime, _projection.GetFielder(PlayerPosition.StartingPitcher));
             _fielders[1].Render(_catcher, t * PitchDuration, _projection.GetFielder(PlayerPosition.Catcher));
-            // 헛스윙은 공이 도착하기 전에 배트가 지나가며, 타격 접점으로 공을 끌어오지 않는다.
-            float swingTime = didContact ? Mathf.Max(0, contact - (1f - t) * _swing.DurationSeconds) : t * _swing.DurationSeconds;
+            // 헛스윙을 투수 준비 동작부터 재생하면 공이 출발할 때 이미 배트가 지나간다.
+            // 투구 후반에 원래 길이의 스윙 전체를 배치해 비행 중 스윙과 후속 자세를 보여준다.
+            float swingTime = didContact
+                ? Mathf.Max(0, contact - (1f - t) * _swing.DurationSeconds)
+                : Mathf.Max(0, t * PitchDuration - (PitchDuration - _swing.DurationSeconds));
             _batter.Render(_swing, didSwing ? swingTime : 0, BatterPoint());
             if (t < releaseProgress) _ball.Hide();
             else _ball.Render(ReleasePoint(), didSwing && didContact ? ContactPoint() : PlatePoint(), Mathf.InverseLerp(releaseProgress, 1, t), 0);

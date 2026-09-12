@@ -17,6 +17,7 @@ namespace Baseball.Presentation.Match
         private int _pendingEventCount;
         private float _eventElapsed, _eventDuration;
         private bool _pendingEventRevealed;
+        private OwnerMatchResultPresentationState _resultPresentationState;
         private readonly MatchEvent[] _recentPitches = new MatchEvent[12];
         private readonly OwnerMatchRunnerRoute[] _upcomingRunnerRoutes = new OwnerMatchRunnerRoute[3];
         private readonly StringBuilder _historyText = new StringBuilder(256);
@@ -27,12 +28,15 @@ namespace Baseball.Presentation.Match
             _playbackBoundary = -1;
             _hasPendingEvent = false;
             _eventElapsed = 0f;
+            _resultPresentationState.Reset();
             _playVisualizer.Reset();
             foreach (var dot in _pitchDots) dot.gameObject.SetActive(false);
             _zoneBall.gameObject.SetActive(false);
             _pitchHistory.text = "첫 투구를 기다립니다.";
-            _decisionNote.text = "경기 중 기용과 운영은 감독 AI가 결정합니다.";
-            _playDetail.text = "타구와 주자의 움직임을 함께 확인하세요.";
+            _decisionNote.text = string.Empty;
+            _playDetail.text = string.Empty;
+            _decisionExplanation.gameObject.SetActive(false);
+            _playExplanation.gameObject.SetActive(false);
             _currentPitch.text = "투구 기록";
         }
 
@@ -66,6 +70,8 @@ namespace Baseball.Presentation.Match
                     }
                     _playVisualizer.Begin(_pendingEvent, _session.PeekBallInPlay());
                     _eventDuration = _playVisualizer.GetDuration(_pendingEvent, _eventDuration);
+                    if (_resultPresentationState.IsRepeatedPlateAppearanceResult(_pendingEvent))
+                        _eventDuration = 0f;
                     // 타석 결과는 표시한 뒤 읽는 시간을 준다. 대기 후 공개하면 다음 투구가 같은 프레임에 지운다.
                     if (_pendingEvent.EventType == MatchEventType.PlateAppearanceEnded)
                     {
@@ -143,8 +149,11 @@ namespace Baseball.Presentation.Match
                 }
                 if (value.EventType == MatchEventType.PlateAppearanceEnded && index < visible - 1) pitchCount = 0;
                 if (value.ReasonCode != DecisionReasonCode.None && IsDecisionEvent(value.EventType))
+                {
                     _decisionNote.text = _session.GetParticipantName(value.PlayerId) + " · " +
                         DescribeDecision(value.EventType) + "\n" + DescribeReason(value.ReasonCode);
+                    _decisionExplanation.gameObject.SetActive(true);
+                }
             }
             _pitcherDetail.text = CurrentModel.IsBetweenInnings ? "다음 수비 준비" : "오늘 " + pitcherPitches + "구";
             _batterDetail.text = CurrentModel.IsBetweenInnings ? "다음 공격 준비" : "오늘 " + atBats + "타석 " + hits + "안타";
@@ -270,7 +279,8 @@ namespace Baseball.Presentation.Match
             };
             string defense = play.Fielding.HasValue
                 ? " · " + _session.GetParticipantName(play.Fielding.FielderId) : "";
-            _playDetail.text = kind + defense + "\n타구 위치는 수비 구역 기준으로 표시합니다.";
+            _playDetail.text = kind + defense;
+            _playExplanation.gameObject.SetActive(true);
         }
     }
 }

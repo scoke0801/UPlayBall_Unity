@@ -448,6 +448,50 @@ namespace Baseball.Presentation.Tests
             finally { Object.DestroyImmediate(host); }
         }
 
+        [TestCase(Handedness.Right, 1)]
+        [TestCase(Handedness.Right, 2)]
+        [TestCase(Handedness.Right, 4)]
+        [TestCase(Handedness.Left, 1)]
+        [TestCase(Handedness.Left, 2)]
+        [TestCase(Handedness.Left, 4)]
+        public void SwingingMissPlaysDuringFlightAndTakeKeepsReadyPose(Handedness hand, int speed)
+        {
+            var catalog = Resources.Load<SpriteAnimationCatalog>("UI/SpriteMatch/AnimationCatalog");
+            Assert.That(catalog, Is.Not.Null);
+            Assert.That(catalog.TryGetClip(BaseballVisualSequenceResolver.PitchClip(hand), out var pitch), Is.True);
+            Assert.That(catalog.TryGetClip(BaseballVisualSequenceResolver.SwingClip(hand), out var swing), Is.True);
+            Assert.That(pitch.TryGetEventTime(SpriteAnimationEvent.BallRelease, out float release), Is.True);
+            Assert.That(swing.TryGetEventTime(SpriteAnimationEvent.BatContact, out float contact), Is.True);
+            var host = new GameObject("MissTimingTest", typeof(RectTransform));
+            try
+            {
+                var rect = host.GetComponent<RectTransform>();
+                rect.sizeDelta = new Vector2(1280, 720);
+                var stage = new SpriteMatchStage(rect, catalog, _sprite);
+                Assert.That(stage.SetHands(hand, hand), Is.True);
+                stage.Reset();
+                var pose = host.transform.Find("SpriteMatchStage/FieldCamera/Batter/Pose")
+                    .GetComponent<UnityEngine.UI.Image>();
+                float duration = stage.PitchDuration;
+                stage.RenderPitch(release / duration, true);
+                Assert.That(pose.sprite, Is.SameAs(swing.frames[0].sprite),
+                    "공이 출발하기 전에 헛스윙이 진행되면 안 된다.");
+                bool sawSwingDuringFlight = false;
+                Sprite contactSprite = SpriteSequencePlayer.Sample(swing, contact).sprite;
+                for (float elapsed = 0; elapsed < duration; elapsed += speed / 60f)
+                {
+                    stage.RenderPitch(elapsed / duration, true);
+                    if (elapsed > release && pose.sprite == contactSprite) sawSwingDuringFlight = true;
+                    stage.RenderPitch(elapsed / duration, false);
+                    Assert.That(pose.sprite, Is.SameAs(swing.frames[0].sprite));
+                }
+                Assert.That(sawSwingDuringFlight, Is.True, "배속 재생에서도 비행 중 스윙 자세가 보여야 한다.");
+                stage.RenderPitch(1, true);
+                Assert.That(pose.sprite, Is.SameAs(swing.frames[swing.frames.Length - 1].sprite));
+            }
+            finally { Object.DestroyImmediate(host); }
+        }
+
         private SpriteClipDefinition Clip(string id, SpriteHandedness hand) => new SpriteClipDefinition
         {
             clipId = id, approved = true, handedness = hand,
