@@ -426,7 +426,7 @@ namespace Baseball.Presentation.Match
 
         private static Text AddText(Transform parent, string value, Font font, int size, float x, float y, float width, float height)
         {
-            var go = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var go = new GameObject("Label", typeof(RectTransform), typeof(Baseball.Presentation.UI.UIProjectText));
             go.transform.SetParent(parent, false);
             var text = go.GetComponent<Text>();
             text.font = font;

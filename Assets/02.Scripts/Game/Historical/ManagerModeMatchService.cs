@@ -95,7 +95,7 @@ namespace Baseball.Game.Historical
     }
 
     /// <summary>검증된 프리셋을 DetailedMatchEngine 한 경로로 실행하고 경기 후 원본 상태를 갱신한다.</summary>
-    public sealed class ManagerModeMatchService
+    public sealed partial class ManagerModeMatchService
     {
         private enum AiScheduleAdvanceMode
         {
@@ -166,7 +166,7 @@ namespace Baseball.Game.Historical
             BalanceTable balance,
             IReadOnlyList<TeamColorDefinition> teamColors = null,
             IReadOnlyList<TacticCardDefinition> tacticCards = null,
-            MatchExecutionProfile? offscreenExecutionProfile = null)
+            MatchExecutionProfile? offscreenExecutionProfile = null, DugoutStaffCatalog dugoutCatalog = null)
         {
             _content = content ?? throw new ArgumentNullException(nameof(content));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
@@ -185,7 +185,7 @@ namespace Baseball.Game.Historical
             _aiTacticSelectionResolver = new AiTacticSelectionResolver();
             _coordinator = new ManagerModeCoordinator(balance);
             _ownerCardAbilityResolver = new OwnerCardAbilityResolver(balance.Growth);
-            _dugoutCatalog = DugoutStaffCatalog.CreateDefault();
+            _dugoutCatalog = dugoutCatalog ?? DugoutStaffCatalog.CreateDefault();
             _dugoutResolver = new DugoutTacticalProfileResolver();
         }
 
@@ -193,12 +193,12 @@ namespace Baseball.Game.Historical
             IHistoricalContentProvider contentProvider,
             BalanceTable balance,
             IReadOnlyList<TeamColorDefinition> teamColors = null,
-            IReadOnlyList<TacticCardDefinition> tacticCards = null)
+            IReadOnlyList<TacticCardDefinition> tacticCards = null, DugoutStaffCatalog dugoutCatalog = null)
             : this(
                 (contentProvider ?? throw new ArgumentNullException(nameof(contentProvider))).Load(),
                 balance,
                 teamColors,
-                tacticCards)
+                tacticCards, dugoutCatalog: dugoutCatalog)
         {
         }
 
@@ -320,6 +320,7 @@ namespace Baseball.Game.Historical
             ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
             mode.ClearSelectedTactics();
             mode.Dugout.RecordMatchCompleted();
+            OwnerSupportService.CompleteMatch(runtime);
 
             // 같은 라운드의 나머지 대진까지 확정해야 순위표에서 플레이어 구단만 경기 수가 앞서가지 않는다.
             if (aiAdvanceMode == AiScheduleAdvanceMode.ThroughPlayerRound)
@@ -388,7 +389,10 @@ namespace Baseball.Game.Historical
             TacticLoadoutState awayTactics;
             TacticLoadoutState homeTactics;
             int rotationIndex = GetMaximumRound(season.Schedule.Games) + CountPostseasonGames(group.Postseason);
-            int restRounds = series.Games.Count == 1 ? 1 : 0;
+            // 시리즈 사이와 홈구장 이동일에 하루 휴식을 반영한다.
+            int gameNumber = series.Games.Count;
+            int restRounds = gameNumber == 1 || series.Round != OwnerPostseasonRound.WildCard &&
+                (gameNumber == 3 || gameNumber == (series.Round == OwnerPostseasonRound.Championship ? 6 : 5)) ? 1 : 0;
             PlayerIdMap playerIds = PlayerIdMap.Create(runtime);
 
             if (includesPlayer)
@@ -437,7 +441,7 @@ namespace Baseball.Game.Historical
                 game.RandomSeed,
                 awayBuild.Roster,
                 homeBuild.Roster,
-                MatchRules.CreateDefault(requiresWinner: true),
+                new MatchRules(9, 6, ExtraInningPolicy.DrawAtLimit, 16, true, 0),
                 SimulationRulesVersion.DetailedV2,
                 SimulationVersionStamp.CreateCurrent(_balance.Version, _content.Manifest.ContentHash,
                     (int)SimulationRulesVersion.DetailedV2),
@@ -459,8 +463,10 @@ namespace Baseball.Game.Historical
             game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
             ApplyPostGameState(runtime.ManagerMode, awayBuild, homeBuild, match);
             int winnerTeamId = match.AwayBoxScore.Runs > match.HomeBoxScore.Runs ? game.AwayTeamId : game.HomeTeamId;
-            bool clinching = winnerTeamId == series.HigherSeedTeamId
-                ? series.HigherSeedWins + 1 >= series.WinsRequired
+            bool clinching = match.AwayBoxScore.Runs == match.HomeBoxScore.Runs
+                ? series.Round == OwnerPostseasonRound.WildCard
+                : winnerTeamId == series.HigherSeedTeamId
+                ? series.HigherSeedWins + 1 >= series.HigherSeedWinsRequired
                 : series.LowerSeedWins + 1 >= series.WinsRequired;
             new LeagueStatisticsService(season.Statistics).RecordMatch(match, CompetitionScope.Postseason,
                 CountPostseasonGames(group.Postseason),
@@ -476,6 +482,7 @@ namespace Baseball.Game.Historical
             ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
             runtime.ManagerMode.ClearSelectedTactics();
             runtime.ManagerMode.Dugout.RecordMatchCompleted();
+            OwnerSupportService.CompleteMatch(runtime);
             TeamMatchBuild ownedBuild = playerIsHome ? homeBuild : awayBuild;
             playerResult = new ManagerModeMatchResult(match, playerPlan, ownedBuild.LineupChemistry,
                 finance, financeStatus, runtime.ManagerMode.Dugout.ManagerId, runtime.ManagerMode.Dugout.HeadCoachId,
@@ -842,6 +849,7 @@ namespace Baseball.Game.Historical
             for (int index = 0; index < bullpen.Length; index++)
                 matchPlayerIds.Add(bullpen[index].Player.PlayerId);
             MatchPlayerConditionEntry[] conditions = CreateConditionEntries(
+                runtime, teamSeasonKey,
                 runtime.ManagerMode.GetPlayerStatus(teamSeasonKey),
                 activeRoster,
                 playersByCard,
@@ -938,7 +946,8 @@ namespace Baseball.Game.Historical
             }
             int GetPermanent(PlayerAbility ability) => Math.Max(1, Math.Min(AttributeRating.Maximum, GetRawPermanent(ability)));
             double GetRawEffective(PlayerAbility ability) => Math.Max(1d, Math.Min(_balance.MatchRatingCurve.Caps.HardCap,
-                checked(GetRawPermanent(ability) + teamColorBonuses.Get(entry.CardId, ability))));
+                checked(_ownerCardAbilityResolver.ResolveContribution(season, card, usesOwnedEconomy ? owned : null, ability).Total
+                    + teamColorBonuses.Get(entry.CardId, ability))));
             int Get(PlayerAbility ability)
             {
                 int raw = checked(GetRawPermanent(ability) + teamColorBonuses.Get(entry.CardId, ability));
@@ -1007,7 +1016,8 @@ namespace Baseball.Game.Historical
             return new PitcherRosterEntry(
                 players[cardId],
                 assignedRole,
-                Math.Min(100, playerStatus.StoredBaseCondition + conditionBonus),
+                Math.Min(100, playerStatus.StoredBaseCondition + conditionBonus +
+                    (teamSeasonKey == runtime.PlayerTeamSeasonKey ? OwnerSupportService.GetConditionBonus(runtime, cardId) : 0)),
                 new RecentPitchingWorkload(
                     load.PreviousDayPitches,
                     load.TwoDaysAgoPitches,
@@ -1021,6 +1031,7 @@ namespace Baseball.Game.Historical
         }
 
         private MatchPlayerConditionEntry[] CreateConditionEntries(
+            ManagerHistoricalRuntimeState runtime, string teamSeasonKey,
             TeamSeasonPlayerStatusState status,
             CurrentRosterState roster,
             IReadOnlyDictionary<string, Player> players,
@@ -1038,8 +1049,10 @@ namespace Baseball.Game.Historical
                 int lineupModifier = lineupChemistry.GetConditionModifier(entry.PlayerPersonId);
                 battingOrderFits.TryGetValue(player.PlayerId, out BattingOrderFit fit);
                 int storedCondition = status.GetRequiredPlayer(entry.PlayerPersonId).StoredBaseCondition;
+                int temporaryBonus = conditionBonus + (teamSeasonKey == runtime.PlayerTeamSeasonKey
+                    ? OwnerSupportService.GetConditionBonus(runtime, entry.CardId) : 0);
                 int preferenceModifier = ConditionFluctuationResolver.ResolvePreferredOrderModifier(
-                    storedCondition, lineupModifier + conditionBonus, fit, _balance.ConditionChemistry);
+                    storedCondition, lineupModifier + temporaryBonus, fit, _balance.ConditionChemistry);
                 result[resultIndex++] = new MatchPlayerConditionEntry(
                     player.PlayerId,
                     new EffectiveMatchCondition(
@@ -1047,7 +1060,7 @@ namespace Baseball.Game.Historical
                         assignmentModifier: preferenceModifier,
                         lineupChemistryModifier: lineupModifier,
                         batteryChemistryModifier: 0,
-                        temporaryModifier: conditionBonus));
+                        temporaryModifier: temporaryBonus));
             }
             return result;
         }

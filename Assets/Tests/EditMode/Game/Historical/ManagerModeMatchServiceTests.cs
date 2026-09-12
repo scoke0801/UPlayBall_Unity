@@ -1087,6 +1087,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(initial.TotalPlayerLeagueGames,
                 Is.EqualTo(season.Schedule.Games.Count(game => !game.IsCompleted)));
             Assert.That(initial.NextRound, Is.EqualTo(firstRound));
+            Assert.That(initial.SeasonRank, Is.Zero);
 
             ManagerRegularSeasonSimulationStepResult step;
             int previousLeagueGames = 0;
@@ -1098,6 +1099,11 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 previousLeagueGames = step.Progress.LeagueGamesSimulated;
                 Assert.That(step.Progress.PlayerLeagueGamesSimulated,
                     Is.EqualTo(season.Schedule.Games.Count(game => game.IsCompleted)));
+                var ranking = new OwnerLeagueWorldService(BalanceTable.CreateDefault()).Rank(season);
+                int expectedRank = Array.FindIndex(ranking,
+                    team => team.TeamKey == season.GetTeamSeasonKey(season.PlayerTeamId)) + 1;
+                Assert.That(step.Progress.SeasonRank, Is.EqualTo(expectedRank),
+                    "AI 구단 경기 후에도 소속 조 순위표와 같은 최신 순위를 전달해야 한다.");
             }
             while (step.MatchResult == null);
 
@@ -1108,6 +1114,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             ManagerRegularSeasonSimulationProgress stopped = session.StopByUser();
             Assert.That(stopped.Status, Is.EqualTo(ManagerRegularSeasonSimulationStatus.StoppedByUser));
             Assert.That(stopped.PlayerGamesSimulated, Is.EqualTo(1));
+            Assert.That(stopped.SeasonRank, Is.EqualTo(step.Progress.SeasonRank));
             Assert.Throws<InvalidOperationException>(() => session.AdvanceNextStep());
         }
 
@@ -1225,7 +1232,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                     Assert.That(actual.Games[gameIndex].RandomSeed, Is.EqualTo(expected.Games[gameIndex].RandomSeed));
                     Assert.That(actual.Games[gameIndex].AwayRuns, Is.EqualTo(expected.Games[gameIndex].AwayRuns));
                     Assert.That(actual.Games[gameIndex].HomeRuns, Is.EqualTo(expected.Games[gameIndex].HomeRuns));
-                    Assert.That(actual.Games[gameIndex].AwayRuns, Is.Not.EqualTo(actual.Games[gameIndex].HomeRuns));
+                    Assert.That(actual.Draws, Is.EqualTo(expected.Draws));
                 }
             }
             Assert.That(first.LeagueWorld.IsCompleted, Is.True);

@@ -12,6 +12,31 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     public sealed class OwnerSeasonReviewPresentationTests
     {
         [Test]
+        public void KBO네라운드를시즌보고에빠짐없이표시한다()
+        {
+            var host = new GameObject("PopupHost", typeof(RectTransform));
+            try
+            {
+                var view = UI_Popup_OwnerSeasonReview.CreateRuntime(host.GetComponent<RectTransform>());
+                view.Bind(new OwnerSeasonReviewSnapshot(1, LeagueGrade.Rookie, null, "A",
+                    1, 10, 80, 60, 4, 700, 650, true, false, true, null, null,
+                    new[]
+                    {
+                        new OwnerPostseasonSeriesReview("wc", OwnerPostseasonRound.WildCard, "D", "E", 1, 0, 2, true),
+                        new OwnerPostseasonSeriesReview("semi", OwnerPostseasonRound.SemiPlayoff, "C", "D", 3, 0, 3, true),
+                        new OwnerPostseasonSeriesReview("po", OwnerPostseasonRound.Playoff, "B", "C", 3, 0, 3, true),
+                        new OwnerPostseasonSeriesReview("final", OwnerPostseasonRound.Championship, "A", "B", 0, 0, 4, false)
+                    }), key => "구단 " + key, 1);
+                view.Show();
+                for (int index = 0; index < 4; index++)
+                    Assert.That(view.transform.Find("SeasonReview/ResultHero/Series" + index).gameObject.activeSelf, Is.True);
+                Assert.That(view.transform.Find("SeasonReview/ResultHero/Series3/Round").GetComponent<Text>().text,
+                    Does.Contain("한국시리즈"));
+            }
+            finally { Object.DestroyImmediate(host); }
+        }
+
+        [Test]
         public void 두구단챔피언십에는추가결승대기카드를표시하지않는다()
         {
             var host = new GameObject("PopupHost", typeof(RectTransform));
@@ -63,6 +88,12 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 while (!manager.IsNextPostseasonGamePlayerMatch)
                     Assert.That(manager.AdvancePostseasonSimulationFrame(), Is.True, manager.LastError);
                 int before = manager.PostseasonSimulationProgress.CompletedGames;
+                // 실제 셸은 관전 실행 전에 축하 판정용 시즌 보고를 읽는다.
+                var gate = new OwnerPostseasonCelebrationGate();
+                Assert.DoesNotThrow(() => gate.Begin(manager.CreateSeasonReview()));
+                Assert.That(manager.PostseasonSimulationProgress.CompletedGames, Is.EqualTo(before));
+                Assert.Throws<System.InvalidOperationException>(() => manager.Save());
+                Assert.Throws<System.InvalidOperationException>(() => manager.StartNewGame());
                 // 이전 경기에서 즉시 결과를 선택했어도 명시적인 관전 요청은 중계를 연다.
                 Baseball.Presentation.Match.OwnerMatchPresentationSettings.SetViewingMode(
                     Baseball.Presentation.Match.OwnerMatchViewingMode.ResultOnly);
@@ -96,7 +127,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
         [TestCase(0, 0, false, "준결승 1차전", "다음 경기 관전")]
         [TestCase(1, 1, false, "준결승 3차전", "다음 경기 관전")]
-        [TestCase(2, 1, true, "결승 진출", "다음 경기 관전")]
+        [TestCase(2, 1, true, "다음 라운드", "다음 경기 관전")]
         [TestCase(1, 2, true, "가을 야구 종료", "남은 리그 마감")]
         public void 다음차전과탈락및결승대기를구분한다(int wins, int losses, bool completed, string title, string action)
         {

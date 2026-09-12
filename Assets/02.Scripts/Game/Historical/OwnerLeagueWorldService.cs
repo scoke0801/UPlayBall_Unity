@@ -118,6 +118,10 @@ namespace Baseball.Game.Historical
 
         /// <summary>화면과 승강 판정이 공유하는 정규시즌 최종 순위를 반환한다.</summary>
         public OwnerLeagueStanding[] Rank(ManagerLiveSeasonState season)
+            => RankSeason(season);
+
+        /// <summary>진행 중 순위도 시즌 확정과 같은 집계·동률 규칙으로 계산한다.</summary>
+        internal static OwnerLeagueStanding[] RankSeason(ManagerLiveSeasonState season)
         {
             var records = new Dictionary<int, int[]>();
             foreach (var team in season.Teams) records.Add(team.TeamId, new int[3]);
@@ -137,7 +141,7 @@ namespace Baseball.Game.Historical
                 int[] record = records[team.TeamId];
                 standings.Add(new OwnerLeagueStanding(team.TeamSeasonKey, record[0], record[1], record[2]));
             }
-            return _resolver.Rank(standings);
+            return new OwnerLeagueAllocationResolver().Rank(standings);
         }
 
         private static OwnerLeagueWorldState RequireCompletedWorld(ManagerHistoricalRuntimeState runtime)

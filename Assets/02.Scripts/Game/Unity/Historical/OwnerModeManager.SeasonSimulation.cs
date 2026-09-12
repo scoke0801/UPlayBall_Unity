@@ -27,7 +27,7 @@ namespace Baseball.Game.Historical
                 // 저장 DTO 복원으로 가변 상태를 분리한다. Unity 공급자 호출과 복원은 메인 스레드에서 끝낸다.
                 var copy = _saveAdapter.CreateSimulationCopy(Runtime);
                 var service = new ManagerModeMatchService(_contentProvider.Load(), _balance,
-                    teamColors: _teamColors, tacticCards: _tacticCards);
+                    teamColors: _teamColors, tacticCards: _tacticCards, dugoutCatalog: _dugoutCatalog);
                 _regularSeasonSimulationCopy = copy;
                 _regularSeasonSimulationSession = new ManagerRegularSeasonSimulationSession(copy, service);
                 _regularSeasonSimulationWorker = new ManagerRegularSeasonSimulationWorker(
@@ -275,7 +275,7 @@ namespace Baseball.Game.Historical
             Runtime = _regularSeasonSimulationCopy;
             // 이전 Runtime을 참조하는 경기 준비 캐시를 소유권 전환 시 함께 해제한다.
             _matchService = new ManagerModeMatchService(_contentProvider.Load(), _balance,
-                teamColors: _teamColors, tacticCards: _tacticCards);
+                teamColors: _teamColors, tacticCards: _tacticCards, dugoutCatalog: _dugoutCatalog);
             _regularSeasonSimulationCopy = null;
             _regularSeasonSimulationProgress = worker.ReadProgress();
             if (worker.LastMatch != null) LastMatch = worker.LastMatch;
@@ -296,8 +296,10 @@ namespace Baseball.Game.Historical
 
         private void EnsureRegularSeasonSimulationIsNotRunning()
         {
-            if (_regularSeasonSimulationSession != null || _postseasonSimulationSession != null)
+            if (_regularSeasonSimulationSession != null)
                 throw new InvalidOperationException("정규시즌 시뮬레이션이 진행 중입니다.");
+            if (_postseasonSimulationSession != null)
+                throw new InvalidOperationException("포스트시즌 시뮬레이션이 진행 중입니다.");
         }
     }
 }

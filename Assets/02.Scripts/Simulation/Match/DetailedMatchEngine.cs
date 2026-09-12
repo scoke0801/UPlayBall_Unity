@@ -185,6 +185,8 @@ namespace Baseball.Simulation.Match
                         battingOrderIndex,
                         inning,
                         leverage,
+                        defense.ActivePitcher.ThrowingHand,
+                        _balance.PlateDiscipline,
                         out int benchIndex,
                         out double pinchHitScore,
                         out double pinchHitThreshold))

@@ -114,7 +114,7 @@ namespace Baseball.Presentation.Match
             Vector2 position,
             Color color)
         {
-            var child = new GameObject(objectName, typeof(RectTransform), typeof(Text));
+            var child = new GameObject(objectName, typeof(RectTransform), typeof(Baseball.Presentation.UI.UIProjectText));
             child.transform.SetParent(transform, false);
             RectTransform rect = child.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 1f);

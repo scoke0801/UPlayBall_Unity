@@ -17,13 +17,15 @@ namespace Baseball.Simulation.Historical
             int training,
             int skillBlock,
             int study,
-            int enhancement)
+            int enhancement,
+            int mentoring = 0, int correction = 0, int support = 0, int slogan = 0, int staff = 0)
         {
             BaseCard = baseCard;
             Training = training;
             SkillBlock = skillBlock;
             Study = study;
             Enhancement = enhancement;
+            Mentoring = mentoring; Correction = correction; Support = support; Slogan = slogan; Staff = staff;
         }
 
         public int BaseCard { get; }
@@ -31,7 +33,13 @@ namespace Baseball.Simulation.Historical
         public int SkillBlock { get; }
         public int Study { get; }
         public int Enhancement { get; }
-        public int Total => checked(BaseCard + Training + SkillBlock + Study + Enhancement);
+        public int Mentoring { get; }
+        public int Correction { get; }
+        public int Support { get; }
+        public int Slogan { get; }
+        public int Staff { get; }
+        public int PermanentTotal => checked(BaseCard + Training + SkillBlock + Study + Enhancement + Mentoring + Correction);
+        public int Total => checked(PermanentTotal + Support + Slogan + Staff);
     }
 
     /// <summary>훈련·Edition·강화·카드별 성장판을 합치는 구단주 카드 능력치 단일 진입점이다.</summary>
@@ -51,7 +59,7 @@ namespace Baseball.Simulation.Historical
             OwnedPlayerCardState owned,
             PlayerAbility ability)
         {
-            return ResolveContribution(season, card, owned, ability).Total;
+            return ResolveContribution(season, card, owned, ability).PermanentTotal;
         }
 
         /// <summary>TrainingCeiling을 적용한 후 훈련·유학·스킬 블록·강화 기여분을 반환한다.</summary>
@@ -81,7 +89,12 @@ namespace Baseball.Simulation.Historical
                 training,
                 board,
                 study,
-                owned.EnhancementLevel);
+                owned.EnhancementLevel,
+                owned.Training.Ledger.Get(OwnerGrowthSource.Mentoring, ability),
+                owned.Training.Ledger.Get(OwnerGrowthSource.Correction, ability),
+                owned.Training.Ledger.Get(OwnerGrowthSource.Support, ability),
+                owned.Training.Ledger.Get(OwnerGrowthSource.Slogan, ability),
+                owned.Training.Ledger.Get(OwnerGrowthSource.Staff, ability));
         }
 
         public AbilityRatings ResolvePermanent(
@@ -125,6 +138,8 @@ namespace Baseball.Simulation.Historical
         {
             if (inventory == null || board == null) throw new ArgumentNullException(nameof(inventory));
             SkillBlockInstance instance = inventory.GetRequired(instanceId);
+            foreach (var cell in _service.GetOccupiedCells(new PlacedSkillBlock(instance, originX, originY, rotationQuarterTurns)))
+                if (!board.IsCellUnlocked(cell.X, cell.Y)) throw new InvalidOperationException("전지훈련으로 성장판 칸을 먼저 개방하세요.");
             SkillBoardState validation = BuildValidationState(inventory, board);
             _service.PlaceBlock(validation, instanceId, originX, originY, rotationQuarterTurns);
             board.Add(new PlacedSkillBlock(instance, originX, originY, rotationQuarterTurns));
@@ -263,7 +278,7 @@ namespace Baseball.Simulation.Historical
             CardStudyProgramDefinition program,
             ManagerEconomyState economy,
             int seasonNumber,
-            int capacity)
+            int capacity, ulong resultSeed = 0, IRandomSource random = null)
         {
             if (growth == null || card == null || season == null || program == null || economy == null)
                 throw new ArgumentNullException(nameof(growth));
@@ -275,9 +290,14 @@ namespace Baseball.Simulation.Historical
                     throw new InvalidOperationException("이 카드는 이미 유학 중입니다.");
             if (!HasGrowthHeadroom(card, season, program))
                 throw new InvalidOperationException("이 유학 과정의 대상 능력치가 모두 TrainingCeiling에 도달했습니다.");
-            if (!economy.TrySpendDevelopmentPoints(program.DevelopmentPointCost))
-                throw new InvalidOperationException("유학에 필요한 DP가 부족합니다.");
-            growth.AddStudy(new CardStudyProjectState(card.CardId, program.ProgramId, seasonNumber, program.DurationWeeks));
+            if (economy.DevelopmentPoints < program.DevelopmentPointCost || economy.Money < program.MoneyCost)
+                throw new InvalidOperationException("유학에 필요한 자원이 부족합니다.");
+            if (program.GreatSuccessProbability > 0 && random == null) throw new ArgumentNullException(nameof(random));
+            int resultBonus = program.GreatSuccessProbability > 0 && random.NextDouble() < program.GreatSuccessProbability ? program.GreatSuccessBonus : 0;
+            var project = new CardStudyProjectState(card.CardId, program.ProgramId, seasonNumber, program.DurationWeeks,
+                program.DurationWeeks, program.MoneyCost, program.DevelopmentPointCost, resultSeed, resultBonus);
+            economy.TrySpendDevelopmentPoints(program.DevelopmentPointCost); economy.TrySpendMoney(program.MoneyCost);
+            growth.AddStudy(project); growth.RecordStudyStarted();
             card.RecordStudySeason(seasonNumber);
         }
 
@@ -291,7 +311,7 @@ namespace Baseball.Simulation.Historical
             for (int index = 0; index < program.Rewards.Count; index++)
             {
                 PlayerAbility ability = program.Rewards[index].Ability;
-                if (bases.Get(ability) + card.Training.GetBonus(ability) < ceilings.Get(ability)) return true;
+                if (bases.Get(ability) + card.Training.GetBonus(ability) + card.Training.Ledger.Get(OwnerGrowthSource.Mentoring, ability) < ceilings.Get(ability)) return true;
             }
             return false;
         }
@@ -299,7 +319,7 @@ namespace Baseball.Simulation.Historical
         public static CardStudyCompletion Complete(
             OwnedPlayerCardState card,
             PlayerSeasonDefinition season,
-            CardStudyProgramDefinition program)
+            CardStudyProgramDefinition program, int resultBonus = 0)
         {
             var applied = new List<AbilityChange>(program.Rewards.Count);
             AbilityRatings bases = season.CreateBaseAttributes();
@@ -307,10 +327,11 @@ namespace Baseball.Simulation.Historical
             for (int index = 0; index < program.Rewards.Count; index++)
             {
                 AbilityChange reward = program.Rewards[index];
-                int current = bases.Get(reward.Ability) + card.Training.GetBonus(reward.Ability);
-                int gained = Math.Min(reward.Amount, Math.Max(0, ceilings.Get(reward.Ability) - current));
+                int current = bases.Get(reward.Ability) + card.Training.GetBonus(reward.Ability)
+                    + card.Training.Ledger.Get(OwnerGrowthSource.Mentoring, reward.Ability);
+                int gained = Math.Min(reward.Amount + (index == 0 ? resultBonus : 0), Math.Max(0, ceilings.Get(reward.Ability) - current));
                 if (gained <= 0) continue;
-                card.Training.AddStudyBonus(reward.Ability, gained);
+                card.Training.AddStudyBonus(reward.Ability, gained, program.DisplayName + (resultBonus > 0 ? " · 대성공" : " · 완료"));
                 applied.Add(new AbilityChange(reward.Ability, gained));
             }
             return new CardStudyCompletion(card.CardId, program.ProgramId, applied);

@@ -168,7 +168,14 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(view.Categories.Count, Is.EqualTo(4));
 
             OwnerSeasonRecordsCategoryView batting = FindCategory(view, CareerRecordCategory.Batting);
-            Assert.That(batting.Leaderboard.Length, Is.GreaterThan(0), "타격 리더보드가 비어 있다.");
+            Assert.That(batting.QualifiedPlayerCount, Is.GreaterThan(30));
+            Assert.That(batting.Leaderboard.Length, Is.EqualTo(30));
+            foreach (OwnerSeasonRecordsCategoryView category in view.Categories)
+            {
+                Assert.That(category.Columns.Length, Is.GreaterThan(6));
+                Assert.That(new HashSet<CareerRecordMetric>(category.Columns).Count,
+                    Is.EqualTo(category.Columns.Length), "중복 기록 열이 없어야 한다.");
+            }
             Assert.That(batting.QualifiedPlayerCount, Is.GreaterThanOrEqualTo(batting.Leaderboard.Length));
 
             CompetitionStatisticsState competition =

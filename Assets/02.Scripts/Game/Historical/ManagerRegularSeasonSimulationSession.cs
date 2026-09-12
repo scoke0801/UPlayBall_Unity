@@ -31,7 +31,8 @@ namespace Baseball.Game.Historical
             int seasonLosses,
             int seasonDraws,
             int playerLeagueGamesSimulated,
-            int totalPlayerLeagueGames)
+            int totalPlayerLeagueGames,
+            int seasonRank = 0)
         {
             Status = status;
             PlayerGamesSimulated = playerGamesSimulated;
@@ -47,6 +48,7 @@ namespace Baseball.Game.Historical
             SeasonDraws = seasonDraws;
             PlayerLeagueGamesSimulated = playerLeagueGamesSimulated;
             TotalPlayerLeagueGames = totalPlayerLeagueGames;
+            SeasonRank = seasonRank;
         }
 
         public ManagerRegularSeasonSimulationStatus Status { get; }
@@ -65,6 +67,8 @@ namespace Baseball.Game.Historical
         public int SeasonWins { get; }
         public int SeasonLosses { get; }
         public int SeasonDraws { get; }
+        /// <summary>현재 소속 조의 순위. 조에서 완료된 경기가 없으면 0이다.</summary>
+        public int SeasonRank { get; }
         public bool IsCompleted => Status == ManagerRegularSeasonSimulationStatus.Completed;
         public bool IsStopped => Status is ManagerRegularSeasonSimulationStatus.StoppedByUser or
             ManagerRegularSeasonSimulationStatus.AbortedBySceneUnload;
@@ -108,6 +112,8 @@ namespace Baseball.Game.Historical
         private int _seasonLosses;
         private int _seasonDraws;
         private ScheduledGameState _nextPlayerGame;
+        private int _rankedPlayerLeagueGames = -1;
+        private int _seasonRank;
 
         public ManagerRegularSeasonSimulationSession(
             ManagerHistoricalRuntimeState runtime,
@@ -213,6 +219,7 @@ namespace Baseball.Game.Historical
 
         public ManagerRegularSeasonSimulationProgress CreateProgressSnapshot()
         {
+            RefreshSeasonRank();
             ScheduledGameState nextGame = _nextPlayerGame;
             return new ManagerRegularSeasonSimulationProgress(
                 _status,
@@ -228,7 +235,26 @@ namespace Baseball.Game.Historical
                 _seasonLosses,
                 _seasonDraws,
                 _playerLeagueGamesSimulated,
-                _totalPlayerLeagueGames);
+                _totalPlayerLeagueGames,
+                _seasonRank);
+        }
+
+        private void RefreshSeasonRank()
+        {
+            int completedGames = _completedPlayerLeagueGamesBefore + _playerLeagueGamesSimulated;
+            // 다른 조 경기와 반복 UI 조회에서는 변하지 않은 순위를 재집계하지 않는다.
+            if (_rankedPlayerLeagueGames == completedGames) return;
+            _rankedPlayerLeagueGames = completedGames;
+            if (completedGames == 0) return;
+
+            var standings = OwnerLeagueWorldService.RankSeason(_season);
+            string playerTeamKey = _season.GetTeamSeasonKey(_season.PlayerTeamId);
+            for (int index = 0; index < standings.Length; index++)
+            {
+                if (!string.Equals(standings[index].TeamKey, playerTeamKey, StringComparison.Ordinal)) continue;
+                _seasonRank = index + 1;
+                return;
+            }
         }
 
         public ManagerRegularSeasonCompletionResult CreateCompletionResult()

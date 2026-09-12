@@ -337,7 +337,7 @@ namespace Baseball.Presentation.Match
         private static Text Label(string name, Transform parent, string value, int size, float x, float y,
             float width, float height, Color color)
         {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Text));
+            var go = new GameObject(name, typeof(RectTransform), typeof(Baseball.Presentation.UI.UIProjectText));
             go.transform.SetParent(parent, false);
             Place(go.GetComponent<RectTransform>(), x, y, width, height);
             var label = go.GetComponent<Text>();

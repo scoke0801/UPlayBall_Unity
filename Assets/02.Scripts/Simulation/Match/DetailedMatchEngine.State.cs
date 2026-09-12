@@ -566,6 +566,8 @@ namespace Baseball.Simulation.Match
             int battingOrderIndex,
             int inning,
             LeverageTier leverage,
+            Handedness opposingPitcherHand,
+            PlateDisciplineBalance discipline,
             out int benchIndex,
             out double decisionScore,
             out double decisionThreshold)
@@ -578,7 +580,7 @@ namespace Baseball.Simulation.Match
             if (inning < earliestInning || leverage < LeverageTier.Medium)
                 return false;
             Player current = _activeBatters[battingOrderIndex];
-            double currentOffense = GetOffenseValue(current);
+            double currentOffense = GetOffenseValue(current, opposingPitcherHand, discipline);
             // 선수 능력과 같은 단위로 기준도 투영해 압축 전 감독 교체 의도를 유지한다.
             double bestGain = decisionThreshold;
             for (int index = 0; index < _benchAvailable.Length; index++)
@@ -594,7 +596,7 @@ namespace Baseball.Simulation.Match
                         candidate,
                         _activePositions[battingOrderIndex],
                         _historicalConfiguration.PositionAssignmentRule);
-                double gain = GetOffenseValue(candidate) - penalty.ConditionPenalty * _decisionRatingSlope - currentOffense;
+                double gain = GetOffenseValue(candidate, opposingPitcherHand, discipline) - penalty.ConditionPenalty * _decisionRatingSlope - currentOffense;
                 if (gain > bestGain || Math.Abs(gain - bestGain) < 0.001d &&
                     (benchIndex < 0 || candidate.PlayerId < Roster.Bench[benchIndex].PlayerId))
                 {
@@ -808,9 +810,13 @@ namespace Baseball.Simulation.Match
             return result;
         }
 
-        private static double GetOffenseValue(Player player)
+        private double GetOffenseValue(Player player, Handedness opposingPitcherHand, PlateDisciplineBalance discipline)
         {
-            return player.BatterAttributes.Contact * 0.50d +
+            // 실제 타석의 좌우 컨택 보정을 같은 능력치 단위로 평가한다. 선호도는 보정의 반영 비중이다.
+            double contact = player.BattingHand == Handedness.Switch || player.BattingHand != opposingPitcherHand
+                ? discipline.OppositeHandedContactBonus : -discipline.SameHandedContactPenalty;
+            double adjustment = contact * Roster.ManagerProfile.MatchupPreference / 100d;
+            return (player.BatterAttributes.Contact + adjustment) * 0.50d +
                    player.BatterAttributes.Power * 0.38d +
                    player.BatterAttributes.Mental * 0.12d;
         }

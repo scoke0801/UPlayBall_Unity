@@ -95,6 +95,23 @@ namespace Baseball.Presentation.Match
             RenderHud(model);
         }
 
+        /// <summary>정규 일정 실행 없이 저장이 끝난 연습경기를 기존 관전 조작으로 재생한다.</summary>
+        public void PlayPractice(ManagerModeMatchResult result, Baseball.Simulation.Match.MatchEvent[] events,
+            string awayUniformFranchiseId, string homeUniformFranchiseId)
+        {
+            _showResults = _showPitching = _showHomeRecords = _wasComplete = false;
+            _hasNextGame = _isPreparingNextGame = false; _lastVisibleCount = -1;
+            ResetGameCast();
+            _homeButton.GetComponentInChildren<Text>().text = "역대 강팀으로";
+            _session = OwnerMatchSpectatorSession.FromPractice(result, events, this);
+            _awayUniformFranchiseId = awayUniformFranchiseId; _homeUniformFranchiseId = homeUniformFranchiseId;
+            _playVisualizer.SetTeamUniforms(_awayUniformFranchiseId, _homeUniformFranchiseId);
+            var settings = OwnerMatchPresentationSettings.Load();
+            _session.TrySetPlaybackSpeed(settings.PlaybackSpeed); _session.TrySetViewingMode(settings.ViewingMode);
+            IsPresenting = true; SetVisible(true); ScheduleNextAutomaticAdvance(); RefreshControls();
+            if (!IsComplete) _viewingModeButtons[(int)_session.State.ViewingMode].Select();
+        }
+
         /// <summary>관전 화면의 표시 여부를 변경한다.</summary>
         public void SetVisible(bool isVisible)
         {

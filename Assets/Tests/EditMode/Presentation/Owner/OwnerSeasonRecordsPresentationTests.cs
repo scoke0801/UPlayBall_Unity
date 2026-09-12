@@ -7,6 +7,7 @@ using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
@@ -14,6 +15,119 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     /// <summary>구단주 선수 기록 화면이 Game 레이어 확정 결과만 표시하고 리그 탭에서 도달 가능한지 검증한다.</summary>
     public sealed class OwnerSeasonRecordsPresentationTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Scroll_드래그방향을고정하고가로이동량을절반으로낮춘다(bool horizontalDrag)
+        {
+            var root = new GameObject("RecordsInputTests", typeof(RectTransform));
+            var events = new GameObject("Events", typeof(EventSystem));
+            try
+            {
+                var scroll = root.AddComponent<UIRecordTableScrollRect>();
+                var content = new GameObject("Content", typeof(RectTransform));
+                content.transform.SetParent(root.transform, false);
+                scroll.content = content.GetComponent<RectTransform>();
+                scroll.movementType = ScrollRect.MovementType.Unrestricted;
+                var input = new PointerEventData(events.GetComponent<EventSystem>())
+                {
+                    button = PointerEventData.InputButton.Left,
+                    position = Vector2.zero
+                };
+                scroll.OnBeginDrag(input);
+                Vector2 first = horizontalDrag ? new Vector2(-100f, 5f) : new Vector2(-5f, 100f);
+                input.position = first;
+                scroll.OnDrag(input);
+                Assert.That(scroll.content.anchoredPosition, Is.EqualTo(horizontalDrag
+                    ? new Vector2(-50f, 0f) : new Vector2(0f, 100f)));
+                Assert.That(input.position, Is.EqualTo(first));
+                input.position = new Vector2(-200f, 200f);
+                scroll.OnDrag(input);
+                Assert.That(scroll.content.anchoredPosition, Is.EqualTo(horizontalDrag
+                    ? new Vector2(-100f, 0f) : new Vector2(0f, 200f)));
+                scroll.OnEndDrag(input);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(events);
+            }
+        }
+
+        [TestCase(1f, 0.1f, 18f, 0f)]
+        [TestCase(0.1f, -1f, 0f, 36f)]
+        public void Scroll_휠은주축만이동하고입력값을복원한다(float x, float y, float expectedX, float expectedY)
+        {
+            var root = new GameObject("RecordsWheelTests", typeof(RectTransform));
+            var events = new GameObject("Events", typeof(EventSystem));
+            try
+            {
+                RecordTableView table = RecordTableView.CreateRuntime(root.transform);
+                table.Bind(CreateModel(true).Categories[0].Table);
+                ScrollRect scroll = table.ScrollRect;
+                scroll.horizontal = true;
+                scroll.vertical = true;
+                scroll.movementType = ScrollRect.MovementType.Unrestricted;
+                var input = new PointerEventData(events.GetComponent<EventSystem>())
+                {
+                    scrollDelta = new Vector2(x, y)
+                };
+                scroll.OnScroll(input);
+                Assert.That(scroll.content.anchoredPosition, Is.EqualTo(new Vector2(expectedX, expectedY)));
+                Assert.That(input.scrollDelta, Is.EqualTo(new Vector2(x, y)));
+                Assert.That(scroll.inertia, Is.False);
+                scroll.vertical = false;
+                Vector2 before = scroll.content.anchoredPosition;
+                input.scrollDelta = new Vector2(0f, -1f);
+                scroll.OnScroll(input);
+                Assert.That(scroll.content.anchoredPosition, Is.EqualTo(before),
+                    "세로 스크롤이 필요 없어도 세로 휠이 가로 이동으로 바뀌면 안 된다.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(events);
+            }
+        }
+
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
+        public void View_상세30행스크롤은열제목을세로고정하고가로동기화한다(int width, int height)
+        {
+            var root = new GameObject("RecordsScrollTests", typeof(RectTransform));
+            try
+            {
+                root.GetComponent<RectTransform>().sizeDelta = new Vector2(width, height);
+                UI_Scene_OwnerSeasonRecords view = UI_Scene_OwnerSeasonRecords.CreateRuntime(root.transform);
+                view.Bind(CreateModel(true));
+                RecordTableView table = view.GetComponentInChildren<RecordTableView>();
+                CareerRecordMetric[] metrics = CareerRecordsService.GetColumns(
+                    CareerRecordCategory.Batting, CareerRecordViewMode.Expanded);
+                var rows = new CareerRecordLeaderboardRow[30];
+                for (int i = 0; i < rows.Length; i++)
+                    rows[i] = CreateRow(i + 1, i + 1, "긴이름선수", 1, "2025 롯데 자이언츠", false, metrics, .400 - i * .001);
+                table.Bind(LeagueLeaderboardSnapshotAdapter.CreateLeaderboardTable(
+                    metrics, rows, metrics[0], "내 구단 선수"));
+                var header = (RectTransform)table.transform.Find("Table/HeaderViewport/Header");
+                var tabs = (RectTransform)view.transform.Find("CategoryBar");
+                Vector3 tabPosition = tabs.position;
+                table.ScrollRect.content.anchoredPosition = new Vector2(-250f, 450f);
+                table.ScrollRect.onValueChanged.Invoke(Vector2.zero);
+                Assert.That(header.anchoredPosition, Is.EqualTo(new Vector2(-250f, 0f)));
+                Assert.That(tabs.position, Is.EqualTo(tabPosition));
+                Assert.That(table.FirstRenderedRowIndex, Is.GreaterThan(0));
+                table.TrySelectRow("player-30", true);
+                Assert.That(table.SelectedRowId, Is.EqualTo("player-30"));
+                table.Bind(table.Model);
+                Assert.That(header.anchoredPosition, Is.EqualTo(Vector2.zero));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
         [Test]
         public void Model_네부문표를한번에만들고내구단선수를강조한다()
         {

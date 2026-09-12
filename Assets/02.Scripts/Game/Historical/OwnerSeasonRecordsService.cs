@@ -63,6 +63,8 @@ namespace Baseball.Game.Historical
     /// </summary>
     public sealed class OwnerSeasonRecordsService
     {
+        public const int DefaultLeaderboardLimit = 30;
+
         private static readonly CareerRecordCategory[] Categories =
         {
             CareerRecordCategory.Batting,
@@ -91,7 +93,7 @@ namespace Baseball.Game.Historical
             ManagerHistoricalRuntimeState runtime,
             Func<string, string> getTeamDisplayName,
             Func<string, string> getPlayerDisplayName,
-            int limit = LeagueLeaderboardService.DefaultLeaderboardLimit,
+            int limit = DefaultLeaderboardLimit,
             int? seasonNumber = null)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
@@ -169,7 +171,7 @@ namespace Baseball.Game.Historical
             IReadOnlyDictionary<int, string> playerPersonIds,
             int limit)
         {
-            CareerRecordMetric[] columns = LeagueLeaderboardService.GetBasicColumns(category);
+            CareerRecordMetric[] columns = CareerRecordsService.GetColumns(category, CareerRecordViewMode.Expanded);
             List<PlayerCompetitionStatisticsState> qualified = LeagueLeaderboardService.CollectQualifiedPlayers(
                 competition,
                 category,

@@ -208,7 +208,7 @@ namespace Baseball.Presentation.Owner
             _table.SetVisualStyle(RecordTableVisualStyle.ReferenceLight);
 
             Text footer = OwnerRuntimeUiFactory.CreateText(
-                "Footer", root, "정규시즌 누적 · 열 제목을 누르면 정렬 · 강조 행은 내 구단 선수",
+                "Footer", root, "상위 30명 · 좌우로 밀어 상세 기록 확인 · 열 제목을 누르면 정렬 · 강조 행은 내 구단 선수",
                 13, FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInkSecondary);
             OwnerRuntimeUiFactory.SetAnchors(
                 footer.rectTransform,

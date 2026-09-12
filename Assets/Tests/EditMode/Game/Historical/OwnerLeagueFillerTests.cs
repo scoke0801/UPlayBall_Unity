@@ -27,8 +27,6 @@ namespace Baseball.Tests.EditMode.Game.Historical
             for (int season = 1; season <= 4; season++)
             {
                 CompleteWorld(runtime, balance, FillerFirstResult.Tie);
-                if (runtime.ManagerMode.HasExpiringPlayerContracts())
-                    Assert.That(new OwnerPlayerMarketService(balance).RenewExpiringContracts(runtime, 1).CanCommit, Is.True);
                 ManagerSeasonAdvanceResult advance = coordinator.AdvanceSeason(runtime);
                 Assert.That(advance.IsApplied, Is.True, $"시즌 {season}: {advance.Status}");
                 runtime = adapter.Restore(adapter.CreateSaveData(runtime));
@@ -179,9 +177,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 OwnerPostseasonState postseason = group.Postseason;
                 while (!postseason.IsCompleted)
                 {
-                    OwnerPostseasonSeriesState series = postseason.EnsureCurrentSeries(
-                        balance.Postseason.SemifinalSeriesGames,
-                        balance.Postseason.ChampionshipSeriesGames);
+                    OwnerPostseasonSeriesState series = postseason.EnsureCurrentSeries();
                     while (!series.IsCompleted)
                     {
                         ScheduledGameState game = series.AppendNextGame(gameId, (ulong)gameId);

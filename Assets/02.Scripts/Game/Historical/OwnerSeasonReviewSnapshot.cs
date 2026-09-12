@@ -89,16 +89,16 @@ namespace Baseball.Game.Historical
         }
         public bool CanWatchPlayerGame => IsQualified && !IsPlayerPostseasonCompleted &&
             (PlayerSeries == null || !PlayerSeries.IsCompleted ||
-             (PlayerSeries.HigherSeedTeamSeasonKey == PlayerTeamSeasonKey
-                 ? PlayerSeries.HigherSeedWins : PlayerSeries.LowerSeedWins) == PlayerSeries.WinsRequired);
+             PlayerSeries.WinnerTeamSeasonKey == PlayerTeamSeasonKey);
     }
 
     public sealed class OwnerPostseasonSeriesReview
     {
         public OwnerPostseasonSeriesReview(string seriesId, OwnerPostseasonRound round,
             string higherSeedTeamSeasonKey, string lowerSeedTeamSeasonKey,
-            int higherSeedWins, int lowerSeedWins, int winsRequired, bool isCompleted)
+            int higherSeedWins, int lowerSeedWins, int winsRequired, bool isCompleted, int draws = 0)
         {
+            Draws = draws;
             SeriesId = seriesId ?? string.Empty;
             Round = round;
             HigherSeedTeamSeasonKey = higherSeedTeamSeasonKey ?? string.Empty;
@@ -108,6 +108,23 @@ namespace Baseball.Game.Historical
             WinsRequired = winsRequired;
             IsCompleted = isCompleted;
         }
+        public int Draws { get; }
+        public int HigherSeedWinsRequired => Round == OwnerPostseasonRound.WildCard ? 1 : WinsRequired;
+        public string WinnerTeamSeasonKey => !IsCompleted ? string.Empty :
+            HigherSeedWins >= HigherSeedWinsRequired || Round == OwnerPostseasonRound.WildCard && Draws > 0
+                ? HigherSeedTeamSeasonKey : LowerSeedTeamSeasonKey;
+        public int GetWinsRequired(bool higher) => higher ? HigherSeedWinsRequired : WinsRequired;
+        public string RoundTitle => Round switch
+        {
+            OwnerPostseasonRound.WildCard => "와일드카드 결정전",
+            OwnerPostseasonRound.SemiPlayoff => "준플레이오프",
+            OwnerPostseasonRound.Playoff => "플레이오프",
+            OwnerPostseasonRound.Semifinal => "준결승",
+            _ => "한국시리즈"
+        };
+        public string SeriesRule => Round == OwnerPostseasonRound.WildCard
+            ? "최대 2경기 · 4위 1승 또는 무승부 / 5위 2승"
+            : (WinsRequired * 2 - 1) + "전 " + WinsRequired + "선승제";
         public string SeriesId { get; }
         public OwnerPostseasonRound Round { get; }
         public string HigherSeedTeamSeasonKey { get; }
@@ -161,7 +178,7 @@ namespace Baseball.Game.Historical
                     series.Add(new OwnerPostseasonSeriesReview(item.SeriesId, item.Round,
                         group.Season.GetTeamSeasonKey(item.HigherSeedTeamId),
                         group.Season.GetTeamSeasonKey(item.LowerSeedTeamId),
-                        item.HigherSeedWins, item.LowerSeedWins, item.WinsRequired, item.IsCompleted));
+                        item.HigherSeedWins, item.LowerSeedWins, item.WinsRequired, item.IsCompleted, item.Draws));
                 }
                 if (postseason.IsCompleted)
                 {

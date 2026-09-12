@@ -76,8 +76,9 @@ namespace Baseball.Presentation.Owner
             _playerProgressText.text = progress.TotalPlayerGames > 0
                 ? $"내 구단 경기  {progress.PlayerGamesSimulated:N0} / {progress.TotalPlayerGames:N0}"
                 : "내 구단 일정 완료";
+            string rank = progress.SeasonRank > 0 ? $"{progress.SeasonRank}위" : "집계 전";
             _recordText.text =
-                $"현재 성적  {progress.SeasonWins}승  {progress.SeasonDraws}무  {progress.SeasonLosses}패";
+                $"현재 순위  {rank}    ·    현재 성적  {progress.SeasonWins}승  {progress.SeasonDraws}무  {progress.SeasonLosses}패";
             _titleText.text = "정규시즌 시뮬레이션";
             _stateText.text = "리그 일정 순서대로 진행 중";
         }
@@ -92,7 +93,13 @@ namespace Baseball.Presentation.Owner
             _stateText.text = "다음 경기를 준비하고 있습니다";
             _roundText.text = string.IsNullOrEmpty(progress.NextSeriesId)
                 ? "포스트시즌 결과 집계"
-                : progress.NextSeriesId == "championship" ? "챔피언십" : "준결승";
+                : progress.NextSeriesId switch
+                {
+                    "wild-card" => "와일드카드 결정전",
+                    "semi-playoff" => "준플레이오프",
+                    "playoff" => "플레이오프",
+                    _ => "한국시리즈"
+                };
             _matchupText.text = string.IsNullOrEmpty(progress.NextLeagueGroupId)
                 ? "모든 조의 우승 구단을 확인하고 있습니다."
                 : "앞선 대진을 진행하고 있습니다.\n우리 구단 차례가 되면 경기 관전으로 이어집니다.";

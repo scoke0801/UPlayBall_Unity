@@ -56,11 +56,7 @@ namespace Baseball.Simulation.Match
             for (int index = 0; index < count; index++)
             {
                 PitchRepertoireEntry entry = pitcher.PitchRepertoire[index];
-                destination[index] = BuildPitchOption(
-                    matchup,
-                    entry.PitchType,
-                    entry.Proficiency,
-                    entry.IsPrimary, entry);
+                destination[index] = BuildPitchOption(matchup, entry);
             }
             return count;
         }
@@ -131,31 +127,17 @@ namespace Baseball.Simulation.Match
             in PlateAppearanceMatchup matchup,
             PitchOption[] destination)
         {
-            bool favorsBreaking = matchup.Pitcher.PitcherAttributes.Breaking >= 55;
-            bool favorsCommand = matchup.Pitcher.PitcherAttributes.Control >= 58;
-            PitchType secondary = favorsBreaking
-                ? (favorsCommand ? PitchType.Cutter : PitchType.Slider)
-                : PitchType.TwoSeamFastball;
-            PitchType third = favorsBreaking ? PitchType.Curveball : PitchType.Changeup;
-            PitchType fourth = matchup.Pitcher.PitcherAttributes.Stuff >= 60
-                ? PitchType.Splitter
-                : PitchType.Sinker;
-            destination[0] = BuildPitchOption(matchup, PitchType.FourSeamFastball, 55, true);
-            destination[1] = BuildPitchOption(matchup, secondary, 50, false);
-            destination[2] = BuildPitchOption(matchup, third, 46, false);
-            destination[3] = BuildPitchOption(matchup, fourth, 42, false);
+            for (int index = 0; index < DerivedPitchOptionCount; index++)
+                destination[index] = BuildPitchOption(matchup, GetDerivedEntry(matchup.Pitcher, index));
             return DerivedPitchOptionCount;
         }
 
         private PitchOption BuildPitchOption(
             in PlateAppearanceMatchup matchup,
-            PitchType pitchType,
-            int proficiency,
-            bool isPrimary,
-            PitchRepertoireEntry? arsenalEntry = null)
+            in PitchRepertoireEntry entry)
         {
-            PitchRepertoireEntry entry = arsenalEntry ?? LegacyEntries[(int)pitchType,
-                isPrimary ? 0 : proficiency == 50 ? 1 : proficiency == 46 ? 2 : 3];
+            PitchType pitchType = entry.PitchType;
+            int proficiency = entry.Proficiency;
             PitchTypeProfile profile = PitchTypeProfileCatalog.Get(pitchType);
             double centerVelocity = PitchEffectivenessResolver.ResolveVelocityKph(entry,
                 GetPhysicalVelocityRating(matchup), _arsenal) / 1.609344d;
@@ -165,7 +147,7 @@ namespace Baseball.Simulation.Match
             return new PitchOption(
                 pitchType,
                 proficiency,
-                isPrimary,
+                entry.IsPrimary,
                 centerVelocity - 1.5d,
                 centerVelocity + 1.5d,
                 profile.HorizontalBreak * breakScale * handDirection,
@@ -213,7 +195,27 @@ namespace Baseball.Simulation.Match
             }
             if (pitcher.PitchRepertoire.Count > 0)
                 throw new ArgumentException("보유하지 않은 구종은 선택할 수 없습니다.", nameof(pitchType));
-            return LegacyEntries[(int)pitchType, pitchType == PitchType.FourSeamFastball ? 0 : 2];
+            // 구종 없는 합성 로스터도 선택 화면의 숙련도와 실제 투구의 숙련도가 같아야 한다.
+            for (int index = 0; index < DerivedPitchOptionCount; index++)
+            {
+                PitchRepertoireEntry entry = GetDerivedEntry(pitcher, index);
+                if (entry.PitchType == pitchType) return entry;
+            }
+            return LegacyEntries[(int)pitchType, 2];
+        }
+
+        private static PitchRepertoireEntry GetDerivedEntry(Player pitcher, int index)
+        {
+            bool favorsBreaking = pitcher.PitcherAttributes.Breaking >= 55;
+            bool favorsCommand = pitcher.PitcherAttributes.Control >= 58;
+            PitchType pitchType = index switch
+            {
+                0 => PitchType.FourSeamFastball,
+                1 => favorsBreaking ? (favorsCommand ? PitchType.Cutter : PitchType.Slider) : PitchType.TwoSeamFastball,
+                2 => favorsBreaking ? PitchType.Curveball : PitchType.Changeup,
+                _ => pitcher.PitcherAttributes.Stuff >= 60 ? PitchType.Splitter : PitchType.Sinker
+            };
+            return LegacyEntries[(int)pitchType, index];
         }
 
         private static double GetPhysicalVelocityRating(in PlateAppearanceMatchup matchup)

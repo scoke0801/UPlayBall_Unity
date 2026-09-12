@@ -243,7 +243,8 @@ namespace Baseball.Core.Balance
                 aiWastePitchDistance: 1.14d,
                 aiInsideWasteProbability: 0.40d,
                 aiLocationErrorScale: 0.82d,
-                aiTimingErrorMilliseconds: 55d,
+                // 중립 합성 로스터의 과다 안타·삼진 부족을 보정한 만 경기 검증값이다.
+                aiTimingErrorMilliseconds: 61d,
                 contactQualityBase: 18d,
                 launchAngleBaseDegrees: 10d,
                 launchAngleLocationScale: 145d,

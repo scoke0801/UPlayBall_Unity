@@ -40,10 +40,10 @@ namespace Baseball.Presentation.Owner
         private Button _close;
         private GameObject _previousSelection;
         private Button[] _tabs;
-        private readonly RectTransform[] _seriesCards = new RectTransform[3];
-        private readonly Text[] _seriesTitles = new Text[3];
-        private readonly Text[] _seriesTeams = new Text[3];
-        private readonly Text[] _seriesScores = new Text[3];
+        private readonly RectTransform[] _seriesCards = new RectTransform[4];
+        private readonly Text[] _seriesTitles = new Text[4];
+        private readonly Text[] _seriesTeams = new Text[4];
+        private readonly Text[] _seriesScores = new Text[4];
         private OwnerSeasonReviewSnapshot _snapshot;
         private Func<string, string> _teamName;
         private int _page;
@@ -193,15 +193,15 @@ namespace Baseball.Presentation.Owner
             {
                 RectTransform card = Surface(hero, "Series" + index, NavySoft,
                     Vector2.zero, Vector2.zero, Vector2.zero);
-                SetRect(card, new Vector2(22f, 12f + (2 - index) * 72f),
+                SetRect(card, new Vector2(22f, 12f + (3 - index) * 54f),
                     new Vector2(658f, 78f + (2 - index) * 72f));
                 _seriesCards[index] = card;
                 _seriesTitles[index] = Label(card, "Round", string.Empty, 12, FontStyle.Bold,
-                    Gold, new Vector2(22f, 40f), new Vector2(614f, 62f));
+                    Gold, new Vector2(14f, 28f), new Vector2(622f, 49f));
                 _seriesTeams[index] = Label(card, "Teams", string.Empty, 15, FontStyle.Bold,
-                    Ivory, new Vector2(22f, 4f), new Vector2(526f, 40f));
+                    Ivory, new Vector2(14f, 2f), new Vector2(526f, 28f));
                 _seriesScores[index] = Label(card, "Score", string.Empty, 23, FontStyle.Bold,
-                    Ivory, new Vector2(536f, 4f), new Vector2(624f, 40f));
+                    Ivory, new Vector2(536f, 2f), new Vector2(624f, 28f));
                 _seriesScores[index].alignment = TextAnchor.MiddleRight;
             }
 
@@ -326,13 +326,13 @@ namespace Baseball.Presentation.Owner
                         ? BuildSeriesStakes()
                         : "남은 포스트시즌 결과를 확인하세요.";
                     if (_snapshot.IsQualified && !_snapshot.CanWatchPlayerGame)
-                        _status.text = "준결승 탈락 · 남은 대진의 우승 구단을 확인하세요.";
+                        _status.text = "포스트시즌 탈락 · 남은 대진의 우승 구단을 확인하세요.";
                     _primaryLabel.text = _snapshot.CanWatchPlayerGame ? "다음 경기 관전" : "남은 리그 마감";
                 }
                 string currentResult = !_snapshot.IsQualified ? "포스트시즌 미진출" :
-                    !_snapshot.CanWatchPlayerGame && !_snapshot.IsPlayerPostseasonCompleted ? "준결승 탈락" :
+                    !_snapshot.CanWatchPlayerGame && !_snapshot.IsPlayerPostseasonCompleted ? "포스트시즌 탈락" :
                     FormatPostseasonResult(_snapshot.PostseasonResult);
-                SetMetrics(_snapshot.IsQualified ? $"{Math.Min(_snapshot.Rank, 4)}번" : "미진출", "우리 구단 시드",
+                SetMetrics(_snapshot.IsQualified ? $"{_snapshot.Rank}번" : "미진출", "우리 구단 시드",
                     $"{_snapshot.CompletedPostseasonGroups}/{_snapshot.TotalPostseasonGroups}", "완료된 리그",
                     currentResult, "현재 결과");
                 _insightTitle.text = "다음 단계 · 전체 결과 확정";
@@ -345,8 +345,8 @@ namespace Baseball.Presentation.Owner
                     OwnerPostseasonSeriesReview series = _snapshot.PlayerSeries;
                     if (series != null)
                         SetMetrics($"{series.HigherSeedWins} : {series.LowerSeedWins}", "시리즈 전적",
-                            $"{series.WinsRequired}승", "시리즈 승리 조건",
-                            series.Round == OwnerPostseasonRound.Championship ? "우승" : "결승 진출", "이번 시리즈 목표");
+                            $"{series.GetWinsRequired(series.HigherSeedTeamSeasonKey == _snapshot.PlayerTeamSeasonKey)}승", "시리즈 승리 조건",
+                            series.Round == OwnerPostseasonRound.Championship ? "우승" : "다음 라운드 진출", "이번 시리즈 목표");
                 }
                 _primary.interactable = true;
                 return;
@@ -354,7 +354,7 @@ namespace Baseball.Presentation.Owner
             string result = FormatPostseasonResult(_snapshot.PostseasonResult);
             _summary.text = result;
             _status.text = "우승 구단  ·  " + Resolve(_snapshot.ChampionTeamSeasonKey);
-            SetMetrics(_snapshot.IsQualified ? $"{Math.Min(_snapshot.Rank, 4)}번" : "미진출", "우리 구단 시드",
+            SetMetrics(_snapshot.IsQualified ? $"{_snapshot.Rank}번" : "미진출", "우리 구단 시드",
                 $"{_snapshot.Series.Count}", "진행 시리즈",
                 $"{_snapshot.CompletedPostseasonGroups}/{_snapshot.TotalPostseasonGroups}", "완료된 리그");
             _insightTitle.text = "다음 단계 · 시즌 결산";
@@ -367,9 +367,9 @@ namespace Baseball.Presentation.Owner
         {
             OwnerPostseasonSeriesReview series = _snapshot.PlayerSeries;
             if (series == null) return "가을 야구, 첫 승을 향해";
-            if (series.IsCompleted) return "결승 진출 · 상대 결정 대기";
-            string round = series.Round == OwnerPostseasonRound.Semifinal ? "준결승" : "챔피언십";
-            return $"{round} {series.HigherSeedWins + series.LowerSeedWins + 1}차전";
+            if (series.IsCompleted) return "다음 라운드 · 상대 결정 대기";
+            string round = series.RoundTitle;
+            return $"{round} {series.HigherSeedWins + series.LowerSeedWins + series.Draws + 1}차전";
         }
 
         private string BuildSeriesStakes()
@@ -379,7 +379,10 @@ namespace Baseball.Presentation.Owner
             bool higher = series.HigherSeedTeamSeasonKey == _snapshot.PlayerTeamSeasonKey;
             int wins = higher ? series.HigherSeedWins : series.LowerSeedWins;
             int losses = higher ? series.LowerSeedWins : series.HigherSeedWins;
-            string target = series.Round == OwnerPostseasonRound.Championship ? "우승" : "결승 진출";
+            string target = series.Round == OwnerPostseasonRound.Championship ? "우승" : "다음 라운드 진출";
+            if (series.Round == OwnerPostseasonRound.WildCard) return higher
+                ? "4위 우대 · 한 번 이기거나 비기면 준플레이오프 진출"
+                : "5위 도전 · 두 경기 모두 이겨야 준플레이오프 진출";
             if (wins == series.WinsRequired - 1 && losses == series.WinsRequired - 1)
                 return $"최종전 · 오늘 승리하면 {target}, 패하면 탈락";
             if (wins == series.WinsRequired - 1) return $"매치 포인트 · 한 경기만 더 이기면 {target}";
@@ -397,20 +400,21 @@ namespace Baseball.Presentation.Owner
                 if (index >= _snapshot.Series.Count)
                 {
                     _seriesCards[index].gameObject.SetActive(!_snapshot.IsPlayerPostseasonCompleted &&
-                        (_snapshot.Series.Count == 0 && index == 0 || _snapshot.Series.Count == 2 && index == 2));
-                    _seriesTitles[index].text = _snapshot.Series.Count == 0 ? "포스트시즌 · 대진 대기" : "챔피언십 · 대진 대기";
+                        index == _snapshot.Series.Count &&
+                        (_snapshot.Series.Count == 0 || _snapshot.Series[_snapshot.Series.Count - 1].Round != OwnerPostseasonRound.Championship));
+                    _seriesTitles[index].text = _snapshot.Series.Count == 0 ? "포스트시즌 · 대진 대기" : "다음 라운드 · 대진 대기";
                     _seriesTeams[index].text = _snapshot.Series.Count == 0
-                        ? "정규시즌 순위로 대진을 확정합니다" : "준결승 승리 구단이 결승에서 만납니다";
+                        ? "정규시즌 순위로 대진을 확정합니다" : "앞선 라운드 승자가 상위 시드와 만납니다";
                     _seriesScores[index].text = "—";
                     continue;
                 }
                 OwnerPostseasonSeriesReview item = _snapshot.Series[index];
                 bool ours = item.HigherSeedTeamSeasonKey == _snapshot.PlayerTeamSeasonKey ||
                     item.LowerSeedTeamSeasonKey == _snapshot.PlayerTeamSeasonKey;
-                string round = item.Round == OwnerPostseasonRound.Semifinal ? "준결승" : "챔피언십";
+                string round = item.RoundTitle;
                 string state = item.IsCompleted ? "시리즈 종료" :
                     item.HigherSeedWins + item.LowerSeedWins == 0 ? "경기 전" : "진행 중";
-                _seriesTitles[index].text = $"{round} · {item.WinsRequired}승 선승 · {state}" + (ours ? " · 우리 구단" : "");
+                _seriesTitles[index].text = $"{round} · {item.SeriesRule} · {state}" + (ours ? " · 우리 구단" : "");
                 _seriesTeams[index].text = Resolve(item.HigherSeedTeamSeasonKey) + "  vs  " + Resolve(item.LowerSeedTeamSeasonKey);
                 _seriesScores[index].text = $"{item.HigherSeedWins} : {item.LowerSeedWins}";
             }
@@ -424,14 +428,13 @@ namespace Baseball.Presentation.Owner
             _status.text = FormatLeagueMovement();
             _detailsCaption.text = "이번 시즌 기록";
             _details.text = $"정규시즌  {_snapshot.Wins}승 {_snapshot.Draws}무 {_snapshot.Losses}패  ·  승률 {_snapshot.WinningPercentage.ToString(".000", CultureInfo.InvariantCulture)}\n" +
-                $"팀 득점 {_snapshot.Runs:N0}  ·  팀 실점 {_snapshot.RunsAllowed:N0}  ·  득실차 {FormatSigned(_snapshot.RunDifferential)}\n" +
-                "다음 시즌을 앞두고 선수단 계약을 확인하세요.";
+                $"팀 득점 {_snapshot.Runs:N0}  ·  팀 실점 {_snapshot.RunsAllowed:N0}  ·  득실차 {FormatSigned(_snapshot.RunDifferential)}";
             SetMetrics($"{_snapshot.WinningPercentage.ToString(".000", CultureInfo.InvariantCulture)}", "정규시즌 승률",
                 FormatPostseasonResult(_snapshot.PostseasonResult), "포스트시즌",
                 FormatNextGrade(), "다음 시즌 등급");
             _insightTitle.text = "다음 시즌 준비";
-            _insightBody.text = "계약 갱신 후 다음 시즌으로 진행합니다.\n급여 부족액은 미지급금으로 이월됩니다.";
-            _hint.text = "만료 예정 선수의 계약을 정리하면 다음 시즌을 시작할 수 있습니다.";
+            _insightBody.text = "보유 선수와 1군 등록은\n다음 시즌에도 유지됩니다.";
+            _hint.text = "구단 홈에서 다음 시즌을 진행하세요.";
             _primaryLabel.text = "구단 홈으로";
             _primary.interactable = true;
         }
@@ -480,7 +483,10 @@ namespace Baseball.Presentation.Owner
         {
             OwnerTeamPostseasonResult.Champion => "포스트시즌 우승",
             OwnerTeamPostseasonResult.RunnerUp => "포스트시즌 준우승",
-            OwnerTeamPostseasonResult.SemifinalElimination => "준결승 탈락",
+            OwnerTeamPostseasonResult.WildCardElimination => "와일드카드 탈락",
+                OwnerTeamPostseasonResult.SemiPlayoffElimination => "준플레이오프 탈락",
+                OwnerTeamPostseasonResult.PlayoffElimination => "플레이오프 탈락",
+                OwnerTeamPostseasonResult.SemifinalElimination => "포스트시즌 탈락",
             OwnerTeamPostseasonResult.DidNotQualify => "포스트시즌 미진출",
             _ => "포스트시즌 진행 중"
         };

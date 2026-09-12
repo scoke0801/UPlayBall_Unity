@@ -264,6 +264,23 @@ namespace Baseball.Tests.EditMode.Simulation
             }
         }
 
+        [TestCase(50)]
+        [TestCase(80)]
+        public void PitchExecution_파생구종의선택과실행은같은제구와구질을사용한다(int rating)
+        {
+            PlateAppearanceMatchup matchup = CreateMatchup(rating, rating);
+            var resolver = new PitchExecutionResolver(BalanceTable.CreateDefault(), new Pcg32Random(7UL));
+            foreach (PitchOption option in resolver.BuildPitchOptions(matchup))
+            {
+                Assert.That(resolver.CalculateCommandEllipse(matchup, option.PitchType),
+                    Is.EqualTo(option.CommandEllipse));
+                var pitch = resolver.Resolve(matchup, new PitchSelectionCommand(1, option.PitchType,
+                    default, PitchingApproach.Balanced));
+                Assert.That(pitch.HorizontalBreak, Is.EqualTo(option.HorizontalBreak).Within(1e-9));
+                Assert.That(pitch.VerticalBreak, Is.EqualTo(option.VerticalBreak).Within(1e-9));
+            }
+        }
+
         [Test]
         public void PitchTrajectory_Evaluate경계는릴리스와실제PlatePoint에정확히도착한다()
         {
