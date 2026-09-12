@@ -72,9 +72,9 @@ namespace Baseball.Presentation.Owner
             {
                 float alpha = showFinance || !_isStadiumSectionSelected ? 1f : 0f;
                 _readabilityCanvas.color = new Color(
-                    CareerUiTheme.ReferenceCanvas.r,
-                    CareerUiTheme.ReferenceCanvas.g,
-                    CareerUiTheme.ReferenceCanvas.b,
+                    OwnerDashboardStyle.TableSurface.r,
+                    OwnerDashboardStyle.TableSurface.g,
+                    OwnerDashboardStyle.TableSurface.b,
                     alpha);
             }
             _summaryRoot.gameObject.SetActive(showFinance);
@@ -147,7 +147,6 @@ namespace Baseball.Presentation.Owner
         private void EnsureHierarchy()
         {
             if (_isBuilt) return;
-            _isBuilt = true;
             RectTransform root = GetComponent<RectTransform>();
             OwnerRuntimeUiFactory.Stretch(root);
             _background = root.GetComponent<Image>();
@@ -156,25 +155,25 @@ namespace Baseball.Presentation.Owner
                 "ReadabilityCanvas",
                 root,
                 new Color(
-                    CareerUiTheme.ReferenceCanvas.r,
-                    CareerUiTheme.ReferenceCanvas.g,
-                    CareerUiTheme.ReferenceCanvas.b,
+                    OwnerDashboardStyle.TableSurface.r,
+                    OwnerDashboardStyle.TableSurface.g,
+                    OwnerDashboardStyle.TableSurface.b,
                     0.90f));
             OwnerRuntimeUiFactory.Stretch(_readabilityCanvas.rectTransform);
 
             BuildClubSummary(root);
-            BuildFinanceDashboard();
             _stadiumArtwork = UIClubOfficeStyle.Illustration(_summaryRoot.Find("ContentSafeRect"), "StadiumArtwork", 6);
             UIClubOfficeStyle.Place(_stadiumArtwork.rectTransform, 0f, .69f, 1f, 1f);
             BuildFacilityWorkspace(root);
             BuildStadiumWorkspace(root);
+            _isBuilt = true;
             ShowRoute(OwnerManagementRoutes.ClubFacility);
         }
 
         private void BuildClubSummary(RectTransform root)
         {
             OwnerWorkspaceUiFactory.Panel summary = UIClubOfficeStyle.CreatePanel(
-                "ClubSummaryPanel", root, "구단 운영 현황", true);
+                "ClubSummaryPanel", root, "구단 재정  /  운영과 결산", true);
             _summaryRoot = summary.Root;
             OwnerRuntimeUiFactory.SetAnchors(
                 summary.Root,
@@ -213,6 +212,7 @@ namespace Baseball.Presentation.Owner
             _financeOnlyObjects.Add(CreateOperationButton(
                 summary.Content, "FinanceAdvanceWeek", "결산", 0f, 0.46f,
                 () => WeekAdvanceRequested?.Invoke(), 0.01f, 0.07f).gameObject);
+            BuildFinanceDashboard(summary.Content);
         }
 
         private void BuildTicketButtons(Transform parent)
@@ -279,6 +279,7 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero, Vector2.zero);
             ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalGridScroll(
                 "FacilityList", facilities.Content, 2, new Vector2(380f, 244f), 12f, out _facilityContent);
+            OwnerDashboardStyle.SetDataSurface(scroll.GetComponent<Image>(), OwnerDashboardStyle.TableSurface, true);
             _facilityGrid = _facilityContent.GetComponent<GridLayoutGroup>();
             _facilityFeedbackText = UIClubOfficeStyle.Label("FacilityFeedback", facilities.Content,
                 "시설별 운영 효과와 투자 비용을 비교한 뒤 업그레이드하세요.", 13);
@@ -329,7 +330,7 @@ namespace Baseball.Presentation.Owner
             Image surface = UIClubOfficeStyle.Surface(
                 string.Concat("Facility_", row.FacilityType),
                 _facilityContent,
-                CareerUiTheme.ReferencePanel);
+                OwnerDashboardStyle.TableSurface);
             var layout = surface.gameObject.AddComponent<LayoutElement>();
             layout.preferredHeight = 92f;
             layout.minHeight = 82f;
@@ -377,7 +378,13 @@ namespace Baseball.Presentation.Owner
             name.fontSize = 18;
             effect.fontSize = 14;
             cost.alignment = TextAnchor.MiddleLeft;
-            effect.color = UIClubOfficeStyle.Muted;
+            OwnerDashboardStyle.SetDataText(name, true);
+            OwnerDashboardStyle.SetDataText(level, true);
+            level.color = OwnerDashboardStyle.Gold;
+            OwnerDashboardStyle.SetDataText(effect);
+            OwnerDashboardStyle.SetDataText(cost);
+            if (!row.CanUpgrade) cost.color = CareerUiTheme.Warning;
+            OwnerUiButtonSkin.Apply(upgrade, OwnerButtonRole.Secondary);
             FacilityType type = row.FacilityType;
             upgrade.onClick.AddListener(() => FacilityUpgradeRequested?.Invoke(type));
         }
@@ -471,6 +478,7 @@ namespace Baseball.Presentation.Owner
             button.transform.Find("Label").GetComponent<Text>().color = isPrimary
                 ? Color.white
                 : CareerUiTheme.ReferenceText;
+            OwnerUiButtonSkin.Apply(button, isPrimary ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
         }
 
     }

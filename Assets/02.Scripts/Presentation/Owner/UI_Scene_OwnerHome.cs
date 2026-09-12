@@ -11,6 +11,7 @@ namespace Baseball.Presentation.Owner
     {
         private const float DockWidth = 744f;
         private const float DockHeight = 176f;
+        private const float SuggestionHeight = 320f;
         private RectTransform _guideHost, _matchPanel, _seasonPanel;
         private int _dashboardState;
         public RectTransform ManagerHost => _guideHost;
@@ -24,7 +25,10 @@ namespace Baseball.Presentation.Owner
         private Text _evaluationText;
         private Text _nextMatchText;
         private Text _opponentText;
-        private Text _feedbackText;
+        private float _managerFeedbackHeight;
+        public string FeedbackMessage { get; private set; } = string.Empty;
+        public bool IsFeedbackError { get; private set; }
+        public event Action<string, bool> FeedbackChanged;
         private Text _matchStateText;
         private Button _opponentAnalysisButton;
         private Button _matchPreparationButton;
@@ -46,7 +50,6 @@ namespace Baseball.Presentation.Owner
         public event Action PlayNextGameRequested;
         public event Action CompleteSeasonRequested;
         public event Action AdvanceSeasonRequested;
-        public event Action PracticeRequested;
         public event Action OutsideSuggestionPressed;
 
         /// <summary>공용 셸의 Workspace 안에 홈을 생성한다.</summary>
@@ -115,7 +118,7 @@ namespace Baseball.Presentation.Owner
                 : !isPostseasonCompleted ? isPlayerPostseasonCompleted ? "타 리그 진행 중" : "포스트시즌 대기"
                 : "시즌 종료";
             _matchStateText.color = canPlayNextGame && snapshot.IsRosterValid ? CareerUiTheme.Number : CareerUiTheme.TextPrimary;
-            _feedbackText.text = !snapshot.IsRosterValid ? snapshot.RosterValidationMessage
+            string feedback = !snapshot.IsRosterValid ? snapshot.RosterValidationMessage
                 : canPlayNextGame ? string.Empty
                 : !isRegularSeasonCompleted ? "다른 조의 정규시즌 결과를 확정해야 합니다."
                 : !isPostseasonCompleted ? isPlayerPostseasonCompleted
@@ -124,8 +127,8 @@ namespace Baseball.Presentation.Owner
                 : !isSeasonReviewAcknowledged ? "시즌 성과와 다음 등급을 결산에서 확인하세요."
                 : "시즌 기록을 확인하고 다음 시즌을 준비하세요.";
             if (snapshot.IsRosterValid && snapshot.ContractArrears > 0L)
-                _feedbackText.text = $"미지급 급여·계약금 {OwnerMoneyFormatter.Format(snapshot.ContractArrears)} · 수입에서 우선 상환합니다.";
-            _feedbackText.color = snapshot.IsRosterValid ? CareerUiTheme.TextSecondary : CareerUiTheme.Loss;
+                feedback = $"미지급 급여·계약금 {OwnerMoneyFormatter.Format(snapshot.ContractArrears)} · 수입에서 우선 상환합니다.";
+            SetFeedback(feedback, !snapshot.IsRosterValid);
             LayoutSeasonAction();
             ResizeDashboard();
         }
@@ -133,8 +136,9 @@ namespace Baseball.Presentation.Owner
         /// <summary>저장과 경기 준비 결과를 정보창에 표시한다.</summary>
         public void SetFeedback(string message, bool isError = false)
         {
-            _feedbackText.text = message ?? string.Empty;
-            _feedbackText.color = isError ? CareerUiTheme.Loss : CareerUiTheme.ReferenceAccent;
+            FeedbackMessage = message ?? string.Empty;
+            IsFeedbackError = isError;
+            FeedbackChanged?.Invoke(FeedbackMessage, isError);
         }
 
         /// <summary>세부 화면으로 이동하면 홈에 속한 전체 UI를 숨긴다.</summary>
@@ -151,23 +155,13 @@ namespace Baseball.Presentation.Owner
         private void Build(RectTransform workspaceHost)
         {
             _workspaceRoot = OwnerWorkspaceUiFactory.CreateRoot(workspaceHost, "OwnerHomeWorkspace", false);
-            var practice = OwnerWorkspaceUiFactory.CreateButton(_workspaceRoot, "LegendaryPractice", "연습경기 · 역대 강팀",
-                () => PracticeRequested?.Invoke());
-            var practiceRect = (RectTransform)practice.transform;
-            practiceRect.anchorMin = practiceRect.anchorMax = new Vector2(0, 1);
-            practiceRect.pivot = new Vector2(0, 1);
-            practiceRect.anchoredPosition = new Vector2(32, -28);
-            practiceRect.sizeDelta = new Vector2(304, 68);
-            OwnerUiButtonSkin.Apply(practice, OwnerButtonRole.Secondary);
-            OwnerUiButtonSkin.SetDashboardStyle(practice);
-            practice.GetComponentInChildren<Text>().fontSize = 22;
             _workspaceRoot.gameObject.AddComponent<CareerUiPreserveTextColor>();
             _dashboardBackplate = OwnerWorkspaceUiFactory.CreateRoot(_workspaceRoot, "MainDashboard", false);
             _dashboardBackplate.anchorMin = _dashboardBackplate.anchorMax = new Vector2(1f, 0f);
             _dashboardBackplate.pivot = new Vector2(1f, 0f);
             _matchPanel = Surface(_dashboardBackplate, "NextMatchPanel", OwnerDashboardStyle.Surface, 0, 0, DockWidth, 320);
             BuildMatchDiamond(_matchPanel);
-            UIOwnerPanelFrame.Attach(_matchPanel, true);
+            UIOwnerFrontOfficePanel.Apply(_matchPanel, "MainDashboard");
             OwnerDashboardStyle.Rule(_matchPanel, "MatchAccent", Vector2.zero, Vector2.zero,
                 new Vector2(24, 279), new Vector2(58, 282), OwnerDashboardStyle.Gold);
             Label(_matchPanel, "MatchHeading", "오늘의 경기", 22, FontStyle.Normal, OwnerDashboardStyle.Gold,
@@ -208,8 +202,6 @@ namespace Baseball.Presentation.Owner
                 new Vector2(24, 50), new Vector2(720, 86));
             _evaluationText = Label(_seasonPanel, "Evaluation", "", 22, FontStyle.Normal, CareerUiTheme.TextSecondary,
                 new Vector2(24, 10), new Vector2(720, 46));
-            _feedbackText = Label(_dashboardBackplate, "Feedback", "", 22, FontStyle.Normal, CareerUiTheme.TextPrimary,
-                new Vector2(24, 0), new Vector2(720, 72));
             SetDashboardState(0);
         }
 
@@ -218,15 +210,17 @@ namespace Baseball.Presentation.Owner
         {
             _dashboardState = state;
             bool reports = state == 2;
-            float guideHeight = reports ? 620 : state == 1 ? 352 : 280;
+            UIOwnerFrontOfficePanel.Apply(_matchPanel, reports ? "CompactStrip" : "MainDashboard");
+            // 접기·펼치기는 카드 안의 보조 행동만 바꾼다. 슬롯 높이를 바꾸면 전체 홈 배율까지 흔들린다.
+            float guideHeight = (reports ? 620 : SuggestionHeight) + _managerFeedbackHeight;
             float seasonHeight = reports ? 0 : DockHeight + 12;
             float matchHeight = reports ? 140 : 320;
-            _dashboardBackplate.sizeDelta = new Vector2(DockWidth, 80 + seasonHeight + guideHeight + 12 + matchHeight);
-            SetRect(_seasonPanel, new Vector2(0, 80), new Vector2(DockWidth, 80 + DockHeight));
+            _dashboardBackplate.sizeDelta = new Vector2(DockWidth, seasonHeight + guideHeight + 12 + matchHeight);
+            SetRect(_seasonPanel, Vector2.zero, new Vector2(DockWidth, DockHeight));
             _seasonPanel.gameObject.SetActive(!reports);
-            SetRect(_guideHost, new Vector2(0, 80 + seasonHeight), new Vector2(DockWidth, 80 + seasonHeight + guideHeight));
-            SetRect(_matchPanel, new Vector2(0, 92 + seasonHeight + guideHeight),
-                new Vector2(DockWidth, 92 + seasonHeight + guideHeight + matchHeight));
+            SetRect(_guideHost, new Vector2(0, seasonHeight), new Vector2(DockWidth, seasonHeight + guideHeight));
+            SetRect(_matchPanel, new Vector2(0, 12 + seasonHeight + guideHeight),
+                new Vector2(DockWidth, 12 + seasonHeight + guideHeight + matchHeight));
             _matchStateText.gameObject.SetActive(!reports);
             _matchPanel.Find("MatchHeading").gameObject.SetActive(!reports);
             _matchPanel.Find("MatchAccent").gameObject.SetActive(!reports);
@@ -238,6 +232,13 @@ namespace Baseball.Presentation.Owner
             _nextMatchText.fontSize = reports ? 26 : 32;
             ResizeDashboard();
             LayoutSeasonAction();
+        }
+
+        /// <summary>매니저 안내 높이만큼 카드 내부를 확장한다.</summary>
+        public void SetManagerFeedbackHeight(float height)
+        {
+            _managerFeedbackHeight = height;
+            SetDashboardState(_dashboardState);
         }
 
         private void LayoutSeasonAction()
@@ -270,8 +271,9 @@ namespace Baseball.Presentation.Owner
         {
             if (_dashboardBackplate == null || _workspaceRoot == null) return;
             // 화면의 40% 이내에서 동일 카드 비율을 유지한다. 720p에서도 본문 14px·버튼 44px을 확보한다.
+            float referenceHeight = DockHeight + 12 + SuggestionHeight + _managerFeedbackHeight + 12 + 320;
             float scale = Mathf.Min(1f, _workspaceRoot.rect.width * .40f / DockWidth,
-                Mathf.Max(0, _workspaceRoot.rect.height - 24) / _dashboardBackplate.sizeDelta.y);
+                Mathf.Max(0, _workspaceRoot.rect.height - 24) / referenceHeight);
             _dashboardBackplate.localScale = Vector3.one * scale;
             _dashboardBackplate.anchoredPosition = new Vector2(-24, 12);
         }
@@ -328,7 +330,7 @@ namespace Baseball.Presentation.Owner
             {
                 _isSeasonActionArmed = true;
                 _completeSeasonButtonText.text = "진행 확인";
-                _feedbackText.text = _hasRemainingGames
+                string message = _hasRemainingGames
                     ? "남은 모든 경기를 진행합니다. 미리 배치한 작전카드는 해당 경기마다 사용됩니다. 한 번 더 누르면 시작합니다."
                     : !_isRegularSeasonCompleted
                     ? "다른 조의 남은 정규시즌을 진행합니다. 한 번 더 누르면 시작합니다."
@@ -339,7 +341,7 @@ namespace Baseball.Presentation.Owner
                             : !_isSeasonReviewAcknowledged
                                 ? "정규시즌·포스트시즌·다음 등급을 확인합니다. 한 번 더 누르면 엽니다."
                                 : "계약과 급여를 마감하고 다음 시즌을 엽니다. 한 번 더 누르면 시작합니다.";
-                _feedbackText.color = CareerUiTheme.ReferenceAccent;
+                SetFeedback(message);
                 return;
             }
 

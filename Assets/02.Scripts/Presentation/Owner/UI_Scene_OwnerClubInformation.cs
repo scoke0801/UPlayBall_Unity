@@ -53,7 +53,7 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.ClearChildren(transform);
             if (_model == null) return;
             RectTransform root = (RectTransform)transform;
-            Surface(root, "Paper", Paper, 0f, 0f, 1f, 1f);
+            UIOwnerFrontOfficePanel.ApplyWorkspace(root);
             BuildIdentity(root);
             if (_showOwner) BuildOwnerInformation(root);
             else BuildClubInformation(root);
@@ -166,23 +166,22 @@ namespace Baseball.Presentation.Owner
         private static RectTransform Panel(RectTransform parent, string name, string title, float minX, float minY, float maxX, float maxY)
         {
             RectTransform panel = Surface(parent, name, White, minX, minY, maxX, maxY, true);
-            Surface(panel, "TitleBar", new Color32(242, 243, 245, 255), 0f, .89f, 1f, 1f);
-            Surface(panel, "TitleRule", Blue, 0f, .885f, 1f, .895f);
+            UIOwnerFrontOfficePanel.Apply(panel, "ManagerReport");
             Label(panel, "Title", title, .03f, .89f, .97f, 1f, 16, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
             return panel;
         }
 
         private static void InfoBand(RectTransform parent, string caption, string value, float y)
         {
-            Surface(parent, "Info_" + caption, new Color32(249, 249, 250, 255), .025f, y - .09f, .975f, y, true);
-            Label(parent, "Caption_" + caption, caption, .05f, y - .09f, .34f, y, 14, Blue, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Label(parent, "Value_" + caption, value, .35f, y - .09f, .94f, y, 16, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
+            RectTransform band = Surface(parent, "Info_" + caption, new Color32(249, 249, 250, 255), .025f, y - .09f, .975f, y, true);
+            Label(band, "Caption_" + caption, caption, .0263f, 0f, .3316f, 1f, 14, Blue, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Label(band, "Value_" + caption, value, .3421f, 0f, .9632f, 1f, 16, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
         }
 
         private static void Section(RectTransform parent, string title, float y)
         {
-            Surface(parent, "Section_" + title, new Color32(239, 241, 243, 255), .025f, y, .975f, y + .085f, true);
-            Label(parent, "SectionLabel_" + title, title, .04f, y, .96f, y + .085f, 14, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            RectTransform section = Surface(parent, "Section_" + title, new Color32(239, 241, 243, 255), .025f, y, .975f, y + .085f, true);
+            Label(section, "SectionLabel_" + title, title, .016f, 0f, .984f, 1f, 14, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
         }
 
         private static void GridRow(RectTransform parent, float y, string[] captions, string[] values)

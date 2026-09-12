@@ -40,6 +40,9 @@ namespace Baseball.Presentation.Owner
             OwnerDugoutDetailUiFactory.Place(_sort.GetComponent<RectTransform>(), .34f, .72f, .965f, .795f);
             _sort.onValueChanged.AddListener(_ => RefreshDiscovery());
             _resultCount = CreateBoardLabel(parent, "ResultCount", string.Empty, .035f, .66f, .965f, .715f, 13);
+            OwnerDashboardStyle.SetDataInput(_search);
+            OwnerDashboardStyle.SetDataDropdown(_targetFilter);
+            OwnerDashboardStyle.SetDataDropdown(_sort);
         }
 
         private void ResetDiscovery()

@@ -611,6 +611,7 @@ namespace Baseball.Game.Historical
                     throw new ArgumentException("1군 교체 후보는 null일 수 없습니다.", nameof(replacements));
                 if (!runtime.TryGetOwnedCard(replacement.IncomingCardId, out _))
                     throw new InvalidOperationException("보유하지 않은 카드는 1군에 등록할 수 없습니다.");
+                OwnerScheduleGateService.EvaluateStudyRosterRegistration(runtime, replacement.IncomingCardId).RequireAllowed();
                 if (!runtime.WorldCardCatalog.TryGetCard(
                         replacement.IncomingCardId,
                         out PlayerCardDefinition incomingCard))
@@ -1089,7 +1090,7 @@ namespace Baseball.Game.Historical
                 bool registered = false;
                 for (int rosterIndex = 0; rosterIndex < roster.Entries.Count; rosterIndex++)
                     if (string.Equals(roster.Entries[rosterIndex].CardId, card.CardId, StringComparison.Ordinal)) registered = true;
-                if (!registered) return true;
+                if (!registered || OwnerScheduleGateService.CanStudyWhileRegistered(runtime)) return true;
             }
             return false;
         }

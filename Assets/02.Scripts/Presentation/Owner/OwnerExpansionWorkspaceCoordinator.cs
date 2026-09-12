@@ -141,6 +141,17 @@ namespace Baseball.Presentation.Owner
             _rosterPitchingView?.SetCardDetailResolver(resolver);
         }
 
+        private Func<int, string, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>> _autoLineupHandler;
+
+        /// <summary>두 선수 오더 진입 경로에 같은 자동 배치 명령을 연결한다.</summary>
+        public void SetAutoLineupHandler(Func<int, string, System.Threading.CancellationToken,
+            System.Threading.Tasks.Task<string>> handler)
+        {
+            _autoLineupHandler = handler;
+            _rosterLineupView?.SetAutoLineupHandler(handler);
+            _rosterPitchingView?.SetAutoLineupHandler(handler);
+        }
+
         public void BindPregame(OwnerPregameSnapshot snapshot)
         {
             RequireInitialized();
@@ -992,6 +1003,7 @@ namespace Baseball.Presentation.Owner
                 _shell.RightInspectorHost,
                 _shell.ContextActionBarHost);
             _rosterLineupView.SetCardDetailResolver(_rosterCardDetailResolver);
+            _rosterLineupView.SetAutoLineupHandler(_autoLineupHandler);
             _rosterLineupView.SwapRequested += HandleLineupSwapRequested;
             _rosterLineupView.AssignmentRequested += HandleLineupAssignmentRequested;
             _rosterLineupView.PresetSelected += HandleLineupPresetSelected;
@@ -1008,6 +1020,7 @@ namespace Baseball.Presentation.Owner
                 _shell.RightInspectorHost,
                 _shell.ContextActionBarHost);
             _rosterPitchingView.SetCardDetailResolver(_rosterCardDetailResolver);
+            _rosterPitchingView.SetAutoLineupHandler(_autoLineupHandler);
             _rosterPitchingView.gameObject.name = "UI_Scene_OwnerRosterPitching";
             _rosterPitchingView.SetWorkspaceMode(OwnerRosterWorkspaceMode.Pitching);
             _rosterPitchingView.SwapRequested += HandleLineupSwapRequested;

@@ -14,7 +14,9 @@ namespace Baseball.Core.Historical
         public PlayerAbility requiredAbility;
         public int minimumAbility;
         public int[] minimumAbilityByLevel;
-        public int GetMinimumAbility(int level) => minimumAbilityByLevel == null ? minimumAbility : minimumAbilityByLevel[level - 1];
+        // JsonUtility를 거친 선택적 배열은 null 대신 빈 배열이 될 수 있다.
+        public int GetMinimumAbility(int level) => minimumAbilityByLevel == null || minimumAbilityByLevel.Length == 0
+            ? minimumAbility : minimumAbilityByLevel[level - 1];
         public int[] cardsRequired;
         public PlayerAbility bonusAbility;
         public int[] bonusByLevel;
@@ -32,7 +34,7 @@ namespace Baseball.Core.Historical
         {
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name) || cardsRequired?.Length != 6
                 || bonusByLevel?.Length != 6 || penaltyByLevel?.Length != 6 || minimumAbility < 0
-                || minimumAbilityByLevel != null && minimumAbilityByLevel.Length != 6)
+                || minimumAbilityByLevel != null && minimumAbilityByLevel.Length != 0 && minimumAbilityByLevel.Length != 6)
                 throw new ArgumentException("슬로건 정의가 올바르지 않습니다.");
             for (int i = 0; i < 6; i++)
                 if (cardsRequired[i] <= 0 || i > 0 && cardsRequired[i] <= cardsRequired[i - 1] || bonusByLevel[i] < 0 || penaltyByLevel[i] > 0)

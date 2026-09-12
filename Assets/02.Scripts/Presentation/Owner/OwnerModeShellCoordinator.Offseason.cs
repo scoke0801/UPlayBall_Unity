@@ -26,7 +26,7 @@ namespace Baseball.Presentation.Owner
         {
             var runtime = _manager.Runtime;
             if (!string.Equals(_offseasonExitSeasonId, runtime.ManagerMode.LiveSeason.SeasonId, StringComparison.Ordinal) ||
-                expectedCompletedWeeks != runtime.PlayerGrowth.Offseason.CompletedWeeks || runtime.PlayerGrowth.StudyProjects.Count > 0 || runtime.PlayerGrowth.Camps.Count > 0)
+                expectedCompletedWeeks != runtime.PlayerGrowth.Offseason.CompletedWeeks || runtime.PlayerGrowth.StudyProjects.Count > 0)
             {
                 ShowOffseasonExit();
                 return;

@@ -71,6 +71,14 @@ namespace Baseball.Presentation.Owner
                 if (string.Equals(model.Offers[index].OfferId, selectedOfferId, StringComparison.Ordinal))
                     _selectedOfferIndex = index;
             RenderSelectedOffer();
+            if (ready && model.Offers.Count == 0)
+            {
+                _contentStateText.transform.SetParent(_marketList.parent, false);
+                OwnerRuntimeUiFactory.Stretch(_contentStateText.rectTransform);
+                _contentStateText.gameObject.SetActive(true);
+                _contentStateText.text = "현재 영입 후보가 없습니다.\n시장 기간이 열리면 계약 후보가 표시됩니다.";
+                OwnerDashboardStyle.SetDataText(_contentStateText);
+            }
         }
 
         public void SetVisible(bool visible)
@@ -112,12 +120,14 @@ namespace Baseball.Presentation.Owner
             Image office = UIClubOfficeStyle.Illustration(current.Content, "CoachingOffice", 7);
             UIClubOfficeStyle.Place(office.rectTransform, 0f, .77f, 1f, 1f);
             ScrollRect currentScroll = OwnerRuntimeUiFactory.CreateVerticalScroll("CurrentStaffRows", current.Content, out _currentStaffList);
+            OwnerDashboardStyle.SetDataSurface(currentScroll.GetComponent<Image>(), OwnerDashboardStyle.TableSurface, true);
             UIClubOfficeStyle.Place(currentScroll.GetComponent<RectTransform>(), 0f, 0f, 1f, .75f);
 
             OwnerWorkspaceUiFactory.Panel market = UIClubOfficeStyle.CreatePanel(
                 columns, "StaffMarketPanel", "영입 후보");
             OwnerWorkspaceUiFactory.SetFlexible(market.Root, 1f);
             ScrollRect marketScroll = OwnerRuntimeUiFactory.CreateVerticalScroll("MarketList", market.Content, out _marketList);
+            OwnerDashboardStyle.SetDataSurface(marketScroll.GetComponent<Image>(), OwnerDashboardStyle.TableSurface, true);
             OwnerRuntimeUiFactory.Stretch(marketScroll.GetComponent<RectTransform>());
 
             _contentStateText = OwnerWorkspaceUiFactory.CreateText(_workspaceRoot, "ContentState", string.Empty,
@@ -130,6 +140,7 @@ namespace Baseball.Presentation.Owner
                 _inspectorRoot, "StaffDetailPanel", "스태프 상세");
             OwnerWorkspaceUiFactory.Stretch(detail.Root);
             ScrollRect detailScroll = OwnerRuntimeUiFactory.CreateVerticalScroll("DetailScroll", detail.Content, out RectTransform detailContent);
+            OwnerDashboardStyle.SetDataSurface(detailScroll.GetComponent<Image>(), OwnerDashboardStyle.TableSurface, true);
             OwnerRuntimeUiFactory.Stretch(detailScroll.GetComponent<RectTransform>());
             RectTransform portraitRect = OwnerWorkspaceUiFactory.CreateRoot(detailContent, "StaffPortrait", false);
             _portrait = portraitRect.gameObject.AddComponent<Image>();
@@ -153,6 +164,8 @@ namespace Baseball.Presentation.Owner
                 _actionRoot, "ConfirmStaffSigningButton", "스태프 계약", HandleSignRequested);
             UIClubOfficeStyle.SizeAction(_signButton, 160f, true);
             _signStateText.GetComponent<LayoutElement>().minHeight = 0f;
+            actionPaper.raycastTarget = false;
+            OwnerDashboardStyle.SetDataText(_signStateText);
             CareerUiSkin.Apply(_workspaceRoot);
             CareerUiSkin.Apply(_inspectorRoot);
             CareerUiSkin.Apply(_actionRoot);
@@ -250,6 +263,7 @@ namespace Baseball.Presentation.Owner
             Text text = OwnerWorkspaceUiFactory.CreateText(parent, "Value", string.Empty, size, style,
                 TextAnchor.UpperLeft, CareerUiTheme.TextPrimary);
             text.gameObject.AddComponent<LayoutElement>().preferredHeight = height;
+            OwnerDashboardStyle.SetDataText(text, style == FontStyle.Bold);
             return text;
         }
     }

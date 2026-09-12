@@ -157,6 +157,7 @@ namespace Baseball.Presentation.Owner
             var outline = rect.gameObject.AddComponent<Outline>();
             outline.effectColor = CareerUiTheme.ReferenceBorder;
             outline.effectDistance = new Vector2(1f, -1f);
+            UIOwnerFrontOfficePanel.Apply(rect, "ManagerReport");
             return rect;
         }
 

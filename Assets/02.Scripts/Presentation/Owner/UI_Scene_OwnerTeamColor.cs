@@ -259,6 +259,7 @@ namespace Baseball.Presentation.Owner
             foreach (Image image in view.Root.GetComponentsInChildren<Image>())
                 image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             scroll = view.ScrollRect;
+            OwnerDashboardStyle.ApplyInset(view.Viewport.GetComponent<Image>(), true);
             return view.Content;
         }
 
@@ -283,6 +284,7 @@ namespace Baseball.Presentation.Owner
                 image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             scroll = view.ScrollRect;
             viewport = view.Viewport;
+            OwnerDashboardStyle.ApplyInset(view.Viewport.GetComponent<Image>(), true);
             return view.Content;
         }
 

@@ -27,11 +27,11 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_일곱업무영역과ContextMatchCenter를분리한다()
+        public void Profile_여덟업무영역과ContextMatchCenter를분리한다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
-            Assert.That(profile.Navigation.Entries.Count, Is.EqualTo(7));
+            Assert.That(profile.Navigation.Entries.Count, Is.EqualTo(8));
             Assert.That(profile.Navigation.Entries[0].RouteId, Is.EqualTo(OwnerNavigationRoutes.Home));
             Assert.That(profile.Navigation.Entries[1].RouteId, Is.EqualTo(OwnerNavigationRoutes.Roster));
             Assert.That(profile.Navigation.Entries[2].RouteId, Is.EqualTo(OwnerNavigationRoutes.PowerUp));
@@ -39,6 +39,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(profile.Navigation.Entries[4].RouteId, Is.EqualTo(OwnerNavigationRoutes.Club));
             Assert.That(profile.Navigation.Entries[5].RouteId, Is.EqualTo(OwnerNavigationRoutes.League));
             Assert.That(profile.Navigation.Entries[6].RouteId, Is.EqualTo(OwnerNavigationRoutes.Shop));
+            Assert.That(profile.Navigation.Entries[7].RouteId, Is.EqualTo(OwnerNavigationRoutes.LegendaryPractice));
+            Assert.That(profile.Navigation.Entries[7].DisplayName, Is.EqualTo("연습경기"));
+            Assert.That(profile.ContextNavigation.FindEntry(OwnerNavigationRoutes.LegendaryPractice), Is.Null);
             Assert.That(profile.Navigation.Entries[4].Children[0].RouteId,
                 Is.EqualTo(OwnerNavigationRoutes.ClubOwner));
             Assert.That(profile.Navigation.Entries[4].Children[1].RouteId,

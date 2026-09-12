@@ -1,5 +1,9 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using Baseball.Core.Historical;
+using Baseball.Core.Growth;
+using Baseball.Core.Players;
 using Baseball.Game.Historical;
 using Baseball.Presentation.Match;
 using Baseball.Presentation.SharedUI;
@@ -13,6 +17,7 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerMatchSpectator _practiceSpectator;
         private bool _isPracticeMatchActive, _isPreparingPractice;
         private UnityEngine.Coroutine _practicePreparation;
+        private string _activePracticeTeamId;
 
         private bool TryShowPractice(string route)
         {
@@ -51,17 +56,35 @@ namespace Baseball.Presentation.Owner
         {
             try
             {
-                var roster = _manager.GetPracticeOpponent(id, out var colors); _practiceView.BindOpponent(roster, colors);
-                var source = _manager.GetPracticeCards(id); var cards = new PlayerMiniCardModel[3];
-                string[] labels = { "교타", "장타", "주력", "번트", "수비", "정신" };
-                for (int i = 0; i < 3; i++)
+                var roster = _manager.GetPracticeOpponent(id, out var colors);
+                var lineup = _snapshotFactory.CreatePracticeLineup(_manager, id, roster, colors);
+                _practiceView.BindOpponent(roster, lineup);
+                var source = new List<PlayerCardDefinition>();
+                foreach (var candidate in _manager.GetPracticeCards(id))
+                    if (candidate.Edition != PlayerCardEdition.CareerHigh && candidate.Edition != PlayerCardEdition.Legend)
+                        source.Add(candidate);
+                // 편성 슬롯 순서가 아닌 원 시즌 코스트로 대표 선수를 고른다. 동점은 카드 ID로 고정한다.
+                source.Sort((a, b) =>
+                {
+                    int cost = _manager.GetPracticePlayerSeason(b).Cost.CompareTo(_manager.GetPracticePlayerSeason(a).Cost);
+                    return cost != 0 ? cost : string.CompareOrdinal(a.CardId, b.CardId);
+                });
+                var cards = new PlayerMiniCardModel[Math.Min(3, source.Count)];
+                for (int i = 0; i < cards.Length; i++)
                 {
                     var card = source[i]; var season = _manager.GetPracticePlayerSeason(card); var ratings = season.CreateBaseAttributes();
+                    bool pitcher = season.PlayerType == PlayerType.Pitcher;
+                    string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화", "제구", "정신" }
+                        : new[] { "교타", "장타", "주력", "번트", "수비", "정신" };
                     var stats = new PlayerMiniCardStatModel[6];
-                    for (int a = 0; a < 6; a++) stats[a] = new PlayerMiniCardStatModel(labels[a],
-                        ratings.Get((Baseball.Core.Growth.PlayerAbility)a) + card.GetModifier((Baseball.Core.Growth.PlayerAbility)a), Baseball.Core.Players.AttributeRating.Maximum);
-                    cards[i] = new PlayerMiniCardModel(card.CardId, _manager.Runtime.IdentityRegistry.GetPlayerDisplayName(season.PlayerPersonId),
-                        "주전 야수", season.OriginYear.ToString(), "", PlayerCardEditionText.Get(card.Edition),
+                    for (int a = 0; a < 6; a++)
+                    {
+                        var ability = (PlayerAbility)(a + (pitcher ? (int)PlayerAbility.Stamina : 0));
+                        stats[a] = new PlayerMiniCardStatModel(labels[a], ratings.Get(ability) + card.GetModifier(ability), AttributeRating.Maximum);
+                    }
+                    cards[i] = new PlayerMiniCardModel(card.CardId, _manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId),
+                        OwnerCollectionPresentationBuilder.FormatPlayerRole(season.Position, pitcher ? season.PitcherRole : null, false),
+                        season.OriginYear.ToString(), "", PlayerCardEditionText.Get(card.Edition),
                         portraitAssetKey: season.PlayerSeasonId, stats: stats, frameEdition: card.Edition, cost: season.Cost);
                 }
                 _practiceView.BindFeaturedCards(cards);
@@ -96,11 +119,20 @@ namespace Baseball.Presentation.Owner
                 {
                     _practiceSpectator = UI_Scene_OwnerMatchSpectator.CreateRuntime(_shell.MainWorkspaceHost);
                     _practiceSpectator.HomeRequested += ReturnFromPractice;
+                    _practiceSpectator.NextGameRequested += ContinuePractice;
+                    _practiceSpectator.PresentationCompleted += FocusPracticeResult;
                 }
+                _activePracticeTeamId = id;
                 _isPracticeMatchActive = true; _practiceView.gameObject.SetActive(false);
                 _practiceSpectator.PlayPractice(result, buffer.ToArray(),
                     _manager.GetTeamUniformFranchiseId(_manager.GetPracticeTeam(id).TeamSeasonKey),
-                    _manager.GetTeamUniformFranchiseId(_manager.Runtime.PlayerTeamSeasonKey));
+                    _manager.GetTeamUniformFranchiseId(_manager.Runtime.PlayerTeamSeasonKey),
+                    teamId => teamId == result.Match.Input.HomeRoster.TeamId
+                        ? _manager.GetClubDisplayName(_manager.Runtime.PlayerTeamSeasonKey)
+                        : PracticeTeamName(_manager.GetPracticeCatalog().Find(id)),
+                    _manager.CreatePracticeParticipantNames(id));
+                _practiceSpectator.SetNextGameAvailability(CanContinuePractice());
+                if (_practiceSpectator.IsComplete) _practiceSpectator.FocusCompletedResult();
             }
             catch (Exception error)
             {
@@ -113,8 +145,33 @@ namespace Baseball.Presentation.Owner
 
         private void ReturnFromPractice()
         {
+            if (_isPreparingPractice) return;
             _practiceSpectator.EndPresentation(); _isPracticeMatchActive = false;
             Refresh(); _practiceView.FocusAction();
+        }
+
+        private void FocusPracticeResult()
+        {
+            _practiceSpectator.SetNextGameAvailability(CanContinuePractice());
+            _practiceSpectator.FocusCompletedResult();
+        }
+
+        private bool CanContinuePractice()
+        {
+            if (string.IsNullOrEmpty(_activePracticeTeamId) || _manager.IsPracticeSaving) return false;
+            var catalog = _manager.GetPracticeCatalog();
+            var progress = _manager.Runtime.LegendaryPractice.Get(_activePracticeTeamId);
+            // 3승 직후에는 목록의 최초 보상 행동으로 안내하고, 보상 수령 후 재도전은 계속 허용한다.
+            return _manager.Runtime.LegendaryPractice.CanPlay(catalog, catalog.Find(_activePracticeTeamId))
+                && (progress.wins < 3 || progress.rewardClaimed);
+        }
+
+        private void ContinuePractice()
+        {
+            if (_isPreparingPractice || !_isPracticeMatchActive || !_practiceSpectator.IsComplete || !CanContinuePractice()) return;
+            _isPreparingPractice = true;
+            _practiceSpectator.SetNextGameAvailability(true, true);
+            _practicePreparation = StartCoroutine(PreparePractice(_activePracticeTeamId));
         }
 
         private void ClaimAllPractice()

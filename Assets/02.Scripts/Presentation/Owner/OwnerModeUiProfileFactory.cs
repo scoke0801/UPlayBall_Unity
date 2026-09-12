@@ -143,12 +143,12 @@ namespace Baseball.Presentation.Owner
                     "리그",
                     UiCapability.CanViewLeagueInformation,
                     children: leagueTabs),
-                new NavigationEntry(OwnerNavigationRoutes.Shop, "상점")
+                new NavigationEntry(OwnerNavigationRoutes.Shop, "상점"),
+                new NavigationEntry(OwnerNavigationRoutes.LegendaryPractice, "연습경기")
             });
 
             var contextNavigation = new NavigationManifest(new[]
             {
-                new NavigationEntry(OwnerNavigationRoutes.LegendaryPractice, "역대 강팀"),
                 new NavigationEntry(OwnerNavigationRoutes.MatchCenter, "경기 준비", children: new[]
                 {
                     new NavigationEntry(OwnerNavigationRoutes.MatchCenterAnalysis, "상대 분석"),

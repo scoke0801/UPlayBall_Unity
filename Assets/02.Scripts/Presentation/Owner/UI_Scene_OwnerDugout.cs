@@ -174,10 +174,10 @@ namespace Baseball.Presentation.Owner
             Place(role.rectTransform, 0f, .92f, 1f, 1f);
             role.fontSize = 21;
             var portrait = CreatePortrait(safe, portraitPath, .0f, .48f, 1f, .91f);
-            var nameLabel = Label(safe, "CurrentName", "미배정", 0f, .35f, 1f, .47f, 22, CareerUiTheme.RosterText);
-            Label(safe, "EffectTitle", "운영 특색", 0f, .285f, 1f, .345f, 15, CareerUiTheme.Number, TextAnchor.MiddleLeft);
-            var effect = Label(safe, "CurrentEffect", "정보 없음", 0f, .10f, 1f, .28f, 17, CareerUiTheme.RosterTextSecondary, TextAnchor.UpperLeft);
-            Label(safe, "SelectHint", manager ? "감독 선택  ›" : "수석코치 선택  ›", 0f, 0f, 1f, .075f, 18, CareerUiTheme.Number);
+            var nameLabel = Label(safe, "CurrentName", "미배정", 0f, .35f, 1f, .47f, 22, Ink);
+            Label(safe, "EffectTitle", "운영 특색", 0f, .285f, 1f, .345f, 15, Ink, TextAnchor.MiddleLeft);
+            var effect = Label(safe, "CurrentEffect", "정보 없음", 0f, .10f, 1f, .28f, 17, Ink, TextAnchor.UpperLeft);
+            Label(safe, "SelectHint", manager ? "감독 선택  ›" : "수석코치 선택  ›", 0f, 0f, 1f, .075f, 18, Ink);
             if (manager) { _managerName = nameLabel; _managerEffect = effect; _managerPortrait = portrait; }
             else { _headCoachName = nameLabel; _headCoachEffect = effect; _coachPortrait = portrait; }
         }
@@ -444,7 +444,8 @@ namespace Baseball.Presentation.Owner
             int size, Color color, TextAnchor alignment = TextAnchor.MiddleCenter)
         {
             Text label = OwnerWorkspaceUiFactory.CreateText(parent, name, text, size, size >= 19 ? FontStyle.Bold : FontStyle.Normal, alignment, color);
-            label.color = color;
+            label.color = UIOwnerFrontOfficePanel.HasDarkSurface(parent)
+                ? UIOwnerFrontOfficePanel.ResolveTextColor(color) : color;
             Place(label.rectTransform, left, bottom, right, top);
             label.resizeTextForBestFit = true;
             label.resizeTextMinSize = size;
@@ -457,7 +458,7 @@ namespace Baseball.Presentation.Owner
         {
             Button button = OwnerWorkspaceUiFactory.CreateButton(parent, name, title, action);
             Place((RectTransform)button.transform, left, bottom, right, top);
-            button.transform.Find("Label").GetComponent<Text>().color = Ink;
+            button.GetComponent<OwnerUiButtonSkin>()?.Refresh();
             return button;
         }
 

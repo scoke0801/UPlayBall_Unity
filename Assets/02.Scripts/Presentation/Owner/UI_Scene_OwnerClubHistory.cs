@@ -25,6 +25,7 @@ namespace Baseball.Presentation.Owner
         private OwnerClubHistorySeason _detail;
         private string _returnRow;
         private int _tab, _honor = -1;
+        private Vector2 _returnScroll;
         private LeagueGrade? _grade;
         public event Action<int> SeasonPlayersRequested;
 
@@ -48,7 +49,8 @@ namespace Baseball.Presentation.Owner
             if (_detail == null) return false;
             _detail = null; Render();
             if (!string.IsNullOrEmpty(_returnRow)) _table.TrySelectRow(_returnRow, true);
-            _tabs[_tab].Select(); return true;
+            _table.ScrollRect.normalizedPosition = _returnScroll;
+            if (!_table.FocusSelectedRow()) _tabs[_tab].Select(); return true;
         }
 
         private void OpenSeason(string row)
@@ -56,7 +58,7 @@ namespace Baseball.Presentation.Owner
             if (_tab == 1 || _detail != null) return;
             _detail = _model.FindSeason(row);
             if (_detail == null) return;
-            _returnRow = row; Render(); _back.Select();
+            _returnRow = row; _returnScroll = _table.ScrollRect.normalizedPosition; Render(); _back.Select();
         }
 
         private void Render()
@@ -99,14 +101,15 @@ namespace Baseball.Presentation.Owner
                     _tab == 3 ? "이 리그에서 획득한 타이틀이 없습니다. 새로운 우승의 역사를 만들어 보세요." : "선택한 리그에서 운영한 시즌이 없습니다.";
             }
             RenderTrophies();
+            _table.AllowRowActivation = _tab != 1 && _detail == null;
+            _table.HighlightBadge = "현재 시즌";
             _table.Bind(table, table.Rows.Count == 0 ? UiContentStateModel.CreateEmpty("기록 없음", empty) : UiContentStateModel.Ready);
         }
 
         private void Build()
         {
             var root = (RectTransform)transform;
-            var background = OwnerRuntimeUiFactory.CreateImage("Background", root, CareerUiTheme.ReferenceDataCanvas);
-            OwnerRuntimeUiFactory.Stretch(background.rectTransform);
+            UIOwnerFrontOfficePanel.ApplyWorkspace(root);
             _title = Text("Title", root, 21, FontStyle.Bold); Place(_title.rectTransform, .03f, .91f, .70f, .99f);
             for (int i = 0; i < _tabs.Length; i++)
             {
@@ -124,7 +127,7 @@ namespace Baseball.Presentation.Owner
             _description = Text("Description", root, 13, FontStyle.Normal); Place(_description.rectTransform, .03f, .705f, .97f, .763f);
             _tableHost = OwnerRuntimeUiFactory.CreateRect("HistoryTableHost", root);
             _table = RecordTableView.CreateRuntime(_tableHost, "HistoryTable");
-            _table.SetVisualStyle(RecordTableVisualStyle.ReferenceLight); _table.RowSelected += OpenSeason;
+            _table.SetVisualStyle(RecordTableVisualStyle.OwnerFrontOffice); _table.RowSelected += OpenSeason;
             BuildTrophies(root);
             _back = Button("BackToHistory", root, "기록 목록으로", () => TryGoBack());
             Place((RectTransform)_back.transform, .71f, .92f, .83f, .985f);
@@ -132,8 +135,12 @@ namespace Baseball.Presentation.Owner
             Place((RectTransform)_players.transform, .84f, .92f, .97f, .985f);
         }
 
-        private static Text Text(string name, Transform parent, int size, FontStyle style) =>
-            OwnerRuntimeUiFactory.CreateText(name, parent, string.Empty, size, style, TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInk);
+        private static Text Text(string name, Transform parent, int size, FontStyle style)
+        {
+            var text = OwnerRuntimeUiFactory.CreateText(name, parent, string.Empty, size, style, TextAnchor.MiddleLeft, OwnerDashboardStyle.Ivory);
+            OwnerDashboardStyle.SetDataText(text, style == FontStyle.Bold);
+            return text;
+        }
         private static Button Button(string name, Transform parent, string label, UnityEngine.Events.UnityAction action)
         { var button = OwnerRuntimeUiFactory.CreateReferenceButton(name, parent, label, 14); button.onClick.AddListener(action); return button; }
         private static void Place(RectTransform rect, float x0, float y0, float x1, float y1) =>

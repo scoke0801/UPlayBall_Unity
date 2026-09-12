@@ -7,18 +7,16 @@ namespace Baseball.Presentation.Owner
 {
     public sealed partial class UI_Scene_OwnerClubOperations
     {
-        private static readonly Color FinanceBorder = new Color32(213, 222, 229, 255);
-        private static readonly Color FinancePositive = new Color32(27, 117, 99, 255);
-        private static readonly Color FinanceNegative = new Color32(171, 69, 64, 255);
+        private static readonly Color FinanceBorder = OwnerDashboardStyle.Line;
+        private static readonly Color FinancePositive = CareerUiTheme.Success;
+        private static readonly Color FinanceNegative = CareerUiTheme.Error;
         private FinanceStatement _weeklyStatement;
         private FinanceStatement _seasonStatement;
         private Image _fanBaseFill;
         private Image _popularityFill;
 
-        private void BuildFinanceDashboard()
+        private void BuildFinanceDashboard(Transform content)
         {
-            Transform content = _summaryRoot.Find("ContentSafeRect");
-            _summaryRoot.Find("HeaderSurface/HeaderSlot").GetComponent<Text>().text = "구단 재정  /  운영과 결산";
             Image background = FinanceSurface(content, "FinanceCanvas", UIClubOfficeStyle.Paper, 0f, 0f, 1f, 1f);
             background.transform.SetAsFirstSibling();
 
@@ -29,14 +27,14 @@ namespace Baseball.Presentation.Owner
             stadium.preserveAspect = false;
             FinanceSurface(stadium.transform, "Caption", new Color32(20, 34, 47, 235), 0f, 0f, 1f, .26f);
             FinanceLabel(stadium.transform, "ArtworkCaption", "구장 이미지", 11, false, .73f, .80f, .98f, .98f, Color.white);
-            FinanceSurface(content, "ExpansionSurface", Color.white, .01f, .52f, .38f, .69f);
+            FinanceSurface(content, "ExpansionSurface", OwnerDashboardStyle.TableSurface, .01f, .52f, .38f, .69f);
             FinanceLabel(content, "ExpansionTitle", "구장 증축", 14, true, .025f, .53f, .21f, .59f);
 
             _fanBaseFill = BuildFinanceMetric(content, "FanBaseMetric", "팬 기반", .41f, .81f, .68f, .99f);
             _popularityFill = BuildFinanceMetric(content, "PopularityMetric", "인기도", .70f, .81f, .99f, .99f);
             BuildFinanceMetric(content, "ExpectedMetric", "예상 관중", .41f, .64f, .68f, .79f, false);
             BuildFinanceMetric(content, "RecentMetric", "최근 관중", .70f, .64f, .99f, .79f, false);
-            FinanceSurface(content, "TicketSurface", new Color32(230, 237, 243, 255), .41f, .52f, .99f, .63f);
+            FinanceSurface(content, "TicketSurface", OwnerDashboardStyle.TableHeader, .41f, .52f, .99f, .63f);
 
             foreach (Text label in new[] { _stadiumText, _stadiumUpgradeText, _fanBaseText,
                 _popularityText, _expectedAttendanceText, _recentAttendanceText, _ticketPolicyText, _feedbackText })
@@ -45,7 +43,7 @@ namespace Baseball.Presentation.Owner
                     label.gameObject.AddComponent<CareerUiPreserveTextColor>();
                 label.color = UIClubOfficeStyle.Ink;
                 label.transform.SetAsLastSibling();
-                label.resizeTextForBestFit = true;
+                label.resizeTextForBestFit = false;
                 label.resizeTextMinSize = 12;
                 label.resizeTextMaxSize = label.fontSize;
             }
@@ -55,7 +53,7 @@ namespace Baseball.Presentation.Owner
             {
                 metric.fontSize = 26;
                 metric.resizeTextMaxSize = 26;
-                metric.fontStyle = FontStyle.Bold;
+                OwnerDashboardStyle.SetTypography(metric, true);
             }
             _stadiumUpgradeButton.transform.SetAsLastSibling();
             foreach (Button button in _ticketButtons.Values) button.transform.SetAsLastSibling();
@@ -67,7 +65,7 @@ namespace Baseball.Presentation.Owner
         private static Image BuildFinanceMetric(Transform parent, string name, string title,
             float x, float y, float right, float top, bool showMeter = true)
         {
-            Image surface = FinanceSurface(parent, name, Color.white, x, y, right, top);
+            Image surface = FinanceSurface(parent, name, OwnerDashboardStyle.TableSurface, x, y, right, top);
             FinanceLabel(surface.transform, "Title", title, 12, false, .06f, .65f, .94f, .96f);
             if (!showMeter) return null;
             Image track = FinanceSurface(surface.transform, "MeterTrack", FinanceBorder, .06f, .14f, .94f, .18f);
@@ -98,12 +96,14 @@ namespace Baseball.Presentation.Owner
             label.gameObject.AddComponent<CareerUiPreserveTextColor>();
             button.GetComponent<Image>().color = primary ? UIClubOfficeStyle.Blue : Color.white;
             label.color = primary ? Color.white : UIClubOfficeStyle.Ink;
+            OwnerUiButtonSkin.Apply(button, primary ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
         }
 
         private static void StyleFinanceTicket(Button button, bool selected)
         {
-            UIClubOfficeStyle.Select(button, selected);
-            SetButtonStyle(button, selected);
+            OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Tab);
+            OwnerUiButtonSkin.SetSelected(button, selected);
+
             button.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
             Text label = button.transform.Find("Label").GetComponent<Text>();
             label.fontSize = 14;
@@ -146,9 +146,9 @@ namespace Baseball.Presentation.Owner
             {
                 Transform root = previousSummary.transform.parent;
                 previousSummary.gameObject.SetActive(false);
-                root.GetComponent<Image>().color = Color.white;
+                root.GetComponent<Image>().color = OwnerDashboardStyle.TableSurface;
                 root.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
-                FinanceSurface(root, "TopRule", UIClubOfficeStyle.Blue, 0f, .986f, 1f, 1f);
+                FinanceSurface(root, "TopRule", OwnerDashboardStyle.Line, 0f, .997f, 1f, 1f);
                 _title = FinanceLabel(root, "Title", "", 18, true, .035f, .78f, .4f, .96f);
                 _attendance = FinanceLabel(root, "Attendance", "", 12, false, .40f, .78f, .965f, .96f);
                 _attendance.alignment = TextAnchor.MiddleRight;
@@ -156,7 +156,7 @@ namespace Baseball.Presentation.Owner
                 FinanceLabel(root, "ExpenseLabel", "지출", 14, false, .04f, .40f, .28f, .58f);
                 _income = FinanceLabel(root, "IncomeValue", "", 23, true, .30f, .59f, .95f, .77f, FinancePositive);
                 _expense = FinanceLabel(root, "ExpenseValue", "", 23, true, .30f, .40f, .95f, .58f, FinanceNegative);
-                FinanceSurface(root, "NetSurface", new Color32(237, 244, 247, 255), .025f, .16f, .975f, .39f);
+                FinanceSurface(root, "NetSurface", OwnerDashboardStyle.TableAlternate, .025f, .16f, .975f, .39f);
                 FinanceLabel(root, "NetLabel", "순이익", 14, true, .04f, .17f, .28f, .38f);
                 _net = FinanceLabel(root, "NetValue", "", 27, true, .30f, .17f, .95f, .38f);
                 _income.alignment = _expense.alignment = _net.alignment = TextAnchor.MiddleRight;

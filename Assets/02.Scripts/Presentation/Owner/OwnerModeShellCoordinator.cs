@@ -1035,7 +1035,6 @@ namespace Baseball.Presentation.Owner
             _homeView.PlayNextGameRequested += HandlePlayNextGameRequested;
             _homeView.CompleteSeasonRequested += HandleCompleteSeasonRequested;
             _homeView.AdvanceSeasonRequested += HandleAdvanceSeasonRequested;
-            _homeView.PracticeRequested += () => HandleNavigationRequested(OwnerNavigationRoutes.LegendaryPractice);
         }
 
         private void EnsureMatchSpectatorView()
@@ -1181,6 +1180,7 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.SpecialRecruitRouteRequested += HandleNavigationRequested;
             _expansionWorkspace.SetRosterCardDetailResolver(
                 cardIds => _snapshotFactory.CreateCollectionCardDetails(_manager, cardIds));
+            _expansionWorkspace.SetAutoLineupHandler(HandleAutoLineupAsync);
             _expansionWorkspace.MatchStartRequested += HandlePregameMatchStartRequested;
             _expansionWorkspace.SignStaffRequested += HandleSignStaffRequested;
             _expansionWorkspace.TicketPolicyRequested += HandleTicketPolicyRequested;
@@ -1537,16 +1537,14 @@ namespace Baseball.Presentation.Owner
         {
             try
             {
-                int campsBefore = _manager.Runtime.PlayerGrowth.Camps.Count;
                 int studiesBefore = _manager.Runtime.PlayerGrowth.StudyProjects.Count;
                 int greatReturns = 0;
                 foreach (var project in _manager.Runtime.PlayerGrowth.StudyProjects)
-                    if (project.RemainingWeeks == 1 && project.ResultBonus > 0) greatReturns++;
-                if (_manager.AdvanceOffseasonWeek(completedWeeks))
+                    if (project.ResultBonus > 0) greatReturns++;
+                if (_manager.CompleteOffseasonStudies(completedWeeks))
                 {
-                    int campsReturned = campsBefore - _manager.Runtime.PlayerGrowth.Camps.Count;
                     int studiesReturned = studiesBefore - _manager.Runtime.PlayerGrowth.StudyProjects.Count;
-                    ShowFeedback("훈련 1주 정산 · 유학 귀환 " + studiesReturned + "명 · 캠프 귀환 " + campsReturned + "명"
+                    ShowFeedback("훈련 정산 완료 · 유학 귀환 " + studiesReturned + "명"
                         + (greatReturns > 0 ? " · 대성공 " + greatReturns + "명" : ""), false);
                 }
             }
@@ -1675,6 +1673,30 @@ namespace Baseball.Presentation.Owner
                     _manager.Runtime.ManagerMode.GetSelectedLineupPreset();
                 StageLineupPreview(OwnerLineupPresetCommandBuilder.Swap(current, group, firstIndex, secondIndex));
             });
+        }
+
+        private async System.Threading.Tasks.Task<string> HandleAutoLineupAsync(int year, string franchiseId,
+            System.Threading.CancellationToken cancellation)
+        {
+            var runtime = _manager.Runtime;
+            LineupPresetState source = _pendingLineupPreset ?? runtime.ManagerMode.GetSelectedLineupPreset();
+            var builder = _manager.CreateAutoLineupBuilder(year, franchiseId, cancellation);
+            int targetCount = 0;
+            var candidate = await System.Threading.Tasks.Task.Run(() => builder.Build(source, out targetCount), cancellation);
+            cancellation.ThrowIfCancellationRequested();
+            if (this == null || _manager.Runtime != runtime)
+                throw new InvalidOperationException("진행 상태가 바뀌었습니다. 자동 배치를 다시 실행해 주세요.");
+            var rosterChange = _manager.PreviewAutoLineup(candidate);
+            var validation = rosterChange?.Validation ?? _manager.ValidateLineupPreset(candidate);
+            if (validation.Status != LineupPresetValidationStatus.Valid)
+                throw new InvalidOperationException("현재 출전·편성 규칙을 만족하지 못했습니다. 선수의 출전 가능 상태를 확인해 주세요.");
+            // 계산·재검증 성공 뒤에만 기존 수동 변경안을 교체한다. 취소·실패는 원래 Preview를 유지한다.
+            _pendingActiveRosterChange = null;
+            _pendingLineupPreset = null;
+            if (rosterChange != null) StageActiveRosterPreview(rosterChange);
+            else StageLineupPreview(candidate);
+            return "자동 배치 완료 · 선택 덱 " + targetCount + "/25명 · 보완 " + (25 - targetCount) +
+                "명 · 오더를 확인한 뒤 배치 저장으로 확정하세요.";
         }
 
         private void HandleLineupAssignmentRequested(

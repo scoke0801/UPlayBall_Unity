@@ -90,6 +90,7 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero,
                 Vector2.zero);
             AddOutline(informationBar.gameObject, new Color32(188, 196, 205, 255), 2f);
+            UIOwnerFrontOfficePanel.Apply(informationBar.rectTransform, "CompactStrip");
 
             _stadiumSceneNameText = OwnerRuntimeUiFactory.CreateText(
                 "StadiumName", informationBar.transform, StadiumNames[0], 23, FontStyle.Bold,
@@ -146,7 +147,7 @@ namespace Baseball.Presentation.Owner
         private void BuildFacilityNavigation(RectTransform root)
         {
             Image navigation = OwnerRuntimeUiFactory.CreateImage(
-                "FacilityNavigation", root, new Color32(238, 240, 242, 255));
+                "FacilityNavigation", root, OwnerDashboardStyle.TableHeader);
             navigation.raycastTarget = true;
             _facilityNavigationRoot = navigation.rectTransform;
             OwnerRuntimeUiFactory.SetAnchors(
@@ -155,11 +156,12 @@ namespace Baseball.Presentation.Owner
                 Vector2.one,
                 new Vector2(8f, 2f),
                 new Vector2(-8f, -6f));
-            AddOutline(navigation.gameObject, new Color32(77, 87, 98, 255), 1f);
+            OwnerDashboardStyle.SetDataSurface(navigation, OwnerDashboardStyle.TableHeader);
 
             Text category = OwnerRuntimeUiFactory.CreateText(
                 "Category", navigation.transform, "시설", 14, FontStyle.Bold,
-                TextAnchor.MiddleCenter, new Color32(68, 74, 82, 255));
+                TextAnchor.MiddleCenter, OwnerDashboardStyle.Ivory);
+            OwnerDashboardStyle.SetDataText(category, true);
             OwnerRuntimeUiFactory.SetAnchors(
                 category.rectTransform, Vector2.zero, new Vector2(0.12f, 1f), Vector2.zero, Vector2.zero);
 
@@ -221,9 +223,11 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero,
                 Vector2.zero);
             AddOutline(panel.gameObject, new Color32(54, 61, 70, 255), 2f);
+            UIOwnerFrontOfficePanel.Apply(panel.rectTransform, "ManagerReport");
 
             Image header = OwnerRuntimeUiFactory.CreateImage(
                 "Header", panel.transform, new Color32(22, 68, 119, 255));
+            header.enabled = false;
             OwnerRuntimeUiFactory.SetAnchors(
                 header.rectTransform,
                 new Vector2(0f, 0.91f),
@@ -529,13 +533,8 @@ namespace Baseball.Presentation.Owner
 
         private static void StyleFacilityTab(Button button, bool selected)
         {
-            if (button == null) return;
-            button.GetComponent<Image>().color = selected
-                ? new Color32(25, 67, 113, 255)
-                : new Color32(251, 251, 250, 255);
-            button.transform.Find("Label").GetComponent<Text>().color = selected
-                ? Color.white
-                : new Color32(54, 59, 66, 255);
+            OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Tab);
+            OwnerUiButtonSkin.SetSelected(button, selected);
         }
 
         private static void StyleDarkButton(Button button, bool primary)
