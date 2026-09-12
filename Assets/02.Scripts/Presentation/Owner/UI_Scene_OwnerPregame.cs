@@ -242,6 +242,7 @@ namespace Baseball.Presentation.Owner
         private void BuildMatchPlan()
         {
             Image frame = UIClubOfficeStyle.Surface("MatchPlanPanel", _inspectorRoot, new Color32(15, 29, 43, 255));
+            UIOwnerFrontOfficePanel.Apply(frame.rectTransform, "ManagerReport");
             OwnerWorkspaceUiFactory.Stretch(frame.rectTransform);
             RectTransform viewport = OwnerRuntimeUiFactory.CreateRect("PlanViewport", frame.transform);
             OwnerRuntimeUiFactory.Stretch(viewport, new Vector2(12f, 12f), new Vector2(-12f, -12f));

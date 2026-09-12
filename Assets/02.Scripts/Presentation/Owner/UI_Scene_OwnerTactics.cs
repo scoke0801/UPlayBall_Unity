@@ -87,7 +87,7 @@ namespace Baseball.Presentation.Owner
 
         public void SetFeedback(string message, bool isError)
         {
-            Color color = isError ? new Color(0.72f, 0.16f, 0.12f) : new Color(0.12f, 0.35f, 0.20f);
+            Color color = isError ? CareerUiTheme.Error : CareerUiTheme.Success;
             if (_status != null)
             {
                 _status.text = message ?? string.Empty;
@@ -118,7 +118,7 @@ namespace Baseball.Presentation.Owner
             scrimImage.raycastTarget = true;
 
             _editor = OwnerDugoutDetailUiFactory.CreatePanel(_root, "CardSettingOverlay", 0.12f, 0.14f, 0.88f, 0.88f);
-            _editor.GetComponent<Image>().color = new Color(0.94f, 0.94f, 0.92f, 1f);
+            _editor.GetComponent<UIOwnerFrontOfficePanel>().Refresh();
             Shadow editorShadow = _editor.gameObject.AddComponent<Shadow>();
             editorShadow.effectColor = new Color(0f, 0f, 0f, 0.42f);
             editorShadow.effectDistance = new Vector2(8f, -8f);
@@ -182,7 +182,7 @@ namespace Baseball.Presentation.Owner
         {
             RectTransform header = OwnerDugoutDetailUiFactory.CreateRect(parent, "Header", 0.012f, 0.89f, 0.988f, 0.975f);
             Image surface = header.gameObject.AddComponent<Image>();
-            surface.color = new Color(0.83f, 0.85f, 0.85f, 1f);
+            OwnerDashboardStyle.SetDataSurface(surface, OwnerDashboardStyle.TableHeader);
             surface.raycastTarget = false;
             for (int index = 0; index < ScheduleColumnLabels.Length; index++)
                 CreateScheduleCell(header, "Header" + index, ScheduleColumnLabels[index],
@@ -193,7 +193,7 @@ namespace Baseball.Presentation.Owner
         {
             if (_snapshot == null || _scheduleContent == null) return;
             OwnerDugoutDetailUiFactory.ClearChildren(_scheduleContent);
-            float height = Mathf.Max(1f, _snapshot.ScheduleRows.Count * 58f);
+            float height = Mathf.Max(112f, _snapshot.ScheduleRows.Count * 58f);
             _scheduleContent.sizeDelta = new Vector2(0f, height);
             for (int index = 0; index < _snapshot.ScheduleRows.Count; index++)
                 CreateScheduleRow(_snapshot.ScheduleRows[index], index, height);
@@ -207,9 +207,8 @@ namespace Baseball.Presentation.Owner
             float bottom = 1f - (index + 1) * 58f / contentHeight + 2f / contentHeight;
             RectTransform root = OwnerDugoutDetailUiFactory.CreateRect(_scheduleContent, "GameRow" + index, 0f, bottom, 1f, top);
             Image background = root.gameObject.AddComponent<Image>();
-            background.color = row.IsConfigurable
-                ? new Color(0.86f, 0.92f, 0.89f, 1f)
-                : index % 2 == 0 ? new Color(0.96f, 0.96f, 0.94f, 1f) : new Color(0.91f, 0.92f, 0.91f, 1f);
+            OwnerDashboardStyle.SetDataSurface(background,
+                index % 2 == 0 ? OwnerDashboardStyle.TableSurface : OwnerDashboardStyle.TableAlternate);
             background.raycastTarget = false;
 
             CreateScheduleCell(root, "Type", "정규", ScheduleColumnEdges[0], ScheduleColumnEdges[1], 12, FontStyle.Normal);
@@ -218,7 +217,7 @@ namespace Baseball.Presentation.Owner
                 ScheduleColumnEdges[2], ScheduleColumnEdges[3], 12, FontStyle.Normal);
             Text result = CreateScheduleCell(root, "Result", FormatResult(row), ScheduleColumnEdges[3], ScheduleColumnEdges[4], 12, FontStyle.Bold);
             if (row.IsCompleted)
-                result.color = row.TeamRuns > row.OpponentRuns ? new Color(0.72f, 0.14f, 0.14f) : new Color(0.16f, 0.32f, 0.58f);
+                result.color = row.TeamRuns > row.OpponentRuns ? CareerUiTheme.Success : OwnerDashboardStyle.TableSecondary;
             CreateScheduleCell(root, "Opponent", row.OpponentName, ScheduleColumnEdges[4], ScheduleColumnEdges[5], 12, FontStyle.Bold);
             CreateScheduleCell(root, "Venue", row.IsHome ? "홈" : "원정", ScheduleColumnEdges[5], ScheduleColumnEdges[6], 12, FontStyle.Normal);
             if (row.IsConfigurable || row.EquippedIds.Count > 0)
@@ -307,9 +306,8 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerDugoutDetailUiFactory.CreateLabel(parent, name, value, left, 0f, right, 1f,
                 fontSize, fontStyle, TextAnchor.MiddleCenter);
-            Outline divider = text.gameObject.AddComponent<Outline>();
-            divider.effectColor = new Color(0.45f, 0.48f, 0.48f, 0.30f);
-            divider.effectDistance = new Vector2(1f, 0f);
+            OwnerDashboardStyle.SetDataText(text, fontStyle == FontStyle.Bold);
+            if (name == "Opponent" || name == "Header4") text.alignment = TextAnchor.MiddleLeft;
             return text;
         }
 
@@ -361,6 +359,9 @@ namespace Baseball.Presentation.Owner
         private void RebuildCards()
         {
             if (_snapshot == null) return;
+            var surface = _cardContent.parent.GetComponent<Image>();
+            OwnerDashboardStyle.SetDataSurface(surface, OwnerDashboardStyle.TableSurface, true);
+            _cardContent.parent.GetComponent<Mask>().showMaskGraphic = true;
             OwnerDugoutDetailUiFactory.ClearChildren(_cardContent);
             var visible = new List<OwnerTacticCardSnapshot>();
             for (int index = 0; index < _snapshot.Cards.Count; index++)
@@ -368,8 +369,16 @@ namespace Baseball.Presentation.Owner
             const int columnCount = 2;
             const float rowHeight = 112f;
             int rowCount = Mathf.CeilToInt(visible.Count / (float)columnCount);
-            float height = Mathf.Max(1f, rowCount * rowHeight);
+            float height = Mathf.Max(112f, rowCount * rowHeight);
             _cardContent.sizeDelta = new Vector2(0f, height);
+            if (visible.Count == 0)
+            {
+                var empty = OwnerDugoutDetailUiFactory.CreateLabel(_cardContent, "EmptyCards",
+                    _snapshot.Cards.Count == 0 ? "보유 작전카드가 없습니다.\n상점에서 작전카드를 획득한 뒤 설정하세요."
+                        : "이 분류의 작전카드가 없습니다.\n전체 탭에서 보유 카드를 확인하세요.",
+                    .04f, .08f, .96f, .92f, 16, FontStyle.Normal, TextAnchor.MiddleCenter);
+                OwnerDashboardStyle.SetDataText(empty);
+            }
             for (int index = 0; index < visible.Count; index++)
             {
                 OwnerTacticCardSnapshot card = visible[index];

@@ -3,6 +3,7 @@ using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Historical;
+using Baseball.Game.Guide;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using NUnit.Framework;
@@ -14,6 +15,40 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     /// <summary>구단주 선수단 화면이 Resolver 근거를 표시하고 실제 프리셋 Command만 요청하는지 검증한다.</summary>
     public sealed class OwnerRosterLineupPresentationTests
     {
+        [Test]
+        public void Guide_로스터안내는배치변경없이현재편집버튼을선택한다()
+        {
+            var root = new GameObject("RosterGuideCanvas", typeof(RectTransform), typeof(Canvas));
+            UI_Scene_OwnerRosterLineup view = null;
+            try
+            {
+                SharedGameShellView shell = SharedGameShellView.CreateRuntime(root.transform);
+                view = UI_Scene_OwnerRosterLineup.CreateRuntime(
+                    shell.MainWorkspaceHost, shell.RightInspectorHost, shell.ContextActionBarHost);
+                view.Bind(OwnerRosterLineupPresentationBuilder.Build(CreateSnapshot(Valid("default"))));
+                view.SetVisible(true);
+                int assignmentRequests = 0;
+                view.AssignmentRequested += (_, _, _) => assignmentRequests++;
+                view.SwapRequested += (_, _, _) => assignmentRequests++;
+                var goal = new GuideGoal("roster", GuideGoalKind.RosterIssue, GuideTargetKind.Roster, false, "");
+
+                Assert.That(view.TrySelectGuideTarget(goal, out RectTransform target), Is.True);
+                Assert.That(target.name, Is.EqualTo("PlacementEditMode"));
+                Assert.That(target.gameObject.activeInHierarchy, Is.True);
+                Assert.That(target.GetComponent<Button>().IsInteractable(), Is.True);
+                Assert.That(assignmentRequests, Is.Zero);
+
+                view.SetVisible(false);
+                Assert.That(view.TrySelectGuideTarget(goal, out target), Is.False);
+                Assert.That(target, Is.Null);
+            }
+            finally
+            {
+                if (view != null) UnityEngine.Object.DestroyImmediate(view.gameObject);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
         [Test]
         public void Builder_로스터요약과Resolver경고를역할슬롯에표시한다()
         {
@@ -598,7 +633,13 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(scroll.viewport.rect.height, Is.GreaterThan(40f));
                 Transform duplicate = scroll.content.Find("OwnedGrid/Owned_1");
                 Assert.That(duplicate.GetComponent<PlayerMiniCardView>().Model.PositionLabel, Is.Empty,
-                    "동일 선수 교체 안내는 선택 시 표시하고 초상 위에 반복하지 않습니다.");
+                    "역할 라벨에 배치 안내를 중복 표시하지 않습니다.");
+                Assert.That(duplicate.Find("AssignmentBadge/AssignmentLabel").GetComponent<Text>().text,
+                    Is.EqualTo("동일 선수 배치 중"));
+                Assert.That(duplicate.Find("AssignmentBadge").GetComponent<RectTransform>().anchorMin.y,
+                    Is.GreaterThanOrEqualTo(.89f), "배치 안내가 초상을 가려서는 안 됩니다.");
+                Assert.That(scroll.content.Find("OwnedGrid/Owned_2/AssignmentBadge"), Is.Null,
+                    "이름이 같아도 다른 인물이면 배치 안내를 표시하지 않습니다.");
                 Assert.That(scroll.content.Find("OwnedGrid/Owned_2").GetComponent<PlayerMiniCardView>().Model.PositionLabel,
                     Is.Empty, "동명이인을 막아서는 안 됩니다.");
                 int requests = 0;

@@ -15,6 +15,8 @@ namespace Baseball.Presentation.Owner
         private static readonly Color Grid = new Color32(184, 190, 193, 255);
         private OwnerTeamLineupSnapshot _snapshot;
         private bool _canClose;
+        private string _closeLabel;
+        private string _disclosure;
         public event Action CloseRequested;
         public OwnerTeamLineupSnapshot Snapshot => _snapshot;
 
@@ -26,10 +28,13 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>선택한 구단의 공개 데이터와 호출 위치에 맞는 닫기 동작을 표시한다.</summary>
-        public void Bind(OwnerTeamLineupSnapshot snapshot, bool canClose = false)
+        public void Bind(OwnerTeamLineupSnapshot snapshot, bool canClose = false,
+            string closeLabel = "순위표로 돌아가기", string disclosure = null)
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             _canClose = canClose;
+            _closeLabel = closeLabel;
+            _disclosure = disclosure ?? "카드 우클릭: 선수 상세 · 공개 등록 기준 · 경기 중 교체에 따라 출전 선수가 달라질 수 있습니다.";
             Render();
         }
 
@@ -44,7 +49,7 @@ namespace Baseball.Presentation.Owner
             Label(root, "TeamName", _snapshot.TeamName + " · 라인업", .02f, .9f, .7f, .98f, 22);
             if (_canClose)
             {
-                var close = OwnerRuntimeUiFactory.CreateReferenceButton("CloseLineup", root, "순위표로 돌아가기");
+                var close = OwnerRuntimeUiFactory.CreateReferenceButton("CloseLineup", root, _closeLabel);
                 Place((RectTransform)close.transform, .79f, .91f, .98f, .98f);
                 close.onClick.AddListener(() => CloseRequested?.Invoke());
             }
@@ -63,7 +68,7 @@ namespace Baseball.Presentation.Owner
             RenderRow(board, "Hitters", "야\n수", _snapshot.Hitters, _snapshot.HitterDetails, .545f, .915f, false);
             RenderRow(board, "Pitchers", "투\n수", _snapshot.Pitchers, _snapshot.PitcherDetails, .17f, .54f, true);
             RenderTeamColors(board);
-            Label(root, "Disclosure", "카드 우클릭: 선수 상세 · 공개 등록 기준 · 경기 중 교체에 따라 출전 선수가 달라질 수 있습니다.",
+            Label(root, "Disclosure", _disclosure,
                 .02f, .025f, .98f, .09f, 14);
         }
 

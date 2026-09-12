@@ -69,6 +69,8 @@ namespace Baseball.Presentation.Owner
         private Button _hitterTabButton;
         private Button _pitcherTabButton;
         private Button _placementEditButton;
+        private UI_Popup_OwnerAutoLineup _autoLineupPopup;
+        private Func<int, string, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>> _autoLineupHandler;
         private Button _selectedButton;
         private PlayerMiniCardView _selectedOwnedCard;
         private OwnerRosterLineupPresentationModel _model;
@@ -91,6 +93,18 @@ namespace Baseball.Presentation.Owner
         public event Action<string> PresetSelected;
         public event Action LineupChangeConfirmed;
         public event Action LineupChangeCancelled;
+
+        /// <summary>자동 편성 계산과 검증은 Game 경계를 거쳐 기존 배치 미리보기로 전달한다.</summary>
+        public void SetAutoLineupHandler(Func<int, string, System.Threading.CancellationToken,
+            System.Threading.Tasks.Task<string>> handler) => _autoLineupHandler = handler;
+
+        private void OpenAutoLineup()
+        {
+            if (_autoLineupPopup != null || _model == null) return;
+            if (_positionSourceIndex >= 0) ClosePositionEditor();
+            _autoLineupPopup = UI_Popup_OwnerAutoLineup.Show(_workspaceRoot, _model.Snapshot.OwnedPlayers,
+                _autoLineupHandler, message => _previewStateText.text = message);
+        }
 
         public static UI_Scene_OwnerRosterLineup CreateRuntime(
             RectTransform workspaceHost,
@@ -178,6 +192,7 @@ namespace Baseball.Presentation.Owner
 
         public void SetVisible(bool visible)
         {
+            if (!visible && _autoLineupPopup != null) _autoLineupPopup.Close();
             if (!visible && _positionSourceIndex >= 0) ClosePositionEditor();
             if (_workspaceRoot != null) _workspaceRoot.gameObject.SetActive(visible);
             if (_inspectorRoot != null) _inspectorRoot.gameObject.SetActive(visible);
@@ -187,6 +202,7 @@ namespace Baseball.Presentation.Owner
         /// <summary>배치 Preview와 선택 상태를 저장값으로 되돌리고 편집 모드를 끝낸다.</summary>
         public bool TryHandleCancel()
         {
+            if (_autoLineupPopup != null) return _autoLineupPopup.TryHandleCancel();
             if (_positionSourceIndex >= 0)
             {
                 ClosePositionEditor();
@@ -253,6 +269,7 @@ namespace Baseball.Presentation.Owner
             _presetStateText = CreateToolbarText(tabs, "RosterRuleSummary", 160f, 12, FontStyle.Normal);
             _evaluationText = CreateToolbarText(tabs, "RosterEvaluation", 0f, 10, FontStyle.Normal);
             _evaluationText.gameObject.SetActive(false);
+            CreateToolbarButton(tabs, "AutoLineup", "자동 배치", 96f, OpenAutoLineup);
             _placementEditButton = CreateToolbarButton(tabs, "PlacementEditMode", "배치 편집", 96f,
                 TogglePlacementEditMode);
             _previousPresetButton = CreateToolbarButton(tabs, "PreviousPresetButton", "이전 편성", 88f,
@@ -494,8 +511,8 @@ namespace Baseball.Presentation.Owner
                 RenderPositionButtons(_primaryAssignedContent);
                 RenderSlotGroup(_secondaryAssignedContent, "벤치 5명", _model.Bench, 5);
                 RenderOwnedPlayers(_ownedContent, isPitcher: false, 9);
-                RenderDefensiveWarnings();
                 RenderRosterChart(_analysisContent, _model.BattingOrder, false);
+                RenderDefensiveWarnings();
             }
             else
             {
@@ -583,8 +600,8 @@ namespace Baseball.Presentation.Owner
             }
             else
             {
-                RenderDefensiveWarnings();
                 RenderRosterChart(_analysisContent, _model.BattingOrder, false);
+                RenderDefensiveWarnings();
             }
             UpdatePlayerGroupTabs();
             return true;
@@ -975,7 +992,7 @@ namespace Baseball.Presentation.Owner
                 cost: player.Cost, conditionLevel: player.ConditionLevel, growthBadges: player.GrowthBadges);
             card.Bind(model, PlayerPortraitSprites.GetDefault(player.Position));
             card.SetTeamIdentity(player.TeamDisplayName);
-            card.SetAssignmentBadge(assignment);
+            card.SetAssignmentBadge(assignment, assignment == null && IsOtherCardAssigned(player));
         }
 
         private bool IsOtherCardAssigned(OwnerCollectionCardSnapshot player)

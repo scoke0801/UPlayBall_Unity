@@ -12,11 +12,13 @@ namespace Baseball.Presentation.Owner
         public bool TrySelectGuideTarget(GuideGoal goal, out RectTransform target)
         {
             target = null;
-            if (_model == null || _workspaceRoot == null || !_workspaceRoot.gameObject.activeInHierarchy || _hasPreview)
+            if (goal == null || _model == null || _workspaceRoot == null || !_workspaceRoot.gameObject.activeInHierarchy || _hasPreview)
                 return false;
             if (goal.Target == GuideTargetKind.Roster)
             {
-                target = (RectTransform)_activeRosterEditButton.transform;
+                // 1군 편집을 통합한 현재 배치 편집 진입점으로 안내한다.
+                if (_placementEditButton == null || !_placementEditButton.gameObject.activeInHierarchy) return false;
+                target = (RectTransform)_placementEditButton.transform;
                 return true;
             }
             if (goal.Target == GuideTargetKind.Condition)

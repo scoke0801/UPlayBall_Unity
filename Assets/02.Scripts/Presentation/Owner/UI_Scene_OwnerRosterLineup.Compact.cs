@@ -196,8 +196,8 @@ namespace Baseball.Presentation.Owner
             ResetPositionEditorLayout();
             OwnerRuntimeUiFactory.ClearChildren(_analysisContent);
             SetAnalysisTitle("편성 분석");
-            RenderDefensiveWarnings();
             RenderRosterChart(_analysisContent, _model.BattingOrder, false);
+            RenderDefensiveWarnings();
         }
 
         private void RenderDefensiveWarnings()
@@ -293,7 +293,7 @@ namespace Baseball.Presentation.Owner
                 HandleOwnedPlayerFilterChanged();
             });
             string[] labels = pitcher ? new[] { "전체", "선발", "불펜", "셋업", "마무리" } :
-                new[] { "전체", "포수", "1루수", "2루수", "3루수", "유격수", "외야수", "지명타자", "미확인" };
+                new[] { "전체", "포수", "1루수", "2루수", "3루수", "유격수", "외야수" };
             RectTransform row = OwnerRuntimeUiFactory.CreateRect("PositionFilters", content);
             row.gameObject.AddComponent<LayoutElement>().preferredHeight = 26;
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
@@ -337,7 +337,6 @@ namespace Baseball.Presentation.Owner
                 if (_positionFilter == 4) return card.PitcherRole == PitcherRole.Closer;
                 return card.Position == PlayerPosition.ReliefPitcher;
             }
-            if (_positionFilter == 8) return card.IsPositionEvidenceMissing;
             if (card.IsPositionEvidenceMissing) return false;
             return _positionFilter switch
             {
@@ -347,7 +346,6 @@ namespace Baseball.Presentation.Owner
                 4 => card.Position == PlayerPosition.ThirdBase,
                 5 => card.Position == PlayerPosition.Shortstop,
                 6 => card.Position == PlayerPosition.LeftField || card.Position == PlayerPosition.CenterField || card.Position == PlayerPosition.RightField,
-                7 => card.Position == PlayerPosition.DesignatedHitter,
                 _ => true
             };
         }
