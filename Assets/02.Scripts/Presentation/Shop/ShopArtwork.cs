@@ -32,6 +32,8 @@ namespace Baseball.Presentation.Shop
                 case ShopProductKind.SkillBlockPack:
                 case ShopProductKind.ConditionItem:
                     return SkillPackKey;
+                case ShopProductKind.StudyReset:
+                    return "shop-study-reset";
                 case ShopProductKind.TacticCardPack:
                     if (string.Equals(sourceId, "batting", StringComparison.Ordinal))
                         return TacticCardArtwork.BattingKey;
@@ -47,6 +49,8 @@ namespace Baseball.Presentation.Shop
         {
             switch (artworkKey)
             {
+                case "shop-study-reset":
+                    return Resources.Load<Texture2D>("UI/OwnerPowerUp/study_airplane_figurine_v2");
                 case PlayerPackKey:
                     return _playerPack != null
                         ? _playerPack

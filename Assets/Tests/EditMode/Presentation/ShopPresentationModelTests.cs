@@ -10,6 +10,101 @@ namespace Baseball.Tests.EditMode.Presentation
 {
     public sealed class ShopPresentationModelTests
     {
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
+        public void 유학초기화권은대상선택후결제하며다시열면선택을지운다(int width, int height)
+        {
+            var host = new GameObject("Host", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                host.GetComponent<RectTransform>().sizeDelta = new Vector2(width, height);
+                var view = UI_Scene_Shop.CreateRuntime(host.GetComponent<RectTransform>());
+                var details = new ShopProductDetailsSnapshot("shop.study.reset", ShopProductKind.StudyReset,
+                    "유학 초기화권", "선수 지정 · 구매 즉시 사용", "DP 200", "지정 선수 즉시 적용", "유학 초기화",
+                    new string[0], "", "구매 제한 없음", true, "", ShopArtwork.SkillPackKey);
+                view.BindTargets(new[] { new ShopTargetSnapshot("first", "박용택 · 2024 · 10코스트 · 유학 능력치 -3"),
+                    new ShopTargetSnapshot("second", "김광현 · 2023 · 10코스트 · 유학 능력치 -6") });
+                view.ShowPurchaseConfirmation(details);
+                Button confirm = FindButton(host, "Confirm");
+                Assert.That(confirm.interactable, Is.False);
+                string purchasedTarget = null;
+                view.PurchaseRequested += _ => purchasedTarget = view.SelectedTargetCardId;
+                var dropdown = FindDropdown(host, "PurchaseTarget");
+                dropdown.value = 2;
+                Assert.That(confirm.interactable, Is.True);
+                confirm.onClick.Invoke();
+                Assert.That(purchasedTarget, Is.EqualTo("second"));
+                view.SetProcessing(true);
+                Assert.That(confirm.interactable, Is.False);
+                Assert.That(dropdown.interactable, Is.False);
+                view.SetProcessing(false);
+                Canvas.ForceUpdateCanvases();
+                CaptureStudyResetConfirmation(host, width, height);
+                var panel = (RectTransform)FindTransform(host.transform, "PurchaseConfirmationPanel");
+                foreach (var control in new[] { (RectTransform)dropdown.transform, (RectTransform)confirm.transform })
+                {
+                    var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(panel, control);
+                    Assert.That(bounds.min.x, Is.GreaterThanOrEqualTo(panel.rect.xMin - 1));
+                    Assert.That(bounds.max.x, Is.LessThanOrEqualTo(panel.rect.xMax + 1));
+                    Assert.That(bounds.min.y, Is.GreaterThanOrEqualTo(panel.rect.yMin - 1));
+                    Assert.That(bounds.max.y, Is.LessThanOrEqualTo(panel.rect.yMax + 1));
+                }
+                view.DismissPurchaseConfirmation();
+                view.ShowPurchaseConfirmation(details);
+                Assert.That(view.SelectedTargetCardId, Is.Null);
+                Assert.That(confirm.interactable, Is.False);
+                view.BindTargets(new ShopTargetSnapshot[0]);
+                Assert.That(dropdown.options[0].text, Does.Contain("초기화할 선수 없음"));
+                Assert.That(confirm.interactable, Is.False);
+                var plan = ShopRevealPlanBuilder.Build(ShopPurchaseResult.Success(new[] {
+                    new ShopGrantedItem("second", "김광현 유학 초기화", "다시 유학 가능", false) }), details,
+                    ShopRevealPresentationMode.Full);
+                Assert.That(plan.StageTitle, Does.Contain("유학 초기화"));
+            }
+            finally { Object.DestroyImmediate(host); }
+        }
+
+        private static void CaptureStudyResetConfirmation(GameObject host, int width, int height)
+        {
+            string directory = System.Environment.GetEnvironmentVariable("BASEBALL_GROWTH_VISUAL_OUTPUT");
+            if (string.IsNullOrEmpty(directory) || SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) return;
+            var cameraObject = new GameObject("StudyResetCamera", typeof(Camera));
+            var target = new RenderTexture(width, height, 24);
+            Texture2D texture = null;
+            var previous = RenderTexture.active;
+            try
+            {
+                var camera = cameraObject.GetComponent<Camera>();
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = Color.white;
+                camera.orthographic = true;
+                camera.targetTexture = target;
+                var canvas = host.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 1;
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)host.transform);
+                camera.Render();
+                RenderTexture.active = target;
+                texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                texture.Apply();
+                System.IO.Directory.CreateDirectory(directory);
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(directory, $"study-reset-{width}x{height}.png"), texture.EncodeToPNG());
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                if (texture != null) Object.DestroyImmediate(texture);
+                cameraObject.GetComponent<Camera>().targetTexture = null;
+                Object.DestroyImmediate(cameraObject);
+                Object.DestroyImmediate(target);
+            }
+        }
+
         [TestCase(ShopProductBadge.New, "신규")]
         [TestCase(ShopProductBadge.Sale, "할인")]
         [TestCase(ShopProductBadge.Best, "")]

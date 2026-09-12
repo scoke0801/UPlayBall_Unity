@@ -140,6 +140,12 @@ namespace Baseball.Core.Shop
     /// 함께 처리하는 경로가 있어서, 상점이 따로 차감하면 이중 결제가 되기 때문이다.
     /// </para>
     /// </summary>
+    public interface ITargetedShopProductFulfillment : IShopProductFulfillment
+    {
+        ShopFulfillmentResult Fulfill(ShopProductDefinition product, string targetCardId);
+    }
+
+    /// <summary>상품 종류별 결제와 지급을 소유한다.</summary>
     public interface IShopProductFulfillment
     {
         ShopProductKind Kind { get; }

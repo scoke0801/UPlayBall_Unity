@@ -105,7 +105,7 @@ namespace Baseball.Presentation.Shop
             for (int index = 0; index < items.Length; index++)
             {
                 ShopGrantedItem item = result.Items[index];
-                bool usesFullSequence = details.Kind != ShopProductKind.ConditionItem && (mode == ShopRevealPresentationMode.Full ||
+                bool usesFullSequence = details.Kind != ShopProductKind.ConditionItem && details.Kind != ShopProductKind.StudyReset && (mode == ShopRevealPresentationMode.Full ||
                     mode == ShopRevealPresentationMode.HighlightsOnly &&
                     item.HighestIntensity >= ShopRevealIntensity.Rare);
                 items[index] = new ShopRevealItemPlan(item, usesFullSequence);
@@ -113,6 +113,9 @@ namespace Baseball.Presentation.Shop
 
             switch (details.Kind)
             {
+                case ShopProductKind.StudyReset:
+                    return new ShopRevealPlan(ShopRevealTheme.ConditionCare, "유학 초기화 완료 · 다시 유학할 수 있습니다",
+                        ShopArtwork.SkillAnalysisRevealKey, items);
                 case ShopProductKind.ConditionItem:
                     return new ShopRevealPlan(ShopRevealTheme.ConditionCare, "선수단 컨디션 적용 완료",
                         ShopArtwork.SkillAnalysisRevealKey, items);

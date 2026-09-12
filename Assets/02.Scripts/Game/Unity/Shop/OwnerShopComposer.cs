@@ -18,6 +18,22 @@ namespace Baseball.Game.Shop
         /// <summary>상점 구매가 월드 시드와 겹치지 않도록 쓰는 고정 스트림 태그다.</summary>
         private const ulong ShopStreamTag = 0x5348_4F50_0000_0000UL;
 
+        [System.Serializable]
+        private sealed class StudyResetConfig
+        {
+            public long developmentPointPrice;
+        }
+
+        private static long LoadStudyResetPrice()
+        {
+            var asset = UnityEngine.Resources.Load<UnityEngine.TextAsset>("NewGame/StudyResetShop");
+            if (asset == null) throw new System.InvalidOperationException("유학 초기화권 상품 설정이 없습니다.");
+            var config = UnityEngine.JsonUtility.FromJson<StudyResetConfig>(asset.text);
+            if (config == null || config.developmentPointPrice <= 0)
+                throw new System.InvalidOperationException("유학 초기화권 가격은 양수여야 합니다.");
+            return config.developmentPointPrice;
+        }
+
         public static ShopService Create(OwnerModeManager manager)
         {
             if (manager == null)
@@ -36,6 +52,7 @@ namespace Baseball.Game.Shop
             ScoutPityBalanceTable pityBalance = manager.Balance.ScoutEconomy.Pity;
             HashSet<string> ownedSeasonIds = PlayerCardPackFulfillment.CollectOwnedSeasonIds(runtime);
 
+            long studyResetPrice = LoadStudyResetPrice();
             ShopCatalog catalog = ShopCatalogBuilder.Build(
                 manager.Balance.Growth.SkillGacha,
                 scoutPools,
@@ -48,7 +65,7 @@ namespace Baseball.Game.Shop
                         franchiseId,
                         "_",
                         originYear.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)))
-                    : runtime.IdentityRegistry.GetPresentationFranchiseName(franchiseId));
+                    : runtime.IdentityRegistry.GetPresentationFranchiseName(franchiseId), studyResetPrice);
             var detailsResolver = OwnerShopDetailsBuilder.CreateResolver(
                 manager.Balance.Growth.SkillGacha,
                 scoutPools,
@@ -62,6 +79,8 @@ namespace Baseball.Game.Shop
 
             var fulfillments = new List<IShopProductFulfillment>
             {
+                new StudyResetFulfillment(wallet, () => manager.Runtime, studyResetPrice,
+                    personId => runtime.IdentityRegistry.GetPresentationPlayerName(personId)),
                 new ConditionItemFulfillment(wallet, () => manager.Runtime, manager.Balance.ConditionChemistry),
                 new PlayerCardPackFulfillment(
                     new ScoutRoller(),
@@ -84,12 +103,13 @@ namespace Baseball.Game.Shop
                     manager.Balance.Growth.SkillBlocks,
                     wallet,
                     () => manager.Runtime.PlayerGrowth.Inventory,
-                    () => CreateRandom(manager, history))
+                    () => CreateRandom(manager, history),
+                    () => OwnerScheduleGateService.Evaluate(manager.Runtime, OwnerGrowthAction.SkillBlock))
             };
 
             return new ShopService(
                 catalog,
-                ShopAvailabilityFactory.CreateFor(GameMode.OwnerCareer),
+                ShopAvailabilityFactory.CreateForOwner(OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock)),
                 wallet,
                 fulfillments,
                 history,

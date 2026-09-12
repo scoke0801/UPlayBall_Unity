@@ -56,6 +56,9 @@ namespace Baseball.Game.Shop
                 if (product == null) throw new ArgumentNullException(nameof(product));
                 switch (product.Kind)
                 {
+                    case ShopProductKind.StudyReset:
+                        return new ShopProductDetails(product.ProductId, "구매할 때 유학을 초기화할 선수를 지정합니다.",
+                            Array.Empty<ShopProbabilityEntry>(), "완료한 모든 유학의 누적 능력치와 시즌 참가 제한을 초기화합니다. 일반 훈련·강화는 유지됩니다. 진행 중인 유학에는 사용할 수 없으며 이전 유학 비용은 반환하지 않습니다.");
                     case ShopProductKind.ConditionItem:
                         return new ShopProductDetails(product.ProductId, product.ScopeLabel + " · " + product.GradeLabel,
                             Array.Empty<ShopProbabilityEntry>(), "구매 즉시 등록 선수 전원에게 적용됩니다. 최대 100이며 전원이 100이면 결제하지 않습니다.");

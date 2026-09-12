@@ -246,6 +246,7 @@ namespace Baseball.Presentation.Shop
                 product.DisplayName,
                 DescribeSubtitle(product),
                 DescribePrice(product),
+                product.Kind == ShopProductKind.StudyReset ? "지정 선수 즉시 적용" :
                 product.Kind == ShopProductKind.ConditionItem ? "선수단 즉시 적용" :
                     product.DrawCount == 1 ? "1회 획득" : product.DrawCount.ToString("N0") + "회 묶음",
                 details.Summary,
@@ -307,6 +308,7 @@ namespace Baseball.Presentation.Shop
 
         private static string DescribeCountBadge(ShopProductDefinition product)
         {
+            if (product.Kind == ShopProductKind.StudyReset) return "선수 지정";
             return product.DrawCount == 1 ? "무작위" : product.DrawCount + "회 묶음";
         }
 

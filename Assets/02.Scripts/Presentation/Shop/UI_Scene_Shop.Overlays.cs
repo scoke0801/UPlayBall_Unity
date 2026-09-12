@@ -23,6 +23,7 @@ namespace Baseball.Presentation.Shop
         private Button _revealInventoryButton;
         private Button _revealCloseButton;
         private ShopProductDetailsSnapshot _activeDetails;
+        private GameObject _confirmationReturnFocus;
         private string _lastPurchasedProductId = string.Empty;
 
         /// <summary>Simulation 확률과 현재 구매 조건을 상세 Overlay에 표시한다.</summary>
@@ -43,8 +44,12 @@ namespace Baseball.Presentation.Shop
         public void ShowPurchaseConfirmation(ShopProductDetailsSnapshot details)
         {
             if (details == null) return;
+            _confirmationReturnFocus = UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject;
             _activeDetails = details;
             _detailsRoot.gameObject.SetActive(false);
+            bool requiresTarget = details.Kind == ShopProductKind.StudyReset;
+            _targetDropdown.gameObject.SetActive(requiresTarget);
+            _targetDropdown.SetValueWithoutNotify(0);
             _confirmationTitle.text = "구매 확인";
             var body = new StringBuilder();
             body.Append(details.Title).Append(" · ").AppendLine(details.Subtitle)
@@ -54,12 +59,18 @@ namespace Baseball.Presentation.Shop
                 body.AppendLine().Append(details.BlockedReason);
             else
                 body.AppendLine().Append("구입하면 재화가 즉시 차감되고 결과가 확정됩니다.");
+            if (requiresTarget)
+                body.AppendLine().Append("선택 선수의 모든 유학 능력치와 참가 제한을 초기화합니다.\n일반 훈련·강화는 유지되며, 이전 유학 비용은 반환하지 않습니다.");
             _confirmationBody.text = body.ToString();
             _confirmationPurchaseButton.interactable = details.CanPurchase && !_isProcessing;
             _confirmationPurchaseButton.transform.Find("Label").GetComponent<Text>().text =
                 details.CanPurchase ? "구입" : "구매 불가";
             _confirmationRoot.gameObject.SetActive(true);
             _confirmationRoot.SetAsLastSibling();
+            RefreshTargetPurchase();
+            if (UnityEngine.EventSystems.EventSystem.current != null)
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(requiresTarget
+                    ? _targetDropdown.gameObject : _confirmationCancelButton.gameObject);
         }
 
         /// <summary>동일 프레임의 중복 구매 입력을 막고 처리 상태를 한 곳에 반영한다.</summary>
@@ -97,12 +108,21 @@ namespace Baseball.Presentation.Shop
                 _confirmationPurchaseButton.transform.Find("Label").GetComponent<Text>().text =
                     _activeDetails != null && _activeDetails.CanPurchase ? "구입" : "구매 불가";
             }
+            if (_targetDropdown != null) _targetDropdown.interactable = !isProcessing;
+            RefreshTargetPurchase();
         }
 
         /// <summary>구매 실패 또는 Route 전환 때 남은 확인 Overlay를 닫는다.</summary>
         public void DismissPurchaseConfirmation()
         {
+            if (_targetDropdown != null) _targetDropdown.Hide();
             if (_confirmationRoot != null) _confirmationRoot.gameObject.SetActive(false);
+            if (_confirmationReturnFocus != null && _confirmationReturnFocus.activeInHierarchy &&
+                UnityEngine.EventSystems.EventSystem.current != null)
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(_confirmationReturnFocus);
+            else if (_previewPurchaseButton != null && _previewPurchaseButton.gameObject.activeInHierarchy &&
+                UnityEngine.EventSystems.EventSystem.current != null)
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(_previewPurchaseButton.gameObject);
         }
 
         /// <summary>Back 입력은 Reveal, 구매 확인, 상세 순서로 가장 위 Overlay 하나를 닫는다.</summary>
@@ -121,7 +141,7 @@ namespace Baseball.Presentation.Shop
             }
             if (_confirmationRoot != null && _confirmationRoot.gameObject.activeSelf)
             {
-                _confirmationRoot.gameObject.SetActive(false);
+                DismissPurchaseConfirmation();
                 return true;
             }
             if (_detailsRoot != null && _detailsRoot.gameObject.activeSelf)
@@ -170,7 +190,7 @@ namespace Baseball.Presentation.Shop
         {
             _confirmationRoot = CreateOverlayRoot("PurchaseConfirmationOverlay");
             RectTransform panel = CreateModalPanel(
-                _confirmationRoot, "PurchaseConfirmationPanel", new Vector2(520f, 310f));
+                _confirmationRoot, "PurchaseConfirmationPanel", new Vector2(640f, 430f));
             VerticalLayoutGroup layout = OwnerWorkspaceUiFactory.AddVerticalLayout(panel, CareerUiTheme.Space3);
             layout.padding = new RectOffset(28, 28, 24, 24);
 
@@ -183,12 +203,18 @@ namespace Baseball.Presentation.Shop
                 TextAnchor.MiddleCenter, CareerUiTheme.ReferenceText);
             OwnerWorkspaceUiFactory.SetFlexible(_confirmationBody.rectTransform, 1f);
 
+            _targetDropdown = OwnerCardFilters.CreateDropdown(panel, "PurchaseTarget",
+                new System.Collections.Generic.List<string> { "유학을 초기화할 선수를 선택하세요" }, 0);
+            AddFixedHeight((RectTransform)_targetDropdown.transform, 38f);
+            _targetDropdown.onValueChanged.AddListener(_ => RefreshTargetPurchase());
+            _targetDropdown.gameObject.SetActive(false);
+
             RectTransform actions = OwnerRuntimeUiFactory.CreateRect("Actions", panel);
             HorizontalLayoutGroup actionLayout = OwnerWorkspaceUiFactory.AddHorizontalLayout(actions, CareerUiTheme.Space2);
             actionLayout.childAlignment = TextAnchor.MiddleCenter;
             AddFixedHeight(actions, 42f);
             _confirmationCancelButton = OwnerWorkspaceUiFactory.CreateButton(
-                actions, "Cancel", "취소", () => _confirmationRoot.gameObject.SetActive(false));
+                actions, "Cancel", "취소", DismissPurchaseConfirmation);
             _confirmationPurchaseButton = OwnerWorkspaceUiFactory.CreateButton(
                 actions, "Confirm", "구입", HandlePurchaseConfirmed);
             _confirmationRoot.gameObject.SetActive(false);
@@ -225,11 +251,12 @@ namespace Baseball.Presentation.Shop
             body.Append(details.Summary).AppendLine().AppendLine()
                 .Append(details.DrawCountText).Append(" / ").Append(details.PriceText)
                 .Append(" / ").AppendLine(details.PurchaseLimitText)
-                .AppendLine(details.Kind == ShopProductKind.ConditionItem ? "확정 효과" : "획득 확률");
+                .AppendLine(details.Kind == ShopProductKind.ConditionItem || details.Kind == ShopProductKind.StudyReset ? "확정 효과" : "획득 확률");
             for (int index = 0; index < details.ProbabilityLines.Count; index++)
                 body.Append("  ").AppendLine(details.ProbabilityLines[index]);
             if (details.ProbabilityLines.Count == 0)
-                body.AppendLine(details.Kind == ShopProductKind.ConditionItem ? "  선수단 컨디션에 즉시 적용됩니다." : "  공개 가능한 결과군이 없습니다.");
+                body.AppendLine(details.Kind == ShopProductKind.StudyReset ? "  선택한 선수의 유학을 즉시 초기화합니다." :
+                    details.Kind == ShopProductKind.ConditionItem ? "  선수단 컨디션에 즉시 적용됩니다." : "  공개 가능한 결과군이 없습니다.");
             if (details.Notice.Length > 0)
                 body.AppendLine().AppendLine(details.Notice);
             if (!details.CanPurchase)
@@ -240,6 +267,7 @@ namespace Baseball.Presentation.Shop
         private void HandlePurchaseConfirmed()
         {
             if (_isProcessing || _activeDetails == null || !_activeDetails.CanPurchase) return;
+            if (_activeDetails.Kind == ShopProductKind.StudyReset && SelectedTargetCardId == null) return;
             PurchaseRequested?.Invoke(_activeDetails.ProductId);
         }
 
@@ -247,7 +275,10 @@ namespace Baseball.Presentation.Shop
         {
             if (_isProcessing || string.IsNullOrEmpty(_lastPurchasedProductId)) return;
             _revealRoot.gameObject.SetActive(false);
-            RepurchaseRequested?.Invoke(_lastPurchasedProductId);
+            if (_activeDetails?.Kind == ShopProductKind.StudyReset)
+                PurchasePreviewRequested?.Invoke(_lastPurchasedProductId);
+            else
+                RepurchaseRequested?.Invoke(_lastPurchasedProductId);
         }
 
         private void HandleInventoryClicked()
@@ -268,6 +299,7 @@ namespace Baseball.Presentation.Shop
                 ShopProductKind.PlayerCardPack => "보유선수",
                 ShopProductKind.SkillBlockPack => "카드훈련",
                 ShopProductKind.TacticCardPack => "작전 설정",
+                ShopProductKind.StudyReset => "유학 보내기",
                 _ => "보관함"
             };
             _revealInventoryButton.transform.Find("Label").GetComponent<Text>().text = label;

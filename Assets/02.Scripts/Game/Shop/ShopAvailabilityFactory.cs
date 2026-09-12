@@ -11,6 +11,15 @@ namespace Baseball.Game.Shop
     /// </summary>
     public static class ShopAvailabilityFactory
     {
+        /// <summary>구단주 스킬 상점의 조회와 구매에 같은 오프시즌 잠금을 표시한다.</summary>
+        public static ShopAvailabilityTable CreateForOwner(Baseball.Game.Historical.OwnerSchedulePermission permission)
+        {
+            return new ShopAvailabilityTable(new[]
+            {
+                permission.IsAllowed ? ShopCategoryAvailability.Unlocked(ShopTab.SkillBlock)
+                    : ShopCategoryAvailability.Locked(ShopTab.SkillBlock, ShopLockReason.LockedByProgress, permission.Reason)
+            });
+        }
         public static ShopAvailabilityTable CreateFor(GameMode mode)
         {
             return mode == GameMode.PlayerCareer

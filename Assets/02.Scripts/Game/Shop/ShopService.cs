@@ -114,7 +114,7 @@ namespace Baseball.Game.Shop
             return true;
         }
 
-        public ShopPurchaseResult Purchase(string productId)
+        public ShopPurchaseResult Purchase(string productId, string targetCardId = null)
         {
             if (!_catalog.TryGetProduct(productId, out ShopProductDefinition product))
             {
@@ -132,7 +132,9 @@ namespace Baseball.Game.Shop
                     ShopPurchaseFailureReason.UnknownProduct, "지급 방법이 등록되지 않은 상품입니다.");
             }
 
-            ShopFulfillmentResult fulfillmentResult = fulfillment.Fulfill(product);
+            ShopFulfillmentResult fulfillmentResult = fulfillment is ITargetedShopProductFulfillment targeted
+                ? targeted.Fulfill(product, targetCardId)
+                : fulfillment.Fulfill(product);
             if (!fulfillmentResult.IsSuccess)
             {
                 // 지급이 실패하면 구매 횟수도 늘리지 않는다. 결제는 지급 구현이 소유하므로

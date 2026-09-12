@@ -25,7 +25,8 @@ namespace Baseball.Game.Shop
             Func<string, string> franchiseDisplayNameResolver = null,
             ConditionChemistryBalanceTable conditionBalance = null,
             ScoutPityBalanceTable scoutPity = null,
-            Func<string, int?, string> franchiseYearDisplayNameResolver = null)
+            Func<string, int?, string> franchiseYearDisplayNameResolver = null,
+            long? studyResetPrice = null)
         {
             var products = new List<ShopProductDefinition>();
             AppendPlayerCardProducts(
@@ -41,6 +42,10 @@ namespace Baseball.Game.Shop
                     ConditionItemFulfillment.ProductId, "선수단 컨디션 키트", "등록 선수 전원 · 구매 즉시 사용",
                     "컨디션 +" + conditionBalance.ConditionItemBoost, ShopCurrency.Money,
                     conditionBalance.ConditionItemPrice, isFeatured: true, sortOrder: 90));
+            if (studyResetPrice.HasValue)
+                products.Add(new ShopProductDefinition(StudyResetFulfillment.ProductId, ShopProductKind.StudyReset,
+                    StudyResetFulfillment.ProductId, "유학 초기화권", "선수 지정 · 구매 즉시 사용", "유학 효과·참가 제한 초기화",
+                    ShopCurrency.DevelopmentPoint, studyResetPrice.Value, isFeatured: true, sortOrder: 91));
             return new ShopCatalog(products);
         }
 

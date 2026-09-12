@@ -182,7 +182,8 @@ namespace Baseball.Presentation.Shop
                 "#" + ColorUtility.ToHtmlStringRGB(accent),
                 item.HighestIntensity >= ShopRevealIntensity.Rare
                     ? PlayerMiniCardVisualState.Highlighted : PlayerMiniCardVisualState.Normal,
-                isInteractable: true, stats: model.Stats, frameEdition: model.FrameEdition, cost: model.Cost);
+                isInteractable: true, stats: model.Stats, frameEdition: model.FrameEdition, cost: model.Cost,
+                growthBadges: model.GrowthBadges);
             PlayerMiniCardView face = PlayerMiniCardView.CreateRuntime(slot, "PlayerCard");
             OwnerRuntimeUiFactory.Stretch((RectTransform)face.transform);
             Enum.TryParse(model.PortraitAssetKey, out PlayerPosition position);
@@ -570,7 +571,7 @@ namespace Baseball.Presentation.Shop
             {
                 ShopRevealPresentationMode.Full => "연출: 전체",
                 ShopRevealPresentationMode.HighlightsOnly => "연출: 희귀만",
-                ShopRevealPresentationMode.Minimal => "연출: 최소",
+                ShopRevealPresentationMode.Minimal => "연출: 안 보기",
                 _ => "연출"
             };
         }
