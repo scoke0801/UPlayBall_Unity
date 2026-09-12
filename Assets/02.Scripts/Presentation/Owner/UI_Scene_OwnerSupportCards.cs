@@ -14,7 +14,7 @@ using UnityEngine.EventSystems;
 namespace Baseball.Presentation.Owner
 {
     /// <summary>실제 재고·슬롯·대상별 변화량을 비교하고 서포트 구매와 사용을 확정한다.</summary>
-    public sealed class UI_Scene_OwnerSupportCards : MonoBehaviour, IUiCancelHandler, ICancelHandler
+    public sealed partial class UI_Scene_OwnerSupportCards : MonoBehaviour, IUiCancelHandler, ICancelHandler
     {
         private RectTransform _root;
         private RectTransform _catalog;
@@ -85,9 +85,7 @@ namespace Baseball.Presentation.Owner
             var middle = Panel(_root, "Targets", .265f, .025f, .725f, .86f);
             var right = Panel(_root, "Effects", .735f, .025f, .985f, .86f);
             Label(left, "Title", "서포트 보관함", 0, .93f, 1, 1, 22);
-            Label(left, "Hint", "카드 선택 · 효과와 보유 수량 비교", 0, .88f, 1, .93f, 16).color = OwnerDashboardStyle.Muted;
-            _catalog = OwnerDugoutDetailUiFactory.CreateRect(left, "Cards", 0, .055f, 1, .855f);
-            Label(left, "InventoryHint", "구매 후 보관 · 사용할 때 1장 소비", 0, 0, 1, .045f, 15).color = OwnerDashboardStyle.Muted;
+            BuildCatalog(left);
             Label(middle, "Title", "적용 선수 · 효과 미리보기", 0, .93f, 1, 1, 22);
             _targetHeading = Label(middle, "TargetSummary", "", 0, .86f, 1, .925f, 17);
             _targets = OwnerDugoutDetailUiFactory.CreateRect(middle, "Players", 0, .105f, 1, .835f);
@@ -154,6 +152,7 @@ namespace Baseball.Presentation.Owner
                 return;
             }
             _selected = Math.Max(0, Math.Min(_definitions.Count - 1, _selected));
+            if (!RefreshCatalogFilter()) return;
             var selected = _definitions[_selected];
             EnsureCatalogRows();
             for (int i = 0; i < _definitions.Count; i++)
@@ -165,7 +164,8 @@ namespace Baseball.Presentation.Owner
                     + (i == _selected ? "   ·   선택됨" : "") + "</size>\n<size=22>" + definition.displayName
                     + "</size>\n<size=16>" + FormatEffect(definition) + "</size>"
                     + "\n<size=15>보유 " + runtime.PlayerGrowth.Support.GetCount(definition.id)
-                    + "장    ·    " + definition.price.ToString("N0") + " PT</size>";
+                    + "장    ·    " + definition.price.ToString("N0") + " PT</size>"
+                    + "\n<size=14>" + (OwnerSupportService.IsUnlocked(runtime, definition) ? "이용 가능" : "잠김 · " + OwnerLeagueDisplayNameFormatter.FormatFull(definition.unlockGrade) + " 진출 시 해금") + "</size>";
                 OwnerUiButtonSkin.SetSelected(button, i == _selected);
                 button.transform.Find("SelectionRail").gameObject.SetActive(i == _selected);
             }
@@ -262,7 +262,8 @@ namespace Baseball.Presentation.Owner
             string reason = "";
             try
             {
-                if (selected.scope == OwnerSupportScope.Player && string.IsNullOrEmpty(_cardId)) reason = "대상 선수를 선택하세요.";
+                if (!OwnerSupportService.IsUnlocked(runtime, selected)) reason = OwnerLeagueDisplayNameFormatter.FormatFull(selected.unlockGrade) + " 진출 시 해금됩니다.";
+                else if (selected.scope == OwnerSupportScope.Player && string.IsNullOrEmpty(_cardId)) reason = "대상 선수를 선택하세요.";
                 else if (candidates.Count == 0) reason = "조건에 맞는 1군 선수가 없습니다.";
                 else
                 {
@@ -272,7 +273,7 @@ namespace Baseball.Presentation.Owner
             }
             catch (InvalidOperationException e) { reason = e.Message; }
             int ownedCount = runtime.PlayerGrowth.Support.GetCount(selected.id);
-            _buy.interactable = !_isSubmitting && ownedCount < int.MaxValue && runtime.Economy.Money >= selected.price;
+            _buy.interactable = !_isSubmitting && OwnerSupportService.IsUnlocked(runtime, selected) && ownedCount < int.MaxValue && runtime.Economy.Money >= selected.price;
             _equip.interactable = !_isSubmitting && reason.Length == 0;
             // 미보유 시 구매, 보유 시 적용으로 대표 행동을 옮겨 다음 단계를 바로 찾게 한다.
             OwnerUiButtonSkin.Apply(_buy, ownedCount == 0 ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
@@ -359,14 +360,7 @@ namespace Baseball.Presentation.Owner
                 ConfigureRow(button);
                 _cardButtons.Add(button);
             }
-            for (int i = 0; i < _cardButtons.Count; i++)
-            {
-                _cardButtons[i].gameObject.SetActive(i < _definitions.Count);
-                if (i >= _definitions.Count) continue;
-                float top = 1 - i / (float)_definitions.Count;
-                OwnerDugoutDetailUiFactory.Place((RectTransform)_cardButtons[i].transform,
-                    0, top - 1f / _definitions.Count + .018f, 1, top);
-            }
+            LayoutCatalogRows();
         }
 
         private static string FormatEffect(OwnerSupportDefinition definition)
@@ -412,7 +406,7 @@ namespace Baseball.Presentation.Owner
             if (restore != null) restore.Select();
             else if (EventSystem.current != null && (EventSystem.current.currentSelectedGameObject == null
                 || EventSystem.current.currentSelectedGameObject.transform.IsChildOf(_root)))
-                _cardButtons[_selected].Select();
+                if (_cardButtons[_selected].gameObject.activeInHierarchy) _cardButtons[_selected].Select();
         }
         private void OnDestroy() => OwnerWorkspaceUiFactory.DestroyOwnedRoot(_root);
     }

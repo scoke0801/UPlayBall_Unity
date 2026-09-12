@@ -21,7 +21,7 @@ namespace Baseball.Game.Historical
                     definitionId = entry.DefinitionId, cardId = entry.CardId, remainingGames = entry.RemainingGames,
                     definition = new OwnerSupportDefinition { id = entry.Definition.id, displayName = entry.Definition.displayName,
                         description = entry.Definition.description, price = entry.Definition.price, scope = entry.Definition.scope,
-                        target = entry.Definition.target, maximumAge = entry.Definition.maximumAge, conditionPoints = entry.Definition.conditionPoints,
+                        unlockGrade = entry.Definition.unlockGrade, target = entry.Definition.target, maximumAge = entry.Definition.maximumAge, conditionPoints = entry.Definition.conditionPoints,
                         bonuses = (int[])entry.Definition.bonuses.Clone() } };
             }
             return result;

@@ -8,6 +8,21 @@ namespace Baseball.Game.Historical
     /// <summary>서포트 사용 직전 대상·재고·슬롯을 다시 검사하고 같은 원장에 적용한다.</summary>
     public static class OwnerSupportService
     {
+        /// <summary>현재와 완료 시즌의 최고 리그로 해금하며 강등 후에도 유지한다.</summary>
+        public static bool IsUnlocked(ManagerHistoricalRuntimeState runtime, OwnerSupportDefinition definition)
+        {
+            var highest = runtime.League.Grade;
+            foreach (var season in runtime.ManagerMode.CompletedSeasons)
+                if (season.LeagueGrade > highest) highest = season.LeagueGrade;
+            return highest >= definition.unlockGrade;
+        }
+
+        private static void ValidateUnlock(ManagerHistoricalRuntimeState runtime, OwnerSupportDefinition definition)
+        {
+            if (!IsUnlocked(runtime, definition))
+                throw new InvalidOperationException("해금 리그에 진출한 뒤 사용할 수 있습니다.");
+        }
+
         public static List<OwnedPlayerCardState> ResolveTargets(ManagerHistoricalRuntimeState runtime,
             OwnerSupportDefinition definition, string cardId)
         {
@@ -31,12 +46,14 @@ namespace Baseball.Game.Historical
         public static void Purchase(ManagerHistoricalRuntimeState runtime, OwnerSupportDefinition definition)
         {
             definition.Validate();
+            ValidateUnlock(runtime, definition);
             if (runtime.PlayerGrowth.Support.GetCount(definition.id) == int.MaxValue) throw new InvalidOperationException("보유 한도입니다.");
             if (!runtime.Economy.TrySpendMoney(definition.price)) throw new InvalidOperationException("서포트 구매에 필요한 PT가 부족합니다.");
             runtime.PlayerGrowth.Support.Add(definition.id);
         }
         public static void Equip(ManagerHistoricalRuntimeState runtime, OwnerSupportDefinition definition, string cardId)
         {
+            ValidateUnlock(runtime, definition);
             var targets = ResolveTargets(runtime, definition, cardId);
             if (targets.Count == 0) throw new InvalidOperationException("조건에 맞는 1군 선수가 없습니다.");
             var support = runtime.PlayerGrowth.Support;

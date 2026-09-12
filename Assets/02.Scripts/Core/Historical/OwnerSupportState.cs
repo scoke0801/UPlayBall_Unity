@@ -19,15 +19,17 @@ namespace Baseball.Core.Historical
         public OwnerSupportScope scope;
         public OwnerSupportTarget target;
         public long price;
+        public LeagueGrade unlockGrade;
         public int maximumAge;
         public int conditionPoints;
         public int[] bonuses;
         public OwnerSupportDefinition Copy() => new OwnerSupportDefinition { id = id, displayName = displayName,
-            description = description, scope = scope, target = target, price = price, maximumAge = maximumAge,
+            description = description, unlockGrade = unlockGrade, scope = scope, target = target, price = price, maximumAge = maximumAge,
             conditionPoints = conditionPoints, bonuses = (int[])bonuses.Clone() };
         public void Validate()
         {
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(displayName) || price <= 0 || maximumAge < 0
+                || !Enum.IsDefined(typeof(LeagueGrade), unlockGrade)
                 || !Enum.IsDefined(typeof(OwnerSupportScope), scope) || !Enum.IsDefined(typeof(OwnerSupportTarget), target)
                 || conditionPoints < 0 || conditionPoints > 100 || bonuses == null || bonuses.Length != PlayerAbilityCatalog.AbilityCount)
                 throw new ArgumentException("서포트 카드 정의가 올바르지 않습니다.");
