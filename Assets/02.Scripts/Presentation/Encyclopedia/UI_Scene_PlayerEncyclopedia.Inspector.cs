@@ -8,11 +8,17 @@ namespace Baseball.Presentation.Encyclopedia
 {
     public sealed partial class UI_Scene_PlayerEncyclopedia
     {
+        private Text _previewEmpty;
+
         private void BuildInspector(RectTransform host)
         {
             _inspector = OwnerWorkspaceUiFactory.CreateRoot(host, "EncyclopediaInspector", false);
             var panel = OwnerWorkspaceUiFactory.CreatePanel(_inspector, "SelectedEntry", "선택 상세");
             OwnerRuntimeUiFactory.Stretch(panel.Root);
+            _previewEmpty = OwnerWorkspaceUiFactory.CreateText(panel.Content, "PreviewEmpty",
+                "선수 카드 미리보기\n\n목록에서 선수를 선택하세요", 15, FontStyle.Normal, TextAnchor.MiddleCenter);
+            Top(_previewEmpty.rectTransform, 0, 190);
+            OwnerDashboardStyle.SetDataText(_previewEmpty);
             _preview = SharedUI.PlayerMiniCardView.CreateRuntime(panel.Content, "SelectedCard");
             OwnerRuntimeUiFactory.SetAnchors(_preview.GetComponent<RectTransform>(), new Vector2(.23f, 1), new Vector2(.77f, 1), new Vector2(0, -190), Vector2.zero);
             _preview.DetailRequested += _ => OpenDetail();
@@ -31,14 +37,15 @@ namespace Baseball.Presentation.Encyclopedia
             }
             var detailSurface = OwnerRuntimeUiFactory.CreateRect("DetailScroll", panel.Content);
             Image scrollInput = detailSurface.gameObject.AddComponent<Image>();
-            scrollInput.color = new Color(1, 1, 1, 0.01f);
-            scrollInput.raycastTarget = true;
+            OwnerDashboardStyle.ApplyInset(scrollInput, true);
             OwnerRuntimeUiFactory.SetAnchors(detailSurface, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0, -268));
             var scroll = detailSurface.gameObject.AddComponent<ScrollRect>();
             scroll.horizontal = false; scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 24;
             var viewport = OwnerRuntimeUiFactory.CreateRect("Viewport", detailSurface);
-            OwnerRuntimeUiFactory.Stretch(viewport); viewport.gameObject.AddComponent<RectMask2D>();
+            OwnerRuntimeUiFactory.Stretch(viewport, new Vector2(12, 12), new Vector2(-12, -12));
+            viewport.gameObject.AddComponent<RectMask2D>();
             _detail = OwnerWorkspaceUiFactory.CreateText(viewport, "Details", string.Empty, 13, FontStyle.Normal, TextAnchor.UpperLeft);
+            OwnerDashboardStyle.SetDataText(_detail);
             var rect = _detail.rectTransform;
             rect.anchorMin = new Vector2(0, 1); rect.anchorMax = Vector2.one; rect.pivot = new Vector2(.5f, 1);
             rect.offsetMin = rect.offsetMax = Vector2.zero;
@@ -63,6 +70,7 @@ namespace Baseball.Presentation.Encyclopedia
             bool readOnly = _snapshot == null || _snapshot.IsReadOnly;
             bool exactCard = hasSelection && !string.IsNullOrEmpty(_selected.CardId);
             _preview.gameObject.SetActive(hasSelection);
+            _previewEmpty.gameObject.SetActive(!hasSelection);
             _openDetail.interactable = hasSelection;
             _otherYears.interactable = hasSelection;
             _otherEditions.interactable = hasSelection;

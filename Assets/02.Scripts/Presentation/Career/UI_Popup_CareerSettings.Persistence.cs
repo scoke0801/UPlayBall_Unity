@@ -69,7 +69,7 @@ namespace Baseball.Presentation.Career
 
             RectTransform card = CreateImage(
                 "SaveSlot", body, CardColor, new Vector2(790f, 210f), new Vector2(0f, 115f));
-            TitleUiButtonSkin.ApplyPanel(card.GetComponent<Image>());
+            ApplySettingsPanel(card);
             string status = slot.Status switch
             {
                 CareerSaveSlotStatus.Ready => "저장됨",
@@ -239,7 +239,7 @@ namespace Baseball.Presentation.Career
 
             RectTransform card = CreateImage(
                 "OwnerSaveSlot", body, CardColor, new Vector2(790f, 210f), new Vector2(0f, 115f));
-            TitleUiButtonSkin.ApplyPanel(card.GetComponent<Image>());
+            ApplySettingsPanel(card);
             CreateText("Status", card, GetSaveSlotStatusLabel(slot.Status), 16, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(180f, 30f), new Vector2(-280f, 80f),
                 hasSave ? AccentColor : MutedTextColor);

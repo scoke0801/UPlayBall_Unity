@@ -24,6 +24,7 @@ namespace Baseball.Presentation.Encyclopedia
             Text placeholder = OwnerWorkspaceUiFactory.CreateText(surface.transform, "Placeholder", "선수 이름 검색", 12, FontStyle.Italic, TextAnchor.MiddleLeft);
             OwnerRuntimeUiFactory.Stretch(placeholder.rectTransform, new Vector2(8, 2), new Vector2(-8, -2));
             _search.textComponent = value; _search.placeholder = placeholder; _search.targetGraphic = surface;
+            OwnerDashboardStyle.SetDataInput(_search);
             _search.SetTextWithoutNotify(_filter.Search);
             _lastImeComposition = string.Empty;
             _search.onValueChanged.AddListener(text => { _filter.Search = text; Refresh(); });
@@ -75,6 +76,7 @@ namespace Baseball.Presentation.Encyclopedia
         private void ListFilter(RectTransform parent, string name, List<string> labels, int selected, Action<int> changed)
         {
             Dropdown dropdown = OwnerCardFilters.CreateDropdown(parent, name, labels, selected);
+            OwnerDashboardStyle.SetDataDropdown(dropdown);
             LayoutElement layout = dropdown.GetComponent<LayoutElement>();
             layout.minWidth = 74; layout.preferredWidth = 120;
             dropdown.onValueChanged.AddListener(index => { changed(index); Refresh(); });

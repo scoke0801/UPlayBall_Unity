@@ -137,7 +137,7 @@ namespace Baseball.Presentation.Career
             backdrop.GetComponent<Image>().raycastTarget = true;
             RectTransform panel = CreateImage(
                 "SettingsPanel", _content, PanelColor, new Vector2(1260f, 900f), Vector2.zero);
-            TitleUiButtonSkin.ApplyPanel(panel.GetComponent<Image>());
+            ApplySettingsPanel(panel);
             CreateText("Title", panel, "설정", 36, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(380f, 56f), new Vector2(-310f, 352f), PrimaryTextColor);
             Button close = CreateButton("Close", panel, "닫기  ESC", new Vector2(180f, 52f),
@@ -161,11 +161,15 @@ namespace Baseball.Presentation.Career
                     _selectedTab = selected;
                     Render();
                 });
+                if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+                    OwnerUiButtonSkin.Apply(tab, OwnerButtonRole.Tab);
             }
 
             RectTransform body = CreateImage(
                 "Body", panel, CareerUiTheme.ReferenceCanvas,
                 new Vector2(930f, 720f), new Vector2(120f, -30f));
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+                UIOwnerFrontOfficePanel.Apply(body, "ManagerReport");
             if (_selectedTab == 0)
                 RenderGameSettings(body);
             else if (_selectedTab == 1)
@@ -655,8 +659,17 @@ namespace Baseball.Presentation.Career
             shade.GetComponent<Image>().raycastTarget = true;
             RectTransform modal = CreateImage(name, parent, PanelColor,
                 new Vector2(760f, 390f), Vector2.zero);
-            TitleUiButtonSkin.ApplyPanel(modal.GetComponent<Image>());
+            ApplySettingsPanel(modal);
             return modal;
+        }
+
+        /// <summary>타이틀과 구단주 설정의 패널을 같은 V2 표면으로 연결한다.</summary>
+        private static void ApplySettingsPanel(RectTransform panel)
+        {
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+                UIOwnerFrontOfficePanel.Apply(panel, "ManagerReport");
+            else
+                TitleUiButtonSkin.ApplyPanel(panel.GetComponent<Image>());
         }
 
         private static RectTransform CreateRect(string name, Transform parent, Vector2 size, Vector2 position)
@@ -693,7 +706,8 @@ namespace Baseball.Presentation.Career
             text.fontSize = fontSize;
             text.fontStyle = style;
             text.alignment = alignment;
-            text.color = color;
+            text.color = UIOwnerFrontOfficeSkin.IsOwnerContext && UIOwnerFrontOfficePanel.HasDarkSurface(parent)
+                ? UIOwnerFrontOfficePanel.ResolveTextColor(color) : color;
             text.gameObject.AddComponent<CareerUiPreserveTextColor>();
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Truncate;
@@ -717,7 +731,7 @@ namespace Baseball.Presentation.Career
             text = CreateText("Label", rect, label, 16, FontStyle.Bold, TextAnchor.MiddleCenter,
                 size - new Vector2(10f, 8f), Vector2.zero, PrimaryTextColor);
             rect.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FramedControl);
-            OwnerUiButtonSkin.Apply(button);
+            OwnerUiButtonSkin.Apply(button, useFrontOffice: UIOwnerFrontOfficeSkin.IsOwnerContext);
             OwnerUiButtonSkin.SetSelected(button, color == SelectedColor || color == DangerColor);
             return button;
         }

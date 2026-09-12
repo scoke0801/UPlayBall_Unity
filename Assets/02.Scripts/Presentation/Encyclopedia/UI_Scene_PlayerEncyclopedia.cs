@@ -147,8 +147,10 @@ namespace Baseball.Presentation.Encyclopedia
             OwnerRuntimeUiFactory.SetAnchors(_count.rectTransform, Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, 28));
             BuildInspector(inspectorHost);
             _actions = OwnerWorkspaceUiFactory.CreateRoot(actionHost, "EncyclopediaActions", false);
+            OwnerDashboardStyle.ApplyActionBar(_actions);
             OwnerWorkspaceUiFactory.AddHorizontalLayout(_actions, 8).padding = new RectOffset(12, 12, 4, 4);
             _feedback = OwnerWorkspaceUiFactory.CreateText(_actions, "Feedback", "카드를 선택하면 수집 상태와 영입 경로를 확인할 수 있습니다.", 13, FontStyle.Normal, TextAnchor.MiddleLeft);
+            OwnerDashboardStyle.SetDataText(_feedback);
             OwnerWorkspaceUiFactory.SetFlexible(_feedback.rectTransform, 1, 0);
             _wish = OwnerWorkspaceUiFactory.CreateButton(_actions, "ToggleWish", "☆ 위시 등록", ToggleWish);
             _scout = OwnerWorkspaceUiFactory.CreateButton(_actions, "FindScout", "스카우트에서 찾기", () => { if (_selected != null && !_snapshot.IsReadOnly) ScoutRequested?.Invoke(_selected.CardId); });
@@ -160,7 +162,7 @@ namespace Baseball.Presentation.Encyclopedia
         private void BuildScroll(RectTransform parent)
         {
             Image surface = OwnerRuntimeUiFactory.CreateImage("VirtualCardList", parent, CareerUiTheme.ReferencePanel);
-            surface.raycastTarget = true;
+            OwnerDashboardStyle.ApplyInset(surface, true);
             OwnerRuntimeUiFactory.SetAnchors(surface.rectTransform, Vector2.zero, Vector2.one, new Vector2(0, 32), new Vector2(0, -168));
             _scroll = surface.gameObject.AddComponent<ScrollRect>();
             _scroll.horizontal = false;
@@ -175,6 +177,7 @@ namespace Baseball.Presentation.Encyclopedia
             _scroll.viewport = _viewport; _scroll.content = _content;
             _scroll.onValueChanged.AddListener(_ => RenderCards(false));
             _empty = OwnerWorkspaceUiFactory.CreateText(_viewport, "EmptyState", string.Empty, 16, FontStyle.Normal, TextAnchor.MiddleCenter);
+            OwnerDashboardStyle.SetDataText(_empty);
             OwnerRuntimeUiFactory.Stretch(_empty.rectTransform, new Vector2(20, 20), new Vector2(-20, -20));
         }
 

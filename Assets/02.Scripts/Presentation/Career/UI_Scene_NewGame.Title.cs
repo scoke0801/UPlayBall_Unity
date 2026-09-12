@@ -8,6 +8,7 @@ using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
 using Baseball.Presentation.SharedUI;
+using Baseball.Presentation.Owner;
 using Baseball.Presentation.UI;
 using DG.Tweening;
 using UnityEngine;
@@ -177,7 +178,7 @@ namespace Baseball.Presentation.Career
             RectTransform right = CreateImage(
                 "ModePanel", _content, CareerUiTheme.PanelDark,
                 new Vector2(720f, 1080f), new Vector2(600f, 0f));
-            TitleUiButtonSkin.ApplyPanel(right.GetComponent<Image>());
+            UIOwnerFrontOfficePanel.Apply(right, "ManagerReport");
             CreateText("Eyebrow", right, "싱글 플레이 야구 커리어", 13, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(580f, 28f), new Vector2(0f, 430f), AccentColor);
             CreateText("Heading", right, "커리어를 선택하세요", 34, FontStyle.Bold,
@@ -219,7 +220,7 @@ namespace Baseball.Presentation.Career
             CreateText("Mode", ownerCareer.transform, "구단주 모드", 27, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(420f, 40f), new Vector2(55f, 18f), PrimaryTextColor);
             CreateText("Description", ownerCareer.transform,
-                "실제 구단 Save로 로스터·자원·일정을 운영합니다.",
+                "선수단·자원·일정을 관리하며 구단을 운영합니다.",
                 16, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(420f, 40f), new Vector2(55f, -28f), SecondaryTextColor);
             CreateText("Action", ownerCareer.transform, ownerAction, 15, FontStyle.Bold,
@@ -318,6 +319,7 @@ namespace Baseball.Presentation.Career
                 Render();
             });
 
+            ApplyTitleFrontOffice(right);
 #if UNITY_EDITOR
             if (_showCardGallery)
                 RenderCardDesignGallery();
@@ -327,6 +329,22 @@ namespace Baseball.Presentation.Career
                 RenderTitleNotice();
             else if (_showQuitConfirmation)
                 RenderQuitConfirmation();
+        }
+
+        /// <summary>완성된 타이틀 계층에 공용 V2 표면과 입력 상태를 연결한다.</summary>
+        private static void ApplyTitleFrontOffice(RectTransform root)
+        {
+            UIOwnerFrontOfficePanel.Apply(root, "ManagerReport");
+            foreach (Text text in root.GetComponentsInChildren<Text>(true))
+            {
+                text.color = UIOwnerFrontOfficePanel.ResolveTextColor(text.color);
+                if (text.color == AccentColor || text.color == GoldColor)
+                    text.color = OwnerDashboardStyle.Gold;
+                if (text.GetComponent<CareerUiPreserveTextColor>() == null)
+                    text.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            }
+            foreach (TitleUiButtonSkin skin in root.GetComponentsInChildren<TitleUiButtonSkin>(true))
+                skin.UseFrontOffice();
         }
 
         private void RenderTitleBrand()
@@ -378,12 +396,13 @@ namespace Baseball.Presentation.Career
             RectTransform shade = CreateImage("NoticeShade", _content, new Color(0f, 0f, 0f, 0.70f),
                 new Vector2(1920f, 1080f), Vector2.zero);
             RectTransform modal = CreateImage("Notice", shade, PanelColor, new Vector2(680f, 300f), Vector2.zero);
-            TitleUiButtonSkin.ApplyPanel(modal.GetComponent<Image>());
+            UIOwnerFrontOfficePanel.Apply(modal, "ManagerReport");
             CreateText("Message", modal, _titleNotice, 21, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(580f, 90f), new Vector2(0f, 35f), PrimaryTextColor);
             Button close = CreateButton("Close", modal, "확인", new Vector2(220f, 54f),
                 new Vector2(0f, -85f), AccentColor, out _);
             TitleUiButtonSkin.Apply(close, TitleButtonRole.Primary);
+            ApplyTitleFrontOffice(modal);
             close.onClick.AddListener(() =>
             {
                 _titleNotice = string.Empty;
@@ -398,7 +417,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(1920f, 1080f), Vector2.zero);
             RectTransform modal = CreateImage("QuitConfirmation", shade, PanelColor,
                 new Vector2(680f, 330f), Vector2.zero);
-            TitleUiButtonSkin.ApplyPanel(modal.GetComponent<Image>());
+            UIOwnerFrontOfficePanel.Apply(modal, "ManagerReport");
             CreateText("Message", modal, "게임을 종료하시겠습니까?", 25, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(580f, 70f), new Vector2(0f, 55f), PrimaryTextColor);
             Button cancel = CreateButton("Cancel", modal, "취소", new Vector2(230f, 56f),
@@ -412,6 +431,7 @@ namespace Baseball.Presentation.Career
             Button confirm = CreateButton("Confirm", modal, "게임 종료", new Vector2(230f, 56f),
                 new Vector2(130f, -82f), new Color(0.62f, 0.10f, 0.12f, 1f), out _);
             TitleUiButtonSkin.Apply(confirm, TitleButtonRole.Danger);
+            ApplyTitleFrontOffice(modal);
             confirm.onClick.AddListener(Application.Quit);
         }
 
@@ -497,6 +517,24 @@ namespace Baseball.Presentation.Career
         private TitleButtonRole _role;
         private bool _lastInteractable;
         private bool _hasRendered;
+        private bool _usesFrontOffice;
+
+        /// <summary>기존 밝은 프레임을 숨기고 V2 공용 버튼 상태로 전환한다.</summary>
+        public void UseFrontOffice()
+        {
+            _usesFrontOffice = true;
+            _frame.gameObject.SetActive(false);
+            _source.enabled = true;
+            foreach (Text text in GetComponentsInChildren<Text>(true))
+            {
+                // 기존 타이틀 스킨이 먼저 변환한 잉크 색도 어두운 표면에 맞춘다.
+                if (IsNear(text.color, Ink)) text.color = OwnerDashboardStyle.Ivory;
+                else if (IsNear(text.color, SecondaryInk)) text.color = OwnerDashboardStyle.Muted;
+                else if (IsNear(text.color, AccentInk) || IsNear(text.color, GoldInk))
+                    text.color = OwnerDashboardStyle.Gold;
+            }
+            Refresh();
+        }
 
         /// <summary>빈 기본 라벨을 쓰는 모드 카드까지 타이틀 전용 프레임과 입력 상태를 연결한다.</summary>
         public static void Apply(Button button, TitleButtonRole role)
@@ -565,6 +603,7 @@ namespace Baseball.Presentation.Career
 
         private void LateUpdate()
         {
+            if (_usesFrontOffice) return;
             if (_button == null || _frame == null)
                 return;
             if (!_hasRendered || _button.IsInteractable() != _lastInteractable
@@ -575,6 +614,13 @@ namespace Baseball.Presentation.Career
         /// <summary>공용 스킨 재적용 뒤에도 역할별 프레임과 라벨 대비를 보존한다.</summary>
         public void Refresh()
         {
+            if (_usesFrontOffice)
+            {
+                OwnerButtonRole role = _role == TitleButtonRole.Mode ? OwnerButtonRole.ListItem
+                    : _role == TitleButtonRole.Primary ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary;
+                UIOwnerFrontOfficeSkin.ApplyButton(_button, role);
+                return;
+            }
             if (_frame == null || !enabled)
                 return;
 
