@@ -82,8 +82,5 @@ namespace Baseball.Core.Historical
                 _ => throw new ArgumentOutOfRangeException(nameof(deckType))
             };
         }
-
-        /// <summary>실제 구단과 헷갈리지 않도록 모든 임시 구단 이름 뒤에 붙이는 표식이다.</summary>
-        public const string DisplaySuffix = " (CPU)";
     }
 }

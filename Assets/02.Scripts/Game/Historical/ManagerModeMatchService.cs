@@ -1292,9 +1292,10 @@ namespace Baseball.Game.Historical
             if (SpecialCompositeTeamDefinition.TryCreateDisplayName(teamSeasonKey, out string compositeName))
                 return compositeName;
             if (LeagueFillerTeamKey.TryParse(teamSeasonKey, out LeagueFillerDeckType deck, out string source))
-                return (deck == LeagueFillerDeckType.YearTeam
+                return deck == LeagueFillerDeckType.YearTeam
                     ? GetTeamDisplayName(runtime, source)
-                    : LeagueFillerTeamKey.GetDeckTeamName(deck)) + LeagueFillerTeamKey.DisplaySuffix;
+            // 임시 구단도 다른 참가 구단과 같은 형식으로 표시한다. CPU라는 사실은 UI에 드러내지 않는다.
+                    : LeagueFillerTeamKey.GetDeckTeamName(deck);
             if (_content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
                 return runtime.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId);
             return teamSeasonKey;

@@ -1399,14 +1399,22 @@ namespace Baseball.Game.Historical
 
         public string GetTeamDisplayName(string teamSeasonKey)
         {
+            return OwnerClubDisplayNameFormatter.Format(
+                GetTeamIdentityName(teamSeasonKey),
+                GetTeamOriginYear(teamSeasonKey));
+        }
+
+        private string GetTeamIdentityName(string teamSeasonKey)
+        {
             // 합성 참가팀은 Franchise TeamSeason 정의가 없으므로 Key에서 직접 이름을 만든다.
             if (SpecialCompositeTeamDefinition.TryCreateDisplayName(teamSeasonKey, out string compositeName))
                 return compositeName;
-            // CPU 임시 구단은 로스터가 사라진 뒤에도 이력에서 읽히도록 Key에 담긴 덱과 원본 구단으로 이름을 만든다.
+            // 임시 구단은 로스터가 사라진 뒤에도 이력에서 읽히도록 Key에 담긴 덱과 원본 구단으로 이름을 만든다.
+            // 다른 참가 구단과 같은 형식으로 표시하며 CPU라는 사실은 UI에 드러내지 않는다.
             if (LeagueFillerTeamKey.TryParse(teamSeasonKey, out LeagueFillerDeckType deck, out string source))
-                return (deck == LeagueFillerDeckType.YearTeam
-                    ? GetTeamDisplayName(source)
-                    : LeagueFillerTeamKey.GetDeckTeamName(deck)) + LeagueFillerTeamKey.DisplaySuffix;
+                return deck == LeagueFillerDeckType.YearTeam
+                    ? GetTeamIdentityName(source)
+                    : LeagueFillerTeamKey.GetDeckTeamName(deck);
 
             HistoricalBakedContent content = _contentProvider.Load();
             if (!content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
@@ -1427,17 +1435,10 @@ namespace Baseball.Game.Historical
                 content.IdentityNameCatalog.TryGetFranchiseRegion(team.FranchiseId, out region);
         }
 
-        /// <summary>현재 진행의 내 구단명과 연도가 붙은 상대 구단명을 경기·운영 화면에 제공한다.</summary>
+        /// <summary>현재 표시 모드의 구단명과 원본 연도를 경기·운영 화면에 함께 제공한다.</summary>
         public string GetClubDisplayName(string teamSeasonKey)
         {
-            string displayName = GetTeamDisplayName(teamSeasonKey);
-            bool isPlayerTeam = Runtime != null &&
-                string.Equals(teamSeasonKey, Runtime.PlayerTeamSeasonKey, StringComparison.Ordinal);
-            return OwnerClubDisplayNameFormatter.Format(
-                displayName,
-                GetTeamOriginYear(teamSeasonKey),
-                isPlayerTeam,
-                Runtime?.OwnerProfile.ClubName);
+            return GetTeamDisplayName(teamSeasonKey);
         }
 
         /// <summary>정규 구단과 합성 참가팀의 원본 시즌 연도를 TeamSeasonKey에서 찾는다.</summary>
