@@ -3,18 +3,26 @@ using System.Linq;
 using System.Reflection;
 using Baseball.Game.Historical;
 using Baseball.Presentation.Owner;
+using Baseball.Presentation.SharedUI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace Baseball.Tests.EditMode.Presentation
 {
     /// <summary>실제 버튼 입력이 Game 거래를 확정하고 재료를 정확히 한 번 소비하는지 검증한다.</summary>
     public sealed class SpecialRecruitInteractionTests
     {
-        [TestCase(false)]
-        [TestCase(true)]
-        public void SpecialCards_AutoSelectAndConfirmRecruitThroughView(bool legend)
+        [TestCase(false, 1280, 720)]
+        [TestCase(false, 1920, 1080)]
+        [TestCase(false, 2560, 1440)]
+        [TestCase(false, 3440, 1440)]
+        [TestCase(true, 1280, 720)]
+        [TestCase(true, 1920, 1080)]
+        [TestCase(true, 2560, 1440)]
+        [TestCase(true, 3440, 1440)]
+        public void SpecialCards_AutoSelectAndConfirmRecruitThroughView(bool legend, int width, int height)
         {
             // Game 테스트의 검증된 거래 Fixture를 재사용하여 표현 테스트에 별도 야구 월드를 만들지 않는다.
             Type fixture = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType(
@@ -24,20 +32,87 @@ namespace Baseball.Tests.EditMode.Presentation
                 BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, arguments);
             string target = (string)arguments[0];
             string[] materials = (string[])arguments[1];
-            var host = new GameObject("SpecialRecruitTest", typeof(RectTransform));
+            var host = new GameObject("SpecialRecruitTest", typeof(RectTransform), typeof(Canvas));
+            var cameraObject = new GameObject("RecruitCamera", typeof(Camera));
+            var eventSystem = new GameObject("RecruitInput", typeof(EventSystem));
+            // EditMode는 EventSystem의 활성화 콜백을 자동 호출하지 않는다.
+            typeof(EventSystem).GetMethod("OnEnable", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(eventSystem.GetComponent<EventSystem>(), null);
+            var render = new RenderTexture(width, height, 24);
             var managerObject = new GameObject("RecruitManager");
             try
             {
                 var manager = managerObject.AddComponent<OwnerModeManager>();
+                typeof(OwnerModeManager).GetField("_balance", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(manager, Baseball.Core.Balance.BalanceTable.CreateDefault());
                 typeof(OwnerModeManager).GetProperty("Runtime").SetValue(manager, runtime);
-                var view = UI_Scene_OwnerSpecialRecruit.CreateRuntime((RectTransform)host.transform);
+                var camera = cameraObject.GetComponent<Camera>();
+                camera.orthographic = true;
+                camera.targetTexture = render;
+                var canvas = host.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 10;
+                var shell = SharedGameShellView.CreateRuntime(host.transform);
+                shell.BindProfile(OwnerModeUiProfileFactory.Create());
+                shell.BindContext(new ShellContextModel(legend ? UI_Scene_OwnerSpecialRecruit.LegendRoute :
+                    UI_Scene_OwnerSpecialRecruit.CareerHighRoute, legend ? "레전드 영입" : "커리어하이 영입"));
+                shell.SetInspectorVisible(false);
+                shell.SetActionBarVisible(false);
+                var view = UI_Scene_OwnerSpecialRecruit.CreateRuntime(shell.MainWorkspaceHost);
                 view.ShowRoute(legend ? UI_Scene_OwnerSpecialRecruit.LegendRoute : UI_Scene_OwnerSpecialRecruit.CareerHighRoute);
                 view.Bind(manager);
                 var content = view.transform.Find("IssuedRecruitContent");
                 var confirm = content.Find("ConfirmRecruit").GetComponent<Button>();
                 Assert.That(confirm.interactable, Is.False);
+                Layout(view);
+                Assert.That(content.GetComponentsInChildren<PlayerMiniCardView>().Length, Is.EqualTo(8));
+                var front = content.Find("TargetPanel/ContentSafeRect/TargetPreview/Front");
+                Assert.That(front.Find("StatsPanel"), Is.Not.Null, "상세보기와 같은 카드 앞면을 사용한다.");
+                Assert.That(front.Find("MainFrame").GetComponent<Image>().sprite, Is.Not.Null);
+                foreach (var card in content.GetComponentsInChildren<PlayerMiniCardView>())
+                    AssertInside((RectTransform)card.transform, (RectTransform)card.transform.parent);
+                foreach (var button in content.GetComponentsInChildren<Button>().Where(b => b.name == "ChooseMaterial"))
+                {
+                    Text label = button.GetComponentInChildren<Text>();
+                    Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 1),
+                        "720p에서도 재료 버튼의 상태와 행동 문구가 잘리지 않는다.");
+                }
+                AssertInside((RectTransform)front, (RectTransform)front.parent);
+                Capture(camera, render, legend, "empty", width, height);
+                var choose = content.GetComponentsInChildren<Button>().First(b => b.name == "ChooseMaterial");
+                choose.onClick.Invoke();
+                Assert.That(view.transform.Find("MaterialPicker").gameObject.activeSelf, Is.True);
+                Canvas.ForceUpdateCanvases();
+                if (!legend)
+                {
+                    var picker = view.transform.Find("MaterialPicker");
+                    var last = picker.GetComponentsInChildren<Button>().First(b => b.name == "Candidate7");
+                    last.Select();
+                    AssertInside((RectTransform)last.transform, picker.GetComponentInChildren<ScrollRect>().viewport);
+                }
+                Capture(camera, render, legend, "picker", width, height);
+                Assert.That(view.TryHandleCancel(), Is.True);
+                Assert.That(content.GetComponent<CanvasGroup>().interactable, Is.True);
+                Assert.That(EventSystem.current.currentSelectedGameObject, Is.SameAs(choose.gameObject));
+                choose.onClick.Invoke();
+                view.transform.Find("MaterialPicker").GetComponentsInChildren<Button>()
+                    .First(b => b.name == "Candidate0").onClick.Invoke();
+                Assert.That(view.transform.Find("MaterialPicker").gameObject.activeSelf, Is.False);
+                Assert.That(content.Find("SelectionStatus").GetComponent<Text>().text, Does.Contain("1 / 8"));
+                runtime.TryGetOwnedCard(materials[7], out var protectedCard);
+                protectedCard.IsLocked = true;
+                content.Find("AutoSelect").GetComponent<Button>().onClick.Invoke();
+                Assert.That(confirm.interactable, Is.False);
+                Assert.That(content.Find("SelectionStatus").GetComponent<Text>().text, Does.Contain("7 / 8"));
+                protectedCard.IsLocked = false;
                 content.Find("AutoSelect").GetComponent<Button>().onClick.Invoke();
                 Assert.That(confirm.interactable, Is.True);
+                Layout(view);
+                Capture(camera, render, legend, "ready", width, height);
+                confirm.onClick.Invoke();
+                Assert.That(view.TryHandleCancel(), Is.True, "최종 확인 대기만 취소한다.");
+                Assert.That(runtime.TryGetOwnedCard(target, out _), Is.False);
                 confirm.onClick.Invoke();
                 Assert.That(runtime.TryGetOwnedCard(target, out _), Is.False, "최종 확인 전에는 소비하지 않는다.");
                 confirm.onClick.Invoke();
@@ -45,11 +120,78 @@ namespace Baseball.Tests.EditMode.Presentation
                 Assert.That(acquired.IsLocked, Is.True);
                 Assert.That(materials.All(id => !runtime.TryGetOwnedCard(id, out _)), Is.True);
                 Assert.That(confirm.interactable, Is.False);
+                Layout(view);
+                Capture(camera, render, legend, "owned", width, height);
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(host);
                 UnityEngine.Object.DestroyImmediate(managerObject);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                typeof(EventSystem).GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(eventSystem.GetComponent<EventSystem>(), null);
+                UnityEngine.Object.DestroyImmediate(eventSystem);
+                render.Release();
+                UnityEngine.Object.DestroyImmediate(render);
+            }
+        }
+
+        [Test]
+        public void SpecialCards_Runtime없음은임시옵션과영입버튼을노출하지않는다()
+        {
+            var host = new GameObject("EmptyRecruit", typeof(RectTransform));
+            try
+            {
+                ((RectTransform)host.transform).sizeDelta = new Vector2(1280, 720);
+                var view = UI_Scene_OwnerSpecialRecruit.CreateRuntime((RectTransform)host.transform);
+                view.Bind(null);
+                Assert.That(view.GetComponentInChildren<Dropdown>().options, Is.Empty);
+                Assert.That(view.GetComponentsInChildren<PlayerMiniCardView>(), Is.Empty);
+                Assert.That(view.transform.Find("IssuedRecruitContent/ConfirmRecruit").GetComponent<Button>().interactable, Is.False);
+                Assert.That(view.transform.Find("IssuedRecruitContent/SelectionStatus").GetComponent<Text>().text, Does.Contain("홈으로"));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(host); }
+        }
+
+        private static void Layout(UI_Scene_OwnerSpecialRecruit view)
+        {
+            Canvas.ForceUpdateCanvases();
+            typeof(UI_Scene_OwnerSpecialRecruit).GetMethod("FitCards", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, null);
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private static void AssertInside(RectTransform child, RectTransform parent)
+        {
+            var corners = new Vector3[4];
+            child.GetWorldCorners(corners);
+            foreach (var corner in corners)
+            {
+                Vector3 local = parent.InverseTransformPoint(corner);
+                Assert.That(local.x, Is.InRange(parent.rect.xMin - .1f, parent.rect.xMax + .1f));
+                Assert.That(local.y, Is.InRange(parent.rect.yMin - .1f, parent.rect.yMax + .1f));
+            }
+        }
+
+        private static void Capture(Camera camera, RenderTexture target, bool legend, string state, int width, int height)
+        {
+            string output = Environment.GetEnvironmentVariable("BASEBALL_RECRUIT_CAPTURE");
+            if (string.IsNullOrEmpty(output)) return;
+            var previous = RenderTexture.active;
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            try
+            {
+                camera.Render();
+                RenderTexture.active = target;
+                texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                texture.Apply();
+                System.IO.Directory.CreateDirectory(output);
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(output,
+                    $"{(legend ? "legend" : "careerhigh")}-{state}-{width}.png"), texture.EncodeToPNG());
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                UnityEngine.Object.DestroyImmediate(texture);
             }
         }
     }
