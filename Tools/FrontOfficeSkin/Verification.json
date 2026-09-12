@@ -1,0 +1,292 @@
+﻿[
+    {
+        "Asset":  "MainDashboard",
+        "Width":  1536,
+        "Height":  768,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  758,
+        "PartialAlphaPixels":  1148810,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "ManagerCard",
+        "Width":  1536,
+        "Height":  768,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  1507,
+        "PartialAlphaPixels":  1148223,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "ManagerReport",
+        "Width":  1536,
+        "Height":  1280,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  935,
+        "PartialAlphaPixels":  1929630,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "CompactStrip",
+        "Width":  1536,
+        "Height":  384,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  626,
+        "PartialAlphaPixels":  560752,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Primary_Normal",
+        "Width":  768,
+        "Height":  144,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  132,
+        "PartialAlphaPixels":  3255,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Primary_Hover",
+        "Width":  768,
+        "Height":  144,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  132,
+        "PartialAlphaPixels":  3255,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Primary_Pressed",
+        "Width":  768,
+        "Height":  144,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  132,
+        "PartialAlphaPixels":  3255,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Primary_Disabled",
+        "Width":  768,
+        "Height":  144,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  132,
+        "PartialAlphaPixels":  3255,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Secondary_Normal",
+        "Width":  768,
+        "Height":  144,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  143,
+        "PartialAlphaPixels":  3271,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Secondary_Hover",
+        "Width":  768,
+        "Height":  144,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  143,
+        "PartialAlphaPixels":  3271,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Secondary_Pressed",
+        "Width":  768,
+        "Height":  144,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  143,
+        "PartialAlphaPixels":  3271,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Secondary_Disabled",
+        "Width":  768,
+        "Height":  144,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  143,
+        "PartialAlphaPixels":  3271,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Secondary_Selected",
+        "Width":  768,
+        "Height":  144,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  143,
+        "PartialAlphaPixels":  3271,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Utility_Normal",
+        "Width":  128,
+        "Height":  128,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  46,
+        "PartialAlphaPixels":  279,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Utility_Hover",
+        "Width":  128,
+        "Height":  128,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  46,
+        "PartialAlphaPixels":  279,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Utility_Pressed",
+        "Width":  128,
+        "Height":  128,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  46,
+        "PartialAlphaPixels":  279,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Utility_Disabled",
+        "Width":  128,
+        "Height":  128,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  46,
+        "PartialAlphaPixels":  279,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "ListItem_Normal",
+        "Width":  1536,
+        "Height":  160,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  350,
+        "PartialAlphaPixels":  6834,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "ListItem_Hover",
+        "Width":  1536,
+        "Height":  160,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  350,
+        "PartialAlphaPixels":  6834,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "ListItem_Selected",
+        "Width":  1536,
+        "Height":  160,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  350,
+        "PartialAlphaPixels":  6834,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "ListItem_Unread",
+        "Width":  1536,
+        "Height":  160,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  350,
+        "PartialAlphaPixels":  6834,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "ListItem_Disabled",
+        "Width":  1536,
+        "Height":  160,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  350,
+        "PartialAlphaPixels":  6834,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Tab_Normal",
+        "Width":  512,
+        "Height":  8,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  5,
+        "PartialAlphaPixels":  3083,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Tab_Hover",
+        "Width":  512,
+        "Height":  8,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  5,
+        "PartialAlphaPixels":  3083,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Tab_Selected",
+        "Width":  512,
+        "Height":  8,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  5,
+        "PartialAlphaPixels":  3083,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Tab_Disabled",
+        "Width":  512,
+        "Height":  8,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  5,
+        "PartialAlphaPixels":  3083,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Badge_Count",
+        "Width":  96,
+        "Height":  96,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  1835,
+        "PartialAlphaPixels":  7092,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Badge_Unread",
+        "Width":  32,
+        "Height":  32,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  185,
+        "PartialAlphaPixels":  104,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    },
+    {
+        "Asset":  "Badge_Important",
+        "Width":  96,
+        "Height":  96,
+        "AlphaDifferenceFromNormal":  0,
+        "TransparentPixels":  3059,
+        "PartialAlphaPixels":  6156,
+        "GreenSpillPixels":  0,
+        "Pass":  true
+    }
+]
