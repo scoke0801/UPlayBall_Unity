@@ -303,7 +303,12 @@ namespace Baseball.Core.Historical
         public string TeamColorLineageId { get; }
         public bool IsFranchiseWildcard => Edition == PlayerCardEdition.CareerHigh || Edition == PlayerCardEdition.Legend;
         public bool IsUniqueOwnedCard => IsFranchiseWildcard;
-        public double SkillBlockEffectMultiplier => Edition == PlayerCardEdition.Rare || Edition == PlayerCardEdition.Ex ? 2d : 1d;
+        public double SkillBlockEffectMultiplier => Edition switch
+        {
+            PlayerCardEdition.Rare or PlayerCardEdition.Ex => 2d,
+            PlayerCardEdition.CareerHigh or PlayerCardEdition.Legend => 1.5d,
+            _ => 1d
+        };
         public bool CanAcquireFromScout => Edition != PlayerCardEdition.Ex && !IsFranchiseWildcard;
         public PreferredBattingOrder PreferredBattingOrder { get; }
         public int GetModifier(PlayerAbility ability) => _editionStatModifiers[(int)ability];

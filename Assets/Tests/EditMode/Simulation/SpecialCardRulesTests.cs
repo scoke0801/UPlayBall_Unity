@@ -92,21 +92,38 @@ namespace Baseball.Tests.EditMode.Simulation
                 Is.EqualTo(PlayerCardEdition.Ex));
         }
 
-        [Test]
-        public void ExDoublesOnlySkillBlockContributionOnce()
+        [TestCase(PlayerCardEdition.Normal, 1d, 3)]
+        [TestCase(PlayerCardEdition.Mvp, 1d, 3)]
+        [TestCase(PlayerCardEdition.Rare, 2d, 3)]
+        [TestCase(PlayerCardEdition.Ex, 2d, 3)]
+        [TestCase(PlayerCardEdition.CareerHigh, 1.5d, 3)]
+        [TestCase(PlayerCardEdition.Legend, 1.5d, 3)]
+        [TestCase(PlayerCardEdition.CareerHigh, 1.5d, 1)]
+        [TestCase(PlayerCardEdition.CareerHigh, 1.5d, 2)]
+        [TestCase(PlayerCardEdition.Legend, 1.5d, 1)]
+        [TestCase(PlayerCardEdition.Legend, 1.5d, 2)]
+        public void EditionScalesOnlySkillBlockContributionOnce(PlayerCardEdition edition, double multiplier, int blockCount)
         {
             var growth = BalanceTable.CreateDefault().Growth;
             var board = new OwnedCardSkillBoardState();
             board.Add(new PlacedSkillBlock(new SkillBlockInstance(1, growth.SkillBlocks[0].BlockId), 0, 0, 0));
-            var owned = new OwnedPlayerCardState("season:Normal", enhancementLevel: 2, skillBoard: board);
+            if (blockCount >= 2)
+                board.Add(new PlacedSkillBlock(new SkillBlockInstance(2, growth.SkillBlocks[0].BlockId), 4, 0, 0));
+            if (blockCount >= 3)
+                board.Add(new PlacedSkillBlock(new SkillBlockInstance(3, growth.SkillBlocks[0].BlockId), 0, 4, 0));
+            var training = new CardTrainingState();
+            training.AddBonus(PlayerAbility.Contact, 3);
+            training.AddStudyBonus(PlayerAbility.Contact, 2);
+            var owned = new OwnedPlayerCardState("season:Normal", enhancementLevel: 2, skillBoard: board, training: training);
             var resolver = new OwnerCardAbilityResolver(growth);
             int totalBlockBonus = 0;
             for (int index = 0; index < PlayerAbilityCatalog.AbilityCount; index++)
             {
                 var ability = (PlayerAbility)index;
                 var normal = resolver.ResolveContribution(Season(10), Card(PlayerCardEdition.Normal), owned, ability);
-                var ex = resolver.ResolveContribution(Season(10), Card(PlayerCardEdition.Ex), owned, ability);
-                Assert.That(ex.SkillBlock, Is.EqualTo(normal.SkillBlock * 2));
+                var ex = resolver.ResolveContribution(Season(10), Card(edition), owned, ability);
+                Assert.That(ex.SkillBlock, Is.EqualTo((int)(normal.SkillBlock * multiplier)));
+                Assert.That(ex.Study, Is.EqualTo(normal.Study));
                 Assert.That(ex.Enhancement, Is.EqualTo(normal.Enhancement));
                 Assert.That(ex.Training, Is.EqualTo(normal.Training));
                 Assert.That(ex.BaseCard, Is.EqualTo(normal.BaseCard));
@@ -116,7 +133,8 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         private static PlayerCardDefinition Card(PlayerCardEdition edition) => new PlayerCardDefinition(
-            "season:" + edition, "season", edition, new int[PlayerAbilityCatalog.AbilityCount]);
+            "season:" + edition, "season", edition, new int[PlayerAbilityCatalog.AbilityCount],
+            teamColorLineageId: "franchise");
 
         private static PlayerSeasonDefinition Season(int cost) => new PlayerSeasonDefinition(
             "season", "person", 2024, "franchise", "team", PlayerPosition.Catcher, PitcherRole.Starter,
