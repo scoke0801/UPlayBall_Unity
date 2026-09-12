@@ -543,6 +543,7 @@ namespace Baseball.Core.Historical
         public CardTrainingState Training { get; }
         public OwnedCardSkillBoardState SkillBoard { get; }
         public int LastStudySeason { get; private set; }
+        public PlayerTraitProgress Trait { get; set; } = new PlayerTraitProgress();
 
         /// <summary>유학 누적 효과와 참가 시즌을 초기화한다.</summary>
         public void ResetStudy()

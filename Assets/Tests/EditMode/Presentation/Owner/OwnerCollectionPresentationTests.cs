@@ -16,7 +16,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     public sealed class OwnerCollectionPresentationTests
     {
         [Test]
-        public void Builder_결측포지션은실제지명타자와표시및검색을구분한다()
+        public void Builder_결측포지션도지명타자로표시하고검색한다()
         {
             var snapshot = new OwnerCollectionSnapshot(new[]
             {
@@ -32,9 +32,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
             Assert.That(unknown.Cards.Count, Is.EqualTo(1));
             Assert.That(unknown.Cards[0].Snapshot.CardId, Is.EqualTo("UNKNOWN"));
-            Assert.That(unknown.Cards[0].MiniCard.PositionLabel, Is.EqualTo("포지션 미확인"));
-            Assert.That(designated.Cards.Count, Is.EqualTo(1));
-            Assert.That(designated.Cards[0].Snapshot.CardId, Is.EqualTo("DH"));
+            Assert.That(unknown.Cards[0].MiniCard.PositionLabel, Is.EqualTo("지명타자"));
+            Assert.That(designated.Cards.Count, Is.EqualTo(2));
+            Assert.That(designated.Cards, Has.All.Matches<OwnerCollectionCardModel>(
+                card => card.MiniCard.PositionLabel == "지명타자"));
         }
 
         [Test]

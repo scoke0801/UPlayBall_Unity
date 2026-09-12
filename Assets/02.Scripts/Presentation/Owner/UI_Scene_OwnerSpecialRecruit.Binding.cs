@@ -117,7 +117,7 @@ namespace Baseball.Presentation.Owner
                 _materialButtons[i] = Button("ChooseMaterial", cell, "재료 선택", .04f, 0, .96f, 0, () => OpenPicker(slot));
                 ((RectTransform)_materialButtons[i].transform).offsetMax = new Vector2(0, 32);
             }
-            _status = Label("SelectionStatus", _content, "", 16, Ink, 0, 0, .55f, .10f, TextAnchor.MiddleLeft);
+            _status = Label("SelectionStatus", _content, "", 16, CareerUiTheme.ReferenceText, 0, 0, .55f, .10f, TextAnchor.MiddleLeft);
             _autoSelect = Button("AutoSelect", _content, "재료 자동 배치", .57f, .01f, .76f, .10f, AutoSelect);
             _confirm = Button("ConfirmRecruit", _content, "선수 영입", .78f, .01f, 1, .10f, ConfirmRecruit);
             OwnerUiButtonSkin.Apply(_confirm, OwnerButtonRole.Primary);
@@ -337,6 +337,7 @@ namespace Baseball.Presentation.Owner
             _pickerTitle = Label("Instruction", panel.Content, "", 17, Ink, 0, .84f, 1, 1, TextAnchor.MiddleLeft);
             var scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("Candidates", panel.Content, out _pickerRows);
             Place((RectTransform)scroll.transform, 0, .16f, 1, .82f);
+            OwnerDashboardStyle.SetDataSurface(scroll.GetComponent<Image>(), OwnerDashboardStyle.TableSurface, true);
             _pickerClear = Button("Clear", panel.Content, "등록 해제", 0, 0, .30f, .12f, () => ChooseMaterial(null));
             Button("Cancel", panel.Content, "돌아가기", .70f, 0, 1, .12f, ClosePicker);
             _picker.gameObject.SetActive(false);
@@ -380,6 +381,13 @@ namespace Baseball.Presentation.Owner
                 row.GetComponentInChildren<Text>().text = Describe(id) + " · " + state;
                 row.gameObject.SetActive(true);
                 row.interactable = available;
+                OwnerDashboardStyle.SetDataRow(row, _selectedMaterials[slot] == id,
+                    i % 2 == 0 ? OwnerDashboardStyle.TableSurface : OwnerDashboardStyle.TableAlternate);
+                Text label = row.GetComponentInChildren<Text>();
+                OwnerDashboardStyle.SetDataText(label);
+                label.alignment = TextAnchor.MiddleLeft;
+                label.rectTransform.offsetMin = new Vector2(16, 4);
+                label.rectTransform.offsetMax = new Vector2(-16, -4);
                 row.onClick.RemoveAllListeners();
                 row.onClick.AddListener(() => ChooseMaterial(id));
             }

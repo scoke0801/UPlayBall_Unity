@@ -6,7 +6,7 @@ namespace Baseball.Presentation.Owner
 {
     public sealed partial class UI_Scene_OwnerSpecialRecruit
     {
-        private static Color Ink => Baseball.Presentation.UI.CareerUiTheme.ReferenceText;
+        private static Color Ink => OwnerDashboardStyle.Ivory;
 
         private static RectTransform Rect(string name, Transform parent, float x0, float y0, float x1, float y1)
         {
@@ -31,6 +31,8 @@ namespace Baseball.Presentation.Owner
             float x0, float y0, float x1, float y1, TextAnchor alignment = TextAnchor.MiddleCenter)
         {
             Text text = OwnerRuntimeUiFactory.CreateText(name, parent, value, size, FontStyle.Normal, alignment, color);
+            OwnerDashboardStyle.SetDataText(text, size >= 18);
+            text.color = color;
             Place(text.rectTransform, x0, y0, x1, y1);
 
             return text;

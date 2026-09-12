@@ -49,6 +49,7 @@ namespace Baseball.Presentation.Shop
             Image surface = OwnerRuntimeUiFactory.CreateImage(
                 "Catalog", parent, new Color32(231, 233, 230, 255));
             RectTransform root = surface.rectTransform;
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext) UIOwnerFrontOfficePanel.Apply(root, "ManagerReport");
             VerticalLayoutGroup layout = OwnerWorkspaceUiFactory.AddVerticalLayout(root, CareerUiTheme.Space2);
             layout.padding = new RectOffset(10, 10, 10, 10);
             OwnerWorkspaceUiFactory.SetFlexible(root, 1.25f, 1f);
@@ -232,6 +233,7 @@ namespace Baseball.Presentation.Shop
             Image surface = OwnerRuntimeUiFactory.CreateImage(
                 "SelectedProduct", parent, new Color32(241, 242, 238, 255));
             _previewRoot = surface.rectTransform;
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext) UIOwnerFrontOfficePanel.Apply(_previewRoot, "ManagerReport");
             VerticalLayoutGroup layout = OwnerWorkspaceUiFactory.AddVerticalLayout(
                 _previewRoot, CareerUiTheme.Space2);
             layout.padding = new RectOffset(16, 16, 14, 14);
@@ -533,7 +535,9 @@ namespace Baseball.Presentation.Shop
                 _previewCount.text = tile.CountBadgeText;
                 _previewPrice.text = tile.PriceText;
                 _previewStatus.text = tile.CanPurchase ? "구매 가능" : tile.BlockedReason;
-                _previewStatus.color = tile.CanPurchase ? CareerUiTheme.ReferenceAccent : CareerUiTheme.Error;
+                _previewStatus.color = tile.CanPurchase
+                    ? UIOwnerFrontOfficePanel.HasDarkSurface(_previewRoot) ? OwnerDashboardStyle.Gold : CareerUiTheme.ReferenceAccent
+                    : CareerUiTheme.Error;
                 _selectedProductCanPurchase = tile.CanPurchase;
                 _previewDetailsButton.interactable = !_isProcessing;
                 _previewPurchaseButton.interactable = tile.CanPurchase && !_isProcessing;

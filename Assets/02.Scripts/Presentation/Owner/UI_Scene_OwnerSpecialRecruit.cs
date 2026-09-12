@@ -79,10 +79,11 @@ namespace Baseball.Presentation.Owner
 
         private void Build()
         {
-            Label("Title", _root, "특수 영입", 26, Ink, .02f, .95f, .33f, .998f, TextAnchor.MiddleLeft);
-            Label("Subtitle", _root, "", 15, Ink, .02f, .91f, .98f, .943f, TextAnchor.MiddleLeft);
+            // 패널 밖 문구는 밝은 공용 Workspace 위에 표시된다.
+            Label("Title", _root, "특수 영입", 26, CareerUiTheme.ReferenceText, .02f, .95f, .33f, .998f, TextAnchor.MiddleLeft);
+            Label("Subtitle", _root, "", 15, CareerUiTheme.ReferenceTextSecondary, .02f, .91f, .98f, .943f, TextAnchor.MiddleLeft);
             Label("Availability", _root, "최종 확인 후 재료 8장이 소모됩니다. 잠금·즐겨찾기·기용·위시·유학 중인 카드는 보호됩니다.",
-                13, Ink, .03f, .015f, .69f, .09f, TextAnchor.MiddleLeft);
+                13, CareerUiTheme.ReferenceTextSecondary, .03f, .015f, .69f, .09f, TextAnchor.MiddleLeft);
             Button("Help", _root, "?  영입 안내", .71f, .025f, .835f, .085f, ShowHelp);
             Button("Close", _root, "나가기", .85f, .025f, .97f, .085f, () => CloseRequested?.Invoke());
             BuildHelp();

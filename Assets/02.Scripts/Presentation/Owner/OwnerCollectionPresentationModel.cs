@@ -388,7 +388,7 @@ namespace Baseball.Presentation.Owner
         public static string FormatPosition(PlayerPosition position, bool isPositionEvidenceMissing = false)
         {
             if (isPositionEvidenceMissing && position <= PlayerPosition.DesignatedHitter)
-                return "포지션 미확인";
+                return "지명타자";
             return position switch
             {
                 PlayerPosition.Catcher => "포수",

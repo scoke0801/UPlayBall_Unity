@@ -112,10 +112,7 @@ namespace Baseball.Presentation.Owner
         private static void BuildDefenseDiagram(RectTransform parent, PlayerPosition position, bool isPositionEvidenceMissing)
         {
             if (isPositionEvidenceMissing)
-            {
-                Label(parent, "PositionUnknown", "포지션 미확인", 0, .4f, 1, .6f, 15, Gold);
-                return;
-            }
+                position = PlayerPosition.DesignatedHitter;
             Label(parent, "Heading", "수비 위치", 0, .88f, 1, 1, 15, Gold);
             RectTransform area = Surface(parent, "DefenseDiagram", Color.clear, .07f, .10f, .93f, .86f);
             RectTransform field = OwnerRuntimeUiFactory.CreateRect("Field", area);
