@@ -164,12 +164,16 @@ namespace Baseball.Editor.HistoricalDatabase
             }
             var entries = new List<BakedWorldHistoryEntry>(requests.Count);
             var writtenPaths = new List<string>(requests.Count);
+            bool autoRefreshDisabled = false;
             EditorApplication.LockReloadAssemblies();
             EditorApplication.quitting += CancelOnQuit;
             EditorApplication.playModeStateChanged += CancelOnPlayMode;
             if (background) EditorApplication.update += UpdateProgress;
             try
             {
+                // 비동기 베이크 중 Editor 업데이트가 산출물을 자동 임포트해 파일 교체와 경합하지 않게 한다.
+                AssetDatabase.DisallowAutoRefresh();
+                autoRefreshDisabled = true;
                 var loadTimer = Stopwatch.StartNew();
                 HistoricalBakedContent content = LoadVerifiedContent(definition);
                 // 지연 로딩된 JsonUtility 호출까지 모두 메인 스레드에서 끝낸다.
@@ -194,6 +198,8 @@ namespace Baseball.Editor.HistoricalDatabase
                 }
                 cancellation.Token.ThrowIfCancellationRequested();
                 var saveTimer = Stopwatch.StartNew();
+                AssetDatabase.AllowAutoRefresh();
+                autoRefreshDisabled = false;
                 AssetDatabase.Refresh();
                 for (int index = 0; index < writtenPaths.Count; index++)
                 {
@@ -213,6 +219,7 @@ namespace Baseball.Editor.HistoricalDatabase
             }
             finally
             {
+                if (autoRefreshDisabled) AssetDatabase.AllowAutoRefresh();
                 if (background) EditorApplication.update -= UpdateProgress;
                 EditorApplication.quitting -= CancelOnQuit;
                 EditorApplication.playModeStateChanged -= CancelOnPlayMode;

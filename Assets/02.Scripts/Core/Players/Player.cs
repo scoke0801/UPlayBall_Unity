@@ -32,7 +32,8 @@ namespace Baseball.Core.Players
             PitcherAttributes? permanentPitcherAttributes = null,
             bool hasResolvedMatchRatings = false,
             PitcherRatingValues? uncurvedPitcherAttributes = null,
-            bool isPositionEvidenceMissing = false)
+            bool isPositionEvidenceMissing = false,
+            Baseball.Core.Historical.CardTraitEffect cardTrait = default)
         {
             if (playerId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(playerId), "PlayerId는 양수여야 합니다.");
@@ -59,6 +60,7 @@ namespace Baseball.Core.Players
             _secondaryPositions = CopySecondaryPositions(secondaryPositions, primaryPosition);
             _pitchRepertoire = CopyPitchRepertoire(pitchRepertoire);
             _traitIds = CopyTraitIds(traitIds);
+            CardTrait = cardTrait;
         }
 
         public int PlayerId { get; }
@@ -78,6 +80,7 @@ namespace Baseball.Core.Players
         public bool HasResolvedMatchRatings { get; }
         public PitcherRatingValues UncurvedPitcherAttributes { get; }
         public IReadOnlyList<string> TraitIds => _traitIds;
+        public Baseball.Core.Historical.CardTraitEffect CardTrait { get; }
 
         public bool HasTrait(string traitId)
         {
@@ -109,7 +112,7 @@ namespace Baseball.Core.Players
                 PermanentPitcherAttributes,
                 HasResolvedMatchRatings,
                 UncurvedPitcherAttributes,
-                IsPositionEvidenceMissing);
+                IsPositionEvidenceMissing, CardTrait);
         }
 
         private static string[] CopyTraitIds(IReadOnlyList<string> source)

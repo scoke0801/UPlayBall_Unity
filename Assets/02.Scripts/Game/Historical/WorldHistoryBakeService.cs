@@ -130,13 +130,37 @@ namespace Baseball.Game.Historical
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 File.WriteAllBytes(temporary, bytes);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (File.Exists(path)) File.Replace(temporary, path, null);
-                else File.Move(temporary, path);
+                CommitTemporaryFile(temporary, path, cancellationToken);
             }
             finally
             {
                 if (File.Exists(temporary)) File.Delete(temporary);
+            }
+        }
+
+        private static void CommitTemporaryFile(string temporary, string path, CancellationToken cancellationToken)
+        {
+            // Unity 임포터나 파일 감시자가 잠깐 점유할 수 있다. 원본 삭제 없이 교체만 재시도한다.
+            // Mono는 교체 실패의 오류 코드를 세분하지 않을 수 있어 IOException 전체에 짧은 상한을 둔다.
+            const int maximumAttempts = 6;
+            for (int attempt = 0; attempt < maximumAttempts; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    if (File.Exists(path)) File.Replace(temporary, path, null);
+                    else File.Move(temporary, path);
+                    return;
+                }
+                catch (IOException exception)
+                {
+                    if (attempt == maximumAttempts - 1)
+                        throw new IOException($"역사 베이크 파일 교체에 실패했습니다: {Path.GetFullPath(path)}. " +
+                            "파일 점유 또는 쓰기 권한을 확인한 뒤 다시 실행하세요.", exception);
+
+                    if (cancellationToken.WaitHandle.WaitOne(100 * (attempt + 1)))
+                        cancellationToken.ThrowIfCancellationRequested();
+                }
             }
         }
     }
