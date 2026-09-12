@@ -46,7 +46,7 @@ namespace Baseball.Presentation.Owner
             RectTransform left = CreateTrainingColumn("TrainingTargets", .34f, "보유 선수");
             OwnerWorkspaceUiFactory.AddVerticalLayout(left, 8);
             BuildTrainingFilters(left);
-            _trainingCardCount = TrainingText(left, "TrainingCardCount", 28, 13);
+            BuildTrainingListToolbar(left);
             _trainingCardList = CreateGridScrollContent(left, 3, new Vector2(102, 153));
             StyleTrainingScroll(_trainingCardList);
             _trainingGrid = new CardGrid(_trainingCardList, SelectTrainingCard, null);
@@ -236,7 +236,8 @@ ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", 
             }
             _trainingDetails.text = target.Card.DisplayName + "\n" +
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(target.Card.Position,
-                    target.Card.PitcherRole, target.Card.IsPositionEvidenceMissing) + "  ·  코스트 " + target.Card.Cost;
+                    target.Card.PitcherRole, target.Card.IsPositionEvidenceMissing) + "  ·  코스트 " + target.Card.Cost
+                + (target.Card.IsActiveRoster ? "  ·  배치 중" : "  ·  미배치");
             var current = FindTrainingProgram(target, _selectedTrainingProgramId);
             _trainingExecuteButton.interactable = current != null && current.CanTrain;
             OwnerUiButtonSkin.Apply(_trainingExecuteButton, OwnerButtonRole.Primary);

@@ -327,10 +327,16 @@ namespace Baseball.Presentation.Owner
                 RefreshTrainingCards();
                 return;
             }
-            if (FindTrainingTarget(_selectedTrainingCardId) == null)
-                _selectedTrainingCardId = training.Cards[0].Card.CardId;
+            bool needsSelection = FindTrainingTarget(_selectedTrainingCardId) == null;
             _trainingCard.gameObject.SetActive(true);
             RefreshTrainingCards();
+            if (needsSelection)
+            {
+                _selectedTrainingCardId = _visibleTrainingCards.Count > 0
+                    ? _visibleTrainingCards[0].CardId : training.Cards[0].Card.CardId;
+                _trainingGrid.Select(_selectedTrainingCardId);
+                RefreshTrainingFilterSummary();
+            }
             RefreshTrainingTarget();
         }
 

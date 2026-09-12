@@ -16,6 +16,8 @@ namespace Baseball.Presentation.Owner
         private Dropdown _trainingPosition;
         private Dropdown _trainingSort;
         private Button _trainingReset;
+        private Button _trainingRosterPriority;
+        private bool _isTrainingRosterPriority = true;
         private Text _trainingEmpty;
         private Text _trainingSelectionHint;
         private OwnerCardTrainingScreenSnapshot _trainingFilterSource;
@@ -48,6 +50,7 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.Stretch(placeholder.rectTransform, new Vector2(12, 4), new Vector2(-12, -4));
             _trainingSearch.textComponent = value;
             _trainingSearch.placeholder = placeholder;
+            OwnerDashboardStyle.SetDataInput(_trainingSearch);
             _trainingSearch.onValueChanged.AddListener(_ => ChangeTrainingFilters());
             _trainingReset = OwnerWorkspaceUiFactory.CreateButton(searchRow, "ResetTrainingFilters", "초기화", ResetTrainingFilters);
             var resetSize = _trainingReset.GetComponent<LayoutElement>();
@@ -63,9 +66,49 @@ namespace Baseball.Presentation.Owner
             _trainingPosition = OwnerCardFilters.CreateDropdown(roleRow, "TrainingPositionFilter", labels, 0);
             _trainingSort = OwnerCardFilters.CreateDropdown(roleRow, "TrainingSort",
                 new List<string> { "코스트 높은 순", "코스트 낮은 순", "이름순", "최신 연도순" }, 0);
+            StyleTrainingDropdown(_trainingPosition);
+            StyleTrainingDropdown(_trainingSort);
             _trainingPosition.onValueChanged.AddListener(_ => ChangeTrainingFilters());
             _trainingSort.onValueChanged.AddListener(_ => ChangeTrainingFilters());
             _trainingOriginRow = CreateTrainingFilterRow(parent, "TrainingOriginFilters");
+        }
+
+        private void BuildTrainingListToolbar(RectTransform parent)
+        {
+            RectTransform row = CreateTrainingFilterRow(parent, "TrainingListToolbar");
+            row.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = false;
+            _trainingCardCount = TrainingText(row, "TrainingCardCount", 36, 12);
+            LayoutElement countSize = _trainingCardCount.GetComponent<LayoutElement>();
+            countSize.minWidth = 100;
+            countSize.flexibleWidth = 1;
+            _trainingRosterPriority = OwnerWorkspaceUiFactory.CreateButton(row,
+                "TrainingRosterPriority", "배치 우선 켜짐", ToggleTrainingRosterPriority);
+            LayoutElement buttonSize = _trainingRosterPriority.GetComponent<LayoutElement>();
+            buttonSize.minWidth = buttonSize.preferredWidth = 112;
+            buttonSize.flexibleWidth = 0;
+            SetPreferred(_trainingRosterPriority.GetComponent<RectTransform>(), 36);
+            _trainingRosterPriority.transform.Find("Label").GetComponent<Text>().fontSize = 12;
+            OwnerUiButtonSkin.SetBoardStyle(_trainingRosterPriority);
+            RefreshTrainingRosterPriority();
+        }
+
+        private void ToggleTrainingRosterPriority()
+        {
+            _isTrainingRosterPriority = !_isTrainingRosterPriority;
+            ChangeTrainingFilters();
+        }
+
+        private void RefreshTrainingRosterPriority()
+        {
+            _trainingRosterPriority.transform.Find("Label").GetComponent<Text>().text =
+                _isTrainingRosterPriority ? "배치 우선 켜짐" : "배치 우선 꺼짐";
+            OwnerUiButtonSkin.SetSelected(_trainingRosterPriority, _isTrainingRosterPriority);
+        }
+
+        private static void StyleTrainingDropdown(Dropdown dropdown)
+        {
+            OwnerDashboardStyle.SetDataDropdown(dropdown);
+            OwnerDashboardStyle.SetDataText(dropdown.transform.Find("DropdownArrow").GetComponent<Text>());
         }
 
         private static RectTransform CreateTrainingFilterRow(Transform parent, string name)
@@ -96,6 +139,8 @@ namespace Baseball.Presentation.Owner
             var cards = new List<OwnerCollectionCardSnapshot>(screen.Cards.Count);
             foreach (OwnerCardTrainingTargetSnapshot target in screen.Cards) cards.Add(target.Card);
             _trainingOrigins.Build(_trainingOriginRow, cards, ChangeTrainingFilters);
+            foreach (Dropdown dropdown in _trainingOriginRow.GetComponentsInChildren<Dropdown>())
+                StyleTrainingDropdown(dropdown);
         }
 
         private void ChangeTrainingFilters()
@@ -112,6 +157,7 @@ namespace Baseball.Presentation.Owner
             _trainingSearch.SetTextWithoutNotify(string.Empty);
             _trainingPosition.SetValueWithoutNotify(0);
             _trainingSort.SetValueWithoutNotify(0);
+            _isTrainingRosterPriority = true;
             _trainingOrigins.Reset();
             foreach (Dropdown dropdown in _trainingOriginRow.GetComponentsInChildren<Dropdown>())
                 dropdown.SetValueWithoutNotify(0);
@@ -139,10 +185,12 @@ namespace Baseball.Presentation.Owner
             _trainingEmpty.text = screen.State == OwnerPowerUpContentState.Ready
                 ? (query.Length == 0 ? "조건에 맞는 선수가 없습니다." : $"‘{query}’ 검색 결과가 없습니다.") + "\n상단의 초기화로 전체 선수를 확인하세요."
                 : screen.State == OwnerPowerUpContentState.Empty ? "아직 보유 선수가 없습니다.\n스카우트에서 선수를 영입하세요." : screen.ErrorMessage;
-            bool hasFilter = query.Length > 0 || _trainingPosition.value != 0 || _trainingSort.value != 0;
+            bool hasFilter = query.Length > 0 || _trainingPosition.value != 0 || _trainingSort.value != 0
+                || !_isTrainingRosterPriority;
             foreach (Dropdown dropdown in _trainingOriginRow.GetComponentsInChildren<Dropdown>()) hasFilter |= dropdown.value != 0;
             _trainingReset.interactable = hasFilter;
             OwnerUiButtonSkin.Apply(_trainingReset);
+            RefreshTrainingRosterPriority();
             RefreshTrainingFilterSummary();
         }
 
@@ -158,6 +206,9 @@ namespace Baseball.Presentation.Owner
 
         private int CompareTrainingCards(OwnerCollectionCardSnapshot left, OwnerCollectionCardSnapshot right)
         {
+            // 배치 그룹 안에서도 사용자가 고른 정렬을 유지한다. 상세 조회는 필요하지 않다.
+            if (_isTrainingRosterPriority && left.IsActiveRoster != right.IsActiveRoster)
+                return left.IsActiveRoster ? -1 : 1;
             int comparison;
             switch (_trainingSort.value)
             {
