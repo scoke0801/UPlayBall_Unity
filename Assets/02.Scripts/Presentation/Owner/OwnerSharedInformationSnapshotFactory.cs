@@ -20,15 +20,18 @@ namespace Baseball.Presentation.Owner
                 liveSeason,
                 OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
                 teamSeasonKey => manager.GetClubDisplayName(teamSeasonKey),
-                teamSeasonKey => manager.GetTeamOriginYear(teamSeasonKey));
+                teamSeasonKey => manager.GetTeamOriginYear(teamSeasonKey),
+                manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey));
         }
 
         /// <summary>Owner 일정 원본과 이름 Resolver를 날짜 없는 공용 Round Snapshot으로 복사한다.</summary>
+        /// <param name="focusEmblemTeamName">구단주가 바꾼 이름 대신 내 구단 엠블렘을 찾을 원본 구단명.</param>
         public ScheduleScreenSnapshot CreateSchedule(
             ManagerLiveSeasonState liveSeason,
             string leagueLabel,
             Func<string, string> teamDisplayNameResolver,
-            Func<string, int?> teamOriginYearResolver = null)
+            Func<string, int?> teamOriginYearResolver = null,
+            string focusEmblemTeamName = null)
         {
             if (liveSeason == null)
                 throw new ArgumentNullException(nameof(liveSeason));
@@ -57,7 +60,8 @@ namespace Baseball.Presentation.Owner
                             teamDisplayNameResolver,
                             teamOriginYearResolver,
                             teamDisplayNames),
-                        "TeamEmblem/" + game.AwayTeamId.ToString(CultureInfo.InvariantCulture)),
+                        "TeamEmblem/" + game.AwayTeamId.ToString(CultureInfo.InvariantCulture),
+                        emblemTeamName: ResolveEmblemTeamName(awayKey, focusTeamKey, focusEmblemTeamName)),
                     new ScheduleTeamSnapshot(
                         homeKey,
                         FormatLeagueTeamDisplayName(
@@ -66,7 +70,8 @@ namespace Baseball.Presentation.Owner
                             teamDisplayNameResolver,
                             teamOriginYearResolver,
                             teamDisplayNames),
-                        "TeamEmblem/" + game.HomeTeamId.ToString(CultureInfo.InvariantCulture)),
+                        "TeamEmblem/" + game.HomeTeamId.ToString(CultureInfo.InvariantCulture),
+                        emblemTeamName: ResolveEmblemTeamName(homeKey, focusTeamKey, focusEmblemTeamName)),
                     game.IsCompleted,
                     game.AwayRuns,
                     game.HomeRuns,
@@ -80,6 +85,11 @@ namespace Baseball.Presentation.Owner
                 (liveSeason.CurrentWeekIndex + 1).ToString(CultureInfo.InvariantCulture) + "주차",
                 liveSeason.GetTeamSeasonKey(liveSeason.PlayerTeamId),
                 games);
+        }
+
+        private static string ResolveEmblemTeamName(string teamSeasonKey, string focusTeamSeasonKey, string focusEmblemTeamName)
+        {
+            return string.Equals(teamSeasonKey, focusTeamSeasonKey, StringComparison.Ordinal) ? focusEmblemTeamName : null;
         }
 
         private static string FormatLeagueTeamDisplayName(

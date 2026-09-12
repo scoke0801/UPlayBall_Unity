@@ -57,31 +57,37 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Standings_내구단행에만구단주명을표시한다()
+        public void Standings_내구단행은구단명만표시한다()
         {
             var root = new GameObject("OwnerLeagueOwnerNameTests_Root", typeof(RectTransform));
             try
             {
-                var schedule = new ScheduleScreenSnapshot(
-                    "2028 시즌",
-                    "루키",
-                    "1주차",
-                    "a",
-                    new[] { Game("1", 1, "a", "b", 5, 2) });
                 UI_Scene_OwnerLeague view = UI_Scene_OwnerLeague.CreateRuntime(
                     root.GetComponent<RectTransform>());
-                view.Bind(new OwnerLeaguePresentationModel(schedule, "승리요정"));
+                view.Bind(Build(Game("1", 1, "a", "b", 5, 2)));
                 view.ShowTab(0);
 
                 string focusName = view.transform.Find("LeagueTable/Team_0/Cell_1").GetComponent<Text>().text;
                 string rivalName = view.transform.Find("LeagueTable/Team_1/Cell_1").GetComponent<Text>().text;
-                Assert.That(focusName, Is.EqualTo("a 구단 · 구단주 승리요정"));
+                Assert.That(focusName, Is.EqualTo("a 구단"));
                 Assert.That(rivalName, Is.EqualTo("b 구단"));
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(root);
             }
+        }
+
+        [Test]
+        public void EmblemTeamName_이름을바꾼내구단은원본구단명으로엠블렘을찾는다()
+        {
+            var renamed = new ScheduleTeamSnapshot("a", "헬비", "TeamEmblem/1", emblemTeamName: "광주 피닉스");
+            var model = new OwnerLeaguePresentationModel(new ScheduleScreenSnapshot("2028 시즌", "루키", "1주차", "a",
+                new[] { new ScheduleGameSnapshot("1", 1, "1R", renamed, new ScheduleTeamSnapshot("b", "b 구단"),
+                    false, 0, 0, ScheduleFocusSide.None) }));
+
+            Assert.That(model.Standings.Single(team => team.Id == "a").EmblemTeamName, Is.EqualTo("광주 피닉스"));
+            Assert.That(model.Standings.Single(team => team.Id == "b").EmblemTeamName, Is.EqualTo("b 구단"));
         }
 
         [Test]
@@ -173,7 +179,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         [TestCase(1920, 1080)]
         [TestCase(2560, 1440)]
         [TestCase(3440, 1440)]
-        public void Visual_최대길이구단주명이있는순위표를출력한다(int width, int height)
+        public void Visual_순위표를출력한다(int width, int height)
         {
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
                 Assert.Ignore("그래픽 장치가 필요합니다.");
@@ -216,7 +222,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     games);
                 UI_Scene_OwnerLeague view = UI_Scene_OwnerLeague.CreateRuntime(
                     root.GetComponent<RectTransform>());
-                view.Bind(new OwnerLeaguePresentationModel(schedule, "가나다라마바사아자차카타"));
+                view.Bind(new OwnerLeaguePresentationModel(schedule));
                 view.ShowTab(0);
                 Canvas.ForceUpdateCanvases();
                 LayoutRebuilder.ForceRebuildLayoutImmediate(root.GetComponent<RectTransform>());

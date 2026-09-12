@@ -62,7 +62,7 @@ namespace Baseball.Presentation.Owner
             RectTransform emblemBox = Surface(card, "EmblemBox", new Color32(239, 241, 243, 255), .018f, .08f, .27f, .92f, true);
             Image emblem = OwnerRuntimeUiFactory.CreateImage("Emblem", emblemBox, Color.white);
             Place(emblem.rectTransform, .08f, .08f, .92f, .92f);
-            TeamEmblemSprites.TryApply(emblem, 0, _model.TeamName);
+            TeamEmblemSprites.TryApply(emblem, 0, _model.EmblemTeamName);
             Label(card, "NameCaption", "구 단 명", .31f, .56f, .47f, .86f, 15, Lime, TextAnchor.MiddleLeft, FontStyle.Bold);
             Label(card, "TeamName", _model.TeamName, .47f, .56f, .96f, .86f, 22, White, TextAnchor.MiddleLeft, FontStyle.Bold);
             Surface(card, "Divider", new Color32(58, 61, 66, 255), .3f, .49f, .98f, .505f);

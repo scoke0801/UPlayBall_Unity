@@ -32,7 +32,8 @@ namespace Baseball.Presentation.SharedScreens
         /// <summary>
         /// 구단 ID, 표시 이름, Emblem과 제한적인 Accent 정보를 만든다.
         /// </summary>
-        public ScheduleTeamSnapshot(string teamId, string displayName, string emblemAssetKey = null, string accentHex = null)
+        public ScheduleTeamSnapshot(string teamId, string displayName, string emblemAssetKey = null, string accentHex = null,
+            string emblemTeamName = null)
         {
             if (string.IsNullOrWhiteSpace(teamId))
                 throw new ArgumentException("일정 구단 ID는 비어 있을 수 없습니다.", nameof(teamId));
@@ -43,11 +44,15 @@ namespace Baseball.Presentation.SharedScreens
             DisplayName = displayName;
             EmblemAssetKey = emblemAssetKey ?? string.Empty;
             AccentHex = accentHex ?? string.Empty;
+            EmblemTeamName = string.IsNullOrWhiteSpace(emblemTeamName) ? displayName : emblemTeamName.Trim();
         }
 
         public string TeamId { get; }
         public string DisplayName { get; }
         public string EmblemAssetKey { get; }
+
+        /// <summary>엠블렘 조회용 원본 구단명이다. 구단주가 이름을 바꾼 내 구단도 고른 구단의 엠블렘을 찾는다.</summary>
+        public string EmblemTeamName { get; }
         public string AccentHex { get; }
     }
 

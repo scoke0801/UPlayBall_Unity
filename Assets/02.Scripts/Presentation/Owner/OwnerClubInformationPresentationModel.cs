@@ -13,7 +13,9 @@ namespace Baseball.Presentation.Owner
             OwnerClubOperationSnapshot operation,
             ScheduleScreenSnapshot schedule,
             string ownerName = "구단주",
-            string frontManagerId = "FRONT_MANAGER_DEFAULT_01")
+            string frontManagerId = "FRONT_MANAGER_DEFAULT_01",
+            string sourceTeamName = null,
+            string region = null)
         {
             if (home == null) throw new ArgumentNullException(nameof(home));
             if (collection == null) throw new ArgumentNullException(nameof(collection));
@@ -22,7 +24,9 @@ namespace Baseball.Presentation.Owner
 
             TeamName = home.TeamName;
             LeagueLabel = string.Concat(schedule.SeasonLabel, " · ", schedule.LeagueLabel);
-            LocationLabel = "가상 프로야구 리그";
+            // 구단주가 붙인 구단명은 엠블렘 카탈로그에 없으므로 선택한 원본 구단명으로 엠블렘을 찾는다.
+            EmblemTeamName = string.IsNullOrWhiteSpace(sourceTeamName) ? home.TeamName : sourceTeamName.Trim();
+            LocationLabel = string.IsNullOrWhiteSpace(region) ? "—" : region.Trim();
             OwnerName = string.IsNullOrWhiteSpace(ownerName) ? "구단주" : ownerName.Trim();
             FrontManagerId = frontManagerId ?? string.Empty;
             OwnedPlayerCount = collection.Cards.Count;
@@ -67,6 +71,7 @@ namespace Baseball.Presentation.Owner
 
         public string TeamName { get; }
         public string LeagueLabel { get; }
+        public string EmblemTeamName { get; }
         public string LocationLabel { get; }
         public string OwnerName { get; }
         public string FrontManagerId { get; }

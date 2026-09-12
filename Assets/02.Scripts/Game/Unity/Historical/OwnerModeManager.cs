@@ -1418,6 +1418,15 @@ namespace Baseball.Game.Historical
                     team.FranchiseId);
         }
 
+        /// <summary>선택한 원본 구단의 실제 계보 연고지를 반환한다. 합성 참가팀처럼 연고지가 없으면 false다.</summary>
+        public bool TryGetTeamRegion(string teamSeasonKey, out string region)
+        {
+            region = string.Empty;
+            HistoricalBakedContent content = _contentProvider.Load();
+            return content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team) &&
+                content.IdentityNameCatalog.TryGetFranchiseRegion(team.FranchiseId, out region);
+        }
+
         /// <summary>현재 진행의 내 구단명과 연도가 붙은 상대 구단명을 경기·운영 화면에 제공한다.</summary>
         public string GetClubDisplayName(string teamSeasonKey)
         {
@@ -1439,6 +1448,8 @@ namespace Baseball.Game.Historical
                     out int compositeOriginYear,
                     out _))
                 return compositeOriginYear;
+            if (LeagueFillerTeamKey.TryParse(teamSeasonKey, out LeagueFillerDeckType deck, out string source))
+                return deck == LeagueFillerDeckType.YearTeam ? GetTeamOriginYear(source) : null;
 
             HistoricalBakedContent content = _contentProvider.Load();
             return content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team)
@@ -1448,8 +1459,6 @@ namespace Baseball.Game.Historical
 
         public string GetTacticDisplayName(string tacticCardId)
         {
-            if (LeagueFillerTeamKey.TryParse(teamSeasonKey, out LeagueFillerDeckType deck, out string source))
-                return deck == LeagueFillerDeckType.YearTeam ? GetTeamOriginYear(source) : null;
             for (int index = 0; index < _tacticCards.Length; index++)
                 if (string.Equals(_tacticCards[index].CardId, tacticCardId, StringComparison.Ordinal))
                     return _tacticCards[index].Name;

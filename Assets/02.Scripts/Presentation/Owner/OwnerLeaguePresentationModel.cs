@@ -16,6 +16,7 @@ namespace Baseball.Presentation.Owner
             public string Id { get; internal set; }
             public string Name { get; internal set; }
             public int EmblemId { get; internal set; }
+            public string EmblemTeamName { get; internal set; }
             public int Rank { get; internal set; }
             public int Wins { get; internal set; }
             public int Losses { get; internal set; }
@@ -47,15 +48,13 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<TeamRecord> Standings => _standings;
         public IReadOnlyList<int> Rounds => _rounds;
         public string FocusTeamId { get; }
-        public string FocusOwnerName { get; }
         public string SeasonLabel { get; }
 
         /// <summary>입력 순서와 무관하게 라운드 단위로 집계하고 미완료 경기는 제외한다.</summary>
-        public OwnerLeaguePresentationModel(ScheduleScreenSnapshot snapshot, string focusOwnerName = null)
+        public OwnerLeaguePresentationModel(ScheduleScreenSnapshot snapshot)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             FocusTeamId = snapshot.FocusTeamId;
-            FocusOwnerName = string.IsNullOrWhiteSpace(focusOwnerName) ? string.Empty : focusOwnerName.Trim();
             SeasonLabel = snapshot.SeasonLabel + " · " + snapshot.LeagueLabel;
             var games = new List<ScheduleGameSnapshot>();
             foreach (var game in snapshot.Games)
@@ -96,7 +95,8 @@ namespace Baseball.Presentation.Owner
             {
                 Id = source.TeamId,
                 Name = source.DisplayName,
-                EmblemId = ParseEmblemId(source.EmblemAssetKey)
+                EmblemId = ParseEmblemId(source.EmblemAssetKey),
+                EmblemTeamName = source.EmblemTeamName
             };
             _teams.Add(team.Id, team);
             _standings.Add(team);
