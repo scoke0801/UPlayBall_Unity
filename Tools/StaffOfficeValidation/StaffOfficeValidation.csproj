@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../HeadlessRegression/Baseball.Simulation.Headless.csproj" />
+    <Compile Include="../../Assets/02.Scripts/Presentation/Owner/OwnerStaffOfficePresentationModel.cs" />
+    <Compile Include="../../Assets/02.Scripts/Presentation/Owner/OwnerMoneyFormatter.cs" />
+    <Compile Include="../../Assets/02.Scripts/Presentation/SharedUI/Models/UiContentStateModel.cs" />
+  </ItemGroup>
+</Project>

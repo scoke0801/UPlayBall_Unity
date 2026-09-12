@@ -454,7 +454,8 @@ namespace Baseball.Game.Historical
             throw new InvalidOperationException("현재 시장에 없는 Staff Offer입니다.");
         }
 
-        public StaffSigningResult PreviewStaffSigning(StaffMarketOffer offer)
+        /// <summary>저장 상태를 변경하지 않고 지정 예산 또는 실제 보유금으로 계약 조건을 검토한다.</summary>
+        public StaffSigningResult PreviewStaffSigning(StaffMarketOffer offer, long? availableMoney = null)
         {
             if (offer == null) throw new ArgumentNullException(nameof(offer));
             ManagerHistoricalRuntimeState runtime = RequireRuntime();
@@ -470,7 +471,7 @@ namespace Baseball.Game.Historical
                     $"preview-staff:{contractId}",
                     runtime.PlayerTeamSeasonKey,
                     runtime.ManagerMode.LiveSeason.SeasonNumber,
-                    runtime.Economy.Money),
+                    availableMoney ?? runtime.Economy.Money),
                 offer,
                 runtime.ManagerMode.StaffCatalog,
                 runtime.ManagerMode.StaffContracts,

@@ -795,12 +795,15 @@ namespace Baseball.Presentation.Owner
             {
                 StaffMarketOffer offer = offers[index];
                 StaffSigningResult signing = manager.PreviewStaffSigning(offer);
-                TeamStaffEffectProfile effects = manager.PreviewStaffEffects(signing);
+                // 자금 부족이어도 서비스가 계산한 교체 비용과 영입 후 효과를 비교할 수 있다.
+                StaffSigningResult proposal = signing.IsSuccess ? signing : manager.PreviewStaffSigning(offer, long.MaxValue);
+                TeamStaffEffectProfile effects = manager.PreviewStaffEffects(proposal);
                 snapshots[index] = new OwnerStaffMarketOfferSnapshot(
                     offer,
                     signing.IsSuccess,
                     signing.IsSuccess ? string.Empty : FormatStaffStatus(signing.Status),
-                    FormatStaffEffect(mode.StaffCatalog.Get(offer.StaffId).Role, effects));
+                    proposal.IsSuccess ? FormatStaffEffect(mode.StaffCatalog.Get(offer.StaffId).Role, effects) : "예상 효과 확인 불가",
+                    immediateCost: proposal.IsSuccess ? proposal.MoneyCommand?.Amount ?? 0L : (long?)null);
             }
             return new OwnerStaffOfficeSnapshot(
                 UiContentStateModel.Ready,

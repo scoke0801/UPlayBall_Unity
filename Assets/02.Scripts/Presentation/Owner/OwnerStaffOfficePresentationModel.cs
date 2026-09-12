@@ -13,7 +13,8 @@ namespace Baseball.Presentation.Owner
             bool canSign,
             string disabledReason,
             string effectPreview,
-            string portraitAssetKey = null)
+            string portraitAssetKey = null,
+            long? immediateCost = null)
         {
             Offer = offer ?? throw new ArgumentNullException(nameof(offer));
             if (!canSign && string.IsNullOrWhiteSpace(disabledReason))
@@ -22,9 +23,11 @@ namespace Baseball.Presentation.Owner
             DisabledReason = disabledReason ?? string.Empty;
             EffectPreview = effectPreview ?? string.Empty;
             PortraitAssetKey = portraitAssetKey ?? string.Empty;
+            ImmediateCost = immediateCost;
         }
 
         public StaffMarketOffer Offer { get; }
+        public long? ImmediateCost { get; }
         public bool CanSign { get; }
         public string DisabledReason { get; }
         public string EffectPreview { get; }
@@ -205,6 +208,32 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<OwnerStaffSlotModel> Slots { get; }
         public IReadOnlyList<OwnerStaffMarketOfferModel> Offers { get; }
 
+        /// <summary>후보와 같은 역할의 현재 담당자를 안정된 Staff ID로 찾는다.</summary>
+        public OwnerStaffSlotModel GetCurrentSlot(OwnerStaffMarketOfferModel offer)
+        {
+            if (offer == null || Snapshot.Catalog == null) return null;
+            StaffRole role = Snapshot.Catalog.Get(offer.StaffId).Role;
+            for (int index = 0; index < Slots.Count; index++)
+                if (Slots[index].Role == role) return Slots[index];
+            return null;
+        }
+
+        /// <summary>현재 팀 활성 계약의 연봉만 합산해 운영 부담을 표시한다.</summary>
+        public string GetSummary()
+        {
+            int assigned = 0;
+            long salary = 0;
+            for (int index = 0; index < Slots.Count; index++)
+                if (!Slots[index].IsVacant) assigned++;
+            for (int index = 0; index < Snapshot.Contracts.Count; index++)
+            {
+                StaffContractState contract = Snapshot.Contracts[index];
+                if (contract.IsActive && contract.TeamSeasonKey == Snapshot.Assignment?.TeamSeasonKey)
+                    salary = checked(salary + contract.AnnualSalary);
+            }
+            return $"배치 {assigned}/{Slots.Count}명  ·  공석 {Slots.Count - assigned}자리\n스태프 연봉 합계 {OwnerMoneyFormatter.Format(salary)}";
+        }
+
         private static T[] Copy<T>(IReadOnlyList<T> source)
         {
             var result = new T[source?.Count ?? 0];
@@ -250,12 +279,21 @@ namespace Baseball.Presentation.Owner
                     string.IsNullOrWhiteSpace(source.EffectPreview) ? "예상 효과 확인 필요" : source.EffectPreview,
                     $"연봉 {OwnerMoneyFormatter.Format(source.Offer.AnnualSalary)}",
                     $"{source.Offer.ContractYears}시즌 계약",
-                    $"계약 비용 {OwnerMoneyFormatter.Format(source.Offer.SigningCost)}",
+                    FormatSigningCost(source),
                     source.PortraitAssetKey,
                     source.CanSign,
                     source.DisabledReason);
             }
             return new OwnerStaffOfficePresentationModel(snapshot, slots, offers);
+        }
+
+        private static string FormatSigningCost(OwnerStaffMarketOfferSnapshot source)
+        {
+            string signing = $"계약금 {OwnerMoneyFormatter.Format(source.Offer.SigningCost)}";
+            if (!source.ImmediateCost.HasValue) return signing + "\n즉시 지출은 계약 검토 시 확인";
+            long penalty = Math.Max(0L, source.ImmediateCost.Value - source.Offer.SigningCost);
+            return signing + $"\n교체 위약금 {OwnerMoneyFormatter.Format(penalty)}" +
+                $"\n즉시 지출 {OwnerMoneyFormatter.Format(source.ImmediateCost.Value)}";
         }
 
         private static OwnerStaffSlotModel CreateVacantSlot(StaffRole role)
