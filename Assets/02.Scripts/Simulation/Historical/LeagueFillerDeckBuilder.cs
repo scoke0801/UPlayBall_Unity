@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Growth;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
@@ -34,6 +35,34 @@ namespace Baseball.Simulation.Historical
             ActiveRosterRole.StartingPitcher3,
             ActiveRosterRole.StartingPitcher4,
             ActiveRosterRole.StartingPitcher5,
+            ActiveRosterRole.Bullpen1,
+            ActiveRosterRole.Bullpen2,
+            ActiveRosterRole.Bullpen3,
+            ActiveRosterRole.Bullpen4
+        };
+
+        /// <summary>
+        /// 역할 재배치 순서다. 선발 라인업과 로테이션을 먼저 확정해야 강한 선발 투수가 마무리·셋업 자리로 밀리지 않는다.
+        /// 선수를 고르는 순서(RoleOrder)와 달리 여기서는 이미 고른 25명의 배치만 정한다.
+        /// </summary>
+        private static readonly ActiveRosterRole[] NormalizeOrder =
+        {
+            ActiveRosterRole.StartingCatcher,
+            ActiveRosterRole.StartingShortstop,
+            ActiveRosterRole.StartingSecondBase,
+            ActiveRosterRole.StartingCenterField,
+            ActiveRosterRole.StartingThirdBase,
+            ActiveRosterRole.StartingRightField,
+            ActiveRosterRole.StartingLeftField,
+            ActiveRosterRole.StartingFirstBase,
+            ActiveRosterRole.StartingPitcher1,
+            ActiveRosterRole.StartingPitcher2,
+            ActiveRosterRole.StartingPitcher3,
+            ActiveRosterRole.StartingPitcher4,
+            ActiveRosterRole.StartingPitcher5,
+            ActiveRosterRole.StartingDesignatedHitter,
+            ActiveRosterRole.Closer,
+            ActiveRosterRole.Setup,
             ActiveRosterRole.Bullpen1,
             ActiveRosterRole.Bullpen2,
             ActiveRosterRole.Bullpen3,
@@ -201,7 +230,7 @@ namespace Baseball.Simulation.Historical
             var pool = new List<Candidate>(picks.Count);
             foreach (Pick pick in picks) pool.Add(pick.Candidate);
             var result = new List<Pick>(picks.Count);
-            foreach (ActiveRosterRole role in RoleOrder) result.Add(new Pick(role, TakeBestForRole(pool, role)));
+            foreach (ActiveRosterRole role in NormalizeOrder) result.Add(new Pick(role, TakeBestForRole(pool, role)));
             for (int index = 0; index < ActiveRosterCompositionRule.BenchHitterCount; index++)
                 result.Add(new Pick(ActiveRosterRole.BenchHitter, TakeBestForRole(pool, ActiveRosterRole.BenchHitter)));
             return result;
@@ -231,9 +260,20 @@ namespace Baseball.Simulation.Historical
         private static bool IsStrongerForRole(Candidate candidate, Candidate best)
         {
             int costOrder = candidate.Season.Cost.CompareTo(best.Season.Cost);
-            return costOrder != 0
-                ? costOrder > 0
+            if (costOrder != 0) return costOrder > 0;
+            // Cost가 같으면 능력치 보정이 붙은 카드가 실제로 더 강하다. 레전드가 같은 Cost의 Normal에 밀리지 않게 한다.
+            int modifierOrder = GetModifierTotal(candidate).CompareTo(GetModifierTotal(best));
+            return modifierOrder != 0
+                ? modifierOrder > 0
                 : string.CompareOrdinal(candidate.Card.CardId, best.Card.CardId) < 0;
+        }
+
+        private static int GetModifierTotal(Candidate candidate)
+        {
+            int total = 0;
+            for (int ability = 0; ability < PlayerAbilityCatalog.AbilityCount; ability++)
+                total += candidate.Card.GetModifier((PlayerAbility)ability);
+            return total;
         }
 
         /// <summary>목표 상한 이하의 연도 구단 중 하나를 고른다. 없으면 가장 약한 연도 구단을 쓴다.</summary>
@@ -356,9 +396,14 @@ namespace Baseball.Simulation.Historical
         private static int GetEligibleFit(PlayerSeasonDefinition season, ActiveRosterRole role)
         {
             if (!SpecialCompositeTeamBuilder.CanFillRole(season, role)) return -1;
+            // 지명타자는 수비를 보지 않으므로 전업 DH 우대 없이 남은 타자 중 가장 좋은 타자를 세운다.
+            if (role == ActiveRosterRole.StartingDesignatedHitter) return 1;
             int fit = SpecialCompositeTeamBuilder.GetRoleFit(season, role);
-            bool isFieldingStarter = ActiveRosterCompositionRule.Standard.IsStartingHitterRole(role) &&
-                                     role != ActiveRosterRole.StartingDesignatedHitter;
+            // 공용 적합도는 불펜 슬롯에만 구원투수 가산점을 준다. 마무리·셋업도 구원 보직이므로 같게 본다.
+            if (fit == 0 && (role == ActiveRosterRole.Setup || role == ActiveRosterRole.Closer) &&
+                season.Position == PlayerPosition.ReliefPitcher)
+                fit = 1;
+            bool isFieldingStarter = ActiveRosterCompositionRule.Standard.IsStartingHitterRole(role);
             return isFieldingStarter && fit == 0 ? -1 : fit;
         }
 

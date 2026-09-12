@@ -32,13 +32,13 @@
       { "leagueGrade": 0, "promotionLastRank": 6, "promotionTarget": 1, "relegationFirstRank": 0, "relegationTarget": -1, "fillerDeck": "YearTeam" },
       { "leagueGrade": 1, "promotionLastRank": 6, "promotionTarget": 2, "relegationFirstRank": 9, "relegationTarget": 0, "fillerDeck": "YearTeam" },
       { "leagueGrade": 2, "promotionLastRank": 6, "promotionTarget": 3, "relegationFirstRank": 9, "relegationTarget": 1, "fillerDeck": "YearTeam" },
-      { "leagueGrade": 3, "promotionLastRank": 4, "promotionTarget": 4, "relegationFirstRank": 9, "relegationTarget": 2, "fillerDeck": "Ex", "fillerTargetCost": 5.80 },
-      { "leagueGrade": 4, "promotionLastRank": 4, "promotionTarget": 5, "relegationFirstRank": 8, "relegationTarget": 3, "fillerDeck": "Ex", "fillerTargetCost": 5.95 },
-      { "leagueGrade": 5, "promotionLastRank": 4, "promotionTarget": 6, "relegationFirstRank": 7, "relegationTarget": 4, "fillerDeck": "AllStar", "fillerTargetCost": 6.40 },
-      { "leagueGrade": 6, "promotionLastRank": 4, "promotionTarget": 7, "relegationFirstRank": 7, "relegationTarget": 5, "fillerDeck": "AllStar", "fillerTargetCost": 6.65 },
-      { "leagueGrade": 7, "promotionLastRank": 4, "promotionTarget": 8, "relegationFirstRank": 7, "relegationTarget": 6, "fillerDeck": "Mvp", "fillerTargetCost": 6.85 },
-      { "leagueGrade": 8, "promotionLastRank": 4, "promotionTarget": 9, "relegationFirstRank": 9, "relegationTarget": 7, "fillerDeck": "CareerHigh", "fillerTargetCost": 7.05 },
-      { "leagueGrade": 9, "promotionLastRank": 0, "promotionTarget": -1, "relegationFirstRank": 7, "relegationTarget": 8, "fillerDeck": "Legend", "fillerTargetCost": 7.70 }
+      { "leagueGrade": 3, "promotionLastRank": 4, "promotionTarget": 4, "relegationFirstRank": 9, "relegationTarget": 2, "fillerDeck": "Ex", "fillerTargetCost": 5.70 },
+      { "leagueGrade": 4, "promotionLastRank": 4, "promotionTarget": 5, "relegationFirstRank": 8, "relegationTarget": 3, "fillerDeck": "Ex", "fillerTargetCost": 5.75 },
+      { "leagueGrade": 5, "promotionLastRank": 4, "promotionTarget": 6, "relegationFirstRank": 7, "relegationTarget": 4, "fillerDeck": "AllStar", "fillerTargetCost": 5.85 },
+      { "leagueGrade": 6, "promotionLastRank": 4, "promotionTarget": 7, "relegationFirstRank": 7, "relegationTarget": 5, "fillerDeck": "AllStar", "fillerTargetCost": 6.10 },
+      { "leagueGrade": 7, "promotionLastRank": 4, "promotionTarget": 8, "relegationFirstRank": 7, "relegationTarget": 6, "fillerDeck": "Mvp", "fillerTargetCost": 6.20 },
+      { "leagueGrade": 8, "promotionLastRank": 4, "promotionTarget": 9, "relegationFirstRank": 9, "relegationTarget": 7, "fillerDeck": "CareerHigh", "fillerTargetCost": 6.15 },
+      { "leagueGrade": 9, "promotionLastRank": 0, "promotionTarget": -1, "relegationFirstRank": 7, "relegationTarget": 8, "fillerDeck": "Legend", "fillerTargetCost": 6.50 }
     ],
     "rules": [
       { "leagueGrade": 0, "minimumGames": 40, "hasPromotion": true, "promotionWinningPercentage": 0.60, "hasRelegation": false, "relegationWinningPercentage": 0.00 },

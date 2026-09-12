@@ -4033,10 +4033,13 @@ Win Expectancy 변화, 동점·역전, 후반 접전, 시그니처 플레이와 
   기존의 "새 등급 단독 진입 시 잔류" 예외는 폐기했다.
 - 임시 구단 덱은 등급별 `rankRules[].fillerDeck`에서 정한다. 기본값은 Rookie~Major 단일 연도 구단,
   World·AllStar EX, Classic·Winners 올스타, Champion MVP, Master 커리어하이, Galaxy 레전드다.
-  단일 연도 구단 덱은 한 역사 구단의 Normal 카드를 Cost 순으로, 특수 덱은 해당 Edition 카드를 World Seed
-  기반 난수 순으로 뽑는다. 특수 카드 풀은 포지션이 편중되어 있어(EX 포수 0명) 선발 야수는 원래 포지션만
-  받고, 해당 Edition에 맞는 선수가 없으면 낮은 특수 등급 → 높은 특수 등급 → 전체 Normal 순으로 대체한다.
-  투수는 보직이 달라도 같은 Edition을 우선한다. 구성 규칙은 `LeagueFillerDeckBuilder`에 있다.
+  단일 연도 구단 덱은 한 역사 구단의 Normal 카드를 Cost 순으로 뽑는다. 특수 카드 풀은 포지션이 편중되어
+  있어(EX 포수 0명) 선발 야수는 원래 포지션 선수만 받고, 투수는 보직이 달라도 같은 Edition을 우선한다.
+  구성 규칙은 `LeagueFillerDeckBuilder`에 있다.
+- 25명을 고른 뒤 역할을 다시 배치한다. 스타를 예산 안에서 교체로 끼워 넣기만 하면 EX 선발 투수가 불펜에,
+  강한 타자가 벤치에 남는다. 그래서 교체는 선발 라인업·로테이션 → 마무리·셋업 → 불펜 → 벤치 순으로 하고,
+  마지막에 25명 안에서 중요한 자리부터 적합도·Cost 순으로 역할을 다시 정한다. 지명타자는 수비를 보지 않으므로
+  전업 DH 우대 없이 남은 타자 중 가장 좋은 타자를 세운다.
 - 조 크기는 `OwnerExpansionBalance.json`의 `leaguePromotion.groupTeamCount`, 등급별 승강 순위와
   목적지·임시 구단 덱은 `leaguePromotion.rankRules`에서 조정한다. 공통 상하위 2팀 규칙은 폐기한다.
 - 구단주 SaveVersion 24는 조마다 `fillerTeamSeasonKeys`를 저장한다. v23 이하 저장본은 임시 구단 없는 조로
@@ -4047,9 +4050,12 @@ Win Expectancy 변화, 동점·역전, 후반 접전, 시그니처 플레이와 
   약한 자리부터 채워 넣는다. 덱 이름값은 스타로 살리고 전체 강도는 등급 목표에 맞춘다.
 - 목표 Cost는 상세 경기로 보정했다. 실제 구단 363개를 Cost 분포에서 고르게 뽑은 기준 구단 40개와 붙여
   강도 백분위를 만들고, CPU 덱의 기준풀 승률이 등급별 목표 백분위(World p50·AllStar p60·Classic p70·
-  Winners p80·Champion p85·Master p90·Galaxy p95)와 같아지는 값을 골랐다. 독립 Seed 검증에서 등급별
-  덱 200개 × 400경기 기준 승률은 목표 대비 ±0.015 안이다(World 0.509/0.503, Galaxy 0.728/0.727).
-  덱 하나하나는 바탕 구단 추첨 때문에 p10~p90이 약 ±0.08 흔들린다 — 조마다 CPU 강도가 다른 것은 의도다.
+  Winners p80·Champion p85·Master p90·Galaxy p95)와 같아지는 값을 골랐다. 확정값은 World 5.70·AllStar 5.75·
+  Classic 5.85·Winners 6.10·Champion 6.20·Master 6.15·Galaxy 6.50이며, 커리어하이·레전드는 카드 능력치
+  보정이 붙어 같은 Cost에서 더 강하므로 Master의 목표 Cost가 Champion보다 낮다. 독립 Seed 검증(등급별
+  덱 200개 × 각 400경기)에서 승률은 목표 대비 ±0.012 안이다 — World 0.517/0.505, Champion 0.625/0.618,
+  Galaxy 0.705/0.703.
+  덱 하나하나는 바탕 구단 추첨 때문에 p10~p90이 약 ±0.07 흔들린다 — 조마다 CPU 강도가 다른 것은 의도다.
   재현: `Tools/SimulationDiagnostics`의 역사 전력 진단과 같은 경로를 쓰는 스크래치 러너(1982~2025 아카이브,
   올스타·MVP 카드는 원본 KBO 수상으로 근사).
   모든 조의 경기는 공통 경기 규칙과 AI 팀컬러·전술·상태 반영 경로를 사용하고,

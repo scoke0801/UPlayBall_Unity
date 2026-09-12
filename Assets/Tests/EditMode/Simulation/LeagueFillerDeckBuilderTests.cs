@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
@@ -37,7 +38,8 @@ namespace Baseball.Tests.EditMode.Simulation
                     Assert.That(season.Position,
                         Is.EqualTo(ActiveRosterCompositionRule.Standard.GetAssignedPosition(entry.Role)), entry.Role.ToString());
                 bool isMissingMvp = entry.Role == ActiveRosterRole.StartingCatcher || entry.Role == ActiveRosterRole.StartingShortstop;
-                if (entry.Role != ActiveRosterRole.BenchHitter)
+                // 지명타자는 포지션·Edition이 아니라 남은 타자 중 가장 좋은 타자로 정해지므로 Edition을 단정하지 않는다.
+                if (entry.Role != ActiveRosterRole.BenchHitter && entry.Role != ActiveRosterRole.StartingDesignatedHitter)
                     Assert.That(card.Edition, Is.EqualTo(isMissingMvp ? PlayerCardEdition.Normal : PlayerCardEdition.Mvp),
                         entry.Role.ToString());
             }
@@ -87,6 +89,50 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void Build_스타를벤치나불펜에두지않고중요한자리부터배치한다()
+        {
+            WorldCardCatalog catalog = CreateCatalog(mvpTeam: "T-A", excludedMvpRoles: new ActiveRosterRole[0]);
+            var builder = new LeagueFillerDeckBuilder(catalog);
+
+            for (ulong seed = 1; seed <= 10; seed++)
+            {
+                string key = LeagueFillerTeamKey.Create((int)seed, LeagueGrade.Champion, 0, 0, LeagueFillerDeckType.Mvp);
+                CurrentRosterState roster = builder.Build(key, 6.4d, 0d, new Pcg32Random(seed));
+
+                int designatedHitterCost = 0;
+                int benchMaximumCost = 0;
+                int rotationMinimumCost = int.MaxValue;
+                int relievedStarterMaximumCost = 0;
+                int rotationRelieverCount = 0;
+                int starterOutsideRotationCount = 0;
+                foreach (ActiveRosterEntry entry in roster.Entries)
+                {
+                    PlayerSeasonDefinition season = catalog.GetPlayerSeason(catalog.GetRequiredCard(entry.CardId));
+                    bool isStarterPitcher = season.PlayerType == PlayerType.Pitcher && season.PitcherRole == PitcherRole.Starter;
+                    if (entry.Role == ActiveRosterRole.StartingDesignatedHitter) designatedHitterCost = season.Cost;
+                    else if (entry.Role == ActiveRosterRole.BenchHitter) benchMaximumCost = Math.Max(benchMaximumCost, season.Cost);
+                    else if (ActiveRosterCompositionRule.Standard.IsStartingPitcherRole(entry.Role))
+                    {
+                        rotationMinimumCost = Math.Min(rotationMinimumCost, season.Cost);
+                        if (!isStarterPitcher) rotationRelieverCount++;
+                    }
+                    else if (isStarterPitcher)
+                    {
+                        starterOutsideRotationCount++;
+                        relievedStarterMaximumCost = Math.Max(relievedStarterMaximumCost, season.Cost);
+                    }
+                }
+                Assert.That(Math.Min(rotationRelieverCount, starterOutsideRotationCount), Is.Zero,
+                    $"seed {seed}: 선발 자원을 불펜에 두고 불펜 자원을 로테이션에 세운 배치가 남아 있다.");
+
+                Assert.That(designatedHitterCost, Is.GreaterThanOrEqualTo(benchMaximumCost),
+                    $"seed {seed}: 벤치에 지명타자보다 좋은 타자가 남으면 안 된다.");
+                Assert.That(rotationMinimumCost, Is.GreaterThanOrEqualTo(relievedStarterMaximumCost),
+                    $"seed {seed}: 선발 투수가 불펜에 밀려 있으면 안 된다.");
+            }
+        }
+
+        [Test]
         public void Build_같은Key와Seed면같은로스터를만든다()
         {
             WorldCardCatalog catalog = CreateCatalog(mvpTeam: "T-A", excludedMvpRoles: new ActiveRosterRole[0]);
@@ -130,7 +176,7 @@ namespace Baseball.Tests.EditMode.Simulation
                     cards.Add(new PlayerCardDefinition(
                         PlayerCardDefinition.CreateStableCardId(seasonId, PlayerCardEdition.Normal), seasonId,
                         PlayerCardEdition.Normal, modifiers));
-                    if (team == mvpTeam && System.Array.IndexOf(excludedMvpRoles, role) < 0)
+                    if (team == mvpTeam && Array.IndexOf(excludedMvpRoles, role) < 0)
                         cards.Add(new PlayerCardDefinition(
                             PlayerCardDefinition.CreateStableCardId(seasonId, PlayerCardEdition.Mvp), seasonId,
                             PlayerCardEdition.Mvp, modifiers));

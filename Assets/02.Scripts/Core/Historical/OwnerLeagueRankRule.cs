@@ -53,13 +53,13 @@ namespace Baseball.Core.Historical
                 new OwnerLeagueRankRule(LeagueGrade.Rookie, 6, LeagueGrade.Minor, 0, null, LeagueFillerDeckType.YearTeam),
                 new OwnerLeagueRankRule(LeagueGrade.Minor, 6, LeagueGrade.Major, 9, LeagueGrade.Rookie, LeagueFillerDeckType.YearTeam),
                 new OwnerLeagueRankRule(LeagueGrade.Major, 6, LeagueGrade.World, 9, LeagueGrade.Minor, LeagueFillerDeckType.YearTeam),
-                new OwnerLeagueRankRule(LeagueGrade.World, 4, LeagueGrade.AllStar, 9, LeagueGrade.Major, LeagueFillerDeckType.Ex, 5.80),
-                new OwnerLeagueRankRule(LeagueGrade.AllStar, 4, LeagueGrade.Classic, 8, LeagueGrade.World, LeagueFillerDeckType.Ex, 5.95),
-                new OwnerLeagueRankRule(LeagueGrade.Classic, 4, LeagueGrade.Winners, 7, LeagueGrade.AllStar, LeagueFillerDeckType.AllStar, 6.40),
-                new OwnerLeagueRankRule(LeagueGrade.Winners, 4, LeagueGrade.Champion, 7, LeagueGrade.Classic, LeagueFillerDeckType.AllStar, 6.65),
-                new OwnerLeagueRankRule(LeagueGrade.Champion, 4, LeagueGrade.Master, 7, LeagueGrade.Winners, LeagueFillerDeckType.Mvp, 6.85),
-                new OwnerLeagueRankRule(LeagueGrade.Master, 4, LeagueGrade.Galaxy, 9, LeagueGrade.Champion, LeagueFillerDeckType.CareerHigh, 7.05),
-                new OwnerLeagueRankRule(LeagueGrade.Galaxy, 0, null, 7, LeagueGrade.Master, LeagueFillerDeckType.Legend, 7.70)
+                new OwnerLeagueRankRule(LeagueGrade.World, 4, LeagueGrade.AllStar, 9, LeagueGrade.Major, LeagueFillerDeckType.Ex, 5.70),
+                new OwnerLeagueRankRule(LeagueGrade.AllStar, 4, LeagueGrade.Classic, 8, LeagueGrade.World, LeagueFillerDeckType.Ex, 5.75),
+                new OwnerLeagueRankRule(LeagueGrade.Classic, 4, LeagueGrade.Winners, 7, LeagueGrade.AllStar, LeagueFillerDeckType.AllStar, 5.85),
+                new OwnerLeagueRankRule(LeagueGrade.Winners, 4, LeagueGrade.Champion, 7, LeagueGrade.Classic, LeagueFillerDeckType.AllStar, 6.10),
+                new OwnerLeagueRankRule(LeagueGrade.Champion, 4, LeagueGrade.Master, 7, LeagueGrade.Winners, LeagueFillerDeckType.Mvp, 6.20),
+                new OwnerLeagueRankRule(LeagueGrade.Master, 4, LeagueGrade.Galaxy, 9, LeagueGrade.Champion, LeagueFillerDeckType.CareerHigh, 6.15),
+                new OwnerLeagueRankRule(LeagueGrade.Galaxy, 0, null, 7, LeagueGrade.Master, LeagueFillerDeckType.Legend, 6.50)
             };
         }
     }
