@@ -18,6 +18,8 @@ namespace Baseball.Presentation.Owner
             map.transform.SetParent(_content, false);
             Place(map.rectTransform, 30, 121, 690, 337);
             map.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/study_world_map_v1");
+            // 원본의 장식 테두리를 제외하고 지도 영역만 사용한다.
+            map.uvRect = new Rect(.025f, .035f, .95f, .93f);
             map.raycastTarget = true;
             AddStudyDismissAction(map);
             OwnerGrowthCardSnapshot card = SelectedCard();
@@ -27,12 +29,9 @@ namespace Baseball.Presentation.Owner
                 foreach (OwnerStudyOption study in card.Studies)
                     if (study.Program.ProgramId == _programId) option = study;
                 for (int index = 0; index < card.Studies.Length; index++)
-                    RenderStudyRouteLine(card.Studies[index]);
-                RenderStudyHomeNode();
-                for (int index = 0; index < card.Studies.Length; index++)
                     RenderStudyDestinationNode(card.Studies[index]);
             }
-            Label(_content, "MapLegend", "비행기를 눌러 유학지 선택    ·    흐린 비행기  잠김    ·    금색 밑줄  선택", 11, 35, 466, 685, 26);
+            Label(_content, "MapLegend", "비행기  이용 가능    ·    ?  해금 조건 확인    ·    금색 테두리  선택", 11, 35, 466, 685, 26);
             Image informationFrame = Frame(_content, "StudyInformation", 742, 86, 338, 416);
             AddStudyDismissAction(informationFrame);
             Label(_content, "StudyInformationTitle", "유학지 정보", 15, 754, 92, 310, 25);
@@ -46,7 +45,7 @@ namespace Baseball.Presentation.Owner
                 ? "지도 위 비행기를 누르면 성장 효과와\n해금 조건을 확인할 수 있습니다."
                 : "유학 성장 효과\n" + option.RewardText, 13, 757, 198, 305, 48);
             Label(_content, "StudyCost", option == null ? "" :
-                $"유학 비용    육성 포인트 {option.Program.DevelopmentPointCost:N0}\n유학 기간    {option.Program.DurationWeeks}주",
+                $"유학 비용    {option.CostText}\n유학 기간    {option.Program.DurationWeeks}주",
                 12, 757, 248, 305, 42);
             Surface(_content, "StudyCardRule", 753, 300, 315, 1, Border);
             if (card != null)
@@ -80,7 +79,7 @@ namespace Baseball.Presentation.Owner
             string reason = option?.BlockedReason ?? "보유 선수를 선택하세요.";
             bool isPending = option != null && _pendingStudy == _cardId + ":" + _programId;
             Text status = Label(_content, "StudyBlockedReason", isPending
-                ? $"{card.Card.DisplayName} · {option.Program.DurationWeeks}주 · 육성 포인트 {option.Program.DevelopmentPointCost} 사용. 확정하면 시작합니다."
+                ? $"{card.Card.DisplayName} · {option.Program.DurationWeeks}주 · {option.CostText} 사용. 확정하면 시작합니다."
                 : reason.Length == 0 ? "시즌당 한 번 참가할 수 있습니다." : reason, 11, 757, 409, 305, 50);
             status.color = reason.Length == 0 ? Ink : new Color32(176, 50, 39, 255);
             Button start = Tab(_content, "StartStudy", isPending ? "유학 확정" : "유학지 결정", () =>
@@ -99,59 +98,9 @@ namespace Baseball.Presentation.Owner
             if (_isChoosingStudyPlayer) RenderStudyPlayerPicker();
         }
 
-        private void RenderStudyRouteLine(OwnerStudyOption study)
-        {
-            Vector2 home = GetStudyMapPoint(790, 430);
-            Vector2 destination = GetStudyMapPoint(
-                study.Program.MapXPermille,
-                study.Program.MapYPermille);
-            Vector2 delta = destination - home;
-            Image line = OwnerRuntimeUiFactory.CreateImage(
-                "StudyRoute_" + study.Program.ProgramId,
-                _content,
-                study.IsUnlocked
-                    ? new Color32(111, 196, 245, 150)
-                    : new Color32(132, 145, 160, 100));
-            RectTransform rect = line.rectTransform;
-            rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
-            rect.pivot = new Vector2(.5f, .5f);
-            rect.anchoredPosition = new Vector2(
-                (home.x + destination.x) * .5f,
-                -(home.y + destination.y) * .5f);
-            rect.sizeDelta = new Vector2(
-                delta.magnitude,
-                study.Program.ProgramId == _programId ? 2.5f : 1.5f);
-            rect.localEulerAngles = new Vector3(
-                0,
-                0,
-                -Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
-            line.raycastTarget = false;
-        }
-
-        private void RenderStudyHomeNode()
-        {
-            Vector2 point = GetStudyMapPoint(790, 430);
-            Surface(
-                _content,
-                "StudyHomeNode",
-                point.x - 3,
-                point.y - 3,
-                6,
-                6,
-                Color.white);
-            Text label = Label(_content, "StudyHomeLabel", "출발 · 한국", 11, point.x - 44, point.y + 12, 88, 24);
-            label.alignment = TextAnchor.MiddleCenter;
-            label.color = Color.white;
-            Shadow shadow = label.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color32(4, 17, 35, 240);
-            shadow.effectDistance = new Vector2(1, -1);
-        }
-
         private void RenderStudyDestinationNode(OwnerStudyOption study)
         {
-            Vector2 point = GetStudyMapPoint(
-                study.Program.MapXPermille,
-                study.Program.MapYPermille);
+            Vector2 point = GetStudyMapPoint(study.Program.MapXPermille, study.Program.MapYPermille);
             bool isSelected = _programId == study.Program.ProgramId;
             Action select = () =>
             {
@@ -161,56 +110,50 @@ namespace Baseball.Presentation.Owner
                 FocusRosterControl("StudyPin_" + study.Program.ProgramId);
             };
 
-            var marker = new GameObject(
-                "StudyPin_" + study.Program.ProgramId,
-                typeof(RectTransform),
-                typeof(RawImage)).GetComponent<RawImage>();
-            marker.transform.SetParent(_content, false);
-            Place(marker.rectTransform, point.x - 30, point.y - 30, 60, 60);
-            // 목적지 중심에서 회전해야 아이콘이 지리 좌표와 클릭 위치를 벗어나지 않는다.
-            marker.rectTransform.pivot = new Vector2(.5f, .5f);
-            marker.rectTransform.anchoredPosition = new Vector2(point.x, -point.y);
-            marker.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/study_airplane_icon_v1");
-            marker.color = study.IsUnlocked ? Color.white : new Color32(90, 101, 116, 210);
-            marker.raycastTarget = true;
-            Vector2 home = GetStudyMapPoint(790, 430);
-            Vector2 heading = new Vector2(point.x - home.x, home.y - point.y);
-            marker.rectTransform.localEulerAngles = new Vector3(
-                0,
-                0,
-                Mathf.Atan2(heading.y, heading.x) * Mathf.Rad2Deg - 24f);
-            // RawImage Outline은 알파 윤곽선 대신 비행기 전체를 복제하므로 선택은 라벨 아래에 표시한다.
-            Button markerButton = marker.gameObject.AddComponent<Button>();
-            markerButton.targetGraphic = marker;
-            markerButton.transition = Selectable.Transition.None;
+            // 작은 원형 핀과 별개로 44px 입력 영역을 확보한다.
+            Image hitArea = Surface(_content, "StudyPin_" + study.Program.ProgramId,
+                point.x - 22, point.y - 22, 44, 44, Color.clear);
+            hitArea.raycastTarget = true;
+            var pin = new GameObject("StudyPinSymbol_" + study.Program.ProgramId,
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(UIStudyDestinationPin))
+                .GetComponent<UIStudyDestinationPin>();
+            pin.transform.SetParent(hitArea.transform, false);
+            Place(pin.rectTransform, 3, 3, 38, 38);
+            pin.Configure(study.IsUnlocked, isSelected);
+            pin.raycastTarget = false;
+            if (study.IsUnlocked)
+            {
+                var airplane = new GameObject("StudyAirplane", typeof(RectTransform), typeof(RawImage))
+                    .GetComponent<RawImage>();
+                airplane.transform.SetParent(hitArea.transform, false);
+                Place(airplane.rectTransform, 3, 3, 38, 38);
+                airplane.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/study_airplane_figurine_v2");
+                airplane.raycastTarget = false;
+            }
+            if (!study.IsUnlocked)
+            {
+                Text locked = Label(hitArea.transform, "LockedSymbol", "?", 18, 7, 7, 30, 30);
+                locked.alignment = TextAnchor.MiddleCenter;
+                locked.color = Color.white;
+            }
+            Button markerButton = hitArea.gameObject.AddComponent<Button>();
+            markerButton.targetGraphic = pin;
             markerButton.onClick.AddListener(() => select());
 
-            bool placeRight = study.Program.MapXPermille < 420;
-            float labelX = placeRight ? point.x + 29 : point.x - 169;
-            float labelY = point.y - 17;
-            Text label = Label(
-                _content,
-                "StudyPinLabel_" + study.Program.ProgramId,
-                study.Program.DestinationName + "\n" + (study.IsUnlocked ? "" : "잠김 · ") +
-                study.Program.DisplayName,
-                10,
-                labelX,
-                labelY,
-                140,
-                38);
-            label.alignment = TextAnchor.MiddleCenter;
-            label.fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal;
-            label.color = !study.IsUnlocked
-                ? new Color32(157, 170, 185, 255)
-                : isSelected
-                    ? new Color32(255, 211, 98, 255)
-                    : Color.white;
-            Shadow labelShadow = label.gameObject.AddComponent<Shadow>();
-            labelShadow.effectColor = new Color32(4, 17, 35, 240);
-            labelShadow.effectDistance = new Vector2(1, -1);
-            if (isSelected)
-                Surface(_content, "StudySelection_" + study.Program.ProgramId,
-                    labelX + 8, labelY + 40, 124, 3, new Color32(255, 211, 98, 255));
+            const float labelWidth = 104;
+            float labelX = Mathf.Clamp(point.x - labelWidth * .5f, 38, 712 - labelWidth);
+            float labelY = point.y + 32;
+            Surface(_content, "StudyLabelConnector_" + study.Program.ProgramId,
+                point.x - .5f, point.y + 19, 1, 13, new Color32(206, 229, 251, 255));
+            Button nameplate = Tab(_content, "StudyPinLabel_" + study.Program.ProgramId,
+                study.Program.DestinationName, select, false, labelX, labelY, labelWidth, 22);
+            nameplate.GetComponent<Image>().color = new Color32(243, 249, 255, 255);
+            Outline border = nameplate.GetComponent<Outline>();
+            border.effectColor = isSelected ? new Color32(255, 201, 65, 255) : new Color32(125, 174, 222, 255);
+            border.effectDistance = isSelected ? new Vector2(2, -2) : new Vector2(1, -1);
+            Text label = nameplate.GetComponentInChildren<Text>();
+            label.fontSize = 11;
+            label.color = Blue;
         }
 
         private void AddStudyDismissAction(Graphic graphic)
