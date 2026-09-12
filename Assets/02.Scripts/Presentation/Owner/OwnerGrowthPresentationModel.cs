@@ -31,15 +31,31 @@ namespace Baseball.Presentation.Owner
     public sealed class OwnerGrowthCardSnapshot
     {
         public OwnerCollectionCardSnapshot Card { get; }
+        private readonly Lazy<OwnerCollectionCardSnapshot> _detailCard;
+        private readonly Lazy<OwnerStudyOption[]> _studies;
+        public OwnerCollectionCardSnapshot DetailCard => _detailCard.Value;
         public PlacedSkillBlock[] Placements { get; }
-        public OwnerStudyOption[] Studies { get; }
+        public OwnerStudyOption[] Studies => _studies.Value;
 
         public OwnerGrowthCardSnapshot(OwnerCollectionCardSnapshot card,
             IReadOnlyList<PlacedSkillBlock> placements, IReadOnlyList<OwnerStudyOption> studies)
         {
             Card = card;
             Placements = OwnerPowerUpSnapshotCopy.Copy(placements);
-            Studies = OwnerPowerUpSnapshotCopy.Copy(studies);
+            var copiedStudies = OwnerPowerUpSnapshotCopy.Copy(studies);
+            _studies = new Lazy<OwnerStudyOption[]>(() => copiedStudies);
+            _detailCard = new Lazy<OwnerCollectionCardSnapshot>(() => card);
+        }
+
+        /// <summary>선수 목록은 요약만 읽고 선택한 선수의 상세·유학 과정만 한 번 조회한다.</summary>
+        public OwnerGrowthCardSnapshot(OwnerCollectionCardSnapshot card,
+            IReadOnlyList<PlacedSkillBlock> placements, Func<OwnerStudyOption[]> studies,
+            Func<OwnerCollectionCardSnapshot> detailCard)
+        {
+            Card = card ?? throw new ArgumentNullException(nameof(card));
+            Placements = OwnerPowerUpSnapshotCopy.Copy(placements);
+            _studies = new Lazy<OwnerStudyOption[]>(studies);
+            _detailCard = new Lazy<OwnerCollectionCardSnapshot>(detailCard);
         }
     }
 
@@ -93,44 +109,58 @@ namespace Baseball.Presentation.Owner
     public static class OwnerGrowthPresentationBuilder
     {
         /// <summary>실제 보유 카드와 밸런스 정의에서 두 성장 화면의 조회 결과를 만든다.</summary>
-        public static OwnerGrowthSnapshot Build(OwnerModeManager manager, OwnerCollectionSnapshot collection)
+        public static OwnerGrowthSnapshot Build(OwnerModeManager manager, OwnerCollectionSnapshot collection,
+            Func<string, OwnerCollectionCardSnapshot> detailResolver = null)
         {
             var runtime = manager.Runtime;
             int capacity = manager.Balance.OwnerCardGrowth.GetStudyCapacity(
                 runtime.ManagerMode.ClubOperation.GetFacility(FacilityType.TrainingCenter).Level);
             var cards = new List<OwnerGrowthCardSnapshot>();
+            var ownedCards = new Dictionary<string, OwnedPlayerCardState>(StringComparer.Ordinal);
+            foreach (OwnedPlayerCardState owned in runtime.OwnedCards) ownedCards.Add(owned.CardId, owned);
             foreach (OwnerCollectionCardSnapshot card in collection.Cards)
             {
-                if (!runtime.TryGetOwnedCard(card.CardId, out OwnedPlayerCardState owned) ||
+                if (!ownedCards.TryGetValue(card.CardId, out OwnedPlayerCardState owned) ||
                     !runtime.WorldCardCatalog.TryGetCard(card.CardId, out PlayerCardDefinition definition)) continue;
                 PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(definition);
-                var studies = new List<OwnerStudyOption>();
-                foreach (CardStudyProgramDefinition program in manager.Balance.OwnerCardGrowth.StudyPrograms)
-                {
-                    if (program.PlayerType != season.PlayerType) continue;
-                    var rewards = new StringBuilder();
-                    int totalGain = 0;
-                    foreach (AbilityChange reward in program.Rewards)
-                    {
-                        int current = season.CreateBaseAttributes().Get(reward.Ability) + owned.Training.GetBonus(reward.Ability);
-                        int gain = Math.Min(reward.Amount, Math.Max(0, season.CreateTrainingCeiling().Get(reward.Ability) - current));
-                        totalGain += gain;
-                        rewards.Append(CareerSharedSnapshotFormatters.FormatAbility(reward.Ability))
-                            .Append("  +").Append(gain).AppendLine();
-                    }
-                    string reason = card.IsActiveRoster ? "1군 등록 선수입니다. 선수단에서 등록을 해제한 뒤 신청하세요."
-                        : owned.LastStudySeason == runtime.ManagerMode.LiveSeason.SeasonNumber ? "이번 시즌 유학을 이미 사용했습니다."
-                        : runtime.PlayerGrowth.StudyProjects.Count >= capacity ? "유학 정원이 가득 찼습니다. 훈련 시설과 복귀 일정을 확인하세요."
-                        : totalGain == 0 ? "이 과정의 성장 상한에 도달했습니다."
-                        : runtime.Economy.DevelopmentPoints < program.DevelopmentPointCost ? "육성 포인트가 부족합니다."
-                        : string.Empty;
-                    studies.Add(new OwnerStudyOption(program, rewards.ToString().TrimEnd(), reason));
-                }
-                cards.Add(new OwnerGrowthCardSnapshot(card, owned.SkillBoard.Placements, studies));
+                cards.Add(new OwnerGrowthCardSnapshot(card, owned.SkillBoard.Placements,
+                    () => CreateStudyOptions(manager, card, owned, season, capacity),
+                    () => detailResolver == null ? card : detailResolver(card.CardId)));
             }
             return new OwnerGrowthSnapshot(cards, runtime.PlayerGrowth.Inventory.Blocks,
                 manager.Balance.Growth.SkillBlocks, manager.Balance.Growth.SkillBoard,
                 runtime.Economy.DevelopmentPoints, runtime.PlayerGrowth.StudyProjects.Count, capacity);
+        }
+
+        private static OwnerStudyOption[] CreateStudyOptions(OwnerModeManager manager,
+            OwnerCollectionCardSnapshot card, OwnedPlayerCardState owned, PlayerSeasonDefinition season, int capacity)
+        {
+            var runtime = manager.Runtime;
+            AbilityRatings baseAttributes = season.CreateBaseAttributes();
+            AbilityRatings ceiling = season.CreateTrainingCeiling();
+            var studies = new List<OwnerStudyOption>();
+            foreach (CardStudyProgramDefinition program in manager.Balance.OwnerCardGrowth.StudyPrograms)
+            {
+                if (program.PlayerType != season.PlayerType) continue;
+                var rewards = new StringBuilder();
+                int totalGain = 0;
+                foreach (AbilityChange reward in program.Rewards)
+                {
+                    int current = baseAttributes.Get(reward.Ability) + owned.Training.GetBonus(reward.Ability);
+                    int gain = Math.Min(reward.Amount, Math.Max(0, ceiling.Get(reward.Ability) - current));
+                    totalGain += gain;
+                    rewards.Append(CareerSharedSnapshotFormatters.FormatAbility(reward.Ability))
+                        .Append("  +").Append(gain).AppendLine();
+                }
+                string reason = card.IsActiveRoster ? "1군 등록 선수입니다. 선수단에서 등록을 해제한 뒤 신청하세요."
+                    : owned.LastStudySeason == runtime.ManagerMode.LiveSeason.SeasonNumber ? "이번 시즌 유학을 이미 사용했습니다."
+                    : runtime.PlayerGrowth.StudyProjects.Count >= capacity ? "유학 정원이 가득 찼습니다. 훈련 시설과 복귀 일정을 확인하세요."
+                    : totalGain == 0 ? "이 과정의 성장 상한에 도달했습니다."
+                    : runtime.Economy.DevelopmentPoints < program.DevelopmentPointCost ? "육성 포인트가 부족합니다."
+                    : string.Empty;
+                studies.Add(new OwnerStudyOption(program, rewards.ToString().TrimEnd(), reason));
+            }
+            return studies.ToArray();
         }
     }
 }

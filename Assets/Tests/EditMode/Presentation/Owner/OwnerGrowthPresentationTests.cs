@@ -35,6 +35,51 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void Study_천장목록도선택선수만조회하고선수선택은열여섯장씩표시한다()
+        {
+            int studyQueries = 0, detailQueries = 0;
+            OwnerGrowthSnapshot source = CreateSnapshot();
+            var cards = new List<OwnerGrowthCardSnapshot>();
+            for (int index = 0; index < 1000; index++)
+            {
+                var card = new OwnerCollectionCardSnapshot("large" + index, "person" + index, "선수" + index,
+                    2024, PlayerPosition.Shortstop, 5, PlayerCardEdition.Normal, 0, 0, false, false);
+                cards.Add(new OwnerGrowthCardSnapshot(card, Array.Empty<PlacedSkillBlock>(),
+                    () => { studyQueries++; return source.Cards[0].Studies; },
+                    () => { detailQueries++; return card; }));
+            }
+            // 유학에는 성장판이 필요 없다. 스킬 화면을 먼저 만들면 이 진입은 실패해야 한다.
+            var snapshot = new OwnerGrowthSnapshot(cards, Array.Empty<SkillBlockInstance>(),
+                source.Definitions, null, 250, 0, 2);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            _view.Bind(snapshot, OwnerNavigationRoutes.PowerUpStudy);
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
+            watch.Stop();
+            TestContext.WriteLine($"유학 보유 1,000장 진입 Bind+Show: {watch.Elapsed.TotalMilliseconds:F2} ms");
+            Assert.That(FindOrNull<ScrollRect>("PlayerInventory"), Is.Null);
+            Assert.That(studyQueries, Is.EqualTo(1));
+            Assert.That(detailQueries, Is.EqualTo(1));
+            Click("ChooseStudyPlayer");
+            Assert.That(Find<ScrollRect>("PlayerInventory").content.childCount, Is.EqualTo(16));
+            Canvas.ForceUpdateCanvases();
+            ScrollRect picker = Find<ScrollRect>("PlayerInventory");
+            LayoutRebuilder.ForceRebuildLayoutImmediate(picker.content);
+            Assert.That(picker.content.rect.height, Is.LessThanOrEqualTo(picker.viewport.rect.height),
+                "한 페이지의 두 행은 별도 스크롤 없이 선수 이름까지 보여야 합니다.");
+            Click("NextRosterPage");
+            Assert.That(Find<Text>("RosterPage").text, Does.StartWith("2/"));
+            Assert.That(FindOrNull<Button>("Card_large0"), Is.Null);
+            Click("Card_large16");
+            Assert.That(studyQueries, Is.EqualTo(2));
+            Assert.That(detailQueries, Is.EqualTo(2));
+            Click("CloseStudyPlayerPicker");
+            Assert.That(Find<Text>("StudyPlayer").text, Does.StartWith("선수16"));
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
+            Assert.That(studyQueries, Is.EqualTo(2));
+            Assert.That(detailQueries, Is.EqualTo(2));
+        }
+
+        [Test]
         public void Skills_선수모드원점역산으로가리킨칸에즉시배치한다()
         {
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpSkills);
@@ -154,6 +199,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
         [TestCase(1100, 560)]
         [TestCase(1600, 900)]
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
         public void Visual_실제런타임UI를두해상도로출력한다(int width, int height)
         {
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
@@ -172,9 +221,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = camera;
                 canvas.planeDistance = 1;
-                foreach (string route in new[] { OwnerNavigationRoutes.PowerUpSkills, OwnerNavigationRoutes.PowerUpStudy })
+                foreach (string route in new[] { OwnerNavigationRoutes.PowerUpSkills, OwnerNavigationRoutes.PowerUpStudy, "StudyPlayerPicker" })
                 {
-                    _view.ShowRoute(route);
+                    _view.ShowRoute(route == "StudyPlayerPicker" ? OwnerNavigationRoutes.PowerUpStudy : route);
+                    if (route == "StudyPlayerPicker") Click("ChooseStudyPlayer");
                     Canvas.ForceUpdateCanvases();
                     typeof(UI_Scene_OwnerGrowth).GetMethod("Resize", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_view, null);
                     Canvas.ForceUpdateCanvases();

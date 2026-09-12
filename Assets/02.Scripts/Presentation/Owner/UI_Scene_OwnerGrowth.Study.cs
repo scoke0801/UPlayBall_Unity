@@ -54,7 +54,7 @@ namespace Baseball.Presentation.Owner
                 PlayerMiniCardView selected = PlayerMiniCardView.CreateRuntime(_content, "StudyPlayerCard");
                 selected.UseLineupSlotLayout();
                 Place(selected.GetComponent<RectTransform>(), 758, 310, 73, 99);
-                selected.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card.Card, false));
+                selected.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card.DetailCard, false));
                 selected.SetPortrait(Baseball.Presentation.UI.PlayerPortraitSprites.GetDefault(card.Card.Position));
                 FitCompactCardText(selected);
                 Label(_content, "StudyPlayer", card.Card.DisplayName + "\n" +
@@ -91,15 +91,15 @@ namespace Baseball.Presentation.Owner
 
         private void RenderStudyPlayerPicker()
         {
-            Frame(_content, "StudyPlayerPicker", 42, 142, 667, 296);
-            Label(_content, "PickerHeading", "유학 대상 선수 선택 · 1군 미등록 선수만 신청 가능", 15, 56, 152, 590, 30);
-            RenderRoster(_content, 52, 190, 646, 198, 8);
+            Frame(_content, "StudyPlayerPicker", 42, 122, 667, 326);
+            Label(_content, "PickerHeading", "유학 대상 선수 선택 · 1군 미등록 선수만 신청 가능", 15, 56, 132, 590, 30);
+            RenderRoster(_content, 52, 170, 646, 228, 8);
             Tab(_content, "CloseStudyPlayerPicker", "선택 완료", () =>
             {
                 _isChoosingStudyPlayer = false;
                 _pendingStudy = string.Empty;
                 Render();
-            }, true, 545, 399, 148, 29);
+            }, true, 545, 409, 148, 29);
         }
 
         private static void Place(RectTransform rect, float x, float y, float width, float height)

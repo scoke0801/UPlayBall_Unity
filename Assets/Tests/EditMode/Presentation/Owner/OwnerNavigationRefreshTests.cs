@@ -96,12 +96,64 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void Study_직접진입과상태갱신은선택선수의상세와과정만조회한다()
+        {
+            var watch = Stopwatch.StartNew();
+            Navigate(OwnerNavigationRoutes.PowerUpStudy);
+            watch.Stop();
+            TestContext.WriteLine($"유학 직접 최초 진입: {watch.Elapsed.TotalMilliseconds:F2} ms");
+            object expansion = GetField(_coordinator, "_expansionWorkspace");
+            object view = GetField(expansion, "_growthView");
+            var snapshot = (OwnerGrowthSnapshot)GetField(view, "_snapshot");
+            Assert.That(snapshot.Cards[0].Card.IsActiveRoster, Is.True);
+            int studyQueries = 0, detailQueries = 0;
+            foreach (OwnerGrowthCardSnapshot card in snapshot.Cards)
+            {
+                if (((Lazy<OwnerStudyOption[]>)GetField(card, "_studies")).IsValueCreated) studyQueries++;
+                if (((Lazy<OwnerCollectionCardSnapshot>)GetField(card, "_detailCard")).IsValueCreated) detailQueries++;
+            }
+            Assert.That(studyQueries, Is.EqualTo(1));
+            Assert.That(detailQueries, Is.EqualTo(1));
+            Assert.That(snapshot.Cards[0].Studies[0].CanStart, Is.False);
+            Navigate(OwnerNavigationRoutes.Home);
+            Navigate(OwnerNavigationRoutes.PowerUpStudy);
+            Assert.That(GetField(view, "_snapshot"), Is.SameAs(snapshot));
+            Invoke(_coordinator, "HandleRuntimeChanged");
+            Assert.That(GetField(view, "_snapshot"), Is.Not.SameAs(snapshot));
+        }
+
+        [Test]
+        public void ClubSummary_상세조회없이구단집계값을보존한다()
+        {
+            var factory = new OwnerModeRuntimeSnapshotFactory();
+            var watch = Stopwatch.StartNew();
+            OwnerCollectionSnapshot full = factory.CreateCollection(_manager);
+            watch.Stop();
+            double fullMilliseconds = watch.Elapsed.TotalMilliseconds;
+            watch.Restart();
+            OwnerCollectionSnapshot summary = factory.CreateCollectionSummary(_manager);
+            watch.Stop();
+            TestContext.WriteLine($"구단 카드 {full.Cards.Count}장: 상세 {fullMilliseconds:F2} ms / 요약 {watch.Elapsed.TotalMilliseconds:F2} ms");
+            Assert.That(summary.Cards.Count, Is.EqualTo(full.Cards.Count));
+            for (int index = 0; index < full.Cards.Count; index++)
+            {
+                Assert.That(summary.Cards[index].CardId, Is.EqualTo(full.Cards[index].CardId));
+                Assert.That(summary.Cards[index].Edition, Is.EqualTo(full.Cards[index].Edition));
+                Assert.That(summary.Cards[index].GetAbility(PlayerAbility.Contact), Is.Null);
+            }
+        }
+
+        [Test]
         public void PowerUp_진입시선택상품의확률만조회하고왕복시재사용한다()
         {
             var watch = Stopwatch.StartNew();
             Navigate(OwnerNavigationRoutes.PowerUpScout);
             watch.Stop();
             object shop = GetField(_coordinator, "_shopService");
+            object expansion = GetField(_coordinator, "_expansionWorkspace");
+            object view = GetField(expansion, "_powerUpView");
+            Assert.That(((RectTransform)GetField(view, "_trainingCardList")).childCount, Is.Zero);
+            Assert.That(((RectTransform)GetField(view, "_enhancementCardList")).childCount, Is.Zero);
             var details = (System.Collections.IDictionary)GetField(shop, "_detailsByProductId");
             Assert.That(details.Count, Is.EqualTo(1));
             TestContext.WriteLine($"전력보강 최초 진입: {watch.Elapsed.TotalMilliseconds:F2} ms");

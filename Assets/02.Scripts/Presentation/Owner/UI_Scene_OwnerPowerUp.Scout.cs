@@ -58,7 +58,7 @@ namespace Baseball.Presentation.Owner
             portrait.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/OwnerScout_Silhouette_V1");
             ScoutLabel(_scoutCanvas, "ScoutName", "전담 스카우터", 12, 374, 157, 116, 23).alignment = TextAnchor.MiddleCenter;
             ReferenceButton(_scoutCanvas, "ScoutPolicy", "스카우트 방침", OpenScoutPolicy, 376, 181, 112, 28);
-            ScoutLabel(_scoutCanvas, "GaugeHeading", "집중 영입", 12, 376, 221, 110, 22, ScoutBlue);
+            ScoutLabel(_scoutCanvas, "GaugeHeading", "보장 영입", 12, 376, 221, 110, 22, ScoutBlue);
             ScoutSurface(_scoutCanvas, "GaugeTrack", 376, 245, 112, 16, new Color32(37, 49, 35, 255));
             _scoutGaugeFill = ScoutSurface(_scoutCanvas, "GaugeFill", 378, 247, 0, 12, new Color32(55, 191, 57, 255));
             _scoutGaugeLabel = ScoutLabel(_scoutCanvas, "GaugeValue", "0 / 100", 13, 376, 263, 112, 22);

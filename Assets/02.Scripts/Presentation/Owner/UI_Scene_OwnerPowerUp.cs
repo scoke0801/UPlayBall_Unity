@@ -47,6 +47,8 @@ namespace Baseball.Presentation.Owner
         private RectTransform _revealRoot;
         private Text _revealBody;
         private OwnerPowerUpSnapshot _snapshot;
+        private string _activeRouteId = OwnerNavigationRoutes.PowerUpScout;
+        private readonly HashSet<string> _boundRoutes = new HashSet<string>(StringComparer.Ordinal);
         private string _selectedScoutProductId = string.Empty;
         private string _selectedTrainingCardId = string.Empty;
         private string _selectedTrainingProgramId = string.Empty;
@@ -68,13 +70,26 @@ namespace Baseball.Presentation.Owner
             return view;
         }
 
-        /// <summary>세 Route의 실제 Query와 Preview 결과를 다시 표시한다.</summary>
-        public void Bind(OwnerPowerUpSnapshot snapshot)
+        /// <summary>새 조회 묶음으로 교체하고 현재 탭만 갱신한다.</summary>
+        public void Bind(OwnerPowerUpSnapshot snapshot, string routeId = null)
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
-            BindScout();
-            BindTraining();
-            BindEnhancementSale();
+            _boundRoutes.Clear();
+            if (routeId != null) _activeRouteId = routeId;
+            BindActiveRoute();
+        }
+
+        private void BindActiveRoute()
+        {
+            if (_snapshot == null || _boundRoutes.Contains(_activeRouteId)) return;
+            switch (_activeRouteId)
+            {
+                case OwnerNavigationRoutes.PowerUpScout: BindScout(); break;
+                case OwnerNavigationRoutes.PowerUpTraining: BindTraining(); break;
+                case OwnerNavigationRoutes.PowerUpEnhancementSale: BindEnhancementSale(); break;
+                default: return;
+            }
+            _boundRoutes.Add(_activeRouteId);
         }
 
         /// <summary>첫 Snapshot을 만들기 전 세 Route에 입력이 막힌 Loading 상태를 표시한다.</summary>
@@ -101,6 +116,8 @@ namespace Baseball.Presentation.Owner
         /// <summary>선택한 전력보강 Route의 View State만 표시한다.</summary>
         public void ShowRoute(string routeId)
         {
+            _activeRouteId = routeId;
+            BindActiveRoute();
             bool isScout = string.Equals(routeId, OwnerNavigationRoutes.PowerUpScout, StringComparison.Ordinal);
             bool isTraining = string.Equals(routeId, OwnerNavigationRoutes.PowerUpTraining, StringComparison.Ordinal);
             bool isEnhancement = string.Equals(routeId, OwnerNavigationRoutes.PowerUpEnhancementSale, StringComparison.Ordinal);
@@ -467,9 +484,13 @@ namespace Baseball.Presentation.Owner
                 .Append("대상 범위  ").Append(product.Scope).AppendLine()
                 .Append("비용  ").Append(product.PriceText).AppendLine()
                 .Append("획득 수  ").Append(product.DrawCount).AppendLine().AppendLine()
-                .Append("집중 영입 Gauge  ").Append(product.PityGauge).Append(" / ").Append(product.PityThreshold).AppendLine()
-                .Append("1회당 +").Append(product.PityGainPerDraw)
-                .Append(" · 완성 시 비용 ").Append(product.GuaranteedMinimumCost).Append(" 이상 보장").AppendLine().AppendLine()
+                .Append("보장 영입 게이지  ").Append(product.PityGauge.ToString("N0")).Append(" / ")
+                .Append(product.PityThreshold.ToString("N0")).AppendLine()
+                .Append(product.PityGainPerDraw > 0
+                    ? "1회당 +" + product.PityGainPerDraw.ToString("N0") + " · "
+                    : string.Empty)
+                .Append("가득 차면 구단·연도 정밀 스카우트에서 1군 미보유 선수를 확정 영입합니다 (비용 ")
+                .Append(product.GuaranteedMinimumCost).Append(" 이상 우선)").AppendLine().AppendLine()
                 .AppendLine("실제 후보 Bucket 확률");
             try
             {

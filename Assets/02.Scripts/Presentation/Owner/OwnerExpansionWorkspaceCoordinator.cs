@@ -267,7 +267,7 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>새 성장 메뉴에 현재 저장 데이터의 조회 결과를 연결한다.</summary>
-        public void BindGrowth(OwnerGrowthSnapshot snapshot)
+        public void BindGrowth(OwnerGrowthSnapshot snapshot, string routeId = null)
         {
             RequireInitialized();
             if (_growthView == null)
@@ -279,7 +279,7 @@ namespace Baseball.Presentation.Owner
                 _growthView.ShopRequested += HandleGrowthShopRequested;
                 _growthView.SetVisible(false);
             }
-            _growthView.Bind(snapshot);
+            _growthView.Bind(snapshot, routeId);
         }
 
         private void HandleSkillPlacementRequested(string cardId, int instanceId, int x, int y, int rotation) =>
@@ -287,11 +287,11 @@ namespace Baseball.Presentation.Owner
         private void HandleSkillRemovalRequested(string cardId, int instanceId) => CardSkillRemovalRequested?.Invoke(cardId, instanceId);
         private void HandleGrowthShopRequested() => GrowthShopRequested?.Invoke();
 
-        public void BindPowerUp(OwnerPowerUpSnapshot snapshot)
+        public void BindPowerUp(OwnerPowerUpSnapshot snapshot, string routeId = null)
         {
             RequireInitialized();
             EnsurePowerUpView();
-            _powerUpView.Bind(snapshot);
+            _powerUpView.Bind(snapshot, routeId);
         }
 
         /// <summary>저장된 인선·방침과 합성된 경기 판단값을 덕아웃에 연결한다.</summary>
@@ -527,7 +527,6 @@ namespace Baseball.Presentation.Owner
                 if (_specialRecruitView == null)
                 {
                     _specialRecruitView = UI_Scene_OwnerSpecialRecruit.CreateRuntime(_shell.MainWorkspaceHost);
-                    _specialRecruitView.RouteRequested += route => SpecialRecruitRouteRequested?.Invoke(route);
                     _specialRecruitView.CloseRequested += () => SpecialRecruitRouteRequested?.Invoke(OwnerNavigationRoutes.Home);
                 }
                 SetAllViewsVisible(false);
@@ -632,7 +631,7 @@ namespace Baseball.Presentation.Owner
                 BindRosterContext(
                     navigationRouteId,
                     "서포트 카드",
-                    "레퍼런스 편성 구조를 확인합니다. 효과·저장 기능은 Runtime 도입 전까지 잠겨 있습니다.");
+                    "서포트 카드는 준비 중입니다.");
                 return true;
             }
             if (string.Equals(workspaceRouteId, OwnerNavigationRoutes.DugoutManagerPolicy, StringComparison.Ordinal) &&
@@ -640,7 +639,7 @@ namespace Baseball.Presentation.Owner
             {
                 SetAllViewsVisible(false);
                 _managerPolicyView.SetVisible(true);
-                BindDugoutContext(navigationRouteId, "감독방침", "감독 AI의 여섯 판단 축과 실제 경기 적용값을 조정합니다.");
+                BindDugoutContext(navigationRouteId, "감독방침", "감독의 경기 운영 방침을 정합니다.");
                 return true;
             }
             if (string.Equals(workspaceRouteId, ShopRouteId, StringComparison.Ordinal) && _shopView != null)
@@ -843,7 +842,7 @@ namespace Baseball.Presentation.Owner
             _shell.BindContext(new SharedUI.ShellContextModel(
                 routeId,
                 title,
-                    "25인 1군과 역할 배치, 라인업 노트와 전력 설정의 검증 결과를 확인합니다.",
+                "출전 선수와 역할을 배치합니다.",
                 canGoBack ? "경기 준비" : "구단주 모드",
                 canGoBack,
                 "돌아가기"));
@@ -1202,8 +1201,7 @@ namespace Baseball.Presentation.Owner
             Text message = OwnerWorkspaceUiFactory.CreateText(
                 panel.Content,
                 "Message",
-                "스카우트 후보·실제 확률, 카드훈련 비용·결과, 강화·판매 검증 계약이 연결되면 이곳에서 제공합니다.\n" +
-                "현재 사용할 수 없는 기능은 위 세부 탭에서 잠김 사유를 확인할 수 있습니다.",
+                "전력보강을 준비 중입니다. 위 세부 탭에서 이용 가능한 기능을 확인해 주세요.",
                 18,
                 FontStyle.Normal,
                 TextAnchor.MiddleCenter);

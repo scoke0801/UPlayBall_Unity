@@ -9,7 +9,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     public sealed class OwnerModePresentationTests
     {
         [Test]
-        public void Profile_구단주권한만제공하고선수직접입력권한은노출하지않는다()
+        public void Profile_구단주운영권한을제공하고선수직접입력권한은노출하지않는다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
@@ -17,27 +17,28 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(profile.DisplayName, Is.EqualTo("구단주 모드"));
             Assert.That(profile.Capabilities.Has(UiCapability.CanEditActiveRoster), Is.False);
             Assert.That(profile.Capabilities.Has(UiCapability.CanEditLineup), Is.True);
-            Assert.That(profile.Capabilities.Has(UiCapability.CanUseScout), Is.False);
+            Assert.That(profile.Capabilities.Has(UiCapability.CanUseScout), Is.True);
             Assert.That(profile.Capabilities.Has(UiCapability.CanEquipTeamColor), Is.True);
             Assert.That(profile.Capabilities.Has(UiCapability.CanEquipTacticCards), Is.True);
-            Assert.That(profile.Capabilities.Has(UiCapability.CanTrainOwnedCards), Is.False);
+            Assert.That(profile.Capabilities.Has(UiCapability.CanTrainOwnedCards), Is.True);
             Assert.That(profile.Capabilities.Has(UiCapability.CanManageFinance), Is.True);
             Assert.That(profile.Capabilities.Has(UiCapability.CanPlayPlayerMiniGame), Is.False);
             Assert.That(profile.Capabilities.Has(UiCapability.CanViewCareerPlayerGrowth), Is.False);
         }
 
         [Test]
-        public void Profile_여섯업무영역과ContextMatchCenter를분리한다()
+        public void Profile_일곱업무영역과ContextMatchCenter를분리한다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
-            Assert.That(profile.Navigation.Entries.Count, Is.EqualTo(6));
+            Assert.That(profile.Navigation.Entries.Count, Is.EqualTo(7));
             Assert.That(profile.Navigation.Entries[0].RouteId, Is.EqualTo(OwnerNavigationRoutes.Home));
             Assert.That(profile.Navigation.Entries[1].RouteId, Is.EqualTo(OwnerNavigationRoutes.Roster));
             Assert.That(profile.Navigation.Entries[2].RouteId, Is.EqualTo(OwnerNavigationRoutes.PowerUp));
             Assert.That(profile.Navigation.Entries[3].RouteId, Is.EqualTo(OwnerNavigationRoutes.Dugout));
             Assert.That(profile.Navigation.Entries[4].RouteId, Is.EqualTo(OwnerNavigationRoutes.Club));
             Assert.That(profile.Navigation.Entries[5].RouteId, Is.EqualTo(OwnerNavigationRoutes.League));
+            Assert.That(profile.Navigation.Entries[6].RouteId, Is.EqualTo(OwnerNavigationRoutes.Shop));
             Assert.That(profile.Navigation.Entries[4].Children[0].RouteId,
                 Is.EqualTo(OwnerNavigationRoutes.ClubOwner));
             Assert.That(profile.Navigation.Entries[4].Children[1].RouteId,
@@ -68,7 +69,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_계약은권한으로열고미구현스카우트는잠금사유를유지한다()
+        public void Profile_계약과스카우트를현재권한으로연다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
@@ -78,8 +79,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(contract, Is.Not.Null);
             Assert.That(contract.IsEnabled, Is.True);
             Assert.That(contract.RequiredCapability, Is.EqualTo(UiCapability.CanManagePlayerContracts));
-            Assert.That(awardScout.IsEnabled, Is.False);
-            Assert.That(awardScout.DisabledReason, Does.Contain("스카우트 후보군"));
+            Assert.That(awardScout.RouteId, Is.EqualTo(OwnerNavigationRoutes.PowerUpScout));
+            Assert.That(awardScout.IsEnabled, Is.True);
+            Assert.That(awardScout.DisabledReason, Is.Empty);
         }
 
         [Test]

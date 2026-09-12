@@ -35,6 +35,7 @@ namespace Baseball.Presentation.Owner
         private int _rotation;
         private int _rarity = -1;
         private string _pendingStudy = string.Empty;
+        private int _rosterPage;
 
         public event Action<string, string> StudyRequested;
         public event Action<string, int, int, int, int> SkillPlacementRequested;
@@ -60,9 +61,10 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>실제 카드·인벤토리·유학 상태를 갱신하고 현재 선택을 유지한다.</summary>
-        public void Bind(OwnerGrowthSnapshot snapshot)
+        public void Bind(OwnerGrowthSnapshot snapshot, string routeId = null)
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+            if (routeId != null) _isStudy = routeId == OwnerNavigationRoutes.PowerUpStudy;
             _pendingStudy = string.Empty;
             EnsureSelection();
             Render();
@@ -75,6 +77,7 @@ namespace Baseball.Presentation.Owner
             bool needsRender = _content == null || _isStudy != isStudy ||
                 _isChoosingStudyPlayer || !string.IsNullOrEmpty(_pendingStudy);
             _isStudy = isStudy;
+            if (needsRender) _rosterPage = 0;
             _isChoosingStudyPlayer = false;
             _pendingStudy = string.Empty;
             SetFeedback(_isStudy ? "과정과 선수를 선택한 뒤 비용·성장 결과를 확인하세요."
@@ -169,6 +172,7 @@ namespace Baseball.Presentation.Owner
         private void SelectType(bool pitcher)
         {
             _isPitcher = pitcher;
+            _rosterPage = 0;
             _cardId = _programId = _pendingStudy = string.Empty;
             _instanceId = _rotation = 0;
             EnsureSelection();
@@ -177,17 +181,24 @@ namespace Baseball.Presentation.Owner
 
         private void RenderRoster(Transform parent, float x, float y, float width, float height, int columns)
         {
+            // 현재 보이는 두 행만 생성해 보유 카드 수가 화면 생성 비용을 늘리지 않게 한다.
+            int pageSize = columns * 2;
+            var candidates = new List<OwnerGrowthCardSnapshot>();
+            foreach (OwnerGrowthCardSnapshot candidate in _snapshot.Cards)
+                if (IsPitcher(candidate.Card) == _isPitcher) candidates.Add(candidate);
+            int pageCount = Math.Max(1, (candidates.Count + pageSize - 1) / pageSize);
+            _rosterPage = Math.Max(0, Math.Min(_rosterPage, pageCount - 1));
             ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalGridScroll("PlayerInventory", parent,
                 columns, new Vector2((width - 22 - (columns - 1) * 5) / columns, 92), 5,
                 out RectTransform cards);
-            Place(scroll.GetComponent<RectTransform>(), x, y, width, height);
+            Place(scroll.GetComponent<RectTransform>(), x, y, width, height - 28);
             cards.GetComponent<GridLayoutGroup>().padding = new RectOffset(5, 5, 5, 5);
             AddScrollbar(scroll);
-            int count = 0;
-            foreach (OwnerGrowthCardSnapshot candidate in _snapshot.Cards)
+            int start = _rosterPage * pageSize;
+            int end = Math.Min(candidates.Count, start + pageSize);
+            for (int index = start; index < end; index++)
             {
-                if (IsPitcher(candidate.Card) != _isPitcher) continue;
-                count++;
+                OwnerGrowthCardSnapshot candidate = candidates[index];
                 OwnerGrowthCardSnapshot selected = candidate;
                 PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(cards, "Card_" + candidate.Card.CardId);
                 card.UseLineupSlotLayout();
@@ -201,9 +212,30 @@ namespace Baseball.Presentation.Owner
                     _instanceId = _rotation = 0;
                     Render();
                 };
-                card.DetailRequested += _ => UI_Popup_OwnerPlayerCard.Show(_root, new[] { selected.Card }, 0);
+                card.DetailRequested += _ => UI_Popup_OwnerPlayerCard.Show(_root, new[] { selected.DetailCard }, 0);
             }
-            if (count == 0) Label(parent, "NoPlayers", "해당 유형의 보유 선수가 없습니다.", 13, x, y + 20, width, 38);
+            if (candidates.Count == 0) Label(parent, "NoPlayers", "해당 유형의 보유 선수가 없습니다.", 13, x, y + 20, width, 38);
+            Button previous = Tab(parent, "PreviousRosterPage", "이전", () => ChangeRosterPage(-1),
+                false, x, y + height - 26, 60, 24);
+            previous.interactable = _rosterPage > 0;
+            Label(parent, "RosterPage", $"{_rosterPage + 1}/{pageCount} · {candidates.Count}명", 12,
+                x + 65, y + height - 26, width - 130, 24).alignment = TextAnchor.MiddleCenter;
+            Button next = Tab(parent, "NextRosterPage", "다음", () => ChangeRosterPage(1),
+                false, x + width - 60, y + height - 26, 60, 24);
+            next.interactable = _rosterPage + 1 < pageCount;
+        }
+
+        private void ChangeRosterPage(int delta)
+        {
+            _rosterPage += delta;
+            Render();
+            // 페이지를 만든 뒤에도 키보드·게임패드로 다음 페이지 또는 되돌아가기를 이어 간다.
+            if (EventSystem.current == null) return;
+            string preferred = delta > 0 ? "NextRosterPage" : "PreviousRosterPage";
+            Button button = _content.Find(preferred).GetComponent<Button>();
+            if (!button.interactable)
+                button = _content.Find(delta > 0 ? "PreviousRosterPage" : "NextRosterPage").GetComponent<Button>();
+            if (button.interactable) button.Select();
         }
 
         private void RenderSkills()
@@ -219,7 +251,7 @@ namespace Baseball.Presentation.Owner
                 PlayerMiniCardView preview = PlayerMiniCardView.CreateRuntime(_content, "SelectedPlayerCard");
                 preview.UseLineupSlotLayout();
                 Place(preview.GetComponent<RectTransform>(), 371, 123, 85, 117);
-                preview.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card.Card, false));
+                preview.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card.DetailCard, false));
                 preview.SetPortrait(PlayerPortraitSprites.GetDefault(card.Card.Position));
                 FitCompactCardText(preview);
                 string detail = OwnerCollectionPresentationBuilder.FormatPlayerRole(

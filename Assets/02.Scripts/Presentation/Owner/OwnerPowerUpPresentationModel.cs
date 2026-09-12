@@ -273,24 +273,57 @@ namespace Baseball.Presentation.Owner
     /// <summary>전력보강 세 Route가 한 Runtime Revision에서 함께 읽는 화면 묶음이다.</summary>
     public sealed class OwnerPowerUpSnapshot
     {
+        private readonly Lazy<OwnerScoutScreenSnapshot> _scout;
+        private readonly Lazy<OwnerCardTrainingScreenSnapshot> _training;
+        private readonly Lazy<OwnerEnhancementSaleScreenSnapshot> _enhancementSale;
+
         public OwnerPowerUpSnapshot(
             OwnerScoutScreenSnapshot scout,
             OwnerCardTrainingScreenSnapshot training,
             OwnerEnhancementSaleScreenSnapshot enhancementSale)
         {
-            Scout = scout ?? throw new ArgumentNullException(nameof(scout));
-            Training = training ?? throw new ArgumentNullException(nameof(training));
-            EnhancementSale = enhancementSale ?? throw new ArgumentNullException(nameof(enhancementSale));
+            if (scout == null) throw new ArgumentNullException(nameof(scout));
+            if (training == null) throw new ArgumentNullException(nameof(training));
+            if (enhancementSale == null) throw new ArgumentNullException(nameof(enhancementSale));
+            _scout = new Lazy<OwnerScoutScreenSnapshot>(() => scout);
+            _training = new Lazy<OwnerCardTrainingScreenSnapshot>(() => training);
+            _enhancementSale = new Lazy<OwnerEnhancementSaleScreenSnapshot>(() => enhancementSale);
         }
 
-        public OwnerScoutScreenSnapshot Scout { get; }
-        public OwnerCardTrainingScreenSnapshot Training { get; }
-        public OwnerEnhancementSaleScreenSnapshot EnhancementSale { get; }
+        /// <summary>현재 Runtime에서 실제로 여는 탭만 한 번 조회한다. Runtime 변경 시 묶음 전체를 교체한다.</summary>
+        public OwnerPowerUpSnapshot(
+            Func<OwnerScoutScreenSnapshot> scout,
+            Func<OwnerCardTrainingScreenSnapshot> training,
+            Func<OwnerEnhancementSaleScreenSnapshot> enhancementSale)
+        {
+            _scout = new Lazy<OwnerScoutScreenSnapshot>(scout);
+            _training = new Lazy<OwnerCardTrainingScreenSnapshot>(training);
+            _enhancementSale = new Lazy<OwnerEnhancementSaleScreenSnapshot>(enhancementSale);
+        }
+
+        public OwnerScoutScreenSnapshot Scout => _scout.Value;
+        public OwnerCardTrainingScreenSnapshot Training => _training.Value;
+        public OwnerEnhancementSaleScreenSnapshot EnhancementSale => _enhancementSale.Value;
     }
 
     /// <summary>Game Query와 Simulation Preview를 전력보강 표시 Snapshot으로 변환한다.</summary>
     public static class OwnerPowerUpPresentationBuilder
     {
+        /// <summary>스카우트 진입은 보유 카드 상세·훈련·판매를 계산하지 않고, 필요한 탭에서 공유 조회한다.</summary>
+        public static OwnerPowerUpSnapshot BuildDeferred(
+            OwnerModeManager manager,
+            ShopService shop,
+            Func<OwnerCollectionSnapshot> collectionFactory)
+        {
+            if (manager == null) throw new ArgumentNullException(nameof(manager));
+            if (shop == null) throw new ArgumentNullException(nameof(shop));
+            var collection = new Lazy<OwnerCollectionSnapshot>(collectionFactory);
+            return new OwnerPowerUpSnapshot(
+                () => BuildScout(manager, shop),
+                () => BuildTraining(manager, collection.Value),
+                () => BuildEnhancementSale(manager, collection.Value));
+        }
+
         /// <summary>동일 Runtime에서 세 전력보강 Route의 표시 Snapshot을 만든다.</summary>
         public static OwnerPowerUpSnapshot Build(
             OwnerModeManager manager,
@@ -341,7 +374,11 @@ namespace Baseball.Presentation.Owner
             ScoutFeaturePolicy featurePolicy)
         {
             ShopPurchaseQuote quote = shop.GetQuote(product);
-            ScoutPityBalanceTable pity = ScoutPityBalanceTable.CreateInitial();
+            ScoutPityBalanceTable pity = manager.Balance.ScoutEconomy.Pity;
+            // 보장 영입은 게이지를 쓰는 상품이라 게이지를 채우지 않는다.
+            int pityGainPerDraw = product.Currency == ShopCurrency.ScoutingPoint && scoutPool != null
+                ? pity.GetGaugeGain(scoutPool)
+                : 0;
             return new OwnerScoutProductSnapshot(
                 product.ProductId,
                 product.DisplayName + " · " + product.GradeLabel,
@@ -352,7 +389,7 @@ namespace Baseball.Presentation.Owner
                 product.DrawCount,
                 manager.Runtime.Economy.PityGauge,
                 pity.Threshold,
-                pity.GaugeGainPerScout,
+                pityGainPerDraw,
                 pity.GuaranteedMinimumCost,
                 null,
                 () => CreateScoutProbabilities(shop, product.ProductId),

@@ -16,6 +16,51 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     /// <summary>경기 준비와 Staff Office가 Resolver 결과만 표현하는지 검증한다.</summary>
     public sealed class OwnerExpansionPresentationTests
     {
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
+        public void ManagerPolicyView_운영설명을표시하고선택한방침만확정한다(int width, int height)
+        {
+            var host = new GameObject("PolicyTest", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                host.GetComponent<RectTransform>().sizeDelta = new Vector2(width, height);
+                var manager = new OwnerDugoutStaffCandidate("manager", "김감독", "균형 운영", "", "");
+                var coach = new OwnerDugoutStaffCandidate("coach", "이코치", "선수 지원", "", "");
+                var snapshot = new OwnerDugoutSnapshot(new[] { manager }, new[] { coach },
+                    manager.Id, coach.Id, DugoutPolicySettings.Neutral, 50, 2,
+                    Baseball.Core.Teams.ManagerTacticalProfile.Balanced);
+                UI_Scene_OwnerManagerPolicy view = UI_Scene_OwnerManagerPolicy.CreateRuntime(host.transform);
+                view.Bind(snapshot);
+                Transform root = view.transform.Find("OwnerManagerPolicyWorkspace");
+                Text description = root.Find("ContextPanel/Profile").GetComponent<Text>();
+                root.Find("PolicyPanel/AxisSteps0/Step4").GetComponent<Button>().onClick.Invoke();
+                root.Find("PolicyPanel/AxisSteps4/Step0").GetComponent<Button>().onClick.Invoke();
+                Assert.That(description.text, Does.Contain("장타 중시"));
+                Assert.That(description.text, Does.Contain("선발에게 긴 이닝 맡김"));
+                Assert.That(description.text, Does.Not.Contain("임계값").And.Not.Contain("Preview"));
+                Canvas.ForceUpdateCanvases();
+                Assert.That(description.preferredHeight, Is.LessThanOrEqualTo(description.rectTransform.rect.height));
+
+                OwnerDugoutConfigurationCommand? confirmed = null;
+                view.PolicyConfirmed += command => confirmed = command;
+                Assert.That(confirmed.HasValue, Is.False);
+                root.Find("Confirm").GetComponent<Button>().onClick.Invoke();
+                Assert.That(confirmed.HasValue, Is.True);
+                Assert.That(confirmed.Value.Policy.GetLevel(DugoutPolicyAxis.BattingApproach), Is.EqualTo(4));
+                Assert.That(confirmed.Value.Policy.GetLevel(DugoutPolicyAxis.HookSpeed), Is.Zero);
+                Assert.That(confirmed.Value.Policy.GetLevel(DugoutPolicyAxis.RunningAggression), Is.EqualTo(2));
+                Assert.That(view.TryHandleCancel(), Is.True);
+                Assert.That(description.text, Does.Not.Contain("장타 중시"));
+                Assert.That(view.TryHandleCancel(), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
         [Test]
         public void PregameView_투수탭전환과재바인딩에서도행과경기시작이유지된다()
         {
@@ -35,7 +80,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     .Select(image => image.sprite != null ? image.sprite.name : string.Empty)
                     .OrderBy(name => name)
                     .ToArray();
-                Assert.That(emblems, Is.EqualTo(new[] { "TeamEmblem_007", "TeamEmblem_012" }));
+                Assert.That(emblems, Is.EqualTo(new[] { "TeamEmblem_007", "TeamEmblem_106" }));
                 var table = host.GetComponentsInChildren<UnityEngine.UI.ScrollRect>()
                     .Single(scroll => scroll.name == "RosterScroll0");
                 Assert.That(table.GetComponent<UnityEngine.UI.Image>().raycastTarget, Is.True);
@@ -77,8 +122,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(model.CanStartMatch, Is.True);
         }
 
-        [Test]
-        public void PregameBuilder_현재Validation오류는선수경고와경기시작불가사유가된다()
+        [TestCase(true)]
+        [TestCase(false)]
+        public void PregameBuilder_현재Validation오류는선수경고와경기시작불가사유가된다(bool isMatchStartAvailable)
         {
             var issue = new LineupPresetValidationIssue(
                 LineupPresetValidationIssueCode.CardUnavailable,
@@ -90,7 +136,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             var validation = new LineupPresetValidationResult("preset:default", new[] { issue });
 
             OwnerPregamePresentationModel model = OwnerPregamePresentationBuilder.Build(
-                CreatePregameSnapshot(validation));
+                CreatePregameSnapshot(validation, isMatchStartAvailable: isMatchStartAvailable));
 
             Assert.That(model.CanStartMatch, Is.False);
             Assert.That(model.MatchStartDisabledReason, Does.Contain("출전"));
@@ -152,7 +198,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     host.GetComponent<RectTransform>());
                 view.Bind(OwnerPregamePresentationBuilder.Build(snapshot));
 
-                PlayerMiniCardView[] cards = view.GetComponentsInChildren<PlayerMiniCardView>();
+                PlayerMiniCardView[] cards = host.GetComponentsInChildren<PlayerMiniCardView>();
                 Assert.That(cards.Select(card => card.Model.PlayerId),
                     Is.EquivalentTo(new[] { "OWN_STARTER", "OPPONENT_STARTER" }));
                 Assert.That(cards.All(card => card.transform.Find("LineupSubFrame").gameObject.activeSelf), Is.True);
@@ -266,7 +312,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             PlayerMiniCardModel ownStarterCard = null,
             OwnerCollectionCardSnapshot ownStarterDetail = null,
             PlayerMiniCardModel opponentStarterCard = null,
-            OwnerCollectionCardSnapshot opponentStarterDetail = null)
+            OwnerCollectionCardSnapshot opponentStarterDetail = null,
+            bool isMatchStartAvailable = true)
         {
             var players = new OwnerPregamePlayerSnapshot[9];
             for (int index = 0; index < players.Length; index++)
@@ -291,7 +338,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 new[] { "기동력 야구", "철벽 수비" },
                 new[] { "초반 승부", "불펜 총력전" },
                 new Dictionary<string, string>(),
-                true,
+                isMatchStartAvailable,
+                isMatchStartAvailable ? string.Empty : "선수 배치를 확인해 주세요.",
                 ownTeamEmblemId: 7,
                 opponentTeamEmblemId: 12,
                 ownStarterCard: ownStarterCard,

@@ -13,7 +13,10 @@
 - Simulation은 확률과 성장·정산 결과를 계산하고 Unity API를 참조하지 않는다.
 - Game은 Runtime Query, Preview, Validate, Command와 저장 상태 변경을 소유한다.
 - Presentation은 `OwnerPowerUpSnapshot`을 읽어 표시하며 확률, 성장량, 판매가를 다시 계산하지 않는다.
-- 성공한 Command 뒤에는 Runtime 변경 통지로 Snapshot 전체를 다시 만들고 Bind한다.
+- 성공한 Command 뒤에는 Runtime 변경 통지로 조회 묶음을 교체하고 현재 탭을 Bind한다.
+- 스카우트 진입에서 보유 카드 상세·훈련·강화·판매 Preview와 숨겨진 카드 목록을 만들지 않는다.
+  각 탭을 처음 열 때 조회하고 같은 Runtime 상태의 왕복에서는 Snapshot과 View를 재사용한다.
+  Runtime 변경 시 미방문 탭의 지연 조회도 함께 폐기해 이전 상태가 표시되지 않게 한다.
 - 선택한 상품, 카드, Program, 판매 수량은 View State로 유지한다. 다시 Bind할 때 대상이 사라진 경우에만 첫 유효 항목으로 이동한다.
 
 ## 공통 화면 규격
@@ -69,4 +72,3 @@ Pack, Reveal 배경, 빛 효과를 추가할 때만 ImageGen을 사용하고 텍
 - 확률과 Preview 계산이 Presentation에 중복 구현되지 않는다.
 - Empty와 모든 차단 상태에서 실행 버튼이 비활성화되고 이유가 보인다.
 - Core와 Simulation 빌드, 관련 EditMode 테스트가 통과한다.
-

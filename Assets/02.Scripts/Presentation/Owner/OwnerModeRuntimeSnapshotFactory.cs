@@ -191,7 +191,7 @@ namespace Baseball.Presentation.Owner
             string unavailableReason = string.Empty;
             if (mode.LiveSeason.NextPlayerGame == null)
             {
-                unavailableReason = "시즌 일정이 종료되어 다음 경기 프리셋 검증을 실행하지 않았습니다.";
+                unavailableReason = "이번 시즌 경기가 모두 끝났습니다.";
             }
             else
             {
@@ -263,6 +263,22 @@ namespace Baseball.Presentation.Owner
                 if (card != null) cards[card.CardId] = card;
             }
             return cards;
+        }
+
+        /// <summary>구단 집계에 필요한 카드 요약만 만들고 능력치·구종·성적 상세 조회는 생략한다.</summary>
+        public OwnerCollectionSnapshot CreateCollectionSummary(OwnerModeManager manager)
+        {
+            ManagerHistoricalRuntimeState runtime = RequireRuntime(manager);
+            var cards = new OwnerCollectionCardSnapshot[runtime.OwnedCards.Count];
+            var teamDisplayNames = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (int index = 0; index < cards.Length; index++)
+            {
+                OwnedPlayerCardState owned = runtime.OwnedCards[index];
+                if (!runtime.WorldCardCatalog.TryGetCard(owned.CardId, out PlayerCardDefinition card))
+                    throw new InvalidOperationException($"CardId {owned.CardId} 원본이 없습니다.");
+                cards[index] = CreateRosterCardSummary(manager, runtime, owned, card, teamDisplayNames);
+            }
+            return new OwnerCollectionSnapshot(cards);
         }
 
         /// <summary>현재 Save의 OwnedCards와 WorldCardCatalog를 보유 선수 화면 Snapshot으로 투영한다.</summary>
@@ -347,8 +363,10 @@ namespace Baseball.Presentation.Owner
                 owned.DuplicateCount,
                 owned.IsLocked,
                 owned.IsFavorite,
-                pitcherRole: season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
-                teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing);
+                  pitcherRole: season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
+                  isActiveRoster: IsActiveRoster(runtime, owned.CardId),
+                  studyStatus: GetStudyStatus(runtime, owned.CardId),
+                  teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing);
         }
 
         private static OwnerCollectionCardSnapshot CreateCollectionCard(
@@ -833,7 +851,7 @@ namespace Baseball.Presentation.Owner
                 tactics,
                 displayTexts,
                 preparation.CanStartGame,
-                preparation.CanStartGame ? string.Empty : "현재 로스터·프리셋 검증을 통과하지 못했습니다.",
+                preparation.CanStartGame ? string.Empty : "선수 배치를 확인한 뒤 다시 시작해 주세요.",
                 ownTeamId,
                 opponentTeamId,
                 cards.OwnStarterCard,
