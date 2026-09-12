@@ -138,14 +138,15 @@ namespace Baseball.Tests.EditMode.Game.Guide
         }
 
         [Test]
-        public void 공개전에는경기후목표가없고공개점수만복원된다()
+        public void 공개점수는복원하지만점수만으로투수점검을권하지않는다()
         {
             var state = new GuideProgressState();
             Assert.That(OwnerGuideGoalProvider.Create(null, null, false, state.PublishedMatchKey).Count, Is.Zero);
             state.PublishMatch("season:1", 2, 3);
             state = GuideProgressState.Restore(state.Capture());
             var goals = OwnerGuideGoalProvider.Create(null, null, false, state.PublishedMatchKey);
-            Assert.That(goals.Count, Is.EqualTo(1)); Assert.That(goals[0].Kind, Is.EqualTo(GuideGoalKind.Debrief));
+            Assert.That(goals.Count, Is.Zero);
+            Assert.That(OwnerGuideGoalProvider.Create(null, null, true, state.PublishedMatchKey).Count, Is.Zero);
             Assert.That(state.HomeScore, Is.EqualTo(2)); Assert.That(state.AwayScore, Is.EqualTo(3));
         }
 
@@ -160,7 +161,52 @@ namespace Baseball.Tests.EditMode.Game.Guide
             var goals = OwnerGuideGoalProvider.Create(new RosterValidationResult(Array.Empty<RosterValidationIssue>()), validation, true, "");
             Assert.That(goals[0].IsRequired, Is.False); Assert.That(goals[0].CardId, Is.EqualTo("cardA"));
             Assert.That(goals[1].IsRequired, Is.True); Assert.That(goals[1].SlotIndex, Is.EqualTo(2));
-            Assert.That(goals.Count, Is.EqualTo(3));
+            Assert.That(goals.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void 모두읽음은문제를해결하지않고저장과다음경기에도유지된다()
+        {
+            var state = new GuideProgressState();
+            state.Reconcile("game1", 0, new[] { Problem(), Problem("other") }, "season1");
+            state.MarkAllReportsRead();
+            state = GuideProgressState.Restore(state.Capture());
+            state.Reconcile("game2", 1, new[] { Problem(), Problem("other") }, "season1");
+            Assert.That(state.GetSuggestionGoals(), Is.Empty);
+            Assert.That(state.GetVisibleGoals().Count, Is.EqualTo(2));
+            Assert.That(state.GetReports().Count, Is.EqualTo(2));
+            foreach (var report in state.GetReports()) Assert.That(report.isRead, Is.True);
+        }
+
+        [Test]
+        public void 읽고보관은레드닷을해제하며보관해제로다시알리지않는다()
+        {
+            var state = new GuideProgressState();
+            state.Reconcile("game1", 0, new[] { Problem() });
+            string id = state.FindReportId("slot");
+            state.SetReportBookmark(id, true);
+            Assert.That(state.GetReports()[0].isRead, Is.True);
+            state.SetReportBookmark(id, false);
+            Assert.That(state.GetSuggestionGoals(), Is.Empty);
+            Assert.That(state.GetVisibleGoals().Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void 읽은문제의근거가바뀌거나해결후재발하면다시알린다()
+        {
+            var state = new GuideProgressState();
+            var first = new GuideGoal("roster", GuideGoalKind.RosterIssue, GuideTargetKind.Roster, true,
+                "TotalCount", actual: 24, expected: 25);
+            var changed = new GuideGoal("roster", GuideGoalKind.RosterIssue, GuideTargetKind.Roster, true,
+                "TotalCount", actual: 23, expected: 25);
+            state.Reconcile("game1", 0, new[] { first }, "season1");
+            state.MarkAllReportsRead();
+            state.Reconcile("game2", 1, new[] { changed }, "season1");
+            Assert.That(state.GetSuggestionGoals().Count, Is.EqualTo(1));
+            state.MarkAllReportsRead();
+            state.Reconcile("game2", 1, Array.Empty<GuideGoal>(), "season1");
+            state.Reconcile("game3", 2, new[] { changed }, "season1");
+            Assert.That(state.GetSuggestionGoals().Count, Is.EqualTo(1));
         }
 
         [Test]

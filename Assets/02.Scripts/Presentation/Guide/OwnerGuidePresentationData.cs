@@ -20,6 +20,8 @@ namespace Baseball.Presentation.Guide
         public string reportList, reportDetail, reportDate, reportPage, urgent;
         public string preparationTitle, confirmationTitle, debriefTitle, rosterTitle, presetTitle;
         public string reportCounts, emptyBookmark, emptyImportant;
+        public string allRead, noUnread, reviewed, issueLocation;
+        public string[] assignmentGroups;
         public OwnerGuideIssueCopy[] issues;
 
         public static OwnerGuidePresentationData Load()

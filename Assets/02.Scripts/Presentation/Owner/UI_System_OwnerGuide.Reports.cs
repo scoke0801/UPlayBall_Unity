@@ -16,7 +16,7 @@ namespace Baseball.Presentation.Owner
         private Text _reportTitle;
         private Text _reportSubject;
         private Text _reportBody, _pageLabel;
-        private Button _reportBack, _reportAction, _bookmark, _pageBack, _pageNext;
+        private Button _reportBack, _reportAction, _bookmark, _pageBack, _pageNext, _reportReadAll;
         private int _filter, _page;
         private string _selectedReportId;
 
@@ -28,6 +28,12 @@ namespace Baseball.Presentation.Owner
             var title = _reportTitle = MakeText(_reportsRoot, "ReportTitle", 24); title.text = _copy.review;
             OwnerDashboardStyle.SetTypography(title, true);
             SetRect(title.rectTransform, Vector2.zero, Vector2.zero, new Vector2(180, 488), new Vector2(536, 540));
+            _reportReadAll = MakeButton(_reportsRoot, "ReadAllReports", _copy.allRead, () =>
+            {
+                AllReadRequested?.Invoke();
+                _reportBack.Select();
+            }, OwnerButtonRole.Quiet);
+            Place(_reportReadAll, 180, 480, 536, 548);
             var close = MakeButton(_reportsRoot, "ReportClose", _copy.close, () => SetState(0), OwnerButtonRole.Quiet);
             Place(close, 552, 480, 708, 548);
             string[] filterLabels = { _copy.all, _copy.important, _copy.bookmarked };
@@ -128,6 +134,11 @@ namespace Baseball.Presentation.Owner
             _page = Mathf.Clamp(_page, 0, pageCount - 1);
             var selected = SelectedReport();
             bool detail = selected != null;
+            bool hasUnread = false;
+            if (_progress != null) foreach (var report in _progress.GetReports())
+                if (!report.isRead && !report.isExpired) { hasUnread = true; break; }
+            _reportReadAll.gameObject.SetActive(!detail && hasUnread);
+            _reportTitle.gameObject.SetActive(detail || !hasUnread);
             _reportTitle.text = detail ? _copy.reportDetail : _copy.review;
             _reportBack.GetComponentInChildren<Text>().text = detail ? _copy.reportList : _copy.back;
             for (int i = 0; i < _filters.Length; i++)

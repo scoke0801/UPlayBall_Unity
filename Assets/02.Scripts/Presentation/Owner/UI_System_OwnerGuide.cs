@@ -43,8 +43,8 @@ namespace Baseball.Presentation.Owner
         public OwnerGuidePresentationData Copy => _copy;
         public event Action<GuideGoal> ActionRequested;
         public event Action<string> ReadRequested;
+        public event Action AllReadRequested;
         public event Action<string, bool> BookmarkRequested;
-        public event Action TipsRequested;
 
         /// <summary>호환 호출도 Workspace 내부에만 생성한다.</summary>
         public static UI_System_OwnerGuide Create(SharedGameShellView shell, OwnerGuidePresentationData copy)
@@ -210,16 +210,24 @@ namespace Baseball.Presentation.Owner
             {
                 string id = _progress?.FindReportId(_goal?.Key);
                 if (id != null) BookmarkRequested?.Invoke(id, true);
+                if (_snooze.gameObject.activeInHierarchy) _snooze.Select();
+                else _review.Select();
             }, OwnerButtonRole.Quiet);
             _next = MakeButton(_suggestion, "Next", _copy.next, () =>
             {
                 string id = _progress?.FindReportId(_goal?.Key);
                 if (id != null) ReadRequested?.Invoke(id);
+                if (_next.gameObject.activeInHierarchy) _next.Select();
+                else _review.Select();
             }, OwnerButtonRole.Quiet);
             _review = MakeButton(_suggestion, "Review", _copy.review, () => SetState(2), OwnerButtonRole.Quiet);
             _dock = MakeButton(_suggestion, "ManagerDock", _copy.expand, () => SetState(1), OwnerButtonRole.Quiet);
             _close = MakeButton(_suggestion, "Close", _copy.collapse, () => SetState(0), OwnerButtonRole.Quiet);
-            _news = MakeButton(_suggestion, "ClubNews", _copy.tips, () => TipsRequested?.Invoke(), OwnerButtonRole.Quiet);
+            _news = MakeButton(_suggestion, "ReadAll", _copy.allRead, () =>
+            {
+                AllReadRequested?.Invoke();
+                _review.Select();
+            }, OwnerButtonRole.Quiet);
             BuildReports();
             _feedbackRoot = OwnerWorkspaceUiFactory.CreateRoot(_content, "ManagerFeedback", false);
             var feedbackSurface = _feedbackRoot.gameObject.AddComponent<Image>();
@@ -268,7 +276,7 @@ namespace Baseball.Presentation.Owner
             int unread = 0;
             if (_progress != null) foreach (var report in _progress.GetReports())
                 if (!report.isRead && !report.isExpired) unread++;
-            _counter.text = string.Format(_copy.unread, unread);
+            _counter.text = unread > 0 ? string.Format(_copy.unread, unread) : _copy.noUnread;
             _unreadBadge.gameObject.SetActive(unread > 0);
             if (_state == 1 && _goal != null)
             {
@@ -277,12 +285,13 @@ namespace Baseball.Presentation.Owner
                 _counter.text = string.Format(_copy.count, index + 1, _goals.Count) + " · " + _counter.text;
             }
             _dock.gameObject.SetActive(_state == 0 && _goal != null);
-            _body.text = FormatBody(_goal, _progress?.HomeScore ?? 0, _progress?.AwayScore ?? 0);
+            bool hasReviewedIssues = _goal == null && _progress != null && _progress.GetVisibleGoals(true).Count > 0;
+            _body.text = hasReviewedIssues ? _copy.reviewed : FormatBody(_goal, _progress?.HomeScore ?? 0, _progress?.AwayScore ?? 0);
             _action.GetComponentInChildren<Text>().text = ActionLabel(_goal);
             _action.gameObject.SetActive(_goal != null);
-            _snooze.gameObject.SetActive(_state == 1 && _goal != null);
-            _next.gameObject.SetActive(_state == 1 && _goal != null);
-            _news.gameObject.SetActive(_state == 1);
+            _snooze.gameObject.SetActive(_goal != null);
+            _next.gameObject.SetActive(_goal != null);
+            _news.gameObject.SetActive(unread > 0);
             // 접힌 상태에서도 초상·본문·주요 행동의 위치를 유지해 클릭 대상이 움직이지 않게 한다.
             SetRect(_portraitViewport, Vector2.zero, new Vector2(0, 1), new Vector2(8, 156), new Vector2(152, -8));
             SetRect(_body.rectTransform, Vector2.zero, Vector2.one, new Vector2(176, 156), new Vector2(-16, -8));
@@ -316,6 +325,10 @@ namespace Baseball.Presentation.Owner
             if (issueCopy != null)
             {
                 string explanation = issueCopy.body;
+                if (goal.Kind == GuideGoalKind.PresetIssue && goal.SlotIndex >= 0 &&
+                    _copy.assignmentGroups != null && (int)goal.Group < _copy.assignmentGroups.Length)
+                    explanation = string.Format(_copy.issueLocation, _copy.assignmentGroups[(int)goal.Group], goal.SlotIndex + 1)
+                        + "\n" + explanation;
                 if (goal.Actual.HasValue && goal.Expected.HasValue)
                     explanation += "\n" + string.Format(_copy.reportCounts, goal.Actual.Value, goal.Expected.Value);
                 return explanation;

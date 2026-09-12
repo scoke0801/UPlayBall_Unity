@@ -50,9 +50,9 @@ namespace Baseball.Presentation.Owner
                 _homeView.FeedbackChanged += _ownerGuide.SetFeedback;
                 _ownerGuide.SetFeedback(_homeView.FeedbackMessage, _homeView.IsFeedbackError);
                 _ownerGuide.ActionRequested += NavigateGuideGoal;
-                _ownerGuide.TipsRequested += ShowOwnerGuideTip;
                 _homeView.OutsideSuggestionPressed += _ownerGuide.CollapseSuggestion;
                 _ownerGuide.ReadRequested += id => SaveGuideChoice(state => state.MarkReportRead(id));
+                _ownerGuide.AllReadRequested += () => SaveGuideChoice(state => state.MarkAllReportsRead());
                 _ownerGuide.BookmarkRequested += (id, bookmarked) => SaveGuideChoice(state => state.SetReportBookmark(id, bookmarked));
             }
             if (_hasUnsavedGuideChange) return;
@@ -74,8 +74,13 @@ namespace Baseball.Presentation.Owner
         private void UpdateGuideSuppression()
         {
             bool suppressed = IsGuideHidden;
+            // 로드·홈 재구성 뒤에는 숨김 조건이 같아도 뷰가 없거나 비활성일 수 있다.
+            // 캐시뿐 아니라 실제 뷰와 바인딩한 런타임까지 일치할 때만 갱신을 생략한다.
             if (_guideWasSuppressed == suppressed &&
-                (!suppressed || _ownerGuide == null || !_ownerGuide.gameObject.activeSelf)) return;
+                (suppressed
+                    ? _ownerGuide == null || !_ownerGuide.gameObject.activeSelf
+                    : _ownerGuide != null && _ownerGuide.gameObject.activeSelf &&
+                      ReferenceEquals(_guideRuntime, _manager.Runtime))) return;
             _guideWasSuppressed = suppressed;
             if (suppressed)
             {
@@ -90,14 +95,6 @@ namespace Baseball.Presentation.Owner
                 RefreshOwnerGuide();
                 if (_ownerGuide != null) _ownerGuide.gameObject.SetActive(true);
             }
-        }
-
-        private void ShowOwnerGuideTip()
-        {
-            if (IsGuideSuppressed || GuideManager.Instance == null) return;
-            var context = new GuideDisplayContext(Array.Empty<string>(), false, true, mode: GuideModeScope.Owner);
-            if (GuideManager.Instance.TryDequeue(context, out var message)) _ownerGuide.BindMessage(message);
-            else _ownerGuide.BindMessage(null);
         }
 
         private bool SaveGuideChoice(Action<GuideProgressState> change)

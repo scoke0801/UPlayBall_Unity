@@ -35,15 +35,8 @@ namespace Baseball.Game.Guide
                         issue.Group, issue.SlotIndex, issue.CardId, preset.PresetId));
                 }
             }
-            if (hasNextGame)
-            {
-                goals.Add(new GuideGoal("preparation", GuideGoalKind.Preparation, GuideTargetKind.Analysis, false, ""));
-                if (preset != null && preset.CanStartGame && (roster == null || roster.IsValid))
-                    goals.Add(new GuideGoal("plan-confirmation", GuideGoalKind.PlanConfirmation, GuideTargetKind.PlanConfirmation, false, ""));
-            }
-            if (!string.IsNullOrWhiteSpace(publishedMatchKey))
-                goals.Add(new GuideGoal("debrief:" + publishedMatchKey, GuideGoalKind.Debrief,
-                    hasNextGame ? GuideTargetKind.Condition : GuideTargetKind.Roster, false, ""));
+            // 경기 일정과 점수만으로는 기용 변경의 근거가 되지 않는다.
+            // 준비·결과는 홈의 경기 카드가 담당하고 매니저는 실제 검증 문제만 알린다.
             return goals;
         }
     }

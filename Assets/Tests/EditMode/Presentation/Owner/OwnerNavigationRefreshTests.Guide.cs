@@ -17,6 +17,42 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     public sealed partial class OwnerNavigationRefreshTests
     {
         [Test]
+        public void Guide_숨김캐시가같아도비활성패널과빈리포트접근을복원한다()
+        {
+            Navigate(OwnerNavigationRoutes.Home);
+            var view = (UI_System_OwnerGuide)GetField(_coordinator, "_ownerGuide");
+            view.Bind(new GuideProgressState(), "");
+            view.gameObject.SetActive(false);
+            SetField(_coordinator, "_guideWasSuppressed", false);
+
+            Invoke(_coordinator, "UpdateGuideSuppression");
+
+            Assert.That(view.gameObject.activeInHierarchy, Is.True);
+            Assert.That(((UnityEngine.UI.Button)GetField(view, "_review")).gameObject.activeInHierarchy, Is.True);
+            Assert.That(GetField(_coordinator, "_ownerGuide"), Is.SameAs(view));
+        }
+
+        [Test]
+        public void Guide_저장복원후숨김조건이같아도새런타임에다시바인딩한다()
+        {
+            Navigate(OwnerNavigationRoutes.Home);
+            ConfigureGuideSave(false);
+            _manager.ChangeGuideProgress(progress => progress.MarkAllReportsRead());
+            var store = (ManagerHistoricalSaveJsonStore)GetField(_manager, "_saveStore");
+            var adapter = (ManagerHistoricalSaveAdapter)GetField(_manager, "_saveAdapter");
+            var loaded = adapter.Restore(store.Load());
+            typeof(OwnerModeManager).GetProperty("Runtime").SetValue(_manager, loaded);
+            SetField(_coordinator, "_guideWasSuppressed", false);
+
+            Invoke(_coordinator, "UpdateGuideSuppression");
+
+            var view = (UI_System_OwnerGuide)GetField(_coordinator, "_ownerGuide");
+            Assert.That(view.gameObject.activeInHierarchy, Is.True);
+            Assert.That(GetField(_coordinator, "_guideRuntime"), Is.SameAs(loaded));
+            Assert.That(GetField(view, "_progress"), Is.SameAs(loaded.GuideProgress));
+        }
+
+        [Test]
         public void Guide_미지원이동은홈으로대체하거나온보딩을완료하지않는다()
         {
             var before = _manager.Runtime.Onboarding.IsCompleted;

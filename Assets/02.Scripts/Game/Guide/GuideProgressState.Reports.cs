@@ -77,11 +77,19 @@ namespace Baseball.Game.Guide
             if (report != null) report.isRead = true;
         }
 
+        /// <summary>문제 해결·보관 상태를 유지하면서 모든 리포트의 새 소식 표시를 해제한다.</summary>
+        public void MarkAllReportsRead()
+        {
+            foreach (var report in _reports) report.isRead = true;
+        }
+
         /// <summary>보관한 리포트는 추천에서 제외하지만 기록과 경고 원본은 유지한다.</summary>
         public void SetReportBookmark(string reportId, bool bookmarked)
         {
             var report = _reports.Find(item => item.reportId == reportId);
-            if (report != null) report.isBookmarked = bookmarked;
+            if (report == null) return;
+            report.isBookmarked = bookmarked;
+            if (bookmarked) report.isRead = true;
         }
 
         public string FindReportId(string goalKey) => _reports.FindLast(item =>
@@ -102,11 +110,18 @@ namespace Baseball.Game.Guide
                 if (report == null)
                 {
                     report = new ManagerReportData { reportId = (++_reportSequence).ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        deduplicationKey = goal.Key, scope = scope, sequence = _reportSequence };
+                        deduplicationKey = goal.Key, scope = scope, sequence = _reportSequence,
+                        createdWeek = week, createdSeason = seasonNumber };
                     _reports.Add(report);
                 }
+                // 같은 슬롯의 다른 선수나 인원 변화는 새 판단 근거다. 화면·경기 전환만으로 재알림하지 않는다.
+                else if (report.cardId != goal.CardId || report.actual != (goal.Actual ?? 0) ||
+                    report.expected != (goal.Expected ?? 0) || report.evidence != goal.Evidence)
+                {
+                    report.isRead = false; report.isBookmarked = false;
+                    report.createdWeek = week; report.createdSeason = seasonNumber;
+                }
                 report.scope = scope; report.seasonId = SeasonId;
-                if (!report.isRead) { report.createdWeek = week; report.createdSeason = seasonNumber; }
                 if (goal.IsRequired && report.priority != ManagerReportPriority.Critical)
                 { report.isRead = false; report.isBookmarked = false; }
                 report.kind = goal.Kind; report.target = goal.Target;
