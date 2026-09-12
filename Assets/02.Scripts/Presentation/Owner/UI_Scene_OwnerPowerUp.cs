@@ -305,26 +305,7 @@ namespace Baseball.Presentation.Owner
             }
             if (FindScoutProduct(_selectedScoutProductId) == null)
                 _selectedScoutProductId = scout.Products[0].ProductId;
-            OwnerScoutProductSnapshot selectedScout = FindScoutProduct(_selectedScoutProductId);
-            int markerIndex = 0;
-            int markerCount = 0;
-            for (int index = 0; index < scout.Products.Count; index++)
-                if (scout.Products[index].DrawCount == 1) markerCount++;
-            _scoutMapPage = Math.Min(_scoutMapPage, Math.Max(0, (markerCount - 1) / ScoutMapPageSize));
-            for (int index = 0; index < scout.Products.Count; index++)
-            {
-                OwnerScoutProductSnapshot product = scout.Products[index];
-                if (product.DrawCount != 1) continue;
-                int position = markerIndex++ - _scoutMapPage * ScoutMapPageSize;
-                if (position < 0 || position >= ScoutMapPageSize) continue;
-                CreateScoutReferencePin(_scoutList, "Scout_" + product.ProductId,
-                    product.Scope + "\n" + DescribeScoutPolicy(product),
-                    () => SelectScoutProduct(product.ProductId),
-                    selectedScout != null && string.Equals(product.Scope, selectedScout.Scope, StringComparison.Ordinal)
-                        && DescribeScoutPolicy(product) == DescribeScoutPolicy(selectedScout),
-                    position, markerCount);
-            }
-            BindScoutMapPagination(markerCount);
+            BindScoutScopes(scout);
             RefreshScoutDetails();
         }
 
@@ -334,7 +315,7 @@ namespace Baseball.Presentation.Owner
             OwnerCardTrainingScreenSnapshot training = _snapshot.Training;
             _trainingExecuteButton.transform.Find("Label").GetComponent<Text>().text = "선택 훈련 적용";
             _trainingWallet.text = $"육성 포인트  {training.DevelopmentPoints:N0}";
-            _trainingCardCount.text = $"전체 {training.Cards.Count:N0}장";
+            BindTrainingFilterOptions(training);
             if (training.State != OwnerPowerUpContentState.Ready)
             {
                 _trainingGrid.Bind(Array.Empty<OwnerCollectionCardSnapshot>(), string.Empty, _snapshot.ResolveCard);
@@ -343,14 +324,13 @@ namespace Baseball.Presentation.Owner
                     ? "훈련할 보유 카드가 없습니다."
                     : training.ErrorMessage;
                 _trainingExecuteButton.interactable = false;
+                RefreshTrainingCards();
                 return;
             }
             if (FindTrainingTarget(_selectedTrainingCardId) == null)
                 _selectedTrainingCardId = training.Cards[0].Card.CardId;
             _trainingCard.gameObject.SetActive(true);
-            var cards = new OwnerCollectionCardSnapshot[training.Cards.Count];
-            for (int index = 0; index < cards.Length; index++) cards[index] = training.Cards[index].Card;
-            _trainingGrid.Bind(cards, _selectedTrainingCardId, _snapshot.ResolveCard);
+            RefreshTrainingCards();
             RefreshTrainingTarget();
         }
 
@@ -359,10 +339,12 @@ namespace Baseball.Presentation.Owner
             if (_snapshot == null) return;
             OwnerEnhancementSaleScreenSnapshot screen = _snapshot.EnhancementSale;
             _enhancementWallet.text = $"보유 스카우트 포인트 {screen.ScoutingPoints:N0}";
-            _enhancementCardCount.text = $"보유선수  {screen.Cards.Count:N0}장";
+            BindEnhancementFilterOptions(screen);
+            RefreshEnhancementFilterLabels();
+            _visibleEnhancementCards.Clear();
+            _enhancementCardCount.text = $"보유 선수 {screen.Cards.Count:N0}종";
             _registerButton.interactable = screen.State == OwnerPowerUpContentState.Ready;
-            _hideLockedButton.transform.Find("Label").GetComponent<Text>().text =
-                (_hideLockedCards ? "■" : "□") + " 잠금 선수 숨기기";
+            _enhancementEmptyResults.gameObject.SetActive(false);
             if (screen.State != OwnerPowerUpContentState.Ready)
             {
                 _hasRegisteredEnhancement = false;
@@ -392,14 +374,15 @@ namespace Baseball.Presentation.Owner
                 if (cost != 0) return _sortCostDescending ? -cost : cost;
                 return string.CompareOrdinal(left.Card.CardId, right.Card.CardId);
             });
-            var visibleCards = new List<OwnerCollectionCardSnapshot>(sortedCards.Count);
             for (int index = 0; index < sortedCards.Count; index++)
             {
                 OwnerCollectionCardSnapshot card = sortedCards[index].Card;
-                if (_hideLockedCards && card.IsLocked) continue;
-                visibleCards.Add(card);
+                if (!MatchesEnhancementFilters(card)) continue;
+                _visibleEnhancementCards.Add(card);
             }
-            _enhancementGrid.Bind(visibleCards, _selectedEnhancementCardId, _snapshot.ResolveCard);
+            _enhancementCardCount.text = $"표시 {_visibleEnhancementCards.Count:N0} / 보유 {screen.Cards.Count:N0}종";
+            _enhancementEmptyResults.gameObject.SetActive(_visibleEnhancementCards.Count == 0);
+            _enhancementGrid.Bind(_visibleEnhancementCards, _hasRegisteredEnhancement ? _selectedEnhancementCardId : string.Empty, _snapshot.ResolveCard);
             RefreshEnhancementTarget();
         }
 
@@ -408,8 +391,9 @@ namespace Baseball.Presentation.Owner
         {
             if (FindScoutProduct(productId) == null) return;
             _selectedScoutProductId = productId;
+            RevealScoutScope(FindScoutProduct(productId));
             BindScout();
-            FocusScoutControl(_scoutList, "Scout_" + productId);
+            FocusSelectedScoutScope();
         }
 
         private void RefreshScoutDetails()
@@ -467,6 +451,7 @@ namespace Baseball.Presentation.Owner
             _selectedTrainingCardId = cardId;
             _selectedTrainingProgramId = string.Empty;
             _trainingGrid.Select(cardId);
+            RefreshTrainingFilterSummary();
             RefreshTrainingTarget();
         }
 
@@ -529,7 +514,7 @@ namespace Baseball.Presentation.Owner
             _registerButton.interactable = target != null && _hasRegisteredEnhancement;
             if (target == null) return;
             _enhancementCard.Bind(
-                OwnerCollectionPresentationBuilder.CreateMiniCard(_snapshot.ResolveCard(target.Card), true),
+                OwnerCollectionPresentationBuilder.CreateMiniCard(_snapshot.ResolveCard(target.Card), false),
                 PlayerPortraitSprites.GetDefault(target.Card.Position));
             _enhancementCard.gameObject.SetActive(_hasRegisteredEnhancement);
             bool hasMaterial = _hasRegisteredEnhancement && target.Enhancement.DuplicateCount > 0;
@@ -658,20 +643,15 @@ namespace Baseball.Presentation.Owner
         private void ShowEnhancementCardDetail(string cardId)
         {
             if (_snapshot == null) return;
-            var cards = new List<OwnerCollectionCardSnapshot>(_snapshot.EnhancementSale.Cards.Count);
-            for (int index = 0; index < _snapshot.EnhancementSale.Cards.Count; index++)
-            {
-                OwnerCollectionCardSnapshot card = _snapshot.EnhancementSale.Cards[index].Card;
-                if (_hideLockedCards && card.IsLocked) continue;
-                cards.Add(card);
-            }
-            cards.Sort((left, right) =>
-            {
-                int cost = left.Cost.CompareTo(right.Cost);
-                if (cost != 0) return _sortCostDescending ? -cost : cost;
-                return string.CompareOrdinal(left.CardId, right.CardId);
-            });
-            ShowCardDetail(cards, cardId);
+            foreach (OwnerCollectionCardSnapshot card in _visibleEnhancementCards)
+                if (card.CardId == cardId)
+                {
+                    ShowCardDetail(_visibleEnhancementCards, cardId);
+                    return;
+                }
+            // 필터로 목록에서 숨겨도 작업 패널에 등록한 선수의 상세는 열 수 있다.
+            OwnerEnhancementSaleTargetSnapshot target = FindEnhancementTarget(cardId);
+            if (target != null) ShowCardDetail(new[] { target.Card }, cardId);
         }
 
         private void ShowCardDetail(IReadOnlyList<OwnerCollectionCardSnapshot> cards, string cardId)

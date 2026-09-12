@@ -454,7 +454,11 @@ namespace Baseball.Presentation.Owner
                 null,
                 () => CreateScoutProbabilities(shop, product.ProductId),
                 () => CreateScoutCandidateSummary(manager.Runtime, scoutPool, featurePolicy),
-                product.TargetFranchiseId, product.TargetFranchiseName, product.TargetYear);
+                product.TargetFranchiseId,
+                string.IsNullOrEmpty(product.TargetFranchiseId)
+                    ? string.Empty
+                    : manager.Runtime.IdentityRegistry.GetPresentationFranchiseHistoryName(product.TargetFranchiseId),
+                product.TargetYear);
         }
 
         private static ScoutPoolDefinition FindScoutPool(

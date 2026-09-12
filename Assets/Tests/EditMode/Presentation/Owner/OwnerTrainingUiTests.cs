@@ -43,6 +43,73 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void 검색과포지션교차필터는선택과훈련미리보기를유지하고초기화한다()
+        {
+            CreateView();
+            int previews = 0;
+            var snapshot = CreateSnapshot(1000, () => { }, () => previews++, () => { });
+            _view.Bind(snapshot, OwnerNavigationRoutes.PowerUpTraining);
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpTraining);
+            InputField search = _root.GetComponentsInChildren<InputField>().Single(f => f.name == "TrainingSearch");
+            Dropdown position = _root.GetComponentsInChildren<Dropdown>().Single(f => f.name == "TrainingPositionFilter");
+            Text count = _root.GetComponentsInChildren<Text>().Single(t => t.name == "TrainingCardCount");
+            Transform front = _root.GetComponentsInChildren<RectTransform>().First(r => r.name == "CardFront").GetChild(0);
+            search.text = "  박지훈  ";
+            Assert.That(count.text, Does.Contain("표시 167 / 보유 1,000"));
+            Assert.That(_root.GetComponentsInChildren<Text>().Single(t => t.name == "TrainingSelectionHint").text, Does.Contain("유지"));
+            position.value = 2;
+            Assert.That(count.text, Does.StartWith("표시 0"));
+            Assert.That(_root.GetComponentsInChildren<Text>().Single(t => t.name == "TrainingEmpty").text, Does.Contain("초기화"));
+            Assert.That(previews, Is.EqualTo(1));
+            Assert.That(front.parent.GetChild(0), Is.SameAs(front));
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpScout);
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpTraining);
+            Assert.That(search.text, Is.EqualTo("  박지훈  "));
+            _root.GetComponentsInChildren<Button>().Single(b => b.name == "ResetTrainingFilters").onClick.Invoke();
+            Assert.That(count.text, Does.StartWith("표시 1,000"));
+            Assert.That(search.text, Is.Empty);
+            Assert.That(position.value, Is.Zero);
+            Assert.That(previews, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void 구단연도필터와정렬은요약만사용하고갱신후조건을보존한다()
+        {
+            CreateView();
+            var cards = new[]
+            {
+                new OwnerCollectionCardSnapshot("a", "a", "김선수", 2024, PlayerPosition.Catcher, 3,
+                    PlayerCardEdition.Normal, 0, 0, false, false, CreateAbilities(), teamDisplayName: "서울"),
+                new OwnerCollectionCardSnapshot("b", "b", "박선수", 2025, PlayerPosition.StartingPitcher, 9,
+                    PlayerCardEdition.Normal, 0, 0, false, false, CreateAbilities(), teamDisplayName: "부산"),
+                new OwnerCollectionCardSnapshot("c", "c", "이선수", 2025, PlayerPosition.Shortstop, 6,
+                    PlayerCardEdition.Normal, 0, 0, false, false, CreateAbilities(), teamDisplayName: "서울")
+            };
+            Func<OwnerPowerUpSnapshot> snapshot = () => new OwnerPowerUpSnapshot(
+                () => new OwnerScoutScreenSnapshot(Array.Empty<OwnerScoutProductSnapshot>(), ""),
+                () => new OwnerCardTrainingScreenSnapshot(cards.Select(c => new OwnerCardTrainingTargetSnapshot(c, Programs())).ToArray(), 100),
+                () => new OwnerEnhancementSaleScreenSnapshot(Array.Empty<OwnerEnhancementSaleTargetSnapshot>(), 100),
+                id => cards.Single(c => c.CardId == id));
+            _view.Bind(snapshot(), OwnerNavigationRoutes.PowerUpTraining);
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpTraining);
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            Func<string[]> visible = () => ((System.Collections.Generic.List<OwnerCollectionCardSnapshot>)
+                typeof(UI_Scene_OwnerPowerUp).GetField("_visibleTrainingCards", flags).GetValue(_view)).Select(c => c.CardId).ToArray();
+            CollectionAssert.AreEqual(new[] { "b", "c", "a" }, visible());
+            _root.GetComponentsInChildren<Dropdown>().Single(d => d.name == "TrainingSort").value = 1;
+            CollectionAssert.AreEqual(new[] { "a", "c", "b" }, visible());
+            Dropdown year = _root.GetComponentsInChildren<Dropdown>().Single(d => d.name == "YearFilter");
+            Dropdown team = _root.GetComponentsInChildren<Dropdown>().Single(d => d.name == "TeamFilter");
+            year.value = year.options.FindIndex(o => o.text == "2025년");
+            team.value = team.options.FindIndex(o => o.text == "서울");
+            CollectionAssert.AreEqual(new[] { "c" }, visible());
+            _view.Bind(snapshot(), OwnerNavigationRoutes.PowerUpTraining);
+            CollectionAssert.AreEqual(new[] { "c" }, visible());
+            _root.GetComponentsInChildren<Button>().Single(b => b.name == "ResetTrainingFilters").onClick.Invoke();
+            CollectionAssert.AreEqual(new[] { "b", "c", "a" }, visible());
+        }
+
+        [Test]
         public void 훈련선택은행과카드를재생성하지않고확인뒤한번실행한다()
         {
             CreateView();
@@ -146,6 +213,20 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
         private void AssertTrainingBounds()
         {
+            RectTransform filters = _root.GetComponentsInChildren<RectTransform>().Single(r => r.name == "TrainingSearchRow");
+            RectTransform safe = (RectTransform)filters.parent;
+            foreach (Selectable control in safe.GetComponentsInChildren<Selectable>())
+            {
+                if (control.GetComponentInParent<ScrollRect>() != null) continue;
+                var bounds = new Vector3[4];
+                control.GetComponent<RectTransform>().GetWorldCorners(bounds);
+                foreach (Vector3 corner in bounds)
+                {
+                    Vector3 point = safe.InverseTransformPoint(corner);
+                    Assert.That(point.x, Is.InRange(safe.rect.xMin - 1, safe.rect.xMax + 1), control.name);
+                    Assert.That(point.y, Is.InRange(safe.rect.yMin - 1, safe.rect.yMax + 1), control.name);
+                }
+            }
             ScrollRect scroll = _root.GetComponentsInChildren<ScrollRect>().Single(s => s.name == "ProgramScroll");
             var corners = new Vector3[4];
             foreach (Button button in scroll.content.GetComponentsInChildren<Button>())
@@ -174,6 +255,17 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
         private void AssertEnhancementBounds()
         {
+            RectTransform inventory = _root.GetComponentsInChildren<RectTransform>()
+                .Single(r => r.name == "InventoryBoard").Find("ContentSafeRect") as RectTransform;
+            Assert.That(inventory, Is.Not.Null);
+            foreach (Transform child in inventory)
+            {
+                RectTransform rect = (RectTransform)child;
+                Assert.That(rect.anchoredPosition.x, Is.GreaterThanOrEqualTo(0), child.name);
+                Assert.That(rect.anchoredPosition.x + rect.rect.width, Is.LessThanOrEqualTo(inventory.rect.width), child.name);
+                Assert.That(-rect.anchoredPosition.y, Is.GreaterThanOrEqualTo(0), child.name);
+                Assert.That(-rect.anchoredPosition.y + rect.rect.height, Is.LessThanOrEqualTo(inventory.rect.height), child.name);
+            }
             RectTransform content = _root.GetComponentsInChildren<RectTransform>()
                 .Single(r => r.name == "RegistrationFrame").Find("ContentSafeRect") as RectTransform;
             var corners = new Vector3[4];
@@ -192,6 +284,75 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
         private void SelectEnhancementCard() => typeof(UI_Scene_OwnerPowerUp).GetMethod("SelectAndRegisterEnhancementCard",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(_view, new object[] { "card0" });
+
+        [Test]
+        public void 합성필터는교차검색과초기화를지원하고등록대상을유지한다()
+        {
+            CreateView();
+            _view.Bind(CreateSnapshot(12, () => { }, () => { }, () => { }), OwnerNavigationRoutes.PowerUpEnhancementSale);
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpEnhancementSale);
+            SelectEnhancementCard();
+            InputField search = _root.GetComponentsInChildren<InputField>().Single(input => input.name == "EnhancementSearch");
+            Text summary = _root.GetComponentsInChildren<Text>().Single(text => text.name == "EnhancementCardCount");
+            Button execute = _root.GetComponentsInChildren<Button>().Single(button => button.name == "Enhance");
+            search.text = "김도윤";
+            Assert.That(summary.text, Does.StartWith("표시 2 /"));
+            _root.GetComponentsInChildren<Button>().Single(button => button.name == "DuplicateFilter").onClick.Invoke();
+            Assert.That(summary.text, Does.StartWith("표시 2 /"));
+            search.text = "없는선수";
+            Assert.That(summary.text, Does.StartWith("표시 0 /"));
+            Assert.That(_root.GetComponentsInChildren<Text>().Any(text => text.name == "EnhancementEmptyResults"), Is.True);
+            Assert.That(execute.interactable, Is.True, "필터가 등록된 합성 대상을 임의로 교체하지 않는다.");
+            _root.GetComponentsInChildren<Button>().Single(button => button.name == "HideLocked").onClick.Invoke();
+            Assert.That(_root.GetComponentsInChildren<Button>().Single(button => button.name == "HideLocked")
+                .transform.Find("Label").GetComponent<Text>().text, Is.EqualTo("잠금 선수: 숨김"));
+            _root.GetComponentsInChildren<Button>().Single(button => button.name == "ResetEnhancementFilters").onClick.Invoke();
+            Assert.That(search.text, Is.Empty);
+            Assert.That(summary.text, Does.StartWith("표시 12 /"));
+            Assert.That(_root.GetComponentsInChildren<Text>().Any(text => text.name == "EnhancementEmptyResults"), Is.False);
+        }
+
+        [Test]
+        public void 합성구단연도잠금중복필터는요약으로판정하고재조회후조건을유지한다()
+        {
+            CreateView();
+            var cards = new[]
+            {
+                new OwnerCollectionCardSnapshot("a", "a", "김선수", 2024, PlayerPosition.Catcher, 3,
+                    PlayerCardEdition.Normal, 0, 1, false, false, CreateAbilities(), teamDisplayName: "서울"),
+                new OwnerCollectionCardSnapshot("b", "b", "박선수", 2025, PlayerPosition.StartingPitcher, 9,
+                    PlayerCardEdition.Normal, 0, 0, false, false, CreateAbilities(), teamDisplayName: "부산"),
+                new OwnerCollectionCardSnapshot("c", "c", "이선수", 2025, PlayerPosition.Shortstop, 6,
+                    PlayerCardEdition.Normal, 0, 2, true, false, CreateAbilities(), teamDisplayName: "서울")
+            };
+            Func<OwnerPowerUpSnapshot> snapshot = () => new OwnerPowerUpSnapshot(
+                () => new OwnerScoutScreenSnapshot(Array.Empty<OwnerScoutProductSnapshot>(), ""),
+                () => new OwnerCardTrainingScreenSnapshot(Array.Empty<OwnerCardTrainingTargetSnapshot>(), 100),
+                () => new OwnerEnhancementSaleScreenSnapshot(cards.Select(card => new OwnerEnhancementSaleTargetSnapshot(card,
+                    new CardEnhancementPreview(0, 1, card.DuplicateCount, CardEnhancementResult.Enhanced),
+                    Array.Empty<CardSalePreview>())).ToArray(), 100), id => cards.Single(card => card.CardId == id));
+            _view.Bind(snapshot(), OwnerNavigationRoutes.PowerUpEnhancementSale);
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpEnhancementSale);
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            Func<string[]> visible = () => ((System.Collections.Generic.List<OwnerCollectionCardSnapshot>)
+                typeof(UI_Scene_OwnerPowerUp).GetField("_visibleEnhancementCards", flags).GetValue(_view)).Select(card => card.CardId).ToArray();
+            Func<string, Button> button = name => _root.GetComponentsInChildren<Button>().Single(item => item.name == name);
+            CollectionAssert.AreEqual(new[] { "b", "c", "a" }, visible());
+            _root.GetComponentsInChildren<Dropdown>().Single(item => item.name == "YearFilter").value = 1;
+            Dropdown team = _root.GetComponentsInChildren<Dropdown>().Single(item => item.name == "TeamFilter");
+            team.value = team.options.FindIndex(option => option.text == "서울");
+            CollectionAssert.AreEqual(new[] { "c" }, visible());
+            _view.Bind(snapshot(), OwnerNavigationRoutes.PowerUpEnhancementSale);
+            CollectionAssert.AreEqual(new[] { "c" }, visible());
+            button("HideLocked").onClick.Invoke();
+            Assert.That(visible(), Is.Empty);
+            button("ResetEnhancementFilters").onClick.Invoke();
+            button("DuplicateFilter").onClick.Invoke();
+            CollectionAssert.AreEqual(new[] { "c", "a" }, visible());
+            Dropdown role = _root.GetComponentsInChildren<Dropdown>().Single(item => item.name == "EnhancementRoleFilter");
+            role.value = role.options.FindIndex(option => option.text == "포수");
+            CollectionAssert.AreEqual(new[] { "a" }, visible());
+        }
 
         [TestCase(CardEnhancementResult.Enhanced)]
         [TestCase(CardEnhancementResult.NoDuplicate)]

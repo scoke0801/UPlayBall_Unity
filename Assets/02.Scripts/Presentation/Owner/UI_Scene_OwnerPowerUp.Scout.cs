@@ -49,19 +49,18 @@ namespace Baseball.Presentation.Owner
             _scoutCanvas = OwnerRuntimeUiFactory.CreateRect("ScoutReference", _scoutRoot);
             _scoutCanvas.anchorMin = _scoutCanvas.anchorMax = new Vector2(.5f, .5f);
             _scoutCanvas.sizeDelta = new Vector2(1000, 460);
-            RectTransform board = ScoutSurface(_scoutCanvas, "ScoutBoard", 0, 0, 1000, 460, ScoutSilver).rectTransform;
+            RectTransform board = ScoutPanel(_scoutCanvas, "ScoutBoard", 0, 0, 1000, 460, ScoutSilver).rectTransform;
             _scoutBaseInput = board.gameObject.AddComponent<CanvasGroup>();
-            ScoutSurface(board, "Header", 0, 0, 1000, 48, ScoutBlue);
             ScoutLabel(board, "Heading", "스카우트 센터", 20, 18, 4, 220, 38, Color.white);
             _scoutWallet = ScoutLabel(board, "Wallet", "", 12, 430, 8, 550, 30, Color.white);
             _scoutWallet.alignment = TextAnchor.MiddleRight;
-            ScoutSurface(board, "Destinations", 12, 60, 268, 388, Color.white);
+            ScoutPanel(board, "Destinations", 12, 60, 268, 388, Color.white);
             ScoutLabel(board, "MapHeading", "01  파견 범위", 15, 24, 68, 240, 26, ScoutBlue);
             ScoutLabel(board, "MapGuide", "구단·연도로 범위를 좁혀 선택하세요.", 11, 24, 98, 240, 24);
             BuildScoutScopeFilters(board);
             _scoutList = OwnerRuntimeUiFactory.CreateRect("ScoutProductPins", board);
             PlaceReference(_scoutList, 24, 236, 244, 196);
-            ScoutSurface(board, "ScoutColumn", 292, 60, 208, 388, Color.white);
+            ScoutPanel(board, "ScoutColumn", 292, 60, 208, 388, Color.white);
             ScoutLabel(board, "ScoutHeading", "02  전담 스카우터", 15, 304, 68, 184, 26, ScoutBlue);
             ScoutSurface(board, "PortraitBackdrop", 304, 100, 184, 152, new Color32(229, 237, 244, 255));
             _scoutPortrait = ScoutArtwork(board, "ScoutPortrait", 320, 100, 152, 152);
@@ -77,7 +76,7 @@ namespace Baseball.Presentation.Owner
             _scoutGaugeLabel.alignment = TextAnchor.MiddleRight;
             ScoutSurface(board, "GaugeTrack", 304, 422, 184, 6, new Color32(220, 227, 234, 255));
             _scoutGaugeFill = ScoutSurface(board, "GaugeFill", 304, 422, 0, 6, ScoutBlue);
-            ScoutSurface(board, "PlayerArea", 512, 60, 476, 302, Color.white);
+            ScoutPanel(board, "PlayerArea", 512, 60, 476, 302, Color.white);
             _scoutResultTitle = ScoutLabel(board, "ResultTitle", "영입 결과", 15, 526, 68, 270, 26, ScoutBlue);
             ScoutButton(board, "ScoutInformationTab", "영입 확률·보장 안내", OpenScoutProbability, 825, 68, 150, 26);
             _scoutResultGrid = OwnerRuntimeUiFactory.CreateRect("ScoutCards", board);
@@ -94,7 +93,7 @@ namespace Baseball.Presentation.Owner
 
         private void BuildScoutProbabilityWindow()
         {
-            _scoutProbabilityOverlay = ScoutSurface(_scoutCanvas, "ProbabilityWindow", 505, 38, 487, 414, ScoutSilver).rectTransform;
+            _scoutProbabilityOverlay = ScoutPanel(_scoutCanvas, "ProbabilityWindow", 505, 38, 487, 414, ScoutSilver).rectTransform;
             _scoutProbabilityOverlay.GetComponent<Image>().raycastTarget = true;
             ScoutLabel(_scoutProbabilityOverlay, "Heading", "스카우트 정보 · 실제 영입 확률", 15, 12, 5, 380, 28, ScoutBlue);
             ScoutButton(_scoutProbabilityOverlay, "CloseProbability", "닫기", CloseScoutProbability, 406, 6, 68, 26);
@@ -131,11 +130,12 @@ namespace Baseball.Presentation.Owner
             _scoutPolicyOverlay = ScoutSurface(_scoutCanvas, "ScoutPolicyShade", 0, 0, 1000, 460,
                 new Color(.03f, .06f, .1f, .75f)).rectTransform;
             _scoutPolicyOverlay.GetComponent<Image>().raycastTarget = true;
-            RectTransform window = ScoutSurface(_scoutPolicyOverlay, "ScoutPolicyWindow", 70, 12, 860, 436, ScoutSilver).rectTransform;
+            RectTransform window = ScoutPanel(_scoutPolicyOverlay, "ScoutPolicyWindow", 70, 12, 860, 436, ScoutSilver).rectTransform;
             Image header = ScoutSurface(window, "PolicyHeader", 0, 0, 860, 42, ScoutBlue);
+            header.enabled = false;
             ScoutLabel(header.transform, "PolicyHeading", "탐색 방침 선택", 18, 18, 5, 470, 32, Color.white);
             ScoutButton(window, "ClosePolicy", "×", CloseScoutPolicy, 816, 8, 28, 28);
-            ScoutSurface(window, "ScoutCardBorder", 14, 54, 218, 324, Color.white);
+            ScoutPanel(window, "ScoutCardBorder", 14, 54, 218, 324, Color.white);
             _scoutPolicyPortrait = ScoutArtwork(window, "PolicyScoutPortrait", 38, 64, 170, 170);
             _scoutPolicyName = ScoutLabel(window, "PolicyScoutName", "", 15, 25, 236, 196, 26);
             _scoutPolicyName.alignment = TextAnchor.MiddleCenter;
@@ -281,7 +281,7 @@ namespace Baseball.Presentation.Owner
                 ? "후보 " + product.CandidateCount.ToString("N0") + "장 · 위시 " +
                   product.WishlistCandidateCount.ToString("N0") + "장 포함 · 확정 즉시 영입"
                 : product.BlockedReason;
-            _scoutSummary.color = product.CanPurchase ? ScoutInk : CareerUiTheme.Error;
+            _scoutSummary.color = product.CanPurchase ? OwnerDashboardStyle.Ivory : CareerUiTheme.Error;
             _scoutDispatch.text = product.Scope + "\n" + DescribeScoutPolicy(product) + "\n" +
                 product.DrawCount + "명 탐색";
             _scoutGaugeLabel.text = product.PityGauge.ToString("N0") + " / " + product.PityThreshold.ToString("N0");
@@ -338,7 +338,6 @@ namespace Baseball.Presentation.Owner
                     OwnerCollectionCardSnapshot granted = _snapshot.ResolveCard(target.Card);
                     card.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(granted, false),
                         PlayerPortraitSprites.GetDefault(granted.Position));
-                    card.UsePlayerPickerLayout();
                     card.DetailRequested += _ => UI_Popup_OwnerPlayerCard.Show(transform, granted);
                 }
                 else
@@ -428,7 +427,7 @@ namespace Baseball.Presentation.Owner
         private static Button ScoutButton(Transform parent, string name, string value, Action action,
             float x, float y, float width, float height, bool selected = false)
         {
-            // 유학 메뉴와 같은 Native 버튼 문법을 사용하고 공용 셸의 장식 프레임 재적용을 막는다.
+            // 파견 범위와 방침의 지속 선택은 공통 버튼 상태에 전달한다.
             Image surface = ScoutSurface(parent, name, x, y, width, height, selected ? ScoutBlue : new Color32(239, 242, 245, 255));
             surface.raycastTarget = true;
             var outline = surface.gameObject.AddComponent<Outline>();
@@ -445,7 +444,16 @@ namespace Baseball.Presentation.Owner
             button.onClick.AddListener(() => action?.Invoke());
             ScoutLabel(surface.transform, "Label", value, 12, 8, 2, width - 16, height - 4,
                 selected ? Color.white : ScoutInk).alignment = TextAnchor.MiddleCenter;
+            OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Secondary);
+            OwnerUiButtonSkin.SetSelected(button, selected);
             return button;
+        }
+
+        private static Image ScoutPanel(Transform parent, string name, float x, float y, float width, float height, Color color)
+        {
+            Image image = ScoutSurface(parent, name, x, y, width, height, color);
+            UIOwnerFrontOfficePanel.Apply(image.rectTransform, "ManagerReport");
+            return image;
         }
 
         private static Image ScoutSurface(Transform parent, string name, float x, float y, float width, float height, Color color)
@@ -462,7 +470,11 @@ namespace Baseball.Presentation.Owner
         private static Text ScoutLabel(Transform parent, string name, string value, int size, float x, float y, float width, float height, Color? color = null)
         {
             Text text = ReferenceText(parent, name, value, size, x, y, width, height);
-            text.color = color ?? ScoutInk;
+            Color requested = color ?? ScoutInk;
+            text.color = UIOwnerFrontOfficePanel.HasDarkSurface(parent)
+                ? requested == ScoutInk ? OwnerDashboardStyle.Ivory
+                    : requested == ScoutBlue ? OwnerDashboardStyle.Gold : requested
+                : requested;
             text.alignment = TextAnchor.MiddleLeft;
             text.gameObject.AddComponent<CareerUiPreserveTextColor>();
             text.raycastTarget = false;

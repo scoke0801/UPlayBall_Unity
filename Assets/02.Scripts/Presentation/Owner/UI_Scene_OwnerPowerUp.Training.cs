@@ -45,10 +45,12 @@ namespace Baseball.Presentation.Owner
             columns.padding = new RectOffset(0, 0, 0, 36);
             RectTransform left = CreateTrainingColumn("TrainingTargets", .34f, "보유 선수");
             OwnerWorkspaceUiFactory.AddVerticalLayout(left, 8);
+            BuildTrainingFilters(left);
             _trainingCardCount = TrainingText(left, "TrainingCardCount", 28, 13);
             _trainingCardList = CreateGridScrollContent(left, 3, new Vector2(102, 153));
             StyleTrainingScroll(_trainingCardList);
             _trainingGrid = new CardGrid(_trainingCardList, SelectTrainingCard, null);
+            BuildTrainingEmptyState();
 
             RectTransform center = CreateTrainingColumn("TrainingCard", .28f, "훈련 대상");
             OwnerWorkspaceUiFactory.AddVerticalLayout(center, 12);
@@ -115,7 +117,7 @@ ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", 
             if (header.GetComponent<CareerUiPreserveTextColor>() == null)
                 header.gameObject.AddComponent<CareerUiPreserveTextColor>();
             header.text = active ? "카드 훈련   /   선수의 다음 성장을 준비하세요" : "전력보강 센터";
-            header.color = active ? CareerUiTheme.RosterText : CareerUiTheme.ReferenceText;
+            header.color = OwnerDashboardStyle.Ivory;
             SetTrainingSurface(panel.Find("HeaderSurface").GetComponent<Image>(),
                 active ? CareerUiTheme.RosterBoard : CareerUiTheme.ReferencePanelHeader);
             SetTrainingSurface(panel.Find("HeaderAccent").GetComponent<Image>(),
@@ -126,6 +128,8 @@ ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", 
         {
             var visual = image.GetComponent<CareerUiVisualElement>() ?? image.gameObject.AddComponent<CareerUiVisualElement>();
             visual.Initialize(CareerUiVisualRole.DataImage);
+            var frontOffice = image.GetComponent<UIOwnerFrontOfficePanel>();
+            if (frontOffice != null) { frontOffice.Refresh(); return; }
             image.sprite = null;
             image.color = color;
             image.raycastTarget = false;

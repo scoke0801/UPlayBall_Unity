@@ -60,7 +60,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     canPurchase ? "" : "스카우트 포인트가 부족합니다.", index % 2 == 0 ? 1 : 10,
                     480, 2400, 1, 8, new[] { new OwnerScoutProbabilitySnapshot("일반", .95),
                         new OwnerScoutProbabilitySnapshot("특별", .05) },
-                    candidateSummaryResolver: () => new OwnerScoutCandidateSummary(20337, 12));
+                    candidateSummaryResolver: () => new OwnerScoutCandidateSummary(20337, 12),
+                    targetFranchiseId: index < 2 ? "" : "club" + index / 2,
+                    targetFranchiseName: index < 2 ? "" : "검증 구단 " + index / 2,
+                    targetYear: index < 12 ? (int?)null : 2024);
             var cards = new OwnerCardTrainingTargetSnapshot[10];
             for (int index = 0; index < cards.Length; index++)
                 cards[index] = new OwnerCardTrainingTargetSnapshot(new OwnerCollectionCardSnapshot(
@@ -82,6 +85,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             string original = Find<Text>("ScoutCost").text;
             Find<Button>("ScoutPolicy").onClick.Invoke();
             Assert.That(Find<Button>("ScoutPurchase").IsInteractable(), Is.False);
+            Find<Button>("PolicyScopeFilter").onClick.Invoke();
             Find<InputField>("PolicySearch").text = "2024";
             Assert.That(Find<Text>("PolicyPage").text, Does.Contain("12개"));
             Find<Button>("PolicyChoice1").onClick.Invoke();
@@ -103,6 +107,32 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Find<Button>("ScoutPurchase").onClick.Invoke();
             Find<Button>("Confirm").onClick.Invoke();
             Assert.That(calls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void 범위는중복없이표시하고구단연도검색을교차적용한다()
+        {
+            CreateView();
+            Assert.That(Find<Text>("MapPage").text, Does.Contain("12곳"));
+            string original = Find<Text>("ScoutCost").text;
+            Find<InputField>("ScopeSearch").text = "2024 구단 8";
+            Assert.That(Find<Text>("MapPage").text, Does.Contain("1곳"));
+            Assert.That(Find<Text>("ScoutCost").text, Is.EqualTo(original));
+            Find<Button>("Scout_scout16").onClick.Invoke();
+            Find<Button>("ScoutPolicy").onClick.Invoke();
+            Assert.That(Find<Text>("PolicyPage").text, Does.Contain("2개"));
+            _view.TryHandleCancel();
+            Find<Button>("ResetScopeFilters").onClick.Invoke();
+            Find<Dropdown>("ScoutYearFilter").value = 1;
+            Assert.That(Find<Text>("MapPage").text, Does.Contain("6곳"));
+            Dropdown team = Find<Dropdown>("ScoutTeamFilter");
+            team.value = team.options.FindIndex(option => option.text == "검증 구단 8");
+            Assert.That(Find<Text>("MapPage").text, Does.Contain("1곳"));
+            Find<InputField>("ScopeSearch").text = "없는범위";
+            Assert.That(Find<Text>("NoScopeResults").text, Does.Contain("초기화"));
+            Find<Button>("ShowSelectedScope").onClick.Invoke();
+            Assert.That(Find<InputField>("ScopeSearch").text, Is.Empty);
+            Assert.That(Find<Text>("MapPage").text, Does.Contain("1곳"));
         }
 
         [Test]

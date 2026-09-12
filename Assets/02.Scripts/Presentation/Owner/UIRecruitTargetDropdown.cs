@@ -52,6 +52,7 @@ namespace Baseball.Presentation.Owner
             _value = selectedIndex >= 0 && selectedIndex < _options.Count ? selectedIndex : -1;
             _heading.text = heading;
             _trigger.interactable = _options.Count > 0;
+            _trigger.GetComponent<OwnerUiButtonSkin>()?.Refresh();
             RefreshCaption();
         }
 
@@ -112,11 +113,11 @@ namespace Baseball.Presentation.Owner
             _trigger = CreateButton("SelectTarget", transform, "영입 대상 선택", Open);
             OwnerRuntimeUiFactory.Stretch((RectTransform)_trigger.transform);
             _trigger.GetComponentInChildren<Text>().gameObject.SetActive(false);
-            _caption = CreateText("SelectedName", _trigger.transform, "영입 대상 없음", 18, CareerUiTheme.ReferenceText);
+            _caption = CreateText("SelectedName", _trigger.transform, "영입 대상 없음", 18, OwnerDashboardStyle.Ivory);
             Top(_caption.rectTransform, 12, 4, 42, 30);
-            _detail = CreateText("SelectedDetail", _trigger.transform, "등록된 선수카드가 없습니다", 13, CareerUiTheme.ReferenceText);
+            _detail = CreateText("SelectedDetail", _trigger.transform, "등록된 선수카드가 없습니다", 13, OwnerDashboardStyle.Ivory);
             Top(_detail.rectTransform, 12, 34, 42, 26);
-            var arrow = CreateText("Expand", _trigger.transform, "▾", 20, CareerUiTheme.ReferenceText);
+            var arrow = CreateText("Expand", _trigger.transform, "▾", 20, OwnerDashboardStyle.Ivory);
             arrow.alignment = TextAnchor.MiddleCenter;
             arrow.rectTransform.anchorMin = new Vector2(1, 0);
             arrow.rectTransform.anchorMax = Vector2.one;
@@ -133,9 +134,7 @@ namespace Baseball.Presentation.Owner
             blocker.navigation = new Navigation { mode = Navigation.Mode.None };
             _sheet = OwnerRuntimeUiFactory.CreateImage("Sheet", _overlay, CareerUiTheme.ReferencePanel).rectTransform;
             _sheet.GetComponent<Image>().raycastTarget = true;
-            var border = _sheet.gameObject.AddComponent<Outline>();
-            border.effectColor = CareerUiTheme.AccentGold;
-            border.effectDistance = new Vector2(1, -1);
+            UIOwnerFrontOfficePanel.Apply(_sheet, "ManagerReport");
             var art = OwnerRuntimeUiFactory.CreateRect("HallOfFame", _sheet).gameObject.AddComponent<RawImage>();
             art.texture = Resources.Load<Texture2D>("UI/SpecialRecruit/recruit_selection_header_v1");
             art.color = art.texture != null ? Color.white : CareerUiTheme.TopBar;
@@ -150,7 +149,7 @@ namespace Baseball.Presentation.Owner
             _close.GetComponent<RectTransform>().anchorMin = new Vector2(1, 1);
             _close.GetComponent<RectTransform>().offsetMin = new Vector2(-78, -51);
             BuildSearch();
-            _count = CreateText("ResultCount", _sheet, string.Empty, 14, CareerUiTheme.ReferenceText);
+            _count = CreateText("ResultCount", _sheet, string.Empty, 14, OwnerDashboardStyle.Ivory);
             Top(_count.rectTransform, 20, 148, 20, 28);
             for (int i = 0; i < MaximumRows; i++)
             {
@@ -158,23 +157,23 @@ namespace Baseball.Presentation.Owner
                 var row = CreateButton("Option" + i, _sheet, "영입 후보", () => Choose(slot));
                 row.GetComponentInChildren<Text>().gameObject.SetActive(false);
                 Top((RectTransform)row.transform, 12, 180 + i * RowHeight, 12, RowHeight - 4);
-                var title = CreateText("Name", row.transform, string.Empty, 18, CareerUiTheme.ReferenceText);
+                var title = CreateText("Name", row.transform, string.Empty, 18, OwnerDashboardStyle.Ivory);
                 Top(title.rectTransform, 14, 3, 118, 31);
-                var detail = CreateText("Detail", row.transform, string.Empty, 14, CareerUiTheme.ReferenceText);
+                var detail = CreateText("Detail", row.transform, string.Empty, 14, OwnerDashboardStyle.Ivory);
                 Top(detail.rectTransform, 14, 34, 118, 28);
-                var state = CreateText("State", row.transform, string.Empty, 14, CareerUiTheme.ReferenceDataAccent);
+                var state = CreateText("State", row.transform, string.Empty, 14, OwnerDashboardStyle.Gold);
                 state.alignment = TextAnchor.MiddleRight;
                 Top(state.rectTransform, 0, 6, 14, 54);
                 state.rectTransform.anchorMin = new Vector2(1, 1);
                 state.rectTransform.offsetMin = new Vector2(-112, -60);
                 _rows.Add(row);
             }
-            _empty = CreateText("Empty", _sheet, "검색 결과가 없습니다.\n이름·연도·구단을 다시 확인하세요.", 18, CareerUiTheme.ReferenceText);
+            _empty = CreateText("Empty", _sheet, "검색 결과가 없습니다.\n이름·연도·구단을 다시 확인하세요.", 18, OwnerDashboardStyle.Ivory);
             Top(_empty.rectTransform, 20, 184, 20, 80);
             _empty.alignment = TextAnchor.MiddleCenter;
             _previous = CreateButton("PreviousPage", _sheet, "이전", () => ChangePage(-1));
             _next = CreateButton("NextPage", _sheet, "다음", () => ChangePage(1));
-            _pageLabel = CreateText("Page", _sheet, string.Empty, 14, CareerUiTheme.ReferenceText);
+            _pageLabel = CreateText("Page", _sheet, string.Empty, 14, OwnerDashboardStyle.Ivory);
             _pageLabel.alignment = TextAnchor.MiddleCenter;
             _search.onValueChanged.AddListener(Filter);
             _overlay.gameObject.SetActive(false);
@@ -187,14 +186,15 @@ namespace Baseball.Presentation.Owner
             Top(surface.rectTransform, 16, 98, 100, 44);
             _search = surface.gameObject.AddComponent<InputField>();
             _search.targetGraphic = surface;
-            var text = CreateText("Text", surface.transform, string.Empty, 16, CareerUiTheme.ReferenceText);
+            var text = CreateText("Text", surface.transform, string.Empty, 16, OwnerDashboardStyle.Ivory);
             Top(text.rectTransform, 12, 4, 12, 36);
             text.supportRichText = false;
-            var placeholder = CreateText("Placeholder", surface.transform, "선수명 · 연도 · 구단 검색", 15, CareerUiTheme.ReferenceDataAccent);
+            var placeholder = CreateText("Placeholder", surface.transform, "선수명 · 연도 · 구단 검색", 15, OwnerDashboardStyle.Gold);
             Top(placeholder.rectTransform, 12, 4, 12, 36);
             _search.textComponent = text;
             _search.placeholder = placeholder;
             _search.characterLimit = 64;
+            OwnerDashboardStyle.SetDataInput(_search);
             var clear = CreateButton("ClearSearch", _sheet, "초기화", () => { _search.text = string.Empty; _search.Select(); });
             Top((RectTransform)clear.transform, 0, 98, 16, 44);
             var rect = (RectTransform)clear.transform;
@@ -266,12 +266,12 @@ namespace Baseball.Presentation.Owner
                 row.transform.Find("Detail").GetComponent<Text>().text = option.Detail;
                 row.transform.Find("State").GetComponent<Text>().text = (index == _value ? "선택됨\n" : "") +
                     (option.IsOwned ? "보유 중" : "미보유");
-                OwnerUiButtonSkin.SetSelected(row, index == _value);
-                Color ink = index == _value ? CareerUiTheme.TextPrimary : CareerUiTheme.ReferenceText;
+                OwnerDashboardStyle.SetDataRow(row, index == _value, i % 2 == 0 ? OwnerDashboardStyle.TableSurface : OwnerDashboardStyle.TableAlternate);
+                Color ink = OwnerDashboardStyle.Ivory;
                 row.transform.Find("Name").GetComponent<Text>().color = ink;
-                row.transform.Find("Detail").GetComponent<Text>().color = ink;
+                row.transform.Find("Detail").GetComponent<Text>().color = OwnerDashboardStyle.TableSecondary;
                 row.transform.Find("State").GetComponent<Text>().color = index == _value
-                    ? CareerUiTheme.Number : CareerUiTheme.ReferenceDataAccent;
+                    ? CareerUiTheme.Number : OwnerDashboardStyle.Gold;
             }
             LinkNavigation();
         }
@@ -318,12 +318,13 @@ namespace Baseball.Presentation.Owner
         private static Text CreateText(string name, Transform parent, string value, int size, Color color)
         {
             var text = OwnerRuntimeUiFactory.CreateText(name, parent, value, size, FontStyle.Normal, TextAnchor.MiddleLeft, color);
+            OwnerDashboardStyle.SetDataText(text, size >= 18);
             text.color = color;
             text.gameObject.AddComponent<CareerUiPreserveTextColor>();
             text.supportRichText = false;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Truncate;
-            text.resizeTextForBestFit = true;
+            text.resizeTextForBestFit = false;
             text.resizeTextMinSize = size - 2;
             text.resizeTextMaxSize = size;
             return text;
