@@ -12,6 +12,79 @@ namespace Baseball.Tests.EditMode.Simulation
     /// <summary>직접 투구·타격 명령이 공통 Resolver와 결정론적 경기 세션을 통과하는지 검증한다.</summary>
     public sealed class MiniGameSimulationTests
     {
+        [Test]
+        public void SwingContact_공도착이후큰시간오차는늦은헛스윙으로보존한다()
+        {
+            var resolver = new SwingContactResolver(BalanceTable.CreateDefault());
+            PlateAppearanceMatchup matchup = CreateMatchup(50, 50);
+            PitchFlightDescriptor pitch = CreatePitch(new PlatePoint(0d, 0d));
+            double ideal = resolver.GetIdealSwingTime01(pitch);
+            var command = new SwingCommand(0, true, pitch.PlatePoint,
+                ideal + 180d / pitch.PlateArrivalMilliseconds, BattingApproach.Balanced);
+            ContactProfile result = resolver.Resolve(matchup, pitch, command, 1);
+            Assert.That(command.SwingInputTime01, Is.GreaterThan(1d));
+            Assert.That(result.PitchResult, Is.EqualTo(PitchResult.SwingingStrike));
+            Assert.That(result.TimingErrorMilliseconds, Is.EqualTo(180d).Within(1e-9));
+        }
+
+        [Test]
+        public void SwingExecutionAi_늦은입력을공도착시점에모으지않는다()
+        {
+            var ai = new SwingExecutionAi(BalanceTable.CreateDefault(), new Pcg32Random(20260912UL));
+            BatterMiniGameRequest request = CreateBatterRequest(1);
+            PlateAppearanceMatchup matchup = CreateMatchup(50, 50);
+            int late = 0;
+            for (int i = 0; i < 2000; i++)
+            {
+                SwingCommand command = ai.Select(request, matchup);
+                if (!command.DidSwing) continue;
+                Assert.That(command.SwingInputTime01, Is.Not.EqualTo(1d));
+                if (command.SwingInputTime01 > 1d) late++;
+            }
+            Assert.That(late, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void SwingExecutionAi_투구품질이같아도높은구위는위치판독을어렵게한다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            PlateAppearanceMatchup original = CreateMatchup(50, 50);
+            PlateAppearanceMatchup WithStuff(double stuff) => new PlateAppearanceMatchup(
+                original.Batter, original.Pitcher, 50d, false, 50d, stuff, 50d, 50d, 50d,
+                0d, 0d, PitchingApproach.Balanced);
+            var lowAi = new SwingExecutionAi(balance,
+                new SequenceRandom(0d, .5d, .5d, .5d, .5d, .5d, .5d));
+            var highAi = new SwingExecutionAi(balance,
+                new SequenceRandom(0d, .5d, .5d, .5d, .5d, .5d, .5d));
+            BatterMiniGameRequest request = CreateBatterRequest(1);
+            SwingCommand low = lowAi.Select(request, WithStuff(30d));
+            SwingCommand high = highAi.Select(request, WithStuff(80d));
+            Assert.That(low.DidSwing, Is.True);
+            Assert.That(high.DidSwing, Is.True);
+            double lowError = Distance(low.BatPoint, request.Pitch.PlatePoint);
+            double highError = Distance(high.BatPoint, request.Pitch.PlatePoint);
+            Assert.That(highError, Is.GreaterThan(lowError));
+        }
+
+        [Test]
+        public void SwingContact_컨디션과전술의Contact보정을상세판정에도적용한다()
+        {
+            BalanceTable balance = BalanceTable.CreateDefault();
+            var resolver = new SwingContactResolver(balance);
+            PlateAppearanceMatchup original = CreateMatchup(50, 50);
+            PlateAppearanceMatchup WithAdjustment(double adjustment) => new PlateAppearanceMatchup(
+                original.Batter, original.Pitcher, 50d, false, 50d, 50d, 50d, 50d, 50d,
+                adjustment, 0d, PitchingApproach.Balanced);
+            PitchFlightDescriptor pitch = CreatePitch(new PlatePoint(0d, 0d));
+            var command = new SwingCommand(0, true, pitch.PlatePoint,
+                resolver.GetIdealSwingTime01(pitch), BattingApproach.Balanced);
+            ContactProfile low = resolver.Resolve(WithAdjustment(-10d), pitch, command, 1);
+            ContactProfile high = resolver.Resolve(WithAdjustment(10d), pitch, command, 1);
+            Assert.That(high.Quality - low.Quality,
+                Is.EqualTo(20d * balance.MiniGame.ContactBatterQualityWeight).Within(1e-9));
+            Assert.That(original.Batter.BatterAttributes.Contact, Is.EqualTo(50));
+        }
+
         [TestCase(Handedness.Left, Handedness.Left)]
         [TestCase(Handedness.Left, Handedness.Right)]
         [TestCase(Handedness.Right, Handedness.Left)]

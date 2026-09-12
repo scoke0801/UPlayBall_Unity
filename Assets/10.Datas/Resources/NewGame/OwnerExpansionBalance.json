@@ -1,12 +1,12 @@
 {
   "aggregateMatch": {
     "walkRate": 0.09,
-    "strikeoutRate": 0.178,
+    "strikeoutRate": 0.18,
     "hitByPitchRate": 0.008,
     "controlWalkWeight": 0.022,
     "mentalWalkWeight": 0.01,
-    "contactStrikeoutWeight": 0.06,
-    "stuffStrikeoutWeight": 0.014,
+    "contactStrikeoutWeight": 0.035,
+    "stuffStrikeoutWeight": 0.025,
     "velocityStrikeoutWeight": 0.007,
     "ballQualityAdjustment": 15.0,
     "homeRunMultiplier": 0.75,

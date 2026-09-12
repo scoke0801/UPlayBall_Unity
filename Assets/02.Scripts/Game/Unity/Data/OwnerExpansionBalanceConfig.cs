@@ -142,7 +142,7 @@ namespace Baseball.Game.Data
     {
         public double walkRate = 0.09, strikeoutRate = 0.18, hitByPitchRate = 0.008;
         public double controlWalkWeight = 0.022, mentalWalkWeight = 0.01;
-        public double contactStrikeoutWeight = 0.06, stuffStrikeoutWeight = 0.014, velocityStrikeoutWeight = 0.007;
+        public double contactStrikeoutWeight = 0.035, stuffStrikeoutWeight = 0.025, velocityStrikeoutWeight = 0.007;
         public double ballQualityAdjustment = 9, homeRunMultiplier = 0.5;
         public double inPlayPitchMean = 2.65, strikeoutPitchMean = 4.8, walkPitchMean = 5.6;
         public double controlHitByPitchWeight = 0.17;

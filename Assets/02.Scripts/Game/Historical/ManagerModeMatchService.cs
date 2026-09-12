@@ -980,6 +980,7 @@ namespace Baseball.Game.Historical
                 .GetPlayerStatus(teamSeasonKey)
                 .GetRequiredPlayer(entry.PlayerPersonId);
             PitchingWorkloadState load = ApplyRestRounds(playerStatus.PitchingWorkload, restRounds);
+            var usage = HistoricalPitcherUsageResolver.Resolve(season, assignedRole, _balance.HistoricalPitcherUsage);
             return new PitcherRosterEntry(
                 players[cardId],
                 assignedRole,
@@ -991,7 +992,9 @@ namespace Baseball.Game.Historical
                 naturalRole: season.PitcherRole,
                 activeRosterRole: activeRosterRole,
                 playerSeasonId: season.PlayerSeasonId,
-                naturalRoleConfidence: season.PitcherRoleConfidence);
+                naturalRoleConfidence: season.PitcherRoleConfidence,
+                capacityMultiplier: usage.Capacity,
+                recoveryMultiplier: usage.Recovery);
         }
 
         private MatchPlayerConditionEntry[] CreateConditionEntries(

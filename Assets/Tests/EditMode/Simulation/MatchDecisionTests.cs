@@ -14,6 +14,27 @@ namespace Baseball.Tests.EditMode.Simulation
     /// </summary>
     public sealed class MatchDecisionTests
     {
+        [TestCase(false, LeverageTier.High, false)]
+        [TestCase(true, LeverageTier.Low, false)]
+        [TestCase(true, LeverageTier.High, true)]
+        public void PitchingApproach_강타자승부회피는득점권위기에서만선택한다(
+            bool runnerOnSecond, LeverageTier leverage, bool expectedAvoidance)
+        {
+            var batter = new Player(1, "강타자", PlayerPosition.FirstBase, Handedness.Right, Handedness.Right,
+                new BatterAttributes(85, 85, 50, 50, 50, 50), default);
+            var next = new Player(2, "다음 타자", PlayerPosition.FirstBase, Handedness.Right, Handedness.Right,
+                new BatterAttributes(50, 50, 50, 50, 50, 50), default);
+            var pitcher = new Player(3, "투수", PlayerPosition.StartingPitcher, Handedness.Right, Handedness.Right,
+                default, new PitcherAttributes(50, 50, 50, 50, 50, 50));
+            var state = new PitcherFatigueResolver(MatchBalanceTable.CreateDefault()).CreateState(
+                new PitcherRosterEntry(pitcher, PitcherRole.Starter));
+            var context = new DecisionContext(8, InningHalf.Top, 0, 2,
+                new BaseStateSnapshot(false, runnerOnSecond, false), batter, pitcher, next, leverage,
+                state, Baseball.Core.Rules.MatchRules.CreateDefault(false), ManagerTacticalProfile.Balanced);
+            Assert.That(new SituationalPitchingDecisionProvider().GetApproach(context) == PitchingApproach.PitchAround,
+                Is.EqualTo(expectedAvoidance));
+        }
+
         [Test]
         public void SimulateUntilDecision_균형선택재생은일반경기와완전히같다()
         {

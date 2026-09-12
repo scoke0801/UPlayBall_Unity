@@ -200,6 +200,14 @@ dotnet run --project Tools/HistoricalSeasonDiagnostics -c Release -- --roster-ab
 
 상세 검토와 적용하지 않은 후보는 `docs/reports/historical-strength-precision/README.md`를 따른다.
 
+## 규정타석·규정이닝 선수 분포
+
+`analyze_player_distribution.py <시뮬레이션 JSON> --output <요약 JSON>`은 정규화 원기록과
+시뮬레이션 정규시즌을 연도별로 비교한다. 규정타석 4할, 최고 타율, 규정이닝 ERA 3 미만,
+최저 ERA와 리그 AVG/ERA를 출력한다. 기본 정규화 경로는 `Tools/KBOImporter/.cache/KBOImport/Normalized`다.
+`--owner-world-performance`도 실제 월드 진행 후 조별 개인 분포를 출력하며 공통 경기 JSON을 읽는다.
+코스트를 바꾸지 않은 타격·투수 로직 개선 근거는 `docs/reports/pitch-batting-balance-20260912.md`를 따른다.
+
 ## 구단주 선수 수집 기간
 
 실제 `ScoutRoller`·`ShopDefaultPools`·`ScoutEconomyBalance` 기본값으로 모든 구단 연도의 1군 25인을

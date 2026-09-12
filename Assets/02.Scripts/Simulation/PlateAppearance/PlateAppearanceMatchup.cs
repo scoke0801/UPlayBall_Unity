@@ -79,6 +79,8 @@ namespace Baseball.Simulation.PlateAppearance
         public double EffectiveControl { get; }
         public double EffectiveMental { get; }
         public double BatterContactAdjustment { get; }
+        /// <summary>컨디션·전술·반복 대면 보정을 상세와 간이 판정에 동일하게 전달한다.</summary>
+        public double EffectiveContact => Math.Max(0d, Math.Min(100d, Batter.BatterAttributes.Contact + BatterContactAdjustment));
         public int BuntAbility { get; }
         /// <summary>Power 능력치 점수가 아닌 강한 타구 확률의 가산량이다.</summary>
         public double HardHitAdjustment { get; }

@@ -46,18 +46,23 @@ namespace Baseball.Core.Balance
             double repeatChaseReduction,
             double repeatExecutionErrorReduction,
             double aiThreeBallTargetHorizontal = 0.96d,
-            double aiPitchQualityDifficultyWeight = .003d,
-            double contactPitchQualityWeight = .75d, double contactBatterQualityWeight = .65d,
+            double aiPitchQualityDifficultyWeight = .005d,
+            double contactPitchQualityWeight = .25d, double contactBatterQualityWeight = .25d,
             // 제구가 높은 역사 로스터의 사구 부족을 줄이되 중립 전력의 과다 사구를 피한 대량 검증값이다.
             // 근거: docs/reports/plate-discipline-20260911.md. 팀별 실적은 계수에 입력하지 않는다.
             double hitByPitchMinimumInsideLocation = 1.18d,
             double hitByPitchMaximumHeight = 1.05d,
             double hitByPitchContactProbability = .18d,
-            double aiMentalChaseWeight = .0045d)
+            double aiMentalChaseWeight = .0045d,
+            // 구위별 3만 경기와 역사 44년 대조 근거: docs/reports/pitch-batting-balance-20260912.md.
+            double aiStuffLocationWeight = .008d)
         {
             if (!(aiMentalChaseWeight >= 0d) || aiMentalChaseWeight > .05d)
                 throw new System.ArgumentOutOfRangeException(nameof(aiMentalChaseWeight));
             AiMentalChaseWeight = aiMentalChaseWeight;
+            if (!(aiStuffLocationWeight >= 0d) || aiStuffLocationWeight > .05d)
+                throw new System.ArgumentOutOfRangeException(nameof(aiStuffLocationWeight));
+            AiStuffLocationWeight = aiStuffLocationWeight;
             if (!(hitByPitchMinimumInsideLocation > 1d) || hitByPitchMinimumInsideLocation > 1.8d)
                 throw new System.ArgumentOutOfRangeException(nameof(hitByPitchMinimumInsideLocation));
             if (!(hitByPitchMaximumHeight > 0d) || hitByPitchMaximumHeight > 1.7d)
@@ -151,6 +156,8 @@ namespace Baseball.Core.Balance
         public double AiThreeBallChallengeProbability { get; }
         public double AiThreeBallTargetHorizontal { get; }
         public double AiPitchQualityDifficultyWeight { get; }
+        /// <summary>구종 품질의 상한과 별개로 현재 구위가 스윙 위치 오차에 기여한다.</summary>
+        public double AiStuffLocationWeight { get; }
         public double ContactPitchQualityWeight { get; }
         public double ContactBatterQualityWeight { get; }
         public double AiWastePitchDistance { get; }
@@ -196,11 +203,11 @@ namespace Baseball.Core.Balance
                 maximumCommandDeviation: 0.30d,
                 baseBatRadiusX: 0.28d,
                 baseBatRadiusY: 0.19d,
-                contactRadiusWeight: 0.0022d,
+                contactRadiusWeight: 0.001d,
                 perfectTimingMilliseconds: 35d,
                 validTimingMilliseconds: 80d,
                 foulTimingMilliseconds: 140d,
-                contactTimingWeight: 0.45d,
+                contactTimingWeight: 0.20d,
                 swingImpactLeadMilliseconds: 42d,
                 contactIntentRadiusMultiplier: 1.18d,
                 powerIntentRadiusMultiplier: 0.82d,
@@ -214,9 +221,9 @@ namespace Baseball.Core.Balance
                 aiThreeBallChallengeProbability: 0.70d,
                 aiWastePitchDistance: 1.14d,
                 aiInsideWasteProbability: 0.40d,
-                aiLocationErrorScale: 0.92d,
-                aiTimingErrorMilliseconds: 63d,
-                contactQualityBase: 16.75d,
+                aiLocationErrorScale: 0.82d,
+                aiTimingErrorMilliseconds: 55d,
+                contactQualityBase: 18d,
                 launchAngleBaseDegrees: 10d,
                 launchAngleLocationScale: 145d,
                 homeRunMinimumExitVelocity: 90d,

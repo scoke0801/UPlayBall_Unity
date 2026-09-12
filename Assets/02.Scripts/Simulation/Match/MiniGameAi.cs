@@ -276,8 +276,9 @@ namespace Baseball.Simulation.Match
             }
 
             double pitchDifficulty = (request.Pitch.Quality - 50d) * _balance.MiniGame.AiPitchQualityDifficultyWeight +
+                                     (matchup.EffectiveStuff - 50d) * _balance.MiniGame.AiStuffLocationWeight +
                                      (request.Pitch.VelocityMph - 88d) * 0.006d;
-            int contactAbility = request.DefaultIntent == BattingApproach.Bunt ? matchup.BuntAbility : batter.Contact;
+            double contactAbility = request.DefaultIntent == BattingApproach.Bunt ? matchup.BuntAbility : matchup.EffectiveContact;
             double recognition = (contactAbility - 50d) * 0.0060d +
                                  (batter.Mental - 50d) * 0.0035d;
             double locationScale = Clamp(
@@ -296,10 +297,9 @@ namespace Baseball.Simulation.Match
             timingDeviation *= 1d -
                                repeatRecognition * _balance.MiniGame.RepeatExecutionErrorReduction;
             double timingError = NextGaussian() * Clamp(timingDeviation, 28d, 94d);
-            double swingTime = Clamp(
-                request.IdealSwingTime01 + timingError / request.Pitch.PlateArrivalMilliseconds,
-                0d,
-                1d);
+            // 도착 이후의 입력을 1로 자르면 큰 지연도 42ms 오차로 바뀌어 헛스윙이 사라진다.
+            double swingTime = Math.Max(0d,
+                request.IdealSwingTime01 + timingError / request.Pitch.PlateArrivalMilliseconds);
             return new SwingCommand(
                 request.RequestId,
                 true,

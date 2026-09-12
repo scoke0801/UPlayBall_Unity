@@ -24,7 +24,7 @@ internal static class OwnerWorldPerformance
                     ReadEntry(year.GetProperty("path").GetString()))).ToArray());
         var provider = new UnityHistoricalContentProvider(catalog, HistoricalContentVerificationMode.Full);
         var content = provider.Load();
-        var balance = BalanceTable.CreateDefault();
+        var balance = Baseball.Tools.CommonMatchBalanceInput.Load();
         var newGame = new ManagerHistoricalNewGameService(provider, new HistoricalWorldRuntimeBuilder(balance), balance);
         var profiles = args.Length > 2 && args[2] == "compare"
             ? new[] { MatchExecutionProfile.DetailedBackground, MatchExecutionProfile.AggregateBackground }
@@ -51,6 +51,20 @@ internal static class OwnerWorldPerformance
             Console.WriteLine($"Engine={profile.EngineKind} Completed={runtime.LeagueWorld.IsRegularSeasonCompleted} Seconds={timer.Elapsed.TotalSeconds:F3} " +
                 $"AllocatedMB={(GC.GetTotalAllocatedBytes(true) - allocated) / 1048576.0:F1} Steps={steps}");
             if (!runtime.LeagueWorld.IsRegularSeasonCompleted) return 1;
+            var playerGroup = runtime.LeagueWorld.GetGroup(runtime.PlayerTeamSeasonKey);
+            foreach (var group in runtime.LeagueWorld.Groups)
+            {
+                var players = group.Season.Statistics.RegularSeason.Players.Values;
+                var hitters = players.Where(p => p.TeamGames > 0 && p.Batting.PlateAppearances >= p.TeamGames * 3.1).ToArray();
+                var pitchers = players.Where(p => p.TeamGames > 0 && p.Pitching.OutsRecorded >= p.TeamGames * 3).ToArray();
+                long atBats = players.Sum(p => (long)p.Batting.AtBats);
+                long outs = players.Sum(p => (long)p.Pitching.OutsRecorded);
+                Console.WriteLine($"Group={group.League.LeagueInstanceId} PlayerGroup={ReferenceEquals(group, playerGroup)} " +
+                    $"AVG={(atBats == 0 ? 0 : players.Sum(p => (long)p.Batting.Hits) / (double)atBats):F3} " +
+                    $"ERA={(outs == 0 ? 0 : 27d * players.Sum(p => (long)p.Pitching.EarnedRuns) / outs):F3} " +
+                    $"QualifiedHitters={hitters.Length} AVG400={hitters.Count(p => p.Batting.BattingAverage >= .4)} " +
+                    $"QualifiedPitchers={pitchers.Length} ERABelow3={pitchers.Count(p => p.Pitching.EarnedRunAverage < 3)}");
+            }
         }
         return 0;
     }

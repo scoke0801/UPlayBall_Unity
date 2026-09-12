@@ -625,28 +625,8 @@ namespace Baseball.Game.Historical
             PlayerSeasonDefinition season,
             PitcherRole assignedRole)
         {
-            if (season.HistoricalPitchingAppearances <= 0 || season.HistoricalPitchingOuts <= 0 ||
-                season.HistoricalTeamGames <= 0)
-                return PitcherUsageMultipliers.Default;
-
-            HistoricalPitcherUsageBalance usage = _balance.HistoricalPitcherUsage;
-            bool isStarter = assignedRole == PitcherRole.Starter;
-            double innings = season.HistoricalPitchingOuts / 3d;
-            double capacityBaseline = isStarter
-                ? usage.StarterInningsPerAppearance
-                : usage.RelieverInningsPerAppearance;
-            double recoveryBaseline = isStarter
-                ? usage.StarterInningsPerTeamGame
-                : usage.RelieverInningsPerTeamGame;
-            return new PitcherUsageMultipliers(
-                ClampUsageMultiplier(innings / season.HistoricalPitchingAppearances / capacityBaseline, usage),
-                ClampUsageMultiplier(innings / season.HistoricalTeamGames / recoveryBaseline, usage));
-        }
-
-        private static double ClampUsageMultiplier(double value, HistoricalPitcherUsageBalance balance)
-        {
-            if (value < balance.MinimumMultiplier) return balance.MinimumMultiplier;
-            return value > balance.MaximumMultiplier ? balance.MaximumMultiplier : value;
+            var usage = HistoricalPitcherUsageResolver.Resolve(season, assignedRole, _balance.HistoricalPitcherUsage);
+            return new PitcherUsageMultipliers(usage.Capacity, usage.Recovery);
         }
 
         private SeasonContext CreateContext(IReadOnlyList<TeamSeasonDefinition> inputTeams)

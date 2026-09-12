@@ -93,7 +93,8 @@ namespace Baseball.Game.Data
                 hitByPitchMinimumInsideLocation: data.hitByPitchMinimumInsideLocation,
                 hitByPitchMaximumHeight: data.hitByPitchMaximumHeight,
                 hitByPitchContactProbability: data.hitByPitchContactProbability,
-                aiMentalChaseWeight: data.aiMentalChaseWeight);
+                aiMentalChaseWeight: data.aiMentalChaseWeight,
+                aiStuffLocationWeight: data.aiStuffLocationWeight);
         }
     }
 
@@ -107,9 +108,10 @@ namespace Baseball.Game.Data
         public double aiMentalChaseWeight = .0045d;
         public double stealAttemptUtilityScale;
         public double relieverQualityWeight = 2d;
-        public double aiPitchQualityDifficultyWeight = .003d;
-        public double contactPitchQualityWeight = .75d;
-        public double contactBatterQualityWeight = .65d;
+        public double aiPitchQualityDifficultyWeight = .005d;
+        public double aiStuffLocationWeight = .008d;
+        public double contactPitchQualityWeight = .25d;
+        public double contactBatterQualityWeight = .25d;
         public double targetHorizontalLimit;
         public double targetVerticalLimit;
         public double baseCommandDeviation;

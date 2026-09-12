@@ -286,7 +286,8 @@ namespace Baseball.Simulation.Match
             bool isBunt = false)
         {
             if (requestId < 0) throw new ArgumentOutOfRangeException(nameof(requestId));
-            if (swingInputTime01 < 0d || swingInputTime01 > 1d)
+            // 1은 공의 도착 시점이다. 이후의 스윙도 늦은 오차로 판정해야 하므로 상한으로 자르지 않는다.
+            if (double.IsNaN(swingInputTime01) || double.IsInfinity(swingInputTime01) || swingInputTime01 < 0d)
                 throw new ArgumentOutOfRangeException(nameof(swingInputTime01));
             RequestId = requestId;
             DidSwing = didSwing;

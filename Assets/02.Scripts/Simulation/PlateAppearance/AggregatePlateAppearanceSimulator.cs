@@ -24,7 +24,7 @@ namespace Baseball.Simulation.PlateAppearance
             BatterAttributes batter = matchup.Batter.BatterAttributes;
             BattingApproachModifier modifier = _balance.BattingApproach.GetModifier(approach);
             double contactAbility = approach == BattingApproach.Bunt
-                ? matchup.BuntAbility : batter.Contact + matchup.BatterContactAdjustment;
+                ? matchup.BuntAbility : matchup.EffectiveContact;
             double platoon = matchup.Batter.BattingHand == Handedness.Switch ||
                              matchup.Batter.BattingHand != matchup.Pitcher.ThrowingHand
                 ? _balance.PlateDiscipline.OppositeHandedContactBonus

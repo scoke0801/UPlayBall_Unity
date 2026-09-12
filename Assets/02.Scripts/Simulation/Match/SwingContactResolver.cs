@@ -37,7 +37,7 @@ namespace Baseball.Simulation.Match
 
             BatterAttributes batter = matchup.Batter.BatterAttributes;
             double intentRadius = GetIntentRadiusMultiplier(command.Intent, command.IsBunt);
-            int contactAbility = command.IsBunt ? matchup.BuntAbility : batter.Contact;
+            double contactAbility = command.IsBunt ? matchup.BuntAbility : matchup.EffectiveContact;
             double ratingRadius = 1d + (contactAbility - 50d) * _balance.ContactRadiusWeight;
             double radiusX = _balance.BaseBatRadiusX * ratingRadius * intentRadius;
             double radiusY = _balance.BaseBatRadiusY * ratingRadius * intentRadius;
@@ -107,7 +107,7 @@ namespace Baseball.Simulation.Match
                 : (zoneDistance - 1d) * _balance.OutOfZoneQualityPenalty;
             double quality = Clamp(
                 _balance.ContactQualityBase + positionQuality * 42d + timingQuality * 30d +
-                (batter.Contact - 50d) * _balance.ContactBatterQualityWeight -
+                (matchup.EffectiveContact - 50d) * _balance.ContactBatterQualityWeight -
                 (pitch.Quality - 50d) * _balance.ContactPitchQualityWeight -
                 zonePenalty,
                 0d,

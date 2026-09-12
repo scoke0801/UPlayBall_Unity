@@ -89,9 +89,16 @@ namespace Baseball.Simulation.Match
             BatterAttributes batter = context.Batter.BatterAttributes;
             if (context.Bases.HasRunnerOnFirst && context.Outs < 2 && pitcher.Breaking >= 55)
                 return PitchingApproach.GroundBall;
-            if (context.Leverage >= LeverageTier.High && pitcher.Stuff >= 62)
+            // 제구가 부족한 투수에게 삼진 방침의 추가 제구 손실을 강요하지 않는다.
+            if (context.Leverage >= LeverageTier.High && pitcher.Stuff >= 62 && pitcher.Control >= 55)
                 return PitchingApproach.Strikeout;
-            if (batter.Power >= 75 && context.Bases.HasRunnerOnFirst == false)
+            // 빈 베이스의 강타자에게 출루를 무상 제공하지 않는다. 득점권 위기에서 다음 타자가
+            // 더 쉬울 때만 1루를 활용한다. 현재/다음 타자의 비교는 같은 경기 능력치를 사용한다.
+            if (batter.Power >= 75 && !context.Bases.HasRunnerOnFirst &&
+                (context.Bases.HasRunnerOnSecond || context.Bases.HasRunnerOnThird) &&
+                context.Leverage >= LeverageTier.High &&
+                context.OnDeckBatter.BatterAttributes.Power < batter.Power &&
+                context.OnDeckBatter.BatterAttributes.Contact < batter.Contact)
                 return PitchingApproach.PitchAround;
             if (pitcher.Control >= 65 && batter.Contact < 55)
                 return PitchingApproach.AttackZone;

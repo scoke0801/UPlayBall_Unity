@@ -73,6 +73,47 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
+        public void ComposeOwnerModeBalanceTable_PreservesCommonOwnerAndHistoricalBalances()
+        {
+            var defaults = Baseball.Core.Balance.BalanceTable.CreateDefault();
+            var common = new Baseball.Core.Balance.BalanceTable(
+                version: 17,
+                defaults.PlateDiscipline,
+                defaults.BattedBall,
+                defaults.BaseRunning,
+                defaults.ContractOffer,
+                defaults.TeamGeneration,
+                defaults.PlayerEvaluation,
+                defaults.CareerSeason,
+                contentHash: "common-sentinel",
+                ownerCardGrowth: defaults.OwnerCardGrowth,
+                teamColor: defaults.TeamColor,
+                ownerPlayerMarket: defaults.OwnerPlayerMarket,
+                historicalPitcherUsage: defaults.HistoricalPitcherUsage);
+            TextAsset config = Resources.Load<TextAsset>("NewGame/OwnerExpansionBalance");
+            Assert.That(config, Is.Not.Null);
+            Type configType = typeof(NewGameDefinition).Assembly.GetType(
+                "Baseball.Game.Data.OwnerExpansionBalanceConfig",
+                throwOnError: true);
+            MethodInfo parse = configType.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static);
+            Assert.That(parse, Is.Not.Null);
+            object ownerExpansion = parse.Invoke(null, new object[] { config.text });
+            MethodInfo compose = typeof(NewGameDefinition).GetMethod(
+                "ComposeOwnerModeBalanceTable",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(compose, Is.Not.Null);
+
+            var composed = (Baseball.Core.Balance.BalanceTable)compose.Invoke(
+                null,
+                new[] { (object)common, ownerExpansion });
+
+            Assert.That(composed.OwnerCardGrowth, Is.SameAs(common.OwnerCardGrowth));
+            Assert.That(composed.TeamColor, Is.SameAs(common.TeamColor));
+            Assert.That(composed.OwnerPlayerMarket, Is.SameAs(common.OwnerPlayerMarket));
+            Assert.That(composed.HistoricalPitcherUsage, Is.SameAs(common.HistoricalPitcherUsage));
+        }
+
+        [Test]
         public void ToOwnerModeBalanceTable_MissingConfig_ThrowsWithoutFallback()
         {
             NewGameDefinition definition = ScriptableObject.CreateInstance<NewGameDefinition>();

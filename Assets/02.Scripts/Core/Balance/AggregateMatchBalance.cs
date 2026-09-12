@@ -5,10 +5,12 @@ namespace Baseball.Core.Balance
     /// <summary>다른 조의 타석 결과·추정 투구 수를 상세 엔진 분포에 맞추는 독립 보정표다.</summary>
     public sealed class AggregateMatchBalance
     {
-        public AggregateMatchBalance(double walkRate = 0.09, double strikeoutRate = 0.178,
+        // 고능력 로스터에서도 삼진이 사라지지 않도록 상세/간이 각 28,000경기로 민감도를 대조했다.
+        // 근거: docs/reports/pitch-batting-balance-20260912.md.
+        public AggregateMatchBalance(double walkRate = 0.09, double strikeoutRate = 0.18,
             double hitByPitchRate = 0.008, double controlWalkWeight = 0.022,
-            double mentalWalkWeight = 0.01, double contactStrikeoutWeight = 0.06,
-            double stuffStrikeoutWeight = 0.014, double velocityStrikeoutWeight = 0.007,
+            double mentalWalkWeight = 0.01, double contactStrikeoutWeight = 0.035,
+            double stuffStrikeoutWeight = 0.025, double velocityStrikeoutWeight = 0.007,
             double ballQualityAdjustment = 15, double homeRunMultiplier = 0.75,
             double inPlayPitchMean = 2.65, double strikeoutPitchMean = 4.8,
             double walkPitchMean = 5.6, double controlHitByPitchWeight = 0.17,
