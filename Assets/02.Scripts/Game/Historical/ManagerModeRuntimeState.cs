@@ -107,6 +107,41 @@ namespace Baseball.Game.Historical
             return count;
         }
 
+        /// <summary>
+        /// 운영 한 주가 소화하는 구단 경기 수. 정규시즌 144경기를 KBO와 같은 약 26주로 나눈 값이며,
+        /// 주간 결산 보상이 경기 진행과 분리되어 무한히 반복 수령되지 않도록 고정하는 기준이다.
+        /// </summary>
+        public const int GamesPerOperationWeek = 6;
+
+        /// <summary>
+        /// 지금까지 소화한 구단 경기로 열린 결산 주차 수다. 시즌이 끝나면 남은 자투리 경기도 한 주로 친다.
+        /// </summary>
+        public int SettleableWeekCount
+        {
+            get
+            {
+                int completed = GetCompletedGameCount(PlayerTeamId);
+                return IsCompleted
+                    ? (completed + GamesPerOperationWeek - 1) / GamesPerOperationWeek
+                    : completed / GamesPerOperationWeek;
+            }
+        }
+
+        /// <summary>결산이 경기 진행보다 앞서 나가지 않는지 확인한다.</summary>
+        public bool CanAdvanceWeek => CurrentWeekIndex < SettleableWeekCount;
+
+        /// <summary>다음 결산까지 남은 구단 경기 수이며 이미 열려 있으면 0이다.</summary>
+        public int GamesRemainingUntilNextSettlement
+        {
+            get
+            {
+                if (CanAdvanceWeek) return 0;
+                int required = checked((CurrentWeekIndex + 1) * GamesPerOperationWeek);
+                int completed = GetCompletedGameCount(PlayerTeamId);
+                return required > completed ? required - completed : 0;
+            }
+        }
+
         public void AdvanceWeek()
         {
             CurrentWeekIndex = checked(CurrentWeekIndex + 1);

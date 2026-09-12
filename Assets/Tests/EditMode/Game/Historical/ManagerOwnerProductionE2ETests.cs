@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Baseball.Core.Balance;
@@ -77,6 +77,11 @@ namespace Baseball.Tests.EditMode.Game.Historical
             int conditionBeforeWeek = recoveryTarget.StoredBaseCondition;
             int scoutingPointsBefore = runtime.Economy.ScoutingPoints;
             int developmentPointsBefore = runtime.Economy.DevelopmentPoints;
+            Assert.That(
+                coordinator.AdvanceWeek(runtime).Status,
+                Is.EqualTo(ManagerModeTransactionStatus.Rejected),
+                "경기를 치르지 않은 결산 연타는 거부되어야 한다.");
+            PlayOneOperationWeek(runtime);
             ManagerWeeklyAdvanceResult weekly = coordinator.AdvanceWeek(runtime);
             Assert.That(weekly.Status, Is.EqualTo(ManagerModeTransactionStatus.Applied));
             Assert.That(runtime.Economy.ScoutingPoints, Is.GreaterThan(scoutingPointsBefore));
@@ -179,6 +184,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 runtime,
                 FacilityType.TrainingCenter,
                 "staff-training:test").IsApproved, Is.True);
+            PlayOneOperationWeek(runtime);
             Assert.That(coordinator.AdvanceWeek(runtime).Status, Is.EqualTo(ManagerModeTransactionStatus.Applied));
 
             PlayerCardDefinition targetCard = null;
@@ -211,6 +217,34 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 runtime.OwnedCards[FindOwnedCardIndex(runtime, targetCard.CardId)]
                     .Training.GetBonus(PlayerAbility.Contact),
                 Is.LessThanOrEqualTo(targetSeason.CreateTrainingCeiling().Get(PlayerAbility.Contact)));
+        }
+
+        [Test]
+        public void AdvanceWeek_결산연타로시설SP를추가로받지못한다()
+        {
+            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out _, out _);
+            var coordinator = new ManagerModeCoordinator(BalanceTable.CreateDefault());
+            UpgradeAllInitialFacilities(runtime, coordinator);
+
+            PlayPlayerGames(runtime, ManagerLiveSeasonState.GamesPerOperationWeek);
+            Assert.That(
+                coordinator.AdvanceWeek(runtime).Status,
+                Is.EqualTo(ManagerModeTransactionStatus.Applied));
+
+            int weekIndexAfterSettlement = runtime.ManagerMode.LiveSeason.CurrentWeekIndex;
+            int scoutingPoints = runtime.Economy.ScoutingPoints;
+            int developmentPoints = runtime.Economy.DevelopmentPoints;
+            long money = runtime.Economy.Money;
+
+            for (int attempt = 0; attempt < 20; attempt++)
+                Assert.That(
+                    coordinator.AdvanceWeek(runtime).Status,
+                    Is.EqualTo(ManagerModeTransactionStatus.Rejected));
+
+            Assert.That(runtime.ManagerMode.LiveSeason.CurrentWeekIndex, Is.EqualTo(weekIndexAfterSettlement));
+            Assert.That(runtime.Economy.ScoutingPoints, Is.EqualTo(scoutingPoints));
+            Assert.That(runtime.Economy.DevelopmentPoints, Is.EqualTo(developmentPoints));
+            Assert.That(runtime.Economy.Money, Is.EqualTo(money));
         }
 
         [Test]
@@ -248,6 +282,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 startingConditions.Add(status.TeamSeasonKey, status.Players[0].StoredBaseCondition);
             }
 
+            PlayOneOperationWeek(runtime);
             ManagerWeeklyAdvanceResult result = coordinator.AdvanceWeek(runtime);
 
             Assert.That(result.Status, Is.EqualTo(ManagerModeTransactionStatus.Applied));
@@ -492,6 +527,49 @@ namespace Baseball.Tests.EditMode.Game.Historical
             var restored = adapter.Restore(adapter.CreateSaveData(runtime));
             Assert.That(restored.Economy.ContractArrears, Is.EqualTo(preview.DeferredSigningCost));
             Assert.That(restored.ManagerMode.GetPlayerContract(contract.CardId).RemainingSeasons, Is.EqualTo(2));
+        }
+
+        /// <summary>결산 주차 계산이 쓰는 구단 완료 경기 수를 정확히 count만큼 늘린다.</summary>
+        private static void PlayPlayerGames(ManagerHistoricalRuntimeState runtime, int count)
+        {
+            ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
+            IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
+            int remaining = count;
+            for (int index = 0; index < games.Count && remaining > 0; index++)
+            {
+                ScheduledGameState game = games[index];
+                if (game.IsCompleted || !game.IncludesTeam(season.PlayerTeamId)) continue;
+                game.Complete(0, 1);
+                remaining--;
+            }
+            Assert.That(remaining, Is.Zero, "요청한 만큼의 구단 경기가 일정에 남아 있지 않습니다.");
+        }
+
+        /// <summary>
+        /// 주간 결산이 열리도록 이번 운영 주차의 구단 경기를 소화하고, 다음 구단 경기가 홈 경기인 지점에서 멈춘다.
+        /// 홈 경기에서 멈춰야 이후 Pregame 계획이 곧바로 그 경기에 쓰인다.
+        /// </summary>
+        private static void PlayOneOperationWeek(ManagerHistoricalRuntimeState runtime)
+        {
+            ManagerLiveSeasonState season = runtime.ManagerMode.LiveSeason;
+            IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
+            int played = 0;
+            for (int index = 0; index < games.Count; index++)
+            {
+                ScheduledGameState game = games[index];
+                if (game.IsCompleted || !game.IncludesTeam(season.PlayerTeamId)) continue;
+                if (played >= ManagerLiveSeasonState.GamesPerOperationWeek &&
+                    game.HomeTeamId == season.PlayerTeamId)
+                {
+                    break;
+                }
+                game.Complete(0, 1);
+                played++;
+            }
+            Assert.That(
+                played,
+                Is.GreaterThanOrEqualTo(ManagerLiveSeasonState.GamesPerOperationWeek),
+                "한 운영 주차를 채울 구단 경기가 일정에 부족합니다.");
         }
 
         private static void UpgradeAllInitialFacilities(

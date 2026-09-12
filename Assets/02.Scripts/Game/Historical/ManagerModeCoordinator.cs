@@ -382,6 +382,19 @@ namespace Baseball.Game.Historical
         {
             ManagerModeRuntimeState mode = RequireMode(runtime);
             ManagerLiveSeasonState season = mode.LiveSeason;
+            // 결산 주차는 소화한 경기 수로만 열린다. 이 가드가 없으면 버튼 연타만으로 주차가 계속
+            // 올라가 새 영수증 ID가 만들어지고 시설 SP/DP를 무한히 수령할 수 있다.
+            if (!season.CanAdvanceWeek)
+                return new ManagerWeeklyAdvanceResult(
+                    ManagerModeTransactionStatus.Rejected,
+                    new WeeklyFacilityProductionResult(
+                        WeeklyFacilityProductionStatus.AlreadyApplied,
+                        0L,
+                        0,
+                        0,
+                        null),
+                    Array.Empty<ManagerTeamRecoveryResult>());
+
             WeeklyFacilityProductionResult production = _weeklyProductionResolver.Resolve(
                 mode.ClubOperation,
                 new WeeklyFacilityProductionContext(
