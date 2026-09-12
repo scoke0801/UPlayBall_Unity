@@ -10,6 +10,10 @@ Copy-Item "$repoRoot/Assets/Plugins" "$validationRoot/Assets" -Recurse -Force
 Copy-Item "$repoRoot/Assets/08.Fonts" "$validationRoot/Assets" -Recurse -Force
 Copy-Item "$repoRoot/Assets/Tests/EditMode" "$validationRoot/Assets/Tests" -Recurse -Force
 Copy-Item "$repoRoot/ProjectSettings/ProjectVersion.txt" "$validationRoot/ProjectSettings" -Force
+# 100팀의 실제·가상 표시 검증은 정본 선수 데이터와 Catalog 참조를 함께 사용한다.
+New-Item -ItemType Directory -Path "$validationRoot/Assets/10.Datas/HistoricalSimulation" -Force | Out-Null
+Copy-Item "$repoRoot/Assets/10.Datas/HistoricalSimulation/1982-2025" "$validationRoot/Assets/10.Datas/HistoricalSimulation" -Recurse -Force
+Copy-Item "$repoRoot/Assets/10.Datas/HistoricalSimulation/HistoricalRuntimeContentCatalog.asset*" "$validationRoot/Assets/10.Datas/HistoricalSimulation" -Force
 foreach ($folder in @('FrontManager', 'DevelopmentKboIdentities', 'NewGame', 'TeamEmblems', 'UI')) {
     Copy-Item "$repoRoot/Assets/10.Datas/Resources/$folder" "$validationRoot/Assets/Resources" -Recurse -Force
 }

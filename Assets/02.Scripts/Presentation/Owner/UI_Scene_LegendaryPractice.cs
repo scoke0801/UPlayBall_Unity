@@ -15,9 +15,14 @@ namespace Baseball.Presentation.Owner
     public sealed class UI_Scene_LegendaryPractice : MonoBehaviour
     {
         private readonly Button[] _rows = new Button[10];
+        private readonly Text[] _ranks = new Text[10], _rowStates = new Text[10];
+        private readonly Image[] _selectionBars = new Image[10];
+        private readonly Image[,] _winMarks = new Image[10, 3];
         private readonly List<LegendaryPracticeTeam> _filtered = new List<LegendaryPracticeTeam>();
         private Text _teamTitle, _record, _rotation, _progress, _reward, _hint, _pageLabel, _completed, _detail;
-        private Button _start, _claimAll, _previous, _next, _filter, _lineup, _retry;
+        private Button _start, _claimAll, _previous, _next, _lineup, _retry;
+        private Dropdown _filter;
+        private int _featuredCount;
         private CanvasGroup _interaction;
         private LegendaryPracticeCatalog _catalog;
         private LegendaryPracticeState _state;
@@ -28,6 +33,9 @@ namespace Baseball.Presentation.Owner
         private bool _canStart = true;
         private MatchRosterSnapshot[] _opponent;
         private MatchRosterSnapshot _playerRoster;
+        private OwnerTeamLineupSnapshot _lineupSnapshot;
+        private UI_Scene_OwnerTeamLineup _lineupBoard;
+        private RectTransform[] _panels;
         private readonly PlayerMiniCardView[] _cards = new PlayerMiniCardView[3];
         public event Action<string> SelectionRequested, StartRequested;
         public event Action ClaimAllRequested, LineupRequested, RetryRequested;
@@ -57,27 +65,39 @@ namespace Baseball.Presentation.Owner
             RebuildList(); RenderProgress(); SelectionRequested?.Invoke(_selected);
         }
 
-        public void BindOpponent(MatchRosterSnapshot[] opponent, TeamColorDefinition[] colors)
+        public void BindOpponent(MatchRosterSnapshot[] opponent, OwnerTeamLineupSnapshot lineup)
         {
             _opponent = opponent;
+            _lineupSnapshot = lineup ?? throw new ArgumentNullException(nameof(lineup));
             var team = _catalog.Find(_selected);
             _teamTitle.text = _name(team);
             _record.text = "역대 강팀 " + team.rank + "위\n" + team.year + " 시즌의 선수단";
             var text = new StringBuilder("선발 로테이션\n");
             int next = _state.Get(_selected).NextStarterIndex;
             for (int i = 0; i < 5; i++) text.Append(i == next ? "▶ " : "   ").Append(i + 1).Append("선발  ")
-                .Append(opponent[i].StartingPitcher.Player.Name).Append('\n');
+                .Append(lineup.Pitchers[i].DisplayName).Append('\n');
             text.Append("\n팀컬러  ");
             bool hasColor = false;
-            foreach (var color in colors)
-                if (color != null) { if (hasColor) text.Append(" · "); text.Append(color.DisplayName); hasColor = true; }
+            foreach (var name in lineup.TeamColors)
+            {
+                if (hasColor) text.Append('\n');
+                text.Append(name); hasColor = true;
+            }
             if (!hasColor) text.Append("발동 조건 미충족");
             _rotation.text = text.ToString();
             RenderLineup(); RenderProgress();
+            if (_lineupBoard != null && _lineupBoard.gameObject.activeSelf) ShowOpponentLineup();
         }
 
         public void BindFeaturedCards(PlayerMiniCardModel[] cards)
-        { for (int i = 0; i < _cards.Length; i++) _cards[i].Bind(cards[i]); }
+        {
+            _featuredCount = Math.Min(cards?.Length ?? 0, _cards.Length);
+            for (int i = 0; i < _cards.Length; i++)
+            {
+                _cards[i].gameObject.SetActive(i < _featuredCount && !_showLineup);
+                if (i < _featuredCount) _cards[i].Bind(cards[i]);
+            }
+        }
         public void BindPlayerRoster(MatchRosterSnapshot roster)
         { _playerRoster = roster; _canStart = roster != null; RenderProgress(); }
 
@@ -95,7 +115,43 @@ namespace Baseball.Presentation.Owner
         { _interaction.interactable = !busy; if (busy) _hint.text = "경기를 준비하고 있습니다…"; else RenderProgress(); }
         public void FocusAction() { if (_start.IsInteractable()) _start.Select(); else _lineup.Select(); }
         public bool TryGoBack()
-        { if (!_showLineup) return false; _showLineup = false; RenderLineup(); _lineup.Select(); return true; }
+        {
+            // uGUI Dropdown은 펼침 상태를 공개하지 않으므로 생성된 목록의 존재로 확인한다.
+            if (_filter.transform.Find("Dropdown List") != null)
+            { _filter.Hide(); _filter.Select(); return true; }
+            if (_lineupBoard != null && _lineupBoard.gameObject.activeSelf)
+            {
+                _lineupBoard.SetVisible(false);
+                foreach (var panel in _panels) panel.gameObject.SetActive(true);
+                _lineup.Select(); return true;
+            }
+            if (!_showLineup) return false;
+            _showLineup = false; RenderLineup(); _lineup.Select(); return true;
+        }
+
+        private void ShowOpponentLineup()
+        {
+            if (_lineupSnapshot == null) return;
+            if (_lineupBoard == null)
+            {
+                _lineupBoard = UI_Scene_OwnerTeamLineup.CreateRuntime((RectTransform)transform);
+                OwnerRuntimeUiFactory.Stretch((RectTransform)_lineupBoard.transform);
+                _lineupBoard.CloseRequested += () => TryGoBack();
+            }
+            foreach (var panel in _panels) panel.gameObject.SetActive(false);
+            _lineupBoard.SetVisible(true);
+            _lineupBoard.Bind(_lineupSnapshot, true, "역대 강팀으로 돌아가기",
+                "카드 우클릭: 선수 상세 · " + CreateMatchRecord() + " · 경기 중 교체에 따라 출전 선수가 달라질 수 있습니다.");
+            _lineupBoard.transform.Find("CloseLineup").GetComponent<Button>().Select();
+        }
+
+        private string CreateMatchRecord()
+        {
+            var progress = _state.Get(_selected);
+            return progress.attempts == 0 ? "아직 대전하지 않았습니다" :
+                "최근 경기 " + progress.lastPlayerScore + " : " + progress.lastOpponentScore + " · " +
+                (progress.attempts - progress.losses - progress.draws) + "승 " + progress.losses + "패 " + progress.draws + "무";
+        }
 
         private void RebuildList()
         {
@@ -109,10 +165,19 @@ namespace Baseball.Presentation.Owner
                 int index = _page * 10 + i; bool visible = index < _filtered.Count;
                 _rows[i].gameObject.SetActive(visible); if (!visible) continue;
                 var team = _filtered[index]; var progress = _state.Get(team.challengeTeamId);
-                string status = progress.wins == 3 ? "완료" : _state.CanPlay(_catalog, team) ? progress.wins + "/3승" : "잠김";
-                _rows[i].GetComponentInChildren<Text>().text = team.rank + "위  " + _name(team) + "\n" + status;
-                OwnerUiButtonSkin.Apply(_rows[i], team.challengeTeamId == _selected ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
-                OwnerUiButtonSkin.SetDashboardStyle(_rows[i]);
+                bool selected = team.challengeTeamId == _selected;
+                bool available = _state.CanPlay(_catalog, team);
+                string status = progress.wins >= 3 ? progress.rewardClaimed ? "격파 완료" : "보상 수령 가능"
+                    : available ? "도전 가능 · " + progress.wins + " / 3승" : "잠김 · " + (team.rank + 1) + "위 격파 시 해금";
+                _rows[i].transform.Find("Label").GetComponent<Text>().text = _name(team);
+                OwnerUiButtonSkin.SetSelected(_rows[i], selected);
+                _ranks[i].text = team.rank.ToString("00") + "위";
+                _ranks[i].color = selected ? OwnerDashboardStyle.Gold : OwnerDashboardStyle.Ivory;
+                _rowStates[i].text = (selected ? "선택 · " : "") + status;
+                _rowStates[i].color = available ? OwnerDashboardStyle.Ivory : OwnerDashboardStyle.Muted;
+                _selectionBars[i].gameObject.SetActive(selected);
+                for (int win = 0; win < 3; win++)
+                    _winMarks[i, win].color = progress.wins > win ? OwnerDashboardStyle.Gold : OwnerDashboardStyle.Line;
             }
             _pageLabel.text = _filtered.Count == 0 ? "해당 시대의 팀이 없습니다" : (_page + 1) + " / " + ((_filtered.Count + 9) / 10);
             _previous.interactable = _page > 0; _next.interactable = (_page + 1) * 10 < _filtered.Count;
@@ -153,23 +218,9 @@ namespace Baseball.Presentation.Owner
         private void RenderLineup()
         {
             _detail.gameObject.SetActive(_showLineup);
-            foreach (var card in _cards) card.gameObject.SetActive(!_showLineup);
+            for (int i = 0; i < _cards.Length; i++) _cards[i].gameObject.SetActive(!_showLineup && i < _featuredCount);
             if (!_showLineup || _opponent == null) return;
-            var text = new StringBuilder("상대 선발 타순\n"); int order = 0;
-            for (int slotIndex = 0; slotIndex < _opponent[0].StartingLineup.Count; slotIndex++)
-                text.Append(++order).Append("번  ").Append(_opponent[0].StartingLineup[slotIndex].Player.Name)
-                    .Append(slotIndex % 2 == 0 && slotIndex < 8 ? "     " : "\n");
-            text.Append("벤치  ");
-            for (int i = 0; i < _opponent[0].Bench.Count; i++)
-                text.Append(_opponent[0].Bench[i].Name).Append(i % 3 == 2 ? "\n        " : "  ");
-            text.Append("\n불펜  ");
-            for (int i = 0; i < _opponent[0].Bullpen.Count; i++)
-                text.Append(_opponent[0].Bullpen[i].Player.Name).Append(i % 3 == 2 && i < 5 ? "\n        " : "  ");
-            var p = _state.Get(_selected);
-            text.Append("\n최근 경기  ").Append(p.attempts == 0 ? "아직 대전하지 않았습니다" : p.lastPlayerScore + " : " + p.lastOpponentScore)
-                .Append("\n").Append(p.attempts - p.losses - p.draws).Append("승 · ").Append(p.losses).Append("패 · ")
-                .Append(p.draws).Append("무  |  최고 득실차 ").Append(p.bestRunDifference > 0 ? "+" : "").Append(p.bestRunDifference);
-            _detail.text = text.ToString();
+            _detail.text = CreateMatchRecord();
         }
 
         private void Build()
@@ -180,19 +231,32 @@ namespace Baseball.Presentation.Owner
             var list = OwnerRuntimeUiFactory.CreatePanel("Opponents", root, "역대 강팀 · 도전 목록");
             var center = OwnerRuntimeUiFactory.CreatePanel("Opponent", root, "상대 구단");
             var reward = OwnerRuntimeUiFactory.CreatePanel("Challenge", root, "도전 현황", true);
+            _panels = new[] { list.Root, center.Root, reward.Root };
             StylePanel(list.Root); StylePanel(center.Root); StylePanel(reward.Root);
             Place(list.Root, .01f, .02f, .255f, .98f); Place(center.Root, .265f, .02f, .745f, .98f);
             Place(reward.Root, .755f, .02f, .99f, .98f);
-            _filter = Button(list.Content, "Era", "모든 시대", () => { _decade = _decade == 0 ? 1980 : _decade == 2020 ? 0 : _decade + 10;
-                _filter.GetComponentInChildren<Text>().text = _decade == 0 ? "모든 시대" : _decade + "년대"; _page = 0; RebuildList(); });
-            Place((RectTransform)_filter.transform, 0, .92f, 1, 1);
+            var filterTitle = Text(list.Content, "EraTitle", 16); filterTitle.text = "시대별 탐색";
+            Place(filterTitle.rectTransform, .02f, .945f, .34f, 1);
+            _filter = OwnerCardFilters.CreateDropdown(list.Content, "Era",
+                new List<string> { "모든 시대", "1980년대", "1990년대", "2000년대", "2010년대", "2020년대" }, 0);
+            _filter.onValueChanged.AddListener(index => { _decade = index == 0 ? 0 : 1970 + index * 10; _page = 0; RebuildList(); });
+            Place((RectTransform)_filter.transform, .36f, .95f, .98f, 1);
+            _filter.captionText.fontSize = 16;
+            var guide = Text(list.Content, "ChallengeGuide", 14); guide.text = "팀별 3승 달성 시 다음 순위 해금";
+            guide.color = OwnerDashboardStyle.Muted; Place(guide.rectTransform, .02f, .905f, .98f, .945f);
             for (int i = 0; i < 10; i++)
-            { int index = i; _rows[i] = Button(list.Content, "Team" + i, "", () => SelectRow(index));
-                Place((RectTransform)_rows[i].transform, 0, .83f - i * .077f, 1, .90f - i * .077f); }
+            {
+                int index = i;
+                _rows[i] = Button(list.Content, "Team" + i, "상대 구단", () => SelectRow(index));
+                OwnerUiButtonSkin.Apply(_rows[i], OwnerButtonRole.Quiet);
+                Place((RectTransform)_rows[i].transform, 0, .817f - i * .079f, 1, .893f - i * .079f);
+                BuildChallengeRow(i);
+            }
             _previous = Button(list.Content, "Previous", "이전", () => { _page--; RebuildList(); });
             _next = Button(list.Content, "Next", "다음", () => { _page++; RebuildList(); });
             Place((RectTransform)_previous.transform, 0, 0, .28f, .07f); Place((RectTransform)_next.transform, .72f, 0, 1, .07f);
             _pageLabel = Text(list.Content, "Page", 14); Place(_pageLabel.rectTransform, .30f, 0, .70f, .07f);
+            _pageLabel.alignment = TextAnchor.MiddleCenter;
             var hero = OwnerRuntimeUiFactory.CreateRect("StadiumViewport", center.Content);
             Place(hero, 0, .70f, 1, 1); hero.gameObject.AddComponent<RectMask2D>();
             var artwork = OwnerRuntimeUiFactory.CreateImage("StadiumArtwork", hero, Color.white);
@@ -206,14 +270,17 @@ namespace Baseball.Presentation.Owner
             Place(_teamTitle.rectTransform, .04f, .84f, .96f, .98f);
             _record = Text(center.Content, "Record", 18); _record.color = Color.white;
             Place(_record.rectTransform, .04f, .71f, .96f, .84f);
+            var featured = Text(center.Content, "FeaturedHeading", 16);
+            featured.text = "주요 선수 · 코스트 TOP 3";
+            Place(featured.rectTransform, .04f, .657f, .96f, .70f);
             for (int i = 0; i < 3; i++)
             { _cards[i] = PlayerMiniCardView.CreateRuntime(center.Content); Place((RectTransform)_cards[i].transform,
-                .03f + i * .325f, .36f, .31f + i * .325f, .68f);
+                .03f + i * .325f, .36f, .31f + i * .325f, .655f);
                 _cards[i].Selected += card => ShowCardDetails(card); }
-            _detail = Text(center.Content, "LineupDetails", 17); Place(_detail.rectTransform, .04f, .35f, .96f, .69f);
+            _detail = Text(center.Content, "LineupDetails", 17); Place(_detail.rectTransform, .04f, .35f, .96f, .655f);
             _detail.gameObject.SetActive(false);
             _rotation = Text(center.Content, "Rotation", 17); Place(_rotation.rectTransform, .04f, .085f, .96f, .35f);
-            _lineup = Button(center.Content, "Lineup", "상대 라인업 · 경기 기록", () => { _showLineup = !_showLineup; RenderLineup(); });
+            _lineup = Button(center.Content, "Lineup", "상대 라인업 · 경기 기록", ShowOpponentLineup);
             Place((RectTransform)_lineup.transform, 0, 0, .43f, .07f);
             var compare = Button(center.Content, "Compare", "전력 비교", ShowComparison);
             Place((RectTransform)compare.transform, .45f, 0, .68f, .07f);
@@ -230,6 +297,31 @@ namespace Baseball.Presentation.Owner
             OwnerUiButtonSkin.Apply(_start, OwnerButtonRole.Primary); Place((RectTransform)_start.transform, 0, .085f, 1, .17f);
             _claimAll = Button(reward.Content, "ClaimAll", "미수령 보상 없음", () => ClaimAllRequested?.Invoke());
             Place((RectTransform)_claimAll.transform, 0, 0, 1, .07f);
+        }
+
+        private void BuildChallengeRow(int index)
+        {
+            var row = _rows[index].transform;
+            var label = row.Find("Label").GetComponent<Text>();
+            Place(label.rectTransform, .17f, .40f, .97f, .98f);
+            label.alignment = TextAnchor.MiddleLeft;
+            _ranks[index] = Text(row, "Rank", 18);
+            Place(_ranks[index].rectTransform, .025f, .36f, .16f, .98f);
+            _ranks[index].alignment = TextAnchor.MiddleCenter;
+            OwnerDashboardStyle.SetTypography(_ranks[index], true);
+            _rowStates[index] = Text(row, "ChallengeState", 13);
+            Place(_rowStates[index].rectTransform, .17f, .04f, .97f, .42f);
+            _selectionBars[index] = OwnerRuntimeUiFactory.CreateImage("SelectionBar", row, OwnerDashboardStyle.Gold);
+            Place(_selectionBars[index].rectTransform, 0, .12f, .008f, .88f);
+            _selectionBars[index].raycastTarget = false;
+            for (int win = 0; win < 3; win++)
+            {
+                var mark = OwnerRuntimeUiFactory.CreateImage("Win" + win, row, OwnerDashboardStyle.Line);
+                Place(mark.rectTransform, .027f + win * .041f, .17f, .060f + win * .041f, .23f);
+                mark.raycastTarget = false; _winMarks[index, win] = mark;
+            }
+            OwnerDashboardStyle.Rule(row, "Divider", Vector2.zero, Vector2.right,
+                Vector2.zero, new Vector2(0, 1), OwnerDashboardStyle.Line);
         }
 
         private static Text Text(Transform parent, string name, int size)

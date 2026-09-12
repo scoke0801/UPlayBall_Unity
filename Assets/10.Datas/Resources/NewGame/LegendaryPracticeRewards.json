@@ -1,4 +1,4 @@
-{
+{"historicalWinRateWeight":0.75,
   "bands": [
     { "minRank": 1, "maxRank": 20, "money": 30000, "development": 300, "scouting": 50 },
     { "minRank": 21, "maxRank": 40, "money": 25000, "development": 240, "scouting": 30 },

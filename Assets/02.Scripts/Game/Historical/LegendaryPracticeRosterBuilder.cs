@@ -113,7 +113,7 @@ namespace Baseball.Game.Historical
             return cards;
         }
 
-        /// <summary>이득이 가장 큰 슬롯부터 차례로 메워, 전력 최약점이 항상 먼저 보강되게 한다.</summary>
+        /// <summary>선발 야수와 투수진에서 이득이 가장 큰 슬롯부터 차례로 보강한다.</summary>
         private void FillRosterHoles(TeamSeasonDefinition team, PlayerCardDefinition[] cards, PlayerSeasonDefinition[] seasons)
         {
             if (!_franchiseLegends.TryGetValue(team.FranchiseId, out var pool)) return;
@@ -133,6 +133,8 @@ namespace Baseball.Game.Historical
                 int bestSlot = -1, bestCandidate = -1, bestGain = 0;
                 for (int slot = 0; slot < 25; slot++)
                 {
+                    // 벤치는 상승폭이 커도 선발로 승격되지 않으므로 한정된 특수 카드 보강 대상에서 제외한다.
+                    if (slot >= 9 && slot < 14) continue;
                     if (replaced[slot]) continue;
                     if (slot < 14 ? hitters >= OwnerSpecialCardRosterRule.MaxHitterCount
                         : pitchers >= OwnerSpecialCardRosterRule.MaxPitcherCount) continue;
@@ -141,14 +143,25 @@ namespace Baseball.Game.Historical
                         var candidate = pool[index];
                         if (!IsSlotCompatible(slot, seasons[slot], candidate.Season)) continue;
                         if (!string.Equals(candidate.Season.PlayerPersonId, seasons[slot].PlayerPersonId, StringComparison.Ordinal) &&
-                            persons.Contains(candidate.Season.PlayerPersonId)) continue;
+                            persons.Contains(candidate.Season.PlayerPersonId))
+                        {
+                            int benchSlot = FindBenchSlot(seasons, candidate.Season.PlayerPersonId);
+                            // 같은 인물의 벤치 카드는 선발과 교환하되 백업 포수·외국인 구성을 보존한다.
+                            if (benchSlot < 0 || !IsSlotCompatible(benchSlot, seasons[benchSlot], seasons[slot])) continue;
+                        }
                         int gain = CandidateScore(slot, candidate) - scores[slot];
                         if (gain > bestGain) { bestGain = gain; bestSlot = slot; bestCandidate = index; }
                     }
                 }
                 if (bestSlot < 0) break;
                 var chosen = pool[bestCandidate];
-                persons.Remove(seasons[bestSlot].PlayerPersonId);
+                int promotedBenchSlot = FindBenchSlot(seasons, chosen.Season.PlayerPersonId);
+                if (promotedBenchSlot >= 0)
+                {
+                    cards[promotedBenchSlot] = cards[bestSlot];
+                    seasons[promotedBenchSlot] = seasons[bestSlot];
+                }
+                else persons.Remove(seasons[bestSlot].PlayerPersonId);
                 persons.Add(chosen.Season.PlayerPersonId);
                 cards[bestSlot] = chosen.Card; seasons[bestSlot] = chosen.Season;
                 scores[bestSlot] = CandidateScore(bestSlot, chosen);
@@ -160,13 +173,30 @@ namespace Baseball.Game.Historical
         private static int CandidateScore(int slot, LegendCandidate candidate) =>
             slot < 14 ? candidate.BatterScore : slot < 19 ? candidate.StarterScore : candidate.RelieverScore;
 
+        private static int FindBenchSlot(PlayerSeasonDefinition[] seasons, string personId)
+        {
+            for (int slot = 9; slot < 14; slot++)
+                if (string.Equals(seasons[slot].PlayerPersonId, personId, StringComparison.Ordinal)) return slot;
+            return -1;
+        }
+
         /// <summary>포지션·외국인 구성을 그대로 두어야 25인 엔트리와 백업 포수 검증이 유지된다.</summary>
         private static bool IsSlotCompatible(int slot, PlayerSeasonDefinition current, PlayerSeasonDefinition candidate)
         {
             if (candidate.RegistrationType != current.RegistrationType) return false;
+            // DH 등으로 기록된 백업 포수도 부포지션을 잃는 보강으로 교체하면 안 된다.
+            if (HasCatcherPosition(current) && !HasCatcherPosition(candidate)) return false;
             if (slot < 14) return candidate.PlayerType == PlayerType.Batter && candidate.Position == current.Position;
             if (candidate.PlayerType != PlayerType.Pitcher) return false;
             return slot < 19 ? candidate.PitcherRole == PitcherRole.Starter : candidate.PitcherRole != PitcherRole.Starter;
+        }
+
+        private static bool HasCatcherPosition(PlayerSeasonDefinition season)
+        {
+            if (season.Position == PlayerPosition.Catcher) return true;
+            foreach (var position in season.SecondaryPositions)
+                if (position.Position == PlayerPosition.Catcher && position.Proficiency > 0) return true;
+            return false;
         }
 
         public string GetRosterHash(TeamSeasonDefinition team)
@@ -200,11 +230,11 @@ namespace Baseball.Game.Historical
                     (ActiveRosterRole)((int)ActiveRosterRole.StartingPitcher1 + i - 14);
                 entries[i] = new ActiveRosterEntry(cards[i].CardId, seasons[i].PlayerSeasonId,
                     seasons[i].PlayerPersonId, seasons[i].RegistrationType, role);
-                if (seasons[i].Position == PlayerPosition.Catcher) catchers++;
+                if (HasCatcherPosition(seasons[i])) catchers++;
             }
             var roster = new CurrentRosterState(team.TeamSeasonKey, entries);
             if (!new ActiveRosterValidator().Validate(roster).IsValid || catchers < 2)
-                throw new InvalidOperationException("역사 팀의 엔트리 또는 백업 포수가 유효하지 않습니다.");
+                throw new InvalidOperationException("역사 팀의 엔트리 또는 백업 포수가 유효하지 않습니다: " + team.TeamSeasonKey + " / 포수 " + catchers);
             var bonuses = ManagerModeMatchService.ResolveAiTeamColorBonuses(roster, _cardCatalog, _balance.TeamColor, out teamColors);
             var players = new Player[25];
             for (int i = 0; i < 25; i++)
@@ -234,8 +264,15 @@ namespace Baseball.Game.Historical
             for (int i = 0; i < 9; i++) fielding[i] = new LineupSlot(players[i], (PlayerPosition)(i + 1));
             var lineup = new ManagerLineupAi(_balance.ManagerLineup).BuildLineup(fielding);
             var bench = new Player[5]; Array.Copy(players, 9, bench, 0, 5);
-            PitcherRosterEntry Pitcher(int index, PitcherRole role) => new PitcherRosterEntry(players[index], role,
-                naturalRole: seasons[index].PitcherRole, playerSeasonId: seasons[index].PlayerSeasonId);
+            PitcherRosterEntry Pitcher(int index, PitcherRole role)
+            {
+                var season = seasons[index];
+                var usage = HistoricalPitcherUsageResolver.Resolve(season, role, _balance.HistoricalPitcherUsage);
+                return new PitcherRosterEntry(players[index], role,
+                    naturalRole: season.PitcherRole, playerSeasonId: season.PlayerSeasonId,
+                    naturalRoleConfidence: season.PitcherRoleConfidence,
+                    capacityMultiplier: usage.Capacity, recoveryMultiplier: usage.Recovery);
+            }
             var bullpen = new PitcherRosterEntry[6];
             for (int i = 0; i < 6; i++) bullpen[i] = Pitcher(19 + i, i < 4 ? PitcherRole.MiddleRelief : i == 4 ? PitcherRole.Setup : PitcherRole.Closer);
             string name = team.OriginYear + " " + identities.GetFranchiseDisplayName(team.FranchiseId);

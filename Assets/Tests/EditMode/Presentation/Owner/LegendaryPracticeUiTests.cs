@@ -15,6 +15,66 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 {
     public sealed class LegendaryPracticeUiTests
     {
+        [Test]
+        public void 전체역대강팀의실제가상이름과공개편성이경기입력에대응한다()
+        {
+            var root = new GameObject("PracticeIdentityTest");
+            bool originalMode = DevelopmentRealIdentitySettings.IsEnabled;
+            try
+            {
+                var provider = Baseball.Game.Data.NewGameDefinition.LoadHistoricalContentProvider();
+                var content = provider.Load();
+                var registry = new Baseball.Simulation.Historical.WorldIdentityGenerator().Generate(
+                    content.PlayerPersons, content.TeamSeasons, content.IdentityNameCatalog, 973UL);
+                var allCards = content.NormalCards.Concat(content.SpecialCards.Cards).ToArray();
+                var cardCatalog = new WorldCardCatalog(content.PlayerSeasons, allCards, content.PlayerPersons,
+                    content.SpecialCards.Lineages, content.SpecialCards.Recipes);
+                var fixtureType = System.Reflection.Assembly.Load("Baseball.Game.Tests")
+                    .GetType("Baseball.Tests.EditMode.Game.Historical.ManagerHistoricalSaveTests")
+                    .GetNestedType("Fixture", System.Reflection.BindingFlags.NonPublic);
+                var fixture = fixtureType.GetMethod("Create").Invoke(null, new object[] { WorldRecordMode.SimulatedHistory, false });
+                var runtime = (ManagerHistoricalRuntimeState)fixture.GetType().GetProperty("State").GetValue(fixture);
+                const System.Reflection.BindingFlags fields = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                // 진행용 최소 Fixture에 표시 조회에 필요한 정본 카드와 Identity만 주입한다. 저장·경기는 실행하지 않는다.
+                typeof(ManagerHistoricalRuntimeState).GetField("<WorldCardCatalog>k__BackingField", fields).SetValue(runtime, cardCatalog);
+                typeof(ManagerHistoricalRuntimeState).GetField("<IdentityRegistry>k__BackingField", fields).SetValue(runtime, registry);
+                var manager = root.AddComponent<OwnerModeManager>();
+                typeof(OwnerModeManager).GetProperty("Runtime").SetValue(manager, runtime);
+                typeof(OwnerModeManager).GetField("_contentProvider", fields).SetValue(manager, provider);
+                typeof(OwnerModeManager).GetField("_balance", fields).SetValue(manager,
+                    Baseball.Game.Data.NewGameDefinition.LoadOwnerModeBalanceTable());
+                var factory = new OwnerModeRuntimeSnapshotFactory();
+                foreach (bool real in new[] { true, false })
+                {
+                    DevelopmentRealIdentitySettings.SetEnabled(real);
+                    foreach (var team in manager.GetPracticeCatalog().teams)
+                    {
+                        var opponents = manager.GetPracticeOpponent(team.challengeTeamId, out var colors);
+                        var cards = manager.GetPracticeCards(team.challengeTeamId);
+                        var snapshot = factory.CreatePracticeLineup(manager, team.challengeTeamId, opponents, colors);
+                        Assert.That(snapshot.Hitters.Count, Is.EqualTo(14));
+                        Assert.That(snapshot.Pitchers.Count, Is.EqualTo(11));
+                        foreach (var detail in snapshot.HitterDetails.Concat(snapshot.PitcherDetails)) Assert.That(detail, Is.Not.Null);
+                        for (int i = 0; i < 9; i++)
+                        {
+                            var card = cards[opponents[0].StartingLineup[i].Player.PlayerId - OwnerModeManager.PracticePlayerIdBase - 1];
+                            var season = manager.GetPracticePlayerSeason(card);
+                            Assert.That(snapshot.Hitters[i].PlayerId, Is.EqualTo(card.CardId));
+                            Assert.That(snapshot.Hitters[i].DisplayName, Is.EqualTo(registry.GetPresentationPlayerName(season.PlayerPersonId)));
+                        }
+                        Assert.That(string.Join(" ", snapshot.TeamColors), Does.Not.Contain("FRANCHISE_"));
+                        Assert.That(string.Join(" ", snapshot.TeamColors), Does.Not.Contain(team.year + " " + team.year));
+                        Assert.That(snapshot.TeamName, Is.EqualTo(manager.GetTeamIdentityDisplayName(team.teamSeasonKey)));
+                    }
+                }
+            }
+            finally
+            {
+                DevelopmentRealIdentitySettings.SetEnabled(originalMode);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
         private static LegendaryPracticeCatalog Catalog()
         {
             var asset = Resources.Load<TextAsset>("NewGame/LegendaryPracticeCatalog");
@@ -60,7 +120,18 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 view.ShowError("먼저 앞선 팀에 3승을 달성해 주세요.");
                 Assert.That(root.GetComponentsInChildren<Button>().Single(b => b.name == "Start").interactable, Is.False);
                 view.Bind(catalog, state, t => t.year + " 서울 드래곤즈");
-                var opponent = Opponent(); view.BindOpponent(opponent, Array.Empty<TeamColorDefinition>());
+                var opponent = Opponent();
+                var hitters = Enumerable.Range(0, 14).Select(i => new PlayerMiniCardModel("h" + i,
+                    "공개야수" + i, (i + 1) + "번", "96", "", "", isInteractable: false)).ToArray();
+                var pitchers = Enumerable.Range(0, 11).Select(i => new PlayerMiniCardModel("p" + i,
+                    "공개투수" + i, i < 5 ? (i + 1) + "선발" : "중계", "96", "", "", isInteractable: false)).ToArray();
+                var lineup = new OwnerTeamLineupSnapshot("1996 현대 유니콘스", "역대 강팀 도전 라인업", "편성 비용 119",
+                    hitters, pitchers, new[] { "1996 현대 유니콘스 · 완성된 연대기", "1996 현대 유니콘스 · 한 시즌의 중심" });
+                view.BindOpponent(opponent, lineup);
+                string rotation = root.GetComponentsInChildren<Text>().Single(t => t.name == "Rotation").text;
+                Assert.That(rotation, Does.Contain("공개투수0"));
+                Assert.That(rotation, Does.Not.Contain(opponent[0].StartingPitcher.Player.Name));
+                Assert.That(rotation, Does.Not.Contain("FRANCHISE_"));
                 var cards = new PlayerMiniCardModel[3];
                 for (int i = 0; i < 3; i++) cards[i] = new PlayerMiniCardModel((i + 1).ToString(), opponent[0].StartingLineup[i].Player.Name,
                     "주전 야수", "2015", "", "레어", stats: new[] { new PlayerMiniCardStatModel("교타", 85, 200),
@@ -85,6 +156,20 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 image.ReadPixels(new Rect(0, 0, width, height), 0, 0); image.Apply();
                 string output = System.IO.Path.GetFullPath("../screenshots"); System.IO.Directory.CreateDirectory(output);
                 System.IO.File.WriteAllBytes(System.IO.Path.Combine(output, "practice-" + width + ".png"), image.EncodeToPNG());
+                root.GetComponentsInChildren<Button>().Single(b => b.name == "Lineup").onClick.Invoke();
+                var lineupBoard = view.GetComponentInChildren<UI_Scene_OwnerTeamLineup>();
+                Assert.That(lineupBoard, Is.Not.Null);
+                Assert.That(lineupBoard.GetComponentsInChildren<PlayerMiniCardView>().Length, Is.EqualTo(25));
+                Assert.That(lineupBoard.transform.Find("CloseLineup").GetComponentInChildren<Text>().text,
+                    Is.EqualTo("역대 강팀으로 돌아가기"));
+                Assert.That(view.transform.Find("Opponent").gameObject.activeSelf, Is.False);
+                Canvas.ForceUpdateCanvases(); camera.Render();
+                image.ReadPixels(new Rect(0, 0, width, height), 0, 0); image.Apply();
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(output, "practice-lineup-" + width + ".png"), image.EncodeToPNG());
+                Assert.That(view.TryGoBack(), Is.True);
+                Assert.That(view.SelectedTeamId, Is.EqualTo(catalog.teams[99].challengeTeamId));
+                Assert.That(view.transform.Find("Opponent").gameObject.activeSelf, Is.True);
+                Assert.That(view.TryGoBack(), Is.False);
                 if (width == 1920)
                 {
                     root.GetComponentsInChildren<Button>().Single(b => b.name == "Compare").onClick.Invoke();
