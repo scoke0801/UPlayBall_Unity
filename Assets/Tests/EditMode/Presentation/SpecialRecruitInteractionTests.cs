@@ -46,6 +46,12 @@ namespace Baseball.Tests.EditMode.Presentation
                 typeof(OwnerModeManager).GetField("_balance", BindingFlags.Instance | BindingFlags.NonPublic)
                     .SetValue(manager, Baseball.Core.Balance.BalanceTable.CreateDefault());
                 typeof(OwnerModeManager).GetProperty("Runtime").SetValue(manager, runtime);
+                // 구단 표시명이 ContentProvider를 읽으므로 Game Fixture의 같은 팀 정의도 주입한다.
+                object fixtureData = fixture.GetNestedType("Fixture", BindingFlags.NonPublic)
+                    .GetMethod("Create", BindingFlags.Public | BindingFlags.Static).Invoke(null,
+                        new object[] { Baseball.Core.Historical.WorldRecordMode.SimulatedHistory, false });
+                typeof(OwnerModeManager).GetField("_contentProvider", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(manager, fixtureData.GetType().GetProperty("Provider").GetValue(fixtureData));
                 var camera = cameraObject.GetComponent<Camera>();
                 camera.orthographic = true;
                 camera.targetTexture = render;
@@ -68,7 +74,9 @@ namespace Baseball.Tests.EditMode.Presentation
                 Layout(view);
                 Assert.That(content.GetComponentsInChildren<PlayerMiniCardView>().Length, Is.EqualTo(8));
                 var front = content.Find("TargetPanel/ContentSafeRect/TargetPreview/Front");
-                Assert.That(front.Find("StatsPanel"), Is.Not.Null, "상세보기와 같은 카드 앞면을 사용한다.");
+                for (int ability = 0; ability < 6; ability++)
+                    Assert.That(front.Find("Value" + ability).GetComponent<Text>().text, Is.Not.Empty,
+                        "상세보기와 같은 카드 앞면의 6개 능력치를 표시한다.");
                 Assert.That(front.Find("MainFrame").GetComponent<Image>().sprite, Is.Not.Null);
                 foreach (var card in content.GetComponentsInChildren<PlayerMiniCardView>())
                     AssertInside((RectTransform)card.transform, (RectTransform)card.transform.parent);
@@ -80,6 +88,22 @@ namespace Baseball.Tests.EditMode.Presentation
                 }
                 AssertInside((RectTransform)front, (RectTransform)front.parent);
                 Capture(camera, render, legend, "empty", width, height);
+                var dropdown = view.GetComponentInChildren<UIRecruitTargetDropdown>();
+                dropdown.Open();
+                Canvas.ForceUpdateCanvases();
+                var targetSheet = view.transform.Find("TargetDropdown/Sheet");
+                AssertInside((RectTransform)targetSheet, (RectTransform)view.transform);
+                var targetName = targetSheet.Find("Option0/Name").GetComponent<Text>();
+                Assert.That(targetName.text, Is.Not.Empty);
+                Assert.That(targetName.cachedTextGenerator.vertexCount, Is.GreaterThan(4), "한글 후보 이름이 실제 메시로 생성되어야 한다.");
+                Capture(camera, render, legend, "dropdown", width, height);
+                var search = targetSheet.Find("Search").GetComponent<InputField>();
+                search.text = "존재하지않는선수";
+                Canvas.ForceUpdateCanvases();
+                Assert.That(targetSheet.Find("Empty").gameObject.activeSelf, Is.True);
+                Assert.That(view.TryHandleCancel(), Is.True);
+                Assert.That(dropdown.IsOpen, Is.False);
+                Assert.That(content.GetComponent<CanvasGroup>().interactable, Is.True);
                 var choose = content.GetComponentsInChildren<Button>().First(b => b.name == "ChooseMaterial");
                 choose.onClick.Invoke();
                 Assert.That(view.transform.Find("MaterialPicker").gameObject.activeSelf, Is.True);
@@ -100,6 +124,10 @@ namespace Baseball.Tests.EditMode.Presentation
                     .First(b => b.name == "Candidate0").onClick.Invoke();
                 Assert.That(view.transform.Find("MaterialPicker").gameObject.activeSelf, Is.False);
                 Assert.That(content.Find("SelectionStatus").GetComponent<Text>().text, Does.Contain("1 / 8"));
+                dropdown.Open();
+                targetSheet.Find("Option0").GetComponent<Button>().onClick.Invoke();
+                Assert.That(content.Find("SelectionStatus").GetComponent<Text>().text, Does.Contain("1 / 8"),
+                    "같은 영입 대상을 재선택하면 이미 등록한 재료를 유지한다.");
                 runtime.TryGetOwnedCard(materials[7], out var protectedCard);
                 protectedCard.IsLocked = true;
                 content.Find("AutoSelect").GetComponent<Button>().onClick.Invoke();
@@ -122,6 +150,18 @@ namespace Baseball.Tests.EditMode.Presentation
                 Assert.That(confirm.interactable, Is.False);
                 Layout(view);
                 Capture(camera, render, legend, "owned", width, height);
+                dropdown.Bind(Enumerable.Range(0, 25).Select(i => new UIRecruitTargetDropdown.Option(
+                    (1990 + i) + " 홍길동", "아주 긴 한국어 구단명 · 해태 타이거즈", i % 2 == 0)).ToArray(),
+                    0, legend ? "레전드 · 영입 대상" : "커리어하이 · 영입 대상");
+                dropdown.Open();
+                Canvas.ForceUpdateCanvases();
+                foreach (var label in targetSheet.GetComponentsInChildren<Text>().Where(t => t.name == "Name" || t.name == "Detail"))
+                {
+                    Assert.That(label.cachedTextGenerator.vertexCount, Is.GreaterThan(4));
+                    Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 1));
+                }
+                Capture(camera, render, legend, "dropdown-long", width, height);
+                dropdown.Close();
             }
             finally
             {
@@ -145,10 +185,50 @@ namespace Baseball.Tests.EditMode.Presentation
                 ((RectTransform)host.transform).sizeDelta = new Vector2(1280, 720);
                 var view = UI_Scene_OwnerSpecialRecruit.CreateRuntime((RectTransform)host.transform);
                 view.Bind(null);
-                Assert.That(view.GetComponentInChildren<Dropdown>().options, Is.Empty);
+                Assert.That(view.GetComponentInChildren<UIRecruitTargetDropdown>().OptionCount, Is.Zero);
                 Assert.That(view.GetComponentsInChildren<PlayerMiniCardView>(), Is.Empty);
                 Assert.That(view.transform.Find("IssuedRecruitContent/ConfirmRecruit").GetComponent<Button>().interactable, Is.False);
                 Assert.That(view.transform.Find("IssuedRecruitContent/SelectionStatus").GetComponent<Text>().text, Does.Contain("홈으로"));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(host); }
+        }
+
+        [Test]
+        public void TargetDropdown_SearchAndPagingKeepOriginalSelectionIndex()
+        {
+            var host = new GameObject("DropdownTest", typeof(RectTransform));
+            try
+            {
+                var root = host.GetComponent<RectTransform>();
+                root.sizeDelta = new Vector2(1280, 540);
+                var view = UIRecruitTargetDropdown.CreateRuntime(root, root);
+                var options = Enumerable.Range(0, 25).Select(i => new UIRecruitTargetDropdown.Option(
+                    (1990 + i) + " 홍길동", "아주 긴 한국어 구단명 · 해태 타이거즈", i % 2 == 0)).ToArray();
+                int selected = -1;
+                view.SelectionChanged += index => selected = index;
+                view.Bind(options, 24, "레전드 · 영입 대상");
+                view.Open();
+                var sheet = root.Find("TargetDropdown/Sheet");
+                Assert.That(sheet.Find("Option0/Name").GetComponent<Text>().text, Does.Contain("2014"));
+                sheet.Find("PreviousPage").GetComponent<Button>().onClick.Invoke();
+                Assert.That(sheet.Find("Option0/Name").GetComponent<Text>().text, Does.Contain("2010"));
+                sheet.Find("Search").GetComponent<InputField>().text = "1997";
+                sheet.Find("Option0").GetComponent<Button>().onClick.Invoke();
+                Assert.That(selected, Is.EqualTo(7), "검색 결과의 행 번호를 원본 후보 번호와 혼동하지 않는다.");
+                Assert.That(view.IsOpen, Is.False);
+                view.Open();
+                root.Find("TargetDropdown/Outside").GetComponent<Button>().onClick.Invoke();
+                Assert.That(view.IsOpen, Is.False);
+                view.Open();
+                view.gameObject.SetActive(false);
+                // 일반 MonoBehaviour의 EditMode 검수에서는 생명주기 콜백을 명시적으로 실행한다.
+                typeof(UIRecruitTargetDropdown).GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(view, null);
+                Assert.That(root.Find("TargetDropdown").gameObject.activeSelf, Is.False);
+                view.gameObject.SetActive(true);
+                view.Bind(null, -1, "레전드");
+                view.Open();
+                Assert.That(view.IsOpen, Is.False);
             }
             finally { UnityEngine.Object.DestroyImmediate(host); }
         }

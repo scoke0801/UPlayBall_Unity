@@ -123,7 +123,7 @@ namespace Baseball.Core.Historical
             if (completedSeason < StartSeason)
                 throw new ArgumentOutOfRangeException(nameof(completedSeason));
             LastSalaryPaidSeason = completedSeason;
-            if (RemainingSeasons > 0) RemainingSeasons--;
+            // 재계약 절차 없이 소속과 기존 연봉을 유지한다. 잔여 연수는 과거 저장 정보다.
             return true;
         }
 

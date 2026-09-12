@@ -6,6 +6,9 @@ $validationRoot = Join-Path $reportRoot 'UnityProject'
 $initializeAssets = -not (Test-Path "$validationRoot/Assets/Resources/UI/PlayerCards")
 New-Item -ItemType Directory -Path "$validationRoot/Assets/Tests", "$validationRoot/Packages", "$validationRoot/ProjectSettings", "$validationRoot/Assets/Resources" -Force | Out-Null
 Copy-Item "$repoRoot/Assets/02.Scripts" "$validationRoot/Assets" -Recurse -Force
+Copy-Item "$repoRoot/Assets/08.Fonts" "$validationRoot/Assets" -Recurse -Force
+New-Item -ItemType Directory -Path "$validationRoot/Assets/Resources/UI" -Force | Out-Null
+Copy-Item "$repoRoot/Assets/10.Datas/Resources/UI/SpecialRecruit" "$validationRoot/Assets/Resources/UI" -Recurse -Force
 if ($initializeAssets) { Copy-Item "$repoRoot/Assets/Plugins" "$validationRoot/Assets" -Recurse -Force }
 Copy-Item "$repoRoot/Assets/Tests/EditMode" "$validationRoot/Assets/Tests" -Recurse -Force
 # 영입 UI 검수는 Game 거래 Fixture와 Presentation 테스트를 컴파일한다.

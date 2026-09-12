@@ -1,42 +1,17 @@
 using System;
-using System.Collections.Generic;
-using Baseball.Core.Historical;
-using Baseball.Simulation.Historical;
 
 namespace Baseball.Game.Historical
 {
-    /// <summary>구단주 화면이 선수 계약 Preview와 Command를 호출하는 공개 경계다.</summary>
+    /// <summary>구단주 선수단 등록에 필요한 급여 상태 서비스를 제공한다.</summary>
     public sealed partial class OwnerModeManager
     {
         private OwnerPlayerMarketService _playerMarketService;
 
-        public IReadOnlyList<OwnerPlayerContractState> GetPlayerContracts()
+        /// <summary>현재 선수단의 급여 저장 상태를 조회한다.</summary>
+        public System.Collections.Generic.IReadOnlyList<Baseball.Core.Historical.OwnerPlayerContractState> GetPlayerContracts()
         {
-            OwnerPlayerMarketService service = RequirePlayerMarketService();
-            service.EnsureInitialized(RequireRuntime());
+            RequirePlayerMarketService().EnsureInitialized(RequireRuntime());
             return Runtime.ManagerMode.PlayerContracts;
-        }
-
-        public OwnerContractRenewalPreview PreviewPlayerContractRenewal(string cardId, int seasons) =>
-            RequirePlayerMarketService().PreviewRenewal(RequireRuntime(), cardId, seasons);
-
-        public OwnerContractRenewalPreview RenewPlayerContract(string cardId, int seasons)
-        {
-            OwnerContractRenewalPreview result = RequirePlayerMarketService().Renew(RequireRuntime(), cardId, seasons);
-            if (result.CanCommit) NotifyRuntimeChanged();
-            return result;
-        }
-
-        /// <summary>만료 임박 선수의 일괄 연장 조건을 조회한다.</summary>
-        public OwnerContractBatchPreview PreviewExpiringPlayerContractRenewals(int seasons) =>
-            RequirePlayerMarketService().PreviewExpiringRenewals(RequireRuntime(), seasons);
-
-        /// <summary>만료 임박 선수의 계약을 일괄 연장하고 화면을 갱신한다.</summary>
-        public OwnerContractBatchPreview RenewExpiringPlayerContracts(int seasons)
-        {
-            OwnerContractBatchPreview result = RequirePlayerMarketService().RenewExpiringContracts(RequireRuntime(), seasons);
-            if (result.CanCommit) NotifyRuntimeChanged();
-            return result;
         }
 
         private OwnerPlayerMarketService RequirePlayerMarketService()

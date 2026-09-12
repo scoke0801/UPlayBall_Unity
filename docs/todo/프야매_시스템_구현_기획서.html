@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>UPlayBall — 프야매 레퍼런스 시스템 구현 기획서</title>
+  <style>
+    :root{--bg:#08111f;--panel:#101c2f;--panel2:#14243b;--line:#29405f;--text:#e9f0f8;--muted:#91a3b9;--cyan:#42d3c8;--gold:#f4bf55;--red:#ff766f;--blue:#6fa8ff;--green:#79d58c;--shadow:0 18px 46px #0006}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:linear-gradient(140deg,#07101d,#0b1728 42%,#07101d);color:var(--text);font-family:Pretendard,"Noto Sans KR",system-ui,sans-serif;line-height:1.65}.layout{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:100vh}aside{position:sticky;top:0;height:100vh;padding:28px 20px;background:#07101de8;border-right:1px solid var(--line);overflow:auto}.brand{font-weight:900;letter-spacing:.08em;color:var(--cyan);font-size:18px}.docname{font-size:12px;color:var(--muted);margin:5px 0 22px}.nav-label{font-size:10px;letter-spacing:.16em;color:#637a96;margin:18px 10px 7px}.nav a{display:block;padding:8px 10px;color:#aebdd0;text-decoration:none;border-radius:7px;font-size:13px}.nav a:hover,.nav a.active{background:#152942;color:white}.progress{height:3px;background:#1d3049;margin-top:20px}.progress i{display:block;height:100%;width:0;background:var(--cyan)}main{max-width:1180px;width:100%;padding:58px 64px 120px}.eyebrow{color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:.18em}.hero{padding:46px;border:1px solid var(--line);border-radius:20px;background:radial-gradient(circle at 84% 12%,#1c5270 0,transparent 32%),linear-gradient(135deg,#12243b,#0c1727);box-shadow:var(--shadow)}h1{font-size:42px;line-height:1.18;margin:12px 0 16px;letter-spacing:-.04em}.lead{max-width:780px;color:#b9c8da;font-size:17px}.meta,.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:25px}.chip,.tag{border:1px solid var(--line);border-radius:99px;padding:5px 10px;font-size:11px;color:#b9c8da}.tag.ref{color:var(--gold);border-color:#795d27;background:#2b2111}.tag.plan{color:var(--cyan);border-color:#1d756f;background:#0d2b2a}.tag.mvp{color:#a9c9ff;border-color:#355d98;background:#132846}section{scroll-margin-top:20px;margin-top:72px}h2{font-size:28px;margin:0 0 20px;letter-spacing:-.03em}h3{font-size:19px;margin:32px 0 12px}h4{font-size:14px;margin:24px 0 8px;color:#dce8f6}.section-no{color:var(--cyan);font:700 12px ui-monospace,monospace;display:block;margin-bottom:5px}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}.card{grid-column:span 4;border:1px solid var(--line);border-radius:13px;background:linear-gradient(160deg,var(--panel2),var(--panel));padding:20px}.card.w6{grid-column:span 6}.card.w8{grid-column:span 8}.card.w12{grid-column:span 12}.card h3,.card h4{margin-top:0}.metric{font-size:28px;font-weight:900;color:white}.muted{color:var(--muted)}.small{font-size:12px}.callout{padding:18px 20px;border-left:3px solid var(--cyan);background:#10273a;border-radius:0 10px 10px 0}.warn{border-color:var(--red);background:#2b1820}.gold{border-color:var(--gold);background:#292316}table{width:100%;border-collapse:collapse;font-size:13px;background:#0d192a;border:1px solid var(--line)}th,td{text-align:left;padding:12px 13px;border-bottom:1px solid #223650;vertical-align:top}th{color:#a9bbd0;background:#13243a;font-size:11px;letter-spacing:.05em}tr:last-child td{border-bottom:0}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#9be3dd;background:#091522;padding:2px 5px;border-radius:4px}.flow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}.step{flex:1;min-width:135px;padding:13px;border-radius:9px;background:#152941;border:1px solid #304864;font-size:12px}.step b{display:block;color:white;margin-bottom:4px}.arrow{align-self:center;color:var(--cyan)}ul{padding-left:20px}.spec li{margin:5px 0}.ui{border:1px solid #39516e;background:#091421;padding:15px;border-radius:10px}.ui-head{display:flex;justify-content:space-between;border-bottom:1px solid #2a415d;padding-bottom:10px;margin-bottom:10px}.ui-body{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:10px}.ui-pane{min-height:118px;padding:12px;background:#13243a;border:1px solid #2a405d;border-radius:6px}.bar{height:7px;background:#263a53;border-radius:9px;margin:9px 0}.bar i{display:block;height:100%;border-radius:9px;background:var(--cyan)}.system{border-top:1px solid var(--line);padding-top:38px}.status{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px}.s1{background:var(--green)}.s2{background:var(--gold)}.s3{background:var(--blue)}.foot{margin-top:80px;padding-top:28px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}@media(max-width:920px){.layout{display:block}aside{position:relative;height:auto}.nav{display:none}main{padding:30px 18px 80px}.hero{padding:28px}h1{font-size:31px}.card,.card.w6,.card.w8{grid-column:span 12}.ui-body{grid-template-columns:1fr}.arrow{display:none}}@media print{aside{display:none}.layout{display:block}body{background:white;color:#17202b}main{max-width:none;padding:20px}.hero,.card,.ui,table{box-shadow:none;background:white;color:#17202b;break-inside:avoid}.muted,.lead{color:#586675}section{break-inside:auto}.tag.plan{color:#08756d}.tag.ref{color:#8b651b}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand">UPLAYBALL</div><div class="docname">REFERENCE SYSTEM IMPLEMENTATION · v1.0</div>
+    <div class="nav-label">OVERVIEW</div><nav class="nav">
+      <a href="#goal">01. 기획 목표</a><a href="#loop">02. 통합 성장 루프</a><a href="#principle">03. 공통 원칙</a>
+      <div class="nav-label">SYSTEMS</div>
+      <a href="#support">04. 서포트 카드</a><a href="#slogan">05. 슬로건</a><a href="#staff">06. 감독·코치</a><a href="#skill">07. 스킬 블록</a><a href="#study">08. 해외 훈련</a><a href="#correct">09. 능력치 교정</a><a href="#mentor">10. 훈련 파트너</a><a href="#camp">11. 전지훈련</a>
+      <div class="nav-label">IMPLEMENTATION</div>
+      <a href="#data">12. 데이터·서비스</a><a href="#save">13. 저장·일정 처리</a><a href="#roadmap">14. 구현 순서</a><a href="#qa">15. 통합 QA</a>
+    </nav><div class="progress"><i id="progress"></i></div>
+  </aside>
+  <main>
+    <header class="hero">
+      <div class="eyebrow">GAME DESIGN DOCUMENT</div>
+      <h1>프야매 레퍼런스<br>성장·운영 시스템 구현 기획</h1>
+      <p class="lead">프로야구 매니저의 장기 운영 재미를 참고하되, 온라인 대기·캐시 유도·과도한 확률 의존을 제거하고 UPlayBall의 <b>싱글 게임 / 일정 중심 진행 / 오프시즌 성장</b> 구조에 맞게 재설계한다.</p>
+      <div class="meta"><span class="chip">기준 해상도 1920×1080</span><span class="chip">플랫폼 PC</span><span class="chip">통화 PT</span><span class="chip">문서 상태 구현 기준안</span></div>
+    </header>
+
+    <section id="goal"><span class="section-no">01 / GOAL</span><h2>기획 목표와 범위</h2>
+      <div class="grid">
+        <article class="card"><div class="metric">8</div><b>구현 대상 시스템</b><p class="muted small">서포트, 슬로건, 스태프, 스킬블록, 해외훈련, 교정, 파트너, 전지훈련</p></article>
+        <article class="card"><div class="metric">1</div><b>단일 성장 원장</b><p class="muted small">모든 보너스를 출처별 Modifier로 기록하여 카드 표시와 경기 계산을 일치시킨다.</p></article>
+        <article class="card"><div class="metric">0</div><b>현금성 즉시 완료</b><p class="muted small">싱글 게임에서는 대기 제거가 과금 수단이 아니다. 일정·PT·선택의 비용만 남긴다.</p></article>
+      </div>
+      <h3>범위 정의</h3>
+      <table><thead><tr><th>구분</th><th>이번 문서에 포함</th><th>제외 / 별도 문서</th></tr></thead><tbody>
+        <tr><td>규칙</td><td>해금, 비용, 슬롯, 적용·해제, 결과 계산, 중복 규칙</td><td>경기 시뮬레이션 세부 공식</td></tr>
+        <tr><td>UX</td><td>메뉴 경로, 핵심 화면 구조, 피드백, 카드 배지</td><td>최종 아트 에셋과 모션 그래픽</td></tr>
+        <tr><td>기술</td><td>데이터 테이블, 런타임 서비스, 세이브 구조, 이벤트</td><td>구체 클래스 코드 및 DB 전체 값</td></tr>
+      </tbody></table>
+    </section>
+
+    <section id="loop"><span class="section-no">02 / CORE LOOP</span><h2>통합 성장 루프</h2>
+      <div class="flow"><div class="step"><b>정규 시즌</b>경기 → PT·재료·미션</div><div class="arrow">→</div><div class="step"><b>주간 관리</b>서포트·스태프·라인업</div><div class="arrow">→</div><div class="step"><b>오프시즌</b>훈련·교정·파트너</div><div class="arrow">→</div><div class="step"><b>로스터 확정</b>코스트·역할 최적화</div><div class="arrow">→</div><div class="step"><b>다음 시즌</b>상위 리그 도전</div></div>
+      <div class="callout gold" style="margin-top:18px"><b>핵심 시간 규칙</b> — 경기가 메인 흐름이다. 해외 훈련, 훈련 파트너 연결, 스킬 블록 구매·장착, 능력치 교정은 <b>오프시즌에만 시작</b>할 수 있다. 시즌 중에는 결과 확인과 기존 효과 조회만 허용한다. 서포트와 스태프는 시즌 중 운영 수단으로 둔다.</div>
+    </section>
+
+    <section id="principle"><span class="section-no">03 / PRINCIPLES</span><h2>공통 설계 원칙</h2>
+      <div class="grid">
+        <article class="card w6"><h3>원작에서 유지</h3><ul class="spec"><li>선수 카드에 여러 성장 출처가 누적되는 수집·육성 재미</li><li>조건형 보너스로 덱 구성에 의미 부여</li><li>PT 소모처와 선택 비용</li><li>선수별 적합도를 비교하는 최적화</li></ul></article>
+        <article class="card w6"><h3>싱글용 변경</h3><ul class="spec"><li>실시간 2·6·12일 → 경기/주차 단위 진행</li><li>실패 시 전부 손실 → 최소 보상 또는 사전 결과 범위 공개</li><li>현금 확장·초기화 → 업적·시설 레벨·PT로 대체</li><li>숨은 공식 → 예상 변화와 영향 선수를 확인 후 확정</li></ul></article>
+      </div>
+      <h3>최종 능력치 합산</h3><div class="callout"><code>FinalStat = Clamp(Base + PermanentGrowth + SkillBlock + Mentoring + Correction + TemporarySupport + Staff, 1, StatCap)</code><br><span class="muted small">표시 순서도 계산 순서와 동일하게 유지한다. 임시 효과는 만료일, 영구 효과는 출처 ID를 함께 저장한다.</span></div>
+    </section>
+
+    <section class="system" id="support"><span class="section-no">04 / SUPPORT CARD</span><h2>서포트 카드</h2>
+      <p><span class="tag ref">원작 근거</span> 팀 계통 최대 1장, 선수 계통 기본 3장, 선수 1명당 1장, 약 2일 지속. 컨디션·전력분석·능력치를 조건별로 상승시킨다.</p>
+      <p><span class="tag plan">적용안</span> 시즌 중 단기 전략 카드. 효과는 <b>다음 2경기</b> 지속이며 자동으로 소모된다. 팀 1슬롯 + 개인 3슬롯을 기본 제공한다.</p>
+      <div class="grid"><article class="card w6"><h3>메뉴·UI</h3><p><code>구단 관리 &gt; 전력 강화 &gt; 서포트 카드</code></p><div class="ui"><div class="ui-head"><b>서포트 카드</b><span class="muted">보유 37</span></div><div class="ui-body"><div class="ui-pane">필터<br><span class="small muted">팀 / 선수 / 효과 / 희귀도</span></div><div class="ui-pane">카드 목록<br><div class="bar"><i style="width:78%"></i></div><div class="bar"><i style="width:52%"></i></div></div><div class="ui-pane">적용 대상<br><span class="small muted">영향 18명 · 2경기</span></div></div></div></article>
+      <article class="card w6"><h3>적용 규칙</h3><ul class="spec"><li>동일 선수 중복 대상 불가. 팀 효과와 개인 효과는 중첩 가능.</li><li>컨디션은 상한 단계에서 초과분 소멸.</li><li>2군 이동 시 개인 카드 효과 종료. 실행 전 경고 팝업.</li><li>대상 0명이면 사용 버튼 비활성화.</li><li>카드 장착 직전 영향 선수와 Before/After를 미리 표시.</li></ul></article></div>
+      <h3>데이터 핵심</h3><table><thead><tr><th>필드</th><th>예시</th><th>설명</th></tr></thead><tbody><tr><td>scope</td><td>TEAM / PLAYER</td><td>슬롯 종류</td></tr><tr><td>targetQuery</td><td>Age&lt;=25, Roster=First</td><td>선수 필터 조건</td></tr><tr><td>effects</td><td>Condition +1</td><td>복수 효과 배열</td></tr><tr><td>durationGames</td><td>2</td><td>경기 종료 이벤트에서 감소</td></tr></tbody></table>
+      <h3>완료 조건</h3><ul><li>장착 → 카드 차감 → 대상 능력 반영 → 두 경기 후 제거가 세이브/로드 전후 동일하다.</li><li>선수 카드 우상단에 서포트 아이콘과 남은 경기 수가 표시된다.</li></ul>
+    </section>
+
+    <section class="system" id="slogan"><span class="section-no">05 / SLOGAN</span><h2>슬로건</h2>
+      <p><span class="tag ref">원작 근거</span> 특정 선수 보유·라인업 도전과제로 해금하며, 좁은 조건의 선수군에 능력 상승과 일부 하락을 함께 부여한다.</p>
+      <p><span class="tag plan">적용안</span> 덱 방향성을 선언하는 상시 패시브. 시즌 시작 전 1개 선택, 시즌 중 교체 불가. 레벨 1~6은 도전과제로 상승한다.</p>
+      <div class="grid"><article class="card"><h3>해금</h3><p class="small muted">요구 카드 보유, 특정 기록, 리그 달성 조건 중 하나 이상. 진행도를 항상 노출한다.</p></article><article class="card"><h3>적용</h3><p class="small muted">TargetQuery에 맞는 등록 선수에게만 적용. 상승·하락을 카드 상세에 함께 표시한다.</p></article><article class="card"><h3>성장</h3><p class="small muted">Lv.1/3/5는 효과량, Lv.2/4/6은 적용 범위나 페널티 완화 중 데이터로 지정한다.</p></article></div>
+      <h3>대표 적용안</h3><table><thead><tr><th>슬로건</th><th>대상</th><th>효과 Lv.1 → Lv.6</th><th>해금 예</th></tr></thead><tbody><tr><td>지지 않는 야구</td><td>체력 70+ 불펜</td><td>제구 +1→+4 / 구속 -1→0</td><td>불펜 3명 20홀드</td></tr><tr><td>라면 수비</td><td>장타 100+ 외야수</td><td>수비 +1→+5 / 주력 -1</td><td>외야수 골든글러브</td></tr><tr><td>별들의 전쟁</td><td>올스타 타자</td><td>주력 +1→+4</td><td>올스타 타자 10장</td></tr></tbody></table>
+    </section>
+
+    <section class="system" id="staff"><span class="section-no">06 / STAFF</span><h2>감독·수석코치·코치</h2>
+      <p><span class="tag ref">원작 근거</span> 수석코치는 조건에 맞는 1군 선수의 컨디션을 일정 기간 올리고, 코치는 선수를 등록해 추가 효과를 제공하는 운영 축이다.</p>
+      <p><span class="tag plan">적용안</span> 스태프 슬롯을 역할별로 분리한다. 감독은 팀 전술, 수석코치는 컨디션 관리, 타격/투수/수비 코치는 성장 보정에 관여한다.</p>
+      <table><thead><tr><th>슬롯</th><th>핵심 효과</th><th>발동 시점</th><th>중복</th></tr></thead><tbody><tr><td>감독 1</td><td>경기 운영 성향·작전 빈도</td><td>경기 시뮬레이션 시작</td><td>슬로건과 가능</td></tr><tr><td>수석코치 1</td><td>조건형 컨디션 +1~2</td><td>주간 시작</td><td>동일 코치 재사용 불가</td></tr><tr><td>전문코치 3</td><td>훈련 효율·특정 스탯 경험치</td><td>주간 훈련 정산</td><td>동일 카테고리 최고값</td></tr></tbody></table>
+      <div class="callout warn" style="margin-top:16px"><b>주의:</b> 카드 한 장이 능력치·컨디션·경기 AI를 동시에 바꾸지 않도록 책임을 분리한다. 효과 출처를 알 수 없는 ‘전력 상승’ 표시는 금지한다.</div>
+    </section>
+
+    <section class="system" id="skill"><span class="section-no">07 / SKILL BLOCK</span><h2>스킬 블록</h2>
+      <p><span class="tag ref">원작 근거</span> C~S 등급 블록을 선수의 스킬 공간에 배치하여 능력치를 올리고, 생산·조합·슬롯 개방으로 장기 성장을 만든다.</p>
+      <p><span class="tag plan">적용안</span> 오프시즌 전용 퍼즐형 성장. 선수별 <b>4×4 보드</b>에 블록을 회전·배치한다. 등급보다 모양과 시너지가 선택을 만들도록 한다.</p>
+      <div class="grid"><article class="card w6"><h3>보드 규칙</h3><ul><li>초기 6칸 개방, 전지훈련으로 최대 16칸.</li><li>블록은 1~4칸 모양, 회전 가능, 겹침 불가.</li><li>같은 태그 3개 인접 시 세트 보너스.</li><li>구매·장착·해제는 오프시즌에만 가능.</li></ul></article><article class="card w6"><h3>획득 규칙</h3><ul><li>연구 1회: PT 소비, C~A 2개 확정.</li><li>연구 누적 10회: S 선택 상자 1개.</li><li>낮은 등급 5개 → 같은 계열 상위 1개 합성.</li><li>결과 등급 확률은 실행 전에 공개.</li></ul></article></div>
+      <h3>카드 표시</h3><p>선수 카드 하단에 <b>보드 등급 아이콘 1개</b>만 표시한다. C=청동, B=은, A=금, S=백금. 상세 화면에서는 블록별 상승량과 세트 효과를 펼쳐본다.</p>
+    </section>
+
+    <section class="system" id="study"><span class="section-no">08 / OVERSEAS TRAINING</span><h2>해외 훈련 <span class="muted">(원작 유학)</span></h2>
+      <p><span class="tag ref">원작 근거</span> 나이·카드 종류·리그 성과에 따라 훈련지가 열리고, 6/12일 동안 특화 능력치를 성장시킨다. 성공·명인·실패 결과가 존재한다.</p>
+      <p><span class="tag plan">적용안</span> 오프시즌 4주 중 선수를 1~3주 파견한다. 완전 실패를 제거하고 <b>기본 / 대성공</b> 2단 결과로 단순화한다.</p>
+      <div class="flow"><div class="step"><b>선수 선택</b>주전 여부·나이 검증</div><div class="arrow">→</div><div class="step"><b>훈련지 비교</b>기간·비용·예상치</div><div class="arrow">→</div><div class="step"><b>파견 확정</b>해당 주 로스터 제외</div><div class="arrow">→</div><div class="step"><b>주차 진행</b>결과 시드 저장</div><div class="arrow">→</div><div class="step"><b>귀환</b>영구 성장 반영</div></div>
+      <h3>밸런스 초안</h3><table><thead><tr><th>등급</th><th>기간</th><th>비용</th><th>기본 성장</th><th>대성공</th></tr></thead><tbody><tr><td>지역</td><td>1주</td><td>120,000 PT</td><td>총합 +3</td><td>20% · +1</td></tr><tr><td>국가</td><td>2주</td><td>350,000 PT</td><td>총합 +7</td><td>15% · +2</td></tr><tr><td>세계</td><td>3주</td><td>750,000 PT</td><td>총합 +12</td><td>10% · +3</td></tr></tbody></table>
+      <h3>예외</h3><ul><li>오프시즌 종료까지 남은 주차보다 긴 파견은 선택 불가.</li><li>파견 중 방출·트레이드 불가. 먼저 파견 취소 필요.</li><li>취소 시 시작 전 100%, 진행 후 50% 환급하며 성장 없음.</li></ul>
+    </section>
+
+    <section class="system" id="correct"><span class="section-no">09 / STAT CORRECTION</span><h2>능력치 교정</h2>
+      <p><span class="tag ref">원작 근거</span> 불필요한 기본 능력치를 낮춰 원하는 능력치로 옮긴다. 총합은 유지되고 카드당 3회, 기본치 구간별 증감 한계가 존재한다.</p>
+      <p><span class="tag plan">적용안</span> 랜덤 인스트럭터 결과를 제거하고, 오프시즌에 사용자가 직접 <b>감소 1개 + 증가 1개</b>를 선택한다. 카드당 커리어 3회.</p>
+      <table><thead><tr><th>기본치</th><th>누적 증가 한계</th><th>누적 감소 한계</th><th>1회 이동량</th></tr></thead><tbody><tr><td>90 이상</td><td>+1</td><td>-6</td><td>1</td></tr><tr><td>80~89</td><td>+2</td><td>-5</td><td>1~2</td></tr><tr><td>70~79</td><td>+4</td><td>-4</td><td>1~2</td></tr><tr><td>60~69</td><td>+6</td><td>-3</td><td>1~3</td></tr><tr><td>59 이하</td><td>+9</td><td>-2</td><td>1~3</td></tr></tbody></table>
+      <div class="callout" style="margin-top:16px"><b>검증식:</b> <code>sum(delta[]) = 0</code>, <code>base + correctionDelta</code>가 스탯별 증감 한계를 넘지 않아야 한다. 결과 미리보기에는 기본/기존 교정/이번 변화/최종값을 네 열로 표시한다.</div>
+    </section>
+
+    <section class="system" id="mentor"><span class="section-no">10 / TRAINING PARTNER</span><h2>훈련 파트너 <span class="muted">(원작 멘토링)</span></h2>
+      <p><span class="tag ref">원작 근거</span> 멘토·멘티 1:1 연결, 최대 다수 쌍, 나이·출신·구단·포지션·능력치 차로 궁합과 상승량을 산정한다.</p>
+      <p><span class="tag plan">적용안</span> 명칭을 ‘훈련 파트너’로 바꾸고 오프시즌 전용 영구 성장으로 운영한다. 한 오프시즌에 선수당 한 번만 연결 가능하다.</p>
+      <h3>추천 점수</h3><div class="callout"><code>Fit = AgeGap×0.20 + SamePosition×0.25 + SameTeamHistory×0.15 + StatComplement×0.30 + Personality×0.10</code><br><code>GrowthBudget = floor((1 - PotentialRate) × 15 × Fit)</code><br><span class="small muted">추천 정렬은 총합만 보지 않고 선수 역할에 유효한 스탯 가중치를 적용한다. DH에게 수비만 올리는 추천 같은 역효과를 차단한다.</span></div>
+      <h3>화면 구성</h3><table><thead><tr><th>좌측</th><th>중앙</th><th>우측</th></tr></thead><tbody><tr><td>성장 대상 선수·잠재력</td><td>추천 파트너 3명과 궁합 근거</td><td>예상 성장, PT 비용, 역할 적합도</td></tr></tbody></table>
+      <ul><li>동일 선수는 같은 오프시즌에 멘토/멘티 역할 중 하나만 가능.</li><li>확정 시 PT 차감과 성장 반영을 한 트랜잭션으로 처리.</li><li>추천 후보가 없으면 부족 조건을 구체적으로 표시한다.</li></ul>
+    </section>
+
+    <section class="system" id="camp"><span class="section-no">11 / TRAINING CAMP</span><h2>전지훈련</h2>
+      <p><span class="tag ref">원작 근거</span> 2군 선수를 훈련장에 보내 경기마다 스킬 칸 경험치를 얻는다. 훈련장별 속도·비용이 다르고 완료 후 직접 복귀한다.</p>
+      <p><span class="tag plan">적용안</span> 오프시즌 시설에 선수를 배치해 스킬 보드 칸을 개방한다. 실시간 대신 주차 단위이며, 자동 복귀 옵션을 기본 ON으로 둔다.</p>
+      <table><thead><tr><th>훈련장</th><th>정원</th><th>속도</th><th>비용 계수</th><th>해금</th></tr></thead><tbody><tr><td>지역 캠프</td><td>6명</td><td>1×</td><td>1.0</td><td>기본</td></tr><tr><td>프로 캠프</td><td>6명</td><td>1.5×</td><td>1.6</td><td>챌린저 진입</td></tr><tr><td>엘리트 캠프</td><td>6명</td><td>2×</td><td>2.3</td><td>월드시리즈 우승</td></tr></tbody></table>
+      <p><code>WeeklySlotXP = BaseXP × FacilitySpeed × CoachBonus</code> / <code>Fee = CostByPlayerCost × FacilityCostRate</code></p>
+      <ul><li>필요 경험치를 채우면 인접한 잠금 칸 1개를 사용자가 선택해 개방한다.</li><li>중도 복귀 시 획득 경험치는 유지하지만 등록비는 환급하지 않는다.</li><li>16칸이 모두 열린 선수는 등록 불가.</li></ul>
+    </section>
+
+    <section id="data"><span class="section-no">12 / DATA & SERVICES</span><h2>공통 데이터·서비스 설계</h2>
+      <div class="grid"><article class="card w6"><h3>정적 테이블</h3><ul><li><code>SupportCardTable</code></li><li><code>SloganTable</code></li><li><code>StaffTable</code></li><li><code>SkillBlockTable</code></li><li><code>TrainingProgramTable</code></li></ul></article><article class="card w6"><h3>런타임 서비스</h3><ul><li><code>PlayerGrowthService</code> — 영구 성장 원장</li><li><code>ModifierService</code> — 조건 판정·합산</li><li><code>ScheduleGateService</code> — 시즌 단계 검증</li><li><code>TrainingQueueService</code> — 주차 진행</li><li><code>RosterValidationService</code> — 등록 충돌</li></ul></article></div>
+      <h3>PlayerGrowthRecord</h3><table><thead><tr><th>필드</th><th>타입</th><th>용도</th></tr></thead><tbody><tr><td>playerCardUid</td><td>GUID</td><td>동일 선수 연도 카드도 구분하는 인스턴스 키</td></tr><tr><td>permanentModifiers</td><td>Modifier[]</td><td>훈련·파트너·교정 결과</td></tr><tr><td>skillBoard</td><td>16 Cell</td><td>개방 여부와 블록 점유</td></tr><tr><td>correctionCount</td><td>byte</td><td>0~3</td></tr><tr><td>activeTraining</td><td>TrainingState?</td><td>프로그램, 시작 주, 남은 주, 결과 시드</td></tr><tr><td>history</td><td>GrowthLog[]</td><td>사용자 확인·디버깅·마이그레이션</td></tr></tbody></table>
+      <h3>이벤트 연결</h3><table><thead><tr><th>이벤트</th><th>구독 시스템</th><th>처리</th></tr></thead><tbody><tr><td>OnMatchCompleted</td><td>서포트</td><td>남은 경기 감소·만료</td></tr><tr><td>OnWeekAdvanced</td><td>스태프·훈련 큐</td><td>주간 효과와 훈련 진척 정산</td></tr><tr><td>OnSeasonPhaseChanged</td><td>전체 성장 메뉴</td><td>잠금 상태 갱신·오프시즌 미완료 경고</td></tr><tr><td>OnRosterChanged</td><td>서포트·파트너</td><td>대상 재계산·불법 상태 차단</td></tr></tbody></table>
+    </section>
+
+    <section id="save"><span class="section-no">13 / SAVE & SCHEDULE</span><h2>저장과 일정 처리</h2>
+      <div class="callout warn"><b>결정적 결과 보장:</b> 훈련 확정 시 결과 시드를 저장한다. 저장 후 재로드로 대성공 결과를 반복 추첨할 수 없어야 한다.</div>
+      <ol><li>명령 요청 시 현재 시즌 단계, 비용, 선수 상태를 재검증한다.</li><li>PT 차감·아이템 소비·성장 상태 변경을 하나의 커밋으로 저장한다.</li><li>주차/경기 진행 시 모든 만료와 완료를 처리한 뒤 새 세이브를 만든다.</li><li>버전 필드를 두고 테이블 개편 시 Modifier 출처 단위로 마이그레이션한다.</li></ol>
+      <h3>시즌 단계 권한표</h3><table><thead><tr><th>시스템</th><th>정규 시즌</th><th>포스트시즌</th><th>오프시즌</th></tr></thead><tbody><tr><td>서포트·스태프</td><td>사용/교체</td><td>사용/교체</td><td>정리·편성</td></tr><tr><td>슬로건</td><td>조회</td><td>조회</td><td>선택·강화</td></tr><tr><td>스킬 블록</td><td>조회</td><td>조회</td><td>구매·장착·합성</td></tr><tr><td>해외훈련·교정·파트너·캠프</td><td>조회</td><td>조회</td><td>실행</td></tr></tbody></table>
+    </section>
+
+    <section id="roadmap"><span class="section-no">14 / ROADMAP</span><h2>구현 순서</h2>
+      <table><thead><tr><th>단계</th><th>구현 묶음</th><th>완료 정의</th><th>위험도</th></tr></thead><tbody>
+        <tr><td><span class="status s1"></span>M0</td><td>성장 원장 + Modifier + 시즌 게이트</td><td>출처별 보너스 합산·저장·UI 조회</td><td>높음</td></tr>
+        <tr><td><span class="status s1"></span>M1</td><td>서포트 카드 + 카드 배지</td><td>2경기 수명주기와 대상 필터</td><td>중간</td></tr>
+        <tr><td><span class="status s2"></span>M2</td><td>스킬 블록 + 전지훈련</td><td>보드 배치와 슬롯 개방 루프</td><td>높음</td></tr>
+        <tr><td><span class="status s2"></span>M3</td><td>해외훈련 + 교정</td><td>오프시즌 주차와 영구 성장</td><td>중간</td></tr>
+        <tr><td><span class="status s3"></span>M4</td><td>훈련 파트너 + 추천</td><td>궁합·역할 적합 추천과 확정</td><td>높음</td></tr>
+        <tr><td><span class="status s3"></span>M5</td><td>슬로건 + 스태프</td><td>덱 조건형 패시브와 시즌 잠금</td><td>중간</td></tr>
+      </tbody></table>
+      <p class="small muted">M0 없이는 각 시스템이 별도 능력치 변수를 소유하게 되어 카드 UI, 경기 계산, 저장 데이터가 빠르게 불일치한다.</p>
+    </section>
+
+    <section id="qa"><span class="section-no">15 / QA</span><h2>통합 검수 체크리스트</h2>
+      <div class="grid"><article class="card w6"><h3>기능</h3><ul><li>모든 실행 버튼이 시즌 단계와 선수 상태를 동시에 검증한다.</li><li>PT 부족 시 어떤 값도 부분 변경되지 않는다.</li><li>동일 Modifier가 중복 등록되지 않는다.</li><li>카드 상세 합계와 경기 적용 값이 일치한다.</li><li>만료·귀환·개방 알림이 한 번만 발생한다.</li></ul></article><article class="card w6"><h3>경계값</h3><ul><li>스탯 1/상한, 컨디션 최저/최고</li><li>오프시즌 마지막 주와 기간 초과 훈련</li><li>보유 PT가 비용과 정확히 같은 경우</li><li>선수 방출·2군 이동·라인업 해제</li><li>세이브 직후 종료 및 구버전 로드</li></ul></article></div>
+      <h3>공통 인수 기준</h3><ol><li>사용자는 확정 전에 비용, 대상, 기간, 최종 변화를 확인할 수 있다.</li><li>사용자는 선수 카드에서 모든 성장 출처를 역추적할 수 있다.</li><li>잠긴 기능은 비활성화 사유와 해금 조건을 함께 보여준다.</li><li>오프시즌 종료 시 진행 중이거나 미사용인 핵심 행동을 경고한다.</li><li>키보드·게임패드만으로 모든 슬롯 선택, 비교, 확정, 취소가 가능하다.</li></ol>
+    </section>
+
+    <footer class="foot"><b>자료 기준</b> · 사용자가 제공한 「프로야구 매니저/게임 설명」 발췌문(서포트 카드~전지훈련). 원작 수치와 운영 방식은 역사적 레퍼런스로만 사용했으며, <span class="tag plan">적용안</span> 수치는 UPlayBall 프로토타입 밸런스 초안이다. 실제 플레이테스트 후 PT 수급량과 시즌 길이에 맞춰 조정한다.</footer>
+  </main>
+</div>
+<script>
+  const links=[...document.querySelectorAll('.nav a')], sections=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const update=()=>{const y=scrollY+120;let current=sections[0];for(const s of sections)if(s.offsetTop<=y)current=s;links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+current.id));const max=document.documentElement.scrollHeight-innerHeight;document.getElementById('progress').style.width=(max?scrollY/max*100:0)+'%'};
+  addEventListener('scroll',update,{passive:true});update();
+</script>
+</body>
+</html>

@@ -30,51 +30,7 @@ namespace Baseball.Tests.EditMode.Simulation
             }
         }
 
-        [Test]
-        public void PreviewRenewal_WhenMoneyIsShort_ReturnsReasonWithoutMutation()
-        {
-            CreateWorld(out CurrentRosterState player, out _, out WorldCardCatalog catalog);
-            var resolver = new OwnerPlayerMarketResolver(OwnerPlayerMarketBalanceTable.CreateInitial());
-            OwnerPlayerContractState contract = resolver.CreateInitialContracts(player, catalog, 1)[0];
-            PlayerCardDefinition card = GetCard(catalog, contract.CardId);
-            int before = contract.RemainingSeasons;
 
-            OwnerContractRenewalPreview preview = resolver.PreviewRenewal(
-                contract, card, catalog.GetPlayerSeason(card), 1, 3, 0L);
-
-            Assert.That(preview.Status, Is.EqualTo(OwnerPlayerMarketStatus.InsufficientMoney));
-            Assert.That(preview.CanCommit, Is.False);
-            Assert.That(contract.RemainingSeasons, Is.EqualTo(before));
-        }
-
-        [Test]
-        public void PreviewRenewal_WhenContractExpired_ReturnsExpiredReasonWithoutMutation()
-        {
-            CreateWorld(out CurrentRosterState player, out _, out WorldCardCatalog catalog);
-            var resolver = new OwnerPlayerMarketResolver(OwnerPlayerMarketBalanceTable.CreateInitial());
-            OwnerPlayerContractState active = resolver.CreateInitialContracts(player, catalog, 1)[0];
-            var expired = new OwnerPlayerContractState(
-                active.ContractId,
-                active.CardId,
-                active.StartSeason,
-                0,
-                active.AnnualSalary,
-                active.StartSeason);
-            PlayerCardDefinition card = GetCard(catalog, active.CardId);
-
-            OwnerContractRenewalPreview preview = resolver.PreviewRenewal(
-                expired,
-                card,
-                catalog.GetPlayerSeason(card),
-                2,
-                2,
-                long.MaxValue);
-
-            Assert.That(preview.Status, Is.EqualTo(OwnerPlayerMarketStatus.ContractExpired));
-            Assert.That(preview.CanCommit, Is.False);
-            Assert.That(preview.Reason, Does.Contain("만료"));
-            Assert.That(expired.RemainingSeasons, Is.Zero);
-        }
 
         [Test]
         public void CreateActiveRosterContracts_동일인물의다른카드로교체해도연장계약을보존한다()

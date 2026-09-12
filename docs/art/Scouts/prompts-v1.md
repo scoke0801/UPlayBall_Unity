@@ -1,0 +1,27 @@
+# 스카우터 피규어 4종 생성 프롬프트
+
+내장 ImageGen 사용. 젊은 여성·중장년 남녀는 figurine-v1 앵커를 화풍 참조로 전달했다. 젊은 남성은 참조 파일 읽기 오류로 새 생성 프롬프트를 사용하며 원본과 비교 검수한다. 배경은 초록 단색으로 생성한 뒤 프로젝트 크로마키 제거 도구로 투명화한다. 선수 마스터는 수정하지 않으며 스카우터 복장·연령·성별만 별도 파생 기획이다.
+
+## young_male
+
+```text
+Use case: stylized-concept. ONE CHIBI ANIME COLLECTIBLE FIGURINE of an adult male Korean baseball scout aged 28. MUST be a cute SUPER DEFORMED anime figurine, NOT a realistic human or lifelike sculpture. Big spherical anime head occupies 70 percent of image height and is twice as wide as the tiny shoulders, very small body occupies bottom 25 percent. Enormous rounded brown anime eyes with painted irises and white sparkles, tiny simple nose, tiny closed smile, round rosy cheeks, perfectly smooth porcelain resin skin with ZERO pores, no realistic facial anatomy. This is a stylized adult character, NOT a child. Neatly side-parted dark brown sculpted hair. Satin soft hand-painted resin toy material, premium adorable anime game art. Tiny navy scout field jacket over tiny ivory collared shirt, no hat, no logos, no writing, hands not visible. Exactly front-facing symmetrical bust square composition; all hair visible with headroom. Warm soft frontal studio lighting. Entire background perfectly uniform chroma key green #00FF00 with no gradients, no shadows, no texture, no green spill. NOT a photorealistic person. No hyperrealism. NO realistic pores. Head-to-torso width ratio 1.8 to 1. No stand, no props.
+```
+
+## young_female
+
+```text
+Create ONE fictional Korean baseball scout portrait for a premium baseball management game. Use the attached player figurine anchor ONLY for rendering style and proportions: oversized rounded head, compact torso, softly sculpted cheeks, warm painted skin, rounded brown eyes, sculpted hair clumps, smooth matte-to-satin resin, gentle highlights, soft frontal studio lighting. Square front-facing upper-body profile, head upright, level shoulders, arms down and hands outside crop, entire hair and shoulders visible, small symmetric closed-mouth smile. A stylized adult collectible, not a child. Scout wears navy smart-casual field jacket over ivory collared shirt, no baseball uniform, no logos or text, no props, no stand. 100 PERCENT influence: fully premium hand-painted resin figurine surface rendering, especially face and hair. Clearly sculpted facial volumes, solid refined hair locks, soft-touch satin resin skin, painted eyes and lips, broad diffused studio highlights and gentle ambient occlusion. Perfectly uniform chroma-key GREEN #00FF00 background, no shadows or gradients in background, no green spill on subject. No realistic pores, no flat vector outlines. Female adult age 30, softly oval face, dark chestnut bob cut to chin tucked behind ears, no hat, alert warm eyes.
+```
+
+## senior_male
+
+```text
+Create ONE fictional Korean baseball scout portrait for a premium baseball management game. Use the attached player figurine anchor ONLY for rendering style and proportions: oversized rounded head, compact torso, softly sculpted cheeks, warm painted skin, rounded brown eyes, sculpted hair clumps, smooth matte-to-satin resin, gentle highlights, soft frontal studio lighting. Square front-facing upper-body profile, head upright, level shoulders, arms down and hands outside crop, entire hair and shoulders visible, small symmetric closed-mouth smile. A stylized adult collectible, not a child. Scout wears navy smart-casual field jacket over ivory collared shirt, no baseball uniform, no logos or text, no props, no stand. 100 PERCENT influence: fully premium hand-painted resin figurine surface rendering, especially face and hair. Clearly sculpted facial volumes, solid refined hair locks, soft-touch satin resin skin, painted eyes and lips, broad diffused studio highlights and gentle ambient occlusion. Perfectly uniform chroma-key GREEN #00FF00 background, no shadows or gradients in background, no green spill on subject. No realistic pores, no flat vector outlines. Male adult age 62, broad face, short neatly combed silver gray hair, no hat, thick gray eyebrows, subtle sculpted age lines, kindly experienced expression.
+```
+
+## senior_female
+
+```text
+Create ONE fictional Korean baseball scout portrait for a premium baseball management game. Use the attached player figurine anchor ONLY for rendering style and proportions: oversized rounded head, compact torso, softly sculpted cheeks, warm painted skin, rounded brown eyes, sculpted hair clumps, smooth matte-to-satin resin, gentle highlights, soft frontal studio lighting. Square front-facing upper-body profile, head upright, level shoulders, arms down and hands outside crop, entire hair and shoulders visible, small symmetric closed-mouth smile. A stylized adult collectible, not a child. Scout wears navy smart-casual field jacket over ivory collared shirt, no baseball uniform, no logos or text, no props, no stand. 100 PERCENT influence: fully premium hand-painted resin figurine surface rendering, especially face and hair. Clearly sculpted facial volumes, solid refined hair locks, soft-touch satin resin skin, painted eyes and lips, broad diffused studio highlights and gentle ambient occlusion. Perfectly uniform chroma-key GREEN #00FF00 background, no shadows or gradients in background, no green spill on subject. No realistic pores, no flat vector outlines. Female adult age 58, rounded mature face, short swept silver-gray bob, no hat, subtle sculpted age lines, gently arched eyebrows, composed experienced expression.
+```

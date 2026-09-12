@@ -15,7 +15,7 @@ namespace Baseball.Presentation.Owner
     {
         private OwnerModeManager _manager;
         private RectTransform _content;
-        private Dropdown _targets;
+        private UIRecruitTargetDropdown _targets;
         private readonly List<string>[] _materialIds = new List<string>[8];
         private readonly PlayerMiniCardView[] _materialViews = new PlayerMiniCardView[8];
         private readonly RectTransform[] _materialHosts = new RectTransform[8];
@@ -50,8 +50,7 @@ namespace Baseball.Presentation.Owner
             ClosePicker();
             if (_manager == null || !_manager.HasActiveRuntime)
             {
-                _targets.ClearOptions();
-                _targets.interactable = false;
+                _targets.Bind(null, -1, "영입 대상 선택");
                 _targetCards = Array.Empty<PlayerCardDefinition>();
                 SelectTarget(-1);
                 _status.text = "구단 정보를 불러오지 못했습니다. 홈으로 돌아가 다시 열어주세요.";
@@ -60,21 +59,22 @@ namespace Baseball.Presentation.Owner
             string previous = _selectedTarget?.CardId;
             _targetCards = _manager.Runtime.GetSpecialRecruitTargets(
                 _isCareerHigh ? PlayerCardEdition.CareerHigh : PlayerCardEdition.Legend);
-            var labels = new List<string>();
+            var labels = new List<UIRecruitTargetDropdown.Option>();
             int selection = -1;
             int firstUnowned = -1;
             for (int i = 0; i < _targetCards.Count; i++)
             {
                 var card = _targetCards[i];
-                labels.Add(Describe(card.CardId) + (_manager.Runtime.TryGetOwnedCard(card.CardId, out _) ? " · 보유" : ""));
+                var season = _manager.Runtime.WorldCardCatalog.GetPlayerSeason(card);
+                labels.Add(new UIRecruitTargetDropdown.Option(
+                    season.OriginYear + " " + _manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId),
+                    _manager.GetClubDisplayName(season.OriginTeamSeasonKey),
+                    _manager.Runtime.TryGetOwnedCard(card.CardId, out _)));
                 if (card.CardId == previous) selection = i;
                 if (firstUnowned < 0 && !_manager.Runtime.TryGetOwnedCard(card.CardId, out _)) firstUnowned = i;
             }
             if (selection < 0) selection = Math.Max(0, firstUnowned);
-            _targets.ClearOptions();
-            _targets.AddOptions(labels);
-            _targets.SetValueWithoutNotify(selection);
-            _targets.interactable = labels.Count > 0;
+            _targets.Bind(labels, selection, _isCareerHigh ? "커리어하이 · 영입 대상" : "레전드 · 영입 대상");
             SelectTarget(labels.Count == 0 ? -1 : selection);
         }
 
@@ -87,9 +87,14 @@ namespace Baseball.Presentation.Owner
             Place(target.Root, 0, .13f, .32f, 1);
             var board = OwnerRuntimeUiFactory.CreatePanel("MaterialPanel", _content, "필요 선수카드 · 8장을 모아 영입");
             Place(board.Root, .332f, .13f, 1, 1);
-            _targets = CreateSelector("Target", target.Content, 0, .90f, 1, 1);
-            _targets.onValueChanged.AddListener(SelectTarget);
-            _targetHost = Rect("TargetPreview", target.Content, 0, .10f, 1, .88f);
+            _targets = UIRecruitTargetDropdown.CreateRuntime(target.Content, _root);
+            var selectorRect = (RectTransform)_targets.transform;
+            Place(selectorRect, 0, 1, 1, 1);
+            selectorRect.offsetMin = new Vector2(0, -64);
+            _targets.SelectionChanged += SelectTarget;
+            _targets.OpenChanged += SetModalActive;
+            _targetHost = Rect("TargetPreview", target.Content, 0, .10f, 1, 1);
+            _targetHost.offsetMax = new Vector2(0, -72);
             var detailInput = _targetHost.gameObject.AddComponent<Image>();
             detailInput.color = Color.clear;
             _targetDetail = _targetHost.gameObject.AddComponent<Button>();
@@ -117,31 +122,6 @@ namespace Baseball.Presentation.Owner
             _confirm = Button("ConfirmRecruit", _content, "선수 영입", .78f, .01f, 1, .10f, ConfirmRecruit);
             OwnerUiButtonSkin.Apply(_confirm, OwnerButtonRole.Primary);
             BuildPicker();
-        }
-
-        private Dropdown CreateSelector(string name, Transform parent, float x0, float y0, float x1, float y1)
-        {
-            var obj = DefaultControls.CreateDropdown(new DefaultControls.Resources());
-            obj.name = name;
-            obj.transform.SetParent(parent, false);
-            Place((RectTransform)obj.transform, x0, y0, x1, y1);
-            foreach (var text in obj.GetComponentsInChildren<Text>(true))
-            {
-                text.font = _helpText.font;
-                text.fontSize = 16;
-                text.color = Ink;
-            }
-            var dropdown = obj.GetComponent<Dropdown>();
-            dropdown.ClearOptions();
-            dropdown.interactable = false;
-            obj.transform.Find("Arrow").GetComponent<Image>().enabled = false;
-            Label("Expand", obj.transform, "▼", 14, Ink, .91f, 0, .99f, 1);
-            var border = obj.AddComponent<Outline>();
-            border.effectColor = CareerUiTheme.ReferenceBorder;
-            border.effectDistance = new Vector2(1, -1);
-            obj.GetComponent<Image>().color = CareerUiTheme.ReferencePanel;
-            dropdown.template.sizeDelta = new Vector2(dropdown.template.sizeDelta.x, 280);
-            return dropdown;
         }
 
         private string Describe(string cardId)
@@ -288,7 +268,8 @@ namespace Baseball.Presentation.Owner
                 _manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId),
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(season.Position, season.PitcherRole, season.IsPositionEvidenceMissing),
                 (season.OriginYear % 100).ToString("00"), "", "", portraitAssetKey: season.PlayerSeasonId,
-                isInteractable: !owned, frameEdition: card.Edition, cost: season.Cost),
+                isInteractable: !owned, frameEdition: card.Edition, cost: season.Cost,
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(_manager.Runtime, card.CardId, _manager.Balance.Growth)),
                 PlayerPortraitSprites.GetForPlayer(season.PlayerPersonId, season.Position));
             view.SetTeamIdentity(_manager.GetClubDisplayName(season.OriginTeamSeasonKey));
             view.SetVisualState(valid ? PlayerMiniCardVisualState.Selected : PlayerMiniCardVisualState.Normal);
@@ -331,6 +312,7 @@ namespace Baseball.Presentation.Owner
                 var materials = (string[])_selectedMaterials.Clone();
                 _confirm.interactable = false;
                 _manager.RecruitSpecialCard(_transactionId, _selectedTarget.CardId, materials);
+                _targets.MarkSelectedOwned();
                 _isConfirming = false;
                 Array.Clear(_selectedMaterials, 0, 8);
                 RefreshSelection();

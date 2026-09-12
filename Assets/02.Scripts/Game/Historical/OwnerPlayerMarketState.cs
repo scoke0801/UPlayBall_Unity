@@ -47,18 +47,7 @@ namespace Baseball.Game.Historical
             return total;
         }
 
-        public bool HasExpiringPlayerContracts()
-        {
-            for (int index = 0; index < _playerContracts.Count; index++)
-                if (_playerContracts[index].IsExpiring) return true;
-            return false;
-        }
 
-        public void RenewPlayerContract(string cardId, int season, int seasons, long annualSalary)
-        {
-            OwnerPlayerContractState contract = GetPlayerContract(cardId);
-            contract.Renew(season, checked(contract.RemainingSeasons + seasons), annualSalary);
-        }
 
         public void SettleAndAdvancePlayerContracts(int completedSeason)
         {

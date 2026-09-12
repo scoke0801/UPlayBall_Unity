@@ -6,36 +6,15 @@ using Baseball.Simulation.Historical;
 
 namespace Baseball.Game.Historical
 {
-    /// <summary>일괄 연장 대상과 총비용을 전달한다.</summary>
-    public sealed class OwnerContractBatchPreview
-    {
-        public OwnerContractBatchPreview(OwnerContractRenewalPreview[] renewals, long signingCost,
-            long annualSalaryTotal, string reason, long deferredSigningCost = 0L)
-        {
-            Renewals = Array.AsReadOnly(renewals);
-            SigningCost = signingCost;
-            AnnualSalaryTotal = annualSalaryTotal;
-            Reason = reason;
-            DeferredSigningCost = deferredSigningCost;
-        }
 
-        public IReadOnlyList<OwnerContractRenewalPreview> Renewals { get; }
-        public long SigningCost { get; }
-        public long DeferredSigningCost { get; }
-        public long AnnualSalaryTotal { get; }
-        public string Reason { get; }
-        public bool CanCommit => Renewals.Count > 0 && string.IsNullOrEmpty(Reason);
-    }
-
-    /// <summary>구단주 선수 계약을 Preview/Validate/Command 경계로 조정한다.</summary>
+    /// <summary>구단주 선수단의 급여 상태를 초기화하고 1군 등록 변경에 맞춰 보존한다.</summary>
     public sealed class OwnerPlayerMarketService
     {
-        private readonly BalanceTable _balance;
         private readonly OwnerPlayerMarketResolver _resolver;
 
         public OwnerPlayerMarketService(BalanceTable balance)
         {
-            _balance = balance ?? throw new ArgumentNullException(nameof(balance));
+            if (balance == null) throw new ArgumentNullException(nameof(balance));
             _resolver = new OwnerPlayerMarketResolver(balance.OwnerPlayerMarket);
         }
 
@@ -66,24 +45,6 @@ namespace Baseball.Game.Historical
             ValidateContractCoverage(mode, playerRoster);
         }
 
-        public OwnerContractRenewalPreview PreviewRenewal(
-            ManagerHistoricalRuntimeState runtime,
-            string cardId,
-            int seasons)
-        {
-            EnsureInitialized(runtime);
-            OwnerPlayerContractState contract = runtime.ManagerMode.GetPlayerContract(cardId);
-            if (!runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
-                throw new ArgumentException("WorldCardCatalog에 없는 계약 선수입니다.", nameof(cardId));
-            return _resolver.PreviewRenewal(
-                contract,
-                card,
-                runtime.WorldCardCatalog.GetPlayerSeason(card),
-                runtime.ManagerMode.LiveSeason.SeasonNumber,
-                seasons,
-                runtime.Economy.Money,
-                CanDeferRenewal(runtime, contract) ? ContractPaymentMode.AllowArrears : ContractPaymentMode.RequireCash);
-        }
 
         /// <summary>검증된 1군 후보에 맞춰 기존 계약을 보존한 25인 계약 후보를 만든다.</summary>
         public OwnerPlayerContractState[] CreateActiveRosterContracts(
@@ -99,70 +60,8 @@ namespace Baseball.Game.Historical
                 runtime.ManagerMode.PlayerContracts);
         }
 
-        public OwnerContractRenewalPreview Renew(
-            ManagerHistoricalRuntimeState runtime,
-            string cardId,
-            int seasons)
-        {
-            OwnerContractRenewalPreview preview = PreviewRenewal(runtime, cardId, seasons);
-            if (!preview.CanCommit) return preview;
-            if (preview.DeferredSigningCost > 0L)
-                runtime.Economy.SettleContractPayment(preview.SigningCost);
-            else if (preview.SigningCost > 0L && !runtime.Economy.TrySpendMoney(preview.SigningCost))
-                throw new InvalidOperationException("검증된 선수 계약금을 반영할 수 없습니다.");
-            runtime.ManagerMode.RenewPlayerContract(
-                preview.CardId,
-                runtime.ManagerMode.LiveSeason.SeasonNumber,
-                preview.Seasons,
-                preview.AnnualSalary);
-            return preview;
-        }
 
-        /// <summary>만료 임박 선수 전원의 계약금과 연봉을 합산한다.</summary>
-        public OwnerContractBatchPreview PreviewExpiringRenewals(ManagerHistoricalRuntimeState runtime, int seasons)
-        {
-            EnsureInitialized(runtime);
-            var renewals = new List<OwnerContractRenewalPreview>();
-            long signingCost = 0L;
-            long annualSalary = runtime.ManagerMode.GetAnnualPlayerSalaryTotal();
-            string reason = string.Empty;
-            foreach (OwnerPlayerContractState contract in runtime.ManagerMode.PlayerContracts)
-            {
-                if (!contract.IsExpiring) continue;
-                OwnerContractRenewalPreview preview = PreviewRenewal(runtime, contract.CardId, seasons);
-                renewals.Add(preview);
-                signingCost = checked(signingCost + preview.SigningCost);
-                annualSalary = checked(annualSalary - contract.AnnualSalary + preview.AnnualSalary);
-                if (!preview.CanCommit) reason = preview.Reason;
-            }
-            if (renewals.Count == 0) reason = "연장할 만료 임박 선수가 없습니다.";
-            else if (runtime.Economy.Money < signingCost && !IsSeasonCompleted(runtime))
-                reason = "일괄 연장 계약금이 부족합니다.";
-            return new OwnerContractBatchPreview(renewals.ToArray(), signingCost, annualSalary, reason,
-                IsSeasonCompleted(runtime) ? Math.Max(0L, signingCost - runtime.Economy.Money) : 0L);
-        }
 
-        /// <summary>전체 비용을 검증한 뒤 한 번 차감하고 모든 대상의 계약을 연장한다.</summary>
-        public OwnerContractBatchPreview RenewExpiringContracts(ManagerHistoricalRuntimeState runtime, int seasons)
-        {
-            OwnerContractBatchPreview preview = PreviewExpiringRenewals(runtime, seasons);
-            if (!preview.CanCommit) return preview;
-            if (preview.DeferredSigningCost > 0L)
-                runtime.Economy.SettleContractPayment(preview.SigningCost);
-            else if (preview.SigningCost > 0L && !runtime.Economy.TrySpendMoney(preview.SigningCost))
-                throw new InvalidOperationException("일괄 연장 계약금을 반영할 수 없습니다.");
-            foreach (OwnerContractRenewalPreview renewal in preview.Renewals)
-                runtime.ManagerMode.RenewPlayerContract(renewal.CardId,
-                    runtime.ManagerMode.LiveSeason.SeasonNumber, renewal.Seasons, renewal.AnnualSalary);
-            return preview;
-        }
-
-        private static bool IsSeasonCompleted(ManagerHistoricalRuntimeState runtime) =>
-            runtime.ManagerMode.LiveSeason.IsCompleted &&
-            (runtime.LeagueWorld == null || runtime.LeagueWorld.IsCompleted);
-
-        private static bool CanDeferRenewal(ManagerHistoricalRuntimeState runtime, OwnerPlayerContractState contract) =>
-            contract.IsExpiring && IsSeasonCompleted(runtime);
 
         private static ManagerModeRuntimeState RequireMode(ManagerHistoricalRuntimeState runtime)
         {

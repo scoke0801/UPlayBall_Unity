@@ -21,12 +21,23 @@ namespace Baseball.Presentation.Owner
         private Text _scoutGaugeLabel;
         private Text _scoutResultTitle;
         private Text _scoutPolicyPreview;
-        private RawImage _scoutGaugeFill;
+        private Image _scoutGaugeFill;
+        private RawImage _scoutPortrait;
+        private RawImage _scoutPolicyPortrait;
+        private Text _scoutName;
+        private Text _scoutPolicyName;
+        private InputField _scoutPolicySearch;
+        private CanvasGroup _scoutBaseInput;
+        private Button _scoutPolicyButton;
+        private int _scoutPortraitIndex;
+        private readonly List<OwnerScoutProductSnapshot> _filteredScoutProducts = new List<OwnerScoutProductSnapshot>();
+        private static readonly string[] ScoutPortraitKeys = { "young_male", "young_female", "senior_male", "senior_female" };
+        private static readonly string[] ScoutPortraitNames = { "청년 스카우터", "청년 스카우터", "베테랑 스카우터", "베테랑 스카우터" };
         private Button _scoutPolicyConfirmButton;
         private string _scoutPreviewProductId = string.Empty;
-        // 고정 크기 지도와 방침 창에 실제로 들어가는 버튼 수만 생성한다.
-        private const int ScoutMapPageSize = 6;
-        private const int ScoutPolicyPageSize = 10;
+        // 한 화면에 들어가는 파견 범위·방침 선택지 개수만 생성한다.
+        private const int ScoutMapPageSize = 4;
+        private const int ScoutPolicyPageSize = 8;
         private int _scoutMapPage;
         private int _scoutPolicyPage;
         private static readonly Color ScoutInk = new Color32(36, 43, 51, 255);
@@ -38,65 +49,57 @@ namespace Baseball.Presentation.Owner
             _scoutCanvas = OwnerRuntimeUiFactory.CreateRect("ScoutReference", _scoutRoot);
             _scoutCanvas.anchorMin = _scoutCanvas.anchorMax = new Vector2(.5f, .5f);
             _scoutCanvas.sizeDelta = new Vector2(1000, 460);
-            ScoutSurface(_scoutCanvas, "Paper", 0, 0, 1000, 460, ScoutSilver);
-            ScoutLabel(_scoutCanvas, "MapHeading", "▸ 파견지 선택", 15, 12, 4, 320, 26);
-            ScoutSurface(_scoutCanvas, "InformationStrip", 368, 4, 620, 32, new Color32(48, 51, 52, 255));
-            ScoutLabel(_scoutCanvas, "Information", "선택한 상품의 영입 정보를 확인하세요.", 12, 378, 5, 300, 30, Color.white);
-            _scoutWallet = ScoutLabel(_scoutCanvas, "Wallet", "", 11, 682, 5, 295, 30, Color.white);
+            RectTransform board = ScoutSurface(_scoutCanvas, "ScoutBoard", 0, 0, 1000, 460, ScoutSilver).rectTransform;
+            _scoutBaseInput = board.gameObject.AddComponent<CanvasGroup>();
+            ScoutSurface(board, "Header", 0, 0, 1000, 48, ScoutBlue);
+            ScoutLabel(board, "Heading", "스카우트 센터", 20, 18, 4, 220, 38, Color.white);
+            _scoutWallet = ScoutLabel(board, "Wallet", "", 12, 430, 8, 550, 30, Color.white);
             _scoutWallet.alignment = TextAnchor.MiddleRight;
-            ScoutSurface(_scoutCanvas, "MapBorder", 10, 34, 350, 414, new Color32(157, 169, 153, 255));
-            RawImage map = ScoutSurface(_scoutCanvas, "KoreaMap", 14, 38, 342, 406, Color.white);
-            map.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/scout_korea_map_v1");
-            _scoutList = OwnerRuntimeUiFactory.CreateRect("ScoutProductPins", map.transform);
-            OwnerRuntimeUiFactory.Stretch(_scoutList);
-            ScoutSurface(map.transform, "Speech", 22, 14, 296, 63, new Color32(250, 251, 245, 248));
-            ScoutLabel(map.transform, "MapGuide", "선수를 찾아보겠습니다.\n마커를 선택하면 영입 비용과\n획득 정보를 확인할 수 있습니다.", 13, 32, 19, 276, 53);
-
-            ScoutSurface(_scoutCanvas, "ScoutColumn", 368, 40, 128, 408, Color.white);
-            ScoutLabel(_scoutCanvas, "ScoutHeading", "스카우터", 14, 378, 42, 108, 24, ScoutBlue).alignment = TextAnchor.MiddleCenter;
-            RawImage portrait = ScoutSurface(_scoutCanvas, "ScoutPortrait", 405, 73, 55, 82, Color.white);
-            portrait.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/OwnerScout_Silhouette_V1");
-            ScoutLabel(_scoutCanvas, "ScoutName", "전담 스카우터", 12, 374, 157, 116, 23).alignment = TextAnchor.MiddleCenter;
-            ReferenceButton(_scoutCanvas, "ScoutPolicy", "스카우트 방침", OpenScoutPolicy, 376, 181, 112, 28);
-            ScoutLabel(_scoutCanvas, "GaugeHeading", "보장 영입", 12, 376, 221, 110, 22, ScoutBlue);
-            ScoutSurface(_scoutCanvas, "GaugeTrack", 376, 245, 112, 16, new Color32(37, 49, 35, 255));
-            _scoutGaugeFill = ScoutSurface(_scoutCanvas, "GaugeFill", 378, 247, 0, 12, new Color32(55, 191, 57, 255));
-            _scoutGaugeLabel = ScoutLabel(_scoutCanvas, "GaugeValue", "0 / 100", 13, 376, 263, 112, 22);
-            ScoutSurface(_scoutCanvas, "DispatchHeading", 374, 294, 116, 24, ScoutSilver);
-            ScoutLabel(_scoutCanvas, "DispatchTitle", "파견 정보", 13, 380, 295, 104, 22, ScoutBlue);
-            _scoutDispatch = ScoutLabel(_scoutCanvas, "DispatchValue", "정보 확인 중", 12, 378, 323, 108, 113);
+            ScoutSurface(board, "Destinations", 12, 60, 268, 388, Color.white);
+            ScoutLabel(board, "MapHeading", "01  파견 범위", 15, 24, 68, 240, 26, ScoutBlue);
+            ScoutLabel(board, "MapGuide", "구단·연도로 범위를 좁혀 선택하세요.", 11, 24, 98, 240, 24);
+            BuildScoutScopeFilters(board);
+            _scoutList = OwnerRuntimeUiFactory.CreateRect("ScoutProductPins", board);
+            PlaceReference(_scoutList, 24, 236, 244, 196);
+            ScoutSurface(board, "ScoutColumn", 292, 60, 208, 388, Color.white);
+            ScoutLabel(board, "ScoutHeading", "02  전담 스카우터", 15, 304, 68, 184, 26, ScoutBlue);
+            ScoutSurface(board, "PortraitBackdrop", 304, 100, 184, 152, new Color32(229, 237, 244, 255));
+            _scoutPortrait = ScoutArtwork(board, "ScoutPortrait", 320, 100, 152, 152);
+            _scoutName = ScoutLabel(board, "ScoutName", "", 13, 330, 252, 132, 25);
+            _scoutName.alignment = TextAnchor.MiddleCenter;
+            ScoutButton(board, "PreviousScout", "‹", () => ChangeScoutPortrait(-1), 304, 254, 24, 24);
+            ScoutButton(board, "NextScout", "›", () => ChangeScoutPortrait(1), 464, 254, 24, 24);
+            _scoutPolicyButton = ScoutButton(board, "ScoutPolicy", "탐색 방침 변경", OpenScoutPolicy, 304, 282, 184, 30);
+            _scoutDispatch = ScoutLabel(board, "DispatchValue", "파견 정보를 불러오는 중입니다.", 11, 304, 320, 184, 62);
             _scoutDispatch.alignment = TextAnchor.UpperLeft;
-
-            ReferenceButton(_scoutCanvas, "ScoutInformationTab", "스카우트 정보", () => _scoutProbabilityOverlay.gameObject.SetActive(true), 507, 40, 138, 27);
-            ReferenceButton(_scoutCanvas, "ScoutResultsTab", "영입대기 선수", () => _scoutProbabilityOverlay.gameObject.SetActive(false), 646, 40, 128, 27);
-            ScoutSurface(_scoutCanvas, "PlayerAreaBorder", 508, 74, 480, 286, new Color32(174, 181, 189, 255));
-            ScoutSurface(_scoutCanvas, "PlayerArea", 510, 76, 476, 282, Color.white);
-            _scoutResultTitle = ScoutLabel(_scoutCanvas, "ResultTitle", "영입대기 선수 · 파견 후 결과가 표시됩니다", 13, 520, 79, 450, 24, ScoutBlue);
-            _scoutResultGrid = OwnerRuntimeUiFactory.CreateRect("ScoutCards", _scoutCanvas);
-            PlaceReference(_scoutResultGrid, 526, 108, 442, 242);
+            ScoutLabel(board, "GaugeHeading", "보장 영입", 12, 304, 392, 90, 22, ScoutBlue);
+            _scoutGaugeLabel = ScoutLabel(board, "GaugeValue", "", 11, 394, 392, 94, 22);
+            _scoutGaugeLabel.alignment = TextAnchor.MiddleRight;
+            ScoutSurface(board, "GaugeTrack", 304, 422, 184, 6, new Color32(220, 227, 234, 255));
+            _scoutGaugeFill = ScoutSurface(board, "GaugeFill", 304, 422, 0, 6, ScoutBlue);
+            ScoutSurface(board, "PlayerArea", 512, 60, 476, 302, Color.white);
+            _scoutResultTitle = ScoutLabel(board, "ResultTitle", "영입 결과", 15, 526, 68, 270, 26, ScoutBlue);
+            ScoutButton(board, "ScoutInformationTab", "영입 확률·보장 안내", OpenScoutProbability, 825, 68, 150, 26);
+            _scoutResultGrid = OwnerRuntimeUiFactory.CreateRect("ScoutCards", board);
+            PlaceReference(_scoutResultGrid, 526, 102, 448, 250);
             BindScoutResults(Array.Empty<ShopGrantedItem>());
-            ScoutSurface(_scoutCanvas, "CostStrip", 510, 366, 476, 25, new Color32(220, 222, 221, 255));
-            _scoutCost = ScoutLabel(_scoutCanvas, "ScoutCost", "비 용", 14, 522, 366, 450, 25);
-            _scoutCost.alignment = TextAnchor.MiddleCenter;
-            _scoutSummary = ScoutLabel(_scoutCanvas, "ScoutSummary", "상품 정보를 불러오는 중입니다.", 12, 520, 394, 456, 28);
-            _scoutSummary.alignment = TextAnchor.MiddleCenter;
-            _scoutPurchaseButton = ReferenceButton(_scoutCanvas, "ScoutPurchase", "스카우트 파견", RequestScoutPurchase, 678, 425, 138, 26);
-            OwnerUiButtonSkin.Apply(_scoutPurchaseButton, OwnerButtonRole.Primary);
-            Button wishlist = ReferenceButton(
-                _scoutCanvas, "OpenWishlist", "위시리스트", () => WishlistRequested?.Invoke(), 828, 425, 145, 26);
-            OwnerUiButtonSkin.Apply(wishlist, OwnerButtonRole.Secondary);
+            _scoutCost = ScoutLabel(board, "ScoutCost", "파견 비용  —", 17, 526, 366, 448, 28, ScoutBlue);
+            _scoutSummary = ScoutLabel(board, "ScoutSummary", "상품 정보를 불러오는 중입니다.", 11, 526, 393, 448, 24);
+            _scoutPurchaseButton = ScoutButton(board, "ScoutPurchase", "스카우트 파견", RequestScoutPurchase, 750, 420, 224, 28, true);
+            ScoutButton(board, "OpenWishlist", "위시리스트", () => WishlistRequested?.Invoke(), 526, 420, 212, 28);
             BuildScoutProbabilityWindow();
             BuildScoutPolicyWindow();
+            ChangeScoutPortrait(0);
         }
 
         private void BuildScoutProbabilityWindow()
         {
             _scoutProbabilityOverlay = ScoutSurface(_scoutCanvas, "ProbabilityWindow", 505, 38, 487, 414, ScoutSilver).rectTransform;
-            _scoutProbabilityOverlay.GetComponent<RawImage>().raycastTarget = true;
+            _scoutProbabilityOverlay.GetComponent<Image>().raycastTarget = true;
             ScoutLabel(_scoutProbabilityOverlay, "Heading", "스카우트 정보 · 실제 영입 확률", 15, 12, 5, 380, 28, ScoutBlue);
-            ReferenceButton(_scoutProbabilityOverlay, "CloseProbability", "닫기", () => _scoutProbabilityOverlay.gameObject.SetActive(false), 406, 6, 68, 26);
+            ScoutButton(_scoutProbabilityOverlay, "CloseProbability", "닫기", CloseScoutProbability, 406, 6, 68, 26);
             RectTransform viewport = ScoutSurface(_scoutProbabilityOverlay, "ProbabilityViewport", 12, 42, 462, 356, Color.white).rectTransform;
-            viewport.GetComponent<RawImage>().raycastTarget = true;
+            viewport.GetComponent<Image>().raycastTarget = true;
             viewport.gameObject.AddComponent<RectMask2D>();
             ScrollRect scroll = viewport.gameObject.AddComponent<ScrollRect>();
             RectTransform content = OwnerRuntimeUiFactory.CreateRect("ProbabilityRows", viewport);
@@ -125,106 +128,121 @@ namespace Baseball.Presentation.Owner
 
         private void BuildScoutPolicyWindow()
         {
-            _scoutPolicyOverlay = ScoutSurface(
-                _scoutCanvas, "ScoutPolicyShade", 0, 0, 1000, 460, new Color(0, 0, 0, .55f)).rectTransform;
-            _scoutPolicyOverlay.GetComponent<RawImage>().raycastTarget = true;
-            RectTransform window = ScoutSurface(
-                _scoutPolicyOverlay, "ScoutPolicyWindow", 190, 20, 620, 420, ScoutSilver).rectTransform;
-            ScoutLabel(window, "PolicyHeading", "스카우트 방침 선택", 16, 12, 4, 470, 28, ScoutBlue);
-            ReferenceButton(window, "ClosePolicy", "×", CloseScoutPolicy, 578, 4, 30, 26);
-
-            ScoutSurface(window, "ScoutCardBorder", 14, 40, 224, 324, new Color32(165, 168, 165, 255));
-            RawImage portrait = ScoutSurface(window, "PolicyScoutPortrait", 62, 52, 128, 192, Color.white);
-            portrait.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/OwnerScout_Silhouette_V1");
-            ScoutLabel(window, "PolicyScoutName", "전담 스카우터", 17, 24, 247, 204, 28).alignment = TextAnchor.MiddleCenter;
-            _scoutPolicyPreview = ScoutLabel(window, "PolicyPreview", "방침을 선택하세요.", 12, 25, 278, 202, 74);
-            _scoutPolicyPreview.alignment = TextAnchor.UpperCenter;
-
-            ScoutSurface(window, "PolicyListBorder", 250, 40, 356, 324, new Color32(174, 181, 189, 255));
-            ScoutLabel(window, "PolicyListHeading", "파견 범위 · 탐색 방침 · 비용", 13, 262, 43, 330, 25, ScoutBlue);
+            _scoutPolicyOverlay = ScoutSurface(_scoutCanvas, "ScoutPolicyShade", 0, 0, 1000, 460,
+                new Color(.03f, .06f, .1f, .75f)).rectTransform;
+            _scoutPolicyOverlay.GetComponent<Image>().raycastTarget = true;
+            RectTransform window = ScoutSurface(_scoutPolicyOverlay, "ScoutPolicyWindow", 70, 12, 860, 436, ScoutSilver).rectTransform;
+            Image header = ScoutSurface(window, "PolicyHeader", 0, 0, 860, 42, ScoutBlue);
+            ScoutLabel(header.transform, "PolicyHeading", "탐색 방침 선택", 18, 18, 5, 470, 32, Color.white);
+            ScoutButton(window, "ClosePolicy", "×", CloseScoutPolicy, 816, 8, 28, 28);
+            ScoutSurface(window, "ScoutCardBorder", 14, 54, 218, 324, Color.white);
+            _scoutPolicyPortrait = ScoutArtwork(window, "PolicyScoutPortrait", 38, 64, 170, 170);
+            _scoutPolicyName = ScoutLabel(window, "PolicyScoutName", "", 15, 25, 236, 196, 26);
+            _scoutPolicyName.alignment = TextAnchor.MiddleCenter;
+            _scoutPolicyPreview = ScoutLabel(window, "PolicyPreview", "방침을 선택하세요.", 12, 26, 274, 194, 98);
+            _scoutPolicyPreview.alignment = TextAnchor.UpperLeft;
+            ScoutLabel(window, "PolicyListHeading", "구단·연도·탐색 방침으로 검색", 12, 250, 52, 310, 24, ScoutBlue);
+            Image search = ScoutSurface(window, "PolicySearch", 250, 80, 594, 30, Color.white);
+            search.raycastTarget = true;
+            _scoutPolicySearch = search.gameObject.AddComponent<InputField>();
+            _scoutPolicySearch.targetGraphic = search;
+            _scoutPolicySearch.textComponent = ScoutLabel(search.transform, "SearchText", "", 13, 10, 2, 574, 26);
+            _scoutPolicySearch.placeholder = ScoutLabel(search.transform, "SearchPlaceholder", "예: 전국, 구단명, 2024", 12, 10, 2, 574, 26, new Color32(105, 118, 132, 255));
+            _scoutPolicySearch.onValueChanged.AddListener(_ => { _scoutPolicyPage = 0; RebuildScoutPolicyOptions(); });
+            _scoutPolicyScopeButton = ScoutButton(window, "PolicyScopeFilter", "선택 범위", ToggleScoutPolicyScope,
+                704, 48, 140, 28, true);
             _scoutPolicyOptions = OwnerRuntimeUiFactory.CreateRect("PolicyOptions", window);
-            PlaceReference(_scoutPolicyOptions, 258, 72, 340, 280);
-            _scoutPolicyConfirmButton = ReferenceButton(
-                window, "ConfirmPolicy", "결정", ApplyScoutPolicy, 158, 376, 142, 28);
-            ReferenceButton(window, "CancelPolicy", "취소", CloseScoutPolicy, 320, 376, 142, 28);
+            PlaceReference(_scoutPolicyOptions, 250, 120, 594, 266);
+            _scoutPolicyConfirmButton = ScoutButton(window, "ConfirmPolicy", "방침 적용", ApplyScoutPolicy, 620, 396, 224, 28, true);
+            ScoutButton(window, "CancelPolicy", "취소", CloseScoutPolicy, 488, 396, 120, 28);
+            ScoutLabel(window, "PolicyHint", "방침 적용 후 파견할 때 포인트를 사용합니다.", 11, 18, 396, 450, 28);
             _scoutPolicyOverlay.gameObject.SetActive(false);
         }
 
         private void OpenScoutPolicy()
         {
             _scoutPreviewProductId = _selectedScoutProductId;
+            _hasScoutPolicyScopeFilter = true;
+            _scoutPolicyScope = FindScoutProduct(_selectedScoutProductId)?.Scope ?? string.Empty;
+            _scoutPolicyScopeButton.transform.Find("Label").GetComponent<Text>().text = "선택 범위 ▾";
+            _scoutPolicySearch.SetTextWithoutNotify(string.Empty);
             _scoutPolicyPage = 0;
-            if (_snapshot != null)
-                for (int index = 0; index < _snapshot.Scout.Products.Count; index++)
-                    if (_snapshot.Scout.Products[index].ProductId == _scoutPreviewProductId)
-                        _scoutPolicyPage = index / ScoutPolicyPageSize;
             PreviewScoutPolicy(_scoutPreviewProductId);
             _scoutPolicyOverlay.gameObject.SetActive(true);
             _scoutPolicyOverlay.SetAsLastSibling();
+            _scoutBaseInput.interactable = false;
+            _scoutBaseInput.blocksRaycasts = false;
+            _scoutPolicySearch.Select();
         }
 
-        private void CloseScoutPolicy() => _scoutPolicyOverlay.gameObject.SetActive(false);
+        private void CloseScoutPolicy()
+        {
+            _scoutPolicyOverlay.gameObject.SetActive(false);
+            _scoutBaseInput.interactable = true;
+            _scoutBaseInput.blocksRaycasts = true;
+            _scoutPolicyButton.Select();
+        }
 
         private void RebuildScoutPolicyOptions()
         {
             OwnerRuntimeUiFactory.ClearChildren(_scoutPolicyOptions);
+            _filteredScoutProducts.Clear();
             if (_snapshot == null) return;
-            IReadOnlyList<OwnerScoutProductSnapshot> products = _snapshot.Scout.Products;
-            int pageCount = Math.Max(1, (products.Count + ScoutPolicyPageSize - 1) / ScoutPolicyPageSize);
-            _scoutPolicyPage = Math.Min(_scoutPolicyPage, pageCount - 1);
+            string query = _scoutPolicySearch.text.Trim();
+            foreach (OwnerScoutProductSnapshot product in _snapshot.Scout.Products)
+                if ((!_hasScoutPolicyScopeFilter || product.Scope == _scoutPolicyScope)
+                    && MatchesScoutQuery(product, query))
+                    _filteredScoutProducts.Add(product);
+            int pageCount = Math.Max(1, (_filteredScoutProducts.Count + ScoutPolicyPageSize - 1) / ScoutPolicyPageSize);
+            _scoutPolicyPage = Mathf.Clamp(_scoutPolicyPage, 0, pageCount - 1);
             int start = _scoutPolicyPage * ScoutPolicyPageSize;
-            int end = Math.Min(products.Count, start + ScoutPolicyPageSize);
+            int end = Math.Min(_filteredScoutProducts.Count, start + ScoutPolicyPageSize);
             for (int index = start; index < end; index++)
             {
-                OwnerScoutProductSnapshot product = products[index];
-                int capturedIndex = index;
-                float x = (index - start) % 2 * 172;
-                float y = (index - start) / 2 * 55;
-                Button button = ReferenceButton(
-                    _scoutPolicyOptions,
-                    "PolicyChoice" + index,
-                    product.Scope + "\n" + product.DrawCount + "회 · " + product.PriceText,
-                    () => PreviewScoutPolicy(products[capturedIndex].ProductId),
-                    x,
-                    y,
-                    166,
-                    49);
-                Text label = button.transform.Find("Label").GetComponent<Text>();
-                label.fontSize = 11;
-                label.alignment = TextAnchor.MiddleCenter;
-                label.resizeTextForBestFit = true;
-                label.resizeTextMinSize = 9;
-                button.interactable = !string.Equals(
-                    product.ProductId, _scoutPreviewProductId, StringComparison.Ordinal);
+                OwnerScoutProductSnapshot product = _filteredScoutProducts[index];
+                bool selected = product.ProductId == _scoutPreviewProductId;
+                ScoutButton(_scoutPolicyOptions, "PolicyChoice" + index,
+                    (selected ? "✓ " : "") + product.Scope + " · " + product.DrawCount + "회\n" +
+                    DescribeScoutPolicy(product) + "  /  " + product.PriceText,
+                    () => PreviewScoutPolicy(product.ProductId),
+                    (index - start) % 2 * 302, (index - start) / 2 * 56, 292, 48, selected);
             }
-            ReferenceButton(_scoutPolicyOptions, "PreviousPolicyPage", "이전", () =>
+            if (_filteredScoutProducts.Count == 0)
+                ScoutLabel(_scoutPolicyOptions, "NoPolicyResults", "검색 결과가 없습니다. 다른 구단명이나 연도를 입력하세요.",
+                    13, 10, 40, 574, 80).alignment = TextAnchor.MiddleCenter;
+            ScoutButton(_scoutPolicyOptions, "PreviousPolicyPage", "이전", () =>
             {
                 _scoutPolicyPage--;
                 RebuildScoutPolicyOptions();
-            }, 0, 280, 70, 22).interactable = _scoutPolicyPage > 0;
-            ScoutLabel(_scoutPolicyOptions, "PolicyPage", $"{_scoutPolicyPage + 1} / {pageCount}",
-                12, 125, 280, 100, 22);
-            ReferenceButton(_scoutPolicyOptions, "NextPolicyPage", "다음", () =>
+                FocusScoutControl(_scoutPolicyOptions, "NextPolicyPage");
+            }, 0, 236, 72, 26).interactable = _scoutPolicyPage > 0;
+            ScoutLabel(_scoutPolicyOptions, "PolicyPage", $"{_scoutPolicyPage + 1} / {pageCount}  ·  {_filteredScoutProducts.Count}개 방침",
+                12, 85, 236, 420, 26).alignment = TextAnchor.MiddleCenter;
+            ScoutButton(_scoutPolicyOptions, "NextPolicyPage", "다음", () =>
             {
                 _scoutPolicyPage++;
                 RebuildScoutPolicyOptions();
-            }, 270, 280, 70, 22).interactable = _scoutPolicyPage + 1 < pageCount;
+                FocusScoutControl(_scoutPolicyOptions, "PreviousPolicyPage");
+            }, 522, 236, 72, 26).interactable = _scoutPolicyPage + 1 < pageCount;
         }
 
         private void BindScoutMapPagination(int count)
         {
             int pageCount = Math.Max(1, (count + ScoutMapPageSize - 1) / ScoutMapPageSize);
-            ReferenceButton(_scoutList, "PreviousMapPage", "이전", () =>
+            ScoutButton(_scoutList, "PreviousMapPage", "이전", () =>
             {
                 _scoutMapPage--;
                 BindScout();
-            }, 20, 365, 60, 26).interactable = _scoutMapPage > 0;
-            ScoutLabel(_scoutList, "MapPage", $"{_scoutMapPage + 1}/{pageCount}", 11, 85, 365, 64, 26);
-            ReferenceButton(_scoutList, "NextMapPage", "다음", () =>
+                FocusScoutControl(_scoutList, "NextMapPage");
+            }, 0, 168, 62, 26).interactable = _scoutMapPage > 0;
+            ScoutLabel(_scoutList, "MapPage", $"{_scoutMapPage + 1} / {pageCount} · {count}곳", 11, 66, 168, 112, 26)
+                .alignment = TextAnchor.MiddleCenter;
+            ScoutButton(_scoutList, "NextMapPage", "다음", () =>
             {
                 _scoutMapPage++;
                 BindScout();
-            }, 150, 365, 60, 26).interactable = _scoutMapPage + 1 < pageCount;
+                FocusScoutControl(_scoutList, "PreviousMapPage");
+            }, 182, 168, 62, 26).interactable = _scoutMapPage + 1 < pageCount;
         }
 
         private void PreviewScoutPolicy(string productId)
@@ -243,61 +261,91 @@ namespace Baseball.Presentation.Owner
                                        product.WishlistCandidateCount.ToString("N0") + "장 포함";
             _scoutPolicyConfirmButton.interactable = true;
             RebuildScoutPolicyOptions();
+            if (_scoutPolicyOverlay.gameObject.activeSelf) _scoutPolicyConfirmButton.Select();
         }
 
         private void ApplyScoutPolicy()
         {
-            if (FindScoutProduct(_scoutPreviewProductId) == null) return;
+            OwnerScoutProductSnapshot selected = FindScoutProduct(_scoutPreviewProductId);
+            if (selected == null) return;
             _selectedScoutProductId = _scoutPreviewProductId;
+            RevealScoutScope(selected);
             CloseScoutPolicy();
             BindScout();
         }
 
         private void RefreshScoutReference(OwnerScoutProductSnapshot product)
         {
-            _scoutCost.text = "비 용   " + product.PriceText;
+            _scoutCost.text = product.DrawCount + "명 파견  ·  " + product.PriceText;
             _scoutSummary.text = product.CanPurchase
-                ? product.Title + " · 후보 " + product.CandidateCount.ToString("N0") + "장 중 위시 " +
-                  product.WishlistCandidateCount.ToString("N0") + "장 · 확정 시 즉시 지급됩니다."
+                ? "후보 " + product.CandidateCount.ToString("N0") + "장 · 위시 " +
+                  product.WishlistCandidateCount.ToString("N0") + "장 포함 · 확정 즉시 영입"
                 : product.BlockedReason;
-            _scoutDispatch.text = "파견 범위\n" + product.Scope + "\n\n탐색 방침\n" +
-                                  DescribeScoutPolicy(product) + "\n\n탐색 인원  " + product.DrawCount + "명\n" +
-                                  "위시 포함  " + product.WishlistCandidateCount.ToString("N0") + "장";
-            _scoutGaugeLabel.text = product.PityGauge + " / " + product.PityThreshold;
+            _scoutSummary.color = product.CanPurchase ? ScoutInk : CareerUiTheme.Error;
+            _scoutDispatch.text = product.Scope + "\n" + DescribeScoutPolicy(product) + "\n" +
+                product.DrawCount + "명 탐색";
+            _scoutGaugeLabel.text = product.PityGauge.ToString("N0") + " / " + product.PityThreshold.ToString("N0");
             float fill = product.PityThreshold > 0 ? Mathf.Clamp01((float)product.PityGauge / product.PityThreshold) : 0;
-            _scoutGaugeFill.rectTransform.sizeDelta = new Vector2(108 * fill, 12);
+            _scoutGaugeFill.rectTransform.sizeDelta = new Vector2(184 * fill, 6);
         }
 
         private void BindScoutResults(ShopGrantedItem[] items)
         {
             OwnerRuntimeUiFactory.ClearChildren(_scoutResultGrid);
-            _scoutResultTitle.text = items.Length == 0
-                ? "영입대기 선수 · 파견 후 결과가 표시됩니다"
-                : "영입 완료 · " + items.Length + "명";
-            for (int index = 0; index < Math.Max(10, items.Length); index++)
+            _scoutResultTitle.text = items.Length == 0 ? "03  영입 리포트" : "영입 완료 · " + items.Length + "명";
+            if (items.Length == 0)
             {
-                RectTransform slot = ScoutSurface(_scoutResultGrid, "CardSlot" + index, index % 5 * 88, index / 5 * 120, 82, 114,
-                    new Color32(222, 224, 222, 255)).rectTransform;
-                if (index >= items.Length)
+                Texture2D environment = Resources.Load<Texture2D>("UI/OwnerPowerUp/Scouts/scout_office_v1");
+                if (environment != null)
                 {
-                    ScoutLabel(slot, "Empty", "◇", 40, 8, 22, 66, 60, new Color32(196, 200, 197, 255));
-                    continue;
+                    ScoutArtwork(_scoutResultGrid, "ScoutingOffice", 0, 0, 448, 250).texture = environment;
+                    ScoutSurface(_scoutResultGrid, "OfficeReadability", 0, 0, 448, 250, new Color(.03f, .09f, .16f, .58f));
                 }
+                Color titleColor = environment != null ? Color.white : ScoutBlue;
+                Color bodyColor = environment != null ? new Color32(231, 239, 247, 255) : ScoutInk;
+                ScoutLabel(_scoutResultGrid, "EmptyHeading", "다음 주전과의 첫 만남", 22, 24, 60, 400, 40, titleColor)
+                    .alignment = TextAnchor.MiddleCenter;
+                ScoutLabel(_scoutResultGrid, "EmptyGuide",
+                    "파견 범위와 탐색 방침을 선택하세요.\n영입한 선수는 이곳에서 바로 확인할 수 있습니다.",
+                    13, 24, 106, 400, 56, bodyColor).alignment = TextAnchor.MiddleCenter;
+                ScoutLabel(_scoutResultGrid, "EmptyHint", "원하는 선수는 위시리스트에 담아두세요.",
+                    11, 24, 190, 400, 26, bodyColor).alignment = TextAnchor.MiddleCenter;
+                return;
+            }
+            // 현재 상품은 최대 10명이지만 지급 개수가 늘어도 모든 결과를 조회할 수 있다.
+            RectTransform viewport = ScoutSurface(_scoutResultGrid, "ResultViewport", 0, 0, 448, 250, Color.clear).rectTransform;
+            viewport.GetComponent<Image>().raycastTarget = true;
+            viewport.gameObject.AddComponent<RectMask2D>();
+            ScrollRect scroll = viewport.gameObject.AddComponent<ScrollRect>();
+            RectTransform content = OwnerRuntimeUiFactory.CreateRect("ResultRows", viewport);
+            PlaceReference(content, 0, 0, 448, Math.Max(250, ((items.Length + 4) / 5) * 125));
+            scroll.viewport = viewport;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 30;
+            for (int index = 0; index < items.Length; index++)
+            {
+                RectTransform slot = ScoutSurface(content, "CardSlot" + index, index % 5 * 90, index / 5 * 125, 84, 120,
+                    new Color32(234, 239, 244, 255)).rectTransform;
                 ShopGrantedItem item = items[index];
                 OwnerCardTrainingTargetSnapshot target = FindTrainingTarget(item.ItemId);
                 if (target != null)
                 {
                     PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(slot, "GrantedCard");
                     card.UseLineupSlotLayout();
-                    OwnerRuntimeUiFactory.Stretch(card.GetComponent<RectTransform>(), new Vector2(2, 2), new Vector2(-2, -2));
-                    card.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(target.Card, false));
-                    OwnerCollectionCardSnapshot granted = target.Card;
+                    PlaceReference(card.GetComponent<RectTransform>(), 2, 2, 80, 99);
+                    OwnerCollectionCardSnapshot granted = _snapshot.ResolveCard(target.Card);
+                    card.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(granted, false),
+                        PlayerPortraitSprites.GetDefault(granted.Position));
+                    card.UsePlayerPickerLayout();
                     card.DetailRequested += _ => UI_Popup_OwnerPlayerCard.Show(transform, granted);
                 }
                 else
-                    ScoutLabel(slot, "GrantedName", item.DisplayName + "\n" + item.GradeLabel, 12, 4, 15, 74, 90).alignment = TextAnchor.MiddleCenter;
-                ScoutLabel(slot, "NewStatus", item.WasWishlisted ? "★ 위시 성공" : item.IsNew ? "신규" : "중복",
-                    10, 3, 0, 76, 16, ScoutBlue);
+                    ScoutLabel(slot, "GrantedName", item.DisplayName + "\n" + item.GradeLabel, 12, 4, 10, 76, 84)
+                        .alignment = TextAnchor.MiddleCenter;
+                ScoutLabel(slot, "GrantedStatus", item.WasWishlisted ? "위시 영입" : item.IsNew ? "신규 영입" : "중복 획득",
+                    10, 2, 102, 80, 18, item.IsNew ? ScoutBlue : ScoutInk).alignment = TextAnchor.MiddleCenter;
             }
         }
 
@@ -306,15 +354,14 @@ namespace Baseball.Presentation.Owner
             if (_scoutCanvas == null || !_scoutRoot.gameObject.activeInHierarchy) return;
             Rect bounds = _scoutRoot.rect;
             _scoutCanvas.localScale = Vector3.one * Mathf.Max(.01f, Mathf.Min(bounds.width / 1000, (bounds.height - 32) / 460));
+            // 하단 피드백 32px를 한쪽에 확보한다. 중앙 정렬만 하면 양쪽 16px로 나뉜다.
+            _scoutCanvas.anchoredPosition = new Vector2(0, 16);
         }
 
         private static void CreateScoutReferencePin(Transform parent, string name, string label, Action action, bool selected, int index, int count)
         {
-            float x = index % 2 == 0 ? 34 : 167;
-            float y = 104 + index / 2 * 89 + index % 2 * 35;
             string caption = label.Replace("선수 카드", string.Empty).Trim(' ', '·');
-            Button pin = ReferenceButton(parent, name, (selected ? "◉ " : "◎ ") + caption, action, x, y, 142, 30);
-            pin.transform.Find("Label").GetComponent<Text>().fontSize = 12;
+            ScoutButton(parent, name, (selected ? "✓  " : "") + caption, action, 0, index * 40, 244, 32, selected);
         }
 
         private static string DescribeScoutPolicy(OwnerScoutProductSnapshot product)
@@ -323,13 +370,92 @@ namespace Baseball.Presentation.Owner
             return separator < 0 ? product.Title : product.Title.Substring(separator + 1).Trim();
         }
 
-        private static RawImage ScoutSurface(Transform parent, string name, float x, float y, float width, float height, Color color)
+        private void ChangeScoutPortrait(int direction)
+        {
+            // 외형 선택은 화면에만 보관하며 영입 난수·비용·보장 게이지와 분리한다.
+            _scoutPortraitIndex = (_scoutPortraitIndex + direction + ScoutPortraitKeys.Length) % ScoutPortraitKeys.Length;
+            Texture2D portrait = Resources.Load<Texture2D>("UI/OwnerPowerUp/Scouts/scout_" + ScoutPortraitKeys[_scoutPortraitIndex] + "_v1");
+            _scoutPortrait.texture = portrait;
+            _scoutPolicyPortrait.texture = portrait;
+            _scoutName.text = ScoutPortraitNames[_scoutPortraitIndex];
+            _scoutPolicyName.text = _scoutName.text;
+        }
+
+        private void ApplyScoutChrome()
+        {
+            Transform panel = _root.Find("PowerUpPanel");
+            panel.Find("ThinBorder").gameObject.SetActive(false);
+            SetTrainingSurface(panel.GetComponent<Image>(), CareerUiTheme.RosterBoard);
+            Text heading = panel.GetComponent<CareerUiFrame>().HeaderRoot.GetComponent<Text>();
+            heading.text = "선수 영입   /   다음 시즌의 전력을 준비하세요";
+            heading.color = CareerUiTheme.RosterText;
+            SetTrainingSurface(panel.Find("HeaderSurface").GetComponent<Image>(), CareerUiTheme.RosterBoard);
+            SetTrainingSurface(panel.Find("HeaderAccent").GetComponent<Image>(), CareerUiTheme.RosterDivider);
+        }
+
+        private void OpenScoutProbability()
+        {
+            _scoutProbabilityOverlay.gameObject.SetActive(true);
+            _scoutProbabilityOverlay.SetAsLastSibling();
+            _scoutBaseInput.interactable = false;
+            _scoutBaseInput.blocksRaycasts = false;
+            FocusScoutControl(_scoutProbabilityOverlay, "CloseProbability");
+        }
+
+        private void CloseScoutProbability()
+        {
+            _scoutProbabilityOverlay.gameObject.SetActive(false);
+            _scoutBaseInput.interactable = true;
+            _scoutBaseInput.blocksRaycasts = true;
+            FocusScoutControl(_scoutBaseInput.transform, "ScoutInformationTab");
+        }
+
+        private static void FocusScoutControl(Transform root, string name)
+        {
+            Transform target = root.Find(name);
+            if (target != null && target.TryGetComponent(out Button button) && button.IsInteractable()) button.Select();
+        }
+
+        private static RawImage ScoutArtwork(Transform parent, string name, float x, float y, float width, float height)
         {
             var image = new GameObject(name, typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();
             image.transform.SetParent(parent, false);
             PlaceReference(image.rectTransform, x, y, width, height);
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static Button ScoutButton(Transform parent, string name, string value, Action action,
+            float x, float y, float width, float height, bool selected = false)
+        {
+            // 유학 메뉴와 같은 Native 버튼 문법을 사용하고 공용 셸의 장식 프레임 재적용을 막는다.
+            Image surface = ScoutSurface(parent, name, x, y, width, height, selected ? ScoutBlue : new Color32(239, 242, 245, 255));
+            surface.raycastTarget = true;
+            var outline = surface.gameObject.AddComponent<Outline>();
+            outline.effectColor = selected ? new Color32(100, 156, 215, 255) : new Color32(187, 201, 215, 255);
+            outline.effectDistance = new Vector2(1, -1);
+            Button button = surface.gameObject.AddComponent<Button>();
+            button.targetGraphic = surface;
+            ColorBlock colors = ColorBlock.defaultColorBlock;
+            colors.highlightedColor = new Color(.83f, .9f, 1f, 1);
+            colors.selectedColor = new Color(.76f, .87f, 1f, 1);
+            colors.pressedColor = new Color(.65f, .76f, .88f, 1);
+            colors.disabledColor = new Color(.68f, .70f, .73f, .65f);
+            button.colors = colors;
+            button.onClick.AddListener(() => action?.Invoke());
+            ScoutLabel(surface.transform, "Label", value, 12, 8, 2, width - 16, height - 4,
+                selected ? Color.white : ScoutInk).alignment = TextAnchor.MiddleCenter;
+            return button;
+        }
+
+        private static Image ScoutSurface(Transform parent, string name, float x, float y, float width, float height, Color color)
+        {
+            var image = new GameObject(name, typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            image.transform.SetParent(parent, false);
+            PlaceReference(image.rectTransform, x, y, width, height);
             image.color = color;
             image.raycastTarget = false;
+            image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             return image;
         }
 

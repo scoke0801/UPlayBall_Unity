@@ -49,6 +49,7 @@ namespace Baseball.Presentation.Owner
         /// <summary>영입 안내를 닫아 셸의 취소 입력을 소비한다.</summary>
         public bool TryHandleCancel()
         {
+            if (_targets != null && _targets.IsOpen) { _targets.Close(); return true; }
             if (_help != null && _help.gameObject.activeSelf)
             {
                 _help.gameObject.SetActive(false);
@@ -67,6 +68,7 @@ namespace Baseball.Presentation.Owner
         /// <summary>레퍼런스에 따른 영입 화면을 선택한다.</summary>
         public void ShowRoute(string route)
         {
+            _targets?.Close();
             _isCareerHigh = route != null && route.IndexOf("career", StringComparison.OrdinalIgnoreCase) >= 0;
             _root.Find("Title").GetComponent<Text>().text = _isCareerHigh ? "커리어하이 영입" : "레전드 영입";
             _root.Find("Subtitle").GetComponent<Text>().text = _isCareerHigh

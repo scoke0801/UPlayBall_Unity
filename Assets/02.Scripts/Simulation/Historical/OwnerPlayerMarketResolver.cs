@@ -4,44 +4,7 @@ using Baseball.Core.Historical;
 
 namespace Baseball.Simulation.Historical
 {
-    public enum OwnerPlayerMarketStatus
-    {
-        Available,
-        InvalidSelection,
-        InsufficientMoney,
-        ContractExpired
-    }
 
-    /// <summary>선수 계약 갱신을 실행하기 전에 비용과 차단 근거를 고정한다.</summary>
-    public sealed class OwnerContractRenewalPreview
-    {
-        public OwnerContractRenewalPreview(
-            OwnerPlayerMarketStatus status,
-            string cardId,
-            int seasons,
-            long annualSalary,
-            long signingCost,
-            string reason,
-            long deferredSigningCost = 0L)
-        {
-            Status = status;
-            CardId = cardId ?? string.Empty;
-            Seasons = seasons;
-            AnnualSalary = annualSalary;
-            SigningCost = signingCost;
-            Reason = reason ?? string.Empty;
-            DeferredSigningCost = deferredSigningCost;
-        }
-
-        public OwnerPlayerMarketStatus Status { get; }
-        public string CardId { get; }
-        public int Seasons { get; }
-        public long AnnualSalary { get; }
-        public long SigningCost { get; }
-        public long DeferredSigningCost { get; }
-        public string Reason { get; }
-        public bool CanCommit => Status == OwnerPlayerMarketStatus.Available;
-    }
 
     /// <summary>구단주 모드 선수 계약 비용을 순수 C#로 계산한다.</summary>
     public sealed class OwnerPlayerMarketResolver
@@ -147,49 +110,6 @@ namespace Baseball.Simulation.Historical
                 _balance.GetAnnualSalary(playerSeason.Cost, card.Edition, registrationContractSeasons));
         }
 
-        public OwnerContractRenewalPreview PreviewRenewal(
-            OwnerPlayerContractState contract,
-            PlayerCardDefinition card,
-            PlayerSeasonDefinition season,
-            int currentSeason,
-            int contractSeasons,
-            long availableMoney,
-            ContractPaymentMode paymentMode = ContractPaymentMode.RequireCash)
-        {
-            if (contract == null || card == null || season == null ||
-                !string.Equals(contract.CardId, card.CardId, StringComparison.Ordinal))
-                return new OwnerContractRenewalPreview(OwnerPlayerMarketStatus.InvalidSelection, string.Empty, 0, 0L, 0L, "계약 선수를 확인할 수 없습니다.");
-            if (currentSeason < contract.StartSeason)
-                return new OwnerContractRenewalPreview(OwnerPlayerMarketStatus.InvalidSelection, card.CardId, contractSeasons, 0L, 0L, "아직 시작하지 않은 계약입니다.");
-            if (contract.RemainingSeasons <= 0)
-                return new OwnerContractRenewalPreview(OwnerPlayerMarketStatus.ContractExpired, card.CardId, contractSeasons, 0L, 0L, "이미 만료된 계약입니다.");
-            if (contractSeasons < 1 || contractSeasons > _balance.MaximumContractSeasons)
-                return new OwnerContractRenewalPreview(OwnerPlayerMarketStatus.InvalidSelection, card.CardId, contractSeasons, 0L, 0L, "계약 기간은 1~3년이어야 합니다.");
-
-            long annualSalary = _balance.GetAnnualSalary(season.Cost, card.Edition, contractSeasons);
-            long signingCost = (long)Math.Round(
-                annualSalary * contractSeasons * _balance.RenewalSigningCostRate,
-                MidpointRounding.AwayFromZero);
-            if (availableMoney < signingCost && paymentMode == ContractPaymentMode.RequireCash)
-            {
-                return new OwnerContractRenewalPreview(
-                    OwnerPlayerMarketStatus.InsufficientMoney,
-                    card.CardId,
-                    contractSeasons,
-                    annualSalary,
-                    signingCost,
-                    "계약금이 부족합니다.");
-            }
-            return new OwnerContractRenewalPreview(
-                OwnerPlayerMarketStatus.Available,
-                card.CardId,
-                contractSeasons,
-                annualSalary,
-                signingCost,
-                $"{contractSeasons}년 연장하여 잔여 {contract.RemainingSeasons + contractSeasons}년이 됩니다. 연봉은 즉시 변경됩니다." +
-                (signingCost > availableMoney ? " 부족한 계약금은 미지급금으로 이월하여 이후 수입에서 우선 상환합니다." : string.Empty),
-                Math.Max(0L, signingCost - availableMoney));
-        }
 
         private static PlayerCardDefinition GetCard(WorldCardCatalog catalog, string cardId)
         {
