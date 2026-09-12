@@ -115,10 +115,6 @@ namespace Baseball.Game.Historical
         /// <summary>검증된 로스터 교체를 현재 조·조회 인덱스·월드 목록에 함께 반영한다.</summary>
         private void ReplaceCurrentRoster(CurrentRosterState roster)
         {
-            if (roster.TeamSeasonKey == PlayerTeamSeasonKey)
-                foreach (var camp in PlayerGrowth.Camps)
-                    foreach (var entry in roster.Entries)
-                        if (entry.CardId == camp.CardId) throw new InvalidOperationException("전지훈련에서 귀환한 뒤 1군에 등록하세요.");
             int index = FindRosterIndex(roster.TeamSeasonKey);
             LeagueWorld?.ReplaceRoster(roster);
             _rosters[index] = roster;
@@ -292,13 +288,6 @@ namespace Baseball.Game.Historical
             }
 
             var studyingCards = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var camp in PlayerGrowth.Camps)
-            {
-                if (!_ownedCardsById.ContainsKey(camp.CardId) || !studyingCards.Add(camp.CardId))
-                    throw new ArgumentException("전지훈련 선수가 보유 카드와 일치하지 않습니다.", nameof(PlayerGrowth));
-                foreach (var entry in GetRoster(PlayerTeamSeasonKey).Entries)
-                    if (entry.CardId == camp.CardId) throw new ArgumentException("전지훈련 선수는 1군에 등록할 수 없습니다.", nameof(PlayerGrowth));
-            }
             for (int index = 0; index < PlayerGrowth.StudyProjects.Count; index++)
             {
                 string cardId = PlayerGrowth.StudyProjects[index].CardId;

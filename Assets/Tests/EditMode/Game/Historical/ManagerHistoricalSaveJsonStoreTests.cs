@@ -9,6 +9,39 @@ namespace Baseball.Tests.EditMode.Game.Historical
 {
     public sealed class ManagerHistoricalSaveJsonStoreTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void 슬로건선택여부와관계없이_UnityJson을거쳐실제진행을복원한다(bool hasSlogan)
+        {
+            var fixture = typeof(ManagerHistoricalSaveTests).GetNestedType("Fixture", System.Reflection.BindingFlags.NonPublic)
+                .GetMethod("Create").Invoke(null, new object[] { Baseball.Core.Historical.WorldRecordMode.SimulatedHistory, false });
+            var adapter = (ManagerHistoricalSaveAdapter)fixture.GetType().GetMethod("CreateAdapter").Invoke(fixture, null);
+            var runtime = (ManagerHistoricalRuntimeState)fixture.GetType().GetProperty("State").GetValue(fixture);
+            runtime = adapter.Restore(adapter.CreateSaveData(runtime));
+            var source = adapter.CreateSaveData(runtime);
+            // 간소화 Fixture에도 실제 새 게임과 같은 25장 지급 이력을 채워 JSON 전체 복원을 검증한다.
+            source.newGameReceipt = new OwnerNewGameReceiptSaveData {
+                mainCardIds = Array.ConvertAll(source.ownedCards, card => card.cardId), fillerCardIds = Array.Empty<string>() };
+            if (hasSlogan)
+            {
+                source.playerGrowth.slogan = new Baseball.Core.Historical.OwnerSloganDefinition {
+                    id = "contact", name = "정교한 야구", minimumAbility = 1,
+                    cardsRequired = new[] { 1, 2, 3, 4, 5, 6 }, bonusByLevel = new[] { 1, 1, 2, 2, 3, 4 },
+                    penaltyByLevel = new int[6] };
+                source.playerGrowth.sloganLevel = 1;
+                source.playerGrowth.sloganRevision = 1;
+            }
+
+            var deserialized = ManagerHistoricalSaveJsonStore.Deserialize(ManagerHistoricalSaveJsonStore.Serialize(source));
+            var restored = adapter.Restore(deserialized);
+
+            Assert.That(restored.PlayerGrowth.Slogan != null, Is.EqualTo(hasSlogan));
+            if (hasSlogan)
+                Assert.That(restored.PlayerGrowth.Slogan.Definition.GetMinimumAbility(1), Is.EqualTo(1));
+            Assert.That(restored.OwnedCards.Count, Is.EqualTo(runtime.OwnedCards.Count));
+            Assert.That(restored.Economy.Money, Is.EqualTo(runtime.Economy.Money));
+        }
+
         [Test]
         public void FileRoundTrip_PreservesWorldHistoryAndContentReferenceWithoutDefinitionCopy()
         {

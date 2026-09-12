@@ -4,14 +4,6 @@ namespace Baseball.Game.Historical
 {
     public sealed partial class ManagerHistoricalSaveAdapter
     {
-        private static OwnerCampProjectSaveData[] CreateCamps(System.Collections.Generic.IReadOnlyList<OwnerCampProject> camps)
-        {
-            var result = new OwnerCampProjectSaveData[camps.Count];
-            for (int i = 0; i < result.Length; i++) result[i] = new OwnerCampProjectSaveData {
-                cardId = camps[i].CardId, facilityId = camps[i].FacilityId, weeklyExperience = camps[i].WeeklyExperience,
-                requiredExperience = camps[i].RequiredExperience, automaticReturn = camps[i].AutomaticReturn };
-            return result;
-        }
         private static OwnerSupportSaveData CreateSupport(OwnerSupportState support)
         {
             var result = new OwnerSupportSaveData { nextSequence = support.NextSequence,

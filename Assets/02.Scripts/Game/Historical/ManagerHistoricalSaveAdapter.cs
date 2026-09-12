@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed partial class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 28;
+        public const int CurrentSaveVersion = 30;
         private const int OwnerPostseasonSaveVersion = 18;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
@@ -1602,10 +1602,9 @@ namespace Baseball.Game.Historical
                     trainingBonuses = training,
                     studyBonuses = study,
                     growthModifiers = CreateGrowthLedger(card.Training.Ledger),
-                    unlockedSkillMask = card.SkillBoard.UnlockedMask,
-                    slotExperience = card.SkillBoard.SlotExperience,
                     skillBoard = CreateSkillBoard(card.SkillBoard),
-                    lastStudySeason = card.LastStudySeason
+                    lastStudySeason = card.LastStudySeason,
+                    trait = card.Trait.Copy()
                 };
             }
             Array.Sort(result, (left, right) => StringComparer.Ordinal.Compare(left.cardId, right.cardId));
@@ -1632,8 +1631,10 @@ namespace Baseball.Game.Historical
                         saveVersion < 28 ? null : RestoreGrowthLedger(Require(card.growthModifiers, nameof(card.growthModifiers)))),
                     saveVersion < OwnerGrowthSaveVersion
                         ? new OwnedCardSkillBoardState()
-                        : RestoreSkillBoard(card.skillBoard, saveVersion < 28 ? OwnedCardSkillBoardState.CompleteUnlockedMask : card.unlockedSkillMask, card.slotExperience),
+                        : RestoreSkillBoard(card.skillBoard),
                     saveVersion < OwnerGrowthSaveVersion ? -1 : card.lastStudySeason);
+                result[index].Trait = (card.trait ?? new PlayerTraitProgress()).Copy();
+                result[index].Trait.Validate();
             }
             return result;
         }
@@ -1713,10 +1714,9 @@ namespace Baseball.Game.Historical
             return result;
         }
 
-        private static OwnedCardSkillBoardState RestoreSkillBoard(OwnerPlacedSkillBlockSaveData[] source,
-            int unlockedMask, int slotExperience)
+        private static OwnedCardSkillBoardState RestoreSkillBoard(OwnerPlacedSkillBlockSaveData[] source)
         {
-            var result = new OwnedCardSkillBoardState(unlockedMask, slotExperience);
+            var result = new OwnedCardSkillBoardState();
             if (source == null) return result;
             for (int index = 0; index < source.Length; index++)
             {
@@ -1760,8 +1760,8 @@ namespace Baseball.Game.Historical
             {
                 offseasonCompletedWeeks = source.Offseason.CompletedWeeks,
                 studySequence = source.StudySequence,
+                traits = source.Traits.Copy(),
                 support = CreateSupport(source.Support),
-                camps = CreateCamps(source.Camps),
                 slogan = source.Slogan?.Definition.Copy(),
                 sloganLevel = source.Slogan?.Level ?? 0,
                 sloganRevision = source.Slogan?.Revision ?? 0,
@@ -1797,11 +1797,14 @@ namespace Baseball.Game.Historical
             if (inventoryData.nextInstanceId > 0) inventory.RestoreNextInstanceId(inventoryData.nextInstanceId);
             var result = new OwnerPlayerGrowthState(inventory, new OwnerOffseasonState(source.offseasonCompletedWeeks));
             result.RestoreStudySequence(source.studySequence);
+            result.Traits = (source.traits ?? new OwnerTraitTrainingState()).Copy();
+            result.Traits.Validate();
             result.Support = RestoreSupport(source.support);
-            if (source.slogan != null) result.Slogan = new OwnerSloganState(source.slogan, source.sloganLevel, source.sloganRevision);
-            if (source.camps != null)
-                foreach (var camp in source.camps)
-                    result.Camps.Add(new OwnerCampProject(camp.cardId, camp.facilityId, camp.weeklyExperience, camp.requiredExperience, camp.automaticReturn));
+            // JsonUtility는 미선택 null 슬로건도 기본값 객체로 기록하므로 선택 상태를 함께 확인한다.
+            bool hasSlogan = source.sloganLevel != 0 || source.sloganRevision != 0
+                || !string.IsNullOrEmpty(source.slogan?.id);
+            if (hasSlogan)
+                result.Slogan = new OwnerSloganState(Require(source.slogan, nameof(source.slogan)), source.sloganLevel, source.sloganRevision);
             CardStudyProjectSaveData[] projects = Require(source.studyProjects, nameof(source.studyProjects));
             for (int index = 0; index < projects.Length; index++)
             {

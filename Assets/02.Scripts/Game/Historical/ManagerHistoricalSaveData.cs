@@ -138,8 +138,6 @@ namespace Baseball.Game.Historical
     public sealed class OwnedPlayerCardSaveData
     {
         public OwnerGrowthModifierSaveData[] growthModifiers;
-        public int unlockedSkillMask;
-        public int slotExperience;
         public string cardId;
         public int enhancementLevel;
         public int duplicateCount;
@@ -149,6 +147,7 @@ namespace Baseball.Game.Historical
         public int[] studyBonuses;
         public OwnerPlacedSkillBlockSaveData[] skillBoard;
         public int lastStudySeason;
+        public Baseball.Core.Historical.PlayerTraitProgress trait;
     }
 
     [Serializable]
@@ -213,12 +212,12 @@ namespace Baseball.Game.Historical
     public sealed class OwnerPlayerGrowthSaveData
     {
         public OwnerSupportSaveData support;
-        public OwnerCampProjectSaveData[] camps;
         public Baseball.Core.Historical.OwnerSloganDefinition slogan;
         public int sloganLevel;
         public int sloganRevision;
         public int offseasonCompletedWeeks;
         public int studySequence;
+        public Baseball.Core.Historical.OwnerTraitTrainingState traits;
         public OwnerSkillBlockInventorySaveData inventory;
         public CardStudyProjectSaveData[] studyProjects;
     }
@@ -230,15 +229,6 @@ namespace Baseball.Game.Historical
         public string[] inventoryIds;
         public int[] inventoryCounts;
         public OwnerSupportAssignmentSaveData[] assignments;
-    }
-    [Serializable]
-    public sealed class OwnerCampProjectSaveData
-    {
-        public string cardId;
-        public string facilityId;
-        public int weeklyExperience;
-        public int requiredExperience;
-        public bool automaticReturn;
     }
     [Serializable]
     public sealed class OwnerSupportAssignmentSaveData

@@ -649,7 +649,16 @@ namespace Baseball.Game.Data
                 ownerPlayerMarket: common.OwnerPlayerMarket,
                 aggregateMatch: ownerExpansion.AggregateMatch,
                 historicalPitcherUsage: common.HistoricalPitcherUsage,
-                scoutEconomy: ownerExpansion.ScoutEconomy);
+                scoutEconomy: ownerExpansion.ScoutEconomy) { TraitTraining = LoadTraitTraining() };
+        }
+
+        private static Baseball.Core.Historical.OwnerTraitTrainingBalance LoadTraitTraining()
+        {
+            var asset = Resources.Load<TextAsset>("NewGame/OwnerTraitTraining");
+            if (asset == null) throw new InvalidOperationException("특성훈련 설정을 찾을 수 없습니다.");
+            var result = JsonUtility.FromJson<Baseball.Core.Historical.OwnerTraitTrainingBalance>(asset.text);
+            result.Validate();
+            return result;
         }
 
         /// <summary>
