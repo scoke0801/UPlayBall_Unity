@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>선수 카드 광채 플립북</title>
+<style>body{margin:0;background:#15181f;color:#eee;font:16px system-ui;display:grid;place-content:center;min-height:100vh;gap:18px;text-align:center}h1{font-size:22px;margin:0}.fx{display:block;width:min(66vw,340px);height:auto;aspect-ratio:2/3;margin:auto}button{font:inherit;padding:10px 24px;cursor:pointer}p{margin:0;color:#b9c0ce}label{display:flex;align-items:center;gap:12px}input{flex:1}</style>
+<h1>금빛 홀로그램 광채</h1><canvas class="fx" width="256" height="384" role="img" aria-label="형태가 고정된 금빛 카드 배경">캔버스를 지원하는 브라우저가 필요합니다.</canvas>
+<div><button id="toggle">일시정지</button></div><p>원화 고정 · 광량만 변화<br>16프레임 · 12fps · 2.5초 왕복 반복</p>
+<label>프레임 확인 <input id="frame" type="range" min="0" max="15" value="0" aria-label="확인할 프레임"></label>
+<script>
+const fx=document.querySelector('.fx'),button=document.querySelector('#toggle'),slider=document.querySelector('#frame');
+const context=fx.getContext('2d'),atlas=new Image();
+let playing=!matchMedia('(prefers-reduced-motion: reduce)').matches,elapsed=0,previous,lastFrame=-1;
+function label(){button.textContent=playing?'일시정지':'재생'}label();
+button.onclick=()=>{playing=!playing;label()};
+function draw(frame){if(!atlas.naturalWidth||lastFrame===frame)return;context.drawImage(atlas,frame%4*256,Math.floor(frame/4)*384,256,384,0,0,256,384);lastFrame=frame;slider.value=frame}
+slider.oninput=()=>{playing=false;elapsed=Number(slider.value)/12*1000;label();draw(Number(slider.value))};
+atlas.onload=()=>draw(0);
+atlas.onerror=()=>{document.querySelector('p').textContent='FX 시트를 불러오지 못했습니다.';button.disabled=true;slider.disabled=true};
+atlas.src='../../../Assets/Resources/UI/PlayerCards/PlayerCardFX_GoldHolographic_Flipbook_v2.png';
+document.addEventListener('visibilitychange',()=>{previous=undefined});
+function tick(now){if(previous!==undefined&&playing&&!document.hidden)elapsed=(elapsed+Math.min(now-previous,100))%2500;previous=now;
+const step=Math.floor(elapsed/1000*12)%30,frame=step<=15?step:30-step;
+draw(frame);requestAnimationFrame(tick)}requestAnimationFrame(tick);
+</script></html>

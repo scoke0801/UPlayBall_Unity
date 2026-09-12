@@ -63,6 +63,7 @@ namespace Baseball.Presentation.SharedUI
         private Image _teamEmblem;
         private PlayerMiniCardModel _model;
         private bool _usesLineupSlotLayout;
+        private bool _usesPlayerPickerLayout;
         private bool _usesRosterPresentation;
         private RectTransform _selectionOverlay;
         private bool _isSelected;
@@ -233,6 +234,15 @@ namespace Baseball.Presentation.SharedUI
                 ParseAccent(_model?.TeamAccentHex));
         }
 
+        /// <summary>선수 선택 목록에서는 이름을 상단에, 포지션을 명찰에 배치해 작은 카드에서도 신원을 우선 표시한다.</summary>
+        public void UsePlayerPickerLayout()
+        {
+            EnsureHierarchy();
+            _usesPlayerPickerLayout = true;
+            ApplyPlayerPickerLayout();
+            RefreshSelectionOverlay();
+        }
+
         /// <summary>선택 교환 중에도 모델을 다시 만들지 않고 카드 강조 상태만 바꾼다.</summary>
         public void SetVisualState(PlayerMiniCardVisualState visualState)
         {
@@ -348,6 +358,7 @@ namespace Baseball.Presentation.SharedUI
             {
                 ApplyLineupSlotVisualState(visualState, accent);
                 ApplyEditionFrame();
+                ApplyPlayerPickerLayout();
                 RefreshSelectionOverlay();
                 return;
             }
@@ -430,6 +441,33 @@ namespace Baseball.Presentation.SharedUI
             }
         }
 
+        private void ApplyPlayerPickerLayout()
+        {
+            if (!_usesPlayerPickerLayout || !_usesLineupSlotLayout)
+                return;
+
+            // 선택 화면의 60~80px 카드에서는 포지션보다 이름 식별이 먼저다.
+            SetAnchors(_nameText.rectTransform, new Vector2(.04f, .89f), new Vector2(.96f, .99f),
+                Vector2.zero, Vector2.zero);
+            _nameText.alignment = TextAnchor.MiddleCenter;
+            _nameText.color = Color.white;
+            SetBestFitRange(_nameText, 7, 11);
+
+            Rect nameRect = _model?.FrameEdition.HasValue == true
+                ? OwnerPlayerCardFrames.GetNameRect(_model.FrameEdition.Value, true)
+                : new Rect(.06f, .19f, .88f, .075f);
+            SetAnchors(_positionText.rectTransform,
+                new Vector2(nameRect.xMin, .89f * nameRect.yMin),
+                new Vector2(nameRect.xMax, .89f * nameRect.yMax),
+                Vector2.zero, Vector2.zero);
+            _positionText.alignment = TextAnchor.MiddleCenter;
+            _positionText.color = _model?.FrameEdition.HasValue == true
+                ? OwnerPlayerCardFrames.GetNameColor(_model.FrameEdition.Value)
+                : Color.white;
+            SetBestFitRange(_positionText, 6, 9);
+            _yearText.gameObject.SetActive(false);
+        }
+
         private void RefreshSelectionOverlay()
         {
             if (_selectionOverlay == null && !_isSelected) return;
@@ -451,7 +489,9 @@ namespace Baseball.Presentation.SharedUI
             }
             _selectionOverlay.gameObject.SetActive(_isSelected);
             _selectionOverlay.Find("Header/Label").GetComponent<Text>().text =
-                string.IsNullOrWhiteSpace(_model?.PositionLabel) ? "선택됨" : "선택 · " + _model.PositionLabel;
+                _usesPlayerPickerLayout && !string.IsNullOrWhiteSpace(_model?.DisplayName)
+                    ? "선택 · " + _model.DisplayName
+                    : string.IsNullOrWhiteSpace(_model?.PositionLabel) ? "선택됨" : "선택 · " + _model.PositionLabel;
             _selectionOverlay.SetAsLastSibling();
         }
 
@@ -605,7 +645,7 @@ namespace Baseball.Presentation.SharedUI
         }
 
         private static Font DefaultFont =>
-            _defaultFont ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _defaultFont ??= Baseball.Presentation.UI.UIProjectFonts.Default;
 
         private static void SetAnchors(
             RectTransform rect,

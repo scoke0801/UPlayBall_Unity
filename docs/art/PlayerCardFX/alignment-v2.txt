@@ -1,0 +1,18 @@
+고정 원화 플립북 위치 검증
+frame 0: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=0
+frame 1: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=402
+frame 2: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=12386
+frame 3: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=23322
+frame 4: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=36471
+frame 5: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=49220
+frame 6: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=62650
+frame 7: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=69316
+frame 8: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=68859
+frame 9: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=62829
+frame 10: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=49083
+frame 11: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=36407
+frame 12: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=23998
+frame 13: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=12855
+frame 14: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=505
+frame 15: region 0=(0,0) region 1=(0,0) region 2=(0,0) region 3=(0,0) changed=0
+PASS: 64개 구역 위치 오차 0px / 14개 중간 프레임 광량 변화 / 첫·마지막 프레임 동일 / 1px 이동 대조군 검출
