@@ -129,15 +129,13 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             int gameId = 900000;
             while (!group.Postseason.IsCompleted)
             {
-                var series = group.Postseason.EnsureCurrentSeries(balance.Postseason.SemifinalSeriesGames,
-                    balance.Postseason.ChampionshipSeriesGames);
+                var series = group.Postseason.EnsureCurrentSeries();
                 int winner = series.LowerSeedTeamId == group.Season.PlayerTeamId
                     ? series.LowerSeedTeamId : series.HigherSeedTeamId;
                 var game = series.AppendNextGame(++gameId, 1);
                 game.Complete(game.AwayTeamId == winner ? 5 : 1, game.HomeTeamId == winner ? 5 : 1);
                 series.RecordCompletedGame(game);
-                group.Postseason.EnsureCurrentSeries(balance.Postseason.SemifinalSeriesGames,
-                    balance.Postseason.ChampionshipSeriesGames);
+                group.Postseason.EnsureCurrentSeries();
             }
             var root = new GameObject("Recovery", typeof(RectTransform));
             root.SetActive(false);

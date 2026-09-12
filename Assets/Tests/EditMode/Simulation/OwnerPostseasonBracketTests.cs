@@ -7,7 +7,7 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class OwnerPostseasonBracketTests
     {
         [Test]
-        public void SelectSeeds_승률득실차영속Key순으로상위4팀을고정한다()
+        public void SelectSeeds_승률득실차영속Key순으로상위5팀을고정한다()
         {
             var standings = new[]
             {
@@ -24,15 +24,12 @@ namespace Baseball.Tests.EditMode.Simulation
 
             int[] seeds = OwnerPostseasonBracket.SelectSeeds(standings, ids);
 
-            Assert.That(seeds, Is.EqualTo(new[] { 1, 3, 2, 4 }));
-            OwnerPostseasonBracket.GetSemifinalPair(seeds, 0, out int firstHigh, out int firstLow);
-            OwnerPostseasonBracket.GetSemifinalPair(seeds, 1, out int secondHigh, out int secondLow);
-            Assert.That((firstHigh, firstLow), Is.EqualTo((1, 4)));
-            Assert.That((secondHigh, secondLow), Is.EqualTo((3, 2)));
+            Assert.That(seeds, Is.EqualTo(new[] { 1, 3, 2, 4, 5 }));
+
         }
 
         [Test]
-        public void SelectSeeds_3팀조는상위2팀만결승에진출한다()
+        public void SelectSeeds_3팀조는2위와3위의플레이오프부터시작한다()
         {
             var standings = new[]
             {
@@ -45,7 +42,7 @@ namespace Baseball.Tests.EditMode.Simulation
                 { "TEAM-A", 1 }, { "TEAM-B", 2 }, { "TEAM-C", 3 }
             };
 
-            Assert.That(OwnerPostseasonBracket.SelectSeeds(standings, ids), Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(OwnerPostseasonBracket.SelectSeeds(standings, ids), Is.EqualTo(new[] { 1, 2, 3 }));
         }
     }
 }

@@ -71,6 +71,7 @@ namespace Baseball.Game.Historical
         public OwnerPostseasonSimulationProgress CreateProgressSnapshot()
         {
             int completedGames = 0;
+            int drawnGames = 0;
             int completedGroups = 0;
             string groupId = string.Empty;
             string seriesId = string.Empty;
@@ -80,6 +81,7 @@ namespace Baseball.Game.Historical
                 for (int seriesIndex = 0; seriesIndex < group.Postseason.Series.Count; seriesIndex++)
                 {
                     OwnerPostseasonSeriesState series = group.Postseason.Series[seriesIndex];
+                    if (series.Round != OwnerPostseasonRound.WildCard) drawnGames += series.Draws;
                     for (int gameIndex = 0; gameIndex < series.Games.Count; gameIndex++)
                         if (series.Games[gameIndex].IsCompleted) completedGames++;
                 }
@@ -90,7 +92,7 @@ namespace Baseball.Game.Historical
                     seriesId = group.Postseason.CurrentSeries?.SeriesId ?? string.Empty;
                 }
             }
-            return new OwnerPostseasonSimulationProgress(completedGames, _maximumGames,
+            return new OwnerPostseasonSimulationProgress(completedGames, _maximumGames + drawnGames,
                 completedGroups, _runtime.LeagueWorld.Groups.Count, groupId, seriesId);
         }
 
@@ -101,9 +103,7 @@ namespace Baseball.Game.Historical
             for (int index = 0; index < runtime.LeagueWorld.Groups.Count; index++)
             {
                 int seeds = runtime.LeagueWorld.Groups[index].Postseason.SeedTeamIds.Count;
-                count += seeds == 4
-                    ? balance.Postseason.SemifinalSeriesGames * 2 + balance.Postseason.ChampionshipSeriesGames
-                    : balance.Postseason.ChampionshipSeriesGames;
+                count += 7 + Math.Min(2, seeds - 2) * 5 + (seeds == 5 ? 2 : 0);
             }
             return count;
         }

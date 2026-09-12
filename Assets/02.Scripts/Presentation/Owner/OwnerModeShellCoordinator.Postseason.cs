@@ -33,6 +33,8 @@ namespace Baseball.Presentation.Owner
             _continueAfterCelebration = true;
             if (ShowPendingCelebration()) return;
             _continueAfterCelebration = false;
+            // 안내 저장은 다음 포스트시즌 세션이 상태 변경을 잠그기 전에 끝낸다.
+            ExecuteOperation(() => _manager.PublishGuideMatchResult());
             _isNextOwnerMatchPending = true;
             _isTransitioningToOwnerMatch = true;
             _nextOwnerMatchRequestedFrame = Time.frameCount;
@@ -61,7 +63,6 @@ namespace Baseball.Presentation.Owner
                 if (!_manager.IsNextPostseasonGamePlayerMatch) return true;
             }
             _isNextOwnerMatchPending = false;
-            ExecuteOperation(() => _manager.PublishGuideMatchResult());
             PlayOwnerMatchSpectator();
             return true;
         }

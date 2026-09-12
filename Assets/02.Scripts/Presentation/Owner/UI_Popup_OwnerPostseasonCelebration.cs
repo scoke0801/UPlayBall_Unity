@@ -116,15 +116,15 @@ namespace Baseball.Presentation.Owner
             _art.texture = Resources.Load<Texture2D>(artPath);
             _art.material = MatchUniformMaterials.GetForIllustration(uniformFranchiseId, artPath);
             _category.text = $"시즌 {result.SeasonNumber}  /  {OwnerLeagueDisplayNameFormatter.FormatFull(result.LeagueGrade)}";
-            _title.text = pennant ? "정규시즌 1위" : champion ? "포스트시즌 우승" : "결승 진출";
+            _title.text = pennant ? "정규시즌 1위" : champion ? "포스트시즌 우승" : result.NextRoundTitle + " 진출";
             _team.text = teamName(result.TeamKey);
             _score.text = pennant ? $"{result.Wins}승 {result.Draws}무 {result.Losses}패"
-                : $"{result.Wins}승 {result.Losses}패 · 시리즈 승리";
+                : $"{result.Wins}승 {result.Draws}무 {result.Losses}패 · 시리즈 통과";
             _description.text = pennant ? "긴 시즌을 선두로 마쳤습니다.\n이제 포스트시즌 우승에 도전합니다."
                 : champion ? $"결승 상대 · {teamName(result.OpponentKey)}\n마지막 승부 끝에 정상에 올랐습니다!"
-                : $"준결승 상대 · {teamName(result.OpponentKey)}\n이제 우승까지 한 시리즈 남았습니다.";
+                : $"{result.RoundTitle} 상대 · {teamName(result.OpponentKey)}\n이제 {result.NextRoundTitle}에 도전합니다.";
             _continue.GetComponentInChildren<Text>().text = pennant ? "정규시즌 결과 보기"
-                : champion ? "우승 결과 보기" : "결승 대진 보기";
+                : champion ? "우승 결과 보기" : "다음 대진 보기";
             _records.gameObject.SetActive(canViewMatchRecords && !pennant);
             // 정규시즌 일러스트의 왼쪽 선수까지 가리지 않도록 본문 폭을 아트의 여백 안에 둔다.
             Place(_title.rectTransform, 48, 508, pennant ? 390 : 510, 96);

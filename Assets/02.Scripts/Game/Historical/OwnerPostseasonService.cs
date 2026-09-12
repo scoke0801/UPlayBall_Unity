@@ -36,9 +36,7 @@ namespace Baseball.Game.Historical
                     teamIds.Add(group.Season.Teams[index].TeamSeasonKey, group.Season.Teams[index].TeamId);
                 group.SetPostseason(new OwnerPostseasonState(group.Season.SeasonId,
                     OwnerPostseasonBracket.SelectSeeds(ranking, teamIds)));
-                group.Postseason.EnsureCurrentSeries(
-                    _balance.Postseason.SemifinalSeriesGames,
-                    _balance.Postseason.ChampionshipSeriesGames);
+                group.Postseason.EnsureCurrentSeries();
             }
         }
 
@@ -56,9 +54,7 @@ namespace Baseball.Game.Historical
             {
                 OwnerLeagueGroupState group = world.Groups[groupIndex];
                 if (group.Postseason.IsCompleted) continue;
-                OwnerPostseasonSeriesState series = group.Postseason.EnsureCurrentSeries(
-                    _balance.Postseason.SemifinalSeriesGames,
-                    _balance.Postseason.ChampionshipSeriesGames);
+                OwnerPostseasonSeriesState series = group.Postseason.EnsureCurrentSeries();
                 int seriesIndex = FindSeriesIndex(group.Postseason, series);
                 var pendingGame = series.Games.Count > 0 && !series.Games[series.Games.Count - 1].IsCompleted
                     ? series.Games[series.Games.Count - 1] : null;
@@ -71,9 +67,7 @@ namespace Baseball.Game.Historical
                 MatchResult match = matchService.PlayPostseasonGame(runtime, group, series, game,
                     playerEventSink, playerExecutionProfile, out ManagerModeMatchResult playerResult);
                 series.RecordCompletedGame(game);
-                group.Postseason.EnsureCurrentSeries(
-                    _balance.Postseason.SemifinalSeriesGames,
-                    _balance.Postseason.ChampionshipSeriesGames);
+                group.Postseason.EnsureCurrentSeries();
                 return new OwnerPostseasonAdvanceResult(group.League.LeagueInstanceId, groupIndex,
                     series, game, match, playerResult, world.IsPostseasonCompleted);
             }

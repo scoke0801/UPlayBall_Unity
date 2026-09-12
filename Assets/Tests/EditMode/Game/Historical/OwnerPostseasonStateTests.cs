@@ -5,77 +5,129 @@ namespace Baseball.Tests.EditMode.Game.Historical
 {
     public sealed class OwnerPostseasonStateTests
     {
-        [Test]
-        public void HasRemainingGames_결승상대대기는유지하고탈락과우승후에는종료한다()
+        [TestCase(4, 10)]
+        [TestCase(5, 12)]
+        public void 상위시드가직행하고최하위시드도전승으로우승할수있다(int seeds, int expectedGames)
         {
-            var postseason = new OwnerPostseasonState("OWNER-NEXT", new[] { 11, 22, 33, 44 });
-            Assert.That(postseason.HasRemainingGames(11), Is.True);
-            Assert.That(postseason.HasRemainingGames(99), Is.False);
-            var first = postseason.EnsureCurrentSeries(3, 5);
-            Assert.That(postseason.HasRemainingGames(44), Is.True);
-            WinSeries(first, 11, 100);
-            Assert.That(postseason.HasRemainingGames(11), Is.True);
-            Assert.That(postseason.HasRemainingGames(44), Is.False);
-            WinSeries(postseason.EnsureCurrentSeries(3, 5), 22, 200);
-            var final = postseason.EnsureCurrentSeries(3, 5);
-            Assert.That(postseason.HasRemainingGames(11), Is.True);
-            Assert.That(postseason.HasRemainingGames(22), Is.True);
-            Assert.That(postseason.HasRemainingGames(33), Is.False);
-            WinSeries(final, 11, 300);
-            Assert.That(postseason.HasRemainingGames(11), Is.False);
-            Assert.That(postseason.HasRemainingGames(22), Is.False);
-        }
-
-        [Test]
-        public void EnsureCurrentSeries_4강두경기뒤시드순서로결승을만든다()
-        {
-            var postseason = new OwnerPostseasonState("OWNER-S01", new[] { 11, 22, 33, 44 });
-
-            OwnerPostseasonSeriesState first = postseason.EnsureCurrentSeries(3, 5);
-
-            Assert.That(first.SeriesId, Is.EqualTo("semifinal-a"));
-            Assert.That(first.HigherSeedTeamId, Is.EqualTo(11));
-            Assert.That(first.LowerSeedTeamId, Is.EqualTo(44));
-            Assert.That(postseason.Series.Count, Is.EqualTo(2));
-            WinSeries(first, first.HigherSeedTeamId, 100);
-
-            OwnerPostseasonSeriesState second = postseason.EnsureCurrentSeries(3, 5);
-            Assert.That(second.SeriesId, Is.EqualTo("semifinal-b"));
-            WinSeries(second, second.LowerSeedTeamId, 200);
-
-            OwnerPostseasonSeriesState championship = postseason.EnsureCurrentSeries(3, 5);
-
-            Assert.That(championship.Round, Is.EqualTo(OwnerPostseasonRound.Championship));
-            Assert.That(championship.HigherSeedTeamId, Is.EqualTo(11));
-            Assert.That(championship.LowerSeedTeamId, Is.EqualTo(33));
-            Assert.That(championship.WinsRequired, Is.EqualTo(3));
-        }
-
-        [Test]
-        public void RecordCompletedGame_우승확정뒤결과를구단별로판정한다()
-        {
-            var postseason = new OwnerPostseasonState("OWNER-S02", new[] { 11, 22 });
-            OwnerPostseasonSeriesState championship = postseason.EnsureCurrentSeries(3, 3);
-
-            WinSeries(championship, championship.LowerSeedTeamId, 300);
-
-            Assert.That(postseason.IsCompleted, Is.True);
-            Assert.That(postseason.ChampionTeamId, Is.EqualTo(22));
-            Assert.That(postseason.GetTeamResult(22), Is.EqualTo(OwnerTeamPostseasonResult.Champion));
-            Assert.That(postseason.GetTeamResult(11), Is.EqualTo(OwnerTeamPostseasonResult.RunnerUp));
-            Assert.That(postseason.GetTeamResult(99), Is.EqualTo(OwnerTeamPostseasonResult.DidNotQualify));
-            Assert.That(championship.AppendNextGame(999, 999UL), Is.Null);
-        }
-
-        private static void WinSeries(OwnerPostseasonSeriesState series, int winnerTeamId, int gameIdBase)
-        {
-            for (int index = 0; index < series.WinsRequired; index++)
+            var ids = new int[seeds];
+            for (int i = 0; i < seeds; i++) ids[i] = (i + 1) * 11;
+            var postseason = new OwnerPostseasonState("KBO", ids);
+            int games = 0;
+            while (!postseason.IsCompleted)
             {
-                var game = series.AppendNextGame(gameIdBase + index, (ulong)(gameIdBase + index));
-                bool winnerIsHome = game.HomeTeamId == winnerTeamId;
-                game.Complete(winnerIsHome ? 0 : 1, winnerIsHome ? 1 : 0);
+                var series = postseason.EnsureCurrentSeries();
+                Assert.That(series.HigherSeedTeamId, Is.EqualTo((seeds - postseason.Series.Count) * 11));
+                Assert.That(series.LowerSeedTeamId, Is.EqualTo(seeds * 11));
+                Assert.That(postseason.HasRemainingGames(11), Is.True);
+                while (!series.IsCompleted)
+                {
+                    Complete(series, series.LowerSeedTeamId, ++games);
+                    // 실제 저장과 동일하게 경기·승수만으로 매 경기 복원한다.
+                    var copy = new OwnerPostseasonSeriesState(series.SeriesId, series.Round,
+                        series.HigherSeedTeamId, series.LowerSeedTeamId, series.SeriesGames,
+                        series.Games, series.HigherSeedWins, series.LowerSeedWins);
+                    Assert.That(copy.WinnerTeamId, Is.EqualTo(series.WinnerTeamId));
+                }
+                var restored = new OwnerPostseasonState("KBO", ids, postseason.Series);
+                Assert.That(restored.ChampionTeamId, Is.EqualTo(postseason.ChampionTeamId));
+            }
+            Assert.That(games, Is.EqualTo(expectedGames));
+            Assert.That(postseason.GetTeamResult(seeds * 11), Is.EqualTo(OwnerTeamPostseasonResult.Champion));
+            Assert.That(postseason.GetTeamResult(11), Is.EqualTo(OwnerTeamPostseasonResult.RunnerUp));
+            Assert.That(postseason.GetTeamResult(22), Is.EqualTo(OwnerTeamPostseasonResult.PlayoffElimination));
+            Assert.That(postseason.GetTeamResult(33), Is.EqualTo(OwnerTeamPostseasonResult.SemiPlayoffElimination));
+            Assert.That(postseason.HasRemainingGames(seeds * 11), Is.False);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void 와일드카드4위는첫승또는무승부로진출하며실제승수를보존한다(bool draw)
+        {
+            var postseason = new OwnerPostseasonState("WC", new[] { 1, 2, 3, 4, 5 });
+            var series = postseason.EnsureCurrentSeries();
+            Complete(series, draw ? 0 : 4, 1);
+            Assert.That(series.WinnerTeamId, Is.EqualTo(4));
+            Assert.That(series.HigherSeedWins, Is.EqualTo(draw ? 0 : 1));
+            Assert.That(series.Draws, Is.EqualTo(draw ? 1 : 0));
+            Assert.That(series.AppendNextGame(2, 2), Is.Null);
+            Assert.That(postseason.HasRemainingGames(5), Is.False);
+            var copy = new OwnerPostseasonSeriesState(series.SeriesId, series.Round, 4, 5, 2,
+                series.Games, series.HigherSeedWins, series.LowerSeedWins);
+            Assert.That(copy.WinnerTeamId, Is.EqualTo(4));
+            Assert.That(postseason.EnsureCurrentSeries().HigherSeedTeamId, Is.EqualTo(3));
+        }
+
+        [TestCase(OwnerPostseasonRound.WildCard, 2, "HH")]
+        [TestCase(OwnerPostseasonRound.SemiPlayoff, 5, "HHAAH")]
+        [TestCase(OwnerPostseasonRound.Playoff, 5, "HHAAH")]
+        [TestCase(OwnerPostseasonRound.Championship, 7, "HHAAAHH")]
+        public void 홈구장순서를KBO규정과일치시킨다(OwnerPostseasonRound round, int length, string homes)
+        {
+            var series = new OwnerPostseasonSeriesState("HOME", round, 1, 2, length);
+            for (int i = 0; i < homes.Length; i++)
+            {
+                var game = series.AppendNextGame(i + 1, (ulong)i + 1);
+                Assert.That(game.HomeTeamId, Is.EqualTo(homes[i] == 'H' ? 1 : 2));
+                int winner = i % 2 == 0 ? 2 : 1;
+                game.Complete(game.AwayTeamId == winner ? 1 : 0, game.HomeTeamId == winner ? 1 : 0);
                 series.RecordCompletedGame(game);
             }
+        }
+
+        [Test]
+        public void 일반시리즈무승부는승수없이추가경기로이어진다()
+        {
+            var series = new OwnerPostseasonSeriesState("DRAW", OwnerPostseasonRound.Playoff, 1, 2, 5);
+            Complete(series, 0, 1);
+            Assert.That(series.IsCompleted, Is.False);
+            Assert.That(series.Draws, Is.EqualTo(1));
+            for (int i = 0; i < 3; i++) Complete(series, 1, i + 2);
+            Assert.That(series.WinnerTeamId, Is.EqualTo(1));
+            Assert.That(series.Games.Count, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void 무승부재경기는예정최종전뒤원래홈구장에서진행한다()
+        {
+            var series = new OwnerPostseasonSeriesState("REPLAY", OwnerPostseasonRound.Playoff, 1, 2, 5);
+            Complete(series, 1, 1);
+            Complete(series, 2, 2);
+            Complete(series, 0, 3);
+            Complete(series, 1, 4);
+            Complete(series, 2, 5);
+            var replay = series.AppendNextGame(6, 6);
+            Assert.That(replay.HomeTeamId, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void 동일입력10000개대진이같은승자와경기수를낸다()
+        {
+            for (int seed = 0; seed < 10000; seed++)
+            {
+                Assert.That(RunBracket(seed), Is.EqualTo(RunBracket(seed)));
+            }
+        }
+
+        private static (int champion, int games) RunBracket(int seed)
+        {
+            var random = new System.Random(seed);
+            var postseason = new OwnerPostseasonState("MASS", new[] { 1, 2, 3, 4, 5 });
+            int games = 0;
+            while (!postseason.IsCompleted)
+            {
+                var series = postseason.EnsureCurrentSeries();
+                while (!series.IsCompleted)
+                    Complete(series, random.Next(2) == 0 ? series.HigherSeedTeamId : series.LowerSeedTeamId, ++games);
+            }
+            Assert.That(games, Is.InRange(11, 19));
+            return (postseason.ChampionTeamId, games);
+        }
+
+        private static void Complete(OwnerPostseasonSeriesState series, int winner, int id)
+        {
+            var game = series.AppendNextGame(id, (ulong)id);
+            game.Complete(game.AwayTeamId == winner ? 1 : 0, game.HomeTeamId == winner ? 1 : 0);
+            series.RecordCompletedGame(game);
         }
     }
 }

@@ -16,13 +16,23 @@ namespace Baseball.Presentation.Owner
             SeasonNumber = snapshot.SeasonNumber;
             LeagueGrade = snapshot.CurrentGrade;
             TeamKey = snapshot.PlayerTeamSeasonKey;
+            RoundTitle = series.RoundTitle;
+            NextRoundTitle = series.Round switch
+            {
+                OwnerPostseasonRound.WildCard => "준플레이오프",
+                OwnerPostseasonRound.SemiPlayoff => "플레이오프",
+                _ => "한국시리즈"
+            };
             bool higher = series.HigherSeedTeamSeasonKey == TeamKey;
             OpponentKey = higher ? series.LowerSeedTeamSeasonKey : series.HigherSeedTeamSeasonKey;
+            Draws = series.Draws;
             Wins = higher ? series.HigherSeedWins : series.LowerSeedWins;
             Losses = higher ? series.LowerSeedWins : series.HigherSeedWins;
         }
 
         public OwnerPostseasonCelebrationKind Kind { get; }
+        public string RoundTitle { get; }
+        public string NextRoundTitle { get; }
         public int SeasonNumber { get; }
         public LeagueGrade LeagueGrade { get; }
         public string TeamKey { get; }
@@ -59,8 +69,7 @@ namespace Baseball.Presentation.Owner
             foreach (OwnerPostseasonSeriesReview series in snapshot.Series)
             {
                 if (series.Round != OwnerPostseasonRound.Championship || !series.IsCompleted) continue;
-                string winner = series.HigherSeedWins == series.WinsRequired
-                    ? series.HigherSeedTeamSeasonKey : series.LowerSeedTeamSeasonKey;
+                string winner = series.WinnerTeamSeasonKey;
                 if (winner == snapshot.PlayerTeamSeasonKey) return new OwnerPostseasonCelebration(snapshot, series);
             }
             return null;
@@ -75,15 +84,14 @@ namespace Baseball.Presentation.Owner
             foreach (OwnerPostseasonSeriesReview current in after.Series)
             {
                 if (!current.IsCompleted) continue;
-                string winner = current.HigherSeedWins == current.WinsRequired
-                    ? current.HigherSeedTeamSeasonKey : current.LowerSeedTeamSeasonKey;
+                string winner = current.WinnerTeamSeasonKey;
                 if (!string.Equals(winner, after.PlayerTeamSeasonKey, StringComparison.Ordinal)) continue;
                 foreach (OwnerPostseasonSeriesReview previous in before.Series)
                 {
                     if (previous.SeriesId != current.SeriesId || previous.IsCompleted ||
                         previous.HigherSeedTeamSeasonKey != current.HigherSeedTeamSeasonKey ||
                         previous.LowerSeedTeamSeasonKey != current.LowerSeedTeamSeasonKey) continue;
-                    if (current.HigherSeedWins + current.LowerSeedWins != previous.HigherSeedWins + previous.LowerSeedWins + 1)
+                    if (current.HigherSeedWins + current.LowerSeedWins + current.Draws != previous.HigherSeedWins + previous.LowerSeedWins + previous.Draws + 1)
                         continue;
                     return new OwnerPostseasonCelebration(after, current);
                 }

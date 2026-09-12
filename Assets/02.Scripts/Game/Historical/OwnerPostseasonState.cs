@@ -1,14 +1,16 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Game.Career;
-using Baseball.Simulation.Career;
 
 namespace Baseball.Game.Historical
 {
     public enum OwnerPostseasonRound
     {
         Semifinal,
-        Championship
+        Championship,
+        WildCard,
+        SemiPlayoff,
+        Playoff
     }
 
     public enum OwnerTeamPostseasonResult
@@ -16,7 +18,10 @@ namespace Baseball.Game.Historical
         DidNotQualify,
         SemifinalElimination,
         RunnerUp,
-        Champion
+        Champion,
+        WildCardElimination,
+        SemiPlayoffElimination,
+        PlayoffElimination
     }
 
     /// <summary>구단주 포스트시즌 한 시리즈의 일정과 승수를 저장한다.</summary>
@@ -32,7 +37,8 @@ namespace Baseball.Game.Historical
             if (!Enum.IsDefined(typeof(OwnerPostseasonRound), round)) throw new ArgumentOutOfRangeException(nameof(round));
             if (higherSeedTeamId <= 0 || lowerSeedTeamId <= 0 || higherSeedTeamId == lowerSeedTeamId)
                 throw new ArgumentException("서로 다른 두 구단이 필요합니다.");
-            if (seriesGames <= 0 || (seriesGames & 1) == 0) throw new ArgumentOutOfRangeException(nameof(seriesGames));
+            if (seriesGames <= 0 || ((seriesGames & 1) == 0 && !(round == OwnerPostseasonRound.WildCard && seriesGames == 2)))
+                throw new ArgumentOutOfRangeException(nameof(seriesGames));
             WinsRequired = seriesGames / 2 + 1;
             if (higherSeedWins < 0 || lowerSeedWins < 0 || higherSeedWins > WinsRequired || lowerSeedWins > WinsRequired ||
                 higherSeedWins == WinsRequired && lowerSeedWins == WinsRequired)
@@ -54,8 +60,16 @@ namespace Baseball.Game.Historical
                 if (_games[index].IsCompleted) completedGames++;
                 else if (index + 1 < _games.Count) throw new ArgumentException("미완료 경기 뒤에 다음 경기가 있습니다.", nameof(games));
             }
-            if (completedGames != higherSeedWins + lowerSeedWins)
+            int drawnGames = 0;
+            foreach (var game in _games)
+                if (game.IsCompleted && game.AwayRuns == game.HomeRuns) drawnGames++;
+            if (completedGames != higherSeedWins + lowerSeedWins + drawnGames)
                 throw new ArgumentException("완료 경기 수와 시리즈 승수가 다릅니다.", nameof(games));
+            Draws = drawnGames;
+            if (higherSeedWins > HigherSeedWinsRequired ||
+                round == OwnerPostseasonRound.WildCard && (completedGames > 2 ||
+                (higherSeedWins > 0 || drawnGames > 0) && lowerSeedWins == WinsRequired))
+                throw new ArgumentException("와일드카드 승수가 올바르지 않습니다.");
         }
 
         public string SeriesId { get; }
@@ -66,7 +80,10 @@ namespace Baseball.Game.Historical
         public int WinsRequired { get; }
         public int HigherSeedWins { get; private set; }
         public int LowerSeedWins { get; private set; }
-        public int WinnerTeamId => HigherSeedWins == WinsRequired ? HigherSeedTeamId : LowerSeedWins == WinsRequired ? LowerSeedTeamId : 0;
+        public int HigherSeedWinsRequired => Round == OwnerPostseasonRound.WildCard ? 1 : WinsRequired;
+        public int Draws { get; private set; }
+        public int WinnerTeamId => HigherSeedWins >= HigherSeedWinsRequired || Round == OwnerPostseasonRound.WildCard && Draws > 0
+            ? HigherSeedTeamId : LowerSeedWins == WinsRequired ? LowerSeedTeamId : 0;
         public bool IsCompleted => WinnerTeamId != 0;
         public IReadOnlyList<ScheduledGameState> Games => _games;
 
@@ -79,9 +96,21 @@ namespace Baseball.Game.Historical
             if (_games.Count > 0 && !_games[_games.Count - 1].IsCompleted)
                 throw new InvalidOperationException("현재 경기를 완료한 뒤 다음 경기를 만들 수 있습니다.");
             int gameNumber = _games.Count + 1;
-            bool higherSeedHome = Round == OwnerPostseasonRound.Semifinal
-                ? PostseasonBracket.IsHigherSeedHome(PostseasonRound.Semifinal, gameNumber)
-                : PostseasonBracket.IsHigherSeedHome(PostseasonRound.ChampionshipSeries, gameNumber);
+            // KBO: WC 전 경기 상위 시드 홈, 준PO/PO 2-2-1, 한국시리즈 2-3-2.
+            bool higherSeedHome = Round == OwnerPostseasonRound.WildCard ||
+                gameNumber <= 2 || gameNumber >= (Round == OwnerPostseasonRound.Championship ? 6 : 5);
+            if (gameNumber > SeriesGames)
+            {
+                // 무승부 재경기는 예정된 최종전 뒤에 발생 순서대로 원래 홈구장에서 치른다.
+                int replayIndex = gameNumber - SeriesGames - 1;
+                foreach (var previous in _games)
+                {
+                    if (previous.AwayRuns != previous.HomeRuns) continue;
+                    if (replayIndex-- != 0) continue;
+                    higherSeedHome = previous.HomeTeamId == HigherSeedTeamId;
+                    break;
+                }
+            }
             var game = new ScheduledGameState(gameId, gameNumber, randomSeed,
                 higherSeedHome ? LowerSeedTeamId : HigherSeedTeamId,
                 higherSeedHome ? HigherSeedTeamId : LowerSeedTeamId);
@@ -89,16 +118,16 @@ namespace Baseball.Game.Historical
             return game;
         }
 
-        /// <summary>완료된 승자 필수 경기 한 건을 시리즈에 정확히 한 번 반영한다.</summary>
+        /// <summary>완료된 경기 한 건을 시리즈에 정확히 한 번 반영한다.</summary>
         public void RecordCompletedGame(ScheduledGameState game)
         {
             if (game == null || !game.IsCompleted) throw new ArgumentException("완료된 경기가 필요합니다.", nameof(game));
             if (IsCompleted) throw new InvalidOperationException("이미 끝난 시리즈입니다.");
             if (_games.Count == 0 || !ReferenceEquals(_games[_games.Count - 1], game))
                 throw new InvalidOperationException("현재 시리즈의 다음 경기가 아닙니다.");
-            if (HigherSeedWins + LowerSeedWins != _games.Count - 1)
+            if (HigherSeedWins + LowerSeedWins + Draws != _games.Count - 1)
                 throw new InvalidOperationException("현재 경기 결과가 이미 반영됐거나 앞선 결과가 누락됐습니다.");
-            if (game.AwayRuns == game.HomeRuns) throw new InvalidOperationException("포스트시즌 경기는 승자가 필요합니다.");
+            if (game.AwayRuns == game.HomeRuns) { Draws++; return; }
             int winner = game.AwayRuns > game.HomeRuns ? game.AwayTeamId : game.HomeTeamId;
             if (winner == HigherSeedTeamId) HigherSeedWins++;
             else if (winner == LowerSeedTeamId) LowerSeedWins++;
@@ -116,8 +145,8 @@ namespace Baseball.Game.Historical
             IReadOnlyList<OwnerPostseasonSeriesState> series = null)
         {
             if (string.IsNullOrWhiteSpace(seasonId)) throw new ArgumentException("SeasonId가 필요합니다.", nameof(seasonId));
-            if (seedTeamIds == null || seedTeamIds.Length != 2 && seedTeamIds.Length != 4)
-                throw new ArgumentException("포스트시즌 시드는 2개 또는 4개여야 합니다.", nameof(seedTeamIds));
+            if (seedTeamIds == null || seedTeamIds.Length < 2 || seedTeamIds.Length > 5)
+                throw new ArgumentException("포스트시즌 시드는 2~5개여야 합니다.", nameof(seedTeamIds));
             var unique = new HashSet<int>();
             for (int index = 0; index < seedTeamIds.Length; index++)
                 if (seedTeamIds[index] <= 0 || !unique.Add(seedTeamIds[index])) throw new ArgumentException("시드가 올바르지 않습니다.");
@@ -143,36 +172,40 @@ namespace Baseball.Game.Historical
             }
         }
 
-        /// <summary>필요한 준결승 또는 결승 대진을 생성하고 현재 시리즈를 반환한다.</summary>
-        public OwnerPostseasonSeriesState EnsureCurrentSeries(int semifinalGames, int championshipGames)
+        /// <summary>KBO 순위 사다리에서 앞선 승자와 다음 상위 시드의 대진을 만든다.</summary>
+        public OwnerPostseasonSeriesState EnsureCurrentSeries()
         {
             OwnerPostseasonSeriesState current = CurrentSeries;
             if (current != null || IsCompleted) return current;
-            if (_series.Count == 0)
-            {
-                if (_seedTeamIds.Length == 2)
-                    _series.Add(new OwnerPostseasonSeriesState("championship", OwnerPostseasonRound.Championship,
-                        _seedTeamIds[0], _seedTeamIds[1], championshipGames));
-                else
-                {
-                    _series.Add(new OwnerPostseasonSeriesState("semifinal-a", OwnerPostseasonRound.Semifinal,
-                        _seedTeamIds[0], _seedTeamIds[3], semifinalGames));
-                    _series.Add(new OwnerPostseasonSeriesState("semifinal-b", OwnerPostseasonRound.Semifinal,
-                        _seedTeamIds[1], _seedTeamIds[2], semifinalGames));
-                }
-                return CurrentSeries;
-            }
-            if (_seedTeamIds.Length == 4 && _series.Count == 2 && _series[0].IsCompleted && _series[1].IsCompleted)
-            {
-                int first = _series[0].WinnerTeamId;
-                int second = _series[1].WinnerTeamId;
-                if (GetSeedIndex(second) < GetSeedIndex(first)) (first, second) = (second, first);
-                _series.Add(new OwnerPostseasonSeriesState("championship", OwnerPostseasonRound.Championship,
-                    first, second, championshipGames));
-                return _series[2];
-            }
-            throw new InvalidOperationException("포스트시즌 시리즈 상태가 올바르지 않습니다.");
+            int higherIndex = _seedTeamIds.Length - 2 - _series.Count;
+            if (higherIndex < 0) throw new InvalidOperationException("포스트시즌 시리즈 상태가 올바르지 않습니다.");
+            int lower = _series.Count == 0 ? _seedTeamIds[higherIndex + 1] : _series[_series.Count - 1].WinnerTeamId;
+            OwnerPostseasonRound round = GetRound(higherIndex);
+            current = new OwnerPostseasonSeriesState(GetSeriesId(round), round,
+                _seedTeamIds[higherIndex], lower, GetSeriesGames(round));
+            _series.Add(current);
+            return current;
         }
+
+        /// <summary>KBO 규정의 최대 경기 수다. 무승부 재경기는 별도로 진행한다.</summary>
+        public static int GetSeriesGames(OwnerPostseasonRound round) => round == OwnerPostseasonRound.WildCard
+            ? 2 : round == OwnerPostseasonRound.Championship ? 7 : 5;
+
+        private static OwnerPostseasonRound GetRound(int higherSeedIndex) => higherSeedIndex switch
+        {
+            3 => OwnerPostseasonRound.WildCard,
+            2 => OwnerPostseasonRound.SemiPlayoff,
+            1 => OwnerPostseasonRound.Playoff,
+            _ => OwnerPostseasonRound.Championship
+        };
+
+        private static string GetSeriesId(OwnerPostseasonRound round) => round switch
+        {
+            OwnerPostseasonRound.WildCard => "wild-card",
+            OwnerPostseasonRound.SemiPlayoff => "semi-playoff",
+            OwnerPostseasonRound.Playoff => "playoff",
+            _ => "championship"
+        };
 
         public bool IsQualified(int teamId) => GetSeedIndex(teamId) >= 0;
 
@@ -196,7 +229,15 @@ namespace Baseball.Game.Historical
             if (ChampionTeamId == teamId) return OwnerTeamPostseasonResult.Champion;
             OwnerPostseasonSeriesState final = _series[_series.Count - 1];
             if (final.IncludesTeam(teamId)) return OwnerTeamPostseasonResult.RunnerUp;
-            return OwnerTeamPostseasonResult.SemifinalElimination;
+            foreach (var series in _series)
+                if (series.IncludesTeam(teamId) && series.WinnerTeamId != teamId)
+                    return series.Round switch
+                    {
+                        OwnerPostseasonRound.WildCard => OwnerTeamPostseasonResult.WildCardElimination,
+                        OwnerPostseasonRound.SemiPlayoff => OwnerTeamPostseasonResult.SemiPlayoffElimination,
+                        _ => OwnerTeamPostseasonResult.PlayoffElimination
+                    };
+            throw new InvalidOperationException("탈락한 시리즈를 찾을 수 없습니다.");
         }
 
         private int GetSeedIndex(int teamId)
@@ -207,33 +248,19 @@ namespace Baseball.Game.Historical
 
         private void ValidateSeries()
         {
-            if (_series.Count > (_seedTeamIds.Length == 4 ? 3 : 1)) throw new ArgumentException("시리즈 수가 올바르지 않습니다.");
+            if (_series.Count > _seedTeamIds.Length - 1) throw new ArgumentException("시리즈 수가 올바르지 않습니다.");
             var ids = new HashSet<string>(StringComparer.Ordinal);
             for (int index = 0; index < _series.Count; index++)
-                if (_series[index] == null || !ids.Add(_series[index].SeriesId)) throw new ArgumentException("시리즈가 중복되거나 누락됐습니다.");
-            if (_seedTeamIds.Length == 2)
             {
-                if (_series.Count == 1 &&
-                    (_series[0].Round != OwnerPostseasonRound.Championship ||
-                     _series[0].HigherSeedTeamId != _seedTeamIds[0] ||
-                     _series[0].LowerSeedTeamId != _seedTeamIds[1]))
-                    throw new ArgumentException("챔피언십 대진이 시드와 다릅니다.");
-                return;
-            }
-            if (_series.Count == 1) throw new ArgumentException("4강 두 시리즈 중 하나가 누락됐습니다.");
-            if (_series.Count >= 2)
-            {
-                ValidatePair(_series[0], OwnerPostseasonRound.Semifinal, _seedTeamIds[0], _seedTeamIds[3]);
-                ValidatePair(_series[1], OwnerPostseasonRound.Semifinal, _seedTeamIds[1], _seedTeamIds[2]);
-            }
-            if (_series.Count == 3)
-            {
-                if (!_series[0].IsCompleted || !_series[1].IsCompleted)
-                    throw new ArgumentException("준결승 완료 전에 챔피언십이 생성됐습니다.");
-                int first = _series[0].WinnerTeamId;
-                int second = _series[1].WinnerTeamId;
-                if (GetSeedIndex(second) < GetSeedIndex(first)) (first, second) = (second, first);
-                ValidatePair(_series[2], OwnerPostseasonRound.Championship, first, second);
+                var series = _series[index];
+                if (series == null || !ids.Add(series.SeriesId)) throw new ArgumentException("시리즈가 중복되거나 누락됐습니다.");
+                int higherIndex = _seedTeamIds.Length - 2 - index;
+                if (index > 0 && !_series[index - 1].IsCompleted)
+                    throw new ArgumentException("이전 시리즈 완료 전에 다음 대진이 생성됐습니다.");
+                int lower = index == 0 ? _seedTeamIds[higherIndex + 1] : _series[index - 1].WinnerTeamId;
+                OwnerPostseasonRound round = GetRound(higherIndex);
+                ValidatePair(series, round, _seedTeamIds[higherIndex], lower);
+                if (series.SeriesGames != GetSeriesGames(round)) throw new ArgumentException("KBO 시리즈 경기 수와 다릅니다.");
             }
         }
 
