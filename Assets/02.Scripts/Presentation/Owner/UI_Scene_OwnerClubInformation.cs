@@ -20,6 +20,11 @@ namespace Baseball.Presentation.Owner
         private static readonly Color Gold = new Color32(222, 164, 20, 255);
         private OwnerClubInformationPresentationModel _model;
         private bool _showOwner = true;
+        private Button _changeManagerButton;
+        public event Action ChangeFrontManagerRequested;
+
+        /// <summary>팝업 종료 후 다시 생성된 교체 버튼으로 포커스를 복원한다.</summary>
+        public void FocusFrontManagerButton() => _changeManagerButton?.Select();
 
         /// <summary>공용 셸의 본문 슬롯에 구단 정보 화면을 생성한다.</summary>
         public static UI_Scene_OwnerClubInformation CreateRuntime(RectTransform host)
@@ -106,8 +111,11 @@ namespace Baseball.Presentation.Owner
             RectTransform speech = Surface(office.rectTransform, "Speech", new Color32(255, 255, 255, 242), .04f, .56f, .63f, .91f, true);
             Label(speech, "Message", "이번 시즌의 모든 결정은 기록으로 남습니다.\n구단의 현재 상태를 함께 확인해요.",
                 .06f, .1f, .94f, .9f, 15, Ink, TextAnchor.MiddleLeft);
-            Label(manager, "Motto", "구단주의 한마디", .03f, .11f, .27f, .21f, 13, Blue, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Label(manager, "MottoText", "우리 구단의 다음 승리를 준비하자.", .28f, .05f, .97f, .22f, 15, Ink, TextAnchor.MiddleLeft);
+            _changeManagerButton = OwnerWorkspaceUiFactory.CreateButton(manager, "ChangeFrontManager", "매니저 교체",
+                () => ChangeFrontManagerRequested?.Invoke());
+            Place((RectTransform)_changeManagerButton.transform, .65f, .12f, .96f, .215f);
+            Label(manager, "Motto", "구단주의 한마디", .03f, .02f, .27f, .10f, 13, Blue, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Label(manager, "MottoText", "우리 구단의 다음 승리를 준비하자.", .28f, .02f, .97f, .10f, 15, Ink, TextAnchor.MiddleLeft);
         }
 
         private void BuildClubInformation(RectTransform root)

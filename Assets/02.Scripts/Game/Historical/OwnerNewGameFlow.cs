@@ -54,7 +54,15 @@ namespace Baseball.Game.Historical
         }
 
         public string Nickname { get; }
-        public string FrontManagerId { get; }
+        public string FrontManagerId { get; private set; }
+
+        /// <summary>지원하는 프런트 매니저로 교체하며 구단주와 구단 정보는 유지한다.</summary>
+        public void ChangeFrontManager(string managerId)
+        {
+            if (!FrontManagerIds.IsSupported(managerId))
+                throw new ArgumentException("지원하지 않는 프런트 매니저입니다.", nameof(managerId));
+            FrontManagerId = managerId;
+        }
         public string ClubName { get; } = string.Empty;
 
         public static OwnerProfileState CreateLegacyDefault() =>

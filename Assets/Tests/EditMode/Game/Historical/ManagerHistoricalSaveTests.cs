@@ -14,6 +14,28 @@ namespace Baseball.Tests.EditMode.Game.Historical
 {
     public sealed partial class ManagerHistoricalSaveTests
     {
+        [TestCase(FrontManagerIds.DefaultAnalysis)]
+        [TestCase(FrontManagerIds.DefaultTest)]
+        [TestCase(FrontManagerIds.DefaultEnergetic)]
+        public void ChangeFrontManager_저장복원시선택과기존정보를유지한다(string managerId)
+        {
+            FixtureData fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
+            ManagerHistoricalSaveAdapter adapter = fixture.CreateAdapter();
+            ManagerHistoricalRuntimeState original = adapter.Restore(adapter.CreateSaveData(fixture.State));
+            string nickname = original.OwnerProfile.Nickname;
+            string clubName = original.OwnerProfile.ClubName;
+            original.OwnerProfile.ChangeFrontManager(managerId);
+
+            ManagerHistoricalRuntimeState restored = adapter.Restore(adapter.CreateSaveData(original));
+
+            Assert.That(restored.OwnerProfile.FrontManagerId, Is.EqualTo(managerId));
+            Assert.That(restored.OwnerProfile.Nickname, Is.EqualTo(nickname));
+            Assert.That(restored.OwnerProfile.ClubName, Is.EqualTo(clubName));
+            Assert.That(restored.Economy.Money, Is.EqualTo(original.Economy.Money));
+            Assert.Throws<ArgumentException>(() => restored.OwnerProfile.ChangeFrontManager("unsupported"));
+            Assert.That(restored.OwnerProfile.FrontManagerId, Is.EqualTo(managerId));
+        }
+
         [Test]
         public void CreateSaveDataAndRestore_PreservesManagerHistoricalState()
         {

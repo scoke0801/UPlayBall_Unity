@@ -46,6 +46,7 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerMatchSpectator _matchSpectatorView;
         private UI_Popup_OwnerSeasonSimulation _seasonSimulationPopup;
         private UI_Popup_OwnerSeasonReview _seasonReviewPopup;
+        private UI_Popup_OwnerFrontManager _frontManagerPopup;
         private OwnerExpansionWorkspaceCoordinator _expansionWorkspace;
         private OwnerSharedInformationWorkspaceCoordinator _sharedInformationWorkspace;
         private GameModeNavigationState _navigationState;
@@ -308,7 +309,15 @@ namespace Baseball.Presentation.Owner
             }
             UnsubscribeExpansionWorkspace();
             if (_sharedInformationWorkspace != null)
+            {
                 _sharedInformationWorkspace.NextMatchAnalysisRequested -= HandleOpponentAnalysisRequested;
+                _sharedInformationWorkspace.ChangeFrontManagerRequested -= HandleChangeFrontManagerRequested;
+            }
+            if (_frontManagerPopup != null)
+            {
+                _frontManagerPopup.SelectionRequested -= HandleFrontManagerSelected;
+                _frontManagerPopup.CloseRequested -= CloseFrontManagerPopup;
+            }
             if (_matchSpectatorView != null)
             {
                 _matchSpectatorView.HomeRequested -= HandleOwnerMatchHomeRequested;
@@ -357,6 +366,7 @@ namespace Baseball.Presentation.Owner
 
         private void HandleModeChanged(UiGameMode? mode)
         {
+            if (mode != UiGameMode.OwnerCareer) _frontManagerPopup?.Hide();
             if (mode != UiGameMode.OwnerCareer) ResetPostseasonPresentation();
             if (mode != UiGameMode.OwnerCareer && _manager != null &&
                 (_manager.IsRegularSeasonSimulationRunning || _manager.IsPostseasonSimulationRunning))
@@ -433,6 +443,7 @@ namespace Baseball.Presentation.Owner
 
         private void HandleBackRequested()
         {
+            if (TryCloseFrontManagerPopup()) return;
             if (_shell == null || !_shell.gameObject.activeInHierarchy ||
                 _isOwnerMatchVisible || _isTransitioningToOwnerMatch)
                 return;
@@ -461,6 +472,7 @@ namespace Baseball.Presentation.Owner
 
         private void HandleCancelRequested()
         {
+            if (TryCloseFrontManagerPopup()) return;
             if (_celebrationPopup != null && _celebrationPopup.gameObject.activeInHierarchy)
             {
                 _celebrationPopup.OnCancel(null);
@@ -1120,6 +1132,43 @@ namespace Baseball.Presentation.Owner
             _sharedInformationWorkspace.Initialize(_shell);
             _sharedInformationWorkspace.SetTeamLineupResolver(teamKey => _snapshotFactory.CreateTeamLineup(_manager, teamKey));
             _sharedInformationWorkspace.NextMatchAnalysisRequested += HandleOpponentAnalysisRequested;
+            _sharedInformationWorkspace.ChangeFrontManagerRequested += HandleChangeFrontManagerRequested;
+        }
+
+        private void HandleChangeFrontManagerRequested()
+        {
+            if (_frontManagerPopup == null)
+            {
+                _frontManagerPopup = UI_Popup_OwnerFrontManager.CreateRuntime(_shell.PopupHost);
+                _frontManagerPopup.SelectionRequested += HandleFrontManagerSelected;
+                _frontManagerPopup.CloseRequested += CloseFrontManagerPopup;
+            }
+            _frontManagerPopup.Show(_manager.Runtime.OwnerProfile.FrontManagerId);
+        }
+
+        private void HandleFrontManagerSelected(string managerId)
+        {
+            try { _manager.ChangeFrontManager(managerId); }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                _frontManagerPopup.ShowError();
+                return;
+            }
+            CloseFrontManagerPopup();
+        }
+
+        private bool TryCloseFrontManagerPopup()
+        {
+            if (_frontManagerPopup == null || !_frontManagerPopup.gameObject.activeInHierarchy) return false;
+            CloseFrontManagerPopup();
+            return true;
+        }
+
+        private void CloseFrontManagerPopup()
+        {
+            _frontManagerPopup.Hide();
+            _sharedInformationWorkspace.FocusFrontManagerButton();
         }
 
         private void UnsubscribeExpansionWorkspace()

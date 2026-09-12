@@ -22,6 +22,10 @@ namespace Baseball.Presentation.Owner
         public const string SeasonRecordsRouteId = "Shared.League.SeasonRecords";
 
         private SharedGameShellView _shell;
+        public event Action ChangeFrontManagerRequested;
+
+        /// <summary>구단주 매니저 교체를 시작한 버튼으로 돌아간다.</summary>
+        public void FocusFrontManagerButton() => _clubInformationView?.FocusFrontManagerButton();
         private UI_Scene_OwnerSharedInformation _scheduleView;
         private UI_Scene_OwnerSharedInformation _recordsView;
         private UI_Scene_OwnerSeasonRecords _seasonRecordsView;
@@ -153,6 +157,7 @@ namespace Baseball.Presentation.Owner
             if (_clubInformationView == null)
             {
                 _clubInformationView = UI_Scene_OwnerClubInformation.CreateRuntime(_shell.MainWorkspaceHost);
+                _clubInformationView.ChangeFrontManagerRequested += () => ChangeFrontManagerRequested?.Invoke();
                 _clubInformationView.gameObject.SetActive(false);
             }
             _clubInformationView.Bind(model);

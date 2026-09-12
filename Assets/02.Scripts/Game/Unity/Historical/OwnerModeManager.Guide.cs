@@ -5,6 +5,18 @@ namespace Baseball.Game.Historical
 {
     public sealed partial class OwnerModeManager
     {
+        /// <summary>매니저 선택을 저장하고, 저장 실패 시 이전 선택을 복원한다.</summary>
+        public void ChangeFrontManager(string managerId)
+        {
+            var runtime = RequireRuntime();
+            string previous = runtime.OwnerProfile.FrontManagerId;
+            if (string.Equals(previous, managerId, StringComparison.Ordinal)) return;
+            runtime.OwnerProfile.ChangeFrontManager(managerId);
+            try { _saveStore.Save(_saveAdapter.CreateSaveData(runtime)); }
+            catch { runtime.OwnerProfile.ChangeFrontManager(previous); throw; }
+            NotifyRuntimeChanged();
+        }
+
         /// <summary>현재 적용된 로스터·프리셋의 공개 검증으로 안내 상태를 갱신한다.</summary>
         public GuideProgressState RefreshGuideProgress()
         {
