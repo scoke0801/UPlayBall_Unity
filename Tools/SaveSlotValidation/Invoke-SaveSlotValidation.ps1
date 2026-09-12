@@ -10,6 +10,7 @@ New-Item -ItemType Directory -Path "$validationRoot/Assets/Tests", "$validationR
 # 메인 에디터와 진행 중인 다른 검증 프로젝트의 Library를 공유하지 않는다.
 Copy-Item "$repoRoot/Assets/02.Scripts" "$validationRoot/Assets" -Recurse -Force
 Copy-Item "$repoRoot/Assets/Plugins" "$validationRoot/Assets" -Recurse -Force
+Copy-Item "$repoRoot/Assets/08.Fonts" "$validationRoot/Assets" -Recurse -Force
 Copy-Item "$repoRoot/Assets/Tests/EditMode" "$validationRoot/Assets/Tests" -Recurse -Force
 Copy-Item "$repoRoot/ProjectSettings/ProjectVersion.txt" "$validationRoot/ProjectSettings" -Force
 Copy-Item "$repoRoot/Assets/10.Datas/Resources/FrontManager" "$validationRoot/Assets/Resources" -Recurse -Force

@@ -45,6 +45,7 @@ namespace Baseball.Game.Historical
         public CareerSaveSlotView InspectSave(int slot)
         {
             var store = _saveStore.ForSlot(slot);
+            SavePreviewCacheEntry entry = null;
             try
             {
                 if (!store.Exists)
@@ -59,9 +60,17 @@ namespace Baseball.Game.Historical
                 if (cached != null && cached.Path == store.FilePath &&
                     cached.Length == length && cached.ModifiedTicks == modifiedTicks)
                     return cached.View;
+                entry = new SavePreviewCacheEntry
+                {
+                    Path = store.FilePath, Length = length, ModifiedTicks = modifiedTicks
+                };
                 var data = store.LoadPreview();
                 if (data.saveVersion < 1 || data.saveVersion > ManagerHistoricalSaveAdapter.CurrentSaveVersion)
-                    return new CareerSaveSlotView(CareerSaveSlotStatus.Incompatible, null, "지원하지 않는 저장 버전입니다.", false);
+                {
+                    entry.View = new CareerSaveSlotView(CareerSaveSlotStatus.Incompatible, null, "지원하지 않는 저장 버전입니다.", false);
+                    _savePreviewCache[slot - 1] = entry;
+                    return entry.View;
+                }
                 var season = data.managerMode?.liveSeason;
                 if (season == null || string.IsNullOrEmpty(data.playerTeamSeasonKey))
                     throw new InvalidDataException("구단주 진행 정보가 없습니다.");
@@ -83,8 +92,14 @@ namespace Baseball.Game.Historical
             catch (Exception exception) when (exception is InvalidDataException || exception is IOException || exception is ArgumentException ||
                                                exception is UnauthorizedAccessException || exception is InvalidOperationException)
             {
-                return new CareerSaveSlotView(CareerSaveSlotStatus.Damaged, null,
+                var view = new CareerSaveSlotView(CareerSaveSlotStatus.Damaged, null,
                     "저장 파일을 읽을 수 없습니다. 다른 슬롯을 선택하거나 파일을 확인해 주세요.", false);
+                if (entry != null)
+                {
+                    entry.View = view;
+                    _savePreviewCache[slot - 1] = entry;
+                }
+                return view;
             }
         }
 

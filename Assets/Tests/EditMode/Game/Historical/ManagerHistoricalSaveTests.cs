@@ -120,9 +120,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(restoredPostseason, Is.Not.Null);
             Assert.That(restoredPostseason.SeedTeamIds, Is.EqualTo(postseason.SeedTeamIds));
             Assert.That(restoredPostseason.Series.Count, Is.EqualTo(postseason.Series.Count));
-            Assert.That(restoredPostseason.CurrentSeries.HigherSeedWins, Is.EqualTo(1));
-            Assert.That(restoredPostseason.CurrentSeries.Games[0].RandomSeed, Is.EqualTo(8822UL));
-            Assert.That(restoredPostseason.CurrentSeries.Games[0].IsCompleted, Is.True);
+            Assert.That(restoredPostseason.Series[0].HigherSeedWins, Is.EqualTo(1));
+            Assert.That(restoredPostseason.Series[0].Games[0].RandomSeed, Is.EqualTo(8822UL));
+            Assert.That(restoredPostseason.Series[0].Games[0].IsCompleted, Is.True);
         }
 
         [Test]

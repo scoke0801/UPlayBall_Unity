@@ -147,6 +147,73 @@ namespace Baseball.Tests.EditMode.Presentation
         }
 
         [Test]
+        public void 구단주슬롯요약은재사용하고파일변경과삭제후에는갱신한다()
+        {
+            var store = _ownerStore.ForSlot(2);
+            store.Save(OwnerData(2024));
+            var first = _owner.InspectSave(2);
+            Assert.That(_owner.InspectSave(2).Summary, Is.SameAs(first.Summary));
+            store.Save(OwnerData(2025));
+            File.SetLastWriteTimeUtc(store.FilePath, DateTime.UtcNow.AddSeconds(2));
+            Assert.That(_owner.InspectSave(2).Summary.year, Is.EqualTo(2025));
+            store.Delete();
+            Assert.That(_owner.InspectSave(2).Status, Is.EqualTo(CareerSaveSlotStatus.Empty));
+            store.Save(OwnerData(2026));
+            Assert.That(_owner.InspectSave(2).Summary.year, Is.EqualTo(2026));
+            File.WriteAllText(store.FilePath, "broken");
+            Assert.That(_owner.InspectSave(2).Status, Is.EqualTo(CareerSaveSlotStatus.Damaged));
+        }
+
+        [Test]
+        public void 선수슬롯요약은재사용하고저장백업복구삭제를반영한다()
+        {
+            var configuration = NewGameConfiguration.CreateDefault();
+            _career.BeginCareer(CreateCareer(configuration, "저장선수", 52003UL), configuration.Balance);
+            AssertSuccess(_career.SaveCareer(2));
+            var first = _career.InspectCareerSave(2);
+            Assert.That(first.Status, Is.EqualTo(CareerSaveSlotStatus.Ready));
+            Assert.That(_career.InspectCareerSave(2).Summary, Is.SameAs(first.Summary));
+            Assert.That(first.HasBackup, Is.False);
+
+            AssertSuccess(_career.SaveCareer(2));
+            var overwritten = _career.InspectCareerSave(2);
+            Assert.That(overwritten.Summary, Is.Not.SameAs(first.Summary));
+            Assert.That(overwritten.HasBackup, Is.True);
+            AssertSuccess(_career.RecoverCareerSaveBackup(2));
+            Assert.That(_career.InspectCareerSave(2).Summary, Is.Not.SameAs(overwritten.Summary));
+            AssertSuccess(_career.DeleteCareerSave(2));
+            Assert.That(_career.InspectCareerSave(2).Status, Is.EqualTo(CareerSaveSlotStatus.Empty));
+        }
+
+        [Test]
+        public void 로딩씬은양쪽다섯슬롯을미리조회하고활성저장대상을보존한다()
+        {
+            for (int slot = 1; slot <= SaveSlotPaths.SlotCount; slot++)
+                _ownerStore.ForSlot(slot).Save(OwnerData(2020 + slot));
+            var loadingObject = new GameObject("LoadingSlotTest");
+            try
+            {
+                var controller = loadingObject.AddComponent<Baseball.Presentation.SceneFlow.LoadingSceneController>();
+                var prepare = (System.Collections.IEnumerator)controller.GetType()
+                    .GetMethod("PrepareSaveSlots", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(controller, null);
+                while (prepare.MoveNext()) { }
+                Assert.That(controller.GetType().GetField("_areSaveSlotsReady", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .GetValue(controller), Is.True);
+                Assert.That(controller.GetType().GetField("_preparedSaveSlots", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .GetValue(controller), Is.EqualTo(SaveSlotPaths.SlotCount * 2));
+                Assert.That(_owner.ActiveSaveSlot, Is.EqualTo(1));
+                Assert.That(_career.ActiveSaveSlot, Is.EqualTo(1));
+                for (int slot = 1; slot <= SaveSlotPaths.SlotCount; slot++)
+                    Assert.That(_owner.InspectSave(slot).Summary.year, Is.EqualTo(2020 + slot));
+            }
+            finally
+            {
+                Object.DestroyImmediate(loadingObject);
+            }
+        }
+
+        [Test]
         public void 선택한구단주슬롯만확인후삭제하고취소는포커스를복원한다()
         {
             _ownerStore.ForSlot(2).Save(OwnerData(2024));

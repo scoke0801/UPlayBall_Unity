@@ -34,6 +34,7 @@ namespace Baseball.Game.Unity.Persistence
             new CareerSaveJsonStore(SaveSlotPaths.GetFilePath(_slotOnePath, slot)) { _slotOnePath = _slotOnePath };
 
         public bool Exists => File.Exists(_primaryPath);
+        public string FilePath => _primaryPath;
         public bool BackupExists => File.Exists(_backupPath);
 
         public void SaveAtomic(CareerSaveData saveData)

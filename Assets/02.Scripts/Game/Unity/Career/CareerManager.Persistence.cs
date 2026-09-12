@@ -12,6 +12,8 @@ namespace Baseball.Game.Career
     public sealed partial class CareerManager
     {
         private CareerSaveJsonStore _careerSaveStore;
+        private readonly (string Path, long Length, long ModifiedTicks, bool HasBackup, CareerSaveSlotView View)[]
+            _savePreviewCache = new (string, long, long, bool, CareerSaveSlotView)[SaveSlotPaths.SlotCount];
         public int ActiveSaveSlot { get; private set; } = 1;
 
         /// <summary>내용 복원 없이 슬롯의 수동 저장·백업 유무만 확인한다.</summary>
@@ -30,6 +32,32 @@ namespace Baseball.Game.Career
 
         /// <summary>지정한 슬롯에만 저장 작업을 적용한다.</summary>
         public CareerSaveSlotView InspectCareerSave(int slot)
+        {
+            EnsurePersistenceStore();
+            CareerSaveJsonStore store = _careerSaveStore.ForSlot(slot);
+            try
+            {
+                var file = new FileInfo(store.FilePath);
+                long length = file.Exists ? file.Length : -1;
+                long modifiedTicks = file.Exists ? file.LastWriteTimeUtc.Ticks : 0;
+                bool hasBackup = store.BackupExists;
+                var cached = _savePreviewCache[slot - 1];
+                if (cached.Path == store.FilePath && cached.Length == length &&
+                    cached.ModifiedTicks == modifiedTicks && cached.HasBackup == hasBackup)
+                    return cached.View;
+
+                CareerSaveSlotView view = ReadCareerSavePreview(slot);
+                _savePreviewCache[slot - 1] = (store.FilePath, length, modifiedTicks, hasBackup, view);
+                return view;
+            }
+            catch (Exception exception) when (IsPersistenceFailure(exception))
+            {
+                return new CareerSaveSlotView(CareerSaveSlotStatus.Damaged, null,
+                    GetPersistenceFailureMessage(exception, "저장 데이터를 읽지 못했습니다."), store.BackupExists);
+            }
+        }
+
+        private CareerSaveSlotView ReadCareerSavePreview(int slot)
         {
             EnsurePersistenceStore();
             CareerSaveJsonStore store = _careerSaveStore.ForSlot(slot);
@@ -100,6 +128,7 @@ namespace Baseball.Game.Career
                     Application.version,
                     DateTime.UtcNow.Ticks);
                 store.SaveAtomic(saveData);
+                _savePreviewCache[slot - 1] = default;
                 ActiveSaveSlot = slot;
                 return CareerSaveCommandResult.Success("선수 커리어를 저장했습니다.");
             }
@@ -156,6 +185,7 @@ namespace Baseball.Game.Career
                 CareerSaveData saveData = store.LoadBackup();
                 CareerSaveRestoreResult restored = ValidateAndRestore(saveData);
                 store.PromoteBackupToPrimaryAtomic();
+                _savePreviewCache[slot - 1] = default;
                 ApplyRestoredCareer(restored);
                 ActiveSaveSlot = slot;
                 return CareerSaveCommandResult.Success("자동 백업을 복구했습니다.");
@@ -183,6 +213,7 @@ namespace Baseball.Game.Career
             {
                 EnsurePersistenceStore();
                 store.DeleteAll();
+                _savePreviewCache[slot - 1] = default;
                 return CareerSaveCommandResult.Success("선수 커리어 저장 데이터와 백업을 삭제했습니다.");
             }
             catch (Exception exception) when (IsPersistenceFailure(exception))

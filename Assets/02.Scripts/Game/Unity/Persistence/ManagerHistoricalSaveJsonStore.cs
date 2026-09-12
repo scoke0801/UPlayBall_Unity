@@ -65,6 +65,49 @@ namespace Baseball.Game.Unity.Persistence
             return Deserialize(File.ReadAllText(_filePath, Encoding.UTF8));
         }
 
+        /// <summary>슬롯 표시에 필요한 필드만 복원하고 월드 기록·로스터 객체 생성을 생략한다.</summary>
+        public SlotPreview LoadPreview()
+        {
+            string json = File.ReadAllText(_filePath, Encoding.UTF8);
+            if (string.IsNullOrWhiteSpace(json))
+                throw new InvalidDataException("구단주 모드 세이브 JSON이 비어 있습니다.");
+            return JsonUtility.FromJson<SlotPreview>(json)
+                ?? throw new InvalidDataException("구단주 모드 저장 요약을 읽지 못했습니다.");
+        }
+
+        // 기존 저장 형식의 부분 투영이다. 저장 DTO로 사용하지 않으며 선수·경기 배열을 복원하지 않는다.
+        [Serializable]
+        public sealed class SlotPreview
+        {
+            public int saveVersion;
+            public string playerTeamSeasonKey;
+            public OwnerProfileSaveData ownerProfile;
+            public SlotIdentityPreview identityRegistry;
+            public SlotModePreview managerMode;
+        }
+
+        [Serializable]
+        public sealed class SlotIdentityPreview
+        {
+            public string identityGeneratorVersion;
+            public ulong identitySeed;
+            public WorldFranchiseIdentitySaveData[] franchises;
+        }
+
+        [Serializable]
+        public sealed class SlotModePreview
+        {
+            public SlotSeasonPreview liveSeason;
+        }
+
+        [Serializable]
+        public sealed class SlotSeasonPreview
+        {
+            public int originYear;
+            public int seasonNumber;
+            public int currentWeekIndex;
+        }
+
         /// <summary>사용자 확인이 끝난 구단주 모드 선택한 저장 슬롯을 삭제한다.</summary>
         public void Delete()
         {

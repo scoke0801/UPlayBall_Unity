@@ -49,6 +49,30 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
+        public void 슬롯요약은기존저장필드를읽고전체기록은복원하지않는다()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "UPlayBall", Guid.NewGuid().ToString("N"));
+            try
+            {
+                var store = new ManagerHistoricalSaveJsonStore(Path.Combine(directory, "owner.json"));
+                var source = CreateSaveData();
+                source.ownerProfile = new OwnerProfileSaveData { clubName = "테스트 구단", nickname = "구단주" };
+                store.Save(source);
+                var preview = store.LoadPreview();
+                Assert.That(preview.saveVersion, Is.EqualTo(source.saveVersion));
+                Assert.That(preview.playerTeamSeasonKey, Is.EqualTo(source.playerTeamSeasonKey));
+                Assert.That(preview.ownerProfile.clubName, Is.EqualTo("테스트 구단"));
+                Assert.That(preview.identityRegistry.franchises[0].displayName, Is.EqualTo("서울 코멧츠"));
+                Assert.That(JsonUtility.ToJson(preview), Does.Not.Contain("worldHistory"));
+                Assert.That(JsonUtility.ToJson(preview.identityRegistry), Does.Not.Contain("players"));
+            }
+            finally
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, true);
+            }
+        }
+
+        [Test]
         public void CommonWorldHistoryJson_DoesNotContainManagerCardEconomy()
         {
             string json = JsonUtility.ToJson(CreateSaveData().worldHistory);

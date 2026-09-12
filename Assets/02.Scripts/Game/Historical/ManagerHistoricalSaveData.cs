@@ -7,6 +7,7 @@ namespace Baseball.Game.Historical
     public sealed class ManagerHistoricalSaveData
     {
         public int saveVersion;
+        public LegendaryPracticeProgress[] legendaryPractice;
         public HistoricalContentReferenceSaveData contentReference;
         public string playerTeamSeasonKey;
         public WorldIdentityRegistrySaveData identityRegistry;
@@ -136,6 +137,9 @@ namespace Baseball.Game.Historical
     [Serializable]
     public sealed class OwnedPlayerCardSaveData
     {
+        public OwnerGrowthModifierSaveData[] growthModifiers;
+        public int unlockedSkillMask;
+        public int slotExperience;
         public string cardId;
         public int enhancementLevel;
         public int duplicateCount;
@@ -145,6 +149,18 @@ namespace Baseball.Game.Historical
         public int[] studyBonuses;
         public OwnerPlacedSkillBlockSaveData[] skillBoard;
         public int lastStudySeason;
+    }
+
+    [Serializable]
+    public sealed class OwnerGrowthModifierSaveData
+    {
+        public string sourceId;
+        public int source;
+        public string displayName;
+        public int[] values;
+        public int seasonNumber;
+        public int remainingGames;
+        public bool isActive;
     }
 
     [Serializable]
@@ -196,13 +212,50 @@ namespace Baseball.Game.Historical
     [Serializable]
     public sealed class OwnerPlayerGrowthSaveData
     {
+        public OwnerSupportSaveData support;
+        public OwnerCampProjectSaveData[] camps;
+        public Baseball.Core.Historical.OwnerSloganDefinition slogan;
+        public int sloganLevel;
+        public int sloganRevision;
+        public int offseasonCompletedWeeks;
+        public int studySequence;
         public OwnerSkillBlockInventorySaveData inventory;
         public CardStudyProjectSaveData[] studyProjects;
     }
 
     [Serializable]
+    public sealed class OwnerSupportSaveData
+    {
+        public int nextSequence;
+        public string[] inventoryIds;
+        public int[] inventoryCounts;
+        public OwnerSupportAssignmentSaveData[] assignments;
+    }
+    [Serializable]
+    public sealed class OwnerCampProjectSaveData
+    {
+        public string cardId;
+        public string facilityId;
+        public int weeklyExperience;
+        public int requiredExperience;
+        public bool automaticReturn;
+    }
+    [Serializable]
+    public sealed class OwnerSupportAssignmentSaveData
+    {
+        public Baseball.Core.Historical.OwnerSupportDefinition definition;
+        public string sourceId;
+        public string definitionId;
+        public string cardId;
+        public int remainingGames;
+    }
+
+    [Serializable]
     public sealed class OwnerSkillBlockInventorySaveData
     {
+        public int nextInstanceId;
+        public int researchCount;
+        public int selectionBoxes;
         public OwnerSkillBlockInstanceSaveData[] blocks;
         public int pityEliteCount;
         public int pityUniqueCount;
@@ -234,6 +287,11 @@ namespace Baseball.Game.Historical
         public string programId;
         public int startedSeason;
         public int remainingWeeks;
+        public int durationWeeks;
+        public long paidMoney;
+        public int paidDevelopmentPoints;
+        public ulong resultSeed;
+        public int resultBonus;
     }
 
     [Serializable]

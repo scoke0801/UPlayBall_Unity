@@ -13,9 +13,9 @@ using Baseball.Simulation.Historical;
 namespace Baseball.Game.Historical
 {
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
-    public sealed class ManagerHistoricalSaveAdapter
+    public sealed partial class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 24;
+        public const int CurrentSaveVersion = 28;
         private const int OwnerPostseasonSaveVersion = 18;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
@@ -98,6 +98,7 @@ namespace Baseball.Game.Historical
                 shopPurchaseHistory = CreateShopPurchaseHistory(state.ShopPurchaseHistory),
                 guideRepeatState = state.GuideRepeatState,
                 guideProgress = state.GuideProgress.Capture(),
+                legendaryPractice = state.LegendaryPractice.Capture(),
                 ownerProfile = new OwnerProfileSaveData
                 {
                     clubName = state.OwnerProfile.ClubName,
@@ -248,6 +249,7 @@ namespace Baseball.Game.Historical
                 collectionHistory,
                 wishlist);
             runtime.RestoreGuideProgress(saveData.guideProgress);
+            runtime.RestoreLegendaryPractice(saveData.legendaryPractice);
             runtime.RestoreSpecialCardTransactions(saveData.saveVersion < 19
                 ? Array.Empty<SpecialCardTransactionSaveData>()
                 : Require(saveData.specialCardTransactions, nameof(saveData.specialCardTransactions)));
@@ -1599,6 +1601,9 @@ namespace Baseball.Game.Historical
                     isFavorite = card.IsFavorite,
                     trainingBonuses = training,
                     studyBonuses = study,
+                    growthModifiers = CreateGrowthLedger(card.Training.Ledger),
+                    unlockedSkillMask = card.SkillBoard.UnlockedMask,
+                    slotExperience = card.SkillBoard.SlotExperience,
                     skillBoard = CreateSkillBoard(card.SkillBoard),
                     lastStudySeason = card.LastStudySeason
                 };
@@ -1623,10 +1628,11 @@ namespace Baseball.Game.Historical
                         Require(card.trainingBonuses, nameof(card.trainingBonuses)),
                         saveVersion < GrowthSourceBreakdownSaveVersion
                             ? null
-                            : Require(card.studyBonuses, nameof(card.studyBonuses))),
+                            : Require(card.studyBonuses, nameof(card.studyBonuses)),
+                        saveVersion < 28 ? null : RestoreGrowthLedger(Require(card.growthModifiers, nameof(card.growthModifiers)))),
                     saveVersion < OwnerGrowthSaveVersion
                         ? new OwnedCardSkillBoardState()
-                        : RestoreSkillBoard(card.skillBoard),
+                        : RestoreSkillBoard(card.skillBoard, saveVersion < 28 ? OwnedCardSkillBoardState.CompleteUnlockedMask : card.unlockedSkillMask, card.slotExperience),
                     saveVersion < OwnerGrowthSaveVersion ? -1 : card.lastStudySeason);
             }
             return result;
@@ -1707,9 +1713,10 @@ namespace Baseball.Game.Historical
             return result;
         }
 
-        private static OwnedCardSkillBoardState RestoreSkillBoard(OwnerPlacedSkillBlockSaveData[] source)
+        private static OwnedCardSkillBoardState RestoreSkillBoard(OwnerPlacedSkillBlockSaveData[] source,
+            int unlockedMask, int slotExperience)
         {
-            var result = new OwnedCardSkillBoardState();
+            var result = new OwnedCardSkillBoardState(unlockedMask, slotExperience);
             if (source == null) return result;
             for (int index = 0; index < source.Length; index++)
             {
@@ -1741,14 +1748,29 @@ namespace Baseball.Game.Historical
                     cardId = project.CardId,
                     programId = project.ProgramId,
                     startedSeason = project.StartedSeason,
-                    remainingWeeks = project.RemainingWeeks
+                    remainingWeeks = project.RemainingWeeks,
+                    durationWeeks = project.DurationWeeks,
+                    paidMoney = project.PaidMoney,
+                    paidDevelopmentPoints = project.PaidDevelopmentPoints,
+                    resultSeed = project.ResultSeed,
+                    resultBonus = project.ResultBonus
                 };
             }
             return new OwnerPlayerGrowthSaveData
             {
+                offseasonCompletedWeeks = source.Offseason.CompletedWeeks,
+                studySequence = source.StudySequence,
+                support = CreateSupport(source.Support),
+                camps = CreateCamps(source.Camps),
+                slogan = source.Slogan?.Definition.Copy(),
+                sloganLevel = source.Slogan?.Level ?? 0,
+                sloganRevision = source.Slogan?.Revision ?? 0,
                 inventory = new OwnerSkillBlockInventorySaveData
                 {
                     blocks = blocks,
+                    researchCount = source.Inventory.ResearchCount,
+                    nextInstanceId = source.Inventory.NextInstanceId,
+                    selectionBoxes = source.Inventory.SelectionBoxes,
                     pityEliteCount = source.Inventory.PityEliteCount,
                     pityUniqueCount = source.Inventory.PityUniqueCount,
                     pityLegendaryCount = source.Inventory.PityLegendaryCount,
@@ -1771,13 +1793,22 @@ namespace Baseball.Game.Historical
             inventory.RestorePity(
                 inventoryData.pityEliteCount, inventoryData.pityUniqueCount,
                 inventoryData.pityLegendaryCount, inventoryData.totalPullCount);
-            var result = new OwnerPlayerGrowthState(inventory);
+            inventory.RestoreResearch(inventoryData.researchCount, inventoryData.selectionBoxes);
+            if (inventoryData.nextInstanceId > 0) inventory.RestoreNextInstanceId(inventoryData.nextInstanceId);
+            var result = new OwnerPlayerGrowthState(inventory, new OwnerOffseasonState(source.offseasonCompletedWeeks));
+            result.RestoreStudySequence(source.studySequence);
+            result.Support = RestoreSupport(source.support);
+            if (source.slogan != null) result.Slogan = new OwnerSloganState(source.slogan, source.sloganLevel, source.sloganRevision);
+            if (source.camps != null)
+                foreach (var camp in source.camps)
+                    result.Camps.Add(new OwnerCampProject(camp.cardId, camp.facilityId, camp.weeklyExperience, camp.requiredExperience, camp.automaticReturn));
             CardStudyProjectSaveData[] projects = Require(source.studyProjects, nameof(source.studyProjects));
             for (int index = 0; index < projects.Length; index++)
             {
                 CardStudyProjectSaveData project = Require(projects[index], nameof(source.studyProjects));
                 result.AddStudy(new CardStudyProjectState(
-                    project.cardId, project.programId, project.startedSeason, project.remainingWeeks));
+                    project.cardId, project.programId, project.startedSeason, project.remainingWeeks,
+                    project.durationWeeks, project.paidMoney, project.paidDevelopmentPoints, project.resultSeed, project.resultBonus));
             }
             return result;
         }
