@@ -14,6 +14,9 @@ namespace Baseball.Presentation.Guide
         public float collapsedHeight, expandedHeight, textScale;
         public float conversationWidth = 1120f;
         public int fontSize;
+        public string expand, collapse, back, all, important, bookmarked, unread, unreadLabel, read;
+        public string expired, expiredLabel, noReports, selectReport, previousPage, nextPage, unbookmark, createdWeek, locked;
+        public string[] categories;
 
         public static OwnerGuidePresentationData Load()
         {

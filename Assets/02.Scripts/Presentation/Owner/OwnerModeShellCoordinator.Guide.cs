@@ -44,13 +44,13 @@ namespace Baseball.Presentation.Owner
             }
             if (_ownerGuide == null)
             {
-                _ownerGuide = UI_System_OwnerGuide.Create(_shell, OwnerGuidePresentationData.Load());
+                EnsureHomeView();
+                _ownerGuide = UI_System_OwnerGuide.Create(_homeView.ManagerHost, OwnerGuidePresentationData.Load(), _homeView.SetDashboardState);
                 _ownerGuide.ActionRequested += NavigateGuideGoal;
-                _ownerGuide.KeepRequested += goal => SaveGuideChoice(state => state.AcceptAsIs(goal.Key));
-                _ownerGuide.SnoozeRequested += goal => SaveGuideChoice(state => state.Snooze(goal.Key,
-                    _manager.Runtime.ManagerMode.LiveSeason.CurrentWeekIndex + 1));
-                _ownerGuide.ReviewRequested += RefreshOwnerGuide;
                 _ownerGuide.TipsRequested += ShowOwnerGuideTip;
+                _homeView.OutsideSuggestionPressed += _ownerGuide.CollapseSuggestion;
+                _ownerGuide.ReadRequested += id => SaveGuideChoice(state => state.MarkReportRead(id));
+                _ownerGuide.BookmarkRequested += (id, bookmarked) => SaveGuideChoice(state => state.SetReportBookmark(id, bookmarked));
             }
             if (_hasUnsavedGuideChange) return;
             try
@@ -80,11 +80,12 @@ namespace Baseball.Presentation.Owner
                 if (IsGuideSuppressed) { _guideRequest++; ClearGuideTarget(); }
                 _ownerGuide?.SetOpen(false, false);
                 _shell?.SetGuideHeight(0);
+                if (_ownerGuide != null) _ownerGuide.gameObject.SetActive(false);
             }
             else
             {
                 RefreshOwnerGuide();
-                if (_ownerGuide != null) _shell.SetGuideHeight(_ownerGuide.Copy.collapsedHeight);
+                if (_ownerGuide != null) _ownerGuide.gameObject.SetActive(true);
             }
         }
 
@@ -156,7 +157,7 @@ namespace Baseball.Presentation.Owner
                 GuideTargetKind.Tactic => OwnerNavigationRoutes.RosterTacticCards,
                 _ => OwnerNavigationRoutes.RosterLineup
             };
-            if (!NavigateGuideRoute(route)) return;
+            if (!NavigateGuideRoute(route)) { _ownerGuide.SetFeedback(_ownerGuide.Copy.locked); return; }
             if (!SaveGuideChoice(state => state.Track(goal.Key))) return;
             int request = ++_guideRequest;
             _ownerGuide.SetOpen(false, false);
@@ -178,7 +179,11 @@ namespace Baseball.Presentation.Owner
             if (selectable != null && selectable.IsInteractable()) selectable.Select();
             else EventSystem.current?.SetSelectedGameObject(target.gameObject);
             LastGuideArrival = GuideArrivalStatus.TargetReady;
-            SaveGuideChoice(state => state.RecordArrival(goal.Key, LastGuideArrival));
+            SaveGuideChoice(state =>
+            {
+                state.RecordArrival(goal.Key, LastGuideArrival);
+                state.MarkReportRead(state.FindReportId(goal.Key));
+            });
         }
 
         private void ShowGuideTarget(RectTransform target)
@@ -222,6 +227,7 @@ namespace Baseball.Presentation.Owner
             _guideRequest++;
             ClearGuideTarget();
             if (_ownerGuide == null) return;
+            if (_homeView != null) _homeView.OutsideSuggestionPressed -= _ownerGuide.CollapseSuggestion;
             if (_shell != null) _shell.SetGuideHeight(0);
             if (Application.isPlaying) Destroy(_ownerGuide.gameObject); else DestroyImmediate(_ownerGuide.gameObject);
             _ownerGuide = null;

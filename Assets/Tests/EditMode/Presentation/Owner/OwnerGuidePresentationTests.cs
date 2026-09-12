@@ -56,11 +56,15 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Canvas.ForceUpdateCanvases();
                 LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)view.transform);
                 Canvas.ForceUpdateCanvases();
-                Bounds guide = RectTransformUtility.CalculateRelativeRectTransformBounds(rect, view.transform);
+                // 카드 내부 초상의 크롭 바깥 원본은 화면 점유 영역에 포함하지 않는다.
+                var corners = new Vector3[4];
+                ((RectTransform)view.transform).GetWorldCorners(corners);
+                var guide = new Bounds(rect.InverseTransformPoint(corners[0]), Vector3.zero);
+                foreach (var corner in corners) guide.Encapsulate(rect.InverseTransformPoint(corner));
                 Bounds workspace = RectTransformUtility.CalculateRelativeRectTransformBounds(rect, shell.MainWorkspaceHost);
                 Bounds action = RectTransformUtility.CalculateRelativeRectTransformBounds(rect, shell.ContextActionBarHost);
                 Assert.That(guide.min.y, Is.GreaterThanOrEqualTo(action.max.y));
-                Assert.That(guide.max.y, Is.LessThanOrEqualTo(workspace.min.y));
+                Assert.That(guide.max.y, Is.LessThanOrEqualTo(workspace.max.y));
                 Assert.That(guide.min.x, Is.GreaterThanOrEqualTo(-width / 2f));
                 Assert.That(guide.max.x, Is.LessThanOrEqualTo(width / 2f));
                 foreach (Text text in view.GetComponentsInChildren<Text>())

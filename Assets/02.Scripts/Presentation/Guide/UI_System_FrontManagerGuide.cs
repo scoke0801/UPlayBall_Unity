@@ -351,7 +351,7 @@ namespace Baseball.Presentation.Guide
             Color color)
         {
             RectTransform rect = CreateRect(name, parent, size, position);
-            Text text = rect.gameObject.AddComponent<Text>();
+            Text text = rect.gameObject.AddComponent<Baseball.Presentation.UI.UIProjectText>();
             text.font = Baseball.Presentation.UI.UIProjectFonts.Default;
             text.text = value;
             text.fontSize = fontSize;

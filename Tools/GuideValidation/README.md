@@ -1,5 +1,9 @@
 # 프런트 매니저 검증
 
+구단주 메인 개편 검증은 `-ReportDirectory output/main-ui-validation -TestFilter 'OwnerMainDashboardRevisionTests;OwnerGuidePresentationTests;OwnerHomeRuntimePresentationTests;ManagerReportTests;GuideProgressTests'`로 실행한다.
+기본 복사에서는 선수 얼굴·유니폼 대량 PNG를 제외한다. 선수 카드 원화 검증이 필요하면 `-IncludePlayerPortraits`를 지정한다.
+프런트 매니저 초상, 홈 배경, 공용 Skin과 폰트는 기본 검증에 포함된다.
+
 `Invoke-GuideValidation.ps1`은 메인 에디터와 분리된 `output/guide-validation/UnityProject`에 현재 소스·필요 리소스·EditMode 테스트를 복사하고 Unity 테스트를 시작한다. Unity 6000.3.21f1 설치와 저장소의 복원된 `Library/PackageCache`가 필요하다. 최초 리소스 import에는 시간이 걸릴 수 있다.
 
 ```powershell

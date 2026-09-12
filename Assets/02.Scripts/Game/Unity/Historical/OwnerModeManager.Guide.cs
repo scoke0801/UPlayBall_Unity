@@ -26,7 +26,7 @@ namespace Baseball.Game.Historical
             var preset = runtime.ManagerMode.GetSelectedLineupPreset();
             var goals = OwnerGuideGoalProvider.Create(BuildRosterStatus().Validation,
                 ValidateLineupPreset(preset), season.NextPlayerGame != null, runtime.GuideProgress.PendingMatchKey);
-            runtime.GuideProgress.Reconcile(scope, season.CurrentWeekIndex, goals, season.SeasonId);
+            runtime.GuideProgress.Reconcile(scope, season.CurrentWeekIndex, goals, season.SeasonId, season.SeasonNumber);
             return runtime.GuideProgress;
         }
 

@@ -47,6 +47,8 @@ namespace Baseball.Game.Guide
         public string reviewedMatchKey = "";
         public int homeScore;
         public int awayScore;
+        public ManagerReportData[] reports = Array.Empty<ManagerReportData>();
+        public int reportSequence;
     }
 
     [Serializable]
@@ -60,7 +62,7 @@ namespace Baseball.Game.Guide
     }
 
     /// <summary>게임 범위별 문제 회차와 보류를 관리한다. 큐·문구 선택·경기 RNG는 소유하지 않는다.</summary>
-    public sealed class GuideProgressState
+    public sealed partial class GuideProgressState
     {
         private readonly Dictionary<string, GuideGoalEntryData> _entries = new(StringComparer.Ordinal);
         private readonly Dictionary<string, GuideGoal> _current = new(StringComparer.Ordinal);
@@ -74,7 +76,7 @@ namespace Baseball.Game.Guide
         public int AwayScore { get; private set; }
 
         /// <summary>화면 초안이 아닌 적용된 원본의 완전한 후보 집합으로만 문제를 재평가한다.</summary>
-        public void Reconcile(string scope, int progress, IReadOnlyList<GuideGoal> goals, string seasonId = "")
+        public void Reconcile(string scope, int progress, IReadOnlyList<GuideGoal> goals, string seasonId = "", int seasonNumber = 0)
         {
             if (string.IsNullOrWhiteSpace(scope)) throw new ArgumentException("진행 범위가 필요합니다.", nameof(scope));
             if (goals == null) throw new ArgumentNullException(nameof(goals));
@@ -92,6 +94,7 @@ namespace Baseball.Game.Guide
                 TrackedKey = ""; Scope = scope;
             }
             SeasonId = seasonId ?? "";
+            ReconcileReports(scope, progress, goals, seasonNumber);
             _current.Clear();
             foreach (GuideGoal goal in goals)
             {
@@ -205,7 +208,7 @@ namespace Baseball.Game.Guide
             var data = new GuideProgressData { scope = Scope, seasonId = SeasonId, trackedKey = TrackedKey,
                 publishedMatchKey = PublishedMatchKey, homeScore = HomeScore, awayScore = AwayScore,
                 reviewedMatchKey = ReviewedMatchKey,
-                entries = new GuideGoalEntryData[keys.Count] };
+                entries = new GuideGoalEntryData[keys.Count], reports = CaptureReports(), reportSequence = _reportSequence };
             for (int index = 0; index < keys.Count; index++) data.entries[index] = Copy(_entries[keys[index]]);
             return data;
         }
@@ -220,6 +223,7 @@ namespace Baseball.Game.Guide
             state.ReviewedMatchKey = data.reviewedMatchKey ?? "";
             if (data.homeScore < 0 || data.awayScore < 0) throw new ArgumentException("안내 경기 점수가 잘못되었습니다.");
             state.HomeScore = data.homeScore; state.AwayScore = data.awayScore;
+            state.RestoreReports(data.reports, data.reportSequence);
             foreach (var entry in data.entries ?? Array.Empty<GuideGoalEntryData>())
             {
                 if (entry == null || string.IsNullOrWhiteSpace(entry.key) || entry.occurrence < 1 ||

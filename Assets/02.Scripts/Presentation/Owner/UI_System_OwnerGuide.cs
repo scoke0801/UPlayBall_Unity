@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using Baseball.Core.Historical;
 using Baseball.Game.Guide;
 using Baseball.Presentation.Guide;
@@ -12,202 +13,289 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>셸 예약 공간에서 한 과제의 근거·선택·실제 이동을 표시한다.</summary>
-    public sealed class UI_System_OwnerGuide : MonoBehaviour
+    /// <summary>홈 내부에서 접힌 추천·펼친 추천·매니저 리포트를 전환한다.</summary>
+    public sealed partial class UI_System_OwnerGuide : MonoBehaviour, IPointerClickHandler
     {
-        private SharedGameShellView _shell;
         private OwnerGuidePresentationData _copy;
-        private RectTransform _expanded;
-        private Button _dock, _action, _keep, _snooze, _next, _review;
+        private RectTransform _content, _suggestion, _reportsRoot;
+        private Button _dock, _action, _snooze, _next, _review, _close, _news;
         private Text _body, _counter;
         private Image _portrait;
+        private RectTransform _portraitViewport;
         private GuideGoal _goal;
+        private GuideProgressState _progress;
+        private readonly FrontManagerGuideCtaRouter _router = new();
         private GuideMessage _legacyMessage;
-        private readonly FrontManagerGuideCtaRouter _router = new FrontManagerGuideCtaRouter();
         private IReadOnlyList<GuideGoal> _goals = Array.Empty<GuideGoal>();
         private GameObject _returnFocus;
-        private int _index;
-        private bool _isOpen, _showSnoozed;
+        private int _state;
         private string _scope;
-        public bool IsOpen => _isOpen;
-        public bool ShowsSnoozed => _showSnoozed;
+        private Action<int> _layoutChanged;
+        private CanvasGroup _transitionGroup;
+        private Coroutine _transition;
+        public bool IsOpen => _state != 0;
+        public bool ShowsSnoozed => _state == 2 && _filter == 2;
         public OwnerGuidePresentationData Copy => _copy;
         public event Action<GuideGoal> ActionRequested;
-        public event Action<GuideGoal> KeepRequested;
-        public event Action<GuideGoal> SnoozeRequested;
-        public event Action ReviewRequested;
+        public event Action<string> ReadRequested;
+        public event Action<string, bool> BookmarkRequested;
         public event Action TipsRequested;
 
+        /// <summary>호환 호출도 Workspace 내부에만 생성한다.</summary>
         public static UI_System_OwnerGuide Create(SharedGameShellView shell, OwnerGuidePresentationData copy)
         {
-            RectTransform host = shell.SetGuideHeight(copy.collapsedHeight);
-            var view = host.gameObject.AddComponent<UI_System_OwnerGuide>();
-            view._shell = shell; view._copy = copy; view.Build(); return view;
+            RectTransform host = OwnerWorkspaceUiFactory.CreateRoot(shell.MainWorkspaceHost, "ManagerHost", false);
+            SetRect(host, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-744, 0), new Vector2(0, 352));
+            return Create(host, copy, null);
         }
 
-        /// <summary>현재 원본 상태만 표시하며 선택 중인 문제는 안정 ID로 유지한다.</summary>
+        /// <summary>홈이 소유한 카드 슬롯과 상태별 재배치 계약을 사용한다.</summary>
+        public static UI_System_OwnerGuide Create(RectTransform host, OwnerGuidePresentationData copy, Action<int> layoutChanged)
+        {
+            var view = host.gameObject.AddComponent<UI_System_OwnerGuide>();
+            view._copy = copy; view._layoutChanged = layoutChanged;
+            view.Build(); return view;
+        }
+
+        /// <summary>갱신해도 사용자가 펼친 추천과 리포트 선택을 안정 ID로 유지한다.</summary>
         public void Bind(GuideProgressState progress, string managerId)
         {
-            _legacyMessage = null;
-            string selectedKey = _goal?.Key;
-            if (_scope != progress.Scope) { _scope = progress.Scope; selectedKey = null; _index = 0; }
-            _goals = progress.GetVisibleGoals(_showSnoozed);
-            for (int index = 0; index < _goals.Count; index++) if (_goals[index].Key == selectedKey) _index = index;
-            _index = _goals.Count == 0 ? 0 : Mathf.Clamp(_index, 0, _goals.Count - 1);
-            _goal = _goals.Count == 0 ? null : _goals[_index];
+            _progress = progress; _legacyMessage = null;
+            if (_scope != progress.Scope) { _scope = progress.Scope; _goal = null; }
+            string selected = _goal?.Key;
+            _goals = progress.GetSuggestionGoals();
+            _goal = null;
+            foreach (var goal in _goals) if (goal.Key == selected) _goal = goal;
+            if (_state == 2 && selected != null)
+                foreach (var goal in progress.GetVisibleGoals(true)) if (goal.Key == selected) _goal = goal;
+            if (_goal == null && _goals.Count > 0) _goal = _goals[0];
             _portrait.sprite = FrontManagerPortraitSprites.LoadForManager(managerId, "FM_NEUTRAL");
             _portrait.gameObject.SetActive(_portrait.sprite != null);
-            Render(progress);
+            Render();
         }
 
-        public void SetFeedback(string message) => _body.text = message;
-
-        /// <summary>추적하던 수정이 실제 반영되면 창을 강제로 열지 않고 완료를 알린다.</summary>
-        public void ShowResolution()
+        public void SetFeedback(string message)
         {
-            _counter.text = _copy.resolved;
-            _dock.GetComponentInChildren<Text>().text = _copy.resolved;
+            if (_state == 2) _reportBody.text = message;
+            else _body.text = message;
         }
 
-        /// <summary>기존 Fact·대사 큐도 같은 수동 안내 공간에서 재사용한다.</summary>
+        public void ShowResolution() => _counter.text = _copy.resolved;
+
+        /// <summary>구단 소식도 현재 카드 안에서 표시한다.</summary>
         public void BindMessage(GuideMessage message)
         {
             _legacyMessage = message; _goal = null;
             _body.text = message?.Text ?? _copy.empty;
-            _action.GetComponentInChildren<Text>().text = _copy.action;
             _action.gameObject.SetActive(message != null && _router.CanRoute(message));
-            _keep.gameObject.SetActive(false); _snooze.gameObject.SetActive(false);
-            _next.gameObject.SetActive(false);
+            if (message?.Cta != null) _action.GetComponentInChildren<Text>().text = message.Cta.Value.Label;
+            _snooze.gameObject.SetActive(false); _next.gameObject.SetActive(false);
         }
 
-        public void SetOpen(bool open, bool restoreFocus = true)
+        public void SetOpen(bool open, bool restoreFocus = true) => SetState(open ? 1 : 0, restoreFocus);
+
+        public void CollapseSuggestion() { if (_state == 1) SetState(0); }
+
+        /// <summary>리포트 뒤로는 펼친 추천, 접기는 기본 추천으로 돌아간다.</summary>
+        public bool TryGoBack()
         {
-            if (open && !_isOpen) _returnFocus = EventSystem.current?.currentSelectedGameObject;
-            _isOpen = open;
-            _shell.SetGuideHeight(open ? _copy.expandedHeight : _copy.collapsedHeight);
-            ResizeConversation();
-            _expanded.gameObject.SetActive(open);
-            _dock.gameObject.SetActive(!open);
-            if (open && _action.gameObject.activeInHierarchy) _action.Select();
-            else if (open) _review.Select();
-            else if (restoreFocus && _returnFocus != null && _returnFocus.activeInHierarchy)
-                EventSystem.current?.SetSelectedGameObject(_returnFocus);
+            if (_state == 0) return false;
+            SetState(_state == 2 ? 1 : 0);
+            return true;
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (_state == 0) SetState(1);
+        }
+
+        private void SetState(int state, bool restoreFocus = true)
+        {
+            bool changed = _state != state;
+            if (state != 0 && _state == 0) _returnFocus = EventSystem.current?.currentSelectedGameObject;
+            _state = state;
+            _layoutChanged?.Invoke(state);
+            _suggestion.gameObject.SetActive(state != 2);
+            _reportsRoot.gameObject.SetActive(state == 2);
+            _portrait.gameObject.SetActive(state != 2 && _portrait.sprite != null);
+            _dock.gameObject.SetActive(state == 0);
+            _close.gameObject.SetActive(state == 1);
+            Render();
+            if (changed && Application.isPlaying && isActiveAndEnabled)
+            {
+                Baseball.Game.Sound.SoundManager.Instance?.PlayInterfaceConfirm();
+                if (_transition != null) StopCoroutine(_transition);
+                _transition = StartCoroutine(FadeContent());
+            }
+            if (state == 2) _reportBack.Select();
+            else if (state == 1 && _action.gameObject.activeInHierarchy) _action.Select();
+            else if (state == 1) _review.Select();
+            else if (restoreFocus)
+            {
+                if (_returnFocus != null && _returnFocus.activeInHierarchy)
+                    EventSystem.current?.SetSelectedGameObject(_returnFocus);
+                else _dock.Select();
+            }
         }
 
         private void Build()
         {
-            _dock = OwnerWorkspaceUiFactory.CreateButton(transform, "ManagerDock", _copy.open, () => { ReviewRequested?.Invoke(); SetOpen(true); });
-            SetRect((RectTransform)_dock.transform, new Vector2(1, 0), Vector2.one, new Vector2(-240, 4), new Vector2(-4, -4));
-            OwnerUiButtonSkin.Apply(_dock, OwnerButtonRole.Primary);
-            _expanded = new GameObject("Conversation", typeof(RectTransform)).GetComponent<RectTransform>();
-            _expanded.SetParent(transform, false);
-            _expanded.anchorMin = _expanded.anchorMax = new Vector2(.5f, .5f);
-            var panel = OwnerWorkspaceUiFactory.CreatePanel(_expanded, "GuideDetail", _copy.title);
-            SetRect(panel.Root, Vector2.zero, Vector2.one, new Vector2(192, 8), new Vector2(0, -8));
-            panel.Root.GetComponent<Image>().color = CareerUiTheme.PanelDark;
-            panel.Root.Find("HeaderSurface").GetComponent<Image>().color = CareerUiTheme.PanelDark;
-            panel.Root.Find("HeaderAccent").GetComponent<Image>().color = CareerUiTheme.AccentGold;
-            // 장식 테두리가 이름 기반 스킨에서 불투명 표면으로 해석되지 않게 역할을 고정한다.
-            panel.Root.Find("ThinBorder").gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
+            gameObject.AddComponent<CareerUiPreserveTextColor>();
+            var panel = OwnerWorkspaceUiFactory.CreatePanel(transform, "ManagerSuggestionCard", _copy.title);
+            SetRect(panel.Root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            OwnerDashboardStyle.ApplySurface(panel.Root);
+            panel.Root.GetComponent<Image>().raycastTarget = true;
+            panel.Root.Find("HeaderSurface").GetComponent<Image>().color = OwnerDashboardStyle.Surface;
+            panel.Root.Find("HeaderAccent").GetComponent<Image>().color = OwnerDashboardStyle.Line;
             panel.Root.Find("HeaderAccent").gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
-            panel.Root.Find("ThinBorder").GetComponent<Image>().enabled = false;
-            panel.Root.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            // 공용 스킨이 장식 테두리를 불투명한 면으로 해석해 본문을 덮지 않도록 한다.
+            var border = panel.Root.Find("ThinBorder").GetComponent<Image>();
+            (border.GetComponent<CareerUiVisualElement>() ?? border.gameObject.AddComponent<CareerUiVisualElement>())
+                .Initialize(CareerUiVisualRole.FlatSurface);
+            border.enabled = false;
             var title = panel.Root.Find("HeaderSlot").GetComponent<Text>();
-            title.color = CareerUiTheme.AccentGold;
-            title.fontSize = 18;
+            title.color = OwnerDashboardStyle.Ivory; title.fontSize = 24;
+            title.rectTransform.offsetMin = new Vector2(24, -43);
+            OwnerDashboardStyle.SetTypography(title, true);
+            _content = panel.Content;
+            _transitionGroup = _content.gameObject.AddComponent<CanvasGroup>();
+            _counter = MakeText(panel.Root, "Count", 22);
+            _counter.color = OwnerDashboardStyle.Gold;
+            _counter.alignment = TextAnchor.MiddleRight;
+            SetRect(_counter.rectTransform, new Vector2(.38f, 1), Vector2.one, new Vector2(0, -43), new Vector2(-12, -4));
+            _suggestion = OwnerWorkspaceUiFactory.CreateRoot(_content, "Suggestion", false);
+            _portraitViewport = new GameObject("PortraitViewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D)).GetComponent<RectTransform>();
+            _portraitViewport.SetParent(_suggestion, false);
+            _portraitViewport.GetComponent<Image>().color = OwnerDashboardStyle.Raised;
+            _portraitViewport.GetComponent<Image>().raycastTarget = false;
+            _portraitViewport.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
             _portrait = new GameObject("Portrait", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
-            _portrait.transform.SetParent(_expanded, false); _portrait.preserveAspect = true; _portrait.raycastTarget = false;
-            SetRect(_portrait.rectTransform, Vector2.zero, new Vector2(0, 1), Vector2.zero, new Vector2(188, 0));
-            _body = OwnerWorkspaceUiFactory.CreateText(panel.Content, "Evidence", _copy.loading,
-                Mathf.RoundToInt(_copy.fontSize * _copy.textScale));
-            _body.color = CareerUiTheme.TextPrimary;
-            SetRect(_body.rectTransform, Vector2.zero, Vector2.one, new Vector2(12, 94), new Vector2(-12, -4));
-            _counter = OwnerWorkspaceUiFactory.CreateText(panel.Root, "Count", "", 14, alignment: TextAnchor.MiddleRight);
-            _counter.color = CareerUiTheme.TextSecondary;
-            SetRect(_counter.rectTransform, new Vector2(0.5f, 1), Vector2.one, new Vector2(0, -42), new Vector2(-180, -4));
-            var close = OwnerWorkspaceUiFactory.CreateButton(panel.Root, "Close", _copy.close, () => SetOpen(false));
-            OwnerUiButtonSkin.Apply(close, OwnerButtonRole.Quiet);
-            SetRect((RectTransform)close.transform, new Vector2(1, 1), Vector2.one, new Vector2(-80, -43), new Vector2(-8, -3));
-            RectTransform actions = new GameObject("Actions", typeof(RectTransform)).GetComponent<RectTransform>();
-            actions.SetParent(panel.Content, false);
-            SetRect(actions, Vector2.zero, new Vector2(1, 0), new Vector2(12, 44), new Vector2(-12, 88));
-            var layout = OwnerWorkspaceUiFactory.AddHorizontalLayout(actions, CareerUiTheme.Space2);
-            layout.childForceExpandWidth = false;
-            _action = OwnerWorkspaceUiFactory.CreateButton(actions, "Navigate", _copy.action, () =>
+            _portrait.transform.SetParent(_portraitViewport, false); _portrait.preserveAspect = true; _portrait.raycastTarget = false;
+            _portrait.rectTransform.anchorMin = _portrait.rectTransform.anchorMax = new Vector2(.5f, 1);
+            _portrait.rectTransform.pivot = new Vector2(.5f, 1);
+            _portrait.rectTransform.sizeDelta = new Vector2(240, 360);
+            _portrait.rectTransform.anchoredPosition = new Vector2(-18, 8);
+            _body = MakeText(_suggestion, "Evidence", 22);
+            _body.alignment = TextAnchor.UpperLeft;
+            _action = MakeButton(_suggestion, "Navigate", _copy.action, NavigateCurrent);
+            _snooze = MakeButton(_suggestion, "Snooze", _copy.snooze, () =>
             {
-                if (_goal != null) ActionRequested?.Invoke(_goal);
-                else if (_legacyMessage != null && _router.TryRoute(_legacyMessage)) SetOpen(false, false);
-            });
-            _keep = OwnerWorkspaceUiFactory.CreateButton(actions, "Keep", _copy.keep, () => { if (_goal != null) KeepRequested?.Invoke(_goal); });
-            _snooze = OwnerWorkspaceUiFactory.CreateButton(actions, "Snooze", _copy.snooze, () => { if (_goal != null) SnoozeRequested?.Invoke(_goal); });
-            StyleAction(_action, OwnerButtonRole.Primary, 184);
-            StyleAction(_keep, OwnerButtonRole.Quiet, 172);
-            StyleAction(_snooze, OwnerButtonRole.Quiet, 158);
-            _next = OwnerWorkspaceUiFactory.CreateButton(panel.Root, "Next", _copy.next, () => { _index = (_index + 1) % Math.Max(1, _goals.Count); _goal = null; ReviewRequested?.Invoke(); });
-            StyleAction(_next, OwnerButtonRole.Quiet, 96);
-            SetRect((RectTransform)_next.transform, new Vector2(1, 1), Vector2.one, new Vector2(-178, -43), new Vector2(-86, -3));
-            _review = OwnerWorkspaceUiFactory.CreateButton(panel.Content, "Review", _copy.review, () => { _showSnoozed = !_showSnoozed; ReviewRequested?.Invoke(); });
-            StyleAction(_review, OwnerButtonRole.Quiet, 160);
-            SetRect((RectTransform)_review.transform, Vector2.zero, Vector2.zero, new Vector2(12, 0), new Vector2(172, 36));
-            var tips = OwnerWorkspaceUiFactory.CreateButton(panel.Content, "Tips", _copy.tips, () => TipsRequested?.Invoke());
-            StyleAction(tips, OwnerButtonRole.Quiet, 108);
-            SetRect((RectTransform)tips.transform, Vector2.zero, Vector2.zero, new Vector2(188, 0), new Vector2(296, 36));
-            ResizeConversation();
-            SetOpen(false, false);
+                string id = _progress?.FindReportId(_goal?.Key);
+                if (id != null) BookmarkRequested?.Invoke(id, true);
+            }, OwnerButtonRole.Quiet);
+            _next = MakeButton(_suggestion, "Next", _copy.next, () =>
+            {
+                string id = _progress?.FindReportId(_goal?.Key);
+                if (id != null) ReadRequested?.Invoke(id);
+            }, OwnerButtonRole.Quiet);
+            _review = MakeButton(_suggestion, "Review", _copy.review, () => SetState(2), OwnerButtonRole.Quiet);
+            _dock = MakeButton(_suggestion, "ManagerDock", _copy.expand, () => SetState(1), OwnerButtonRole.Quiet);
+            _close = MakeButton(_suggestion, "Close", _copy.collapse, () => SetState(0), OwnerButtonRole.Quiet);
+            _news = MakeButton(_suggestion, "ClubNews", _copy.tips, () => TipsRequested?.Invoke(), OwnerButtonRole.Quiet);
+            BuildReports();
+            SetState(0, false);
         }
 
-        private static void StyleAction(Button button, OwnerButtonRole role, float width)
+        private void NavigateCurrent()
         {
-            OwnerUiButtonSkin.Apply(button, role);
-            button.GetComponent<LayoutElement>().preferredWidth = width;
-            button.GetComponentInChildren<Text>().fontSize = 16;
+            if (_goal != null) ActionRequested?.Invoke(_goal);
+            else if (_legacyMessage != null && _router.TryRoute(_legacyMessage)) SetOpen(false, false);
         }
 
-        private void OnRectTransformDimensionsChange() => ResizeConversation();
-
-        private void ResizeConversation()
+        private IEnumerator FadeContent()
         {
-            if (_expanded == null || _copy == null) return;
-            float width = Mathf.Min(_copy.conversationWidth, ((RectTransform)transform).rect.width);
-            _expanded.sizeDelta = new Vector2(Mathf.Max(0, width), _copy.expandedHeight);
-        }
-
-        private void Render(GuideProgressState progress)
-        {
-            _action.GetComponentInChildren<Text>().text = _goal?.Target switch
+            float elapsed = 0;
+            while (elapsed < .18f)
             {
-                GuideTargetKind.Analysis => _copy.analysisAction,
-                GuideTargetKind.PlanConfirmation => _copy.preparationAction,
-                GuideTargetKind.Condition => _copy.pitchingAction,
-                GuideTargetKind.TeamColor => _copy.teamColorAction,
-                GuideTargetKind.Tactic => _copy.tacticAction,
-                _ => _copy.rosterAction
-            };
-            _counter.text = string.Format(_copy.count, _goals.Count == 0 ? 0 : _index + 1, _goals.Count);
-            _dock.GetComponentInChildren<Text>().text = _copy.open + (_goals.Count > 0 ? " · " + _goals.Count : "");
-            _review.GetComponentInChildren<Text>().text = _showSnoozed ? _copy.current : _copy.review;
-            _action.gameObject.SetActive(_goal != null);
-            _keep.gameObject.SetActive(_goal?.Kind == GuideGoalKind.PresetIssue && !_goal.IsRequired);
-            _snooze.gameObject.SetActive(_goal != null);
-            _next.gameObject.SetActive(_goals.Count > 1);
-            if (_goal == null)
-            {
-                _body.text = progress.GetVisibleGoals(true).Count > 0 ? _copy.snoozedEmpty : _copy.empty;
-                return;
+                elapsed += Time.unscaledDeltaTime;
+                _transitionGroup.alpha = Mathf.Lerp(.65f, 1, elapsed / .18f);
+                yield return null;
             }
-            if (_goal.Kind == GuideGoalKind.Preparation) { _body.text = _copy.preparation; return; }
-            if (_goal.Kind == GuideGoalKind.PlanConfirmation) { _body.text = _copy.confirmation; return; }
-            if (_goal.Kind == GuideGoalKind.Debrief)
-            { _body.text = string.Format(_copy.debrief, progress.HomeScore, progress.AwayScore); return; }
-            string detail = _goal.Evidence;
-            if (_goal.Kind == GuideGoalKind.RosterIssue && Enum.TryParse(detail, out RosterValidationIssueCode roster))
+            _transitionGroup.alpha = 1; _transition = null;
+        }
+
+        private void OnDisable()
+        {
+            if (_transition != null) StopCoroutine(_transition);
+            _transition = null;
+            if (_transitionGroup != null) _transitionGroup.alpha = 1;
+        }
+
+        private void Render()
+        {
+            if (_body == null) return;
+            int unread = 0;
+            if (_progress != null) foreach (var report in _progress.GetReports())
+                if (!report.isRead && !report.isExpired) unread++;
+            _counter.text = string.Format(_copy.unread, unread);
+            if (_state == 1 && _goal != null)
+            {
+                int index = 0;
+                for (int i = 0; i < _goals.Count; i++) if (_goals[i].Key == _goal.Key) index = i;
+                _counter.text = string.Format(_copy.count, index + 1, _goals.Count) + " · " + _counter.text;
+            }
+            _dock.gameObject.SetActive(_state == 0 && _goal != null);
+            _body.text = FormatBody(_goal, _progress?.HomeScore ?? 0, _progress?.AwayScore ?? 0);
+            _action.GetComponentInChildren<Text>().text = ActionLabel(_goal);
+            _action.gameObject.SetActive(_goal != null);
+            _snooze.gameObject.SetActive(_state == 1 && _goal != null);
+            _next.gameObject.SetActive(_state == 1 && _goal != null);
+            _news.gameObject.SetActive(_state == 1);
+            bool expanded = _state == 1;
+            SetRect(_portraitViewport, Vector2.zero, new Vector2(0, 1), new Vector2(8, expanded ? 156 : 80), new Vector2(152, -8));
+            SetRect(_body.rectTransform, Vector2.zero, Vector2.one, new Vector2(176, expanded ? 156 : 80), new Vector2(-16, -8));
+            SetRect((RectTransform)_action.transform, Vector2.zero, new Vector2(0, 0), new Vector2(8, expanded ? 80 : 4), new Vector2(260, expanded ? 148 : 72));
+            SetRect((RectTransform)_snooze.transform, Vector2.zero, Vector2.zero, new Vector2(268, 80), new Vector2(476, 148));
+            SetRect((RectTransform)_next.transform, Vector2.zero, Vector2.zero, new Vector2(484, 80), new Vector2(708, 148));
+            SetRect((RectTransform)_review.transform, Vector2.zero, Vector2.zero, new Vector2(expanded ? 8 : 268, 4), new Vector2(expanded ? 260 : 520, 72));
+            SetRect((RectTransform)_dock.transform, Vector2.zero, Vector2.zero, new Vector2(528, 4), new Vector2(708, 72));
+            SetRect((RectTransform)_close.transform, Vector2.zero, Vector2.zero, new Vector2(528, 4), new Vector2(708, 72));
+            SetRect((RectTransform)_news.transform, Vector2.zero, Vector2.zero, new Vector2(268, 4), new Vector2(520, 72));
+            if (_state == 2) RenderReports();
+        }
+
+        private string ActionLabel(GuideGoal goal) => goal?.Target switch
+        {
+            GuideTargetKind.Analysis => _copy.analysisAction,
+            GuideTargetKind.PlanConfirmation => _copy.preparationAction,
+            GuideTargetKind.Condition => _copy.pitchingAction,
+            GuideTargetKind.TeamColor => _copy.teamColorAction,
+            GuideTargetKind.Tactic => _copy.tacticAction,
+            _ => _copy.rosterAction
+        };
+
+        private string FormatBody(GuideGoal goal, int home, int away)
+        {
+            if (goal == null) return _copy.empty;
+            if (goal.Kind == GuideGoalKind.Preparation) return _copy.preparation;
+            if (goal.Kind == GuideGoalKind.PlanConfirmation) return _copy.confirmation;
+            if (goal.Kind == GuideGoalKind.Debrief) return string.Format(_copy.debrief, home, away);
+            string detail;
+            if (goal.Kind == GuideGoalKind.RosterIssue && Enum.TryParse(goal.Evidence, out RosterValidationIssueCode roster))
                 detail = OwnerRosterLineupPresentationBuilder.FormatRosterIssueCode(roster);
-            else if (Enum.TryParse(detail, out LineupPresetValidationIssueCode preset))
+            else if (Enum.TryParse(goal.Evidence, out LineupPresetValidationIssueCode preset))
                 detail = OwnerRosterLineupPresentationBuilder.FormatLineupIssueCode(preset);
             else detail = _copy.missing;
-            if (_goal.Actual.HasValue && _goal.Expected.HasValue)
-                detail = string.Format(_copy.rosterCounts, detail, _goal.Actual.Value, _goal.Expected.Value);
-            _body.text = string.Format(_goal.IsRequired ? _copy.required : _copy.optional, detail);
+            if (goal.Actual.HasValue && goal.Expected.HasValue)
+                detail = string.Format(_copy.rosterCounts, detail, goal.Actual.Value, goal.Expected.Value);
+            return string.Format(goal.IsRequired ? _copy.required : _copy.optional, detail);
+        }
+
+        private Text MakeText(Transform parent, string name, int size)
+        {
+            var text = OwnerWorkspaceUiFactory.CreateText(parent, name, "", size);
+            text.color = OwnerDashboardStyle.Ivory;
+            OwnerDashboardStyle.SetTypography(text);
+            return text;
+        }
+
+        private static Button MakeButton(Transform parent, string name, string label, Action action, OwnerButtonRole role = OwnerButtonRole.Secondary)
+        {
+            var button = OwnerWorkspaceUiFactory.CreateButton(parent, name, label, action);
+            OwnerUiButtonSkin.Apply(button, role);
+            OwnerUiButtonSkin.SetDashboardStyle(button);
+            button.GetComponentInChildren<Text>().fontSize = 22;
+            return button;
         }
 
         private static void SetRect(RectTransform rect, Vector2 min, Vector2 max, Vector2 lower, Vector2 upper)
