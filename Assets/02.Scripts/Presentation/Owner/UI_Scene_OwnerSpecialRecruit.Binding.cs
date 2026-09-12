@@ -161,7 +161,7 @@ namespace Baseball.Presentation.Owner
                 season.Position, season.Cost, card.Edition, 0, 0, false, false,
                 new OwnerCardAbilityResolver(_manager.Balance.Growth).ResolvePermanent(season, card, null),
                 playerSeasonId: season.PlayerSeasonId, pitcherRole: season.PitcherRole,
-                teamDisplayName: _manager.GetClubDisplayName(season.OriginTeamSeasonKey),
+                teamDisplayName: _manager.GetTeamIdentityName(season.OriginTeamSeasonKey),
                 abilityGraphMaximum: _manager.Balance.MatchRatingCurve.Caps.HardCap,
                 isOwnedCard: false, preferredBattingOrder: card.PreferredBattingOrder,
                 isPositionEvidenceMissing: season.IsPositionEvidenceMissing);

@@ -21,17 +21,23 @@ namespace Baseball.Presentation.Owner
                 OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
                 teamSeasonKey => manager.GetClubDisplayName(teamSeasonKey),
                 teamSeasonKey => manager.GetTeamOriginYear(teamSeasonKey),
-                manager.GetClubDisplayName(runtime.PlayerTeamSeasonKey));
+                manager.GetTeamIdentityDisplayName(runtime.PlayerTeamSeasonKey),
+                runtime.TryGetPlayerClubName(runtime.PlayerTeamSeasonKey, out _));
         }
 
         /// <summary>Owner 일정 원본과 이름 Resolver를 날짜 없는 공용 Round Snapshot으로 복사한다.</summary>
         /// <param name="focusEmblemTeamName">구단주가 바꾼 이름 대신 내 구단 엠블렘을 찾을 원본 구단명.</param>
+        /// <param name="focusUsesCustomClubName">
+        /// 내 구단이 구단주가 직접 지은 이름을 쓰는지 여부. 원본 연도는 역사 구단을 구분하는 표기이므로
+        /// 새로 이름 붙인 내 구단에는 붙이지 않는다.
+        /// </param>
         public ScheduleScreenSnapshot CreateSchedule(
             ManagerLiveSeasonState liveSeason,
             string leagueLabel,
             Func<string, string> teamDisplayNameResolver,
             Func<string, int?> teamOriginYearResolver = null,
-            string focusEmblemTeamName = null)
+            string focusEmblemTeamName = null,
+            bool focusUsesCustomClubName = false)
         {
             if (liveSeason == null)
                 throw new ArgumentNullException(nameof(liveSeason));
@@ -40,6 +46,7 @@ namespace Baseball.Presentation.Owner
             IReadOnlyList<ScheduledGameState> source = liveSeason.Schedule.Games;
             var games = new ScheduleGameSnapshot[source.Count];
             string focusTeamKey = liveSeason.GetTeamSeasonKey(liveSeason.PlayerTeamId);
+            string yearPrefixExemptKey = focusUsesCustomClubName ? focusTeamKey : null;
             var teamDisplayNames = new Dictionary<string, string>(StringComparer.Ordinal);
 
             for (int index = 0; index < games.Length; index++)
@@ -58,7 +65,8 @@ namespace Baseball.Presentation.Owner
                             awayKey,
                             teamDisplayNameResolver,
                             teamOriginYearResolver,
-                            teamDisplayNames),
+                            teamDisplayNames,
+                            yearPrefixExemptKey),
                         "TeamEmblem/" + game.AwayTeamId.ToString(CultureInfo.InvariantCulture),
                         emblemTeamName: ResolveEmblemTeamName(awayKey, focusTeamKey, focusEmblemTeamName)),
                     new ScheduleTeamSnapshot(
@@ -67,7 +75,8 @@ namespace Baseball.Presentation.Owner
                             homeKey,
                             teamDisplayNameResolver,
                             teamOriginYearResolver,
-                            teamDisplayNames),
+                            teamDisplayNames,
+                            yearPrefixExemptKey),
                         "TeamEmblem/" + game.HomeTeamId.ToString(CultureInfo.InvariantCulture),
                         emblemTeamName: ResolveEmblemTeamName(homeKey, focusTeamKey, focusEmblemTeamName)),
                     game.IsCompleted,
@@ -94,12 +103,19 @@ namespace Baseball.Presentation.Owner
             string teamSeasonKey,
             Func<string, string> teamDisplayNameResolver,
             Func<string, int?> teamOriginYearResolver,
-            IDictionary<string, string> teamDisplayNames)
+            IDictionary<string, string> teamDisplayNames,
+            string yearPrefixExemptKey = null)
         {
             if (teamDisplayNames.TryGetValue(teamSeasonKey, out string cachedDisplayName))
                 return cachedDisplayName;
 
             string displayName = teamDisplayNameResolver(teamSeasonKey);
+            // 구단주가 직접 이름 붙인 내 구단은 역사 구단이 아니므로 원본 연도를 붙이지 않는다.
+            if (string.Equals(teamSeasonKey, yearPrefixExemptKey, StringComparison.Ordinal))
+            {
+                teamDisplayNames.Add(teamSeasonKey, displayName);
+                return displayName;
+            }
             if (teamOriginYearResolver == null)
             {
                 teamDisplayNames.Add(teamSeasonKey, displayName);

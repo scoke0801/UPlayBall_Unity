@@ -1,3 +1,5 @@
+using System;
+using System.Reflection;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
@@ -6,6 +8,7 @@ using Baseball.Presentation.SharedUI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
 {
@@ -80,6 +83,60 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(favorite.MiniCard.StatusLabel, Does.Contain("+2"));
             Assert.That(favorite.MiniCard.StatusLabel, Does.Contain("중복 3"));
             Assert.That(favorite.MiniCard.VisualState, Is.EqualTo(PlayerMiniCardVisualState.Highlighted));
+        }
+
+        [Test]
+        public void OwnerCardFilters_같은Franchise의연도별구단을하나의옵션으로묶는다()
+        {
+            var root = new GameObject("OwnerCardFiltersTestRoot", typeof(RectTransform));
+            try
+            {
+                var cards = new[]
+                {
+                    new OwnerCollectionCardSnapshot(
+                        "MBC-1982", "PERSON-1", "가상선수1", 1982, PlayerPosition.Catcher, 3,
+                        PlayerCardEdition.Normal, 0, 0, false, false,
+                        teamDisplayName: "1982 MBC 청룡",
+                        originFranchiseId: "FRANCHISE-LG",
+                        franchiseHistoryDisplayName: "MBC 청룡 & LG"),
+                    new OwnerCollectionCardSnapshot(
+                        "LG-2025", "PERSON-2", "가상선수2", 2025, PlayerPosition.FirstBase, 4,
+                        PlayerCardEdition.Normal, 0, 0, false, false,
+                        teamDisplayName: "2025 LG 트윈스",
+                        originFranchiseId: "FRANCHISE-LG",
+                        franchiseHistoryDisplayName: "MBC 청룡 & LG"),
+                    new OwnerCollectionCardSnapshot(
+                        "OB-1982", "PERSON-3", "가상선수3", 1982, PlayerPosition.SecondBase, 4,
+                        PlayerCardEdition.Normal, 0, 0, false, false,
+                        teamDisplayName: "1982 OB 베어스",
+                        originFranchiseId: "FRANCHISE-DOOSAN",
+                        franchiseHistoryDisplayName: "OB & 두산")
+                };
+                Type filterType = Assembly.Load("Baseball.Presentation")
+                    .GetType("Baseball.Presentation.Owner.OwnerCardFilters", true);
+                object filters = Activator.CreateInstance(filterType, true);
+                int changeCount = 0;
+                filterType.GetMethod("Build").Invoke(
+                    filters,
+                    new object[] { root.transform, cards, (Action)(() => changeCount++) });
+                Dropdown dropdown = root.transform.Find("TeamFilter").GetComponent<Dropdown>();
+
+                Assert.That(dropdown.options, Has.Count.EqualTo(3));
+                Assert.That(dropdown.options.Exists(option => option.text == "MBC 청룡 & LG"), Is.True);
+                Assert.That(dropdown.options.Exists(option => option.text.Contains("1982")), Is.False);
+                int lgOption = dropdown.options.FindIndex(option => option.text == "MBC 청룡 & LG");
+                dropdown.value = lgOption;
+
+                MethodInfo matches = filterType.GetMethod("Matches");
+                Assert.That(matches.Invoke(filters, new object[] { cards[0] }), Is.True);
+                Assert.That(matches.Invoke(filters, new object[] { cards[1] }), Is.True);
+                Assert.That(matches.Invoke(filters, new object[] { cards[2] }), Is.False);
+                Assert.That(changeCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
         }
 
         [Test]

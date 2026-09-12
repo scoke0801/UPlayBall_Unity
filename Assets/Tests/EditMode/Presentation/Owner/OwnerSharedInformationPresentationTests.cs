@@ -87,6 +87,42 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void ScheduleFactory_구단주가이름붙인내구단에는원본연도를붙이지않는다()
+        {
+            var game = new ScheduledGameState(1, 1, 10UL, 1, 2);
+            var liveSeason = new ManagerLiveSeasonState(
+                "owner:2028:1",
+                1,
+                2028,
+                0,
+                2,
+                new[]
+                {
+                    new ManagerTeamReference(1, "rival-team"),
+                    new ManagerTeamReference(2, "owner-team")
+                },
+                new SeasonScheduleState(new[] { game }));
+
+            ScheduleScreenSnapshot snapshot = new OwnerSharedInformationSnapshotFactory().CreateSchedule(
+                liveSeason,
+                "루키 리그",
+                teamId => teamId == "owner-team" ? "하마킹" : "LG 트윈스",
+                _ => 2025,
+                focusEmblemTeamName: "2025 LG 트윈스",
+                focusUsesCustomClubName: true);
+
+            Assert.That(snapshot.Games[0].AwayTeam.DisplayName, Is.EqualTo("2025 LG 트윈스"));
+            Assert.That(snapshot.Games[0].HomeTeam.DisplayName, Is.EqualTo("하마킹"));
+            // 표시 이름은 구단주가 지은 이름이지만 엠블렘은 원본 Identity 구단명으로 찾는다.
+            Assert.That(snapshot.Games[0].HomeTeam.EmblemTeamName, Is.EqualTo("2025 LG 트윈스"));
+
+            var league = new OwnerLeaguePresentationModel(snapshot);
+            Assert.That(
+                league.Standings.Single(team => team.Id == "owner-team").Name,
+                Is.EqualTo("하마킹"));
+        }
+
+        [Test]
         public void ScheduleFactory_이미연도가포함된합성팀이름을중복하지않는다()
         {
             var game = new ScheduledGameState(1, 1, 10UL, 1, 2);

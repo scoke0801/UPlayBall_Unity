@@ -146,7 +146,9 @@ namespace Baseball.Presentation.Owner
             bool isOwnedCard = true,
             PreferredBattingOrder preferredBattingOrder = PreferredBattingOrder.None,
             bool isPositionEvidenceMissing = false,
-            int? conditionLevel = null)
+            int? conditionLevel = null,
+            string originFranchiseId = "",
+            string franchiseHistoryDisplayName = "")
         {
             CardId = RequireText(cardId, nameof(cardId));
             PlayerPersonId = RequireText(playerPersonId, nameof(playerPersonId));
@@ -174,6 +176,10 @@ namespace Baseball.Presentation.Owner
             IsActiveRoster = isActiveRoster;
             StudyStatus = studyStatus ?? string.Empty;
             TeamDisplayName = teamDisplayName ?? string.Empty;
+            OriginFranchiseId = originFranchiseId?.Trim() ?? string.Empty;
+            FranchiseHistoryDisplayName = string.IsNullOrWhiteSpace(franchiseHistoryDisplayName)
+                ? TeamDisplayName
+                : franchiseHistoryDisplayName.Trim();
             _skillBlockPlacements = Copy(skillBlockPlacements);
             Condition = condition;
             ConditionLevel = isOwnedCard ? conditionLevel : null;
@@ -212,7 +218,10 @@ namespace Baseball.Presentation.Owner
         public int AvailableSkillBlockCount { get; }
         public bool IsActiveRoster { get; }
         public string StudyStatus { get; }
+        /// <summary>현재 실제·가상 표시 설정의 카드 원본 구단명. 연도와 사용자 구단명은 포함하지 않는다.</summary>
         public string TeamDisplayName { get; }
+        public string OriginFranchiseId { get; }
+        public string FranchiseHistoryDisplayName { get; }
         public int? Condition { get; }
         public string ConditionLabel { get; }
         public int? ConditionLevel { get; }

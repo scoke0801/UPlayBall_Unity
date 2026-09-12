@@ -282,7 +282,7 @@ namespace Baseball.Presentation.Owner
                 person?.Bats,
                 CreatePitchSnapshots(manager, season, abilities),
                 CreateCurrentSeasonRecord(runtime, season, currentTeamSeasonKey),
-                teamDisplayName: manager.GetClubDisplayName(season.OriginTeamSeasonKey),
+                teamDisplayName: manager.GetTeamIdentityName(season.OriginTeamSeasonKey),
                 conditionLabel: "비공개",
                 abilityBreakdowns: abilityBreakdowns,
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,

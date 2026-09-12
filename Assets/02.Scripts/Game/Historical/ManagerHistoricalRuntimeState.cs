@@ -130,6 +130,15 @@ namespace Baseball.Game.Historical
         /// <summary>저장 복원·실패 복구에서 과제 이력을 원본 게임 상태와 분리해 교체한다.</summary>
         public void RestoreGuideProgress(GuideProgressData data) => GuideProgress = GuideProgressState.Restore(data);
         public OwnerProfileState OwnerProfile { get; }
+
+        /// <summary>플레이어 구단이면 새 게임에서 입력한 구단명을 돌려준다. 입력이 없던 진행은 false다.</summary>
+        public bool TryGetPlayerClubName(string teamSeasonKey, out string clubName)
+        {
+            clubName = OwnerProfile?.ClubName;
+            return !string.IsNullOrWhiteSpace(clubName) &&
+                string.Equals(teamSeasonKey, PlayerTeamSeasonKey, StringComparison.Ordinal);
+        }
+
         public OwnerNewGameReceipt NewGameReceipt { get; }
         public OwnerOnboardingState Onboarding { get; }
         public OwnerPlayerGrowthState PlayerGrowth { get; }

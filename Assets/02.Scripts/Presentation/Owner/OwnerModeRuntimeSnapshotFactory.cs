@@ -348,7 +348,7 @@ namespace Baseball.Presentation.Owner
             PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
             if (!teamDisplayNames.TryGetValue(season.OriginTeamSeasonKey, out string teamDisplayName))
             {
-                teamDisplayName = manager.GetClubDisplayName(season.OriginTeamSeasonKey);
+                teamDisplayName = manager.GetTeamIdentityName(season.OriginTeamSeasonKey);
                 teamDisplayNames[season.OriginTeamSeasonKey] = teamDisplayName;
             }
             return new OwnerCollectionCardSnapshot(
@@ -366,7 +366,11 @@ namespace Baseball.Presentation.Owner
                   pitcherRole: season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
                   isActiveRoster: IsActiveRoster(runtime, owned.CardId),
                   studyStatus: GetStudyStatus(runtime, owned.CardId),
-                  teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing);
+                  teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder,
+                  isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
+                  originFranchiseId: season.OriginFranchiseId,
+                  franchiseHistoryDisplayName: runtime.IdentityRegistry.GetPresentationFranchiseHistoryName(
+                      season.OriginFranchiseId));
         }
 
         private static OwnerCollectionCardSnapshot CreateCollectionCard(
@@ -442,13 +446,16 @@ namespace Baseball.Presentation.Owner
                 availableSkillBlockCount,
                 IsActiveRoster(runtime, owned.CardId),
                 GetStudyStatus(runtime, owned.CardId),
-                manager.GetClubDisplayName(season.OriginTeamSeasonKey),
+                manager.GetTeamIdentityName(season.OriginTeamSeasonKey),
                 CreateSkillBlockPlacements(manager.Balance.Growth.SkillBlocks, owned.SkillBoard.Placements),
                 condition,
                 conditionLabel,
                 abilityBreakdowns,
                 manager.Balance.MatchRatingCurve.Caps.HardCap, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
-                conditionLevel: condition.HasValue ? manager.Balance.ConditionChemistry.Presentation.GetLevel(condition.Value) : (int?)null);
+                conditionLevel: condition.HasValue ? manager.Balance.ConditionChemistry.Presentation.GetLevel(condition.Value) : (int?)null,
+                originFranchiseId: season.OriginFranchiseId,
+                franchiseHistoryDisplayName: runtime.IdentityRegistry.GetPresentationFranchiseHistoryName(
+                    season.OriginFranchiseId));
         }
 
         private static PerCardBonusMap CreateCurrentTeamColorBonuses(

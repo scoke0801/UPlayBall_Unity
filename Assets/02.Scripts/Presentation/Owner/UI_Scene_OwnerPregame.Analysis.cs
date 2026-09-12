@@ -139,9 +139,15 @@ namespace Baseball.Presentation.Owner
             _teamNames[0].text = snapshot.ResolveText("analysis.own.name", "우리 구단");
             _teamNames[1].text = snapshot.OpponentName;
             int[] emblemIds = { snapshot.OwnTeamEmblemId, snapshot.OpponentTeamEmblemId };
+            // 내 구단은 구단주가 붙인 이름이 아니라 원본 Identity 구단명으로 엠블렘을 찾는다.
+            string[] emblemNames =
+            {
+                snapshot.ResolveText("analysis.own.emblemName", _teamNames[0].text),
+                _teamNames[1].text
+            };
             for (int side = 0; side < 2; side++)
             {
-                bool hasEmblem = TeamEmblemSprites.TryApply(_teamEmblems[side], emblemIds[side], _teamNames[side].text);
+                bool hasEmblem = TeamEmblemSprites.TryApply(_teamEmblems[side], emblemIds[side], emblemNames[side]);
                 _teamEmblems[side].gameObject.SetActive(hasEmblem);
                 _teamMonograms[side].gameObject.SetActive(!hasEmblem);
             }

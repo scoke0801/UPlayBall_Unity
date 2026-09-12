@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Baseball.Core.Historical;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
@@ -301,13 +302,15 @@ namespace Baseball.Presentation.Encyclopedia
         private PlayerMiniCardModel CreateMiniCard(EncyclopediaScreenEntry entry, bool selected)
         {
             PlayerMiniCardModel source = entry.MiniCard;
+            // 선수 Tab은 여러 Edition을 대표하므로 특정 특수 등급 대신 정본 Normal 명찰을 사용한다.
+            PlayerCardEdition frameEdition = source?.FrameEdition ?? PlayerCardEdition.Normal;
             string status = _snapshot.IsReadOnly ? string.Empty : entry.IsCurrentlyOwned ? "✓ 보유" : entry.WasEverAcquired ? "✓ 획득 · 현재 미보유" : "미획득";
             if (!_snapshot.IsReadOnly && entry.IsWishlisted) status += " · ★ 위시";
             if (string.IsNullOrEmpty(entry.CardId)) status = _snapshot.IsReadOnly ? $"카드 {entry.CollectibleCardCount}종" : $"카드 {entry.CollectibleCardCount}종 · 보유 {entry.OwnedCardCount} · 획득 {entry.EverAcquiredCardCount}";
             return new PlayerMiniCardModel(entry.StableId, entry.DisplayName, source?.PositionLabel ?? entry.Position,
                 entry.OriginYear.ToString(), "COST " + entry.Cost, source?.EditionLabel ?? entry.EditionDisplayName, status,
                 source?.PortraitAssetKey, source?.TeamAccentHex, selected ? PlayerMiniCardVisualState.Selected : PlayerMiniCardVisualState.Normal,
-                true, source?.Stats, source?.FrameEdition, entry.Cost);
+                true, source?.Stats, frameEdition, entry.Cost);
         }
 
         private void HandleSelected(PlayerMiniCardModel model)

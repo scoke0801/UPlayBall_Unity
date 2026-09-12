@@ -15,6 +15,7 @@ namespace Baseball.Game.Historical
         private static Dictionary<string, string> _emblemResourcesByTeamName;
         private static Dictionary<string, string> _playerNamesById;
         private static Dictionary<string, string> _franchiseNamesById;
+        private static Dictionary<string, string> _franchiseHistoryNamesById;
         private static Dictionary<string, string> _teamSeasonNamesByKey;
         private static bool _isInitialized;
         private static bool _isEnabled;
@@ -56,6 +57,7 @@ namespace Baseball.Game.Historical
                 _emblemResourcesByTeamName = null;
                 _playerNamesById = null;
                 _franchiseNamesById = null;
+                _franchiseHistoryNamesById = null;
                 _teamSeasonNamesByKey = null;
                 _isEnabled = false;
                 _isInitialized = true;
@@ -110,6 +112,17 @@ namespace Baseball.Game.Historical
                     "TeamSeason 엠블렘");
             }
 
+            var franchiseHistoryNames = new Dictionary<string, string>(
+                catalog.teams.Length,
+                StringComparer.Ordinal);
+            for (int index = 0; index < catalog.teams.Length; index++)
+            {
+                TeamEntry team = catalog.teams[index];
+                franchiseHistoryNames.Add(
+                    team.id,
+                    CreateFranchiseHistoryName(team, catalog.teamSeasons));
+            }
+
             // 현재 구단 별칭이 과거 정식 구단명과 같으면 당시의 정식 엠블렘을 우선한다.
             foreach (KeyValuePair<string, string> alias in emblemAliases)
                 emblemResources.TryAdd(alias.Key, alias.Value);
@@ -117,6 +130,7 @@ namespace Baseball.Game.Historical
             _emblemResourcesByTeamName = emblemResources;
             _playerNamesById = playerNames;
             _franchiseNamesById = franchiseNames;
+            _franchiseHistoryNamesById = franchiseHistoryNames;
             _teamSeasonNamesByKey = teamSeasonNames;
             _isEnabled = PlayerPrefs.GetInt(PlayerPrefsKey, 1) != 0;
             _isInitialized = true;
@@ -182,6 +196,27 @@ namespace Baseball.Game.Historical
             string franchiseId)
         {
             return ResolveFranchiseName(registry, franchiseId);
+        }
+
+        /// <summary>보유 선수 필터에서 연도별 브랜드를 하나의 실제 Franchise 계보명으로 표시한다.</summary>
+        public static string ResolveFranchiseHistoryName(
+            WorldIdentityRegistry registry,
+            string franchiseId)
+        {
+            if (registry == null)
+                throw new ArgumentNullException(nameof(registry));
+            Initialize();
+            if (IsEnabled && _franchiseHistoryNamesById.TryGetValue(franchiseId, out string realName))
+                return realName;
+            return registry.GetFranchiseDisplayName(franchiseId);
+        }
+
+        /// <summary>Presentation Snapshot이 연도 접두사 없는 Franchise 계보 표시명을 요청한다.</summary>
+        public static string GetPresentationFranchiseHistoryName(
+            this WorldIdentityRegistry registry,
+            string franchiseId)
+        {
+            return ResolveFranchiseHistoryName(registry, franchiseId);
         }
 
         /// <summary>실제 표시에서는 최신 Franchise명이 아니라 원본 연도의 TeamSeason명을 사용한다.</summary>
@@ -264,6 +299,38 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException($"개발용 실제 {entryType} 항목이 비어 있습니다.");
             if (!destination.TryAdd(key.Trim(), value.Trim()))
                 throw new InvalidOperationException($"개발용 실제 {entryType} 키가 중복됩니다: {key}");
+        }
+
+        private static string CreateFranchiseHistoryName(
+            TeamEntry franchise,
+            IReadOnlyList<TeamSeasonEntry> teamSeasons)
+        {
+            var names = new List<string>();
+            var uniqueNames = new HashSet<string>(StringComparer.Ordinal);
+            string keyPrefix = franchise.id.Trim() + "_";
+            for (int index = 0; index < teamSeasons.Count; index++)
+            {
+                TeamSeasonEntry season = teamSeasons[index];
+                if (season == null ||
+                    string.IsNullOrWhiteSpace(season.teamSeasonKey) ||
+                    !season.teamSeasonKey.StartsWith(keyPrefix, StringComparison.Ordinal) ||
+                    string.IsNullOrWhiteSpace(season.name))
+                {
+                    continue;
+                }
+                string name = season.name.Trim();
+                if (uniqueNames.Add(name)) names.Add(name);
+            }
+            if (names.Count == 0) names.Add(franchise.name.Trim());
+            if (names.Count > 2)
+            {
+                for (int index = 0; index < names.Count; index++)
+                {
+                    int separator = names[index].IndexOf(' ');
+                    if (separator > 0) names[index] = names[index].Substring(0, separator);
+                }
+            }
+            return string.Join(" & ", names);
         }
 
         private static void AddOrMatch(

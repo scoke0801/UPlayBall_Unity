@@ -124,6 +124,31 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void View_선수Tab은별도이름띠대신Normal카드명찰을사용한다()
+        {
+            WithView(false, (view, shell) =>
+            {
+                var playerSeason = Entry("", 2012);
+                playerSeason.PlayerSeasonId = "season-default-frame";
+                view.Bind(new EncyclopediaScreenSnapshot { Seasons = new[] { playerSeason } });
+
+                PlayerMiniCardView card = Array.Find(
+                    shell.MainWorkspaceHost.GetComponentsInChildren<PlayerMiniCardView>(true),
+                    candidate => candidate.Model?.PlayerId == "season-default-frame");
+
+                Assert.That(card, Is.Not.Null);
+                Assert.That(card.Model.FrameEdition, Is.EqualTo(PlayerCardEdition.Normal));
+                Assert.That(card.transform.Find("LineupSubFrame").gameObject.activeSelf, Is.True);
+                Assert.That(card.transform.Find("LineupSubFrame").GetComponent<Image>().sprite.name,
+                    Is.EqualTo("PlayerCard_Mini_Normal_v2"));
+                Assert.That(card.transform.Find("NameBand").gameObject.activeSelf, Is.False);
+                RectTransform name = (RectTransform)card.transform.Find("Name");
+                Assert.That(name.anchorMin, Is.EqualTo(new Vector2(.23f, .19f)));
+                Assert.That(name.anchorMax, Is.EqualTo(new Vector2(.77f, .265f)));
+            });
+        }
+
+        [Test]
         public void View_위시전용목록은정확한카드만보이며해제명령으로상태를직접바꾸지않는다()
         {
             WithView(true, (view, shell) =>

@@ -245,11 +245,7 @@ namespace Baseball.Presentation.Owner
                 entry.Bats,
                 CreatePitchSnapshots(manager, entry.Season, abilities),
                 CreateSeasonRecord(runtime.WorldHistory, entry.Season, entry.OriginTeamSeasonKey, entry.OriginYear),
-                teamDisplayName: ResolveOriginTeamDisplayName(
-                    runtime.IdentityRegistry,
-                    entry.OriginTeamSeasonKey,
-                    entry.OriginFranchiseId,
-                    entry.OriginYear),
+                teamDisplayName: manager.GetTeamIdentityName(entry.OriginTeamSeasonKey),
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,
                 isOwnedCard: false, preferredBattingOrder: entry.Card.PreferredBattingOrder, isPositionEvidenceMissing: entry.Season.IsPositionEvidenceMissing);
         }

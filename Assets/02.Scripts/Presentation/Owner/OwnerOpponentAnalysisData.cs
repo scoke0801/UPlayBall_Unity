@@ -20,6 +20,8 @@ namespace Baseball.Presentation.Owner
             var game = preparation.ScheduledGame;
             int opponentId = game.HomeTeamId == live.PlayerTeamId ? game.AwayTeamId : game.HomeTeamId;
             output["analysis.own.name"] = manager.GetClubDisplayName(runtime.PlayerTeamSeasonKey);
+            // 구단주가 붙인 이름은 엠블렘 카탈로그에 없으므로 엠블렘은 원본 Identity 구단명으로 찾는다.
+            output["analysis.own.emblemName"] = manager.GetTeamIdentityDisplayName(runtime.PlayerTeamSeasonKey);
             output["analysis.own.side"] = game.HomeTeamId == live.PlayerTeamId ? "홈" : "원정";
             output["analysis.opponent.side"] = game.HomeTeamId == opponentId ? "홈" : "원정";
             output["analysis.league"] = OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade) +

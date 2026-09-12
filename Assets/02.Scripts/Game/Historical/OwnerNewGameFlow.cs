@@ -89,13 +89,18 @@ namespace Baseball.Game.Historical
             return year + " " + displayName;
         }
 
-        /// <summary>이전 호출 계약을 유지하되 구단주 별칭으로 Identity 쌍을 분리하지 않는다.</summary>
+        /// <summary>
+        /// 플레이어 구단은 새 게임에서 직접 입력한 구단명을 그대로 쓴다.
+        /// 원본 연도는 역사 Identity를 구분하기 위한 표기이므로, 플레이어가 새로 이름 붙인 구단에는 붙이지 않는다.
+        /// </summary>
         public static string Format(
             string identityName,
             int? originYear,
             bool isPlayerTeam,
             string playerClubName)
         {
+            if (isPlayerTeam && !string.IsNullOrWhiteSpace(playerClubName))
+                return playerClubName.Trim();
             return Format(identityName, originYear);
         }
     }

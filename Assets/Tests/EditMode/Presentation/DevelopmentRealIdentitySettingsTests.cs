@@ -101,6 +101,29 @@ namespace Baseball.Tests.EditMode.Presentation
                 Is.EqualTo("수원 파이어오니어스"));
         }
 
+        [TestCase("FRANCHISE_35294c0c8039e3d5d238", "MBC 청룡 & LG 트윈스")]
+        [TestCase("FRANCHISE_1b36b987034cef53c24a", "SK 와이번스 & SSG 랜더스")]
+        [TestCase("FRANCHISE_76415bde64607643336a", "해태 타이거즈 & KIA 타이거즈")]
+        [TestCase("FRANCHISE_8d4c4aa7cff1444ab4f5", "삼미 & 청보 & 태평양 & 현대")]
+        public void FranchiseHistoryName_연도별브랜드를하나의필터표시명으로묶는다(
+            string franchiseId,
+            string expected)
+        {
+            var registry = new WorldIdentityRegistry(
+                "test-v1",
+                9UL,
+                Array.Empty<WorldPlayerIdentity>(),
+                new[] { new WorldFranchiseIdentity(franchiseId, "수원 파이어오니어스") });
+
+            Assert.That(DevelopmentRealIdentitySettings.ResolveFranchiseHistoryName(registry, franchiseId),
+                Is.EqualTo(expected));
+
+            DevelopmentRealIdentitySettings.SetEnabled(false);
+
+            Assert.That(DevelopmentRealIdentitySettings.ResolveFranchiseHistoryName(registry, franchiseId),
+                Is.EqualTo("수원 파이어오니어스"));
+        }
+
         [Test]
         public void DisplayTab_TogglesRealIdentitySetting()
         {

@@ -8,7 +8,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class OwnerClubDisplayNameFormatterTests
     {
         [Test]
-        public void Format_내구단도Identity와원본연도를표시한다()
+        public void Format_내구단은입력한구단명을그대로표시한다()
         {
             string result = OwnerClubDisplayNameFormatter.Format(
                 "LG 트윈스",
@@ -16,7 +16,15 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 true,
                 " 서울 불사조 ");
 
-            Assert.That(result, Is.EqualTo("2008 LG 트윈스"));
+            Assert.That(result, Is.EqualTo("서울 불사조"));
+        }
+
+        [Test]
+        public void Format_구단명을입력하지않은내구단은Identity와원본연도를표시한다()
+        {
+            Assert.That(
+                OwnerClubDisplayNameFormatter.Format("LG 트윈스", 2008, true, " "),
+                Is.EqualTo("2008 LG 트윈스"));
         }
 
         [Test]

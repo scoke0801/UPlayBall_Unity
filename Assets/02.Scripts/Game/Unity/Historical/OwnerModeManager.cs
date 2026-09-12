@@ -1402,12 +1402,27 @@ namespace Baseball.Game.Historical
 
         public string GetTeamDisplayName(string teamSeasonKey)
         {
+            // 플레이어 구단은 역사 Identity 대신 구단주가 직접 지은 이름을 쓴다.
+            if (Runtime != null && Runtime.TryGetPlayerClubName(teamSeasonKey, out string playerClubName))
+                return playerClubName;
             return OwnerClubDisplayNameFormatter.Format(
                 GetTeamIdentityName(teamSeasonKey),
                 GetTeamOriginYear(teamSeasonKey));
         }
 
-        private string GetTeamIdentityName(string teamSeasonKey)
+        /// <summary>
+        /// 구단주가 붙인 이름을 무시하고 원본 Identity 구단명을 연도와 함께 반환한다.
+        /// 엠블렘 카탈로그는 Identity 구단명으로만 등록되어 있으므로 엠블렘 조회는 이 이름을 쓴다.
+        /// </summary>
+        public string GetTeamIdentityDisplayName(string teamSeasonKey)
+        {
+            return OwnerClubDisplayNameFormatter.Format(
+                GetTeamIdentityName(teamSeasonKey),
+                GetTeamOriginYear(teamSeasonKey));
+        }
+
+        /// <summary>현재 실제·가상 표시 설정의 원본 구단명을 연도와 사용자 구단명 없이 반환한다.</summary>
+        public string GetTeamIdentityName(string teamSeasonKey)
         {
             // 합성 참가팀은 Franchise TeamSeason 정의가 없으므로 Key에서 직접 이름을 만든다.
             if (SpecialCompositeTeamDefinition.TryCreateDisplayName(teamSeasonKey, out string compositeName))

@@ -6,43 +6,67 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>보유 카드의 원 연도·원 구단을 교차 필터링하고 같은 드롭다운을 제공한다.</summary>
+    /// <summary>보유 카드의 원 연도·Franchise 계보를 교차 필터링하고 같은 드롭다운을 제공한다.</summary>
     internal sealed class OwnerCardFilters
     {
         private int _year;
-        private string _team = string.Empty;
+        private string _franchiseId = string.Empty;
 
         /// <summary>검색 결과가 없을 때 연도와 구단 조건을 함께 해제한다.</summary>
-        public void Reset() { _year = 0; _team = string.Empty; }
+        public void Reset() { _year = 0; _franchiseId = string.Empty; }
 
         public bool Matches(OwnerCollectionCardSnapshot card) =>
             (_year == 0 || card.OriginYear == _year) &&
-            (string.IsNullOrEmpty(_team) || string.Equals(card.TeamDisplayName, _team, StringComparison.Ordinal));
+            (string.IsNullOrEmpty(_franchiseId) ||
+             string.Equals(GetFranchiseKey(card), _franchiseId, StringComparison.Ordinal));
 
         public void Build(Transform parent, IReadOnlyList<OwnerCollectionCardSnapshot> cards, Action changed)
         {
             var yearSet = new HashSet<int>();
-            var teamSet = new HashSet<string>(StringComparer.Ordinal);
+            var franchiseLabels = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (OwnerCollectionCardSnapshot card in cards)
             {
                 yearSet.Add(card.OriginYear);
-                if (!string.IsNullOrWhiteSpace(card.TeamDisplayName)) teamSet.Add(card.TeamDisplayName);
+                string franchiseKey = GetFranchiseKey(card);
+                if (!string.IsNullOrEmpty(franchiseKey) && !franchiseLabels.ContainsKey(franchiseKey))
+                    franchiseLabels.Add(franchiseKey, GetFranchiseLabel(card));
             }
             var years = new List<int>(yearSet);
-            var teams = new List<string>(teamSet);
+            var franchises = new List<KeyValuePair<string, string>>(franchiseLabels);
             years.Sort((a, b) => b.CompareTo(a));
-            teams.Sort(StringComparer.CurrentCulture);
+            franchises.Sort((left, right) =>
+            {
+                int labelComparison = StringComparer.CurrentCulture.Compare(left.Value, right.Value);
+                return labelComparison != 0
+                    ? labelComparison
+                    : StringComparer.Ordinal.Compare(left.Key, right.Key);
+            });
             if (!years.Contains(_year)) _year = 0;
-            if (!teams.Contains(_team)) _team = string.Empty;
+            if (!franchiseLabels.ContainsKey(_franchiseId)) _franchiseId = string.Empty;
             var yearLabels = new List<string> { "전체 연도" };
             foreach (int year in years) yearLabels.Add(year + "년");
             var teamLabels = new List<string> { "전체 구단" };
-            teamLabels.AddRange(teams);
+            for (int index = 0; index < franchises.Count; index++) teamLabels.Add(franchises[index].Value);
             Dropdown yearDropdown = CreateDropdown(parent, "YearFilter", yearLabels, years.IndexOf(_year) + 1);
-            Dropdown teamDropdown = CreateDropdown(parent, "TeamFilter", teamLabels, teams.IndexOf(_team) + 1);
+            int selectedFranchiseIndex = franchises.FindIndex(option => option.Key == _franchiseId);
+            Dropdown teamDropdown = CreateDropdown(parent, "TeamFilter", teamLabels, selectedFranchiseIndex + 1);
             yearDropdown.onValueChanged.AddListener(index => { _year = index == 0 ? 0 : years[index - 1]; changed(); });
-            teamDropdown.onValueChanged.AddListener(index => { _team = index == 0 ? string.Empty : teams[index - 1]; changed(); });
+            teamDropdown.onValueChanged.AddListener(index =>
+            {
+                _franchiseId = index == 0 ? string.Empty : franchises[index - 1].Key;
+                changed();
+            });
         }
+
+        private static string GetFranchiseKey(OwnerCollectionCardSnapshot card) =>
+            string.IsNullOrWhiteSpace(card.OriginFranchiseId)
+                ? card.TeamDisplayName
+                : card.OriginFranchiseId;
+
+        private static string GetFranchiseLabel(OwnerCollectionCardSnapshot card) =>
+            string.IsNullOrWhiteSpace(card.FranchiseHistoryDisplayName)
+                ? card.TeamDisplayName
+                : card.FranchiseHistoryDisplayName;
 
         /// <summary>선수 카드 목록의 필터·정렬에 공통 드롭다운 모양을 적용한다.</summary>
         internal static Dropdown CreateDropdown(Transform parent, string name, List<string> options, int selected)
@@ -63,7 +87,7 @@ namespace Baseball.Presentation.Owner
             dropdown.SetValueWithoutNotify(selected);
             foreach (Text text in root.GetComponentsInChildren<Text>(true))
             {
-                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                text.font = Baseball.Presentation.UI.UIProjectFonts.Default;
                 text.fontSize = 12;
                 text.color = new Color32(33, 45, 57, 255);
                 text.alignment = TextAnchor.MiddleLeft;

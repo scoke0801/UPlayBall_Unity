@@ -9,6 +9,15 @@ namespace Baseball.Game.Historical
     {
         public int ActiveSaveSlot { get; private set; } = 1;
         private int _newGameSaveSlot = 1;
+        private readonly SavePreviewCacheEntry[] _savePreviewCache = new SavePreviewCacheEntry[SaveSlotPaths.SlotCount];
+
+        private sealed class SavePreviewCacheEntry
+        {
+            public string Path;
+            public long Length;
+            public long ModifiedTicks;
+            public CareerSaveSlotView View;
+        }
 
         /// <summary>새 게임은 기존 진행을 덮어쓰지 않는 빈 슬롯을 사용한다.</summary>
         private int FindEmptySaveSlot()
@@ -39,8 +48,18 @@ namespace Baseball.Game.Historical
             try
             {
                 if (!store.Exists)
+                {
+                    _savePreviewCache[slot - 1] = null;
                     return new CareerSaveSlotView(CareerSaveSlotStatus.Empty, null, "저장된 구단주 진행이 없습니다.", false);
-                var data = store.Load();
+                }
+                var file = new FileInfo(store.FilePath);
+                long length = file.Length;
+                long modifiedTicks = file.LastWriteTimeUtc.Ticks;
+                SavePreviewCacheEntry cached = _savePreviewCache[slot - 1];
+                if (cached != null && cached.Path == store.FilePath &&
+                    cached.Length == length && cached.ModifiedTicks == modifiedTicks)
+                    return cached.View;
+                var data = store.LoadPreview();
                 if (data.saveVersion < 1 || data.saveVersion > ManagerHistoricalSaveAdapter.CurrentSaveVersion)
                     return new CareerSaveSlotView(CareerSaveSlotStatus.Incompatible, null, "지원하지 않는 저장 버전입니다.", false);
                 var season = data.managerMode?.liveSeason;
@@ -52,9 +71,14 @@ namespace Baseball.Game.Historical
                     teamName = ResolveSavedTeamDisplayName(data),
                     year = season.originYear,
                     seasonPhase = $"{season.seasonNumber}년차 · {season.currentWeekIndex + 1}주차",
-                    savedAtUtcTicks = store.SavedAtUtcTicks
+                    savedAtUtcTicks = modifiedTicks
                 };
-                return new CareerSaveSlotView(CareerSaveSlotStatus.Ready, summary, "불러올 수 있는 구단주 진행입니다.", false);
+                var view = new CareerSaveSlotView(CareerSaveSlotStatus.Ready, summary, "불러올 수 있는 구단주 진행입니다.", false);
+                _savePreviewCache[slot - 1] = new SavePreviewCacheEntry
+                {
+                    Path = store.FilePath, Length = length, ModifiedTicks = modifiedTicks, View = view
+                };
+                return view;
             }
             catch (Exception exception) when (exception is InvalidDataException || exception is IOException || exception is ArgumentException ||
                                                exception is UnauthorizedAccessException || exception is InvalidOperationException)
@@ -64,20 +88,18 @@ namespace Baseball.Game.Historical
             }
         }
 
-        private string ResolveSavedTeamDisplayName(ManagerHistoricalSaveData data)
+        private string ResolveSavedTeamDisplayName(ManagerHistoricalSaveJsonStore.SlotPreview data)
         {
+            // 슬롯 요약도 실제 진행 화면과 같은 구단명을 보여야 플레이어가 저장을 구분할 수 있다.
+            if (!string.IsNullOrWhiteSpace(data.ownerProfile?.clubName))
+                return data.ownerProfile.clubName.Trim();
+
             HistoricalBakedContent content = _contentProvider.Load();
             if (!content.TryGetTeamSeason(data.playerTeamSeasonKey, out Baseball.Core.Historical.TeamSeasonDefinition team))
                 return data.playerTeamSeasonKey ?? string.Empty;
 
-            WorldIdentityRegistrySaveData saved = data.identityRegistry;
-            var players = new Baseball.Core.Historical.WorldPlayerIdentity[saved?.players?.Length ?? 0];
-            for (int index = 0; index < players.Length; index++)
-            {
-                players[index] = new Baseball.Core.Historical.WorldPlayerIdentity(
-                    saved.players[index].playerPersonId,
-                    saved.players[index].displayName);
-            }
+            var saved = data.identityRegistry;
+            var players = Array.Empty<Baseball.Core.Historical.WorldPlayerIdentity>();
             var franchises = new Baseball.Core.Historical.WorldFranchiseIdentity[saved?.franchises?.Length ?? 0];
             for (int index = 0; index < franchises.Length; index++)
             {
