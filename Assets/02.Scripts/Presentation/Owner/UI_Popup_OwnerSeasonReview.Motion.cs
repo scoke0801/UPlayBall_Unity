@@ -25,7 +25,7 @@ namespace Baseball.Presentation.Owner
                 _seriesPositions[index] = _seriesCards[index].anchoredPosition;
             }
             _skipBracket = OwnerWorkspaceUiFactory.CreateButton(_modal, "SkipBracket", "대진 바로 보기", SkipBracketReveal);
-            SetRect(_skipBracket.GetComponent<RectTransform>(), new Vector2(32f, 122f), new Vector2(206f, 162f));
+            SetRect(_skipBracket.GetComponent<RectTransform>(), new Vector2(760f, 328f), new Vector2(958f, 372f));
             OwnerUiButtonSkin.Apply(_skipBracket, OwnerButtonRole.Secondary);
             _skipBracket.navigation = new Navigation { mode = Navigation.Mode.Explicit,
                 selectOnLeft = _close, selectOnRight = _primary, selectOnUp = _tabs[1], selectOnDown = _primary };

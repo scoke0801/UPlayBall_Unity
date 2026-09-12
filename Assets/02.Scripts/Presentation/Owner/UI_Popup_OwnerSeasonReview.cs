@@ -14,12 +14,12 @@ namespace Baseball.Presentation.Owner
     {
         private const float ModalWidth = 1160f;
         private const float ModalHeight = 720f;
-        private static readonly Color Navy = new Color32(7, 18, 32, 255);
-        private static readonly Color NavyPanel = new Color32(12, 28, 47, 238);
-        private static readonly Color NavySoft = new Color32(17, 38, 61, 224);
-        private static readonly Color Ivory = new Color32(247, 244, 232, 255);
-        private static readonly Color Gold = new Color32(213, 176, 91, 255);
-        private static readonly Color Muted = new Color32(174, 187, 197, 255);
+        private static readonly Color Navy = CareerUiTheme.ReferencePanel;
+        private static readonly Color NavyPanel = CareerUiTheme.ReferencePanel;
+        private static readonly Color NavySoft = CareerUiTheme.ReferencePanelHeader;
+        private static readonly Color Ivory = CareerUiTheme.TextPrimary;
+        private static readonly Color Gold = CareerUiTheme.AccentGold;
+        private static readonly Color Muted = CareerUiTheme.TextSecondary;
         private static Sprite _backgroundSprite;
 
         private Text _eyebrow;
@@ -139,12 +139,12 @@ namespace Baseball.Presentation.Owner
             modal.gameObject.AddComponent<CareerUiPreserveTextColor>();
             AddBackgroundArt(modal);
 
-            RectTransform readableVeil = Surface(modal, "ReadableVeil", new Color(0.015f, 0.035f, 0.065f, 0.84f),
+            RectTransform readableVeil = Decoration(modal, "ReadableVeil", new Color(0.015f, 0.035f, 0.065f, 0.84f),
                 Vector2.zero, Vector2.zero, Vector2.zero);
             SetRect(readableVeil, Vector2.zero, new Vector2(760f, ModalHeight));
-            RectTransform footerVeil = Surface(modal, "FooterVeil", new Color(0.015f, 0.03f, 0.05f, 0.92f),
+            RectTransform footerVeil = Decoration(modal, "FooterVeil", new Color(0.015f, 0.03f, 0.05f, 0.92f),
                 Vector2.zero, Vector2.zero, Vector2.zero);
-            SetRect(footerVeil, Vector2.zero, new Vector2(ModalWidth, 178f));
+            SetRect(footerVeil, Vector2.zero, new Vector2(ModalWidth, 100f));
 
             RectTransform header = Surface(modal, "Header", new Color(0.018f, 0.045f, 0.078f, 0.96f),
                 new Vector2(0f, 1f), Vector2.one, new Vector2(0f, 76f));
@@ -160,7 +160,7 @@ namespace Baseball.Presentation.Owner
             OwnerUiButtonSkin.Apply(close, OwnerButtonRole.Navigation);
 
             _tabs = new Button[3];
-            string[] names = { "01  페넌트레이스", "02  포스트시즌", "03  시즌 결산" };
+            string[] names = { "정규시즌", "포스트시즌", "시즌 결산" };
             for (int index = 0; index < _tabs.Length; index++)
             {
                 int selected = index;
@@ -173,8 +173,7 @@ namespace Baseball.Presentation.Owner
                 Muted, new Vector2(650f, 574f), new Vector2(1128f, 622f));
             _worldProgress.alignment = TextAnchor.MiddleRight;
 
-            RectTransform hero = Surface(modal, "ResultHero", NavyPanel,
-                Vector2.zero, Vector2.zero, new Vector2(0f, 0f));
+            RectTransform hero = OwnerRuntimeUiFactory.CreateRect("ResultHero", modal);
             SetRect(hero, new Vector2(42f, 198f), new Vector2(724f, 554f));
             _summary = Label(hero, "Summary", string.Empty, 40, FontStyle.Bold,
                 Ivory, new Vector2(24f, 280f), new Vector2(658f, 336f));
@@ -197,8 +196,6 @@ namespace Baseball.Presentation.Owner
                 SetRect(card, new Vector2(22f, 12f + (2 - index) * 72f),
                     new Vector2(658f, 78f + (2 - index) * 72f));
                 _seriesCards[index] = card;
-                card.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FramedSurface);
-                CareerUiSkin.ApplyVisualElement(card.GetComponent<Image>());
                 _seriesTitles[index] = Label(card, "Round", string.Empty, 12, FontStyle.Bold,
                     Gold, new Vector2(22f, 40f), new Vector2(614f, 62f));
                 _seriesTeams[index] = Label(card, "Teams", string.Empty, 15, FontStyle.Bold,
@@ -210,36 +207,36 @@ namespace Baseball.Presentation.Owner
 
             for (int index = 0; index < _metricValues.Length; index++)
             {
-                float top = 548f - index * 96f;
+                float left = 42f + index * 366f;
                 RectTransform metric = Surface(modal, "Metric" + index, NavySoft,
                     Vector2.zero, Vector2.zero, Vector2.zero);
-                SetRect(metric, new Vector2(760f, top - 80f), new Vector2(1128f, top));
+                SetRect(metric, new Vector2(left, 110f), new Vector2(left + 354f, 190f));
                 _metricValues[index] = Label(metric, "Value", string.Empty, 27, FontStyle.Bold,
-                    Ivory, new Vector2(24f, 12f), new Vector2(344f, 48f));
+                    Ivory, new Vector2(24f, 12f), new Vector2(330f, 48f));
                 _metricValues[index].alignment = TextAnchor.MiddleRight;
                 _metricLabels[index] = Label(metric, "Label", string.Empty, 12, FontStyle.Bold,
-                    Muted, new Vector2(24f, 48f), new Vector2(344f, 72f));
+                    Muted, new Vector2(24f, 48f), new Vector2(330f, 72f));
                 _metricLabels[index].alignment = TextAnchor.MiddleLeft;
             }
 
             // 설명은 기록 카드의 형제 영역을 따로 소유한다. 카드 위에 문구를 덧그리지 않는다.
             RectTransform insight = Surface(modal, "NextStep", NavyPanel,
                 Vector2.zero, Vector2.zero, Vector2.zero);
-            SetRect(insight, new Vector2(760f, 198f), new Vector2(1128f, 264f));
+            SetRect(insight, new Vector2(760f, 216f), new Vector2(1128f, 304f));
             _insightTitle = Label(insight, "InsightTitle", string.Empty, 13, FontStyle.Bold,
-                Gold, new Vector2(16f, 40f), new Vector2(352f, 60f));
+                Gold, new Vector2(24f, 56f), new Vector2(344f, 80f));
             _insightBody = Label(insight, "InsightBody", string.Empty, 14, FontStyle.Normal,
-                Ivory, new Vector2(16f, 4f), new Vector2(352f, 40f));
+                Ivory, new Vector2(24f, 12f), new Vector2(344f, 56f));
             _insightBody.alignment = TextAnchor.UpperLeft;
 
             _primary = OwnerWorkspaceUiFactory.CreateButton(modal, "Primary", "포스트시즌 확인", HandlePrimary);
-            SetRect(_primary.GetComponent<RectTransform>(), new Vector2(824f, 42f), new Vector2(1128f, 106f));
+            SetRect(_primary.GetComponent<RectTransform>(), new Vector2(824f, 18f), new Vector2(1128f, 82f));
             _primary.GetComponent<Image>().color = CareerUiTheme.ReferenceAccent;
             OwnerUiButtonSkin.Apply(_primary, OwnerButtonRole.Primary);
             _primaryLabel = _primary.transform.Find("Label").GetComponent<Text>();
             _primaryLabel.fontSize = 18;
             _hint = Label(modal, "Hint", string.Empty, 15, FontStyle.Normal,
-                Muted, new Vector2(32f, 42f), new Vector2(790f, 104f));
+                Muted, new Vector2(42f, 18f), new Vector2(790f, 82f));
             _hint.alignment = TextAnchor.MiddleLeft;
             BuildBracketMotion();
             FitModal();
@@ -263,10 +260,10 @@ namespace Baseball.Presentation.Owner
             _eyebrow.text = $"시즌 {_snapshot.SeasonNumber}  /  {OwnerLeagueDisplayNameFormatter.FormatFull(_snapshot.CurrentGrade)}";
             _worldProgress.text = _snapshot.IsPostseasonCompleted
                 ? "전체 포스트시즌 종료"
-                : $"포스트시즌 종료  ·  {_snapshot.CompletedPostseasonGroups} / {_snapshot.TotalPostseasonGroups}개 조";
+                : $"종료된 조  {_snapshot.CompletedPostseasonGroups} / {_snapshot.TotalPostseasonGroups}";
             _hint.text = _snapshot.IsPostseasonCompleted
                 ? "시즌 결산에서 승강 결과와 다음 시즌 등급을 확인하세요."
-                : "시즌 결산은 모든 조의 포스트시즌이 끝나면 열립니다.";
+                : "모든 조의 포스트시즌이 끝나면 승강 결과가 확정됩니다.";
             if (page == 0) BindPennantRace();
             else if (page == 1) BindPostseason();
             else BindRecap();
@@ -292,19 +289,19 @@ namespace Baseball.Presentation.Owner
 
         private void BindPennantRace()
         {
-            _title.text = "페넌트레이스 최종 보고";
-            _summary.text = $"{_snapshot.Rank}위로 정규시즌 마감";
-            _status.text = _snapshot.IsQualified ? "가을 야구 진출권 확보" : "정규시즌 여정 종료";
-            _detailsCaption.text = "정규시즌 결과";
+            _title.text = "정규시즌 결과";
+            _summary.text = $"정규시즌 {_snapshot.Rank}위";
+            _status.text = _snapshot.IsQualified ? "포스트시즌 진출" : "이번 시즌의 경기를 모두 마쳤습니다";
+            _detailsCaption.text = Resolve(_snapshot.PlayerTeamSeasonKey);
             _details.text = _snapshot.IsQualified
-                ? $"{_snapshot.TeamCount}개 구단 중 {_snapshot.Rank}위로 포스트시즌에 진출했습니다.\n정규시즌 순위에 따른 시드로 우승에 도전합니다.\n승강 결과는 모든 조의 포스트시즌이 끝나면 확정됩니다."
-                : $"{_snapshot.TeamCount}개 구단 경쟁에서 포스트시즌 진출에 실패했습니다.\n다른 리그의 포스트시즌까지 마감하면 시즌 등급이 확정됩니다.\n이번 시즌 결과는 다음 로스터·계약 판단의 근거로 남습니다.";
-            SetMetrics($"{_snapshot.Rank} / {_snapshot.TeamCount}", "최종 순위",
-                $"{_snapshot.Wins}-{_snapshot.Draws}-{_snapshot.Losses}", "승-무-패",
+                ? $"{_snapshot.TeamCount}개 구단 중 {_snapshot.Rank}위로 시즌을 마쳤습니다.\n포스트시즌에서 우승에 도전합니다."
+                : $"{_snapshot.TeamCount}개 구단 중 {_snapshot.Rank}위로 시즌을 마쳤습니다.\n아쉽게 포스트시즌 진출권을 얻지 못했습니다.";
+            SetMetrics(_snapshot.WinningPercentage.ToString(".000", CultureInfo.InvariantCulture), "승률",
+                $"{_snapshot.Wins}승 {_snapshot.Draws}무 {_snapshot.Losses}패", "정규시즌 전적",
                 FormatSigned(_snapshot.RunDifferential), "득실차");
             _insightTitle.text = _snapshot.IsQualified ? "다음 단계 · 포스트시즌" : "다음 단계 · 전체 결과 확정";
             _insightBody.text = _snapshot.IsQualified
-                ? "정규시즌의 선택이\n단기전에서 증명됩니다."
+                ? "대진을 확인하고\n첫 경기를 준비하세요."
                 : "타 리그 결과까지 확정해\n다음 시즌 편성을 준비합니다.";
             _primaryLabel.text = "포스트시즌 확인";
             _primary.interactable = true;
@@ -319,7 +316,7 @@ namespace Baseball.Presentation.Owner
                 if (_snapshot.IsPlayerPostseasonCompleted)
                 {
                     _summary.text = FormatPostseasonResult(_snapshot.PostseasonResult);
-                    _status.text = "우리 조 결과 확정 · 다른 리그 결과 마감 필요";
+                    _status.text = "우리 조의 포스트시즌이 끝났습니다";
                     _primaryLabel.text = "남은 리그 마감";
                 }
                 else
@@ -327,7 +324,7 @@ namespace Baseball.Presentation.Owner
                     _summary.text = _snapshot.CanWatchPlayerGame ? BuildNextGameTitle() : "우리 구단의 가을 야구 종료";
                     _status.text = _snapshot.CanWatchPlayerGame
                         ? BuildSeriesStakes()
-                        : "우리 구단은 미진출 · 타 리그 결과를 확정합니다.";
+                        : "남은 포스트시즌 결과를 확인하세요.";
                     if (_snapshot.IsQualified && !_snapshot.CanWatchPlayerGame)
                         _status.text = "준결승 탈락 · 남은 대진의 우승 구단을 확인하세요.";
                     _primaryLabel.text = _snapshot.CanWatchPlayerGame ? "다음 경기 관전" : "남은 리그 마감";
@@ -361,7 +358,7 @@ namespace Baseball.Presentation.Owner
                 $"{_snapshot.Series.Count}", "진행 시리즈",
                 $"{_snapshot.CompletedPostseasonGroups}/{_snapshot.TotalPostseasonGroups}", "완료된 리그");
             _insightTitle.text = "다음 단계 · 시즌 결산";
-            _insightBody.text = "성과와 다음 리그 등급을 확인하고\n계약·급여 마감으로 이어집니다.";
+            _insightBody.text = "승강 결과를 확인하고\n다음 시즌을 준비하세요.";
             _primaryLabel.text = "시즌 결산 보기";
             _primary.interactable = true;
         }
@@ -423,19 +420,19 @@ namespace Baseball.Presentation.Owner
         {
             _title.text = $"시즌 {_snapshot.SeasonNumber} 결산";
             _summary.text = _snapshot.PostseasonResult == OwnerTeamPostseasonResult.Champion
-                ? "우리가 만든 시즌, 우승으로." : $"정규시즌 {_snapshot.Rank}위 · {FormatPostseasonResult(_snapshot.PostseasonResult)}";
+                ? "포스트시즌 우승" : $"정규시즌 {_snapshot.Rank}위 · {FormatPostseasonResult(_snapshot.PostseasonResult)}";
             _status.text = FormatLeagueMovement();
             _detailsCaption.text = "이번 시즌 기록";
             _details.text = $"정규시즌  {_snapshot.Wins}승 {_snapshot.Draws}무 {_snapshot.Losses}패  ·  승률 {_snapshot.WinningPercentage.ToString(".000", CultureInfo.InvariantCulture)}\n" +
                 $"팀 득점 {_snapshot.Runs:N0}  ·  팀 실점 {_snapshot.RunsAllowed:N0}  ·  득실차 {FormatSigned(_snapshot.RunDifferential)}\n" +
-                $"포스트시즌  {FormatPostseasonResult(_snapshot.PostseasonResult)}\n" +
-                "만료 임박 계약을 갱신하세요. 부족한 급여·갱신 계약금은 이월하여 이후 수입으로 상환합니다.";
+                "다음 시즌을 앞두고 선수단 계약을 확인하세요.";
             SetMetrics($"{_snapshot.WinningPercentage.ToString(".000", CultureInfo.InvariantCulture)}", "정규시즌 승률",
                 FormatPostseasonResult(_snapshot.PostseasonResult), "포스트시즌",
                 FormatNextGrade(), "다음 시즌 등급");
-            _insightTitle.text = "다음 단계 · 구단 업무";
+            _insightTitle.text = "다음 시즌 준비";
             _insightBody.text = "계약 갱신 후 다음 시즌으로 진행합니다.\n급여 부족액은 미지급금으로 이월됩니다.";
-            _primaryLabel.text = "구단 업무로 돌아가기";
+            _hint.text = "만료 예정 선수의 계약을 정리하면 다음 시즌을 시작할 수 있습니다.";
+            _primaryLabel.text = "구단 홈으로";
             _primary.interactable = true;
         }
 
@@ -493,6 +490,7 @@ namespace Baseball.Presentation.Owner
         private static void AddBackgroundArt(RectTransform modal)
         {
             Image art = OwnerRuntimeUiFactory.CreateImage("SeasonBackdrop", modal, Color.white);
+            art.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             OwnerRuntimeUiFactory.Stretch(art.rectTransform);
             art.sprite = LoadBackgroundSprite();
             art.preserveAspect = false;
@@ -518,9 +516,18 @@ namespace Baseball.Presentation.Owner
             RectTransform rect = image.rectTransform;
             rect.anchorMin = anchorMin; rect.anchorMax = anchorMax; rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = size; rect.anchoredPosition = Vector2.zero;
-            var outline = image.gameObject.AddComponent<Outline>();
-            outline.effectColor = CareerUiTheme.ReferenceBorder; outline.effectDistance = new Vector2(1f, -1f);
+            image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FramedSurface);
+            CareerUiSkin.ApplyVisualElement(image);
             return rect;
+        }
+
+        private static RectTransform Decoration(Transform parent, string name, Color color,
+            Vector2 anchorMin, Vector2 anchorMax, Vector2 size)
+        {
+            Image image = OwnerRuntimeUiFactory.CreateImage(name, parent, color);
+            image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            image.color = color;
+            return image.rectTransform;
         }
 
         private static Text Label(Transform parent, string name, string value, int size, FontStyle style,
