@@ -14,10 +14,10 @@ namespace Baseball.Tests.EditMode.Presentation.Match
     public sealed class OwnerMatchHighlightInsetTests
     {
         [Test]
-        public void 하이라이트여섯종이실제스프라이트와한글설명을가진다()
+        public void 하이라이트모든종류가실제스프라이트와한글설명을가진다()
         {
             OwnerMatchHighlightConfig config = OwnerMatchHighlightConfig.Load();
-            Assert.That(config.images.Length, Is.EqualTo(6));
+            Assert.That(config.images.Length, Is.EqualTo(System.Enum.GetValues(typeof(OwnerMatchHighlightKind)).Length - 1));
             var kinds = new HashSet<OwnerMatchHighlightKind>();
             foreach (OwnerMatchHighlightImage definition in config.images)
             {
@@ -53,6 +53,21 @@ namespace Baseball.Tests.EditMode.Presentation.Match
                 Is.EqualTo(OwnerMatchHighlightKind.HomeRun));
             Assert.That(OwnerMatchHighlightCue.Resolve(Event(MatchEventType.PlateAppearanceEnded, PlateAppearanceResult.HomeRun, homeRun)),
                 Is.EqualTo(OwnerMatchHighlightKind.None), "홈런 컷을 타석 종료에서 반복하지 않는다.");
+        }
+
+        [Test]
+        public void 번트시도공개에준비컷을표시하고결과에서반복하지않는다()
+        {
+            Assert.That(OwnerMatchHighlightCue.Resolve(Event(MatchEventType.BuntAttempted)),
+                Is.EqualTo(OwnerMatchHighlightKind.Bunt));
+            Assert.That(OwnerMatchHighlightCue.Resolve(Event(MatchEventType.BattingApproachSelected)),
+                Is.EqualTo(OwnerMatchHighlightKind.None));
+            Assert.That(OwnerMatchHighlightCue.Resolve(Event(MatchEventType.BuntResolved, PlateAppearanceResult.SacrificeBunt)),
+                Is.EqualTo(OwnerMatchHighlightKind.None));
+            var play = Play(BattedBallType.Bunt, PlateAppearanceResult.SacrificeBunt,
+                PlayerPosition.StartingPitcher, FieldingFailureType.None, true);
+            Assert.That(OwnerMatchHighlightCue.Resolve(Event(MatchEventType.PlateAppearanceEnded,
+                PlateAppearanceResult.SacrificeBunt, play)), Is.EqualTo(OwnerMatchHighlightKind.Throw));
         }
 
         [TestCase(MatchEventType.StealSucceeded)]

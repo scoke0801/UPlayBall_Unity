@@ -9,6 +9,7 @@
     { "kind": 3, "resourcePath": "UI/OwnerMatch/Highlights/home-run", "caption": "담장을 넘기는 홈런" },
     { "kind": 4, "resourcePath": "UI/OwnerMatch/Highlights/slide", "caption": "베이스를 향한 슬라이딩" },
     { "kind": 5, "resourcePath": "UI/OwnerMatch/Highlights/great-catch", "caption": "낮은 타구를 잡아내는 호수비" },
-    { "kind": 6, "resourcePath": "UI/OwnerMatch/Highlights/power-throw", "caption": "아웃으로 이어진 송구" }
+    { "kind": 6, "resourcePath": "UI/OwnerMatch/Highlights/power-throw", "caption": "아웃으로 이어진 송구" },
+    { "kind": 7, "resourcePath": "UI/OwnerMatch/Highlights/bunt", "caption": "배트를 짧게 잡고 번트 준비" }
   ]
 }

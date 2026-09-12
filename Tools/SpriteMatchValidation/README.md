@@ -1,5 +1,8 @@
 # 스프라이트 경기 표현 검증
 
+번트 준비 삽입 컷 추가 후 리소스 검사는 7종을 대상으로 한다. 번트 추가의 검증 결과는
+[번트 하이라이트 기록](../../docs/design/sprite_sheet_ingame/highlight-insets-v1/bunt-implementation.md)을 따른다.
+
 현재 경기용 9클립의 승인·연결 근거는
 [RuntimeConnectionReport](../../docs/design/sprite_sheet_ingame/RuntimeConnectionReport.md)를 따른다.
 아래 A/B 임시 매핑과 경기용 0클립 설명은 최초 검수 당시 기록이다.

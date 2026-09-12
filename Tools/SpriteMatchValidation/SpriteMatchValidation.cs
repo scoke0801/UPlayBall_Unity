@@ -72,7 +72,18 @@ namespace Baseball.Tools.SpriteMatchValidation
             finally { UnityEngine.Object.DestroyImmediate(preview); }
         }
 
-        private static void Capture(SpriteAnimationCatalog catalog, string directory)
+        /// <summary>모션 원본을 다시 가져오지 않고 실제 경기 재생과 네 해상도의 UI를 검증한다.</summary>
+        public static void RunOwnerUi()
+        {
+            string report = Argument("-spriteReportRoot");
+            Directory.CreateDirectory(report);
+            Capture(null, report, ownerUiOnly: true);
+            foreach (var size in new[] { new Vector2Int(1280, 720), new Vector2Int(1920, 1080),
+                         new Vector2Int(2560, 1440), new Vector2Int(3440, 1440) })
+                CaptureOwnerLayout(size, report);
+        }
+
+        private static void Capture(SpriteAnimationCatalog catalog, string directory, bool ownerUiOnly = false)
         {
             var root = new GameObject("검수 전용 Canvas", typeof(RectTransform), typeof(Canvas));
             var cameraObject = new GameObject("검수 전용 Camera", typeof(Camera));
@@ -93,6 +104,11 @@ namespace Baseball.Tools.SpriteMatchValidation
                 camera.backgroundColor = Color.black;
                 camera.targetTexture = target;
                 canvas.worldCamera = camera;
+                if (ownerUiOnly)
+                {
+                    CaptureMatchReplay(rect, camera, target, pixels, directory, ownerUiOnly: true);
+                    return;
+                }
                 var stage = new SpriteMatchStage(rect, catalog, null);
                 foreach (Handedness hand in new[] { Handedness.Right, Handedness.Left })
                 {
@@ -151,7 +167,8 @@ namespace Baseball.Tools.SpriteMatchValidation
             }
         }
 
-        private static void CaptureMatchReplay(RectTransform parent, Camera camera, RenderTexture target, Texture2D pixels, string directory)
+        private static void CaptureMatchReplay(RectTransform parent, Camera camera, RenderTexture target, Texture2D pixels,
+            string directory, bool ownerUiOnly = false)
         {
             const ulong seed = 20260911;
             var players = new Dictionary<int, Player>();
@@ -162,6 +179,11 @@ namespace Baseball.Tools.SpriteMatchValidation
             var repeated = new MatchEventBuffer();
             new MatchSimulator(BalanceTable.CreateDefault(), MatchRandomStreams.Create(seed)).Simulate(input, repeated);
             if (!buffer.ToArray().SequenceEqual(repeated.ToArray())) throw new InvalidOperationException("재생 검증 경기의 결정론 불일치");
+            if (ownerUiOnly)
+            {
+                CaptureOwnerSession(parent, camera, target, pixels, directory, match, buffer.ToArray());
+                return;
+            }
             var host = new GameObject("실제 경기 이벤트 재생", typeof(RectTransform));
             var rect = (RectTransform)host.transform;
             rect.SetParent(parent, false);
@@ -360,6 +382,9 @@ namespace Baseball.Tools.SpriteMatchValidation
             File.WriteAllText(Path.Combine(directory, "owner-session-replay.csv"), summary.ToString());
             File.WriteAllText(Path.Combine(directory, "highlight-inset-replay.csv"), insetReport.ToString());
             VerifyInsetCancellation(parent, result, events);
+            foreach (var size in new[] { new Vector2Int(1280, 720), new Vector2Int(1920, 1080),
+                         new Vector2Int(2560, 1440), new Vector2Int(3440, 1440) })
+                CaptureOwnerLayout(size, directory, result, events);
         }
 
         private static void VerifyInsetCancellation(RectTransform parent, ManagerModeMatchResult result, MatchEvent[] events)
@@ -405,7 +430,8 @@ namespace Baseball.Tools.SpriteMatchValidation
             return new Team(id, "검증 " + id + "팀", new Lineup(slots), pitcher);
         }
 
-        private static void CaptureOwnerLayout(Vector2Int size, string directory)
+        private static void CaptureOwnerLayout(Vector2Int size, string directory,
+            ManagerModeMatchResult result = null, MatchEvent[] events = null)
         {
             var root = new GameObject("관전 화면 검증", typeof(RectTransform), typeof(Canvas));
             var cameraObject = new GameObject("관전 Camera", typeof(Camera));
@@ -428,6 +454,22 @@ namespace Baseball.Tools.SpriteMatchValidation
                 canvas.worldCamera = camera;
                 UI_Scene_OwnerMatchSpectator view = UI_Scene_OwnerMatchSpectator.CreateRuntime(rect);
                 view.SetVisible(true);
+                if (result != null)
+                {
+                    const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                    ConstructorInfo constructor = typeof(OwnerMatchSpectatorSession).GetConstructors(flags)
+                        .Single(value => value.GetParameters().Length == 4);
+                    var session = (OwnerMatchSpectatorSession)constructor.Invoke(new object[] { result, events, view, 1 });
+                    typeof(UI_Scene_OwnerMatchSpectator).GetField("_session", flags).SetValue(view, session);
+                    session.TrySetViewingMode(OwnerMatchViewingMode.ResultOnly);
+                    typeof(UI_Scene_OwnerMatchSpectator).GetMethod("RefreshControls", flags).Invoke(view, null);
+                    Canvas.ForceUpdateCanvases();
+                    typeof(UI_Scene_OwnerMatchSpectator).GetMethod("FitWorkspace", flags).Invoke(view, null);
+                    view.transform.Find("BroadcastCanvas/MatchResult/RecordViewport")
+                        .GetComponent<ScrollRect>().Rebuild(CanvasUpdate.PostLayout);
+                    Save(camera, target, pixels, Path.Combine(directory, $"owner-result-{size.x}x{size.y}.png"));
+                    return;
+                }
                 view.Present(new MatchHudPresentationModelBuilder().Build(1, MatchHudHalf.Top,
                     new MatchHudTeamModel("LG 트윈스", 0, true), new MatchHudTeamModel("한화 이글스", 0, false),
                     new MatchHudCountModel(1, 1, 0), MatchHudBaseStateModel.Empty,

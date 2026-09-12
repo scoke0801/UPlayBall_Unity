@@ -19,7 +19,7 @@ def main():
     records = []
     for definition in config['images']:
         kind = definition['kind']
-        if kind in kinds or kind not in range(1, 7):
+        if kind in kinds or kind not in range(1, 8):
             raise ValueError('중복 또는 잘못된 하이라이트 종류')
         kinds.add(kind)
         runtime = resource_root / (definition['resourcePath'] + '.png')
@@ -37,12 +37,12 @@ def main():
                 raise ValueError('완성 삽입 장면에 투명 영역 존재: ' + runtime.name)
         records.append(dict(kind=kind, file=str(runtime.relative_to(ROOT)), sourceSha256=source_hash,
                             width=width, height=height, isOpaque=True))
-    if kinds != set(range(1, 7)):
-        raise ValueError('하이라이트 여섯 종류가 모두 필요합니다.')
+    if kinds != set(range(1, 8)):
+        raise ValueError('하이라이트 일곱 종류가 모두 필요합니다.')
     report = ROOT / 'output/sprite-sheet-validation/highlight-image-qa.json'
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps(records, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    print('6/6 원본 일치·16:9 비율·불투명 배경 검증 통과')
+    print('7/7 원본 일치·16:9 비율·불투명 배경 검증 통과')
 
 
 if __name__ == '__main__':
