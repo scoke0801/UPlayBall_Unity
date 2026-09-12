@@ -1,0 +1,16 @@
+{
+  "bracketStagger": 0.12,
+  "bracketFade": 0.3,
+  "bracketSlide": 16,
+  "resultHold": 0.8,
+  "titleDelay": 0.25,
+  "teamDelay": 0.65,
+  "scoreDelay": 1.05,
+  "revealFade": 0.4,
+  "seriesDuration": 2.2,
+  "championshipDuration": 3.4,
+  "confettiDelay": 1.25,
+  "confettiCount": 30,
+  "seriesArt": "UI/OwnerPostseason/series-victory-v1",
+  "championshipArt": "UI/OwnerPostseason/championship-v1"
+}

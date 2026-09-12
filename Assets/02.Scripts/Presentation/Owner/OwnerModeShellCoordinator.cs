@@ -62,6 +62,7 @@ namespace Baseball.Presentation.Owner
         private bool _isTransitioningToOwnerMatch;
         private bool _isSeasonSimulationVisible;
         private bool _isPostseasonSimulationVisible;
+        private bool _isPostseasonMatchVisible;
         private string _reviewedSeasonId = string.Empty;
         private int _seasonSimulationStartedFrame = -1;
 
@@ -196,7 +197,7 @@ namespace Baseball.Presentation.Owner
             _presenter.ShowContext(new ShellContextModel(
                 HomeRouteId,
                 "구단 현황",
-                "다음 경기, 1군 구성과 구단 자원을 현재 저장 상태로 확인합니다.",
+                string.Empty,
                 "구단주 모드"));
             OwnerModeEntryProfiler.MarkHomeComposed();
         }
@@ -219,6 +220,7 @@ namespace Baseball.Presentation.Owner
 
         private void Update()
         {
+            UpdatePostseasonCelebration();
             if (!_isSeasonSimulationVisible || _manager == null)
                 return;
             bool isRunning = _isPostseasonSimulationVisible
@@ -235,10 +237,19 @@ namespace Baseball.Presentation.Owner
                 return;
 
             bool succeeded = AdvanceSeasonSimulationWithinFrameBudget();
+            if (succeeded && _isPostseasonSimulationVisible && _manager.IsNextPostseasonGamePlayerMatch)
+            {
+                _isSeasonSimulationVisible = false;
+                _isPostseasonSimulationVisible = false;
+                _seasonSimulationPopup.Hide();
+                _isPostseasonMatchVisible = true;
+                StartOwnerMatchSpectator();
+                return;
+            }
             if (_isPostseasonSimulationVisible)
                 _seasonSimulationPopup.Bind(_manager.PostseasonSimulationProgress);
             else
-                _seasonSimulationPopup.Bind(_manager.RegularSeasonSimulationProgress, _manager.GetTeamDisplayName);
+                _seasonSimulationPopup.Bind(_manager.RegularSeasonSimulationProgress, _manager.GetClubDisplayName);
             bool continues = _isPostseasonSimulationVisible
                 ? _manager.IsPostseasonSimulationRunning
                 : _manager.IsRegularSeasonSimulationRunning;
@@ -253,6 +264,8 @@ namespace Baseball.Presentation.Owner
             int completedSteps = 0;
             do
             {
+                if (_isPostseasonSimulationVisible && _manager.IsNextPostseasonGamePlayerMatch)
+                    return true;
                 succeeded = _isPostseasonSimulationVisible
                     ? _manager.AdvancePostseasonSimulationFrame()
                     : _manager.AdvanceRegularSeasonSimulationFrame();
@@ -275,6 +288,7 @@ namespace Baseball.Presentation.Owner
 
         private void OnDestroy()
         {
+            DestroyPostseasonPresentation();
             DestroyOwnerGuide();
             SetOwnerMatchBgm(false);
             _manager?.AbortRegularSeasonSimulationForSceneUnload();
@@ -300,6 +314,7 @@ namespace Baseball.Presentation.Owner
             if (_matchSpectatorView != null)
             {
                 _matchSpectatorView.HomeRequested -= HandleOwnerMatchHomeRequested;
+                _matchSpectatorView.PresentationCompleted -= HandlePostseasonPresentationCompleted;
                 _matchSpectatorView.MatchAudioEnabledChanged -= HandleOwnerMatchAudioEnabledChanged;
                 if (Application.isPlaying) Destroy(_matchSpectatorView.gameObject);
                 else DestroyImmediate(_matchSpectatorView.gameObject);
@@ -344,6 +359,7 @@ namespace Baseball.Presentation.Owner
 
         private void HandleModeChanged(UiGameMode? mode)
         {
+            if (mode != UiGameMode.OwnerCareer) ResetPostseasonPresentation();
             if (mode != UiGameMode.OwnerCareer && _manager != null &&
                 (_manager.IsRegularSeasonSimulationRunning || _manager.IsPostseasonSimulationRunning))
             {
@@ -355,6 +371,7 @@ namespace Baseball.Presentation.Owner
             {
                 _matchSpectatorView?.EndPresentation();
                 _isOwnerMatchVisible = false;
+                _isPostseasonMatchVisible = false;
                 SetOwnerMatchBgm(false);
             }
             if (mode != UiGameMode.OwnerCareer)
@@ -412,7 +429,7 @@ namespace Baseball.Presentation.Owner
             }
             catch (InvalidOperationException exception)
             {
-                _homeView.SetFeedback(exception.Message, true);
+                ReportOperationError(exception, "경기 준비를 열지 못했습니다. 선수 배치를 확인한 뒤 다시 시도해 주세요.");
             }
         }
 
@@ -446,11 +463,21 @@ namespace Baseball.Presentation.Owner
 
         private void HandleCancelRequested()
         {
+            if (_celebrationPopup != null && _celebrationPopup.gameObject.activeInHierarchy)
+            {
+                _celebrationPopup.OnCancel(null);
+                return;
+            }
             if (_shell == null || !_shell.gameObject.activeInHierarchy ||
                 _isOwnerMatchVisible || _isTransitioningToOwnerMatch)
                 return;
             if (_seasonReviewPopup != null && _seasonReviewPopup.gameObject.activeInHierarchy)
             {
+                if (_seasonReviewPopup.IsBracketRevealing)
+                {
+                    _seasonReviewPopup.SkipBracketReveal();
+                    return;
+                }
                 HandleSeasonReviewClosed();
                 return;
             }
@@ -559,7 +586,7 @@ namespace Baseball.Presentation.Owner
             catch (Exception exception) when (
                 exception is ArgumentException || exception is InvalidOperationException)
             {
-                ShowFeedback(exception.Message, true);
+                ReportOperationError(exception, "위시리스트를 변경하지 못했습니다. 다시 시도해 주세요.");
             }
         }
 
@@ -657,7 +684,7 @@ namespace Baseball.Presentation.Owner
                 return;
             if (!_manager.BeginRegularSeasonSimulation())
             {
-                ShowFeedback(_manager.LastError, true);
+                ReportSeasonProgressError("시즌 진행을 시작하지 못했습니다. 선수 배치와 남은 일정을 확인해 주세요.");
                 return;
             }
 
@@ -667,7 +694,7 @@ namespace Baseball.Presentation.Owner
             _seasonSimulationStartedFrame = Time.frameCount;
             _seasonSimulationPopup.Bind(
                 _manager.RegularSeasonSimulationProgress,
-                _manager.GetTeamDisplayName);
+                _manager.GetClubDisplayName);
             _seasonSimulationPopup.Show();
         }
 
@@ -711,9 +738,7 @@ namespace Baseball.Presentation.Owner
                     ShowSeasonReview(1);
                     return;
                 }
-                ShowFeedback(string.IsNullOrWhiteSpace(_manager.LastError)
-                    ? "포스트시즌 시뮬레이션을 완료하지 못했습니다."
-                    : _manager.LastError, true);
+                ReportSeasonProgressError("포스트시즌 진행이 중단됐습니다. 일정·결과에서 완료된 경기를 확인해 주세요.");
                 return;
             }
             ManagerRegularSeasonCompletionResult result = _manager.LastRegularSeasonCompletion;
@@ -724,11 +749,7 @@ namespace Baseball.Presentation.Owner
                 return;
             }
 
-            ShowFeedback(
-                string.IsNullOrWhiteSpace(_manager.LastError)
-                    ? "정규시즌 시뮬레이션을 완료하지 못했습니다."
-                    : _manager.LastError,
-                true);
+            ReportSeasonProgressError("시즌 진행이 중단됐습니다. 일정·결과에서 완료된 경기를 확인해 주세요.");
         }
 
         private void HandleAdvanceSeasonRequested()
@@ -744,7 +765,7 @@ namespace Baseball.Presentation.Owner
                 OwnerLeagueGroupState playerGroup = runtime.LeagueWorld.GetGroup(runtime.PlayerTeamSeasonKey);
                 if (playerGroup.Postseason == null)
                     _manager.InitializePostseasonReview();
-                ShowSeasonReview(playerGroup.Postseason?.IsCompleted == true ? 1 : 0);
+                ShowSeasonReview(1);
                 return;
             }
             if (!string.Equals(_reviewedSeasonId, runtime.ManagerMode.LiveSeason.SeasonId, StringComparison.Ordinal))
@@ -788,7 +809,7 @@ namespace Baseball.Presentation.Owner
             _seasonReviewPopup?.Hide();
             if (!_manager.BeginPostseasonSimulation())
             {
-                ShowFeedback(_manager.LastError, true);
+                ReportSeasonProgressError("포스트시즌을 시작하지 못했습니다. 남은 일정과 대진을 확인해 주세요.");
                 return;
             }
             EnsureSeasonSimulationPopup();
@@ -883,7 +904,21 @@ namespace Baseball.Presentation.Owner
 
         private void HandleWeekAdvanceRequested()
         {
-            ExecuteOperation(() => _manager.AdvanceWeek());
+            ExecuteOperation(() =>
+            {
+                int remaining = _manager.Runtime.ManagerMode.LiveSeason.GamesRemainingUntilNextSettlement;
+                ManagerWeeklyAdvanceResult result = _manager.AdvanceWeek();
+                if (result.Status == ManagerModeTransactionStatus.Rejected)
+                {
+                    ShowFeedback($"이번 주 경기가 {remaining}경기 남았습니다. 경기를 치러야 다음 결산이 열립니다.", true);
+                    return;
+                }
+                ShowFeedback(
+                    result.Status == ManagerModeTransactionStatus.InsufficientMoney
+                        ? "운영비가 부족해 이번 주 결산을 마감할 수 없습니다."
+                        : "주간 결산을 마감했습니다.",
+                    result.Status == ManagerModeTransactionStatus.InsufficientMoney);
+            });
         }
 
         private void HandleRecordsSeasonSelected(int seasonNumber)
@@ -915,13 +950,15 @@ namespace Baseball.Presentation.Owner
                 exception is System.IO.IOException ||
                 exception is UnauthorizedAccessException)
             {
-                ShowFeedback(exception.Message, true);
+                ReportOperationError(exception, "저장하지 못했습니다. 저장 공간과 파일 접근 권한을 확인한 뒤 다시 시도해 주세요.");
             }
         }
 
         private void HandleTitleRequested()
         {
+            ResetPostseasonPresentation();
             _isOwnerMatchVisible = false;
+            _isPostseasonMatchVisible = false;
             _matchSpectatorView?.EndPresentation();
             SetOwnerMatchBgm(false);
             UiGameModeSession.Clear();
@@ -953,6 +990,7 @@ namespace Baseball.Presentation.Owner
 
             _matchSpectatorView = UI_Scene_OwnerMatchSpectator.CreateRuntime(_shell.MainWorkspaceHost);
             _matchSpectatorView.HomeRequested += HandleOwnerMatchHomeRequested;
+            _matchSpectatorView.PresentationCompleted += HandlePostseasonPresentationCompleted;
             _matchSpectatorView.MatchAudioEnabledChanged += HandleOwnerMatchAudioEnabledChanged;
         }
 
@@ -978,12 +1016,13 @@ namespace Baseball.Presentation.Owner
                 return;
 
             EnsureMatchSpectatorView();
+            BeginPostseasonPresentation();
             _isTransitioningToOwnerMatch = true;
             _isOwnerMatchVisible = true;
             _navigationState.OpenContext(OwnerNavigationRoutes.MatchSpectator);
             ShowOwnerMatchSpectator();
             OwnerMatchPresentationOptions settings = OwnerMatchPresentationSettings.Load();
-            SetOwnerMatchBgm(true, settings.ShouldPlayMatchAudio);
+            SetOwnerMatchBgm(true, _isPostseasonMatchVisible || settings.ShouldPlayMatchAudio);
             try
             {
                 // PlayNextGame 내부 RuntimeChanged가 먼저 발생해도 위 전환 상태가 관전 View를 유지한다.
@@ -998,7 +1037,12 @@ namespace Baseball.Presentation.Owner
                 _matchSpectatorView.EndPresentation();
                 SetOwnerMatchBgm(false);
                 Refresh();
-                _homeView.SetFeedback(exception.Message, true);
+                if (_isPostseasonMatchVisible)
+                {
+                    _isPostseasonMatchVisible = false;
+                    ShowSeasonReview(1);
+                }
+                ReportOperationError(exception, "경기를 표시하지 못했습니다. 홈의 일정·결과에서 경기 진행 상태를 확인해 주세요.");
             }
             finally
             {
@@ -1008,7 +1052,7 @@ namespace Baseball.Presentation.Owner
 
         private void ShowOwnerMatchSpectator()
         {
-            bool isResultOnly = OwnerMatchPresentationSettings.Load().ViewingMode ==
+            bool isResultOnly = !_isPostseasonMatchVisible && OwnerMatchPresentationSettings.Load().ViewingMode ==
                                 OwnerMatchViewingMode.ResultOnly;
             _homeView?.SetVisible(false);
             _expansionWorkspace?.HideAll();
@@ -1018,10 +1062,8 @@ namespace Baseball.Presentation.Owner
             _matchSpectatorView?.SetVisible(true);
             _presenter?.ShowContext(new ShellContextModel(
                 OwnerNavigationRoutes.MatchSpectator,
-                isResultOnly ? "경기 결과" : "경기 관전",
-                isResultOnly
-                    ? "중계와 사운드 없이 최종 결과와 기록을 확인합니다."
-                    : "감독의 경기 운영을 실시간 중계로 확인합니다.",
+                _isPostseasonMatchVisible ? "포스트시즌 · 경기 관전" : isResultOnly ? "경기 결과" : "경기 관전",
+                string.Empty,
                 "구단주 모드",
                 canGoBack: false));
         }
@@ -1030,6 +1072,7 @@ namespace Baseball.Presentation.Owner
         {
             if (_matchSpectatorView == null || !_matchSpectatorView.IsComplete)
                 return;
+            if (ShowPendingCelebration()) return;
 
             _matchSpectatorView.EndPresentation();
             ExecuteOperation(() => _manager.PublishGuideMatchResult());
@@ -1037,6 +1080,11 @@ namespace Baseball.Presentation.Owner
             SetOwnerMatchBgm(false);
             _navigationState.Navigate(HomeRouteId);
             Refresh();
+            if (_isPostseasonMatchVisible)
+            {
+                _isPostseasonMatchVisible = false;
+                ShowSeasonReview(1);
+            }
         }
 
         private void HandleOwnerMatchAudioEnabledChanged(bool isEnabled)
@@ -1622,7 +1670,7 @@ namespace Baseball.Presentation.Owner
                 _manager.Save();
                 _hasUnsavedGuideChange = false;
                 RefreshOwnerGuide();
-                ShowFeedback("검증된 배치를 저장했습니다.", false);
+                ShowFeedback("배치를 저장했습니다.", false);
             });
         }
 
@@ -1631,7 +1679,7 @@ namespace Baseball.Presentation.Owner
             _pendingLineupPreset = null;
             _pendingActiveRosterChange = null;
             _expansionWorkspace.BindRosterLineup(_snapshotFactory.CreateRosterLineup(_manager));
-            ShowFeedback("변경 Preview를 취소하고 저장된 배치로 돌아왔습니다.", false);
+            ShowFeedback("변경을 취소했습니다.", false);
         }
 
         private static bool ContainsRosterCard(CurrentRosterState roster, string cardId)
@@ -1659,8 +1707,21 @@ namespace Baseball.Presentation.Owner
                 exception is System.IO.IOException ||
                 exception is UnauthorizedAccessException)
             {
-                ShowFeedback(exception.Message, true);
+                ReportOperationError(exception, "요청을 처리하지 못했습니다. 현재 선수단과 보유 자원을 확인한 뒤 다시 시도해 주세요.");
             }
+        }
+
+        private void ReportOperationError(Exception exception, string message)
+        {
+            Debug.LogException(exception, this);
+            ShowFeedback(message, true);
+        }
+
+        private void ReportSeasonProgressError(string message)
+        {
+            if (!string.IsNullOrWhiteSpace(_manager.LastError))
+                Debug.LogError(_manager.LastError, this);
+            ShowFeedback(message, true);
         }
 
         private void ShowFeedback(string message, bool isError)

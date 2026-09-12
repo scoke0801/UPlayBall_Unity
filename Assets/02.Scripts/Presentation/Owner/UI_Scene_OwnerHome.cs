@@ -86,6 +86,11 @@ namespace Baseball.Presentation.Owner
             _nextMatchText.text = canPlayNextGame && !string.IsNullOrWhiteSpace(snapshot.NextMatchText)
                 ? snapshot.NextMatchText : "남은 일정 없음";
             _opponentText.text = canPlayNextGame ? snapshot.OpponentStrengthText : "일정에서 이번 시즌 결과를 확인하세요.";
+            if (!canPlayNextGame && isRegularSeasonCompleted && !isPostseasonCompleted)
+            {
+                _nextMatchText.text = isPlayerPostseasonCompleted ? "우리 조 포스트시즌 종료" : "가을 야구 대진 확인";
+                _opponentText.text = isPlayerPostseasonCompleted ? "남은 리그 결과를 확정하세요." : "포스트시즌에서 대진 확인과 경기 관전을 진행하세요.";
+            }
             _opponentAnalysisButton.interactable = canPlayNextGame;
             // 잘못된 로스터도 경기 준비 화면에서 수정할 수 있어야 한다.
             _matchPreparationButton.interactable = canPlayNextGame;
@@ -108,7 +113,7 @@ namespace Baseball.Presentation.Owner
                 : "시즌 종료";
             _matchStateText.color = canPlayNextGame && snapshot.IsRosterValid ? CareerUiTheme.Number : CareerUiTheme.TextPrimary;
             _feedbackText.text = !snapshot.IsRosterValid ? snapshot.RosterValidationMessage
-                : canPlayNextGame ? "상대 확인 → 경기 준비 → 다음 경기 진행"
+                : canPlayNextGame ? string.Empty
                 : !isRegularSeasonCompleted ? "다른 조의 정규시즌 결과를 확정해야 합니다."
                 : !isPostseasonCompleted ? isPlayerPostseasonCompleted
                     ? "우리 조 결과는 확정됐습니다. 남은 리그 결과를 마감하면 시즌 결산이 열립니다."
@@ -242,9 +247,9 @@ namespace Baseball.Presentation.Owner
                 _isSeasonActionArmed = true;
                 _completeSeasonButtonText.text = "진행 확인";
                 _feedbackText.text = _hasRemainingGames
-                    ? "남은 모든 경기를 기존 일정과 Seed로 진행합니다. 미리 배치한 작전카드는 해당 경기마다 사용됩니다. 한 번 더 누르면 시작합니다."
+                    ? "남은 모든 경기를 진행합니다. 미리 배치한 작전카드는 해당 경기마다 사용됩니다. 한 번 더 누르면 시작합니다."
                     : !_isRegularSeasonCompleted
-                        ? "다른 조의 남은 정규시즌을 같은 경기 엔진으로 완료합니다. 한 번 더 누르면 시작합니다."
+                    ? "다른 조의 남은 정규시즌을 진행합니다. 한 번 더 누르면 시작합니다."
                         : !_isPostseasonCompleted
                             ? _isPlayerPostseasonCompleted
                                 ? "우리 조는 끝났습니다. 다른 리그의 포스트시즌을 마감합니다. 한 번 더 누르면 엽니다."

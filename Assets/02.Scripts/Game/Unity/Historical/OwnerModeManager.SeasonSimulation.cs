@@ -17,6 +17,28 @@ namespace Baseball.Game.Historical
             _lastRegularSeasonCompletion;
         public bool IsPostseasonSimulationRunning => _postseasonSimulationSession != null;
         public OwnerPostseasonSimulationProgress PostseasonSimulationProgress => _postseasonSimulationProgress;
+        public bool IsNextPostseasonGamePlayerMatch => _postseasonSimulationSession?.IsNextGamePlayerMatch == true;
+
+        /// <summary>진행 세션의 다음 우리 구단 경기만 확정하고 중계 사건을 반환한다.</summary>
+        public ManagerModeMatchResult PlayNextPostseasonGame(
+            Baseball.Simulation.Match.IMatchEventSink eventSink,
+            Baseball.Simulation.Match.MatchExecutionProfile executionProfile)
+        {
+            if (!IsNextPostseasonGamePlayerMatch)
+                throw new InvalidOperationException("앞선 대진을 진행한 뒤 우리 구단 경기를 관전할 수 있습니다.");
+            try
+            {
+                LastMatch = _postseasonSimulationSession.AdvanceNextStep(eventSink, executionProfile).PlayerMatch;
+                CurrentPregame = null;
+                RefreshAvailableTacticCards();
+                return LastMatch;
+            }
+            finally
+            {
+                // 관전 중에는 후속 경기를 계산하지 않는다. 재진입은 저장된 시리즈에서 이어진다.
+                StopPostseasonSimulation();
+            }
+        }
 
         /// <summary>모든 정규시즌을 확정하고 프레임 단위 포스트시즌 진행 세션을 연다.</summary>
         public bool BeginPostseasonSimulation()

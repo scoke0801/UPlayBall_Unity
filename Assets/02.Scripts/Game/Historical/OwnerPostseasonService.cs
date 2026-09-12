@@ -60,11 +60,14 @@ namespace Baseball.Game.Historical
                     _balance.Postseason.SemifinalSeriesGames,
                     _balance.Postseason.ChampionshipSeriesGames);
                 int seriesIndex = FindSeriesIndex(group.Postseason, series);
-                int gameIndex = series.Games.Count;
+                var pendingGame = series.Games.Count > 0 && !series.Games[series.Games.Count - 1].IsCompleted
+                    ? series.Games[series.Games.Count - 1] : null;
+                int gameIndex = pendingGame == null ? series.Games.Count : series.Games.Count - 1;
                 int gameId = checked(GameIdBase + group.Season.SeasonNumber * 100_000 + groupIndex * 1_000 + seriesIndex * 100 + gameIndex + 1);
                 ulong seed = DeterministicSeed.Derive(runtime.WorldHistory.WorldHistorySeed,
                     PostseasonStream ^ (ulong)(uint)gameId);
-                var game = series.AppendNextGame(gameId, seed);
+                // 출전 검증에서 멈춘 경기는 같은 ID와 Seed로 재개한다.
+                var game = pendingGame ?? series.AppendNextGame(gameId, seed);
                 MatchResult match = matchService.PlayPostseasonGame(runtime, group, series, game,
                     playerEventSink, playerExecutionProfile, out ManagerModeMatchResult playerResult);
                 series.RecordCompletedGame(game);

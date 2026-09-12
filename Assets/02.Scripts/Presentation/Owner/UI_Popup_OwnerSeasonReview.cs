@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.Text;
 using Baseball.Game.Historical;
 using Baseball.Presentation.UI;
 using UnityEngine;
@@ -11,7 +10,7 @@ namespace Baseball.Presentation.Owner
 {
     /// <summary>페넌트레이스·포스트시즌·시즌 결산을 한 흐름으로 보여주는 구단주 전용 결과 화면이다.</summary>
     [DisallowMultipleComponent]
-    public sealed class UI_Popup_OwnerSeasonReview : MonoBehaviour, ICancelHandler
+    public sealed partial class UI_Popup_OwnerSeasonReview : MonoBehaviour, ICancelHandler
     {
         private const float ModalWidth = 1160f;
         private const float ModalHeight = 720f;
@@ -41,6 +40,10 @@ namespace Baseball.Presentation.Owner
         private Button _close;
         private GameObject _previousSelection;
         private Button[] _tabs;
+        private readonly RectTransform[] _seriesCards = new RectTransform[3];
+        private readonly Text[] _seriesTitles = new Text[3];
+        private readonly Text[] _seriesTeams = new Text[3];
+        private readonly Text[] _seriesScores = new Text[3];
         private OwnerSeasonReviewSnapshot _snapshot;
         private Func<string, string> _teamName;
         private int _page;
@@ -71,6 +74,7 @@ namespace Baseball.Presentation.Owner
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
             FitModal();
+            PlayBracketReveal();
             EventSystem events = EventSystem.current;
             if (events == null) return;
             GameObject selected = events.currentSelectedGameObject;
@@ -81,6 +85,7 @@ namespace Baseball.Presentation.Owner
 
         public void Hide()
         {
+            SkipBracketReveal();
             gameObject.SetActive(false);
             if (EventSystem.current != null && _previousSelection != null && _previousSelection.activeInHierarchy)
                 EventSystem.current.SetSelectedGameObject(_previousSelection);
@@ -90,6 +95,12 @@ namespace Baseball.Presentation.Owner
         /// <summary>공통 Cancel 입력은 결과를 진행하지 않고 팝업 닫기로 전달한다.</summary>
         public void OnCancel(BaseEventData eventData)
         {
+            if (IsBracketRevealing)
+            {
+                SkipBracketReveal();
+                eventData.Use();
+                return;
+            }
             CloseRequested?.Invoke();
             eventData.Use();
         }
@@ -125,6 +136,7 @@ namespace Baseball.Presentation.Owner
             RectTransform modal = Surface(root, "SeasonReview", Navy,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(ModalWidth, ModalHeight));
             _modal = modal;
+            modal.gameObject.AddComponent<CareerUiPreserveTextColor>();
             AddBackgroundArt(modal);
 
             RectTransform readableVeil = Surface(modal, "ReadableVeil", new Color(0.015f, 0.035f, 0.065f, 0.84f),
@@ -178,6 +190,24 @@ namespace Baseball.Presentation.Owner
             _details.alignment = TextAnchor.UpperLeft;
             _details.lineSpacing = 1.12f;
 
+            for (int index = 0; index < _seriesCards.Length; index++)
+            {
+                RectTransform card = Surface(hero, "Series" + index, NavySoft,
+                    Vector2.zero, Vector2.zero, Vector2.zero);
+                SetRect(card, new Vector2(22f, 12f + (2 - index) * 72f),
+                    new Vector2(658f, 78f + (2 - index) * 72f));
+                _seriesCards[index] = card;
+                card.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FramedSurface);
+                CareerUiSkin.ApplyVisualElement(card.GetComponent<Image>());
+                _seriesTitles[index] = Label(card, "Round", string.Empty, 12, FontStyle.Bold,
+                    Gold, new Vector2(22f, 40f), new Vector2(614f, 62f));
+                _seriesTeams[index] = Label(card, "Teams", string.Empty, 15, FontStyle.Bold,
+                    Ivory, new Vector2(22f, 4f), new Vector2(526f, 40f));
+                _seriesScores[index] = Label(card, "Score", string.Empty, 23, FontStyle.Bold,
+                    Ivory, new Vector2(536f, 4f), new Vector2(624f, 40f));
+                _seriesScores[index].alignment = TextAnchor.MiddleRight;
+            }
+
             for (int index = 0; index < _metricValues.Length; index++)
             {
                 float top = 548f - index * 96f;
@@ -211,13 +241,19 @@ namespace Baseball.Presentation.Owner
             _hint = Label(modal, "Hint", string.Empty, 15, FontStyle.Normal,
                 Muted, new Vector2(32f, 42f), new Vector2(790f, 104f));
             _hint.alignment = TextAnchor.MiddleLeft;
+            BuildBracketMotion();
             FitModal();
         }
 
         private void SetPage(int page)
         {
             if (_snapshot == null) return;
+            SkipBracketReveal();
             _page = page;
+            _details.gameObject.SetActive(page != 1);
+            _detailsCaption.gameObject.SetActive(page != 1);
+            for (int index = 0; index < _seriesCards.Length; index++)
+                _seriesCards[index].gameObject.SetActive(page == 1);
             for (int index = 0; index < _tabs.Length; index++)
             {
                 // 선택 탭을 Disabled로 만들면 회색 비활성 UI처럼 보인다. 선택은 Skin 상태로만 표현한다.
@@ -235,6 +271,7 @@ namespace Baseball.Presentation.Owner
             else if (page == 1) BindPostseason();
             else BindRecap();
             ConfigureNavigation();
+            if (gameObject.activeInHierarchy) PlayBracketReveal();
         }
 
         private void ConfigureNavigation()
@@ -276,8 +313,7 @@ namespace Baseball.Presentation.Owner
         private void BindPostseason()
         {
             _title.text = "포스트시즌";
-            _detailsCaption.text = "포스트시즌 대진 · 시리즈 전적";
-            _details.text = BuildSeriesText(_snapshot.Series);
+            BindSeriesCards();
             if (!_snapshot.IsPostseasonCompleted)
             {
                 if (_snapshot.IsPlayerPostseasonCompleted)
@@ -288,17 +324,33 @@ namespace Baseball.Presentation.Owner
                 }
                 else
                 {
-                    _summary.text = _snapshot.IsQualified ? "가을 야구가 시작됩니다" : "월드 포스트시즌 진행";
-                    _status.text = _snapshot.IsQualified
-                        ? "정규시즌 시드와 확정 로스터로 단기전을 시작합니다."
+                    _summary.text = _snapshot.CanWatchPlayerGame ? BuildNextGameTitle() : "우리 구단의 가을 야구 종료";
+                    _status.text = _snapshot.CanWatchPlayerGame
+                        ? BuildSeriesStakes()
                         : "우리 구단은 미진출 · 타 리그 결과를 확정합니다.";
-                    _primaryLabel.text = _snapshot.IsQualified ? "포스트시즌 시작" : "남은 리그 마감";
+                    if (_snapshot.IsQualified && !_snapshot.CanWatchPlayerGame)
+                        _status.text = "준결승 탈락 · 남은 대진의 우승 구단을 확인하세요.";
+                    _primaryLabel.text = _snapshot.CanWatchPlayerGame ? "다음 경기 관전" : "남은 리그 마감";
                 }
+                string currentResult = !_snapshot.IsQualified ? "포스트시즌 미진출" :
+                    !_snapshot.CanWatchPlayerGame && !_snapshot.IsPlayerPostseasonCompleted ? "준결승 탈락" :
+                    FormatPostseasonResult(_snapshot.PostseasonResult);
                 SetMetrics(_snapshot.IsQualified ? $"{Math.Min(_snapshot.Rank, 4)}번" : "미진출", "우리 구단 시드",
                     $"{_snapshot.CompletedPostseasonGroups}/{_snapshot.TotalPostseasonGroups}", "완료된 리그",
-                    FormatPostseasonResult(_snapshot.PostseasonResult), "현재 결과");
+                    currentResult, "현재 결과");
                 _insightTitle.text = "다음 단계 · 전체 결과 확정";
                 _insightBody.text = "모든 리그 우승팀이 확정되어야\n승강과 다음 시즌이 열립니다.";
+                if (_snapshot.CanWatchPlayerGame)
+                {
+                    _hint.text = "우리 구단 경기를 한 경기씩 관전합니다. 경기 종료 후 대진으로 돌아옵니다.";
+                    _insightTitle.text = "다음 경기 · 출전 준비";
+                    _insightBody.text = "현재 선수 오더로 출전합니다.\n변경하려면 닫고 선수단을 여세요.";
+                    OwnerPostseasonSeriesReview series = _snapshot.PlayerSeries;
+                    if (series != null)
+                        SetMetrics($"{series.HigherSeedWins} : {series.LowerSeedWins}", "시리즈 전적",
+                            $"{series.WinsRequired}승", "시리즈 승리 조건",
+                            series.Round == OwnerPostseasonRound.Championship ? "우승" : "결승 진출", "이번 시리즈 목표");
+                }
                 _primary.interactable = true;
                 return;
             }
@@ -312,6 +364,59 @@ namespace Baseball.Presentation.Owner
             _insightBody.text = "성과와 다음 리그 등급을 확인하고\n계약·급여 마감으로 이어집니다.";
             _primaryLabel.text = "시즌 결산 보기";
             _primary.interactable = true;
+        }
+
+        private string BuildNextGameTitle()
+        {
+            OwnerPostseasonSeriesReview series = _snapshot.PlayerSeries;
+            if (series == null) return "가을 야구, 첫 승을 향해";
+            if (series.IsCompleted) return "결승 진출 · 상대 결정 대기";
+            string round = series.Round == OwnerPostseasonRound.Semifinal ? "준결승" : "챔피언십";
+            return $"{round} {series.HigherSeedWins + series.LowerSeedWins + 1}차전";
+        }
+
+        private string BuildSeriesStakes()
+        {
+            OwnerPostseasonSeriesReview series = _snapshot.PlayerSeries;
+            if (series == null || series.IsCompleted) return "앞선 대진이 끝나면 우리 구단 경기로 이어집니다.";
+            bool higher = series.HigherSeedTeamSeasonKey == _snapshot.PlayerTeamSeasonKey;
+            int wins = higher ? series.HigherSeedWins : series.LowerSeedWins;
+            int losses = higher ? series.LowerSeedWins : series.HigherSeedWins;
+            string target = series.Round == OwnerPostseasonRound.Championship ? "우승" : "결승 진출";
+            if (wins == series.WinsRequired - 1 && losses == series.WinsRequired - 1)
+                return $"최종전 · 오늘 승리하면 {target}, 패하면 탈락";
+            if (wins == series.WinsRequired - 1) return $"매치 포인트 · 한 경기만 더 이기면 {target}";
+            if (losses == series.WinsRequired - 1) return "벼랑 끝 승부 · 다음 경기에서 반드시 승리해야 합니다";
+            return $"{wins}승 {losses}패 · {target}까지 {series.WinsRequired - wins}승";
+        }
+
+        private void BindSeriesCards()
+        {
+            for (int index = 0; index < _seriesCards.Length; index++)
+            {
+                // 다른 탭에서 비활성이었던 카드도 어두운 Skin의 본문 대비를 복원한다.
+                _seriesTeams[index].color = Ivory;
+                _seriesScores[index].color = Ivory;
+                if (index >= _snapshot.Series.Count)
+                {
+                    _seriesCards[index].gameObject.SetActive(!_snapshot.IsPlayerPostseasonCompleted &&
+                        (_snapshot.Series.Count == 0 && index == 0 || _snapshot.Series.Count == 2 && index == 2));
+                    _seriesTitles[index].text = _snapshot.Series.Count == 0 ? "포스트시즌 · 대진 대기" : "챔피언십 · 대진 대기";
+                    _seriesTeams[index].text = _snapshot.Series.Count == 0
+                        ? "정규시즌 순위로 대진을 확정합니다" : "준결승 승리 구단이 결승에서 만납니다";
+                    _seriesScores[index].text = "—";
+                    continue;
+                }
+                OwnerPostseasonSeriesReview item = _snapshot.Series[index];
+                bool ours = item.HigherSeedTeamSeasonKey == _snapshot.PlayerTeamSeasonKey ||
+                    item.LowerSeedTeamSeasonKey == _snapshot.PlayerTeamSeasonKey;
+                string round = item.Round == OwnerPostseasonRound.Semifinal ? "준결승" : "챔피언십";
+                string state = item.IsCompleted ? "시리즈 종료" :
+                    item.HigherSeedWins + item.LowerSeedWins == 0 ? "경기 전" : "진행 중";
+                _seriesTitles[index].text = $"{round} · {item.WinsRequired}승 선승 · {state}" + (ours ? " · 우리 구단" : "");
+                _seriesTeams[index].text = Resolve(item.HigherSeedTeamSeasonKey) + "  vs  " + Resolve(item.LowerSeedTeamSeasonKey);
+                _seriesScores[index].text = $"{item.HigherSeedWins} : {item.LowerSeedWins}";
+            }
         }
 
         private void BindRecap()
@@ -336,6 +441,7 @@ namespace Baseball.Presentation.Owner
 
         private void HandlePrimary()
         {
+            SkipBracketReveal();
             if (_page == 0) { SetPage(1); return; }
             if (_page == 1 && !_snapshot.IsPostseasonCompleted) { PostseasonRequested?.Invoke(); return; }
             if (_page == 1) { SetPage(2); return; }
@@ -351,23 +457,6 @@ namespace Baseball.Presentation.Owner
                 _metricValues[index].text = values[index];
                 _metricLabels[index].text = labels[index];
             }
-        }
-
-        private string BuildSeriesText(System.Collections.Generic.IReadOnlyList<OwnerPostseasonSeriesReview> series)
-        {
-            if (series.Count == 0) return "대진 확정 전입니다. 포스트시즌을 시작하면 정규시즌 순위로 시드가 고정됩니다.";
-            var text = new StringBuilder();
-            for (int index = 0; index < series.Count; index++)
-            {
-                OwnerPostseasonSeriesReview item = series[index];
-                text.Append(item.Round == OwnerPostseasonRound.Semifinal ? "준결승" : "챔피언십")
-                    .Append("  |  ").Append(Resolve(item.HigherSeedTeamSeasonKey)).Append("  ")
-                    .Append(item.HigherSeedWins).Append(" : ").Append(item.LowerSeedWins).Append("  ")
-                    .Append(Resolve(item.LowerSeedTeamSeasonKey));
-                if (!item.IsCompleted) text.Append("  ·  진행 중");
-                if (index + 1 < series.Count) text.AppendLine();
-            }
-            return text.ToString();
         }
 
         private string Resolve(string key)

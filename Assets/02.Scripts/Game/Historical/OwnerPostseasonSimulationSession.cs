@@ -44,10 +44,27 @@ namespace Baseball.Game.Historical
         public bool IsCompleted => _runtime.LeagueWorld.IsPostseasonCompleted;
         public OwnerPostseasonAdvanceResult LastResult { get; private set; }
 
-        public OwnerPostseasonAdvanceResult AdvanceNextStep()
+        /// <summary>월드 진행 순서를 바꾸지 않고 관전 직전에 멈출 경기인지 확인한다.</summary>
+        public bool IsNextGamePlayerMatch
+        {
+            get
+            {
+                foreach (OwnerLeagueGroupState group in _runtime.LeagueWorld.Groups)
+                {
+                    if (group.Postseason.IsCompleted) continue;
+                    return ReferenceEquals(group, _runtime.LeagueWorld.GetGroup(_runtime.PlayerTeamSeasonKey)) &&
+                        group.Postseason.CurrentSeries?.IncludesTeam(group.Season.PlayerTeamId) == true;
+                }
+                return false;
+            }
+        }
+
+        public OwnerPostseasonAdvanceResult AdvanceNextStep(
+            Baseball.Simulation.Match.IMatchEventSink eventSink = null,
+            Baseball.Simulation.Match.MatchExecutionProfile? executionProfile = null)
         {
             if (IsCompleted) throw new InvalidOperationException("포스트시즌이 이미 완료됐습니다.");
-            LastResult = _postseasonService.AdvanceNextGame(_runtime, _matchService);
+            LastResult = _postseasonService.AdvanceNextGame(_runtime, _matchService, eventSink, executionProfile);
             return LastResult;
         }
 

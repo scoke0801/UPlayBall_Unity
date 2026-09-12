@@ -88,17 +88,17 @@ namespace Baseball.Presentation.Owner
                 ? 1f
                 : Mathf.Clamp01((float)progress.CompletedGames / progress.MaximumGames);
             SetProgressTarget(ratio);
-            _titleText.text = "포스트시즌 시뮬레이션";
-            _stateText.text = "조별 단기전 진행 중";
+            _titleText.text = "가을 야구 · 대진 진행";
+            _stateText.text = "다음 경기를 준비하고 있습니다";
             _roundText.text = string.IsNullOrEmpty(progress.NextSeriesId)
                 ? "포스트시즌 결과 집계"
                 : progress.NextSeriesId == "championship" ? "챔피언십" : "준결승";
             _matchupText.text = string.IsNullOrEmpty(progress.NextLeagueGroupId)
                 ? "모든 조의 우승 구단을 확인하고 있습니다."
-                : progress.NextLeagueGroupId + "\n내 구단 조는 상세 · 다른 조는 간이 계산으로 진행합니다.";
-            _leagueProgressText.text = $"전체 경기  {progress.CompletedGames:N0} / 최대 {progress.MaximumGames:N0}";
+                : "앞선 대진을 진행하고 있습니다.\n우리 구단 차례가 되면 경기 관전으로 이어집니다.";
+            _leagueProgressText.text = $"종료된 경기  {progress.CompletedGames:N0}";
             _playerProgressText.text = $"완료 조  {progress.CompletedGroups:N0} / {progress.TotalGroups:N0}";
-            _recordText.text = "시리즈가 일찍 끝나면 최대 경기 수보다 적게 완료됩니다.";
+            _recordText.text = "중단해도 완료된 경기 결과는 유지됩니다.";
         }
 
         public void Show()

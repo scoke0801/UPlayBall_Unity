@@ -72,6 +72,25 @@ namespace Baseball.Game.Historical
         public OwnerTeamPostseasonResult? PostseasonResult { get; }
         public string ChampionTeamSeasonKey { get; }
         public IReadOnlyList<OwnerPostseasonSeriesReview> Series { get; }
+
+        /// <summary>탈락한 시리즈를 다시 관전 대상으로 안내하지 않는다.</summary>
+        public OwnerPostseasonSeriesReview PlayerSeries
+        {
+            get
+            {
+                for (int index = Series.Count - 1; index >= 0; index--)
+                {
+                    OwnerPostseasonSeriesReview series = Series[index];
+                    if (series.HigherSeedTeamSeasonKey == PlayerTeamSeasonKey ||
+                        series.LowerSeedTeamSeasonKey == PlayerTeamSeasonKey) return series;
+                }
+                return null;
+            }
+        }
+        public bool CanWatchPlayerGame => IsQualified && !IsPlayerPostseasonCompleted &&
+            (PlayerSeries == null || !PlayerSeries.IsCompleted ||
+             (PlayerSeries.HigherSeedTeamSeasonKey == PlayerTeamSeasonKey
+                 ? PlayerSeries.HigherSeedWins : PlayerSeries.LowerSeedWins) == PlayerSeries.WinsRequired);
     }
 
     public sealed class OwnerPostseasonSeriesReview
