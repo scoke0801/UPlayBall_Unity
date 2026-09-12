@@ -57,8 +57,9 @@ namespace Baseball.Game.Historical
     public sealed class UnityHistoricalContentProvider : IHistoricalContentProvider
     {
         public const int SupportedAssetFormatVersion = 1;
-        public const int MinimumSupportedContentSchemaVersion = 3;
-        public const int SupportedContentSchemaVersion = 5;
+        // v5 이하는 네 번째 타자 슬롯이 Arm이다. 검증·게시한 v6만 읽어 번트로 오인하지 않는다.
+        public const int MinimumSupportedContentSchemaVersion = 6;
+        public const int SupportedContentSchemaVersion = 6;
         public const string SupportedReferenceDataVersion = "kbo-normalized-v3";
         public const int SupportedNormalizedSchemaVersion = 3;
         public const string SupportedNormalizedImporterVersion = "1.2.0";

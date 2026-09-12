@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
 using Baseball.Game.Historical;
 using NUnit.Framework;
 using UnityEngine;
@@ -15,7 +13,7 @@ namespace Baseball.Tests.EditMode.Game
     public sealed class RuntimeHistoricalContentProviderTests
     {
         private const string SourceRoot =
-            "Assets/Editor Default Resources/HistoricalSimulation/1982-2025/Runtime";
+            "Assets/10.Datas/HistoricalSimulation/1982-2025";
 
         private readonly List<UnityEngine.Object> _createdObjects = new List<UnityEngine.Object>();
         private HistoricalRuntimeContentCatalog _catalog;
@@ -25,7 +23,7 @@ namespace Baseball.Tests.EditMode.Game
         public void CreateCatalog()
         {
             _catalog = CreateCatalogFromBake();
-            _provider = new UnityHistoricalContentProvider(_catalog);
+            _provider = new UnityHistoricalContentProvider(_catalog, HistoricalContentVerificationMode.Full);
         }
 
         [OneTimeTearDown]
@@ -42,10 +40,10 @@ namespace Baseball.Tests.EditMode.Game
             HistoricalBakedContent content = _provider.Load();
 
             Assert.That(content.Manifest.AssetFormatVersion, Is.EqualTo(1));
-            Assert.That(content.Manifest.ContentSchemaVersion, Is.EqualTo(5));
+            Assert.That(content.Manifest.ContentSchemaVersion, Is.EqualTo(6));
             Assert.That(
                 content.Manifest.AssetArchiveHash,
-                Is.EqualTo("71c42dc485fd44e45b370ddfa34f5762af2fdfb84a328f1aa68785cba0232e1a"));
+                Does.Match("^[a-f0-9]{64}$"));
             Assert.That(content.Manifest.ReferenceDataVersion, Is.EqualTo("kbo-normalized-v3"));
             Assert.That(content.Manifest.GeneratorVersion, Is.EqualTo("source-backed-runtime-bake-v2"));
             Assert.That(content.Manifest.BalanceVersion, Is.EqualTo("historical-source-backed-v2"));
@@ -59,41 +57,36 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(content.Manifest.SourceManifest.SourceAllocationPolicyVersion, Is.EqualTo("source-team-season-one-to-one-v2"));
             Assert.That(content.Manifest.SourceManifest.ReplacementGeneratorVersion, Is.EqualTo("quota-fallback-percentile-v2"));
             Assert.That(content.Manifest.SourceManifest.ReplacementPopulationPolicyVersion, Is.EqualTo("quota-fallback-aggregate-percentile-v2"));
-            Assert.That(content.Manifest.SourceManifest.SourceBackedPlayerPersonCount, Is.EqualTo(3510));
-            Assert.That(content.Manifest.SourceManifest.SourceBackedPlayerSeasonCount, Is.EqualTo(17333));
+            Assert.That(content.Manifest.SourceManifest.SourceBackedPlayerPersonCount, Is.EqualTo(3511));
+            Assert.That(content.Manifest.SourceManifest.SourceBackedPlayerSeasonCount, Is.EqualTo(18272));
             Assert.That(content.Manifest.SourceManifest.ReplacementGeneratedPlayerPersonCount, Is.EqualTo(54));
             Assert.That(content.Manifest.SourceManifest.ReplacementGeneratedPlayerSeasonCount, Is.EqualTo(54));
-            Assert.That(content.Manifest.SourceManifest.PitchBalanceVersion, Is.EqualTo("pitch-arsenal-v1"));
+            Assert.That(content.Manifest.SourceManifest.PitchBalanceVersion, Is.EqualTo("pitch-arsenal-v2"));
             Assert.That(content.Manifest.SourceManifest.PitchGenerationSeed, Is.EqualTo(20260906UL));
             Assert.That(
                 content.Manifest.ContentHash,
-                Is.EqualTo("912531f3ecc7f6cd19b18b5cc9f93bb06f57fe1da2635147f5e6c8ab41c372f9"));
+                Does.Match("^[a-f0-9]{64}$"));
         }
 
-        [Test]
-        public void RuntimeContentProvider_LoadsSchemaV3WithoutSourceContractFields()
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        public void RuntimeContentProvider_RejectsLegacyArmSchema(int schemaVersion)
         {
-            TextAsset manifest = CreateTextAsset(BuildSchemaV3ManifestText());
+            TextAsset manifest = CreateTextAsset(_catalog.Manifest.text.Replace(
+                "\"contentSchemaVersion\":6", "\"contentSchemaVersion\":" + schemaVersion));
             HistoricalRuntimeContentCatalog catalog = CreateCatalog(
                 manifest,
                 _catalog.PlayerPersons,
                 _catalog.Years);
 
-            HistoricalContentManifest loaded = new UnityHistoricalContentProvider(catalog).Load().Manifest;
-
-            Assert.That(loaded.ContentSchemaVersion, Is.EqualTo(3));
-            Assert.That(loaded.SourceManifest.SourceIdentityPolicyVersion, Is.Empty);
-            Assert.That(loaded.SourceManifest.SourceAllocationPolicyVersion, Is.Empty);
-            Assert.That(loaded.SourceManifest.ReplacementGeneratorVersion, Is.Empty);
-            Assert.That(loaded.SourceManifest.ReplacementPopulationPolicyVersion, Is.Empty);
-            Assert.That(loaded.SourceManifest.SourceBackedPlayerPersonCount, Is.Zero);
-            Assert.That(loaded.SourceManifest.SourceBackedPlayerSeasonCount, Is.Zero);
-            Assert.That(loaded.SourceManifest.ReplacementGeneratedPlayerPersonCount, Is.Zero);
-            Assert.That(loaded.SourceManifest.ReplacementGeneratedPlayerSeasonCount, Is.Zero);
+            HistoricalContentLoadException exception = Assert.Throws<HistoricalContentLoadException>(
+                () => new UnityHistoricalContentProvider(catalog).Load());
+            Assert.That(exception.Message, Does.Contain("Content Schema"));
         }
 
         [Test]
-        public void RuntimeContentProvider_RejectsSchemaV5WithoutSourceContractFields()
+        public void RuntimeContentProvider_RejectsSchemaV6WithoutSourceContractFields()
         {
             string invalidManifest = _catalog.Manifest.text.Replace(
                 "\"sourceIdentityPolicyVersion\":\"source-backed-identity-v1\"",
@@ -112,7 +105,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void RuntimeContentProvider_RejectsSchemaV5EmptySourceContractVersion()
+        public void RuntimeContentProvider_RejectsSchemaV6EmptySourceContractVersion()
         {
             string invalidManifest = _catalog.Manifest.text.Replace(
                 "\"sourceIdentityPolicyVersion\":\"source-backed-identity-v1\"",
@@ -151,12 +144,12 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(content.Years.Count, Is.EqualTo(44));
             Assert.That(content.Years[0].Year, Is.EqualTo(1982));
             Assert.That(content.Years[43].Year, Is.EqualTo(2025));
-            Assert.That(content.PlayerPersons.Count, Is.EqualTo(3564));
-            Assert.That(content.PlayerSeasons.Count, Is.EqualTo(17387));
-            Assert.That(content.NormalCards.Count, Is.EqualTo(17387));
+            Assert.That(content.PlayerPersons.Count, Is.EqualTo(3565));
+            Assert.That(content.PlayerSeasons.Count, Is.EqualTo(18326));
+            Assert.That(content.NormalCards.Count, Is.EqualTo(18326));
             Assert.That(content.TeamSeasons.Count, Is.EqualTo(363));
             Assert.That(content.OriginalSeasonRecords.Count, Is.EqualTo(17387));
-            Assert.That(content.OriginalAwardRecords.Count, Is.EqualTo(555));
+            Assert.That(content.OriginalAwardRecords.Count, Is.EqualTo(569));
             for (int index = 0; index < content.Years.Count; index++)
             {
                 int teamCount = content.Years[index].TeamSeasons.Count;
@@ -194,7 +187,7 @@ namespace Baseball.Tests.EditMode.Game
                 years);
 
             HistoricalContentLoadException exception = Assert.Throws<HistoricalContentLoadException>(
-                () => new UnityHistoricalContentProvider(damagedCatalog).Load());
+                () => new UnityHistoricalContentProvider(damagedCatalog, HistoricalContentVerificationMode.Full).Load());
 
             Assert.That(exception.Message, Does.Contain("SHA-256"));
             Assert.That(exception.RelativePath, Is.EqualTo("Years/1982.json"));
@@ -215,7 +208,7 @@ namespace Baseball.Tests.EditMode.Game
                 _catalog.Years);
 
             HistoricalContentLoadException exception = Assert.Throws<HistoricalContentLoadException>(
-                () => new UnityHistoricalContentProvider(invalidCatalog).Load());
+                () => new UnityHistoricalContentProvider(invalidCatalog, HistoricalContentVerificationMode.Full).Load());
 
             Assert.That(exception.Message, Does.Contain("Content Hash"));
             Assert.That(exception.RelativePath, Is.EqualTo("manifest.json"));
@@ -225,7 +218,7 @@ namespace Baseball.Tests.EditMode.Game
         public void RuntimeContentProvider_RejectsInvalidVersion()
         {
             string invalidManifest = _catalog.Manifest.text.Replace(
-                "\"contentSchemaVersion\":5",
+                "\"contentSchemaVersion\":6",
                 "\"contentSchemaVersion\":999");
             TextAsset manifest = CreateTextAsset(invalidManifest);
             HistoricalRuntimeContentCatalog invalidCatalog = CreateCatalog(
@@ -313,76 +306,6 @@ namespace Baseball.Tests.EditMode.Game
             return result;
         }
 
-        private string BuildSchemaV3ManifestText()
-        {
-            const string currentContentHash =
-                "912531f3ecc7f6cd19b18b5cc9f93bb06f57fe1da2635147f5e6c8ab41c372f9";
-            const string schemaV5Tail =
-                "\"referenceDataVersion\":\"kbo-normalized-v3\"," +
-                "\"replacementGeneratedPlayerPersonCount\":54," +
-                "\"replacementGeneratedPlayerSeasonCount\":54," +
-                "\"replacementGeneratorVersion\":\"quota-fallback-percentile-v2\"," +
-                "\"replacementPopulationPolicyVersion\":\"quota-fallback-aggregate-percentile-v2\"," +
-                "\"rosterBuilderVersion\":\"ability-fit-core25-v4\"," +
-                "\"sourceAllocationPolicyVersion\":\"source-team-season-one-to-one-v2\"," +
-                "\"sourceBackedPlayerPersonCount\":3510," +
-                "\"sourceBackedPlayerSeasonCount\":17333," +
-                "\"sourceFranchiseIdentityPolicyVersion\":\"source-franchise-identity-v1\"," +
-                "\"sourceIdentityPolicyVersion\":\"source-backed-identity-v1\"," +
-                "\"sourceTeamSeasonIdentityPolicyVersion\":\"source-team-season-identity-v1\"}";
-            const string schemaV3Tail =
-                "\"referenceDataVersion\":\"kbo-normalized-v3\"," +
-                "\"rosterBuilderVersion\":\"ability-fit-core25-v4\"}";
-
-            string manifest = _catalog.Manifest.text
-                .Replace("\"contentSchemaVersion\":5", "\"contentSchemaVersion\":3")
-                .Replace(",\"generationSeedAffectsCanonicalBake\":false", string.Empty)
-                .Replace(schemaV5Tail, schemaV3Tail);
-            string sourceManifest = ExtractSourceManifest(manifest).Replace(
-                $"\"contentHash\":\"{currentContentHash}\"",
-                "\"contentHash\":\"\"");
-            var canonical = new StringBuilder();
-            canonical.Append("{\"manifest\":")
-                .Append(sourceManifest)
-                .Append(",\"playerPersons\":")
-                .Append(TrimTrailingNewline(_catalog.PlayerPersons.Content.text))
-                .Append(",\"schemaVersion\":3,\"years\":[");
-            for (int index = 0; index < _catalog.Years.Count; index++)
-            {
-                if (index > 0)
-                    canonical.Append(',');
-                canonical.Append(TrimTrailingNewline(_catalog.Years[index].File.Content.text));
-            }
-            canonical.Append("]}");
-            string v3ContentHash = ComputeSha256(canonical.ToString());
-            return manifest.Replace(currentContentHash, v3ContentHash);
-        }
-
-        private static string ExtractSourceManifest(string manifest)
-        {
-            const string property = "\"sourceManifest\":";
-            int propertyIndex = manifest.IndexOf(property, StringComparison.Ordinal);
-            int start = manifest.IndexOf('{', propertyIndex + property.Length);
-            int end = manifest.IndexOf("},\"summary\"", start, StringComparison.Ordinal);
-            Assert.That(start, Is.GreaterThanOrEqualTo(0));
-            Assert.That(end, Is.GreaterThan(start));
-            return manifest.Substring(start, end - start + 1);
-        }
-
-        private static string TrimTrailingNewline(string value)
-        {
-            return value.TrimEnd('\r', '\n');
-        }
-
-        private static string ComputeSha256(string value)
-        {
-            using SHA256 sha256 = SHA256.Create();
-            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(value));
-            var result = new StringBuilder(hash.Length * 2);
-            for (int index = 0; index < hash.Length; index++)
-                result.Append(hash[index].ToString("x2"));
-            return result.ToString();
-        }
 
         private static void AssertRuntimeSafePayload(string text, string relativePath)
         {

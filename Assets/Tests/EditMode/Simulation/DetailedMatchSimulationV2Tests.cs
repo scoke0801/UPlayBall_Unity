@@ -198,11 +198,11 @@ namespace Baseball.Tests.EditMode.Simulation
         [Test]
         public void Fielding_번트차이는수비프로필에영향을주지않는다()
         {
-            Player weakArm = CreateBatter(99, 50, 60, 50, bunt: 20);
-            Player strongArm = CreateBatter(99, 50, 60, 50, bunt: 90);
+            Player weakBunt = CreateBatter(99, 50, 60, 50, bunt: 20);
+            Player strongBunt = CreateBatter(99, 50, 60, 50, bunt: 90);
 
-            FieldingProfile weakProfile = FieldingProfile.Derive(weakArm, PlayerPosition.Shortstop);
-            FieldingProfile strongProfile = FieldingProfile.Derive(strongArm, PlayerPosition.Shortstop);
+            FieldingProfile weakProfile = FieldingProfile.Derive(weakBunt, PlayerPosition.Shortstop);
+            FieldingProfile strongProfile = FieldingProfile.Derive(strongBunt, PlayerPosition.Shortstop);
 
             Assert.That(strongProfile.Range, Is.EqualTo(weakProfile.Range));
             Assert.That(strongProfile.Hands, Is.EqualTo(weakProfile.Hands));

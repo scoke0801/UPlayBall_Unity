@@ -280,7 +280,7 @@ namespace Baseball.Tools.SimulationDiagnostics
                     Value(PlayerAbility.Contact, batting),
                     Value(PlayerAbility.Power, batting),
                     Value(PlayerAbility.Speed, batting),
-                    Value(PlayerAbility.Arm, batting),
+                    Value(PlayerAbility.Bunt, batting),
                     Value(PlayerAbility.Defense, defense),
                     Value(PlayerAbility.BatterMental, batting)),
                 new PitcherAttributes(20, 20, 20, 20, 20, 20));

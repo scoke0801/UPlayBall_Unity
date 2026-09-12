@@ -28,7 +28,7 @@ def prepare(output):
         for season in year['playerSeasons']:
             if season['playerType'] == 'Hitter':
                 # 가격 재평가를 함께 실행하지 않으므로 기존 가격의 송구 입력은 Editor 근거에만 보존한다.
-                season['costDerivationTrace']['legacyThrowingRating'] = season['baseAttributes'][3]
+                season['costDerivationTrace'].setdefault('legacyThrowingRating', season['baseAttributes'][3])
         bunt_primary_stat.apply(year['playerSeasons'], references, observations)
         for season in year['playerSeasons']:
             target = runtime_rows[identities[season['playerSeasonId']]]

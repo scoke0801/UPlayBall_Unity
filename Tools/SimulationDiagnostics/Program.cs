@@ -36,6 +36,8 @@ namespace Baseball.Tools.SimulationDiagnostics
 
         private static int Run(string[] args)
         {
+            if (args.Length > 0 && string.Equals(args[0], "bunt-audit", StringComparison.Ordinal))
+                return RunBuntAudit(args);
             if (args.Length > 0 && string.Equals(args[0], "verify-match-balance", StringComparison.Ordinal))
             {
                 Baseball.Tools.CommonMatchBalanceInput.VerifyDefaults();
@@ -421,7 +423,8 @@ namespace Baseball.Tools.SimulationDiagnostics
             int teamId,
             int batting,
             int pitching,
-            int defense)
+            int defense,
+            int? bunt = null)
         {
             var slots = new LineupSlot[9];
             var bench = new Player[9];
@@ -429,9 +432,9 @@ namespace Baseball.Tools.SimulationDiagnostics
             {
                 PlayerPosition position = (PlayerPosition)(index + 1);
                 slots[index] = new LineupSlot(
-                    CreateBatter(teamId * 1000 + index + 1, position, batting, defense),
+                    CreateBatter(teamId * 1000 + index + 1, position, batting, defense, bunt),
                     position);
-                bench[index] = CreateBatter(teamId * 1000 + 100 + index, position, batting - 4, defense + 6);
+                bench[index] = CreateBatter(teamId * 1000 + 100 + index, position, batting - 4, defense + 6, bunt);
             }
 
             var starter = new PitcherRosterEntry(
@@ -467,7 +470,8 @@ namespace Baseball.Tools.SimulationDiagnostics
             int playerId,
             PlayerPosition position,
             int batting,
-            int defense)
+            int defense,
+            int? bunt = null)
         {
             return new Player(
                 playerId,
@@ -475,7 +479,7 @@ namespace Baseball.Tools.SimulationDiagnostics
                 position,
                 playerId % 2 == 0 ? Handedness.Left : Handedness.Right,
                 Handedness.Right,
-                new BatterAttributes(batting, batting, batting, batting, ClampRating(defense), batting),
+                new BatterAttributes(batting, batting, batting, bunt ?? batting, ClampRating(defense), batting),
                 new PitcherAttributes(20, 20, 20, 20, 20, 20));
         }
 

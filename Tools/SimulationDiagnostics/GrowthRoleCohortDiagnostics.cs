@@ -21,7 +21,7 @@ namespace Baseball.Tools.SimulationDiagnostics
             new AbilityWeight(PlayerAbility.Power, 0.15d),
             new AbilityWeight(PlayerAbility.Speed, 0.10d),
             new AbilityWeight(PlayerAbility.Defense, 0.25d),
-            new AbilityWeight(PlayerAbility.Arm, 0.05d),
+            new AbilityWeight(PlayerAbility.Bunt, 0.05d),
             new AbilityWeight(PlayerAbility.BatterMental, 0.10d)
         };
 

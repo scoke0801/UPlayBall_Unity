@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using Baseball.Game.Historical;
 using UnityEngine;
 
 namespace Baseball.Editor.HistoricalDatabase
 {
     public sealed partial class HistoricalDatabaseValidationService
     {
-        private const int ExpectedContentSchemaVersion = 5;
+        // 빌드 전 검증과 실제 로더가 같은 스키마를 요구해야 콘텐츠 전환 시 기준이 어긋나지 않는다.
+        private const int ExpectedContentSchemaVersion = UnityHistoricalContentProvider.SupportedContentSchemaVersion;
         private const int ExpectedNormalizedSchemaVersion = 3;
         private const string ExpectedReferenceDataVersion = "kbo-normalized-v3";
         private const string ExpectedNormalizedImporterVersion = "1.2.0";
