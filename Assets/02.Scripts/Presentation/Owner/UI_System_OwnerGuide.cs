@@ -18,9 +18,14 @@ namespace Baseball.Presentation.Owner
     {
         private OwnerGuidePresentationData _copy;
         private RectTransform _content, _suggestion, _reportsRoot;
+        private RectTransform _feedbackRoot;
+        private Text _feedbackMessage;
+        public event Action<float> FeedbackHeightChanged;
         private Button _dock, _action, _snooze, _next, _review, _close, _news;
         private Text _body, _counter;
         private Image _portrait;
+        private RectTransform _card;
+        private Image _unreadBadge;
         private RectTransform _portraitViewport;
         private GuideGoal _goal;
         private GuideProgressState _progress;
@@ -74,10 +79,29 @@ namespace Baseball.Presentation.Owner
             Render();
         }
 
-        public void SetFeedback(string message)
+        /// <summary>추천과 리포트를 보존하며 카드 안에서 처리 결과를 안내한다.</summary>
+        public void SetFeedback(string message, bool isError = false)
         {
-            if (_state == 2) _reportBody.text = message;
-            else _body.text = message;
+            bool visible = !string.IsNullOrWhiteSpace(message);
+            _feedbackRoot.gameObject.SetActive(visible);
+            _feedbackMessage.text = visible
+                ? (isError ? "확인이 필요해요\n" : "처리 결과를 알려드려요\n") + message : string.Empty;
+            // 첫 레이아웃 이전에도 카드의 고정 본문 폭으로 줄바꿈 높이를 계산한다.
+            var settings = _feedbackMessage.GetGenerationSettings(new Vector2(548, 0));
+            float height = visible ? Mathf.Max(112f,
+                _feedbackMessage.cachedTextGeneratorForLayout.GetPreferredHeight(_feedbackMessage.text, settings)
+                / _feedbackMessage.pixelsPerUnit + 24f) : 0f;
+            SetRect(_feedbackRoot, Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, height));
+            _suggestion.offsetMin = new Vector2(0, height);
+            _reportsRoot.offsetMin = new Vector2(0, height);
+            FeedbackHeightChanged?.Invoke(height);
+        }
+
+        private void DismissFeedback()
+        {
+            SetFeedback(string.Empty);
+            if (_state == 2) _reportBack.Select();
+            else _review.Select();
         }
 
         public void ShowResolution() => _counter.text = _copy.resolved;
@@ -100,6 +124,7 @@ namespace Baseball.Presentation.Owner
         public bool TryGoBack()
         {
             if (_state == 0) return false;
+            if (_state == 2 && _selectedReportId != null) { ReturnToReportList(); return true; }
             SetState(_state == 2 ? 1 : 0);
             return true;
         }
@@ -114,6 +139,7 @@ namespace Baseball.Presentation.Owner
             bool changed = _state != state;
             if (state != 0 && _state == 0) _returnFocus = EventSystem.current?.currentSelectedGameObject;
             _state = state;
+            UIOwnerFrontOfficePanel.Apply(_card, state == 2 ? "ManagerReport" : "ManagerCard");
             _layoutChanged?.Invoke(state);
             _suggestion.gameObject.SetActive(state != 2);
             _reportsRoot.gameObject.SetActive(state == 2);
@@ -142,6 +168,7 @@ namespace Baseball.Presentation.Owner
         {
             gameObject.AddComponent<CareerUiPreserveTextColor>();
             var panel = OwnerWorkspaceUiFactory.CreatePanel(transform, "ManagerSuggestionCard", _copy.title);
+            _card = panel.Root;
             SetRect(panel.Root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             OwnerDashboardStyle.ApplySurface(panel.Root);
             panel.Root.GetComponent<Image>().raycastTarget = true;
@@ -162,19 +189,20 @@ namespace Baseball.Presentation.Owner
             _counter = MakeText(panel.Root, "Count", 22);
             _counter.color = OwnerDashboardStyle.Gold;
             _counter.alignment = TextAnchor.MiddleRight;
-            SetRect(_counter.rectTransform, new Vector2(.38f, 1), Vector2.one, new Vector2(0, -43), new Vector2(-12, -4));
+            _unreadBadge = UIOwnerFrontOfficeSkin.CreateBadge(panel.Root, "UnreadBadge", "Unread", 10f);
+            SetRect(_unreadBadge.rectTransform, new Vector2(1, 1), Vector2.one, new Vector2(-26, -29), new Vector2(-16, -19));
+            SetRect(_counter.rectTransform, new Vector2(.38f, 1), Vector2.one, new Vector2(0, -43), new Vector2(-36, -4));
             _suggestion = OwnerWorkspaceUiFactory.CreateRoot(_content, "Suggestion", false);
-            _portraitViewport = new GameObject("PortraitViewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D)).GetComponent<RectTransform>();
+            // 투명 초상 뒤에 단색 면을 그리지 않고 카드 안쪽 잘림 영역만 유지한다.
+            _portraitViewport = new GameObject("PortraitViewport", typeof(RectTransform), typeof(RectMask2D)).GetComponent<RectTransform>();
             _portraitViewport.SetParent(_suggestion, false);
-            _portraitViewport.GetComponent<Image>().color = OwnerDashboardStyle.Raised;
-            _portraitViewport.GetComponent<Image>().raycastTarget = false;
-            _portraitViewport.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
             _portrait = new GameObject("Portrait", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
             _portrait.transform.SetParent(_portraitViewport, false); _portrait.preserveAspect = true; _portrait.raycastTarget = false;
             _portrait.rectTransform.anchorMin = _portrait.rectTransform.anchorMax = new Vector2(.5f, 1);
             _portrait.rectTransform.pivot = new Vector2(.5f, 1);
-            _portrait.rectTransform.sizeDelta = new Vector2(240, 360);
-            _portrait.rectTransform.anchoredPosition = new Vector2(-18, 8);
+            // 전신 원화의 얼굴이 왼쪽으로 치우치지 않도록 보정하고 머리 위 여백을 확보한다.
+            _portrait.rectTransform.sizeDelta = new Vector2(160, 240);
+            _portrait.rectTransform.anchoredPosition = new Vector2(8, -4);
             _body = MakeText(_suggestion, "Evidence", 22);
             _body.alignment = TextAnchor.UpperLeft;
             _action = MakeButton(_suggestion, "Navigate", _copy.action, NavigateCurrent);
@@ -193,6 +221,19 @@ namespace Baseball.Presentation.Owner
             _close = MakeButton(_suggestion, "Close", _copy.collapse, () => SetState(0), OwnerButtonRole.Quiet);
             _news = MakeButton(_suggestion, "ClubNews", _copy.tips, () => TipsRequested?.Invoke(), OwnerButtonRole.Quiet);
             BuildReports();
+            _feedbackRoot = OwnerWorkspaceUiFactory.CreateRoot(_content, "ManagerFeedback", false);
+            var feedbackSurface = _feedbackRoot.gameObject.AddComponent<Image>();
+            feedbackSurface.color = OwnerDashboardStyle.Surface;
+            feedbackSurface.raycastTarget = false;
+            _feedbackRoot.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
+            _feedbackMessage = MakeText(_feedbackRoot, "ResultMessage", 22);
+            _feedbackMessage.alignment = TextAnchor.MiddleLeft;
+            _feedbackMessage.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _feedbackMessage.resizeTextForBestFit = false;
+            SetRect(_feedbackMessage.rectTransform, Vector2.zero, Vector2.one, new Vector2(16, 12), new Vector2(-152, -12));
+            var dismiss = MakeButton(_feedbackRoot, "DismissResult", "확인", DismissFeedback, OwnerButtonRole.Quiet);
+            SetRect((RectTransform)dismiss.transform, new Vector2(1, .5f), new Vector2(1, .5f), new Vector2(-144, -34), new Vector2(-8, 34));
+            _feedbackRoot.gameObject.SetActive(false);
             SetState(0, false);
         }
 
@@ -228,6 +269,7 @@ namespace Baseball.Presentation.Owner
             if (_progress != null) foreach (var report in _progress.GetReports())
                 if (!report.isRead && !report.isExpired) unread++;
             _counter.text = string.Format(_copy.unread, unread);
+            _unreadBadge.gameObject.SetActive(unread > 0);
             if (_state == 1 && _goal != null)
             {
                 int index = 0;
@@ -241,13 +283,13 @@ namespace Baseball.Presentation.Owner
             _snooze.gameObject.SetActive(_state == 1 && _goal != null);
             _next.gameObject.SetActive(_state == 1 && _goal != null);
             _news.gameObject.SetActive(_state == 1);
-            bool expanded = _state == 1;
-            SetRect(_portraitViewport, Vector2.zero, new Vector2(0, 1), new Vector2(8, expanded ? 156 : 80), new Vector2(152, -8));
-            SetRect(_body.rectTransform, Vector2.zero, Vector2.one, new Vector2(176, expanded ? 156 : 80), new Vector2(-16, -8));
-            SetRect((RectTransform)_action.transform, Vector2.zero, new Vector2(0, 0), new Vector2(8, expanded ? 80 : 4), new Vector2(260, expanded ? 148 : 72));
+            // 접힌 상태에서도 초상·본문·주요 행동의 위치를 유지해 클릭 대상이 움직이지 않게 한다.
+            SetRect(_portraitViewport, Vector2.zero, new Vector2(0, 1), new Vector2(8, 156), new Vector2(152, -8));
+            SetRect(_body.rectTransform, Vector2.zero, Vector2.one, new Vector2(176, 156), new Vector2(-16, -8));
+            SetRect((RectTransform)_action.transform, Vector2.zero, new Vector2(0, 0), new Vector2(8, 80), new Vector2(260, 148));
             SetRect((RectTransform)_snooze.transform, Vector2.zero, Vector2.zero, new Vector2(268, 80), new Vector2(476, 148));
             SetRect((RectTransform)_next.transform, Vector2.zero, Vector2.zero, new Vector2(484, 80), new Vector2(708, 148));
-            SetRect((RectTransform)_review.transform, Vector2.zero, Vector2.zero, new Vector2(expanded ? 8 : 268, 4), new Vector2(expanded ? 260 : 520, 72));
+            SetRect((RectTransform)_review.transform, Vector2.zero, Vector2.zero, new Vector2(8, 4), new Vector2(260, 72));
             SetRect((RectTransform)_dock.transform, Vector2.zero, Vector2.zero, new Vector2(528, 4), new Vector2(708, 72));
             SetRect((RectTransform)_close.transform, Vector2.zero, Vector2.zero, new Vector2(528, 4), new Vector2(708, 72));
             SetRect((RectTransform)_news.transform, Vector2.zero, Vector2.zero, new Vector2(268, 4), new Vector2(520, 72));
@@ -270,6 +312,14 @@ namespace Baseball.Presentation.Owner
             if (goal.Kind == GuideGoalKind.Preparation) return _copy.preparation;
             if (goal.Kind == GuideGoalKind.PlanConfirmation) return _copy.confirmation;
             if (goal.Kind == GuideGoalKind.Debrief) return string.Format(_copy.debrief, home, away);
+            var issueCopy = FindIssueCopy(goal);
+            if (issueCopy != null)
+            {
+                string explanation = issueCopy.body;
+                if (goal.Actual.HasValue && goal.Expected.HasValue)
+                    explanation += "\n" + string.Format(_copy.reportCounts, goal.Actual.Value, goal.Expected.Value);
+                return explanation;
+            }
             string detail;
             if (goal.Kind == GuideGoalKind.RosterIssue && Enum.TryParse(goal.Evidence, out RosterValidationIssueCode roster))
                 detail = OwnerRosterLineupPresentationBuilder.FormatRosterIssueCode(roster);
@@ -294,7 +344,9 @@ namespace Baseball.Presentation.Owner
             var button = OwnerWorkspaceUiFactory.CreateButton(parent, name, label, action);
             OwnerUiButtonSkin.Apply(button, role);
             OwnerUiButtonSkin.SetDashboardStyle(button);
-            button.GetComponentInChildren<Text>().fontSize = 22;
+            var labelText = button.GetComponentInChildren<Text>();
+            labelText.fontSize = 22;
+            OwnerDashboardStyle.SetTypography(labelText);
             return button;
         }
 

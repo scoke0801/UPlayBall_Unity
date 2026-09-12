@@ -46,6 +46,9 @@ namespace Baseball.Presentation.Owner
             {
                 EnsureHomeView();
                 _ownerGuide = UI_System_OwnerGuide.Create(_homeView.ManagerHost, OwnerGuidePresentationData.Load(), _homeView.SetDashboardState);
+                _ownerGuide.FeedbackHeightChanged += _homeView.SetManagerFeedbackHeight;
+                _homeView.FeedbackChanged += _ownerGuide.SetFeedback;
+                _ownerGuide.SetFeedback(_homeView.FeedbackMessage, _homeView.IsFeedbackError);
                 _ownerGuide.ActionRequested += NavigateGuideGoal;
                 _ownerGuide.TipsRequested += ShowOwnerGuideTip;
                 _homeView.OutsideSuggestionPressed += _ownerGuide.CollapseSuggestion;

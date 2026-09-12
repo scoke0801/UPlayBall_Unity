@@ -1,5 +1,17 @@
 # 프런트 매니저 검증
 
+에디터 없이 가이드 정본·스킬 배치 Fact·저장 후 반복 억제를 검사할 수 있다.
+
+```powershell
+dotnet run --project Tools/GuideValidation/Headless/GuideValidation.csproj -c Release
+```
+
+에디터 없이 가이드 정본·스킬 배치 Fact·저장 후 반복 억제를 검사할 수 있다.
+
+```powershell
+dotnet run --project Tools/GuideValidation/Headless/GuideValidation.csproj -c Release
+```
+
 구단주 메인 개편 검증은 `-ReportDirectory output/main-ui-validation -TestFilter 'OwnerMainDashboardRevisionTests;OwnerGuidePresentationTests;OwnerHomeRuntimePresentationTests;ManagerReportTests;GuideProgressTests'`로 실행한다.
 기본 복사에서는 선수 얼굴·유니폼 대량 PNG를 제외한다. 선수 카드 원화 검증이 필요하면 `-IncludePlayerPortraits`를 지정한다.
 프런트 매니저 초상, 홈 배경, 공용 Skin과 폰트는 기본 검증에 포함된다.

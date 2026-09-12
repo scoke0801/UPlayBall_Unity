@@ -4771,6 +4771,18 @@
       ], "tags": ["Card", "SkillBlock"]
     },
     {
+      "cueId": "SKILL_BLOCK_PLACED", "factType": "SkillBlockPlaced", "modeScope": "Owner",
+      "priority": "Normal", "presentationType": "Toast", "expressionKey": "Analysis",
+      "requiredPayload": [],
+      "repeatPolicy": { "dedupeKeyTemplate": "SKILL_BLOCK_PLACED:{saveId}", "cooldownScope": "Save", "maxDisplaysPerScope": 1 },
+      "cta": { "action": "OpenCardTraining", "label": "블록 확인" }, "requiresAcknowledgement": false,
+      "variations": [
+        { "variationId": "SKILL_BLOCK_PLACED_A", "weight": 40, "tone": "Friendly", "text": "스킬 블록을 장착했습니다. 선수 카드에서 달라진 능력치를 확인해 보세요." },
+        { "variationId": "SKILL_BLOCK_PLACED_B", "weight": 35, "tone": "Analysis", "text": "블록 배치가 적용됐습니다. 성장판 16칸의 모양과 인접 효과를 활용해 보세요." },
+        { "variationId": "SKILL_BLOCK_PLACED_C", "weight": 25, "tone": "Friendly", "text": "성장판에 블록을 배치했습니다. 빈 공간에 맞춰 다른 블록도 조합할 수 있습니다." }
+      ], "tags": ["Card", "SkillBlock"]
+    },
+    {
       "cueId": "SKILL_BOARD_TRAIT_ACTIVATED", "factType": "SkillBoardTraitActivated", "modeScope": "Owner",
       "priority": "High", "presentationType": "Toast", "expressionKey": "Celebrate",
       "requiredPayload": ["cardId", "traitId"],
@@ -4784,6 +4796,7 @@
     }
   ],
   "factTypeIndex": [
+    { "factType": "SkillBlockPlaced", "requiredPayload": [], "cueIds": ["SKILL_BLOCK_PLACED"], "modeScopes": ["Owner"] },
     { "factType": "CardStudyCompleted", "requiredPayload": ["cardId"], "cueIds": ["CARD_STUDY_COMPLETED"], "modeScopes": ["Owner"] },
     { "factType": "CardStudySlotAvailable", "requiredPayload": [], "cueIds": ["CARD_STUDY_SLOT_AVAILABLE"], "modeScopes": ["Owner"] },
     { "factType": "CardStudyStarted", "requiredPayload": ["cardId", "program"], "cueIds": ["CARD_STUDY_STARTED"], "modeScopes": ["Owner"] },

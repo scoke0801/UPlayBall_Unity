@@ -26,14 +26,32 @@ namespace Baseball.Tests.EditMode.Game.Guide
         }
 
         [Test]
-        public void Dataset_103개Cue와309개Variation을검증한다()
+        public void Dataset_104개Cue와312개Variation을검증한다()
         {
-            Assert.AreEqual(103, _data.cueDefinitions.Length);
-            Assert.AreEqual(103, _data.factTypeIndex.Length);
+            Assert.AreEqual(104, _data.cueDefinitions.Length);
+            Assert.AreEqual(104, _data.factTypeIndex.Length);
             int variations = 0;
             for (int index = 0; index < _data.cueDefinitions.Length; index++)
                 variations += _data.cueDefinitions[index].variations.Length;
-            Assert.AreEqual(309, variations);
+            Assert.AreEqual(312, variations);
+        }
+
+        [TestCase("manual-placement")]
+        [TestCase("automatic-placement")]
+        public void 스킬배치Fact는_수락되고_안내는저장당한번만표시한다(string eventId)
+        {
+            var guide = new FrontManagerGuide(_catalog);
+            var payload = new Dictionary<string, string> { ["cardId"] = "card", ["instanceId"] = "1" };
+            var first = guide.Enqueue(new GuideFact(GuideModeScope.Owner, "SkillBlockPlaced",
+                new GuideFactIdentity(1, eventId, "save"), payload));
+            Assert.That(first.IsAccepted, Is.True, first.Error);
+            Assert.That(first.EnqueuedCount, Is.EqualTo(1));
+            Assert.That(guide.TryDequeue(SafeContext(), out GuideMessage message), Is.True);
+            Assert.That(message.CueId, Is.EqualTo("SKILL_BLOCK_PLACED"));
+            var second = guide.Enqueue(new GuideFact(GuideModeScope.Owner, "SkillBlockPlaced",
+                new GuideFactIdentity(1, eventId + "-again", "save"), payload));
+            Assert.That(second.IsAccepted, Is.True, second.Error);
+            Assert.That(second.EnqueuedCount, Is.Zero);
         }
 
         [Test]

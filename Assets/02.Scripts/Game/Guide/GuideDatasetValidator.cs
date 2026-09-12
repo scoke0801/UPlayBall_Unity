@@ -23,8 +23,8 @@ namespace Baseball.Game.Guide
     /// <summary>JSON Schema의 구조 검증 뒤 Fact·CTA·표현·placeholder 상호 참조를 검사한다.</summary>
     public static class GuideDatasetValidator
     {
-        // 구단주 트레이드 제거에 따라 관련 Cue 3개를 제외한 v1 콘텐츠 계약이다.
-        public const int ExpectedCueCount = 103;
+        // 구단주 트레이드 안내를 제외하고 스킬 배치 안내를 포함한 v1 콘텐츠 계약이다.
+        public const int ExpectedCueCount = 104;
         public const int ExpectedVariationCountPerCue = 3;
         public const string WeightedHashStrategy = "WeightedHash";
         public const string HashAlgorithm = "FNV1A64_UTF8";

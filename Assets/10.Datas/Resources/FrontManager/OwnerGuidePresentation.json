@@ -5,7 +5,7 @@
   "close": "닫기",
   "next": "다음 안내",
   "action": "대상 확인",
-  "rosterAction": "선수 배치 확인",
+  "rosterAction": "선수 오더 조정하기",
   "pitchingAction": "투수진 점검하기",
   "analysisAction": "상대 분석 보기",
   "preparationAction": "경기 준비하기",
@@ -40,20 +40,200 @@
   "collapse": "접기",
   "back": "뒤로",
   "all": "전체",
-  "important": "! 중요",
+  "important": "우선 확인",
   "bookmarked": "보관",
-  "unread": "미확인 {0}",
-  "unreadLabel": "● 미확인",
-  "read": "확인 완료",
-  "expired": "행동 시점이 지난 리포트입니다. 현재 추천에서 다음 행동을 확인하세요.",
-  "expiredLabel": "기간 종료",
-  "noReports": "해당하는 매니저 리포트가 없습니다.",
+  "unread": "새 소식 {0}건",
+  "unreadLabel": "새 리포트",
+  "read": "읽음",
+  "expired": "당시의 기록으로 남겨 둔 리포트예요. 지금 필요한 제안은 새 리포트에서 확인해 주세요.",
+  "expiredLabel": "지난 소식",
+  "noReports": "아직 도착한 리포트가 없어요.\n구단에 필요한 소식이 생기면 이곳에 모아 드릴게요.",
   "selectReport": "리포트를 선택하면 분석 근거와 추천을 확인할 수 있습니다.",
-  "previousPage": "이전 페이지",
-  "nextPage": "다음 페이지",
+  "previousPage": "이전",
+  "nextPage": "다음",
   "unbookmark": "보관 해제",
   "createdWeek": "{0}주차",
   "locked": "지금은 이동할 수 없습니다. 진행 중인 변경을 적용하거나 취소하고, 경기 일정이 열린 뒤 다시 확인하세요.",
+  "reportList": "목록으로",
+  "urgent": "경기 전 확인",
+  "reportDetail": "매니저의 제안",
+  "reportDate": "{0}시즌 {1}주차",
+  "reportPage": "{0} / {1} · 총 {2}건",
+  "preparationTitle": "다음 상대를 함께 살펴볼까요?",
+  "confirmationTitle": "경기에 나설 준비가 됐어요",
+  "debriefTitle": "다음 경기를 위해 투수진을 살펴봐요",
+  "rosterTitle": "1군 엔트리를 확인해 주세요",
+  "presetTitle": "경기 오더를 확인해 주세요",
+  "reportCounts": "현재 {0}명 · 등록 기준 {1}명",
+  "emptyBookmark": "보관한 리포트가 없어요.\n다시 보고 싶은 제안을 열어 보관해 두세요.",
+  "emptyImportant": "지금 우선 확인할 제안은 없어요.\n전체 목록에서 구단 소식을 살펴보세요.",
+  "issues": [
+    { "kind": "PresetIssue", "evidence": "PitcherRoleMismatch", "title": "투수의 기용 역할을 살펴봐요", "body": "선발과 구원 중 익숙한 역할을 확인해 보세요. 지금 기용을 유지할 수도 있어요." },
+    { "kind": "PresetIssue", "evidence": "TeamColorUnavailable", "title": "팀컬러 조합을 다시 확인해 주세요", "body": "현재 선수단으로 사용할 수 있는 팀컬러를 선택해 주세요." },
+    { "kind": "PresetIssue", "evidence": "TacticCardUnavailable", "title": "사용할 전술카드를 바꿔 주세요", "body": "현재 사용할 수 있는 전술카드로 경기 계획을 조정해 주세요." },
+  {
+    "kind": "RosterIssue",
+    "evidence": "TotalCount",
+    "title": "1군 엔트리를 정리해 주세요",
+    "body": "경기에 출전할 1군 선수를 등록 기준에 맞춰 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "HitterCount",
+    "title": "야수진 인원을 확인해 주세요",
+    "body": "주전과 벤치를 맡을 야수 인원을 조정해 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "StartingHitterCount",
+    "title": "주전 야수진을 완성해 주세요",
+    "body": "선발 출전할 야수 자리를 채워 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "BenchHitterCount",
+    "title": "벤치 구성을 확인해 주세요",
+    "body": "교체 출전에 대비해 벤치 야수 인원을 맞춰 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "PitcherCount",
+    "title": "투수진 인원을 확인해 주세요",
+    "body": "선발과 불펜을 맡을 투수 인원을 조정해 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "StartingPitcherCount",
+    "title": "선발 로테이션을 확인해 주세요",
+    "body": "시즌을 함께할 선발투수 인원을 맞춰 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "BullpenPitcherCount",
+    "title": "불펜 구성을 확인해 주세요",
+    "body": "경기 후반을 맡을 구원투수 인원을 맞춰 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "SetupPitcherCount",
+    "title": "셋업 투수를 정해 주세요",
+    "body": "마무리 앞에서 리드를 지킬 투수 인원을 맞춰 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "CloserPitcherCount",
+    "title": "마무리 투수를 정해 주세요",
+    "body": "경기를 마무리할 투수 인원을 맞춰 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "ForeignPlayerCount",
+    "title": "외국인 선수 등록을 조정해 주세요",
+    "body": "외국인 선수 등록 한도에 맞춰 1군 구성을 조정해 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "SpecialCardCount",
+    "title": "특수 카드 등록 한도를 확인해 주세요",
+    "body": "레전드와 커리어하이 카드의 합산 등록 한도를 확인해 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "SpecialHitterCardCount",
+    "title": "특수 타자 카드 등록을 조정해 주세요",
+    "body": "레전드와 커리어하이 타자의 등록 한도를 확인해 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "SpecialPitcherCardCount",
+    "title": "특수 투수 카드 등록을 조정해 주세요",
+    "body": "레전드와 커리어하이 투수의 등록 한도를 확인해 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "DuplicatePlayerPersonId",
+    "title": "같은 선수가 두 번 등록되어 있어요",
+    "body": "동일 선수의 카드 중 한 장만 1군에 남겨 주세요."
+  },
+  {
+    "kind": "RosterIssue",
+    "evidence": "FixedRoleCount",
+    "title": "투수 역할별 인원을 확인해 주세요",
+    "body": "선발·셋업·마무리 역할의 등록 기준에 맞춰 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "ActiveRosterInvalid",
+    "title": "먼저 1군 엔트리를 정리해 주세요",
+    "body": "1군 등록 기준을 맞추면 경기 오더를 완성할 수 있어요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "MissingAssignment",
+    "title": "아직 비어 있는 출전 자리가 있어요",
+    "body": "선수 오더에서 표시된 자리에 출전할 선수를 배치해 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "CardNotOnActiveRoster",
+    "title": "1군 밖의 선수가 오더에 있어요",
+    "body": "해당 선수를 1군에 등록하거나 다른 선수로 교체해 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "CardUnavailable",
+    "title": "출전할 수 없는 선수가 있어요",
+    "body": "선수 상태를 확인하고 이번 경기에 나설 대체 선수를 골라 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "DuplicateCard",
+    "title": "한 선수가 두 자리를 맡고 있어요",
+    "body": "중복된 자리 중 하나에 다른 선수를 배치해 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "DuplicateDefensivePosition",
+    "title": "수비 위치가 겹쳐 있어요",
+    "body": "각 수비 위치에 한 명씩 나서도록 오더를 조정해 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "MissingDefensivePosition",
+    "title": "비어 있는 수비 위치가 있어요",
+    "body": "해당 수비 위치를 맡을 선수를 배치해 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "BattingOrderMismatch",
+    "title": "타순과 수비진을 맞춰 주세요",
+    "body": "수비에 나설 선수와 타순에 등록한 선수를 확인해 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "NonHitterAssignment",
+    "title": "야수 자리에 투수가 있어요",
+    "body": "해당 자리에 출전할 야수를 선택해 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "NonPitcherAssignment",
+    "title": "투수 자리에 야수가 있어요",
+    "body": "해당 역할을 맡을 투수를 선택해 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "PlayerContextMissing",
+    "title": "선수 정보를 다시 확인해 주세요",
+    "body": "선수단에서 현재 출전 상태를 확인한 뒤 오더를 다시 저장해 주세요."
+  },
+  {
+    "kind": "PresetIssue",
+    "evidence": "OffPositionAssignment",
+    "title": "익숙하지 않은 수비를 맡고 있어요",
+    "body": "선수의 주 포지션과 부 포지션을 확인해 보세요. 지금 배치를 유지할 수도 있어요."
+  }
+],
   "categories": [
     "경기 준비",
     "전력 분석",
