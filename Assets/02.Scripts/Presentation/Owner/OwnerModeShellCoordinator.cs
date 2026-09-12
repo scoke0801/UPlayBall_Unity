@@ -52,8 +52,6 @@ namespace Baseball.Presentation.Owner
         private ShopService _shopService;
         private LineupPresetState _pendingLineupPreset;
         private OwnerActiveRosterChangePreview _pendingActiveRosterChange;
-        private string _selectedContractCardId = string.Empty;
-        private int _selectedContractTerm = 1;
         private string _pendingTrainingCardId = string.Empty;
         private int? _selectedRecordsSeason;
         private string _pendingTrainingProgramId = string.Empty;
@@ -792,8 +790,6 @@ namespace Baseball.Presentation.Owner
 
                 string message = result.Status switch
                 {
-                    ManagerSeasonAdvanceStatus.ContractRenewalRequired =>
-                        "만료 예정 선수의 계약을 먼저 갱신하거나 정리해야 합니다.",
                     ManagerSeasonAdvanceStatus.InsufficientMoney =>
                         "선수·스태프 급여를 지급할 자금이 부족합니다.",
                     ManagerSeasonAdvanceStatus.InvalidStaffState =>
@@ -852,40 +848,8 @@ namespace Baseball.Presentation.Owner
             ExecuteOperation(() => _manager.SignStaff(offerId));
         }
 
-        private void HandleContractPreviewRequested(string cardId, int seasons)
-        {
-            _selectedContractCardId = cardId ?? string.Empty;
-            _selectedContractTerm = seasons;
-            _expansionWorkspace.BindPlayerContracts(_snapshotFactory.CreatePlayerContracts(
-                _manager, _selectedContractCardId, _selectedContractTerm));
-        }
 
-        private void HandleContractRenewalRequested(string cardId, int seasons)
-        {
-            _selectedContractCardId = cardId ?? string.Empty;
-            _selectedContractTerm = seasons;
-            ExecuteOperation(() =>
-            {
-                OwnerContractRenewalPreview result = _manager.RenewPlayerContract(cardId, seasons);
-                HandleContractPreviewRequested(cardId, seasons);
-                ShowFeedback(result.CanCommit
-                    ? $"{seasons}년 계약 연장을 확정했습니다."
-                    : result.Reason,
-                    !result.CanCommit);
-            });
-        }
 
-        private void HandleContractBatchRenewalRequested(int seasons)
-        {
-            ExecuteOperation(() =>
-            {
-                OwnerContractBatchPreview result = _manager.RenewExpiringPlayerContracts(seasons);
-                HandleContractPreviewRequested(_selectedContractCardId, seasons);
-                ShowFeedback(result.CanCommit
-                    ? $"{result.Renewals.Count}명의 계약을 {seasons}년 연장했습니다."
-                    : result.Reason, !result.CanCommit);
-            });
-        }
 
         private void HandleTicketPolicyRequested(Baseball.Core.Historical.TicketPriceTier tier)
         {
@@ -1111,9 +1075,6 @@ namespace Baseball.Presentation.Owner
                 cardIds => _snapshotFactory.CreateCollectionCardDetails(_manager, cardIds));
             _expansionWorkspace.MatchStartRequested += HandlePregameMatchStartRequested;
             _expansionWorkspace.SignStaffRequested += HandleSignStaffRequested;
-            _expansionWorkspace.ContractPreviewRequested += HandleContractPreviewRequested;
-            _expansionWorkspace.ContractRenewalRequested += HandleContractRenewalRequested;
-            _expansionWorkspace.ContractBatchRenewalRequested += HandleContractBatchRenewalRequested;
             _expansionWorkspace.TicketPolicyRequested += HandleTicketPolicyRequested;
             _expansionWorkspace.FacilityUpgradeRequested += HandleFacilityUpgradeRequested;
             _expansionWorkspace.StadiumUpgradeRequested += HandleStadiumUpgradeRequested;
@@ -1168,9 +1129,6 @@ namespace Baseball.Presentation.Owner
 
             _expansionWorkspace.MatchStartRequested -= HandlePregameMatchStartRequested;
             _expansionWorkspace.SignStaffRequested -= HandleSignStaffRequested;
-            _expansionWorkspace.ContractPreviewRequested -= HandleContractPreviewRequested;
-            _expansionWorkspace.ContractRenewalRequested -= HandleContractRenewalRequested;
-            _expansionWorkspace.ContractBatchRenewalRequested -= HandleContractBatchRenewalRequested;
             _expansionWorkspace.TicketPolicyRequested -= HandleTicketPolicyRequested;
             _expansionWorkspace.FacilityUpgradeRequested -= HandleFacilityUpgradeRequested;
             _expansionWorkspace.StadiumUpgradeRequested -= HandleStadiumUpgradeRequested;
