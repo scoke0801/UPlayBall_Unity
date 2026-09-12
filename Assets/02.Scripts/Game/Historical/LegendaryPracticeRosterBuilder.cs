@@ -14,6 +14,8 @@ namespace Baseball.Game.Historical
     /// <summary>역사 정본 Core25의 약한 슬롯을 같은 프랜차이즈 레전드로 보강해 경기 입력에 동결한다.</summary>
     public sealed class LegendaryPracticeRosterBuilder
     {
+        // 연습경기 특수 구원투수는 불펜 1·2번에서 기용한다.
+        private const int SpecialRelieverSlotCount = 2;
         /// <summary>구멍 판정과 후보 비교에 쓰는 슬롯 역할별 능력치 가중치다.</summary>
         private static readonly PlayerAbility[] BatterAbilities =
         {
@@ -47,13 +49,16 @@ namespace Baseball.Game.Historical
 
         private readonly HistoricalBakedContent _content;
         private readonly BalanceTable _balance;
+        private readonly LegendaryPracticeDevelopment _development;
         private readonly WorldCardCatalog _cardCatalog;
         private readonly Dictionary<string, PlayerCardDefinition> _rareUpgrades = new Dictionary<string, PlayerCardDefinition>(StringComparer.Ordinal);
         private readonly Dictionary<string, List<LegendCandidate>> _franchiseLegends = new Dictionary<string, List<LegendCandidate>>(StringComparer.Ordinal);
 
-        public LegendaryPracticeRosterBuilder(HistoricalBakedContent content, BalanceTable balance)
+        public LegendaryPracticeRosterBuilder(HistoricalBakedContent content, BalanceTable balance,
+            LegendaryPracticeDevelopmentBalance development = null)
         {
             _content = content; _balance = balance;
+            if (development != null) _development = new LegendaryPracticeDevelopment(balance, development);
             var allCards = new List<PlayerCardDefinition>(content.NormalCards);
             if (content.SpecialCards != null) allCards.AddRange(content.SpecialCards.Cards);
             _cardCatalog = new WorldCardCatalog(content.PlayerSeasons, allCards, content.PlayerPersons,
@@ -110,7 +115,23 @@ namespace Baseball.Game.Historical
                 cards[i] = card;
             }
             FillRosterHoles(team, cards, seasons);
+            ArrangeSpecialRelievers(cards);
             return cards;
+        }
+
+        /// <summary>보강된 구원투수를 불펜 1·2번과 교환해 공개 편성과 경기 입력의 우선순위를 맞춘다.</summary>
+        private static void ArrangeSpecialRelievers(PlayerCardDefinition[] cards)
+        {
+            int target = 19;
+            for (int slot = 19; slot < cards.Length; slot++)
+            {
+                if (cards[slot].Edition != PlayerCardEdition.CareerHigh &&
+                    cards[slot].Edition != PlayerCardEdition.Legend) continue;
+                var displaced = cards[target];
+                cards[target] = cards[slot];
+                cards[slot] = displaced;
+                target++;
+            }
         }
 
         /// <summary>선발 야수와 투수진에서 이득이 가장 큰 슬롯부터 차례로 보강한다.</summary>
@@ -127,7 +148,7 @@ namespace Baseball.Game.Historical
                 scores[i] = i < 14 ? Score(source, cards[i], BatterWeights, isBatter: true, staminaWeight: 0)
                     : Score(source, cards[i], PitcherWeights, isBatter: false, staminaWeight: i < 19 ? 3 : 1);
             }
-            int total = 0, hitters = 0, pitchers = 0;
+            int total = 0, hitters = 0, pitchers = 0, relievers = 0;
             while (total < OwnerSpecialCardRosterRule.MaxTotalCount)
             {
                 int bestSlot = -1, bestCandidate = -1, bestGain = 0;
@@ -135,6 +156,7 @@ namespace Baseball.Game.Historical
                 {
                     // 벤치는 상승폭이 커도 선발로 승격되지 않으므로 한정된 특수 카드 보강 대상에서 제외한다.
                     if (slot >= 9 && slot < 14) continue;
+                    if (slot >= 19 && relievers >= SpecialRelieverSlotCount) continue;
                     if (replaced[slot]) continue;
                     if (slot < 14 ? hitters >= OwnerSpecialCardRosterRule.MaxHitterCount
                         : pitchers >= OwnerSpecialCardRosterRule.MaxPitcherCount) continue;
@@ -167,6 +189,7 @@ namespace Baseball.Game.Historical
                 scores[bestSlot] = CandidateScore(bestSlot, chosen);
                 replaced[bestSlot] = true; total++;
                 if (bestSlot < 14) hitters++; else pitchers++;
+                if (bestSlot >= 19) relievers++;
             }
         }
 
@@ -210,9 +233,9 @@ namespace Baseball.Game.Historical
             return LegendaryPracticeCatalog.Hash(text.ToString());
         }
 
-        /// <summary>Bake와 실제 도전에서 동일한 5개 선발 스냅샷을 사용한다.</summary>
+        /// <summary>순위 산정은 기본 편성, 실제 도전은 확정 순위의 성장 상태를 같은 경기 변환으로 처리한다.</summary>
         public MatchRosterSnapshot[] Build(TeamSeasonDefinition team, WorldIdentityRegistry identities, int teamId,
-            int playerIdBase, out TeamColorDefinition[] teamColors)
+            int playerIdBase, out TeamColorDefinition[] teamColors, int rank = 0)
         {
             var seasons = new PlayerSeasonDefinition[25];
             var cards = SelectCards(team);
@@ -237,12 +260,15 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException("역사 팀의 엔트리 또는 백업 포수가 유효하지 않습니다: " + team.TeamSeasonKey + " / 포수 " + catchers);
             var bonuses = ManagerModeMatchService.ResolveAiTeamColorBonuses(roster, _cardCatalog, _balance.TeamColor, out teamColors);
             var players = new Player[25];
+            var abilityResolver = new OwnerCardAbilityResolver(_balance.Growth);
             for (int i = 0; i < 25; i++)
             {
                 var season = seasons[i]; var card = cards[i]; var source = season.CreateBaseAttributes();
-                int Raw(PlayerAbility ability) => checked(source.Get(ability) + card.GetModifier(ability) + bonuses.Get(card.CardId, ability));
+                var owned = rank == 0 ? null : CreateDevelopment(card, rank);
+                int Base(PlayerAbility ability) => abilityResolver.ResolveRawPermanent(season, card, owned, ability);
+                int Raw(PlayerAbility ability) => checked(Base(ability) + bonuses.Get(card.CardId, ability));
                 int Permanent(PlayerAbility ability) => Math.Max(1, Math.Min(AttributeRating.Maximum,
-                    checked(source.Get(ability) + card.GetModifier(ability))));
+                    Base(ability)));
                 double Effective(PlayerAbility ability) => Math.Max(1d, Math.Min(_balance.MatchRatingCurve.Caps.HardCap, Raw(ability)));
                 int Get(PlayerAbility ability) => MatchRatingCurve.ResolveMatchInput(Raw(ability), ability, _balance.MatchRatingCurve);
                 players[i] = new Player(playerIdBase + i + 1, identities.GetPlayerDisplayName(season.PlayerPersonId),
@@ -252,6 +278,9 @@ namespace Baseball.Game.Historical
                     new PitcherAttributes(Get(PlayerAbility.Stamina), Get(PlayerAbility.Velocity), Get(PlayerAbility.Stuff),
                         Get(PlayerAbility.Breaking), Get(PlayerAbility.Control), Get(PlayerAbility.PitcherMental)),
                     secondaryPositions: season.SecondaryPositions, pitchRepertoire: season.PitchRepertoire,
+                    traitIds: abilityResolver.ResolveActiveTraitIds(owned),
+                    cardTrait: owned == null ? default : new CardTraitEffect(owned.Trait.trait,
+                        _balance.TraitTraining.Get(owned.Trait.trait).effect * _balance.TraitTraining.multipliers[(int)owned.Trait.rank - 1]),
                     isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
                     bakedPitcherAttributes: source.ToPitcherAttributes(), permanentPitcherAttributes: new PitcherAttributes(
                         Permanent(PlayerAbility.Stamina), Permanent(PlayerAbility.Velocity), Permanent(PlayerAbility.Stuff),
@@ -280,6 +309,15 @@ namespace Baseball.Game.Historical
             for (int i = 0; i < 5; i++) result[i] = new MatchRosterSnapshot(teamId, name, lineup,
                 Pitcher(14 + i, PitcherRole.Starter), bullpen, bench, default, RunningApproach.Balanced);
             return result;
+        }
+
+        /// <summary>공개 카드도 실제 대전과 같은 독립된 성장 상태를 받는다.</summary>
+        public OwnedPlayerCardState CreateDevelopment(PlayerCardDefinition card, int rank)
+        {
+            if (_development == null) throw new InvalidOperationException("연습경기 성장 설정이 없습니다.");
+            if (!_content.TryGetPlayerSeason(card.PlayerSeasonId, out var season))
+                throw new InvalidOperationException("연습경기 선수 원본이 없습니다.");
+            return _development.Create(card, season, rank);
         }
     }
 }

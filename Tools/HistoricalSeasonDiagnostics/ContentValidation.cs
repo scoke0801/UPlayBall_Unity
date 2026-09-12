@@ -76,6 +76,7 @@ internal static class ContentValidation
             var cards = builder.SelectCards(team);
             var repeatedCards = builder.SelectCards(team);
             var snapshots = builder.Build(team, identities, 1, 100, out _);
+            int specialRelievers = 0;
             for (int slot = 0; slot < cards.Length; slot++)
             {
                 if (cards[slot].CardId != repeatedCards[slot].CardId)
@@ -84,6 +85,16 @@ internal static class ContentValidation
                     cards[slot].Edition != PlayerCardEdition.Legend) continue;
                 if (slot >= 9 && slot < 14)
                     throw new InvalidOperationException("연습경기 특수 타자가 벤치에 배치되었습니다: " + team.TeamSeasonKey);
+                if (slot >= 19)
+                {
+                    if (slot != 19 + specialRelievers || specialRelievers >= 2)
+                        throw new InvalidOperationException("연습경기 특수 구원투수가 불펜 1·2번에서 누락되었습니다: " + team.TeamSeasonKey);
+                    foreach (var snapshot in snapshots)
+                        if (snapshot.Bullpen[specialRelievers].Player.PlayerId != 100 + slot + 1 ||
+                            snapshot.Bullpen[specialRelievers].PlayerSeasonId != cards[slot].PlayerSeasonId)
+                            throw new InvalidOperationException("연습경기 특수 구원투수의 실제 불펜 순서가 다릅니다: " + team.TeamSeasonKey);
+                    specialRelievers++;
+                }
                 if (slot >= 9) continue;
                 foreach (var snapshot in snapshots)
                 {

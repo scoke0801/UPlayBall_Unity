@@ -34,7 +34,7 @@ namespace Baseball.Game.Historical
 
         /// <summary>성장·경제 등 경기 외 설정의 해시와 독립적으로 공통 경기 자산을 식별한다.</summary>
         public static string CreateSimulationVersion(string miniGameJson, string ratingCurveJson) =>
-            "practice-v5:" + Baseball.Core.Rules.SimulationVersionStamp.CurrentEngineVersion + ":" +
+            "practice-v6:" + Baseball.Core.Rules.SimulationVersionStamp.CurrentEngineVersion + ":" +
             Hash(miniGameJson) + ":" + Hash(ratingCurveJson);
 
         public LegendaryPracticeTeam Find(string id)
