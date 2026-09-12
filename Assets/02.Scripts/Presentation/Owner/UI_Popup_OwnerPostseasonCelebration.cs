@@ -1,6 +1,7 @@
 using System;
 using Baseball.Presentation.Career;
 using Baseball.Presentation.UI;
+using Baseball.Presentation.Match.Sprites;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -103,20 +104,34 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>이미 계산된 결과만 바인딩하며 경기 진행 상태는 변경하지 않는다.</summary>
-        public void Show(OwnerPostseasonCelebration result, Func<string, string> teamName)
+        public void Show(OwnerPostseasonCelebration result, Func<string, string> teamName, string uniformFranchiseId = null,
+            bool canViewMatchRecords = true)
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
             Skip();
             bool champion = result.Kind == OwnerPostseasonCelebrationKind.Championship;
+            bool pennant = result.Kind == OwnerPostseasonCelebrationKind.PennantWinner;
             var data = OwnerPostseasonPresentationData.Load();
-            _art.texture = Resources.Load<Texture2D>(champion ? data.championshipArt : data.seriesArt);
-            _category.text = $"시즌 {result.SeasonNumber}  /  포스트시즌";
-            _title.text = champion ? "챔피언의 탄생" : "결승 진출";
+            string artPath = pennant ? data.pennantArt : champion ? data.championshipArt : data.seriesArt;
+            _art.texture = Resources.Load<Texture2D>(artPath);
+            _art.material = MatchUniformMaterials.GetForIllustration(uniformFranchiseId, artPath);
+            _category.text = $"시즌 {result.SeasonNumber}  /  {OwnerLeagueDisplayNameFormatter.FormatFull(result.LeagueGrade)}";
+            _title.text = pennant ? "정규시즌 1위" : champion ? "포스트시즌 우승" : "결승 진출";
             _team.text = teamName(result.TeamKey);
-            _score.text = $"{result.Wins} : {result.Losses}  시리즈 승리";
-            _description.text = champion
-                ? $"{teamName(result.OpponentKey)}를 넘어\n리그 정상에 올랐습니다.\n우리 구단의 우승을 축하합니다."
-                : $"{teamName(result.OpponentKey)}와의 승부를 끝냈습니다.\n이제 우승을 향한 마지막 시리즈입니다.";
+            _score.text = pennant ? $"{result.Wins}승 {result.Draws}무 {result.Losses}패"
+                : $"{result.Wins}승 {result.Losses}패 · 시리즈 승리";
+            _description.text = pennant ? "긴 시즌을 선두로 마쳤습니다.\n이제 포스트시즌 우승에 도전합니다."
+                : champion ? $"결승 상대 · {teamName(result.OpponentKey)}\n마지막 승부 끝에 정상에 올랐습니다!"
+                : $"준결승 상대 · {teamName(result.OpponentKey)}\n이제 우승까지 한 시리즈 남았습니다.";
+            _continue.GetComponentInChildren<Text>().text = pennant ? "정규시즌 결과 보기"
+                : champion ? "우승 결과 보기" : "결승 대진 보기";
+            _records.gameObject.SetActive(canViewMatchRecords && !pennant);
+            // 정규시즌 일러스트의 왼쪽 선수까지 가리지 않도록 본문 폭을 아트의 여백 안에 둔다.
+            Place(_title.rectTransform, 48, 508, pennant ? 390 : 510, 96);
+            Place(_team.rectTransform, 48, 422, pennant ? 360 : 485, 64);
+            Place(_score.rectTransform, 48, 326, pennant ? 360 : 480, 86);
+            Place(_description.rectTransform, 48, 176, pennant ? 360 : 470, 128);
+            ConfigureNavigation();
             _previousSelection = EventSystem.current?.currentSelectedGameObject;
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
@@ -183,10 +198,12 @@ namespace Baseball.Presentation.Owner
 
         private void ConfigureNavigation()
         {
-            _continue.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnLeft = _records };
+            _continue.navigation = new Navigation { mode = Navigation.Mode.Explicit,
+                selectOnLeft = _records.gameObject.activeSelf ? _records : _skip.gameObject.activeSelf ? _skip : _continue };
             _records.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = _continue,
                 selectOnLeft = _skip.gameObject.activeSelf ? _skip : _continue };
-            _skip.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = _records };
+            _skip.navigation = new Navigation { mode = Navigation.Mode.Explicit,
+                selectOnRight = _records.gameObject.activeSelf ? _records : _continue };
         }
 
         /// <summary>현재 연출을 정리하고 이전 경기 기록의 포커스를 복원한다.</summary>
@@ -201,7 +218,9 @@ namespace Baseball.Presentation.Owner
 
         public void OnCancel(BaseEventData eventData)
         {
-            if (IsAnimating) Skip(); else RecordsRequested?.Invoke();
+            if (IsAnimating) Skip();
+            else if (_records.gameObject.activeSelf) RecordsRequested?.Invoke();
+            else ContinueRequested?.Invoke();
             eventData?.Use();
         }
 

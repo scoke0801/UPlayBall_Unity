@@ -21,6 +21,7 @@ namespace Baseball.Presentation.Owner
         public int confettiCount = 30;
         public string seriesArt = "UI/OwnerPostseason/series-victory-v1";
         public string championshipArt = "UI/OwnerPostseason/championship-v1";
+        public string pennantArt = "UI/OwnerPostseason/pennant-winner-v1";
 
         private static OwnerPostseasonPresentationData _cached;
 

@@ -12,5 +12,6 @@
   "confettiDelay": 1.25,
   "confettiCount": 30,
   "seriesArt": "UI/OwnerPostseason/series-victory-v1",
-  "championshipArt": "UI/OwnerPostseason/championship-v1"
+  "championshipArt": "UI/OwnerPostseason/championship-v1",
+  "pennantArt": "UI/OwnerPostseason/pennant-winner-v1"
 }

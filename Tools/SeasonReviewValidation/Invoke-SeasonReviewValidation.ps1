@@ -1,4 +1,7 @@
-param([string]$UnityPath = 'C:/Program Files/Unity/Hub/Editor/6000.3.21f1/Editor/Unity.exe')
+param(
+    [string]$UnityPath = 'C:/Program Files/Unity/Hub/Editor/6000.3.21f1/Editor/Unity.exe',
+    [string]$TestFilter = 'OwnerSeasonReviewPresentationTests;OwnerPostseasonCelebrationTests'
+)
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $reportRoot = Join-Path $repoRoot 'output/season-review-validation'
@@ -13,6 +16,13 @@ New-Item -ItemType Directory -Path "$validationRoot/Assets/Resources/UI/Generate
 Copy-Item "$repoRoot/Assets/Resources/UI/Skin" "$validationRoot/Assets/Resources/UI" -Recurse -Force
 Copy-Item "$repoRoot/Assets/Resources/UI/Generated/bg_owner_season_review_v1.png*" "$validationRoot/Assets/Resources/UI/Generated" -Force
 Copy-Item "$repoRoot/Assets/10.Datas/Resources/UI/OwnerSkin" "$validationRoot/Assets/Resources/UI" -Recurse -Force
+Copy-Item "$repoRoot/Assets/10.Datas/Resources/UI/OwnerPostseason" "$validationRoot/Assets/Resources/UI" -Recurse -Force
+Copy-Item "$repoRoot/Assets/Resources/UI/SpriteMatch" "$validationRoot/Assets/Resources/UI" -Recurse -Force
+Copy-Item "$repoRoot/Assets/08.Fonts" "$validationRoot/Assets" -Recurse -Force
+Copy-Item "$repoRoot/Assets/08.Fonts.meta" "$validationRoot/Assets" -Force
+New-Item -ItemType Directory -Path "$validationRoot/Assets/Resources/UI/Portraits" -Force | Out-Null
+Copy-Item "$repoRoot/Assets/Resources/UI/Portraits/*.json*" "$validationRoot/Assets/Resources/UI/Portraits" -Force
+Copy-Item "$repoRoot/Assets/10.Datas/Resources/DevelopmentKboIdentities" "$validationRoot/Assets/Resources" -Recurse -Force
 $dependencies = [ordered]@{}
 Get-ChildItem "$repoRoot/Library/PackageCache" -Directory | ForEach-Object {
     $packagePath = Join-Path $_.FullName 'package.json'
@@ -23,7 +33,7 @@ Get-ChildItem "$repoRoot/Library/PackageCache" -Directory | ForEach-Object {
 }
 [IO.File]::WriteAllText("$validationRoot/Packages/manifest.json", (@{ dependencies = $dependencies } | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
 $arguments = @('-batchmode', '-projectPath', $validationRoot, '-runTests', '-testPlatform', 'EditMode',
-    '-testFilter', 'OwnerSeasonReviewPresentationTests', '-testResults', "$reportRoot/editmode-results.xml",
+    '-testFilter', $TestFilter, '-testResults', "$reportRoot/editmode-results.xml",
     '-seasonReviewReport', $reportRoot, '-logFile', "$reportRoot/unity.log")
 $quotedArguments = $arguments | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' }
 $process = Start-Process -FilePath $UnityPath -ArgumentList $quotedArguments -WindowStyle Hidden -PassThru

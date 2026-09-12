@@ -787,7 +787,11 @@ namespace Baseball.Presentation.Owner
             {
                 OwnerLeagueGroupState playerGroup = runtime.LeagueWorld.GetGroup(runtime.PlayerTeamSeasonKey);
                 if (playerGroup.Postseason == null)
+                {
                     _manager.InitializePostseasonReview();
+                    ShowSeasonReview(0);
+                    return;
+                }
                 ShowSeasonReview(1);
                 return;
             }
@@ -852,8 +856,10 @@ namespace Baseball.Presentation.Owner
         private void ShowSeasonReview(int initialPage)
         {
             EnsureSeasonReviewPopup();
-            _seasonReviewPopup.Bind(_manager.CreateSeasonReview(), _manager.GetTeamDisplayName, initialPage);
+            var snapshot = _manager.CreateSeasonReview();
+            _seasonReviewPopup.Bind(snapshot, _manager.GetTeamDisplayName, initialPage);
             _seasonReviewPopup.Show();
+            ShowSeasonReviewCelebration(snapshot, initialPage);
         }
 
         private void HandlePregameMatchStartRequested()
@@ -1073,6 +1079,12 @@ namespace Baseball.Presentation.Owner
             {
                 _isPostseasonMatchVisible = false;
                 ShowSeasonReview(1);
+            }
+            else if (_manager.Runtime.LeagueWorld.IsRegularSeasonCompleted &&
+                _manager.Runtime.LeagueWorld.GetGroup(_manager.Runtime.PlayerTeamSeasonKey).Postseason == null)
+            {
+                _manager.InitializePostseasonReview();
+                ShowSeasonReview(0);
             }
         }
 

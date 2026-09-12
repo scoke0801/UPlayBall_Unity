@@ -4,7 +4,7 @@ using Baseball.Game.Historical;
 
 namespace Baseball.Presentation.Owner
 {
-    public enum OwnerPostseasonCelebrationKind { SeriesVictory, Championship }
+    public enum OwnerPostseasonCelebrationKind { SeriesVictory, Championship, PennantWinner }
 
     /// <summary>공개가 끝난 경기에서 새로 확정된 시리즈 승리만 표현하는 불변 결과다.</summary>
     public sealed class OwnerPostseasonCelebration
@@ -29,6 +29,42 @@ namespace Baseball.Presentation.Owner
         public string OpponentKey { get; }
         public int Wins { get; }
         public int Losses { get; }
+        public int Draws { get; }
+
+        private OwnerPostseasonCelebration(OwnerSeasonReviewSnapshot snapshot)
+        {
+            Kind = OwnerPostseasonCelebrationKind.PennantWinner;
+            SeasonNumber = snapshot.SeasonNumber;
+            LeagueGrade = snapshot.CurrentGrade;
+            TeamKey = snapshot.PlayerTeamSeasonKey;
+            OpponentKey = string.Empty;
+            Wins = snapshot.Wins;
+            Losses = snapshot.Losses;
+            Draws = snapshot.Draws;
+        }
+
+        /// <summary>순위가 확정된 시즌 보고에서 정규시즌 1위 전용 축하 결과를 만든다.</summary>
+        public static OwnerPostseasonCelebration CreatePennantWinner(OwnerSeasonReviewSnapshot snapshot)
+        {
+            // 포스트시즌 초기화는 모든 정규시즌 순위가 확정됐다는 계약이다.
+            return snapshot != null && snapshot.IsPostseasonInitialized && snapshot.Rank == 1
+                ? new OwnerPostseasonCelebration(snapshot) : null;
+        }
+
+        /// <summary>관전 복귀·불러오기에서 놓친 우승 연출을 확정된 결승 결과로 복구한다.</summary>
+        public static OwnerPostseasonCelebration CreateChampion(OwnerSeasonReviewSnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.IsPlayerPostseasonCompleted ||
+                snapshot.ChampionTeamSeasonKey != snapshot.PlayerTeamSeasonKey) return null;
+            foreach (OwnerPostseasonSeriesReview series in snapshot.Series)
+            {
+                if (series.Round != OwnerPostseasonRound.Championship || !series.IsCompleted) continue;
+                string winner = series.HigherSeedWins == series.WinsRequired
+                    ? series.HigherSeedTeamSeasonKey : series.LowerSeedTeamSeasonKey;
+                if (winner == snapshot.PlayerTeamSeasonKey) return new OwnerPostseasonCelebration(snapshot, series);
+            }
+            return null;
+        }
 
         /// <summary>기존 우승·다른 구단 승리·일반 승리에는 축하 연출을 만들지 않는다.</summary>
         public static OwnerPostseasonCelebration Create(OwnerSeasonReviewSnapshot before, OwnerSeasonReviewSnapshot after)
