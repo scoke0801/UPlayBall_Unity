@@ -219,6 +219,9 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 유학할 수 없습니다.");
             if (!runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
                 throw new InvalidOperationException("WorldCardCatalog에 유학 카드가 없습니다.");
+            OwnerCardStudyUnlockProgress unlock = OwnerCardStudyUnlockEvaluator.Evaluate(runtime);
+            if (!unlock.IsUnlocked(program.UnlockRequirement))
+                throw new InvalidOperationException("구단이 이 유학지의 해금 조건을 충족하지 못했습니다.");
             int capacity = _balance.OwnerCardGrowth.GetStudyCapacity(
                 RequireMode(runtime).ClubOperation.GetFacility(FacilityType.TrainingCenter).Level);
             OwnerCardStudyResolver.Start(
@@ -510,15 +513,7 @@ namespace Baseball.Game.Historical
             }
 
             _playerMarketService.EnsureInitialized(runtime);
-            if (mode.HasExpiringPlayerContracts())
-            {
-                return new ManagerSeasonAdvanceResult(
-                    ManagerSeasonAdvanceStatus.ContractRenewalRequired,
-                    mode.ClubOperation.CurrentSeason,
-                    null,
-                    null,
-                    null);
-            }
+
 
             int completedSeasonNumber = mode.LiveSeason.SeasonNumber;
             string salaryTransactionId =
@@ -786,6 +781,78 @@ namespace Baseball.Game.Historical
             }
             if (delta.ScoutingPoints > 0) economy.AddScoutingPoints(delta.ScoutingPoints);
             if (delta.DevelopmentPoints > 0) economy.AddDevelopmentPoints(delta.DevelopmentPoints);
+        }
+    }
+
+    /// <summary>구단이 도달한 최고 리그와 포스트시즌 우승 횟수를 유학 해금 규칙에 제공한다.</summary>
+    public readonly struct OwnerCardStudyUnlockProgress
+    {
+        public OwnerCardStudyUnlockProgress(LeagueGrade highestLeagueGrade, int postseasonChampionships)
+        {
+            if (!Enum.IsDefined(typeof(LeagueGrade), highestLeagueGrade) || postseasonChampionships < 0)
+                throw new ArgumentOutOfRangeException(nameof(highestLeagueGrade));
+            HighestLeagueGrade = highestLeagueGrade;
+            PostseasonChampionships = postseasonChampionships;
+        }
+
+        public LeagueGrade HighestLeagueGrade { get; }
+        public int PostseasonChampionships { get; }
+
+        public bool IsUnlocked(CardStudyUnlockRequirement requirement) =>
+            requirement.IsSatisfied(HighestLeagueGrade, PostseasonChampionships);
+    }
+
+    /// <summary>저장된 시즌 이력에서 유학지 해금 성취를 결정론적으로 복원한다.</summary>
+    public static class OwnerCardStudyUnlockEvaluator
+    {
+        public static OwnerCardStudyUnlockProgress Evaluate(ManagerHistoricalRuntimeState runtime)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            if (!runtime.HasManagerMode)
+                throw new InvalidOperationException("구단주 모드 진행 상태가 필요합니다.");
+
+            LeagueGrade highestGrade = runtime.League.Grade;
+            for (int index = 0; index < runtime.ManagerMode.CompletedSeasons.Count; index++)
+            {
+                LeagueGrade completedGrade = runtime.ManagerMode.CompletedSeasons[index].LeagueGrade;
+                if (completedGrade > highestGrade) highestGrade = completedGrade;
+            }
+
+            int championships = 0;
+            if (runtime.LeagueWorld != null)
+            {
+                var countedSeasonIds = new HashSet<string>(StringComparer.Ordinal);
+                championships += CountChampionships(
+                    runtime.LeagueWorld.CompletedGroups,
+                    runtime.PlayerTeamSeasonKey,
+                    countedSeasonIds);
+                championships += CountChampionships(
+                    runtime.LeagueWorld.Groups,
+                    runtime.PlayerTeamSeasonKey,
+                    countedSeasonIds);
+            }
+            return new OwnerCardStudyUnlockProgress(highestGrade, championships);
+        }
+
+        private static int CountChampionships(
+            IReadOnlyList<OwnerLeagueGroupState> groups,
+            string playerTeamSeasonKey,
+            HashSet<string> countedSeasonIds)
+        {
+            int count = 0;
+            for (int groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+            {
+                OwnerLeagueGroupState group = groups[groupIndex];
+                OwnerPostseasonState postseason = group.Postseason;
+                if (postseason == null || !postseason.IsCompleted ||
+                    !countedSeasonIds.Add(group.Season.SeasonId))
+                    continue;
+                int championTeamId = postseason.ChampionTeamId;
+                if (championTeamId <= 0) continue;
+                string championKey = group.Season.GetTeamSeasonKey(championTeamId);
+                if (string.Equals(championKey, playerTeamSeasonKey, StringComparison.Ordinal)) count++;
+            }
+            return count;
         }
     }
 }

@@ -5,7 +5,61 @@ using Baseball.Core.Players;
 
 namespace Baseball.Core.Historical
 {
-    /// <summary>카드 유학 한 과정의 비용·기간·확정 성장량을 정의한다.</summary>
+    /// <summary>유학지 해금에 사용하는 구단 성취 종류다.</summary>
+    public enum CardStudyUnlockKind
+    {
+        Always,
+        ReachLeagueGrade,
+        WinPostseason
+    }
+
+    /// <summary>유학 과정의 해금 성취를 리그 진행 상태와 비교하는 순수 규칙이다.</summary>
+    public readonly struct CardStudyUnlockRequirement
+    {
+        public CardStudyUnlockRequirement(
+            CardStudyUnlockKind kind,
+            LeagueGrade requiredLeagueGrade = LeagueGrade.Rookie,
+            int requiredChampionships = 0)
+        {
+            if (!Enum.IsDefined(typeof(CardStudyUnlockKind), kind))
+                throw new ArgumentOutOfRangeException(nameof(kind));
+            if (!Enum.IsDefined(typeof(LeagueGrade), requiredLeagueGrade))
+                throw new ArgumentOutOfRangeException(nameof(requiredLeagueGrade));
+            if (kind == CardStudyUnlockKind.WinPostseason && requiredChampionships <= 0)
+                throw new ArgumentOutOfRangeException(nameof(requiredChampionships));
+            if (kind != CardStudyUnlockKind.WinPostseason && requiredChampionships != 0)
+                throw new ArgumentException("우승 횟수는 포스트시즌 우승 조건에서만 사용합니다.", nameof(requiredChampionships));
+
+            Kind = kind;
+            RequiredLeagueGrade = requiredLeagueGrade;
+            RequiredChampionships = requiredChampionships;
+        }
+
+        public CardStudyUnlockKind Kind { get; }
+        public LeagueGrade RequiredLeagueGrade { get; }
+        public int RequiredChampionships { get; }
+
+        public bool IsSatisfied(LeagueGrade highestLeagueGrade, int postseasonChampionships)
+        {
+            if (!Enum.IsDefined(typeof(LeagueGrade), highestLeagueGrade) || postseasonChampionships < 0)
+                throw new ArgumentOutOfRangeException(nameof(highestLeagueGrade));
+            return Kind switch
+            {
+                CardStudyUnlockKind.Always => true,
+                CardStudyUnlockKind.ReachLeagueGrade => highestLeagueGrade >= RequiredLeagueGrade,
+                CardStudyUnlockKind.WinPostseason => postseasonChampionships >= RequiredChampionships,
+                _ => false
+            };
+        }
+
+        public static CardStudyUnlockRequirement Reach(LeagueGrade grade) =>
+            new CardStudyUnlockRequirement(CardStudyUnlockKind.ReachLeagueGrade, grade);
+
+        public static CardStudyUnlockRequirement WinPostseason(int count = 1) =>
+            new CardStudyUnlockRequirement(CardStudyUnlockKind.WinPostseason, LeagueGrade.Rookie, count);
+    }
+
+    /// <summary>카드 유학 한 과정의 목적지·해금 조건·비용·기간·확정 성장량을 정의한다.</summary>
     public sealed class CardStudyProgramDefinition
     {
         private readonly AbilityChange[] _rewards;
@@ -16,17 +70,28 @@ namespace Baseball.Core.Historical
             PlayerType playerType,
             int developmentPointCost,
             int durationWeeks,
-            IReadOnlyList<AbilityChange> rewards)
+            IReadOnlyList<AbilityChange> rewards,
+            string destinationName = "해외 훈련 거점",
+            int mapXPermille = 500,
+            int mapYPermille = 500,
+            CardStudyUnlockRequirement unlockRequirement = default)
         {
             if (string.IsNullOrWhiteSpace(programId)) throw new ArgumentException("ProgramId가 필요합니다.", nameof(programId));
             if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("표시 이름이 필요합니다.", nameof(displayName));
             if (developmentPointCost <= 0 || durationWeeks <= 0) throw new ArgumentOutOfRangeException(nameof(developmentPointCost));
             if (rewards == null || rewards.Count == 0) throw new ArgumentException("유학 성장 보상이 필요합니다.", nameof(rewards));
+            if (string.IsNullOrWhiteSpace(destinationName)) throw new ArgumentException("유학지 이름이 필요합니다.", nameof(destinationName));
+            if (mapXPermille < 0 || mapXPermille > 1000 || mapYPermille < 0 || mapYPermille > 1000)
+                throw new ArgumentOutOfRangeException(nameof(mapXPermille));
             ProgramId = programId.Trim();
             DisplayName = displayName.Trim();
+            DestinationName = destinationName.Trim();
             PlayerType = playerType;
             DevelopmentPointCost = developmentPointCost;
             DurationWeeks = durationWeeks;
+            MapXPermille = mapXPermille;
+            MapYPermille = mapYPermille;
+            UnlockRequirement = unlockRequirement;
             _rewards = new AbilityChange[rewards.Count];
             for (int index = 0; index < rewards.Count; index++)
             {
@@ -37,9 +102,13 @@ namespace Baseball.Core.Historical
 
         public string ProgramId { get; }
         public string DisplayName { get; }
+        public string DestinationName { get; }
         public PlayerType PlayerType { get; }
         public int DevelopmentPointCost { get; }
         public int DurationWeeks { get; }
+        public int MapXPermille { get; }
+        public int MapYPermille { get; }
+        public CardStudyUnlockRequirement UnlockRequirement { get; }
         public IReadOnlyList<AbilityChange> Rewards => _rewards;
     }
 
@@ -88,22 +157,42 @@ namespace Baseball.Core.Historical
 
             return new OwnerCardGrowthBalanceTable(training, new[]
             {
-                Study("study_contact", "정교 타격 아카데미", PlayerType.Batter, PlayerAbility.Contact, PlayerAbility.BatterMental),
-                Study("study_power", "장타 강화 캠프", PlayerType.Batter, PlayerAbility.Power, PlayerAbility.Speed),
+                Study("study_contact", "정교 타격 아카데미", "도쿄", 820, 370,
+                    PlayerType.Batter, PlayerAbility.Contact, PlayerAbility.BatterMental),
+                Study("study_power", "장타 강화 캠프", "로스앤젤레스", 160, 390,
+                    PlayerType.Batter, PlayerAbility.Power, PlayerAbility.Speed,
+                    CardStudyUnlockRequirement.Reach(LeagueGrade.Minor)),
                 new CardStudyProgramDefinition("study_defense", "수비 전문 학교", PlayerType.Batter, 100, 4,
-                    new[] { new AbilityChange(PlayerAbility.Defense, 3) }),
-                Study("study_batter_allround", "야수 실전 리그", PlayerType.Batter, PlayerAbility.Contact, PlayerAbility.Defense),
-                Study("study_velocity", "구속 연구소", PlayerType.Pitcher, PlayerAbility.Velocity, PlayerAbility.Stuff),
-                Study("study_command", "제구 아카데미", PlayerType.Pitcher, PlayerAbility.Control, PlayerAbility.PitcherMental),
-                Study("study_breaking", "변화구 디자인 랩", PlayerType.Pitcher, PlayerAbility.Breaking, PlayerAbility.Stuff),
-                Study("study_stamina", "선발 체력 리그", PlayerType.Pitcher, PlayerAbility.Stamina, PlayerAbility.PitcherMental)
+                    new[] { new AbilityChange(PlayerAbility.Defense, 3) }, "암스테르담", 485, 220),
+                Study("study_batter_allround", "야수 실전 리그", "시드니", 820, 745,
+                    PlayerType.Batter, PlayerAbility.Contact, PlayerAbility.Defense,
+                    CardStudyUnlockRequirement.WinPostseason()),
+                Study("study_velocity", "구속 연구소", "텍사스", 170, 420,
+                    PlayerType.Pitcher, PlayerAbility.Velocity, PlayerAbility.Stuff,
+                    CardStudyUnlockRequirement.WinPostseason()),
+                Study("study_command", "제구 아카데미", "오사카", 820, 370,
+                    PlayerType.Pitcher, PlayerAbility.Control, PlayerAbility.PitcherMental),
+                Study("study_breaking", "변화구 디자인 랩", "카리브", 315, 585,
+                    PlayerType.Pitcher, PlayerAbility.Breaking, PlayerAbility.Stuff,
+                    CardStudyUnlockRequirement.Reach(LeagueGrade.Minor)),
+                Study("study_stamina", "선발 체력 리그", "시드니", 820, 745,
+                    PlayerType.Pitcher, PlayerAbility.Stamina, PlayerAbility.PitcherMental)
             });
         }
 
         private static CardStudyProgramDefinition Study(
-            string id, string name, PlayerType type, PlayerAbility primary, PlayerAbility secondary) =>
+            string id,
+            string name,
+            string destination,
+            int mapX,
+            int mapY,
+            PlayerType type,
+            PlayerAbility primary,
+            PlayerAbility secondary,
+            CardStudyUnlockRequirement unlockRequirement = default) =>
             new CardStudyProgramDefinition(id, name, type, 100, 4,
-                new[] { new AbilityChange(primary, 2), new AbilityChange(secondary, 1) });
+                new[] { new AbilityChange(primary, 2), new AbilityChange(secondary, 1) },
+                destination, mapX, mapY, unlockRequirement);
 
         private static T[] Copy<T>(IReadOnlyList<T> source, int expectedCount, string name) where T : class
         {

@@ -36,6 +36,9 @@ namespace Baseball.Presentation.Owner
         private int _rarity = -1;
         private string _pendingStudy = string.Empty;
         private int _rosterPage;
+        private OwnerGrowthRosterFilter _rosterFilter;
+        private string _rosterQuery = string.Empty;
+        private InputField _rosterSearchInput;
 
         public event Action<string, string> StudyRequested;
         public event Action<string, int, int, int, int> SkillPlacementRequested;
@@ -75,10 +78,12 @@ namespace Baseball.Presentation.Owner
         {
             bool isStudy = routeId == OwnerNavigationRoutes.PowerUpStudy;
             bool needsRender = _content == null || _isStudy != isStudy ||
-                _isChoosingStudyPlayer || !string.IsNullOrEmpty(_pendingStudy);
+                _isChoosingStudyPlayer || !string.IsNullOrEmpty(_pendingStudy) ||
+                isStudy && !string.IsNullOrEmpty(_programId);
             _isStudy = isStudy;
             if (needsRender) _rosterPage = 0;
             _isChoosingStudyPlayer = false;
+            if (isStudy) _programId = string.Empty;
             _pendingStudy = string.Empty;
             SetFeedback(_isStudy ? "과정과 선수를 선택한 뒤 비용·성장 결과를 확인하세요."
                 : "블록 선택 → 회전 → 초록색 성장판 칸을 눌러 바로 배치", false);
@@ -102,6 +107,12 @@ namespace Baseball.Presentation.Owner
             if (!string.IsNullOrEmpty(_pendingStudy))
             {
                 _pendingStudy = string.Empty;
+                Render();
+                return true;
+            }
+            if (_isStudy && !string.IsNullOrEmpty(_programId))
+            {
+                _programId = string.Empty;
                 Render();
                 return true;
             }
@@ -135,8 +146,12 @@ namespace Baseball.Presentation.Owner
         {
             if (SelectedCard() != null) return;
             _cardId = string.Empty;
-            foreach (OwnerGrowthCardSnapshot card in _snapshot.Cards)
-                if (IsPitcher(card.Card) == _isPitcher) { _cardId = card.Card.CardId; break; }
+            List<OwnerGrowthCardSnapshot> candidates = OwnerGrowthRosterPresentationBuilder.Build(
+                _snapshot,
+                _isPitcher,
+                OwnerGrowthRosterFilter.All);
+            if (candidates.Count > 0)
+                _cardId = candidates[0].Card.CardId;
         }
 
         private OwnerGrowthCardSnapshot SelectedCard()
@@ -173,23 +188,28 @@ namespace Baseball.Presentation.Owner
         {
             _isPitcher = pitcher;
             _rosterPage = 0;
+            _rosterFilter = OwnerGrowthRosterFilter.All;
+            _rosterQuery = string.Empty;
             _cardId = _programId = _pendingStudy = string.Empty;
             _instanceId = _rotation = 0;
             EnsureSelection();
             Render();
         }
 
-        private void RenderRoster(Transform parent, float x, float y, float width, float height, int columns)
+        private void RenderRoster(Transform parent, float x, float y, float width, float height, int columns,
+            bool applyFilters = false, float cardHeight = 92)
         {
             // 현재 보이는 두 행만 생성해 보유 카드 수가 화면 생성 비용을 늘리지 않게 한다.
             int pageSize = columns * 2;
-            var candidates = new List<OwnerGrowthCardSnapshot>();
-            foreach (OwnerGrowthCardSnapshot candidate in _snapshot.Cards)
-                if (IsPitcher(candidate.Card) == _isPitcher) candidates.Add(candidate);
+            List<OwnerGrowthCardSnapshot> candidates = OwnerGrowthRosterPresentationBuilder.Build(
+                _snapshot,
+                _isPitcher,
+                applyFilters ? _rosterFilter : OwnerGrowthRosterFilter.All,
+                applyFilters ? _rosterQuery : null);
             int pageCount = Math.Max(1, (candidates.Count + pageSize - 1) / pageSize);
             _rosterPage = Math.Max(0, Math.Min(_rosterPage, pageCount - 1));
             ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalGridScroll("PlayerInventory", parent,
-                columns, new Vector2((width - 22 - (columns - 1) * 5) / columns, 92), 5,
+                columns, new Vector2((width - 22 - (columns - 1) * 5) / columns, cardHeight), 5,
                 out RectTransform cards);
             Place(scroll.GetComponent<RectTransform>(), x, y, width, height - 28);
             cards.GetComponent<GridLayoutGroup>().padding = new RectOffset(5, 5, 5, 5);
@@ -202,19 +222,22 @@ namespace Baseball.Presentation.Owner
                 OwnerGrowthCardSnapshot selected = candidate;
                 PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(cards, "Card_" + candidate.Card.CardId);
                 card.UseLineupSlotLayout();
+                card.UseRosterPresentation();
                 card.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(candidate.Card, candidate.Card.CardId == _cardId));
                 card.SetPortrait(PlayerPortraitSprites.GetDefault(candidate.Card.Position));
-                FitCompactCardText(card);
                 card.Selected += _ =>
                 {
                     _cardId = selected.Card.CardId;
                     _pendingStudy = string.Empty;
                     _instanceId = _rotation = 0;
                     Render();
+                    FocusRosterControl("Card_" + _cardId);
                 };
                 card.DetailRequested += _ => UI_Popup_OwnerPlayerCard.Show(_root, new[] { selected.DetailCard }, 0);
             }
-            if (candidates.Count == 0) Label(parent, "NoPlayers", "해당 유형의 보유 선수가 없습니다.", 13, x, y + 20, width, 38);
+            if (candidates.Count == 0) Label(parent, "NoPlayers", applyFilters
+                ? "조건에 맞는 선수가 없습니다.\n검색어나 카드 필터를 초기화하세요."
+                : "해당 유형의 보유 선수가 없습니다.", 13, x + 8, y + 20, width - 16, 48);
             Button previous = Tab(parent, "PreviousRosterPage", "이전", () => ChangeRosterPage(-1),
                 false, x, y + height - 26, 60, 24);
             previous.interactable = _rosterPage > 0;
@@ -224,6 +247,9 @@ namespace Baseball.Presentation.Owner
                 false, x + width - 60, y + height - 26, 60, 24);
             next.interactable = _rosterPage + 1 < pageCount;
         }
+
+        private void RenderRoster(Transform parent, float x, float y, float width, float height, int columns,
+            float cardHeight) => RenderRoster(parent, x, y, width, height, columns, false, cardHeight);
 
         private void ChangeRosterPage(int delta)
         {
@@ -241,8 +267,10 @@ namespace Baseball.Presentation.Owner
         private void RenderSkills()
         {
             Frame(_content, "RosterFrame", 20, 86, 330, 416);
-            Label(_content, "RosterHeading", "보유 선수", 14, 28, 91, 180, 24);
-            RenderRoster(_content, 25, 122, 320, 370, 5);
+            Label(_content, "RosterHeading", "보유 선수  ·  장착 카드 우선", 14, 28, 91, 250, 24);
+            RenderRosterSearch();
+            RenderRosterFilters();
+            RenderRoster(_content, 25, 174, 320, 318, 5, true);
             Frame(_content, "SelectedFrame", 360, 86, 234, 416);
             OwnerGrowthCardSnapshot card = SelectedCard();
             Label(_content, "SelectedName", card?.Card.DisplayName ?? "선수를 선택하세요", 16, 370, 91, 214, 26);
@@ -250,10 +278,10 @@ namespace Baseball.Presentation.Owner
             {
                 PlayerMiniCardView preview = PlayerMiniCardView.CreateRuntime(_content, "SelectedPlayerCard");
                 preview.UseLineupSlotLayout();
+                preview.UseRosterPresentation();
                 Place(preview.GetComponent<RectTransform>(), 371, 123, 85, 117);
                 preview.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card.DetailCard, false));
                 preview.SetPortrait(PlayerPortraitSprites.GetDefault(card.Card.Position));
-                FitCompactCardText(preview);
                 string detail = OwnerCollectionPresentationBuilder.FormatPlayerRole(
                         card.Card.Position,
                         card.Card.PitcherRole, card.Card.IsPositionEvidenceMissing) + "\n" +
@@ -299,6 +327,110 @@ namespace Baseball.Presentation.Owner
             }
             if (count == 0) Label(_content, "NoBlocks", "보유 블록이 없습니다.\n상점에서 스킬 블록을 획득하세요.", 14, 630, 207, 410, 90);
             RenderSkillActions(card);
+        }
+
+        private void RenderRosterSearch()
+        {
+            Image surface = Surface(_content, "RosterSearch", 28, 118, 176, 24, Color.white);
+            surface.raycastTarget = true;
+            var outline = surface.gameObject.AddComponent<Outline>();
+            outline.effectColor = Border;
+            outline.effectDistance = new Vector2(1f, -1f);
+            var input = surface.gameObject.AddComponent<InputField>();
+            Text value = Label(surface.transform, "Text", string.Empty, 11, 7, 0, 162, 24);
+            Text placeholder = Label(surface.transform, "Placeholder", "이름·포지션·연도", 11, 7, 0, 162, 24);
+            placeholder.color = new Color32(122, 132, 145, 255);
+            input.textComponent = value;
+            input.placeholder = placeholder;
+            input.targetGraphic = surface;
+            input.text = _rosterQuery;
+            input.lineType = InputField.LineType.SingleLine;
+            input.onEndEdit.AddListener(value =>
+            {
+                if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+                    ApplyRosterSearch(value);
+            });
+            _rosterSearchInput = input;
+
+            Tab(_content, "ApplyRosterSearch", "찾기", () => ApplyRosterSearch(_rosterSearchInput.text),
+                false, 209, 118, 58, 24);
+            Button reset = Tab(_content, "ResetRosterSearch", "초기화", ResetRosterSearch,
+                false, 272, 118, 70, 24);
+            reset.interactable = _rosterQuery.Length > 0 || _rosterFilter != OwnerGrowthRosterFilter.All;
+        }
+
+        private void RenderRosterFilters()
+        {
+            int all = OwnerGrowthRosterPresentationBuilder.Count(
+                _snapshot, _isPitcher, OwnerGrowthRosterFilter.All);
+            int equipped = OwnerGrowthRosterPresentationBuilder.Count(
+                _snapshot, _isPitcher, OwnerGrowthRosterFilter.ActiveRoster);
+            int reserve = all - equipped;
+            RenderRosterFilter("RosterAll", $"전체 {all}", OwnerGrowthRosterFilter.All, 28);
+            RenderRosterFilter("RosterEquipped", $"장착 {equipped}", OwnerGrowthRosterFilter.ActiveRoster, 132);
+            RenderRosterFilter("RosterReserve", $"보관 {reserve}", OwnerGrowthRosterFilter.Reserve, 236);
+        }
+
+        private void RenderRosterFilter(string name, string label, OwnerGrowthRosterFilter filter, float x)
+        {
+            Tab(_content, name, label, () => ApplyRosterFilter(filter), _rosterFilter == filter,
+                x, 146, 99, 24);
+        }
+
+        private void ApplyRosterFilter(OwnerGrowthRosterFilter filter)
+        {
+            _rosterFilter = filter;
+            _rosterPage = 0;
+            SelectFirstVisibleRosterCard();
+            Render();
+            FocusRosterControl(filter switch
+            {
+                OwnerGrowthRosterFilter.ActiveRoster => "RosterEquipped",
+                OwnerGrowthRosterFilter.Reserve => "RosterReserve",
+                _ => "RosterAll"
+            });
+        }
+
+        private void ApplyRosterSearch(string query)
+        {
+            _rosterQuery = query?.Trim() ?? string.Empty;
+            _rosterPage = 0;
+            SelectFirstVisibleRosterCard();
+            Render();
+            FocusRosterControl("RosterSearch");
+        }
+
+        private void ResetRosterSearch()
+        {
+            _rosterFilter = OwnerGrowthRosterFilter.All;
+            _rosterQuery = string.Empty;
+            _rosterPage = 0;
+            SelectFirstVisibleRosterCard();
+            Render();
+            FocusRosterControl("RosterAll");
+        }
+
+        private void SelectFirstVisibleRosterCard()
+        {
+            List<OwnerGrowthCardSnapshot> cards = OwnerGrowthRosterPresentationBuilder.Build(
+                _snapshot,
+                _isPitcher,
+                _rosterFilter,
+                _rosterQuery);
+            _cardId = cards.Count > 0 ? cards[0].Card.CardId : string.Empty;
+            _pendingStudy = string.Empty;
+            _instanceId = _rotation = 0;
+        }
+
+        private void FocusRosterControl(string objectName)
+        {
+            if (EventSystem.current == null || _content == null) return;
+            foreach (Selectable selectable in _content.GetComponentsInChildren<Selectable>(true))
+            {
+                if (selectable.name != objectName || !selectable.IsInteractable()) continue;
+                selectable.Select();
+                return;
+            }
         }
 
         private int CountAvailableBlocks()

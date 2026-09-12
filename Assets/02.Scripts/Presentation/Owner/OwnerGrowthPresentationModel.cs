@@ -16,14 +16,23 @@ namespace Baseball.Presentation.Owner
     {
         public CardStudyProgramDefinition Program { get; }
         public string RewardText { get; }
+        public string UnlockText { get; }
         public string BlockedReason { get; }
-        public bool CanStart => BlockedReason.Length == 0;
+        public bool IsUnlocked { get; }
+        public bool CanStart => IsUnlocked && BlockedReason.Length == 0;
 
-        public OwnerStudyOption(CardStudyProgramDefinition program, string rewardText, string blockedReason)
+        public OwnerStudyOption(
+            CardStudyProgramDefinition program,
+            string rewardText,
+            string blockedReason,
+            bool isUnlocked = true,
+            string unlockText = "기본 해금")
         {
             Program = program;
             RewardText = rewardText;
             BlockedReason = blockedReason ?? string.Empty;
+            IsUnlocked = isUnlocked;
+            UnlockText = unlockText ?? string.Empty;
         }
     }
 
@@ -105,6 +114,83 @@ namespace Baseball.Presentation.Owner
         }
     }
 
+    /// <summary>성장 화면의 보유 선수 목록을 선수단 장착 상태로 좁히는 필터다.</summary>
+    public enum OwnerGrowthRosterFilter
+    {
+        All,
+        ActiveRoster,
+        Reserve
+    }
+
+    /// <summary>선수 유형·검색어·선수단 상태를 적용하고 등록 카드를 우선 정렬한다.</summary>
+    public static class OwnerGrowthRosterPresentationBuilder
+    {
+        public static List<OwnerGrowthCardSnapshot> Build(
+            OwnerGrowthSnapshot snapshot,
+            bool isPitcher,
+            OwnerGrowthRosterFilter filter,
+            string query = null)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            string normalizedQuery = query?.Trim() ?? string.Empty;
+            var activeRosterCards = new List<OwnerGrowthCardSnapshot>();
+            var reserveCards = new List<OwnerGrowthCardSnapshot>();
+            foreach (OwnerGrowthCardSnapshot candidate in snapshot.Cards)
+            {
+                bool candidateIsPitcher = candidate.Card.Position == PlayerPosition.StartingPitcher ||
+                                          candidate.Card.Position == PlayerPosition.ReliefPitcher;
+                if (candidateIsPitcher != isPitcher || !MatchesFilter(candidate, filter) ||
+                    !MatchesQuery(candidate, normalizedQuery))
+                    continue;
+                if (candidate.Card.IsActiveRoster) activeRosterCards.Add(candidate);
+                else reserveCards.Add(candidate);
+            }
+
+            var cards = new List<OwnerGrowthCardSnapshot>(activeRosterCards.Count + reserveCards.Count);
+            cards.AddRange(activeRosterCards);
+            cards.AddRange(reserveCards);
+            return cards;
+        }
+
+        public static int Count(OwnerGrowthSnapshot snapshot, bool isPitcher, OwnerGrowthRosterFilter filter)
+        {
+            if (snapshot == null) return 0;
+            int count = 0;
+            foreach (OwnerGrowthCardSnapshot candidate in snapshot.Cards)
+            {
+                bool candidateIsPitcher = candidate.Card.Position == PlayerPosition.StartingPitcher ||
+                                          candidate.Card.Position == PlayerPosition.ReliefPitcher;
+                if (candidateIsPitcher == isPitcher && MatchesFilter(candidate, filter))
+                    count++;
+            }
+            return count;
+        }
+
+        private static bool MatchesFilter(OwnerGrowthCardSnapshot card, OwnerGrowthRosterFilter filter)
+        {
+            bool isActiveRoster = card.Card.IsActiveRoster;
+            return filter == OwnerGrowthRosterFilter.All ||
+                   (filter == OwnerGrowthRosterFilter.ActiveRoster && isActiveRoster) ||
+                   (filter == OwnerGrowthRosterFilter.Reserve && !isActiveRoster);
+        }
+
+        private static bool MatchesQuery(OwnerGrowthCardSnapshot card, string query)
+        {
+            if (query.Length == 0) return true;
+            string role = OwnerCollectionPresentationBuilder.FormatPlayerRole(
+                card.Card.Position,
+                card.Card.PitcherRole,
+                card.Card.IsPositionEvidenceMissing);
+            return Contains(card.Card.DisplayName, query) ||
+                   Contains(role, query) ||
+                   card.Card.OriginYear.ToString().Contains(query);
+        }
+
+        private static bool Contains(string value, string query) =>
+            !string.IsNullOrEmpty(value) && value.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+
+    }
+
     /// <summary>구단주 성장 밸런스와 저장 상태에서 표시 데이터를 구성한다.</summary>
     public static class OwnerGrowthPresentationBuilder
     {
@@ -136,6 +222,7 @@ namespace Baseball.Presentation.Owner
             OwnerCollectionCardSnapshot card, OwnedPlayerCardState owned, PlayerSeasonDefinition season, int capacity)
         {
             var runtime = manager.Runtime;
+            OwnerCardStudyUnlockProgress unlockProgress = OwnerCardStudyUnlockEvaluator.Evaluate(runtime);
             AbilityRatings baseAttributes = season.CreateBaseAttributes();
             AbilityRatings ceiling = season.CreateTrainingCeiling();
             var studies = new List<OwnerStudyOption>();
@@ -152,15 +239,41 @@ namespace Baseball.Presentation.Owner
                     rewards.Append(CareerSharedSnapshotFormatters.FormatAbility(reward.Ability))
                         .Append("  +").Append(gain).AppendLine();
                 }
-                string reason = card.IsActiveRoster ? "1군 등록 선수입니다. 선수단에서 등록을 해제한 뒤 신청하세요."
+                bool isUnlocked = unlockProgress.IsUnlocked(program.UnlockRequirement);
+                string unlockText = FormatUnlockText(program.UnlockRequirement);
+                string reason = !isUnlocked ? FormatUnlockBlockedReason(program.UnlockRequirement)
+                    : card.IsActiveRoster ? "1군 등록 선수입니다. 선수단에서 등록을 해제한 뒤 신청하세요."
                     : owned.LastStudySeason == runtime.ManagerMode.LiveSeason.SeasonNumber ? "이번 시즌 유학을 이미 사용했습니다."
                     : runtime.PlayerGrowth.StudyProjects.Count >= capacity ? "유학 정원이 가득 찼습니다. 훈련 시설과 복귀 일정을 확인하세요."
                     : totalGain == 0 ? "이 과정의 성장 상한에 도달했습니다."
                     : runtime.Economy.DevelopmentPoints < program.DevelopmentPointCost ? "육성 포인트가 부족합니다."
                     : string.Empty;
-                studies.Add(new OwnerStudyOption(program, rewards.ToString().TrimEnd(), reason));
+                studies.Add(new OwnerStudyOption(
+                    program,
+                    rewards.ToString().TrimEnd(),
+                    reason,
+                    isUnlocked,
+                    unlockText));
             }
             return studies.ToArray();
         }
+
+        private static string FormatUnlockText(CardStudyUnlockRequirement requirement) => requirement.Kind switch
+        {
+            CardStudyUnlockKind.ReachLeagueGrade =>
+                $"해금 조건  {OwnerLeagueDisplayNameFormatter.FormatFull(requirement.RequiredLeagueGrade)} 진출",
+            CardStudyUnlockKind.WinPostseason =>
+                $"해금 조건  포스트시즌 우승 {requirement.RequiredChampionships}회",
+            _ => "해금 조건  기본 개방"
+        };
+
+        private static string FormatUnlockBlockedReason(CardStudyUnlockRequirement requirement) => requirement.Kind switch
+        {
+            CardStudyUnlockKind.ReachLeagueGrade =>
+                $"잠김 · {OwnerLeagueDisplayNameFormatter.FormatFull(requirement.RequiredLeagueGrade)}에 진출하면 이용할 수 있습니다.",
+            CardStudyUnlockKind.WinPostseason =>
+                $"잠김 · 포스트시즌 우승 {requirement.RequiredChampionships}회를 달성하면 이용할 수 있습니다.",
+            _ => string.Empty
+        };
     }
 }

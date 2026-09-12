@@ -111,6 +111,26 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
+        public void StudyUnlock_새구단은기본과정만열리고진출과우승과정은잠긴다()
+        {
+            GameBootstrap.EnsureRuntimeManagers();
+            GameManager.Instance.TryGetManager(out OwnerModeManager manager);
+            Assert.That(manager.StartNewGame(), Is.True, manager.LastError);
+
+            OwnerCardStudyUnlockProgress progress =
+                OwnerCardStudyUnlockEvaluator.Evaluate(manager.Runtime);
+            CardStudyProgramDefinition contact = manager.Balance.OwnerCardGrowth.GetStudyProgram("study_contact");
+            CardStudyProgramDefinition power = manager.Balance.OwnerCardGrowth.GetStudyProgram("study_power");
+            CardStudyProgramDefinition allround = manager.Balance.OwnerCardGrowth.GetStudyProgram("study_batter_allround");
+
+            Assert.That(progress.HighestLeagueGrade, Is.EqualTo(LeagueGrade.Rookie));
+            Assert.That(progress.PostseasonChampionships, Is.Zero);
+            Assert.That(progress.IsUnlocked(contact.UnlockRequirement), Is.True);
+            Assert.That(progress.IsUnlocked(power.UnlockRequirement), Is.False);
+            Assert.That(progress.IsUnlocked(allround.UnlockRequirement), Is.False);
+        }
+
+        [Test]
         public void PurchaseShopProduct_선수획득결과는Guide알림을추가하지않는다()
         {
             GameBootstrap.EnsureRuntimeManagers();

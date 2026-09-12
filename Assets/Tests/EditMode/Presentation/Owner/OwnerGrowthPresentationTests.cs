@@ -61,6 +61,11 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(detailQueries, Is.EqualTo(1));
             Click("ChooseStudyPlayer");
             Assert.That(Find<ScrollRect>("PlayerInventory").content.childCount, Is.EqualTo(16));
+            Button firstCard = Find<Button>("Card_large0");
+            Text firstName = firstCard.transform.Find("Name").GetComponent<Text>();
+            Assert.That(firstName.text, Is.EqualTo("선수0"));
+            Assert.That(firstName.gameObject.activeInHierarchy, Is.True);
+            Assert.That(firstName.color.a, Is.GreaterThan(0.9f));
             Canvas.ForceUpdateCanvases();
             ScrollRect picker = Find<ScrollRect>("PlayerInventory");
             LayoutRebuilder.ForceRebuildLayoutImmediate(picker.content);
@@ -77,6 +82,67 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
             Assert.That(studyQueries, Is.EqualTo(2));
             Assert.That(detailQueries, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Study_비행기아이콘으로목적지를열고같은버튼과지도빈곳으로닫는다()
+        {
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
+
+            Button destination = Find<Button>("StudyPin_study_contact");
+            Assert.That(destination.GetComponent<RectTransform>().rect.width, Is.EqualTo(60).Within(0.1f));
+            Assert.That(destination.GetComponent<RawImage>().texture, Is.Not.Null);
+            Assert.That(FindOrNull<Image>("StudyRoute_study_contact"), Is.Not.Null);
+            Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
+            Assert.That(Find<Text>("StudyName").text, Does.Contain("목적지를 선택"));
+            Assert.That(FindOrNull<Button>("StartStudy"), Is.Null);
+
+            Click("StudyPin_study_contact");
+            Assert.That(Find<Text>("StudyDestination").text, Does.Contain("도쿄"));
+            Assert.That(FindOrNull<Button>("StartStudy"), Is.Not.Null);
+
+            Click("StudyPin_study_contact");
+            Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
+            Click("StudyPin_study_contact");
+            Click("StudyInformation");
+            Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
+            Click("StudyPin_study_contact");
+            Click("StudyWorldMap");
+            Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
+            Assert.That(FindOrNull<Image>("StudyHomeNode"), Is.Not.Null);
+        }
+
+        [Test]
+        public void Study_진행조건이잠긴목적지도선택해조건을확인할수있다()
+        {
+            _view.Bind(CreateSnapshot(
+                "잠김 · 포스트시즌 우승 1회를 달성하면 이용할 수 있습니다.",
+                false,
+                "해금 조건  포스트시즌 우승 1회"));
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
+
+            Assert.That(Find<Button>("StudyPin_study_contact").interactable, Is.True,
+                "잠긴 목적지도 조건 확인을 위해 선택할 수 있어야 합니다.");
+            Click("StudyPin_study_contact");
+            Assert.That(Find<Button>("StartStudy").interactable, Is.False);
+            Assert.That(Find<Text>("StudyUnlock").text, Does.Contain("포스트시즌 우승"));
+            Assert.That(Find<Text>("StudyBlockedReason").text, Does.StartWith("잠김"));
+        }
+
+        [Test]
+        public void Study_기본과정과진행형과정의해금계약을구분한다()
+        {
+            IReadOnlyList<CardStudyProgramDefinition> programs =
+                OwnerCardGrowthBalanceTable.CreateDefault().StudyPrograms;
+            CardStudyProgramDefinition contact = FindProgram(programs, "study_contact");
+            CardStudyProgramDefinition power = FindProgram(programs, "study_power");
+            CardStudyProgramDefinition allround = FindProgram(programs, "study_batter_allround");
+
+            Assert.That(contact.UnlockRequirement.IsSatisfied(LeagueGrade.Rookie, 0), Is.True);
+            Assert.That(power.UnlockRequirement.IsSatisfied(LeagueGrade.Rookie, 0), Is.False);
+            Assert.That(power.UnlockRequirement.IsSatisfied(LeagueGrade.Minor, 0), Is.True);
+            Assert.That(allround.UnlockRequirement.IsSatisfied(LeagueGrade.Galaxy, 0), Is.False);
+            Assert.That(allround.UnlockRequirement.IsSatisfied(LeagueGrade.Rookie, 1), Is.True);
         }
 
         [Test]
@@ -161,9 +227,69 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void Skills_작은선수카드는이름을상단에표시한다()
+        {
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpSkills);
+
+            Transform card = Find<Button>("Card_card0").transform;
+            Text name = card.Find("Name").GetComponent<Text>();
+            Text position = card.Find("Position").GetComponent<Text>();
+            Text selected = card.Find("SelectionOverlay/Header/Label").GetComponent<Text>();
+
+            Assert.That(name.text, Is.EqualTo("김민준"));
+            Assert.That(name.rectTransform.anchorMin.y, Is.GreaterThanOrEqualTo(.89f));
+            Assert.That(position.text, Is.EqualTo("유격수"));
+            Assert.That(position.rectTransform.anchorMax.y, Is.LessThan(.3f));
+            Assert.That(selected.text, Is.EqualTo("선택 · 김민준"));
+        }
+
+        [Test]
+        public void Skills_선수단장착카드를우선노출하고검색과필터를적용한다()
+        {
+            OwnerGrowthSnapshot source = CreateSnapshot();
+            var activeCard = new OwnerCollectionCardSnapshot(
+                "active-card", "active-person", "장착선수", 2025,
+                PlayerPosition.CenterField, 6, PlayerCardEdition.Rare,
+                0, 0, false, false, new AbilityRatings(70),
+                isActiveRoster: true);
+            var cards = new List<OwnerGrowthCardSnapshot>(source.Cards)
+            {
+                new OwnerGrowthCardSnapshot(
+                    activeCard,
+                    Array.Empty<PlacedSkillBlock>(),
+                    Array.Empty<OwnerStudyOption>())
+            };
+            _view.Bind(new OwnerGrowthSnapshot(
+                cards,
+                source.Inventory,
+                source.Definitions,
+                source.Board,
+                source.DevelopmentPoints,
+                source.StudyCount,
+                source.StudyCapacity));
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpSkills);
+
+            ScrollRect roster = Find<ScrollRect>("PlayerInventory");
+            Assert.That(roster.content.GetChild(0).name, Is.EqualTo("Card_active-card"));
+            Assert.That(Find<Text>("SelectedName").text, Is.EqualTo("장착선수"));
+
+            Click("RosterEquipped");
+            Assert.That(Find<Text>("RosterPage").text, Does.Contain("1명"));
+            Assert.That(FindOrNull<Button>("Card_card0"), Is.Null);
+
+            Click("ResetRosterSearch");
+            InputField search = Find<InputField>("RosterSearch");
+            search.text = "2025";
+            Click("ApplyRosterSearch");
+            Assert.That(FindOrNull<Button>("Card_active-card"), Is.Not.Null);
+            Assert.That(Find<Text>("RosterPage").text, Does.Contain("1명"));
+        }
+
+        [Test]
         public void Study_비용확인후확정해야명령을전달하고취소하면확인을폐기한다()
         {
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
+            Click("StudyPin_study_contact");
             int requests = 0;
             _view.StudyRequested += (card, program) => requests++;
             Click("StartStudy");
@@ -180,6 +306,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         {
             _view.Bind(CreateSnapshot("1군 등록 선수입니다."));
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
+            Click("StudyPin_study_contact");
             Assert.That(Find<Button>("StartStudy").interactable, Is.False);
             Assert.That(Find<Text>("StudyBlockedReason").text, Does.Contain("1군 등록"));
         }
@@ -194,7 +321,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(Find<Button>("BoardCell_0_0").interactable, Is.False);
             Assert.That(Find<Text>("NoBlocks"), Is.Not.Null);
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
-            Assert.That(Find<Button>("StartStudy").interactable, Is.False);
+            Assert.That(FindOrNull<Button>("StartStudy"), Is.Null);
+            Assert.That(Find<Text>("StudyName").text, Does.Contain("목적지를 선택"));
         }
 
         [TestCase(1100, 560)]
@@ -271,7 +399,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             return null;
         }
 
-        private static OwnerGrowthSnapshot CreateSnapshot(string reason = "")
+        private static OwnerGrowthSnapshot CreateSnapshot(
+            string reason = "",
+            bool isUnlocked = true,
+            string unlockText = "해금 조건  기본 개방")
         {
             var definitions = new List<SkillBlockDefinition>();
             var inventory = new List<SkillBlockInstance>();
@@ -291,10 +422,25 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     2024, PlayerPosition.Shortstop, 5, PlayerCardEdition.Normal, 0, 0, false, false, new AbilityRatings(65));
                 var studies = new List<OwnerStudyOption>();
                 foreach (CardStudyProgramDefinition program in programs)
-                    if (program.PlayerType == PlayerType.Batter) studies.Add(new OwnerStudyOption(program, "교타력  +2\n타자 정신력  +1", reason));
+                    if (program.PlayerType == PlayerType.Batter) studies.Add(new OwnerStudyOption(
+                        program,
+                        "교타력  +2\n타자 정신력  +1",
+                        reason,
+                        isUnlocked,
+                        unlockText));
                 cards.Add(new OwnerGrowthCardSnapshot(card, Array.Empty<PlacedSkillBlock>(), studies));
             }
             return new OwnerGrowthSnapshot(cards, inventory, definitions.ToArray(), SkillBoardDefinition.CreateDefault(), 250, 0, 2);
+        }
+
+        private static CardStudyProgramDefinition FindProgram(
+            IReadOnlyList<CardStudyProgramDefinition> programs,
+            string programId)
+        {
+            for (int index = 0; index < programs.Count; index++)
+                if (programs[index].ProgramId == programId) return programs[index];
+            Assert.Fail("유학 프로그램을 찾을 수 없습니다: " + programId);
+            return null;
         }
     }
 }
