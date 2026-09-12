@@ -136,6 +136,7 @@ namespace Baseball.Presentation.Owner
             RectTransform modal = Surface(root, "SeasonReview", Navy,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(ModalWidth, ModalHeight));
             _modal = modal;
+            UIOwnerFrontOfficePanel.Apply(modal, "ManagerReport");
             modal.gameObject.AddComponent<CareerUiPreserveTextColor>();
             AddBackgroundArt(modal);
 
@@ -193,15 +194,16 @@ namespace Baseball.Presentation.Owner
             {
                 RectTransform card = Surface(hero, "Series" + index, NavySoft,
                     Vector2.zero, Vector2.zero, Vector2.zero);
-                SetRect(card, new Vector2(22f, 12f + (3 - index) * 54f),
-                    new Vector2(658f, 78f + (2 - index) * 72f));
+                // 네 라운드가 같은 높이를 가져야 마지막 대진도 프레임과 본문이 뒤집히지 않는다.
+                float bottom = 4f + (3 - index) * 56f;
+                SetRect(card, new Vector2(22f, bottom), new Vector2(658f, bottom + 52f));
                 _seriesCards[index] = card;
                 _seriesTitles[index] = Label(card, "Round", string.Empty, 12, FontStyle.Bold,
-                    Gold, new Vector2(14f, 28f), new Vector2(622f, 49f));
+                    Gold, new Vector2(16f, 26f), new Vector2(620f, 46f));
                 _seriesTeams[index] = Label(card, "Teams", string.Empty, 15, FontStyle.Bold,
-                    Ivory, new Vector2(14f, 2f), new Vector2(526f, 28f));
-                _seriesScores[index] = Label(card, "Score", string.Empty, 23, FontStyle.Bold,
-                    Ivory, new Vector2(536f, 2f), new Vector2(624f, 28f));
+                    Ivory, new Vector2(16f, 6f), new Vector2(526f, 26f));
+                _seriesScores[index] = Label(card, "Score", string.Empty, 18, FontStyle.Bold,
+                    Ivory, new Vector2(536f, 4f), new Vector2(620f, 28f));
                 _seriesScores[index].alignment = TextAnchor.MiddleRight;
             }
 
@@ -223,6 +225,7 @@ namespace Baseball.Presentation.Owner
             RectTransform insight = Surface(modal, "NextStep", NavyPanel,
                 Vector2.zero, Vector2.zero, Vector2.zero);
             SetRect(insight, new Vector2(760f, 216f), new Vector2(1128f, 304f));
+            UIOwnerFrontOfficePanel.Apply(insight, "CompactStrip");
             _insightTitle = Label(insight, "InsightTitle", string.Empty, 13, FontStyle.Bold,
                 Gold, new Vector2(24f, 56f), new Vector2(344f, 80f));
             _insightBody = Label(insight, "InsightBody", string.Empty, 14, FontStyle.Normal,
@@ -523,7 +526,8 @@ namespace Baseball.Presentation.Owner
             rect.anchorMin = anchorMin; rect.anchorMax = anchorMax; rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = size; rect.anchoredPosition = Vector2.zero;
             image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FramedSurface);
-            CareerUiSkin.ApplyVisualElement(image);
+            // 모든 표면에 역할을 보존해 Theme 재적용 시에도 레거시 프레임으로 돌아가지 않는다.
+            UIOwnerFrontOfficePanel.Apply(rect, "CompactStrip");
             return rect;
         }
 

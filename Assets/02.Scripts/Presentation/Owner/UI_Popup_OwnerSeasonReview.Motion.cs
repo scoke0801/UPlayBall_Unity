@@ -10,8 +10,8 @@ namespace Baseball.Presentation.Owner
     public sealed partial class UI_Popup_OwnerSeasonReview
     {
         private Sequence _bracketSequence;
-        private readonly CanvasGroup[] _seriesGroups = new CanvasGroup[3];
-        private readonly Vector2[] _seriesPositions = new Vector2[3];
+        private CanvasGroup[] _seriesGroups = System.Array.Empty<CanvasGroup>();
+        private Vector2[] _seriesPositions = System.Array.Empty<Vector2>();
         private Button _skipBracket;
         private string _revealedBracketKey;
 
@@ -19,6 +19,9 @@ namespace Baseball.Presentation.Owner
 
         private void BuildBracketMotion()
         {
+            // 라운드 수가 바뀌어도 모든 카드의 연출과 건너뛰기 상태를 함께 준비한다.
+            _seriesGroups = new CanvasGroup[_seriesCards.Length];
+            _seriesPositions = new Vector2[_seriesCards.Length];
             for (int index = 0; index < _seriesCards.Length; index++)
             {
                 _seriesGroups[index] = _seriesCards[index].gameObject.AddComponent<CanvasGroup>();

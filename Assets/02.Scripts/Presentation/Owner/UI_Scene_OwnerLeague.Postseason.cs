@@ -27,7 +27,7 @@ namespace Baseball.Presentation.Owner
             bool selected = _section == section;
             if (selected) _sectionButton = button;
             button.GetComponent<Image>().color = selected ? Focus : Color.white;
-            if (selected) Surface(button.transform, "SelectionRule", Blue, .04f, .03f, .96f, .08f);
+            OwnerDashboardStyle.SetTypography(button.transform.Find("Label").GetComponent<Text>(), selected);
             OwnerUiButtonSkin.SetSelected(button, selected);
             button.onClick.AddListener(() =>
             {
@@ -53,7 +53,7 @@ namespace Baseball.Presentation.Owner
             }
             art.sprite = _postseasonBackdrop;
             art.raycastTarget = false;
-            art.color = new Color(1, 1, 1, .42f);
+            art.color = new Color(1, 1, 1, .08f);
             Label(board, "Status", PostseasonStatus(), .02f, .88f, .98f, .98f, 18, Ink, TextAnchor.MiddleLeft);
 
             if (_postseason == null)
@@ -89,38 +89,87 @@ namespace Baseball.Presentation.Owner
         {
             var rounds = new[] { OwnerPostseasonRound.WildCard, OwnerPostseasonRound.SemiPlayoff,
                 OwnerPostseasonRound.Playoff, OwnerPostseasonRound.Championship };
-            var titles = new[] { "와일드카드 · 4위 vs 5위", "준플레이오프 · 3위 합류", "플레이오프 · 2위 합류", "한국시리즈 · 1위 합류" };
+            var titles = new[] { "와일드카드", "준플레이오프", "플레이오프", "한국시리즈" };
             var names = new[] { "WildCard", "SemiPlayoff", "Playoff", "Championship" };
             int firstRound = Mathf.Max(0, 5 - _postseason.TeamCount);
+            RectTransform tree = OwnerRuntimeUiFactory.CreateRect("BracketTree", board);
+            Place(tree, .015f, .025f, .70f, .87f);
+            // 연결선을 먼저 만들어 구단 카드와 입력 영역 뒤에만 그린다.
+            RectTransform paths = OwnerRuntimeUiFactory.CreateRect("Paths", tree);
+            Place(paths, 0, 0, 1, 1);
+            int entrants = 5 - firstRound;
+            float spacing = .80f / (entrants - 1);
+            float level = .78f / (entrants - 1);
+            float previousX = .10f;
             OwnerPostseasonSeriesReview previous = null;
             for (int index = firstRound; index < rounds.Length; index++)
             {
-                OwnerPostseasonSeriesReview current = null;
-                foreach (var series in _postseason.Series)
-                    if (series.Round == rounds[index]) current = series;
-                float left = index % 2 == 0 ? .02f : .53f;
-                float bottom = index < 2 ? .55f : .18f;
-                string higher = SeedTeamKey(4 - index);
-                string lower = index == firstRound ? SeedTeamKey(5 - index) : Winner(previous);
-                RenderSeries(board, names[index], titles[index], current, left, bottom, left + .45f, bottom + .29f,
-                    higher, lower, rounds[index]);
+                int step = index - firstRound;
+                OwnerPostseasonSeriesReview current = FindRound(rounds[index]);
+                string higher = current?.HigherSeedTeamSeasonKey ?? SeedTeamKey(4 - index);
+                string lower = current?.LowerSeedTeamSeasonKey ??
+                    (index == firstRound ? SeedTeamKey(5 - index) : Winner(previous));
+                float seedX = .10f + (step + 1) * spacing;
+                float winnerX = (previousX + seedX) * .5f;
+                float winnerY = (step + 1) * level;
+                if (step == 0)
+                    RenderTeamNode(tree, "Seed_" + (5 - index), lower, "진출 구단 대기",
+                        "정규시즌 " + (5 - index) + "위", previousX, 0, false);
+                RenderTeamNode(tree, "Seed_" + (4 - index), higher, "진출 구단 대기",
+                    "정규시즌 " + (4 - index) + "위", seedX, 0, false);
+                DrawAdvancePath(paths, names[index] + "Lower", previousX, step * level + .15f,
+                    winnerX, winnerY, current, lower);
+                DrawAdvancePath(paths, names[index] + "Higher", seedX, .15f,
+                    winnerX, winnerY, current, higher);
+                bool final = index == rounds.Length - 1;
+                RenderTeamNode(tree, final ? "Champion" : names[index] + "Winner", Winner(current),
+                    final ? "우승 구단 대기" : "승자 대기", final ? "포스트시즌 우승" : titles[index] + " 승자",
+                    winnerX, winnerY, final);
+                float top = .87f - step * (.84f / (entrants - 1));
+                RenderSeries(board, names[index], titles[index], current, .735f,
+                    top - .84f / (entrants - 1) + .015f, .985f, top, higher, lower, rounds[index]);
+                previousX = winnerX;
                 previous = current;
             }
-            if (firstRound == 0) DrawConnection(board, "WildCardPath", .47f, .695f, .53f, .695f, FindRound(OwnerPostseasonRound.WildCard)?.IsCompleted == true);
-            if (firstRound <= 1)
-            {
-                Color path = FindRound(OwnerPostseasonRound.SemiPlayoff)?.IsCompleted == true ? Blue : Grid;
-                Surface(board, "SemiPlayoffExit", path, .755f, .51f, .755f, .55f).sizeDelta = new Vector2(3, 0);
-                Surface(board, "SemiPlayoffPath", path, .245f, .51f, .755f, .51f).sizeDelta = new Vector2(0, 3);
-                Surface(board, "PlayoffEntry", path, .245f, .47f, .245f, .51f).sizeDelta = new Vector2(3, 0);
-            }
-            if (firstRound <= 2) DrawConnection(board, "PlayoffPath", .47f, .325f, .53f, .325f, FindRound(OwnerPostseasonRound.Playoff)?.IsCompleted == true);
-            RectTransform champion = Surface(board, "Champion", Color.white, .53f, .01f, .98f, .14f);
-            Surface(champion, "GoldRule", CareerUiTheme.AccentGold, 0, .94f, 1, 1);
-            Label(champion, "Title", "포스트시즌 우승", .02f, .10f, .34f, .88f, 17, Ink);
-            RectTransform winnerHost = OwnerRuntimeUiFactory.CreateRect("WinnerHost", champion);
-            Place(winnerHost, .35f, .04f, .99f, .91f);
-            RenderBracketTeam(winnerHost, "Winner", _postseason.ChampionTeamSeasonKey, "우승 구단 대기", "", .02f, .98f, true);
+        }
+
+        private void RenderTeamNode(RectTransform tree, string name, string key, string placeholder,
+            string caption, float center, float bottom, bool champion)
+        {
+            var team = FindTeam(key);
+            RectTransform card = Surface(tree, name, Color.white, center - .092f, bottom, center + .092f, bottom + .15f);
+            UIOwnerPanelFrame.Attach(card, champion);
+            RectTransform content = OwnerRuntimeUiFactory.CreateRect("ContentSafeRect", card);
+            OwnerRuntimeUiFactory.SetAnchors(content, Vector2.zero, Vector2.one, new Vector2(6, 6), new Vector2(-6, -6));
+            Label(content, "Caption", caption, .03f, .76f, .97f, 1, 13, champion ? Blue : Ink);
+            if (team != null) AddEmblem(content, team.EmblemTeamName, team.EmblemId, .32f, .68f);
+            var emblem = content.Find("Emblem") as RectTransform;
+            if (emblem != null) Place(emblem, .32f, .35f, .68f, .74f);
+            RectTransform strip = Surface(content, "Nameplate", team?.Id == _model.FocusTeamId ? Blue : OwnerDashboardStyle.Surface,
+                0, 0, 1, .34f);
+            Label(strip, "Name", team?.Name ?? placeholder, .025f, .04f, .975f, .96f, 14, Color.white);
+            if (team == null) return;
+            Button button = card.gameObject.AddComponent<Button>();
+            button.targetGraphic = card.GetComponent<Image>();
+            button.targetGraphic.raycastTarget = true;
+            ColorBlock colors = button.colors;
+            colors.highlightedColor = Focus;
+            colors.selectedColor = Focus;
+            colors.pressedColor = Grid;
+            button.colors = colors;
+            button.onClick.AddListener(() => { _selectedTeamButton = button; TeamSelected?.Invoke(team.Id); });
+        }
+
+        private void DrawAdvancePath(RectTransform parent, string name, float fromX, float fromY,
+            float toX, float toY, OwnerPostseasonSeriesReview series, string teamKey)
+        {
+            bool advanced = !string.IsNullOrEmpty(teamKey) && Winner(series) == teamKey;
+            Color color = advanced ? CareerUiTheme.AccentGold : Grid;
+            float jointY = toY - .018f;
+            Surface(parent, name + "Rise", color, fromX, fromY, fromX, jointY).sizeDelta = new Vector2(2, 0);
+            Surface(parent, name + "Join", color, Mathf.Min(fromX, toX), jointY, Mathf.Max(fromX, toX), jointY)
+                .sizeDelta = new Vector2(0, 2);
+            Surface(parent, name + "Entry", color, toX, jointY, toX, toY).sizeDelta = new Vector2(2, 0);
         }
 
         private OwnerPostseasonSeriesReview FindRound(OwnerPostseasonRound round)
@@ -136,8 +185,10 @@ namespace Baseball.Presentation.Owner
             float x0, float y0, float x1, float y1, string pendingHigher = null, string pendingLower = null,
             OwnerPostseasonRound round = OwnerPostseasonRound.Championship)
         {
-            RectTransform card = Surface(board, name, Grid, x0, y0, x1, y1);
-            RectTransform content = Surface(card, "ContentSafeRect", Color.white, .008f, .016f, .992f, .984f);
+            RectTransform card = Surface(board, name, Color.white, x0, y0, x1, y1);
+            UIOwnerPanelFrame.Attach(card);
+            RectTransform content = OwnerRuntimeUiFactory.CreateRect("ContentSafeRect", card);
+            OwnerRuntimeUiFactory.SetAnchors(content, Vector2.zero, Vector2.one, new Vector2(8, 6), new Vector2(-8, -6));
             Label(content, "Title", title, .04f, .78f, .96f, .98f, 17, Blue, TextAnchor.MiddleLeft);
             int games = OwnerPostseasonState.GetSeriesGames(round);
             string status = series == null ? "앞선 라운드 승자 대기 · " + games + "전 " + (games / 2 + 1) + "선승제" :
@@ -158,11 +209,11 @@ namespace Baseball.Presentation.Owner
             RectTransform row = Surface(parent, name, team != null && team.Id == _model.FocusTeamId ? Focus : Color.white,
                 .025f, bottom, .975f, top);
             Label(row, "Name", team?.Name ?? (string.IsNullOrEmpty(key) ? placeholder : "구단 정보 없음"),
-                .16f, .06f, string.IsNullOrEmpty(record) ? .97f : .72f, .94f, 16, Ink, TextAnchor.MiddleLeft);
+                .02f, .06f, string.IsNullOrEmpty(record) ? .97f : .65f, .94f, 14, Ink, TextAnchor.MiddleLeft);
             if (!string.IsNullOrEmpty(record))
-                Label(row, "Record", record, .73f, .06f, .98f, .94f, 14, winner ? Blue : Ink);
+                Label(row, "Record", record, .66f, .06f, .98f, .94f, 13, winner ? Blue : Ink);
             if (team == null) return;
-            AddEmblem(row, team.EmblemTeamName, team.EmblemId, .01f, .14f);
+
             Image background = row.GetComponent<Image>();
             background.raycastTarget = true;
             Button button = row.gameObject.AddComponent<Button>();
@@ -190,15 +241,5 @@ namespace Baseball.Presentation.Owner
                 ? (series.Round == OwnerPostseasonRound.Championship ? "우승" : "진출") : "탈락");
         }
 
-        private void DrawConnection(RectTransform board, string name, float startX, float startY,
-            float endX, float endY, bool completed)
-        {
-            Color color = completed ? Blue : Grid;
-            float middle = (startX + endX) * .5f;
-            Surface(board, name + "Start", color, startX, startY, middle, startY).sizeDelta = new Vector2(0, 3);
-            Surface(board, name + "Turn", color, middle, Mathf.Min(startY, endY), middle, Mathf.Max(startY, endY))
-                .sizeDelta = new Vector2(3, 0);
-            Surface(board, name + "End", color, middle, endY, endX, endY).sizeDelta = new Vector2(0, 3);
-        }
     }
 }

@@ -4,22 +4,24 @@ using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>순위표 레퍼런스의 밝은 격자와 구단 강조를 네 개의 리그 탭에 표시한다.</summary>
+    /// <summary>V2 작업면에 리그 기록과 내 구단·선택·입력 포커스를 구분해 표시한다.</summary>
     [RequireComponent(typeof(RectTransform))]
     public sealed partial class UI_Scene_OwnerLeague : MonoBehaviour
     {
         private static Color Ink => CareerUiTheme.ReferenceDataInk;
         private static Color Blue => CareerUiTheme.ReferenceDataAccent;
-        private static readonly Color Red = new Color32(204, 44, 65, 255);
         private static Color Grid => CareerUiTheme.ReferenceDataGrid;
         private static Color Focus => CareerUiTheme.ReferenceDataFocus;
         private OwnerLeaguePresentationModel _model;
         private int _tab;
         private int _historyStart;
         private Button _selectedTeamButton;
+        private string _selectedTeamId;
+        private Color _selectedTeamBaseColor;
         public event Action<string> TeamSelected;
 
         /// <summary>선수단 상세에서 돌아오면 선택했던 구단으로 입력 포커스를 복원한다.</summary>
@@ -64,9 +66,10 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.ClearChildren(transform);
             if (_model == null) return;
             var root = (RectTransform)transform;
-            Surface(root, "Paper", CareerUiTheme.ReferenceDataCanvas, 0, 0, 1, 1);
-            Label(root, "Season", _model.SeasonLabel, .035f, .91f, .8f, .98f, 16, Ink, TextAnchor.MiddleLeft);
-            Surface(root, "BlueRule", Blue, .025f, .897f, .975f, .9f);
+            UIOwnerFrontOfficePanel.ApplyWorkspace(root);
+            Label(root, "Season", _model.SeasonLabel, .035f, .91f, .36f, .98f, 18, Ink, TextAnchor.MiddleLeft);
+            Surface(root, "BlueRule", OwnerDashboardStyle.Line, .025f, .897f, .975f, .899f);
+            if (_tab <= 1 && !(_tab == 0 && _section == StandingsSection.Postseason)) RenderFocusSummary(root);
             if (_tab == 0) RenderSectionTabs(root);
             if (_tab == 0 && _section == StandingsSection.Postseason)
             {
@@ -84,9 +87,11 @@ namespace Baseball.Presentation.Owner
             float legendBottom = hasHistoryNavigation ? .005f : .025f;
             float legendTop = hasHistoryNavigation ? .045f : .095f;
             Label(root, "Legend", hasHistoryNavigation ? "라운드 종료 기준 · 승률 → 득실차 순" :
-                _tab == 2 ? "행 구단 기준  승 - 패 (무)" : "순위: 승률 → 득실차 → 구단 고유 순서",
-                .035f, legendBottom, .75f, legendTop, 14, Ink, TextAnchor.MiddleLeft);
-            Label(root, "FocusLegend", "■ 내 구단", .8f, legendBottom, .965f, legendTop, 14, Blue);
+                _tab == 2 ? "행 구단 기준  승 - 패 (무)" : "순위 기준: 승률 · 득실차",
+                .035f, legendBottom, .75f, legendTop, 14, OwnerDashboardStyle.TableSecondary, TextAnchor.MiddleLeft);
+            if (_tab <= 1)
+                Label(root, "OpenTeamHint", "구단 선택 · 선수단 보기", .76f, legendBottom, .965f, legendTop,
+                    13, OwnerDashboardStyle.TableSecondary, TextAnchor.MiddleRight);
         }
 
         private void RenderStandings(RectTransform host, bool metrics)
@@ -112,14 +117,9 @@ namespace Baseball.Presentation.Owner
                         team.Losses.ToString(), team.Ties.ToString(), team.Wins + team.Losses == 0 ? "—" : Rate(team.Percentage),
                         team.Rank == 1 ? "—" : Rate(behind, "0.0"), team.Runs.ToString(), team.RunsAllowed.ToString() };
                 RectTransform row = DrawRow(host, "Team_" + i, values, widths, i + 1,
-                    team.Id == _model.FocusTeamId, false, !metrics);
+                    team.Id == _model.FocusTeamId, false);
                 AddEmblem(row, team.EmblemTeamName, team.EmblemId, .108f, .138f);
-                var image = row.GetComponent<Image>();
-                image.raycastTarget = true;
-                var button = row.gameObject.AddComponent<Button>();
-                button.targetGraphic = image;
-                string teamId = team.Id;
-                button.onClick.AddListener(() => { _selectedTeamButton = button; TeamSelected?.Invoke(teamId); });
+                ConfigureTeamButton(row, team.Id);
             }
         }
 
@@ -149,16 +149,16 @@ namespace Baseball.Presentation.Owner
                 RectTransform row = DrawRow(host, "Matchup_" + i, values, widths, i + 1,
                     team.Id == _model.FocusTeamId, false);
                 AddEmblem(row, team.EmblemTeamName, team.EmblemId, .012f, .042f);
-                Surface(row, "Self", new Color32(231, 233, 235, 255),
+                Surface(row, "Self", OwnerDashboardStyle.Surface,
                     .24f + i * .76f / count, .025f, .24f + (i + 1) * .76f / count, .975f);
             }
         }
 
         private void RenderHistory(RectTransform host, RectTransform footerHost)
         {
-            var chart = OwnerRuntimeUiFactory.CreateRect("RankHistory", host);
-            Place(chart, 0, 0, .43f, 1);
-            var graphic = chart.gameObject.AddComponent<UILeagueRankChart>();
+            var chart = Surface(host, "RankHistory", OwnerDashboardStyle.TableSurface, 0, 0, .43f, 1);
+            var plot = OwnerRuntimeUiFactory.CreateRect("Plot", chart);
+            var graphic = plot.gameObject.AddComponent<UILeagueRankChart>();
             graphic.Bind(_model, _historyStart);
             int visible = Math.Min(6, _model.Rounds.Count - _historyStart);
             for (int i = 0; i < visible; i++)
@@ -190,36 +190,112 @@ namespace Baseball.Presentation.Owner
 
         private void HistoryButton(RectTransform host, string name, string label, float x, UnityEngine.Events.UnityAction action, bool enabled)
         {
-            var surface = Surface(host, name, Color.white, x, .0525f, x + .0465f, .105f);
-            surface.GetComponent<Image>().raycastTarget = true;
-            var button = surface.gameObject.AddComponent<Button>();
-            button.targetGraphic = surface.GetComponent<Image>();
+            var button = OwnerRuntimeUiFactory.CreateReferenceButton(name, host, label, 18);
+            Place((RectTransform)button.transform, x, .0525f, x + .0465f, .105f);
             button.interactable = enabled;
             button.onClick.AddListener(action);
-            Label(surface, "Label", label, 0, 0, 1, 1, 18, enabled ? Blue : Grid);
+            OwnerDashboardStyle.SetTypography(button.transform.Find("Label").GetComponent<Text>());
+            button.GetComponent<OwnerUiButtonSkin>()?.Refresh();
+        }
+
+        private void RenderFocusSummary(RectTransform root)
+        {
+            foreach (var team in _model.Standings)
+            {
+                if (team.Id != _model.FocusTeamId) continue;
+                string summary = team.Games == 0 ? "첫 경기 종료 후 내 구단 성적이 표시됩니다."
+                    : $"내 구단 {team.Rank}위   ·   경기당 득점 {Rate((double)team.Runs / team.Games, "0.00")}"
+                        + $"   /   실점 {Rate((double)team.RunsAllowed / team.Games, "0.00")}"
+                        + $"   ·   득실차 {(team.Runs - team.RunsAllowed).ToString("+0;-0;0")}";
+                Label(root, "FocusSummary", summary, .37f, .91f, .965f, .98f,
+                    15, OwnerDashboardStyle.Ivory, TextAnchor.MiddleRight);
+                return;
+            }
         }
 
         private RectTransform DrawRow(RectTransform host, string name, string[] values, float[] widths,
-            int index, bool focus, bool header, bool colorResults = false)
+            int index, bool focus, bool header)
         {
             float height = 1f / Math.Max(11, _model.Standings.Count + 1);
             float top = 1 - index * height;
-            var row = Surface(host, name, focus ? Focus : header ? new Color32(236, 238, 240, 255) :
-                index % 2 == 0 ? new Color32(248, 248, 248, 255) : Color.white, 0, top - height, 1, top);
+            var row = Surface(host, name, header ? OwnerDashboardStyle.TableHeader :
+                index % 2 == 0 ? OwnerDashboardStyle.TableAlternate : OwnerDashboardStyle.TableSurface,
+                0, top - height, 1, top);
+            row.gameObject.AddComponent<CareerUiPreserveTextColor>();
             float x = 0;
             for (int i = 0; i < values.Length; i++)
             {
-                Color color = colorResults && i == 3 ? Red : colorResults && i == 5 ? Blue : Ink;
-                bool isTeamName = index > 0 && ((_tab != 2 && i == 1) || (_tab == 2 && i == 0));
-                Label(row, "Cell_" + i, values[i], x + (isTeamName ? .045f : .006f), .04f,
-                    x + widths[i] - .006f, .96f,
-                    header ? 15 : 17, color, isTeamName ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter);
-                Surface(row, "Column_" + i, Grid, x, 0, x, 1).sizeDelta = new Vector2(1, 0);
+                bool teamColumn = (_tab != 2 && i == 1) || (_tab == 2 && i == 0);
+                bool isTeamName = !header && teamColumn;
+                bool isNumeric = !teamColumn && _tab != 2 && i > 0;
+                bool primary = isTeamName || (!header && ((_tab == 0 && i == 6) || (_tab == 1 && i >= 6)));
+                Color color = header || (!primary && i == 2 && _tab <= 1)
+                    ? OwnerDashboardStyle.TableSecondary : OwnerDashboardStyle.Ivory;
+                float right = x + widths[i] - .012f;
+                Label(row, "Cell_" + i, values[i], x + (teamColumn ? .045f : .012f), .04f,
+                    right - (isTeamName && focus ? .055f : 0), .96f,
+                    header ? 14 : 17, color, teamColumn ? TextAnchor.MiddleLeft :
+                        isNumeric ? TextAnchor.MiddleRight : TextAnchor.MiddleCenter, primary);
+                if (isTeamName && focus)
+                    Label(row, "MyTeamBadge", "내 구단", right - .05f, .2f, right, .8f,
+                        11, OwnerDashboardStyle.Gold);
                 x += widths[i];
             }
-            var rule = Surface(row, "Rule", focus ? new Color32(117, 202, 231, 255) : Grid, 0, 0, 1, 0);
-            rule.sizeDelta = new Vector2(0, focus ? 2 : 1);
+            Surface(row, "Rule", OwnerDashboardStyle.Line, 0, 0, 1, 0).sizeDelta = new Vector2(0, 1);
             return row;
+        }
+
+        private void ConfigureTeamButton(RectTransform row, string teamId)
+        {
+            var image = row.GetComponent<Image>();
+            image.raycastTarget = true;
+            Color baseColor = image.color;
+            bool selected = teamId == _selectedTeamId;
+            if (selected) image.color = OwnerDashboardStyle.TableSelected;
+            var stripe = Surface(row, "SelectedTeam", OwnerDashboardStyle.Gold, 0, .12f, 0, .88f);
+            stripe.sizeDelta = new Vector2(3, 0);
+            stripe.gameObject.SetActive(selected);
+            var button = row.gameObject.AddComponent<Button>();
+            // 데이터 행은 장식 버튼 스킨으로 바뀌지 않으며 Hover는 표면 밝기만 올린다.
+            button.targetGraphic = image;
+            var colors = ColorBlock.defaultColorBlock;
+            colors.highlightedColor = new Color(1.17f, 1.17f, 1.17f, 1);
+            colors.selectedColor = colors.highlightedColor;
+            colors.pressedColor = new Color(.85f, .85f, .85f, 1);
+            colors.fadeDuration = .12f;
+            button.colors = colors;
+            var focus = OwnerRuntimeUiFactory.CreateRect("KeyboardFocus", row);
+            Surface(focus, "Top", OwnerDashboardStyle.TableSecondary, 0, 1, 1, 1).sizeDelta = new Vector2(0, 1);
+            Surface(focus, "Bottom", OwnerDashboardStyle.TableSecondary, 0, 0, 1, 0).sizeDelta = new Vector2(0, 1);
+            Surface(focus, "Left", OwnerDashboardStyle.TableSecondary, 0, 0, 0, 1).sizeDelta = new Vector2(1, 0);
+            Surface(focus, "Right", OwnerDashboardStyle.TableSecondary, 1, 0, 1, 1).sizeDelta = new Vector2(1, 0);
+            focus.gameObject.SetActive(false);
+            var trigger = row.gameObject.AddComponent<EventTrigger>();
+            var select = new EventTrigger.Entry { eventID = EventTriggerType.Select };
+            select.callback.AddListener(_ => focus.gameObject.SetActive(true));
+            trigger.triggers.Add(select);
+            var deselect = new EventTrigger.Entry { eventID = EventTriggerType.Deselect };
+            deselect.callback.AddListener(_ => focus.gameObject.SetActive(false));
+            trigger.triggers.Add(deselect);
+            if (selected)
+            {
+                _selectedTeamButton = button;
+                _selectedTeamBaseColor = baseColor;
+            }
+            button.onClick.AddListener(() =>
+            {
+                if (_selectedTeamButton != null)
+                {
+                    _selectedTeamButton.GetComponent<Image>().color = _selectedTeamBaseColor;
+                    _selectedTeamButton.transform.Find("SelectedTeam")?.gameObject.SetActive(false);
+                }
+                _selectedTeamId = teamId;
+                _selectedTeamButton = button;
+                _selectedTeamBaseColor = baseColor;
+                image.color = OwnerDashboardStyle.TableSelected;
+                stripe.gameObject.SetActive(true);
+                TeamSelected?.Invoke(teamId);
+            });
         }
 
         private static string Rate(double value, string format = "0.000") => value.ToString(format, CultureInfo.InvariantCulture);
@@ -235,14 +311,17 @@ namespace Baseball.Presentation.Owner
         private static RectTransform Surface(Transform parent, string name, Color color, float x0, float y0, float x1, float y1)
         {
             var rect = OwnerRuntimeUiFactory.CreateImage(name, parent, color).rectTransform;
+            // 공용 스킨 재적용이 기록표와 포커스 선을 밝은 패널로 덮지 않게 한다.
+            rect.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             Place(rect, x0, y0, x1, y1);
             return rect;
         }
 
         private static void Label(Transform parent, string name, string value, float x0, float y0, float x1, float y1,
-            int size, Color color, TextAnchor alignment = TextAnchor.MiddleCenter)
+            int size, Color color, TextAnchor alignment = TextAnchor.MiddleCenter, bool emphasis = false)
         {
             var text = OwnerRuntimeUiFactory.CreateText(name, parent, value, size, FontStyle.Bold, alignment, color);
+            OwnerDashboardStyle.SetTypography(text, emphasis || name == "Season");
             Place(text.rectTransform, x0, y0, x1, y1);
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 9;

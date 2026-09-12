@@ -101,12 +101,9 @@ namespace Baseball.Presentation.Owner
                 if (!hasCategory)
                     continue;
                 _categoryLabels[index].text = _model.Categories[index].DisplayName;
-                _categoryButtons[index].GetComponent<Image>().color = index == _categoryIndex
-                    ? CareerUiTheme.ReferenceDataAccent
-                    : CareerUiTheme.ReferenceDataHeader;
-                _categoryLabels[index].color = index == _categoryIndex
-                    ? Color.white
-                    : CareerUiTheme.ReferenceDataInk;
+                OwnerUiButtonSkin.Apply(_categoryButtons[index], OwnerButtonRole.Tab);
+                OwnerUiButtonSkin.SetSelected(_categoryButtons[index], index == _categoryIndex);
+
             }
 
             _table.Bind(category.Table, category.ContentState, category.FocusedRowId);
@@ -121,8 +118,11 @@ namespace Baseball.Presentation.Owner
             RectTransform root = GetComponent<RectTransform>();
             OwnerRuntimeUiFactory.Stretch(root);
             Image background = OwnerRuntimeUiFactory.CreateImage(
-                "Background", root, CareerUiTheme.ReferenceDataCanvas);
+                "Background", root, OwnerDashboardStyle.TableSurface);
             OwnerRuntimeUiFactory.Stretch(background.rectTransform);
+            OwnerDashboardStyle.SetDataSurface(background, OwnerDashboardStyle.TableSurface);
+            UIOwnerFrontOfficePanel.ApplyWorkspace(root);
+            background.enabled = false;
 
             RectTransform header = OwnerRuntimeUiFactory.CreateRect("SeasonRecordsHeader", root);
             OwnerRuntimeUiFactory.SetAnchors(
@@ -133,7 +133,7 @@ namespace Baseball.Presentation.Owner
                 new Vector2(-34f, 0f));
             _title = OwnerRuntimeUiFactory.CreateText(
                 "Title", header, string.Empty, 18, FontStyle.Bold,
-                TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInk);
+                TextAnchor.MiddleLeft, OwnerDashboardStyle.Ivory);
             OwnerRuntimeUiFactory.SetAnchors(
                 _title.rectTransform,
                 new Vector2(0f, 0.52f),
@@ -142,7 +142,7 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero);
             _context = OwnerRuntimeUiFactory.CreateText(
                 "Context", header, string.Empty, 13, FontStyle.Normal,
-                TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInkSecondary);
+                TextAnchor.MiddleLeft, OwnerDashboardStyle.TableSecondary);
             OwnerRuntimeUiFactory.SetAnchors(
                 _context.rectTransform,
                 Vector2.zero,
@@ -162,13 +162,13 @@ namespace Baseball.Presentation.Owner
             _nextSeason.onClick.AddListener(() => SelectSeason(-1));
 
             Image blueRule = OwnerRuntimeUiFactory.CreateImage(
-                "BlueRule", root, CareerUiTheme.ReferenceDataAccent);
+                "BlueRule", root, OwnerDashboardStyle.Gold);
             OwnerRuntimeUiFactory.SetAnchors(
                 blueRule.rectTransform,
                 new Vector2(0.025f, 0.855f),
                 new Vector2(0.975f, 0.855f),
                 Vector2.zero,
-                new Vector2(0f, 3f));
+                new Vector2(0f, 1f));
 
             RectTransform categoryBar = OwnerRuntimeUiFactory.CreateRect("CategoryBar", root);
             OwnerRuntimeUiFactory.SetAnchors(
@@ -205,11 +205,15 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero,
                 Vector2.zero);
             _table = RecordTableView.CreateRuntime(tableHost, "SeasonRecordTable");
-            _table.SetVisualStyle(RecordTableVisualStyle.ReferenceLight);
+            _table.SetVisualStyle(RecordTableVisualStyle.OwnerFrontOffice);
+            OwnerDashboardStyle.SetDataText(_title, true);
+            OwnerDashboardStyle.SetDataText(_context);
+            OwnerDashboardStyle.SetDataSurface(blueRule, OwnerDashboardStyle.Line);
 
             Text footer = OwnerRuntimeUiFactory.CreateText(
-                "Footer", root, "상위 30명 · 좌우로 밀어 상세 기록 확인 · 열 제목을 누르면 정렬 · 강조 행은 내 구단 선수",
-                13, FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.ReferenceDataInkSecondary);
+                "Footer", root, "상위 30명 · 좌우로 밀어 상세 기록 확인 · 열 제목을 누르면 정렬 · 내 구단 배지로 소속 표시",
+                13, FontStyle.Normal, TextAnchor.MiddleLeft, OwnerDashboardStyle.TableSecondary);
+            OwnerDashboardStyle.SetDataText(footer);
             OwnerRuntimeUiFactory.SetAnchors(
                 footer.rectTransform,
                 new Vector2(0.035f, 0.025f),

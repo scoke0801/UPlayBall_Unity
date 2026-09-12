@@ -82,7 +82,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 else if (stage == "completed")
                 {
                     Assert.That(labels, Does.Contain("4승 · 우승"));
-                    Assert.That(view.transform.Find("PostseasonBoard/Champion/WinnerHost/Winner/Name").GetComponent<Text>().text,
+                    Assert.That(view.transform.Find("PostseasonBoard/BracketTree/Champion/ContentSafeRect/Nameplate/Name").GetComponent<Text>().text,
                         Is.EqualTo("2025 롯데 자이언츠"));
                 }
                 else Assert.That(labels, Does.Contain("우승 구단 대기"));
@@ -149,6 +149,27 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)root.transform);
                 Canvas.ForceUpdateCanvases();
                 Assert.That(view.transform.Find("PostseasonBoard/Backdrop").GetComponent<Image>().sprite, Is.Not.Null);
+                RectTransform tree = view.transform.Find("PostseasonBoard/BracketTree") as RectTransform;
+                if (tree != null)
+                {
+                    var cards = tree.GetComponentsInChildren<Button>();
+                    foreach (Button card in cards)
+                    {
+                        RectTransform rect = (RectTransform)card.transform;
+                        Assert.That(rect.anchorMin.x, Is.GreaterThanOrEqualTo(0), card.name);
+                        Assert.That(rect.anchorMin.y, Is.GreaterThanOrEqualTo(0), card.name);
+                        Assert.That(rect.anchorMax.x, Is.LessThanOrEqualTo(1), card.name);
+                        Assert.That(rect.anchorMax.y, Is.LessThanOrEqualTo(1), card.name);
+                        foreach (Button other in cards)
+                        {
+                            if (card == other) continue;
+                            RectTransform otherRect = (RectTransform)other.transform;
+                            var area = Rect.MinMaxRect(rect.anchorMin.x, rect.anchorMin.y, rect.anchorMax.x, rect.anchorMax.y);
+                            var otherArea = Rect.MinMaxRect(otherRect.anchorMin.x, otherRect.anchorMin.y, otherRect.anchorMax.x, otherRect.anchorMax.y);
+                            Assert.That(area.Overlaps(otherArea), Is.False, card.name + " / " + other.name);
+                        }
+                    }
+                }
                 foreach (Text text in view.GetComponentsInChildren<Text>())
                 {
                     RectTransform bounds = text.transform.parent as RectTransform;

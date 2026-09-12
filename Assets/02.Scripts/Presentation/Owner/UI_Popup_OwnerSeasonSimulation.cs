@@ -201,10 +201,12 @@ namespace Baseball.Presentation.Owner
             outline.effectColor = CareerUiTheme.ReferenceBorder;
             outline.effectDistance = new Vector2(2f, -2f);
             outline.useGraphicAlpha = false;
+            UIOwnerFrontOfficePanel.Apply(modal, "MainDashboard");
 
             Image header = OwnerRuntimeUiFactory.CreateImage(
                 "Header", modal, new Color(0.035f, 0.07f, 0.12f, 1f));
             SetRect(header.rectTransform, new Vector2(0f, 344f), new Vector2(680f, 410f));
+            header.enabled = false;
             _titleText = Label(header.transform, "Title", "정규시즌 시뮬레이션", 23, FontStyle.Bold,
                 CareerUiTheme.TextPrimary, new Vector2(24f, 22f), new Vector2(470f, 62f));
             _titleText.color = CareerUiTheme.TextPrimary;
