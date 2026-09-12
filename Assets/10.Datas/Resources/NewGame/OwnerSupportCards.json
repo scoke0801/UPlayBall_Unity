@@ -1,0 +1,8 @@
+{
+  "cards": [
+    { "id": "team_contact", "displayName": "타선 집중 분석", "description": "1군 타자 전원의 정확 +1 · 다음 2경기", "scope": 0, "target": 1, "price": 30000, "maximumAge": 0, "bonuses": [1,0,0,0,0,0,0,0,0,0,0,0] },
+    { "id": "team_young", "displayName": "젊은 피의 활력", "description": "원본 시즌 25세 이하 1군 선수의 정신 +2 · 컨디션 지원 · 다음 2경기", "scope": 0, "target": 0, "price": 25000, "maximumAge": 25, "conditionPoints": 20, "bonuses": [0,0,0,0,0,2,0,0,0,0,0,2] },
+    { "id": "player_control", "displayName": "맞춤 제구 분석", "description": "1군 투수 한 명의 제구 +3 · 다음 2경기", "scope": 1, "target": 2, "price": 15000, "maximumAge": 0, "bonuses": [0,0,0,0,0,0,0,0,0,0,3,0] },
+    { "id": "player_defense", "displayName": "수비 위치 분석", "description": "1군 타자 한 명의 수비 +3 · 다음 2경기", "scope": 1, "target": 1, "price": 15000, "maximumAge": 0, "bonuses": [0,0,0,0,3,0,0,0,0,0,0,0] }
+  ]
+}
