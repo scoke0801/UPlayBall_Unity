@@ -13,6 +13,33 @@ namespace Baseball.Presentation.UI
         public const float Space6 = 32f;
         public const float SharedShellChromeHeight = 164f;
 
+        // 기본 능력치의 길이를 확보하고 고성장 구간은 압축한다. 경기 능력치 상한과 독립된 표시 척도다.
+        public const float CardStatBaseMaximum = 120f;
+        public const float CardStatGaugeMaximum = 200f;
+        public const float CardStatBaseGaugeShare = .8f;
+        public static readonly Color CardStatWhite = Color.white;
+        public static readonly Color CardStatYellow = new Color32(255, 222, 92, 255);
+        public static readonly Color CardStatOrange = new Color32(255, 166, 76, 255);
+        public static readonly Color CardStatRed = new Color32(255, 100, 100, 255);
+
+        /// <summary>기본 카드 능력치의 등급색을 반환한다. 추가 성장으로 원본 등급색은 바뀌지 않는다.</summary>
+        public static Color GetCardBaseStatColor(int stat)
+        {
+            if (stat >= 90) return CardStatRed;
+            if (stat >= 70) return CardStatOrange;
+            if (stat >= 60) return CardStatYellow;
+            return CardStatWhite;
+        }
+
+        /// <summary>누적 능력치를 같은 연속 척도로 변환해 기본·추가 구간의 연결과 카드 간 비교를 유지한다.</summary>
+        public static float GetCardStatGaugeRatio(float stat)
+        {
+            if (stat <= CardStatBaseMaximum)
+                return Mathf.Clamp01(stat / CardStatBaseMaximum) * CardStatBaseGaugeShare;
+            return CardStatBaseGaugeShare + (1f - CardStatBaseGaugeShare) *
+                Mathf.Clamp01((stat - CardStatBaseMaximum) / (CardStatGaugeMaximum - CardStatBaseMaximum));
+        }
+
         public static readonly Color Background = new(0.055f, 0.063f, 0.066f, 1f);
         public static readonly Color TopBar = new(0.09f, 0.105f, 0.11f, 0.99f);
         public static readonly Color Panel = new(0.125f, 0.15f, 0.16f, 0.99f);

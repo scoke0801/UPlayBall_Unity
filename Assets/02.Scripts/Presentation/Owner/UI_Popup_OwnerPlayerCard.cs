@@ -187,8 +187,11 @@ namespace Baseball.Presentation.Owner
                     BuildAbilitySegments(parent, i, y, breakdown.Value, card.AbilityGraphMaximum);
                 else if (value.HasValue)
                     Gradient(parent, "BaseFill" + i, Color.white, new Color32(194, 205, 225, 255),
-                        .205f, y + .010f, .205f + .565f * Mathf.Clamp01(value.Value / (float)card.AbilityGraphMaximum), y + .023f);
-                Label(parent, "Value" + i, value?.ToString() ?? "—", .78f, y, .865f, y + .034f, 15, Color.white);
+                        .205f, y + .010f, .205f + .565f * CareerUiTheme.GetCardStatGaugeRatio(value.Value), y + .023f);
+                int baseStat = breakdown?.BaseCard ?? value ?? 0;
+                Text statText = Label(parent, "Value" + i, value?.ToString() ?? "—", .78f, y, .865f, y + .034f,
+                    15, CareerUiTheme.GetCardBaseStatColor(baseStat));
+                statText.gameObject.AddComponent<CareerUiPreserveTextColor>();
                 int appliedGrowth = breakdown.HasValue && value.HasValue
                     ? Mathf.Max(0, value.Value - Mathf.Min(card.AbilityGraphMaximum, breakdown.Value.BaseCard))
                     : 0;
@@ -263,9 +266,10 @@ namespace Baseball.Presentation.Owner
         {
             if (amount <= 0 || cursor >= maximum) return;
             float next = Mathf.Min(maximum, cursor + amount);
-            float x0 = .205f + .565f * cursor / maximum;
-            float x1 = .205f + .565f * next / maximum;
-            Gradient(parent, name, start, end, x0, y + .010f, x1, y + .023f);
+            float x0 = .205f + .565f * CareerUiTheme.GetCardStatGaugeRatio(cursor);
+            float x1 = .205f + .565f * CareerUiTheme.GetCardStatGaugeRatio(next);
+            if (x1 > x0)
+                Gradient(parent, name, start, end, x0, y + .010f, x1, y + .023f);
             cursor = next;
         }
 

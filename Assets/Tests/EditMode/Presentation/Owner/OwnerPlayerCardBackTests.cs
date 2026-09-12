@@ -188,7 +188,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 var card = new OwnerCollectionCardSnapshot(
                     "C-G", "P-G", "성장타자", 2025, PlayerPosition.Shortstop, 8,
                     PlayerCardEdition.Normal, 2, 0, false, false,
-                    CreateAbilities(), abilityBreakdowns: breakdowns, abilityGraphMaximum: 140);
+                    CreateAbilities(), abilityBreakdowns: breakdowns, abilityGraphMaximum: AbilityRatings.Maximum);
 
                 UI_Popup_OwnerPlayerCard.Show(sourceObject.transform, card);
 
@@ -219,9 +219,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             }
         }
 
-        [TestCase(55, 17, 140, 72)]
-        [TestCase(55, 0, 140, 55)]
-        [TestCase(98, 17, 100, 100)]
+        [TestCase(55, 17, 250, 72)]
+        [TestCase(55, 0, 250, 55)]
+        [TestCase(240, 17, 250, 250)]
         public void 번트_자체보너스만적용하고표시상한을지킨다(
             int rating, int bonus, int maximum, int expectedTotal)
         {
@@ -237,6 +237,44 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(bunt.TeamColor, Is.EqualTo(bonus));
             Assert.That(bunt.Total, Is.EqualTo(rating + bonus));
             Assert.That(card.GetBuntAbility(), Is.EqualTo(expectedTotal));
+        }
+
+        [TestCase(59, 41, .3933333f, .6666667f)]
+        [TestCase(60, 60, .4f, .8f)]
+        [TestCase(69, 91, .46f, .9f)]
+        [TestCase(70, 130, .4666667f, 1f)]
+        [TestCase(89, 161, .5933333f, 1f)]
+        [TestCase(90, 30, .6f, .8f)]
+        public void Detail_기본등급색과성장구간을유지하고게이지만압축한다(
+            int baseStat, int bonus, float baseRatio, float totalRatio)
+        {
+            var host = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas));
+            var source = new GameObject("Source", typeof(RectTransform));
+            source.transform.SetParent(host.transform, false);
+            try
+            {
+                var breakdowns = new OwnerAbilityBreakdownSnapshot[PlayerAbilityCatalog.AbilityCount];
+                for (int i = 0; i < breakdowns.Length; i++)
+                    breakdowns[i] = new OwnerAbilityBreakdownSnapshot(baseStat, bonus, 0, 0, 0, 0);
+                var card = new OwnerCollectionCardSnapshot("Gauge", "GaugePlayer", "성장비교선수", 2025,
+                    PlayerPosition.Shortstop, 8, PlayerCardEdition.Normal, 0, 0, false, false,
+                    CreateAbilities(), abilityBreakdowns: breakdowns, abilityGraphMaximum: 250);
+                UI_Popup_OwnerPlayerCard.Show(source.transform, card);
+                Transform front = host.transform.Find("UI_Popup_OwnerPlayerCard/CardDetail/Front");
+                var baseFill = (RectTransform)front.Find("BaseFill0");
+                var bonusFill = (RectTransform)front.Find("TrainingFill0");
+                Assert.That(baseFill.anchorMax.x, Is.EqualTo(.205f + .565f * baseRatio).Within(.00001f));
+                Assert.That(bonusFill.anchorMin.x, Is.EqualTo(baseFill.anchorMax.x));
+                Assert.That(bonusFill.anchorMax.x, Is.EqualTo(.205f + .565f * totalRatio).Within(.00001f));
+                Text value = front.Find("Value0").GetComponent<Text>();
+                Color expectedColor = baseStat >= 90 ? new Color32(255, 100, 100, 255)
+                    : baseStat >= 70 ? new Color32(255, 166, 76, 255)
+                    : baseStat >= 60 ? new Color32(255, 222, 92, 255) : Color.white;
+                Assert.That(value.color, Is.EqualTo(expectedColor));
+                Assert.That(value.text, Is.EqualTo((baseStat + bonus).ToString()));
+                Assert.That(front.Find("GrowthValue0").GetComponent<Text>().text, Is.EqualTo("+" + bonus));
+            }
+            finally { Object.DestroyImmediate(host); }
         }
 
         private static OwnerCollectionCardSnapshot CreateHitter(string cardId, string displayName)
