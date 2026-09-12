@@ -208,6 +208,23 @@ dotnet run --project Tools/HistoricalSeasonDiagnostics -c Release -- --roster-ab
 `--owner-world-performance`도 실제 월드 진행 후 조별 개인 분포를 출력하며 공통 경기 JSON을 읽는다.
 코스트를 바꾸지 않은 타격·투수 로직 개선 근거는 `docs/reports/pitch-batting-balance-20260912.md`를 따른다.
 
+## 연습 편성별 역사 순위 진단
+
+게임용 `--legendary-practice <Runtime> <출력> [이전 카탈로그]`는 실제 승률 75%와 시뮬레이션 승률 25%로
+상위 100팀을 선정한다. `LegendaryPracticeRewards.json`의 `historicalWinRateWeight`로 비중을 조정한다.
+정규화된 연도별 원기록이 필요하다. 이전 카탈로그를 지정하면 `.candidates.json` 전체 결과의 입력·로스터를
+대조해 재사용하고, 새 목록의 실제 300승 캠페인 검증 후 출력한다. 진단 전용 순위는 시뮬레이션 평가를 유지한다.
+
+`--practice-ranking-diagnostic <Runtime> <출력 JSON> <경기 JSON> <곡선 JSON> <normal|reinforced>`는
+전체 역사 구단의 같은 홈·원정 라운드로빈을 수행한다. `normal`은 해당 연도 Normal 카드만,
+`reinforced`는 기존 Rare·CareerHigh·Legend 보강 편성을 쓴다. AI 팀컬러는 양쪽 모두 적용한다.
+진단 출력에는 `diagnosticOnly`, 편성 종류, 입력 해시, 전체 구단 순위가 들어간다.
+게임용 보상·캠페인·상위 100팀 카탈로그는 생성하지 않는다. 게임 반영용은 기존
+`--legendary-practice`를 사용한다. 비교 결과는 `docs/reports/historical-ranking-20260912.md`를 따른다.
+
+`Tools/SimulationDiagnostics`의 `balance-match <경기 수> [경기 JSON]`으로 격리한 계수를
+중립 경기에서 먼저 확인할 수 있다. 실패한 실행도 지표와 유효 밸런스 해시를 출력한다.
+
 ## 구단주 선수 수집 기간
 
 실제 `ScoutRoller`·`ShopDefaultPools`·`ScoutEconomyBalance` 기본값으로 모든 구단 연도의 1군 25인을

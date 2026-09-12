@@ -28,7 +28,10 @@ internal static class Program
 
     private static int Run(string[] args)
     {
-        if (args.Length == 3 && args[0] == "--legendary-practice") return LegendaryPracticeBake.Run(args);
+        if (args.Length > 0 && args[0] == "--practice-ranking-diagnostic") return LegendaryPracticeBake.RunDiagnostic(args);
+        if ((args.Length == 3 || args.Length == 4) && args[0] == "--legendary-practice") return LegendaryPracticeBake.Run(args);
+        if (args.Length == 4 && args[0] == "--practice-roster-dump") return LegendaryPracticeRosterDump.Run(args);
+        if ((args.Length == 5 || args.Length == 6) && args[0] == "--ability-sensitivity") return AbilitySensitivity.Run(args);
         int workers = 1;
         if (args.Length >= 2 && args[0] == "--workers")
         {

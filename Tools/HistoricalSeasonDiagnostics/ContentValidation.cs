@@ -60,7 +60,7 @@ internal static class ContentValidation
     {
         var practice = JsonSerializer.Deserialize<LegendaryPracticeCatalog>(File.ReadAllText(path),
             new JsonSerializerOptions { IncludeFields = true });
-        practice.Validate();
+        practice.ValidateCoverage(content.TeamSeasons);
         if (practice.contentHash != content.Manifest.ContentHash || practice.simulationVersion !=
             LegendaryPracticeCatalog.CreateSimulationVersion(
                 File.ReadAllText(Baseball.Tools.CommonMatchBalanceInput.DefaultPath),
@@ -71,6 +71,32 @@ internal static class ContentValidation
         var builder = new LegendaryPracticeRosterBuilder(content, balance);
         var identities = new WorldIdentityGenerator().Generate(content.PlayerPersons, content.TeamSeasons,
             content.IdentityNameCatalog, practice.seed);
+        foreach (var team in content.TeamSeasons)
+        {
+            var cards = builder.SelectCards(team);
+            var repeatedCards = builder.SelectCards(team);
+            var snapshots = builder.Build(team, identities, 1, 100, out _);
+            for (int slot = 0; slot < cards.Length; slot++)
+            {
+                if (cards[slot].CardId != repeatedCards[slot].CardId)
+                    throw new InvalidOperationException("연습경기 카드 편성 재현 실패: " + team.TeamSeasonKey);
+                if (cards[slot].Edition != PlayerCardEdition.CareerHigh &&
+                    cards[slot].Edition != PlayerCardEdition.Legend) continue;
+                if (slot >= 9 && slot < 14)
+                    throw new InvalidOperationException("연습경기 특수 타자가 벤치에 배치되었습니다: " + team.TeamSeasonKey);
+                if (slot >= 9) continue;
+                foreach (var snapshot in snapshots)
+                {
+                    bool isStarting = false;
+                    for (int order = 0; order < snapshot.StartingLineup.Count; order++)
+                        if (snapshot.StartingLineup[order].Player.PlayerId == 100 + slot + 1) isStarting = true;
+                    if (!isStarting)
+                        throw new InvalidOperationException("연습경기 특수 타자가 실제 선발에서 누락되었습니다: " + team.TeamSeasonKey);
+                }
+            }
+            if (snapshots.Length != 5)
+                throw new InvalidOperationException("전체 역사 팀의 선발 로테이션을 구성할 수 없습니다.");
+        }
         foreach (var entry in practice.teams)
         {
             if (!content.TryGetTeamSeason(entry.teamSeasonKey, out var team) ||
@@ -79,6 +105,6 @@ internal static class ContentValidation
             if (builder.Build(team, identities, entry.rank, entry.rank * 100, out _).Length != 5)
                 throw new InvalidOperationException("연습경기 선발 로테이션을 구성할 수 없습니다.");
         }
-        Console.WriteLine($"연습경기 {practice.teams.Length}팀: 기존 Bake 해시·카드·5선발 편성 검증 통과");
+        Console.WriteLine($"연습경기 전체 {content.TeamSeasons.Count}팀 참가·5선발 편성, 상위 {practice.teams.Length}팀 Bake 해시·카드 검증 통과");
     }
 }
