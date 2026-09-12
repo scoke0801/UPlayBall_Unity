@@ -504,7 +504,7 @@ namespace Baseball.Presentation.Owner
             {
                 OwnerRosterPresetSnapshot candidate = snapshot.Presets[index];
                 string status = candidate.Validation == null
-                    ? "검증 대기"
+                    ? "확인 필요"
                     : candidate.Validation.Status == LineupPresetValidationStatus.Valid
                         ? "사용 가능"
                         : candidate.Validation.Status == LineupPresetValidationStatus.PartiallyValid
@@ -616,7 +616,7 @@ namespace Baseball.Presentation.Owner
             if (snapshot.PresetValidation == null)
             {
                 lines.Add(string.IsNullOrWhiteSpace(snapshot.ValidationUnavailableReason)
-                    ? "경기 프리셋 검증 결과 없음"
+                    ? "선수 배치를 확인할 수 없습니다. 경기 준비를 다시 열어 주세요."
                     : snapshot.ValidationUnavailableReason);
             }
             else
@@ -624,7 +624,7 @@ namespace Baseball.Presentation.Owner
                 AddValidationIssues(lines, snapshot.PresetValidation.Issues, includeWarnings: false);
                 AddValidationIssues(lines, snapshot.PresetValidation.Issues, includeWarnings: true);
             }
-            return lines.Count == 0 ? "현재 1군과 경기 프리셋이 구성 검증을 통과했습니다." : string.Join("\n", lines);
+            return lines.Count == 0 ? "출전 준비 완료" : string.Join("\n", lines);
         }
 
         private static void AddValidationIssues(
@@ -645,7 +645,7 @@ namespace Baseball.Presentation.Owner
         {
             string penalty = issue.ConditionPenalty > 0 ? $" · 컨디션 -{issue.ConditionPenalty}" : string.Empty;
             string errorRisk = issue.FieldingErrorProbabilityMultiplier > 1d
-                ? $" · 실책 위험 ×{issue.FieldingErrorProbabilityMultiplier:0.##}" : string.Empty;
+                ? " · 실책 위험 증가" : string.Empty;
             string detail = FormatLineupIssueCode(issue.Code);
             return $"{FormatSeverity(issue.Severity)} · {detail}{penalty}{errorRisk}";
         }

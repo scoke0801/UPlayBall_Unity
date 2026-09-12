@@ -96,6 +96,19 @@ namespace Baseball.Presentation.UI
         public static readonly Color RosterBorder = new(0.52f, 0.62f, 0.71f, 1f);
         public static readonly Color RosterEmptySlot = new(0.86f, 0.89f, 0.92f, 1f);
 
+        // 선수 오더의 카드 대비와 읽기 순서를 위한 공용 스포츠 보드 토큰이다.
+        public static readonly Color RosterBoard = new Color32(20, 25, 33, 255);
+        public static readonly Color RosterSurface = new Color32(30, 38, 49, 255);
+        public static readonly Color RosterSurfaceRaised = new Color32(39, 50, 65, 255);
+        public static readonly Color RosterDivider = new Color32(62, 77, 95, 255);
+        public static readonly Color RosterText = new Color32(239, 244, 250, 255);
+        public static readonly Color RosterTextSecondary = new Color32(173, 189, 207, 255);
+        public static readonly Color RosterAccent = new Color32(103, 174, 255, 255);
+        public const float RosterActionHeight = 60f;
+        public const float RosterToolbarHeight = 80f;
+        public const float RosterCompactToolbarHeight = 72f;
+        public const float RosterMaxWidth = 2240f;
+
         // Vector4 순서는 left, bottom, right, top이다.
         public static readonly Vector4 UniversalFramePadding = new(32f, 28f, 32f, 76f);
         public static readonly Vector4 HeroFramePadding = new(40f, 32f, 40f, 80f);

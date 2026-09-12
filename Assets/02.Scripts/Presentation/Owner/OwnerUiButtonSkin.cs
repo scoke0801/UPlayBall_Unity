@@ -24,6 +24,16 @@ namespace Baseball.Presentation.Owner
         private Color _lastLabel;
         private bool _lastInteractable;
         private bool _hasRendered;
+        private bool _usesBoardStyle;
+
+        /// <summary>기존 프레임을 유지하며 어두운 카드 편성 보드의 보조 버튼 대비를 맞춘다.</summary>
+        public static void SetBoardStyle(Button button)
+        {
+            var skin = button.GetComponent<OwnerUiButtonSkin>();
+            if (skin == null || skin._usesBoardStyle) return;
+            skin._usesBoardStyle = true;
+            skin.Refresh();
+        }
 
         /// <summary>문자 버튼에만 전용 프레임을 연결한다. 카드와 투명 클릭 영역은 유지한다.</summary>
         public static void Apply(Button button, OwnerButtonRole role = OwnerButtonRole.Secondary)
@@ -145,6 +155,11 @@ namespace Baseball.Presentation.Owner
             _lastInteractable = _button.IsInteractable();
             _label.color = _lastInteractable ? isDark ? Ivory : Ink
                 : isDark ? new Color32(207, 213, 220, 255) : new Color32(78, 87, 99, 255);
+            if (_usesBoardStyle && !isDark)
+            {
+                _frame.color = CareerUiTheme.RosterSurfaceRaised;
+                _label.color = _lastInteractable ? CareerUiTheme.RosterText : CareerUiTheme.RosterTextSecondary;
+            }
             // 아이콘 메뉴의 하단 라벨과 화면별 다중 행 배치는 유지한다.
             if (_label.rectTransform.anchorMin == Vector2.zero && _label.rectTransform.anchorMax == Vector2.one)
             {

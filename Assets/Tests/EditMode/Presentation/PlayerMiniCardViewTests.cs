@@ -1,4 +1,5 @@
 using Baseball.Presentation.SharedUI;
+using Baseball.Core.Historical;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -28,16 +29,16 @@ namespace Baseball.Tests.EditMode.Presentation
         }
 
         [Test]
-        public void AssignmentBadge_카드중앙에표시하고포지션을유지한다()
+        public void AssignmentBadge_상단에서초상을보존하고중복라벨을숨긴다()
         {
             _view.UseLineupSlotLayout();
             _view.Bind(new PlayerMiniCardModel("p", "최준욱", "유격수", "24", "★ 4", "", "유격수"));
             _view.SetAssignmentBadge("1번");
-            Assert.That(_view.transform.Find("Position").gameObject.activeSelf, Is.True);
+            Assert.That(_view.transform.Find("Position").gameObject.activeSelf, Is.False);
             Transform badge = _view.transform.Find("AssignmentBadge");
             Assert.That(badge.gameObject.activeSelf, Is.True);
-            Assert.That(((RectTransform)badge).anchorMin, Is.EqualTo(new Vector2(.03f, .44f)));
-            Assert.That(((RectTransform)badge).anchorMax, Is.EqualTo(new Vector2(.97f, .56f)));
+            Assert.That(((RectTransform)badge).anchorMin, Is.EqualTo(new Vector2(.03f, .89f)));
+            Assert.That(((RectTransform)badge).anchorMax, Is.EqualTo(new Vector2(.97f, 1f)));
             Assert.That(_view.transform.Find("AssignmentBadge/AssignmentLabel").GetComponent<Text>().text,
                 Is.EqualTo("배치 중 · 1번"));
             _view.SetAssignmentBadge(null);
@@ -66,6 +67,34 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(_view.transform.Find("Position").GetComponent<Text>().text, Is.EqualTo("SS"));
             Assert.That(_view.transform.Find("Status").GetComponent<Text>().text, Is.EqualTo("오늘 5번 선발"));
             Assert.That(_view.transform.Find("Status").gameObject.activeSelf, Is.True);
+        }
+
+        [TestCase(PlayerCardEdition.Normal)]
+        [TestCase(PlayerCardEdition.CareerHigh)]
+        [TestCase(PlayerCardEdition.Legend)]
+        public void Roster_원화명찰과장식을보존하고선택을독립테두리로표시한다(PlayerCardEdition edition)
+        {
+            _view.UseLineupSlotLayout();
+            var model = new PlayerMiniCardModel("p", "송은범", "", "08", "★ 7", "", "선발", frameEdition: edition, cost: 7);
+            _view.Bind(model);
+            var name = _view.transform.Find("Name").GetComponent<RectTransform>();
+            Vector2 originalMin = name.anchorMin;
+            Vector2 originalMax = name.anchorMax;
+            _view.UseRosterPresentation();
+            _view.Bind(model);
+            Assert.That(_view.transform.Find("NameBand").gameObject.activeSelf, Is.False);
+            Assert.That(name.anchorMin, Is.EqualTo(originalMin));
+            Assert.That(name.anchorMax, Is.EqualTo(originalMax));
+            _view.SetVisualState(PlayerMiniCardVisualState.Selected);
+            Transform selection = _view.transform.Find("SelectionOverlay");
+            Assert.That(selection.gameObject.activeSelf, Is.True);
+            Assert.That(selection.Find("Header/Label").GetComponent<Text>().text, Is.EqualTo("선택됨"));
+            Assert.That(selection.Find("Left").GetComponent<Image>().raycastTarget, Is.False);
+            Assert.That(selection.Find("Right").GetComponent<RectTransform>().rect.width, Is.EqualTo(3f));
+            Assert.That(_view.transform.Find("NameBand").gameObject.activeSelf, Is.False);
+            _view.SetVisualState(PlayerMiniCardVisualState.Normal);
+            Assert.That(selection.gameObject.activeSelf, Is.False);
+            Assert.That(name.anchorMin, Is.EqualTo(originalMin));
         }
 
         [Test]

@@ -63,6 +63,12 @@ namespace Baseball.Presentation.SharedUI
         private Image _teamEmblem;
         private PlayerMiniCardModel _model;
         private bool _usesLineupSlotLayout;
+        private bool _usesRosterPresentation;
+        private RectTransform _selectionOverlay;
+        private bool _isSelected;
+
+        /// <summary>편성 보드에서는 원화의 명찰 영역 안에서 이름 가독성을 조정한다.</summary>
+        public void UseRosterPresentation() => _usesRosterPresentation = true;
         private bool _usesPrimaryClickForDetail;
 
         /// <summary>
@@ -332,6 +338,7 @@ namespace Baseball.Presentation.SharedUI
 
         private void ApplyVisualState(PlayerMiniCardVisualState visualState, Color accent)
         {
+            _isSelected = visualState == PlayerMiniCardVisualState.Selected;
             _accentStrip.color = _usesLineupSlotLayout && string.IsNullOrWhiteSpace(_model?.TeamAccentHex)
                 ? new Color32(20, 82, 142, 255) : accent;
             _positionText.color = TextSecondary;
@@ -341,6 +348,7 @@ namespace Baseball.Presentation.SharedUI
             {
                 ApplyLineupSlotVisualState(visualState, accent);
                 ApplyEditionFrame();
+                RefreshSelectionOverlay();
                 return;
             }
 
@@ -414,6 +422,45 @@ namespace Baseball.Presentation.SharedUI
                 _costText.text = _model.Cost.Value.ToString();
                 SetAnchors(_costText.rectTransform, new Vector2(.81f, top * .085f), new Vector2(.97f, top * .165f), Vector2.zero, Vector2.zero);
             }
+            if (_usesRosterPresentation)
+            {
+                // 장식이 침범하지 않는 등급별 GetNameRect를 유지하며 별도 명찰을 덧씌우지 않는다.
+                SetBestFitRange(_nameText, 6, 16);
+                SetBestFitRange(_yearText, 5, 12);
+            }
+        }
+
+        private void RefreshSelectionOverlay()
+        {
+            if (_selectionOverlay == null && !_isSelected) return;
+            if (_selectionOverlay == null)
+            {
+                _selectionOverlay = new GameObject("SelectionOverlay", typeof(RectTransform)).GetComponent<RectTransform>();
+                _selectionOverlay.SetParent(transform, false);
+                SetAnchors(_selectionOverlay, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                _selectionOverlay.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                CreateSelectionEdge("Left", Vector2.zero, new Vector2(0f, 1f), Vector2.zero, new Vector2(3f, 0f));
+                CreateSelectionEdge("Right", new Vector2(1f, 0f), Vector2.one, new Vector2(-3f, 0f), Vector2.zero);
+                CreateSelectionEdge("Bottom", Vector2.zero, new Vector2(1f, 0f), Vector2.zero, new Vector2(0f, 3f));
+                CreateSelectionEdge("Top", Vector2.up, Vector2.one, new Vector2(0f, -3f), Vector2.zero);
+                Image header = CreateSelectionEdge("Header", new Vector2(0f, .89f), Vector2.one, Vector2.zero, Vector2.zero);
+                Text label = CreateText("Label", header.transform, 12, FontStyle.Bold,
+                    TextAnchor.MiddleCenter, CareerUiTheme.TextOnLight);
+                SetAnchors(label.rectTransform, Vector2.zero, Vector2.one, new Vector2(3f, 0f), new Vector2(-3f, 0f));
+                label.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            }
+            _selectionOverlay.gameObject.SetActive(_isSelected);
+            _selectionOverlay.Find("Header/Label").GetComponent<Text>().text =
+                string.IsNullOrWhiteSpace(_model?.PositionLabel) ? "선택됨" : "선택 · " + _model.PositionLabel;
+            _selectionOverlay.SetAsLastSibling();
+        }
+
+        private Image CreateSelectionEdge(string name, Vector2 min, Vector2 max, Vector2 insetMin, Vector2 insetMax)
+        {
+            Image edge = CreateImage(name, _selectionOverlay, CareerUiTheme.RosterAccent);
+            edge.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            SetAnchors(edge.rectTransform, min, max, insetMin, insetMax);
+            return edge;
         }
 
         private void ApplyLineupSlotVisualState(PlayerMiniCardVisualState visualState, Color accent)
@@ -424,7 +471,7 @@ namespace Baseball.Presentation.SharedUI
                 : isSelected ? new Color(0.72f, 0.86f, 1f, 1f) : Color.white;
             _surface.color = visualState == PlayerMiniCardVisualState.Warning
                 ? new Color(0.45f, 0.28f, 0.08f, 1f)
-                : isSelected ? SelectedSurface : new Color32(238, 238, 232, 255);
+                : isSelected ? SelectedSurface : CareerUiTheme.RosterSurfaceRaised;
             _outline.effectColor = visualState == PlayerMiniCardVisualState.Warning
                 ? CareerUiTheme.Warning
                 : isSelected ? accent : new Color(0.65f, 0.71f, 0.75f, 1f);
@@ -435,17 +482,17 @@ namespace Baseball.Presentation.SharedUI
             _costText.color = TextPrimary;
             _editionText.color = TextPrimary;
             _positionText.color = isSelected || visualState == PlayerMiniCardVisualState.Warning
-                ? Color.white : new Color32(44, 44, 44, 255);
+                ? Color.white : CareerUiTheme.RosterText;
             _statusText.color = visualState == PlayerMiniCardVisualState.Warning
                 ? new Color(1f, 0.76f, 0.30f, 1f)
                 : TextSecondary;
         }
 
-        /// <summary>카드 중앙 배지로 현재 배치 역할을 구분한다.</summary>
+        /// <summary>초상을 가리지 않는 상단 배지로 현재 배치 역할을 구분한다.</summary>
         public void SetAssignmentBadge(string assignmentLabel)
         {
             bool isAssigned = !string.IsNullOrWhiteSpace(assignmentLabel);
-            if (_positionText != null) _positionText.gameObject.SetActive(true);
+            if (_positionText != null) _positionText.gameObject.SetActive(!isAssigned || !_usesLineupSlotLayout);
             if (_assignmentBadge == null && !isAssigned) return;
             if (_assignmentBadge == null)
             {
@@ -460,10 +507,11 @@ namespace Baseball.Presentation.SharedUI
             }
             _assignmentBadge.gameObject.SetActive(isAssigned);
             _assignmentBadge.color = CareerUiTheme.ReferenceAccent;
-            SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, 0.44f),
-                new Vector2(0.97f, 0.56f), Vector2.zero, Vector2.zero);
+            SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, _usesLineupSlotLayout ? 0.89f : 0.88f),
+                new Vector2(0.97f, 1f), Vector2.zero, Vector2.zero);
             _assignmentText.text = isAssigned ? "배치 중 · " + assignmentLabel : string.Empty;
             _assignmentBadge.transform.SetAsLastSibling();
+            if (_selectionOverlay != null) _selectionOverlay.SetAsLastSibling();
         }
 
         /// <summary>상세 조회는 유지하면서 배치할 수 없는 사유를 카드에 표시한다.</summary>

@@ -12,6 +12,9 @@ namespace Baseball.Presentation.Owner
         private int _year;
         private string _team = string.Empty;
 
+        /// <summary>검색 결과가 없을 때 연도와 구단 조건을 함께 해제한다.</summary>
+        public void Reset() { _year = 0; _team = string.Empty; }
+
         public bool Matches(OwnerCollectionCardSnapshot card) =>
             (_year == 0 || card.OriginYear == _year) &&
             (string.IsNullOrEmpty(_team) || string.Equals(card.TeamDisplayName, _team, StringComparison.Ordinal));

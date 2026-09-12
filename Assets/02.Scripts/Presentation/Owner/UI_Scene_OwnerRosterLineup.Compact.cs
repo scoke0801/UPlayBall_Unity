@@ -16,6 +16,20 @@ namespace Baseball.Presentation.Owner
         private enum CostSortOrder { Default, Descending, Ascending }
         private CostSortOrder _costSortOrder;
         private PlayerCardEdition? _editionFilter;
+        private string _playerSearch = string.Empty;
+        private bool? _areFiltersExpanded;
+        private Button _filterToggleButton;
+
+        private void RefreshFilterVisibility()
+        {
+            if (_ownedHeader == null || _filterToggleButton == null) return;
+            bool expanded = _areFiltersExpanded ?? _workspaceRoot.rect.height >= 650f;
+            _ownedHeader.Find("OriginFilters").gameObject.SetActive(expanded);
+            _ownedHeader.Find("PositionFilters").gameObject.SetActive(expanded);
+            Text label = _filterToggleButton.GetComponentInChildren<Text>();
+            string title = expanded ? "필터 접기" : "검색·필터";
+            if (label.text != title) label.text = title;
+        }
         private readonly List<Button> _positionButtons = new List<Button>();
         private int _positionSourceIndex = -1;
         private int _positionTargetIndex = -1;
@@ -27,6 +41,7 @@ namespace Baseball.Presentation.Owner
         {
             RectTransform row = OwnerRuntimeUiFactory.CreateRect("DefensivePositions", content);
             row.gameObject.AddComponent<LayoutElement>().preferredHeight = 26f;
+            row.GetComponent<LayoutElement>().minWidth = 0f;
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(2, 2, 0, 0);
             layout.spacing = 6f;
@@ -122,12 +137,17 @@ namespace Baseball.Presentation.Owner
             _applyPositionButton = OwnerWorkspaceUiFactory.CreateButton(_positionActions, "ApplyPosition", "변경안에 적용", ApplyPositionChange);
             _applyPositionButton.interactable = false;
             OwnerWorkspaceUiFactory.CreateButton(_positionActions, "ClosePosition", "닫기", ClosePositionEditor);
+            foreach (Button button in _analysisContent.GetComponentsInChildren<Button>())
+                OwnerUiButtonSkin.SetBoardStyle(button);
+            foreach (Button button in _positionActions.GetComponentsInChildren<Button>())
+                OwnerUiButtonSkin.SetBoardStyle(button);
         }
 
         private Text AddPositionExplanation(string message, float height)
         {
             Text text = OwnerWorkspaceUiFactory.CreateText(_analysisContent, "PositionExplanation", message,
-                12, FontStyle.Normal, TextAnchor.UpperLeft, CareerUiTheme.ReferenceText);
+                14, FontStyle.Normal, TextAnchor.UpperLeft, CareerUiTheme.RosterText);
+            text.gameObject.AddComponent<CareerUiPreserveTextColor>();
             text.gameObject.AddComponent<LayoutElement>().minHeight = height;
             return text;
         }
@@ -151,7 +171,7 @@ namespace Baseball.Presentation.Owner
             _positionChangeText.text =
                 $"{source.Player.DisplayName}  {from} → {to}  (주 포지션: {OwnerCollectionPresentationBuilder.FormatPosition(source.Player.NaturalPosition, source.Player.IsPositionEvidenceMissing)})\n" +
                 $"{target.Player.DisplayName}  {to} → {from}  (주 포지션: {OwnerCollectionPresentationBuilder.FormatPosition(target.Player.NaturalPosition, target.Player.IsPositionEvidenceMissing)})\n" +
-                "적용 후 수비 배치 경고를 확인하고 상단 ‘배치 저장’으로 확정하세요.";
+                "적용 후 수비 배치 경고를 확인하고 하단 ‘배치 저장’으로 확정하세요.";
             foreach (Button button in _analysisContent.GetComponentsInChildren<Button>())
                 if (button.name.StartsWith("ChoosePosition_", StringComparison.Ordinal))
                     SetPlayerGroupTabVisual(button, button.name == "ChoosePosition_" + targetIndex);
@@ -174,18 +194,28 @@ namespace Baseball.Presentation.Owner
             _applyPositionButton = null;
             ResetPositionEditorLayout();
             OwnerRuntimeUiFactory.ClearChildren(_analysisContent);
-            SetAnalysisTitle("컨디션 분석");
-            RenderRosterChart(_analysisContent, _model.BattingOrder, false);
+            SetAnalysisTitle("편성 분석");
             RenderDefensiveWarnings();
+            RenderRosterChart(_analysisContent, _model.BattingOrder, false);
         }
 
         private void RenderDefensiveWarnings()
         {
+            int warningCount = 0;
+            foreach (OwnerLineupSlotModel slot in _model.DefensiveLineup)
+                if (slot.HasWarning) warningCount++;
+            AddSectionTitle(_analysisContent, warningCount > 0 ? $"수비 배치 주의 · {warningCount}명" : "수비 배치 · 경고 없음");
             foreach (OwnerLineupSlotModel slot in _model.DefensiveLineup)
                 if (slot.HasWarning)
                 {
-                    Text text = AddPositionExplanation($"{slot.Label} · {slot.Player?.DisplayName}\n{slot.WarningText}", 56f);
+                    string position = FormatPositionName(_model.Snapshot.Preset.StartingLineupSlots[slot.Index].Position);
+                    Text text = AddPositionExplanation($"{slot.Player?.DisplayName} · {position}\n{slot.WarningText}", 64f);
                     text.color = CareerUiTheme.Warning;
+                    string cardId = slot.Player?.CardId;
+                    Button action = OwnerWorkspaceUiFactory.CreateButton(_analysisContent,
+                        "ReviewPosition_" + slot.Index, "수비 위치 확인", () => OpenPositionEditor(cardId));
+                    action.interactable = cardId != null;
+                    OwnerUiButtonSkin.SetBoardStyle(action);
                 }
         }
 
@@ -223,7 +253,7 @@ namespace Baseball.Presentation.Owner
             RectTransform header = (RectTransform)panel.Find("HeaderSlot");
             header.offsetMin = new Vector2(10f, -24f);
             header.offsetMax = new Vector2(-6f, -2f);
-            header.GetComponent<Text>().fontSize = 12;
+            header.GetComponent<Text>().fontSize = 14;
             RectTransform surface = (RectTransform)panel.Find("HeaderSurface");
             surface.offsetMin = new Vector2(1f, -26f);
             RectTransform safe = (RectTransform)panel.Find("ContentSafeRect");
@@ -241,6 +271,7 @@ namespace Baseball.Presentation.Owner
             originLayout.spacing = 6;
             originLayout.childControlWidth = true;
             originLayout.childControlHeight = true;
+            BuildPlayerSearch(origins);
             _cardFilters.Build(origins, _model.Snapshot.OwnedPlayers, HandleOwnedPlayerFilterChanged);
             var editionLabels = new List<string> { "전체 종류" };
             for (int index = 1; index < EditionFilters.Length; index++)
@@ -293,6 +324,7 @@ namespace Baseball.Presentation.Owner
         private bool MatchesFilter(OwnerCollectionCardSnapshot card, bool pitcher)
         {
             if (IsPitcher(card) != pitcher || !_cardFilters.Matches(card)) return false;
+            if (_playerSearch.Length > 0 && card.DisplayName.IndexOf(_playerSearch, StringComparison.CurrentCultureIgnoreCase) < 0) return false;
             if (_editionFilter.HasValue && card.Edition != _editionFilter.Value) return false;
             if (_positionFilter == 0) return true;
             if (pitcher)
@@ -333,40 +365,66 @@ namespace Baseball.Presentation.Owner
             return cards;
         }
 
+        private void BuildPlayerSearch(Transform parent)
+        {
+            GameObject root = DefaultControls.CreateInputField(new DefaultControls.Resources());
+            root.name = "PlayerSearch";
+            root.transform.SetParent(parent, false);
+            root.AddComponent<CareerUiPreserveTextColor>();
+            var sizing = root.AddComponent<LayoutElement>();
+            sizing.minWidth = 100f;
+            sizing.preferredWidth = 140f;
+            sizing.flexibleWidth = 1f;
+            sizing.minHeight = 28f;
+            InputField input = root.GetComponent<InputField>();
+            foreach (Text text in root.GetComponentsInChildren<Text>())
+            {
+                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                text.fontSize = 12;
+                text.color = CareerUiTheme.ReferenceText;
+            }
+            ((Text)input.placeholder).text = "선수 이름 검색";
+            input.SetTextWithoutNotify(_playerSearch);
+            // 입력 중 계층을 다시 만들면 한글 조합과 포커스를 잃으므로 제출 시 필터를 적용한다.
+            input.onEndEdit.AddListener(value =>
+            {
+                string query = value.Trim();
+                if (_playerSearch == query) return;
+                _playerSearch = query;
+                HandleOwnedPlayerFilterChanged();
+            });
+        }
+
         private static void RenderRosterChart(RectTransform content, IReadOnlyList<OwnerLineupSlotModel> slots, bool pitcher)
         {
-            AddSectionTitle(content, pitcher ? "투수 분석 · 11명" : "타선 분석 · 타순별 컨디션");
-            RectTransform chart = OwnerRuntimeUiFactory.CreateRect("RosterChart", content);
-            chart.gameObject.AddComponent<LayoutElement>().preferredHeight = 250;
-            RectTransform plot = OwnerRuntimeUiFactory.CreateRect("Plot", chart);
-            OwnerRuntimeUiFactory.SetAnchors(plot, new Vector2(0.12f, 0.18f), new Vector2(0.99f, 0.94f), Vector2.zero, Vector2.zero);
-            var graphic = plot.gameObject.AddComponent<UIRosterConditionPlot>();
-            var values = new float[slots.Count];
-            var valid = new bool[slots.Count];
+            AddSectionTitle(content, pitcher ? "투수 컨디션" : "타선 컨디션");
+            // Game이 계산한 단계명을 그대로 표시한다. UI에서 별도 임계값이나 위험도를 만들지 않는다.
+            var summaries = new List<string>();
+            var counts = new List<int>();
             for (int index = 0; index < slots.Count; index++)
             {
-                values[index] = slots[index].Player?.Condition ?? 0;
-                valid[index] = slots[index].Player != null;
-                float left = 0.12f + 0.87f * index / slots.Count;
-                float right = 0.12f + 0.87f * (index + 1) / slots.Count;
-                Text label = CreateAnalysisText(chart, "Order" + index,
-                    FormatCompactRole(slots[index].Label), 10, FontStyle.Bold, TextAnchor.MiddleCenter);
-                OwnerRuntimeUiFactory.SetAnchors(label.rectTransform, new Vector2(left, 0f), new Vector2(right, 0.08f), Vector2.zero, Vector2.zero);
-                Text value = CreateAnalysisText(chart, "Value" + index, valid[index] ? values[index].ToString("0") : "—",
-                    10, FontStyle.Bold, TextAnchor.MiddleCenter);
-                OwnerRuntimeUiFactory.SetAnchors(value.rectTransform, new Vector2(left, 0.08f), new Vector2(right, 0.18f), Vector2.zero, Vector2.zero);
+                string label = slots[index].Player?.ConditionLabel ?? "선수 미지정";
+                int group = summaries.IndexOf(label);
+                if (group < 0) { summaries.Add(label); counts.Add(1); }
+                else counts[group]++;
             }
-            graphic.Bind(values, valid);
-            string[] bands = { "주의", "보통", "좋음" };
-            float[] lows = { 0, 0.6f, 0.8f };
-            float[] highs = { 0.6f, 0.8f, 1 };
-            for (int i = 0; i < 3; i++)
+            for (int index = 0; index < summaries.Count; index++)
             {
-                Text band = CreateAnalysisText(chart, "Band" + i, bands[i], 11, FontStyle.Bold, TextAnchor.MiddleCenter);
-                OwnerRuntimeUiFactory.SetAnchors(band.rectTransform, new Vector2(0, 0.18f + lows[i] * 0.76f),
-                    new Vector2(0.12f, 0.18f + highs[i] * 0.76f), Vector2.zero, Vector2.zero);
+                Text summary = OwnerWorkspaceUiFactory.CreateText(content, "ConditionSummary",
+                    $"{summaries[index]} · {counts[index]}명", 16, FontStyle.Bold,
+                    TextAnchor.MiddleLeft, CareerUiTheme.RosterText);
+                summary.gameObject.AddComponent<CareerUiPreserveTextColor>();
+                summary.gameObject.AddComponent<LayoutElement>().minHeight = 32f;
             }
-            AddSectionTitle(content, "저장 컨디션 0~100 · 배치·궁합 보정 전");
+            // 같은 상태의 막대를 반복하는 대신 선수별 상태를 읽기 쉬운 행으로 제공한다.
+            foreach (OwnerLineupSlotModel slot in slots)
+            {
+                Text row = OwnerWorkspaceUiFactory.CreateText(content, "ConditionPlayer",
+                    $"{slot.Label}  {slot.Player?.DisplayName ?? "미지정"}  ·  {slot.Player?.ConditionLabel ?? "정보 없음"}",
+                    13, FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.RosterTextSecondary);
+                row.gameObject.AddComponent<CareerUiPreserveTextColor>();
+                row.gameObject.AddComponent<LayoutElement>().minHeight = 28f;
+            }
         }
     }
 }
