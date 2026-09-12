@@ -24,7 +24,7 @@ namespace Baseball.Tests.EditMode.Simulation
             var builder = new LeagueFillerDeckBuilder(catalog);
             string key = LeagueFillerTeamKey.Create(2, LeagueGrade.Champion, 0, 0, LeagueFillerDeckType.Mvp);
 
-            CurrentRosterState roster = builder.Build(key, new Pcg32Random(11UL));
+            CurrentRosterState roster = builder.Build(key, 0d, 0d, new Pcg32Random(11UL));
 
             Assert.That(roster.TeamSeasonKey, Is.EqualTo(key));
             Assert.That(roster.Entries.Count, Is.EqualTo(ActiveRosterCompositionRule.ActiveRosterSize));
@@ -50,7 +50,7 @@ namespace Baseball.Tests.EditMode.Simulation
             var builder = new LeagueFillerDeckBuilder(catalog);
             string key = LeagueFillerTeamKey.Create(2, LeagueGrade.Rookie, 0, 0, LeagueFillerDeckType.YearTeam, "T-B");
 
-            CurrentRosterState roster = builder.Build(key, new Pcg32Random(3UL));
+            CurrentRosterState roster = builder.Build(key, 0d, 0d, new Pcg32Random(3UL));
 
             Assert.That(builder.YearTeamSeasonKeys, Is.EqualTo(new[] { "T-A", "T-B" }));
             foreach (ActiveRosterEntry entry in roster.Entries)
@@ -62,13 +62,38 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
+        public void Build_목표Cost가있으면바탕구단을스타로교체하되평균Cost상한을넘지않는다()
+        {
+            WorldCardCatalog catalog = CreateCatalog(mvpTeam: "T-A", excludedMvpRoles: new ActiveRosterRole[0]);
+            var builder = new LeagueFillerDeckBuilder(catalog);
+            const double Target = 6.2d;
+
+            for (ulong seed = 1; seed <= 20; seed++)
+            {
+                string key = LeagueFillerTeamKey.Create((int)seed, LeagueGrade.Champion, 0, 0, LeagueFillerDeckType.Mvp);
+                CurrentRosterState roster = builder.Build(key, Target, 0d, new Pcg32Random(seed));
+                int totalCost = 0;
+                int mvpCount = 0;
+                foreach (ActiveRosterEntry entry in roster.Entries)
+                {
+                    PlayerCardDefinition card = catalog.GetRequiredCard(entry.CardId);
+                    totalCost += catalog.GetPlayerSeason(card).Cost;
+                    if (card.Edition == PlayerCardEdition.Mvp) mvpCount++;
+                }
+                Assert.That(totalCost / (double)roster.Entries.Count, Is.LessThanOrEqualTo(Target), $"seed {seed}");
+                Assert.That(mvpCount, Is.GreaterThan(0), $"seed {seed}: 여유 예산이 있으면 스타가 들어가야 한다.");
+                Assert.That(mvpCount, Is.LessThan(roster.Entries.Count), $"seed {seed}: 상한 때문에 전원 스타가 될 수 없다.");
+            }
+        }
+
+        [Test]
         public void Build_같은Key와Seed면같은로스터를만든다()
         {
             WorldCardCatalog catalog = CreateCatalog(mvpTeam: "T-A", excludedMvpRoles: new ActiveRosterRole[0]);
             string key = LeagueFillerTeamKey.Create(5, LeagueGrade.Champion, 1, 2, LeagueFillerDeckType.Mvp);
 
-            CurrentRosterState first = new LeagueFillerDeckBuilder(catalog).Build(key, new Pcg32Random(99UL));
-            CurrentRosterState second = new LeagueFillerDeckBuilder(catalog).Build(key, new Pcg32Random(99UL));
+            CurrentRosterState first = new LeagueFillerDeckBuilder(catalog).Build(key, 0d, 0d, new Pcg32Random(99UL));
+            CurrentRosterState second = new LeagueFillerDeckBuilder(catalog).Build(key, 0d, 0d, new Pcg32Random(99UL));
 
             Assert.That(CardIds(second), Is.EqualTo(CardIds(first)));
         }
@@ -100,7 +125,8 @@ namespace Baseball.Tests.EditMode.Simulation
                     seasons.Add(new PlayerSeasonDefinition(seasonId, personId, 2012, "F-" + team, team, position,
                         isPitcher ? ActiveRosterCompositionRule.Standard.GetAssignedPitcherRole(role) : PitcherRole.Starter,
                         isPitcher ? PlayerType.Pitcher : PlayerType.Batter, RegistrationType.Domestic,
-                        new AbilityRatings(50), 5 + rosterIndex % 3, new AbilityRatings(60)));
+                        // MVP 구단을 더 비싸게 두어 목표 Cost 덱의 바탕 구단이 항상 다른 구단이 되게 한다.
+                        new AbilityRatings(50), 5 + rosterIndex % 3 + (team == mvpTeam ? 2 : 0), new AbilityRatings(60)));
                     cards.Add(new PlayerCardDefinition(
                         PlayerCardDefinition.CreateStableCardId(seasonId, PlayerCardEdition.Normal), seasonId,
                         PlayerCardEdition.Normal, modifiers));

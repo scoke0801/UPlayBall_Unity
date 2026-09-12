@@ -472,8 +472,12 @@ namespace Baseball.Core.Historical
         private readonly OwnerLeagueRankRule[] _rankRules;
 
         public LeagueDefinition(IReadOnlyList<LeagueGradeRule> rules, int groupTeamCount = 10,
-            IReadOnlyList<OwnerLeagueRankRule> rankRules = null, double groupRepeatAvoidanceChance = DefaultGroupRepeatAvoidanceChance)
+            IReadOnlyList<OwnerLeagueRankRule> rankRules = null, double groupRepeatAvoidanceChance = DefaultGroupRepeatAvoidanceChance,
+            double fillerStarCostMargin = DefaultFillerStarCostMargin)
         {
+            if (fillerStarCostMargin < 0d || fillerStarCostMargin > 10d || double.IsNaN(fillerStarCostMargin))
+                throw new ArgumentOutOfRangeException(nameof(fillerStarCostMargin));
+            FillerStarCostMargin = fillerStarCostMargin;
             if (groupTeamCount < 4)
                 throw new ArgumentOutOfRangeException(nameof(groupTeamCount));
             if (groupRepeatAvoidanceChance < 0d || groupRepeatAvoidanceChance > 1d || double.IsNaN(groupRepeatAvoidanceChance))
@@ -516,8 +520,15 @@ namespace Baseball.Core.Historical
         /// </summary>
         public const double DefaultGroupRepeatAvoidanceChance = 0.9d;
 
+        /// <summary>
+        /// 특수 덱 CPU 구단의 바탕 연도 구단은 목표 평균 Cost보다 최소 이만큼 약해야 한다. 여유가 클수록 같은 강도에서
+        /// 해당 Edition 스타가 더 많이 들어간다. 1.2에서 0.6 대비 스타가 약 1.5배였고 상세 경기 승률은 같았다.
+        /// </summary>
+        public const double DefaultFillerStarCostMargin = 1.2d;
+
         public int GroupTeamCount { get; }
         public double GroupRepeatAvoidanceChance { get; }
+        public double FillerStarCostMargin { get; }
 
         /// <summary>구단주 시즌 전환에서 사용하는 순위 구간과 목적 등급을 반환한다.</summary>
         public OwnerLeagueRankRule GetRankRule(LeagueGrade grade)

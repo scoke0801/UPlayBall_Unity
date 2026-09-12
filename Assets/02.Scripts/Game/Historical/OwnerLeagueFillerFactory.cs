@@ -41,7 +41,8 @@ namespace Baseball.Game.Historical
             if (missing <= 0) return regularKeys;
 
             _builder ??= new LeagueFillerDeckBuilder(_catalog);
-            LeagueFillerDeckType deck = _rules.GetRankRule(grade).FillerDeck;
+            OwnerLeagueRankRule rule = _rules.GetRankRule(grade);
+            LeagueFillerDeckType deck = rule.FillerDeck;
             ulong seed = DeterministicSeed.Derive(DeterministicSeed.Derive(_worldSeed, FillerStream),
                 ((ulong)(uint)seasonNumber << 32) | ((ulong)(uint)grade << 24) | (uint)groupIndex);
             var random = new Pcg32Random(seed);
@@ -54,7 +55,7 @@ namespace Baseball.Game.Historical
             {
                 string source = deck == LeagueFillerDeckType.YearTeam ? PickYearTeamSource(random, usedSources) : null;
                 string key = LeagueFillerTeamKey.Create(seasonNumber, grade, groupIndex, slot, deck, source);
-                _rosters.Add(_builder.Build(key, random));
+                _rosters.Add(_builder.Build(key, rule.FillerTargetCost, _rules.FillerStarCostMargin, random));
                 _references.Add(key, new ManagerTeamReference(_nextTeamId, key));
                 _nextTeamId = checked(_nextTeamId + 1);
                 result[regularKeys.Length + slot] = key;
