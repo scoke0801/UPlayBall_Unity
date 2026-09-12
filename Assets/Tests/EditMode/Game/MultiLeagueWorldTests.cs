@@ -422,7 +422,7 @@ namespace Baseball.Tests.EditMode.Game
         }
 
         [Test]
-        public void AdvanceWorldSeasons_승강으로SeasonId가재사용돼도역할평가이벤트는연도로구분한다()
+        public void AdvanceWorldSeasons_SeasonId가재사용돼도역할평가이벤트는연도로구분한다()
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateCareer(8261021UL, startSeason: true);
@@ -431,6 +431,18 @@ namespace Baseball.Tests.EditMode.Game
 
             for (int season = 0; season < 6; season++)
             {
+                // 승강이 우연히 발생하는 Seed에 의존하지 않고 서로 다른 연도의 같은 SeasonId를 만든다.
+                LeagueState league = career.CurrentLeague;
+                SeasonState previous = league.CurrentSeason;
+                var repeated = new SeasonState(previous.SaveVersion, 1, previous.Year,
+                    previous.LeagueLevel, previous.VersionStamp);
+                var records = new TeamSeasonRecordState[previous.TeamRecords.Count];
+                for (int index = 0; index < records.Length; index++) records[index] = previous.TeamRecords[index];
+                repeated.StartRegularSeason(previous.Schedule, records, previous.PlayerStatistics,
+                    career.MyPlayer, league.Teams);
+                career.World.ReplaceLeague(new LeagueState(league.SaveVersion, league.LeagueId,
+                    league.LeagueLevel, league.LeagueRulesetId, league.LeagueYear, league.RandomSeed,
+                    league.Teams, repeated, league.CompletedSeasonSummaries, league.CompetitionOverallBonus));
                 seenSeasonIds.Add(career.CurrentLeague.CurrentSeason.SeasonId);
                 springCampYears.Add(career.CurrentLeague.CurrentSeason.Year);
                 AdvanceWorldToNextSeason(career, configuration);

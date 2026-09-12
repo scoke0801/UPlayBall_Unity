@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using Baseball.Game.Historical;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
@@ -131,10 +132,12 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             _view.Bind(CreateModel(), true);
             Canvas.ForceUpdateCanvases();
             RectTransform dock = _view.GuideDockTarget;
-            var corners = new Vector3[4];
-            dock.GetWorldCorners(corners);
-            foreach (Vector3 corner in corners)
-                Assert.That(_shell.MainWorkspaceHost.rect.Contains(_shell.MainWorkspaceHost.InverseTransformPoint(corner)), Is.True);
+            Rect workspaceBounds = _shell.MainWorkspaceHost.rect;
+            Rect dockBounds = Bounds(dock, _shell.MainWorkspaceHost);
+            Assert.That(dockBounds.xMin, Is.GreaterThanOrEqualTo(workspaceBounds.xMin));
+            Assert.That(dockBounds.yMin, Is.GreaterThanOrEqualTo(workspaceBounds.yMin));
+            Assert.That(dockBounds.xMax, Is.LessThanOrEqualTo(workspaceBounds.xMax));
+            Assert.That(dockBounds.yMax, Is.LessThanOrEqualTo(workspaceBounds.yMax));
             Button[] buttons = _shell.MainWorkspaceHost.GetComponentsInChildren<Button>();
             for (int i = 0; i < buttons.Length; i++)
             {
@@ -162,8 +165,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         [Test]
         public void SeasonSimulationPopup_현재라운드와대진진행률을구단주UI로표시한다()
         {
-            UI_Popup_OwnerSeasonSimulation popup =
-                UI_Popup_OwnerSeasonSimulation.CreateRuntime(_shell.PopupHost);
+            UI_Popup_OwnerSeasonSimulation popup = CreateSeasonSimulationPopup();
             var progress = new ManagerRegularSeasonSimulationProgress(
                 ManagerRegularSeasonSimulationStatus.Running,
                 18,
@@ -214,10 +216,13 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(fill.localScale.x, Is.EqualTo(0.25f).Within(0.001f),
                 "새 진행값을 Bind한 프레임에서 진행 바가 즉시 점프하면 안 된다.");
 
-            popup.SendMessage("AdvanceProgressAnimation", 0.05f);
+            MethodInfo advanceProgress = typeof(UI_Popup_OwnerSeasonSimulation)
+                .GetMethod("AdvanceProgressAnimation", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(advanceProgress, Is.Not.Null);
+            advanceProgress.Invoke(popup, new object[] { 0.05f });
             Assert.That(fill.localScale.x, Is.GreaterThan(0.25f).And.LessThan(0.5f));
             for (int index = 0; index < 40; index++)
-                popup.SendMessage("AdvanceProgressAnimation", 0.05f);
+                advanceProgress.Invoke(popup, new object[] { 0.05f });
             Assert.That(fill.localScale.x, Is.EqualTo(0.5f).Within(0.001f));
 
             int stopRequests = 0;
@@ -233,8 +238,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         [Test]
         public void SeasonSimulationPopup_내구단일정완료후에는남은리그진행을표시한다()
         {
-            UI_Popup_OwnerSeasonSimulation popup =
-                UI_Popup_OwnerSeasonSimulation.CreateRuntime(_shell.PopupHost);
+            UI_Popup_OwnerSeasonSimulation popup = CreateSeasonSimulationPopup();
             var progress = new ManagerRegularSeasonSimulationProgress(
                 ManagerRegularSeasonSimulationStatus.Running,
                 0,
@@ -275,6 +279,17 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Vector3 min = relativeTo.InverseTransformPoint(corners[0]);
             Vector3 max = relativeTo.InverseTransformPoint(corners[2]);
             return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        private UI_Popup_OwnerSeasonSimulation CreateSeasonSimulationPopup()
+        {
+            UI_Popup_OwnerSeasonSimulation popup =
+                UI_Popup_OwnerSeasonSimulation.CreateRuntime(_shell.PopupHost);
+            if (popup.transform.Find("SeasonSimulationDialog") == null)
+                typeof(UI_Popup_OwnerSeasonSimulation)
+                    .GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.Invoke(popup, null);
+            return popup;
         }
 
         private Text FindText(string name) => _shell.MainWorkspaceHost.GetComponentsInChildren<Text>(true).First(t => t.name == name);

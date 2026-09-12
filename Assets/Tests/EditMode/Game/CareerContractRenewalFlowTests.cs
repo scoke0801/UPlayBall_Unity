@@ -140,7 +140,7 @@ namespace Baseball.Tests.EditMode.Game
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();
             CareerState career = CreateOffseasonCareer(configuration, 7878UL);
-            CareerSeasonTransitionService service = AdvanceToRenewalSeason(career, configuration.Balance);
+            CareerSeasonTransitionService service = AdvanceToRenewalSeason(career, configuration.Balance, requireExpiredContract: true);
             int currentTeamId = career.MyPlayer.CurrentTeamId;
             if (service.Step == SeasonTransitionStep.CurrentTeamNegotiation)
                 service.OpenMarket(holdCurrentTeamOffer: false);
@@ -211,14 +211,31 @@ namespace Baseball.Tests.EditMode.Game
         /// </summary>
         private static CareerSeasonTransitionService AdvanceToRenewalSeason(
             CareerState career,
-            BalanceTable balance)
+            BalanceTable balance,
+            bool requireExpiredContract = false)
         {
             for (int guard = 0; guard < 10; guard++)
             {
                 var service = new CareerSeasonTransitionService(career, balance);
                 SeasonTransitionStep step = service.BeginTransition();
-                if (step is SeasonTransitionStep.CurrentTeamNegotiation or SeasonTransitionStep.ContractOffers)
+                if (!requireExpiredContract && step is SeasonTransitionStep.CurrentTeamNegotiation or SeasonTransitionStep.ContractOffers)
                     return service;
+                if (step == SeasonTransitionStep.CurrentTeamNegotiation)
+                    return service;
+                if (step == SeasonTransitionStep.ContractOffers)
+                {
+                    // 잔여 계약 중 승격 제안은 계약 만료 공개 시장과 다르므로 기존 계약을 계속한다.
+                    bool hasContinuation = false;
+                    foreach (ContractOffer offer in service.RenewalOffers)
+                    {
+                        if (offer.Channel != ContractOfferChannel.ContractContinuation) continue;
+                        service.SelectRenewalOffer(offer.Team.TeamId);
+                        service.SignSelectedOffer();
+                        hasContinuation = true;
+                        break;
+                    }
+                    if (!hasContinuation) return service;
+                }
 
                 career.CurrentLeague.CurrentSeason.CompleteRegularSeason();
                 new CareerGrowthService(career, balance)

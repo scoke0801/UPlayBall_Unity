@@ -43,7 +43,7 @@ namespace Baseball.Tests.EditMode.Game
 
             var failures = new List<string>();
             AddOutOfRange(failures, "R/G", runsPerTeamGame, 3.2d, 5.8d);
-            AddOutOfRange(failures, "Batter StartRate", batter.StartRate, 0.18d, 0.95d);
+            AddSeasonMeanOutOfRange(failures, "Batter StartRate", batter.SeasonStartRates, 0.18d, 0.95d);
             AddOutOfRange(failures, "Batter AVG", batter.BattingAverage, 0.180d, 0.380d);
             AddOutOfRange(failures, "Batter OPS", batter.Ops, 0.500d, 1.100d);
             int gamesPerTeam = configuration.Balance.CareerSeason.RegularSeasonGamesPerTeam;
@@ -246,6 +246,7 @@ namespace Baseball.Tests.EditMode.Game
         private sealed class RoleTotals
         {
             public List<double> SeasonAppearanceRates { get; } = new();
+            public List<double> SeasonStartRates { get; } = new();
             public List<double> SeasonInningsPerAppearance { get; } = new();
             private long _teamGames;
             private long _gamesStarted;
@@ -270,6 +271,8 @@ namespace Baseball.Tests.EditMode.Game
 
             public void Add(PlayerSeasonStatisticsState statistics)
             {
+                if (statistics.TeamGames > 0)
+                    SeasonStartRates.Add(statistics.GamesStarted / (double)statistics.TeamGames);
                 if (statistics.PitchingAppearances > 0)
                 {
                     SeasonAppearanceRates.Add(statistics.PitchingAppearances / (double)statistics.TeamGames);
